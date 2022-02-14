@@ -1,4 +1,4 @@
-import { ScopeEvent } from './events';
+import { UIEvent } from './events';
 import { QuaStore } from 'quastore';
 
-export type MiddleWare = (store: QuaStore, source: ScopeEvent) => ScopeEvent;
+export type MiddleWare = (store: QuaStore, source: UIEvent) => UIEvent;

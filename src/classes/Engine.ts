@@ -1,21 +1,21 @@
 import mitt, { Emitter } from 'mitt';
 import { QuaStore, QuaStoreManager, useStore } from 'quastore';
 import Pipeline from './Pipeline';
-import { ScopeEvent, UIEvent } from '../types';
+import { ScopeEvent, ScopeEvents, UIEvents, ScopeToPipelineEventName, UIEvent } from '../types';
 import { QuaEngineOpts } from '../types/engine';
 
 export default class QuaEngine {
   private bus: {
-    engine: Emitter<ScopeEvent>;
-    ui: Emitter<UIEvent>;
+    engine: Emitter<ScopeEvents>;
+    ui: Emitter<UIEvents>;
   };
   public pipeline: Pipeline;
   public store: QuaStore;
 
   public constructor(opts: QuaEngineOpts) {
     this.bus = {
-      engine: mitt<ScopeEvent>(),
-      ui: mitt<UIEvent>(),
+      engine: mitt<ScopeEvents>(),
+      ui: mitt<UIEvents>(),
     };
     // init quastore
     if (opts.store instanceof QuaStore) {
@@ -29,6 +29,19 @@ export default class QuaEngine {
     } else {
       this.store = QuaStoreManager.createStore(opts.store);
     }
+    // init pipeline
     this.pipeline = new Pipeline(opts.middlewares, this.store);
+    // mount internal event handler
+    this.bus.engine.on<keyof ScopeEvents>(ScopeToPipelineEventName, this.pipelineHandler)
   }
+
+  private pipelineHandler(e: ScopeEvent) {
+    let uie: UIEvent = {
+      scope: e.scope,
+    };
+    uie = this.pipeline.handle(uie);
+    this.bus.ui.emit(e.scopeName, uie);
+  }
+
+
 };

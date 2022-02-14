@@ -1,4 +1,4 @@
-import { ScopeEvent } from '../types/events';
+import { UIEvent } from '../types/events';
 import { MiddleWare } from '../types/pipeline';
 import { QuaStore } from 'quastore';
 
@@ -19,14 +19,15 @@ export default class Pipeline {
         this.middlewares.push(middleware);
     }
 
-    public handle(source: ScopeEvent): ScopeEvent {
+    public handle(source: UIEvent): UIEvent {
         if (this.middlewares.length <= 0) {
             return source;
         }
         return this.next(source, 0);
     }
 
-    private next(source: ScopeEvent, middlewareIndex: number): ScopeEvent {
+    private next(source: UIEvent, middlewareIndex: number): UIEvent {
+        // recursively execute middlewares
         if (middlewareIndex >= this.middlewares.length) {
             return source;
         }

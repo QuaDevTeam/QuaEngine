@@ -1,6 +1,16 @@
 import { Emitter, EventType, Handler } from 'mitt';
 
-const PassToPipelineEventType = '<UIEVENT>';
+export const ScopeToPipelineEventName = '<UIEVENT>';
 
-export type ScopeEvent = Record<EventType, unknown>;
-export type UIEvent = Record<EventType, unknown>;
+export interface Scope {
+    [objName: string]: Scope;
+};
+export interface ScopeEvent {
+    scopeName: string;
+    scope: Scope;
+};
+export interface UIEvent {
+    scope: Scope;
+};
+export type ScopeEvents = Record<EventType, ScopeEvent>;
+export type UIEvents = Record<EventType, UIEvent>;
