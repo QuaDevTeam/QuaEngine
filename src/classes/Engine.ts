@@ -4,16 +4,15 @@ import Pipeline from './Pipeline';
 import { ScopeEvent, UIEvent } from '../types';
 import { QuaEngineOpts } from '../types/engine';
 
-class QuaEngine {
+export default class QuaEngine {
   private bus: {
     engine: Emitter<ScopeEvent>;
     ui: Emitter<UIEvent>;
   };
-  private pipeline: Pipeline;
-  private store?: QuaStore;
+  public pipeline: Pipeline;
+  public store: QuaStore;
 
   public constructor(opts: QuaEngineOpts) {
-    this.pipeline = new Pipeline();
     this.bus = {
       engine: mitt<ScopeEvent>(),
       ui: mitt<UIEvent>(),
@@ -30,7 +29,6 @@ class QuaEngine {
     } else {
       this.store = QuaStoreManager.createStore(opts.store);
     }
+    this.pipeline = new Pipeline(opts.middlewares, this.store);
   }
-}
-
-export default QuaEngine;
+};
