@@ -2,11 +2,14 @@
   "name": "qua-engine",
   "version": "1.0.0",
   "description": "A new web-based Adventure Game Engine with plugin support",
-  "main": "dist/lib.umd.js",
-  "module": "dist/lib.esm.js",
+  "main": "dist/qua-engine.umd.js",
+  "module": "dist/qua-engine.esm.js",
   "typings": "dist/types/index.d.ts",
   "keywords": [
-    "boilerplate",
+    "galgame",
+    "game",
+    "engine",
+    "game engine",
     "typescript",
     "lib"
   ],
@@ -36,6 +39,6 @@
   },
   "dependencies": {
     "mitt": "^3.0.0",
-    "quastore": "0.0.1"
+    "quastore": "^0.0.4"
   }
 }
