@@ -1,6 +1,14 @@
 import { Middleware, MiddlewareContext } from '../types/pipeline';
 
 export const compose = (middlewares: Middleware[]) => {
+  if (!Array.isArray(middlewares)) {
+    throw new TypeError('Middlewares must be an array!');
+  }
+  for (const middleware of middlewares) {
+    if (typeof middleware !== 'function') {
+      throw new TypeError('Middlewares must be composed of functions!');
+    }
+  }
   return function (context: MiddlewareContext, next: Middleware) {
     let index = -1;
     return dispatch(0);
