@@ -21,9 +21,13 @@ export default class Pipeline {
       if (!this.composed) {
         resolve(source);
       }
-      this.composed!(ctx, (ctx: MiddlewareContext) => {
-        resolve(ctx.final || null);
-      });
+      try {
+        this.composed!(ctx, (ctx: MiddlewareContext) => {
+          resolve(ctx.final || null);
+        });
+      } catch (err) {
+        reject(err);
+      }
     });
     return finalEvent;
   }
