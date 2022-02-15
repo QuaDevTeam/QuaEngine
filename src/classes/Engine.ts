@@ -5,12 +5,13 @@ import { ScopeEvent, ScopeEvents, UIEvents, ScopeToPipelineEventName, UIEvent } 
 import { QuaEngineOpts } from '../types/engine';
 
 export default class QuaEngine {
+  public pipeline: Pipeline;
+  public store?: QuaStore;
+
   private bus: {
     engine: Emitter<ScopeEvents>;
     ui: Emitter<UIEvents>;
   };
-  public pipeline: Pipeline;
-  public store: QuaStore;
 
   public constructor(opts: QuaEngineOpts) {
     this.bus = {
@@ -26,22 +27,23 @@ export default class QuaEngine {
         throw new Error(`Cannot find the store named "${opts.store}".`);
       }
       this.store = store;
-    } else {
+    } else if (opts.store) {
       this.store = QuaStoreManager.createStore(opts.store);
     }
     // init pipeline
     this.pipeline = new Pipeline(opts.middlewares, this.store);
     // mount internal event handler
-    this.bus.engine.on<keyof ScopeEvents>(ScopeToPipelineEventName, this.pipelineHandler)
+    this.bus.engine.on<keyof ScopeEvents>(ScopeToPipelineEventName, this.passToPipeline);
   }
 
-  private pipelineHandler(e: ScopeEvent) {
-    let uie: UIEvent = {
+  private async passToPipeline(e: ScopeEvent) {
+    const sourceEvent: UIEvent = {
       scope: e.scope,
     };
-    uie = this.pipeline.handle(uie);
-    this.bus.ui.emit(e.scopeName, uie);
+    const finalEvent = await this.pipeline.handle(sourceEvent);
+    if (!finalEvent) {
+      return;
+    }
+    this.bus.ui.emit(e.scopeName, finalEvent);
   }
-
-
-};
+}

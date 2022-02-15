@@ -1,36 +1,30 @@
 import { UIEvent } from '../types/events';
-import { MiddleWare } from '../types/pipeline';
+import { Middleware, MiddlewareContext } from '../types/pipeline';
 import { QuaStore } from 'quastore';
+import { compose } from '../utils/compose';
 
 export default class Pipeline {
-    private middlewares: MiddleWare[];
-    private store: QuaStore;
+  private composed: Middleware | null;
+  private store?: QuaStore;
 
-    public constructor(middlewares: undefined | MiddleWare[] = undefined, store: QuaStore) {
-        this.store = store
-        if (middlewares) {
-            this.middlewares = middlewares;
-        } else {
-            this.middlewares = [];
-        }
-    }
+  public constructor(middlewares: Middleware[] | undefined, store?: QuaStore) {
+    this.store = store;
+    this.composed = Array.isArray(middlewares) ? compose(middlewares) : null;
+  }
 
-    public use(middleware: MiddleWare) {
-        this.middlewares.push(middleware);
-    }
-
-    public handle(source: UIEvent): UIEvent {
-        if (this.middlewares.length <= 0) {
-            return source;
-        }
-        return this.next(source, 0);
-    }
-
-    private next(source: UIEvent, middlewareIndex: number): UIEvent {
-        // recursively execute middlewares
-        if (middlewareIndex >= this.middlewares.length) {
-            return source;
-        }
-        return this.next(this.middlewares[middlewareIndex](this.store, source), middlewareIndex + 1);
-    }
+  public async handle(source: UIEvent): Promise<UIEvent | null> {
+    const ctx = {
+      store: this.store,
+      source: Object.freeze(source),
+    };
+    const finalEvent = await new Promise<UIEvent | null>((resolve, reject) => {
+      if (!this.composed) {
+        resolve(source);
+      }
+      this.composed!(ctx, (ctx: MiddlewareContext) => {
+        resolve(ctx.final || null);
+      });
+    });
+    return finalEvent;
+  }
 }

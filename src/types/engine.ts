@@ -1,12 +1,12 @@
 import type { QuaStore } from 'quastore';
 import { QSConstructorOpts } from 'quastore/dist/types/types/base';
-import { MiddleWare } from './pipeline';
+import { Middleware } from './pipeline';
 
 interface ExQSConstructorOpts extends QSConstructorOpts {
   name: string;
 }
 
 export interface QuaEngineOpts {
-  store: string | QuaStore | ExQSConstructorOpts;
-  middlewares: MiddleWare[];
+  store?: string | QuaStore | ExQSConstructorOpts;
+  middlewares?: Middleware[];
 }
