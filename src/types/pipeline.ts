@@ -7,4 +7,4 @@ export interface MiddlewareContext {
   final?: UIEvent; // the final ui event
 }
 
-export type Middleware = (ctx: MiddlewareContext, next: Middleware) => void | Promise<void>;
+export type Middleware = (ctx: MiddlewareContext, next?: Middleware) => void | Promise<void>;

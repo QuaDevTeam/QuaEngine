@@ -13,22 +13,14 @@ export default class Pipeline {
   }
 
   public async handle(source: UIEvent): Promise<UIEvent | null> {
-    const ctx = {
+    const ctx: MiddlewareContext = {
       store: this.store,
       source: Object.freeze(source),
     };
-    const finalEvent = await new Promise<UIEvent | null>((resolve, reject) => {
-      if (!this.composed) {
-        resolve(source);
-      }
-      try {
-        this.composed!(ctx, (ctx: MiddlewareContext) => {
-          resolve(ctx.final || null);
-        });
-      } catch (err) {
-        reject(err);
-      }
-    });
-    return finalEvent;
+    if (!this.composed) {
+      return source;
+    }
+    await this.composed!(ctx);
+    return ctx.final || null;
   }
 }

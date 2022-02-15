@@ -9,7 +9,7 @@ export const compose = (middlewares: Middleware[]) => {
       throw new TypeError('Middlewares must be composed of functions!');
     }
   }
-  return function (context: MiddlewareContext, next: Middleware) {
+  return function (context: MiddlewareContext, next?: Middleware) {
     let index = -1;
     return dispatch(0);
     function dispatch(i: number): Promise<void> {
@@ -17,7 +17,7 @@ export const compose = (middlewares: Middleware[]) => {
         return Promise.reject(new Error('next() was called multiple times.'));
       }
       index = i;
-      let middleware = middlewares[i];
+      let middleware: Middleware | undefined = middlewares[i];
       if (i === middlewares.length) {
         middleware = next;
       }
