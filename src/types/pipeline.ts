@@ -1,5 +1,5 @@
 import { UIEvent } from './events';
-import { QuaStore } from 'quastore';
+import { QuaStore } from '@quajs/store';
 
 export interface MiddlewareContext {
   store?: QuaStore;

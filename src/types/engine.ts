@@ -1,5 +1,5 @@
-import type { QuaStore } from 'quastore';
-import { QSConstructorOpts } from 'quastore/dist/types/types/base';
+import type { QuaStore } from '@quajs/store';
+import { QSConstructorOpts } from '@quajs/store/dist/types/types/base';
 import { Middleware } from './pipeline';
 
 interface ExQSConstructorOpts extends QSConstructorOpts {

@@ -1,6 +1,6 @@
 import { UIEvent } from '../types/events';
 import { Middleware, MiddlewareContext } from '../types/pipeline';
-import { QuaStore } from 'quastore';
+import { QuaStore } from '@quajs/store';
 import { compose } from '../utils/compose';
 
 export default class Pipeline {
