@@ -1,0 +1,44 @@
+{
+  "name": "quaengine",
+  "version": "0.1.0",
+  "description": "QuaEngine monorepo with Nx, TypeScript, and Vite",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "nx run-many -t build",
+    "dev": "nx run-many -t dev",
+    "lint": "nx run-many -t lint",
+    "test": "nx run-many -t test",
+    "create-package": "node --experimental-strip-types scripts/create-package.ts"
+  },
+  "keywords": [
+    "monorepo",
+    "nx",
+    "typescript",
+    "vite"
+  ],
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.7.0",
+  "pnpm": {
+    "overrides": {},
+    "patchedDependencies": {}
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^5.0.0",
+    "@nx/js": "^21.3.9",
+    "@types/node": "^24.1.0",
+    "eslint": "^9.32.0",
+    "nx": "21.3.9",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.6",
+    "vite-plugin-dts": "^4.3.0"
+  },
+  "nx": {},
+  "workspaces": [
+    "packages/*"
+  ]
+}
