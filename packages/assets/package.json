@@ -1,0 +1,55 @@
+{
+  "name": "@quajs/assets",
+  "version": "0.1.0",
+  "description": "Browser-based asset manager for QuaEngine - loads and manages Quack bundles with IndexedDB storage",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "quaengine",
+    "assets",
+    "game-engine",
+    "indexeddb",
+    "bundle-manager",
+    "browser",
+    "typescript"
+  ],
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dexie": "^4.0.8",
+    "fflate": "^0.8.2"
+  },
+  "devDependencies": {
+    "vitest": "^1.2.0",
+    "@vitest/ui": "^1.2.0"
+  },
+  "peerDependencies": {
+    "@quajs/logger": "workspace:*"
+  },
+  "browser": true,
+  "sideEffects": false
+}
