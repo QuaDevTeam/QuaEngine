@@ -1,0 +1,39 @@
+{
+  "name": "@quajs/store",
+  "version": "0.1.0",
+  "description": "Runtime global state management for QuaEngine",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dexie": "^4.0.8",
+    "@quajs/logger": "workspace:*",
+    "@quajs/utils": "workspace:*"
+  },
+  "devDependencies": {},
+  "peerDependencies": {}
+}

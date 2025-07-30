@@ -1,0 +1,19 @@
+packages:
+  - 'packages/*'
+
+# Catalog for shared dependencies
+catalog:
+  # Development dependencies
+  '@types/node': '^24.1.0'
+  'typescript': '^5.8.3'
+  'vite': '^7.0.6'
+  'vite-plugin-dts': '^4.3.0'
+  'eslint': '^9.32.0'
+  
+  # Production dependencies
+  'dexie': '^4.0.8'
+  
+  # Workspace dependencies
+  '@quajs/logger': 'workspace:*'
+  '@quajs/utils': 'workspace:*'
+  '@quajs/store': 'workspace:*'
