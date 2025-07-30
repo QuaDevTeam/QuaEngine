@@ -2,21 +2,9 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import readline from 'node:readline'
 import { execSync } from 'node:child_process'
+import inquirer from 'inquirer'
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-})
-
-async function askQuestion(question: string): Promise<string> {
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      resolve(answer)
-    })
-  })
-}
 
 interface PackageJson {
   name: string
@@ -50,6 +38,7 @@ interface PackageConfig {
   name: string
   description: string
   environment: Environment
+  template: 'basic' | 'utility' | 'plugin'
 }
 
 interface TsConfig {
@@ -79,36 +68,167 @@ interface ProjectJson {
   tags: string[]
 }
 
-async function selectEnvironment(): Promise<Environment> {
-  console.log('\n📦 Select target environment:')
-  console.log('1. Node.js only')
-  console.log('2. Browser only') 
-  console.log('3. Both Node.js and Browser (Universal)')
+async function promptForPackageInfo(): Promise<PackageConfig> {
+  console.log('🚀 Creating a new package for QuaEngine monorepo...\n')
   
-  const choice = await askQuestion('Enter your choice (1-3): ')
-  
-  switch (choice.trim()) {
-    case '1':
-      return 'node'
-    case '2':
-      return 'browser'
-    case '3':
-      return 'both'
+  const answers = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'name',
+      message: 'Package name (without @quajs/ prefix):',
+      validate: (input: string) => {
+        if (!input.trim()) {
+          return 'Package name is required!'
+        }
+        if (!/^[a-z0-9-]+$/.test(input.trim())) {
+          return 'Package name must contain only lowercase letters, numbers, and hyphens'
+        }
+        return true
+      },
+      transformer: (input: string) => input.toLowerCase().trim()
+    },
+    {
+      type: 'input', 
+      name: 'description',
+      message: 'Package description:',
+      default: 'A QuaEngine package'
+    },
+    {
+      type: 'list',
+      name: 'environment',
+      message: 'Select target environment:',
+      choices: [
+        {
+          name: '🟢 Universal (Node.js + Browser) - Works everywhere',
+          value: 'both',
+          short: 'Universal'
+        },
+        {
+          name: '🌐 Browser only - Client-side package',
+          value: 'browser', 
+          short: 'Browser'
+        },
+        {
+          name: '⚡ Node.js only - Server-side package',
+          value: 'node',
+          short: 'Node.js'
+        }
+      ],
+      default: 'both'
+    },
+    {
+      type: 'list',
+      name: 'template',
+      message: 'Package template:',
+      choices: [
+        {
+          name: '📦 Basic - Simple package with hello function',
+          value: 'basic',
+          short: 'Basic'
+        },
+        {
+          name: '🔧 Utility - Collection of utility functions',
+          value: 'utility',
+          short: 'Utility'
+        },
+        {
+          name: '🧩 Plugin - QuaEngine plugin package',
+          value: 'plugin',
+          short: 'Plugin'
+        }
+      ],
+      default: 'basic'
+    },
+    {
+      type: 'confirm',
+      name: 'confirm',
+      message: (answers: any) => 
+        `Create package @quajs/${answers.name} (${answers.environment}) with ${answers.template} template?`,
+      default: true
+    }
+  ])
+
+  if (!answers.confirm) {
+    console.log('❌ Package creation cancelled.')
+    process.exit(0)
+  }
+
+  return {
+    name: answers.name.trim(),
+    description: answers.description.trim(),
+    environment: answers.environment as Environment,
+    template: answers.template
+  }
+}
+
+function createIndexContent(packageName: string, template: string): string {
+  switch (template) {
+    case 'basic':
+      return `export const hello = (): string => {
+  return 'Hello from ${packageName}!'
+}
+
+export const version = '0.1.0'
+`
+    case 'utility':
+      return `// ${packageName} utility functions
+
+export function isString(value: unknown): value is string {
+  return typeof value === 'string'
+}
+
+export function isNumber(value: unknown): value is number {
+  return typeof value === 'number' && !isNaN(value)
+}
+
+export function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+// Add more utility functions as needed
+export const version = '0.1.0'
+`
+    case 'plugin':
+      return `// QuaEngine ${packageName} plugin
+
+export interface ${packageName.charAt(0).toUpperCase() + packageName.slice(1)}Plugin {
+  name: string
+  version: string
+  initialize(): void
+  destroy(): void
+}
+
+export class ${packageName.charAt(0).toUpperCase() + packageName.slice(1)} implements ${packageName.charAt(0).toUpperCase() + packageName.slice(1)}Plugin {
+  name = '${packageName}'
+  version = '0.1.0'
+
+  initialize(): void {
+    console.log(\`\${this.name} plugin initialized\`)
+  }
+
+  destroy(): void {
+    console.log(\`\${this.name} plugin destroyed\`)
+  }
+}
+
+export default ${packageName.charAt(0).toUpperCase() + packageName.slice(1)}
+`
     default:
-      console.log('Invalid choice, defaulting to "both"')
-      return 'both'
+      return `export const hello = (): string => {
+  return 'Hello from ${packageName}!'
+}`
   }
 }
 
 function createPackageStructure(config: PackageConfig): void {
-  const { name: packageName, description, environment } = config
+  const { name: packageName, description, environment, template } = config
   const packageDir = path.join('packages', packageName)
   
   // Create package directory
   if (!fs.existsSync(packageDir)) {
     fs.mkdirSync(packageDir, { recursive: true })
   }
-
+  
   // Create src directory
   const srcDir = path.join(packageDir, 'src')
   if (!fs.existsSync(srcDir)) {
@@ -285,11 +405,7 @@ export default defineConfig({
   fs.writeFileSync(path.join(packageDir, 'vite.config.ts'), viteConfig)
 
   // Create src/index.ts
-  const indexContent = `export const hello = (): string => {
-  return 'Hello from ${packageName}!'
-}
-`
-
+  const indexContent = createIndexContent(packageName, template)
   fs.writeFileSync(path.join(srcDir, 'index.ts'), indexContent)
 
   // Create project.json for Nx
@@ -339,41 +455,25 @@ export default defineConfig({
   console.log(`✅ Package @quajs/${packageName} created successfully!`)
   console.log(`📁 Location: packages/${packageName}`)
   console.log(`🌍 Environment: ${environment}`)
+  console.log(`📋 Template: ${template}`)
   console.log(`🔧 Run 'pnpm install' to install dependencies`)
   console.log(`🚀 Run 'nx build ${packageName}' to build the package`)
 }
 
 async function main(): Promise<void> {
   try {
-    console.log('🚀 Creating a new package for QuaEngine monorepo...\n')
-    
-    const packageName = await askQuestion('Package name (without @quajs/ prefix): ')
-    if (!packageName.trim()) {
-      console.error('❌ Package name is required!')
-      process.exit(1)
-    }
-
-    const description = await askQuestion('Package description: ')
-    const environment = await selectEnvironment()
-    
-    const config: PackageConfig = {
-      name: packageName.trim(),
-      description: description.trim(),
-      environment,
-    }
+    const config = await promptForPackageInfo()
     
     console.log(`\n📦 Creating package: @quajs/${config.name}`)
     console.log(`📝 Description: ${config.description}`)
-    console.log(`🌍 Environment: ${config.environment}\n`)
+    console.log(`🌍 Environment: ${config.environment}`)
+    console.log(`📋 Template: ${config.template}\n`)
 
     createPackageStructure(config)
   }
   catch (error) {
     console.error('❌ Error creating package:', (error as Error).message)
     process.exit(1)
-  }
-  finally {
-    rl.close()
   }
 }
 

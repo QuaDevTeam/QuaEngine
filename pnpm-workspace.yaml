@@ -9,6 +9,7 @@ catalog:
   'vite': '^7.0.6'
   'vite-plugin-dts': '^4.3.0'
   'eslint': '^9.32.0'
+  'inquirer': '^10.2.2'
   
   # Production dependencies
   'dexie': '^4.0.8'
