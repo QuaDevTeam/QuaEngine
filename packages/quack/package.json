@@ -1,0 +1,64 @@
+{
+  "name": "@quajs/quack",
+  "version": "0.1.0",
+  "description": "Assets bundler for QuaEngine",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "quack": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./plugins": {
+      "import": "./dist/plugins/index.js",
+      "types": "./dist/plugins/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "docs"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "bundler",
+    "assets",
+    "game",
+    "quaengine",
+    "localization",
+    "compression"
+  ],
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "commander": "catalog:",
+    "lzma-native": "catalog:",
+    "glob": "catalog:",
+    "mime-types": "catalog:",
+    "yauzl": "catalog:",
+    "yazl": "catalog:"
+  },
+  "devDependencies": {
+    "@types/mime-types": "catalog:",
+    "@types/yauzl": "catalog:",
+    "@types/yazl": "catalog:"
+  },
+  "peerDependencies": {
+    "@quajs/logger": "workspace:*",
+    "@quajs/utils": "workspace:*"
+  }
+}

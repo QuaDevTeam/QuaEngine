@@ -10,9 +10,18 @@ catalog:
   'vite-plugin-dts': '^4.3.0'
   'eslint': '^9.32.0'
   'inquirer': '^10.2.2'
+  '@types/mime-types': '^2.1.4'
+  '@types/yauzl': '^2.10.3'
+  '@types/yazl': '^2.4.5'
   
   # Production dependencies
   'dexie': '^4.0.8'
+  'commander': '^12.1.0'
+  'lzma-native': '^8.0.6'
+  'glob': '^11.0.0'
+  'mime-types': '^2.1.35'
+  'yauzl': '^3.0.0'
+  'yazl': '^2.5.1'
   
   # Workspace dependencies
   '@quajs/logger': 'workspace:*'
