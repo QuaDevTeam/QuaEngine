@@ -99,6 +99,8 @@ importers:
 
   packages/logger: {}
 
+  packages/pipeline: {}
+
   packages/quack:
     dependencies:
       '@quajs/logger':
