@@ -15,6 +15,7 @@ const mockDatabase = {
     }))
   },
   findAssets: vi.fn().mockResolvedValue([]),
+  getAssetWithLocaleFallback: vi.fn().mockResolvedValue(undefined),
   close: vi.fn(() => Promise.resolve())
 }
 
@@ -86,8 +87,8 @@ describe('AssetManager', () => {
         await assetManager.getBlob('scripts', 'test.js', options)
         expect.fail('Should throw AssetNotFoundError')
       } catch (error) {
-        // The specific asset ID will be checked for in the database
-        expect(mockDatabase.assets.get).toHaveBeenCalledWith('specific-bundle:en-us:scripts:test.js')
+        // The specific asset retrieval will be checked for in the database
+        expect(mockDatabase.getAssetWithLocaleFallback).toHaveBeenCalledWith('specific-bundle', 'scripts', 'test.js', 'en-us')
       }
     })
   })

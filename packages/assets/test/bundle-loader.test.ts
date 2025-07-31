@@ -48,13 +48,39 @@ describe('BundleLoader', () => {
       const buffer = new ArrayBuffer(24)
       const view = new DataView(buffer)
       
-      // Invalid magic number
-      view.setUint32(0, 0x12345678, true)
+      // Invalid magic number (should be 0x51504B00 for QPK)
+      view.setUint32(0, 0x12345678, false)
       
       try {
-        // Create data URL from buffer
-        const dataUrl = 'data:application/octet-stream;base64,' + btoa(String.fromCharCode(...new Uint8Array(buffer)))
-        await bundleLoader.loadBundle(dataUrl, 'test-bundle')
+        // Create data URL with .qpk extension to force QPK format detection
+        const bundleUrl = 'https://example.com/invalid-bundle.qpk'
+        
+        // Mock fetch to return our invalid buffer
+        global.fetch = vi.fn(() => {
+          const mockBody = {
+            getReader: () => ({
+              read: vi.fn()
+                .mockResolvedValueOnce({ done: false, value: new Uint8Array(buffer) })
+                .mockResolvedValueOnce({ done: true, value: undefined })
+            })
+          }
+          
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            arrayBuffer: () => Promise.resolve(buffer),
+            headers: {
+              get: (name: string) => {
+                if (name === 'content-length') return buffer.byteLength.toString()
+                return null
+              }
+            },
+            body: mockBody,
+            bodyUsed: false
+          } as unknown as Response)
+        })
+        
+        await bundleLoader.loadBundle(bundleUrl, 'test-bundle')
         expect.fail('Should throw error for invalid magic number')
       } catch (error) {
         expect(error.message).toContain('Invalid QPK file')
