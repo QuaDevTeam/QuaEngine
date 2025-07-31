@@ -4,4 +4,5 @@ import { generateId } from '@quajs/utils';
 const logger = createLogger('store');
 
 export { generateId };
+
 export default logger;

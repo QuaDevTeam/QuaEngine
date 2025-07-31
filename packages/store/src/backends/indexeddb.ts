@@ -1,22 +1,33 @@
 import Dexie, { type Table } from 'dexie';
 import { QSSnapshot, QSSnapshotMeta } from '../types/base';
+import { StorageBackend } from '../types/storage';
 
 class QuaStoreDB extends Dexie {
   snapshots!: Table<QSSnapshot, string>;
 
-  constructor() {
-    super('QuaStore');
+  constructor(dbName = 'QuaStore') {
+    super(dbName);
     this.version(1).stores({
       snapshots: 'id, storeName, createdAt',
     });
   }
 }
 
-class IndexedDBDriver {
+/**
+ * IndexedDB storage backend implementation
+ */
+export class IndexedDBBackend implements StorageBackend {
   private db: QuaStoreDB;
+  private dbName: string;
 
-  constructor() {
-    this.db = new QuaStoreDB();
+  constructor(options?: { dbName?: string }) {
+    this.dbName = options?.dbName || 'QuaStore';
+    this.db = new QuaStoreDB(this.dbName);
+  }
+
+  async init(): Promise<void> {
+    // Ensure database is open
+    await this.db.open();
   }
 
   async saveSnapshot(snapshot: QSSnapshot): Promise<void> {
@@ -33,7 +44,7 @@ class IndexedDBDriver {
 
   async listSnapshots(storeName?: string): Promise<QSSnapshotMeta[]> {
     let collection = this.db.snapshots.orderBy('createdAt').reverse();
-
+    
     if (storeName) {
       collection = collection.filter((snapshot: QSSnapshot) => snapshot.storeName === storeName);
     }
@@ -53,7 +64,8 @@ class IndexedDBDriver {
       await this.db.snapshots.clear();
     }
   }
-}
 
-const db = new IndexedDBDriver();
-export default db;
+  async close(): Promise<void> {
+    await this.db.close();
+  }
+}
