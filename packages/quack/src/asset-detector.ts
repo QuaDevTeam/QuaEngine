@@ -239,9 +239,10 @@ export class AssetDetector {
 
     // Check file-based locales (e.g., file.en-us.png)
     // Remove the file extension first to avoid false positives
-    const baseFileName = fileName.split('.')[0]
-    const nameParts = baseFileName.split('.')
-    for (const part of nameParts) {
+    const nameParts = fileName.split('.')
+    // Remove the last part (file extension) and check the remaining parts
+    const partsWithoutExtension = nameParts.slice(0, -1)
+    for (const part of partsWithoutExtension) {
       if (this.isValidLocale(part)) {
         locales.add(this.normalizeLocale(part))
       }
