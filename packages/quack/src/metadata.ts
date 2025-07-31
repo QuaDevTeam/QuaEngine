@@ -7,7 +7,7 @@ import type {
   EncryptionAlgorithm,
   LocaleInfo,
   AssetType 
-} from './types.js'
+} from './types'
 
 const logger = createLogger('quack:metadata')
 

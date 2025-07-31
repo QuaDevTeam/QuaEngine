@@ -8,8 +8,8 @@ import type {
   LoadBundleOptions,
   DecompressionPlugin,
   DecryptionPlugin
-} from './types.js'
-import { BundleLoadError, IntegrityError } from './types.js'
+} from './types'
+import { BundleLoadError, IntegrityError } from './types'
 
 /**
  * Bundle loader handles downloading and parsing bundle files

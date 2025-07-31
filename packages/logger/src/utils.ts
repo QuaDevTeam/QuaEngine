@@ -1,4 +1,4 @@
-import { LogLevel } from './types.js';
+import { LogLevel } from './types';
 
 export const LOG_LEVEL_NAMES: Record<LogLevel, string> = {
   [LogLevel.TRACE]: 'TRACE',

@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { createLogger } from '@quajs/logger'
-import { QuackPlugin, AssetContext, QuackConfig, BundleManifest } from '../types.js'
+import { QuackPlugin, AssetContext, QuackConfig, BundleManifest } from '../types'
 
 const logger = createLogger('quack:plugins:bundle-analyzer')
 

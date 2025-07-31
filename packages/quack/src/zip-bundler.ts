@@ -4,7 +4,7 @@ import { join, dirname } from 'node:path'
 import { ZipFile } from 'yazl'
 import yauzl from 'yauzl'
 import { createLogger } from '@quajs/logger'
-import type { AssetInfo, BundleManifest, AssetContext, QuackPlugin } from './types.js'
+import type { AssetInfo, BundleManifest, AssetContext, QuackPlugin } from './types'
 
 const logger = createLogger('quack:zip-bundler')
 

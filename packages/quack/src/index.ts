@@ -1,8 +1,8 @@
 // Main bundler class
-export { QuackBundler, defineConfig } from './bundler.js'
+export { QuackBundler, defineConfig } from './bundler'
 
 // Workspace management
-export { WorkspaceManager } from './workspace.js'
+export { WorkspaceManager } from './workspace'
 
 // Core types
 export type {
@@ -31,20 +31,20 @@ export type {
   MultiBundlePatchOptions,
   AssetDiff,
   MerkleNode
-} from './types.js'
+} from './types'
 
 // Bundler implementations
-export { ZipBundler } from './zip-bundler.js'
-export { QPKBundler } from './qpk-bundler.js'
+export { ZipBundler } from './zip-bundler'
+export { QPKBundler } from './qpk-bundler'
 
 // Core utilities
-export { AssetDetector } from './asset-detector.js'
-export { MetadataGenerator } from './metadata.js'
-export { PluginManager } from './plugin-manager.js'
-export { EncryptionManager } from './encryption.js'
-export { VersionManager } from './versioning.js'
-export { PatchGenerator } from './patch-generator.js'
+export { AssetDetector } from './asset-detector'
+export { MetadataGenerator } from './metadata'
+export { PluginManager } from './plugin-manager'
+export { EncryptionManager } from './encryption'
+export { VersionManager } from './versioning'
+export { PatchGenerator } from './patch-generator'
 
 // Plugin base classes and types
-export { QuackPlugin } from './types.js'
-export type { EncryptionPlugin } from './types.js'
+export { QuackPlugin } from './types'
+export type { EncryptionPlugin } from './types'

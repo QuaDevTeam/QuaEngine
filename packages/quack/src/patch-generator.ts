@@ -2,10 +2,10 @@ import { readFile, writeFile, mkdir, stat } from 'node:fs/promises'
 import { join, dirname, basename } from 'node:path'
 import { createHash } from 'node:crypto'
 import { createLogger } from '@quajs/logger'
-import { ZipBundler } from './zip-bundler.js'
-import { QPKBundler } from './qpk-bundler.js'
-import { MetadataGenerator } from './metadata.js'
-import { VersionManager } from './versioning.js'
+import { ZipBundler } from './zip-bundler'
+import { QPKBundler } from './qpk-bundler'
+import { MetadataGenerator } from './metadata'
+import { VersionManager } from './versioning'
 import type { 
   BuildLog, 
   AssetDiff, 
@@ -18,7 +18,7 @@ import type {
   EncryptionPlugin,
   EncryptionAlgorithm,
   WorkspaceBundleIndex
-} from './types.js'
+} from './types'
 
 const logger = createLogger('quack:patch-generator')
 

@@ -1,4 +1,4 @@
-export { Logger } from './logger.js';
-export { createLogger, getPackageLogger, setGlobalLogLevel, clearLoggerCache } from './factory.js';
-export { LogLevel } from './types.js';
-export type { LoggerConfig, LogEntry, LoggerInstance } from './types.js';
+export { Logger } from './logger';
+export { createLogger, getPackageLogger, setGlobalLogLevel, clearLoggerCache } from './factory';
+export { LogLevel } from './types';
+export type { LoggerConfig, LogEntry, LoggerInstance } from './types';

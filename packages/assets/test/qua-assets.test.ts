@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { QuaAssets } from '../src/qua-assets.js'
-import type { QuaAssetsConfig } from '../src/types.js'
+import { QuaAssets } from '../src/qua-assets'
+import type { QuaAssetsConfig } from '../src/types'
 
 // Mock dependencies
-vi.mock('../src/database.js', () => ({
+vi.mock('../src/database', () => ({
   QuaAssetsDatabase: class MockDatabase {
     constructor() {}
     async initialize() { return this }

@@ -1,8 +1,8 @@
 // String utilities
-export * from './string.js';
+export * from './string';
 
 // Object utilities
-export * from './object.js';
+export * from './object';
 
 // Array utilities
 export {
@@ -22,10 +22,10 @@ export {
   partition,
   findIndex,
   findLastIndex,
-} from './array.js';
+} from './array';
 
 // Function utilities
-export * from './function.js';
+export * from './function';
 
 // Type checking utilities
 export {
@@ -48,13 +48,13 @@ export {
   getType,
   assertType,
   coerce,
-} from './type.js';
+} from './type';
 
 // Date utilities
-export * from './date.js';
+export * from './date';
 
 // ID generation utilities
-export * from './id.js';
+export * from './id';
 
 // Validation utilities
-export * from './validation.js';
+export * from './validation';

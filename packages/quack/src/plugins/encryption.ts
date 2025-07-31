@@ -1,6 +1,6 @@
 import { createHash, createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { createLogger } from '@quajs/logger'
-import type { EncryptionPlugin, EncryptionContext } from '../types.js'
+import type { EncryptionPlugin, EncryptionContext } from '../types'
 
 const logger = createLogger('quack:plugins:aes-encryption')
 

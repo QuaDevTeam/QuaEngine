@@ -1,5 +1,5 @@
 import { createLogger } from '@quajs/logger'
-import type { EncryptionContext, EncryptionPlugin, EncryptionAlgorithm } from './types.js'
+import type { EncryptionContext, EncryptionPlugin, EncryptionAlgorithm } from './types'
 
 const logger = createLogger('quack:encryption')
 

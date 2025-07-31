@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { AssetManager } from '../src/asset-manager.js'
-import type { AssetType, AssetLocale, LoadAssetOptions } from '../src/types.js'
+import { AssetManager } from '../src/asset-manager'
+import type { AssetType, AssetLocale, LoadAssetOptions } from '../src/types'
 
 // Mock database for testing
 const mockDatabase = {

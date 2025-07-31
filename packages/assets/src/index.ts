@@ -1,12 +1,12 @@
 // Main QuaAssets class
-import { QuaAssets } from './qua-assets.js'
-export { QuaAssets } from './qua-assets.js'
+import { QuaAssets } from './qua-assets'
+export { QuaAssets } from './qua-assets'
 
 // Core components
-export { QuaAssetsDatabase } from './database.js'
-export { BundleLoader } from './bundle-loader.js'
-export { AssetManager } from './asset-manager.js'
-export { PatchManager } from './patch-manager.js'
+export { QuaAssetsDatabase } from './database'
+export { BundleLoader } from './bundle-loader'
+export { AssetManager } from './asset-manager'
+export { PatchManager } from './patch-manager'
 
 // Built-in plugins
 export {
@@ -16,7 +16,7 @@ export {
   ImageProcessingPlugin,
   CacheWarmingPlugin,
   CompressionDetectionPlugin
-} from './plugins/index.js'
+} from './plugins/index'
 
 // Types and interfaces
 export type {
@@ -60,7 +60,7 @@ export type {
   BundleLoadError,
   AssetNotFoundError,
   IntegrityError
-} from './types.js'
+} from './types'
 
 // Default export
 export default QuaAssets

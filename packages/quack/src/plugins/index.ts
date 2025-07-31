@@ -1,7 +1,7 @@
-export { ImageOptimizationPlugin } from './image-optimization.js'
-export { BundleAnalyzerPlugin } from './bundle-analyzer.js'
-export { AESEncryptionPlugin, SimpleRotationPlugin, MultiLayerEncryptionPlugin } from './encryption.js'
+export { ImageOptimizationPlugin } from './image-optimization'
+export { BundleAnalyzerPlugin } from './bundle-analyzer'
+export { AESEncryptionPlugin, SimpleRotationPlugin, MultiLayerEncryptionPlugin } from './encryption'
 
 // Re-export base plugin classes
-export { QuackPlugin } from '../types.js'
-export type { EncryptionPlugin } from '../types.js'
+export { QuackPlugin } from '../types'
+export type { EncryptionPlugin } from '../types'
