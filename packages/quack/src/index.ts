@@ -15,12 +15,10 @@ export type {
   AssetType,
   AssetSubType,
   AssetContext,
-  QuackPlugin,
   BundleStats,
   LocaleInfo,
   CompressionAlgorithm,
   EncryptionAlgorithm,
-  EncryptionPlugin,
   EncryptionContext,
   BuildLog,
   BundleIndex,
@@ -47,6 +45,6 @@ export { EncryptionManager } from './encryption.js'
 export { VersionManager } from './versioning.js'
 export { PatchGenerator } from './patch-generator.js'
 
-// Plugin base classes
+// Plugin base classes and types
 export { QuackPlugin } from './types.js'
 export type { EncryptionPlugin } from './types.js'

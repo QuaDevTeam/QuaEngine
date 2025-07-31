@@ -1,4 +1,4 @@
-import { resolve, dirname, extname } from 'node:path'
+import { resolve, dirname } from 'node:path'
 import { mkdir, rename } from 'node:fs/promises'
 import { createLogger } from '@quajs/logger'
 import { AssetDetector } from './asset-detector.js'
@@ -16,12 +16,11 @@ import type {
   CompressionAlgorithm,
   EncryptionAlgorithm,
   QuackPlugin,
-  EncryptionPlugin,
   BundleStats,
   BuildLog,
-  VersionConfig,
   WorkspaceConfig,
-  BundleDefinition
+  BundleDefinition,
+  BundleManifest
 } from './types.js'
 
 const logger = createLogger('quack:bundler')
@@ -235,7 +234,7 @@ export class QuackBundler {
   /**
    * Bundle a specific bundle in workspace
    */
-  async bundleWorkspaceBundle(bundleDefinition: BundleDefinition, workspaceConfig: WorkspaceConfig): Promise<BundleStats> {
+  async bundleWorkspaceBundle(bundleDefinition: BundleDefinition, _workspaceConfig: WorkspaceConfig): Promise<BundleStats> {
     if (!this.workspaceManager) {
       throw new Error('Workspace manager not initialized')
     }
@@ -503,7 +502,7 @@ export class QuackBundler {
       compressedSize: 0, // Would be calculated from actual bundle size
       compressionRatio: 0,
       processingTime,
-      locales: manifest.locales.map(code => ({
+      locales: manifest.locales.map((code: string) => ({
         code,
         name: this.getLocaleName(code),
         isDefault: code === manifest.defaultLocale
@@ -569,7 +568,7 @@ export class QuackBundler {
   /**
    * Get configuration
    */
-  getConfig(): BundleOptions {
+  getConfig(): QuackConfig {
     return { ...this.config }
   }
 
@@ -578,6 +577,9 @@ export class QuackBundler {
    */
   addPlugin(plugin: QuackPlugin): void {
     this.pluginManager.register(plugin)
+    if (!this.config.plugins) {
+      this.config.plugins = []
+    }
     this.config.plugins.push(plugin)
   }
 
@@ -586,7 +588,7 @@ export class QuackBundler {
    */
   removePlugin(name: string): boolean {
     const removed = this.pluginManager.remove(name)
-    if (removed) {
+    if (removed && this.config.plugins) {
       this.config.plugins = this.config.plugins.filter(p => p.name !== name)
     }
     return removed

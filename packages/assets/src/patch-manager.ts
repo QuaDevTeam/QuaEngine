@@ -6,10 +6,9 @@ import type {
   StoredAsset,
   StoredBundle,
   AssetDiff,
-  PatchOperation,
-  LoadBundleOptions,
-  BundleLoadError
+  LoadBundleOptions
 } from './types.js'
+import { BundleLoadError } from './types.js'
 
 const logger = createLogger('quaassets:patch')
 
@@ -125,7 +124,7 @@ export class PatchManager {
       }
 
     } catch (error) {
-      const errorMessage = error instanceof BundleLoadError ? error.message : `Patch application failed: ${error.message}`
+      const errorMessage = error instanceof BundleLoadError ? error.message : `Patch application failed: ${error instanceof Error ? error.message : String(error)}`
       errors.push(errorMessage)
       logger.error('Patch application failed:', error)
 
@@ -418,7 +417,7 @@ export class PatchManager {
       return {
         valid: false,
         changes: { willAdd: [], willModify: [], willDelete: [] },
-        errors: [`Failed to load patch: ${error.message}`],
+        errors: [`Failed to load patch: ${error instanceof Error ? error.message : String(error)}`],
         fromVersion: 0,
         toVersion: 0
       }

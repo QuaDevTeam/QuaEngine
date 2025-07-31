@@ -17,10 +17,9 @@ import type {
   DecryptionPlugin,
   AssetProcessingPlugin,
   QuaAssetsEvents,
-  BundleLoadError,
-  LoadingState,
   JSExecutionResult
 } from './types.js'
+import { BundleLoadError } from './types.js'
 
 const logger = createLogger('quaassets')
 
@@ -234,7 +233,7 @@ export class QuaAssets {
 
     } catch (error) {
       const bundleError = error instanceof BundleLoadError ? error : 
-        new BundleLoadError(`Failed to load bundle: ${error.message}`, bundleName)
+        new BundleLoadError(`Failed to load bundle: ${error instanceof Error ? error.message : String(error)}`, bundleName)
 
       this.bundleStatuses.set(bundleName, {
         name: bundleName,
@@ -421,7 +420,7 @@ export class QuaAssets {
   }> {
     this.ensureInitialized()
 
-    const patchFileName = patchUrl.split('/').pop() || 'patch'
+    const _patchFileName = patchUrl.split('/').pop() || 'patch'
     
     // Update bundle status to show patching
     const existingStatus = this.bundleStatuses.get(targetBundleName)

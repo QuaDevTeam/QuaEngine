@@ -1,4 +1,4 @@
-import { createHash, createCipher, createDecipher, randomBytes } from 'node:crypto'
+import { createHash, createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { createLogger } from '@quajs/logger'
 import type { EncryptionPlugin, EncryptionContext } from '../types.js'
 
@@ -33,8 +33,7 @@ export class AESEncryptionPlugin implements EncryptionPlugin {
       // Use the provided key to create a deterministic IV
       const keyHash = createHash('md5').update(context.key).digest()
       
-      const cipher = createCipher('aes-256-cbc', this.key)
-      cipher.setIVManuallyForTesting?.(keyHash) // Non-standard, for deterministic encryption
+      const cipher = createCipheriv('aes-256-cbc', this.key, keyHash)
       
       const encrypted = Buffer.concat([
         cipher.update(context.buffer),
@@ -45,7 +44,7 @@ export class AESEncryptionPlugin implements EncryptionPlugin {
       return Buffer.concat([keyHash, encrypted])
     } catch (error) {
       logger.error('AES encryption failed:', error)
-      throw new Error(`AES encryption failed: ${error.message}`)
+      throw new Error(`AES encryption failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -59,7 +58,7 @@ export class AESEncryptionPlugin implements EncryptionPlugin {
       const iv = context.buffer.subarray(0, 16)
       const encrypted = context.buffer.subarray(16)
       
-      const decipher = createDecipher('aes-256-cbc', this.key)
+      const decipher = createDecipheriv('aes-256-cbc', this.key, iv)
       
       const decrypted = Buffer.concat([
         decipher.update(encrypted),
@@ -69,7 +68,7 @@ export class AESEncryptionPlugin implements EncryptionPlugin {
       return decrypted
     } catch (error) {
       logger.error('AES decryption failed:', error)
-      throw new Error(`AES decryption failed: ${error.message}`)
+      throw new Error(`AES decryption failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 }

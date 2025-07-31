@@ -1,4 +1,5 @@
-import { unzip } from 'fflate'
+import { unzip, inflate } from 'fflate'
+import LZMA from 'lzma-web'
 import type { 
   BundleFormat, 
   BundleManifest, 
@@ -6,10 +7,9 @@ import type {
   AssetType,
   LoadBundleOptions,
   DecompressionPlugin,
-  DecryptionPlugin,
-  BundleLoadError,
-  IntegrityError
+  DecryptionPlugin
 } from './types.js'
+import { BundleLoadError, IntegrityError } from './types.js'
 
 /**
  * Bundle loader handles downloading and parsing bundle files
@@ -75,7 +75,7 @@ export class BundleLoader {
       return { manifest, assets }
     } catch (error) {
       throw new BundleLoadError(
-        `Failed to load bundle: ${error.message}`,
+        `Failed to load bundle: ${error instanceof Error ? error.message : String(error)}`,
         bundleName
       )
     }
@@ -305,7 +305,7 @@ export class BundleLoader {
     offset += 4
     
     // Read encryption flags
-    const encryptionFlags = view.getUint32(offset, true)
+    const _encryptionFlags = view.getUint32(offset, true)
     offset += 4
     
     // Read file count
@@ -347,6 +347,21 @@ export class BundleLoader {
         case 1: // LZMA compression
           decompressedData = await this.decompressLZMA(fileData, uncompressedSize)
           break
+        case 2: // DEFLATE compression (using fflate)
+          try {
+            decompressedData = await new Promise<Uint8Array>((resolve, reject) => {
+              inflate(fileData, (err, result) => {
+                if (err) {
+                  reject(err)
+                } else {
+                  resolve(result)
+                }
+              })
+            })
+          } catch (error) {
+            throw new Error(`DEFLATE decompression failed: ${error instanceof Error ? error.message : String(error)}`)
+          }
+          break
         default:
           throw new Error(`Unsupported compression type: ${compressionType}`)
       }
@@ -358,13 +373,42 @@ export class BundleLoader {
   }
 
   /**
-   * Decompress LZMA data (placeholder - would need actual LZMA implementation)
+   * Decompress LZMA data using lzma-web library
    */
-  private async decompressLZMA(data: Uint8Array, uncompressedSize: number): Promise<Uint8Array> {
-    // This is a placeholder implementation
-    // In a real implementation, you would use an LZMA library like lzma-js
-    // For now, assume the data is not compressed
-    return data
+  private async decompressLZMA(data: Uint8Array, expectedSize?: number): Promise<Uint8Array> {
+    try {
+      // Create LZMA decompressor instance
+      const lzma = new LZMA()
+      
+      // Use the data directly as Uint8Array - lzma-web should handle this
+      const decompressed = await lzma.decompress(data)
+      
+      // Convert result back to Uint8Array
+      // The result could be a string or number array depending on the compressed data
+      let resultArray: Uint8Array
+      if (typeof decompressed === 'string') {
+        // If result is a string, convert to UTF-8 bytes
+        resultArray = new TextEncoder().encode(decompressed)
+      } else if (Array.isArray(decompressed)) {
+        // If result is a number array, convert to Uint8Array
+        resultArray = new Uint8Array(decompressed)
+      } else if (decompressed instanceof Uint8Array) {
+        // If result is already a Uint8Array, use it directly
+        resultArray = decompressed
+      } else {
+        throw new Error('Unexpected decompression result type')
+      }
+      
+      // Verify decompressed size if expected size is provided
+      if (expectedSize !== undefined && resultArray.length !== expectedSize) {
+        throw new Error(`LZMA decompression size mismatch: expected ${expectedSize}, got ${resultArray.length}`)
+      }
+      
+      return resultArray
+      
+    } catch (error) {
+      throw new Error(`LZMA decompression failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   /**
@@ -380,7 +424,7 @@ export class BundleLoader {
       const manifestText = new TextDecoder().decode(manifestData)
       return JSON.parse(manifestText) as BundleManifest
     } catch (error) {
-      throw new Error(`Failed to parse manifest: ${error.message}`)
+      throw new Error(`Failed to parse manifest: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -452,8 +496,8 @@ export class BundleLoader {
     }
     
     // Check for locale in filename (file-based locales)
-    const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.'))
-    const ext = filename.substring(filename.lastIndexOf('.'))
+    const _nameWithoutExt = filename.substring(0, filename.lastIndexOf('.'))
+    const _ext = filename.substring(filename.lastIndexOf('.'))
     
     if (filename.includes(`.${locale}.`)) {
       return `${type}/${subType}/${filename}`
