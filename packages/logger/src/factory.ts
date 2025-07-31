@@ -1,5 +1,5 @@
-import { Logger } from './logger.js';
-import { LogLevel, LoggerConfig } from './types.js';
+import { Logger } from './logger';
+import { LogLevel, LoggerConfig } from './types';
 
 const loggerCache = new Map<string, Logger>();
 

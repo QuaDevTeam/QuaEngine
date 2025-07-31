@@ -2,14 +2,14 @@ import { resolve, dirname } from 'node:path'
 import { mkdir, rename } from 'node:fs/promises'
 import { EventEmitter } from 'node:events'
 import { createLogger } from '@quajs/logger'
-import { AssetDetector } from './asset-detector.js'
-import { MetadataGenerator } from './metadata.js'
-import { ZipBundler } from './zip-bundler.js'
-import { QPKBundler } from './qpk-bundler.js'
-import { PluginManager } from './plugin-manager.js'
-import { EncryptionManager } from './encryption.js'
-import { VersionManager } from './versioning.js'
-import { WorkspaceManager } from './workspace.js'
+import { AssetDetector } from './asset-detector'
+import { MetadataGenerator } from './metadata'
+import { ZipBundler } from './zip-bundler'
+import { QPKBundler } from './qpk-bundler'
+import { PluginManager } from './plugin-manager'
+import { EncryptionManager } from './encryption'
+import { VersionManager } from './versioning'
+import { WorkspaceManager } from './workspace'
 import type { 
   QuackConfig, 
   BundleOptions, 
@@ -22,7 +22,7 @@ import type {
   WorkspaceConfig,
   BundleDefinition,
   BundleManifest
-} from './types.js'
+} from './types'
 
 const logger = createLogger('quack:bundler')
 

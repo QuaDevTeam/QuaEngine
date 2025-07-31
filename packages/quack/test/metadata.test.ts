@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { MetadataGenerator } from '../src/metadata.js'
-import type { AssetInfo } from '../src/types.js'
+import { MetadataGenerator } from '../src/metadata'
+import type { AssetInfo } from '../src/types'
 
 describe('MetadataGenerator', () => {
   let metadataGenerator: MetadataGenerator

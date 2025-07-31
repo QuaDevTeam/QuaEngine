@@ -6,9 +6,9 @@ import type {
   AssetQueryResult,
   JSExecutionResult,
   AssetProcessingPlugin
-} from './types.js'
-import { AssetNotFoundError } from './types.js'
-import type { QuaAssetsDatabase } from './database.js'
+} from './types'
+import { AssetNotFoundError } from './types'
+import type { QuaAssetsDatabase } from './database'
 
 /**
  * Asset manager handles retrieval and processing of individual assets

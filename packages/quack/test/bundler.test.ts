@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { QuackBundler } from '../src/bundler.js'
-import type { BundleStats } from '../src/types.js'
+import { QuackBundler } from '../src/bundler'
+import type { BundleStats } from '../src/types'
 
 describe('QuackBundler', () => {
   let bundler: QuackBundler

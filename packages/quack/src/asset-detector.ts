@@ -5,7 +5,7 @@ import { glob } from 'glob'
 import { lookup } from 'mime-types'
 import { createLogger } from '@quajs/logger'
 import { isString } from '@quajs/utils'
-import type { AssetInfo, AssetType, AssetSubType, LocaleInfo } from './types.js'
+import type { AssetInfo, AssetType, AssetSubType, LocaleInfo } from './types'
 
 const logger = createLogger('quack:asset-detector')
 

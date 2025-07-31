@@ -1,10 +1,10 @@
-import { LogLevel, LoggerConfig, LoggerInstance } from './types.js';
+import { LogLevel, LoggerConfig, LoggerInstance } from './types';
 import { 
   parseLogLevelFromEnv, 
   shouldLog, 
   formatLogPrefix,
   LOG_LEVEL_NAMES 
-} from './utils.js';
+} from './utils';
 
 export class Logger implements LoggerInstance {
   private packageName: string;

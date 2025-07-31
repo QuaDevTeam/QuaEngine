@@ -1,14 +1,14 @@
 import { createLogger } from '@quajs/logger'
-import type { QuaAssetsDatabase } from './database.js'
-import type { BundleLoader } from './bundle-loader.js'
+import type { QuaAssetsDatabase } from './database'
+import type { BundleLoader } from './bundle-loader'
 import type {
   BundleManifest,
   StoredAsset,
   StoredBundle,
   AssetDiff,
   LoadBundleOptions
-} from './types.js'
-import { BundleLoadError } from './types.js'
+} from './types'
+import { BundleLoadError } from './types'
 
 const logger = createLogger('quaassets:patch')
 

@@ -5,7 +5,7 @@ import type {
   BundleFormat,
   AssetType,
   StoredAsset
-} from '../types.js'
+} from '../types'
 
 /**
  * XOR Decryption Plugin

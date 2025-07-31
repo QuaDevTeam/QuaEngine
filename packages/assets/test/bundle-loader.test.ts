@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { BundleLoader } from '../src/bundle-loader.js'
-import type { BundleFormat } from '../src/types.js'
+import { BundleLoader } from '../src/bundle-loader'
+import type { BundleFormat } from '../src/types'
 
 describe('BundleLoader', () => {
   let bundleLoader: BundleLoader

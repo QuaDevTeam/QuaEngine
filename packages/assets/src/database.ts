@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie'
-import type { StoredAsset, StoredBundle, AssetType, AssetLocale } from './types.js'
+import type { StoredAsset, StoredBundle, AssetType, AssetLocale } from './types'
 
 /**
  * QuaAssets Database schema and management

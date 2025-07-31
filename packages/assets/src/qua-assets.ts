@@ -1,8 +1,8 @@
 import { createLogger } from '@quajs/logger'
-import { QuaAssetsDatabase } from './database.js'
-import { BundleLoader } from './bundle-loader.js'
-import { AssetManager } from './asset-manager.js'
-import { PatchManager } from './patch-manager.js'
+import { QuaAssetsDatabase } from './database'
+import { BundleLoader } from './bundle-loader'
+import { AssetManager } from './asset-manager'
+import { PatchManager } from './patch-manager'
 import type {
   QuaAssetsConfig,
   AssetType,
@@ -18,8 +18,8 @@ import type {
   AssetProcessingPlugin,
   QuaAssetsEvents,
   JSExecutionResult
-} from './types.js'
-import { BundleLoadError } from './types.js'
+} from './types'
+import { BundleLoadError } from './types'
 
 const logger = createLogger('quaassets')
 
