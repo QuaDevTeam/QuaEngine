@@ -5,9 +5,9 @@ import type {
   LoadAssetOptions,
   AssetQueryResult,
   JSExecutionResult,
-  AssetNotFoundError,
   AssetProcessingPlugin
 } from './types.js'
+import { AssetNotFoundError } from './types.js'
 import type { QuaAssetsDatabase } from './database.js'
 
 /**
@@ -332,7 +332,7 @@ export class AssetManager {
       // Return exports (could be module.exports if reassigned)
       return module.exports !== exports ? module.exports : (result !== undefined ? result : exports)
     } catch (error) {
-      throw new Error(`JavaScript execution failed in ${filename}: ${error.message}`)
+      throw new Error(`JavaScript execution failed in ${filename}: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -348,7 +348,7 @@ export class AssetManager {
       wrappedCode = `
         const __exports = {};
         ${code.replace(/export\s+default\s+/g, '__exports.default = ')
-              .replace(/export\s+\{([^}]+)\}/g, (match, namedExports) => {
+              .replace(/export\s+\{([^}]+)\}/g, (_, namedExports) => {
                 return namedExports.split(',').map((exp: string) => {
                   const [name, alias] = exp.trim().split(' as ')
                   const exportName = alias || name

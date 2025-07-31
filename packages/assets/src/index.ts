@@ -1,4 +1,5 @@
 // Main QuaAssets class
+import { QuaAssets } from './qua-assets.js'
 export { QuaAssets } from './qua-assets.js'
 
 // Core components

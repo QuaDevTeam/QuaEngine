@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander'
-import { resolve, join } from 'node:path'
+import { resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { createLogger } from '@quajs/logger'
@@ -11,9 +11,9 @@ import { QPKBundler } from './qpk-bundler.js'
 import { PatchGenerator } from './patch-generator.js'
 import { VersionManager } from './versioning.js'
 import { WorkspaceManager } from './workspace.js'
-import type { QuackConfig, BundleFormat, WorkspaceConfig } from './types.js'
+import type { QuackConfig, BundleFormat } from './types.js'
 
-const logger = createLogger('quack:cli')
+const _logger = createLogger('quack:cli')
 
 const program = new Command()
 
