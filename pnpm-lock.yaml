@@ -47,9 +47,15 @@ importers:
       '@types/node':
         specifier: ^24.1.0
         version: 24.1.0
+      '@vitest/ui':
+        specifier: ^1.2.0
+        version: 1.6.1(vitest@1.6.1)
       eslint:
         specifier: ^9.32.0
         version: 9.32.0
+      happy-dom:
+        specifier: ^18.0.1
+        version: 18.0.1
       inquirer:
         specifier: ^10.2.2
         version: 10.2.2
@@ -65,6 +71,9 @@ importers:
       vite-plugin-dts:
         specifier: ^4.3.0
         version: 4.5.4(@types/node@24.1.0)(rollup@4.46.2)(typescript@5.8.3)(vite@7.0.6(@types/node@24.1.0)(tsx@4.20.3)(yaml@2.8.0))
+      vitest:
+        specifier: ^1.2.0
+        version: 1.6.1(@types/node@24.1.0)(@vitest/ui@1.6.1)(happy-dom@18.0.1)
 
   packages/assets:
     dependencies:
@@ -86,7 +95,7 @@ importers:
         version: 1.6.1(vitest@1.6.1)
       vitest:
         specifier: ^1.2.0
-        version: 1.6.1(@types/node@24.1.0)(@vitest/ui@1.6.1)
+        version: 1.6.1(@types/node@24.1.0)(@vitest/ui@1.6.1)(happy-dom@18.0.1)
 
   packages/logger: {}
 
@@ -1505,6 +1514,9 @@ packages:
   '@types/mute-stream@0.0.4':
     resolution: {integrity: sha512-CPM9nzrCPPJHQNA9keH9CVkVI+WR5kMa+7XEs5jcGQ0VoAGnLv242w8lIVgwAEfmE4oufJRaTc9PNLQl0ioAow==}
 
+  '@types/node@20.19.9':
+    resolution: {integrity: sha512-cuVNgarYWZqxRJDQHEB58GEONhOK79QVR/qYx4S7kcUObQvUwvFnYxJuuHUKm2aieN9X3yZB4LZsuYNU1Qphsw==}
+
   '@types/node@22.17.0':
     resolution: {integrity: sha512-bbAKTCqX5aNVryi7qXVMi+OkB3w/OyblodicMbvE38blyAz7GxXf6XYhklokijuPwwVg9sDLKRxt0ZHXQwZVfQ==}
 
@@ -1516,6 +1528,9 @@ packages:
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
+
+  '@types/whatwg-mimetype@3.0.2':
+    resolution: {integrity: sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA==}
 
   '@types/wrap-ansi@3.0.0':
     resolution: {integrity: sha512-ltIpx+kM7g/MLRZfkbL7EsCEjfzCcScLpkg37eXEtx5kmrAKBkTJwd1GIAjDSL8wTpM6Hzn5YO4pSb91BEwu1g==}
@@ -2479,6 +2494,10 @@ packages:
 
   graphemer@1.4.0:
     resolution: {integrity: sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==}
+
+  happy-dom@18.0.1:
+    resolution: {integrity: sha512-qn+rKOW7KWpVTtgIUi6RVmTBZJSe2k0Db0vh1f7CWrWclkkc7/Q+FrOfkZIb2eiErLyqu5AXEzE7XthO9JVxRA==}
+    engines: {node: '>=20.0.0'}
 
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
@@ -3662,6 +3681,10 @@ packages:
 
   wcwidth@1.0.1:
     resolution: {integrity: sha512-XHPEwS0q6TaxcvG85+8EYkbiCux2XtWG2mkc47Ng2A77BQu9+DqIOJldST4HgPkuea7dvKSj5VgX3P1d4rW8Tg==}
+
+  whatwg-mimetype@3.0.0:
+    resolution: {integrity: sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q==}
+    engines: {node: '>=12'}
 
   which@2.0.2:
     resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}
@@ -5222,6 +5245,10 @@ snapshots:
     dependencies:
       '@types/node': 24.1.0
 
+  '@types/node@20.19.9':
+    dependencies:
+      undici-types: 6.21.0
+
   '@types/node@22.17.0':
     dependencies:
       undici-types: 6.21.0
@@ -5233,6 +5260,8 @@ snapshots:
   '@types/parse-json@4.0.2': {}
 
   '@types/unist@3.0.3': {}
+
+  '@types/whatwg-mimetype@3.0.2': {}
 
   '@types/wrap-ansi@3.0.0': {}
 
@@ -5343,7 +5372,7 @@ snapshots:
       eslint: 9.32.0
     optionalDependencies:
       typescript: 5.8.3
-      vitest: 1.6.1(@types/node@24.1.0)(@vitest/ui@1.6.1)
+      vitest: 1.6.1(@types/node@24.1.0)(@vitest/ui@1.6.1)(happy-dom@18.0.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -5378,7 +5407,7 @@ snapshots:
       pathe: 1.1.2
       picocolors: 1.1.1
       sirv: 2.0.4
-      vitest: 1.6.1(@types/node@24.1.0)(@vitest/ui@1.6.1)
+      vitest: 1.6.1(@types/node@24.1.0)(@vitest/ui@1.6.1)(happy-dom@18.0.1)
 
   '@vitest/utils@1.6.1':
     dependencies:
@@ -6360,6 +6389,12 @@ snapshots:
   graceful-fs@4.2.11: {}
 
   graphemer@1.4.0: {}
+
+  happy-dom@18.0.1:
+    dependencies:
+      '@types/node': 20.19.9
+      '@types/whatwg-mimetype': 3.0.2
+      whatwg-mimetype: 3.0.0
 
   has-flag@4.0.0: {}
 
@@ -7615,7 +7650,7 @@ snapshots:
       tsx: 4.20.3
       yaml: 2.8.0
 
-  vitest@1.6.1(@types/node@24.1.0)(@vitest/ui@1.6.1):
+  vitest@1.6.1(@types/node@24.1.0)(@vitest/ui@1.6.1)(happy-dom@18.0.1):
     dependencies:
       '@vitest/expect': 1.6.1
       '@vitest/runner': 1.6.1
@@ -7640,6 +7675,7 @@ snapshots:
     optionalDependencies:
       '@types/node': 24.1.0
       '@vitest/ui': 1.6.1(vitest@1.6.1)
+      happy-dom: 18.0.1
     transitivePeerDependencies:
       - less
       - lightningcss
@@ -7667,6 +7703,8 @@ snapshots:
   wcwidth@1.0.1:
     dependencies:
       defaults: 1.0.4
+
+  whatwg-mimetype@3.0.0: {}
 
   which@2.0.2:
     dependencies:

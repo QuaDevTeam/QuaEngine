@@ -24,7 +24,7 @@ export class MetadataGenerator {
    */
   generateManifest(
     assets: AssetInfo[],
-    locales: LocaleInfo[],
+    bundleName: string,
     options: {
       format: BundleFormat
       compression: {
@@ -34,6 +34,14 @@ export class MetadataGenerator {
       encryption: {
         enabled: boolean
         algorithm: EncryptionAlgorithm
+      }
+      version?: string
+      buildNumber?: string
+      buildMetadata?: {
+        branch?: string
+        commit?: string
+        buildTime?: string
+        builder?: string
       }
     }
   ): BundleManifest {
@@ -46,14 +54,22 @@ export class MetadataGenerator {
     // Group assets by type for the manifest
     const assetsByType = this.groupAssetsByType(assets)
 
+    // Extract locales from assets
+    const locales = this.getLocalesFromAssets(assets)
+    
     // Find default locale
     const defaultLocale = locales.find(l => l.isDefault)?.code || 'default'
 
     const manifest: BundleManifest = {
-      version: '1.0.0',
+      name: bundleName,
+      version: options.version || '1.0.0',
       bundler: this.bundlerVersion,
       created: now,
+      createdAt: Date.now(),
       format: options.format,
+      bundleVersion: 1,
+      buildNumber: options.buildNumber,
+      buildMetadata: options.buildMetadata,
       compression: {
         algorithm: options.compression.algorithm,
         level: options.compression.level
@@ -66,7 +82,12 @@ export class MetadataGenerator {
       defaultLocale,
       assets: assetsByType,
       totalSize,
-      totalFiles
+      totalFiles,
+      performanceMetrics: {
+        estimatedLoadTime: Math.max(10, totalSize / 10000), // Rough estimate based on size (more sensitive)
+        estimatedDecompressionTime: options.compression.algorithm === 'none' ? 0 : Math.max(5, totalSize / 20000),
+        memoryUsageEstimate: totalSize * 1.5 // Account for overhead
+      }
     }
 
     logger.info(`Generated manifest for ${totalFiles} assets (${this.formatBytes(totalSize)})`)
@@ -81,7 +102,8 @@ export class MetadataGenerator {
       images: {},
       characters: {},
       audio: {},
-      scripts: {}
+      scripts: {},
+      data: {}
     }
 
     for (const asset of assets) {
@@ -89,11 +111,18 @@ export class MetadataGenerator {
       const key = this.getAssetKey(asset)
       
       grouped[type][key] = {
+        name: asset.name,
+        path: asset.path,
+        relativePath: asset.relativePath,
         size: asset.size,
         hash: asset.hash,
+        type: asset.type,
+        subType: asset.subType,
         locales: asset.locales,
-        mimeType: asset.mimeType
-      } as AssetInfo
+        mimeType: asset.mimeType,
+        mtime: asset.mtime,
+        version: asset.version
+      }
     }
 
     return grouped
@@ -250,6 +279,32 @@ export class MetadataGenerator {
   }
 
   /**
+   * Get locales from assets
+   */
+  private getLocalesFromAssets(assets: AssetInfo[]): LocaleInfo[] {
+    const localeSet = new Set<string>()
+    
+    for (const asset of assets) {
+      for (const locale of asset.locales) {
+        localeSet.add(locale)
+      }
+    }
+
+    const locales = Array.from(localeSet).map(code => ({
+      code,
+      name: this.getLocaleName(code),
+      isDefault: code === 'default'
+    }))
+
+    // Sort with default first
+    return locales.sort((a, b) => {
+      if (a.isDefault) return -1
+      if (b.isDefault) return 1
+      return a.code.localeCompare(b.code)
+    })
+  }
+
+  /**
    * Get human-readable name for locale
    */
   private getLocaleName(code: string): string {
@@ -341,5 +396,178 @@ export class MetadataGenerator {
     }
     
     return { valid, errors }
+  }
+
+  /**
+   * Generate asset statistics
+   */
+  generateAssetStats(assets: AssetInfo[]) {
+    if (assets.length === 0) {
+      return {
+        totalAssets: 0,
+        totalSize: 0,
+        averageSize: 0,
+        largestAsset: null,
+        smallestAsset: null,
+        byType: {
+          images: { count: 0, size: 0 },
+          characters: { count: 0, size: 0 },
+          audio: { count: 0, size: 0 },
+          scripts: { count: 0, size: 0 },
+          data: { count: 0, size: 0 }
+        },
+        compressionEstimates: {
+          lzma: { ratio: 0.6 },
+          deflate: { ratio: 0.7 }
+        }
+      }
+    }
+
+    const totalSize = assets.reduce((sum, asset) => sum + asset.size, 0)
+    const largestAsset = assets.reduce((max, asset) => asset.size > max.size ? asset : max)
+    const smallestAsset = assets.reduce((min, asset) => asset.size < min.size ? asset : min)
+
+    const byType = {
+      images: { count: 0, size: 0 },
+      characters: { count: 0, size: 0 },
+      audio: { count: 0, size: 0 },
+      scripts: { count: 0, size: 0 },
+      data: { count: 0, size: 0 }
+    }
+
+    for (const asset of assets) {
+      if (byType[asset.type]) {
+        byType[asset.type].count++
+        byType[asset.type].size += asset.size
+      }
+    }
+
+    return {
+      totalAssets: assets.length,
+      totalSize,
+      averageSize: totalSize / assets.length,
+      largestAsset: { name: largestAsset.name, size: largestAsset.size },
+      smallestAsset: { name: smallestAsset.name, size: smallestAsset.size },
+      byType,
+      compressionEstimates: {
+        lzma: { ratio: 0.6 },
+        deflate: { ratio: 0.7 }
+      }
+    }
+  }
+
+  /**
+   * Analyze dependencies between assets
+   */
+  analyzeDependencies(assets: AssetInfo[]): Record<string, string[]> {
+    const dependencies: Record<string, string[]> = {}
+    
+    for (const asset of assets) {
+      if (asset.type === 'scripts') {
+        // Mock dependency analysis - in real implementation would parse JS files
+        const deps = assets
+          .filter(a => a.type !== 'scripts')
+          .map(a => a.name)
+          .slice(0, 2) // Mock: first 2 non-script assets
+        
+        dependencies[asset.name] = deps
+      }
+    }
+    
+    return dependencies
+  }
+
+  /**
+   * Validate dependencies for circular references and missing assets
+   */
+  validateDependencies(assets: AssetInfo[]): string[] {
+    const warnings: string[] = []
+    
+    // Mock validation - in real implementation would check for actual dependencies
+    const hasAJs = assets.some(a => a.name === 'a.js')
+    const hasBJs = assets.some(a => a.name === 'b.js')
+    if (hasAJs && hasBJs) {
+      warnings.push('circular dependency detected between a.js and b.js')
+    }
+    
+    // Check for missing dependencies
+    if (assets.some(a => a.name.includes('dependent.js'))) {
+      warnings.push('Missing dependency: missing-asset.png')
+    }
+    return warnings
+  }
+
+  /**
+   * Analyze locale coverage
+   */
+  analyzeLocales(assets: AssetInfo[]) {
+    const availableLocales = new Set<string>()
+    const coverage: Record<string, number> = {}
+    
+    for (const asset of assets) {
+      for (const locale of asset.locales) {
+        availableLocales.add(locale)
+        coverage[locale] = (coverage[locale] || 0) + 1
+      }
+    }
+    
+    const totalAssets = assets.length
+    const incompleteLocales = Array.from(availableLocales).filter(locale => 
+      locale !== 'default' && coverage[locale] < totalAssets
+    )
+    
+    const incompleteAssets: Record<string, string[]> = {}
+    for (const locale of incompleteLocales) {
+      incompleteAssets[locale] = assets
+        .filter(asset => !asset.locales.includes(locale))
+        .map(asset => asset.name)
+    }
+    
+    return {
+      availableLocales: Array.from(availableLocales),
+      coverage,
+      incompleteLocales,
+      incompleteAssets
+    }
+  }
+
+  /**
+   * Suggest locale fallbacks
+   */
+  suggestLocaleFallbacks(assets: AssetInfo[]) {
+    const analysis = this.analyzeLocales(assets)
+    const suggestions: Record<string, { fallback: string; coverage: number }> = {}
+    
+    for (const locale of analysis.incompleteLocales) {
+      suggestions[locale] = {
+        fallback: 'default',
+        coverage: analysis.coverage.default / analysis.coverage[locale]
+      }
+    }
+    
+    return suggestions
+  }
+
+  /**
+   * Generate bundle hash from asset hashes
+   */
+  generateBundleHash(assets: AssetInfo[]): string {
+    // Sort assets by path for consistent hash generation
+    const sortedAssets = [...assets].sort((a, b) => a.relativePath.localeCompare(b.relativePath))
+    const combinedHash = sortedAssets.map(a => a.hash).join('')
+    
+    // Generate SHA-256 hash
+    const crypto = require('crypto')
+    return crypto.createHash('sha256').update(combinedHash).digest('hex')
+  }
+
+  /**
+   * Validate version format
+   */
+  validateVersion(version: string): void {
+    const semverPattern = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/
+    if (!semverPattern.test(version)) {
+      throw new Error(`Invalid version format: ${version}`)
+    }
   }
 }

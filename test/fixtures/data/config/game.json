@@ -1,0 +1,31 @@
+{
+  "gameTitle": "Test Visual Novel",
+  "version": "1.0.0",
+  "author": "QuaEngine Test Suite",
+  "description": "A test game for validating QuaEngine functionality",
+  "settings": {
+    "defaultLocale": "en-us",
+    "supportedLocales": ["en-us", "ja-jp", "default"],
+    "autoSave": true,
+    "maxSaveSlots": 10
+  },
+  "characters": {
+    "protagonist": {
+      "name": "Alex",
+      "description": "The main character",
+      "defaultEmotion": "neutral"
+    },
+    "companion": {
+      "name": "Riley",
+      "description": "The protagonist's companion",
+      "defaultEmotion": "cheerful"
+    }
+  },
+  "scenes": [
+    {
+      "id": "scene_001",
+      "name": "Opening",
+      "script": "scene001.js"
+    }
+  ]
+}

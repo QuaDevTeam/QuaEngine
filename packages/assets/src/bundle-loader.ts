@@ -304,8 +304,8 @@ export class BundleLoader {
     const compressionType = view.getUint32(offset, true)
     offset += 4
     
-    // Read encryption flags
-    const _encryptionFlags = view.getUint32(offset, true)
+    // Read encryption flags (unused for now)
+    view.getUint32(offset, true) // _encryptionFlags
     offset += 4
     
     // Read file count
@@ -496,8 +496,9 @@ export class BundleLoader {
     }
     
     // Check for locale in filename (file-based locales)
-    const _nameWithoutExt = filename.substring(0, filename.lastIndexOf('.'))
-    const _ext = filename.substring(filename.lastIndexOf('.'))
+    // Extract name without extension and extension (currently unused)
+    filename.substring(0, filename.lastIndexOf('.')) // nameWithoutExt
+    filename.substring(filename.lastIndexOf('.')) // ext
     
     if (filename.includes(`.${locale}.`)) {
       return `${type}/${subType}/${filename}`

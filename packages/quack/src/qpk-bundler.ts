@@ -153,7 +153,15 @@ export class QPKBundler {
    */
   private async processAsset(asset: AssetInfo): Promise<Buffer> {
     // Read asset file
-    let buffer = await readFile(asset.path)
+    let buffer: Buffer
+    try {
+      buffer = await readFile(asset.path)
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        throw new Error(`File not found: ${asset.path}`)
+      }
+      throw error
+    }
     
     // Create asset context for plugins
     const context: AssetContext = {
@@ -483,6 +491,57 @@ export class QPKBundler {
   async listContents(qpkPath: string): Promise<string[]> {
     const { assets } = await this.readBundle(qpkPath)
     return ['manifest.json', ...Array.from(assets.keys())]
+  }
+
+  /**
+   * Compress data using LZMA
+   */
+  async compressLZMA(data: Uint8Array): Promise<Uint8Array> {
+    throw new Error('LZMA compression not implemented')
+  }
+
+  /**
+   * Compress data using DEFLATE
+   */
+  async compressDeflate(data: Uint8Array): Promise<Uint8Array> {
+    throw new Error('DEFLATE compression not implemented')
+  }
+
+  /**
+   * Compress data with specified algorithm
+   */
+  async compressData(data: Uint8Array, algorithm: string): Promise<Uint8Array> {
+    if (algorithm === 'none') {
+      return data
+    }
+    if (algorithm === 'lzma') {
+      return this.compressLZMA(data)
+    }
+    if (algorithm === 'deflate') {
+      return this.compressDeflate(data)
+    }
+    throw new Error(`Unsupported compression algorithm: ${algorithm}`)
+  }
+
+  /**
+   * Serialize file entry for QPK format
+   */
+  serializeFileEntry(entry: any): Uint8Array {
+    const nameBuffer = Buffer.from(entry.name, 'utf8')
+    const entryData = Buffer.alloc(4 + nameBuffer.length + 24) // Basic size
+    
+    let offset = 0
+    entryData.writeUInt32LE(nameBuffer.length, offset)
+    offset += 4
+    nameBuffer.copy(entryData, offset)
+    offset += nameBuffer.length
+    entryData.writeUInt32LE(entry.size, offset)
+    offset += 4
+    entryData.writeUInt32LE(entry.compressedSize, offset)
+    offset += 4
+    entryData.writeUInt32LE(entry.offset, offset)
+    
+    return new Uint8Array(entryData)
   }
 
   /**

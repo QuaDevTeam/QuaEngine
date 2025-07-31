@@ -37,7 +37,7 @@ const ASSET_PATTERNS = {
   images: {
     extensions: ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg'],
     subTypes: {
-      backgrounds: ['background', 'bg', 'scene'],
+      backgrounds: ['background', 'backgrounds', 'bg', 'scene'],
       cg: ['cg', 'event', 'illustration'],
       ui: ['ui', 'interface', 'button', 'panel', 'menu']
     }
@@ -45,7 +45,7 @@ const ASSET_PATTERNS = {
   characters: {
     extensions: ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'],
     subTypes: {
-      sprites: ['sprite', 'character', 'char']
+      sprites: ['sprite', 'sprites', 'character', 'char']
     }
   },
   audio: {
@@ -57,9 +57,16 @@ const ASSET_PATTERNS = {
     }
   },
   scripts: {
-    extensions: ['.js', '.mjs', '.json'],
+    extensions: ['.js', '.mjs'],
     subTypes: {
       logic: ['script', 'logic', 'game']
+    }
+  },
+  data: {
+    extensions: ['.json', '.xml', '.yaml', '.yml', '.txt', '.csv'],
+    subTypes: {
+      config: ['config', 'settings', 'options'],
+      save: ['save', 'savegame', 'progress']
     }
   }
 } as const
@@ -146,6 +153,7 @@ export class AssetDetector {
     const mimeType = lookup(extension) || undefined
 
     return {
+      name: basename(filePath),
       path: filePath,
       relativePath,
       size: stats.size,
@@ -175,6 +183,9 @@ export class AssetDetector {
     }
     if (pathLower.includes('/scripts/') || pathLower.startsWith('scripts/')) {
       return 'scripts'
+    }
+    if (pathLower.includes('/data/') || pathLower.startsWith('data/')) {
+      return 'data'
     }
 
     // Check by extension
@@ -227,7 +238,9 @@ export class AssetDetector {
     }
 
     // Check file-based locales (e.g., file.en-us.png)
-    const nameParts = fileName.split('.')
+    // Remove the file extension first to avoid false positives
+    const baseFileName = fileName.split('.')[0]
+    const nameParts = baseFileName.split('.')
     for (const part of nameParts) {
       if (this.isValidLocale(part)) {
         locales.add(this.normalizeLocale(part))
@@ -271,8 +284,20 @@ export class AssetDetector {
   /**
    * Calculate SHA-256 hash of buffer
    */
-  private calculateHash(buffer: Buffer): string {
+  public calculateHash(buffer: Buffer): string {
     return createHash('sha256').update(buffer).digest('hex')
+  }
+
+  /**
+   * Validate asset file integrity (placeholder implementation)
+   */
+  public async validateAsset(filePath: string): Promise<boolean> {
+    try {
+      const stats = await stat(filePath)
+      return stats.size > 0
+    } catch {
+      return false
+    }
   }
 
   /**
@@ -336,7 +361,8 @@ export class AssetDetector {
       images: {},
       characters: {},
       audio: {},
-      scripts: {}
+      scripts: {},
+      data: {}
     }
 
     for (const asset of assets) {

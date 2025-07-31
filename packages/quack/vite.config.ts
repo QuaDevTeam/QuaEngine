@@ -23,7 +23,7 @@ export default defineConfig({
     },
     rollupOptions: {
       external: [
-        'node:fs', 'node:path', 'node:process', 'node:url', 'node:util', 'node:crypto', 'node:stream',
+        'node:fs', 'node:fs/promises', 'node:path', 'node:process', 'node:url', 'node:util', 'node:crypto', 'node:stream', 'node:os',
         'commander', 'lzma-native', 'glob', 'mime-types', 'yauzl', 'yazl',
         '@quajs/logger', '@quajs/utils'
       ],

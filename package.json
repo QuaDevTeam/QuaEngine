@@ -11,7 +11,14 @@
     "build": "nx run-many -t build",
     "dev": "nx run-many -t dev",
     "lint": "nx run-many -t lint",
-    "test": "nx run-many -t test",
+    "test": "node --experimental-strip-types scripts/run-tests.ts all",
+    "test:unit": "node --experimental-strip-types scripts/run-tests.ts unit",
+    "test:integration": "node --experimental-strip-types scripts/run-tests.ts integration",
+    "test:watch": "node --experimental-strip-types scripts/run-tests.ts --watch",
+    "test:ui": "node --experimental-strip-types scripts/run-tests.ts --ui",
+    "test:coverage": "node --experimental-strip-types scripts/run-tests.ts --coverage",
+    "test:assets": "node --experimental-strip-types scripts/run-tests.ts --package assets",
+    "test:quack": "node --experimental-strip-types scripts/run-tests.ts --package quack",
     "create-package": "node --experimental-strip-types scripts/create-package.ts"
   },
   "keywords": [
@@ -31,12 +38,15 @@
     "@antfu/eslint-config": "^5.0.0",
     "@nx/js": "^21.3.9",
     "@types/node": "^24.1.0",
+    "@vitest/ui": "^1.2.0",
     "eslint": "^9.32.0",
+    "happy-dom": "^18.0.1",
     "inquirer": "^10.2.2",
     "nx": "21.3.9",
     "typescript": "^5.8.3",
     "vite": "^7.0.6",
-    "vite-plugin-dts": "^4.3.0"
+    "vite-plugin-dts": "^4.3.0",
+    "vitest": "^1.2.0"
   },
   "nx": {},
   "workspaces": [
