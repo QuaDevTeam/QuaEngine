@@ -1,5 +1,6 @@
 import { resolve, dirname } from 'node:path'
 import { mkdir, rename } from 'node:fs/promises'
+import { EventEmitter } from 'node:events'
 import { createLogger } from '@quajs/logger'
 import { AssetDetector } from './asset-detector.js'
 import { MetadataGenerator } from './metadata.js'
@@ -25,7 +26,7 @@ import type {
 
 const logger = createLogger('quack:bundler')
 
-export class QuackBundler {
+export class QuackBundler extends EventEmitter {
   private config: QuackConfig
   private pluginManager: PluginManager
   private assetDetector: AssetDetector
@@ -35,6 +36,7 @@ export class QuackBundler {
   private isWorkspaceMode: boolean
 
   constructor(config: QuackConfig) {
+    super()
     this.config = config
     this.isWorkspaceMode = !!(config.workspace || config.workspaceConfig)
     
@@ -89,10 +91,12 @@ export class QuackBundler {
       const { tree, root } = this.versionManager.createMerkleTree(assets)
 
       // Generate manifest with versioning info
-      const manifest = this.metadataGenerator.generateManifest(assets, locales, {
+      const manifest = this.metadataGenerator.generateManifest(assets, 'bundle', {
         format: normalizedConfig.format,
         compression: normalizedConfig.compression,
-        encryption: normalizedConfig.encryption
+        encryption: normalizedConfig.encryption,
+        version: normalizedConfig.versioning.bundleVersion?.toString() || '1.0.0',
+        buildNumber: normalizedConfig.versioning.buildNumber
       })
 
       // Add versioning info to manifest
@@ -266,7 +270,7 @@ export class QuackBundler {
           compressionRatio: 0,
           processingTime: Date.now() - startTime,
           locales: [],
-          assetsByType: { images: 0, characters: 0, audio: 0, scripts: 0 },
+          assetsByType: { images: 0, characters: 0, audio: 0, scripts: 0, data: 0 },
           bundleVersion: normalizedConfig.versioning.bundleVersion,
           buildNumber: normalizedConfig.versioning.buildNumber
         }
@@ -282,10 +286,12 @@ export class QuackBundler {
       const { tree, root } = this.versionManager.createMerkleTree(assets)
 
       // Generate manifest with versioning info
-      const manifest = this.metadataGenerator.generateManifest(assets, locales, {
+      const manifest = this.metadataGenerator.generateManifest(assets, bundleDefinition.displayName || bundleDefinition.name, {
         format: normalizedConfig.format,
         compression: normalizedConfig.compression,
-        encryption: normalizedConfig.encryption
+        encryption: normalizedConfig.encryption,
+        version: normalizedConfig.versioning.bundleVersion?.toString() || '1.0.0',
+        buildNumber: normalizedConfig.versioning.buildNumber
       })
 
       // Add versioning info to manifest
@@ -508,10 +514,11 @@ export class QuackBundler {
         isDefault: code === manifest.defaultLocale
       })),
       assetsByType: {
-        images: Object.keys(manifest.assets.images).length,
-        characters: Object.keys(manifest.assets.characters).length,
-        audio: Object.keys(manifest.assets.audio).length,
-        scripts: Object.keys(manifest.assets.scripts).length
+        images: Object.keys(manifest.assets.images || {}).length,
+        characters: Object.keys(manifest.assets.characters || {}).length,
+        audio: Object.keys(manifest.assets.audio || {}).length,
+        scripts: Object.keys(manifest.assets.scripts || {}).length,
+        data: Object.keys(manifest.assets.data || {}).length
       },
       bundleVersion: manifest.bundleVersion,
       buildNumber: manifest.buildNumber || 'unknown'

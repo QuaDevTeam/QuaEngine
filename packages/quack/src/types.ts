@@ -1,9 +1,10 @@
-export type AssetType = 'images' | 'characters' | 'audio' | 'scripts'
+export type AssetType = 'images' | 'characters' | 'audio' | 'scripts' | 'data'
 export type AssetSubType = 
   | 'backgrounds' | 'cg' | 'ui' // Images
   | 'sprites' // Characters  
   | 'sfx' | 'voice' | 'bgm' // Audio
   | 'logic' // Scripts
+  | 'config' | 'save' // Data
 
 export type BundleFormat = 'zip' | 'qpk'
 export type CompressionAlgorithm = 'none' | 'deflate' | 'lzma'
@@ -12,6 +13,7 @@ export type EncryptionAlgorithm = 'none' | 'xor' | 'custom'
 export type PatchOperation = 'added' | 'modified' | 'deleted'
 
 export interface AssetInfo {
+  name: string
   path: string
   relativePath: string
   size: number
@@ -69,13 +71,21 @@ export interface PatchManifest {
 }
 
 export interface BundleManifest {
+  name: string
   version: string
   bundler: string
   created: string
+  createdAt: number
   format: BundleFormat
   isPatch?: boolean
   bundleVersion: number // Overall bundle version
   buildNumber?: string // Build identifier
+  buildMetadata?: {
+    branch?: string
+    commit?: string
+    buildTime?: string
+    builder?: string
+  }
   compression: {
     algorithm: CompressionAlgorithm
     level?: number
@@ -90,6 +100,11 @@ export interface BundleManifest {
   totalSize: number
   totalFiles: number
   merkleRoot?: string // Merkle tree root hash
+  performanceMetrics?: {
+    estimatedLoadTime: number
+    estimatedDecompressionTime: number
+    memoryUsageEstimate: number
+  }
 }
 
 export interface MerkleNode {
@@ -334,6 +349,15 @@ export abstract class QuackPlugin {
   async processAsset?(context: AssetContext): Promise<void> {}
   async postBundle?(bundlePath: string, manifest: BundleManifest): Promise<void> {}
   async cleanup?(): Promise<void> {}
+}
+
+export interface BundleResult {
+  success: boolean
+  bundle: ArrayBuffer
+  manifest: BundleManifest
+  assets: AssetInfo[]
+  stats?: BundleStats
+  errors?: string[]
 }
 
 export interface BundleOptions {

@@ -420,7 +420,8 @@ export class QuaAssets {
   }> {
     this.ensureInitialized()
 
-    const _patchFileName = patchUrl.split('/').pop() || 'patch'
+    // Extract patch filename (currently unused)
+    patchUrl.split('/').pop() || 'patch' // patchFileName
     
     // Update bundle status to show patching
     const existingStatus = this.bundleStatuses.get(targetBundleName)

@@ -13,7 +13,8 @@ import { VersionManager } from './versioning.js'
 import { WorkspaceManager } from './workspace.js'
 import type { QuackConfig, BundleFormat } from './types.js'
 
-const _logger = createLogger('quack:cli')
+// Logger available but not used in CLI (would be used for debugging/development)
+// const logger = createLogger('quack:cli')
 
 const program = new Command()
 
@@ -53,9 +54,9 @@ program
       console.log(`📊 ${stats.totalFiles} files, ${formatBytes(stats.totalSize)}, ${stats.processingTime}ms`)
       
     } catch (error) {
-      console.error('❌ Bundle creation failed:', error.message)
+      console.error('❌ Bundle creation failed:', error instanceof Error ? error.message : String(error))
       if (options.verbose) {
-        console.error(error.stack)
+        console.error(error instanceof Error ? error.stack : String(error))
       }
       process.exit(1)
     }
@@ -91,9 +92,9 @@ program
       console.log('✅ Bundle extracted successfully!')
       
     } catch (error) {
-      console.error('❌ Extraction failed:', error.message)
+      console.error('❌ Extraction failed:', error instanceof Error ? error.message : String(error))
       if (options.verbose) {
-        console.error(error.stack)
+        console.error(error instanceof Error ? error.stack : String(error))
       }
       process.exit(1)
     }
@@ -130,9 +131,9 @@ program
       }
       
     } catch (error) {
-      console.error('❌ List failed:', error.message)
+      console.error('❌ List failed:', error instanceof Error ? error.message : String(error))
       if (options.verbose) {
-        console.error(error.stack)
+        console.error(error instanceof Error ? error.stack : String(error))
       }
       process.exit(1)
     }
@@ -174,9 +175,9 @@ program
       }
       
     } catch (error) {
-      console.error('❌ Verification failed:', error.message)
+      console.error('❌ Verification failed:', error instanceof Error ? error.message : String(error))
       if (options.verbose) {
-        console.error(error.stack)
+        console.error(error instanceof Error ? error.stack : String(error))
       }
       process.exit(1)
     }
@@ -234,7 +235,7 @@ export default defineConfig({
       console.log('✅ Configuration file created: quack.config.js')
       
     } catch (error) {
-      console.log('❌ Failed to create configuration:', error.message)
+      console.log('❌ Failed to create configuration:', error instanceof Error ? error.message : String(error))
       process.exit(1)
     }
   })
@@ -303,7 +304,7 @@ program
       console.log('✅ Patch created successfully!')
 
     } catch (error) {
-      console.error('❌ Patch creation failed:', error.message)
+      console.error('❌ Patch creation failed:', error instanceof Error ? error.message : String(error))
       if (options.verbose) {
         console.error(error.stack)
       }
