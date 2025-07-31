@@ -39,6 +39,44 @@ export class QuaAssets {
   private initialized = false
 
   constructor(endpoint: string, config: Partial<QuaAssetsConfig> = {}) {
+    // Validate parameters
+    if (!endpoint || typeof endpoint !== 'string' || endpoint.trim() === '') {
+      throw new Error('Invalid endpoint URL')
+    }
+    
+    // Validate URL format
+    try {
+      const url = new URL(endpoint)
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        throw new Error('Invalid endpoint URL protocol')
+      }
+    } catch (error) {
+      throw new Error('Invalid endpoint URL format')
+    }
+    
+    if (config.cacheSize !== undefined && config.cacheSize <= 0) {
+      throw new Error('Cache size must be positive')
+    }
+    
+    if (config.retryAttempts !== undefined && config.retryAttempts < 0) {
+      throw new Error('Retry attempts must be non-negative')
+    }
+    
+    if (config.timeout !== undefined && config.timeout <= 0) {
+      throw new Error('Timeout must be positive')
+    }
+    
+    if (config.locale !== undefined) {
+      if (typeof config.locale !== 'string') {
+        throw new Error('Locale must be a string')
+      }
+      // Validate locale format (allow 'default' or standard locale codes)
+      const localePattern = /^(default|[a-z]{2}(-[a-z]{2})?|[a-z]{2}-[A-Z]{2})$/
+      if (!localePattern.test(config.locale)) {
+        throw new Error('Invalid locale format')
+      }
+    }
+    
     // Merge with defaults
     this.config = {
       endpoint: endpoint.replace(/\/$/, ''), // Remove trailing slash
@@ -136,13 +174,12 @@ export class QuaAssets {
    * Load bundle from remote endpoint
    */
   async loadBundle(bundleName: string, options: LoadBundleOptions = {}): Promise<void> {
-    this.ensureInitialized()
-
-    const bundleUrl = `${this.config.endpoint}/${bundleName}`
+    // Extract bundle name without extension for consistent status tracking
+    const baseBundleName = bundleName.replace(/\.(qpk|bundle)$/, '')
     
-    // Initialize bundle status
-    this.bundleStatuses.set(bundleName, {
-      name: bundleName,
+    // Always set bundle status first, regardless of initialization
+    this.bundleStatuses.set(baseBundleName, {
+      name: baseBundleName,
       version: 0,
       state: 'loading',
       progress: 0,
@@ -151,15 +188,19 @@ export class QuaAssets {
       lastUpdated: Date.now()
     })
 
-    this.emit('bundle:loading', { bundleName })
-
     try {
+      this.ensureInitialized()
+
+      const bundleUrl = `${this.config.endpoint}/${bundleName}`
+      
+      this.emit('bundle:loading', { bundleName: baseBundleName })
+
       // Check if bundle already exists and force flag
       if (!options.force) {
-        const existingBundle = await this.database.getBundle(bundleName)
+        const existingBundle = await this.database.getBundle(baseBundleName)
         if (existingBundle) {
-          this.bundleStatuses.set(bundleName, {
-            name: bundleName,
+          this.bundleStatuses.set(baseBundleName, {
+            name: baseBundleName,
             version: existingBundle.version,
             state: 'loaded',
             progress: 1,
@@ -168,7 +209,7 @@ export class QuaAssets {
             lastUpdated: existingBundle.lastUpdated
           })
           
-          this.emit('bundle:loaded', { bundleName, status: this.bundleStatuses.get(bundleName)! })
+          this.emit('bundle:loaded', { bundleName: baseBundleName, status: this.bundleStatuses.get(baseBundleName)! })
           return
         }
       }
@@ -178,7 +219,7 @@ export class QuaAssets {
         ...options,
         onProgress: (loaded, total) => {
           const progress = total > 0 ? loaded / total : 0
-          this.updateBundleProgress(bundleName, progress * 0.8) // Reserve 20% for processing
+          this.updateBundleProgress(baseBundleName, progress * 0.8) // Reserve 20% for processing
           
           if (options.onProgress) {
             options.onProgress(loaded, total)
@@ -186,17 +227,17 @@ export class QuaAssets {
         }
       }
 
-      const { manifest, assets } = await this.bundleLoader.loadBundle(bundleUrl, bundleName, loadOptions)
+      const { manifest, assets } = await this.bundleLoader.loadBundle(bundleUrl, baseBundleName, loadOptions)
 
       // Update progress for processing
-      this.updateBundleProgress(bundleName, 0.8)
+      this.updateBundleProgress(baseBundleName, 0.8)
 
       // Store bundle and assets in database
       if (options.enableCache !== false && this.config.enableCache) {
         await this.database.transaction('rw', [this.database.bundles, this.database.assets], async () => {
           // Store bundle metadata
           await this.database.storeBundle({
-            name: bundleName,
+            name: baseBundleName,
             version: manifest.bundleVersion || 1,
             buildNumber: manifest.buildNumber || 'unknown',
             format: manifest.format,
@@ -218,8 +259,8 @@ export class QuaAssets {
       }
 
       // Update final status
-      this.bundleStatuses.set(bundleName, {
-        name: bundleName,
+      this.bundleStatuses.set(baseBundleName, {
+        name: baseBundleName,
         version: manifest.bundleVersion || 1,
         state: 'loaded',
         progress: 1,
@@ -228,15 +269,15 @@ export class QuaAssets {
         lastUpdated: Date.now()
       })
 
-      this.emit('bundle:loaded', { bundleName, status: this.bundleStatuses.get(bundleName)! })
-      logger.info(`Bundle ${bundleName} loaded successfully (${assets.length} assets)`)
+      this.emit('bundle:loaded', { bundleName: baseBundleName, status: this.bundleStatuses.get(baseBundleName)! })
+      logger.info(`Bundle ${baseBundleName} loaded successfully (${assets.length} assets)`)
 
     } catch (error) {
       const bundleError = error instanceof BundleLoadError ? error : 
-        new BundleLoadError(`Failed to load bundle: ${error instanceof Error ? error.message : String(error)}`, bundleName)
+        new BundleLoadError(`Failed to load bundle: ${error instanceof Error ? error.message : String(error)}`, baseBundleName)
 
-      this.bundleStatuses.set(bundleName, {
-        name: bundleName,
+      this.bundleStatuses.set(baseBundleName, {
+        name: baseBundleName,
         version: 0,
         state: 'error',
         progress: 0,
@@ -246,8 +287,8 @@ export class QuaAssets {
         lastUpdated: Date.now()
       })
 
-      this.emit('bundle:error', { bundleName, error: bundleError })
-      logger.error(`Failed to load bundle ${bundleName}:`, error)
+      this.emit('bundle:error', { bundleName: baseBundleName, error: bundleError })
+      logger.error(`Failed to load bundle ${baseBundleName}:`, error)
       throw bundleError
     }
   }
@@ -457,7 +498,17 @@ export class QuaAssets {
         existingStatus.state = 'error'
         existingStatus.error = error as Error
       }
-      throw error
+      
+      // Log the error
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('Patch application failed:', error)
+      
+      // Return error result instead of throwing
+      return {
+        success: false,
+        changes: { added: 0, modified: 0, deleted: 0 },
+        errors: [errorMessage]
+      }
     }
   }
 

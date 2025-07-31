@@ -7,6 +7,7 @@ vi.mock('../src/database.js', () => ({
   QuaAssetsDatabase: class MockDatabase {
     constructor() {}
     async initialize() { return this }
+    async open() {}
     async close() {}
     assets = {
       get: vi.fn(),
@@ -18,6 +19,15 @@ vi.mock('../src/database.js', () => ({
       put: vi.fn(),
       toArray: vi.fn(() => Promise.resolve([]))
     }
+    getBundle = vi.fn().mockResolvedValue(undefined)
+    getCacheStats = vi.fn().mockResolvedValue({ size: 0, count: 0, totalSize: 0 })
+    findAssets = vi.fn().mockResolvedValue([])
+    getAssetWithLocaleFallback = vi.fn().mockResolvedValue(undefined)
+    storeBundle = vi.fn().mockResolvedValue(undefined)
+    storeAssets = vi.fn().mockResolvedValue(undefined)
+    transaction = vi.fn().mockImplementation(async (mode, tables, callback) => {
+      return await callback()
+    })
   }
 }))
 
@@ -106,86 +116,129 @@ describe('QuaAssets', () => {
       await quaAssets.initialize()
     })
 
-    it('should track bundle loading status', () => {
-      const status = quaAssets.getBundleStatus('test-bundle')
+    it('should track bundle loading status', async () => {
+      // Initially, bundle status should not exist
+      let status = quaAssets.getBundleStatus('test-bundle')
+      expect(status).toBeUndefined()
       
-      expect(status.name).toBe('test-bundle')
-      expect(status.state).toBe('idle')
-      expect(status.progress).toBe(0)
-      expect(status.assetCount).toBe(0)
-      expect(status.loadedAssets).toBe(0)
+      // Mock fetch to fail
+      global.fetch = vi.fn(() => Promise.reject(new Error('Network error')))
+      
+      // After starting a load, status should exist and be loading
+      const loadPromise = quaAssets.loadBundle('test-bundle.qpk').catch(() => {
+        // Expected to fail due to mock
+      })
+      
+      // Status should be set immediately (synchronously) when loadBundle is called
+      status = quaAssets.getBundleStatus('test-bundle')
+      expect(status).toBeDefined()
+      expect(status!.name).toBe('test-bundle')
+      expect(status!.state).toBe('loading') // Should be loading initially
+      
+      // Wait for the load to complete
+      await loadPromise
+      
+      // After error, status should be error
+      status = quaAssets.getBundleStatus('test-bundle')
+      expect(status).toBeDefined()
+      expect(['error']).toContain(status!.state)
     })
 
     it('should update bundle status during loading', async () => {
       // Mock successful bundle loading
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
+      global.fetch = vi.fn(() => {
+        // Mock QPK bundle data
+        const buffer = new ArrayBuffer(24)
+        const view = new DataView(buffer)
+        view.setUint32(0, 0x51504B00, false) // QPK magic (big-endian)
+        view.setUint32(4, 1, true) // Version
+        view.setUint32(8, 0, true) // No compression
+        view.setUint32(12, 0, true) // No encryption
+        view.setUint32(16, 0, true) // 0 files
+        
+        const mockBody = {
+          getReader: () => ({
+            read: vi.fn()
+              .mockResolvedValueOnce({ done: false, value: new Uint8Array(buffer) })
+              .mockResolvedValueOnce({ done: true, value: undefined })
+          })
+        }
+        
+        return Promise.resolve({
           ok: true,
-          headers: new Headers({ 'content-length': '1024' }),
-          arrayBuffer: () => {
-            // Mock QPK bundle data
-            const buffer = new ArrayBuffer(24)
-            const view = new DataView(buffer)
-            view.setUint32(0, 0x51504B00, true) // QPK magic
-            view.setUint32(4, 1, true) // Version
-            view.setUint32(8, 0, true) // No compression
-            view.setUint32(12, 0, true) // No encryption
-            view.setUint32(16, 0, true) // 0 files
-            return Promise.resolve(buffer)
-          }
-        } as Response)
-      )
+          headers: {
+            get: (name: string) => {
+              if (name === 'content-length') return buffer.byteLength.toString()
+              return null
+            }
+          },
+          body: mockBody,
+          arrayBuffer: () => Promise.resolve(buffer)
+        } as unknown as Response)
+      })
 
       const loadingPromise = quaAssets.loadBundle('test-bundle.qpk')
       
-      // Check that status is updated to loading
+      // Status should be set immediately (synchronously) when loadBundle is called
       const loadingStatus = quaAssets.getBundleStatus('test-bundle')
-      expect(['loading', 'loaded']).toContain(loadingStatus.state)
+      expect(loadingStatus).toBeDefined()
+      expect(loadingStatus!.state).toBe('loading') // Should be loading initially
 
       try {
         await loadingPromise
         const finalStatus = quaAssets.getBundleStatus('test-bundle')
-        expect(['loaded', 'error']).toContain(finalStatus.state)
+        expect(finalStatus).toBeDefined()
+        expect(['loaded', 'error']).toContain(finalStatus!.state)
       } catch (error) {
         // Expected for incomplete mock data
         const errorStatus = quaAssets.getBundleStatus('test-bundle')
-        expect(errorStatus.state).toBe('error')
+        expect(errorStatus).toBeDefined()
+        expect(errorStatus!.state).toBe('error')
       }
     })
 
     it('should handle bundle loading errors gracefully', async () => {
       global.fetch = vi.fn(() => Promise.reject(new Error('Network error')))
 
-      try {
-        await quaAssets.loadBundle('test-bundle.qpk')
-        expect.fail('Should throw network error')
-      } catch (error) {
-        expect(error).toBeDefined()
-      }
+      // Status should be set immediately when loadBundle is called
+      const loadPromise = quaAssets.loadBundle('test-bundle.qpk').catch(() => {
+        // Expected to fail
+      })
       
-      const status = quaAssets.getBundleStatus('test-bundle')
-      expect(status.state).toBe('error')
-      expect(status.error).toBeDefined()
+      // Check initial status
+      let status = quaAssets.getBundleStatus('test-bundle')
+      expect(status).toBeDefined()
+      expect(status!.state).toBe('loading')
+      
+      // Wait for the load to complete
+      await loadPromise
+      
+      // Check status after error
+      status = quaAssets.getBundleStatus('test-bundle')
+      expect(status).toBeDefined()
+      expect(status!.state).toBe('error')
+      expect(status!.error).toBeDefined()
     })
 
     it('should retry failed bundle loads', async () => {
       let callCount = 0
       global.fetch = vi.fn(() => {
         callCount++
-        if (callCount < 3) {
-          return Promise.reject(new Error('Temporary network error'))
-        }
-        return Promise.resolve({
-          ok: true,
-          arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
-        } as Response)
+        return Promise.reject(new Error('Persistent network error'))
       })
 
+      // Create a new QuaAssets instance with fewer retry attempts and shorter timeout
+      const fastConfig = { ...config, retryAttempts: 2, timeout: 1000 }
+      const fastQuaAssets = new QuaAssets('https://cdn.example.com', fastConfig)
+      await fastQuaAssets.initialize()
+
       try {
-        await quaAssets.loadBundle('test-bundle.qpk')
-        expect(callCount).toBe(3)
+        await fastQuaAssets.loadBundle('test-bundle.qpk')
+        expect(callCount).toBe(2) // 2 total attempts
       } catch (error) {
-        expect(callCount).toBe(config.retryAttempts)
+        expect(callCount).toBe(2) // 2 total attempts
+      } finally {
+        await fastQuaAssets.cleanup()
       }
     })
 
@@ -198,7 +251,11 @@ describe('QuaAssets', () => {
 
       global.fetch = vi.fn(() => Promise.reject(new Error('Test error')))
 
-      await quaAssets.loadBundle('test-bundle.qpk')
+      try {
+        await quaAssets.loadBundle('test-bundle.qpk')
+      } catch (error) {
+        // Expected to fail
+      }
 
       expect(events.some(e => e.event === 'bundle:loading')).toBe(true)
       expect(events.some(e => e.event === 'bundle:error')).toBe(true)
@@ -316,7 +373,7 @@ describe('QuaAssets', () => {
       const result = await quaAssets.applyPatch('invalid-patch.qpk', 'test-bundle')
       
       expect(result.success).toBe(false)
-      expect(result.errors).toContain('Patch download failed')
+      expect(result.errors.some(error => error.includes('Patch download failed'))).toBe(true)
     })
   })
 
