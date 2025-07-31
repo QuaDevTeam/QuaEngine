@@ -38,6 +38,7 @@ export default defineConfig({
       '@quajs/store': resolve(__dirname, 'packages/store/src'),
       '@quajs/assets': resolve(__dirname, 'packages/assets/src'),
       '@quajs/quack': resolve(__dirname, 'packages/quack/src'),
+      '@quajs/pipeline': resolve(__dirname, 'packages/pipeline/src'),
     }
   }
 })

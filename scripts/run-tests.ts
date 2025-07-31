@@ -18,25 +18,31 @@ interface TestRunnerOptions {
 
 const PACKAGES_WITH_TESTS = [
   'assets',
+  'pipeline',
   'quack'
 ]
 
 const TEST_CATEGORIES = {
   unit: 'Run unit tests only (package-specific tests)',
-  integration: 'Run integration tests only (workspace-level tests)', 
+  integration: 'Run integration tests only (workspace-level tests)',
   all: 'Run all tests (default)'
 }
 
 async function runVitest(args: string[], cwd?: string): Promise<number> {
   return new Promise((resolve) => {
+    const workingDir = cwd || process.cwd()
+    console.log(`🔧 Running: pnpm exec vitest ${args.join(' ')}`)
+    console.log(`📁 Working directory: ${workingDir}`)
+    
     const vitestProcess = spawn('pnpm', ['exec', 'vitest', ...args], {
-      cwd: cwd || process.cwd(),
+      cwd: workingDir,
       stdio: 'inherit',
       shell: true
     })
 
     vitestProcess.on('close', (code) => {
-      resolve(code || 0)  
+      console.log(`📊 Process exited with code: ${code}`)
+      resolve(code || 0)
     })
 
     vitestProcess.on('error', (error) => {
@@ -117,6 +123,11 @@ async function runPackageTests(packageName: string, options: TestRunnerOptions):
   const packagePath = join(process.cwd(), 'packages', packageName)
   const args = buildVitestArgs(options)
   
+  // Add 'run' command if not in watch mode to avoid hanging
+  if (!options.watch && !options.ui) {
+    args.unshift('run')
+  }
+
   return await runVitest(args, packagePath)
 }
 
@@ -128,6 +139,11 @@ async function runIntegrationTests(options: TestRunnerOptions): Promise<number> 
     ...buildVitestArgs(options),
     'test/**/*.test.ts'
   ]
+  
+  // Add 'run' command if not in watch mode to avoid hanging
+  if (!options.watch && !options.ui) {
+    args.unshift('run')
+  }
 
   return await runVitest(args)
 }
@@ -166,12 +182,15 @@ function printHelp() {
 QuaEngine Test Runner
 
 USAGE:
-  node --experimental-strip-types scripts/run-tests.ts [OPTIONS] [TEST_TYPE]
+  node --experimental-strip-types scripts/run-tests.ts [OPTIONS] [TEST_TYPE|PACKAGE_NAME]
 
 TEST TYPES:
   unit                     ${TEST_CATEGORIES.unit}
   integration              ${TEST_CATEGORIES.integration}
   all                      ${TEST_CATEGORIES.all}
+
+PACKAGE NAMES:
+${PACKAGES_WITH_TESTS.map(pkg => `  ${pkg}                     Run tests for ${pkg} package only`).join('\n')}
 
 OPTIONS:
   --package, -p <name>     Run tests for specific package only
@@ -186,6 +205,8 @@ OPTIONS:
 
 EXAMPLES:
   node --experimental-strip-types scripts/run-tests.ts                    # Run all tests
+  node --experimental-strip-types scripts/run-tests.ts pipeline           # Run pipeline package tests
+  node --experimental-strip-types scripts/run-tests.ts assets             # Run assets package tests
   node --experimental-strip-types scripts/run-tests.ts unit               # Run unit tests only
   node --experimental-strip-types scripts/run-tests.ts integration        # Run integration tests only
   node --experimental-strip-types scripts/run-tests.ts --package assets   # Run tests for assets package only
@@ -232,15 +253,20 @@ async function main() {
       bail: values.bail ? parseInt(values.bail, 10) : undefined
     }
 
-    const testType = positionals[0] || 'all'
-
+    const firstPositional = positionals[0]
     let exitCode = 0
 
-    if (options.package) {
-      // Run tests for specific package
+    // Check if first positional is a package name
+    if (firstPositional && PACKAGES_WITH_TESTS.includes(firstPositional)) {
+      // Run tests for specific package (e.g., "pnpm test pipeline")
+      exitCode = await runPackageTests(firstPositional, options)
+    } else if (options.package) {
+      // Run tests for specific package via --package flag
       exitCode = await runPackageTests(options.package, options)
     } else {
-      // Run tests based on type
+      // Run tests based on type or default to 'all'
+      const testType = firstPositional || 'all'
+      
       switch (testType) {
         case 'unit':
           console.log('🔬 Running unit tests for all packages')
@@ -266,8 +292,9 @@ async function main() {
           break
 
         default:
-          console.error(`❌ Unknown test type: ${testType}`)
+          console.error(`❌ Unknown test type or package: ${testType}`)
           console.error('Valid types: unit, integration, all')
+          console.error(`Valid packages: ${PACKAGES_WITH_TESTS.join(', ')}`)
           exitCode = 1
       }
     }
