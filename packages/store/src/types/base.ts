@@ -24,6 +24,7 @@ export interface QSConstructorOpts {
   getters?: QSGetters;
   mutations?: QSMutations;
   actions?: QSActions;
+  storage?: import('./storage').StorageConfig;
 }
 
 export interface QSRestoreOptions {

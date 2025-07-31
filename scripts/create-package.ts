@@ -220,6 +220,116 @@ export default ${packageName.charAt(0).toUpperCase() + packageName.slice(1)}
   }
 }
 
+function createTestContent(packageName: string, template: string): string {
+  switch (template) {
+    case 'basic':
+      return `import { describe, it, expect } from 'vitest'
+import { hello, version } from '../src/index'
+
+describe('${packageName}', () => {
+  it('should return hello message', () => {
+    expect(hello()).toBe('Hello from ${packageName}!')
+  })
+
+  it('should have version', () => {
+    expect(version).toBe('0.1.0')
+  })
+})
+`
+    case 'utility':
+      return `import { describe, it, expect } from 'vitest'
+import { isString, isNumber, capitalize, version } from '../src/index'
+
+describe('${packageName} utilities', () => {
+  describe('isString', () => {
+    it('should return true for strings', () => {
+      expect(isString('hello')).toBe(true)
+      expect(isString('')).toBe(true)
+    })
+
+    it('should return false for non-strings', () => {
+      expect(isString(123)).toBe(false)
+      expect(isString(null)).toBe(false)
+      expect(isString(undefined)).toBe(false)
+    })
+  })
+
+  describe('isNumber', () => {
+    it('should return true for numbers', () => {
+      expect(isNumber(123)).toBe(true)
+      expect(isNumber(0)).toBe(true)
+      expect(isNumber(-456)).toBe(true)
+    })
+
+    it('should return false for non-numbers', () => {
+      expect(isNumber('123')).toBe(false)
+      expect(isNumber(NaN)).toBe(false)
+      expect(isNumber(null)).toBe(false)
+    })
+  })
+
+  describe('capitalize', () => {
+    it('should capitalize first letter', () => {
+      expect(capitalize('hello')).toBe('Hello')
+      expect(capitalize('WORLD')).toBe('WORLD')
+      expect(capitalize('a')).toBe('A')
+    })
+
+    it('should handle empty string', () => {
+      expect(capitalize('')).toBe('')
+    })
+  })
+
+  it('should have version', () => {
+    expect(version).toBe('0.1.0')
+  })
+})
+`
+    case 'plugin':
+      return `import { describe, it, expect, vi } from 'vitest'
+import { ${packageName.charAt(0).toUpperCase() + packageName.slice(1)} } from '../src/index'
+
+describe('${packageName} plugin', () => {
+  it('should have correct name and version', () => {
+    const plugin = new ${packageName.charAt(0).toUpperCase() + packageName.slice(1)}()
+    expect(plugin.name).toBe('${packageName}')
+    expect(plugin.version).toBe('0.1.0')
+  })
+
+  it('should initialize correctly', () => {
+    const plugin = new ${packageName.charAt(0).toUpperCase() + packageName.slice(1)}()
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    
+    plugin.initialize()
+    
+    expect(consoleSpy).toHaveBeenCalledWith('${packageName} plugin initialized')
+    consoleSpy.mockRestore()
+  })
+
+  it('should destroy correctly', () => {
+    const plugin = new ${packageName.charAt(0).toUpperCase() + packageName.slice(1)}()
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    
+    plugin.destroy()
+    
+    expect(consoleSpy).toHaveBeenCalledWith('${packageName} plugin destroyed')
+    consoleSpy.mockRestore()
+  })
+})
+`
+    default:
+      return `import { describe, it, expect } from 'vitest'
+import { hello } from '../src/index'
+
+describe('${packageName}', () => {
+  it('should work', () => {
+    expect(hello()).toBe('Hello from ${packageName}!')
+  })
+})
+`
+  }
+}
+
 function createPackageStructure(config: PackageConfig): void {
   const { name: packageName, description, environment, template } = config
   const packageDir = path.join('packages', packageName)
@@ -233,6 +343,12 @@ function createPackageStructure(config: PackageConfig): void {
   const srcDir = path.join(packageDir, 'src')
   if (!fs.existsSync(srcDir)) {
     fs.mkdirSync(srcDir, { recursive: true })
+  }
+
+  // Create test directory
+  const testDir = path.join(packageDir, 'test')
+  if (!fs.existsSync(testDir)) {
+    fs.mkdirSync(testDir, { recursive: true })
   }
 
   // Create package.json
@@ -256,7 +372,8 @@ function createPackageStructure(config: PackageConfig): void {
       dev: 'vite build --watch',
       lint: 'eslint .',
       'lint:fix': 'eslint . --fix',
-      test: 'echo "Error: no test specified" && exit 1',
+      test: 'vitest',
+      ...(environment === 'browser' || environment === 'both' ? { 'test:ui': 'vitest --ui' } : {}),
       typecheck: 'tsc --noEmit',
     },
     keywords: [],
@@ -265,7 +382,10 @@ function createPackageStructure(config: PackageConfig): void {
     engines: {
       node: '>=20',
     },
-    devDependencies: {},
+    devDependencies: {
+      'vitest': '^3.2.4',
+      ...(environment === 'browser' || environment === 'both' ? { '@vitest/ui': '^3.2.4' } : {})
+    },
     peerDependencies: {},
   }
 
@@ -324,6 +444,47 @@ function createTsConfig(environment: Environment): TsConfig {
   }
 
   return baseConfig
+}
+
+function createVitestConfig(packageName: string, environment: Environment): string {
+  return `/// <reference types="vitest" />
+import { defineConfig } from 'vitest/config'
+import { resolve } from 'path'
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: '${environment === 'node' ? 'node' : 'happy-dom'}',
+    watch: false,
+    include: [
+      'test/**/*.test.{js,ts}',
+      '__tests__/**/*.test.{js,ts}'
+    ],
+    exclude: [
+      'node_modules',
+      'dist'
+    ],
+    testTimeout: 10000,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'dist/',
+        'test/',
+        '__tests__/',
+        '**/*.d.ts',
+        '**/*.config.*'
+      ]
+    }
+  },
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, 'src')
+    }
+  }
+})
+`
 }
 
 function createViteConfig(packageName: string, environment: Environment): string {
@@ -404,9 +565,17 @@ export default defineConfig({
   const viteConfig = createViteConfig(packageName, environment)
   fs.writeFileSync(path.join(packageDir, 'vite.config.ts'), viteConfig)
 
+  // Create vitest.config.ts
+  const vitestConfig = createVitestConfig(packageName, environment)
+  fs.writeFileSync(path.join(packageDir, 'vitest.config.ts'), vitestConfig)
+
   // Create src/index.ts
   const indexContent = createIndexContent(packageName, template)
   fs.writeFileSync(path.join(srcDir, 'index.ts'), indexContent)
+
+  // Create basic test file
+  const testContent = createTestContent(packageName, template)
+  fs.writeFileSync(path.join(testDir, `${packageName}.test.ts`), testContent)
 
   // Create project.json for Nx
   const projectJson: ProjectJson = {
@@ -439,7 +608,7 @@ export default defineConfig({
       test: {
         executor: 'nx:run-commands',
         options: {
-          command: 'echo "Error: no test specified" && exit 1',
+          command: 'vitest',
           cwd: `packages/${packageName}`,
         },
       },

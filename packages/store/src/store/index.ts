@@ -1,7 +1,7 @@
 import { QSState, QSGetters, QSMutations, QSActions, QSConstructorOpts, QSSnapshot, QSRestoreOptions } from '../types/base';
+import { StorageManager } from '../storage/manager';
 import { generateId } from '../utils';
 import logger from '../utils';
-import db from '../db';
 
 class QuaStore {
   public state: QSState;
@@ -11,6 +11,7 @@ class QuaStore {
   private actions: QSActions;
   private innerGetters: QSGetters;
   private initialState: QSState;
+  private storageManager: StorageManager | null = null;
 
   public constructor(name: string, options: QSConstructorOpts) {
     this.name = name;
@@ -20,6 +21,14 @@ class QuaStore {
     this.mutations = options.mutations || {};
     this.innerGetters = options.getters || {};
     this.initialState = options.state ? { ...options.state } : {};
+
+    // Initialize storage manager if storage config is provided
+    if (options.storage) {
+      this.storageManager = new StorageManager(options.storage);
+      this.storageManager.init().catch(error => {
+        logger.module(name).error('Failed to initialize storage manager:', error);
+      });
+    }
 
     const thisName = this.name;
     const thisState = this.state;
@@ -60,6 +69,18 @@ class QuaStore {
     );
   }
 
+  /**
+   * Get or create the default storage manager
+   */
+  private async getStorageManager(): Promise<StorageManager> {
+    if (!this.storageManager) {
+      // Create default storage manager with IndexedDB backend
+      this.storageManager = new StorageManager();
+      await this.storageManager.init();
+    }
+    return this.storageManager;
+  }
+
   public async snapshot(id?: string): Promise<string> {
     const snapshotId = id || generateId();
     logger.module(this.name).info(`Creating snapshot with ID: ${snapshotId}`);
@@ -71,7 +92,8 @@ class QuaStore {
       createdAt: new Date(),
     };
 
-    await db.saveSnapshot(snapshot);
+    const storageManager = await this.getStorageManager();
+    await storageManager.saveSnapshot(snapshot);
     logger.module(this.name).debug(`Snapshot saved successfully: ${snapshotId}`);
     return snapshotId;
   }
@@ -82,7 +104,8 @@ class QuaStore {
       throw new Error('Cannot restore snapshot due to some data already exists in store. Use force option to override.');
     }
 
-    const snapshot = await db.getSnapshot(snapshotId);
+    const storageManager = await this.getStorageManager();
+    const snapshot = await storageManager.getSnapshot(snapshotId);
     if (!snapshot) {
       throw new Error(`Snapshot with id "${snapshotId}" not found.`);
     }

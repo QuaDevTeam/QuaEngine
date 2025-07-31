@@ -1,8 +1,9 @@
 import { QSConstructorOpts, QSRestoreOptions, QSSnapshotMeta, QSSnapshot } from '../types/base';
+import { StorageConfig } from '../types/storage';
 import { generateId } from '../utils';
 import logger from '../utils';
 import QuaStore from '../store';
-import db from '../db';
+import { StorageManager } from '../storage/manager';
 
 interface ExQSConstructorOpts extends QSConstructorOpts {
   name: string;
@@ -46,13 +47,35 @@ export const commit = (name: string, payload?: unknown): void => {
 
 class QuaStoreManager {
   public static stores: Record<string, QuaStore> = {};
+  private static storageManager: StorageManager | null = null;
+  private static globalStorageConfig: StorageConfig | null = null;
+
+  /**
+   * Configure global storage settings
+   */
+  public static configureStorage(config: StorageConfig) {
+    this.globalStorageConfig = config;
+    this.storageManager = new StorageManager(config);
+  }
+
+  /**
+   * Get or create the storage manager
+   */
+  private static async getStorageManager(config?: StorageConfig): Promise<StorageManager> {
+    if (!this.storageManager) {
+      const storageConfig = config || this.globalStorageConfig || {};
+      this.storageManager = new StorageManager(storageConfig);
+      await this.storageManager.init();
+    }
+    return this.storageManager;
+  }
 
   public static createStore(opts: ExQSConstructorOpts) {
     const { name } = opts;
     if (!name) {
       throw new Error('Must specify the name of store.');
     }
-    
+
     logger.module('manager').info(`Creating store: ${name}`);
     const newStore = new QuaStore(opts.name, opts);
     QuaStoreManager.stores[name] = newStore;
@@ -90,7 +113,7 @@ class QuaStoreManager {
   public static async snapshotAll(id?: string): Promise<string> {
     const snapshotId = id || generateId();
     const allStoresData: Record<string, any> = {};
-    
+
     for (const [name, store] of Object.entries(this.stores)) {
       allStoresData[name] = JSON.parse(JSON.stringify(store.state));
     }
@@ -102,7 +125,8 @@ class QuaStoreManager {
       createdAt: new Date(),
     };
 
-    await db.saveSnapshot(snapshot);
+    const storageManager = await this.getStorageManager();
+    await storageManager.saveSnapshot(snapshot);
     return snapshotId;
   }
 
@@ -115,7 +139,8 @@ class QuaStoreManager {
   }
 
   public static async restoreAll(snapshotId: string, options?: QSRestoreOptions) {
-    const snapshot = await db.getSnapshot(snapshotId);
+    const storageManager = await this.getStorageManager();
+    const snapshot = await storageManager.getSnapshot(snapshotId);
     if (!snapshot) {
       throw new Error(`Snapshot with id "${snapshotId}" not found.`);
     }
@@ -125,7 +150,7 @@ class QuaStoreManager {
     }
 
     const { force = false } = options || {};
-    
+
     // Check if any store has data and force is not set
     if (!force) {
       for (const [name, store] of Object.entries(this.stores)) {
@@ -146,23 +171,28 @@ class QuaStoreManager {
   }
 
   public static async getSnapshot(id: string): Promise<QSSnapshot | undefined> {
-    return await db.getSnapshot(id);
+    const storageManager = await this.getStorageManager();
+    return await storageManager.getSnapshot(id);
   }
 
   public static async listSnapshots(storeName?: string): Promise<QSSnapshotMeta[]> {
-    return await db.listSnapshots(storeName);
+    const storageManager = await this.getStorageManager();
+    return await storageManager.listSnapshots(storeName);
   }
 
   public static async deleteSnapshot(id: string): Promise<void> {
-    await db.deleteSnapshot(id);
+    const storageManager = await this.getStorageManager();
+    await storageManager.deleteSnapshot(id);
   }
 
   public static async clearSnapshots(storeName?: string): Promise<void> {
-    await db.clearSnapshots(storeName);
+    const storageManager = await this.getStorageManager();
+    await storageManager.clearSnapshots(storeName);
   }
 
   public static async clearAllSnapshots(): Promise<void> {
-    await db.clearSnapshots();
+    const storageManager = await this.getStorageManager();
+    await storageManager.clearSnapshots();
   }
 
   // Store management methods

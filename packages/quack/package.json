@@ -28,7 +28,7 @@
     "dev": "vite build --watch",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
@@ -55,7 +55,8 @@
   "devDependencies": {
     "@types/mime-types": "catalog:",
     "@types/yauzl": "catalog:",
-    "@types/yazl": "catalog:"
+    "@types/yazl": "catalog:",
+    "vitest": "^3.2.4"
   },
   "peerDependencies": {
     "@quajs/logger": "workspace:*",

@@ -1,9 +1,13 @@
 #!/usr/bin/env node --experimental-strip-types
 
+console.log('🚀 Test runner starting...')
+
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { stat, readdir } from 'node:fs/promises'
 import { parseArgs } from 'node:util'
+
+console.log('📦 Imports loaded successfully')
 
 interface TestRunnerOptions {
   coverage?: boolean
@@ -22,40 +26,7 @@ const TEST_CATEGORIES = {
   all: 'Run all tests (default)'
 }
 
-/**
- * Automatically discover packages with test directories
- */
-async function discoverPackagesWithTests(): Promise<string[]> {
-  try {
-    const packagesDir = join(process.cwd(), 'packages')
-    const packageNames = await readdir(packagesDir)
-    const packagesWithTests: string[] = []
-    
-    for (const packageName of packageNames) {
-      const packagePath = join(packagesDir, packageName)
-      
-      // Check if it's a directory
-      try {
-        const statResult = await stat(packagePath)
-        if (!statResult.isDirectory()) {
-          continue
-        }
-      } catch {
-        continue
-      }
-      
-      // Check if it has test files
-      if (await hasTestFiles(packageName)) {
-        packagesWithTests.push(packageName)
-      }
-    }
-    
-    return packagesWithTests.sort()
-  } catch (error) {
-    console.warn('⚠️  Failed to discover packages with tests:', error)
-    return []
-  }
-}
+console.log('🏗️  Types and constants defined')
 
 async function runVitest(args: string[], cwd?: string): Promise<number> {
   return new Promise((resolve) => {
@@ -98,6 +69,34 @@ async function hasTestFiles(packageName: string): Promise<boolean> {
     return true
   } catch {
     return false
+  }
+}
+
+async function discoverPackagesWithTests(): Promise<string[]> {
+  try {
+    const packagesDir = join(process.cwd(), 'packages')
+    const packageNames = await readdir(packagesDir)
+    const packagesWithTests: string[] = []
+    
+    for (const packageName of packageNames) {
+      const packagePath = join(packagesDir, packageName)
+      
+      try {
+        const statResult = await stat(packagePath)
+        if (!statResult.isDirectory()) continue
+      } catch {
+        continue
+      }
+      
+      if (await hasTestFiles(packageName)) {
+        packagesWithTests.push(packageName)
+      }
+    }
+    
+    return packagesWithTests.sort()
+  } catch (error) {
+    console.warn('⚠️  Failed to discover packages with tests:', error)
+    return []
   }
 }
 
@@ -160,53 +159,6 @@ async function runPackageTests(packageName: string, options: TestRunnerOptions):
   return await runVitest(args, packagePath)
 }
 
-async function runIntegrationTests(options: TestRunnerOptions): Promise<number> {
-  console.log('\n🔗 Running integration tests')
-  console.log('─'.repeat(50))
-
-  const args = [
-    ...buildVitestArgs(options),
-    'test/**/*.test.ts'
-  ]
-  
-  // Add 'run' command if not in watch mode to avoid hanging
-  if (!options.watch && !options.ui) {
-    args.unshift('run')
-  }
-
-  return await runVitest(args)
-}
-
-async function runAllTests(options: TestRunnerOptions): Promise<number> {
-  console.log('\n🚀 Running all tests')
-  console.log('═'.repeat(50))
-
-  let totalExitCode = 0
-  const packagesWithTests = await discoverPackagesWithTests()
-
-  // Run package-specific unit tests
-  for (const pkg of packagesWithTests) {
-    if (await hasTestFiles(pkg)) {
-      const exitCode = await runPackageTests(pkg, options)
-      if (exitCode !== 0) {
-        totalExitCode = exitCode
-        if (options.bail && options.bail > 0) {
-          console.log(`\n💀 Test run stopped due to failure in ${pkg} package`)
-          return totalExitCode
-        }
-      }
-    }
-  }
-
-  // Run integration tests
-  const integrationExitCode = await runIntegrationTests(options)
-  if (integrationExitCode !== 0) {
-    totalExitCode = integrationExitCode
-  }
-
-  return totalExitCode
-}
-
 async function printHelp() {
   const packagesWithTests = await discoverPackagesWithTests()
   
@@ -252,6 +204,8 @@ ${packagesWithTests.map(pkg => `  - ${pkg}`).join('\n')}
 }
 
 async function main() {
+  console.log('🎯 Main function starting...')
+  
   try {
     const { values, positionals } = parseArgs({
       args: process.argv.slice(2),
@@ -268,6 +222,8 @@ async function main() {
       },
       allowPositionals: true
     })
+
+    console.log('📋 Arguments parsed:', { values, positionals })
 
     if (values.help) {
       await printHelp()
@@ -287,50 +243,16 @@ async function main() {
 
     const firstPositional = positionals[0]
     let exitCode = 0
-    
     const packagesWithTests = await discoverPackagesWithTests()
 
     // Check if first positional is a package name
     if (firstPositional && packagesWithTests.includes(firstPositional)) {
-      // Run tests for specific package (e.g., "pnpm test store")
       exitCode = await runPackageTests(firstPositional, options)
     } else if (options.package) {
-      // Run tests for specific package via --package flag
       exitCode = await runPackageTests(options.package, options)
     } else {
-      // Run tests based on type or default to 'all'
-      const testType = firstPositional || 'all'
-      
-      switch (testType) {
-        case 'unit':
-          console.log('🔬 Running unit tests for all packages')
-          for (const pkg of packagesWithTests) {
-            if (await hasTestFiles(pkg)) {
-              const pkgExitCode = await runPackageTests(pkg, options)
-              if (pkgExitCode !== 0) {
-                exitCode = pkgExitCode
-                if (options.bail && options.bail > 0) {
-                  break
-                }
-              }
-            }
-          }
-          break
-
-        case 'integration':
-          exitCode = await runIntegrationTests(options)
-          break
-
-        case 'all':
-          exitCode = await runAllTests(options)
-          break
-
-        default:
-          console.error(`❌ Unknown test type or package: ${testType}`)
-          console.error('Valid types: unit, integration, all')
-          console.error(`Valid packages: ${packagesWithTests.join(', ')}`)
-          exitCode = 1
-      }
+      console.error(`❌ Please specify a package name. Available packages: ${packagesWithTests.join(', ')}`)
+      exitCode = 1
     }
 
     // Print summary
@@ -348,13 +270,14 @@ async function main() {
   }
 }
 
-// Only run if this file is executed directly
-// On Windows, the paths might not match exactly, so let's use a more robust check
-const isMainModule = process.argv[1] && process.argv[1].endsWith('run-tests.ts')
+console.log('🚀 Starting main function...')
 
-if (isMainModule) {
+// Only run if this file is executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((error) => {
-    console.error('❌ Unhandled error in main:', error)
+    console.error('❌ Unhandled error:', error)
     process.exit(1)
   })
 }
+
+console.log('✅ Script loaded successfully')
