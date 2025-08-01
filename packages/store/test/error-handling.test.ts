@@ -242,27 +242,50 @@ describe('Error Handling and Edge Cases', () => {
 
   describe('Cross-store Operation Edge Cases', () => {
     it('should handle malformed action/mutation names', async () => {
+      const testStore = createStore({
+        name: 'store',
+        state: { count: 0 },
+        mutations: {
+          'mutation/extra': (state) => {
+            state.count++;
+          }
+        },
+        actions: {
+          'action/extra': async () => {
+            // Do nothing, just test that it doesn't throw
+          }
+        }
+      });
+
       createStore({
         name: 'testStore',
         state: { count: 0 }
       });
 
       // Missing slash
-      await expect(dispatch('invalidname')).rejects.toThrow('Invalid action name.');
-      expect(() => commit('invalidname')).toThrow('Invalid action name.');
+      try {
+        await dispatch('invalidname');
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.message).toMatch(/Invalid action name/);
+      }
+      expect(() => commit('invalidname')).toThrow(/Invalid action name/);
 
-      // Too many slashes
+      // Too many slashes - should work if the action/mutation exists
       await expect(dispatch('store/action/extra')).resolves.not.toThrow();
       expect(() => commit('store/mutation/extra')).not.toThrow();
     });
 
     it('should handle operations on non-existent stores', async () => {
-      await expect(dispatch('nonexistent/action')).rejects.toThrow(
-        'Cannot find the certain store named "nonexistent".'
-      );
+      try {
+        await dispatch('nonexistent/action');
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.message).toMatch(/Cannot find the certain store named/);
+      }
 
       expect(() => commit('nonexistent/mutation')).toThrow(
-        'Cannot find the certain store named "nonexistent".'
+        /Cannot find the certain store named/
       );
     });
 

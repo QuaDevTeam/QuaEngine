@@ -74,6 +74,14 @@ class QuaStore {
    */
   private async getStorageManager(): Promise<StorageManager> {
     if (!this.storageManager) {
+      // Try to use global storage manager if available
+      const QuaStoreManager = (await import('../manager/index')).default;
+      const globalManager = await QuaStoreManager.getGlobalStorageManager();
+      if (globalManager) {
+        this.storageManager = globalManager;
+        return this.storageManager;
+      }
+      
       // Create default storage manager with IndexedDB backend
       this.storageManager = new StorageManager();
       await this.storageManager.init();
@@ -100,9 +108,6 @@ class QuaStore {
 
   public async restore(snapshotId: string, options: QSRestoreOptions = {}) {
     const { force = false } = options;
-    if (Object.keys(this.state).length && !force) {
-      throw new Error('Cannot restore snapshot due to some data already exists in store. Use force option to override.');
-    }
 
     const storageManager = await this.getStorageManager();
     const snapshot = await storageManager.getSnapshot(snapshotId);
@@ -112,6 +117,10 @@ class QuaStore {
 
     if (snapshot.storeName !== this.name) {
       throw new Error(`Snapshot belongs to store "${snapshot.storeName}", not "${this.name}".`);
+    }
+
+    if (Object.keys(this.state).length && !force) {
+      throw new Error('Cannot restore snapshot due to some data already exists in store. Use force option to override.');
     }
 
     this.state = snapshot.data;

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createStore, QuaStoreManager, MemoryBackend } from '../src/index';
+import { createStore, QuaStoreManager, MemoryBackend, QuaStore } from '../src/index';
 
 describe('QuaStore Core', () => {
   beforeEach(() => {
@@ -187,7 +187,7 @@ describe('QuaStore Core', () => {
         state: { count: 0 }
       });
 
-      const newStore = new (QuaStoreManager as any).constructor.stores.testStore.constructor('testStore', { state: { count: 1 } });
+      const newStore = new QuaStore('testStore', { state: { count: 1 } });
       
       expect(() => QuaStoreManager.register('testStore', newStore)).toThrow('The name has already been existed.');
     });

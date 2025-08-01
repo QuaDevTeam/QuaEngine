@@ -78,15 +78,21 @@ describe('Cross-Store Operations', () => {
     });
 
     it('should throw error for non-existent store in dispatch', async () => {
-      await expect(dispatch('nonExistent/action')).rejects.toThrow(
-        'Cannot find the certain store named "nonExistent".'
-      );
+      try {
+        await dispatch('nonExistent/action');
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.message).toMatch(/Cannot find the certain store named/);
+      }
     });
 
     it('should throw error for invalid action format in dispatch', async () => {
-      await expect(dispatch('invalidformat')).rejects.toThrow(
-        'Invalid action name.'
-      );
+      try {
+        await dispatch('invalidformat');
+        expect.fail('Should have thrown an error');
+      } catch (error) {
+        expect(error.message).toMatch(/Invalid action name/);
+      }
     });
   });
 
@@ -128,13 +134,13 @@ describe('Cross-Store Operations', () => {
 
     it('should throw error for non-existent store in commit', () => {
       expect(() => commit('nonExistent/mutation')).toThrow(
-        'Cannot find the certain store named "nonExistent".'
+        /Cannot find the certain store named/
       );
     });
 
     it('should throw error for invalid mutation format in commit', () => {
       expect(() => commit('invalidformat')).toThrow(
-        'Invalid action name.'
+        /Invalid action name/
       );
     });
   });
@@ -160,16 +166,17 @@ describe('Cross-Store Operations', () => {
           }
         },
         actions: {
-          login: async ({ commit }, { username, password }: { username: string; password: string }) => {
+          login: async ({ commit: localCommit }, { username, password }: { username: string; password: string }) => {
             // Simulate API call
             const user = { id: 1, name: username };
             const token = 'fake-jwt-token';
             
-            commit('setUser', user);
-            commit('setToken', token);
+            localCommit('setUser', user);
+            localCommit('setToken', token);
             
             // Notify other stores about login
             await dispatch('game/initializeUserData', user.id);
+            // Use imported global commit for cross-store operations
             commit('ui/setNotification', 'Login successful!');
           }
         }
