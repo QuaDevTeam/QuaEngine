@@ -30,12 +30,12 @@
     "node": ">=20"
   },
   "dependencies": {
-    "dexie": "^4.0.8",
     "@quajs/logger": "workspace:*",
-    "@quajs/utils": "workspace:*"
+    "@quajs/utils": "workspace:*",
+    "dexie": "^4.0.8"
   },
   "devDependencies": {
+    "fake-indexeddb": "^6.0.1",
     "vitest": "^3.2.4"
-  },
-  "peerDependencies": {}
+  }
 }

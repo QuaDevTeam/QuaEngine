@@ -41,8 +41,8 @@ describe('Snapshot System', () => {
       expect(store.state.count).toBe(2);
       expect(store.state.name).toBe('further-modified');
 
-      // Restore snapshot
-      await store.restore(snapshotId);
+      // Restore snapshot with force option since there's existing data
+      await store.restore(snapshotId, { force: true });
       expect(store.state.count).toBe(1);
       expect(store.state.name).toBe('modified');
     });
@@ -118,19 +118,22 @@ describe('Snapshot System', () => {
     });
 
     it('should throw error when restoring snapshot from different store', async () => {
+      QuaStoreManager.configureStorage({ backend: MemoryBackend });
+
       const store1 = createStore({
         name: 'store1',
-        state: { count: 1 },
-        storage: { backend: MemoryBackend }
+        state: { count: 1 }
+        // Don't specify storage - let it use global storage
       });
 
       const store2 = createStore({
         name: 'store2',
-        state: { count: 2 },
-        storage: { backend: MemoryBackend }
+        state: { count: 2 }
+        // Don't specify storage - let it use global storage
       });
 
-      const snapshotId = await store1.snapshot();
+      // Use manager snapshot so both stores can see it
+      const snapshotId = await QuaStoreManager.snapshot('store1');
 
       await expect(store2.restore(snapshotId)).rejects.toThrow(
         'Snapshot belongs to store "store1", not "store2".'
@@ -213,12 +216,12 @@ describe('Snapshot System', () => {
 
       const store = createStore({
         name: 'testStore',
-        state: { count: 0 },
-        storage: { backend: MemoryBackend }
+        state: { count: 0 }
+        // Don't specify storage - let it use global storage
       });
 
-      await store.snapshot('snap-1');
-      await store.snapshot('snap-2');
+      await QuaStoreManager.snapshot('testStore', 'snap-1');
+      await QuaStoreManager.snapshot('testStore', 'snap-2');
 
       const snapshots = await QuaStoreManager.listSnapshots('testStore');
       expect(snapshots).toHaveLength(2);
@@ -234,11 +237,11 @@ describe('Snapshot System', () => {
 
       const store = createStore({
         name: 'testStore',
-        state: { count: 0 },
-        storage: { backend: MemoryBackend }
+        state: { count: 0 }
+        // Don't specify storage - let it use global storage
       });
 
-      await store.snapshot('to-delete');
+      await QuaStoreManager.snapshot('testStore', 'to-delete');
       
       let snapshots = await QuaStoreManager.listSnapshots('testStore');
       expect(snapshots.some(s => s.id === 'to-delete')).toBe(true);
@@ -254,18 +257,18 @@ describe('Snapshot System', () => {
 
       const store1 = createStore({
         name: 'store1',
-        state: { count: 0 },
-        storage: { backend: MemoryBackend }
+        state: { count: 0 }
+        // Don't specify storage - let it use global storage
       });
 
       const store2 = createStore({
         name: 'store2',
-        state: { count: 0 },
-        storage: { backend: MemoryBackend }
+        state: { count: 0 }
+        // Don't specify storage - let it use global storage
       });
 
-      await store1.snapshot('snap-1');
-      await store2.snapshot('snap-2');
+      await QuaStoreManager.snapshot('store1', 'snap-1');
+      await QuaStoreManager.snapshot('store2', 'snap-2');
 
       // Clear snapshots for specific store
       await QuaStoreManager.clearSnapshots('store1');
@@ -296,11 +299,11 @@ describe('Snapshot System', () => {
 
       const store = createStore({
         name: 'testStore',
-        state: { count: 0 },
-        storage: { backend: MemoryBackend }
+        state: { count: 0 }
+        // Don't specify storage - let it use global storage
       });
 
-      const snapshotId = await store.snapshot('individual');
+      const snapshotId = await QuaStoreManager.snapshot('testStore', 'individual');
 
       await expect(QuaStoreManager.restoreAll(snapshotId)).rejects.toThrow(
         `Snapshot "${snapshotId}" is not a global snapshot.`
