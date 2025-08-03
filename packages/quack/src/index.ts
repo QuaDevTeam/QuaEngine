@@ -1,8 +1,8 @@
 // Main bundler class
-export { QuackBundler, defineConfig } from './bundler'
+export { QuackBundler, defineConfig } from './core/bundler'
 
 // Workspace management
-export { WorkspaceManager } from './workspace'
+export { WorkspaceManager } from './workspace/workspace'
 
 // Core types
 export type {
@@ -30,21 +30,26 @@ export type {
   PatchOptions,
   MultiBundlePatchOptions,
   AssetDiff,
-  MerkleNode
-} from './types'
+  MerkleNode,
+  ImageMetadata,
+  AudioMetadata,
+  VideoMetadata,
+  MediaMetadata
+} from './core/types'
 
 // Bundler implementations
-export { ZipBundler } from './zip-bundler'
-export { QPKBundler } from './qpk-bundler'
+export { ZipBundler } from './bundlers/zip-bundler'
+export { QPKBundler } from './bundlers/qpk-bundler'
 
 // Core utilities
-export { AssetDetector } from './asset-detector'
-export { MetadataGenerator } from './metadata'
-export { PluginManager } from './plugin-manager'
-export { EncryptionManager } from './encryption'
-export { VersionManager } from './versioning'
-export { PatchGenerator } from './patch-generator'
+export { AssetDetector } from './assets/asset-detector'
+export { MetadataGenerator } from './assets/metadata'
+export { MediaMetadataExtractor } from './assets/media-extractor'
+export { PluginManager } from './managers/plugin-manager'
+export { EncryptionManager } from './crypto/encryption'
+export { VersionManager } from './workspace/versioning'
+export { PatchGenerator } from './workspace/patch-generator'
 
 // Plugin base classes and types
-export { QuackPlugin } from './types'
-export type { EncryptionPlugin } from './types'
+export { QuackPlugin } from './core/types'
+export type { EncryptionPlugin } from './core/types'

@@ -16,32 +16,39 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(import.meta.dirname, 'src/index.ts'),
-        cli: resolve(import.meta.dirname, 'src/cli.ts'),
-        'plugins/index': resolve(import.meta.dirname, 'src/plugins/index.ts')
+        'cli/index': resolve(import.meta.dirname, 'src/cli/index.ts')
       },
       formats: ['es'],
     },
     rollupOptions: {
       external: [
-        'node:fs', 'node:fs/promises', 'node:path', 'node:process', 'node:url', 'node:util', 'node:crypto', 'node:stream', 'node:os',
+        // Node.js built-in modules
+        'node:fs', 'node:fs/promises', 'node:path', 'node:process', 'node:url', 
+        'node:util', 'node:crypto', 'node:stream', 'node:os', 'node:buffer',
+        // External dependencies
         'commander', 'lzma-native', 'glob', 'mime-types', 'yauzl', 'yazl',
+        // QuaJS packages
         '@quajs/logger', '@quajs/utils'
       ],
       output: {
         preserveModules: true,
         entryFileNames: '[name].js',
         chunkFileNames: '[name].js',
-        globals: {
-          '@quajs/logger': 'QuaLogger',
-          '@quajs/utils': 'QuaUtils'
-        },
       },
     },
     target: 'node18',
+    // Optimize for Node.js environment
+    minify: false, // Keep readable for debugging
+    sourcemap: true, // Enable source maps for debugging
   },
   resolve: {
     alias: {
       '@': resolve(import.meta.dirname, 'src'),
     },
+    conditions: ['node'], // Prefer Node.js conditions
+  },
+  // Explicitly set environment to Node.js
+  define: {
+    'process.env.NODE_ENV': '"production"'
   },
 })

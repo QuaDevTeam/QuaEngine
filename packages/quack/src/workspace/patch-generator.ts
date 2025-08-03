@@ -2,9 +2,9 @@ import { readFile, writeFile, mkdir, stat } from 'node:fs/promises'
 import { join, dirname, basename } from 'node:path'
 import { createHash } from 'node:crypto'
 import { createLogger } from '@quajs/logger'
-import { ZipBundler } from './zip-bundler'
-import { QPKBundler } from './qpk-bundler'
-import { MetadataGenerator } from './metadata'
+import { ZipBundler } from '../bundlers/zip-bundler'
+import { QPKBundler } from '../bundlers/qpk-bundler'
+import { MetadataGenerator } from '../assets/metadata'
 import { VersionManager } from './versioning'
 import type { 
   BuildLog, 
@@ -18,7 +18,7 @@ import type {
   EncryptionPlugin,
   EncryptionAlgorithm,
   WorkspaceBundleIndex
-} from './types'
+} from '../core/types'
 
 const logger = createLogger('quack:patch-generator')
 
@@ -175,6 +175,9 @@ export class PatchGenerator {
     if (lowerPath.includes('/audio/') || lowerPath.startsWith('audio/')) {
       return 'audio'
     }
+    if (lowerPath.includes('/video/') || lowerPath.startsWith('video/')) {
+      return 'video'
+    }
     if (lowerPath.includes('/scripts/') || lowerPath.startsWith('scripts/')) {
       return 'scripts'
     }
@@ -186,6 +189,9 @@ export class PatchGenerator {
     }
     if (['mp3', 'wav', 'ogg', 'flac'].includes(ext || '')) {
       return 'audio'
+    }
+    if (['mp4', 'webm', 'avi', 'mov'].includes(ext || '')) {
+      return 'video'
     }
     if (['js', 'mjs', 'json'].includes(ext || '')) {
       return 'scripts'

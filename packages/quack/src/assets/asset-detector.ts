@@ -5,7 +5,8 @@ import { glob } from 'glob'
 import { lookup } from 'mime-types'
 import { createLogger } from '@quajs/logger'
 import { isString } from '@quajs/utils'
-import type { AssetInfo, AssetType, AssetSubType, LocaleInfo } from './types'
+import { MediaMetadataExtractor } from './media-extractor'
+import type { AssetInfo, AssetType, AssetSubType, LocaleInfo } from '../core/types'
 
 const logger = createLogger('quack:asset-detector')
 
@@ -56,6 +57,14 @@ const ASSET_PATTERNS = {
       bgm: ['bgm', 'music', 'theme', 'background']
     }
   },
+  video: {
+    extensions: ['.mp4', '.webm', '.avi', '.mov', '.mkv', '.wmv', '.flv'],
+    subTypes: {
+      cutscenes: ['cutscene', 'cutscenes', 'movie', 'cinema'],
+      effects: ['effect', 'effects', 'fx', 'particle'],
+      intro: ['intro', 'opening', 'title', 'credits']
+    }
+  },
   scripts: {
     extensions: ['.js', '.mjs'],
     subTypes: {
@@ -73,6 +82,7 @@ const ASSET_PATTERNS = {
 
 export class AssetDetector {
   private ignoredPatterns: string[]
+  private mediaExtractor: MediaMetadataExtractor
 
   constructor(ignoredPatterns: string[] = []) {
     this.ignoredPatterns = [
@@ -84,6 +94,7 @@ export class AssetDetector {
       '**/*.temp',
       ...ignoredPatterns
     ]
+    this.mediaExtractor = new MediaMetadataExtractor()
   }
 
   /**
@@ -152,6 +163,16 @@ export class AssetDetector {
     // Get MIME type
     const mimeType = lookup(extension) || undefined
 
+    // Extract media metadata for supported types
+    let mediaMetadata = undefined
+    if (['images', 'characters', 'audio', 'video'].includes(assetType)) {
+      try {
+        mediaMetadata = await this.mediaExtractor.extractMetadata(filePath)
+      } catch (error) {
+        logger.warn(`Failed to extract media metadata for ${relativePath}:`, error)
+      }
+    }
+
     return {
       name: basename(filePath),
       path: filePath,
@@ -161,7 +182,8 @@ export class AssetDetector {
       type: assetType,
       subType,
       locales,
-      mimeType
+      mimeType,
+      mediaMetadata
     }
   }
 
@@ -180,6 +202,9 @@ export class AssetDetector {
     }
     if (pathLower.includes('/audio/') || pathLower.startsWith('audio/')) {
       return 'audio'
+    }
+    if (pathLower.includes('/video/') || pathLower.startsWith('video/')) {
+      return 'video'
     }
     if (pathLower.includes('/scripts/') || pathLower.startsWith('scripts/')) {
       return 'scripts'
@@ -362,6 +387,7 @@ export class AssetDetector {
       images: {},
       characters: {},
       audio: {},
+      video: {},
       scripts: {},
       data: {}
     }

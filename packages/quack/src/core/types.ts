@@ -1,8 +1,9 @@
-export type AssetType = 'images' | 'characters' | 'audio' | 'scripts' | 'data'
+export type AssetType = 'images' | 'characters' | 'audio' | 'video' | 'scripts' | 'data'
 export type AssetSubType = 
   | 'backgrounds' | 'cg' | 'ui' // Images
   | 'sprites' // Characters  
   | 'sfx' | 'voice' | 'bgm' // Audio
+  | 'cutscenes' | 'effects' | 'intro' // Video
   | 'logic' // Scripts
   | 'config' | 'save' // Data
 
@@ -11,6 +12,39 @@ export type CompressionAlgorithm = 'none' | 'deflate' | 'lzma'
 export type EncryptionAlgorithm = 'none' | 'xor' | 'custom'
 
 export type PatchOperation = 'added' | 'modified' | 'deleted'
+
+// Media metadata interfaces
+export interface ImageMetadata {
+  width: number
+  height: number
+  aspectRatio: number
+  animated: boolean
+  format: string // e.g., 'PNG', 'JPEG', 'GIF', 'WebP'
+  colorDepth?: number
+  hasAlpha?: boolean
+}
+
+export interface AudioMetadata {
+  duration: number // Duration in seconds
+  format: string // e.g., 'MP3', 'WAV', 'OGG', 'FLAC'
+  bitrate?: number
+  sampleRate?: number
+  channels?: number
+}
+
+export interface VideoMetadata {
+  width: number
+  height: number
+  aspectRatio: number
+  duration: number // Duration in seconds
+  format: string // e.g., 'MP4', 'WebM', 'AVI', 'MOV'
+  frameRate?: number
+  bitrate?: number
+  hasAudio?: boolean
+  codec?: string
+}
+
+export type MediaMetadata = ImageMetadata | AudioMetadata | VideoMetadata
 
 export interface AssetInfo {
   name: string
@@ -24,6 +58,7 @@ export interface AssetInfo {
   mimeType?: string
   mtime?: number
   version?: number // Asset version number
+  mediaMetadata?: MediaMetadata // Extracted media information
 }
 
 export interface LocaleInfo {

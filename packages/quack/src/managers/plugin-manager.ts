@@ -1,5 +1,5 @@
 import { createLogger } from '@quajs/logger'
-import type { QuackPlugin, AssetContext, QuackConfig, BundleManifest } from './types'
+import type { QuackPlugin, AssetContext, QuackConfig, BundleManifest } from '../core/types'
 
 const logger = createLogger('quack:plugin-manager')
 
