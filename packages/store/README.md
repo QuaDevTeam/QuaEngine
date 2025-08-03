@@ -365,4 +365,4 @@ This package is part of the QuaEngine project. See the main repository for contr
 
 ## License
 
-MIT License - see the main QuaEngine repository for details.
+Apache 2.0 - see the main QuaEngine repository for details.
