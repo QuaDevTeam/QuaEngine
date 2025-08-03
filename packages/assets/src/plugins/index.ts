@@ -14,7 +14,7 @@ import type {
 export class XORDecryptionPlugin implements DecryptionPlugin {
   name = 'xor-decryption'
   version = '1.0.0'
-  
+
   private key: string
 
   constructor(key: string) {
@@ -46,7 +46,7 @@ export class XORDecryptionPlugin implements DecryptionPlugin {
 export class AESDecryptionPlugin implements DecryptionPlugin {
   name = 'aes-decryption'
   version = '1.0.0'
-  
+
   private key: string
 
   constructor(key: string) {
@@ -106,52 +106,52 @@ export class LZMADecompressionPlugin implements DecompressionPlugin {
     // In a full implementation, this would parse the QPK format properly
     // The main LZMA functionality is implemented in BundleLoader.decompressLZMA()
     const files = new Map<string, Uint8Array>()
-    
+
     // Basic QPK header parsing (simplified for plugin demo)
     const view = new DataView(buffer)
     let offset = 0
-    
+
     // Check magic number
     const magic = view.getUint32(offset, true)
     if (magic !== 0x51504B00) { // 'QPK\0'
       throw new Error('Invalid QPK file: magic number mismatch')
     }
     offset += 4
-    
+
     // Skip version, compression, encryption
     offset += 12
-    
+
     // Read file count
     const fileCount = view.getUint32(offset, true)
     offset += 4
-    
+
     // Read file entries (simplified - doesn't handle LZMA decompression here)
     for (let i = 0; i < fileCount && offset < buffer.byteLength; i++) {
       // Read filename length
       const nameLength = view.getUint32(offset, true)
       offset += 4
-      
+
       if (nameLength === 0 || offset + nameLength > buffer.byteLength) break
-      
+
       // Read filename
       const nameBytes = new Uint8Array(buffer, offset, nameLength)
       const filename = new TextDecoder().decode(nameBytes)
       offset += nameLength
-      
+
       // Read compressed size
       const compressedSize = view.getUint32(offset, true)
       offset += 4
-      
+
       // Skip uncompressed size
       offset += 4
-      
+
       // Read file data (not decompressing in plugin - just extracting)
       const fileData = new Uint8Array(buffer, offset, compressedSize)
       offset += compressedSize
-      
+
       files.set(filename, fileData)
     }
-    
+
     return files
   }
 
@@ -160,14 +160,14 @@ export class LZMADecompressionPlugin implements DecompressionPlugin {
    */
   async decompressData(data: Uint8Array, expectedSize?: number): Promise<Uint8Array> {
     const LZMA = (await import('lzma-web')).default
-    
+
     try {
       // Create LZMA decompressor instance
       const lzma = new LZMA()
-      
+
       // Use the data directly as Uint8Array - lzma-web should handle this
       const decompressed = await lzma.decompress(data)
-      
+
       // Convert result back to Uint8Array
       let resultArray: Uint8Array
       if (typeof decompressed === 'string') {
@@ -182,14 +182,14 @@ export class LZMADecompressionPlugin implements DecompressionPlugin {
       } else {
         throw new Error('Unexpected decompression result type')
       }
-      
+
       // Verify decompressed size if expected size is provided
       if (expectedSize !== undefined && resultArray.length !== expectedSize) {
         throw new Error(`LZMA decompression size mismatch: expected ${expectedSize}, got ${resultArray.length}`)
       }
-      
+
       return resultArray
-      
+
     } catch (error) {
       throw new Error(`LZMA decompression failed: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -365,19 +365,19 @@ export class CompressionDetectionPlugin implements DecompressionPlugin {
 
   async decompress(buffer: ArrayBuffer, _format: BundleFormat): Promise<Map<string, Uint8Array>> {
     const view = new DataView(buffer)
-    
+
     // Detect actual compression format from magic bytes
     const magic = view.getUint32(0, false)
-    
+
     switch (magic) {
       case 0x504B0304: // ZIP magic
       case 0x504B0506: // ZIP central directory
       case 0x504B0708: // ZIP data descriptor
         return this.decompressPKZip(buffer)
-      
+
       case 0x51504B00: // QPK magic
         return this.decompressQPK(buffer)
-      
+
       default:
         throw new Error(`Unsupported compression format: 0x${magic.toString(16)}`)
     }

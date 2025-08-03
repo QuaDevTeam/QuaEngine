@@ -1,9 +1,9 @@
 import { unzip, inflate } from 'fflate'
 import LZMA from 'lzma-web'
-import type { 
-  BundleFormat, 
-  BundleManifest, 
-  StoredAsset, 
+import type {
+  BundleFormat,
+  BundleManifest,
+  StoredAsset,
   AssetType,
   LoadBundleOptions,
   DecompressionPlugin,
@@ -56,22 +56,22 @@ export class BundleLoader {
     try {
       // Download bundle with retry logic
       const buffer = await this.downloadWithRetry(url, options)
-      
+
       // Determine format from URL or content
       const format = this.detectBundleFormat(url, buffer)
-      
+
       // Decrypt if necessary
       const decryptedBuffer = await this.decryptBundle(buffer)
-      
+
       // Decompress and extract files
       const files = await this.decompressBundle(decryptedBuffer, format)
-      
+
       // Parse manifest
       const manifest = await this.parseManifest(files)
-      
+
       // Convert files to StoredAsset objects
       const assets = await this.createStoredAssets(files, manifest, bundleName)
-      
+
       return { manifest, assets }
     } catch (error) {
       throw new BundleLoadError(
@@ -89,23 +89,23 @@ export class BundleLoader {
     options: LoadBundleOptions
   ): Promise<ArrayBuffer> {
     let lastError: Error | null = null
-    
+
     for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
       try {
         return await this.downloadBundle(url, options)
       } catch (error) {
         lastError = error as Error
-        
+
         if (attempt === this.retryAttempts) {
           break
         }
-        
+
         // Exponential backoff
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000)
         await new Promise(resolve => setTimeout(resolve, delay))
       }
     }
-    
+
     throw lastError || new Error('Download failed after retries')
   }
 
@@ -117,19 +117,19 @@ export class BundleLoader {
     options: LoadBundleOptions
   ): Promise<ArrayBuffer> {
     const controller = new AbortController()
-    
+
     // Set up timeout
     const timeoutId = setTimeout(() => {
       controller.abort()
     }, this.timeout)
-    
+
     // Use provided abort signal if available
     if (options.signal) {
       options.signal.addEventListener('abort', () => {
         controller.abort()
       })
     }
-    
+
     try {
       const response = await fetch(url, {
         signal: controller.signal,
@@ -137,46 +137,46 @@ export class BundleLoader {
           'Cache-Control': options.enableCache !== false ? 'max-age=3600' : 'no-cache'
         }
       })
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
-      
+
       const contentLength = response.headers.get('content-length')
       const total = contentLength ? parseInt(contentLength, 10) : 0
-      
+
       if (!response.body) {
         throw new Error('Response body is null')
       }
-      
+
       const reader = response.body.getReader()
       const chunks: Uint8Array[] = []
       let loaded = 0
-      
+
       while (true) {
         const { done, value } = await reader.read()
-        
+
         if (done) break
-        
+
         chunks.push(value)
         loaded += value.length
-        
+
         // Report progress
         if (options.onProgress && total > 0) {
           options.onProgress(loaded, total)
         }
       }
-      
+
       // Combine chunks into single ArrayBuffer
       const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
       const result = new Uint8Array(totalLength)
       let offset = 0
-      
+
       for (const chunk of chunks) {
         result.set(chunk, offset)
         offset += chunk.length
       }
-      
+
       return result.buffer
     } finally {
       clearTimeout(timeoutId)
@@ -194,20 +194,20 @@ export class BundleLoader {
     if (url.endsWith('.zip')) {
       return 'zip'
     }
-    
+
     // Check magic bytes
     const view = new DataView(buffer)
-    
+
     // ZIP magic: PK (0x504B)
     if (view.getUint16(0, false) === 0x504B) {
       return 'zip'
     }
-    
+
     // QPK magic: 'QPK\0' (0x51504B00)
     if (view.getUint32(0, false) === 0x51504B00) {
       return 'qpk'
     }
-    
+
     // Default to ZIP for unknown formats
     return 'zip'
   }
@@ -217,7 +217,7 @@ export class BundleLoader {
    */
   private async decryptBundle(buffer: ArrayBuffer): Promise<ArrayBuffer> {
     let result = buffer
-    
+
     for (const plugin of this.decryptionPlugins) {
       try {
         result = await plugin.decrypt(result)
@@ -225,7 +225,7 @@ export class BundleLoader {
         console.warn(`Decryption plugin ${plugin.name} failed:`, error)
       }
     }
-    
+
     return result
   }
 
@@ -241,7 +241,7 @@ export class BundleLoader {
     if (plugin) {
       return await plugin.decompress(buffer, format)
     }
-    
+
     // Fall back to built-in decompression
     switch (format) {
       case 'zip':
@@ -260,19 +260,19 @@ export class BundleLoader {
   private async decompressZip(buffer: ArrayBuffer): Promise<Map<string, Uint8Array>> {
     return new Promise((resolve, reject) => {
       const uint8Array = new Uint8Array(buffer)
-      
+
       unzip(uint8Array, (error, files) => {
         if (error) {
           reject(new Error(`ZIP decompression failed: ${error.message}`))
           return
         }
-        
+
         const result = new Map<string, Uint8Array>()
-        
+
         for (const [filename, fileData] of Object.entries(files)) {
           result.set(filename, fileData)
         }
-        
+
         resolve(result)
       })
     })
@@ -284,62 +284,62 @@ export class BundleLoader {
   private async decompressQPK(buffer: ArrayBuffer): Promise<Map<string, Uint8Array>> {
     const view = new DataView(buffer)
     let offset = 0
-    
+
     // Verify QPK magic
     const magic = view.getUint32(offset, false)
     if (magic !== 0x51504B00) { // 'QPK\0'
       throw new Error('Invalid QPK file: magic number mismatch')
     }
     offset += 4
-    
+
     // Read version
     const version = view.getUint32(offset, true)
     offset += 4
-    
+
     if (version !== 1) {
       throw new Error(`Unsupported QPK version: ${version}`)
     }
-    
+
     // Read compression algorithm
     const compressionType = view.getUint32(offset, true)
     offset += 4
-    
+
     // Read encryption flags (unused for now)
     view.getUint32(offset, true) // _encryptionFlags
     offset += 4
-    
+
     // Read file count
     const fileCount = view.getUint32(offset, true)
     offset += 4
-    
+
     const files = new Map<string, Uint8Array>()
-    
+
     // Read file entries
     for (let i = 0; i < fileCount; i++) {
       // Read filename length
       const nameLength = view.getUint32(offset, true)
       offset += 4
-      
+
       // Read filename
       const nameBytes = new Uint8Array(buffer, offset, nameLength)
       const filename = new TextDecoder().decode(nameBytes)
       offset += nameLength
-      
+
       // Read compressed size
       const compressedSize = view.getUint32(offset, true)
       offset += 4
-      
+
       // Read uncompressed size
       const uncompressedSize = view.getUint32(offset, true)
       offset += 4
-      
+
       // Read file data
       const fileData = new Uint8Array(buffer, offset, compressedSize)
       offset += compressedSize
-      
+
       // Decompress file data based on compression type
       let decompressedData: Uint8Array
-      
+
       switch (compressionType) {
         case 0: // No compression
           decompressedData = fileData
@@ -365,10 +365,10 @@ export class BundleLoader {
         default:
           throw new Error(`Unsupported compression type: ${compressionType}`)
       }
-      
+
       files.set(filename, decompressedData)
     }
-    
+
     return files
   }
 
@@ -379,10 +379,10 @@ export class BundleLoader {
     try {
       // Create LZMA decompressor instance
       const lzma = new LZMA()
-      
+
       // Use the data directly as Uint8Array - lzma-web should handle this
       const decompressed = await lzma.decompress(data)
-      
+
       // Convert result back to Uint8Array
       // The result could be a string or number array depending on the compressed data
       let resultArray: Uint8Array
@@ -398,14 +398,14 @@ export class BundleLoader {
       } else {
         throw new Error('Unexpected decompression result type')
       }
-      
+
       // Verify decompressed size if expected size is provided
       if (expectedSize !== undefined && resultArray.length !== expectedSize) {
         throw new Error(`LZMA decompression size mismatch: expected ${expectedSize}, got ${resultArray.length}`)
       }
-      
+
       return resultArray
-      
+
     } catch (error) {
       throw new Error(`LZMA decompression failed: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -419,7 +419,7 @@ export class BundleLoader {
     if (!manifestData) {
       throw new Error('Bundle manifest not found')
     }
-    
+
     try {
       const manifestText = new TextDecoder().decode(manifestData)
       return JSON.parse(manifestText) as BundleManifest
@@ -438,7 +438,7 @@ export class BundleLoader {
   ): Promise<StoredAsset[]> {
     const assets: StoredAsset[] = []
     const now = Date.now()
-    
+
     // Iterate through all asset types in manifest
     for (const [assetType, typeData] of Object.entries(manifest.assets)) {
       for (const [subType, subTypeData] of Object.entries(typeData)) {
@@ -447,7 +447,7 @@ export class BundleLoader {
           for (const locale of assetInfo.locales) {
             const filePath = this.constructAssetPath(assetType as AssetType, subType, filename, locale)
             const fileData = files.get(filePath)
-            
+
             if (fileData) {
               // Verify hash if available
               if (assetInfo.hash) {
@@ -456,7 +456,7 @@ export class BundleLoader {
                   throw new IntegrityError(assetInfo.hash, actualHash)
                 }
               }
-              
+
               const asset: StoredAsset = {
                 id: `${bundleName}:${locale}:${assetType}:${filename}`,
                 bundleName,
@@ -471,14 +471,14 @@ export class BundleLoader {
                 createdAt: now,
                 lastAccessed: now
               }
-              
+
               assets.push(asset)
             }
           }
         }
       }
     }
-    
+
     return assets
   }
 
@@ -494,16 +494,16 @@ export class BundleLoader {
     if (locale === 'default') {
       return `${type}/${subType}/${filename}`
     }
-    
+
     // Check for locale in filename (file-based locales)
     // Extract name without extension and extension (currently unused)
     filename.substring(0, filename.lastIndexOf('.')) // nameWithoutExt
     filename.substring(filename.lastIndexOf('.')) // ext
-    
+
     if (filename.includes(`.${locale}.`)) {
       return `${type}/${subType}/${filename}`
     }
-    
+
     // Check for locale folder (folder-based locales)
     return `${type}/${subType}/${locale}/${filename}`
   }

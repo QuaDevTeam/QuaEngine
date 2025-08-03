@@ -43,7 +43,7 @@ export class QuaAssets {
     if (!endpoint || typeof endpoint !== 'string' || endpoint.trim() === '') {
       throw new Error('Invalid endpoint URL')
     }
-    
+
     // Validate URL format
     try {
       const url = new URL(endpoint)
@@ -53,19 +53,19 @@ export class QuaAssets {
     } catch (error) {
       throw new Error('Invalid endpoint URL format')
     }
-    
+
     if (config.cacheSize !== undefined && config.cacheSize <= 0) {
       throw new Error('Cache size must be positive')
     }
-    
+
     if (config.retryAttempts !== undefined && config.retryAttempts < 0) {
       throw new Error('Retry attempts must be non-negative')
     }
-    
+
     if (config.timeout !== undefined && config.timeout <= 0) {
       throw new Error('Timeout must be positive')
     }
-    
+
     if (config.locale !== undefined) {
       if (typeof config.locale !== 'string') {
         throw new Error('Locale must be a string')
@@ -76,7 +76,7 @@ export class QuaAssets {
         throw new Error('Invalid locale format')
       }
     }
-    
+
     // Merge with defaults
     this.config = {
       endpoint: endpoint.replace(/\/$/, ''), // Remove trailing slash
@@ -101,12 +101,12 @@ export class QuaAssets {
       this.config.indexedDBName,
       this.config.indexedDBVersion
     )
-    
+
     this.bundleLoader = new BundleLoader(
       this.config.retryAttempts,
       this.config.timeout
     )
-    
+
     this.assetManager = new AssetManager(this.database, this.currentLocale)
     this.patchManager = new PatchManager(this.database, this.bundleLoader)
 
@@ -124,7 +124,7 @@ export class QuaAssets {
 
     try {
       await this.database.open()
-      
+
       // Initialize plugins
       for (const plugin of this.config.plugins) {
         if (plugin.initialize) {
@@ -176,7 +176,7 @@ export class QuaAssets {
   async loadBundle(bundleName: string, options: LoadBundleOptions = {}): Promise<void> {
     // Extract bundle name without extension for consistent status tracking
     const baseBundleName = bundleName.replace(/\.(qpk|bundle)$/, '')
-    
+
     // Always set bundle status first, regardless of initialization
     this.bundleStatuses.set(baseBundleName, {
       name: baseBundleName,
@@ -192,7 +192,7 @@ export class QuaAssets {
       this.ensureInitialized()
 
       const bundleUrl = `${this.config.endpoint}/${bundleName}`
-      
+
       this.emit('bundle:loading', { bundleName: baseBundleName })
 
       // Check if bundle already exists and force flag
@@ -208,7 +208,7 @@ export class QuaAssets {
             loadedAssets: existingBundle.assetCount,
             lastUpdated: existingBundle.lastUpdated
           })
-          
+
           this.emit('bundle:loaded', { bundleName: baseBundleName, status: this.bundleStatuses.get(baseBundleName)! })
           return
         }
@@ -220,7 +220,7 @@ export class QuaAssets {
         onProgress: (loaded, total) => {
           const progress = total > 0 ? loaded / total : 0
           this.updateBundleProgress(baseBundleName, progress * 0.8) // Reserve 20% for processing
-          
+
           if (options.onProgress) {
             options.onProgress(loaded, total)
           }
@@ -273,7 +273,7 @@ export class QuaAssets {
       logger.info(`Bundle ${baseBundleName} loaded successfully (${assets.length} assets)`)
 
     } catch (error) {
-      const bundleError = error instanceof BundleLoadError ? error : 
+      const bundleError = error instanceof BundleLoadError ? error :
         new BundleLoadError(`Failed to load bundle: ${error instanceof Error ? error.message : String(error)}`, baseBundleName)
 
       this.bundleStatuses.set(baseBundleName, {
@@ -406,7 +406,7 @@ export class QuaAssets {
     options?: LoadAssetOptions
   }>): Promise<void> {
     this.ensureInitialized()
-    
+
     const enhancedRequests = requests.map(req => ({
       ...req,
       options: {
@@ -414,7 +414,7 @@ export class QuaAssets {
         ...req.options
       }
     }))
-    
+
     await this.assetManager.preloadAssets(enhancedRequests)
   }
 
@@ -439,11 +439,11 @@ export class QuaAssets {
     if (plugin instanceof Object && 'supportedFormats' in plugin) {
       this.bundleLoader.registerDecompressionPlugin(plugin as DecompressionPlugin)
     }
-    
+
     if (plugin instanceof Object && 'decrypt' in plugin) {
       this.bundleLoader.registerDecryptionPlugin(plugin as DecryptionPlugin)
     }
-    
+
     if (plugin instanceof Object && 'supportedTypes' in plugin) {
       this.assetManager.registerProcessingPlugin(plugin as AssetProcessingPlugin)
     }
@@ -463,7 +463,7 @@ export class QuaAssets {
 
     // Extract patch filename (currently unused)
     patchUrl.split('/').pop() || 'patch' // patchFileName
-    
+
     // Update bundle status to show patching
     const existingStatus = this.bundleStatuses.get(targetBundleName)
     if (existingStatus) {
@@ -473,7 +473,7 @@ export class QuaAssets {
 
     try {
       const result = await this.patchManager.applyPatch(patchUrl, targetBundleName, options)
-      
+
       if (result.success) {
         // Update bundle status
         if (existingStatus) {
@@ -498,11 +498,11 @@ export class QuaAssets {
         existingStatus.state = 'error'
         existingStatus.error = error as Error
       }
-      
+
       // Log the error
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('Patch application failed:', error)
-      
+
       // Return error result instead of throwing
       return {
         success: false,
@@ -537,7 +537,7 @@ export class QuaAssets {
     changeCount: number
   }>> {
     this.ensureInitialized()
-    
+
     const version = currentVersion || this.bundleStatuses.get(bundleName)?.version || 1
     return await this.patchManager.getAvailablePatches(
       this.config.endpoint,
@@ -551,14 +551,14 @@ export class QuaAssets {
    */
   async canApplyPatch(patchUrl: string, targetBundleName: string): Promise<boolean> {
     this.ensureInitialized()
-    
+
     try {
       const { manifest } = await this.bundleLoader.loadBundle(
         patchUrl,
         'temp_patch_check',
         { enableCache: false }
       )
-      
+
       return await this.patchManager.canApplyPatch(manifest, targetBundleName)
     } catch (error) {
       return false
@@ -596,7 +596,7 @@ export class QuaAssets {
     totalSize: number
   }> {
     this.ensureInitialized()
-    
+
     const [databaseStats, assetManagerStats] = await Promise.all([
       this.database.getCacheStats(),
       Promise.resolve(this.assetManager.getCacheStats())
@@ -635,7 +635,7 @@ export class QuaAssets {
    */
   async cleanup(): Promise<void> {
     this.assetManager.cleanup()
-    
+
     // Cleanup plugins
     for (const plugin of this.config.plugins) {
       if (plugin.cleanup) {
@@ -650,7 +650,7 @@ export class QuaAssets {
     await this.database.close()
     this.eventListeners.clear()
     this.initialized = false
-    
+
     logger.info('QuaAssets cleaned up')
   }
 
@@ -687,10 +687,10 @@ export class QuaAssets {
 
     try {
       const currentSize = await this.database.getDatabaseSize()
-      
+
       if (currentSize > this.config.cacheSize) {
         const cleanedAssets = await this.database.cleanupAssets(this.config.cacheSize)
-        
+
         if (cleanedAssets > 0) {
           this.emit('cache:full', { size: currentSize, limit: this.config.cacheSize })
           logger.info(`Cache cleanup: removed ${cleanedAssets} assets`)

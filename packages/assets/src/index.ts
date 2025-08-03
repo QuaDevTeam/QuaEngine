@@ -1,5 +1,4 @@
 // Main QuaAssets class
-import { QuaAssets } from './qua-assets'
 export { QuaAssets } from './qua-assets'
 
 // Core components
@@ -26,7 +25,7 @@ export type {
   BundleFormat,
   LoadingState,
   PatchOperation,
-  
+
   // Data structures
   StoredAsset,
   StoredBundle,
@@ -35,32 +34,29 @@ export type {
   BundleIndex,
   WorkspaceBundleIndex,
   BundleInfo,
-  
+
   // Configuration
   QuaAssetsConfig,
   LoadAssetOptions,
   LoadBundleOptions,
-  
+
   // Results and status
   BundleStatus,
   AssetQueryResult,
   JSExecutionResult,
-  
+
   // Plugin interfaces
   QuaAssetsPlugin,
   DecompressionPlugin,
   DecryptionPlugin,
   AssetProcessingPlugin,
-  
+
   // Events
   QuaAssetsEvents,
-  
+
   // Errors
   QuaAssetsError,
   BundleLoadError,
   AssetNotFoundError,
   IntegrityError
 } from './types'
-
-// Default export
-export default QuaAssets
