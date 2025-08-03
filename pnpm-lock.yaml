@@ -97,6 +97,31 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@24.1.0)(@vitest/ui@3.2.4)(happy-dom@18.0.1)(tsx@4.20.3)(yaml@2.8.0)
 
+  packages/engine:
+    dependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../assets
+      '@quajs/logger':
+        specifier: workspace:*
+        version: link:../logger
+      '@quajs/pipeline':
+        specifier: workspace:*
+        version: link:../pipeline
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../store
+      '@quajs/utils':
+        specifier: workspace:*
+        version: link:../utils
+    devDependencies:
+      '@vitest/ui':
+        specifier: ^3.2.4
+        version: 3.2.4(vitest@3.2.4)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@24.1.0)(@vitest/ui@3.2.4)(happy-dom@18.0.1)(tsx@4.20.3)(yaml@2.8.0)
+
   packages/logger: {}
 
   packages/pipeline:

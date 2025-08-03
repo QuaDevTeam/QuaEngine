@@ -387,6 +387,3 @@ export class Pipeline {
     return this
   }
 }
-
-// Export version
-export const version = '0.1.0'

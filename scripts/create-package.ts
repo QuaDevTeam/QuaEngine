@@ -167,8 +167,6 @@ function createIndexContent(packageName: string, template: string): string {
       return `export const hello = (): string => {
   return 'Hello from ${packageName}!'
 }
-
-export const version = '0.1.0'
 `
     case 'utility':
       return `// ${packageName} utility functions
@@ -184,9 +182,6 @@ export function isNumber(value: unknown): value is number {
 export function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1)
 }
-
-// Add more utility functions as needed
-export const version = '0.1.0'
 `
     case 'plugin':
       return `// QuaEngine ${packageName} plugin
