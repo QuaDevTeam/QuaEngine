@@ -1,4 +1,4 @@
-import { QSSnapshot, QSSnapshotMeta } from '../types/base';
+import { QuaSnapshot, QuaSnapshotMeta, QuaGameSaveSlot, QuaGameSaveSlotMeta } from '../types/base';
 import { StorageBackend, StorageMiddleware, StorageConfig, BackendConfig, StorageBackendConstructor } from '../types/storage';
 import { IndexedDBBackend } from '../backends/indexeddb';
 import logger from '../utils';
@@ -77,7 +77,7 @@ export class StorageManager {
   /**
    * Save a snapshot to storage (with middleware processing)
    */
-  async saveSnapshot(snapshot: QSSnapshot): Promise<void> {
+  async saveSnapshot(snapshot: QuaSnapshot): Promise<void> {
     const processedSnapshot = await this.applyBeforeWriteMiddlewares(snapshot.id, snapshot);
     await this.backend.saveSnapshot(processedSnapshot);
   }
@@ -85,7 +85,7 @@ export class StorageManager {
   /**
    * Get a snapshot from storage (with middleware processing)
    */
-  async getSnapshot(id: string): Promise<QSSnapshot | undefined> {
+  async getSnapshot(id: string): Promise<QuaSnapshot | undefined> {
     const snapshot = await this.backend.getSnapshot(id);
     if (!snapshot) {
       return undefined;
@@ -104,7 +104,7 @@ export class StorageManager {
   /**
    * List snapshots, optionally filtered by store name
    */
-  async listSnapshots(storeName?: string): Promise<QSSnapshotMeta[]> {
+  async listSnapshots(storeName?: string): Promise<QuaSnapshotMeta[]> {
     return await this.backend.listSnapshots(storeName);
   }
 
@@ -113,6 +113,40 @@ export class StorageManager {
    */
   async clearSnapshots(storeName?: string): Promise<void> {
     await this.backend.clearSnapshots(storeName);
+  }
+
+  /**
+   * Save a game slot to storage (with middleware processing)
+   */
+  async saveGameSlot(gameSlot: QuaGameSaveSlot): Promise<void> {
+    const processedGameSlot = await this.applyBeforeWriteMiddlewares(gameSlot.slotId, gameSlot);
+    await this.backend.saveGameSlot(processedGameSlot);
+  }
+
+  /**
+   * Get a game slot from storage (with middleware processing)
+   */
+  async getGameSlot(slotId: string): Promise<QuaGameSaveSlot | undefined> {
+    const gameSlot = await this.backend.getGameSlot(slotId);
+    if (!gameSlot) {
+      return undefined;
+    }
+    
+    return await this.applyAfterReadMiddlewares(slotId, gameSlot);
+  }
+
+  /**
+   * Delete a game slot from storage
+   */
+  async deleteGameSlot(slotId: string): Promise<void> {
+    await this.backend.deleteGameSlot(slotId);
+  }
+
+  /**
+   * List all game slots
+   */
+  async listGameSlots(): Promise<QuaGameSaveSlotMeta[]> {
+    return await this.backend.listGameSlots();
   }
 
   /**

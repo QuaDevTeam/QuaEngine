@@ -1,4 +1,4 @@
-import { QSSnapshot, QSSnapshotMeta } from './base';
+import { QuaSnapshot, QuaSnapshotMeta, QuaGameSaveSlot, QuaGameSaveSlotMeta } from './base';
 
 /**
  * Middleware function for storage operations
@@ -35,13 +35,13 @@ export interface StorageBackend {
    * Save a snapshot to storage
    * @param snapshot - The snapshot to save
    */
-  saveSnapshot(snapshot: QSSnapshot): Promise<void>;
+  saveSnapshot(snapshot: QuaSnapshot): Promise<void>;
 
   /**
    * Get a snapshot from storage
    * @param id - The snapshot ID
    */
-  getSnapshot(id: string): Promise<QSSnapshot | undefined>;
+  getSnapshot(id: string): Promise<QuaSnapshot | undefined>;
 
   /**
    * Delete a snapshot from storage
@@ -53,13 +53,41 @@ export interface StorageBackend {
    * List snapshots, optionally filtered by store name
    * @param storeName - Optional store name filter
    */
-  listSnapshots(storeName?: string): Promise<QSSnapshotMeta[]>;
+  listSnapshots(storeName?: string): Promise<QuaSnapshotMeta[]>;
 
   /**
    * Clear snapshots, optionally filtered by store name
    * @param storeName - Optional store name filter
    */
   clearSnapshots(storeName?: string): Promise<void>;
+
+  /**
+   * Save a game save slot (separate from snapshots)
+   * @param slot - The game save slot to save
+   */
+  saveGameSlot(slot: QuaGameSaveSlot): Promise<void>;
+
+  /**
+   * Get a game save slot from storage
+   * @param slotId - The slot ID
+   */
+  getGameSlot(slotId: string): Promise<QuaGameSaveSlot | undefined>;
+
+  /**
+   * Delete a game save slot from storage
+   * @param slotId - The slot ID
+   */
+  deleteGameSlot(slotId: string): Promise<void>;
+
+  /**
+   * List game save slots
+   */
+  listGameSlots(): Promise<QuaGameSaveSlotMeta[]>;
+
+  /**
+   * Clear all game save slots
+   */
+  clearGameSlots(): Promise<void>;
 
   /**
    * Close/cleanup the storage backend
