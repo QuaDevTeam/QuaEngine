@@ -1,0 +1,45 @@
+{
+  "name": "@quajs/engine",
+  "version": "0.1.0",
+  "description": "Core engine package",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4",
+    "@vitest/ui": "^3.2.4"
+  },
+  "dependencies": {
+    "@quajs/store": "workspace:*",
+    "@quajs/assets": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/logger": "workspace:*",
+    "@quajs/utils": "workspace:*"
+  },
+  "peerDependencies": {}
+}
