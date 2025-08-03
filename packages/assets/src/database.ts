@@ -36,7 +36,7 @@ export class QuaAssetsDatabase extends Dexie {
     assets.forEach(asset => {
       asset.lastAccessed = now
     })
-    
+
     await this.transaction('rw', this.assets, async () => {
       await this.assets.bulkPut(assets)
     })
@@ -156,11 +156,11 @@ export class QuaAssetsDatabase extends Dexie {
    */
   async getDatabaseSize(): Promise<number> {
     let totalSize = 0
-    
+
     await this.assets.each(asset => {
       totalSize += asset.size
     })
-    
+
     return totalSize
   }
 
@@ -170,7 +170,7 @@ export class QuaAssetsDatabase extends Dexie {
    */
   async cleanupAssets(maxSize: number): Promise<number> {
     const currentSize = await this.getDatabaseSize()
-    
+
     if (currentSize <= maxSize) {
       return 0 // No cleanup needed
     }
@@ -188,7 +188,7 @@ export class QuaAssetsDatabase extends Dexie {
     for (const asset of assets) {
       assetsToDelete.push(asset.id)
       removedSize += asset.size
-      
+
       if (removedSize >= sizeToRemove) {
         break
       }

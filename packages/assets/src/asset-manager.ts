@@ -1,7 +1,7 @@
-import type { 
-  StoredAsset, 
-  AssetType, 
-  AssetLocale, 
+import type {
+  StoredAsset,
+  AssetType,
+  AssetLocale,
   LoadAssetOptions,
   AssetQueryResult,
   JSExecutionResult,
@@ -24,7 +24,7 @@ export class AssetManager {
   constructor(database: QuaAssetsDatabase, defaultLocale: AssetLocale = 'default') {
     this.database = database
     this.defaultLocale = defaultLocale
-    
+
     // Clean up blob URLs when page unloads
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', () => {
@@ -66,17 +66,17 @@ export class AssetManager {
     options: LoadAssetOptions = {}
   ): Promise<string> {
     const result = await this.getAsset(type, name, options)
-    
+
     // Check if we already have a blob URL for this asset
     const cacheKey = result.asset.id
     if (this.blobUrlCache.has(cacheKey)) {
       return this.blobUrlCache.get(cacheKey)!
     }
-    
+
     // Create new blob URL
     const blobUrl = URL.createObjectURL(result.blob)
     this.blobUrlCache.set(cacheKey, blobUrl)
-    
+
     return blobUrl
   }
 
@@ -124,20 +124,20 @@ export class AssetManager {
     options: LoadAssetOptions = {}
   ): Promise<JSExecutionResult> {
     const result = await this.getAsset('scripts', name, options)
-    
+
     // Check cache first
     const cacheKey = result.asset.id
     if (this.jsCache.has(cacheKey)) {
       return this.jsCache.get(cacheKey)!
     }
-    
+
     const startTime = performance.now()
     let executionResult: JSExecutionResult
-    
+
     try {
       const jsCode = await result.blob.text()
       const exports = await this.executeJavaScript(jsCode, name)
-      
+
       executionResult = {
         exports,
         executionTime: performance.now() - startTime
@@ -149,10 +149,10 @@ export class AssetManager {
         executionTime: performance.now() - startTime
       }
     }
-    
+
     // Cache the result
     this.jsCache.set(cacheKey, executionResult)
-    
+
     return executionResult
   }
 
@@ -165,7 +165,7 @@ export class AssetManager {
     options: LoadAssetOptions = {}
   ): Promise<Map<string, Blob>> {
     const results = new Map<string, Blob>()
-    
+
     // Use Promise.allSettled to handle partial failures
     const promises = names.map(async (name) => {
       try {
@@ -176,15 +176,15 @@ export class AssetManager {
         return { name, blob: null }
       }
     })
-    
+
     const settled = await Promise.allSettled(promises)
-    
+
     for (const result of settled) {
       if (result.status === 'fulfilled' && result.value.blob) {
         results.set(result.value.name, result.value.blob)
       }
     }
-    
+
     return results
   }
 
@@ -214,9 +214,9 @@ export class AssetManager {
   ): Promise<AssetQueryResult> {
     const locale = options.locale || this.defaultLocale
     const bundleName = options.bundleName
-    
+
     let asset: StoredAsset | undefined
-    
+
     if (bundleName) {
       // Look in specific bundle
       asset = await this.database.getAssetWithLocaleFallback(
@@ -228,22 +228,22 @@ export class AssetManager {
     } else {
       // Search across all bundles
       const assets = await this.database.findAssets({ type, name })
-      
+
       if (assets.length === 0) {
         throw new AssetNotFoundError(type, name)
       }
-      
+
       // Find best locale match
       asset = this.findBestLocaleMatch(assets, locale)
     }
-    
+
     if (!asset) {
       throw new AssetNotFoundError(type, name)
     }
-    
+
     // Apply processing plugins
     const processedAsset = await this.processAsset(asset)
-    
+
     return {
       asset: processedAsset,
       blob: processedAsset.blob,
@@ -258,11 +258,11 @@ export class AssetManager {
     // First, try exact locale match
     let match = assets.find(asset => asset.locale === preferredLocale)
     if (match) return match
-    
+
     // Then try default locale
     match = assets.find(asset => asset.locale === 'default')
     if (match) return match
-    
+
     // Finally, return any asset
     return assets[0]
   }
@@ -272,7 +272,7 @@ export class AssetManager {
    */
   private async processAsset(asset: StoredAsset): Promise<StoredAsset> {
     const plugins = this.processingPlugins.get(asset.type) || []
-    
+
     let processedAsset = asset
     for (const plugin of plugins) {
       try {
@@ -281,7 +281,7 @@ export class AssetManager {
         console.warn(`Asset processing plugin ${plugin.name} failed:`, error)
       }
     }
-    
+
     return processedAsset
   }
 
@@ -292,17 +292,17 @@ export class AssetManager {
     // Create isolated execution context
     const exports: any = {}
     const module = { exports }
-    
+
     try {
       // Wrap code to transform exports into assignments
       // Handle both CommonJS and ES module styles
       const wrappedCode = this.wrapJavaScriptCode(code)
-      
+
       // Create function with controlled scope
       // eslint-disable-next-line no-new-func
       const executeFunction = new Function(
         'exports',
-        'module', 
+        'module',
         'require',
         'console',
         'setTimeout',
@@ -311,12 +311,12 @@ export class AssetManager {
         'clearInterval',
         wrappedCode
       )
-      
+
       // Create limited require function
       const requireFn = (moduleId: string) => {
         throw new Error(`Module '${moduleId}' is not available in asset execution context`)
       }
-      
+
       // Execute with controlled environment
       const result = executeFunction(
         exports,
@@ -328,7 +328,7 @@ export class AssetManager {
         clearTimeout,
         clearInterval
       )
-      
+
       // Return exports (could be module.exports if reassigned)
       return module.exports !== exports ? module.exports : (result !== undefined ? result : exports)
     } catch (error) {
@@ -342,24 +342,24 @@ export class AssetManager {
   private wrapJavaScriptCode(code: string): string {
     // Handle minimized code and various export patterns
     let wrappedCode = code
-    
+
     // If code contains 'export', wrap it to capture exports
     if (code.includes('export ')) {
       wrappedCode = `
         const __exports = {};
         ${code.replace(/export\s+default\s+/g, '__exports.default = ')
-              .replace(/export\s+\{([^}]+)\}/g, (_, namedExports) => {
-                return namedExports.split(',').map((exp: string) => {
-                  const [name, alias] = exp.trim().split(' as ')
-                  const exportName = alias || name
-                  return `__exports.${exportName.trim()} = ${name.trim()};`
-                }).join('\n')
-              })
-              .replace(/export\s+const\s+(\w+)/g, '__exports.$1 = const $1')
-              .replace(/export\s+let\s+(\w+)/g, '__exports.$1 = let $1')
-              .replace(/export\s+var\s+(\w+)/g, '__exports.$1 = var $1')
-              .replace(/export\s+function\s+(\w+)/g, 'function $1')
-              .replace(/export\s+class\s+(\w+)/g, 'class $1')}
+          .replace(/export\s+\{([^}]+)\}/g, (_, namedExports) => {
+            return namedExports.split(',').map((exp: string) => {
+              const [name, alias] = exp.trim().split(' as ')
+              const exportName = alias || name
+              return `__exports.${exportName.trim()} = ${name.trim()};`
+            }).join('\n')
+          })
+          .replace(/export\s+const\s+(\w+)/g, '__exports.$1 = const $1')
+          .replace(/export\s+let\s+(\w+)/g, '__exports.$1 = let $1')
+          .replace(/export\s+var\s+(\w+)/g, '__exports.$1 = var $1')
+          .replace(/export\s+function\s+(\w+)/g, 'function $1')
+          .replace(/export\s+class\s+(\w+)/g, 'class $1')}
         
         // Copy function and class declarations to exports
         ${this.extractDeclarations(code)}
@@ -373,7 +373,7 @@ export class AssetManager {
       // Assume it's a function or expression, return the result
       wrappedCode = `return (${code});`
     }
-    
+
     return wrappedCode
   }
 
@@ -382,7 +382,7 @@ export class AssetManager {
    */
   private extractDeclarations(code: string): string {
     const declarations: string[] = []
-    
+
     // Extract function declarations
     const functionMatches = code.match(/export\s+function\s+(\w+)/g)
     if (functionMatches) {
@@ -391,7 +391,7 @@ export class AssetManager {
         declarations.push(`__exports.${name} = ${name};`)
       }
     }
-    
+
     // Extract class declarations
     const classMatches = code.match(/export\s+class\s+(\w+)/g)
     if (classMatches) {
@@ -400,7 +400,7 @@ export class AssetManager {
         declarations.push(`__exports.${name} = ${name};`)
       }
     }
-    
+
     return declarations.join('\n')
   }
 
@@ -412,7 +412,7 @@ export class AssetManager {
     for (const [, blobUrl] of this.blobUrlCache) {
       URL.revokeObjectURL(blobUrl)
     }
-    
+
     this.blobUrlCache.clear()
     this.jsCache.clear()
   }
@@ -439,7 +439,7 @@ export class AssetManager {
       URL.revokeObjectURL(blobUrl)
       this.blobUrlCache.delete(assetId)
     }
-    
+
     this.jsCache.delete(assetId)
   }
 
@@ -456,7 +456,7 @@ export class AssetManager {
         console.warn(`Failed to preload asset ${type}/${name}:`, error)
       })
     )
-    
+
     await Promise.allSettled(promises)
   }
 }
