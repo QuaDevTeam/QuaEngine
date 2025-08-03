@@ -27,17 +27,17 @@ quack list game.qpk
 ### Programmatic API
 
 ```typescript
-import { QuackBundler } from '@quajs/quack'
-import { ImageOptimizationPlugin, AESEncryptionPlugin } from '@quajs/quack/plugins'
+import { QuackBundler } from '@quajs/quack';
+import { ImageOptimizationPlugin, AESEncryptionPlugin } from '@quajs/quack/plugins';
 
 // Basic bundling
 const bundler = new QuackBundler({
   source: './my-game-assets',
   output: './dist/game.qpk',
-  format: 'qpk'
-})
+  format: 'qpk',
+});
 
-await bundler.bundle()
+await bundler.bundle();
 
 // Advanced configuration with custom encryption
 const advancedBundler = new QuackBundler({
@@ -47,15 +47,13 @@ const advancedBundler = new QuackBundler({
   encryption: {
     enabled: true,
     algorithm: 'custom',
-    plugin: new AESEncryptionPlugin(process.env.QUACK_ENCRYPTION_KEY!)
+    plugin: new AESEncryptionPlugin(process.env.QUACK_ENCRYPTION_KEY!),
   },
-  plugins: [
-    new ImageOptimizationPlugin({ quality: 90 })
-  ]
-})
+  plugins: [new ImageOptimizationPlugin({ quality: 90 })],
+});
 
-const stats = await advancedBundler.bundle()
-console.log(`Bundled ${stats.totalFiles} files in ${stats.processingTime}ms`)
+const stats = await advancedBundler.bundle();
+console.log(`Bundled ${stats.totalFiles} files in ${stats.processingTime}ms`);
 ```
 
 ## Asset Structure Example
@@ -108,39 +106,37 @@ my-game/
 
 ```javascript
 // quack.config.js
-import { defineConfig } from '@quajs/quack'
+import { defineConfig } from '@quajs/quack';
 
 export default defineConfig({
   source: './assets',
   output: './dist/game.zip',
-  format: 'zip'
-})
+  format: 'zip',
+});
 ```
 
 ### Production Configuration with Encryption
 
 ```javascript
 // quack.config.js
-import { defineConfig } from '@quajs/quack'
-import { AESEncryptionPlugin, BundleAnalyzerPlugin } from '@quajs/quack/plugins'
+import { defineConfig } from '@quajs/quack';
+import { AESEncryptionPlugin, BundleAnalyzerPlugin } from '@quajs/quack/plugins';
 
 export default defineConfig({
   source: './assets',
   output: './dist',
   format: 'auto', // zip in dev, qpk in production
-  
+
   encryption: {
     enabled: process.env.NODE_ENV === 'production',
     algorithm: 'custom',
-    plugin: new AESEncryptionPlugin(process.env.QUACK_ENCRYPTION_KEY)
+    plugin: new AESEncryptionPlugin(process.env.QUACK_ENCRYPTION_KEY),
   },
-  
-  plugins: [
-    new BundleAnalyzerPlugin({ outputPath: './dist/analysis.json' })
-  ],
-  
-  ignore: ['**/*.tmp', '**/node_modules/**']
-})
+
+  plugins: [new BundleAnalyzerPlugin({ outputPath: './dist/analysis.json' })],
+
+  ignore: ['**/*.tmp', '**/node_modules/**'],
+});
 ```
 
 ## Environment Setup

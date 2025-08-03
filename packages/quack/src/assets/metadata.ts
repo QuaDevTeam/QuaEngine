@@ -1,13 +1,13 @@
 import { createLogger } from '@quajs/logger'
-import type { 
-  AssetInfo, 
-  BundleManifest, 
-  BundleFormat, 
-  CompressionAlgorithm, 
+import type {
+  AssetInfo,
+  BundleManifest,
+  BundleFormat,
+  CompressionAlgorithm,
   EncryptionAlgorithm,
   LocaleInfo,
-  AssetType 
-} from './types'
+  AssetType
+} from '../core/types'
 
 const logger = createLogger('quack:metadata')
 
@@ -56,7 +56,7 @@ export class MetadataGenerator {
 
     // Extract locales from assets
     const locales = this.getLocalesFromAssets(assets)
-    
+
     // Find default locale
     const defaultLocale = locales.find(l => l.isDefault)?.code || 'default'
 
@@ -102,6 +102,7 @@ export class MetadataGenerator {
       images: {},
       characters: {},
       audio: {},
+      video: {},
       scripts: {},
       data: {}
     }
@@ -109,7 +110,7 @@ export class MetadataGenerator {
     for (const asset of assets) {
       const type = asset.type
       const key = this.getAssetKey(asset)
-      
+
       grouped[type][key] = {
         name: asset.name,
         path: asset.path,
@@ -121,7 +122,8 @@ export class MetadataGenerator {
         locales: asset.locales,
         mimeType: asset.mimeType,
         mtime: asset.mtime,
-        version: asset.version
+        version: asset.version,
+        mediaMetadata: asset.mediaMetadata
       }
     }
 
@@ -133,18 +135,18 @@ export class MetadataGenerator {
    */
   private getAssetKey(asset: AssetInfo): string {
     const parts = asset.relativePath.split('/')
-    
+
     // For character assets, include character name
     if (asset.type === 'characters') {
       // characters/alice/normal.png -> alice/normal.png
       return parts.slice(1).join('/')
     }
-    
+
     // For other assets, remove the type folder
     if (parts[0]?.toLowerCase() === asset.type) {
       return parts.slice(1).join('/')
     }
-    
+
     return asset.relativePath
   }
 
@@ -193,7 +195,7 @@ export class MetadataGenerator {
 
       // Validate assets structure
       for (const [type, assets] of Object.entries(manifest.assets)) {
-        if (!['images', 'characters', 'audio', 'scripts'].includes(type)) {
+        if (!['images', 'characters', 'audio', 'video', 'scripts', 'data'].includes(type)) {
           logger.error(`Invalid asset type: ${type}`)
           return false
         }
@@ -270,11 +272,11 @@ export class MetadataGenerator {
    */
   private formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B'
-    
+
     const k = 1024
     const sizes = ['B', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
-    
+
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
   }
 
@@ -283,7 +285,7 @@ export class MetadataGenerator {
    */
   private getLocalesFromAssets(assets: AssetInfo[]): LocaleInfo[] {
     const localeSet = new Set<string>()
-    
+
     for (const asset of assets) {
       for (const locale of asset.locales) {
         localeSet.add(locale)
@@ -336,11 +338,11 @@ export class MetadataGenerator {
    */
   generateIntegrityReport(assets: AssetInfo[]): Record<string, string> {
     const report: Record<string, string> = {}
-    
+
     for (const asset of assets) {
       report[asset.relativePath] = asset.hash
     }
-    
+
     return report
   }
 
@@ -352,7 +354,7 @@ export class MetadataGenerator {
     manifest: BundleManifest
   ): Promise<{ valid: boolean; errors: string[] }> {
     const errors: string[] = []
-    
+
     // Create lookup map for manifest assets
     const manifestAssets = new Map<string, AssetInfo>()
     for (const [type, typeAssets] of Object.entries(manifest.assets)) {
@@ -360,26 +362,26 @@ export class MetadataGenerator {
         manifestAssets.set(key, asset as AssetInfo)
       }
     }
-    
+
     // Check each asset
     for (const asset of assets) {
       const key = this.getAssetKey(asset)
       const manifestAsset = manifestAssets.get(key)
-      
+
       if (!manifestAsset) {
         errors.push(`Asset not found in manifest: ${key}`)
         continue
       }
-      
+
       if (asset.hash !== manifestAsset.hash) {
         errors.push(`Hash mismatch for ${key}: expected ${manifestAsset.hash}, got ${asset.hash}`)
       }
-      
+
       if (asset.size !== manifestAsset.size) {
         errors.push(`Size mismatch for ${key}: expected ${manifestAsset.size}, got ${asset.size}`)
       }
     }
-    
+
     // Check for missing assets
     for (const [key] of manifestAssets) {
       const found = assets.some(asset => this.getAssetKey(asset) === key)
@@ -387,14 +389,14 @@ export class MetadataGenerator {
         errors.push(`Manifest asset not found in bundle: ${key}`)
       }
     }
-    
+
     const valid = errors.length === 0
     if (valid) {
       logger.info('Asset integrity verification passed')
     } else {
       logger.error(`Asset integrity verification failed with ${errors.length} errors`)
     }
-    
+
     return { valid, errors }
   }
 
@@ -413,6 +415,7 @@ export class MetadataGenerator {
           images: { count: 0, size: 0 },
           characters: { count: 0, size: 0 },
           audio: { count: 0, size: 0 },
+          video: { count: 0, size: 0 },
           scripts: { count: 0, size: 0 },
           data: { count: 0, size: 0 }
         },
@@ -431,6 +434,7 @@ export class MetadataGenerator {
       images: { count: 0, size: 0 },
       characters: { count: 0, size: 0 },
       audio: { count: 0, size: 0 },
+      video: { count: 0, size: 0 },
       scripts: { count: 0, size: 0 },
       data: { count: 0, size: 0 }
     }
@@ -461,7 +465,7 @@ export class MetadataGenerator {
    */
   analyzeDependencies(assets: AssetInfo[]): Record<string, string[]> {
     const dependencies: Record<string, string[]> = {}
-    
+
     for (const asset of assets) {
       if (asset.type === 'scripts') {
         // Mock dependency analysis - in real implementation would parse JS files
@@ -469,11 +473,11 @@ export class MetadataGenerator {
           .filter(a => a.type !== 'scripts')
           .map(a => a.name)
           .slice(0, 2) // Mock: first 2 non-script assets
-        
+
         dependencies[asset.name] = deps
       }
     }
-    
+
     return dependencies
   }
 
@@ -482,14 +486,14 @@ export class MetadataGenerator {
    */
   validateDependencies(assets: AssetInfo[]): string[] {
     const warnings: string[] = []
-    
+
     // Mock validation - in real implementation would check for actual dependencies
     const hasAJs = assets.some(a => a.name === 'a.js')
     const hasBJs = assets.some(a => a.name === 'b.js')
     if (hasAJs && hasBJs) {
       warnings.push('circular dependency detected between a.js and b.js')
     }
-    
+
     // Check for missing dependencies
     if (assets.some(a => a.name.includes('dependent.js'))) {
       warnings.push('Missing dependency: missing-asset.png')
@@ -503,26 +507,26 @@ export class MetadataGenerator {
   analyzeLocales(assets: AssetInfo[]) {
     const availableLocales = new Set<string>()
     const coverage: Record<string, number> = {}
-    
+
     for (const asset of assets) {
       for (const locale of asset.locales) {
         availableLocales.add(locale)
         coverage[locale] = (coverage[locale] || 0) + 1
       }
     }
-    
+
     const totalAssets = assets.length
-    const incompleteLocales = Array.from(availableLocales).filter(locale => 
+    const incompleteLocales = Array.from(availableLocales).filter(locale =>
       locale !== 'default' && coverage[locale] < totalAssets
     )
-    
+
     const incompleteAssets: Record<string, string[]> = {}
     for (const locale of incompleteLocales) {
       incompleteAssets[locale] = assets
         .filter(asset => !asset.locales.includes(locale))
         .map(asset => asset.name)
     }
-    
+
     return {
       availableLocales: Array.from(availableLocales),
       coverage,
@@ -537,14 +541,14 @@ export class MetadataGenerator {
   suggestLocaleFallbacks(assets: AssetInfo[]) {
     const analysis = this.analyzeLocales(assets)
     const suggestions: Record<string, { fallback: string; coverage: number }> = {}
-    
+
     for (const locale of analysis.incompleteLocales) {
       suggestions[locale] = {
         fallback: 'default',
         coverage: analysis.coverage.default / analysis.coverage[locale]
       }
     }
-    
+
     return suggestions
   }
 
@@ -555,7 +559,7 @@ export class MetadataGenerator {
     // Sort assets by path for consistent hash generation
     const sortedAssets = [...assets].sort((a, b) => a.relativePath.localeCompare(b.relativePath))
     const combinedHash = sortedAssets.map(a => a.hash).join('')
-    
+
     // Generate SHA-256 hash
     const crypto = require('crypto')
     return crypto.createHash('sha256').update(combinedHash).digest('hex')

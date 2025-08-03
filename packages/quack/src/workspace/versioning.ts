@@ -12,7 +12,7 @@ import type {
   MerkleNode, 
   AssetInfo,
   BundleManifest 
-} from './types'
+} from '../core/types'
 
 const logger = createLogger('quack:versioning')
 

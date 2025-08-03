@@ -4,8 +4,8 @@ import { createReadStream, createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 import * as lzma from 'lzma-native'
 import { createLogger } from '@quajs/logger'
-import { EncryptionManager } from './encryption'
-import type { AssetInfo, BundleManifest, AssetContext, QuackPlugin, EncryptionPlugin, EncryptionAlgorithm } from './types'
+import { EncryptionManager } from '../crypto/encryption'
+import type { AssetInfo, BundleManifest, AssetContext, QuackPlugin, EncryptionPlugin, EncryptionAlgorithm } from '../core/types'
 
 const logger = createLogger('quack:qpk-bundler')
 

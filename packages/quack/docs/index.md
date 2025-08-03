@@ -1,1 +1,0 @@
-# Quack Documentation

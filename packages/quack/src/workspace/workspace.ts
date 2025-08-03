@@ -9,7 +9,7 @@ import type {
   BundleFormat,
   CompressionAlgorithm,
   EncryptionAlgorithm 
-} from './types'
+} from '../core/types'
 
 const logger = createLogger('quack:workspace')
 
