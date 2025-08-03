@@ -39,6 +39,7 @@ interface PackageConfig {
   description: string
   environment: Environment
   template: 'basic' | 'utility' | 'plugin'
+  includeTests: boolean
 }
 
 interface TsConfig {
@@ -141,9 +142,15 @@ async function promptForPackageInfo(): Promise<PackageConfig> {
     },
     {
       type: 'confirm',
+      name: 'includeTests',
+      message: 'Include Vitest testing framework?',
+      default: true
+    },
+    {
+      type: 'confirm',
       name: 'confirm',
       message: (answers: any) => 
-        `Create package @quajs/${answers.name} (${answers.environment}) with ${answers.template} template?`,
+        `Create package @quajs/${answers.name} (${answers.environment}) with ${answers.template} template${answers.includeTests ? ' and tests' : ''}?`,
       default: true
     }
   ])
@@ -157,7 +164,8 @@ async function promptForPackageInfo(): Promise<PackageConfig> {
     name: answers.name.trim(),
     description: answers.description.trim(),
     environment: answers.environment as Environment,
-    template: answers.template
+    template: answers.template,
+    includeTests: answers.includeTests
   }
 }
 
@@ -326,7 +334,7 @@ describe('${packageName}', () => {
 }
 
 function createPackageStructure(config: PackageConfig): void {
-  const { name: packageName, description, environment, template } = config
+  const { name: packageName, description, environment, template, includeTests } = config
   const packageDir = path.join('packages', packageName)
   
   // Create package directory
@@ -340,10 +348,12 @@ function createPackageStructure(config: PackageConfig): void {
     fs.mkdirSync(srcDir, { recursive: true })
   }
 
-  // Create test directory
-  const testDir = path.join(packageDir, 'test')
-  if (!fs.existsSync(testDir)) {
-    fs.mkdirSync(testDir, { recursive: true })
+  // Create test directory only if tests are included
+  if (includeTests) {
+    const testDir = path.join(packageDir, 'test')
+    if (!fs.existsSync(testDir)) {
+      fs.mkdirSync(testDir, { recursive: true })
+    }
   }
 
   // Create package.json
@@ -367,8 +377,10 @@ function createPackageStructure(config: PackageConfig): void {
       dev: 'vite build --watch',
       lint: 'eslint .',
       'lint:fix': 'eslint . --fix',
-      test: 'vitest',
-      ...(environment === 'browser' || environment === 'both' ? { 'test:ui': 'vitest --ui' } : {}),
+      ...(includeTests ? { 
+        test: 'vitest',
+        ...(environment === 'browser' || environment === 'both' ? { 'test:ui': 'vitest --ui' } : {})
+      } : {}),
       typecheck: 'tsc --noEmit',
     },
     keywords: [],
@@ -378,8 +390,10 @@ function createPackageStructure(config: PackageConfig): void {
       node: '>=20',
     },
     devDependencies: {
-      'vitest': '^3.2.4',
-      ...(environment === 'browser' || environment === 'both' ? { '@vitest/ui': '^3.2.4' } : {})
+      ...(includeTests ? {
+        'vitest': '^3.2.4',
+        ...(environment === 'browser' || environment === 'both' ? { '@vitest/ui': '^3.2.4' } : {})
+      } : {})
     },
     peerDependencies: {},
   }
@@ -560,17 +574,22 @@ export default defineConfig({
   const viteConfig = createViteConfig(packageName, environment)
   fs.writeFileSync(path.join(packageDir, 'vite.config.ts'), viteConfig)
 
-  // Create vitest.config.ts
-  const vitestConfig = createVitestConfig(packageName, environment)
-  fs.writeFileSync(path.join(packageDir, 'vitest.config.ts'), vitestConfig)
+  // Create vitest.config.ts only if tests are included
+  if (includeTests) {
+    const vitestConfig = createVitestConfig(packageName, environment)
+    fs.writeFileSync(path.join(packageDir, 'vitest.config.ts'), vitestConfig)
+  }
 
   // Create src/index.ts
   const indexContent = createIndexContent(packageName, template)
   fs.writeFileSync(path.join(srcDir, 'index.ts'), indexContent)
 
-  // Create basic test file
-  const testContent = createTestContent(packageName, template)
-  fs.writeFileSync(path.join(testDir, `${packageName}.test.ts`), testContent)
+  // Create basic test file only if tests are included
+  if (includeTests) {
+    const testDir = path.join(packageDir, 'test')
+    const testContent = createTestContent(packageName, template)
+    fs.writeFileSync(path.join(testDir, `${packageName}.test.ts`), testContent)
+  }
 
   // Create project.json for Nx
   const projectJson: ProjectJson = {
@@ -600,13 +619,15 @@ export default defineConfig({
           cwd: `packages/${packageName}`,
         },
       },
-      test: {
-        executor: 'nx:run-commands',
-        options: {
-          command: 'vitest',
-          cwd: `packages/${packageName}`,
+      ...(includeTests ? {
+        test: {
+          executor: 'nx:run-commands',
+          options: {
+            command: 'vitest',
+            cwd: `packages/${packageName}`,
+          },
         },
-      },
+      } : {}),
     },
     tags: [],
   }
