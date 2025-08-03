@@ -1,14 +1,16 @@
 import Dexie, { type Table } from 'dexie';
-import { QSSnapshot, QSSnapshotMeta } from '../types/base';
+import { QuaSnapshot, QuaSnapshotMeta, QuaGameSaveSlot, QuaGameSaveSlotMeta } from '../types/base';
 import { StorageBackend } from '../types/storage';
 
 class QuaStoreDB extends Dexie {
-  snapshots!: Table<QSSnapshot, string>;
+  snapshots!: Table<QuaSnapshot, string>;
+  gameSlots!: Table<QuaGameSaveSlot, string>;
 
   constructor(dbName = 'QuaStore') {
     super(dbName);
     this.version(1).stores({
       snapshots: 'id, storeName, createdAt',
+      gameSlots: 'slotId, timestamp, &slotId'
     });
   }
 }
@@ -30,11 +32,12 @@ export class IndexedDBBackend implements StorageBackend {
     await this.db.open();
   }
 
-  async saveSnapshot(snapshot: QSSnapshot): Promise<void> {
+  // Snapshot methods (runtime game state)
+  async saveSnapshot(snapshot: QuaSnapshot): Promise<void> {
     await this.db.snapshots.put(snapshot);
   }
 
-  async getSnapshot(id: string): Promise<QSSnapshot | undefined> {
+  async getSnapshot(id: string): Promise<QuaSnapshot | undefined> {
     return await this.db.snapshots.get(id);
   }
 
@@ -42,15 +45,15 @@ export class IndexedDBBackend implements StorageBackend {
     await this.db.snapshots.delete(id);
   }
 
-  async listSnapshots(storeName?: string): Promise<QSSnapshotMeta[]> {
+  async listSnapshots(storeName?: string): Promise<QuaSnapshotMeta[]> {
     let collection = this.db.snapshots.orderBy('createdAt').reverse();
-    
+
     if (storeName) {
-      collection = collection.filter((snapshot: QSSnapshot) => snapshot.storeName === storeName);
+      collection = collection.filter((snapshot: QuaSnapshot) => snapshot.storeName === storeName);
     }
 
     const snapshots = await collection.toArray();
-    return snapshots.map((snapshot: QSSnapshot) => ({
+    return snapshots.map((snapshot: QuaSnapshot) => ({
       id: snapshot.id,
       storeName: snapshot.storeName,
       createdAt: snapshot.createdAt
@@ -63,6 +66,34 @@ export class IndexedDBBackend implements StorageBackend {
     } else {
       await this.db.snapshots.clear();
     }
+  }
+
+  // Game slot methods (persistent save files)
+  async saveGameSlot(slot: QuaGameSaveSlot): Promise<void> {
+    await this.db.gameSlots.put(slot);
+  }
+
+  async getGameSlot(slotId: string): Promise<QuaGameSaveSlot | undefined> {
+    return await this.db.gameSlots.get(slotId);
+  }
+
+  async deleteGameSlot(slotId: string): Promise<void> {
+    await this.db.gameSlots.delete(slotId);
+  }
+
+  async listGameSlots(): Promise<QuaGameSaveSlotMeta[]> {
+    const slots = await this.db.gameSlots.orderBy('timestamp').reverse().toArray();
+    return slots.map((slot: QuaGameSaveSlot) => ({
+      slotId: slot.slotId,
+      name: slot.name,
+      timestamp: slot.timestamp,
+      screenshot: slot.screenshot,
+      metadata: slot.metadata
+    }));
+  }
+
+  async clearGameSlots(): Promise<void> {
+    await this.db.gameSlots.clear();
   }
 
   async close(): Promise<void> {

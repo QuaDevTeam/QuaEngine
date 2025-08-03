@@ -1,45 +1,82 @@
-export interface QSState {
+export interface QuaState {
   [key: string]: any;
 }
 
-export interface QSGetters {
-  [key: string]: (state: QSState) => any;
+export interface QuaGetters {
+  [key: string]: (state: QuaState) => any;
 }
 
-export interface QSMutations {
-  [key: string]: (state: QSState, payload?: any) => void;
+export interface QuaMutations {
+  [key: string]: (state: QuaState, payload?: any) => void;
 }
 
-export interface QSActionContext {
-  state: QSState;
+export interface QuaActionContext {
+  state: QuaState;
   commit: (mutationName: string, payload?: any) => void;
 }
 
-export interface QSActions {
-  [key: string]: (context: QSActionContext, payload?: any) => Promise<void> | void;
+export interface QuaActions {
+  [key: string]: (context: QuaActionContext, payload?: any) => Promise<void> | void;
 }
 
-export interface QSConstructorOpts {
-  state?: QSState;
-  getters?: QSGetters;
-  mutations?: QSMutations;
-  actions?: QSActions;
+export interface QuaConstructorOpts {
+  state?: QuaState;
+  getters?: QuaGetters;
+  mutations?: QuaMutations;
+  actions?: QuaActions;
   storage?: import('./storage').StorageConfig;
 }
 
-export interface QSRestoreOptions {
+export interface QuaRestoreOptions {
   force?: boolean;
 }
 
-export interface QSSnapshot {
+export interface QuaSnapshot {
   id: string;
   storeName: string;
-  data: QSState;
+  data: QuaState;
   createdAt: Date;
 }
 
-export interface QSSnapshotMeta {
+export interface QuaSnapshotMeta {
   id: string;
   storeName: string;
   createdAt: Date;
+}
+
+/**
+ * Game save slot data structure
+ */
+export interface QuaGameSaveSlot {
+  slotId: string;
+  name?: string;
+  timestamp: Date;
+  screenshot?: string;
+  metadata: {
+    sceneName?: string;
+    stepId?: string;
+    playtime?: number;
+    [key: string]: unknown;
+  };
+  // Complete store state including all snapshots
+  storeData: {
+    state: QuaState;
+    snapshots: QuaSnapshot[];
+  };
+}
+
+/**
+ * Game save slot metadata (without full data)
+ */
+export interface QuaGameSaveSlotMeta {
+  slotId: string;
+  name?: string;
+  timestamp: Date;
+  screenshot?: string;
+  metadata: {
+    sceneName?: string;
+    stepId?: string;
+    playtime?: number;
+    [key: string]: unknown;
+  };
 }

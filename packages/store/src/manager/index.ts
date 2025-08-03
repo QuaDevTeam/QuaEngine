@@ -1,11 +1,11 @@
-import { QSConstructorOpts, QSRestoreOptions, QSSnapshotMeta, QSSnapshot } from '../types/base';
+import { QuaConstructorOpts, QuaRestoreOptions, QuaSnapshotMeta, QuaSnapshot } from '../types/base';
 import { StorageConfig } from '../types/storage';
 import { generateId } from '../utils';
 import logger from '../utils';
 import QuaStore from '../store';
 import { StorageManager } from '../storage/manager';
 
-interface ExQSConstructorOpts extends QSConstructorOpts {
+interface ExQuaConstructorOpts extends QuaConstructorOpts {
   name: string;
 }
 
@@ -70,7 +70,7 @@ class QuaStoreManager {
     return this.storageManager;
   }
 
-  public static createStore(opts: ExQSConstructorOpts) {
+  public static createStore(opts: ExQuaConstructorOpts) {
     const { name } = opts;
     if (!name) {
       throw new Error('Must specify the name of store.');
@@ -130,7 +130,7 @@ class QuaStoreManager {
     return snapshotId;
   }
 
-  public static async restoreStore(name: string, snapshotId: string, options?: QSRestoreOptions) {
+  public static async restoreStore(name: string, snapshotId: string, options?: QuaRestoreOptions) {
     const store = useStore(name);
     if (!store) {
       throw new Error(`Cannot find the certain store named "${name}".`);
@@ -138,7 +138,7 @@ class QuaStoreManager {
     await store.restore(snapshotId, options);
   }
 
-  public static async restoreAll(snapshotId: string, options?: QSRestoreOptions) {
+  public static async restoreAll(snapshotId: string, options?: QuaRestoreOptions) {
     const storageManager = await this.getStorageManager();
     const snapshot = await storageManager.getSnapshot(snapshotId);
     if (!snapshot) {
@@ -170,12 +170,12 @@ class QuaStoreManager {
     }
   }
 
-  public static async getSnapshot(id: string): Promise<QSSnapshot | undefined> {
+  public static async getSnapshot(id: string): Promise<QuaSnapshot | undefined> {
     const storageManager = await this.getStorageManager();
     return await storageManager.getSnapshot(id);
   }
 
-  public static async listSnapshots(storeName?: string): Promise<QSSnapshotMeta[]> {
+  public static async listSnapshots(storeName?: string): Promise<QuaSnapshotMeta[]> {
     const storageManager = await this.getStorageManager();
     return await storageManager.listSnapshots(storeName);
   }
