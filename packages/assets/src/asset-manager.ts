@@ -5,7 +5,8 @@ import type {
   LoadAssetOptions,
   AssetQueryResult,
   JSExecutionResult,
-  AssetProcessingPlugin
+  AssetProcessingPlugin,
+  MediaMetadata
 } from './types'
 import { AssetNotFoundError } from './types'
 import type { QuaAssetsDatabase } from './database'
@@ -201,6 +202,22 @@ export class AssetManager {
       return true
     } catch (error) {
       return false
+    }
+  }
+
+  /**
+   * Get media metadata for an asset
+   */
+  async getMediaMetadata(
+    type: AssetType,
+    name: string,
+    options: LoadAssetOptions = {}
+  ): Promise<MediaMetadata | null> {
+    try {
+      const result = await this.getAsset(type, name, options)
+      return result.asset.mediaMetadata || null
+    } catch (error) {
+      return null
     }
   }
 

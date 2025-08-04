@@ -13,6 +13,35 @@ export type LoadingState = 'idle' | 'loading' | 'loaded' | 'error'
 // Patch operation types
 export type PatchOperation = 'added' | 'modified' | 'deleted'
 
+// Media metadata interfaces (from Quack bundler)
+export interface MediaMetadata {
+  format: string
+}
+
+export interface ImageMetadata extends MediaMetadata {
+  width: number
+  height: number
+  aspectRatio: number
+  hasAlpha?: boolean
+  animated?: boolean
+}
+
+export interface AudioMetadata extends MediaMetadata {
+  duration: number        // Duration in seconds  
+  sampleRate?: number     // Sample rate in Hz
+  channels?: number       // Number of audio channels
+  bitrate?: number        // Bitrate in kbps
+  codec?: string          // Audio codec
+}
+
+export interface VideoMetadata extends MediaMetadata {
+  width: number
+  height: number
+  duration: number        // Duration in seconds
+  framerate?: number      // Framerate in fps
+  codec?: string          // Video codec
+}
+
 // Asset information stored in IndexedDB
 export interface StoredAsset {
   id: string                    // Unique asset ID: `${bundleName}:${locale}:${type}:${name}`
@@ -27,6 +56,7 @@ export interface StoredAsset {
   mtime: number                // Modified time
   createdAt: number            // When stored in IndexedDB
   lastAccessed: number         // Last access time for cache management
+  mediaMetadata?: MediaMetadata // Media metadata for audio/video/image assets
 }
 
 // Bundle information stored in IndexedDB
@@ -63,6 +93,7 @@ export interface BundleManifest {
           hash: string
           locales: string[]
           version?: number
+          mediaMetadata?: MediaMetadata // Media metadata for audio/video/image assets
         }
       }
     }

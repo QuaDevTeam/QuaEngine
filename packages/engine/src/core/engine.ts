@@ -18,6 +18,8 @@ import type {
   PluginConstructorOptions
 } from '../plugins/plugins'
 import { LogicToRenderEvents, RenderToLogicEvents, type VolumeChangePayload } from '../events/events'
+import { GameManager } from '../managers/game-manager'
+import { SoundSystem } from '../managers/sound-system'
 
 const logger = getPackageLogger('engine')
 
@@ -32,6 +34,10 @@ export class QuaEngine {
   private readonly assets: QuaAssets
   private readonly pipeline: Pipeline
   private readonly plugins: Map<string, EnginePlugin> = new Map()
+
+  // Manager instances for convenience
+  public readonly gameManager: GameManager
+  public readonly soundSystem: SoundSystem
 
   private currentScene?: Scene
   private currentStepId?: string
@@ -64,6 +70,10 @@ export class QuaEngine {
 
     this.assets = new QuaAssets(this.config.assets?.baseUrl || '')
     this.pipeline = new Pipeline()
+
+    // Initialize managers
+    this.gameManager = new GameManager(this)
+    this.soundSystem = new SoundSystem(this)
 
     // Set up render layer event listeners
     this.setupRenderLayerListeners()
@@ -343,6 +353,14 @@ export class QuaEngine {
   }
 
   /**
+   * Get media metadata for an asset
+   */
+  async getAssetMetadata(type: 'audio' | 'images' | 'characters' | 'scripts' | 'data', assetName: string): Promise<any> {
+    this.assertInitialized()
+    return await this.assets.getMediaMetadata(type, assetName)
+  }
+
+  /**
    * Set volume for a specific audio type
    */
   setVolume(type: keyof VolumeSettings, value: number): void {
@@ -395,6 +413,10 @@ export class QuaEngine {
       for (const plugin of this.plugins.values()) {
         await plugin.destroy?.()
       }
+
+      // Destroy managers
+      this.gameManager.destroy()
+      this.soundSystem.destroy()
 
       // Clear collections
       this.plugins.clear()
