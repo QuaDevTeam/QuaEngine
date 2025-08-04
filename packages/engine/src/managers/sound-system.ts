@@ -44,11 +44,18 @@ export class SoundSystem {
       if (!options.loop) {
         this.activeSounds.add(soundId)
 
-        // Auto-remove after estimated duration (if not looping)
-        // In a real implementation, you'd get the actual duration from the audio file
+        // Get actual duration from media metadata
+        const metadata = await this.engine.getAssetMetadata('audio', assetName)
+        if (!metadata || !('duration' in metadata) || typeof metadata.duration !== 'number') {
+          throw new Error(`Asset ${assetName} is corrupted or missing duration metadata`)
+        }
+        
+        const duration = metadata.duration * 1000
+        
+        // Auto-remove after actual duration
         setTimeout(() => {
           this.activeSounds.delete(soundId)
-        }, 5000) // 5 second default
+        }, duration)
       }
 
       logger.debug(`Sound started: ${assetName}`)
@@ -113,10 +120,18 @@ export class SoundSystem {
       // Track active dub
       this.activeDubs.add(dubId)
 
-      // Auto-remove after estimated duration
+      // Get actual duration from media metadata
+      const metadata = await this.engine.getAssetMetadata('audio', assetName)
+      if (!metadata || !('duration' in metadata) || typeof metadata.duration !== 'number') {
+        throw new Error(`Asset ${assetName} is corrupted or missing duration metadata`)
+      }
+      
+      const duration = metadata.duration * 1000
+      
+      // Auto-remove after actual duration
       setTimeout(() => {
         this.activeDubs.delete(dubId)
-      }, 10000) // 10 second default for voice lines
+      }, duration)
 
       logger.debug(`Dub started: ${assetName}`)
 

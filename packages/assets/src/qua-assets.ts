@@ -17,7 +17,8 @@ import type {
   DecryptionPlugin,
   AssetProcessingPlugin,
   QuaAssetsEvents,
-  JSExecutionResult
+  JSExecutionResult,
+  MediaMetadata
 } from './types'
 import { BundleLoadError } from './types'
 
@@ -381,6 +382,17 @@ export class QuaAssets {
   async hasAsset(type: AssetType, name: string, options?: LoadAssetOptions): Promise<boolean> {
     this.ensureInitialized()
     return await this.assetManager.hasAsset(type, name, {
+      locale: this.currentLocale,
+      ...options
+    })
+  }
+
+  /**
+   * Get media metadata for an asset
+   */
+  async getMediaMetadata(type: AssetType, name: string, options?: LoadAssetOptions): Promise<MediaMetadata | null> {
+    this.ensureInitialized()
+    return await this.assetManager.getMediaMetadata(type, name, {
       locale: this.currentLocale,
       ...options
     })
