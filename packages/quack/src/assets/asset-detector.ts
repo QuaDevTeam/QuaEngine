@@ -46,7 +46,7 @@ const ASSET_PATTERNS = {
   characters: {
     extensions: ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'],
     subTypes: {
-      sprites: ['sprite', 'sprites', 'character', 'char']
+      sprites: ['sprite', 'sprites', 'character', 'char', 'characters']
     }
   },
   audio: {

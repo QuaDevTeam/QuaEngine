@@ -36,14 +36,15 @@ describe('AssetDetector with Media Metadata', () => {
       // Create a valid PNG file
       const pngData = Buffer.from([
         0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-        0x00, 0x00, 0x00, 0x0D, // IHDR chunk length
-        0x49, 0x48, 0x44, 0x52, // IHDR
-        0x01, 0x00, 0x00, 0x00, // Width: 256
-        0x00, 0x80, 0x00, 0x00, // Height: 128
-        0x08, 0x06, 0x00, 0x00, 0x00, // 8-bit RGBA
-        0x00, 0x00, 0x00, 0x00, // CRC
-        0x00, 0x00, 0x00, 0x00, // IEND
-        0x49, 0x45, 0x4E, 0x44, 0x00, 0x00, 0x00, 0x00
+        0x00, 0x00, 0x00, 0x0D, // IHDR chunk length (13 bytes)
+        0x49, 0x48, 0x44, 0x52, // IHDR chunk type
+        0x00, 0x00, 0x01, 0x00, // Width: 256 (big-endian)
+        0x00, 0x00, 0x00, 0x80, // Height: 128 (big-endian)
+        0x08, 0x06, 0x00, 0x00, 0x00, // 8-bit depth, RGBA, no compression, no filter, no interlace
+        0x8D, 0xB6, 0xC5, 0x2C, // CRC32 checksum (calculated for the IHDR data)
+        0x00, 0x00, 0x00, 0x00, // IEND chunk length (0)
+        0x49, 0x45, 0x4E, 0x44, // IEND chunk type
+        0xAE, 0x42, 0x60, 0x82  // IEND CRC32
       ])
 
       const testFile = join(testDir, 'images', 'background.png')
@@ -71,13 +72,16 @@ describe('AssetDetector with Media Metadata', () => {
 
       // Simple PNG data
       const pngData = Buffer.from([
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-        0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
-        0x00, 0x00, 0x01, 0x00, // Width: 256
-        0x00, 0x00, 0x02, 0x00, // Height: 512
-        0x08, 0x02, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0x00, 0x00, 0x00, 0x00
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+        0x00, 0x00, 0x00, 0x0D, // IHDR chunk length (13 bytes)
+        0x49, 0x48, 0x44, 0x52, // IHDR chunk type
+        0x00, 0x00, 0x01, 0x00, // Width: 256 (big-endian)
+        0x00, 0x00, 0x02, 0x00, // Height: 512 (big-endian)
+        0x08, 0x02, 0x00, 0x00, 0x00, // 8-bit depth, RGB, no compression, no filter, no interlace
+        0x5C, 0xF9, 0x78, 0x39, // CRC32 checksum
+        0x00, 0x00, 0x00, 0x00, // IEND chunk length (0)
+        0x49, 0x45, 0x4E, 0x44, // IEND chunk type
+        0xAE, 0x42, 0x60, 0x82  // IEND CRC32
       ])
       writeFileSync(testFile, pngData)
 
@@ -177,6 +181,21 @@ describe('AssetDetector with Media Metadata', () => {
 
   describe('Asset Discovery with Media Metadata', () => {
     it('should discover all assets with their media metadata', async () => {
+      // Clean up test directory first
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Directory doesn't exist
+      }
+      
+      // Create test directory structure
+      mkdirSync(join(testDir, 'images'), { recursive: true })
+      mkdirSync(join(testDir, 'audio'), { recursive: true })
+      mkdirSync(join(testDir, 'video'), { recursive: true })
+      mkdirSync(join(testDir, 'characters'), { recursive: true })
+      mkdirSync(join(testDir, 'scripts'), { recursive: true })
+      mkdirSync(join(testDir, 'data'), { recursive: true })
+      
       // Create various test files
       const files = [
         { path: 'images/bg01.png', type: 'images', hasMetadata: true },
@@ -245,6 +264,20 @@ describe('AssetDetector with Media Metadata', () => {
 
   describe('Asset Grouping with Video Support', () => {
     it('should group assets including video type', async () => {
+      // Clean up test directory first
+      try {
+        rmSync(testDir, { recursive: true, force: true })
+      } catch {
+        // Directory doesn't exist
+      }
+      
+      // Create test directory structure
+      mkdirSync(join(testDir, 'images'), { recursive: true })
+      mkdirSync(join(testDir, 'characters'), { recursive: true })
+      mkdirSync(join(testDir, 'audio'), { recursive: true })
+      mkdirSync(join(testDir, 'video'), { recursive: true })
+      mkdirSync(join(testDir, 'scripts'), { recursive: true })
+      
       // Create test assets
       const testFiles = [
         { path: 'images/bg.png', data: Buffer.alloc(100) },
@@ -270,7 +303,7 @@ describe('AssetDetector with Media Metadata', () => {
       expect(grouped).toHaveProperty('scripts')
 
       expect(Object.keys(grouped.video)).toHaveLength(1)
-      expect(grouped.video.other).toHaveLength(1)
+      expect(grouped.video.intro).toHaveLength(1)
     })
   })
 

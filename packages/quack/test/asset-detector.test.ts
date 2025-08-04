@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdir, rm, writeFile, readFile } from 'node:fs/promises'
-import { AssetDetector } from '../src/asset-detector'
-import type { AssetInfo, AssetType } from '../src/types'
+import { AssetDetector } from '../src/assets/asset-detector'
+import type { AssetInfo, AssetType } from '../src/core/types'
 
 describe('AssetDetector', () => {
   let assetDetector: AssetDetector
