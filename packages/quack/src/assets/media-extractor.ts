@@ -196,7 +196,7 @@ export class MediaMetadataExtractor {
   private getVideoFormat(ext: string): string {
     const formats: Record<string, string> = {
       '.mp4': 'MP4',
-      '.webm': 'WebM',
+      '.webm': 'WEBM',
       '.avi': 'AVI',
       '.mov': 'MOV',
       '.mkv': 'MKV',
@@ -324,8 +324,9 @@ export class MediaMetadataExtractor {
       hasAlpha = (bits >> 28) & 1 ? true : false
     } else if (chunk === 'VP8X') {
       // Extended WebP
-      width = buffer.readUInt32LE(24) + 1
-      height = buffer.readUInt32LE(27) + 1
+      // Width and height are stored as 3-byte little-endian values
+      width = (buffer.readUInt16LE(24) | (buffer.readUInt8(26) << 16)) + 1
+      height = (buffer.readUInt16LE(27) | (buffer.readUInt8(29) << 16)) + 1
       const flags = buffer.readUInt8(20)
       animated = (flags & 0x02) !== 0
       hasAlpha = (flags & 0x10) !== 0

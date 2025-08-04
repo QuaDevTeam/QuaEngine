@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { QuackBundler } from '../src/bundler'
-import type { BundleStats } from '../src/types'
+import { QuackBundler } from '../src/core/bundler'
+import type { BundleStats } from '../src/core/types'
 
 describe('QuackBundler', () => {
   let bundler: QuackBundler
@@ -74,7 +74,7 @@ describe('QuackBundler', () => {
           output: join(tempDir, 'custom-bundle.qpk'),
           format: 'qpk',
           compression: { algorithm: 'lzma', level: 1 },
-          encryption: { enabled: true, algorithm: 'custom' },
+          encryption: { enabled: true, algorithm: 'custom', key: 'test-key-32-characters-long-123' },
           versioning: { bundleVersion: 2, buildNumber: '100' }
         })
         

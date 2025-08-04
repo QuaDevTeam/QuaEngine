@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { QPKBundler } from '../src/qpk-bundler'
-import type { AssetInfo } from '../src/types'
+import { QPKBundler } from '../src/bundlers/qpk-bundler'
+import type { AssetInfo } from '../src/core/types'
 
 describe('QPKBundler', () => {
   let qpkBundler: QPKBundler
