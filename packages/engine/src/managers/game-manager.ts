@@ -1,18 +1,9 @@
 import { getPackageLogger } from '@quajs/logger'
 import { generateId } from '@quajs/utils'
+import type { QuaStore, QuaGameSaveSlot, QuaGameSaveSlotMeta } from '@quajs/store'
 
 import type { QuaEngine } from '../core/engine'
-import type { Scene, GameStep, StepContext, SlotMetadata, SaveSlot } from '../core/types'
-
-// Type assertion interface for store slot methods
-interface StoreWithSlots {
-  saveToSlot(slotId: string, metadata?: SlotMetadata): Promise<void>
-  loadFromSlot(slotId: string, options?: { force?: boolean }): Promise<void>
-  deleteSlot(slotId: string): Promise<void>
-  hasSlot(slotId: string): Promise<boolean>
-  getSlot(slotId: string): Promise<SaveSlot | undefined>
-  listSlots(): Promise<SaveSlot[]>
-}
+import type { Scene, GameStep, StepContext } from '../core/types'
 
 const logger = getPackageLogger('engine:game-manager')
 
@@ -116,9 +107,9 @@ export class GameManager {
     logger.info(`Saving game to slot: ${slotId}`)
 
     try {
-      const store = this.engine.getStore() as unknown as StoreWithSlots
+      const store = this.engine.getStore() as QuaStore
 
-      const metadata: SlotMetadata = {
+      const metadata = {
         name: slotName,
         screenshot,
         sceneName: this.engine.getCurrentSceneName(),
@@ -143,7 +134,7 @@ export class GameManager {
     logger.info(`Loading game from slot: ${slotId}`)
 
     try {
-      const store = this.engine.getStore() as unknown as StoreWithSlots
+      const store = this.engine.getStore() as QuaStore
 
       // Check if slot exists
       if (!(await store.hasSlot(slotId))) {
@@ -167,7 +158,7 @@ export class GameManager {
     logger.info(`Deleting save slot: ${slotId}`)
 
     try {
-      const store = this.engine.getStore() as unknown as StoreWithSlots
+      const store = this.engine.getStore() as QuaStore
       await store.deleteSlot(slotId)
 
       logger.info(`Save slot deleted: ${slotId}`)
@@ -181,16 +172,16 @@ export class GameManager {
   /**
    * Get list of all save slots
    */
-  async getSaveSlots() {
-    const store = this.engine.getStore() as unknown as StoreWithSlots
+  async getSaveSlots(): Promise<QuaGameSaveSlotMeta[]> {
+    const store = this.engine.getStore() as QuaStore
     return await store.listSlots()
   }
 
   /**
    * Get a specific save slot
    */
-  async getSaveSlot(slotId: string) {
-    const store = this.engine.getStore() as unknown as StoreWithSlots
+  async getSaveSlot(slotId: string): Promise<QuaGameSaveSlot | undefined> {
+    const store = this.engine.getStore() as QuaStore
     return await store.getSlot(slotId)
   }
 
