@@ -30,6 +30,7 @@ const logger = getPackageLogger('engine')
  * between logic and render layers through event-driven architecture.
  */
 export class QuaEngine {
+  private static instance: QuaEngine | null = null
   private readonly store: QuaStore
   private readonly assets: QuaAssets
   private readonly pipeline: Pipeline
@@ -53,6 +54,11 @@ export class QuaEngine {
   private isDestroyed = false
 
   constructor(private config: EngineConfig = {}) {
+    // Singleton pattern - prevent direct instantiation
+    if (QuaEngine.instance) {
+      throw new Error('QuaEngine is a singleton. Use QuaEngine.getInstance() instead.')
+    }
+
     logger.info('Initializing QuaEngine')
 
     // Initialize core components
@@ -79,6 +85,23 @@ export class QuaEngine {
     this.setupRenderLayerListeners()
 
     logger.info('QuaEngine initialized')
+  }
+
+  /**
+   * Get singleton instance of QuaEngine
+   */
+  static getInstance(config?: EngineConfig): QuaEngine {
+    if (!QuaEngine.instance) {
+      QuaEngine.instance = new QuaEngine(config)
+    }
+    return QuaEngine.instance
+  }
+
+  /**
+   * Reset singleton instance (mainly for testing)
+   */
+  static resetInstance(): void {
+    QuaEngine.instance = null
   }
 
   /**
@@ -379,6 +402,52 @@ export class QuaEngine {
    */
   getStore(): QuaStore {
     return this.store
+  }
+
+  /**
+   * Save game to a slot with metadata
+   */
+  async saveToSlot(
+    slotId: string, 
+    metadata: {
+      name?: string;
+      screenshot?: string;
+      sceneName?: string;
+      stepId?: string;
+      playtime?: number;
+      [key: string]: unknown;
+    } = {}
+  ): Promise<void> {
+    this.assertInitialized()
+
+    const saveMetadata = {
+      ...metadata,
+      sceneName: metadata.sceneName || this.currentScene?.name,
+      stepId: metadata.stepId || this.currentStepId,
+      timestamp: Date.now()
+    }
+
+    await this.store.saveToSlot(slotId, saveMetadata)
+    logger.info(`Game saved to slot: ${slotId}`)
+  }
+
+  /**
+   * Load game from a slot
+   */
+  async loadFromSlot(slotId: string, options: { force?: boolean } = {}): Promise<void> {
+    this.assertInitialized()
+
+    await this.store.loadFromSlot(slotId, options)
+    
+    // Restore engine state from store
+    const engineState = this.store.state.engine as any
+    if (engineState) {
+      this.currentStepId = engineState.currentStepId
+      this.stepHistory = engineState.stepHistory || []
+      this.volumeSettings = engineState.volumeSettings || this.volumeSettings
+    }
+
+    logger.info(`Game loaded from slot: ${slotId}`)
   }
 
   /**
