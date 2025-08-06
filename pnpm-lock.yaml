@@ -186,6 +186,34 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@24.1.0)(@vitest/ui@3.2.4)(happy-dom@18.0.1)(tsx@4.20.3)(yaml@2.8.0)
 
+  packages/script-compiler:
+    dependencies:
+      '@babel/generator':
+        specifier: ^7.23.0
+        version: 7.28.0
+      '@babel/parser':
+        specifier: ^7.23.0
+        version: 7.28.0
+      '@babel/traverse':
+        specifier: ^7.23.0
+        version: 7.28.0
+      '@babel/types':
+        specifier: ^7.23.0
+        version: 7.28.2
+      uuid:
+        specifier: ^9.0.0
+        version: 9.0.1
+      vite:
+        specifier: ^4.0.0 || ^5.0.0
+        version: 5.4.19(@types/node@24.1.0)
+    devDependencies:
+      '@types/uuid':
+        specifier: ^9.0.0
+        version: 9.0.8
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@24.1.0)(@vitest/ui@1.6.1)(happy-dom@18.0.1)
+
   packages/store:
     dependencies:
       '@quajs/logger':
@@ -1591,6 +1619,9 @@ packages:
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
+
+  '@types/uuid@9.0.8':
+    resolution: {integrity: sha512-jg+97EGIcY9AGHJJRaaPVgetKDsrTgbRjQ5Msgjh/DQKEFl0DtyRr/VCOyD1T2R1MNeWPK/u7JoGhlDZnKBAfA==}
 
   '@types/whatwg-mimetype@3.0.2':
     resolution: {integrity: sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA==}
@@ -3709,6 +3740,10 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
+  uuid@9.0.1:
+    resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
+    hasBin: true
+
   validate-npm-package-name@5.0.1:
     resolution: {integrity: sha512-OljLrQ9SQdOUqTaQxqL5dEfZWrXExyyWsozYlAWFawPVNuD83igl7uJD2RTkNMbniIYgt8l81eCJGIdQF7avLQ==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
@@ -5452,6 +5487,8 @@ snapshots:
   '@types/parse-json@4.0.2': {}
 
   '@types/unist@3.0.3': {}
+
+  '@types/uuid@9.0.8': {}
 
   '@types/whatwg-mimetype@3.0.2': {}
 
@@ -7874,6 +7911,8 @@ snapshots:
       punycode: 2.3.1
 
   util-deprecate@1.0.2: {}
+
+  uuid@9.0.1: {}
 
   validate-npm-package-name@5.0.1: {}
 
