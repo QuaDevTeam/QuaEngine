@@ -1,3 +1,21 @@
+// Global APIs (main exports)
+export {
+  initEngine,
+  loadScene,
+  dialogue,
+  rewind,
+  playSound,
+  dub,
+  playBGM,
+  setVolume,
+  saveToSlot,
+  loadFromSlot,
+  getAssetMetadata,
+  getCurrentSceneName,
+  getCurrentStepId,
+  getStore
+} from './api/global'
+
 // Core Engine
 export { QuaEngine } from './core/engine'
 

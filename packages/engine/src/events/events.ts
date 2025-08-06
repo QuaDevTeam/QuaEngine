@@ -71,7 +71,6 @@ export enum RenderToLogicEvents {
   MUTE_TOGGLE = 'mute/toggle',
 
   // System Events
-  WINDOW_RESIZE = 'window/resize',
   WINDOW_FOCUS = 'window/focus',
   WINDOW_BLUR = 'window/blur',
 
