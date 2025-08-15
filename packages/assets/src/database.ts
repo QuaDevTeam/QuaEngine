@@ -1,5 +1,6 @@
-import Dexie, { Table } from 'dexie'
-import type { StoredAsset, StoredBundle, AssetType, AssetLocale } from './types'
+import type { Table } from 'dexie'
+import type { AssetLocale, AssetType, StoredAsset, StoredBundle } from './types'
+import Dexie from 'dexie'
 
 /**
  * QuaAssets Database schema and management
@@ -16,7 +17,7 @@ export class QuaAssetsDatabase extends Dexie {
     // Define schema
     this.version(version).stores({
       assets: 'id, bundleName, name, type, locale, hash, version, lastAccessed, createdAt',
-      bundles: 'name, version, buildNumber, hash, lastUpdated, createdAt'
+      bundles: 'name, version, buildNumber, hash, lastUpdated, createdAt',
     })
   }
 
@@ -33,7 +34,7 @@ export class QuaAssetsDatabase extends Dexie {
    */
   async storeAssets(assets: StoredAsset[]): Promise<void> {
     const now = Date.now()
-    assets.forEach(asset => {
+    assets.forEach((asset) => {
       asset.lastAccessed = now
     })
 
@@ -90,23 +91,25 @@ export class QuaAssetsDatabase extends Dexie {
     bundleName: string,
     type: AssetType,
     name: string,
-    preferredLocale: AssetLocale = 'default'
+    preferredLocale: AssetLocale = 'default',
   ): Promise<StoredAsset | undefined> {
     // Try preferred locale first
     let asset = await this.getAsset(`${bundleName}:${preferredLocale}:${type}:${name}`)
-    if (asset) return asset
+    if (asset)
+      return asset
 
     // Try default locale
     if (preferredLocale !== 'default') {
       asset = await this.getAsset(`${bundleName}:default:${type}:${name}`)
-      if (asset) return asset
+      if (asset)
+        return asset
     }
 
     // Try any locale for this asset
     const assets = await this.findAssets({
       bundleName,
       type,
-      name
+      name,
     })
 
     return assets.length > 0 ? assets[0] : undefined
@@ -157,7 +160,7 @@ export class QuaAssetsDatabase extends Dexie {
   async getDatabaseSize(): Promise<number> {
     let totalSize = 0
 
-    await this.assets.each(asset => {
+    await this.assets.each((asset) => {
       totalSize += asset.size
     })
 
@@ -215,7 +218,7 @@ export class QuaAssetsDatabase extends Dexie {
     const [totalAssets, totalBundles, totalSize] = await Promise.all([
       this.assets.count(),
       this.bundles.count(),
-      this.getDatabaseSize()
+      this.getDatabaseSize(),
     ])
 
     const oldestAsset = await this.assets.orderBy('lastAccessed').first()
@@ -226,7 +229,7 @@ export class QuaAssetsDatabase extends Dexie {
       totalBundles,
       totalSize,
       oldestAsset: oldestAsset ? new Date(oldestAsset.lastAccessed) : null,
-      newestAsset: newestAsset ? new Date(newestAsset.lastAccessed) : null
+      newestAsset: newestAsset ? new Date(newestAsset.lastAccessed) : null,
     }
   }
 
@@ -241,7 +244,7 @@ export class QuaAssetsDatabase extends Dexie {
     const [assets, bundles, stats] = await Promise.all([
       this.assets.toArray(),
       this.bundles.toArray(),
-      this.getCacheStats()
+      this.getCacheStats(),
     ])
 
     return { assets, bundles, stats }
@@ -262,13 +265,15 @@ export class QuaAssetsDatabase extends Dexie {
    */
   async verifyAssetIntegrity(assetId: string): Promise<boolean> {
     const asset = await this.assets.get(assetId)
-    if (!asset) return false
+    if (!asset)
+      return false
 
     try {
       const buffer = await asset.blob.arrayBuffer()
       const hash = await this.computeHash(buffer)
       return hash === asset.hash
-    } catch (error) {
+    }
+    catch (error) {
       return false
     }
   }
@@ -297,7 +302,8 @@ export class QuaAssetsDatabase extends Dexie {
     for (const asset of assets) {
       if (await this.verifyAssetIntegrity(asset.id)) {
         valid++
-      } else {
+      }
+      else {
         invalid.push(asset.id)
       }
     }
@@ -305,7 +311,7 @@ export class QuaAssetsDatabase extends Dexie {
     return {
       total: assets.length,
       valid,
-      invalid
+      invalid,
     }
   }
 }

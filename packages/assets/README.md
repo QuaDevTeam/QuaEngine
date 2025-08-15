@@ -83,7 +83,8 @@ if ('workspace' in index) {
   // Multi-bundle workspace
   console.log('Workspace:', index.workspace.name)
   console.log('Bundles:', Object.keys(index.bundles))
-} else {
+}
+else {
   // Single bundle
   console.log('Version:', index.currentVersion)
   console.log('Latest bundle:', index.latestBundle.filename)
@@ -102,7 +103,7 @@ await assets.loadBundle('game-core.qpk')
 await assets.loadBundle('game-levels.zip', {
   force: true, // Force reload even if cached
   onProgress: (loaded, total) => {
-    console.log(`Progress: ${(loaded/total*100).toFixed(1)}%`)
+    console.log(`Progress: ${(loaded / total * 100).toFixed(1)}%`)
   }
 })
 ```
@@ -164,10 +165,11 @@ const result = await assets.executeJS('game-logic.js')
 
 if (result.error) {
   console.error('Script execution failed:', result.error)
-} else {
+}
+else {
   console.log('Exports:', result.exports)
   console.log('Execution time:', result.executionTime, 'ms')
-  
+
   // Use exported functions
   result.exports.initializeGame()
 }
@@ -349,7 +351,8 @@ const result = await patchManager.applyPatch(
 
 if (result.success) {
   console.log('Patch applied successfully!')
-} else {
+}
+else {
   console.error('Patch failed:', result.errors)
 }
 ```
@@ -362,23 +365,23 @@ Extend QuaAssets functionality with plugins.
 
 ```typescript
 import {
-  XORDecryptionPlugin,
   AESDecryptionPlugin,
+  CacheWarmingPlugin,
   ImageProcessingPlugin,
-  CacheWarmingPlugin
+  XORDecryptionPlugin
 } from '@quajs/assets'
 
 const assets = new QuaAssets('https://cdn.example.com/assets', {
   plugins: [
     // Decrypt bundles with XOR encryption
     new XORDecryptionPlugin(process.env.ASSETS_KEY),
-    
+
     // Process images for optimization
     new ImageProcessingPlugin({
       enableWebP: true,
       quality: 0.8
     }),
-    
+
     // Warm cache for frequently used assets
     new CacheWarmingPlugin(50 * 1024 * 1024) // 50MB cache
   ]
@@ -432,21 +435,21 @@ const index = await assets.checkLatest()
 
 if ('workspace' in index) {
   console.log(`Workspace: ${index.workspace.name}`)
-  
+
   // Load bundles by priority
   const bundles = Object.values(index.bundles)
     .sort((a, b) => a.priority - b.priority)
-  
+
   for (const bundle of bundles) {
     if (bundle.loadTrigger === 'immediate') {
       console.log(`Loading immediate bundle: ${bundle.name}`)
       await assets.loadBundle(bundle.latestBundle.filename)
     }
   }
-  
+
   // Game can start now with core assets
   startGame()
-  
+
   // Load lazy bundles in background
   for (const bundle of bundles) {
     if (bundle.loadTrigger === 'lazy') {
@@ -465,7 +468,7 @@ if ('workspace' in index) {
 ```typescript
 const assets = new QuaAssets('https://cdn.example.com/assets', {
   enableServiceWorker: true, // Use service worker for caching
-  enableCompression: true,   // Enable response compression
+  enableCompression: true, // Enable response compression
   enableIntegrityCheck: true // Verify asset hashes
 })
 ```
@@ -483,16 +486,19 @@ const assets = new QuaAssets('https://cdn.example.com/assets', {
 ### Error Handling
 
 ```typescript
-import { BundleLoadError, AssetNotFoundError, IntegrityError } from '@quajs/assets'
+import { AssetNotFoundError, BundleLoadError, IntegrityError } from '@quajs/assets'
 
 try {
   await assets.loadBundle('game-bundle.qpk')
-} catch (error) {
+}
+catch (error) {
   if (error instanceof BundleLoadError) {
     console.error('Bundle loading failed:', error.bundleName, error.message)
-  } else if (error instanceof AssetNotFoundError) {
+  }
+  else if (error instanceof AssetNotFoundError) {
     console.error('Asset not found:', error.assetType, error.assetName)
-  } else if (error instanceof IntegrityError) {
+  }
+  else if (error instanceof IntegrityError) {
     console.error('Integrity check failed:', error.expectedHash, error.actualHash)
   }
 }
@@ -501,6 +507,7 @@ try {
 ## Best Practices
 
 ### 1. Initialize Early
+
 ```typescript
 // Initialize as early as possible
 const assets = new QuaAssets('https://cdn.example.com/assets')
@@ -508,6 +515,7 @@ await assets.initialize()
 ```
 
 ### 2. Preload Critical Assets
+
 ```typescript
 // Preload essential assets during loading screen
 await assets.preloadAssets([
@@ -517,6 +525,7 @@ await assets.preloadAssets([
 ```
 
 ### 3. Handle Locales Properly
+
 ```typescript
 // Set locale before loading assets
 assets.setLocale(getUserLocale())
@@ -527,6 +536,7 @@ const text = await assets.getBlob('images', 'menu-text.png')
 ```
 
 ### 4. Monitor Cache Usage
+
 ```typescript
 // Periodically check cache size
 setInterval(async () => {
@@ -538,6 +548,7 @@ setInterval(async () => {
 ```
 
 ### 5. Proper Cleanup
+
 ```typescript
 // Clean up on page unload
 window.addEventListener('beforeunload', async () => {

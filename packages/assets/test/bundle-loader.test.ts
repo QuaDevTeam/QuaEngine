@@ -56,7 +56,7 @@ describe('bundleLoader', () => {
         const bundleUrl = 'https://example.com/invalid-bundle.qpk'
 
         // Mock fetch to return our invalid buffer
-        global.fetch = vi.fn(() => {
+        globalThis.fetch = vi.fn(() => {
           const mockBody = {
             getReader: () => ({
               read: vi.fn()
@@ -173,7 +173,7 @@ describe('bundleLoader', () => {
 
   describe('error Handling', () => {
     it('should handle network errors gracefully', async () => {
-      global.fetch = vi.fn(() => Promise.reject(new Error('Network timeout')))
+      globalThis.fetch = vi.fn(() => Promise.reject(new Error('Network timeout')))
 
       try {
         await bundleLoader.loadBundle('test.qpk', 'test-bundle')
@@ -186,7 +186,7 @@ describe('bundleLoader', () => {
     }, 5000)
 
     it('should handle invalid bundle data', async () => {
-      global.fetch = vi.fn(() =>
+      globalThis.fetch = vi.fn(() =>
         Promise.resolve({
           ok: true,
           arrayBuffer: () => Promise.resolve(new ArrayBuffer(10)), // Too small

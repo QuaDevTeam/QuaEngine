@@ -225,7 +225,7 @@ The manifest is stored as compressed JSON (if compression is enabled):
     "enabled": true,
     "algorithm": "xor",
     "keyDerivation": "pbkdf2"
-  },
+  }
   // ... rest similar to ZIP manifest
 }
 ```
@@ -262,11 +262,11 @@ QPK uses LZMA compression for superior compression ratios:
 ```json
 {
   "algorithm": "lzma",
-  "level": 6,              // 1-9, higher = better compression
+  "level": 6, // 1-9, higher = better compression
   "dictionarySize": 1048576, // Dictionary size in bytes
-  "numFastBytes": 32,      // Fast bytes parameter
-  "matchFinder": "bt4",    // Match finder algorithm
-  "numHashBytes": 4        // Hash bytes count
+  "numFastBytes": 32, // Fast bytes parameter
+  "matchFinder": "bt4", // Match finder algorithm
+  "numHashBytes": 4 // Hash bytes count
 }
 ```
 
@@ -301,16 +301,16 @@ Enhanced XOR encryption with key derivation:
 
 ## Bundle Comparison
 
-| Feature | ZIP | QPK |
-|---------|-----|-----|
-| Compression | Deflate (good) | LZMA (excellent) |
-| Encryption | Basic XOR | Enhanced XOR + Key derivation |
-| File size | Larger | Smaller (20-50% reduction) |
-| Compatibility | Universal | Quack-specific |
-| Inspection | Standard tools | Custom tools required |
-| Streaming | Limited | Optimized |
-| Patching | External | Built-in |
-| Performance | Fast decompress | Slower decompress, better I/O |
+| Feature       | ZIP             | QPK                           |
+| ------------- | --------------- | ----------------------------- |
+| Compression   | Deflate (good)  | LZMA (excellent)              |
+| Encryption    | Basic XOR       | Enhanced XOR + Key derivation |
+| File size     | Larger          | Smaller (20-50% reduction)    |
+| Compatibility | Universal       | Quack-specific                |
+| Inspection    | Standard tools  | Custom tools required         |
+| Streaming     | Limited         | Optimized                     |
+| Patching      | External        | Built-in                      |
+| Performance   | Fast decompress | Slower decompress, better I/O |
 
 ## Format Selection Guidelines
 
@@ -404,7 +404,7 @@ Patch bundles contain incremental changes:
 ```json
 {
   "isPatch": true,
-  "patchVersion": 1001002,  // fromVersion + toVersion
+  "patchVersion": 1001002, // fromVersion + toVersion
   "fromVersion": 1,
   "toVersion": 2,
   "changes": {
@@ -442,28 +442,28 @@ Patch bundles contain incremental changes:
 
 ### Memory Usage
 
-| Format | Memory Usage | Notes |
-|--------|-------------|-------|
-| ZIP | Higher | Full decompression required |
-| QPK | Lower | Streaming decompression |
+| Format | Memory Usage | Notes                       |
+| ------ | ------------ | --------------------------- |
+| ZIP    | Higher       | Full decompression required |
+| QPK    | Lower        | Streaming decompression     |
 
 ### Compression Speed
 
 | Algorithm | Compression Speed | Decompression Speed | Ratio |
-|-----------|-------------------|---------------------|-------|
-| None | Instant | Instant | 1.0x |
-| Deflate | Fast | Very Fast | 2-3x |
-| LZMA | Slow | Fast | 3-5x |
+| --------- | ----------------- | ------------------- | ----- |
+| None      | Instant           | Instant             | 1.0x  |
+| Deflate   | Fast              | Very Fast           | 2-3x  |
+| LZMA      | Slow              | Fast                | 3-5x  |
 
 ### Bundle Size Examples
 
 Example game bundle (100MB of assets):
 
 | Format | Algorithm | Size | Compression Time | Load Time |
-|--------|-----------|------|------------------|-----------|
-| ZIP | Deflate-6 | 45MB | 5s | 1s |
-| QPK | LZMA-6 | 25MB | 15s | 2s |
-| QPK | LZMA-9 | 22MB | 45s | 2.5s |
+| ------ | --------- | ---- | ---------------- | --------- |
+| ZIP    | Deflate-6 | 45MB | 5s               | 1s        |
+| QPK    | LZMA-6    | 25MB | 15s              | 2s        |
+| QPK    | LZMA-9    | 22MB | 45s              | 2.5s      |
 
 ## Tool Support
 
@@ -526,7 +526,7 @@ quack bundle ./temp/ -o game.zip -f zip -c deflate:6
 ### Programmatic Conversion
 
 ```typescript
-import { QuackBundler, ZipBundler, QPKBundler } from '@quajs/quack'
+import { QPKBundler, QuackBundler, ZipBundler } from '@quajs/quack'
 
 // Extract from ZIP
 const zipBundler = new ZipBundler()

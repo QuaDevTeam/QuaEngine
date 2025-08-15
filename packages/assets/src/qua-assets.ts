@@ -1,25 +1,25 @@
-import { createLogger } from '@quajs/logger'
-import { QuaAssetsDatabase } from './database'
-import { BundleLoader } from './bundle-loader'
-import { AssetManager } from './asset-manager'
-import { PatchManager } from './patch-manager'
 import type {
-  QuaAssetsConfig,
-  AssetType,
   AssetLocale,
-  LoadAssetOptions,
-  LoadBundleOptions,
-  BundleStatus,
+  AssetProcessingPlugin,
+  AssetType,
   BundleIndex,
-  WorkspaceBundleIndex,
-  QuaAssetsPlugin,
+  BundleStatus,
   DecompressionPlugin,
   DecryptionPlugin,
-  AssetProcessingPlugin,
-  QuaAssetsEvents,
   JSExecutionResult,
-  MediaMetadata
+  LoadAssetOptions,
+  LoadBundleOptions,
+  MediaMetadata,
+  QuaAssetsConfig,
+  QuaAssetsEvents,
+  QuaAssetsPlugin,
+  WorkspaceBundleIndex,
 } from './types'
+import { createLogger } from '@quajs/logger'
+import { AssetManager } from './asset-manager'
+import { BundleLoader } from './bundle-loader'
+import { QuaAssetsDatabase } from './database'
+import { PatchManager } from './patch-manager'
 import { BundleLoadError } from './types'
 
 const logger = createLogger('quaassets')
@@ -51,7 +51,8 @@ export class QuaAssets {
       if (!['http:', 'https:'].includes(url.protocol)) {
         throw new Error('Invalid endpoint URL protocol')
       }
-    } catch (error) {
+    }
+    catch (error) {
       throw new Error('Invalid endpoint URL format')
     }
 
@@ -69,7 +70,7 @@ export class QuaAssets {
 
     if (config.locale !== undefined) {
       if (typeof config.locale !== 'string') {
-        throw new Error('Locale must be a string')
+        throw new TypeError('Locale must be a string')
       }
       // Validate locale format (allow 'default' or standard locale codes)
       const localePattern = /^(default|[a-z]{2}(-[a-z]{2})?|[a-z]{2}-[A-Z]{2})$/
@@ -92,7 +93,7 @@ export class QuaAssets {
       indexedDBVersion: 1,
       enableIntegrityCheck: true,
       enableCompression: true,
-      ...config
+      ...config,
     }
 
     this.currentLocale = this.config.locale
@@ -100,12 +101,12 @@ export class QuaAssets {
     // Initialize components
     this.database = new QuaAssetsDatabase(
       this.config.indexedDBName,
-      this.config.indexedDBVersion
+      this.config.indexedDBVersion,
     )
 
     this.bundleLoader = new BundleLoader(
       this.config.retryAttempts,
-      this.config.timeout
+      this.config.timeout,
     )
 
     this.assetManager = new AssetManager(this.database, this.currentLocale)
@@ -121,7 +122,8 @@ export class QuaAssets {
    * Initialize QuaAssets (must be called before use)
    */
   async initialize(): Promise<void> {
-    if (this.initialized) return
+    if (this.initialized)
+      return
 
     try {
       await this.database.open()
@@ -135,7 +137,8 @@ export class QuaAssets {
 
       this.initialized = true
       logger.info('QuaAssets initialized successfully')
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to initialize QuaAssets:', error)
       throw error
     }
@@ -150,7 +153,7 @@ export class QuaAssets {
     try {
       const indexUrl = `${this.config.endpoint}/index.json`
       const response = await fetch(indexUrl, {
-        cache: this.config.enableCache ? 'default' : 'no-cache'
+        cache: this.config.enableCache ? 'default' : 'no-cache',
       })
 
       if (!response.ok) {
@@ -162,10 +165,12 @@ export class QuaAssets {
       // Detect if it's a workspace index or single bundle index
       if ('workspace' in index) {
         return index as WorkspaceBundleIndex
-      } else {
+      }
+      else {
         return index as BundleIndex
       }
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to check latest version:', error)
       throw error
     }
@@ -186,7 +191,7 @@ export class QuaAssets {
       progress: 0,
       assetCount: 0,
       loadedAssets: 0,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
     })
 
     try {
@@ -207,7 +212,7 @@ export class QuaAssets {
             progress: 1,
             assetCount: existingBundle.assetCount,
             loadedAssets: existingBundle.assetCount,
-            lastUpdated: existingBundle.lastUpdated
+            lastUpdated: existingBundle.lastUpdated,
           })
 
           this.emit('bundle:loaded', { bundleName: baseBundleName, status: this.bundleStatuses.get(baseBundleName)! })
@@ -225,7 +230,7 @@ export class QuaAssets {
           if (options.onProgress) {
             options.onProgress(loaded, total)
           }
-        }
+        },
       }
 
       const { manifest, assets } = await this.bundleLoader.loadBundle(bundleUrl, baseBundleName, loadOptions)
@@ -248,7 +253,7 @@ export class QuaAssets {
             locales: manifest.locales,
             createdAt: Date.now(),
             lastUpdated: Date.now(),
-            manifest
+            manifest,
           })
 
           // Store assets
@@ -267,15 +272,16 @@ export class QuaAssets {
         progress: 1,
         assetCount: assets.length,
         loadedAssets: assets.length,
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
       })
 
       this.emit('bundle:loaded', { bundleName: baseBundleName, status: this.bundleStatuses.get(baseBundleName)! })
       logger.info(`Bundle ${baseBundleName} loaded successfully (${assets.length} assets)`)
-
-    } catch (error) {
-      const bundleError = error instanceof BundleLoadError ? error :
-        new BundleLoadError(`Failed to load bundle: ${error instanceof Error ? error.message : String(error)}`, baseBundleName)
+    }
+    catch (error) {
+      const bundleError = error instanceof BundleLoadError
+        ? error
+        : new BundleLoadError(`Failed to load bundle: ${error instanceof Error ? error.message : String(error)}`, baseBundleName)
 
       this.bundleStatuses.set(baseBundleName, {
         name: baseBundleName,
@@ -285,7 +291,7 @@ export class QuaAssets {
         assetCount: 0,
         loadedAssets: 0,
         error: bundleError,
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
       })
 
       this.emit('bundle:error', { bundleName: baseBundleName, error: bundleError })
@@ -317,7 +323,7 @@ export class QuaAssets {
     this.ensureInitialized()
     return await this.assetManager.getBlob(type, name, {
       locale: this.currentLocale,
-      ...options
+      ...options,
     })
   }
 
@@ -328,7 +334,7 @@ export class QuaAssets {
     this.ensureInitialized()
     return await this.assetManager.getBlobURL(type, name, {
       locale: this.currentLocale,
-      ...options
+      ...options,
     })
   }
 
@@ -339,7 +345,7 @@ export class QuaAssets {
     this.ensureInitialized()
     return await this.assetManager.getArrayBuffer(type, name, {
       locale: this.currentLocale,
-      ...options
+      ...options,
     })
   }
 
@@ -350,7 +356,7 @@ export class QuaAssets {
     this.ensureInitialized()
     return await this.assetManager.getText(type, name, {
       locale: this.currentLocale,
-      ...options
+      ...options,
     })
   }
 
@@ -361,7 +367,7 @@ export class QuaAssets {
     this.ensureInitialized()
     return await this.assetManager.getJSON<T>(type, name, {
       locale: this.currentLocale,
-      ...options
+      ...options,
     })
   }
 
@@ -372,7 +378,7 @@ export class QuaAssets {
     this.ensureInitialized()
     return await this.assetManager.executeJS(name, {
       locale: this.currentLocale,
-      ...options
+      ...options,
     })
   }
 
@@ -383,7 +389,7 @@ export class QuaAssets {
     this.ensureInitialized()
     return await this.assetManager.hasAsset(type, name, {
       locale: this.currentLocale,
-      ...options
+      ...options,
     })
   }
 
@@ -394,7 +400,7 @@ export class QuaAssets {
     this.ensureInitialized()
     return await this.assetManager.getMediaMetadata(type, name, {
       locale: this.currentLocale,
-      ...options
+      ...options,
     })
   }
 
@@ -405,7 +411,7 @@ export class QuaAssets {
     this.ensureInitialized()
     return await this.assetManager.getBlobBatch(type, names, {
       locale: this.currentLocale,
-      ...options
+      ...options,
     })
   }
 
@@ -423,8 +429,8 @@ export class QuaAssets {
       ...req,
       options: {
         locale: this.currentLocale,
-        ...req.options
-      }
+        ...req.options,
+      },
     }))
 
     await this.assetManager.preloadAssets(enhancedRequests)
@@ -468,7 +474,7 @@ export class QuaAssets {
    */
   async applyPatch(patchUrl: string, targetBundleName: string, options?: LoadBundleOptions): Promise<{
     success: boolean
-    changes: { added: number; modified: number; deleted: number }
+    changes: { added: number, modified: number, deleted: number }
     errors: string[]
   }> {
     this.ensureInitialized()
@@ -498,14 +504,15 @@ export class QuaAssets {
         this.emit('patch:applied', {
           bundleName: targetBundleName,
           fromVersion: 0, // Would need to track this properly
-          toVersion: 0    // Would need to track this properly
+          toVersion: 0, // Would need to track this properly
         })
 
         logger.info(`Patch applied to ${targetBundleName}: ${result.changes.added + result.changes.modified + result.changes.deleted} total changes`)
       }
 
       return result
-    } catch (error) {
+    }
+    catch (error) {
       if (existingStatus) {
         existingStatus.state = 'error'
         existingStatus.error = error as Error
@@ -519,7 +526,7 @@ export class QuaAssets {
       return {
         success: false,
         changes: { added: 0, modified: 0, deleted: 0 },
-        errors: [errorMessage]
+        errors: [errorMessage],
       }
     }
   }
@@ -529,7 +536,7 @@ export class QuaAssets {
    */
   async previewPatch(patchUrl: string, targetBundleName: string): Promise<{
     valid: boolean
-    changes: { willAdd: string[]; willModify: string[]; willDelete: string[] }
+    changes: { willAdd: string[], willModify: string[], willDelete: string[] }
     errors: string[]
     fromVersion: number
     toVersion: number
@@ -554,7 +561,7 @@ export class QuaAssets {
     return await this.patchManager.getAvailablePatches(
       this.config.endpoint,
       bundleName,
-      version
+      version,
     )
   }
 
@@ -568,11 +575,12 @@ export class QuaAssets {
       const { manifest } = await this.bundleLoader.loadBundle(
         patchUrl,
         'temp_patch_check',
-        { enableCache: false }
+        { enableCache: false },
       )
 
       return await this.patchManager.canApplyPatch(manifest, targetBundleName)
-    } catch (error) {
+    }
+    catch (error) {
       return false
     }
   }
@@ -611,14 +619,14 @@ export class QuaAssets {
 
     const [databaseStats, assetManagerStats] = await Promise.all([
       this.database.getCacheStats(),
-      Promise.resolve(this.assetManager.getCacheStats())
+      Promise.resolve(this.assetManager.getCacheStats()),
     ])
 
     return {
       database: databaseStats,
       assetManager: assetManagerStats,
       bundles: this.bundleStatuses.size,
-      totalSize: databaseStats.totalSize
+      totalSize: databaseStats.totalSize,
     }
   }
 
@@ -653,7 +661,8 @@ export class QuaAssets {
       if (plugin.cleanup) {
         try {
           await plugin.cleanup()
-        } catch (error) {
+        }
+        catch (error) {
           logger.warn(`Plugin cleanup failed for ${plugin.name}:`, error)
         }
       }
@@ -688,14 +697,16 @@ export class QuaAssets {
     for (const listener of listeners) {
       try {
         listener(data)
-      } catch (error) {
+      }
+      catch (error) {
         logger.warn(`Event listener error for ${event}:`, error)
       }
     }
   }
 
   private async manageCacheSize(): Promise<void> {
-    if (!this.config.enableCache) return
+    if (!this.config.enableCache)
+      return
 
     try {
       const currentSize = await this.database.getDatabaseSize()
@@ -708,7 +719,8 @@ export class QuaAssets {
           logger.info(`Cache cleanup: removed ${cleanedAssets} assets`)
         }
       }
-    } catch (error) {
+    }
+    catch (error) {
       logger.warn('Cache management failed:', error)
     }
   }

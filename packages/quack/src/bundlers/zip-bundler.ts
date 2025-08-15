@@ -1,10 +1,10 @@
-import { readFile, mkdir } from 'node:fs/promises'
+import type { AssetContext, AssetInfo, BundleManifest, QuackPlugin } from '../core/types'
 import { createWriteStream } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { ZipFile } from 'yazl'
-import yauzl from 'yauzl'
+import { mkdir, readFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { createLogger } from '@quajs/logger'
-import type { AssetInfo, BundleManifest, AssetContext, QuackPlugin } from '../core/types'
+import yauzl from 'yauzl'
+import { ZipFile } from 'yazl'
 
 const logger = createLogger('quack:zip-bundler')
 
@@ -21,19 +21,19 @@ export class ZipBundler {
   async createBundle(
     assets: AssetInfo[],
     manifest: BundleManifest,
-    outputPath: string
+    outputPath: string,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       logger.info(`Creating ZIP bundle: ${outputPath}`)
-      
+
       const zip = new ZipFile()
-      let processedCount = 0
-      
+      const _processedCount = 0
+
       // Add manifest first
       const manifestJson = JSON.stringify(manifest, null, 2)
       zip.addBuffer(Buffer.from(manifestJson, 'utf8'), 'manifest.json', {
         mtime: new Date(),
-        compress: true
+        compress: true,
       })
 
       // Process assets in batches to avoid memory issues
@@ -46,7 +46,7 @@ export class ZipBundler {
               logger.info(`ZIP bundle created successfully: ${outputPath}`)
               resolve()
             })
-          
+
           zip.end()
         })
         .catch(reject)
@@ -58,11 +58,11 @@ export class ZipBundler {
    */
   private async processAssetsBatch(assets: AssetInfo[], zip: ZipFile): Promise<void> {
     const BATCH_SIZE = 50
-    
+
     for (let i = 0; i < assets.length; i += BATCH_SIZE) {
       const batch = assets.slice(i, i + BATCH_SIZE)
       await this.processBatch(batch, zip)
-      
+
       const progress = Math.round(((i + batch.length) / assets.length) * 100)
       logger.info(`Processing assets: ${progress}% (${i + batch.length}/${assets.length})`)
     }
@@ -82,13 +82,13 @@ export class ZipBundler {
   private async processAsset(asset: AssetInfo, zip: ZipFile): Promise<void> {
     try {
       // Read asset file
-      let buffer = await readFile(asset.path)
-      
+      const buffer = await readFile(asset.path)
+
       // Create asset context for plugins
       const context: AssetContext = {
         asset,
         buffer,
-        metadata: {}
+        metadata: {},
       }
 
       // Apply plugins
@@ -102,11 +102,12 @@ export class ZipBundler {
       const zipPath = this.getZipPath(asset)
       zip.addBuffer(context.buffer, zipPath, {
         mtime: new Date(),
-        compress: true
+        compress: true,
       })
 
       logger.debug(`Added asset to ZIP: ${zipPath}`)
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Failed to process asset: ${asset.relativePath}`, error)
       throw error
     }
@@ -118,18 +119,18 @@ export class ZipBundler {
   private getZipPath(asset: AssetInfo): string {
     // Organize assets by type in the ZIP
     const basePath = `assets/${asset.type}`
-    
+
     if (asset.type === 'characters') {
       // characters/alice/normal.png -> assets/characters/alice/normal.png
       return join(basePath, asset.relativePath.replace(/^characters\//, '')).replace(/\\/g, '/')
     }
-    
+
     // For other types, remove the type prefix if it exists
     let relativePath = asset.relativePath
     if (relativePath.startsWith(`${asset.type}/`)) {
       relativePath = relativePath.substring(asset.type.length + 1)
     }
-    
+
     return join(basePath, relativePath).replace(/\\/g, '/')
   }
 
@@ -139,7 +140,7 @@ export class ZipBundler {
   async extractBundle(zipPath: string, outputDir: string): Promise<BundleManifest> {
     return new Promise((resolve, reject) => {
       logger.info(`Extracting ZIP bundle: ${zipPath}`)
-      
+
       yauzl.open(zipPath, { lazyEntries: true }, (err: Error | null, zipfile: any) => {
         if (err) {
           reject(err)
@@ -148,9 +149,9 @@ export class ZipBundler {
 
         let manifest: BundleManifest | null = null
         let extractedCount = 0
-        
+
         zipfile.readEntry()
-        
+
         zipfile.on('entry', (entry: any) => {
           if (/\/$/.test(entry.fileName)) {
             // Directory entry
@@ -166,44 +167,45 @@ export class ZipBundler {
             }
 
             const outputPath = join(outputDir, entry.fileName)
-            
+
             // Ensure directory exists
             mkdir(dirname(outputPath), { recursive: true }).then(() => {
               const writeStream = createWriteStream(outputPath)
               readStream.pipe(writeStream)
-              
+
               writeStream.on('close', async () => {
                 extractedCount++
-                
+
                 // If this is the manifest, parse it
                 if (entry.fileName === 'manifest.json') {
                   try {
                     const manifestContent = await readFile(outputPath, 'utf8')
                     manifest = JSON.parse(manifestContent)
-                  } catch (error) {
+                  }
+                  catch (error) {
                     logger.warn('Failed to parse manifest:', error)
                   }
                 }
-                
+
                 zipfile.readEntry()
               })
-              
+
               writeStream.on('error', reject)
             }).catch(reject)
           })
         })
-        
+
         zipfile.on('end', () => {
           logger.info(`Extracted ${extractedCount} files from ZIP bundle`)
-          
+
           if (!manifest) {
             reject(new Error('Manifest not found in bundle'))
             return
           }
-          
+
           resolve(manifest)
         })
-        
+
         zipfile.on('error', reject)
       })
     })
@@ -215,7 +217,7 @@ export class ZipBundler {
   async listContents(zipPath: string): Promise<string[]> {
     return new Promise((resolve, reject) => {
       const entries: string[] = []
-      
+
       yauzl.open(zipPath, { lazyEntries: true }, (err: Error | null, zipfile: any) => {
         if (err) {
           reject(err)
@@ -223,16 +225,16 @@ export class ZipBundler {
         }
 
         zipfile.readEntry()
-        
+
         zipfile.on('entry', (entry: any) => {
           entries.push(entry.fileName)
           zipfile.readEntry()
         })
-        
+
         zipfile.on('end', () => {
           resolve(entries)
         })
-        
+
         zipfile.on('error', reject)
       })
     })
@@ -241,30 +243,31 @@ export class ZipBundler {
   /**
    * Verify ZIP bundle integrity
    */
-  async verifyBundle(zipPath: string): Promise<{ valid: boolean; errors: string[] }> {
+  async verifyBundle(zipPath: string): Promise<{ valid: boolean, errors: string[] }> {
     try {
       const contents = await this.listContents(zipPath)
       const errors: string[] = []
-      
+
       // Check for manifest
       if (!contents.includes('manifest.json')) {
         errors.push('Missing manifest.json')
       }
-      
+
       // Check for assets directory
       const hasAssets = contents.some(path => path.startsWith('assets/'))
       if (!hasAssets) {
         errors.push('No assets found in bundle')
       }
-      
+
       return {
         valid: errors.length === 0,
-        errors
+        errors,
       }
-    } catch (error) {
+    }
+    catch (error: any) {
       return {
         valid: false,
-        errors: [`Failed to verify bundle: ${error.message}`]
+        errors: [`Failed to verify bundle: ${error.message}`],
       }
     }
   }

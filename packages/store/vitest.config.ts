@@ -1,6 +1,6 @@
+import { resolve } from 'node:path'
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config'
-import { resolve } from 'path'
 
 export default defineConfig({
   test: {
@@ -10,12 +10,12 @@ export default defineConfig({
     watch: false,
     include: [
       'test/**/*.test.{js,ts}',
-      '__tests__/**/*.test.{js,ts}'
+      '__tests__/**/*.test.{js,ts}',
     ],
     exclude: [
       'node_modules',
       'dist',
-      'examples'
+      'examples',
     ],
     testTimeout: 15000, // Longer timeout for storage operations
     coverage: {
@@ -28,14 +28,14 @@ export default defineConfig({
         '__tests__/',
         'examples/',
         '**/*.d.ts',
-        '**/*.config.*'
-      ]
-    }
+        '**/*.config.*',
+      ],
+    },
   },
   resolve: {
     alias: {
       '@quajs/logger': resolve(__dirname, '../logger/src'),
-      '@quajs/utils': resolve(__dirname, '../utils/src')
-    }
-  }
+      '@quajs/utils': resolve(__dirname, '../utils/src'),
+    },
+  },
 })

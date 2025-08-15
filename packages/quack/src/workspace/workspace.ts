@@ -1,15 +1,12 @@
-import { readFile, access, stat } from 'node:fs/promises'
-import { resolve, join, dirname, basename } from 'node:path'
-import { existsSync } from 'node:fs'
-import { createLogger } from '@quajs/logger'
-import type { 
-  WorkspaceConfig, 
-  BundleDefinition, 
-  QuackConfig, 
-  BundleFormat,
-  CompressionAlgorithm,
-  EncryptionAlgorithm 
+import type {
+  BundleDefinition,
+  QuackConfig,
+  WorkspaceConfig,
 } from '../core/types'
+import { existsSync } from 'node:fs'
+import { readFile, stat } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { createLogger } from '@quajs/logger'
 
 const logger = createLogger('quack:workspace')
 
@@ -26,7 +23,7 @@ export class WorkspaceManager {
    */
   async loadConfig(configPath?: string): Promise<WorkspaceConfig> {
     const configFile = configPath || this.findConfigFile()
-    
+
     if (!configFile) {
       throw new Error('No workspace configuration file found. Expected quack.workspace.js or quack.workspace.json')
     }
@@ -39,7 +36,8 @@ export class WorkspaceManager {
       if (configFile.endsWith('.json')) {
         const content = await readFile(configFile, 'utf8')
         config = JSON.parse(content)
-      } else {
+      }
+      else {
         // Dynamic import for JS config files
         const configModule = await import(`file://${configFile}`)
         config = configModule.default || configModule
@@ -51,8 +49,8 @@ export class WorkspaceManager {
 
       logger.info(`Loaded workspace "${config.name}" with ${config.bundles.length} bundles`)
       return config
-
-    } catch (error) {
+    }
+    catch (error) {
       throw new Error(`Failed to load workspace config from ${configFile}: ${error.message}`)
     }
   }
@@ -65,7 +63,7 @@ export class WorkspaceManager {
       'quack.workspace.js',
       'quack.workspace.json',
       'workspace.config.js',
-      'workspace.config.json'
+      'workspace.config.json',
     ]
 
     for (const candidate of candidates) {
@@ -94,7 +92,7 @@ export class WorkspaceManager {
     const bundleNames = new Set<string>()
     for (let i = 0; i < config.bundles.length; i++) {
       const bundle = config.bundles[i]
-      
+
       if (!bundle.name) {
         throw new Error(`Bundle at index ${i} must have a name`)
       }
@@ -115,7 +113,8 @@ export class WorkspaceManager {
         if (!sourceStat.isDirectory()) {
           throw new Error(`Bundle "${bundle.name}" source is not a directory: ${sourcePath}`)
         }
-      } catch (error) {
+      }
+      catch (error) {
         throw new Error(`Bundle "${bundle.name}" source directory not found: ${sourcePath}`)
       }
 
@@ -144,18 +143,18 @@ export class WorkspaceManager {
       dependencies: bundle.dependencies || [],
       loadTrigger: bundle.loadTrigger || 'immediate',
       description: bundle.description || `Bundle: ${bundle.name}`,
-      
+
       // Inherit from global settings if not specified
       format: bundle.format || workspaceConfig.globalSettings?.compression?.algorithm === 'lzma' ? 'qpk' : 'zip',
       compression: {
         level: bundle.compression?.level ?? workspaceConfig.globalSettings?.compression?.level ?? 6,
-        algorithm: bundle.compression?.algorithm ?? workspaceConfig.globalSettings?.compression?.algorithm ?? 'deflate'
+        algorithm: bundle.compression?.algorithm ?? workspaceConfig.globalSettings?.compression?.algorithm ?? 'deflate',
       },
       encryption: {
         enabled: bundle.encryption?.enabled ?? workspaceConfig.globalSettings?.encryption?.enabled ?? false,
         algorithm: bundle.encryption?.algorithm ?? workspaceConfig.globalSettings?.encryption?.algorithm ?? 'xor',
-        key: bundle.encryption?.key ?? workspaceConfig.globalSettings?.encryption?.key
-      }
+        key: bundle.encryption?.key ?? workspaceConfig.globalSettings?.encryption?.key,
+      },
     }
   }
 
@@ -164,7 +163,7 @@ export class WorkspaceManager {
    */
   private validateBundleDependencies(bundles: BundleDefinition[]): void {
     const bundleNames = new Set(bundles.map(b => b.name))
-    
+
     for (const bundle of bundles) {
       for (const dep of bundle.dependencies || []) {
         if (!bundleNames.has(dep)) {
@@ -290,18 +289,18 @@ export class WorkspaceManager {
       format: bundle.format || 'zip',
       compression: {
         level: bundle.compression?.level || 6,
-        algorithm: bundle.compression?.algorithm || 'deflate'
+        algorithm: bundle.compression?.algorithm || 'deflate',
       },
       encryption: {
         enabled: bundle.encryption?.enabled || false,
         algorithm: bundle.encryption?.algorithm || 'xor',
-        key: bundle.encryption?.key
+        key: bundle.encryption?.key,
       },
       versioning: this.config.globalSettings?.versioning,
       plugins: [],
       ignore: [],
       verbose: false,
-      ...overrides
+      ...overrides,
     }
 
     return bundleConfig
@@ -336,7 +335,7 @@ export class WorkspaceManager {
           priority: 0,
           loadTrigger: 'immediate',
           description: 'Essential game assets that must be loaded first',
-          dependencies: []
+          dependencies: [],
         },
         {
           name: 'ui',
@@ -345,7 +344,7 @@ export class WorkspaceManager {
           priority: 1,
           loadTrigger: 'immediate',
           description: 'User interface elements and menus',
-          dependencies: ['core']
+          dependencies: ['core'],
         },
         {
           name: 'levels',
@@ -354,7 +353,7 @@ export class WorkspaceManager {
           priority: 2,
           loadTrigger: 'lazy',
           description: 'Level-specific assets loaded on demand',
-          dependencies: ['core', 'ui']
+          dependencies: ['core', 'ui'],
         },
         {
           name: 'audio',
@@ -363,23 +362,23 @@ export class WorkspaceManager {
           priority: 3,
           loadTrigger: 'lazy',
           description: 'Music and sound effects',
-          dependencies: ['core']
-        }
+          dependencies: ['core'],
+        },
       ],
       globalSettings: {
         compression: {
           level: 6,
-          algorithm: 'lzma'
+          algorithm: 'lzma',
         },
         encryption: {
           enabled: true,
-          algorithm: 'xor'
+          algorithm: 'xor',
         },
         versioning: {
-          incrementVersion: true
-        }
+          incrementVersion: true,
+        },
       },
-      output: './dist'
+      output: './dist',
     }
   }
 }

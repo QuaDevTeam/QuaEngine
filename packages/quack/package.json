@@ -1,32 +1,10 @@
 {
   "name": "@quajs/quack",
+  "type": "module",
   "version": "0.1.0",
   "description": "Assets bundler for QuaEngine",
-  "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "bin": {
-    "quack": "./dist/cli/index.js"
-  },
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
-  "files": [
-    "dist",
-    "docs"
-  ],
-  "scripts": {
-    "build": "vite build",
-    "dev": "vite build --watch",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "test": "vitest",
-    "typecheck": "tsc --noEmit"
-  },
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
   "keywords": [
     "bundler",
     "assets",
@@ -35,15 +13,41 @@
     "localization",
     "compression"
   ],
-  "author": "QuaDevTeam",
-  "license": "Apache-2.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "quack": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "docs"
+  ],
   "engines": {
     "node": ">=20"
   },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@quajs/logger": "workspace:*",
+    "@quajs/utils": "workspace:*"
+  },
   "dependencies": {
     "commander": "catalog:",
-    "lzma-native": "catalog:",
     "glob": "catalog:",
+    "lzma-native": "catalog:",
     "mime-types": "catalog:",
     "yauzl": "catalog:",
     "yazl": "catalog:"
@@ -53,9 +57,5 @@
     "@types/yauzl": "catalog:",
     "@types/yazl": "catalog:",
     "vitest": "^3.2.4"
-  },
-  "peerDependencies": {
-    "@quajs/logger": "workspace:*",
-    "@quajs/utils": "workspace:*"
   }
 }

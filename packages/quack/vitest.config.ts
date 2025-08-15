@@ -8,11 +8,11 @@ export default defineConfig({
     watch: false,
     include: [
       'test/**/*.test.{js,ts}',
-      '__tests__/**/*.test.{js,ts}'
+      '__tests__/**/*.test.{js,ts}',
     ],
     exclude: [
       'node_modules',
-      'dist'
+      'dist',
     ],
     testTimeout: 15000, // Longer timeout for bundling operations
     coverage: {
@@ -24,8 +24,8 @@ export default defineConfig({
         'test/',
         '__tests__/',
         '**/*.d.ts',
-        '**/*.config.*'
-      ]
-    }
-  }
+        '**/*.config.*',
+      ],
+    },
+  },
 })

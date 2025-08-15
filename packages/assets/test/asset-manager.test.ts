@@ -88,7 +88,7 @@ describe('assetManager', () => {
         await assetManager.getBlob('scripts', 'test.js', options)
         expect.fail('Should throw AssetNotFoundError')
       }
-      catch (error) {
+      catch {
         // The specific asset retrieval will be checked for in the database
         expect(mockDatabase.getAssetWithLocaleFallback).toHaveBeenCalledWith('specific-bundle', 'scripts', 'test.js', 'en-us')
       }
@@ -123,7 +123,7 @@ describe('assetManager', () => {
     })
 
     it('should cleanup resources', () => {
-      global.URL.revokeObjectURL = vi.fn()
+      globalThis.URL.revokeObjectURL = vi.fn()
 
       assetManager.cleanup()
 

@@ -2,7 +2,7 @@ import type { AssetInfo } from '../src/core/types'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { QPKBundler } from '../src/bundlers/qpk-bundler'
 
 describe('qPKBundler', () => {
@@ -19,7 +19,7 @@ describe('qPKBundler', () => {
     try {
       await rm(tempDir, { recursive: true, force: true })
     }
-    catch (error) {
+    catch {
       // Ignore cleanup errors
     }
   })
@@ -42,7 +42,7 @@ describe('qPKBundler', () => {
 
       await writeFile(join(tempDir, 'test.txt'), 'test content')
 
-      const options = {
+      const _options = {
         format: 'qpk' as const,
         compression: {
           algorithm: 'none' as const,
