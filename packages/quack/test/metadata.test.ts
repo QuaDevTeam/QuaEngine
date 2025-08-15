@@ -259,7 +259,7 @@ describe('metadataGenerator', () => {
         },
       ]
 
-      const result = metadataGenerator.analyzeDependencies(circularAssets)
+      const _result = metadataGenerator.analyzeDependencies(circularAssets)
       const warnings = metadataGenerator.validateDependencies(circularAssets)
 
       expect(warnings.some(w => w.includes('circular'))).toBe(true)

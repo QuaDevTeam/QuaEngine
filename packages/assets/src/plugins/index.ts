@@ -1,10 +1,10 @@
 import type {
-  DecryptionPlugin,
-  DecompressionPlugin,
   AssetProcessingPlugin,
-  BundleFormat,
   AssetType,
-  StoredAsset
+  BundleFormat,
+  DecompressionPlugin,
+  DecryptionPlugin,
+  StoredAsset,
 } from '../types'
 
 /**
@@ -66,7 +66,7 @@ export class AESDecryptionPlugin implements DecryptionPlugin {
         keyBuffer,
         { name: 'AES-GCM' },
         false,
-        ['decrypt']
+        ['decrypt'],
       )
 
       // Extract IV (first 12 bytes) and encrypted data
@@ -77,11 +77,12 @@ export class AESDecryptionPlugin implements DecryptionPlugin {
       const decrypted = await crypto.subtle.decrypt(
         { name: 'AES-GCM', iv },
         cryptoKey,
-        encryptedData
+        encryptedData,
       )
 
       return decrypted
-    } catch (error) {
+    }
+    catch (error) {
       console.error('AES decryption failed:', error)
       throw new Error('AES decryption failed')
     }
@@ -131,7 +132,8 @@ export class LZMADecompressionPlugin implements DecompressionPlugin {
       const nameLength = view.getUint32(offset, true)
       offset += 4
 
-      if (nameLength === 0 || offset + nameLength > buffer.byteLength) break
+      if (nameLength === 0 || offset + nameLength > buffer.byteLength)
+        break
 
       // Read filename
       const nameBytes = new Uint8Array(buffer, offset, nameLength)
@@ -173,14 +175,17 @@ export class LZMADecompressionPlugin implements DecompressionPlugin {
       if (typeof decompressed === 'string') {
         // If result is a string, convert to UTF-8 bytes
         resultArray = new TextEncoder().encode(decompressed)
-      } else if (Array.isArray(decompressed)) {
+      }
+      else if (Array.isArray(decompressed)) {
         // If result is a number array, convert to Uint8Array
         resultArray = new Uint8Array(decompressed)
-      } else if (decompressed instanceof Uint8Array) {
+      }
+      else if (decompressed instanceof Uint8Array) {
         // If result is already a Uint8Array, use it directly
         resultArray = decompressed
-      } else {
-        throw new Error('Unexpected decompression result type')
+      }
+      else {
+        throw new TypeError('Unexpected decompression result type')
       }
 
       // Verify decompressed size if expected size is provided
@@ -189,8 +194,8 @@ export class LZMADecompressionPlugin implements DecompressionPlugin {
       }
 
       return resultArray
-
-    } catch (error) {
+    }
+    catch (error) {
       throw new Error(`LZMA decompression failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -220,7 +225,7 @@ export class ImageProcessingPlugin implements AssetProcessingPlugin {
       enableWebP: false,
       quality: 0.8,
       enableThumbnails: false,
-      ...options
+      ...options,
     }
   }
 
@@ -246,9 +251,10 @@ export class ImageProcessingPlugin implements AssetProcessingPlugin {
       return {
         ...asset,
         blob: processedBlob,
-        size: processedBlob.size
+        size: processedBlob.size,
       }
-    } catch (error) {
+    }
+    catch (error) {
       console.warn(`Image processing failed for ${asset.name}:`, error)
       return asset // Return original asset on failure
     }
@@ -281,12 +287,13 @@ export class ImageProcessingPlugin implements AssetProcessingPlugin {
           (webpBlob) => {
             if (webpBlob) {
               resolve(webpBlob)
-            } else {
+            }
+            else {
               reject(new Error('WebP conversion failed'))
             }
           },
           'image/webp',
-          quality
+          quality,
         )
       }
 
@@ -349,7 +356,7 @@ export class CacheWarmingPlugin implements AssetProcessingPlugin {
     return {
       entries: this.warmCache.size,
       size: this.currentCacheSize,
-      maxSize: this.maxCacheSize
+      maxSize: this.maxCacheSize,
     }
   }
 }

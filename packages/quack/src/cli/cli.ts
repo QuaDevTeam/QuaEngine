@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 
-import { Command } from 'commander'
-import { resolve } from 'node:path'
+import type { BundleFormat, QuackConfig } from '../core/types'
 import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
-import { createLogger } from '@quajs/logger'
-import { QuackBundler } from '../core/bundler'
-import { ZipBundler } from '../bundlers/zip-bundler'
+import { resolve } from 'node:path'
+import { Command } from 'commander'
 import { QPKBundler } from '../bundlers/qpk-bundler'
+import { ZipBundler } from '../bundlers/zip-bundler'
+import { QuackBundler } from '../core/bundler'
 import { PatchGenerator } from '../workspace/patch-generator'
 import { VersionManager } from '../workspace/versioning'
 import { WorkspaceManager } from '../workspace/workspace'
-import type { QuackConfig, BundleFormat } from '../core/types'
 
 // Logger available but not used in CLI (would be used for debugging/development)
 // const logger = createLogger('quack:cli')
@@ -44,16 +43,16 @@ program
     try {
       const config = await loadConfig(source, options)
       const bundler = new QuackBundler(config)
-      
+
       console.log(`🚀 Bundling assets from: ${config.source}`)
       console.log(`📦 Output: ${config.output} (${config.format})`)
-      
+
       const stats = await bundler.bundle()
-      
+
       console.log('✅ Bundle created successfully!')
       console.log(`📊 ${stats.totalFiles} files, ${formatBytes(stats.totalSize)}, ${stats.processingTime}ms`)
-      
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ Bundle creation failed:', error instanceof Error ? error.message : String(error))
       if (options.verbose) {
         console.error(error instanceof Error ? error.stack : String(error))
@@ -73,25 +72,26 @@ program
     try {
       const resolvedBundle = resolve(bundlePath)
       const resolvedOutput = resolve(outputDir)
-      
+
       if (!existsSync(resolvedBundle)) {
         throw new Error(`Bundle not found: ${resolvedBundle}`)
       }
-      
+
       console.log(`📦 Extracting: ${resolvedBundle}`)
       console.log(`📁 Output: ${resolvedOutput}`)
-      
+
       if (bundlePath.endsWith('.qpk')) {
         const qpkBundler = new QPKBundler()
         await qpkBundler.extractBundle(resolvedBundle, resolvedOutput)
-      } else {
+      }
+      else {
         const zipBundler = new ZipBundler()
         await zipBundler.extractBundle(resolvedBundle, resolvedOutput)
       }
-      
+
       console.log('✅ Bundle extracted successfully!')
-      
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ Extraction failed:', error instanceof Error ? error.message : String(error))
       if (options.verbose) {
         console.error(error instanceof Error ? error.stack : String(error))
@@ -109,28 +109,29 @@ program
   .action(async (bundlePath, options) => {
     try {
       const resolvedBundle = resolve(bundlePath)
-      
+
       if (!existsSync(resolvedBundle)) {
         throw new Error(`Bundle not found: ${resolvedBundle}`)
       }
-      
+
       console.log(`📦 Listing contents: ${resolvedBundle}`)
-      
+
       let contents: string[]
       if (bundlePath.endsWith('.qpk')) {
         const qpkBundler = new QPKBundler()
         contents = await qpkBundler.listContents(resolvedBundle)
-      } else {
+      }
+      else {
         const zipBundler = new ZipBundler()
         contents = await zipBundler.listContents(resolvedBundle)
       }
-      
+
       console.log(`\n📋 Found ${contents.length} entries:`)
       for (const entry of contents.sort()) {
         console.log(`  ${entry}`)
       }
-      
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ List failed:', error instanceof Error ? error.message : String(error))
       if (options.verbose) {
         console.error(error instanceof Error ? error.stack : String(error))
@@ -148,33 +149,35 @@ program
   .action(async (bundlePath, options) => {
     try {
       const resolvedBundle = resolve(bundlePath)
-      
+
       if (!existsSync(resolvedBundle)) {
         throw new Error(`Bundle not found: ${resolvedBundle}`)
       }
-      
+
       console.log(`🔍 Verifying: ${resolvedBundle}`)
-      
-      let result: { valid: boolean; errors: string[] }
+
+      let result: { valid: boolean, errors: string[] }
       if (bundlePath.endsWith('.qpk')) {
         const qpkBundler = new QPKBundler()
         result = await qpkBundler.verifyBundle(resolvedBundle)
-      } else {
+      }
+      else {
         const zipBundler = new ZipBundler()
         result = await zipBundler.verifyBundle(resolvedBundle)
       }
-      
+
       if (result.valid) {
         console.log('✅ Bundle is valid')
-      } else {
+      }
+      else {
         console.log('❌ Bundle verification failed:')
         for (const error of result.errors) {
           console.log(`  - ${error}`)
         }
         process.exit(1)
       }
-      
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ Verification failed:', error instanceof Error ? error.message : String(error))
       if (options.verbose) {
         console.error(error instanceof Error ? error.stack : String(error))
@@ -191,12 +194,12 @@ program
   .action(async (options) => {
     try {
       const configPath = resolve('quack.config.js')
-      
+
       if (existsSync(configPath) && !options.force) {
         console.log('❌ Configuration file already exists. Use --force to overwrite.')
         process.exit(1)
       }
-      
+
       const sampleConfig = `import { defineConfig } from '@quajs/quack'
 import { ImageOptimizationPlugin, BundleAnalyzerPlugin, AESEncryptionPlugin } from '@quajs/quack/plugins'
 
@@ -230,11 +233,11 @@ export default defineConfig({
   ]
 })
 `
-      
+
       await writeFile(configPath, sampleConfig, 'utf8')
       console.log('✅ Configuration file created: quack.config.js')
-      
-    } catch (error) {
+    }
+    catch (error) {
       console.log('❌ Failed to create configuration:', error instanceof Error ? error.message : String(error))
       process.exit(1)
     }
@@ -244,8 +247,8 @@ export default defineConfig({
 program
   .command('patch')
   .description('Create patch bundle between two versions')
-  .option('--from <version>', 'Source version number', parseInt)
-  .option('--to <version>', 'Target version number', parseInt)
+  .option('--from <version>', 'Source version number', Number.parseInt)
+  .option('--to <version>', 'Target version number', Number.parseInt)
   .option('--from-build <build>', 'Source build number')
   .option('--to-build <build>', 'Target build number')
   .option('-o, --output <path>', 'Output patch file path')
@@ -266,13 +269,15 @@ program
 
       if (options.fromBuild) {
         fromBuildLog = await versionManager.getBuildLog(options.fromBuild)
-      } else {
+      }
+      else {
         fromBuildLog = await versionManager.getBuildLogByVersion(options.from)
       }
 
       if (options.toBuild) {
         toBuildLog = await versionManager.getBuildLog(options.toBuild)
-      } else {
+      }
+      else {
         toBuildLog = await versionManager.getBuildLogByVersion(options.to)
       }
 
@@ -298,12 +303,12 @@ program
         fromBuildLog,
         toBuildLog,
         output: resolve(outputPath),
-        format: options.format as BundleFormat
+        format: options.format as BundleFormat,
       })
 
       console.log('✅ Patch created successfully!')
-
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ Patch creation failed:', error instanceof Error ? error.message : String(error))
       if (options.verbose) {
         console.error(error.stack)
@@ -330,7 +335,7 @@ program
       console.log('📦 Bundle Version Information')
       console.log(`Current Version: ${index.currentVersion}`)
       console.log(`Current Build: ${index.currentBuild}`)
-      
+
       if (index.latestBundle) {
         console.log(`\n📋 Latest Bundle:`)
         console.log(`  File: ${index.latestBundle.filename}`)
@@ -355,8 +360,8 @@ program
           }
         }
       }
-
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ Failed to show version info:', error.message)
       if (options.verbose) {
         console.error(error.stack)
@@ -381,7 +386,7 @@ program
         return
       }
 
-      const limit = parseInt(options.limit)
+      const limit = Number.parseInt(options.limit)
       const allBuilds = [index.latestBundle, ...index.previousBuilds]
         .filter(Boolean)
         .slice(0, limit)
@@ -399,8 +404,8 @@ program
         }
         console.log('')
       }
-
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ Failed to list builds:', error.message)
       if (options.verbose) {
         console.error(error.stack)
@@ -413,7 +418,7 @@ program
 program
   .command('patches')
   .description('List available patches')
-  .option('--from <version>', 'Filter by source version', parseInt)
+  .option('--from <version>', 'Filter by source version', Number.parseInt)
   .option('-v, --verbose', 'Verbose output')
   .action(async (options) => {
     try {
@@ -423,7 +428,8 @@ program
       if (patches.length === 0) {
         if (options.from) {
           console.log(`🔧 No patches found from version ${options.from}`)
-        } else {
+        }
+        else {
           console.log('🔧 No patches available')
         }
         return
@@ -443,8 +449,8 @@ program
         }
         console.log('')
       }
-
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ Failed to list patches:', error.message)
       if (options.verbose) {
         console.error(error.stack)
@@ -458,12 +464,12 @@ program
   .command('validate-patch')
   .description('Validate patch file')
   .argument('<patch>', 'Patch file to validate')
-  .option('--target-version <version>', 'Target version to validate against', parseInt)
+  .option('--target-version <version>', 'Target version to validate against', Number.parseInt)
   .option('-v, --verbose', 'Verbose output')
   .action(async (patchPath, options) => {
     try {
       const resolvedPatch = resolve(patchPath)
-      
+
       if (!existsSync(resolvedPatch)) {
         throw new Error(`Patch file not found: ${resolvedPatch}`)
       }
@@ -495,15 +501,16 @@ program
             validation.changes.willDelete.forEach(file => console.log(`   ${file}`))
           }
         }
-      } else {
+      }
+      else {
         console.log('❌ Patch validation failed!')
         console.log('')
         console.log('🚫 Errors found:')
         validation.errors.forEach(error => console.log(`   ${error}`))
         process.exit(1)
       }
-
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ Patch validation failed:', error.message)
       if (options.verbose) {
         console.error(error.stack)
@@ -523,7 +530,7 @@ program
   .action(async (options) => {
     try {
       const configPath = resolve('quack.workspace.js')
-      
+
       if (existsSync(configPath) && !options.force) {
         console.log('❌ Workspace configuration already exists. Use --force to overwrite.')
         process.exit(1)
@@ -539,13 +546,13 @@ export default defineConfig({
   workspace: ${JSON.stringify(sampleConfig, null, 2).replace(/"([^"]+)":/g, '$1:')}
 })
 `
-      
+
       await writeFile(configPath, configContent, 'utf8')
       console.log(`✅ Workspace configuration created: ${configPath}`)
       console.log(`📁 Workspace name: ${workspaceName}`)
       console.log(`📦 Bundles defined: ${sampleConfig.bundles.length}`)
-      
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ Failed to create workspace configuration:', error.message)
       process.exit(1)
     }
@@ -587,19 +594,19 @@ program
 
       for (const bundle of selectedBundles) {
         console.log(`\n📦 Building bundle: ${bundle.displayName || bundle.name}`)
-        
+
         const bundleConfig = workspaceManager.createBundleConfig(bundle.name, {
-          verbose: options.verbose
+          verbose: options.verbose,
         })
-        
+
         const bundler = new QuackBundler(bundleConfig)
         const stats = await bundler.bundle()
-        
+
         console.log(`✅ Bundle "${bundle.name}" created successfully!`)
         console.log(`📊 ${stats.totalFiles} files, ${formatBytes(stats.totalSize)}, ${stats.processingTime}ms`)
       }
-
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ Workspace bundle creation failed:', error.message)
       if (options.verbose) {
         console.error(error.stack)
@@ -613,8 +620,8 @@ program
   .command('workspace:patch')
   .description('Create patch for specific bundle in workspace')
   .requiredOption('-b, --bundle <name>', 'Bundle name to patch')
-  .option('--from <version>', 'Source version number', parseInt)
-  .option('--to <version>', 'Target version number', parseInt)
+  .option('--from <version>', 'Source version number', Number.parseInt)
+  .option('--to <version>', 'Target version number', Number.parseInt)
   .option('--from-build <build>', 'Source build number')
   .option('--to-build <build>', 'Target build number')
   .option('-o, --output <path>', 'Output patch file path')
@@ -639,9 +646,9 @@ program
 
       const patchGenerator = new PatchGenerator(undefined, true) // workspace mode
       const { fromBuildLog, toBuildLog } = await patchGenerator.getWorkspaceBundleBuildLogs(
-        options.bundle, 
-        options.from, 
-        options.to
+        options.bundle,
+        options.from,
+        options.to,
       )
 
       if (!fromBuildLog) {
@@ -668,12 +675,12 @@ program
         toBuildLog,
         output: resolve(outputPath),
         format: options.format as BundleFormat,
-        workspaceIndex: null as any // Will be loaded by the generator
+        workspaceIndex: null as any, // Will be loaded by the generator
       })
 
       console.log('✅ Workspace patch created successfully!')
-
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ Workspace patch creation failed:', error.message)
       if (options.verbose) {
         console.error(error.stack)
@@ -708,20 +715,20 @@ program
       for (const bundle of workspaceConfig.bundles) {
         const bundleInfo = workspaceIndex?.bundles[bundle.name]
         const status = bundleInfo ? `v${bundleInfo.currentVersion}` : 'Not built'
-        
+
         console.log(`  📦 ${bundle.displayName || bundle.name}`)
         console.log(`     Source: ${bundle.source}`)
         console.log(`     Priority: ${bundle.priority}, Trigger: ${bundle.loadTrigger}`)
         console.log(`     Status: ${status}`)
-        
+
         if (options.verbose && bundleInfo) {
           console.log(`     Latest: ${bundleInfo.latestBundle?.filename || 'None'}`)
           console.log(`     Patches: ${bundleInfo.availablePatches.length}`)
         }
         console.log('')
       }
-
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ Failed to show workspace status:', error.message)
       if (options.verbose) {
         console.error(error.stack)
@@ -746,7 +753,8 @@ program
       if (options.bundle) {
         if (patches.bundlePatches[options.bundle]) {
           filteredBundlePatches = { [options.bundle]: patches.bundlePatches[options.bundle] }
-        } else {
+        }
+        else {
           filteredBundlePatches = {}
         }
       }
@@ -784,8 +792,8 @@ program
       if (Object.keys(filteredBundlePatches).length === 0 && patches.globalPatches.length === 0) {
         console.log('No patches found')
       }
-
-    } catch (error) {
+    }
+    catch (error) {
       console.error('❌ Failed to list workspace patches:', error.message)
       if (options.verbose) {
         console.error(error.stack)
@@ -799,65 +807,66 @@ program
  */
 async function loadConfig(source: string, options: any): Promise<QuackConfig> {
   let config: QuackConfig = {
-    source: resolve(source)
+    source: resolve(source),
   }
-  
+
   // Load config file
   if (options.config || existsSync('quack.config.js')) {
     const configPath = resolve(options.config || 'quack.config.js')
-    
+
     try {
       // Dynamic import for ES modules
       const configModule = await import(`file://${configPath}`)
       const fileConfig = configModule.default || configModule
       config = { ...config, ...fileConfig }
-    } catch (error) {
+    }
+    catch (error) {
       if (options.config) {
         throw new Error(`Failed to load config file: ${configPath}`)
       }
       // Ignore if default config doesn't exist
     }
   }
-  
+
   // Override with command line options
   if (options.output) {
     config.output = resolve(options.output)
   }
-  
+
   if (options.format && options.format !== 'auto') {
     config.format = options.format
   }
-  
+
   if (options.compress === false) {
     config.compression = { ...config.compression, algorithm: 'none' }
   }
-  
+
   if (options.compressionLevel) {
-    config.compression = { 
-      ...config.compression, 
-      level: parseInt(options.compressionLevel) 
+    config.compression = {
+      ...config.compression,
+      level: Number.parseInt(options.compressionLevel),
     }
   }
-  
+
   if (options.encrypt === false) {
     config.encryption = { ...config.encryption, enabled: false }
   }
-  
+
   if (options.encryptionKey) {
     config.encryption = { ...config.encryption, key: options.encryptionKey }
   }
-  
+
   if (options.verbose) {
     config.verbose = true
   }
-  
+
   // Handle plugins (this would need a plugin registry in a real implementation)
   if (options.plugin) {
     config.plugins = config.plugins || []
     // For now, just log that plugins were requested
     console.log(`Plugins requested: ${options.plugin.join(', ')}`)
   }
-  
+
   return config
 }
 
@@ -865,13 +874,14 @@ async function loadConfig(source: string, options: any): Promise<QuackConfig> {
  * Format bytes to human readable string
  */
 function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  
+  if (bytes === 0)
+    return '0 B'
+
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
+
+  return `${Number.parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`
 }
 
 // Error handling

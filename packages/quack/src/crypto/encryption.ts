@@ -1,5 +1,5 @@
+import type { EncryptionAlgorithm, EncryptionContext, EncryptionPlugin } from '../core/types'
 import { createLogger } from '@quajs/logger'
-import type { EncryptionContext, EncryptionPlugin, EncryptionAlgorithm } from '../core/types'
 
 const logger = createLogger('quack:encryption')
 
@@ -14,7 +14,7 @@ export class EncryptionManager {
   constructor(
     algorithm: EncryptionAlgorithm = 'none',
     key?: string,
-    plugin?: EncryptionPlugin
+    plugin?: EncryptionPlugin,
   ) {
     this.algorithm = algorithm
     this.plugin = plugin
@@ -70,7 +70,7 @@ export class EncryptionManager {
     const context: EncryptionContext = {
       buffer,
       key: this.key!,
-      metadata
+      metadata,
     }
 
     try {
@@ -86,7 +86,8 @@ export class EncryptionManager {
 
       logger.warn(`Unsupported encryption algorithm: ${this.algorithm}`)
       return buffer
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Encryption failed:', error)
       throw new Error(`Encryption failed: ${error.message}`)
     }
@@ -104,7 +105,7 @@ export class EncryptionManager {
     const context: EncryptionContext = {
       buffer,
       key: this.key!,
-      metadata
+      metadata,
     }
 
     try {
@@ -120,7 +121,8 @@ export class EncryptionManager {
 
       logger.warn(`Unsupported decryption algorithm: ${this.algorithm}`)
       return buffer
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Decryption failed:', error)
       throw new Error(`Decryption failed: ${error.message}`)
     }
@@ -158,17 +160,17 @@ export class EncryptionManager {
   /**
    * Get encryption info for manifest
    */
-  getEncryptionInfo(): { enabled: boolean; algorithm: EncryptionAlgorithm } {
+  getEncryptionInfo(): { enabled: boolean, algorithm: EncryptionAlgorithm } {
     return {
       enabled: this.isEncryptionAvailable(),
-      algorithm: this.isEncryptionAvailable() ? this.algorithm : 'none'
+      algorithm: this.isEncryptionAvailable() ? this.algorithm : 'none',
     }
   }
 
   /**
    * Validate encryption configuration
    */
-  validateConfiguration(): { valid: boolean; errors: string[] } {
+  validateConfiguration(): { valid: boolean, errors: string[] } {
     const errors: string[] = []
 
     if (this.algorithm === 'none') {
@@ -178,7 +180,8 @@ export class EncryptionManager {
     if (this.algorithm === 'xor') {
       if (!this.key) {
         errors.push(`XOR encryption requires a key. Set ${QUACK_ENCRYPTION_KEY} environment variable or provide key in config.`)
-      } else if (this.key.length < 8) {
+      }
+      else if (this.key.length < 8) {
         errors.push('XOR encryption key should be at least 8 characters long for better security.')
       }
     }
@@ -186,7 +189,8 @@ export class EncryptionManager {
     if (this.algorithm === 'custom') {
       if (!this.plugin) {
         errors.push('Custom encryption requires an encryption plugin.')
-      } else {
+      }
+      else {
         if (!this.plugin.name || !this.plugin.algorithm) {
           errors.push('Custom encryption plugin must have name and algorithm properties.')
         }
@@ -198,7 +202,7 @@ export class EncryptionManager {
 
     return {
       valid: errors.length === 0,
-      errors
+      errors,
     }
   }
 
@@ -221,7 +225,7 @@ export class EncryptionManager {
    */
   logConfigurationWarnings(): void {
     const validation = this.validateConfiguration()
-    
+
     if (!validation.valid) {
       logger.warn('Encryption configuration issues:')
       for (const error of validation.errors) {

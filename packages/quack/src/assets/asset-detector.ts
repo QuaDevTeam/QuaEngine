@@ -1,12 +1,12 @@
+import type { AssetInfo, AssetSubType, AssetType, LocaleInfo, MediaMetadata } from '../core/types'
 import { createHash } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
-import { extname, basename, dirname, relative, join } from 'node:path'
-import { glob } from 'glob'
-import { lookup } from 'mime-types'
+import { basename, dirname, extname, join, relative } from 'node:path'
 import { createLogger } from '@quajs/logger'
 import { isString } from '@quajs/utils'
+import { glob } from 'glob'
+import { lookup } from 'mime-types'
 import { MediaMetadataExtractor } from './media-extractor'
-import type { AssetInfo, AssetType, AssetSubType, LocaleInfo } from '../core/types'
 
 const logger = createLogger('quack:asset-detector')
 
@@ -17,20 +17,34 @@ const LOCALE_PATTERNS = [
   // ISO 639-1 only (e.g., en, zh)
   /^([a-z]{2})$/,
   // Extended patterns (e.g., zh-Hans-CN)
-  /^([a-z]{2})-([A-Za-z]{4})-([A-Z]{2})$/
+  /^([a-z]{2})-([A-Za-z]{4})-([A-Z]{2})$/,
 ]
 
 const COMMON_LOCALES = [
-  'en', 'en-US', 'en-GB',
-  'zh', 'zh-CN', 'zh-TW', 'zh-Hans', 'zh-Hant',
-  'ja', 'ja-JP',
-  'ko', 'ko-KR',
-  'fr', 'fr-FR',
-  'de', 'de-DE',
-  'es', 'es-ES',
-  'it', 'it-IT',
-  'pt', 'pt-BR',
-  'ru', 'ru-RU'
+  'en',
+  'en-US',
+  'en-GB',
+  'zh',
+  'zh-CN',
+  'zh-TW',
+  'zh-Hans',
+  'zh-Hant',
+  'ja',
+  'ja-JP',
+  'ko',
+  'ko-KR',
+  'fr',
+  'fr-FR',
+  'de',
+  'de-DE',
+  'es',
+  'es-ES',
+  'it',
+  'it-IT',
+  'pt',
+  'pt-BR',
+  'ru',
+  'ru-RU',
 ]
 
 // Asset type detection patterns
@@ -40,44 +54,44 @@ const ASSET_PATTERNS = {
     subTypes: {
       backgrounds: ['background', 'backgrounds', 'bg', 'scene'],
       cg: ['cg', 'event', 'illustration'],
-      ui: ['ui', 'interface', 'button', 'panel', 'menu']
-    }
+      ui: ['ui', 'interface', 'button', 'panel', 'menu'],
+    },
   },
   characters: {
     extensions: ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'],
     subTypes: {
-      sprites: ['sprite', 'sprites', 'character', 'char', 'characters']
-    }
+      sprites: ['sprite', 'sprites', 'character', 'char', 'characters'],
+    },
   },
   audio: {
     extensions: ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'],
     subTypes: {
       sfx: ['sfx', 'sound', 'effect'],
       voice: ['voice', 'dialogue', 'speech'],
-      bgm: ['bgm', 'music', 'theme', 'background']
-    }
+      bgm: ['bgm', 'music', 'theme', 'background'],
+    },
   },
   video: {
     extensions: ['.mp4', '.webm', '.avi', '.mov', '.mkv', '.wmv', '.flv'],
     subTypes: {
       cutscenes: ['cutscene', 'cutscenes', 'movie', 'cinema'],
       effects: ['effect', 'effects', 'fx', 'particle'],
-      intro: ['intro', 'opening', 'title', 'credits']
-    }
+      intro: ['intro', 'opening', 'title', 'credits'],
+    },
   },
   scripts: {
     extensions: ['.js', '.mjs'],
     subTypes: {
-      logic: ['script', 'logic', 'game']
-    }
+      logic: ['script', 'logic', 'game'],
+    },
   },
   data: {
     extensions: ['.json', '.xml', '.yaml', '.yml', '.txt', '.csv'],
     subTypes: {
       config: ['config', 'settings', 'options'],
-      save: ['save', 'savegame', 'progress']
-    }
-  }
+      save: ['save', 'savegame', 'progress'],
+    },
+  },
 } as const
 
 export class AssetDetector {
@@ -92,7 +106,7 @@ export class AssetDetector {
       '**/Thumbs.db',
       '**/*.tmp',
       '**/*.temp',
-      ...ignoredPatterns
+      ...ignoredPatterns,
     ]
     this.mediaExtractor = new MediaMetadataExtractor()
   }
@@ -102,25 +116,26 @@ export class AssetDetector {
    */
   async discoverAssets(sourcePath: string): Promise<AssetInfo[]> {
     logger.info(`Discovering assets in: ${sourcePath}`)
-    
+
     const pattern = join(sourcePath, '**/*').replace(/\\/g, '/')
     const files = await glob(pattern, {
       ignore: this.ignoredPatterns,
       nodir: true,
-      absolute: true
+      absolute: true,
     })
 
     logger.info(`Found ${files.length} files to process`)
 
     const assets: AssetInfo[] = []
-    
+
     for (const filePath of files) {
       try {
         const asset = await this.analyzeAsset(filePath, sourcePath)
         if (asset) {
           assets.push(asset)
         }
-      } catch (error) {
+      }
+      catch (error) {
         logger.warn(`Failed to analyze asset: ${filePath}`, error)
       }
     }
@@ -141,7 +156,7 @@ export class AssetDetector {
     const relativePath = relative(basePath, filePath).replace(/\\/g, '/')
     const extension = extname(filePath).toLowerCase()
     const fileName = basename(filePath, extension)
-    const dirPath = dirname(relativePath)
+    const _dirPath = dirname(relativePath)
 
     // Detect asset type
     const assetType = this.detectAssetType(relativePath, extension)
@@ -152,7 +167,7 @@ export class AssetDetector {
 
     // Detect locales
     const locales = this.detectLocales(relativePath, fileName)
-    
+
     // Detect sub-type
     const subType = this.detectSubType(assetType, relativePath, fileName)
 
@@ -164,11 +179,12 @@ export class AssetDetector {
     const mimeType = lookup(extension) || undefined
 
     // Extract media metadata for supported types
-    let mediaMetadata = undefined
+    let mediaMetadata: MediaMetadata | undefined
     if (['images', 'characters', 'audio', 'video'].includes(assetType)) {
       try {
-        mediaMetadata = await this.mediaExtractor.extractMetadata(filePath)
-      } catch (error) {
+        mediaMetadata = await this.mediaExtractor.extractMetadata(filePath) || undefined
+      }
+      catch (error) {
         logger.warn(`Failed to extract media metadata for ${relativePath}:`, error)
       }
     }
@@ -183,7 +199,7 @@ export class AssetDetector {
       subType,
       locales,
       mimeType,
-      mediaMetadata
+      mediaMetadata,
     }
   }
 
@@ -192,7 +208,7 @@ export class AssetDetector {
    */
   private detectAssetType(relativePath: string, extension: string): AssetType | null {
     const pathLower = relativePath.toLowerCase()
-    
+
     // Check by folder structure first
     if (pathLower.includes('/characters/') || pathLower.startsWith('characters/')) {
       return 'characters'
@@ -214,9 +230,9 @@ export class AssetDetector {
     }
 
     // Check by extension
-    for (const [type, config] of Object.entries(ASSET_PATTERNS)) {
+    for (const [type, config] of Object.entries(ASSET_PATTERNS) as Array<[AssetType, any]>) {
       if (config.extensions.includes(extension)) {
-        return type as AssetType
+        return type
       }
     }
 
@@ -229,7 +245,7 @@ export class AssetDetector {
   private detectSubType(assetType: AssetType, relativePath: string, fileName: string): AssetSubType | undefined {
     const pathLower = relativePath.toLowerCase()
     const nameLower = fileName.toLowerCase()
-    
+
     const typeConfig = ASSET_PATTERNS[assetType]
     if (!typeConfig?.subTypes) {
       return undefined
@@ -237,9 +253,9 @@ export class AssetDetector {
 
     for (const [subType, keywords] of Object.entries(typeConfig.subTypes)) {
       for (const keyword of keywords) {
-        if (pathLower.includes(`/${keyword}/`) || 
-            pathLower.includes(`${keyword}/`) ||
-            nameLower.includes(keyword)) {
+        if (pathLower.includes(`/${keyword}/`)
+          || pathLower.includes(`${keyword}/`)
+          || nameLower.includes(keyword)) {
           return subType as AssetSubType
         }
       }
@@ -253,7 +269,7 @@ export class AssetDetector {
    */
   private detectLocales(relativePath: string, fileName: string): string[] {
     const locales = new Set<string>()
-    
+
     // Check folder-based locales (e.g., /en-us/file.png)
     const pathParts = relativePath.split('/')
     for (const part of pathParts) {
@@ -290,7 +306,7 @@ export class AssetDetector {
     }
 
     const lower = str.toLowerCase()
-    
+
     // Check against common locales first
     if (COMMON_LOCALES.some(locale => locale.toLowerCase() === lower)) {
       return true
@@ -321,7 +337,8 @@ export class AssetDetector {
     try {
       const stats = await stat(filePath)
       return stats.size > 0
-    } catch {
+    }
+    catch {
       return false
     }
   }
@@ -331,7 +348,7 @@ export class AssetDetector {
    */
   getLocalesFromAssets(assets: AssetInfo[]): LocaleInfo[] {
     const localeSet = new Set<string>()
-    
+
     for (const asset of assets) {
       for (const locale of asset.locales) {
         localeSet.add(locale)
@@ -341,13 +358,15 @@ export class AssetDetector {
     const locales = Array.from(localeSet).map(code => ({
       code,
       name: this.getLocaleName(code),
-      isDefault: code === 'default'
+      isDefault: code === 'default',
     }))
 
     // Sort with default first
     return locales.sort((a, b) => {
-      if (a.isDefault) return -1
-      if (b.isDefault) return 1
+      if (a.isDefault)
+        return -1
+      if (b.isDefault)
+        return 1
       return a.code.localeCompare(b.code)
     })
   }
@@ -373,7 +392,7 @@ export class AssetDetector {
       'es': 'Spanish',
       'it': 'Italian',
       'pt': 'Portuguese',
-      'ru': 'Russian'
+      'ru': 'Russian',
     }
 
     return names[code.toLowerCase()] || code.toUpperCase()
@@ -389,17 +408,17 @@ export class AssetDetector {
       audio: {},
       video: {},
       scripts: {},
-      data: {}
+      data: {},
     }
 
     for (const asset of assets) {
       const type = asset.type
       const subType = asset.subType || 'other'
-      
+
       if (!grouped[type][subType]) {
         grouped[type][subType] = []
       }
-      
+
       grouped[type][subType].push(asset)
     }
 

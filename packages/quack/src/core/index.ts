@@ -1,2 +1,2 @@
-export { QuackBundler, defineConfig } from './bundler'
+export { defineConfig, QuackBundler } from './bundler'
 export type * from './types'

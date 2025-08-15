@@ -25,7 +25,7 @@ pnpm add @quaengine/store
 ### Basic Store Creation
 
 ```typescript
-import { createStore } from '@quaengine/store';
+import { createStore } from '@quaengine/store'
 
 const gameStore = createStore({
   name: 'gameState',
@@ -36,32 +36,32 @@ const gameStore = createStore({
   },
   mutations: {
     setPlayerName: (state, name: string) => {
-      state.playerName = name;
+      state.playerName = name
     },
     levelUp: (state) => {
-      state.level += 1;
+      state.level += 1
     },
     addScore: (state, points: number) => {
-      state.score += points;
+      state.score += points
     }
   },
   actions: {
     async startNewGame({ commit }, playerName: string) {
-      commit('setPlayerName', playerName);
-      commit('levelUp');
+      commit('setPlayerName', playerName)
+      commit('levelUp')
       // Async operations like API calls can go here
     }
   },
   getters: {
-    playerInfo: (state) => `${state.playerName} - Level ${state.level}`,
-    isHighScore: (state) => state.score > 10000
+    playerInfo: state => `${state.playerName} - Level ${state.level}`,
+    isHighScore: state => state.score > 10000
   }
-});
+})
 
 // Use the store
-gameStore.commit('setPlayerName', 'Alice');
-await gameStore.dispatch('startNewGame', 'Bob');
-console.log(gameStore.getters.playerInfo); // "Bob - Level 1"
+gameStore.commit('setPlayerName', 'Alice')
+await gameStore.dispatch('startNewGame', 'Bob')
+console.log(gameStore.getters.playerInfo) // "Bob - Level 1"
 ```
 
 ## Storage Backends
@@ -74,7 +74,7 @@ By default, all stores use IndexedDB for persistence. No configuration needed:
 const store = createStore({
   name: 'myStore',
   state: { data: 'persisted automatically' }
-});
+})
 ```
 
 ### Custom Storage Backend
@@ -82,7 +82,7 @@ const store = createStore({
 You can specify a different storage backend:
 
 ```typescript
-import { createStore, MemoryBackend, LocalStorageBackend } from '@quaengine/store';
+import { createStore, LocalStorageBackend, MemoryBackend } from '@quaengine/store'
 
 // Use memory storage (data lost on app close)
 const tempStore = createStore({
@@ -91,7 +91,7 @@ const tempStore = createStore({
   storage: {
     backend: MemoryBackend
   }
-});
+})
 
 // Use LocalStorage
 const localStore = createStore({
@@ -100,7 +100,7 @@ const localStore = createStore({
   storage: {
     backend: LocalStorageBackend
   }
-});
+})
 
 // Custom backend with options
 const customStore = createStore({
@@ -112,7 +112,7 @@ const customStore = createStore({
       options: { prefix: 'myapp_' }
     }
   }
-});
+})
 ```
 
 ### Creating Custom Backends
@@ -120,7 +120,7 @@ const customStore = createStore({
 Implement the `StorageBackend` interface:
 
 ```typescript
-import { StorageBackend, QSSnapshot, QSSnapshotMeta } from '@quaengine/store';
+import { QSSnapshot, QSSnapshotMeta, StorageBackend } from '@quaengine/store'
 
 class FileSystemBackend implements StorageBackend {
   constructor(private basePath: string) {}
@@ -144,12 +144,12 @@ Middleware allows you to intercept and modify data during storage operations:
 ### Built-in Middleware Examples
 
 ```typescript
-import { 
-  createStore, 
-  EncryptionMiddleware, 
-  CompressionMiddleware, 
-  LoggingMiddleware 
-} from '@quaengine/store';
+import {
+  CompressionMiddleware,
+  createStore,
+  EncryptionMiddleware,
+  LoggingMiddleware
+} from '@quaengine/store'
 
 const secureStore = createStore({
   name: 'secureStore',
@@ -161,25 +161,25 @@ const secureStore = createStore({
       new LoggingMiddleware(console.log)
     ]
   }
-});
+})
 ```
 
 ### Custom Middleware
 
 ```typescript
-import { StorageMiddleware } from '@quaengine/store';
+import { StorageMiddleware } from '@quaengine/store'
 
 class TimestampMiddleware implements StorageMiddleware {
   async beforeWrite(key: string, value: any): Promise<any> {
     return {
       ...value,
       _timestamp: Date.now()
-    };
+    }
   }
 
   async afterRead(key: string, value: any): Promise<any> {
-    console.log(`Data was stored at: ${new Date(value._timestamp)}`);
-    return value;
+    console.log(`Data was stored at: ${new Date(value._timestamp)}`)
+    return value
   }
 }
 ```
@@ -190,19 +190,19 @@ Save and restore complete application state:
 
 ```typescript
 // Create a snapshot
-const snapshotId = await store.snapshot('save-point-1');
+// Global snapshots (all stores)
+import { QuaStoreManager } from '@quaengine/store'
+
+const snapshotId = await store.snapshot('save-point-1')
 
 // Restore from snapshot
-await store.restore(snapshotId);
+await store.restore(snapshotId)
 
-// Global snapshots (all stores)
-import { QuaStoreManager } from '@quaengine/store';
-
-const globalSnapshotId = await QuaStoreManager.snapshotAll('checkpoint-1');
-await QuaStoreManager.restoreAll(globalSnapshotId);
+const globalSnapshotId = await QuaStoreManager.snapshotAll('checkpoint-1')
+await QuaStoreManager.restoreAll(globalSnapshotId)
 
 // List all snapshots
-const snapshots = await QuaStoreManager.listSnapshots();
+const snapshots = await QuaStoreManager.listSnapshots()
 ```
 
 ## Global Configuration
@@ -210,7 +210,7 @@ const snapshots = await QuaStoreManager.listSnapshots();
 Configure storage settings globally:
 
 ```typescript
-import { configureStorage, EncryptionMiddleware } from '@quaengine/store';
+import { configureStorage, EncryptionMiddleware } from '@quaengine/store'
 
 configureStorage({
   backend: {
@@ -220,7 +220,7 @@ configureStorage({
   middlewares: [
     new EncryptionMiddleware('global-encryption-key')
   ]
-});
+})
 
 // All stores created after this will use the global config by default
 ```
@@ -228,18 +228,18 @@ configureStorage({
 ## Multiple Store Management
 
 ```typescript
-import { useStore, dispatch, commit } from '@quaengine/store';
+import { commit, dispatch, useStore } from '@quaengine/store'
 
 // Create multiple stores
-const userStore = createStore({ name: 'user', state: { name: '' } });
-const gameStore = createStore({ name: 'game', state: { level: 1 } });
+const userStore = createStore({ name: 'user', state: { name: '' } })
+const gameStore = createStore({ name: 'game', state: { level: 1 } })
 
 // Access stores by name
-const store = useStore('user');
+const store = useStore('user')
 
 // Cross-store actions using store/action notation
-await dispatch('user/login', { username: 'alice' });
-commit('game/levelUp');
+await dispatch('user/login', { username: 'alice' })
+commit('game/levelUp')
 ```
 
 ## API Reference
@@ -281,13 +281,13 @@ commit('game/levelUp');
 
 ```typescript
 interface StorageBackend {
-  init?(options?: any): Promise<void> | void;
-  saveSnapshot(snapshot: QSSnapshot): Promise<void>;
-  getSnapshot(id: string): Promise<QSSnapshot | undefined>;
-  deleteSnapshot(id: string): Promise<void>;
-  listSnapshots(storeName?: string): Promise<QSSnapshotMeta[]>;
-  clearSnapshots(storeName?: string): Promise<void>;
-  close?(): Promise<void> | void;
+  init?: (options?: any) => Promise<void> | void
+  saveSnapshot: (snapshot: QSSnapshot) => Promise<void>
+  getSnapshot: (id: string) => Promise<QSSnapshot | undefined>
+  deleteSnapshot: (id: string) => Promise<void>
+  listSnapshots: (storeName?: string) => Promise<QSSnapshotMeta[]>
+  clearSnapshots: (storeName?: string) => Promise<void>
+  close?: () => Promise<void> | void
 }
 ```
 
@@ -295,8 +295,8 @@ interface StorageBackend {
 
 ```typescript
 interface StorageMiddleware {
-  beforeWrite?(key: string, value: any): any | Promise<any>;
-  afterRead?(key: string, value: any): any | Promise<any>;
+  beforeWrite?: (key: string, value: any) => any | Promise<any>
+  afterRead?: (key: string, value: any) => any | Promise<any>
 }
 ```
 
@@ -314,9 +314,9 @@ The library is fully typed and provides excellent TypeScript support:
 
 ```typescript
 interface GameState {
-  playerName: string;
-  level: number;
-  score: number;
+  playerName: string
+  level: number
+  score: number
 }
 
 const typedStore = createStore({
@@ -328,10 +328,10 @@ const typedStore = createStore({
   } as GameState,
   mutations: {
     setPlayerName: (state: GameState, name: string) => {
-      state.playerName = name; // Fully typed
+      state.playerName = name // Fully typed
     }
   }
-});
+})
 ```
 
 ## Environment Support
@@ -346,9 +346,10 @@ The library provides descriptive error messages:
 
 ```typescript
 try {
-  await store.restore('non-existent-snapshot');
-} catch (error) {
-  console.error(error.message); // "Snapshot with id 'non-existent-snapshot' not found."
+  await store.restore('non-existent-snapshot')
+}
+catch (error) {
+  console.error(error.message) // "Snapshot with id 'non-existent-snapshot' not found."
 }
 ```
 

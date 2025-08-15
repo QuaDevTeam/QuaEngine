@@ -1,55 +1,55 @@
+// Core utilities
+export { AssetDetector } from './assets/asset-detector'
+
+export { MediaMetadataExtractor } from './assets/media-extractor'
+
+export { MetadataGenerator } from './assets/metadata'
+
+export { QPKBundler } from './bundlers/qpk-bundler'
+// Bundler implementations
+export { ZipBundler } from './bundlers/zip-bundler'
+
 // Main bundler class
-export { QuackBundler, defineConfig } from './core/bundler'
-
-// Workspace management
-export { WorkspaceManager } from './workspace/workspace'
-
+export { defineConfig, QuackBundler } from './core/bundler'
 // Core types
 export type {
-  QuackConfig,
-  BundleOptions,
-  BundleFormat,
-  BundleManifest,
-  PatchManifest,
-  AssetInfo,
-  AssetType,
-  AssetSubType,
   AssetContext,
+  AssetDiff,
+  AssetInfo,
+  AssetSubType,
+  AssetType,
+  AudioMetadata,
+  BuildLog,
+  BundleDefinition,
+  BundleFormat,
+  BundleIndex,
+  BundleInfo,
+  BundleManifest,
+  BundleOptions,
   BundleStats,
-  LocaleInfo,
   CompressionAlgorithm,
   EncryptionAlgorithm,
   EncryptionContext,
-  BuildLog,
-  BundleIndex,
-  WorkspaceBundleIndex,
-  BundleInfo,
-  WorkspaceConfig,
-  BundleDefinition,
-  VersionConfig,
-  PatchOptions,
-  MultiBundlePatchOptions,
-  AssetDiff,
-  MerkleNode,
   ImageMetadata,
-  AudioMetadata,
+  LocaleInfo,
+  MediaMetadata,
+  MerkleNode,
+  MultiBundlePatchOptions,
+  PatchManifest,
+  PatchOptions,
+  QuackConfig,
+  VersionConfig,
   VideoMetadata,
-  MediaMetadata
+  WorkspaceBundleIndex,
+  WorkspaceConfig,
 } from './core/types'
-
-// Bundler implementations
-export { ZipBundler } from './bundlers/zip-bundler'
-export { QPKBundler } from './bundlers/qpk-bundler'
-
-// Core utilities
-export { AssetDetector } from './assets/asset-detector'
-export { MetadataGenerator } from './assets/metadata'
-export { MediaMetadataExtractor } from './assets/media-extractor'
-export { PluginManager } from './managers/plugin-manager'
-export { EncryptionManager } from './crypto/encryption'
-export { VersionManager } from './workspace/versioning'
-export { PatchGenerator } from './workspace/patch-generator'
-
 // Plugin base classes and types
 export { QuackPlugin } from './core/types'
 export type { EncryptionPlugin } from './core/types'
+export { EncryptionManager } from './crypto/encryption'
+export { PluginManager } from './managers/plugin-manager'
+export { PatchGenerator } from './workspace/patch-generator'
+
+export { VersionManager } from './workspace/versioning'
+// Workspace management
+export { WorkspaceManager } from './workspace/workspace'

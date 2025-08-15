@@ -14,13 +14,13 @@ Quack automatically extracts metadata from media files during asset discovery an
 
 ```typescript
 interface ImageMetadata {
-  width: number          // Image width in pixels
-  height: number         // Image height in pixels
-  aspectRatio: number    // Width/height ratio
-  animated: boolean      // True for animated GIFs/WebPs
-  format: string         // Format name (PNG, JPEG, etc.)
-  colorDepth?: number    // Bits per channel (8, 16, etc.)
-  hasAlpha?: boolean     // True if image has transparency
+  width: number // Image width in pixels
+  height: number // Image height in pixels
+  aspectRatio: number // Width/height ratio
+  animated: boolean // True for animated GIFs/WebPs
+  format: string // Format name (PNG, JPEG, etc.)
+  colorDepth?: number // Bits per channel (8, 16, etc.)
+  hasAlpha?: boolean // True if image has transparency
 }
 ```
 
@@ -81,11 +81,11 @@ console.log(`Alpha: ${metadata.hasAlpha}`)
 
 ```typescript
 interface AudioMetadata {
-  duration: number       // Duration in seconds
-  format: string         // Format name (MP3, WAV, etc.)
-  bitrate?: number       // Bitrate in bits per second
-  sampleRate?: number    // Sample rate in Hz
-  channels?: number      // Number of audio channels
+  duration: number // Duration in seconds
+  format: string // Format name (MP3, WAV, etc.)
+  bitrate?: number // Bitrate in bits per second
+  sampleRate?: number // Sample rate in Hz
+  channels?: number // Number of audio channels
 }
 ```
 
@@ -120,15 +120,15 @@ console.log(`Bitrate: ${metadata.bitrate} bps (estimated)`)
 
 ```typescript
 interface VideoMetadata {
-  width: number          // Video width in pixels
-  height: number         // Video height in pixels
-  aspectRatio: number    // Width/height ratio
-  duration: number       // Duration in seconds
-  format: string         // Format name (MP4, WebM, etc.)
-  frameRate?: number     // Frames per second
-  bitrate?: number       // Video bitrate in bits per second
-  hasAudio?: boolean     // True if video contains audio track
-  codec?: string         // Video codec name
+  width: number // Video width in pixels
+  height: number // Video height in pixels
+  aspectRatio: number // Width/height ratio
+  duration: number // Duration in seconds
+  format: string // Format name (MP4, WebM, etc.)
+  frameRate?: number // Frames per second
+  bitrate?: number // Video bitrate in bits per second
+  hasAudio?: boolean // True if video contains audio track
+  codec?: string // Video codec name
 }
 ```
 
@@ -154,13 +154,13 @@ const metadata = await extractor.extractMetadata('./assets/image.png')
 
 if (metadata) {
   console.log('Format:', metadata.format)
-  
+
   // Type-specific properties
   if ('width' in metadata) {
     console.log(`Dimensions: ${metadata.width}x${metadata.height}`)
     console.log(`Aspect ratio: ${metadata.aspectRatio}`)
   }
-  
+
   if ('duration' in metadata) {
     console.log(`Duration: ${metadata.duration} seconds`)
   }
@@ -176,7 +176,7 @@ const detector = new AssetDetector()
 const assets = await detector.discoverAssets('./assets')
 
 // Filter assets by metadata
-const largeImages = assets.filter(asset => {
+const largeImages = assets.filter((asset) => {
   if (asset.type === 'images' && asset.mediaMetadata) {
     const meta = asset.mediaMetadata as ImageMetadata
     return meta.width > 1920 || meta.height > 1080
@@ -184,7 +184,7 @@ const largeImages = assets.filter(asset => {
   return false
 })
 
-const longAudio = assets.filter(asset => {
+const longAudio = assets.filter((asset) => {
   if (asset.type === 'audio' && asset.mediaMetadata) {
     const meta = asset.mediaMetadata as AudioMetadata
     return meta.duration > 60 // Longer than 1 minute
@@ -201,10 +201,10 @@ const aspectRatios = new Map()
 
 assets
   .filter(asset => asset.type === 'images' && asset.mediaMetadata)
-  .forEach(asset => {
+  .forEach((asset) => {
     const meta = asset.mediaMetadata as ImageMetadata
     const ratio = Math.round(meta.aspectRatio * 100) / 100 // Round to 2 decimals
-    
+
     if (!aspectRatios.has(ratio)) {
       aspectRatios.set(ratio, [])
     }
@@ -213,15 +213,15 @@ assets
 
 // Common aspect ratios
 const widescreen = aspectRatios.get(1.78) || [] // 16:9
-const standard = aspectRatios.get(1.33) || []   // 4:3
-const square = aspectRatios.get(1.0) || []      // 1:1
+const standard = aspectRatios.get(1.33) || [] // 4:3
+const square = aspectRatios.get(1.0) || [] // 1:1
 ```
 
 ### Animation Detection
 
 ```typescript
 // Find all animated images
-const animatedImages = assets.filter(asset => {
+const animatedImages = assets.filter((asset) => {
   if ((asset.type === 'images' || asset.type === 'characters') && asset.mediaMetadata) {
     const meta = asset.mediaMetadata as ImageMetadata
     return meta.animated
@@ -230,7 +230,7 @@ const animatedImages = assets.filter(asset => {
 })
 
 console.log(`Found ${animatedImages.length} animated images:`)
-animatedImages.forEach(asset => {
+animatedImages.forEach((asset) => {
   const meta = asset.mediaMetadata as ImageMetadata
   console.log(`- ${asset.name} (${meta.format}, ${meta.width}x${meta.height})`)
 })
@@ -268,16 +268,18 @@ The media extractor handles errors gracefully:
 ```typescript
 try {
   const metadata = await extractor.extractMetadata('./corrupted-file.png')
-  
+
   if (!metadata) {
     console.log('File format not supported or corrupted')
-  } else {
+  }
+  else {
     // Metadata may contain zeros for corrupted files
     if (metadata.width === 0 && metadata.height === 0) {
       console.log('Could not extract valid dimensions')
     }
   }
-} catch (error) {
+}
+catch (error) {
   console.error('Extraction failed:', error.message)
 }
 ```
@@ -301,12 +303,12 @@ async function getCachedMetadata(filePath: string): Promise<MediaMetadata | null
   if (metadataCache.has(filePath)) {
     return metadataCache.get(filePath)!
   }
-  
+
   const metadata = await extractor.extractMetadata(filePath)
   if (metadata) {
     metadataCache.set(filePath, metadata)
   }
-  
+
   return metadata
 }
 ```
@@ -321,7 +323,7 @@ import { pLimit } from 'p-limit'
 const limit = pLimit(5) // Process 5 files at once
 
 const results = await Promise.all(
-  filePaths.map(path => 
+  filePaths.map(path =>
     limit(async () => {
       const metadata = await extractor.extractMetadata(path)
       return { path, metadata }
@@ -342,15 +344,15 @@ import { MediaMetadataExtractor } from '@quajs/quack'
 class ExtendedMetadataExtractor extends MediaMetadataExtractor {
   async extractMetadata(filePath: string) {
     const ext = path.extname(filePath).toLowerCase()
-    
+
     if (ext === '.tiff') {
       return this.extractTiffMetadata(filePath)
     }
-    
+
     // Fall back to parent implementation
     return super.extractMetadata(filePath)
   }
-  
+
   private async extractTiffMetadata(filePath: string): Promise<ImageMetadata> {
     // Custom TIFF parsing logic
     // ...
@@ -375,24 +377,28 @@ interface ExtendedImageMetadata extends ImageMetadata {
 Planned improvements to media metadata extraction:
 
 ### Video Support
+
 - Full MP4/MOV container parsing
 - Codec detection (H.264, H.265, VP9, etc.)
 - Audio track analysis
 - Subtitle track detection
 
 ### Enhanced Audio
+
 - Full MP3 frame parsing for accurate duration
 - Metadata tags (ID3, Vorbis comments)
 - Audio quality analysis
 - Peak/RMS level detection
 
-### Image Enhancements  
+### Image Enhancements
+
 - EXIF data extraction
 - Color profile information
 - Compression quality estimation
 - Thumbnail extraction
 
 ### Performance
+
 - Streaming parsers for large files
 - Worker thread support
 - Progressive metadata loading

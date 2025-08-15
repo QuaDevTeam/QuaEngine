@@ -27,51 +27,51 @@ export interface ImageMetadata extends MediaMetadata {
 }
 
 export interface AudioMetadata extends MediaMetadata {
-  duration: number        // Duration in seconds  
-  sampleRate?: number     // Sample rate in Hz
-  channels?: number       // Number of audio channels
-  bitrate?: number        // Bitrate in kbps
-  codec?: string          // Audio codec
+  duration: number // Duration in seconds
+  sampleRate?: number // Sample rate in Hz
+  channels?: number // Number of audio channels
+  bitrate?: number // Bitrate in kbps
+  codec?: string // Audio codec
 }
 
 export interface VideoMetadata extends MediaMetadata {
   width: number
   height: number
-  duration: number        // Duration in seconds
-  framerate?: number      // Framerate in fps
-  codec?: string          // Video codec
+  duration: number // Duration in seconds
+  framerate?: number // Framerate in fps
+  codec?: string // Video codec
 }
 
 // Asset information stored in IndexedDB
 export interface StoredAsset {
-  id: string                    // Unique asset ID: `${bundleName}:${locale}:${type}:${name}`
-  bundleName: string           // Bundle this asset belongs to
-  name: string                 // Asset filename
-  type: AssetType              // Asset category
-  locale: AssetLocale          // Asset locale
-  blob: Blob                   // Asset data as blob
-  hash: string                 // Asset content hash for integrity
-  size: number                 // Asset size in bytes
-  version: number              // Asset version number
-  mtime: number                // Modified time
-  createdAt: number            // When stored in IndexedDB
-  lastAccessed: number         // Last access time for cache management
+  id: string // Unique asset ID: `${bundleName}:${locale}:${type}:${name}`
+  bundleName: string // Bundle this asset belongs to
+  name: string // Asset filename
+  type: AssetType // Asset category
+  locale: AssetLocale // Asset locale
+  blob: Blob // Asset data as blob
+  hash: string // Asset content hash for integrity
+  size: number // Asset size in bytes
+  version: number // Asset version number
+  mtime: number // Modified time
+  createdAt: number // When stored in IndexedDB
+  lastAccessed: number // Last access time for cache management
   mediaMetadata?: MediaMetadata // Media metadata for audio/video/image assets
 }
 
 // Bundle information stored in IndexedDB
 export interface StoredBundle {
-  name: string                 // Bundle name
-  version: number              // Bundle version
-  buildNumber: string          // Build identifier
-  format: BundleFormat         // Bundle format (zip/qpk)
-  hash: string                 // Bundle content hash
-  size: number                 // Bundle size in bytes
-  assetCount: number           // Number of assets in bundle
-  locales: AssetLocale[]       // Available locales
-  createdAt: number            // When bundle was stored
-  lastUpdated: number          // Last update time
-  manifest: BundleManifest     // Bundle manifest data
+  name: string // Bundle name
+  version: number // Bundle version
+  buildNumber: string // Build identifier
+  format: BundleFormat // Bundle format (zip/qpk)
+  hash: string // Bundle content hash
+  size: number // Bundle size in bytes
+  assetCount: number // Number of assets in bundle
+  locales: AssetLocale[] // Available locales
+  createdAt: number // When bundle was stored
+  lastUpdated: number // Last update time
+  manifest: BundleManifest // Bundle manifest data
 }
 
 // Bundle manifest structure (from Quack)
@@ -227,61 +227,61 @@ export interface BundleInfo {
 export interface QuaAssetsPlugin {
   name: string
   version: string
-  
+
   // Lifecycle hooks
-  initialize?(): Promise<void>
-  cleanup?(): Promise<void>
+  initialize?: () => Promise<void>
+  cleanup?: () => Promise<void>
 }
 
 // Decompression plugin interface
 export interface DecompressionPlugin extends QuaAssetsPlugin {
   supportedFormats: BundleFormat[]
-  decompress(buffer: ArrayBuffer, format: BundleFormat): Promise<Map<string, Uint8Array>>
+  decompress: (buffer: ArrayBuffer, format: BundleFormat) => Promise<Map<string, Uint8Array>>
 }
 
-// Decryption plugin interface  
+// Decryption plugin interface
 export interface DecryptionPlugin extends QuaAssetsPlugin {
-  decrypt(buffer: ArrayBuffer, metadata?: Record<string, any>): Promise<ArrayBuffer>
+  decrypt: (buffer: ArrayBuffer, metadata?: Record<string, any>) => Promise<ArrayBuffer>
 }
 
 // Asset processing plugin interface
 export interface AssetProcessingPlugin extends QuaAssetsPlugin {
   supportedTypes: AssetType[]
-  processAsset(asset: StoredAsset): Promise<StoredAsset>
+  processAsset: (asset: StoredAsset) => Promise<StoredAsset>
 }
 
 // Configuration for QuaAssets
 export interface QuaAssetsConfig {
-  endpoint: string              // Base URL for assets
-  locale?: AssetLocale          // Default locale
-  enableCache?: boolean         // Enable IndexedDB caching (default: true)
-  cacheSize?: number           // Max cache size in bytes (default: 100MB)
-  retryAttempts?: number       // Download retry attempts (default: 3)
-  timeout?: number             // Request timeout in ms (default: 30000)
-  plugins?: QuaAssetsPlugin[]  // Plugins to register
-  
+  endpoint: string // Base URL for assets
+  locale?: AssetLocale // Default locale
+  enableCache?: boolean // Enable IndexedDB caching (default: true)
+  cacheSize?: number // Max cache size in bytes (default: 100MB)
+  retryAttempts?: number // Download retry attempts (default: 3)
+  timeout?: number // Request timeout in ms (default: 30000)
+  plugins?: QuaAssetsPlugin[] // Plugins to register
+
   // Advanced options
   enableServiceWorker?: boolean // Use service worker for caching (default: false)
-  indexedDBName?: string       // Custom IndexedDB database name
-  indexedDBVersion?: number    // IndexedDB schema version
+  indexedDBName?: string // Custom IndexedDB database name
+  indexedDBVersion?: number // IndexedDB schema version
   enableIntegrityCheck?: boolean // Verify asset hashes (default: true)
-  enableCompression?: boolean  // Enable response compression (default: true)
+  enableCompression?: boolean // Enable response compression (default: true)
 }
 
 // Asset loading options
 export interface LoadAssetOptions {
-  locale?: AssetLocale         // Override default locale
-  bundleName?: string          // Specific bundle to load from
-  enableCache?: boolean        // Use cached version if available
+  locale?: AssetLocale // Override default locale
+  bundleName?: string // Specific bundle to load from
+  enableCache?: boolean // Use cached version if available
   priority?: 'high' | 'normal' | 'low' // Loading priority
 }
 
 // Bundle loading options
 export interface LoadBundleOptions {
-  force?: boolean              // Force reload even if already loaded
-  enableCache?: boolean        // Cache bundle in IndexedDB
+  force?: boolean // Force reload even if already loaded
+  enableCache?: boolean // Cache bundle in IndexedDB
   onProgress?: (loaded: number, total: number) => void // Progress callback
-  signal?: AbortSignal         // Abort signal for cancellation
+  signal?: AbortSignal // Abort signal for cancellation
 }
 
 // Asset query result
@@ -304,7 +304,7 @@ export interface BundleStatus {
   name: string
   version: number
   state: LoadingState
-  progress: number             // 0-1 for loading progress
+  progress: number // 0-1 for loading progress
   assetCount: number
   loadedAssets: number
   error?: Error

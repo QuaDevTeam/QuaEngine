@@ -1,18 +1,18 @@
-import { readFile, writeFile, mkdir, stat } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
-import { join, dirname, basename, extname } from 'node:path'
-import { createHash } from 'node:crypto'
-import { createLogger } from '@quajs/logger'
-import type { 
-  VersionConfig, 
-  BuildLog, 
-  BundleIndex,
-  WorkspaceBundleIndex,
-  BundleInfo,
-  MerkleNode, 
+import type {
   AssetInfo,
-  BundleManifest 
+  BuildLog,
+  BundleIndex,
+  BundleInfo,
+  BundleManifest,
+  MerkleNode,
+  VersionConfig,
+  WorkspaceBundleIndex,
 } from '../core/types'
+import { createHash } from 'node:crypto'
+import { existsSync } from 'node:fs'
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { basename, dirname, extname, join } from 'node:path'
+import { createLogger } from '@quajs/logger'
 
 const logger = createLogger('quack:versioning')
 
@@ -35,7 +35,7 @@ export class VersionManager {
   /**
    * Get or create version information
    */
-  async getVersionInfo(config: VersionConfig): Promise<{ bundleVersion: number; buildNumber: string }> {
+  async getVersionInfo(config: VersionConfig): Promise<{ bundleVersion: number, buildNumber: string }> {
     let bundleVersion = config.bundleVersion || 1
     let buildNumber = config.buildNumber || this.generateBuildNumber()
 
@@ -43,10 +43,11 @@ export class VersionManager {
     if (existsSync(this.versionFile)) {
       try {
         const versionData = JSON.parse(await readFile(this.versionFile, 'utf8'))
-        
+
         if (config.incrementVersion) {
           bundleVersion = (versionData.bundleVersion || 0) + 1
-        } else if (!config.bundleVersion) {
+        }
+        else if (!config.bundleVersion) {
           bundleVersion = versionData.bundleVersion || 1
         }
 
@@ -54,7 +55,8 @@ export class VersionManager {
         if (!config.buildNumber && versionData.buildNumber) {
           buildNumber = this.generateBuildNumber() // Always generate new build number
         }
-      } catch (error) {
+      }
+      catch (error) {
         logger.warn('Failed to read version file, using defaults:', error)
       }
     }
@@ -78,11 +80,11 @@ export class VersionManager {
   /**
    * Save version information
    */
-  private async saveVersionInfo(version: { bundleVersion: number; buildNumber: string }): Promise<void> {
+  private async saveVersionInfo(version: { bundleVersion: number, buildNumber: string }): Promise<void> {
     const versionData = {
       bundleVersion: version.bundleVersion,
       buildNumber: version.buildNumber,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
     }
 
     await mkdir(dirname(this.versionFile), { recursive: true })
@@ -92,11 +94,11 @@ export class VersionManager {
   /**
    * Create Merkle tree from assets
    */
-  createMerkleTree(assets: AssetInfo[]): { tree: MerkleNode; root: string } {
+  createMerkleTree(assets: AssetInfo[]): { tree: MerkleNode, root: string } {
     if (assets.length === 0) {
       const emptyNode: MerkleNode = {
         hash: createHash('sha256').update('').digest('hex'),
-        isLeaf: true
+        isLeaf: true,
       }
       return { tree: emptyNode, root: emptyNode.hash }
     }
@@ -106,36 +108,37 @@ export class VersionManager {
     let nodes: MerkleNode[] = sortedAssets.map(asset => ({
       hash: asset.hash,
       path: asset.relativePath,
-      isLeaf: true
+      isLeaf: true,
     }))
 
     // Build tree from bottom up
     while (nodes.length > 1) {
       const nextLevel: MerkleNode[] = []
-      
+
       for (let i = 0; i < nodes.length; i += 2) {
         const left = nodes[i]
         const right = nodes[i + 1]
-        
+
         if (right) {
           // Combine two nodes
           const combinedHash = createHash('sha256')
             .update(left.hash)
             .update(right.hash)
             .digest('hex')
-          
+
           nextLevel.push({
             hash: combinedHash,
             left,
             right,
-            isLeaf: false
+            isLeaf: false,
           })
-        } else {
+        }
+        else {
           // Odd number of nodes, promote the last one
           nextLevel.push(left)
         }
       }
-      
+
       nodes = nextLevel
     }
 
@@ -152,7 +155,7 @@ export class VersionManager {
       .update(buildNumber)
       .update(bundlePath)
       .digest('hex')
-    
+
     return contentHash.substring(0, 8) // 8 character hash like webpack
   }
 
@@ -163,9 +166,9 @@ export class VersionManager {
     const dir = dirname(originalPath)
     const ext = extname(originalPath)
     const name = basename(originalPath, ext)
-    
+
     const fileHash = this.generateFileHash(originalPath, bundleVersion, buildNumber)
-    
+
     return join(dir, `${name}.${fileHash}${ext}`)
   }
 
@@ -175,7 +178,7 @@ export class VersionManager {
   async saveBuildLog(
     buildLog: BuildLog,
     bundlePath: string,
-    manifest: BundleManifest
+    manifest: BundleManifest,
   ): Promise<void> {
     // Ensure build log directory exists
     await mkdir(this.buildLogDir, { recursive: true })
@@ -191,7 +194,7 @@ export class VersionManager {
       bundlePath,
       bundleHash,
       merkleRoot: manifest.merkleRoot || '',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     }
 
     // Save build log
@@ -214,11 +217,13 @@ export class VersionManager {
     if (existsSync(this.indexFile)) {
       try {
         index = JSON.parse(await readFile(this.indexFile, 'utf8'))
-      } catch (error) {
+      }
+      catch (error) {
         logger.warn('Failed to read index file, creating new one:', error)
         index = this.createEmptyIndex()
       }
-    } else {
+    }
+    else {
       index = this.createEmptyIndex()
     }
 
@@ -229,7 +234,7 @@ export class VersionManager {
       version: buildLog.bundleVersion,
       buildNumber: buildLog.buildNumber,
       created: buildLog.timestamp,
-      size: bundleStats.size
+      size: bundleStats.size,
     }
 
     // Move current latest to previous builds if it exists
@@ -258,7 +263,7 @@ export class VersionManager {
       currentBuild: '',
       latestBundle: null as any,
       previousBuilds: [],
-      availablePatches: []
+      availablePatches: [],
     }
   }
 
@@ -267,7 +272,7 @@ export class VersionManager {
    */
   async getBuildLog(buildNumber: string): Promise<BuildLog | null> {
     const logFile = join(this.buildLogDir, `${buildNumber}.json`)
-    
+
     if (!existsSync(logFile)) {
       return null
     }
@@ -275,7 +280,8 @@ export class VersionManager {
     try {
       const logData = await readFile(logFile, 'utf8')
       return JSON.parse(logData)
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Failed to read build log: ${buildNumber}`, error)
       return null
     }
@@ -292,7 +298,7 @@ export class VersionManager {
 
     try {
       const index: BundleIndex = JSON.parse(await readFile(this.indexFile, 'utf8'))
-      
+
       // Check current version
       if (index.latestBundle && index.latestBundle.version === version) {
         return this.getBuildLog(index.latestBundle.buildNumber)
@@ -305,7 +311,8 @@ export class VersionManager {
       }
 
       return null
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Failed to find build log for version: ${version}`, error)
       return null
     }
@@ -329,7 +336,8 @@ export class VersionManager {
         try {
           const logData = await readFile(join(this.buildLogDir, file), 'utf8')
           logs.push(JSON.parse(logData))
-        } catch (error) {
+        }
+        catch (error) {
           logger.warn(`Failed to read log file: ${file}`, error)
         }
       }
@@ -341,7 +349,8 @@ export class VersionManager {
         }
         return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       })
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to list build logs:', error)
       return []
     }
@@ -358,7 +367,8 @@ export class VersionManager {
     try {
       const indexData = await readFile(this.indexFile, 'utf8')
       return JSON.parse(indexData)
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to read bundle index:', error)
       return null
     }
@@ -375,7 +385,7 @@ export class VersionManager {
 
     // Add patch info
     index.availablePatches.push(patchInfo)
-    
+
     // Sort patches by version
     index.availablePatches.sort((a, b) => {
       if (a.fromVersion !== b.fromVersion) {
@@ -395,7 +405,7 @@ export class VersionManager {
   assignAssetVersions(assets: AssetInfo[], baseVersion: number = 1): AssetInfo[] {
     return assets.map((asset, index) => ({
       ...asset,
-      version: baseVersion + index
+      version: baseVersion + index,
     }))
   }
 
@@ -412,7 +422,8 @@ export class VersionManager {
     try {
       const indexData = await readFile(this.workspaceIndexFile, 'utf8')
       return JSON.parse(indexData)
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to read workspace index:', error)
       return null
     }
@@ -423,11 +434,12 @@ export class VersionManager {
    */
   async initializeWorkspaceIndex(workspaceName: string, workspaceVersion: string): Promise<WorkspaceBundleIndex> {
     let index = await this.getWorkspaceIndex()
-    
+
     if (!index) {
       index = this.createEmptyWorkspaceIndex(workspaceName, workspaceVersion)
       logger.info(`Created new workspace index for "${workspaceName}"`)
-    } else {
+    }
+    else {
       // Update workspace metadata
       index.workspace.version = workspaceVersion
       index.workspace.updated = new Date().toISOString()
@@ -446,9 +458,9 @@ export class VersionManager {
     buildLog: BuildLog,
     bundlePath: string,
     manifest: BundleManifest,
-    bundleDefinition: any
+    bundleDefinition: any,
   ): Promise<void> {
-    let index = await this.getWorkspaceIndex()
+    const index = await this.getWorkspaceIndex()
     if (!index) {
       throw new Error('Workspace index not found. Initialize workspace first.')
     }
@@ -481,7 +493,7 @@ export class VersionManager {
       version: buildLog.bundleVersion,
       buildNumber: buildLog.buildNumber,
       created: buildLog.timestamp,
-      size: bundleStats.size
+      size: bundleStats.size,
     }
 
     // Update workspace global version if this bundle has the highest version
@@ -508,9 +520,9 @@ export class VersionManager {
       created: string
       size: number
       changeCount: number
-    }
+    },
   ): Promise<void> {
-    let index = await this.getWorkspaceIndex()
+    const index = await this.getWorkspaceIndex()
     if (!index) {
       throw new Error('Workspace index not found')
     }
@@ -518,12 +530,12 @@ export class VersionManager {
     // Add to specific bundle patches
     if (index.bundles[bundleName]) {
       const existingPatch = index.bundles[bundleName].availablePatches.find(
-        p => p.fromVersion === patchInfo.fromVersion && p.toVersion === patchInfo.toVersion
+        p => p.fromVersion === patchInfo.fromVersion && p.toVersion === patchInfo.toVersion,
       )
 
       if (!existingPatch) {
         index.bundles[bundleName].availablePatches.push(patchInfo)
-        
+
         // Sort patches by version
         index.bundles[bundleName].availablePatches.sort((a, b) => {
           if (a.fromVersion !== b.fromVersion) {
@@ -539,18 +551,18 @@ export class VersionManager {
     // Add to global patches (affects multiple bundles)
     const globalPatchInfo = {
       ...patchInfo,
-      affectedBundles: [bundleName]
+      affectedBundles: [bundleName],
     }
 
     const existingGlobalPatch = index.globalPatches.find(
-      p => p.fromVersion === patchInfo.fromVersion && 
-          p.toVersion === patchInfo.toVersion && 
-          p.affectedBundles.includes(bundleName)
+      p => p.fromVersion === patchInfo.fromVersion
+        && p.toVersion === patchInfo.toVersion
+        && p.affectedBundles.includes(bundleName),
     )
 
     if (!existingGlobalPatch) {
       index.globalPatches.push(globalPatchInfo)
-      
+
       // Sort global patches
       index.globalPatches.sort((a, b) => {
         if (a.fromVersion !== b.fromVersion) {
@@ -573,7 +585,7 @@ export class VersionManager {
     }
 
     const bundleInfo = index.bundles[bundleName]
-    
+
     // Check current version
     if (bundleInfo.latestBundle && bundleInfo.latestBundle.version === version) {
       return this.getBuildLog(bundleInfo.latestBundle.buildNumber)
@@ -622,12 +634,12 @@ export class VersionManager {
         name,
         version,
         created: new Date().toISOString(),
-        updated: new Date().toISOString()
+        updated: new Date().toISOString(),
       },
       currentVersion: 0,
       currentBuild: '',
       bundles: {},
-      globalPatches: []
+      globalPatches: [],
     }
   }
 
@@ -645,7 +657,7 @@ export class VersionManager {
       loadTrigger: bundleDefinition?.loadTrigger || 'immediate',
       latestBundle: null as any,
       previousBuilds: [],
-      availablePatches: []
+      availablePatches: [],
     }
   }
 }

@@ -1,28 +1,28 @@
-import { resolve, dirname } from 'node:path'
-import { mkdir, rename } from 'node:fs/promises'
+import type {
+  BuildLog,
+  BundleDefinition,
+  BundleFormat,
+  BundleManifest,
+  BundleOptions,
+  BundleStats,
+  CompressionAlgorithm,
+  EncryptionAlgorithm,
+  QuackConfig,
+  QuackPlugin,
+  WorkspaceConfig,
+} from './types'
 import { EventEmitter } from 'node:events'
+import { mkdir, rename } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { createLogger } from '@quajs/logger'
 import { AssetDetector } from '../assets/asset-detector'
 import { MetadataGenerator } from '../assets/metadata'
-import { ZipBundler } from '../bundlers/zip-bundler'
 import { QPKBundler } from '../bundlers/qpk-bundler'
-import { PluginManager } from '../managers/plugin-manager'
+import { ZipBundler } from '../bundlers/zip-bundler'
 import { EncryptionManager } from '../crypto/encryption'
+import { PluginManager } from '../managers/plugin-manager'
 import { VersionManager } from '../workspace/versioning'
 import { WorkspaceManager } from '../workspace/workspace'
-import type { 
-  QuackConfig, 
-  BundleOptions, 
-  BundleFormat, 
-  CompressionAlgorithm,
-  EncryptionAlgorithm,
-  QuackPlugin,
-  BundleStats,
-  BuildLog,
-  WorkspaceConfig,
-  BundleDefinition,
-  BundleManifest
-} from './types'
 
 const logger = createLogger('quack:bundler')
 
@@ -39,11 +39,11 @@ export class QuackBundler extends EventEmitter {
     super()
     this.config = config
     this.isWorkspaceMode = !!(config.workspace || config.workspaceConfig)
-    
+
     this.pluginManager = new PluginManager()
     this.assetDetector = new AssetDetector(config.ignore || [])
     this.metadataGenerator = new MetadataGenerator()
-    
+
     // Initialize version manager with workspace mode if applicable
     const outputDir = config.output ? dirname(resolve(config.output)) : process.cwd()
     this.versionManager = new VersionManager(outputDir, this.isWorkspaceMode)
@@ -64,7 +64,7 @@ export class QuackBundler extends EventEmitter {
    */
   async bundle(): Promise<BundleStats> {
     const startTime = Date.now()
-    
+
     try {
       // Normalize configuration first
       const normalizedConfig = await this.normalizeConfig(this.config)
@@ -96,7 +96,7 @@ export class QuackBundler extends EventEmitter {
         compression: normalizedConfig.compression,
         encryption: normalizedConfig.encryption,
         version: normalizedConfig.versioning.bundleVersion?.toString() || '1.0.0',
-        buildNumber: normalizedConfig.versioning.buildNumber
+        buildNumber: normalizedConfig.versioning.buildNumber,
       })
 
       // Add versioning info to manifest
@@ -110,7 +110,7 @@ export class QuackBundler extends EventEmitter {
       }
 
       // Generate temporary bundle path
-      const tempBundlePath = normalizedConfig.output + '.tmp'
+      const tempBundlePath = `${normalizedConfig.output}.tmp`
 
       // Ensure output directory exists
       await mkdir(dirname(normalizedConfig.output), { recursive: true })
@@ -119,17 +119,18 @@ export class QuackBundler extends EventEmitter {
       if (normalizedConfig.format === 'zip') {
         const zipBundler = new ZipBundler(normalizedConfig.plugins)
         await zipBundler.createBundle(assets, manifest, tempBundlePath)
-      } else {
+      }
+      else {
         const qpkBundler = new QPKBundler(
-          normalizedConfig.plugins, 
+          normalizedConfig.plugins,
           normalizedConfig.encryption.algorithm,
           normalizedConfig.encryption.key,
-          normalizedConfig.encryption.plugin
+          normalizedConfig.encryption.plugin,
         )
         await qpkBundler.createBundle(assets, manifest, tempBundlePath, {
           compress: normalizedConfig.compression.algorithm !== 'none',
           encrypt: normalizedConfig.encryption.enabled,
-          compressionLevel: normalizedConfig.compression.level
+          compressionLevel: normalizedConfig.compression.level,
         })
       }
 
@@ -137,7 +138,7 @@ export class QuackBundler extends EventEmitter {
       const finalBundlePath = this.versionManager.generateBundleFilename(
         normalizedConfig.output,
         normalizedConfig.versioning.bundleVersion,
-        normalizedConfig.versioning.buildNumber
+        normalizedConfig.versioning.buildNumber,
       )
 
       // Rename temporary bundle to final name
@@ -157,16 +158,16 @@ export class QuackBundler extends EventEmitter {
             hash: asset.hash,
             size: asset.size,
             version: asset.version || 1,
-            mtime: asset.mtime || Date.now()
-          }])
+            mtime: asset.mtime || Date.now(),
+          }]),
         ),
         merkleTree: tree,
         merkleRoot: root,
         buildStats: {
           processingTime: Date.now() - startTime,
           compressionRatio: 0, // Will be calculated later
-          locales: locales.map(l => l.code)
-        }
+          locales: locales.map(l => l.code),
+        },
       }
 
       // Save build log and update index
@@ -184,10 +185,12 @@ export class QuackBundler extends EventEmitter {
       this.logStats(stats)
 
       return stats
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Bundle creation failed:', error)
       throw error
-    } finally {
+    }
+    finally {
       // Cleanup plugins
       await this.pluginManager.cleanup()
     }
@@ -196,7 +199,7 @@ export class QuackBundler extends EventEmitter {
   /**
    * Bundle all bundles in a workspace
    */
-  async bundleWorkspace(): Promise<{ bundleStats: Record<string, BundleStats>; totalTime: number }> {
+  async bundleWorkspace(): Promise<{ bundleStats: Record<string, BundleStats>, totalTime: number }> {
     if (!this.isWorkspaceMode || !this.workspaceManager) {
       throw new Error('Not in workspace mode')
     }
@@ -207,7 +210,7 @@ export class QuackBundler extends EventEmitter {
     try {
       // Load workspace configuration
       const workspaceConfig = await this.workspaceManager.loadConfig(this.config.workspaceConfig)
-      
+
       // Initialize or update workspace index
       await this.versionManager.initializeWorkspaceIndex(workspaceConfig.name, workspaceConfig.version || '1.0.0')
 
@@ -218,7 +221,7 @@ export class QuackBundler extends EventEmitter {
 
       for (const bundleDefinition of buildOrder) {
         logger.info(`Building bundle: ${bundleDefinition.displayName || bundleDefinition.name}`)
-        
+
         const stats = await this.bundleWorkspaceBundle(bundleDefinition, workspaceConfig)
         bundleStats[bundleDefinition.name] = stats
 
@@ -229,7 +232,8 @@ export class QuackBundler extends EventEmitter {
       logger.info(`Workspace build completed in ${totalTime}ms`)
 
       return { bundleStats, totalTime }
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Workspace bundle creation failed:', error)
       throw error
     }
@@ -248,7 +252,7 @@ export class QuackBundler extends EventEmitter {
     try {
       // Create bundle-specific configuration
       const bundleConfig = this.workspaceManager.createBundleConfig(bundleDefinition.name)
-      
+
       // Normalize configuration
       const normalizedConfig = await this.normalizeConfig(bundleConfig)
 
@@ -270,9 +274,9 @@ export class QuackBundler extends EventEmitter {
           compressionRatio: 0,
           processingTime: Date.now() - startTime,
           locales: [],
-          assetsByType: { images: 0, characters: 0, audio: 0, scripts: 0, data: 0 },
+          assetsByType: { images: 0, characters: 0, audio: 0, video: 0, scripts: 0, data: 0 },
           bundleVersion: normalizedConfig.versioning.bundleVersion,
-          buildNumber: normalizedConfig.versioning.buildNumber
+          buildNumber: normalizedConfig.versioning.buildNumber,
         }
       }
 
@@ -291,7 +295,7 @@ export class QuackBundler extends EventEmitter {
         compression: normalizedConfig.compression,
         encryption: normalizedConfig.encryption,
         version: normalizedConfig.versioning.bundleVersion?.toString() || '1.0.0',
-        buildNumber: normalizedConfig.versioning.buildNumber
+        buildNumber: normalizedConfig.versioning.buildNumber,
       })
 
       // Add versioning info to manifest
@@ -305,7 +309,7 @@ export class QuackBundler extends EventEmitter {
         displayName: bundleDefinition.displayName,
         priority: bundleDefinition.priority,
         dependencies: bundleDefinition.dependencies,
-        loadTrigger: bundleDefinition.loadTrigger
+        loadTrigger: bundleDefinition.loadTrigger,
       }
 
       // Validate manifest
@@ -314,7 +318,7 @@ export class QuackBundler extends EventEmitter {
       }
 
       // Generate temporary bundle path
-      const tempBundlePath = normalizedConfig.output + '.tmp'
+      const tempBundlePath = `${normalizedConfig.output}.tmp`
 
       // Ensure output directory exists
       await mkdir(dirname(normalizedConfig.output), { recursive: true })
@@ -323,17 +327,18 @@ export class QuackBundler extends EventEmitter {
       if (normalizedConfig.format === 'zip') {
         const zipBundler = new ZipBundler(normalizedConfig.plugins)
         await zipBundler.createBundle(assets, manifest, tempBundlePath)
-      } else {
+      }
+      else {
         const qpkBundler = new QPKBundler(
-          normalizedConfig.plugins, 
+          normalizedConfig.plugins,
           normalizedConfig.encryption.algorithm,
           normalizedConfig.encryption.key,
-          normalizedConfig.encryption.plugin
+          normalizedConfig.encryption.plugin,
         )
         await qpkBundler.createBundle(assets, manifest, tempBundlePath, {
           compress: normalizedConfig.compression.algorithm !== 'none',
           encrypt: normalizedConfig.encryption.enabled,
-          compressionLevel: normalizedConfig.compression.level
+          compressionLevel: normalizedConfig.compression.level,
         })
       }
 
@@ -341,7 +346,7 @@ export class QuackBundler extends EventEmitter {
       const finalBundlePath = this.versionManager.generateBundleFilename(
         normalizedConfig.output,
         normalizedConfig.versioning.bundleVersion,
-        normalizedConfig.versioning.buildNumber
+        normalizedConfig.versioning.buildNumber,
       )
 
       // Rename temporary bundle to final name
@@ -361,16 +366,16 @@ export class QuackBundler extends EventEmitter {
             hash: asset.hash,
             size: asset.size,
             version: asset.version || 1,
-            mtime: asset.mtime || Date.now()
-          }])
+            mtime: asset.mtime || Date.now(),
+          }]),
         ),
         merkleTree: tree,
         merkleRoot: root,
         buildStats: {
           processingTime: Date.now() - startTime,
           compressionRatio: 0, // Will be calculated later
-          locales: locales.map(l => l.code)
-        }
+          locales: locales.map(l => l.code),
+        },
       }
 
       // Save build log and update workspace index
@@ -380,7 +385,7 @@ export class QuackBundler extends EventEmitter {
         buildLog,
         finalBundlePath,
         manifest,
-        bundleDefinition
+        bundleDefinition,
       )
 
       // Call post-bundle hooks
@@ -394,10 +399,12 @@ export class QuackBundler extends EventEmitter {
       logger.info(`Final bundle: ${finalBundlePath}`)
 
       return stats
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Bundle creation failed for "${bundleDefinition.name}":`, error)
       throw error
-    } finally {
+    }
+    finally {
       // Cleanup plugins
       await this.pluginManager.cleanup()
     }
@@ -410,15 +417,16 @@ export class QuackBundler extends EventEmitter {
     if (!config.source) {
       throw new Error('Source directory is required')
     }
-    
+
     const source = resolve(config.source)
-    
+
     // Determine output path
     let output = config.output
     if (!output) {
       const baseName = dirname(source).split(/[/\\]/).pop() || 'bundle'
       output = resolve(source, '..', `${baseName}.zip`)
-    } else {
+    }
+    else {
       output = resolve(output)
     }
 
@@ -426,14 +434,16 @@ export class QuackBundler extends EventEmitter {
     let format: BundleFormat
     if (config.format === 'auto') {
       format = process.env.NODE_ENV === 'production' ? 'qpk' : 'zip'
-    } else {
+    }
+    else {
       format = config.format || 'zip'
     }
 
     // Update output extension based on format
     if (format === 'qpk' && !output.endsWith('.qpk')) {
       output = output.replace(/\.[^.]+$/, '.qpk')
-    } else if (format === 'zip' && !output.endsWith('.zip')) {
+    }
+    else if (format === 'zip' && !output.endsWith('.zip')) {
       output = output.replace(/\.[^.]+$/, '.zip')
     }
 
@@ -444,7 +454,7 @@ export class QuackBundler extends EventEmitter {
     // Normalize compression
     const compression = {
       level: config.compression?.level ?? (format === 'qpk' ? 6 : 6),
-      algorithm: config.compression?.algorithm ?? (format === 'qpk' ? 'lzma' : 'deflate') as CompressionAlgorithm
+      algorithm: config.compression?.algorithm ?? (format === 'qpk' ? 'lzma' : 'deflate') as CompressionAlgorithm,
     }
 
     // Normalize encryption
@@ -453,7 +463,7 @@ export class QuackBundler extends EventEmitter {
       enabled: config.encryption?.enabled ?? (format === 'qpk'),
       algorithm: config.encryption?.algorithm ?? 'xor' as EncryptionAlgorithm,
       key: encryptionKey,
-      plugin: config.encryption?.plugin
+      plugin: config.encryption?.plugin,
     }
 
     return {
@@ -464,11 +474,11 @@ export class QuackBundler extends EventEmitter {
       encryption,
       versioning: {
         ...config.versioning,
-        ...versionInfo
+        ...versionInfo,
       },
       plugins: config.plugins || [],
       ignore: config.ignore || [],
-      verbose: config.verbose || false
+      verbose: config.verbose || false,
     }
   }
 
@@ -477,7 +487,7 @@ export class QuackBundler extends EventEmitter {
    */
   private resolveEncryptionKey(
     key?: string | (() => string),
-    keyGenerator?: () => string
+    keyGenerator?: () => string,
   ): string | undefined {
     if (typeof key === 'function') {
       return key()
@@ -488,13 +498,13 @@ export class QuackBundler extends EventEmitter {
     if (keyGenerator) {
       return keyGenerator()
     }
-    
+
     // Check environment variable
     const envKey = process.env[EncryptionManager.getEncryptionKeyEnvVar()]
     if (envKey) {
       return envKey
     }
-    
+
     return undefined // No default key - will skip encryption if not provided
   }
 
@@ -511,17 +521,18 @@ export class QuackBundler extends EventEmitter {
       locales: manifest.locales.map((code: string) => ({
         code,
         name: this.getLocaleName(code),
-        isDefault: code === manifest.defaultLocale
+        isDefault: code === manifest.defaultLocale,
       })),
       assetsByType: {
         images: Object.keys(manifest.assets.images || {}).length,
         characters: Object.keys(manifest.assets.characters || {}).length,
         audio: Object.keys(manifest.assets.audio || {}).length,
+        video: Object.keys(manifest.assets.video || {}).length,
         scripts: Object.keys(manifest.assets.scripts || {}).length,
-        data: Object.keys(manifest.assets.data || {}).length
+        data: Object.keys(manifest.assets.data || {}).length,
       },
       bundleVersion: manifest.bundleVersion,
-      buildNumber: manifest.buildNumber || 'unknown'
+      buildNumber: manifest.buildNumber || 'unknown',
     }
   }
 
@@ -553,7 +564,7 @@ export class QuackBundler extends EventEmitter {
       'zh': 'Chinese',
       'zh-cn': 'Chinese (Simplified)',
       'ja': 'Japanese',
-      'ja-jp': 'Japanese (Japan)'
+      'ja-jp': 'Japanese (Japan)',
     }
 
     return names[code.toLowerCase()] || code.toUpperCase()
@@ -563,13 +574,14 @@ export class QuackBundler extends EventEmitter {
    * Format bytes to human readable string
    */
   private formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B'
-    
+    if (bytes === 0)
+      return '0 B'
+
     const k = 1024
     const sizes = ['B', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
-    
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
+
+    return `${Number.parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`
   }
 
   /**

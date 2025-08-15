@@ -1,13 +1,13 @@
-import { createLogger } from '@quajs/logger'
-import type { QuaAssetsDatabase } from './database'
 import type { BundleLoader } from './bundle-loader'
+import type { QuaAssetsDatabase } from './database'
 import type {
+  AssetDiff,
   BundleManifest,
+  LoadBundleOptions,
   StoredAsset,
   StoredBundle,
-  AssetDiff,
-  LoadBundleOptions
 } from './types'
+import { createLogger } from '@quajs/logger'
 import { BundleLoadError } from './types'
 
 const logger = createLogger('quaassets:patch')
@@ -31,7 +31,7 @@ export class PatchManager {
   async applyPatch(
     patchUrl: string,
     targetBundleName: string,
-    options: LoadBundleOptions = {}
+    options: LoadBundleOptions = {},
   ): Promise<{
     success: boolean
     changes: {
@@ -49,7 +49,7 @@ export class PatchManager {
       const { manifest: patchManifest, assets: patchAssets } = await this.bundleLoader.loadBundle(
         patchUrl,
         `${targetBundleName}_patch`,
-        options
+        options,
       )
 
       // Validate patch
@@ -58,7 +58,7 @@ export class PatchManager {
         return {
           success: false,
           changes,
-          errors: validation.errors
+          errors: validation.errors,
         }
       }
 
@@ -87,7 +87,8 @@ export class PatchManager {
           if (asset) {
             await this.applyAddition(addition, asset, targetBundleName)
             changes.added++
-          } else {
+          }
+          else {
             errors.push(`Patch asset not found: ${addition.path}`)
           }
         }
@@ -97,7 +98,8 @@ export class PatchManager {
           if (asset) {
             await this.applyModification(modification, asset, targetBundleName)
             changes.modified++
-          } else {
+          }
+          else {
             errors.push(`Patch asset not found: ${modification.path}`)
           }
         }
@@ -108,7 +110,7 @@ export class PatchManager {
           version: validation.toVersion,
           buildNumber: patchManifest.buildNumber || targetBundle.buildNumber,
           lastUpdated: Date.now(),
-          assetCount: targetBundle.assetCount + changes.added - changes.deleted
+          assetCount: targetBundle.assetCount + changes.added - changes.deleted,
         }
 
         await this.database.storeBundle(updatedBundle)
@@ -120,10 +122,10 @@ export class PatchManager {
       return {
         success: errors.length === 0,
         changes,
-        errors
+        errors,
       }
-
-    } catch (error) {
+    }
+    catch (error) {
       const errorMessage = error instanceof BundleLoadError ? error.message : `Patch application failed: ${error instanceof Error ? error.message : String(error)}`
       errors.push(errorMessage)
       logger.error('Patch application failed:', error)
@@ -131,7 +133,7 @@ export class PatchManager {
       return {
         success: false,
         changes,
-        errors
+        errors,
       }
     }
   }
@@ -170,11 +172,12 @@ export class PatchManager {
     // Check if patch changes are valid
     if (!patchManifest.changes) {
       errors.push('Patch manifest missing changes information')
-    } else {
+    }
+    else {
       // Validate individual changes
       const validationResults = await Promise.all([
         this.validateDeletions(patchManifest.changes.deleted, targetBundleName),
-        this.validateModifications(patchManifest.changes.modified, targetBundleName)
+        this.validateModifications(patchManifest.changes.modified, targetBundleName),
       ])
 
       for (const result of validationResults) {
@@ -186,7 +189,7 @@ export class PatchManager {
       valid: errors.length === 0,
       errors,
       fromVersion,
-      toVersion
+      toVersion,
     }
   }
 
@@ -216,31 +219,32 @@ export class PatchManager {
         if (workspaceResponse.ok) {
           const workspaceIndex = await workspaceResponse.json()
           const bundleInfo = workspaceIndex.bundles[bundleName]
-          
+
           if (bundleInfo) {
-            return bundleInfo.availablePatches.filter((patch: any) => 
-              patch.fromVersion === currentVersion
+            return bundleInfo.availablePatches.filter((patch: any) =>
+              patch.fromVersion === currentVersion,
             )
           }
         }
-      } catch (error) {
+      }
+      catch (error) {
         // Fall back to regular index
       }
 
       // Try regular bundle index
       const indexUrl = `${endpoint}/index.json`
       const response = await fetch(indexUrl)
-      
+
       if (!response.ok) {
         return []
       }
 
       const index = await response.json()
-      return index.availablePatches?.filter((patch: any) => 
-        patch.fromVersion === currentVersion
+      return index.availablePatches?.filter((patch: any) =>
+        patch.fromVersion === currentVersion,
       ) || []
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.warn('Failed to get available patches:', error)
       return []
     }
@@ -251,7 +255,7 @@ export class PatchManager {
    */
   private async applyDeletion(deletion: AssetDiff, bundleName: string): Promise<void> {
     const assetId = this.constructAssetId(bundleName, deletion.path)
-    
+
     // Verify asset exists and matches expected hash
     const existingAsset = await this.database.getAsset(assetId)
     if (existingAsset && deletion.oldHash && existingAsset.hash !== deletion.oldHash) {
@@ -269,7 +273,7 @@ export class PatchManager {
     // Verify asset doesn't already exist
     const assetId = this.constructAssetId(bundleName, addition.path)
     const existingAsset = await this.database.getAsset(assetId)
-    
+
     if (existingAsset) {
       logger.warn(`Asset already exists for addition: ${assetId}`)
     }
@@ -280,7 +284,7 @@ export class PatchManager {
       id: assetId,
       bundleName,
       version: addition.newVersion || asset.version,
-      lastAccessed: Date.now()
+      lastAccessed: Date.now(),
     }
 
     await this.database.storeAsset(updatedAsset)
@@ -292,7 +296,7 @@ export class PatchManager {
    */
   private async applyModification(modification: AssetDiff, asset: StoredAsset, bundleName: string): Promise<void> {
     const assetId = this.constructAssetId(bundleName, modification.path)
-    
+
     // Verify existing asset matches expected hash
     const existingAsset = await this.database.getAsset(assetId)
     if (existingAsset && modification.oldHash && existingAsset.hash !== modification.oldHash) {
@@ -305,7 +309,7 @@ export class PatchManager {
       id: assetId,
       bundleName,
       version: modification.newVersion || asset.version,
-      lastAccessed: Date.now()
+      lastAccessed: Date.now(),
     }
 
     await this.database.storeAsset(updatedAsset)
@@ -321,10 +325,11 @@ export class PatchManager {
     for (const deletion of deletions) {
       const assetId = this.constructAssetId(bundleName, deletion.path)
       const asset = await this.database.getAsset(assetId)
-      
+
       if (!asset) {
         errors.push(`Asset to delete not found: ${deletion.path}`)
-      } else if (deletion.oldHash && asset.hash !== deletion.oldHash) {
+      }
+      else if (deletion.oldHash && asset.hash !== deletion.oldHash) {
         errors.push(`Asset hash mismatch for deletion: ${deletion.path}`)
       }
     }
@@ -341,10 +346,11 @@ export class PatchManager {
     for (const modification of modifications) {
       const assetId = this.constructAssetId(bundleName, modification.path)
       const asset = await this.database.getAsset(assetId)
-      
+
       if (!asset) {
         errors.push(`Asset to modify not found: ${modification.path}`)
-      } else if (modification.oldHash && asset.hash !== modification.oldHash) {
+      }
+      else if (modification.oldHash && asset.hash !== modification.oldHash) {
         errors.push(`Asset hash mismatch for modification: ${modification.path}`)
       }
     }
@@ -359,9 +365,9 @@ export class PatchManager {
     // Extract type, locale, and name from path
     // This is a simplified implementation - might need adjustment based on actual path structure
     const parts = path.split('/')
-    
+
     let locale = 'default'
-    let type = parts[0] || 'data'
+    const type = parts[0] || 'data'
     let name = parts[parts.length - 1] || path
 
     // Check for locale in path
@@ -394,7 +400,7 @@ export class PatchManager {
       const { manifest } = await this.bundleLoader.loadBundle(
         patchUrl,
         `${targetBundleName}_patch_preview`,
-        { enableCache: false }
+        { enableCache: false },
       )
 
       const validation = await this.validatePatch(manifest, targetBundleName)
@@ -402,7 +408,7 @@ export class PatchManager {
       const changes = {
         willAdd: manifest.changes?.added.map(a => a.path) || [],
         willModify: manifest.changes?.modified.map(m => m.path) || [],
-        willDelete: manifest.changes?.deleted.map(d => d.path) || []
+        willDelete: manifest.changes?.deleted.map(d => d.path) || [],
       }
 
       return {
@@ -410,16 +416,16 @@ export class PatchManager {
         changes,
         errors: validation.errors,
         fromVersion: validation.fromVersion,
-        toVersion: validation.toVersion
+        toVersion: validation.toVersion,
       }
-
-    } catch (error) {
+    }
+    catch (error) {
       return {
         valid: false,
         changes: { willAdd: [], willModify: [], willDelete: [] },
         errors: [`Failed to load patch: ${error instanceof Error ? error.message : String(error)}`],
         fromVersion: 0,
-        toVersion: 0
+        toVersion: 0,
       }
     }
   }
