@@ -1,43 +1,66 @@
 {
   "name": "quaengine",
-  "version": "0.1.0",
-  "description": "QuaEngine monorepo with Nx, TypeScript, and Vite",
   "type": "module",
+  "version": "0.1.0",
   "private": true,
-  "engines": {
-    "node": ">=20"
-  },
-  "scripts": {
-    "build": "nx run-many -t build",
-    "dev": "nx run-many -t dev",
-    "lint": "nx run-many -t lint",
-    "test": "node --experimental-strip-types scripts/run-tests.ts",
-    "test:unit": "node --experimental-strip-types scripts/run-tests.ts unit",
-    "test:integration": "node --experimental-strip-types scripts/run-tests.ts integration",
-    "test:watch": "node --experimental-strip-types scripts/run-tests.ts --watch",
-    "test:ui": "node --experimental-strip-types scripts/run-tests.ts --ui",
-    "test:coverage": "node --experimental-strip-types scripts/run-tests.ts --coverage",
-    "create-package": "node --experimental-strip-types scripts/create-package.ts"
-  },
+  "packageManager": "pnpm@10.7.0",
+  "description": "QuaEngine monorepo with Nx, TypeScript, and Vite",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
   "keywords": [
     "monorepo",
     "nx",
     "typescript",
     "vite"
   ],
-  "author": "QuaDevTeam",
-  "license": "Apache-2.0",
-  "packageManager": "pnpm@10.7.0",
-  "pnpm": {
-    "overrides": {},
-    "patchedDependencies": {}
+  "engines": {
+    "node": ">=20"
   },
+  "scripts": {
+    "build": "nx run-many -t build --parallel=3",
+    "build:affected": "nx affected -t build --parallel=3",
+    "build:core": "nx run-many -t build --projects=tag:scope:engine,tag:scope:assets,tag:scope:store --parallel=3",
+    "dev": "nx run-many -t dev",
+    "lint": "nx run-many -t lint --parallel=3",
+    "lint:affected": "nx affected -t lint --parallel=3",
+    "test": "nx run-many -t test --parallel=3",
+    "test:affected": "nx affected -t test --parallel=3",
+    "test:unit": "node --experimental-strip-types scripts/run-tests.ts unit",
+    "test:integration": "node --experimental-strip-types scripts/run-tests.ts integration",
+    "test:watch": "node --experimental-strip-types scripts/run-tests.ts --watch",
+    "test:ui": "node --experimental-strip-types scripts/run-tests.ts --ui",
+    "test:coverage": "nx run-many -t test --coverage --parallel=3",
+    "typecheck": "nx run-many -t typecheck --parallel=3",
+    "typecheck:affected": "nx affected -t typecheck --parallel=3",
+    "create-package": "node --experimental-strip-types scripts/create-package.ts",
+    "release": "nx release",
+    "release:version": "nx release version",
+    "release:publish": "nx release publish",
+    "release:core": "nx release --group=core",
+    "release:tools": "nx release --group=tools",
+    "release:utils": "nx release --group=utils",
+    "release:dry-run": "nx release version --dry-run",
+    "ci": "nx run-many -t build test lint typecheck --parallel=3",
+    "ci:affected": "nx affected -t build test lint typecheck --parallel=3",
+    "graph": "nx graph",
+    "dep-graph": "nx graph --focus=store",
+    "reset": "nx reset"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
   "devDependencies": {
     "@antfu/eslint-config": "^5.0.0",
+    "@nx/devkit": "^21.3.11",
+    "@nx/eslint": "^21.3.11",
     "@nx/js": "^21.3.9",
+    "@nx/vite": "^21.3.11",
+    "@nx/workspace": "^21.3.11",
     "@types/node": "^24.1.0",
     "@vitest/ui": "^1.2.0",
+    "conventional-changelog-conventionalcommits": "^9.1.0",
     "eslint": "^9.32.0",
+    "eslint-plugin-format": "^1.0.1",
     "happy-dom": "^18.0.1",
     "inquirer": "^10.2.2",
     "nx": "21.3.9",
@@ -46,8 +69,9 @@
     "vite-plugin-dts": "^4.3.0",
     "vitest": "^1.2.0"
   },
-  "nx": {},
-  "workspaces": [
-    "packages/*"
-  ]
+  "pnpm": {
+    "overrides": {},
+    "patchedDependencies": {}
+  },
+  "nx": {}
 }

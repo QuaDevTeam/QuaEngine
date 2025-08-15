@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { Pipeline, Middleware, type PipelineContext, type MiddlewareNext } from '../src/index'
+import type { MiddlewareNext, PipelineContext } from '../src/index'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Middleware, Pipeline } from '../src/index'
 
-describe('Middleware', () => {
+describe('middleware', () => {
   let pipeline: Pipeline
 
   beforeEach(() => {
@@ -41,8 +42,8 @@ describe('Middleware', () => {
 
       expect(listener).toHaveBeenCalledWith(
         expect.objectContaining({
-          handled: true
-        })
+          handled: true,
+        }),
       )
     })
 
@@ -60,13 +61,13 @@ describe('Middleware', () => {
 
       expect(targetListener).toHaveBeenCalledWith(
         expect.objectContaining({
-          handled: true
-        })
+          handled: true,
+        }),
       )
       expect(otherListener).toHaveBeenCalledWith(
         expect.objectContaining({
-          handled: false
-        })
+          handled: false,
+        }),
       )
     })
 
@@ -157,8 +158,8 @@ describe('Middleware', () => {
         // Modify context
         context.handled = true
 
-          // Add custom property (TypeScript may complain, but it should work at runtime)
-          ; (context as any).customProperty = 'added by middleware'
+        // Add custom property (TypeScript may complain, but it should work at runtime)
+        ; (context as any).customProperty = 'added by middleware'
 
         await next()
       }
@@ -176,8 +177,8 @@ describe('Middleware', () => {
       expect(listener).toHaveBeenCalledWith(
         expect.objectContaining({
           handled: true,
-          customProperty: 'added by middleware'
-        })
+          customProperty: 'added by middleware',
+        }),
       )
     })
 
@@ -262,8 +263,8 @@ describe('Middleware', () => {
 
       expect(listener).toHaveBeenCalledWith(
         expect.objectContaining({
-          handled: true
-        })
+          handled: true,
+        }),
       )
     })
   })

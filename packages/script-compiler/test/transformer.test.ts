@@ -1,8 +1,8 @@
-import { describe, test, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { QuaScriptTransformer } from '../src/transformer'
 
-describe('QuaScriptTransformer', () => {
-  test('should transform simple qs template literal', () => {
+describe('quaScriptTransformer', () => {
+  it('should transform simple qs template literal', () => {
     const transformer = new QuaScriptTransformer()
     const source = `
       import { dialogue } from '@quajs/engine';
@@ -14,9 +14,9 @@ describe('QuaScriptTransformer', () => {
         \`)
       }
     `
-    
+
     const result = transformer.transformSource(source)
-    
+
     // Should contain dialogue array transformation
     expect(result).toContain('dialogue([')
     expect(result).toContain('Jack.speak(')
@@ -25,7 +25,7 @@ describe('QuaScriptTransformer', () => {
     expect(result).toContain('run:')
   })
 
-  test('should transform dialogue with decorators', () => {
+  it('should transform dialogue with decorators', () => {
     const transformer = new QuaScriptTransformer()
     const source = `
       function scene1() {
@@ -36,15 +36,15 @@ describe('QuaScriptTransformer', () => {
         \`)
       }
     `
-    
+
     const result = transformer.transformSource(source)
-    
+
     expect(result).toContain('playSound("hello.mp3")')
     expect(result).toContain('useSprite("jack_happy.png")')
     expect(result).toContain('Jack.speak("Hello world!")')
   })
 
-  test('should add required imports', () => {
+  it('should add required imports', () => {
     const transformer = new QuaScriptTransformer()
     const source = `
       function scene1() {
@@ -54,15 +54,15 @@ describe('QuaScriptTransformer', () => {
         \`)
       }
     `
-    
+
     const result = transformer.transformSource(source)
-    
+
     // Should add imports for used functions
     expect(result).toMatch(/import.*playSound.*from.*@quajs\/engine/)
     expect(result).toMatch(/import.*dialogue.*from.*@quajs\/engine/)
   })
 
-  test('should handle template expressions in dialogue', () => {
+  it('should handle template expressions in dialogue', () => {
     const transformer = new QuaScriptTransformer()
     const source = `
       function scene1() {
@@ -72,16 +72,16 @@ describe('QuaScriptTransformer', () => {
         \`)
       }
     `
-    
+
     const result = transformer.transformSource(source)
-    
+
     // Should preserve template literal structure
     expect(result).toContain('Jack.speak(')
     // Template expressions should be handled properly
     expect(result).toContain('name') // Variable reference should be preserved
   })
 
-  test('should not transform code without qs template literals', () => {
+  it('should not transform code without qs template literals', () => {
     const transformer = new QuaScriptTransformer()
     const source = `
       function normalFunction() {
@@ -90,9 +90,9 @@ describe('QuaScriptTransformer', () => {
         return template
       }
     `
-    
+
     const result = transformer.transformSource(source)
-    
+
     // Should remain mostly unchanged since no qs templates
     // Note: Babel might reformat the code slightly
     expect(result).toContain('console.log(')
@@ -100,7 +100,7 @@ describe('QuaScriptTransformer', () => {
     expect(result).not.toContain('dialogue([')
   })
 
-  test('should handle multiple qs templates in same file', () => {
+  it('should handle multiple qs templates in same file', () => {
     const transformer = new QuaScriptTransformer()
     const source = `
       function part1() {
@@ -115,9 +115,9 @@ describe('QuaScriptTransformer', () => {
         \`)
       }
     `
-    
+
     const result = transformer.transformSource(source)
-    
+
     expect(result).toMatch(/Jack\.speak\("First part!"\)/)
     expect(result).toMatch(/John\.speak\("Second part!"\)/)
   })

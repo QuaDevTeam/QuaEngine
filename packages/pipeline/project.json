@@ -6,6 +6,8 @@
   "targets": {
     "build": {
       "executor": "nx:run-commands",
+      "dependsOn": ["logger:build", "utils:build"],
+      "outputs": ["{projectRoot}/dist"],
       "options": {
         "command": "vite build",
         "cwd": "packages/pipeline"
@@ -19,19 +21,26 @@
       }
     },
     "lint": {
-      "executor": "nx:run-commands",
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
       "options": {
-        "command": "eslint .",
-        "cwd": "packages/pipeline"
+        "lintFilePatterns": ["packages/pipeline/**/*.{ts,tsx,js,jsx}"]
       }
     },
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "echo \"Error: no test specified\" && exit 1",
+        "command": "vitest",
+        "cwd": "packages/pipeline"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --noEmit",
         "cwd": "packages/pipeline"
       }
     }
   },
-  "tags": []
+  "tags": ["scope:pipeline", "type:lib"]
 }

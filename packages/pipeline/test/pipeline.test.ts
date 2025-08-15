@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { Pipeline, Middleware, Plugin, type PipelineContext, type MiddlewareNext } from '../src/index'
+import type { MiddlewareNext, PipelineContext } from '../src/index'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Middleware, Pipeline, Plugin } from '../src/index'
 
-describe('Pipeline', () => {
+describe('pipeline', () => {
   let pipeline: Pipeline
 
   beforeEach(() => {
@@ -22,7 +23,7 @@ describe('Pipeline', () => {
       })
 
       const p = new Pipeline({
-        middlewares: [middleware]
+        middlewares: [middleware],
       })
 
       expect(p).toBeInstanceOf(Pipeline)
@@ -39,7 +40,7 @@ describe('Pipeline', () => {
 
       const plugin = new TestPlugin()
       const p = new Pipeline({
-        plugins: [plugin]
+        plugins: [plugin],
       })
 
       expect(p).toBeInstanceOf(Pipeline)
@@ -60,11 +61,11 @@ describe('Pipeline', () => {
             type: 'test-event',
             payload: { message: 'hello' },
             timestamp: expect.any(Number),
-            id: expect.any(String)
+            id: expect.any(String),
           }),
           handled: false,
-          stopPropagation: false
-        })
+          stopPropagation: false,
+        }),
       )
     })
 
@@ -233,8 +234,8 @@ describe('Pipeline', () => {
 
       expect(listener).toHaveBeenCalledWith(
         expect.objectContaining({
-          handled: true
-        })
+          handled: true,
+        }),
       )
     })
   })

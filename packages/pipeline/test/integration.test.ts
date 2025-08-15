@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
-import { Pipeline, Middleware, Plugin, type PipelineContext, type MiddlewareNext, type PluginEmitHook, type PluginOnHook } from '../src/index'
+import type { MiddlewareNext, PipelineContext, PluginEmitHook, PluginOnHook } from '../src/index'
+import { describe, expect, it, vi } from 'vitest'
+import { Middleware, Pipeline, Plugin } from '../src/index'
 
-describe('Pipeline Integration', () => {
+describe('pipeline Integration', () => {
   describe('complete workflow', () => {
     // Create a logging middleware
     class LoggingMiddleware extends Middleware {
@@ -45,7 +46,7 @@ describe('Pipeline Integration', () => {
           this.cache.set(`${type}:${JSON.stringify(payload)}`, {
             type,
             payload,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           })
 
           await originalEmit(type, payload)
@@ -71,23 +72,25 @@ describe('Pipeline Integration', () => {
 
       replayEvents(type: string) {
         const listeners = this.listeners.get(type)
-        if (!listeners) return
+        if (!listeners)
+          return
 
         for (const [key, event] of this.cache.entries()) {
           if (event.type === type) {
             const context = {
               event: {
                 ...event,
-                id: `replay-${event.type}-${Date.now()}`
+                id: `replay-${event.type}-${Date.now()}`,
               },
               handled: false,
-              stopPropagation: false
+              stopPropagation: false,
             }
 
-            listeners.forEach(listener => {
+            listeners.forEach((listener) => {
               try {
                 listener(context)
-              } catch (error) {
+              }
+              catch (error) {
                 // Handle error
               }
             })
@@ -104,7 +107,7 @@ describe('Pipeline Integration', () => {
 
       const pipeline = new Pipeline({
         middlewares: [loggingMiddleware, validationMiddleware],
-        plugins: [cachePlugin]
+        plugins: [cachePlugin],
       })
 
       // Set up listeners
@@ -170,7 +173,7 @@ describe('Pipeline Integration', () => {
 
       const pipeline = new Pipeline({
         middlewares: [new ErrorMiddleware()],
-        plugins: [new ErrorPlugin()]
+        plugins: [new ErrorPlugin()],
       })
 
       const listener = vi.fn()
@@ -181,9 +184,9 @@ describe('Pipeline Integration', () => {
       expect(listener).toHaveBeenCalledWith(
         expect.objectContaining({
           event: expect.objectContaining({
-            payload: 'normal'
-          })
-        })
+            payload: 'normal',
+          }),
+        }),
       )
 
       // Error event should throw
@@ -239,7 +242,7 @@ describe('Pipeline Integration', () => {
       expect(dynamicPlugin.interceptedEvents).toHaveLength(1)
       expect(dynamicPlugin.interceptedEvents[0]).toEqual({
         type: 'test',
-        payload: 'after-plugin'
+        payload: 'after-plugin',
       })
     })
 
@@ -268,7 +271,7 @@ describe('Pipeline Integration', () => {
       expect(duration).toBeLessThan(1000) // 1 second
 
       // All listeners should have been called for all events
-      listeners.forEach(listener => {
+      listeners.forEach((listener) => {
         expect(listener).toHaveBeenCalledTimes(100)
       })
     })
