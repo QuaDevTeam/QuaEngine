@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 10.7.0
+
+    - name: Get pnpm store directory
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+    - name: Setup pnpm cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Build packages
+      run: pnpm run build
+
+    - name: Run linting
+      run: pnpm run lint
+
+    - name: Run type checking
+      run: |
+        pnpm --filter @quajs/logger run typecheck
+        pnpm --filter @quajs/utils run typecheck
+        pnpm --filter @quajs/store run typecheck
+        pnpm --filter @quajs/assets run typecheck
+        pnpm --filter @quajs/quack run typecheck
+
+    - name: Run unit tests
+      run: pnpm run test
+
+    - name: Run integration tests
+      run: pnpm run test:integration
+
+    - name: Generate test coverage
+      run: pnpm run test:coverage
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: QuaEngine Coverage
+        fail_ci_if_error: false
+
+  test-browser:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 10.7.0
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Build packages
+      run: pnpm run build
+
+    - name: Install Playwright
+      run: pnpm exec playwright install --with-deps chromium
+
+    - name: Run browser tests
+      run: pnpm run test --run --reporter=verbose
+      env:
+        CI: true
+
+  security-audit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 10.7.0
+
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+
+    - name: Run security audit
+      run: pnpm audit
+
+    - name: Check for vulnerabilities
+      run: pnpm audit --audit-level moderate

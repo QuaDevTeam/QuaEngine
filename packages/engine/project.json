@@ -6,6 +6,8 @@
   "targets": {
     "build": {
       "executor": "nx:run-commands",
+      "dependsOn": ["logger:build", "utils:build", "store:build", "assets:build"],
+      "outputs": ["{projectRoot}/dist"],
       "options": {
         "command": "vite build",
         "cwd": "packages/engine"
@@ -19,19 +21,28 @@
       }
     },
     "lint": {
-      "executor": "nx:run-commands",
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
       "options": {
-        "command": "eslint .",
-        "cwd": "packages/engine"
+        "lintFilePatterns": ["packages/engine/**/*.{ts,tsx,js,jsx}"]
       }
     },
     "test": {
+      "executor": "@nx/vite:test",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "configFile": "packages/engine/vite.config.ts",
+        "passWithNoTests": false,
+        "reportsDirectory": "../../coverage/packages/engine"
+      }
+    },
+    "typecheck": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "vitest",
+        "command": "tsc --noEmit",
         "cwd": "packages/engine"
       }
     }
   },
-  "tags": []
+  "tags": ["scope:engine", "type:lib"]
 }

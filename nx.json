@@ -1,4 +1,116 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
-  "defaultBase": "master"
+  "defaultBase": "main",
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "production": [
+      "default",
+      "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",
+      "!{projectRoot}/tsconfig.spec.json",
+      "!{projectRoot}/jest.config.[jt]s",
+      "!{projectRoot}/src/test-setup.[jt]s",
+      "!{projectRoot}/test-setup.[jt]s",
+      "!{projectRoot}/.eslintrc.json",
+      "!{projectRoot}/eslint.config.js"
+    ],
+    "sharedGlobals": []
+  },
+  "targetDefaults": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"],
+      "cache": true,
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "inputs": ["default", "^production", "{workspaceRoot}/vitest.config.ts", "{workspaceRoot}/vite.config.ts"],
+      "cache": true,
+      "options": {
+        "passWithNoTests": true
+      }
+    },
+    "lint": {
+      "inputs": ["default", "{workspaceRoot}/.eslintrc.json", "{workspaceRoot}/eslint.config.js"],
+      "cache": true
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^production"],
+      "cache": true
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false
+    }
+  },
+  "generators": {
+    "@nx/js:lib": {
+      "buildable": true,
+      "publishable": true,
+      "importPath": "@quajs/{name}"
+    }
+  },
+  "release": {
+    "projectsRelationship": "independent",
+    "version": {
+      "preVersionCommand": "nx run-many -t build test lint typecheck --parallel=3",
+      "conventionalCommits": true,
+      "git": {
+        "commit": true,
+        "commitMessage": "chore: release {projectName} {version}",
+        "tag": true,
+        "tagMessage": "chore: release {projectName} {version}"
+      }
+    },
+    "changelog": {
+      "workspaceChangelog": {
+        "createRelease": "github",
+        "file": "{workspaceRoot}/CHANGELOG.md",
+        "entryWhenNoChanges": "This release contains no new changes."
+      },
+      "projectChangelogs": {
+        "createRelease": "github",
+        "file": "{projectRoot}/CHANGELOG.md",
+        "entryWhenNoChanges": "This release contains no new changes."
+      },
+      "git": {
+        "commit": true,
+        "commitMessage": "chore: update changelog for {projectName} {version}"
+      }
+    },
+    "releaseTagPattern": "{projectName}@{version}",
+    "groups": {
+      "core": {
+        "projects": ["packages/engine", "packages/assets", "packages/store"],
+        "projectsRelationship": "fixed"
+      },
+      "tools": {
+        "projects": ["packages/quack", "packages/script-compiler", "packages/pipeline"],
+        "projectsRelationship": "independent"
+      },
+      "utils": {
+        "projects": ["packages/utils", "packages/logger"],
+        "projectsRelationship": "independent"
+      }
+    }
+  },
+  "plugins": [
+    {
+      "plugin": "@nx/vite/plugin",
+      "options": {
+        "buildTargetName": "build",
+        "testTargetName": "test",
+        "serveTargetName": "serve",
+        "previewTargetName": "preview",
+        "serveStaticTargetName": "serve-static"
+      }
+    },
+    {
+      "plugin": "@nx/eslint/plugin",
+      "options": {
+        "targetName": "lint"
+      }
+    }
+  ]
 }

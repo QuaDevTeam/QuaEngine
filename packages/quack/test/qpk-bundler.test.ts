@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import type { AssetInfo } from '../src/core/types'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { QPKBundler } from '../src/bundlers/qpk-bundler'
-import type { AssetInfo } from '../src/core/types'
 
-describe('QPKBundler', () => {
+describe('qPKBundler', () => {
   let qpkBundler: QPKBundler
   let tempDir: string
 
@@ -18,12 +18,13 @@ describe('QPKBundler', () => {
   afterEach(async () => {
     try {
       await rm(tempDir, { recursive: true, force: true })
-    } catch (error) {
+    }
+    catch (error) {
       // Ignore cleanup errors
     }
   })
 
-  describe('Bundle Creation', () => {
+  describe('bundle Creation', () => {
     it('should create QPK bundle with correct header', async () => {
       const assets: AssetInfo[] = [
         {
@@ -35,8 +36,8 @@ describe('QPKBundler', () => {
           size: 13,
           hash: 'test-hash',
           mtime: Date.now(),
-          locales: ['default']
-        }
+          locales: ['default'],
+        },
       ]
 
       await writeFile(join(tempDir, 'test.txt'), 'test content')
@@ -45,17 +46,17 @@ describe('QPKBundler', () => {
         format: 'qpk' as const,
         compression: {
           algorithm: 'none' as const,
-          level: 0
+          level: 0,
         },
         encryption: {
           enabled: false,
-          algorithm: 'none' as const
+          algorithm: 'none' as const,
         },
         versioning: {
           bundleVersion: 1,
           buildNumber: '1',
-          strategy: 'auto' as const
-        }
+          strategy: 'auto' as const,
+        },
       }
 
       const manifest = {
@@ -68,26 +69,27 @@ describe('QPKBundler', () => {
         bundleVersion: 1,
         compression: {
           algorithm: 'none' as const,
-          level: 0
+          level: 0,
         },
         encryption: {
           enabled: false,
-          algorithm: 'none' as const
+          algorithm: 'none' as const,
         },
         locales: ['default'],
         defaultLocale: 'default',
         assets: {} as any,
         totalSize: 13,
-        totalFiles: 1
+        totalFiles: 1,
       }
 
       try {
         const outputPath = join(tempDir, 'test.qpk')
         await qpkBundler.createBundle(assets, manifest, outputPath, { compress: false, encrypt: false })
-        
+
         // Check if file was created (basic verification)
         expect(true).toBe(true) // Bundle creation succeeded
-      } catch (error) {
+      }
+      catch (error) {
         // Expected in test environment without full file system access
         expect(error).toBeDefined()
       }
@@ -104,8 +106,8 @@ describe('QPKBundler', () => {
           size: 1000,
           hash: 'large-hash',
           mtime: Date.now(),
-          locales: ['default']
-        }
+          locales: ['default'],
+        },
       ]
 
       await writeFile(join(tempDir, 'large.txt'), 'x'.repeat(1000))
@@ -120,26 +122,27 @@ describe('QPKBundler', () => {
         bundleVersion: 1,
         compression: {
           algorithm: 'lzma' as const,
-          level: 1
+          level: 1,
         },
         encryption: {
           enabled: false,
-          algorithm: 'none' as const
+          algorithm: 'none' as const,
         },
         locales: ['default'],
         defaultLocale: 'default',
         assets: {} as any,
         totalSize: 1000,
-        totalFiles: 1
+        totalFiles: 1,
       }
 
       try {
         const outputPath = join(tempDir, 'large.qpk')
         await qpkBundler.createBundle(assets, manifest, outputPath, { compress: true, encrypt: false })
-        
+
         // Bundle creation succeeded
         expect(true).toBe(true)
-      } catch (error) {
+      }
+      catch (error) {
         // Expected for LZMA compression implementation
         expect(error).toBeDefined()
       }
@@ -156,8 +159,8 @@ describe('QPKBundler', () => {
           size: 50,
           hash: 'json-hash',
           mtime: Date.now(),
-          locales: ['default']
-        }
+          locales: ['default'],
+        },
       ]
 
       await writeFile(join(tempDir, 'test.json'), JSON.stringify({ test: true }))
@@ -172,26 +175,27 @@ describe('QPKBundler', () => {
         bundleVersion: 1,
         compression: {
           algorithm: 'deflate' as const,
-          level: 1
+          level: 1,
         },
         encryption: {
           enabled: false,
-          algorithm: 'none' as const
+          algorithm: 'none' as const,
         },
         locales: ['default'],
         defaultLocale: 'default',
         assets: {} as any,
         totalSize: 50,
-        totalFiles: 1
+        totalFiles: 1,
       }
 
       try {
         const outputPath = join(tempDir, 'test.qpk')
         await qpkBundler.createBundle(assets, manifest, outputPath, { compress: true, encrypt: false })
-        
+
         // Bundle creation succeeded
         expect(true).toBe(true)
-      } catch (error) {
+      }
+      catch (error) {
         // Expected for compression implementation
         expect(error).toBeDefined()
       }
@@ -209,8 +213,8 @@ describe('QPKBundler', () => {
           size: testContent.length,
           hash: 'entry-hash',
           mtime: Date.now(),
-          locales: ['default']
-        }
+          locales: ['default'],
+        },
       ]
 
       await writeFile(join(tempDir, 'entry.txt'), testContent)
@@ -225,40 +229,42 @@ describe('QPKBundler', () => {
         bundleVersion: 1,
         compression: {
           algorithm: 'none' as const,
-          level: 0
+          level: 0,
         },
         encryption: {
           enabled: false,
-          algorithm: 'none' as const
+          algorithm: 'none' as const,
         },
         locales: ['default'],
         defaultLocale: 'default',
         assets: {} as any,
         totalSize: testContent.length,
-        totalFiles: 1
+        totalFiles: 1,
       }
 
       try {
         const outputPath = join(tempDir, 'entry.qpk')
         await qpkBundler.createBundle(assets, manifest, outputPath, { compress: false, encrypt: false })
-        
+
         // Bundle creation succeeded
         expect(true).toBe(true)
-      } catch (error) {
+      }
+      catch (error) {
         expect(error).toBeDefined()
       }
     })
   })
 
-  describe('Compression Methods', () => {
+  describe('compression Methods', () => {
     it('should compress data with LZMA when specified', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5])
-      
+
       try {
         const compressed = await (qpkBundler as any).compressLZMA(testData)
         expect(compressed).toBeInstanceOf(Uint8Array)
         expect(compressed.length).toBeGreaterThan(0)
-      } catch (error) {
+      }
+      catch (error) {
         // Expected without LZMA implementation
         expect(error.message).toContain('LZMA compression not implemented')
       }
@@ -266,11 +272,12 @@ describe('QPKBundler', () => {
 
     it('should compress data with DEFLATE when specified', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5])
-      
+
       try {
         const compressed = await (qpkBundler as any).compressDeflate(testData)
         expect(compressed).toBeInstanceOf(Uint8Array)
-      } catch (error) {
+      }
+      catch (error) {
         // Expected without full DEFLATE implementation
         expect(error.message).toContain('DEFLATE compression not implemented')
       }
@@ -278,13 +285,13 @@ describe('QPKBundler', () => {
 
     it('should return original data for no compression', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5])
-      
+
       const result = await (qpkBundler as any).compressData(testData, 'none')
       expect(result).toEqual(testData)
     })
   })
 
-  describe('File Entry Serialization', () => {
+  describe('file Entry Serialization', () => {
     it('should serialize file entries correctly', () => {
       const entry = {
         name: 'test.txt',
@@ -294,14 +301,15 @@ describe('QPKBundler', () => {
         hash: 'abc123',
         type: 'scripts',
         subType: 'logic',
-        locales: ['default', 'en-us']
+        locales: ['default', 'en-us'],
       }
 
       try {
         const serialized = (qpkBundler as any).serializeFileEntry(entry)
         expect(serialized).toBeInstanceOf(Uint8Array)
         expect(serialized.length).toBeGreaterThan(0)
-      } catch (error) {
+      }
+      catch (error) {
         // Expected for serialization implementation
         expect(error).toBeDefined()
       }
@@ -316,19 +324,20 @@ describe('QPKBundler', () => {
         hash: 'def456',
         type: 'scripts',
         subType: 'logic',
-        locales: ['default', 'en-us', 'zh-cn', 'ja-jp']
+        locales: ['default', 'en-us', 'zh-cn', 'ja-jp'],
       }
 
       try {
         const serialized = (qpkBundler as any).serializeFileEntry(entry)
         expect(serialized.length).toBeGreaterThan(0)
-      } catch (error) {
+      }
+      catch (error) {
         expect(error).toBeDefined()
       }
     })
   })
 
-  describe('Bundle Validation', () => {
+  describe('bundle Validation', () => {
     it('should validate asset paths exist', async () => {
       const assets: AssetInfo[] = [
         {
@@ -340,8 +349,8 @@ describe('QPKBundler', () => {
           size: 0,
           hash: 'missing-hash',
           mtime: Date.now(),
-          locales: ['default']
-        }
+          locales: ['default'],
+        },
       ]
 
       const manifest = {
@@ -354,24 +363,25 @@ describe('QPKBundler', () => {
         bundleVersion: 1,
         compression: {
           algorithm: 'none' as const,
-          level: 0
+          level: 0,
         },
         encryption: {
           enabled: false,
-          algorithm: 'none' as const
+          algorithm: 'none' as const,
         },
         locales: ['default'],
         defaultLocale: 'default',
         assets: {} as any,
         totalSize: 0,
-        totalFiles: 1
+        totalFiles: 1,
       }
 
       try {
         const outputPath = join(tempDir, 'missing.qpk')
         await qpkBundler.createBundle(assets, manifest, outputPath, { compress: false, encrypt: false })
         expect.fail('Should throw error for missing file')
-      } catch (error) {
+      }
+      catch (error) {
         expect(error.message).toContain('File not found')
       }
     })
@@ -387,32 +397,33 @@ describe('QPKBundler', () => {
         bundleVersion: 1,
         compression: {
           algorithm: 'none' as const,
-          level: 0
+          level: 0,
         },
         encryption: {
           enabled: false,
-          algorithm: 'none' as const
+          algorithm: 'none' as const,
         },
         locales: ['default'],
         defaultLocale: 'default',
         assets: {} as any,
         totalSize: 0,
-        totalFiles: 0
+        totalFiles: 0,
       }
 
       try {
         const outputPath = join(tempDir, 'empty.qpk')
         await qpkBundler.createBundle([], manifest, outputPath, { compress: false, encrypt: false })
-        
+
         // Bundle creation succeeded
         expect(true).toBe(true)
-      } catch (error) {
+      }
+      catch (error) {
         expect(error).toBeDefined()
       }
     })
   })
 
-  describe('Error Handling', () => {
+  describe('error Handling', () => {
     it('should handle file read errors gracefully', async () => {
       const invalidAsset: AssetInfo[] = [
         {
@@ -424,8 +435,8 @@ describe('QPKBundler', () => {
           size: 100,
           hash: 'invalid-hash',
           mtime: Date.now(),
-          locales: ['default']
-        }
+          locales: ['default'],
+        },
       ]
 
       const manifest = {
@@ -438,31 +449,32 @@ describe('QPKBundler', () => {
         bundleVersion: 1,
         compression: {
           algorithm: 'none' as const,
-          level: 0
+          level: 0,
         },
         encryption: {
           enabled: false,
-          algorithm: 'none' as const
+          algorithm: 'none' as const,
         },
         locales: ['default'],
         defaultLocale: 'default',
         assets: {} as any,
         totalSize: 100,
-        totalFiles: 1
+        totalFiles: 1,
       }
 
       try {
         const outputPath = join(tempDir, 'invalid.qpk')
         await qpkBundler.createBundle(invalidAsset, manifest, outputPath, { compress: false, encrypt: false })
         expect.fail('Should throw error for invalid path')
-      } catch (error) {
+      }
+      catch (error) {
         expect(error).toBeInstanceOf(Error)
       }
     })
 
     it('should validate compression options', async () => {
       const assets: AssetInfo[] = []
-      
+
       const manifest = {
         name: 'invalid-compression-bundle',
         version: '1.0.0',
@@ -473,31 +485,32 @@ describe('QPKBundler', () => {
         bundleVersion: 1,
         compression: {
           algorithm: 'invalid' as any,
-          level: 0
+          level: 0,
         },
         encryption: {
           enabled: false,
-          algorithm: 'none' as const
+          algorithm: 'none' as const,
         },
         locales: ['default'],
         defaultLocale: 'default',
         assets: {} as any,
         totalSize: 0,
-        totalFiles: 0
+        totalFiles: 0,
       }
 
       try {
         const outputPath = join(tempDir, 'test.qpk')
         await qpkBundler.createBundle(assets, manifest, outputPath, { compress: false, encrypt: false })
         expect.fail('Should throw error for invalid compression')
-      } catch (error) {
+      }
+      catch (error) {
         expect(error.message).toContain('compression')
       }
     })
 
     it('should validate encryption options', async () => {
       const assets: AssetInfo[] = []
-      
+
       const manifest = {
         name: 'invalid-encryption-bundle',
         version: '1.0.0',
@@ -508,41 +521,42 @@ describe('QPKBundler', () => {
         bundleVersion: 1,
         compression: {
           algorithm: 'none' as const,
-          level: 0
+          level: 0,
         },
         encryption: {
           enabled: false,
-          algorithm: 'invalid' as any
+          algorithm: 'invalid' as any,
         },
         locales: ['default'],
         defaultLocale: 'default',
         assets: {} as any,
         totalSize: 0,
-        totalFiles: 0
+        totalFiles: 0,
       }
 
       try {
         const outputPath = join(tempDir, 'test.qpk')
         await qpkBundler.createBundle(assets, manifest, outputPath, { compress: false, encrypt: false })
         expect.fail('Should throw error for invalid encryption')
-      } catch (error) {
+      }
+      catch (error) {
         expect(error.message).toContain('encryption')
       }
     })
   })
 
-  describe('Performance', () => {
+  describe('performance', () => {
     it('should handle large numbers of assets efficiently', async () => {
       const assetCount = 50
       const assets: AssetInfo[] = []
-      
+
       // Create many small test files
       for (let i = 0; i < assetCount; i++) {
         const fileName = `file-${i.toString().padStart(3, '0')}.txt`
         const filePath = join(tempDir, fileName)
-        
+
         await writeFile(filePath, `content for file ${i}`)
-        
+
         assets.push({
           name: fileName,
           path: filePath,
@@ -552,7 +566,7 @@ describe('QPKBundler', () => {
           size: 20,
           hash: `hash-${i}`,
           mtime: Date.now(),
-          locales: ['default']
+          locales: ['default'],
         })
       }
 
@@ -566,30 +580,31 @@ describe('QPKBundler', () => {
         bundleVersion: 1,
         compression: {
           algorithm: 'none' as const,
-          level: 0
+          level: 0,
         },
         encryption: {
           enabled: false,
-          algorithm: 'none' as const
+          algorithm: 'none' as const,
         },
         locales: ['default'],
         defaultLocale: 'default',
         assets: {} as any,
         totalSize: assetCount * 20,
-        totalFiles: assetCount
+        totalFiles: assetCount,
       }
 
       const startTime = Date.now()
-      
+
       try {
         const outputPath = join(tempDir, 'many-files.qpk')
         await qpkBundler.createBundle(assets, manifest, outputPath, { compress: false, encrypt: false })
         const endTime = Date.now()
-        
+
         // Bundle creation succeeded
         expect(true).toBe(true)
         expect(endTime - startTime).toBeLessThan(5000) // Should complete within 5 seconds
-      } catch (error) {
+      }
+      catch (error) {
         // Expected in constrained test environment
         expect(error).toBeDefined()
       }
