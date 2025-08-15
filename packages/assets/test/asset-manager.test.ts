@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type { AssetLocale, AssetType, LoadAssetOptions } from '../src/types'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AssetManager } from '../src/asset-manager'
-import type { AssetType, AssetLocale, LoadAssetOptions } from '../src/types'
 
 // Mock database for testing
 const mockDatabase = {
@@ -10,16 +10,16 @@ const mockDatabase = {
     toArray: vi.fn(() => Promise.resolve([])),
     where: vi.fn(() => ({
       anyOf: vi.fn(() => ({
-        toArray: vi.fn(() => Promise.resolve([]))
-      }))
-    }))
+        toArray: vi.fn(() => Promise.resolve([])),
+      })),
+    })),
   },
   findAssets: vi.fn().mockResolvedValue([]),
   getAssetWithLocaleFallback: vi.fn().mockResolvedValue(undefined),
-  close: vi.fn(() => Promise.resolve())
+  close: vi.fn(() => Promise.resolve()),
 }
 
-describe('AssetManager', () => {
+describe('assetManager', () => {
   let assetManager: AssetManager
 
   beforeEach(() => {
@@ -27,7 +27,7 @@ describe('AssetManager', () => {
     assetManager = new AssetManager(mockDatabase as any, 'default')
   })
 
-  describe('Asset Retrieval', () => {
+  describe('asset Retrieval', () => {
     it('should create asset manager with default locale', () => {
       expect(assetManager).toBeDefined()
       // Test internal state through constructor behavior
@@ -52,13 +52,13 @@ describe('AssetManager', () => {
         version: 1,
         mtime: Date.now(),
         createdAt: Date.now(),
-        lastAccessed: Date.now()
+        lastAccessed: Date.now(),
       }
 
       mockDatabase.findAssets.mockResolvedValue([mockAsset])
 
       const result = await assetManager.getBlob('images', 'test.png')
-      
+
       expect(result).toBeInstanceOf(Blob)
       expect(mockDatabase.findAssets).toHaveBeenCalledWith({ type: 'images', name: 'test.png' })
     })
@@ -69,7 +69,8 @@ describe('AssetManager', () => {
       try {
         await assetManager.getBlob('images', 'nonexistent.png')
         expect.fail('Should throw AssetNotFoundError')
-      } catch (error) {
+      }
+      catch (error) {
         expect(error.message).toContain('Asset not found')
         expect(error.message).toContain('images/nonexistent.png')
       }
@@ -78,7 +79,7 @@ describe('AssetManager', () => {
     it('should handle bundle-specific asset retrieval', async () => {
       const options: LoadAssetOptions = {
         bundleName: 'specific-bundle',
-        locale: 'en-us'
+        locale: 'en-us',
       }
 
       mockDatabase.assets.get.mockResolvedValue(undefined)
@@ -86,22 +87,23 @@ describe('AssetManager', () => {
       try {
         await assetManager.getBlob('scripts', 'test.js', options)
         expect.fail('Should throw AssetNotFoundError')
-      } catch (error) {
+      }
+      catch (error) {
         // The specific asset retrieval will be checked for in the database
         expect(mockDatabase.getAssetWithLocaleFallback).toHaveBeenCalledWith('specific-bundle', 'scripts', 'test.js', 'en-us')
       }
     })
   })
 
-  describe('Plugin Management', () => {
+  describe('plugin Management', () => {
     it('should register processing plugins', () => {
       const mockPlugin = {
         name: 'test-processor',
         version: '1.0.0',
         supportedTypes: ['images'] as AssetType[],
-        processAsset: vi.fn((asset) => Promise.resolve(asset)),
+        processAsset: vi.fn(asset => Promise.resolve(asset)),
         initialize: vi.fn(),
-        cleanup: vi.fn()
+        cleanup: vi.fn(),
       }
 
       expect(() => {
@@ -110,10 +112,10 @@ describe('AssetManager', () => {
     })
   })
 
-  describe('Cache Management', () => {
+  describe('cache Management', () => {
     it('should provide cache statistics', () => {
       const stats = assetManager.getCacheStats()
-      
+
       expect(stats).toHaveProperty('blobUrls')
       expect(stats).toHaveProperty('jsExecutions')
       expect(typeof stats.blobUrls).toBe('number')
@@ -122,9 +124,9 @@ describe('AssetManager', () => {
 
     it('should cleanup resources', () => {
       global.URL.revokeObjectURL = vi.fn()
-      
+
       assetManager.cleanup()
-      
+
       // Should not throw
       expect(assetManager.getCacheStats().blobUrls).toBe(0)
     })

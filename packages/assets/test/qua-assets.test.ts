@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { QuaAssets } from '../src/qua-assets'
 import type { QuaAssetsConfig } from '../src/types'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { QuaAssets } from '../src/qua-assets'
 
 // Mock dependencies
 vi.mock('../src/database', () => ({
@@ -12,13 +12,15 @@ vi.mock('../src/database', () => ({
     assets = {
       get: vi.fn(),
       put: vi.fn(),
-      toArray: vi.fn(() => Promise.resolve([]))
+      toArray: vi.fn(() => Promise.resolve([])),
     }
+
     bundles = {
       get: vi.fn(),
       put: vi.fn(),
-      toArray: vi.fn(() => Promise.resolve([]))
+      toArray: vi.fn(() => Promise.resolve([])),
     }
+
     getBundle = vi.fn().mockResolvedValue(undefined)
     getCacheStats = vi.fn().mockResolvedValue({ size: 0, count: 0, totalSize: 0 })
     findAssets = vi.fn().mockResolvedValue([])
@@ -28,10 +30,10 @@ vi.mock('../src/database', () => ({
     transaction = vi.fn().mockImplementation(async (mode, tables, callback) => {
       return await callback()
     })
-  }
+  },
 }))
 
-describe('QuaAssets', () => {
+describe('quaAssets', () => {
   let quaAssets: QuaAssets
   let config: QuaAssetsConfig
 
@@ -42,9 +44,9 @@ describe('QuaAssets', () => {
       enableCache: true,
       cacheSize: 50 * 1024 * 1024,
       retryAttempts: 3,
-      timeout: 30000
+      timeout: 30000,
     }
-    
+
     vi.clearAllMocks()
   })
 
@@ -54,12 +56,12 @@ describe('QuaAssets', () => {
     }
   })
 
-  describe('Initialization', () => {
+  describe('initialization', () => {
     it('should initialize with valid configuration', async () => {
       quaAssets = new QuaAssets('https://cdn.example.com', config)
-      
+
       await quaAssets.initialize()
-      
+
       expect(quaAssets).toBeDefined()
     })
 
@@ -82,12 +84,12 @@ describe('QuaAssets', () => {
         name: 'test-plugin',
         version: '1.0.0',
         initialize: vi.fn(),
-        cleanup: vi.fn()
+        cleanup: vi.fn(),
       }
 
       const configWithPlugins = {
         ...config,
-        plugins: [mockPlugin]
+        plugins: [mockPlugin],
       }
 
       quaAssets = new QuaAssets('https://cdn.example.com', configWithPlugins)
@@ -110,7 +112,7 @@ describe('QuaAssets', () => {
     })
   })
 
-  describe('Bundle Management', () => {
+  describe('bundle Management', () => {
     beforeEach(async () => {
       quaAssets = new QuaAssets('https://cdn.example.com', config)
       await quaAssets.initialize()
@@ -120,24 +122,24 @@ describe('QuaAssets', () => {
       // Initially, bundle status should not exist
       let status = quaAssets.getBundleStatus('test-bundle')
       expect(status).toBeUndefined()
-      
+
       // Mock fetch to fail
       global.fetch = vi.fn(() => Promise.reject(new Error('Network error')))
-      
+
       // After starting a load, status should exist and be loading
       const loadPromise = quaAssets.loadBundle('test-bundle.qpk').catch(() => {
         // Expected to fail due to mock
       })
-      
+
       // Status should be set immediately (synchronously) when loadBundle is called
       status = quaAssets.getBundleStatus('test-bundle')
       expect(status).toBeDefined()
       expect(status!.name).toBe('test-bundle')
       expect(status!.state).toBe('loading') // Should be loading initially
-      
+
       // Wait for the load to complete
       await loadPromise
-      
+
       // After error, status should be error
       status = quaAssets.getBundleStatus('test-bundle')
       expect(status).toBeDefined()
@@ -155,30 +157,31 @@ describe('QuaAssets', () => {
         view.setUint32(8, 0, true) // No compression
         view.setUint32(12, 0, true) // No encryption
         view.setUint32(16, 0, true) // 0 files
-        
+
         const mockBody = {
           getReader: () => ({
             read: vi.fn()
               .mockResolvedValueOnce({ done: false, value: new Uint8Array(buffer) })
-              .mockResolvedValueOnce({ done: true, value: undefined })
-          })
+              .mockResolvedValueOnce({ done: true, value: undefined }),
+          }),
         }
-        
+
         return Promise.resolve({
           ok: true,
           headers: {
             get: (name: string) => {
-              if (name === 'content-length') return buffer.byteLength.toString()
+              if (name === 'content-length')
+                return buffer.byteLength.toString()
               return null
-            }
+            },
           },
           body: mockBody,
-          arrayBuffer: () => Promise.resolve(buffer)
+          arrayBuffer: () => Promise.resolve(buffer),
         } as unknown as Response)
       })
 
       const loadingPromise = quaAssets.loadBundle('test-bundle.qpk')
-      
+
       // Status should be set immediately (synchronously) when loadBundle is called
       const loadingStatus = quaAssets.getBundleStatus('test-bundle')
       expect(loadingStatus).toBeDefined()
@@ -189,7 +192,8 @@ describe('QuaAssets', () => {
         const finalStatus = quaAssets.getBundleStatus('test-bundle')
         expect(finalStatus).toBeDefined()
         expect(['loaded', 'error']).toContain(finalStatus!.state)
-      } catch (error) {
+      }
+      catch (error) {
         // Expected for incomplete mock data
         const errorStatus = quaAssets.getBundleStatus('test-bundle')
         expect(errorStatus).toBeDefined()
@@ -204,15 +208,15 @@ describe('QuaAssets', () => {
       const loadPromise = quaAssets.loadBundle('test-bundle.qpk').catch(() => {
         // Expected to fail
       })
-      
+
       // Check initial status
       let status = quaAssets.getBundleStatus('test-bundle')
       expect(status).toBeDefined()
       expect(status!.state).toBe('loading')
-      
+
       // Wait for the load to complete
       await loadPromise
-      
+
       // Check status after error
       status = quaAssets.getBundleStatus('test-bundle')
       expect(status).toBeDefined()
@@ -235,25 +239,28 @@ describe('QuaAssets', () => {
       try {
         await fastQuaAssets.loadBundle('test-bundle.qpk')
         expect(callCount).toBe(2) // 2 total attempts
-      } catch (error) {
+      }
+      catch (error) {
         expect(callCount).toBe(2) // 2 total attempts
-      } finally {
+      }
+      finally {
         await fastQuaAssets.cleanup()
       }
     })
 
     it('should emit bundle events during loading process', async () => {
       const events: Array<{ event: string, data: any }> = []
-      
-      quaAssets.on('bundle:loading', (data) => events.push({ event: 'bundle:loading', data }))
-      quaAssets.on('bundle:loaded', (data) => events.push({ event: 'bundle:loaded', data }))
-      quaAssets.on('bundle:error', (data) => events.push({ event: 'bundle:error', data }))
+
+      quaAssets.on('bundle:loading', data => events.push({ event: 'bundle:loading', data }))
+      quaAssets.on('bundle:loaded', data => events.push({ event: 'bundle:loaded', data }))
+      quaAssets.on('bundle:error', data => events.push({ event: 'bundle:error', data }))
 
       global.fetch = vi.fn(() => Promise.reject(new Error('Test error')))
 
       try {
         await quaAssets.loadBundle('test-bundle.qpk')
-      } catch (error) {
+      }
+      catch (error) {
         // Expected to fail
       }
 
@@ -262,7 +269,7 @@ describe('QuaAssets', () => {
     })
   })
 
-  describe('Asset Retrieval', () => {
+  describe('asset Retrieval', () => {
     beforeEach(async () => {
       quaAssets = new QuaAssets('https://cdn.example.com', config)
       await quaAssets.initialize()
@@ -272,7 +279,8 @@ describe('QuaAssets', () => {
       try {
         await quaAssets.getBlob('images', 'test.png')
         expect.fail('Should throw asset not found error')
-      } catch (error) {
+      }
+      catch (error) {
         // Expected since no assets are loaded
         expect(error.message).toContain('Asset not found')
       }
@@ -282,7 +290,8 @@ describe('QuaAssets', () => {
       try {
         await quaAssets.getBlob('scripts', 'scene1.js', { locale: 'en-us' })
         expect.fail('Should throw asset not found error')
-      } catch (error) {
+      }
+      catch (error) {
         expect(error.message).toContain('Asset not found')
       }
     })
@@ -291,25 +300,27 @@ describe('QuaAssets', () => {
       try {
         await quaAssets.getBlobURL('images', 'character.png')
         expect.fail('Should throw asset not found error')
-      } catch (error) {
+      }
+      catch (error) {
         expect(error.message).toContain('Asset not found')
       }
     })
 
     it('should execute JavaScript assets', async () => {
       const jsCode = 'export const value = 42;'
-      
+
       try {
         const result = await quaAssets.executeJS('test-script.js')
         expect(result.exports.value).toBe(42)
-      } catch (error) {
+      }
+      catch (error) {
         // May fail depending on JS execution implementation
         expect(error).toBeDefined()
       }
     })
   })
 
-  describe('Cache Management', () => {
+  describe('cache Management', () => {
     beforeEach(async () => {
       quaAssets = new QuaAssets('https://cdn.example.com', config)
       await quaAssets.initialize()
@@ -317,7 +328,7 @@ describe('QuaAssets', () => {
 
     it('should provide cache statistics', async () => {
       const stats = await quaAssets.getCacheStats()
-      
+
       expect(stats).toHaveProperty('totalSize')
       expect(stats).toHaveProperty('bundles')
       expect(stats).toHaveProperty('database')
@@ -331,17 +342,17 @@ describe('QuaAssets', () => {
 
     it('should emit cache events', async () => {
       const cacheEvents: Array<{ event: string, data: any }> = []
-      
-      quaAssets.on('asset:cached', (data) => cacheEvents.push({ event: 'asset:cached', data }))
-      quaAssets.on('asset:evicted', (data) => cacheEvents.push({ event: 'asset:evicted', data }))
-      quaAssets.on('cache:full', (data) => cacheEvents.push({ event: 'cache:full', data }))
+
+      quaAssets.on('asset:cached', data => cacheEvents.push({ event: 'asset:cached', data }))
+      quaAssets.on('asset:evicted', data => cacheEvents.push({ event: 'asset:evicted', data }))
+      quaAssets.on('cache:full', data => cacheEvents.push({ event: 'cache:full', data }))
 
       // Cache events would be emitted during actual asset operations
       expect(quaAssets).toBeDefined()
     })
   })
 
-  describe('Patch System', () => {
+  describe('patch System', () => {
     beforeEach(async () => {
       quaAssets = new QuaAssets('https://cdn.example.com', config)
       await quaAssets.initialize()
@@ -349,19 +360,20 @@ describe('QuaAssets', () => {
 
     it('should validate patch compatibility', async () => {
       const mockPatchData = new ArrayBuffer(100)
-      
+
       global.fetch = vi.fn(() =>
         Promise.resolve({
           ok: true,
-          arrayBuffer: () => Promise.resolve(mockPatchData)
-        } as Response)
+          arrayBuffer: () => Promise.resolve(mockPatchData),
+        } as Response),
       )
 
       try {
         const result = await quaAssets.applyPatch('patch.qpk', 'test-bundle')
         expect(result).toHaveProperty('success')
         expect(result).toHaveProperty('errors')
-      } catch (error) {
+      }
+      catch (error) {
         // Expected for mock patch data
         expect(error).toBeDefined()
       }
@@ -371,13 +383,13 @@ describe('QuaAssets', () => {
       global.fetch = vi.fn(() => Promise.reject(new Error('Patch download failed')))
 
       const result = await quaAssets.applyPatch('invalid-patch.qpk', 'test-bundle')
-      
+
       expect(result.success).toBe(false)
       expect(result.errors.some(error => error.includes('Patch download failed'))).toBe(true)
     })
   })
 
-  describe('Cleanup and Resource Management', () => {
+  describe('cleanup and Resource Management', () => {
     it('should cleanup resources properly', async () => {
       quaAssets = new QuaAssets('https://cdn.example.com', config)
       await quaAssets.initialize()
@@ -394,12 +406,12 @@ describe('QuaAssets', () => {
         name: 'test-plugin',
         version: '1.0.0',
         initialize: vi.fn(),
-        cleanup: vi.fn()
+        cleanup: vi.fn(),
       }
 
       quaAssets = new QuaAssets('https://cdn.example.com', {
         ...config,
-        plugins: [mockPlugin]
+        plugins: [mockPlugin],
       })
 
       await quaAssets.initialize()
@@ -419,16 +431,16 @@ describe('QuaAssets', () => {
     })
   })
 
-  describe('Configuration Validation', () => {
+  describe('configuration Validation', () => {
     it('should validate endpoint URL format', () => {
       const invalidEndpoints = [
         '',
         'not-a-url',
         'ftp://invalid-protocol.com',
-        'javascript:alert(1)'
+        'javascript:alert(1)',
       ]
 
-      invalidEndpoints.forEach(endpoint => {
+      invalidEndpoints.forEach((endpoint) => {
         expect(() => {
           new QuaAssets(endpoint, config)
         }).toThrow()
@@ -453,13 +465,13 @@ describe('QuaAssets', () => {
       const validLocales = ['default', 'en-us', 'zh-cn', 'ja-jp', 'fr']
       const invalidLocales = ['', 'invalid_locale', 'ENGLISH', '123']
 
-      validLocales.forEach(locale => {
+      validLocales.forEach((locale) => {
         expect(() => {
           new QuaAssets('https://cdn.example.com', { ...config, locale })
         }).not.toThrow()
       })
 
-      invalidLocales.forEach(locale => {
+      invalidLocales.forEach((locale) => {
         expect(() => {
           new QuaAssets('https://cdn.example.com', { ...config, locale })
         }).toThrow()

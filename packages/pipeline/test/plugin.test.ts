@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { Pipeline, Plugin, type PluginEmitHook, type PluginOnHook, type PluginOffHook } from '../src/index'
+import type { PluginEmitHook, PluginOffHook, PluginOnHook } from '../src/index'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Pipeline, Plugin } from '../src/index'
 
-describe('Plugin', () => {
+describe('plugin', () => {
   let pipeline: Pipeline
 
   beforeEach(() => {
@@ -45,7 +46,7 @@ describe('Plugin', () => {
     describe('emit hook', () => {
       class EmitHookPlugin extends Plugin {
         readonly name = 'emit-hook-plugin'
-        emitCalls: Array<{ type: string; payload: unknown }> = []
+        emitCalls: Array<{ type: string, payload: unknown }> = []
 
         setup(pipeline: Pipeline) {
           const emitHook: PluginEmitHook = async (type, payload, originalEmit) => {
@@ -72,16 +73,16 @@ describe('Plugin', () => {
         expect(plugin.emitCalls).toHaveLength(1)
         expect(plugin.emitCalls[0]).toEqual({
           type: 'test',
-          payload: 'hello'
+          payload: 'hello',
         })
 
         expect(listener).toHaveBeenCalledWith(
           expect.objectContaining({
             event: expect.objectContaining({
               type: 'test',
-              payload: 'HELLO' // Modified by plugin
-            })
-          })
+              payload: 'HELLO', // Modified by plugin
+            }),
+          }),
         )
       })
 
@@ -121,7 +122,7 @@ describe('Plugin', () => {
     describe('on hook', () => {
       class OnHookPlugin extends Plugin {
         readonly name = 'on-hook-plugin'
-        registrations: Array<{ type: string; listener: unknown }> = []
+        registrations: Array<{ type: string, listener: unknown }> = []
 
         setup(pipeline: Pipeline) {
           const onHook: PluginOnHook = (type, listener, originalOn) => {
@@ -143,7 +144,7 @@ describe('Plugin', () => {
         expect(plugin.registrations).toHaveLength(1)
         expect(plugin.registrations[0]).toEqual({
           type: 'test',
-          listener
+          listener,
         })
       })
 
@@ -177,9 +178,9 @@ describe('Plugin', () => {
         expect(listener).toHaveBeenCalledWith(
           expect.objectContaining({
             event: expect.objectContaining({
-              payload: '[WRAPPED] hello'
-            })
-          })
+              payload: '[WRAPPED] hello',
+            }),
+          }),
         )
       })
     })
@@ -187,7 +188,7 @@ describe('Plugin', () => {
     describe('off hook', () => {
       class OffHookPlugin extends Plugin {
         readonly name = 'off-hook-plugin'
-        removals: Array<{ type: string; listener: unknown }> = []
+        removals: Array<{ type: string, listener: unknown }> = []
 
         setup(pipeline: Pipeline) {
           const offHook: PluginOffHook = (type, listener, originalOff) => {
@@ -210,7 +211,7 @@ describe('Plugin', () => {
         expect(plugin.removals).toHaveLength(1)
         expect(plugin.removals[0]).toEqual({
           type: 'test',
-          listener
+          listener,
         })
       })
     })
@@ -258,16 +259,17 @@ describe('Plugin', () => {
                 type,
                 payload,
                 timestamp: Date.now(),
-                id: `network-${Date.now()}`
+                id: `network-${Date.now()}`,
               },
               handled: false,
-              stopPropagation: false
+              stopPropagation: false,
             }
 
-            listeners.forEach(listener => {
+            listeners.forEach((listener) => {
               try {
                 listener(context)
-              } catch (error) {
+              }
+              catch (error) {
                 // Handle error
               }
             })
@@ -292,9 +294,9 @@ describe('Plugin', () => {
             event: expect.objectContaining({
               type: 'network-event',
               payload: 'network-data',
-              id: expect.stringContaining('network-')
-            })
-          })
+              id: expect.stringContaining('network-'),
+            }),
+          }),
         )
       })
     })
@@ -348,7 +350,7 @@ describe('Plugin', () => {
     // Test legacy plugin interface
     const legacyPlugin = {
       name: 'legacy-plugin',
-      install: vi.fn()
+      install: vi.fn(),
     }
 
     it('should support legacy plugin interface', () => {

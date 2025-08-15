@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { MetadataGenerator } from '../src/assets/metadata'
 import type { AssetInfo } from '../src/core/types'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { MetadataGenerator } from '../src/assets/metadata'
 
-describe('MetadataGenerator', () => {
+describe('metadataGenerator', () => {
   let metadataGenerator: MetadataGenerator
   let mockAssets: AssetInfo[]
 
   beforeEach(() => {
     metadataGenerator = new MetadataGenerator()
-    
+
     mockAssets = [
       {
         name: 'background.png',
@@ -19,7 +19,7 @@ describe('MetadataGenerator', () => {
         size: 1024000,
         hash: 'abc123',
         mtime: 1640995200000,
-        locales: ['default']
+        locales: ['default'],
       },
       {
         name: 'hero.sprite',
@@ -30,7 +30,7 @@ describe('MetadataGenerator', () => {
         size: 2048,
         hash: 'def456',
         mtime: 1640995300000,
-        locales: ['default', 'en-us']
+        locales: ['default', 'en-us'],
       },
       {
         name: 'scene1.js',
@@ -41,7 +41,7 @@ describe('MetadataGenerator', () => {
         size: 5120,
         hash: 'ghi789',
         mtime: 1640995400000,
-        locales: ['default']
+        locales: ['default'],
       },
       {
         name: 'scene1.en-us.js',
@@ -52,25 +52,25 @@ describe('MetadataGenerator', () => {
         size: 5200,
         hash: 'jkl012',
         mtime: 1640995500000,
-        locales: ['en-us']
-      }
+        locales: ['en-us'],
+      },
     ]
   })
 
-  describe('Bundle Manifest Generation', () => {
+  describe('bundle Manifest Generation', () => {
     it('should generate complete bundle manifest', () => {
       const options = {
         format: 'qpk' as const,
         compression: { algorithm: 'lzma' as const, level: 1 },
         encryption: { enabled: false, algorithm: 'none' as const },
         version: '1.2.0',
-        buildNumber: '42'
+        buildNumber: '42',
       }
 
       const manifest = metadataGenerator.generateManifest(mockAssets, 'test-bundle', options)
 
       expect(manifest.name).toBe('test-bundle')
-      expect(manifest.version).toBe('1.2.0') 
+      expect(manifest.version).toBe('1.2.0')
       expect(manifest.buildNumber).toBe('42')
       expect(manifest.format).toBe('qpk')
       expect(manifest.compression.algorithm).toBe('lzma')
@@ -88,11 +88,11 @@ describe('MetadataGenerator', () => {
         format: 'qpk' as const,
         compression: { algorithm: 'none' as const, level: 0 },
         encryption: { enabled: false, algorithm: 'none' as const },
-        version: '1.0.0'
+        version: '1.0.0',
       }
 
       const manifest = metadataGenerator.generateManifest(mockAssets, 'size-test', options)
-      
+
       const expectedSize = mockAssets.reduce((sum, asset) => sum + asset.size, 0)
       expect(manifest.totalSize).toBe(expectedSize)
     })
@@ -102,11 +102,11 @@ describe('MetadataGenerator', () => {
         format: 'qpk' as const,
         compression: { algorithm: 'none' as const, level: 0 },
         encryption: { enabled: false, algorithm: 'none' as const },
-        version: '1.0.0'
+        version: '1.0.0',
       }
 
       const manifest = metadataGenerator.generateManifest(mockAssets, 'locale-test', options)
-      
+
       expect(manifest.locales).toEqual(expect.arrayContaining(['default', 'en-us']))
       expect(manifest.locales).toHaveLength(2)
     })
@@ -116,15 +116,15 @@ describe('MetadataGenerator', () => {
         format: 'qpk' as const,
         compression: { algorithm: 'none' as const, level: 0 },
         encryption: { enabled: false, algorithm: 'none' as const },
-        version: '1.0.0'
+        version: '1.0.0',
       }
 
       const manifest = metadataGenerator.generateManifest(mockAssets, 'type-test', options)
-      
+
       const imageCount = Object.keys(manifest.assets.images || {}).length
-      const characterCount = Object.keys(manifest.assets.characters || {}).length  
+      const characterCount = Object.keys(manifest.assets.characters || {}).length
       const scriptCount = Object.keys(manifest.assets.scripts || {}).length
-      
+
       expect(imageCount).toBe(1)
       expect(characterCount).toBe(1)
       expect(scriptCount).toBe(2)
@@ -135,14 +135,14 @@ describe('MetadataGenerator', () => {
         format: 'qpk' as const,
         compression: { algorithm: 'none' as const, level: 0 },
         encryption: { enabled: false, algorithm: 'none' as const },
-        version: '1.0.0'
+        version: '1.0.0',
       }
 
       const manifest = metadataGenerator.generateManifest(mockAssets, 'metadata-test', options)
-      
+
       // Check assets structure
-      Object.values(manifest.assets).forEach(assetGroup => {
-        Object.values(assetGroup).forEach(asset => {
+      Object.values(manifest.assets).forEach((assetGroup) => {
+        Object.values(assetGroup).forEach((asset) => {
           expect(asset).toHaveProperty('name')
           expect(asset).toHaveProperty('type')
           expect(asset).toHaveProperty('subType')
@@ -156,10 +156,10 @@ describe('MetadataGenerator', () => {
     })
   })
 
-  describe('Asset Statistics', () => {
+  describe('asset Statistics', () => {
     it('should generate asset type statistics', () => {
       const stats = metadataGenerator.generateAssetStats(mockAssets)
-      
+
       expect(stats.totalAssets).toBe(4)
       expect(stats.totalSize).toBe(1024000 + 2048 + 5120 + 5200)
       expect(stats.byType.images.count).toBe(1)
@@ -172,7 +172,7 @@ describe('MetadataGenerator', () => {
 
     it('should calculate largest and smallest assets', () => {
       const stats = metadataGenerator.generateAssetStats(mockAssets)
-      
+
       expect(stats.largestAsset).not.toBeNull()
       expect(stats.largestAsset!.name).toBe('background.png')
       expect(stats.largestAsset!.size).toBe(1024000)
@@ -183,14 +183,14 @@ describe('MetadataGenerator', () => {
 
     it('should calculate average asset size', () => {
       const stats = metadataGenerator.generateAssetStats(mockAssets)
-      
+
       const expectedAverage = (1024000 + 2048 + 5120 + 5200) / 4
       expect(stats.averageSize).toBe(expectedAverage)
     })
 
     it('should handle empty asset list', () => {
       const stats = metadataGenerator.generateAssetStats([])
-      
+
       expect(stats.totalAssets).toBe(0)
       expect(stats.totalSize).toBe(0)
       expect(stats.averageSize).toBe(0)
@@ -200,7 +200,7 @@ describe('MetadataGenerator', () => {
 
     it('should calculate compression ratio estimates', () => {
       const stats = metadataGenerator.generateAssetStats(mockAssets)
-      
+
       // Should provide estimates for different compression types
       expect(stats.compressionEstimates).toHaveProperty('lzma')
       expect(stats.compressionEstimates).toHaveProperty('deflate')
@@ -211,7 +211,7 @@ describe('MetadataGenerator', () => {
     })
   })
 
-  describe('Dependency Analysis', () => {
+  describe('dependency Analysis', () => {
     it('should detect asset dependencies', () => {
       const assetWithDeps: AssetInfo = {
         name: 'scene-with-deps.js',
@@ -222,12 +222,12 @@ describe('MetadataGenerator', () => {
         size: 1024,
         hash: 'deps123',
         mtime: Date.now(),
-        locales: ['default']
+        locales: ['default'],
       }
 
       const assetsWithDeps = [...mockAssets, assetWithDeps]
       const dependencies = metadataGenerator.analyzeDependencies(assetsWithDeps)
-      
+
       expect(dependencies).toHaveProperty('scene-with-deps.js')
       expect(dependencies['scene-with-deps.js']).toContain('background.png')
       expect(dependencies['scene-with-deps.js']).toContain('hero.sprite')
@@ -244,10 +244,10 @@ describe('MetadataGenerator', () => {
           size: 100,
           hash: 'a123',
           mtime: Date.now(),
-          locales: ['default']
+          locales: ['default'],
         },
         {
-          name: 'b.js', 
+          name: 'b.js',
           type: 'scripts' as const,
           subType: 'logic' as const,
           path: '/test/b.js',
@@ -255,13 +255,13 @@ describe('MetadataGenerator', () => {
           size: 100,
           hash: 'b123',
           mtime: Date.now(),
-          locales: ['default']
-        }
+          locales: ['default'],
+        },
       ]
 
       const result = metadataGenerator.analyzeDependencies(circularAssets)
       const warnings = metadataGenerator.validateDependencies(circularAssets)
-      
+
       expect(warnings.some(w => w.includes('circular'))).toBe(true)
     })
 
@@ -275,19 +275,19 @@ describe('MetadataGenerator', () => {
         size: 100,
         hash: 'dep123',
         mtime: Date.now(),
-        locales: ['default']
+        locales: ['default'],
       }
 
       const warnings = metadataGenerator.validateDependencies([assetWithMissingDep])
-      
+
       expect(warnings.some(w => w.includes('missing-asset.png'))).toBe(true)
     })
   })
 
-  describe('Locale Analysis', () => {
+  describe('locale Analysis', () => {
     it('should analyze locale coverage', () => {
       const localeAnalysis = metadataGenerator.analyzeLocales(mockAssets)
-      
+
       expect(localeAnalysis.availableLocales).toContain('default')
       expect(localeAnalysis.availableLocales).toContain('en-us')
       expect(localeAnalysis.coverage.default).toBe(3) // Three assets have default
@@ -296,26 +296,26 @@ describe('MetadataGenerator', () => {
 
     it('should identify incomplete locale coverage', () => {
       const analysis = metadataGenerator.analyzeLocales(mockAssets)
-      
+
       expect(analysis.incompleteLocales).toContain('en-us')
       expect(analysis.incompleteAssets['en-us']).toEqual(
-        expect.arrayContaining(['background.png', 'scene1.js'])
+        expect.arrayContaining(['background.png', 'scene1.js']),
       )
     })
 
     it('should suggest locale fallbacks', () => {
       const suggestions = metadataGenerator.suggestLocaleFallbacks(mockAssets)
-      
+
       expect(suggestions).toHaveProperty('en-us')
       expect(suggestions['en-us'].fallback).toBe('default')
       expect(suggestions['en-us'].coverage).toBeGreaterThan(0)
     })
   })
 
-  describe('Hash Generation', () => {
+  describe('hash Generation', () => {
     it('should generate bundle hash from asset hashes', () => {
       const bundleHash = metadataGenerator.generateBundleHash(mockAssets)
-      
+
       expect(bundleHash).toBeTypeOf('string')
       expect(bundleHash).toHaveLength(64) // SHA-256 hash
     })
@@ -323,7 +323,7 @@ describe('MetadataGenerator', () => {
     it('should generate different hashes for different asset sets', () => {
       const hash1 = metadataGenerator.generateBundleHash(mockAssets)
       const hash2 = metadataGenerator.generateBundleHash(mockAssets.slice(0, 2))
-      
+
       expect(hash1).not.toBe(hash2)
     })
 
@@ -331,12 +331,12 @@ describe('MetadataGenerator', () => {
       const shuffledAssets = [...mockAssets].reverse()
       const hash1 = metadataGenerator.generateBundleHash(mockAssets)
       const hash2 = metadataGenerator.generateBundleHash(shuffledAssets)
-      
+
       expect(hash1).toBe(hash2)
     })
   })
 
-  describe('Version Information', () => {
+  describe('version Information', () => {
     it('should include build metadata in manifest', () => {
       const options = {
         format: 'qpk' as const,
@@ -348,12 +348,12 @@ describe('MetadataGenerator', () => {
           branch: 'main',
           commit: 'abc123def',
           buildTime: '2024-01-01T12:00:00Z',
-          builder: 'ci-system'
-        }
+          builder: 'ci-system',
+        },
       }
 
       const manifest = metadataGenerator.generateManifest(mockAssets, 'versioned-bundle', options)
-      
+
       expect(manifest.buildMetadata).toBeDefined()
       expect(manifest.buildMetadata?.branch).toBe('main')
       expect(manifest.buildMetadata?.commit).toBe('abc123def')
@@ -365,13 +365,13 @@ describe('MetadataGenerator', () => {
       const validVersions = ['1.0.0', '2.1.3', '10.20.30-alpha', '1.0.0-beta.1']
       const invalidVersions = ['1.0', 'v1.0.0', '1.0.0.0', 'invalid']
 
-      validVersions.forEach(version => {
+      validVersions.forEach((version) => {
         expect(() => {
           metadataGenerator.validateVersion(version)
         }).not.toThrow()
       })
 
-      invalidVersions.forEach(version => {
+      invalidVersions.forEach((version) => {
         expect(() => {
           metadataGenerator.validateVersion(version)
         }).toThrow()
@@ -379,17 +379,17 @@ describe('MetadataGenerator', () => {
     })
   })
 
-  describe('Performance Metrics', () => {
+  describe('performance Metrics', () => {
     it('should include performance estimates in manifest', () => {
       const options = {
         format: 'qpk' as const,
         compression: { algorithm: 'lzma' as const, level: 1 },
         encryption: { enabled: false, algorithm: 'none' as const },
-        version: '1.0.0'
+        version: '1.0.0',
       }
 
       const manifest = metadataGenerator.generateManifest(mockAssets, 'perf-test', options)
-      
+
       expect(manifest.performanceMetrics).toBeDefined()
       expect(manifest.performanceMetrics?.estimatedLoadTime).toBeGreaterThan(0)
       expect(manifest.performanceMetrics?.estimatedDecompressionTime).toBeGreaterThan(0)
@@ -404,14 +404,14 @@ describe('MetadataGenerator', () => {
         format: 'qpk' as const,
         compression: { algorithm: 'none' as const, level: 0 },
         encryption: { enabled: false, algorithm: 'none' as const },
-        version: '1.0.0'
+        version: '1.0.0',
       })
 
       const largeManifest = metadataGenerator.generateManifest(largeAssets, 'large', {
         format: 'qpk' as const,
         compression: { algorithm: 'none' as const, level: 0 },
         encryption: { enabled: false, algorithm: 'none' as const },
-        version: '1.0.0'
+        version: '1.0.0',
       })
 
       expect(largeManifest.performanceMetrics?.estimatedLoadTime)

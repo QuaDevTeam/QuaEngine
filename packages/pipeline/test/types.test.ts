@@ -1,22 +1,13 @@
-import { describe, it, expect } from 'vitest'
+import type { EventListener, MiddlewareFunction, MiddlewareNext, PipelineContext, PipelineEvent, PipelineOptions, PipelinePlugin, PluginEmitHook, PluginOffHook, PluginOnHook } from '../src/index'
+import { describe, expect, it } from 'vitest'
 import {
-  Pipeline,
   Middleware,
+  Pipeline,
   Plugin,
   version,
-  type PipelineEvent,
-  type PipelineContext,
-  type EventListener,
-  type MiddlewareNext,
-  type MiddlewareFunction,
-  type PluginEmitHook,
-  type PluginOnHook,
-  type PluginOffHook,
-  type PipelinePlugin,
-  type PipelineOptions
 } from '../src/index'
 
-describe('Exports and Types', () => {
+describe('exports and Types', () => {
   describe('version export', () => {
     it('should export version string', () => {
       expect(version).toBe('0.1.0')
@@ -55,7 +46,7 @@ describe('Exports and Types', () => {
       class TestPlugin extends Plugin {
         readonly name = 'test'
         setup(pipeline: Pipeline) {
-          // Test implementation  
+          // Test implementation
         }
       }
 
@@ -70,7 +61,7 @@ describe('Exports and Types', () => {
         type: 'test',
         payload: 'hello',
         timestamp: Date.now(),
-        id: 'test-id'
+        id: 'test-id',
       }
 
       expect(event.type).toBe('test')
@@ -85,10 +76,10 @@ describe('Exports and Types', () => {
           type: 'test',
           payload: 42,
           timestamp: Date.now(),
-          id: 'test-id'
+          id: 'test-id',
         },
         handled: false,
-        stopPropagation: false
+        stopPropagation: false,
       }
 
       expect(context.event.payload).toBe(42)
@@ -152,7 +143,7 @@ describe('Exports and Types', () => {
       const options: PipelineOptions = {
         middlewares: [
           new TestMiddleware(),
-          async (context, next) => { await next() }
+          async (context, next) => { await next() },
         ],
         plugins: [
           new TestPlugin(),
@@ -160,9 +151,9 @@ describe('Exports and Types', () => {
             name: 'legacy-plugin',
             install: (pipeline: Pipeline) => {
               // Install implementation
-            }
-          }
-        ]
+            },
+          },
+        ],
       }
 
       expect(Array.isArray(options.middlewares)).toBe(true)
@@ -174,7 +165,7 @@ describe('Exports and Types', () => {
         name: 'interface-plugin',
         install: (pipeline) => {
           expect(pipeline).toBeInstanceOf(Pipeline)
-        }
+        },
       }
 
       expect(plugin.name).toBe('interface-plugin')
@@ -202,7 +193,7 @@ describe('Exports and Types', () => {
       await pipeline.emit<UserActionPayload>('user:action', {
         action: 'login',
         userId: 'user123',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       })
     })
 
@@ -228,7 +219,7 @@ describe('Exports and Types', () => {
       await pipeline.emit<GameEvent>('game:action', {
         type: 'move',
         playerId: 'player1',
-        data: { x: 10, y: 20 }
+        data: { x: 10, y: 20 },
       })
     })
   })

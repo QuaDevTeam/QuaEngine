@@ -7,6 +7,7 @@
     "build": {
       "executor": "nx:run-commands",
       "dependsOn": ["logger:build", "utils:build"],
+      "outputs": ["{projectRoot}/dist"],
       "options": {
         "command": "vite build",
         "cwd": "packages/store"
@@ -20,19 +21,26 @@
       }
     },
     "lint": {
-      "executor": "nx:run-commands",
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
       "options": {
-        "command": "eslint .",
-        "cwd": "packages/store"
+        "lintFilePatterns": ["packages/store/**/*.{ts,tsx,js,jsx}"]
       }
     },
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "echo \"Error: no test specified\" && exit 1",
+        "command": "vitest",
+        "cwd": "packages/store"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --noEmit",
         "cwd": "packages/store"
       }
     }
   },
-  "tags": []
+  "tags": ["scope:store", "type:lib"]
 }
