@@ -1,14 +1,14 @@
-import { unzip, inflate } from 'fflate'
-import LZMA from 'lzma-web'
 import type {
+  AssetType,
   BundleFormat,
   BundleManifest,
-  StoredAsset,
-  AssetType,
-  LoadBundleOptions,
   DecompressionPlugin,
-  DecryptionPlugin
+  DecryptionPlugin,
+  LoadBundleOptions,
+  StoredAsset,
 } from './types'
+import { inflate, unzip } from 'fflate'
+import LZMA from 'lzma-web'
 import { BundleLoadError, IntegrityError } from './types'
 
 /**
@@ -48,7 +48,7 @@ export class BundleLoader {
   async loadBundle(
     url: string,
     bundleName: string,
-    options: LoadBundleOptions = {}
+    options: LoadBundleOptions = {},
   ): Promise<{
     manifest: BundleManifest
     assets: StoredAsset[]
@@ -73,10 +73,11 @@ export class BundleLoader {
       const assets = await this.createStoredAssets(files, manifest, bundleName)
 
       return { manifest, assets }
-    } catch (error) {
+    }
+    catch (error) {
       throw new BundleLoadError(
         `Failed to load bundle: ${error instanceof Error ? error.message : String(error)}`,
-        bundleName
+        bundleName,
       )
     }
   }
@@ -86,14 +87,15 @@ export class BundleLoader {
    */
   private async downloadWithRetry(
     url: string,
-    options: LoadBundleOptions
+    options: LoadBundleOptions,
   ): Promise<ArrayBuffer> {
     let lastError: Error | null = null
 
     for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
       try {
         return await this.downloadBundle(url, options)
-      } catch (error) {
+      }
+      catch (error) {
         lastError = error as Error
 
         if (attempt === this.retryAttempts) {
@@ -101,7 +103,7 @@ export class BundleLoader {
         }
 
         // Exponential backoff
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000)
+        const delay = Math.min(1000 * 2 ** (attempt - 1), 10000)
         await new Promise(resolve => setTimeout(resolve, delay))
       }
     }
@@ -114,7 +116,7 @@ export class BundleLoader {
    */
   private async downloadBundle(
     url: string,
-    options: LoadBundleOptions
+    options: LoadBundleOptions,
   ): Promise<ArrayBuffer> {
     const controller = new AbortController()
 
@@ -134,8 +136,8 @@ export class BundleLoader {
       const response = await fetch(url, {
         signal: controller.signal,
         headers: {
-          'Cache-Control': options.enableCache !== false ? 'max-age=3600' : 'no-cache'
-        }
+          'Cache-Control': options.enableCache !== false ? 'max-age=3600' : 'no-cache',
+        },
       })
 
       if (!response.ok) {
@@ -143,7 +145,7 @@ export class BundleLoader {
       }
 
       const contentLength = response.headers.get('content-length')
-      const total = contentLength ? parseInt(contentLength, 10) : 0
+      const total = contentLength ? Number.parseInt(contentLength, 10) : 0
 
       if (!response.body) {
         throw new Error('Response body is null')
@@ -156,7 +158,8 @@ export class BundleLoader {
       while (true) {
         const { done, value } = await reader.read()
 
-        if (done) break
+        if (done)
+          break
 
         chunks.push(value)
         loaded += value.length
@@ -178,7 +181,8 @@ export class BundleLoader {
       }
 
       return result.buffer
-    } finally {
+    }
+    finally {
       clearTimeout(timeoutId)
     }
   }
@@ -221,7 +225,8 @@ export class BundleLoader {
     for (const plugin of this.decryptionPlugins) {
       try {
         result = await plugin.decrypt(result)
-      } catch (error) {
+      }
+      catch (error) {
         console.warn(`Decryption plugin ${plugin.name} failed:`, error)
       }
     }
@@ -234,7 +239,7 @@ export class BundleLoader {
    */
   private async decompressBundle(
     buffer: ArrayBuffer,
-    format: BundleFormat
+    format: BundleFormat,
   ): Promise<Map<string, Uint8Array>> {
     // Try registered plugins first
     const plugin = this.decompressionPlugins.get(format)
@@ -353,12 +358,14 @@ export class BundleLoader {
               inflate(fileData, (err, result) => {
                 if (err) {
                   reject(err)
-                } else {
+                }
+                else {
                   resolve(result)
                 }
               })
             })
-          } catch (error) {
+          }
+          catch (error) {
             throw new Error(`DEFLATE decompression failed: ${error instanceof Error ? error.message : String(error)}`)
           }
           break
@@ -389,14 +396,17 @@ export class BundleLoader {
       if (typeof decompressed === 'string') {
         // If result is a string, convert to UTF-8 bytes
         resultArray = new TextEncoder().encode(decompressed)
-      } else if (Array.isArray(decompressed)) {
+      }
+      else if (Array.isArray(decompressed)) {
         // If result is a number array, convert to Uint8Array
         resultArray = new Uint8Array(decompressed)
-      } else if (decompressed instanceof Uint8Array) {
+      }
+      else if (decompressed instanceof Uint8Array) {
         // If result is already a Uint8Array, use it directly
         resultArray = decompressed
-      } else {
-        throw new Error('Unexpected decompression result type')
+      }
+      else {
+        throw new TypeError('Unexpected decompression result type')
       }
 
       // Verify decompressed size if expected size is provided
@@ -405,8 +415,8 @@ export class BundleLoader {
       }
 
       return resultArray
-
-    } catch (error) {
+    }
+    catch (error) {
       throw new Error(`LZMA decompression failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -423,7 +433,8 @@ export class BundleLoader {
     try {
       const manifestText = new TextDecoder().decode(manifestData)
       return JSON.parse(manifestText) as BundleManifest
-    } catch (error) {
+    }
+    catch (error) {
       throw new Error(`Failed to parse manifest: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -434,7 +445,7 @@ export class BundleLoader {
   private async createStoredAssets(
     files: Map<string, Uint8Array>,
     manifest: BundleManifest,
-    bundleName: string
+    bundleName: string,
   ): Promise<StoredAsset[]> {
     const assets: StoredAsset[] = []
     const now = Date.now()
@@ -469,7 +480,7 @@ export class BundleLoader {
                 version: assetInfo.version || 1,
                 mtime: now,
                 createdAt: now,
-                lastAccessed: now
+                lastAccessed: now,
               }
 
               assets.push(asset)
@@ -489,7 +500,7 @@ export class BundleLoader {
     type: AssetType,
     subType: string,
     filename: string,
-    locale: string
+    locale: string,
   ): string {
     if (locale === 'default') {
       return `${type}/${subType}/${filename}`

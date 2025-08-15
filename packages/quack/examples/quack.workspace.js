@@ -13,7 +13,7 @@ export default defineConfig({
         loadTrigger: 'immediate',
         description: 'Essential game assets that must be loaded first',
         dependencies: [],
-        format: 'qpk'
+        format: 'qpk',
       },
       {
         name: 'ui',
@@ -23,7 +23,7 @@ export default defineConfig({
         loadTrigger: 'immediate',
         description: 'User interface elements and menus',
         dependencies: ['core'],
-        format: 'zip'
+        format: 'zip',
       },
       {
         name: 'levels',
@@ -33,7 +33,7 @@ export default defineConfig({
         loadTrigger: 'lazy',
         description: 'Level-specific assets loaded on demand',
         dependencies: ['core', 'ui'],
-        format: 'qpk'
+        format: 'qpk',
       },
       {
         name: 'audio',
@@ -46,23 +46,23 @@ export default defineConfig({
         format: 'qpk',
         compression: {
           level: 9,
-          algorithm: 'lzma'
-        }
-      }
+          algorithm: 'lzma',
+        },
+      },
     ],
     globalSettings: {
       compression: {
         level: 6,
-        algorithm: 'lzma'
+        algorithm: 'lzma',
       },
       encryption: {
         enabled: true,
-        algorithm: 'xor'
+        algorithm: 'xor',
       },
       versioning: {
-        incrementVersion: true
-      }
+        incrementVersion: true,
+      },
     },
-    output: './dist'
-  }
+    output: './dist',
+  },
 })

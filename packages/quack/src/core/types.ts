@@ -1,11 +1,11 @@
 export type AssetType = 'images' | 'characters' | 'audio' | 'video' | 'scripts' | 'data'
-export type AssetSubType = 
-  | 'backgrounds' | 'cg' | 'ui' // Images
-  | 'sprites' // Characters  
-  | 'sfx' | 'voice' | 'bgm' // Audio
-  | 'cutscenes' | 'effects' | 'intro' // Video
-  | 'logic' // Scripts
-  | 'config' | 'save' // Data
+export type AssetSubType
+  = | 'backgrounds' | 'cg' | 'ui' // Images
+    | 'sprites' // Characters
+    | 'sfx' | 'voice' | 'bgm' // Audio
+    | 'cutscenes' | 'effects' | 'intro' // Video
+    | 'logic' // Scripts
+    | 'config' | 'save' // Data
 
 export type BundleFormat = 'zip' | 'qpk'
 export type CompressionAlgorithm = 'none' | 'deflate' | 'lzma'
@@ -196,7 +196,7 @@ export interface WorkspaceConfig {
 export interface BundleDefinition {
   name: string // Bundle identifier (e.g., "core", "levels", "audio")
   displayName?: string // Human-readable name
-  source: string // Source directory relative to workspace root  
+  source: string // Source directory relative to workspace root
   priority?: number // Loading priority (lower numbers load first)
   dependencies?: string[] // Other bundles this depends on
   loadTrigger?: 'immediate' | 'lazy' | 'manual' // When to load this bundle
@@ -322,8 +322,8 @@ export interface EncryptionContext {
 export interface EncryptionPlugin {
   name: string
   algorithm: string
-  encrypt(context: EncryptionContext): Promise<Buffer> | Buffer
-  decrypt(context: EncryptionContext): Promise<Buffer> | Buffer
+  encrypt: (context: EncryptionContext) => Promise<Buffer> | Buffer
+  decrypt: (context: EncryptionContext) => Promise<Buffer> | Buffer
 }
 
 // Configuration for both single bundle and workspace modes
@@ -347,12 +347,12 @@ export interface QuackConfig {
   plugins?: QuackPlugin[]
   ignore?: string[]
   verbose?: boolean
-  
+
   // Workspace mode (multi-bundle)
   workspace?: WorkspaceConfig
   // OR specify workspace config file path
   workspaceConfig?: string
-  
+
   // Bundle selection for workspace operations
   bundle?: string // Specific bundle name to operate on
   bundles?: string[] // Multiple bundle names to operate on
@@ -379,10 +379,10 @@ export interface AssetContext {
 export abstract class QuackPlugin {
   abstract name: string
   abstract version: string
-  
-  async initialize?(config: QuackConfig): Promise<void> {}
-  async processAsset?(context: AssetContext): Promise<void> {}
-  async postBundle?(bundlePath: string, manifest: BundleManifest): Promise<void> {}
+
+  async initialize?(_config: QuackConfig): Promise<void> {}
+  async processAsset?(_context: AssetContext): Promise<void> {}
+  async postBundle?(_bundlePath: string, _manifest: BundleManifest): Promise<void> {}
   async cleanup?(): Promise<void> {}
 }
 

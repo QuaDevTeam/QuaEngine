@@ -1,13 +1,13 @@
-import { createLogger } from '@quajs/logger'
 import type {
   AssetInfo,
-  BundleManifest,
+  AssetType,
   BundleFormat,
+  BundleManifest,
   CompressionAlgorithm,
   EncryptionAlgorithm,
   LocaleInfo,
-  AssetType
 } from '../core/types'
+import { createLogger } from '@quajs/logger'
 
 const logger = createLogger('quack:metadata')
 
@@ -43,7 +43,7 @@ export class MetadataGenerator {
         buildTime?: string
         builder?: string
       }
-    }
+    },
   ): BundleManifest {
     logger.info('Generating bundle manifest')
 
@@ -72,11 +72,11 @@ export class MetadataGenerator {
       buildMetadata: options.buildMetadata,
       compression: {
         algorithm: options.compression.algorithm,
-        level: options.compression.level
+        level: options.compression.level,
       },
       encryption: {
         enabled: options.encryption.enabled,
-        algorithm: options.encryption.algorithm
+        algorithm: options.encryption.algorithm,
       },
       locales: locales.map(l => l.code),
       defaultLocale,
@@ -86,8 +86,8 @@ export class MetadataGenerator {
       performanceMetrics: {
         estimatedLoadTime: Math.max(10, totalSize / 10000), // Rough estimate based on size (more sensitive)
         estimatedDecompressionTime: options.compression.algorithm === 'none' ? 0 : Math.max(5, totalSize / 20000),
-        memoryUsageEstimate: totalSize * 1.5 // Account for overhead
-      }
+        memoryUsageEstimate: totalSize * 1.5, // Account for overhead
+      },
     }
 
     logger.info(`Generated manifest for ${totalFiles} assets (${this.formatBytes(totalSize)})`)
@@ -104,7 +104,7 @@ export class MetadataGenerator {
       audio: {},
       video: {},
       scripts: {},
-      data: {}
+      data: {},
     }
 
     for (const asset of assets) {
@@ -123,7 +123,7 @@ export class MetadataGenerator {
         mimeType: asset.mimeType,
         mtime: asset.mtime,
         version: asset.version,
-        mediaMetadata: asset.mediaMetadata
+        mediaMetadata: asset.mediaMetadata,
       }
     }
 
@@ -209,7 +209,8 @@ export class MetadataGenerator {
 
       logger.info('Manifest validation passed')
       return true
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Manifest validation failed:', error)
       return false
     }
@@ -243,7 +244,7 @@ export class MetadataGenerator {
   calculateStats(
     manifest: BundleManifest,
     compressedSize: number,
-    processingTime: number
+    processingTime: number,
   ) {
     const stats = {
       totalFiles: manifest.totalFiles,
@@ -254,9 +255,9 @@ export class MetadataGenerator {
       locales: manifest.locales.map(code => ({
         code,
         name: this.getLocaleName(code),
-        isDefault: code === manifest.defaultLocale
+        isDefault: code === manifest.defaultLocale,
       })),
-      assetsByType: {} as Record<AssetType, number>
+      assetsByType: {} as Record<AssetType, number>,
     }
 
     // Count assets by type
@@ -271,13 +272,14 @@ export class MetadataGenerator {
    * Format bytes to human readable string
    */
   private formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B'
+    if (bytes === 0)
+      return '0 B'
 
     const k = 1024
     const sizes = ['B', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
 
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
+    return `${Number.parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`
   }
 
   /**
@@ -295,13 +297,15 @@ export class MetadataGenerator {
     const locales = Array.from(localeSet).map(code => ({
       code,
       name: this.getLocaleName(code),
-      isDefault: code === 'default'
+      isDefault: code === 'default',
     }))
 
     // Sort with default first
     return locales.sort((a, b) => {
-      if (a.isDefault) return -1
-      if (b.isDefault) return 1
+      if (a.isDefault)
+        return -1
+      if (b.isDefault)
+        return 1
       return a.code.localeCompare(b.code)
     })
   }
@@ -327,7 +331,7 @@ export class MetadataGenerator {
       'es': 'Spanish',
       'it': 'Italian',
       'pt': 'Portuguese',
-      'ru': 'Russian'
+      'ru': 'Russian',
     }
 
     return names[code.toLowerCase()] || code.toUpperCase()
@@ -351,13 +355,13 @@ export class MetadataGenerator {
    */
   async verifyIntegrity(
     assets: AssetInfo[],
-    manifest: BundleManifest
-  ): Promise<{ valid: boolean; errors: string[] }> {
+    manifest: BundleManifest,
+  ): Promise<{ valid: boolean, errors: string[] }> {
     const errors: string[] = []
 
     // Create lookup map for manifest assets
     const manifestAssets = new Map<string, AssetInfo>()
-    for (const [type, typeAssets] of Object.entries(manifest.assets)) {
+    for (const [_type, typeAssets] of Object.entries(manifest.assets)) {
       for (const [key, asset] of Object.entries(typeAssets)) {
         manifestAssets.set(key, asset as AssetInfo)
       }
@@ -393,7 +397,8 @@ export class MetadataGenerator {
     const valid = errors.length === 0
     if (valid) {
       logger.info('Asset integrity verification passed')
-    } else {
+    }
+    else {
       logger.error(`Asset integrity verification failed with ${errors.length} errors`)
     }
 
@@ -417,12 +422,12 @@ export class MetadataGenerator {
           audio: { count: 0, size: 0 },
           video: { count: 0, size: 0 },
           scripts: { count: 0, size: 0 },
-          data: { count: 0, size: 0 }
+          data: { count: 0, size: 0 },
         },
         compressionEstimates: {
           lzma: { ratio: 0.6 },
-          deflate: { ratio: 0.7 }
-        }
+          deflate: { ratio: 0.7 },
+        },
       }
     }
 
@@ -436,7 +441,7 @@ export class MetadataGenerator {
       audio: { count: 0, size: 0 },
       video: { count: 0, size: 0 },
       scripts: { count: 0, size: 0 },
-      data: { count: 0, size: 0 }
+      data: { count: 0, size: 0 },
     }
 
     for (const asset of assets) {
@@ -455,8 +460,8 @@ export class MetadataGenerator {
       byType,
       compressionEstimates: {
         lzma: { ratio: 0.6 },
-        deflate: { ratio: 0.7 }
-      }
+        deflate: { ratio: 0.7 },
+      },
     }
   }
 
@@ -517,7 +522,7 @@ export class MetadataGenerator {
 
     const totalAssets = assets.length
     const incompleteLocales = Array.from(availableLocales).filter(locale =>
-      locale !== 'default' && coverage[locale] < totalAssets
+      locale !== 'default' && coverage[locale] < totalAssets,
     )
 
     const incompleteAssets: Record<string, string[]> = {}
@@ -531,7 +536,7 @@ export class MetadataGenerator {
       availableLocales: Array.from(availableLocales),
       coverage,
       incompleteLocales,
-      incompleteAssets
+      incompleteAssets,
     }
   }
 
@@ -540,12 +545,12 @@ export class MetadataGenerator {
    */
   suggestLocaleFallbacks(assets: AssetInfo[]) {
     const analysis = this.analyzeLocales(assets)
-    const suggestions: Record<string, { fallback: string; coverage: number }> = {}
+    const suggestions: Record<string, { fallback: string, coverage: number }> = {}
 
     for (const locale of analysis.incompleteLocales) {
       suggestions[locale] = {
         fallback: 'default',
-        coverage: analysis.coverage.default / analysis.coverage[locale]
+        coverage: analysis.coverage.default / analysis.coverage[locale],
       }
     }
 
@@ -561,7 +566,7 @@ export class MetadataGenerator {
     const combinedHash = sortedAssets.map(a => a.hash).join('')
 
     // Generate SHA-256 hash
-    const crypto = require('crypto')
+    const crypto = require('node:crypto')
     return crypto.createHash('sha256').update(combinedHash).digest('hex')
   }
 
@@ -569,7 +574,7 @@ export class MetadataGenerator {
    * Validate version format
    */
   validateVersion(version: string): void {
-    const semverPattern = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/
+    const semverPattern = /^\d+\.\d+\.\d+(-[a-z0-9.-]+)?$/i
     if (!semverPattern.test(version)) {
       throw new Error(`Invalid version format: ${version}`)
     }

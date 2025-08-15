@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite'
 import { resolve } from 'node:path'
+import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
 
 export default defineConfig({
@@ -15,20 +15,35 @@ export default defineConfig({
   build: {
     lib: {
       entry: {
-        index: resolve(import.meta.dirname, 'src/index.ts'),
-        'cli/index': resolve(import.meta.dirname, 'src/cli/index.ts')
+        'index': resolve(import.meta.dirname, 'src/index.ts'),
+        'cli/index': resolve(import.meta.dirname, 'src/cli/index.ts'),
       },
       formats: ['es'],
     },
     rollupOptions: {
       external: [
         // Node.js built-in modules
-        'node:fs', 'node:fs/promises', 'node:path', 'node:process', 'node:url', 
-        'node:util', 'node:crypto', 'node:stream', 'node:os', 'node:buffer', 'node:events',
+        'node:fs',
+        'node:fs/promises',
+        'node:path',
+        'node:process',
+        'node:url',
+        'node:util',
+        'node:crypto',
+        'node:stream',
+        'node:os',
+        'node:buffer',
+        'node:events',
         // External dependencies
-        'commander', 'lzma-native', 'glob', 'mime-types', 'yauzl', 'yazl',
+        'commander',
+        'lzma-native',
+        'glob',
+        'mime-types',
+        'yauzl',
+        'yazl',
         // QuaJS packages
-        '@quajs/logger', '@quajs/utils'
+        '@quajs/logger',
+        '@quajs/utils',
       ],
       output: {
         preserveModules: true,
@@ -49,6 +64,6 @@ export default defineConfig({
   },
   // Explicitly set environment to Node.js
   define: {
-    'process.env.NODE_ENV': '"production"'
+    'process.env.NODE_ENV': '"production"',
   },
 })

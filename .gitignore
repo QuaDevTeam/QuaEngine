@@ -9,3 +9,4 @@ dist
 .github/instructions/nx.instructions.md
 
 CLAUDE.md
+*.timestamp*.mjs

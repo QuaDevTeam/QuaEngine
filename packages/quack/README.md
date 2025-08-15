@@ -74,7 +74,7 @@ const detector = new AssetDetector()
 const assets = await detector.discoverAssets('./assets')
 
 // Assets automatically include media metadata
-assets.forEach(asset => {
+assets.forEach((asset) => {
   console.log(`${asset.name}: ${asset.type}`)
   if (asset.mediaMetadata) {
     console.log(`  Metadata:`, asset.mediaMetadata)
@@ -93,23 +93,23 @@ export default defineConfig({
   source: './src/assets',
   output: './dist',
   format: 'qpk', // or 'zip'
-  
+
   compression: {
     algorithm: 'lzma', // 'none', 'deflate', 'lzma'
     level: 9 // 1-9 for deflate, 1-9 for lzma
   },
-  
+
   encryption: {
     enabled: true,
     algorithm: 'xor', // 'none', 'xor', 'custom'
     key: process.env.ENCRYPTION_KEY
   },
-  
+
   versioning: {
     incrementVersion: true,
     buildNumber: process.env.BUILD_NUMBER
   },
-  
+
   ignore: [
     '**/*.tmp',
     '**/.*',
@@ -164,22 +164,20 @@ Quack automatically detects and categorizes assets:
 - **Images** (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`, `.svg`)
   - Subtypes: `backgrounds`, `cg`, `ui`
   - Metadata: width, height, aspect ratio, animated flag, alpha channel
-  
+
 - **Characters** (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`)
   - Subtypes: `sprites`
   - Metadata: width, height, aspect ratio, animated flag
-  
 - **Audio** (`.mp3`, `.wav`, `.ogg`, `.m4a`, `.flac`, `.aac`)
   - Subtypes: `bgm`, `sfx`, `voice`
   - Metadata: duration, format, bitrate, sample rate, channels
-  
+
 - **Video** (`.mp4`, `.webm`, `.avi`, `.mov`, `.mkv`, `.wmv`, `.flv`)
   - Subtypes: `cutscenes`, `effects`, `intro`
   - Metadata: width, height, aspect ratio, duration, format, frame rate
-  
+
 - **Scripts** (`.js`, `.mjs`)
   - Subtypes: `logic`
-  
 - **Data** (`.json`, `.xml`, `.yaml`, `.yml`, `.txt`, `.csv`)
   - Subtypes: `config`, `save`
 
@@ -446,12 +444,15 @@ Quack includes comprehensive error handling:
 ```typescript
 try {
   const result = await bundler.bundle()
-} catch (error) {
+}
+catch (error) {
   if (error.code === 'ASSET_NOT_FOUND') {
     console.error('Asset missing:', error.asset)
-  } else if (error.code === 'COMPRESSION_FAILED') {
+  }
+  else if (error.code === 'COMPRESSION_FAILED') {
     console.error('Compression error:', error.message)
-  } else if (error.code === 'ENCRYPTION_FAILED') {
+  }
+  else if (error.code === 'ENCRYPTION_FAILED') {
     console.error('Encryption error:', error.message)
   }
 }
@@ -492,7 +493,7 @@ async function buildAssets() {
   })
 
   const result = await bundler.bundle()
-  
+
   console.log(`✅ Bundle created!`)
   console.log(`📁 Files: ${result.manifest.totalFiles}`)
   console.log(`📏 Size: ${(result.manifest.totalSize / 1024 / 1024).toFixed(2)} MB`)
@@ -517,15 +518,15 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '20'
-      
+
       - name: Install dependencies
         run: pnpm install
-      
+
       - name: Build assets
         run: quack bundle ./assets -o ./dist/game.qpk -c lzma:9 --encrypt
         env:
           QUACK_ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-      
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:

@@ -1,5 +1,5 @@
+import type { AssetContext, BundleManifest, QuackConfig, QuackPlugin } from '../core/types'
 import { createLogger } from '@quajs/logger'
-import type { QuackPlugin, AssetContext, QuackConfig, BundleManifest } from '../core/types'
 
 const logger = createLogger('quack:plugin-manager')
 
@@ -55,7 +55,8 @@ export class PluginManager {
           await plugin.initialize(config)
           logger.debug(`Plugin initialized: ${plugin.name}`)
         }
-      } catch (error) {
+      }
+      catch (error) {
         logger.error(`Failed to initialize plugin: ${plugin.name}`, error)
         throw new Error(`Plugin initialization failed: ${plugin.name}`)
       }
@@ -75,7 +76,8 @@ export class PluginManager {
           await plugin.processAsset(context)
           logger.debug(`Asset processed by plugin: ${plugin.name} -> ${context.asset.relativePath}`)
         }
-      } catch (error) {
+      }
+      catch (error) {
         logger.error(`Plugin failed to process asset: ${plugin.name} -> ${context.asset.relativePath}`, error)
         throw new Error(`Asset processing failed: ${plugin.name}`)
       }
@@ -92,7 +94,8 @@ export class PluginManager {
           await plugin.postBundle(bundlePath, manifest)
           logger.debug(`Post-bundle hook called: ${plugin.name}`)
         }
-      } catch (error) {
+      }
+      catch (error) {
         logger.error(`Plugin post-bundle hook failed: ${plugin.name}`, error)
         // Don't throw here, just log the error
       }
@@ -115,7 +118,8 @@ export class PluginManager {
           await plugin.cleanup()
           logger.debug(`Plugin cleaned up: ${plugin.name}`)
         }
-      } catch (error) {
+      }
+      catch (error) {
         logger.error(`Plugin cleanup failed: ${plugin.name}`, error)
         // Continue cleaning up other plugins
       }
@@ -157,10 +161,10 @@ export class PluginManager {
   /**
    * Get plugin information
    */
-  getInfo(): Array<{ name: string; version: string }> {
+  getInfo(): Array<{ name: string, version: string }> {
     return this.plugins.map(p => ({
       name: p.name,
-      version: p.version
+      version: p.version,
     }))
   }
 }

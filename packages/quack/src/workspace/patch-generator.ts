@@ -1,34 +1,29 @@
-import { readFile, writeFile, mkdir, stat } from 'node:fs/promises'
-import { join, dirname, basename } from 'node:path'
-import { createHash } from 'node:crypto'
-import { createLogger } from '@quajs/logger'
-import { ZipBundler } from '../bundlers/zip-bundler'
-import { QPKBundler } from '../bundlers/qpk-bundler'
-import { MetadataGenerator } from '../assets/metadata'
-import { VersionManager } from './versioning'
-import type { 
-  BuildLog, 
-  AssetDiff, 
-  PatchManifest, 
-  PatchOptions,
-  MultiBundlePatchOptions,
-  BundleFormat,
+import type {
+  AssetDiff,
   AssetInfo,
-  QuackPlugin,
-  EncryptionPlugin,
-  EncryptionAlgorithm,
-  WorkspaceBundleIndex
+  BuildLog,
+  MultiBundlePatchOptions,
+  PatchManifest,
+  PatchOptions,
 } from '../core/types'
+import { createHash } from 'node:crypto'
+import { mkdir, readFile, stat } from 'node:fs/promises'
+import { basename, dirname } from 'node:path'
+import { createLogger } from '@quajs/logger'
+import { MetadataGenerator } from '../assets/metadata'
+import { QPKBundler } from '../bundlers/qpk-bundler'
+import { ZipBundler } from '../bundlers/zip-bundler'
+import { VersionManager } from './versioning'
 
 const logger = createLogger('quack:patch-generator')
 
 export class PatchGenerator {
   private versionManager: VersionManager
-  private metadataGenerator: MetadataGenerator
+  private _metadataGenerator: MetadataGenerator
 
   constructor(outputDir?: string, workspaceMode: boolean = false) {
     this.versionManager = new VersionManager(outputDir, workspaceMode)
-    this.metadataGenerator = new MetadataGenerator()
+    this._metadataGenerator = new MetadataGenerator()
   }
 
   /**
@@ -39,7 +34,7 @@ export class PatchGenerator {
 
     // Analyze differences between versions
     const diffs = this.analyzeDifferences(options.fromBuildLog, options.toBuildLog)
-    
+
     if (diffs.totalChanges === 0) {
       logger.info('No changes detected, skipping patch generation')
       return
@@ -81,7 +76,7 @@ export class PatchGenerator {
     // Find added and modified files
     for (const [path, newAsset] of toAssets) {
       const oldAsset = fromAssets.get(path)
-      
+
       if (!oldAsset) {
         // File was added
         added.push({
@@ -89,9 +84,10 @@ export class PatchGenerator {
           operation: 'added',
           newHash: newAsset.hash,
           newVersion: newAsset.version,
-          size: newAsset.size
+          size: newAsset.size,
         })
-      } else if (oldAsset.hash !== newAsset.hash) {
+      }
+      else if (oldAsset.hash !== newAsset.hash) {
         // File was modified
         modified.push({
           path,
@@ -100,7 +96,7 @@ export class PatchGenerator {
           newHash: newAsset.hash,
           oldVersion: oldAsset.version,
           newVersion: newAsset.version,
-          size: newAsset.size
+          size: newAsset.size,
         })
       }
     }
@@ -113,7 +109,7 @@ export class PatchGenerator {
           operation: 'deleted',
           oldHash: oldAsset.hash,
           oldVersion: oldAsset.version,
-          size: oldAsset.size
+          size: oldAsset.size,
         })
       }
     }
@@ -122,7 +118,7 @@ export class PatchGenerator {
       added,
       modified,
       deleted,
-      totalChanges: added.length + modified.length + deleted.length
+      totalChanges: added.length + modified.length + deleted.length,
     }
   }
 
@@ -130,8 +126,8 @@ export class PatchGenerator {
    * Collect assets that need to be included in patch
    */
   private async collectPatchAssets(
-    diffs: { added: AssetDiff[]; modified: AssetDiff[]; deleted: AssetDiff[] },
-    toBuildLog: BuildLog
+    diffs: { added: AssetDiff[], modified: AssetDiff[], deleted: AssetDiff[] },
+    toBuildLog: BuildLog,
   ): Promise<AssetInfo[]> {
     const patchAssets: AssetInfo[] = []
 
@@ -150,7 +146,7 @@ export class PatchGenerator {
           version: assetInfo.version,
           type: this.inferAssetType(diff.path),
           locales: ['default'], // Will be properly detected later
-          mtime: assetInfo.mtime
+          mtime: assetInfo.mtime,
         }
 
         patchAssets.push(patchAsset)
@@ -165,7 +161,7 @@ export class PatchGenerator {
    */
   private inferAssetType(path: string): AssetInfo['type'] {
     const lowerPath = path.toLowerCase()
-    
+
     if (lowerPath.includes('/characters/') || lowerPath.startsWith('characters/')) {
       return 'characters'
     }
@@ -181,7 +177,7 @@ export class PatchGenerator {
     if (lowerPath.includes('/scripts/') || lowerPath.startsWith('scripts/')) {
       return 'scripts'
     }
-    
+
     // Default based on extension
     const ext = path.split('.').pop()?.toLowerCase()
     if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext || '')) {
@@ -196,7 +192,7 @@ export class PatchGenerator {
     if (['js', 'mjs', 'json'].includes(ext || '')) {
       return 'scripts'
     }
-    
+
     return 'images' // Default fallback
   }
 
@@ -204,8 +200,8 @@ export class PatchGenerator {
    * Create patch manifest
    */
   private createPatchManifest(
-    diffs: { added: AssetDiff[]; modified: AssetDiff[]; deleted: AssetDiff[] },
-    options: PatchOptions
+    diffs: { added: AssetDiff[], modified: AssetDiff[], deleted: AssetDiff[] },
+    options: PatchOptions,
   ): PatchManifest {
     return {
       version: '1.0.0',
@@ -217,21 +213,21 @@ export class PatchGenerator {
       fromVersion: options.fromVersion,
       toVersion: options.toVersion,
       compression: {
-        algorithm: options.format === 'qpk' ? 'lzma' : 'deflate'
+        algorithm: options.format === 'qpk' ? 'lzma' : 'deflate',
       },
       encryption: {
         enabled: false, // Patches typically don't need encryption
-        algorithm: 'none'
+        algorithm: 'none',
       },
       locales: ['default'],
       defaultLocale: 'default',
       changes: {
         added: diffs.added,
         modified: diffs.modified,
-        deleted: diffs.deleted
+        deleted: diffs.deleted,
       },
       totalChanges: diffs.added.length + diffs.modified.length + diffs.deleted.length,
-      totalSize: [...diffs.added, ...diffs.modified].reduce((sum, diff) => sum + (diff.size || 0), 0)
+      totalSize: [...diffs.added, ...diffs.modified].reduce((sum, diff) => sum + (diff.size || 0), 0),
     }
   }
 
@@ -240,7 +236,7 @@ export class PatchGenerator {
    */
   private generatePatchVersion(fromVersion: number, toVersion: number): number {
     // Simple patch version: combine from and to versions
-    return parseInt(`${fromVersion}${toVersion.toString().padStart(3, '0')}`)
+    return Number.parseInt(`${fromVersion}${toVersion.toString().padStart(3, '0')}`)
   }
 
   /**
@@ -249,7 +245,7 @@ export class PatchGenerator {
   private async createPatchBundle(
     patchAssets: AssetInfo[],
     patchManifest: PatchManifest,
-    options: PatchOptions
+    options: PatchOptions,
   ): Promise<void> {
     // Ensure output directory exists
     await mkdir(dirname(options.output), { recursive: true })
@@ -258,11 +254,12 @@ export class PatchGenerator {
     if (options.format === 'zip') {
       const zipBundler = new ZipBundler([])
       await zipBundler.createBundle(patchAssets, patchManifest as any, options.output)
-    } else {
+    }
+    else {
       const qpkBundler = new QPKBundler([], 'none')
       await qpkBundler.createBundle(patchAssets, patchManifest as any, options.output, {
         compress: true,
-        encrypt: false
+        encrypt: false,
       })
     }
   }
@@ -272,7 +269,7 @@ export class PatchGenerator {
    */
   private async updateIndexWithPatch(
     options: PatchOptions,
-    patchManifest: PatchManifest
+    patchManifest: PatchManifest,
   ): Promise<void> {
     const patchStats = await stat(options.output)
     const patchBuffer = await readFile(options.output)
@@ -286,7 +283,7 @@ export class PatchGenerator {
       patchVersion: patchManifest.patchVersion,
       created: patchManifest.created,
       size: patchStats.size,
-      changeCount: patchManifest.totalChanges
+      changeCount: patchManifest.totalChanges,
     }
 
     await this.versionManager.addPatchToIndex(patchInfo)
@@ -314,7 +311,8 @@ export class PatchGenerator {
         const qpkBundler = new QPKBundler()
         const { manifest } = await qpkBundler.readBundle(patchPath)
         patchManifest = manifest as PatchManifest
-      } else {
+      }
+      else {
         const zipBundler = new ZipBundler()
         patchManifest = await zipBundler.extractBundle(patchPath, '/tmp/patch-validation') as PatchManifest
       }
@@ -335,24 +333,26 @@ export class PatchGenerator {
       const changes = {
         willAdd: patchManifest.changes.added.map(diff => diff.path),
         willModify: patchManifest.changes.modified.map(diff => diff.path),
-        willDelete: patchManifest.changes.deleted.map(diff => diff.path)
+        willDelete: patchManifest.changes.deleted.map(diff => diff.path),
       }
 
       const valid = errors.length === 0
 
       if (valid) {
         logger.info(`Patch validation successful: ${patchManifest.totalChanges} changes`)
-      } else {
+      }
+      else {
         logger.error(`Patch validation failed: ${errors.join(', ')}`)
       }
 
       return { valid, errors, changes }
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Patch validation failed:', error)
       return {
         valid: false,
         errors: [`Failed to read patch: ${error.message}`],
-        changes: { willAdd: [], willModify: [], willDelete: [] }
+        changes: { willAdd: [], willModify: [], willDelete: [] },
       }
     }
   }
@@ -394,10 +394,10 @@ export class PatchGenerator {
     patchVersion: number
   }> | null> {
     const availablePatches = await this.listAvailablePatches()
-    
+
     // Simple implementation: direct patch
     const directPatch = availablePatches.find(
-      patch => patch.fromVersion === fromVersion && patch.toVersion === toVersion
+      patch => patch.fromVersion === fromVersion && patch.toVersion === toVersion,
     )
 
     if (directPatch) {
@@ -406,7 +406,7 @@ export class PatchGenerator {
 
     // TODO: Implement multi-step patch chain resolution
     // This would find a series of patches that can update from fromVersion to toVersion
-    
+
     return null
   }
 
@@ -420,7 +420,7 @@ export class PatchGenerator {
 
     // Analyze differences between versions
     const diffs = this.analyzeDifferences(options.fromBuildLog, options.toBuildLog)
-    
+
     if (diffs.totalChanges === 0) {
       logger.info('No changes detected, skipping patch generation')
       return
@@ -447,8 +447,8 @@ export class PatchGenerator {
    * Create patch manifest for workspace bundle
    */
   private createWorkspaceBundlePatchManifest(
-    diffs: { added: AssetDiff[]; modified: AssetDiff[]; deleted: AssetDiff[] },
-    options: MultiBundlePatchOptions
+    diffs: { added: AssetDiff[], modified: AssetDiff[], deleted: AssetDiff[] },
+    options: MultiBundlePatchOptions,
   ): PatchManifest {
     return {
       version: '1.0.0',
@@ -460,18 +460,18 @@ export class PatchGenerator {
       fromVersion: options.fromVersion,
       toVersion: options.toVersion,
       compression: {
-        algorithm: options.format === 'qpk' ? 'lzma' : 'deflate'
+        algorithm: options.format === 'qpk' ? 'lzma' : 'deflate',
       },
       encryption: {
         enabled: false,
-        algorithm: 'none'
+        algorithm: 'none',
       },
       locales: ['default'],
       defaultLocale: 'default',
       changes: {
         added: diffs.added,
         modified: diffs.modified,
-        deleted: diffs.deleted
+        deleted: diffs.deleted,
       },
       totalChanges: diffs.added.length + diffs.modified.length + diffs.deleted.length,
       totalSize: [...diffs.added, ...diffs.modified].reduce((sum, diff) => sum + (diff.size || 0), 0),
@@ -479,8 +479,8 @@ export class PatchGenerator {
       workspaceBundle: {
         name: options.bundleName,
         fromBuild: options.fromBuildLog.buildNumber,
-        toBuild: options.toBuildLog.buildNumber
-      }
+        toBuild: options.toBuildLog.buildNumber,
+      },
     }
   }
 
@@ -489,7 +489,7 @@ export class PatchGenerator {
    */
   private async updateWorkspaceIndexWithPatch(
     options: MultiBundlePatchOptions,
-    patchManifest: PatchManifest
+    patchManifest: PatchManifest,
   ): Promise<void> {
     const patchStats = await stat(options.output)
     const patchBuffer = await readFile(options.output)
@@ -503,7 +503,7 @@ export class PatchGenerator {
       patchVersion: patchManifest.patchVersion,
       created: patchManifest.created,
       size: patchStats.size,
-      changeCount: patchManifest.totalChanges
+      changeCount: patchManifest.totalChanges,
     }
 
     await this.versionManager.addPatchToWorkspace(options.bundleName, patchInfo)
@@ -572,7 +572,7 @@ export class PatchGenerator {
 
     return {
       bundlePatches,
-      globalPatches: index.globalPatches
+      globalPatches: index.globalPatches,
     }
   }
 
@@ -580,9 +580,9 @@ export class PatchGenerator {
    * Validate workspace bundle patch
    */
   async validateWorkspaceBundlePatch(
-    patchPath: string, 
-    bundleName: string, 
-    targetVersion: number
+    patchPath: string,
+    bundleName: string,
+    targetVersion: number,
   ): Promise<{
     valid: boolean
     errors: string[]
@@ -607,7 +607,8 @@ export class PatchGenerator {
         const qpkBundler = new QPKBundler()
         const { manifest } = await qpkBundler.readBundle(patchPath)
         patchManifest = manifest as any
-      } else {
+      }
+      else {
         const zipBundler = new ZipBundler()
         patchManifest = await zipBundler.extractBundle(patchPath, '/tmp/patch-validation') as any
       }
@@ -633,29 +634,31 @@ export class PatchGenerator {
       const changes = {
         willAdd: patchManifest.changes.added.map(diff => diff.path),
         willModify: patchManifest.changes.modified.map(diff => diff.path),
-        willDelete: patchManifest.changes.deleted.map(diff => diff.path)
+        willDelete: patchManifest.changes.deleted.map(diff => diff.path),
       }
 
       const valid = errors.length === 0
 
       if (valid) {
         logger.info(`Workspace patch validation successful: ${patchManifest.totalChanges} changes for bundle "${bundleName}"`)
-      } else {
+      }
+      else {
         logger.error(`Workspace patch validation failed: ${errors.join(', ')}`)
       }
 
-      return { 
-        valid, 
-        errors, 
+      return {
+        valid,
+        errors,
         changes,
-        bundleInfo: patchManifest.workspaceBundle
+        bundleInfo: patchManifest.workspaceBundle,
       }
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Workspace patch validation failed:', error)
       return {
         valid: false,
         errors: [`Failed to read patch: ${error.message}`],
-        changes: { willAdd: [], willModify: [], willDelete: [] }
+        changes: { willAdd: [], willModify: [], willDelete: [] },
       }
     }
   }

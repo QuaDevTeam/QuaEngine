@@ -1,8 +1,8 @@
-import { createLogger } from '@quajs/logger';
-import { generateId } from '@quajs/utils';
+import { createLogger } from '@quajs/logger'
+import { generateId } from '@quajs/utils'
 
-const logger = createLogger('store');
+const logger = createLogger('store')
 
-export { generateId };
+export { generateId }
 
-export default logger;
+export default logger

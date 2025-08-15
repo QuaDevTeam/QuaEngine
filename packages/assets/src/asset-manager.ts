@@ -1,15 +1,15 @@
+import type { QuaAssetsDatabase } from './database'
 import type {
-  StoredAsset,
-  AssetType,
   AssetLocale,
-  LoadAssetOptions,
-  AssetQueryResult,
-  JSExecutionResult,
   AssetProcessingPlugin,
-  MediaMetadata
+  AssetQueryResult,
+  AssetType,
+  JSExecutionResult,
+  LoadAssetOptions,
+  MediaMetadata,
+  StoredAsset,
 } from './types'
 import { AssetNotFoundError } from './types'
-import type { QuaAssetsDatabase } from './database'
 
 /**
  * Asset manager handles retrieval and processing of individual assets
@@ -52,7 +52,7 @@ export class AssetManager {
   async getBlob(
     type: AssetType,
     name: string,
-    options: LoadAssetOptions = {}
+    options: LoadAssetOptions = {},
   ): Promise<Blob> {
     const result = await this.getAsset(type, name, options)
     return result.blob
@@ -64,7 +64,7 @@ export class AssetManager {
   async getBlobURL(
     type: AssetType,
     name: string,
-    options: LoadAssetOptions = {}
+    options: LoadAssetOptions = {},
   ): Promise<string> {
     const result = await this.getAsset(type, name, options)
 
@@ -87,7 +87,7 @@ export class AssetManager {
   async getArrayBuffer(
     type: AssetType,
     name: string,
-    options: LoadAssetOptions = {}
+    options: LoadAssetOptions = {},
   ): Promise<ArrayBuffer> {
     const result = await this.getAsset(type, name, options)
     return await result.blob.arrayBuffer()
@@ -99,7 +99,7 @@ export class AssetManager {
   async getText(
     type: AssetType,
     name: string,
-    options: LoadAssetOptions = {}
+    options: LoadAssetOptions = {},
   ): Promise<string> {
     const result = await this.getAsset(type, name, options)
     return await result.blob.text()
@@ -111,7 +111,7 @@ export class AssetManager {
   async getJSON<T = any>(
     type: AssetType,
     name: string,
-    options: LoadAssetOptions = {}
+    options: LoadAssetOptions = {},
   ): Promise<T> {
     const text = await this.getText(type, name, options)
     return JSON.parse(text)
@@ -122,7 +122,7 @@ export class AssetManager {
    */
   async executeJS(
     name: string,
-    options: LoadAssetOptions = {}
+    options: LoadAssetOptions = {},
   ): Promise<JSExecutionResult> {
     const result = await this.getAsset('scripts', name, options)
 
@@ -141,13 +141,14 @@ export class AssetManager {
 
       executionResult = {
         exports,
-        executionTime: performance.now() - startTime
+        executionTime: performance.now() - startTime,
       }
-    } catch (error) {
+    }
+    catch (error) {
       executionResult = {
         exports: null,
         error: error as Error,
-        executionTime: performance.now() - startTime
+        executionTime: performance.now() - startTime,
       }
     }
 
@@ -163,7 +164,7 @@ export class AssetManager {
   async getBlobBatch(
     type: AssetType,
     names: string[],
-    options: LoadAssetOptions = {}
+    options: LoadAssetOptions = {},
   ): Promise<Map<string, Blob>> {
     const results = new Map<string, Blob>()
 
@@ -172,7 +173,8 @@ export class AssetManager {
       try {
         const blob = await this.getBlob(type, name, options)
         return { name, blob }
-      } catch (error) {
+      }
+      catch (error) {
         console.warn(`Failed to load asset ${type}/${name}:`, error)
         return { name, blob: null }
       }
@@ -195,12 +197,13 @@ export class AssetManager {
   async hasAsset(
     type: AssetType,
     name: string,
-    options: LoadAssetOptions = {}
+    options: LoadAssetOptions = {},
   ): Promise<boolean> {
     try {
       await this.getAsset(type, name, options)
       return true
-    } catch (error) {
+    }
+    catch (error) {
       return false
     }
   }
@@ -211,12 +214,13 @@ export class AssetManager {
   async getMediaMetadata(
     type: AssetType,
     name: string,
-    options: LoadAssetOptions = {}
+    options: LoadAssetOptions = {},
   ): Promise<MediaMetadata | null> {
     try {
       const result = await this.getAsset(type, name, options)
       return result.asset.mediaMetadata || null
-    } catch (error) {
+    }
+    catch (error) {
       return null
     }
   }
@@ -227,7 +231,7 @@ export class AssetManager {
   private async getAsset(
     type: AssetType,
     name: string,
-    options: LoadAssetOptions = {}
+    options: LoadAssetOptions = {},
   ): Promise<AssetQueryResult> {
     const locale = options.locale || this.defaultLocale
     const bundleName = options.bundleName
@@ -240,9 +244,10 @@ export class AssetManager {
         bundleName,
         type,
         name,
-        locale
+        locale,
       )
-    } else {
+    }
+    else {
       // Search across all bundles
       const assets = await this.database.findAssets({ type, name })
 
@@ -264,7 +269,7 @@ export class AssetManager {
     return {
       asset: processedAsset,
       blob: processedAsset.blob,
-      fromCache: true
+      fromCache: true,
     }
   }
 
@@ -274,11 +279,13 @@ export class AssetManager {
   private findBestLocaleMatch(assets: StoredAsset[], preferredLocale: AssetLocale): StoredAsset | undefined {
     // First, try exact locale match
     let match = assets.find(asset => asset.locale === preferredLocale)
-    if (match) return match
+    if (match)
+      return match
 
     // Then try default locale
     match = assets.find(asset => asset.locale === 'default')
-    if (match) return match
+    if (match)
+      return match
 
     // Finally, return any asset
     return assets[0]
@@ -294,7 +301,8 @@ export class AssetManager {
     for (const plugin of plugins) {
       try {
         processedAsset = await plugin.processAsset(processedAsset)
-      } catch (error) {
+      }
+      catch (error) {
         console.warn(`Asset processing plugin ${plugin.name} failed:`, error)
       }
     }
@@ -326,7 +334,7 @@ export class AssetManager {
         'setInterval',
         'clearTimeout',
         'clearInterval',
-        wrappedCode
+        wrappedCode,
       )
 
       // Create limited require function
@@ -343,12 +351,13 @@ export class AssetManager {
         setTimeout,
         setInterval,
         clearTimeout,
-        clearInterval
+        clearInterval,
       )
 
       // Return exports (could be module.exports if reassigned)
       return module.exports !== exports ? module.exports : (result !== undefined ? result : exports)
-    } catch (error) {
+    }
+    catch (error) {
       throw new Error(`JavaScript execution failed in ${filename}: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -383,10 +392,12 @@ export class AssetManager {
         
         return __exports;
       `
-    } else if (code.includes('module.exports')) {
+    }
+    else if (code.includes('module.exports')) {
       // CommonJS style - just execute
       wrappedCode = code
-    } else {
+    }
+    else {
       // Assume it's a function or expression, return the result
       wrappedCode = `return (${code});`
     }
@@ -443,7 +454,7 @@ export class AssetManager {
   } {
     return {
       blobUrls: this.blobUrlCache.size,
-      jsExecutions: this.jsCache.size
+      jsExecutions: this.jsCache.size,
     }
   }
 
@@ -469,9 +480,9 @@ export class AssetManager {
     options?: LoadAssetOptions
   }>): Promise<void> {
     const promises = requests.map(({ type, name, options }) =>
-      this.getAsset(type, name, options).catch(error => {
+      this.getAsset(type, name, options).catch((error) => {
         console.warn(`Failed to preload asset ${type}/${name}:`, error)
-      })
+      }),
     )
 
     await Promise.allSettled(promises)
