@@ -1,23 +1,25 @@
-import { QuaStore, createStore } from '@quajs/store'
-import { QuaAssets } from '@quajs/assets'
-import { Pipeline } from '@quajs/pipeline'
-import { getPackageLogger } from '@quajs/logger'
-
+import type { QuaStore } from '@quajs/store'
+import type { VolumeChangePayload } from '../events/events'
+import type {
+  EngineContext,
+  EnginePlugin,
+  PluginConstructor,
+  PluginConstructorOptions,
+} from '../plugins/plugins'
 import type {
   EngineConfig,
   GameStep,
   Scene,
-  StepContext,
   SoundOptions,
+  StepContext,
   VolumeSettings,
 } from './types'
-import type {
-  EnginePlugin,
-  EngineContext,
-  PluginConstructor,
-  PluginConstructorOptions
-} from '../plugins/plugins'
-import { LogicToRenderEvents, RenderToLogicEvents, type VolumeChangePayload } from '../events/events'
+import { QuaAssets } from '@quajs/assets'
+
+import { getPackageLogger } from '@quajs/logger'
+import { Pipeline } from '@quajs/pipeline'
+import { createStore } from '@quajs/store'
+import { LogicToRenderEvents, RenderToLogicEvents } from '../events/events'
 import { GameManager } from '../managers/game-manager'
 import { SoundSystem } from '../managers/sound-system'
 
@@ -25,7 +27,7 @@ const logger = getPackageLogger('engine')
 
 /**
  * QuaEngine - Core engine class for the visual novel engine
- * 
+ *
  * Provides plugin system, game state management, and communication
  * between logic and render layers through event-driven architecture.
  */
@@ -47,7 +49,7 @@ export class QuaEngine {
     master: 1.0,
     bgm: 1.0,
     sound: 1.0,
-    voice: 1.0
+    voice: 1.0,
   }
 
   private isInitialized = false
@@ -69,9 +71,9 @@ export class QuaEngine {
           currentStepId: null,
           stepHistory: [],
           currentScene: null,
-          volumeSettings: this.volumeSettings
-        }
-      }
+          volumeSettings: this.volumeSettings,
+        },
+      },
     })
 
     this.assets = new QuaAssets(this.config.assets?.baseUrl || '')
@@ -119,7 +121,7 @@ export class QuaEngine {
       // Initialize core components
       await Promise.all([
         this.assets.initialize?.(),
-        this.initializePlugins()
+        this.initializePlugins(),
       ])
 
       this.isInitialized = true
@@ -128,10 +130,10 @@ export class QuaEngine {
       // Notify render layer that engine is ready
       await this.pipeline.emit(LogicToRenderEvents.SYSTEM_MESSAGE, {
         type: 'engine_ready',
-        message: 'QuaEngine initialized successfully'
+        message: 'QuaEngine initialized successfully',
       })
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Engine initialization failed:', error)
       throw error
     }
@@ -140,22 +142,23 @@ export class QuaEngine {
   /**
    * Use a plugin in the engine
    */
-  use<T extends EnginePlugin>(
+  use<_T extends EnginePlugin>(
     PluginClass: PluginConstructor,
     options?: PluginConstructorOptions
   ): this
   use<T extends EnginePlugin>(plugin: T): this
   use<T extends EnginePlugin>(
     pluginOrClass: PluginConstructor | T,
-    options?: PluginConstructorOptions
+    options?: PluginConstructorOptions,
   ): this {
     try {
       let plugin: EnginePlugin
 
       if (typeof pluginOrClass === 'function') {
         // It's a constructor
-        plugin = new pluginOrClass(options || {})
-      } else {
+        plugin = new (pluginOrClass as PluginConstructor)(options || {})
+      }
+      else {
         // It's an instance
         plugin = pluginOrClass
       }
@@ -170,12 +173,12 @@ export class QuaEngine {
 
       // If engine is already initialized, initialize the plugin immediately
       if (this.isInitialized) {
-        this.initializePlugin(plugin).catch(error => {
+        this.initializePlugin(plugin).catch((error) => {
           logger.error(`Failed to initialize plugin ${plugin.name}:`, error)
         })
       }
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to register plugin:', error)
       throw error
     }
@@ -211,15 +214,15 @@ export class QuaEngine {
       // Notify render layer
       await this.pipeline.emit(LogicToRenderEvents.SCENE_CHANGE, {
         fromScene: previousScene,
-        toScene: scene.name
+        toScene: scene.name,
       })
 
       // Run scene
       await scene.run()
 
       logger.info(`Scene loaded successfully: ${scene.name}`)
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Failed to load scene ${scene.name}:`, error)
       throw error
     }
@@ -259,7 +262,7 @@ export class QuaEngine {
       // Update store
       this.store.commit('setCurrentStep', {
         stepId: step.uuid,
-        stepHistory: [...this.stepHistory]
+        stepHistory: [...this.stepHistory],
       })
 
       // Create step context
@@ -269,7 +272,7 @@ export class QuaEngine {
         previousStepId: this.stepHistory[this.stepHistory.length - 2],
         store: this.store,
         assets: this.assets,
-        pipeline: this.pipeline
+        pipeline: this.pipeline,
       }
 
       // Notify plugins
@@ -279,8 +282,8 @@ export class QuaEngine {
       await step.run(stepContext)
 
       logger.debug(`Step completed: ${step.uuid}`)
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Step execution failed: ${step.uuid}`, error)
       throw error
     }
@@ -310,18 +313,18 @@ export class QuaEngine {
       // Update store
       this.store.commit('setCurrentStep', {
         stepId: stepUUID,
-        stepHistory: [...this.stepHistory]
+        stepHistory: [...this.stepHistory],
       })
 
       // Re-render the scene for this step
       await this.pipeline.emit(LogicToRenderEvents.SCENE_INIT, {
         sceneId: this.currentScene?.name || 'unknown',
-        stepId: stepUUID
+        stepId: stepUUID,
       })
 
       logger.info(`Rewind completed to step: ${stepUUID}`)
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Rewind failed for step: ${stepUUID}`, error)
       throw error
     }
@@ -339,7 +342,7 @@ export class QuaEngine {
       assetName,
       volume: finalVolume,
       loop: options.loop ?? false,
-      fadeIn: options.fadeIn
+      fadeIn: options.fadeIn,
     })
   }
 
@@ -355,7 +358,7 @@ export class QuaEngine {
       assetName,
       volume: finalVolume,
       loop: options.loop ?? false,
-      fadeIn: options.fadeIn
+      fadeIn: options.fadeIn,
     })
   }
 
@@ -371,7 +374,7 @@ export class QuaEngine {
       assetName,
       volume: finalVolume,
       loop: options.loop ?? true,
-      fadeIn: options.fadeIn
+      fadeIn: options.fadeIn,
     })
   }
 
@@ -398,6 +401,20 @@ export class QuaEngine {
   }
 
   /**
+   * Get current volume settings
+   */
+  getVolumeSettings(): VolumeSettings {
+    return { ...this.volumeSettings }
+  }
+
+  /**
+   * Get the pipeline instance for event emission
+   */
+  getPipeline(): Pipeline {
+    return this.pipeline
+  }
+
+  /**
    * Get the store instance for direct access to save/load slot methods
    */
   getStore(): QuaStore {
@@ -408,15 +425,15 @@ export class QuaEngine {
    * Save game to a slot with metadata
    */
   async saveToSlot(
-    slotId: string, 
+    slotId: string,
     metadata: {
-      name?: string;
-      screenshot?: string;
-      sceneName?: string;
-      stepId?: string;
-      playtime?: number;
-      [key: string]: unknown;
-    } = {}
+      name?: string
+      screenshot?: string
+      sceneName?: string
+      stepId?: string
+      playtime?: number
+      [key: string]: unknown
+    } = {},
   ): Promise<void> {
     this.assertInitialized()
 
@@ -424,7 +441,7 @@ export class QuaEngine {
       ...metadata,
       sceneName: metadata.sceneName || this.currentScene?.name,
       stepId: metadata.stepId || this.currentStepId,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     }
 
     await this.store.saveToSlot(slotId, saveMetadata)
@@ -438,7 +455,7 @@ export class QuaEngine {
     this.assertInitialized()
 
     await this.store.loadFromSlot(slotId, options)
-    
+
     // Restore engine state from store
     const engineState = this.store.state.engine as any
     if (engineState) {
@@ -495,8 +512,8 @@ export class QuaEngine {
       this.isInitialized = false
 
       logger.info('QuaEngine destroyed')
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Error during engine destruction:', error)
       throw error
     }
@@ -515,7 +532,7 @@ export class QuaEngine {
 
   private async initializePlugins(): Promise<void> {
     const pluginPromises = Array.from(this.plugins.values()).map(plugin =>
-      this.initializePlugin(plugin)
+      this.initializePlugin(plugin),
     )
 
     await Promise.all(pluginPromises)
@@ -528,13 +545,13 @@ export class QuaEngine {
         store: this.store,
         assets: this.assets,
         pipeline: this.pipeline,
-        stepId: this.currentStepId
+        stepId: this.currentStepId,
       }
 
       await plugin.init(context)
       logger.debug(`Plugin initialized: ${plugin.name}`)
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Plugin initialization failed: ${plugin.name}`, error)
       throw error
     }
@@ -548,7 +565,7 @@ export class QuaEngine {
         store: this.store,
         assets: this.assets,
         pipeline: this.pipeline,
-        stepId: stepContext.stepId
+        stepId: stepContext.stepId,
       }))
 
     await Promise.all(promises)

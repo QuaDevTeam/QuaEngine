@@ -1,7 +1,7 @@
-import type { EnginePlugin, PluginConstructorOptions } from '../plugins/plugins'
-import type { QuaStore } from '@quajs/store'
 import type { QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
+import type { QuaStore } from '@quajs/store'
+import type { EnginePlugin, PluginConstructorOptions } from '../plugins/plugins'
 
 /**
  * Slot metadata for save games
@@ -44,13 +44,13 @@ export interface StepContext {
  * Forward reference interface for QuaEngine to avoid circular dependencies
  */
 export interface QuaEngineInterface {
-  getCurrentSceneName(): string | undefined
-  getCurrentStepId(): string | undefined
-  getStore(): QuaStore
-  playSound(assetName: string, options?: SoundOptions): Promise<void>
-  dub(assetName: string, options?: SoundOptions): Promise<void>
-  playBGM(assetName: string, options?: SoundOptions): Promise<void>
-  setVolume(type: keyof VolumeSettings, value: number): void
+  getCurrentSceneName: () => string | undefined
+  getCurrentStepId: () => string | undefined
+  getStore: () => QuaStore
+  playSound: (assetName: string, options?: SoundOptions) => Promise<void>
+  dub: (assetName: string, options?: SoundOptions) => Promise<void>
+  playBGM: (assetName: string, options?: SoundOptions) => Promise<void>
+  setVolume: (type: keyof VolumeSettings, value: number) => void
 }
 
 /**
@@ -172,17 +172,17 @@ export interface VolumeSettings {
 export interface EngineEventMap {
   'step:start': { stepId: string }
   'step:complete': { stepId: string }
-  'step:error': { stepId: string; error: Error }
-  'scene:change': { fromScene?: string; toScene: string }
+  'step:error': { stepId: string, error: Error }
+  'scene:change': { fromScene?: string, toScene: string }
   'save:complete': { slotId: string }
   'load:complete': { slotId: string }
   'plugin:loaded': { pluginName: string }
-  'plugin:error': { pluginName: string; error: Error }
+  'plugin:error': { pluginName: string, error: Error }
 }
 
 /**
  * Plugin use options
  */
-export type UsePluginOptions<T extends EnginePlugin = EnginePlugin> =
-  | PluginConstructorOptions
-  | T
+export type UsePluginOptions<T extends EnginePlugin = EnginePlugin>
+  = | PluginConstructorOptions
+    | T
