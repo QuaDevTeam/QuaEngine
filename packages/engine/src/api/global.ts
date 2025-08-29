@@ -1,5 +1,5 @@
-import { QuaEngine } from '../core/engine'
 import type { GameStep, Scene, SoundOptions, VolumeSettings } from '../core/types'
+import { QuaEngine } from '../core/engine'
 
 let engineInstance: QuaEngine | null = null
 
@@ -74,15 +74,15 @@ export function setVolume(type: keyof VolumeSettings, value: number): void {
  * Save game to a slot with metadata
  */
 export async function saveToSlot(
-  slotId: string, 
+  slotId: string,
   metadata?: {
-    name?: string;
-    screenshot?: string;
-    sceneName?: string;
-    stepId?: string;
-    playtime?: number;
-    [key: string]: unknown;
-  }
+    name?: string
+    screenshot?: string
+    sceneName?: string
+    stepId?: string
+    playtime?: number
+    [key: string]: unknown
+  },
 ): Promise<void> {
   return getEngine().saveToSlot(slotId, metadata)
 }

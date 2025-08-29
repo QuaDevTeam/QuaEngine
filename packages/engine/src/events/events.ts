@@ -51,7 +51,7 @@ export enum LogicToRenderEvents {
 
   // System
   SYSTEM_MESSAGE = 'system/message',
-  SYSTEM_ERROR = 'system/error'
+  SYSTEM_ERROR = 'system/error',
 }
 
 export enum RenderToLogicEvents {
@@ -80,7 +80,7 @@ export enum RenderToLogicEvents {
 
   // Ready States
   RENDER_READY = 'render/ready',
-  SCENE_READY = 'scene/ready'
+  SCENE_READY = 'scene/ready',
 }
 
 // Combined event types for type safety
