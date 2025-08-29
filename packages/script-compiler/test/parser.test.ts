@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { QuaScriptParser } from '../src/parser'
+import { QuaScriptParser } from '../src/core/parser'
 
 describe('quaScriptParser', () => {
   it('should parse simple dialogue', () => {

@@ -96,3 +96,15 @@ export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
     module: '@quajs/engine'
   }
 }
+
+/**
+ * Merge plugin-extended decorator mappings with default mappings
+ */
+export function mergeDecoratorMappings(
+  pluginMappings: DecoratorMapping = {}
+): DecoratorMapping {
+  return {
+    ...DEFAULT_DECORATOR_MAPPINGS,
+    ...pluginMappings
+  }
+}

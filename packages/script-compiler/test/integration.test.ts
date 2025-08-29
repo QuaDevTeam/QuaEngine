@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { QuaScriptParser } from '../src/parser'
-import { QuaScriptTransformer } from '../src/transformer'
+import { QuaScriptParser } from '../src/core/parser'
+import { QuaScriptTransformer } from '../src/core/transformer'
 
 describe('quaScript Integration Tests', () => {
   it('complete transformation workflow', () => {

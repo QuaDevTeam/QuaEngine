@@ -1,29 +1,36 @@
 import type { Plugin } from 'vite'
-import { QuaScriptTransformer } from './transformer'
-import type { CompilerOptions, DecoratorMapping } from './types'
+import { createPluginAwareTransformer } from './plugin-aware-transformer'
+import type { CompilerOptions, DecoratorMapping } from '../core/types'
 
 export interface QuaScriptPluginOptions {
   include?: string | RegExp | (string | RegExp)[]
   exclude?: string | RegExp | (string | RegExp)[]
   decoratorMappings?: DecoratorMapping
   compilerOptions?: CompilerOptions
+  /** Enable plugin-aware decorator loading (default: true) */
+  usePluginDecorators?: boolean
 }
 
 /**
- * Vite plugin for QuaScript compilation
+ * Vite plugin for QuaScript compilation with plugin support
  */
 export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
   const {
     include = /\.(ts|tsx|js|jsx)$/,
     exclude = /node_modules/,
     decoratorMappings,
-    compilerOptions
+    compilerOptions,
+    usePluginDecorators = true
   } = options
 
-  const transformer = new QuaScriptTransformer(decoratorMappings, compilerOptions)
+  let transformer: ReturnType<typeof createPluginAwareTransformer>
 
   return {
     name: 'qua-script',
+    configResolved() {
+      // Create transformer after config is resolved to ensure plugins are loaded
+      transformer = createPluginAwareTransformer(decoratorMappings, compilerOptions)
+    },
     transform(code: string, id: string) {
       // Check if file should be processed
       if (!shouldTransform(id, include, exclude)) {
