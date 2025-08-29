@@ -1,22 +1,22 @@
 import type { QuaEngine } from '../core/engine'
 import type { Scene } from '../core/types'
-import { LogicToRenderEvents } from '../events/events'
 import { getPackageLogger } from '@quajs/logger'
+import { LogicToRenderEvents } from '../events/events'
 
 const logger = getPackageLogger('engine:scene-manager')
 
 /**
  * Scene transition types
  */
-export type SceneTransition =
-  | 'instant'
-  | 'fade'
-  | 'slide_left'
-  | 'slide_right'
-  | 'slide_up'
-  | 'slide_down'
-  | 'zoom_in'
-  | 'zoom_out'
+export type SceneTransition
+  = | 'instant'
+    | 'fade'
+    | 'slide_left'
+    | 'slide_right'
+    | 'slide_up'
+    | 'slide_down'
+    | 'zoom_in'
+    | 'zoom_out'
 
 /**
  * Scene transition options
@@ -48,7 +48,7 @@ export class SceneManager {
    */
   async loadScene(
     scene: Scene,
-    transition?: SceneTransitionOptions
+    transition?: SceneTransitionOptions,
   ): Promise<void> {
     logger.info(`Loading scene: ${scene.name}`)
 
@@ -73,10 +73,10 @@ export class SceneManager {
       await scene.init()
 
       // Notify render layer of scene change
-      await this.engine['pipeline'].emit(LogicToRenderEvents.SCENE_CHANGE, {
+      await this.engine.getPipeline().emit(LogicToRenderEvents.SCENE_CHANGE, {
         fromScene: previousScene?.name,
         toScene: scene.name,
-        transition
+        transition,
       })
 
       // Execute transition
@@ -88,8 +88,8 @@ export class SceneManager {
       await scene.run()
 
       logger.info(`Scene loaded successfully: ${scene.name}`)
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Failed to load scene: ${scene.name}`, error)
       throw error
     }
@@ -118,9 +118,9 @@ export class SceneManager {
   async initializeScene(sceneId: string, config: Record<string, unknown> = {}): Promise<void> {
     logger.debug(`Initializing scene: ${sceneId}`)
 
-    await this.engine['pipeline'].emit(LogicToRenderEvents.SCENE_INIT, {
+    await this.engine.getPipeline().emit(LogicToRenderEvents.SCENE_INIT, {
       sceneId,
-      config
+      config,
     })
   }
 
@@ -138,16 +138,16 @@ export class SceneManager {
     try {
       await this.currentScene.destroy?.()
 
-      await this.engine['pipeline'].emit(LogicToRenderEvents.SCENE_DESTROY, {
-        sceneId: this.currentScene.name
+      await this.engine.getPipeline().emit(LogicToRenderEvents.SCENE_DESTROY, {
+        sceneId: this.currentScene.name,
       })
 
       this.addToHistory(this.currentScene.name)
       this.currentScene = undefined
 
       logger.info('Scene destroyed successfully')
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to destroy scene', error)
       throw error
     }
@@ -158,13 +158,13 @@ export class SceneManager {
    */
   async setBackground(
     assetName: string,
-    transition?: { type: 'fade' | 'slide' | 'instant'; duration?: number }
+    transition?: { type: 'fade' | 'slide' | 'instant', duration?: number },
   ): Promise<void> {
     logger.debug(`Setting background: ${assetName}`)
 
-    await this.engine['pipeline'].emit(LogicToRenderEvents.BACKGROUND_SET, {
+    await this.engine.getPipeline().emit(LogicToRenderEvents.BACKGROUND_SET, {
       assetName,
-      transition
+      transition,
     })
   }
 
@@ -174,7 +174,7 @@ export class SceneManager {
   async clearBackground(): Promise<void> {
     logger.debug('Clearing background')
 
-    await this.engine['pipeline'].emit(LogicToRenderEvents.BACKGROUND_CLEAR, {})
+    await this.engine.getPipeline().emit(LogicToRenderEvents.BACKGROUND_CLEAR, {})
   }
 
   /**
@@ -183,14 +183,14 @@ export class SceneManager {
   async showDialogue(
     characterName: string | undefined,
     text: string,
-    choices?: Array<{ id: string; text: string; enabled: boolean }>
+    choices?: Array<{ id: string, text: string, enabled: boolean }>,
   ): Promise<void> {
     logger.debug(`Showing dialogue: ${characterName || 'Narrator'}`)
 
-    await this.engine['pipeline'].emit(LogicToRenderEvents.DIALOGUE_SHOW, {
+    await this.engine.getPipeline().emit(LogicToRenderEvents.DIALOGUE_SHOW, {
       characterName,
       text,
-      choices
+      choices,
     })
   }
 
@@ -200,7 +200,7 @@ export class SceneManager {
   async hideDialogue(): Promise<void> {
     logger.debug('Hiding dialogue')
 
-    await this.engine['pipeline'].emit(LogicToRenderEvents.DIALOGUE_HIDE, {})
+    await this.engine.getPipeline().emit(LogicToRenderEvents.DIALOGUE_HIDE, {})
   }
 
   /**
@@ -209,14 +209,14 @@ export class SceneManager {
   async updateDialogue(
     text: string,
     characterName?: string,
-    choices?: Array<{ id: string; text: string; enabled: boolean }>
+    choices?: Array<{ id: string, text: string, enabled: boolean }>,
   ): Promise<void> {
     logger.debug('Updating dialogue')
 
-    await this.engine['pipeline'].emit(LogicToRenderEvents.DIALOGUE_UPDATE, {
+    await this.engine.getPipeline().emit(LogicToRenderEvents.DIALOGUE_UPDATE, {
       characterName,
       text,
-      choices
+      choices,
     })
   }
 
@@ -225,13 +225,13 @@ export class SceneManager {
    */
   async showUI(
     elementId: string,
-    config: Record<string, unknown> = {}
+    config: Record<string, unknown> = {},
   ): Promise<void> {
     logger.debug(`Showing UI element: ${elementId}`)
 
-    await this.engine['pipeline'].emit(LogicToRenderEvents.UI_SHOW, {
+    await this.engine.getPipeline().emit(LogicToRenderEvents.UI_SHOW, {
       elementId,
-      config
+      config,
     })
   }
 
@@ -241,8 +241,8 @@ export class SceneManager {
   async hideUI(elementId: string): Promise<void> {
     logger.debug(`Hiding UI element: ${elementId}`)
 
-    await this.engine['pipeline'].emit(LogicToRenderEvents.UI_HIDE, {
-      elementId
+    await this.engine.getPipeline().emit(LogicToRenderEvents.UI_HIDE, {
+      elementId,
     })
   }
 
@@ -251,13 +251,13 @@ export class SceneManager {
    */
   async updateUI(
     elementId: string,
-    config: Record<string, unknown>
+    config: Record<string, unknown>,
   ): Promise<void> {
     logger.debug(`Updating UI element: ${elementId}`)
 
-    await this.engine['pipeline'].emit(LogicToRenderEvents.UI_UPDATE, {
+    await this.engine.getPipeline().emit(LogicToRenderEvents.UI_UPDATE, {
       elementId,
-      config
+      config,
     })
   }
 
@@ -270,7 +270,7 @@ export class SceneManager {
       duration?: number
       intensity?: number
       target?: string
-    } = {}
+    } = {},
   ): Promise<void> {
     logger.debug(`Applying effect: ${effectType}`)
 
@@ -278,10 +278,10 @@ export class SceneManager {
       fade_in: LogicToRenderEvents.EFFECT_FADE_IN,
       fade_out: LogicToRenderEvents.EFFECT_FADE_OUT,
       shake: LogicToRenderEvents.EFFECT_SHAKE,
-      flash: LogicToRenderEvents.EFFECT_FLASH
+      flash: LogicToRenderEvents.EFFECT_FLASH,
     }
 
-    await this.engine['pipeline'].emit(eventMap[effectType], options)
+    await this.engine.getPipeline().emit(eventMap[effectType], options)
   }
 
   /**

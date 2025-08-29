@@ -1,7 +1,7 @@
 import type { QuaEngine } from '../core/engine'
 import type { SoundOptions, VolumeSettings } from '../core/types'
-import { LogicToRenderEvents } from '../events/events'
 import { getPackageLogger } from '@quajs/logger'
+import { LogicToRenderEvents } from '../events/events'
 
 const logger = getPackageLogger('engine:sound-system')
 
@@ -26,7 +26,7 @@ export class SoundSystem {
    */
   async playSound(
     assetName: string,
-    options: SoundOptions & { id?: string } = {}
+    options: SoundOptions & { id?: string } = {},
   ): Promise<void> {
     logger.debug(`Playing sound: ${assetName}`)
 
@@ -38,6 +38,7 @@ export class SoundSystem {
         await this.stopSound(soundId)
       }
 
+      // Play sound through engine (which applies sound-specific volume)
       await this.engine.playSound(assetName, options)
 
       // Track active sound
@@ -49,9 +50,9 @@ export class SoundSystem {
         if (!metadata || !('duration' in metadata) || typeof metadata.duration !== 'number') {
           throw new Error(`Asset ${assetName} is corrupted or missing duration metadata`)
         }
-        
+
         const duration = metadata.duration * 1000
-        
+
         // Auto-remove after actual duration
         setTimeout(() => {
           this.activeSounds.delete(soundId)
@@ -59,8 +60,8 @@ export class SoundSystem {
       }
 
       logger.debug(`Sound started: ${assetName}`)
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Failed to play sound: ${assetName}`, error)
       throw error
     }
@@ -73,10 +74,10 @@ export class SoundSystem {
     logger.debug(`Stopping sound: ${soundId}`)
 
     try {
-      await this.engine['pipeline'].emit(LogicToRenderEvents.SOUND_STOP, { soundId })
+      await this.engine.getPipeline().emit(LogicToRenderEvents.SOUND_STOP, { soundId })
       this.activeSounds.delete(soundId)
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Failed to stop sound: ${soundId}`, error)
       throw error
     }
@@ -89,10 +90,10 @@ export class SoundSystem {
     logger.debug('Stopping all sounds')
 
     try {
-      await this.engine['pipeline'].emit(LogicToRenderEvents.SOUND_STOP, { soundId: '*' })
+      await this.engine.getPipeline().emit(LogicToRenderEvents.SOUND_STOP, { soundId: '*' })
       this.activeSounds.clear()
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to stop all sounds', error)
       throw error
     }
@@ -103,7 +104,7 @@ export class SoundSystem {
    */
   async dub(
     assetName: string,
-    options: SoundOptions & { characterId?: string } = {}
+    options: SoundOptions & { characterId?: string } = {},
   ): Promise<void> {
     logger.debug(`Playing dub: ${assetName}`)
 
@@ -115,6 +116,7 @@ export class SoundSystem {
         await this.stopDub(dubId)
       }
 
+      // Play dubbing through engine (which applies voice-specific volume)
       await this.engine.dub(assetName, options)
 
       // Track active dub
@@ -125,17 +127,17 @@ export class SoundSystem {
       if (!metadata || !('duration' in metadata) || typeof metadata.duration !== 'number') {
         throw new Error(`Asset ${assetName} is corrupted or missing duration metadata`)
       }
-      
+
       const duration = metadata.duration * 1000
-      
+
       // Auto-remove after actual duration
       setTimeout(() => {
         this.activeDubs.delete(dubId)
       }, duration)
 
       logger.debug(`Dub started: ${assetName}`)
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Failed to play dub: ${assetName}`, error)
       throw error
     }
@@ -148,10 +150,10 @@ export class SoundSystem {
     logger.debug(`Stopping dub: ${characterId}`)
 
     try {
-      await this.engine['pipeline'].emit(LogicToRenderEvents.DUB_STOP, { characterId })
+      await this.engine.getPipeline().emit(LogicToRenderEvents.DUB_STOP, { characterId })
       this.activeDubs.delete(characterId)
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Failed to stop dub: ${characterId}`, error)
       throw error
     }
@@ -164,10 +166,10 @@ export class SoundSystem {
     logger.debug('Stopping all dubs')
 
     try {
-      await this.engine['pipeline'].emit(LogicToRenderEvents.DUB_STOP, { characterId: '*' })
+      await this.engine.getPipeline().emit(LogicToRenderEvents.DUB_STOP, { characterId: '*' })
       this.activeDubs.clear()
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to stop all dubs', error)
       throw error
     }
@@ -178,7 +180,7 @@ export class SoundSystem {
    */
   async playBGM(
     assetName: string,
-    options: SoundOptions & { fadeOutPrevious?: number } = {}
+    options: SoundOptions & { fadeOutPrevious?: number } = {},
   ): Promise<void> {
     logger.debug(`Playing BGM: ${assetName}`)
 
@@ -189,12 +191,13 @@ export class SoundSystem {
         await new Promise(resolve => setTimeout(resolve, options.fadeOutPrevious))
       }
 
+      // Play BGM through engine (which applies bgm-specific volume)
       await this.engine.playBGM(assetName, options)
       this.currentBGM = assetName
 
       logger.debug(`BGM started: ${assetName}`)
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Failed to play BGM: ${assetName}`, error)
       throw error
     }
@@ -212,10 +215,10 @@ export class SoundSystem {
         await new Promise(resolve => setTimeout(resolve, fadeOut))
       }
 
-      await this.engine['pipeline'].emit(LogicToRenderEvents.BGM_STOP, {})
+      await this.engine.getPipeline().emit(LogicToRenderEvents.BGM_STOP, {})
       this.currentBGM = undefined
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to stop BGM', error)
       throw error
     }
@@ -228,12 +231,12 @@ export class SoundSystem {
     logger.debug(`Fading BGM to ${targetVolume} over ${duration}ms`)
 
     try {
-      await this.engine['pipeline'].emit(LogicToRenderEvents.BGM_FADE, {
+      await this.engine.getPipeline().emit(LogicToRenderEvents.BGM_FADE, {
         targetVolume,
-        duration
+        duration,
       })
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to fade BGM', error)
       throw error
     }
@@ -251,7 +254,7 @@ export class SoundSystem {
    * Get current volume settings
    */
   getVolumeSettings(): VolumeSettings {
-    return this.engine['volumeSettings'] // Access private property
+    return this.engine.getVolumeSettings()
   }
 
   /**
@@ -282,12 +285,12 @@ export class SoundSystem {
 
     try {
       await Promise.all([
-        this.engine['pipeline'].emit(LogicToRenderEvents.SOUND_PAUSE, {}),
-        this.engine['pipeline'].emit(LogicToRenderEvents.BGM_STOP, {}),
-        this.engine['pipeline'].emit(LogicToRenderEvents.DUB_STOP, { characterId: '*' })
+        this.engine.getPipeline().emit(LogicToRenderEvents.SOUND_PAUSE, {}),
+        this.engine.getPipeline().emit(LogicToRenderEvents.BGM_STOP, {}),
+        this.engine.getPipeline().emit(LogicToRenderEvents.DUB_STOP, { characterId: '*' }),
       ])
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to pause all audio', error)
       throw error
     }
@@ -301,12 +304,12 @@ export class SoundSystem {
 
     try {
       await Promise.all([
-        this.engine['pipeline'].emit(LogicToRenderEvents.SOUND_RESUME, {}),
+        this.engine.getPipeline().emit(LogicToRenderEvents.SOUND_RESUME, {}),
         // Note: BGM and dubs would need to be restarted rather than resumed
         // as they were stopped, not paused
       ])
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to resume all audio', error)
       throw error
     }

@@ -1,7 +1,7 @@
-import type { QuaEngineInterface } from '../core/types'
-import type { QuaStore } from '@quajs/store'
 import type { QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
+import type { QuaStore } from '@quajs/store'
+import type { QuaEngineInterface } from '../core/types'
 
 /**
  * Context object passed to engine plugins
@@ -25,18 +25,18 @@ export interface EnginePlugin {
   /**
    * Initialize the plugin with the engine context
    */
-  init(ctx: EngineContext): void | Promise<void>
+  init: (ctx: EngineContext) => void | Promise<void>
 
   /**
    * Called when a game step is executed
    * This is where most logic plugins will do their work
    */
-  onStep?(ctx: EngineContext): void | Promise<void>
+  onStep?: (ctx: EngineContext) => void | Promise<void>
 
   /**
    * Called when the engine is destroyed
    */
-  destroy?(): void | Promise<void>
+  destroy?: () => void | Promise<void>
 }
 
 /**

@@ -1,9 +1,9 @@
+import type { QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaStore } from '@quajs/store'
+import type { QuaEngine } from '../core/engine'
+import type { GameStep, Scene, StepContext } from '../core/types'
+
 import { getPackageLogger } from '@quajs/logger'
 import { generateId } from '@quajs/utils'
-import type { QuaStore, QuaGameSaveSlot, QuaGameSaveSlotMeta } from '@quajs/store'
-
-import type { QuaEngine } from '../core/engine'
-import type { Scene, GameStep, StepContext } from '../core/types'
 
 const logger = getPackageLogger('engine:game-manager')
 
@@ -31,7 +31,8 @@ export class GameManager {
     try {
       await this.engine.loadScene(sceneInstance)
       logger.info(`Scene loaded successfully: ${sceneInstance.name}`)
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Failed to load scene: ${sceneInstance.name}`, error)
       throw error
     }
@@ -47,7 +48,8 @@ export class GameManager {
     try {
       await this.engine.dialogue(steps)
       logger.debug('Dialogue sequence completed')
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Dialogue execution failed', error)
       throw error
     }
@@ -58,12 +60,12 @@ export class GameManager {
    */
   createStep(
     action: (ctx: StepContext) => void | Promise<void>,
-    metadata?: { title?: string; description?: string; tags?: string[] }
+    metadata?: { title?: string, description?: string, tags?: string[] },
   ): GameStep {
     return {
       uuid: generateId(),
       run: action,
-      metadata
+      metadata,
     }
   }
 
@@ -72,12 +74,12 @@ export class GameManager {
    */
   createSteps(
     actions: Array<(ctx: StepContext) => void | Promise<void>>,
-    metadata?: Array<{ title?: string; description?: string; tags?: string[] }>
+    metadata?: Array<{ title?: string, description?: string, tags?: string[] }>,
   ): GameStep[] {
     return actions.map((action, index) => ({
       uuid: generateId(),
       run: action,
-      metadata: metadata?.[index]
+      metadata: metadata?.[index],
     }))
   }
 
@@ -90,7 +92,8 @@ export class GameManager {
     try {
       await this.engine.rewind(stepUUID)
       logger.info(`Rewind completed: ${stepUUID}`)
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Rewind failed: ${stepUUID}`, error)
       throw error
     }
@@ -102,7 +105,7 @@ export class GameManager {
   async saveGame(
     slotId: string,
     slotName?: string,
-    screenshot?: string
+    screenshot?: string,
   ): Promise<void> {
     logger.info(`Saving game to slot: ${slotId}`)
 
@@ -114,14 +117,14 @@ export class GameManager {
         screenshot,
         sceneName: this.engine.getCurrentSceneName(),
         stepId: this.engine.getCurrentStepId(),
-        playtime: this.calculatePlaytime()
+        playtime: this.calculatePlaytime(),
       }
 
       await store.saveToSlot(slotId, metadata)
 
       logger.info(`Game saved successfully: ${slotId}`)
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Save failed: ${slotId}`, error)
       throw error
     }
@@ -144,8 +147,8 @@ export class GameManager {
       await store.loadFromSlot(slotId, { force: true })
 
       logger.info(`Game loaded successfully: ${slotId}`)
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Load failed: ${slotId}`, error)
       throw error
     }
@@ -162,8 +165,8 @@ export class GameManager {
       await store.deleteSlot(slotId)
 
       logger.info(`Save slot deleted: ${slotId}`)
-
-    } catch (error) {
+    }
+    catch (error) {
       logger.error(`Delete save failed: ${slotId}`, error)
       throw error
     }
@@ -229,7 +232,7 @@ export class GameManager {
 
     if (typeof window !== 'undefined') {
       this.autoSaveTimer = window.setInterval(() => {
-        this.autoSave().catch(error => {
+        this.autoSave().catch((error) => {
           logger.warn('Auto-save failed:', error)
         })
       }, autoSaveInterval)
