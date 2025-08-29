@@ -5,7 +5,7 @@ import type {
   EnginePlugin,
   PluginConstructor,
   PluginConstructorOptions,
-} from '../plugins/plugins'
+} from '../plugins/core/types'
 import type {
   EngineConfig,
   GameStep,

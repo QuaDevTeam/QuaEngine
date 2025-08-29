@@ -9,11 +9,13 @@ The global API provides a convenient way to interact with the QuaEngine without 
 Initializes the global QuaEngine instance with optional configuration.
 
 **Parameters:**
+
 - `config` (optional): Configuration object for the engine
 
 **Returns:** Promise that resolves when initialization is complete
 
 **Example:**
+
 ```typescript
 import { initEngine } from '@qua-engine/engine'
 
@@ -29,11 +31,13 @@ await initEngine({
 Loads and activates a new scene in the game.
 
 **Parameters:**
+
 - `scene`: Scene object containing scene data and configuration
 
 **Returns:** Promise that resolves when the scene is loaded
 
 **Example:**
+
 ```typescript
 import { loadScene } from '@qua-engine/engine'
 
@@ -57,11 +61,13 @@ Gets the name of the currently active scene.
 Executes a sequence of dialogue steps.
 
 **Parameters:**
+
 - `steps`: Array of GameStep objects representing the dialogue sequence
 
 **Returns:** Promise that resolves when the dialogue sequence completes
 
 **Example:**
+
 ```typescript
 import { dialogue } from '@qua-engine/engine'
 
@@ -69,8 +75,8 @@ await dialogue([
   {
     type: 'dialogue',
     character: 'protagonist',
-    text: 'Hello world!'
-  }
+    text: 'Hello world!',
+  },
 ])
 ```
 
@@ -79,6 +85,7 @@ await dialogue([
 Rewinds the game state to a specific step.
 
 **Parameters:**
+
 - `stepUUID`: Unique identifier of the step to rewind to
 
 **Returns:** Promise that resolves when rewind is complete
@@ -96,6 +103,7 @@ Gets the ID of the current dialogue step.
 Plays a sound effect.
 
 **Parameters:**
+
 - `assetName`: Name of the sound asset to play
 - `options` (optional): Sound playback options
 
@@ -106,6 +114,7 @@ Plays a sound effect.
 Plays character dubbing audio.
 
 **Parameters:**
+
 - `assetName`: Name of the dubbing asset to play
 - `options` (optional): Sound playback options
 
@@ -116,6 +125,7 @@ Plays character dubbing audio.
 Plays background music.
 
 **Parameters:**
+
 - `assetName`: Name of the BGM asset to play
 - `options` (optional): Sound playback options
 
@@ -126,10 +136,12 @@ Plays background music.
 Sets the volume for a specific audio type.
 
 **Parameters:**
+
 - `type`: Audio type ('master', 'bgm', 'se', 'voice', etc.)
 - `value`: Volume level (0.0 to 1.0)
 
 **Example:**
+
 ```typescript
 import { setVolume } from '@qua-engine/engine'
 
@@ -144,6 +156,7 @@ setVolume('voice', 0.9)
 Saves the current game state to a specific save slot.
 
 **Parameters:**
+
 - `slotId`: Unique identifier for the save slot
 - `metadata` (optional): Save file metadata including:
   - `name?: string` - Display name for the save
@@ -156,13 +169,14 @@ Saves the current game state to a specific save slot.
 **Returns:** Promise that resolves when save is complete
 
 **Example:**
+
 ```typescript
 import { saveToSlot } from '@qua-engine/engine'
 
 await saveToSlot('slot1', {
   name: 'Chapter 1 Complete',
   playtime: 3600000, // 1 hour
-  sceneName: 'ending_scene'
+  sceneName: 'ending_scene',
 })
 ```
 
@@ -171,6 +185,7 @@ await saveToSlot('slot1', {
 Loads a game state from a save slot.
 
 **Parameters:**
+
 - `slotId`: Unique identifier for the save slot to load
 - `options` (optional): Loading options
   - `force?: boolean` - Force load even if validation fails
@@ -178,6 +193,7 @@ Loads a game state from a save slot.
 **Returns:** Promise that resolves when load is complete
 
 **Example:**
+
 ```typescript
 import { loadFromSlot } from '@qua-engine/engine'
 
@@ -191,12 +207,14 @@ await loadFromSlot('slot1', { force: false })
 Retrieves metadata for a specific asset.
 
 **Parameters:**
+
 - `type`: Asset type ('audio', 'images', 'characters', 'scripts', 'data')
 - `assetName`: Name of the asset
 
 **Returns:** Promise that resolves with the asset metadata
 
 **Example:**
+
 ```typescript
 import { getAssetMetadata } from '@qua-engine/engine'
 
@@ -213,6 +231,7 @@ Gets the engine's store instance for direct state access.
 **Returns:** Store instance
 
 **Example:**
+
 ```typescript
 import { getStore } from '@qua-engine/engine'
 
@@ -230,7 +249,8 @@ import { initEngine, loadScene } from '@qua-engine/engine'
 try {
   await initEngine()
   await loadScene(myScene)
-} catch (error) {
+}
+catch (error) {
   console.error('Engine error:', error)
 }
 ```
