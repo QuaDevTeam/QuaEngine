@@ -7,8 +7,8 @@ export interface QuaScriptPluginOptions {
   exclude?: string | RegExp | (string | RegExp)[]
   decoratorMappings?: DecoratorMapping
   compilerOptions?: CompilerOptions
-  /** Enable plugin-aware decorator loading (default: true) */
-  usePluginDecorators?: boolean
+  /** Project root for plugin discovery */
+  projectRoot?: string
 }
 
 /**
@@ -20,7 +20,7 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
     exclude = /node_modules/,
     decoratorMappings,
     compilerOptions,
-    usePluginDecorators = true
+    projectRoot
   } = options
 
   let transformer: ReturnType<typeof createPluginAwareTransformer>
@@ -29,7 +29,10 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
     name: 'qua-script',
     configResolved() {
       // Create transformer after config is resolved to ensure plugins are loaded
-      transformer = createPluginAwareTransformer(decoratorMappings, compilerOptions)
+      transformer = createPluginAwareTransformer(decoratorMappings, {
+        ...compilerOptions,
+        projectRoot
+      })
     },
     transform(code: string, id: string) {
       // Check if file should be processed
