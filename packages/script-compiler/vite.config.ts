@@ -16,7 +16,7 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(import.meta.dirname, 'src/index.ts'),
-        cli: resolve(import.meta.dirname, 'src/cli.ts')
+        cli: resolve(import.meta.dirname, 'src/cli/cli.ts')
       },
       formats: ['es'],
     },
@@ -31,6 +31,7 @@ export default defineConfig({
         '@babel/traverse', 
         '@babel/types',
         '@babel/generator',
+        '@quajs/engine',
         'uuid'
       ],
       output: {
