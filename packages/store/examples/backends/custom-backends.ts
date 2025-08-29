@@ -1,22 +1,23 @@
-import type { QSSnapshot, QSSnapshotMeta } from '../types/base'
-import type { StorageBackend } from '../types/storage'
+import type { QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaSnapshot, QuaSnapshotMeta } from '../../src/types/base'
+import type { StorageBackend } from '../../src/types/storage'
 
 /**
  * In-memory storage backend for testing and development
  * WARNING: Data will be lost when the application is closed!
  */
 export class MemoryBackend implements StorageBackend {
-  private storage: Map<string, QSSnapshot> = new Map()
+  private storage: Map<string, QuaSnapshot> = new Map()
+  private gameSlots: Map<string, QuaGameSaveSlot> = new Map()
 
   async init(): Promise<void> {
     // No initialization needed for memory storage
   }
 
-  async saveSnapshot(snapshot: QSSnapshot): Promise<void> {
+  async saveSnapshot(snapshot: QuaSnapshot): Promise<void> {
     this.storage.set(snapshot.id, { ...snapshot })
   }
 
-  async getSnapshot(id: string): Promise<QSSnapshot | undefined> {
+  async getSnapshot(id: string): Promise<QuaSnapshot | undefined> {
     const snapshot = this.storage.get(id)
     return snapshot ? { ...snapshot } : undefined
   }
@@ -25,7 +26,7 @@ export class MemoryBackend implements StorageBackend {
     this.storage.delete(id)
   }
 
-  async listSnapshots(storeName?: string): Promise<QSSnapshotMeta[]> {
+  async listSnapshots(storeName?: string): Promise<QuaSnapshotMeta[]> {
     const snapshots = Array.from(this.storage.values())
     const filtered = storeName
       ? snapshots.filter(s => s.storeName === storeName)
@@ -42,7 +43,8 @@ export class MemoryBackend implements StorageBackend {
 
   async clearSnapshots(storeName?: string): Promise<void> {
     if (storeName) {
-      for (const [id, snapshot] of this.storage.entries()) {
+      const entries = Array.from(this.storage.entries())
+      for (const [id, snapshot] of entries) {
         if (snapshot.storeName === storeName) {
           this.storage.delete(id)
         }
@@ -53,8 +55,40 @@ export class MemoryBackend implements StorageBackend {
     }
   }
 
+  // Game slot methods
+  async saveGameSlot(slot: QuaGameSaveSlot): Promise<void> {
+    this.gameSlots.set(slot.slotId, { ...slot })
+  }
+
+  async getGameSlot(slotId: string): Promise<QuaGameSaveSlot | undefined> {
+    const slot = this.gameSlots.get(slotId)
+    return slot ? { ...slot } : undefined
+  }
+
+  async deleteGameSlot(slotId: string): Promise<void> {
+    this.gameSlots.delete(slotId)
+  }
+
+  async listGameSlots(): Promise<QuaGameSaveSlotMeta[]> {
+    const slots = Array.from(this.gameSlots.values())
+    return slots
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .map(slot => ({
+        slotId: slot.slotId,
+        name: slot.name,
+        timestamp: slot.timestamp,
+        screenshot: slot.screenshot,
+        metadata: slot.metadata,
+      }))
+  }
+
+  async clearGameSlots(): Promise<void> {
+    this.gameSlots.clear()
+  }
+
   async close(): Promise<void> {
     this.storage.clear()
+    this.gameSlots.clear()
   }
 }
 
@@ -79,11 +113,19 @@ export class LocalStorageBackend implements StorageBackend {
     return `${this.prefix}snapshot_${id}`
   }
 
+  private getGameSlotKey(slotId: string): string {
+    return `${this.prefix}gameslot_${slotId}`
+  }
+
   private getMetaKey(): string {
     return `${this.prefix}meta`
   }
 
-  private getMeta(): QSSnapshotMeta[] {
+  private getGameSlotMetaKey(): string {
+    return `${this.prefix}gameslot_meta`
+  }
+
+  private getMeta(): QuaSnapshotMeta[] {
     const metaJson = localStorage.getItem(this.getMetaKey())
     if (!metaJson)
       return []
@@ -100,18 +142,39 @@ export class LocalStorageBackend implements StorageBackend {
     }
   }
 
-  private saveMeta(meta: QSSnapshotMeta[]): void {
+  private saveMeta(meta: QuaSnapshotMeta[]): void {
     localStorage.setItem(this.getMetaKey(), JSON.stringify(meta))
   }
 
-  async saveSnapshot(snapshot: QSSnapshot): Promise<void> {
+  private getGameSlotMeta(): QuaGameSaveSlotMeta[] {
+    const metaJson = localStorage.getItem(this.getGameSlotMetaKey())
+    if (!metaJson)
+      return []
+
+    try {
+      const meta = JSON.parse(metaJson)
+      return meta.map((m: any) => ({
+        ...m,
+        timestamp: new Date(m.timestamp),
+      }))
+    }
+    catch {
+      return []
+    }
+  }
+
+  private saveGameSlotMeta(meta: QuaGameSaveSlotMeta[]): void {
+    localStorage.setItem(this.getGameSlotMetaKey(), JSON.stringify(meta))
+  }
+
+  async saveSnapshot(snapshot: QuaSnapshot): Promise<void> {
     const key = this.getKey(snapshot.id)
     localStorage.setItem(key, JSON.stringify(snapshot))
 
     // Update metadata
     const meta = this.getMeta()
     const existingIndex = meta.findIndex(m => m.id === snapshot.id)
-    const snapshotMeta: QSSnapshotMeta = {
+    const snapshotMeta: QuaSnapshotMeta = {
       id: snapshot.id,
       storeName: snapshot.storeName,
       createdAt: snapshot.createdAt,
@@ -127,7 +190,7 @@ export class LocalStorageBackend implements StorageBackend {
     this.saveMeta(meta)
   }
 
-  async getSnapshot(id: string): Promise<QSSnapshot | undefined> {
+  async getSnapshot(id: string): Promise<QuaSnapshot | undefined> {
     const key = this.getKey(id)
     const snapshotJson = localStorage.getItem(key)
 
@@ -156,7 +219,7 @@ export class LocalStorageBackend implements StorageBackend {
     this.saveMeta(filteredMeta)
   }
 
-  async listSnapshots(storeName?: string): Promise<QSSnapshotMeta[]> {
+  async listSnapshots(storeName?: string): Promise<QuaSnapshotMeta[]> {
     const meta = this.getMeta()
     const filtered = storeName
       ? meta.filter(m => m.storeName === storeName)
@@ -183,6 +246,74 @@ export class LocalStorageBackend implements StorageBackend {
       }
       localStorage.removeItem(this.getMetaKey())
     }
+  }
+
+  // Game slot methods
+  async saveGameSlot(slot: QuaGameSaveSlot): Promise<void> {
+    const key = this.getGameSlotKey(slot.slotId)
+    localStorage.setItem(key, JSON.stringify(slot))
+
+    // Update metadata
+    const meta = this.getGameSlotMeta()
+    const existingIndex = meta.findIndex(m => m.slotId === slot.slotId)
+    const slotMeta: QuaGameSaveSlotMeta = {
+      slotId: slot.slotId,
+      name: slot.name,
+      timestamp: slot.timestamp,
+      screenshot: slot.screenshot,
+      metadata: slot.metadata,
+    }
+
+    if (existingIndex >= 0) {
+      meta[existingIndex] = slotMeta
+    }
+    else {
+      meta.push(slotMeta)
+    }
+
+    this.saveGameSlotMeta(meta)
+  }
+
+  async getGameSlot(slotId: string): Promise<QuaGameSaveSlot | undefined> {
+    const key = this.getGameSlotKey(slotId)
+    const slotJson = localStorage.getItem(key)
+
+    if (!slotJson)
+      return undefined
+
+    try {
+      const slot = JSON.parse(slotJson)
+      return {
+        ...slot,
+        timestamp: new Date(slot.timestamp),
+      }
+    }
+    catch {
+      return undefined
+    }
+  }
+
+  async deleteGameSlot(slotId: string): Promise<void> {
+    const key = this.getGameSlotKey(slotId)
+    localStorage.removeItem(key)
+
+    // Update metadata
+    const meta = this.getGameSlotMeta()
+    const filteredMeta = meta.filter(m => m.slotId !== slotId)
+    this.saveGameSlotMeta(filteredMeta)
+  }
+
+  async listGameSlots(): Promise<QuaGameSaveSlotMeta[]> {
+    const meta = this.getGameSlotMeta()
+    return meta.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+  }
+
+  async clearGameSlots(): Promise<void> {
+    const meta = this.getGameSlotMeta()
+    for (const slot of meta) {
+      localStorage.removeItem(this.getGameSlotKey(slot.slotId))
+    }
+    localStorage.removeItem(this.getGameSlotMetaKey())
   }
 
   async close(): Promise<void> {

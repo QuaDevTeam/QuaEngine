@@ -194,20 +194,6 @@ class QuaStoreManager {
     await storageManager.clearSnapshots()
   }
 
-  /**
-   * Get the current global storage manager
-   */
-  public static async getGlobalStorageManager(): Promise<StorageManager | null> {
-    if (this.storageManager) {
-      return this.storageManager
-    }
-    if (this.globalStorageConfig) {
-      await this.getStorageManager()
-      return this.storageManager
-    }
-    return null
-  }
-
   // Store management methods
   public static listStores(): string[] {
     return Object.keys(this.stores)
@@ -233,6 +219,28 @@ class QuaStoreManager {
     for (const store of Object.values(this.stores)) {
       store.reset()
     }
+  }
+
+  /**
+   * Reset storage manager and global storage config (for testing purposes)
+   */
+  public static resetStorageManager(): void {
+    this.storageManager = null
+    this.globalStorageConfig = null
+  }
+
+  /**
+   * Get the current storage manager instance (for testing purposes)
+   */
+  public static async getGlobalStorageManager(): Promise<StorageManager | null> {
+    if (this.storageManager) {
+      return this.storageManager
+    }
+    if (this.globalStorageConfig) {
+      await this.getStorageManager()
+      return this.storageManager
+    }
+    return null
   }
 }
 
