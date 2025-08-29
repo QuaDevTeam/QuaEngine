@@ -1,7 +1,9 @@
 import type { QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
 import type { QuaStore } from '@quajs/store'
-import type { QuaEngineInterface } from '../core/types'
+import type { QuaEngineInterface } from '../../core/types'
+import type { PluginAPIRegistration } from './registry'
+import { getPluginRegistry } from './registry'
 
 /**
  * Context object passed to engine plugins
@@ -37,6 +39,12 @@ export interface EnginePlugin {
    * Called when the engine is destroyed
    */
   destroy?: () => void | Promise<void>
+
+  /**
+   * Register plugin APIs and decorators (optional)
+   * Called during plugin registration to extend global APIs
+   */
+  registerAPIs?: () => PluginAPIRegistration | Promise<PluginAPIRegistration>
 }
 
 /**
@@ -52,8 +60,8 @@ export interface PluginConstructor {
 }
 
 /**
- * Abstract base class for engine plugins
- * Provides common functionality and ensures proper typing
+ * Base class for engine plugins - minimal and clean
+ * Developers have full control over state management and communication
  */
 export abstract class BaseEnginePlugin implements EnginePlugin {
   abstract readonly name: string
@@ -61,6 +69,7 @@ export abstract class BaseEnginePlugin implements EnginePlugin {
   readonly description?: string
 
   protected ctx?: EngineContext
+  private _apiRegistered = false
 
   constructor(protected options: PluginConstructorOptions = {}) { }
 
@@ -70,6 +79,14 @@ export abstract class BaseEnginePlugin implements EnginePlugin {
    */
   async init(ctx: EngineContext): Promise<void> {
     this.ctx = ctx
+
+    // Register APIs if not already done and plugin provides them
+    if (!this._apiRegistered && this.registerAPIs) {
+      const registration = await this.registerAPIs()
+      getPluginRegistry().registerPlugin(registration)
+      this._apiRegistered = true
+    }
+
     await this.setup?.(ctx)
   }
 
@@ -85,45 +102,23 @@ export abstract class BaseEnginePlugin implements EnginePlugin {
   async onStep?(ctx: EngineContext): Promise<void>
 
   /**
+   * Register plugin APIs and decorators (optional)
+   * Override this method to provide custom APIs and QuaScript decorators
+   */
+  registerAPIs?(): PluginAPIRegistration | Promise<PluginAPIRegistration>
+
+  /**
    * Cleanup method to be implemented by subclasses
    */
-  async destroy?(): Promise<void>
-
-  /**
-   * Get the engine context (throws if not initialized)
-   */
-  protected getContext(): EngineContext {
-    if (!this.ctx) {
-      throw new Error(`Plugin ${this.name} not initialized`)
+  async destroy?(): Promise<void> {
+    // Unregister APIs when plugin is destroyed
+    if (this._apiRegistered) {
+      getPluginRegistry().unregisterPlugin(this.name)
+      this._apiRegistered = false
     }
-    return this.ctx
   }
 
-  /**
-   * Emit an event to the render layer
-   */
-  protected emit(event: string, payload?: unknown): Promise<void> {
-    return this.getContext().pipeline.emit(event, payload)
-  }
-
-  /**
-   * Get the current store state
-   */
-  protected getState(): Record<string, unknown> {
-    return (this.getContext().store as { state: Record<string, unknown> }).state
-  }
-
-  /**
-   * Dispatch a mutation to the store
-   */
-  protected dispatch(mutation: string, payload?: unknown): void {
-    (this.getContext().store as { commit: (mutation: string, payload?: unknown) => void }).commit(mutation, payload)
-  }
-
-  /**
-   * Load an asset
-   */
-  protected async loadAsset(name: string): Promise<unknown> {
-    return (this.getContext().assets as unknown as { get: (name: string) => Promise<unknown> }).get(name)
-  }
+  // No predefined state management or communication helpers
+  // Developers access ctx.store, ctx.pipeline, ctx.assets directly for maximum flexibility
+  // Full freedom to implement their own patterns and abstractions
 }
