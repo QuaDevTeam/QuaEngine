@@ -15,7 +15,7 @@ import { DEFAULT_DECORATOR_MAPPINGS } from './types'
  * Transform QuaScript to JavaScript GameStep array
  */
 export class QuaScriptTransformer {
-  private decoratorMappings: DecoratorMapping
+  protected decoratorMappings: DecoratorMapping
   private options: CompilerOptions
   private usedDecorators: Set<string> = new Set()
 

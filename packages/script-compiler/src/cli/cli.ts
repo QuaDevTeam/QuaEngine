@@ -2,8 +2,8 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { QuaScriptTransformer } from './transformer'
-import type { CompilerOptions, DecoratorMapping } from './types'
+import { QuaScriptTransformer } from '../core/transformer'
+import type { CompilerOptions, DecoratorMapping } from '../core/types'
 
 interface CLIOptions {
   input: string

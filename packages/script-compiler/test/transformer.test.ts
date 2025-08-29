@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { QuaScriptTransformer } from '../src/transformer'
+import { QuaScriptTransformer } from '../src/core/transformer'
 
 describe('quaScriptTransformer', () => {
   it('should transform simple qs template literal', () => {
