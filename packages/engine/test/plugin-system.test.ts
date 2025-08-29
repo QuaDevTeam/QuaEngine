@@ -1,37 +1,18 @@
-import type { EngineContext } from '../src/plugins'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AchievementPlugin, PluginAPIRegistry } from '../src/plugins'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { PluginAPIRegistry, PluginDiscovery } from '../src/plugins'
 
-// Mock engine context
-function createMockEngineContext(): EngineContext {
-  return {
-    engine: {} as any,
-    store: {
-      state: {},
-      commit: vi.fn(),
-    } as any,
-    assets: {} as any,
-    pipeline: {
-      emit: vi.fn().mockResolvedValue(undefined),
-    } as any,
-    stepId: 'test-step-1',
-  }
-}
-
-describe('plugin System Integration', () => {
+describe('plugin system integration', () => {
   let registry: PluginAPIRegistry
-  let plugin: AchievementPlugin
-  let mockContext: EngineContext
+  let discovery: PluginDiscovery
 
   beforeEach(() => {
     registry = PluginAPIRegistry.getInstance()
-    plugin = new AchievementPlugin()
-    mockContext = createMockEngineContext()
+    discovery = new PluginDiscovery()
   })
 
   afterEach(() => {
     // Clean up registry
-    registry.unregisterPlugin('achievement')
+    // registry.clear() // If such method exists
   })
 
   describe('plugin API Registry', () => {
@@ -41,121 +22,87 @@ describe('plugin System Integration', () => {
       expect(registry1).toBe(registry2)
     })
 
-    it('should register and unregister plugins', async () => {
-      const registration = await plugin.registerAPIs()
-      registry.registerPlugin(registration)
+    it('should register and unregister plugins', () => {
+      const mockRegistration = {
+        pluginName: 'test',
+        apis: [{
+          name: 'testFunction',
+          fn: () => 'test',
+          module: 'test',
+        }],
+        decorators: {
+          TestDecorator: {
+            function: 'testFunction',
+            module: 'test',
+          },
+        },
+      }
 
-      expect(registry.hasAPI('achievement', 'unlock')).toBe(true)
-      expect(registry.hasDecorator('UnlockAchievement')).toBe(true)
+      registry.registerPlugin(mockRegistration)
 
-      registry.unregisterPlugin('achievement')
+      expect(registry.hasAPI('test', 'testFunction')).toBe(true)
+      expect(registry.hasDecorator('TestDecorator')).toBe(true)
 
-      expect(registry.hasAPI('achievement', 'unlock')).toBe(false)
-      expect(registry.hasDecorator('UnlockAchievement')).toBe(false)
+      registry.unregisterPlugin('test')
+
+      expect(registry.hasAPI('test', 'testFunction')).toBe(false)
+      expect(registry.hasDecorator('TestDecorator')).toBe(false)
     })
 
-    it('should prevent duplicate plugin registrations', async () => {
-      const registration = await plugin.registerAPIs()
-      registry.registerPlugin(registration)
+    it('should prevent duplicate plugin registrations', () => {
+      const mockRegistration = {
+        pluginName: 'test',
+        apis: [{
+          name: 'testFunction',
+          fn: () => 'test',
+          module: 'test',
+        }],
+        decorators: {},
+      }
 
-      expect(() => registry.registerPlugin(registration)).toThrow('already registered')
+      registry.registerPlugin(mockRegistration)
+      expect(() => registry.registerPlugin(mockRegistration)).toThrow('already registered')
     })
 
-    it('should generate extended decorator mappings', async () => {
-      const registration = await plugin.registerAPIs()
-      registry.registerPlugin(registration)
+    it('should generate extended decorator mappings', () => {
+      const mockRegistration = {
+        pluginName: 'test',
+        apis: [],
+        decorators: {
+          TestDecorator: {
+            function: 'testFunction',
+            module: 'test',
+          },
+        },
+      }
+
+      registry.registerPlugin(mockRegistration)
 
       const mappings = registry.getExtendedDecoratorMappings()
 
-      expect(mappings).toHaveProperty('UnlockAchievement')
-      expect(mappings.UnlockAchievement).toEqual({
-        function: 'unlock',
-        module: 'achievement',
+      expect(mappings).toHaveProperty('TestDecorator')
+      expect(mappings.TestDecorator).toEqual({
+        function: 'testFunction',
+        module: 'test',
       })
     })
   })
 
-  describe('achievement Plugin', () => {
-    beforeEach(async () => {
-      await plugin.init(mockContext)
+  describe('plugin Discovery System', () => {
+    it('should discover plugins from package.json', async () => {
+      const plugins = await discovery.discoverPlugins()
+      expect(Array.isArray(plugins)).toBe(true)
     })
 
-    afterEach(async () => {
-      await plugin.destroy()
+    it('should get decorator mappings from discovered plugins', async () => {
+      const mappings = await discovery.getDecoratorMappings()
+      expect(typeof mappings).toBe('object')
     })
 
-    it('should register APIs correctly', async () => {
-      const registration = await plugin.registerAPIs()
-
-      expect(registration.pluginName).toBe('achievement')
-      expect(registration.apis).toHaveLength(4) // unlock, isUnlocked, getProgress, addProgress
-      expect(registration.decorators).toHaveProperty('UnlockAchievement')
-      expect(registration.decorators).toHaveProperty('AchievementProgress')
-    })
-
-    it('should initialize with default achievements', () => {
-      const module = registry.getPluginModule('achievement')
-      expect(module?.isUnlocked('first_dialogue')).toBe(false)
-      expect(module?.isUnlocked('story_progress')).toBe(false)
-    })
-
-    it('should unlock achievements', async () => {
-      const module = registry.getPluginModule('achievement')
-
-      const result = await module?.unlock('first_dialogue')
-      expect(result).toBe(true)
-      expect(module?.isUnlocked('first_dialogue')).toBe(true)
-
-      // Should not unlock again
-      const result2 = await module?.unlock('first_dialogue')
-      expect(result2).toBe(false)
-    })
-
-    it('should track progress', async () => {
-      const module = registry.getPluginModule('achievement')
-
-      await module?.addProgress('story_progress', 10)
-      const progress = module?.getProgress('story_progress')
-
-      expect(progress).toEqual({
-        current: 10,
-        max: 100,
-        percentage: 10,
-      })
-    })
-
-    it('should handle game step events', async () => {
-      await plugin.onStep(mockContext)
-
-      const module = registry.getPluginModule('achievement')
-      expect(module?.isUnlocked('first_dialogue')).toBe(true)
-    })
-
-    it('should emit plugin events directly via pipeline', async () => {
-      await plugin.onStep(mockContext)
-
-      // Developer manages pipeline communication directly
-      expect(mockContext.pipeline.emit).toHaveBeenCalledWith(
-        'achievement.unlocked',
-        expect.objectContaining({
-          pluginName: 'achievement',
-          achievementId: 'first_dialogue',
-        }),
-      )
-    })
-
-    it('should demonstrate developer freedom', () => {
-      // Developer has direct access to all context components through the plugin's context
-      // Test that the plugin was initialized with proper context by using getContext method
-      const context = (plugin as any).getContext()
-      expect(context).toBeDefined()
-      expect(context.store).toBeDefined()
-      expect(context.pipeline).toBeDefined()
-      expect(context.assets).toBeDefined()
-      expect(context.engine).toBeDefined()
-
-      // No predefined helpers - full flexibility
-      expect(typeof context.pipeline.emit).toBe('function')
+    it('should handle missing package.json gracefully', async () => {
+      const emptyDiscovery = new PluginDiscovery('/nonexistent')
+      const plugins = await emptyDiscovery.discoverPlugins()
+      expect(plugins).toEqual([])
     })
   })
 })

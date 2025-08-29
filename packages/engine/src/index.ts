@@ -57,12 +57,14 @@ export { SoundSystem } from './managers/sound-system'
 
 // Plugin System (organized structure)
 export {
-  AchievementPlugin,
   BaseEnginePlugin,
   defineAPIFunction,
   defineDecorator,
+  getDiscoveredDecoratorMappings,
+  getPluginDiscovery,
   getPluginRegistry,
   PluginAPIRegistry,
+  PluginDiscovery,
   PluginFramework,
 } from './plugins'
 

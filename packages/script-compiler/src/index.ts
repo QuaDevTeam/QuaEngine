@@ -26,20 +26,16 @@ export function compileQuaScript(
   options?: {
     decoratorMappings?: DecoratorMapping
     compilerOptions?: CompilerOptions
-    usePluginDecorators?: boolean
+    /** Project root for plugin discovery */
+    projectRoot?: string
   }
 ): string {
-  if (options?.usePluginDecorators !== false) {
-    const transformer = createPluginAwareTransformer(
-      options?.decoratorMappings,
-      options?.compilerOptions
-    )
-    return transformer.transformSource(source)
-  } else {
-    const transformer = new QuaScriptTransformer(
-      options?.decoratorMappings,
-      options?.compilerOptions
-    )
-    return transformer.transformSource(source)
-  }
+  const transformer = createPluginAwareTransformer(
+    options?.decoratorMappings,
+    {
+      ...options?.compilerOptions,
+      projectRoot: options?.projectRoot
+    }
+  )
+  return transformer.transformSource(source)
 }

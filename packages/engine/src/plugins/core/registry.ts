@@ -56,15 +56,15 @@ export class PluginAPIRegistry {
 
     // Create plugin module object
     const pluginModule: Record<string, any> = {}
-    
+
     // Register each API function
     for (const api of apis) {
       const fullName = `${pluginName}.${api.name}`
-      
+
       if (this.registeredAPIs.has(fullName)) {
         throw new Error(`API function '${fullName}' is already registered`)
       }
-      
+
       this.registeredAPIs.set(fullName, api)
       pluginModule[api.name] = api.fn
     }
@@ -115,11 +115,11 @@ export class PluginAPIRegistry {
    */
   getExtendedDecoratorMappings(): DecoratorMapping {
     const extended: DecoratorMapping = {}
-    
+
     for (const [decoratorName, mapping] of this.registeredDecorators.entries()) {
       extended[decoratorName] = mapping
     }
-    
+
     return extended
   }
 
