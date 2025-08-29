@@ -13,9 +13,9 @@ describe('error Handling and Edge Cases', () => {
   describe('store Creation Edge Cases', () => {
     it('should handle store creation with no name', () => {
       expect(() => {
-        (createStore as any)({
+        createStore({
           state: { count: 0 },
-        })
+        } as any)
       }).toThrow('Must specify the name of store.')
     })
 
@@ -58,11 +58,11 @@ describe('error Handling and Edge Cases', () => {
     it('should handle store creation with null/undefined values', () => {
       const store = createStore({
         name: 'nullish',
-        state: null as any,
+        state: null,
         mutations: undefined,
-        actions: null as any,
+        actions: null,
         getters: undefined,
-      })
+      } as any)
 
       expect(store.state).toEqual({})
       expect(store.getName()).toBe('nullish')
@@ -166,15 +166,21 @@ describe('error Handling and Edge Cases', () => {
           throw new Error('Init failed')
         }
 
-        async saveSnapshot() { }
-        async getSnapshot() { return undefined }
-        async deleteSnapshot() { }
-        async listSnapshots() { return [] }
-        async clearSnapshots() { }
+        async saveSnapshot(_snapshot: any): Promise<void> { }
+        async getSnapshot(_id: string): Promise<any> { return undefined }
+        async deleteSnapshot(_id: string): Promise<void> { }
+        async listSnapshots(_storeName?: string): Promise<any[]> { return [] }
+        async clearSnapshots(_storeName?: string): Promise<void> { }
+        async saveGameSlot(_gameSlot: any): Promise<void> { }
+        async getGameSlot(_slotId: string): Promise<any> { return undefined }
+        async deleteGameSlot(_slotId: string): Promise<void> { }
+        async listGameSlots(): Promise<any[]> { return [] }
+        async clearGameSlots(): Promise<void> { }
+        getBackend() { return this }
       }
 
       const manager = new StorageManager({
-        backend: FailingBackend as any,
+        backend: FailingBackend,
       })
 
       // Should not throw during construction

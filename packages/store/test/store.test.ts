@@ -124,7 +124,8 @@ describe('quaStore Core', () => {
       });
 
       // Manually set an invalid getter to test error handling
-      (store as any).innerGetters.invalidGetter = 'not a function'
+      const storeWithInvalidGetter = store as any
+      storeWithInvalidGetter.innerGetters.invalidGetter = 'not a function'
 
       expect(() => store.getters.invalidGetter).toThrow('Invalid getter in store [testStore]')
     })

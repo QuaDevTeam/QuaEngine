@@ -12,14 +12,13 @@ describe('game Slot System', () => {
     const globalManager = await QuaStoreManager.getGlobalStorageManager()
     if (globalManager) {
       const backend = globalManager.getBackend()
-      if (backend && typeof (backend as any).clearGameSlots === 'function') {
-        await (backend as any).clearGameSlots()
+      if (backend && 'clearGameSlots' in backend && typeof backend.clearGameSlots === 'function') {
+        await (backend.clearGameSlots as () => Promise<void>)()
       }
     }
 
     // Reset the global storage configuration to force clean state
-    (QuaStoreManager as any).storageManager = null;
-    (QuaStoreManager as any).globalStorageConfig = null
+    QuaStoreManager.resetStorageManager()
   })
 
   describe('store Slot Operations', () => {
