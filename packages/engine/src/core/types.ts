@@ -1,7 +1,7 @@
 import type { QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
 import type { QuaStore } from '@quajs/store'
-import type { EnginePlugin, PluginConstructorOptions } from '../plugins/plugins'
+import type { EnginePlugin, PluginConstructorOptions } from '../plugins/core/types'
 
 /**
  * Slot metadata for save games

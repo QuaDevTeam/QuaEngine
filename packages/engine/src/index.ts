@@ -55,11 +55,23 @@ export { SceneManager } from './managers/scene-manager'
 export type { SceneTransition, SceneTransitionOptions } from './managers/scene-manager'
 export { SoundSystem } from './managers/sound-system'
 
-// Plugin System
-export { BaseEnginePlugin } from './plugins/plugins'
+// Plugin System (organized structure)
+export {
+  AchievementPlugin,
+  BaseEnginePlugin,
+  defineAPIFunction,
+  defineDecorator,
+  getPluginRegistry,
+  PluginAPIRegistry,
+  PluginFramework,
+} from './plugins'
+
 export type {
+  DecoratorMapping,
   EngineContext,
   EnginePlugin,
+  PluginAPIFunction,
+  PluginAPIRegistration,
   PluginConstructor,
   PluginConstructorOptions,
-} from './plugins/plugins'
+} from './plugins'
