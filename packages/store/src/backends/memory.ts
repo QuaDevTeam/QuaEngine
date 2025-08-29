@@ -44,7 +44,8 @@ export class MemoryBackend implements StorageBackend {
 
   async clearSnapshots(storeName?: string): Promise<void> {
     if (storeName) {
-      for (const [id, snapshot] of this.snapshots.entries()) {
+      const entries = Array.from(this.snapshots.entries())
+      for (const [id, snapshot] of entries) {
         if (snapshot.storeName === storeName) {
           this.snapshots.delete(id)
         }
