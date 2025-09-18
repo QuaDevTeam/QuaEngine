@@ -1,6 +1,5 @@
-import { defineConfig } from 'vite'
 import { resolve } from 'node:path'
-import { fileURLToPath, URL } from 'node:url'
+import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
 
 export default defineConfig({
@@ -15,7 +14,7 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: resolve(fileURLToPath(new URL('.', import.meta.url)), 'src/index.ts'),
+      entry: resolve(import.meta.dirname, 'src/index.ts'),
       name: 'utils',
       fileName: 'index',
       formats: ['es'],
@@ -30,7 +29,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': resolve(fileURLToPath(new URL('.', import.meta.url)), 'src'),
+      '@': resolve(import.meta.dirname, 'src'),
     },
   },
 })

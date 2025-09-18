@@ -34,12 +34,6 @@
   "dependencies": {
     "@quajs/logger": "workspace:*"
   },
-  "devDependencies": {
-    "@types/node": "^24.1.0",
-    "@vitest/ui": "^3.2.4",
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.4",
-    "vite": "^7.0.6"
-  },
+  "devDependencies": {},
   "peerDependencies": {}
 }

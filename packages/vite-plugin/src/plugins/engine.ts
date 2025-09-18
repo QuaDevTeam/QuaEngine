@@ -1,10 +1,10 @@
 import type { Plugin } from 'vite'
 import type { QuaEngineVitePluginOptions, VirtualPluginRegistryEntry } from '../core/types'
-import { logPluginMessage, generatePluginModuleId } from '../core/utils'
+import { generatePluginModuleId, logPluginMessage } from '../core/utils'
 
 /**
  * Vite plugin for QuaJS engine plugin discovery and bundling
- * 
+ *
  * This plugin:
  * 1. Discovers plugins from package.json dependencies
  * 2. Generates virtual modules for static imports
@@ -14,18 +14,18 @@ export function quaEnginePlugin(options: QuaEngineVitePluginOptions['pluginDisco
   const {
     enabled = true,
     generateVirtualRegistry = true,
-    autoBundlePlugins = true
+    autoBundlePlugins = true,
   } = options
 
   if (!enabled) {
     return {
       name: 'qua-engine-disabled',
-      apply: () => false
+      apply: () => false,
     }
   }
 
   const VIRTUAL_PLUGIN_REGISTRY_ID = 'virtual:qua-plugins'
-  const RESOLVED_VIRTUAL_ID = '\0' + VIRTUAL_PLUGIN_REGISTRY_ID
+  const RESOLVED_VIRTUAL_ID = `\0${VIRTUAL_PLUGIN_REGISTRY_ID}`
 
   let discoveredPlugins: VirtualPluginRegistryEntry[] = []
 
@@ -39,7 +39,8 @@ export function quaEnginePlugin(options: QuaEngineVitePluginOptions['pluginDisco
     },
 
     async buildStart() {
-      if (!autoBundlePlugins) return
+      if (!autoBundlePlugins)
+        return
 
       try {
         // Import plugin discovery at runtime with fallback
@@ -47,28 +48,36 @@ export function quaEnginePlugin(options: QuaEngineVitePluginOptions['pluginDisco
         try {
           const pluginDiscoveryModule = await import('@quajs/plugin-discovery')
           getDiscoveredDecoratorMappings = pluginDiscoveryModule.getDiscoveredDecoratorMappings
-        } catch {
+        }
+        catch {
           // Fallback - no plugin discovery available
           getDiscoveredDecoratorMappings = async () => ({})
         }
-        
+
         const decoratorMappings = await getDiscoveredDecoratorMappings()
-        
+
         // Convert decorator mappings to plugin format for backwards compatibility
         discoveredPlugins = Object.entries(decoratorMappings).map(([name, decorator]) => ({
           name: `plugin-${name}`,
           entry: (decorator as any).module || '@quajs/engine',
-          decorators: { [name]: decorator },
-          apis: []
+          decorators: {
+            [name]: {
+              function: (decorator as any).function || name,
+              module: (decorator as any).module || '@quajs/engine',
+              transform: (decorator as any).transform,
+            },
+          },
+          apis: [],
         }))
 
         logPluginMessage(`Discovered ${discoveredPlugins.length} plugins for bundling`, 'info')
-        
+
         // Mark plugin packages as external dependencies that should be included
         for (const plugin of discoveredPlugins) {
           this.addWatchFile(plugin.entry)
         }
-      } catch (error) {
+      }
+      catch (error) {
         logPluginMessage(`Plugin discovery failed: ${error}`, 'warn')
         discoveredPlugins = []
       }
@@ -90,7 +99,7 @@ export function quaEnginePlugin(options: QuaEngineVitePluginOptions['pluginDisco
       if (discoveredPlugins.length > 0) {
         logPluginMessage(`Bundled ${discoveredPlugins.length} QuaJS plugins`, 'info')
       }
-    }
+    },
   }
 }
 
@@ -107,14 +116,14 @@ export const hasPlugins = false
   }
 
   const imports = plugins
-    .map(plugin => {
+    .map((plugin) => {
       const moduleId = generatePluginModuleId(plugin.name)
       return `import * as ${moduleId} from '${plugin.entry}'`
     })
     .join('\n')
 
   const pluginExports = plugins
-    .map(plugin => {
+    .map((plugin) => {
       const moduleId = generatePluginModuleId(plugin.name)
       return `  '${plugin.name}': ${moduleId}`
     })
@@ -124,10 +133,10 @@ export const hasPlugins = false
     plugins.map(plugin => ({
       name: plugin.name,
       decorators: plugin.decorators,
-      apis: plugin.apis
+      apis: plugin.apis,
     })),
     null,
-    2
+    2,
   )
 
   return `${imports}

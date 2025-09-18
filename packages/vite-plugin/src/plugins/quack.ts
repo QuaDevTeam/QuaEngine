@@ -57,9 +57,27 @@ export function quackPlugin(options: QuaEngineVitePluginOptions['assetBundling']
         }
 
         // Import and configure Quack bundler
-        const quackModule = await import('@quajs/quack')
-        const QuackBundler = quackModule.QuackBundler || quackModule.default?.QuackBundler
-        const defineConfig = quackModule.defineConfig || quackModule.default?.defineConfig || ((config: any) => config)
+        let quackModule: any
+        try {
+          quackModule = await import('@quajs/quack')
+        } catch (error) {
+          logPluginMessage(`Failed to import @quajs/quack: ${error}`, 'error')
+          return
+        }
+
+        const QuackBundler = quackModule.QuackBundler || 
+                            quackModule.default?.QuackBundler || 
+                            (quackModule as any).default?.default?.QuackBundler
+        
+        const defineConfig = quackModule.defineConfig || 
+                            quackModule.default?.defineConfig || 
+                            (quackModule as any).default?.default?.defineConfig || 
+                            ((config: any) => config)
+
+        if (!QuackBundler) {
+          logPluginMessage('QuackBundler not found in @quajs/quack module', 'error')
+          return
+        }
 
         const quackConfig = defineConfig({
           source: sourcePath,
@@ -82,7 +100,7 @@ export function quackPlugin(options: QuaEngineVitePluginOptions['assetBundling']
           totalFiles: stats.totalFiles,
           totalSize: stats.totalSize,
           assets: stats.assetsByType,
-          locales: stats.locales.map(l => l.code),
+          locales: stats.locales?.map((l: any) => l.code) || [],
         }
 
         logPluginMessage(`Asset bundle created: ${stats.totalFiles} files, ${formatBytes(stats.totalSize)}`, 'info')

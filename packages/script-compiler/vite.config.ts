@@ -1,3 +1,4 @@
+import type { PluginOption } from 'vite'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
@@ -11,7 +12,7 @@ export default defineConfig({
       insertTypesEntry: true,
       rollupTypes: true,
     }),
-  ],
+  ] as PluginOption[],
   build: {
     lib: {
       entry: {
