@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite'
 import { resolve } from 'node:path'
+import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
 
 export default defineConfig({
@@ -16,23 +16,23 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(import.meta.dirname, 'src/index.ts'),
-        cli: resolve(import.meta.dirname, 'src/cli/cli.ts')
+        cli: resolve(import.meta.dirname, 'src/cli/cli.ts'),
       },
       formats: ['es'],
     },
     rollupOptions: {
       external: [
-        'node:fs', 
-        'node:path', 
-        'node:process', 
-        'node:url', 
+        'node:fs',
+        'node:path',
+        'node:process',
+        'node:url',
         'node:util',
         '@babel/parser',
-        '@babel/traverse', 
+        '@babel/traverse',
         '@babel/types',
         '@babel/generator',
         '@quajs/engine',
-        'uuid'
+        'uuid',
       ],
       output: {
         globals: {},
