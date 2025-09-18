@@ -1,14 +1,15 @@
-import { parse } from '@babel/parser'
-import traverse, { type NodePath } from '@babel/traverse'
-import * as t from '@babel/types'
-import generate from '@babel/generator'
-import { QuaScriptParser } from './parser'
-import type { 
-  ParsedQuaScript, 
-  QuaScriptDialogue, 
-  DecoratorMapping, 
-  CompilerOptions
+import type { NodePath } from '@babel/traverse'
+import type {
+  CompilerOptions,
+  DecoratorMapping,
+  ParsedQuaScript,
+  QuaScriptDialogue,
 } from './types'
+import generate from '@babel/generator'
+import { parse } from '@babel/parser'
+import traverse from '@babel/traverse'
+import * as t from '@babel/types'
+import { QuaScriptParser } from './parser'
 import { DEFAULT_DECORATOR_MAPPINGS } from './types'
 
 /**
@@ -21,14 +22,14 @@ export class QuaScriptTransformer {
 
   constructor(
     decoratorMappings: DecoratorMapping = DEFAULT_DECORATOR_MAPPINGS,
-    options: CompilerOptions = {}
+    options: CompilerOptions = {},
   ) {
     this.decoratorMappings = decoratorMappings
     this.options = {
       generateUUID: true,
       preserveDecorators: false,
       outputFormat: 'esm',
-      ...options
+      ...options,
     }
   }
 
@@ -37,10 +38,10 @@ export class QuaScriptTransformer {
    */
   transformSource(source: string): string {
     this.usedDecorators.clear()
-    
+
     const ast = parse(source, {
       sourceType: 'module',
-      plugins: ['typescript', 'jsx']
+      plugins: ['typescript', 'jsx'],
     })
 
     let transformed = false
@@ -58,7 +59,7 @@ export class QuaScriptTransformer {
             transformed = true
           }
         }
-      }
+      },
     })
 
     if (transformed) {
@@ -73,7 +74,7 @@ export class QuaScriptTransformer {
     const result = generate(ast, {
       retainLines: false,
       compact: false,
-      sourceMaps: this.options.outputFormat === 'esm'
+      sourceMaps: this.options.outputFormat === 'esm',
     })
 
     return result.code
@@ -84,7 +85,7 @@ export class QuaScriptTransformer {
     if (quasi.expressions.length === 0) {
       return quasi.quasis[0].value.cooked || quasi.quasis[0].value.raw
     }
-    
+
     // For template literals with expressions, construct the template string
     let result = ''
     for (let i = 0; i < quasi.quasis.length; i++) {
@@ -93,26 +94,29 @@ export class QuaScriptTransformer {
         const expr = quasi.expressions[i]
         if (t.isIdentifier(expr)) {
           result += `\${${expr.name}}`
-        } else if (t.isMemberExpression(expr)) {
+        }
+        else if (t.isMemberExpression(expr)) {
           result += `\${${generate(expr).code}}`
-        } else {
+        }
+        else {
           // For complex expressions, generate code
           result += `\${${generate(expr).code}}`
         }
       }
     }
-    
+
     return result
   }
 
   private collectUsedDecorators(parsed: ParsedQuaScript): void {
-    parsed.steps.forEach(step => {
+    parsed.steps.forEach((step) => {
       if (step.type === 'dialogue') {
         const dialogue = step.content as QuaScriptDialogue
-        dialogue.decorators.forEach(decorator => {
+        dialogue.decorators.forEach((decorator) => {
           this.usedDecorators.add(decorator.name)
         })
-      } else if (step.type === 'action') {
+      }
+      else if (step.type === 'action') {
         const action = step.content as any
         action.decorators?.forEach((decorator: any) => {
           this.usedDecorators.add(decorator.name)
@@ -122,10 +126,11 @@ export class QuaScriptTransformer {
   }
 
   private transformToGameSteps(parsed: ParsedQuaScript, quasi: t.TemplateLiteral): t.ArrayExpression {
-    const elements = parsed.steps.map(step => {
+    const elements = parsed.steps.map((step) => {
       if (step.type === 'dialogue') {
         return this.createDialogueStep(step.content as QuaScriptDialogue, step.uuid, quasi)
-      } else {
+      }
+      else {
         return this.createActionStep(step.content, step.uuid)
       }
     })
@@ -134,15 +139,15 @@ export class QuaScriptTransformer {
   }
 
   private createDialogueStep(
-    dialogue: QuaScriptDialogue, 
-    uuid: string, 
-    quasi: t.TemplateLiteral
+    dialogue: QuaScriptDialogue,
+    uuid: string,
+    quasi: t.TemplateLiteral,
   ): t.ObjectExpression {
     const runFunction = this.createRunFunction(dialogue, quasi)
 
     return t.objectExpression([
       t.objectProperty(t.identifier('uuid'), t.stringLiteral(uuid)),
-      t.objectProperty(t.identifier('run'), runFunction)
+      t.objectProperty(t.identifier('run'), runFunction),
     ])
   }
 
@@ -151,7 +156,7 @@ export class QuaScriptTransformer {
 
     return t.objectExpression([
       t.objectProperty(t.identifier('uuid'), t.stringLiteral(uuid)),
-      t.objectProperty(t.identifier('run'), runFunction)
+      t.objectProperty(t.identifier('run'), runFunction),
     ])
   }
 
@@ -159,7 +164,7 @@ export class QuaScriptTransformer {
     const statements: t.Statement[] = []
 
     // Add decorator function calls
-    dialogue.decorators.forEach(decorator => {
+    dialogue.decorators.forEach((decorator) => {
       const mapping = this.decoratorMappings[decorator.name]
       if (mapping) {
         const call = this.createDecoratorCall(decorator, mapping)
@@ -173,7 +178,7 @@ export class QuaScriptTransformer {
 
     return t.arrowFunctionExpression(
       [],
-      t.blockStatement(statements)
+      t.blockStatement(statements),
     )
   }
 
@@ -191,7 +196,7 @@ export class QuaScriptTransformer {
 
     return t.arrowFunctionExpression(
       [],
-      t.blockStatement(statements)
+      t.blockStatement(statements),
     )
   }
 
@@ -199,61 +204,66 @@ export class QuaScriptTransformer {
     const args = decorator.args.map((arg: any) => {
       if (typeof arg === 'string') {
         return t.stringLiteral(arg)
-      } else if (typeof arg === 'number') {
+      }
+      else if (typeof arg === 'number') {
         return t.numericLiteral(arg)
-      } else if (typeof arg === 'boolean') {
+      }
+      else if (typeof arg === 'boolean') {
         return t.booleanLiteral(arg)
-      } else {
+      }
+      else {
         return t.identifier(arg)
       }
     })
 
     return t.callExpression(
       t.identifier(mapping.function),
-      args
+      args,
     )
   }
 
   private createSpeakCall(dialogue: QuaScriptDialogue, quasi: t.TemplateLiteral): t.CallExpression {
     // Handle template expressions in dialogue text
     let textExpression: t.Expression
-    
+
     if (dialogue.templateExpressions.length > 0) {
       // Create template literal with proper expressions
       const parts = dialogue.text.split(/\$\{[^}]+\}/)
       const expressions: t.Expression[] = []
-      
+
       // Extract expressions from the original quasi if available
       dialogue.templateExpressions.forEach((expr, index) => {
         // Try to find matching expression in original quasi
         if (index < quasi.expressions.length) {
           expressions.push(quasi.expressions[index])
-        } else {
+        }
+        else {
           // Fallback: create identifier from expression text
           expressions.push(t.identifier(expr))
         }
       })
-      
+
       // Create template elements
       const quasis = parts.map((part, index) => {
         const isLast = index === parts.length - 1
         return t.templateElement(
           { raw: part, cooked: part },
-          isLast
+          isLast,
         )
       })
-      
+
       textExpression = t.templateLiteral(quasis, expressions)
-    } else {
+    }
+    else {
       textExpression = t.stringLiteral(dialogue.text)
     }
 
     return t.callExpression(
       t.memberExpression(
         t.identifier(dialogue.character),
-        t.identifier('speak')
+        t.identifier('speak'),
       ),
-      [textExpression]
+      [textExpression],
     )
   }
 
@@ -262,7 +272,7 @@ export class QuaScriptTransformer {
     const importMap = new Map<string, Set<string>>()
 
     // Collect required imports from used decorators only
-    this.usedDecorators.forEach(decoratorName => {
+    this.usedDecorators.forEach((decoratorName) => {
       const mapping = this.decoratorMappings[decoratorName]
       if (mapping) {
         if (!importMap.has(mapping.module)) {
@@ -277,12 +287,12 @@ export class QuaScriptTransformer {
     const program = ast.program || ast
     if (program.body) {
       program.body.forEach((node: any) => {
-        if (t.isImportDeclaration(node) && 
-            node.source.value === '@quajs/engine') {
+        if (t.isImportDeclaration(node)
+          && node.source.value === '@quajs/engine') {
           node.specifiers.forEach((spec: any) => {
-            if (t.isImportSpecifier(spec) && 
-                t.isIdentifier(spec.imported) && 
-                spec.imported.name === 'dialogue') {
+            if (t.isImportSpecifier(spec)
+              && t.isIdentifier(spec.imported)
+              && spec.imported.name === 'dialogue') {
               hasDialogueImport = true
             }
           })
@@ -301,11 +311,11 @@ export class QuaScriptTransformer {
     importMap.forEach((functions, module) => {
       if (functions.size > 0) {
         const specifiers = Array.from(functions).map(func =>
-          t.importSpecifier(t.identifier(func), t.identifier(func))
+          t.importSpecifier(t.identifier(func), t.identifier(func)),
         )
-        
+
         imports.push(
-          t.importDeclaration(specifiers, t.stringLiteral(module))
+          t.importDeclaration(specifiers, t.stringLiteral(module)),
         )
       }
     })

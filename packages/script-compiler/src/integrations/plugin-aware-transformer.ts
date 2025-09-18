@@ -19,7 +19,7 @@ async function getPluginDecorators(projectRoot?: string): Promise<DecoratorMappi
 
 /**
  * Plugin-aware QuaScript transformer that uses package-based plugin discovery
- * 
+ *
  * This transformer automatically discovers plugins from:
  * 1. Package.json dependencies (packages named @quajs/plugin-* or quajs-plugin-*)
  * 2. Custom plugin registry (qua.plugins.json)

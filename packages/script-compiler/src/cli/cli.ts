@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
+import type { CompilerOptions, DecoratorMapping } from '../core/types'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import process from 'node:process'
 import { QuaScriptTransformer } from '../core/transformer'
-import type { CompilerOptions, DecoratorMapping } from '../core/types'
 
 interface CLIOptions {
   input: string
@@ -17,12 +18,12 @@ interface CLIOptions {
 function parseArgs(): CLIOptions {
   const args = process.argv.slice(2)
   const options: CLIOptions = {
-    input: ''
+    input: '',
   }
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
-    
+
     switch (arg) {
       case '-h':
       case '--help':
@@ -58,7 +59,7 @@ function parseArgs(): CLIOptions {
 }
 
 function showHelp() {
-  console.log(`
+  console.warn(`
 QuaScript Compiler CLI
 
 Usage:
@@ -85,9 +86,10 @@ function showVersion() {
   try {
     const packagePath = resolve(__dirname, '../package.json')
     const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
-    console.log(`QuaScript Compiler v${pkg.version}`)
-  } catch {
-    console.log('QuaScript Compiler (version unknown)')
+    console.warn(`QuaScript Compiler v${pkg.version}`)
+  }
+  catch {
+    console.warn('QuaScript Compiler (version unknown)')
   }
 }
 
@@ -95,7 +97,8 @@ function loadJSONFile(path: string): any {
   try {
     const content = readFileSync(resolve(path), 'utf-8')
     return JSON.parse(content)
-  } catch (error) {
+  }
+  catch (error) {
     console.error(`Failed to load JSON file ${path}:`, error)
     process.exit(1)
   }
@@ -136,7 +139,8 @@ function main() {
     if (options.compilerOptions) {
       try {
         compilerOptions = JSON.parse(options.compilerOptions)
-      } catch (error) {
+      }
+      catch (error) {
         console.error('Error: Invalid JSON in compiler options:', error)
         process.exit(1)
       }
@@ -147,15 +151,15 @@ function main() {
     const transformedCode = transformer.transformSource(sourceCode)
 
     // Determine output path
-    const outputPath = options.output || 
-      inputPath.replace(/\.ts$/, '.compiled.ts').replace(/\.tsx$/, '.compiled.tsx')
+    const outputPath = options.output
+      || inputPath.replace(/\.ts$/, '.compiled.ts').replace(/\.tsx$/, '.compiled.tsx')
 
     // Write output
     writeFileSync(outputPath, transformedCode, 'utf-8')
-    
-    console.log(`✅ Compiled ${options.input} -> ${outputPath}`)
 
-  } catch (error) {
+    console.warn(`✅ Compiled ${options.input} -> ${outputPath}`)
+  }
+  catch (error) {
     console.error('Compilation failed:', error)
     process.exit(1)
   }
