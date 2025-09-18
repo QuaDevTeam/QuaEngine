@@ -1,5 +1,5 @@
-import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
+import { resolve } from 'node:path'
 import dts from 'vite-plugin-dts'
 
 export default defineConfig({
@@ -15,7 +15,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(import.meta.dirname, 'src/index.ts'),
-      name: 'utils',
+      name: 'logger',
       fileName: 'index',
       formats: ['es'],
     },

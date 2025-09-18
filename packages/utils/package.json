@@ -1,7 +1,7 @@
 {
-  "name": "@quajs/utils",
+  "name": "@quajs/logger",
   "version": "0.1.0",
-  "description": "Reusable utility functions organized by category for QuaEngine",
+  "description": "Configurable logger with package and module prefixes for QuaEngine",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -23,7 +23,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["utils", "utilities", "helpers", "common"],
+  "keywords": ["logger", "logging", "debug", "console"],
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
   "engines": {
