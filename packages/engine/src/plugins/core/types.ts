@@ -6,6 +6,31 @@ import type { PluginAPIRegistration } from './registry'
 import { getPluginRegistry } from './registry'
 
 /**
+ * Plugin interaction interface for accessing other plugins
+ */
+export interface PluginContext {
+  /**
+   * Get a plugin instance by name
+   */
+  getPlugin: <T extends EnginePlugin = EnginePlugin>(name: string) => T | undefined
+
+  /**
+   * Get a plugin instance by ID
+   */
+  getPluginById: <T extends EnginePlugin = EnginePlugin>(id: string) => T | undefined
+
+  /**
+   * Get all registered plugins
+   */
+  getAllPlugins: () => Map<string, EnginePlugin>
+
+  /**
+   * Check if a plugin is registered
+   */
+  hasPlugin: (name: string) => boolean
+}
+
+/**
  * Context object passed to engine plugins
  */
 export interface EngineContext {
@@ -14,6 +39,7 @@ export interface EngineContext {
   assets: QuaAssets
   pipeline: Pipeline
   stepId?: string
+  plugins: PluginContext
 }
 
 /**
@@ -21,6 +47,7 @@ export interface EngineContext {
  */
 export interface EnginePlugin {
   readonly name: string
+  readonly id?: string
   readonly version?: string
   readonly description?: string
 
@@ -43,6 +70,7 @@ export interface EnginePlugin {
   /**
    * Register plugin APIs and decorators (optional)
    * Called during plugin registration to extend global APIs
+   * These APIs will be accessible to other plugins through the global API registry
    */
   registerAPIs?: () => PluginAPIRegistration | Promise<PluginAPIRegistration>
 }
@@ -65,6 +93,7 @@ export interface PluginConstructor {
  */
 export abstract class BaseEnginePlugin implements EnginePlugin {
   abstract readonly name: string
+  readonly id?: string
   readonly version?: string
   readonly description?: string
 
@@ -104,6 +133,7 @@ export abstract class BaseEnginePlugin implements EnginePlugin {
   /**
    * Register plugin APIs and decorators (optional)
    * Override this method to provide custom APIs and QuaScript decorators
+   * These APIs will be accessible to other plugins through the global API registry
    */
   registerAPIs?(): PluginAPIRegistration | Promise<PluginAPIRegistration>
 
