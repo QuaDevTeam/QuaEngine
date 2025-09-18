@@ -1,18 +1,19 @@
-// Core plugin system
-export { PluginAPIRegistry, getPluginRegistry } from './core/registry'
-export { PluginDiscovery, getPluginDiscovery, getDiscoveredDecoratorMappings } from './core/plugin-discovery'
-export type { PluginAPIFunction, PluginAPIRegistration, DecoratorMapping } from './core/registry'
+export { PluginContextImpl } from './core/context'
+export { getDiscoveredDecoratorMappings, getPluginDiscovery, PluginDiscovery } from './core/plugin-discovery'
 export type {
-  PluginPackageSpec,
-  PluginPackageExports,
-  PluginInstance,
   CustomPluginRegistry,
   CustomPluginSpec,
   DiscoveredPlugin,
+  PluginInstance,
+  PluginPackageExports,
+  PluginPackageSpec,
 } from './core/plugin-spec'
+// Core plugin system
+export { getPluginRegistry, PluginAPIRegistry } from './core/registry'
+export type { DecoratorMapping, PluginAPIFunction, PluginAPIRegistration } from './core/registry'
 
 export { BaseEnginePlugin } from './core/types'
-export type { EngineContext, EnginePlugin, PluginConstructor, PluginConstructorOptions } from './core/types'
+export type { EngineContext, EnginePlugin, PluginConstructor, PluginConstructorOptions, PluginContext } from './core/types'
 
 // Plugin development framework
-export { PluginFramework, defineAPIFunction, defineDecorator } from './framework/base'
+export { defineAPIFunction, defineDecorator, PluginFramework } from './framework/base'

@@ -1,13 +1,15 @@
 import type { Plugin } from 'vite'
 import type { QuaEngineVitePluginOptions } from './core/types'
+
+import process from 'node:process'
+import { logPluginMessage } from './core/utils'
 import { quaEnginePlugin } from './plugins/engine'
 import { quackPlugin } from './plugins/quack'
 import { quaScriptCompilerPlugin } from './plugins/script-compiler'
-import { logPluginMessage } from './core/utils'
 
 /**
  * Main QuaEngine Vite plugin that integrates all QuaEngine build pipeline components
- * 
+ *
  * This plugin provides:
  * - QuaScript compilation with plugin support
  * - Automatic plugin discovery and bundling
@@ -20,7 +22,7 @@ export function quaEngine(options: QuaEngineVitePluginOptions = {}): Plugin[] {
     scriptCompiler = { enabled: true },
     pluginDiscovery = { enabled: true },
     assetBundling = { enabled: true },
-    devServer = { hotReloadScripts: true, watchAssets: true }
+    devServer = { hotReloadScripts: true, watchAssets: true },
   } = options
 
   logPluginMessage('Initializing QuaEngine build pipeline', 'info')
@@ -59,33 +61,36 @@ function createDevServerPlugin(devOptions: NonNullable<QuaEngineVitePluginOption
   return {
     name: 'qua-dev-server',
     configureServer(server) {
-      if (process.env.NODE_ENV === 'production') return
+      if (process.env.NODE_ENV === 'production')
+        return
 
       // Enhanced HMR for QuaEngine
       server.ws.on('connection', (ws) => {
-        ws.send(JSON.stringify({
-          type: 'custom',
-          event: 'qua-engine-connected',
-          data: {
-            timestamp: Date.now(),
-            features: {
-              hotReloadScripts: devOptions.hotReloadScripts,
-              watchAssets: devOptions.watchAssets
-            }
-          }
-        }))
+        ws.send(
+          JSON.stringify({
+            type: 'custom',
+            event: 'qua-engine-connected',
+            data: {
+              timestamp: Date.now(),
+              features: {
+                hotReloadScripts: devOptions.hotReloadScripts,
+                watchAssets: devOptions.watchAssets,
+              },
+            },
+          }),
+        )
       })
 
       logPluginMessage('Development server enhanced for QuaEngine', 'info')
-    }
+    },
   }
 }
 
 // Re-export individual plugins for advanced users
-export { quaEnginePlugin, quackPlugin, quaScriptCompilerPlugin }
+export { quackPlugin, quaEnginePlugin, quaScriptCompilerPlugin }
 
 // Re-export types
-export type { QuaEngineVitePluginOptions, VirtualPluginRegistryEntry, AssetBundleManifest } from './core/types'
+export type { AssetBundleManifest, QuaEngineVitePluginOptions, VirtualPluginRegistryEntry } from './core/types'
 
 // Default export
 export default quaEngine
