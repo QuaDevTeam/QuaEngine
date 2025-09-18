@@ -1,43 +1,52 @@
 import type { Plugin } from 'vite'
-import { quaScriptPlugin, type QuaScriptPluginOptions } from '@quajs/script-compiler'
 import type { QuaEngineVitePluginOptions } from '../core/types'
+
 import { shouldTransform } from '../core/utils'
 
 /**
  * Enhanced Vite plugin for QuaScript compilation with plugin integration
- * 
+ *
  * This wraps the existing script-compiler Vite plugin with additional
  * QuaEngine-specific features and better integration.
  */
-export function quaScriptCompilerPlugin(options: QuaEngineVitePluginOptions['scriptCompiler'] = {}): Plugin {
+export async function quaScriptCompilerPlugin(options: QuaEngineVitePluginOptions['scriptCompiler'] = {}): Promise<Plugin> {
   const {
     enabled = true,
     include = /\.(ts|tsx|js|jsx)$/,
     exclude = /node_modules/,
     decoratorMappings,
-    projectRoot
+    projectRoot,
   } = options
 
   if (!enabled) {
     return {
       name: 'qua-script-disabled',
-      apply: () => false
+      apply: () => false,
     }
   }
 
   // Use the existing script-compiler plugin as the base
-  const basePlugin = quaScriptPlugin({
-    include,
-    exclude,
-    decoratorMappings,
-    projectRoot
-  } as QuaScriptPluginOptions)
+  let basePlugin: any = null
+  try {
+    const scriptCompilerModule = await import('@quajs/script-compiler')
+    const quaScriptPlugin = scriptCompilerModule.quaScriptPlugin || scriptCompilerModule.default?.quaScriptPlugin
+    if (quaScriptPlugin) {
+      basePlugin = quaScriptPlugin({
+        include,
+        exclude,
+        decoratorMappings,
+        projectRoot,
+      })
+    }
+  }
+  catch {
+    // Script compiler not available - proceed without it
+  }
 
-  // Enhance with additional QuaEngine features
-  return {
-    ...basePlugin,
+  // Create enhanced plugin to avoid Vite version conflicts
+  const enhancedPlugin: Plugin = {
     name: 'qua-script-compiler',
-    
+
     transform(code: string, id: string) {
       // Check if file should be processed
       if (!shouldTransform(id, include, exclude)) {
@@ -49,8 +58,11 @@ export function quaScriptCompilerPlugin(options: QuaEngineVitePluginOptions['scr
         return null
       }
 
-      // Use the base plugin's transform method
-      return basePlugin.transform?.call(this, code, id)
+      // Use the base plugin's transform method if available
+      if (basePlugin && typeof basePlugin.transform === 'function') {
+        return basePlugin.transform.call(this, code, id)
+      }
+      return null
     },
 
     handleHotUpdate({ file, server }) {
@@ -61,10 +73,12 @@ export function quaScriptCompilerPlugin(options: QuaEngineVitePluginOptions['scr
           event: 'qua-script-update',
           data: {
             file,
-            timestamp: Date.now()
-          }
+            timestamp: Date.now(),
+          },
         })
       }
-    }
+    },
   }
+
+  return enhancedPlugin
 }

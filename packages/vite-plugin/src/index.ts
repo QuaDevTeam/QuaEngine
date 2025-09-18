@@ -17,7 +17,7 @@ import { quaScriptCompilerPlugin } from './plugins/script-compiler'
  * - Development server enhancements
  * - Hot module replacement for game assets and scripts
  */
-export function quaEngine(options: QuaEngineVitePluginOptions = {}): Plugin[] {
+export async function quaEngine(options: QuaEngineVitePluginOptions = {}): Promise<Plugin[]> {
   const {
     scriptCompiler = { enabled: true },
     pluginDiscovery = { enabled: true },
@@ -31,7 +31,7 @@ export function quaEngine(options: QuaEngineVitePluginOptions = {}): Plugin[] {
 
   // Script compiler plugin (always first to transform qs`` literals)
   if (scriptCompiler.enabled !== false) {
-    plugins.push(quaScriptCompilerPlugin(scriptCompiler))
+    plugins.push(await quaScriptCompilerPlugin(scriptCompiler))
   }
 
   // Engine plugin for plugin discovery and bundling

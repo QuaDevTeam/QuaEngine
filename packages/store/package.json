@@ -35,7 +35,6 @@
     "dexie": "^4.0.8"
   },
   "devDependencies": {
-    "fake-indexeddb": "^6.0.1",
-    "vitest": "^3.2.4"
+    "fake-indexeddb": "^6.0.1"
   }
 }

@@ -1,28 +1,10 @@
 {
   "name": "@quajs/vite-plugin",
+  "type": "module",
   "version": "0.1.0",
   "description": "Comprehensive Vite plugin for QuaEngine projects - handles script compilation, plugin discovery, and asset bundling",
-  "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "vite build",
-    "dev": "vite build --watch",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "test": "vitest",
-    "typecheck": "tsc --noEmit"
-  },
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
   "keywords": [
     "vite",
     "plugin",
@@ -31,24 +13,39 @@
     "game-engine",
     "bundler"
   ],
-  "author": "QuaDevTeam",
-  "license": "Apache-2.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "engines": {
     "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "vite": "^5.0.0 || ^6.0.0 || ^7.0.0"
   },
   "dependencies": {
     "@quajs/engine": "workspace:*",
     "@quajs/logger": "workspace:*",
     "@quajs/plugin-discovery": "workspace:*",
-    "@quajs/quack": "workspace:*", 
+    "@quajs/quack": "workspace:*",
     "@quajs/script-compiler": "workspace:*",
     "@quajs/utils": "workspace:*"
   },
-  "devDependencies": {
-    "vitest": "^3.2.4",
-    "vite": "^6.0.0"
-  },
-  "peerDependencies": {
-    "vite": "^5.0.0 || ^6.0.0"
-  }
+  "devDependencies": {}
 }
