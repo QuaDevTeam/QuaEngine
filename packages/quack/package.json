@@ -52,10 +52,5 @@
     "yauzl": "catalog:",
     "yazl": "catalog:"
   },
-  "devDependencies": {
-    "@types/mime-types": "catalog:",
-    "@types/yauzl": "catalog:",
-    "@types/yazl": "catalog:",
-    "vitest": "^3.2.4"
-  }
+  "devDependencies": {}
 }

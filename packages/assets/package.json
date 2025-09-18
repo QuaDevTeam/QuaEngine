@@ -48,9 +48,6 @@
     "fflate": "^0.8.2",
     "lzma-web": "^3.0.1"
   },
-  "devDependencies": {
-    "@vitest/ui": "^3.2.4",
-    "vitest": "^3.2.4"
-  },
+  "devDependencies": {},
   "browser": true
 }
