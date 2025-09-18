@@ -1,243 +1,74 @@
-import type {
-  CustomPluginRegistry,
-  CustomPluginSpec,
-  DiscoveredPlugin,
-  PluginPackageExports,
-  PluginPackageSpec,
-} from './plugin-spec'
+// Import types only to avoid bundling Node.js code in browser builds
 import type { DecoratorMapping } from './registry'
-import { existsSync, readFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
-import process from 'node:process'
+
+// Import plugin-discovery dynamically to handle Node.js vs Browser environments
+let pluginDiscoveryModule: any = null
+
+async function getPluginDiscoveryModule() {
+  if (pluginDiscoveryModule === null) {
+    try {
+      pluginDiscoveryModule = await import('@quajs/plugin-discovery')
+    } catch (error) {
+      console.warn('Plugin discovery not available (likely browser environment):', error)
+      pluginDiscoveryModule = {
+        discoverPlugins: async () => [],
+        getDiscoveredDecoratorMappings: async () => ({}),
+        loadPlugin: async () => null,
+        getAvailablePlugins: async () => [],
+        validatePluginConfig: () => false,
+        mergeDecoratorMappings: (...mappings: any[]) => Object.assign({}, ...mappings)
+      }
+    }
+  }
+  return pluginDiscoveryModule
+}
 
 /**
- * Plugin discovery service that scans packages and custom registries
+ * Plugin discovery service that delegates to the standalone plugin-discovery package
+ * This maintains backward compatibility while using the centralized discovery logic
  */
 export class PluginDiscovery {
   private projectRoot: string
-  private packageJson: any
-  private customRegistry?: CustomPluginRegistry
 
-  constructor(projectRoot: string = process.cwd()) {
-    this.projectRoot = projectRoot
-    this.packageJson = this.loadPackageJson()
-    this.customRegistry = this.loadCustomRegistry()
+  constructor(projectRoot?: string) {
+    this.projectRoot = projectRoot || (typeof process !== 'undefined' ? process.cwd() : '')
   }
 
   /**
    * Discover all available plugins
+   * Delegates to the standalone plugin-discovery package
    */
-  async discoverPlugins(): Promise<DiscoveredPlugin[]> {
-    const plugins: DiscoveredPlugin[] = []
-
-    // Discover package-based plugins
-    const packagePlugins = await this.discoverPackagePlugins()
-    plugins.push(...packagePlugins)
-
-    // Discover custom plugins
-    const customPlugins = await this.discoverCustomPlugins()
-    plugins.push(...customPlugins)
-
-    return plugins
+  async discoverPlugins() {
+    try {
+      const module = await getPluginDiscoveryModule()
+      const plugins = await module.discoverPlugins(this.projectRoot)
+      
+      // Convert to the format expected by the engine
+      return plugins.map((plugin: any) => ({
+        source: 'package' as const,
+        name: plugin.name,
+        version: plugin.version || '1.0.0',
+        entry: plugin.main || `${plugin.name}/dist/index.js`,
+        metadata: {
+          description: plugin.name,
+          category: 'plugin'
+        },
+        decorators: plugin.decorators || {},
+        apis: [],
+        enabled: true
+      }))
+    } catch (error) {
+      console.warn('Plugin discovery failed:', error)
+      return []
+    }
   }
 
   /**
    * Get decorator mappings from all discovered plugins
    */
   async getDecoratorMappings(): Promise<DecoratorMapping> {
-    const plugins = await this.discoverPlugins()
-    const mappings: DecoratorMapping = {}
-
-    for (const plugin of plugins) {
-      if (plugin.enabled) {
-        Object.assign(mappings, plugin.decorators)
-      }
-    }
-
-    return mappings
-  }
-
-  /**
-   * Discover plugins from package.json dependencies
-   */
-  private async discoverPackagePlugins(): Promise<DiscoveredPlugin[]> {
-    if (!this.packageJson) {
-      return []
-    }
-
-    const plugins: DiscoveredPlugin[] = []
-    const dependencies = {
-      ...this.packageJson.dependencies,
-      ...this.packageJson.devDependencies,
-    }
-
-    for (const [packageName, version] of Object.entries(dependencies)) {
-      if (this.isPluginPackage(packageName)) {
-        try {
-          const plugin = await this.loadPackagePlugin(packageName, version as string)
-          if (plugin) {
-            plugins.push(plugin)
-          }
-        }
-        catch (error) {
-          console.warn(`Failed to load plugin package ${packageName}:`, error)
-        }
-      }
-    }
-
-    return plugins
-  }
-
-  /**
-   * Discover plugins from custom registry
-   */
-  private async discoverCustomPlugins(): Promise<DiscoveredPlugin[]> {
-    if (!this.customRegistry) {
-      return []
-    }
-
-    const plugins: DiscoveredPlugin[] = []
-
-    for (const customSpec of this.customRegistry.plugins) {
-      if (customSpec.enabled !== false) {
-        try {
-          const plugin = await this.loadCustomPlugin(customSpec)
-          if (plugin) {
-            plugins.push(plugin)
-          }
-        }
-        catch (error) {
-          console.warn(`Failed to load custom plugin ${customSpec.name}:`, error)
-        }
-      }
-    }
-
-    return plugins
-  }
-
-  /**
-   * Check if a package name follows plugin naming convention
-   */
-  private isPluginPackage(packageName: string): boolean {
-    return (
-      packageName.startsWith('@quajs/plugin-')
-      || packageName.startsWith('quajs-plugin-')
-      // Also check if package has quajs.type: 'plugin' in package.json
-      || this.hasPluginMetadata(packageName)
-    )
-  }
-
-  /**
-   * Check if a package has plugin metadata in its package.json
-   */
-  private hasPluginMetadata(packageName: string): boolean {
-    try {
-      const packagePath = require.resolve(`${packageName}/package.json`)
-      const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'))
-      return packageJson.quajs?.type === 'plugin'
-    }
-    catch {
-      return false
-    }
-  }
-
-  /**
-   * Load a plugin from a package
-   */
-  private async loadPackagePlugin(packageName: string, _version: string): Promise<DiscoveredPlugin | null> {
-    try {
-      // Load package.json to get plugin metadata
-      const packagePath = require.resolve(`${packageName}/package.json`)
-      const packageJson: PluginPackageSpec = JSON.parse(readFileSync(packagePath, 'utf8'))
-
-      if (!packageJson.quajs || packageJson.quajs.type !== 'plugin') {
-        return null
-      }
-
-      // Load plugin module
-      const pluginModule: PluginPackageExports = await import(packageName)
-
-      return {
-        source: 'package',
-        name: packageJson.name,
-        version: packageJson.version,
-        entry: packageName,
-        metadata: {
-          description: packageJson.quajs.description || packageJson.description,
-          category: packageJson.quajs.category,
-          author: typeof packageJson.author === 'string'
-            ? packageJson.author
-            : packageJson.author?.name,
-        },
-        decorators: pluginModule.decorators || {},
-        apis: Object.keys(pluginModule.apis || {}),
-        enabled: true,
-      }
-    }
-    catch (error) {
-      console.warn(`Failed to load plugin package ${packageName}:`, error)
-      return null
-    }
-  }
-
-  /**
-   * Load a custom plugin
-   */
-  private async loadCustomPlugin(customSpec: CustomPluginSpec): Promise<DiscoveredPlugin | null> {
-    try {
-      const entryPath = resolve(this.projectRoot, customSpec.entry)
-      const pluginModule: PluginPackageExports = await import(entryPath)
-
-      return {
-        source: 'custom',
-        name: customSpec.name,
-        version: customSpec.version || '1.0.0',
-        entry: entryPath,
-        metadata: {
-          description: customSpec.description,
-          category: customSpec.category,
-        },
-        decorators: pluginModule.decorators || {},
-        apis: Object.keys(pluginModule.apis || {}),
-        enabled: customSpec.enabled !== false,
-      }
-    }
-    catch (error) {
-      console.warn(`Failed to load custom plugin ${customSpec.name}:`, error)
-      return null
-    }
-  }
-
-  /**
-   * Load project package.json
-   */
-  private loadPackageJson(): any {
-    try {
-      const packagePath = join(this.projectRoot, 'package.json')
-      if (existsSync(packagePath)) {
-        return JSON.parse(readFileSync(packagePath, 'utf8'))
-      }
-    }
-    catch (error) {
-      console.warn('Failed to load package.json:', error)
-    }
-    return null
-  }
-
-  /**
-   * Load custom plugin registry
-   */
-  private loadCustomRegistry(): CustomPluginRegistry | undefined {
-    try {
-      const registryPath = join(this.projectRoot, 'qua.plugins.json')
-      if (existsSync(registryPath)) {
-        return JSON.parse(readFileSync(registryPath, 'utf8'))
-      }
-    }
-    catch (error) {
-      console.warn('Failed to load qua.plugins.json:', error)
-    }
-    return undefined
+    const module = await getPluginDiscoveryModule()
+    return await module.getDiscoveredDecoratorMappings(this.projectRoot)
   }
 }
 
@@ -258,9 +89,46 @@ export function getPluginDiscovery(projectRoot?: string): PluginDiscovery {
 
 /**
  * Get decorator mappings from discovered plugins
- * This is the main function used by script-compiler
+ * This is the main function used by script-compiler and other packages
  */
 export async function getDiscoveredDecoratorMappings(projectRoot?: string): Promise<DecoratorMapping> {
-  const discovery = getPluginDiscovery(projectRoot)
-  return await discovery.getDecoratorMappings()
+  const module = await getPluginDiscoveryModule()
+  return await module.getDiscoveredDecoratorMappings(projectRoot)
 }
+
+// Re-export functions that delegate to the standalone package
+export const discoverPlugins = async (projectRoot?: string) => {
+  const module = await getPluginDiscoveryModule()
+  return await module.discoverPlugins(projectRoot)
+}
+
+export const loadPlugin = async (pluginName: string, projectRoot?: string) => {
+  const module = await getPluginDiscoveryModule()
+  return await module.loadPlugin(pluginName, projectRoot)
+}
+
+export const getAvailablePlugins = async (projectRoot?: string) => {
+  const module = await getPluginDiscoveryModule()
+  return await module.getAvailablePlugins(projectRoot)
+}
+
+export const validatePluginConfig = (config: any) => {
+  // This can be synchronous since it's just validation
+  return (
+    typeof config === 'object' &&
+    config !== null &&
+    typeof config.name === 'string' &&
+    config.name.length > 0
+  )
+}
+
+export const mergeDecoratorMappings = (...mappings: DecoratorMapping[]): DecoratorMapping => {
+  const result: DecoratorMapping = {}
+  for (const mapping of mappings) {
+    Object.assign(result, mapping)
+  }
+  return result
+}
+
+// Re-export types (these will be available since they're from this package)
+export type { DecoratorMapping } from './registry'

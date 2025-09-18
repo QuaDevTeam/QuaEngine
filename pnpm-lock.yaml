@@ -126,6 +126,9 @@ importers:
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../pipeline
+      '@quajs/plugin-discovery':
+        specifier: workspace:*
+        version: link:../plugin-discovery
       '@quajs/store':
         specifier: workspace:*
         version: link:../store
@@ -163,6 +166,19 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@24.1.0)(@vitest/ui@3.2.4)(happy-dom@18.0.1)(tsx@4.20.3)(yaml@2.8.0)
+
+  packages/plugin-discovery:
+    dependencies:
+      '@quajs/utils':
+        specifier: workspace:*
+        version: link:../utils
+    devDependencies:
+      vite-plugin-dts:
+        specifier: ^4.0.0
+        version: 4.5.4(@types/node@24.1.0)(rollup@4.46.2)(typescript@5.8.3)(vite@7.0.6(@types/node@24.1.0)(tsx@4.20.3)(yaml@2.8.0))
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@24.1.0)(@vitest/ui@1.6.1)(happy-dom@18.0.1)
 
   packages/quack:
     dependencies:
@@ -218,6 +234,9 @@ importers:
       '@babel/types':
         specifier: ^7.23.0
         version: 7.28.2
+      '@quajs/plugin-discovery':
+        specifier: workspace:*
+        version: link:../plugin-discovery
       uuid:
         specifier: ^9.0.0
         version: 9.0.1
@@ -261,6 +280,9 @@ importers:
       '@quajs/logger':
         specifier: workspace:*
         version: link:../logger
+      '@quajs/plugin-discovery':
+        specifier: workspace:*
+        version: link:../plugin-discovery
       '@quajs/quack':
         specifier: workspace:*
         version: link:../quack

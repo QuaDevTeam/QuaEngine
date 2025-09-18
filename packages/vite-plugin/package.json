@@ -38,9 +38,10 @@
   },
   "dependencies": {
     "@quajs/engine": "workspace:*",
+    "@quajs/logger": "workspace:*",
+    "@quajs/plugin-discovery": "workspace:*",
     "@quajs/quack": "workspace:*", 
     "@quajs/script-compiler": "workspace:*",
-    "@quajs/logger": "workspace:*",
     "@quajs/utils": "workspace:*"
   },
   "devDependencies": {
