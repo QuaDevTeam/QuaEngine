@@ -22,6 +22,7 @@ import { createStore } from '@quajs/store'
 import { LogicToRenderEvents, RenderToLogicEvents } from '../events/events'
 import { GameManager } from '../managers/game-manager'
 import { SoundSystem } from '../managers/sound-system'
+import { PluginContextImpl } from '../plugins/core/context'
 
 const logger = getPackageLogger('engine')
 
@@ -37,6 +38,7 @@ export class QuaEngine {
   private readonly assets: QuaAssets
   private readonly pipeline: Pipeline
   private readonly plugins: Map<string, EnginePlugin> = new Map()
+  private readonly pluginContext: PluginContextImpl = new PluginContextImpl()
 
   // Manager instances for convenience
   public readonly gameManager: GameManager
@@ -169,6 +171,7 @@ export class QuaEngine {
       }
 
       this.plugins.set(plugin.name, plugin)
+      this.pluginContext.registerPlugin(plugin)
       logger.info(`Plugin ${plugin.name} registered`)
 
       // If engine is already initialized, initialize the plugin immediately
@@ -506,6 +509,7 @@ export class QuaEngine {
 
       // Clear collections
       this.plugins.clear()
+      this.pluginContext.clear()
       this.stepHistory.length = 0
 
       this.isDestroyed = true
@@ -546,6 +550,7 @@ export class QuaEngine {
         assets: this.assets,
         pipeline: this.pipeline,
         stepId: this.currentStepId,
+        plugins: this.pluginContext,
       }
 
       await plugin.init(context)
@@ -566,6 +571,7 @@ export class QuaEngine {
         assets: this.assets,
         pipeline: this.pipeline,
         stepId: stepContext.stepId,
+        plugins: this.pluginContext,
       }))
 
     await Promise.all(promises)

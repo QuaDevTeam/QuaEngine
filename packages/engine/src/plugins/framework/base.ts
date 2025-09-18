@@ -1,5 +1,5 @@
-import type { EngineContext, PluginConstructorOptions } from '../core/types'
 import type { PluginAPIRegistration } from '../core/registry'
+import type { EngineContext, EnginePlugin, PluginConstructorOptions } from '../core/types'
 import { BaseEnginePlugin } from '../core/types'
 
 /**
@@ -14,7 +14,7 @@ export function defineAPIFunction<T extends (...args: any[]) => any>(
   implementation: T,
   options?: {
     module?: string
-  }
+  },
 ): {
   name: string
   fn: T
@@ -23,7 +23,7 @@ export function defineAPIFunction<T extends (...args: any[]) => any>(
   return {
     name,
     fn: implementation,
-    module: options?.module || 'plugin'
+    module: options?.module || 'plugin',
   }
 }
 
@@ -36,7 +36,7 @@ export function defineDecorator(
     function: string
     module: string
     transform?: (args: any[]) => any[]
-  }
+  },
 ) {
   return { [name]: config }
 }
@@ -61,7 +61,7 @@ export abstract class PluginFramework extends BaseEnginePlugin {
     return {
       pluginName: this.name,
       apis,
-      decorators
+      decorators,
     }
   }
 
@@ -98,7 +98,7 @@ export abstract class PluginFramework extends BaseEnginePlugin {
     implementation: (ctx: EngineContext, ...args: Parameters<T>) => ReturnType<T>,
     options?: {
       module?: string
-    }
+    },
   ): {
     name: string
     fn: T
@@ -110,7 +110,7 @@ export abstract class PluginFramework extends BaseEnginePlugin {
     }
 
     return defineAPIFunction(name, contextBoundFn as T, {
-      module: options?.module || this.name
+      module: options?.module || this.name,
     })
   }
 
@@ -122,6 +122,34 @@ export abstract class PluginFramework extends BaseEnginePlugin {
       throw new Error(`Plugin ${this.name} not initialized`)
     }
     return this.ctx
+  }
+
+  /**
+   * Get another plugin instance by name
+   */
+  protected getPlugin<T extends EnginePlugin = EnginePlugin>(name: string): T | undefined {
+    return this.getContext().plugins.getPlugin<T>(name)
+  }
+
+  /**
+   * Get another plugin instance by ID
+   */
+  protected getPluginById<T extends EnginePlugin = EnginePlugin>(id: string): T | undefined {
+    return this.getContext().plugins.getPluginById<T>(id)
+  }
+
+  /**
+   * Check if a plugin is registered
+   */
+  protected hasPlugin(name: string): boolean {
+    return this.getContext().plugins.hasPlugin(name)
+  }
+
+  /**
+   * Get all registered plugins
+   */
+  protected getAllPlugins(): Map<string, EnginePlugin> {
+    return this.getContext().plugins.getAllPlugins()
   }
 
   // Developers manage their own state and communication patterns
