@@ -59,52 +59,52 @@ export interface DecoratorMapping {
 }
 
 export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
-  'RunFunction': {
+  RunFunction: {
     function: 'runFunction',
-    module: '@quajs/engine'
+    module: '@quajs/engine',
   },
-  'PlaySound': {
-    function: 'playSound', 
-    module: '@quajs/engine'
+  PlaySound: {
+    function: 'playSound',
+    module: '@quajs/engine',
   },
-  'PlayBGM': {
+  PlayBGM: {
     function: 'playBGM',
-    module: '@quajs/engine'
+    module: '@quajs/engine',
   },
-  'Dub': {
+  Dub: {
     function: 'dub',
-    module: '@quajs/engine'
+    module: '@quajs/engine',
   },
-  'UseSprite': {
+  UseSprite: {
     function: 'useSprite',
-    module: '@quajs/character'
+    module: '@quajs/character',
   },
-  'UseCharacterSprite': {
+  UseCharacterSprite: {
     function: 'useCharacterSprite',
-    module: '@quajs/character'
+    module: '@quajs/character',
   },
-  'SetVolume': {
+  SetVolume: {
     function: 'setVolume',
-    module: '@quajs/engine'
+    module: '@quajs/engine',
   },
-  'SaveToSlot': {
+  SaveToSlot: {
     function: 'saveToSlot',
-    module: '@quajs/engine'
+    module: '@quajs/engine',
   },
-  'LoadFromSlot': {
+  LoadFromSlot: {
     function: 'loadFromSlot',
-    module: '@quajs/engine'
-  }
+    module: '@quajs/engine',
+  },
 }
 
 /**
  * Merge plugin-extended decorator mappings with default mappings
  */
 export function mergeDecoratorMappings(
-  pluginMappings: DecoratorMapping = {}
+  pluginMappings: DecoratorMapping = {},
 ): DecoratorMapping {
   return {
     ...DEFAULT_DECORATOR_MAPPINGS,
-    ...pluginMappings
+    ...pluginMappings,
   }
 }

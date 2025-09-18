@@ -14,6 +14,7 @@ A TypeScript-based DSL compiler for QuaEngine that transforms QuaScript dialogue
 ## QuaScript Syntax
 
 ### Basic Dialogue
+
 ```typescript
 function scene1() {
   dialogue(qs`
@@ -25,13 +26,14 @@ function scene1() {
 ```
 
 ### With Decorators
+
 ```typescript
 function scene1() {
   dialogue(qs`
     @PlaySound('hello.mp3')
     Jack: Hello world!
-    
-    @UseSprite('john_happy.png')  
+
+    @UseSprite('john_happy.png')
     @PlayBGM('background.mp3')
     John: How are you doing?
   `)
@@ -39,6 +41,7 @@ function scene1() {
 ```
 
 ### With Template Expressions
+
 ```typescript
 function scene1() {
   const playerName = 'Hero'
@@ -60,9 +63,9 @@ npm install @quajs/script-compiler
 ### Vite Plugin
 
 ```typescript
+import { quaScriptPlugin } from '@quajs/script-compiler'
 // vite.config.ts
 import { defineConfig } from 'vite'
-import { quaScriptPlugin } from '@quajs/script-compiler'
 
 export default defineConfig({
   plugins: [
@@ -99,6 +102,7 @@ const compiledCode = transformer.transformSource(sourceCode)
 ## Transformation Example
 
 **Input:**
+
 ```typescript
 import { dialogue } from '@quajs/engine'
 
@@ -107,9 +111,9 @@ function part1() {
   dialogue(qs`
     @RunFunction(functionName, params)
     Jack: I said it.
-    
+
     John: That's not what we talked about before.
-    
+
     @UseCharacterSprite('xx.png')
     Jack: Yes, but I said it ${time}.
   `)
@@ -117,9 +121,10 @@ function part1() {
 ```
 
 **Output:**
+
 ```typescript
-import { dialogue, runFunction } from '@quajs/engine'
 import { useCharacterSprite } from '@quajs/character'
+import { dialogue, runFunction } from '@quajs/engine'
 
 const { Jack, John } = useCharacter('Jack', 'John')
 
@@ -127,20 +132,20 @@ function part1() {
   const time = 'minutes ago'
   dialogue([
     {
-      uuid: "550e8400-e29b-41d4-a716-446655440000",
+      uuid: '550e8400-e29b-41d4-a716-446655440000',
       run: () => {
         runFunction(functionName, params)
         Jack.speak('I said it.')
       }
     },
     {
-      uuid: "550e8400-e29b-41d4-a716-446655440001", 
+      uuid: '550e8400-e29b-41d4-a716-446655440001',
       run: () => {
         John.speak('That\'s not what we talked about before.')
       }
     },
     {
-      uuid: "550e8400-e29b-41d4-a716-446655440002",
+      uuid: '550e8400-e29b-41d4-a716-446655440002',
       run: () => {
         useCharacterSprite('xx.png')
         Jack.speak(`Yes, but I said it ${time}.`)
@@ -152,14 +157,14 @@ function part1() {
 
 ## Available Decorators
 
-| Decorator | Function | Module |
-|-----------|----------|---------|
-| `@PlaySound(asset)` | `playSound` | `@quajs/engine` |
-| `@PlayBGM(asset)` | `playBGM` | `@quajs/engine` |
-| `@Dub(asset)` | `dub` | `@quajs/engine` |
-| `@RunFunction(fn, ...args)` | `runFunction` | `@quajs/engine` |
-| `@SetVolume(type, value)` | `setVolume` | `@quajs/engine` |
-| `@UseSprite(asset)` | `useSprite` | `@quajs/character` |
+| Decorator                    | Function             | Module             |
+| ---------------------------- | -------------------- | ------------------ |
+| `@PlaySound(asset)`          | `playSound`          | `@quajs/engine`    |
+| `@PlayBGM(asset)`            | `playBGM`            | `@quajs/engine`    |
+| `@Dub(asset)`                | `dub`                | `@quajs/engine`    |
+| `@RunFunction(fn, ...args)`  | `runFunction`        | `@quajs/engine`    |
+| `@SetVolume(type, value)`    | `setVolume`          | `@quajs/engine`    |
+| `@UseSprite(asset)`          | `useSprite`          | `@quajs/character` |
 | `@UseCharacterSprite(asset)` | `useCharacterSprite` | `@quajs/character` |
 
 ## Configuration
@@ -168,9 +173,9 @@ function part1() {
 
 ```typescript
 interface CompilerOptions {
-  generateUUID?: boolean        // Generate UUIDs for steps (default: true)
-  preserveDecorators?: boolean  // Keep original decorators (default: false)
-  outputFormat?: 'esm' | 'cjs'  // Output module format (default: 'esm')
+  generateUUID?: boolean // Generate UUIDs for steps (default: true)
+  preserveDecorators?: boolean // Keep original decorators (default: false)
+  outputFormat?: 'esm' | 'cjs' // Output module format (default: 'esm')
 }
 ```
 
@@ -178,10 +183,10 @@ interface CompilerOptions {
 
 ```typescript
 const customMappings = {
-  'MyDecorator': {
+  MyDecorator: {
     function: 'myFunction',
     module: '@my/package',
-    transform: (args) => args.map(arg => arg.toUpperCase())
+    transform: args => args.map(arg => arg.toUpperCase())
   }
 }
 
@@ -199,7 +204,7 @@ const transformer = new QuaScriptTransformer(customMappings)
 ### Types
 
 - **QuaScriptDialogue**: Dialogue step definition
-- **QuaScriptDecorator**: Decorator definition  
+- **QuaScriptDecorator**: Decorator definition
 - **ParsedQuaScript**: Complete parsed script structure
 - **CompilerOptions**: Compiler configuration options
 - **DecoratorMapping**: Custom decorator mapping configuration
