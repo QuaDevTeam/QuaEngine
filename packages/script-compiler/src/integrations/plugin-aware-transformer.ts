@@ -1,4 +1,5 @@
 import type { CompilerOptions, DecoratorMapping } from '../core/types'
+import { getDiscoveredDecoratorMappings } from '@quajs/plugin-discovery'
 import { QuaScriptTransformer } from '../core/transformer'
 import { mergeDecoratorMappings } from '../core/types'
 
@@ -7,8 +8,6 @@ import { mergeDecoratorMappings } from '../core/types'
  */
 async function getPluginDecorators(projectRoot?: string): Promise<DecoratorMapping> {
   try {
-    // Import the plugin discovery system
-    const { getDiscoveredDecoratorMappings } = await import('@quajs/engine/plugins/core/plugin-discovery')
     return await getDiscoveredDecoratorMappings(projectRoot)
   }
   catch {

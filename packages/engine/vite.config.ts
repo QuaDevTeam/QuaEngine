@@ -20,7 +20,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: [],
+      external: ['@quajs/plugin-discovery', '@quajs/assets', '@quajs/logger', '@quajs/pipeline', '@quajs/store', '@quajs/utils'],
       output: {
         globals: {},
       },

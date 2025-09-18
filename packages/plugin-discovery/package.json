@@ -1,11 +1,11 @@
 {
-  "name": "@quajs/script-compiler",
+  "name": "@quajs/plugin-discovery",
   "type": "module",
   "version": "0.1.0",
-  "description": "Compiler of QuaScript",
+  "description": "Plugin discovery system for QuaEngine",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
-  "keywords": [],
+  "keywords": ["plugin", "discovery", "quaengine"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,9 +15,6 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": {
-    "qua-script": "./dist/cli.js"
-  },
   "files": [
     "dist"
   ],
@@ -32,19 +29,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest"
   },
-  "peerDependencies": {
-    "vite": "^4.0.0 || ^5.0.0"
-  },
   "dependencies": {
-    "@babel/generator": "^7.23.0",
-    "@babel/parser": "^7.23.0",
-    "@babel/traverse": "^7.23.0",
-    "@babel/types": "^7.23.0",
-    "@quajs/plugin-discovery": "workspace:*",
-    "uuid": "^9.0.0"
+    "@quajs/utils": "workspace:*"
   },
   "devDependencies": {
-    "@types/uuid": "^9.0.0",
+    "vite-plugin-dts": "^4.0.0",
     "vitest": "^1.0.0"
   }
 }

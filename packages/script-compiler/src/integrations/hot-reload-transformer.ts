@@ -1,6 +1,7 @@
 import type { HotReloadEvent } from '../core/hot-reload'
 import type { CompilerOptions, DecoratorMapping } from '../core/types'
 import process from 'node:process'
+import { getDiscoveredDecoratorMappings } from '@quajs/plugin-discovery'
 import { getHotReloadManager } from '../core/hot-reload'
 import { QuaScriptTransformer } from '../core/transformer'
 import { mergeDecoratorMappings } from '../core/types'
@@ -10,7 +11,6 @@ import { mergeDecoratorMappings } from '../core/types'
  */
 async function getPluginDecorators(projectRoot?: string): Promise<DecoratorMapping> {
   try {
-    const { getDiscoveredDecoratorMappings } = await import('@quajs/engine/plugins/core/plugin-discovery')
     return await getDiscoveredDecoratorMappings(projectRoot)
   }
   catch {
