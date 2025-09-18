@@ -43,28 +43,24 @@ export function quaEnginePlugin(options: QuaEngineVitePluginOptions['pluginDisco
 
       try {
         // Import plugin discovery at runtime with fallback
-        let getPluginDiscovery: any
+        let getDiscoveredDecoratorMappings: any
         try {
-          const engineModule = await import('@quajs/engine')
-          getPluginDiscovery = engineModule.getPluginDiscovery || 
-            engineModule.default?.getPluginDiscovery ||
-            (await import('@quajs/engine/plugins/core/plugin-discovery')).getPluginDiscovery
+          const pluginDiscoveryModule = await import('@quajs/plugin-discovery')
+          getDiscoveredDecoratorMappings = pluginDiscoveryModule.getDiscoveredDecoratorMappings
         } catch {
-          // Fallback - create empty discovery
-          getPluginDiscovery = () => ({ discoverPlugins: async () => [] })
+          // Fallback - no plugin discovery available
+          getDiscoveredDecoratorMappings = async () => ({})
         }
         
-        const discovery = getPluginDiscovery()
-        const plugins = await discovery.discoverPlugins()
+        const decoratorMappings = await getDiscoveredDecoratorMappings()
         
-        discoveredPlugins = plugins
-          .filter(plugin => plugin.source === 'package' && plugin.enabled)
-          .map(plugin => ({
-            name: plugin.name,
-            entry: plugin.entry,
-            decorators: plugin.decorators,
-            apis: plugin.apis
-          }))
+        // Convert decorator mappings to plugin format for backwards compatibility
+        discoveredPlugins = Object.entries(decoratorMappings).map(([name, decorator]) => ({
+          name: `plugin-${name}`,
+          entry: (decorator as any).module || '@quajs/engine',
+          decorators: { [name]: decorator },
+          apis: []
+        }))
 
         logPluginMessage(`Discovered ${discoveredPlugins.length} plugins for bundling`, 'info')
         

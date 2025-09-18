@@ -5,7 +5,7 @@ import { compileQuaScript } from '../src/index'
 import { createHotReloadAwareTransformer } from '../src/integrations/hot-reload-transformer'
 
 // Mock plugin discovery
-vi.mock('@quajs/engine/plugins/core/plugin-discovery', () => ({
+vi.mock('@quajs/plugin-discovery', () => ({
   getDiscoveredDecoratorMappings: vi.fn(async () => ({
     CustomDecorator: {
       function: 'customFunction',

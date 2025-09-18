@@ -5,7 +5,7 @@ import { resetHotReloadManager } from '../src/core/hot-reload'
 import { createHotReloadAwareTransformer } from '../src/integrations/hot-reload-transformer'
 
 // Mock the plugin discovery system
-vi.mock('@quajs/engine/plugins/core/plugin-discovery', () => ({
+vi.mock('@quajs/plugin-discovery', () => ({
   getDiscoveredDecoratorMappings: vi.fn(async () => ({
     MockDecorator: {
       function: 'mockFunction',
