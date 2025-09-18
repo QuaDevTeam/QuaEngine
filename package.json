@@ -42,7 +42,10 @@
     "clean": "turbo clean && rm -rf node_modules/.cache/turbo"
   },
   "workspaces": [
-    "packages/*"
+    "packages/build/*",
+    "packages/core/*",
+    "packages/utils/*",
+    "packages/plugins/*"
   ],
   "devDependencies": {
     "@antfu/eslint-config": "^5.3.0",

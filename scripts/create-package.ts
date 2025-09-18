@@ -33,11 +33,13 @@ interface PackageJson {
 }
 
 type Environment = 'node' | 'browser' | 'both'
+type PackageCategory = 'build' | 'core' | 'utils' | 'plugins'
 
 interface PackageConfig {
   name: string
   description: string
   environment: Environment
+  category: PackageCategory
   template: 'basic' | 'utility' | 'plugin'
   includeTests: boolean
 }
@@ -87,6 +89,34 @@ async function promptForPackageInfo(): Promise<PackageConfig> {
         return true
       },
       transformer: (input: string) => input.toLowerCase().trim()
+    },
+    {
+      type: 'list',
+      name: 'category',
+      message: 'Select package category:',
+      choices: [
+        {
+          name: '🔧 Build Tools - Build system, bundlers, compilers',
+          value: 'build',
+          short: 'Build'
+        },
+        {
+          name: '🎮 Core Engine - Core engine components',
+          value: 'core',
+          short: 'Core'
+        },
+        {
+          name: '🛠️ Utilities - Common utilities and helpers',
+          value: 'utils',
+          short: 'Utils'
+        },
+        {
+          name: '🧩 Plugins - Engine plugins and extensions',
+          value: 'plugins',
+          short: 'Plugins'
+        }
+      ],
+      default: 'core'
     },
     {
       type: 'input', 
@@ -150,7 +180,7 @@ async function promptForPackageInfo(): Promise<PackageConfig> {
       type: 'confirm',
       name: 'confirm',
       message: (answers: any) => 
-        `Create package @quajs/${answers.name} (${answers.environment}) with ${answers.template} template${answers.includeTests ? ' and tests' : ''}?`,
+        `Create package @quajs/${answers.name} in packages/${answers.category}/ (${answers.environment}) with ${answers.template} template${answers.includeTests ? ' and tests' : ''}?`,
       default: true
     }
   ])
@@ -164,6 +194,7 @@ async function promptForPackageInfo(): Promise<PackageConfig> {
     name: answers.name.trim(),
     description: answers.description.trim(),
     environment: answers.environment as Environment,
+    category: answers.category as PackageCategory,
     template: answers.template,
     includeTests: answers.includeTests
   }
@@ -334,8 +365,8 @@ describe('${packageName}', () => {
 }
 
 function createPackageStructure(config: PackageConfig): void {
-  const { name: packageName, description, environment, template, includeTests } = config
-  const packageDir = path.join('packages', packageName)
+  const { name: packageName, description, environment, category, template, includeTests } = config
+  const packageDir = path.join('packages', category, packageName)
   
   // Create package directory
   if (!fs.existsSync(packageDir)) {
@@ -405,7 +436,7 @@ function createPackageStructure(config: PackageConfig): void {
 
 function createTsConfig(environment: Environment): TsConfig {
   const baseConfig: TsConfig = {
-    extends: '../../tsconfig.base.json',
+    extends: '../../../tsconfig.base.json',
     compilerOptions: {
       outDir: './dist',
       rootDir: './src',
@@ -594,29 +625,29 @@ export default defineConfig({
   // Create project.json for Nx
   const projectJson: ProjectJson = {
     name: packageName,
-    $schema: '../../node_modules/nx/schemas/project-schema.json',
-    sourceRoot: `packages/${packageName}/src`,
+    $schema: '../../../node_modules/nx/schemas/project-schema.json',
+    sourceRoot: `packages/${category}/${packageName}/src`,
     projectType: 'library',
     targets: {
       build: {
         executor: 'nx:run-commands',
         options: {
           command: 'vite build',
-          cwd: `packages/${packageName}`,
+          cwd: `packages/${category}/${packageName}`,
         },
       },
       dev: {
         executor: 'nx:run-commands',
         options: {
           command: 'vite build --watch',
-          cwd: `packages/${packageName}`,
+          cwd: `packages/${category}/${packageName}`,
         },
       },
       lint: {
         executor: 'nx:run-commands',
         options: {
           command: 'eslint .',
-          cwd: `packages/${packageName}`,
+          cwd: `packages/${category}/${packageName}`,
         },
       },
       ...(includeTests ? {
@@ -624,12 +655,12 @@ export default defineConfig({
           executor: 'nx:run-commands',
           options: {
             command: 'vitest',
-            cwd: `packages/${packageName}`,
+            cwd: `packages/${category}/${packageName}`,
           },
         },
       } : {}),
     },
-    tags: [],
+    tags: [category],
   }
 
   fs.writeFileSync(
@@ -638,11 +669,12 @@ export default defineConfig({
   )
 
   console.log(`✅ Package @quajs/${packageName} created successfully!`)
-  console.log(`📁 Location: packages/${packageName}`)
+  console.log(`📁 Location: packages/${category}/${packageName}`)
+  console.log(`📂 Category: ${category}`)
   console.log(`🌍 Environment: ${environment}`)
   console.log(`📋 Template: ${template}`)
   console.log(`🔧 Run 'pnpm install' to install dependencies`)
-  console.log(`🚀 Run 'nx build ${packageName}' to build the package`)
+  console.log(`🚀 Run 'turbo build --filter=@quajs/${packageName}' to build the package`)
 }
 
 async function main(): Promise<void> {
@@ -651,6 +683,7 @@ async function main(): Promise<void> {
     
     console.log(`\n📦 Creating package: @quajs/${config.name}`)
     console.log(`📝 Description: ${config.description}`)
+    console.log(`📂 Category: ${config.category}`)
     console.log(`🌍 Environment: ${config.environment}`)
     console.log(`📋 Template: ${config.template}\n`)
 
