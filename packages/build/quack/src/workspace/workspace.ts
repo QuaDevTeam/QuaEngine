@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { createLogger } from '@quajs/logger'
+import { getErrorMessage } from '../utils/error'
 
 const logger = createLogger('quack:workspace')
 
@@ -51,7 +52,7 @@ export class WorkspaceManager {
       return config
     }
     catch (error) {
-      throw new Error(`Failed to load workspace config from ${configFile}: ${error.message}`)
+      throw new Error(`Failed to load workspace config from ${configFile}: ${getErrorMessage(error)}`)
     }
   }
 

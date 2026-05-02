@@ -1,5 +1,7 @@
 import type {
   AssetLocale,
+  AssetProvider,
+  AssetUpdateInfo,
   AssetProcessingPlugin,
   AssetType,
   BundleIndex,
@@ -29,7 +31,7 @@ const logger = createLogger('quaassets')
  * Manages Quack bundles with IndexedDB storage and progressive loading
  */
 export class QuaAssets {
-  private config: Required<QuaAssetsConfig>
+  private config: Required<Omit<QuaAssetsConfig, 'provider'>> & { provider?: AssetProvider }
   private database: QuaAssetsDatabase
   private bundleLoader: BundleLoader
   private assetManager: AssetManager
@@ -38,8 +40,22 @@ export class QuaAssets {
   private eventListeners = new Map<keyof QuaAssetsEvents, Function[]>()
   private currentLocale: AssetLocale
   private initialized = false
+  private provider?: AssetProvider
+  private unwatchProvider?: () => void
 
-  constructor(endpoint: string, config: Partial<QuaAssetsConfig> = {}) {
+  constructor(endpoint: string, config?: Partial<QuaAssetsConfig>)
+  constructor(config: Partial<QuaAssetsConfig> & { endpoint?: string, provider: AssetProvider })
+  constructor(
+    endpointOrConfig: string | (Partial<QuaAssetsConfig> & { endpoint?: string, provider?: AssetProvider }),
+    config: Partial<QuaAssetsConfig> = {},
+  ) {
+    const endpoint = typeof endpointOrConfig === 'string'
+      ? endpointOrConfig
+      : endpointOrConfig.endpoint || 'http://localhost'
+    const mergedConfig = typeof endpointOrConfig === 'string'
+      ? config
+      : endpointOrConfig
+
     // Validate parameters
     if (!endpoint || typeof endpoint !== 'string' || endpoint.trim() === '') {
       throw new Error('Invalid endpoint URL')
@@ -56,32 +72,31 @@ export class QuaAssets {
       throw new Error('Invalid endpoint URL format')
     }
 
-    if (config.cacheSize !== undefined && config.cacheSize <= 0) {
+    if (mergedConfig.cacheSize !== undefined && mergedConfig.cacheSize <= 0) {
       throw new Error('Cache size must be positive')
     }
 
-    if (config.retryAttempts !== undefined && config.retryAttempts < 0) {
+    if (mergedConfig.retryAttempts !== undefined && mergedConfig.retryAttempts < 0) {
       throw new Error('Retry attempts must be non-negative')
     }
 
-    if (config.timeout !== undefined && config.timeout <= 0) {
+    if (mergedConfig.timeout !== undefined && mergedConfig.timeout <= 0) {
       throw new Error('Timeout must be positive')
     }
 
-    if (config.locale !== undefined) {
-      if (typeof config.locale !== 'string') {
+    if (mergedConfig.locale !== undefined) {
+      if (typeof mergedConfig.locale !== 'string') {
         throw new TypeError('Locale must be a string')
       }
       // Validate locale format (allow 'default' or standard locale codes)
       const localePattern = /^(default|[a-z]{2}(-[a-z]{2})?|[a-z]{2}-[A-Z]{2})$/
-      if (!localePattern.test(config.locale)) {
+      if (!localePattern.test(mergedConfig.locale)) {
         throw new Error('Invalid locale format')
       }
     }
 
     // Merge with defaults
     this.config = {
-      endpoint: endpoint.replace(/\/$/, ''), // Remove trailing slash
       locale: 'default',
       enableCache: true,
       cacheSize: 100 * 1024 * 1024, // 100MB
@@ -93,9 +108,13 @@ export class QuaAssets {
       indexedDBVersion: 1,
       enableIntegrityCheck: true,
       enableCompression: true,
-      ...config,
+      provider: undefined,
+      ...mergedConfig,
+      // Remove trailing slash and keep normalized constructor endpoint authoritative.
+      endpoint: endpoint.replace(/\/$/, ''),
     }
 
+    this.provider = this.config.provider
     this.currentLocale = this.config.locale
 
     // Initialize components
@@ -109,7 +128,7 @@ export class QuaAssets {
       this.config.timeout,
     )
 
-    this.assetManager = new AssetManager(this.database, this.currentLocale)
+    this.assetManager = new AssetManager(this.database, this.currentLocale, this.provider)
     this.patchManager = new PatchManager(this.database, this.bundleLoader)
 
     // Register plugins
@@ -127,6 +146,12 @@ export class QuaAssets {
 
     try {
       await this.database.open()
+
+      if (this.provider?.init) {
+        await this.provider.init()
+      }
+
+      this.setupProviderWatch()
 
       // Initialize plugins
       for (const plugin of this.config.plugins) {
@@ -305,7 +330,8 @@ export class QuaAssets {
    */
   setLocale(locale: AssetLocale): void {
     this.currentLocale = locale
-    this.assetManager = new AssetManager(this.database, locale)
+    this.assetManager.cleanup()
+    this.assetManager = new AssetManager(this.database, locale, this.provider)
     logger.info(`Locale changed to: ${locale}`)
   }
 
@@ -413,6 +439,74 @@ export class QuaAssets {
       locale: this.currentLocale,
       ...options,
     })
+  }
+
+  /**
+   * Get the active runtime asset provider, if configured.
+   */
+  getProvider(): AssetProvider | undefined {
+    return this.provider
+  }
+
+  /**
+   * Replace the active runtime asset provider.
+   */
+  async setProvider(provider?: AssetProvider): Promise<void> {
+    this.ensureInitialized()
+
+    if (this.unwatchProvider) {
+      this.unwatchProvider()
+      this.unwatchProvider = undefined
+    }
+
+    if (this.provider?.cleanup) {
+      await this.provider.cleanup()
+    }
+
+    this.provider = provider
+    this.assetManager.setProvider(provider)
+
+    if (provider?.init) {
+      await provider.init()
+    }
+
+    this.setupProviderWatch()
+  }
+
+  /**
+   * Check provider-managed assets for updates.
+   */
+  async checkAssetUpdates(): Promise<AssetUpdateInfo | null> {
+    this.ensureInitialized()
+
+    if (!this.provider?.checkUpdates)
+      return null
+
+    const update = await this.provider.checkUpdates()
+    if (update) {
+      this.emit('update:available', update)
+    }
+
+    return update
+  }
+
+  /**
+   * Apply a provider-managed update and invalidate changed assets.
+   */
+  async applyAssetUpdate(update: AssetUpdateInfo): Promise<void> {
+    this.ensureInitialized()
+
+    if (!this.provider?.applyUpdate) {
+      throw new Error('Active asset provider does not support updates')
+    }
+
+    await this.provider.applyUpdate(update)
+
+    for (const change of update.changes) {
+      this.handleProviderChange(change)
+    }
+
+    this.emit('update:applied', update)
   }
 
   /**
@@ -654,7 +748,21 @@ export class QuaAssets {
    * Cleanup resources
    */
   async cleanup(): Promise<void> {
+    if (this.unwatchProvider) {
+      this.unwatchProvider()
+      this.unwatchProvider = undefined
+    }
+
     this.assetManager.cleanup()
+
+    if (this.provider?.cleanup) {
+      try {
+        await this.provider.cleanup()
+      }
+      catch (error) {
+        logger.warn(`Asset provider cleanup failed for ${this.provider.mode}:`, error)
+      }
+    }
 
     // Cleanup plugins
     for (const plugin of this.config.plugins) {
@@ -702,6 +810,19 @@ export class QuaAssets {
         logger.warn(`Event listener error for ${event}:`, error)
       }
     }
+  }
+
+  private setupProviderWatch(): void {
+    if (!this.provider?.watch)
+      return
+
+    this.unwatchProvider = this.provider.watch(change => this.handleProviderChange(change))
+  }
+
+  private handleProviderChange(change: QuaAssetsEvents['asset:changed']): void {
+    this.assetManager.clearAssetCache(change.assetId)
+    this.assetManager.clearManifestCache()
+    this.emit('asset:changed', change)
   }
 
   private async manageCacheSize(): Promise<void> {

@@ -3,6 +3,8 @@ import { getPackageLogger } from '@quajs/logger'
 
 const logger = getPackageLogger('pipeline')
 
+export const version = '0.1.0'
+
 export interface PipelineEvent<T = unknown> {
   type: string
   payload: T
@@ -36,14 +38,9 @@ export interface PluginOffHook {
   (type: string, listener: EventListener, originalOff: (type: string, listener: EventListener) => unknown): unknown
 }
 
-export interface PipelinePlugin {
-  name: string
-  install(pipeline: Pipeline): void
-}
-
 export interface PipelineOptions {
   middlewares?: (MiddlewareFunction | Middleware)[]
-  plugins?: (PipelinePlugin | Plugin)[]
+  plugins?: Plugin[]
 }
 
 // Abstract middleware base class
@@ -99,7 +96,6 @@ export abstract class Plugin {
 
   // Install method that calls setup and registers hooks
   install(pipeline: Pipeline): void {
-    // Setup can be async, but install is sync for interface compatibility
     const setupResult = this.setup(pipeline)
     if (setupResult instanceof Promise) {
       setupResult.catch((error) => {
@@ -140,7 +136,7 @@ export abstract class Plugin {
 export class Pipeline {
   private middlewares: MiddlewareFunction[] = []
   private listeners: Map<string, Set<EventListener>> = new Map()
-  private plugins: Set<PipelinePlugin | Plugin> = new Set()
+  private plugins: Set<Plugin> = new Set()
   
   // Plugin hooks for taking over event transport
   private emitHook?: PluginEmitHook
@@ -154,25 +150,6 @@ export class Pipeline {
     }
     if (options.plugins) {
       options.plugins.forEach(plugin => this.use(plugin))
-    }
-    
-    // Call setup methods after all plugins and middlewares are added
-    // Note: This is fire-and-forget for async setup methods
-    void this.initializeComponents()
-  }
-
-  // Initialize all components (call setup methods)
-  private async initializeComponents(): Promise<void> {
-    // Setup middlewares
-    for (const middleware of this.middlewares) {
-      const middlewareWithRef = middleware as MiddlewareFunction & { __middleware?: Middleware }
-      if (middlewareWithRef.__middleware?.setup) {
-        try {
-          await middlewareWithRef.__middleware.setup(this)
-        } catch (error) {
-          logger.error('Error setting up middleware:', error)
-        }
-      }
     }
   }
 
@@ -197,14 +174,33 @@ export class Pipeline {
       const middlewareWithRef = middlewareFunction as MiddlewareFunction & { __middleware: Middleware }
       middlewareWithRef.__middleware = middleware
       this.middlewares.push(middlewareWithRef)
+      this.setupMiddleware(middleware)
     } else {
       this.middlewares.push(middleware)
     }
     return this
   }
 
+  private setupMiddleware(middleware: Middleware): void {
+    if (!middleware.setup) {
+      return
+    }
+
+    try {
+      const setupResult = middleware.setup(this)
+      if (setupResult instanceof Promise) {
+        setupResult.catch((error) => {
+          logger.error('Error setting up middleware:', error)
+        })
+      }
+    }
+    catch (error) {
+      logger.error('Error setting up middleware:', error)
+    }
+  }
+
   // Install plugin
-  use(plugin: PipelinePlugin | Plugin): this {
+  use(plugin: Plugin): this {
     if (this.plugins.has(plugin)) {
       return this
     }
@@ -250,11 +246,6 @@ export class Pipeline {
       }
     }
     return this
-  }
-
-  // Add event listener (alias for on)
-  onEvent<T = unknown>(listener: EventListener<T>): this {
-    return this.on('*', listener)
   }
 
   // Emit event through the pipeline

@@ -103,6 +103,11 @@ export interface PatchManifest {
   }
   totalChanges: number
   totalSize: number
+  workspaceBundle?: {
+    name: string
+    fromBuild: string
+    toBuild: string
+  }
 }
 
 export interface BundleManifest {
@@ -274,7 +279,6 @@ export interface BundleInfo {
   }>
 }
 
-// Legacy single-bundle index (for backward compatibility)
 export interface BundleIndex {
   currentVersion: number
   currentBuild: string

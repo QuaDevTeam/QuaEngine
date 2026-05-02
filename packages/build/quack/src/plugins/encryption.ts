@@ -1,5 +1,5 @@
 import type { EncryptionContext, EncryptionPlugin } from '../core/types'
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
+import { createCipheriv, createDecipheriv, createHash } from 'node:crypto'
 import { createLogger } from '@quajs/logger'
 
 const logger = createLogger('quack:plugins:aes-encryption')
@@ -12,8 +12,6 @@ export class AESEncryptionPlugin implements EncryptionPlugin {
   algorithm = 'aes-256-cbc'
 
   private key: Buffer
-  private _iv: Buffer
-
   constructor(key: string) {
     if (!key || key.length < 16) {
       throw new Error('AES encryption requires a key of at least 16 characters')
@@ -21,9 +19,6 @@ export class AESEncryptionPlugin implements EncryptionPlugin {
 
     // Derive a 32-byte key from the provided key
     this.key = createHash('sha256').update(key).digest()
-
-    // Generate a random IV (will be stored with encrypted data)
-    this.iv = randomBytes(16)
 
     logger.info('AES encryption plugin initialized')
   }

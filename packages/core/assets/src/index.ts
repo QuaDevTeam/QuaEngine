@@ -4,6 +4,7 @@ export { BundleLoader } from './bundle-loader'
 // Core components
 export { QuaAssetsDatabase } from './database'
 export { PatchManager } from './patch-manager'
+export { createDevVfsProvider, DevVfsAssetProvider } from './providers'
 // Built-in plugins
 export {
   AESDecryptionPlugin,
@@ -20,10 +21,17 @@ export { QuaAssets } from './qua-assets'
 // Types and interfaces
 export type {
   AssetDiff,
+  AssetChange,
+  AssetChangeListener,
+  AssetChangeType,
   AssetLocale,
+  AssetManifest,
+  AssetManifestRecord,
   AssetNotFoundError,
   AssetProcessingPlugin,
+  AssetProvider,
   AssetQueryResult,
+  AssetUpdateInfo,
 
   // Core types
   AssetType,

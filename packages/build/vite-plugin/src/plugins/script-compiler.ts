@@ -1,5 +1,6 @@
-import type { Plugin } from 'vite'
+import type { Plugin, TransformResult } from 'vite'
 import type { QuaEngineVitePluginOptions } from '../core/types'
+import { quaScriptPlugin } from '@quajs/script-compiler'
 
 import { shouldTransform } from '../core/utils'
 
@@ -9,7 +10,21 @@ import { shouldTransform } from '../core/utils'
  * This wraps the existing script-compiler Vite plugin with additional
  * QuaEngine-specific features and better integration.
  */
-export async function quaScriptCompilerPlugin(options: QuaEngineVitePluginOptions['scriptCompiler'] = {}): Promise<Plugin> {
+type TransformContext = ThisParameterType<NonNullable<Plugin['transform']>>
+type TransformOptions = {
+  moduleType: string
+  ssr?: boolean
+}
+type BaseScriptPlugin = Plugin & {
+  transform?: (
+    this: TransformContext,
+    code: string,
+    id: string,
+    options?: TransformOptions
+  ) => TransformResult | Promise<TransformResult>
+}
+
+export function quaScriptCompilerPlugin(options: QuaEngineVitePluginOptions['scriptCompiler'] = {}): Plugin {
   const {
     enabled = true,
     include = /\.(ts|tsx|js|jsx)$/,
@@ -25,29 +40,18 @@ export async function quaScriptCompilerPlugin(options: QuaEngineVitePluginOption
     }
   }
 
-  // Use the existing script-compiler plugin as the base
-  let basePlugin: any = null
-  try {
-    const scriptCompilerModule = await import('@quajs/script-compiler')
-    const quaScriptPlugin = scriptCompilerModule.quaScriptPlugin || scriptCompilerModule.default?.quaScriptPlugin
-    if (quaScriptPlugin) {
-      basePlugin = quaScriptPlugin({
-        include,
-        exclude,
-        decoratorMappings,
-        projectRoot,
-      })
-    }
-  }
-  catch {
-    // Script compiler not available - proceed without it
-  }
+  const basePlugin = quaScriptPlugin({
+    include,
+    exclude,
+    decoratorMappings,
+    projectRoot,
+  }) as BaseScriptPlugin
 
   // Create enhanced plugin to avoid Vite version conflicts
   const enhancedPlugin: Plugin = {
     name: 'qua-script-compiler',
 
-    transform(code: string, id: string) {
+    async transform(code: string, id: string, options) {
       // Check if file should be processed
       if (!shouldTransform(id, include, exclude)) {
         return null
@@ -60,7 +64,7 @@ export async function quaScriptCompilerPlugin(options: QuaEngineVitePluginOption
 
       // Use the base plugin's transform method if available
       if (basePlugin && typeof basePlugin.transform === 'function') {
-        return basePlugin.transform.call(this, code, id)
+        return basePlugin.transform.call(this, code, id, options)
       }
       return null
     },

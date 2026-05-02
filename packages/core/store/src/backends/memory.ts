@@ -100,13 +100,6 @@ export class MemoryBackend implements StorageBackend {
   }
 
   /**
-   * Get the current total storage size (snapshots only, for backward compatibility)
-   */
-  getStorageSize(): number {
-    return this.snapshots.size
-  }
-
-  /**
    * Get the current number of stored game slots (for testing/debugging)
    */
   getGameSlotStorageSize(): number {

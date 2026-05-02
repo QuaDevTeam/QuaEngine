@@ -23,6 +23,7 @@ export default defineConfig({
       external: [
         'vite',
         '@quajs/engine',
+        '@quajs/plugin-discovery',
         '@quajs/quack',
         '@quajs/script-compiler',
         '@quajs/logger',
@@ -30,17 +31,21 @@ export default defineConfig({
         'node:fs',
         'node:fs/promises',
         'node:path',
-        'node:process'
+        'node:process',
+        'node:crypto',
+        'node:stream',
       ],
       output: {
         globals: {},
       },
     },
-    target: 'es2020',
+    target: 'node18',
+    minify: false,
   },
   resolve: {
     alias: {
       '@': resolve(import.meta.dirname, 'src'),
     },
+    conditions: ['node'],
   },
 })

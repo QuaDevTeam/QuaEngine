@@ -36,23 +36,17 @@ describe('quackBundler', () => {
       await writeFile(join(tempDir, 'images', 'test.png'), 'mock image data')
       await writeFile(join(tempDir, 'scripts', 'scene.js'), 'console.log("test");')
 
-      try {
-        bundler = new QuackBundler({
-          source: tempDir,
-          output: join(tempDir, 'test-bundle.qpk'),
-          format: 'qpk',
-        })
+      bundler = new QuackBundler({
+        source: tempDir,
+        output: join(tempDir, 'test-bundle.qpk'),
+        format: 'qpk',
+      })
 
-        const result = await bundler.bundle()
+      const result = await bundler.bundle()
 
-        expect(result.totalFiles).toBeGreaterThan(0)
-        expect(result.totalSize).toBeGreaterThan(0)
-        expect(result.processingTime).toBeGreaterThan(0)
-      }
-      catch (error) {
-        // Expected in test environment
-        expect(error).toBeDefined()
-      }
+      expect(result.totalFiles).toBeGreaterThan(0)
+      expect(result.totalSize).toBeGreaterThan(0)
+      expect(result.processingTime).toBeGreaterThan(0)
     })
 
     it('should create bundle with custom options', async () => {
@@ -62,33 +56,27 @@ describe('quackBundler', () => {
       const options = {
         format: 'qpk' as const,
         compression: { algorithm: 'lzma' as const, level: 1 },
-        encryption: { enabled: true, algorithm: 'aes-256-cbc' as const },
+        encryption: { enabled: true, algorithm: 'xor' as const },
         version: '2.0.0',
         buildNumber: '100',
         outputPath: join(tempDir, 'output.qpk'),
         ignorePatterns: ['**/*.tmp', '**/.DS_Store'],
       }
 
-      try {
-        bundler = new QuackBundler({
-          source: tempDir,
-          output: join(tempDir, 'custom-bundle.qpk'),
-          format: 'qpk',
-          compression: { algorithm: 'lzma', level: 1 },
-          encryption: { enabled: true, algorithm: 'custom', key: 'test-key-32-characters-long-123' },
-          versioning: { bundleVersion: 2, buildNumber: '100' },
-        })
+      bundler = new QuackBundler({
+        source: tempDir,
+        output: join(tempDir, 'custom-bundle.qpk'),
+        format: 'qpk',
+        compression: { algorithm: 'lzma', level: 1 },
+        encryption: { enabled: true, algorithm: 'xor', key: 'test-key-32-characters-long-123' },
+        versioning: { bundleVersion: 2, buildNumber: '100' },
+      })
 
-        const result = await bundler.bundle()
+      const result = await bundler.bundle()
 
-        expect(result.bundleVersion).toBe(2)
-        expect(result.buildNumber).toBe('100')
-        expect(result.processingTime).toBeGreaterThan(0)
-      }
-      catch (error) {
-        // Expected for advanced features not fully implemented
-        expect(error).toBeDefined()
-      }
+      expect(result.bundleVersion).toBe(2)
+      expect(result.buildNumber).toBe('100')
+      expect(result.processingTime).toBeGreaterThan(0)
     })
 
     it('should handle different bundle formats', async () => {
@@ -105,23 +93,17 @@ describe('quackBundler', () => {
           version: '1.0.0',
         }
 
-        try {
-          bundler = new QuackBundler({
-            source: tempDir,
-            output: join(tempDir, `test-${format}.${format}`),
-            format,
-            compression: { algorithm: 'none', level: 0 },
-            encryption: { enabled: false, algorithm: 'none' },
-            versioning: { bundleVersion: 1 },
-          })
+        bundler = new QuackBundler({
+          source: tempDir,
+          output: join(tempDir, `test-${format}.${format}`),
+          format,
+          compression: { algorithm: 'none', level: 0 },
+          encryption: { enabled: false, algorithm: 'none' },
+          versioning: { bundleVersion: 1 },
+        })
 
-          const result = await bundler.bundle()
-          expect(result.totalFiles).toBeGreaterThanOrEqual(0)
-        }
-        catch (error) {
-          // Expected for format-specific implementations
-          expect(error).toBeDefined()
-        }
+        const result = await bundler.bundle()
+        expect(result.totalFiles).toBeGreaterThan(0)
       }
     })
   })
@@ -268,36 +250,29 @@ describe('quackBundler', () => {
         version: '1.0.0',
       }
 
-      try {
-        const uncompressedBundler = new QuackBundler({
-          source: tempDir,
-          output: join(tempDir, 'uncompressed.qpk'),
-          format: 'qpk',
-          compression: { algorithm: 'none', level: 0 },
-          encryption: { enabled: false, algorithm: 'none' },
-          versioning: { bundleVersion: 1 },
-        })
+      const uncompressedBundler = new QuackBundler({
+        source: tempDir,
+        output: join(tempDir, 'uncompressed.qpk'),
+        format: 'qpk',
+        compression: { algorithm: 'none', level: 0 },
+        encryption: { enabled: false, algorithm: 'none' },
+        versioning: { bundleVersion: 1 },
+      })
 
-        const compressedBundler = new QuackBundler({
-          source: tempDir,
-          output: join(tempDir, 'compressed.qpk'),
-          format: 'qpk',
-          compression: { algorithm: 'lzma', level: 1 },
-          encryption: { enabled: false, algorithm: 'none' },
-          versioning: { bundleVersion: 1 },
-        })
+      const compressedBundler = new QuackBundler({
+        source: tempDir,
+        output: join(tempDir, 'compressed.qpk'),
+        format: 'qpk',
+        compression: { algorithm: 'lzma', level: 1 },
+        encryption: { enabled: false, algorithm: 'none' },
+        versioning: { bundleVersion: 1 },
+      })
 
-        const uncompressedResult = await uncompressedBundler.bundle()
-        const compressedResult = await compressedBundler.bundle()
+      const uncompressedResult = await uncompressedBundler.bundle()
+      const compressedResult = await compressedBundler.bundle()
 
-        // Both should complete successfully
-        expect(uncompressedResult.totalSize).toBeGreaterThan(0)
-        expect(compressedResult.totalSize).toBeGreaterThan(0)
-      }
-      catch (error) {
-        // Expected for compression implementation
-        expect(error).toBeDefined()
-      }
+      expect(uncompressedResult.totalSize).toBeGreaterThan(0)
+      expect(compressedResult.totalSize).toBeGreaterThan(0)
     })
 
     it('should handle encryption options', async () => {
@@ -307,29 +282,23 @@ describe('quackBundler', () => {
       const options = {
         format: 'qpk' as const,
         compression: { algorithm: 'none' as const, level: 0 },
-        encryption: { enabled: true, algorithm: 'aes-256-cbc' as const },
+        encryption: { enabled: true, algorithm: 'xor' as const },
         encryptionKey: 'test-key-32-characters-long-123',
         version: '1.0.0',
       }
 
-      try {
-        bundler = new QuackBundler({
-          source: tempDir,
-          output: join(tempDir, 'encrypted.qpk'),
-          format: 'qpk',
-          compression: { algorithm: 'none', level: 0 },
-          encryption: { enabled: true, algorithm: 'custom', key: 'test-key-32-characters-long-123' },
-          versioning: { bundleVersion: 1 },
-        })
+      bundler = new QuackBundler({
+        source: tempDir,
+        output: join(tempDir, 'encrypted.qpk'),
+        format: 'qpk',
+        compression: { algorithm: 'none', level: 0 },
+        encryption: { enabled: true, algorithm: 'xor', key: 'test-key-32-characters-long-123' },
+        versioning: { bundleVersion: 1 },
+      })
 
-        const result = await bundler.bundle()
+      const result = await bundler.bundle()
 
-        expect(result.totalSize).toBeGreaterThan(0)
-      }
-      catch (error) {
-        // Expected for encryption implementation
-        expect(error).toBeDefined()
-      }
+      expect(result.totalSize).toBeGreaterThan(0)
     })
   })
 
@@ -354,22 +323,13 @@ describe('quackBundler', () => {
 
     it('should handle empty directories', async () => {
       // tempDir exists but is empty
+      bundler = new QuackBundler({
+        source: tempDir,
+        output: join(tempDir, 'empty-bundle.qpk'),
+        format: 'qpk',
+      })
 
-      try {
-        bundler = new QuackBundler({
-          source: tempDir,
-          output: join(tempDir, 'empty-bundle.qpk'),
-          format: 'qpk',
-        })
-
-        const result = await bundler.bundle()
-        expect(result.totalFiles).toBe(0)
-        expect(result.totalSize).toBe(0)
-      }
-      catch (error) {
-        // May throw error for empty bundles depending on implementation
-        expect(error.message).toContain('No assets found')
-      }
+      await expect(bundler.bundle()).rejects.toThrow('No assets found')
     })
 
     it('should validate bundle name format', async () => {

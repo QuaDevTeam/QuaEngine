@@ -1,10 +1,11 @@
-import type { AssetContext, AssetInfo, BundleManifest, EncryptionAlgorithm, EncryptionPlugin, QuackPlugin } from '../core/types'
+import type { AssetContext, AssetInfo, BundleManifest, CompressionAlgorithm, EncryptionAlgorithm, EncryptionPlugin, QuackPlugin } from '../core/types'
 import { createWriteStream } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { createLogger } from '@quajs/logger'
 import * as lzma from 'lzma-native'
 import { EncryptionManager } from '../crypto/encryption'
+import { getErrorMessage } from '../utils/error'
 
 const logger = createLogger('quack:qpk-bundler')
 
@@ -68,18 +69,20 @@ export class QPKBundler {
       compress: boolean
       encrypt: boolean
       compressionLevel?: number
-    } = { compress: true, encrypt: true },
+    } = {
+      compress: manifest.compression.algorithm !== 'none',
+      encrypt: manifest.encryption.enabled,
+    },
   ): Promise<void> {
     logger.info(`Creating QPK bundle: ${outputPath}`)
+
+    this.validateManifestOptions(manifest)
 
     // Validate encryption configuration
     this.encryptionManager.logConfigurationWarnings()
     const validation = this.encryptionManager.validateConfiguration()
-    if (!validation.valid) {
-      if (options.encrypt) {
-        logger.warn('Encryption requested but configuration is invalid - disabling encryption')
-        options.encrypt = false
-      }
+    if (options.encrypt && !validation.valid) {
+      throw new Error(`Invalid QPK encryption configuration: ${validation.errors.join('; ')}`)
     }
 
     // Ensure output directory exists
@@ -109,8 +112,7 @@ export class QPKBundler {
 
       // Write manifest
       await this.writeBuffer(outputStream, manifestData)
-
-      outputStream.end()
+      await this.endStream(outputStream)
 
       logger.info(`QPK bundle created successfully: ${outputPath}`)
     }
@@ -202,10 +204,15 @@ export class QPKBundler {
     manifest: BundleManifest,
     options: { compress: boolean, encrypt: boolean },
   ): Promise<Buffer> {
-    let manifestBuffer = Buffer.from(JSON.stringify(manifest, null, 2), 'utf8')
+    let manifestBuffer: Buffer<ArrayBufferLike> = Buffer.from(JSON.stringify(manifest, null, 2), 'utf8')
 
     // Compress if requested
     if (options.compress) {
+      const algorithm = manifest.compression?.algorithm ?? 'lzma'
+      if (algorithm !== 'lzma') {
+        throw new Error(`QPK compression only supports lzma, received ${algorithm}`)
+      }
+
       manifestBuffer = await this.compressBuffer(manifestBuffer)
       logger.debug(`Manifest compressed: ${manifestBuffer.length} bytes`)
     }
@@ -216,10 +223,24 @@ export class QPKBundler {
       logger.debug(`Manifest encrypted: ${manifestBuffer.length} bytes`)
     }
     else if (options.encrypt) {
-      logger.warn('Manifest encryption skipped - encryption not properly configured')
+      throw new Error('QPK encryption requested but encryption is not available')
     }
 
     return manifestBuffer
+  }
+
+  private validateManifestOptions(manifest: BundleManifest): void {
+    const compressionAlgorithm = manifest.compression?.algorithm
+    const validCompressionAlgorithms: CompressionAlgorithm[] = ['none', 'lzma']
+    if (!validCompressionAlgorithms.includes(compressionAlgorithm)) {
+      throw new Error(`Invalid QPK compression algorithm: ${compressionAlgorithm}`)
+    }
+
+    const encryptionAlgorithm = manifest.encryption?.algorithm
+    const validEncryptionAlgorithms: EncryptionAlgorithm[] = ['none', 'xor', 'custom']
+    if (!validEncryptionAlgorithms.includes(encryptionAlgorithm)) {
+      throw new Error(`Invalid QPK encryption algorithm: ${encryptionAlgorithm}`)
+    }
   }
 
   /**
@@ -300,32 +321,16 @@ export class QPKBundler {
    * Compress buffer using LZMA
    */
   private async compressBuffer(buffer: Buffer): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      lzma.compress(buffer, 6, (result: any, error: any) => {
-        if (error) {
-          reject(error)
-        }
-        else {
-          resolve(Buffer.from(result))
-        }
-      })
-    })
+    const result = await lzma.compress(buffer, { preset: 6 })
+    return Buffer.from(result)
   }
 
   /**
    * Decompress buffer using LZMA
    */
   private async decompressBuffer(buffer: Buffer): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      lzma.decompress(buffer, (result: any, error: any) => {
-        if (error) {
-          reject(error)
-        }
-        else {
-          resolve(Buffer.from(result))
-        }
-      })
-    })
+    const result = await lzma.decompress(buffer)
+    return Buffer.from(result)
   }
 
   /**
@@ -344,6 +349,14 @@ export class QPKBundler {
     })
   }
 
+  private async endStream(stream: NodeJS.WritableStream): Promise<void> {
+    return new Promise((resolve, reject) => {
+      stream.once('finish', resolve)
+      stream.once('error', reject)
+      stream.end()
+    })
+  }
+
   /**
    * Read QPK bundle
    */
@@ -359,7 +372,7 @@ export class QPKBundler {
     // Extract manifest
     const manifestStart = Number(header.manifestOffset)
     const manifestEnd = manifestStart + Number(header.manifestSize)
-    let manifestBuffer = fileBuffer.subarray(manifestStart, manifestEnd)
+    let manifestBuffer: Buffer<ArrayBufferLike> = fileBuffer.subarray(manifestStart, manifestEnd)
 
     // Decrypt if needed
     if (header.flags & 2) {
@@ -502,57 +515,6 @@ export class QPKBundler {
   }
 
   /**
-   * Compress data using LZMA
-   */
-  async compressLZMA(_data: Uint8Array): Promise<Uint8Array> {
-    throw new Error('LZMA compression not implemented')
-  }
-
-  /**
-   * Compress data using DEFLATE
-   */
-  async compressDeflate(_data: Uint8Array): Promise<Uint8Array> {
-    throw new Error('DEFLATE compression not implemented')
-  }
-
-  /**
-   * Compress data with specified algorithm
-   */
-  async compressData(data: Uint8Array, algorithm: string): Promise<Uint8Array> {
-    if (algorithm === 'none') {
-      return data
-    }
-    if (algorithm === 'lzma') {
-      return this.compressLZMA(data)
-    }
-    if (algorithm === 'deflate') {
-      return this.compressDeflate(data)
-    }
-    throw new Error(`Unsupported compression algorithm: ${algorithm}`)
-  }
-
-  /**
-   * Serialize file entry for QPK format
-   */
-  serializeFileEntry(entry: any): Uint8Array {
-    const nameBuffer = Buffer.from(entry.name, 'utf8')
-    const entryData = Buffer.alloc(4 + nameBuffer.length + 24) // Basic size
-
-    let offset = 0
-    entryData.writeUInt32LE(nameBuffer.length, offset)
-    offset += 4
-    nameBuffer.copy(entryData, offset)
-    offset += nameBuffer.length
-    entryData.writeUInt32LE(entry.size, offset)
-    offset += 4
-    entryData.writeUInt32LE(entry.compressedSize, offset)
-    offset += 4
-    entryData.writeUInt32LE(entry.offset, offset)
-
-    return new Uint8Array(entryData)
-  }
-
-  /**
    * Verify QPK bundle integrity
    */
   async verifyBundle(qpkPath: string): Promise<{ valid: boolean, errors: string[] }> {
@@ -583,10 +545,10 @@ export class QPKBundler {
         errors,
       }
     }
-    catch (error: any) {
+    catch (error) {
       return {
         valid: false,
-        errors: [`Failed to verify bundle: ${error.message}`],
+        errors: [`Failed to verify bundle: ${getErrorMessage(error)}`],
       }
     }
   }

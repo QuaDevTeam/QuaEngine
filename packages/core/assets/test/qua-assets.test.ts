@@ -79,6 +79,30 @@ describe('quaAssets', () => {
       }).toThrow('Retry attempts must be non-negative')
     })
 
+    it('should validate object constructor configuration', () => {
+      const provider = {
+        mode: 'dev-vfs',
+        getManifest: vi.fn(),
+        getAsset: vi.fn(),
+      }
+
+      expect(() => {
+        new QuaAssets({
+          endpoint: 'https://cdn.example.com',
+          provider: provider as any,
+          cacheSize: -1,
+        })
+      }).toThrow('Cache size must be positive')
+
+      expect(() => {
+        new QuaAssets({
+          endpoint: 'https://cdn.example.com',
+          provider: provider as any,
+          locale: 'invalid_locale',
+        })
+      }).toThrow('Invalid locale format')
+    })
+
     it('should handle plugin initialization', async () => {
       const mockPlugin = {
         name: 'test-plugin',
@@ -317,6 +341,76 @@ describe('quaAssets', () => {
         // May fail depending on JS execution implementation
         expect(error).toBeDefined()
       }
+    })
+
+    it('should load assets through a runtime provider', async () => {
+      const provider = {
+        mode: 'dev-vfs',
+        init: vi.fn(),
+        cleanup: vi.fn(),
+        getManifest: vi.fn().mockResolvedValue({
+          version: '1',
+          assets: [{
+            id: 'dev:default:data:config.json',
+            name: 'config.json',
+            type: 'data',
+            locale: 'default',
+            path: 'data/config.json',
+          }],
+        }),
+        getAsset: vi.fn().mockResolvedValue(new Blob(['{"enabled":true}'], { type: 'application/json' })),
+      }
+
+      const providerAssets = new QuaAssets({
+        endpoint: 'https://cdn.example.com',
+        provider: provider as any,
+      })
+
+      await providerAssets.initialize()
+
+      const json = await providerAssets.getJSON<{ enabled: boolean }>('data', 'config.json')
+
+      expect(provider.init).toHaveBeenCalled()
+      expect(json.enabled).toBe(true)
+      expect(provider.getAsset).toHaveBeenCalled()
+
+      await providerAssets.cleanup()
+      expect(provider.cleanup).toHaveBeenCalled()
+    })
+
+    it('should emit asset change events from provider watch', async () => {
+      let watchListener: any
+      const provider = {
+        mode: 'dev-vfs',
+        getManifest: vi.fn().mockResolvedValue({ version: '1', assets: [] }),
+        getAsset: vi.fn(),
+        watch: vi.fn((listener) => {
+          watchListener = listener
+          return vi.fn()
+        }),
+      }
+
+      const providerAssets = new QuaAssets({
+        endpoint: 'https://cdn.example.com',
+        provider: provider as any,
+      })
+      const handler = vi.fn()
+
+      await providerAssets.initialize()
+      providerAssets.on('asset:changed', handler)
+
+      const change = {
+        type: 'changed' as const,
+        assetId: 'dev:default:images:bg.png',
+        path: 'images/bg.png',
+        timestamp: Date.now(),
+      }
+
+      watchListener(change)
+
+      expect(handler).toHaveBeenCalledWith(change)
+
+      await providerAssets.cleanup()
     })
   })
 

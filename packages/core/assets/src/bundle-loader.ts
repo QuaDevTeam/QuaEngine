@@ -460,9 +460,11 @@ export class BundleLoader {
             const fileData = files.get(filePath)
 
             if (fileData) {
+              const assetBuffer = this.toArrayBuffer(fileData)
+
               // Verify hash if available
               if (assetInfo.hash) {
-                const actualHash = await this.computeHash(fileData.buffer)
+                const actualHash = await this.computeHash(assetBuffer)
                 if (actualHash !== assetInfo.hash) {
                   throw new IntegrityError(assetInfo.hash, actualHash)
                 }
@@ -474,7 +476,7 @@ export class BundleLoader {
                 name: filename,
                 type: assetType as AssetType,
                 locale,
-                blob: new Blob([fileData]),
+                blob: new Blob([assetBuffer]),
                 hash: assetInfo.hash,
                 size: assetInfo.size,
                 version: assetInfo.version || 1,
@@ -517,6 +519,10 @@ export class BundleLoader {
 
     // Check for locale folder (folder-based locales)
     return `${type}/${subType}/${locale}/${filename}`
+  }
+
+  private toArrayBuffer(data: Uint8Array): ArrayBuffer {
+    return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
   }
 
   /**

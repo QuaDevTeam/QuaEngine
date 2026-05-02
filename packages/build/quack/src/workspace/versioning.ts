@@ -21,7 +21,6 @@ export class VersionManager {
   private buildLogDir: string
   private indexFile: string
   private workspaceIndexFile: string
-  private isWorkspaceMode: boolean
 
   constructor(outputDir?: string, workspaceMode: boolean = false) {
     const baseDir = outputDir || process.cwd()
@@ -29,7 +28,7 @@ export class VersionManager {
     this.buildLogDir = join(baseDir, '.quack-logs')
     this.indexFile = join(baseDir, 'index.json')
     this.workspaceIndexFile = join(baseDir, 'workspace-index.json')
-    this.isWorkspaceMode = workspaceMode
+    void workspaceMode
   }
 
   /**
@@ -183,8 +182,6 @@ export class VersionManager {
     // Ensure build log directory exists
     await mkdir(this.buildLogDir, { recursive: true })
 
-    // Calculate bundle file hash
-    const bundleStats = await stat(bundlePath)
     const bundleBuffer = await readFile(bundlePath)
     const bundleHash = createHash('sha256').update(bundleBuffer).digest('hex')
 
@@ -457,7 +454,7 @@ export class VersionManager {
     bundleName: string,
     buildLog: BuildLog,
     bundlePath: string,
-    manifest: BundleManifest,
+    _manifest: BundleManifest,
     bundleDefinition: any,
   ): Promise<void> {
     const index = await this.getWorkspaceIndex()

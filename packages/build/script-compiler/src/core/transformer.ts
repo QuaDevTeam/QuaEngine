@@ -235,7 +235,13 @@ export class QuaScriptTransformer {
       dialogue.templateExpressions.forEach((expr, index) => {
         // Try to find matching expression in original quasi
         if (index < quasi.expressions.length) {
-          expressions.push(quasi.expressions[index])
+          const expression = quasi.expressions[index]
+          if (t.isExpression(expression)) {
+            expressions.push(expression)
+          }
+          else {
+            expressions.push(t.identifier(expr))
+          }
         }
         else {
           // Fallback: create identifier from expression text

@@ -1,5 +1,6 @@
 import type { Plugin } from 'vite'
 import type { QuaEngineVitePluginOptions, VirtualPluginRegistryEntry } from '../core/types'
+import { getDiscoveredDecoratorMappings } from '@quajs/plugin-discovery'
 import { generatePluginModuleId, logPluginMessage } from '../core/utils'
 
 /**
@@ -43,28 +44,16 @@ export function quaEnginePlugin(options: QuaEngineVitePluginOptions['pluginDisco
         return
 
       try {
-        // Import plugin discovery at runtime with fallback
-        let getDiscoveredDecoratorMappings: any
-        try {
-          const pluginDiscoveryModule = await import('@quajs/plugin-discovery')
-          getDiscoveredDecoratorMappings = pluginDiscoveryModule.getDiscoveredDecoratorMappings
-        }
-        catch {
-          // Fallback - no plugin discovery available
-          getDiscoveredDecoratorMappings = async () => ({})
-        }
-
         const decoratorMappings = await getDiscoveredDecoratorMappings()
 
-        // Convert decorator mappings to plugin format for backwards compatibility
         discoveredPlugins = Object.entries(decoratorMappings).map(([name, decorator]) => ({
           name: `plugin-${name}`,
-          entry: (decorator as any).module || '@quajs/engine',
+          entry: decorator.module,
           decorators: {
             [name]: {
-              function: (decorator as any).function || name,
-              module: (decorator as any).module || '@quajs/engine',
-              transform: (decorator as any).transform,
+              function: decorator.function,
+              module: decorator.module,
+              transform: decorator.transform,
             },
           },
           apis: [],

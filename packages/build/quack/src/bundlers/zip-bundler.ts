@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import { createLogger } from '@quajs/logger'
 import yauzl from 'yauzl'
 import { ZipFile } from 'yazl'
+import { getErrorMessage } from '../utils/error'
 
 const logger = createLogger('quack:zip-bundler')
 
@@ -27,7 +28,6 @@ export class ZipBundler {
       logger.info(`Creating ZIP bundle: ${outputPath}`)
 
       const zip = new ZipFile()
-      const _processedCount = 0
 
       // Add manifest first
       const manifestJson = JSON.stringify(manifest, null, 2)
@@ -264,10 +264,10 @@ export class ZipBundler {
         errors,
       }
     }
-    catch (error: any) {
+    catch (error) {
       return {
         valid: false,
-        errors: [`Failed to verify bundle: ${error.message}`],
+        errors: [`Failed to verify bundle: ${getErrorMessage(error)}`],
       }
     }
   }

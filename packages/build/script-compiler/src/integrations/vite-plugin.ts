@@ -149,23 +149,23 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
 
       const { file, read } = ctx
 
-      // Handle QuaScript file changes
-      if (shouldTransform(file, include, exclude)) {
-        // Read file content for hot-reload manager
-        read().then((content) => {
-          hotReloadManager.handleFileChange(file, content)
-        }).catch(console.error)
-
-        // Return undefined to let Vite handle the update normally
-        return undefined
-      }
-
-      // Handle plugin-related file changes
+      // Handle plugin-related file changes before generic .ts/.js transforms.
       if (shouldWatchFile(file)) {
         hotReloadManager.handleFileChange(file)
 
         // Return empty array to prevent default HMR
         return []
+      }
+
+      // Handle QuaScript file changes
+      if (shouldTransform(file, include, exclude)) {
+        // Read file content for hot-reload manager
+        Promise.resolve(read()).then((content: string) => {
+          hotReloadManager.handleFileChange(file, content)
+        }).catch(console.error)
+
+        // Return undefined to let Vite handle the update normally
+        return undefined
       }
     },
 

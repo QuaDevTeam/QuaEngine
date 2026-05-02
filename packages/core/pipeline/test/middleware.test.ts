@@ -101,6 +101,23 @@ describe('middleware', () => {
       expect(middleware.setupCalled).toBe(true)
     })
 
+    it('should call setup once for constructor middlewares', async () => {
+      class SetupMiddleware extends Middleware {
+        setup = vi.fn()
+
+        async handle(context: PipelineContext, next: MiddlewareNext) {
+          await next()
+        }
+      }
+
+      const middleware = new SetupMiddleware()
+      new Pipeline({ middlewares: [middleware] })
+
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      expect(middleware.setup).toHaveBeenCalledOnce()
+    })
+
     it('should support async setup method', async () => {
       class AsyncSetupMiddleware extends Middleware {
         setupCompleted = false

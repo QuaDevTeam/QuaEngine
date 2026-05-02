@@ -318,7 +318,7 @@ Enhanced XOR encryption with key derivation:
 
 - Cross-platform compatibility is critical
 - Need to inspect bundles with standard tools
-- Working with legacy systems
+- Need standard ZIP tooling
 - Prioritizing decompression speed over size
 - Encryption is not required
 

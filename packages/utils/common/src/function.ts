@@ -3,7 +3,7 @@ export function debounce<T extends (...args: any[]) => any>(
   wait: number,
   immediate: boolean = false
 ): T & { cancel: () => void } {
-  let timeout: NodeJS.Timeout | null = null;
+  let timeout: ReturnType<typeof setTimeout> | null = null;
   let result: ReturnType<T>;
 
   const debounced = function (this: any, ...args: Parameters<T>) {
@@ -38,7 +38,7 @@ export function throttle<T extends (...args: any[]) => any>(
   options: { leading?: boolean; trailing?: boolean } = {}
 ): T & { cancel: () => void } {
   const { leading = true, trailing = true } = options;
-  let timeout: NodeJS.Timeout | null = null;
+  let timeout: ReturnType<typeof setTimeout> | null = null;
   let previous = 0;
   let result: ReturnType<T>;
 

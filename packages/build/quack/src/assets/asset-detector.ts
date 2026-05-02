@@ -1,7 +1,7 @@
 import type { AssetInfo, AssetSubType, AssetType, LocaleInfo, MediaMetadata } from '../core/types'
 import { createHash } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
-import { basename, dirname, extname, join, relative } from 'node:path'
+import { basename, extname, join, relative } from 'node:path'
 import { createLogger } from '@quajs/logger'
 import { isString } from '@quajs/utils'
 import { glob } from 'glob'
@@ -156,8 +156,6 @@ export class AssetDetector {
     const relativePath = relative(basePath, filePath).replace(/\\/g, '/')
     const extension = extname(filePath).toLowerCase()
     const fileName = basename(filePath, extension)
-    const _dirPath = dirname(relativePath)
-
     // Detect asset type
     const assetType = this.detectAssetType(relativePath, extension)
     if (!assetType) {

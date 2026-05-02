@@ -345,18 +345,4 @@ describe('plugin', () => {
       await new Promise(resolve => setTimeout(resolve, 10))
     })
   })
-
-  describe('plugin interface compatibility', () => {
-    // Test legacy plugin interface
-    const legacyPlugin = {
-      name: 'legacy-plugin',
-      install: vi.fn(),
-    }
-
-    it('should support legacy plugin interface', () => {
-      pipeline.use(legacyPlugin)
-
-      expect(legacyPlugin.install).toHaveBeenCalledWith(pipeline)
-    })
-  })
 })

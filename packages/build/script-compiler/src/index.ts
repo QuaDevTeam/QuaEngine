@@ -9,6 +9,7 @@ export {
   HotReloadManager,
   resetHotReloadManager,
 } from './core/hot-reload'
+import { getHotReloadManager } from './core/hot-reload'
 export type { HotReloadCallback, HotReloadEvent } from './core/hot-reload'
 
 export { QuaScriptParser } from './core/parser'
@@ -72,6 +73,10 @@ export function compileQuaScript(
           projectRoot: restOptions.projectRoot,
         },
       )
+
+  if (hotReload) {
+    getHotReloadManager(restOptions.projectRoot).enable()
+  }
 
   return transformer.transformSource(source)
 }

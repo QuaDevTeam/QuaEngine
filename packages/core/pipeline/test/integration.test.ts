@@ -117,7 +117,7 @@ describe('pipeline Integration', () => {
 
       pipeline.on('user:action', userActionListener)
       pipeline.on('game:event', gameEventListener)
-      pipeline.onEvent(allEventListener)
+      pipeline.on('*', allEventListener)
 
       // Test 1: Valid user action
       await pipeline.emit('user:action', { action: 'move', x: 10, y: 20 })
@@ -278,8 +278,8 @@ describe('pipeline Integration', () => {
   })
 
   describe('version export', () => {
-    it('should export correct version', () => {
-      const { version } = require('../src/index')
+    it('should export correct version', async () => {
+      const { version } = await import('../src/index')
       expect(version).toBe('0.1.0')
     })
   })

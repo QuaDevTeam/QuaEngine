@@ -452,16 +452,25 @@ export class QuackBundler extends EventEmitter {
     const versionInfo = await versionManager.getVersionInfo(config.versioning || {})
 
     // Normalize compression
+    let compressionAlgorithm = config.compression?.algorithm ?? (format === 'qpk' ? 'lzma' : 'deflate') as CompressionAlgorithm
+    if (format === 'qpk' && compressionAlgorithm === 'deflate') {
+      throw new Error('QPK compression only supports none or lzma')
+    }
+
     const compression = {
       level: config.compression?.level ?? (format === 'qpk' ? 6 : 6),
-      algorithm: config.compression?.algorithm ?? (format === 'qpk' ? 'lzma' : 'deflate') as CompressionAlgorithm,
+      algorithm: compressionAlgorithm,
     }
 
     // Normalize encryption
+    const encryptionEnabled = config.encryption?.enabled ?? false
+    const encryptionAlgorithm = encryptionEnabled
+      ? (config.encryption?.algorithm ?? 'xor' as EncryptionAlgorithm)
+      : 'none'
     const encryptionKey = this.resolveEncryptionKey(config.encryption?.key, config.encryption?.keyGenerator)
     const encryption = {
-      enabled: config.encryption?.enabled ?? (format === 'qpk'),
-      algorithm: config.encryption?.algorithm ?? 'xor' as EncryptionAlgorithm,
+      enabled: encryptionEnabled,
+      algorithm: encryptionAlgorithm,
       key: encryptionKey,
       plugin: config.encryption?.plugin,
     }

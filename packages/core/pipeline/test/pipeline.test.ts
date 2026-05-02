@@ -85,7 +85,7 @@ describe('pipeline', () => {
       const wildcardListener = vi.fn()
       const specificListener = vi.fn()
 
-      pipeline.onEvent(wildcardListener)
+      pipeline.on('*', wildcardListener)
       pipeline.on('specific', specificListener)
 
       await pipeline.emit('specific', 'data')

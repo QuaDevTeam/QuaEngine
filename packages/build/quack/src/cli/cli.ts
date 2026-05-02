@@ -8,6 +8,7 @@ import { Command } from 'commander'
 import { QPKBundler } from '../bundlers/qpk-bundler'
 import { ZipBundler } from '../bundlers/zip-bundler'
 import { QuackBundler } from '../core/bundler'
+import { getErrorMessage, getErrorStack } from '../utils/error'
 import { PatchGenerator } from '../workspace/patch-generator'
 import { VersionManager } from '../workspace/versioning'
 import { WorkspaceManager } from '../workspace/workspace'
@@ -53,9 +54,9 @@ program
       console.log(`📊 ${stats.totalFiles} files, ${formatBytes(stats.totalSize)}, ${stats.processingTime}ms`)
     }
     catch (error) {
-      console.error('❌ Bundle creation failed:', error instanceof Error ? error.message : String(error))
+      console.error('❌ Bundle creation failed:', getErrorMessage(error))
       if (options.verbose) {
-        console.error(error instanceof Error ? error.stack : String(error))
+        console.error(getErrorStack(error))
       }
       process.exit(1)
     }
@@ -92,9 +93,9 @@ program
       console.log('✅ Bundle extracted successfully!')
     }
     catch (error) {
-      console.error('❌ Extraction failed:', error instanceof Error ? error.message : String(error))
+      console.error('❌ Extraction failed:', getErrorMessage(error))
       if (options.verbose) {
-        console.error(error instanceof Error ? error.stack : String(error))
+        console.error(getErrorStack(error))
       }
       process.exit(1)
     }
@@ -132,9 +133,9 @@ program
       }
     }
     catch (error) {
-      console.error('❌ List failed:', error instanceof Error ? error.message : String(error))
+      console.error('❌ List failed:', getErrorMessage(error))
       if (options.verbose) {
-        console.error(error instanceof Error ? error.stack : String(error))
+        console.error(getErrorStack(error))
       }
       process.exit(1)
     }
@@ -178,9 +179,9 @@ program
       }
     }
     catch (error) {
-      console.error('❌ Verification failed:', error instanceof Error ? error.message : String(error))
+      console.error('❌ Verification failed:', getErrorMessage(error))
       if (options.verbose) {
-        console.error(error instanceof Error ? error.stack : String(error))
+        console.error(getErrorStack(error))
       }
       process.exit(1)
     }
@@ -238,7 +239,7 @@ export default defineConfig({
       console.log('✅ Configuration file created: quack.config.js')
     }
     catch (error) {
-      console.log('❌ Failed to create configuration:', error instanceof Error ? error.message : String(error))
+      console.log('❌ Failed to create configuration:', getErrorMessage(error))
       process.exit(1)
     }
   })
@@ -309,9 +310,9 @@ program
       console.log('✅ Patch created successfully!')
     }
     catch (error) {
-      console.error('❌ Patch creation failed:', error instanceof Error ? error.message : String(error))
+      console.error('❌ Patch creation failed:', getErrorMessage(error))
       if (options.verbose) {
-        console.error(error.stack)
+        console.error(getErrorStack(error))
       }
       process.exit(1)
     }
@@ -362,9 +363,9 @@ program
       }
     }
     catch (error) {
-      console.error('❌ Failed to show version info:', error.message)
+      console.error('❌ Failed to show version info:', getErrorMessage(error))
       if (options.verbose) {
-        console.error(error.stack)
+        console.error(getErrorStack(error))
       }
       process.exit(1)
     }
@@ -406,9 +407,9 @@ program
       }
     }
     catch (error) {
-      console.error('❌ Failed to list builds:', error.message)
+      console.error('❌ Failed to list builds:', getErrorMessage(error))
       if (options.verbose) {
-        console.error(error.stack)
+        console.error(getErrorStack(error))
       }
       process.exit(1)
     }
@@ -451,9 +452,9 @@ program
       }
     }
     catch (error) {
-      console.error('❌ Failed to list patches:', error.message)
+      console.error('❌ Failed to list patches:', getErrorMessage(error))
       if (options.verbose) {
-        console.error(error.stack)
+        console.error(getErrorStack(error))
       }
       process.exit(1)
     }
@@ -511,9 +512,9 @@ program
       }
     }
     catch (error) {
-      console.error('❌ Patch validation failed:', error.message)
+      console.error('❌ Patch validation failed:', getErrorMessage(error))
       if (options.verbose) {
-        console.error(error.stack)
+        console.error(getErrorStack(error))
       }
       process.exit(1)
     }
@@ -553,7 +554,7 @@ export default defineConfig({
       console.log(`📦 Bundles defined: ${sampleConfig.bundles.length}`)
     }
     catch (error) {
-      console.error('❌ Failed to create workspace configuration:', error.message)
+      console.error('❌ Failed to create workspace configuration:', getErrorMessage(error))
       process.exit(1)
     }
   })
@@ -607,9 +608,9 @@ program
       }
     }
     catch (error) {
-      console.error('❌ Workspace bundle creation failed:', error.message)
+      console.error('❌ Workspace bundle creation failed:', getErrorMessage(error))
       if (options.verbose) {
-        console.error(error.stack)
+        console.error(getErrorStack(error))
       }
       process.exit(1)
     }
@@ -681,9 +682,9 @@ program
       console.log('✅ Workspace patch created successfully!')
     }
     catch (error) {
-      console.error('❌ Workspace patch creation failed:', error.message)
+      console.error('❌ Workspace patch creation failed:', getErrorMessage(error))
       if (options.verbose) {
-        console.error(error.stack)
+        console.error(getErrorStack(error))
       }
       process.exit(1)
     }
@@ -729,9 +730,9 @@ program
       }
     }
     catch (error) {
-      console.error('❌ Failed to show workspace status:', error.message)
+      console.error('❌ Failed to show workspace status:', getErrorMessage(error))
       if (options.verbose) {
-        console.error(error.stack)
+        console.error(getErrorStack(error))
       }
       process.exit(1)
     }
@@ -794,9 +795,9 @@ program
       }
     }
     catch (error) {
-      console.error('❌ Failed to list workspace patches:', error.message)
+      console.error('❌ Failed to list workspace patches:', getErrorMessage(error))
       if (options.verbose) {
-        console.error(error.stack)
+        console.error(getErrorStack(error))
       }
       process.exit(1)
     }

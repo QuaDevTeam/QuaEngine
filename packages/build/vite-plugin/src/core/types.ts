@@ -1,3 +1,5 @@
+import type { CompressionAlgorithm, EncryptionAlgorithm } from '@quajs/quack'
+
 export interface QuaEngineVitePluginOptions {
   /** Enable QuaScript compilation */
   scriptCompiler?: {
@@ -28,15 +30,19 @@ export interface QuaEngineVitePluginOptions {
     output?: string
     /** Bundle format: 'auto', 'qpk', 'zip' */
     format?: 'auto' | 'qpk' | 'zip'
+    /** Serve assets through a development VFS instead of bundling during dev */
+    devVfs?: boolean
+    /** Base route for the development VFS */
+    devVfsBase?: string
     /** Compression settings */
     compression?: {
-      algorithm?: 'none' | 'deflate' | 'lzma'
+      algorithm?: CompressionAlgorithm
       level?: number
     }
     /** Encryption settings */
     encryption?: {
       enabled?: boolean
-      algorithm?: 'xor' | 'aes256'
+      algorithm?: EncryptionAlgorithm
       key?: string
     }
   }

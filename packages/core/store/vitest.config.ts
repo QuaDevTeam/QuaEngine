@@ -34,8 +34,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@quajs/logger': resolve(__dirname, '../logger/src'),
-      '@quajs/utils': resolve(__dirname, '../utils/src'),
+      '@quajs/logger': resolve(__dirname, '../../utils/src'),
+      '@quajs/utils': resolve(__dirname, '../../utils/common/src'),
     },
   },
 })
