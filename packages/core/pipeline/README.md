@@ -163,7 +163,7 @@ new Pipeline(options?: PipelineOptions)
 
 Options:
 - `middlewares?: (MiddlewareFunction | Middleware)[]` - Initial middlewares
-- `plugins?: (PipelinePlugin | Plugin)[]` - Initial plugins
+- `plugins?: Plugin[]` - Initial plugins
 
 #### Methods
 
@@ -171,14 +171,14 @@ Options:
 - `emit<T>(type: string, payload: T): Promise<void>` - Emit an event
 - `on<T>(type: string, listener: EventListener<T>): this` - Add event listener
 - `off<T>(type: string, listener: EventListener<T>): this` - Remove event listener
-- `onEvent<T>(listener: EventListener<T>): this` - Listen to all events (wildcard)
+- `on<T>('*', listener: EventListener<T>): this` - Listen to all events
 
 **Middleware Management**
 - `addMiddleware(middleware: MiddlewareFunction | Middleware): this` - Add middleware
 - `clearMiddlewares(): this` - Remove all middlewares
 
 **Plugin Management**
-- `use(plugin: PipelinePlugin | Plugin): this` - Install plugin
+- `use(plugin: Plugin): this` - Install plugin
 
 **Utility Methods**
 - `getEventTypes(): string[]` - Get all registered event types

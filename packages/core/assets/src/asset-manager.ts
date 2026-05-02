@@ -1,5 +1,7 @@
 import type { QuaAssetsDatabase } from './database'
 import type {
+  AssetManifest,
+  AssetProvider,
   AssetLocale,
   AssetProcessingPlugin,
   AssetQueryResult,
@@ -9,6 +11,7 @@ import type {
   MediaMetadata,
   StoredAsset,
 } from './types'
+import { findBestAssetRecord } from './providers'
 import { AssetNotFoundError } from './types'
 
 /**
@@ -21,10 +24,13 @@ export class AssetManager {
   private jsCache = new Map<string, JSExecutionResult>()
   private processingPlugins = new Map<AssetType, AssetProcessingPlugin[]>()
   private defaultLocale: AssetLocale
+  private provider?: AssetProvider
+  private providerManifest?: AssetManifest
 
-  constructor(database: QuaAssetsDatabase, defaultLocale: AssetLocale = 'default') {
+  constructor(database: QuaAssetsDatabase, defaultLocale: AssetLocale = 'default', provider?: AssetProvider) {
     this.database = database
     this.defaultLocale = defaultLocale
+    this.provider = provider
 
     // Clean up blob URLs when page unloads
     if (typeof window !== 'undefined') {
@@ -44,6 +50,16 @@ export class AssetManager {
       }
       this.processingPlugins.get(type)!.push(plugin)
     }
+  }
+
+  setProvider(provider?: AssetProvider): void {
+    this.provider = provider
+    this.providerManifest = undefined
+    this.cleanup()
+  }
+
+  clearManifestCache(): void {
+    this.providerManifest = undefined
   }
 
   /**
@@ -233,6 +249,11 @@ export class AssetManager {
     name: string,
     options: LoadAssetOptions = {},
   ): Promise<AssetQueryResult> {
+    const providerAsset = await this.getProviderAsset(type, name, options)
+    if (providerAsset) {
+      return providerAsset
+    }
+
     const locale = options.locale || this.defaultLocale
     const bundleName = options.bundleName
 
@@ -271,6 +292,61 @@ export class AssetManager {
       blob: processedAsset.blob,
       fromCache: true,
     }
+  }
+
+  private async getProviderAsset(
+    type: AssetType,
+    name: string,
+    options: LoadAssetOptions,
+  ): Promise<AssetQueryResult | null> {
+    if (!this.provider)
+      return null
+
+    const manifest = await this.getProviderManifest()
+    const record = findBestAssetRecord(
+      manifest.assets,
+      type,
+      name,
+      options.locale || this.defaultLocale,
+      options.bundleName,
+    )
+
+    if (!record)
+      return null
+
+    const blob = await this.provider.getAsset(record.id, record)
+    const now = Date.now()
+    const asset: StoredAsset = {
+      id: record.id,
+      bundleName: record.bundleName || this.provider.mode,
+      name: record.name,
+      type: record.type,
+      locale: record.locale || 'default',
+      blob,
+      hash: record.hash || '',
+      size: record.size ?? blob.size,
+      version: record.version || 1,
+      mtime: record.mtime || now,
+      createdAt: now,
+      lastAccessed: now,
+      mediaMetadata: record.mediaMetadata,
+    }
+
+    const processedAsset = await this.processAsset(asset)
+
+    return {
+      asset: processedAsset,
+      blob: processedAsset.blob,
+      fromCache: false,
+    }
+  }
+
+  private async getProviderManifest(): Promise<AssetManifest> {
+    if (!this.providerManifest) {
+      this.providerManifest = await this.provider!.getManifest()
+    }
+
+    return this.providerManifest
   }
 
   /**

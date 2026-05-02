@@ -59,6 +59,59 @@ export interface StoredAsset {
   mediaMetadata?: MediaMetadata // Media metadata for audio/video/image assets
 }
 
+// Runtime asset manifest used by provider-based loading.
+export interface AssetManifest {
+  version: string
+  created?: string
+  provider?: string
+  assets: AssetManifestRecord[]
+}
+
+export interface AssetManifestRecord {
+  id: string
+  bundleName?: string
+  name: string
+  type: AssetType
+  locale?: AssetLocale
+  path: string
+  hash?: string
+  size?: number
+  version?: number
+  mtime?: number
+  mimeType?: string
+  mediaMetadata?: MediaMetadata
+}
+
+export type AssetChangeType = 'added' | 'changed' | 'removed'
+
+export interface AssetChange {
+  type: AssetChangeType
+  assetId: string
+  record?: AssetManifestRecord
+  path?: string
+  hash?: string
+  timestamp: number
+}
+
+export type AssetChangeListener = (change: AssetChange) => void
+
+export interface AssetUpdateInfo {
+  version?: string | number
+  changes: AssetChange[]
+  metadata?: Record<string, any>
+}
+
+export interface AssetProvider {
+  mode: 'dev-vfs' | 'bundle' | 'patch' | (string & {})
+  init?: () => Promise<void>
+  cleanup?: () => Promise<void>
+  getManifest: () => Promise<AssetManifest>
+  getAsset: (id: string, record?: AssetManifestRecord) => Promise<Blob>
+  watch?: (listener: AssetChangeListener) => () => void
+  checkUpdates?: () => Promise<AssetUpdateInfo | null>
+  applyUpdate?: (update: AssetUpdateInfo) => Promise<void>
+}
+
 // Bundle information stored in IndexedDB
 export interface StoredBundle {
   name: string // Bundle name
@@ -253,6 +306,7 @@ export interface AssetProcessingPlugin extends QuaAssetsPlugin {
 // Configuration for QuaAssets
 export interface QuaAssetsConfig {
   endpoint: string // Base URL for assets
+  provider?: AssetProvider // Runtime provider for dev VFS or custom loading
   locale?: AssetLocale // Default locale
   enableCache?: boolean // Enable IndexedDB caching (default: true)
   cacheSize?: number // Max cache size in bytes (default: 100MB)
@@ -317,10 +371,13 @@ export interface QuaAssetsEvents {
   'bundle:loaded': { bundleName: string, status: BundleStatus }
   'bundle:error': { bundleName: string, error: Error }
   'bundle:progress': { bundleName: string, progress: number }
+  'asset:changed': AssetChange
   'asset:cached': { assetId: string }
   'asset:evicted': { assetId: string }
   'cache:full': { size: number, limit: number }
   'patch:applied': { bundleName: string, fromVersion: number, toVersion: number }
+  'update:available': AssetUpdateInfo
+  'update:applied': AssetUpdateInfo
 }
 
 // Error types

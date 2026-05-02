@@ -1,12 +1,13 @@
 import type { AudioMetadata, ImageMetadata, VideoMetadata } from '../src/core/types'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { AssetDetector } from '../src/assets/asset-detector'
 
 describe('assetDetector with Media Metadata', () => {
   let detector: AssetDetector
-  const testDir = join(process.cwd(), 'test-assets-integration')
+  const testDir = join(tmpdir(), `quack-asset-detector-${Date.now()}`)
 
   beforeEach(() => {
     detector = new AssetDetector()

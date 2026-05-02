@@ -177,7 +177,7 @@ export class MetadataGenerator {
       }
 
       // Validate encryption
-      if (!['none', 'xor'].includes(manifest.encryption.algorithm)) {
+      if (!['none', 'xor', 'custom'].includes(manifest.encryption.algorithm)) {
         logger.error(`Invalid encryption algorithm: ${manifest.encryption.algorithm}`)
         return false
       }

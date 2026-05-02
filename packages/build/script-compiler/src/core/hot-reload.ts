@@ -39,7 +39,9 @@ export class HotReloadManager {
   private decoratorMappings: DecoratorMapping = {}
   private isEnabled = false
 
-  constructor(private readonly _projectRoot: string = process.cwd()) {}
+  constructor(projectRoot: string = process.cwd()) {
+    void projectRoot
+  }
 
   /**
    * Enable hot-reload functionality

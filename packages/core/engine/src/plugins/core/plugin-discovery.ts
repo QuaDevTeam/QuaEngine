@@ -25,13 +25,15 @@ async function getPluginDiscoveryModule() {
 
 /**
  * Plugin discovery service that delegates to the standalone plugin-discovery package
- * This maintains backward compatibility while using the centralized discovery logic
  */
 export class PluginDiscovery {
   private projectRoot: string
 
   constructor(projectRoot?: string) {
-    this.projectRoot = projectRoot || (typeof process !== 'undefined' ? process.cwd() : '')
+    const maybeProcess = globalThis as typeof globalThis & {
+      process?: { cwd?: () => string }
+    }
+    this.projectRoot = projectRoot || maybeProcess.process?.cwd?.() || ''
   }
 
   /**

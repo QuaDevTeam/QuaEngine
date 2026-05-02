@@ -40,14 +40,11 @@
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit"
   },
-  "peerDependencies": {
-    "@quajs/logger": "workspace:*"
-  },
   "dependencies": {
-    "dexie": "^4.0.8",
+    "@quajs/logger": "workspace:*",
+    "dexie": "^4.4.2",
     "fflate": "^0.8.2",
     "lzma-web": "^3.0.1"
   },
-  "devDependencies": {},
   "browser": true
 }

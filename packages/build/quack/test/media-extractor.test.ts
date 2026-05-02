@@ -1,13 +1,14 @@
 import type { AudioMetadata, ImageMetadata, VideoMetadata } from '../src/core/types'
 import { Buffer } from 'node:buffer'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { MediaMetadataExtractor } from '../src/assets/media-extractor'
 
 describe('mediaMetadataExtractor', () => {
   let extractor: MediaMetadataExtractor
-  const testDir = join(process.cwd(), 'test-assets')
+  const testDir = join(tmpdir(), `quack-media-assets-${Date.now()}`)
 
   beforeEach(() => {
     extractor = new MediaMetadataExtractor()

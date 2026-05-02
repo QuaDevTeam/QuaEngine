@@ -1,5 +1,6 @@
 import type { EncryptionAlgorithm, EncryptionContext, EncryptionPlugin } from '../core/types'
 import { createLogger } from '@quajs/logger'
+import { getErrorMessage } from '../utils/error'
 
 const logger = createLogger('quack:encryption')
 
@@ -89,7 +90,7 @@ export class EncryptionManager {
     }
     catch (error) {
       logger.error('Encryption failed:', error)
-      throw new Error(`Encryption failed: ${error.message}`)
+      throw new Error(`Encryption failed: ${getErrorMessage(error)}`)
     }
   }
 
@@ -124,7 +125,7 @@ export class EncryptionManager {
     }
     catch (error) {
       logger.error('Decryption failed:', error)
-      throw new Error(`Decryption failed: ${error.message}`)
+      throw new Error(`Decryption failed: ${getErrorMessage(error)}`)
     }
   }
 

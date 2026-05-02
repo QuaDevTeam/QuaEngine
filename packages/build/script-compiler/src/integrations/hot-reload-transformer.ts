@@ -26,6 +26,7 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
   private projectRoot?: string
   private hotReloadManager = getHotReloadManager()
   private isInitialized = false
+  private initialMappings: DecoratorMapping
 
   constructor(
     decoratorMappings?: DecoratorMapping,
@@ -34,6 +35,7 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
     // Merge with default mappings first
     const initialMappings = mergeDecoratorMappings(decoratorMappings || {})
     super(initialMappings, options)
+    this.initialMappings = decoratorMappings || {}
     this.projectRoot = options?.projectRoot
 
     // Enable hot-reload in development
@@ -85,7 +87,10 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
   async updateDecoratorMappings(): Promise<void> {
     try {
       const pluginDecorators = await getPluginDecorators(this.projectRoot)
-      const updatedMappings = mergeDecoratorMappings(pluginDecorators)
+      const updatedMappings = mergeDecoratorMappings({
+        ...this.initialMappings,
+        ...pluginDecorators,
+      })
 
       // Update internal mappings
       this.decoratorMappings = updatedMappings
@@ -188,10 +193,9 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
 }
 
 /**
- * Plugin-aware QuaScript transformer with hot-reload (backward compatibility)
+ * Plugin-aware QuaScript transformer with hot-reload.
  */
 export class PluginAwareQuaScriptTransformer extends HotReloadAwareTransformer {
-  // Maintains backward compatibility while adding hot-reload features
 }
 
 /**

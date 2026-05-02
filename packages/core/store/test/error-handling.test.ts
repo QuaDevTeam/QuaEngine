@@ -383,11 +383,11 @@ describe('error Handling and Edge Cases', () => {
       }
 
       await backend.saveSnapshot(snapshot)
-      expect(backend.getStorageSize()).toBe(1)
+      expect(backend.getSnapshotStorageSize()).toBe(1)
 
       // Close should clean up
       await backend.close()
-      expect(backend.getStorageSize()).toBe(0)
+      expect(backend.getSnapshotStorageSize()).toBe(0)
     })
   })
 

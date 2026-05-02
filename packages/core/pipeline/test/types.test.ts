@@ -1,4 +1,4 @@
-import type { EventListener, MiddlewareFunction, MiddlewareNext, PipelineContext, PipelineEvent, PipelineOptions, PipelinePlugin, PluginEmitHook, PluginOffHook, PluginOnHook } from '../src/index'
+import type { EventListener, MiddlewareFunction, MiddlewareNext, PipelineContext, PipelineEvent, PipelineOptions, PluginEmitHook, PluginOffHook, PluginOnHook } from '../src/index'
 import { describe, expect, it } from 'vitest'
 import {
   Middleware,
@@ -147,29 +147,11 @@ describe('exports and Types', () => {
         ],
         plugins: [
           new TestPlugin(),
-          {
-            name: 'legacy-plugin',
-            install: (pipeline: Pipeline) => {
-              // Install implementation
-            },
-          },
         ],
       }
 
       expect(Array.isArray(options.middlewares)).toBe(true)
       expect(Array.isArray(options.plugins)).toBe(true)
-    })
-
-    it('should support PipelinePlugin interface', () => {
-      const plugin: PipelinePlugin = {
-        name: 'interface-plugin',
-        install: (pipeline) => {
-          expect(pipeline).toBeInstanceOf(Pipeline)
-        },
-      }
-
-      expect(plugin.name).toBe('interface-plugin')
-      expect(typeof plugin.install).toBe('function')
     })
   })
 

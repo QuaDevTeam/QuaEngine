@@ -10,20 +10,18 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, stat } from 'node:fs/promises'
 import { basename, dirname } from 'node:path'
 import { createLogger } from '@quajs/logger'
-import { MetadataGenerator } from '../assets/metadata'
 import { QPKBundler } from '../bundlers/qpk-bundler'
 import { ZipBundler } from '../bundlers/zip-bundler'
+import { getErrorMessage } from '../utils/error'
 import { VersionManager } from './versioning'
 
 const logger = createLogger('quack:patch-generator')
 
 export class PatchGenerator {
   private versionManager: VersionManager
-  private _metadataGenerator: MetadataGenerator
 
   constructor(outputDir?: string, workspaceMode: boolean = false) {
     this.versionManager = new VersionManager(outputDir, workspaceMode)
-    this._metadataGenerator = new MetadataGenerator()
   }
 
   /**
@@ -139,6 +137,7 @@ export class PatchGenerator {
       if (assetInfo) {
         // Create AssetInfo for patch
         const patchAsset: AssetInfo = {
+          name: basename(diff.path),
           path: diff.path,
           relativePath: diff.path,
           size: assetInfo.size,
@@ -310,11 +309,11 @@ export class PatchGenerator {
       if (patchPath.endsWith('.qpk')) {
         const qpkBundler = new QPKBundler()
         const { manifest } = await qpkBundler.readBundle(patchPath)
-        patchManifest = manifest as PatchManifest
+        patchManifest = this.toPatchManifest(manifest)
       }
       else {
         const zipBundler = new ZipBundler()
-        patchManifest = await zipBundler.extractBundle(patchPath, '/tmp/patch-validation') as PatchManifest
+        patchManifest = this.toPatchManifest(await zipBundler.extractBundle(patchPath, '/tmp/patch-validation'))
       }
 
       const errors: string[] = []
@@ -351,7 +350,7 @@ export class PatchGenerator {
       logger.error('Patch validation failed:', error)
       return {
         valid: false,
-        errors: [`Failed to read patch: ${error.message}`],
+        errors: [`Failed to read patch: ${getErrorMessage(error)}`],
         changes: { willAdd: [], willModify: [], willDelete: [] },
       }
     }
@@ -601,16 +600,16 @@ export class PatchGenerator {
 
     try {
       // Read patch manifest
-      let patchManifest: PatchManifest & { workspaceBundle?: any }
+      let patchManifest: PatchManifest
 
       if (patchPath.endsWith('.qpk')) {
         const qpkBundler = new QPKBundler()
         const { manifest } = await qpkBundler.readBundle(patchPath)
-        patchManifest = manifest as any
+        patchManifest = this.toPatchManifest(manifest)
       }
       else {
         const zipBundler = new ZipBundler()
-        patchManifest = await zipBundler.extractBundle(patchPath, '/tmp/patch-validation') as any
+        patchManifest = this.toPatchManifest(await zipBundler.extractBundle(patchPath, '/tmp/patch-validation'))
       }
 
       const errors: string[] = []
@@ -657,7 +656,7 @@ export class PatchGenerator {
       logger.error('Workspace patch validation failed:', error)
       return {
         valid: false,
-        errors: [`Failed to read patch: ${error.message}`],
+        errors: [`Failed to read patch: ${getErrorMessage(error)}`],
         changes: { willAdd: [], willModify: [], willDelete: [] },
       }
     }
@@ -674,5 +673,14 @@ export class PatchGenerator {
     const toBuildLog = await this.versionManager.getWorkspaceBundleBuildLog(bundleName, toVersion)
 
     return { fromBuildLog, toBuildLog }
+  }
+
+  private toPatchManifest(manifest: unknown): PatchManifest {
+    const patchManifest = manifest as Partial<PatchManifest>
+    if (!patchManifest.isPatch || !patchManifest.changes) {
+      throw new Error('Bundle is not a patch package')
+    }
+
+    return patchManifest as PatchManifest
   }
 }

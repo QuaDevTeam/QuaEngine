@@ -138,7 +138,7 @@ describe('storage Manager', () => {
       // Save multiple snapshots concurrently
       await Promise.all(snapshots.map(snapshot => backend.saveSnapshot(snapshot)))
 
-      expect(backend.getStorageSize()).toBe(10)
+      expect(backend.getSnapshotStorageSize()).toBe(10)
 
       // Retrieve all concurrently
       const retrieved = await Promise.all(
@@ -150,15 +150,15 @@ describe('storage Manager', () => {
     })
 
     it('should provide debugging utilities', async () => {
-      expect(backend.getStorageSize()).toBe(0)
+      expect(backend.getSnapshotStorageSize()).toBe(0)
       expect(backend.hasSnapshot('test-123')).toBe(false)
 
       await backend.saveSnapshot(testSnapshot)
-      expect(backend.getStorageSize()).toBe(1)
+      expect(backend.getSnapshotStorageSize()).toBe(1)
       expect(backend.hasSnapshot('test-123')).toBe(true)
 
       await backend.deleteSnapshot('test-123')
-      expect(backend.getStorageSize()).toBe(0)
+      expect(backend.getSnapshotStorageSize()).toBe(0)
       expect(backend.hasSnapshot('test-123')).toBe(false)
     })
 

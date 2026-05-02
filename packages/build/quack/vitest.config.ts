@@ -14,6 +14,9 @@ export default defineConfig({
       'node_modules',
       'dist',
     ],
+    pool: 'threads',
+    maxWorkers: 1,
+    minWorkers: 1,
     testTimeout: 15000, // Longer timeout for bundling operations
     coverage: {
       provider: 'v8',

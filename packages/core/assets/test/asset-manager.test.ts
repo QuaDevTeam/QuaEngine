@@ -63,6 +63,34 @@ describe('assetManager', () => {
       expect(mockDatabase.findAssets).toHaveBeenCalledWith({ type: 'images', name: 'test.png' })
     })
 
+    it('should retrieve asset from provider before database fallback', async () => {
+      const provider = {
+        mode: 'dev-vfs',
+        getManifest: vi.fn().mockResolvedValue({
+          version: '1',
+          assets: [{
+            id: 'dev:default:images:test.png',
+            name: 'test.png',
+            type: 'images',
+            locale: 'default',
+            path: 'images/test.png',
+            size: 13,
+          }],
+        }),
+        getAsset: vi.fn().mockResolvedValue(new Blob(['provider data'], { type: 'image/png' })),
+      }
+
+      assetManager = new AssetManager(mockDatabase as any, 'default', provider as any)
+
+      const result = await assetManager.getText('images', 'test.png')
+
+      expect(result).toBe('provider data')
+      expect(provider.getAsset).toHaveBeenCalledWith('dev:default:images:test.png', expect.objectContaining({
+        name: 'test.png',
+      }))
+      expect(mockDatabase.findAssets).not.toHaveBeenCalled()
+    })
+
     it('should throw error for non-existent asset', async () => {
       mockDatabase.findAssets.mockResolvedValue([])
 
