@@ -65,8 +65,8 @@ describe('hot-Reload Integration', () => {
 
       // Initial compilation
       const result1 = transformer.transformSource(initialSource, filePath)
-      expect(result1).toContain('Yuki.speak("Hello world!")')
-      expect(result1).toContain('playSound("bell.wav")')
+      expect(result1).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello world!")')
+      expect(result1).toContain('ctx.engine.playSound("bell.wav")')
 
       // Verify caching
       const cachedResult = transformer.transformSource(initialSource, filePath)
@@ -85,8 +85,8 @@ describe('hot-Reload Integration', () => {
 
       // Compile updated source
       const result2 = transformer.transformSource(updatedSource, filePath)
-      expect(result2).toContain('Yuki.speak("Hello there!")')
-      expect(result2).toContain('playSound("chime.wav")')
+      expect(result2).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello there!")')
+      expect(result2).toContain('ctx.engine.playSound("chime.wav")')
       expect(result2).toContain('customFunction("test")') // From mock plugin
 
       // Results should be different
@@ -170,8 +170,8 @@ describe('hot-Reload Integration', () => {
       // or we can verify by checking that next compilation doesn't use cache
       const result2 = transformer.transformSource(mainSource, mainFile)
       // Result should be the same content but freshly compiled
-      expect(result1).toContain('Yuki.speak("Hello!")')
-      expect(result2).toContain('Yuki.speak("Hello!")')
+      expect(result1).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello!")')
+      expect(result2).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello!")')
 
       transformer.dispose()
     })
@@ -189,8 +189,8 @@ describe('hot-Reload Integration', () => {
       const result1 = compileQuaScript(source, { hotReload: false })
       const result2 = compileQuaScript(source, { hotReload: false })
 
-      expect(result1).toContain('Yuki.speak("Hello!")')
-      expect(result2).toContain('Yuki.speak("Hello!")')
+      expect(result1).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello!")')
+      expect(result2).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello!")')
 
       // But no caching should occur in production
       const hotReloadManager = getHotReloadManager()
@@ -201,7 +201,7 @@ describe('hot-Reload Integration', () => {
       const source = `const dialogue = qs\`Yuki: Hello!\``
 
       const result = compileQuaScript(source, { hotReload: true })
-      expect(result).toContain('Yuki.speak')
+      expect(result).toContain('speakWithEngine(ctx.engine, "Yuki"')
 
       const hotReloadManager = getHotReloadManager()
       expect(hotReloadManager.isHotReloadEnabled()).toBe(true)
@@ -218,7 +218,7 @@ describe('hot-Reload Integration', () => {
 
       // Successful compilation
       const result1 = transformer.transformSource(validSource, filePath)
-      expect(result1).toContain('Yuki.speak')
+      expect(result1).toContain('speakWithEngine(ctx.engine, "Yuki"')
 
       // Failed compilation should not break the transformer
       expect(() => {
@@ -227,7 +227,7 @@ describe('hot-Reload Integration', () => {
 
       // Should still work for valid source
       const result2 = transformer.transformSource(validSource, filePath)
-      expect(result2).toContain('Yuki.speak')
+      expect(result2).toContain('speakWithEngine(ctx.engine, "Yuki"')
 
       transformer.dispose()
     })
@@ -243,7 +243,7 @@ describe('hot-Reload Integration', () => {
       const source = `const dialogue = qs\`Yuki: Hello!\``
       const result = transformer.transformSource(source)
 
-      expect(result).toContain('Yuki.speak')
+      expect(result).toContain('speakWithEngine(ctx.engine, "Yuki"')
 
       transformer.dispose()
       consoleSpy.mockRestore()
@@ -301,7 +301,7 @@ describe('hot-Reload Integration', () => {
       // Verify all compiled correctly
       expect(results).toHaveLength(fileCount)
       results.forEach((result, i) => {
-        expect(result).toContain(`Character${i}.speak`)
+        expect(result).toContain(`speakWithEngine(ctx.engine, "Character${i}"`)
       })
 
       // Get cache stats

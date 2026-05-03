@@ -29,6 +29,7 @@ export interface QuaScriptAction {
 export interface QuaScriptChoice {
   type: 'choice'
   options: Array<{
+    id: string
     text: string
     target: string
     condition?: string
@@ -76,11 +77,11 @@ export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
     module: '@quajs/engine',
   },
   UseSprite: {
-    function: 'useSprite',
+    function: 'sprite',
     module: '@quajs/character',
   },
   UseCharacterSprite: {
-    function: 'useCharacterSprite',
+    function: 'sprite',
     module: '@quajs/character',
   },
   SetVolume: {

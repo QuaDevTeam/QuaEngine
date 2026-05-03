@@ -116,4 +116,22 @@ describe('quaScriptParser', () => {
     const dialogueContent = result.steps[1].content as any
     expect(dialogueContent.character).toBe('Jack')
   })
+
+  it('should parse choice blocks', () => {
+    const parser = new QuaScriptParser()
+    const script = `
+      Jack: What will you do?
+      - Go outside -> outside
+      - Stay home -> home if canStayHome
+    `
+
+    const result = parser.parse(script)
+
+    expect(result.steps).toHaveLength(2)
+    expect(result.steps[1].type).toBe('choice')
+    expect((result.steps[1].content as any).options).toEqual([
+      { id: 'outside', text: 'Go outside', target: 'outside', condition: undefined },
+      { id: 'home', text: 'Stay home', target: 'home', condition: 'canStayHome' },
+    ])
+  })
 })

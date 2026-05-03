@@ -3,6 +3,7 @@ import type {
   CompilerOptions,
   DecoratorMapping,
   ParsedQuaScript,
+  QuaScriptChoice,
   QuaScriptDialogue,
 } from './types'
 import generate from '@babel/generator'
@@ -19,6 +20,7 @@ export class QuaScriptTransformer {
   protected decoratorMappings: DecoratorMapping
   private options: CompilerOptions
   private usedDecorators: Set<string> = new Set()
+  private usedRuntimeHelpers: Set<string> = new Set()
 
   constructor(
     decoratorMappings: DecoratorMapping = DEFAULT_DECORATOR_MAPPINGS,
@@ -38,6 +40,7 @@ export class QuaScriptTransformer {
    */
   transformSource(source: string): string {
     this.usedDecorators.clear()
+    this.usedRuntimeHelpers.clear()
 
     const ast = parse(source, {
       sourceType: 'module',
@@ -130,6 +133,9 @@ export class QuaScriptTransformer {
       if (step.type === 'dialogue') {
         return this.createDialogueStep(step.content as QuaScriptDialogue, step.uuid, quasi)
       }
+      if (step.type === 'choice') {
+        return this.createChoiceStep(step.content as QuaScriptChoice, step.uuid)
+      }
       else {
         return this.createActionStep(step.content, step.uuid)
       }
@@ -160,6 +166,15 @@ export class QuaScriptTransformer {
     ])
   }
 
+  private createChoiceStep(choice: QuaScriptChoice, uuid: string): t.ObjectExpression {
+    const runFunction = this.createChoiceRunFunction(choice)
+
+    return t.objectExpression([
+      t.objectProperty(t.identifier('uuid'), t.stringLiteral(uuid)),
+      t.objectProperty(t.identifier('run'), runFunction),
+    ])
+  }
+
   private createRunFunction(dialogue: QuaScriptDialogue, quasi: t.TemplateLiteral): t.ArrowFunctionExpression {
     const statements: t.Statement[] = []
 
@@ -167,18 +182,19 @@ export class QuaScriptTransformer {
     dialogue.decorators.forEach((decorator) => {
       const mapping = this.decoratorMappings[decorator.name]
       if (mapping) {
-        const call = this.createDecoratorCall(decorator, mapping)
-        statements.push(t.expressionStatement(call))
+        const call = this.createDecoratorCall(decorator, mapping, dialogue.character)
+        statements.push(t.expressionStatement(t.awaitExpression(call)))
       }
     })
 
     // Add character speak call
     const speakCall = this.createSpeakCall(dialogue, quasi)
-    statements.push(t.expressionStatement(speakCall))
+    statements.push(t.expressionStatement(t.awaitExpression(speakCall)))
 
     return t.arrowFunctionExpression(
-      [],
+      [t.identifier('ctx')],
       t.blockStatement(statements),
+      true,
     )
   }
 
@@ -190,17 +206,97 @@ export class QuaScriptTransformer {
       const mapping = this.decoratorMappings[decorator.name]
       if (mapping) {
         const call = this.createDecoratorCall(decorator, mapping)
-        statements.push(t.expressionStatement(call))
+        statements.push(t.expressionStatement(t.awaitExpression(call)))
       }
     })
 
     return t.arrowFunctionExpression(
-      [],
+      [t.identifier('ctx')],
       t.blockStatement(statements),
+      true,
     )
   }
 
-  private createDecoratorCall(decorator: any, mapping: any): t.CallExpression {
+  private createChoiceRunFunction(choice: QuaScriptChoice): t.ArrowFunctionExpression {
+    const choicesIdentifier = t.identifier('choices')
+    const choicesArray = t.arrayExpression(choice.options.map(option =>
+      t.objectExpression([
+        t.objectProperty(t.identifier('id'), t.stringLiteral(option.id)),
+        t.objectProperty(t.identifier('text'), t.stringLiteral(option.text)),
+        t.objectProperty(t.identifier('enabled'), option.condition ? this.parseExpression(option.condition) : t.booleanLiteral(true)),
+        t.objectProperty(t.identifier('metadata'), t.objectExpression([
+          t.objectProperty(t.identifier('target'), t.stringLiteral(option.target)),
+          ...(option.condition
+            ? [t.objectProperty(t.identifier('condition'), t.stringLiteral(option.condition))]
+            : []),
+        ])),
+      ]),
+    ))
+
+    const selected = t.identifier('selected')
+    const statements: t.Statement[] = [
+      t.variableDeclaration('const', [
+        t.variableDeclarator(choicesIdentifier, choicesArray),
+      ]),
+      t.expressionStatement(t.awaitExpression(t.callExpression(
+        t.memberExpression(
+          t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
+          t.identifier('showChoices'),
+        ),
+        [choicesIdentifier],
+      ))),
+      t.variableDeclaration('const', [
+        t.variableDeclarator(
+          selected,
+          t.awaitExpression(t.callExpression(
+            t.memberExpression(
+              t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
+              t.identifier('waitFor'),
+            ),
+            [
+              t.stringLiteral('user/choice_select'),
+              t.arrowFunctionExpression(
+                [t.identifier('payload')],
+                t.callExpression(
+                  t.memberExpression(choicesIdentifier, t.identifier('some')),
+                  [
+                    t.arrowFunctionExpression(
+                      [t.identifier('choice')],
+                      t.binaryExpression(
+                        '===',
+                        t.memberExpression(t.identifier('choice'), t.identifier('id')),
+                        t.memberExpression(t.identifier('payload'), t.identifier('choiceId')),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          )),
+        ),
+      ]),
+      t.expressionStatement(t.awaitExpression(t.callExpression(
+        t.memberExpression(
+          t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
+          t.identifier('clearChoices'),
+        ),
+        [],
+      ))),
+      t.expressionStatement(t.assignmentExpression(
+        '=',
+        t.memberExpression(t.identifier('ctx'), t.identifier('choice')),
+        selected,
+      )),
+    ]
+
+    return t.arrowFunctionExpression(
+      [t.identifier('ctx')],
+      t.blockStatement(statements),
+      true,
+    )
+  }
+
+  private createDecoratorCall(decorator: any, mapping: any, characterName?: string): t.CallExpression {
     const args = decorator.args.map((arg: any) => {
       if (typeof arg === 'string') {
         return t.stringLiteral(arg)
@@ -216,10 +312,44 @@ export class QuaScriptTransformer {
       }
     })
 
-    return t.callExpression(
-      t.identifier(mapping.function),
-      args,
-    )
+    if (mapping.module === '@quajs/engine') {
+      return t.callExpression(
+        t.memberExpression(
+          t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
+          t.identifier(mapping.function),
+        ),
+        args,
+      )
+    }
+
+    if (mapping.module === '@quajs/character' && mapping.function === 'sprite') {
+      this.usedRuntimeHelpers.add('spriteWithEngine')
+      return t.callExpression(
+        t.identifier('spriteWithEngine'),
+        [
+          t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
+          args[1] || t.stringLiteral(characterName || '__current__'),
+          args[0] || t.stringLiteral(''),
+        ],
+      )
+    }
+
+    return t.callExpression(t.identifier(mapping.function), args)
+  }
+
+  private parseExpression(source: string): t.Expression {
+    const parsed = parse(`(${source})`, {
+      sourceType: 'module',
+      plugins: ['typescript', 'jsx'],
+    })
+    const statement = parsed.program.body[0]
+    if (
+      t.isExpressionStatement(statement)
+      && t.isExpression(statement.expression)
+    ) {
+      return statement.expression
+    }
+    return t.identifier(source)
   }
 
   private createSpeakCall(dialogue: QuaScriptDialogue, quasi: t.TemplateLiteral): t.CallExpression {
@@ -264,12 +394,14 @@ export class QuaScriptTransformer {
       textExpression = t.stringLiteral(dialogue.text)
     }
 
+    this.usedRuntimeHelpers.add('speakWithEngine')
     return t.callExpression(
-      t.memberExpression(
-        t.identifier(dialogue.character),
-        t.identifier('speak'),
-      ),
-      [textExpression],
+      t.identifier('speakWithEngine'),
+      [
+        t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
+        t.stringLiteral(dialogue.character),
+        textExpression,
+      ],
     )
   }
 
@@ -281,6 +413,12 @@ export class QuaScriptTransformer {
     this.usedDecorators.forEach((decoratorName) => {
       const mapping = this.decoratorMappings[decoratorName]
       if (mapping) {
+        if (mapping.module === '@quajs/engine') {
+          return
+        }
+        if (mapping.module === '@quajs/character' && mapping.function === 'sprite') {
+          return
+        }
         if (!importMap.has(mapping.module)) {
           importMap.set(mapping.module, new Set())
         }
@@ -288,29 +426,34 @@ export class QuaScriptTransformer {
       }
     })
 
-    // Add dialogue import if not already present
-    let hasDialogueImport = false
+    let hasSpeakImport = false
     const program = ast.program || ast
     if (program.body) {
       program.body.forEach((node: any) => {
-        if (t.isImportDeclaration(node)
-          && node.source.value === '@quajs/engine') {
+        if (t.isImportDeclaration(node) && node.source.value === '@quajs/character') {
           node.specifiers.forEach((spec: any) => {
             if (t.isImportSpecifier(spec)
               && t.isIdentifier(spec.imported)
-              && spec.imported.name === 'dialogue') {
-              hasDialogueImport = true
+              && spec.imported.name === 'speakWithEngine') {
+              hasSpeakImport = true
             }
           })
         }
       })
     }
 
-    if (!hasDialogueImport) {
-      if (!importMap.has('@quajs/engine')) {
-        importMap.set('@quajs/engine', new Set())
+    if (this.usedRuntimeHelpers.has('speakWithEngine') && !hasSpeakImport) {
+      if (!importMap.has('@quajs/character')) {
+        importMap.set('@quajs/character', new Set())
       }
-      importMap.get('@quajs/engine')!.add('dialogue')
+      importMap.get('@quajs/character')!.add('speakWithEngine')
+    }
+
+    if (this.usedRuntimeHelpers.has('spriteWithEngine')) {
+      if (!importMap.has('@quajs/character')) {
+        importMap.set('@quajs/character', new Set())
+      }
+      importMap.get('@quajs/character')!.add('spriteWithEngine')
     }
 
     // Generate import statements for modules that have functions to import
