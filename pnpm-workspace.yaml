@@ -1,7 +1,9 @@
 packages:
   - packages/build/*
   - packages/core/*
+  - packages/platform/*
   - packages/plugins/*
+  - packages/render/*
   - packages/utils
   - packages/utils/*
 
@@ -16,9 +18,11 @@ catalog:
   glob: ^13.0.6
   inquirer: ^13.4.2
   lzma-native: ^8.0.6
+  lzma-web: ^3.0.1
   mime-types: ^3.0.2
   typescript: ^6.0.3
   vite: ^8.0.10
   vite-plugin-dts: ^5.0.0
+  vue: ^3.5.25
   yauzl: ^3.3.0
   yazl: ^3.3.1

@@ -44,6 +44,8 @@
   "workspaces": [
     "packages/build/*",
     "packages/core/*",
+    "packages/platform/*",
+    "packages/render/*",
     "packages/utils/*",
     "packages/plugins/*"
   ],
