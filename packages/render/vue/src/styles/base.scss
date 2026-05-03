@@ -1,0 +1,67 @@
+// Optional structural baseline for @quajs/renderer-vue.
+// Import explicitly; the renderer package does not load styles by default.
+
+.qua-renderer,
+.qua-renderer *,
+.qua-renderer *::before,
+.qua-renderer *::after {
+  box-sizing: border-box;
+}
+
+.qua-renderer {
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.qua-stage,
+.qua-background-layer,
+.qua-character-layer,
+.qua-effect-layer,
+.qua-overlay-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.qua-background {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qua-character {
+  position: absolute;
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.qua-character.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.qua-dialogue-box,
+.qua-choice-panel,
+.qua-ui-overlay,
+.qua-menu-overlay,
+.qua-save-load-panel,
+.qua-settings-panel {
+  position: absolute;
+}
+
+.qua-dialogue-text {
+  margin: 0;
+}
+
+.qua-choice-button {
+  font: inherit;
+}
+
+.qua-audio-controller {
+  display: none;
+}

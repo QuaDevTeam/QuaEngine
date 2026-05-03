@@ -1,0 +1,103 @@
+// Optional default visual novel theme for @quajs/renderer-vue.
+// Import explicitly after base.scss or import this file alone.
+
+@use './base';
+
+.qua-renderer {
+  --qua-color-bg: #050506;
+  --qua-color-panel: rgb(15 15 18 / 78%);
+  --qua-color-panel-border: rgb(255 255 255 / 18%);
+  --qua-color-text: #fffaf2;
+  --qua-color-muted: #c9c2b6;
+  --qua-color-accent: #e7c66f;
+  --qua-color-button-bg: rgb(255 250 242 / 92%);
+  --qua-color-button-text: #14110f;
+  --qua-shadow-panel: 0 18px 48px rgb(0 0 0 / 32%);
+  --qua-font-body: ui-serif, Georgia, 'Times New Roman', serif;
+
+  background: var(--qua-color-bg);
+  color: var(--qua-color-text);
+  font-family: var(--qua-font-body);
+}
+
+.qua-character {
+  left: calc(var(--qua-character-x, 50) * 1%);
+  top: calc(var(--qua-character-y, 50) * 1%);
+  transform:
+    translate(-50%, -50%)
+    scale(var(--qua-character-scale, 1))
+    rotate(calc(var(--qua-character-rotation, 0) * 1deg));
+  z-index: var(--qua-character-layer, 1);
+  max-width: min(34vw, 460px);
+  max-height: 86%;
+  opacity: 1;
+  transition: opacity 180ms ease, transform 220ms ease;
+}
+
+.qua-character.is-hidden {
+  visibility: visible;
+  opacity: 0;
+}
+
+.qua-dialogue-box {
+  left: clamp(16px, 5vw, 72px);
+  right: clamp(16px, 5vw, 72px);
+  bottom: clamp(16px, 5vh, 56px);
+  min-height: 132px;
+  padding: 22px 28px;
+  border: 1px solid var(--qua-color-panel-border);
+  border-radius: 8px;
+  background: var(--qua-color-panel);
+  box-shadow: var(--qua-shadow-panel);
+  backdrop-filter: blur(10px);
+}
+
+.qua-dialogue-speaker {
+  margin-bottom: 10px;
+  color: var(--qua-color-accent);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.qua-dialogue-text {
+  color: var(--qua-color-text);
+  font-size: clamp(18px, 2.2vw, 26px);
+  line-height: 1.55;
+}
+
+.qua-choice-panel {
+  right: clamp(16px, 5vw, 72px);
+  bottom: clamp(180px, 24vh, 260px);
+  display: grid;
+  gap: 10px;
+  min-width: min(360px, calc(100vw - 32px));
+}
+
+.qua-choice-button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--qua-color-panel-border);
+  border-radius: 6px;
+  background: var(--qua-color-button-bg);
+  color: var(--qua-color-button-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.qua-choice-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.qua-ui-overlay,
+.qua-menu-overlay,
+.qua-save-load-panel,
+.qua-settings-panel {
+  inset: clamp(16px, 5vw, 72px);
+  padding: 24px;
+  border: 1px solid var(--qua-color-panel-border);
+  border-radius: 8px;
+  background: var(--qua-color-panel);
+  box-shadow: var(--qua-shadow-panel);
+  color: var(--qua-color-text);
+}
