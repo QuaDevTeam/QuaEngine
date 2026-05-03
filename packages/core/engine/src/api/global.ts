@@ -1,4 +1,4 @@
-import type { GameStep, Scene, SoundOptions, VolumeSettings } from '../core/types'
+import type { ChoiceIntent, DialogueIntent, GameStep, Scene, SoundOptions, VolumeSettings } from '../core/types'
 import { QuaEngine } from '../core/engine'
 
 let engineInstance: QuaEngine | null = null
@@ -66,7 +66,7 @@ export async function playBGM(assetName: string, options?: SoundOptions): Promis
 /**
  * Set volume for a specific audio type
  */
-export function setVolume(type: keyof VolumeSettings, value: number): void {
+export async function setVolume(type: keyof VolumeSettings, value: number): Promise<void> {
   return getEngine().setVolume(type, value)
 }
 
@@ -120,4 +120,36 @@ export function getCurrentStepId(): string | undefined {
  */
 export function getStore() {
   return getEngine().getStore()
+}
+
+export function getAssets() {
+  return getEngine().getAssets()
+}
+
+export function getPipeline() {
+  return getEngine().getPipeline()
+}
+
+export function getViewState() {
+  return getEngine().getViewState()
+}
+
+export function waitFor(event: string, matcher?: (payload: any) => boolean, options?: { timeout?: number, signal?: any }) {
+  return getEngine().waitFor(event as any, matcher, options)
+}
+
+export async function showDialogue(payload: DialogueIntent): Promise<void> {
+  return getEngine().showDialogue(payload)
+}
+
+export async function hideDialogue(): Promise<void> {
+  return getEngine().hideDialogue()
+}
+
+export async function showChoices(choices: ChoiceIntent[]): Promise<void> {
+  return getEngine().showChoices(choices)
+}
+
+export async function clearChoices(): Promise<void> {
+  return getEngine().clearChoices()
 }

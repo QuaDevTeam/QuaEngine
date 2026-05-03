@@ -1,11 +1,16 @@
 {
-  "name": "@quajs/engine",
+  "name": "@quajs/character",
   "type": "module",
   "version": "0.1.0",
-  "description": "Core engine package",
+  "description": "Character and dialogue APIs that update QuaEngine-owned state",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
-  "keywords": [],
+  "keywords": [
+    "quaengine",
+    "character",
+    "dialogue",
+    "visual-novel"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,9 +20,7 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "engines": {
     "node": ">=20"
   },
@@ -30,15 +33,8 @@
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit"
   },
-  "peerDependencies": {},
   "dependencies": {
-    "@quajs/assets": "workspace:*",
-    "@quajs/logger": "workspace:*",
-    "@quajs/pipeline": "workspace:*",
-    "@quajs/plugin-discovery": "workspace:*",
-    "@quajs/render-core": "workspace:*",
-    "@quajs/store": "workspace:*",
-    "@quajs/utils": "workspace:*"
-  },
-  "devDependencies": {}
+    "@quajs/engine": "workspace:*",
+    "@quajs/render-core": "workspace:*"
+  }
 }

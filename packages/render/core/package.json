@@ -1,11 +1,16 @@
 {
-  "name": "@quajs/engine",
+  "name": "@quajs/render-core",
   "type": "module",
   "version": "0.1.0",
-  "description": "Core engine package",
+  "description": "Renderer event contracts and stateless helpers for QuaEngine",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
-  "keywords": [],
+  "keywords": [
+    "quaengine",
+    "renderer",
+    "eventbus",
+    "typescript"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -30,15 +35,7 @@
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit"
   },
-  "peerDependencies": {},
   "dependencies": {
-    "@quajs/assets": "workspace:*",
-    "@quajs/logger": "workspace:*",
-    "@quajs/pipeline": "workspace:*",
-    "@quajs/plugin-discovery": "workspace:*",
-    "@quajs/render-core": "workspace:*",
-    "@quajs/store": "workspace:*",
-    "@quajs/utils": "workspace:*"
-  },
-  "devDependencies": {}
+    "@quajs/pipeline": "workspace:*"
+  }
 }

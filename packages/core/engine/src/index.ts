@@ -5,7 +5,15 @@ export {
   getAssetMetadata,
   getCurrentSceneName,
   getCurrentStepId,
+  getAssets,
+  getPipeline,
   getStore,
+  getViewState,
+  waitFor,
+  showDialogue,
+  hideDialogue,
+  showChoices,
+  clearChoices,
   initEngine,
   loadFromSlot,
   loadScene,
@@ -31,11 +39,20 @@ export type {
   StepContext,
   UsePluginOptions,
   VolumeSettings,
+  CharacterIntent,
+  ChoiceIntent,
+  DialogueIntent,
+  QuaEngineInterface,
 } from './core/types'
 // Events
 export {
+  emitLogicToRender,
+  emitRenderToLogic,
   LogicToRenderEvents,
+  onLogicToRender,
+  onRenderToLogic,
   RenderToLogicEvents,
+  waitForPipelineEvent,
 } from './events/events'
 export type {
   AudioPlayPayload,
@@ -67,6 +84,8 @@ export {
   PluginDiscovery,
   PluginFramework,
 } from './plugins'
+export { UiOverlayPlugin } from './plugins/ui-overlay-plugin'
+export type { UiOverlayPluginOptions } from './plugins/ui-overlay-plugin'
 
 export type {
   DecoratorMapping,

@@ -15,12 +15,12 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(import.meta.dirname, 'src/index.ts'),
-      name: 'engine',
+      name: 'character',
       fileName: 'index',
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['@quajs/plugin-discovery', '@quajs/assets', '@quajs/logger', '@quajs/pipeline', '@quajs/render-core', '@quajs/store', '@quajs/utils'],
+      external: ['@quajs/engine', '@quajs/render-core'],
       output: {
         globals: {},
       },
