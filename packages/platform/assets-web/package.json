@@ -1,0 +1,45 @@
+{
+  "name": "@quajs/assets-web",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Web QuaAssets runtime adapter with Fetch, IndexedDB, and object URL helpers",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "assets",
+    "web",
+    "adapter"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@quajs/assets": "workspace:*",
+    "dexie": "catalog:",
+    "lzma-web": "catalog:"
+  }
+}

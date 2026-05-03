@@ -1,575 +1,290 @@
-import type { QuaAssetsConfig } from '../src/types'
+import type { AssetProvider, AssetRuntimeAdapter, BundleManifest } from '../src/types'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { QuaAssets } from '../src/qua-assets'
+import { MemoryAssetStorage, QuaAssets } from '../src'
 
-// Mock dependencies
-vi.mock('../src/database', () => ({
-  QuaAssetsDatabase: class MockDatabase {
-    constructor() {}
-    async initialize() { return this }
-    async open() {}
-    async close() {}
-    assets = {
-      get: vi.fn(),
-      put: vi.fn(),
-      toArray: vi.fn(() => Promise.resolve([])),
-    }
-
-    bundles = {
-      get: vi.fn(),
-      put: vi.fn(),
-      toArray: vi.fn(() => Promise.resolve([])),
-    }
-
-    getBundle = vi.fn().mockResolvedValue(undefined)
-    getCacheStats = vi.fn().mockResolvedValue({ size: 0, count: 0, totalSize: 0 })
-    findAssets = vi.fn().mockResolvedValue([])
-    getAssetWithLocaleFallback = vi.fn().mockResolvedValue(undefined)
-    storeBundle = vi.fn().mockResolvedValue(undefined)
-    storeAssets = vi.fn().mockResolvedValue(undefined)
-    transaction = vi.fn().mockImplementation(async (mode, tables, callback) => {
-      return await callback()
-    })
-  },
-}))
-
-describe('quaAssets', () => {
-  let quaAssets: QuaAssets
-  let config: QuaAssetsConfig
+describe('QuaAssets core runtime', () => {
+  let adapter: AssetRuntimeAdapter
+  let assets: QuaAssets | undefined
 
   beforeEach(() => {
-    config = {
-      endpoint: 'https://cdn.example.com',
-      locale: 'default',
-      enableCache: true,
-      cacheSize: 50 * 1024 * 1024,
-      retryAttempts: 3,
-      timeout: 30000,
-    }
-
-    vi.clearAllMocks()
+    adapter = createAdapter()
   })
 
   afterEach(async () => {
-    if (quaAssets) {
-      await quaAssets.cleanup()
+    await assets?.cleanup()
+    assets = undefined
+  })
+
+  it('requires adapter injection and validates current config shape', () => {
+    expect(() => new QuaAssets({} as any)).toThrow('QuaAssets requires an asset runtime adapter')
+    expect(() => new QuaAssets({ adapter, cacheSize: 0 })).toThrow('Cache size must be positive')
+    expect(() => new QuaAssets({ adapter, retryAttempts: -1 })).toThrow('Retry attempts must be non-negative')
+    expect(() => new QuaAssets({ adapter, timeout: 0 })).toThrow('Timeout must be positive')
+    expect(() => new QuaAssets({ adapter, locale: 'zh-cn' })).not.toThrow()
+  })
+
+  it('initializes storage, providers, plugins, and event listeners', async () => {
+    const plugin = {
+      name: 'lifecycle',
+      version: '1.0.0',
+      initialize: vi.fn(),
+      cleanup: vi.fn(),
     }
+    const provider: AssetProvider = {
+      mode: 'memory',
+      init: vi.fn(),
+      cleanup: vi.fn(),
+      getManifest: vi.fn().mockResolvedValue({ version: '1', assets: [] }),
+      getAsset: vi.fn(),
+    }
+    assets = new QuaAssets({ adapter, provider, plugins: [plugin] })
+
+    await assets.initialize()
+    await assets.cleanup()
+
+    expect(provider.init).toHaveBeenCalled()
+    expect(provider.cleanup).toHaveBeenCalled()
+    expect(plugin.initialize).toHaveBeenCalled()
+    expect(plugin.cleanup).toHaveBeenCalled()
   })
 
-  describe('initialization', () => {
-    it('should initialize with valid configuration', async () => {
-      quaAssets = new QuaAssets('https://cdn.example.com', config)
-
-      await quaAssets.initialize()
-
-      expect(quaAssets).toBeDefined()
-    })
-
-    it('should validate configuration on creation', () => {
-      expect(() => {
-        new QuaAssets('', config)
-      }).toThrow('Invalid endpoint URL')
-
-      expect(() => {
-        new QuaAssets('https://cdn.example.com', { ...config, cacheSize: -1 })
-      }).toThrow('Cache size must be positive')
-
-      expect(() => {
-        new QuaAssets('https://cdn.example.com', { ...config, retryAttempts: -1 })
-      }).toThrow('Retry attempts must be non-negative')
-    })
-
-    it('should validate object constructor configuration', () => {
-      const provider = {
-        mode: 'dev-vfs',
-        getManifest: vi.fn(),
-        getAsset: vi.fn(),
-      }
-
-      expect(() => {
-        new QuaAssets({
-          endpoint: 'https://cdn.example.com',
-          provider: provider as any,
-          cacheSize: -1,
-        })
-      }).toThrow('Cache size must be positive')
-
-      expect(() => {
-        new QuaAssets({
-          endpoint: 'https://cdn.example.com',
-          provider: provider as any,
-          locale: 'invalid_locale',
-        })
-      }).toThrow('Invalid locale format')
-    })
-
-    it('should handle plugin initialization', async () => {
-      const mockPlugin = {
-        name: 'test-plugin',
-        version: '1.0.0',
-        initialize: vi.fn(),
-        cleanup: vi.fn(),
-      }
-
-      const configWithPlugins = {
-        ...config,
-        plugins: [mockPlugin],
-      }
-
-      quaAssets = new QuaAssets('https://cdn.example.com', configWithPlugins)
-      await quaAssets.initialize()
-
-      expect(mockPlugin.initialize).toHaveBeenCalled()
-    })
-
-    it('should setup event emitter correctly', async () => {
-      quaAssets = new QuaAssets('https://cdn.example.com', config)
-      await quaAssets.initialize()
-
-      const eventHandler = vi.fn()
-      quaAssets.on('bundle:loading', eventHandler)
-
-      // Trigger an event (using internal method for testing)
-      ;(quaAssets as any).emit('bundle:loading', { bundleName: 'test' })
-
-      expect(eventHandler).toHaveBeenCalledWith({ bundleName: 'test' })
-    })
-  })
-
-  describe('bundle Management', () => {
-    beforeEach(async () => {
-      quaAssets = new QuaAssets('https://cdn.example.com', config)
-      await quaAssets.initialize()
-    })
-
-    it('should track bundle loading status', async () => {
-      // Initially, bundle status should not exist
-      let status = quaAssets.getBundleStatus('test-bundle')
-      expect(status).toBeUndefined()
-
-      // Mock fetch to fail
-      global.fetch = vi.fn(() => Promise.reject(new Error('Network error')))
-
-      // After starting a load, status should exist and be loading
-      const loadPromise = quaAssets.loadBundle('test-bundle.qpk').catch(() => {
-        // Expected to fail due to mock
-      })
-
-      // Status should be set immediately (synchronously) when loadBundle is called
-      status = quaAssets.getBundleStatus('test-bundle')
-      expect(status).toBeDefined()
-      expect(status!.name).toBe('test-bundle')
-      expect(status!.state).toBe('loading') // Should be loading initially
-
-      // Wait for the load to complete
-      await loadPromise
-
-      // After error, status should be error
-      status = quaAssets.getBundleStatus('test-bundle')
-      expect(status).toBeDefined()
-      expect(['error']).toContain(status!.state)
-    })
-
-    it('should update bundle status during loading', async () => {
-      // Mock successful bundle loading
-      global.fetch = vi.fn(() => {
-        // Mock QPK bundle data
-        const buffer = new ArrayBuffer(24)
-        const view = new DataView(buffer)
-        view.setUint32(0, 0x51504B00, false) // QPK magic (big-endian)
-        view.setUint32(4, 1, true) // Version
-        view.setUint32(8, 0, true) // No compression
-        view.setUint32(12, 0, true) // No encryption
-        view.setUint32(16, 0, true) // 0 files
-
-        const mockBody = {
-          getReader: () => ({
-            read: vi.fn()
-              .mockResolvedValueOnce({ done: false, value: new Uint8Array(buffer) })
-              .mockResolvedValueOnce({ done: true, value: undefined }),
-          }),
-        }
-
-        return Promise.resolve({
-          ok: true,
-          headers: {
-            get: (name: string) => {
-              if (name === 'content-length')
-                return buffer.byteLength.toString()
-              return null
-            },
-          },
-          body: mockBody,
-          arrayBuffer: () => Promise.resolve(buffer),
-        } as unknown as Response)
-      })
-
-      const loadingPromise = quaAssets.loadBundle('test-bundle.qpk')
-
-      // Status should be set immediately (synchronously) when loadBundle is called
-      const loadingStatus = quaAssets.getBundleStatus('test-bundle')
-      expect(loadingStatus).toBeDefined()
-      expect(loadingStatus!.state).toBe('loading') // Should be loading initially
-
-      try {
-        await loadingPromise
-        const finalStatus = quaAssets.getBundleStatus('test-bundle')
-        expect(finalStatus).toBeDefined()
-        expect(['loaded', 'error']).toContain(finalStatus!.state)
-      }
-      catch (error) {
-        // Expected for incomplete mock data
-        const errorStatus = quaAssets.getBundleStatus('test-bundle')
-        expect(errorStatus).toBeDefined()
-        expect(errorStatus!.state).toBe('error')
-      }
-    })
-
-    it('should handle bundle loading errors gracefully', async () => {
-      global.fetch = vi.fn(() => Promise.reject(new Error('Network error')))
-
-      // Status should be set immediately when loadBundle is called
-      const loadPromise = quaAssets.loadBundle('test-bundle.qpk').catch(() => {
-        // Expected to fail
-      })
-
-      // Check initial status
-      let status = quaAssets.getBundleStatus('test-bundle')
-      expect(status).toBeDefined()
-      expect(status!.state).toBe('loading')
-
-      // Wait for the load to complete
-      await loadPromise
-
-      // Check status after error
-      status = quaAssets.getBundleStatus('test-bundle')
-      expect(status).toBeDefined()
-      expect(status!.state).toBe('error')
-      expect(status!.error).toBeDefined()
-    })
-
-    it('should retry failed bundle loads', async () => {
-      let callCount = 0
-      global.fetch = vi.fn(() => {
-        callCount++
-        return Promise.reject(new Error('Persistent network error'))
-      })
-
-      // Create a new QuaAssets instance with fewer retry attempts and shorter timeout
-      const fastConfig = { ...config, retryAttempts: 2, timeout: 1000 }
-      const fastQuaAssets = new QuaAssets('https://cdn.example.com', fastConfig)
-      await fastQuaAssets.initialize()
-
-      try {
-        await fastQuaAssets.loadBundle('test-bundle.qpk')
-        expect(callCount).toBe(2) // 2 total attempts
-      }
-      catch (error) {
-        expect(callCount).toBe(2) // 2 total attempts
-      }
-      finally {
-        await fastQuaAssets.cleanup()
-      }
-    })
-
-    it('should emit bundle events during loading process', async () => {
-      const events: Array<{ event: string, data: any }> = []
-
-      quaAssets.on('bundle:loading', data => events.push({ event: 'bundle:loading', data }))
-      quaAssets.on('bundle:loaded', data => events.push({ event: 'bundle:loaded', data }))
-      quaAssets.on('bundle:error', data => events.push({ event: 'bundle:error', data }))
-
-      global.fetch = vi.fn(() => Promise.reject(new Error('Test error')))
-
-      try {
-        await quaAssets.loadBundle('test-bundle.qpk')
-      }
-      catch (error) {
-        // Expected to fail
-      }
-
-      expect(events.some(e => e.event === 'bundle:loading')).toBe(true)
-      expect(events.some(e => e.event === 'bundle:error')).toBe(true)
-    })
-  })
-
-  describe('asset Retrieval', () => {
-    beforeEach(async () => {
-      quaAssets = new QuaAssets('https://cdn.example.com', config)
-      await quaAssets.initialize()
-    })
-
-    it('should delegate asset retrieval to AssetManager', async () => {
-      try {
-        await quaAssets.getBlob('images', 'test.png')
-        expect.fail('Should throw asset not found error')
-      }
-      catch (error) {
-        // Expected since no assets are loaded
-        expect(error.message).toContain('Asset not found')
-      }
-    })
-
-    it('should handle locale-specific asset requests', async () => {
-      try {
-        await quaAssets.getBlob('scripts', 'scene1.js', { locale: 'en-us' })
-        expect.fail('Should throw asset not found error')
-      }
-      catch (error) {
-        expect(error.message).toContain('Asset not found')
-      }
-    })
-
-    it('should provide blob URLs for assets', async () => {
-      try {
-        await quaAssets.getBlobURL('images', 'character.png')
-        expect.fail('Should throw asset not found error')
-      }
-      catch (error) {
-        expect(error.message).toContain('Asset not found')
-      }
-    })
-
-    it('should execute JavaScript assets', async () => {
-      const jsCode = 'export const value = 42;'
-
-      try {
-        const result = await quaAssets.executeJS('test-script.js')
-        expect(result.exports.value).toBe(42)
-      }
-      catch (error) {
-        // May fail depending on JS execution implementation
-        expect(error).toBeDefined()
-      }
-    })
-
-    it('should load assets through a runtime provider', async () => {
-      const provider = {
-        mode: 'dev-vfs',
-        init: vi.fn(),
-        cleanup: vi.fn(),
-        getManifest: vi.fn().mockResolvedValue({
-          version: '1',
-          assets: [{
-            id: 'dev:default:data:config.json',
+  it('loads bundles through adapter fetcher and returns AssetData/bytes/text/json', async () => {
+    const manifest = createManifest({
+      assets: {
+        data: {
+          'config.json': {
             name: 'config.json',
-            type: 'data',
-            locale: 'default',
             path: 'data/config.json',
-          }],
-        }),
-        getAsset: vi.fn().mockResolvedValue(new Blob(['{"enabled":true}'], { type: 'application/json' })),
-      }
-
-      const providerAssets = new QuaAssets({
-        endpoint: 'https://cdn.example.com',
-        provider: provider as any,
-      })
-
-      await providerAssets.initialize()
-
-      const json = await providerAssets.getJSON<{ enabled: boolean }>('data', 'config.json')
-
-      expect(provider.init).toHaveBeenCalled()
-      expect(json.enabled).toBe(true)
-      expect(provider.getAsset).toHaveBeenCalled()
-
-      await providerAssets.cleanup()
-      expect(provider.cleanup).toHaveBeenCalled()
+            relativePath: 'data/config.json',
+            size: 15,
+            hash: '',
+            type: 'data',
+            locales: ['default'],
+            mimeType: 'application/json',
+          },
+        },
+      },
+      totalFiles: 1,
+      totalSize: 15,
     })
+    const adapterWithBundle = createAdapter({
+      files: {
+        'https://cdn.example.com/main.qpk': createQpkBundle(manifest, new Map([
+          ['assets/data/config.json', utf8('{"ok":true}')],
+        ])),
+      },
+    })
+    assets = new QuaAssets({ endpoint: 'https://cdn.example.com', adapter: adapterWithBundle })
+    await assets.initialize()
 
-    it('should emit asset change events from provider watch', async () => {
-      let watchListener: any
-      const provider = {
-        mode: 'dev-vfs',
-        getManifest: vi.fn().mockResolvedValue({ version: '1', assets: [] }),
-        getAsset: vi.fn(),
-        watch: vi.fn((listener) => {
-          watchListener = listener
-          return vi.fn()
-        }),
-      }
+    const progress = vi.fn()
+    await assets.loadBundle('main.qpk', { onProgress: progress })
 
-      const providerAssets = new QuaAssets({
-        endpoint: 'https://cdn.example.com',
-        provider: provider as any,
-      })
-      const handler = vi.fn()
+    expect(assets.getBundleStatus('main')?.state).toBe('loaded')
+    expect(progress).toHaveBeenCalledWith(expect.any(Number), expect.any(Number))
+    expect(await assets.getText('data', 'config.json')).toBe('{"ok":true}')
+    expect(await assets.getJSON<{ ok: boolean }>('data', 'config.json')).toEqual({ ok: true })
+    expect((await assets.getAsset('data', 'config.json')).data).toBeInstanceOf(Uint8Array)
+  })
 
-      await providerAssets.initialize()
-      providerAssets.on('asset:changed', handler)
+  it('uses provider data and forwards provider changes', async () => {
+    let watcher: ((change: any) => void) | undefined
+    const provider: AssetProvider = {
+      mode: 'memory',
+      getManifest: vi.fn().mockResolvedValue({
+        version: '1',
+        assets: [{
+          id: 'memory:default:data:config.json',
+          name: 'config.json',
+          type: 'data',
+          locale: 'default',
+          path: 'data/config.json',
+          mimeType: 'application/json',
+        }],
+      }),
+      getAsset: vi.fn().mockResolvedValue({
+        id: 'memory:default:data:config.json',
+        bundleName: 'memory',
+        type: 'data',
+        name: 'config.json',
+        locale: 'default',
+        data: utf8('{"from":"provider"}'),
+        mimeType: 'application/json',
+        size: 19,
+        version: 1,
+        mtime: 1,
+        fromCache: false,
+      }),
+      watch(listener) {
+        watcher = listener
+        return () => {
+          watcher = undefined
+        }
+      },
+    }
+    assets = new QuaAssets({ adapter, provider })
+    const changed = vi.fn()
 
-      const change = {
-        type: 'changed' as const,
-        assetId: 'dev:default:images:bg.png',
-        path: 'images/bg.png',
-        timestamp: Date.now(),
-      }
+    await assets.initialize()
+    assets.on('asset:changed', changed)
 
-      watchListener(change)
+    expect(await assets.getJSON('data', 'config.json')).toEqual({ from: 'provider' })
 
-      expect(handler).toHaveBeenCalledWith(change)
+    const change = {
+      type: 'changed' as const,
+      assetId: 'memory:default:data:config.json',
+      timestamp: Date.now(),
+    }
+    watcher?.(change)
+    expect(changed).toHaveBeenCalledWith(change)
+  })
 
-      await providerAssets.cleanup()
+  it('checks bundle indexes through adapter fetcher', async () => {
+    const runtimeAdapter = createAdapter({
+      files: {
+        'https://cdn.example.com/index.json': utf8(JSON.stringify({
+          currentVersion: 1,
+          currentBuild: 'build-1',
+          latestBundle: {
+            filename: 'main.qpk',
+            hash: 'hash',
+            version: 1,
+            buildNumber: 'build-1',
+            created: new Date(0).toISOString(),
+            size: 10,
+          },
+          previousBuilds: [],
+          availablePatches: [],
+        })),
+      },
+    })
+    assets = new QuaAssets({ endpoint: 'https://cdn.example.com', adapter: runtimeAdapter })
+    await assets.initialize()
+
+    expect(await assets.checkLatest()).toMatchObject({
+      currentVersion: 1,
+      latestBundle: { filename: 'main.qpk' },
     })
   })
 
-  describe('cache Management', () => {
-    beforeEach(async () => {
-      quaAssets = new QuaAssets('https://cdn.example.com', config)
-      await quaAssets.initialize()
-    })
+  it('returns patch errors instead of throwing when adapter fetch fails', async () => {
+    assets = new QuaAssets({ adapter })
+    await assets.initialize()
 
-    it('should provide cache statistics', async () => {
-      const stats = await quaAssets.getCacheStats()
+    const result = await assets.applyPatch('missing.qpk', 'main')
 
-      expect(stats).toHaveProperty('totalSize')
-      expect(stats).toHaveProperty('bundles')
-      expect(stats).toHaveProperty('database')
-      expect(stats).toHaveProperty('assetManager')
-    })
-
-    it('should handle cache size limits', async () => {
-      const stats = await quaAssets.getCacheStats()
-      expect(stats.totalSize).toBeGreaterThanOrEqual(0)
-    })
-
-    it('should emit cache events', async () => {
-      const cacheEvents: Array<{ event: string, data: any }> = []
-
-      quaAssets.on('asset:cached', data => cacheEvents.push({ event: 'asset:cached', data }))
-      quaAssets.on('asset:evicted', data => cacheEvents.push({ event: 'asset:evicted', data }))
-      quaAssets.on('cache:full', data => cacheEvents.push({ event: 'cache:full', data }))
-
-      // Cache events would be emitted during actual asset operations
-      expect(quaAssets).toBeDefined()
-    })
+    expect(result.success).toBe(false)
+    expect(result.errors[0]).toContain('Memory file not found')
   })
 
-  describe('patch System', () => {
-    beforeEach(async () => {
-      quaAssets = new QuaAssets('https://cdn.example.com', config)
-      await quaAssets.initialize()
+  it('clears storage-backed cache without legacy Blob URL state', async () => {
+    assets = new QuaAssets({ adapter })
+    await assets.initialize()
+
+    expect(await assets.getCacheStats()).toMatchObject({
+      bundles: 0,
+      totalSize: 0,
     })
 
-    it('should validate patch compatibility', async () => {
-      const mockPatchData = new ArrayBuffer(100)
-
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          arrayBuffer: () => Promise.resolve(mockPatchData),
-        } as Response),
-      )
-
-      try {
-        const result = await quaAssets.applyPatch('patch.qpk', 'test-bundle')
-        expect(result).toHaveProperty('success')
-        expect(result).toHaveProperty('errors')
-      }
-      catch (error) {
-        // Expected for mock patch data
-        expect(error).toBeDefined()
-      }
-    })
-
-    it('should handle patch application errors', async () => {
-      global.fetch = vi.fn(() => Promise.reject(new Error('Patch download failed')))
-
-      const result = await quaAssets.applyPatch('invalid-patch.qpk', 'test-bundle')
-
-      expect(result.success).toBe(false)
-      expect(result.errors.some(error => error.includes('Patch download failed'))).toBe(true)
-    })
-  })
-
-  describe('cleanup and Resource Management', () => {
-    it('should cleanup resources properly', async () => {
-      quaAssets = new QuaAssets('https://cdn.example.com', config)
-      await quaAssets.initialize()
-
-      expect(quaAssets).toBeDefined()
-
-      await quaAssets.cleanup()
-
-      expect(quaAssets).toBeDefined()
-    })
-
-    it('should cleanup plugins during shutdown', async () => {
-      const mockPlugin = {
-        name: 'test-plugin',
-        version: '1.0.0',
-        initialize: vi.fn(),
-        cleanup: vi.fn(),
-      }
-
-      quaAssets = new QuaAssets('https://cdn.example.com', {
-        ...config,
-        plugins: [mockPlugin],
-      })
-
-      await quaAssets.initialize()
-      await quaAssets.cleanup()
-
-      expect(mockPlugin.cleanup).toHaveBeenCalled()
-    })
-
-    it('should handle multiple cleanup calls gracefully', async () => {
-      quaAssets = new QuaAssets('https://cdn.example.com', config)
-      await quaAssets.initialize()
-
-      await quaAssets.cleanup()
-      await quaAssets.cleanup() // Second cleanup should not throw
-
-      expect(quaAssets).toBeDefined()
-    })
-  })
-
-  describe('configuration Validation', () => {
-    it('should validate endpoint URL format', () => {
-      const invalidEndpoints = [
-        '',
-        'not-a-url',
-        'ftp://invalid-protocol.com',
-        'javascript:alert(1)',
-      ]
-
-      invalidEndpoints.forEach((endpoint) => {
-        expect(() => {
-          new QuaAssets(endpoint, config)
-        }).toThrow()
-      })
-    })
-
-    it('should validate numeric configuration values', () => {
-      expect(() => {
-        new QuaAssets('https://cdn.example.com', { ...config, cacheSize: 0 })
-      }).toThrow('Cache size must be positive')
-
-      expect(() => {
-        new QuaAssets('https://cdn.example.com', { ...config, timeout: -1 })
-      }).toThrow('Timeout must be positive')
-
-      expect(() => {
-        new QuaAssets('https://cdn.example.com', { ...config, retryAttempts: -1 })
-      }).toThrow('Retry attempts must be non-negative')
-    })
-
-    it('should validate locale format', () => {
-      const validLocales = ['default', 'en-us', 'zh-cn', 'ja-jp', 'fr']
-      const invalidLocales = ['', 'invalid_locale', 'ENGLISH', '123']
-
-      validLocales.forEach((locale) => {
-        expect(() => {
-          new QuaAssets('https://cdn.example.com', { ...config, locale })
-        }).not.toThrow()
-      })
-
-      invalidLocales.forEach((locale) => {
-        expect(() => {
-          new QuaAssets('https://cdn.example.com', { ...config, locale })
-        }).toThrow()
-      })
-    })
+    await assets.clearAllCache()
+    expect(assets.getAllBundleStatuses().size).toBe(0)
   })
 })
+
+function createAdapter(options: { files?: Record<string, Uint8Array> } = {}): AssetRuntimeAdapter {
+  const files = new Map(Object.entries(options.files || {}))
+  return {
+    name: 'test-memory',
+    storage: new MemoryAssetStorage(),
+    fetcher: {
+      async fetchBytes(url, requestOptions = {}) {
+        const data = files.get(url) || files.get(url.replace(/^\/+/, ''))
+        if (!data) {
+          throw new Error(`Memory file not found: ${url}`)
+        }
+        requestOptions.onProgress?.(data.byteLength, data.byteLength)
+        return { data: new Uint8Array(data), size: data.byteLength }
+      },
+      async fetchJSON(url) {
+        const data = files.get(url) || files.get(url.replace(/^\/+/, ''))
+        if (!data) {
+          throw new Error(`Memory JSON file not found: ${url}`)
+        }
+        return JSON.parse(new TextDecoder().decode(data))
+      },
+    },
+    crypto: {
+      async sha256() {
+        return ''
+      },
+    },
+    now: () => 1_700_000_000_000,
+  }
+}
+
+function createManifest(overrides: Partial<BundleManifest> = {}): BundleManifest {
+  return {
+    name: 'main',
+    version: '1.0.0',
+    bundler: '@quajs/quack',
+    created: new Date(0).toISOString(),
+    createdAt: 0,
+    format: 'qpk',
+    bundleVersion: 1,
+    buildNumber: 'test',
+    compression: { algorithm: 'none' },
+    encryption: { enabled: false, algorithm: 'none' },
+    locales: ['default'],
+    defaultLocale: 'default',
+    assets: {},
+    totalFiles: 0,
+    totalSize: 0,
+    ...overrides,
+  }
+}
+
+function createQpkBundle(manifest: BundleManifest, files: Map<string, Uint8Array>): Uint8Array {
+  const entries = Array.from(files.entries()).map(([path, data]) => {
+    const pathBytes = utf8(path)
+    const entry = new Uint8Array(4 + pathBytes.byteLength + 4 + data.byteLength)
+    const view = new DataView(entry.buffer)
+    view.setUint32(0, pathBytes.byteLength, true)
+    entry.set(pathBytes, 4)
+    view.setUint32(4 + pathBytes.byteLength, data.byteLength, true)
+    entry.set(data, 4 + pathBytes.byteLength + 4)
+    return entry
+  })
+  const dataSection = concatBytes(entries)
+  const manifestBytes = utf8(JSON.stringify(manifest))
+  const headerSize = 32
+  const bytes = new Uint8Array(headerSize + dataSection.byteLength + manifestBytes.byteLength)
+  const view = new DataView(bytes.buffer)
+  view.setUint32(0, 0x51504B00, false)
+  view.setUint32(4, 1, true)
+  view.setUint32(8, 0, true)
+  view.setUint32(12, headerSize, true)
+  setUint64LE(view, 16, headerSize + dataSection.byteLength)
+  setUint64LE(view, 24, manifestBytes.byteLength)
+  bytes.set(dataSection, headerSize)
+  bytes.set(manifestBytes, headerSize + dataSection.byteLength)
+  return bytes
+}
+
+function concatBytes(chunks: Uint8Array[]): Uint8Array {
+  const result = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0))
+  let offset = 0
+  for (const chunk of chunks) {
+    result.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return result
+}
+
+function setUint64LE(view: DataView, offset: number, value: number): void {
+  view.setUint32(offset, value >>> 0, true)
+  view.setUint32(offset + 4, Math.floor(value / 2 ** 32), true)
+}
+
+function utf8(value: string): Uint8Array {
+  return new TextEncoder().encode(value)
+}

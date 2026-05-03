@@ -2,16 +2,14 @@
   "name": "@quajs/assets",
   "type": "module",
   "version": "0.1.0",
-  "description": "Browser-based asset manager for QuaEngine - loads and manages Quack bundles with IndexedDB storage",
+  "description": "Platform-agnostic asset runtime core for QuaEngine",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
   "keywords": [
     "quaengine",
     "assets",
     "game-engine",
-    "indexeddb",
     "bundle-manager",
-    "browser",
     "typescript"
   ],
   "sideEffects": false,
@@ -42,9 +40,6 @@
   },
   "dependencies": {
     "@quajs/logger": "workspace:*",
-    "dexie": "^4.4.2",
-    "fflate": "^0.8.2",
-    "lzma-web": "^3.0.1"
-  },
-  "browser": true
+    "fflate": "^0.8.2"
+  }
 }
