@@ -1,0 +1,59 @@
+{
+  "name": "@quajs/renderer-vue",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Stateless Vue renderer components for QuaEngine",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "vue",
+    "renderer",
+    "visual-novel"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./plugins/ui": {
+      "types": "./dist/plugins/ui/index.d.ts",
+      "import": "./dist/plugins/ui/index.js"
+    },
+    "./styles/base.scss": "./src/styles/base.scss",
+    "./styles/default.scss": "./src/styles/default.scss"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src/plugins",
+    "src/styles"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "vue": "catalog:"
+  },
+  "dependencies": {
+    "@quajs/assets": "workspace:*",
+    "@quajs/assets-web": "workspace:*",
+    "@quajs/engine": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/render-core": "workspace:*"
+  },
+  "devDependencies": {
+    "vue": "catalog:"
+  }
+}
