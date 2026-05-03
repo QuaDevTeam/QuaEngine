@@ -1,4 +1,7 @@
 import type {
+  AssetCodec,
+  AssetCrypto,
+  AssetInfo,
   AssetType,
   BundleFormat,
   BundleManifest,
@@ -7,71 +10,51 @@ import type {
   LoadBundleOptions,
   StoredAsset,
 } from './types'
-import { inflate, unzip } from 'fflate'
-import LZMA from 'lzma-web'
+import { unzip } from 'fflate'
 import { BundleLoadError, IntegrityError } from './types'
+import { bytesToUtf8 } from './encoding'
 
-/**
- * Bundle loader handles downloading and parsing bundle files
- * Supports both ZIP and QPK formats with plugin extensibility
- */
+const QPK_MAGIC = 0x51504B00
+const QPK_HEADER_SIZE = 32
+
+export interface BundleLoaderOptions {
+  crypto: AssetCrypto
+  codec?: AssetCodec
+  now?: () => number
+}
+
 export class BundleLoader {
   private decompressionPlugins = new Map<BundleFormat, DecompressionPlugin>()
   private decryptionPlugins: DecryptionPlugin[] = []
-  private retryAttempts: number
-  private timeout: number
+  private crypto: AssetCrypto
+  private codec?: AssetCodec
+  private now: () => number
 
-  constructor(retryAttempts: number = 3, timeout: number = 30000) {
-    this.retryAttempts = retryAttempts
-    this.timeout = timeout
+  constructor(options: BundleLoaderOptions) {
+    this.crypto = options.crypto
+    this.codec = options.codec
+    this.now = options.now || Date.now
   }
 
-  /**
-   * Register a decompression plugin
-   */
   registerDecompressionPlugin(plugin: DecompressionPlugin): void {
     for (const format of plugin.supportedFormats) {
       this.decompressionPlugins.set(format, plugin)
     }
   }
 
-  /**
-   * Register a decryption plugin
-   */
   registerDecryptionPlugin(plugin: DecryptionPlugin): void {
     this.decryptionPlugins.push(plugin)
   }
 
-  /**
-   * Download and parse a bundle from URL
-   */
   async loadBundle(
-    url: string,
+    bytes: Uint8Array,
     bundleName: string,
     options: LoadBundleOptions = {},
-  ): Promise<{
-    manifest: BundleManifest
-    assets: StoredAsset[]
-  }> {
+  ): Promise<{ manifest: BundleManifest, assets: StoredAsset[] }> {
     try {
-      // Download bundle with retry logic
-      const buffer = await this.downloadWithRetry(url, options)
-
-      // Determine format from URL or content
-      const format = this.detectBundleFormat(url, buffer)
-
-      // Decrypt if necessary
-      const decryptedBuffer = await this.decryptBundle(buffer)
-
-      // Decompress and extract files
-      const files = await this.decompressBundle(decryptedBuffer, format)
-
-      // Parse manifest
-      const manifest = await this.parseManifest(files)
-
-      // Convert files to StoredAsset objects
+      const format = options.format || detectBundleFormat(bundleName, bytes)
+      const { manifest, files } = await this.parseBundle(bytes, format)
       const assets = await this.createStoredAssets(files, manifest, bundleName)
-
       return { manifest, assets }
     }
     catch (error) {
@@ -82,455 +65,256 @@ export class BundleLoader {
     }
   }
 
-  /**
-   * Download bundle with retry logic and progress reporting
-   */
-  private async downloadWithRetry(
-    url: string,
-    options: LoadBundleOptions,
-  ): Promise<ArrayBuffer> {
-    let lastError: Error | null = null
-
-    for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
-      try {
-        return await this.downloadBundle(url, options)
-      }
-      catch (error) {
-        lastError = error as Error
-
-        if (attempt === this.retryAttempts) {
-          break
-        }
-
-        // Exponential backoff
-        const delay = Math.min(1000 * 2 ** (attempt - 1), 10000)
-        await new Promise(resolve => setTimeout(resolve, delay))
-      }
+  private async parseBundle(
+    bytes: Uint8Array,
+    format: BundleFormat,
+  ): Promise<{ manifest: BundleManifest, files: Map<string, Uint8Array> }> {
+    const plugin = this.decompressionPlugins.get(format)
+    if (plugin) {
+      const files = await plugin.decompress(bytes, format)
+      return { manifest: parseManifest(files), files }
     }
 
-    throw lastError || new Error('Download failed after retries')
+    if (format === 'zip') {
+      const files = this.codec?.unzip ? await this.codec.unzip(bytes) : await unzipBytes(bytes)
+      return { manifest: parseManifest(files), files }
+    }
+
+    return await this.parseQPK(bytes)
   }
 
-  /**
-   * Download bundle from URL
-   */
-  private async downloadBundle(
-    url: string,
-    options: LoadBundleOptions,
-  ): Promise<ArrayBuffer> {
-    const controller = new AbortController()
-
-    // Set up timeout
-    const timeoutId = setTimeout(() => {
-      controller.abort()
-    }, this.timeout)
-
-    // Use provided abort signal if available
-    if (options.signal) {
-      options.signal.addEventListener('abort', () => {
-        controller.abort()
-      })
+  private async parseQPK(bytes: Uint8Array): Promise<{ manifest: BundleManifest, files: Map<string, Uint8Array> }> {
+    const view = toDataView(bytes)
+    if (bytes.byteLength < QPK_HEADER_SIZE) {
+      throw new Error('Invalid QPK file: too small')
     }
 
-    try {
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          'Cache-Control': options.enableCache !== false ? 'max-age=3600' : 'no-cache',
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const contentLength = response.headers.get('content-length')
-      const total = contentLength ? Number.parseInt(contentLength, 10) : 0
-
-      if (!response.body) {
-        throw new Error('Response body is null')
-      }
-
-      const reader = response.body.getReader()
-      const chunks: Uint8Array[] = []
-      let loaded = 0
-
-      while (true) {
-        const { done, value } = await reader.read()
-
-        if (done)
-          break
-
-        chunks.push(value)
-        loaded += value.length
-
-        // Report progress
-        if (options.onProgress && total > 0) {
-          options.onProgress(loaded, total)
-        }
-      }
-
-      // Combine chunks into single ArrayBuffer
-      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
-      const result = new Uint8Array(totalLength)
-      let offset = 0
-
-      for (const chunk of chunks) {
-        result.set(chunk, offset)
-        offset += chunk.length
-      }
-
-      return result.buffer
+    const magic = view.getUint32(0, false)
+    if (magic !== QPK_MAGIC) {
+      throw new Error('Invalid QPK file: magic number mismatch')
     }
-    finally {
-      clearTimeout(timeoutId)
+
+    const version = view.getUint32(4, true)
+    if (version !== 1) {
+      throw new Error(`Unsupported QPK version: ${version}`)
     }
+
+    const flags = view.getUint32(8, true)
+    const headerSize = view.getUint32(12, true)
+    if (headerSize !== QPK_HEADER_SIZE) {
+      throw new Error(`Invalid QPK header size: ${headerSize}`)
+    }
+
+    const manifestOffset = readUint64LE(view, 16)
+    const manifestSize = readUint64LE(view, 24)
+    if (manifestOffset > bytes.byteLength || manifestOffset + manifestSize > bytes.byteLength) {
+      throw new Error('Invalid QPK manifest bounds')
+    }
+
+    const files = new Map<string, Uint8Array>()
+    let offset = headerSize
+    while (offset < manifestOffset) {
+      if (offset + 4 > manifestOffset) {
+        throw new Error('Invalid QPK asset entry: missing path length')
+      }
+      const pathLength = view.getUint32(offset, true)
+      offset += 4
+
+      if (offset + pathLength + 4 > manifestOffset) {
+        throw new Error('Invalid QPK asset entry: path out of bounds')
+      }
+      const path = bytesToUtf8(sliceBytes(bytes, offset, offset + pathLength))
+      offset += pathLength
+
+      const dataLength = view.getUint32(offset, true)
+      offset += 4
+      if (offset + dataLength > manifestOffset) {
+        throw new Error(`Invalid QPK asset entry: ${path} data out of bounds`)
+      }
+      files.set(path, sliceBytes(bytes, offset, offset + dataLength))
+      offset += dataLength
+    }
+
+    let manifestBytes = sliceBytes(bytes, manifestOffset, manifestOffset + manifestSize)
+    if (flags & 2) {
+      manifestBytes = await this.decryptBytes(manifestBytes, { type: 'manifest' })
+    }
+    if (flags & 1) {
+      manifestBytes = await this.decompressLzma(manifestBytes)
+    }
+
+    const manifest = JSON.parse(bytesToUtf8(manifestBytes)) as BundleManifest
+    files.set('manifest.json', manifestBytes)
+
+    return { manifest, files }
   }
 
-  /**
-   * Detect bundle format from URL or content
-   */
-  private detectBundleFormat(url: string, buffer: ArrayBuffer): BundleFormat {
-    // Check file extension first
-    if (url.endsWith('.qpk')) {
-      return 'qpk'
-    }
-    if (url.endsWith('.zip')) {
-      return 'zip'
-    }
-
-    // Check magic bytes
-    const view = new DataView(buffer)
-
-    // ZIP magic: PK (0x504B)
-    if (view.getUint16(0, false) === 0x504B) {
-      return 'zip'
-    }
-
-    // QPK magic: 'QPK\0' (0x51504B00)
-    if (view.getUint32(0, false) === 0x51504B00) {
-      return 'qpk'
-    }
-
-    // Default to ZIP for unknown formats
-    return 'zip'
-  }
-
-  /**
-   * Decrypt bundle if decryption plugins are available
-   */
-  private async decryptBundle(buffer: ArrayBuffer): Promise<ArrayBuffer> {
-    let result = buffer
+  private async decryptBytes(bytes: Uint8Array, metadata: Record<string, unknown>): Promise<Uint8Array> {
+    let result = bytes
 
     for (const plugin of this.decryptionPlugins) {
-      try {
-        result = await plugin.decrypt(result)
-      }
-      catch (error) {
-        console.warn(`Decryption plugin ${plugin.name} failed:`, error)
-      }
+      result = await plugin.decrypt(result, metadata)
+    }
+
+    if (this.decryptionPlugins.length === 0 && this.crypto.decrypt) {
+      result = await this.crypto.decrypt(result, metadata)
+    }
+
+    if (result === bytes && this.decryptionPlugins.length === 0 && !this.crypto.decrypt) {
+      throw new Error('Encrypted QPK manifest requires an adapter crypto.decrypt implementation')
     }
 
     return result
   }
 
-  /**
-   * Decompress bundle based on format
-   */
-  private async decompressBundle(
-    buffer: ArrayBuffer,
-    format: BundleFormat,
-  ): Promise<Map<string, Uint8Array>> {
-    // Try registered plugins first
-    const plugin = this.decompressionPlugins.get(format)
-    if (plugin) {
-      return await plugin.decompress(buffer, format)
+  private async decompressLzma(bytes: Uint8Array): Promise<Uint8Array> {
+    if (!this.codec?.lzmaDecompress) {
+      throw new Error('Compressed QPK manifest requires an adapter codec.lzmaDecompress implementation')
     }
-
-    // Fall back to built-in decompression
-    switch (format) {
-      case 'zip':
-        return await this.decompressZip(buffer)
-      case 'qpk':
-        return await this.decompressQPK(buffer)
-      default:
-        throw new Error(`Unsupported bundle format: ${format}`)
-    }
+    return await this.codec.lzmaDecompress(bytes)
   }
 
-  /**
-   * Decompress ZIP bundle using fflate
-   * Note: This method should be tree-shaken in production builds
-   */
-  private async decompressZip(buffer: ArrayBuffer): Promise<Map<string, Uint8Array>> {
-    return new Promise((resolve, reject) => {
-      const uint8Array = new Uint8Array(buffer)
-
-      unzip(uint8Array, (error, files) => {
-        if (error) {
-          reject(new Error(`ZIP decompression failed: ${error.message}`))
-          return
-        }
-
-        const result = new Map<string, Uint8Array>()
-
-        for (const [filename, fileData] of Object.entries(files)) {
-          result.set(filename, fileData)
-        }
-
-        resolve(result)
-      })
-    })
-  }
-
-  /**
-   * Decompress QPK bundle (custom format)
-   */
-  private async decompressQPK(buffer: ArrayBuffer): Promise<Map<string, Uint8Array>> {
-    const view = new DataView(buffer)
-    let offset = 0
-
-    // Verify QPK magic
-    const magic = view.getUint32(offset, false)
-    if (magic !== 0x51504B00) { // 'QPK\0'
-      throw new Error('Invalid QPK file: magic number mismatch')
-    }
-    offset += 4
-
-    // Read version
-    const version = view.getUint32(offset, true)
-    offset += 4
-
-    if (version !== 1) {
-      throw new Error(`Unsupported QPK version: ${version}`)
-    }
-
-    // Read compression algorithm
-    const compressionType = view.getUint32(offset, true)
-    offset += 4
-
-    // Read encryption flags (unused for now)
-    view.getUint32(offset, true) // _encryptionFlags
-    offset += 4
-
-    // Read file count
-    const fileCount = view.getUint32(offset, true)
-    offset += 4
-
-    const files = new Map<string, Uint8Array>()
-
-    // Read file entries
-    for (let i = 0; i < fileCount; i++) {
-      // Read filename length
-      const nameLength = view.getUint32(offset, true)
-      offset += 4
-
-      // Read filename
-      const nameBytes = new Uint8Array(buffer, offset, nameLength)
-      const filename = new TextDecoder().decode(nameBytes)
-      offset += nameLength
-
-      // Read compressed size
-      const compressedSize = view.getUint32(offset, true)
-      offset += 4
-
-      // Read uncompressed size
-      const uncompressedSize = view.getUint32(offset, true)
-      offset += 4
-
-      // Read file data
-      const fileData = new Uint8Array(buffer, offset, compressedSize)
-      offset += compressedSize
-
-      // Decompress file data based on compression type
-      let decompressedData: Uint8Array
-
-      switch (compressionType) {
-        case 0: // No compression
-          decompressedData = fileData
-          break
-        case 1: // LZMA compression
-          decompressedData = await this.decompressLZMA(fileData, uncompressedSize)
-          break
-        case 2: // DEFLATE compression (using fflate)
-          try {
-            decompressedData = await new Promise<Uint8Array>((resolve, reject) => {
-              inflate(fileData, (err, result) => {
-                if (err) {
-                  reject(err)
-                }
-                else {
-                  resolve(result)
-                }
-              })
-            })
-          }
-          catch (error) {
-            throw new Error(`DEFLATE decompression failed: ${error instanceof Error ? error.message : String(error)}`)
-          }
-          break
-        default:
-          throw new Error(`Unsupported compression type: ${compressionType}`)
-      }
-
-      files.set(filename, decompressedData)
-    }
-
-    return files
-  }
-
-  /**
-   * Decompress LZMA data using lzma-web library
-   */
-  private async decompressLZMA(data: Uint8Array, expectedSize?: number): Promise<Uint8Array> {
-    try {
-      // Create LZMA decompressor instance
-      const lzma = new LZMA()
-
-      // Use the data directly as Uint8Array - lzma-web should handle this
-      const decompressed = await lzma.decompress(data)
-
-      // Convert result back to Uint8Array
-      // The result could be a string or number array depending on the compressed data
-      let resultArray: Uint8Array
-      if (typeof decompressed === 'string') {
-        // If result is a string, convert to UTF-8 bytes
-        resultArray = new TextEncoder().encode(decompressed)
-      }
-      else if (Array.isArray(decompressed)) {
-        // If result is a number array, convert to Uint8Array
-        resultArray = new Uint8Array(decompressed)
-      }
-      else if (decompressed instanceof Uint8Array) {
-        // If result is already a Uint8Array, use it directly
-        resultArray = decompressed
-      }
-      else {
-        throw new TypeError('Unexpected decompression result type')
-      }
-
-      // Verify decompressed size if expected size is provided
-      if (expectedSize !== undefined && resultArray.length !== expectedSize) {
-        throw new Error(`LZMA decompression size mismatch: expected ${expectedSize}, got ${resultArray.length}`)
-      }
-
-      return resultArray
-    }
-    catch (error) {
-      throw new Error(`LZMA decompression failed: ${error instanceof Error ? error.message : String(error)}`)
-    }
-  }
-
-  /**
-   * Parse manifest from bundle files
-   */
-  private async parseManifest(files: Map<string, Uint8Array>): Promise<BundleManifest> {
-    const manifestData = files.get('manifest.json')
-    if (!manifestData) {
-      throw new Error('Bundle manifest not found')
-    }
-
-    try {
-      const manifestText = new TextDecoder().decode(manifestData)
-      return JSON.parse(manifestText) as BundleManifest
-    }
-    catch (error) {
-      throw new Error(`Failed to parse manifest: ${error instanceof Error ? error.message : String(error)}`)
-    }
-  }
-
-  /**
-   * Create StoredAsset objects from bundle files and manifest
-   */
   private async createStoredAssets(
     files: Map<string, Uint8Array>,
     manifest: BundleManifest,
     bundleName: string,
   ): Promise<StoredAsset[]> {
     const assets: StoredAsset[] = []
-    const now = Date.now()
+    const now = this.now()
 
-    // Iterate through all asset types in manifest
-    for (const [assetType, typeData] of Object.entries(manifest.assets)) {
-      for (const [subType, subTypeData] of Object.entries(typeData)) {
-        for (const [filename, assetInfo] of Object.entries(subTypeData)) {
-          // Find file data for this asset in all locales
-          for (const locale of assetInfo.locales) {
-            const filePath = this.constructAssetPath(assetType as AssetType, subType, filename, locale)
-            const fileData = files.get(filePath)
+    for (const [type, records] of Object.entries(manifest.assets)) {
+      if (!records)
+        continue
 
-            if (fileData) {
-              const assetBuffer = this.toArrayBuffer(fileData)
+      for (const [key, assetInfo] of Object.entries(records as Record<string, AssetInfo>)) {
+        for (const locale of assetInfo.locales?.length ? assetInfo.locales : [manifest.defaultLocale || 'default']) {
+          const path = findAssetPath(files, assetInfo, key, locale)
+          if (!path)
+            continue
 
-              // Verify hash if available
-              if (assetInfo.hash) {
-                const actualHash = await this.computeHash(assetBuffer)
-                if (actualHash !== assetInfo.hash) {
-                  throw new IntegrityError(assetInfo.hash, actualHash)
-                }
-              }
-
-              const asset: StoredAsset = {
-                id: `${bundleName}:${locale}:${assetType}:${filename}`,
-                bundleName,
-                name: filename,
-                type: assetType as AssetType,
-                locale,
-                blob: new Blob([assetBuffer]),
-                hash: assetInfo.hash,
-                size: assetInfo.size,
-                version: assetInfo.version || 1,
-                mtime: now,
-                createdAt: now,
-                lastAccessed: now,
-              }
-
-              assets.push(asset)
+          const data = files.get(path)!
+          if (assetInfo.hash) {
+            const actualHash = await this.crypto.sha256(data)
+            if (actualHash !== assetInfo.hash) {
+              throw new IntegrityError(assetInfo.hash, actualHash)
             }
           }
+
+          const name = assetInfo.name || inferAssetName(key)
+          assets.push({
+            id: `${bundleName}:${locale}:${type}:${name}`,
+            bundleName,
+            name,
+            type: type as AssetType,
+            locale,
+            data: new Uint8Array(data),
+            hash: assetInfo.hash || '',
+            mimeType: assetInfo.mimeType,
+            size: assetInfo.size ?? data.byteLength,
+            version: assetInfo.version || 1,
+            mtime: assetInfo.mtime || now,
+            createdAt: now,
+            lastAccessed: now,
+            mediaMetadata: assetInfo.mediaMetadata,
+          })
         }
       }
     }
 
     return assets
   }
+}
 
-  /**
-   * Construct asset file path based on type, subtype, filename, and locale
-   */
-  private constructAssetPath(
-    type: AssetType,
-    subType: string,
-    filename: string,
-    locale: string,
-  ): string {
-    if (locale === 'default') {
-      return `${type}/${subType}/${filename}`
-    }
+export function detectBundleFormat(name: string, bytes: Uint8Array): BundleFormat {
+  if (name.endsWith('.qpk'))
+    return 'qpk'
+  if (name.endsWith('.zip') || name.endsWith('.bundle'))
+    return 'zip'
 
-    // Check for locale in filename (file-based locales)
-    // Extract name without extension and extension (currently unused)
-    filename.substring(0, filename.lastIndexOf('.')) // nameWithoutExt
-    filename.substring(filename.lastIndexOf('.')) // ext
+  const view = toDataView(bytes)
+  if (bytes.byteLength >= 4 && view.getUint32(0, false) === QPK_MAGIC)
+    return 'qpk'
+  if (bytes.byteLength >= 2 && view.getUint16(0, false) === 0x504B)
+    return 'zip'
 
-    if (filename.includes(`.${locale}.`)) {
-      return `${type}/${subType}/${filename}`
-    }
+  return 'zip'
+}
 
-    // Check for locale folder (folder-based locales)
-    return `${type}/${subType}/${locale}/${filename}`
+function parseManifest(files: Map<string, Uint8Array>): BundleManifest {
+  const manifestBytes = files.get('manifest.json')
+  if (!manifestBytes) {
+    throw new Error('Bundle manifest not found')
+  }
+  return JSON.parse(bytesToUtf8(manifestBytes)) as BundleManifest
+}
+
+function unzipBytes(bytes: Uint8Array): Promise<Map<string, Uint8Array>> {
+  return new Promise((resolve, reject) => {
+    unzip(bytes, (error, files) => {
+      if (error) {
+        reject(new Error(`ZIP decompression failed: ${error.message}`))
+        return
+      }
+
+      resolve(new Map(Object.entries(files)))
+    })
+  })
+}
+
+function findAssetPath(
+  files: Map<string, Uint8Array>,
+  assetInfo: AssetInfo,
+  key: string,
+  locale: string,
+): string | undefined {
+  const base = assetInfo.relativePath || key || assetInfo.name
+  const type = assetInfo.type
+  const normalizedBase = normalizePath(base)
+  const candidates = [
+    `assets/${type}/${normalizedBase.replace(new RegExp(`^${type}/`), '')}`,
+    normalizedBase,
+    `assets/${type}/${key}`,
+    `assets/${type}/${assetInfo.name}`,
+  ]
+
+  if (locale !== 'default') {
+    candidates.push(
+      `assets/${type}/${locale}/${assetInfo.name}`,
+      `assets/${type}/${normalizedBase.replace(new RegExp(`^${type}/`), '').replace(assetInfo.name, `${locale}/${assetInfo.name}`)}`,
+    )
   }
 
-  private toArrayBuffer(data: Uint8Array): ArrayBuffer {
-    return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
+  for (const candidate of candidates) {
+    const normalized = normalizePath(candidate)
+    if (files.has(normalized))
+      return normalized
   }
 
-  /**
-   * Compute SHA-256 hash of data
-   */
-  private async computeHash(buffer: ArrayBuffer): Promise<string> {
-    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    return hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('')
-  }
+  return Array.from(files.keys()).find(path =>
+    path.endsWith(`/${assetInfo.name}`)
+    && path.startsWith(`assets/${type}/`),
+  )
+}
+
+function inferAssetName(key: string): string {
+  const parts = normalizePath(key).split('/')
+  return parts[parts.length - 1] || key
+}
+
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/^\/+/, '')
+}
+
+function toDataView(bytes: Uint8Array): DataView {
+  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+}
+
+function readUint64LE(view: DataView, offset: number): number {
+  const low = view.getUint32(offset, true)
+  const high = view.getUint32(offset + 4, true)
+  return high * 2 ** 32 + low
+}
+
+function sliceBytes(bytes: Uint8Array, start: number, end: number): Uint8Array {
+  return bytes.slice(start, end)
 }

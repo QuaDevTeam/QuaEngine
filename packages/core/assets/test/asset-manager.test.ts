@@ -1,168 +1,179 @@
-import type { AssetLocale, AssetType, LoadAssetOptions } from '../src/types'
+import type { AssetProvider, AssetType, StoredAsset } from '../src/types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AssetManager } from '../src/asset-manager'
+import { MemoryAssetStorage } from '../src/database'
 
-// Mock database for testing
-const mockDatabase = {
-  assets: {
-    get: vi.fn(),
-    put: vi.fn(),
-    toArray: vi.fn(() => Promise.resolve([])),
-    where: vi.fn(() => ({
-      anyOf: vi.fn(() => ({
-        toArray: vi.fn(() => Promise.resolve([])),
-      })),
-    })),
-  },
-  findAssets: vi.fn().mockResolvedValue([]),
-  getAssetWithLocaleFallback: vi.fn().mockResolvedValue(undefined),
-  close: vi.fn(() => Promise.resolve()),
-}
+const now = 1_700_000_000_000
 
-describe('assetManager', () => {
+describe('AssetManager core', () => {
+  let storage: MemoryAssetStorage
   let assetManager: AssetManager
 
   beforeEach(() => {
-    vi.clearAllMocks()
-    assetManager = new AssetManager(mockDatabase as any, 'default')
+    storage = new MemoryAssetStorage()
+    assetManager = new AssetManager(storage, 'default')
   })
 
-  describe('asset Retrieval', () => {
-    it('should create asset manager with default locale', () => {
-      expect(assetManager).toBeDefined()
-      // Test internal state through constructor behavior
-      expect(() => new AssetManager(mockDatabase as any, 'en-us')).not.toThrow()
-    })
+  it('retrieves bytes, text, json, and AssetData from platform-neutral storage', async () => {
+    await storage.storeAsset(createStoredAsset({
+      id: 'core:default:data:config.json',
+      bundleName: 'core',
+      type: 'data',
+      name: 'config.json',
+      data: utf8('{"enabled":true}'),
+      mimeType: 'application/json',
+    }))
 
-    it('should handle different default locales', () => {
-      const customAssetManager = new AssetManager(mockDatabase as any, 'zh-cn')
-      expect(customAssetManager).toBeDefined()
-    })
+    const asset = await assetManager.getAsset('data', 'config.json')
 
-    it('should retrieve asset from database', async () => {
-      const mockAsset = {
-        id: 'test-bundle:default:images:test.png',
-        bundleName: 'test-bundle',
-        name: 'test.png',
-        type: 'images' as AssetType,
-        locale: 'default' as AssetLocale,
-        blob: new Blob(['test data'], { type: 'image/png' }),
-        hash: 'test-hash',
-        size: 9,
+    expect(asset.data).toBeInstanceOf(Uint8Array)
+    expect(asset.fromCache).toBe(true)
+    expect(asset.mimeType).toBe('application/json')
+    expect(await assetManager.getText('data', 'config.json')).toBe('{"enabled":true}')
+    expect(await assetManager.getJSON<{ enabled: boolean }>('data', 'config.json')).toEqual({ enabled: true })
+    expect(await assetManager.getBytes('data', 'config.json')).toEqual(utf8('{"enabled":true}'))
+  })
+
+  it('prefers provider assets before storage fallback', async () => {
+    const provider: AssetProvider = {
+      mode: 'memory',
+      getManifest: vi.fn().mockResolvedValue({
+        version: '1',
+        assets: [{
+          id: 'provider:default:data:config.json',
+          name: 'config.json',
+          type: 'data',
+          locale: 'default',
+          path: 'data/config.json',
+          mimeType: 'application/json',
+        }],
+      }),
+      getAsset: vi.fn().mockResolvedValue({
+        id: 'provider:default:data:config.json',
+        type: 'data',
+        name: 'config.json',
+        bundleName: 'provider',
+        locale: 'default',
+        data: utf8('{"source":"provider"}'),
+        mimeType: 'application/json',
+        size: 21,
         version: 1,
-        mtime: Date.now(),
-        createdAt: Date.now(),
-        lastAccessed: Date.now(),
-      }
+        mtime: now,
+        fromCache: false,
+      }),
+    }
 
-      mockDatabase.findAssets.mockResolvedValue([mockAsset])
+    await storage.storeAsset(createStoredAsset({
+      id: 'core:default:data:config.json',
+      bundleName: 'core',
+      type: 'data',
+      name: 'config.json',
+      data: utf8('{"source":"storage"}'),
+    }))
+    assetManager = new AssetManager(storage, 'default', provider)
 
-      const result = await assetManager.getBlob('images', 'test.png')
-
-      expect(result).toBeInstanceOf(Blob)
-      expect(mockDatabase.findAssets).toHaveBeenCalledWith({ type: 'images', name: 'test.png' })
-    })
-
-    it('should retrieve asset from provider before database fallback', async () => {
-      const provider = {
-        mode: 'dev-vfs',
-        getManifest: vi.fn().mockResolvedValue({
-          version: '1',
-          assets: [{
-            id: 'dev:default:images:test.png',
-            name: 'test.png',
-            type: 'images',
-            locale: 'default',
-            path: 'images/test.png',
-            size: 13,
-          }],
-        }),
-        getAsset: vi.fn().mockResolvedValue(new Blob(['provider data'], { type: 'image/png' })),
-      }
-
-      assetManager = new AssetManager(mockDatabase as any, 'default', provider as any)
-
-      const result = await assetManager.getText('images', 'test.png')
-
-      expect(result).toBe('provider data')
-      expect(provider.getAsset).toHaveBeenCalledWith('dev:default:images:test.png', expect.objectContaining({
-        name: 'test.png',
-      }))
-      expect(mockDatabase.findAssets).not.toHaveBeenCalled()
-    })
-
-    it('should throw error for non-existent asset', async () => {
-      mockDatabase.findAssets.mockResolvedValue([])
-
-      try {
-        await assetManager.getBlob('images', 'nonexistent.png')
-        expect.fail('Should throw AssetNotFoundError')
-      }
-      catch (error) {
-        expect(error.message).toContain('Asset not found')
-        expect(error.message).toContain('images/nonexistent.png')
-      }
-    })
-
-    it('should handle bundle-specific asset retrieval', async () => {
-      const options: LoadAssetOptions = {
-        bundleName: 'specific-bundle',
-        locale: 'en-us',
-      }
-
-      mockDatabase.assets.get.mockResolvedValue(undefined)
-
-      try {
-        await assetManager.getBlob('scripts', 'test.js', options)
-        expect.fail('Should throw AssetNotFoundError')
-      }
-      catch {
-        // The specific asset retrieval will be checked for in the database
-        expect(mockDatabase.getAssetWithLocaleFallback).toHaveBeenCalledWith('specific-bundle', 'scripts', 'test.js', 'en-us')
-      }
-    })
+    expect(await assetManager.getJSON('data', 'config.json')).toEqual({ source: 'provider' })
+    expect(provider.getAsset).toHaveBeenCalledWith('provider:default:data:config.json', expect.objectContaining({
+      name: 'config.json',
+    }))
   })
 
-  describe('plugin Management', () => {
-    it('should register processing plugins', () => {
-      const mockPlugin = {
-        name: 'test-processor',
-        version: '1.0.0',
-        supportedTypes: ['images'] as AssetType[],
-        processAsset: vi.fn(asset => Promise.resolve(asset)),
-        initialize: vi.fn(),
-        cleanup: vi.fn(),
-      }
+  it('uses locale fallback and bundle-specific lookup from storage', async () => {
+    await storage.storeAssets([
+      createStoredAsset({
+        id: 'story:default:scripts:scene.js',
+        bundleName: 'story',
+        type: 'scripts',
+        name: 'scene.js',
+        locale: 'default',
+        data: utf8('default'),
+      }),
+      createStoredAsset({
+        id: 'story:zh-cn:scripts:scene.js',
+        bundleName: 'story',
+        type: 'scripts',
+        name: 'scene.js',
+        locale: 'zh-cn',
+        data: utf8('localized'),
+      }),
+    ])
 
-      expect(() => {
-        assetManager.registerProcessingPlugin(mockPlugin)
-      }).not.toThrow()
-    })
+    expect(await assetManager.getText('scripts', 'scene.js', {
+      bundleName: 'story',
+      locale: 'zh-cn',
+    })).toBe('localized')
+    expect(await assetManager.getText('scripts', 'scene.js', {
+      bundleName: 'story',
+      locale: 'ja-jp',
+    })).toBe('default')
   })
 
-  describe('cache Management', () => {
-    it('should provide cache statistics', () => {
-      const stats = assetManager.getCacheStats()
+  it('throws a core AssetNotFoundError for missing assets', async () => {
+    await expect(assetManager.getBytes('images', 'missing.png')).rejects.toThrow('Asset not found: images/missing.png')
+  })
 
-      expect(stats).toHaveProperty('blobUrls')
-      expect(stats).toHaveProperty('jsExecutions')
-      expect(typeof stats.blobUrls).toBe('number')
-      expect(typeof stats.jsExecutions).toBe('number')
+  it('runs processing plugins without depending on browser objects', async () => {
+    await storage.storeAsset(createStoredAsset({
+      id: 'core:default:data:value.txt',
+      bundleName: 'core',
+      type: 'data',
+      name: 'value.txt',
+      data: utf8('raw'),
+    }))
+    assetManager.registerProcessingPlugin({
+      name: 'uppercase',
+      version: '1.0.0',
+      supportedTypes: ['data'],
+      async processAsset(asset) {
+        return {
+          ...asset,
+          data: utf8(bytesToText(asset.data).toUpperCase()),
+          size: asset.data.byteLength,
+        }
+      },
     })
 
-    it('should cleanup resources', () => {
-      globalThis.URL.revokeObjectURL = vi.fn()
+    expect(await assetManager.getText('data', 'value.txt')).toBe('RAW')
+  })
 
-      assetManager.cleanup()
+  it('does not execute script assets in the platform-neutral asset core', async () => {
+    await storage.storeAsset(createStoredAsset({
+      id: 'core:default:scripts:value.js',
+      bundleName: 'core',
+      type: 'scripts',
+      name: 'value.js',
+      data: utf8('module.exports = { value: 42 };'),
+    }))
 
-      // Should not throw
-      expect(assetManager.getCacheStats().blobUrls).toBe(0)
-    })
-
-    it('should clear specific asset cache', () => {
-      expect(() => {
-        assetManager.clearAssetCache('test-asset-id')
-      }).not.toThrow()
-    })
+    expect(await assetManager.getText('scripts', 'value.js')).toBe('module.exports = { value: 42 };')
+    expect((assetManager as any).executeJS).toBeUndefined()
+    expect(assetManager.getCacheStats()).toEqual({})
   })
 })
+
+function createStoredAsset(overrides: Partial<StoredAsset> & {
+  id: string
+  bundleName: string
+  type: AssetType
+  name: string
+  data: Uint8Array
+}): StoredAsset {
+  return {
+    locale: 'default',
+    hash: '',
+    size: overrides.data.byteLength,
+    version: 1,
+    mtime: now,
+    createdAt: now,
+    lastAccessed: now,
+    ...overrides,
+  }
+}
+
+function utf8(value: string): Uint8Array {
+  return new TextEncoder().encode(value)
+}
+
+function bytesToText(value: Uint8Array): string {
+  return new TextDecoder().decode(value)
+}

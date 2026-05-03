@@ -1,31 +1,30 @@
 {
-  "name": "@quajs/assets",
+  "name": "@quajs/assets-web",
   "type": "module",
   "version": "0.1.0",
-  "description": "Platform-agnostic asset runtime core for QuaEngine",
+  "description": "Web QuaAssets runtime adapter with Fetch, IndexedDB, and object URL helpers",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
   "keywords": [
     "quaengine",
     "assets",
-    "game-engine",
-    "bundle-manager",
-    "typescript"
+    "web",
+    "adapter"
   ],
-  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.js"
     }
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist",
-    "src"
-  ],
+  "files": ["dist"],
   "engines": {
     "node": ">=20"
   },
@@ -39,7 +38,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@quajs/logger": "workspace:*",
-    "fflate": "^0.8.2"
+    "@quajs/assets": "workspace:*",
+    "dexie": "catalog:",
+    "lzma-web": "catalog:"
   }
 }

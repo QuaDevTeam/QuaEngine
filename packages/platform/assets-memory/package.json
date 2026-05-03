@@ -1,18 +1,16 @@
 {
-  "name": "@quajs/assets",
+  "name": "@quajs/assets-memory",
   "type": "module",
   "version": "0.1.0",
-  "description": "Platform-agnostic asset runtime core for QuaEngine",
+  "description": "In-memory QuaAssets runtime adapter",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
   "keywords": [
     "quaengine",
     "assets",
-    "game-engine",
-    "bundle-manager",
-    "typescript"
+    "memory",
+    "adapter"
   ],
-  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -22,10 +20,7 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist",
-    "src"
-  ],
+  "files": ["dist"],
   "engines": {
     "node": ">=20"
   },
@@ -39,7 +34,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@quajs/logger": "workspace:*",
-    "fflate": "^0.8.2"
+    "@quajs/assets": "workspace:*"
   }
 }

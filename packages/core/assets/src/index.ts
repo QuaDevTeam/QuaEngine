@@ -2,16 +2,14 @@ export { AssetManager } from './asset-manager'
 
 export { BundleLoader } from './bundle-loader'
 // Core components
-export { QuaAssetsDatabase } from './database'
+export { MemoryAssetStorage, QuaAssetsDatabase } from './database'
 export { PatchManager } from './patch-manager'
-export { createDevVfsProvider, DevVfsAssetProvider } from './providers'
+export { findBestAssetRecord } from './providers'
 // Built-in plugins
 export {
-  AESDecryptionPlugin,
   CacheWarmingPlugin,
   CompressionDetectionPlugin,
-  ImageProcessingPlugin,
-  LZMADecompressionPlugin,
+  NoopDecompressionPlugin,
   XORDecryptionPlugin,
 } from './plugins/index'
 
@@ -24,6 +22,13 @@ export type {
   AssetChange,
   AssetChangeListener,
   AssetChangeType,
+  AssetCacheStats,
+  AssetCodec,
+  AssetCrypto,
+  AssetData,
+  AssetFetcher,
+  AssetFetchResult,
+  AssetFindCriteria,
   AssetLocale,
   AssetManifest,
   AssetManifestRecord,
@@ -31,6 +36,8 @@ export type {
   AssetProcessingPlugin,
   AssetProvider,
   AssetQueryResult,
+  AssetRuntimeAdapter,
+  AssetStorage,
   AssetUpdateInfo,
 
   // Core types
@@ -47,7 +54,6 @@ export type {
   DecryptionPlugin,
   IntegrityError,
 
-  JSExecutionResult,
   LoadAssetOptions,
   LoadBundleOptions,
 

@@ -1,21 +1,28 @@
-// Asset types that can be managed by QuaAssets
-export type AssetType = 'images' | 'characters' | 'audio' | 'scripts' | 'data'
-
-// Asset locales
-export type AssetLocale = string // e.g., 'en-us', 'ja-jp', 'default'
-
-// Bundle formats supported
+export type AssetType = 'images' | 'characters' | 'audio' | 'video' | 'scripts' | 'data'
+export type AssetLocale = string
 export type BundleFormat = 'zip' | 'qpk'
-
-// Loading states for assets and bundles
 export type LoadingState = 'idle' | 'loading' | 'loaded' | 'error'
-
-// Patch operation types
 export type PatchOperation = 'added' | 'modified' | 'deleted'
 
-// Media metadata interfaces (from Quack bundler)
+export interface AssetData {
+  id: string
+  type: AssetType
+  name: string
+  bundleName: string
+  locale: AssetLocale
+  data: Uint8Array
+  hash?: string
+  mimeType?: string
+  mediaMetadata?: MediaMetadata
+  size: number
+  version: number
+  mtime: number
+  fromCache: boolean
+}
+
 export interface MediaMetadata {
   format: string
+  [key: string]: unknown
 }
 
 export interface ImageMetadata extends MediaMetadata {
@@ -27,39 +34,53 @@ export interface ImageMetadata extends MediaMetadata {
 }
 
 export interface AudioMetadata extends MediaMetadata {
-  duration: number // Duration in seconds
-  sampleRate?: number // Sample rate in Hz
-  channels?: number // Number of audio channels
-  bitrate?: number // Bitrate in kbps
-  codec?: string // Audio codec
+  duration: number
+  sampleRate?: number
+  channels?: number
+  bitrate?: number
+  codec?: string
 }
 
 export interface VideoMetadata extends MediaMetadata {
   width: number
   height: number
-  duration: number // Duration in seconds
-  framerate?: number // Framerate in fps
-  codec?: string // Video codec
+  duration: number
+  framerate?: number
+  frameRate?: number
+  codec?: string
 }
 
-// Asset information stored in IndexedDB
 export interface StoredAsset {
-  id: string // Unique asset ID: `${bundleName}:${locale}:${type}:${name}`
-  bundleName: string // Bundle this asset belongs to
-  name: string // Asset filename
-  type: AssetType // Asset category
-  locale: AssetLocale // Asset locale
-  blob: Blob // Asset data as blob
-  hash: string // Asset content hash for integrity
-  size: number // Asset size in bytes
-  version: number // Asset version number
-  mtime: number // Modified time
-  createdAt: number // When stored in IndexedDB
-  lastAccessed: number // Last access time for cache management
-  mediaMetadata?: MediaMetadata // Media metadata for audio/video/image assets
+  id: string
+  bundleName: string
+  name: string
+  type: AssetType
+  locale: AssetLocale
+  data: Uint8Array
+  hash: string
+  mimeType?: string
+  size: number
+  version: number
+  mtime: number
+  createdAt: number
+  lastAccessed: number
+  mediaMetadata?: MediaMetadata
 }
 
-// Runtime asset manifest used by provider-based loading.
+export interface StoredBundle {
+  name: string
+  version: number
+  buildNumber: string
+  format: BundleFormat
+  hash: string
+  size: number
+  assetCount: number
+  locales: AssetLocale[]
+  createdAt: number
+  lastUpdated: number
+  manifest: BundleManifest
+}
+
 export interface AssetManifest {
   version: string
   created?: string
@@ -98,60 +119,141 @@ export type AssetChangeListener = (change: AssetChange) => void
 export interface AssetUpdateInfo {
   version?: string | number
   changes: AssetChange[]
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 export interface AssetProvider {
-  mode: 'dev-vfs' | 'bundle' | 'patch' | (string & {})
+  mode: 'dev-vfs' | 'bundle' | 'patch' | 'memory' | 'node' | (string & {})
   init?: () => Promise<void>
   cleanup?: () => Promise<void>
   getManifest: () => Promise<AssetManifest>
-  getAsset: (id: string, record?: AssetManifestRecord) => Promise<Blob>
+  getAsset: (id: string, record?: AssetManifestRecord) => Promise<AssetData | Uint8Array>
   watch?: (listener: AssetChangeListener) => () => void
   checkUpdates?: () => Promise<AssetUpdateInfo | null>
   applyUpdate?: (update: AssetUpdateInfo) => Promise<void>
 }
 
-// Bundle information stored in IndexedDB
-export interface StoredBundle {
-  name: string // Bundle name
-  version: number // Bundle version
-  buildNumber: string // Build identifier
-  format: BundleFormat // Bundle format (zip/qpk)
-  hash: string // Bundle content hash
-  size: number // Bundle size in bytes
-  assetCount: number // Number of assets in bundle
-  locales: AssetLocale[] // Available locales
-  createdAt: number // When bundle was stored
-  lastUpdated: number // Last update time
-  manifest: BundleManifest // Bundle manifest data
+export interface AssetStorage {
+  open?: () => Promise<void>
+  close?: () => Promise<void>
+  getAsset: (id: string) => Promise<StoredAsset | undefined>
+  storeAsset: (asset: StoredAsset) => Promise<void>
+  storeAssets: (assets: StoredAsset[]) => Promise<void>
+  findAssets: (criteria: AssetFindCriteria) => Promise<StoredAsset[]>
+  getAssetWithLocaleFallback: (
+    bundleName: string,
+    type: AssetType,
+    name: string,
+    preferredLocale?: AssetLocale
+  ) => Promise<StoredAsset | undefined>
+  deleteAsset?: (id: string) => Promise<void>
+  deleteAssetsByBundle: (bundleName: string) => Promise<number>
+  storeBundle: (bundle: StoredBundle) => Promise<void>
+  getBundle: (name: string) => Promise<StoredBundle | undefined>
+  getAllBundles: () => Promise<StoredBundle[]>
+  deleteBundle: (name: string) => Promise<void>
+  clearAll: () => Promise<void>
+  getDatabaseSize: () => Promise<number>
+  cleanupAssets: (maxSize: number) => Promise<number>
+  getCacheStats: () => Promise<AssetCacheStats>
+  verifyAssetIntegrity?: (assetId: string) => Promise<boolean>
+  verifyBundleIntegrity?: (bundleName: string) => Promise<{ total: number, valid: number, invalid: string[] }>
 }
 
-// Bundle manifest structure (from Quack)
+export interface AssetFindCriteria {
+  bundleName?: string
+  type?: AssetType
+  locale?: AssetLocale
+  name?: string
+}
+
+export interface AssetCacheStats {
+  totalAssets: number
+  totalBundles: number
+  totalSize: number
+  oldestAsset: Date | null
+  newestAsset: Date | null
+  [key: string]: unknown
+}
+
+export interface AssetFetchResult {
+  data: Uint8Array
+  mimeType?: string
+  size?: number
+}
+
+export interface AssetFetcher {
+  fetchBytes: (
+    url: string,
+    options?: {
+      cache?: boolean
+      signal?: unknown
+      onProgress?: (loaded: number, total: number) => void
+    }
+  ) => Promise<AssetFetchResult | Uint8Array>
+  fetchJSON?: <T = unknown>(url: string, options?: { cache?: boolean, signal?: unknown }) => Promise<T>
+}
+
+export interface AssetCrypto {
+  sha256: (data: Uint8Array) => Promise<string>
+  decrypt?: (data: Uint8Array, metadata?: Record<string, unknown>) => Promise<Uint8Array>
+}
+
+export interface AssetCodec {
+  unzip?: (data: Uint8Array) => Promise<Map<string, Uint8Array>>
+  inflate?: (data: Uint8Array) => Promise<Uint8Array>
+  lzmaDecompress?: (data: Uint8Array) => Promise<Uint8Array>
+}
+
+export interface AssetRuntimeAdapter {
+  name: string
+  storage: AssetStorage
+  fetcher?: AssetFetcher
+  crypto: AssetCrypto
+  codec?: AssetCodec
+  now?: () => number
+}
+
+export interface AssetInfo {
+  name: string
+  path: string
+  relativePath: string
+  size: number
+  hash: string
+  type: AssetType
+  subType?: string
+  locales: string[]
+  mimeType?: string
+  mtime?: number
+  version?: number
+  mediaMetadata?: MediaMetadata
+}
+
 export interface BundleManifest {
+  name?: string
   version: string
   bundler: string
   created: string
+  createdAt?: number
   format: BundleFormat
   bundleVersion?: number
   buildNumber?: string
-  merkleRoot?: string
+  buildMetadata?: Record<string, unknown>
+  compression?: {
+    algorithm: 'none' | 'deflate' | 'lzma'
+    level?: number
+  }
+  encryption?: {
+    enabled: boolean
+    algorithm: 'none' | 'xor' | 'custom'
+  }
   locales: string[]
   defaultLocale: string
-  assets: {
-    [type in AssetType]: {
-      [subType: string]: {
-        [filename: string]: {
-          size: number
-          hash: string
-          locales: string[]
-          version?: number
-          mediaMetadata?: MediaMetadata // Media metadata for audio/video/image assets
-        }
-      }
-    }
-  }
-  // Patch-specific fields
+  assets: Partial<Record<AssetType, Record<string, AssetInfo>>>
+  totalSize?: number
+  totalFiles?: number
+  merkleRoot?: string
+  performanceMetrics?: Record<string, unknown>
   isPatch?: boolean
   patchVersion?: number
   fromVersion?: number
@@ -162,7 +264,6 @@ export interface BundleManifest {
     deleted: AssetDiff[]
   }
   totalChanges?: number
-  // Workspace bundle metadata
   workspaceBundle?: {
     name: string
     displayName?: string
@@ -172,7 +273,6 @@ export interface BundleManifest {
   }
 }
 
-// Asset diff for patches
 export interface AssetDiff {
   path: string
   operation: PatchOperation
@@ -183,7 +283,6 @@ export interface AssetDiff {
   size?: number
 }
 
-// Bundle index structure (from workspace or single bundle)
 export interface BundleIndex {
   currentVersion: number
   currentBuild: string
@@ -215,7 +314,6 @@ export interface BundleIndex {
   }>
 }
 
-// Workspace bundle index (for multi-bundle workspaces)
 export interface WorkspaceBundleIndex {
   workspace: {
     name: string
@@ -239,7 +337,6 @@ export interface WorkspaceBundleIndex {
   }>
 }
 
-// Individual bundle info in workspace
 export interface BundleInfo {
   name: string
   displayName: string
@@ -248,124 +345,76 @@ export interface BundleInfo {
   priority: number
   dependencies: string[]
   loadTrigger: string
-  latestBundle: {
-    filename: string
-    hash: string
-    version: number
-    buildNumber: string
-    created: string
-    size: number
-  }
-  previousBuilds: Array<{
-    filename: string
-    hash: string
-    version: number
-    buildNumber: string
-    created: string
-    size: number
-  }>
-  availablePatches: Array<{
-    filename: string
-    hash: string
-    fromVersion: number
-    toVersion: number
-    patchVersion: number
-    created: string
-    size: number
-    changeCount: number
-  }>
+  latestBundle: BundleIndex['latestBundle']
+  previousBuilds: BundleIndex['previousBuilds']
+  availablePatches: BundleIndex['availablePatches']
 }
 
-// Plugin interfaces for extending QuaAssets functionality
 export interface QuaAssetsPlugin {
   name: string
   version: string
-
-  // Lifecycle hooks
   initialize?: () => Promise<void>
   cleanup?: () => Promise<void>
 }
 
-// Decompression plugin interface
 export interface DecompressionPlugin extends QuaAssetsPlugin {
   supportedFormats: BundleFormat[]
-  decompress: (buffer: ArrayBuffer, format: BundleFormat) => Promise<Map<string, Uint8Array>>
+  decompress: (buffer: Uint8Array, format: BundleFormat) => Promise<Map<string, Uint8Array>>
 }
 
-// Decryption plugin interface
 export interface DecryptionPlugin extends QuaAssetsPlugin {
-  decrypt: (buffer: ArrayBuffer, metadata?: Record<string, any>) => Promise<ArrayBuffer>
+  decrypt: (buffer: Uint8Array, metadata?: Record<string, unknown>) => Promise<Uint8Array>
 }
 
-// Asset processing plugin interface
 export interface AssetProcessingPlugin extends QuaAssetsPlugin {
   supportedTypes: AssetType[]
   processAsset: (asset: StoredAsset) => Promise<StoredAsset>
 }
 
-// Configuration for QuaAssets
 export interface QuaAssetsConfig {
-  endpoint: string // Base URL for assets
-  provider?: AssetProvider // Runtime provider for dev VFS or custom loading
-  locale?: AssetLocale // Default locale
-  enableCache?: boolean // Enable IndexedDB caching (default: true)
-  cacheSize?: number // Max cache size in bytes (default: 100MB)
-  retryAttempts?: number // Download retry attempts (default: 3)
-  timeout?: number // Request timeout in ms (default: 30000)
-  plugins?: QuaAssetsPlugin[] // Plugins to register
-
-  // Advanced options
-  enableServiceWorker?: boolean // Use service worker for caching (default: false)
-  indexedDBName?: string // Custom IndexedDB database name
-  indexedDBVersion?: number // IndexedDB schema version
-  enableIntegrityCheck?: boolean // Verify asset hashes (default: true)
-  enableCompression?: boolean // Enable response compression (default: true)
+  endpoint?: string
+  adapter: AssetRuntimeAdapter
+  provider?: AssetProvider
+  locale?: AssetLocale
+  enableCache?: boolean
+  cacheSize?: number
+  retryAttempts?: number
+  timeout?: number
+  plugins?: QuaAssetsPlugin[]
 }
 
-// Asset loading options
 export interface LoadAssetOptions {
-  locale?: AssetLocale // Override default locale
-  bundleName?: string // Specific bundle to load from
-  enableCache?: boolean // Use cached version if available
-  priority?: 'high' | 'normal' | 'low' // Loading priority
+  locale?: AssetLocale
+  bundleName?: string
+  enableCache?: boolean
+  priority?: 'high' | 'normal' | 'low'
 }
 
-// Bundle loading options
 export interface LoadBundleOptions {
-  force?: boolean // Force reload even if already loaded
-  enableCache?: boolean // Cache bundle in IndexedDB
-  onProgress?: (loaded: number, total: number) => void // Progress callback
-  signal?: AbortSignal // Abort signal for cancellation
+  force?: boolean
+  enableCache?: boolean
+  onProgress?: (loaded: number, total: number) => void
+  signal?: unknown
+  format?: BundleFormat
 }
 
-// Asset query result
 export interface AssetQueryResult {
   asset: StoredAsset
-  blob: Blob
-  blobUrl?: string
+  data: Uint8Array
   fromCache: boolean
 }
 
-// JavaScript execution result
-export interface JSExecutionResult {
-  exports: any
-  error?: Error
-  executionTime: number
-}
-
-// Bundle status information
 export interface BundleStatus {
   name: string
   version: number
   state: LoadingState
-  progress: number // 0-1 for loading progress
+  progress: number
   assetCount: number
   loadedAssets: number
   error?: Error
   lastUpdated: number
 }
 
-// Events emitted by QuaAssets
 export interface QuaAssetsEvents {
   'bundle:loading': { bundleName: string }
   'bundle:loaded': { bundleName: string, status: BundleStatus }
@@ -380,9 +429,9 @@ export interface QuaAssetsEvents {
   'update:applied': AssetUpdateInfo
 }
 
-// Error types
 export class QuaAssetsError extends Error {
   code: string
+
   constructor(message: string, code: string) {
     super(message)
     this.name = 'QuaAssetsError'
@@ -392,6 +441,7 @@ export class QuaAssetsError extends Error {
 
 export class BundleLoadError extends QuaAssetsError {
   bundleName: string
+
   constructor(message: string, bundleName: string) {
     super(message, 'BUNDLE_LOAD_ERROR')
     this.bundleName = bundleName
@@ -401,6 +451,7 @@ export class BundleLoadError extends QuaAssetsError {
 export class AssetNotFoundError extends QuaAssetsError {
   assetType: AssetType
   assetName: string
+
   constructor(assetType: AssetType, assetName: string) {
     super(`Asset not found: ${assetType}/${assetName}`, 'ASSET_NOT_FOUND')
     this.assetType = assetType
@@ -411,6 +462,7 @@ export class AssetNotFoundError extends QuaAssetsError {
 export class IntegrityError extends QuaAssetsError {
   expectedHash: string
   actualHash: string
+
   constructor(expectedHash: string, actualHash: string) {
     super(`Integrity check failed: expected ${expectedHash}, got ${actualHash}`, 'INTEGRITY_ERROR')
     this.expectedHash = expectedHash
