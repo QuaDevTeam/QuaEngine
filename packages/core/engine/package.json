@@ -36,6 +36,7 @@
     "@quajs/logger": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-discovery": "workspace:*",
+    "@quajs/render-core": "workspace:*",
     "@quajs/store": "workspace:*",
     "@quajs/utils": "workspace:*"
   },

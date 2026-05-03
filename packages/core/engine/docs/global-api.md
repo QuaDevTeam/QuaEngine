@@ -131,7 +131,7 @@ Plays background music.
 
 **Returns:** Promise that resolves when BGM starts playing
 
-### `setVolume(type: keyof VolumeSettings, value: number): void`
+### `setVolume(type: keyof VolumeSettings, value: number): Promise<void>`
 
 Sets the volume for a specific audio type.
 
@@ -145,8 +145,8 @@ Sets the volume for a specific audio type.
 ```typescript
 import { setVolume } from '@qua-engine/engine'
 
-setVolume('bgm', 0.8)
-setVolume('voice', 0.9)
+await setVolume('bgm', 0.8)
+await setVolume('voice', 0.9)
 ```
 
 ## Save System

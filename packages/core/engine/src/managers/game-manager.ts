@@ -15,11 +15,9 @@ const logger = getPackageLogger('engine:game-manager')
  */
 export class GameManager {
   private engine: QuaEngine
-  private autoSaveTimer?: number
 
   constructor(engine: QuaEngine) {
     this.engine = engine
-    this.setupAutoSave()
   }
 
   /**
@@ -138,13 +136,11 @@ export class GameManager {
 
     try {
       const store = this.engine.getStore() as QuaStore
-
-      // Check if slot exists
       if (!(await store.hasSlot(slotId))) {
         throw new Error(`Save slot not found: ${slotId}`)
       }
 
-      await store.loadFromSlot(slotId, { force: true })
+      await this.engine.loadFromSlot(slotId, { force: true })
 
       logger.info(`Game loaded successfully: ${slotId}`)
     }
@@ -226,28 +222,10 @@ export class GameManager {
   /**
    * Setup auto-save functionality
    */
-  private setupAutoSave(): void {
-    // Auto-save configuration would come from engine config
-    const autoSaveInterval = 300000 // 5 minutes default
-
-    if (typeof window !== 'undefined') {
-      this.autoSaveTimer = window.setInterval(() => {
-        this.autoSave().catch((error) => {
-          logger.warn('Auto-save failed:', error)
-        })
-      }, autoSaveInterval)
-    }
-  }
-
   /**
    * Cleanup resources
    */
   destroy(): void {
-    if (this.autoSaveTimer && typeof window !== 'undefined') {
-      window.clearInterval(this.autoSaveTimer)
-      this.autoSaveTimer = undefined
-    }
-
     logger.debug('Game manager destroyed')
   }
 }

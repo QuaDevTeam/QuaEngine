@@ -14,6 +14,8 @@ export type { DecoratorMapping, PluginAPIFunction, PluginAPIRegistration } from 
 
 export { BaseEnginePlugin } from './core/types'
 export type { EngineContext, EnginePlugin, PluginConstructor, PluginConstructorOptions, PluginContext } from './core/types'
+export { UiOverlayPlugin } from './ui-overlay-plugin'
+export type { UiOverlayPluginOptions } from './ui-overlay-plugin'
 
 // Plugin development framework
 export { defineAPIFunction, defineDecorator, PluginFramework } from './framework/base'
