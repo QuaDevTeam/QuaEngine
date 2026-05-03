@@ -132,7 +132,7 @@ describe('vite Plugin Hot-Reload Integration', () => {
       const result = transform(code, id)
 
       expect(result).toBeTruthy()
-      expect(result.code).toContain('Yuki.speak')
+      expect(result.code).toContain('speakWithEngine(ctx.engine, "Yuki"')
       expect(result.code).toContain('import.meta.hot') // HMR code
     })
 

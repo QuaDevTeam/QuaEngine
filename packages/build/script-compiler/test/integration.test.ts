@@ -20,14 +20,15 @@ describe('quaScript Integration Tests', () => {
 
     // Should contain the transformed dialogue array
     expect(result).toContain('dialogue([')
-    expect(result).toContain('Jack.speak(')
-    expect(result).toContain('John.speak(')
-    expect(result).toContain('playSound("intro.mp3")')
+    expect(result).toContain('speakWithEngine(ctx.engine, "Jack", ')
+    expect(result).toContain('speakWithEngine(ctx.engine, "John", ')
+    expect(result).toContain('ctx.engine.playSound("intro.mp3")')
     expect(result).toContain('uuid')
 
-    // Should add required imports
-    expect(result).toMatch(/import.*playSound.*from.*"@quajs\/engine"/)
-    expect(result).toMatch(/import.*dialogue.*from.*"@quajs\/engine"/)
+    // Should add required imports. Engine decorators are invoked via ctx.engine.
+    expect(result).not.toMatch(/import.*playSound.*from.*"@quajs\/engine"/)
+    expect(result).not.toMatch(/import.*dialogue.*from.*"@quajs\/engine"/)
+    expect(result).toMatch(/import.*speakWithEngine.*from.*"@quajs\/character"/)
   })
 
   it('parser handles complex script structure', () => {
@@ -103,12 +104,12 @@ describe('quaScript Integration Tests', () => {
     // Should preserve original imports (note Babel may change quote style)
     expect(result).toMatch(/import.*someFunction.*from.*['"]\.\/utils['"]/)
 
-    // Should not duplicate dialogue import but should add playSound
-    expect(result).toMatch(/import.*playSound.*from.*['"]@quajs\/engine['"]/)
+    // Should not duplicate dialogue import and should not import engine methods.
+    expect(result).not.toMatch(/import.*playSound.*from.*['"]@quajs\/engine['"]/)
 
     // Should contain transformed dialogue
     expect(result).toContain('dialogue([')
-    expect(result).toContain('Jack.speak("Hello!")')
-    expect(result).toContain('playSound("test.mp3")')
+    expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello!")')
+    expect(result).toContain('ctx.engine.playSound("test.mp3")')
   })
 })

@@ -19,8 +19,8 @@ describe('quaScriptTransformer', () => {
 
     // Should contain dialogue array transformation
     expect(result).toContain('dialogue([')
-    expect(result).toContain('Jack.speak(')
-    expect(result).toContain('John.speak(')
+    expect(result).toContain('speakWithEngine(ctx.engine, "Jack", ')
+    expect(result).toContain('speakWithEngine(ctx.engine, "John", ')
     expect(result).toContain('uuid')
     expect(result).toContain('run:')
   })
@@ -39,9 +39,9 @@ describe('quaScriptTransformer', () => {
 
     const result = transformer.transformSource(source)
 
-    expect(result).toContain('playSound("hello.mp3")')
-    expect(result).toContain('useSprite("jack_happy.png")')
-    expect(result).toContain('Jack.speak("Hello world!")')
+    expect(result).toContain('ctx.engine.playSound("hello.mp3")')
+    expect(result).toContain('spriteWithEngine(ctx.engine, "__current__", "jack_happy.png")')
+    expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello world!")')
   })
 
   it('should add required imports', () => {
@@ -57,9 +57,10 @@ describe('quaScriptTransformer', () => {
 
     const result = transformer.transformSource(source)
 
-    // Should add imports for used functions
-    expect(result).toMatch(/import.*playSound.*from.*@quajs\/engine/)
-    expect(result).toMatch(/import.*dialogue.*from.*@quajs\/engine/)
+    // Engine decorators are invoked through ctx.engine, not imported as free functions.
+    expect(result).not.toMatch(/import.*playSound.*from.*@quajs\/engine/)
+    expect(result).not.toMatch(/import.*dialogue.*from.*@quajs\/engine/)
+    expect(result).toMatch(/import.*speakWithEngine.*from.*@quajs\/character/)
   })
 
   it('should handle template expressions in dialogue', () => {
@@ -76,7 +77,7 @@ describe('quaScriptTransformer', () => {
     const result = transformer.transformSource(source)
 
     // Should preserve template literal structure
-    expect(result).toContain('Jack.speak(')
+    expect(result).toContain('speakWithEngine(ctx.engine, "Jack", ')
     // Template expressions should be handled properly
     expect(result).toContain('name') // Variable reference should be preserved
   })
@@ -118,7 +119,30 @@ describe('quaScriptTransformer', () => {
 
     const result = transformer.transformSource(source)
 
-    expect(result).toMatch(/Jack\.speak\("First part!"\)/)
-    expect(result).toMatch(/John\.speak\("Second part!"\)/)
+    expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "First part!")')
+    expect(result).toContain('speakWithEngine(ctx.engine, "John", "Second part!")')
+  })
+
+  it('should transform choices into engine-owned choice state and wait for selection', () => {
+    const transformer = new QuaScriptTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          Jack: Choose.
+          - Go outside -> outside
+          - Stay home -> home if flags.canStayHome
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('await ctx.engine.showChoices(choices)')
+    expect(result).toContain('await ctx.engine.waitFor("user/choice_select"')
+    expect(result).toContain('await ctx.engine.clearChoices()')
+    expect(result).toContain('ctx.choice = selected')
+    expect(result).toContain('target: "outside"')
+    expect(result).toContain('target: "home"')
+    expect(result).toContain('enabled: flags.canStayHome')
   })
 })

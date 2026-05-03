@@ -45,7 +45,7 @@ describe('hotReloadAwareTransformer', () => {
 
       // First transformation
       const result1 = transformer.transformSource(source, filePath)
-      expect(result1).toContain('Yuki.speak')
+      expect(result1).toContain('speakWithEngine(ctx.engine, "Yuki"')
 
       // Second transformation should use cache
       const result2 = transformer.transformSource(source, filePath)
@@ -69,7 +69,7 @@ describe('hotReloadAwareTransformer', () => {
       const source = `const dialogue = qs\`Yuki: Hello!\``
 
       const result = transformer.transformSource(source)
-      expect(result).toContain('Yuki.speak')
+      expect(result).toContain('speakWithEngine(ctx.engine, "Yuki"')
     })
   })
 
@@ -156,8 +156,8 @@ describe('hotReloadAwareTransformer', () => {
 
       // Next transform should not use cache (will be the same result but not cached)
       const result2 = transformer.transformSource(source, filePath)
-      expect(result1).toContain('Yuki.speak("Hello!")')
-      expect(result2).toContain('Yuki.speak("Hello!")')
+      expect(result1).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello!")')
+      expect(result2).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello!")')
     })
   })
 
@@ -177,8 +177,8 @@ describe('hotReloadAwareTransformer', () => {
       const result2 = transformer.transformSource(source, filePath)
 
       // Should get same result but no caching in production
-      expect(result1).toContain('Yuki.speak("Hello!")')
-      expect(result2).toContain('Yuki.speak("Hello!")')
+      expect(result1).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello!")')
+      expect(result2).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello!")')
 
       // Stats should show no cache in production
       const stats = transformer.getHotReloadStats()

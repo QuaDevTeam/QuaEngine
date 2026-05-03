@@ -1,5 +1,6 @@
 import type {
   ParsedQuaScript,
+  QuaScriptChoice,
   QuaScriptDecorator,
   QuaScriptDialogue,
   QuaScriptStep,
@@ -121,6 +122,15 @@ export class QuaScriptParser {
     const { decorators, shouldCreateSeparateAction } = this.parseDecorators()
     const line = this.getCurrentLine()
 
+    const choice = this.parseChoiceBlock()
+    if (choice) {
+      return {
+        uuid: uuidv4(),
+        type: 'choice',
+        content: choice,
+      }
+    }
+
     // Check if it's a dialogue line (Character: Text)
     const dialogueMatch = line?.match(/^(\w+):\s(.*)$/)
     if (dialogueMatch) {
@@ -171,6 +181,51 @@ export class QuaScriptParser {
       this.advance()
     }
     return null
+  }
+
+  private parseChoiceBlock(): QuaScriptChoice | null {
+    const options: QuaScriptChoice['options'] = []
+
+    while (this.position < this.lines.length) {
+      const line = this.getCurrentLine()
+      const option = line ? this.parseChoiceOption(line) : null
+      if (!option)
+        break
+
+      options.push(option)
+      this.advance()
+    }
+
+    return options.length
+      ? {
+          type: 'choice',
+          options,
+        }
+      : null
+  }
+
+  private parseChoiceOption(line: string): QuaScriptChoice['options'][number] | null {
+    const match = line.match(/^-\s+(.+?)(?:\s*->\s*([A-Za-z0-9_.:-]+))?(?:\s+if\s+(.+))?$/)
+    if (!match)
+      return null
+
+    const [, text, target, condition] = match
+    const id = target || this.slugChoiceId(text)
+    return {
+      id,
+      text,
+      target: target || id,
+      condition,
+    }
+  }
+
+  private slugChoiceId(text: string): string {
+    return text
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      || 'choice'
   }
 
   private parseDecorator(line: string): QuaScriptDecorator | null {

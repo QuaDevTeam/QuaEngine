@@ -33,7 +33,7 @@ describe('hot-Reload System Integration', () => {
 
       // Transform and verify it works
       const result1 = transformer.transformSource(source, filePath)
-      expect(result1).toContain('Yuki.speak')
+      expect(result1).toContain('speakWithEngine(ctx.engine, "Yuki"')
 
       // Get stats to verify caching
       const stats = transformer.getHotReloadStats()
@@ -85,8 +85,8 @@ describe('hot-Reload System Integration', () => {
       `
 
       const result = transformer.transformSource(source)
-      expect(result).toContain('Yuki.speak("Hello world!")')
-      expect(result).toContain('Akira.speak("Nice to see you.")')
+      expect(result).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello world!")')
+      expect(result).toContain('speakWithEngine(ctx.engine, "Akira", "Nice to see you.")')
       // Note: PlaySound decorator requires mapping to be available
 
       transformer.dispose()
@@ -99,7 +99,7 @@ describe('hot-Reload System Integration', () => {
       const source = `const dialogue = qs\`Yuki: Hello!\``
 
       const result = transformer.transformSource(source)
-      expect(result).toContain('Yuki.speak')
+      expect(result).toContain('speakWithEngine(ctx.engine, "Yuki"')
 
       // In production, hot-reload should be disabled
       const stats = transformer.getHotReloadStats()
