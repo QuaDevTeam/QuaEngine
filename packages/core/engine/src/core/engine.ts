@@ -282,20 +282,18 @@ export class QuaEngine {
     await this.emitViewUpdate()
   }
 
-  async setBackground(assetName?: string, transition?: { type: string, duration?: number }): Promise<void> {
+  async setBackground(assetName: string, transition?: { type: string, duration?: number }): Promise<void> {
     this.assertInitialized()
-    this.store.commit('setBackground', assetName ? { assetName, transition } : undefined)
-    if (assetName) {
-      await emitLogicToRender(this.pipeline, L2R.BACKGROUND_SET, { assetName, transition })
-    }
-    else {
-      await emitLogicToRender(this.pipeline, L2R.BACKGROUND_CLEAR, {})
-    }
+    this.store.commit('setBackground', { assetName, transition })
+    await emitLogicToRender(this.pipeline, L2R.BACKGROUND_SET, { assetName, transition })
     await this.emitViewUpdate()
   }
 
   async clearBackground(): Promise<void> {
-    await this.setBackground(undefined)
+    this.assertInitialized()
+    this.store.commit('setBackground', undefined)
+    await emitLogicToRender(this.pipeline, L2R.BACKGROUND_CLEAR, {})
+    await this.emitViewUpdate()
   }
 
   async playSound(assetName: string, options: SoundOptions = {}): Promise<void> {

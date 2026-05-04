@@ -313,6 +313,9 @@ export class QuaScriptTransformer {
     })
 
     if (mapping.module === '@quajs/engine') {
+      if (mapping.function === 'setBackground') {
+        args[0] = this.requireDecoratorArg(decorator, args[0], 'asset')
+      }
       return t.callExpression(
         t.memberExpression(
           t.memberExpression(t.identifier('ctx'), t.identifier('engine')),

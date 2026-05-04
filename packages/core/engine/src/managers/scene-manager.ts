@@ -73,7 +73,7 @@ export class SceneManager {
   }
 
   async clearBackground(): Promise<void> {
-    await this.engine.setBackground(undefined)
+    await this.engine.clearBackground()
   }
 
   async showDialogue(

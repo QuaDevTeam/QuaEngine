@@ -123,6 +123,20 @@ describe('quaScriptTransformer', () => {
     expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello world!")')
   })
 
+  it('should require a background asset for set background decorators', () => {
+    const transformer = new QuaScriptTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @SetBackground()
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    expect(() => transformer.transformSource(source)).toThrow('@SetBackground requires asset')
+  })
+
   it('should add required imports', () => {
     const transformer = new QuaScriptTransformer()
     const source = `
