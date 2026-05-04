@@ -37,6 +37,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Workspace structure**: The repo is organized around `build`, `core`, `platform`, `plugins`, `render`, and `utils` package groups.
 - **Single eventbus contract**: `@quajs/pipeline` remains the only eventbus. Renderer communication uses `@quajs/render-core` typed contracts and thin helpers over pipeline.
 - **Engine-owned state**: `@quajs/engine` owns runtime, view, UI overlay, character/dialogue/choice, and audio intent state. Renderers project this state and send user intent events only.
+- **Background feature boundary**: Background is a feature plugin, not engine/global script API. Engine core only exposes the low-level `setBackgroundProjection` state write path used by plugins.
 - **Scene lifecycle**: `SceneManager` is the engine-owned scene lifecycle implementation. `GameManager` is a high-level facade and does not duplicate scene logic.
 - **Audio boundary**: `SoundSystem` stores audio intent in engine state. Real DOM audio playback lives in renderer implementations; `audio/ended` returns to engine through pipeline.
 - **No pre-release compatibility burden**: Deprecated aliases, legacy renderer communication, and old Web-only asset assumptions should be removed instead of preserved.
@@ -53,13 +54,14 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 #### Completed Engine And Script Flow
 - **`@quajs/render-core`** defines shared render event enums, payload maps, readonly view projection types, typed emit/on/wait helpers, and lightweight renderer plugin contracts.
 - **`@quajs/engine`** re-exports render contracts for app ergonomics and exposes runtime accessors such as assets, pipeline, store, view state, and `waitFor`.
-- **Store mutations** cover runtime/view/audio intent changes used by scene, dialogue, choices, characters, background, UI overlays, and audio.
+- **Store mutations** cover runtime/view/audio intent changes used by scene, dialogue, choices, characters, background projection, UI overlays, and audio.
 - **`@quajs/character`** provides character/dialogue convenience APIs that update engine-owned state and emit pipeline events without holding renderer state.
-- **QuaScript compiler** parses dialogue and choice blocks, compiles context-aware async steps, routes dialogue/choice output through engine APIs, waits for renderer user intent events, and stores the selected choice on step context.
+- **`@quajs/plugin-background`** provides background image, video background, layered background, background transition, and layer transition APIs/decorators that write engine-owned projection state.
+- **QuaScript compiler** parses dialogue and choice blocks, compiles context-aware async steps, routes dialogue/choice output through engine APIs, routes background decorators through `@quajs/plugin-background`, waits for renderer user intent events, and stores the selected choice on step context.
 
 #### Completed Renderer
 - **`@quajs/renderer-vue` root renderer** is stateless with respect to game state. It accepts `engine` or explicit `{ pipeline, getViewState, assets }`, subscribes to pipeline updates, re-reads engine view state, emits renderer lifecycle/user intent events, and cleans up subscriptions/resources on unmount.
-- **Projection components implemented**: `QuaRenderer`, `QuaStage`, background/character/dialogue/choice/audio/effect/overlay layers, and low-level projection components.
+- **Projection components implemented**: `QuaRenderer`, `QuaStage`, image/video/layered background, character/dialogue/choice/audio/effect/overlay layers, and low-level projection components.
 - **Composables implemented**: `useQuaRenderer`, `useQuaPipeline`, `useQuaView`, `useBackground`, `useCharacters`, `useDialogue`, `useChoices`, `useAudio`, `useEffects`, `useRendererActions`, `useAssetUrl`, and `useAudioAsset`.
 - **Renderer UI plugin sub-entry**: `@quajs/renderer-vue/plugins/ui` provides `QuaUiOverlay`, `QuaMenuOverlay`, `QuaSaveLoadPanel`, and `QuaSettingsPanel` as optional renderer-plugin UI components. These read generic engine-owned overlays and do not introduce menu/settings state into renderer core.
 - **Styling boundary**: Vue renderer does not auto-import visual styles. Optional SCSS entrypoints are `@quajs/renderer-vue/styles/base.scss` and `@quajs/renderer-vue/styles/default.scss`.
@@ -70,7 +72,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **`@quajs/vite-plugin`** integrates engine wiring, script compilation, asset bundling, and dev VFS.
 
 #### Current Gaps / Next Milestones
-- **Separate feature plugin packages are not implemented yet**. Main menu behavior, settings logic, save/load UI flows, backlog/history, gallery, achievements, inventory, and similar features should become independent engine/renderer plugin packages or package sub-entries instead of engine-core features.
+- **Additional feature plugin packages are still pending**. Main menu behavior, settings logic, save/load UI flows, backlog/history, gallery, achievements, inventory, and similar features should become independent engine/renderer plugin packages or package sub-entries instead of engine-core features.
 - **Renderer plugin ecosystem is early**. The contracts and Vue UI plugin sub-entry exist, but there are no standalone renderer plugin packages beyond the Vue package sub-entry.
 - **Example app/editor/documentation are still pending**. The engine/runtime foundations exist, but creator-facing examples, visual editor, templates, and full tutorials remain future work.
 - **Native/non-Web renderers and native asset adapters are not implemented**. Current official platform adapters are Web, Node, and Memory; current official renderer is Vue/Web.
@@ -103,6 +105,16 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Rules**:
   - Must not keep renderer state
   - Must route game-facing changes through engine/store APIs
+
+#### **@quajs/plugin-background** (`packages/plugins/background`)
+- **Environment**: Platform-neutral engine feature plugin
+- **Purpose**: Background image, video background, layered background, and transition APIs/decorators
+- **Status**: Implemented
+- **Decorators**: `@SetBackground`, `@ClearBackground`, `@VideoBackground`, `@SetLayeredBackground`, `@BackgroundLayer`, `@RemoveBackgroundLayer`, `@ClearBackgroundLayers`, `@BackgroundTransition`, and `@BackgroundLayerTransition`
+- **Rules**:
+  - Owns no renderer state
+  - Writes only engine-owned background projection state through `setBackgroundProjection`
+  - Renderer remains a DOM projection of `view.background`
 
 #### **@quajs/store** (`packages/core/store`)
 - **Environment**: Browser-compatible state package with pluggable persistence
@@ -165,6 +177,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Environment**: Node.js/build-time
 - **Purpose**: QuaScript parsing and compilation into engine/character API calls and context-aware async steps
 - **Status**: Implemented
+- **Background rule**: Background decorators are supplied by `@quajs/plugin-background`; they are not compiler core built-ins.
 
 #### **@quajs/vite-plugin** (`packages/build/vite-plugin`)
 - **Environment**: Node.js/Vite
@@ -193,6 +206,12 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Current scope**: Provides plugin config discovery, decorator mapping extraction, plugin lookup, available plugin name listing, config validation, and decorator mapping merge helpers.
 - **Status**: Implemented as discovery infrastructure, not a feature plugin.
 
+#### **@quajs/plugin-background** (`packages/plugins/background`)
+- **Independence**: Standalone workspace package outside `@quajs/engine`.
+- **Purpose**: Provides background image, video background, layered background, whole-background transitions, layer transitions, plugin API registration, and QuaScript decorator mappings.
+- **Current scope**: Feature plugin that calls engine-owned projection APIs and keeps renderer state out of the logic layer.
+- **Status**: Implemented as the first standalone feature plugin.
+
 ### Plugin Systems Inside Existing Packages
 
 #### **Engine Plugin Framework** (`packages/core/engine/src/plugins`)
@@ -218,7 +237,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Scope**: Build-time asset processing only. These do not run as engine/runtime plugins.
 
 ### Independent Feature Plugins Not Yet Present
-- There are currently **no standalone feature plugin packages** such as `@quajs/plugin-audio`, `@quajs/plugin-ui`, `@quajs/plugin-save-load`, `@quajs/plugin-settings`, `@quajs/plugin-backlog`, `@quajs/plugin-gallery`, or achievement/inventory plugins.
+- Standalone feature plugin packages still missing include `@quajs/plugin-audio`, `@quajs/plugin-ui`, `@quajs/plugin-save-load`, `@quajs/plugin-settings`, `@quajs/plugin-backlog`, `@quajs/plugin-gallery`, and achievement/inventory plugins.
 - When added, feature plugins should live under `packages/plugins/*` or another explicit plugin package group and should integrate through engine/render-core/pipeline contracts instead of mutating renderer state or extending engine core with product-specific UI semantics.
 
 ## Development Infrastructure
@@ -337,6 +356,7 @@ packages/
 │   ├── assets-node/        # @quajs/assets-node adapter
 │   └── assets-web/         # @quajs/assets-web adapter
 ├── plugins/
+│   ├── background/         # @quajs/plugin-background
 │   └── plugin-discovery/   # @quajs/plugin-discovery
 ├── render/
 │   ├── core/               # @quajs/render-core contracts/helpers

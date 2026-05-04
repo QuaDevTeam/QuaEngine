@@ -48,7 +48,7 @@ describe('@quajs/renderer-vue', () => {
   it('refreshes projection from engine state on pipeline view updates without mutating store', async () => {
     const pipeline = new Pipeline()
     let current = view({
-      background: { assetName: 'bg.png' },
+      background: { mode: 'image', assetName: 'bg.png' },
       dialogue: { visible: true, text: 'Initial' },
     })
     const engine = {
@@ -207,7 +207,7 @@ describe('@quajs/renderer-vue', () => {
   it('passes full projection props to layer slots', async () => {
     const pipeline = new Pipeline()
     const current = view({
-      background: { assetName: 'bg.png' },
+      background: { mode: 'image', assetName: 'bg.png' },
       characters: [{ id: 'Alice', name: 'Alice', visible: true }],
       dialogue: { visible: true, text: 'Line' },
       choices: [{ id: 'yes', text: 'Yes', enabled: true }],
@@ -246,7 +246,7 @@ describe('@quajs/renderer-vue', () => {
       },
     }
     let current = view({
-      background: { assetName: 'bg.png' },
+      background: { mode: 'image', assetName: 'bg.png' },
       dialogue: { visible: true, text: 'Initial' },
     })
     const host = mount(QuaRenderer, {
@@ -261,13 +261,50 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.querySelector('.qua-character')?.getAttribute('style') || '').not.toContain('left:')
 
     current = view({
-      background: { assetName: 'bg.png' },
+      background: { mode: 'image', assetName: 'bg.png' },
       dialogue: { visible: true, text: 'Plugin refresh' },
     })
     await emitLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, { view: current })
     await flushVue()
 
     expect(host.el.textContent).toContain('Plugin refresh')
+  })
+
+  it('renders video and layered background projections by default', async () => {
+    const pipeline = new Pipeline()
+    let current = view({
+      background: {
+        mode: 'video',
+        assetName: 'rain.mp4',
+        video: { assetName: 'rain.mp4', loop: true, muted: true, poster: 'rain.png' },
+      },
+    })
+
+    const host = mount(QuaRenderer, {
+      pipeline,
+      getViewState: () => current,
+    })
+
+    await flushVue()
+
+    expect(host.el.querySelector('.qua-background--video')).not.toBeNull()
+
+    current = view({
+      background: {
+        mode: 'layered',
+        layers: [
+          { id: 'sky', assetName: 'sky.png', zIndex: 1 },
+          { id: 'clouds', assetName: 'clouds.png', assetType: 'images', zIndex: 2 },
+        ],
+      },
+      dialogue: { visible: true, text: 'Line' },
+    })
+
+    await emitLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, { view: current })
+
+    await flushVue()
+
+    expect(host.el.querySelectorAll('.qua-background-layer-item').length).toBe(2)
   })
 
   it('does not mount an empty default overlay layer over stage interactions', async () => {

@@ -1,4 +1,5 @@
 import type { AssetType } from '@quajs/assets'
+import type { ComputedRef } from 'vue'
 import { computed, onBeforeUnmount, readonly, ref, watch } from 'vue'
 import { createObjectURL, revokeObjectURL } from '@quajs/assets-web'
 import { useQuaRenderer } from '../context'
@@ -47,8 +48,9 @@ export function useRendererActions() {
   return useQuaRenderer().actions
 }
 
-export function useAssetUrl(type: AssetType, name: () => string | undefined) {
+export function useAssetUrl(type: AssetType | ComputedRef<AssetType>, name: () => string | undefined) {
   const { assets, assetRevision } = useQuaRenderer()
+  const assetType = computed(() => typeof type === 'string' ? type : type.value)
   const url = ref<string>()
   const loading = ref(false)
   const error = ref<Error>()
@@ -61,7 +63,7 @@ export function useAssetUrl(type: AssetType, name: () => string | undefined) {
     }
   }
 
-  watch([name, () => assetRevision.value, () => assets.value], async ([assetName]) => {
+  watch([name, () => assetRevision.value, () => assets.value, () => assetType.value], async ([assetName]) => {
     const currentRequestId = ++requestId
     revoke()
     error.value = undefined
@@ -71,7 +73,7 @@ export function useAssetUrl(type: AssetType, name: () => string | undefined) {
 
     loading.value = true
     try {
-      const asset = await assetRuntime.getAsset(type, assetName)
+      const asset = await assetRuntime.getAsset(assetType.value, assetName)
       const nextUrl = createObjectURL(asset)
       if (currentRequestId === requestId) {
         url.value = nextUrl
