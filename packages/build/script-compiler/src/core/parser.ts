@@ -13,15 +13,21 @@ import { v4 as uuidv4 } from 'uuid'
 export class QuaScriptParser {
   private lines: string[] = []
   private originalLines: string[] = []
+  private lineOriginalIndices: number[] = []
   private position = 0
 
   parse(quaScript: string): ParsedQuaScript {
     // Keep both original lines (with empty lines) and filtered lines
     this.originalLines = quaScript.split('\n')
-    this.lines = quaScript
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
+    this.lines = []
+    this.lineOriginalIndices = []
+    this.originalLines.forEach((line, index) => {
+      const trimmed = line.trim()
+      if (trimmed.length > 0) {
+        this.lines.push(trimmed)
+        this.lineOriginalIndices.push(index)
+      }
+    })
 
     this.position = 0
 
@@ -98,24 +104,15 @@ export class QuaScriptParser {
   }
 
   private hasGapBeforeDialogue(_decoratorStartPos: number): boolean {
-    // This is a simplified heuristic - in the test case, we have empty lines
-    // between decorators and dialogue. We'll use a simple approach:
-    // if the original input has more than 3 lines total and we see empty lines,
-    // treat decorators as separate action
+    const lastDecoratorOriginalIndex = this.lineOriginalIndices[this.position - 1]
+    const dialogueOriginalIndex = this.lineOriginalIndices[this.position]
 
-    // For the test case:
-    // "@PlaySound('background.mp3')"
-    // "@SetVolume('bgm', 0.8)"
-    // ""  <- empty line
-    // "Jack: Now with background music!"
+    if (lastDecoratorOriginalIndex === undefined || dialogueOriginalIndex === undefined)
+      return false
 
-    // Count non-empty lines up to current position vs total original lines
-    const nonEmptyLinesCount = this.lines.slice(0, this.position + 1).length
-    const originalLinesUpToHere = this.originalLines.slice(0, Math.min(this.originalLines.length, nonEmptyLinesCount + 2))
-    const emptyLinesInBetween = originalLinesUpToHere.filter(line => line.trim() === '').length
-
-    // If we have empty lines in the original input, treat as separate action
-    return emptyLinesInBetween > 0
+    return this.originalLines
+      .slice(lastDecoratorOriginalIndex + 1, dialogueOriginalIndex)
+      .some(line => line.trim() === '')
   }
 
   private parseStep(): QuaScriptStep | null {
@@ -292,6 +289,8 @@ export class QuaScriptParser {
     switch (decorator.name) {
       case 'PlaySound':
       case 'PlayBGM':
+      case 'SetBackground':
+      case 'ClearBackground':
       case 'Dub':
       case 'RunFunction':
       case 'SetVolume':
@@ -299,6 +298,11 @@ export class QuaScriptParser {
         break
       case 'UseSprite':
       case 'UseCharacterSprite':
+      case 'ShowCharacter':
+      case 'HideCharacter':
+      case 'MoveCharacter':
+      case 'SetExpression':
+      case 'SetCharacterExpression':
         imports.add('@quajs/character')
         break
     }

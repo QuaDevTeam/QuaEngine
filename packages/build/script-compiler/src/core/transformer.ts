@@ -324,17 +324,118 @@ export class QuaScriptTransformer {
 
     if (mapping.module === '@quajs/character' && mapping.function === 'sprite') {
       this.usedRuntimeHelpers.add('spriteWithEngine')
+      const sprite = this.requireDecoratorArg(decorator, args[0], 'asset')
+      const character = args[1] || this.requireDecoratorCharacter(decorator, characterName)
       return t.callExpression(
         t.identifier('spriteWithEngine'),
         [
           t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
-          args[1] || t.stringLiteral(characterName || '__current__'),
-          args[0] || t.stringLiteral(''),
+          character,
+          sprite,
+        ],
+      )
+    }
+
+    if (mapping.module === '@quajs/character' && mapping.function === 'show') {
+      this.usedRuntimeHelpers.add('showWithEngine')
+      const character = args[0] || this.requireDecoratorCharacter(decorator, characterName)
+      return t.callExpression(
+        t.identifier('showWithEngine'),
+        [
+          t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
+          character,
+          this.createCharacterOptionsObject(args.slice(1)),
+        ],
+      )
+    }
+
+    if (mapping.module === '@quajs/character' && mapping.function === 'hide') {
+      this.usedRuntimeHelpers.add('hideWithEngine')
+      const character = args[0] || this.requireDecoratorCharacter(decorator, characterName)
+      return t.callExpression(
+        t.identifier('hideWithEngine'),
+        [
+          t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
+          character,
+        ],
+      )
+    }
+
+    if (mapping.module === '@quajs/character' && mapping.function === 'move') {
+      this.usedRuntimeHelpers.add('moveWithEngine')
+      const character = args[0] || this.requireDecoratorCharacter(decorator, characterName)
+      return t.callExpression(
+        t.identifier('moveWithEngine'),
+        [
+          t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
+          character,
+          this.createCharacterPositionObject(args.slice(1)),
+        ],
+      )
+    }
+
+    if (mapping.module === '@quajs/character' && mapping.function === 'expression') {
+      this.usedRuntimeHelpers.add('expressionWithEngine')
+      const character = args[1] || this.requireDecoratorCharacter(decorator, characterName)
+      return t.callExpression(
+        t.identifier('expressionWithEngine'),
+        [
+          t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
+          character,
+          args[0] || t.identifier('undefined'),
         ],
       )
     }
 
     return t.callExpression(t.identifier(mapping.function), args)
+  }
+
+  private createCharacterOptionsObject(args: t.Expression[]): t.ObjectExpression {
+    const properties: t.ObjectProperty[] = []
+    const [sprite, expression, x, y, layer] = args
+    if (sprite)
+      properties.push(t.objectProperty(t.identifier('sprite'), sprite))
+    if (expression)
+      properties.push(t.objectProperty(t.identifier('expression'), expression))
+    if (x || y) {
+      properties.push(t.objectProperty(
+        t.identifier('position'),
+        this.createCharacterPositionObject([x, y]),
+      ))
+    }
+    if (layer)
+      properties.push(t.objectProperty(t.identifier('layer'), layer))
+    return t.objectExpression(properties)
+  }
+
+  private createCharacterPositionObject(args: Array<t.Expression | undefined>): t.ObjectExpression {
+    const properties: t.ObjectProperty[] = []
+    const [x, y, scale, rotation, anchor] = args
+    if (x)
+      properties.push(t.objectProperty(t.identifier('x'), x))
+    if (y)
+      properties.push(t.objectProperty(t.identifier('y'), y))
+    if (scale)
+      properties.push(t.objectProperty(t.identifier('scale'), scale))
+    if (rotation)
+      properties.push(t.objectProperty(t.identifier('rotation'), rotation))
+    if (anchor)
+      properties.push(t.objectProperty(t.identifier('anchor'), anchor))
+    return t.objectExpression(properties)
+  }
+
+  private requireDecoratorCharacter(decorator: any, characterName?: string): t.StringLiteral {
+    if (!characterName) {
+      throw new Error(`@${decorator.name} requires an explicit character when used outside a dialogue line.`)
+    }
+    return t.stringLiteral(characterName)
+  }
+
+  private requireDecoratorArg(decorator: any, arg: t.Expression | undefined, name: string): t.Expression {
+    if (!arg) {
+      throw new Error(`@${decorator.name} requires ${name}.`)
+    }
+    return arg
   }
 
   private parseExpression(source: string): t.Expression {
@@ -416,7 +517,7 @@ export class QuaScriptTransformer {
         if (mapping.module === '@quajs/engine') {
           return
         }
-        if (mapping.module === '@quajs/character' && mapping.function === 'sprite') {
+        if (mapping.module === '@quajs/character' && this.isEngineInjectedCharacterHelper(mapping.function)) {
           return
         }
         if (!importMap.has(mapping.module)) {
@@ -456,6 +557,20 @@ export class QuaScriptTransformer {
       importMap.get('@quajs/character')!.add('spriteWithEngine')
     }
 
+    ;[
+      'showWithEngine',
+      'hideWithEngine',
+      'moveWithEngine',
+      'expressionWithEngine',
+    ].forEach((helper) => {
+      if (this.usedRuntimeHelpers.has(helper)) {
+        if (!importMap.has('@quajs/character')) {
+          importMap.set('@quajs/character', new Set())
+        }
+        importMap.get('@quajs/character')!.add(helper)
+      }
+    })
+
     // Generate import statements for modules that have functions to import
     importMap.forEach((functions, module) => {
       if (functions.size > 0) {
@@ -470,5 +585,9 @@ export class QuaScriptTransformer {
     })
 
     return imports
+  }
+
+  private isEngineInjectedCharacterHelper(functionName: string): boolean {
+    return ['sprite', 'show', 'hide', 'move', 'expression'].includes(functionName)
   }
 }

@@ -1,6 +1,8 @@
 import type { CharacterIntent, QuaEngineInterface } from '@quajs/engine'
 import { RenderToLogicEvents } from '@quajs/render-core'
 
+export type CharacterRef = string | QuaCharacter
+
 export interface CharacterRuntimeOptions {
   engine: QuaEngineInterface
   waitForAdvance?: boolean
@@ -14,6 +16,12 @@ export interface CharacterOptions {
   position?: CharacterIntent['position']
   layer?: number
   metadata?: Record<string, unknown>
+  visible?: boolean
+}
+
+export interface CharacterSpeakOptions {
+  wait?: boolean
+  mode?: 'say' | 'narration'
 }
 
 let runtime: CharacterRuntimeOptions | undefined
@@ -30,6 +38,20 @@ export function createCharacter(name: string, options: CharacterOptions = {}): Q
   return new QuaCharacter(options.id || name, options.name || name, options)
 }
 
+export function defineCharacter(id: string, options: CharacterOptions = {}): QuaCharacter {
+  return createCharacter(id, options)
+}
+
+export function useCharacter<const T extends readonly string[]>(
+  ...names: T
+): { [K in T[number]]: QuaCharacter } {
+  return Object.fromEntries(
+    names.map(name => [name, createCharacter(name)]),
+  ) as { [K in T[number]]: QuaCharacter }
+}
+
+export const createCharacters = useCharacter
+
 export class QuaCharacter {
   readonly id: string
   readonly name: string
@@ -39,7 +61,20 @@ export class QuaCharacter {
     this.name = name
   }
 
-  async speak(text: string, options: { wait?: boolean, mode?: 'say' | 'narration' } = {}): Promise<void> {
+  configure(defaults: CharacterOptions): this {
+    const { id: _id, name: _name, ...nextDefaults } = defaults
+    this.defaults = {
+      ...this.defaults,
+      ...nextDefaults,
+    }
+    return this
+  }
+
+  getDefaults(): Readonly<CharacterOptions> {
+    return { ...this.defaults }
+  }
+
+  async speak(text: string, options: CharacterSpeakOptions = {}): Promise<void> {
     const engine = getEngine()
     await engine.showDialogue({
       characterId: this.id,
@@ -52,17 +87,12 @@ export class QuaCharacter {
     }
   }
 
+  async say(text: string, options: CharacterSpeakOptions = {}): Promise<void> {
+    await this.speak(text, options)
+  }
+
   async show(options: CharacterOptions = {}): Promise<void> {
-    await getEngine().showCharacter({
-      id: this.id,
-      name: this.name,
-      sprite: options.sprite ?? this.defaults.sprite,
-      expression: options.expression ?? this.defaults.expression,
-      position: options.position ?? this.defaults.position,
-      layer: options.layer ?? this.defaults.layer,
-      metadata: options.metadata ?? this.defaults.metadata,
-      visible: true,
-    })
+    await getEngine().showCharacter(this.createIntent(options, true))
   }
 
   async hide(): Promise<void> {
@@ -70,83 +100,168 @@ export class QuaCharacter {
   }
 
   async move(position: CharacterIntent['position']): Promise<void> {
-    await getEngine().moveCharacter(this.id, position)
+    const engine = getEngine()
+    if (!hasCharacter(engine, this.id) && this.defaults.sprite) {
+      await engine.showCharacter(this.createIntent({ position }, this.defaults.visible !== false))
+      return
+    }
+    await engine.moveCharacter(this.id, position)
   }
 
-  async expression(expression?: string): Promise<void> {
-    await getEngine().setCharacterExpression(this.id, expression)
+  async expression(nextExpression?: string): Promise<void> {
+    const engine = getEngine()
+    if (!hasCharacter(engine, this.id) && this.defaults.sprite) {
+      await engine.showCharacter(this.createIntent({ expression: nextExpression }, this.defaults.visible !== false))
+      return
+    }
+    await engine.setCharacterExpression(this.id, nextExpression)
   }
 
-  async sprite(sprite?: string): Promise<void> {
-    await getEngine().setCharacterSprite(this.id, sprite)
+  async sprite(nextSprite?: string): Promise<void> {
+    const engine = getEngine()
+    if (!hasCharacter(engine, this.id) && nextSprite !== undefined) {
+      await engine.showCharacter(this.createIntent({ sprite: nextSprite }, true))
+      return
+    }
+    await engine.setCharacterSprite(this.id, nextSprite)
   }
-}
 
-export async function speak(character: string | QuaCharacter, text: string): Promise<void> {
-  const instance = typeof character === 'string' ? createCharacter(character) : character
-  await instance.speak(text)
-}
-
-export async function speakWithEngine(engine: QuaEngineInterface, character: string | QuaCharacter, text: string): Promise<void> {
-  const previous = runtime
-  runtime = { engine, waitForAdvance: previous?.waitForAdvance }
-  try {
-    await speak(character, text)
-  }
-  finally {
-    runtime = previous
-  }
-}
-
-export async function show(character: string | QuaCharacter, options?: CharacterOptions): Promise<void> {
-  const instance = typeof character === 'string' ? createCharacter(character) : character
-  await instance.show(options)
-}
-
-export async function hide(character: string | QuaCharacter): Promise<void> {
-  const instance = typeof character === 'string' ? createCharacter(character) : character
-  await instance.hide()
-}
-
-export async function move(character: string | QuaCharacter, position: CharacterIntent['position']): Promise<void> {
-  const instance = typeof character === 'string' ? createCharacter(character) : character
-  await instance.move(position)
-}
-
-export async function expression(character: string | QuaCharacter, nextExpression?: string): Promise<void> {
-  const instance = typeof character === 'string' ? createCharacter(character) : character
-  await instance.expression(nextExpression)
-}
-
-export async function sprite(character: string | QuaCharacter, nextSprite?: string): Promise<void> {
-  const instance = typeof character === 'string' ? createCharacter(character) : character
-  await instance.sprite(nextSprite)
-}
-
-export async function spriteWithEngine(engine: QuaEngineInterface, character: string | QuaCharacter, nextSprite?: string): Promise<void> {
-  const previous = runtime
-  runtime = { engine, waitForAdvance: previous?.waitForAdvance }
-  try {
-    await sprite(character, nextSprite)
-  }
-  finally {
-    runtime = previous
+  private createIntent(options: CharacterOptions = {}, defaultVisible: boolean): CharacterIntent {
+    return {
+      id: this.id,
+      name: this.name,
+      sprite: options.sprite ?? this.defaults.sprite,
+      expression: options.expression ?? this.defaults.expression,
+      position: options.position ?? this.defaults.position,
+      layer: options.layer ?? this.defaults.layer,
+      metadata: mergeMetadata(this.defaults.metadata, options.metadata),
+      visible: options.visible ?? this.defaults.visible ?? defaultVisible,
+    }
   }
 }
 
-export async function useSprite(spriteAsset: string, character?: string): Promise<void> {
-  if (!character) {
-    await getEngine().setCharacterSprite('__current__', spriteAsset)
-    return
-  }
-  await sprite(character, spriteAsset)
+export async function speak(character: CharacterRef, text: string, options?: CharacterSpeakOptions): Promise<void> {
+  await resolveCharacter(character).speak(text, options)
+}
+
+export const say = speak
+
+export async function speakWithEngine(
+  engine: QuaEngineInterface,
+  character: CharacterRef,
+  text: string,
+  options?: CharacterSpeakOptions,
+): Promise<void> {
+  await withEngine(engine, () => speak(character, text, options))
+}
+
+export const sayWithEngine = speakWithEngine
+
+export async function show(character: CharacterRef, options?: CharacterOptions): Promise<void> {
+  await resolveCharacter(character).show(options)
+}
+
+export async function showWithEngine(
+  engine: QuaEngineInterface,
+  character: CharacterRef,
+  options?: CharacterOptions,
+): Promise<void> {
+  await withEngine(engine, () => show(character, options))
+}
+
+export async function hide(character: CharacterRef): Promise<void> {
+  await resolveCharacter(character).hide()
+}
+
+export async function hideWithEngine(engine: QuaEngineInterface, character: CharacterRef): Promise<void> {
+  await withEngine(engine, () => hide(character))
+}
+
+export async function move(character: CharacterRef, position: CharacterIntent['position']): Promise<void> {
+  await resolveCharacter(character).move(position)
+}
+
+export async function moveWithEngine(
+  engine: QuaEngineInterface,
+  character: CharacterRef,
+  position: CharacterIntent['position'],
+): Promise<void> {
+  await withEngine(engine, () => move(character, position))
+}
+
+export async function expression(character: CharacterRef, nextExpression?: string): Promise<void> {
+  await resolveCharacter(character).expression(nextExpression)
+}
+
+export async function expressionWithEngine(
+  engine: QuaEngineInterface,
+  character: CharacterRef,
+  nextExpression?: string,
+): Promise<void> {
+  await withEngine(engine, () => expression(character, nextExpression))
+}
+
+export async function sprite(character: CharacterRef, nextSprite?: string): Promise<void> {
+  await resolveCharacter(character).sprite(nextSprite)
+}
+
+export async function spriteWithEngine(
+  engine: QuaEngineInterface,
+  character: CharacterRef,
+  nextSprite?: string,
+): Promise<void> {
+  await withEngine(engine, () => sprite(character, nextSprite))
+}
+
+export async function useSprite(spriteAsset: string, character?: CharacterRef): Promise<void> {
+  await sprite(character ?? getCurrentDialogueCharacter(), spriteAsset)
 }
 
 export const useCharacterSprite = useSprite
+
+function resolveCharacter(character: CharacterRef): QuaCharacter {
+  return typeof character === 'string' ? createCharacter(character) : character
+}
+
+async function withEngine<T>(engine: QuaEngineInterface, operation: () => Promise<T>): Promise<T> {
+  const previous = runtime
+  runtime = { engine, waitForAdvance: previous?.waitForAdvance }
+  try {
+    return await operation()
+  }
+  finally {
+    runtime = previous
+  }
+}
 
 function getEngine(): QuaEngineInterface {
   if (!runtime) {
     throw new Error('Character runtime is not configured. Call configureCharacterRuntime({ engine }) first.')
   }
   return runtime.engine
+}
+
+function getCurrentDialogueCharacter(): CharacterRef {
+  const dialogue = getEngine().getViewState().dialogue
+  const character = dialogue.characterId || dialogue.characterName
+  if (!character) {
+    throw new Error('useSprite requires an explicit character when no current dialogue character is active.')
+  }
+  return character
+}
+
+function hasCharacter(engine: QuaEngineInterface, id: string): boolean {
+  return engine.getViewState().characters.some(character => character.id === id)
+}
+
+function mergeMetadata(
+  defaults?: Record<string, unknown>,
+  next?: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  if (!defaults && !next)
+    return undefined
+  return {
+    ...(defaults || {}),
+    ...(next || {}),
+  }
 }

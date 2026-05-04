@@ -97,6 +97,7 @@ describe('quaScriptParser', () => {
     const parser = new QuaScriptParser()
     const script = `
       @PlaySound('background.mp3')
+      @SetBackground('classroom.png')
       @SetVolume('bgm', 0.8)
       
       Jack: Now with background music!
@@ -108,9 +109,10 @@ describe('quaScriptParser', () => {
     expect(result.steps[0].type).toBe('action')
 
     const actionContent = result.steps[0].content as any
-    expect(actionContent.decorators).toHaveLength(2)
+    expect(actionContent.decorators).toHaveLength(3)
     expect(actionContent.decorators[0].name).toBe('PlaySound')
-    expect(actionContent.decorators[1].name).toBe('SetVolume')
+    expect(actionContent.decorators[1].name).toBe('SetBackground')
+    expect(actionContent.decorators[2].name).toBe('SetVolume')
 
     expect(result.steps[1].type).toBe('dialogue')
     const dialogueContent = result.steps[1].content as any

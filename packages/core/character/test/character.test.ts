@@ -3,10 +3,16 @@ import {
   clearCharacterRuntime,
   configureCharacterRuntime,
   createCharacter,
+  expressionWithEngine,
   hide,
+  hideWithEngine,
   move,
+  moveWithEngine,
+  showWithEngine,
   speakWithEngine,
   spriteWithEngine,
+  useCharacter,
+  useSprite,
 } from '../src'
 import { RenderToLogicEvents } from '@quajs/render-core'
 
@@ -53,19 +59,146 @@ describe('@quajs/character', () => {
     expect(engine.setCharacterSprite).toHaveBeenCalledWith('Alice', 'alice-smile.png')
   })
 
+  it('provides engine-injected helpers for all character intents', async () => {
+    const engine = createEngine()
+
+    await showWithEngine(engine as any, 'Alice', { sprite: 'alice.png', expression: 'idle', position: { x: 40 } })
+    await moveWithEngine(engine as any, 'Alice', { x: 60, y: 20 })
+    await expressionWithEngine(engine as any, 'Alice', 'happy')
+    await hideWithEngine(engine as any, 'Alice')
+
+    expect(engine.showCharacter).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'Alice',
+      name: 'Alice',
+      sprite: 'alice.png',
+      expression: 'idle',
+      position: { x: 40 },
+      visible: true,
+    }))
+    expect(engine.moveCharacter).toHaveBeenCalledWith('Alice', { x: 60, y: 20 })
+    expect(engine.setCharacterExpression).toHaveBeenCalledWith('Alice', 'happy')
+    expect(engine.hideCharacter).toHaveBeenCalledWith('Alice')
+  })
+
+  it('creates characters from sprite calls when no character projection exists yet', async () => {
+    const engine = createEngine()
+
+    await spriteWithEngine(engine as any, 'Alice', 'alice.png')
+
+    expect(engine.showCharacter).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'Alice',
+      name: 'Alice',
+      sprite: 'alice.png',
+      visible: true,
+    }))
+    expect(engine.setCharacterSprite).not.toHaveBeenCalled()
+  })
+
+  it('supports useCharacter helpers and current-dialogue sprite updates', async () => {
+    const engine = createEngine({
+      dialogue: {
+        visible: true,
+        characterId: 'Alice',
+        characterName: 'Alice',
+        text: 'Hello',
+        mode: 'say',
+      },
+    })
+    configureCharacterRuntime({ engine: engine as any, waitForAdvance: false })
+    const { Alice } = useCharacter('Alice')
+
+    await Alice.say('Hello')
+    await useSprite('alice-smile.png')
+
+    expect(engine.showDialogue).toHaveBeenCalledWith(expect.objectContaining({
+      characterId: 'Alice',
+      characterName: 'Alice',
+      text: 'Hello',
+    }))
+    expect(engine.showCharacter).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'Alice',
+      sprite: 'alice-smile.png',
+    }))
+  })
+
   it('fails fast when no engine runtime is configured', async () => {
     await expect(hide('Alice')).rejects.toThrow('Character runtime is not configured')
   })
+
+  it('requires an explicit character for useSprite when no dialogue character is active', async () => {
+    const engine = createEngine()
+    configureCharacterRuntime({ engine: engine as any, waitForAdvance: false })
+
+    await expect(useSprite('alice.png')).rejects.toThrow('useSprite requires an explicit character')
+  })
 })
 
-function createEngine() {
-  return {
+function createEngine(viewPatch: Record<string, unknown> = {}) {
+  const view = {
+    background: undefined,
+    characters: [] as any[],
+    dialogue: {
+      visible: false,
+      text: '',
+    },
+    choices: [],
+    ui: {
+      visible: true,
+      overlays: {},
+    },
+    effects: [],
+    audio: {
+      volumeSettings: {
+        master: 1,
+        bgm: 1,
+        sound: 1,
+        voice: 1,
+      },
+      sounds: [],
+      voices: [],
+    },
+    ...viewPatch,
+  }
+  const engine = {
     showDialogue: vi.fn().mockResolvedValue(undefined),
     waitFor: vi.fn().mockResolvedValue(undefined),
-    showCharacter: vi.fn().mockResolvedValue(undefined),
-    hideCharacter: vi.fn().mockResolvedValue(undefined),
-    moveCharacter: vi.fn().mockResolvedValue(undefined),
-    setCharacterExpression: vi.fn().mockResolvedValue(undefined),
-    setCharacterSprite: vi.fn().mockResolvedValue(undefined),
+    showCharacter: vi.fn(async (payload: any) => {
+      const index = view.characters.findIndex(character => character.id === payload.id)
+      const next = {
+        ...(index === -1 ? {} : view.characters[index]),
+        ...payload,
+        name: payload.name || payload.id,
+        visible: payload.visible !== false,
+      }
+      if (index === -1) {
+        view.characters.push(next)
+      }
+      else {
+        view.characters[index] = next
+      }
+    }),
+    hideCharacter: vi.fn(async (id: string) => {
+      view.characters = view.characters.map(character =>
+        character.id === id ? { ...character, visible: false } : character,
+      )
+    }),
+    moveCharacter: vi.fn(async (id: string, position: any) => {
+      view.characters = view.characters.map(character =>
+        character.id === id ? { ...character, position } : character,
+      )
+    }),
+    setCharacterExpression: vi.fn(async (id: string, expression: string | undefined) => {
+      view.characters = view.characters.map(character =>
+        character.id === id ? { ...character, expression } : character,
+      )
+    }),
+    setCharacterSprite: vi.fn(async (id: string, sprite: string | undefined) => {
+      view.characters = view.characters.map(character =>
+        character.id === id ? { ...character, sprite } : character,
+      )
+    }),
+    getViewState: vi.fn(() => view),
   }
+
+  return engine
 }
