@@ -14,8 +14,6 @@ export {
   hideDialogue,
   showChoices,
   clearChoices,
-  setBackground,
-  clearBackground,
   initEngine,
   loadFromSlot,
   loadScene,
@@ -41,6 +39,7 @@ export type {
   StepContext,
   UsePluginOptions,
   VolumeSettings,
+  BackgroundIntent,
   CharacterIntent,
   ChoiceIntent,
   DialogueIntent,
@@ -58,13 +57,18 @@ export {
 } from './events/events'
 export type {
   AudioPlayPayload,
+  BackgroundLayerAssetType,
+  BackgroundMode,
   BackgroundSetPayload,
   DialogueShowPayload,
   EngineEvents,
   SceneInitPayload,
   UserChoiceSelectPayload,
   UserClickPayload,
+  ViewBackgroundLayerProjection,
   VolumeChangePayload,
+  ViewBackgroundProjection,
+  ViewVideoBackgroundProjection,
 } from './events/events'
 
 // Managers

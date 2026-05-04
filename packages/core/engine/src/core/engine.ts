@@ -8,6 +8,7 @@ import type {
 } from '../events/events'
 import type {
   AudioIntentUpdate,
+  BackgroundIntent,
   CharacterIntent,
   ChoiceIntent,
   DialogueIntent,
@@ -282,17 +283,15 @@ export class QuaEngine {
     await this.emitViewUpdate()
   }
 
-  async setBackground(assetName: string, transition?: { type: string, duration?: number }): Promise<void> {
+  async setBackgroundProjection(background?: BackgroundIntent): Promise<void> {
     this.assertInitialized()
-    this.store.commit('setBackground', { assetName, transition })
-    await emitLogicToRender(this.pipeline, L2R.BACKGROUND_SET, { assetName, transition })
-    await this.emitViewUpdate()
-  }
-
-  async clearBackground(): Promise<void> {
-    this.assertInitialized()
-    this.store.commit('setBackground', undefined)
-    await emitLogicToRender(this.pipeline, L2R.BACKGROUND_CLEAR, {})
+    this.store.commit('setBackground', background)
+    if (background) {
+      await emitLogicToRender(this.pipeline, L2R.BACKGROUND_SET, background)
+    }
+    else {
+      await emitLogicToRender(this.pipeline, L2R.BACKGROUND_CLEAR, {})
+    }
     await this.emitViewUpdate()
   }
 
@@ -682,7 +681,7 @@ function createEngineMutations() {
     removeEffect(state: any, id: string) {
       state.engine.view.effects = state.engine.view.effects.filter((effect: EffectIntent) => effect.id !== id)
     },
-    setBackground(state: any, payload?: { assetName: string, transition?: unknown }) {
+    setBackground(state: any, payload?: BackgroundIntent) {
       state.engine.view.background = payload
     },
     setDialogue(state: any, payload: DialogueIntent) {
@@ -779,6 +778,19 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
       ? {
           ...view.background,
           transition: view.background.transition ? { ...view.background.transition } : undefined,
+          video: view.background.video
+            ? {
+                ...view.background.video,
+                transition: view.background.video.transition ? { ...view.background.video.transition } : undefined,
+                metadata: view.background.video.metadata ? cloneUnknownRecord(view.background.video.metadata) : undefined,
+              }
+            : undefined,
+          layers: view.background.layers?.map(layer => ({
+            ...layer,
+            transition: layer.transition ? { ...layer.transition } : undefined,
+            metadata: layer.metadata ? cloneUnknownRecord(layer.metadata) : undefined,
+          })),
+          metadata: view.background.metadata ? cloneUnknownRecord(view.background.metadata) : undefined,
         }
       : undefined,
     characters: view.characters.map(character => ({
