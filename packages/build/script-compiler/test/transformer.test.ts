@@ -31,7 +31,7 @@ describe('quaScriptTransformer', () => {
       function scene1() {
         dialogue(qs\`
           @PlaySound('hello.mp3')
-          @UseSprite('jack_happy.png')
+          @SetSprite('jack_happy.png')
           Jack: Hello world!
         \`)
       }
@@ -80,14 +80,14 @@ describe('quaScriptTransformer', () => {
     const source = `
       function scene1() {
         dialogue(qs\`
-          @UseSprite('jack_happy.png')
+          @SetSprite('jack_happy.png')
 
           Jack: Hello world!
         \`)
       }
     `
 
-    expect(() => transformer.transformSource(source)).toThrow('@UseSprite requires an explicit character')
+    expect(() => transformer.transformSource(source)).toThrow('@SetSprite requires an explicit character')
   })
 
   it('should require a sprite asset for sprite decorators', () => {
@@ -95,13 +95,13 @@ describe('quaScriptTransformer', () => {
     const source = `
       function scene1() {
         dialogue(qs\`
-          @UseSprite()
+          @SetSprite()
           Jack: Hello world!
         \`)
       }
     `
 
-    expect(() => transformer.transformSource(source)).toThrow('@UseSprite requires asset')
+    expect(() => transformer.transformSource(source)).toThrow('@SetSprite requires asset')
   })
 
   it('should transform background decorators through engine state', () => {

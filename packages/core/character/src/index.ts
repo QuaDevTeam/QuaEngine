@@ -38,10 +38,6 @@ export function createCharacter(name: string, options: CharacterOptions = {}): Q
   return new QuaCharacter(options.id || name, options.name || name, options)
 }
 
-export function defineCharacter(id: string, options: CharacterOptions = {}): QuaCharacter {
-  return createCharacter(id, options)
-}
-
 export function useCharacter<const T extends readonly string[]>(
   ...names: T
 ): { [K in T[number]]: QuaCharacter } {
@@ -49,8 +45,6 @@ export function useCharacter<const T extends readonly string[]>(
     names.map(name => [name, createCharacter(name)]),
   ) as { [K in T[number]]: QuaCharacter }
 }
-
-export const createCharacters = useCharacter
 
 export class QuaCharacter {
   readonly id: string
@@ -85,10 +79,6 @@ export class QuaCharacter {
     if (options.wait ?? runtime?.waitForAdvance ?? true) {
       await engine.waitFor(RenderToLogicEvents.USER_ADVANCE)
     }
-  }
-
-  async say(text: string, options: CharacterSpeakOptions = {}): Promise<void> {
-    await this.speak(text, options)
   }
 
   async show(options: CharacterOptions = {}): Promise<void> {
@@ -144,8 +134,6 @@ export async function speak(character: CharacterRef, text: string, options?: Cha
   await resolveCharacter(character).speak(text, options)
 }
 
-export const say = speak
-
 export async function speakWithEngine(
   engine: QuaEngineInterface,
   character: CharacterRef,
@@ -154,8 +142,6 @@ export async function speakWithEngine(
 ): Promise<void> {
   await withEngine(engine, () => speak(character, text, options))
 }
-
-export const sayWithEngine = speakWithEngine
 
 export async function show(character: CharacterRef, options?: CharacterOptions): Promise<void> {
   await resolveCharacter(character).show(options)
@@ -213,11 +199,9 @@ export async function spriteWithEngine(
   await withEngine(engine, () => sprite(character, nextSprite))
 }
 
-export async function useSprite(spriteAsset: string, character?: CharacterRef): Promise<void> {
+export async function setCurrentSprite(spriteAsset: string, character?: CharacterRef): Promise<void> {
   await sprite(character ?? getCurrentDialogueCharacter(), spriteAsset)
 }
-
-export const useCharacterSprite = useSprite
 
 function resolveCharacter(character: CharacterRef): QuaCharacter {
   return typeof character === 'string' ? createCharacter(character) : character
@@ -245,7 +229,7 @@ function getCurrentDialogueCharacter(): CharacterRef {
   const dialogue = getEngine().getViewState().dialogue
   const character = dialogue.characterId || dialogue.characterName
   if (!character) {
-    throw new Error('useSprite requires an explicit character when no current dialogue character is active.')
+    throw new Error('setCurrentSprite requires an explicit character when no current dialogue character is active.')
   }
   return character
 }

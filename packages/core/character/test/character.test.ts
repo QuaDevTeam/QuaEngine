@@ -8,11 +8,11 @@ import {
   hideWithEngine,
   move,
   moveWithEngine,
+  setCurrentSprite,
   showWithEngine,
   speakWithEngine,
   spriteWithEngine,
   useCharacter,
-  useSprite,
 } from '../src'
 import { RenderToLogicEvents } from '@quajs/render-core'
 
@@ -107,8 +107,8 @@ describe('@quajs/character', () => {
     configureCharacterRuntime({ engine: engine as any, waitForAdvance: false })
     const { Alice } = useCharacter('Alice')
 
-    await Alice.say('Hello')
-    await useSprite('alice-smile.png')
+    await Alice.speak('Hello')
+    await setCurrentSprite('alice-smile.png')
 
     expect(engine.showDialogue).toHaveBeenCalledWith(expect.objectContaining({
       characterId: 'Alice',
@@ -125,11 +125,11 @@ describe('@quajs/character', () => {
     await expect(hide('Alice')).rejects.toThrow('Character runtime is not configured')
   })
 
-  it('requires an explicit character for useSprite when no dialogue character is active', async () => {
+  it('requires an explicit character for setCurrentSprite when no dialogue character is active', async () => {
     const engine = createEngine()
     configureCharacterRuntime({ engine: engine as any, waitForAdvance: false })
 
-    await expect(useSprite('alice.png')).rejects.toThrow('useSprite requires an explicit character')
+    await expect(setCurrentSprite('alice.png')).rejects.toThrow('setCurrentSprite requires an explicit character')
   })
 })
 

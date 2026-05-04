@@ -292,17 +292,14 @@ export class QuaScriptParser {
       case 'SetBackground':
       case 'ClearBackground':
       case 'Dub':
-      case 'RunFunction':
       case 'SetVolume':
         imports.add('@quajs/engine')
         break
-      case 'UseSprite':
-      case 'UseCharacterSprite':
+      case 'SetSprite':
       case 'ShowCharacter':
       case 'HideCharacter':
       case 'MoveCharacter':
       case 'SetExpression':
-      case 'SetCharacterExpression':
         imports.add('@quajs/character')
         break
     }

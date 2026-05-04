@@ -33,7 +33,7 @@ function scene1() {
     @PlaySound('hello.mp3')
     Jack: Hello world!
 
-    @UseSprite('john_happy.png')
+    @SetSprite('john_happy.png')
     @PlayBGM('background.mp3')
     John: How are you doing?
   `)
@@ -109,12 +109,12 @@ import { dialogue } from '@quajs/engine'
 function part1() {
   const time = 'minutes ago'
   dialogue(qs`
-    @RunFunction(functionName, params)
+    @PlaySound('page.wav')
     Jack: I said it.
 
     John: That's not what we talked about before.
 
-    @UseCharacterSprite('xx.png')
+    @SetSprite('xx.png')
     Jack: Yes, but I said it ${time}.
   `)
 }
@@ -123,32 +123,29 @@ function part1() {
 **Output:**
 
 ```typescript
-import { useCharacterSprite } from '@quajs/character'
-import { dialogue, runFunction } from '@quajs/engine'
-
-const { Jack, John } = useCharacter('Jack', 'John')
+import { speakWithEngine, spriteWithEngine } from '@quajs/character'
 
 function part1() {
   const time = 'minutes ago'
   dialogue([
     {
       uuid: '550e8400-e29b-41d4-a716-446655440000',
-      run: () => {
-        runFunction(functionName, params)
-        Jack.speak('I said it.')
+      run: async (ctx) => {
+        await ctx.engine.playSound('page.wav')
+        await speakWithEngine(ctx.engine, 'Jack', 'I said it.')
       }
     },
     {
       uuid: '550e8400-e29b-41d4-a716-446655440001',
-      run: () => {
-        John.speak('That\'s not what we talked about before.')
+      run: async (ctx) => {
+        await speakWithEngine(ctx.engine, 'John', 'That\'s not what we talked about before.')
       }
     },
     {
       uuid: '550e8400-e29b-41d4-a716-446655440002',
-      run: () => {
-        useCharacterSprite('xx.png')
-        Jack.speak(`Yes, but I said it ${time}.`)
+      run: async (ctx) => {
+        await spriteWithEngine(ctx.engine, 'Jack', 'xx.png')
+        await speakWithEngine(ctx.engine, 'Jack', `Yes, but I said it ${time}.`)
       }
     }
   ])
@@ -162,10 +159,12 @@ function part1() {
 | `@PlaySound(asset)`          | `playSound`          | `@quajs/engine`    |
 | `@PlayBGM(asset)`            | `playBGM`            | `@quajs/engine`    |
 | `@Dub(asset)`                | `dub`                | `@quajs/engine`    |
-| `@RunFunction(fn, ...args)`  | `runFunction`        | `@quajs/engine`    |
 | `@SetVolume(type, value)`    | `setVolume`          | `@quajs/engine`    |
-| `@UseSprite(asset)`          | `useSprite`          | `@quajs/character` |
-| `@UseCharacterSprite(asset)` | `useCharacterSprite` | `@quajs/character` |
+| `@SetSprite(asset, character?)` | `spriteWithEngine` | `@quajs/character` |
+| `@ShowCharacter(character, sprite?, expression?, x?, y?, layer?)` | `showWithEngine` | `@quajs/character` |
+| `@HideCharacter(character?)` | `hideWithEngine` | `@quajs/character` |
+| `@MoveCharacter(character, x?, y?, scale?, rotation?, anchor?)` | `moveWithEngine` | `@quajs/character` |
+| `@SetExpression(expression, character?)` | `expressionWithEngine` | `@quajs/character` |
 
 ## Configuration
 

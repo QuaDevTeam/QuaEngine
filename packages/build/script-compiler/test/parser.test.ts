@@ -24,7 +24,7 @@ describe('quaScriptParser', () => {
     const parser = new QuaScriptParser()
     const script = `
       @PlaySound('hello.mp3')
-      @UseSprite('jack_happy.png')
+      @SetSprite('jack_happy.png')
       Jack: Hello world!
     `
 
@@ -48,21 +48,21 @@ describe('quaScriptParser', () => {
       )
       expect(allDecorators).toHaveLength(2)
       expect(allDecorators.some((d: any) => d.name === 'PlaySound')).toBe(true)
-      expect(allDecorators.some((d: any) => d.name === 'UseSprite')).toBe(true)
+      expect(allDecorators.some((d: any) => d.name === 'SetSprite')).toBe(true)
     }
   })
 
   it('should parse decorators with multiple arguments', () => {
     const parser = new QuaScriptParser()
     const script = `
-      @RunFunction('testFunc', 42, true, 'string')
+      @PlaySound('test.mp3', 42, true, 'string')
       Jack: Hello!
     `
 
     const result = parser.parse(script)
     const dialogue = result.steps[0].content as any
 
-    expect(dialogue.decorators[0].args).toEqual(['testFunc', 42, true, 'string'])
+    expect(dialogue.decorators[0].args).toEqual(['test.mp3', 42, true, 'string'])
   })
 
   it('should extract template expressions', () => {
