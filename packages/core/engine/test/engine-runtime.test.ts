@@ -16,7 +16,7 @@ describe('QuaEngine runtime architecture', () => {
     const engine = createEngine()
     await engine.init()
 
-    await engine.setBackground('bg.png', { type: 'fade', duration: 300 })
+    await engine.setBackgroundProjection({ mode: 'image', assetName: 'bg.png', transition: { type: 'fade', duration: 300 } })
     await engine.showCharacter({ id: 'Alice', name: 'Alice', sprite: 'alice.png', position: { x: 40 } })
     await engine.showDialogue({ characterId: 'Alice', characterName: 'Alice', text: 'Hello' })
     await engine.showChoices([{ id: 'yes', text: 'Yes' }])
@@ -26,7 +26,7 @@ describe('QuaEngine runtime architecture', () => {
     await engine.sceneManager.applyEffect('shake', { target: 'stage', duration: 200 })
 
     const view = engine.getViewState()
-    expect(view.background).toEqual({ assetName: 'bg.png', transition: { type: 'fade', duration: 300 } })
+    expect(view.background).toEqual({ mode: 'image', assetName: 'bg.png', transition: { type: 'fade', duration: 300 } })
     expect(view.characters).toEqual([expect.objectContaining({ id: 'Alice', visible: true, sprite: 'alice.png' })])
     expect(view.dialogue).toEqual(expect.objectContaining({ visible: true, text: 'Hello' }))
     expect(view.choices).toEqual([{ id: 'yes', text: 'Yes', enabled: true, metadata: undefined }])
@@ -82,14 +82,14 @@ describe('QuaEngine runtime architecture', () => {
     expect(engine.getViewState().audio.sounds).toEqual([])
   })
 
-  it('exposes clearBackground on the engine instance', async () => {
+  it('exposes background projection writes on the engine instance', async () => {
     const engine = createEngine()
     await engine.init()
 
-    await engine.setBackground('bg.png')
-    expect(engine.getViewState().background).toEqual({ assetName: 'bg.png', transition: undefined })
+    await engine.setBackgroundProjection({ mode: 'image', assetName: 'bg.png' })
+    expect(engine.getViewState().background).toEqual({ mode: 'image', assetName: 'bg.png' })
 
-    await engine.clearBackground()
+    await engine.setBackgroundProjection(undefined)
     expect(engine.getViewState().background).toBeUndefined()
   })
 

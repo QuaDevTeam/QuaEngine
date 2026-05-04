@@ -66,9 +66,44 @@ export enum RenderToLogicEvents {
 
 export type EngineEvents = LogicToRenderEvents | RenderToLogicEvents
 
+export type BackgroundMode = 'image' | 'video' | 'layered'
+
+export type BackgroundLayerAssetType = 'images' | 'video' | 'characters' | string
+
+export interface ViewVideoBackgroundProjection {
+  assetName: string
+  loop?: boolean
+  muted?: boolean
+  volume?: number
+  playbackRate?: number
+  poster?: string
+  transition?: TransitionIntent
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface ViewBackgroundLayerProjection {
+  id: string
+  assetName: string
+  assetType?: BackgroundLayerAssetType
+  visible?: boolean
+  x?: number
+  y?: number
+  scale?: number
+  rotation?: number
+  opacity?: number
+  blendMode?: string
+  zIndex?: number
+  transition?: TransitionIntent
+  metadata?: Readonly<Record<string, unknown>>
+}
+
 export interface ViewBackgroundProjection {
+  mode: BackgroundMode
   assetName?: string
   transition?: TransitionIntent
+  video?: Readonly<ViewVideoBackgroundProjection>
+  layers?: readonly Readonly<ViewBackgroundLayerProjection>[]
+  metadata?: Readonly<Record<string, unknown>>
 }
 
 export interface ViewCharacterProjection {
@@ -171,10 +206,7 @@ export interface SceneChangePayload {
   transition?: TransitionIntent
 }
 
-export interface BackgroundSetPayload {
-  assetName: string
-  transition?: TransitionIntent
-}
+export interface BackgroundSetPayload extends ViewBackgroundProjection {}
 
 export interface CharacterPayload {
   id: string

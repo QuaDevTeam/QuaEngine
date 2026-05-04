@@ -5,6 +5,7 @@ import type {
   AudioChannelIntent,
   AudioIntentProjection,
   QuaViewProjection,
+  ViewBackgroundProjection,
   ViewEffectProjection,
   ViewUiProjection,
   VolumeSettings,
@@ -60,8 +61,7 @@ export interface QuaEngineInterface {
   hideDialogue: () => Promise<void>
   showChoices: (choices: ChoiceIntent[]) => Promise<void>
   clearChoices: () => Promise<void>
-  setBackground: (assetName: string, transition?: { type: string, duration?: number }) => Promise<void>
-  clearBackground: () => Promise<void>
+  setBackgroundProjection: (background?: BackgroundIntent) => Promise<void>
   showCharacter: (payload: CharacterIntent) => Promise<void>
   hideCharacter: (id: string) => Promise<void>
   moveCharacter: (id: string, position: CharacterIntent['position']) => Promise<void>
@@ -142,6 +142,8 @@ export interface AudioIntentUpdate {
   id: string
   patch: Partial<AudioChannelIntent>
 }
+
+export interface BackgroundIntent extends ViewBackgroundProjection {}
 
 export interface UiIntent extends ViewUiProjection {}
 

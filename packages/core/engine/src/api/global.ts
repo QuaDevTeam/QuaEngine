@@ -153,11 +153,3 @@ export async function showChoices(choices: ChoiceIntent[]): Promise<void> {
 export async function clearChoices(): Promise<void> {
   return getEngine().clearChoices()
 }
-
-export async function setBackground(assetName: string, transition?: { type: string, duration?: number }): Promise<void> {
-  return getEngine().setBackground(assetName, transition)
-}
-
-export async function clearBackground(): Promise<void> {
-  return getEngine().clearBackground()
-}

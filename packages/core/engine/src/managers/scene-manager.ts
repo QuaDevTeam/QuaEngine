@@ -65,17 +65,6 @@ export class SceneManager {
     })
   }
 
-  async setBackground(
-    assetName: string,
-    transition?: { type: 'fade' | 'slide' | 'instant', duration?: number },
-  ): Promise<void> {
-    await this.engine.setBackground(assetName, transition)
-  }
-
-  async clearBackground(): Promise<void> {
-    await this.engine.clearBackground()
-  }
-
   async showDialogue(
     characterName: string | undefined,
     text: string,
