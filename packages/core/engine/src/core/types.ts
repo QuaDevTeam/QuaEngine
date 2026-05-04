@@ -60,7 +60,7 @@ export interface QuaEngineInterface {
   hideDialogue: () => Promise<void>
   showChoices: (choices: ChoiceIntent[]) => Promise<void>
   clearChoices: () => Promise<void>
-  setBackground: (assetName?: string, transition?: { type: string, duration?: number }) => Promise<void>
+  setBackground: (assetName: string, transition?: { type: string, duration?: number }) => Promise<void>
   clearBackground: () => Promise<void>
   showCharacter: (payload: CharacterIntent) => Promise<void>
   hideCharacter: (id: string) => Promise<void>
