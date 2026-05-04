@@ -31,6 +31,50 @@ QuaEngine is a modern, TypeScript-based visual novel (Galgame) engine designed w
 
 The current milestone implements the logic layer, stateless renderer contracts, Vue reference renderer, and platform-split asset runtime.
 
+### Implementation Progress Snapshot
+
+#### Completed Foundations
+- **Workspace structure**: The repo is organized around `build`, `core`, `platform`, `plugins`, `render`, and `utils` package groups.
+- **Single eventbus contract**: `@quajs/pipeline` remains the only eventbus. Renderer communication uses `@quajs/render-core` typed contracts and thin helpers over pipeline.
+- **Engine-owned state**: `@quajs/engine` owns runtime, view, UI overlay, character/dialogue/choice, and audio intent state. Renderers project this state and send user intent events only.
+- **Scene lifecycle**: `SceneManager` is the engine-owned scene lifecycle implementation. `GameManager` is a high-level facade and does not duplicate scene logic.
+- **Audio boundary**: `SoundSystem` stores audio intent in engine state. Real DOM audio playback lives in renderer implementations; `audio/ended` returns to engine through pipeline.
+- **No pre-release compatibility burden**: Deprecated aliases, legacy renderer communication, and old Web-only asset assumptions should be removed instead of preserved.
+
+#### Completed Asset Runtime
+- **`@quajs/assets` core** is platform-agnostic and bytes-first. It exposes `AssetData`, storage/provider/fetcher/crypto/codec contracts, bundle loading, patching, preloading, text/JSON helpers, and provider change events.
+- **Web APIs are out of core**. `Blob`, `fetch`, IndexedDB/Dexie, WebCrypto, object URLs, and dev VFS implementation belong to `@quajs/assets-web`.
+- **Adapters implemented**:
+  - `@quajs/assets-web`: Fetch, IndexedDB/Dexie storage, WebCrypto hashing, Blob/object URL helpers, dev VFS provider, and Vite dev VFS helpers.
+  - `@quajs/assets-node`: fs/http fetcher, filesystem cache, Node crypto, Buffer conversion, and Node compression codec integration.
+  - `@quajs/assets-memory`: in-memory fetcher/storage/crypto for tests and embedded/lightweight runtimes.
+- **Vite dev asset flow**: `@quajs/vite-plugin` wires dev VFS through `@quajs/assets-web/vite`; the plugin no longer owns a duplicate VFS implementation.
+
+#### Completed Engine And Script Flow
+- **`@quajs/render-core`** defines shared render event enums, payload maps, readonly view projection types, typed emit/on/wait helpers, and lightweight renderer plugin contracts.
+- **`@quajs/engine`** re-exports render contracts for app ergonomics and exposes runtime accessors such as assets, pipeline, store, view state, and `waitFor`.
+- **Store mutations** cover runtime/view/audio intent changes used by scene, dialogue, choices, characters, background, UI overlays, and audio.
+- **`@quajs/character`** provides character/dialogue convenience APIs that update engine-owned state and emit pipeline events without holding renderer state.
+- **QuaScript compiler** parses dialogue and choice blocks, compiles context-aware async steps, routes dialogue/choice output through engine APIs, waits for renderer user intent events, and stores the selected choice on step context.
+
+#### Completed Renderer
+- **`@quajs/renderer-vue` root renderer** is stateless with respect to game state. It accepts `engine` or explicit `{ pipeline, getViewState, assets }`, subscribes to pipeline updates, re-reads engine view state, emits renderer lifecycle/user intent events, and cleans up subscriptions/resources on unmount.
+- **Projection components implemented**: `QuaRenderer`, `QuaStage`, background/character/dialogue/choice/audio/effect/overlay layers, and low-level projection components.
+- **Composables implemented**: `useQuaRenderer`, `useQuaPipeline`, `useQuaView`, `useBackground`, `useCharacters`, `useDialogue`, `useChoices`, `useAudio`, `useEffects`, `useRendererActions`, `useAssetUrl`, and `useAudioAsset`.
+- **Renderer UI plugin sub-entry**: `@quajs/renderer-vue/plugins/ui` provides `QuaUiOverlay`, `QuaMenuOverlay`, `QuaSaveLoadPanel`, and `QuaSettingsPanel` as optional renderer-plugin UI components. These read generic engine-owned overlays and do not introduce menu/settings state into renderer core.
+- **Styling boundary**: Vue renderer does not auto-import visual styles. Optional SCSS entrypoints are `@quajs/renderer-vue/styles/base.scss` and `@quajs/renderer-vue/styles/default.scss`.
+
+#### Completed Build Tooling
+- **`@quajs/quack`** provides asset detection, metadata, media extraction, QPK/ZIP bundling, workspace versioning, patch generation, and build-time bundler plugins.
+- **`@quajs/script-compiler`** provides QuaScript parser/transformer, HMR integration, plugin-aware transformation, and Vite compiler integration.
+- **`@quajs/vite-plugin`** integrates engine wiring, script compilation, asset bundling, and dev VFS.
+
+#### Current Gaps / Next Milestones
+- **Separate feature plugin packages are not implemented yet**. Main menu behavior, settings logic, save/load UI flows, backlog/history, gallery, achievements, inventory, and similar features should become independent engine/renderer plugin packages or package sub-entries instead of engine-core features.
+- **Renderer plugin ecosystem is early**. The contracts and Vue UI plugin sub-entry exist, but there are no standalone renderer plugin packages beyond the Vue package sub-entry.
+- **Example app/editor/documentation are still pending**. The engine/runtime foundations exist, but creator-facing examples, visual editor, templates, and full tutorials remain future work.
+- **Native/non-Web renderers and native asset adapters are not implemented**. Current official platform adapters are Web, Node, and Memory; current official renderer is Vue/Web.
+
 ### Core Packages
 
 #### **@quajs/engine** (`packages/core/engine`)
@@ -138,6 +182,44 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Environment**: Universal
 - **Purpose**: Shared utility functions and common helpers
 - **Status**: Implemented
+
+## Plugin Inventory
+
+### Independent Plugin-Related Packages
+
+#### **@quajs/plugin-discovery** (`packages/plugins/plugin-discovery`)
+- **Independence**: Standalone workspace package outside `@quajs/engine`.
+- **Purpose**: Discovers plugin configs from `qua.plugins.json`, `plugins/qua.plugins.json`, `.qua/plugins.json`, and package dependencies matching Qua plugin naming conventions.
+- **Current scope**: Provides plugin config discovery, decorator mapping extraction, plugin lookup, available plugin name listing, config validation, and decorator mapping merge helpers.
+- **Status**: Implemented as discovery infrastructure, not a feature plugin.
+
+### Plugin Systems Inside Existing Packages
+
+#### **Engine Plugin Framework** (`packages/core/engine/src/plugins`)
+- **Package shape**: Internal to `@quajs/engine`, not an independent plugin package.
+- **Includes**: `BaseEnginePlugin`, `PluginFramework`, plugin context, plugin API registry, plugin package discovery/spec helpers, and `UiOverlayPlugin`.
+- **Current built-in plugin**: `UiOverlayPlugin`, which maps generic renderer UI requests to engine-owned `view.ui.overlays`.
+- **Boundary rule**: Keep engine core free of concrete UX features. Future feature plugins should move out to independent packages when they are not required for narrative execution or state authority.
+
+#### **Pipeline Plugins** (`packages/core/pipeline`)
+- **Package shape**: `@quajs/pipeline` provides plugin hooks for event transport.
+- **Includes**: `Plugin` base class plus emit/on/off hook types for custom transports or interception.
+- **Current examples**: WebSocket transport example under `packages/core/pipeline/examples`.
+- **Boundary rule**: Pipeline plugins may alter transport mechanics, but must not become a second renderer communication system.
+
+#### **Renderer Plugins** (`packages/render/core`, `packages/render/vue/src/plugins`)
+- **Package shape**: Contracts live in `@quajs/render-core`; current Vue plugin UI components are a sub-entry of `@quajs/renderer-vue`, not a standalone workspace package.
+- **Includes**: `RendererPlugin`, `RendererPluginContext`, `RendererPluginHost`, and Vue UI overlay components under `@quajs/renderer-vue/plugins/ui`.
+- **Current feature scope**: Generic UI overlay projection only. Menu/settings/save-load panels are optional components over generic overlay state, not engine-core concepts.
+
+#### **Quack Build-Time Plugins** (`packages/build/quack/src/plugins`)
+- **Package shape**: Internal to `@quajs/quack`, not independent runtime plugin packages.
+- **Includes**: bundle analyzer, image optimization, encryption helpers, and related build-time extension points.
+- **Scope**: Build-time asset processing only. These do not run as engine/runtime plugins.
+
+### Independent Feature Plugins Not Yet Present
+- There are currently **no standalone feature plugin packages** such as `@quajs/plugin-audio`, `@quajs/plugin-ui`, `@quajs/plugin-save-load`, `@quajs/plugin-settings`, `@quajs/plugin-backlog`, `@quajs/plugin-gallery`, or achievement/inventory plugins.
+- When added, feature plugins should live under `packages/plugins/*` or another explicit plugin package group and should integrate through engine/render-core/pipeline contracts instead of mutating renderer state or extending engine core with product-specific UI semantics.
 
 ## Development Infrastructure
 
