@@ -143,6 +143,9 @@ importers:
       '@quajs/engine':
         specifier: workspace:*
         version: link:../../core/engine
+      '@quajs/plugin-background':
+        specifier: workspace:*
+        version: link:../../plugins/background
       '@quajs/plugin-discovery':
         specifier: workspace:*
         version: link:../../plugins/plugin-discovery
@@ -281,6 +284,15 @@ importers:
       lzma-web:
         specifier: 'catalog:'
         version: 3.0.1
+
+  packages/plugins/background:
+    dependencies:
+      '@quajs/engine':
+        specifier: workspace:*
+        version: link:../../core/engine
+      '@quajs/render-core':
+        specifier: workspace:*
+        version: link:../../render/core
 
   packages/plugins/plugin-discovery:
     dependencies:

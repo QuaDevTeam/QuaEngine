@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { backgroundDecoratorMappings } from '@quajs/plugin-background'
 import { QuaScriptTransformer } from '../src/core/transformer'
+import { mergeDecoratorMappings } from '../src/core/types'
 
 describe('quaScriptTransformer', () => {
   it('should transform simple qs template literal', () => {
@@ -104,12 +106,17 @@ describe('quaScriptTransformer', () => {
     expect(() => transformer.transformSource(source)).toThrow('@SetSprite requires asset')
   })
 
-  it('should transform background decorators through engine state', () => {
-    const transformer = new QuaScriptTransformer()
+  it('should transform background decorators through the background plugin', () => {
+    const transformer = createBackgroundTransformer()
     const source = `
       function scene1() {
         dialogue(qs\`
-          @SetBackground('classroom.png')
+          @SetBackground('classroom.png', 'fade', 300, 'ease-out')
+          @VideoBackground('rain.mp4', true, true, 0.4, 'rain.png', 'crossfade', 500)
+          @SetLayeredBackground('fade', 200)
+          @BackgroundLayer('sky', 'sky.png', 0, 0, 1, 1, 0)
+          @BackgroundLayerTransition('sky', 'fade', 180)
+          @BackgroundTransition('wipe', 240)
           @ClearBackground()
           Jack: Hello world!
         \`)
@@ -118,13 +125,28 @@ describe('quaScriptTransformer', () => {
 
     const result = transformer.transformSource(source)
 
-    expect(result).toContain('ctx.engine.setBackground("classroom.png")')
-    expect(result).toContain('ctx.engine.clearBackground()')
+    expect(result).toContain('setBackgroundWithEngine(ctx.engine, "classroom.png", {')
+    expect(result).toContain('type: "fade"')
+    expect(result).toContain('duration: 300')
+    expect(result).toContain('easing: "ease-out"')
+    expect(result).toContain('setVideoBackgroundWithEngine(ctx.engine, "rain.mp4", {')
+    expect(result).toContain('loop: true')
+    expect(result).toContain('muted: true')
+    expect(result).toContain('volume: 0.4')
+    expect(result).toContain('poster: "rain.png"')
+    expect(result).toContain('setLayeredBackgroundWithEngine(ctx.engine, [], {')
+    expect(result).toContain('addBackgroundLayerWithEngine(ctx.engine, {')
+    expect(result).toContain('id: "sky"')
+    expect(result).toContain('assetName: "sky.png"')
+    expect(result).toContain('transitionBackgroundLayerWithEngine(ctx.engine, "sky", {')
+    expect(result).toContain('transitionBackgroundWithEngine(ctx.engine, {')
+    expect(result).toContain('clearBackgroundWithEngine(ctx.engine)')
+    expect(result).toMatch(/import.*setBackgroundWithEngine.*clearBackgroundWithEngine.*setVideoBackgroundWithEngine.*setLayeredBackgroundWithEngine.*addBackgroundLayerWithEngine.*transitionBackgroundWithEngine.*transitionBackgroundLayerWithEngine.*from.*@quajs\/plugin-background/s)
     expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello world!")')
   })
 
   it('should require a background asset for set background decorators', () => {
-    const transformer = new QuaScriptTransformer()
+    const transformer = createBackgroundTransformer()
     const source = `
       function scene1() {
         dialogue(qs\`
@@ -135,6 +157,23 @@ describe('quaScriptTransformer', () => {
     `
 
     expect(() => transformer.transformSource(source)).toThrow('@SetBackground requires asset')
+  })
+
+  it('does not treat background decorators as compiler built-ins', () => {
+    const transformer = new QuaScriptTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @SetBackground('classroom.png')
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).not.toContain('setBackgroundWithEngine')
+    expect(result).not.toContain('ctx.engine.setBackground')
   })
 
   it('should add required imports', () => {
@@ -239,3 +278,7 @@ describe('quaScriptTransformer', () => {
     expect(result).toContain('enabled: flags.canStayHome')
   })
 })
+
+function createBackgroundTransformer(): QuaScriptTransformer {
+  return new QuaScriptTransformer(mergeDecoratorMappings(backgroundDecoratorMappings))
+}

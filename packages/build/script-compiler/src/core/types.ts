@@ -68,14 +68,6 @@ export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
     function: 'playBGM',
     module: '@quajs/engine',
   },
-  SetBackground: {
-    function: 'setBackground',
-    module: '@quajs/engine',
-  },
-  ClearBackground: {
-    function: 'clearBackground',
-    module: '@quajs/engine',
-  },
   Dub: {
     function: 'dub',
     module: '@quajs/engine',

@@ -1,4 +1,5 @@
 import type { CompilerOptions, DecoratorMapping } from '../core/types'
+import { backgroundDecoratorMappings } from '@quajs/plugin-background'
 import { getDiscoveredDecoratorMappings } from '@quajs/plugin-discovery'
 import { QuaScriptTransformer } from '../core/transformer'
 import { mergeDecoratorMappings } from '../core/types'
@@ -8,11 +9,14 @@ import { mergeDecoratorMappings } from '../core/types'
  */
 async function getPluginDecorators(projectRoot?: string): Promise<DecoratorMapping> {
   try {
-    return await getDiscoveredDecoratorMappings(projectRoot)
+    const discovered = await getDiscoveredDecoratorMappings(projectRoot)
+    return {
+      ...backgroundDecoratorMappings,
+      ...discovered,
+    }
   }
   catch {
-    // Plugin discovery not available or failed
-    return {}
+    return { ...backgroundDecoratorMappings }
   }
 }
 
