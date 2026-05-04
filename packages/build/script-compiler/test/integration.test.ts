@@ -39,7 +39,7 @@ describe('quaScript Integration Tests', () => {
       
       Jack: Welcome to the story!
       
-      @UseSprite('john_thinking.png')
+      @SetSprite('john_thinking.png')
       John: This is interesting \${playerThought}.
       
       @PlaySound('click.wav')

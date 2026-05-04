@@ -60,10 +60,6 @@ export interface DecoratorMapping {
 }
 
 export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
-  RunFunction: {
-    function: 'runFunction',
-    module: '@quajs/engine',
-  },
   PlaySound: {
     function: 'playSound',
     module: '@quajs/engine',
@@ -84,11 +80,7 @@ export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
     function: 'dub',
     module: '@quajs/engine',
   },
-  UseSprite: {
-    function: 'sprite',
-    module: '@quajs/character',
-  },
-  UseCharacterSprite: {
+  SetSprite: {
     function: 'sprite',
     module: '@quajs/character',
   },
@@ -105,10 +97,6 @@ export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
     module: '@quajs/character',
   },
   SetExpression: {
-    function: 'expression',
-    module: '@quajs/character',
-  },
-  SetCharacterExpression: {
     function: 'expression',
     module: '@quajs/character',
   },
