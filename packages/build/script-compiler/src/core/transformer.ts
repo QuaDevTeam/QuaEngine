@@ -313,9 +313,6 @@ export class QuaScriptTransformer {
     })
 
     if (mapping.module === '@quajs/engine') {
-      if (mapping.function === 'setBackground') {
-        args[0] = this.requireDecoratorArg(decorator, args[0], 'asset')
-      }
       return t.callExpression(
         t.memberExpression(
           t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
@@ -323,6 +320,10 @@ export class QuaScriptTransformer {
         ),
         args,
       )
+    }
+
+    if (mapping.module === '@quajs/plugin-background') {
+      return this.createBackgroundDecoratorCall(decorator, mapping, args)
     }
 
     if (mapping.module === '@quajs/character' && mapping.function === 'sprite') {
@@ -391,6 +392,140 @@ export class QuaScriptTransformer {
     }
 
     return t.callExpression(t.identifier(mapping.function), args)
+  }
+
+  private createBackgroundDecoratorCall(decorator: any, mapping: any, args: t.Expression[]): t.CallExpression {
+    const engineArg = t.memberExpression(t.identifier('ctx'), t.identifier('engine'))
+    this.usedRuntimeHelpers.add(mapping.function)
+
+    switch (mapping.function) {
+      case 'setBackgroundWithEngine': {
+        const asset = this.requireDecoratorArg(decorator, args[0], 'asset')
+        return t.callExpression(
+          t.identifier('setBackgroundWithEngine'),
+          [engineArg, asset, this.createTransitionObject(args.slice(1), false)].filter(Boolean) as t.Expression[],
+        )
+      }
+      case 'clearBackgroundWithEngine':
+        return t.callExpression(t.identifier('clearBackgroundWithEngine'), [engineArg])
+      case 'setVideoBackgroundWithEngine': {
+        const asset = this.requireDecoratorArg(decorator, args[0], 'asset')
+        return t.callExpression(
+          t.identifier('setVideoBackgroundWithEngine'),
+          [engineArg, asset, this.createVideoBackgroundOptionsObject(args.slice(1))],
+        )
+      }
+      case 'setLayeredBackgroundWithEngine':
+        return t.callExpression(
+          t.identifier('setLayeredBackgroundWithEngine'),
+          [engineArg, t.arrayExpression([]), this.createLayeredBackgroundOptionsObject(args)],
+        )
+      case 'addBackgroundLayerWithEngine': {
+        const id = this.requireDecoratorArg(decorator, args[0], 'layer id')
+        const asset = this.requireDecoratorArg(decorator, args[1], 'asset')
+        return t.callExpression(
+          t.identifier('addBackgroundLayerWithEngine'),
+          [engineArg, this.createBackgroundLayerObject(id, asset, args.slice(2))],
+        )
+      }
+      case 'removeBackgroundLayerWithEngine': {
+        const id = this.requireDecoratorArg(decorator, args[0], 'layer id')
+        return t.callExpression(t.identifier('removeBackgroundLayerWithEngine'), [engineArg, id])
+      }
+      case 'clearBackgroundLayersWithEngine':
+        return t.callExpression(t.identifier('clearBackgroundLayersWithEngine'), [engineArg])
+      case 'transitionBackgroundWithEngine': {
+        const transition = this.createTransitionObject(args, true)
+        return t.callExpression(t.identifier('transitionBackgroundWithEngine'), [engineArg, transition])
+      }
+      case 'transitionBackgroundLayerWithEngine': {
+        const id = this.requireDecoratorArg(decorator, args[0], 'layer id')
+        const transition = this.createTransitionObject(args.slice(1), true)
+        return t.callExpression(t.identifier('transitionBackgroundLayerWithEngine'), [engineArg, id, transition])
+      }
+      default:
+        return t.callExpression(t.identifier(mapping.function), [engineArg, ...args])
+    }
+  }
+
+  private createTransitionObject(args: Array<t.Expression | undefined>, required: true): t.ObjectExpression
+  private createTransitionObject(args: Array<t.Expression | undefined>, required?: false): t.ObjectExpression | undefined
+  private createTransitionObject(args: Array<t.Expression | undefined>, required = false): t.ObjectExpression | undefined {
+    const [type, duration, easing] = args
+    if (!type) {
+      if (required) {
+        return t.objectExpression([
+          t.objectProperty(t.identifier('type'), t.stringLiteral('instant')),
+        ])
+      }
+      return undefined
+    }
+
+    const properties: t.ObjectProperty[] = [
+      t.objectProperty(t.identifier('type'), type),
+    ]
+    if (duration)
+      properties.push(t.objectProperty(t.identifier('duration'), duration))
+    if (easing)
+      properties.push(t.objectProperty(t.identifier('easing'), easing))
+    return t.objectExpression(properties)
+  }
+
+  private createVideoBackgroundOptionsObject(args: Array<t.Expression | undefined>): t.ObjectExpression {
+    const [loop, muted, volume, poster, transitionType, duration, easing, playbackRate] = args
+    const properties: t.ObjectProperty[] = []
+    if (loop)
+      properties.push(t.objectProperty(t.identifier('loop'), loop))
+    if (muted)
+      properties.push(t.objectProperty(t.identifier('muted'), muted))
+    if (volume)
+      properties.push(t.objectProperty(t.identifier('volume'), volume))
+    if (poster)
+      properties.push(t.objectProperty(t.identifier('poster'), poster))
+    if (playbackRate)
+      properties.push(t.objectProperty(t.identifier('playbackRate'), playbackRate))
+    const transition = this.createTransitionObject([transitionType, duration, easing], false)
+    if (transition)
+      properties.push(t.objectProperty(t.identifier('transition'), transition))
+    return t.objectExpression(properties)
+  }
+
+  private createLayeredBackgroundOptionsObject(args: Array<t.Expression | undefined>): t.ObjectExpression {
+    const [transitionType, duration, easing] = args
+    const properties: t.ObjectProperty[] = []
+    const transition = this.createTransitionObject([transitionType, duration, easing], false)
+    if (transition)
+      properties.push(t.objectProperty(t.identifier('transition'), transition))
+    return t.objectExpression(properties)
+  }
+
+  private createBackgroundLayerObject(
+    id: t.Expression,
+    assetName: t.Expression,
+    args: Array<t.Expression | undefined>,
+  ): t.ObjectExpression {
+    const [x, y, scale, opacity, zIndex, assetType, rotation, blendMode] = args
+    const properties: t.ObjectProperty[] = [
+      t.objectProperty(t.identifier('id'), id),
+      t.objectProperty(t.identifier('assetName'), assetName),
+    ]
+    if (x)
+      properties.push(t.objectProperty(t.identifier('x'), x))
+    if (y)
+      properties.push(t.objectProperty(t.identifier('y'), y))
+    if (scale)
+      properties.push(t.objectProperty(t.identifier('scale'), scale))
+    if (opacity)
+      properties.push(t.objectProperty(t.identifier('opacity'), opacity))
+    if (zIndex)
+      properties.push(t.objectProperty(t.identifier('zIndex'), zIndex))
+    if (assetType)
+      properties.push(t.objectProperty(t.identifier('assetType'), assetType))
+    if (rotation)
+      properties.push(t.objectProperty(t.identifier('rotation'), rotation))
+    if (blendMode)
+      properties.push(t.objectProperty(t.identifier('blendMode'), blendMode))
+    return t.objectExpression(properties)
   }
 
   private createCharacterOptionsObject(args: t.Expression[]): t.ObjectExpression {
@@ -523,6 +658,9 @@ export class QuaScriptTransformer {
         if (mapping.module === '@quajs/character' && this.isEngineInjectedCharacterHelper(mapping.function)) {
           return
         }
+        if (mapping.module === '@quajs/plugin-background' && this.isEngineInjectedBackgroundHelper(mapping.function)) {
+          return
+        }
         if (!importMap.has(mapping.module)) {
           importMap.set(mapping.module, new Set())
         }
@@ -574,6 +712,25 @@ export class QuaScriptTransformer {
       }
     })
 
+    ;[
+      'setBackgroundWithEngine',
+      'clearBackgroundWithEngine',
+      'setVideoBackgroundWithEngine',
+      'setLayeredBackgroundWithEngine',
+      'addBackgroundLayerWithEngine',
+      'removeBackgroundLayerWithEngine',
+      'clearBackgroundLayersWithEngine',
+      'transitionBackgroundWithEngine',
+      'transitionBackgroundLayerWithEngine',
+    ].forEach((helper) => {
+      if (this.usedRuntimeHelpers.has(helper)) {
+        if (!importMap.has('@quajs/plugin-background')) {
+          importMap.set('@quajs/plugin-background', new Set())
+        }
+        importMap.get('@quajs/plugin-background')!.add(helper)
+      }
+    })
+
     // Generate import statements for modules that have functions to import
     importMap.forEach((functions, module) => {
       if (functions.size > 0) {
@@ -592,5 +749,19 @@ export class QuaScriptTransformer {
 
   private isEngineInjectedCharacterHelper(functionName: string): boolean {
     return ['sprite', 'show', 'hide', 'move', 'expression'].includes(functionName)
+  }
+
+  private isEngineInjectedBackgroundHelper(functionName: string): boolean {
+    return [
+      'setBackgroundWithEngine',
+      'clearBackgroundWithEngine',
+      'setVideoBackgroundWithEngine',
+      'setLayeredBackgroundWithEngine',
+      'addBackgroundLayerWithEngine',
+      'removeBackgroundLayerWithEngine',
+      'clearBackgroundLayersWithEngine',
+      'transitionBackgroundWithEngine',
+      'transitionBackgroundLayerWithEngine',
+    ].includes(functionName)
   }
 }

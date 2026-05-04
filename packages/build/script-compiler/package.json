@@ -39,6 +39,7 @@
     "@babel/types": "^7.29.0",
     "@quajs/character": "workspace:*",
     "@quajs/engine": "workspace:*",
+    "@quajs/plugin-background": "workspace:*",
     "@quajs/plugin-discovery": "workspace:*",
     "@quajs/render-core": "workspace:*",
     "uuid": "^14.0.0"

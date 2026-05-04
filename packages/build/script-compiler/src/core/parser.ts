@@ -289,8 +289,6 @@ export class QuaScriptParser {
     switch (decorator.name) {
       case 'PlaySound':
       case 'PlayBGM':
-      case 'SetBackground':
-      case 'ClearBackground':
       case 'Dub':
       case 'SetVolume':
         imports.add('@quajs/engine')
