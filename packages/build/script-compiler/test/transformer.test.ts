@@ -40,7 +40,86 @@ describe('quaScriptTransformer', () => {
     const result = transformer.transformSource(source)
 
     expect(result).toContain('ctx.engine.playSound("hello.mp3")')
-    expect(result).toContain('spriteWithEngine(ctx.engine, "__current__", "jack_happy.png")')
+    expect(result).toContain('spriteWithEngine(ctx.engine, "Jack", "jack_happy.png")')
+    expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello world!")')
+  })
+
+  it('should transform character decorators through character helpers and engine state', () => {
+    const transformer = new QuaScriptTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @ShowCharacter('Jack', 'jack_idle.png', 'neutral', 40, 80, 2)
+          @MoveCharacter('Jack', 55, 80, 1.1)
+          @SetExpression('happy', 'Jack')
+          @HideCharacter('Jack')
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('showWithEngine(ctx.engine, "Jack", {')
+    expect(result).toContain('sprite: "jack_idle.png"')
+    expect(result).toContain('expression: "neutral"')
+    expect(result).toContain('position: {')
+    expect(result).toContain('x: 40')
+    expect(result).toContain('y: 80')
+    expect(result).toContain('layer: 2')
+    expect(result).toContain('moveWithEngine(ctx.engine, "Jack", {')
+    expect(result).toContain('scale: 1.1')
+    expect(result).toContain('expressionWithEngine(ctx.engine, "Jack", "happy")')
+    expect(result).toContain('hideWithEngine(ctx.engine, "Jack")')
+    expect(result).toMatch(/import.*speakWithEngine.*showWithEngine.*hideWithEngine.*moveWithEngine.*expressionWithEngine.*from.*@quajs\/character/s)
+    expect(result).not.toMatch(/import.*show,.*from.*@quajs\/character/s)
+  })
+
+  it('should require an explicit character for action-only character decorators', () => {
+    const transformer = new QuaScriptTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @UseSprite('jack_happy.png')
+
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    expect(() => transformer.transformSource(source)).toThrow('@UseSprite requires an explicit character')
+  })
+
+  it('should require a sprite asset for sprite decorators', () => {
+    const transformer = new QuaScriptTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @UseSprite()
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    expect(() => transformer.transformSource(source)).toThrow('@UseSprite requires asset')
+  })
+
+  it('should transform background decorators through engine state', () => {
+    const transformer = new QuaScriptTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @SetBackground('classroom.png')
+          @ClearBackground()
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('ctx.engine.setBackground("classroom.png")')
+    expect(result).toContain('ctx.engine.clearBackground()')
     expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello world!")')
   })
 

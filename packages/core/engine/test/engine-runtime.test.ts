@@ -82,6 +82,17 @@ describe('QuaEngine runtime architecture', () => {
     expect(engine.getViewState().audio.sounds).toEqual([])
   })
 
+  it('exposes clearBackground on the engine instance', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.setBackground('bg.png')
+    expect(engine.getViewState().background).toEqual({ assetName: 'bg.png', transition: undefined })
+
+    await engine.clearBackground()
+    expect(engine.getViewState().background).toBeUndefined()
+  })
+
   it('keeps scene lifecycle history and audio fade intent in engine-owned state', async () => {
     const engine = createEngine()
     await engine.init()

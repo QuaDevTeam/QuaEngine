@@ -294,6 +294,10 @@ export class QuaEngine {
     await this.emitViewUpdate()
   }
 
+  async clearBackground(): Promise<void> {
+    await this.setBackground(undefined)
+  }
+
   async playSound(assetName: string, options: SoundOptions = {}): Promise<void> {
     this.assertInitialized()
     const volume = this.calculateVolume('sound', options.volume)

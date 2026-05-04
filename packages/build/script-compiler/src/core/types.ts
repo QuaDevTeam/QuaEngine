@@ -72,6 +72,14 @@ export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
     function: 'playBGM',
     module: '@quajs/engine',
   },
+  SetBackground: {
+    function: 'setBackground',
+    module: '@quajs/engine',
+  },
+  ClearBackground: {
+    function: 'clearBackground',
+    module: '@quajs/engine',
+  },
   Dub: {
     function: 'dub',
     module: '@quajs/engine',
@@ -82,6 +90,26 @@ export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
   },
   UseCharacterSprite: {
     function: 'sprite',
+    module: '@quajs/character',
+  },
+  ShowCharacter: {
+    function: 'show',
+    module: '@quajs/character',
+  },
+  HideCharacter: {
+    function: 'hide',
+    module: '@quajs/character',
+  },
+  MoveCharacter: {
+    function: 'move',
+    module: '@quajs/character',
+  },
+  SetExpression: {
+    function: 'expression',
+    module: '@quajs/character',
+  },
+  SetCharacterExpression: {
+    function: 'expression',
     module: '@quajs/character',
   },
   SetVolume: {

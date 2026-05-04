@@ -14,6 +14,8 @@ export {
   hideDialogue,
   showChoices,
   clearChoices,
+  setBackground,
+  clearBackground,
   initEngine,
   loadFromSlot,
   loadScene,
