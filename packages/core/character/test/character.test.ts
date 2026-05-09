@@ -147,6 +147,7 @@ function createEngine(viewPatch: Record<string, unknown> = {}) {
       overlays: {},
     },
     effects: [],
+    animations: [],
     audio: {
       volumeSettings: {
         master: 1,

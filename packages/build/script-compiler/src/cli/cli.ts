@@ -4,6 +4,7 @@ import type { CompilerOptions, DecoratorMapping } from '../core/types'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import process from 'node:process'
+import { animationDecoratorMappings } from '@quajs/plugin-animation'
 import { backgroundDecoratorMappings } from '@quajs/plugin-background'
 import { QuaScriptTransformer } from '../core/transformer'
 import { mergeDecoratorMappings } from '../core/types'
@@ -151,6 +152,7 @@ function main() {
     // Create transformer and process
     const transformer = new QuaScriptTransformer(
       mergeDecoratorMappings({
+        ...animationDecoratorMappings,
         ...backgroundDecoratorMappings,
         ...(decoratorMappings || {}),
       }),

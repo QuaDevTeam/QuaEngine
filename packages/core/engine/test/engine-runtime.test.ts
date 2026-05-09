@@ -93,6 +93,44 @@ describe('QuaEngine runtime architecture', () => {
     expect(engine.getViewState().background).toBeUndefined()
   })
 
+  it('stores animation projections in the engine-owned view lane', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.setAnimationProjection({
+      id: 'animation:1',
+      definitionId: 'enter',
+      state: 'running',
+      startedAt: 1000,
+      duration: 480,
+      playbackRate: 1,
+      resolvedTracks: [{
+        target: 'character:Alice',
+        property: 'position.x',
+        keyframes: [{ at: 0, value: -180 }],
+      }],
+    })
+
+    const projected = engine.getViewState() as any
+    projected.animations[0].resolvedTracks[0].keyframes[0].value = 999
+
+    expect(engine.getViewState().animations[0].resolvedTracks[0].keyframes[0].value).toBe(-180)
+
+    await engine.removeAnimationProjection('animation:1')
+    expect(engine.getViewState().animations).toEqual([])
+
+    await engine.setAnimationProjection({
+      id: 'animation:2',
+      state: 'running',
+      startedAt: 1000,
+      duration: 100,
+      playbackRate: 1,
+      resolvedTracks: [],
+    })
+    await engine.clearAnimationProjections()
+    expect(engine.getViewState().animations).toEqual([])
+  })
+
   it('keeps scene lifecycle history and audio fade intent in engine-owned state', async () => {
     const engine = createEngine()
     await engine.init()
