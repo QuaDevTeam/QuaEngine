@@ -1,3 +1,4 @@
+import type { QuaEngineInterface } from '@quajs/engine'
 import type {
   ActiveAnimationProjection,
   AnimationFillMode,
@@ -10,8 +11,8 @@ import type {
   ViewCharacterProjection,
   ViewEffectProjection,
 } from '@quajs/render-core'
-import type { QuaEngineInterface } from '@quajs/engine'
 import { BaseEnginePlugin } from '@quajs/engine'
+import { animationDecoratorMappings } from './script-compiler'
 
 export type AnimationCommitMode = 'none' | 'final' | { properties: readonly string[] }
 export type AnimationTargetBindings = Readonly<Record<string, string>> | readonly string[]
@@ -91,25 +92,6 @@ interface AnimationRuntime {
   warned: Set<string>
   counter: number
 }
-
-export const animationDecoratorMappings = {
-  DefineAnimation: {
-    function: 'registerAnimationWithEngine',
-    module: '@quajs/plugin-animation',
-  },
-  Timeline: {
-    function: 'playTimelineWithEngine',
-    module: '@quajs/plugin-animation',
-  },
-  Key: {
-    function: 'defineAnimationKeyframe',
-    module: '@quajs/plugin-animation',
-  },
-  PlayAnimation: {
-    function: 'playAnimationWithEngine',
-    module: '@quajs/plugin-animation',
-  },
-} as const
 
 const runtimes = new WeakMap<QuaEngineInterface, AnimationRuntime>()
 const globalAdapters = new Map<string, AnimationTargetAdapter>()
@@ -641,7 +623,7 @@ function warn(runtime: AnimationRuntime, message: string, strict: boolean): void
 }
 
 function isConcreteSelector(value: string): boolean {
-  return /^[A-Za-z][\w-]*:.+/.test(value)
+  return /^[A-Z][\w-]*:.+/i.test(value)
 }
 
 function targetKind(selector: string): string {
@@ -863,4 +845,5 @@ export const metadata = {
 } as const
 
 export const decorators = animationDecoratorMappings
+export { animationDecoratorMappings, createAnimationDecoratorCompiler, scriptCompiler } from './script-compiler'
 export const Plugin = AnimationPlugin

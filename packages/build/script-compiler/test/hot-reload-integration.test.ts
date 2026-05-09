@@ -4,8 +4,8 @@ import { getHotReloadManager, resetHotReloadManager } from '../src/core/hot-relo
 import { compileQuaScript } from '../src/index'
 import { createHotReloadAwareTransformer } from '../src/integrations/hot-reload-transformer'
 
-// Mock plugin discovery
-vi.mock('@quajs/plugin-discovery', () => ({
+// Mock engine-backed plugin discovery
+vi.mock('@quajs/engine', () => ({
   getDiscoveredDecoratorMappings: vi.fn(async () => ({
     CustomDecorator: {
       function: 'customFunction',
@@ -267,12 +267,9 @@ describe('hot-Reload Integration', () => {
       const transformer = createHotReloadAwareTransformer()
 
       // First compilation (no cache)
-      const start1 = Date.now()
       const result1 = transformer.transformSource(source, filePath)
-      const time1 = Date.now() - start1
 
       // Second compilation (should use cache)
-      const start2 = Date.now()
       const result2 = transformer.transformSource(source, filePath)
 
       expect(result1).toBe(result2) // Same result

@@ -2,6 +2,8 @@
  * QuaScript AST node types
  */
 
+import { characterDecoratorMappings } from '@quajs/character/script-compiler'
+
 export interface QuaScriptDecorator {
   name: string
   args: (string | number | boolean)[]
@@ -72,26 +74,6 @@ export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
     function: 'dub',
     module: '@quajs/engine',
   },
-  SetSprite: {
-    function: 'sprite',
-    module: '@quajs/character',
-  },
-  ShowCharacter: {
-    function: 'show',
-    module: '@quajs/character',
-  },
-  HideCharacter: {
-    function: 'hide',
-    module: '@quajs/character',
-  },
-  MoveCharacter: {
-    function: 'move',
-    module: '@quajs/character',
-  },
-  SetExpression: {
-    function: 'expression',
-    module: '@quajs/character',
-  },
   SetVolume: {
     function: 'setVolume',
     module: '@quajs/engine',
@@ -104,6 +86,7 @@ export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
     function: 'loadFromSlot',
     module: '@quajs/engine',
   },
+  ...characterDecoratorMappings,
 }
 
 /**

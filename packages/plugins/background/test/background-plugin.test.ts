@@ -1,17 +1,17 @@
 import type { QuaEngineInterface } from '@quajs/engine'
 import { describe, expect, it, vi } from 'vitest'
 import {
-  BackgroundPlugin,
   addBackgroundLayerWithEngine,
   backgroundDecoratorMappings,
+  BackgroundPlugin,
   clearBackgroundLayersWithEngine,
   clearBackgroundWithEngine,
   removeBackgroundLayerWithEngine,
   setBackgroundWithEngine,
   setLayeredBackgroundWithEngine,
   setVideoBackgroundWithEngine,
-  transitionBackgroundWithEngine,
   transitionBackgroundLayerWithEngine,
+  transitionBackgroundWithEngine,
   updateBackgroundLayerWithEngine,
 } from '../src'
 

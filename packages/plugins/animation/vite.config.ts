@@ -14,13 +14,16 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: resolve(import.meta.dirname, 'src/index.ts'),
+      entry: {
+        'index': resolve(import.meta.dirname, 'src/index.ts'),
+        'script-compiler': resolve(import.meta.dirname, 'src/script-compiler.ts'),
+      },
       name: 'pluginAnimation',
-      fileName: 'index',
+      fileName: (_format, entryName) => `${entryName}.js`,
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['@quajs/engine', '@quajs/render-core'],
+      external: ['@babel/types', '@quajs/engine', '@quajs/render-core'],
       output: {
         globals: {},
       },

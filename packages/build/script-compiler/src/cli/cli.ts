@@ -2,12 +2,12 @@
 
 import type { CompilerOptions, DecoratorMapping } from '../core/types'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import process from 'node:process'
-import { animationDecoratorMappings } from '@quajs/plugin-animation'
-import { backgroundDecoratorMappings } from '@quajs/plugin-background'
-import { QuaScriptTransformer } from '../core/transformer'
-import { mergeDecoratorMappings } from '../core/types'
+import { fileURLToPath } from 'node:url'
+import { createPluginAwareTransformerAsync } from '../integrations/plugin-aware-transformer'
+
+const currentFile = fileURLToPath(import.meta.url)
 
 interface CLIOptions {
   input: string
@@ -87,7 +87,7 @@ Examples:
 function showVersion() {
   // Read package.json version
   try {
-    const packagePath = resolve(__dirname, '../package.json')
+    const packagePath = resolve(dirname(currentFile), '../package.json')
     const pkg = JSON.parse(readFileSync(packagePath, 'utf-8'))
     console.warn(`QuaScript Compiler v${pkg.version}`)
   }
@@ -107,7 +107,7 @@ function loadJSONFile(path: string): any {
   }
 }
 
-function main() {
+async function main() {
   const options = parseArgs()
 
   if (options.help) {
@@ -150,13 +150,12 @@ function main() {
     }
 
     // Create transformer and process
-    const transformer = new QuaScriptTransformer(
-      mergeDecoratorMappings({
-        ...animationDecoratorMappings,
-        ...backgroundDecoratorMappings,
-        ...(decoratorMappings || {}),
-      }),
-      compilerOptions,
+    const transformer = await createPluginAwareTransformerAsync(
+      decoratorMappings,
+      {
+        ...compilerOptions,
+        projectRoot: process.cwd(),
+      },
     )
     const transformedCode = transformer.transformSource(sourceCode)
 
@@ -175,6 +174,9 @@ function main() {
   }
 }
 
-if (require.main === module) {
-  main()
+if (process.argv[1] && resolve(process.argv[1]) === currentFile) {
+  main().catch((error) => {
+    console.error('Compilation failed:', error)
+    process.exit(1)
+  })
 }

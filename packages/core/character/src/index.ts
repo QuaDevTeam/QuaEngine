@@ -203,6 +203,13 @@ export async function setCurrentSprite(spriteAsset: string, character?: Characte
   await sprite(character ?? getCurrentDialogueCharacter(), spriteAsset)
 }
 
+export {
+  characterDecoratorMappings,
+  createCharacterDecoratorCompiler,
+  decorators,
+  scriptCompiler,
+} from './script-compiler'
+
 function resolveCharacter(character: CharacterRef): QuaCharacter {
   return typeof character === 'string' ? createCharacter(character) : character
 }

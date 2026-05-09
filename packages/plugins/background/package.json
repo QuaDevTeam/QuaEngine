@@ -15,6 +15,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./script-compiler": {
+      "types": "./dist/script-compiler.d.ts",
+      "import": "./dist/script-compiler.js"
     }
   },
   "main": "./dist/index.js",
@@ -36,6 +40,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@babel/types": "catalog:",
     "@quajs/engine": "workspace:*",
     "@quajs/render-core": "workspace:*"
   },

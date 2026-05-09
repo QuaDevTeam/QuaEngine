@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
 import { animationDecoratorMappings } from '@quajs/plugin-animation'
 import { backgroundDecoratorMappings } from '@quajs/plugin-background'
+import { describe, expect, it } from 'vitest'
 import { QuaScriptTransformer } from '../src/core/transformer'
 import { mergeDecoratorMappings } from '../src/core/types'
 
