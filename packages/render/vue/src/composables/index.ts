@@ -1,7 +1,7 @@
 import type { AssetType } from '@quajs/assets'
 import type { ComputedRef } from 'vue'
-import { computed, onBeforeUnmount, readonly, ref, watch } from 'vue'
 import { createObjectURL, revokeObjectURL } from '@quajs/assets-web'
+import { computed, onBeforeUnmount, readonly, ref, watch } from 'vue'
 import { useQuaRenderer } from '../context'
 
 export { useQuaRenderer } from '../context'
@@ -42,6 +42,60 @@ export function useAudio() {
 export function useEffects() {
   const { view } = useQuaRenderer()
   return computed(() => view.value.effects)
+}
+
+export function useAnimations() {
+  const { view } = useQuaRenderer()
+  return computed(() => view.value.animations)
+}
+
+export function useAnimationClock() {
+  const { view } = useQuaRenderer()
+  const now = ref(Date.now())
+  let frameHandle: number | undefined
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined
+
+  const stop = () => {
+    if (frameHandle !== undefined && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(frameHandle)
+    }
+    if (timeoutHandle !== undefined) {
+      clearTimeout(timeoutHandle)
+    }
+    frameHandle = undefined
+    timeoutHandle = undefined
+  }
+
+  const hasActiveAnimation = () => view.value.animations.some(animation => animation.state === 'running')
+
+  const tick = () => {
+    now.value = Date.now()
+    if (!hasActiveAnimation()) {
+      stop()
+      return
+    }
+
+    if (typeof requestAnimationFrame === 'function') {
+      frameHandle = requestAnimationFrame(() => tick())
+    }
+    else {
+      timeoutHandle = setTimeout(tick, 16)
+    }
+  }
+
+  watch(() => view.value.animations.map(animation => `${animation.id}:${animation.state}:${animation.startedAt}:${animation.pausedAt ?? ''}`).join('|'), () => {
+    stop()
+    if (hasActiveAnimation()) {
+      tick()
+    }
+    else {
+      now.value = Date.now()
+    }
+  }, { immediate: true })
+
+  onBeforeUnmount(stop)
+
+  return readonly(now)
 }
 
 export function useRendererActions() {

@@ -1,0 +1,263 @@
+# @quajs/renderer-vue
+
+Stateless Vue renderer for QuaEngine. The renderer projects view state received from `@quajs/pipeline`; it does not own game state and does not require a browser-local engine.
+
+## Runtime Shape
+
+`QuaRenderer` should be wired with:
+
+- `pipeline`: the only logic/render communication channel.
+- `assets`: the browser-side asset runtime used to resolve projected asset names into object URLs.
+- `initialView`: optional first-frame projection. Later projection updates should arrive through `LogicToRenderEvents.VIEW_UPDATE`.
+- `plugins`: optional renderer feature plugins such as background, character, dialogue, choices, audio, effects, and UI.
+
+```vue
+<template>
+  <QuaRenderer
+    :pipeline="pipeline"
+    :assets="assets"
+    :initial-view="initialView"
+    :plugins="rendererPlugins"
+  />
+</template>
+```
+
+## Complete Browser Initialization
+
+This example shows the browser renderer talking through a pipeline while loading assets from a CDN or asset server domain.
+
+```ts
+// src/main.ts
+import type { QuaViewProjection } from '@quajs/render-core'
+import { createWebAssetRuntime } from '@quajs/assets-web'
+import { Pipeline } from '@quajs/pipeline'
+import { QuaRenderer } from '@quajs/renderer-vue'
+import { createVisualNovelRendererPlugins } from '@quajs/renderer-vue/plugins/preset'
+import { createApp, h } from 'vue'
+
+const ASSET_ORIGIN = import.meta.env.VITE_QUA_ASSET_ORIGIN || 'https://assets.example.com/my-game'
+let bootProgress = 0
+
+const assets = await createWebAssetRuntime({
+  // loadBundle('main.qpk') resolves to:
+  // https://assets.example.com/my-game/bundles/main.qpk
+  endpoint: `${ASSET_ORIGIN}/bundles`,
+  locale: 'default',
+  enableCache: true,
+  web: {
+    databaseName: 'MyGameAssets',
+  },
+  initialBundles: ['main.qpk', 'shared.qpk'],
+  onProgress: ({ bundleIndex, bundleCount, progress }) => {
+    bootProgress = (bundleIndex + progress) / bundleCount
+  },
+})
+
+const pipeline = new Pipeline({
+  // Install your transport plugin here when the engine runs elsewhere,
+  // for example a WebSocket/SSE bridge that forwards pipeline events.
+  plugins: [],
+})
+
+const initialView: QuaViewProjection = {
+  characters: [],
+  dialogue: { visible: false, text: '' },
+  choices: [],
+  ui: { visible: true },
+  effects: [],
+  animations: [],
+  audio: {
+    volumeSettings: { master: 1, bgm: 1, sound: 1, voice: 1 },
+    sounds: [],
+    voices: [],
+  },
+}
+
+createApp({
+  render: () => h(QuaRenderer, {
+    pipeline,
+    assets,
+    initialView,
+    plugins: createVisualNovelRendererPlugins(),
+  }),
+}).mount('#app')
+```
+
+With this setup, projected asset names are looked up from the loaded bundles:
+
+```ts
+const projectedView = {
+  background: { mode: 'image', assetName: 'classroom.png' },
+  characters: [{ id: 'Alice', name: 'Alice', visible: true, sprite: 'alice.png' }]
+}
+```
+
+The Vue renderer asks `assets.getAsset('images', 'classroom.png')` or `assets.getAsset('characters', 'alice.png')`, creates browser object URLs, and revokes them on cleanup.
+
+## Progressive Bundles
+
+The first required bundle(s) can be loaded during startup, and later bundles can arrive on demand with the same `loadBundle()` API:
+
+```ts
+let chapterProgress = 0
+
+await assets.loadBundle('chapter-2.qpk', {
+  onProgress: (loaded, total) => {
+    chapterProgress = total > 0 ? loaded / total : 0
+  },
+})
+```
+
+## Dev Mode With Vite
+
+For local development, prefer the Vite asset VFS helper:
+
+```ts
+import { createViteDevAssetRuntime } from '@quajs/assets-web'
+
+const assets = await createViteDevAssetRuntime({
+  hmr: import.meta.hot,
+  web: {
+    databaseName: 'MyGameAssets',
+  },
+})
+```
+
+The Vite plugin at `@quajs/vite-plugin` mounts the dev asset route and forwards file changes as `qua-assets:update`. `QuaRenderer` listens to the local `assets` runtime's `asset:changed` event, so changed images/audio reload without a browser refresh.
+
+In `vite.config.ts`:
+
+```ts
+import { quaEngine } from '@quajs/vite-plugin'
+import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    ...quaEngine({
+      assetBundling: {
+        source: 'assets',
+        devVfs: true,
+        devVfsBase: '/@qua-assets',
+      },
+    }),
+  ],
+})
+```
+
+## Manifest/Loose Asset Domain
+
+If your browser renderer should load loose files from an asset manifest instead of a bundled `.qpk`, configure a provider domain:
+
+```ts
+import { createDevVfsProvider, createWebAssetRuntime } from '@quajs/assets-web'
+
+const ASSET_ORIGIN = 'https://assets.example.com/my-game'
+
+const assets = await createWebAssetRuntime({
+  provider: createDevVfsProvider({
+    // Must return an AssetManifest JSON object.
+    manifestUrl: `${ASSET_ORIGIN}/manifest.json`,
+    // Relative record.path values in the manifest are resolved under this base URL.
+    assetBaseUrl: `${ASSET_ORIGIN}/files/`,
+  }),
+  locale: 'default',
+  web: {
+    databaseName: 'MyGameAssets',
+  },
+})
+```
+
+Example manifest:
+
+```json
+{
+  "version": "1",
+  "provider": "cdn",
+  "assets": [
+    {
+      "id": "cdn:default:images:classroom.png",
+      "bundleName": "cdn",
+      "name": "classroom.png",
+      "type": "images",
+      "locale": "default",
+      "path": "images/classroom.png",
+      "mimeType": "image/png"
+    },
+    {
+      "id": "cdn:default:characters:alice.png",
+      "bundleName": "cdn",
+      "name": "alice.png",
+      "type": "characters",
+      "locale": "default",
+      "path": "characters/alice.png",
+      "mimeType": "image/png"
+    }
+  ]
+}
+```
+
+Absolute `path` values such as `https://cdn.example.com/assets/bg.png` are used directly. Relative `path` values are resolved against `assetBaseUrl`.
+
+## Low-Level Asset API
+
+If you need manual lifecycle control, bypass `createWebAssetRuntime()` and use the lower-level runtime calls directly:
+
+```ts
+import { createWebAssets } from '@quajs/assets-web'
+
+let bootProgress = 0
+
+const assets = createWebAssets({
+  endpoint: 'https://assets.example.com/my-game/bundles',
+  web: { databaseName: 'MyGameAssets' },
+})
+
+await assets.initialize()
+await assets.loadBundle('main.qpk', {
+  onProgress: (loaded, total) => {
+    bootProgress = total > 0 ? loaded / total : 0
+  },
+})
+```
+
+`initialize()` opens browser storage, initializes the active provider, and starts provider watchers. Most app code should use `createWebAssetRuntime()` or `createViteDevAssetRuntime()` instead, so you do not need to manage initialization yourself.
+
+## Remote Engine Flow
+
+When the engine runs on a server, the browser should only host renderer-side services:
+
+```ts
+const pipeline = new Pipeline({
+  plugins: [
+    // Your pipeline transport plugin forwards:
+    // - logic -> render events, especially LogicToRenderEvents.VIEW_UPDATE
+    // - render -> logic intents, such as RenderToLogicEvents.USER_ADVANCE
+  ],
+})
+```
+
+The browser renderer receives full view projections from pipeline events and never reads or mutates engine/store state directly.
+
+## CORS Notes
+
+Asset domains must allow browser fetches from the renderer origin. At minimum, configure the asset server with an `Access-Control-Allow-Origin` policy that includes your game site. If you use credentials, configure `Access-Control-Allow-Credentials` and a custom `fetcher` in `createWebAssets({ web: { fetcher } })`.
+
+```ts
+const assets = createWebAssets({
+  endpoint: 'https://assets.example.com/my-game/bundles',
+  web: {
+    fetcher: (url, init) => fetch(url, { ...init, credentials: 'include' }),
+  },
+})
+```
+
+## Styles
+
+The renderer does not auto-import visual CSS. Import optional styles explicitly:
+
+```ts
+import '@quajs/renderer-vue/styles/base.scss'
+import '@quajs/renderer-vue/styles/default.scss'
+```

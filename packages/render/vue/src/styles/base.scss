@@ -26,11 +26,22 @@
   inset: 0;
 }
 
+.qua-layered-background {
+  transform-origin: center center;
+  transform: translate(calc(var(--qua-background-x, 0) * 1px), calc(var(--qua-background-y, 0) * 1px))
+    scale(var(--qua-background-scale, 1)) rotate(calc(var(--qua-background-rotation, 0) * 1deg));
+  opacity: var(--qua-background-opacity, 1);
+}
+
 .qua-background {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform-origin: center center;
+  transform: translate(calc(var(--qua-background-x, 0) * 1px), calc(var(--qua-background-y, 0) * 1px))
+    scale(var(--qua-background-scale, 1)) rotate(calc(var(--qua-background-rotation, 0) * 1deg));
+  opacity: var(--qua-background-opacity, 1);
 }
 
 .qua-background--video,
@@ -44,6 +55,16 @@
   position: absolute;
   display: block;
   object-fit: cover;
+  transform-origin: center center;
+  transform: translate(calc(var(--qua-background-layer-x, 0) * 1px), calc(var(--qua-background-layer-y, 0) * 1px))
+    scale(var(--qua-background-layer-scale, 1)) rotate(calc(var(--qua-background-layer-rotation, 0) * 1deg));
+  opacity: var(--qua-background-layer-opacity, 1);
+  z-index: var(--qua-background-layer-z-index, 0);
+  mix-blend-mode: var(--qua-background-layer-blend-mode, normal);
+}
+
+.qua-background-layer-item.is-hidden {
+  visibility: hidden;
 }
 
 .qua-character {
@@ -52,6 +73,7 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  opacity: var(--qua-character-opacity, 1);
 }
 
 .qua-character.is-hidden {
