@@ -1,4 +1,5 @@
 import type { CompressionAlgorithm, EncryptionAlgorithm } from '@quajs/quack'
+import type { PluginOption } from 'vite'
 
 export interface QuaEngineVitePluginOptions {
   /** Enable QuaScript compilation */
@@ -46,6 +47,9 @@ export interface QuaEngineVitePluginOptions {
       key?: string
     }
   }
+
+  /** Additional Vite plugins contributed by feature packages */
+  vitePlugins?: readonly PluginOption[]
 
   /** Development server enhancements */
   devServer?: {

@@ -154,6 +154,24 @@ describe('@quajs/vite-plugin', () => {
       })
       expect(plugins.length).toBeGreaterThan(0)
     })
+
+    it('should compose external vite plugins without centralizing their hooks', () => {
+      const featurePlugin = {
+        name: 'feature-hot-reload',
+        configureServer: vi.fn(),
+        handleHotUpdate: vi.fn(),
+      }
+
+      const plugins = quaEngine({
+        vitePlugins: [
+          false as any,
+          [featurePlugin],
+        ],
+      })
+
+      expect(plugins).toContain(featurePlugin)
+      expect(plugins.some(plugin => plugin === false || plugin == null)).toBe(false)
+    })
   })
 
   describe('development asset VFS', () => {
