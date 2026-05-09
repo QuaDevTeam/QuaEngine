@@ -2,8 +2,8 @@ export {
   createDevAssetRecord,
   createDevVfsMiddleware,
   createDevVfsUpdate,
-  inferDevAssetInfo,
   type DevAssetManifest,
   type DevAssetManifestRecord,
   type DevVfsMiddlewareOptions,
+  inferDevAssetInfo,
 } from './vite-dev-vfs'

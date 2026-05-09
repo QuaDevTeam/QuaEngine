@@ -8,13 +8,15 @@ import type {
   AssetProvider,
   AssetRuntimeAdapter,
   AssetStorage,
+  LoadBundleOptions,
   QuaAssetsConfig,
   StoredAsset,
   StoredBundle,
 } from '@quajs/assets'
-import Dexie, { type Table } from 'dexie'
-import LZMA from 'lzma-web'
+import type { Table } from 'dexie'
 import { QuaAssets } from '@quajs/assets'
+import Dexie from 'dexie'
+import LZMA from 'lzma-web'
 
 export interface WebAssetsAdapterOptions {
   databaseName?: string
@@ -112,6 +114,73 @@ export function createWebAssets(config: Omit<QuaAssetsConfig, 'adapter'> & {
   return new QuaAssets({
     ...config,
     adapter: config.adapter || createWebAssetsAdapter(config.web),
+  })
+}
+
+export interface WebAssetRuntimeProgress {
+  bundleName: string
+  bundleIndex: number
+  bundleCount: number
+  loaded: number
+  total: number
+  progress: number
+}
+
+export interface WebAssetRuntimeConfig extends Omit<QuaAssetsConfig, 'adapter'> {
+  adapter?: AssetRuntimeAdapter
+  web?: WebAssetsAdapterOptions
+  initialBundles?: string | readonly string[]
+  initialBundleOptions?: LoadBundleOptions
+  onProgress?: (progress: WebAssetRuntimeProgress) => void
+}
+
+export async function createWebAssetRuntime(config: WebAssetRuntimeConfig): Promise<QuaAssets> {
+  const { initialBundles, initialBundleOptions, onProgress, ...assetsConfig } = config
+  const assets = createWebAssets(assetsConfig)
+  await assets.initialize()
+  const bundleList = normalizeBundleList(initialBundles)
+  for (let index = 0; index < bundleList.length; index++) {
+    const bundleName = bundleList[index]
+    await assets.loadBundle(bundleName, {
+      ...initialBundleOptions,
+      onProgress: (loaded, total) => {
+        initialBundleOptions?.onProgress?.(loaded, total)
+        onProgress?.({
+          bundleName,
+          bundleIndex: index,
+          bundleCount: bundleList.length,
+          loaded,
+          total,
+          progress: total > 0 ? loaded / total : 0,
+        })
+      },
+    })
+  }
+  return assets
+}
+
+export interface ViteDevAssetRuntimeConfig extends WebAssetRuntimeConfig {
+  hmr?: DevVfsAssetProviderOptions['hmr']
+  fetcher?: typeof fetch
+  manifestUrl?: string
+  assetBaseUrl?: string
+}
+
+export async function createViteDevAssetRuntime(options: ViteDevAssetRuntimeConfig = {}): Promise<QuaAssets> {
+  const provider = createDevVfsProvider({
+    manifestUrl: options.manifestUrl,
+    assetBaseUrl: options.assetBaseUrl,
+    hmr: options.hmr,
+    fetcher: options.fetcher,
+  })
+  return await createWebAssetRuntime({
+    ...options,
+    provider,
+    web: {
+      databaseName: 'QuaAssetsDev',
+      ...options.web,
+      fetcher: options.web?.fetcher || options.fetcher,
+    },
   })
 }
 
@@ -266,6 +335,12 @@ export class DevVfsAssetProvider implements AssetProvider {
 
 export function createDevVfsProvider(options?: DevVfsAssetProviderOptions): DevVfsAssetProvider {
   return new DevVfsAssetProvider(options)
+}
+
+function normalizeBundleList(bundles: WebAssetRuntimeConfig['initialBundles']): string[] {
+  if (!bundles)
+    return []
+  return typeof bundles === 'string' ? [bundles] : [...bundles]
 }
 
 class IndexedDBAssetStorage extends Dexie {

@@ -206,7 +206,7 @@ function getAssetTypeByExtension(path: string): DevAssetType {
 }
 
 function isLocaleSegment(value: string): boolean {
-  return /^(default|[a-z]{2}(?:-[a-z]{2}|-[A-Z]{2})?)$/.test(value)
+  return /^(?:default|[a-z]{2}(?:-[a-z]{2}|-[A-Z]{2})?)$/.test(value)
 }
 
 function normalizeRouteBase(route: string): string {
