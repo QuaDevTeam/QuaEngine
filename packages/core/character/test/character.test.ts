@@ -1,3 +1,4 @@
+import { RenderToLogicEvents } from '@quajs/render-core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   clearCharacterRuntime,
@@ -14,7 +15,6 @@ import {
   spriteWithEngine,
   useCharacter,
 } from '../src'
-import { RenderToLogicEvents } from '@quajs/render-core'
 
 describe('@quajs/character', () => {
   afterEach(() => {

@@ -33,20 +33,18 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@babel/generator": "^7.29.1",
-    "@babel/parser": "^7.29.3",
-    "@babel/traverse": "^7.29.0",
-    "@babel/types": "^7.29.0",
+    "@babel/generator": "catalog:",
+    "@babel/parser": "catalog:",
+    "@babel/traverse": "catalog:",
+    "@babel/types": "catalog:",
     "@quajs/character": "workspace:*",
     "@quajs/engine": "workspace:*",
     "@quajs/plugin-animation": "workspace:*",
     "@quajs/plugin-background": "workspace:*",
-    "@quajs/plugin-discovery": "workspace:*",
-    "@quajs/render-core": "workspace:*",
-    "uuid": "^14.0.0"
+    "uuid": "catalog:"
   },
   "devDependencies": {
-    "@types/babel__generator": "^7.27.0",
-    "@types/babel__traverse": "^7.28.0"
+    "@types/babel__generator": "catalog:",
+    "@types/babel__traverse": "catalog:"
   }
 }

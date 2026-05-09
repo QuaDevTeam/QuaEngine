@@ -35,12 +35,13 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
   return {
     name: 'qua-script',
 
-    configResolved(config) {
+    async configResolved(config) {
       // Create transformer after config is resolved
       transformer = createHotReloadAwareTransformer(decoratorMappings, {
         ...compilerOptions,
         projectRoot: projectRoot || config.root,
       })
+      await transformer.updateDecoratorMappings()
 
       // Enable hot-reload in development
       if (hotReload && config.command === 'serve') {

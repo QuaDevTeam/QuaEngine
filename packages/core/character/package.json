@@ -15,6 +15,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./script-compiler": {
+      "types": "./dist/script-compiler.d.ts",
+      "import": "./dist/script-compiler.js"
     }
   },
   "main": "./dist/index.js",
@@ -34,7 +38,32 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@babel/types": "catalog:",
     "@quajs/engine": "workspace:*",
     "@quajs/render-core": "workspace:*"
+  },
+  "quajs": {
+    "decorators": {
+      "SetSprite": {
+        "function": "sprite",
+        "module": "@quajs/character"
+      },
+      "ShowCharacter": {
+        "function": "show",
+        "module": "@quajs/character"
+      },
+      "HideCharacter": {
+        "function": "hide",
+        "module": "@quajs/character"
+      },
+      "MoveCharacter": {
+        "function": "move",
+        "module": "@quajs/character"
+      },
+      "SetExpression": {
+        "function": "expression",
+        "module": "@quajs/character"
+      }
+    }
   }
 }

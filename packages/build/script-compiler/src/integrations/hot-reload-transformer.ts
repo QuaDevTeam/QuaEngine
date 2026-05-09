@@ -1,31 +1,16 @@
 import type { HotReloadEvent } from '../core/hot-reload'
 import type { CompilerOptions, DecoratorMapping } from '../core/types'
 import process from 'node:process'
-import { animationDecoratorMappings } from '@quajs/plugin-animation'
-import { backgroundDecoratorMappings } from '@quajs/plugin-background'
-import { getDiscoveredDecoratorMappings } from '@quajs/plugin-discovery'
 import { getHotReloadManager } from '../core/hot-reload'
 import { QuaScriptTransformer } from '../core/transformer'
 import { mergeDecoratorMappings } from '../core/types'
+import { clearDecoratorCompilerCache, loadDecoratorCompilerRegistry, loadPackageDecoratorMappingsSync, loadProjectDecoratorMappings } from '../decorators'
 
 /**
  * Get plugin decorators using the discovery system
  */
 async function getPluginDecorators(projectRoot?: string): Promise<DecoratorMapping> {
-  try {
-    const discovered = await getDiscoveredDecoratorMappings(projectRoot)
-    return {
-      ...animationDecoratorMappings,
-      ...backgroundDecoratorMappings,
-      ...discovered,
-    }
-  }
-  catch {
-    return {
-      ...animationDecoratorMappings,
-      ...backgroundDecoratorMappings,
-    }
-  }
+  return loadProjectDecoratorMappings(projectRoot)
 }
 
 /**
@@ -42,8 +27,11 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
     decoratorMappings?: DecoratorMapping,
     options?: CompilerOptions & { projectRoot?: string },
   ) {
-    // Merge with default mappings first
-    const initialMappings = mergeDecoratorMappings(decoratorMappings || {})
+    const packageMappings = loadPackageDecoratorMappingsSync(options?.projectRoot)
+    const initialMappings = mergeDecoratorMappings({
+      ...packageMappings,
+      ...(decoratorMappings || {}),
+    })
     super(initialMappings, options)
     this.initialMappings = decoratorMappings || {}
     this.projectRoot = options?.projectRoot
@@ -104,6 +92,8 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
 
       // Update internal mappings
       this.decoratorMappings = updatedMappings
+      clearDecoratorCompilerCache()
+      this.decoratorCompilerRegistry = await loadDecoratorCompilerRegistry(updatedMappings)
 
       // Notify hot-reload manager
       this.hotReloadManager.updateDecoratorMappings(updatedMappings)
@@ -237,8 +227,7 @@ export async function createPluginAwareTransformerAsync(
 ): Promise<HotReloadAwareTransformer> {
   const transformer = new HotReloadAwareTransformer(decoratorMappings, options)
 
-  // Wait for initialization to complete
-  await new Promise(resolve => setTimeout(resolve, 0))
+  await transformer.updateDecoratorMappings()
 
   return transformer
 }

@@ -1,5 +1,6 @@
 import type { CompilerOptions, DecoratorMapping } from './core/types'
 import process from 'node:process'
+import { getHotReloadManager } from './core/hot-reload'
 import { createHotReloadAwareTransformer } from './integrations/hot-reload-transformer'
 import { createPluginAwareTransformer } from './integrations/plugin-aware-transformer'
 
@@ -9,7 +10,6 @@ export {
   HotReloadManager,
   resetHotReloadManager,
 } from './core/hot-reload'
-import { getHotReloadManager } from './core/hot-reload'
 export type { HotReloadCallback, HotReloadEvent } from './core/hot-reload'
 
 export { QuaScriptParser } from './core/parser'
@@ -28,6 +28,20 @@ export type {
 } from './core/types'
 
 export { DEFAULT_DECORATOR_MAPPINGS, mergeDecoratorMappings } from './core/types'
+export {
+  clearDecoratorCompilerCache,
+  createDefaultDecoratorCompilerRegistry,
+  DecoratorCompilerRegistry,
+  loadDecoratorCompilerRegistry,
+  loadPackageDecoratorMappingsSync,
+  loadProjectDecoratorMappings,
+} from './decorators'
+export type {
+  DecoratorCompilationResult,
+  DecoratorCompileContext,
+  DecoratorCompileInput,
+  DecoratorCompiler,
+} from './decorators'
 // Hot-reload transformers
 export {
   createHotReloadAwareTransformer,

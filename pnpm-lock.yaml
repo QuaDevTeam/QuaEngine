@@ -6,6 +6,24 @@ settings:
 
 catalogs:
   default:
+    '@babel/generator':
+      specifier: ^7.29.1
+      version: 7.29.1
+    '@babel/parser':
+      specifier: ^7.29.3
+      version: 7.29.3
+    '@babel/traverse':
+      specifier: ^7.29.0
+      version: 7.29.0
+    '@babel/types':
+      specifier: ^7.29.0
+      version: 7.29.0
+    '@types/babel__generator':
+      specifier: ^7.27.0
+      version: 7.27.0
+    '@types/babel__traverse':
+      specifier: ^7.28.0
+      version: 7.28.0
     '@types/node':
       specifier: ^25.6.0
       version: 25.6.0
@@ -30,6 +48,9 @@ catalogs:
     mime-types:
       specifier: ^3.0.2
       version: 3.0.2
+    uuid:
+      specifier: ^14.0.0
+      version: 14.0.0
     vue:
       specifier: ^3.5.25
       version: 3.5.33
@@ -126,16 +147,16 @@ importers:
   packages/build/script-compiler:
     dependencies:
       '@babel/generator':
-        specifier: ^7.29.1
+        specifier: 'catalog:'
         version: 7.29.1
       '@babel/parser':
-        specifier: ^7.29.3
+        specifier: 'catalog:'
         version: 7.29.3
       '@babel/traverse':
-        specifier: ^7.29.0
+        specifier: 'catalog:'
         version: 7.29.0
       '@babel/types':
-        specifier: ^7.29.0
+        specifier: 'catalog:'
         version: 7.29.0
       '@quajs/character':
         specifier: workspace:*
@@ -149,21 +170,15 @@ importers:
       '@quajs/plugin-background':
         specifier: workspace:*
         version: link:../../plugins/background
-      '@quajs/plugin-discovery':
-        specifier: workspace:*
-        version: link:../../plugins/plugin-discovery
-      '@quajs/render-core':
-        specifier: workspace:*
-        version: link:../../render/core
       uuid:
-        specifier: ^14.0.0
+        specifier: 'catalog:'
         version: 14.0.0
     devDependencies:
       '@types/babel__generator':
-        specifier: ^7.27.0
+        specifier: 'catalog:'
         version: 7.27.0
       '@types/babel__traverse':
-        specifier: ^7.28.0
+        specifier: 'catalog:'
         version: 7.28.0
 
   packages/build/vite-plugin:
@@ -204,6 +219,9 @@ importers:
 
   packages/core/character:
     dependencies:
+      '@babel/types':
+        specifier: 'catalog:'
+        version: 7.29.0
       '@quajs/engine':
         specifier: workspace:*
         version: link:../engine
@@ -290,6 +308,9 @@ importers:
 
   packages/plugins/animation:
     dependencies:
+      '@babel/types':
+        specifier: 'catalog:'
+        version: 7.29.0
       '@quajs/engine':
         specifier: workspace:*
         version: link:../../core/engine
@@ -299,6 +320,9 @@ importers:
 
   packages/plugins/background:
     dependencies:
+      '@babel/types':
+        specifier: 'catalog:'
+        version: 7.29.0
       '@quajs/engine':
         specifier: workspace:*
         version: link:../../core/engine

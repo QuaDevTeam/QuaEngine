@@ -2,8 +2,8 @@ import type { QuaEngineInterface } from '@quajs/engine'
 import type { QuaViewProjection } from '@quajs/render-core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  AnimationPlugin,
   animationDecoratorMappings,
+  AnimationPlugin,
   pauseAnimationWithEngine,
   playAnimationWithEngine,
   playTimelineWithEngine,

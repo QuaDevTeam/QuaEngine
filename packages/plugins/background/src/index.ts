@@ -5,6 +5,7 @@ import type {
   ViewVideoBackgroundProjection,
 } from '@quajs/render-core'
 import { BaseEnginePlugin } from '@quajs/engine'
+import { backgroundDecoratorMappings } from './script-compiler'
 
 export type BackgroundLayerInput = Omit<ViewBackgroundLayerProjection, 'id' | 'assetName'> & {
   id: string
@@ -19,45 +20,6 @@ export interface LayeredBackgroundOptions {
 }
 
 export type BackgroundLayerPatch = Partial<Omit<ViewBackgroundLayerProjection, 'id'>>
-
-export const backgroundDecoratorMappings = {
-  SetBackground: {
-    function: 'setBackgroundWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  ClearBackground: {
-    function: 'clearBackgroundWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  VideoBackground: {
-    function: 'setVideoBackgroundWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  SetLayeredBackground: {
-    function: 'setLayeredBackgroundWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  BackgroundLayer: {
-    function: 'addBackgroundLayerWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  RemoveBackgroundLayer: {
-    function: 'removeBackgroundLayerWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  ClearBackgroundLayers: {
-    function: 'clearBackgroundLayersWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  BackgroundTransition: {
-    function: 'transitionBackgroundWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  BackgroundLayerTransition: {
-    function: 'transitionBackgroundLayerWithEngine',
-    module: '@quajs/plugin-background',
-  },
-} as const
 
 export class BackgroundPlugin extends BaseEnginePlugin {
   readonly name = '@quajs/plugin-background'
@@ -218,6 +180,8 @@ export async function transitionBackgroundLayerWithEngine(
 ): Promise<void> {
   await updateBackgroundLayerWithEngine(engine, layerId, { transition })
 }
+
+export { backgroundDecoratorMappings, createBackgroundDecoratorCompiler, scriptCompiler } from './script-compiler'
 
 function getLayeredBackground(engine: QuaEngineInterface): BackgroundIntent & { mode: 'layered', layers: ViewBackgroundLayerProjection[] } {
   const current = engine.getViewState().background
