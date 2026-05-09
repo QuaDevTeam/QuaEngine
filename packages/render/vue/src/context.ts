@@ -1,8 +1,7 @@
-import type { InjectionKey, Ref } from 'vue'
 import type { QuaAssets } from '@quajs/assets'
-import type { QuaEngine } from '@quajs/engine'
 import type { Pipeline } from '@quajs/pipeline'
 import type { QuaViewProjection } from '@quajs/render-core'
+import type { InjectionKey, Ref } from 'vue'
 import { inject } from 'vue'
 
 export interface RendererActions {
@@ -20,7 +19,6 @@ export interface RendererActions {
 }
 
 export interface QuaRendererContext {
-  engine: Ref<QuaEngine | undefined>
   pipeline: Ref<Pipeline>
   assets: Ref<QuaAssets | undefined>
   view: Readonly<Ref<QuaViewProjection>>

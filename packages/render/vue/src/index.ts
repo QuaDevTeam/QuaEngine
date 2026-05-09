@@ -1,20 +1,6 @@
 export { QuaRenderer } from './components/QuaRenderer'
-export {
-  QuaAudioController,
-  QuaBackground,
-  QuaBackgroundLayerItem,
-  QuaBackgroundLayer,
-  QuaBackgroundProjection,
-  QuaCharacter,
-  QuaCharacterLayer,
-  QuaChoiceButton,
-  QuaChoicePanel,
-  QuaDialogueBox,
-  QuaEffectLayer,
-  QuaOverlayLayer,
-  QuaLayeredBackground,
-  QuaStage,
-  QuaVideoBackground,
-} from './components/layers'
+export { QuaStage } from './components/QuaStage'
 export * from './composables'
 export type { QuaRendererContext, RendererActions } from './context'
+export { defineVueRendererPlugin, sortRendererLayers } from './plugins/core'
+export type { QuaVueRendererLayer, QuaVueRendererPlugin } from './plugins/core'

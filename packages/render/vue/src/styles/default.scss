@@ -23,15 +23,15 @@
 .qua-character {
   left: calc(var(--qua-character-x, 50) * 1%);
   top: calc(var(--qua-character-y, 50) * 1%);
-  transform:
-    translate(-50%, -50%)
-    scale(var(--qua-character-scale, 1))
+  transform: translate(-50%, -50%) scale(var(--qua-character-scale, 1))
     rotate(calc(var(--qua-character-rotation, 0) * 1deg));
   z-index: var(--qua-character-layer, 1);
   max-width: min(34vw, 460px);
   max-height: 86%;
-  opacity: 1;
-  transition: opacity 180ms ease, transform 220ms ease;
+  opacity: var(--qua-character-opacity, 1);
+  transition:
+    opacity 180ms ease,
+    transform 220ms ease;
 }
 
 .qua-character.is-hidden {

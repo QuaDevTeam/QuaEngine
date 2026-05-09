@@ -20,6 +20,38 @@
       "types": "./dist/plugins/ui/index.d.ts",
       "import": "./dist/plugins/ui/index.js"
     },
+    "./plugins/core": {
+      "types": "./dist/plugins/core/index.d.ts",
+      "import": "./dist/plugins/core/index.js"
+    },
+    "./plugins/background": {
+      "types": "./dist/plugins/background/index.d.ts",
+      "import": "./dist/plugins/background/index.js"
+    },
+    "./plugins/character": {
+      "types": "./dist/plugins/character/index.d.ts",
+      "import": "./dist/plugins/character/index.js"
+    },
+    "./plugins/effects": {
+      "types": "./dist/plugins/effects/index.d.ts",
+      "import": "./dist/plugins/effects/index.js"
+    },
+    "./plugins/dialogue": {
+      "types": "./dist/plugins/dialogue/index.d.ts",
+      "import": "./dist/plugins/dialogue/index.js"
+    },
+    "./plugins/choices": {
+      "types": "./dist/plugins/choices/index.d.ts",
+      "import": "./dist/plugins/choices/index.js"
+    },
+    "./plugins/audio": {
+      "types": "./dist/plugins/audio/index.d.ts",
+      "import": "./dist/plugins/audio/index.js"
+    },
+    "./plugins/preset": {
+      "types": "./dist/plugins/preset/index.d.ts",
+      "import": "./dist/plugins/preset/index.js"
+    },
     "./styles/base.scss": "./src/styles/base.scss",
     "./styles/default.scss": "./src/styles/default.scss"
   },
@@ -49,7 +81,6 @@
   "dependencies": {
     "@quajs/assets": "workspace:*",
     "@quajs/assets-web": "workspace:*",
-    "@quajs/engine": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/render-core": "workspace:*"
   },

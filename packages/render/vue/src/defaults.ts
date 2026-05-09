@@ -12,6 +12,7 @@ export function emptyView(): QuaViewProjection {
       visible: true,
     },
     effects: [],
+    animations: [],
     audio: {
       volumeSettings: {
         master: 1,
