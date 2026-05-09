@@ -1,6 +1,7 @@
 import type { QuaStore } from '@quajs/store'
 import type {
   AudioIntentProjection,
+  ActiveAnimationProjection,
   EventPayload,
   LogicToRenderEvents,
   QuaViewProjection,
@@ -197,6 +198,7 @@ export class QuaEngine {
   async rewind(stepUUID: string): Promise<void> {
     this.assertInitialized()
     await this.store.restore(stepUUID, { force: true })
+    this.store.commit('clearAnimations')
     const runtime = this.getRuntimeState()
     const index = runtime.stepHistory.indexOf(stepUUID)
     this.store.commit('setCurrentStep', {
@@ -292,6 +294,24 @@ export class QuaEngine {
     else {
       await emitLogicToRender(this.pipeline, L2R.BACKGROUND_CLEAR, {})
     }
+    await this.emitViewUpdate()
+  }
+
+  async setAnimationProjection(animation: ActiveAnimationProjection): Promise<void> {
+    this.assertInitialized()
+    this.store.commit('upsertAnimation', animation)
+    await this.emitViewUpdate()
+  }
+
+  async removeAnimationProjection(id: string): Promise<void> {
+    this.assertInitialized()
+    this.store.commit('removeAnimation', id)
+    await this.emitViewUpdate()
+  }
+
+  async clearAnimationProjections(): Promise<void> {
+    this.assertInitialized()
+    this.store.commit('clearAnimations')
     await this.emitViewUpdate()
   }
 
@@ -502,6 +522,7 @@ export class QuaEngine {
   async loadFromSlot(slotId: string, options: { force?: boolean } = {}): Promise<void> {
     this.assertInitialized()
     await this.store.loadFromSlot(slotId, options)
+    this.store.commit('clearAnimations')
     await this.emitViewUpdate()
   }
 
@@ -684,6 +705,19 @@ function createEngineMutations() {
     setBackground(state: any, payload?: BackgroundIntent) {
       state.engine.view.background = payload
     },
+    upsertAnimation(state: any, payload: ActiveAnimationProjection) {
+      const animations = state.engine.view.animations || []
+      state.engine.view.animations = [
+        ...animations.filter((animation: ActiveAnimationProjection) => animation.id !== payload.id),
+        payload,
+      ]
+    },
+    removeAnimation(state: any, id: string) {
+      state.engine.view.animations = (state.engine.view.animations || []).filter((animation: ActiveAnimationProjection) => animation.id !== id)
+    },
+    clearAnimations(state: any) {
+      state.engine.view.animations = []
+    },
     setDialogue(state: any, payload: DialogueIntent) {
       state.engine.view.dialogue = {
         visible: true,
@@ -810,6 +844,14 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
     effects: view.effects.map(effect => ({
       ...effect,
       options: effect.options ? cloneUnknownRecord(effect.options) : undefined,
+    })),
+    animations: (view.animations || []).map(animation => ({
+      ...animation,
+      bindings: animation.bindings ? { ...animation.bindings } : undefined,
+      resolvedTracks: animation.resolvedTracks.map(track => ({
+        ...track,
+        keyframes: track.keyframes.map(keyframe => ({ ...keyframe })),
+      })),
     })),
     audio: cloneAudioProjection(view.audio),
   }

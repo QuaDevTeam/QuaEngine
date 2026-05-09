@@ -57,6 +57,13 @@ export {
 } from './events/events'
 export type {
   AudioPlayPayload,
+  ActiveAnimationProjection,
+  AnimationFillMode,
+  AnimationInterpolation,
+  AnimationKeyframeProjection,
+  AnimationPlaybackState,
+  AnimationTime,
+  ResolvedAnimationTrackProjection,
   BackgroundLayerAssetType,
   BackgroundMode,
   BackgroundSetPayload,

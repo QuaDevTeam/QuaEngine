@@ -4,6 +4,7 @@ import type {
   DecoratorMapping,
   ParsedQuaScript,
   QuaScriptChoice,
+  QuaScriptDecorator,
   QuaScriptDialogue,
 } from './types'
 import generate from '@babel/generator'
@@ -178,14 +179,10 @@ export class QuaScriptTransformer {
   private createRunFunction(dialogue: QuaScriptDialogue, quasi: t.TemplateLiteral): t.ArrowFunctionExpression {
     const statements: t.Statement[] = []
 
-    // Add decorator function calls
-    dialogue.decorators.forEach((decorator) => {
-      const mapping = this.decoratorMappings[decorator.name]
-      if (mapping) {
-        const call = this.createDecoratorCall(decorator, mapping, dialogue.character)
-        statements.push(t.expressionStatement(t.awaitExpression(call)))
-      }
-    })
+    statements.push(...this.createDecoratorStatements(dialogue.decorators, {
+      characterName: dialogue.character,
+      stepType: 'dialogue',
+    }))
 
     // Add character speak call
     const speakCall = this.createSpeakCall(dialogue, quasi)
@@ -201,14 +198,9 @@ export class QuaScriptTransformer {
   private createActionRunFunction(content: any): t.ArrowFunctionExpression {
     const statements: t.Statement[] = []
 
-    // Add decorator function calls
-    content.decorators?.forEach((decorator: any) => {
-      const mapping = this.decoratorMappings[decorator.name]
-      if (mapping) {
-        const call = this.createDecoratorCall(decorator, mapping)
-        statements.push(t.expressionStatement(t.awaitExpression(call)))
-      }
-    })
+    statements.push(...this.createDecoratorStatements(content.decorators || [], {
+      stepType: 'action',
+    }))
 
     return t.arrowFunctionExpression(
       [t.identifier('ctx')],
@@ -296,21 +288,34 @@ export class QuaScriptTransformer {
     )
   }
 
+  private createDecoratorStatements(
+    decorators: QuaScriptDecorator[],
+    context: { characterName?: string, stepType: 'dialogue' | 'action' },
+  ): t.Statement[] {
+    const statements: t.Statement[] = []
+
+    for (let index = 0; index < decorators.length; index++) {
+      const decorator = decorators[index]
+      const mapping = this.decoratorMappings[decorator.name]
+      if (!mapping)
+        continue
+
+      if (mapping.module === '@quajs/plugin-animation') {
+        const result = this.createAnimationDecoratorCall(decorators, index, context)
+        statements.push(t.expressionStatement(t.awaitExpression(result.call)))
+        index = result.nextIndex
+        continue
+      }
+
+      const call = this.createDecoratorCall(decorator, mapping, context.characterName)
+      statements.push(t.expressionStatement(t.awaitExpression(call)))
+    }
+
+    return statements
+  }
+
   private createDecoratorCall(decorator: any, mapping: any, characterName?: string): t.CallExpression {
-    const args = decorator.args.map((arg: any) => {
-      if (typeof arg === 'string') {
-        return t.stringLiteral(arg)
-      }
-      else if (typeof arg === 'number') {
-        return t.numericLiteral(arg)
-      }
-      else if (typeof arg === 'boolean') {
-        return t.booleanLiteral(arg)
-      }
-      else {
-        return t.identifier(arg)
-      }
-    })
+    const args = this.createDecoratorArgs(decorator)
 
     if (mapping.module === '@quajs/engine') {
       return t.callExpression(
@@ -392,6 +397,179 @@ export class QuaScriptTransformer {
     }
 
     return t.callExpression(t.identifier(mapping.function), args)
+  }
+
+  private createAnimationDecoratorCall(
+    decorators: QuaScriptDecorator[],
+    index: number,
+    context: { characterName?: string, stepType: 'dialogue' | 'action' },
+  ): { call: t.CallExpression, nextIndex: number } {
+    const decorator = decorators[index]
+    const engineArg = t.memberExpression(t.identifier('ctx'), t.identifier('engine'))
+
+    if (decorator.name === 'Key') {
+      throw new Error('@Key requires a preceding @DefineAnimation or @Timeline decorator.')
+    }
+
+    if (decorator.name === 'DefineAnimation' || decorator.name === 'Timeline') {
+      const keys: QuaScriptDecorator[] = []
+      let nextIndex = index
+      while (decorators[nextIndex + 1]?.name === 'Key') {
+        keys.push(decorators[nextIndex + 1])
+        nextIndex += 1
+      }
+
+      if (decorator.name === 'DefineAnimation') {
+        this.usedRuntimeHelpers.add('registerAnimationWithEngine')
+        const args = this.createDecoratorArgs(decorator)
+        const id = this.requireDecoratorArg(decorator, args[0], 'animation id')
+        const duration = this.requireDecoratorArg(decorator, args[1], 'duration')
+        return {
+          nextIndex,
+          call: t.callExpression(t.identifier('registerAnimationWithEngine'), [
+            engineArg,
+            this.createAnimationTimelineObject({
+              id,
+              duration,
+              keys,
+              allowOmittedTarget: true,
+            }),
+          ]),
+        }
+      }
+
+      this.usedRuntimeHelpers.add('playTimelineWithEngine')
+      const args = this.createDecoratorArgs(decorator)
+      const duration = this.requireDecoratorArg(decorator, args[0], 'duration')
+      const wait = args.at(-1)
+      const options = this.createAnimationPlayOptionsObject({
+        defaultTarget: this.createDefaultSelfTarget(context),
+        wait: t.isBooleanLiteral(wait) ? wait : undefined,
+      })
+      return {
+        nextIndex,
+        call: t.callExpression(t.identifier('playTimelineWithEngine'), [
+          engineArg,
+          this.createAnimationTimelineObject({
+            duration,
+            keys,
+            allowOmittedTarget: Boolean(context.characterName),
+          }),
+          options,
+        ]),
+      }
+    }
+
+    if (decorator.name === 'PlayAnimation') {
+      this.usedRuntimeHelpers.add('playAnimationWithEngine')
+      const args = this.createDecoratorArgs(decorator)
+      const id = this.requireDecoratorArg(decorator, args[0], 'animation id')
+      const wait = args.at(-1)
+      const bindingArgs = args.slice(1, t.isBooleanLiteral(wait) ? -1 : undefined)
+      return {
+        nextIndex: index,
+        call: t.callExpression(t.identifier('playAnimationWithEngine'), [
+          engineArg,
+          id,
+          this.createAnimationPlayOptionsObject({
+            bindings: bindingArgs,
+            defaultTarget: this.createDefaultSelfTarget(context),
+            wait: t.isBooleanLiteral(wait) ? wait : undefined,
+          }),
+        ]),
+      }
+    }
+
+    throw new Error(`Unsupported animation decorator @${decorator.name}.`)
+  }
+
+  private createAnimationTimelineObject(options: {
+    id?: t.Expression
+    duration: t.Expression
+    keys: QuaScriptDecorator[]
+    allowOmittedTarget: boolean
+  }): t.ObjectExpression {
+    const properties: t.ObjectProperty[] = [
+      t.objectProperty(t.identifier('duration'), options.duration),
+      t.objectProperty(t.identifier('tracks'), t.arrayExpression(options.keys.map(key =>
+        this.createAnimationTrackObject(key, options.allowOmittedTarget),
+      ))),
+    ]
+    if (options.id) {
+      properties.unshift(t.objectProperty(t.identifier('id'), options.id))
+    }
+    return t.objectExpression(properties)
+  }
+
+  private createAnimationTrackObject(
+    decorator: QuaScriptDecorator,
+    allowOmittedTarget: boolean,
+  ): t.ObjectExpression {
+    const args = this.createDecoratorArgs(decorator)
+    const hasExplicitTarget = args.length >= 4
+    if (!hasExplicitTarget && !allowOmittedTarget) {
+      throw new Error('@Key with an omitted target is ambiguous outside a dialogue line. Use @Key(\'target\', \'property\', at, value).')
+    }
+
+    const target = hasExplicitTarget ? args[0] : t.stringLiteral('self')
+    const property = this.requireDecoratorArg(decorator, hasExplicitTarget ? args[1] : args[0], 'property')
+    const at = this.requireDecoratorArg(decorator, hasExplicitTarget ? args[2] : args[1], 'time')
+    const value = this.requireDecoratorArg(decorator, hasExplicitTarget ? args[3] : args[2], 'value')
+    const easing = hasExplicitTarget ? args[4] : args[3]
+
+    const properties: t.ObjectProperty[] = [
+      t.objectProperty(t.identifier('target'), target),
+      t.objectProperty(t.identifier('property'), property),
+      t.objectProperty(t.identifier('keyframes'), t.arrayExpression([
+        t.objectExpression([
+          t.objectProperty(t.identifier('at'), at),
+          t.objectProperty(t.identifier('value'), value),
+          ...(easing ? [t.objectProperty(t.identifier('easing'), easing)] : []),
+        ]),
+      ])),
+    ]
+
+    return t.objectExpression(properties)
+  }
+
+  private createAnimationPlayOptionsObject(options: {
+    bindings?: t.Expression[]
+    defaultTarget?: t.Expression
+    wait?: t.BooleanLiteral
+  }): t.ObjectExpression {
+    const properties: t.ObjectProperty[] = []
+    const bindings = options.bindings?.filter(binding => t.isStringLiteral(binding)) || []
+    if (bindings.length > 0) {
+      properties.push(t.objectProperty(t.identifier('bindings'), t.arrayExpression(bindings)))
+    }
+    if (options.defaultTarget) {
+      properties.push(t.objectProperty(t.identifier('defaultTarget'), options.defaultTarget))
+    }
+    if (options.wait !== undefined) {
+      properties.push(t.objectProperty(t.identifier('wait'), options.wait))
+    }
+    return t.objectExpression(properties)
+  }
+
+  private createDefaultSelfTarget(context: { characterName?: string }): t.StringLiteral | undefined {
+    return context.characterName ? t.stringLiteral(`character:${context.characterName}`) : undefined
+  }
+
+  private createDecoratorArgs(decorator: any): t.Expression[] {
+    return decorator.args.map((arg: any) => this.createArgumentExpression(arg))
+  }
+
+  private createArgumentExpression(arg: any): t.Expression {
+    if (typeof arg === 'string') {
+      return t.stringLiteral(arg)
+    }
+    if (typeof arg === 'number') {
+      return t.numericLiteral(arg)
+    }
+    if (typeof arg === 'boolean') {
+      return t.booleanLiteral(arg)
+    }
+    return t.identifier(arg)
   }
 
   private createBackgroundDecoratorCall(decorator: any, mapping: any, args: t.Expression[]): t.CallExpression {
@@ -661,6 +839,9 @@ export class QuaScriptTransformer {
         if (mapping.module === '@quajs/plugin-background' && this.isEngineInjectedBackgroundHelper(mapping.function)) {
           return
         }
+        if (mapping.module === '@quajs/plugin-animation' && this.isEngineInjectedAnimationHelper(mapping.function)) {
+          return
+        }
         if (!importMap.has(mapping.module)) {
           importMap.set(mapping.module, new Set())
         }
@@ -731,6 +912,27 @@ export class QuaScriptTransformer {
       }
     })
 
+    ;[
+      'defineAnimation',
+      'registerAnimationWithEngine',
+      'playAnimationWithEngine',
+      'playTimelineWithEngine',
+      'pauseAnimationWithEngine',
+      'resumeAnimationWithEngine',
+      'stopAnimationWithEngine',
+      'seekAnimationWithEngine',
+      'waitAnimationWithEngine',
+      'registerAnimationTargetAdapter',
+      'defineAnimationKeyframe',
+    ].forEach((helper) => {
+      if (this.usedRuntimeHelpers.has(helper)) {
+        if (!importMap.has('@quajs/plugin-animation')) {
+          importMap.set('@quajs/plugin-animation', new Set())
+        }
+        importMap.get('@quajs/plugin-animation')!.add(helper)
+      }
+    })
+
     // Generate import statements for modules that have functions to import
     importMap.forEach((functions, module) => {
       if (functions.size > 0) {
@@ -762,6 +964,22 @@ export class QuaScriptTransformer {
       'clearBackgroundLayersWithEngine',
       'transitionBackgroundWithEngine',
       'transitionBackgroundLayerWithEngine',
+    ].includes(functionName)
+  }
+
+  private isEngineInjectedAnimationHelper(functionName: string): boolean {
+    return [
+      'defineAnimation',
+      'registerAnimationWithEngine',
+      'playAnimationWithEngine',
+      'playTimelineWithEngine',
+      'pauseAnimationWithEngine',
+      'resumeAnimationWithEngine',
+      'stopAnimationWithEngine',
+      'seekAnimationWithEngine',
+      'waitAnimationWithEngine',
+      'registerAnimationTargetAdapter',
+      'defineAnimationKeyframe',
     ].includes(functionName)
   }
 }

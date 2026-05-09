@@ -1,4 +1,5 @@
 import type { CompilerOptions, DecoratorMapping } from '../core/types'
+import { animationDecoratorMappings } from '@quajs/plugin-animation'
 import { backgroundDecoratorMappings } from '@quajs/plugin-background'
 import { getDiscoveredDecoratorMappings } from '@quajs/plugin-discovery'
 import { QuaScriptTransformer } from '../core/transformer'
@@ -11,12 +12,16 @@ async function getPluginDecorators(projectRoot?: string): Promise<DecoratorMappi
   try {
     const discovered = await getDiscoveredDecoratorMappings(projectRoot)
     return {
+      ...animationDecoratorMappings,
       ...backgroundDecoratorMappings,
       ...discovered,
     }
   }
   catch {
-    return { ...backgroundDecoratorMappings }
+    return {
+      ...animationDecoratorMappings,
+      ...backgroundDecoratorMappings,
+    }
   }
 }
 

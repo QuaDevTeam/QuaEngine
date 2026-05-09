@@ -4,6 +4,7 @@ import type { QuaStore } from '@quajs/store'
 import type {
   AudioChannelIntent,
   AudioIntentProjection,
+  ActiveAnimationProjection,
   QuaViewProjection,
   ViewBackgroundProjection,
   ViewEffectProjection,
@@ -62,6 +63,9 @@ export interface QuaEngineInterface {
   showChoices: (choices: ChoiceIntent[]) => Promise<void>
   clearChoices: () => Promise<void>
   setBackgroundProjection: (background?: BackgroundIntent) => Promise<void>
+  setAnimationProjection: (animation: ActiveAnimationProjection) => Promise<void>
+  removeAnimationProjection: (id: string) => Promise<void>
+  clearAnimationProjections: () => Promise<void>
   showCharacter: (payload: CharacterIntent) => Promise<void>
   hideCharacter: (id: string) => Promise<void>
   moveCharacter: (id: string, position: CharacterIntent['position']) => Promise<void>
@@ -169,6 +173,7 @@ export interface CharacterIntent {
   sprite?: string
   expression?: string
   visible?: boolean
+  opacity?: number
   position?: {
     x?: number
     y?: number
@@ -242,6 +247,7 @@ export function createInitialEngineState(): EngineState {
         overlays: {},
       },
       effects: [],
+      animations: [],
       audio: {
         volumeSettings: { ...defaultVolumeSettings },
         sounds: [],

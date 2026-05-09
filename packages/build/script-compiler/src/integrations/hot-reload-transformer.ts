@@ -1,6 +1,7 @@
 import type { HotReloadEvent } from '../core/hot-reload'
 import type { CompilerOptions, DecoratorMapping } from '../core/types'
 import process from 'node:process'
+import { animationDecoratorMappings } from '@quajs/plugin-animation'
 import { backgroundDecoratorMappings } from '@quajs/plugin-background'
 import { getDiscoveredDecoratorMappings } from '@quajs/plugin-discovery'
 import { getHotReloadManager } from '../core/hot-reload'
@@ -14,12 +15,16 @@ async function getPluginDecorators(projectRoot?: string): Promise<DecoratorMappi
   try {
     const discovered = await getDiscoveredDecoratorMappings(projectRoot)
     return {
+      ...animationDecoratorMappings,
       ...backgroundDecoratorMappings,
       ...discovered,
     }
   }
   catch {
-    return { ...backgroundDecoratorMappings }
+    return {
+      ...animationDecoratorMappings,
+      ...backgroundDecoratorMappings,
+    }
   }
 }
 

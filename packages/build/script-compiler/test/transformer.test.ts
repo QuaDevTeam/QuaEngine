@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { animationDecoratorMappings } from '@quajs/plugin-animation'
 import { backgroundDecoratorMappings } from '@quajs/plugin-background'
 import { QuaScriptTransformer } from '../src/core/transformer'
 import { mergeDecoratorMappings } from '../src/core/types'
@@ -277,8 +278,111 @@ describe('quaScriptTransformer', () => {
     expect(result).toContain('target: "home"')
     expect(result).toContain('enabled: flags.canStayHome')
   })
+
+  it('should transform named animation definitions from decorator timelines', () => {
+    const transformer = createAnimationTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @DefineAnimation('character.enter-left', 480)
+          @Key('position.x', 0, -180)
+          @Key('position.x', 480, 40)
+
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('registerAnimationWithEngine(ctx.engine, {')
+    expect(result).toContain('id: "character.enter-left"')
+    expect(result).toContain('duration: 480')
+    expect(result).toContain('target: "self"')
+    expect(result).toContain('property: "position.x"')
+    expect(result).toMatch(/import.*registerAnimationWithEngine.*from.*@quajs\/plugin-animation/s)
+  })
+
+  it('should transform anonymous dialogue timelines with omitted self resolved to the speaker', () => {
+    const transformer = createAnimationTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @Timeline(360, true)
+          @Key('position.x', 0, -180)
+          @Key('position.x', 360, 0)
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('playTimelineWithEngine(ctx.engine, {')
+    expect(result).toContain('target: "self"')
+    expect(result).toContain('defaultTarget: "character:Jack"')
+    expect(result).toContain('wait: true')
+    expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello world!")')
+  })
+
+  it('should transform play animation decorators with binding strings and wait flag', () => {
+    const transformer = createAnimationTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @PlayAnimation('character.enter-left', 'actor=character:Alice', true)
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('playAnimationWithEngine(ctx.engine, "character.enter-left", {')
+    expect(result).toContain('bindings: ["actor=character:Alice"]')
+    expect(result).toContain('defaultTarget: "character:Jack"')
+    expect(result).toContain('wait: true')
+  })
+
+  it('should apply dialogue self target to play animation decorators without bindings', () => {
+    const transformer = createAnimationTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @PlayAnimation('character.enter-left', true)
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('playAnimationWithEngine(ctx.engine, "character.enter-left", {')
+    expect(result).toContain('defaultTarget: "character:Jack"')
+    expect(result).not.toContain('bindings:')
+  })
+
+  it('should reject omitted key targets on action-only anonymous timelines', () => {
+    const transformer = createAnimationTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @Timeline(360)
+          @Key('position.x', 0, -180)
+
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    expect(() => transformer.transformSource(source)).toThrow('@Key with an omitted target is ambiguous')
+  })
 })
 
 function createBackgroundTransformer(): QuaScriptTransformer {
   return new QuaScriptTransformer(mergeDecoratorMappings(backgroundDecoratorMappings))
+}
+
+function createAnimationTransformer(): QuaScriptTransformer {
+  return new QuaScriptTransformer(mergeDecoratorMappings(animationDecoratorMappings))
 }

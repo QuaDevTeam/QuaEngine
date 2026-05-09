@@ -100,6 +100,11 @@ export interface ViewBackgroundLayerProjection {
 export interface ViewBackgroundProjection {
   mode: BackgroundMode
   assetName?: string
+  x?: number
+  y?: number
+  scale?: number
+  rotation?: number
+  opacity?: number
   transition?: TransitionIntent
   video?: Readonly<ViewVideoBackgroundProjection>
   layers?: readonly Readonly<ViewBackgroundLayerProjection>[]
@@ -113,6 +118,7 @@ export interface ViewCharacterProjection {
   sprite?: string
   expression?: string
   position?: CharacterPosition
+  opacity?: number
   layer?: number
   metadata?: Readonly<Record<string, unknown>>
 }
@@ -171,6 +177,38 @@ export interface AudioIntentProjection {
   voices: readonly AudioChannelIntent[]
 }
 
+export type AnimationTime = number | `${number}%`
+export type AnimationInterpolation = 'number' | 'step' | 'discrete' | 'color'
+export type AnimationPlaybackState = 'running' | 'paused' | 'stopped'
+export type AnimationFillMode = 'none' | 'forwards' | 'backwards' | 'both'
+
+export interface AnimationKeyframeProjection {
+  at: AnimationTime
+  value: unknown
+  easing?: string
+}
+
+export interface ResolvedAnimationTrackProjection {
+  target: string
+  property: string
+  keyframes: readonly Readonly<AnimationKeyframeProjection>[]
+  interpolation?: AnimationInterpolation
+}
+
+export interface ActiveAnimationProjection {
+  id: string
+  definitionId?: string
+  bindings?: Readonly<Record<string, string>>
+  state: AnimationPlaybackState
+  startedAt: number
+  duration: number
+  playbackRate: number
+  pausedAt?: number
+  loop?: boolean | number
+  fill?: AnimationFillMode
+  resolvedTracks: readonly Readonly<ResolvedAnimationTrackProjection>[]
+}
+
 export interface QuaViewProjection {
   background?: Readonly<ViewBackgroundProjection>
   characters: readonly Readonly<ViewCharacterProjection>[]
@@ -178,6 +216,7 @@ export interface QuaViewProjection {
   choices: readonly Readonly<ViewChoiceProjection>[]
   ui: Readonly<ViewUiProjection>
   effects: readonly Readonly<ViewEffectProjection>[]
+  animations: readonly Readonly<ActiveAnimationProjection>[]
   audio: Readonly<AudioIntentProjection>
 }
 
@@ -214,6 +253,7 @@ export interface CharacterPayload {
   sprite?: string
   expression?: string
   position?: CharacterPosition
+  opacity?: number
   layer?: number
 }
 
