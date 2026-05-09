@@ -1,8 +1,8 @@
-import type { Plugin } from 'vite'
+import type { PluginOption } from 'vite'
 import type { QuaEngineVitePluginOptions } from './core/types'
 
 import process from 'node:process'
-import { logPluginMessage } from './core/utils'
+import { flattenPluginOptions, logPluginMessage } from './core/utils'
 import { quaEnginePlugin } from './plugins/engine'
 import { quackPlugin } from './plugins/quack'
 import { quaScriptCompilerPlugin } from './plugins/script-compiler'
@@ -15,19 +15,21 @@ import { quaScriptCompilerPlugin } from './plugins/script-compiler'
  * - Automatic plugin discovery and bundling
  * - Asset bundling with Quack
  * - Development server enhancements
+ * - Feature-plugin composition for pluggable dev HMR modules
  * - Hot module replacement for game assets and scripts
  */
-export function quaEngine(options: QuaEngineVitePluginOptions = {}): Plugin[] {
+export function quaEngine(options: QuaEngineVitePluginOptions = {}): PluginOption[] {
   const {
     scriptCompiler = { enabled: true },
     pluginDiscovery = { enabled: true },
     assetBundling = { enabled: true },
+    vitePlugins = [],
     devServer = { hotReloadScripts: true, watchAssets: true },
   } = options
 
   logPluginMessage('Initializing QuaEngine build pipeline', 'info')
 
-  const plugins: Plugin[] = []
+  const plugins: PluginOption[] = []
 
   // Script compiler plugin (always first to transform qs`` literals)
   if (scriptCompiler.enabled !== false) {
@@ -49,15 +51,17 @@ export function quaEngine(options: QuaEngineVitePluginOptions = {}): Plugin[] {
     plugins.push(createDevServerPlugin(devServer))
   }
 
-  logPluginMessage(`Enabled ${plugins.length} QuaEngine plugins`, 'info')
+  const composedPlugins = flattenPluginOptions([...plugins, ...vitePlugins])
 
-  return plugins
+  logPluginMessage(`Enabled ${composedPlugins.length} QuaEngine plugins`, 'info')
+
+  return composedPlugins
 }
 
 /**
  * Development server enhancement plugin
  */
-function createDevServerPlugin(devOptions: NonNullable<QuaEngineVitePluginOptions['devServer']>): Plugin {
+function createDevServerPlugin(devOptions: NonNullable<QuaEngineVitePluginOptions['devServer']>): PluginOption {
   return {
     name: 'qua-dev-server',
     configureServer(server) {
@@ -88,6 +92,7 @@ function createDevServerPlugin(devOptions: NonNullable<QuaEngineVitePluginOption
 
 // Re-export individual plugins for advanced users
 export { quackPlugin, quaEnginePlugin, quaScriptCompilerPlugin }
+export { flattenPluginOptions } from './core/utils'
 
 // Re-export types
 export type { AssetBundleManifest, QuaEngineVitePluginOptions, VirtualPluginRegistryEntry } from './core/types'

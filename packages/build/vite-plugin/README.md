@@ -8,6 +8,7 @@ Comprehensive Vite plugin for QuaEngine projects that provides a complete build 
 - **🔧 Plugin Discovery**: Automatically discover and bundle QuaJS plugins  
 - **📦 Asset Bundling**: Process game assets using Quack bundler
 - **🔥 Development Server**: Enhanced HMR for scripts and assets
+- **🧩 Feature Plugin Slots**: Compose external Vite plugins for animation, sprite, character, or other feature-specific HMR
 - **🚀 Zero Configuration**: Works out of the box with sensible defaults
 
 ## Installation
@@ -23,7 +24,13 @@ pnpm add -D @quajs/vite-plugin
 import { quaEngine } from '@quajs/vite-plugin'
 
 export default {
-  plugins: [quaEngine()]
+  plugins: [
+    ...quaEngine({
+      vitePlugins: [
+        createMyFeatureVitePlugin(),
+      ],
+    }),
+  ]
 }
 ```
 
@@ -72,7 +79,12 @@ export default {
       devServer: {
         hotReloadScripts: true,
         watchAssets: true
-      }
+      },
+
+      // Feature-specific Vite plugins
+      vitePlugins: [
+        createMyFeatureVitePlugin(),
+      ]
     })
   ]
 }
@@ -137,6 +149,7 @@ The Quack integration provides:
 - **Script HMR**: Automatic reload for QuaScript changes
 - **Asset HMR**: Live updates for game assets
 - **Plugin HMR**: Reload when plugins change
+- **Feature HMR**: External plugins can own their own hot-update rules through `vitePlugins`
 
 ### Development Events
 
@@ -144,7 +157,7 @@ Listen for custom events in your client code:
 
 ```javascript
 if (import.meta.hot) {
-  import.meta.hot.on('asset-change', (data) => {
+  import.meta.hot.on('qua-assets:update', (data) => {
     console.log('Asset changed:', data.file)
     // Reload asset...
   })
@@ -155,6 +168,8 @@ if (import.meta.hot) {
   })
 }
 ```
+
+Feature-specific modules such as animation, sprite, and character should keep their HMR logic inside separate Vite plugins and pass them through `vitePlugins`, so the host stays a composer instead of a monolith.
 
 ## Build Pipeline
 

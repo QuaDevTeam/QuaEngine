@@ -1,4 +1,5 @@
 import { createLogger } from '@quajs/logger'
+import type { PluginOption } from 'vite'
 
 const logger = createLogger('vite-plugin:utils')
 
@@ -45,6 +46,34 @@ export function shouldTransform(
  */
 export function normalizePath(id: string): string {
   return id.replace(/\\/g, '/')
+}
+
+/**
+ * Flatten nested Vite plugin option arrays while preserving promises and plugin objects.
+ */
+export function flattenPluginOptions(options: readonly PluginOption[]): PluginOption[] {
+  const flattened: PluginOption[] = []
+
+  const visit = (option: PluginOption): void => {
+    if (Array.isArray(option)) {
+      for (const nested of option) {
+        visit(nested)
+      }
+      return
+    }
+
+    if (option === false || option === null || option === undefined) {
+      return
+    }
+
+    flattened.push(option)
+  }
+
+  for (const option of options) {
+    visit(option)
+  }
+
+  return flattened
 }
 
 /**
