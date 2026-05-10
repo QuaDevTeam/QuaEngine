@@ -202,7 +202,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 
 #### **@quajs/plugin-discovery** (`packages/plugins/plugin-discovery`)
 - **Independence**: Standalone workspace package outside `@quajs/engine`.
-- **Purpose**: Discovers plugin configs from `qua.plugins.json`, `plugins/qua.plugins.json`, `.qua/plugins.json`, and package dependencies matching Qua plugin naming conventions.
+- **Purpose**: Discovers plugin configs from `qua.plugins.json`, `plugins/qua.plugins.json`, and package dependencies matching Qua plugin naming conventions.
 - **Current scope**: Provides plugin config discovery, decorator mapping extraction, plugin lookup, available plugin name listing, config validation, and decorator mapping merge helpers.
 - **Status**: Implemented as discovery infrastructure, not a feature plugin.
 

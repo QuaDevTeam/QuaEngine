@@ -108,7 +108,7 @@ function readPackageDecoratorMappings(packageName: string, projectRoot: string):
 
   try {
     const packageJson = readJSONFile(packageJsonPath)
-    const decorators = packageJson?.quajs?.decorators || packageJson?.decorators
+    const decorators = packageJson?.quajs?.decorators
     return isDecoratorMapping(decorators) ? decorators : {}
   }
   catch {

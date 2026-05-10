@@ -1,7 +1,8 @@
+import { parse } from '@babel/parser'
 import { animationDecoratorMappings } from '@quajs/plugin-animation'
 import { backgroundDecoratorMappings } from '@quajs/plugin-background'
 import { describe, expect, it } from 'vitest'
-import { createPluginAwareTransformerAsync } from '../src'
+import { compileQuaScriptModuleToTs, createPluginAwareTransformerAsync, generateQuaScriptModuleDeclaration } from '../src'
 import { QuaScriptTransformer } from '../src/core/transformer'
 import { mergeDecoratorMappings } from '../src/core/types'
 
@@ -29,6 +30,25 @@ describe('quaScriptTransformer', () => {
     expect(result).toContain('run:')
   })
 
+  it('should parse qs templates in files with TypeScript decorators', () => {
+    const transformer = new QuaScriptTransformer()
+    const source = `
+      @sealed
+      class Scene {}
+
+      function scene1() {
+        dialogue(qs\`
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('@sealed')
+    expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello world!")')
+  })
+
   it('should transform dialogue with decorators', async () => {
     const transformer = await createPluginAwareTransformerAsync()
     const source = `
@@ -46,6 +66,70 @@ describe('quaScriptTransformer', () => {
     expect(result).toContain('playVoiceWithEngine(ctx.engine, "hello.mp3",')
     expect(result).toContain('spriteWithEngine(ctx.engine, "Jack", "jack_happy.png")')
     expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello world!")')
+  })
+
+  it('should compile standalone qs files as importable script factories', () => {
+    const result = compileQuaScriptModuleToTs(`
+      Jack: Hello \${scope.playerName}!
+      - Continue -> next if scope.unlocked
+    `, { hotReload: false })
+
+    expect(result).toContain('export default function createQuaScript(scope: Record<string, unknown> = {}): GameStep[]')
+    expect(result).toContain('speakWithEngine(ctx.engine, "Jack"')
+    expect(result).toContain('scope.playerName')
+    expect(result).toContain('enabled: scope.unlocked')
+  })
+
+  it('should compile typed qs files with module and setup scripts', () => {
+    const result = compileQuaScriptModuleToTs(`
+<script lang="ts">
+import { canContinue, formatName } from './logic.ts'
+
+export interface Scope {
+  playerName: string
+  unlocked: boolean
+}
+</script>
+
+<script setup lang="ts">
+const displayName = formatName(scope.playerName)
+</script>
+
+Yuki: Hello \${formatName(displayName)}!
+- Continue -> next if canContinue(scope.playerName) && scope.unlocked
+    `, { hotReload: false })
+
+    expect(result).toContain('import { canContinue, formatName } from \'./logic.ts\'')
+    expect(result).toContain('export interface Scope')
+    expect(result).toContain('export default function createQuaScript(scope: Scope): GameStep[]')
+    expect(result).toContain('const displayName = formatName(scope.playerName)')
+    expect(result).toContain('`Hello $' + '{formatName(displayName)}!`')
+    expect(result).toContain('enabled: canContinue(scope.playerName) && scope.unlocked')
+  })
+
+  it('should generate per-file qs declarations', () => {
+    const result = generateQuaScriptModuleDeclaration(`
+<script lang="ts">
+export interface Scope {
+  playerName: string
+}
+</script>
+
+Yuki: Hello \${scope.playerName}
+    `)
+
+    expect(result).toContain('export interface Scope')
+    expect(result).toContain('declare const createQuaScript: (scope: Scope) => GameStep[];')
+  })
+
+  it('rejects invalid script blocks while generating declarations', () => {
+    expect(() => generateQuaScriptModuleDeclaration(`
+<script>
+const value = 1
+</script>
+
+Yuki: Hello
+    `)).toThrow('<script> blocks in .qs files must use lang="ts".')
   })
 
   it('should transform character decorators through character helpers and engine state', () => {
@@ -216,6 +300,50 @@ describe('quaScriptTransformer', () => {
     expect(result).toContain('speakWithEngine(ctx.engine, "Jack", ')
     // Template expressions should be handled properly
     expect(result).toContain('name') // Variable reference should be preserved
+  })
+
+  it('escapes literal template text when emitting dialogue template literals', () => {
+    const result = compileQuaScriptModuleToTs(
+      'Jack: Path C:\\temp and tick `value` $' + '{scope.playerName}',
+      { hotReload: false },
+    )
+
+    expect(() => parse(result, {
+      sourceType: 'module',
+      plugins: ['typescript'],
+    })).not.toThrow()
+    expect(result).toContain('`Path C:\\\\temp and tick \\`value\\` $' + '{scope.playerName}`')
+  })
+
+  it('rejects malformed QuaScript TypeScript expressions and decorator arguments', () => {
+    expect(() => compileQuaScriptModuleToTs(
+      'Jack: Hello $' + '{scope.}',
+      { hotReload: false },
+    )).toThrow(/Invalid TypeScript expression in QuaScript/)
+
+    expect(() => compileQuaScriptModuleToTs(
+      'Jack: Hello $' + '{scope.playerName',
+      { hotReload: false },
+    )).toThrow(/Unterminated QuaScript interpolation/)
+
+    expect(() => compileQuaScriptModuleToTs(
+      '@SetSprite({ broken: })\nJack: Hello',
+      { hotReload: false },
+    )).toThrow(/Invalid TypeScript decorator arguments/)
+  })
+
+  it('rejects malformed decorator arguments inside qs tagged templates', () => {
+    const transformer = new QuaScriptTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @SetSprite({ broken: })
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    expect(() => transformer.transformSource(source)).toThrow(/Invalid TypeScript decorator arguments/)
   })
 
   it('should not transform code without qs template literals', () => {

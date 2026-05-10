@@ -2,42 +2,73 @@ import type {
   ParsedQuaScript,
   QuaScriptChoice,
   QuaScriptDecorator,
+  QuaScriptDecoratorValue,
+  QuaScriptDiagnostic,
   QuaScriptDialogue,
   QuaScriptStep,
-  QuaScriptDecoratorValue,
+  SourceRange,
 } from './types'
 import { parse } from '@babel/parser'
+import * as t from '@babel/types'
 import { v4 as uuidv4 } from 'uuid'
+import { createLineStarts, rangeFromOffsets } from './document'
+
+interface ParsedLine {
+  index: number
+  offset: number
+  raw: string
+  range: SourceRange
+  text: string
+}
+
+interface TemplateScanResult {
+  diagnostics: Array<{
+    end: number
+    message: string
+    start: number
+  }>
+  expressions: string[]
+  parts: string[]
+}
 
 /**
- * Parse QuaScript DSL string into structured AST
+ * Parse QuaScript DSL string into structured AST.
  */
 export class QuaScriptParser {
-  private lines: string[] = []
+  private diagnostics: QuaScriptDiagnostic[] = []
+  private lineStarts: number[] = []
+  private lines: ParsedLine[] = []
   private originalLines: string[] = []
-  private lineOriginalIndices: number[] = []
   private position = 0
 
   parse(quaScript: string): ParsedQuaScript {
-    // Keep both original lines (with empty lines) and filtered lines
+    this.lineStarts = createLineStarts(quaScript)
     this.originalLines = quaScript.split('\n')
-    this.lines = []
-    this.lineOriginalIndices = []
-    this.originalLines.forEach((line, index) => {
-      const trimmed = line.trim()
-      if (trimmed.length > 0) {
-        this.lines.push(trimmed)
-        this.lineOriginalIndices.push(index)
+    this.lines = this.originalLines.map((raw, index) => {
+      const withoutCarriage = raw.endsWith('\r') ? raw.slice(0, -1) : raw
+      const leading = withoutCarriage.length - withoutCarriage.trimStart().length
+      const lineStart = this.lineStarts[index] ?? 0
+      return {
+        index,
+        offset: lineStart + leading,
+        raw: withoutCarriage,
+        range: rangeFromOffsets(this.lineStarts, lineStart, lineStart + raw.length),
+        text: withoutCarriage.trim(),
       }
     })
-
     this.position = 0
+    this.diagnostics = []
 
     const steps: QuaScriptStep[] = []
     const characters = new Set<string>()
     const imports = new Set<string>()
 
     while (this.position < this.lines.length) {
+      this.skipBlankLines()
+      if (this.position >= this.lines.length) {
+        break
+      }
+
       const step = this.parseStep()
       if (step) {
         steps.push(step)
@@ -45,15 +76,13 @@ export class QuaScriptParser {
         if (step.type === 'dialogue') {
           const dialogue = step.content as QuaScriptDialogue
           characters.add(dialogue.character)
-
-          // Add required imports based on decorators
           dialogue.decorators.forEach((decorator) => {
             this.addRequiredImports(decorator, imports)
           })
         }
         else if (step.type === 'action') {
           const action = step.content as any
-          action.decorators?.forEach((decorator: any) => {
+          action.decorators?.forEach((decorator: QuaScriptDecorator) => {
             this.addRequiredImports(decorator, imports)
           })
         }
@@ -64,7 +93,12 @@ export class QuaScriptParser {
       steps,
       imports,
       characters,
+      diagnostics: this.diagnostics,
     }
+  }
+
+  static scanTemplateText(text: string): TemplateScanResult {
+    return scanTemplateText(text)
   }
 
   private parseDecorators(): { decorators: QuaScriptDecorator[], shouldCreateSeparateAction: boolean } {
@@ -73,8 +107,12 @@ export class QuaScriptParser {
 
     while (this.position < this.lines.length) {
       const line = this.getCurrentLine()
-      if (!line?.startsWith('@'))
+      if (!line || line.text.length === 0) {
         break
+      }
+      if (!line.text.startsWith('@')) {
+        break
+      }
 
       const decorator = this.parseDecorator(line)
       if (decorator) {
@@ -84,20 +122,15 @@ export class QuaScriptParser {
       this.advance()
     }
 
-    // Check if there should be a separate action step
-    // This happens when there are decorators followed by empty lines before dialogue
     let shouldCreateSeparateAction = false
     if (decorators.length > 0) {
-      const nextLine = this.getCurrentLine()
-      const hasDialogueNext = nextLine?.match(/^(\w+):\s(.*)$/)
+      const nextLine = this.peekNextNonBlankLine()
+      const hasDialogueNext = Boolean(nextLine && this.parseDialogueLine(nextLine))
 
       if (hasDialogueNext) {
-        // Check if there was a gap in the original input
-        // Find the positions in original lines to check for gaps
-        shouldCreateSeparateAction = this.hasGapBeforeDialogue(decoratorStartPos)
+        shouldCreateSeparateAction = this.hasGapBeforeLine(decoratorStartPos, nextLine!.index)
       }
       else {
-        // If no dialogue follows, these are definitely standalone action decorators
         shouldCreateSeparateAction = true
       }
     }
@@ -105,21 +138,20 @@ export class QuaScriptParser {
     return { decorators, shouldCreateSeparateAction }
   }
 
-  private hasGapBeforeDialogue(_decoratorStartPos: number): boolean {
-    const lastDecoratorOriginalIndex = this.lineOriginalIndices[this.position - 1]
-    const dialogueOriginalIndex = this.lineOriginalIndices[this.position]
-
-    if (lastDecoratorOriginalIndex === undefined || dialogueOriginalIndex === undefined)
+  private hasGapBeforeLine(_decoratorStartPos: number, nextOriginalIndex: number): boolean {
+    const lastDecorator = this.lines[this.position - 1]
+    if (!lastDecorator) {
       return false
+    }
 
     return this.originalLines
-      .slice(lastDecoratorOriginalIndex + 1, dialogueOriginalIndex)
+      .slice(lastDecorator.index + 1, nextOriginalIndex)
       .some(line => line.trim() === '')
   }
 
   private parseStep(): QuaScriptStep | null {
     const { decorators, shouldCreateSeparateAction } = this.parseDecorators()
-    const line = this.getCurrentLine()
+    this.skipBlankLines()
 
     const choice = this.parseChoiceBlock()
     if (choice) {
@@ -127,18 +159,16 @@ export class QuaScriptParser {
         uuid: uuidv4(),
         type: 'choice',
         content: choice,
+        range: choice.range,
       }
     }
 
-    // Check if it's a dialogue line (Character: Text)
-    const dialogueMatch = line?.match(/^(\w+):\s(.*)$/)
-    if (dialogueMatch) {
-      const [, character, text] = dialogueMatch
+    const line = this.getCurrentLine()
+    const dialogue = line ? this.parseDialogueLine(line) : null
+    if (dialogue) {
       this.advance()
 
-      // If decorators should be separate, create action first
       if (decorators.length > 0 && shouldCreateSeparateAction) {
-        // Reset position to re-parse dialogue without decorators
         this.position--
         return {
           uuid: uuidv4(),
@@ -146,24 +176,41 @@ export class QuaScriptParser {
           content: {
             type: 'action',
             decorators,
+            range: decorators[0]?.range,
           },
+          range: decorators[0]?.range,
         }
       }
+
+      const dialogueLine = line!
+      const templateScan = scanTemplateText(dialogue.text)
+      templateScan.diagnostics.forEach((diagnostic) => {
+        this.diagnostics.push({
+          message: diagnostic.message,
+          range: rangeFromOffsets(
+            this.lineStarts,
+            dialogue.textOffset + diagnostic.start,
+            dialogue.textOffset + diagnostic.end,
+          ),
+          severity: 'error',
+        })
+      })
 
       return {
         uuid: uuidv4(),
         type: 'dialogue',
         content: {
           type: 'dialogue',
-          character,
-          text,
+          character: dialogue.character,
+          text: dialogue.text,
           decorators,
-          templateExpressions: this.extractTemplateExpressions(text),
+          templateExpressions: templateScan.expressions,
+          range: dialogueLine.range,
         } as QuaScriptDialogue,
+        range: dialogueLine.range,
       }
     }
 
-    // If we have decorators but no dialogue, create an action step
     if (decorators.length > 0) {
       return {
         uuid: uuidv4(),
@@ -171,12 +218,18 @@ export class QuaScriptParser {
         content: {
           type: 'action',
           decorators,
+          range: decorators[0]?.range,
         },
+        range: decorators[0]?.range,
       }
     }
 
-    // Skip unknown lines
-    if (line) {
+    if (line?.text) {
+      this.diagnostics.push({
+        message: `Unrecognized QuaScript line: ${line.text}`,
+        range: line.range,
+        severity: 'warning',
+      })
       this.advance()
     }
     return null
@@ -184,14 +237,22 @@ export class QuaScriptParser {
 
   private parseChoiceBlock(): QuaScriptChoice | null {
     const options: QuaScriptChoice['options'] = []
+    const start = this.getCurrentLine()?.range.start
+    let end = this.getCurrentLine()?.range.end
 
     while (this.position < this.lines.length) {
       const line = this.getCurrentLine()
-      const option = line ? this.parseChoiceOption(line) : null
-      if (!option)
+      if (!line || line.text.length === 0) {
+        this.advance()
+        continue
+      }
+      const option = this.parseChoiceOption(line)
+      if (!option) {
         break
+      }
 
       options.push(option)
+      end = line.range.end
       this.advance()
     }
 
@@ -199,22 +260,42 @@ export class QuaScriptParser {
       ? {
           type: 'choice',
           options,
+          range: start && end ? { start, end } : undefined,
         }
       : null
   }
 
-  private parseChoiceOption(line: string): QuaScriptChoice['options'][number] | null {
-    const match = line.match(/^-\s+(.+?)(?:\s*->\s*([A-Za-z0-9_.:-]+))?(?:\s+if\s+(.+))?$/)
-    if (!match)
+  private parseChoiceOption(line: ParsedLine): QuaScriptChoice['options'][number] | null {
+    if (!line.text.startsWith('- ')) {
       return null
+    }
 
-    const [, text, target, condition] = match
+    const body = line.text.slice(2).trim()
+    const arrow = splitTopLevelArrow(body)
+    const conditionSplit = arrow.after
+      ? splitTopLevelKeyword(arrow.after.trim(), 'if')
+      : splitTopLevelKeyword(arrow.before.trim(), 'if')
+    const textSource = arrow.after ? arrow.before : conditionSplit.before
+    const targetSource = arrow.after ? conditionSplit.before : undefined
+    const condition = conditionSplit.after
+    const text = textSource.trim()
+    if (!text) {
+      this.diagnostics.push({
+        message: 'Choice text cannot be empty.',
+        range: line.range,
+        severity: 'error',
+      })
+      return null
+    }
+
+    const target = targetSource?.trim()
     const id = target || this.slugChoiceId(text)
     return {
       id,
       text,
       target: target || id,
-      condition,
+      condition: condition?.trim(),
+      range: line.range,
     }
   }
 
@@ -227,21 +308,44 @@ export class QuaScriptParser {
       || 'choice'
   }
 
-  private parseDecorator(line: string): QuaScriptDecorator | null {
-    // Match @DecoratorName(arg1, arg2, ...)
-    const match = line.match(/^@(\w+)(?:\(([^)]*)\))?$/)
-    if (!match)
+  private parseDecorator(line: ParsedLine): QuaScriptDecorator | null {
+    const decoratorSource = line.text.slice(1)
+    const name = readIdentifierName(decoratorSource)
+    if (!name) {
+      this.diagnostics.push({
+        message: `Invalid decorator syntax: ${line.text}`,
+        range: line.range,
+        severity: 'error',
+      })
       return null
+    }
 
-    const [, name, argsString] = match
-    const args = argsString ? this.parseDecoratorArgs(argsString) : []
+    const rest = decoratorSource.slice(name.length).trim()
+    if (!rest) {
+      return { name, args: [], range: line.range }
+    }
 
-    return { name, args }
+    if (!rest.startsWith('(') || !rest.endsWith(')') || !isBalancedWrapper(rest, '(', ')')) {
+      this.diagnostics.push({
+        message: `Invalid decorator arguments for @${name}.`,
+        range: line.range,
+        severity: 'error',
+      })
+      return { name, args: [], range: line.range }
+    }
+
+    const argsString = rest.slice(1, -1)
+    return {
+      name,
+      args: this.parseDecoratorArgs(argsString, line),
+      range: line.range,
+    }
   }
 
-  private parseDecoratorArgs(argsString: string): QuaScriptDecoratorValue[] {
-    if (!argsString.trim())
+  private parseDecoratorArgs(argsString: string, line: ParsedLine): QuaScriptDecoratorValue[] {
+    if (!argsString.trim()) {
       return []
+    }
 
     try {
       const parsed = parse(`__quaDecorator__(${argsString})`, {
@@ -250,37 +354,40 @@ export class QuaScriptParser {
       })
       const statement = parsed.program.body[0]
       if (statement?.type === 'ExpressionStatement' && statement.expression.type === 'CallExpression') {
-        return statement.expression.arguments.map((argument: any) => this.convertExpressionValue(argument))
+        const values: QuaScriptDecoratorValue[] = []
+        statement.expression.arguments.forEach((argument) => {
+          if (t.isExpression(argument)) {
+            values.push(this.convertExpressionValue(argument))
+            return
+          }
+
+          this.diagnostics.push({
+            message: 'Unsupported TypeScript decorator argument syntax.',
+            range: line.range,
+            severity: 'error',
+          })
+        })
+        return values
       }
     }
-    catch {
-      // Fall back to the legacy parser below.
+    catch (error) {
+      this.diagnostics.push({
+        message: `Invalid TypeScript decorator arguments: ${error instanceof Error ? error.message : String(error)}`,
+        range: line.range,
+        severity: 'error',
+      })
+      return []
     }
 
-    return argsString
-      .split(',')
-      .map((arg) => this.parseLegacyArgument(arg.trim()))
+    this.diagnostics.push({
+      message: 'Invalid TypeScript decorator arguments.',
+      range: line.range,
+      severity: 'error',
+    })
+    return []
   }
 
-  private parseLegacyArgument(arg: string): QuaScriptDecoratorValue {
-    if ((arg.startsWith('"') && arg.endsWith('"'))
-      || (arg.startsWith('\'') && arg.endsWith('\''))) {
-      return arg.slice(1, -1)
-    }
-    if (arg === 'true')
-      return true
-    if (arg === 'false')
-      return false
-    const num = Number(arg)
-    if (!Number.isNaN(num))
-      return num
-    return arg
-  }
-
-  private convertExpressionValue(node: any): any {
-    if (!node) {
-      return null
-    }
+  private convertExpressionValue(node: t.Expression): QuaScriptDecoratorValue {
     switch (node.type) {
       case 'StringLiteral':
         return node.value
@@ -291,61 +398,51 @@ export class QuaScriptParser {
       case 'NullLiteral':
         return null
       case 'ArrayExpression':
-        return node.elements.map((element: any) => this.convertExpressionValue(element))
+        return node.elements
+          .filter((element): element is t.Expression => Boolean(element) && t.isExpression(element))
+          .map(element => this.convertExpressionValue(element))
       case 'ObjectExpression':
         return Object.fromEntries(node.properties
-          .filter((property: any) => property.type === 'ObjectProperty')
-          .map((property: any) => {
-            const key = property.key.type === 'Identifier'
+          .filter((property): property is t.ObjectProperty => t.isObjectProperty(property) && t.isExpression(property.value))
+          .map((property) => {
+            const key = t.isIdentifier(property.key)
               ? property.key.name
-              : String(property.key.value)
-            return [key, this.convertExpressionValue(property.value)]
+              : String((property.key as t.StringLiteral | t.NumericLiteral).value)
+            const value = property.value
+            return [key, t.isExpression(value) ? this.convertExpressionValue(value) : null]
           }))
-      case 'TemplateLiteral':
-        if (node.expressions.length === 0) {
-          return node.quasis.map((quasi: any) => quasi.value.cooked || quasi.value.raw).join('')
-        }
-        return node.quasis.map((quasi: any) => quasi.value.cooked || quasi.value.raw).join('')
       case 'UnaryExpression':
-        if (node.operator === '-' && node.argument?.type === 'NumericLiteral') {
+        if (node.operator === '-' && t.isNumericLiteral(node.argument)) {
           return -node.argument.value
         }
-        return this.stringifyExpression(node)
+        return node
       default:
-        return this.stringifyExpression(node)
+        return node
     }
   }
 
-  private stringifyExpression(node: any): string {
-    if (!node) {
-      return ''
-    }
-    if (typeof node.value === 'string') {
-      return node.value
-    }
-    if (node.type === 'Identifier') {
-      return node.name
-    }
-    return String(node.value ?? node.name ?? '')
-  }
-
-  private extractTemplateExpressions(text: string): string[] {
-    const expressions: string[] = []
-    const regex = /\$\{([^}]+)\}/g
-
-    // Use a different approach to avoid assignment in while
-    let result = regex.exec(text)
-    while (result !== null) {
-      expressions.push(result[1])
-      result = regex.exec(text)
+  private parseDialogueLine(line: ParsedLine): { character: string, text: string, textOffset: number } | null {
+    const colon = findTopLevelColon(line.text)
+    if (colon <= 0) {
+      return null
     }
 
-    return expressions
+    const character = line.text.slice(0, colon).trim()
+    const rawText = line.text.slice(colon + 1)
+    const textLeading = rawText.length - rawText.trimStart().length
+    const text = rawText.trimStart()
+    if (!character || character.startsWith('-') || character.startsWith('@')) {
+      return null
+    }
+
+    return {
+      character,
+      text,
+      textOffset: line.offset + colon + 1 + textLeading,
+    }
   }
 
   private addRequiredImports(decorator: QuaScriptDecorator, imports: Set<string>) {
-    // This will be used later to determine required imports
-    // For now, just add common ones
     switch (decorator.name) {
       case 'SetSprite':
       case 'ShowCharacter':
@@ -357,11 +454,272 @@ export class QuaScriptParser {
     }
   }
 
-  private getCurrentLine(): string | null {
+  private getCurrentLine(): ParsedLine | null {
     return this.position < this.lines.length ? this.lines[this.position] : null
+  }
+
+  private peekNextNonBlankLine(): ParsedLine | null {
+    for (let index = this.position; index < this.lines.length; index++) {
+      const line = this.lines[index]
+      if (line.text.length > 0) {
+        return line
+      }
+    }
+    return null
+  }
+
+  private skipBlankLines(): void {
+    while (this.position < this.lines.length && this.lines[this.position].text.length === 0) {
+      this.position++
+    }
   }
 
   private advance(): void {
     this.position++
   }
+}
+
+export function scanTemplateText(text: string): TemplateScanResult {
+  const diagnostics: TemplateScanResult['diagnostics'] = []
+  const parts: string[] = []
+  const expressions: string[] = []
+  let cursor = 0
+
+  while (cursor < text.length) {
+    const start = text.indexOf('${', cursor)
+    if (start === -1) {
+      break
+    }
+
+    const end = findBalancedExpressionEnd(text, start + 2)
+    if (end === -1) {
+      diagnostics.push({
+        message: 'Unterminated QuaScript interpolation. Expected a closing }.',
+        start,
+        end: text.length,
+      })
+      break
+    }
+
+    const expression = text.slice(start + 2, end).trim()
+    if (!expression) {
+      diagnostics.push({
+        message: 'QuaScript interpolation cannot be empty.',
+        start,
+        end: end + 1,
+      })
+    }
+
+    parts.push(text.slice(cursor, start))
+    expressions.push(expression)
+    cursor = end + 1
+  }
+
+  parts.push(text.slice(cursor))
+  return { diagnostics, expressions, parts }
+}
+
+function findBalancedExpressionEnd(source: string, start: number): number {
+  let depth = 0
+  let quote: '"' | '\'' | '`' | null = null
+  let escaped = false
+
+  for (let index = start; index < source.length; index++) {
+    const char = source[index]
+
+    if (quote) {
+      if (escaped) {
+        escaped = false
+        continue
+      }
+      if (char === '\\') {
+        escaped = true
+        continue
+      }
+      if (char === quote) {
+        quote = null
+      }
+      continue
+    }
+
+    if (char === '"' || char === '\'' || char === '`') {
+      quote = char
+      continue
+    }
+
+    if (char === '{' || char === '(' || char === '[') {
+      depth++
+      continue
+    }
+    if (char === '}' || char === ')' || char === ']') {
+      if (char === '}' && depth === 0) {
+        return index
+      }
+      depth = Math.max(0, depth - 1)
+    }
+  }
+
+  return -1
+}
+
+function splitTopLevelKeyword(source: string, keyword: string): { before: string, after?: string } {
+  const index = findTopLevelKeyword(source, keyword)
+  if (index === -1) {
+    return { before: source }
+  }
+  return {
+    before: source.slice(0, index),
+    after: source.slice(index + keyword.length),
+  }
+}
+
+function findTopLevelKeyword(source: string, keyword: string): number {
+  for (const item of scanTopLevel(source)) {
+    if (
+      item.char === keyword[0]
+      && source.slice(item.index, item.index + keyword.length) === keyword
+      && isKeywordBoundary(source[item.index - 1])
+      && isKeywordBoundary(source[item.index + keyword.length])
+    ) {
+      return item.index
+    }
+  }
+  return -1
+}
+
+function splitTopLevelArrow(source: string): { before: string, after?: string } {
+  for (const item of scanTopLevel(source)) {
+    if (item.char === '-' && source[item.index + 1] === '>') {
+      return {
+        before: source.slice(0, item.index),
+        after: source.slice(item.index + 2),
+      }
+    }
+  }
+  return { before: source }
+}
+
+function findTopLevelColon(source: string): number {
+  for (const item of scanTopLevel(source)) {
+    if (item.char === ':') {
+      return item.index
+    }
+  }
+  return -1
+}
+
+function isBalancedWrapper(source: string, open: string, close: string): boolean {
+  if (source[0] !== open || source[source.length - 1] !== close) {
+    return false
+  }
+  return findWrapperClose(source, 0, open, close) === source.length - 1
+}
+
+function findWrapperClose(source: string, start: number, open: string, close: string): number {
+  let depth = 0
+  let quote: '"' | '\'' | '`' | null = null
+  let escaped = false
+
+  for (let index = start; index < source.length; index++) {
+    const char = source[index]
+    if (quote) {
+      if (escaped) {
+        escaped = false
+        continue
+      }
+      if (char === '\\') {
+        escaped = true
+        continue
+      }
+      if (char === quote) {
+        quote = null
+      }
+      continue
+    }
+    if (char === '"' || char === '\'' || char === '`') {
+      quote = char
+      continue
+    }
+    if (char === open) {
+      depth++
+    }
+    else if (char === close) {
+      depth--
+      if (depth === 0) {
+        return index
+      }
+    }
+  }
+  return -1
+}
+
+function scanTopLevel(source: string): Array<{ char: string, index: number }> {
+  const result: Array<{ char: string, index: number }> = []
+  const stack: string[] = []
+  let quote: '"' | '\'' | '`' | null = null
+  let escaped = false
+
+  for (let index = 0; index < source.length; index++) {
+    const char = source[index]
+
+    if (quote) {
+      if (escaped) {
+        escaped = false
+        continue
+      }
+      if (char === '\\') {
+        escaped = true
+        continue
+      }
+      if (char === quote) {
+        quote = null
+      }
+      continue
+    }
+
+    if (char === '"' || char === '\'' || char === '`') {
+      quote = char
+      continue
+    }
+
+    if (char === '(' || char === '[' || char === '{') {
+      stack.push(char)
+      continue
+    }
+    if (char === ')' || char === ']' || char === '}') {
+      stack.pop()
+      continue
+    }
+
+    if (stack.length === 0) {
+      result.push({ char, index })
+    }
+  }
+
+  return result
+}
+
+function isKeywordBoundary(char: string | undefined): boolean {
+  return !char || /\s/.test(char)
+}
+
+function readIdentifierName(source: string): string | null {
+  const first = source[0]
+  if (!first || !isIdentifierStart(first)) {
+    return null
+  }
+
+  let end = 1
+  while (end < source.length && isIdentifierPart(source[end])) {
+    end++
+  }
+  return source.slice(0, end)
+}
+
+function isIdentifierStart(char: string): boolean {
+  return char === '_' || char === '$' || /[a-z]/i.test(char)
+}
+
+function isIdentifierPart(char: string): boolean {
+  return isIdentifierStart(char) || /\d/.test(char)
 }

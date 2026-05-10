@@ -1,8 +1,11 @@
-import type { CompilerOptions, DecoratorMapping } from './core/types'
+import type { DecoratorMapping } from './core/types'
 import process from 'node:process'
 import { getHotReloadManager } from './core/hot-reload'
 import { createHotReloadAwareTransformer } from './integrations/hot-reload-transformer'
 import { createPluginAwareTransformer } from './integrations/plugin-aware-transformer'
+
+export { generateQuaScriptModuleDeclaration } from './core/declaration'
+export { parseQuaScriptDocument } from './core/document'
 
 // Hot-reload manager
 export {
@@ -11,20 +14,23 @@ export {
   resetHotReloadManager,
 } from './core/hot-reload'
 export type { HotReloadCallback, HotReloadEvent } from './core/hot-reload'
-
 export { QuaScriptParser } from './core/parser'
 export { QuaScriptTransformer } from './core/transformer'
 
 // Core types
 export type {
-  CompilerOptions,
   DecoratorMapping,
   ParsedQuaScript,
+  ParsedQuaScriptDocument,
   QuaScriptAction,
   QuaScriptChoice,
   QuaScriptDecorator,
+  QuaScriptDiagnostic,
   QuaScriptDialogue,
+  QuaScriptDocumentBlock,
   QuaScriptStep,
+  SourcePosition,
+  SourceRange,
 } from './core/types'
 
 export { DEFAULT_DECORATOR_MAPPINGS, mergeDecoratorMappings } from './core/types'
@@ -63,7 +69,6 @@ export function compileQuaScript(
   source: string,
   options?: {
     decoratorMappings?: DecoratorMapping
-    compilerOptions?: CompilerOptions
     /** Project root for plugin discovery */
     projectRoot?: string
     /** Enable hot-reload features */
@@ -76,14 +81,12 @@ export function compileQuaScript(
     ? createHotReloadAwareTransformer(
         restOptions.decoratorMappings,
         {
-          ...restOptions.compilerOptions,
           projectRoot: restOptions.projectRoot,
         },
       )
     : createPluginAwareTransformer(
         restOptions.decoratorMappings,
         {
-          ...restOptions.compilerOptions,
           projectRoot: restOptions.projectRoot,
         },
       )
@@ -93,4 +96,40 @@ export function compileQuaScript(
   }
 
   return transformer.transformSource(source)
+}
+
+/**
+ * Compile a standalone QuaScript source file into a TypeScript module.
+ */
+export function compileQuaScriptModuleToTs(
+  source: string,
+  options?: {
+    decoratorMappings?: DecoratorMapping
+    /** Project root for plugin discovery */
+    projectRoot?: string
+    /** Enable hot-reload features */
+    hotReload?: boolean
+  },
+): string {
+  const { hotReload = process.env.NODE_ENV !== 'production', ...restOptions } = options || {}
+
+  const transformer = hotReload
+    ? createHotReloadAwareTransformer(
+        restOptions.decoratorMappings,
+        {
+          projectRoot: restOptions.projectRoot,
+        },
+      )
+    : createPluginAwareTransformer(
+        restOptions.decoratorMappings,
+        {
+          projectRoot: restOptions.projectRoot,
+        },
+      )
+
+  if (hotReload) {
+    getHotReloadManager(restOptions.projectRoot).enable()
+  }
+
+  return transformer.transformModuleSource(source)
 }

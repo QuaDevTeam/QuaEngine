@@ -561,6 +561,9 @@ function objectPropertiesFromRecord(record: Record<string, unknown>): t.ObjectPr
 }
 
 function toExpression(value: unknown): t.Expression {
+  if (isBabelExpression(value)) {
+    return value
+  }
   if (typeof value === 'string') {
     return t.stringLiteral(value)
   }
@@ -602,7 +605,11 @@ function resolveLineId(state: AudioCompileState, context: { stepUuid: string }):
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+  return typeof value === 'object' && value !== null && !Array.isArray(value) && !isBabelExpression(value)
+}
+
+function isBabelExpression(value: unknown): value is t.Expression {
+  return typeof value === 'object' && value !== null && t.isExpression(value as t.Node)
 }
 
 function normalizeRecord(record: Record<string, unknown>): Record<string, string> {

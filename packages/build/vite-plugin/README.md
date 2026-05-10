@@ -4,7 +4,7 @@ Comprehensive Vite plugin for QuaEngine projects that provides a complete build 
 
 ## Features
 
-- **🎯 QuaScript Compilation**: Transform `qs` template literals with plugin support
+- **🎯 QuaScript Compilation**: Transform `qs` template literals and TypeScript-first standalone `.qs` files with plugin support
 - **🔧 Plugin Discovery**: Automatically discover and bundle QuaJS plugins  
 - **📦 Asset Bundling**: Process game assets using Quack bundler
 - **🔥 Development Server**: Enhanced HMR for scripts and assets
@@ -46,7 +46,7 @@ export default {
       // Script compilation options
       scriptCompiler: {
         enabled: true,
-        include: /\.(ts|tsx|js|jsx)$/,
+        include: /\.(qs|ts|tsx|js|jsx)$/,
         exclude: /node_modules/,
         projectRoot: process.cwd()
       },
@@ -194,6 +194,24 @@ const config: QuaEngineVitePluginOptions = {
     projectRoot: './src'
   }
 }
+```
+
+Standalone `.qs` files compile through the core QuaScript compiler as TypeScript, then the Vite adapter passes that output through Vite's Oxc transform for browser-ready JavaScript. Inside `.qs`, use `<script lang="ts">` for imports/types and `<script setup lang="ts">` for factory-local bindings:
+
+```qs
+<script lang="ts">
+import { formatName } from './logic.ts'
+
+export interface Scope {
+  playerName: string
+}
+</script>
+
+<script setup lang="ts">
+const displayName = formatName(scope.playerName)
+</script>
+
+Yuki: Hello ${displayName}!
 ```
 
 ## Advanced Configuration

@@ -1,5 +1,5 @@
 import type { Plugin, ViteDevServer } from 'vite'
-import type { CompilerOptions, DecoratorMapping } from '../core/types'
+import type { DecoratorMapping } from '../core/types'
 import process from 'node:process'
 import { getHotReloadManager } from '../core/hot-reload'
 import { createHotReloadAwareTransformer } from './hot-reload-transformer'
@@ -8,7 +8,6 @@ export interface QuaScriptPluginOptions {
   include?: string | RegExp | (string | RegExp)[]
   exclude?: string | RegExp | (string | RegExp)[]
   decoratorMappings?: DecoratorMapping
-  compilerOptions?: CompilerOptions
   /** Project root for plugin discovery */
   projectRoot?: string
   /** Enable hot-reload (default: true in development) */
@@ -20,10 +19,9 @@ export interface QuaScriptPluginOptions {
  */
 export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
   const {
-    include = /\.(ts|tsx|js|jsx)$/,
+    include = /\.(qs|ts|tsx|js|jsx)$/,
     exclude = /node_modules/,
     decoratorMappings,
-    compilerOptions,
     projectRoot,
     hotReload = process.env.NODE_ENV !== 'production',
   } = options
@@ -38,7 +36,6 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
     async configResolved(config) {
       // Create transformer after config is resolved
       transformer = createHotReloadAwareTransformer(decoratorMappings, {
-        ...compilerOptions,
         projectRoot: projectRoot || config.root,
       })
       await transformer.updateDecoratorMappings()
@@ -110,10 +107,37 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
       })
     },
 
-    transform(code: string, id: string) {
+    async transform(code: string, id: string) {
       // Check if file should be processed
       if (!shouldTransform(id, include, exclude)) {
         return null
+      }
+
+      const isStandaloneFile = isStandaloneQuaScriptFile(id)
+
+      // Standalone .qs files are raw QuaScript and compile to importable modules.
+      if (isStandaloneFile) {
+        try {
+          const transformedCode = await transformQuaScriptTypeScriptForVite(
+            transformer.transformModuleSource(code, id),
+            id,
+          )
+
+          if (hotReload && server) {
+            return {
+              code: transformedCode.code + generateHMRCode(id),
+              map: transformedCode.map,
+            }
+          }
+
+          return {
+            code: transformedCode.code,
+            map: transformedCode.map,
+          }
+        }
+        catch (error) {
+          this.error(`QuaScript module transformation failed in ${id}: ${error}`)
+        }
       }
 
       // Check if code contains qs template literals
@@ -179,6 +203,15 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
   }
 }
 
+async function transformQuaScriptTypeScriptForVite(code: string, id: string) {
+  const vite = await import('vite')
+  const filename = `${stripQuery(id)}.ts`
+  return vite.transformWithOxc(code, filename, {
+    lang: 'ts',
+    sourcemap: true,
+  })
+}
+
 /**
  * Check if a file should be transformed
  */
@@ -187,17 +220,18 @@ function shouldTransform(
   include: string | RegExp | (string | RegExp)[],
   exclude: string | RegExp | (string | RegExp)[],
 ): boolean {
+  const cleanId = stripQuery(id)
   const includePatterns = Array.isArray(include) ? include : [include]
   const excludePatterns = Array.isArray(exclude) ? exclude : [exclude]
 
   // Check exclude patterns first
   for (const pattern of excludePatterns) {
     if (typeof pattern === 'string') {
-      if (id.includes(pattern))
+      if (cleanId.includes(pattern))
         return false
     }
     else if (pattern instanceof RegExp) {
-      if (pattern.test(id))
+      if (pattern.test(cleanId))
         return false
     }
   }
@@ -205,16 +239,24 @@ function shouldTransform(
   // Check include patterns
   for (const pattern of includePatterns) {
     if (typeof pattern === 'string') {
-      if (id.includes(pattern))
+      if (cleanId.includes(pattern))
         return true
     }
     else if (pattern instanceof RegExp) {
-      if (pattern.test(id))
+      if (pattern.test(cleanId))
         return true
     }
   }
 
   return false
+}
+
+function isStandaloneQuaScriptFile(id: string): boolean {
+  return !id.includes('?raw') && stripQuery(id).endsWith('.qs')
+}
+
+function stripQuery(id: string): string {
+  return id.split('?', 1)[0]
 }
 
 /**

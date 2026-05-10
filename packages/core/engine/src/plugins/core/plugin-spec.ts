@@ -63,7 +63,6 @@ export interface PluginPackageExports {
   readonly decorators: Record<string, {
     function: string
     module: string
-    transform?: (args: any[]) => any[]
   }>
 
   /** API functions provided by this plugin */
@@ -146,7 +145,6 @@ export interface DiscoveredPlugin {
   decorators: Record<string, {
     function: string
     module: string
-    transform?: (args: any[]) => any[]
   }>
   /** APIs provided */
   apis: string[]

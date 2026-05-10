@@ -1,5 +1,5 @@
-import { createLogger } from '@quajs/logger'
 import type { PluginOption } from 'vite'
+import { createLogger } from '@quajs/logger'
 
 const logger = createLogger('vite-plugin:utils')
 
@@ -11,17 +11,18 @@ export function shouldTransform(
   include: string | RegExp | (string | RegExp)[],
   exclude: string | RegExp | (string | RegExp)[],
 ): boolean {
+  const cleanId = id.split('?', 1)[0]
   const includePatterns = Array.isArray(include) ? include : [include]
   const excludePatterns = Array.isArray(exclude) ? exclude : [exclude]
 
   // Check exclude patterns first
   for (const pattern of excludePatterns) {
     if (typeof pattern === 'string') {
-      if (id.includes(pattern))
+      if (cleanId.includes(pattern))
         return false
     }
     else if (pattern instanceof RegExp) {
-      if (pattern.test(id))
+      if (pattern.test(cleanId))
         return false
     }
   }
@@ -29,11 +30,11 @@ export function shouldTransform(
   // Check include patterns
   for (const pattern of includePatterns) {
     if (typeof pattern === 'string') {
-      if (id.includes(pattern))
+      if (cleanId.includes(pattern))
         return true
     }
     else if (pattern instanceof RegExp) {
-      if (pattern.test(id))
+      if (pattern.test(cleanId))
         return true
     }
   }

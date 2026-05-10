@@ -35,7 +35,6 @@ export function defineDecorator(
   config: {
     function: string
     module: string
-    transform?: (args: any[]) => any[]
   },
 ) {
   return { [name]: config }
@@ -76,7 +75,6 @@ export abstract class PluginFramework extends BaseEnginePlugin {
   protected abstract getPluginDecorators?(): Record<string, {
     function: string
     module: string
-    transform?: (args: any[]) => any[]
   }>
 
   /**

@@ -68,7 +68,6 @@ export interface VirtualPluginRegistryEntry {
   decorators: Record<string, {
     function: string
     module: string
-    transform?: (args: any[]) => any[]
   }>
   apis: string[]
 }

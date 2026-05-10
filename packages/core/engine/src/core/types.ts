@@ -9,6 +9,7 @@ import type {
   ViewUiProjection,
 } from '../events/events'
 import type { EnginePlugin, PluginConstructorOptions } from '../plugins/core/types'
+
 export type { ViewPluginProjectionMap } from '../events/events'
 
 export interface SlotMetadata {
@@ -29,6 +30,14 @@ export interface GameStep {
     tags?: string[]
   }
 }
+
+export type GameStepScope = Record<string, unknown>
+
+export type GameStepFactory<TScope = GameStepScope> = (scope: TScope) => GameStep[]
+
+export type OptionalGameStepFactory<TScope = GameStepScope> = (scope?: TScope) => GameStep[]
+
+export type GameStepSource<TScope = GameStepScope> = GameStep[] | GameStepFactory<TScope> | OptionalGameStepFactory<TScope>
 
 export interface StepContext {
   engine: QuaEngineInterface
@@ -74,7 +83,7 @@ export interface QuaEngineInterface {
 export type QuaEngineWaitFor = <T extends import('../events/events').LogicToRenderEvents | import('../events/events').RenderToLogicEvents>(
   event: T,
   matcher?: (payload: import('../events/events').EventPayload<T>) => boolean,
-  options?: { timeout?: number, signal?: any }
+  options?: { timeout?: number, signal?: any },
 ) => Promise<import('../events/events').EventPayload<T>>
 
 export abstract class Scene {
