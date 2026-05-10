@@ -317,6 +317,12 @@ Each package is:
 - Remove compatibility code when it is no longer part of the intended design.
 - Backward compatibility becomes a requirement only after the project starts publishing formal release versions with public compatibility guarantees.
 
+### Commit Message Convention
+- All git commit messages must use `type(component): description`.
+- `type` should be a conventional commit verb such as `feat`, `fix`, `refactor`, `docs`, `test`, or `chore`.
+- `component` should name the primary package or subsystem affected.
+- Keep the description concise, imperative, and lowercase unless a proper noun is required.
+
 ## Getting Started
 
 ### Prerequisites
