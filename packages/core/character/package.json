@@ -43,6 +43,18 @@
     "@quajs/render-core": "workspace:*"
   },
   "quajs": {
+    "type": "feature",
+    "category": "visual",
+    "description": "Character sprite, expression, and dialogue helpers for QuaEngine",
+    "provides": [
+      "quajs.character.v1"
+    ],
+    "requires": [
+      "quajs.sprite.v1"
+    ],
+    "renderer": {
+      "vue": "@quajs/renderer-vue/plugins/character"
+    },
     "decorators": {
       "SetSprite": {
         "function": "sprite",

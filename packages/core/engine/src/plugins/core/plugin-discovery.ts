@@ -57,6 +57,9 @@ export class PluginDiscovery {
         },
         decorators: plugin.decorators || {},
         apis: [],
+        provides: plugin.provides || [],
+        requires: plugin.requires || [],
+        renderer: plugin.renderer || {},
         enabled: true
       }))
     } catch (error) {

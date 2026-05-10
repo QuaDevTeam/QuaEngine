@@ -19,6 +19,9 @@ import {
   useRendererActions,
 } from '../src'
 import { createVisualNovelRendererPlugins } from '../src/plugins/preset'
+import { createCharacterRendererPlugin } from '../src/plugins/character'
+import { createSpriteRendererPlugin } from '../src/plugins/sprite'
+import { sortRendererPlugins } from '../src/plugins/core'
 import { QuaMenuOverlay, QuaSettingsPanel, QuaUiOverlay } from '../src/plugins/ui'
 
 describe('@quajs/renderer-vue', () => {
@@ -151,6 +154,24 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.querySelector('.qua-dialogue-box')).toBeNull()
     expect(host.el.querySelector('.qua-choice-panel')).toBeNull()
     expect(host.el.querySelector('.qua-effect-layer')).toBeNull()
+  })
+
+  it('orders renderer plugins by declared capabilities', () => {
+    const ordered = sortRendererPlugins([
+      createCharacterRendererPlugin(),
+      createSpriteRendererPlugin(),
+    ])
+
+    expect(ordered.map(plugin => plugin.name)).toEqual([
+      '@quajs/renderer-vue/sprite',
+      '@quajs/renderer-vue/character',
+    ])
+  })
+
+  it('fails fast when a renderer capability provider is missing', () => {
+    expect(() => sortRendererPlugins([
+      createCharacterRendererPlugin(),
+    ])).toThrow('Missing Qua renderer plugin capabilities')
   })
 
   it('does not turn nested renderer or plugin UI clicks into duplicate advance intents', async () => {
@@ -390,6 +411,74 @@ describe('@quajs/renderer-vue', () => {
     await flushVue()
 
     expect(host.el.querySelectorAll('.qua-background-layer-item').length).toBe(2)
+  })
+
+  it('renders sprite expressions through the dedicated sprite capability', async () => {
+    const pipeline = new Pipeline()
+    let urlIndex = 0
+    const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:sprite:${++urlIndex}`)
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const assets = new QuaAssets({
+      adapter: {
+        name: 'renderer-sprite-test',
+        storage: new MemoryAssetStorage(),
+        crypto: { sha256: async () => '' },
+      },
+      provider: {
+        mode: 'memory',
+        getManifest: async () => ({
+          version: '1',
+          assets: spriteAssetManifest(),
+        }),
+        getAsset: async (_id, record) => {
+          if (record?.path === 'characters/alice/sprite.manifest.json') {
+            return new TextEncoder().encode(JSON.stringify({
+              version: 1,
+              family: 'alice',
+              base: { asset: 'base.png' },
+              expressions: {
+                happy: {
+                  layers: [{ asset: 'happy.png' }],
+                },
+              },
+            }))
+          }
+          return new Uint8Array([1, 2, 3])
+        },
+      },
+    })
+    await assets.initialize()
+
+    const host = mount(QuaRenderer, {
+      pipeline,
+      assets,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        characters: [{
+          id: 'Alice',
+          name: 'Alice',
+          visible: true,
+          sprite: 'alice/base.png',
+          expression: 'happy',
+        }],
+      }),
+    })
+
+    await flushVue()
+    await flushVue()
+
+    const character = host.el.querySelector('.qua-character')
+    expect(character).not.toBeNull()
+    expect(character?.getAttribute('data-sprite-family')).toBe('alice')
+    expect(character?.getAttribute('data-sprite-expression')).toBe('happy')
+    expect(host.el.querySelectorAll('.qua-sprite-layer').length).toBe(2)
+    expect(host.el.querySelectorAll('.qua-sprite-layer--expression').length).toBe(1)
+    expect(create).toHaveBeenCalled()
+
+    host.app.unmount()
+    await flushVue()
+    expect(revoke).toHaveBeenCalled()
+    await assets.cleanup()
   })
 
   it('does not mount an empty default overlay layer over stage interactions', async () => {
@@ -722,4 +811,36 @@ function devVfsBackgroundRecord() {
     path: 'images/bg.png',
     mimeType: 'image/png',
   }
+}
+
+function spriteAssetManifest() {
+  return [
+    {
+      id: 'memory:default:characters:alice/sprite.manifest.json',
+      bundleName: 'memory',
+      name: 'alice/sprite.manifest.json',
+      type: 'characters' as const,
+      locale: 'default',
+      path: 'characters/alice/sprite.manifest.json',
+      mimeType: 'application/json',
+    },
+    {
+      id: 'memory:default:characters:alice/base.png',
+      bundleName: 'memory',
+      name: 'alice/base.png',
+      type: 'characters' as const,
+      locale: 'default',
+      path: 'characters/alice/base.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:characters:alice/happy.png',
+      bundleName: 'memory',
+      name: 'alice/happy.png',
+      type: 'characters' as const,
+      locale: 'default',
+      path: 'characters/alice/happy.png',
+      mimeType: 'image/png',
+    },
+  ]
 }

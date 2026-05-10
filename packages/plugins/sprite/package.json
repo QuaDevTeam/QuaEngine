@@ -1,0 +1,67 @@
+{
+  "name": "@quajs/plugin-sprite",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Sprite manifest, expression diff resolution, and hot-update helpers for QuaEngine",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "plugin",
+    "sprite",
+    "expression",
+    "visual-novel"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "import": "./dist/contracts.js"
+    },
+    "./build": {
+      "types": "./dist/build.d.ts",
+      "import": "./dist/build.js"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@quajs/assets-web": "workspace:*",
+    "@quajs/logger": "workspace:*",
+    "@quajs/quack": "workspace:*"
+  },
+  "quajs": {
+    "type": "feature",
+    "category": "visual",
+    "description": "Sprite manifest, expression diff resolution, atlas-aware rendering, and hot-update helpers",
+    "provides": [
+      "quajs.sprite.v1"
+    ],
+    "renderer": {
+      "vue": "@quajs/renderer-vue/plugins/sprite"
+    }
+  }
+}

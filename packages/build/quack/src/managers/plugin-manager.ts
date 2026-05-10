@@ -1,4 +1,4 @@
-import type { AssetContext, BundleManifest, QuackConfig, QuackPlugin } from '../core/types'
+import type { AssetCollectionContext, AssetContext, AssetInfo, BundleManifest, QuackConfig, QuackPlugin } from '../core/types'
 import { createLogger } from '@quajs/logger'
 
 const logger = createLogger('quack:plugin-manager')
@@ -85,6 +85,37 @@ export class PluginManager {
   }
 
   /**
+   * Allow plugins to contribute generated assets.
+   */
+  async collectAssets(context: AssetCollectionContext): Promise<AssetInfo[]> {
+    let assets = [...context.assets]
+
+    for (const plugin of this.plugins) {
+      try {
+        if (!plugin.collectAssets) {
+          continue
+        }
+
+        const generated = await plugin.collectAssets({
+          ...context,
+          assets: [...assets],
+        })
+
+        if (generated.length > 0) {
+          assets = mergeAssetsByRelativePath(assets, generated)
+          logger.debug(`Assets collected by plugin: ${plugin.name} -> ${generated.length}`)
+        }
+      }
+      catch (error) {
+        logger.error(`Plugin failed to collect assets: ${plugin.name}`, error)
+        throw new Error(`Asset collection failed: ${plugin.name}`)
+      }
+    }
+
+    return assets
+  }
+
+  /**
    * Call post-bundle hooks
    */
   async postBundle(bundlePath: string, manifest: BundleManifest): Promise<void> {
@@ -167,4 +198,15 @@ export class PluginManager {
       version: p.version,
     }))
   }
+}
+
+function mergeAssetsByRelativePath(existing: AssetInfo[], generated: AssetInfo[]): AssetInfo[] {
+  const merged = new Map<string, AssetInfo>()
+  for (const asset of existing) {
+    merged.set(asset.relativePath, asset)
+  }
+  for (const asset of generated) {
+    merged.set(asset.relativePath, asset)
+  }
+  return [...merged.values()]
 }

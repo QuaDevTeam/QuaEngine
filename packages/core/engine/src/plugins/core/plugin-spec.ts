@@ -22,7 +22,7 @@ export interface PluginPackageSpec {
   /** Plugin metadata */
   quajs?: {
     /** Plugin type identifier */
-    type: 'plugin'
+    type: 'plugin' | 'feature'
     /** Plugin category for organization */
     category?: 'ui' | 'audio' | 'data' | 'integration' | 'system' | string
     /** Plugin description */
@@ -40,6 +40,12 @@ export interface PluginPackageSpec {
     }>
     /** Plugin APIs provided */
     apis?: string[]
+    /** Capability tokens provided by this package */
+    provides?: string[]
+    /** Capability tokens required by this package */
+    requires?: string[]
+    /** Renderer sub-entries published by this package */
+    renderer?: Record<string, string>
   }
 }
 
@@ -148,6 +154,12 @@ export interface DiscoveredPlugin {
   }>
   /** APIs provided */
   apis: string[]
+  /** Capability tokens provided */
+  provides?: string[]
+  /** Capability tokens required */
+  requires?: string[]
+  /** Renderer sub-entry mappings */
+  renderer?: Record<string, string>
   /** Whether plugin is enabled */
   enabled: boolean
 }

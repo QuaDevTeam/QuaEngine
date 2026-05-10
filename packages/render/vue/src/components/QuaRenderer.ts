@@ -14,7 +14,7 @@ import {
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, provide, readonly, ref, watch } from 'vue'
 import { QuaRendererContextKey } from '../context'
 import { emptyView } from '../defaults'
-import { sortRendererLayers } from '../plugins/core'
+import { sortRendererLayers, sortRendererPlugins } from '../plugins/core'
 import { QuaStage } from './QuaStage'
 
 export interface QuaRendererSlotProps {
@@ -50,7 +50,8 @@ export const QuaRenderer = defineComponent({
     const projection = ref<QuaViewProjection>(props.initialView || emptyView())
     const revision = ref(0)
     const assetRevision = ref(0)
-    const rendererLayers = computed(() => sortRendererLayers((props.plugins || []).flatMap(plugin => plugin.layers || [])))
+    const rendererPlugins = computed(() => sortRendererPlugins(props.plugins || []))
+    const rendererLayers = computed(() => sortRendererLayers(rendererPlugins.value.flatMap(plugin => plugin.layers || [])))
     const eventUnsubscribers: Array<() => void> = []
     let pluginHost: RendererPluginHost | undefined
     let stopPipelineWatch: (() => void) | undefined
@@ -89,7 +90,7 @@ export const QuaRenderer = defineComponent({
     })
 
     onMounted(async () => {
-      pluginHost = new RendererPluginHost(props.plugins)
+      pluginHost = new RendererPluginHost(rendererPlugins.value)
       stopPipelineWatch = watch(pipeline, (currentPipeline) => {
         cleanupPipelineSubscriptions(eventUnsubscribers)
         if (!currentPipeline)
