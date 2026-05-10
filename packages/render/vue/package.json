@@ -81,6 +81,7 @@
   "dependencies": {
     "@quajs/assets": "workspace:*",
     "@quajs/assets-web": "workspace:*",
+    "@quajs/plugin-audio": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/render-core": "workspace:*"
   },

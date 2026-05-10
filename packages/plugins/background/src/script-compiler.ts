@@ -69,7 +69,7 @@ export function createBackgroundDecoratorCompiler() {
       return mapping.module === '@quajs/plugin-background' && SUPPORTED_FUNCTIONS.has(mapping.function)
     },
     compile({ decorator, mapping }: {
-      decorator: { name: string, args: (string | number | boolean)[] }
+      decorator: { name: string, args: unknown[] }
       mapping: { function: string }
     }) {
       const args = createDecoratorArgs(decorator)
@@ -168,16 +168,8 @@ export const scriptCompiler = {
 
 export const decorators = backgroundDecoratorMappings
 
-function createDecoratorArgs(decorator: { args: (string | number | boolean)[] }): t.Expression[] {
-  return decorator.args.map((arg) => {
-    if (typeof arg === 'string') {
-      return t.stringLiteral(arg)
-    }
-    if (typeof arg === 'number') {
-      return t.numericLiteral(arg)
-    }
-    return t.booleanLiteral(arg)
-  })
+function createDecoratorArgs(decorator: { args: unknown[] }): t.Expression[] {
+  return decorator.args.map(arg => toExpression(arg))
 }
 
 function createTransitionObject(args: Array<t.Expression | undefined>, required: true): t.ObjectExpression
@@ -241,6 +233,32 @@ function createLayeredBackgroundOptionsObject(args: Array<t.Expression | undefin
     properties.push(t.objectProperty(t.identifier('transition'), transition))
   }
   return t.objectExpression(properties)
+}
+
+function toExpression(value: unknown): t.Expression {
+  if (typeof value === 'string') {
+    return t.stringLiteral(value)
+  }
+  if (typeof value === 'number') {
+    return t.numericLiteral(value)
+  }
+  if (typeof value === 'boolean') {
+    return t.booleanLiteral(value)
+  }
+  if (value === null) {
+    return t.nullLiteral()
+  }
+  if (Array.isArray(value)) {
+    return t.arrayExpression(value.map(item => toExpression(item)))
+  }
+  if (typeof value === 'object') {
+    return t.objectExpression(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) =>
+        t.objectProperty(t.identifier(key), toExpression(item)),
+      ),
+    )
+  }
+  return t.identifier('undefined')
 }
 
 function createBackgroundLayerObject(

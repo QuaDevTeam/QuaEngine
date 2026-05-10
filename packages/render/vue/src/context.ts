@@ -10,7 +10,6 @@ export interface RendererActions {
   click: (payload?: { x?: number, y?: number, target?: string }) => Promise<void>
   advance: (source?: string) => Promise<void>
   selectChoice: (choiceId: string) => Promise<void>
-  setVolume: (type: 'master' | 'bgm' | 'sound' | 'voice', value: number) => Promise<void>
   requestSave: (slotId?: string) => Promise<void>
   requestLoad: (slotId?: string) => Promise<void>
   requestUiOpen: (elementId: string, config?: Record<string, unknown>) => Promise<void>

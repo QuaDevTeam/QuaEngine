@@ -39,6 +39,7 @@
     "@babel/types": "catalog:",
     "@quajs/character": "workspace:*",
     "@quajs/engine": "workspace:*",
+    "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-animation": "workspace:*",
     "@quajs/plugin-background": "workspace:*",
     "uuid": "catalog:"

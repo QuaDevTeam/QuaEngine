@@ -5,4 +5,5 @@ export type {
   DecoratorCompileContext,
   DecoratorCompileInput,
   DecoratorCompiler,
+  ImplicitDecoratorCompileInput,
 } from './types'

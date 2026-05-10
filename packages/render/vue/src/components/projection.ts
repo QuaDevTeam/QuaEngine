@@ -7,9 +7,9 @@ export function projectionProps() {
     characters: Array,
     dialogue: Object,
     choices: Array,
-    audio: Object,
     effects: Array,
     animations: Array,
+    plugins: Object,
     actions: Object,
   }
 }
@@ -22,8 +22,8 @@ export function useProjectionProps() {
     characters: view.value.characters,
     dialogue: view.value.dialogue,
     choices: view.value.choices,
-    audio: view.value.audio,
     effects: view.value.effects,
     animations: view.value.animations,
+    plugins: view.value.plugins,
   }
 }

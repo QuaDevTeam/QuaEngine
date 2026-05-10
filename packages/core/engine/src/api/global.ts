@@ -1,4 +1,4 @@
-import type { ChoiceIntent, DialogueIntent, GameStep, Scene, SoundOptions, VolumeSettings } from '../core/types'
+import type { ChoiceIntent, DialogueIntent, GameStep, Scene } from '../core/types'
 import { QuaEngine } from '../core/engine'
 
 let engineInstance: QuaEngine | null = null
@@ -40,34 +40,6 @@ export async function dialogue(steps: GameStep[]): Promise<void> {
  */
 export async function rewind(stepUUID: string): Promise<void> {
   return getEngine().rewind(stepUUID)
-}
-
-/**
- * Play a sound effect
- */
-export async function playSound(assetName: string, options?: SoundOptions): Promise<void> {
-  return getEngine().playSound(assetName, options)
-}
-
-/**
- * Play character dubbing
- */
-export async function dub(assetName: string, options?: SoundOptions): Promise<void> {
-  return getEngine().dub(assetName, options)
-}
-
-/**
- * Play background music
- */
-export async function playBGM(assetName: string, options?: SoundOptions): Promise<void> {
-  return getEngine().playBGM(assetName, options)
-}
-
-/**
- * Set volume for a specific audio type
- */
-export async function setVolume(type: keyof VolumeSettings, value: number): Promise<void> {
-  return getEngine().setVolume(type, value)
 }
 
 /**
@@ -132,6 +104,14 @@ export function getPipeline() {
 
 export function getViewState() {
   return getEngine().getViewState()
+}
+
+export function getPluginProjection<T = unknown>(pluginId: string): T | undefined {
+  return getEngine().getPluginProjection<T>(pluginId)
+}
+
+export async function setPluginProjection<T = unknown>(pluginId: string, projection?: T): Promise<void> {
+  return getEngine().setPluginProjection(pluginId, projection)
 }
 
 export function waitFor(event: string, matcher?: (payload: any) => boolean, options?: { timeout?: number, signal?: any }) {

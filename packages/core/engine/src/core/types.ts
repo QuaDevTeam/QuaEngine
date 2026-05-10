@@ -2,17 +2,14 @@ import type { QuaAssets, QuaAssetsConfig } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
 import type { QuaStore } from '@quajs/store'
 import type {
-  AudioChannelIntent,
-  AudioIntentProjection,
   ActiveAnimationProjection,
   QuaViewProjection,
   ViewBackgroundProjection,
   ViewEffectProjection,
   ViewUiProjection,
-  VolumeSettings,
 } from '../events/events'
 import type { EnginePlugin, PluginConstructorOptions } from '../plugins/core/types'
-export type { VolumeSettings } from '../events/events'
+export type { ViewPluginProjectionMap } from '../events/events'
 
 export interface SlotMetadata {
   name?: string
@@ -53,11 +50,9 @@ export interface QuaEngineInterface {
   getAssets: () => QuaAssets
   getPipeline: () => Pipeline
   getViewState: () => QuaViewProjection
+  getPluginProjection: <T = unknown>(pluginId: string) => T | undefined
+  setPluginProjection: <T = unknown>(pluginId: string, projection?: T) => Promise<void>
   waitFor: QuaEngineWaitFor
-  playSound: (assetName: string, options?: SoundOptions) => Promise<void>
-  dub: (assetName: string, options?: SoundOptions) => Promise<void>
-  playBGM: (assetName: string, options?: SoundOptions) => Promise<void>
-  setVolume: (type: keyof VolumeSettings, value: number) => Promise<void>
   showDialogue: (payload: DialogueIntent) => Promise<void>
   hideDialogue: () => Promise<void>
   showChoices: (choices: ChoiceIntent[]) => Promise<void>
@@ -133,20 +128,6 @@ export interface EngineConfig {
   }
 }
 
-export interface SoundOptions {
-  id?: string
-  volume?: number
-  loop?: boolean
-  fadeIn?: number
-  fadeOut?: number
-}
-
-export interface AudioIntentUpdate {
-  channel: 'bgm' | 'sound' | 'voice'
-  id: string
-  patch: Partial<AudioChannelIntent>
-}
-
 export interface BackgroundIntent extends ViewBackgroundProjection {}
 
 export interface UiIntent extends ViewUiProjection {}
@@ -190,13 +171,11 @@ export interface EngineRuntimeState {
   currentStepId: string | null
   sceneHistory: string[]
   stepHistory: string[]
-  volumeSettings: VolumeSettings
 }
 
 export interface EngineState {
   runtime: EngineRuntimeState
   view: QuaViewProjection
-  audio: AudioIntentProjection
 }
 
 export interface EngineStoreState {
@@ -218,13 +197,6 @@ export type UsePluginOptions<T extends EnginePlugin = EnginePlugin>
   = | PluginConstructorOptions
     | T
 
-export const defaultVolumeSettings: VolumeSettings = {
-  master: 1,
-  bgm: 1,
-  sound: 1,
-  voice: 1,
-}
-
 export function createInitialEngineState(): EngineState {
   return {
     runtime: {
@@ -232,7 +204,6 @@ export function createInitialEngineState(): EngineState {
       currentStepId: null,
       sceneHistory: [],
       stepHistory: [],
-      volumeSettings: { ...defaultVolumeSettings },
     },
     view: {
       background: undefined,
@@ -248,16 +219,7 @@ export function createInitialEngineState(): EngineState {
       },
       effects: [],
       animations: [],
-      audio: {
-        volumeSettings: { ...defaultVolumeSettings },
-        sounds: [],
-        voices: [],
-      },
-    },
-    audio: {
-      volumeSettings: { ...defaultVolumeSettings },
-      sounds: [],
-      voices: [],
+      plugins: {},
     },
   }
 }

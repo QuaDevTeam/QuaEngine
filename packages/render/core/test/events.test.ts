@@ -85,11 +85,7 @@ describe('render-core event contracts', () => {
         ui: { visible: true },
         effects: [],
         animations: [],
-        audio: {
-          volumeSettings: { master: 1, bgm: 1, sound: 1, voice: 1 },
-          sounds: [],
-          voices: [],
-        },
+        plugins: { audio: { revision: 0, unlocked: false } },
       }),
       refresh,
       emitRenderToLogic: (type, payload) => emitRenderToLogic(pipeline, type as any, payload as any),
@@ -105,11 +101,7 @@ describe('render-core event contracts', () => {
         ui: { visible: true },
         effects: [],
         animations: [],
-        audio: {
-          volumeSettings: { master: 1, bgm: 1, sound: 1, voice: 1 },
-          sounds: [],
-          voices: [],
-        },
+        plugins: { audio: { revision: 1, unlocked: true } },
       },
     })
 
@@ -123,11 +115,7 @@ describe('render-core event contracts', () => {
         ui: { visible: true },
         effects: [],
         animations: [],
-        audio: {
-          volumeSettings: { master: 1, bgm: 1, sound: 1, voice: 1 },
-          sounds: [],
-          voices: [],
-        },
+        plugins: { audio: { revision: 2, unlocked: true } },
       },
     })
     expect(refresh).toHaveBeenCalledTimes(1)

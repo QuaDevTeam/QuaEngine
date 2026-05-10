@@ -167,6 +167,9 @@ importers:
       '@quajs/plugin-animation':
         specifier: workspace:*
         version: link:../../plugins/animation
+      '@quajs/plugin-audio':
+        specifier: workspace:*
+        version: link:../../plugins/audio
       '@quajs/plugin-background':
         specifier: workspace:*
         version: link:../../plugins/background
@@ -318,6 +321,18 @@ importers:
         specifier: workspace:*
         version: link:../../render/core
 
+  packages/plugins/audio:
+    dependencies:
+      '@babel/types':
+        specifier: 'catalog:'
+        version: 7.29.0
+      '@quajs/engine':
+        specifier: workspace:*
+        version: link:../../core/engine
+      '@quajs/pipeline':
+        specifier: workspace:*
+        version: link:../../core/pipeline
+
   packages/plugins/background:
     dependencies:
       '@babel/types':
@@ -353,6 +368,9 @@ importers:
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../../core/pipeline
+      '@quajs/plugin-audio':
+        specifier: workspace:*
+        version: link:../../plugins/audio
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../core

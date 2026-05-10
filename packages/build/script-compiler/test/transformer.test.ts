@@ -1,6 +1,7 @@
 import { animationDecoratorMappings } from '@quajs/plugin-animation'
 import { backgroundDecoratorMappings } from '@quajs/plugin-background'
 import { describe, expect, it } from 'vitest'
+import { createPluginAwareTransformerAsync } from '../src'
 import { QuaScriptTransformer } from '../src/core/transformer'
 import { mergeDecoratorMappings } from '../src/core/types'
 
@@ -28,12 +29,12 @@ describe('quaScriptTransformer', () => {
     expect(result).toContain('run:')
   })
 
-  it('should transform dialogue with decorators', () => {
-    const transformer = new QuaScriptTransformer()
+  it('should transform dialogue with decorators', async () => {
+    const transformer = await createPluginAwareTransformerAsync()
     const source = `
       function scene1() {
         dialogue(qs\`
-          @PlaySound('hello.mp3')
+          @PlayVoice('hello.mp3')
           @SetSprite('jack_happy.png')
           Jack: Hello world!
         \`)
@@ -42,7 +43,7 @@ describe('quaScriptTransformer', () => {
 
     const result = transformer.transformSource(source)
 
-    expect(result).toContain('ctx.engine.playSound("hello.mp3")')
+    expect(result).toContain('playVoiceWithEngine(ctx.engine, "hello.mp3",')
     expect(result).toContain('spriteWithEngine(ctx.engine, "Jack", "jack_happy.png")')
     expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello world!")')
   })
@@ -177,12 +178,12 @@ describe('quaScriptTransformer', () => {
     expect(result).not.toContain('ctx.engine.setBackground')
   })
 
-  it('should add required imports', () => {
-    const transformer = new QuaScriptTransformer()
+  it('should add required imports', async () => {
+    const transformer = await createPluginAwareTransformerAsync()
     const source = `
       function scene1() {
         dialogue(qs\`
-          @PlaySound('hello.mp3')
+          @PlayVoice('hello.mp3')
           Jack: Hello!
         \`)
       }
@@ -191,9 +192,11 @@ describe('quaScriptTransformer', () => {
     const result = transformer.transformSource(source)
 
     // Engine decorators are invoked through ctx.engine, not imported as free functions.
-    expect(result).not.toMatch(/import.*playSound.*from.*@quajs\/engine/)
+    expect(result).not.toMatch(/import.*playVoiceWithEngine.*from.*@quajs\/engine/)
     expect(result).not.toMatch(/import.*dialogue.*from.*@quajs\/engine/)
     expect(result).toMatch(/import.*speakWithEngine.*from.*@quajs\/character/)
+    expect(result).toContain('from "@quajs/plugin-audio"')
+    expect(result).toContain('playVoiceWithEngine')
   })
 
   it('should handle template expressions in dialogue', () => {

@@ -1,18 +1,24 @@
 import type { HotReloadEvent } from '../src/core/hot-reload'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { audioDecoratorMappings } from '@quajs/plugin-audio'
 import { getHotReloadManager, resetHotReloadManager } from '../src/core/hot-reload'
 import { compileQuaScript } from '../src/index'
 import { createHotReloadAwareTransformer } from '../src/integrations/hot-reload-transformer'
 
 // Mock engine-backed plugin discovery
-vi.mock('@quajs/engine', () => ({
-  getDiscoveredDecoratorMappings: vi.fn(async () => ({
-    CustomDecorator: {
-      function: 'customFunction',
-      module: '@custom/plugin',
-    },
-  })),
-}))
+vi.mock('@quajs/engine', async () => {
+  const actual = await vi.importActual<typeof import('@quajs/engine')>('@quajs/engine')
+  return {
+    ...actual,
+    getDiscoveredDecoratorMappings: vi.fn(async () => ({
+      ...audioDecoratorMappings,
+      CustomDecorator: {
+        function: 'customFunction',
+        module: '@custom/plugin',
+      },
+    })),
+  }
+})
 
 describe('hot-Reload Integration', () => {
   let originalNodeEnv: string | undefined
@@ -37,7 +43,7 @@ describe('hot-Reload Integration', () => {
       const initialSource = `
         const scene1 = qs\`
           Yuki: Hello world!
-          @PlaySound(bell.wav)
+          @PlayVoice("bell.wav")
           Akira: Nice to meet you.
         \`
       `
@@ -46,7 +52,7 @@ describe('hot-Reload Integration', () => {
       const updatedSource = `
         const scene1 = qs\`
           Yuki: Hello there!
-          @PlaySound(chime.wav)
+          @PlayVoice("chime.wav")
           @CustomDecorator(test)
           Akira: Great to see you.
         \`
@@ -66,7 +72,7 @@ describe('hot-Reload Integration', () => {
       // Initial compilation
       const result1 = transformer.transformSource(initialSource, filePath)
       expect(result1).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello world!")')
-      expect(result1).toContain('ctx.engine.playSound("bell.wav")')
+      expect(result1).toContain('playVoiceWithEngine(ctx.engine, "bell.wav",')
 
       // Verify caching
       const cachedResult = transformer.transformSource(initialSource, filePath)
@@ -86,7 +92,7 @@ describe('hot-Reload Integration', () => {
       // Compile updated source
       const result2 = transformer.transformSource(updatedSource, filePath)
       expect(result2).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello there!")')
-      expect(result2).toContain('ctx.engine.playSound("chime.wav")')
+      expect(result2).toContain('playVoiceWithEngine(ctx.engine, "chime.wav",')
       expect(result2).toContain('customFunction("test")') // From mock plugin
 
       // Results should be different
@@ -251,20 +257,21 @@ describe('hot-Reload Integration', () => {
   })
 
   describe('performance characteristics', () => {
-    it('should demonstrate caching performance benefits', () => {
+    it('should demonstrate caching performance benefits', async () => {
       const source = `
         const longDialogue = qs\`
           Yuki: This is a long dialogue with many characters.
           Akira: Indeed it is quite extensive.
           Saki: We should test the performance.
-          @PlaySound(test.wav)
-          @PlayBGM(background.mp3)
+          @PlayVoice("test.wav")
+          @PlayBGM("background.mp3")
           Yuki: Multiple decorators and lines.
         \`
       `
       const filePath = '/test/performance.ts'
 
       const transformer = createHotReloadAwareTransformer()
+      await transformer.updateDecoratorMappings()
 
       // First compilation (no cache)
       const result1 = transformer.transformSource(source, filePath)

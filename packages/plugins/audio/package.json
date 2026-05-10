@@ -1,0 +1,113 @@
+{
+  "name": "@quajs/plugin-audio",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Audio playback, gain, EQ, automation, and QuaScript decorators for QuaEngine",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "plugin",
+    "audio",
+    "visual-novel"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "import": "./dist/contracts.js"
+    },
+    "./script-compiler": {
+      "types": "./dist/script-compiler.d.ts",
+      "import": "./dist/script-compiler.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@babel/types": "catalog:",
+    "@quajs/engine": "workspace:*",
+    "@quajs/pipeline": "workspace:*"
+  },
+  "quajs": {
+    "type": "plugin",
+    "category": "audio",
+    "description": "Audio playback, gain, EQ, automation, and QuaScript decorators",
+    "renderer": {
+      "vue": "@quajs/renderer-vue/plugins/audio"
+    },
+    "decorators": {
+      "AudioChapter": {
+        "function": "configureAudioChapterWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "LineId": {
+        "function": "lineIdDirective",
+        "module": "@quajs/plugin-audio"
+      },
+      "PlayVoice": {
+        "function": "playVoiceWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "PlayBGM": {
+        "function": "playBGMWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "SetAudioGain": {
+        "function": "setAudioGainWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "SetAudioEq": {
+        "function": "setAudioEqWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "SetAudioAutomation": {
+        "function": "setAudioAutomationWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "StopAudio": {
+        "function": "stopAudioWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "PauseAudio": {
+        "function": "pauseAudioWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "ResumeAudio": {
+        "function": "resumeAudioWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "SeekAudio": {
+        "function": "seekAudioWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "StopVoice": {
+        "function": "stopVoiceWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "StopBGM": {
+        "function": "stopBGMWithEngine",
+        "module": "@quajs/plugin-audio"
+      }
+    }
+  }
+}

@@ -9,11 +9,6 @@ export {
 } from '@quajs/render-core'
 
 export type {
-  AudioEndedPayload,
-  AudioChannelIntent,
-  AudioIntentProjection,
-  AudioPlayPayload,
-  AudioStopPayload,
   ActiveAnimationProjection,
   AnimationFillMode,
   AnimationInterpolation,
@@ -49,7 +44,6 @@ export type {
   ViewChoiceProjection,
   ViewDialogueProjection,
   ViewEffectProjection,
+  ViewPluginProjectionMap,
   ViewUiProjection,
-  VolumeChangePayload,
-  VolumeSettings,
 } from '@quajs/render-core'

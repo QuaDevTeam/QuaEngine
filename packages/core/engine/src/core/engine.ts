@@ -1,6 +1,5 @@
 import type { QuaStore } from '@quajs/store'
 import type {
-  AudioIntentProjection,
   ActiveAnimationProjection,
   EventPayload,
   LogicToRenderEvents,
@@ -8,7 +7,6 @@ import type {
   RenderToLogicEvents,
 } from '../events/events'
 import type {
-  AudioIntentUpdate,
   BackgroundIntent,
   CharacterIntent,
   ChoiceIntent,
@@ -17,10 +15,8 @@ import type {
   EngineConfig,
   GameStep,
   Scene,
-  SoundOptions,
   StepContext,
   UiIntent,
-  VolumeSettings,
 } from './types'
 import type {
   EngineContext,
@@ -35,12 +31,10 @@ import { createStore } from '@quajs/store'
 import {
   emitLogicToRender,
   LogicToRenderEvents as L2R,
-  RenderToLogicEvents as R2L,
   waitForPipelineEvent,
 } from '../events/events'
 import { GameManager } from '../managers/game-manager'
 import { SceneManager } from '../managers/scene-manager'
-import { SoundSystem } from '../managers/sound-system'
 import { PluginContextImpl } from '../plugins/core/context'
 import { createInitialEngineState } from './types'
 
@@ -58,7 +52,6 @@ export class QuaEngine {
 
   public readonly gameManager: GameManager
   public readonly sceneManager: SceneManager
-  public readonly soundSystem: SoundSystem
 
   constructor(private config: EngineConfig = {}) {
     if (QuaEngine.instance) {
@@ -79,9 +72,7 @@ export class QuaEngine {
     this.pipeline = new Pipeline()
     this.sceneManager = new SceneManager(this)
     this.gameManager = new GameManager(this)
-    this.soundSystem = new SoundSystem(this)
 
-    this.setupRenderLayerListeners()
     this.setupAssetForwarding()
     logger.info('QuaEngine initialized')
   }
@@ -315,116 +306,15 @@ export class QuaEngine {
     await this.emitViewUpdate()
   }
 
-  async playSound(assetName: string, options: SoundOptions = {}): Promise<void> {
+  async setPluginProjection<T = unknown>(pluginId: string, projection?: T): Promise<void> {
     this.assertInitialized()
-    const volume = this.calculateVolume('sound', options.volume)
-    const id = options.id || `${assetName}:${Date.now()}`
-    this.store.commit('playSound', {
-      id,
-      assetName,
-      volume,
-      loop: options.loop ?? false,
-      fadeIn: options.fadeIn,
-      fadeOut: options.fadeOut,
-      state: 'playing',
-    })
-    await emitLogicToRender(this.pipeline, L2R.SOUND_PLAY, {
-      id,
-      assetName,
-      volume,
-      loop: options.loop ?? false,
-      fadeIn: options.fadeIn,
-    })
-    await this.emitViewUpdate()
-  }
-
-  async dub(assetName: string, options: SoundOptions = {}): Promise<void> {
-    this.assertInitialized()
-    const volume = this.calculateVolume('voice', options.volume)
-    const id = options.id || `${assetName}:${Date.now()}`
-    this.store.commit('playVoice', {
-      id,
-      assetName,
-      volume,
-      loop: options.loop ?? false,
-      fadeIn: options.fadeIn,
-      fadeOut: options.fadeOut,
-      state: 'playing',
-    })
-    await emitLogicToRender(this.pipeline, L2R.DUB_PLAY, {
-      id,
-      assetName,
-      volume,
-      loop: options.loop ?? false,
-      fadeIn: options.fadeIn,
-    })
-    await this.emitViewUpdate()
-  }
-
-  async playBGM(assetName: string, options: SoundOptions = {}): Promise<void> {
-    this.assertInitialized()
-    const volume = this.calculateVolume('bgm', options.volume)
-    const id = options.id || 'bgm'
-    this.store.commit('playBGM', {
-      id,
-      assetName,
-      volume,
-      loop: options.loop ?? true,
-      fadeIn: options.fadeIn,
-      fadeOut: options.fadeOut,
-      state: 'playing',
-    })
-    await emitLogicToRender(this.pipeline, L2R.BGM_PLAY, {
-      id,
-      assetName,
-      volume,
-      loop: options.loop ?? true,
-      fadeIn: options.fadeIn,
-    })
-    await this.emitViewUpdate()
-  }
-
-  async stopSound(id: string): Promise<void> {
-    this.assertInitialized()
-    this.store.commit('stopSound', id)
-    await emitLogicToRender(this.pipeline, L2R.SOUND_STOP, { id, soundId: id })
-    await this.emitViewUpdate()
-  }
-
-  async stopDub(id: string): Promise<void> {
-    this.assertInitialized()
-    this.store.commit('stopVoice', id)
-    await emitLogicToRender(this.pipeline, L2R.DUB_STOP, { id, characterId: id })
-    await this.emitViewUpdate()
-  }
-
-  async stopBGM(): Promise<void> {
-    this.assertInitialized()
-    this.store.commit('stopBGM')
-    await emitLogicToRender(this.pipeline, L2R.BGM_STOP, {})
+    this.store.commit('setPluginProjection', { pluginId, projection })
     await this.emitViewUpdate()
   }
 
   async getAssetMetadata(type: 'audio' | 'images' | 'characters' | 'video' | 'scripts' | 'data', assetName: string): Promise<unknown> {
     this.assertInitialized()
     return await this.assets.getMediaMetadata(type, assetName)
-  }
-
-  async setVolume(type: keyof VolumeSettings, value: number): Promise<void> {
-    this.assertInitialized()
-    const clamped = Math.max(0, Math.min(1, value))
-    this.store.commit('setVolumeSettings', {
-      ...this.getRuntimeState().volumeSettings,
-      [type]: clamped,
-    })
-    await this.emitViewUpdate()
-  }
-
-  async updateAudioIntent(update: AudioIntentUpdate): Promise<void> {
-    this.assertInitialized()
-    this.store.commit('updateAudioIntent', update)
-    await emitLogicToRender(this.pipeline, L2R.AUDIO_INTENT, { audio: this.getEngineState().audio })
-    await this.emitViewUpdate()
   }
 
   async showUI(elementId: string, config: Record<string, unknown> = {}): Promise<void> {
@@ -474,10 +364,6 @@ export class QuaEngine {
     await this.emitViewUpdate()
   }
 
-  getVolumeSettings(): VolumeSettings {
-    return { ...this.getRuntimeState().volumeSettings }
-  }
-
   getAssets(): QuaAssets {
     return this.assets
   }
@@ -492,6 +378,10 @@ export class QuaEngine {
 
   getViewState() {
     return cloneViewProjection(this.getEngineState().view)
+  }
+
+  getPluginProjection<T = unknown>(pluginId: string): T | undefined {
+    return cloneUnknownValue(this.getEngineState().view.plugins[pluginId]) as T | undefined
   }
 
   waitFor<T extends LogicToRenderEvents | RenderToLogicEvents>(
@@ -543,7 +433,6 @@ export class QuaEngine {
       await plugin.destroy?.()
     }
     this.gameManager.destroy()
-    this.soundSystem.destroy()
     await this.assets.cleanup()
     this.plugins.clear()
     this.pluginContext.clear()
@@ -586,27 +475,6 @@ export class QuaEngine {
     }
   }
 
-  private setupRenderLayerListeners(): void {
-    this.pipeline.on(R2L.VOLUME_CHANGE, async (context) => {
-      const { type, value } = context.event.payload as { type: keyof VolumeSettings, value: number }
-      await this.setVolume(type, value)
-    })
-
-    this.pipeline.on(R2L.AUDIO_ENDED, async (context) => {
-      const payload = context.event.payload as { channel: string, id: string }
-      if (payload.channel === 'bgm') {
-        this.store.commit('stopBGM')
-      }
-      else if (payload.channel === 'voice') {
-        this.store.commit('stopVoice', payload.id)
-      }
-      else {
-        this.store.commit('stopSound', payload.id)
-      }
-      await this.emitViewUpdate()
-    })
-  }
-
   private setupAssetForwarding(): void {
     this.assets.on('asset:changed', (change) => {
       emitLogicToRender(this.pipeline, L2R.ASSET_CHANGED, change).catch((error) => {
@@ -616,13 +484,7 @@ export class QuaEngine {
   }
 
   private async emitViewUpdate(): Promise<void> {
-    this.store.commit('syncViewAudio')
     await emitLogicToRender(this.pipeline, L2R.VIEW_UPDATE, { view: this.getViewState() })
-  }
-
-  private calculateVolume(type: Exclude<keyof VolumeSettings, 'master'>, value: number = 1): number {
-    const settings = this.getRuntimeState().volumeSettings
-    return value * settings[type as 'bgm' | 'sound' | 'voice'] * settings.master
   }
 
   private getRuntimeState() {
@@ -652,27 +514,17 @@ function createEngineMutations() {
       state.engine.runtime.currentStepId = payload.stepId
       state.engine.runtime.stepHistory = [...payload.stepHistory]
     },
-    setVolumeSettings(state: any, payload: VolumeSettings) {
-      state.engine.runtime.volumeSettings = { ...payload }
-      state.engine.audio.volumeSettings = { ...payload }
-      state.engine.view.audio = state.engine.audio
-    },
-    syncViewAudio(state: any) {
-      state.engine.view.audio = state.engine.audio
-    },
-    updateAudioIntent(state: any, payload: AudioIntentUpdate) {
-      if (payload.channel === 'bgm') {
-        if (state.engine.audio.bgm?.id === payload.id) {
-          state.engine.audio.bgm = { ...state.engine.audio.bgm, ...payload.patch }
-        }
+    setPluginProjection(state: any, payload: { pluginId: string, projection?: unknown }) {
+      const plugins = {
+        ...(state.engine.view.plugins || {}),
+      }
+      if (payload.projection === undefined) {
+        delete plugins[payload.pluginId]
       }
       else {
-        const key = payload.channel === 'voice' ? 'voices' : 'sounds'
-        state.engine.audio[key] = state.engine.audio[key].map((intent: any) =>
-          intent.id === payload.id ? { ...intent, ...payload.patch } : intent,
-        )
+        plugins[payload.pluginId] = cloneUnknownValue(payload.projection)
       }
-      state.engine.view.audio = state.engine.audio
+      state.engine.view.plugins = plugins
     },
     upsertUiOverlay(state: any, payload: { elementId: string, config?: Record<string, unknown> }) {
       const overlays = {
@@ -775,34 +627,6 @@ function createEngineMutations() {
         character.id === payload.id ? { ...character, sprite: payload.sprite } : character,
       )
     },
-    playBGM(state: any, payload: any) {
-      state.engine.audio.bgm = payload
-      state.engine.view.audio = state.engine.audio
-    },
-    stopBGM(state: any) {
-      state.engine.audio.bgm = undefined
-      state.engine.view.audio = state.engine.audio
-    },
-    playSound(state: any, payload: any) {
-      state.engine.audio.sounds = [...state.engine.audio.sounds.filter((sound: any) => sound.id !== payload.id), payload]
-      state.engine.view.audio = state.engine.audio
-    },
-    stopSound(state: any, id: string) {
-      state.engine.audio.sounds = id === '*'
-        ? []
-        : state.engine.audio.sounds.filter((sound: any) => sound.id !== id)
-      state.engine.view.audio = state.engine.audio
-    },
-    playVoice(state: any, payload: any) {
-      state.engine.audio.voices = [...state.engine.audio.voices.filter((voice: any) => voice.id !== payload.id), payload]
-      state.engine.view.audio = state.engine.audio
-    },
-    stopVoice(state: any, id: string) {
-      state.engine.audio.voices = id === '*'
-        ? []
-        : state.engine.audio.voices.filter((voice: any) => voice.id !== id)
-      state.engine.view.audio = state.engine.audio
-    },
   }
 }
 
@@ -853,16 +677,7 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
         keyframes: track.keyframes.map(keyframe => ({ ...keyframe })),
       })),
     })),
-    audio: cloneAudioProjection(view.audio),
-  }
-}
-
-function cloneAudioProjection(audio: AudioIntentProjection): AudioIntentProjection {
-  return {
-    volumeSettings: { ...audio.volumeSettings },
-    bgm: audio.bgm ? { ...audio.bgm } : undefined,
-    sounds: audio.sounds.map(sound => ({ ...sound })),
-    voices: audio.voices.map(voice => ({ ...voice })),
+    plugins: cloneUnknownRecord(view.plugins || {}),
   }
 }
 

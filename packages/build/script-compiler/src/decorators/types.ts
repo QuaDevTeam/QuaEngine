@@ -4,6 +4,9 @@ import type { DecoratorMapping, QuaScriptDecorator } from '../core/types'
 export interface DecoratorCompileContext {
   characterName?: string
   stepType: 'dialogue' | 'action'
+  stepIndex: number
+  stepUuid: string
+  state: Record<string, unknown>
 }
 
 export interface DecoratorCompileInput {
@@ -15,9 +18,15 @@ export interface DecoratorCompileInput {
 }
 
 export interface DecoratorCompilationResult {
-  call: t.CallExpression
+  call?: t.CallExpression
   nextIndex?: number
   runtimeHelpers?: string[]
+  skip?: boolean
+}
+
+export interface ImplicitDecoratorCompileInput {
+  decorators: QuaScriptDecorator[]
+  context: DecoratorCompileContext
 }
 
 export interface DecoratorCompiler {
@@ -25,4 +34,5 @@ export interface DecoratorCompiler {
   readonly runtimeHelperModules?: Record<string, string>
   supports: (decoratorName: string, mapping: DecoratorMapping[string]) => boolean
   compile: (input: DecoratorCompileInput) => DecoratorCompilationResult | null
+  compileImplicit?: (input: ImplicitDecoratorCompileInput) => DecoratorCompilationResult[] | null
 }

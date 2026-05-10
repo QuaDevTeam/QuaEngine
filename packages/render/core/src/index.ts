@@ -19,16 +19,6 @@ export enum LogicToRenderEvents {
   DIALOGUE_HIDE = 'dialogue/hide',
   DIALOGUE_UPDATE = 'dialogue/update',
   DIALOGUE_CHOICE = 'dialogue/choice',
-  SOUND_PLAY = 'sound/play',
-  SOUND_STOP = 'sound/stop',
-  SOUND_PAUSE = 'sound/pause',
-  SOUND_RESUME = 'sound/resume',
-  BGM_PLAY = 'bgm/play',
-  BGM_STOP = 'bgm/stop',
-  BGM_FADE = 'bgm/fade',
-  DUB_PLAY = 'dub/play',
-  DUB_STOP = 'dub/stop',
-  AUDIO_INTENT = 'audio/intent',
   EFFECT_FADE_IN = 'effect/fade_in',
   EFFECT_FADE_OUT = 'effect/fade_out',
   EFFECT_SHAKE = 'effect/shake',
@@ -52,13 +42,10 @@ export enum RenderToLogicEvents {
   UI_REQUEST_OPEN = 'ui/request_open',
   UI_REQUEST_CLOSE = 'ui/request_close',
   UI_REQUEST_UPDATE = 'ui/request_update',
-  VOLUME_CHANGE = 'volume/change',
-  MUTE_TOGGLE = 'mute/toggle',
   WINDOW_FOCUS = 'window/focus',
   WINDOW_BLUR = 'window/blur',
   ASSET_LOADED = 'asset/loaded',
   ASSET_ERROR = 'asset/error',
-  AUDIO_ENDED = 'audio/ended',
   RENDER_READY = 'render/ready',
   RENDER_DESTROYED = 'render/destroyed',
   SCENE_READY = 'scene/ready',
@@ -160,23 +147,6 @@ export interface ViewEffectProjection {
   options?: Readonly<Record<string, unknown>>
 }
 
-export interface AudioChannelIntent {
-  id: string
-  assetName: string
-  volume: number
-  loop: boolean
-  fadeIn?: number
-  fadeOut?: number
-  state: 'playing' | 'paused' | 'stopped' | 'fading'
-}
-
-export interface AudioIntentProjection {
-  volumeSettings: VolumeSettings
-  bgm?: AudioChannelIntent
-  sounds: readonly AudioChannelIntent[]
-  voices: readonly AudioChannelIntent[]
-}
-
 export type AnimationTime = number | `${number}%`
 export type AnimationInterpolation = 'number' | 'step' | 'discrete' | 'color'
 export type AnimationPlaybackState = 'running' | 'paused' | 'stopped'
@@ -217,20 +187,17 @@ export interface QuaViewProjection {
   ui: Readonly<ViewUiProjection>
   effects: readonly Readonly<ViewEffectProjection>[]
   animations: readonly Readonly<ActiveAnimationProjection>[]
-  audio: Readonly<AudioIntentProjection>
+  plugins: Readonly<ViewPluginProjectionMap>
+}
+
+export interface ViewPluginProjectionMap {
+  [pluginId: string]: unknown
 }
 
 export interface TransitionIntent {
   type: 'fade' | 'slide' | 'instant' | string
   duration?: number
   easing?: string
-}
-
-export interface VolumeSettings {
-  master: number
-  bgm: number
-  sound: number
-  voice: number
 }
 
 export interface SceneInitPayload {
@@ -268,20 +235,6 @@ export interface ChoiceShowPayload {
   choices: ViewChoiceProjection[]
 }
 
-export interface AudioPlayPayload {
-  id?: string
-  assetName: string
-  volume?: number
-  loop?: boolean
-  fadeIn?: number
-}
-
-export interface AudioStopPayload {
-  id?: string
-  soundId?: string
-  characterId?: string
-}
-
 export interface EffectPayload {
   id?: string
   type?: string
@@ -300,11 +253,6 @@ export interface UserChoiceSelectPayload {
   choiceId: string
 }
 
-export interface VolumeChangePayload {
-  type: keyof VolumeSettings
-  value: number
-}
-
 export interface RendererLifecyclePayload {
   rendererId?: string
   timestamp?: number
@@ -321,12 +269,6 @@ export interface AssetErrorPayload {
   type?: string
   name?: string
   error: string
-}
-
-export interface AudioEndedPayload {
-  channel: 'bgm' | 'sound' | 'voice'
-  id: string
-  assetName?: string
 }
 
 export interface LogicToRenderEventPayloadMap {
@@ -348,16 +290,6 @@ export interface LogicToRenderEventPayloadMap {
   [LogicToRenderEvents.DIALOGUE_HIDE]: Record<string, never>
   [LogicToRenderEvents.DIALOGUE_UPDATE]: DialogueShowPayload
   [LogicToRenderEvents.DIALOGUE_CHOICE]: ChoiceShowPayload
-  [LogicToRenderEvents.SOUND_PLAY]: AudioPlayPayload
-  [LogicToRenderEvents.SOUND_STOP]: AudioStopPayload
-  [LogicToRenderEvents.SOUND_PAUSE]: Record<string, never>
-  [LogicToRenderEvents.SOUND_RESUME]: Record<string, never>
-  [LogicToRenderEvents.BGM_PLAY]: AudioPlayPayload
-  [LogicToRenderEvents.BGM_STOP]: Record<string, never>
-  [LogicToRenderEvents.BGM_FADE]: { targetVolume: number, duration: number }
-  [LogicToRenderEvents.DUB_PLAY]: AudioPlayPayload
-  [LogicToRenderEvents.DUB_STOP]: AudioStopPayload
-  [LogicToRenderEvents.AUDIO_INTENT]: { audio: AudioIntentProjection }
   [LogicToRenderEvents.EFFECT_FADE_IN]: EffectPayload
   [LogicToRenderEvents.EFFECT_FADE_OUT]: EffectPayload
   [LogicToRenderEvents.EFFECT_SHAKE]: EffectPayload
@@ -381,13 +313,10 @@ export interface RenderToLogicEventPayloadMap {
   [RenderToLogicEvents.UI_REQUEST_OPEN]: { elementId: string, config?: Record<string, unknown> }
   [RenderToLogicEvents.UI_REQUEST_CLOSE]: { elementId: string }
   [RenderToLogicEvents.UI_REQUEST_UPDATE]: { elementId: string, config: Record<string, unknown> }
-  [RenderToLogicEvents.VOLUME_CHANGE]: VolumeChangePayload
-  [RenderToLogicEvents.MUTE_TOGGLE]: { type: keyof VolumeSettings, muted: boolean }
   [RenderToLogicEvents.WINDOW_FOCUS]: Record<string, never>
   [RenderToLogicEvents.WINDOW_BLUR]: Record<string, never>
   [RenderToLogicEvents.ASSET_LOADED]: AssetLoadedPayload
   [RenderToLogicEvents.ASSET_ERROR]: AssetErrorPayload
-  [RenderToLogicEvents.AUDIO_ENDED]: AudioEndedPayload
   [RenderToLogicEvents.RENDER_READY]: RendererLifecyclePayload
   [RenderToLogicEvents.RENDER_DESTROYED]: RendererLifecyclePayload
   [RenderToLogicEvents.SCENE_READY]: RendererLifecyclePayload & { sceneId?: string }

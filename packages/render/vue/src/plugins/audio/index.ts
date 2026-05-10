@@ -2,11 +2,11 @@ import type { QuaVueRendererPlugin } from '../core'
 import { defineVueRendererPlugin } from '../core'
 import { QuaAudioController } from './components'
 
-export { AudioElement, QuaAudioController } from './components'
+export { QuaAudioController, WebAudioAudioRuntime } from './components'
 
 export function createAudioRendererPlugin(): QuaVueRendererPlugin {
   return defineVueRendererPlugin({
-    name: '@quajs/renderer-vue/audio',
+    name: '@quajs/renderer-vue/plugins/audio',
     setup() {},
     layers: [{
       id: 'audio',

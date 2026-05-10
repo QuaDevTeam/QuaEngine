@@ -74,12 +74,13 @@ describe('hot-Reload System Integration', () => {
       expect(typeof plugin.configResolved).toBe('function')
     })
 
-    it('should transform QuaScript correctly', () => {
+    it('should transform QuaScript correctly', async () => {
       const transformer = createHotReloadAwareTransformer()
+      await transformer.updateDecoratorMappings()
       const source = `
         const scene = qs\`
           Yuki: Hello world!
-          @PlaySound(bell.wav)
+          @PlayVoice("bell.wav")
           Akira: Nice to see you.
         \`
       `
@@ -87,7 +88,7 @@ describe('hot-Reload System Integration', () => {
       const result = transformer.transformSource(source)
       expect(result).toContain('speakWithEngine(ctx.engine, "Yuki", "Hello world!")')
       expect(result).toContain('speakWithEngine(ctx.engine, "Akira", "Nice to see you.")')
-      // Note: PlaySound decorator requires mapping to be available
+      // Note: PlayVoice decorator requires plugin mappings to be available
 
       transformer.dispose()
     })

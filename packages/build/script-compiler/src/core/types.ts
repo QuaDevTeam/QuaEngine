@@ -4,9 +4,17 @@
 
 import { characterDecoratorMappings } from '@quajs/character/script-compiler'
 
+export type QuaScriptDecoratorValue
+  = string
+  | number
+  | boolean
+  | null
+  | QuaScriptDecoratorValue[]
+  | { [key: string]: QuaScriptDecoratorValue }
+
 export interface QuaScriptDecorator {
   name: string
-  args: (string | number | boolean)[]
+  args: QuaScriptDecoratorValue[]
 }
 
 export interface QuaScriptDialogue {
@@ -62,22 +70,6 @@ export interface DecoratorMapping {
 }
 
 export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
-  PlaySound: {
-    function: 'playSound',
-    module: '@quajs/engine',
-  },
-  PlayBGM: {
-    function: 'playBGM',
-    module: '@quajs/engine',
-  },
-  Dub: {
-    function: 'dub',
-    module: '@quajs/engine',
-  },
-  SetVolume: {
-    function: 'setVolume',
-    module: '@quajs/engine',
-  },
   SaveToSlot: {
     function: 'saveToSlot',
     module: '@quajs/engine',
