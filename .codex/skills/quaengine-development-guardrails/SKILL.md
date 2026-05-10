@@ -25,9 +25,16 @@ description: QuaEngine architecture guardrails for renderer statelessness, packa
 - If a feature needs browser behavior, add an adapter, abstraction, or pipeline metadata path.
 - Let the renderer perform the real Web-side implementation.
 
+### Git commits
+- Every git commit message must use the exact scoped format `<type>(<component>): <description>`.
+- Do not create unscoped conventional commits such as `feat: desc`, and do not create free-form messages such as `update files`.
+- Use a lowercase conventional `type`, a required `component` naming the primary package or subsystem, and a concise imperative description.
+- Examples: `feat(sprite): add expression diff manifest`, `chore(deps): enforce peer dependency coupling`, `docs(agents): require scoped commit messages`.
+
 ## Review Checklist
 
 - Ask who owns the state.
 - Ask whether the change belongs in the package that defines the feature.
 - Ask whether the change can flow through pipeline metadata instead of a direct engine dependency.
 - Reject any renderer logic that becomes authoritative.
+- Reject any commit message that does not match `<type>(<component>): <description>`.
