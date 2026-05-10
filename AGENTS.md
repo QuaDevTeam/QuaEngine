@@ -318,10 +318,12 @@ Each package is:
 - Backward compatibility becomes a requirement only after the project starts publishing formal release versions with public compatibility guarantees.
 
 ### Commit Message Convention
-- All git commit messages must use `type(component): description`.
-- `type` should be a conventional commit verb such as `feat`, `fix`, `refactor`, `docs`, `test`, or `chore`.
-- `component` should name the primary package or subsystem affected.
+- All git commit messages must use the exact scoped format `<type>(<component>): <description>`.
+- This is a hard development rule for every commit created in this repository; unscoped messages such as `feat: desc` or free-form messages such as `update files` are not allowed.
+- `type` must be lowercase and should be a conventional commit verb such as `feat`, `fix`, `refactor`, `docs`, `test`, or `chore`.
+- `component` must be present and should name the primary package or subsystem affected, such as `sprite`, `renderer-vue`, `plugin-discovery`, `deps`, or `docs`.
 - Keep the description concise, imperative, and lowercase unless a proper noun is required.
+- Valid examples: `feat(sprite): add expression diff manifest`, `chore(deps): enforce peer dependency coupling`, `docs(agents): require scoped commit messages`.
 
 ### QuaEngine Architecture Guardrails
 - Renderer code must stay stateless for any engine-owned capability. Treat the renderer as a projection canvas: consume pipeline events and engine view state, then draw. Do not let renderer code own authoritative game state or decide progression.
