@@ -7,6 +7,7 @@ describe('snapshot System', () => {
     for (const storeName of QuaStoreManager.listStores()) {
       QuaStoreManager.unregister(storeName)
     }
+    QuaStoreManager.resetStorageManager()
   })
 
   describe('individual Store Snapshots', () => {
@@ -142,6 +143,163 @@ describe('snapshot System', () => {
   })
 
   describe('global Snapshots (QuaStoreManager)', () => {
+    it('should create and restore scoped snapshots for selected stores', async () => {
+      QuaStoreManager.configureStorage({ backend: MemoryBackend })
+
+      const engineStore = createStore({
+        name: 'engine',
+        state: { step: 'intro' },
+        mutations: {
+          setStep: (state, step: string) => {
+            state.step = step
+          },
+        },
+      })
+
+      const progressionStore = createStore({
+        name: 'progression',
+        state: { charm: 1, inventory: ['snack'] },
+        mutations: {
+          setCharm: (state, charm: number) => {
+            state.charm = charm
+          },
+          addItem: (state, item: string) => {
+            state.inventory.push(item)
+          },
+        },
+      })
+
+      const uiStore = createStore({
+        name: 'ui',
+        state: { menuOpen: false },
+        mutations: {
+          openMenu: (state) => {
+            state.menuOpen = true
+          },
+        },
+      })
+
+      progressionStore.commit('setCharm', 5)
+      progressionStore.commit('addItem', 'ticket')
+      const snapshotId = await QuaStoreManager.snapshotStores(['engine', 'progression'], 'selected-stores')
+
+      engineStore.commit('setStep', 'changed')
+      progressionStore.commit('setCharm', 9)
+      progressionStore.commit('addItem', 'ring')
+      uiStore.commit('openMenu')
+
+      await QuaStoreManager.restoreStores(snapshotId, { force: true })
+
+      expect(engineStore.state.step).toBe('intro')
+      expect(progressionStore.state.charm).toBe(5)
+      expect(progressionStore.state.inventory).toEqual(['snack', 'ticket'])
+      expect(uiStore.state.menuOpen).toBe(true)
+    })
+
+    it('should use scoped snapshot and restore options', async () => {
+      QuaStoreManager.configureStorage({ backend: MemoryBackend })
+
+      const progressionStore = createStore({
+        name: 'progression',
+        state: { courage: 2 },
+        mutations: {
+          setCourage: (state, courage: number) => {
+            state.courage = courage
+          },
+        },
+      })
+
+      progressionStore.commit('setCourage', 8)
+      const snapshotId = await QuaStoreManager.snapshot({
+        scope: ['progression'],
+        id: 'progression-checkpoint',
+      })
+
+      progressionStore.commit('setCourage', 1)
+      await QuaStoreManager.restore(snapshotId, {
+        storeName: 'progression',
+        force: true,
+      })
+
+      expect(progressionStore.state.courage).toBe(8)
+    })
+
+    it('should reject explicit restore targets missing from the snapshot', async () => {
+      QuaStoreManager.configureStorage({ backend: MemoryBackend })
+
+      const progressionStore = createStore({
+        name: 'progression',
+        state: { courage: 2 },
+      })
+
+      createStore({
+        name: 'inventory',
+        state: { items: ['ticket'] },
+      })
+
+      const snapshotId = await QuaStoreManager.snapshotStores(['progression'], 'progression-only')
+
+      await expect(QuaStoreManager.restore(snapshotId, {
+        storeName: 'inventory',
+        force: true,
+      })).rejects.toThrow('Snapshot "progression-only" does not contain store "inventory".')
+
+      expect(progressionStore.state.courage).toBe(2)
+    })
+
+    it('should auto restore global snapshots through the unified restore API', async () => {
+      QuaStoreManager.configureStorage({ backend: MemoryBackend })
+
+      const store1 = createStore({
+        name: 'store1',
+        state: { count: 1 },
+        mutations: {
+          setCount: (state, count: number) => {
+            state.count = count
+          },
+        },
+      })
+
+      const store2 = createStore({
+        name: 'store2',
+        state: { value: 'a' },
+        mutations: {
+          setValue: (state, value: string) => {
+            state.value = value
+          },
+        },
+      })
+
+      store1.commit('setCount', 4)
+      store2.commit('setValue', 'saved')
+      const snapshotId = await QuaStoreManager.snapshot({ scope: 'all', id: 'all-stores' })
+
+      store1.commit('setCount', 10)
+      store2.commit('setValue', 'changed')
+
+      await QuaStoreManager.restore(snapshotId, { force: true })
+
+      expect(store1.state.count).toBe(4)
+      expect(store2.state.value).toBe('saved')
+    })
+
+    it('should include scope metadata in snapshot listings', async () => {
+      QuaStoreManager.configureStorage({ backend: MemoryBackend })
+
+      createStore({ name: 'store1', state: { count: 1 } })
+      createStore({ name: 'store2', state: { count: 2 } })
+
+      await QuaStoreManager.snapshotStores(['store1', 'store2'], 'scoped-meta')
+
+      const snapshots = await QuaStoreManager.listSnapshots()
+      const snapshot = snapshots.find(item => item.id === 'scoped-meta')
+
+      expect(snapshot?.scope).toEqual({
+        type: 'stores',
+        storeNames: ['store1', 'store2'],
+      })
+    })
+
     it('should create and restore global snapshots', async () => {
       // Configure global storage to use memory backend for testing
       QuaStoreManager.configureStorage({ backend: MemoryBackend })

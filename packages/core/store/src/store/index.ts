@@ -97,6 +97,10 @@ class QuaStore {
       storeName: this.name,
       data: JSON.parse(JSON.stringify(this.state)),
       createdAt: new Date(),
+      scope: {
+        type: 'store',
+        storeNames: [this.name],
+      },
     }
 
     const storageManager = await this.getStorageManager()

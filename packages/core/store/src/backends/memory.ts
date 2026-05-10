@@ -39,6 +39,7 @@ export class MemoryBackend implements StorageBackend {
         id: snapshot.id,
         storeName: snapshot.storeName,
         createdAt: snapshot.createdAt,
+        scope: snapshot.scope,
       }))
   }
 

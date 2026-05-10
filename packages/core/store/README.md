@@ -189,17 +189,27 @@ class TimestampMiddleware implements StorageMiddleware {
 Save and restore complete application state:
 
 ```typescript
-// Create a snapshot
-// Global snapshots (all stores)
+// Single-store snapshots
 import { QuaStoreManager } from '@quaengine/store'
 
 const snapshotId = await store.snapshot('save-point-1')
-
-// Restore from snapshot
 await store.restore(snapshotId)
 
+// Manager single-store snapshots
+const progressionSnapshotId = await QuaStoreManager.snapshotStore('progression', 'day-3')
+await QuaStoreManager.restoreStore('progression', progressionSnapshotId, { force: true })
+
+// Scoped snapshots for selected stores
+const scopedSnapshotId = await QuaStoreManager.snapshotStores(['engine', 'progression'], 'checkpoint-1')
+await QuaStoreManager.restoreStores(scopedSnapshotId, { force: true })
+
+// Global snapshots for all registered stores
 const globalSnapshotId = await QuaStoreManager.snapshotAll('checkpoint-1')
-await QuaStoreManager.restoreAll(globalSnapshotId)
+await QuaStoreManager.restoreAll(globalSnapshotId, { force: true })
+
+// Unified scoped API
+const allSnapshotId = await QuaStoreManager.snapshot({ scope: 'all', id: 'autosave' })
+await QuaStoreManager.restore(allSnapshotId, { force: true })
 
 // List all snapshots
 const snapshots = await QuaStoreManager.listSnapshots()
@@ -251,6 +261,8 @@ commit('game/levelUp')
 - `useStore(name)` - Get a store by name
 - `dispatch(action, payload)` - Dispatch cross-store actions
 - `commit(mutation, payload)` - Commit cross-store mutations
+- `snapshot(options)` - Snapshot one, selected, or all stores
+- `restore(snapshotId, options?)` - Restore one, selected, or all stores
 
 ### Store Methods
 
@@ -263,8 +275,14 @@ commit('game/levelUp')
 ### QuaStoreManager Methods
 
 - `QuaStoreManager.createStore(options)` - Create and register a store
+- `QuaStoreManager.snapshotStore(storeName, id?)` - Snapshot one store
+- `QuaStoreManager.snapshotStores(storeNames, id?)` - Snapshot selected stores
 - `QuaStoreManager.snapshotAll(id?)` - Snapshot all stores
+- `QuaStoreManager.snapshot(options)` - Snapshot by scope (`storeName`, `storeNames`, or `scope: 'all'`)
+- `QuaStoreManager.restoreStore(storeName, snapshotId, options?)` - Restore one store
+- `QuaStoreManager.restoreStores(snapshotId, options?)` - Restore selected stores from a scoped snapshot
 - `QuaStoreManager.restoreAll(snapshotId, options?)` - Restore all stores
+- `QuaStoreManager.restore(snapshotId, options?)` - Restore by explicit scope or auto-detect scoped snapshots
 - `QuaStoreManager.listSnapshots(storeName?)` - List snapshots
 - `QuaStoreManager.deleteSnapshot(id)` - Delete a snapshot
 - `QuaStoreManager.clearSnapshots(storeName?)` - Clear snapshots
