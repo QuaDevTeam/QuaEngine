@@ -81,8 +81,7 @@ export class ZipBundler {
    */
   private async processAsset(asset: AssetInfo, zip: ZipFile): Promise<void> {
     try {
-      // Read asset file
-      const buffer = await readFile(asset.path)
+      const buffer = await readAssetBuffer(asset)
 
       // Create asset context for plugins
       const context: AssetContext = {
@@ -271,4 +270,12 @@ export class ZipBundler {
       }
     }
   }
+}
+
+async function readAssetBuffer(asset: AssetInfo): Promise<Buffer> {
+  if (asset.content) {
+    return Buffer.isBuffer(asset.content) ? asset.content : Buffer.from(asset.content)
+  }
+
+  return await readFile(asset.path)
 }

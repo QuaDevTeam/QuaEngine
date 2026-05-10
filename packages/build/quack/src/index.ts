@@ -14,6 +14,7 @@ export { defineConfig, QuackBundler } from './core/bundler'
 // Core types
 export type {
   AssetContext,
+  AssetCollectionContext,
   AssetDiff,
   AssetInfo,
   AssetSubType,

@@ -59,6 +59,7 @@ export interface AssetInfo {
   mtime?: number
   version?: number // Asset version number
   mediaMetadata?: MediaMetadata // Extracted media information
+  content?: Uint8Array
 }
 
 export interface LocaleInfo {
@@ -380,11 +381,17 @@ export interface AssetContext {
   metadata: Record<string, any>
 }
 
+export interface AssetCollectionContext {
+  source: string
+  assets: AssetInfo[]
+}
+
 export abstract class QuackPlugin {
   abstract name: string
   abstract version: string
 
   async initialize?(_config: QuackConfig): Promise<void> {}
+  async collectAssets?(_context: AssetCollectionContext): Promise<AssetInfo[]> { return [] }
   async processAsset?(_context: AssetContext): Promise<void> {}
   async postBundle?(_bundlePath: string, _manifest: BundleManifest): Promise<void> {}
   async cleanup?(): Promise<void> {}

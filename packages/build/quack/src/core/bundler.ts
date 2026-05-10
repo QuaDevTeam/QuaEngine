@@ -77,6 +77,11 @@ export class QuackBundler extends EventEmitter {
 
       // Discover assets
       let assets = await this.assetDetector.discoverAssets(normalizedConfig.source)
+      assets = await this.pluginManager.collectAssets({
+        source: normalizedConfig.source,
+        assets,
+      })
+
       if (assets.length === 0) {
         throw new Error('No assets found in source directory')
       }
@@ -264,6 +269,11 @@ export class QuackBundler extends EventEmitter {
 
       // Discover assets
       let assets = await this.assetDetector.discoverAssets(normalizedConfig.source)
+      assets = await this.pluginManager.collectAssets({
+        source: normalizedConfig.source,
+        assets,
+      })
+
       if (assets.length === 0) {
         logger.warn(`No assets found in bundle "${bundleDefinition.name}" source directory`)
         // Create empty bundle stats

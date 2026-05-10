@@ -18,6 +18,7 @@ export function quackPlugin(options: QuaEngineVitePluginOptions['assetBundling']
     devVfsBase = '/@qua-assets',
     compression = { algorithm: 'deflate', level: 6 },
     encryption = { enabled: false, algorithm: 'xor' },
+    plugins = [],
   } = options
 
   if (!enabled) {
@@ -61,6 +62,7 @@ export function quackPlugin(options: QuaEngineVitePluginOptions['assetBundling']
         format,
         compression,
         encryption,
+        plugins: [...plugins],
         verbose: true,
       })
 

@@ -1,7 +1,8 @@
 import type { ActiveAnimationProjection, ViewCharacterProjection } from '@quajs/render-core'
 import { computed, defineComponent, h } from 'vue'
 import { useProjectionProps } from '../../components/projection'
-import { useAnimationClock, useAnimations, useAssetUrl, useCharacters, useRendererActions } from '../../composables'
+import { useAnimationClock, useAnimations, useCharacters, useRendererActions } from '../../composables'
+import { QuaSprite } from '../sprite'
 import { applyTrackValues, cloneCharacter, collectTrackValues } from '../shared/animation'
 
 export const QuaCharacter = defineComponent({
@@ -13,12 +14,9 @@ export const QuaCharacter = defineComponent({
     },
   },
   setup(props: any) {
-    const assetName = computed(() => props.character.sprite)
-    const asset = useAssetUrl('characters', () => assetName.value)
-    return () => h('img', {
-      'class': ['qua-character', props.character.visible ? 'is-visible' : 'is-hidden'],
-      'src': asset.url.value,
-      'alt': props.character.name,
+    const className = computed(() => ['qua-character', props.character.visible ? 'is-visible' : 'is-hidden'])
+    const sharedAttrs = () => ({
+      'class': className.value,
       'data-character-id': props.character.id,
       'data-character-anchor': props.character.position?.anchor,
       'data-character-x': props.character.position?.x,
@@ -27,7 +25,17 @@ export const QuaCharacter = defineComponent({
       'data-character-rotation': props.character.position?.rotation,
       'data-character-layer': props.character.layer,
       'style': characterProjectionVars(props.character),
+      'aria-hidden': 'true',
     })
+
+    return () => props.character.sprite
+      ? h(QuaSprite, {
+          ...sharedAttrs(),
+          alt: props.character.name,
+          sprite: props.character.sprite,
+          expression: props.character.expression,
+        })
+      : h('div', sharedAttrs())
   },
 })
 

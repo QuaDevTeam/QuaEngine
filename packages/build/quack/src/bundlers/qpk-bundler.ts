@@ -155,17 +155,7 @@ export class QPKBundler {
    * Process a single asset
    */
   private async processAsset(asset: AssetInfo): Promise<Buffer> {
-    // Read asset file
-    let buffer: Buffer
-    try {
-      buffer = await readFile(asset.path)
-    }
-    catch (error: any) {
-      if (error.code === 'ENOENT') {
-        throw new Error(`File not found: ${asset.path}`)
-      }
-      throw error
-    }
+    const buffer = await readAssetBuffer(asset)
 
     // Create asset context for plugins
     const context: AssetContext = {
@@ -551,5 +541,21 @@ export class QPKBundler {
         errors: [`Failed to verify bundle: ${getErrorMessage(error)}`],
       }
     }
+  }
+}
+
+async function readAssetBuffer(asset: AssetInfo): Promise<Buffer> {
+  if (asset.content) {
+    return Buffer.isBuffer(asset.content) ? asset.content : Buffer.from(asset.content)
+  }
+
+  try {
+    return await readFile(asset.path)
+  }
+  catch (error: any) {
+    if (error?.code === 'ENOENT') {
+      throw new Error(`File not found: ${asset.path}`)
+    }
+    throw error
   }
 }

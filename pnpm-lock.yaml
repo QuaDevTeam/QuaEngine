@@ -351,6 +351,18 @@ importers:
         specifier: workspace:*
         version: link:../../utils/common
 
+  packages/plugins/sprite:
+    dependencies:
+      '@quajs/assets-web':
+        specifier: workspace:*
+        version: link:../../platform/assets-web
+      '@quajs/logger':
+        specifier: workspace:*
+        version: link:../../utils
+      '@quajs/quack':
+        specifier: workspace:*
+        version: link:../../build/quack
+
   packages/render/core:
     dependencies:
       '@quajs/pipeline':
@@ -371,6 +383,9 @@ importers:
       '@quajs/plugin-audio':
         specifier: workspace:*
         version: link:../../plugins/audio
+      '@quajs/plugin-sprite':
+        specifier: workspace:*
+        version: link:../../plugins/sprite
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../core
