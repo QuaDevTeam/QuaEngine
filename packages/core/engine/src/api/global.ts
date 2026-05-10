@@ -1,4 +1,4 @@
-import type { ChoiceIntent, DialogueIntent, GameStep, Scene } from '../core/types'
+import type { ChoiceIntent, DialogueIntent, GameStep, GameStepFactory, GameStepScope, GameStepSource, OptionalGameStepFactory, Scene } from '../core/types'
 import { QuaEngine } from '../core/engine'
 
 let engineInstance: QuaEngine | null = null
@@ -31,8 +31,11 @@ export async function loadScene(scene: Scene): Promise<void> {
 /**
  * Execute a dialogue sequence
  */
-export async function dialogue(steps: GameStep[]): Promise<void> {
-  return getEngine().dialogue(steps)
+export async function dialogue(steps: GameStep[]): Promise<void>
+export async function dialogue<TScope>(steps: OptionalGameStepFactory<TScope>, scope?: TScope): Promise<void>
+export async function dialogue<TScope>(steps: GameStepFactory<TScope>, scope: TScope): Promise<void>
+export async function dialogue<TScope = GameStepScope>(steps: GameStepSource<TScope>, scope?: TScope): Promise<void> {
+  return (getEngine().dialogue as (source: GameStepSource<TScope>, scope?: TScope) => Promise<void>)(steps, scope)
 }
 
 /**

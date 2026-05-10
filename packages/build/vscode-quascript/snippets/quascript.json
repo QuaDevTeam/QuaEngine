@@ -1,0 +1,29 @@
+{
+  "Typed Scope Script": {
+    "prefix": "script-scope",
+    "body": [
+      "<script lang=\"ts\">",
+      "export interface Scope {",
+      "  ${1:playerName}: ${2:string}",
+      "}",
+      "</script>",
+      "",
+      "${3:Yuki}: ${4:Hello \\${scope.playerName}!}"
+    ],
+    "description": "Create a typed QuaScript scope"
+  },
+  "Dialogue Line": {
+    "prefix": "say",
+    "body": [
+      "${1:Yuki}: ${2:Hello!}"
+    ],
+    "description": "QuaScript dialogue line"
+  },
+  "Choice": {
+    "prefix": "choice",
+    "body": [
+      "- ${1:Continue} -> ${2:next} if ${3:scope.unlocked}"
+    ],
+    "description": "QuaScript choice line"
+  }
+}

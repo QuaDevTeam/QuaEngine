@@ -1,5 +1,6 @@
 import type { HotReloadEvent } from '../core/hot-reload'
-import type { CompilerOptions, DecoratorMapping } from '../core/types'
+import type { QuaScriptTransformerOptions } from '../core/transformer'
+import type { DecoratorMapping } from '../core/types'
 import process from 'node:process'
 import { getHotReloadManager } from '../core/hot-reload'
 import { QuaScriptTransformer } from '../core/transformer'
@@ -25,7 +26,7 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
 
   constructor(
     decoratorMappings?: DecoratorMapping,
-    options?: CompilerOptions & { projectRoot?: string },
+    options?: QuaScriptTransformerOptions & { projectRoot?: string },
   ) {
     const packageMappings = loadPackageDecoratorMappingsSync(options?.projectRoot)
     const initialMappings = mergeDecoratorMappings({
@@ -66,6 +67,26 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
     const result = super.transformSource(source)
 
     // Extract dependencies (files that this QuaScript depends on)
+    const dependencies = this.extractDependencies(source)
+    this.hotReloadManager.setCached(filePath, source, result, dependencies)
+
+    return result
+  }
+
+  /**
+   * Transform standalone QuaScript source with hot-reload support.
+   */
+  transformModuleSource(source: string, filePath?: string): string {
+    if (!this.hotReloadManager.isHotReloadEnabled() || !filePath) {
+      return super.transformModuleSource(source, filePath)
+    }
+
+    const cached = this.hotReloadManager.getCached(filePath, source)
+    if (cached) {
+      return cached
+    }
+
+    const result = super.transformModuleSource(source, filePath)
     const dependencies = this.extractDependencies(source)
     this.hotReloadManager.setCached(filePath, source, result, dependencies)
 
@@ -203,7 +224,7 @@ export class PluginAwareQuaScriptTransformer extends HotReloadAwareTransformer {
  */
 export function createHotReloadAwareTransformer(
   decoratorMappings?: DecoratorMapping,
-  options?: CompilerOptions & { projectRoot?: string },
+  options?: QuaScriptTransformerOptions & { projectRoot?: string },
 ): HotReloadAwareTransformer {
   return new HotReloadAwareTransformer(decoratorMappings, options)
 }
@@ -213,7 +234,7 @@ export function createHotReloadAwareTransformer(
  */
 export function createPluginAwareTransformer(
   decoratorMappings?: DecoratorMapping,
-  options?: CompilerOptions & { projectRoot?: string },
+  options?: QuaScriptTransformerOptions & { projectRoot?: string },
 ): PluginAwareQuaScriptTransformer {
   return new PluginAwareQuaScriptTransformer(decoratorMappings, options)
 }
@@ -223,7 +244,7 @@ export function createPluginAwareTransformer(
  */
 export async function createPluginAwareTransformerAsync(
   decoratorMappings?: DecoratorMapping,
-  options?: CompilerOptions & { projectRoot?: string },
+  options?: QuaScriptTransformerOptions & { projectRoot?: string },
 ): Promise<HotReloadAwareTransformer> {
   const transformer = new HotReloadAwareTransformer(decoratorMappings, options)
 

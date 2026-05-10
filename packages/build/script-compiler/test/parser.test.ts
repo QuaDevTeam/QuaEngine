@@ -131,9 +131,19 @@ describe('quaScriptParser', () => {
 
     expect(result.steps).toHaveLength(2)
     expect(result.steps[1].type).toBe('choice')
-    expect((result.steps[1].content as any).options).toEqual([
+    expect((result.steps[1].content as any).options).toMatchObject([
       { id: 'outside', text: 'Go outside', target: 'outside', condition: undefined },
       { id: 'home', text: 'Stay home', target: 'home', condition: 'canStayHome' },
     ])
+  })
+
+  it('should parse non-ascii speakers and nested template expressions', () => {
+    const parser = new QuaScriptParser()
+    const result = parser.parse('雪乃: 你好 $' + '{format({ name: scope.playerName })}!')
+
+    expect(result.steps[0].type).toBe('dialogue')
+    const dialogue = result.steps[0].content as any
+    expect(dialogue.character).toBe('雪乃')
+    expect(dialogue.templateExpressions).toEqual(['format({ name: scope.playerName })'])
   })
 })

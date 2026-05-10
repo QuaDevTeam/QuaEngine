@@ -1,0 +1,51 @@
+{
+  "name": "@quajs/language-server",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Language server for QuaScript .qs files",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "quascript",
+    "language-server",
+    "lsp"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "qua-language-server": "./dist/server.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@quajs/plugin-discovery": "workspace:*",
+    "@quajs/script-compiler": "workspace:*",
+    "typescript": "catalog:",
+    "vscode-languageserver": "catalog:",
+    "vscode-languageserver-textdocument": "catalog:"
+  }
+}

@@ -215,6 +215,9 @@ function requireDecoratorArg(decorator: { name: string }, arg: t.Expression | un
 }
 
 function toExpression(value: unknown): t.Expression {
+  if (isBabelExpression(value)) {
+    return value
+  }
   if (typeof value === 'string') {
     return t.stringLiteral(value)
   }
@@ -238,6 +241,10 @@ function toExpression(value: unknown): t.Expression {
     )
   }
   return t.identifier('undefined')
+}
+
+function isBabelExpression(value: unknown): value is t.Expression {
+  return typeof value === 'object' && value !== null && t.isExpression(value as t.Node)
 }
 
 function isBooleanLiteral(expr: t.Expression | undefined): expr is t.BooleanLiteral {

@@ -1,6 +1,6 @@
 import type { HotReloadEvent } from '../src/core/hot-reload'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { audioDecoratorMappings } from '@quajs/plugin-audio'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getHotReloadManager, resetHotReloadManager } from '../src/core/hot-reload'
 import { compileQuaScript } from '../src/index'
 import { createHotReloadAwareTransformer } from '../src/integrations/hot-reload-transformer'
@@ -53,7 +53,7 @@ describe('hot-Reload Integration', () => {
         const scene1 = qs\`
           Yuki: Hello there!
           @PlayVoice("chime.wav")
-          @CustomDecorator(test)
+          @CustomDecorator("test")
           Akira: Great to see you.
         \`
       `
@@ -109,7 +109,7 @@ describe('hot-Reload Integration', () => {
 
       const source = `
         const scene = qs\`
-          @CustomDecorator(param)
+          @CustomDecorator("param")
           Yuki: Hello!
         \`
       `

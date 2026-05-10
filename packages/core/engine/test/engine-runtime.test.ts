@@ -78,6 +78,30 @@ describe('QuaEngine runtime architecture', () => {
     await expect(wait).resolves.toEqual({ choiceId: 'yes' })
   })
 
+  it('executes imported QuaScript factories through dialogue', async () => {
+    const engine = new QuaEngine({
+      assets: {
+        adapter: createMemoryAdapter(),
+      },
+      store: {
+        enableSnapshots: false,
+      },
+    })
+    await engine.init()
+    const run = vi.fn()
+
+    await engine.dialogue(scope => [{
+      uuid: `step-${String(scope?.scene)}`,
+      run,
+    }], { scene: 'intro' })
+
+    expect(run).toHaveBeenCalledWith(expect.objectContaining({
+      engine,
+      stepId: 'step-intro',
+    }))
+    expect(engine.getCurrentStepId()).toBe('step-intro')
+  })
+
   it('exposes background projection writes on the engine instance', async () => {
     const engine = createEngine()
     await engine.init()

@@ -17,12 +17,24 @@ const quackMocks = vi.hoisted(() => ({
   constructor: vi.fn(),
 }))
 
+const scriptCompilerMocks = vi.hoisted(() => ({
+  buildEnd: vi.fn(),
+  configResolved: vi.fn(),
+  configureServer: vi.fn(),
+  handleHotUpdate: vi.fn(),
+  transform: vi.fn(),
+}))
+
 // Mock dependencies
 vi.mock('@quajs/script-compiler', () => ({
   quaScriptPlugin: vi.fn(() => ({
+    buildEnd: scriptCompilerMocks.buildEnd,
+    configResolved: scriptCompilerMocks.configResolved,
+    configureServer: scriptCompilerMocks.configureServer,
+    handleHotUpdate: scriptCompilerMocks.handleHotUpdate,
     name: 'qua-script-mock',
-    transform: vi.fn()
-  }))
+    transform: scriptCompilerMocks.transform,
+  })),
 }))
 
 vi.mock('@quajs/quack', () => ({
@@ -125,6 +137,30 @@ describe('@quajs/vite-plugin', () => {
       const plugin = quaScriptCompilerPlugin()
       expect(plugin.name).toBe('qua-script-compiler')
       expect(typeof plugin.transform).toBe('function')
+    })
+
+    it('should forward lifecycle hooks to the base script compiler plugin', async () => {
+      const plugin = quaScriptCompilerPlugin()
+      const server = {
+        ws: { send: vi.fn() },
+      }
+      const hotUpdateContext = {
+        file: '/project/scene.qs',
+        server,
+      }
+
+      await (plugin.configResolved as any)?.({ root: '/project', command: 'serve' })
+      await (plugin.configureServer as any)?.(server)
+      await (plugin.handleHotUpdate as any)?.(hotUpdateContext)
+      await (plugin.buildEnd as any)?.()
+
+      expect(scriptCompilerMocks.configResolved).toHaveBeenCalled()
+      expect(scriptCompilerMocks.configureServer).toHaveBeenCalledWith(server)
+      expect(scriptCompilerMocks.handleHotUpdate).toHaveBeenCalledWith(hotUpdateContext)
+      expect(scriptCompilerMocks.buildEnd).toHaveBeenCalled()
+      expect(server.ws.send).toHaveBeenCalledWith(expect.objectContaining({
+        event: 'qua-script-update',
+      }))
     })
 
     it('should return disabled plugin when disabled', () => {

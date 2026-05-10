@@ -1,4 +1,5 @@
-import type { CompilerOptions, DecoratorMapping } from '../core/types'
+import type { QuaScriptTransformerOptions } from '../core/transformer'
+import type { DecoratorMapping } from '../core/types'
 import { QuaScriptTransformer } from '../core/transformer'
 import { mergeDecoratorMappings } from '../core/types'
 import { clearDecoratorCompilerCache, loadDecoratorCompilerRegistry, loadPackageDecoratorMappingsSync, loadProjectDecoratorMappings } from '../decorators'
@@ -23,7 +24,7 @@ export class PluginAwareQuaScriptTransformer extends QuaScriptTransformer {
 
   constructor(
     decoratorMappings?: DecoratorMapping,
-    options?: CompilerOptions & { projectRoot?: string },
+    options?: QuaScriptTransformerOptions & { projectRoot?: string },
   ) {
     const packageMappings = loadPackageDecoratorMappingsSync(options?.projectRoot)
     const initialMappings = mergeDecoratorMappings({
@@ -77,7 +78,7 @@ export class PluginAwareQuaScriptTransformer extends QuaScriptTransformer {
  */
 export function createPluginAwareTransformer(
   decoratorMappings?: DecoratorMapping,
-  options?: CompilerOptions & { projectRoot?: string },
+  options?: QuaScriptTransformerOptions & { projectRoot?: string },
 ): PluginAwareQuaScriptTransformer {
   return new PluginAwareQuaScriptTransformer(decoratorMappings, options)
 }
@@ -88,7 +89,7 @@ export function createPluginAwareTransformer(
  */
 export async function createPluginAwareTransformerAsync(
   decoratorMappings?: DecoratorMapping,
-  options?: CompilerOptions & { projectRoot?: string },
+  options?: QuaScriptTransformerOptions & { projectRoot?: string },
 ): Promise<QuaScriptTransformer> {
   const pluginDecorators = await getPluginDecorators(options?.projectRoot)
 

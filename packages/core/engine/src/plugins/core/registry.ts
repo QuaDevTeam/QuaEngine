@@ -3,7 +3,6 @@ export interface DecoratorMapping {
   [decoratorName: string]: {
     function: string
     module: string
-    transform?: (args: any[]) => any[]
   }
 }
 
@@ -28,7 +27,6 @@ export interface PluginAPIRegistration {
   decorators: Record<string, {
     function: string
     module: string
-    transform?: (args: any[]) => any[]
   }>
 }
 

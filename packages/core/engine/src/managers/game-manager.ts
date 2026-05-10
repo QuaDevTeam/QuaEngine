@@ -1,9 +1,10 @@
 import type { QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaStore } from '@quajs/store'
 import type { QuaEngine } from '../core/engine'
-import type { GameStep, Scene, StepContext } from '../core/types'
+import type { GameStep, GameStepFactory, GameStepScope, GameStepSource, OptionalGameStepFactory, Scene, StepContext } from '../core/types'
 
 import { getPackageLogger } from '@quajs/logger'
 import { generateId } from '@quajs/utils'
+import { resolveGameSteps } from '../core/script'
 
 const logger = getPackageLogger('engine:game-manager')
 
@@ -40,11 +41,15 @@ export class GameManager {
    * Execute a dialogue sequence
    * This is the main API for game progression
    */
-  async dialogue(steps: GameStep[]): Promise<void> {
-    logger.debug(`Starting dialogue with ${steps.length} steps`)
+  async dialogue(steps: GameStep[]): Promise<void>
+  async dialogue<TScope>(steps: OptionalGameStepFactory<TScope>, scope?: TScope): Promise<void>
+  async dialogue<TScope>(steps: GameStepFactory<TScope>, scope: TScope): Promise<void>
+  async dialogue<TScope = GameStepScope>(steps: GameStepSource<TScope>, scope?: TScope): Promise<void> {
+    const resolvedSteps = resolveGameSteps(steps, scope)
+    logger.debug(`Starting dialogue with ${resolvedSteps.length} steps`)
 
     try {
-      await this.engine.dialogue(steps)
+      await this.engine.dialogue(resolvedSteps)
       logger.debug('Dialogue sequence completed')
     }
     catch (error) {

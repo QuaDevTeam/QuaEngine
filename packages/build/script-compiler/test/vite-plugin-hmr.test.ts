@@ -60,7 +60,7 @@ describe('vite Plugin Hot-Reload Integration', () => {
 
     it('should create plugin with custom options', () => {
       plugin = quaScriptPlugin({
-        include: /\.qua$/,
+        include: /\.qs$/,
         exclude: /test/,
         hotReload: true,
         projectRoot: '/custom/root',
@@ -120,7 +120,7 @@ describe('vite Plugin Hot-Reload Integration', () => {
       configResolved({ command: 'serve', root: '/project' })
     })
 
-    it('should transform QuaScript files', () => {
+    it('should transform QuaScript files', async () => {
       const transform = plugin.transform as (code: string, id: string) => any
       const code = `const dialogue = qs\`Yuki: Hello world!\``
       const id = '/project/src/test.ts'
@@ -129,34 +129,53 @@ describe('vite Plugin Hot-Reload Integration', () => {
       const configureServer = plugin.configureServer as (server: any) => void
       configureServer(mockServer)
 
-      const result = transform(code, id)
+      const result = await transform(code, id)
 
       expect(result).toBeTruthy()
       expect(result.code).toContain('speakWithEngine(ctx.engine, "Yuki"')
       expect(result.code).toContain('import.meta.hot') // HMR code
     })
 
-    it('should skip non-QuaScript files', () => {
+    it('should transform standalone .qs files into modules', async () => {
+      const transform = plugin.transform as (code: string, id: string) => any
+      const code = `
+        Yuki: Hello world!
+      `
+      const id = '/project/src/test.qs'
+
+      // Set up server for HMR code generation
+      const configureServer = plugin.configureServer as (server: any) => void
+      configureServer(mockServer)
+
+      const result = await transform(code, id)
+
+      expect(result).toBeTruthy()
+      expect(result.code).toContain('export default function createQuaScript(scope = {})')
+      expect(result.code).toContain('speakWithEngine(ctx.engine, "Yuki"')
+      expect(result.code).toContain('import.meta.hot')
+    })
+
+    it('should skip non-QuaScript files', async () => {
       const transform = plugin.transform as (code: string, id: string) => any
       const code = `console.log('regular javascript')`
       const id = '/project/src/test.ts'
 
-      const result = transform(code, id)
+      const result = await transform(code, id)
 
       expect(result).toBeNull()
     })
 
-    it('should skip files without qs template literals', () => {
+    it('should skip files without qs template literals', async () => {
       const transform = plugin.transform as (code: string, id: string) => any
       const code = `const dialogue = 'regular string'`
       const id = '/project/src/test.ts'
 
-      const result = transform(code, id)
+      const result = await transform(code, id)
 
       expect(result).toBeNull()
     })
 
-    it('should not add HMR code when hot-reload is disabled', () => {
+    it('should not add HMR code when hot-reload is disabled', async () => {
       plugin = quaScriptPlugin({ hotReload: false })
 
       const configResolved = plugin.configResolved as (config: any) => void
@@ -166,7 +185,7 @@ describe('vite Plugin Hot-Reload Integration', () => {
       const code = `const dialogue = qs\`Yuki: Hello!\``
       const id = '/project/src/test.ts'
 
-      const result = transform(code, id)
+      const result = await transform(code, id)
 
       expect(result?.code).not.toContain('import.meta.hot')
     })

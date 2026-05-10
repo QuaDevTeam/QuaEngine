@@ -3,6 +3,21 @@ import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
 
+const qsModuleReference = '/// <reference path="./qs-module.d.ts" />\n'
+const qsTypesEntryPath = resolve(import.meta.dirname, 'dist/index.d.ts').replace(/\\/g, '/')
+
+function addQsModuleReference(filePath: string, content: string) {
+  const normalizedPath = filePath.replace(/\\/g, '/')
+  if (
+    (normalizedPath === 'index.d.ts' || normalizedPath === 'dist/index.d.ts' || normalizedPath === qsTypesEntryPath)
+    && !content.includes('qs-module.d.ts')
+  ) {
+    return {
+      content: `${qsModuleReference}${content}`,
+    }
+  }
+}
+
 export default defineConfig({
   plugins: [
     dts({
@@ -11,6 +26,8 @@ export default defineConfig({
       outDir: 'dist',
       insertTypesEntry: true,
       rollupTypes: true,
+      copyDtsFiles: true,
+      beforeWriteFile: addQsModuleReference,
     }),
   ] as PluginOption[],
   build: {
@@ -39,6 +56,7 @@ export default defineConfig({
         '@quajs/plugin-audio/script-compiler',
         '@quajs/plugin-animation/script-compiler',
         '@quajs/plugin-background/script-compiler',
+        'vite',
         'uuid',
       ],
       output: {

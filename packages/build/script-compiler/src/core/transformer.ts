@@ -1,22 +1,36 @@
+import type { ParserPlugin } from '@babel/parser'
 import type { NodePath } from '@babel/traverse'
 import type { DecoratorCompilerRegistry } from '../decorators'
 import type {
-  CompilerOptions,
   DecoratorMapping,
   ParsedQuaScript,
   QuaScriptChoice,
   QuaScriptDecorator,
   QuaScriptDialogue,
 } from './types'
-import generate from '@babel/generator'
+import generateModule from '@babel/generator'
 import { parse } from '@babel/parser'
-import traverse from '@babel/traverse'
+import traverseModule from '@babel/traverse'
 import * as t from '@babel/types'
 import { createDefaultDecoratorCompilerRegistry } from '../decorators'
-import { QuaScriptParser } from './parser'
+import { parseQuaScriptDocument } from './document'
+import { QuaScriptParser, scanTemplateText } from './parser'
 import { DEFAULT_DECORATOR_MAPPINGS } from './types'
 
-export interface QuaScriptTransformerOptions extends CompilerOptions {
+const HOST_SOURCE_PARSER_PLUGINS: ParserPlugin[] = ['typescript', 'jsx', 'decorators']
+const generateCode = resolveCallableDefault(generateModule)
+const traverseAst = resolveCallableDefault(traverseModule)
+
+// Babel ships these helpers through CommonJS interop, so resolve a callable
+// default export that works both in Vitest bundling and native Node ESM.
+function resolveCallableDefault<T extends (...args: any[]) => unknown>(module: T | { default?: T }): T {
+  const maybeDefault = (module as { default?: T }).default
+  return typeof maybeDefault === 'function'
+    ? maybeDefault
+    : module as T
+}
+
+export interface QuaScriptTransformerOptions {
   decoratorCompilerRegistry?: DecoratorCompilerRegistry
 }
 
@@ -28,7 +42,6 @@ export interface QuaScriptTransformerOptions extends CompilerOptions {
  */
 export class QuaScriptTransformer {
   protected decoratorMappings: DecoratorMapping
-  private options: CompilerOptions
   private usedDecorators: Set<string> = new Set()
   private usedRuntimeHelpers: Set<string> = new Set()
   private handledDecoratorModules: Set<string> = new Set()
@@ -38,16 +51,10 @@ export class QuaScriptTransformer {
     decoratorMappings: DecoratorMapping = DEFAULT_DECORATOR_MAPPINGS,
     options: QuaScriptTransformerOptions = {},
   ) {
-    const { decoratorCompilerRegistry, ...compilerOptions } = options
+    const { decoratorCompilerRegistry } = options
 
     this.decoratorMappings = decoratorMappings
     this.decoratorCompilerRegistry = decoratorCompilerRegistry || createDefaultDecoratorCompilerRegistry()
-    this.options = {
-      generateUUID: true,
-      preserveDecorators: false,
-      outputFormat: 'esm',
-      ...compilerOptions,
-    }
   }
 
   /**
@@ -60,20 +67,23 @@ export class QuaScriptTransformer {
 
     const ast = parse(source, {
       sourceType: 'module',
-      plugins: ['typescript', 'jsx'],
+      plugins: HOST_SOURCE_PARSER_PLUGINS,
     })
 
     let transformed = false
 
-    traverse(ast, {
+    traverseAst(ast, {
       TaggedTemplateExpression: (path: NodePath<t.TaggedTemplateExpression>) => {
         if (t.isIdentifier(path.node.tag) && path.node.tag.name === 'qs') {
           const quasiValue = this.extractQuasiValue(path.node.quasi)
           if (quasiValue) {
             const parser = new QuaScriptParser()
             const parsed = parser.parse(quasiValue)
+            this.throwDocumentDiagnostics(parsed.diagnostics.filter(diagnostic => diagnostic.severity === 'error'))
             this.collectUsedDecorators(parsed)
-            const gameStepsArray = this.transformToGameSteps(parsed, path.node.quasi)
+            const gameStepsArray = this.transformToGameSteps(parsed, {
+              quasi: path.node.quasi,
+            })
             path.replaceWith(gameStepsArray)
             transformed = true
           }
@@ -89,13 +99,69 @@ export class QuaScriptTransformer {
       }
     }
 
-    const result = generate(ast, {
+    const result = generateCode(ast, {
       retainLines: false,
       compact: false,
-      sourceMaps: this.options.outputFormat === 'esm',
     })
 
     return result.code
+  }
+
+  /**
+   * Transform a standalone QuaScript source file into a TypeScript ES module.
+   * The module exports a factory so the caller can provide runtime bindings.
+   */
+  transformModuleSource(source: string, _filePath?: string): string {
+    this.usedDecorators.clear()
+    this.usedRuntimeHelpers.clear()
+    this.handledDecoratorModules.clear()
+
+    const document = parseQuaScriptDocument(source)
+    this.throwDocumentDiagnostics(document.diagnostics)
+
+    const parser = new QuaScriptParser()
+    const parsed = parser.parse(document.dslBody)
+    this.throwDocumentDiagnostics(parsed.diagnostics.filter(diagnostic => diagnostic.severity === 'error'))
+    this.collectUsedDecorators(parsed)
+
+    const scopeIdentifier = t.identifier('scope')
+    const stepsArray = this.transformToGameSteps(parsed, {
+      scopeIdentifier,
+    })
+
+    const moduleScript = document.moduleScript?.content.trim() || ''
+    const setupScript = document.setupScript?.content.trim() || ''
+    const moduleAst = this.parseModuleScriptForImports(moduleScript)
+    const imports = this.generateImports(moduleAst)
+    const importProgram = t.program(imports)
+    const runtimeImports = generateCode(importProgram, {
+      retainLines: false,
+      compact: false,
+    }).code
+    const gameStepImport = this.isAlreadyImported(moduleAst, '@quajs/engine', 'GameStep')
+      ? ''
+      : 'import type { GameStep } from "@quajs/engine";'
+    const stepsCode = generateCode(stepsArray, {
+      retainLines: false,
+      compact: false,
+      sourceMaps: false,
+    }).code
+    const hasScopeType = hasExportedScopeType(moduleScript)
+    const scopeParam = hasScopeType
+      ? 'scope: Scope'
+      : 'scope: Record<string, unknown> = {}'
+    const setupCode = setupScript
+      ? `${indent(setupScript)}\n`
+      : ''
+
+    return [
+      gameStepImport,
+      runtimeImports,
+      moduleScript,
+      `export default function createQuaScript(${scopeParam}): GameStep[] {\n${setupCode}  return ${stepsCode}\n}`,
+    ]
+      .filter(part => part.trim().length > 0)
+      .join('\n\n')
   }
 
   private extractQuasiValue(quasi: t.TemplateLiteral): string | null {
@@ -113,10 +179,10 @@ export class QuaScriptTransformer {
           result += `\${${expr.name}}`
         }
         else if (t.isMemberExpression(expr)) {
-          result += `\${${generate(expr).code}}`
+          result += `\${${generateCode(expr).code}}`
         }
         else {
-          result += `\${${generate(expr).code}}`
+          result += `\${${generateCode(expr).code}}`
         }
       }
     }
@@ -141,16 +207,22 @@ export class QuaScriptTransformer {
     })
   }
 
-  private transformToGameSteps(parsed: ParsedQuaScript, quasi: t.TemplateLiteral): t.ArrayExpression {
+  private transformToGameSteps(
+    parsed: ParsedQuaScript,
+    options: {
+      quasi?: t.TemplateLiteral
+      scopeIdentifier?: t.Identifier
+    } = {},
+  ): t.ArrayExpression {
     const compileState: Record<string, unknown> = {}
     const elements = parsed.steps.map((step, index) => {
       if (step.type === 'dialogue') {
-        return this.createDialogueStep(step.content as QuaScriptDialogue, step.uuid, quasi, index, compileState)
+        return this.createDialogueStep(step.content as QuaScriptDialogue, step.uuid, index, compileState, options)
       }
       if (step.type === 'choice') {
-        return this.createChoiceStep(step.content as QuaScriptChoice, step.uuid, index, compileState)
+        return this.createChoiceStep(step.content as QuaScriptChoice, step.uuid, index, compileState, options)
       }
-      return this.createActionStep(step.content, step.uuid, index, compileState)
+      return this.createActionStep(step.content, step.uuid, index, compileState, options)
     })
 
     return t.arrayExpression(elements)
@@ -159,36 +231,60 @@ export class QuaScriptTransformer {
   private createDialogueStep(
     dialogue: QuaScriptDialogue,
     uuid: string,
-    quasi: t.TemplateLiteral,
     stepIndex: number,
     compileState: Record<string, unknown>,
+    options: {
+      quasi?: t.TemplateLiteral
+      scopeIdentifier?: t.Identifier
+    } = {},
   ): t.ObjectExpression {
     return t.objectExpression([
       t.objectProperty(t.identifier('uuid'), t.stringLiteral(uuid)),
-      t.objectProperty(t.identifier('run'), this.createRunFunction(dialogue, quasi, uuid, stepIndex, compileState)),
+      t.objectProperty(t.identifier('run'), this.createRunFunction(dialogue, uuid, stepIndex, compileState, options)),
     ])
   }
 
-  private createActionStep(content: any, uuid: string, stepIndex: number, compileState: Record<string, unknown>): t.ObjectExpression {
+  private createActionStep(
+    content: any,
+    uuid: string,
+    stepIndex: number,
+    compileState: Record<string, unknown>,
+    options: {
+      quasi?: t.TemplateLiteral
+      scopeIdentifier?: t.Identifier
+    } = {},
+  ): t.ObjectExpression {
     return t.objectExpression([
       t.objectProperty(t.identifier('uuid'), t.stringLiteral(uuid)),
-      t.objectProperty(t.identifier('run'), this.createActionRunFunction(content, uuid, stepIndex, compileState)),
+      t.objectProperty(t.identifier('run'), this.createActionRunFunction(content, uuid, stepIndex, compileState, options)),
     ])
   }
 
-  private createChoiceStep(choice: QuaScriptChoice, uuid: string, stepIndex: number, compileState: Record<string, unknown>): t.ObjectExpression {
+  private createChoiceStep(
+    choice: QuaScriptChoice,
+    uuid: string,
+    stepIndex: number,
+    compileState: Record<string, unknown>,
+    options: {
+      quasi?: t.TemplateLiteral
+      scopeIdentifier?: t.Identifier
+    } = {},
+  ): t.ObjectExpression {
     return t.objectExpression([
       t.objectProperty(t.identifier('uuid'), t.stringLiteral(uuid)),
-      t.objectProperty(t.identifier('run'), this.createChoiceRunFunction(choice, uuid, stepIndex, compileState)),
+      t.objectProperty(t.identifier('run'), this.createChoiceRunFunction(choice, uuid, stepIndex, compileState, options)),
     ])
   }
 
   private createRunFunction(
     dialogue: QuaScriptDialogue,
-    quasi: t.TemplateLiteral,
     stepUuid: string,
     stepIndex: number,
     compileState: Record<string, unknown>,
+    options: {
+      quasi?: t.TemplateLiteral
+      scopeIdentifier?: t.Identifier
+    } = {},
   ): t.ArrowFunctionExpression {
     const statements: t.Statement[] = []
     const context = {
@@ -199,10 +295,10 @@ export class QuaScriptTransformer {
       state: compileState,
     }
 
-    statements.push(...this.createDecoratorStatements(dialogue.decorators, context))
-    statements.push(...this.createImplicitDecoratorStatements(dialogue.decorators, context))
+    statements.push(...this.createDecoratorStatements(dialogue.decorators, context, options.scopeIdentifier))
+    statements.push(...this.createImplicitDecoratorStatements(dialogue.decorators, context, options.scopeIdentifier))
 
-    statements.push(t.expressionStatement(t.awaitExpression(this.createSpeakCall(dialogue, quasi))))
+    statements.push(t.expressionStatement(t.awaitExpression(this.createSpeakCall(dialogue, options))))
 
     return t.arrowFunctionExpression(
       [t.identifier('ctx')],
@@ -211,14 +307,23 @@ export class QuaScriptTransformer {
     )
   }
 
-  private createActionRunFunction(content: any, stepUuid: string, stepIndex: number, compileState: Record<string, unknown>): t.ArrowFunctionExpression {
+  private createActionRunFunction(
+    content: any,
+    stepUuid: string,
+    stepIndex: number,
+    compileState: Record<string, unknown>,
+    options: {
+      quasi?: t.TemplateLiteral
+      scopeIdentifier?: t.Identifier
+    } = {},
+  ): t.ArrowFunctionExpression {
     const context = {
       stepType: 'action' as const,
       stepIndex,
       stepUuid,
       state: compileState,
     }
-    const statements = this.createDecoratorStatements(content.decorators || [], context)
+    const statements = this.createDecoratorStatements(content.decorators || [], context, options.scopeIdentifier)
 
     return t.arrowFunctionExpression(
       [t.identifier('ctx')],
@@ -227,16 +332,26 @@ export class QuaScriptTransformer {
     )
   }
 
-  private createChoiceRunFunction(choice: QuaScriptChoice, stepUuid: string, stepIndex: number, compileState: Record<string, unknown>): t.ArrowFunctionExpression {
+  private createChoiceRunFunction(
+    choice: QuaScriptChoice,
+    stepUuid: string,
+    stepIndex: number,
+    compileState: Record<string, unknown>,
+    options: {
+      quasi?: t.TemplateLiteral
+      scopeIdentifier?: t.Identifier
+    } = {},
+  ): t.ArrowFunctionExpression {
     void stepUuid
     void stepIndex
     void compileState
+    void options
     const choicesIdentifier = t.identifier('choices')
     const choicesArray = t.arrayExpression(choice.options.map(option =>
       t.objectExpression([
         t.objectProperty(t.identifier('id'), t.stringLiteral(option.id)),
         t.objectProperty(t.identifier('text'), t.stringLiteral(option.text)),
-        t.objectProperty(t.identifier('enabled'), option.condition ? this.parseExpression(option.condition) : t.booleanLiteral(true)),
+        t.objectProperty(t.identifier('enabled'), option.condition ? this.parseExpression(option.condition, options.scopeIdentifier) : t.booleanLiteral(true)),
         t.objectProperty(t.identifier('metadata'), t.objectExpression([
           t.objectProperty(t.identifier('target'), t.stringLiteral(option.target)),
           ...(option.condition
@@ -312,7 +427,9 @@ export class QuaScriptTransformer {
   private createDecoratorStatements(
     decorators: QuaScriptDecorator[],
     context: { characterName?: string, stepType: 'dialogue' | 'action', stepIndex: number, stepUuid: string, state: Record<string, unknown> },
+    scopeIdentifier?: t.Identifier,
   ): t.Statement[] {
+    void scopeIdentifier
     const statements: t.Statement[] = []
 
     for (let index = 0; index < decorators.length; index++) {
@@ -354,7 +471,9 @@ export class QuaScriptTransformer {
   private createImplicitDecoratorStatements(
     decorators: QuaScriptDecorator[],
     context: { characterName?: string, stepType: 'dialogue' | 'action', stepIndex: number, stepUuid: string, state: Record<string, unknown> },
+    scopeIdentifier?: t.Identifier,
   ): t.Statement[] {
+    void scopeIdentifier
     const implicit = this.decoratorCompilerRegistry.compileImplicit({
       decorators,
       context,
@@ -401,6 +520,9 @@ export class QuaScriptTransformer {
   }
 
   private createLiteralExpression(value: unknown): t.Expression {
+    if (isBabelExpression(value)) {
+      return value
+    }
     if (typeof value === 'string') {
       return t.stringLiteral(value)
     }
@@ -426,42 +548,74 @@ export class QuaScriptTransformer {
     return t.identifier('undefined')
   }
 
-  private parseExpression(source: string): t.Expression {
-    const parsed = parse(`(${source})`, {
-      sourceType: 'module',
-      plugins: ['typescript', 'jsx'],
-    })
-    const statement = parsed.program.body[0]
-    if (
-      t.isExpressionStatement(statement)
-      && t.isExpression(statement.expression)
-    ) {
-      return statement.expression
+  private parseExpression(source: string, scopeIdentifier?: t.Identifier): t.Expression {
+    try {
+      const parsed = parse(`(${source})`, {
+        sourceType: 'module',
+        plugins: HOST_SOURCE_PARSER_PLUGINS,
+      })
+      const statement = parsed.program.body[0]
+      if (
+        t.isExpressionStatement(statement)
+        && t.isExpression(statement.expression)
+      ) {
+        return statement.expression
+      }
     }
-    return t.identifier(source)
+    catch (error) {
+      throw new Error(`Invalid TypeScript expression in QuaScript: ${source}\n${error instanceof Error ? error.message : String(error)}`)
+    }
+
+    void scopeIdentifier
+    throw new Error(`Invalid TypeScript expression in QuaScript: ${source}`)
   }
 
-  private createSpeakCall(dialogue: QuaScriptDialogue, quasi: t.TemplateLiteral): t.CallExpression {
+  private throwDocumentDiagnostics(diagnostics: Array<{ message: string, severity: 'error' | 'warning' }>): void {
+    const errors = diagnostics.filter(diagnostic => diagnostic.severity === 'error')
+    if (errors.length > 0) {
+      throw new Error(errors.map(error => error.message).join('\n'))
+    }
+  }
+
+  private parseModuleScriptForImports(moduleScript: string): t.Program {
+    if (!moduleScript.trim()) {
+      return t.program([])
+    }
+
+    const parsed = parse(moduleScript, {
+      sourceType: 'module',
+      plugins: HOST_SOURCE_PARSER_PLUGINS,
+    })
+    return parsed.program
+  }
+
+  private createSpeakCall(
+    dialogue: QuaScriptDialogue,
+    options: {
+      quasi?: t.TemplateLiteral
+      scopeIdentifier?: t.Identifier
+    } = {},
+  ): t.CallExpression {
     let textExpression: t.Expression
 
     if (dialogue.templateExpressions.length > 0) {
-      const parts = dialogue.text.split(/\$\{[^}]+\}/)
+      const { parts } = scanTemplateText(dialogue.text)
       const expressions: t.Expression[] = []
 
       dialogue.templateExpressions.forEach((expr, index) => {
-        if (index < quasi.expressions.length) {
-          const expression = quasi.expressions[index]
+        if (options.quasi && index < options.quasi.expressions.length) {
+          const expression = options.quasi.expressions[index]
           expressions.push(t.isExpression(expression) ? expression : t.identifier(expr))
         }
         else {
-          expressions.push(t.identifier(expr))
+          expressions.push(this.parseExpression(expr, options.scopeIdentifier))
         }
       })
 
       const quasis = parts.map((part, index) => {
         const isLast = index === parts.length - 1
         return t.templateElement(
-          { raw: part, cooked: part },
+          { raw: escapeTemplateRaw(part), cooked: part },
           isLast,
         )
       })
@@ -548,4 +702,26 @@ export class QuaScriptTransformer {
       )
     }))
   }
+}
+
+function hasExportedScopeType(source: string): boolean {
+  return /\bexport\s+(?:interface|type)\s+Scope\b/.test(source)
+}
+
+function indent(source: string): string {
+  return source
+    .split('\n')
+    .map(line => (line.trim().length > 0 ? `  ${line}` : line))
+    .join('\n')
+}
+
+function escapeTemplateRaw(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/`/g, '\\`')
+    .replace(/\$\{/g, '\\${')
+}
+
+function isBabelExpression(value: unknown): value is t.Expression {
+  return typeof value === 'object' && value !== null && t.isExpression(value as t.Node)
 }

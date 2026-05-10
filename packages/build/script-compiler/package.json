@@ -36,7 +36,8 @@
     "@quajs/character": "workspace:*",
     "@quajs/engine": "workspace:*",
     "@quajs/plugin-animation": "workspace:*",
-    "@quajs/plugin-background": "workspace:*"
+    "@quajs/plugin-background": "workspace:*",
+    "vite": "^8.0.0"
   },
   "dependencies": {
     "@babel/generator": "catalog:",

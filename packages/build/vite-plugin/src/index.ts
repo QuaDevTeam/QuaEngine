@@ -1,3 +1,5 @@
+/// <reference types="@quajs/script-compiler" />
+
 import type { PluginOption } from 'vite'
 import type { QuaEngineVitePluginOptions } from './core/types'
 
@@ -92,10 +94,10 @@ function createDevServerPlugin(devOptions: NonNullable<QuaEngineVitePluginOption
 
 // Re-export individual plugins for advanced users
 export { quackPlugin, quaEnginePlugin, quaScriptCompilerPlugin }
-export { flattenPluginOptions } from './core/utils'
 
 // Re-export types
 export type { AssetBundleManifest, QuaEngineVitePluginOptions, VirtualPluginRegistryEntry } from './core/types'
+export { flattenPluginOptions } from './core/utils'
 
 // Default export
 export default quaEngine

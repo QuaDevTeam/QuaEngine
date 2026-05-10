@@ -1,0 +1,78 @@
+{
+  "publisher": "quajs",
+  "name": "@quajs/vscode-quascript",
+  "displayName": "QuaScript",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "VSCode language support for QuaScript .qs files",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "quascript",
+    "visual-novel"
+  ],
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./dist/extension.js",
+  "files": [
+    "dist",
+    "language-configuration.json",
+    "snippets",
+    "syntaxes"
+  ],
+  "engines": {
+    "node": ">=20",
+    "vscode": "^1.96.0"
+  },
+  "activationEvents": [
+    "onLanguage:quascript"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "quascript",
+        "aliases": [
+          "QuaScript",
+          "quascript"
+        ],
+        "extensions": [
+          ".qs"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "quascript",
+        "scopeName": "source.quascript",
+        "path": "./syntaxes/quascript.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.typescript": "typescript",
+          "meta.embedded.inline.typescript": "typescript"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "quascript",
+        "path": "./snippets/quascript.json"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@quajs/language-server": "workspace:*",
+    "vscode-languageclient": "catalog:"
+  },
+  "devDependencies": {
+    "@types/vscode": "catalog:"
+  }
+}

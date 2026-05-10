@@ -70,7 +70,6 @@ export interface PluginDiscoveryConfig {
 const DEFAULT_PLUGIN_PATHS = [
   'qua.plugins.json',
   'plugins/qua.plugins.json',
-  '.qua/plugins.json',
 ]
 
 /**
@@ -194,10 +193,10 @@ function readPluginPackageConfig(packageName: string, projectRoot: string): Part
 
     return {
       main: packageJson.quajs?.entry || packageJson.main || packageJson.module,
-      decorators: packageJson.quajs?.decorators || packageJson.decorators,
-      renderer: packageJson.quajs?.renderer || packageJson.renderer,
-      description: packageJson.quajs?.description || packageJson.description,
-      category: packageJson.quajs?.category || packageJson.category,
+      decorators: packageJson.quajs?.decorators,
+      renderer: packageJson.quajs?.renderer,
+      description: packageJson.quajs?.description,
+      category: packageJson.quajs?.category,
       apis: packageJson.quajs?.apis,
       quajs: packageJson.quajs,
       packageJsonPath,

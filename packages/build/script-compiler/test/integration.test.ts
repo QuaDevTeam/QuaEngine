@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { QuaScriptParser } from '../src/core/parser'
 import { createPluginAwareTransformerAsync } from '../src'
+import { QuaScriptParser } from '../src/core/parser'
 
 describe('quaScript Integration Tests', () => {
   it('complete transformation workflow', async () => {

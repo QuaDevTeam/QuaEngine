@@ -1,25 +1,25 @@
 // Global APIs (main exports)
 export {
+  clearChoices,
   dialogue,
   getAssetMetadata,
+  getAssets,
   getCurrentSceneName,
   getCurrentStepId,
-  getAssets,
-  getPluginProjection,
   getPipeline,
+  getPluginProjection,
   getStore,
   getViewState,
-  waitFor,
-  showDialogue,
   hideDialogue,
-  showChoices,
-  clearChoices,
   initEngine,
   loadFromSlot,
   loadScene,
   rewind,
   saveToSlot,
   setPluginProjection,
+  showChoices,
+  showDialogue,
+  waitFor,
 } from './api/global'
 
 // Core Engine
@@ -28,18 +28,22 @@ export { QuaEngine } from './core/engine'
 // Types
 export { Scene } from './core/types'
 export type {
-  EngineConfig,
-  EngineEventMap,
-  GameSaveData,
-  GameStep,
-  SaveSlot,
-  StepContext,
-  UsePluginOptions,
   BackgroundIntent,
   CharacterIntent,
   ChoiceIntent,
   DialogueIntent,
+  EngineConfig,
+  EngineEventMap,
+  GameSaveData,
+  GameStep,
+  GameStepFactory,
+  GameStepScope,
+  GameStepSource,
+  OptionalGameStepFactory,
   QuaEngineInterface,
+  SaveSlot,
+  StepContext,
+  UsePluginOptions,
   ViewPluginProjectionMap,
 } from './core/types'
 // Events
@@ -59,12 +63,12 @@ export type {
   AnimationKeyframeProjection,
   AnimationPlaybackState,
   AnimationTime,
-  ResolvedAnimationTrackProjection,
   BackgroundLayerAssetType,
   BackgroundMode,
   BackgroundSetPayload,
   DialogueShowPayload,
   EngineEvents,
+  ResolvedAnimationTrackProjection,
   SceneInitPayload,
   UserChoiceSelectPayload,
   UserClickPayload,
@@ -91,9 +95,6 @@ export {
   PluginDiscovery,
   PluginFramework,
 } from './plugins'
-export { UiOverlayPlugin } from './plugins/ui-overlay-plugin'
-export type { UiOverlayPluginOptions } from './plugins/ui-overlay-plugin'
-
 export type {
   DecoratorMapping,
   EngineContext,
@@ -103,3 +104,5 @@ export type {
   PluginConstructor,
   PluginConstructorOptions,
 } from './plugins'
+export { UiOverlayPlugin } from './plugins/ui-overlay-plugin'
+export type { UiOverlayPluginOptions } from './plugins/ui-overlay-plugin'

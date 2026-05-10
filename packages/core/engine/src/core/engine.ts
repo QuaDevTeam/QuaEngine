@@ -7,6 +7,12 @@ import type {
   RenderToLogicEvents,
 } from '../events/events'
 import type {
+  EngineContext,
+  EnginePlugin,
+  PluginConstructor,
+  PluginConstructorOptions,
+} from '../plugins/core/types'
+import type {
   BackgroundIntent,
   CharacterIntent,
   ChoiceIntent,
@@ -14,16 +20,14 @@ import type {
   EffectIntent,
   EngineConfig,
   GameStep,
+  GameStepFactory,
+  GameStepScope,
+  GameStepSource,
+  OptionalGameStepFactory,
   Scene,
   StepContext,
   UiIntent,
 } from './types'
-import type {
-  EngineContext,
-  EnginePlugin,
-  PluginConstructor,
-  PluginConstructorOptions,
-} from '../plugins/core/types'
 import { QuaAssets } from '@quajs/assets'
 import { getPackageLogger } from '@quajs/logger'
 import { Pipeline } from '@quajs/pipeline'
@@ -36,6 +40,7 @@ import {
 import { GameManager } from '../managers/game-manager'
 import { SceneManager } from '../managers/scene-manager'
 import { PluginContextImpl } from '../plugins/core/context'
+import { resolveGameSteps } from './script'
 import { createInitialEngineState } from './types'
 
 const logger = getPackageLogger('engine')
@@ -145,9 +150,13 @@ export class QuaEngine {
     await this.sceneManager.loadScene(scene)
   }
 
-  async dialogue(steps: GameStep[]): Promise<void> {
+  async dialogue(steps: GameStep[]): Promise<void>
+  async dialogue<TScope>(steps: OptionalGameStepFactory<TScope>, scope?: TScope): Promise<void>
+  async dialogue<TScope>(steps: GameStepFactory<TScope>, scope: TScope): Promise<void>
+  async dialogue<TScope = GameStepScope>(steps: GameStepSource<TScope>, scope?: TScope): Promise<void> {
     this.assertInitialized()
-    for (const step of steps) {
+    const resolvedSteps = resolveGameSteps(steps, scope)
+    for (const step of resolvedSteps) {
       await this.executeStep(step)
     }
   }
