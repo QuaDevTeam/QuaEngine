@@ -323,6 +323,12 @@ Each package is:
 - `component` should name the primary package or subsystem affected.
 - Keep the description concise, imperative, and lowercase unless a proper noun is required.
 
+### QuaEngine Architecture Guardrails
+- Renderer code must stay stateless for any engine-owned capability. Treat the renderer as a projection canvas: consume pipeline events and engine view state, then draw. Do not let renderer code own authoritative game state or decide progression.
+- Engine and build-time packages must keep feature implementations package-local. Decorators, runtime helpers, and Vite integration for a feature belong to that package or its explicit sub-entry, not to `@quajs/engine` or `@quajs/script-compiler` as a central bucket.
+- Engine/core packages must not depend on Web APIs directly. If a feature needs browser behavior, move it behind an adapter, abstraction, or pipeline payload so the renderer can perform the real Web-side implementation.
+- When a change crosses package boundaries, keep the cross-package contract minimal and explicit: export mappings, contracts, or metadata, not the whole implementation.
+
 ## Getting Started
 
 ### Prerequisites
