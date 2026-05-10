@@ -2,6 +2,20 @@ export interface QuaState {
   [key: string]: any
 }
 
+export type QuaStoreSnapshotScope = 'all' | string | readonly string[]
+
+export interface QuaSnapshotScopeMeta {
+  type: 'store' | 'stores' | 'all'
+  storeNames: string[]
+}
+
+export interface QuaSnapshotOptions {
+  id?: string
+  scope?: QuaStoreSnapshotScope
+  storeName?: string
+  storeNames?: readonly string[]
+}
+
 export interface QuaGetters {
   [key: string]: (state: QuaState) => any
 }
@@ -31,17 +45,26 @@ export interface QuaRestoreOptions {
   force?: boolean
 }
 
+export interface QuaScopedRestoreOptions extends QuaRestoreOptions {
+  scope?: QuaStoreSnapshotScope
+  storeName?: string
+  storeNames?: readonly string[]
+  strict?: boolean
+}
+
 export interface QuaSnapshot {
   id: string
   storeName: string
   data: QuaState
   createdAt: Date
+  scope?: QuaSnapshotScopeMeta
 }
 
 export interface QuaSnapshotMeta {
   id: string
   storeName: string
   createdAt: Date
+  scope?: QuaSnapshotScopeMeta
 }
 
 /**
