@@ -254,7 +254,7 @@ describe('@quajs/renderer-vue', () => {
       characters: current.characters,
       dialogue: current.dialogue,
       choices: current.choices,
-      audio: current.audio,
+      plugins: current.plugins,
       effects: current.effects,
       animations: current.animations,
       actions: expect.objectContaining({ advance: expect.any(Function) }),
@@ -680,11 +680,7 @@ function view(overrides: Partial<QuaViewProjection> = {}): QuaViewProjection {
     ui: { visible: true },
     effects: [],
     animations: [],
-    audio: {
-      volumeSettings: { master: 1, bgm: 1, sound: 1, voice: 1 },
-      sounds: [],
-      voices: [],
-    },
+    plugins: {},
     ...overrides,
   }
 }

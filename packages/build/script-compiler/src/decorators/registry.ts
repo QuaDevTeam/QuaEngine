@@ -1,5 +1,5 @@
 import type { DecoratorMapping } from '../core/types'
-import type { DecoratorCompilationResult, DecoratorCompileInput, DecoratorCompiler } from './types'
+import type { DecoratorCompilationResult, DecoratorCompileInput, DecoratorCompiler, ImplicitDecoratorCompileInput } from './types'
 import { createCharacterDecoratorCompiler } from '@quajs/character/script-compiler'
 import { createAnimationDecoratorCompiler } from '@quajs/plugin-animation/script-compiler'
 import { createBackgroundDecoratorCompiler } from '@quajs/plugin-background/script-compiler'
@@ -38,6 +38,27 @@ export class DecoratorCompilerRegistry {
     }
 
     return { compiler, result }
+  }
+
+  compileImplicit(input: ImplicitDecoratorCompileInput): Array<{ compiler: DecoratorCompiler, result: DecoratorCompilationResult }> {
+    const results: Array<{ compiler: DecoratorCompiler, result: DecoratorCompilationResult }> = []
+    const visited = new Set<DecoratorCompiler>()
+
+    for (const compiler of this.compilers) {
+      if (visited.has(compiler) || typeof compiler.compileImplicit !== 'function') {
+        continue
+      }
+
+      visited.add(compiler)
+      const compiled = compiler.compileImplicit(input)
+      if (!compiled) {
+        continue
+      }
+
+      compiled.forEach(result => results.push({ compiler, result }))
+    }
+
+    return results
   }
 
   getRuntimeHelperModule(helperName: string): string | undefined {

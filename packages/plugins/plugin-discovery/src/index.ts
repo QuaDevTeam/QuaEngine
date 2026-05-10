@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
 import process from 'node:process'
 
@@ -21,7 +22,10 @@ export interface PluginConfig {
   version?: string
   main?: string
   decorators?: DecoratorMapping
+  renderer?: Record<string, string>
   dependencies?: string[]
+  description?: string
+  category?: string
   [key: string]: any
 }
 
@@ -41,6 +45,8 @@ const DEFAULT_PLUGIN_PATHS = [
   'plugins/qua.plugins.json',
   '.qua/plugins.json'
 ]
+
+const requireFromFile = createRequire(import.meta.url)
 
 /**
  * Discover and load plugin configurations
@@ -128,16 +134,34 @@ function findPluginDependencies(packageJson: any): PluginConfig[] {
   // Look for packages that follow QuaEngine plugin naming convention
   for (const [name, version] of Object.entries(dependencies)) {
     if (name.startsWith('@quajs/plugin-') || name.includes('qua-plugin')) {
+      const packageConfig = readPluginPackageConfig(name)
       plugins.push({
-        name: name,
+        name,
         version: version as string,
-        // Try to resolve plugin configuration from the package
-        main: resolvePluginMain(name)
+        ...packageConfig,
+        main: packageConfig.main || resolvePluginMain(name),
       })
     }
   }
   
   return plugins
+}
+
+function readPluginPackageConfig(packageName: string): Partial<PluginConfig> {
+  try {
+    const packageJsonPath = requireFromFile.resolve(`${packageName}/package.json`)
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
+    return {
+      main: packageJson.main,
+      decorators: packageJson.quajs?.decorators || packageJson.decorators,
+      renderer: packageJson.quajs?.renderer || packageJson.renderer,
+      description: packageJson.quajs?.description || packageJson.description,
+      category: packageJson.quajs?.category || packageJson.category,
+    }
+  }
+  catch {
+    return {}
+  }
 }
 
 /**

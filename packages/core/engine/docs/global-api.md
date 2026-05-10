@@ -96,57 +96,27 @@ Gets the ID of the current dialogue step.
 
 **Returns:** Current step ID or undefined if no step is active
 
-## Audio System
+## Audio Plugin
 
-### `playSound(assetName: string, options?: SoundOptions): Promise<void>`
+Audio playback is no longer an engine-core API. Engine state only carries the plugin projection lane under `view.plugins.audio`, while real decoding and playback live in `@quajs/renderer-vue/plugins/audio`.
 
-Plays a sound effect.
-
-**Parameters:**
-
-- `assetName`: Name of the sound asset to play
-- `options` (optional): Sound playback options
-
-**Returns:** Promise that resolves when sound starts playing
-
-### `dub(assetName: string, options?: SoundOptions): Promise<void>`
-
-Plays character dubbing audio.
-
-**Parameters:**
-
-- `assetName`: Name of the dubbing asset to play
-- `options` (optional): Sound playback options
-
-**Returns:** Promise that resolves when dubbing starts playing
-
-### `playBGM(assetName: string, options?: SoundOptions): Promise<void>`
-
-Plays background music.
-
-**Parameters:**
-
-- `assetName`: Name of the BGM asset to play
-- `options` (optional): Sound playback options
-
-**Returns:** Promise that resolves when BGM starts playing
-
-### `setVolume(type: keyof VolumeSettings, value: number): Promise<void>`
-
-Sets the volume for a specific audio type.
-
-**Parameters:**
-
-- `type`: Audio type ('master', 'bgm', 'se', 'voice', etc.)
-- `value`: Volume level (0.0 to 1.0)
+For chapter-aware BGM and voice playback, use `@quajs/plugin-audio` decorators and helpers such as `@AudioChapter`, `@PlayVoice`, `@PlayBGM`, `@SetAudioGain`, and `@SetAudioAutomation`.
 
 **Example:**
 
 ```typescript
-import { setVolume } from '@qua-engine/engine'
+import { setPluginProjection } from '@quajs/engine'
 
-await setVolume('bgm', 0.8)
-await setVolume('voice', 0.9)
+await setPluginProjection('audio', {
+  revision: 1,
+  unlocked: false,
+  buses: {
+    master: { gainDb: 0 },
+    bgm: { gainDb: 0 },
+    voice: { gainDb: 0 },
+  },
+  voices: [],
+})
 ```
 
 ## Save System
@@ -261,7 +231,7 @@ The global API uses several TypeScript interfaces:
 
 - `Scene`: Scene configuration object
 - `GameStep`: Individual dialogue/game step
-- `SoundOptions`: Audio playback options
-- `VolumeSettings`: Volume configuration for different audio types
+- `ViewPluginProjectionMap`: Plugin-owned view projection map
+- `Audio` behavior: use `@quajs/plugin-audio` and `setPluginProjection('audio', ...)`
 
 These types are exported from the core engine types module.

@@ -31,7 +31,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['vue', '@quajs/assets-web', '@quajs/pipeline', '@quajs/render-core'],
+      external: ['vue', '@quajs/assets-web', '@quajs/pipeline', '@quajs/render-core', '@quajs/plugin-audio'],
       output: {
         globals: {},
       },

@@ -23,9 +23,9 @@ export interface QuaRendererSlotProps {
   characters: QuaViewProjection['characters']
   dialogue: QuaViewProjection['dialogue']
   choices: QuaViewProjection['choices']
-  audio: QuaViewProjection['audio']
   effects: QuaViewProjection['effects']
   animations: QuaViewProjection['animations']
+  plugins: QuaViewProjection['plugins']
   actions: typeof createRendererActions extends (...args: any[]) => infer T ? T : never
 }
 
@@ -150,7 +150,6 @@ function createRendererActions(getPipeline: () => Pipeline) {
     click: (payload = {}) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_CLICK, payload),
     advance: (source?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_ADVANCE, { source }),
     selectChoice: (choiceId: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_CHOICE_SELECT, { choiceId }),
-    setVolume: (type: 'master' | 'bgm' | 'sound' | 'voice', value: number) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.VOLUME_CHANGE, { type, value }),
     requestSave: (slotId?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.GAME_SAVE_REQUEST, { slotId }),
     requestLoad: (slotId?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.GAME_LOAD_REQUEST, { slotId }),
     requestUiOpen: (elementId: string, config?: Record<string, unknown>) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.UI_REQUEST_OPEN, { elementId, config }),
@@ -166,9 +165,9 @@ function createSlotProps(view: Readonly<QuaViewProjection>, actions: ReturnType<
     characters: view.characters,
     dialogue: view.dialogue,
     choices: view.choices,
-    audio: view.audio,
     effects: view.effects,
     animations: view.animations,
+    plugins: view.plugins,
     actions,
   }
 }

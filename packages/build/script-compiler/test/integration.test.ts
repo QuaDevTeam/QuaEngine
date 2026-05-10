@@ -1,40 +1,51 @@
 import { describe, expect, it } from 'vitest'
 import { QuaScriptParser } from '../src/core/parser'
-import { QuaScriptTransformer } from '../src/core/transformer'
+import { createPluginAwareTransformerAsync } from '../src'
 
 describe('quaScript Integration Tests', () => {
-  it('complete transformation workflow', () => {
+  it('complete transformation workflow', async () => {
     const source = `
       function scene1() {
         const playerName = 'Hero'
         dialogue(qs\`
-          @PlaySound('intro.mp3')
+          @AudioChapter('chapter-1', { voiceMap: { 'chapter-1:1': 'voice/intro', 'chapter-1:2': 'voice/intro-2' }, bgm: 'bgm/opening' })
+          @PlayBGM('bgm/opening')
+          @PlayVoice('voice/intro')
           Jack: Hello \${playerName}!
+          @LineId('chapter-1:2')
+          @PlayVoice('voice/intro-2')
           John: Nice to meet you.
         \`)
       }
     `
 
-    const transformer = new QuaScriptTransformer()
+    const transformer = await createPluginAwareTransformerAsync(undefined, { projectRoot: undefined })
     const result = transformer.transformSource(source)
 
     // Should contain the transformed dialogue array
     expect(result).toContain('dialogue([')
     expect(result).toContain('speakWithEngine(ctx.engine, "Jack", ')
     expect(result).toContain('speakWithEngine(ctx.engine, "John", ')
-    expect(result).toContain('ctx.engine.playSound("intro.mp3")')
+    expect(result).toContain('configureAudioChapterWithEngine(ctx.engine, "chapter-1", ')
+    expect(result).toContain('playBGMWithEngine(ctx.engine, "bgm/opening", ')
+    expect(result).toContain('playVoiceWithEngine(ctx.engine, "voice/intro", ')
     expect(result).toContain('uuid')
 
     // Should add required imports. Engine decorators are invoked via ctx.engine.
-    expect(result).not.toMatch(/import.*playSound.*from.*"@quajs\/engine"/)
+    expect(result).not.toMatch(/import.*playVoiceWithEngine.*from.*"@quajs\/engine"/)
     expect(result).not.toMatch(/import.*dialogue.*from.*"@quajs\/engine"/)
     expect(result).toMatch(/import.*speakWithEngine.*from.*"@quajs\/character"/)
+    expect(result).toContain('from "@quajs/plugin-audio"')
+    expect(result).toContain('configureAudioChapterWithEngine')
+    expect(result).toContain('playBGMWithEngine')
+    expect(result).toContain('playVoiceWithEngine')
   })
 
   it('parser handles complex script structure', () => {
     const parser = new QuaScriptParser()
     const script = `
-      @SetVolume('bgm', 0.5)
+      @AudioChapter('chapter-2', { bgm: 'bgm/theme' })
+      @SetAudioGain('bgm', 0.5)
       @PlayBGM('theme.mp3')
       
       Jack: Welcome to the story!
@@ -42,7 +53,7 @@ describe('quaScript Integration Tests', () => {
       @SetSprite('john_thinking.png')
       John: This is interesting \${playerThought}.
       
-      @PlaySound('click.wav')
+      @PlayVoice('click.wav')
       Jack: What do you think?
     `
 
@@ -75,7 +86,7 @@ describe('quaScript Integration Tests', () => {
     expect(parser.parse('').steps).toHaveLength(0)
 
     // Only decorators
-    const decoratorOnly = parser.parse('@PlaySound("test.mp3")')
+    const decoratorOnly = parser.parse('@PlayVoice("test.mp3")')
     expect(decoratorOnly.steps).toHaveLength(1)
     expect(decoratorOnly.steps[0].type).toBe('action')
 
@@ -85,31 +96,31 @@ describe('quaScript Integration Tests', () => {
     expect(dialogueOnly.steps[0].type).toBe('dialogue')
   })
 
-  it('preserves original imports and adds new ones', () => {
+  it('preserves original imports and adds new ones', async () => {
     const source = `
       import { someFunction } from './utils'
       import { dialogue } from '@quajs/engine'
       
       function scene1() {
         dialogue(qs\`
-          @PlaySound('test.mp3')
+          @PlayVoice('test.mp3')
           Jack: Hello!
         \`)
       }
     `
 
-    const transformer = new QuaScriptTransformer()
+    const transformer = await createPluginAwareTransformerAsync(undefined, { projectRoot: undefined })
     const result = transformer.transformSource(source)
 
     // Should preserve original imports (note Babel may change quote style)
     expect(result).toMatch(/import.*someFunction.*from.*['"]\.\/utils['"]/)
 
     // Should not duplicate dialogue import and should not import engine methods.
-    expect(result).not.toMatch(/import.*playSound.*from.*['"]@quajs\/engine['"]/)
+    expect(result).not.toMatch(/import.*playVoiceWithEngine.*from.*['"]@quajs\/engine['"]/)
 
     // Should contain transformed dialogue
     expect(result).toContain('dialogue([')
     expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello!")')
-    expect(result).toContain('ctx.engine.playSound("test.mp3")')
+    expect(result).toContain('playVoiceWithEngine(ctx.engine, "test.mp3", ')
   })
 })

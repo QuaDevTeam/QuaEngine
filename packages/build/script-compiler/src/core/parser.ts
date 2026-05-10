@@ -4,7 +4,9 @@ import type {
   QuaScriptDecorator,
   QuaScriptDialogue,
   QuaScriptStep,
+  QuaScriptDecoratorValue,
 } from './types'
+import { parse } from '@babel/parser'
 import { v4 as uuidv4 } from 'uuid'
 
 /**
@@ -237,36 +239,94 @@ export class QuaScriptParser {
     return { name, args }
   }
 
-  private parseDecoratorArgs(argsString: string): (string | number | boolean)[] {
+  private parseDecoratorArgs(argsString: string): QuaScriptDecoratorValue[] {
     if (!argsString.trim())
       return []
 
-    // Simple argument parsing - handles strings, numbers, and booleans
+    try {
+      const parsed = parse(`__quaDecorator__(${argsString})`, {
+        sourceType: 'module',
+        plugins: ['typescript', 'jsx'],
+      })
+      const statement = parsed.program.body[0]
+      if (statement?.type === 'ExpressionStatement' && statement.expression.type === 'CallExpression') {
+        return statement.expression.arguments.map((argument: any) => this.convertExpressionValue(argument))
+      }
+    }
+    catch {
+      // Fall back to the legacy parser below.
+    }
+
     return argsString
       .split(',')
-      .map((arg) => {
-        arg = arg.trim()
+      .map((arg) => this.parseLegacyArgument(arg.trim()))
+  }
 
-        // String literals
-        if ((arg.startsWith('"') && arg.endsWith('"'))
-          || (arg.startsWith('\'') && arg.endsWith('\''))) {
-          return arg.slice(1, -1)
+  private parseLegacyArgument(arg: string): QuaScriptDecoratorValue {
+    if ((arg.startsWith('"') && arg.endsWith('"'))
+      || (arg.startsWith('\'') && arg.endsWith('\''))) {
+      return arg.slice(1, -1)
+    }
+    if (arg === 'true')
+      return true
+    if (arg === 'false')
+      return false
+    const num = Number(arg)
+    if (!Number.isNaN(num))
+      return num
+    return arg
+  }
+
+  private convertExpressionValue(node: any): any {
+    if (!node) {
+      return null
+    }
+    switch (node.type) {
+      case 'StringLiteral':
+        return node.value
+      case 'NumericLiteral':
+        return node.value
+      case 'BooleanLiteral':
+        return node.value
+      case 'NullLiteral':
+        return null
+      case 'ArrayExpression':
+        return node.elements.map((element: any) => this.convertExpressionValue(element))
+      case 'ObjectExpression':
+        return Object.fromEntries(node.properties
+          .filter((property: any) => property.type === 'ObjectProperty')
+          .map((property: any) => {
+            const key = property.key.type === 'Identifier'
+              ? property.key.name
+              : String(property.key.value)
+            return [key, this.convertExpressionValue(property.value)]
+          }))
+      case 'TemplateLiteral':
+        if (node.expressions.length === 0) {
+          return node.quasis.map((quasi: any) => quasi.value.cooked || quasi.value.raw).join('')
         }
+        return node.quasis.map((quasi: any) => quasi.value.cooked || quasi.value.raw).join('')
+      case 'UnaryExpression':
+        if (node.operator === '-' && node.argument?.type === 'NumericLiteral') {
+          return -node.argument.value
+        }
+        return this.stringifyExpression(node)
+      default:
+        return this.stringifyExpression(node)
+    }
+  }
 
-        // Boolean literals
-        if (arg === 'true')
-          return true
-        if (arg === 'false')
-          return false
-
-        // Number literals
-        const num = Number(arg)
-        if (!Number.isNaN(num))
-          return num
-
-        // Default to string (for variables, etc.)
-        return arg
-      })
+  private stringifyExpression(node: any): string {
+    if (!node) {
+      return ''
+    }
+    if (typeof node.value === 'string') {
+      return node.value
+    }
+    if (node.type === 'Identifier') {
+      return node.name
+    }
+    return String(node.value ?? node.name ?? '')
   }
 
   private extractTemplateExpressions(text: string): string[] {
@@ -287,12 +347,6 @@ export class QuaScriptParser {
     // This will be used later to determine required imports
     // For now, just add common ones
     switch (decorator.name) {
-      case 'PlaySound':
-      case 'PlayBGM':
-      case 'Dub':
-      case 'SetVolume':
-        imports.add('@quajs/engine')
-        break
       case 'SetSprite':
       case 'ShowCharacter':
       case 'HideCharacter':

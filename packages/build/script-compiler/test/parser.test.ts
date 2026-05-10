@@ -23,7 +23,7 @@ describe('quaScriptParser', () => {
   it('should parse dialogue with decorators', () => {
     const parser = new QuaScriptParser()
     const script = `
-      @PlaySound('hello.mp3')
+      @PlayVoice('hello.mp3')
       @SetSprite('jack_happy.png')
       Jack: Hello world!
     `
@@ -47,7 +47,7 @@ describe('quaScriptParser', () => {
         (step.content as any).decorators || [],
       )
       expect(allDecorators).toHaveLength(2)
-      expect(allDecorators.some((d: any) => d.name === 'PlaySound')).toBe(true)
+      expect(allDecorators.some((d: any) => d.name === 'PlayVoice')).toBe(true)
       expect(allDecorators.some((d: any) => d.name === 'SetSprite')).toBe(true)
     }
   })
@@ -55,7 +55,7 @@ describe('quaScriptParser', () => {
   it('should parse decorators with multiple arguments', () => {
     const parser = new QuaScriptParser()
     const script = `
-      @PlaySound('test.mp3', 42, true, 'string')
+      @PlayVoice('test.mp3', 42, true, 'string')
       Jack: Hello!
     `
 
@@ -96,9 +96,9 @@ describe('quaScriptParser', () => {
   it('should handle action-only decorators', () => {
     const parser = new QuaScriptParser()
     const script = `
-      @PlaySound('background.mp3')
-      @VideoBackground('rain.mp4')
-      @SetVolume('bgm', 0.8)
+      @AudioChapter('chapter-1', { bgm: 'bgm/chapter-1' })
+      @PlayBGM('background.mp3')
+      @SetAudioGain('bgm', 0.8)
       
       Jack: Now with background music!
     `
@@ -110,9 +110,9 @@ describe('quaScriptParser', () => {
 
     const actionContent = result.steps[0].content as any
     expect(actionContent.decorators).toHaveLength(3)
-    expect(actionContent.decorators[0].name).toBe('PlaySound')
-    expect(actionContent.decorators[1].name).toBe('VideoBackground')
-    expect(actionContent.decorators[2].name).toBe('SetVolume')
+    expect(actionContent.decorators[0].name).toBe('AudioChapter')
+    expect(actionContent.decorators[1].name).toBe('PlayBGM')
+    expect(actionContent.decorators[2].name).toBe('SetAudioGain')
 
     expect(result.steps[1].type).toBe('dialogue')
     const dialogueContent = result.steps[1].content as any

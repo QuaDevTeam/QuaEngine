@@ -20,8 +20,15 @@ describe('QuaEngine runtime architecture', () => {
     await engine.showCharacter({ id: 'Alice', name: 'Alice', sprite: 'alice.png', position: { x: 40 } })
     await engine.showDialogue({ characterId: 'Alice', characterName: 'Alice', text: 'Hello' })
     await engine.showChoices([{ id: 'yes', text: 'Yes' }])
-    await engine.playBGM('theme.ogg')
-    await engine.setVolume('bgm', 0.5)
+    await engine.setPluginProjection('audio', audioProjection({
+      revision: 1,
+      bgm: { id: 'bgm', kind: 'bgm', assetKey: 'theme.ogg', state: 'playing' },
+      buses: {
+        master: { gainDb: 0 },
+        bgm: { gainDb: -6 },
+        voice: { gainDb: 0 },
+      },
+    }))
     await engine.sceneManager.showUI('menu', { open: true })
     await engine.sceneManager.applyEffect('shake', { target: 'stage', duration: 200 })
 
@@ -30,8 +37,11 @@ describe('QuaEngine runtime architecture', () => {
     expect(view.characters).toEqual([expect.objectContaining({ id: 'Alice', visible: true, sprite: 'alice.png' })])
     expect(view.dialogue).toEqual(expect.objectContaining({ visible: true, text: 'Hello' }))
     expect(view.choices).toEqual([{ id: 'yes', text: 'Yes', enabled: true, metadata: undefined }])
-    expect(view.audio.bgm).toEqual(expect.objectContaining({ assetName: 'theme.ogg', state: 'playing' }))
-    expect(view.audio.volumeSettings.bgm).toBe(0.5)
+    expect(view.plugins.audio).toEqual(expect.objectContaining({
+      revision: 1,
+      bgm: expect.objectContaining({ assetKey: 'theme.ogg', state: 'playing' }),
+      buses: expect.objectContaining({ bgm: { gainDb: -6 } }),
+    }))
     expect(view.ui.overlays).toEqual({ menu: { open: true } })
     expect(view.effects).toEqual([expect.objectContaining({ type: 'shake', target: 'stage' })])
   })
@@ -40,22 +50,22 @@ describe('QuaEngine runtime architecture', () => {
     const engine = createEngine()
     await engine.init()
     await engine.showDialogue({ text: 'Authoritative' })
+    await engine.setPluginProjection('audio', audioProjection({
+      revision: 1,
+      voices: [{ id: 'voice-1', kind: 'voice', assetKey: 'voice.ogg', state: 'playing' }],
+    }))
 
     const projected = engine.getViewState() as any
     projected.dialogue.text = 'Mutated outside engine'
     projected.characters.push({ id: 'Injected', name: 'Injected', visible: true })
-    projected.audio.sounds.push({
-      id: 'external',
-      assetName: 'external.ogg',
-      volume: 1,
-      loop: false,
-      state: 'playing',
-    })
+    projected.plugins.audio.voices.push({ id: 'external', kind: 'voice', assetKey: 'external.ogg', state: 'playing' })
 
     const next = engine.getViewState()
     expect(next.dialogue.text).toBe('Authoritative')
     expect(next.characters).toEqual([])
-    expect(next.audio.sounds).toEqual([])
+    expect((next.plugins.audio as any).voices).toEqual([
+      { id: 'voice-1', kind: 'voice', assetKey: 'voice.ogg', state: 'playing' },
+    ])
   })
 
   it('uses pipeline as the only render intent channel and waits for renderer events', async () => {
@@ -66,20 +76,6 @@ describe('QuaEngine runtime architecture', () => {
     await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_CHOICE_SELECT, { choiceId: 'yes' })
 
     await expect(wait).resolves.toEqual({ choiceId: 'yes' })
-  })
-
-  it('updates audio intent when renderer reports audio ended', async () => {
-    const engine = createEngine()
-    await engine.init()
-    await engine.playSound('click.ogg', { id: 'click' })
-
-    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.AUDIO_ENDED, {
-      channel: 'sound',
-      id: 'click',
-      assetName: 'click.ogg',
-    })
-
-    expect(engine.getViewState().audio.sounds).toEqual([])
   })
 
   it('exposes background projection writes on the engine instance', async () => {
@@ -131,7 +127,7 @@ describe('QuaEngine runtime architecture', () => {
     expect(engine.getViewState().animations).toEqual([])
   })
 
-  it('keeps scene lifecycle history and audio fade intent in engine-owned state', async () => {
+  it('keeps scene lifecycle history and plugin projection state in engine-owned state', async () => {
     const engine = createEngine()
     await engine.init()
     const first = createScene('first')
@@ -139,13 +135,19 @@ describe('QuaEngine runtime architecture', () => {
 
     await engine.loadScene(first)
     await engine.loadScene(second)
-    await engine.playBGM('theme.ogg')
-    await engine.soundSystem.fadeBGM(0.25, 300)
+    await engine.setPluginProjection('audio', audioProjection({
+      revision: 2,
+      buses: {
+        master: { gainDb: 0 },
+        bgm: { gainDb: -12 },
+        voice: { gainDb: 0 },
+      },
+    }))
 
     expect(engine.sceneManager.getSceneHistory()).toEqual(['first'])
-    expect(engine.getViewState().audio.bgm).toEqual(expect.objectContaining({
-      volume: 0.25,
-      state: 'fading',
+    expect(engine.getPluginProjection('audio')).toEqual(expect.objectContaining({
+      revision: 2,
+      buses: expect.objectContaining({ bgm: { gainDb: -12 } }),
     }))
   })
 
@@ -250,5 +252,19 @@ function createScene(name: string) {
     init: vi.fn(),
     run: vi.fn(),
     destroy: vi.fn(),
+  }
+}
+
+function audioProjection(overrides: Record<string, unknown> = {}) {
+  return {
+    revision: 0,
+    unlocked: false,
+    buses: {
+      master: { gainDb: 0 },
+      bgm: { gainDb: 0 },
+      voice: { gainDb: 0 },
+    },
+    voices: [],
+    ...overrides,
   }
 }

@@ -38,8 +38,8 @@ export function createAnimationDecoratorCompiler() {
       return mapping.module === '@quajs/plugin-animation' && SUPPORTED_FUNCTIONS.has(mapping.function)
     },
     compile({ decorator, decorators, index, context }: {
-      decorator: { name: string, args: (string | number | boolean)[] }
-      decorators: { name: string, args: (string | number | boolean)[] }[]
+      decorator: { name: string, args: unknown[] }
+      decorators: { name: string, args: unknown[] }[]
       index: number
       context: { characterName?: string }
     }) {
@@ -50,7 +50,7 @@ export function createAnimationDecoratorCompiler() {
       }
 
       if (decorator.name === 'DefineAnimation' || decorator.name === 'Timeline') {
-        const keys: { name: string, args: (string | number | boolean)[] }[] = []
+        const keys: { name: string, args: unknown[] }[] = []
         let nextIndex = index
 
         while (decorators[nextIndex + 1]?.name === 'Key') {
@@ -128,22 +128,14 @@ export const scriptCompiler = {
 
 export const decorators = animationDecoratorMappings
 
-function createDecoratorArgs(decorator: { args: (string | number | boolean)[] }): t.Expression[] {
-  return decorator.args.map((arg) => {
-    if (typeof arg === 'string') {
-      return t.stringLiteral(arg)
-    }
-    if (typeof arg === 'number') {
-      return t.numericLiteral(arg)
-    }
-    return t.booleanLiteral(arg)
-  })
+function createDecoratorArgs(decorator: { args: unknown[] }): t.Expression[] {
+  return decorator.args.map(arg => toExpression(arg))
 }
 
 function createAnimationTimelineObject(options: {
   id?: t.Expression
   duration: t.Expression
-  keys: { name: string, args: (string | number | boolean)[] }[]
+  keys: { name: string, args: unknown[] }[]
   allowOmittedTarget: boolean
 }): t.ObjectExpression {
   const properties: t.ObjectProperty[] = [
@@ -161,7 +153,7 @@ function createAnimationTimelineObject(options: {
 }
 
 function createAnimationTrackObject(
-  decorator: { name: string, args: (string | number | boolean)[] },
+  decorator: { name: string, args: unknown[] },
   allowOmittedTarget: boolean,
 ): t.ObjectExpression {
   const args = createDecoratorArgs(decorator)
@@ -220,6 +212,32 @@ function requireDecoratorArg(decorator: { name: string }, arg: t.Expression | un
     throw new Error(`@${decorator.name} requires ${name}.`)
   }
   return arg
+}
+
+function toExpression(value: unknown): t.Expression {
+  if (typeof value === 'string') {
+    return t.stringLiteral(value)
+  }
+  if (typeof value === 'number') {
+    return t.numericLiteral(value)
+  }
+  if (typeof value === 'boolean') {
+    return t.booleanLiteral(value)
+  }
+  if (value === null) {
+    return t.nullLiteral()
+  }
+  if (Array.isArray(value)) {
+    return t.arrayExpression(value.map(item => toExpression(item)))
+  }
+  if (typeof value === 'object') {
+    return t.objectExpression(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) =>
+        t.objectProperty(t.identifier(key), toExpression(item)),
+      ),
+    )
+  }
+  return t.identifier('undefined')
 }
 
 function isBooleanLiteral(expr: t.Expression | undefined): expr is t.BooleanLiteral {

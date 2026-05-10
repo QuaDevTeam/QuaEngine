@@ -142,14 +142,15 @@ export class QuaScriptTransformer {
   }
 
   private transformToGameSteps(parsed: ParsedQuaScript, quasi: t.TemplateLiteral): t.ArrayExpression {
-    const elements = parsed.steps.map((step) => {
+    const compileState: Record<string, unknown> = {}
+    const elements = parsed.steps.map((step, index) => {
       if (step.type === 'dialogue') {
-        return this.createDialogueStep(step.content as QuaScriptDialogue, step.uuid, quasi)
+        return this.createDialogueStep(step.content as QuaScriptDialogue, step.uuid, quasi, index, compileState)
       }
       if (step.type === 'choice') {
-        return this.createChoiceStep(step.content as QuaScriptChoice, step.uuid)
+        return this.createChoiceStep(step.content as QuaScriptChoice, step.uuid, index, compileState)
       }
-      return this.createActionStep(step.content, step.uuid)
+      return this.createActionStep(step.content, step.uuid, index, compileState)
     })
 
     return t.arrayExpression(elements)
@@ -159,34 +160,47 @@ export class QuaScriptTransformer {
     dialogue: QuaScriptDialogue,
     uuid: string,
     quasi: t.TemplateLiteral,
+    stepIndex: number,
+    compileState: Record<string, unknown>,
   ): t.ObjectExpression {
     return t.objectExpression([
       t.objectProperty(t.identifier('uuid'), t.stringLiteral(uuid)),
-      t.objectProperty(t.identifier('run'), this.createRunFunction(dialogue, quasi)),
+      t.objectProperty(t.identifier('run'), this.createRunFunction(dialogue, quasi, uuid, stepIndex, compileState)),
     ])
   }
 
-  private createActionStep(content: any, uuid: string): t.ObjectExpression {
+  private createActionStep(content: any, uuid: string, stepIndex: number, compileState: Record<string, unknown>): t.ObjectExpression {
     return t.objectExpression([
       t.objectProperty(t.identifier('uuid'), t.stringLiteral(uuid)),
-      t.objectProperty(t.identifier('run'), this.createActionRunFunction(content)),
+      t.objectProperty(t.identifier('run'), this.createActionRunFunction(content, uuid, stepIndex, compileState)),
     ])
   }
 
-  private createChoiceStep(choice: QuaScriptChoice, uuid: string): t.ObjectExpression {
+  private createChoiceStep(choice: QuaScriptChoice, uuid: string, stepIndex: number, compileState: Record<string, unknown>): t.ObjectExpression {
     return t.objectExpression([
       t.objectProperty(t.identifier('uuid'), t.stringLiteral(uuid)),
-      t.objectProperty(t.identifier('run'), this.createChoiceRunFunction(choice)),
+      t.objectProperty(t.identifier('run'), this.createChoiceRunFunction(choice, uuid, stepIndex, compileState)),
     ])
   }
 
-  private createRunFunction(dialogue: QuaScriptDialogue, quasi: t.TemplateLiteral): t.ArrowFunctionExpression {
+  private createRunFunction(
+    dialogue: QuaScriptDialogue,
+    quasi: t.TemplateLiteral,
+    stepUuid: string,
+    stepIndex: number,
+    compileState: Record<string, unknown>,
+  ): t.ArrowFunctionExpression {
     const statements: t.Statement[] = []
-
-    statements.push(...this.createDecoratorStatements(dialogue.decorators, {
+    const context = {
       characterName: dialogue.character,
-      stepType: 'dialogue',
-    }))
+      stepType: 'dialogue' as const,
+      stepIndex,
+      stepUuid,
+      state: compileState,
+    }
+
+    statements.push(...this.createDecoratorStatements(dialogue.decorators, context))
+    statements.push(...this.createImplicitDecoratorStatements(dialogue.decorators, context))
 
     statements.push(t.expressionStatement(t.awaitExpression(this.createSpeakCall(dialogue, quasi))))
 
@@ -197,10 +211,14 @@ export class QuaScriptTransformer {
     )
   }
 
-  private createActionRunFunction(content: any): t.ArrowFunctionExpression {
-    const statements = this.createDecoratorStatements(content.decorators || [], {
-      stepType: 'action',
-    })
+  private createActionRunFunction(content: any, stepUuid: string, stepIndex: number, compileState: Record<string, unknown>): t.ArrowFunctionExpression {
+    const context = {
+      stepType: 'action' as const,
+      stepIndex,
+      stepUuid,
+      state: compileState,
+    }
+    const statements = this.createDecoratorStatements(content.decorators || [], context)
 
     return t.arrowFunctionExpression(
       [t.identifier('ctx')],
@@ -209,7 +227,10 @@ export class QuaScriptTransformer {
     )
   }
 
-  private createChoiceRunFunction(choice: QuaScriptChoice): t.ArrowFunctionExpression {
+  private createChoiceRunFunction(choice: QuaScriptChoice, stepUuid: string, stepIndex: number, compileState: Record<string, unknown>): t.ArrowFunctionExpression {
+    void stepUuid
+    void stepIndex
+    void compileState
     const choicesIdentifier = t.identifier('choices')
     const choicesArray = t.arrayExpression(choice.options.map(option =>
       t.objectExpression([
@@ -290,7 +311,7 @@ export class QuaScriptTransformer {
 
   private createDecoratorStatements(
     decorators: QuaScriptDecorator[],
-    context: { characterName?: string, stepType: 'dialogue' | 'action' },
+    context: { characterName?: string, stepType: 'dialogue' | 'action', stepIndex: number, stepUuid: string, state: Record<string, unknown> },
   ): t.Statement[] {
     const statements: t.Statement[] = []
 
@@ -312,7 +333,13 @@ export class QuaScriptTransformer {
       if (compiled) {
         this.handledDecoratorModules.add(compiled.compiler.module)
         compiled.result.runtimeHelpers?.forEach(helper => this.usedRuntimeHelpers.add(helper))
-        statements.push(t.expressionStatement(t.awaitExpression(compiled.result.call)))
+        if (compiled.result.skip) {
+          index = compiled.result.nextIndex ?? index
+          continue
+        }
+        if (compiled.result.call) {
+          statements.push(t.expressionStatement(t.awaitExpression(compiled.result.call)))
+        }
         index = compiled.result.nextIndex ?? index
         continue
       }
@@ -322,6 +349,25 @@ export class QuaScriptTransformer {
     }
 
     return statements
+  }
+
+  private createImplicitDecoratorStatements(
+    decorators: QuaScriptDecorator[],
+    context: { characterName?: string, stepType: 'dialogue' | 'action', stepIndex: number, stepUuid: string, state: Record<string, unknown> },
+  ): t.Statement[] {
+    const implicit = this.decoratorCompilerRegistry.compileImplicit({
+      decorators,
+      context,
+    })
+
+    return implicit.flatMap((compiled) => {
+      this.handledDecoratorModules.add(compiled.compiler.module)
+      compiled.result.runtimeHelpers?.forEach(helper => this.usedRuntimeHelpers.add(helper))
+      if (compiled.result.skip || !compiled.result.call) {
+        return []
+      }
+      return [t.expressionStatement(t.awaitExpression(compiled.result.call))]
+    })
   }
 
   private createDecoratorCall(decorator: QuaScriptDecorator, mapping: DecoratorMapping[string]): t.CallExpression {
@@ -351,15 +397,33 @@ export class QuaScriptTransformer {
   }
 
   private createDecoratorArgs(decorator: QuaScriptDecorator): t.Expression[] {
-    return decorator.args.map((arg) => {
-      if (typeof arg === 'string') {
-        return t.stringLiteral(arg)
-      }
-      if (typeof arg === 'number') {
-        return t.numericLiteral(arg)
-      }
-      return t.booleanLiteral(arg)
-    })
+    return decorator.args.map(arg => this.createLiteralExpression(arg))
+  }
+
+  private createLiteralExpression(value: unknown): t.Expression {
+    if (typeof value === 'string') {
+      return t.stringLiteral(value)
+    }
+    if (typeof value === 'number') {
+      return t.numericLiteral(value)
+    }
+    if (typeof value === 'boolean') {
+      return t.booleanLiteral(value)
+    }
+    if (value === null) {
+      return t.nullLiteral()
+    }
+    if (Array.isArray(value)) {
+      return t.arrayExpression(value.map(item => this.createLiteralExpression(item)))
+    }
+    if (typeof value === 'object') {
+      return t.objectExpression(
+        Object.entries(value as Record<string, unknown>).map(([key, item]) =>
+          t.objectProperty(t.identifier(key), this.createLiteralExpression(item)),
+        ),
+      )
+    }
+    return t.identifier('undefined')
   }
 
   private parseExpression(source: string): t.Expression {

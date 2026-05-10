@@ -30,11 +30,17 @@ function scene1() {
 ```typescript
 function scene1() {
   dialogue(qs`
-    @PlaySound('hello.mp3')
+    @AudioChapter('chapter-1', {
+      voiceMap: {
+        'chapter-1:1': 'voice/hello',
+      },
+      bgm: 'bgm/chapter-1',
+    })
+    @PlayBGM('bgm/chapter-1')
     Jack: Hello world!
 
     @SetSprite('john_happy.png')
-    @PlayBGM('background.mp3')
+    @PlayVoice('voice/hello')
     John: How are you doing?
   `)
 }
@@ -109,7 +115,12 @@ import { dialogue } from '@quajs/engine'
 function part1() {
   const time = 'minutes ago'
   dialogue(qs`
-    @PlaySound('page.wav')
+    @AudioChapter('chapter-1', {
+      voiceMap: {
+        'chapter-1:1': 'voice/page.wav',
+      },
+    })
+    @PlayVoice('voice/page.wav')
     Jack: I said it.
 
     John: That's not what we talked about before.
@@ -124,6 +135,7 @@ function part1() {
 
 ```typescript
 import { speakWithEngine, spriteWithEngine } from '@quajs/character'
+import { configureAudioChapterWithEngine, playVoiceWithEngine } from '@quajs/plugin-audio'
 
 function part1() {
   const time = 'minutes ago'
@@ -131,7 +143,8 @@ function part1() {
     {
       uuid: '550e8400-e29b-41d4-a716-446655440000',
       run: async (ctx) => {
-        await ctx.engine.playSound('page.wav')
+        await configureAudioChapterWithEngine(ctx.engine, 'chapter-1', { voiceMap: { 'chapter-1:1': 'voice/page.wav' } })
+        await playVoiceWithEngine(ctx.engine, 'voice/page.wav', { lineId: 'chapter-1:1', chapterId: 'chapter-1', characterId: 'Jack' })
         await speakWithEngine(ctx.engine, 'Jack', 'I said it.')
       }
     },
@@ -154,12 +167,19 @@ function part1() {
 
 ## Available Decorators
 
-| Decorator                    | Function             | Module             |
-| ---------------------------- | -------------------- | ------------------ |
-| `@PlaySound(asset)`          | `playSound`          | `@quajs/engine`    |
-| `@PlayBGM(asset)`            | `playBGM`            | `@quajs/engine`    |
-| `@Dub(asset)`                | `dub`                | `@quajs/engine`    |
-| `@SetVolume(type, value)`    | `setVolume`          | `@quajs/engine`    |
+| Decorator | Function | Module |
+| --- | --- | --- |
+| `@AudioChapter(chapterId, options?)` | `configureAudioChapterWithEngine` | `@quajs/plugin-audio` |
+| `@LineId(id)` | `lineIdDirective` | `@quajs/plugin-audio` |
+| `@PlayVoice(asset?, options?)` | `playVoiceWithEngine` | `@quajs/plugin-audio` |
+| `@PlayBGM(asset, options?)` | `playBGMWithEngine` | `@quajs/plugin-audio` |
+| `@SetAudioGain(target, gainDbOrCurve, options?)` | `setAudioGainWithEngine` | `@quajs/plugin-audio` |
+| `@SetAudioEq(target, bands, options?)` | `setAudioEqWithEngine` | `@quajs/plugin-audio` |
+| `@SetAudioAutomation(target, propertyPath, curve, options?)` | `setAudioAutomationWithEngine` | `@quajs/plugin-audio` |
+| `@StopAudio(target?, options?)` | `stopAudioWithEngine` | `@quajs/plugin-audio` |
+| `@PauseAudio(target?, options?)` | `pauseAudioWithEngine` | `@quajs/plugin-audio` |
+| `@ResumeAudio(target?, options?)` | `resumeAudioWithEngine` | `@quajs/plugin-audio` |
+| `@SeekAudio(target?, positionMs, options?)` | `seekAudioWithEngine` | `@quajs/plugin-audio` |
 | `@SetSprite(asset, character?)` | `spriteWithEngine` | `@quajs/character` |
 | `@ShowCharacter(character, sprite?, expression?, x?, y?, layer?)` | `showWithEngine` | `@quajs/character` |
 | `@HideCharacter(character?)` | `hideWithEngine` | `@quajs/character` |

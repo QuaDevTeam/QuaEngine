@@ -37,8 +37,12 @@ describe('plugin Discovery', () => {
             name: 'audio-plugin',
             version: '1.0.0',
             decorators: {
-              PlaySound: { function: 'playSound', module: 'audio' }
-            }
+              AudioChapter: { function: 'configureAudioChapterWithEngine', module: '@quajs/plugin-audio' },
+              PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' },
+            },
+            renderer: {
+              vue: '@quajs/renderer-vue/plugins/audio',
+            },
           }
         ]
       }
@@ -123,8 +127,8 @@ describe('plugin Discovery', () => {
           {
             name: 'audio-plugin',
             decorators: {
-              PlaySound: { function: 'playSound', module: 'audio' }
-            }
+              AudioChapter: { function: 'configureAudioChapterWithEngine', module: '@quajs/plugin-audio' },
+            },
           },
           {
             name: 'video-plugin',
@@ -148,7 +152,7 @@ describe('plugin Discovery', () => {
       const mappings = await getDiscoveredDecoratorMappings('/test/project')
 
       expect(mappings).toEqual({
-        PlaySound: { function: 'playSound', module: 'audio' },
+        AudioChapter: { function: 'configureAudioChapterWithEngine', module: '@quajs/plugin-audio' },
         PlayVideo: { function: 'playVideo', module: 'video' }
       })
     })
@@ -273,7 +277,7 @@ describe('plugin Discovery', () => {
   describe('mergeDecoratorMappings', () => {
     it('should merge multiple decorator mappings', () => {
       const mapping1: DecoratorMapping = {
-        PlaySound: { function: 'playSound', module: 'audio' }
+        PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' }
       }
 
       const mapping2: DecoratorMapping = {
@@ -281,43 +285,43 @@ describe('plugin Discovery', () => {
       }
 
       const mapping3: DecoratorMapping = {
-        ShowUI: { function: 'showUI', module: 'ui' }
+        SetAudioGain: { function: 'setAudioGainWithEngine', module: '@quajs/plugin-audio' }
       }
 
       const merged = mergeDecoratorMappings(mapping1, mapping2, mapping3)
 
       expect(merged).toEqual({
-        PlaySound: { function: 'playSound', module: 'audio' },
+        PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' },
         PlayVideo: { function: 'playVideo', module: 'video' },
-        ShowUI: { function: 'showUI', module: 'ui' }
+        SetAudioGain: { function: 'setAudioGainWithEngine', module: '@quajs/plugin-audio' }
       })
     })
 
     it('should handle overlapping keys (later mappings override)', () => {
       const mapping1: DecoratorMapping = {
-        PlaySound: { function: 'playSound1', module: 'audio1' }
+        PlayVoice: { function: 'playVoice1', module: 'audio1' }
       }
 
       const mapping2: DecoratorMapping = {
-        PlaySound: { function: 'playSound2', module: 'audio2' }
+        PlayVoice: { function: 'playVoice2', module: 'audio2' }
       }
 
       const merged = mergeDecoratorMappings(mapping1, mapping2)
 
       expect(merged).toEqual({
-        PlaySound: { function: 'playSound2', module: 'audio2' }
+        PlayVoice: { function: 'playVoice2', module: 'audio2' }
       })
     })
 
     it('should handle empty mappings', () => {
       const mapping: DecoratorMapping = {
-        PlaySound: { function: 'playSound', module: 'audio' }
+        PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' }
       }
 
       const merged = mergeDecoratorMappings({}, mapping, {})
 
       expect(merged).toEqual({
-        PlaySound: { function: 'playSound', module: 'audio' }
+        PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' }
       })
     })
   })
