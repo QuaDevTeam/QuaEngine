@@ -1,0 +1,4 @@
+interface:
+  display_name: "QuaEngine Guardrails"
+  short_description: "Architecture rules for QuaEngine changes"
+  default_prompt: "Use $quaengine-development-guardrails when modifying QuaEngine engine, renderer, plugins, decorators, or build tooling."
