@@ -158,6 +158,13 @@ importers:
       '@babel/types':
         specifier: 'catalog:'
         version: 7.29.0
+      '@quajs/plugin-audio':
+        specifier: workspace:*
+        version: link:../../plugins/audio
+      uuid:
+        specifier: 'catalog:'
+        version: 14.0.0
+    devDependencies:
       '@quajs/character':
         specifier: workspace:*
         version: link:../../core/character
@@ -167,16 +174,9 @@ importers:
       '@quajs/plugin-animation':
         specifier: workspace:*
         version: link:../../plugins/animation
-      '@quajs/plugin-audio':
-        specifier: workspace:*
-        version: link:../../plugins/audio
       '@quajs/plugin-background':
         specifier: workspace:*
         version: link:../../plugins/background
-      uuid:
-        specifier: 'catalog:'
-        version: 14.0.0
-    devDependencies:
       '@types/babel__generator':
         specifier: 'catalog:'
         version: 7.27.0
@@ -225,6 +225,7 @@ importers:
       '@babel/types':
         specifier: 'catalog:'
         version: 7.29.0
+    devDependencies:
       '@quajs/engine':
         specifier: workspace:*
         version: link:../engine
@@ -314,6 +315,7 @@ importers:
       '@babel/types':
         specifier: 'catalog:'
         version: 7.29.0
+    devDependencies:
       '@quajs/engine':
         specifier: workspace:*
         version: link:../../core/engine
@@ -326,6 +328,7 @@ importers:
       '@babel/types':
         specifier: 'catalog:'
         version: 7.29.0
+    devDependencies:
       '@quajs/engine':
         specifier: workspace:*
         version: link:../../core/engine
@@ -338,6 +341,7 @@ importers:
       '@babel/types':
         specifier: 'catalog:'
         version: 7.29.0
+    devDependencies:
       '@quajs/engine':
         specifier: workspace:*
         version: link:../../core/engine
@@ -352,7 +356,7 @@ importers:
         version: link:../../utils/common
 
   packages/plugins/sprite:
-    dependencies:
+    devDependencies:
       '@quajs/assets-web':
         specifier: workspace:*
         version: link:../../platform/assets-web
@@ -370,7 +374,7 @@ importers:
         version: link:../../core/pipeline
 
   packages/render/vue:
-    dependencies:
+    devDependencies:
       '@quajs/assets':
         specifier: workspace:*
         version: link:../../core/assets
@@ -389,7 +393,6 @@ importers:
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../core
-    devDependencies:
       vue:
         specifier: 'catalog:'
         version: 3.5.33(typescript@6.0.3)

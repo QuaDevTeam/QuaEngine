@@ -73,6 +73,9 @@ describe('plugin Discovery', () => {
         dependencies: {
           '@quajs/plugin-audio': '^1.0.0',
           'regular-package': '^1.0.0'
+        },
+        peerDependencies: {
+          '@quajs/plugin-background': '^1.0.0'
         }
       }
 
@@ -94,83 +97,8 @@ describe('plugin Discovery', () => {
 
       expect(plugins.length).toBeGreaterThan(0)
       expect(plugins.some(p => p.name === '@quajs/plugin-audio')).toBe(true)
+      expect(plugins.some(p => p.name === '@quajs/plugin-background')).toBe(true)
       expect(plugins.some(p => p.name === 'regular-package')).toBe(false)
-    })
-
-    it('should order capability providers before consumers and keep renderer metadata', async () => {
-      const pluginConfig = {
-        plugins: [
-          {
-            name: '@quajs/character',
-            version: '0.1.0',
-            quajs: {
-              type: 'feature',
-              provides: ['quajs.character.v1'],
-              requires: ['quajs.sprite.v1'],
-              renderer: {
-                vue: '@quajs/renderer-vue/plugins/character',
-              },
-            },
-          },
-          {
-            name: '@quajs/plugin-sprite',
-            version: '0.1.0',
-            quajs: {
-              type: 'feature',
-              provides: ['quajs.sprite.v1'],
-              renderer: {
-                vue: '@quajs/renderer-vue/plugins/sprite',
-              },
-            },
-          },
-        ],
-      }
-
-      mockExistsSync.mockImplementation((path: any) => {
-        return path.toString().endsWith('/test/project/qua.plugins.json')
-      })
-      mockReadFileSync.mockImplementation((path: any) => {
-        if (path.toString().endsWith('/test/project/qua.plugins.json')) {
-          return JSON.stringify(pluginConfig)
-        }
-        throw new Error('File not found')
-      })
-
-      const plugins = await discoverPlugins('/test/project')
-
-      expect(plugins.map(plugin => plugin.name)).toEqual([
-        '@quajs/plugin-sprite',
-        '@quajs/character',
-      ])
-      expect(plugins[1].requires).toEqual(['quajs.sprite.v1'])
-      expect(plugins[1].renderer).toEqual({ vue: '@quajs/renderer-vue/plugins/character' })
-    })
-
-    it('should fail fast when a required capability has no provider', async () => {
-      const pluginConfig = {
-        plugins: [
-          {
-            name: '@quajs/character',
-            version: '0.1.0',
-            quajs: {
-              type: 'feature',
-              requires: ['quajs.sprite.v1'],
-            },
-          },
-        ],
-      }
-
-      mockExistsSync.mockImplementation((path: any) => {
-        return path.toString().endsWith('/test/project/qua.plugins.json')
-      })
-      mockReadFileSync.mockImplementation((path: any) => {
-        if (path.toString().endsWith('/test/project/qua.plugins.json')) {
-          return JSON.stringify(pluginConfig)
-        }
-        throw new Error('File not found')
-      })
-
-      await expect(discoverPlugins('/test/project')).rejects.toThrow('Missing Qua plugin capabilities')
     })
 
     it('should handle missing configuration files gracefully', async () => {

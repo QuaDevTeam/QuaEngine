@@ -32,8 +32,6 @@ export interface QuaPluginMetadata {
   entry?: string
   decorators?: DecoratorMapping
   apis?: string[]
-  provides?: string[]
-  requires?: string[]
   renderer?: RendererEntryMap
   [key: string]: any
 }
@@ -49,8 +47,6 @@ export interface PluginConfig {
   entry?: string
   decorators?: DecoratorMapping
   apis?: string[]
-  provides?: string[]
-  requires?: string[]
   renderer?: RendererEntryMap
   quajs?: QuaPluginMetadata
   dependencies?: string[]
@@ -119,7 +115,7 @@ export async function discoverPlugins(projectRoot?: string): Promise<PluginConfi
     }
   }
 
-  return sortPluginsByDependencies([...discovered.values()])
+  return [...discovered.values()]
 }
 
 /**
@@ -155,70 +151,7 @@ export async function getAvailablePlugins(projectRoot?: string): Promise<string[
 }
 
 /**
- * Validate capability requirements declared through quajs.requires/provides.
- */
-export function validatePluginDependencies(plugins: readonly PluginConfig[]): void {
-  const providers = createCapabilityProviderMap(plugins)
-  const missing: Array<{ plugin: string, capability: string }> = []
-
-  for (const plugin of plugins) {
-    for (const capability of plugin.requires || []) {
-      if (!providers.has(capability)) {
-        missing.push({ plugin: plugin.name, capability })
-      }
-    }
-  }
-
-  if (missing.length > 0) {
-    throw new Error([
-      'Missing Qua plugin capabilities:',
-      ...missing.map(item => `- ${item.plugin} requires ${item.capability}`),
-    ].join('\n'))
-  }
-}
-
-/**
- * Sort plugins so capability providers are initialized before consumers.
- */
-export function sortPluginsByDependencies(plugins: readonly PluginConfig[]): PluginConfig[] {
-  validatePluginDependencies(plugins)
-
-  const providers = createCapabilityProviderMap(plugins)
-  const remaining = [...plugins]
-  const ordered: PluginConfig[] = []
-  const orderedNames = new Set<string>()
-
-  while (remaining.length > 0) {
-    let progressed = false
-
-    for (let index = 0; index < remaining.length; index++) {
-      const plugin = remaining[index]
-      const ready = (plugin.requires || []).every((capability) => {
-        const provider = providers.get(capability)
-        return !provider || provider.name === plugin.name || orderedNames.has(provider.name)
-      })
-
-      if (!ready) {
-        continue
-      }
-
-      ordered.push(plugin)
-      orderedNames.add(plugin.name)
-      remaining.splice(index, 1)
-      progressed = true
-      index -= 1
-    }
-
-    if (!progressed) {
-      throw new Error(`Circular Qua plugin capability dependency detected: ${remaining.map(plugin => plugin.name).join(', ')}`)
-    }
-  }
-
-  return ordered
-}
-
-/**
- * Find plugin dependencies in package.json
+ * Find plugin dependencies in package.json dependency fields.
  */
 function findPluginDependencies(packageJson: any, projectRoot: string): PluginConfig[] {
   const plugins: PluginConfig[] = []
@@ -266,8 +199,6 @@ function readPluginPackageConfig(packageName: string, projectRoot: string): Part
       description: packageJson.quajs?.description || packageJson.description,
       category: packageJson.quajs?.category || packageJson.category,
       apis: packageJson.quajs?.apis,
-      provides: packageJson.quajs?.provides,
-      requires: packageJson.quajs?.requires,
       quajs: packageJson.quajs,
       packageJsonPath,
     }
@@ -292,34 +223,30 @@ function resolvePackageJson(packageName: string, projectRoot: string): string | 
   }
 }
 
-function createCapabilityProviderMap(plugins: readonly PluginConfig[]): Map<string, PluginConfig> {
-  const providers = new Map<string, PluginConfig>()
-  for (const plugin of plugins) {
-    for (const capability of plugin.provides || []) {
-      if (!providers.has(capability)) {
-        providers.set(capability, plugin)
-      }
-    }
-  }
-  return providers
-}
-
 function normalizePluginConfig(config: PluginConfig, source: 'custom' | 'package'): PluginConfig {
-  const quajs = isPlainObject(config.quajs) ? config.quajs as QuaPluginMetadata : undefined
+  const { provides: _provides, requires: _requires, quajs: rawQuajs, ...rest } = config
+  const quajs = normalizeQuaPluginMetadata(rawQuajs)
   const main = config.main || config.entry || quajs?.entry
 
   return {
-    ...config,
+    ...rest,
     source: config.source || source,
     main,
     entry: config.entry || main,
     decorators: normalizeDecoratorMapping(config.decorators || quajs?.decorators),
     apis: normalizeStringArray(config.apis || quajs?.apis),
-    provides: normalizeStringArray(config.provides || quajs?.provides),
-    requires: normalizeStringArray(config.requires || quajs?.requires),
     renderer: normalizeRendererMap(config.renderer || quajs?.renderer),
     quajs,
   }
+}
+
+function normalizeQuaPluginMetadata(value: unknown): QuaPluginMetadata | undefined {
+  if (!isPlainObject(value)) {
+    return undefined
+  }
+
+  const { provides: _provides, requires: _requires, ...rest } = value
+  return rest as QuaPluginMetadata
 }
 
 function normalizeDecoratorMapping(mapping: unknown): DecoratorMapping | undefined {

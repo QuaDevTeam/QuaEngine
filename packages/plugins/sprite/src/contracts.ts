@@ -1,5 +1,4 @@
 export const SPRITE_PLUGIN_ID = 'sprite' as const
-export const SPRITE_CAPABILITY = 'quajs.sprite.v1' as const
 export const SPRITE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/sprite' as const
 export const SPRITE_MANIFEST_FILE = 'sprite.manifest.json' as const
 export const SPRITE_CHARACTERS_DIR = 'characters' as const

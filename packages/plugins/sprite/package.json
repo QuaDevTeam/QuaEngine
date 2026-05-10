@@ -48,7 +48,12 @@
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
+  "peerDependencies": {
+    "@quajs/assets-web": "workspace:*",
+    "@quajs/logger": "workspace:*",
+    "@quajs/quack": "workspace:*"
+  },
+  "devDependencies": {
     "@quajs/assets-web": "workspace:*",
     "@quajs/logger": "workspace:*",
     "@quajs/quack": "workspace:*"
@@ -57,9 +62,6 @@
     "type": "feature",
     "category": "visual",
     "description": "Sprite manifest, expression diff resolution, atlas-aware rendering, and hot-update helpers",
-    "provides": [
-      "quajs.sprite.v1"
-    ],
     "renderer": {
       "vue": "@quajs/renderer-vue/plugins/sprite"
     }
