@@ -32,19 +32,25 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest"
   },
+  "peerDependencies": {
+    "@quajs/character": "workspace:*",
+    "@quajs/engine": "workspace:*",
+    "@quajs/plugin-animation": "workspace:*",
+    "@quajs/plugin-background": "workspace:*"
+  },
   "dependencies": {
     "@babel/generator": "catalog:",
     "@babel/parser": "catalog:",
     "@babel/traverse": "catalog:",
     "@babel/types": "catalog:",
-    "@quajs/character": "workspace:*",
-    "@quajs/engine": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
-    "@quajs/plugin-animation": "workspace:*",
-    "@quajs/plugin-background": "workspace:*",
     "uuid": "catalog:"
   },
   "devDependencies": {
+    "@quajs/character": "workspace:*",
+    "@quajs/engine": "workspace:*",
+    "@quajs/plugin-animation": "workspace:*",
+    "@quajs/plugin-background": "workspace:*",
     "@types/babel__generator": "catalog:",
     "@types/babel__traverse": "catalog:"
   }

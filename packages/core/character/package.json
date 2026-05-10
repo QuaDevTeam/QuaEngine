@@ -37,8 +37,14 @@
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit"
   },
+  "peerDependencies": {
+    "@quajs/engine": "workspace:*",
+    "@quajs/render-core": "workspace:*"
+  },
   "dependencies": {
-    "@babel/types": "catalog:",
+    "@babel/types": "catalog:"
+  },
+  "devDependencies": {
     "@quajs/engine": "workspace:*",
     "@quajs/render-core": "workspace:*"
   },
@@ -46,12 +52,6 @@
     "type": "feature",
     "category": "visual",
     "description": "Character sprite, expression, and dialogue helpers for QuaEngine",
-    "provides": [
-      "quajs.character.v1"
-    ],
-    "requires": [
-      "quajs.sprite.v1"
-    ],
     "renderer": {
       "vue": "@quajs/renderer-vue/plugins/character"
     },

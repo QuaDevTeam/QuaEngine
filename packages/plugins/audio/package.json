@@ -43,8 +43,14 @@
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit"
   },
+  "peerDependencies": {
+    "@quajs/engine": "workspace:*",
+    "@quajs/pipeline": "workspace:*"
+  },
   "dependencies": {
-    "@babel/types": "catalog:",
+    "@babel/types": "catalog:"
+  },
+  "devDependencies": {
     "@quajs/engine": "workspace:*",
     "@quajs/pipeline": "workspace:*"
   },

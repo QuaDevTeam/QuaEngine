@@ -19,9 +19,6 @@ import {
   useRendererActions,
 } from '../src'
 import { createVisualNovelRendererPlugins } from '../src/plugins/preset'
-import { createCharacterRendererPlugin } from '../src/plugins/character'
-import { createSpriteRendererPlugin } from '../src/plugins/sprite'
-import { sortRendererPlugins } from '../src/plugins/core'
 import { QuaMenuOverlay, QuaSettingsPanel, QuaUiOverlay } from '../src/plugins/ui'
 
 describe('@quajs/renderer-vue', () => {
@@ -154,24 +151,6 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.querySelector('.qua-dialogue-box')).toBeNull()
     expect(host.el.querySelector('.qua-choice-panel')).toBeNull()
     expect(host.el.querySelector('.qua-effect-layer')).toBeNull()
-  })
-
-  it('orders renderer plugins by declared capabilities', () => {
-    const ordered = sortRendererPlugins([
-      createCharacterRendererPlugin(),
-      createSpriteRendererPlugin(),
-    ])
-
-    expect(ordered.map(plugin => plugin.name)).toEqual([
-      '@quajs/renderer-vue/sprite',
-      '@quajs/renderer-vue/character',
-    ])
-  })
-
-  it('fails fast when a renderer capability provider is missing', () => {
-    expect(() => sortRendererPlugins([
-      createCharacterRendererPlugin(),
-    ])).toThrow('Missing Qua renderer plugin capabilities')
   })
 
   it('does not turn nested renderer or plugin UI clicks into duplicate advance intents', async () => {
