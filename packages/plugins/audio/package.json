@@ -52,7 +52,8 @@
   },
   "devDependencies": {
     "@quajs/engine": "workspace:*",
-    "@quajs/pipeline": "workspace:*"
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/store": "workspace:*"
   },
   "quajs": {
     "type": "plugin",

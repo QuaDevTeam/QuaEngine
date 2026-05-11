@@ -37,6 +37,7 @@ export class PluginAPIRegistry {
   private static instance: PluginAPIRegistry | null = null
   private registeredAPIs = new Map<string, PluginAPIFunction>()
   private registeredDecorators = new Map<string, DecoratorMapping[string]>()
+  private decoratorOwners = new Map<string, string>()
   private pluginModules = new Map<string, Record<string, any>>()
 
   static getInstance(): PluginAPIRegistry {
@@ -52,16 +53,24 @@ export class PluginAPIRegistry {
   registerPlugin(registration: PluginAPIRegistration): void {
     const { pluginName, apis, decorators } = registration
 
+    for (const decoratorName of Object.keys(decorators)) {
+      const existing = this.registeredDecorators.get(decoratorName)
+      const owner = this.decoratorOwners.get(decoratorName)
+      const ownedBySamePlugin = owner === pluginName
+        || (!owner && existing && isDecoratorOwnedByPlugin(existing, pluginName))
+      if (existing && !ownedBySamePlugin) {
+        throw new Error(`Decorator '${decoratorName}' is already registered`)
+      }
+    }
+
+    this.unregisterPlugin(pluginName)
+
     // Create plugin module object
     const pluginModule: Record<string, any> = {}
 
     // Register each API function
     for (const api of apis) {
       const fullName = `${pluginName}.${api.name}`
-
-      if (this.registeredAPIs.has(fullName)) {
-        throw new Error(`API function '${fullName}' is already registered`)
-      }
 
       this.registeredAPIs.set(fullName, api)
       pluginModule[api.name] = api.fn
@@ -72,10 +81,8 @@ export class PluginAPIRegistry {
 
     // Register decorators
     for (const [decoratorName, mapping] of Object.entries(decorators)) {
-      if (this.registeredDecorators.has(decoratorName)) {
-        throw new Error(`Decorator '${decoratorName}' is already registered`)
-      }
       this.registeredDecorators.set(decoratorName, mapping)
+      this.decoratorOwners.set(decoratorName, pluginName)
     }
   }
 
@@ -92,8 +99,10 @@ export class PluginAPIRegistry {
 
     // Remove decorators that belong to this plugin
     for (const [decoratorName, mapping] of this.registeredDecorators.entries()) {
-      if (mapping.module === pluginName || mapping.module.includes(pluginName)) {
+      const owner = this.decoratorOwners.get(decoratorName)
+      if (owner === pluginName || (!owner && isDecoratorOwnedByPlugin(mapping, pluginName))) {
         this.registeredDecorators.delete(decoratorName)
+        this.decoratorOwners.delete(decoratorName)
       }
     }
 
@@ -148,6 +157,20 @@ export class PluginAPIRegistry {
   getAllDecorators(): string[] {
     return Array.from(this.registeredDecorators.keys())
   }
+
+  /**
+   * Clear all registered plugin APIs and decorators.
+   */
+  clear(): void {
+    this.registeredAPIs.clear()
+    this.registeredDecorators.clear()
+    this.decoratorOwners.clear()
+    this.pluginModules.clear()
+  }
+}
+
+function isDecoratorOwnedByPlugin(mapping: DecoratorMapping[string], pluginName: string): boolean {
+  return mapping.module === pluginName || mapping.module.startsWith(`${pluginName}/`)
 }
 
 /**

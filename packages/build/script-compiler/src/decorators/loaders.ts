@@ -12,6 +12,7 @@ const requireFromFile = createRequire(import.meta.url)
 
 const DECORATOR_PACKAGE_PATTERNS = [
   /^@quajs\/plugin-/,
+  /^@quajs\/story-graph$/,
   /^quajs-plugin-/,
   /^@quajs\/character$/,
 ]

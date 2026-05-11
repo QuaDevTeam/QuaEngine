@@ -1,4 +1,5 @@
 import { QuaEngine } from '@quajs/engine'
+import { MemoryBackend } from '@quajs/store'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   AUDIO_PLUGIN_ID,
@@ -101,12 +102,41 @@ describe('@quajs/plugin-audio', () => {
 
     expect((engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any).voices).toEqual([])
   })
+
+  it('applies audio keep and stop strategies during engine jump transactions', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    await engine.init()
+
+    await playVoiceWithEngine(engine, 'voice/checkpoint', { id: 'checkpoint-voice' })
+    const checkpoint = await engine.createCheckpoint({
+      id: 'audio:checkpoint',
+      kind: 'manual',
+      point: { stepId: 'audio-checkpoint' },
+    })
+    await playVoiceWithEngine(engine, 'voice/current', { id: 'current-voice' })
+
+    await engine.jumpTo(checkpoint.id, { audio: 'keep' })
+    expect((engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any).voices)
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: 'current-voice', assetKey: 'voice/current', state: 'playing' }),
+      ]))
+
+    await engine.jumpTo(checkpoint.id, { audio: 'stop' })
+    expect((engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any).voices)
+      .toEqual([expect.objectContaining({ id: 'checkpoint-voice', state: 'stopping' })])
+  })
 })
 
 function createEngine(): QuaEngine {
   const engine = new QuaEngine({
     assets: {
       adapter: createMemoryAdapter(),
+    },
+    store: {
+      storage: {
+        backend: MemoryBackend,
+      },
     },
   })
   engines.push(engine)

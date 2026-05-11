@@ -74,10 +74,14 @@ describe('plugin Discovery', () => {
       const packageJson = {
         dependencies: {
           '@quajs/plugin-audio': '^1.0.0',
+          '@quajs/story-graph': '^1.0.0',
           'regular-package': '^1.0.0',
         },
         peerDependencies: {
           '@quajs/plugin-background': '^1.0.0',
+        },
+        optionalDependencies: {
+          '@quajs/plugin-backlog': '^1.0.0',
         },
       }
 
@@ -100,6 +104,8 @@ describe('plugin Discovery', () => {
       expect(plugins.length).toBeGreaterThan(0)
       expect(plugins.some(p => p.name === '@quajs/plugin-audio')).toBe(true)
       expect(plugins.some(p => p.name === '@quajs/plugin-background')).toBe(true)
+      expect(plugins.some(p => p.name === '@quajs/plugin-backlog')).toBe(true)
+      expect(plugins.some(p => p.name === '@quajs/story-graph')).toBe(true)
       expect(plugins.some(p => p.name === 'regular-package')).toBe(false)
     })
 

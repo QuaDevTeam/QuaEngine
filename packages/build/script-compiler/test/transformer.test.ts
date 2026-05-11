@@ -139,6 +139,66 @@ Yuki: Hello \${scope.playerName}
     expect(result).not.toContain('lineIdDirective')
   })
 
+  it('compiles engine save/load decorators through ctx.engine', () => {
+    const transformer = new QuaScriptTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @SaveToSlot('slot-1', { name: 'Before choice' })
+          @QuickSave()
+          @AutoSave({ reason: 'chapter-end' })
+          Jack: Save here.
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('ctx.engine.saveToSlot("slot-1", {')
+    expect(result).toContain('name: "Before choice"')
+    expect(result).toContain('ctx.engine.quickSave()')
+    expect(result).toContain('ctx.engine.autoSave({')
+    expect(result).toContain('reason: "chapter-end"')
+  })
+
+  it('stops the current step after engine load decorators', () => {
+    const transformer = new QuaScriptTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @QuickLoad()
+          Jack: This should not overwrite the loaded state.
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toMatch(/await ctx\.engine\.quickLoad\(\);\s*return;\s*await speakWithEngine/)
+  })
+
+  it('loads story graph and backlog decorators from plugin package metadata', async () => {
+    const transformer = await createPluginAwareTransformerAsync()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @Chapter('chapter-1')
+          @NoBacklog
+          Jack: Hidden line.
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('setStoryMetadataWithEngine(ctx.engine, {')
+    expect(result).toContain('chapterId: "chapter-1"')
+    expect(result).toContain('setBacklogPolicyWithEngine(ctx.engine, {')
+    expect(result).toContain('include: false')
+    expect(result).toContain('from "@quajs/story-graph"')
+    expect(result).toContain('from "@quajs/plugin-backlog"')
+  })
+
   it('rejects invalid script blocks while generating declarations', () => {
     expect(() => generateQuaScriptModuleDeclaration(`
 <script>
@@ -423,6 +483,10 @@ Yuki: Hello
     expect(result).toContain('await ctx.engine.clearChoices()')
     expect(result).toContain('ctx.choice = selected')
     expect(result).toContain('target: "outside"')
+    expect(result).toContain('storyGraph: {')
+    expect(result).toContain('edge: {')
+    expect(result).toContain('kind: "choice"')
+    expect(result).toContain('to: "outside"')
     expect(result).toContain('target: "home"')
     expect(result).toContain('enabled: flags.canStayHome')
   })

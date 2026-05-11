@@ -113,8 +113,6 @@ export class GameManager {
     logger.info(`Saving game to slot: ${slotId}`)
 
     try {
-      const store = this.engine.getStore() as QuaStore
-
       const metadata = {
         name: slotName,
         screenshot,
@@ -123,7 +121,7 @@ export class GameManager {
         playtime: this.calculatePlaytime(),
       }
 
-      await store.saveToSlot(slotId, metadata)
+      await this.engine.saveToSlot(slotId, metadata)
 
       logger.info(`Game saved successfully: ${slotId}`)
     }
@@ -193,8 +191,7 @@ export class GameManager {
    * Create an auto-save
    */
   async autoSave(): Promise<void> {
-    const autoSaveId = 'autosave'
-    await this.saveGame(autoSaveId, 'Auto Save')
+    await this.engine.autoSave({ playtime: this.calculatePlaytime() })
     logger.debug('Auto-save completed')
   }
 
@@ -202,8 +199,7 @@ export class GameManager {
    * Quick save to slot 'quicksave'
    */
   async quickSave(): Promise<void> {
-    const quickSaveId = 'quicksave'
-    await this.saveGame(quickSaveId, 'Quick Save')
+    await this.engine.quickSave({ playtime: this.calculatePlaytime() })
     logger.info('Quick save completed')
   }
 
@@ -211,8 +207,7 @@ export class GameManager {
    * Quick load from slot 'quicksave'
    */
   async quickLoad(): Promise<void> {
-    const quickSaveId = 'quicksave'
-    await this.loadGame(quickSaveId)
+    await this.engine.quickLoad()
     logger.info('Quick load completed')
   }
 
