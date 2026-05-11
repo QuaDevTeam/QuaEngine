@@ -1,0 +1,114 @@
+{
+  "name": "@quajs/renderer-web",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Framework-neutral Web renderer runtime and DOM projection for QuaEngine",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "web",
+    "renderer",
+    "visual-novel"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./audio": {
+      "types": "./dist/audio.d.ts",
+      "import": "./dist/audio.js"
+    },
+    "./dom": {
+      "types": "./dist/dom.d.ts",
+      "import": "./dist/dom.js"
+    },
+    "./plugins/audio": {
+      "types": "./dist/plugins/audio.d.ts",
+      "import": "./dist/plugins/audio.js"
+    },
+    "./plugins/background": {
+      "types": "./dist/plugins/background.d.ts",
+      "import": "./dist/plugins/background.js"
+    },
+    "./plugins/character": {
+      "types": "./dist/plugins/character.d.ts",
+      "import": "./dist/plugins/character.js"
+    },
+    "./plugins/choices": {
+      "types": "./dist/plugins/choices.d.ts",
+      "import": "./dist/plugins/choices.js"
+    },
+    "./plugins/core": {
+      "types": "./dist/plugins/core.d.ts",
+      "import": "./dist/plugins/core.js"
+    },
+    "./plugins/dialogue": {
+      "types": "./dist/plugins/dialogue.d.ts",
+      "import": "./dist/plugins/dialogue.js"
+    },
+    "./plugins/effects": {
+      "types": "./dist/plugins/effects.d.ts",
+      "import": "./dist/plugins/effects.js"
+    },
+    "./plugins/preset": {
+      "types": "./dist/plugins/preset.d.ts",
+      "import": "./dist/plugins/preset.js"
+    },
+    "./plugins/sprite": {
+      "types": "./dist/plugins/sprite.d.ts",
+      "import": "./dist/plugins/sprite.js"
+    },
+    "./plugins/ui": {
+      "types": "./dist/plugins/ui.d.ts",
+      "import": "./dist/plugins/ui.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@quajs/assets": "workspace:*",
+    "@quajs/assets-web": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/plugin-audio": "workspace:*",
+    "@quajs/plugin-sprite": "workspace:*",
+    "@quajs/render-core": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@quajs/plugin-audio": {
+      "optional": true
+    },
+    "@quajs/plugin-sprite": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@quajs/assets": "workspace:*",
+    "@quajs/assets-web": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/plugin-audio": "workspace:*",
+    "@quajs/plugin-sprite": "workspace:*",
+    "@quajs/render-core": "workspace:*"
+  }
+}

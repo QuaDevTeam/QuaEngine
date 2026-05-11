@@ -1,7 +1,7 @@
 import type { AssetType } from '@quajs/assets'
 import type { AudioViewProjection } from '@quajs/plugin-audio/contracts'
 import type { ComputedRef } from 'vue'
-import { createObjectURL, revokeObjectURL } from '@quajs/assets-web'
+import { WebAssetUrlHandle } from '@quajs/renderer-web'
 import { computed, onBeforeUnmount, readonly, ref, watch } from 'vue'
 import { useQuaRenderer } from '../context'
 
@@ -113,56 +113,34 @@ export function useAssetUrl(type: AssetType | ComputedRef<AssetType>, name: () =
   const url = ref<string>()
   const loading = ref(false)
   const error = ref<Error>()
-  let requestId = 0
-
-  const revoke = () => {
-    if (url.value) {
-      revokeObjectURL(url.value)
-      url.value = undefined
-    }
-  }
+  const handle = new WebAssetUrlHandle({
+    getAssets: () => assets.value,
+    getType: () => assetType.value,
+    getName: name,
+    onChange: (state) => {
+      url.value = state.url
+      loading.value = state.loading
+      error.value = state.error
+    },
+  })
 
   watch([name, () => assetRevision.value, () => assets.value, () => assetType.value], async ([assetName]) => {
-    const currentRequestId = ++requestId
-    revoke()
-    error.value = undefined
-    const assetRuntime = assets.value
-    if (!assetName || !assetRuntime)
+    if (!assetName || !assets.value) {
+      handle.dispose()
       return
-
-    loading.value = true
-    try {
-      const asset = await assetRuntime.getAsset(assetType.value, assetName)
-      const nextUrl = createObjectURL(asset)
-      if (currentRequestId === requestId) {
-        url.value = nextUrl
-      }
-      else {
-        revokeObjectURL(nextUrl)
-      }
     }
-    catch (caught) {
-      if (currentRequestId === requestId) {
-        error.value = caught as Error
-      }
-    }
-    finally {
-      if (currentRequestId === requestId) {
-        loading.value = false
-      }
-    }
+    await handle.load()
   }, { immediate: true })
 
   onBeforeUnmount(() => {
-    requestId++
-    revoke()
+    handle.dispose()
   })
 
   return {
     url: readonly(url),
     loading: readonly(loading),
     error: readonly(error),
-    revoke,
+    revoke: () => handle.revoke(),
   }
 }
 

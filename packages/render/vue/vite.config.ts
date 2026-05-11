@@ -32,7 +32,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['vue', '@quajs/assets-web', '@quajs/pipeline', '@quajs/render-core', '@quajs/plugin-audio', '@quajs/plugin-sprite', '@quajs/plugin-sprite/contracts'],
+      external: ['vue', '@quajs/assets-web', '@quajs/pipeline', '@quajs/render-core', '@quajs/renderer-web', '@quajs/renderer-web/audio', '@quajs/plugin-audio', '@quajs/plugin-sprite', '@quajs/plugin-sprite/contracts'],
       output: {
         globals: {},
       },

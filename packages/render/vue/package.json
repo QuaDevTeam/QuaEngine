@@ -86,6 +86,7 @@
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",
+    "@quajs/renderer-web": "workspace:*",
     "vue": "catalog:"
   },
   "devDependencies": {
@@ -95,6 +96,7 @@
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",
+    "@quajs/renderer-web": "workspace:*",
     "vue": "catalog:"
   }
 }

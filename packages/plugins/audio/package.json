@@ -59,6 +59,7 @@
     "category": "audio",
     "description": "Audio playback, gain, EQ, automation, and QuaScript decorators",
     "renderer": {
+      "web": "@quajs/renderer-web/plugins/audio",
       "vue": "@quajs/renderer-vue/plugins/audio"
     },
     "decorators": {

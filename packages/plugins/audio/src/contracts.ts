@@ -2,7 +2,9 @@ import type { Pipeline, PipelineContext } from '@quajs/pipeline'
 
 export const AUDIO_PLUGIN_ID = 'audio' as const
 
-export const AUDIO_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/audio' as const
+export const AUDIO_WEB_RENDERER_ENTRY = '@quajs/renderer-web/plugins/audio' as const
+export const AUDIO_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/audio' as const
+export const AUDIO_RENDERER_ENTRY = AUDIO_WEB_RENDERER_ENTRY
 
 export type AudioBusId = 'master' | 'bgm' | 'voice'
 export type AudioTrackKind = 'bgm' | 'voice'
