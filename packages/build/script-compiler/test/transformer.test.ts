@@ -1,5 +1,6 @@
 import { parse } from '@babel/parser'
 import { animationDecoratorMappings } from '@quajs/plugin-animation'
+import { audioDecoratorMappings } from '@quajs/plugin-audio'
 import { backgroundDecoratorMappings } from '@quajs/plugin-background'
 import { describe, expect, it } from 'vitest'
 import { compileQuaScriptModuleToTs, createPluginAwareTransformerAsync, generateQuaScriptModuleDeclaration } from '../src'
@@ -120,6 +121,22 @@ Yuki: Hello \${scope.playerName}
 
     expect(result).toContain('export interface Scope')
     expect(result).toContain('declare const createQuaScript: (scope: Scope) => GameStep[];')
+  })
+
+  it('compiles audio compile-time decorators through the default registry', () => {
+    const result = compileQuaScriptModuleToTs(`
+      @AudioChapter('chapter-1', { voiceMap: { intro: 'voice/intro.ogg' } })
+      @LineId('intro')
+      @PlayVoice()
+      Yuki: Hello with mapped voice.
+    `, {
+      decoratorMappings: audioDecoratorMappings,
+      hotReload: false,
+    })
+
+    expect(result).toContain('configureAudioChapterWithEngine(ctx.engine, "chapter-1"')
+    expect(result).toContain('playVoiceWithEngine(ctx.engine, "voice/intro.ogg"')
+    expect(result).not.toContain('lineIdDirective')
   })
 
   it('rejects invalid script blocks while generating declarations', () => {

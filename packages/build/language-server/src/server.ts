@@ -158,6 +158,11 @@ async function validateDocument(document: TextDocument): Promise<void> {
 }
 
 function resolveProjectRoot(params: InitializeParams): string | undefined {
+  const initializationProjectRoot = (params.initializationOptions as { projectRoot?: string } | undefined)?.projectRoot
+  if (initializationProjectRoot) {
+    return initializationProjectRoot
+  }
+
   const workspaceFolder = params.workspaceFolders?.[0]?.uri
   if (workspaceFolder) {
     return uriToFilePath(workspaceFolder)

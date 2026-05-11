@@ -5,7 +5,7 @@ Comprehensive Vite plugin for QuaEngine projects that provides a complete build 
 ## Features
 
 - **🎯 QuaScript Compilation**: Transform `qs` template literals and TypeScript-first standalone `.qs` files with plugin support
-- **🔧 Plugin Discovery**: Automatically discover and bundle QuaJS plugins  
+- **🔧 Plugin Discovery**: Automatically discover and bundle QuaJS plugins
 - **📦 Asset Bundling**: Process game assets using Quack bundler
 - **🔥 Development Server**: Enhanced HMR for scripts and assets
 - **🧩 Feature Plugin Slots**: Compose external Vite plugins for animation, sprite, character, or other feature-specific HMR
@@ -51,7 +51,7 @@ export default {
         projectRoot: process.cwd()
       },
 
-      // Plugin discovery options  
+      // Plugin discovery options
       pluginDiscovery: {
         enabled: true,
         generateVirtualRegistry: true,
@@ -62,7 +62,7 @@ export default {
       assetBundling: {
         enabled: true,
         source: 'assets',
-        output: 'dist/assets', 
+        output: 'dist/assets',
         format: 'auto', // 'qpk' | 'zip' | 'auto'
         compression: {
           algorithm: 'deflate', // 'none' | 'deflate' | 'lzma'
@@ -95,10 +95,10 @@ export default {
 You can also use individual plugins for more control:
 
 ```javascript
-import { 
-  quaScriptCompilerPlugin, 
-  quaEnginePlugin, 
-  quackPlugin 
+import {
+  quackPlugin,
+  quaEnginePlugin,
+  quaScriptCompilerPlugin
 } from '@quajs/vite-plugin'
 
 export default {
@@ -124,7 +124,7 @@ When `generateVirtualRegistry` is enabled, you can import discovered plugins:
 
 ```typescript
 // Access the virtual plugin registry
-import { plugins, pluginMeta, hasPlugins } from 'virtual:qua-plugins'
+import { hasPlugins, pluginMeta, plugins } from 'virtual:qua-plugins'
 
 // Use discovered plugins
 if (hasPlugins) {
@@ -138,7 +138,7 @@ if (hasPlugins) {
 The Quack integration provides:
 
 - **Asset Discovery**: Automatically finds game assets
-- **Bundle Creation**: Creates optimized asset bundles  
+- **Bundle Creation**: Creates optimized asset bundles
 - **Manifest Generation**: Provides asset metadata
 - **Development Watching**: Hot reload for asset changes
 
@@ -158,12 +158,12 @@ Listen for custom events in your client code:
 ```javascript
 if (import.meta.hot) {
   import.meta.hot.on('qua-assets:update', (data) => {
-    console.log('Asset changed:', data.file)
+    console.warn('Asset changed:', data.file)
     // Reload asset...
   })
 
   import.meta.hot.on('qua-script-update', (data) => {
-    console.log('Script updated:', data.file) 
+    console.warn('Script updated:', data.file)
     // Recompile script...
   })
 }
@@ -218,7 +218,7 @@ Yuki: Hello ${displayName}!
 
 ### Custom Plugin Discovery
 
-```javascript
+```json
 // qua.plugins.json
 {
   "version": "1.0",

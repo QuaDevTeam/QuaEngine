@@ -1,13 +1,11 @@
 import type { ExtensionContext } from 'vscode'
-import { createRequire } from 'node:module'
 import * as vscode from 'vscode'
 import { LanguageClient, TransportKind } from 'vscode-languageclient/node'
 
 let client: LanguageClient | undefined
 
 export function activate(context: ExtensionContext): void {
-  const require = createRequire(import.meta.url)
-  const serverModule = require.resolve('@quajs/language-server/server')
+  const serverModule = context.asAbsolutePath('server/server.js')
 
   client = new LanguageClient(
     'quascript',
