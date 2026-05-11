@@ -8,7 +8,8 @@ async function getPluginDiscoveryModule() {
   if (pluginDiscoveryModule === null) {
     try {
       pluginDiscoveryModule = await import('@quajs/plugin-discovery')
-    } catch (error) {
+    }
+    catch (error) {
       console.warn('Plugin discovery not available (likely browser environment):', error)
       pluginDiscoveryModule = {
         discoverPlugins: async () => [],
@@ -16,7 +17,7 @@ async function getPluginDiscoveryModule() {
         loadPlugin: async () => null,
         getAvailablePlugins: async () => [],
         validatePluginConfig: () => false,
-        mergeDecoratorMappings: (...mappings: any[]) => Object.assign({}, ...mappings)
+        mergeDecoratorMappings: (...mappings: any[]) => Object.assign({}, ...mappings),
       }
     }
   }
@@ -44,7 +45,7 @@ export class PluginDiscovery {
     try {
       const module = await getPluginDiscoveryModule()
       const plugins = await module.discoverPlugins(this.projectRoot)
-      
+
       // Convert to the format expected by the engine
       return plugins.map((plugin: any) => ({
         source: 'package' as const,
@@ -53,14 +54,15 @@ export class PluginDiscovery {
         entry: plugin.main || `${plugin.name}/dist/index.js`,
         metadata: {
           description: plugin.name,
-          category: 'plugin'
+          category: 'plugin',
         },
         decorators: plugin.decorators || {},
         apis: [],
         renderer: plugin.renderer || {},
-        enabled: true
+        enabled: true,
       }))
-    } catch (error) {
+    }
+    catch (error) {
       console.warn('Plugin discovery failed:', error)
       return []
     }
@@ -100,32 +102,32 @@ export async function getDiscoveredDecoratorMappings(projectRoot?: string): Prom
 }
 
 // Re-export functions that delegate to the standalone package
-export const discoverPlugins = async (projectRoot?: string) => {
+export async function discoverPlugins(projectRoot?: string) {
   const module = await getPluginDiscoveryModule()
   return await module.discoverPlugins(projectRoot)
 }
 
-export const loadPlugin = async (pluginName: string, projectRoot?: string) => {
+export async function loadPlugin(pluginName: string, projectRoot?: string) {
   const module = await getPluginDiscoveryModule()
   return await module.loadPlugin(pluginName, projectRoot)
 }
 
-export const getAvailablePlugins = async (projectRoot?: string) => {
+export async function getAvailablePlugins(projectRoot?: string) {
   const module = await getPluginDiscoveryModule()
   return await module.getAvailablePlugins(projectRoot)
 }
 
-export const validatePluginConfig = (config: any) => {
+export function validatePluginConfig(config: any) {
   // This can be synchronous since it's just validation
   return (
-    typeof config === 'object' &&
-    config !== null &&
-    typeof config.name === 'string' &&
-    config.name.length > 0
+    typeof config === 'object'
+    && config !== null
+    && typeof config.name === 'string'
+    && config.name.length > 0
   )
 }
 
-export const mergeDecoratorMappings = (...mappings: DecoratorMapping[]): DecoratorMapping => {
+export function mergeDecoratorMappings(...mappings: DecoratorMapping[]): DecoratorMapping {
   const result: DecoratorMapping = {}
   for (const mapping of mappings) {
     Object.assign(result, mapping)

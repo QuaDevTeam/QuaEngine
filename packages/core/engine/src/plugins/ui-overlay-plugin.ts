@@ -1,6 +1,6 @@
 import type { EventListener, PipelineContext } from '@quajs/pipeline'
-import { BaseEnginePlugin } from './core/types'
 import { RenderToLogicEvents } from '../events/events'
+import { BaseEnginePlugin } from './core/types'
 
 export interface UiOverlayPluginOptions {
   openEvents?: ReadonlyArray<RenderToLogicEvents>
