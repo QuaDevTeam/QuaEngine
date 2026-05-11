@@ -1,60 +1,60 @@
-// String utilities
-export * from './string';
-
-// Object utilities
-export * from './object';
-
 // Array utilities
 export {
   chunk,
   compact,
-  uniq,
-  uniqBy,
   difference,
-  intersection,
-  union,
-  flatten as flattenArray,
-  groupBy,
-  sortBy,
-  shuffle,
-  sample,
-  sampleSize,
-  partition,
   findIndex,
   findLastIndex,
-} from './array';
+  flatten as flattenArray,
+  groupBy,
+  intersection,
+  partition,
+  sample,
+  sampleSize,
+  shuffle,
+  sortBy,
+  union,
+  uniq,
+  uniqBy,
+} from './array'
+
+// Date utilities
+export * from './date'
 
 // Function utilities
-export * from './function';
+export * from './function'
+
+// ID generation utilities
+export * from './id'
+
+// Object utilities
+export * from './object'
+
+// String utilities
+export * from './string'
 
 // Type checking utilities
 export {
-  isString,
-  isNumber,
-  isBoolean,
-  isFunction,
-  isObject,
-  isPlainObject as isPlainObjectType,
-  isArray,
-  isDate,
-  isRegExp,
-  isError,
-  isPromise,
-  isNull,
-  isUndefined,
-  isNil,
-  isEmpty,
-  isEqual,
-  getType,
   assertType,
   coerce,
-} from './type';
-
-// Date utilities
-export * from './date';
-
-// ID generation utilities
-export * from './id';
+  getType,
+  isArray,
+  isBoolean,
+  isDate,
+  isEmpty,
+  isEqual,
+  isError,
+  isFunction,
+  isNil,
+  isNull,
+  isNumber,
+  isObject,
+  isPlainObject as isPlainObjectType,
+  isPromise,
+  isRegExp,
+  isString,
+  isUndefined,
+} from './type'
 
 // Validation utilities
-export * from './validation';
+export * from './validation'
