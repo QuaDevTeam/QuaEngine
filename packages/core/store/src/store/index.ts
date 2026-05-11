@@ -1,4 +1,5 @@
-import type { QuaActions, QuaConstructorOpts, QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaGetters, QuaMutations, QuaRestoreOptions, QuaSnapshot, QuaState } from '../types/base'
+import type { QuaActions, QuaConstructorOpts, QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaGetters, QuaMutations, QuaRestoreOptions, QuaSerializedState, QuaSnapshot, QuaState, QuaStateSerializer } from '../types/base'
+import { assertStateSerializer, jsonStateSerializer } from '../serializer'
 import { StorageManager } from '../storage/manager'
 import logger, { generateId } from '../utils'
 
@@ -9,17 +10,19 @@ class QuaStore {
   private mutations: QuaMutations
   private actions: QuaActions
   private innerGetters: QuaGetters
-  private initialState: QuaState
+  private initialState: QuaSerializedState
   private storageManager: StorageManager | null = null
+  private serializer: QuaStateSerializer
 
   public constructor(name: string, options: QuaConstructorOpts) {
     this.name = name
+    this.serializer = assertStateSerializer(options.serializer || jsonStateSerializer)
 
     this.state = options.state || {}
     this.actions = options.actions || {}
     this.mutations = options.mutations || {}
     this.innerGetters = options.getters || {}
-    this.initialState = options.state ? { ...options.state } : {}
+    this.initialState = this.serializeState()
 
     // Initialize storage manager if storage config is provided
     if (options.storage) {
@@ -30,18 +33,16 @@ class QuaStore {
     }
 
     const thisName = this.name
-    const thisState = this.state
-
     logger.module(name).debug('Creating store with options:', options)
 
     this.getters = new Proxy<QuaGetters>(this.innerGetters, {
-      get(target, prop) {
+      get: (target, prop) => {
         const key = prop as string
         const getter = target[key]
         if (typeof getter !== 'function') {
           throw new TypeError(`Invalid getter in store [${thisName}]`)
         }
-        return getter(thisState)
+        return getter(this.state)
       },
     })
   }
@@ -95,7 +96,7 @@ class QuaStore {
     const snapshot: QuaSnapshot = {
       id: snapshotId,
       storeName: this.name,
-      data: JSON.parse(JSON.stringify(this.state)),
+      data: this.serializeState(),
       createdAt: new Date(),
       scope: {
         type: 'store',
@@ -126,7 +127,7 @@ class QuaStore {
       throw new Error('Cannot restore snapshot due to some data already exists in store. Use force option to override.')
     }
 
-    this.state = snapshot.data
+    this.restoreSerializedState(snapshot.data)
     return this
   }
 
@@ -171,7 +172,7 @@ class QuaStore {
         ...metadata,
       },
       storeData: {
-        state: JSON.parse(JSON.stringify(this.state)),
+        state: this.serializeState(),
         snapshots: snapshotData,
       },
     }
@@ -209,7 +210,7 @@ class QuaStore {
     }
 
     // Restore state
-    this.state = gameSlot.storeData.state
+    this.restoreSerializedState(gameSlot.storeData.state)
 
     logger.module(this.name).info(`Store loaded from slot successfully: ${slotId}`)
   }
@@ -251,11 +252,23 @@ class QuaStore {
   }
 
   public reset() {
-    this.state = { ...this.initialState }
+    this.restoreSerializedState(this.initialState)
   }
 
   public getName(): string {
     return this.name
+  }
+
+  public serializeState(): QuaSerializedState {
+    return this.serializer.serialize(this.state)
+  }
+
+  public deserializeState(serializedState: QuaSerializedState): QuaState {
+    return this.serializer.deserialize<QuaState>(serializedState)
+  }
+
+  public restoreSerializedState(serializedState: QuaSerializedState): void {
+    this.state = this.deserializeState(serializedState)
   }
 
   public getState(): QuaState {

@@ -1,5 +1,23 @@
+import type { QuaStateSerializer } from '../src/index'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createStore, MemoryBackend, QuaStoreManager } from '../src/index'
+
+const mapValuesSerializer: QuaStateSerializer = {
+  serialize: (state) => {
+    const typedState = state as { values: Map<string, number> }
+    return {
+      ...typedState,
+      values: Array.from(typedState.values.entries()),
+    }
+  },
+  deserialize: (serializedState) => {
+    const typedState = serializedState as { values: [string, number][] }
+    return {
+      ...typedState,
+      values: new Map(typedState.values),
+    }
+  },
+}
 
 describe('game Slot System', () => {
   beforeEach(async () => {
@@ -144,6 +162,29 @@ describe('game Slot System', () => {
       // Load with force
       await store.loadFromSlot('slot-1', { force: true })
       expect(store.state.level).toBe(1)
+    })
+
+    it('should use the store serializer when saving and loading slots', async () => {
+      const store = createStore({
+        name: 'growthStore',
+        state: { values: new Map([['courage', 1]]) },
+        storage: { backend: MemoryBackend },
+        serializer: mapValuesSerializer,
+        mutations: {
+          setValue: (state, payload: { key: string, value: number }) => {
+            state.values.set(payload.key, payload.value)
+          },
+        },
+      })
+
+      store.commit('setValue', { key: 'courage', value: 6 })
+      await store.saveToSlot('slot-serializer')
+
+      store.commit('setValue', { key: 'courage', value: 2 })
+      await store.loadFromSlot('slot-serializer', { force: true })
+
+      expect(store.state.values).toBeInstanceOf(Map)
+      expect(store.state.values.get('courage')).toBe(6)
     })
 
     it('should delete game slots', async () => {
