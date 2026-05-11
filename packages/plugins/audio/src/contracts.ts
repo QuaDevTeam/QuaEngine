@@ -7,15 +7,15 @@ export const AUDIO_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/audio' as const
 export type AudioBusId = 'master' | 'bgm' | 'voice'
 export type AudioTrackKind = 'bgm' | 'voice'
 export type AudioTrackState = 'idle' | 'queued' | 'playing' | 'paused' | 'stopping' | 'stopped'
-export type AudioEqBandType =
-  | 'lowpass'
-  | 'highpass'
-  | 'bandpass'
-  | 'lowshelf'
-  | 'highshelf'
-  | 'peaking'
-  | 'notch'
-  | 'allpass'
+export type AudioEqBandType
+  = | 'lowpass'
+    | 'highpass'
+    | 'bandpass'
+    | 'lowshelf'
+    | 'highshelf'
+    | 'peaking'
+    | 'notch'
+    | 'allpass'
 
 export interface AudioAutomationPoint {
   at: number
@@ -280,7 +280,7 @@ export function dbToGain(db: number): number {
   if (!Number.isFinite(db)) {
     return db < 0 ? 0 : 1
   }
-  return Math.pow(10, db / 20)
+  return 10 ** (db / 20)
 }
 
 export function isAudioTrackKind(value: string): value is AudioTrackKind {

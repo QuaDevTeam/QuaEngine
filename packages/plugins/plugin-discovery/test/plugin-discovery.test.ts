@@ -1,21 +1,22 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { readFileSync, existsSync } from 'node:fs'
+import type { DecoratorMapping, PluginConfig } from '../src/index'
+import { existsSync, readFileSync } from 'node:fs'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+
   discoverPlugins,
+  getAvailablePlugins,
   getDiscoveredDecoratorMappings,
   getDiscoveredLanguageContributions,
   loadPlugin,
-  getAvailablePlugins,
-  validatePluginConfig,
   mergeDecoratorMappings,
-  type PluginConfig,
-  type DecoratorMapping
+
+  validatePluginConfig,
 } from '../src/index'
 
 // Mock fs functions
 vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
-  existsSync: vi.fn()
+  existsSync: vi.fn(),
 }))
 
 const mockReadFileSync = vi.mocked(readFileSync)
@@ -44,8 +45,8 @@ describe('plugin Discovery', () => {
             renderer: {
               vue: '@quajs/renderer-vue/plugins/audio',
             },
-          }
-        ]
+          },
+        ],
       }
 
       // Mock to return true only for the first qua.plugins.json path
@@ -73,11 +74,11 @@ describe('plugin Discovery', () => {
       const packageJson = {
         dependencies: {
           '@quajs/plugin-audio': '^1.0.0',
-          'regular-package': '^1.0.0'
+          'regular-package': '^1.0.0',
         },
         peerDependencies: {
-          '@quajs/plugin-background': '^1.0.0'
-        }
+          '@quajs/plugin-background': '^1.0.0',
+        },
       }
 
       // Mock to return true only for package.json
@@ -138,10 +139,10 @@ describe('plugin Discovery', () => {
           {
             name: 'video-plugin',
             decorators: {
-              PlayVideo: { function: 'playVideo', module: 'video' }
-            }
-          }
-        ]
+              PlayVideo: { function: 'playVideo', module: 'video' },
+            },
+          },
+        ],
       }
 
       mockExistsSync.mockImplementation((path: any) => {
@@ -158,15 +159,15 @@ describe('plugin Discovery', () => {
 
       expect(mappings).toEqual({
         AudioChapter: { function: 'configureAudioChapterWithEngine', module: '@quajs/plugin-audio' },
-        PlayVideo: { function: 'playVideo', module: 'video' }
+        PlayVideo: { function: 'playVideo', module: 'video' },
       })
     })
 
     it('should return empty mappings when no plugins have decorators', async () => {
       const pluginConfig = {
         plugins: [
-          { name: 'simple-plugin' }
-        ]
+          { name: 'simple-plugin' },
+        ],
       }
 
       mockExistsSync.mockImplementation((path: any) => {
@@ -232,8 +233,8 @@ describe('plugin Discovery', () => {
       const pluginConfig = {
         plugins: [
           { name: 'audio-plugin', version: '1.0.0' },
-          { name: 'video-plugin', version: '2.0.0' }
-        ]
+          { name: 'video-plugin', version: '2.0.0' },
+        ],
       }
 
       mockExistsSync.mockImplementation((path: any) => {
@@ -268,8 +269,8 @@ describe('plugin Discovery', () => {
         plugins: [
           { name: 'audio-plugin' },
           { name: 'video-plugin' },
-          { name: 'ui-plugin' }
-        ]
+          { name: 'ui-plugin' },
+        ],
       }
 
       mockExistsSync.mockImplementation((path: any) => {
@@ -292,7 +293,7 @@ describe('plugin Discovery', () => {
     it('should validate correct plugin config', () => {
       const config: PluginConfig = {
         name: 'test-plugin',
-        version: '1.0.0'
+        version: '1.0.0',
       }
 
       expect(validatePluginConfig(config)).toBe(true)
@@ -300,7 +301,7 @@ describe('plugin Discovery', () => {
 
     it('should reject config without name', () => {
       const config = {
-        version: '1.0.0'
+        version: '1.0.0',
       }
 
       expect(validatePluginConfig(config)).toBe(false)
@@ -314,7 +315,7 @@ describe('plugin Discovery', () => {
     it('should reject config with empty name', () => {
       const config = {
         name: '',
-        version: '1.0.0'
+        version: '1.0.0',
       }
 
       expect(validatePluginConfig(config)).toBe(false)
@@ -324,15 +325,15 @@ describe('plugin Discovery', () => {
   describe('mergeDecoratorMappings', () => {
     it('should merge multiple decorator mappings', () => {
       const mapping1: DecoratorMapping = {
-        PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' }
+        PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' },
       }
 
       const mapping2: DecoratorMapping = {
-        PlayVideo: { function: 'playVideo', module: 'video' }
+        PlayVideo: { function: 'playVideo', module: 'video' },
       }
 
       const mapping3: DecoratorMapping = {
-        SetAudioGain: { function: 'setAudioGainWithEngine', module: '@quajs/plugin-audio' }
+        SetAudioGain: { function: 'setAudioGainWithEngine', module: '@quajs/plugin-audio' },
       }
 
       const merged = mergeDecoratorMappings(mapping1, mapping2, mapping3)
@@ -340,35 +341,35 @@ describe('plugin Discovery', () => {
       expect(merged).toEqual({
         PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' },
         PlayVideo: { function: 'playVideo', module: 'video' },
-        SetAudioGain: { function: 'setAudioGainWithEngine', module: '@quajs/plugin-audio' }
+        SetAudioGain: { function: 'setAudioGainWithEngine', module: '@quajs/plugin-audio' },
       })
     })
 
     it('should handle overlapping keys (later mappings override)', () => {
       const mapping1: DecoratorMapping = {
-        PlayVoice: { function: 'playVoice1', module: 'audio1' }
+        PlayVoice: { function: 'playVoice1', module: 'audio1' },
       }
 
       const mapping2: DecoratorMapping = {
-        PlayVoice: { function: 'playVoice2', module: 'audio2' }
+        PlayVoice: { function: 'playVoice2', module: 'audio2' },
       }
 
       const merged = mergeDecoratorMappings(mapping1, mapping2)
 
       expect(merged).toEqual({
-        PlayVoice: { function: 'playVoice2', module: 'audio2' }
+        PlayVoice: { function: 'playVoice2', module: 'audio2' },
       })
     })
 
     it('should handle empty mappings', () => {
       const mapping: DecoratorMapping = {
-        PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' }
+        PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' },
       }
 
       const merged = mergeDecoratorMappings({}, mapping, {})
 
       expect(merged).toEqual({
-        PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' }
+        PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' },
       })
     })
   })
