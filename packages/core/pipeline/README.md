@@ -6,7 +6,7 @@ Event pipeline for connecting logic and render layers in QuaEngine. Provides a r
 
 - 🚀 **Event Bus Architecture** - Connects logic and rendering layers
 - 🧅 **Koa-style Middleware** - Onion model with async support
-- 🔌 **Plugin System** - Extensible transport mechanisms (WebSocket, etc.)
+- 🔌 **Transport System** - Explicit local, WebSocket, or custom event transport
 - 🎯 **TypeScript First** - Full type safety and IntelliSense
 - 🌐 **Cross-platform** - Works in Browser and Node.js
 - ⚡ **High Performance** - Efficient event processing and memory management
@@ -109,45 +109,67 @@ class ValidationMiddleware extends Middleware {
 pipeline.addMiddleware(new ValidationMiddleware())
 ```
 
-## Plugin System
+## Transport System
 
-Plugins can take over event transport, enabling network communication:
+Transports publish events after middleware has accepted them. The default transport is local and simply delivers events to registered listeners. Custom transports can send events over a network, mirror them to another runtime, or decide whether to deliver them locally.
 
-### Creating a Plugin
+The pipeline remains the only event bus. Transports do not own listener state; incoming external events are injected back through `context.receive()` so middleware and listeners stay centralized.
+
+### Creating a Transport
 
 ```typescript
-import { Plugin } from '@quajs/pipeline'
+import type { PipelineContext, PipelineTransport, PipelineTransportContext } from '@quajs/pipeline'
 
-class MyTransportPlugin extends Plugin {
+class MyTransport implements PipelineTransport {
   readonly name = 'my-transport'
 
-  async setup(pipeline) {
-    // Initialize plugin
-    this.setEmitHook(this.handleEmit.bind(this))
-    this.setOnHook(this.handleOn.bind(this))
+  async setup(context: PipelineTransportContext) {
+    // Open sockets or allocate resources here.
   }
 
-  private handleEmit = async (type, payload, originalEmit) => {
-    // Custom emit logic (e.g., send over network)
-    console.log(`Sending ${type} over network`)
-    // Fallback to original if needed
-    await originalEmit(type, payload)
+  async publish(context: PipelineContext, transport: PipelineTransportContext) {
+    // Send event over a network, then optionally deliver locally.
+    console.log(`Sending ${context.event.type} over network`)
+    await transport.deliver(context)
   }
 
-  private handleOn = (type, listener, originalOn) => {
-    // Custom listener registration
-    // Return originalOn(type, listener) for fallback
-    return originalOn(type, listener)
+  subscribe(type: string) {
+    // Optional: ask a remote source to start forwarding this event type.
   }
 }
 
-// Use the plugin
 const pipeline = new Pipeline({
-  plugins: [new MyTransportPlugin()]
+  transport: new MyTransport()
 })
 ```
 
-### WebSocket Plugin Example
+### Receiving External Events
+
+```typescript
+class RemoteTransport implements PipelineTransport {
+  readonly name = 'remote'
+  private context?: PipelineTransportContext
+
+  setup(context: PipelineTransportContext) {
+    this.context = context
+  }
+
+  publish(context: PipelineContext) {
+    sendToRemote(context.event)
+  }
+
+  async onRemoteMessage(message) {
+    await this.context?.receive({
+      type: message.type,
+      payload: message.payload,
+      id: message.id,
+      timestamp: message.timestamp
+    })
+  }
+}
+```
+
+### WebSocket Transport Example
 
 See [examples/websocket-plugin.ts](./examples/websocket-plugin.ts) for a complete WebSocket transport implementation.
 
@@ -165,12 +187,14 @@ Options:
 
 - `middlewares?: (MiddlewareFunction | Middleware)[]` - Initial middlewares
 - `plugins?: Plugin[]` - Initial plugins
+- `transport?: PipelineTransport` - Initial event transport, defaults to local delivery
 
 #### Methods
 
 **Event Management**
 
 - `emit<T>(type: string, payload: T): Promise<void>` - Emit an event
+- `receive<T>(event: PipelineEventInput<T>): Promise<void>` - Inject an external event without publishing it again
 - `on<T>(type: string, listener: EventListener<T>): this` - Add event listener
 - `off<T>(type: string, listener: EventListener<T>): this` - Remove event listener
 - `on<T>('*', listener: EventListener<T>): this` - Listen to all events
@@ -183,6 +207,11 @@ Options:
 **Plugin Management**
 
 - `use(plugin: Plugin): this` - Install plugin
+
+**Transport Management**
+
+- `setTransport(transport: PipelineTransport): this` - Replace the current transport
+- `getTransport(): PipelineTransport` - Return the current transport
 
 **Utility Methods**
 
@@ -204,16 +233,34 @@ abstract class Middleware<T = any> {
 
 ### Plugin Class
 
-Abstract base class for creating plugins:
+Abstract base class for lifecycle extensions. Plugins can configure middleware or install a transport with `pipeline.setTransport(...)`.
 
 ```typescript
 abstract class Plugin {
   abstract readonly name: string
   abstract setup(pipeline: Pipeline): void | Promise<void>
+}
+```
 
-  protected setEmitHook(hook: PluginEmitHook): void
-  protected setOnHook(hook: PluginOnHook): void
-  protected setOffHook(hook: PluginOffHook): void
+### PipelineTransport Interface
+
+```typescript
+interface PipelineTransport {
+  readonly name: string
+  setup?: (context: PipelineTransportContext) => void | Promise<void>
+  publish: <T>(context: PipelineContext<T>, transport: PipelineTransportContext) => void | Promise<void>
+  subscribe?: (type: string, context: PipelineTransportContext) => void | Promise<void>
+  unsubscribe?: (type: string, context: PipelineTransportContext) => void | Promise<void>
+  dispose?: (context: PipelineTransportContext) => void | Promise<void>
+}
+
+interface PipelineTransportContext {
+  readonly pipeline: Pipeline
+  createEvent: <T>(type: string, payload: T, init?: PipelineEventInit) => PipelineEvent<T>
+  deliver: <T>(delivery: PipelineEvent<T> | PipelineContext<T>) => Promise<void>
+  receive: <T>(event: PipelineEventInput<T>) => Promise<void>
+  getEventTypes: () => string[]
+  getListenerCount: (type: string) => number
 }
 ```
 
@@ -256,12 +303,10 @@ const pipeline = new Pipeline({
 
 ```typescript
 import { Pipeline } from '@quajs/pipeline'
-import { WebSocketPlugin } from './examples/websocket-plugin'
+import { WebSocketTransport } from './examples/websocket-plugin'
 
 const pipeline = new Pipeline({
-  plugins: [
-    new WebSocketPlugin('ws://localhost:8080/events')
-  ]
+  transport: new WebSocketTransport('ws://localhost:8080/events')
 })
 
 // Events now travel over WebSocket
@@ -275,14 +320,14 @@ The pipeline includes built-in error handling:
 - Middleware errors are caught and re-thrown
 - Listener errors are logged but don't stop other listeners
 - Plugin setup errors are logged but don't prevent pipeline creation
-- WebSocket connection failures fall back to local event handling
+- Transport setup errors are logged
 
 ## Performance Considerations
 
 - Events are processed asynchronously in parallel where possible
 - Middleware runs in sequence (onion model)
 - Memory-efficient listener management with automatic cleanup
-- Plugin hooks are called only when registered
+- Transports receive subscription notifications only when listener types appear or disappear
 
 ## TypeScript Support
 

@@ -1,8 +1,8 @@
-import type { EventListener, PluginEmitHook, PluginOffHook, PluginOnHook } from '../src/index'
+import type { PipelineContext, PipelineEvent, PipelineTransport, PipelineTransportContext } from '../src/index'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Pipeline, Plugin } from '../src/index'
+import { LocalPipelineTransport, Pipeline, Plugin } from '../src/index'
 
-describe('plugin', () => {
+describe('plugin and transport', () => {
   let pipeline: Pipeline
 
   beforeEach(() => {
@@ -25,284 +25,213 @@ describe('plugin', () => {
       expect(plugin).toBeInstanceOf(Plugin)
     })
 
-    it('should call setup when installed', () => {
+    it('should call setup when installed', async () => {
       const plugin = new TestPlugin()
       pipeline.use(plugin)
+
+      await pipeline.emit('ready-check', null)
 
       expect(plugin.setupCalled).toBe(true)
     })
 
-    it('should not install same plugin twice', () => {
+    it('should not install same plugin twice', async () => {
       const plugin = new TestPlugin()
 
       pipeline.use(plugin)
-      pipeline.use(plugin) // Should be ignored
+      pipeline.use(plugin)
+      await pipeline.emit('ready-check', null)
 
       expect(plugin.setupCalled).toBe(true)
     })
   })
 
-  describe('plugin hooks', () => {
-    describe('emit hook', () => {
-      class EmitHookPlugin extends Plugin {
-        readonly name = 'emit-hook-plugin'
-        emitCalls: Array<{ type: string, payload: unknown }> = []
+  describe('transport', () => {
+    it('should use local transport by default', async () => {
+      expect(pipeline.getTransport()).toBeInstanceOf(LocalPipelineTransport)
 
-        setup(_pipeline: Pipeline) {
-          const emitHook: PluginEmitHook = async (type, payload, originalEmit) => {
-            this.emitCalls.push({ type, payload })
+      const listener = vi.fn()
+      pipeline.on('test', listener)
 
-            // Modify the payload
-            const modifiedPayload = typeof payload === 'string' ? payload.toUpperCase() : payload
-            await originalEmit(type, modifiedPayload)
-          }
+      await pipeline.emit('test', 'hello')
 
-          this.setEmitHook(emitHook)
-        }
-      }
-
-      it('should intercept emit calls', async () => {
-        const plugin = new EmitHookPlugin()
-        const listener = vi.fn()
-
-        pipeline.use(plugin)
-        pipeline.on('test', listener)
-
-        await pipeline.emit('test', 'hello')
-
-        expect(plugin.emitCalls).toHaveLength(1)
-        expect(plugin.emitCalls[0]).toEqual({
-          type: 'test',
-          payload: 'hello',
-        })
-
-        expect(listener).toHaveBeenCalledWith(
-          expect.objectContaining({
-            event: expect.objectContaining({
-              type: 'test',
-              payload: 'HELLO', // Modified by plugin
-            }),
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: expect.objectContaining({
+            type: 'test',
+            payload: 'hello',
           }),
-        )
-      })
-
-      it('should allow plugin to prevent original emit', async () => {
-        class PreventEmitPlugin extends Plugin {
-          readonly name = 'prevent-emit-plugin'
-
-          setup(_pipeline: Pipeline) {
-            const emitHook: PluginEmitHook = async (type, payload, originalEmit) => {
-              // Don't call originalEmit - prevent the event
-              if (type === 'blocked') {
-                return
-              }
-              await originalEmit(type, payload)
-            }
-
-            this.setEmitHook(emitHook)
-          }
-        }
-
-        const plugin = new PreventEmitPlugin()
-        const blockedListener = vi.fn()
-        const allowedListener = vi.fn()
-
-        pipeline.use(plugin)
-        pipeline.on('blocked', blockedListener)
-        pipeline.on('allowed', allowedListener)
-
-        await pipeline.emit('blocked', 'data')
-        await pipeline.emit('allowed', 'data')
-
-        expect(blockedListener).not.toHaveBeenCalled()
-        expect(allowedListener).toHaveBeenCalledOnce()
-      })
+        }),
+      )
     })
 
-    describe('on hook', () => {
-      class OnHookPlugin extends Plugin {
-        readonly name = 'on-hook-plugin'
-        registrations: Array<{ type: string, listener: unknown }> = []
+    it('should allow transport to transform delivered events', async () => {
+      class UppercaseTransport implements PipelineTransport {
+        readonly name = 'uppercase'
+        published: Array<PipelineEvent> = []
 
-        setup(_pipeline: Pipeline) {
-          const onHook: PluginOnHook = (type, listener, originalOn) => {
-            this.registrations.push({ type, listener })
-            return originalOn(type, listener)
-          }
-
-          this.setOnHook(onHook)
+        async publish(context: PipelineContext, transport: PipelineTransportContext) {
+          this.published.push(context.event)
+          await transport.deliver({
+            ...context,
+            event: {
+              ...context.event,
+              payload: typeof context.event.payload === 'string'
+                ? context.event.payload.toUpperCase()
+                : context.event.payload,
+            },
+          })
         }
       }
 
-      it('should intercept listener registration', () => {
-        const plugin = new OnHookPlugin()
-        const listener = vi.fn()
+      const transport = new UppercaseTransport()
+      const listener = vi.fn()
 
-        pipeline.use(plugin)
-        pipeline.on('test', listener)
+      pipeline.setTransport(transport)
+      pipeline.on('test', listener)
 
-        expect(plugin.registrations).toHaveLength(1)
-        expect(plugin.registrations[0]).toEqual({
-          type: 'test',
-          listener,
-        })
-      })
+      await pipeline.emit('test', 'hello')
 
-      it('should allow plugin to modify listener registration', async () => {
-        class ModifyOnPlugin extends Plugin {
-          readonly name = 'modify-on-plugin'
-
-          setup(_pipeline: Pipeline) {
-            const onHook: PluginOnHook = (type, listener, originalOn) => {
-              // Wrap the listener
-              const wrappedListener = (context: any) => {
-                context.event.payload = `[WRAPPED] ${context.event.payload}`
-                return listener(context)
-              }
-
-              return originalOn(type, wrappedListener)
-            }
-
-            this.setOnHook(onHook)
-          }
-        }
-
-        const plugin = new ModifyOnPlugin()
-        const listener = vi.fn()
-
-        pipeline.use(plugin)
-        pipeline.on('test', listener)
-
-        await pipeline.emit('test', 'hello')
-
-        expect(listener).toHaveBeenCalledWith(
-          expect.objectContaining({
-            event: expect.objectContaining({
-              payload: '[WRAPPED] hello',
-            }),
+      expect(transport.published).toHaveLength(1)
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: expect.objectContaining({
+            type: 'test',
+            payload: 'HELLO',
           }),
-        )
-      })
+        }),
+      )
     })
 
-    describe('off hook', () => {
-      class OffHookPlugin extends Plugin {
-        readonly name = 'off-hook-plugin'
-        removals: Array<{ type: string, listener: unknown }> = []
+    it('should allow transport to replace local delivery', async () => {
+      class DropTransport implements PipelineTransport {
+        readonly name = 'drop'
+        published: Array<PipelineEvent> = []
 
-        setup(_pipeline: Pipeline) {
-          const offHook: PluginOffHook = (type, listener, originalOff) => {
-            this.removals.push({ type, listener })
-            return originalOff(type, listener)
-          }
-
-          this.setOffHook(offHook)
+        publish(context: PipelineContext) {
+          this.published.push(context.event)
         }
       }
 
-      it('should intercept listener removal', () => {
-        const plugin = new OffHookPlugin()
-        const listener = vi.fn()
+      const transport = new DropTransport()
+      const listener = vi.fn()
 
-        pipeline.use(plugin)
-        pipeline.on('test', listener)
-        pipeline.off('test', listener)
+      pipeline.setTransport(transport)
+      pipeline.on('blocked', listener)
 
-        expect(plugin.removals).toHaveLength(1)
-        expect(plugin.removals[0]).toEqual({
-          type: 'test',
-          listener,
-        })
-      })
+      await pipeline.emit('blocked', 'data')
+
+      expect(transport.published).toHaveLength(1)
+      expect(listener).not.toHaveBeenCalled()
     })
 
-    describe('combined hooks', () => {
-      class NetworkPlugin extends Plugin {
-        readonly name = 'network-plugin'
-        private networkListeners = new Map<string, Set<EventListener>>()
+    it('should inject external events through middleware and listeners', async () => {
+      class LoopbackTransport implements PipelineTransport {
+        readonly name = 'loopback'
+        private context?: PipelineTransportContext
 
-        setup(pipeline: Pipeline) {
-          // Intercept emit to send over network
-          const emitHook: PluginEmitHook = async (type, payload, _originalEmit) => {
-            // Simulate network send
-            this.sendToNetwork(type, payload)
-            // Don't call originalEmit - we're replacing local with network
-          }
-
-          // Intercept on to register network listeners
-          const onHook: PluginOnHook = (type, listener, _originalOn) => {
-            if (!this.networkListeners.has(type)) {
-              this.networkListeners.set(type, new Set())
-            }
-            this.networkListeners.get(type)!.add(listener)
-
-            // Don't register locally, we handle it via network
-            return pipeline
-          }
-
-          this.setEmitHook(emitHook)
-          this.setOnHook(onHook)
+        setup(context: PipelineTransportContext) {
+          this.context = context
         }
 
-        private sendToNetwork(type: string, payload: unknown) {
-          // Simulate network transmission and reception
-          setTimeout(() => {
-            this.receiveFromNetwork(type, payload)
-          }, 0)
-        }
-
-        private receiveFromNetwork(type: string, payload: unknown) {
-          const listeners = this.networkListeners.get(type)
-          if (listeners) {
-            const context = {
-              event: {
-                type,
-                payload,
-                timestamp: Date.now(),
-                id: `network-${Date.now()}`,
-              },
-              handled: false,
-              stopPropagation: false,
-            }
-
-            listeners.forEach((listener) => {
-              try {
-                listener(context)
-              }
-              catch {
-                // Handle error
-              }
-            })
-          }
+        async publish(context: PipelineContext) {
+          await this.context!.receive({
+            ...context.event,
+            id: `remote-${context.event.id}`,
+            payload: `remote:${context.event.payload}`,
+          })
         }
       }
 
-      it('should support complex network plugin', async () => {
-        const plugin = new NetworkPlugin()
-        const listener = vi.fn()
-
-        pipeline.use(plugin)
-        pipeline.on('network-event', listener)
-
-        await pipeline.emit('network-event', 'network-data')
-
-        // Wait for network simulation
-        await new Promise(resolve => setTimeout(resolve, 10))
-
-        expect(listener).toHaveBeenCalledWith(
-          expect.objectContaining({
-            event: expect.objectContaining({
-              type: 'network-event',
-              payload: 'network-data',
-              id: expect.stringContaining('network-'),
-            }),
-          }),
-        )
+      const transport = new LoopbackTransport()
+      const listener = vi.fn()
+      const middleware = vi.fn(async (context, next) => {
+        context.event.payload = `middleware:${context.event.payload}`
+        await next()
       })
+
+      pipeline.setTransport(transport)
+      pipeline.addMiddleware(middleware)
+      pipeline.on('network-event', listener)
+
+      await pipeline.emit('network-event', 'payload')
+
+      expect(middleware).toHaveBeenCalledTimes(2)
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: expect.objectContaining({
+            type: 'network-event',
+            payload: 'middleware:remote:middleware:payload',
+            id: expect.stringContaining('remote-'),
+          }),
+        }),
+      )
+    })
+
+    it('should notify transport about first subscription and last unsubscribe', async () => {
+      class SubscriptionTransport implements PipelineTransport {
+        readonly name = 'subscriptions'
+        subscriptions: string[] = []
+        unsubscriptions: string[] = []
+
+        publish(context: PipelineContext, transport: PipelineTransportContext) {
+          return transport.deliver(context)
+        }
+
+        subscribe(type: string) {
+          this.subscriptions.push(type)
+        }
+
+        unsubscribe(type: string) {
+          this.unsubscriptions.push(type)
+        }
+      }
+
+      const transport = new SubscriptionTransport()
+      const listenerA = vi.fn()
+      const listenerB = vi.fn()
+
+      pipeline.setTransport(transport)
+      pipeline.on('event', listenerA)
+      pipeline.on('event', listenerB)
+
+      await pipeline.emit('event', 'data')
+
+      pipeline.off('event', listenerA)
+      await pipeline.emit('event', 'data')
+      pipeline.off('event', listenerB)
+      await pipeline.emit('unused', null)
+
+      expect(transport.subscriptions).toEqual(['event'])
+      expect(transport.unsubscriptions).toEqual(['event'])
+    })
+
+    it('should resubscribe existing listener types when transport changes', async () => {
+      class SubscriptionTransport implements PipelineTransport {
+        readonly name = 'subscriptions'
+        subscriptions: string[] = []
+
+        publish(context: PipelineContext, transport: PipelineTransportContext) {
+          return transport.deliver(context)
+        }
+
+        subscribe(type: string) {
+          this.subscriptions.push(type)
+        }
+      }
+
+      const listener = vi.fn()
+      const transport = new SubscriptionTransport()
+
+      pipeline.on('event', listener)
+      pipeline.setTransport(transport)
+      await pipeline.emit('event', 'data')
+
+      expect(transport.subscriptions).toEqual(['event'])
+      expect(listener).toHaveBeenCalledOnce()
     })
   })
 
-  describe('async plugin setup', () => {
+  describe('async setup', () => {
     class AsyncPlugin extends Plugin {
       readonly name = 'async-plugin'
       setupCompleted = false
@@ -318,13 +247,58 @@ describe('plugin', () => {
 
       pipeline.use(plugin)
 
-      // Setup is async but install is sync
       expect(plugin.setupCompleted).toBe(false)
 
-      // Wait for async setup
-      await new Promise(resolve => setTimeout(resolve, 20))
+      await pipeline.emit('ready-check', null)
 
       expect(plugin.setupCompleted).toBe(true)
+    })
+
+    it('should wait for async plugin transport registration before emitting', async () => {
+      class AsyncTransportPlugin extends Plugin {
+        readonly name = 'async-transport-plugin'
+
+        async setup(pipeline: Pipeline) {
+          await new Promise(resolve => setTimeout(resolve, 10))
+          pipeline.setTransport(new LocalPipelineTransport())
+        }
+      }
+
+      const listener = vi.fn()
+
+      pipeline.use(new AsyncTransportPlugin())
+      pipeline.on('test', listener)
+
+      await pipeline.emit('test', 'data')
+
+      expect(listener).toHaveBeenCalledOnce()
+    })
+
+    it('should wait for async transport setup before publishing', async () => {
+      class AsyncTransport implements PipelineTransport {
+        readonly name = 'async-transport'
+        setupCompleted = false
+
+        async setup(_context: PipelineTransportContext) {
+          await new Promise(resolve => setTimeout(resolve, 10))
+          this.setupCompleted = true
+        }
+
+        publish(context: PipelineContext, transport: PipelineTransportContext) {
+          expect(this.setupCompleted).toBe(true)
+          return transport.deliver(context)
+        }
+      }
+
+      const transport = new AsyncTransport()
+      const listener = vi.fn()
+
+      pipeline.setTransport(transport)
+      pipeline.on('test', listener)
+
+      await pipeline.emit('test', 'data')
+
+      expect(listener).toHaveBeenCalledOnce()
     })
 
     it('should handle plugin setup errors gracefully', async () => {
@@ -337,12 +311,14 @@ describe('plugin', () => {
       }
 
       const plugin = new ErrorPlugin()
+      const listener = vi.fn()
 
-      // Should not throw during install
       expect(() => pipeline.use(plugin)).not.toThrow()
 
-      // Wait for async error to be caught
-      await new Promise(resolve => setTimeout(resolve, 10))
+      pipeline.on('test', listener)
+      await pipeline.emit('test', 'normal')
+
+      expect(listener).toHaveBeenCalledOnce()
     })
   })
 })

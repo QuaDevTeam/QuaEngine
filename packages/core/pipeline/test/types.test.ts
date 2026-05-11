@@ -1,6 +1,18 @@
-import type { EventListener, MiddlewareFunction, MiddlewareNext, PipelineContext, PipelineEvent, PipelineOptions, PluginEmitHook, PluginOffHook, PluginOnHook } from '../src/index'
+import type {
+  EventListener,
+  MiddlewareFunction,
+  MiddlewareNext,
+  PipelineContext,
+  PipelineEvent,
+  PipelineEventInit,
+  PipelineEventInput,
+  PipelineOptions,
+  PipelineTransport,
+  PipelineTransportContext,
+} from '../src/index'
 import { describe, expect, it } from 'vitest'
 import {
+  LocalPipelineTransport,
   Middleware,
   Pipeline,
   Plugin,
@@ -53,6 +65,13 @@ describe('exports and Types', () => {
       const plugin = new TestPlugin()
       expect(plugin).toBeInstanceOf(Plugin)
     })
+
+    it('should export LocalPipelineTransport class', () => {
+      const transport = new LocalPipelineTransport()
+
+      expect(transport).toBeInstanceOf(LocalPipelineTransport)
+      expect(transport.name).toBe('local')
+    })
   })
 
   describe('type definitions', () => {
@@ -87,6 +106,16 @@ describe('exports and Types', () => {
       expect(context.stopPropagation).toBe(false)
     })
 
+    it('should support PipelineEventInput type', () => {
+      const event: PipelineEventInput<string> = {
+        type: 'remote:test',
+        payload: 'hello',
+      }
+
+      expect(event.type).toBe('remote:test')
+      expect(event.payload).toBe('hello')
+    })
+
     it('should support EventListener type', () => {
       const syncListener: EventListener<string> = (context) => {
         expect(context.event.payload).toBeTypeOf('string')
@@ -108,22 +137,43 @@ describe('exports and Types', () => {
       expect(typeof middleware).toBe('function')
     })
 
-    it('should support plugin hook types', () => {
-      const emitHook: PluginEmitHook = async (type, payload, originalEmit) => {
-        await originalEmit(type, payload)
+    it('should support PipelineTransport type', async () => {
+      const transport: PipelineTransport = {
+        name: 'test-transport',
+        publish(context, transportContext) {
+          return transportContext.deliver(context)
+        },
       }
 
-      const onHook: PluginOnHook = (type, listener, originalOn) => {
-        return originalOn(type, listener)
-      }
+      const context = {
+        pipeline: new Pipeline(),
+        createEvent: <T = unknown>(type: string, payload: T, init?: PipelineEventInit) => ({
+          type,
+          payload,
+          timestamp: init?.timestamp ?? Date.now(),
+          id: init?.id ?? 'test-id',
+        }),
+        deliver: async () => {},
+        receive: async () => {},
+        getEventTypes: () => [],
+        getListenerCount: () => 0,
+      } satisfies PipelineTransportContext
 
-      const offHook: PluginOffHook = (type, listener, originalOff) => {
-        return originalOff(type, listener)
-      }
+      await transport.publish(
+        {
+          event: {
+            type: 'test',
+            payload: 'payload',
+            timestamp: Date.now(),
+            id: 'test-id',
+          },
+          handled: false,
+          stopPropagation: false,
+        },
+        context,
+      )
 
-      expect(typeof emitHook).toBe('function')
-      expect(typeof onHook).toBe('function')
-      expect(typeof offHook).toBe('function')
+      expect(transport.name).toBe('test-transport')
     })
 
     it('should support PipelineOptions type', () => {
@@ -148,10 +198,12 @@ describe('exports and Types', () => {
         plugins: [
           new TestPlugin(),
         ],
+        transport: new LocalPipelineTransport(),
       }
 
       expect(Array.isArray(options.middlewares)).toBe(true)
       expect(Array.isArray(options.plugins)).toBe(true)
+      expect(options.transport).toBeInstanceOf(LocalPipelineTransport)
     })
   })
 
