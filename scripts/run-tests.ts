@@ -166,7 +166,9 @@ async function runIntegrationTests(options: TestRunnerOptions): Promise<number> 
 
   const args = [
     ...buildVitestArgs(options),
-    'test/**/*.test.ts'
+    '--environment',
+    'node',
+    'test',
   ]
   
   // Add 'run' command if not in watch mode to avoid hanging
