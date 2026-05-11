@@ -1,20 +1,26 @@
 {
   "name": "@quajs/pipeline",
+  "type": "module",
   "version": "0.1.0",
   "description": "Event pipeline between logic layer and render layer",
-  "type": "module",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
@@ -25,15 +31,9 @@
     "test:coverage": "vitest --coverage",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": [],
-  "author": "QuaDevTeam",
-  "license": "Apache-2.0",
-  "engines": {
-    "node": ">=20"
-  },
+  "peerDependencies": {},
   "dependencies": {
     "@quajs/logger": "workspace:*"
   },
-  "devDependencies": {},
-  "peerDependencies": {}
+  "devDependencies": {}
 }

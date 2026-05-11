@@ -32,9 +32,9 @@
   "dependencies": {
     "@quajs/logger": "workspace:*",
     "@quajs/utils": "workspace:*",
-    "dexie": "^4.4.2"
+    "dexie": "catalog:"
   },
   "devDependencies": {
-    "fake-indexeddb": "^6.2.5"
+    "fake-indexeddb": "catalog:"
   }
 }

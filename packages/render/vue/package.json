@@ -82,18 +82,18 @@
   "peerDependencies": {
     "@quajs/assets": "workspace:*",
     "@quajs/assets-web": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
-    "@quajs/pipeline": "workspace:*",
     "@quajs/render-core": "workspace:*",
     "vue": "catalog:"
   },
   "devDependencies": {
     "@quajs/assets": "workspace:*",
     "@quajs/assets-web": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
-    "@quajs/pipeline": "workspace:*",
     "@quajs/render-core": "workspace:*",
     "vue": "catalog:"
   }
