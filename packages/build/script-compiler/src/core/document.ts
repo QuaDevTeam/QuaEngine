@@ -82,15 +82,20 @@ export function parseQuaScriptDocument(source: string): ParsedQuaScriptDocument 
     dslBody = `${dslBody.slice(0, block.openStart)}${blankLike(dslBody.slice(block.openStart, block.closeEnd))}${dslBody.slice(block.closeEnd)}`
   }
 
-  const toDocumentBlock = (block: typeof blocks[number] | undefined) => block
-    ? {
-        attrs: block.attrs,
-        content: trimOneLeadingAndTrailingNewline(block.content),
-        contentRange: rangeFromOffsets(lineStarts, block.contentStart, block.contentEnd),
-        range: rangeFromOffsets(lineStarts, block.openStart, block.closeEnd),
-        setup: block.setup,
-      }
-    : undefined
+  const toDocumentBlock = (block: typeof blocks[number] | undefined) => {
+    if (!block) {
+      return undefined
+    }
+
+    const trimmed = trimOneLeadingAndTrailingNewline(block.content, block.contentStart, block.contentEnd)
+    return {
+      attrs: block.attrs,
+      content: trimmed.content,
+      contentRange: rangeFromOffsets(lineStarts, trimmed.start, trimmed.end),
+      range: rangeFromOffsets(lineStarts, block.openStart, block.closeEnd),
+      setup: block.setup,
+    }
+  }
 
   return {
     source,
@@ -165,6 +170,26 @@ function blankLike(source: string): string {
   return source.replace(/[^\n]/g, ' ')
 }
 
-function trimOneLeadingAndTrailingNewline(source: string): string {
-  return source.replace(/^\r?\n/, '').replace(/\r?\n$/, '')
+function trimOneLeadingAndTrailingNewline(source: string, start: number, end: number): { content: string, end: number, start: number } {
+  let content = source
+  let nextStart = start
+  let nextEnd = end
+
+  const leading = content.match(/^\r?\n/)?.[0]
+  if (leading) {
+    content = content.slice(leading.length)
+    nextStart += leading.length
+  }
+
+  const trailing = content.match(/\r?\n$/)?.[0]
+  if (trailing) {
+    content = content.slice(0, -trailing.length)
+    nextEnd -= trailing.length
+  }
+
+  return {
+    content,
+    end: nextEnd,
+    start: nextStart,
+  }
 }

@@ -72,6 +72,52 @@
         "function": "playAnimationWithEngine",
         "module": "@quajs/plugin-animation"
       }
+    },
+    "language": {
+      "decorators": {
+        "DefineAnimation": {
+          "description": "Define a reusable animation timeline",
+          "args": [
+            {
+              "name": "animationId",
+              "detail": "Animation id"
+            }
+          ]
+        },
+        "Timeline": {
+          "description": "Play an inline animation timeline",
+          "args": [
+            {
+              "name": "duration",
+              "detail": "Timeline duration in milliseconds"
+            }
+          ]
+        },
+        "Key": {
+          "description": "Add a timeline keyframe",
+          "args": [
+            {
+              "name": "targetOrProperty",
+              "values": ["self", "background", "dialogue", "choice"],
+              "detail": "Animation target or property"
+            },
+            {
+              "name": "property",
+              "values": ["x", "y", "scale", "rotation", "opacity"],
+              "detail": "Animated property"
+            }
+          ]
+        },
+        "PlayAnimation": {
+          "description": "Play a reusable animation",
+          "args": [
+            {
+              "name": "animationId",
+              "detail": "Animation id"
+            }
+          ]
+        }
+      }
     }
   }
 }

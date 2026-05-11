@@ -21,6 +21,30 @@ export interface RendererEntryMap {
   [renderer: string]: string
 }
 
+export interface LanguageCompletionValue {
+  detail?: string
+  insertText?: string
+  label: string
+}
+
+export interface DecoratorArgumentLanguageContribution {
+  assetExtensions?: string[]
+  assetRoots?: string[]
+  characterNames?: boolean
+  detail?: string
+  name?: string
+  values?: Array<string | LanguageCompletionValue>
+}
+
+export interface DecoratorLanguageContribution {
+  args?: DecoratorArgumentLanguageContribution[]
+  description?: string
+}
+
+export interface QuaPluginLanguageContribution {
+  decorators?: Record<string, DecoratorLanguageContribution>
+}
+
 /**
  * Plugin metadata shared across package.json and custom registries.
  */
@@ -31,6 +55,7 @@ export interface QuaPluginMetadata {
   engineVersion?: string
   entry?: string
   decorators?: DecoratorMapping
+  language?: QuaPluginLanguageContribution
   apis?: string[]
   renderer?: RendererEntryMap
   [key: string]: any
@@ -46,6 +71,7 @@ export interface PluginConfig {
   main?: string
   entry?: string
   decorators?: DecoratorMapping
+  language?: QuaPluginLanguageContribution
   apis?: string[]
   renderer?: RendererEntryMap
   quajs?: QuaPluginMetadata
@@ -134,6 +160,26 @@ export async function getDiscoveredDecoratorMappings(projectRoot?: string): Prom
 }
 
 /**
+ * Extract language contributions from discovered plugins.
+ */
+export async function getDiscoveredLanguageContributions(projectRoot?: string): Promise<QuaPluginLanguageContribution> {
+  const plugins = await discoverPlugins(projectRoot)
+  const language: QuaPluginLanguageContribution = {
+    decorators: {},
+  }
+
+  for (const plugin of plugins) {
+    if (plugin.language?.decorators) {
+      Object.assign(language.decorators!, plugin.language.decorators)
+    }
+  }
+
+  return language.decorators && Object.keys(language.decorators).length > 0
+    ? language
+    : {}
+}
+
+/**
  * Load a specific plugin by name
  */
 export async function loadPlugin(pluginName: string, projectRoot?: string): Promise<PluginConfig | null> {
@@ -194,6 +240,7 @@ function readPluginPackageConfig(packageName: string, projectRoot: string): Part
     return {
       main: packageJson.quajs?.entry || packageJson.main || packageJson.module,
       decorators: packageJson.quajs?.decorators,
+      language: packageJson.quajs?.language,
       renderer: packageJson.quajs?.renderer,
       description: packageJson.quajs?.description,
       category: packageJson.quajs?.category,
@@ -233,6 +280,7 @@ function normalizePluginConfig(config: PluginConfig, source: 'custom' | 'package
     main,
     entry: config.entry || main,
     decorators: normalizeDecoratorMapping(config.decorators || quajs?.decorators),
+    language: normalizeLanguageContribution(config.language || quajs?.language),
     apis: normalizeStringArray(config.apis || quajs?.apis),
     renderer: normalizeRendererMap(config.renderer || quajs?.renderer),
     quajs,
@@ -259,6 +307,60 @@ function normalizeRendererMap(renderer: unknown): RendererEntryMap | undefined {
 
   const entries = Object.entries(renderer).filter((entry): entry is [string, string] => typeof entry[0] === 'string' && typeof entry[1] === 'string')
   return entries.length > 0 ? Object.fromEntries(entries) : undefined
+}
+
+function normalizeLanguageContribution(language: unknown): QuaPluginLanguageContribution | undefined {
+  if (!isPlainObject(language)) {
+    return undefined
+  }
+
+  const decorators = isPlainObject(language.decorators)
+    ? Object.fromEntries(
+        Object.entries(language.decorators)
+          .filter((entry): entry is [string, DecoratorLanguageContribution] => typeof entry[0] === 'string' && isPlainObject(entry[1]))
+          .map(([decoratorName, contribution]) => [
+            decoratorName,
+            {
+              description: typeof contribution.description === 'string' ? contribution.description : undefined,
+              args: normalizeDecoratorLanguageArgs(contribution.args),
+            },
+          ]),
+      )
+    : undefined
+
+  return decorators && Object.keys(decorators).length > 0
+    ? { decorators }
+    : undefined
+}
+
+function normalizeDecoratorLanguageArgs(args: unknown): DecoratorArgumentLanguageContribution[] | undefined {
+  if (!Array.isArray(args)) {
+    return undefined
+  }
+
+  const normalized = args
+    .filter(isPlainObject)
+    .map((arg) => {
+      const values = Array.isArray(arg.values)
+        ? arg.values.filter((value): value is string | LanguageCompletionValue =>
+            typeof value === 'string'
+            || (
+              isPlainObject(value)
+              && typeof value.label === 'string'
+            ),
+          )
+        : undefined
+      return {
+        assetExtensions: normalizeStringArray(arg.assetExtensions),
+        assetRoots: normalizeStringArray(arg.assetRoots),
+        characterNames: arg.characterNames === true,
+        detail: typeof arg.detail === 'string' ? arg.detail : undefined,
+        name: typeof arg.name === 'string' ? arg.name : undefined,
+        values,
+      }
+    })
+
+  return normalized.length > 0 ? normalized : undefined
 }
 
 function normalizeStringArray(value: unknown): string[] | undefined {

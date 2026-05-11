@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 
 import type { InitializeParams } from 'vscode-languageserver/node'
+import { pathToFileURL } from 'node:url'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
   CompletionItemKind,
   createConnection,
   DiagnosticSeverity,
+  Location,
+  MarkupKind,
   ProposedFeatures,
   TextDocuments,
   TextDocumentSyncKind,
 } from 'vscode-languageserver/node'
-import { analyzeQuaScript, getQuaScriptCompletions, uriToFilePath } from './index'
+import { analyzeQuaScript, getQuaScriptCompletions, getQuaScriptDefinitions, getQuaScriptHover, uriToFilePath } from './index'
 
 const connection = createConnection(ProposedFeatures.all)
 const documents = new TextDocuments(TextDocument)
@@ -25,6 +28,7 @@ connection.onInitialize((params: InitializeParams) => {
         triggerCharacters: ['@', '$', '{', '.', ' '],
       },
       hoverProvider: true,
+      definitionProvider: true,
     },
   }
 })
@@ -50,52 +54,84 @@ connection.onCompletion(async (params) => {
   const completions = await getQuaScriptCompletions(document.getText(), {
     line: params.position.line,
     character: params.position.character,
-  }, { projectRoot })
+  }, { filePath: uriToFilePath(document.uri), projectRoot })
 
   return completions.map(item => ({
-    label: item.kind === 'decorator' ? `@${item.label}` : item.label,
+    label: item.label,
     kind: toCompletionKind(item.kind),
     detail: item.detail,
+    insertText: item.insertText,
+    sortText: item.sortText,
   }))
 })
 
-connection.onHover((params) => {
+connection.onHover(async (params) => {
   const document = documents.get(params.textDocument.uri)
   if (!document) {
     return null
   }
 
-  const word = getWordAt(document.getText(), document.offsetAt(params.position))
-  if (!word) {
+  const hover = await getQuaScriptHover(document.getText(), {
+    line: params.position.line,
+    character: params.position.character,
+  }, { filePath: uriToFilePath(document.uri), projectRoot })
+  if (!hover) {
     return null
   }
 
-  if (word.startsWith('@')) {
-    return {
-      contents: {
-        kind: 'markdown',
-        value: `QuaScript decorator \`${word}\``,
-      },
-    }
+  return {
+    contents: {
+      kind: MarkupKind.Markdown,
+      value: hover.contents,
+    },
+    range: hover.range
+      ? {
+          start: {
+            line: hover.range.start.line,
+            character: hover.range.start.column,
+          },
+          end: {
+            line: hover.range.end.line,
+            character: hover.range.end.column,
+          },
+        }
+      : undefined,
+  }
+})
+
+connection.onDefinition((params) => {
+  const document = documents.get(params.textDocument.uri)
+  if (!document) {
+    return []
   }
 
-  if (word === 'scope') {
-    return {
-      contents: {
-        kind: 'markdown',
-        value: '`scope` is the typed data object passed to this `.qs` script factory.',
-      },
-    }
-  }
+  const definitions = getQuaScriptDefinitions(document.getText(), {
+    line: params.position.line,
+    character: params.position.character,
+  }, { filePath: uriToFilePath(document.uri), projectRoot })
 
-  return null
+  return definitions.map((definition) => {
+    const uri = definition.filePath
+      ? pathToFileURL(definition.filePath).toString()
+      : document.uri
+    return Location.create(uri, {
+      start: {
+        line: definition.range.start.line,
+        character: definition.range.start.column,
+      },
+      end: {
+        line: definition.range.end.line,
+        character: definition.range.end.column,
+      },
+    })
+  })
 })
 
 documents.listen(connection)
 connection.listen()
 
 async function validateDocument(document: TextDocument): Promise<void> {
-  const analysis = await analyzeQuaScript(document.getText(), { projectRoot })
+  const analysis = await analyzeQuaScript(document.getText(), { filePath: uriToFilePath(document.uri), projectRoot })
   connection.sendDiagnostics({
     uri: document.uri,
     diagnostics: analysis.diagnostics.map(diagnostic => ({
@@ -134,20 +170,37 @@ function resolveProjectRoot(params: InitializeParams): string | undefined {
   return params.rootPath || undefined
 }
 
-function toCompletionKind(kind: 'character' | 'decorator' | 'variable'): CompletionItemKind {
+function toCompletionKind(kind: string): CompletionItemKind {
   switch (kind) {
+    case 'asset':
+      return CompletionItemKind.File
     case 'character':
       return CompletionItemKind.Value
+    case 'class':
+      return CompletionItemKind.Class
     case 'decorator':
       return CompletionItemKind.Function
+    case 'enum':
+      return CompletionItemKind.Enum
+    case 'function':
+      return CompletionItemKind.Function
+    case 'interface':
+      return CompletionItemKind.Interface
+    case 'keyword':
+      return CompletionItemKind.Keyword
+    case 'method':
+      return CompletionItemKind.Method
+    case 'module':
+      return CompletionItemKind.Module
+    case 'property':
+      return CompletionItemKind.Property
+    case 'type':
+      return CompletionItemKind.TypeParameter
+    case 'value':
+      return CompletionItemKind.EnumMember
     case 'variable':
       return CompletionItemKind.Variable
+    default:
+      return CompletionItemKind.Text
   }
-}
-
-function getWordAt(source: string, offset: number): string | undefined {
-  const left = source.slice(0, offset).match(/@?[A-Z_$][\w$]*$/i)?.[0] || ''
-  const right = source.slice(offset).match(/^[A-Z_$][\w$]*/i)?.[0] || ''
-  const word = `${left}${right}`
-  return word || undefined
 }

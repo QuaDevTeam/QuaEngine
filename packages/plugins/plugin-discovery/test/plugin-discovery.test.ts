@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import {
   discoverPlugins,
   getDiscoveredDecoratorMappings,
+  getDiscoveredLanguageContributions,
   loadPlugin,
   getAvailablePlugins,
   validatePluginConfig,
@@ -181,6 +182,48 @@ describe('plugin Discovery', () => {
       const mappings = await getDiscoveredDecoratorMappings('/test/project')
 
       expect(mappings).toEqual({})
+    })
+  })
+
+  describe('getDiscoveredLanguageContributions', () => {
+    it('should merge language contributions from discovered plugins', async () => {
+      const pluginConfig = {
+        plugins: [
+          {
+            name: 'background-plugin',
+            language: {
+              decorators: {
+                SetBackground: {
+                  args: [
+                    {
+                      name: 'asset',
+                      assetRoots: ['assets/images'],
+                      assetExtensions: ['.png'],
+                    },
+                    {
+                      name: 'transition',
+                      values: ['fade', 'instant'],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      }
+
+      mockExistsSync.mockImplementation((path: any) => path.toString().endsWith('/test/project/qua.plugins.json'))
+      mockReadFileSync.mockImplementation((path: any) => {
+        if (path.toString().endsWith('/test/project/qua.plugins.json')) {
+          return JSON.stringify(pluginConfig)
+        }
+        throw new Error('File not found')
+      })
+
+      const language = await getDiscoveredLanguageContributions('/test/project')
+
+      expect(language.decorators?.SetBackground.args?.[0].assetRoots).toEqual(['assets/images'])
+      expect(language.decorators?.SetBackground.args?.[1].values).toEqual(['fade', 'instant'])
     })
   })
 

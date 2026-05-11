@@ -50,6 +50,7 @@ export interface ParsedQuaScriptDocument {
 export interface QuaScriptDecorator {
   name: string
   args: QuaScriptDecoratorValue[]
+  argsRange?: SourceRange
   range?: SourceRange
 }
 
@@ -59,6 +60,7 @@ export interface QuaScriptDialogue {
   text: string
   decorators: QuaScriptDecorator[]
   templateExpressions: string[]
+  templateExpressionRanges: SourceRange[]
   range?: SourceRange
 }
 
@@ -82,6 +84,7 @@ export interface QuaScriptChoice {
     text: string
     target: string
     condition?: string
+    conditionRange?: SourceRange
     range?: SourceRange
   }>
   range?: SourceRange
