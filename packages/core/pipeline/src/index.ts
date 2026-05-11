@@ -22,7 +22,7 @@ export type EventListener<T = unknown> = (context: PipelineContext<T>) => void |
 export type MiddlewareNext = () => Promise<void> | void
 export type MiddlewareFunction<T = unknown> = (
   context: PipelineContext<T>,
-  next: MiddlewareNext
+  next: MiddlewareNext,
 ) => Promise<void> | void
 
 // Plugin hook types for taking over event transport
@@ -88,7 +88,7 @@ export abstract class Plugin {
   // Optional hook to take over emit functionality
   protected emitHook?: PluginEmitHook
 
-  // Optional hook to take over on functionality  
+  // Optional hook to take over on functionality
   protected onHook?: PluginOnHook
 
   // Optional hook to take over off functionality
@@ -102,15 +102,15 @@ export abstract class Plugin {
         logger.error(`Error setting up plugin ${this.name}:`, error)
       })
     }
-    
+
     if (this.emitHook) {
       pipeline.setEmitHook(this.emitHook)
     }
-    
+
     if (this.onHook) {
       pipeline.setOnHook(this.onHook)
     }
-    
+
     if (this.offHook) {
       pipeline.setOffHook(this.offHook)
     }
@@ -137,7 +137,7 @@ export class Pipeline {
   private middlewares: MiddlewareFunction[] = []
   private listeners: Map<string, Set<EventListener>> = new Map()
   private plugins: Set<Plugin> = new Set()
-  
+
   // Plugin hooks for taking over event transport
   private emitHook?: PluginEmitHook
   private onHook?: PluginOnHook
@@ -175,7 +175,8 @@ export class Pipeline {
       middlewareWithRef.__middleware = middleware
       this.middlewares.push(middlewareWithRef)
       this.setupMiddleware(middleware)
-    } else {
+    }
+    else {
       this.middlewares.push(middleware)
     }
     return this
@@ -264,13 +265,13 @@ export class Pipeline {
       type,
       payload,
       timestamp: Date.now(),
-      id: this.generateEventId()
+      id: this.generateEventId(),
     }
 
     const context: PipelineContext<T> = {
       event,
       handled: false,
-      stopPropagation: false
+      stopPropagation: false,
     }
 
     // Execute middleware chain using Koa-style onion model
@@ -284,7 +285,7 @@ export class Pipeline {
 
   // Execute middleware chain in onion model
   private async executeMiddlewareChain<T>(
-    context: PipelineContext<T>
+    context: PipelineContext<T>,
   ): Promise<void> {
     let index = -1
 
@@ -299,11 +300,7 @@ export class Pipeline {
       }
 
       const middleware = this.middlewares[i]
-      try {
-        await middleware(context, () => dispatch(i + 1))
-      } catch (error) {
-        throw error
-      }
+      await middleware(context, () => dispatch(i + 1))
     }
 
     await dispatch(0)
@@ -312,14 +309,14 @@ export class Pipeline {
   // Notify all listeners for the event
   private async notifyListeners<T>(context: PipelineContext<T>): Promise<void> {
     const { type } = context.event
-    
+
     // Notify specific event listeners
     const specificListeners = this.listeners.get(type)
     if (specificListeners) {
       await Promise.all(
         Array.from(specificListeners).map(listener =>
-          this.safeExecuteListener(listener, context)
-        )
+          this.safeExecuteListener(listener, context),
+        ),
       )
     }
 
@@ -328,8 +325,8 @@ export class Pipeline {
     if (wildcardListeners) {
       await Promise.all(
         Array.from(wildcardListeners).map(listener =>
-          this.safeExecuteListener(listener, context)
-        )
+          this.safeExecuteListener(listener, context),
+        ),
       )
     }
   }
@@ -337,11 +334,12 @@ export class Pipeline {
   // Safely execute listener with error handling
   private async safeExecuteListener<T>(
     listener: EventListener<T>,
-    context: PipelineContext<T>
+    context: PipelineContext<T>,
   ): Promise<void> {
     try {
       await listener(context)
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Error in pipeline listener:', error)
     }
   }
@@ -366,7 +364,8 @@ export class Pipeline {
   removeAllListeners(type?: string): this {
     if (type) {
       this.listeners.delete(type)
-    } else {
+    }
+    else {
       this.listeners.clear()
     }
     return this

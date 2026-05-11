@@ -1,4 +1,4 @@
-import type { MiddlewareNext, PipelineContext, PluginEmitHook, PluginOnHook } from '../src/index'
+import type { EventListener, MiddlewareNext, PipelineContext, PluginEmitHook, PluginOnHook } from '../src/index'
 import { describe, expect, it, vi } from 'vitest'
 import { Middleware, Pipeline, Plugin } from '../src/index'
 
@@ -38,9 +38,9 @@ describe('pipeline Integration', () => {
     class CachePlugin extends Plugin {
       readonly name = 'cache-plugin'
       private cache = new Map<string, any>()
-      private listeners = new Map<string, Set<Function>>()
+      private listeners = new Map<string, Set<EventListener>>()
 
-      setup(pipeline: Pipeline) {
+      setup(_pipeline: Pipeline) {
         const emitHook: PluginEmitHook = async (type, payload, originalEmit) => {
           // Cache the event
           this.cache.set(`${type}:${JSON.stringify(payload)}`, {
@@ -75,7 +75,7 @@ describe('pipeline Integration', () => {
         if (!listeners)
           return
 
-        for (const [key, event] of this.cache.entries()) {
+        for (const event of this.cache.values()) {
           if (event.type === type) {
             const context = {
               event: {
@@ -90,7 +90,7 @@ describe('pipeline Integration', () => {
               try {
                 listener(context)
               }
-              catch (error) {
+              catch {
                 // Handle error
               }
             })
@@ -166,7 +166,7 @@ describe('pipeline Integration', () => {
       class ErrorPlugin extends Plugin {
         readonly name = 'error-plugin'
 
-        async setup(pipeline: Pipeline) {
+        async setup(_pipeline: Pipeline) {
           throw new Error('Plugin setup error')
         }
       }
@@ -215,7 +215,7 @@ describe('pipeline Integration', () => {
         readonly name = 'dynamic-plugin'
         interceptedEvents: any[] = []
 
-        setup(pipeline: Pipeline) {
+        setup(_pipeline: Pipeline) {
           const emitHook: PluginEmitHook = async (type, payload, originalEmit) => {
             this.interceptedEvents.push({ type, payload })
             await originalEmit(type, payload)

@@ -45,7 +45,7 @@ describe('exports and Types', () => {
 
       class TestPlugin extends Plugin {
         readonly name = 'test'
-        setup(pipeline: Pipeline) {
+        setup(_pipeline: Pipeline) {
           // Test implementation
         }
       }
@@ -135,7 +135,7 @@ describe('exports and Types', () => {
 
       class TestPlugin extends Plugin {
         readonly name = 'test'
-        setup(pipeline: Pipeline) {
+        setup(_pipeline: Pipeline) {
           // Setup implementation
         }
       }

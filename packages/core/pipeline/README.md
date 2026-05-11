@@ -44,10 +44,10 @@ Every event in the pipeline has a consistent structure:
 
 ```typescript
 interface PipelineEvent<T = any> {
-  type: string        // Event type identifier
-  payload: T          // Event data
-  timestamp: number   // When the event was created
-  id: string         // Unique event identifier
+  type: string // Event type identifier
+  payload: T // Event data
+  timestamp: number // When the event was created
+  id: string // Unique event identifier
 }
 ```
 
@@ -58,8 +58,8 @@ Events are wrapped in a context object that flows through middleware:
 ```typescript
 interface PipelineContext<T = any> {
   event: PipelineEvent<T>
-  handled: boolean          // Mark if event was handled
-  stopPropagation: boolean  // Stop further processing
+  handled: boolean // Mark if event was handled
+  stopPropagation: boolean // Stop further processing
 }
 ```
 
@@ -70,7 +70,7 @@ Create middleware to process events as they flow through the pipeline:
 ### Function-based Middleware
 
 ```typescript
-const loggingMiddleware = async (context, next) => {
+async function loggingMiddleware(context, next) {
   console.log(`Before: ${context.event.type}`)
   await next()
   console.log(`After: ${context.event.type}`)
@@ -100,7 +100,7 @@ class ValidationMiddleware extends Middleware {
       context.stopPropagation = true
       return
     }
-    
+
     await next()
     context.handled = true
   }
@@ -158,29 +158,34 @@ See [examples/websocket-plugin.ts](./examples/websocket-plugin.ts) for a complet
 #### Constructor
 
 ```typescript
-new Pipeline(options?: PipelineOptions)
+const pipeline = new Pipeline(options)
 ```
 
 Options:
+
 - `middlewares?: (MiddlewareFunction | Middleware)[]` - Initial middlewares
 - `plugins?: Plugin[]` - Initial plugins
 
 #### Methods
 
 **Event Management**
+
 - `emit<T>(type: string, payload: T): Promise<void>` - Emit an event
 - `on<T>(type: string, listener: EventListener<T>): this` - Add event listener
 - `off<T>(type: string, listener: EventListener<T>): this` - Remove event listener
 - `on<T>('*', listener: EventListener<T>): this` - Listen to all events
 
 **Middleware Management**
+
 - `addMiddleware(middleware: MiddlewareFunction | Middleware): this` - Add middleware
 - `clearMiddlewares(): this` - Remove all middlewares
 
 **Plugin Management**
+
 - `use(plugin: Plugin): this` - Install plugin
 
 **Utility Methods**
+
 - `getEventTypes(): string[]` - Get all registered event types
 - `getListenerCount(type: string): number` - Get listener count for event type
 - `removeAllListeners(type?: string): this` - Remove listeners
@@ -205,9 +210,9 @@ Abstract base class for creating plugins:
 abstract class Plugin {
   abstract readonly name: string
   abstract setup(pipeline: Pipeline): void | Promise<void>
-  
+
   protected setEmitHook(hook: PluginEmitHook): void
-  protected setOnHook(hook: PluginOnHook): void  
+  protected setOnHook(hook: PluginOnHook): void
   protected setOffHook(hook: PluginOffHook): void
 }
 ```
@@ -232,7 +237,7 @@ await pipeline.emit('game:start', { level: 1 })
 ### With Middleware
 
 ```typescript
-import { Pipeline, Middleware } from '@quajs/pipeline'
+import { Middleware, Pipeline } from '@quajs/pipeline'
 
 class TimingMiddleware extends Middleware {
   async handle(context, next) {
