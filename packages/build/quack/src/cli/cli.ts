@@ -821,7 +821,7 @@ async function loadConfig(source: string, options: any): Promise<QuackConfig> {
       const fileConfig = configModule.default || configModule
       config = { ...config, ...fileConfig }
     }
-    catch (error) {
+    catch {
       if (options.config) {
         throw new Error(`Failed to load config file: ${configPath}`)
       }

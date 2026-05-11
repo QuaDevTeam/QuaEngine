@@ -115,7 +115,7 @@ export class WorkspaceManager {
           throw new Error(`Bundle "${bundle.name}" source is not a directory: ${sourcePath}`)
         }
       }
-      catch (error) {
+      catch {
         throw new Error(`Bundle "${bundle.name}" source directory not found: ${sourcePath}`)
       }
 

@@ -7,6 +7,7 @@ import type {
   EncryptionAlgorithm,
   LocaleInfo,
 } from '../core/types'
+import { createHash } from 'node:crypto'
 import { createLogger } from '@quajs/logger'
 
 const logger = createLogger('quack:metadata')
@@ -566,15 +567,14 @@ export class MetadataGenerator {
     const combinedHash = sortedAssets.map(a => a.hash).join('')
 
     // Generate SHA-256 hash
-    const crypto = require('node:crypto')
-    return crypto.createHash('sha256').update(combinedHash).digest('hex')
+    return createHash('sha256').update(combinedHash).digest('hex')
   }
 
   /**
    * Validate version format
    */
   validateVersion(version: string): void {
-    const semverPattern = /^\d+\.\d+\.\d+(-[a-z0-9.-]+)?$/i
+    const semverPattern = /^\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/i
     if (!semverPattern.test(version)) {
       throw new Error(`Invalid version format: ${version}`)
     }

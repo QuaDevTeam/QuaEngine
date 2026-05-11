@@ -13,8 +13,8 @@ export { ZipBundler } from './bundlers/zip-bundler'
 export { defineConfig, QuackBundler } from './core/bundler'
 // Core types
 export type {
-  AssetContext,
   AssetCollectionContext,
+  AssetContext,
   AssetDiff,
   AssetInfo,
   AssetSubType,

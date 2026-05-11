@@ -322,7 +322,10 @@ export class MediaMetadataExtractor {
     }
 
     const chunk = buffer.subarray(12, 16).toString()
-    let width = 0; let height = 0; let animated = false; let hasAlpha = false
+    let width = 0
+    let height = 0
+    let animated = false
+    let hasAlpha = false
 
     if (chunk === 'VP8 ') {
       // Simple WebP
