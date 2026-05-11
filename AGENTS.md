@@ -297,6 +297,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Automated Setup**: Environment-aware package scaffolding
 - **Environment Selection**: Node.js only, Browser only, or Universal
 - **Consistent Configuration**: TypeScript, Vite, and build settings
+- **Package-local organization**: Every package should keep a clear, intentional `src/` subdirectory layout that matches its responsibilities instead of accumulating unrelated files in the package root or a single flat source folder.
 
 ## Future Roadmap
 
@@ -352,12 +353,22 @@ Each package is:
 
 ## Engineering Rules
 
-### No Backward Compatibility Before Release
-- QuaEngine has not shipped a formal public release yet, so implementation should prioritize clean current architecture over backward compatibility.
-- Do not keep deprecated APIs, legacy aliases, migration adapters, compatibility branches, or fallback code only for old internal behavior.
-- When changing an API or internal contract, update all in-repo call sites and tests directly instead of preserving the previous shape.
-- Remove compatibility code when it is no longer part of the intended design.
+### Active Development: No Legacy Compatibility
+- All QuaEngine packages, APIs, file layouts, schemas, examples, and docs are currently in active development until a formal public release establishes compatibility guarantees.
+- Prioritize the clean current architecture over backward compatibility. Do not preserve old internal behavior simply because it existed before.
+- Do not keep deprecated APIs, legacy aliases, migration adapters, compatibility branches, fallback paths, or dual old/new implementations.
+- When changing an API or internal contract, update all in-repo call sites, tests, examples, and docs directly to the new shape.
+- Remove legacy code as part of the change that makes it obsolete. Prefer deletion and direct replacement over wrappers or compatibility layers.
+- Keep code simple and explicit. Avoid abstractions, indirection, feature flags, or optional compatibility switches unless they serve the current intended architecture.
 - Backward compatibility becomes a requirement only after the project starts publishing formal release versions with public compatibility guarantees.
+
+### Package Structure Discipline
+- Every package must have a reasonable package-local directory structure under `src/` that reflects its responsibility boundaries.
+- Avoid dumping unrelated modules into a flat `src/` folder. Split by domain or layer, such as `core/`, `runtime/`, `contracts/`, `adapters/`, `plugins/`, `integrations/`, `components/`, `composables/`, `styles/`, `utils/`, or `test-helpers/` when those boundaries exist.
+- Keep package roots focused on package metadata, build config, README/docs, and public entry files. Runtime implementation belongs under `src/`.
+- Keep public exports intentional through `src/index.ts` and explicit sub-entry files. Do not expose internal modules accidentally because of directory convenience.
+- Do not create generic folders such as `misc`, `legacy`, `old`, `new`, or `temp`. If code no longer fits the intended structure, move or remove it.
+- Package structure should stay proportional: small packages may stay compact, but growing packages must be split before files become catch-all modules.
 
 ### Commit Message Convention
 - All git commit messages must use the exact scoped format `<type>(<component>): <description>`.

@@ -7,6 +7,13 @@ description: QuaEngine architecture guardrails for renderer statelessness, packa
 
 ## Core Rules
 
+### Active development
+- Treat all QuaEngine packages, APIs, schemas, examples, and docs as active pre-release work.
+- Do not preserve deprecated APIs, legacy aliases, migration adapters, compatibility branches, fallback paths, or old/new dual implementations.
+- When changing a contract, update in-repo callers, tests, examples, and docs directly to the new shape.
+- Remove obsolete code in the same change that makes it obsolete.
+- Keep code simple and explicit; add abstraction only when it serves the current architecture, not compatibility with old behavior.
+
 ### Renderer
 - Treat the renderer as a projection canvas.
 - Consume pipeline events and engine view state.
@@ -30,6 +37,13 @@ description: QuaEngine architecture guardrails for renderer statelessness, packa
 - Put decorators, runtime helpers, and compiler lowering in that package's own public sub-entry, such as `./script-compiler`.
 - Keep `@quajs/script-compiler` focused on orchestration, discovery, and import wiring.
 - Keep `@quajs/engine` focused on state ownership and contracts, not concrete feature behavior.
+
+### Package structure
+- Every package should have an intentional `src/` directory layout that matches its responsibility boundaries.
+- Split growing packages by domain or layer, such as `core/`, `runtime/`, `contracts/`, `adapters/`, `plugins/`, `integrations/`, `components/`, `composables/`, `styles/`, or `utils/` when those boundaries exist.
+- Keep runtime implementation out of package roots; package roots should focus on metadata, build config, README/docs, and public entry files.
+- Keep public exports deliberate through `src/index.ts` and explicit sub-entry files.
+- Do not create `legacy`, `old`, `new`, `temp`, or generic catch-all folders for code that should be moved or removed.
 
 ### Engine and Web APIs
 - Do not use Web APIs directly in engine/core packages.
