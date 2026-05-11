@@ -41,13 +41,12 @@ export {
   onAudioRenderToLogic,
 } from './contracts'
 
-export { audioDecoratorMappings, createAudioDecoratorCompiler, scriptCompiler } from './script-compiler'
-
 export type {
   AudioAutomationCurve,
   AudioAutomationOptions,
   AudioAutomationProjection,
   AudioBusId,
+  AudioChapterDirectiveOptions,
   AudioEqBand,
   AudioEqOptions,
   AudioGainOptions,
@@ -61,8 +60,9 @@ export type {
   AudioTrackProjection,
   AudioTrackState,
   AudioViewProjection,
-  AudioChapterDirectiveOptions,
 } from './contracts'
+
+export { audioDecoratorMappings, createAudioDecoratorCompiler, scriptCompiler } from './script-compiler'
 
 export interface AudioPluginOptions {
   defaultProjection?: Partial<AudioViewProjection>
@@ -79,12 +79,12 @@ export class AudioPlugin extends BaseEnginePlugin {
     const engine = this.ctx!.engine
     const pipeline = this.ctx!.pipeline
     this.disposers.push(
-      onAudioRenderToLogic(pipeline, AudioEvents.ENDED, payload => {
+      onAudioRenderToLogic(pipeline, AudioEvents.ENDED, (payload) => {
         return handleTrackEnded(engine, payload)
       }),
     )
     this.disposers.push(
-      onAudioRenderToLogic(pipeline, AudioEvents.INTERRUPTED, payload => {
+      onAudioRenderToLogic(pipeline, AudioEvents.INTERRUPTED, (payload) => {
         return handleTrackInterrupted(engine, payload)
       }),
     )
@@ -94,7 +94,7 @@ export class AudioPlugin extends BaseEnginePlugin {
       }),
     )
     this.disposers.push(
-      onAudioRenderToLogic(pipeline, AudioEvents.ERROR, async payload => {
+      onAudioRenderToLogic(pipeline, AudioEvents.ERROR, async (payload) => {
         const current = getAudioProjection(engine)
         await engine.setPluginProjection(AUDIO_PLUGIN_ID, {
           ...current,

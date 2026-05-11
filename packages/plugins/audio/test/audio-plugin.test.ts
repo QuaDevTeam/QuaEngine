@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest'
 import { QuaEngine } from '@quajs/engine'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   AUDIO_PLUGIN_ID,
   AudioPlugin,
