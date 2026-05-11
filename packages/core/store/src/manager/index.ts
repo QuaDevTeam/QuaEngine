@@ -2,12 +2,14 @@ import type {
   QuaConstructorOpts,
   QuaRestoreOptions,
   QuaScopedRestoreOptions,
+  QuaSerializedState,
   QuaSnapshot,
   QuaSnapshotMeta,
   QuaSnapshotOptions,
-  QuaState,
+  QuaStateSerializer,
 } from '../types/base'
 import type { StorageConfig } from '../types/storage'
+import { assertStateSerializer } from '../serializer'
 import { StorageManager } from '../storage/manager'
 import QuaStore from '../store'
 import logger, { generateId } from '../utils'
@@ -59,6 +61,7 @@ class QuaStoreManager {
   public static stores: Record<string, QuaStore> = {}
   private static storageManager: StorageManager | null = null
   private static globalStorageConfig: StorageConfig | null = null
+  private static globalSerializer: QuaStateSerializer | null = null
 
   /**
    * Configure global storage settings
@@ -66,6 +69,13 @@ class QuaStoreManager {
   public static configureStorage(config: StorageConfig) {
     this.globalStorageConfig = config
     this.storageManager = new StorageManager(config)
+  }
+
+  /**
+   * Configure global state serialization settings for stores created after this call
+   */
+  public static configureSerialization(serializer: QuaStateSerializer | null) {
+    this.globalSerializer = serializer ? assertStateSerializer(serializer) : null
   }
 
   /**
@@ -87,7 +97,10 @@ class QuaStoreManager {
     }
 
     logger.module('manager').info(`Creating store: ${name}`)
-    const newStore = new QuaStore(opts.name, opts)
+    const storeOptions = this.globalSerializer && !opts.serializer
+      ? { ...opts, serializer: this.globalSerializer }
+      : opts
+    const newStore = new QuaStore(opts.name, storeOptions)
     QuaStoreManager.stores[name] = newStore
     logger.module('manager').debug(`Store created and registered: ${name}`)
     return newStore
@@ -154,14 +167,14 @@ class QuaStoreManager {
       ? this.normalizeStoreNames(storeNames, { allowEmpty: true })
       : this.normalizeStoreNames(storeNames)
     const snapshotId = id || generateId()
-    const allStoresData: Record<string, any> = {}
+    const allStoresData: Record<string, QuaSerializedState> = {}
 
     for (const name of normalizedStoreNames) {
       const store = this.stores[name]
       if (!store) {
         throw new Error(`Cannot find the certain store named "${name}".`)
       }
-      allStoresData[name] = cloneState(store.state)
+      allStoresData[name] = store.serializeState()
     }
 
     const snapshotType: 'store' | 'stores' | 'all' = options.allStores
@@ -191,6 +204,17 @@ class QuaStoreManager {
     if (!store) {
       throw new Error(`Cannot find the certain store named "${name}".`)
     }
+
+    const storageManager = await this.getStorageManager()
+    const snapshot = await storageManager.getSnapshot(snapshotId)
+    if (snapshot) {
+      await this.restoreSnapshotData(snapshot, {
+        ...options,
+        storeNames: [name],
+      })
+      return
+    }
+
     await store.restore(snapshotId, options)
   }
 
@@ -370,13 +394,13 @@ class QuaStoreManager {
         continue
       }
 
-      store.state = cloneState(storeData)
+      store.restoreSerializedState(storeData)
     }
   }
 
-  private static getSnapshotDataByStore(snapshot: QuaSnapshot): Record<string, QuaState> {
+  private static getSnapshotDataByStore(snapshot: QuaSnapshot): Record<string, QuaSerializedState> {
     if (this.isStoreGroupSnapshot(snapshot)) {
-      return snapshot.data as Record<string, QuaState>
+      return snapshot.data as Record<string, QuaSerializedState>
     }
 
     return {
@@ -454,11 +478,12 @@ class QuaStoreManager {
   }
 
   /**
-   * Reset storage manager and global storage config (for testing purposes)
+   * Reset storage manager and global state config (for testing purposes)
    */
   public static resetStorageManager(): void {
     this.storageManager = null
     this.globalStorageConfig = null
+    this.globalSerializer = null
   }
 
   /**
@@ -474,10 +499,6 @@ class QuaStoreManager {
     }
     return null
   }
-}
-
-function cloneState<T>(state: T): T {
-  return JSON.parse(JSON.stringify(state))
 }
 
 function isSnapshotNotFoundError(error: unknown): boolean {

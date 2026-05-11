@@ -1,5 +1,23 @@
+import type { QuaStateSerializer } from '../src/index'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createStore, MemoryBackend, QuaStoreManager } from '../src/index'
+
+const mapValuesSerializer: QuaStateSerializer = {
+  serialize: (state) => {
+    const typedState = state as { values: Map<string, number> }
+    return {
+      ...typedState,
+      values: Array.from(typedState.values.entries()),
+    }
+  },
+  deserialize: (serializedState) => {
+    const typedState = serializedState as { values: [string, number][] }
+    return {
+      ...typedState,
+      values: new Map(typedState.values),
+    }
+  },
+}
 
 describe('snapshot System', () => {
   beforeEach(() => {
@@ -247,6 +265,42 @@ describe('snapshot System', () => {
       expect(progressionStore.state.courage).toBe(2)
     })
 
+    it('should restore a single store from a scoped snapshot through restoreStore', async () => {
+      QuaStoreManager.configureStorage({ backend: MemoryBackend })
+
+      const progressionStore = createStore({
+        name: 'progression',
+        state: { charm: 1 },
+        mutations: {
+          setCharm: (state, charm: number) => {
+            state.charm = charm
+          },
+        },
+      })
+
+      const inventoryStore = createStore({
+        name: 'inventory',
+        state: { items: ['snack'] },
+        mutations: {
+          addItem: (state, item: string) => {
+            state.items.push(item)
+          },
+        },
+      })
+
+      progressionStore.commit('setCharm', 6)
+      inventoryStore.commit('addItem', 'ticket')
+      const snapshotId = await QuaStoreManager.snapshotStores(['progression', 'inventory'], 'restore-one-from-group')
+
+      progressionStore.commit('setCharm', 2)
+      inventoryStore.commit('addItem', 'ring')
+
+      await QuaStoreManager.restoreStore('progression', snapshotId, { force: true })
+
+      expect(progressionStore.state.charm).toBe(6)
+      expect(inventoryStore.state.items).toEqual(['snack', 'ticket', 'ring'])
+    })
+
     it('should auto restore global snapshots through the unified restore API', async () => {
       QuaStoreManager.configureStorage({ backend: MemoryBackend })
 
@@ -298,6 +352,68 @@ describe('snapshot System', () => {
         type: 'stores',
         storeNames: ['store1', 'store2'],
       })
+    })
+
+    it('should use per-store serializers for scoped snapshots', async () => {
+      QuaStoreManager.configureStorage({ backend: MemoryBackend })
+
+      const statsStore = createStore({
+        name: 'stats',
+        state: { values: new Map([['charm', 1]]) },
+        serializer: mapValuesSerializer,
+        mutations: {
+          setValue: (state, payload: { key: string, value: number }) => {
+            state.values.set(payload.key, payload.value)
+          },
+        },
+      })
+
+      const inventoryStore = createStore({
+        name: 'inventory',
+        state: { items: ['snack'] },
+        mutations: {
+          addItem: (state, item: string) => {
+            state.items.push(item)
+          },
+        },
+      })
+
+      statsStore.commit('setValue', { key: 'charm', value: 5 })
+      inventoryStore.commit('addItem', 'ticket')
+      const snapshotId = await QuaStoreManager.snapshotStores(['stats', 'inventory'], 'serialized-scoped')
+
+      statsStore.commit('setValue', { key: 'charm', value: 9 })
+      inventoryStore.commit('addItem', 'ring')
+
+      await QuaStoreManager.restoreStores(snapshotId, { force: true })
+
+      expect(statsStore.state.values).toBeInstanceOf(Map)
+      expect(statsStore.state.values.get('charm')).toBe(5)
+      expect(inventoryStore.state.items).toEqual(['snack', 'ticket'])
+    })
+
+    it('should use the global serializer for stores created through the manager', async () => {
+      QuaStoreManager.configureStorage({ backend: MemoryBackend })
+      QuaStoreManager.configureSerialization(mapValuesSerializer)
+
+      const statsStore = createStore({
+        name: 'stats',
+        state: { values: new Map([['focus', 2]]) },
+        mutations: {
+          setValue: (state, payload: { key: string, value: number }) => {
+            state.values.set(payload.key, payload.value)
+          },
+        },
+      })
+
+      statsStore.commit('setValue', { key: 'focus', value: 7 })
+      const snapshotId = await QuaStoreManager.snapshotStore('stats', 'global-serializer')
+
+      statsStore.commit('setValue', { key: 'focus', value: 1 })
+      await QuaStoreManager.restoreStore('stats', snapshotId, { force: true })
+
+      expect(statsStore.state.values).toBeInstanceOf(Map)
+      expect(statsStore.state.values.get('focus')).toBe(7)
     })
 
     it('should create and restore global snapshots', async () => {

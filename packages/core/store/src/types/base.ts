@@ -2,6 +2,13 @@ export interface QuaState {
   [key: string]: any
 }
 
+export type QuaSerializedState = any
+
+export interface QuaStateSerializer {
+  serialize: <T = QuaState>(state: T) => QuaSerializedState
+  deserialize: <T = QuaState>(serializedState: QuaSerializedState) => T
+}
+
 export type QuaStoreSnapshotScope = 'all' | string | readonly string[]
 
 export interface QuaSnapshotScopeMeta {
@@ -38,6 +45,7 @@ export interface QuaConstructorOpts {
   getters?: QuaGetters
   mutations?: QuaMutations
   actions?: QuaActions
+  serializer?: QuaStateSerializer
   storage?: import('./storage').StorageConfig
 }
 
@@ -55,7 +63,7 @@ export interface QuaScopedRestoreOptions extends QuaRestoreOptions {
 export interface QuaSnapshot {
   id: string
   storeName: string
-  data: QuaState
+  data: QuaSerializedState
   createdAt: Date
   scope?: QuaSnapshotScopeMeta
 }
@@ -83,7 +91,7 @@ export interface QuaGameSaveSlot {
   }
   // Complete store state including all snapshots
   storeData: {
-    state: QuaState
+    state: QuaSerializedState
     snapshots: QuaSnapshot[]
   }
 }

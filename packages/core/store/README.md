@@ -215,6 +215,39 @@ await QuaStoreManager.restore(allSnapshotId, { force: true })
 const snapshots = await QuaStoreManager.listSnapshots()
 ```
 
+## State Serialization
+
+Store state serialization is pluggable. The default serializer keeps the current JSON clone behavior, while custom serializers can encode state types such as `Map`, `Date`, or domain classes before snapshots and save slots are written.
+
+```typescript
+import { configureSerialization, createStore, QuaStateSerializer } from '@quaengine/store'
+
+const mapSerializer: QuaStateSerializer = {
+  serialize(state) {
+    return {
+      ...state,
+      values: Array.from(state.values.entries())
+    }
+  },
+  deserialize(serializedState) {
+    return {
+      ...serializedState,
+      values: new Map(serializedState.values)
+    }
+  }
+}
+
+// Per-store serializer
+const growthStore = createStore({
+  name: 'growth',
+  state: { values: new Map([['charm', 1]]) },
+  serializer: mapSerializer
+})
+
+// Global serializer for stores created after this call
+configureSerialization(mapSerializer)
+```
+
 ## Global Configuration
 
 Configure storage settings globally:
@@ -258,6 +291,7 @@ commit('game/levelUp')
 
 - `createStore(options)` - Create a new store
 - `configureStorage(config)` - Configure global storage settings
+- `configureSerialization(serializer)` - Configure global state serialization for subsequently created stores
 - `useStore(name)` - Get a store by name
 - `dispatch(action, payload)` - Dispatch cross-store actions
 - `commit(mutation, payload)` - Commit cross-store mutations
