@@ -462,7 +462,7 @@ export class QuackBundler extends EventEmitter {
     const versionInfo = await versionManager.getVersionInfo(config.versioning || {})
 
     // Normalize compression
-    let compressionAlgorithm = config.compression?.algorithm ?? (format === 'qpk' ? 'lzma' : 'deflate') as CompressionAlgorithm
+    const compressionAlgorithm = config.compression?.algorithm ?? (format === 'qpk' ? 'lzma' : 'deflate') as CompressionAlgorithm
     if (format === 'qpk' && compressionAlgorithm === 'deflate') {
       throw new Error('QPK compression only supports none or lzma')
     }

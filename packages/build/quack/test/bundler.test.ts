@@ -53,7 +53,7 @@ describe('quackBundler', () => {
       await mkdir(join(tempDir, 'data'), { recursive: true })
       await writeFile(join(tempDir, 'data', 'config.json'), JSON.stringify({ test: true }))
 
-      const options = {
+      const _options = {
         format: 'qpk' as const,
         compression: { algorithm: 'lzma' as const, level: 1 },
         encryption: { enabled: true, algorithm: 'xor' as const },
@@ -86,7 +86,7 @@ describe('quackBundler', () => {
       const formats: Array<'qpk' | 'zip'> = ['qpk', 'zip']
 
       for (const format of formats) {
-        const options = {
+        const _options = {
           format,
           compression: { algorithm: 'none' as const, level: 0 },
           encryption: { enabled: false, algorithm: 'none' as const },
@@ -164,7 +164,7 @@ describe('quackBundler', () => {
       await writeFile(join(tempDir, 'assets', 'temp.tmp'), 'temporary file')
       await writeFile(join(tempDir, 'node_modules', 'package.js'), 'node module')
 
-      const options = {
+      const _options = {
         format: 'qpk' as const,
         compression: { algorithm: 'none' as const, level: 0 },
         encryption: { enabled: false, algorithm: 'none' as const },
@@ -236,14 +236,14 @@ describe('quackBundler', () => {
       const largeContent = 'x'.repeat(10000)
       await writeFile(join(tempDir, 'data', 'large.txt'), largeContent)
 
-      const uncompressedOptions = {
+      const _uncompressedOptions = {
         format: 'qpk' as const,
         compression: { algorithm: 'none' as const, level: 0 },
         encryption: { enabled: false, algorithm: 'none' as const },
         version: '1.0.0',
       }
 
-      const compressedOptions = {
+      const _compressedOptions = {
         format: 'qpk' as const,
         compression: { algorithm: 'lzma' as const, level: 1 },
         encryption: { enabled: false, algorithm: 'none' as const },
@@ -279,7 +279,7 @@ describe('quackBundler', () => {
       await mkdir(join(tempDir, 'secure'), { recursive: true })
       await writeFile(join(tempDir, 'secure', 'secret.txt'), 'sensitive data')
 
-      const options = {
+      const _options = {
         format: 'qpk' as const,
         compression: { algorithm: 'none' as const, level: 0 },
         encryption: { enabled: true, algorithm: 'xor' as const },
@@ -360,7 +360,7 @@ describe('quackBundler', () => {
       const invalidVersions = ['1.0', 'v1.0.0', '1.0.0.0', 'invalid']
 
       for (const version of invalidVersions) {
-        const options = {
+        const _options = {
           format: 'qpk' as const,
           compression: { algorithm: 'none' as const, level: 0 },
           encryption: { enabled: false, algorithm: 'none' as const },

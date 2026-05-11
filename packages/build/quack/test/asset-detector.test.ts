@@ -19,7 +19,7 @@ describe('assetDetector', () => {
     try {
       await rm(tempDir, { recursive: true, force: true })
     }
-    catch (error) {
+    catch {
       // Ignore cleanup errors
     }
   })
@@ -73,7 +73,7 @@ describe('assetDetector', () => {
         { file: 'data/config.json', expectedType: 'data' },
       ]
 
-      for (const { file, expectedType } of typeTests) {
+      for (const { file } of typeTests) {
         const fullPath = join(tempDir, file)
         await mkdir(join(fullPath, '..'), { recursive: true })
         await writeFile(fullPath, 'test content')
@@ -241,8 +241,6 @@ describe('assetDetector', () => {
         await mkdir(join(fullPath, '..'), { recursive: true })
         await writeFile(fullPath, 'content')
       }
-
-      const ignorePatterns = ['**/.DS_Store', '**/*.tmp', '**/node_modules/**']
 
       // Since discoverAssets doesn't take ignore patterns as parameter,
       // we'll need to set them on the detector instance
