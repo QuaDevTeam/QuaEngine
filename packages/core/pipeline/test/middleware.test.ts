@@ -111,10 +111,11 @@ describe('middleware', () => {
       }
 
       const middleware = new SetupMiddleware()
-      new Pipeline({ middlewares: [middleware] })
+      const setupPipeline = new Pipeline({ middlewares: [middleware] })
 
       await new Promise(resolve => setTimeout(resolve, 0))
 
+      expect(setupPipeline).toBeInstanceOf(Pipeline)
       expect(middleware.setup).toHaveBeenCalledOnce()
     })
 
@@ -122,7 +123,7 @@ describe('middleware', () => {
       class AsyncSetupMiddleware extends Middleware {
         setupCompleted = false
 
-        async setup(pipeline: Pipeline) {
+        async setup(_pipeline: Pipeline) {
           await new Promise(resolve => setTimeout(resolve, 10))
           this.setupCompleted = true
         }
@@ -221,7 +222,7 @@ describe('middleware', () => {
 
   describe('error handling in middleware', () => {
     class ErrorMiddleware extends Middleware {
-      async handle(context: PipelineContext, next: MiddlewareNext) {
+      async handle(_context: PipelineContext, _next: MiddlewareNext) {
         throw new Error('Middleware failed')
       }
     }

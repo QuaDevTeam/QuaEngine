@@ -1,4 +1,4 @@
-import type { PluginEmitHook, PluginOffHook, PluginOnHook } from '../src/index'
+import type { EventListener, PluginEmitHook, PluginOffHook, PluginOnHook } from '../src/index'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Pipeline, Plugin } from '../src/index'
 
@@ -14,7 +14,7 @@ describe('plugin', () => {
       readonly name = 'test-plugin'
       setupCalled = false
 
-      setup(pipeline: Pipeline) {
+      setup(_pipeline: Pipeline) {
         this.setupCalled = true
       }
     }
@@ -48,7 +48,7 @@ describe('plugin', () => {
         readonly name = 'emit-hook-plugin'
         emitCalls: Array<{ type: string, payload: unknown }> = []
 
-        setup(pipeline: Pipeline) {
+        setup(_pipeline: Pipeline) {
           const emitHook: PluginEmitHook = async (type, payload, originalEmit) => {
             this.emitCalls.push({ type, payload })
 
@@ -90,7 +90,7 @@ describe('plugin', () => {
         class PreventEmitPlugin extends Plugin {
           readonly name = 'prevent-emit-plugin'
 
-          setup(pipeline: Pipeline) {
+          setup(_pipeline: Pipeline) {
             const emitHook: PluginEmitHook = async (type, payload, originalEmit) => {
               // Don't call originalEmit - prevent the event
               if (type === 'blocked') {
@@ -124,7 +124,7 @@ describe('plugin', () => {
         readonly name = 'on-hook-plugin'
         registrations: Array<{ type: string, listener: unknown }> = []
 
-        setup(pipeline: Pipeline) {
+        setup(_pipeline: Pipeline) {
           const onHook: PluginOnHook = (type, listener, originalOn) => {
             this.registrations.push({ type, listener })
             return originalOn(type, listener)
@@ -152,7 +152,7 @@ describe('plugin', () => {
         class ModifyOnPlugin extends Plugin {
           readonly name = 'modify-on-plugin'
 
-          setup(pipeline: Pipeline) {
+          setup(_pipeline: Pipeline) {
             const onHook: PluginOnHook = (type, listener, originalOn) => {
               // Wrap the listener
               const wrappedListener = (context: any) => {
@@ -190,7 +190,7 @@ describe('plugin', () => {
         readonly name = 'off-hook-plugin'
         removals: Array<{ type: string, listener: unknown }> = []
 
-        setup(pipeline: Pipeline) {
+        setup(_pipeline: Pipeline) {
           const offHook: PluginOffHook = (type, listener, originalOff) => {
             this.removals.push({ type, listener })
             return originalOff(type, listener)
@@ -219,18 +219,18 @@ describe('plugin', () => {
     describe('combined hooks', () => {
       class NetworkPlugin extends Plugin {
         readonly name = 'network-plugin'
-        private networkListeners = new Map<string, Set<Function>>()
+        private networkListeners = new Map<string, Set<EventListener>>()
 
         setup(pipeline: Pipeline) {
           // Intercept emit to send over network
-          const emitHook: PluginEmitHook = async (type, payload, originalEmit) => {
+          const emitHook: PluginEmitHook = async (type, payload, _originalEmit) => {
             // Simulate network send
             this.sendToNetwork(type, payload)
             // Don't call originalEmit - we're replacing local with network
           }
 
           // Intercept on to register network listeners
-          const onHook: PluginOnHook = (type, listener, originalOn) => {
+          const onHook: PluginOnHook = (type, listener, _originalOn) => {
             if (!this.networkListeners.has(type)) {
               this.networkListeners.set(type, new Set())
             }
@@ -269,7 +269,7 @@ describe('plugin', () => {
               try {
                 listener(context)
               }
-              catch (error) {
+              catch {
                 // Handle error
               }
             })
@@ -307,7 +307,7 @@ describe('plugin', () => {
       readonly name = 'async-plugin'
       setupCompleted = false
 
-      async setup(pipeline: Pipeline) {
+      async setup(_pipeline: Pipeline) {
         await new Promise(resolve => setTimeout(resolve, 10))
         this.setupCompleted = true
       }
@@ -331,7 +331,7 @@ describe('plugin', () => {
       class ErrorPlugin extends Plugin {
         readonly name = 'error-plugin'
 
-        async setup(pipeline: Pipeline) {
+        async setup(_pipeline: Pipeline) {
           throw new Error('Setup failed')
         }
       }

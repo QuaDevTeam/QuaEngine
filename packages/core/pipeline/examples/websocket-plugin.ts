@@ -1,12 +1,13 @@
-// Example WebSocket Plugin demonstrating network event transport
-import { Plugin, type Pipeline, type EventListener, type PluginEmitHook, type PluginOnHook, type PluginOffHook } from '../src/index.js'
+import type { EventListener, Pipeline, PluginEmitHook, PluginOffHook, PluginOnHook } from '../src/index.js'
 import { getPackageLogger } from '@quajs/logger'
+// Example WebSocket Plugin demonstrating network event transport
+import { Plugin } from '../src/index.js'
 
 const logger = getPackageLogger('pipeline').module('websocket-plugin')
 
 export class WebSocketPlugin extends Plugin {
   readonly name = 'websocket-transport'
-  
+
   private ws?: WebSocket
   private url: string
   private listeners = new Map<string, Set<EventListener>>()
@@ -17,10 +18,10 @@ export class WebSocketPlugin extends Plugin {
     this.url = url
   }
 
-  async setup(pipeline: Pipeline): Promise<void> {
+  async setup(_pipeline: Pipeline): Promise<void> {
     // Initialize WebSocket connection
     await this.connect()
-    
+
     // Set up hooks to take over emit/on/off
     this.setEmitHook(this.handleEmit.bind(this))
     this.setOnHook(this.handleOn.bind(this))
@@ -31,34 +32,36 @@ export class WebSocketPlugin extends Plugin {
     return new Promise((resolve, reject) => {
       try {
         this.ws = new WebSocket(this.url)
-        
+
         this.ws.onopen = () => {
           logger.info(`Connected to ${this.url}`)
           this.connected = true
           resolve()
         }
-        
+
         this.ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data as string)
             if (data.type && data.payload !== undefined) {
               this.handleIncomingEvent(data.type, data.payload)
             }
-          } catch (error) {
+          }
+          catch (error) {
             logger.error('Failed to parse incoming message:', error)
           }
         }
-        
+
         this.ws.onclose = () => {
           logger.info('Connection closed')
           this.connected = false
         }
-        
+
         this.ws.onerror = (error) => {
           logger.error('WebSocket error:', error)
           reject(error)
         }
-      } catch (error) {
+      }
+      catch (error) {
         reject(error)
       }
     })
@@ -67,24 +70,25 @@ export class WebSocketPlugin extends Plugin {
   private handleIncomingEvent(type: string, payload: unknown): void {
     const specificListeners = this.listeners.get(type)
     const wildcardListeners = this.listeners.get('*')
-    
+
     const context = {
       event: {
         type,
         payload,
         timestamp: Date.now(),
-        id: `ws-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
+        id: `ws-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       },
       handled: false,
-      stopPropagation: false
+      stopPropagation: false,
     }
 
     // Notify specific listeners
     if (specificListeners) {
-      specificListeners.forEach(listener => {
+      specificListeners.forEach((listener) => {
         try {
           void listener(context)
-        } catch (error) {
+        }
+        catch (error) {
           logger.error('Error in listener:', error)
         }
       })
@@ -92,10 +96,11 @@ export class WebSocketPlugin extends Plugin {
 
     // Notify wildcard listeners
     if (wildcardListeners) {
-      wildcardListeners.forEach(listener => {
+      wildcardListeners.forEach((listener) => {
         try {
           void listener(context)
-        } catch (error) {
+        }
+        catch (error) {
           logger.error('Error in wildcard listener:', error)
         }
       })
@@ -114,7 +119,8 @@ export class WebSocketPlugin extends Plugin {
       const message = JSON.stringify({ type, payload })
       this.ws.send(message)
       logger.debug(`Sent event: ${type}`)
-    } catch (error) {
+    }
+    catch (error) {
       logger.error('Failed to send event:', error)
       // Fallback to local emit
       await originalEmit(type, payload)
@@ -128,7 +134,7 @@ export class WebSocketPlugin extends Plugin {
       this.listeners.set(type, new Set())
     }
     this.listeners.get(type)!.add(listener)
-    
+
     // Also register with local pipeline for fallback
     return originalOn(type, listener)
   }
@@ -143,7 +149,7 @@ export class WebSocketPlugin extends Plugin {
         this.listeners.delete(type)
       }
     }
-    
+
     // Also remove from local pipeline
     return originalOff(type, listener)
   }
