@@ -121,7 +121,7 @@ describe('quaStore Core', () => {
         getters: {
           validGetter: state => state.count,
         },
-      });
+      })
 
       // Manually set an invalid getter to test error handling
       const storeWithInvalidGetter = store as any
