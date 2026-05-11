@@ -5,7 +5,7 @@ import { createHotReloadAwareTransformer } from './integrations/hot-reload-trans
 import { createPluginAwareTransformer } from './integrations/plugin-aware-transformer'
 
 export { generateQuaScriptModuleDeclaration } from './core/declaration'
-export { parseQuaScriptDocument } from './core/document'
+export { createLineStarts, parseQuaScriptDocument, positionAt, rangeFromOffsets } from './core/document'
 
 // Hot-reload manager
 export {

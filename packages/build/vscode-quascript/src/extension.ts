@@ -36,7 +36,7 @@ export function activate(context: ExtensionContext): void {
         projectRoot: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
       },
       synchronize: {
-        fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{qs,ts,js,json}'),
+        fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{qs,ts,tsx,js,jsx,json}'),
       },
     },
   )

@@ -2,11 +2,43 @@
 
 Language Server Protocol support for QuaScript `.qs` files.
 
-The server reuses `@quajs/script-compiler` document parsing so editor diagnostics and build-time compilation share the same syntax model. The first implementation provides:
+The server reuses `@quajs/script-compiler` document parsing so editor diagnostics and build-time compilation share the same syntax model. It provides:
 
 - `.qs` structure diagnostics for `<script lang="ts">` and `<script setup lang="ts">`
-- virtual TypeScript generation for editor diagnostics
-- completions for decorators, `scope`/setup variables, and discovered character names
-- hover text for QuaScript decorators and `scope`
+- source-mapped virtual TypeScript documents for module script, setup script, `${...}`, choice `if`, and decorator args
+- TypeScript semantic diagnostics, completions, hover, and go-to-definition through the TypeScript language service
+- decorator completions from plugin discovery
+- decorator argument completions from package-local `quajs.language` metadata
+- character completions from current-file speakers and `assets/characters/*`
 
 Feature-specific completions should be contributed by the owning feature package instead of being hardcoded in the core compiler.
+
+## Plugin Language Contributions
+
+Feature packages can contribute editor behavior through package metadata:
+
+```json
+{
+  "quajs": {
+    "language": {
+      "decorators": {
+        "SetBackground": {
+          "args": [
+            {
+              "name": "asset",
+              "assetRoots": ["assets/images"],
+              "assetExtensions": [".png", ".webp"]
+            },
+            {
+              "name": "transition",
+              "values": ["instant", "fade", "crossfade"]
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+The language server owns only the generic schema and completion plumbing. Asset directories, static argument values, and character-name hints stay in the package that owns the decorator.

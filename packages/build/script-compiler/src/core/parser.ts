@@ -27,6 +27,10 @@ interface TemplateScanResult {
     message: string
     start: number
   }>
+  expressionRanges: Array<{
+    end: number
+    start: number
+  }>
   expressions: string[]
   parts: string[]
 }
@@ -205,6 +209,13 @@ export class QuaScriptParser {
           text: dialogue.text,
           decorators,
           templateExpressions: templateScan.expressions,
+          templateExpressionRanges: templateScan.expressionRanges.map(expressionRange =>
+            rangeFromOffsets(
+              this.lineStarts,
+              dialogue.textOffset + expressionRange.start,
+              dialogue.textOffset + expressionRange.end,
+            ),
+          ),
           range: dialogueLine.range,
         } as QuaScriptDialogue,
         range: dialogueLine.range,
@@ -270,7 +281,10 @@ export class QuaScriptParser {
       return null
     }
 
-    const body = line.text.slice(2).trim()
+    const rawBody = line.text.slice(2)
+    const bodyLeading = rawBody.length - rawBody.trimStart().length
+    const body = rawBody.trim()
+    const bodyOffset = line.offset + 2 + bodyLeading
     const arrow = splitTopLevelArrow(body)
     const conditionSplit = arrow.after
       ? splitTopLevelKeyword(arrow.after.trim(), 'if')
@@ -290,11 +304,15 @@ export class QuaScriptParser {
 
     const target = targetSource?.trim()
     const id = target || this.slugChoiceId(text)
+    const conditionRange = condition
+      ? this.createChoiceConditionRange(body, bodyOffset, arrow, conditionSplit)
+      : undefined
     return {
       id,
       text,
       target: target || id,
       condition: condition?.trim(),
+      conditionRange,
       range: line.range,
     }
   }
@@ -320,7 +338,9 @@ export class QuaScriptParser {
       return null
     }
 
-    const rest = decoratorSource.slice(name.length).trim()
+    const restSource = decoratorSource.slice(name.length)
+    const restLeading = restSource.length - restSource.trimStart().length
+    const rest = restSource.trim()
     if (!rest) {
       return { name, args: [], range: line.range }
     }
@@ -335,11 +355,36 @@ export class QuaScriptParser {
     }
 
     const argsString = rest.slice(1, -1)
+    const argsStart = line.offset + 1 + name.length + restLeading + 1
     return {
       name,
       args: this.parseDecoratorArgs(argsString, line),
+      argsRange: rangeFromOffsets(this.lineStarts, argsStart, argsStart + argsString.length),
       range: line.range,
     }
+  }
+
+  private createChoiceConditionRange(
+    body: string,
+    bodyOffset: number,
+    arrow: { after?: string, before: string, index?: number },
+    conditionSplit: { after?: string, before: string, index?: number },
+  ): SourceRange | undefined {
+    if (conditionSplit.after === undefined || conditionSplit.index === undefined) {
+      return undefined
+    }
+
+    const source = arrow.after === undefined
+      ? body
+      : arrow.after
+    const sourceOffset = arrow.after === undefined
+      ? bodyOffset
+      : bodyOffset + (arrow.index ?? 0) + 2
+    const leading = source.length - source.trimStart().length
+    const conditionLeading = conditionSplit.after.length - conditionSplit.after.trimStart().length
+    const start = sourceOffset + leading + conditionSplit.index + 'if'.length + conditionLeading
+    const end = start + conditionSplit.after.trim().length
+    return rangeFromOffsets(this.lineStarts, start, end)
   }
 
   private parseDecoratorArgs(argsString: string, line: ParsedLine): QuaScriptDecoratorValue[] {
@@ -481,6 +526,7 @@ export class QuaScriptParser {
 
 export function scanTemplateText(text: string): TemplateScanResult {
   const diagnostics: TemplateScanResult['diagnostics'] = []
+  const expressionRanges: TemplateScanResult['expressionRanges'] = []
   const parts: string[] = []
   const expressions: string[] = []
   let cursor = 0
@@ -512,11 +558,15 @@ export function scanTemplateText(text: string): TemplateScanResult {
 
     parts.push(text.slice(cursor, start))
     expressions.push(expression)
+    expressionRanges.push({
+      end,
+      start: start + 2,
+    })
     cursor = end + 1
   }
 
   parts.push(text.slice(cursor))
-  return { diagnostics, expressions, parts }
+  return { diagnostics, expressionRanges, expressions, parts }
 }
 
 function findBalancedExpressionEnd(source: string, start: number): number {
@@ -562,7 +612,7 @@ function findBalancedExpressionEnd(source: string, start: number): number {
   return -1
 }
 
-function splitTopLevelKeyword(source: string, keyword: string): { before: string, after?: string } {
+function splitTopLevelKeyword(source: string, keyword: string): { before: string, after?: string, index?: number } {
   const index = findTopLevelKeyword(source, keyword)
   if (index === -1) {
     return { before: source }
@@ -570,6 +620,7 @@ function splitTopLevelKeyword(source: string, keyword: string): { before: string
   return {
     before: source.slice(0, index),
     after: source.slice(index + keyword.length),
+    index,
   }
 }
 
@@ -587,12 +638,13 @@ function findTopLevelKeyword(source: string, keyword: string): number {
   return -1
 }
 
-function splitTopLevelArrow(source: string): { before: string, after?: string } {
+function splitTopLevelArrow(source: string): { before: string, after?: string, index?: number } {
   for (const item of scanTopLevel(source)) {
     if (item.char === '-' && source[item.index + 1] === '>') {
       return {
         before: source.slice(0, item.index),
         after: source.slice(item.index + 2),
+        index: item.index,
       }
     }
   }

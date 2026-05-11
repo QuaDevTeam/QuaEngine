@@ -114,6 +114,125 @@
         "function": "stopBGMWithEngine",
         "module": "@quajs/plugin-audio"
       }
+    },
+    "language": {
+      "decorators": {
+        "AudioChapter": {
+          "description": "Configure chapter-level audio defaults",
+          "args": [
+            {
+              "name": "chapterId",
+              "detail": "Audio chapter id"
+            }
+          ]
+        },
+        "LineId": {
+          "description": "Override the generated dialogue line id",
+          "args": [
+            {
+              "name": "lineId",
+              "detail": "Dialogue line id"
+            }
+          ]
+        },
+        "PlayVoice": {
+          "description": "Play a voice asset",
+          "args": [
+            {
+              "name": "asset",
+              "assetRoots": ["assets/audio", "assets/voice", "assets/voices"],
+              "assetExtensions": [".mp3", ".ogg", ".wav", ".m4a", ".flac", ".aac"],
+              "detail": "Voice audio asset"
+            }
+          ]
+        },
+        "PlayBGM": {
+          "description": "Play a BGM asset",
+          "args": [
+            {
+              "name": "asset",
+              "assetRoots": ["assets/audio", "assets/bgm", "assets/music"],
+              "assetExtensions": [".mp3", ".ogg", ".wav", ".m4a", ".flac", ".aac"],
+              "detail": "BGM audio asset"
+            }
+          ]
+        },
+        "SetAudioGain": {
+          "description": "Set an audio bus or track gain",
+          "args": [
+            {
+              "name": "target",
+              "values": ["master", "bgm", "voice"],
+              "detail": "Audio target"
+            }
+          ]
+        },
+        "SetAudioEq": {
+          "description": "Set an audio bus or track EQ",
+          "args": [
+            {
+              "name": "target",
+              "values": ["master", "bgm", "voice"],
+              "detail": "Audio target"
+            }
+          ]
+        },
+        "SetAudioAutomation": {
+          "description": "Set audio automation",
+          "args": [
+            {
+              "name": "target",
+              "values": ["master", "bgm", "voice"],
+              "detail": "Audio target"
+            },
+            {
+              "name": "propertyPath",
+              "values": ["gainDb", "volume", "eq"],
+              "detail": "Automation property path"
+            }
+          ]
+        },
+        "StopAudio": {
+          "description": "Stop audio by target",
+          "args": [
+            {
+              "name": "target",
+              "values": ["master", "bgm", "voice"],
+              "detail": "Audio target"
+            }
+          ]
+        },
+        "PauseAudio": {
+          "description": "Pause audio by target",
+          "args": [
+            {
+              "name": "target",
+              "values": ["master", "bgm", "voice"],
+              "detail": "Audio target"
+            }
+          ]
+        },
+        "ResumeAudio": {
+          "description": "Resume audio by target",
+          "args": [
+            {
+              "name": "target",
+              "values": ["master", "bgm", "voice"],
+              "detail": "Audio target"
+            }
+          ]
+        },
+        "SeekAudio": {
+          "description": "Seek audio by target",
+          "args": [
+            {
+              "name": "target",
+              "values": ["master", "bgm", "voice"],
+              "detail": "Audio target"
+            }
+          ]
+        }
+      }
     }
   }
 }

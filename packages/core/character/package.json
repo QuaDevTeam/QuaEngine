@@ -76,6 +76,76 @@
         "function": "expression",
         "module": "@quajs/character"
       }
+    },
+    "language": {
+      "decorators": {
+        "SetSprite": {
+          "description": "Set the current dialogue character sprite",
+          "args": [
+            {
+              "name": "asset",
+              "assetRoots": ["assets/characters"],
+              "assetExtensions": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".json"],
+              "detail": "Character asset"
+            },
+            {
+              "name": "character",
+              "characterNames": true,
+              "detail": "Character name"
+            }
+          ]
+        },
+        "ShowCharacter": {
+          "description": "Show a character projection",
+          "args": [
+            {
+              "name": "character",
+              "characterNames": true,
+              "detail": "Character name"
+            },
+            {
+              "name": "sprite",
+              "assetRoots": ["assets/characters"],
+              "assetExtensions": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".json"],
+              "detail": "Character asset"
+            }
+          ]
+        },
+        "HideCharacter": {
+          "description": "Hide a character projection",
+          "args": [
+            {
+              "name": "character",
+              "characterNames": true,
+              "detail": "Character name"
+            }
+          ]
+        },
+        "MoveCharacter": {
+          "description": "Move a character projection",
+          "args": [
+            {
+              "name": "character",
+              "characterNames": true,
+              "detail": "Character name"
+            }
+          ]
+        },
+        "SetExpression": {
+          "description": "Set a character expression",
+          "args": [
+            {
+              "name": "expression",
+              "detail": "Expression id"
+            },
+            {
+              "name": "character",
+              "characterNames": true,
+              "detail": "Character name"
+            }
+          ]
+        }
+      }
     }
   }
 }

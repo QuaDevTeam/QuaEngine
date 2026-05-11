@@ -91,6 +91,86 @@
         "function": "transitionBackgroundLayerWithEngine",
         "module": "@quajs/plugin-background"
       }
+    },
+    "language": {
+      "decorators": {
+        "SetBackground": {
+          "description": "Set an image background",
+          "args": [
+            {
+              "name": "asset",
+              "assetRoots": ["assets/images", "assets/backgrounds"],
+              "assetExtensions": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"],
+              "detail": "Background image asset"
+            },
+            {
+              "name": "transition",
+              "values": ["instant", "fade", "crossfade", "wipe"],
+              "detail": "Background transition type"
+            }
+          ]
+        },
+        "VideoBackground": {
+          "description": "Set a video background",
+          "args": [
+            {
+              "name": "asset",
+              "assetRoots": ["assets/video", "assets/videos"],
+              "assetExtensions": [".mp4", ".webm", ".mov"],
+              "detail": "Video asset"
+            }
+          ]
+        },
+        "SetLayeredBackground": {
+          "description": "Enable layered background mode",
+          "args": [
+            {
+              "name": "transition",
+              "values": ["instant", "fade", "crossfade", "wipe"],
+              "detail": "Background transition type"
+            }
+          ]
+        },
+        "BackgroundLayer": {
+          "description": "Add or replace a background layer",
+          "args": [
+            {
+              "name": "layerId",
+              "detail": "Layer id"
+            },
+            {
+              "name": "asset",
+              "assetRoots": ["assets/images", "assets/backgrounds"],
+              "assetExtensions": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"],
+              "detail": "Layer image asset"
+            }
+          ]
+        },
+        "BackgroundTransition": {
+          "description": "Transition the current background",
+          "args": [
+            {
+              "name": "transition",
+              "values": ["instant", "fade", "crossfade", "wipe"],
+              "detail": "Background transition type"
+            }
+          ]
+        },
+        "BackgroundLayerTransition": {
+          "description": "Transition a layered background item",
+          "args": [
+            {
+              "name": "layerId",
+              "detail": "Layer id"
+            },
+            {
+              "name": "transition",
+              "values": ["instant", "fade", "crossfade", "wipe"],
+              "detail": "Background transition type"
+            }
+          ]
+        }
+      }
     }
   }
 }
