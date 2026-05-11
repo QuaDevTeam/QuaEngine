@@ -1,30 +1,32 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { PluginContextImpl } from '../src/plugins/core/context'
-import { BaseEnginePlugin, PluginFramework, defineAPIFunction } from '../src/plugins'
 import type { EngineContext } from '../src/plugins'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { BaseEnginePlugin, defineAPIFunction, PluginFramework } from '../src/plugins'
+import { PluginContextImpl } from '../src/plugins/core/context'
 
 // Mock EngineContext for testing
-const createMockContext = (pluginContext: PluginContextImpl): EngineContext => ({
-  engine: {} as any,
-  store: {} as any,
-  assets: {} as any,
-  pipeline: {} as any,
-  plugins: pluginContext,
-})
+function createMockContext(pluginContext: PluginContextImpl): EngineContext {
+  return {
+    engine: {} as any,
+    store: {} as any,
+    assets: {} as any,
+    pipeline: {} as any,
+    plugins: pluginContext,
+  }
+}
 
-describe('Plugin Interaction System', () => {
+describe('plugin Interaction System', () => {
   let pluginContext: PluginContextImpl
 
   beforeEach(() => {
     pluginContext = new PluginContextImpl()
   })
 
-  describe('Plugin Context API', () => {
+  describe('plugin Context API', () => {
     it('should allow plugins to access other plugins by name', async () => {
       // Create test plugins
       class PluginA extends BaseEnginePlugin {
         readonly name = 'plugin-a'
-        
+
         getMessage(): string {
           return 'Hello from Plugin A'
         }
@@ -64,7 +66,7 @@ describe('Plugin Interaction System', () => {
       class PluginWithId extends BaseEnginePlugin {
         readonly name = 'plugin-with-id'
         readonly id = 'unique-plugin-id'
-        
+
         getValue(): number {
           return 42
         }
@@ -160,7 +162,7 @@ describe('Plugin Interaction System', () => {
       }
 
       const plugin = new TestPlugin()
-      
+
       // Register plugin
       pluginContext.registerPlugin(plugin)
       expect(pluginContext.hasPlugin('test-plugin')).toBe(true)
@@ -173,14 +175,14 @@ describe('Plugin Interaction System', () => {
     })
   })
 
-  describe('Plugin Framework Helpers', () => {
+  describe('plugin Framework Helpers', () => {
     it('should provide helper methods for plugin interaction', async () => {
       class PluginA extends PluginFramework {
         readonly name = 'framework-plugin-a'
-        
+
         protected getPluginAPIs() {
           return [
-            defineAPIFunction('getFrameworkMessage', () => 'Hello from Framework Plugin A')
+            defineAPIFunction('getFrameworkMessage', () => 'Hello from Framework Plugin A'),
           ]
         }
 
@@ -233,7 +235,7 @@ describe('Plugin Interaction System', () => {
     })
   })
 
-  describe('Error Handling', () => {
+  describe('error Handling', () => {
     it('should handle cases where requested plugins do not exist', async () => {
       class SafePlugin extends BaseEnginePlugin {
         readonly name = 'safe-plugin'
@@ -260,7 +262,7 @@ describe('Plugin Interaction System', () => {
     it('should handle plugin access before initialization gracefully', () => {
       class FrameworkPlugin extends PluginFramework {
         readonly name = 'uninitialized-plugin'
-        
+
         protected getPluginAPIs() {
           return []
         }
@@ -273,7 +275,8 @@ describe('Plugin Interaction System', () => {
           try {
             this.getPlugin('some-plugin')
             return 'success'
-          } catch (error) {
+          }
+          catch {
             return 'error'
           }
         }
@@ -284,7 +287,7 @@ describe('Plugin Interaction System', () => {
     })
   })
 
-  describe('Plugin Context Implementation', () => {
+  describe('plugin Context Implementation', () => {
     it('should maintain separate name and ID registries', () => {
       class PluginWithBoth extends BaseEnginePlugin {
         readonly name = 'named-plugin'

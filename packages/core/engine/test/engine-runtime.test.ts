@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AssetRuntimeAdapter } from '@quajs/assets'
 import { MemoryAssetStorage } from '@quajs/assets'
-import { QuaEngine, RenderToLogicEvents, UiOverlayPlugin, emitRenderToLogic, onLogicToRender, LogicToRenderEvents } from '../src'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { emitRenderToLogic, LogicToRenderEvents, onLogicToRender, QuaEngine, RenderToLogicEvents, UiOverlayPlugin } from '../src'
 
-describe('QuaEngine runtime architecture', () => {
+describe('quaEngine runtime architecture', () => {
   afterEach(async () => {
     QuaEngine.resetInstance()
   })
