@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { FileSystemAssetStorage, createNodeAssetsAdapter } from '../src'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createNodeAssetsAdapter, FileSystemAssetStorage } from '../src'
 
 describe('assets-node adapter', () => {
   let root: string

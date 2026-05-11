@@ -11,9 +11,9 @@ import type {
   MediaMetadata,
   StoredAsset,
 } from './types'
+import { bytesToUtf8 } from './encoding'
 import { findBestAssetRecord } from './providers'
 import { AssetNotFoundError } from './types'
-import { bytesToUtf8 } from './encoding'
 
 export class AssetManager {
   private storage: AssetStorage

@@ -2,7 +2,7 @@ import type { AssetProvider, AssetRuntimeAdapter, BundleManifest } from '../src/
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryAssetStorage, QuaAssets } from '../src'
 
-describe('QuaAssets core runtime', () => {
+describe('quaAssets core runtime', () => {
   let adapter: AssetRuntimeAdapter
   let assets: QuaAssets | undefined
 

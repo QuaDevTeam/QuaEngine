@@ -20,9 +20,9 @@ import type {
 import { createLogger } from '@quajs/logger'
 import { AssetManager } from './asset-manager'
 import { BundleLoader } from './bundle-loader'
+import { bytesToUtf8 } from './encoding'
 import { PatchManager } from './patch-manager'
 import { BundleLoadError } from './types'
-import { bytesToUtf8 } from './encoding'
 
 const logger = createLogger('quaassets')
 
@@ -522,7 +522,7 @@ function validateConfig(config: QuaAssetsConfig): void {
     if (typeof config.locale !== 'string') {
       throw new TypeError('Locale must be a string')
     }
-    const localePattern = /^(default|[a-z]{2}(-[a-z]{2})?|[a-z]{2}-[A-Z]{2})$/
+    const localePattern = /^(?:default|[a-z]{2}(?:-[a-z]{2})?|[a-z]{2}-[A-Z]{2})$/
     if (!localePattern.test(config.locale)) {
       throw new Error('Invalid locale format')
     }

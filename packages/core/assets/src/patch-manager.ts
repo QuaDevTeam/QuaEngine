@@ -9,8 +9,8 @@ import type {
   StoredBundle,
 } from './types'
 import { createLogger } from '@quajs/logger'
-import { BundleLoadError } from './types'
 import { bytesToUtf8 } from './encoding'
+import { BundleLoadError } from './types'
 
 const logger = createLogger('quaassets:patch')
 
