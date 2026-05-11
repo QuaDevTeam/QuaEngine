@@ -1,6 +1,7 @@
 import type { QuaVueRendererPlugin } from '../core'
 import { createAudioRendererPlugin } from '../audio'
 import { createBackgroundRendererPlugin } from '../background'
+import { createBacklogRendererPlugin } from '../backlog'
 import { createCharacterRendererPlugin } from '../character'
 import { createChoicesRendererPlugin } from '../choices'
 import { createDialogueRendererPlugin } from '../dialogue'
@@ -18,5 +19,6 @@ export function createVisualNovelRendererPlugins(): QuaVueRendererPlugin[] {
     createChoicesRendererPlugin(),
     createAudioRendererPlugin(),
     createUiRendererPlugin(),
+    createBacklogRendererPlugin(),
   ]
 }

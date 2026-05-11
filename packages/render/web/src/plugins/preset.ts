@@ -2,6 +2,7 @@ import type { RendererPlugin } from '@quajs/render-core'
 import type { QuaWebDomRendererPlugin } from './core'
 import { createAudioWebRendererPlugin } from './audio'
 import { createBackgroundWebRendererPlugin } from './background'
+import { createBacklogWebRendererPlugin } from './backlog'
 import { createCharacterWebRendererPlugin } from './character'
 import { createChoicesWebRendererPlugin } from './choices'
 import { createDialogueWebRendererPlugin } from './dialogue'
@@ -20,5 +21,6 @@ export function createVisualNovelWebRendererPlugins(): Array<QuaWebDomRendererPl
     createChoicesWebRendererPlugin(),
     createAudioWebRendererPlugin(),
     createUiWebRendererPlugin(),
+    createBacklogWebRendererPlugin(),
   ]
 }

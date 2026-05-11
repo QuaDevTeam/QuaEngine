@@ -1,7 +1,7 @@
 import type { QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
 import type { QuaStore } from '@quajs/store'
-import type { QuaEngineInterface } from '../../core/types'
+import type { EngineCheckpoint, JumpContext, QuaEngineInterface, StoryPoint } from '../../core/types'
 import type { PluginAPIRegistration } from './registry'
 import { getPluginRegistry } from './registry'
 
@@ -39,6 +39,9 @@ export interface EngineContext {
   assets: QuaAssets
   pipeline: Pipeline
   stepId?: string
+  point?: StoryPoint
+  checkpoint?: EngineCheckpoint
+  jump?: JumpContext
   plugins: PluginContext
 }
 
@@ -61,6 +64,18 @@ export interface EnginePlugin {
    * This is where most logic plugins will do their work
    */
   onStep?: (ctx: EngineContext) => void | Promise<void>
+
+  onStepStart?: (ctx: EngineContext) => void | Promise<void>
+
+  onStepComplete?: (ctx: EngineContext) => void | Promise<void>
+
+  onBeforeCheckpoint?: (ctx: EngineContext) => void | Promise<void>
+
+  onAfterCheckpoint?: (ctx: EngineContext) => void | Promise<void>
+
+  onBeforeJump?: (ctx: EngineContext) => void | Promise<void>
+
+  onAfterJump?: (ctx: EngineContext) => void | Promise<void>
 
   /**
    * Called when the engine is destroyed
@@ -129,6 +144,18 @@ export abstract class BaseEnginePlugin implements EnginePlugin {
    * Called when a game step is executed
    */
   async onStep?(ctx: EngineContext): Promise<void>
+
+  async onStepStart?(ctx: EngineContext): Promise<void>
+
+  async onStepComplete?(ctx: EngineContext): Promise<void>
+
+  async onBeforeCheckpoint?(ctx: EngineContext): Promise<void>
+
+  async onAfterCheckpoint?(ctx: EngineContext): Promise<void>
+
+  async onBeforeJump?(ctx: EngineContext): Promise<void>
+
+  async onAfterJump?(ctx: EngineContext): Promise<void>
 
   /**
    * Register plugin APIs and decorators (optional)

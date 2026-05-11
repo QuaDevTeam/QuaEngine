@@ -1,4 +1,4 @@
-import type { QuaEngineInterface } from '@quajs/engine'
+import type { EngineContext, QuaEngineInterface } from '@quajs/engine'
 import type {
   AudioAutomationCurve,
   AudioAutomationOptions,
@@ -76,6 +76,7 @@ export class AudioPlugin extends BaseEnginePlugin {
   readonly version = '0.1.0'
   readonly description = 'Audio playback, gain, EQ, automation, and chapter-aware voice playback'
   private disposers: Array<() => void> = []
+  private projectionBeforeJump?: AudioViewProjection
 
   protected setup(): void {
     const engine = this.ctx!.engine
@@ -111,7 +112,27 @@ export class AudioPlugin extends BaseEnginePlugin {
     while (this.disposers.length > 0) {
       this.disposers.pop()?.()
     }
+    this.projectionBeforeJump = undefined
     await super.destroy?.()
+  }
+
+  override async onBeforeJump(ctx: EngineContext): Promise<void> {
+    this.projectionBeforeJump = ctx.jump?.options.audio === 'keep'
+      ? cloneAudioProjection(getAudioProjection(ctx.engine))
+      : undefined
+  }
+
+  override async onAfterJump(ctx: EngineContext): Promise<void> {
+    if (ctx.jump?.options.audio === 'keep' && this.projectionBeforeJump) {
+      await ctx.engine.setPluginProjection(AUDIO_PLUGIN_ID, {
+        ...this.projectionBeforeJump,
+        revision: this.projectionBeforeJump.revision + 1,
+      })
+    }
+    else if (ctx.jump?.options.audio === 'stop') {
+      await stopAudioWithEngine(ctx.engine, 'master')
+    }
+    this.projectionBeforeJump = undefined
   }
 
   registerAPIs() {

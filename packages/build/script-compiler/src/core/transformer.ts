@@ -354,6 +354,15 @@ export class QuaScriptTransformer {
         t.objectProperty(t.identifier('enabled'), option.condition ? this.parseExpression(option.condition, options.scopeIdentifier) : t.booleanLiteral(true)),
         t.objectProperty(t.identifier('metadata'), t.objectExpression([
           t.objectProperty(t.identifier('target'), t.stringLiteral(option.target)),
+          t.objectProperty(t.identifier('storyGraph'), t.objectExpression([
+            t.objectProperty(t.identifier('edge'), t.objectExpression([
+              t.objectProperty(t.identifier('kind'), t.stringLiteral('choice')),
+              t.objectProperty(t.identifier('to'), t.stringLiteral(option.target)),
+              ...(option.condition
+                ? [t.objectProperty(t.identifier('condition'), t.stringLiteral(option.condition))]
+                : []),
+            ])),
+          ])),
           ...(option.condition
             ? [t.objectProperty(t.identifier('condition'), t.stringLiteral(option.condition))]
             : []),
@@ -463,6 +472,10 @@ export class QuaScriptTransformer {
 
       const call = this.createDecoratorCall(decorator, mapping)
       statements.push(t.expressionStatement(t.awaitExpression(call)))
+      if (isTerminatingEngineDecorator(decorator.name)) {
+        statements.push(t.returnStatement())
+        break
+      }
     }
 
     return statements
@@ -720,6 +733,10 @@ function escapeTemplateRaw(value: string): string {
     .replace(/\\/g, '\\\\')
     .replace(/`/g, '\\`')
     .replace(/\$\{/g, '\\${')
+}
+
+function isTerminatingEngineDecorator(decoratorName: string): boolean {
+  return decoratorName === 'LoadFromSlot' || decoratorName === 'QuickLoad'
 }
 
 function isBabelExpression(value: unknown): value is t.Expression {

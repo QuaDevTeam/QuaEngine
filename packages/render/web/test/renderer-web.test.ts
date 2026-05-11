@@ -7,6 +7,7 @@ import {
   createInitialAudioProjection,
   onAudioRenderToLogic,
 } from '@quajs/plugin-audio/contracts'
+import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import {
   emitLogicToRender,
   LogicToRenderEvents,
@@ -93,6 +94,48 @@ describe('@quajs/renderer-web', () => {
 
     expect(choices).toEqual(['yes'])
     expect(advances).toEqual([{ source: 'dialogue' }, { source: 'stage-click' }])
+
+    await renderer.unmount()
+  })
+
+  it('renders backlog projection and emits backlog plugin intents', async () => {
+    const pipeline = new Pipeline()
+    const received: unknown[] = []
+    pipeline.on(BacklogRenderToLogicEvents.JUMP_REQUEST, context => received.push(context.event.payload))
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        plugins: {
+          [BACKLOG_PLUGIN_ID]: {
+            revision: 1,
+            visible: true,
+            retention: { scope: 'chapter', maxEntries: 200 },
+            defaultPolicy: { include: true, rewindable: true, voiceReplay: true },
+            entries: [{
+              id: 'entry-1',
+              kind: 'dialogue',
+              speaker: 'Alice',
+              text: 'Backlog line',
+              checkpointId: 'checkpoint-1',
+              rewindable: true,
+              voiceReplay: false,
+              timestamp: Date.now(),
+            }],
+          },
+        },
+      }),
+    })
+
+    await renderer.mount()
+    expect(root.querySelector('.qua-backlog-entry-main')?.textContent).toContain('Backlog line')
+    root.querySelector<HTMLButtonElement>('.qua-backlog-entry-main')!.click()
+    await flushDom()
+    expect(received).toEqual([{ entryId: 'entry-1' }])
 
     await renderer.unmount()
   })

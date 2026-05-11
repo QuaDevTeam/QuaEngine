@@ -3,6 +3,7 @@ import type { QuaViewProjection, RendererPlugin } from '@quajs/render-core'
 import { MemoryAssetStorage, QuaAssets } from '@quajs/assets'
 import { createViteDevAssetRuntime } from '@quajs/assets-web'
 import { Pipeline } from '@quajs/pipeline'
+import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import {
   emitLogicToRender,
   LogicToRenderEvents,
@@ -128,6 +129,43 @@ describe('@quajs/renderer-vue', () => {
     await flushVue()
 
     expect(received).toEqual([{ elementId: 'menu', config: { source: 'button' } }])
+  })
+
+  it('projects backlog UI and emits backlog plugin intents', async () => {
+    const pipeline = new Pipeline()
+    const received: unknown[] = []
+    pipeline.on(BacklogRenderToLogicEvents.JUMP_REQUEST, context => received.push(context.event.payload))
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        plugins: {
+          [BACKLOG_PLUGIN_ID]: {
+            revision: 1,
+            visible: true,
+            retention: { scope: 'chapter', maxEntries: 200 },
+            defaultPolicy: { include: true, rewindable: true, voiceReplay: true },
+            entries: [{
+              id: 'entry-1',
+              kind: 'dialogue',
+              speaker: 'Alice',
+              text: 'Backlog line',
+              checkpointId: 'checkpoint-1',
+              rewindable: true,
+              voiceReplay: false,
+              timestamp: Date.now(),
+            }],
+          },
+        },
+      }),
+    })
+
+    await flushVue()
+    expect(host.el.textContent).toContain('Backlog line')
+    host.el.querySelector<HTMLButtonElement>('.qua-backlog-entry-main')!.click()
+    await flushVue()
+
+    expect(received).toEqual([{ entryId: 'entry-1' }])
   })
 
   it('keeps visual feature layers opt-in through renderer plugins', async () => {

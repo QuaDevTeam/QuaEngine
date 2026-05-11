@@ -204,6 +204,7 @@ function findPluginDependencies(packageJson: any, projectRoot: string): PluginCo
     ...packageJson.dependencies,
     ...packageJson.devDependencies,
     ...packageJson.peerDependencies,
+    ...packageJson.optionalDependencies,
   }
 
   for (const [name, version] of Object.entries(dependencies)) {
@@ -373,7 +374,9 @@ function normalizeStringArray(value: unknown): string[] | undefined {
 }
 
 function isQuaPackageName(packageName: string): boolean {
-  return packageName.startsWith('@quajs/plugin-') || packageName.startsWith('quajs-plugin-')
+  return packageName === '@quajs/story-graph'
+    || packageName.startsWith('@quajs/plugin-')
+    || packageName.startsWith('quajs-plugin-')
 }
 
 /**

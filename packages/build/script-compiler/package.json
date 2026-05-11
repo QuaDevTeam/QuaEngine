@@ -45,7 +45,9 @@
     "@babel/traverse": "catalog:",
     "@babel/types": "catalog:",
     "@quajs/plugin-audio": "workspace:*",
+    "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-discovery": "workspace:*",
+    "@quajs/story-graph": "workspace:*",
     "uuid": "catalog:"
   },
   "devDependencies": {

@@ -1,0 +1,95 @@
+{
+  "name": "@quajs/story-graph",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Story graph, multi-lane narrative cursors, and QuaScript metadata decorators for QuaEngine",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "story",
+    "visual-novel"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./script-compiler": {
+      "types": "./dist/script-compiler.d.ts",
+      "import": "./dist/script-compiler.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@quajs/engine": "workspace:*"
+  },
+  "dependencies": {
+    "@babel/types": "catalog:"
+  },
+  "devDependencies": {
+    "@quajs/assets": "workspace:*",
+    "@quajs/engine": "workspace:*",
+    "@quajs/store": "workspace:*"
+  },
+  "quajs": {
+    "type": "plugin",
+    "category": "story",
+    "description": "Story graph metadata, cursors, events, and jump helpers",
+    "decorators": {
+      "Chapter": {
+        "function": "setStoryMetadataWithEngine",
+        "module": "@quajs/story-graph"
+      },
+      "Node": {
+        "function": "setStoryMetadataWithEngine",
+        "module": "@quajs/story-graph"
+      },
+      "Label": {
+        "function": "setStoryMetadataWithEngine",
+        "module": "@quajs/story-graph"
+      },
+      "Lane": {
+        "function": "setStoryMetadataWithEngine",
+        "module": "@quajs/story-graph"
+      },
+      "Route": {
+        "function": "setStoryMetadataWithEngine",
+        "module": "@quajs/story-graph"
+      },
+      "Timeline": {
+        "function": "setStoryMetadataWithEngine",
+        "module": "@quajs/story-graph"
+      },
+      "Protagonist": {
+        "function": "setStoryMetadataWithEngine",
+        "module": "@quajs/story-graph"
+      },
+      "EmitStoryEvent": {
+        "function": "emitStoryEventWithEngine",
+        "module": "@quajs/story-graph"
+      },
+      "Interaction": {
+        "function": "setStoryMetadataWithEngine",
+        "module": "@quajs/story-graph"
+      }
+    }
+  }
+}

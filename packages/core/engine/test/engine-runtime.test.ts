@@ -1,5 +1,6 @@
 import type { AssetRuntimeAdapter } from '@quajs/assets'
 import { MemoryAssetStorage } from '@quajs/assets'
+import { MemoryBackend } from '@quajs/store'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { emitRenderToLogic, LogicToRenderEvents, onLogicToRender, QuaEngine, RenderToLogicEvents, UiOverlayPlugin } from '../src'
 
@@ -76,6 +77,116 @@ describe('quaEngine runtime architecture', () => {
     await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_CHOICE_SELECT, { choiceId: 'yes' })
 
     await expect(wait).resolves.toEqual({ choiceId: 'yes' })
+  })
+
+  it('creates checkpoints, restores story points through jump, and cancels pending waits', async () => {
+    const engine = createEngine()
+    await engine.init()
+    const hooks: string[] = []
+    engine.use({
+      name: 'jump-hooks',
+      init() {},
+      onBeforeJump: () => hooks.push('before'),
+      onAfterJump: () => hooks.push('after'),
+    })
+
+    await engine.showDialogue({ text: 'First' })
+    const checkpoint = await engine.createCheckpoint({
+      id: 'line:first',
+      kind: 'line',
+      point: { chapterId: 'chapter-1', stepId: 'step-1', lineId: 'line-1' },
+    })
+    await engine.showDialogue({ text: 'Second' })
+    await engine.showChoices([{ id: 'go', text: 'Go' }])
+
+    let waitRegistered!: () => void
+    const waitReady = new Promise<void>((resolve) => {
+      waitRegistered = resolve
+    })
+    const waitingStep = engine.executeStep({
+      uuid: 'wait-step',
+      run: async (ctx) => {
+        const wait = ctx.engine.waitFor(RenderToLogicEvents.USER_ADVANCE)
+        waitRegistered()
+        await wait
+      },
+    })
+    await waitReady
+    await engine.jumpTo(checkpoint.id, { reason: 'test' })
+
+    await expect(waitingStep).resolves.toBeUndefined()
+    expect(engine.getStoryPoint()).toEqual({ chapterId: 'chapter-1', stepId: 'step-1', lineId: 'line-1' })
+    expect(engine.getViewState().dialogue.text).toBe('First')
+    expect(engine.getViewState().choices).toEqual([])
+    expect(engine.getCheckpoint('line:first')).toEqual(checkpoint)
+    expect(hooks).toEqual(['before', 'after'])
+  })
+
+  it('stops the active dialogue sequence when jump aborts a pending wait', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.showDialogue({ text: 'Checkpoint' })
+    const checkpoint = await engine.createCheckpoint({
+      id: 'line:checkpoint',
+      kind: 'line',
+      point: { stepId: 'checkpoint-step', lineId: 'line-1' },
+    })
+    const nextRun = vi.fn(async () => {
+      await engine.showDialogue({ text: 'Should not run' })
+    })
+    let waitRegistered!: () => void
+    const waitReady = new Promise<void>((resolve) => {
+      waitRegistered = resolve
+    })
+
+    const activeDialogue = engine.dialogue([
+      {
+        uuid: 'waiting-step',
+        run: async (ctx) => {
+          const wait = ctx.engine.waitFor(RenderToLogicEvents.USER_ADVANCE)
+          waitRegistered()
+          await wait
+        },
+      },
+      {
+        uuid: 'after-wait',
+        run: nextRun,
+      },
+    ])
+    await waitReady
+    await engine.jumpTo(checkpoint.id, { reason: 'test' })
+
+    await expect(activeDialogue).resolves.toBeUndefined()
+    expect(nextRun).not.toHaveBeenCalled()
+    expect(engine.getStoryPoint()).toEqual({ stepId: 'checkpoint-step', lineId: 'line-1' })
+    expect(engine.getViewState().dialogue.text).toBe('Checkpoint')
+  })
+
+  it('exposes save slot convenience APIs through engine state', async () => {
+    const engine = createEngine()
+    const hooks: string[] = []
+    engine.use({
+      name: 'load-hooks',
+      init() {},
+      onBeforeJump: ctx => hooks.push(`before:${ctx.jump?.options.reason}`),
+      onAfterJump: ctx => hooks.push(`after:${ctx.jump?.options.reason}`),
+    })
+    await engine.init()
+    await engine.setStoryPoint({ chapterId: 'chapter-1', stepId: 'step-1' })
+    await engine.showChoices([{ id: 'saved-choice', text: 'Saved Choice' }])
+    await engine.quickSave({ name: 'Checkpoint' })
+    await engine.showDialogue({ text: 'Changed' })
+    await engine.clearChoices()
+    await engine.quickLoad()
+
+    expect(engine.getStoryPoint()).toEqual({ chapterId: 'chapter-1', stepId: 'step-1' })
+    expect(engine.getViewState().choices).toEqual([{ id: 'saved-choice', text: 'Saved Choice', enabled: true, metadata: undefined }])
+    expect(hooks).toEqual(['before:quick-load', 'after:quick-load'])
+    expect((await engine.listSaveSlots()).map(slot => slot.slotId)).toContain('quicksave')
+
+    await engine.deleteSaveSlot('quicksave')
+    expect((await engine.listSaveSlots()).map(slot => slot.slotId)).not.toContain('quicksave')
   })
 
   it('executes imported QuaScript factories through dialogue', async () => {
@@ -249,6 +360,11 @@ function createEngine(): QuaEngine {
   return new QuaEngine({
     assets: {
       adapter: createMemoryAdapter(),
+    },
+    store: {
+      storage: {
+        backend: MemoryBackend,
+      },
     },
   })
 }

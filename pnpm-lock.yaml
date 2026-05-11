@@ -233,9 +233,15 @@ importers:
       '@quajs/plugin-audio':
         specifier: workspace:*
         version: link:../../plugins/audio
+      '@quajs/plugin-backlog':
+        specifier: workspace:*
+        version: link:../../plugins/backlog
       '@quajs/plugin-discovery':
         specifier: workspace:*
         version: link:../../plugins/plugin-discovery
+      '@quajs/story-graph':
+        specifier: workspace:*
+        version: link:../../core/story-graph
       uuid:
         specifier: 'catalog:'
         version: 14.0.0
@@ -372,6 +378,22 @@ importers:
         specifier: 'catalog:'
         version: 6.2.5
 
+  packages/core/story-graph:
+    dependencies:
+      '@babel/types':
+        specifier: 'catalog:'
+        version: 7.29.0
+    devDependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../assets
+      '@quajs/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../store
+
   packages/platform/assets-memory:
     dependencies:
       '@quajs/assets':
@@ -428,6 +450,9 @@ importers:
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../../core/pipeline
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
 
   packages/plugins/background:
     dependencies:
@@ -441,6 +466,28 @@ importers:
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../../render/core
+
+  packages/plugins/backlog:
+    dependencies:
+      '@babel/types':
+        specifier: 'catalog:'
+        version: 7.29.0
+    devDependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../../core/assets
+      '@quajs/engine':
+        specifier: workspace:*
+        version: link:../../core/engine
+      '@quajs/pipeline':
+        specifier: workspace:*
+        version: link:../../core/pipeline
+      '@quajs/plugin-audio':
+        specifier: workspace:*
+        version: link:../audio
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
 
   packages/plugins/plugin-discovery:
     dependencies:
@@ -480,6 +527,9 @@ importers:
       '@quajs/plugin-audio':
         specifier: workspace:*
         version: link:../../plugins/audio
+      '@quajs/plugin-backlog':
+        specifier: workspace:*
+        version: link:../../plugins/backlog
       '@quajs/plugin-sprite':
         specifier: workspace:*
         version: link:../../plugins/sprite
@@ -507,6 +557,9 @@ importers:
       '@quajs/plugin-audio':
         specifier: workspace:*
         version: link:../../plugins/audio
+      '@quajs/plugin-backlog':
+        specifier: workspace:*
+        version: link:../../plugins/backlog
       '@quajs/plugin-sprite':
         specifier: workspace:*
         version: link:../../plugins/sprite

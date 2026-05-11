@@ -11,8 +11,7 @@ describe('plugin system integration', () => {
   })
 
   afterEach(() => {
-    // Clean up registry
-    // registry.clear() // If such method exists
+    registry.clear()
   })
 
   describe('plugin API Registry', () => {
@@ -49,7 +48,7 @@ describe('plugin system integration', () => {
       expect(registry.hasDecorator('TestDecorator')).toBe(false)
     })
 
-    it('should prevent duplicate plugin registrations', () => {
+    it('should replace duplicate registrations from the same plugin', () => {
       const mockRegistration = {
         pluginName: 'test',
         apis: [{
@@ -61,7 +60,32 @@ describe('plugin system integration', () => {
       }
 
       registry.registerPlugin(mockRegistration)
-      expect(() => registry.registerPlugin(mockRegistration)).toThrow('already registered')
+      expect(() => registry.registerPlugin(mockRegistration)).not.toThrow()
+      expect(registry.hasAPI('test', 'testFunction')).toBe(true)
+    })
+
+    it('should prevent decorator collisions between different plugins', () => {
+      registry.registerPlugin({
+        pluginName: 'first',
+        apis: [],
+        decorators: {
+          TestDecorator: {
+            function: 'firstFunction',
+            module: 'first',
+          },
+        },
+      })
+
+      expect(() => registry.registerPlugin({
+        pluginName: 'second',
+        apis: [],
+        decorators: {
+          TestDecorator: {
+            function: 'secondFunction',
+            module: 'second',
+          },
+        },
+      })).toThrow('already registered')
     })
 
     it('should generate extended decorator mappings', () => {

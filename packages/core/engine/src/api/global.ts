@@ -1,4 +1,4 @@
-import type { ChoiceIntent, DialogueIntent, GameStep, GameStepFactory, GameStepScope, GameStepSource, OptionalGameStepFactory, Scene } from '../core/types'
+import type { ChoiceIntent, CreateCheckpointOptions, DialogueIntent, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, Scene, SlotMetadata, StoryPoint } from '../core/types'
 import { QuaEngine } from '../core/engine'
 
 let engineInstance: QuaEngine | null = null
@@ -50,14 +50,7 @@ export async function rewind(stepUUID: string): Promise<void> {
  */
 export async function saveToSlot(
   slotId: string,
-  metadata?: {
-    name?: string
-    screenshot?: string
-    sceneName?: string
-    stepId?: string
-    playtime?: number
-    [key: string]: unknown
-  },
+  metadata?: SlotMetadata,
 ): Promise<void> {
   return getEngine().saveToSlot(slotId, metadata)
 }
@@ -65,8 +58,48 @@ export async function saveToSlot(
 /**
  * Load game from a slot
  */
-export async function loadFromSlot(slotId: string, options?: { force?: boolean }): Promise<void> {
+export async function loadFromSlot(slotId: string, options?: LoadSlotOptions): Promise<void> {
   return getEngine().loadFromSlot(slotId, options)
+}
+
+export async function quickSave(metadata?: SlotMetadata): Promise<void> {
+  return getEngine().quickSave(metadata)
+}
+
+export async function quickLoad(): Promise<void> {
+  return getEngine().quickLoad()
+}
+
+export async function autoSave(metadata?: SlotMetadata): Promise<void> {
+  return getEngine().autoSave(metadata)
+}
+
+export async function listSaveSlots() {
+  return getEngine().listSaveSlots()
+}
+
+export async function deleteSaveSlot(slotId: string): Promise<void> {
+  return getEngine().deleteSaveSlot(slotId)
+}
+
+export function getStoryPoint(): StoryPoint | undefined {
+  return getEngine().getStoryPoint()
+}
+
+export async function setStoryPoint(point: StoryPoint): Promise<void> {
+  return getEngine().setStoryPoint(point)
+}
+
+export async function createCheckpoint(options?: CreateCheckpointOptions) {
+  return getEngine().createCheckpoint(options)
+}
+
+export function getCheckpoint(id: string) {
+  return getEngine().getCheckpoint(id)
+}
+
+export async function jumpTo(target: JumpTarget, options?: JumpOptions): Promise<void> {
+  return getEngine().jumpTo(target, options)
 }
 
 /**

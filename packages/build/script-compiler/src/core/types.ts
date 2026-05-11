@@ -116,6 +116,18 @@ export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
     function: 'loadFromSlot',
     module: '@quajs/engine',
   },
+  QuickSave: {
+    function: 'quickSave',
+    module: '@quajs/engine',
+  },
+  QuickLoad: {
+    function: 'quickLoad',
+    module: '@quajs/engine',
+  },
+  AutoSave: {
+    function: 'autoSave',
+    module: '@quajs/engine',
+  },
   ...characterDecoratorMappings,
 }
 

@@ -1,6 +1,6 @@
 import type { QuaAssets, QuaAssetsConfig } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
-import type { QuaStore } from '@quajs/store'
+import type { QuaStore, StorageConfig } from '@quajs/store'
 import type {
   ActiveAnimationProjection,
   QuaViewProjection,
@@ -28,6 +28,7 @@ export interface GameStep {
     title?: string
     description?: string
     tags?: string[]
+    point?: Partial<StoryPoint>
   }
 }
 
@@ -43,6 +44,8 @@ export interface StepContext {
   engine: QuaEngineInterface
   stepId: string
   previousStepId?: string
+  point: StoryPoint
+  signal: AbortSignal
   store: QuaStore
   assets: QuaAssets
   pipeline: Pipeline
@@ -55,6 +58,11 @@ export interface StepContext {
 export interface QuaEngineInterface {
   getCurrentSceneName: () => string | undefined
   getCurrentStepId: () => string | undefined
+  getStoryPoint: () => StoryPoint | undefined
+  setStoryPoint: (point: StoryPoint) => Promise<void>
+  createCheckpoint: (options?: CreateCheckpointOptions) => Promise<EngineCheckpoint>
+  getCheckpoint: (id: string) => EngineCheckpoint | undefined
+  jumpTo: (target: JumpTarget, options?: JumpOptions) => Promise<void>
   getStore: () => QuaStore
   getAssets: () => QuaAssets
   getPipeline: () => Pipeline
@@ -78,6 +86,13 @@ export interface QuaEngineInterface {
   showUI: (elementId: string, config?: Record<string, unknown>) => Promise<void>
   hideUI: (elementId: string) => Promise<void>
   updateUI: (elementId: string, config: Record<string, unknown>) => Promise<void>
+  saveToSlot: (slotId: string, metadata?: SlotMetadata) => Promise<void>
+  loadFromSlot: (slotId: string, options?: LoadSlotOptions) => Promise<void>
+  quickSave: (metadata?: SlotMetadata) => Promise<void>
+  quickLoad: () => Promise<void>
+  autoSave: (metadata?: SlotMetadata) => Promise<void>
+  listSaveSlots: () => Promise<import('@quajs/store').QuaGameSaveSlotMeta[]>
+  deleteSaveSlot: (slotId: string) => Promise<void>
 }
 
 export type QuaEngineWaitFor = <T extends import('../events/events').LogicToRenderEvents | import('../events/events').RenderToLogicEvents>(
@@ -106,6 +121,61 @@ export interface SaveSlot {
   }
 }
 
+export interface StoryPoint {
+  storyId?: string
+  chapterId?: string
+  sceneId?: string
+  laneId?: string
+  routeId?: string
+  timelineId?: string
+  protagonistId?: string
+  nodeId?: string
+  stepId: string
+  lineId?: string
+}
+
+export type EngineCheckpointKind = 'step' | 'line' | 'choice' | 'manual' | 'save'
+
+export interface EngineCheckpoint {
+  id: string
+  point: StoryPoint
+  snapshotId: string
+  kind: EngineCheckpointKind
+  metadata?: Record<string, unknown>
+}
+
+export interface CreateCheckpointOptions {
+  id?: string
+  point?: StoryPoint
+  kind?: EngineCheckpointKind
+  metadata?: Record<string, unknown>
+}
+
+export type JumpTarget = string | StoryPoint | EngineCheckpoint
+
+export interface JumpOptions {
+  reason?: string
+  resume?: 'pause' | 'continue'
+  mode?: 'restore' | 'fresh'
+  force?: boolean
+  audio?: 'restore' | 'stop' | 'keep'
+  animation?: 'clear-active' | 'restore'
+  effects?: 'clear-active' | 'restore'
+  ui?: 'clear-transient' | 'restore'
+}
+
+export interface JumpContext {
+  target: JumpTarget
+  checkpoint?: EngineCheckpoint
+  point: StoryPoint
+  options: Required<Pick<JumpOptions, 'resume' | 'mode' | 'audio' | 'animation' | 'effects' | 'ui'>> & Omit<JumpOptions, 'resume' | 'mode' | 'audio' | 'animation' | 'effects' | 'ui'>
+}
+
+export interface LoadSlotOptions {
+  force?: boolean
+  reason?: string
+}
+
 export interface GameSaveData {
   version: string
   timestamp: number
@@ -124,6 +194,7 @@ export interface EngineConfig {
     persistKey?: string
     enableSnapshots?: boolean
     maxSnapshots?: number
+    storage?: StorageConfig
   }
   saves?: {
     maxSlots?: number
@@ -178,13 +249,17 @@ export interface CharacterIntent {
 export interface EngineRuntimeState {
   currentScene: string | null
   currentStepId: string | null
+  currentStoryPoint?: StoryPoint
+  currentCheckpointId?: string
   sceneHistory: string[]
   stepHistory: string[]
+  checkpointHistory: string[]
 }
 
 export interface EngineState {
   runtime: EngineRuntimeState
   view: QuaViewProjection
+  checkpoints: Record<string, EngineCheckpoint>
 }
 
 export interface EngineStoreState {
@@ -211,9 +286,13 @@ export function createInitialEngineState(): EngineState {
     runtime: {
       currentScene: null,
       currentStepId: null,
+      currentStoryPoint: undefined,
+      currentCheckpointId: undefined,
       sceneHistory: [],
       stepHistory: [],
+      checkpointHistory: [],
     },
+    checkpoints: {},
     view: {
       background: undefined,
       characters: [],

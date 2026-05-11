@@ -32,6 +32,10 @@
       "types": "./dist/plugins/background.d.ts",
       "import": "./dist/plugins/background.js"
     },
+    "./plugins/backlog": {
+      "types": "./dist/plugins/backlog.d.ts",
+      "import": "./dist/plugins/backlog.js"
+    },
     "./plugins/character": {
       "types": "./dist/plugins/character.d.ts",
       "import": "./dist/plugins/character.js"
@@ -92,11 +96,15 @@
     "@quajs/assets-web": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
+    "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@quajs/plugin-audio": {
+      "optional": true
+    },
+    "@quajs/plugin-backlog": {
       "optional": true
     },
     "@quajs/plugin-sprite": {
@@ -108,6 +116,7 @@
     "@quajs/assets-web": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
+    "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*"
   }
