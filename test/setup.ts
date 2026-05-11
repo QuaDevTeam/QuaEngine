@@ -42,11 +42,15 @@ Object.defineProperty(global, 'Worker', {
   writable: true
 })
 
-// Mock URL.createObjectURL
-Object.defineProperty(global, 'URL', {
-  value: {
-    createObjectURL: () => 'blob:mock-url',
-    revokeObjectURL: () => {}
-  },
-  writable: true
+// Mock object URL helpers without replacing the URL constructor.
+Object.defineProperty(global.URL, 'createObjectURL', {
+  value: () => 'blob:mock-url',
+  writable: true,
+  configurable: true
+})
+
+Object.defineProperty(global.URL, 'revokeObjectURL', {
+  value: () => {},
+  writable: true,
+  configurable: true
 })
