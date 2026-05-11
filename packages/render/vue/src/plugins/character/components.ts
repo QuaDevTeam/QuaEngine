@@ -2,8 +2,8 @@ import type { ActiveAnimationProjection, ViewCharacterProjection } from '@quajs/
 import { computed, defineComponent, h } from 'vue'
 import { useProjectionProps } from '../../components/projection'
 import { useAnimationClock, useAnimations, useCharacters, useRendererActions } from '../../composables'
-import { QuaSprite } from '../sprite'
 import { applyTrackValues, cloneCharacter, collectTrackValues } from '../shared/animation'
+import { QuaSprite } from '../sprite'
 
 export const QuaCharacter = defineComponent({
   name: 'QuaCharacter',

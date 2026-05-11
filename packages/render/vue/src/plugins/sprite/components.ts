@@ -4,13 +4,13 @@ import type {
   SpriteReference,
   SpriteResolvedLayer,
 } from '@quajs/plugin-sprite/contracts'
-import { computed, defineComponent, h, ref, watch } from 'vue'
-import { useQuaRenderer } from '../../context'
-import { useAssetUrl } from '../../composables'
 import {
   resolveSpriteProjection,
   resolveSpriteReference,
 } from '@quajs/plugin-sprite/contracts'
+import { computed, defineComponent, h, ref, watch } from 'vue'
+import { useAssetUrl } from '../../composables'
+import { useQuaRenderer } from '../../context'
 
 export const QuaSpriteLayerItem = defineComponent({
   name: 'QuaSpriteLayerItem',
@@ -46,13 +46,13 @@ export const QuaSpriteLayerItem = defineComponent({
 
     return () => props.layer.frame
       ? h('div', {
-          class: [
+          'class': [
             'qua-sprite-layer',
             'qua-sprite-layer--atlas',
             props.isBase ? 'qua-sprite-layer--base' : 'qua-sprite-layer--expression',
             props.layer.visible === false ? 'is-hidden' : undefined,
           ],
-          style: spriteLayerStyle(props.layer, props.isBase, mask.url.value),
+          'style': spriteLayerStyle(props.layer, props.isBase, mask.url.value),
           'data-sprite-layer-kind': props.layer.kind,
           'aria-hidden': 'true',
         }, [
@@ -65,17 +65,17 @@ export const QuaSpriteLayerItem = defineComponent({
           }),
         ])
       : h('img', {
-          class: [
+          'class': [
             'qua-sprite-layer',
             props.isBase ? 'qua-sprite-layer--base' : 'qua-sprite-layer--expression',
             props.layer.visible === false ? 'is-hidden' : undefined,
           ],
-          src: asset.url.value,
-          alt: props.alt,
+          'src': asset.url.value,
+          'alt': props.alt,
           onError,
           'data-sprite-layer-kind': props.layer.kind,
           'aria-hidden': 'true',
-          style: spriteLayerStyle(props.layer, props.isBase, mask.url.value),
+          'style': spriteLayerStyle(props.layer, props.isBase, mask.url.value),
         })
   },
 })
@@ -132,8 +132,8 @@ export const QuaSprite = defineComponent({
       }
 
       return h('div', {
-        class: ['qua-sprite', props.expression ? 'has-expression' : undefined],
-        style: {
+        'class': ['qua-sprite', props.expression ? 'has-expression' : undefined],
+        'style': {
           position: 'relative',
           display: 'inline-block',
           lineHeight: 0,
