@@ -6,7 +6,7 @@ const crypto: AssetCrypto = {
   sha256: vi.fn(async () => ''),
 }
 
-describe('BundleLoader core', () => {
+describe('bundleLoader core', () => {
   it('detects qpk and zip formats from names and bytes', () => {
     expect(detectBundleFormat('story.qpk', new Uint8Array())).toBe('qpk')
     expect(detectBundleFormat('story.zip', new Uint8Array())).toBe('zip')
@@ -153,7 +153,8 @@ describe('BundleLoader core', () => {
     const loader = new BundleLoader({ crypto })
 
     await expect(loader.loadBundle(new Uint8Array([1, 2, 3]), 'broken.qpk'))
-      .rejects.toMatchObject({ code: 'BUNDLE_LOAD_ERROR', bundleName: 'broken.qpk' })
+      .rejects
+      .toMatchObject({ code: 'BUNDLE_LOAD_ERROR', bundleName: 'broken.qpk' })
   })
 })
 

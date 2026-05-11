@@ -144,7 +144,7 @@ export interface AssetStorage {
     bundleName: string,
     type: AssetType,
     name: string,
-    preferredLocale?: AssetLocale
+    preferredLocale?: AssetLocale,
   ) => Promise<StoredAsset | undefined>
   deleteAsset?: (id: string) => Promise<void>
   deleteAssetsByBundle: (bundleName: string) => Promise<number>
@@ -189,7 +189,7 @@ export interface AssetFetcher {
       cache?: boolean
       signal?: unknown
       onProgress?: (loaded: number, total: number) => void
-    }
+    },
   ) => Promise<AssetFetchResult | Uint8Array>
   fetchJSON?: <T = unknown>(url: string, options?: { cache?: boolean, signal?: unknown }) => Promise<T>
 }

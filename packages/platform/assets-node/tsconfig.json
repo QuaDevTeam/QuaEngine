@@ -3,11 +3,11 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
-    "types": ["node"],
     "moduleResolution": "bundler",
     "paths": {
       "@/*": ["./src/*"]
     },
+    "types": ["node"],
     "outDir": "./dist"
   },
   "include": ["src/**/*"],

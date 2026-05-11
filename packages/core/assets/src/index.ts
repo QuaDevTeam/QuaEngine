@@ -4,7 +4,6 @@ export { BundleLoader } from './bundle-loader'
 // Core components
 export { MemoryAssetStorage, QuaAssetsDatabase } from './database'
 export { PatchManager } from './patch-manager'
-export { findBestAssetRecord } from './providers'
 // Built-in plugins
 export {
   CacheWarmingPlugin,
@@ -12,20 +11,21 @@ export {
   NoopDecompressionPlugin,
   XORDecryptionPlugin,
 } from './plugins/index'
+export { findBestAssetRecord } from './providers'
 
 // Main QuaAssets class
 export { QuaAssets } from './qua-assets'
 
 // Types and interfaces
 export type {
-  AssetDiff,
+  AssetCacheStats,
   AssetChange,
   AssetChangeListener,
   AssetChangeType,
-  AssetCacheStats,
   AssetCodec,
   AssetCrypto,
   AssetData,
+  AssetDiff,
   AssetFetcher,
   AssetFetchResult,
   AssetFindCriteria,
@@ -38,10 +38,10 @@ export type {
   AssetQueryResult,
   AssetRuntimeAdapter,
   AssetStorage,
-  AssetUpdateInfo,
-
   // Core types
   AssetType,
+
+  AssetUpdateInfo,
   BundleFormat,
   BundleIndex,
   BundleInfo,

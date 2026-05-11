@@ -11,8 +11,8 @@ import type {
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
-import lzma from 'lzma-native'
 import { QuaAssets } from '@quajs/assets'
+import lzma from 'lzma-native'
 
 export interface NodeAssetsAdapterOptions {
   cacheDir?: string

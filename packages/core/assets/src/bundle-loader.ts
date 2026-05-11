@@ -11,8 +11,8 @@ import type {
   StoredAsset,
 } from './types'
 import { unzip } from 'fflate'
-import { BundleLoadError, IntegrityError } from './types'
 import { bytesToUtf8 } from './encoding'
+import { BundleLoadError, IntegrityError } from './types'
 
 const QPK_MAGIC = 0x51504B00
 const QPK_HEADER_SIZE = 32

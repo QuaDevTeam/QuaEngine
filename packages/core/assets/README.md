@@ -52,7 +52,7 @@ revokeObjectURL(url)
 ## Core Constructor
 
 ```typescript
-new QuaAssets({
+interface QuaAssetsOptions {
   endpoint?: string
   adapter: AssetRuntimeAdapter
   provider?: AssetProvider
@@ -62,7 +62,13 @@ new QuaAssets({
   retryAttempts?: number
   timeout?: number
   plugins?: QuaAssetsPlugin[]
-})
+}
+
+const options: QuaAssetsOptions = {
+  adapter,
+}
+
+const assets = new QuaAssets(options)
 ```
 
 `adapter` is required. The core package does not create a default browser adapter and does not expose Blob/object URL APIs.
@@ -149,7 +155,7 @@ assets.on('bundle:loading', ({ bundleName }) => {})
 assets.on('bundle:progress', ({ bundleName, progress }) => {})
 assets.on('bundle:loaded', ({ bundleName, status }) => {})
 assets.on('bundle:error', ({ bundleName, error }) => {})
-assets.on('asset:changed', change => {})
+assets.on('asset:changed', (change) => {})
 assets.on('cache:full', ({ size, limit }) => {})
 assets.on('patch:applied', ({ bundleName }) => {})
 ```

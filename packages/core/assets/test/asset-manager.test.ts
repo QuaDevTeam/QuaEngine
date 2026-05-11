@@ -5,7 +5,7 @@ import { MemoryAssetStorage } from '../src/database'
 
 const now = 1_700_000_000_000
 
-describe('AssetManager core', () => {
+describe('assetManager core', () => {
   let storage: MemoryAssetStorage
   let assetManager: AssetManager
 
