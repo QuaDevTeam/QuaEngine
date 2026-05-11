@@ -1,20 +1,26 @@
 {
   "name": "@quajs/logger",
+  "type": "module",
   "version": "0.1.0",
   "description": "Configurable logger with package and module prefixes for QuaEngine",
-  "type": "module",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": ["logger", "logging", "debug", "console"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
@@ -23,12 +29,6 @@
     "test": "vitest --passWithNoTests",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["logger", "logging", "debug", "console"],
-  "author": "QuaDevTeam",
-  "license": "Apache-2.0",
-  "engines": {
-    "node": ">=20"
-  },
-  "devDependencies": {},
-  "peerDependencies": {}
+  "peerDependencies": {},
+  "devDependencies": {}
 }

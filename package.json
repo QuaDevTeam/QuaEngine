@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@10.17.0",
+  "packageManager": "pnpm@11.0.9",
   "description": "QuaEngine monorepo with Turborepo, TypeScript, and Vite",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
@@ -24,7 +24,7 @@
     "lint": "turbo lint",
     "lint:affected": "turbo lint --filter='...[HEAD^1]'",
     "lint:fix": "turbo lint:fix",
-    "test": "turbo test",
+    "test": "turbo test --",
     "test:affected": "turbo test --filter='...[HEAD^1]'",
     "test:unit": "node --experimental-strip-types scripts/run-tests.ts unit",
     "test:integration": "node --experimental-strip-types scripts/run-tests.ts integration",
@@ -50,26 +50,33 @@
     "packages/plugins/*"
   ],
   "devDependencies": {
-    "@antfu/eslint-config": "^8.2.0",
+    "@antfu/eslint-config": "^9.0.0",
     "@changesets/cli": "^2.31.0",
-    "@types/mime-types": "^3.0.1",
-    "@types/node": "^25.6.0",
+    "@microsoft/api-extractor": "7.58.7",
+    "@types/mime-types": "catalog:",
+    "@types/node": "catalog:",
     "@types/yauzl": "catalog:",
-    "@types/yazl": "^3.3.1",
+    "@types/yazl": "catalog:",
+    "@vitest/coverage-v8": "4.1.5",
     "@vitest/ui": "^4.1.5",
     "conventional-changelog-conventionalcommits": "^9.3.1",
-    "eslint": "^10.3.0",
+    "eslint": "catalog:",
     "eslint-plugin-format": "^2.0.1",
     "happy-dom": "^20.9.0",
-    "inquirer": "^13.4.2",
-    "turbo": "^2.9.7",
-    "typescript": "^6.0.3",
-    "vite": "^8.0.10",
-    "vite-plugin-dts": "^5.0.0",
+    "inquirer": "catalog:",
+    "playwright": "^1.59.1",
+    "rollup": "4.60.3",
+    "turbo": "^2.9.12",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-dts": "catalog:",
     "vitest": "^4.1.5"
   },
   "pnpm": {
-    "overrides": {},
+    "overrides": {
+      "ajv@>=7.0.0-alpha.0 <9.0.0": "8.20.0",
+      "minimatch@<3.1.4": "3.1.4"
+    },
     "patchedDependencies": {}
   }
 }

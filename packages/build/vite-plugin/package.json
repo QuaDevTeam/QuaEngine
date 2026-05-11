@@ -37,7 +37,7 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "vite": "^8.0.0"
+    "vite": "catalog:"
   },
   "dependencies": {
     "@quajs/assets-web": "workspace:*",
