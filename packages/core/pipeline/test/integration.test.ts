@@ -1,4 +1,4 @@
-import type { EventListener, MiddlewareNext, PipelineContext, PluginEmitHook, PluginOnHook } from '../src/index'
+import type { MiddlewareNext, PipelineContext, PipelineTransport, PipelineTransportContext } from '../src/index'
 import { describe, expect, it, vi } from 'vitest'
 import { Middleware, Pipeline, Plugin } from '../src/index'
 
@@ -34,65 +34,38 @@ describe('pipeline Integration', () => {
       }
     }
 
-    // Create a caching plugin
-    class CachePlugin extends Plugin {
-      readonly name = 'cache-plugin'
+    // Create a caching transport
+    class CacheTransport implements PipelineTransport {
+      readonly name = 'cache-transport'
       private cache = new Map<string, any>()
-      private listeners = new Map<string, Set<EventListener>>()
+      private context?: PipelineTransportContext
 
-      setup(_pipeline: Pipeline) {
-        const emitHook: PluginEmitHook = async (type, payload, originalEmit) => {
-          // Cache the event
-          this.cache.set(`${type}:${JSON.stringify(payload)}`, {
-            type,
-            payload,
-            timestamp: Date.now(),
-          })
+      setup(context: PipelineTransportContext) {
+        this.context = context
+      }
 
-          await originalEmit(type, payload)
-        }
+      async publish(context: PipelineContext, transport: PipelineTransportContext) {
+        this.cache.set(`${context.event.type}:${JSON.stringify(context.event.payload)}`, {
+          ...context.event,
+        })
 
-        const onHook: PluginOnHook = (type, listener, originalOn) => {
-          // Track listeners for cache replay
-          if (!this.listeners.has(type)) {
-            this.listeners.set(type, new Set())
-          }
-          this.listeners.get(type)!.add(listener)
-
-          return originalOn(type, listener)
-        }
-
-        this.setEmitHook(emitHook)
-        this.setOnHook(onHook)
+        await transport.deliver(context)
       }
 
       getCacheSize(): number {
         return this.cache.size
       }
 
-      replayEvents(type: string) {
-        const listeners = this.listeners.get(type)
-        if (!listeners)
+      async replayEvents(type: string) {
+        if (!this.context) {
           return
+        }
 
         for (const event of this.cache.values()) {
           if (event.type === type) {
-            const context = {
-              event: {
-                ...event,
-                id: `replay-${event.type}-${Date.now()}`,
-              },
-              handled: false,
-              stopPropagation: false,
-            }
-
-            listeners.forEach((listener) => {
-              try {
-                listener(context)
-              }
-              catch {
-                // Handle error
-              }
+            await this.context.deliver({
+              ...event,
+              id: `replay-${event.type}-${Date.now()}`,
             })
           }
         }
@@ -103,11 +76,11 @@ describe('pipeline Integration', () => {
       // Create pipeline with middlewares and plugins
       const loggingMiddleware = new LoggingMiddleware()
       const validationMiddleware = new ValidationMiddleware()
-      const cachePlugin = new CachePlugin()
+      const cacheTransport = new CacheTransport()
 
       const pipeline = new Pipeline({
         middlewares: [loggingMiddleware, validationMiddleware],
-        plugins: [cachePlugin],
+        transport: cacheTransport,
       })
 
       // Set up listeners
@@ -126,14 +99,14 @@ describe('pipeline Integration', () => {
       expect(allEventListener).toHaveBeenCalledTimes(1)
       expect(loggingMiddleware.logs).toContain('[MIDDLEWARE] Before: user:action')
       expect(loggingMiddleware.logs).toContain('[MIDDLEWARE] After: user:action')
-      expect(cachePlugin.getCacheSize()).toBe(1)
+      expect(cacheTransport.getCacheSize()).toBe(1)
 
       // Test 2: Invalid user action (should be blocked by validation)
       await pipeline.emit('user:action', null)
 
       expect(userActionListener).toHaveBeenCalledOnce() // Still only once
       expect(allEventListener).toHaveBeenCalledTimes(1) // Still only once (blocked)
-      expect(cachePlugin.getCacheSize()).toBe(2) // Cache still records it
+      expect(cacheTransport.getCacheSize()).toBe(1) // Stopped events never reach transport
 
       // Test 3: Game event (not filtered by validation middleware)
       await pipeline.emit('game:event', { score: 100 })
@@ -142,15 +115,15 @@ describe('pipeline Integration', () => {
       expect(allEventListener).toHaveBeenCalledTimes(2) // Now twice
       expect(loggingMiddleware.logs).toContain('[MIDDLEWARE] Before: game:event')
       expect(loggingMiddleware.logs).toContain('[MIDDLEWARE] After: game:event')
-      expect(cachePlugin.getCacheSize()).toBe(3)
+      expect(cacheTransport.getCacheSize()).toBe(2)
 
       // Test 4: Cache replay
       const replayListener = vi.fn()
       pipeline.on('user:action', replayListener)
 
-      cachePlugin.replayEvents('user:action')
+      await cacheTransport.replayEvents('user:action')
 
-      expect(replayListener).toHaveBeenCalledTimes(2) // Both cached user:action events
+      expect(replayListener).toHaveBeenCalledTimes(1)
     })
 
     it('should handle error scenarios gracefully', async () => {
@@ -211,17 +184,22 @@ describe('pipeline Integration', () => {
       const pipeline = new Pipeline()
 
       // Create plugin that can be installed later
-      class DynamicPlugin extends Plugin {
-        readonly name = 'dynamic-plugin'
+      class DynamicTransport implements PipelineTransport {
+        readonly name = 'dynamic-transport'
         interceptedEvents: any[] = []
 
-        setup(_pipeline: Pipeline) {
-          const emitHook: PluginEmitHook = async (type, payload, originalEmit) => {
-            this.interceptedEvents.push({ type, payload })
-            await originalEmit(type, payload)
-          }
+        publish(context: PipelineContext, transport: PipelineTransportContext) {
+          this.interceptedEvents.push({ type: context.event.type, payload: context.event.payload })
+          return transport.deliver(context)
+        }
+      }
 
-          this.setEmitHook(emitHook)
+      class DynamicPlugin extends Plugin {
+        readonly name = 'dynamic-plugin'
+        readonly transport = new DynamicTransport()
+
+        setup(pipeline: Pipeline) {
+          pipeline.setTransport(this.transport)
         }
       }
 
@@ -239,8 +217,8 @@ describe('pipeline Integration', () => {
       // Emit event after plugin
       await pipeline.emit('test', 'after-plugin')
       expect(listener).toHaveBeenCalledTimes(2)
-      expect(dynamicPlugin.interceptedEvents).toHaveLength(1)
-      expect(dynamicPlugin.interceptedEvents[0]).toEqual({
+      expect(dynamicPlugin.transport.interceptedEvents).toHaveLength(1)
+      expect(dynamicPlugin.transport.interceptedEvents[0]).toEqual({
         type: 'test',
         payload: 'after-plugin',
       })

@@ -1,31 +1,53 @@
-import type { EventListener, Pipeline, PluginEmitHook, PluginOffHook, PluginOnHook } from '../src/index.js'
+import type { PipelineContext, PipelineTransport, PipelineTransportContext } from '../src/index.js'
 import { getPackageLogger } from '@quajs/logger'
-// Example WebSocket Plugin demonstrating network event transport
-import { Plugin } from '../src/index.js'
 
-const logger = getPackageLogger('pipeline').module('websocket-plugin')
+// Example WebSocket transport demonstrating custom pipeline event transport.
+const logger = getPackageLogger('pipeline').module('websocket-transport')
 
-export class WebSocketPlugin extends Plugin {
-  readonly name = 'websocket-transport'
+export class WebSocketTransport implements PipelineTransport {
+  readonly name = 'websocket'
 
   private ws?: WebSocket
-  private url: string
-  private listeners = new Map<string, Set<EventListener>>()
+  private readonly url: string
   private connected = false
+  private context?: PipelineTransportContext
 
   constructor(url: string) {
-    super()
     this.url = url
   }
 
-  async setup(_pipeline: Pipeline): Promise<void> {
-    // Initialize WebSocket connection
+  async setup(context: PipelineTransportContext): Promise<void> {
+    this.context = context
     await this.connect()
+  }
 
-    // Set up hooks to take over emit/on/off
-    this.setEmitHook(this.handleEmit.bind(this))
-    this.setOnHook(this.handleOn.bind(this))
-    this.setOffHook(this.handleOff.bind(this))
+  async publish(context: PipelineContext, transport: PipelineTransportContext): Promise<void> {
+    if (!this.connected || !this.ws) {
+      logger.warn('Not connected, falling back to local delivery')
+      await transport.deliver(context)
+      return
+    }
+
+    try {
+      this.ws.send(JSON.stringify({ kind: 'event', event: context.event }))
+      logger.debug(`Sent event: ${context.event.type}`)
+    }
+    catch (error) {
+      logger.error('Failed to send event:', error)
+      await transport.deliver(context)
+    }
+  }
+
+  subscribe(type: string): void {
+    this.sendControlMessage('subscribe', type)
+  }
+
+  unsubscribe(type: string): void {
+    this.sendControlMessage('unsubscribe', type)
+  }
+
+  dispose(): void {
+    this.disconnect()
   }
 
   private async connect(): Promise<void> {
@@ -39,16 +61,8 @@ export class WebSocketPlugin extends Plugin {
           resolve()
         }
 
-        this.ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data as string)
-            if (data.type && data.payload !== undefined) {
-              this.handleIncomingEvent(data.type, data.payload)
-            }
-          }
-          catch (error) {
-            logger.error('Failed to parse incoming message:', error)
-          }
+        this.ws.onmessage = (message) => {
+          void this.handleMessage(message.data)
         }
 
         this.ws.onclose = () => {
@@ -67,94 +81,40 @@ export class WebSocketPlugin extends Plugin {
     })
   }
 
-  private handleIncomingEvent(type: string, payload: unknown): void {
-    const specificListeners = this.listeners.get(type)
-    const wildcardListeners = this.listeners.get('*')
+  private async handleMessage(message: unknown): Promise<void> {
+    try {
+      const data = JSON.parse(String(message))
+      const event = data.kind === 'event' ? data.event : data
 
-    const context = {
-      event: {
-        type,
-        payload,
-        timestamp: Date.now(),
-        id: `ws-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-      },
-      handled: false,
-      stopPropagation: false,
-    }
+      if (!event || typeof event.type !== 'string' || !('payload' in event)) {
+        return
+      }
 
-    // Notify specific listeners
-    if (specificListeners) {
-      specificListeners.forEach((listener) => {
-        try {
-          void listener(context)
-        }
-        catch (error) {
-          logger.error('Error in listener:', error)
-        }
+      await this.context?.receive({
+        type: event.type,
+        payload: event.payload,
+        timestamp: typeof event.timestamp === 'number' ? event.timestamp : undefined,
+        id: typeof event.id === 'string' ? event.id : undefined,
       })
     }
-
-    // Notify wildcard listeners
-    if (wildcardListeners) {
-      wildcardListeners.forEach((listener) => {
-        try {
-          void listener(context)
-        }
-        catch (error) {
-          logger.error('Error in wildcard listener:', error)
-        }
-      })
+    catch (error) {
+      logger.error('Failed to handle incoming message:', error)
     }
   }
 
-  // Override emit to send events through WebSocket
-  private handleEmit: PluginEmitHook = async (type, payload, originalEmit) => {
+  private sendControlMessage(kind: 'subscribe' | 'unsubscribe', type: string): void {
     if (!this.connected || !this.ws) {
-      logger.warn('Not connected, falling back to local emit')
-      await originalEmit(type, payload)
       return
     }
 
     try {
-      const message = JSON.stringify({ type, payload })
-      this.ws.send(message)
-      logger.debug(`Sent event: ${type}`)
+      this.ws.send(JSON.stringify({ kind, type }))
     }
     catch (error) {
-      logger.error('Failed to send event:', error)
-      // Fallback to local emit
-      await originalEmit(type, payload)
+      logger.error(`Failed to send ${kind} message for ${type}:`, error)
     }
   }
 
-  // Override on to register listeners for network events
-  private handleOn: PluginOnHook = (type, listener, originalOn) => {
-    // Store listener for network events
-    if (!this.listeners.has(type)) {
-      this.listeners.set(type, new Set())
-    }
-    this.listeners.get(type)!.add(listener)
-
-    // Also register with local pipeline for fallback
-    return originalOn(type, listener)
-  }
-
-  // Override off to remove listeners
-  private handleOff: PluginOffHook = (type, listener, originalOff) => {
-    // Remove from network listeners
-    const listeners = this.listeners.get(type)
-    if (listeners) {
-      listeners.delete(listener)
-      if (listeners.size === 0) {
-        this.listeners.delete(type)
-      }
-    }
-
-    // Also remove from local pipeline
-    return originalOff(type, listener)
-  }
-
-  // Utility methods
   isConnected(): boolean {
     return this.connected
   }
@@ -176,18 +136,16 @@ export class WebSocketPlugin extends Plugin {
 // Example usage:
 /*
 import { Pipeline } from '@quajs/pipeline'
-import { WebSocketPlugin } from './websocket-plugin'
+import { WebSocketTransport } from './websocket-plugin'
 
 const pipeline = new Pipeline({
-  plugins: [
-    new WebSocketPlugin('ws://localhost:8080/events')
-  ]
+  transport: new WebSocketTransport('ws://localhost:8080/events')
 })
 
-// Now all emit calls will send events through WebSocket
+// Now emit calls publish events through WebSocket.
 await pipeline.emit('game:action', { action: 'move', direction: 'up' })
 
-// And all on calls will listen for events from WebSocket
+// Incoming WebSocket events are injected back through pipeline middleware/listeners.
 pipeline.on('game:state', (context) => {
   // eslint-disable-next-line no-console
   console.log('Received game state:', context.event.payload)
