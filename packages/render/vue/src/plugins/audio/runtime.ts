@@ -55,10 +55,12 @@ export class WebAudioAudioRuntime {
     bgm: undefined,
     voice: undefined,
   }
+
   private readonly slots: Record<'bgm' | 'voice', SlotRuntime | undefined> = {
     bgm: undefined,
     voice: undefined,
   }
+
   private readonly bufferCache = new Map<string, Promise<AudioBuffer>>()
   private projection = createInitialAudioProjection()
   private destroyed = false

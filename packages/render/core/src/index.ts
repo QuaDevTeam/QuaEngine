@@ -329,15 +329,15 @@ export interface RendererPluginContext {
   addDisposer: (disposer: () => void) => void
   emitRenderToLogic: <T extends RenderToLogicEvents>(
     type: T,
-    payload: RenderToLogicEventPayloadMap[T]
+    payload: RenderToLogicEventPayloadMap[T],
   ) => Promise<void>
   onLogicToRender: <T extends LogicToRenderEvents>(
     type: T,
-    handler: (payload: LogicToRenderEventPayloadMap[T], context: PipelineContext<LogicToRenderEventPayloadMap[T]>) => void | Promise<void>
+    handler: (payload: LogicToRenderEventPayloadMap[T], context: PipelineContext<LogicToRenderEventPayloadMap[T]>) => void | Promise<void>,
   ) => () => void
   onRenderToLogic: <T extends RenderToLogicEvents>(
     type: T,
-    handler: (payload: RenderToLogicEventPayloadMap[T], context: PipelineContext<RenderToLogicEventPayloadMap[T]>) => void | Promise<void>
+    handler: (payload: RenderToLogicEventPayloadMap[T], context: PipelineContext<RenderToLogicEventPayloadMap[T]>) => void | Promise<void>,
   ) => () => void
 }
 
@@ -437,6 +437,8 @@ export function waitForPipelineEvent<
     let settled = false
     let timeout: unknown
     const timers = getTimers()
+    let abort: () => void
+    let listener: EventListener<EventPayload<T>>
 
     const cleanup = () => {
       pipeline.off(type, listener as EventListener)
@@ -453,8 +455,8 @@ export function waitForPipelineEvent<
       fn()
     }
 
-    const abort = () => finish(() => reject(new Error(`Waiting for ${type} was cancelled`)))
-    const listener: EventListener<EventPayload<T>> = (context) => {
+    abort = () => finish(() => reject(new Error(`Waiting for ${type} was cancelled`)))
+    listener = (context) => {
       const payload = context.event.payload
       if (!matcher || matcher(payload)) {
         finish(() => resolve(payload))
@@ -472,8 +474,8 @@ export function waitForPipelineEvent<
   })
 }
 
-export type EventPayload<T extends LogicToRenderEvents | RenderToLogicEvents> =
-  T extends LogicToRenderEvents
+export type EventPayload<T extends LogicToRenderEvents | RenderToLogicEvents>
+  = T extends LogicToRenderEvents
     ? LogicToRenderEventPayloadMap[T]
     : T extends RenderToLogicEvents
       ? RenderToLogicEventPayloadMap[T]

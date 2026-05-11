@@ -55,7 +55,7 @@ export const QuaAudioController = defineComponent({
     const stopAdvanceSubscription = onRenderToLogic(
       pipeline.value,
       RenderToLogicEvents.USER_ADVANCE,
-      async payload => {
+      async (payload) => {
         const interrupted = runtime.interruptVoice(payload.source || 'user-advance')
         for (const track of interrupted) {
           await emitAudioRenderToLogic(pipeline.value, AudioRenderToLogicEvents.INTERRUPTED, track)

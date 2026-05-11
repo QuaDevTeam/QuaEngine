@@ -1,14 +1,14 @@
-import { describe, expect, it, vi } from 'vitest'
 import { Pipeline } from '@quajs/pipeline'
+import { describe, expect, it, vi } from 'vitest'
 import {
-  LogicToRenderEvents,
-  RenderToLogicEvents,
   emitLogicToRender,
   emitRenderToLogic,
+  LogicToRenderEvents,
   onLogicToRender,
   onRenderToLogic,
-  waitForPipelineEvent,
   RendererPluginHost,
+  RenderToLogicEvents,
+  waitForPipelineEvent,
 } from '../src'
 
 describe('render-core event contracts', () => {
@@ -55,7 +55,8 @@ describe('render-core event contracts', () => {
 
     await expect(wait).resolves.toEqual({ target: 'stage', x: 1 })
     await expect(waitForPipelineEvent(pipeline, RenderToLogicEvents.USER_ADVANCE, undefined, { timeout: 1 }))
-      .rejects.toThrow('Timed out waiting for pipeline event')
+      .rejects
+      .toThrow('Timed out waiting for pipeline event')
 
     const controller = new AbortController()
     const cancelled = waitForPipelineEvent(pipeline, RenderToLogicEvents.USER_ADVANCE, undefined, {

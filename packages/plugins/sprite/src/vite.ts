@@ -4,8 +4,8 @@ import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { access, readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative, resolve } from 'node:path'
-import { createLogger } from '@quajs/logger'
 import { createDevAssetRecord } from '@quajs/assets-web/vite'
+import { createLogger } from '@quajs/logger'
 import {
   createSpriteManifestFromAssets,
   getSpriteManifestPath,
@@ -213,15 +213,15 @@ function createSyntheticSpriteManifestAssets(records: readonly DevAssetManifestR
     const mtime = familyMtimes.length > 0 ? Math.max(...familyMtimes) : Date.now()
 
     generated.push({
-        family,
-        content,
-        record: {
-          id: createDevAssetId('characters', getSpriteManifestPath(family), 'default'),
-          bundleName: 'dev-vfs',
-          name: getSpriteManifestPath(family),
-          type: 'characters',
-          locale: 'default',
-          path: manifestPath,
+      family,
+      content,
+      record: {
+        id: createDevAssetId('characters', getSpriteManifestPath(family), 'default'),
+        bundleName: 'dev-vfs',
+        name: getSpriteManifestPath(family),
+        type: 'characters',
+        locale: 'default',
+        path: manifestPath,
         hash: createHash('sha256').update(content).digest('hex'),
         size: content.byteLength,
         version: mtime,
