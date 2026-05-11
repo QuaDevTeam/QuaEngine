@@ -33,6 +33,8 @@ import { audioDecoratorMappings } from './script-compiler'
 export {
   AUDIO_PLUGIN_ID,
   AUDIO_RENDERER_ENTRY,
+  AUDIO_VUE_RENDERER_ENTRY,
+  AUDIO_WEB_RENDERER_ENTRY,
   AudioRenderToLogicEvents,
   cloneAudioProjection,
   createInitialAudioProjection,

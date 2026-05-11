@@ -4,7 +4,13 @@ import { QuaAudioController } from './components'
 
 export { QuaAudioController, WebAudioAudioRuntime } from './components'
 
-export function createAudioRendererPlugin(): QuaVueRendererPlugin {
+export interface AudioRendererPluginOptions {
+  autoUnlock?: boolean
+  document?: Document
+  unlockEvents?: readonly (keyof DocumentEventMap)[]
+}
+
+export function createAudioRendererPlugin(options: AudioRendererPluginOptions = {}): QuaVueRendererPlugin {
   return defineVueRendererPlugin({
     name: '@quajs/renderer-vue/plugins/audio',
     setup() {},
@@ -13,6 +19,7 @@ export function createAudioRendererPlugin(): QuaVueRendererPlugin {
       slot: 'audio',
       component: QuaAudioController,
       order: 70,
+      props: { ...options },
     }],
   })
 }

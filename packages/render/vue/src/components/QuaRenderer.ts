@@ -1,19 +1,12 @@
 import type { QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
 import type { QuaViewProjection } from '@quajs/render-core'
+import type { RendererActions } from '@quajs/renderer-web'
 import type { PropType } from 'vue'
 import type { QuaVueRendererPlugin } from '../plugins/core'
-import {
-  emitRenderToLogic,
-  LogicToRenderEvents,
-  onLogicToRender,
-  onRenderToLogic,
-  RendererPluginHost,
-  RenderToLogicEvents,
-} from '@quajs/render-core'
-import { computed, defineComponent, h, onBeforeUnmount, onMounted, provide, readonly, ref, watch } from 'vue'
+import { emptyView, QuaWebRendererController } from '@quajs/renderer-web'
+import { computed, defineComponent, h, onBeforeUnmount, onMounted, provide, readonly, shallowRef, watch } from 'vue'
 import { QuaRendererContextKey } from '../context'
-import { emptyView } from '../defaults'
 import { sortRendererLayers } from '../plugins/core'
 import { QuaStage } from './QuaStage'
 
@@ -26,7 +19,7 @@ export interface QuaRendererSlotProps {
   effects: QuaViewProjection['effects']
   animations: QuaViewProjection['animations']
   plugins: QuaViewProjection['plugins']
-  actions: typeof createRendererActions extends (...args: any[]) => infer T ? T : never
+  actions: RendererActions
 }
 
 export const QuaRenderer = defineComponent({
@@ -47,41 +40,28 @@ export const QuaRenderer = defineComponent({
   setup(props, { slots }) {
     const pipeline = computed(() => props.pipeline)
     const assets = computed(() => props.assets)
-    const projection = ref<QuaViewProjection>(props.initialView || emptyView())
-    const revision = ref(0)
-    const assetRevision = ref(0)
     const rendererPlugins = computed(() => props.plugins || [])
+    const web = new QuaWebRendererController({
+      pipeline: props.pipeline,
+      assets: props.assets,
+      initialView: props.initialView,
+      plugins: rendererPlugins.value,
+    })
+    const snapshot = shallowRef(web.getSnapshot())
     const rendererLayers = computed(() => sortRendererLayers(rendererPlugins.value.flatMap(plugin => plugin.layers || [])))
-    const eventUnsubscribers: Array<() => void> = []
-    let pluginHost: RendererPluginHost | undefined
     let stopPipelineWatch: (() => void) | undefined
     let stopAssetWatch: (() => void) | undefined
-    let subscribedAssets: QuaAssets | undefined
+    let unsubscribeSnapshot: (() => void) | undefined
 
     const view = computed<QuaViewProjection>(() => {
-      return revision.value >= 0
-        ? projection.value
-        : emptyView()
+      return snapshot.value.view || emptyView()
     })
     const readonlyView = readonly(view)
-
-    const refreshView = () => {
-      revision.value += 1
-    }
-
-    const refreshAssets = () => {
-      assetRevision.value += 1
-      refreshView()
-    }
-
-    const cleanupAssetSubscription = () => {
-      subscribedAssets?.off('asset:changed', refreshAssets)
-      subscribedAssets = undefined
-    }
-
-    const actions = createRendererActions(() => requirePipeline(pipeline.value))
+    const assetRevision = computed(() => snapshot.value.assetRevision)
+    const actions = web.actions
 
     provide(QuaRendererContextKey, {
+      web,
       pipeline: computed(() => requirePipeline(pipeline.value)),
       assets,
       view: readonlyView,
@@ -90,49 +70,17 @@ export const QuaRenderer = defineComponent({
     })
 
     onMounted(async () => {
-      pluginHost = new RendererPluginHost(rendererPlugins.value)
-      stopPipelineWatch = watch(pipeline, (currentPipeline) => {
-        cleanupPipelineSubscriptions(eventUnsubscribers)
-        if (!currentPipeline)
-          return
-
-        eventUnsubscribers.push(onLogicToRender(currentPipeline, LogicToRenderEvents.VIEW_UPDATE, (payload) => {
-          projection.value = payload.view
-          refreshView()
-        }))
-        eventUnsubscribers.push(onLogicToRender(currentPipeline, LogicToRenderEvents.ASSET_CHANGED, () => {
-          assetRevision.value += 1
-          refreshView()
-        }))
-      }, { immediate: true })
-      stopAssetWatch = watch(assets, (currentAssets) => {
-        cleanupAssetSubscription()
-        if (!currentAssets)
-          return
-        currentAssets.on('asset:changed', refreshAssets)
-        subscribedAssets = currentAssets
-      }, { immediate: true })
-      await pluginHost.init({
-        getPipeline: () => requirePipeline(pipeline.value),
-        getViewState: () => readonlyView.value,
-        refresh: refreshView,
-        emitRenderToLogic: (type, payload) => emitRenderToLogic(requirePipeline(pipeline.value), type as any, payload as any),
-        onLogicToRender: (type, handler) => onLogicToRender(requirePipeline(pipeline.value), type as any, handler as any),
-        onRenderToLogic: (type, handler) => onRenderToLogic(requirePipeline(pipeline.value), type as any, handler as any),
-      })
-      await actions.ready()
+      unsubscribeSnapshot = web.subscribe(nextSnapshot => snapshot.value = nextSnapshot)
+      stopPipelineWatch = watch(pipeline, currentPipeline => web.setPipeline(requirePipeline(currentPipeline)), { immediate: true })
+      stopAssetWatch = watch(assets, currentAssets => web.setAssets(currentAssets), { immediate: true })
+      await web.start()
     })
 
     onBeforeUnmount(() => {
       stopPipelineWatch?.()
       stopAssetWatch?.()
-      cleanupPipelineSubscriptions(eventUnsubscribers)
-      cleanupAssetSubscription()
-      pluginHost?.destroy()
-      const currentPipeline = pipeline.value
-      if (currentPipeline) {
-        emitRenderToLogic(currentPipeline, RenderToLogicEvents.RENDER_DESTROYED, { timestamp: Date.now() })
-      }
+      unsubscribeSnapshot?.()
+      void web.destroy()
     })
 
     const slotProps = computed(() => createSlotProps(readonlyView.value, actions))
@@ -144,22 +92,7 @@ export const QuaRenderer = defineComponent({
   },
 })
 
-function createRendererActions(getPipeline: () => Pipeline) {
-  return {
-    ready: () => emitRenderToLogic(getPipeline(), RenderToLogicEvents.RENDER_READY, { timestamp: Date.now() }),
-    sceneReady: (sceneId?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.SCENE_READY, { sceneId, timestamp: Date.now() }),
-    click: (payload = {}) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_CLICK, payload),
-    advance: (source?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_ADVANCE, { source }),
-    selectChoice: (choiceId: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_CHOICE_SELECT, { choiceId }),
-    requestSave: (slotId?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.GAME_SAVE_REQUEST, { slotId }),
-    requestLoad: (slotId?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.GAME_LOAD_REQUEST, { slotId }),
-    requestUiOpen: (elementId: string, config?: Record<string, unknown>) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.UI_REQUEST_OPEN, { elementId, config }),
-    requestUiClose: (elementId: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.UI_REQUEST_CLOSE, { elementId }),
-    requestUiUpdate: (elementId: string, config: Record<string, unknown>) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.UI_REQUEST_UPDATE, { elementId, config }),
-  }
-}
-
-function createSlotProps(view: Readonly<QuaViewProjection>, actions: ReturnType<typeof createRendererActions>): QuaRendererSlotProps {
+function createSlotProps(view: Readonly<QuaViewProjection>, actions: RendererActions): QuaRendererSlotProps {
   return {
     view,
     background: view.background,
@@ -178,10 +111,4 @@ function requirePipeline(pipeline?: Pipeline): Pipeline {
     throw new Error('QuaRenderer requires a pipeline')
   }
   return pipeline
-}
-
-function cleanupPipelineSubscriptions(unsubscribers: Array<() => void>): void {
-  while (unsubscribers.length > 0) {
-    unsubscribers.pop()?.()
-  }
 }

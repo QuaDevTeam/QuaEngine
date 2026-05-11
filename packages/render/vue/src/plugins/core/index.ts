@@ -1,5 +1,6 @@
 import type { RendererPlugin } from '@quajs/render-core'
 import type { Component } from 'vue'
+import { sortRendererLayers as sortOrderedRendererLayers } from '@quajs/renderer-web'
 
 export interface QuaVueRendererLayer {
   id: string
@@ -18,8 +19,5 @@ export function defineVueRendererPlugin(plugin: QuaVueRendererPlugin): QuaVueRen
 }
 
 export function sortRendererLayers(layers: readonly QuaVueRendererLayer[]): QuaVueRendererLayer[] {
-  return [...layers].sort((left, right) => {
-    const order = (left.order ?? 0) - (right.order ?? 0)
-    return order === 0 ? left.id.localeCompare(right.id) : order
-  })
+  return sortOrderedRendererLayers(layers)
 }

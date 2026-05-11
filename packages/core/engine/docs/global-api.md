@@ -98,7 +98,7 @@ Gets the ID of the current dialogue step.
 
 ## Audio Plugin
 
-Audio playback is no longer an engine-core API. Engine state only carries the plugin projection lane under `view.plugins.audio`, while real decoding and playback live in `@quajs/renderer-vue/plugins/audio`.
+Audio playback is no longer an engine-core API. Engine state only carries the plugin projection lane under `view.plugins.audio`, while real Web decoding and playback live in `@quajs/renderer-web/audio` and framework adapters such as `@quajs/renderer-vue/plugins/audio`.
 
 For chapter-aware BGM and voice playback, use `@quajs/plugin-audio` decorators and helpers such as `@AudioChapter`, `@PlayVoice`, `@PlayBGM`, `@SetAudioGain`, and `@SetAudioAutomation`.
 

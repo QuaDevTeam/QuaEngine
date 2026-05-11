@@ -486,9 +486,33 @@ importers:
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../core
+      '@quajs/renderer-web':
+        specifier: workspace:*
+        version: link:../web
       vue:
         specifier: 'catalog:'
         version: 3.5.34(typescript@6.0.3)
+
+  packages/render/web:
+    devDependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../../core/assets
+      '@quajs/assets-web':
+        specifier: workspace:*
+        version: link:../../platform/assets-web
+      '@quajs/pipeline':
+        specifier: workspace:*
+        version: link:../../core/pipeline
+      '@quajs/plugin-audio':
+        specifier: workspace:*
+        version: link:../../plugins/audio
+      '@quajs/plugin-sprite':
+        specifier: workspace:*
+        version: link:../../plugins/sprite
+      '@quajs/render-core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/utils: {}
 

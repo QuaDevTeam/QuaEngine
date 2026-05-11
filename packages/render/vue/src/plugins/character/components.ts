@@ -1,8 +1,7 @@
-import type { ActiveAnimationProjection, ViewCharacterProjection } from '@quajs/render-core'
+import { characterProjectionVars, projectCharacter } from '@quajs/renderer-web'
 import { computed, defineComponent, h } from 'vue'
 import { useProjectionProps } from '../../components/projection'
 import { useAnimationClock, useAnimations, useCharacters, useRendererActions } from '../../composables'
-import { applyTrackValues, cloneCharacter, collectTrackValues } from '../shared/animation'
 import { QuaSprite } from '../sprite'
 
 export const QuaCharacter = defineComponent({
@@ -52,35 +51,3 @@ export const QuaCharacterLayer = defineComponent({
     ))
   },
 })
-
-function projectCharacter(
-  character: Readonly<ViewCharacterProjection>,
-  animations: readonly Readonly<ActiveAnimationProjection>[],
-  now: number,
-): ViewCharacterProjection {
-  const tracks = collectTrackValues(animations, `character:${character.id}`, now)
-  if (tracks.length === 0)
-    return character as ViewCharacterProjection
-
-  const next = cloneCharacter(character)
-  applyTrackValues(next as unknown as Record<string, unknown>, tracks)
-  return next
-}
-
-function characterProjectionVars(character: any): Record<string, string | number> | undefined {
-  const position = character.position || {}
-  const vars: Record<string, string | number> = {}
-  assignVar(vars, '--qua-character-x', position.x)
-  assignVar(vars, '--qua-character-y', position.y)
-  assignVar(vars, '--qua-character-scale', position.scale)
-  assignVar(vars, '--qua-character-rotation', position.rotation)
-  assignVar(vars, '--qua-character-layer', character.layer)
-  assignVar(vars, '--qua-character-opacity', character.opacity)
-  return Object.keys(vars).length ? vars : undefined
-}
-
-function assignVar(vars: Record<string, string | number>, name: string, value: unknown): void {
-  if (value !== undefined && value !== null) {
-    vars[name] = value as string | number
-  }
-}

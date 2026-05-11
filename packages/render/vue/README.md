@@ -125,6 +125,12 @@ const assets = await createViteDevAssetRuntime({
 
 The Vite plugin at `@quajs/vite-plugin` mounts the dev asset route and forwards file changes as `qua-assets:update`. `QuaRenderer` listens to the local `assets` runtime's `asset:changed` event, so changed images/audio reload without a browser refresh.
 
+## Audio Autoplay
+
+The Vue audio plugin delegates playback to `@quajs/renderer-web/audio`. It attempts WebAudio unlock automatically when `view.plugins.audio` contains a playing BGM or voice projection. If the browser blocks autoplay, playback stays pending without emitting an engine audio error and resumes after the next configured user activation event.
+
+Use `createAudioRendererPlugin({ autoUnlock: false })` to disable the automatic attempt, or pass `unlockEvents` to customize the gesture events.
+
 In `vite.config.ts`:
 
 ```ts
