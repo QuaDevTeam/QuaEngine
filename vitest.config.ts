@@ -1,6 +1,6 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config'
-import { resolve } from 'path'
+import { resolve } from 'node:path'
 
 export default defineConfig({
   test: {
@@ -33,12 +33,13 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@quajs/logger': resolve(__dirname, 'packages/logger/src'),
-      '@quajs/utils': resolve(__dirname, 'packages/utils/src'),
-      '@quajs/store': resolve(__dirname, 'packages/store/src'),
-      '@quajs/assets': resolve(__dirname, 'packages/assets/src'),
-      '@quajs/quack': resolve(__dirname, 'packages/quack/src'),
-      '@quajs/pipeline': resolve(__dirname, 'packages/pipeline/src'),
+      '@quajs/logger': resolve(__dirname, 'packages/utils/src'),
+      '@quajs/utils': resolve(__dirname, 'packages/utils/common/src'),
+      '@quajs/store': resolve(__dirname, 'packages/core/store/src'),
+      '@quajs/assets': resolve(__dirname, 'packages/core/assets/src'),
+      '@quajs/assets-memory': resolve(__dirname, 'packages/platform/assets-memory/src'),
+      '@quajs/quack': resolve(__dirname, 'packages/build/quack/src'),
+      '@quajs/pipeline': resolve(__dirname, 'packages/core/pipeline/src'),
     }
   }
 })
