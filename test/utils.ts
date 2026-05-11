@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
 import { writeFile, mkdir } from 'node:fs/promises'
-import type { BundleManifest, AssetType } from '@quajs/assets'
+import type { AssetInfo, AssetType, BundleManifest } from '@quajs/assets'
 
 export interface TestAsset {
   name: string
@@ -85,20 +85,23 @@ export function createMockManifest(assets: TestAsset[], bundleName: string, vers
     if (!acc[asset.type]) {
       acc[asset.type] = {}
     }
-    if (!acc[asset.type][asset.subType]) {
-      acc[asset.type][asset.subType] = {}
-    }
-    
-    acc[asset.type][asset.subType][asset.name] = {
+
+    const relativePath = `${asset.type}/${asset.subType}/${asset.name}`
+    acc[asset.type]![relativePath] = {
+      name: asset.name,
+      path: relativePath,
+      relativePath,
       size: asset.size,
-      hash: `hash-${asset.name}`,
+      hash: '',
+      type: asset.type,
       locales: [asset.locale],
-      version: 1
+      version: 1,
     }
     return acc
-  }, {} as any)
+  }, {} as Partial<Record<AssetType, Record<string, AssetInfo>>>)
 
   return {
+    name: bundleName,
     version: '1.0',
     bundler: 'quack-test',
     created: new Date().toISOString(),
@@ -112,8 +115,7 @@ export function createMockManifest(assets: TestAsset[], bundleName: string, vers
     totalFiles: assets.length,
     totalSize: assets.reduce((sum, a) => sum + a.size, 0),
     compression: {
-      algorithm: 'lzma',
-      level: 6
+      algorithm: 'none',
     },
     encryption: {
       enabled: false,
@@ -145,53 +147,45 @@ export async function createTestAssetDirectory(tempDir: string, assets: TestAsse
 /**
  * Create mock QPK bundle data
  */
-export function createMockQPKBundle(assets: TestAsset[]): ArrayBuffer {
-  // Create a simple QPK bundle structure for testing
-  const encoder = new TextEncoder()
-  const chunks: Uint8Array[] = []
-  
-  // QPK Header
-  // Magic number: 'QPK\0' (0x51504B00)
-  const header = new ArrayBuffer(20)
-  const headerView = new DataView(header)
-  headerView.setUint32(0, 0x51504B00, true) // Magic
-  headerView.setUint32(4, 1, true) // Version
-  headerView.setUint32(8, 1, true) // Compression type (LZMA)
-  headerView.setUint32(12, 0, true) // Encryption flags
-  headerView.setUint32(16, assets.length, true) // File count
-  
-  chunks.push(new Uint8Array(header))
-  
-  // File entries
-  for (const asset of assets) {
-    const nameBytes = encoder.encode(asset.name)
+export function createMockQPKBundle(
+  assets: TestAsset[],
+  manifestOverrides: Partial<BundleManifest> = {},
+): Uint8Array {
+  const manifest = {
+    ...createMockManifest(assets, manifestOverrides.name || 'test-bundle', manifestOverrides.bundleVersion || 1),
+    ...manifestOverrides,
+  }
+  const entries = assets.map((asset) => {
+    const pathBytes = utf8(`assets/${asset.type}/${asset.subType}/${asset.name}`)
     const contentBytes = typeof asset.content === 'string'
-      ? encoder.encode(asset.content)
+      ? utf8(asset.content)
       : asset.content
-    
-    // File entry header
-    const entryHeader = new ArrayBuffer(12)
-    const entryView = new DataView(entryHeader)
-    entryView.setUint32(0, nameBytes.length, true) // Name length
-    entryView.setUint32(4, contentBytes.length, true) // Compressed size
-    entryView.setUint32(8, contentBytes.length, true) // Uncompressed size
-    
-    chunks.push(new Uint8Array(entryHeader))
-    chunks.push(nameBytes)
-    chunks.push(contentBytes)
-  }
-  
-  // Combine all chunks
-  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
-  const result = new Uint8Array(totalLength)
-  let offset = 0
-  
-  for (const chunk of chunks) {
-    result.set(chunk, offset)
-    offset += chunk.length
-  }
-  
-  return result.buffer
+    const entry = new Uint8Array(4 + pathBytes.byteLength + 4 + contentBytes.byteLength)
+    const view = new DataView(entry.buffer)
+
+    view.setUint32(0, pathBytes.byteLength, true)
+    entry.set(pathBytes, 4)
+    view.setUint32(4 + pathBytes.byteLength, contentBytes.byteLength, true)
+    entry.set(contentBytes, 4 + pathBytes.byteLength + 4)
+
+    return entry
+  })
+  const dataSection = concatBytes(entries)
+  const manifestBytes = utf8(JSON.stringify(manifest))
+  const headerSize = 32
+  const bytes = new Uint8Array(headerSize + dataSection.byteLength + manifestBytes.byteLength)
+  const view = new DataView(bytes.buffer)
+
+  view.setUint32(0, 0x51504B00, false)
+  view.setUint32(4, 1, true)
+  view.setUint32(8, 0, true)
+  view.setUint32(12, headerSize, true)
+  setUint64LE(view, 16, headerSize + dataSection.byteLength)
+  setUint64LE(view, 24, manifestBytes.byteLength)
+  bytes.set(dataSection, headerSize)
+  bytes.set(manifestBytes, headerSize + dataSection.byteLength)
+
+  return bytes
 }
 
 /**
@@ -251,4 +245,25 @@ export function createMockLZMAData(originalData: string): Uint8Array {
   mockCompressed.set(original, 8)
   
   return mockCompressed
+}
+
+function concatBytes(chunks: Uint8Array[]): Uint8Array {
+  const result = new Uint8Array(chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0))
+  let offset = 0
+
+  for (const chunk of chunks) {
+    result.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+
+  return result
+}
+
+function setUint64LE(view: DataView, offset: number, value: number): void {
+  view.setUint32(offset, value >>> 0, true)
+  view.setUint32(offset + 4, Math.floor(value / 2 ** 32), true)
+}
+
+function utf8(value: string): Uint8Array {
+  return new TextEncoder().encode(value)
 }
