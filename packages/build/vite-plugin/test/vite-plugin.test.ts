@@ -2,8 +2,8 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Writable } from 'node:stream'
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { quaEngine, quaEnginePlugin, quackPlugin, quaScriptCompilerPlugin } from '../src/index'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { quackPlugin, quaEngine, quaEnginePlugin, quaScriptCompilerPlugin } from '../src/index'
 
 const quackMocks = vi.hoisted(() => ({
   bundle: vi.fn().mockResolvedValue({
@@ -24,6 +24,14 @@ const scriptCompilerMocks = vi.hoisted(() => ({
   handleHotUpdate: vi.fn(),
   transform: vi.fn(),
 }))
+
+type MockMiddlewareHandler = (
+  request: { url?: string },
+  response: ReturnType<typeof createMockResponse>,
+  next: () => void,
+) => void | Promise<void>
+
+type MockWatcherHandler = (file: string) => void | Promise<void>
 
 // Mock dependencies
 vi.mock('@quajs/script-compiler', () => ({
@@ -52,8 +60,8 @@ vi.mock('@quajs/logger', () => ({
   createLogger: vi.fn(() => ({
     info: vi.fn(),
     warn: vi.fn(),
-    error: vi.fn()
-  }))
+    error: vi.fn(),
+  })),
 }))
 
 describe('@quajs/vite-plugin', () => {
@@ -79,9 +87,9 @@ describe('@quajs/vite-plugin', () => {
 
     it('should include script compiler plugin when enabled', () => {
       const plugins = quaEngine({
-        scriptCompiler: { enabled: true }
+        scriptCompiler: { enabled: true },
       })
-      
+
       const scriptPlugin = plugins.find(p => p.name === 'qua-script-compiler')
       expect(scriptPlugin).toBeDefined()
     })
@@ -90,9 +98,9 @@ describe('@quajs/vite-plugin', () => {
       const plugins = quaEngine({
         scriptCompiler: { enabled: false },
         pluginDiscovery: { enabled: false },
-        assetBundling: { enabled: false }
+        assetBundling: { enabled: false },
       })
-      
+
       // Should only have dev server plugin
       expect(plugins.length).toBeLessThan(4)
     })
@@ -102,17 +110,17 @@ describe('@quajs/vite-plugin', () => {
         scriptCompiler: {
           enabled: true,
           include: /\.ts$/,
-          projectRoot: '/test'
+          projectRoot: '/test',
         },
         pluginDiscovery: {
           enabled: true,
-          generateVirtualRegistry: true
+          generateVirtualRegistry: true,
         },
         assetBundling: {
           enabled: true,
           source: 'test-assets',
-          format: 'qpk' as const
-        }
+          format: 'qpk' as const,
+        },
       }
 
       const plugins = quaEngine(options)
@@ -186,7 +194,7 @@ describe('@quajs/vite-plugin', () => {
 
     it('should handle partial configuration', () => {
       const plugins = quaEngine({
-        scriptCompiler: { projectRoot: '/custom' }
+        scriptCompiler: { projectRoot: '/custom' },
       })
       expect(plugins.length).toBeGreaterThan(0)
     })
@@ -246,18 +254,18 @@ describe('@quajs/vite-plugin', () => {
       await writeFile(join(assetsDir, 'images', 'bg.png'), 'image-data')
 
       const plugin = quackPlugin({ source: 'assets', devVfsBase: '/@qua-assets' })
-      const middlewareHandlers: Function[] = []
+      const middlewareHandlers: MockMiddlewareHandler[] = []
       const server = {
         middlewares: {
-          use: vi.fn((handler) => middlewareHandlers.push(handler))
+          use: vi.fn(handler => middlewareHandlers.push(handler)),
         },
         watcher: {
           add: vi.fn(),
-          on: vi.fn()
+          on: vi.fn(),
         },
         ws: {
-          send: vi.fn()
-        }
+          send: vi.fn(),
+        },
       }
 
       plugin.configResolved?.({ root: tempDir, command: 'serve' } as any)
@@ -267,7 +275,7 @@ describe('@quajs/vite-plugin', () => {
       await middlewareHandlers[0](
         { url: '/@qua-assets/manifest.json' },
         manifestResponse,
-        vi.fn()
+        vi.fn(),
       )
 
       const manifest = JSON.parse(manifestResponse.body)
@@ -276,14 +284,14 @@ describe('@quajs/vite-plugin', () => {
         id: 'dev-vfs:default:images:bg.png',
         name: 'bg.png',
         type: 'images',
-        path: 'images/bg.png'
+        path: 'images/bg.png',
       })
 
       const assetResponse = createMockResponse()
       await middlewareHandlers[0](
         { url: '/@qua-assets/images/bg.png' },
         assetResponse,
-        vi.fn()
+        vi.fn(),
       )
 
       await assetResponse.finished
@@ -298,18 +306,18 @@ describe('@quajs/vite-plugin', () => {
       await writeFile(join(assetsDir, 'video', 'intro.mp4'), 'video-data')
 
       const plugin = quackPlugin({ source: 'assets' })
-      const middlewareHandlers: Function[] = []
+      const middlewareHandlers: MockMiddlewareHandler[] = []
       const server = {
         middlewares: {
-          use: vi.fn((handler) => middlewareHandlers.push(handler))
+          use: vi.fn(handler => middlewareHandlers.push(handler)),
         },
         watcher: {
           add: vi.fn(),
-          on: vi.fn()
+          on: vi.fn(),
         },
         ws: {
-          send: vi.fn()
-        }
+          send: vi.fn(),
+        },
       }
 
       plugin.configResolved?.({ root: tempDir, command: 'serve' } as any)
@@ -319,7 +327,7 @@ describe('@quajs/vite-plugin', () => {
       await middlewareHandlers[0](
         { url: '/@qua-assets/manifest.json' },
         manifestResponse,
-        vi.fn()
+        vi.fn(),
       )
 
       const manifest = JSON.parse(manifestResponse.body)
@@ -328,7 +336,7 @@ describe('@quajs/vite-plugin', () => {
         name: 'intro.mp4',
         type: 'video',
         path: 'video/intro.mp4',
-        mimeType: 'video/mp4'
+        mimeType: 'video/mp4',
       })
     })
 
@@ -338,18 +346,18 @@ describe('@quajs/vite-plugin', () => {
       await mkdir(join(assetsDir, 'images'), { recursive: true })
 
       const plugin = quackPlugin({ source: 'assets' })
-      const middlewareHandlers: Function[] = []
+      const middlewareHandlers: MockMiddlewareHandler[] = []
       const server = {
         middlewares: {
-          use: vi.fn((handler) => middlewareHandlers.push(handler))
+          use: vi.fn(handler => middlewareHandlers.push(handler)),
         },
         watcher: {
           add: vi.fn(),
-          on: vi.fn()
+          on: vi.fn(),
         },
         ws: {
-          send: vi.fn()
-        }
+          send: vi.fn(),
+        },
       }
 
       plugin.configResolved?.({ root: tempDir, command: 'serve' } as any)
@@ -359,7 +367,7 @@ describe('@quajs/vite-plugin', () => {
       await middlewareHandlers[0](
         { url: '/@qua-assets/%E0%A4%A' },
         badEncodingResponse,
-        vi.fn()
+        vi.fn(),
       )
       expect(badEncodingResponse.statusCode).toBe(400)
 
@@ -367,7 +375,7 @@ describe('@quajs/vite-plugin', () => {
       await middlewareHandlers[0](
         { url: '/@qua-assets/images' },
         directoryResponse,
-        vi.fn()
+        vi.fn(),
       )
       expect(directoryResponse.statusCode).toBe(404)
     })
@@ -378,15 +386,15 @@ describe('@quajs/vite-plugin', () => {
       const plugin = quackPlugin({ source: 'assets', devVfs: false })
       const server = {
         middlewares: {
-          use: vi.fn()
+          use: vi.fn(),
         },
         watcher: {
           add: vi.fn(),
-          on: vi.fn()
+          on: vi.fn(),
         },
         ws: {
-          send: vi.fn()
-        }
+          send: vi.fn(),
+        },
       }
 
       plugin.configResolved?.({ root: tempDir, command: 'serve' } as any)
@@ -405,18 +413,18 @@ describe('@quajs/vite-plugin', () => {
       await writeFile(imagePath, 'image-data')
 
       const plugin = quackPlugin({ source: 'assets' })
-      const watcherHandlers = new Map<string, Function>()
+      const watcherHandlers = new Map<string, MockWatcherHandler>()
       const server = {
         middlewares: {
-          use: vi.fn()
+          use: vi.fn(),
         },
         watcher: {
           add: vi.fn(),
-          on: vi.fn((event, handler) => watcherHandlers.set(event, handler))
+          on: vi.fn((event, handler) => watcherHandlers.set(event, handler)),
         },
         ws: {
-          send: vi.fn()
-        }
+          send: vi.fn(),
+        },
       }
 
       plugin.configResolved?.({ root: tempDir, command: 'serve' } as any)
@@ -431,9 +439,9 @@ describe('@quajs/vite-plugin', () => {
           type: 'changed',
           assetId: 'dev-vfs:default:images:bg.png',
           record: expect.objectContaining({
-            path: 'images/bg.png'
-          })
-        })
+            path: 'images/bg.png',
+          }),
+        }),
       }))
     })
   })

@@ -132,7 +132,6 @@ export function createAudioDecoratorCompiler() {
         stepUuid: string
         state: Record<string, unknown>
       }
-      mapping: { function: string }
     }) {
       const state = ensureAudioCompileState(input.context.state)
       prepareStepState(state, input.context.stepIndex)

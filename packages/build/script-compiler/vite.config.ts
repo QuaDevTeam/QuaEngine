@@ -56,6 +56,7 @@ export default defineConfig({
         '@quajs/plugin-audio/script-compiler',
         '@quajs/plugin-animation/script-compiler',
         '@quajs/plugin-background/script-compiler',
+        '@quajs/plugin-discovery',
         'vite',
         'uuid',
       ],

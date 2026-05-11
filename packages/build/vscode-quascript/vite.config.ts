@@ -20,11 +20,7 @@ export default defineConfig({
     },
     rollupOptions: {
       external: [
-        '@quajs/language-server/server',
-        'node:module',
-        'node:path',
         'vscode',
-        'vscode-languageclient/node',
       ],
     },
     target: 'node20',

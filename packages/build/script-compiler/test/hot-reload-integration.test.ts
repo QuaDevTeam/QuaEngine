@@ -5,20 +5,16 @@ import { getHotReloadManager, resetHotReloadManager } from '../src/core/hot-relo
 import { compileQuaScript } from '../src/index'
 import { createHotReloadAwareTransformer } from '../src/integrations/hot-reload-transformer'
 
-// Mock engine-backed plugin discovery
-vi.mock('@quajs/engine', async () => {
-  const actual = await vi.importActual<typeof import('@quajs/engine')>('@quajs/engine')
-  return {
-    ...actual,
-    getDiscoveredDecoratorMappings: vi.fn(async () => ({
-      ...audioDecoratorMappings,
-      CustomDecorator: {
-        function: 'customFunction',
-        module: '@custom/plugin',
-      },
-    })),
-  }
-})
+// Mock package-local plugin discovery.
+vi.mock('@quajs/plugin-discovery', () => ({
+  getDiscoveredDecoratorMappings: vi.fn(async () => ({
+    ...audioDecoratorMappings,
+    CustomDecorator: {
+      function: 'customFunction',
+      module: '@custom/plugin',
+    },
+  })),
+}))
 
 describe('hot-Reload Integration', () => {
   let originalNodeEnv: string | undefined

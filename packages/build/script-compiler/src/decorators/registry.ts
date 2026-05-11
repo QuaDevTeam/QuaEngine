@@ -2,6 +2,7 @@ import type { DecoratorMapping } from '../core/types'
 import type { DecoratorCompilationResult, DecoratorCompileInput, DecoratorCompiler, ImplicitDecoratorCompileInput } from './types'
 import { createCharacterDecoratorCompiler } from '@quajs/character/script-compiler'
 import { createAnimationDecoratorCompiler } from '@quajs/plugin-animation/script-compiler'
+import { createAudioDecoratorCompiler } from '@quajs/plugin-audio/script-compiler'
 import { createBackgroundDecoratorCompiler } from '@quajs/plugin-background/script-compiler'
 
 export class DecoratorCompilerRegistry {
@@ -78,6 +79,7 @@ export function createDefaultDecoratorCompilerRegistry(): DecoratorCompilerRegis
   const registry = new DecoratorCompilerRegistry()
   registry.register(createCharacterDecoratorCompiler())
   registry.register(createBackgroundDecoratorCompiler())
+  registry.register(createAudioDecoratorCompiler())
   registry.register(createAnimationDecoratorCompiler())
   return registry
 }

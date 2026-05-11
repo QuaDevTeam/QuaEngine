@@ -1,0 +1,13 @@
+.turbo/**
+.gitignore
+src/**
+scripts/**
+node_modules/**
+*.config.ts
+*.log
+tsconfig.json
+*.vsix
+dist/**/*.d.ts
+dist/**/*.d.ts.map
+dist/**/*.map
+server/**/*.map

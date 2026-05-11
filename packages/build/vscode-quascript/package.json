@@ -1,30 +1,46 @@
 {
   "publisher": "quajs",
-  "name": "@quajs/vscode-quascript",
+  "name": "quascript",
   "displayName": "QuaScript",
   "type": "module",
   "version": "0.1.0",
-  "description": "VSCode language support for QuaScript .qs files",
+  "description": "TypeScript-first language support for QuaScript .qs files in QuaEngine.",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
+  "homepage": "https://github.com/QuaDevTeam/QuaEngine#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/build/vscode-quascript"
+  },
+  "bugs": {
+    "url": "https://github.com/QuaDevTeam/QuaEngine/issues"
+  },
+  "preview": true,
+  "qna": false,
   "keywords": [
+    "galgame",
+    "language-server",
     "quaengine",
     "quascript",
+    "typescript",
     "visual-novel"
   ],
   "categories": [
     "Programming Languages"
   ],
-  "main": "./dist/extension.js",
-  "files": [
-    "dist",
-    "language-configuration.json",
-    "snippets",
-    "syntaxes"
+  "extensionKind": [
+    "workspace"
   ],
+  "main": "./dist/extension.js",
   "engines": {
     "node": ">=20",
-    "vscode": "^1.96.0"
+    "vscode": "^1.118.0"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    }
   },
   "activationEvents": [
     "onLanguage:quascript"
@@ -62,17 +78,18 @@
     ]
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && vite build --config vite.server.config.ts",
     "dev": "vite build --watch",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@quajs/language-server": "workspace:*",
-    "vscode-languageclient": "catalog:"
+    "typecheck": "tsc --noEmit",
+    "vscode:package": "pnpm run build && node scripts/run-vsce.mjs package --no-dependencies --out dist/quascript-${npm_package_version}.vsix",
+    "vscode:publish": "pnpm run build && node scripts/run-vsce.mjs publish --no-dependencies"
   },
   "devDependencies": {
-    "@types/vscode": "catalog:"
+    "@quajs/language-server": "workspace:*",
+    "@types/vscode": "catalog:",
+    "@vscode/vsce": "catalog:",
+    "vscode-languageclient": "catalog:"
   }
 }

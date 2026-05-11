@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
-import { getDiscoveredDecoratorMappings } from '@quajs/engine'
+import { getDiscoveredDecoratorMappings } from '@quajs/plugin-discovery'
 import { mergeDecoratorMappings } from '../core/types'
 import { createDefaultDecoratorCompilerRegistry, DecoratorCompilerRegistry } from './registry'
 

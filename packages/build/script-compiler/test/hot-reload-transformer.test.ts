@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetHotReloadManager } from '../src/core/hot-reload'
 import { createHotReloadAwareTransformer } from '../src/integrations/hot-reload-transformer'
 
-// Mock the engine-backed plugin discovery system
-vi.mock('@quajs/engine', () => ({
+// Mock package-local plugin discovery.
+vi.mock('@quajs/plugin-discovery', () => ({
   getDiscoveredDecoratorMappings: vi.fn(async () => ({
     MockDecorator: {
       function: 'mockFunction',
