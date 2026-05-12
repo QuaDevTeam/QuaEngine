@@ -1,0 +1,69 @@
+{
+  "name": "@quajs/plugin-settings",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Scoped developer and player settings bridge for QuaEngine plugins",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "plugin",
+    "settings",
+    "visual-novel"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./builtin": {
+      "types": "./dist/builtin.d.ts",
+      "import": "./dist/builtin.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "import": "./dist/contracts.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "import": "./dist/schema.js"
+    },
+    "./storage": {
+      "types": "./dist/storage.d.ts",
+      "import": "./dist/storage.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@quajs/engine": "workspace:*",
+    "@quajs/pipeline": "workspace:*"
+  },
+  "devDependencies": {
+    "@quajs/assets": "workspace:*",
+    "@quajs/engine": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/store": "workspace:*"
+  },
+  "quajs": {
+    "type": "plugin",
+    "category": "ui",
+    "description": "Settings scope collection, renderer projection, player preference storage, and apply bridge"
+  }
+}
