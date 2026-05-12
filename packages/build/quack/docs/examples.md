@@ -49,7 +49,17 @@ const advancedBundler = new QuackBundler({
     algorithm: 'custom',
     plugin: new AESEncryptionPlugin(process.env.QUACK_ENCRYPTION_KEY!),
   },
-  plugins: [new ImageOptimizationPlugin({ quality: 90 })],
+  plugins: [
+    new ImageOptimizationPlugin({
+      quality: 90,
+      stripMetadata: true,
+      pngquant: {
+        enabled: true,
+        quality: [70, 95],
+        speed: 3,
+      },
+    }),
+  ],
 })
 
 const stats = await advancedBundler.bundle()

@@ -4,4 +4,9 @@ export type { EncryptionPlugin } from '../core/types'
 export { BundleAnalyzerPlugin } from './bundle-analyzer'
 
 export { AESEncryptionPlugin, MultiLayerEncryptionPlugin, SimpleRotationPlugin } from './encryption'
-export { ImageOptimizationPlugin } from './image-optimization'
+export {
+  type ImageOptimizationFormat,
+  ImageOptimizationPlugin,
+  type ImageOptimizationPluginOptions,
+  type PngquantOptions,
+} from './image-optimization'

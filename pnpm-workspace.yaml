@@ -11,6 +11,7 @@ allowBuilds:
   '@vscode/vsce-sign': true
   keytar: true
   lzma-native: true
+  sharp: true
 
 catalog:
   '@babel/generator': ^7.29.1
@@ -35,6 +36,7 @@ catalog:
   lzma-native: ^8.0.6
   lzma-web: ^3.0.1
   mime-types: ^3.0.2
+  sharp: ^0.34.5
   typescript: ^6.0.3
   uuid: ^14.0.0
   vite: ^8.0.12

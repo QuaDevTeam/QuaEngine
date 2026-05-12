@@ -223,7 +223,13 @@ export default defineConfig({
   plugins: [
     new ImageOptimizationPlugin({
       quality: 85,
-      progressive: true
+      progressive: true,
+      stripMetadata: true,
+      pngquant: {
+        enabled: false, // Set true when pngquant is installed locally.
+        quality: [65, 90],
+        speed: 3
+      }
     }),
     new BundleAnalyzerPlugin()
   ],

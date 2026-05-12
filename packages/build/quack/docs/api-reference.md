@@ -602,26 +602,24 @@ interface AssetContext {
 }
 ```
 
-### Example Plugin
+### Built-In Image Optimization Plugin
 
 ```typescript
-export class ImageOptimizationPlugin extends QuackPlugin {
-  name = 'image-optimization'
-  version = '1.0.0'
+import { ImageOptimizationPlugin } from '@quajs/quack/plugins'
 
-  async processAsset(context: AssetContext) {
-    if (context.asset.type === 'images') {
-      // Optimize image buffer
-      context.buffer = await this.optimizeImage(context.buffer)
-    }
-  }
-
-  private async optimizeImage(buffer: Buffer): Promise<Buffer> {
-    // Implementation here
-    return buffer
-  }
-}
+const imageOptimization = new ImageOptimizationPlugin({
+  quality: 85,
+  progressive: true,
+  stripMetadata: true,
+  pngquant: {
+    enabled: true,
+    quality: [65, 90],
+    speed: 3,
+  },
+})
 ```
+
+The optimizer recompresses PNG/JPEG/WebP/AVIF through `sharp`, updates asset size/hash metadata before manifest generation, keeps a built-in PNG lossless fallback, and can call an installed `pngquant` binary for lossy PNG palette compression.
 
 ## CLI Commands
 

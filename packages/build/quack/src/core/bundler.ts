@@ -1,4 +1,5 @@
 import type {
+  AssetInfo,
   BuildLog,
   BundleDefinition,
   BundleFormat,
@@ -11,8 +12,9 @@ import type {
   QuackPlugin,
   WorkspaceConfig,
 } from './types'
+import { createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
-import { mkdir, rename } from 'node:fs/promises'
+import { mkdir, readFile, rename } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { createLogger } from '@quajs/logger'
 import { AssetDetector } from '../assets/asset-detector'
@@ -88,6 +90,7 @@ export class QuackBundler extends EventEmitter {
 
       // Assign version numbers to assets
       assets = this.versionManager.assignAssetVersions(assets, 1)
+      assets = await this.processAssetsForBundle(assets)
 
       // Get locales
       const locales = this.assetDetector.getLocalesFromAssets(assets)
@@ -122,12 +125,12 @@ export class QuackBundler extends EventEmitter {
 
       // Create bundle based on format
       if (normalizedConfig.format === 'zip') {
-        const zipBundler = new ZipBundler(normalizedConfig.plugins)
+        const zipBundler = new ZipBundler()
         await zipBundler.createBundle(assets, manifest, tempBundlePath)
       }
       else {
         const qpkBundler = new QPKBundler(
-          normalizedConfig.plugins,
+          [],
           normalizedConfig.encryption.algorithm,
           normalizedConfig.encryption.key,
           normalizedConfig.encryption.plugin,
@@ -292,6 +295,7 @@ export class QuackBundler extends EventEmitter {
 
       // Assign version numbers to assets
       assets = this.versionManager.assignAssetVersions(assets, 1)
+      assets = await this.processAssetsForBundle(assets)
 
       // Get locales
       const locales = this.assetDetector.getLocalesFromAssets(assets)
@@ -335,12 +339,12 @@ export class QuackBundler extends EventEmitter {
 
       // Create bundle based on format
       if (normalizedConfig.format === 'zip') {
-        const zipBundler = new ZipBundler(normalizedConfig.plugins)
+        const zipBundler = new ZipBundler()
         await zipBundler.createBundle(assets, manifest, tempBundlePath)
       }
       else {
         const qpkBundler = new QPKBundler(
-          normalizedConfig.plugins,
+          [],
           normalizedConfig.encryption.algorithm,
           normalizedConfig.encryption.key,
           normalizedConfig.encryption.plugin,
@@ -528,6 +532,38 @@ export class QuackBundler extends EventEmitter {
   }
 
   /**
+   * Run asset processors before manifest generation so size/hash metadata
+   * describes the actual bytes written to the bundle.
+   */
+  private async processAssetsForBundle(assets: AssetInfo[]): Promise<AssetInfo[]> {
+    if (this.pluginManager.getPlugins().length === 0) {
+      return assets
+    }
+
+    const processedAssets: AssetInfo[] = []
+
+    for (const asset of assets) {
+      const buffer = await readAssetBuffer(asset)
+      const context = {
+        asset: { ...asset },
+        buffer,
+        metadata: {},
+      }
+
+      await this.pluginManager.processAsset(context)
+
+      processedAssets.push({
+        ...context.asset,
+        content: context.buffer,
+        size: context.buffer.length,
+        hash: calculateHash(context.buffer),
+      })
+    }
+
+    return processedAssets
+  }
+
+  /**
    * Calculate bundle statistics
    */
   private calculateStats(manifest: BundleManifest, processingTime: number): BundleStats {
@@ -638,4 +674,16 @@ export class QuackBundler extends EventEmitter {
  */
 export function defineConfig(config: QuackConfig): QuackConfig {
   return config
+}
+
+async function readAssetBuffer(asset: AssetInfo): Promise<Buffer> {
+  if (asset.content) {
+    return Buffer.isBuffer(asset.content) ? asset.content : Buffer.from(asset.content)
+  }
+
+  return await readFile(asset.path)
+}
+
+function calculateHash(buffer: Buffer): string {
+  return createHash('sha256').update(buffer).digest('hex')
 }
