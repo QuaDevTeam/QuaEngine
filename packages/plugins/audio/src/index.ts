@@ -10,7 +10,9 @@ import type {
   AudioEqOptions,
   AudioGainOptions,
   AudioPauseOptions,
+  AudioPlayAmbientOptions,
   AudioPlayBgmOptions,
+  AudioPlaySfxOptions,
   AudioPlayVoiceOptions,
   AudioResumeOptions,
   AudioSeekOptions,
@@ -53,7 +55,9 @@ export type {
   AudioEqOptions,
   AudioGainOptions,
   AudioPauseOptions,
+  AudioPlayAmbientOptions,
   AudioPlayBgmOptions,
+  AudioPlaySfxOptions,
   AudioPlayVoiceOptions,
   AudioResumeOptions,
   AudioSeekOptions,
@@ -74,7 +78,7 @@ export class AudioPlugin extends BaseEnginePlugin {
   readonly name = '@quajs/plugin-audio'
   readonly id = AUDIO_PLUGIN_ID
   readonly version = '0.1.0'
-  readonly description = 'Audio playback, gain, EQ, automation, and chapter-aware voice playback'
+  readonly description = 'Audio playback, gain, EQ, automation, SFX, ambient, and chapter-aware voice playback'
   private disposers: Array<() => void> = []
   private projectionBeforeJump?: AudioViewProjection
 
@@ -142,6 +146,8 @@ export class AudioPlugin extends BaseEnginePlugin {
         { name: 'configureAudioChapterWithEngine', fn: configureAudioChapterWithEngine, module: this.name },
         { name: 'playVoiceWithEngine', fn: playVoiceWithEngine, module: this.name },
         { name: 'playBGMWithEngine', fn: playBGMWithEngine, module: this.name },
+        { name: 'playSFXWithEngine', fn: playSFXWithEngine, module: this.name },
+        { name: 'playAmbientWithEngine', fn: playAmbientWithEngine, module: this.name },
         { name: 'setAudioGainWithEngine', fn: setAudioGainWithEngine, module: this.name },
         { name: 'setAudioEqWithEngine', fn: setAudioEqWithEngine, module: this.name },
         { name: 'setAudioAutomationWithEngine', fn: setAudioAutomationWithEngine, module: this.name },
@@ -151,6 +157,8 @@ export class AudioPlugin extends BaseEnginePlugin {
         { name: 'seekAudioWithEngine', fn: seekAudioWithEngine, module: this.name },
         { name: 'stopVoiceWithEngine', fn: stopVoiceWithEngine, module: this.name },
         { name: 'stopBGMWithEngine', fn: stopBGMWithEngine, module: this.name },
+        { name: 'stopSFXWithEngine', fn: stopSFXWithEngine, module: this.name },
+        { name: 'stopAmbientWithEngine', fn: stopAmbientWithEngine, module: this.name },
       ],
       decorators: audioDecoratorMappings,
     }
@@ -224,6 +232,36 @@ export async function playBGMWithEngine(
   })
 }
 
+export async function playSFXWithEngine(
+  engine: QuaEngineInterface,
+  assetKey: string,
+  options: AudioPlaySfxOptions = {},
+): Promise<void> {
+  const projection = getAudioProjection(engine)
+  const next = createSfxProjection(assetKey, mergeSfxOptions(projection, options), projection)
+  await engine.setPluginProjection(AUDIO_PLUGIN_ID, {
+    ...projection,
+    revision: projection.revision + 1,
+    chapter: mergeChapterProjection(projection.chapter, options.chapterId),
+    sfx: updateTrackList(projection.sfx, next),
+  })
+}
+
+export async function playAmbientWithEngine(
+  engine: QuaEngineInterface,
+  assetKey: string,
+  options: AudioPlayAmbientOptions = {},
+): Promise<void> {
+  const projection = getAudioProjection(engine)
+  const next = createAmbientProjection(assetKey, mergeAmbientOptions(projection, options), projection)
+  await engine.setPluginProjection(AUDIO_PLUGIN_ID, {
+    ...projection,
+    revision: projection.revision + 1,
+    chapter: mergeChapterProjection(projection.chapter, options.chapterId),
+    ambients: updateTrackList(projection.ambients, next),
+  })
+}
+
 export async function setAudioGainWithEngine(
   engine: QuaEngineInterface,
   target: AudioBusId | string,
@@ -268,26 +306,7 @@ export async function stopAudioWithEngine(
 ): Promise<void> {
   const projection = getAudioProjection(engine)
   const next = cloneAudioProjection(projection)
-  if (target === 'master') {
-    next.bgm = next.bgm ? { ...next.bgm, state: 'stopping', fadeOutMs: options.fadeOutMs ?? next.bgm.fadeOutMs } : undefined
-    next.voices = next.voices.map(track => ({ ...track, state: 'stopping', fadeOutMs: options.fadeOutMs ?? track.fadeOutMs }))
-  }
-  else if (target === 'bgm') {
-    next.bgm = next.bgm ? { ...next.bgm, state: 'stopping', fadeOutMs: options.fadeOutMs ?? next.bgm.fadeOutMs } : undefined
-  }
-  else if (target === 'voice') {
-    next.voices = next.voices.map(track => ({ ...track, state: 'stopping', fadeOutMs: options.fadeOutMs ?? track.fadeOutMs }))
-  }
-  else {
-    next.voices = next.voices.map(track =>
-      track.id === target || track.lineId === target
-        ? { ...track, state: 'stopping', fadeOutMs: options.fadeOutMs ?? track.fadeOutMs }
-        : track,
-    )
-    if (next.bgm && (next.bgm.id === target || next.bgm.lineId === target)) {
-      next.bgm = { ...next.bgm, state: 'stopping', fadeOutMs: options.fadeOutMs ?? next.bgm.fadeOutMs }
-    }
-  }
+  mutateTracks(next, target, track => ({ ...track, state: 'stopping', fadeOutMs: options.fadeOutMs ?? track.fadeOutMs }))
   next.revision += 1
   await engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
 }
@@ -345,6 +364,22 @@ export async function stopBGMWithEngine(
   await stopAudioWithEngine(engine, target, options)
 }
 
+export async function stopSFXWithEngine(
+  engine: QuaEngineInterface,
+  target: AudioBusId | string = 'sfx',
+  options: AudioStopOptions = {},
+): Promise<void> {
+  await stopAudioWithEngine(engine, target, options)
+}
+
+export async function stopAmbientWithEngine(
+  engine: QuaEngineInterface,
+  target: AudioBusId | string = 'ambient',
+  options: AudioStopOptions = {},
+): Promise<void> {
+  await stopAudioWithEngine(engine, target, options)
+}
+
 export function getAudioProjection(engine: QuaEngineInterface): AudioViewProjection {
   return engine.getPluginProjection<AudioViewProjection>(AUDIO_PLUGIN_ID) || createInitialAudioProjection()
 }
@@ -372,6 +407,8 @@ function cloneAudioDefaultsProjection(
     master: defaults.master ? cloneAudioBusProjection(defaults.master) : undefined,
     bgm: defaults.bgm ? cloneAudioBusProjection(defaults.bgm) : undefined,
     voice: defaults.voice ? cloneAudioBusProjection(defaults.voice) : undefined,
+    sfx: defaults.sfx ? cloneAudioBusProjection(defaults.sfx) : undefined,
+    ambient: defaults.ambient ? cloneAudioBusProjection(defaults.ambient) : undefined,
   }
 }
 
@@ -405,6 +442,50 @@ function mergeBgmOptions(
     ...options,
     chapterId: options.chapterId || projection?.chapter?.chapterId,
     loop: options.loop ?? defaults?.loop ?? true,
+    gainDb: options.gainDb ?? defaults?.gainDb,
+    fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
+    fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
+    crossfadeMs: options.crossfadeMs ?? defaults?.crossfadeMs,
+    seekMs: options.seekMs ?? defaults?.seekMs,
+    eq: options.eq ?? defaults?.eq,
+    automation: options.automation ?? defaults?.automation,
+    metadata: options.metadata ?? defaults?.metadata,
+  }
+}
+
+function mergeSfxOptions(
+  projection: AudioViewProjection,
+  options: AudioPlaySfxOptions = {},
+): AudioPlaySfxOptions {
+  const defaults = projection.chapter?.defaults?.sfx
+  return {
+    ...options,
+    chapterId: options.chapterId || projection.chapter?.chapterId,
+    lineId: options.lineId,
+    loop: options.loop ?? defaults?.loop ?? false,
+    interruptible: options.interruptible ?? defaults?.interruptible ?? true,
+    gainDb: options.gainDb ?? defaults?.gainDb,
+    fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
+    fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
+    crossfadeMs: options.crossfadeMs ?? defaults?.crossfadeMs,
+    seekMs: options.seekMs ?? defaults?.seekMs,
+    eq: options.eq ?? defaults?.eq,
+    automation: options.automation ?? defaults?.automation,
+    metadata: options.metadata ?? defaults?.metadata,
+  }
+}
+
+function mergeAmbientOptions(
+  projection: AudioViewProjection,
+  options: AudioPlayAmbientOptions = {},
+): AudioPlayAmbientOptions {
+  const defaults = projection.chapter?.defaults?.ambient
+  return {
+    ...options,
+    chapterId: options.chapterId || projection.chapter?.chapterId,
+    lineId: options.lineId,
+    loop: options.loop ?? defaults?.loop ?? true,
+    interruptible: options.interruptible ?? defaults?.interruptible ?? false,
     gainDb: options.gainDb ?? defaults?.gainDb,
     fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
@@ -465,9 +546,63 @@ function createBgmProjection(
   }
 }
 
+function createSfxProjection(
+  assetKey: string,
+  options: AudioPlaySfxOptions,
+  projection: AudioViewProjection,
+): AudioTrackProjection {
+  return {
+    id: options.id || nextAudioTrackId('sfx'),
+    kind: 'sfx',
+    assetKey,
+    chapterId: options.chapterId || projection.chapter?.chapterId,
+    lineId: options.lineId,
+    state: 'playing',
+    loop: options.loop ?? false,
+    interruptible: options.interruptible ?? true,
+    gainDb: options.gainDb ?? 0,
+    eq: options.eq,
+    automation: options.automation,
+    fadeInMs: options.fadeInMs,
+    fadeOutMs: options.fadeOutMs,
+    crossfadeMs: options.crossfadeMs,
+    seekMs: options.seekMs,
+    metadata: options.metadata,
+  }
+}
+
+function createAmbientProjection(
+  assetKey: string,
+  options: AudioPlayAmbientOptions,
+  projection: AudioViewProjection,
+): AudioTrackProjection {
+  return {
+    id: options.id || 'ambient',
+    kind: 'ambient',
+    assetKey,
+    chapterId: options.chapterId || projection.chapter?.chapterId,
+    lineId: options.lineId,
+    state: 'playing',
+    loop: options.loop ?? true,
+    interruptible: options.interruptible ?? false,
+    gainDb: options.gainDb ?? 0,
+    eq: options.eq,
+    automation: options.automation,
+    fadeInMs: options.fadeInMs,
+    fadeOutMs: options.fadeOutMs,
+    crossfadeMs: options.crossfadeMs,
+    seekMs: options.seekMs,
+    metadata: options.metadata,
+  }
+}
+
 function updateTrackList(tracks: readonly AudioTrackProjection[], nextTrack: AudioTrackProjection): AudioTrackProjection[] {
   return [
-    ...tracks.filter(track => track.id !== nextTrack.id && track.lineId !== nextTrack.lineId),
+    ...tracks.filter((track) => {
+      const sameId = track.id === nextTrack.id
+      const sameLine = track.lineId !== undefined && nextTrack.lineId !== undefined && track.lineId === nextTrack.lineId
+      return !sameId && !sameLine
+    }),
     nextTrack,
   ]
 }
@@ -479,6 +614,8 @@ function mutateTracks(
 ): void {
   if (target === 'master') {
     projection.voices = projection.voices.map(mapper)
+    projection.sfx = projection.sfx.map(mapper)
+    projection.ambients = projection.ambients.map(mapper)
     if (projection.bgm) {
       projection.bgm = mapper(projection.bgm)
     }
@@ -488,11 +625,21 @@ function mutateTracks(
     projection.voices = projection.voices.map(mapper)
     return
   }
+  if (target === 'sfx') {
+    projection.sfx = projection.sfx.map(mapper)
+    return
+  }
+  if (target === 'ambient') {
+    projection.ambients = projection.ambients.map(mapper)
+    return
+  }
   if (target === 'bgm') {
     projection.bgm = projection.bgm ? mapper(projection.bgm) : projection.bgm
     return
   }
   projection.voices = projection.voices.map(track => track.id === target || track.lineId === target ? mapper(track) : track)
+  projection.sfx = projection.sfx.map(track => track.id === target || track.lineId === target ? mapper(track) : track)
+  projection.ambients = projection.ambients.map(track => track.id === target || track.lineId === target ? mapper(track) : track)
   if (projection.bgm && (projection.bgm.id === target || projection.bgm.lineId === target)) {
     projection.bgm = mapper(projection.bgm)
   }
@@ -513,7 +660,7 @@ function applyGain(
       }]
     : options.automation
 
-  if (target === 'master' || target === 'bgm' || target === 'voice') {
+  if (isAudioBusTarget(target)) {
     const bus = projection.buses[target]
     bus.gainDb = isCurve(gainDbOrCurve) ? bus.gainDb : gainDbOrCurve
     bus.automation = automation
@@ -533,7 +680,7 @@ function applyEq(
   bands: readonly AudioEqBand[],
   options: AudioEqOptions,
 ): void {
-  if (target === 'master' || target === 'bgm' || target === 'voice') {
+  if (isAudioBusTarget(target)) {
     projection.buses[target] = {
       ...projection.buses[target],
       eq: bands,
@@ -561,7 +708,7 @@ function applyAutomation(
     curve,
     options: options.metadata ? { metadata: options.metadata } : undefined,
   }
-  if (target === 'master' || target === 'bgm' || target === 'voice') {
+  if (isAudioBusTarget(target)) {
     const bus = projection.buses[target]
     bus.automation = [...(bus.automation || []), automation]
     return
@@ -580,8 +727,14 @@ function handleTrackEnded(engine: QuaEngineInterface, payload: AudioTrackEventPa
       next.bgm = undefined
     }
   }
-  else {
+  else if (payload.channel === 'voice') {
     next.voices = next.voices.filter(track => track.id !== payload.id)
+  }
+  else if (payload.channel === 'sfx') {
+    next.sfx = next.sfx.filter(track => track.id !== payload.id)
+  }
+  else if (payload.channel === 'ambient') {
+    next.ambients = next.ambients.filter(track => track.id !== payload.id)
   }
   next.revision += 1
   return engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
@@ -602,4 +755,17 @@ function markAudioUnlocked(engine: QuaEngineInterface): Promise<void> {
 
 function isCurve(value: number | AudioAutomationCurve): value is AudioAutomationCurve {
   return typeof value === 'object' && value !== null && 'points' in value
+}
+
+const AUDIO_BUS_IDS: readonly AudioBusId[] = ['master', 'bgm', 'voice', 'sfx', 'ambient']
+
+let audioTrackSequence = 0
+
+function isAudioBusTarget(target: AudioBusId | string): target is AudioBusId {
+  return AUDIO_BUS_IDS.includes(target as AudioBusId)
+}
+
+function nextAudioTrackId(kind: AudioTrackProjection['kind']): string {
+  audioTrackSequence += 1
+  return `${kind}:${Date.now()}:${audioTrackSequence}`
 }

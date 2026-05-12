@@ -80,6 +80,14 @@
         "function": "playBGMWithEngine",
         "module": "@quajs/plugin-audio"
       },
+      "PlaySFX": {
+        "function": "playSFXWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "PlayAmbient": {
+        "function": "playAmbientWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
       "SetAudioGain": {
         "function": "setAudioGainWithEngine",
         "module": "@quajs/plugin-audio"
@@ -114,6 +122,14 @@
       },
       "StopBGM": {
         "function": "stopBGMWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "StopSFX": {
+        "function": "stopSFXWithEngine",
+        "module": "@quajs/plugin-audio"
+      },
+      "StopAmbient": {
+        "function": "stopAmbientWithEngine",
         "module": "@quajs/plugin-audio"
       }
     },
@@ -159,12 +175,34 @@
             }
           ]
         },
+        "PlaySFX": {
+          "description": "Play a short sound effect asset",
+          "args": [
+            {
+              "name": "asset",
+              "assetRoots": ["assets/audio", "assets/sfx", "assets/sound", "assets/sounds"],
+              "assetExtensions": [".mp3", ".ogg", ".wav", ".m4a", ".flac", ".aac"],
+              "detail": "SFX audio asset"
+            }
+          ]
+        },
+        "PlayAmbient": {
+          "description": "Play an ambient audio asset",
+          "args": [
+            {
+              "name": "asset",
+              "assetRoots": ["assets/audio", "assets/ambient", "assets/ambience"],
+              "assetExtensions": [".mp3", ".ogg", ".wav", ".m4a", ".flac", ".aac"],
+              "detail": "Ambient audio asset"
+            }
+          ]
+        },
         "SetAudioGain": {
           "description": "Set an audio bus or track gain",
           "args": [
             {
               "name": "target",
-              "values": ["master", "bgm", "voice"],
+              "values": ["master", "bgm", "voice", "sfx", "ambient"],
               "detail": "Audio target"
             }
           ]
@@ -174,7 +212,7 @@
           "args": [
             {
               "name": "target",
-              "values": ["master", "bgm", "voice"],
+              "values": ["master", "bgm", "voice", "sfx", "ambient"],
               "detail": "Audio target"
             }
           ]
@@ -184,7 +222,7 @@
           "args": [
             {
               "name": "target",
-              "values": ["master", "bgm", "voice"],
+              "values": ["master", "bgm", "voice", "sfx", "ambient"],
               "detail": "Audio target"
             },
             {
@@ -199,7 +237,7 @@
           "args": [
             {
               "name": "target",
-              "values": ["master", "bgm", "voice"],
+              "values": ["master", "bgm", "voice", "sfx", "ambient"],
               "detail": "Audio target"
             }
           ]
@@ -209,7 +247,7 @@
           "args": [
             {
               "name": "target",
-              "values": ["master", "bgm", "voice"],
+              "values": ["master", "bgm", "voice", "sfx", "ambient"],
               "detail": "Audio target"
             }
           ]
@@ -219,7 +257,7 @@
           "args": [
             {
               "name": "target",
-              "values": ["master", "bgm", "voice"],
+              "values": ["master", "bgm", "voice", "sfx", "ambient"],
               "detail": "Audio target"
             }
           ]
@@ -229,10 +267,18 @@
           "args": [
             {
               "name": "target",
-              "values": ["master", "bgm", "voice"],
+              "values": ["master", "bgm", "voice", "sfx", "ambient"],
               "detail": "Audio target"
             }
           ]
+        },
+        "StopSFX": {
+          "description": "Stop SFX playback",
+          "args": []
+        },
+        "StopAmbient": {
+          "description": "Stop ambient playback",
+          "args": []
         }
       }
     }

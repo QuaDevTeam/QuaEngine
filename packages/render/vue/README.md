@@ -66,10 +66,21 @@ const initialView: QuaViewProjection = {
   ui: { visible: true },
   effects: [],
   animations: [],
-  audio: {
-    volumeSettings: { master: 1, bgm: 1, sound: 1, voice: 1 },
-    sounds: [],
-    voices: [],
+  plugins: {
+    audio: {
+      revision: 0,
+      unlocked: false,
+      buses: {
+        master: { gainDb: 0 },
+        bgm: { gainDb: 0 },
+        voice: { gainDb: 0 },
+        sfx: { gainDb: 0 },
+        ambient: { gainDb: 0 },
+      },
+      voices: [],
+      sfx: [],
+      ambients: [],
+    },
   },
 }
 
@@ -127,7 +138,7 @@ The Vite plugin at `@quajs/vite-plugin` mounts the dev asset route and forwards 
 
 ## Audio Autoplay
 
-The Vue audio plugin delegates playback to `@quajs/renderer-web/audio`. It attempts WebAudio unlock automatically when `view.plugins.audio` contains a playing BGM or voice projection. If the browser blocks autoplay, playback stays pending without emitting an engine audio error and resumes after the next configured user activation event.
+The Vue audio plugin delegates playback to `@quajs/renderer-web/audio`. It attempts WebAudio unlock automatically when `view.plugins.audio` contains a playing BGM, voice, SFX, or ambient projection. If the browser blocks autoplay, playback stays pending without emitting an engine audio error and resumes after the next configured user activation event.
 
 Use `createAudioRendererPlugin({ autoUnlock: false })` to disable the automatic attempt, or pass `unlockEvents` to customize the gesture events.
 
