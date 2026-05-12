@@ -25,6 +25,7 @@ export {
   quickSave,
   rewind,
   saveToSlot,
+  setLayoutProjection,
   setPluginProjection,
   setStoryPoint,
   showChoices,
@@ -93,7 +94,18 @@ export type {
   UserClickPayload,
   ViewBackgroundLayerProjection,
   ViewBackgroundProjection,
+  ViewLayoutInput,
+  ViewLayoutOrientation,
+  ViewLayoutPreset,
+  ViewLayoutProjection,
+  ViewLayoutScaleMode,
   ViewVideoBackgroundProjection,
+} from './events/events'
+export {
+  createViewLayoutProjection,
+  QUA_LANDSCAPE_LAYOUT,
+  QUA_LAYOUT_PRESETS,
+  QUA_PORTRAIT_LAYOUT,
 } from './events/events'
 
 // Managers

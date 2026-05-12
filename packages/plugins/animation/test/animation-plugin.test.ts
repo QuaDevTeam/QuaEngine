@@ -1,5 +1,6 @@
 import type { QuaEngineInterface } from '@quajs/engine'
 import type { QuaViewProjection } from '@quajs/render-core'
+import { createViewLayoutProjection } from '@quajs/render-core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   animationDecoratorMappings,
@@ -157,6 +158,7 @@ describe('@quajs/plugin-animation', () => {
 
 function createEngine(viewPatch: Partial<QuaViewProjection> = {}) {
   const view: QuaViewProjection = {
+    layout: createViewLayoutProjection(),
     background: undefined,
     characters: [],
     dialogue: { visible: false, text: '' },

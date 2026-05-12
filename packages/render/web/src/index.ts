@@ -26,6 +26,8 @@ export type {
 export { createQuaWebDomRenderer, QuaWebDomRenderer } from './dom'
 export type { OrderedRendererLayer } from './layers'
 export { sortRendererLayers } from './layers'
+export type { ResolvedStageLayout, StageContainerSize, StageSafeArea } from './layout'
+export { resolveStageLayout, stageContentStyle, stageViewportStyle } from './layout'
 export { createBackgroundWebRendererPlugin } from './plugins/background'
 export { createCharacterWebRendererPlugin } from './plugins/character'
 export { createChoicesWebRendererPlugin } from './plugins/choices'

@@ -5,6 +5,7 @@ import { createViteDevAssetRuntime } from '@quajs/assets-web'
 import { Pipeline } from '@quajs/pipeline'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import {
+  createViewLayoutProjection,
   emitLogicToRender,
   LogicToRenderEvents,
   onRenderToLogic,
@@ -780,6 +781,7 @@ async function flushVue(): Promise<void> {
 
 function view(overrides: Partial<QuaViewProjection> = {}): QuaViewProjection {
   return {
+    layout: createViewLayoutProjection(),
     characters: [],
     dialogue: { visible: false, text: '' },
     choices: [],

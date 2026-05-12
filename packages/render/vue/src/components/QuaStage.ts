@@ -1,8 +1,15 @@
 import type { PropType } from 'vue'
 import type { QuaVueRendererLayer } from '../plugins/core'
-import { computed, defineComponent, h } from 'vue'
+import { resolveStageLayout, stageContentStyle, stageViewportStyle } from '@quajs/renderer-web'
+import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRendererActions } from '../composables'
 import { projectionProps, useProjectionProps } from './projection'
+
+const stageFrameStyle = {
+  position: 'absolute',
+  inset: '0',
+  overflow: 'hidden',
+}
 
 export const QuaStage = defineComponent({
   name: 'QuaStage',
@@ -17,16 +24,60 @@ export const QuaStage = defineComponent({
     const actions = useRendererActions()
     const slotProps = () => ({ ...useProjectionProps(), actions })
     const layers = computed(() => props.layers || [])
+    const frame = ref<HTMLElement>()
+    const frameSize = ref({ width: 0, height: 0 })
+    let resizeObserver: ResizeObserver | undefined
 
-    return () => h('section', {
-      class: 'qua-stage',
-      onClick: () => actions.advance('stage-click'),
+    const measure = () => {
+      const rect = frame.value?.getBoundingClientRect()
+      frameSize.value = {
+        width: rect?.width || 0,
+        height: rect?.height || 0,
+      }
+    }
+
+    onMounted(() => {
+      measure()
+      const ResizeObserverCtor = frame.value?.ownerDocument.defaultView?.ResizeObserver
+      if (ResizeObserverCtor && frame.value) {
+        resizeObserver = new ResizeObserverCtor(measure)
+        resizeObserver.observe(frame.value)
+      }
+    })
+
+    onBeforeUnmount(() => {
+      resizeObserver?.disconnect()
+      resizeObserver = undefined
+    })
+
+    watch(() => props.view?.layout, async () => {
+      await nextTick()
+      measure()
+    }, { deep: true })
+
+    const stageLayout = computed(() => resolveStageLayout(props.view?.layout as any, frameSize.value))
+
+    return () => h('div', {
+      ref: frame,
+      class: 'qua-stage-frame',
+      style: stageFrameStyle,
     }, [
-      ...layers.value.map((layer) => {
-        const props = { key: layer.id, ...(layer.props || {}) }
-        const slot = slots[layer.slot || layer.id]
-        return slot?.(slotProps()) || h(layer.component as any, props)
-      }),
+      h('div', {
+        class: 'qua-stage-viewport',
+        style: stageViewportStyle(stageLayout.value),
+      }, [
+        h('section', {
+          class: 'qua-stage',
+          style: stageContentStyle(stageLayout.value),
+          onClick: () => actions.advance('stage-click'),
+        }, [
+          ...layers.value.map((layer) => {
+            const props = { key: layer.id, ...(layer.props || {}) }
+            const slot = slots[layer.slot || layer.id]
+            return slot?.(slotProps()) || h(layer.component as any, props)
+          }),
+        ]),
+      ]),
     ])
   },
 })

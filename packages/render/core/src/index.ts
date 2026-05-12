@@ -53,6 +53,77 @@ export enum RenderToLogicEvents {
 
 export type EngineEvents = LogicToRenderEvents | RenderToLogicEvents
 
+export type ViewLayoutOrientation = 'landscape' | 'portrait'
+export type ViewLayoutScaleMode = 'fit'
+export type ViewLayoutPreset = ViewLayoutOrientation
+
+export interface ViewLayoutProjection {
+  orientation: ViewLayoutOrientation
+  width: number
+  height: number
+  aspectRatio: number
+  minAspectRatio: number
+  maxAspectRatio: number
+  scaleMode: ViewLayoutScaleMode
+}
+
+export type ViewLayoutInput
+  = | ViewLayoutPreset
+    | (Partial<ViewLayoutProjection> & {
+      preset?: ViewLayoutPreset
+    })
+
+export const QUA_LANDSCAPE_LAYOUT: ViewLayoutProjection = {
+  orientation: 'landscape',
+  width: 1920,
+  height: 1080,
+  aspectRatio: 16 / 9,
+  minAspectRatio: 16 / 10,
+  maxAspectRatio: 16 / 9,
+  scaleMode: 'fit',
+}
+
+export const QUA_PORTRAIT_LAYOUT: ViewLayoutProjection = {
+  orientation: 'portrait',
+  width: 1080,
+  height: 1920,
+  aspectRatio: 9 / 16,
+  minAspectRatio: 9 / 16,
+  maxAspectRatio: 10 / 16,
+  scaleMode: 'fit',
+}
+
+export const QUA_LAYOUT_PRESETS: Readonly<Record<ViewLayoutPreset, ViewLayoutProjection>> = {
+  landscape: QUA_LANDSCAPE_LAYOUT,
+  portrait: QUA_PORTRAIT_LAYOUT,
+}
+
+export function createViewLayoutProjection(input: ViewLayoutInput = 'landscape'): ViewLayoutProjection {
+  const patch: Partial<ViewLayoutProjection> & { preset?: ViewLayoutPreset } = typeof input === 'string' ? {} : input
+  const base = getViewLayoutPreset(typeof input === 'string' ? input : patch.preset || patch.orientation || 'landscape')
+  const width = positiveNumber(patch.width, base.width)
+  const height = positiveNumber(patch.height, base.height)
+  const preferredAspectRatio = positiveNumber(patch.aspectRatio, width / height)
+  let minAspectRatio = positiveNumber(patch.minAspectRatio, base.minAspectRatio)
+  let maxAspectRatio = positiveNumber(patch.maxAspectRatio, base.maxAspectRatio)
+
+  if (minAspectRatio > maxAspectRatio) {
+    const nextMin = maxAspectRatio
+    maxAspectRatio = minAspectRatio
+    minAspectRatio = nextMin
+  }
+
+  return {
+    orientation: patch.orientation || base.orientation,
+    width,
+    height,
+    aspectRatio: clamp(preferredAspectRatio, minAspectRatio, maxAspectRatio),
+    minAspectRatio,
+    maxAspectRatio,
+    scaleMode: patch.scaleMode || base.scaleMode,
+  }
+}
+
 export type BackgroundMode = 'image' | 'video' | 'layered'
 
 export type BackgroundLayerAssetType = 'images' | 'video' | 'characters' | string
@@ -180,6 +251,7 @@ export interface ActiveAnimationProjection {
 }
 
 export interface QuaViewProjection {
+  layout: Readonly<ViewLayoutProjection>
   background?: Readonly<ViewBackgroundProjection>
   characters: readonly Readonly<ViewCharacterProjection>[]
   dialogue: Readonly<ViewDialogueProjection>
@@ -499,4 +571,16 @@ function getTimers(): {
     setTimeout: runtime.setTimeout || (() => undefined),
     clearTimeout: runtime.clearTimeout || (() => {}),
   }
+}
+
+function getViewLayoutPreset(preset: ViewLayoutPreset): ViewLayoutProjection {
+  return preset === 'portrait' ? QUA_PORTRAIT_LAYOUT : QUA_LANDSCAPE_LAYOUT
+}
+
+function positiveNumber(value: number | undefined, fallback: number): number {
+  return Number.isFinite(value) && value !== undefined && value > 0 ? value : fallback
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
 }

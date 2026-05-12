@@ -2,7 +2,7 @@ import type { AssetRuntimeAdapter } from '@quajs/assets'
 import { MemoryAssetStorage } from '@quajs/assets'
 import { MemoryBackend } from '@quajs/store'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { emitRenderToLogic, LogicToRenderEvents, onLogicToRender, QuaEngine, RenderToLogicEvents, UiOverlayPlugin } from '../src'
+import { createViewLayoutProjection, emitRenderToLogic, LogicToRenderEvents, onLogicToRender, QuaEngine, RenderToLogicEvents, UiOverlayPlugin } from '../src'
 
 describe('quaEngine runtime architecture', () => {
   afterEach(async () => {
@@ -45,6 +45,31 @@ describe('quaEngine runtime architecture', () => {
     }))
     expect(view.ui.overlays).toEqual({ menu: { open: true } })
     expect(view.effects).toEqual([expect.objectContaining({ type: 'shake', target: 'stage' })])
+  })
+
+  it('owns project layout settings in the view projection', async () => {
+    const engine = new QuaEngine({
+      layout: 'portrait',
+      assets: {
+        adapter: createMemoryAdapter(),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+    })
+    await engine.init()
+
+    expect(engine.getViewState().layout).toEqual(createViewLayoutProjection('portrait'))
+
+    await engine.setLayoutProjection({
+      preset: 'landscape',
+      minAspectRatio: 16 / 10,
+      maxAspectRatio: 16 / 9,
+    })
+
+    expect(engine.getViewState().layout).toEqual(createViewLayoutProjection('landscape'))
   })
 
   it('returns view snapshots instead of mutable store references', async () => {
