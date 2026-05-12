@@ -16,7 +16,23 @@
   isolation: isolate;
 }
 
-.qua-stage,
+.qua-stage-frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.qua-stage-viewport {
+  position: absolute;
+  overflow: hidden;
+}
+
+.qua-stage {
+  position: relative;
+  overflow: hidden;
+  transform-origin: top left;
+}
+
 .qua-background-layer,
 .qua-layered-background,
 .qua-character-layer,

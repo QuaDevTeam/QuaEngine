@@ -1,6 +1,7 @@
 import { Pipeline } from '@quajs/pipeline'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  createViewLayoutProjection,
   emitLogicToRender,
   emitRenderToLogic,
   LogicToRenderEvents,
@@ -12,6 +13,29 @@ import {
 } from '../src'
 
 describe('render-core event contracts', () => {
+  it('normalizes project layout presets for landscape and portrait rendering', () => {
+    expect(createViewLayoutProjection('landscape')).toEqual(expect.objectContaining({
+      orientation: 'landscape',
+      width: 1920,
+      height: 1080,
+      minAspectRatio: 16 / 10,
+      maxAspectRatio: 16 / 9,
+    }))
+
+    expect(createViewLayoutProjection('portrait')).toEqual(expect.objectContaining({
+      orientation: 'portrait',
+      width: 1080,
+      height: 1920,
+      minAspectRatio: 9 / 16,
+      maxAspectRatio: 10 / 16,
+    }))
+
+    expect(createViewLayoutProjection({
+      preset: 'landscape',
+      aspectRatio: 2,
+    }).aspectRatio).toBe(16 / 9)
+  })
+
   it('dispatches typed logic-to-render events through @quajs/pipeline', async () => {
     const pipeline = new Pipeline()
     const handler = vi.fn()
@@ -80,6 +104,7 @@ describe('render-core event contracts', () => {
     await host.init({
       getPipeline: () => pipeline,
       getViewState: () => ({
+        layout: createViewLayoutProjection(),
         characters: [],
         dialogue: { visible: false, text: '' },
         choices: [],
@@ -96,6 +121,7 @@ describe('render-core event contracts', () => {
 
     await emitLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, {
       view: {
+        layout: createViewLayoutProjection(),
         characters: [],
         dialogue: { visible: false, text: '' },
         choices: [],
@@ -110,6 +136,7 @@ describe('render-core event contracts', () => {
     await host.destroy()
     await emitLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, {
       view: {
+        layout: createViewLayoutProjection(),
         characters: [],
         dialogue: { visible: false, text: '' },
         choices: [],

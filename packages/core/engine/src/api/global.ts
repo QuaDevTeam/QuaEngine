@@ -1,4 +1,4 @@
-import type { ChoiceIntent, CreateCheckpointOptions, DialogueIntent, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, Scene, SlotMetadata, StoryPoint } from '../core/types'
+import type { ChoiceIntent, CreateCheckpointOptions, DialogueIntent, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, Scene, SlotMetadata, StoryPoint, ViewLayoutInput } from '../core/types'
 import { QuaEngine } from '../core/engine'
 
 let engineInstance: QuaEngine | null = null
@@ -140,6 +140,10 @@ export function getPipeline() {
 
 export function getViewState() {
   return getEngine().getViewState()
+}
+
+export async function setLayoutProjection(layout: ViewLayoutInput): Promise<void> {
+  return getEngine().setLayoutProjection(layout)
 }
 
 export function getPluginProjection<T = unknown>(pluginId: string): T | undefined {

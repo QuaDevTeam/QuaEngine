@@ -35,12 +35,14 @@ import type {
   StepContext,
   StoryPoint,
   UiIntent,
+  ViewLayoutInput,
 } from './types'
 import { QuaAssets } from '@quajs/assets'
 import { getPackageLogger } from '@quajs/logger'
 import { Pipeline } from '@quajs/pipeline'
 import { createStore } from '@quajs/store'
 import {
+  createViewLayoutProjection,
   emitLogicToRender,
   LogicToRenderEvents as L2R,
   waitForPipelineEvent,
@@ -80,7 +82,7 @@ export class QuaEngine {
     this.store = createStore({
       name: 'quaengine-main',
       state: {
-        engine: createInitialEngineState(),
+        engine: createInitialEngineState(config.layout),
       },
       mutations: createEngineMutations(),
       storage: config.store?.storage,
@@ -422,6 +424,12 @@ export class QuaEngine {
 
   getViewState() {
     return cloneViewProjection(this.getEngineState().view)
+  }
+
+  async setLayoutProjection(layout: ViewLayoutInput): Promise<void> {
+    this.assertInitialized()
+    this.store.commit('setLayout', createViewLayoutProjection(layout))
+    await this.emitViewUpdate()
   }
 
   getPluginProjection<T = unknown>(pluginId: string): T | undefined {
@@ -818,6 +826,9 @@ function createEngineMutations() {
     setCurrentCheckpoint(state: any, checkpointId: string) {
       state.engine.runtime.currentCheckpointId = checkpointId
     },
+    setLayout(state: any, layout: ViewLayoutInput) {
+      state.engine.view.layout = createViewLayoutProjection(layout)
+    },
     setPluginProjection(state: any, payload: { pluginId: string, projection?: unknown }) {
       const plugins = {
         ...(state.engine.view.plugins || {}),
@@ -945,6 +956,7 @@ function createEngineMutations() {
 
 function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
   return {
+    layout: createViewLayoutProjection(view.layout),
     background: view.background
       ? {
           ...view.background,

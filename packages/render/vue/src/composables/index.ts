@@ -15,6 +15,11 @@ export function useQuaView() {
   return readonly(useQuaRenderer().view)
 }
 
+export function useLayout() {
+  const { view } = useQuaRenderer()
+  return computed(() => view.value.layout)
+}
+
 export function useBackground() {
   const { view } = useQuaRenderer()
   return computed(() => view.value.background)

@@ -12,6 +12,7 @@ import { QuaStage } from './QuaStage'
 
 export interface QuaRendererSlotProps {
   view: Readonly<QuaViewProjection>
+  layout: QuaViewProjection['layout']
   background: QuaViewProjection['background']
   characters: QuaViewProjection['characters']
   dialogue: QuaViewProjection['dialogue']
@@ -95,6 +96,7 @@ export const QuaRenderer = defineComponent({
 function createSlotProps(view: Readonly<QuaViewProjection>, actions: RendererActions): QuaRendererSlotProps {
   return {
     view,
+    layout: view.layout,
     background: view.background,
     characters: view.characters,
     dialogue: view.dialogue,

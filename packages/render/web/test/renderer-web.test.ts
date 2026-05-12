@@ -9,6 +9,7 @@ import {
 } from '@quajs/plugin-audio/contracts'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import {
+  createViewLayoutProjection,
   emitLogicToRender,
   LogicToRenderEvents,
   onRenderToLogic,
@@ -19,6 +20,7 @@ import {
   createQuaWebDomRenderer,
   createQuaWebRendererController,
   createReactRendererStoreAdapter,
+  resolveStageLayout,
 } from '../src'
 import { WebAudioRendererController } from '../src/audio'
 import { createVisualNovelWebRendererPlugins } from '../src/plugins/preset'
@@ -28,6 +30,29 @@ describe('@quajs/renderer-web', () => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     document.body.innerHTML = ''
+  })
+
+  it('resolves scaled stage layouts inside the configured aspect ratio range', () => {
+    const landscape = createViewLayoutProjection('landscape')
+    const tablet = resolveStageLayout(landscape, { width: 1600, height: 1000 })
+
+    expect(tablet).toEqual(expect.objectContaining({
+      viewportWidth: 1600,
+      viewportHeight: 1000,
+      logicalHeight: 1080,
+    }))
+    expect(tablet.logicalWidth).toBeCloseTo(1728)
+    expect(tablet.aspectRatio).toBeCloseTo(16 / 10)
+
+    const ultrawide = resolveStageLayout(landscape, { width: 2560, height: 1080 })
+    expect(ultrawide).toEqual(expect.objectContaining({
+      viewportHeight: 1080,
+      logicalHeight: 1080,
+    }))
+    expect(ultrawide.viewportWidth).toBeCloseTo(1920)
+    expect(ultrawide.viewportX).toBeCloseTo(320)
+    expect(ultrawide.logicalWidth).toBeCloseTo(1920)
+    expect(ultrawide.aspectRatio).toBeCloseTo(16 / 9)
   })
 
   it('owns framework-neutral pipeline lifecycle and exposes external-store snapshots', async () => {
@@ -69,6 +94,7 @@ describe('@quajs/renderer-web', () => {
 
     const root = document.createElement('div')
     document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
     const renderer = createQuaWebDomRenderer({
       container: root,
       pipeline,
@@ -83,6 +109,8 @@ describe('@quajs/renderer-web', () => {
 
     await renderer.mount()
 
+    expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('width: 1600px')
+    expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1728')
     expect(root.querySelector('.qua-background')).not.toBeNull()
     expect(root.querySelector('.qua-character')?.getAttribute('style')).toContain('--qua-character-x: 10')
     expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('Line')
@@ -454,6 +482,7 @@ describe('@quajs/renderer-web', () => {
 
 function view(overrides: Partial<QuaViewProjection> = {}): QuaViewProjection {
   return {
+    layout: createViewLayoutProjection(),
     characters: [],
     dialogue: { visible: false, text: '' },
     choices: [],
@@ -467,6 +496,20 @@ function view(overrides: Partial<QuaViewProjection> = {}): QuaViewProjection {
 
 async function flushDom(): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 0))
+}
+
+function rect(width: number, height: number): DOMRect {
+  return {
+    x: 0,
+    y: 0,
+    width,
+    height,
+    top: 0,
+    right: width,
+    bottom: height,
+    left: 0,
+    toJSON: () => ({}),
+  } as DOMRect
 }
 
 function spriteAssetManifest() {

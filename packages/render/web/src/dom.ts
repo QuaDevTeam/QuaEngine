@@ -3,9 +3,11 @@ import type { QuaViewProjection, RendererPlugin } from '@quajs/render-core'
 import type { RendererActions } from './actions'
 import type { WebAssetUrlState } from './assets'
 import type { QuaWebRendererOptions, QuaWebRendererSnapshot } from './controller'
+import type { StageContainerSize } from './layout'
 import { WebAssetUrlHandle } from './assets'
 import { QuaWebRendererController } from './controller'
 import { sortRendererLayers } from './layers'
+import { resolveStageLayout, stageContentStyle, stageViewportStyle } from './layout'
 
 export interface QuaWebDomLayerContext {
   renderer: QuaWebDomRenderer
@@ -44,6 +46,7 @@ export class QuaWebDomRenderer {
   private readonly root: HTMLElement
   private readonly layers: readonly QuaWebDomRendererLayer[]
   private readonly assetHandles: WebAssetUrlHandle[] = []
+  private resizeObserver?: ResizeObserver
   private unsubscribe?: () => void
   private mounted = false
 
@@ -64,6 +67,7 @@ export class QuaWebDomRenderer {
 
     this.mounted = true
     this.options.container.append(this.root)
+    this.observeContainer()
     this.unsubscribe = this.controller.subscribe(() => this.render())
     await this.controller.start()
     this.render()
@@ -77,6 +81,8 @@ export class QuaWebDomRenderer {
     this.mounted = false
     this.unsubscribe?.()
     this.unsubscribe = undefined
+    this.resizeObserver?.disconnect()
+    this.resizeObserver = undefined
     this.disposeAssetHandles()
     this.root.remove()
     await this.controller.destroy()
@@ -90,8 +96,14 @@ export class QuaWebDomRenderer {
     this.disposeAssetHandles()
     this.root.textContent = ''
     const document = this.getDocument()
+    const layout = resolveStageLayout(snapshot.view.layout, this.readContainerSize())
+    const viewport = document.createElement('div')
+    viewport.className = 'qua-stage-viewport'
+    applyStyles(viewport, stageViewportStyle(layout))
+
     const stage = document.createElement('section')
     stage.className = 'qua-stage'
+    applyStyles(stage, stageContentStyle(layout))
     stage.addEventListener('click', () => {
       void snapshot.actions.advance('stage-click')
     })
@@ -114,7 +126,34 @@ export class QuaWebDomRenderer {
       }
     }
 
-    this.root.append(stage)
+    viewport.append(stage)
+    this.root.append(viewport)
+  }
+
+  private observeContainer(): void {
+    const ResizeObserverCtor = this.getWindow().ResizeObserver
+    if (!ResizeObserverCtor) {
+      return
+    }
+
+    this.resizeObserver = new ResizeObserverCtor(() => this.render())
+    this.resizeObserver.observe(this.options.container)
+  }
+
+  private readContainerSize(): StageContainerSize {
+    const rect = this.root.getBoundingClientRect()
+    if (rect.width > 0 && rect.height > 0) {
+      return {
+        width: rect.width,
+        height: rect.height,
+      }
+    }
+
+    const containerRect = this.options.container.getBoundingClientRect()
+    return {
+      width: containerRect.width,
+      height: containerRect.height,
+    }
   }
 
   private bindAssetUrl(
@@ -157,8 +196,18 @@ export class QuaWebDomRenderer {
   private getDocument(): Document {
     return this.options.container.ownerDocument || document
   }
+
+  private getWindow(): Window & typeof globalThis {
+    return this.getDocument().defaultView || window
+  }
 }
 
 export function createQuaWebDomRenderer(options: QuaWebDomRendererOptions): QuaWebDomRenderer {
   return new QuaWebDomRenderer(options)
+}
+
+function applyStyles(element: HTMLElement, styles: Record<string, string | number>): void {
+  for (const [name, value] of Object.entries(styles)) {
+    element.style.setProperty(name, typeof value === 'number' ? String(value) : value)
+  }
 }

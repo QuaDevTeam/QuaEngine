@@ -43,7 +43,19 @@ export type {
   ViewChoiceProjection,
   ViewDialogueProjection,
   ViewEffectProjection,
+  ViewLayoutInput,
+  ViewLayoutOrientation,
+  ViewLayoutPreset,
+  ViewLayoutProjection,
+  ViewLayoutScaleMode,
   ViewPluginProjectionMap,
   ViewUiProjection,
   ViewVideoBackgroundProjection,
+} from '@quajs/render-core'
+
+export {
+  createViewLayoutProjection,
+  QUA_LANDSCAPE_LAYOUT,
+  QUA_LAYOUT_PRESETS,
+  QUA_PORTRAIT_LAYOUT,
 } from '@quajs/render-core'

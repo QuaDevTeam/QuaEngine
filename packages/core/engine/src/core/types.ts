@@ -6,11 +6,20 @@ import type {
   QuaViewProjection,
   ViewBackgroundProjection,
   ViewEffectProjection,
+  ViewLayoutInput,
   ViewUiProjection,
 } from '../events/events'
 import type { EnginePlugin, PluginConstructorOptions } from '../plugins/core/types'
+import { createViewLayoutProjection } from '../events/events'
 
-export type { ViewPluginProjectionMap } from '../events/events'
+export type {
+  ViewLayoutInput,
+  ViewLayoutOrientation,
+  ViewLayoutPreset,
+  ViewLayoutProjection,
+  ViewLayoutScaleMode,
+  ViewPluginProjectionMap,
+} from '../events/events'
 
 export interface SlotMetadata {
   name?: string
@@ -67,6 +76,7 @@ export interface QuaEngineInterface {
   getAssets: () => QuaAssets
   getPipeline: () => Pipeline
   getViewState: () => QuaViewProjection
+  setLayoutProjection: (layout: ViewLayoutInput) => Promise<void>
   getPluginProjection: <T = unknown>(pluginId: string) => T | undefined
   setPluginProjection: <T = unknown>(pluginId: string, projection?: T) => Promise<void>
   waitFor: QuaEngineWaitFor
@@ -189,6 +199,7 @@ export interface GameSaveData {
 }
 
 export interface EngineConfig {
+  layout?: ViewLayoutInput
   assets?: QuaAssetsConfig
   store?: {
     persistKey?: string
@@ -281,7 +292,7 @@ export type UsePluginOptions<T extends EnginePlugin = EnginePlugin>
   = | PluginConstructorOptions
     | T
 
-export function createInitialEngineState(): EngineState {
+export function createInitialEngineState(layout?: ViewLayoutInput): EngineState {
   return {
     runtime: {
       currentScene: null,
@@ -294,6 +305,7 @@ export function createInitialEngineState(): EngineState {
     },
     checkpoints: {},
     view: {
+      layout: createViewLayoutProjection(layout),
       background: undefined,
       characters: [],
       dialogue: {
