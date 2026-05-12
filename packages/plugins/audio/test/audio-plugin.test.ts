@@ -6,11 +6,17 @@ import {
   AudioPlugin,
   AudioRenderToLogicEvents,
   configureAudioChapterWithEngine,
+  createInitialAudioProjection,
   emitAudioRenderToLogic,
+  pauseAudioWithEngine,
+  playAmbientWithEngine,
+  playSFXWithEngine,
   playVoiceWithEngine,
+  resumeAudioWithEngine,
   setAudioAutomationWithEngine,
   setAudioEqWithEngine,
   setAudioGainWithEngine,
+  stopAudioWithEngine,
 } from '../src'
 
 const engines: QuaEngine[] = []
@@ -19,6 +25,20 @@ describe('@quajs/plugin-audio', () => {
   afterEach(async () => {
     await Promise.all(engines.splice(0).map(engine => engine.destroy().catch(() => {})))
     QuaEngine.resetInstance()
+  })
+
+  it('initializes SFX and ambient projection lanes', () => {
+    const projection = createInitialAudioProjection()
+
+    expect(projection.buses).toEqual({
+      master: { gainDb: 0 },
+      bgm: { gainDb: 0 },
+      voice: { gainDb: 0 },
+      sfx: { gainDb: 0 },
+      ambient: { gainDb: 0 },
+    })
+    expect(projection.sfx).toEqual([])
+    expect(projection.ambients).toEqual([])
   })
 
   it('stores chapter, gain, eq, and automation projection state on the engine', async () => {
@@ -45,6 +65,13 @@ describe('@quajs/plugin-audio', () => {
         { at: 500, value: 0 },
       ],
     })
+    await setAudioGainWithEngine(engine, 'sfx', -9)
+    await setAudioAutomationWithEngine(engine, 'ambient', 'gainDb', {
+      points: [
+        { at: 0, value: -18 },
+        { at: 1000, value: -6 },
+      ],
+    })
 
     const projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
     expect(projection.chapter).toEqual(expect.objectContaining({
@@ -63,6 +90,10 @@ describe('@quajs/plugin-audio', () => {
         propertyPath: 'gainDb',
       })],
     }))
+    expect(projection.buses.sfx).toEqual(expect.objectContaining({ gainDb: -9 }))
+    expect(projection.buses.ambient.automation).toEqual([expect.objectContaining({
+      propertyPath: 'gainDb',
+    })])
   })
 
   it('tracks voice playback and clears it when renderer events arrive', async () => {
@@ -101,6 +132,67 @@ describe('@quajs/plugin-audio', () => {
     })
 
     expect((engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any).voices).toEqual([])
+  })
+
+  it('tracks concurrent SFX and looping ambient playback', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    await engine.init()
+
+    await playVoiceWithEngine(engine, 'voice/current', { lineId: 'chapter-1:voice' })
+    await playSFXWithEngine(engine, 'sfx/click', { id: 'click-1', gainDb: -3 })
+    await playSFXWithEngine(engine, 'sfx/line-hit', { id: 'line-hit', lineId: 'chapter-1:sfx' })
+    await playSFXWithEngine(engine, 'sfx/door', { id: 'door-1' })
+    await playAmbientWithEngine(engine, 'ambient/rain', { gainDb: -9 })
+    await playAmbientWithEngine(engine, 'ambient/wind', { id: 'wind', lineId: 'chapter-1:ambient', gainDb: -12 })
+
+    let projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.currentLineId).toBe('chapter-1:voice')
+    expect(projection.sfx).toEqual([
+      expect.objectContaining({ id: 'click-1', kind: 'sfx', assetKey: 'sfx/click', loop: false, interruptible: true }),
+      expect.objectContaining({ id: 'line-hit', kind: 'sfx', assetKey: 'sfx/line-hit', lineId: 'chapter-1:sfx' }),
+      expect.objectContaining({ id: 'door-1', kind: 'sfx', assetKey: 'sfx/door', loop: false, interruptible: true }),
+    ])
+    expect(projection.ambients).toEqual([
+      expect.objectContaining({ id: 'ambient', kind: 'ambient', assetKey: 'ambient/rain', loop: true, interruptible: false }),
+      expect.objectContaining({ id: 'wind', kind: 'ambient', assetKey: 'ambient/wind', loop: true, interruptible: false }),
+    ])
+
+    await emitAudioRenderToLogic(engine.getPipeline(), AudioRenderToLogicEvents.ENDED, {
+      channel: 'sfx',
+      id: 'click-1',
+      assetKey: 'sfx/click',
+    })
+    projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.sfx).toEqual([
+      expect.objectContaining({ id: 'line-hit', assetKey: 'sfx/line-hit' }),
+      expect.objectContaining({ id: 'door-1', assetKey: 'sfx/door' }),
+    ])
+
+    await pauseAudioWithEngine(engine, 'ambient')
+    projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.ambients).toEqual([
+      expect.objectContaining({ id: 'ambient', state: 'paused' }),
+      expect.objectContaining({ id: 'wind', state: 'paused' }),
+    ])
+
+    await resumeAudioWithEngine(engine, 'wind')
+    projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.ambients).toEqual([
+      expect.objectContaining({ id: 'ambient', state: 'paused' }),
+      expect.objectContaining({ id: 'wind', state: 'playing' }),
+    ])
+
+    await stopAudioWithEngine(engine, 'master', { fadeOutMs: 100 })
+    projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.sfx).toEqual([
+      expect.objectContaining({ id: 'line-hit', state: 'stopping', fadeOutMs: 100 }),
+      expect.objectContaining({ id: 'door-1', state: 'stopping', fadeOutMs: 100 }),
+    ])
+    expect(projection.ambients).toEqual([
+      expect.objectContaining({ id: 'ambient', state: 'stopping', fadeOutMs: 100 }),
+      expect.objectContaining({ id: 'wind', state: 'stopping', fadeOutMs: 100 }),
+    ])
   })
 
   it('applies audio keep and stop strategies during engine jump transactions', async () => {

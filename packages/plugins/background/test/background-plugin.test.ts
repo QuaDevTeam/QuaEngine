@@ -157,11 +157,7 @@ function createEngine(): QuaEngineInterface {
       ui: { visible: true },
       effects: [],
       animations: [],
-      audio: {
-        volumeSettings: { master: 1, bgm: 1, sound: 1, voice: 1 },
-        sounds: [],
-        voices: [],
-      },
+      plugins: {},
     })),
   } as unknown as QuaEngineInterface
 }

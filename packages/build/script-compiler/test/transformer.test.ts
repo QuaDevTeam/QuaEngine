@@ -128,6 +128,10 @@ Yuki: Hello \${scope.playerName}
       @AudioChapter('chapter-1', { voiceMap: { intro: 'voice/intro.ogg' } })
       @LineId('intro')
       @PlayVoice()
+      @PlaySFX('sfx/click.ogg')
+      @PlayAmbient('ambient/rain.ogg', { id: 'rain' })
+      @StopSFX()
+      @StopAmbient()
       Yuki: Hello with mapped voice.
     `, {
       decoratorMappings: audioDecoratorMappings,
@@ -136,6 +140,10 @@ Yuki: Hello \${scope.playerName}
 
     expect(result).toContain('configureAudioChapterWithEngine(ctx.engine, "chapter-1"')
     expect(result).toContain('playVoiceWithEngine(ctx.engine, "voice/intro.ogg"')
+    expect(result).toContain('playSFXWithEngine(ctx.engine, "sfx/click.ogg"')
+    expect(result).toContain('playAmbientWithEngine(ctx.engine, "ambient/rain.ogg"')
+    expect(result).toContain('stopSFXWithEngine(ctx.engine, "sfx"')
+    expect(result).toContain('stopAmbientWithEngine(ctx.engine, "ambient"')
     expect(result).not.toContain('lineIdDirective')
   })
 

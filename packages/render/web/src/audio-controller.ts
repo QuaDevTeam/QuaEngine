@@ -139,4 +139,6 @@ export class WebAudioRendererController {
 function hasPlayingAudioIntent(projection: AudioViewProjection): boolean {
   return projection.bgm?.state === 'playing'
     || projection.voices.some(track => track.state === 'playing')
+    || projection.sfx.some(track => track.state === 'playing')
+    || projection.ambients.some(track => track.state === 'playing')
 }

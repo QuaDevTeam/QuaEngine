@@ -396,15 +396,26 @@ function createScene(name: string) {
 }
 
 function audioProjection(overrides: Record<string, unknown> = {}) {
-  return {
+  const base = {
     revision: 0,
     unlocked: false,
     buses: {
       master: { gainDb: 0 },
       bgm: { gainDb: 0 },
       voice: { gainDb: 0 },
+      sfx: { gainDb: 0 },
+      ambient: { gainDb: 0 },
     },
     voices: [],
+    sfx: [],
+    ambients: [],
+  }
+  return {
+    ...base,
     ...overrides,
+    buses: {
+      ...base.buses,
+      ...((overrides.buses as Record<string, unknown> | undefined) || {}),
+    },
   }
 }

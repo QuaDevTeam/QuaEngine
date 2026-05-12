@@ -17,6 +17,14 @@ export const audioDecoratorMappings = {
     function: 'playBGMWithEngine',
     module: '@quajs/plugin-audio',
   },
+  PlaySFX: {
+    function: 'playSFXWithEngine',
+    module: '@quajs/plugin-audio',
+  },
+  PlayAmbient: {
+    function: 'playAmbientWithEngine',
+    module: '@quajs/plugin-audio',
+  },
   SetAudioGain: {
     function: 'setAudioGainWithEngine',
     module: '@quajs/plugin-audio',
@@ -53,6 +61,14 @@ export const audioDecoratorMappings = {
     function: 'stopBGMWithEngine',
     module: '@quajs/plugin-audio',
   },
+  StopSFX: {
+    function: 'stopSFXWithEngine',
+    module: '@quajs/plugin-audio',
+  },
+  StopAmbient: {
+    function: 'stopAmbientWithEngine',
+    module: '@quajs/plugin-audio',
+  },
 } as const
 
 export function createAudioDecoratorCompiler() {
@@ -62,6 +78,8 @@ export function createAudioDecoratorCompiler() {
       configureAudioChapterWithEngine: '@quajs/plugin-audio',
       playVoiceWithEngine: '@quajs/plugin-audio',
       playBGMWithEngine: '@quajs/plugin-audio',
+      playSFXWithEngine: '@quajs/plugin-audio',
+      playAmbientWithEngine: '@quajs/plugin-audio',
       setAudioGainWithEngine: '@quajs/plugin-audio',
       setAudioEqWithEngine: '@quajs/plugin-audio',
       setAudioAutomationWithEngine: '@quajs/plugin-audio',
@@ -71,6 +89,8 @@ export function createAudioDecoratorCompiler() {
       seekAudioWithEngine: '@quajs/plugin-audio',
       stopVoiceWithEngine: '@quajs/plugin-audio',
       stopBGMWithEngine: '@quajs/plugin-audio',
+      stopSFXWithEngine: '@quajs/plugin-audio',
+      stopAmbientWithEngine: '@quajs/plugin-audio',
     },
     supports(_decoratorName: string, mapping: { function: string, module: string }) {
       return mapping.module === '@quajs/plugin-audio'
@@ -101,6 +121,10 @@ export function createAudioDecoratorCompiler() {
           return compilePlayVoice(input, state)
         case 'PlayBGM':
           return compilePlayBgm(input, state)
+        case 'PlaySFX':
+          return compilePlaySfx(input, state)
+        case 'PlayAmbient':
+          return compilePlayAmbient(input, state)
         case 'SetAudioGain':
           return compileSetGain(input)
         case 'SetAudioEq':
@@ -119,6 +143,10 @@ export function createAudioDecoratorCompiler() {
           return compileStopAlias('stopVoiceWithEngine', input, 'voice')
         case 'StopBGM':
           return compileStopAlias('stopBGMWithEngine', input, 'bgm')
+        case 'StopSFX':
+          return compileStopAlias('stopSFXWithEngine', input, 'sfx')
+        case 'StopAmbient':
+          return compileStopAlias('stopAmbientWithEngine', input, 'ambient')
         default:
           return null
       }
@@ -278,6 +306,50 @@ function compilePlayBgm(input: {
       audioOptionsExpression(options, state.currentChapter?.chapterId),
     ]),
     runtimeHelpers: ['playBGMWithEngine'],
+  }
+}
+
+function compilePlaySfx(input: {
+  decorator: { name: string, args: unknown[] }
+  context: {
+    characterName?: string
+    stepType: 'dialogue' | 'action'
+    stepIndex: number
+    stepUuid: string
+    state: Record<string, unknown>
+  }
+}, state: AudioCompileState) {
+  const assetKey = requireStringArg(input.decorator, input.decorator.args[0], 'asset key')
+  const options = input.decorator.args[1]
+  return {
+    call: t.callExpression(t.identifier('playSFXWithEngine'), [
+      engineArg(),
+      t.stringLiteral(assetKey),
+      audioOptionsExpression(options, state.currentChapter?.chapterId),
+    ]),
+    runtimeHelpers: ['playSFXWithEngine'],
+  }
+}
+
+function compilePlayAmbient(input: {
+  decorator: { name: string, args: unknown[] }
+  context: {
+    characterName?: string
+    stepType: 'dialogue' | 'action'
+    stepIndex: number
+    stepUuid: string
+    state: Record<string, unknown>
+  }
+}, state: AudioCompileState) {
+  const assetKey = requireStringArg(input.decorator, input.decorator.args[0], 'asset key')
+  const options = input.decorator.args[1]
+  return {
+    call: t.callExpression(t.identifier('playAmbientWithEngine'), [
+      engineArg(),
+      t.stringLiteral(assetKey),
+      audioOptionsExpression(options, state.currentChapter?.chapterId),
+    ]),
+    runtimeHelpers: ['playAmbientWithEngine'],
   }
 }
 
@@ -450,7 +522,7 @@ function compileSeek(input: {
   }
 }
 
-function compileStopAlias(helper: 'stopVoiceWithEngine' | 'stopBGMWithEngine', input: {
+function compileStopAlias(helper: 'stopVoiceWithEngine' | 'stopBGMWithEngine' | 'stopSFXWithEngine' | 'stopAmbientWithEngine', input: {
   decorator: { name: string, args: unknown[] }
   context: {
     characterName?: string
@@ -459,7 +531,7 @@ function compileStopAlias(helper: 'stopVoiceWithEngine' | 'stopBGMWithEngine', i
     stepUuid: string
     state: Record<string, unknown>
   }
-}, target: 'voice' | 'bgm') {
+}, target: 'voice' | 'bgm' | 'sfx' | 'ambient') {
   const options = input.decorator.args[0]
   return {
     call: t.callExpression(t.identifier(helper), [
@@ -642,4 +714,6 @@ interface AudioDefaultsProjectionLike {
   master?: Record<string, unknown>
   bgm?: Record<string, unknown>
   voice?: Record<string, unknown>
+  sfx?: Record<string, unknown>
+  ambient?: Record<string, unknown>
 }

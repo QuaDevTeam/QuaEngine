@@ -6,8 +6,8 @@ export const AUDIO_WEB_RENDERER_ENTRY = '@quajs/renderer-web/plugins/audio' as c
 export const AUDIO_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/audio' as const
 export const AUDIO_RENDERER_ENTRY = AUDIO_WEB_RENDERER_ENTRY
 
-export type AudioBusId = 'master' | 'bgm' | 'voice'
-export type AudioTrackKind = 'bgm' | 'voice'
+export type AudioBusId = 'master' | 'bgm' | 'voice' | 'sfx' | 'ambient'
+export type AudioTrackKind = 'bgm' | 'voice' | 'sfx' | 'ambient'
 export type AudioTrackState = 'idle' | 'queued' | 'playing' | 'paused' | 'stopping' | 'stopped'
 export type AudioEqBandType
   = | 'lowpass'
@@ -76,6 +76,8 @@ export interface AudioDefaultsProjection {
   master?: AudioBusProjection
   bgm?: Partial<AudioTrackProjection>
   voice?: Partial<AudioTrackProjection>
+  sfx?: Partial<AudioTrackProjection>
+  ambient?: Partial<AudioTrackProjection>
 }
 
 export interface AudioChapterProjection {
@@ -95,9 +97,13 @@ export interface AudioViewProjection {
     master: AudioBusProjection
     bgm: AudioBusProjection
     voice: AudioBusProjection
+    sfx: AudioBusProjection
+    ambient: AudioBusProjection
   }
   bgm?: AudioTrackProjection
   voices: readonly AudioTrackProjection[]
+  sfx: readonly AudioTrackProjection[]
+  ambients: readonly AudioTrackProjection[]
 }
 
 export interface AudioChapterDirectiveOptions {
@@ -129,6 +135,38 @@ export interface AudioPlayBgmOptions {
   chapterId?: string
   gainDb?: number
   loop?: boolean
+  fadeInMs?: number
+  fadeOutMs?: number
+  crossfadeMs?: number
+  seekMs?: number
+  eq?: readonly AudioEqBand[]
+  automation?: readonly AudioAutomationProjection[]
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface AudioPlaySfxOptions {
+  id?: string
+  chapterId?: string
+  lineId?: string
+  interruptible?: boolean
+  loop?: boolean
+  gainDb?: number
+  fadeInMs?: number
+  fadeOutMs?: number
+  crossfadeMs?: number
+  seekMs?: number
+  eq?: readonly AudioEqBand[]
+  automation?: readonly AudioAutomationProjection[]
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface AudioPlayAmbientOptions {
+  id?: string
+  chapterId?: string
+  lineId?: string
+  interruptible?: boolean
+  loop?: boolean
+  gainDb?: number
   fadeInMs?: number
   fadeOutMs?: number
   crossfadeMs?: number
@@ -216,8 +254,12 @@ export function createInitialAudioProjection(): AudioViewProjection {
       master: { gainDb: 0 },
       bgm: { gainDb: 0 },
       voice: { gainDb: 0 },
+      sfx: { gainDb: 0 },
+      ambient: { gainDb: 0 },
     },
     voices: [],
+    sfx: [],
+    ambients: [],
   }
 }
 
@@ -234,6 +276,8 @@ export function cloneAudioProjection(projection: AudioViewProjection): AudioView
                 master: projection.chapter.defaults.master ? cloneAudioBusProjection(projection.chapter.defaults.master) : undefined,
                 bgm: projection.chapter.defaults.bgm ? cloneAudioBusProjection(projection.chapter.defaults.bgm) : undefined,
                 voice: projection.chapter.defaults.voice ? cloneAudioBusProjection(projection.chapter.defaults.voice) : undefined,
+                sfx: projection.chapter.defaults.sfx ? cloneAudioBusProjection(projection.chapter.defaults.sfx) : undefined,
+                ambient: projection.chapter.defaults.ambient ? cloneAudioBusProjection(projection.chapter.defaults.ambient) : undefined,
               }
             : undefined,
           metadata: projection.chapter.metadata ? { ...projection.chapter.metadata } : undefined,
@@ -244,9 +288,13 @@ export function cloneAudioProjection(projection: AudioViewProjection): AudioView
       master: cloneAudioBusProjection(projection.buses.master),
       bgm: cloneAudioBusProjection(projection.buses.bgm),
       voice: cloneAudioBusProjection(projection.buses.voice),
+      sfx: cloneAudioBusProjection(projection.buses.sfx),
+      ambient: cloneAudioBusProjection(projection.buses.ambient),
     },
     bgm: projection.bgm ? cloneAudioTrackProjection(projection.bgm) : undefined,
     voices: projection.voices.map(track => cloneAudioTrackProjection(track)),
+    sfx: projection.sfx.map(track => cloneAudioTrackProjection(track)),
+    ambients: projection.ambients.map(track => cloneAudioTrackProjection(track)),
   }
 }
 
@@ -286,7 +334,7 @@ export function dbToGain(db: number): number {
 }
 
 export function isAudioTrackKind(value: string): value is AudioTrackKind {
-  return value === 'bgm' || value === 'voice'
+  return value === 'bgm' || value === 'voice' || value === 'sfx' || value === 'ambient'
 }
 
 export function emitAudioRenderToLogic<T extends AudioRenderToLogicEvent>(

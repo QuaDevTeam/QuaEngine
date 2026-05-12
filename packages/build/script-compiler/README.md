@@ -207,10 +207,14 @@ function part1() {
 | `@LineId(id)`                                                     | `lineIdDirective`                 | `@quajs/plugin-audio` |
 | `@PlayVoice(asset?, options?)`                                    | `playVoiceWithEngine`             | `@quajs/plugin-audio` |
 | `@PlayBGM(asset, options?)`                                       | `playBGMWithEngine`               | `@quajs/plugin-audio` |
+| `@PlaySFX(asset, options?)`                                       | `playSFXWithEngine`               | `@quajs/plugin-audio` |
+| `@PlayAmbient(asset, options?)`                                   | `playAmbientWithEngine`           | `@quajs/plugin-audio` |
 | `@SetAudioGain(target, gainDbOrCurve, options?)`                  | `setAudioGainWithEngine`          | `@quajs/plugin-audio` |
 | `@SetAudioEq(target, bands, options?)`                            | `setAudioEqWithEngine`            | `@quajs/plugin-audio` |
 | `@SetAudioAutomation(target, propertyPath, curve, options?)`      | `setAudioAutomationWithEngine`    | `@quajs/plugin-audio` |
 | `@StopAudio(target?, options?)`                                   | `stopAudioWithEngine`             | `@quajs/plugin-audio` |
+| `@StopSFX(options?)`                                              | `stopSFXWithEngine`               | `@quajs/plugin-audio` |
+| `@StopAmbient(options?)`                                          | `stopAmbientWithEngine`           | `@quajs/plugin-audio` |
 | `@PauseAudio(target?, options?)`                                  | `pauseAudioWithEngine`            | `@quajs/plugin-audio` |
 | `@ResumeAudio(target?, options?)`                                 | `resumeAudioWithEngine`           | `@quajs/plugin-audio` |
 | `@SeekAudio(target?, positionMs, options?)`                       | `seekAudioWithEngine`             | `@quajs/plugin-audio` |

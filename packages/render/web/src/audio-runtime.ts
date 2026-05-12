@@ -24,7 +24,7 @@ interface AudioRuntimeCallbacks {
 }
 
 interface SlotRuntime {
-  kind: AudioBusId
+  kind: AudioTrackProjection['kind']
   source?: AudioBufferSourceNode
   gainNode: GainNode
   eqNodes: BiquadFilterNode[]
@@ -54,11 +54,18 @@ export class WebAudioAudioRuntime {
     master: undefined,
     bgm: undefined,
     voice: undefined,
+    sfx: undefined,
+    ambient: undefined,
   }
 
-  private readonly slots: Record<'bgm' | 'voice', SlotRuntime | undefined> = {
+  private readonly singleSlots: Record<'bgm' | 'voice', SlotRuntime | undefined> = {
     bgm: undefined,
     voice: undefined,
+  }
+
+  private readonly collectionSlots: Record<'sfx' | 'ambient', Map<string, SlotRuntime>> = {
+    sfx: new Map(),
+    ambient: new Map(),
   }
 
   private readonly bufferCache = new Map<string, Promise<AudioBuffer>>()
@@ -88,9 +95,13 @@ export class WebAudioAudioRuntime {
     this.syncBus('master', this.projection.buses.master)
     this.syncBus('bgm', this.projection.buses.bgm)
     this.syncBus('voice', this.projection.buses.voice)
+    this.syncBus('sfx', this.projection.buses.sfx)
+    this.syncBus('ambient', this.projection.buses.ambient)
 
-    await this.syncTrack('bgm', this.projection.bgm)
-    await this.syncTrack('voice', selectActiveVoice(this.projection.voices))
+    await this.syncSingleTrack('bgm', this.projection.bgm)
+    await this.syncSingleTrack('voice', selectActiveVoice(this.projection.voices))
+    await this.syncTrackCollection('sfx', this.projection.sfx)
+    await this.syncTrackCollection('ambient', this.projection.ambients)
   }
 
   async unlock(): Promise<boolean> {
@@ -123,14 +134,14 @@ export class WebAudioAudioRuntime {
   }
 
   interruptVoice(reason = 'user-advance'): AudioTrackEventPayload[] {
-    const slot = this.slots.voice
+    const slot = this.singleSlots.voice
     const currentTrack = slot?.currentTrack
     if (!slot || !currentTrack || currentTrack.interruptible === false) {
       return []
     }
 
     const payload = this.createTrackPayload(currentTrack, reason)
-    this.stopSlot('voice', 0, reason, true)
+    this.stopSlot(slot, 0, reason, true)
     return [payload]
   }
 
@@ -141,7 +152,7 @@ export class WebAudioAudioRuntime {
     }
 
     this.bufferCache.delete(assetKey)
-    for (const slot of Object.values(this.slots)) {
+    for (const slot of this.getAllSlots()) {
       if (slot?.assetKey === assetKey) {
         slot.staleBuffer = true
       }
@@ -150,8 +161,11 @@ export class WebAudioAudioRuntime {
 
   async destroy(): Promise<void> {
     this.destroyed = true
-    this.stopSlot('bgm', 0, 'destroy', true)
-    this.stopSlot('voice', 0, 'destroy', true)
+    for (const slot of this.getAllSlots()) {
+      this.stopSlot(slot, 0, 'destroy', true)
+    }
+    this.collectionSlots.sfx.clear()
+    this.collectionSlots.ambient.clear()
     this.bufferCache.clear()
 
     if (this.context) {
@@ -210,17 +224,58 @@ export class WebAudioAudioRuntime {
     this.scheduleAutomationChain(bus.eqNodes, projection.automation || [])
   }
 
-  private async syncTrack(kind: 'bgm' | 'voice', projection?: AudioTrackProjection): Promise<void> {
+  private async syncSingleTrack(kind: 'bgm' | 'voice', projection?: AudioTrackProjection): Promise<void> {
     const context = this.ensureContext()
     const bus = this.getOrCreateBus(kind, context)
-    const slot = this.slots[kind] || this.createSlot(kind, context, bus)
-    this.slots[kind] = slot
+    const slot = this.singleSlots[kind] || this.createSlot(kind, context, bus)
+    this.singleSlots[kind] = slot
 
     if (!projection || projection.state === 'stopped') {
-      this.stopSlot(kind, projection?.fadeOutMs ?? 0, 'stopped', true)
+      this.stopSlot(slot, projection?.fadeOutMs ?? 0, 'stopped', true)
       return
     }
 
+    await this.syncSlotProjection(kind, projection, slot, bus, context)
+  }
+
+  private async syncTrackCollection(kind: 'sfx' | 'ambient', projections: readonly AudioTrackProjection[]): Promise<void> {
+    const context = this.ensureContext()
+    const bus = this.getOrCreateBus(kind, context)
+    const slots = this.collectionSlots[kind]
+    const projectedIds = new Set<string>()
+
+    for (const projection of projections) {
+      projectedIds.add(projection.id)
+      let slot = slots.get(projection.id)
+      if (!slot) {
+        slot = this.createSlot(kind, context, bus)
+        slots.set(projection.id, slot)
+      }
+
+      if (projection.state === 'stopped') {
+        this.stopSlot(slot, projection.fadeOutMs ?? 0, 'stopped', true)
+        slots.delete(projection.id)
+        continue
+      }
+
+      await this.syncSlotProjection(kind, projection, slot, bus, context)
+    }
+
+    for (const [id, slot] of slots) {
+      if (!projectedIds.has(id)) {
+        this.stopSlot(slot, 0, 'stopped', true)
+        slots.delete(id)
+      }
+    }
+  }
+
+  private async syncSlotProjection(
+    kind: AudioTrackProjection['kind'],
+    projection: AudioTrackProjection,
+    slot: SlotRuntime,
+    bus: BusRuntime,
+    context: AudioContext,
+  ): Promise<void> {
     slot.assetKey = projection.assetKey
     const controlSignature = this.createControlSignature(projection)
     const fxSignature = this.createFxSignature(projection)
@@ -230,7 +285,7 @@ export class WebAudioAudioRuntime {
       slot.controlSignature = controlSignature
       slot.fxSignature = fxSignature
       if (slot.source) {
-        this.pauseSlot(kind, slot, projection)
+        this.pauseSlot(slot, projection)
       }
       this.applyTrackFx(slot, projection)
       return
@@ -246,7 +301,7 @@ export class WebAudioAudioRuntime {
       || resumingPausedTrack
 
     if (needsSource) {
-      this.stopSlot(kind, 0, 'replaced', true)
+      this.stopSlot(slot, 0, 'replaced', true)
       await this.startTrackSource(kind, projection, slot, bus, context, resumingPausedTrack ? slot.offsetSeconds : undefined)
       slot.controlSignature = controlSignature
       slot.staleBuffer = false
@@ -266,12 +321,12 @@ export class WebAudioAudioRuntime {
       }
     }
     else if (projection.state === 'stopping') {
-      this.stopSlot(kind, projection.fadeOutMs ?? 0, 'stopped')
+      this.stopSlot(slot, projection.fadeOutMs ?? 0, 'stopped')
     }
   }
 
   private async startTrackSource(
-    _kind: 'bgm' | 'voice',
+    _kind: AudioTrackProjection['kind'],
     projection: AudioTrackProjection,
     slot: SlotRuntime,
     bus: BusRuntime,
@@ -362,7 +417,7 @@ export class WebAudioAudioRuntime {
     }
   }
 
-  private pauseSlot(_kind: 'bgm' | 'voice', slot: SlotRuntime, projection: AudioTrackProjection): void {
+  private pauseSlot(slot: SlotRuntime, projection: AudioTrackProjection): void {
     if (!slot.source) {
       return
     }
@@ -386,15 +441,16 @@ export class WebAudioAudioRuntime {
     slot.startedAt = undefined
   }
 
-  private stopSlot(kind: 'bgm' | 'voice', fadeOutMs = 0, reason = 'stopped', clearTrack = false): void {
-    const slot = this.slots[kind]
+  private stopSlot(slot: SlotRuntime | undefined, fadeOutMs = 0, reason = 'stopped', clearTrack = false): void {
     if (!slot) {
       return
     }
 
     slot.stopReason = reason
     slot.pendingStart = false
-    slot.generation += 1
+    if (clearTrack || reason === 'replaced' || reason === 'destroy') {
+      slot.generation += 1
+    }
 
     if (!slot.source) {
       if (clearTrack) {
@@ -577,7 +633,7 @@ export class WebAudioAudioRuntime {
     return bus
   }
 
-  private createSlot(kind: 'bgm' | 'voice', context: AudioContext, bus: BusRuntime): SlotRuntime {
+  private createSlot(kind: AudioTrackProjection['kind'], context: AudioContext, bus: BusRuntime): SlotRuntime {
     const gainNode = context.createGain()
     const eqNodes: BiquadFilterNode[] = []
     const slot: SlotRuntime = {
@@ -649,7 +705,7 @@ export class WebAudioAudioRuntime {
   }
 
   private async startPendingSources(): Promise<void> {
-    await Promise.all(Object.values(this.slots).map(async (slot) => {
+    await Promise.all(this.getAllSlots().map(async (slot) => {
       if (!slot?.source || !slot.currentTrack || !slot.pendingStart || slot.currentTrack.state !== 'playing') {
         return
       }
@@ -666,6 +722,14 @@ export class WebAudioAudioRuntime {
     await this.startPendingSources()
     await this.callbacks.emit(AudioRenderToLogicEvents.UNLOCKED, { timestamp: Date.now() })
     return true
+  }
+
+  private getAllSlots(): SlotRuntime[] {
+    return [
+      ...Object.values(this.singleSlots).filter((slot): slot is SlotRuntime => Boolean(slot)),
+      ...this.collectionSlots.sfx.values(),
+      ...this.collectionSlots.ambient.values(),
+    ]
   }
 }
 

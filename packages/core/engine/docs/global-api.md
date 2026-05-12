@@ -100,7 +100,7 @@ Gets the ID of the current dialogue step.
 
 Audio playback is no longer an engine-core API. Engine state only carries the plugin projection lane under `view.plugins.audio`, while real Web decoding and playback live in `@quajs/renderer-web/audio` and framework adapters such as `@quajs/renderer-vue/plugins/audio`.
 
-For chapter-aware BGM and voice playback, use `@quajs/plugin-audio` decorators and helpers such as `@AudioChapter`, `@PlayVoice`, `@PlayBGM`, `@SetAudioGain`, and `@SetAudioAutomation`.
+For chapter-aware BGM, voice playback, SFX, and ambient audio, use `@quajs/plugin-audio` decorators and helpers such as `@AudioChapter`, `@PlayVoice`, `@PlayBGM`, `@PlaySFX`, `@PlayAmbient`, `@SetAudioGain`, and `@SetAudioAutomation`.
 
 **Example:**
 
@@ -114,8 +114,12 @@ await setPluginProjection('audio', {
     master: { gainDb: 0 },
     bgm: { gainDb: 0 },
     voice: { gainDb: 0 },
+    sfx: { gainDb: 0 },
+    ambient: { gainDb: 0 },
   },
   voices: [],
+  sfx: [],
+  ambients: [],
 })
 ```
 

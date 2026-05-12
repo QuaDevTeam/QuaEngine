@@ -363,6 +363,93 @@ describe('@quajs/renderer-web', () => {
     await controller.destroy()
     await assets.cleanup()
   })
+
+  it('plays concurrent SFX and ambient projection tracks through WebAudio', async () => {
+    installFakeAudioContext({ initialState: 'running' })
+    const assets = await createAudioAssets()
+    const pipeline = new Pipeline()
+    const ended: Array<{ channel: string, id: string }> = []
+    onAudioRenderToLogic(pipeline, AudioRenderToLogicEvents.ENDED, payload => ended.push({
+      channel: payload.channel,
+      id: payload.id,
+    }))
+
+    const controller = new WebAudioRendererController({
+      getPipeline: () => pipeline,
+      getAssets: () => assets,
+      getViewState: () => audioEffectsView(),
+      document,
+    })
+
+    controller.start()
+    await controller.sync()
+
+    expect(FakeAudioContext.sources).toHaveLength(3)
+    expect(FakeAudioContext.sources[0]?.loop).toBe(false)
+    expect(FakeAudioContext.sources[1]?.loop).toBe(false)
+    expect(FakeAudioContext.sources[2]?.loop).toBe(true)
+    expect(FakeAudioContext.sources[0]?.start).toHaveBeenCalledWith(0, 0)
+    expect(FakeAudioContext.sources[1]?.start).toHaveBeenCalledWith(0, 0)
+    expect(FakeAudioContext.sources[2]?.start).toHaveBeenCalledWith(0, 0)
+
+    FakeAudioContext.sources[0]?.onended?.call(FakeAudioContext.sources[0] as any, new Event('ended'))
+    FakeAudioContext.sources[2]?.onended?.call(FakeAudioContext.sources[2] as any, new Event('ended'))
+    await flushDom()
+
+    expect(ended).toEqual([
+      { channel: 'sfx', id: 'click' },
+      { channel: 'ambient', id: 'rain' },
+    ])
+
+    await controller.destroy()
+    await assets.cleanup()
+  })
+
+  it('keeps SFX and ambient pending until autoplay unlock succeeds', async () => {
+    let allowResume = false
+    installFakeAudioContext({
+      initialState: 'suspended',
+      resume: async (context) => {
+        if (!allowResume) {
+          throw new Error('autoplay blocked')
+        }
+        context.state = 'running'
+      },
+    })
+    const assets = await createAudioAssets()
+    const pipeline = new Pipeline()
+    const errors: unknown[] = []
+    onAudioRenderToLogic(pipeline, AudioRenderToLogicEvents.ERROR, payload => errors.push(payload))
+
+    const controller = new WebAudioRendererController({
+      getPipeline: () => pipeline,
+      getAssets: () => assets,
+      getViewState: () => audioEffectsView(),
+      document,
+    })
+
+    controller.start()
+    await controller.sync()
+    await flushDom()
+
+    expect(FakeAudioContext.sources).toHaveLength(3)
+    expect(FakeAudioContext.sources[0]?.start).not.toHaveBeenCalled()
+    expect(FakeAudioContext.sources[1]?.start).not.toHaveBeenCalled()
+    expect(FakeAudioContext.sources[2]?.start).not.toHaveBeenCalled()
+    expect(errors).toHaveLength(0)
+
+    allowResume = true
+    document.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
+    await flushDom()
+
+    expect(FakeAudioContext.sources[0]?.start).toHaveBeenCalledWith(0, 0)
+    expect(FakeAudioContext.sources[1]?.start).toHaveBeenCalledWith(0, 0)
+    expect(FakeAudioContext.sources[2]?.start).toHaveBeenCalledWith(0, 0)
+    expect(errors).toHaveLength(0)
+
+    await controller.destroy()
+    await assets.cleanup()
+  })
 })
 
 function view(overrides: Partial<QuaViewProjection> = {}): QuaViewProjection {
@@ -432,6 +519,40 @@ function audioView(): QuaViewProjection {
   })
 }
 
+function audioEffectsView(): QuaViewProjection {
+  const audio = createInitialAudioProjection()
+  return view({
+    plugins: {
+      [AUDIO_PLUGIN_ID]: {
+        ...audio,
+        sfx: [
+          {
+            id: 'click',
+            kind: 'sfx',
+            assetKey: 'sfx/click.ogg',
+            state: 'playing',
+          },
+          {
+            id: 'door',
+            kind: 'sfx',
+            assetKey: 'sfx/door.ogg',
+            state: 'playing',
+          },
+        ],
+        ambients: [
+          {
+            id: 'rain',
+            kind: 'ambient',
+            assetKey: 'ambient/rain.ogg',
+            state: 'playing',
+            loop: true,
+          },
+        ],
+      },
+    },
+  })
+}
+
 async function createAudioAssets(): Promise<QuaAssets> {
   const assets = new QuaAssets({
     adapter: {
@@ -443,21 +564,30 @@ async function createAudioAssets(): Promise<QuaAssets> {
       mode: 'memory',
       getManifest: async () => ({
         version: '1',
-        assets: [{
-          id: 'memory:default:audio:bgm.ogg',
-          bundleName: 'memory',
-          name: 'bgm.ogg',
-          type: 'audio' as const,
-          locale: 'default',
-          path: 'audio/bgm.ogg',
-          mimeType: 'audio/ogg',
-        }],
+        assets: [
+          audioAssetRecord('bgm.ogg'),
+          audioAssetRecord('sfx/click.ogg'),
+          audioAssetRecord('sfx/door.ogg'),
+          audioAssetRecord('ambient/rain.ogg'),
+        ],
       }),
       getAsset: async () => new Uint8Array([1, 2, 3, 4]),
     },
   })
   await assets.initialize()
   return assets
+}
+
+function audioAssetRecord(name: string) {
+  return {
+    id: `memory:default:audio:${name}`,
+    bundleName: 'memory',
+    name,
+    type: 'audio' as const,
+    locale: 'default',
+    path: `audio/${name}`,
+    mimeType: 'audio/ogg',
+  }
 }
 
 interface FakeAudioContextOptions {
