@@ -32,6 +32,17 @@ QuaEngine is a modern, TypeScript-based visual novel (Galgame) engine designed w
 - **Plugin-first non-core features**: Features that are not required for narrative execution, state authority, asset access, or pipeline communication must be engine plugins. Main menu, settings panels, save/load UI flows, gallery, backlog, history, achievements, and similar UX systems must not be hardwired into engine core.
 - **Renderer plugin architecture**: Renderer implementations must be built as core + optional plugins. Renderer plugins may subscribe/emit through `@quajs/pipeline` helpers and manage implementation resources, but they must not create a second eventbus or own authoritative game state.
 
+### Fixed Stage Layout And Coordinate System
+- **Development background**: Visual novel scenes need stable authored composition across browsers, tablets, phones, embedded WebViews, and future native renderers. QuaEngine therefore renders into an engine-owned logical stage first, then lets the renderer scale that stage into the actual screen. Screen adaptation must not change narrative state, scene progression, or authored coordinates.
+- **Engine-owned layout projection**: Project aspect configuration belongs in `QuaViewProjection.layout` and is owned by the engine/store. Renderers consume this projection plus their transient container size to draw; they must not persist resolved viewport sizes, scale factors, safe areas, or measured DOM dimensions as authoritative game state.
+- **Official presets**: QuaEngine provides `landscape` and `portrait` layout presets. The landscape preset is designed to cover the compatibility interval from `16:10` to `16:9`, so scenes should work on both common desktop/tablet ratios and ratios between them. Portrait uses a separate vertical preset instead of reusing landscape coordinates.
+- **Logical stage before screen pixels**: All engine-facing coordinates, drawing coordinates, camera/background offsets, animation track values, and renderer plugin projection coordinates must be authored in logical stage space unless an API explicitly names another unit. Do not use browser viewport pixels, CSS `vw`/`vh`, or physical device pixels as game-facing coordinate units.
+- **Coordinate origin and units**: The logical stage origin is the top-left corner of `.qua-stage`; positive `x` goes right and positive `y` goes down. The base logical height is `layout.height`; logical width is derived from the active stage aspect ratio. Renderer scaling maps logical units to CSS pixels only at the final projection boundary.
+- **Safe area rule**: Content that must remain stable across the full supported ratio interval, such as dialogue, choices, menus, important character staging, and interactive UI, should default to the stage safe area exposed by layout helpers/CSS variables. Full-stage backgrounds, screen effects, transitions, and intentional bleed art may use the entire logical stage.
+- **Animation and interpolation**: Animation tracks that affect position, size, camera movement, background offsets, or drawing transforms must interpolate in logical stage coordinates before renderer scaling is applied. Do not animate measured CSS pixel values when the animated value represents game projection state.
+- **Renderer implementation state**: Renderers may measure containers, calculate `ResolvedStageLayout`, maintain `ResizeObserver` handles, and apply CSS transforms as transient implementation details. These calculations are a projection of engine-owned layout and must remain replaceable by other renderer implementations.
+- **Framework adapter rule**: Shared layout resolving, stage scaling, safe-area math, hit-test coordinate conversion, and native DOM projection helpers belong in `@quajs/renderer-web`. Vue/React/Svelte adapters should reuse those helpers instead of duplicating Web layout math.
+
 ## Current Implementation Status
 
 The current milestone implements the logic layer, stateless renderer contracts, framework-neutral Web renderer runtime, Vue reference adapter, and platform-split asset runtime.
@@ -44,6 +55,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Engine-owned state**: `@quajs/engine` owns runtime, view, UI overlay, character/dialogue/choice, and audio intent state. Renderers project this state and send user intent events only.
 - **Background feature boundary**: Background is a feature plugin, not engine/global script API. Engine core only exposes the low-level `setBackgroundProjection` state write path used by plugins.
 - **Scene lifecycle**: `SceneManager` is the engine-owned scene lifecycle implementation. `GameManager` is a high-level facade and does not duplicate scene logic.
+- **Project layout boundary**: `QuaViewProjection.layout` is engine-owned project layout state. Renderers resolve container fit, stage scaling, and safe-area projection from that layout without writing those derived values back into engine state.
 - **Audio boundary**: `SoundSystem` stores audio intent in engine state. Real DOM audio playback lives in renderer implementations; `audio/ended` returns to engine through pipeline.
 - **Web audio autoplay boundary**: `@quajs/renderer-web/audio` may attempt to unlock WebAudio automatically when engine-owned audio projection requests playback. Browser autoplay policy blocks are expected Web runtime behavior, must not be emitted as engine audio errors, and should keep sources pending until a configured user activation event unlocks the `AudioContext`. Emit `audio/unlocked` only after the context is actually running.
 - **No pre-release compatibility burden**: Deprecated aliases, legacy renderer communication, and old Web-only asset assumptions should be removed instead of preserved.
@@ -58,7 +70,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Vite dev asset flow**: `@quajs/vite-plugin` wires dev VFS through `@quajs/assets-web/vite`; the plugin no longer owns a duplicate VFS implementation.
 
 #### Completed Engine And Script Flow
-- **`@quajs/render-core`** defines shared render event enums, payload maps, readonly view projection types, typed emit/on/wait helpers, and lightweight renderer plugin contracts.
+- **`@quajs/render-core`** defines shared render event enums, payload maps, readonly view projection types, project layout/aspect-ratio contracts, typed emit/on/wait helpers, and lightweight renderer plugin contracts.
 - **`@quajs/engine`** re-exports render contracts for app ergonomics and exposes runtime accessors such as assets, pipeline, store, view state, and `waitFor`.
 - **Store mutations** cover runtime/view/audio intent changes used by scene, dialogue, choices, characters, background projection, UI overlays, and audio.
 - **`@quajs/character`** provides character/dialogue convenience APIs that update engine-owned state and emit pipeline events without holding renderer state.
@@ -66,7 +78,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **QuaScript compiler** parses dialogue and choice blocks, compiles context-aware async steps, routes dialogue/choice output through engine APIs, routes background decorators through `@quajs/plugin-background`, waits for renderer user intent events, and stores the selected choice on step context.
 
 #### Completed Renderer
-- **`@quajs/renderer-web` Web runtime base** is framework-neutral. It owns Web renderer lifecycle control, snapshot subscriptions, renderer actions, object URL handles, animation projection helpers, native DOM projection utilities, WebAudio runtime/controller primitives, split DOM plugin sub-entries, and React-compatible store adapters.
+- **`@quajs/renderer-web` Web runtime base** is framework-neutral. It owns Web renderer lifecycle control, snapshot subscriptions, renderer actions, object URL handles, stage layout resolving and scaling helpers, animation projection helpers, native DOM projection utilities, WebAudio runtime/controller primitives, split DOM plugin sub-entries, and React-compatible store adapters.
 - **`@quajs/renderer-vue` root renderer** is stateless with respect to game state and is now a Vue adapter over `@quajs/renderer-web`. It accepts pipeline/assets/view inputs, projects Web renderer snapshots into Vue readonly refs, emits renderer lifecycle/user intent events through the shared Web actions, and cleans up subscriptions/resources on unmount.
 - **Projection components implemented**: Vue `QuaRenderer`, `QuaStage`, image/video/layered background, character/dialogue/choice/audio/effect/overlay layers, low-level projection components, plus optional native DOM projection layers in `@quajs/renderer-web`.
 - **Composables implemented**: `useQuaRenderer`, `useQuaPipeline`, `useQuaView`, `useBackground`, `useCharacters`, `useDialogue`, `useChoices`, `useAudio`, `useEffects`, `useRendererActions`, `useAssetUrl`, and `useAudioAsset`, with shared Web object URL handling delegated to `@quajs/renderer-web`.
@@ -385,6 +397,16 @@ Each package is:
 - Engine and build-time packages must keep feature implementations package-local. Decorators, runtime helpers, and Vite integration for a feature belong to that package or its explicit sub-entry, not to `@quajs/engine` or `@quajs/script-compiler` as a central bucket.
 - Engine/core packages must not depend on Web APIs directly. If a feature needs browser behavior, move it behind an adapter, abstraction, or pipeline payload so the renderer can perform the real Web-side implementation.
 - When a change crosses package boundaries, keep the cross-package contract minimal and explicit: export mappings, contracts, or metadata, not the whole implementation.
+
+### Rendering Layout And Coordinate Development Standard
+- Treat `QuaViewProjection.layout` as the single source of truth for project orientation, base logical dimensions, preferred aspect ratio, allowed aspect ratio interval, and scale mode.
+- All new or refactored coordinate-bearing APIs must document their unit. The default and preferred unit is logical stage pixels. If an API uses percentages, normalized ratios, anchors, UV space, asset-local pixels, or CSS units, that unit must be visible in the type/name/docs and converted to logical stage space before game-facing projection.
+- Never mix viewport CSS pixels with logical stage coordinates in engine, plugins, script compiler output, or animation definitions. CSS pixels may appear only in renderer implementation code after layout resolution.
+- Do not hard-code `window.innerWidth`, `window.innerHeight`, `100vw`, `100vh`, `100dvh`, or device-pixel measurements for in-stage UI, character placement, effects, or plugin projection. Use `layout`, resolved stage helpers, stage-relative percentages, logical pixels, and `--qua-layout-*` CSS variables.
+- Keep cross-ratio composition safe by placing important UI and default subject staging inside the safe area. Use the extra horizontal/vertical bleed area only for backgrounds, non-critical art, camera motion, or deliberate composition extensions.
+- Hit-testing and pointer coordinates that are sent through pipeline payloads must be converted from client/screen pixels into logical stage coordinates before emission. Pipeline events should not expose raw browser coordinates unless the event explicitly says so.
+- Renderer and renderer-plugin code should call framework-neutral helpers from `@quajs/renderer-web` for layout resolving and coordinate conversion. Framework adapters may expose ergonomic slots/composables, but they must not fork layout math.
+- Tests for coordinate-sensitive behavior should cover at least the landscape interval endpoints (`16:10` and `16:9`) when behavior can differ by aspect ratio. Add portrait coverage when a feature claims portrait support.
 
 ## Getting Started
 

@@ -21,6 +21,16 @@ description: QuaEngine architecture guardrails for renderer statelessness, packa
 - Keep renderer state non-authoritative and transient only.
 - Do not add renderer-side APIs that mutate game or progression state.
 
+### Stage layout and coordinates
+- Treat `QuaViewProjection.layout` as the engine-owned source of truth for orientation, base logical dimensions, aspect ratio, supported aspect interval, and scale mode.
+- QuaEngine renders into a logical stage first, then renderers scale that stage into their actual container. Renderer measurements, resolved stage layouts, CSS transforms, safe-area calculations, and `ResizeObserver` handles are transient projection details only.
+- The logical stage coordinate system starts at the top-left of `.qua-stage`; positive `x` goes right and positive `y` goes down. The base logical height is `layout.height`, and logical width comes from the active stage aspect ratio.
+- Landscape authoring must account for the supported `16:10` to `16:9` interval. Important UI, choices, dialogue, and default subject staging should stay inside the safe area; full-stage backgrounds/effects may bleed beyond it.
+- All new or refactored coordinate APIs should default to logical stage pixels. If an API uses percent, normalized ratios, anchors, asset-local pixels, UV coordinates, or CSS units, the unit must be explicit in its name/type/docs and converted at the projection boundary.
+- Animation tracks for position, camera/background offsets, size, and drawing transforms must interpolate in logical stage coordinates before renderer scaling. Do not animate measured CSS pixels when the value represents game projection state.
+- Hit-test payloads sent through `@quajs/pipeline` should use logical stage coordinates unless explicitly named as raw client/screen coordinates.
+- Shared layout resolving, stage scaling, safe-area math, coordinate conversion, and native DOM projection helpers belong in `@quajs/renderer-web`; framework renderers should reuse those helpers instead of duplicating layout math.
+
 ### Renderer package layering
 - Keep `@quajs/render-core` universal and framework-free. It defines event contracts, projection types, typed pipeline helpers, and renderer plugin contracts only.
 - Put browser/Web implementation details in `@quajs/renderer-web`, not in Vue, React, or engine packages. This includes Web renderer lifecycle control, object URL handles, animation projection helpers, native DOM projection utilities, WebAudio runtime primitives, and framework-neutral renderer actions.
@@ -59,6 +69,8 @@ description: QuaEngine architecture guardrails for renderer statelessness, packa
 ## Review Checklist
 
 - Ask who owns the state.
+- Ask whether coordinate-bearing APIs use logical stage coordinates or explicitly document another unit.
+- Ask whether coordinate-sensitive changes preserve the landscape `16:10` to `16:9` compatibility interval and safe-area expectations.
 - Ask whether the change belongs in the package that defines the feature.
 - Ask whether Web runtime behavior belongs in `@quajs/renderer-web` before adding it to a framework renderer.
 - Ask whether the change can flow through pipeline metadata instead of a direct engine dependency.
