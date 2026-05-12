@@ -49,6 +49,13 @@ export { QuackPlugin } from './core/types'
 export type { EncryptionPlugin } from './core/types'
 export { EncryptionManager } from './crypto/encryption'
 export { PluginManager } from './managers/plugin-manager'
+export {
+  BundleAnalyzerPlugin,
+  type ImageOptimizationFormat,
+  ImageOptimizationPlugin,
+  type ImageOptimizationPluginOptions,
+  type PngquantOptions,
+} from './plugins'
 export { PatchGenerator } from './workspace/patch-generator'
 
 export { VersionManager } from './workspace/versioning'

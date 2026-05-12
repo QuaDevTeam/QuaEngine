@@ -33,12 +33,15 @@ export default defineConfig({
         'node:stream',
         'node:os',
         'node:buffer',
+        'node:child_process',
         'node:events',
+        'node:zlib',
         // External dependencies
         'commander',
         'lzma-native',
         'glob',
         'mime-types',
+        'sharp',
         'yauzl',
         'yazl',
         // QuaJS packages

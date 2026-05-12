@@ -8,6 +8,7 @@
 - 📦 **Multiple Bundle Formats** - Support for ZIP and custom QPK formats
 - 🖼️ **Media Metadata Extraction** - Automatic extraction of dimensions, duration, and format info
 - 🗜️ **Advanced Compression** - LZMA and Deflate compression with configurable levels
+- 🧩 **Image Optimization** - Real PNG/JPEG/WebP/AVIF recompression via sharp, built-in PNG lossless recompression, and optional pngquant support
 - 🔐 **Asset Encryption** - XOR and custom encryption plugin support
 - 🌍 **Localization Support** - Multi-language asset detection and organization
 - 📊 **Patch Generation** - Incremental updates and version management
@@ -276,33 +277,26 @@ quack workspace build --bundle core
 Create custom plugins to extend Quack's functionality:
 
 ```typescript
-import { QuackPlugin } from '@quajs/quack'
+import { defineConfig } from '@quajs/quack'
+import { ImageOptimizationPlugin } from '@quajs/quack/plugins'
 
-export class ImageOptimizationPlugin extends QuackPlugin {
-  name = 'image-optimization'
-  version = '1.0.0'
-
-  async processAsset(context) {
-    if (context.asset.type === 'images') {
-      // Optimize image
-      const optimized = await this.optimizeImage(context.buffer)
-      context.buffer = optimized
-    }
-  }
-
-  private async optimizeImage(buffer: Buffer): Promise<Buffer> {
-    // Your optimization logic here
-    return buffer
-  }
-}
-
-// Use in configuration
 export default defineConfig({
   plugins: [
-    new ImageOptimizationPlugin()
+    new ImageOptimizationPlugin({
+      quality: 85,
+      progressive: true,
+      stripMetadata: true,
+      pngquant: {
+        enabled: true,
+        quality: [65, 90],
+        speed: 3,
+      },
+    }),
   ]
 })
 ```
+
+The built-in image optimizer updates the bundle manifest size/hash after compression. It uses `sharp` for PNG/JPEG/WebP/AVIF when available, falls back to safe PNG IDAT recompression for PNG files, and can call an installed `pngquant` binary for palette quantization.
 
 ## API Reference
 

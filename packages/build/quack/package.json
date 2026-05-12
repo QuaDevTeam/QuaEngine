@@ -17,6 +17,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./plugins": {
+      "types": "./dist/plugins/index.d.ts",
+      "import": "./dist/plugins/index.js"
     }
   },
   "main": "./dist/index.js",
@@ -49,6 +53,7 @@
     "glob": "catalog:",
     "lzma-native": "catalog:",
     "mime-types": "catalog:",
+    "sharp": "catalog:",
     "yauzl": "catalog:",
     "yazl": "catalog:"
   },
