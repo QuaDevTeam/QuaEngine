@@ -18,7 +18,7 @@ Build Time (Node.js)          →     Runtime (Browser)
 
 ### **Key Components**
 
-1. **PluginDiscovery** (Node.js only) - Scans packages and custom registries
+1. **PluginDiscovery** (Node.js only) - Scans packages with explicit `quajs` metadata and custom registries
 2. **PluginAPIRegistry** (Universal) - Runtime plugin management
 3. **PluginAwareTransformer** (Build time) - QuaScript compilation with plugins
 4. **Package-based Plugins** - Each plugin is a separate npm package
@@ -37,6 +37,8 @@ Build Time (Node.js)          →     Runtime (Browser)
 ```
 
 ### **Package.json Requirements**
+
+Package discovery is metadata-driven: a dependency is considered a Qua plugin only when its `package.json` contains an explicit `quajs` object. Naming a package `@quajs/plugin-*` or `quajs-plugin-*` is a convention, not enough on its own for discovery.
 
 ```json
 {

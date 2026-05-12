@@ -220,13 +220,15 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 
 ## Plugin Inventory
 
-### Independent Plugin-Related Packages
+### Core Plugin Infrastructure
 
-#### **@quajs/plugin-discovery** (`packages/plugins/plugin-discovery`)
-- **Independence**: Standalone workspace package outside `@quajs/engine`.
-- **Purpose**: Discovers plugin configs from `qua.plugins.json`, `plugins/qua.plugins.json`, and package dependencies matching Qua plugin naming conventions.
-- **Current scope**: Provides plugin config discovery, decorator mapping extraction, plugin lookup, available plugin name listing, config validation, and decorator mapping merge helpers.
-- **Status**: Implemented as discovery infrastructure, not a feature plugin.
+#### **@quajs/plugin-discovery** (`packages/core/plugin-discovery`)
+- **Independence**: Standalone core workspace package outside `@quajs/engine`; it is discovery infrastructure, not a feature plugin.
+- **Purpose**: Discovers plugin configs from `qua.plugins.json`, `plugins/qua.plugins.json`, and package dependencies that publish explicit Qua plugin metadata in `package.json#quajs`.
+- **Current scope**: Provides plugin config discovery, decorator mapping extraction, language contribution extraction, plugin lookup, available plugin name listing, config validation, and decorator mapping merge helpers.
+- **Status**: Implemented as core discovery infrastructure, not a feature plugin.
+
+### Independent Feature Plugin Packages
 
 #### **@quajs/plugin-background** (`packages/plugins/background`)
 - **Independence**: Standalone workspace package outside `@quajs/engine`.
@@ -417,14 +419,19 @@ packages/
 │   ├── character/          # @quajs/character engine-owned character APIs
 │   ├── engine/             # @quajs/engine authoritative logic runtime
 │   ├── pipeline/           # @quajs/pipeline eventbus
-│   └── store/              # @quajs/store state and snapshots
+│   ├── plugin-discovery/   # @quajs/plugin-discovery core discovery infrastructure
+│   ├── store/              # @quajs/store state and snapshots
+│   └── story-graph/        # @quajs/story-graph story metadata helpers
 ├── platform/
 │   ├── assets-memory/      # @quajs/assets-memory adapter
 │   ├── assets-node/        # @quajs/assets-node adapter
 │   └── assets-web/         # @quajs/assets-web adapter
 ├── plugins/
+│   ├── animation/          # @quajs/plugin-animation
+│   ├── audio/              # @quajs/plugin-audio
 │   ├── background/         # @quajs/plugin-background
-│   └── plugin-discovery/   # @quajs/plugin-discovery
+│   ├── backlog/            # @quajs/plugin-backlog
+│   └── sprite/             # @quajs/plugin-sprite
 ├── render/
 │   ├── core/               # @quajs/render-core contracts/helpers
 │   ├── web/                # @quajs/renderer-web framework-neutral Web runtime

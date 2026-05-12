@@ -16,13 +16,13 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['@quajs/utils', 'node:fs', 'node:path', 'node:process'],
+      external: ['node:fs', 'node:module', 'node:path', 'node:process'],
     },
     target: 'node20',
     minify: false,
     ssr: true,
   },
   ssr: {
-    external: ['node:fs', 'node:path', 'node:process'],
+    external: ['node:fs', 'node:module', 'node:path', 'node:process'],
   },
 })

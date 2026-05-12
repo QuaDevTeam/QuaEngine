@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 
 /**
@@ -214,7 +214,6 @@ function findPluginDependencies(packageJson: any, projectRoot: string): PluginCo
         name,
         version: version as string,
         ...packageConfig,
-        main: packageConfig.main || resolvePluginMain(name),
       }, 'package'))
     }
   }
@@ -225,42 +224,50 @@ function findPluginDependencies(packageJson: any, projectRoot: string): PluginCo
 function readPluginPackageConfig(packageName: string, projectRoot: string): Partial<PluginConfig> | null {
   const packageJsonPath = resolvePackageJson(packageName, projectRoot)
   if (!packageJsonPath) {
-    return isQuaPackageName(packageName)
-      ? {
-          main: resolvePluginMain(packageName),
-        }
-      : null
+    return null
   }
 
   try {
     const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
-    if (!packageJson.quajs && !isQuaPackageName(packageName)) {
+    const quajs = normalizeQuaPluginMetadata(packageJson.quajs)
+    if (!quajs) {
       return null
     }
 
     return {
-      main: packageJson.quajs?.entry || packageJson.main || packageJson.module,
-      decorators: packageJson.quajs?.decorators,
-      language: packageJson.quajs?.language,
-      renderer: packageJson.quajs?.renderer,
-      description: packageJson.quajs?.description,
-      category: packageJson.quajs?.category,
-      apis: packageJson.quajs?.apis,
-      quajs: packageJson.quajs,
+      version: typeof packageJson.version === 'string' ? packageJson.version : undefined,
+      main: normalizePackageEntrySpecifier(packageName, quajs.entry || packageJson.main || packageJson.module),
+      decorators: quajs.decorators,
+      language: quajs.language,
+      renderer: quajs.renderer,
+      description: quajs.description || packageJson.description,
+      category: quajs.category,
+      apis: quajs.apis,
+      quajs,
       packageJsonPath,
     }
   }
   catch (error) {
     console.warn(`Failed to parse plugin package metadata for ${packageName}:`, error)
-    return isQuaPackageName(packageName)
-      ? {
-          main: resolvePluginMain(packageName),
-        }
-      : null
+    return null
   }
 }
 
 function resolvePackageJson(packageName: string, projectRoot: string): string | null {
+  let current = projectRoot
+  while (true) {
+    const candidate = resolve(current, 'node_modules', packageName, 'package.json')
+    if (existsSync(candidate)) {
+      return candidate
+    }
+
+    const parent = dirname(current)
+    if (parent === current) {
+      break
+    }
+    current = parent
+  }
+
   try {
     const requireFromProject = createRequire(resolve(projectRoot, 'package.json'))
     return requireFromProject.resolve(`${packageName}/package.json`)
@@ -288,6 +295,18 @@ function normalizePluginConfig(config: PluginConfig, source: 'custom' | 'package
   }
 }
 
+function normalizePackageEntrySpecifier(packageName: string, entry: unknown): string {
+  if (typeof entry !== 'string' || entry.length === 0) {
+    return packageName
+  }
+
+  if (entry === packageName || entry.startsWith(`${packageName}/`) || entry.startsWith('/')) {
+    return entry
+  }
+
+  return `${packageName}/${entry.replace(/^\.?\//, '')}`
+}
+
 function normalizeQuaPluginMetadata(value: unknown): QuaPluginMetadata | undefined {
   if (!isPlainObject(value)) {
     return undefined
@@ -298,7 +317,18 @@ function normalizeQuaPluginMetadata(value: unknown): QuaPluginMetadata | undefin
 }
 
 function normalizeDecoratorMapping(mapping: unknown): DecoratorMapping | undefined {
-  return isPlainObject(mapping) ? mapping as DecoratorMapping : undefined
+  if (!isPlainObject(mapping)) {
+    return undefined
+  }
+
+  const entries = Object.entries(mapping).filter((entry): entry is [string, DecoratorMapping[string]] => {
+    const [, decorator] = entry
+    return isPlainObject(decorator)
+      && typeof decorator.function === 'string'
+      && typeof decorator.module === 'string'
+  })
+
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined
 }
 
 function normalizeRendererMap(renderer: unknown): RendererEntryMap | undefined {
@@ -371,24 +401,6 @@ function normalizeStringArray(value: unknown): string[] | undefined {
 
   const normalized = [...new Set(value.filter((item): item is string => typeof item === 'string' && item.length > 0))]
   return normalized.length > 0 ? normalized : undefined
-}
-
-function isQuaPackageName(packageName: string): boolean {
-  return packageName === '@quajs/story-graph'
-    || packageName.startsWith('@quajs/plugin-')
-    || packageName.startsWith('quajs-plugin-')
-}
-
-/**
- * Resolve the main entry point for a plugin package
- */
-function resolvePluginMain(packageName: string): string | undefined {
-  try {
-    return `${packageName}/dist/index.js`
-  }
-  catch {
-    return undefined
-  }
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

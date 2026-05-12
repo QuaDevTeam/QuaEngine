@@ -178,7 +178,7 @@ importers:
     dependencies:
       '@quajs/plugin-discovery':
         specifier: workspace:*
-        version: link:../../plugins/plugin-discovery
+        version: link:../../core/plugin-discovery
       '@quajs/script-compiler':
         specifier: workspace:*
         version: link:../script-compiler
@@ -244,7 +244,7 @@ importers:
         version: link:../../plugins/backlog
       '@quajs/plugin-discovery':
         specifier: workspace:*
-        version: link:../../plugins/plugin-discovery
+        version: link:../../core/plugin-discovery
       '@quajs/story-graph':
         specifier: workspace:*
         version: link:../../core/story-graph
@@ -287,7 +287,7 @@ importers:
         version: link:../../utils
       '@quajs/plugin-discovery':
         specifier: workspace:*
-        version: link:../../plugins/plugin-discovery
+        version: link:../../core/plugin-discovery
       '@quajs/quack':
         specifier: workspace:*
         version: link:../quack
@@ -351,7 +351,7 @@ importers:
         version: link:../pipeline
       '@quajs/plugin-discovery':
         specifier: workspace:*
-        version: link:../../plugins/plugin-discovery
+        version: link:../plugin-discovery
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../../render/core
@@ -367,6 +367,8 @@ importers:
       '@quajs/logger':
         specifier: workspace:*
         version: link:../../utils
+
+  packages/core/plugin-discovery: {}
 
   packages/core/store:
     dependencies:
@@ -494,13 +496,6 @@ importers:
       '@quajs/store':
         specifier: workspace:*
         version: link:../../core/store
-
-  packages/plugins/plugin-discovery:
-    dependencies:
-      '@quajs/utils':
-        specifier: workspace:*
-        version: link:../../utils/common
-
   packages/plugins/sprite:
     devDependencies:
       '@quajs/assets-web':

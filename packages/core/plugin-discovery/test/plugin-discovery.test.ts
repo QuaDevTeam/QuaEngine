@@ -2,14 +2,12 @@ import type { DecoratorMapping, PluginConfig } from '../src/index'
 import { existsSync, readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-
   discoverPlugins,
   getAvailablePlugins,
   getDiscoveredDecoratorMappings,
   getDiscoveredLanguageContributions,
   loadPlugin,
   mergeDecoratorMappings,
-
   validatePluginConfig,
 } from '../src/index'
 
@@ -22,7 +20,28 @@ vi.mock('node:fs', () => ({
 const mockReadFileSync = vi.mocked(readFileSync)
 const mockExistsSync = vi.mocked(existsSync)
 
-describe('plugin Discovery', () => {
+function mockJsonFiles(files: Record<string, unknown>): void {
+  mockExistsSync.mockImplementation(path => hasOwn(files, path.toString()))
+  mockReadFileSync.mockImplementation((path) => {
+    const key = path.toString()
+    if (!hasOwn(files, key)) {
+      throw new Error('File not found')
+    }
+
+    const value = files[key]
+    return typeof value === 'string' ? value : JSON.stringify(value)
+  })
+}
+
+function hasOwn(files: Record<string, unknown>, path: string): boolean {
+  return Object.prototype.hasOwnProperty.call(files, path)
+}
+
+function dependencyPackageJsonPath(packageName: string): string {
+  return `/test/project/node_modules/${packageName}/package.json`
+}
+
+describe('plugin discovery', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -49,18 +68,8 @@ describe('plugin Discovery', () => {
         ],
       }
 
-      // Mock to return true only for the first qua.plugins.json path
-      mockExistsSync.mockImplementation((path: any) => {
-        const pathStr = path.toString()
-        return pathStr.endsWith('/test/project/qua.plugins.json')
-      })
-
-      mockReadFileSync.mockImplementation((path: any) => {
-        const pathStr = path.toString()
-        if (pathStr.endsWith('/test/project/qua.plugins.json')) {
-          return JSON.stringify(pluginConfig)
-        }
-        throw new Error('File not found')
+      mockJsonFiles({
+        '/test/project/qua.plugins.json': pluginConfig,
       })
 
       const plugins = await discoverPlugins('/test/project')
@@ -71,42 +80,107 @@ describe('plugin Discovery', () => {
     })
 
     it('should discover plugins from package.json dependencies', async () => {
-      const packageJson = {
-        dependencies: {
-          '@quajs/plugin-audio': '^1.0.0',
-          '@quajs/story-graph': '^1.0.0',
-          'regular-package': '^1.0.0',
+      mockJsonFiles({
+        '/test/project/package.json': {
+          dependencies: {
+            '@quajs/plugin-audio': '^1.0.0',
+            '@quajs/story-graph': '^1.0.0',
+            'regular-package': '^1.0.0',
+          },
+          peerDependencies: {
+            '@quajs/plugin-background': '^1.0.0',
+          },
+          optionalDependencies: {
+            '@quajs/plugin-backlog': '^1.0.0',
+          },
         },
-        peerDependencies: {
-          '@quajs/plugin-background': '^1.0.0',
+        [dependencyPackageJsonPath('@quajs/plugin-audio')]: {
+          name: '@quajs/plugin-audio',
+          version: '0.1.0',
+          main: './dist/index.js',
+          quajs: {
+            type: 'plugin',
+            category: 'audio',
+            decorators: {
+              PlayBGM: { function: 'playBGMWithEngine', module: '@quajs/plugin-audio' },
+            },
+            renderer: {
+              web: '@quajs/renderer-web/plugins/audio',
+            },
+          },
         },
-        optionalDependencies: {
-          '@quajs/plugin-backlog': '^1.0.0',
+        [dependencyPackageJsonPath('@quajs/plugin-background')]: {
+          name: '@quajs/plugin-background',
+          version: '0.1.0',
+          main: './dist/index.js',
+          quajs: {
+            type: 'plugin',
+            category: 'visual',
+            decorators: {
+              SetBackground: { function: 'setBackgroundWithEngine', module: '@quajs/plugin-background' },
+            },
+          },
         },
-      }
-
-      // Mock to return true only for package.json
-      mockExistsSync.mockImplementation((path: any) => {
-        const pathStr = path.toString()
-        return pathStr.endsWith('/test/project/package.json')
-      })
-
-      mockReadFileSync.mockImplementation((path: any) => {
-        const pathStr = path.toString()
-        if (pathStr.endsWith('/test/project/package.json')) {
-          return JSON.stringify(packageJson)
-        }
-        throw new Error('File not found')
+        [dependencyPackageJsonPath('@quajs/story-graph')]: {
+          name: '@quajs/story-graph',
+          version: '0.1.0',
+          main: './dist/index.js',
+          quajs: {
+            type: 'plugin',
+            category: 'story',
+            decorators: {
+              Chapter: { function: 'setStoryMetadataWithEngine', module: '@quajs/story-graph' },
+            },
+          },
+        },
+        [dependencyPackageJsonPath('@quajs/plugin-backlog')]: {
+          name: '@quajs/plugin-backlog',
+          version: '0.1.0',
+          main: './dist/index.js',
+        },
+        [dependencyPackageJsonPath('regular-package')]: {
+          name: 'regular-package',
+          version: '1.0.0',
+          main: './dist/index.js',
+        },
       })
 
       const plugins = await discoverPlugins('/test/project')
 
-      expect(plugins.length).toBeGreaterThan(0)
+      expect(plugins).toHaveLength(3)
       expect(plugins.some(p => p.name === '@quajs/plugin-audio')).toBe(true)
       expect(plugins.some(p => p.name === '@quajs/plugin-background')).toBe(true)
-      expect(plugins.some(p => p.name === '@quajs/plugin-backlog')).toBe(true)
       expect(plugins.some(p => p.name === '@quajs/story-graph')).toBe(true)
+      expect(plugins.some(p => p.name === '@quajs/plugin-backlog')).toBe(false)
       expect(plugins.some(p => p.name === 'regular-package')).toBe(false)
+
+      const audioPlugin = plugins.find(plugin => plugin.name === '@quajs/plugin-audio')
+      expect(audioPlugin?.version).toBe('0.1.0')
+      expect(audioPlugin?.main).toBe('@quajs/plugin-audio/dist/index.js')
+      expect(audioPlugin?.entry).toBe('@quajs/plugin-audio/dist/index.js')
+    })
+
+    it('should not discover convention-named packages without explicit Qua metadata', async () => {
+      mockJsonFiles({
+        '/test/project/package.json': {
+          dependencies: {
+            '@quajs/plugin-missing-metadata': '^1.0.0',
+            'quajs-plugin-local': '^1.0.0',
+          },
+        },
+        [dependencyPackageJsonPath('@quajs/plugin-missing-metadata')]: {
+          name: '@quajs/plugin-missing-metadata',
+          version: '1.0.0',
+          main: './dist/index.js',
+        },
+        [dependencyPackageJsonPath('quajs-plugin-local')]: {
+          name: 'quajs-plugin-local',
+          version: '1.0.0',
+          main: './dist/index.js',
+        },
+      })
+
+      await expect(discoverPlugins('/test/project')).resolves.toEqual([])
     })
 
     it('should handle missing configuration files gracefully', async () => {
@@ -151,14 +225,8 @@ describe('plugin Discovery', () => {
         ],
       }
 
-      mockExistsSync.mockImplementation((path: any) => {
-        return path.toString().endsWith('/test/project/qua.plugins.json')
-      })
-      mockReadFileSync.mockImplementation((path: any) => {
-        if (path.toString().endsWith('/test/project/qua.plugins.json')) {
-          return JSON.stringify(pluginConfig)
-        }
-        throw new Error('File not found')
+      mockJsonFiles({
+        '/test/project/qua.plugins.json': pluginConfig,
       })
 
       const mappings = await getDiscoveredDecoratorMappings('/test/project')
@@ -176,14 +244,8 @@ describe('plugin Discovery', () => {
         ],
       }
 
-      mockExistsSync.mockImplementation((path: any) => {
-        return path.toString().endsWith('/test/project/qua.plugins.json')
-      })
-      mockReadFileSync.mockImplementation((path: any) => {
-        if (path.toString().endsWith('/test/project/qua.plugins.json')) {
-          return JSON.stringify(pluginConfig)
-        }
-        throw new Error('File not found')
+      mockJsonFiles({
+        '/test/project/qua.plugins.json': pluginConfig,
       })
 
       const mappings = await getDiscoveredDecoratorMappings('/test/project')
@@ -219,12 +281,8 @@ describe('plugin Discovery', () => {
         ],
       }
 
-      mockExistsSync.mockImplementation((path: any) => path.toString().endsWith('/test/project/qua.plugins.json'))
-      mockReadFileSync.mockImplementation((path: any) => {
-        if (path.toString().endsWith('/test/project/qua.plugins.json')) {
-          return JSON.stringify(pluginConfig)
-        }
-        throw new Error('File not found')
+      mockJsonFiles({
+        '/test/project/qua.plugins.json': pluginConfig,
       })
 
       const language = await getDiscoveredLanguageContributions('/test/project')
@@ -243,14 +301,8 @@ describe('plugin Discovery', () => {
         ],
       }
 
-      mockExistsSync.mockImplementation((path: any) => {
-        return path.toString().endsWith('/test/project/qua.plugins.json')
-      })
-      mockReadFileSync.mockImplementation((path: any) => {
-        if (path.toString().endsWith('/test/project/qua.plugins.json')) {
-          return JSON.stringify(pluginConfig)
-        }
-        throw new Error('File not found')
+      mockJsonFiles({
+        '/test/project/qua.plugins.json': pluginConfig,
       })
 
       const plugin = await loadPlugin('audio-plugin', '/test/project')
@@ -279,14 +331,8 @@ describe('plugin Discovery', () => {
         ],
       }
 
-      mockExistsSync.mockImplementation((path: any) => {
-        return path.toString().endsWith('/test/project/qua.plugins.json')
-      })
-      mockReadFileSync.mockImplementation((path: any) => {
-        if (path.toString().endsWith('/test/project/qua.plugins.json')) {
-          return JSON.stringify(pluginConfig)
-        }
-        throw new Error('File not found')
+      mockJsonFiles({
+        '/test/project/qua.plugins.json': pluginConfig,
       })
 
       const names = await getAvailablePlugins('/test/project')

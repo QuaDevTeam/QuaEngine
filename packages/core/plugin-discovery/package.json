@@ -2,10 +2,15 @@
   "name": "@quajs/plugin-discovery",
   "type": "module",
   "version": "0.1.0",
-  "description": "Plugin discovery system for QuaEngine",
+  "description": "Core plugin discovery infrastructure for QuaEngine",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
-  "keywords": ["plugin", "discovery", "quaengine"],
+  "keywords": [
+    "plugin",
+    "discovery",
+    "quaengine",
+    "core"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -29,8 +34,6 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest"
   },
-  "dependencies": {
-    "@quajs/utils": "workspace:*"
-  },
+  "dependencies": {},
   "devDependencies": {}
 }

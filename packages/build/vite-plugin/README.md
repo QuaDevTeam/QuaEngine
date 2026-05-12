@@ -114,9 +114,8 @@ export default {
 
 The plugin automatically discovers QuaJS plugins from:
 
-1. **Package dependencies**: Packages named `@quajs/plugin-*` or `quajs-plugin-*`
+1. **Package dependencies**: Dependencies with explicit `quajs` metadata in package.json
 2. **Custom registry**: Plugins defined in `qua.plugins.json`
-3. **Package metadata**: Packages with `quajs.type: 'plugin'` in package.json
 
 ### Virtual Plugin Registry
 
