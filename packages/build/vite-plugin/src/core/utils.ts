@@ -78,16 +78,6 @@ export function flattenPluginOptions(options: readonly PluginOption[]): PluginOp
 }
 
 /**
- * Check if a package follows QuaJS plugin naming conventions
- */
-export function isQuaJSPluginPackage(packageName: string): boolean {
-  return (
-    packageName.startsWith('@quajs/plugin-')
-    || packageName.startsWith('quajs-plugin-')
-  )
-}
-
-/**
  * Generate a unique identifier for plugin modules
  */
 export function generatePluginModuleId(pluginName: string): string {

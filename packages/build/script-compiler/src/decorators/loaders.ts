@@ -10,13 +10,6 @@ import { createDefaultDecoratorCompilerRegistry, DecoratorCompilerRegistry } fro
 
 const requireFromFile = createRequire(import.meta.url)
 
-const DECORATOR_PACKAGE_PATTERNS = [
-  /^@quajs\/plugin-/,
-  /^@quajs\/story-graph$/,
-  /^quajs-plugin-/,
-  /^@quajs\/character$/,
-]
-
 const compilerModuleCache = new Map<string, DecoratorCompiler[]>()
 
 export function loadPackageDecoratorMappingsSync(projectRoot?: string): DecoratorMapping {
@@ -30,7 +23,6 @@ export function loadPackageDecoratorMappingsSync(projectRoot?: string): Decorato
   const mappings: DecoratorMapping = {}
 
   Object.keys(dependencies)
-    .filter(shouldInspectPackage)
     .forEach((packageName) => {
       const packageDecoratorMappings = readPackageDecoratorMappings(packageName, root)
       Object.assign(mappings, packageDecoratorMappings)
@@ -95,10 +87,6 @@ function collectDependencies(packageJson: any): Record<string, string> {
     ...(packageJson.peerDependencies || {}),
     ...(packageJson.optionalDependencies || {}),
   }
-}
-
-function shouldInspectPackage(packageName: string): boolean {
-  return DECORATOR_PACKAGE_PATTERNS.some(pattern => pattern.test(packageName))
 }
 
 function readPackageDecoratorMappings(packageName: string, projectRoot: string): DecoratorMapping {

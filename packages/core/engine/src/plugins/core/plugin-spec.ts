@@ -9,7 +9,7 @@
  * Plugin packages should include these fields in their package.json
  */
 export interface PluginPackageSpec {
-  /** Package name - should follow pattern @quajs/plugin-* or quajs-plugin- */
+  /** Package name. Feature plugins commonly use @quajs/plugin-* or quajs-plugin-*; discovery requires quajs metadata. */
   name: string
   /** Package version */
   version: string
