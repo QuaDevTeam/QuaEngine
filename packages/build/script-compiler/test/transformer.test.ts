@@ -248,6 +248,31 @@ Yuki: Hello
     expect(result).not.toMatch(/import.*show,.*from.*@quajs\/character/s)
   })
 
+  it('should transform character motion decorators through animation helpers', () => {
+    const transformer = new QuaScriptTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @CharacterEnter('Jack', 'left', 450, { fromX: -240, toX: 40, y: 80 }, true)
+          @CharacterFade('Jack', 0, 1, 300, true)
+          @CharacterExit('Jack', 'bottom', 350, { x: 40, y: 80 }, true)
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('playCharacterEnterWithEngine(ctx.engine, "Jack", "left", {')
+    expect(result).toContain('duration: 450')
+    expect(result).toContain('fromX: -240')
+    expect(result).toContain('toX: 40')
+    expect(result).toContain('wait: true')
+    expect(result).toContain('playCharacterFadeWithEngine(ctx.engine, "Jack", 0, 1, 300, {')
+    expect(result).toContain('playCharacterExitWithEngine(ctx.engine, "Jack", "bottom", {')
+    expect(result).toMatch(/import.*playCharacterEnterWithEngine.*playCharacterFadeWithEngine.*playCharacterExitWithEngine.*from.*@quajs\/character\/animation/s)
+  })
+
   it('should require an explicit character for action-only character decorators', () => {
     const transformer = new QuaScriptTransformer()
     const source = `
@@ -282,10 +307,10 @@ Yuki: Hello
     const source = `
       function scene1() {
         dialogue(qs\`
-          @SetBackground('classroom.png', 'fade', 300, 'ease-out')
-          @VideoBackground('rain.mp4', true, true, 0.4, 'rain.png', 'crossfade', 500)
-          @SetLayeredBackground('fade', 200)
-          @BackgroundLayer('sky', 'sky.png', 0, 0, 1, 1, 0)
+          @SetBackground('classroom.png', { transition: { type: 'fade', duration: 300, easing: 'ease-out' }, fit: 'cover' })
+          @VideoBackground('rain.mp4', { loop: true, muted: true, volume: 0.4, poster: 'rain.png', transition: { type: 'crossfade', duration: 500 } })
+          @SetLayeredBackground({ transition: { type: 'fade', duration: 200 } })
+          @BackgroundLayer('sky', 'sky.png', { x: 0, y: 0, scale: 1, opacity: 1, zIndex: 0, composition: { blendMode: 'screen' } })
           @BackgroundLayerTransition('sky', 'fade', 180)
           @BackgroundTransition('wipe', 240)
           @ClearBackground()
@@ -300,6 +325,7 @@ Yuki: Hello
     expect(result).toContain('type: "fade"')
     expect(result).toContain('duration: 300')
     expect(result).toContain('easing: "ease-out"')
+    expect(result).toContain('fit: "cover"')
     expect(result).toContain('setVideoBackgroundWithEngine(ctx.engine, "rain.mp4", {')
     expect(result).toContain('loop: true')
     expect(result).toContain('muted: true')
@@ -309,6 +335,7 @@ Yuki: Hello
     expect(result).toContain('addBackgroundLayerWithEngine(ctx.engine, {')
     expect(result).toContain('id: "sky"')
     expect(result).toContain('assetName: "sky.png"')
+    expect(result).toContain('blendMode: "screen"')
     expect(result).toContain('transitionBackgroundLayerWithEngine(ctx.engine, "sky", {')
     expect(result).toContain('transitionBackgroundWithEngine(ctx.engine, {')
     expect(result).toContain('clearBackgroundWithEngine(ctx.engine)')

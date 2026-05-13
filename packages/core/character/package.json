@@ -16,6 +16,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./animation": {
+      "types": "./dist/animation.d.ts",
+      "import": "./dist/animation.js"
+    },
     "./script-compiler": {
       "types": "./dist/script-compiler.d.ts",
       "import": "./dist/script-compiler.js"
@@ -39,13 +43,20 @@
   },
   "peerDependencies": {
     "@quajs/engine": "workspace:*",
+    "@quajs/plugin-animation": "workspace:*",
     "@quajs/render-core": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@quajs/plugin-animation": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@babel/types": "catalog:"
   },
   "devDependencies": {
     "@quajs/engine": "workspace:*",
+    "@quajs/plugin-animation": "workspace:*",
     "@quajs/render-core": "workspace:*"
   },
   "quajs": {
@@ -75,6 +86,18 @@
       "SetExpression": {
         "function": "expression",
         "module": "@quajs/character"
+      },
+      "CharacterFade": {
+        "function": "playCharacterFadeWithEngine",
+        "module": "@quajs/character/animation"
+      },
+      "CharacterEnter": {
+        "function": "playCharacterEnterWithEngine",
+        "module": "@quajs/character/animation"
+      },
+      "CharacterExit": {
+        "function": "playCharacterExitWithEngine",
+        "module": "@quajs/character/animation"
       }
     },
     "language": {
@@ -142,6 +165,74 @@
               "name": "character",
               "characterNames": true,
               "detail": "Character name"
+            }
+          ]
+        },
+        "CharacterFade": {
+          "description": "Animate character opacity through @quajs/plugin-animation",
+          "args": [
+            {
+              "name": "character",
+              "characterNames": true,
+              "detail": "Character name"
+            },
+            {
+              "name": "from",
+              "detail": "Starting opacity"
+            },
+            {
+              "name": "to",
+              "detail": "Ending opacity"
+            },
+            {
+              "name": "duration",
+              "detail": "Duration in milliseconds"
+            }
+          ]
+        },
+        "CharacterEnter": {
+          "description": "Animate a character entering through @quajs/plugin-animation",
+          "args": [
+            {
+              "name": "character",
+              "characterNames": true,
+              "detail": "Character name"
+            },
+            {
+              "name": "direction",
+              "values": ["left", "right", "top", "bottom"],
+              "detail": "Entry direction"
+            },
+            {
+              "name": "duration",
+              "detail": "Duration in milliseconds"
+            },
+            {
+              "name": "options",
+              "detail": "Character motion options"
+            }
+          ]
+        },
+        "CharacterExit": {
+          "description": "Animate a character exiting through @quajs/plugin-animation",
+          "args": [
+            {
+              "name": "character",
+              "characterNames": true,
+              "detail": "Character name"
+            },
+            {
+              "name": "direction",
+              "values": ["left", "right", "top", "bottom"],
+              "detail": "Exit direction"
+            },
+            {
+              "name": "duration",
+              "detail": "Duration in milliseconds"
+            },
+            {
+              "name": "options",
+              "detail": "Character motion options"
             }
           ]
         }
