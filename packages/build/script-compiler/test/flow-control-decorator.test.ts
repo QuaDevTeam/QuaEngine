@@ -25,7 +25,19 @@ Alice: This line resets the flow control policy.
 
     expect(result).toContain('ctx.engine.setFlowControlPolicy')
     expect(result).toContain('ctx.engine.resetFlowControlPolicy')
-    expect(result).toContain('skippable: false')
-    expect(result).toContain('fastForwardable: false')
+    expect(result.match(/skippable: false/g)).toHaveLength(2)
+    expect(result.match(/fastForwardable: false/g)).toHaveLength(2)
+  })
+
+  it('preserves non-identifier policy metadata keys', async () => {
+    const transformer = await createPluginAwareTransformerAsync()
+    const result = transformer.transformSource(`
+const steps = qs\`
+@FlowControl({ metadata: { "skip-reason": "opening-credits" } })
+Alice: This line carries flow metadata.
+\`
+`)
+
+    expect(result).toContain('"skip-reason": "opening-credits"')
   })
 })
