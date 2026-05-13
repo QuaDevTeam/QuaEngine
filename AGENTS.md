@@ -16,6 +16,19 @@ QuaEngine is a modern, TypeScript-based visual novel (Galgame) engine designed w
 - **Reactive Updates**: Changes in logic layer automatically propagate through events
 - **Plugin System**: Extensible architecture supporting custom behaviors
 
+### Dynamic Runtime Package Architecture
+- **Runtime content is package-based**: AI generated incremental content must be delivered as Quack-built QPK Runtime Packages. Do not introduce a loose single-resource push path for generated assets, scripts, story graph, store, audio, sprite, or animation updates.
+- **QPK side-by-side mounting**: Runtime packages mount as side-by-side QuaAssets bundles. Existing patch flows remain for updating an existing bundle; runtime packages are for new or replacement dynamic content capability.
+- **Engine lifecycle ownership**: `@quajs/engine` owns runtime package activation through `RuntimeContentManager`, including script modules, engine plugins, renderer plugin manifests, story graph deltas, store migrations, save/load dependency checks, and unload control.
+- **Platform-neutral runtime modules**: Engine core must receive `runtimeModuleLoader` and `trustPolicy` by injection. Browser `Blob`, object URLs, dynamic `import()`, DOM APIs, and WebCrypto details belong in Web/platform adapters, not engine core.
+- **Trust first in production**: Production dynamic JS and plugin modules must be accepted only after package hash/signature verification. Development and tests may explicitly allow unsigned packages.
+- **Migration-only state changes**: Runtime packages may declare idempotent store/plugin migrations. They must not arbitrarily overwrite current player progress, choices, settings, or scene state.
+- **Provenance is required**: Runtime-created story points and view projections must carry `contentPackageId`; projections that depend on multiple packages must merge `requiredRuntimePackages`. Save slots, checkpoints, backlog entries, voice replay, and jump targets must preserve required packages.
+- **Same-scene continuation is supported**: Multiple QPKs may continue the same scene, lane, route, protagonist, or timeline. Read-progress keys, save/load metadata, story graph deltas, sprite/background diffs, audio, and animation cleanup must remain package-aware.
+- **Default unload is guarded**: `unloadRuntimePackage(packageId)` must reject packages referenced by current story point, current checkpoint metadata, active view projections, or active package dependencies. `{ force: true }` is reserved for teardown, rollback, or deliberate state eviction.
+- **Renderer remains a projection**: Renderer plugins loaded from runtime packages may manage transient DOM/audio/object URL resources only. They must be loaded and destroyed through renderer runtime hooks and pipeline events, never by becoming authoritative state owners.
+- **Design reference**: See `docs/design/dynamic-runtime-qpk.md` for manifest shape, package flow, plugin responsibilities, same-scene continuation rules, and required test coverage.
+
 ### Renderer State Boundary
 - **Renderer has no game state**: Renderers must not own, cache, derive, or mutate authoritative game-related state. This includes scene identity, current step, background, characters, dialogue, choices, audio intent, UI visibility, save/load state, inventory, variables, flags, or any state that affects replay, save/load, branching, or game progression.
 - **Engine/store owns state**: All game, narrative, and render-relevant state belongs to the logic layer through engine/store APIs.
@@ -61,6 +74,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Project layout boundary**: `QuaViewProjection.layout` is engine-owned project layout state. Renderers resolve container fit, stage scaling, and safe-area projection from that layout without writing those derived values back into engine state.
 - **Audio boundary**: `SoundSystem` stores audio intent in engine state. Real DOM audio playback lives in renderer implementations; `audio/ended` returns to engine through pipeline.
 - **Web audio autoplay boundary**: `@quajs/renderer-web/audio` may attempt to unlock WebAudio automatically when engine-owned audio projection requests playback. Browser autoplay policy blocks are expected Web runtime behavior, must not be emitted as engine audio errors, and should keep sources pending until a configured user activation event unlocks the `AudioContext`. Emit `audio/unlocked` only after the context is actually running.
+- **Runtime package lifecycle**: Dynamic QPK Runtime Packages are loaded by QuaAssets and activated by `RuntimeContentManager`. Engine owns scripts, plugin lifecycle, story graph deltas, store migrations, package dependency metadata, and guarded unload.
 - **No pre-release compatibility burden**: Deprecated aliases, legacy renderer communication, and old Web-only asset assumptions should be removed instead of preserved.
 
 #### Completed Asset Runtime
@@ -71,11 +85,14 @@ The current milestone implements the logic layer, stateless renderer contracts, 
   - `@quajs/assets-node`: fs/http fetcher, filesystem cache, Node crypto, Buffer conversion, and Node compression codec integration.
   - `@quajs/assets-memory`: in-memory fetcher/storage/crypto for tests and embedded/lightweight runtimes.
 - **Vite dev asset flow**: `@quajs/vite-plugin` wires dev VFS through `@quajs/assets-web/vite`; the plugin no longer owns a duplicate VFS implementation.
+- **Dynamic bundle flow**: `@quajs/assets` supports `loadDynamicBundle`, `unloadDynamicBundle`, side-by-side runtime bundle manifests, priority/version/loadedAt ranking, and package-scoped asset change events.
 
 #### Completed Engine And Script Flow
 - **`@quajs/render-core`** defines shared render event enums, payload maps, readonly view projection types, project layout/aspect-ratio contracts, typed emit/on/wait helpers, and lightweight renderer plugin contracts.
 - **`@quajs/engine`** re-exports render contracts for app ergonomics and exposes runtime accessors such as assets, pipeline, store, view state, and `waitFor`.
 - **Store mutations** cover runtime/view/audio intent changes used by scene, dialogue, choices, characters, background projection, UI overlays, and audio.
+- **Runtime package APIs** cover `loadRuntimePackage`, `activateRuntimePackage`, `unloadRuntimePackage`, `getRuntimePackages`, `registerScriptModule`, and `runScriptModule`.
+- **Runtime save/load** tracks required runtime packages from story points, checkpoint metadata, backlog/voice references, and current view projection before restoring or jumping.
 - **`@quajs/character`** provides character/dialogue convenience APIs that update engine-owned state and emit pipeline events without holding renderer state.
 - **`@quajs/plugin-background`** provides background image, video background, layered background, background transition, and layer transition APIs/decorators that write engine-owned projection state.
 - **QuaScript compiler** parses dialogue and choice blocks, compiles context-aware async steps, routes dialogue/choice output through engine APIs, routes background decorators through `@quajs/plugin-background`, waits for renderer user intent events, and stores the selected choice on step context.
@@ -94,7 +111,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **`@quajs/vite-plugin`** integrates engine wiring, script compilation, asset bundling, and dev VFS.
 
 #### Current Gaps / Next Milestones
-- **Additional feature plugin packages are still pending**. Main menu behavior, settings logic, save/load UI flows, backlog/history, gallery, achievements, inventory, and similar features should become independent engine/renderer plugin packages or package sub-entries instead of engine-core features.
+- **Additional feature plugin packages are still pending**. Main menu behavior, save/load UI flows, gallery, achievements, inventory, and similar features should become independent engine/renderer plugin packages or package sub-entries instead of engine-core features.
 - **Renderer plugin ecosystem is early**. The contracts, Web renderer plugin layer shape, native DOM layer helpers, Web `plugins/*` sub-entries, and Vue UI plugin sub-entry exist, but standalone renderer plugin packages beyond package sub-entries are still pending.
 - **Example app/editor/documentation are still pending**. The engine/runtime foundations exist, but creator-facing examples, visual editor, templates, and full tutorials remain future work.
 - **Native/non-Web renderers and native asset adapters are not implemented**. Current official platform adapters are Web, Node, and Memory; current official Web rendering stack is `@quajs/renderer-web` plus framework adapters such as `@quajs/renderer-vue`.
@@ -269,6 +286,18 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Current scope**: Sprite assets and expression metadata are projected by `@quajs/renderer-web/plugins/sprite` and framework adapters such as `@quajs/renderer-vue/plugins/sprite`.
 - **Status**: Implemented.
 
+#### **@quajs/plugin-settings** (`packages/plugins/settings`)
+- **Independence**: Standalone workspace package outside `@quajs/engine`.
+- **Purpose**: Provides scoped developer/player settings schemas, defaults, persistence bridge, renderer projection, and package-scoped settings contributions.
+- **Current scope**: Feature plugin that owns engine-side settings projection and player-value persistence. Dynamic settings scopes may carry `packageId`; runtime package unload unregisters package-owned scopes while preserving stored player values.
+- **Status**: Implemented.
+
+#### **@quajs/plugin-backlog** (`packages/plugins/backlog`)
+- **Independence**: Standalone workspace package outside `@quajs/engine`.
+- **Purpose**: Provides dialogue/choice backlog recording, retention, rewind checkpoints, and optional voice replay references.
+- **Current scope**: Feature plugin that records engine-owned story/checkpoint context. Runtime content entries carry required package metadata so rewind and voice replay can ensure dependencies before use.
+- **Status**: Implemented.
+
 ### Plugin Systems Inside Existing Packages
 
 #### **Engine Plugin Framework** (`packages/core/engine/src/plugins`)
@@ -295,7 +324,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Scope**: Build-time asset processing only. These do not run as engine/runtime plugins.
 
 ### Independent Feature Plugins Not Yet Present
-- Standalone feature plugin packages still missing include `@quajs/plugin-ui`, `@quajs/plugin-save-load`, `@quajs/plugin-settings`, `@quajs/plugin-backlog`, `@quajs/plugin-gallery`, and achievement/inventory plugins.
+- Standalone feature plugin packages still missing include `@quajs/plugin-ui`, `@quajs/plugin-save-load`, `@quajs/plugin-gallery`, and achievement/inventory plugins.
 - When added, feature plugins should live under `packages/plugins/*` or another explicit plugin package group and should integrate through engine/render-core/pipeline contracts instead of mutating renderer state or extending engine core with product-specific UI semantics.
 
 ## Development Infrastructure
@@ -315,6 +344,15 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Environment Selection**: Node.js only, Browser only, or Universal
 - **Consistent Configuration**: TypeScript, Vite, and build settings
 - **Package-local organization**: Every package should keep a clear, intentional `src/` subdirectory layout that matches its responsibilities instead of accumulating unrelated files in the package root or a single flat source folder.
+
+### Runtime Package Development Standard
+- **Use the project skill**: For Runtime Package work, use `.codex/skills/quaengine-runtime-packages` and read `docs/design/dynamic-runtime-qpk.md` before changing manifests, loaders, lifecycle, plugins, or tests.
+- **Follow the full pipeline**: Runtime content changes should move through manifest shape, Quack output, QuaAssets mounting/ranking, `RuntimeContentManager` activation, feature plugin adaptation, renderer plugin publication, and save/load coverage together.
+- **Keep provenance explicit**: Any new story point, checkpoint, backlog entry, voice reference, view projection, animation fill state, audio track, sprite/background diff, or plugin projection created by runtime content must record `contentPackageId` and merge `requiredRuntimePackages` when cross-package composition exists.
+- **Protect player state**: Runtime packages may add defaults or schema through declared idempotent migrations. They must not silently overwrite player progress, choices, settings, current scene state, or existing persisted values.
+- **Guard unload by default**: A package referenced by active story, checkpoint metadata, package dependencies, view projections, audio, animation, or plugin state must not unload unless explicitly forced after moving or clearing dependent state.
+- **Test same-scene continuation**: Any Runtime Package change that touches story flow or projections must cover multiple QPKs continuing the same scene/timeline/lane/route and must verify read progress, save/load, unload, animation, audio, sprite, and background behavior.
+- **Keep platform boundaries**: Engine/core packages may enforce policy and lifecycle, but JS bytes, dynamic `import()`, object URLs, WebCrypto, DOM cleanup, and WebAudio implementation stay in injected loaders or Web/platform packages.
 
 ## Future Roadmap
 
@@ -410,8 +448,8 @@ Each package is:
 - Do not hard-code `window.innerWidth`, `window.innerHeight`, `100vw`, `100vh`, `100dvh`, or device-pixel measurements for in-stage UI, character placement, effects, or plugin projection. Use `layout`, resolved stage helpers, stage-relative percentages, logical pixels, and `--qua-layout-*` CSS variables.
 - Keep cross-ratio composition safe by placing important UI and default subject staging inside the safe area. Use the extra horizontal/vertical bleed area only for backgrounds, non-critical art, camera motion, or deliberate composition extensions.
 - Hit-testing and pointer coordinates that are sent through pipeline payloads must be converted from client/screen pixels into logical stage coordinates before emission. Pipeline events should not expose raw browser coordinates unless the event explicitly says so.
-- Renderer and renderer-plugin code should call framework-neutral helpers from `@quajs/renderer-web` for layout resolving and coordinate conversion. Framework adapters may expose ergonomic slots/composables, but they must not fork layout math.
-- Tests for coordinate-sensitive behavior should cover at least the landscape interval endpoints (`16:10` and `16:9`) and one portrait phone reference such as `360x780`. Add pointer conversion coverage when a feature emits coordinates.
+- Renderer and renderer-plugin code should call framework-neutral helpers from `@quajs/renderer-web` for layout resolving, coordinate conversion, and mobile viewport environment changes. Framework adapters may expose ergonomic slots/composables, but they must not fork layout math.
+- Tests for coordinate-sensitive behavior should cover at least the landscape interval endpoints (`16:10` and `16:9`) and one portrait phone reference such as `360x780`. Add pointer conversion coverage when a feature emits coordinates and visual viewport coverage when container sizing can change on mobile.
 - See `docs/design/mobile-rendering-adaptation.md` for formulas, device examples, and package-by-package responsibilities.
 
 ## Getting Started
@@ -459,6 +497,7 @@ packages/
 │   ├── audio/              # @quajs/plugin-audio
 │   ├── background/         # @quajs/plugin-background
 │   ├── backlog/            # @quajs/plugin-backlog
+│   ├── settings/           # @quajs/plugin-settings
 │   └── sprite/             # @quajs/plugin-sprite
 ├── render/
 │   ├── core/               # @quajs/render-core contracts/helpers
