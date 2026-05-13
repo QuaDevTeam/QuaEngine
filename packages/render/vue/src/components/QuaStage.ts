@@ -1,15 +1,10 @@
+import type { StageContainerSize } from '@quajs/renderer-web'
 import type { PropType } from 'vue'
 import type { QuaVueRendererLayer } from '../plugins/core'
-import { resolveStageLayout, stageContentStyle, stageViewportStyle } from '@quajs/renderer-web'
+import { projectStageMotion, readCssSafeAreaInsets, readDevicePixelRatio, resolveStageLayout, stageContentStyle, stageFrameStyle, stageMotionVars, stageViewportStyle } from '@quajs/renderer-web'
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRendererActions } from '../composables'
+import { useAnimationClock, useRendererActions } from '../composables'
 import { projectionProps, useProjectionProps } from './projection'
-
-const stageFrameStyle = {
-  position: 'absolute',
-  inset: '0',
-  overflow: 'hidden',
-}
 
 export const QuaStage = defineComponent({
   name: 'QuaStage',
@@ -22,10 +17,11 @@ export const QuaStage = defineComponent({
   },
   setup(props, { slots }) {
     const actions = useRendererActions()
+    const animationNow = useAnimationClock()
     const slotProps = () => ({ ...useProjectionProps(), actions })
     const layers = computed(() => props.layers || [])
     const frame = ref<HTMLElement>()
-    const frameSize = ref({ width: 0, height: 0 })
+    const frameSize = ref<Partial<StageContainerSize>>({ width: 0, height: 0 })
     let resizeObserver: ResizeObserver | undefined
 
     const measure = () => {
@@ -33,6 +29,8 @@ export const QuaStage = defineComponent({
       frameSize.value = {
         width: rect?.width || 0,
         height: rect?.height || 0,
+        devicePixelRatio: readDevicePixelRatio(frame.value),
+        safeAreaInsets: readCssSafeAreaInsets(frame.value),
       }
     }
 
@@ -56,11 +54,15 @@ export const QuaStage = defineComponent({
     }, { deep: true })
 
     const stageLayout = computed(() => resolveStageLayout(props.view?.layout as any, frameSize.value))
+    const stageStyle = computed(() => ({
+      ...stageContentStyle(stageLayout.value),
+      ...stageMotionVars(projectStageMotion(props.view as any, animationNow.value)),
+    }))
 
     return () => h('div', {
       ref: frame,
       class: 'qua-stage-frame',
-      style: stageFrameStyle,
+      style: stageFrameStyle(),
     }, [
       h('div', {
         class: 'qua-stage-viewport',
@@ -68,7 +70,7 @@ export const QuaStage = defineComponent({
       }, [
         h('section', {
           class: 'qua-stage',
-          style: stageContentStyle(stageLayout.value),
+          style: stageStyle.value,
           onClick: () => actions.advance('stage-click'),
         }, [
           ...layers.value.map((layer) => {

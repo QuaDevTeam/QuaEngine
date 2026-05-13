@@ -1,5 +1,7 @@
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
+import { motionProjectionVars, projectDialogue } from '../projection'
 import { defineWebRendererPlugin } from './core'
+import { applyStyleVars } from './shared'
 
 export function createDialogueWebRendererPlugin(): QuaWebDomRendererPlugin {
   return defineWebRendererPlugin({
@@ -9,6 +11,7 @@ export function createDialogueWebRendererPlugin(): QuaWebDomRendererPlugin {
       id: 'dialogue',
       order: 50,
       render: renderDialogueLayer,
+      update: updateDialogueLayer,
     }],
   })
 }
@@ -16,13 +19,14 @@ export function createDialogueWebRendererPlugin(): QuaWebDomRendererPlugin {
 export const dialogueWebRendererPlugin = createDialogueWebRendererPlugin()
 
 function renderDialogueLayer(context: QuaWebDomLayerContext): Node | undefined {
-  const dialogue = context.view.dialogue
+  const dialogue = projectDialogue(context.view.dialogue, context.view.animations, Date.now(), context.view.plugins.dialogue as Record<string, unknown> | undefined)
   if (!dialogue.visible) {
     return undefined
   }
 
   const box = context.document.createElement('div')
   box.className = 'qua-dialogue-box'
+  applyStyleVars(box, motionProjectionVars(dialogue as unknown as Record<string, unknown>, '--qua-dialogue'))
   box.addEventListener('click', (event) => {
     event.stopPropagation()
     void context.actions.advance('dialogue')
@@ -40,4 +44,11 @@ function renderDialogueLayer(context: QuaWebDomLayerContext): Node | undefined {
   text.textContent = dialogue.text
   box.append(text)
   return box
+}
+
+function updateDialogueLayer(context: QuaWebDomLayerContext, node: Node): void {
+  if (!(node instanceof HTMLElement))
+    return
+  const dialogue = projectDialogue(context.view.dialogue, context.view.animations, Date.now(), context.view.plugins.dialogue as Record<string, unknown> | undefined)
+  applyStyleVars(node, motionProjectionVars(dialogue as unknown as Record<string, unknown>, '--qua-dialogue'))
 }

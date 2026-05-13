@@ -33,6 +33,7 @@ export const QuaCharacter = defineComponent({
           alt: props.character.name,
           sprite: props.character.sprite,
           expression: props.character.expression,
+          animationTargetPrefix: props.character.id,
         })
       : h('div', sharedAttrs())
   },
@@ -46,7 +47,7 @@ export const QuaCharacterLayer = defineComponent({
     const animationNow = useAnimationClock()
     const actions = useRendererActions()
     const projectedCharacters = computed(() => characters.value.map(character => projectCharacter(character, animations.value, animationNow.value)))
-    return () => h('div', { class: 'qua-character-layer' }, slots.default?.({ ...useProjectionProps(), characters: characters.value, actions }) || projectedCharacters.value.map(character =>
+    return () => h('div', { class: 'qua-character-layer' }, slots.default?.({ ...useProjectionProps(), characters: projectedCharacters.value, actions }) || projectedCharacters.value.map(character =>
       slots.character?.({ ...useProjectionProps(), character, actions }) || h(QuaCharacter, { key: character.id, character }),
     ))
   },

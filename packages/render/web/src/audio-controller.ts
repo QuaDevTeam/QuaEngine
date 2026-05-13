@@ -3,12 +3,12 @@ import type { Pipeline } from '@quajs/pipeline'
 import type { AudioViewProjection } from '@quajs/plugin-audio/contracts'
 import type { QuaViewProjection } from '@quajs/render-core'
 import {
-  AUDIO_PLUGIN_ID,
   AudioRenderToLogicEvents,
   emitAudioRenderToLogic,
 } from '@quajs/plugin-audio/contracts'
 import { onRenderToLogic, RenderToLogicEvents } from '@quajs/render-core'
 import { WebAudioAudioRuntime } from './audio-runtime'
+import { projectAudioProjection } from './projection'
 
 export interface WebAudioRendererControllerOptions {
   getPipeline: () => Pipeline
@@ -26,6 +26,8 @@ export class WebAudioRendererController {
   private readonly unlockEvents: readonly (keyof DocumentEventMap)[]
   private subscribedAssets?: QuaAssets
   private stopAdvanceSubscription?: () => void
+  private animationFrame?: number
+  private animationTimeout?: ReturnType<typeof setTimeout>
   private started = false
 
   private readonly handleAssetChange = (change: AssetChange) => {
@@ -84,6 +86,7 @@ export class WebAudioRendererController {
     this.syncAssetSubscription()
     const projection = this.getAudioProjection()
     if (!projection) {
+      this.cancelAnimationSync()
       return
     }
 
@@ -92,6 +95,7 @@ export class WebAudioRendererController {
       if (this.autoUnlock && hasPlayingAudioIntent(projection)) {
         await this.runtime.tryAutoUnlock()
       }
+      this.scheduleAnimationSync()
     }
     catch (error) {
       await emitAudioRenderToLogic(this.options.getPipeline(), AudioRenderToLogicEvents.ERROR, {
@@ -105,6 +109,7 @@ export class WebAudioRendererController {
     this.started = false
     this.stopAdvanceSubscription?.()
     this.stopAdvanceSubscription = undefined
+    this.cancelAnimationSync()
     this.cleanupAssetSubscription()
 
     const targetDocument = this.options.document || globalThis.document
@@ -116,7 +121,41 @@ export class WebAudioRendererController {
   }
 
   private getAudioProjection(): AudioViewProjection | undefined {
-    return this.options.getViewState().plugins[AUDIO_PLUGIN_ID] as AudioViewProjection | undefined
+    return projectAudioProjection<AudioViewProjection>(this.options.getViewState(), Date.now())
+  }
+
+  private scheduleAnimationSync(): void {
+    this.cancelAnimationSync()
+    if (!this.started || !hasRunningAudioAnimation(this.options.getViewState())) {
+      return
+    }
+
+    const targetWindow = this.options.document?.defaultView || globalThis.window
+    const tick = () => {
+      this.animationFrame = undefined
+      this.animationTimeout = undefined
+      if (this.started) {
+        void this.sync()
+      }
+    }
+    if (targetWindow && typeof targetWindow.requestAnimationFrame === 'function') {
+      this.animationFrame = targetWindow.requestAnimationFrame(tick)
+    }
+    else {
+      this.animationTimeout = setTimeout(tick, 16)
+    }
+  }
+
+  private cancelAnimationSync(): void {
+    const targetWindow = this.options.document?.defaultView || globalThis.window
+    if (this.animationFrame !== undefined && targetWindow && typeof targetWindow.cancelAnimationFrame === 'function') {
+      targetWindow.cancelAnimationFrame(this.animationFrame)
+    }
+    if (this.animationTimeout !== undefined) {
+      clearTimeout(this.animationTimeout)
+    }
+    this.animationFrame = undefined
+    this.animationTimeout = undefined
   }
 
   private syncAssetSubscription(): void {
@@ -141,4 +180,11 @@ function hasPlayingAudioIntent(projection: AudioViewProjection): boolean {
     || projection.voices.some(track => track.state === 'playing')
     || projection.sfx.some(track => track.state === 'playing')
     || projection.ambients.some(track => track.state === 'playing')
+}
+
+function hasRunningAudioAnimation(view: Readonly<QuaViewProjection>): boolean {
+  return view.animations.some(animation =>
+    animation.state === 'running'
+    && animation.resolvedTracks.some(track => track.target.startsWith('audioBus:') || track.target.startsWith('audioTrack:')),
+  )
 }

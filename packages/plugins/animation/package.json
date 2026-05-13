@@ -98,12 +98,12 @@
           "args": [
             {
               "name": "targetOrProperty",
-              "values": ["self", "background", "dialogue", "choice"],
+              "values": ["self", "background:main", "backgroundLayer:<layerId>", "character:<id>", "ui:<id>", "effect:<id>"],
               "detail": "Animation target or property"
             },
             {
               "name": "property",
-              "values": ["x", "y", "scale", "rotation", "opacity"],
+              "values": ["x", "y", "scale", "rotation", "opacity", "composition.filter.blur", "composition.filter.brightness", "composition.blendMode"],
               "detail": "Animated property"
             }
           ]

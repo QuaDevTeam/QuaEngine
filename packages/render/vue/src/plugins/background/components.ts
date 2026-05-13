@@ -1,5 +1,6 @@
 import {
   backgroundLayerProjectionVars,
+  backgroundMaskImageVars,
   backgroundProjectionVars,
   normalizeBackgroundLayerAssetType,
   projectBackground,
@@ -16,11 +17,12 @@ export const QuaBackground = defineComponent({
   },
   setup(props) {
     const asset = useAssetUrl('images', () => props.assetName)
+    const maskStyle = useBackgroundMaskStyle(() => (props.background as any)?.composition?.mask)
     return () => h('img', {
       'class': 'qua-background',
       'src': asset.url.value,
       'alt': '',
-      'style': backgroundProjectionVars(props.background),
+      'style': mergeStyles(backgroundProjectionVars(props.background), maskStyle.value),
       'aria-hidden': 'true',
     })
   },
@@ -38,6 +40,7 @@ export const QuaVideoBackground = defineComponent({
   setup(props: any) {
     const videoAsset = useAssetUrl('video', () => props.video.assetName)
     const posterAsset = useAssetUrl('images', () => props.video.poster)
+    const maskStyle = useBackgroundMaskStyle(() => props.background?.composition?.mask)
     return () => h('video', {
       'class': 'qua-background qua-background--video',
       'src': videoAsset.url.value,
@@ -48,7 +51,7 @@ export const QuaVideoBackground = defineComponent({
       'muted': props.video.muted !== false,
       'volume': props.video.volume,
       'playbackRate': props.video.playbackRate,
-      'style': backgroundProjectionVars(props.background),
+      'style': mergeStyles(backgroundProjectionVars(props.background), maskStyle.value),
       'aria-hidden': 'true',
     })
   },
@@ -65,6 +68,7 @@ export const QuaBackgroundLayerItem = defineComponent({
   setup(props: any) {
     const assetType = computed(() => normalizeBackgroundLayerAssetType(props.layer.assetType))
     const asset = useAssetUrl(assetType, () => props.layer.assetName)
+    const maskStyle = useBackgroundMaskStyle(() => props.layer.composition?.mask)
     return () => props.layer.assetType === 'video'
       ? h('video', {
           'class': ['qua-background-layer-item', 'qua-background-layer-item--video', props.layer.visible === false ? 'is-hidden' : undefined],
@@ -75,7 +79,7 @@ export const QuaBackgroundLayerItem = defineComponent({
           'muted': true,
           'data-background-layer-id': props.layer.id,
           'data-background-layer-type': props.layer.assetType || 'images',
-          'style': backgroundLayerProjectionVars(props.layer),
+          'style': mergeStyles(backgroundLayerProjectionVars(props.layer), maskStyle.value),
           'aria-hidden': 'true',
         })
       : h('img', {
@@ -84,7 +88,7 @@ export const QuaBackgroundLayerItem = defineComponent({
           'alt': '',
           'data-background-layer-id': props.layer.id,
           'data-background-layer-type': props.layer.assetType || 'images',
-          'style': backgroundLayerProjectionVars(props.layer),
+          'style': mergeStyles(backgroundLayerProjectionVars(props.layer), maskStyle.value),
           'aria-hidden': 'true',
         })
   },
@@ -100,7 +104,8 @@ export const QuaLayeredBackground = defineComponent({
     background: Object,
   },
   setup(props: any, { slots }) {
-    return () => h('div', { class: 'qua-layered-background', style: backgroundProjectionVars(props.background) }, props.layers.map((layer: any) =>
+    const maskStyle = useBackgroundMaskStyle(() => props.background?.composition?.mask)
+    return () => h('div', { class: 'qua-layered-background', style: mergeStyles(backgroundProjectionVars(props.background), maskStyle.value) }, props.layers.map((layer: any) =>
       slots.layer?.({ layer }) || h(QuaBackgroundLayerItem, { key: layer.id, layer }),
     ))
   },
@@ -129,6 +134,19 @@ export const QuaBackgroundProjection = defineComponent({
     }
   },
 })
+
+function useBackgroundMaskStyle(getMask: () => { assetName?: string, assetType?: string } | undefined) {
+  const assetType = computed(() => normalizeBackgroundLayerAssetType(getMask()?.assetType))
+  const asset = useAssetUrl(assetType, () => getMask()?.assetName)
+  return computed(() => backgroundMaskImageVars(asset.url.value))
+}
+
+function mergeStyles(
+  ...styles: Array<Record<string, string | number> | undefined>
+): Record<string, string | number> | undefined {
+  const merged = Object.assign({}, ...styles.filter(Boolean))
+  return Object.keys(merged).length > 0 ? merged : undefined
+}
 
 export const QuaBackgroundLayer = defineComponent({
   name: 'QuaBackgroundLayer',

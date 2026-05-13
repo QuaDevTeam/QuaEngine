@@ -26,8 +26,27 @@ export type {
 export { createQuaWebDomRenderer, QuaWebDomRenderer } from './dom'
 export type { OrderedRendererLayer } from './layers'
 export { sortRendererLayers } from './layers'
-export type { ResolvedStageLayout, StageContainerSize, StageSafeArea } from './layout'
-export { resolveStageLayout, stageContentStyle, stageViewportStyle } from './layout'
+export type {
+  ResolvedStageLayout,
+  StageClientPoint,
+  StageClientRectOrigin,
+  StageContainerSize,
+  StageHitTestPoint,
+  StageLogicalPoint,
+  StageSafeArea,
+  StageSafeAreaInsets,
+} from './layout'
+export {
+  clientPointToStageLogical,
+  readCssSafeAreaInsets,
+  readDevicePixelRatio,
+  rendererRootStyle,
+  resolveStageLayout,
+  stageContentStyle,
+  stageFrameStyle,
+  stageLogicalToClientPoint,
+  stageViewportStyle,
+} from './layout'
 export { createBackgroundWebRendererPlugin } from './plugins/background'
 export { createCharacterWebRendererPlugin } from './plugins/character'
 export { createChoicesWebRendererPlugin } from './plugins/choices'
@@ -36,13 +55,26 @@ export { createDialogueWebRendererPlugin } from './plugins/dialogue'
 export { createEffectsWebRendererPlugin } from './plugins/effects'
 export { createUiWebRendererPlugin } from './plugins/ui'
 export {
+  backgroundCompositionVars,
+  backgroundFilterVars,
   backgroundLayerProjectionVars,
+  backgroundMaskImageVars,
+  backgroundMaskVars,
   backgroundProjectionVars,
   characterProjectionVars,
+  motionProjectionVars,
   normalizeBackgroundLayerAssetType,
+  projectAudioProjection,
   projectBackground,
   projectCharacter,
   projectCharacters,
+  projectChoices,
+  projectDialogue,
+  projectEffect,
+  projectStageMotion,
+  projectUiOverlay,
+  stageMotionVars,
 } from './projection'
+export type { MotionProjection } from './projection'
 export type { ReactRendererStoreAdapter } from './react'
 export { createReactRendererStoreAdapter } from './react'
