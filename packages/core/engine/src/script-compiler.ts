@@ -148,11 +148,15 @@ function toExpression(value: unknown): t.Expression {
   if (typeof value === 'object') {
     return t.objectExpression(
       Object.entries(value as Record<string, unknown>).map(([key, item]) =>
-        t.objectProperty(t.identifier(key), toExpression(item)),
+        t.objectProperty(createObjectKey(key), toExpression(item)),
       ),
     )
   }
   return t.objectExpression([])
+}
+
+function createObjectKey(key: string): t.Identifier | t.StringLiteral {
+  return t.isValidIdentifier(key) ? t.identifier(key) : t.stringLiteral(key)
 }
 
 function isBabelExpression(value: unknown): value is t.Expression {
