@@ -77,6 +77,7 @@ export function createBacklogRendererPlugin(): QuaVueRendererPlugin {
       slot: 'overlay',
       component: QuaBacklogLayer,
       order: 95,
+      plane: 'safe',
     }],
   })
 }

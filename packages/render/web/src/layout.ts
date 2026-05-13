@@ -42,6 +42,8 @@ export interface StageHitTestPoint extends StageLogicalPoint {
   insideStage: boolean
 }
 
+export type StageRenderPlane = 'scene' | 'subject' | 'stage' | 'safe'
+
 export interface ResolvedStageLayout {
   layout: ViewLayoutProjection
   containerWidth: number
@@ -211,9 +213,8 @@ export function stageContentStyle(layout: ResolvedStageLayout): Record<string, s
     'overflow': 'hidden',
     'width': `${layout.logicalWidth}px`,
     'height': `${layout.logicalHeight}px`,
-    'transform': `scale(${layout.scale}) translate(calc(var(--qua-stage-x, 0) * 1px), calc(var(--qua-stage-y, 0) * 1px)) scale(var(--qua-stage-scale, 1)) rotate(calc(var(--qua-stage-rotation, 0) * 1deg)) translate(calc(var(--qua-camera-x, 0) * -1px), calc(var(--qua-camera-y, 0) * -1px)) scale(var(--qua-camera-scale, 1)) rotate(calc(var(--qua-camera-rotation, 0) * -1deg))`,
+    'transform': `scale(${layout.scale})`,
     'transform-origin': 'top left',
-    'opacity': 'var(--qua-stage-opacity, 1)',
     '--qua-layout-width': layout.logicalWidth,
     '--qua-layout-height': layout.logicalHeight,
     '--qua-layout-scale': layout.scale,
@@ -245,6 +246,48 @@ export function stageContentStyle(layout: ResolvedStageLayout): Record<string, s
     '--qua-layout-safe-y': layout.safeArea.y,
     '--qua-layout-safe-width': layout.safeArea.width,
     '--qua-layout-safe-height': layout.safeArea.height,
+    '--qua-layout-safe-center-x': layout.safeArea.x + layout.safeArea.width / 2,
+    '--qua-layout-safe-center-y': layout.safeArea.y + layout.safeArea.height / 2,
+    '--qua-layout-safe-x-px': `${layout.safeArea.x}px`,
+    '--qua-layout-safe-y-px': `${layout.safeArea.y}px`,
+    '--qua-layout-safe-width-px': `${layout.safeArea.width}px`,
+    '--qua-layout-safe-height-px': `${layout.safeArea.height}px`,
+    '--qua-layout-safe-center-x-px': `${layout.safeArea.x + layout.safeArea.width / 2}px`,
+    '--qua-layout-safe-center-y-px': `${layout.safeArea.y + layout.safeArea.height / 2}px`,
+  }
+}
+
+export function stageSceneStyle(): Record<string, string | number> {
+  return {
+    'position': 'absolute',
+    'inset': '0',
+    'overflow': 'hidden',
+    'transform': 'translate(calc(var(--qua-stage-x, 0) * 1px), calc(var(--qua-stage-y, 0) * 1px)) scale(var(--qua-stage-scale, 1)) rotate(calc(var(--qua-stage-rotation, 0) * 1deg)) translate(calc(var(--qua-camera-x, 0) * -1px), calc(var(--qua-camera-y, 0) * -1px)) scale(var(--qua-camera-scale, 1)) rotate(calc(var(--qua-camera-rotation, 0) * -1deg))',
+    'transform-origin': 'top left',
+    'opacity': 'var(--qua-stage-opacity, 1)',
+  }
+}
+
+export function stagePlaneStyle(): Record<string, string | number> {
+  return {
+    position: 'absolute',
+    inset: '0',
+    overflow: 'hidden',
+  }
+}
+
+export function stageSafeAreaStyle(layout: ResolvedStageLayout): Record<string, string | number> {
+  return {
+    position: 'absolute',
+    overflow: 'visible',
+    left: `${layout.safeArea.x}px`,
+    top: `${layout.safeArea.y}px`,
+    width: `${layout.safeArea.width}px`,
+    height: `${layout.safeArea.height}px`,
+    '--qua-safe-area-x': layout.safeArea.x,
+    '--qua-safe-area-y': layout.safeArea.y,
+    '--qua-safe-area-width': layout.safeArea.width,
+    '--qua-safe-area-height': layout.safeArea.height,
   }
 }
 

@@ -10,6 +10,7 @@ export function createBacklogWebRendererPlugin(): QuaWebDomRendererPlugin {
     layers: [{
       id: 'backlog',
       order: 95,
+      plane: 'safe',
       render: renderBacklogLayer,
     }],
   })

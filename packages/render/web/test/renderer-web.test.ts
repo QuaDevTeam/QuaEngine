@@ -18,10 +18,17 @@ import {
 } from '@quajs/render-core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  clientPointToStageLogical,
+  characterProjectionVars,
+  collectTrackValues,
   createQuaWebDomRenderer,
   createQuaWebRendererController,
   createReactRendererStoreAdapter,
+  projectAudioProjection,
+  readCssSafeAreaInsets,
   resolveStageLayout,
+  stageContentStyle,
+  stageLogicalToClientPoint,
 } from '../src'
 import { WebAudioRendererController } from '../src/audio'
 import { createVisualNovelWebRendererPlugins } from '../src/plugins/preset'
@@ -33,17 +40,22 @@ describe('@quajs/renderer-web', () => {
     document.body.innerHTML = ''
   })
 
-  it('resolves scaled stage layouts inside the configured aspect ratio range', () => {
+  it('resolves adaptive aspect-interval scaled stage layouts', () => {
     const landscape = createViewLayoutProjection('landscape')
     const tablet = resolveStageLayout(landscape, { width: 1600, height: 1000 })
 
     expect(tablet).toEqual(expect.objectContaining({
       viewportWidth: 1600,
       viewportHeight: 1000,
+      viewportY: 0,
       logicalHeight: 1080,
     }))
     expect(tablet.logicalWidth).toBeCloseTo(1728)
     expect(tablet.aspectRatio).toBeCloseTo(16 / 10)
+    expect(tablet.safeArea).toEqual(expect.objectContaining({
+      x: 0,
+      width: 1728,
+    }))
 
     const ultrawide = resolveStageLayout(landscape, { width: 2560, height: 1080 })
     expect(ultrawide).toEqual(expect.objectContaining({
@@ -54,6 +66,190 @@ describe('@quajs/renderer-web', () => {
     expect(ultrawide.viewportX).toBeCloseTo(320)
     expect(ultrawide.logicalWidth).toBeCloseTo(1920)
     expect(ultrawide.aspectRatio).toBeCloseTo(16 / 9)
+    expect(ultrawide.safeArea).toEqual(expect.objectContaining({
+      x: 96,
+      width: 1728,
+    }))
+
+    const portrait = createViewLayoutProjection('portrait')
+    const phone = resolveStageLayout(portrait, { width: 360, height: 780 })
+    expect(phone).toEqual(expect.objectContaining({
+      viewportWidth: 360,
+      viewportHeight: 780,
+      viewportX: 0,
+      viewportY: 0,
+      logicalHeight: 2340,
+    }))
+    expect(phone.logicalWidth).toBeCloseTo(1080)
+    expect(phone.aspectRatio).toBeCloseTo(9 / 19.5)
+
+    const tallPhone = resolveStageLayout(portrait, { width: 360, height: 840 })
+    expect(tallPhone.viewportWidth).toBeCloseTo(360)
+    expect(tallPhone.viewportHeight).toBeCloseTo(840)
+    expect(tallPhone.aspectRatio).toBeCloseTo(9 / 21)
+  })
+
+  it('converts client coordinates to logical stage coordinates across device ratios', () => {
+    const landscape = createViewLayoutProjection('landscape')
+    const tablet = resolveStageLayout(landscape, { width: 1600, height: 1000 })
+    const tabletCenter = clientPointToStageLogical(tablet, { clientX: 800, clientY: 500 })
+
+    expect(tabletCenter).toEqual(expect.objectContaining({
+      insideViewport: true,
+      insideStage: true,
+    }))
+    expect(tabletCenter.x).toBeCloseTo(864)
+    expect(tabletCenter.y).toBeCloseTo(540)
+    expect(stageLogicalToClientPoint(tablet, { x: 864, y: 540 })).toEqual({
+      clientX: 800,
+      clientY: 500,
+    })
+
+    const ultrawide = resolveStageLayout(landscape, { width: 2560, height: 1080 })
+    const leftBar = clientPointToStageLogical(ultrawide, { clientX: 100, clientY: 100 })
+    const viewportOrigin = clientPointToStageLogical(ultrawide, { clientX: 320, clientY: 0 })
+
+    expect(leftBar.insideViewport).toBe(false)
+    expect(leftBar.insideStage).toBe(false)
+    expect(viewportOrigin).toEqual(expect.objectContaining({
+      x: 0,
+      y: 0,
+      insideViewport: true,
+      insideStage: true,
+    }))
+
+    const phone = resolveStageLayout(createViewLayoutProjection('portrait'), { width: 360, height: 780 })
+    const phoneCenter = clientPointToStageLogical(phone, { clientX: 180, clientY: 390 })
+
+    expect(phoneCenter.x).toBeCloseTo(540)
+    expect(phoneCenter.y).toBeCloseTo(1170)
+    expect(phoneCenter.insideStage).toBe(true)
+    expect(stageLogicalToClientPoint(phone, { x: 540, y: 1170 })).toEqual({
+      clientX: 180,
+      clientY: 390,
+    })
+  })
+
+  it('resolves DPR and CSS safe-area insets into logical stage safe areas', () => {
+    const phone = resolveStageLayout(createViewLayoutProjection('portrait'), {
+      width: 360,
+      height: 780,
+      devicePixelRatio: 3,
+      safeAreaInsets: {
+        top: 30,
+        bottom: 15,
+      },
+    })
+
+    expect(phone.devicePixelRatio).toBe(3)
+    expect(phone.physicalScale).toBeCloseTo(1)
+    expect(phone.physicalViewportWidth).toBeCloseTo(1080)
+    expect(phone.physicalViewportHeight).toBeCloseTo(2340)
+    expect(phone.logicalSafeAreaInsets).toEqual(expect.objectContaining({
+      top: 90,
+      bottom: 45,
+      left: 0,
+      right: 0,
+    }))
+    expect(phone.aspectSafeArea.x).toBeCloseTo(38.5714)
+    expect(phone.aspectSafeArea.y).toBe(0)
+    expect(phone.aspectSafeArea.width).toBeCloseTo(1002.8571)
+    expect(phone.aspectSafeArea.height).toBe(2340)
+    expect(phone.deviceSafeArea).toEqual(expect.objectContaining({
+      x: 0,
+      y: 90,
+      width: 1080,
+      height: 2205,
+    }))
+    expect(phone.safeArea.x).toBeCloseTo(38.5714)
+    expect(phone.safeArea.y).toBe(90)
+    expect(phone.safeArea.width).toBeCloseTo(1002.8571)
+    expect(phone.safeArea.height).toBe(2205)
+
+    const style = stageContentStyle(phone)
+    expect(style['--qua-layout-device-pixel-ratio']).toBe(3)
+    expect(style['--qua-layout-physical-scale']).toBe(1)
+    expect(style['--qua-layout-css-safe-inset-top']).toBe('30px')
+    expect(style['--qua-layout-safe-inset-top']).toBe(90)
+    expect(style['--qua-layout-safe-y']).toBe(90)
+    expect(style['--qua-layout-safe-center-x-px']).toBe('540px')
+    expect(style['--qua-layout-safe-center-y-px']).toBe('1192.5px')
+
+    expect(characterProjectionVars({ id: 'Alice', name: 'Alice', visible: true })?.['--qua-character-left'])
+      .toBe('var(--qua-layout-safe-center-x-px, 50%)')
+    expect(characterProjectionVars({ id: 'Alice', name: 'Alice', visible: true, position: { x: 100, y: 200 } })?.['--qua-character-left'])
+      .toBe('100px')
+  })
+
+  it('reads CSS safe-area insets relative to the renderer container', () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(390)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(844)
+    vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      paddingTop: '30px',
+      paddingRight: '12px',
+      paddingBottom: '37px',
+      paddingLeft: '8px',
+    } as CSSStyleDeclaration)
+
+    const element = document.createElement('div')
+    document.body.append(element)
+    const rectSpy = vi.spyOn(element, 'getBoundingClientRect')
+
+    rectSpy.mockReturnValue(rectAt(0, 20, 390, 800))
+    expect(readCssSafeAreaInsets(element)).toEqual({
+      top: 10,
+      right: 12,
+      bottom: 13,
+      left: 8,
+    })
+
+    rectSpy.mockReturnValue(rectAt(10, 40, 360, 740))
+    expect(readCssSafeAreaInsets(element)).toEqual({
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    })
+  })
+
+  it('keeps full-stage background separate from safe-area content in native DOM rendering', async () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(360)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(780)
+    vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      paddingTop: '30px',
+      paddingRight: '0px',
+      paddingBottom: '15px',
+      paddingLeft: '0px',
+    } as CSSStyleDeclaration)
+
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(360, 780))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        layout: createViewLayoutProjection('portrait'),
+        background: { mode: 'image', assetName: 'bg.png' },
+        dialogue: { visible: true, text: 'Line' },
+        choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+      }),
+    })
+
+    await renderer.mount()
+
+    const backgroundStyle = root.querySelector('.qua-stage-scene-content .qua-background')?.getAttribute('style') || ''
+    const safeStyle = root.querySelector('.qua-stage-safe')?.getAttribute('style') || ''
+
+    expect(backgroundStyle).toContain('inset: 0')
+    expect(safeStyle).toContain('top: 90px')
+    expect(safeStyle).toContain('height: 2205px')
+    expect(root.querySelector('.qua-stage-safe .qua-dialogue-box')).not.toBeNull()
+    expect(root.querySelector('.qua-stage-safe .qua-choice-panel')).not.toBeNull()
+
+    await renderer.unmount()
   })
 
   it('owns framework-neutral pipeline lifecycle and exposes external-store snapshots', async () => {
@@ -112,6 +308,10 @@ describe('@quajs/renderer-web', () => {
 
     expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('width: 1600px')
     expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1728')
+    expect(root.querySelector('.qua-stage-scene-content .qua-background')).not.toBeNull()
+    expect(root.querySelector('.qua-stage-subject .qua-character')).not.toBeNull()
+    expect(root.querySelector('.qua-stage-safe .qua-dialogue-box')).not.toBeNull()
+    expect(root.querySelector('.qua-stage-safe .qua-choice-panel')).not.toBeNull()
     expect(root.querySelector('.qua-background')).not.toBeNull()
     expect(root.querySelector('.qua-character')?.getAttribute('style')).toContain('--qua-character-x: 10')
     expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('Line')
@@ -167,6 +367,44 @@ describe('@quajs/renderer-web', () => {
     finally {
       vi.useRealTimers()
     }
+  })
+
+  it('renders layered background composition inside the adaptive stage', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        background: {
+          mode: 'layered',
+          layers: [{
+            id: 'fog',
+            assetName: 'fog.png',
+            zIndex: 3,
+            composition: {
+              blendMode: 'screen',
+              filter: { blur: 4, brightness: 1.2 },
+              mask: { assetName: 'fog-mask.png', position: 'center', size: 'cover' },
+            },
+          }],
+        },
+      }),
+    })
+
+    await renderer.mount()
+
+    const item = root.querySelector<HTMLElement>('[data-background-layer-id="fog"]')
+    expect(item).not.toBeNull()
+    expect(item?.getAttribute('style')).toContain('inset: 0')
+    expect(item?.getAttribute('style')).toContain('width: 100%')
+    expect(item?.getAttribute('style')).toContain('--qua-background-layer-blend-mode: screen')
+    expect(item?.getAttribute('style')).toContain('filter: blur(4px) brightness(1.2)')
+    expect(item?.getAttribute('style')).toContain('mask-position: center')
+
+    await renderer.unmount()
   })
 
   it('renders backlog projection and emits backlog plugin intents', async () => {
@@ -265,6 +503,141 @@ describe('@quajs/renderer-web', () => {
     await renderer.unmount()
   })
 
+  it('projects stage, dialogue, choices, effects, and audio animation targets', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    const timestamp = Date.now()
+    const current = view({
+      dialogue: { visible: true, text: 'Animated line' },
+      choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+      effects: [{ id: 'flash', type: 'flash' }],
+      plugins: {
+        dialogue: { y: 8 },
+        choices: {
+          x: 2,
+          choices: {
+            yes: { y: 3 },
+          },
+        },
+        [AUDIO_PLUGIN_ID]: {
+          ...createInitialAudioProjection(),
+          buses: {
+            ...createInitialAudioProjection().buses,
+            master: { gainDb: 0 },
+          },
+        },
+      },
+      animations: [{
+        id: 'animation:projection-targets',
+        state: 'paused',
+        startedAt: timestamp - 500,
+        pausedAt: timestamp,
+        duration: 1000,
+        playbackRate: 1,
+        resolvedTracks: [
+          { target: 'stage:main', property: 'x', keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 20 }] },
+          { target: 'dialogue:box', property: 'opacity', keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 1 }] },
+          { target: 'choices:panel', property: 'y', keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 10 }] },
+          { target: 'choice:yes', property: 'opacity', keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 1 }] },
+          { target: 'effect:flash', property: 'opacity', keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 1 }] },
+          { target: 'audioBus:master', property: 'gainDb', keyframes: [{ at: 0, value: 0 }, { at: 1000, value: -12 }] },
+        ],
+      }],
+    })
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: current,
+    })
+
+    await renderer.mount()
+
+    expect(root.querySelector('.qua-stage')?.getAttribute('style')).not.toContain('--qua-stage-x')
+    expect(root.querySelector('.qua-stage-scene')?.getAttribute('style')).toContain('--qua-stage-x: 10')
+    expect(root.querySelector('.qua-dialogue-box')?.getAttribute('style')).toContain('--qua-dialogue-opacity: 0.5')
+    expect(root.querySelector('.qua-dialogue-box')?.getAttribute('style')).toContain('--qua-dialogue-y: 8')
+    expect(root.querySelector('.qua-dialogue-box')?.getAttribute('style')).not.toContain('background-color')
+    expect(root.querySelector('.qua-choice-panel')?.getAttribute('style')).toContain('--qua-choices-x: 2')
+    expect(root.querySelector('.qua-choice-panel')?.getAttribute('style')).toContain('--qua-choices-y: 5')
+    expect(root.querySelector('.qua-choice-button')?.getAttribute('style')).toContain('--qua-choice-y: 3')
+    expect(root.querySelector('.qua-choice-button')?.getAttribute('style')).toContain('--qua-choice-opacity: 0.5')
+    expect(root.querySelector('.qua-effect')?.getAttribute('style')).toContain('--qua-effect-opacity: 0.5')
+    expect(projectAudioProjection<any>(current, timestamp)?.buses.master.gainDb).toBe(-6)
+
+    await renderer.unmount()
+  })
+
+  it('samples delayed, directed, eased, color, and vector animation tracks', () => {
+    const animation = {
+      id: 'animation:interpolation',
+      state: 'running' as const,
+      startedAt: 1000,
+      duration: 1000,
+      delay: 100,
+      playbackRate: 1,
+      direction: 'normal' as const,
+      fill: 'backwards' as const,
+      resolvedTracks: [
+        { target: 'target:one', property: 'x', keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 100, easing: 'ease-in' }] },
+        { target: 'target:one', property: 'color', interpolation: 'color' as const, keyframes: [{ at: 0, value: '#000000' }, { at: 1000, value: '#ffffff' }] },
+        { target: 'target:one', property: 'offset', interpolation: 'vector' as const, keyframes: [{ at: 0, value: { x: 0, y: 10 } }, { at: 1000, value: { x: 10, y: 20 } }] },
+      ],
+    }
+
+    expect(collectTrackValues([animation], 'target:one', 1050).find(track => track.property === 'x')?.value).toBe(0)
+    const values = collectTrackValues([animation], 'target:one', 1600)
+    expect(values.find(track => track.property === 'x')?.value).toBe(25)
+    expect(values.find(track => track.property === 'color')?.value).toBe('rgb(128, 128, 128)')
+    expect(values.find(track => track.property === 'offset')?.value).toEqual({ x: 5, y: 15 })
+  })
+
+  it('updates running background animations through the native DOM animation clock', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    let frame: FrameRequestCallback | undefined
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frame = callback
+      return 1
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+    vi.spyOn(Date, 'now').mockReturnValue(1000)
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        background: { mode: 'image', assetName: 'bg.png' },
+        animations: [{
+          id: 'animation:running',
+          state: 'running',
+          startedAt: 1000,
+          duration: 1000,
+          playbackRate: 1,
+          resolvedTracks: [{
+            target: 'background:main',
+            property: 'x',
+            keyframes: [
+              { at: 0, value: 0 },
+              { at: 1000, value: 100 },
+            ],
+          }],
+        }],
+      }),
+    })
+
+    await renderer.mount()
+    expect(root.querySelector('.qua-background')?.getAttribute('style')).toContain('--qua-background-x: 0')
+
+    vi.mocked(Date.now).mockReturnValue(1500)
+    frame?.(1500)
+    expect(root.querySelector('.qua-background')?.getAttribute('style')).toContain('--qua-background-x: 50')
+
+    await renderer.unmount()
+  })
+
   it('renders sprite manifests and expressions through the Web sprite preset', async () => {
     let urlIndex = 0
     const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:web-sprite:${++urlIndex}`)
@@ -316,6 +689,19 @@ describe('@quajs/renderer-web', () => {
           sprite: 'alice/base.png',
           expression: 'happy',
         }],
+        animations: [{
+          id: 'sprite-layer:animation',
+          state: 'paused',
+          startedAt: Date.now() - 500,
+          pausedAt: Date.now(),
+          duration: 1000,
+          playbackRate: 1,
+          resolvedTracks: [{
+            target: 'spriteLayer:Alice:expression',
+            property: 'opacity',
+            keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 1 }],
+          }],
+        }],
       }),
     })
 
@@ -329,6 +715,7 @@ describe('@quajs/renderer-web', () => {
     expect(sprite?.getAttribute('data-sprite-expression')).toBe('happy')
     expect(root.querySelectorAll('.qua-sprite-layer').length).toBe(2)
     expect(root.querySelectorAll('.qua-sprite-layer--expression').length).toBe(1)
+    expect(root.querySelector('.qua-sprite-layer--expression')?.getAttribute('style')).toContain('opacity: 0.5')
     expect(create).toHaveBeenCalled()
 
     await renderer.unmount()
@@ -543,15 +930,19 @@ async function flushDom(): Promise<void> {
 }
 
 function rect(width: number, height: number): DOMRect {
+  return rectAt(0, 0, width, height)
+}
+
+function rectAt(left: number, top: number, width: number, height: number): DOMRect {
   return {
-    x: 0,
-    y: 0,
+    x: left,
+    y: top,
     width,
     height,
-    top: 0,
-    right: width,
-    bottom: height,
-    left: 0,
+    top,
+    right: left + width,
+    bottom: top + height,
+    left,
     toJSON: () => ({}),
   } as DOMRect
 }

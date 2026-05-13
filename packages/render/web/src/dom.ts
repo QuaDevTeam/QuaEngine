@@ -3,11 +3,11 @@ import type { QuaViewProjection, RendererPlugin } from '@quajs/render-core'
 import type { RendererActions } from './actions'
 import type { WebAssetUrlState } from './assets'
 import type { QuaWebRendererOptions, QuaWebRendererSnapshot } from './controller'
-import type { StageContainerSize } from './layout'
+import type { StageContainerSize, StageRenderPlane } from './layout'
 import { WebAssetUrlHandle } from './assets'
 import { QuaWebRendererController } from './controller'
 import { sortRendererLayers } from './layers'
-import { readCssSafeAreaInsets, readDevicePixelRatio, rendererRootStyle, resolveStageLayout, stageContentStyle, stageFrameStyle, stageViewportStyle } from './layout'
+import { readCssSafeAreaInsets, readDevicePixelRatio, rendererRootStyle, resolveStageLayout, stageContentStyle, stageFrameStyle, stagePlaneStyle, stageSafeAreaStyle, stageSceneStyle, stageViewportStyle } from './layout'
 import { projectStageMotion, stageMotionVars } from './projection'
 
 export interface QuaWebDomLayerContext {
@@ -28,6 +28,7 @@ export interface QuaWebDomLayerContext {
 export interface QuaWebDomRendererLayer {
   id: string
   order?: number
+  plane?: StageRenderPlane
   render: (context: QuaWebDomLayerContext) => Node | null | undefined
   update?: (context: QuaWebDomLayerContext, node: Node) => void
 }
@@ -49,7 +50,7 @@ export class QuaWebDomRenderer {
   private readonly layers: readonly QuaWebDomRendererLayer[]
   private readonly assetHandles: WebAssetUrlHandle[] = []
   private readonly layerNodes = new Map<string, Node>()
-  private stageNode?: HTMLElement
+  private scenePlaneNode?: HTMLElement
   private animationFrame?: number
   private animationTimeout?: ReturnType<typeof setTimeout>
   private resizeObserver?: ResizeObserver
@@ -91,7 +92,7 @@ export class QuaWebDomRenderer {
     this.cancelAnimationTick()
     this.resizeObserver?.disconnect()
     this.resizeObserver = undefined
-    this.stageNode = undefined
+    this.scenePlaneNode = undefined
     this.disposeAssetHandles()
     this.root.remove()
     await this.controller.destroy()
@@ -104,7 +105,7 @@ export class QuaWebDomRenderer {
 
     this.disposeAssetHandles()
     this.layerNodes.clear()
-    this.stageNode = undefined
+    this.scenePlaneNode = undefined
     this.root.textContent = ''
     const document = this.getDocument()
     const layout = resolveStageLayout(snapshot.view.layout, this.readContainerSize())
@@ -118,11 +119,32 @@ export class QuaWebDomRenderer {
 
     const stage = document.createElement('section')
     stage.className = 'qua-stage'
-    applyStyles(stage, {
-      ...stageContentStyle(layout),
+    applyStyles(stage, stageContentStyle(layout))
+
+    const scenePlane = document.createElement('div')
+    scenePlane.className = 'qua-stage-scene'
+    applyStyles(scenePlane, {
+      ...stageSceneStyle(),
       ...stageMotionVars(projectStageMotion(snapshot.view, Date.now())),
     })
-    this.stageNode = stage
+    this.scenePlaneNode = scenePlane
+
+    const sceneContentPlane = document.createElement('div')
+    sceneContentPlane.className = 'qua-stage-scene-content'
+    applyStyles(sceneContentPlane, stagePlaneStyle())
+
+    const subjectPlane = document.createElement('div')
+    subjectPlane.className = 'qua-stage-subject'
+    applyStyles(subjectPlane, stagePlaneStyle())
+
+    const stagePlane = document.createElement('div')
+    stagePlane.className = 'qua-stage-plane'
+    applyStyles(stagePlane, stagePlaneStyle())
+
+    const safePlane = document.createElement('div')
+    safePlane.className = 'qua-stage-safe'
+    applyStyles(safePlane, stageSafeAreaStyle(layout))
+
     stage.addEventListener('click', () => {
       void snapshot.actions.advance('stage-click')
     })
@@ -142,10 +164,17 @@ export class QuaWebDomRenderer {
       const node = layer.render(context)
       if (node) {
         this.layerNodes.set(layer.id, node)
-        stage.append(node)
+        this.resolveLayerPlane(layer, {
+          scene: sceneContentPlane,
+          subject: subjectPlane,
+          stage: stagePlane,
+          safe: safePlane,
+        }).append(node)
       }
     }
 
+    scenePlane.append(sceneContentPlane, subjectPlane)
+    stage.append(scenePlane, stagePlane, safePlane)
     viewport.append(stage)
     frame.append(viewport)
     this.root.append(frame)
@@ -228,8 +257,8 @@ export class QuaWebDomRenderer {
   }
 
   private updateAnimatedLayers(snapshot = this.controller.getSnapshot()): void {
-    if (this.stageNode) {
-      applyStyles(this.stageNode, stageMotionVars(projectStageMotion(snapshot.view, Date.now())))
+    if (this.scenePlaneNode) {
+      applyStyles(this.scenePlaneNode, stageMotionVars(projectStageMotion(snapshot.view, Date.now())))
     }
     const context = this.createLayerContext(snapshot)
     for (const layer of this.layers) {
@@ -237,6 +266,25 @@ export class QuaWebDomRenderer {
       if (node && layer.update) {
         layer.update(context, node)
       }
+    }
+  }
+
+  private resolveLayerPlane(layer: QuaWebDomRendererLayer, planes: {
+    scene: HTMLElement
+    subject: HTMLElement
+    stage: HTMLElement
+    safe: HTMLElement
+  }): HTMLElement {
+    switch (layer.plane || 'scene') {
+      case 'safe':
+        return planes.safe
+      case 'stage':
+        return planes.stage
+      case 'subject':
+        return planes.subject
+      case 'scene':
+      default:
+        return planes.scene
     }
   }
 

@@ -1,6 +1,6 @@
 import type { QuaEngineInterface } from '@quajs/engine'
 import type { QuaViewProjection } from '@quajs/render-core'
-import { createViewLayoutProjection } from '@quajs/render-core'
+import { createFlowControlProjection, createViewLayoutProjection } from '@quajs/render-core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   animationDecoratorMappings,
@@ -402,6 +402,7 @@ function createEngine(viewPatch: Partial<QuaViewProjection> = {}) {
     dialogue: { visible: false, text: '' },
     choices: [],
     ui: { visible: true, overlays: {} },
+    flowControl: createFlowControlProjection(),
     effects: [],
     animations: [],
     plugins: {},

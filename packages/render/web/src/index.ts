@@ -33,6 +33,7 @@ export type {
   StageContainerSize,
   StageHitTestPoint,
   StageLogicalPoint,
+  StageRenderPlane,
   StageSafeArea,
   StageSafeAreaInsets,
 } from './layout'
@@ -45,6 +46,9 @@ export {
   stageContentStyle,
   stageFrameStyle,
   stageLogicalToClientPoint,
+  stagePlaneStyle,
+  stageSafeAreaStyle,
+  stageSceneStyle,
   stageViewportStyle,
 } from './layout'
 export { createBackgroundWebRendererPlugin } from './plugins/background'

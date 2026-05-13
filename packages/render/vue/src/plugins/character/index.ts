@@ -13,6 +13,7 @@ export function createCharacterRendererPlugin(): QuaVueRendererPlugin {
       slot: 'characters',
       component: QuaCharacterLayer,
       order: 30,
+      plane: 'subject',
     }],
   })
 }

@@ -10,6 +10,7 @@ export function createUiWebRendererPlugin(): QuaWebDomRendererPlugin {
     layers: [{
       id: 'overlay',
       order: 90,
+      plane: 'safe',
       render: renderUiLayer,
       update: updateUiLayer,
     }],

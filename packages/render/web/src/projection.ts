@@ -379,12 +379,12 @@ export function characterProjectionVars(character: Readonly<ViewCharacterProject
     ? `${position.xPercent}%`
     : position.x !== undefined
       ? `${position.x}px`
-      : '50%'
+      : 'var(--qua-layout-safe-center-x-px, 50%)'
   vars['--qua-character-top'] = position.yPercent !== undefined
     ? `${position.yPercent}%`
     : position.y !== undefined
       ? `${position.y}px`
-      : '50%'
+      : 'var(--qua-layout-safe-center-y-px, 50%)'
   assignVar(vars, '--qua-character-scale', position.scale)
   assignVar(vars, '--qua-character-rotation', position.rotation)
   assignVar(vars, '--qua-character-layer', character.layer)

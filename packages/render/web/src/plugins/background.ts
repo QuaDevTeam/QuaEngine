@@ -17,6 +17,7 @@ export function createBackgroundWebRendererPlugin(): QuaWebDomRendererPlugin {
     layers: [{
       id: 'background',
       order: 10,
+      plane: 'scene',
       render: renderBackgroundLayer,
       update: updateBackgroundLayer,
     }],

@@ -458,6 +458,7 @@ export class QuaScriptTransformer {
 
       if (compiled) {
         this.handledDecoratorModules.add(compiled.compiler.module)
+        this.handledDecoratorModules.add(mapping.module)
         compiled.result.runtimeHelpers?.forEach(helper => this.usedRuntimeHelpers.add(helper))
         if (compiled.result.skip) {
           index = compiled.result.nextIndex ?? index

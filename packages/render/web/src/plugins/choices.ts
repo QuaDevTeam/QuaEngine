@@ -10,6 +10,7 @@ export function createChoicesWebRendererPlugin(): QuaWebDomRendererPlugin {
     layers: [{
       id: 'choices',
       order: 60,
+      plane: 'safe',
       render: renderChoicesLayer,
       update: updateChoicesLayer,
     }],

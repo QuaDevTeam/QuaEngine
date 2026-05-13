@@ -13,6 +13,7 @@ export function createDialogueRendererPlugin(): QuaVueRendererPlugin {
       slot: 'dialogue',
       component: QuaDialogueBox,
       order: 50,
+      plane: 'safe',
     }],
   })
 }

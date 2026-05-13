@@ -13,6 +13,7 @@ export function createChoicesRendererPlugin(): QuaVueRendererPlugin {
       slot: 'choices',
       component: QuaChoicePanel,
       order: 60,
+      plane: 'safe',
     }],
   })
 }
