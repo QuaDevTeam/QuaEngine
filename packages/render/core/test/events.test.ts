@@ -1,6 +1,7 @@
 import { Pipeline } from '@quajs/pipeline'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  createFlowControlProjection,
   createViewLayoutProjection,
   emitLogicToRender,
   emitRenderToLogic,
@@ -109,6 +110,7 @@ describe('render-core event contracts', () => {
         dialogue: { visible: false, text: '' },
         choices: [],
         ui: { visible: true },
+        flowControl: createFlowControlProjection(),
         effects: [],
         animations: [],
         plugins: { audio: { revision: 0, unlocked: false } },
@@ -126,6 +128,7 @@ describe('render-core event contracts', () => {
         dialogue: { visible: false, text: '' },
         choices: [],
         ui: { visible: true },
+        flowControl: createFlowControlProjection(),
         effects: [],
         animations: [],
         plugins: { audio: { revision: 1, unlocked: true } },
@@ -141,6 +144,7 @@ describe('render-core event contracts', () => {
         dialogue: { visible: false, text: '' },
         choices: [],
         ui: { visible: true },
+        flowControl: createFlowControlProjection(),
         effects: [],
         animations: [],
         plugins: { audio: { revision: 2, unlocked: true } },

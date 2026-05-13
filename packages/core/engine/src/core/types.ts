@@ -3,22 +3,36 @@ import type { Pipeline } from '@quajs/pipeline'
 import type { QuaStore, StorageConfig } from '@quajs/store'
 import type {
   ActiveAnimationProjection,
+  FlowControlMode,
+  FlowControlPolicy,
+  FlowControlProjectionInput,
+  FlowControlTimingProjection,
   QuaViewProjection,
   ViewBackgroundProjection,
   ViewEffectProjection,
+  ViewFlowControlProjection,
   ViewLayoutInput,
   ViewUiProjection,
 } from '../events/events'
 import type { EnginePlugin, PluginConstructorOptions } from '../plugins/core/types'
-import { createViewLayoutProjection } from '../events/events'
+import { createFlowControlProjection, createViewLayoutProjection } from '../events/events'
 
 export type {
+  ViewFlowControlProjection,
   ViewLayoutInput,
   ViewLayoutOrientation,
   ViewLayoutPreset,
   ViewLayoutProjection,
   ViewLayoutScaleMode,
   ViewPluginProjectionMap,
+} from '../events/events'
+
+export type {
+  FlowControlMode,
+  FlowControlPolicy,
+  FlowControlProjectionInput,
+  FlowControlSkipMode,
+  FlowControlTimingProjection,
 } from '../events/events'
 
 export interface SlotMetadata {
@@ -76,6 +90,17 @@ export interface QuaEngineInterface {
   getAssets: () => QuaAssets
   getPipeline: () => Pipeline
   getViewState: () => QuaViewProjection
+  getFlowControlState: () => ViewFlowControlProjection
+  setFlowControlOptions: (options: FlowControlRuntimeOptions) => Promise<void>
+  setFlowControlMode: (mode: FlowControlMode) => Promise<void>
+  setFlowControlPolicy: (policy: FlowControlPolicy) => Promise<void>
+  resetFlowControlPolicy: () => Promise<void>
+  startAuto: () => Promise<void>
+  stopAuto: () => Promise<void>
+  startSkip: () => Promise<void>
+  stopSkip: () => Promise<void>
+  startFastForward: () => Promise<void>
+  stopFastForward: () => Promise<void>
   setLayoutProjection: (layout: ViewLayoutInput) => Promise<void>
   getPluginProjection: <T = unknown>(pluginId: string) => T | undefined
   setPluginProjection: <T = unknown>(pluginId: string, projection?: T) => Promise<void>
@@ -217,6 +242,16 @@ export interface EngineConfig {
     enableLogs?: boolean
     logLevel?: 'debug' | 'info' | 'warn' | 'error'
   }
+  flowControl?: FlowControlOptions
+}
+
+export interface FlowControlOptions extends FlowControlProjectionInput {}
+
+export type FlowControlRuntimeOptions = Partial<Pick<
+  FlowControlProjectionInput,
+  'defaultPolicy' | 'policy' | 'skipMode' | 'stopAtChoices'
+>> & {
+  timings?: Partial<FlowControlTimingProjection>
 }
 
 export interface BackgroundIntent extends ViewBackgroundProjection {}
@@ -267,8 +302,13 @@ export interface EngineRuntimeState {
   checkpointHistory: string[]
 }
 
+export interface EngineFlowControlProgressState {
+  readKeys: string[]
+}
+
 export interface EngineState {
   runtime: EngineRuntimeState
+  flowControlProgress: EngineFlowControlProgressState
   view: QuaViewProjection
   checkpoints: Record<string, EngineCheckpoint>
 }
@@ -292,7 +332,7 @@ export type UsePluginOptions<T extends EnginePlugin = EnginePlugin>
   = | PluginConstructorOptions
     | T
 
-export function createInitialEngineState(layout?: ViewLayoutInput): EngineState {
+export function createInitialEngineState(layout?: ViewLayoutInput, flowControl?: FlowControlOptions): EngineState {
   return {
     runtime: {
       currentScene: null,
@@ -302,6 +342,9 @@ export function createInitialEngineState(layout?: ViewLayoutInput): EngineState 
       sceneHistory: [],
       stepHistory: [],
       checkpointHistory: [],
+    },
+    flowControlProgress: {
+      readKeys: [],
     },
     checkpoints: {},
     view: {
@@ -317,6 +360,7 @@ export function createInitialEngineState(layout?: ViewLayoutInput): EngineState 
         visible: true,
         overlays: {},
       },
+      flowControl: createFlowControlProjection(flowControl),
       effects: [],
       animations: [],
       plugins: {},

@@ -37,7 +37,7 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
     scope: BASE_SETTINGS_SCOPE,
     version: 1,
     title: 'System',
-    description: 'Core visual novel playback and interaction preferences.',
+    description: 'Core visual novel flow control and interaction preferences.',
     developer: {
       schema: {
         type: 'object',
@@ -104,8 +104,8 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
         label: 'System',
         order: 0,
         groups: {
-          playback: {
-            label: 'Playback',
+          flowControl: {
+            label: 'Flow Control',
             order: 0,
           },
           interaction: {
@@ -121,7 +121,7 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
           },
           textSpeedCps: {
             control: 'slider',
-            group: 'playback',
+            group: 'flowControl',
             order: 0,
             min: 5,
             max: 120,
@@ -129,7 +129,7 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
           },
           autoAdvanceDelayMs: {
             control: 'slider',
-            group: 'playback',
+            group: 'flowControl',
             order: 1,
             min: 0,
             max: 10000,
@@ -137,7 +137,7 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
           },
           skipMode: {
             control: 'select',
-            group: 'playback',
+            group: 'flowControl',
             order: 2,
             options: [
               { label: 'Read Text', value: 'read' },
@@ -152,5 +152,20 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
         },
       },
     },
+    apply: async ({ engine, player }) => {
+      await engine.setFlowControlOptions({
+        skipMode: player.skipMode === 'all' ? 'all' : 'read',
+        timings: {
+          autoAdvanceDelayMs: normalizeNonNegativeNumber(
+            player.autoAdvanceDelayMs,
+            basePlayerSettingsDefaults.autoAdvanceDelayMs,
+          ),
+        },
+      })
+    },
   }
+}
+
+function normalizeNonNegativeNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback
 }

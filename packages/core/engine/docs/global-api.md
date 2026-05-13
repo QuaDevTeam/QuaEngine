@@ -97,6 +97,44 @@ Gets the ID of the current dialogue step.
 
 **Returns:** Current step ID or undefined if no step is active
 
+## Flow Control
+
+Flow control is engine-owned narrative execution behavior. Renderers may request modes through `@quajs/pipeline`, but skip, fast-forward, and auto-advance decisions are resolved by engine state.
+
+### `setFlowControlMode(mode: 'normal' | 'auto' | 'skip' | 'fast-forward'): Promise<void>`
+
+Sets the active flow mode. `skip`, `fast-forward`, and `auto` synthesize `user/advance` only when the current flow policy allows it.
+
+### `setFlowControlPolicy(policy: FlowControlPolicy): Promise<void>`
+
+Sets per-segment flow policy.
+
+```typescript
+await setFlowControlPolicy({
+  skippable: false,
+  fastForwardable: false,
+})
+```
+
+### `setFlowControlOptions(options: FlowControlRuntimeOptions): Promise<void>`
+
+Sets engine-level flow control options such as `skipMode` and auto-advance timing. `skipMode: 'read'` only skips previously advanced story points; `skipMode: 'all'` skips any skippable segment.
+
+QuaScript supports flow control decorators:
+
+```typescript
+qs`
+@Skippable(false)
+@NoSkip
+@Forwardable(false)
+@NoForward
+Alice: This line cannot be skipped or fast-forwarded.
+
+@ResetFlowControlPolicy
+Alice: Flow control policy resets here.
+`
+```
+
 ## Audio Plugin
 
 Audio playback is no longer an engine-core API. Engine state only carries the plugin projection lane under `view.plugins.audio`, while real Web decoding and playback live in `@quajs/renderer-web/audio` and framework adapters such as `@quajs/renderer-vue/plugins/audio`.

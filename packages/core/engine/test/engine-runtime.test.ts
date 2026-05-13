@@ -6,6 +6,7 @@ import { createViewLayoutProjection, emitRenderToLogic, LogicToRenderEvents, onL
 
 describe('quaEngine runtime architecture', () => {
   afterEach(async () => {
+    vi.useRealTimers()
     QuaEngine.resetInstance()
   })
 
@@ -102,6 +103,137 @@ describe('quaEngine runtime architecture', () => {
     await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_CHOICE_SELECT, { choiceId: 'yes' })
 
     await expect(wait).resolves.toEqual({ choiceId: 'yes' })
+  })
+
+  it('owns flow control state and advances skippable dialogue through pipeline', async () => {
+    vi.useFakeTimers()
+    const engine = createEngine()
+    await engine.init()
+    await engine.setFlowControlOptions({ skipMode: 'all' })
+    await engine.setFlowControlMode('skip')
+
+    let waitReady!: () => void
+    const ready = new Promise<void>((resolve) => {
+      waitReady = resolve
+    })
+    let completed = false
+    const active = engine.dialogue([{
+      uuid: 'flow-skip-line',
+      run: async (ctx) => {
+        await ctx.engine.showDialogue({ text: 'Skip me' })
+        const wait = ctx.engine.waitFor(RenderToLogicEvents.USER_ADVANCE)
+        waitReady()
+        await wait
+        completed = true
+      },
+    }])
+
+    await ready
+    await vi.runOnlyPendingTimersAsync()
+    await active
+
+    expect(completed).toBe(true)
+    expect(engine.getFlowControlState()).toEqual(expect.objectContaining({
+      mode: 'skip',
+      lastAdvance: expect.objectContaining({ source: 'flow-control:skip' }),
+    }))
+  })
+
+  it('respects non-skippable flow control policy until manual advance', async () => {
+    vi.useFakeTimers()
+    const engine = createEngine()
+    await engine.init()
+    await engine.setFlowControlOptions({ skipMode: 'all' })
+    await engine.setFlowControlMode('skip')
+    await engine.setFlowControlPolicy({ skippable: false })
+
+    let waitReady!: () => void
+    const ready = new Promise<void>((resolve) => {
+      waitReady = resolve
+    })
+    let completed = false
+    const active = engine.dialogue([{
+      uuid: 'flow-blocked-line',
+      run: async (ctx) => {
+        await ctx.engine.showDialogue({ text: 'Do not skip' })
+        const wait = ctx.engine.waitFor(RenderToLogicEvents.USER_ADVANCE)
+        waitReady()
+        await wait
+        completed = true
+      },
+    }])
+
+    await ready
+    await vi.runOnlyPendingTimersAsync()
+    expect(completed).toBe(false)
+
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_ADVANCE, { source: 'manual' })
+    await active
+    expect(completed).toBe(true)
+  })
+
+  it('stops read-only skip at unread story points and skips them after manual advance', async () => {
+    vi.useFakeTimers()
+    const engine = createEngine()
+    await engine.init()
+
+    const runLine = () => {
+      let waitReady!: () => void
+      const ready = new Promise<void>((resolve) => {
+        waitReady = resolve
+      })
+      let completed = false
+      const active = engine.dialogue([{
+        uuid: 'read-mode-line',
+        run: async (ctx) => {
+          await ctx.engine.showDialogue({ text: 'Read-gated line' })
+          const wait = ctx.engine.waitFor(RenderToLogicEvents.USER_ADVANCE)
+          waitReady()
+          await wait
+          completed = true
+        },
+      }])
+      return {
+        active,
+        ready,
+        completed: () => completed,
+      }
+    }
+
+    await engine.setFlowControlMode('skip')
+    const first = runLine()
+    await first.ready
+    await vi.runOnlyPendingTimersAsync()
+    expect(first.completed()).toBe(false)
+    expect(engine.getFlowControlState().mode).toBe('normal')
+
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_ADVANCE, { source: 'manual' })
+    await first.active
+    expect(first.completed()).toBe(true)
+
+    await engine.setFlowControlMode('skip')
+    const second = runLine()
+    await second.ready
+    await vi.runOnlyPendingTimersAsync()
+    await second.active
+    expect(second.completed()).toBe(true)
+    expect(engine.getFlowControlState().lastAdvance).toEqual(expect.objectContaining({
+      source: 'flow-control:skip',
+    }))
+  })
+
+  it('handles renderer flow control intents and stops flow modes at choices', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.FLOW_CONTROL_START_FAST_FORWARD_REQUEST, {})
+    expect(engine.getFlowControlState().mode).toBe('fast-forward')
+
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.FLOW_CONTROL_START_SKIP_REQUEST, {})
+    expect(engine.getFlowControlState().mode).toBe('skip')
+
+    await engine.showChoices([{ id: 'go', text: 'Go' }])
+    expect(engine.getFlowControlState().mode).toBe('normal')
   })
 
   it('creates checkpoints, restores story points through jump, and cancels pending waits', async () => {

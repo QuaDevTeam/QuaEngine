@@ -1,10 +1,14 @@
+import type { EventListener } from '@quajs/pipeline'
 import type { QuaStore } from '@quajs/store'
 import type {
   ActiveAnimationProjection,
   EventPayload,
+  FlowControlMode,
+  FlowControlPolicy,
   LogicToRenderEvents,
   QuaViewProjection,
   RenderToLogicEvents,
+  ViewFlowControlProjection,
 } from '../events/events'
 import type { SceneTransitionOptions } from '../managers/scene-manager'
 import type {
@@ -22,6 +26,8 @@ import type {
   EffectIntent,
   EngineCheckpoint,
   EngineConfig,
+  EngineFlowControlProgressState,
+  FlowControlRuntimeOptions,
   GameStep,
   GameStepFactory,
   GameStepScope,
@@ -43,9 +49,12 @@ import { getPackageLogger } from '@quajs/logger'
 import { Pipeline } from '@quajs/pipeline'
 import { createStore } from '@quajs/store'
 import {
+  createFlowControlProjection,
   createViewLayoutProjection,
   emitLogicToRender,
+  emitRenderToLogic,
   LogicToRenderEvents as L2R,
+  RenderToLogicEvents as R2L,
   waitForPipelineEvent,
 } from '../events/events'
 import { GameManager } from '../managers/game-manager'
@@ -56,6 +65,17 @@ import { createInitialEngineState } from './types'
 
 const logger = getPackageLogger('engine')
 
+interface FlowControlAdvancePlan {
+  delayMs: number
+  mode: Exclude<FlowControlMode, 'normal'>
+  source: string
+}
+
+type FlowControlProjectionPatch = FlowControlRuntimeOptions & {
+  mode?: FlowControlMode
+  lastAdvance?: ViewFlowControlProjection['lastAdvance']
+}
+
 export class QuaEngine {
   private static instance: QuaEngine | null = null
   private readonly store: QuaStore
@@ -63,7 +83,9 @@ export class QuaEngine {
   private readonly pipeline: Pipeline
   private readonly plugins: Map<string, EnginePlugin> = new Map()
   private readonly pluginContext: PluginContextImpl = new PluginContextImpl()
+  private readonly flowControlDisposers: Array<() => void> = []
   private currentStepAbortController?: AbortController
+  private flowControlAdvanceTimer?: ReturnType<typeof setTimeout>
   private checkpointCounter = 0
   private navigationVersion = 0
   private isInitialized = false
@@ -83,7 +105,7 @@ export class QuaEngine {
     this.store = createStore({
       name: 'quaengine-main',
       state: {
-        engine: createInitialEngineState(config.layout),
+        engine: createInitialEngineState(config.layout, config.flowControl),
       },
       mutations: createEngineMutations(),
       storage: config.store?.storage,
@@ -94,6 +116,7 @@ export class QuaEngine {
     this.gameManager = new GameManager(this)
 
     this.setupAssetForwarding()
+    this.setupFlowControlIntents()
     logger.info('QuaEngine initialized')
   }
 
@@ -259,10 +282,12 @@ export class QuaEngine {
       text: payload.text,
     })
     await this.emitViewUpdate()
+    this.scheduleFlowControlAdvance()
   }
 
   async hideDialogue(): Promise<void> {
     this.assertInitialized()
+    this.clearFlowControlAdvance()
     this.store.commit('hideDialogue')
     await emitLogicToRender(this.pipeline, L2R.DIALOGUE_HIDE, {})
     await this.emitViewUpdate()
@@ -276,6 +301,15 @@ export class QuaEngine {
     }))
     this.store.commit('setChoices', normalized)
     await emitLogicToRender(this.pipeline, L2R.DIALOGUE_CHOICE, { choices: normalized })
+    this.clearFlowControlAdvance()
+    const flowControl = this.getEngineState().view.flowControl
+    if (normalized.length > 0 && flowControl.stopAtChoices && flowControl.mode !== 'normal') {
+      this.store.commit('setFlowControl', createFlowControlProjection({
+        ...flowControl,
+        revision: flowControl.revision + 1,
+        mode: 'normal',
+      }))
+    }
     await this.emitViewUpdate()
   }
 
@@ -283,6 +317,7 @@ export class QuaEngine {
     this.assertInitialized()
     this.store.commit('setChoices', [])
     await this.emitViewUpdate()
+    this.scheduleFlowControlAdvance()
   }
 
   async showCharacter(payload: CharacterIntent): Promise<void> {
@@ -427,6 +462,74 @@ export class QuaEngine {
     return cloneViewProjection(this.getEngineState().view)
   }
 
+  getFlowControlState(): ViewFlowControlProjection {
+    return cloneFlowControlProjection(this.getEngineState().view.flowControl)
+  }
+
+  async setFlowControlOptions(options: FlowControlRuntimeOptions): Promise<void> {
+    this.assertNotDestroyed()
+    this.updateFlowControl(options)
+    if (this.isInitialized) {
+      await this.emitViewUpdate()
+      this.scheduleFlowControlAdvance()
+    }
+  }
+
+  async setFlowControlMode(mode: FlowControlMode): Promise<void> {
+    this.assertInitialized()
+    this.updateFlowControl({ mode })
+    await this.emitViewUpdate()
+    this.scheduleFlowControlAdvance()
+  }
+
+  async setFlowControlPolicy(policy: FlowControlPolicy): Promise<void> {
+    this.assertInitialized()
+    this.updateFlowControl({ policy })
+    await this.emitViewUpdate()
+    this.scheduleFlowControlAdvance()
+  }
+
+  async resetFlowControlPolicy(): Promise<void> {
+    this.assertInitialized()
+    const current = this.getEngineState().view.flowControl
+    this.updateFlowControl({ policy: current.defaultPolicy }, { replacePolicy: true })
+    await this.emitViewUpdate()
+    this.scheduleFlowControlAdvance()
+  }
+
+  async startAuto(): Promise<void> {
+    await this.setFlowControlMode('auto')
+  }
+
+  async stopAuto(): Promise<void> {
+    this.assertInitialized()
+    if (this.getEngineState().view.flowControl.mode === 'auto') {
+      await this.setFlowControlMode('normal')
+    }
+  }
+
+  async startSkip(): Promise<void> {
+    await this.setFlowControlMode('skip')
+  }
+
+  async stopSkip(): Promise<void> {
+    this.assertInitialized()
+    if (this.getEngineState().view.flowControl.mode === 'skip') {
+      await this.setFlowControlMode('normal')
+    }
+  }
+
+  async startFastForward(): Promise<void> {
+    await this.setFlowControlMode('fast-forward')
+  }
+
+  async stopFastForward(): Promise<void> {
+    this.assertInitialized()
+    if (this.getEngineState().view.flowControl.mode === 'fast-forward') {
+      await this.setFlowControlMode('normal')
+    }
+  }
+
   async setLayoutProjection(layout: ViewLayoutInput): Promise<void> {
     this.assertInitialized()
     this.store.commit('setLayout', createViewLayoutProjection(layout))
@@ -510,6 +613,7 @@ export class QuaEngine {
 
     this.currentStepAbortController?.abort()
     this.navigationVersion++
+    const preservedReadKeys = this.getFlowControlReadKeys()
     await this.notifyPlugins('onBeforeJump', this.createEngineContext(point.stepId, { point, checkpoint, jump }))
 
     if (jump.options.mode === 'restore' && checkpoint) {
@@ -538,6 +642,7 @@ export class QuaEngine {
       this.store.commit('upsertCheckpoint', checkpoint)
       this.store.commit('setCurrentCheckpoint', checkpoint.id)
     }
+    this.store.commit('mergeFlowControlReadKeys', preservedReadKeys)
 
     await emitLogicToRender(this.pipeline, L2R.SCENE_INIT, {
       sceneId: point.sceneId || this.getRuntimeState().currentScene || 'unknown',
@@ -574,6 +679,7 @@ export class QuaEngine {
 
     this.currentStepAbortController?.abort()
     this.navigationVersion++
+    const preservedReadKeys = this.getFlowControlReadKeys()
     if (beforeJump) {
       await this.notifyPlugins('onBeforeJump', this.createEngineContext(beforeJump.point.stepId, {
         point: beforeJump.point,
@@ -583,6 +689,7 @@ export class QuaEngine {
     }
 
     await this.store.loadFromSlot(slotId, options)
+    this.store.commit('mergeFlowControlReadKeys', preservedReadKeys)
     const point = this.getStoryPoint() || slotPoint
     if (point && !this.getStoryPoint()) {
       this.store.commit('setStoryPoint', point)
@@ -635,6 +742,10 @@ export class QuaEngine {
       return
 
     this.currentStepAbortController?.abort()
+    this.clearFlowControlAdvance()
+    while (this.flowControlDisposers.length > 0) {
+      this.flowControlDisposers.pop()?.()
+    }
     await this.sceneManager.destroy()
     for (const plugin of this.plugins.values()) {
       await plugin.destroy?.()
@@ -651,6 +762,10 @@ export class QuaEngine {
     if (!this.isInitialized) {
       throw new Error('Engine not initialized. Call init() first.')
     }
+    this.assertNotDestroyed()
+  }
+
+  private assertNotDestroyed(): void {
     if (this.isDestroyed) {
       throw new Error('Engine has been destroyed')
     }
@@ -703,12 +818,143 @@ export class QuaEngine {
     })
   }
 
+  private setupFlowControlIntents(): void {
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.FLOW_CONTROL_SET_MODE_REQUEST, async (payload) => {
+      const mode = isFlowControlMode((payload as { mode?: unknown }).mode)
+        ? (payload as { mode: FlowControlMode }).mode
+        : 'normal'
+      await this.setFlowControlMode(mode)
+    }))
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.FLOW_CONTROL_START_AUTO_REQUEST, () => this.startAuto()))
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.FLOW_CONTROL_STOP_AUTO_REQUEST, () => this.stopAuto()))
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.FLOW_CONTROL_START_SKIP_REQUEST, () => this.startSkip()))
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.FLOW_CONTROL_STOP_SKIP_REQUEST, () => this.stopSkip()))
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.FLOW_CONTROL_START_FAST_FORWARD_REQUEST, () => this.startFastForward()))
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.FLOW_CONTROL_STOP_FAST_FORWARD_REQUEST, () => this.stopFastForward()))
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.USER_ADVANCE, () => {
+      this.clearFlowControlAdvance()
+      this.markCurrentStoryPointRead()
+    }))
+  }
+
+  private onRenderIntent<T extends RenderToLogicEvents>(
+    event: T,
+    handler: (payload: EventPayload<T>) => void | Promise<void>,
+  ): () => void {
+    const listener: EventListener<EventPayload<T>> = async (context) => {
+      await handler(context.event.payload)
+    }
+    this.pipeline.on(event, listener as EventListener)
+    return () => this.pipeline.off(event, listener as EventListener)
+  }
+
+  private scheduleFlowControlAdvance(): void {
+    this.clearFlowControlAdvance()
+    const view = this.getEngineState().view
+    if (!view.dialogue.visible || view.choices.length > 0) {
+      return
+    }
+
+    if (
+      view.flowControl.mode === 'skip'
+      && view.flowControl.skipMode === 'read'
+      && !this.isCurrentStoryPointRead()
+    ) {
+      this.updateFlowControl({ mode: 'normal' })
+      this.emitViewUpdate().catch((error) => {
+        logger.warn('Failed to stop read-only skip mode:', error)
+      })
+      return
+    }
+
+    const plan = resolveFlowControlAdvancePlan(view.flowControl)
+    if (!plan) {
+      return
+    }
+
+    this.flowControlAdvanceTimer = setTimeout(() => {
+      this.flowControlAdvanceTimer = undefined
+      this.emitFlowControlAdvance(plan).catch((error) => {
+        logger.warn('Failed to advance flow control:', error)
+      })
+    }, plan.delayMs)
+  }
+
+  private clearFlowControlAdvance(): void {
+    if (this.flowControlAdvanceTimer === undefined) {
+      return
+    }
+    clearTimeout(this.flowControlAdvanceTimer)
+    this.flowControlAdvanceTimer = undefined
+  }
+
+  private async emitFlowControlAdvance(plan: FlowControlAdvancePlan): Promise<void> {
+    this.updateFlowControl({
+      lastAdvance: {
+        mode: plan.mode,
+        source: plan.source,
+        timestamp: Date.now(),
+      },
+    })
+    await this.emitViewUpdate()
+    await emitRenderToLogic(this.pipeline, R2L.USER_ADVANCE, { source: plan.source })
+  }
+
+  private updateFlowControl(
+    patch: FlowControlProjectionPatch,
+    options: { replacePolicy?: boolean, replaceDefaultPolicy?: boolean } = {},
+  ): void {
+    const current = this.getEngineState().view.flowControl
+    const policy = patch.policy
+      ? options.replacePolicy
+        ? patch.policy
+        : { ...current.policy, ...patch.policy }
+      : current.policy
+    const defaultPolicy = patch.defaultPolicy
+      ? options.replaceDefaultPolicy
+        ? patch.defaultPolicy
+        : { ...current.defaultPolicy, ...patch.defaultPolicy }
+      : current.defaultPolicy
+
+    this.store.commit('setFlowControl', createFlowControlProjection({
+      ...current,
+      revision: current.revision + 1,
+      mode: patch.mode ?? current.mode,
+      skipMode: patch.skipMode ?? current.skipMode,
+      policy,
+      defaultPolicy,
+      timings: patch.timings ? { ...current.timings, ...patch.timings } : current.timings,
+      stopAtChoices: patch.stopAtChoices ?? current.stopAtChoices,
+      lastAdvance: patch.lastAdvance ?? current.lastAdvance,
+    }))
+  }
+
+  private markCurrentStoryPointRead(): void {
+    if (!this.getEngineState().view.dialogue.visible) {
+      return
+    }
+    const key = createStoryPointReadKey(this.getStoryPoint())
+    if (!key) {
+      return
+    }
+    this.store.commit('markFlowControlReadKey', key)
+  }
+
+  private isCurrentStoryPointRead(): boolean {
+    const key = createStoryPointReadKey(this.getStoryPoint())
+    return Boolean(key && this.getEngineState().flowControlProgress.readKeys.includes(key))
+  }
+
   private async emitViewUpdate(): Promise<void> {
     await emitLogicToRender(this.pipeline, L2R.VIEW_UPDATE, { view: this.getViewState() })
   }
 
   private getRuntimeState() {
     return this.getEngineState().runtime
+  }
+
+  private getFlowControlReadKeys(): string[] {
+    return [...(this.getEngineState().flowControlProgress.readKeys || [])]
   }
 
   private getEngineState() {
@@ -829,6 +1075,26 @@ function createEngineMutations() {
     },
     setLayout(state: any, layout: ViewLayoutInput) {
       state.engine.view.layout = createViewLayoutProjection(layout)
+    },
+    setFlowControl(state: any, flowControl: ViewFlowControlProjection) {
+      state.engine.view.flowControl = cloneFlowControlProjection(flowControl)
+    },
+    markFlowControlReadKey(state: any, key: string) {
+      const current = state.engine.flowControlProgress?.readKeys || []
+      if (current.includes(key)) {
+        return
+      }
+      state.engine.flowControlProgress = {
+        readKeys: [...current, key],
+      } satisfies EngineFlowControlProgressState
+    },
+    mergeFlowControlReadKeys(state: any, keys: string[]) {
+      state.engine.flowControlProgress = {
+        readKeys: Array.from(new Set([
+          ...(state.engine.flowControlProgress?.readKeys || []),
+          ...keys,
+        ])),
+      } satisfies EngineFlowControlProgressState
     },
     setPluginProjection(state: any, payload: { pluginId: string, projection?: unknown }) {
       const plugins = {
@@ -955,6 +1221,41 @@ function createEngineMutations() {
   }
 }
 
+function resolveFlowControlAdvancePlan(flowControl: ViewFlowControlProjection): FlowControlAdvancePlan | undefined {
+  switch (flowControl.mode) {
+    case 'auto':
+      return flowControl.policy.autoAdvanceable
+        ? {
+            delayMs: flowControl.timings.autoAdvanceDelayMs,
+            mode: 'auto',
+            source: 'flow-control:auto',
+          }
+        : undefined
+    case 'skip':
+      return flowControl.policy.skippable
+        ? {
+            delayMs: flowControl.timings.skipAdvanceDelayMs,
+            mode: 'skip',
+            source: 'flow-control:skip',
+          }
+        : undefined
+    case 'fast-forward':
+      return flowControl.policy.fastForwardable
+        ? {
+            delayMs: flowControl.timings.fastForwardAdvanceDelayMs,
+            mode: 'fast-forward',
+            source: 'flow-control:fast-forward',
+          }
+        : undefined
+    case 'normal':
+      return undefined
+  }
+}
+
+function isFlowControlMode(value: unknown): value is FlowControlMode {
+  return value === 'normal' || value === 'auto' || value === 'skip' || value === 'fast-forward'
+}
+
 function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
   return {
     layout: createViewLayoutProjection(view.layout),
@@ -991,6 +1292,7 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
       ...view.ui,
       overlays: view.ui.overlays ? cloneUnknownRecord(view.ui.overlays) : undefined,
     },
+    flowControl: cloneFlowControlProjection(view.flowControl),
     effects: view.effects.map(effect => ({
       ...effect,
       options: effect.options ? cloneUnknownRecord(effect.options) : undefined,
@@ -1007,6 +1309,16 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
   }
 }
 
+function cloneFlowControlProjection(flowControl: ViewFlowControlProjection): ViewFlowControlProjection {
+  return createFlowControlProjection({
+    ...flowControl,
+    policy: flowControl.policy,
+    defaultPolicy: flowControl.defaultPolicy,
+    timings: flowControl.timings,
+    lastAdvance: flowControl.lastAdvance ? { ...flowControl.lastAdvance } : undefined,
+  })
+}
+
 function cloneCheckpoint(checkpoint: EngineCheckpoint): EngineCheckpoint {
   return {
     ...checkpoint,
@@ -1017,6 +1329,26 @@ function cloneCheckpoint(checkpoint: EngineCheckpoint): EngineCheckpoint {
 
 function cloneStoryPoint(point: StoryPoint): StoryPoint {
   return { ...point }
+}
+
+function createStoryPointReadKey(point: StoryPoint | undefined): string | undefined {
+  if (!point?.stepId) {
+    return undefined
+  }
+
+  const fields: Array<keyof StoryPoint> = [
+    'storyId',
+    'chapterId',
+    'sceneId',
+    'routeId',
+    'timelineId',
+    'nodeId',
+    'stepId',
+    'lineId',
+  ]
+  return fields
+    .map(field => `${field}:${String(point[field] ?? '')}`)
+    .join('|')
 }
 
 function storyPointMatches(point: StoryPoint, partial: StoryPoint): boolean {

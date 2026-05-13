@@ -1,4 +1,4 @@
-import type { ChoiceIntent, CreateCheckpointOptions, DialogueIntent, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, Scene, SlotMetadata, StoryPoint, ViewLayoutInput } from '../core/types'
+import type { ChoiceIntent, CreateCheckpointOptions, DialogueIntent, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, Scene, SlotMetadata, StoryPoint, ViewLayoutInput } from '../core/types'
 import type { SceneTransitionOptions } from '../managers/scene-manager'
 import { QuaEngine } from '../core/engine'
 
@@ -141,6 +141,50 @@ export function getPipeline() {
 
 export function getViewState() {
   return getEngine().getViewState()
+}
+
+export function getFlowControlState() {
+  return getEngine().getFlowControlState()
+}
+
+export async function setFlowControlOptions(options: FlowControlRuntimeOptions): Promise<void> {
+  return getEngine().setFlowControlOptions(options)
+}
+
+export async function setFlowControlMode(mode: FlowControlMode): Promise<void> {
+  return getEngine().setFlowControlMode(mode)
+}
+
+export async function setFlowControlPolicy(policy: FlowControlPolicy): Promise<void> {
+  return getEngine().setFlowControlPolicy(policy)
+}
+
+export async function resetFlowControlPolicy(): Promise<void> {
+  return getEngine().resetFlowControlPolicy()
+}
+
+export async function startAuto(): Promise<void> {
+  return getEngine().startAuto()
+}
+
+export async function stopAuto(): Promise<void> {
+  return getEngine().stopAuto()
+}
+
+export async function startSkip(): Promise<void> {
+  return getEngine().startSkip()
+}
+
+export async function stopSkip(): Promise<void> {
+  return getEngine().stopSkip()
+}
+
+export async function startFastForward(): Promise<void> {
+  return getEngine().startFastForward()
+}
+
+export async function stopFastForward(): Promise<void> {
+  return getEngine().stopFastForward()
 }
 
 export async function setLayoutProjection(layout: ViewLayoutInput): Promise<void> {
