@@ -87,6 +87,8 @@ export {
   onLogicToRender,
   onRenderToLogic,
   RenderToLogicEvents,
+  isRichTextDocument,
+  richTextToPlainText,
   waitForPipelineEvent,
 } from './events/events'
 export type {
@@ -114,6 +116,11 @@ export type {
   FlowControlSetModePayload,
   FlowControlSkipMode,
   FlowControlTimingProjection,
+  RichTextBlockProjection,
+  RichTextContent,
+  RichTextDocumentProjection,
+  RichTextSpanProjection,
+  RichTextStyleProjection,
   ResolvedAnimationTrackProjection,
   ResolvedFlowControlPolicy,
   SceneChangePayload,

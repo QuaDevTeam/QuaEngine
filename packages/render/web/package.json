@@ -56,6 +56,10 @@
       "types": "./dist/plugins/effects.d.ts",
       "import": "./dist/plugins/effects.js"
     },
+    "./plugins/fonts": {
+      "types": "./dist/plugins/fonts.d.ts",
+      "import": "./dist/plugins/fonts.js"
+    },
     "./plugins/preset": {
       "types": "./dist/plugins/preset.d.ts",
       "import": "./dist/plugins/preset.js"
@@ -101,6 +105,7 @@
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
+    "@quajs/plugin-fonts": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*"
   },
@@ -109,6 +114,9 @@
       "optional": true
     },
     "@quajs/plugin-backlog": {
+      "optional": true
+    },
+    "@quajs/plugin-fonts": {
       "optional": true
     },
     "@quajs/plugin-sprite": {
@@ -121,6 +129,7 @@
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
+    "@quajs/plugin-fonts": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*"
   }

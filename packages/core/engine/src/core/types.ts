@@ -8,6 +8,7 @@ import type {
   FlowControlProjectionInput,
   FlowControlTimingProjection,
   QuaViewProjection,
+  RichTextContent,
   ViewBackgroundProjection,
   ViewEffectProjection,
   ViewFlowControlProjection,
@@ -263,7 +264,7 @@ export interface EffectIntent extends ViewEffectProjection {}
 export interface DialogueIntent {
   characterId?: string
   characterName?: string
-  text: string
+  text: RichTextContent
   mode?: 'say' | 'narration'
 }
 

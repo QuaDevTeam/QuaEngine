@@ -79,6 +79,13 @@ const ASSET_PATTERNS = {
       intro: ['intro', 'opening', 'title', 'credits'],
     },
   },
+  fonts: {
+    extensions: ['.woff2', '.woff', '.ttf', '.otf', '.ttc'],
+    subTypes: {
+      typefaces: ['typeface', 'typefaces', 'font', 'fonts'],
+      fontFamilies: ['family', 'families', 'font-family', 'font-families'],
+    },
+  },
   scripts: {
     extensions: ['.js', '.mjs'],
     subTypes: {
@@ -219,6 +226,9 @@ export class AssetDetector {
     }
     if (pathLower.includes('/video/') || pathLower.startsWith('video/')) {
       return 'video'
+    }
+    if (pathLower.includes('/fonts/') || pathLower.startsWith('fonts/')) {
+      return 'fonts'
     }
     if (pathLower.includes('/scripts/') || pathLower.startsWith('scripts/')) {
       return 'scripts'
@@ -405,6 +415,7 @@ export class AssetDetector {
       characters: {},
       audio: {},
       video: {},
+      fonts: {},
       scripts: {},
       data: {},
     }

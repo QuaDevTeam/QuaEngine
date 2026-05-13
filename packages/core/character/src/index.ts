@@ -1,4 +1,5 @@
 import type { CharacterIntent, QuaEngineInterface } from '@quajs/engine'
+import type { RichTextContent } from '@quajs/render-core'
 import { RenderToLogicEvents } from '@quajs/render-core'
 
 export type CharacterRef = string | QuaCharacter
@@ -68,7 +69,7 @@ export class QuaCharacter {
     return { ...this.defaults }
   }
 
-  async speak(text: string, options: CharacterSpeakOptions = {}): Promise<void> {
+  async speak(text: RichTextContent, options: CharacterSpeakOptions = {}): Promise<void> {
     const engine = getEngine()
     await engine.showDialogue({
       characterId: this.id,
@@ -130,14 +131,14 @@ export class QuaCharacter {
   }
 }
 
-export async function speak(character: CharacterRef, text: string, options?: CharacterSpeakOptions): Promise<void> {
+export async function speak(character: CharacterRef, text: RichTextContent, options?: CharacterSpeakOptions): Promise<void> {
   await resolveCharacter(character).speak(text, options)
 }
 
 export async function speakWithEngine(
   engine: QuaEngineInterface,
   character: CharacterRef,
-  text: string,
+  text: RichTextContent,
   options?: CharacterSpeakOptions,
 ): Promise<void> {
   await withEngine(engine, () => speak(character, text, options))

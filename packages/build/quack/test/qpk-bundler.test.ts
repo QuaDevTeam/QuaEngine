@@ -360,6 +360,7 @@ function createQpkManifest(overrides: Partial<BundleManifest> = {}): BundleManif
       characters: {},
       audio: {},
       video: {},
+      fonts: {},
       scripts: {},
       data: {},
     },

@@ -104,6 +104,7 @@ export class MetadataGenerator {
       characters: {},
       audio: {},
       video: {},
+      fonts: {},
       scripts: {},
       data: {},
     }
@@ -196,7 +197,7 @@ export class MetadataGenerator {
 
       // Validate assets structure
       for (const [type, assets] of Object.entries(manifest.assets)) {
-        if (!['images', 'characters', 'audio', 'video', 'scripts', 'data'].includes(type)) {
+        if (!['images', 'characters', 'audio', 'video', 'fonts', 'scripts', 'data'].includes(type)) {
           logger.error(`Invalid asset type: ${type}`)
           return false
         }
@@ -422,6 +423,7 @@ export class MetadataGenerator {
           characters: { count: 0, size: 0 },
           audio: { count: 0, size: 0 },
           video: { count: 0, size: 0 },
+          fonts: { count: 0, size: 0 },
           scripts: { count: 0, size: 0 },
           data: { count: 0, size: 0 },
         },
@@ -441,6 +443,7 @@ export class MetadataGenerator {
       characters: { count: 0, size: 0 },
       audio: { count: 0, size: 0 },
       video: { count: 0, size: 0 },
+      fonts: { count: 0, size: 0 },
       scripts: { count: 0, size: 0 },
       data: { count: 0, size: 0 },
     }

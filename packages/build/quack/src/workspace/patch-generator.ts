@@ -173,6 +173,9 @@ export class PatchGenerator {
     if (lowerPath.includes('/video/') || lowerPath.startsWith('video/')) {
       return 'video'
     }
+    if (lowerPath.includes('/fonts/') || lowerPath.startsWith('fonts/')) {
+      return 'fonts'
+    }
     if (lowerPath.includes('/scripts/') || lowerPath.startsWith('scripts/')) {
       return 'scripts'
     }
@@ -187,6 +190,9 @@ export class PatchGenerator {
     }
     if (['mp4', 'webm', 'avi', 'mov'].includes(ext || '')) {
       return 'video'
+    }
+    if (['woff2', 'woff', 'ttf', 'otf', 'ttc'].includes(ext || '')) {
+      return 'fonts'
     }
     if (['js', 'mjs', 'json'].includes(ext || '')) {
       return 'scripts'

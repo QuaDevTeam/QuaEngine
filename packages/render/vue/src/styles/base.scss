@@ -146,6 +146,15 @@
 
 .qua-dialogue-text {
   margin: 0;
+  white-space: pre-wrap;
+}
+
+.qua-rich-text-block {
+  display: block;
+}
+
+.qua-rich-text-span {
+  display: inline-block;
 }
 
 .qua-choice-button {

@@ -6,6 +6,9 @@ import type {
   AnimationFillMode,
   AnimationInterpolation,
   AnimationTime,
+  RichTextBlockProjection,
+  RichTextDocumentProjection,
+  RichTextSpanProjection,
   ResolvedAnimationTrackProjection,
   ViewBackgroundLayerProjection,
   ViewBackgroundProjection,
@@ -13,6 +16,7 @@ import type {
   ViewEffectProjection,
 } from '@quajs/render-core'
 import { BaseEnginePlugin } from '@quajs/engine'
+import { isRichTextDocument } from '@quajs/render-core'
 import { animationDecoratorMappings } from './script-compiler'
 
 export type AnimationTargetBindings = Readonly<Record<string, string>> | readonly string[]
@@ -917,6 +921,72 @@ function registerBuiltInAdapters(): void {
     },
   })
 
+  registerAnimationTargetAdapter('richText', {
+    kind: 'richText',
+    exists: (engine, selector) => Boolean(getRichTextDocument(engine, parseRichTextSelector(selector).prefix)),
+    commit: async (engine, selector, property, value) => {
+      const { prefix } = parseRichTextSelector(selector)
+      const current = getRichTextDocument(engine, prefix)
+      if (!current)
+        return false
+
+      const next = cloneRichTextDocument(current)
+      setPath(next as unknown as Record<string, unknown>, property, value)
+      await commitRichTextDocument(engine, prefix, next)
+      return true
+    },
+  })
+
+  registerAnimationTargetAdapter('richTextBlock', {
+    kind: 'richTextBlock',
+    exists: (engine, selector) => {
+      const { prefix, itemId } = parseRichTextSelector(selector)
+      const current = getRichTextDocument(engine, prefix)
+      return Boolean(current && itemId && findRichTextBlock(current, itemId))
+    },
+    commit: async (engine, selector, property, value) => {
+      const { prefix, itemId } = parseRichTextSelector(selector)
+      const current = getRichTextDocument(engine, prefix)
+      if (!current || !itemId)
+        return false
+
+      const next = cloneRichTextDocument(current)
+      const block = findRichTextBlock(next, itemId)
+      if (!block)
+        return false
+
+      setPath(block as unknown as Record<string, unknown>, property, value)
+      await commitRichTextDocument(engine, prefix, next)
+      return true
+    },
+  })
+
+  registerAnimationTargetAdapter('richTextSpan', {
+    kind: 'richTextSpan',
+    exists: (engine, selector) => {
+      const { prefix, itemId } = parseRichTextSelector(selector)
+      const current = getRichTextDocument(engine, prefix)
+      return Boolean(current && itemId && findRichTextSpans(current, itemId).length > 0)
+    },
+    commit: async (engine, selector, property, value) => {
+      const { prefix, itemId } = parseRichTextSelector(selector)
+      const current = getRichTextDocument(engine, prefix)
+      if (!current || !itemId)
+        return false
+
+      const next = cloneRichTextDocument(current)
+      const spans = findRichTextSpans(next, itemId)
+      if (spans.length === 0)
+        return false
+
+      for (const span of spans) {
+        setPath(span as unknown as Record<string, unknown>, property, value)
+      }
+      await commitRichTextDocument(engine, prefix, next)
+      return true
+    },
+  })
+
   registerAnimationTargetAdapter('choices', {
     kind: 'choices',
     exists: engine => engine.getViewState().choices.length > 0,
@@ -1068,6 +1138,95 @@ function cloneEffect(effect: Readonly<ViewEffectProjection>): ViewEffectProjecti
   }
 }
 
+function getRichTextDocument(
+  engine: QuaEngineInterface,
+  prefix: string | undefined,
+): Readonly<RichTextDocumentProjection> | undefined {
+  if (prefix !== 'dialogue')
+    return undefined
+
+  const dialogue = engine.getViewState().dialogue
+  return dialogue.visible && isRichTextDocument(dialogue.text)
+    ? dialogue.text
+    : undefined
+}
+
+async function commitRichTextDocument(
+  engine: QuaEngineInterface,
+  prefix: string | undefined,
+  document: RichTextDocumentProjection,
+): Promise<boolean> {
+  if (prefix !== 'dialogue')
+    return false
+
+  const dialogue = engine.getViewState().dialogue
+  if (!dialogue.visible)
+    return false
+
+  await engine.showDialogue({
+    ...dialogue,
+    text: document,
+  } as any)
+  return true
+}
+
+function parseRichTextSelector(selector: string): { prefix?: string, itemId?: string } {
+  const parts = selector.split(':')
+  return {
+    prefix: parts[1],
+    itemId: parts.length > 2 ? parts.slice(2).join(':') : undefined,
+  }
+}
+
+function findRichTextBlock(
+  document: Readonly<RichTextDocumentProjection>,
+  itemId: string,
+): RichTextBlockProjection | undefined {
+  return document.blocks.find((block, index) => richTextItemMatches(block.id, index, itemId)) as RichTextBlockProjection | undefined
+}
+
+function findRichTextSpans(
+  document: Readonly<RichTextDocumentProjection>,
+  itemId: string,
+): RichTextSpanProjection[] {
+  const spans: RichTextSpanProjection[] = []
+  for (const block of document.blocks) {
+    block.spans.forEach((span, index) => {
+      if (richTextItemMatches(span.id, index, itemId)) {
+        spans.push(span as RichTextSpanProjection)
+      }
+    })
+  }
+  return spans
+}
+
+function richTextItemMatches(id: string | undefined, index: number, itemId: string): boolean {
+  return id === itemId || (!id && String(index) === itemId)
+}
+
+function cloneRichTextDocument(document: Readonly<RichTextDocumentProjection>): RichTextDocumentProjection {
+  return {
+    ...document,
+    metadata: document.metadata ? cloneUnknownRecord(document.metadata) : undefined,
+    blocks: document.blocks.map(block => cloneRichTextBlock(block)),
+  }
+}
+
+function cloneRichTextBlock(block: Readonly<RichTextBlockProjection>): RichTextBlockProjection {
+  return {
+    ...block,
+    metadata: block.metadata ? cloneUnknownRecord(block.metadata) : undefined,
+    spans: block.spans.map(span => cloneRichTextSpan(span)),
+  }
+}
+
+function cloneRichTextSpan(span: Readonly<RichTextSpanProjection>): RichTextSpanProjection {
+  return {
+    ...span,
+    metadata: span.metadata ? cloneUnknownRecord(span.metadata) : undefined,
+  }
+}
+
 function cloneUnknownRecord<T extends Readonly<Record<string, unknown>>>(value: T): Record<string, unknown> {
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cloneUnknownValue(item)]))
 }
@@ -1101,6 +1260,7 @@ function setPath(target: Record<string, unknown>, property: string, value: unkno
 function isDialogueStateProperty(property: string): boolean {
   return property === 'visible'
     || property === 'text'
+    || property.startsWith('text.')
     || property === 'characterId'
     || property === 'characterName'
     || property === 'mode'

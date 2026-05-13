@@ -30,7 +30,7 @@ export class XORDecryptionPlugin implements DecryptionPlugin {
 export class CacheWarmingPlugin implements AssetProcessingPlugin {
   name = 'cache-warming'
   version = '1.0.0'
-  supportedTypes: AssetType[] = ['images', 'characters', 'audio', 'video', 'scripts', 'data']
+  supportedTypes: AssetType[] = ['images', 'characters', 'audio', 'video', 'fonts', 'scripts', 'data']
 
   private warmCache = new Map<string, Uint8Array>()
   private currentCacheSize = 0

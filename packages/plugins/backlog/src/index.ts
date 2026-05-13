@@ -13,7 +13,7 @@ import type {
   BacklogRetentionScope,
   BacklogVoiceReference,
 } from './contracts'
-import { BaseEnginePlugin, LogicToRenderEvents } from '@quajs/engine'
+import { BaseEnginePlugin, LogicToRenderEvents, richTextToPlainText } from '@quajs/engine'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from './contracts'
 import { backlogDecoratorMappings } from './script-compiler'
 
@@ -127,7 +127,7 @@ export class BacklogPlugin extends BaseEnginePlugin {
     const entry = createBacklogEntry(engine, checkpoint, {
       kind: 'dialogue',
       speaker: view.dialogue.characterName || view.dialogue.characterId,
-      text: view.dialogue.text,
+      text: richTextToPlainText(view.dialogue.text),
       voice: findCurrentVoice(engine),
     })
     await appendBacklogEntry(engine, entry, this.getOptions(), checkpoint, isAudioPluginInstalled(ctx))

@@ -76,6 +76,7 @@ export {
   projectChoices,
   projectDialogue,
   projectEffect,
+  projectRichText,
   projectStageMotion,
   projectUiOverlay,
   stageMotionVars,
