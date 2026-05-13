@@ -61,6 +61,7 @@ export interface ViewLayoutProjection {
   orientation: ViewLayoutOrientation
   width: number
   height: number
+  /** Preferred/reference aspect ratio. Renderers resolve the active ratio from the container and clamp it into the min/max interval. */
   aspectRatio: number
   minAspectRatio: number
   maxAspectRatio: number
@@ -86,10 +87,10 @@ export const QUA_LANDSCAPE_LAYOUT: ViewLayoutProjection = {
 export const QUA_PORTRAIT_LAYOUT: ViewLayoutProjection = {
   orientation: 'portrait',
   width: 1080,
-  height: 1920,
-  aspectRatio: 9 / 16,
-  minAspectRatio: 9 / 16,
-  maxAspectRatio: 10 / 16,
+  height: 2340,
+  aspectRatio: 9 / 19.5,
+  minAspectRatio: 9 / 21,
+  maxAspectRatio: 9 / 16,
   scaleMode: 'fit',
 }
 
@@ -114,7 +115,7 @@ export function createViewLayoutProjection(input: ViewLayoutInput = 'landscape')
   }
 
   return {
-    orientation: patch.orientation || base.orientation,
+    orientation: base.orientation,
     width,
     height,
     aspectRatio: clamp(preferredAspectRatio, minAspectRatio, maxAspectRatio),
@@ -127,6 +128,52 @@ export function createViewLayoutProjection(input: ViewLayoutInput = 'landscape')
 export type BackgroundMode = 'image' | 'video' | 'layered'
 
 export type BackgroundLayerAssetType = 'images' | 'video' | 'characters' | string
+export type BackgroundFit = 'cover' | 'contain' | 'fill' | 'none' | 'scale-down'
+export type BackgroundBlendMode
+  = | 'normal'
+    | 'multiply'
+    | 'screen'
+    | 'overlay'
+    | 'darken'
+    | 'lighten'
+    | 'color-dodge'
+    | 'color-burn'
+    | 'hard-light'
+    | 'soft-light'
+    | 'difference'
+    | 'exclusion'
+    | 'hue'
+    | 'saturation'
+    | 'color'
+    | 'luminosity'
+    | string
+
+export interface BackgroundFilterProjection {
+  blur?: number
+  brightness?: number
+  contrast?: number
+  saturate?: number
+  hueRotate?: number
+  grayscale?: number
+  sepia?: number
+  dropShadow?: string
+}
+
+export interface BackgroundMaskProjection {
+  assetName?: string
+  assetType?: BackgroundLayerAssetType
+  mode?: 'alpha' | 'luminance' | 'match-source' | string
+  position?: string
+  size?: string
+  repeat?: string
+}
+
+export interface BackgroundCompositionProjection {
+  blendMode?: BackgroundBlendMode
+  isolation?: boolean
+  filter?: Readonly<BackgroundFilterProjection>
+  mask?: Readonly<BackgroundMaskProjection>
+}
 
 export interface ViewVideoBackgroundProjection {
   assetName: string
@@ -144,12 +191,16 @@ export interface ViewBackgroundLayerProjection {
   assetName: string
   assetType?: BackgroundLayerAssetType
   visible?: boolean
+  fit?: BackgroundFit
+  origin?: string
+  width?: number | string
+  height?: number | string
   x?: number
   y?: number
   scale?: number
   rotation?: number
   opacity?: number
-  blendMode?: string
+  composition?: Readonly<BackgroundCompositionProjection>
   zIndex?: number
   transition?: TransitionIntent
   metadata?: Readonly<Record<string, unknown>>
@@ -158,11 +209,16 @@ export interface ViewBackgroundLayerProjection {
 export interface ViewBackgroundProjection {
   mode: BackgroundMode
   assetName?: string
+  fit?: BackgroundFit
+  origin?: string
+  width?: number | string
+  height?: number | string
   x?: number
   y?: number
   scale?: number
   rotation?: number
   opacity?: number
+  composition?: Readonly<BackgroundCompositionProjection>
   transition?: TransitionIntent
   video?: Readonly<ViewVideoBackgroundProjection>
   layers?: readonly Readonly<ViewBackgroundLayerProjection>[]
@@ -184,6 +240,8 @@ export interface ViewCharacterProjection {
 export interface CharacterPosition {
   x?: number
   y?: number
+  xPercent?: number
+  yPercent?: number
   scale?: number
   rotation?: number
   anchor?: 'left' | 'center' | 'right' | string
@@ -219,9 +277,11 @@ export interface ViewEffectProjection {
 }
 
 export type AnimationTime = number | `${number}%`
-export type AnimationInterpolation = 'number' | 'step' | 'discrete' | 'color'
+export type AnimationInterpolation = 'number' | 'step' | 'discrete' | 'color' | 'array' | 'vector'
 export type AnimationPlaybackState = 'running' | 'paused' | 'stopped'
 export type AnimationFillMode = 'none' | 'forwards' | 'backwards' | 'both'
+export type AnimationDirection = 'normal' | 'reverse' | 'alternate' | 'alternate-reverse'
+export type AnimationCommitMode = 'none' | 'final' | { properties: readonly string[] }
 
 export interface AnimationKeyframeProjection {
   at: AnimationTime
@@ -244,9 +304,13 @@ export interface ActiveAnimationProjection {
   startedAt: number
   duration: number
   playbackRate: number
+  delay?: number
   pausedAt?: number
+  endedAt?: number
   loop?: boolean | number
   fill?: AnimationFillMode
+  direction?: AnimationDirection
+  commit?: AnimationCommitMode
   resolvedTracks: readonly Readonly<ResolvedAnimationTrackProjection>[]
 }
 
@@ -316,7 +380,9 @@ export interface EffectPayload {
 }
 
 export interface UserClickPayload {
+  /** Logical stage x coordinate. Raw browser coordinates must use explicitly named fields instead. */
   x?: number
+  /** Logical stage y coordinate. Raw browser coordinates must use explicitly named fields instead. */
   y?: number
   target?: string
 }

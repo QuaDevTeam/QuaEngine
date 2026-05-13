@@ -21,8 +21,8 @@
 }
 
 .qua-character {
-  left: calc(var(--qua-character-x, 50) * 1%);
-  top: calc(var(--qua-character-y, 50) * 1%);
+  left: var(--qua-character-left, 50%);
+  top: var(--qua-character-top, 50%);
   transform: translate(-50%, -50%) scale(var(--qua-character-scale, 1))
     rotate(calc(var(--qua-character-rotation, 0) * 1deg));
   z-index: var(--qua-character-layer, 1);

@@ -4,7 +4,7 @@ import type { QuaViewProjection } from '@quajs/render-core'
 import type { RendererActions } from '@quajs/renderer-web'
 import type { PropType } from 'vue'
 import type { QuaVueRendererPlugin } from '../plugins/core'
-import { emptyView, QuaWebRendererController } from '@quajs/renderer-web'
+import { emptyView, QuaWebRendererController, rendererRootStyle } from '@quajs/renderer-web'
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, provide, readonly, shallowRef, watch } from 'vue'
 import { QuaRendererContextKey } from '../context'
 import { sortRendererLayers } from '../plugins/core'
@@ -88,6 +88,7 @@ export const QuaRenderer = defineComponent({
 
     return () => h('div', {
       class: ['qua-renderer', props.unstyled ? 'qua-renderer--unstyled' : undefined],
+      style: rendererRootStyle(),
     }, slots.stage?.(slotProps.value)
     || h(QuaStage as any, { ...slotProps.value, layers: rendererLayers.value } as any, slots))
   },

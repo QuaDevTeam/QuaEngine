@@ -1,9 +1,10 @@
 import type { QuaEngineInterface } from '@quajs/engine'
 import type {
   ActiveAnimationProjection,
+  AnimationCommitMode,
+  AnimationDirection,
   AnimationFillMode,
   AnimationInterpolation,
-  AnimationKeyframeProjection,
   AnimationTime,
   ResolvedAnimationTrackProjection,
   ViewBackgroundLayerProjection,
@@ -14,8 +15,8 @@ import type {
 import { BaseEnginePlugin } from '@quajs/engine'
 import { animationDecoratorMappings } from './script-compiler'
 
-export type AnimationCommitMode = 'none' | 'final' | { properties: readonly string[] }
 export type AnimationTargetBindings = Readonly<Record<string, string>> | readonly string[]
+export type { AnimationCommitMode, AnimationDirection }
 
 export interface AnimationKeyframe {
   at: AnimationTime
@@ -34,9 +35,11 @@ export interface AnimationTimeline {
   id?: string
   duration: number
   tracks: readonly AnimationTrack[]
+  delay?: number
   playbackRate?: number
   loop?: boolean | number
   fill?: AnimationFillMode
+  direction?: AnimationDirection
   commit?: AnimationCommitMode
   metadata?: Readonly<Record<string, unknown>>
 }
@@ -46,9 +49,11 @@ export interface PlayAnimationOptions {
   bindings?: AnimationTargetBindings
   wait?: boolean
   defaultTarget?: string
+  delay?: number
   playbackRate?: number
   loop?: boolean | number
   fill?: AnimationFillMode
+  direction?: AnimationDirection
   commit?: AnimationCommitMode
   strictAdapters?: boolean
 }
@@ -71,8 +76,10 @@ interface NormalizedAnimationTrack extends AnimationTrack {
 interface NormalizedAnimationTimeline extends AnimationTimeline {
   duration: number
   tracks: readonly NormalizedAnimationTrack[]
+  delay: number
   playbackRate: number
   fill: AnimationFillMode
+  direction: AnimationDirection
   commit: AnimationCommitMode
 }
 
@@ -107,6 +114,13 @@ export class AnimationPlugin extends BaseEnginePlugin {
   protected setup(): void {
     const runtime = getRuntime(this.ctx!.engine)
     runtime.strictAdapters = Boolean((this.options as AnimationPluginOptions).strictAdapters)
+    reconcileAnimationRuntime(this.ctx!.engine)
+  }
+
+  override async onAfterJump(): Promise<void> {
+    if (this.ctx) {
+      reconcileAnimationRuntime(this.ctx.engine)
+    }
   }
 
   override async destroy(): Promise<void> {
@@ -273,7 +287,7 @@ export async function seekAnimationWithEngine(
     return
 
   const clamped = Math.max(0, Math.min(playback.projection.duration, time))
-  const wallElapsed = clamped / playback.projection.playbackRate
+  const wallElapsed = ((playback.projection.delay ?? 0) + clamped) / playback.projection.playbackRate
   const startedAt = Date.now() - wallElapsed
   playback.projection = {
     ...playback.projection,
@@ -313,7 +327,18 @@ async function playNormalizedTimeline(
   definitionId?: string,
 ): Promise<ActiveAnimationProjection> {
   const id = options.id || `${definitionId || definition.id || 'timeline'}:${Date.now()}:${++runtime.counter}`
+  const delay = options.delay ?? definition.delay
   const playbackRate = options.playbackRate ?? definition.playbackRate
+  if (!Number.isFinite(delay) || delay < 0) {
+    throw new Error('Animation playback delay must be a non-negative number.')
+  }
+  if (!Number.isFinite(playbackRate) || playbackRate <= 0) {
+    throw new Error('Animation playbackRate must be greater than zero.')
+  }
+  const loop = options.loop ?? definition.loop
+  const fill = options.fill ?? definition.fill
+  const direction = options.direction ?? definition.direction
+  const commit = options.commit ?? definition.commit
   const bindings = normalizeBindings(options.bindings)
   const projection: ActiveAnimationProjection = {
     id,
@@ -322,9 +347,12 @@ async function playNormalizedTimeline(
     state: 'running',
     startedAt: Date.now(),
     duration: definition.duration,
+    delay,
     playbackRate,
-    loop: options.loop ?? definition.loop,
-    fill: options.fill ?? definition.fill,
+    loop,
+    fill,
+    direction,
+    commit,
     resolvedTracks: resolveTracks(engine, runtime, definition, {
       bindings,
       defaultTarget: options.defaultTarget,
@@ -335,10 +363,12 @@ async function playNormalizedTimeline(
     id,
     definition: {
       ...definition,
+      delay,
       playbackRate,
-      loop: options.loop ?? definition.loop,
-      fill: options.fill ?? definition.fill,
-      commit: options.commit ?? definition.commit,
+      loop,
+      fill,
+      direction,
+      commit,
     },
     projection,
     waiters: new Set(),
@@ -403,7 +433,7 @@ function scheduleCompletion(
     return
 
   const loopCount = typeof loop === 'number' ? Math.max(1, loop) : 1
-  const totalWallDuration = (playback.projection.duration * loopCount) / playback.projection.playbackRate
+  const totalWallDuration = ((playback.projection.delay ?? 0) + playback.projection.duration * loopCount) / playback.projection.playbackRate
   const elapsed = Date.now() - playback.projection.startedAt
   const remaining = Math.max(0, totalWallDuration - elapsed)
   playback.completionTimer = setTimeout(() => {
@@ -427,9 +457,26 @@ async function finishPlayback(
   if (complete) {
     await commitFinalValues(engine, runtime, playback)
   }
-  await engine.removeAnimationProjection(playback.id)
+  if (shouldKeepFilledProjection(playback, complete)) {
+    playback.projection = {
+      ...playback.projection,
+      state: 'stopped',
+      endedAt: Date.now(),
+    }
+    await engine.setAnimationProjection(playback.projection)
+  }
+  else {
+    await engine.removeAnimationProjection(playback.id)
+  }
   playback.waiters.forEach(resolve => resolve())
   playback.waiters.clear()
+}
+
+function shouldKeepFilledProjection(playback: RuntimePlayback, complete: boolean): boolean {
+  if (!complete || playback.definition.commit !== 'none') {
+    return false
+  }
+  return playback.projection.fill === 'forwards' || playback.projection.fill === 'both'
 }
 
 async function commitFinalValues(
@@ -446,8 +493,8 @@ async function commitFinalValues(
     if (properties && !properties.has(track.property))
       continue
 
-    const final = getFinalKeyframe(track)
-    if (!final)
+    const committedValue = getCommittedTrackValue(track, playback)
+    if (!committedValue)
       continue
 
     const adapter = getAdapter(runtime, track.target)
@@ -456,17 +503,43 @@ async function commitFinalValues(
       continue
     }
 
-    const committed = await adapter.commit(engine, track.target, track.property, final.value)
+    const committed = await adapter.commit(engine, track.target, track.property, committedValue.value)
     if (committed === false) {
       warn(runtime, `Animation adapter "${targetKind(track.target)}" could not commit ${track.target}.${track.property}.`, false)
     }
   }
 }
 
-function getFinalKeyframe(track: Readonly<ResolvedAnimationTrackProjection>): Readonly<AnimationKeyframeProjection> | undefined {
-  return [...track.keyframes]
-    .sort((left, right) => resolveAt(left.at, 1) - resolveAt(right.at, 1))
-    .slice(-1)[0]
+function getCommittedTrackValue(
+  track: Readonly<ResolvedAnimationTrackProjection>,
+  playback: RuntimePlayback,
+): { value: unknown } | undefined {
+  const keyframes = [...track.keyframes]
+    .sort((left, right) => resolveAt(left.at, playback.projection.duration) - resolveAt(right.at, playback.projection.duration))
+  if (keyframes.length === 0)
+    return undefined
+
+  const terminalTime = getTerminalLocalTime(playback)
+  if (terminalTime <= resolveAt(keyframes[0].at, playback.projection.duration)) {
+    return { value: keyframes[0].value }
+  }
+
+  return { value: keyframes[keyframes.length - 1].value }
+}
+
+function getTerminalLocalTime(playback: RuntimePlayback): number {
+  const duration = Math.max(0, playback.projection.duration)
+  if (duration === 0)
+    return 0
+
+  const loop = playback.projection.loop
+  const loopCount = typeof loop === 'number' ? Math.max(1, loop) : 1
+  const iteration = loopCount - 1
+  const direction = playback.projection.direction ?? 'normal'
+  const reversed = direction === 'reverse'
+    || (direction === 'alternate' && iteration % 2 === 1)
+    || (direction === 'alternate-reverse' && iteration % 2 === 0)
+  return reversed ? 0 : duration
 }
 
 function findPlaybacks(
@@ -497,12 +570,20 @@ function normalizeTimeline(timeline: AnimationTimeline): NormalizedAnimationTime
   if (!Number.isFinite(timeline.duration) || timeline.duration < 0) {
     throw new Error('Animation timeline duration must be a non-negative number.')
   }
+  if (timeline.delay !== undefined && (!Number.isFinite(timeline.delay) || timeline.delay < 0)) {
+    throw new Error('Animation timeline delay must be a non-negative number.')
+  }
+  if (timeline.playbackRate !== undefined && (!Number.isFinite(timeline.playbackRate) || timeline.playbackRate <= 0)) {
+    throw new Error('Animation timeline playbackRate must be greater than zero.')
+  }
 
   return {
     ...timeline,
     duration: timeline.duration,
+    delay: Math.max(0, timeline.delay ?? 0),
     playbackRate: timeline.playbackRate ?? 1,
     fill: timeline.fill ?? 'forwards',
+    direction: timeline.direction ?? 'normal',
     commit: timeline.commit ?? 'final',
     tracks: mergeTracks(timeline.tracks || [], timeline.duration),
   }
@@ -589,6 +670,58 @@ async function clearAnimationRuntime(engine: QuaEngineInterface): Promise<void> 
   runtime.definitions.clear()
   runtime.warned.clear()
   await engine.clearAnimationProjections()
+}
+
+function reconcileAnimationRuntime(engine: QuaEngineInterface): void {
+  const runtime = getRuntime(engine)
+  for (const playback of runtime.playbacks.values()) {
+    clearPlaybackTimer(playback)
+    playback.waiters.forEach(resolve => resolve())
+    playback.waiters.clear()
+  }
+  runtime.playbacks.clear()
+
+  for (const projection of engine.getViewState().animations || []) {
+    if (projection.state === 'stopped') {
+      continue
+    }
+    const definition = timelineFromProjection(projection)
+    const playback: RuntimePlayback = {
+      id: projection.id,
+      definition,
+      projection: {
+        ...projection,
+        resolvedTracks: projection.resolvedTracks.map(track => ({
+          ...track,
+          keyframes: track.keyframes.map(keyframe => ({ ...keyframe })),
+        })),
+      },
+      waiters: new Set(),
+    }
+    runtime.playbacks.set(playback.id, playback)
+    if (projection.state === 'running') {
+      scheduleCompletion(engine, runtime, playback)
+    }
+  }
+}
+
+function timelineFromProjection(projection: Readonly<ActiveAnimationProjection>): NormalizedAnimationTimeline {
+  return {
+    id: projection.definitionId || projection.id,
+    duration: projection.duration,
+    delay: Math.max(0, projection.delay ?? 0),
+    playbackRate: projection.playbackRate,
+    loop: projection.loop,
+    fill: projection.fill ?? 'forwards',
+    direction: projection.direction ?? 'normal',
+    commit: projection.commit ?? 'none',
+    tracks: projection.resolvedTracks.map(track => ({
+      target: track.target,
+      property: track.property,
+      interpolation: track.interpolation,
+      keyframes: track.keyframes.map(keyframe => ({ ...keyframe })),
+    })),
+  }
 }
 
 function assertAdapter(
@@ -736,6 +869,101 @@ function registerBuiltInAdapters(): void {
     },
   })
 
+  registerAnimationTargetAdapter('stage', {
+    kind: 'stage',
+    exists: () => true,
+    commit: async (engine, _selector, property, value) => {
+      const current = engine.getPluginProjection<Readonly<Record<string, unknown>>>('stage') || {}
+      const next = cloneUnknownRecord(current)
+      setPath(next, property, value)
+      await engine.setPluginProjection('stage', next)
+      return true
+    },
+  })
+
+  registerAnimationTargetAdapter('camera', {
+    kind: 'camera',
+    exists: () => true,
+    commit: async (engine, _selector, property, value) => {
+      const current = engine.getPluginProjection<Readonly<Record<string, unknown>>>('camera') || {}
+      const next = cloneUnknownRecord(current)
+      setPath(next, property, value)
+      await engine.setPluginProjection('camera', next)
+      return true
+    },
+  })
+
+  registerAnimationTargetAdapter('dialogue', {
+    kind: 'dialogue',
+    exists: engine => engine.getViewState().dialogue.visible,
+    commit: async (engine, _selector, property, value) => {
+      if (!isDialogueStateProperty(property)) {
+        const current = engine.getPluginProjection<Readonly<Record<string, unknown>>>('dialogue') || {}
+        const next = cloneUnknownRecord(current)
+        setPath(next, property, value)
+        await engine.setPluginProjection('dialogue', next)
+        return true
+      }
+
+      const next = cloneUnknownRecord(engine.getViewState().dialogue as unknown as Readonly<Record<string, unknown>>)
+      setPath(next, property, value)
+      if (next.visible === false) {
+        await engine.hideDialogue()
+      }
+      else {
+        await engine.showDialogue(next as any)
+      }
+      return true
+    },
+  })
+
+  registerAnimationTargetAdapter('choices', {
+    kind: 'choices',
+    exists: engine => engine.getViewState().choices.length > 0,
+    commit: async (engine, _selector, property, value) => {
+      const current = engine.getPluginProjection<Readonly<Record<string, unknown>>>('choices') || {}
+      const next = cloneUnknownRecord(current)
+      setPath(next, property, value)
+      await engine.setPluginProjection('choices', next)
+      return true
+    },
+  })
+
+  registerAnimationTargetAdapter('choice', {
+    kind: 'choice',
+    exists: (engine, selector) => engine.getViewState().choices.some(choice => choice.id === targetId(selector)),
+    commit: async (engine, selector, property, value) => {
+      const choiceId = targetId(selector)
+      const choices = engine.getViewState().choices
+      if (!choices.some(choice => choice.id === choiceId))
+        return false
+      if (!isChoiceStateProperty(property)) {
+        const current = engine.getPluginProjection<Readonly<Record<string, unknown>>>('choices') || {}
+        const next = cloneUnknownRecord(current)
+        const choiceMap = next.choices && typeof next.choices === 'object' && !Array.isArray(next.choices)
+          ? cloneUnknownRecord(next.choices as Readonly<Record<string, unknown>>)
+          : {}
+        const currentChoice = choiceMap[choiceId]
+        const nextChoice = currentChoice && typeof currentChoice === 'object' && !Array.isArray(currentChoice)
+          ? cloneUnknownRecord(currentChoice as Readonly<Record<string, unknown>>)
+          : {}
+        setPath(nextChoice, property, value)
+        choiceMap[choiceId] = nextChoice
+        next.choices = choiceMap
+        await engine.setPluginProjection('choices', next)
+        return true
+      }
+      await engine.showChoices(choices.map((choice) => {
+        if (choice.id !== choiceId)
+          return { ...choice }
+        const next = cloneUnknownRecord(choice as unknown as Readonly<Record<string, unknown>>)
+        setPath(next, property, value)
+        return next as any
+      }))
+      return true
+    },
+  })
+
   registerAnimationTargetAdapter('ui', {
     kind: 'ui',
     exists: (engine, selector) => Boolean(engine.getViewState().ui.overlays?.[targetId(selector)]),
@@ -746,6 +974,37 @@ function registerBuiltInAdapters(): void {
       setPath(next, property, value)
       await engine.updateUI(elementId, next)
       return true
+    },
+  })
+
+  registerAnimationTargetAdapter('audioBus', {
+    kind: 'audioBus',
+    exists: engine => Boolean(engine.getPluginProjection<Readonly<Record<string, unknown>>>('audio')),
+    commit: async (engine, selector, property, value) => {
+      const audio = engine.getPluginProjection<Readonly<Record<string, unknown>>>('audio')
+      if (!audio)
+        return false
+      const next = cloneUnknownRecord(audio)
+      setPath(next, `buses.${targetId(selector)}.${property}`, value)
+      await engine.setPluginProjection('audio', next)
+      return true
+    },
+  })
+
+  registerAnimationTargetAdapter('audioTrack', {
+    kind: 'audioTrack',
+    exists: engine => Boolean(engine.getPluginProjection<Readonly<Record<string, unknown>>>('audio')),
+    commit: async (engine, selector, property, value) => {
+      const audio = engine.getPluginProjection<Readonly<Record<string, unknown>>>('audio')
+      if (!audio)
+        return false
+      const next = cloneUnknownRecord(audio)
+      const trackId = targetId(selector)
+      if (setAudioTrackPath(next, trackId, property, value)) {
+        await engine.setPluginProjection('audio', next)
+        return true
+      }
+      return false
     },
   })
 
@@ -788,6 +1047,7 @@ function cloneBackground(background: Readonly<ViewBackgroundProjection>): ViewBa
         }
       : undefined,
     layers: background.layers?.map(layer => cloneBackgroundLayer(layer)),
+    composition: background.composition ? cloneUnknownRecord(background.composition) : undefined,
     metadata: background.metadata ? cloneUnknownRecord(background.metadata) : undefined,
   }
 }
@@ -795,6 +1055,7 @@ function cloneBackground(background: Readonly<ViewBackgroundProjection>): ViewBa
 function cloneBackgroundLayer(layer: Readonly<ViewBackgroundLayerProjection>): ViewBackgroundLayerProjection {
   return {
     ...layer,
+    composition: layer.composition ? cloneUnknownRecord(layer.composition) : undefined,
     transition: layer.transition ? { ...layer.transition } : undefined,
     metadata: layer.metadata ? cloneUnknownRecord(layer.metadata) : undefined,
   }
@@ -837,6 +1098,46 @@ function setPath(target: Record<string, unknown>, property: string, value: unkno
   cursor[keys[keys.length - 1]] = value
 }
 
+function isDialogueStateProperty(property: string): boolean {
+  return property === 'visible'
+    || property === 'text'
+    || property === 'characterId'
+    || property === 'characterName'
+    || property === 'mode'
+}
+
+function isChoiceStateProperty(property: string): boolean {
+  return property === 'id'
+    || property === 'text'
+    || property === 'enabled'
+    || property === 'metadata'
+    || property.startsWith('metadata.')
+}
+
+function setAudioTrackPath(audio: Record<string, unknown>, trackId: string, property: string, value: unknown): boolean {
+  if (audio.bgm && typeof audio.bgm === 'object' && (audio.bgm as Record<string, unknown>).id === trackId) {
+    setPath(audio.bgm as Record<string, unknown>, property, value)
+    return true
+  }
+
+  for (const collection of ['voices', 'sfx', 'ambients']) {
+    const tracks = audio[collection]
+    if (!Array.isArray(tracks))
+      continue
+
+    const index = tracks.findIndex(track => track && typeof track === 'object' && (track as Record<string, unknown>).id === trackId)
+    if (index === -1)
+      continue
+
+    const nextTrack = cloneUnknownRecord(tracks[index] as Readonly<Record<string, unknown>>)
+    setPath(nextTrack, property, value)
+    tracks[index] = nextTrack
+    return true
+  }
+
+  return false
+}
+
 export const metadata = {
   name: '@quajs/plugin-animation',
   version: '0.1.0',
@@ -845,5 +1146,24 @@ export const metadata = {
 } as const
 
 export const decorators = animationDecoratorMappings
+export {
+  backgroundCrossfade,
+  characterBlink,
+  characterBreath,
+  characterEnter,
+  characterExit,
+  characterHop,
+  choicesStagger,
+  dialogueTransition,
+  stageFade,
+  stageFlash,
+  stageShake,
+  visualNovelMotionPresets,
+} from './presets'
+export type {
+  BackgroundCrossfadeOptions,
+  ChoicesStaggerOptions,
+  VisualNovelMotionOptions,
+} from './presets'
 export { animationDecoratorMappings, createAnimationDecoratorCompiler, scriptCompiler } from './script-compiler'
 export const Plugin = AnimationPlugin

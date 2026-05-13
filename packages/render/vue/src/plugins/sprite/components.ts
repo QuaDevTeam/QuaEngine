@@ -4,12 +4,14 @@ import type {
   SpriteReference,
   SpriteResolvedLayer,
 } from '@quajs/plugin-sprite/contracts'
+import type { ActiveAnimationProjection } from '@quajs/render-core'
 import {
   resolveSpriteProjection,
   resolveSpriteReference,
 } from '@quajs/plugin-sprite/contracts'
+import { applyTrackValues, collectTrackValues } from '@quajs/renderer-web'
 import { computed, defineComponent, h, ref, watch } from 'vue'
-import { useAssetUrl } from '../../composables'
+import { useAnimationClock, useAnimations, useAssetUrl } from '../../composables'
 import { useQuaRenderer } from '../../context'
 
 export const QuaSpriteLayerItem = defineComponent({
@@ -92,9 +94,12 @@ export const QuaSprite = defineComponent({
       type: String,
       default: '',
     },
+    animationTargetPrefix: String,
   },
   setup(props) {
     const { assets, assetRevision } = useQuaRenderer()
+    const animations = useAnimations()
+    const animationNow = useAnimationClock()
     const manifest = ref<SpriteManifest>()
     const manifestRequest = ref(0)
     const reference = computed<SpriteReference | undefined>(() => resolveSpriteReference(props.sprite))
@@ -144,7 +149,7 @@ export const QuaSprite = defineComponent({
       }, projection.layers.map((layer, index) =>
         h(QuaSpriteLayerItem, {
           key: `${projection.family}:${layer.kind}:${index}:${layer.asset}:${layer.frame ? `${layer.frame.x},${layer.frame.y},${layer.frame.width},${layer.frame.height}` : 'image'}`,
-          layer,
+          layer: projectSpriteLayerForAnimation(layer, props.animationTargetPrefix, index, animations.value, animationNow.value),
           isBase: index === 0,
           alt: props.alt,
         }),
@@ -197,4 +202,28 @@ function createSpriteTransform(layer: SpriteResolvedLayer): string | undefined {
     transforms.push(`rotate(${layer.rotation}deg)`)
   }
   return transforms.length > 0 ? transforms.join(' ') : undefined
+}
+
+function projectSpriteLayerForAnimation(
+  layer: SpriteResolvedLayer,
+  animationTargetPrefix: string | undefined,
+  layerIndex: number,
+  animations: readonly Readonly<ActiveAnimationProjection>[],
+  now: number,
+): SpriteResolvedLayer {
+  if (!animationTargetPrefix)
+    return layer
+  const tracks = [
+    ...collectTrackValues(animations, `spriteLayer:${animationTargetPrefix}:${layer.kind}:${layerIndex}`, now),
+    ...collectTrackValues(animations, `spriteLayer:${animationTargetPrefix}:${layer.kind}`, now),
+    ...collectTrackValues(animations, `spriteLayer:${animationTargetPrefix}:${layerIndex}`, now),
+  ]
+  if (tracks.length === 0)
+    return layer
+  const projected = {
+    ...layer,
+    frame: layer.frame ? { ...layer.frame } : undefined,
+  }
+  applyTrackValues(projected as unknown as Record<string, unknown>, tracks)
+  return projected
 }

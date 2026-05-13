@@ -93,7 +93,17 @@ export function useAnimationClock() {
     }
   }
 
-  watch(() => view.value.animations.map(animation => `${animation.id}:${animation.state}:${animation.startedAt}:${animation.pausedAt ?? ''}`).join('|'), () => {
+  watch(() => view.value.animations.map(animation => [
+    animation.id,
+    animation.state,
+    animation.startedAt,
+    animation.pausedAt ?? '',
+    animation.endedAt ?? '',
+    animation.delay ?? '',
+    animation.duration,
+    animation.playbackRate,
+    animation.direction ?? '',
+  ].join(':')).join('|'), () => {
     stop()
     if (hasActiveAnimation()) {
       tick()
