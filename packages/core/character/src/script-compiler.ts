@@ -1,6 +1,15 @@
 import * as t from '@babel/types'
 
-const SUPPORTED_FUNCTIONS = new Set(['sprite', 'show', 'hide', 'move', 'expression'])
+const SUPPORTED_FUNCTIONS = new Set([
+  'sprite',
+  'show',
+  'hide',
+  'move',
+  'expression',
+  'playCharacterFadeWithEngine',
+  'playCharacterEnterWithEngine',
+  'playCharacterExitWithEngine',
+])
 
 export const characterDecoratorMappings = {
   SetSprite: {
@@ -23,6 +32,18 @@ export const characterDecoratorMappings = {
     function: 'expression',
     module: '@quajs/character',
   },
+  CharacterFade: {
+    function: 'playCharacterFadeWithEngine',
+    module: '@quajs/character/animation',
+  },
+  CharacterEnter: {
+    function: 'playCharacterEnterWithEngine',
+    module: '@quajs/character/animation',
+  },
+  CharacterExit: {
+    function: 'playCharacterExitWithEngine',
+    module: '@quajs/character/animation',
+  },
 } as const
 
 export function createCharacterDecoratorCompiler() {
@@ -35,9 +56,15 @@ export function createCharacterDecoratorCompiler() {
       hideWithEngine: '@quajs/character',
       moveWithEngine: '@quajs/character',
       expressionWithEngine: '@quajs/character',
+      playCharacterEnterWithEngine: '@quajs/character/animation',
+      playCharacterFadeWithEngine: '@quajs/character/animation',
+      playCharacterExitWithEngine: '@quajs/character/animation',
     },
     supports(_decoratorName: string, mapping: { function: string, module: string }) {
-      return mapping.module === '@quajs/character' && SUPPORTED_FUNCTIONS.has(mapping.function)
+      return (
+        mapping.module === '@quajs/character'
+        || mapping.module === '@quajs/character/animation'
+      ) && SUPPORTED_FUNCTIONS.has(mapping.function)
     },
     compile({ decorator, context, mapping }: {
       decorator: { name: string, args: unknown[] }
@@ -103,6 +130,50 @@ export function createCharacterDecoratorCompiler() {
             runtimeHelpers: ['expressionWithEngine'],
           }
         }
+        case 'playCharacterFadeWithEngine': {
+          const character = args[0] || requireDecoratorCharacter(decorator, context.characterName)
+          const from = requireDecoratorArg(decorator, args[1], 'from opacity')
+          const to = requireDecoratorArg(decorator, args[2], 'to opacity')
+          const duration = args[3]
+          const options = createMotionPlayOptionsObject(args.slice(4))
+          return {
+            call: t.callExpression(t.identifier('playCharacterFadeWithEngine'), [
+              engineArg,
+              character,
+              from,
+              to,
+              duration || t.identifier('undefined'),
+              options,
+            ]),
+            runtimeHelpers: ['playCharacterFadeWithEngine'],
+          }
+        }
+        case 'playCharacterEnterWithEngine': {
+          const character = args[0] || requireDecoratorCharacter(decorator, context.characterName)
+          const direction = requireDecoratorArg(decorator, args[1], 'direction')
+          return {
+            call: t.callExpression(t.identifier('playCharacterEnterWithEngine'), [
+              engineArg,
+              character,
+              direction,
+              createMotionPresetOptionsObject(args.slice(2)),
+            ]),
+            runtimeHelpers: ['playCharacterEnterWithEngine'],
+          }
+        }
+        case 'playCharacterExitWithEngine': {
+          const character = args[0] || requireDecoratorCharacter(decorator, context.characterName)
+          const direction = requireDecoratorArg(decorator, args[1], 'direction')
+          return {
+            call: t.callExpression(t.identifier('playCharacterExitWithEngine'), [
+              engineArg,
+              character,
+              direction,
+              createMotionPresetOptionsObject(args.slice(2)),
+            ]),
+            runtimeHelpers: ['playCharacterExitWithEngine'],
+          }
+        }
         default:
           return null
       }
@@ -164,6 +235,58 @@ function createCharacterPositionObject(args: Array<t.Expression | undefined>): t
   }
 
   return t.objectExpression(properties)
+}
+
+function createMotionPresetOptionsObject(args: Array<t.Expression | undefined>): t.ObjectExpression {
+  const [duration, options, wait] = args
+  const properties: Array<t.ObjectProperty | t.SpreadElement> = []
+
+  if (options && isOptionsExpression(options)) {
+    if (t.isObjectExpression(options)) {
+      properties.push(...options.properties.filter((property): property is t.ObjectProperty | t.SpreadElement =>
+        t.isObjectProperty(property) || t.isSpreadElement(property),
+      ))
+    }
+    else {
+      properties.push(t.spreadElement(options))
+    }
+  }
+  if (duration) {
+    properties.push(t.objectProperty(t.identifier('duration'), duration))
+  }
+  if (wait && isBooleanishExpression(wait)) {
+    properties.push(t.objectProperty(t.identifier('wait'), wait))
+  }
+
+  return t.objectExpression(properties)
+}
+
+function createMotionPlayOptionsObject(args: Array<t.Expression | undefined>): t.ObjectExpression {
+  const [optionsOrWait] = args
+  if (!optionsOrWait) {
+    return t.objectExpression([])
+  }
+  if (isBooleanishExpression(optionsOrWait)) {
+    return t.objectExpression([
+      t.objectProperty(t.identifier('wait'), optionsOrWait),
+    ])
+  }
+  if (t.isObjectExpression(optionsOrWait)) {
+    return t.objectExpression(optionsOrWait.properties.filter((property): property is t.ObjectProperty | t.SpreadElement =>
+      t.isObjectProperty(property) || t.isSpreadElement(property),
+    ))
+  }
+  return t.objectExpression([
+    t.spreadElement(optionsOrWait),
+  ])
+}
+
+function isOptionsExpression(value: t.Expression): boolean {
+  return !isBooleanishExpression(value)
+}
+
+function isBooleanishExpression(value: t.Expression): boolean {
+  return t.isBooleanLiteral(value)
 }
 
 function requireDecoratorCharacter(decorator: { name: string }, characterName?: string): t.StringLiteral {

@@ -334,6 +334,9 @@ importers:
       '@quajs/engine':
         specifier: workspace:*
         version: link:../engine
+      '@quajs/plugin-animation':
+        specifier: workspace:*
+        version: link:../../plugins/animation
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../../render/core
@@ -471,6 +474,9 @@ importers:
       '@quajs/engine':
         specifier: workspace:*
         version: link:../../core/engine
+      '@quajs/plugin-animation':
+        specifier: workspace:*
+        version: link:../animation
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../../render/core

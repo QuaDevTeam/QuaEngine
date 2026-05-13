@@ -16,6 +16,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./animation": {
+      "types": "./dist/animation.d.ts",
+      "import": "./dist/animation.js"
+    },
     "./script-compiler": {
       "types": "./dist/script-compiler.d.ts",
       "import": "./dist/script-compiler.js"
@@ -41,13 +45,20 @@
   },
   "peerDependencies": {
     "@quajs/engine": "workspace:*",
+    "@quajs/plugin-animation": "workspace:*",
     "@quajs/render-core": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@quajs/plugin-animation": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@babel/types": "catalog:"
   },
   "devDependencies": {
     "@quajs/engine": "workspace:*",
+    "@quajs/plugin-animation": "workspace:*",
     "@quajs/render-core": "workspace:*"
   },
   "quajs": {
@@ -104,9 +115,8 @@
               "detail": "Background image asset"
             },
             {
-              "name": "transition",
-              "values": ["instant", "fade", "crossfade", "wipe"],
-              "detail": "Background transition type"
+              "name": "options",
+              "detail": "Background projection options"
             }
           ]
         },
@@ -118,6 +128,10 @@
               "assetRoots": ["assets/video", "assets/videos"],
               "assetExtensions": [".mp4", ".webm", ".mov"],
               "detail": "Video asset"
+            },
+            {
+              "name": "options",
+              "detail": "Video and background projection options"
             }
           ]
         },
@@ -125,9 +139,8 @@
           "description": "Enable layered background mode",
           "args": [
             {
-              "name": "transition",
-              "values": ["instant", "fade", "crossfade", "wipe"],
-              "detail": "Background transition type"
+              "name": "options",
+              "detail": "Layered background projection options"
             }
           ]
         },
@@ -143,6 +156,10 @@
               "assetRoots": ["assets/images", "assets/backgrounds"],
               "assetExtensions": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"],
               "detail": "Layer image asset"
+            },
+            {
+              "name": "options",
+              "detail": "Layer projection options"
             }
           ]
         },

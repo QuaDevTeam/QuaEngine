@@ -16,6 +16,7 @@ export default defineConfig({
     lib: {
       entry: {
         'index': resolve(import.meta.dirname, 'src/index.ts'),
+        'animation': resolve(import.meta.dirname, 'src/animation.ts'),
         'script-compiler': resolve(import.meta.dirname, 'src/script-compiler.ts'),
       },
       name: 'pluginBackground',
@@ -23,7 +24,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['@babel/types', '@quajs/engine', '@quajs/render-core'],
+      external: ['@babel/types', '@quajs/engine', '@quajs/plugin-animation', '@quajs/render-core'],
       output: {
         globals: {},
       },

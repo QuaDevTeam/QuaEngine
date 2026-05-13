@@ -83,7 +83,7 @@ export function createBackgroundDecoratorCompiler() {
             call: t.callExpression(helper, [
               engineArg,
               asset,
-              createTransitionObject(args.slice(1), false),
+              args[1],
             ].filter(Boolean) as t.Expression[]),
             runtimeHelpers: [mapping.function],
           }
@@ -99,8 +99,8 @@ export function createBackgroundDecoratorCompiler() {
             call: t.callExpression(helper, [
               engineArg,
               asset,
-              createVideoBackgroundOptionsObject(args.slice(1)),
-            ]),
+              args[1],
+            ].filter(Boolean) as t.Expression[]),
             runtimeHelpers: [mapping.function],
           }
         }
@@ -109,8 +109,8 @@ export function createBackgroundDecoratorCompiler() {
             call: t.callExpression(helper, [
               engineArg,
               t.arrayExpression([]),
-              createLayeredBackgroundOptionsObject(args),
-            ]),
+              args[0],
+            ].filter(Boolean) as t.Expression[]),
             runtimeHelpers: [mapping.function],
           }
         case 'addBackgroundLayerWithEngine': {
@@ -119,7 +119,7 @@ export function createBackgroundDecoratorCompiler() {
           return {
             call: t.callExpression(helper, [
               engineArg,
-              createBackgroundLayerObject(id, asset, args.slice(2)),
+              createBackgroundLayerObject(id, asset, args[2]),
             ]),
             runtimeHelpers: [mapping.function],
           }
@@ -197,44 +197,6 @@ function createTransitionObject(args: Array<t.Expression | undefined>, required 
   return t.objectExpression(properties)
 }
 
-function createVideoBackgroundOptionsObject(args: Array<t.Expression | undefined>): t.ObjectExpression {
-  const [loop, muted, volume, poster, transitionType, duration, easing, playbackRate] = args
-  const properties: t.ObjectProperty[] = []
-
-  if (loop) {
-    properties.push(t.objectProperty(t.identifier('loop'), loop))
-  }
-  if (muted) {
-    properties.push(t.objectProperty(t.identifier('muted'), muted))
-  }
-  if (volume) {
-    properties.push(t.objectProperty(t.identifier('volume'), volume))
-  }
-  if (poster) {
-    properties.push(t.objectProperty(t.identifier('poster'), poster))
-  }
-  if (playbackRate) {
-    properties.push(t.objectProperty(t.identifier('playbackRate'), playbackRate))
-  }
-
-  const transition = createTransitionObject([transitionType, duration, easing], false)
-  if (transition) {
-    properties.push(t.objectProperty(t.identifier('transition'), transition))
-  }
-
-  return t.objectExpression(properties)
-}
-
-function createLayeredBackgroundOptionsObject(args: Array<t.Expression | undefined>): t.ObjectExpression {
-  const [transitionType, duration, easing] = args
-  const properties: t.ObjectProperty[] = []
-  const transition = createTransitionObject([transitionType, duration, easing], false)
-  if (transition) {
-    properties.push(t.objectProperty(t.identifier('transition'), transition))
-  }
-  return t.objectExpression(properties)
-}
-
 function toExpression(value: unknown): t.Expression {
   if (isBabelExpression(value)) {
     return value
@@ -271,37 +233,22 @@ function isBabelExpression(value: unknown): value is t.Expression {
 function createBackgroundLayerObject(
   id: t.Expression,
   assetName: t.Expression,
-  args: Array<t.Expression | undefined>,
+  options: t.Expression | undefined,
 ): t.ObjectExpression {
-  const [x, y, scale, opacity, zIndex, assetType, rotation, blendMode] = args
-  const properties: t.ObjectProperty[] = [
+  const properties: Array<t.ObjectProperty | t.SpreadElement> = [
     t.objectProperty(t.identifier('id'), id),
     t.objectProperty(t.identifier('assetName'), assetName),
   ]
 
-  if (x) {
-    properties.push(t.objectProperty(t.identifier('x'), x))
-  }
-  if (y) {
-    properties.push(t.objectProperty(t.identifier('y'), y))
-  }
-  if (scale) {
-    properties.push(t.objectProperty(t.identifier('scale'), scale))
-  }
-  if (opacity) {
-    properties.push(t.objectProperty(t.identifier('opacity'), opacity))
-  }
-  if (zIndex) {
-    properties.push(t.objectProperty(t.identifier('zIndex'), zIndex))
-  }
-  if (assetType) {
-    properties.push(t.objectProperty(t.identifier('assetType'), assetType))
-  }
-  if (rotation) {
-    properties.push(t.objectProperty(t.identifier('rotation'), rotation))
-  }
-  if (blendMode) {
-    properties.push(t.objectProperty(t.identifier('blendMode'), blendMode))
+  if (options) {
+    if (t.isObjectExpression(options)) {
+      properties.push(...options.properties.filter((property): property is t.ObjectProperty | t.SpreadElement =>
+        t.isObjectProperty(property) || t.isSpreadElement(property),
+      ))
+    }
+    else {
+      properties.push(t.spreadElement(options))
+    }
   }
 
   return t.objectExpression(properties)
