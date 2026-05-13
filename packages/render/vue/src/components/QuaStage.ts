@@ -1,7 +1,7 @@
 import type { StageContainerSize } from '@quajs/renderer-web'
 import type { PropType } from 'vue'
 import type { QuaVueRendererLayer } from '../plugins/core'
-import { projectStageMotion, readCssSafeAreaInsets, readDevicePixelRatio, resolveStageLayout, stageContentStyle, stageFrameStyle, stageMotionVars, stageViewportStyle } from '@quajs/renderer-web'
+import { projectStageMotion, readCssSafeAreaInsets, readDevicePixelRatio, resolveStageLayout, stageContentStyle, stageFrameStyle, stageMotionVars, stagePlaneStyle, stageSafeAreaStyle, stageSceneStyle, stageViewportStyle } from '@quajs/renderer-web'
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAnimationClock, useRendererActions } from '../composables'
 import { projectionProps, useProjectionProps } from './projection'
@@ -20,6 +20,10 @@ export const QuaStage = defineComponent({
     const animationNow = useAnimationClock()
     const slotProps = () => ({ ...useProjectionProps(), actions })
     const layers = computed(() => props.layers || [])
+    const sceneLayers = computed(() => layers.value.filter(layer => (layer.plane || 'scene') === 'scene'))
+    const subjectLayers = computed(() => layers.value.filter(layer => layer.plane === 'subject'))
+    const stageLayers = computed(() => layers.value.filter(layer => layer.plane === 'stage'))
+    const safeLayers = computed(() => layers.value.filter(layer => layer.plane === 'safe'))
     const frame = ref<HTMLElement>()
     const frameSize = ref<Partial<StageContainerSize>>({ width: 0, height: 0 })
     let resizeObserver: ResizeObserver | undefined
@@ -54,8 +58,8 @@ export const QuaStage = defineComponent({
     }, { deep: true })
 
     const stageLayout = computed(() => resolveStageLayout(props.view?.layout as any, frameSize.value))
-    const stageStyle = computed(() => ({
-      ...stageContentStyle(stageLayout.value),
+    const sceneStyle = computed(() => ({
+      ...stageSceneStyle(),
       ...stageMotionVars(projectStageMotion(props.view as any, animationNow.value)),
     }))
 
@@ -70,16 +74,44 @@ export const QuaStage = defineComponent({
       }, [
         h('section', {
           class: 'qua-stage',
-          style: stageStyle.value,
+          style: stageContentStyle(stageLayout.value),
           onClick: () => actions.advance('stage-click'),
         }, [
-          ...layers.value.map((layer) => {
-            const props = { key: layer.id, ...(layer.props || {}) }
-            const slot = slots[layer.slot || layer.id]
-            return slot?.(slotProps()) || h(layer.component as any, props)
-          }),
+          h('div', {
+            class: 'qua-stage-scene',
+            style: sceneStyle.value,
+          }, [
+            h('div', {
+              class: 'qua-stage-scene-content',
+              style: stagePlaneStyle(),
+            }, renderLayers(sceneLayers.value, slots, slotProps)),
+            h('div', {
+              class: 'qua-stage-subject',
+              style: stagePlaneStyle(),
+            }, renderLayers(subjectLayers.value, slots, slotProps)),
+          ]),
+          h('div', {
+            class: 'qua-stage-plane',
+            style: stagePlaneStyle(),
+          }, renderLayers(stageLayers.value, slots, slotProps)),
+          h('div', {
+            class: 'qua-stage-safe',
+            style: stageSafeAreaStyle(stageLayout.value),
+          }, renderLayers(safeLayers.value, slots, slotProps)),
         ]),
       ]),
     ])
   },
 })
+
+function renderLayers(
+  layers: readonly QuaVueRendererLayer[],
+  slots: Record<string, any>,
+  slotProps: () => Record<string, unknown>,
+) {
+  return layers.map((layer) => {
+    const props = { key: layer.id, ...(layer.props || {}) }
+    const slot = slots[layer.slot || layer.id]
+    return slot?.(slotProps()) || h(layer.component as any, props)
+  })
+}

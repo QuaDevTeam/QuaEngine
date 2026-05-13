@@ -10,6 +10,7 @@ export function createDialogueWebRendererPlugin(): QuaWebDomRendererPlugin {
     layers: [{
       id: 'dialogue',
       order: 50,
+      plane: 'safe',
       render: renderDialogueLayer,
       update: updateDialogueLayer,
     }],

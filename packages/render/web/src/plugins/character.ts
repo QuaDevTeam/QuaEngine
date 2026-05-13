@@ -16,6 +16,7 @@ export function createCharacterWebRendererPlugin(options: CharacterWebRendererPl
     layers: [{
       id: 'characters',
       order: 30,
+      plane: 'subject',
       render: context => renderCharacterLayer(context, options),
       update: updateCharacterLayer,
     }],

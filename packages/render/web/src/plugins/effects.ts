@@ -10,6 +10,7 @@ export function createEffectsWebRendererPlugin(): QuaWebDomRendererPlugin {
     layers: [{
       id: 'effects',
       order: 40,
+      plane: 'stage',
       render: renderEffectLayer,
       update: updateEffectLayer,
     }],

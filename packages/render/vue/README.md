@@ -107,6 +107,28 @@ const projectedView = {
 
 The Vue renderer asks `assets.getAsset('images', 'classroom.png')` or `assets.getAsset('characters', 'alice.png')`, creates browser object URLs, and revokes them on cleanup.
 
+## Stage And Background Projection
+
+`QuaRenderer` and `QuaStage` include the functional adaptive aspect-interval stage structure. Optional SCSS entrypoints remain visual styling only; they are not required for positioning, scaling, or clipping the stage.
+
+`QuaStage` reuses the Web renderer plane helpers:
+
+- `.qua-stage-scene` wraps camera-transformed scene projection.
+- `.qua-stage-scene-content` renders full-bleed background and scene art.
+- `.qua-stage-subject` renders foreground subject content such as characters. Default character staging uses the resolved safe-area center, while explicit `x/y` remain logical stage coordinates and explicit percent fields remain percent-based authoring values.
+- `.qua-stage-plane` renders full-stage effects and transitions outside camera motion.
+- `.qua-stage-safe` renders dialogue, choices, backlog, and UI overlays inside `ResolvedStageLayout.safeArea`.
+
+Default landscape layout adapts from 16:10 to 16:9. Default portrait layout uses a 9:19.5 phone reference and adapts from 9:21 to 9:16 so common mobile screens can fill without black bars.
+
+Background components reuse `@quajs/renderer-web` projection helpers, so image, video, and layered backgrounds share fit, origin, transform, opacity, blend, filter, and mask semantics with the native DOM renderer.
+
+Vue renderer code should reuse `@quajs/renderer-web` layout and coordinate helpers through `QuaStage` and shared composables instead of duplicating viewport or pointer math.
+
+`QuaStage` also forwards mobile CSS safe-area insets and `devicePixelRatio` into the shared Web layout resolver. These values affect exported safe-area variables and physical-pixel metadata only; DOM projection still uses CSS pixels.
+
+See `docs/design/mobile-rendering-adaptation.md` and `docs/design/background-composition-animation.md` for the full cross-package design.
+
 ## Progressive Bundles
 
 The first required bundle(s) can be loaded during startup, and later bundles can arrive on demand with the same `loadBundle()` API:

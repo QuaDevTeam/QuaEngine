@@ -19,6 +19,7 @@ export function createAudioRendererPlugin(options: AudioRendererPluginOptions = 
       slot: 'audio',
       component: QuaAudioController,
       order: 70,
+      plane: 'stage',
       props: { ...options },
     }],
   })

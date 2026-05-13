@@ -13,6 +13,7 @@ export function createEffectsRendererPlugin(): QuaVueRendererPlugin {
       slot: 'effects',
       component: QuaEffectLayer,
       order: 40,
+      plane: 'stage',
     }],
   })
 }

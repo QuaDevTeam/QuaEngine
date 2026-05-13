@@ -20,6 +20,7 @@ export function createBackgroundRendererPlugin(): QuaVueRendererPlugin {
       slot: 'background',
       component: QuaBackgroundLayer,
       order: 10,
+      plane: 'scene',
     }],
   })
 }

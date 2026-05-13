@@ -216,6 +216,67 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.querySelector('.qua-effect-layer')).toBeNull()
   })
 
+  it('fills portrait phone containers through the shared adaptive stage layout', async () => {
+    const pipeline = new Pipeline()
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(360, 780))
+    const host = mount(QuaRenderer, {
+      pipeline,
+      initialView: view({
+        layout: createViewLayoutProjection('portrait'),
+      }),
+    })
+
+    await flushVue()
+
+    const viewportStyle = host.el.querySelector('.qua-stage-viewport')?.getAttribute('style') || ''
+    const stageStyle = host.el.querySelector('.qua-stage')?.getAttribute('style') || ''
+
+    expect(viewportStyle).toContain('width: 360px')
+    expect(viewportStyle).toContain('height: 780px')
+    expect(viewportStyle).toContain('left: 0px')
+    expect(viewportStyle).toContain('top: 0px')
+    expect(stageStyle).toContain('width: 1080px')
+    expect(stageStyle).toContain('height: 2340px')
+    expect(stageStyle).toContain('--qua-layout-aspect-ratio: 0.461538')
+    expect(host.el.querySelector('.qua-stage-scene')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-scene-content')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-subject')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-plane')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-safe')).not.toBeNull()
+  })
+
+  it('mounts default UI content inside the shared safe-area plane', async () => {
+    const pipeline = new Pipeline()
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(360)
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(780)
+    vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      paddingTop: '30px',
+      paddingRight: '0px',
+      paddingBottom: '15px',
+      paddingLeft: '0px',
+    } as CSSStyleDeclaration)
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(360, 780))
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        layout: createViewLayoutProjection('portrait'),
+        background: { mode: 'image', assetName: 'bg.png' },
+        dialogue: { visible: true, text: 'Line' },
+        choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+      }),
+    })
+
+    await flushVue()
+
+    const safeStyle = host.el.querySelector('.qua-stage-safe')?.getAttribute('style') || ''
+    expect(host.el.querySelector('.qua-stage-scene-content .qua-background')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-safe .qua-dialogue-box')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-safe .qua-choice-panel')).not.toBeNull()
+    expect(safeStyle).toContain('top: 90px')
+    expect(safeStyle).toContain('height: 2205px')
+  })
+
   it('does not turn nested renderer or plugin UI clicks into duplicate advance intents', async () => {
     const pipeline = new Pipeline()
     const advances: Array<{ source?: string }> = []
@@ -380,6 +441,7 @@ describe('@quajs/renderer-vue', () => {
 
     await flushVue()
 
+    expect(host.el.querySelector('.qua-stage-subject .qua-character')).not.toBeNull()
     expect(host.el.querySelector('.qua-character')?.getAttribute('style')).toContain('--qua-character-x: 25')
     expect(host.el.querySelector('.qua-background')?.getAttribute('style')).toContain('--qua-background-x: 10')
   })
@@ -404,7 +466,8 @@ describe('@quajs/renderer-vue', () => {
 
     await flushVue()
     expect(document.head.querySelector('style')?.textContent || '').not.toContain('.qua-renderer')
-    expect(host.el.querySelector('.qua-background')?.getAttribute('style')).toBeNull()
+    expect(host.el.querySelector('.qua-background')?.getAttribute('style')).toContain('position: absolute')
+    expect(host.el.querySelector('.qua-background')?.getAttribute('style')).toContain('object-fit: cover')
     expect(host.el.querySelector('.qua-character')?.getAttribute('style') || '').not.toContain('left:')
 
     current = view({
@@ -442,7 +505,17 @@ describe('@quajs/renderer-vue', () => {
         mode: 'layered',
         layers: [
           { id: 'sky', assetName: 'sky.png', zIndex: 1 },
-          { id: 'clouds', assetName: 'clouds.png', assetType: 'images', zIndex: 2 },
+          {
+            id: 'clouds',
+            assetName: 'clouds.png',
+            assetType: 'images',
+            zIndex: 2,
+            composition: {
+              blendMode: 'screen',
+              filter: { blur: 3 },
+              mask: { assetName: 'cloud-mask.png', position: 'center' },
+            },
+          },
         ],
       },
       dialogue: { visible: true, text: 'Line' },
@@ -453,6 +526,10 @@ describe('@quajs/renderer-vue', () => {
     await flushVue()
 
     expect(host.el.querySelectorAll('.qua-background-layer-item').length).toBe(2)
+    const clouds = host.el.querySelector('[data-background-layer-id="clouds"]') as HTMLElement
+    expect(clouds.getAttribute('style')).toContain('width: 100%')
+    expect(clouds.getAttribute('style')).toContain('--qua-background-layer-blend-mode: screen')
+    expect(clouds.getAttribute('style')).toContain('filter: blur(3px)')
   })
 
   it('renders sprite expressions through the dedicated sprite capability', async () => {
@@ -801,6 +878,20 @@ async function flushVue(): Promise<void> {
   await nextTick()
   await new Promise(resolve => setTimeout(resolve, 0))
   await nextTick()
+}
+
+function rect(width: number, height: number): DOMRect {
+  return {
+    x: 0,
+    y: 0,
+    width,
+    height,
+    top: 0,
+    right: width,
+    bottom: height,
+    left: 0,
+    toJSON: () => ({}),
+  } as DOMRect
 }
 
 function view(overrides: Partial<QuaViewProjection> = {}): QuaViewProjection {

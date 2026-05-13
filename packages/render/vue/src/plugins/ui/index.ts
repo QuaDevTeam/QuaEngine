@@ -20,6 +20,7 @@ export function createUiRendererPlugin(): QuaVueRendererPlugin {
       slot: 'overlay',
       component: QuaOverlayLayer,
       order: 90,
+      plane: 'safe',
     }],
   })
 }

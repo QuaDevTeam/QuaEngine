@@ -14,11 +14,12 @@ import {
 } from '../src'
 
 describe('render-core event contracts', () => {
-  it('normalizes project layout presets for landscape and portrait rendering', () => {
+  it('normalizes project layout presets for aspect-interval rendering', () => {
     expect(createViewLayoutProjection('landscape')).toEqual(expect.objectContaining({
       orientation: 'landscape',
       width: 1920,
       height: 1080,
+      aspectRatio: 16 / 9,
       minAspectRatio: 16 / 10,
       maxAspectRatio: 16 / 9,
     }))
@@ -26,15 +27,52 @@ describe('render-core event contracts', () => {
     expect(createViewLayoutProjection('portrait')).toEqual(expect.objectContaining({
       orientation: 'portrait',
       width: 1080,
-      height: 1920,
-      minAspectRatio: 9 / 16,
-      maxAspectRatio: 10 / 16,
+      height: 2340,
+      aspectRatio: 9 / 19.5,
+      minAspectRatio: 9 / 21,
+      maxAspectRatio: 9 / 16,
     }))
 
     expect(createViewLayoutProjection({
       preset: 'landscape',
       aspectRatio: 2,
     }).aspectRatio).toBe(16 / 9)
+
+    expect(createViewLayoutProjection({
+      preset: 'portrait',
+      aspectRatio: 0.3,
+    }).aspectRatio).toBe(9 / 21)
+
+    expect(createViewLayoutProjection({
+      preset: 'landscape',
+      orientation: 'portrait',
+    }).orientation).toBe('landscape')
+  })
+
+  it('accepts background composition payloads for layered projection', () => {
+    const background = {
+      mode: 'layered' as const,
+      fit: 'cover' as const,
+      origin: 'center center',
+      composition: {
+        isolation: true,
+        filter: { brightness: 1.1 },
+      },
+      layers: [{
+        id: 'fog',
+        assetName: 'fog.png',
+        fit: 'cover' as const,
+        width: '100%',
+        height: '100%',
+        composition: {
+          blendMode: 'screen',
+          filter: { blur: 4, hueRotate: 12 },
+          mask: { assetName: 'fog-mask.png', mode: 'alpha' },
+        },
+      }],
+    }
+
+    expect(background.layers[0].composition.mask.assetName).toBe('fog-mask.png')
   })
 
   it('dispatches typed logic-to-render events through @quajs/pipeline', async () => {

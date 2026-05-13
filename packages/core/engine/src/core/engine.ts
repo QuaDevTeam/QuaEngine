@@ -1272,9 +1272,11 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
             : undefined,
           layers: view.background.layers?.map(layer => ({
             ...layer,
+            composition: layer.composition ? cloneUnknownRecord(layer.composition) : undefined,
             transition: layer.transition ? { ...layer.transition } : undefined,
             metadata: layer.metadata ? cloneUnknownRecord(layer.metadata) : undefined,
           })),
+          composition: view.background.composition ? cloneUnknownRecord(view.background.composition) : undefined,
           metadata: view.background.metadata ? cloneUnknownRecord(view.background.metadata) : undefined,
         }
       : undefined,
