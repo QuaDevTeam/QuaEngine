@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./script-compiler": {
+      "types": "./dist/script-compiler.d.ts",
+      "import": "./dist/script-compiler.js"
     }
   },
   "main": "./dist/index.js",
@@ -32,6 +36,7 @@
   },
   "peerDependencies": {},
   "dependencies": {
+    "@babel/types": "catalog:",
     "@quajs/assets": "workspace:*",
     "@quajs/logger": "workspace:*",
     "@quajs/pipeline": "workspace:*",

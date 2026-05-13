@@ -37,6 +37,13 @@ export enum RenderToLogicEvents {
   USER_KEY_PRESS = 'user/key_press',
   USER_ADVANCE = 'user/advance',
   USER_CHOICE_SELECT = 'user/choice_select',
+  FLOW_CONTROL_SET_MODE_REQUEST = 'flow_control/set_mode_request',
+  FLOW_CONTROL_START_AUTO_REQUEST = 'flow_control/start_auto_request',
+  FLOW_CONTROL_STOP_AUTO_REQUEST = 'flow_control/stop_auto_request',
+  FLOW_CONTROL_START_SKIP_REQUEST = 'flow_control/start_skip_request',
+  FLOW_CONTROL_STOP_SKIP_REQUEST = 'flow_control/stop_skip_request',
+  FLOW_CONTROL_START_FAST_FORWARD_REQUEST = 'flow_control/start_fast_forward_request',
+  FLOW_CONTROL_STOP_FAST_FORWARD_REQUEST = 'flow_control/stop_fast_forward_request',
   GAME_SAVE_REQUEST = 'game/save_request',
   GAME_LOAD_REQUEST = 'game/load_request',
   UI_REQUEST_OPEN = 'ui/request_open',
@@ -276,6 +283,98 @@ export interface ViewEffectProjection {
   options?: Readonly<Record<string, unknown>>
 }
 
+export type FlowControlMode = 'normal' | 'auto' | 'skip' | 'fast-forward'
+export type FlowControlSkipMode = 'read' | 'all'
+
+export interface FlowControlPolicy {
+  skippable?: boolean
+  fastForwardable?: boolean
+  autoAdvanceable?: boolean
+  tags?: readonly string[]
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface ResolvedFlowControlPolicy {
+  skippable: boolean
+  fastForwardable: boolean
+  autoAdvanceable: boolean
+  tags?: readonly string[]
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface FlowControlTimingProjection {
+  skipAdvanceDelayMs: number
+  fastForwardAdvanceDelayMs: number
+  autoAdvanceDelayMs: number
+}
+
+export interface FlowControlControlsProjection {
+  canSkip: boolean
+  canFastForward: boolean
+  canAutoAdvance: boolean
+}
+
+export interface FlowControlAdvanceProjection {
+  mode: Exclude<FlowControlMode, 'normal'>
+  source: string
+  timestamp: number
+}
+
+export interface FlowControlProjectionInput {
+  revision?: number
+  mode?: FlowControlMode
+  skipMode?: FlowControlSkipMode
+  policy?: FlowControlPolicy
+  defaultPolicy?: FlowControlPolicy
+  timings?: Partial<FlowControlTimingProjection>
+  stopAtChoices?: boolean
+  lastAdvance?: FlowControlAdvanceProjection
+}
+
+export interface ViewFlowControlProjection {
+  revision: number
+  mode: FlowControlMode
+  skipMode: FlowControlSkipMode
+  policy: Readonly<ResolvedFlowControlPolicy>
+  defaultPolicy: Readonly<ResolvedFlowControlPolicy>
+  controls: Readonly<FlowControlControlsProjection>
+  timings: Readonly<FlowControlTimingProjection>
+  stopAtChoices: boolean
+  lastAdvance?: Readonly<FlowControlAdvanceProjection>
+}
+
+export const QUA_DEFAULT_FLOW_CONTROL_POLICY: ResolvedFlowControlPolicy = {
+  skippable: true,
+  fastForwardable: true,
+  autoAdvanceable: true,
+}
+
+export const QUA_DEFAULT_FLOW_CONTROL_TIMINGS: FlowControlTimingProjection = {
+  skipAdvanceDelayMs: 0,
+  fastForwardAdvanceDelayMs: 80,
+  autoAdvanceDelayMs: 1200,
+}
+
+export function createFlowControlProjection(input: FlowControlProjectionInput = {}): ViewFlowControlProjection {
+  const defaultPolicy = normalizeFlowControlPolicy(input.defaultPolicy, QUA_DEFAULT_FLOW_CONTROL_POLICY)
+  const policy = normalizeFlowControlPolicy(input.policy, defaultPolicy)
+  return {
+    revision: input.revision ?? 0,
+    mode: input.mode || 'normal',
+    skipMode: input.skipMode || 'read',
+    policy,
+    defaultPolicy,
+    controls: createFlowControlControls(policy),
+    timings: {
+      skipAdvanceDelayMs: nonNegativeNumber(input.timings?.skipAdvanceDelayMs, QUA_DEFAULT_FLOW_CONTROL_TIMINGS.skipAdvanceDelayMs),
+      fastForwardAdvanceDelayMs: nonNegativeNumber(input.timings?.fastForwardAdvanceDelayMs, QUA_DEFAULT_FLOW_CONTROL_TIMINGS.fastForwardAdvanceDelayMs),
+      autoAdvanceDelayMs: nonNegativeNumber(input.timings?.autoAdvanceDelayMs, QUA_DEFAULT_FLOW_CONTROL_TIMINGS.autoAdvanceDelayMs),
+    },
+    stopAtChoices: input.stopAtChoices !== false,
+    lastAdvance: input.lastAdvance ? { ...input.lastAdvance } : undefined,
+  }
+}
+
 export type AnimationTime = number | `${number}%`
 export type AnimationInterpolation = 'number' | 'step' | 'discrete' | 'color' | 'array' | 'vector'
 export type AnimationPlaybackState = 'running' | 'paused' | 'stopped'
@@ -321,6 +420,7 @@ export interface QuaViewProjection {
   dialogue: Readonly<ViewDialogueProjection>
   choices: readonly Readonly<ViewChoiceProjection>[]
   ui: Readonly<ViewUiProjection>
+  flowControl: Readonly<ViewFlowControlProjection>
   effects: readonly Readonly<ViewEffectProjection>[]
   animations: readonly Readonly<ActiveAnimationProjection>[]
   plugins: Readonly<ViewPluginProjectionMap>
@@ -410,6 +510,11 @@ export interface UserChoiceSelectPayload {
   choiceId: string
 }
 
+export interface FlowControlSetModePayload {
+  mode: FlowControlMode
+  source?: string
+}
+
 export interface RendererLifecyclePayload {
   rendererId?: string
   timestamp?: number
@@ -465,6 +570,13 @@ export interface RenderToLogicEventPayloadMap {
   [RenderToLogicEvents.USER_KEY_PRESS]: { key: string, code?: string }
   [RenderToLogicEvents.USER_ADVANCE]: { source?: string }
   [RenderToLogicEvents.USER_CHOICE_SELECT]: UserChoiceSelectPayload
+  [RenderToLogicEvents.FLOW_CONTROL_SET_MODE_REQUEST]: FlowControlSetModePayload
+  [RenderToLogicEvents.FLOW_CONTROL_START_AUTO_REQUEST]: { source?: string }
+  [RenderToLogicEvents.FLOW_CONTROL_STOP_AUTO_REQUEST]: { source?: string }
+  [RenderToLogicEvents.FLOW_CONTROL_START_SKIP_REQUEST]: { source?: string }
+  [RenderToLogicEvents.FLOW_CONTROL_STOP_SKIP_REQUEST]: { source?: string }
+  [RenderToLogicEvents.FLOW_CONTROL_START_FAST_FORWARD_REQUEST]: { source?: string }
+  [RenderToLogicEvents.FLOW_CONTROL_STOP_FAST_FORWARD_REQUEST]: { source?: string }
   [RenderToLogicEvents.GAME_SAVE_REQUEST]: { slotId?: string }
   [RenderToLogicEvents.GAME_LOAD_REQUEST]: { slotId?: string }
   [RenderToLogicEvents.UI_REQUEST_OPEN]: { elementId: string, config?: Record<string, unknown> }
@@ -666,6 +778,31 @@ function positiveNumber(value: number | undefined, fallback: number): number {
   return Number.isFinite(value) && value !== undefined && value > 0 ? value : fallback
 }
 
+function nonNegativeNumber(value: number | undefined, fallback: number): number {
+  return Number.isFinite(value) && value !== undefined && value >= 0 ? value : fallback
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
+}
+
+function normalizeFlowControlPolicy(
+  policy: FlowControlPolicy | undefined,
+  base: ResolvedFlowControlPolicy,
+): ResolvedFlowControlPolicy {
+  return {
+    skippable: policy?.skippable ?? base.skippable,
+    fastForwardable: policy?.fastForwardable ?? base.fastForwardable,
+    autoAdvanceable: policy?.autoAdvanceable ?? base.autoAdvanceable,
+    tags: policy?.tags ? [...policy.tags] : base.tags ? [...base.tags] : undefined,
+    metadata: policy?.metadata ? { ...policy.metadata } : base.metadata ? { ...base.metadata } : undefined,
+  }
+}
+
+function createFlowControlControls(policy: ResolvedFlowControlPolicy): FlowControlControlsProjection {
+  return {
+    canSkip: policy.skippable,
+    canFastForward: policy.fastForwardable,
+    canAutoAdvance: policy.autoAdvanceable,
+  }
 }

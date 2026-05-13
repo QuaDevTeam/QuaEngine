@@ -5,6 +5,7 @@ import { createViteDevAssetRuntime } from '@quajs/assets-web'
 import { Pipeline } from '@quajs/pipeline'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import {
+  createFlowControlProjection,
   createViewLayoutProjection,
   emitLogicToRender,
   LogicToRenderEvents,
@@ -809,6 +810,7 @@ function view(overrides: Partial<QuaViewProjection> = {}): QuaViewProjection {
     dialogue: { visible: false, text: '' },
     choices: [],
     ui: { visible: true },
+    flowControl: createFlowControlProjection(),
     effects: [],
     animations: [],
     plugins: {},

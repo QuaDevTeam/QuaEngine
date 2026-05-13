@@ -343,6 +343,9 @@ importers:
 
   packages/core/engine:
     dependencies:
+      '@babel/types':
+        specifier: 'catalog:'
+        version: 7.29.0
       '@quajs/assets':
         specifier: workspace:*
         version: link:../assets

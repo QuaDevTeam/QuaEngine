@@ -31,6 +31,7 @@ This example shows the browser renderer talking through a pipeline while loading
 import type { QuaViewProjection } from '@quajs/render-core'
 import { createWebAssetRuntime } from '@quajs/assets-web'
 import { Pipeline } from '@quajs/pipeline'
+import { createFlowControlProjection } from '@quajs/render-core'
 import { QuaRenderer } from '@quajs/renderer-vue'
 import { createVisualNovelRendererPlugins } from '@quajs/renderer-vue/plugins/preset'
 import { createApp, h } from 'vue'
@@ -64,6 +65,7 @@ const initialView: QuaViewProjection = {
   dialogue: { visible: false, text: '' },
   choices: [],
   ui: { visible: true },
+  flowControl: createFlowControlProjection(),
   effects: [],
   animations: [],
   plugins: {

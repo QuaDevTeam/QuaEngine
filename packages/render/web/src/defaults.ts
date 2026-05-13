@@ -1,5 +1,5 @@
 import type { QuaViewProjection } from '@quajs/render-core'
-import { createViewLayoutProjection } from '@quajs/render-core'
+import { createFlowControlProjection, createViewLayoutProjection } from '@quajs/render-core'
 
 export function emptyView(): QuaViewProjection {
   return {
@@ -13,6 +13,7 @@ export function emptyView(): QuaViewProjection {
     ui: {
       visible: true,
     },
+    flowControl: createFlowControlProjection(),
     effects: [],
     animations: [],
     plugins: {},

@@ -169,6 +169,20 @@ describe('@quajs/plugin-settings', () => {
         skipMode: 'read',
       }),
     }))
+    expect(engine.getFlowControlState()).toEqual(expect.objectContaining({
+      skipMode: 'read',
+      timings: expect.objectContaining({ autoAdvanceDelayMs: 1200 }),
+    }))
+
+    await updatePlayerSettingsWithEngine(engine, BASE_SETTINGS_SCOPE, {
+      autoAdvanceDelayMs: 2400,
+      skipMode: 'all',
+    })
+
+    expect(engine.getFlowControlState()).toEqual(expect.objectContaining({
+      skipMode: 'all',
+      timings: expect.objectContaining({ autoAdvanceDelayMs: 2400 }),
+    }))
   })
 })
 

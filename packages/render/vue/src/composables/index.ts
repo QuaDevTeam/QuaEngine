@@ -40,6 +40,11 @@ export function useChoices() {
   return computed(() => view.value.choices)
 }
 
+export function useFlowControl() {
+  const { view } = useQuaRenderer()
+  return computed(() => view.value.flowControl)
+}
+
 export function usePluginProjection<T = unknown>(pluginId: string) {
   const { view } = useQuaRenderer()
   return computed(() => view.value.plugins[pluginId] as T | undefined)
