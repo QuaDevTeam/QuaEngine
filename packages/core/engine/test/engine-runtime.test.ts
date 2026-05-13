@@ -292,9 +292,11 @@ describe('quaEngine runtime architecture', () => {
     await engine.init()
     const first = createScene('first')
     const second = createScene('second')
+    const sceneChanges: unknown[] = []
+    onLogicToRender(engine.getPipeline(), LogicToRenderEvents.SCENE_CHANGE, payload => sceneChanges.push(payload))
 
     await engine.loadScene(first)
-    await engine.loadScene(second)
+    await engine.loadScene(second, { type: 'fade', duration: 120, easing: 'ease-out' })
     await engine.setPluginProjection('audio', audioProjection({
       revision: 2,
       buses: {
@@ -305,10 +307,43 @@ describe('quaEngine runtime architecture', () => {
     }))
 
     expect(engine.sceneManager.getSceneHistory()).toEqual(['first'])
+    expect(sceneChanges).toEqual([
+      { fromScene: undefined, toScene: 'first', transition: undefined },
+      { fromScene: 'first', toScene: 'second', transition: { type: 'fade', duration: 120, easing: 'ease-out' } },
+    ])
     expect(engine.getPluginProjection('audio')).toEqual(expect.objectContaining({
       revision: 2,
       buses: expect.objectContaining({ bgm: { gainDb: -12 } }),
     }))
+  })
+
+  it('can wait for renderer scene readiness before running a scene', async () => {
+    const engine = createEngine()
+    await engine.init()
+    const events: string[] = []
+    const scene = {
+      name: 'waited',
+      init: vi.fn(() => events.push('init')),
+      run: vi.fn(() => events.push('run')),
+      destroy: vi.fn(),
+    }
+    onLogicToRender(engine.getPipeline(), LogicToRenderEvents.SCENE_CHANGE, async (payload) => {
+      events.push(`change:${payload.toScene}`)
+      await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.SCENE_READY, {
+        sceneId: payload.toScene,
+        timestamp: Date.now(),
+      })
+      events.push(`ready:${payload.toScene}`)
+    })
+
+    await engine.loadScene(scene, {
+      type: 'fade',
+      duration: 80,
+      waitForRenderer: true,
+      rendererReadyTimeout: 100,
+    })
+
+    expect(events).toEqual(['init', 'change:waited', 'ready:waited', 'run'])
   })
 
   it('routes GameManager load through engine load path and emits view updates', async () => {

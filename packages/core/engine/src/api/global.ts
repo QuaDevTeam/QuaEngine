@@ -1,4 +1,5 @@
 import type { ChoiceIntent, CreateCheckpointOptions, DialogueIntent, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, Scene, SlotMetadata, StoryPoint, ViewLayoutInput } from '../core/types'
+import type { SceneTransitionOptions } from '../managers/scene-manager'
 import { QuaEngine } from '../core/engine'
 
 let engineInstance: QuaEngine | null = null
@@ -24,8 +25,8 @@ function getEngine(): QuaEngine {
 /**
  * Load and activate a scene
  */
-export async function loadScene(scene: Scene): Promise<void> {
-  return getEngine().loadScene(scene)
+export async function loadScene(scene: Scene, transition?: SceneTransitionOptions): Promise<void> {
+  return getEngine().loadScene(scene, transition)
 }
 
 /**

@@ -37,9 +37,22 @@
 .qua-layered-background,
 .qua-character-layer,
 .qua-effect-layer,
+.qua-scene-transition-layer,
 .qua-overlay-layer {
   position: absolute;
   inset: 0;
+}
+
+.qua-scene-transition-layer {
+  overflow: hidden;
+  pointer-events: none;
+  z-index: var(--qua-scene-transition-z-index, 80);
+}
+
+.qua-scene-transition {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .qua-layered-background {

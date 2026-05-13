@@ -26,13 +26,14 @@ await initEngine({
 
 ## Scene Management
 
-### `loadScene(scene: Scene): Promise<void>`
+### `loadScene(scene: Scene, transition?: SceneTransitionOptions): Promise<void>`
 
 Loads and activates a new scene in the game.
 
 **Parameters:**
 
 - `scene`: Scene object containing scene data and configuration
+- `transition` (optional): Scene transition intent. Set `waitForRenderer: true` to wait for a renderer `scene/ready` acknowledgement before running the scene.
 
 **Returns:** Promise that resolves when the scene is loaded
 

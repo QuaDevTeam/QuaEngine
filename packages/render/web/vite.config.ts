@@ -27,6 +27,7 @@ export default defineConfig({
         'plugins/dialogue': resolve(import.meta.dirname, 'src/plugins/dialogue.ts'),
         'plugins/effects': resolve(import.meta.dirname, 'src/plugins/effects.ts'),
         'plugins/preset': resolve(import.meta.dirname, 'src/plugins/preset.ts'),
+        'plugins/scene': resolve(import.meta.dirname, 'src/plugins/scene.ts'),
         'plugins/sprite': resolve(import.meta.dirname, 'src/plugins/sprite.ts'),
         'plugins/ui': resolve(import.meta.dirname, 'src/plugins/ui.ts'),
         'react': resolve(import.meta.dirname, 'src/react.ts'),

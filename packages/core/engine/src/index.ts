@@ -90,6 +90,8 @@ export type {
   EngineEvents,
   ResolvedAnimationTrackProjection,
   SceneInitPayload,
+  SceneTransitionIntent,
+  SceneTransitionType,
   UserChoiceSelectPayload,
   UserClickPayload,
   ViewBackgroundLayerProjection,
