@@ -6,6 +6,7 @@ import { createCharacterRendererPlugin } from '../character'
 import { createChoicesRendererPlugin } from '../choices'
 import { createDialogueRendererPlugin } from '../dialogue'
 import { createEffectsRendererPlugin } from '../effects'
+import { createSceneRendererPlugin } from '../scene'
 import { createSpriteRendererPlugin } from '../sprite'
 import { createUiRendererPlugin } from '../ui'
 
@@ -18,6 +19,7 @@ export function createVisualNovelRendererPlugins(): QuaVueRendererPlugin[] {
     createDialogueRendererPlugin(),
     createChoicesRendererPlugin(),
     createAudioRendererPlugin(),
+    createSceneRendererPlugin(),
     createUiRendererPlugin(),
     createBacklogRendererPlugin(),
   ]

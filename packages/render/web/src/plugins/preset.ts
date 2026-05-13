@@ -7,6 +7,7 @@ import { createCharacterWebRendererPlugin } from './character'
 import { createChoicesWebRendererPlugin } from './choices'
 import { createDialogueWebRendererPlugin } from './dialogue'
 import { createEffectsWebRendererPlugin } from './effects'
+import { createSceneWebRendererPlugin } from './scene'
 import { createSpriteCharacterRenderer, createSpriteWebRendererPlugin } from './sprite'
 import { createUiWebRendererPlugin } from './ui'
 
@@ -20,6 +21,7 @@ export function createVisualNovelWebRendererPlugins(): Array<QuaWebDomRendererPl
     createDialogueWebRendererPlugin(),
     createChoicesWebRendererPlugin(),
     createAudioWebRendererPlugin(),
+    createSceneWebRendererPlugin(),
     createUiWebRendererPlugin(),
     createBacklogWebRendererPlugin(),
   ]

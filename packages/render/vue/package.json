@@ -60,6 +60,10 @@
       "types": "./dist/plugins/preset/index.d.ts",
       "import": "./dist/plugins/preset/index.js"
     },
+    "./plugins/scene": {
+      "types": "./dist/plugins/scene/index.d.ts",
+      "import": "./dist/plugins/scene/index.js"
+    },
     "./styles/base.scss": "./src/styles/base.scss",
     "./styles/default.scss": "./src/styles/default.scss"
   },

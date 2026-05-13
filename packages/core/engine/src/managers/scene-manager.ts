@@ -1,25 +1,15 @@
 import type { QuaEngine } from '../core/engine'
 import type { ChoiceIntent, DialogueIntent, Scene } from '../core/types'
+import type { SceneTransitionIntent, SceneTransitionType } from '../events/events'
 import { getPackageLogger } from '@quajs/logger'
-import { emitLogicToRender, LogicToRenderEvents } from '../events/events'
+import { emitLogicToRender, LogicToRenderEvents, RenderToLogicEvents, waitForPipelineEvent } from '../events/events'
 
 const logger = getPackageLogger('engine:scene-manager')
 
-export type SceneTransition
-  = | 'instant'
-    | 'fade'
-    | 'slide_left'
-    | 'slide_right'
-    | 'slide_up'
-    | 'slide_down'
-    | 'zoom_in'
-    | 'zoom_out'
+const DEFAULT_SCENE_READY_TIMEOUT = 5000
 
-export interface SceneTransitionOptions {
-  type: SceneTransition
-  duration?: number
-  easing?: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out'
-}
+export type SceneTransition = SceneTransitionType
+export interface SceneTransitionOptions extends SceneTransitionIntent {}
 
 export class SceneManager {
   private currentScene?: Scene
@@ -37,11 +27,22 @@ export class SceneManager {
     this.currentScene = scene
     this.engine.getStore().commit('setCurrentScene', scene.name)
     await scene.init()
+    const sceneReady = transition?.waitForRenderer
+      ? waitForPipelineEvent(
+          this.engine.getPipeline(),
+          RenderToLogicEvents.SCENE_READY,
+          payload => payload.sceneId === undefined || payload.sceneId === scene.name,
+          {
+            timeout: transition.rendererReadyTimeout ?? DEFAULT_SCENE_READY_TIMEOUT,
+          },
+        )
+      : undefined
     await emitLogicToRender(this.engine.getPipeline(), LogicToRenderEvents.SCENE_CHANGE, {
       fromScene: previousScene?.name,
       toScene: scene.name,
       transition,
     })
+    await sceneReady
     await scene.run()
   }
 

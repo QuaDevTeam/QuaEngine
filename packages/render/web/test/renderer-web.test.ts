@@ -126,6 +126,48 @@ describe('@quajs/renderer-web', () => {
     await renderer.unmount()
   })
 
+  it('renders default scene transition overlays and emits scene readiness', async () => {
+    vi.useFakeTimers({ now: 1000 })
+    vi.stubGlobal('requestAnimationFrame', undefined)
+    vi.stubGlobal('cancelAnimationFrame', undefined)
+    try {
+      const pipeline = new Pipeline()
+      const readyScenes: string[] = []
+      onRenderToLogic(pipeline, RenderToLogicEvents.SCENE_READY, payload => readyScenes.push(payload.sceneId || ''))
+
+      const root = document.createElement('div')
+      document.body.append(root)
+      vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 900))
+      const renderer = createQuaWebDomRenderer({
+        container: root,
+        pipeline,
+        plugins: createVisualNovelWebRendererPlugins(),
+        initialView: view(),
+      })
+
+      await renderer.mount()
+      await emitLogicToRender(pipeline, LogicToRenderEvents.SCENE_CHANGE, {
+        toScene: 'intro',
+        transition: { type: 'fade', duration: 64, easing: 'linear' },
+      })
+
+      expect(root.querySelector('.qua-scene-transition')?.getAttribute('data-scene-transition-type')).toBe('fade')
+      expect(root.querySelector<HTMLElement>('.qua-scene-transition')?.style.opacity).toBe('1')
+
+      await vi.advanceTimersByTimeAsync(32)
+      expect(Number(root.querySelector<HTMLElement>('.qua-scene-transition')?.style.opacity)).toBeLessThan(1)
+
+      await vi.advanceTimersByTimeAsync(64)
+      expect(root.querySelector('.qua-scene-transition')).toBeNull()
+      expect(readyScenes).toEqual(['intro'])
+
+      await renderer.unmount()
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('renders backlog projection and emits backlog plugin intents', async () => {
     const pipeline = new Pipeline()
     const received: unknown[] = []

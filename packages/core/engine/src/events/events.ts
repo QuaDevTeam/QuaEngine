@@ -34,6 +34,8 @@ export type {
   ResolvedAnimationTrackProjection,
   SceneChangePayload,
   SceneInitPayload,
+  SceneTransitionIntent,
+  SceneTransitionType,
   TransitionIntent,
   UserChoiceSelectPayload,
   UserClickPayload,

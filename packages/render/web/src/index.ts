@@ -53,6 +53,7 @@ export { createChoicesWebRendererPlugin } from './plugins/choices'
 export { defineWebRendererPlugin } from './plugins/core'
 export { createDialogueWebRendererPlugin } from './plugins/dialogue'
 export { createEffectsWebRendererPlugin } from './plugins/effects'
+export { createSceneWebRendererPlugin } from './plugins/scene'
 export { createUiWebRendererPlugin } from './plugins/ui'
 export {
   backgroundCompositionVars,
@@ -78,3 +79,12 @@ export {
 export type { MotionProjection } from './projection'
 export type { ReactRendererStoreAdapter } from './react'
 export { createReactRendererStoreAdapter } from './react'
+export type { SceneTransitionRenderState, SceneTransitionStoreListener } from './scene'
+export {
+  createSceneTransitionStore,
+  DEFAULT_SCENE_TRANSITION_DURATION,
+  normalizeSceneTransitionClass,
+  sceneTransitionLayerStyle,
+  sceneTransitionOverlayStyle,
+  SceneTransitionStore,
+} from './scene'

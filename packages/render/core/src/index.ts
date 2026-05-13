@@ -336,6 +336,25 @@ export interface TransitionIntent {
   easing?: string
 }
 
+export type SceneTransitionType
+  = | 'instant'
+    | 'fade'
+    | 'crossfade'
+    | 'wipe'
+    | 'slide_left'
+    | 'slide_right'
+    | 'slide_up'
+    | 'slide_down'
+    | 'zoom_in'
+    | 'zoom_out'
+    | (string & {})
+
+export interface SceneTransitionIntent extends Omit<TransitionIntent, 'type'> {
+  type: SceneTransitionType
+  waitForRenderer?: boolean
+  rendererReadyTimeout?: number
+}
+
 export interface SceneInitPayload {
   sceneId: string
   config?: Record<string, unknown>
@@ -345,7 +364,7 @@ export interface SceneInitPayload {
 export interface SceneChangePayload {
   fromScene?: string
   toScene: string
-  transition?: TransitionIntent
+  transition?: SceneTransitionIntent
 }
 
 export interface BackgroundSetPayload extends ViewBackgroundProjection {}

@@ -26,6 +26,7 @@ export default defineConfig({
         'plugins/choices/index': resolve(import.meta.dirname, 'src/plugins/choices/index.ts'),
         'plugins/audio/index': resolve(import.meta.dirname, 'src/plugins/audio/index.ts'),
         'plugins/preset/index': resolve(import.meta.dirname, 'src/plugins/preset/index.ts'),
+        'plugins/scene/index': resolve(import.meta.dirname, 'src/plugins/scene/index.ts'),
         'plugins/ui/index': resolve(import.meta.dirname, 'src/plugins/ui/index.ts'),
       },
       name: 'rendererVue',

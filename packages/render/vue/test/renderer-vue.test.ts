@@ -50,6 +50,29 @@ describe('@quajs/renderer-vue', () => {
     expect(received).toContain('destroyed')
   })
 
+  it('wires scene transitions through the default Vue preset', async () => {
+    const pipeline = new Pipeline()
+    const readyScenes: string[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.SCENE_READY, payload => readyScenes.push(payload.sceneId || ''))
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view(),
+    })
+
+    await flushVue()
+    await emitLogicToRender(pipeline, LogicToRenderEvents.SCENE_CHANGE, {
+      toScene: 'intro',
+      transition: { type: 'instant' },
+    })
+    await flushVue()
+
+    expect(readyScenes).toEqual(['intro'])
+    expect(host.el.querySelector('.qua-scene-transition')).toBeNull()
+
+    host.app.unmount()
+  })
+
   it('projects pipeline view updates without a browser-local engine', async () => {
     const pipeline = new Pipeline()
     const initialView = view({

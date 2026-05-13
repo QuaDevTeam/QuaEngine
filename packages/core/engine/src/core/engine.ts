@@ -6,6 +6,7 @@ import type {
   QuaViewProjection,
   RenderToLogicEvents,
 } from '../events/events'
+import type { SceneTransitionOptions } from '../managers/scene-manager'
 import type {
   EngineContext,
   EnginePlugin,
@@ -159,9 +160,9 @@ export class QuaEngine {
     return this
   }
 
-  async loadScene(scene: Scene): Promise<void> {
+  async loadScene(scene: Scene, transition?: SceneTransitionOptions): Promise<void> {
     this.assertInitialized()
-    await this.sceneManager.loadScene(scene)
+    await this.sceneManager.loadScene(scene, transition)
   }
 
   async dialogue(steps: GameStep[]): Promise<void>
