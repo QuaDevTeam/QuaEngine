@@ -1,0 +1,4 @@
+interface:
+  display_name: "QuaEngine Runtime Packages"
+  short_description: "Dynamic QPK runtime content rules"
+  default_prompt: "Use $quaengine-runtime-packages to review or implement QuaEngine dynamic QPK Runtime Package behavior."

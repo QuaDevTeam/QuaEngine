@@ -1,6 +1,6 @@
 ---
 name: quaengine-development-guardrails
-description: QuaEngine architecture guardrails for renderer statelessness, package-local decorators and Vite/build tooling, and engine/core Web API separation. Use when modifying QuaEngine engine, renderer, plugins, decorators, script compilation, or Vite integration.
+description: QuaEngine architecture guardrails for renderer statelessness, dynamic QPK Runtime Packages, package-local decorators, Vite/build tooling, and engine/core Web API separation. Use when modifying QuaEngine engine, runtime content, renderer, plugins, decorators, script compilation, assets, QPK manifests, or Vite integration.
 ---
 
 # QuaEngine Guardrails
@@ -13,6 +13,19 @@ description: QuaEngine architecture guardrails for renderer statelessness, packa
 - When changing a contract, update in-repo callers, tests, examples, and docs directly to the new shape.
 - Remove obsolete code in the same change that makes it obsolete.
 - Keep code simple and explicit; add abstraction only when it serves the current architecture, not compatibility with old behavior.
+
+### Dynamic runtime QPK packages
+- Treat AI generated incremental content as Quack-built Runtime Packages. Do not add a loose single-resource push path for generated assets, scripts, story graph, store, audio, sprite, animation, or plugin updates.
+- Runtime QPKs mount as side-by-side QuaAssets bundles. Existing patch flows are only for updating an already existing bundle.
+- `RuntimeContentManager` in `@quajs/engine` owns package lifecycle, script module registration, runtime engine plugin lifecycle, renderer plugin manifest publication, story graph deltas, store migrations, dependency checks, and guarded unload.
+- Engine core must stay platform neutral. Runtime JS bytes, object URLs, dynamic `import()`, DOM APIs, and WebCrypto details belong in injected loaders or platform/Web packages.
+- Production dynamic JS/plugin loading must pass integrity/signature trust policy. Tests and development may explicitly allow unsigned packages.
+- Runtime-created story points and view projections must carry `contentPackageId`. If a projection depends on more than one package, preserve the primary `contentPackageId` and merge `requiredRuntimePackages`.
+- Save slots, checkpoints, backlog entries, voice replay references, jump targets, and current view projection must record enough required packages to restore safely.
+- Same-scene continuation is a first-class case. Read keys and story graph/timeline identity must include package/script/lane/route/timeline/protagonist/node context as appropriate, not only scene and step IDs.
+- Default runtime package unload must reject packages referenced by current story point, current checkpoint metadata, active view projection, or active package dependencies. Use `{ force: true }` only for teardown, rollback, or deliberate state eviction.
+- Runtime store changes must be declared as idempotent migrations. Do not blindly overwrite player state, choices, settings, or current progress.
+- For full details, read `docs/design/dynamic-runtime-qpk.md` when working on Runtime Package behavior.
 
 ### Renderer
 - Treat the renderer as a projection canvas.
@@ -31,6 +44,7 @@ description: QuaEngine architecture guardrails for renderer statelessness, packa
 - All new or refactored coordinate APIs should default to logical stage pixels. If an API uses percent, normalized ratios, anchors, asset-local pixels, UV coordinates, or CSS units, the unit must be explicit in its name/type/docs and converted at the projection boundary.
 - Animation tracks for position, camera/background offsets, size, and drawing transforms must interpolate in logical stage coordinates before renderer scaling. Do not animate measured CSS pixels when the value represents game projection state.
 - Hit-test payloads sent through `@quajs/pipeline` should use logical stage coordinates unless explicitly named as raw client/screen coordinates. Web renderer code should use `clientPointToStageLogical` and `stageLogicalToClientPoint` from `@quajs/renderer-web` instead of hand-rolled formulas.
+- Web renderers and framework adapters should use `observeStageViewportEnvironment` for mobile browser chrome, keyboard, rotation, visual viewport, and viewport scroll changes that need layout re-resolution.
 - Shared layout resolving, stage scaling, safe-area math, coordinate conversion, and native DOM projection helpers belong in `@quajs/renderer-web`; framework renderers should reuse those helpers instead of duplicating layout math.
 
 ### Renderer package layering
@@ -77,7 +91,15 @@ description: QuaEngine architecture guardrails for renderer statelessness, packa
 - Ask whether the change belongs in the package that defines the feature.
 - Ask whether Web runtime behavior belongs in `@quajs/renderer-web` before adding it to a framework renderer.
 - Ask whether the change can flow through pipeline metadata instead of a direct engine dependency.
+- Ask whether Runtime Package changes are package-based QPK flow, not loose resource push flow.
+- Ask whether runtime-created state has provenance and whether multi-package projections merge `requiredRuntimePackages`.
+- Ask whether save/load, backlog, rewind, voice replay, story graph/timeline, and view projection dependencies are all restored before use.
+- Ask whether default unload is guarded and force unload clears projections before bundle assets are removed.
+- Ask whether same-scene continuation across multiple QPKs preserves read progress, sprite/background diffs, animation fill state, and audio state.
+- Ask whether store migrations are declared, idempotent, and non-destructive.
+- Ask whether dynamic JS/plugin loading is verified through trust policy and implemented through injected/platform loaders.
 - Reject any renderer logic that becomes authoritative.
 - Reject WebAudio autoplay handling that treats browser policy blocking as a game-state error or blocks renderer synchronization while waiting for permission.
 - Reject framework renderer changes that duplicate object URL, lifecycle, animation projection, or WebAudio runtime code already owned by `@quajs/renderer-web`.
+- Reject Runtime Package implementations that require a renderer cache or transient Web resource for save/load, replay, branching, or progression correctness.
 - Reject any commit message that does not match `<type>(<component>): <description>`.
