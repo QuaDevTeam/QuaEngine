@@ -505,6 +505,19 @@ importers:
       '@quajs/store':
         specifier: workspace:*
         version: link:../../core/store
+
+  packages/plugins/fonts:
+    devDependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../../core/assets
+      '@quajs/engine':
+        specifier: workspace:*
+        version: link:../../core/engine
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
+
   packages/plugins/sprite:
     devDependencies:
       '@quajs/assets-web':
@@ -540,6 +553,9 @@ importers:
       '@quajs/plugin-backlog':
         specifier: workspace:*
         version: link:../../plugins/backlog
+      '@quajs/plugin-fonts':
+        specifier: workspace:*
+        version: link:../../plugins/fonts
       '@quajs/plugin-sprite':
         specifier: workspace:*
         version: link:../../plugins/sprite
@@ -570,6 +586,9 @@ importers:
       '@quajs/plugin-backlog':
         specifier: workspace:*
         version: link:../../plugins/backlog
+      '@quajs/plugin-fonts':
+        specifier: workspace:*
+        version: link:../../plugins/fonts
       '@quajs/plugin-sprite':
         specifier: workspace:*
         version: link:../../plugins/sprite

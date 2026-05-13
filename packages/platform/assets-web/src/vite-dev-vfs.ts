@@ -1,4 +1,4 @@
-export type DevAssetType = 'images' | 'characters' | 'audio' | 'video' | 'scripts' | 'data'
+export type DevAssetType = 'images' | 'characters' | 'audio' | 'video' | 'fonts' | 'scripts' | 'data'
 
 export interface DevAssetManifestRecord {
   id: string
@@ -189,7 +189,7 @@ function createDevAssetId(type: DevAssetType, name: string, locale: string): str
 }
 
 function isDevAssetType(value: string | undefined): value is DevAssetType {
-  return value === 'images' || value === 'characters' || value === 'audio' || value === 'video' || value === 'scripts' || value === 'data'
+  return value === 'images' || value === 'characters' || value === 'audio' || value === 'video' || value === 'fonts' || value === 'scripts' || value === 'data'
 }
 
 function getAssetTypeByExtension(path: string): DevAssetType {
@@ -200,6 +200,8 @@ function getAssetTypeByExtension(path: string): DevAssetType {
     return 'audio'
   if (['.mp4', '.webm', '.avi', '.mov', '.mkv', '.wmv', '.flv'].includes(extension))
     return 'video'
+  if (['.woff2', '.woff', '.ttf', '.otf', '.ttc'].includes(extension))
+    return 'fonts'
   if (['.js', '.mjs', '.ts', '.json5'].includes(extension))
     return 'scripts'
   return 'data'
@@ -272,6 +274,11 @@ function getMimeType(path: string): string {
     '.wav': 'audio/wav',
     '.webm': 'video/webm',
     '.webp': 'image/webp',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+    '.ttf': 'font/ttf',
+    '.otf': 'font/otf',
+    '.ttc': 'font/collection',
   }
   return mimeTypes[extension] || 'application/octet-stream'
 }

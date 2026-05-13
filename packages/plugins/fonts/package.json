@@ -1,0 +1,60 @@
+{
+  "name": "@quajs/plugin-fonts",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Font face projection and renderer font registration helpers for QuaEngine",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "plugin",
+    "fonts",
+    "typography",
+    "visual-novel"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "import": "./dist/contracts.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@quajs/engine": "workspace:*"
+  },
+  "devDependencies": {
+    "@quajs/assets": "workspace:*",
+    "@quajs/engine": "workspace:*",
+    "@quajs/store": "workspace:*"
+  },
+  "quajs": {
+    "type": "plugin",
+    "category": "visual",
+    "description": "Font face projection for rich text, cutscenes, and renderer typography",
+    "renderer": {
+      "web": "@quajs/renderer-web/plugins/fonts",
+      "vue": "@quajs/renderer-vue/plugins/fonts"
+    }
+  }
+}

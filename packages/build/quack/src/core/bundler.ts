@@ -287,7 +287,7 @@ export class QuackBundler extends EventEmitter {
           compressionRatio: 0,
           processingTime: Date.now() - startTime,
           locales: [],
-          assetsByType: { images: 0, characters: 0, audio: 0, video: 0, scripts: 0, data: 0 },
+          assetsByType: { images: 0, characters: 0, audio: 0, video: 0, fonts: 0, scripts: 0, data: 0 },
           bundleVersion: normalizedConfig.versioning.bundleVersion,
           buildNumber: normalizedConfig.versioning.buildNumber,
         }
@@ -583,6 +583,7 @@ export class QuackBundler extends EventEmitter {
         characters: Object.keys(manifest.assets.characters || {}).length,
         audio: Object.keys(manifest.assets.audio || {}).length,
         video: Object.keys(manifest.assets.video || {}).length,
+        fonts: Object.keys(manifest.assets.fonts || {}).length,
         scripts: Object.keys(manifest.assets.scripts || {}).length,
         data: Object.keys(manifest.assets.data || {}).length,
       },

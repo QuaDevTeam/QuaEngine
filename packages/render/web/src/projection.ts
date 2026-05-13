@@ -5,6 +5,10 @@ import type {
   BackgroundFilterProjection,
   BackgroundMaskProjection,
   QuaViewProjection,
+  RichTextBlockProjection,
+  RichTextContent,
+  RichTextDocumentProjection,
+  RichTextSpanProjection,
   ViewBackgroundLayerProjection,
   ViewBackgroundProjection,
   ViewCharacterProjection,
@@ -12,6 +16,7 @@ import type {
   ViewDialogueProjection,
   ViewEffectProjection,
 } from '@quajs/render-core'
+import { isRichTextDocument } from '@quajs/render-core'
 import { applyTrackValues, cloneBackground, cloneBackgroundLayer, cloneCharacter, cloneUnknownRecord, collectTrackValues } from './animation'
 
 export type MotionProjection = Readonly<Record<string, unknown>>
@@ -86,7 +91,40 @@ export function projectDialogue(
     ...(base ? cloneUnknownRecord(base) : {}),
     ...(dialogue as unknown as Record<string, unknown>),
   }
-  return projectMotionTarget(projection, animations, 'dialogue:box', now) as unknown as ViewDialogueProjection
+  const projected = projectMotionTarget(projection, animations, 'dialogue:box', now) as unknown as ViewDialogueProjection
+  projected.text = projectRichText(projected.text, animations, now, 'dialogue')
+  return projected
+}
+
+export function projectRichText(
+  content: RichTextContent,
+  animations: readonly Readonly<ActiveAnimationProjection>[],
+  now: number,
+  targetPrefix = 'text',
+): RichTextContent {
+  if (!isRichTextDocument(content)) {
+    return content
+  }
+
+  const document = cloneRichTextDocument(content)
+  applyTrackValues(document as unknown as Record<string, unknown>, collectTrackValues(animations, `richText:${targetPrefix}`, now))
+  document.blocks = document.blocks.map((block, blockIndex) => {
+    const projectedBlock = cloneRichTextBlock(block)
+    applyTrackValues(
+      projectedBlock as unknown as Record<string, unknown>,
+      collectTrackValues(animations, `richTextBlock:${targetPrefix}:${richTextItemId(block.id, blockIndex)}`, now),
+    )
+    projectedBlock.spans = projectedBlock.spans.map((span, spanIndex) => {
+      const projectedSpan = cloneRichTextSpan(span)
+      applyTrackValues(
+        projectedSpan as unknown as Record<string, unknown>,
+        collectTrackValues(animations, `richTextSpan:${targetPrefix}:${richTextItemId(span.id, spanIndex)}`, now),
+      )
+      return projectedSpan
+    })
+    return projectedBlock
+  })
+  return document
 }
 
 export function projectChoices(
@@ -204,6 +242,7 @@ export function motionProjectionVars(
   assignVar(vars, `${prefix}-z-index`, projection.zIndex)
   assignVar(vars, `${prefix}-color`, projection.color)
   assignVar(vars, `${prefix}-background-color`, projection.backgroundColor)
+  assignTypographyVars(vars, prefix, projection)
   vars.transform = `translate(calc(var(${prefix}-x, 0) * 1px), calc(var(${prefix}-y, 0) * 1px)) scale(var(${prefix}-scale, 1)) rotate(calc(var(${prefix}-rotation, 0) * 1deg))`
   vars.opacity = `var(${prefix}-opacity, 1)`
   vars['z-index'] = `var(${prefix}-z-index, auto)`
@@ -399,6 +438,77 @@ export function normalizeBackgroundLayerAssetType(assetType: string | undefined)
   return 'images'
 }
 
+function cloneRichTextDocument(document: Readonly<RichTextDocumentProjection>): RichTextDocumentProjection {
+  return {
+    ...document,
+    metadata: document.metadata ? cloneUnknownRecord(document.metadata) : undefined,
+    blocks: document.blocks.map(block => cloneRichTextBlock(block)),
+  }
+}
+
+function cloneRichTextBlock(block: Readonly<RichTextBlockProjection>): RichTextBlockProjection {
+  return {
+    ...block,
+    metadata: block.metadata ? cloneUnknownRecord(block.metadata) : undefined,
+    spans: block.spans.map(span => cloneRichTextSpan(span)),
+  }
+}
+
+function cloneRichTextSpan(span: Readonly<RichTextSpanProjection>): RichTextSpanProjection {
+  return {
+    ...span,
+    metadata: span.metadata ? cloneUnknownRecord(span.metadata) : undefined,
+  }
+}
+
+function richTextItemId(id: string | undefined, index: number): string {
+  return id || String(index)
+}
+
+function assignTypographyVars(
+  vars: Record<string, string | number>,
+  prefix: string,
+  projection: MotionProjection,
+): void {
+  assignVar(vars, `${prefix}-font-family`, projection.fontFamily)
+  assignCssLengthVar(vars, `${prefix}-font-size`, projection.fontSize)
+  assignVar(vars, `${prefix}-font-weight`, projection.fontWeight)
+  assignVar(vars, `${prefix}-font-style`, projection.fontStyle)
+  assignVar(vars, `${prefix}-line-height`, projection.lineHeight)
+  assignCssLengthVar(vars, `${prefix}-letter-spacing`, projection.letterSpacing)
+  assignVar(vars, `${prefix}-text-align`, projection.textAlign)
+  assignVar(vars, `${prefix}-text-decoration`, projection.textDecoration)
+  assignVar(vars, `${prefix}-text-transform`, projection.textTransform)
+
+  if (projection.fontFamily !== undefined) {
+    vars['font-family'] = `var(${prefix}-font-family, inherit)`
+  }
+  if (projection.fontSize !== undefined) {
+    vars['font-size'] = `var(${prefix}-font-size, inherit)`
+  }
+  if (projection.fontWeight !== undefined) {
+    vars['font-weight'] = `var(${prefix}-font-weight, inherit)`
+  }
+  if (projection.fontStyle !== undefined) {
+    vars['font-style'] = `var(${prefix}-font-style, inherit)`
+  }
+  if (projection.lineHeight !== undefined) {
+    vars['line-height'] = `var(${prefix}-line-height, inherit)`
+  }
+  if (projection.letterSpacing !== undefined) {
+    vars['letter-spacing'] = `var(${prefix}-letter-spacing, normal)`
+  }
+  if (projection.textAlign !== undefined) {
+    vars['text-align'] = `var(${prefix}-text-align, inherit)`
+  }
+  if (projection.textDecoration !== undefined) {
+    vars['text-decoration'] = `var(${prefix}-text-decoration, inherit)`
+  }
+  if (projection.textTransform !== undefined) {
+    vars['text-transform'] = `var(${prefix}-text-transform, none)`
+  }
+}
+
 function assignMotionVars(vars: Record<string, string | number>, prefix: string, motion: MotionProjection | undefined): void {
   assignVar(vars, `${prefix}-x`, motion?.x)
   assignVar(vars, `${prefix}-y`, motion?.y)
@@ -412,6 +522,15 @@ function assignMotionVars(vars: Record<string, string | number>, prefix: string,
 
 function assignVar(vars: Record<string, string | number>, name: string, value: unknown): void {
   if (typeof value === 'string' || typeof value === 'number') {
+    vars[name] = value
+  }
+}
+
+function assignCssLengthVar(vars: Record<string, string | number>, name: string, value: unknown): void {
+  if (typeof value === 'number') {
+    vars[name] = `${value}px`
+  }
+  else if (typeof value === 'string') {
     vars[name] = value
   }
 }

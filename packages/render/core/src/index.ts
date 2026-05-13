@@ -254,11 +254,68 @@ export interface CharacterPosition {
   anchor?: 'left' | 'center' | 'right' | string
 }
 
+export type TextProjectionLength = number | string
+
+export interface RichTextStyleProjection {
+  fontFamily?: string
+  fontSize?: TextProjectionLength
+  fontWeight?: number | string
+  fontStyle?: 'normal' | 'italic' | 'oblique' | string
+  lineHeight?: number | string
+  letterSpacing?: TextProjectionLength
+  color?: string
+  backgroundColor?: string
+  textAlign?: 'left' | 'center' | 'right' | 'justify' | string
+  textDecoration?: string
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize' | string
+  opacity?: number
+  x?: number
+  y?: number
+  scale?: number
+  rotation?: number
+}
+
+export interface RichTextSpanProjection extends RichTextStyleProjection {
+  id?: string
+  text: string
+  ruby?: string
+  ariaLabel?: string
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface RichTextBlockProjection extends RichTextStyleProjection {
+  id?: string
+  type?: 'paragraph' | 'line' | string
+  spans: readonly Readonly<RichTextSpanProjection>[]
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface RichTextDocumentProjection extends RichTextStyleProjection {
+  kind: 'rich-text'
+  blocks: readonly Readonly<RichTextBlockProjection>[]
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export type RichTextContent = string | Readonly<RichTextDocumentProjection>
+
+export function isRichTextDocument(value: RichTextContent | unknown): value is Readonly<RichTextDocumentProjection> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value) && (value as { kind?: unknown }).kind === 'rich-text')
+}
+
+export function richTextToPlainText(content: RichTextContent): string {
+  if (typeof content === 'string') {
+    return content
+  }
+  return content.blocks
+    .map(block => block.spans.map(span => span.text).join(''))
+    .join('\n')
+}
+
 export interface ViewDialogueProjection {
   visible: boolean
   characterId?: string
   characterName?: string
-  text: string
+  text: RichTextContent
   mode?: 'say' | 'narration'
 }
 
@@ -482,7 +539,7 @@ export interface CharacterPayload {
 export interface DialogueShowPayload {
   characterId?: string
   characterName?: string
-  text: string
+  text: RichTextContent
   choices?: ViewChoiceProjection[]
 }
 

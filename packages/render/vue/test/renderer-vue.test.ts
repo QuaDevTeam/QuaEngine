@@ -4,6 +4,7 @@ import { MemoryAssetStorage, QuaAssets } from '@quajs/assets'
 import { createViteDevAssetRuntime } from '@quajs/assets-web'
 import { Pipeline } from '@quajs/pipeline'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
+import { FONTS_PLUGIN_ID } from '@quajs/plugin-fonts/contracts'
 import {
   createFlowControlProjection,
   createViewLayoutProjection,
@@ -214,6 +215,107 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.querySelector('.qua-dialogue-box')).toBeNull()
     expect(host.el.querySelector('.qua-choice-panel')).toBeNull()
     expect(host.el.querySelector('.qua-effect-layer')).toBeNull()
+  })
+
+  it('renders rich dialogue text with animated typography', async () => {
+    const timestamp = Date.now()
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        dialogue: {
+          visible: true,
+          text: {
+            kind: 'rich-text',
+            blocks: [{
+              id: 'line',
+              spans: [
+                { text: 'Hello ' },
+                { id: 'keyword', text: 'World', color: '#000000', fontSize: 20, fontWeight: 400 },
+              ],
+            }],
+          },
+        },
+        animations: [{
+          id: 'animation:rich-text',
+          state: 'paused',
+          startedAt: timestamp - 500,
+          pausedAt: timestamp,
+          duration: 1000,
+          playbackRate: 1,
+          resolvedTracks: [
+            { target: 'richTextSpan:dialogue:keyword', property: 'color', interpolation: 'color', keyframes: [{ at: 0, value: '#000000' }, { at: 1000, value: '#ffffff' }] },
+            { target: 'richTextSpan:dialogue:keyword', property: 'fontSize', keyframes: [{ at: 0, value: 20 }, { at: 1000, value: 40 }] },
+            { target: 'richTextSpan:dialogue:keyword', property: 'fontWeight', keyframes: [{ at: 0, value: 400 }, { at: 1000, value: 700 }] },
+          ],
+        }],
+      }),
+    })
+
+    await flushVue()
+
+    const span = host.el.querySelector<HTMLElement>('[data-rich-text-span-id="keyword"]')
+    expect(host.el.querySelector('.qua-dialogue-text')?.textContent).toBe('Hello World')
+    expect(span?.getAttribute('style')).toContain('--qua-rich-text-span-color: rgb(128, 128, 128)')
+    expect(span?.getAttribute('style')).toContain('--qua-rich-text-span-font-size: 30px')
+    expect(span?.getAttribute('style')).toContain('--qua-rich-text-span-font-weight: 550')
+  })
+
+  it('registers font assets through the Vue visual novel preset', async () => {
+    const fontRuntime = installFakeFontFace()
+    const assets = await createFontAssets()
+    const host = mount(QuaRenderer, {
+      pipeline: new Pipeline(),
+      assets,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        plugins: {
+          [FONTS_PLUGIN_ID]: {
+            revision: 1,
+            faces: [{
+              family: 'Qua Serif',
+              assetName: 'display.woff2',
+              weight: 700,
+              display: 'swap',
+            }],
+          },
+        },
+        dialogue: {
+          visible: true,
+          text: {
+            kind: 'rich-text',
+            fontFamily: 'Qua Serif',
+            blocks: [{
+              spans: [{ text: 'Loaded font' }],
+            }],
+          },
+        },
+      }),
+    })
+
+    try {
+      await flushVue()
+
+      expect(fontRuntime.created).toHaveLength(1)
+      expect(fontRuntime.created[0]).toEqual(expect.objectContaining({
+        family: 'Qua Serif',
+        descriptors: expect.objectContaining({
+          weight: '700',
+          display: 'swap',
+        }),
+      }))
+      expect(fontRuntime.add).toHaveBeenCalledWith(fontRuntime.created[0])
+      expect(host.el.querySelector('.qua-dialogue-text')?.getAttribute('style')).toContain('--qua-rich-text-font-family: Qua Serif')
+
+      host.app.unmount()
+      await flushVue()
+      expect(fontRuntime.delete).toHaveBeenCalledWith(fontRuntime.created[0])
+    }
+    finally {
+      fontRuntime.restore()
+      await assets.cleanup()
+    }
   })
 
   it('fills portrait phone containers through the shared adaptive stage layout', async () => {
@@ -923,6 +1025,102 @@ function asset(name: string, type: AssetData['type'], mimeType: string): AssetDa
     version: 1,
     mtime: 1,
     fromCache: false,
+  }
+}
+
+async function createFontAssets(): Promise<QuaAssets> {
+  const assets = new QuaAssets({
+    adapter: {
+      name: 'renderer-vue-font-test',
+      storage: new MemoryAssetStorage(),
+      crypto: { sha256: async () => '' },
+    },
+    provider: {
+      mode: 'memory',
+      getManifest: async () => ({
+        version: '1',
+        assets: [
+          fontAssetRecord('display.woff2'),
+        ],
+      }),
+      getAsset: async () => new Uint8Array([1, 2, 3, 4]),
+    },
+  })
+  await assets.initialize()
+  return assets
+}
+
+function fontAssetRecord(name: string) {
+  return {
+    id: `memory:default:fonts:${name}`,
+    bundleName: 'memory',
+    name,
+    type: 'fonts' as const,
+    locale: 'default',
+    path: `fonts/${name}`,
+    mimeType: 'font/woff2',
+  }
+}
+
+function installFakeFontFace() {
+  const originalFontFace = Object.getOwnPropertyDescriptor(window, 'FontFace')
+  const originalDocumentFonts = Object.getOwnPropertyDescriptor(document, 'fonts')
+  const created: Array<{
+    family: string
+    source: string | BufferSource
+    descriptors?: FontFaceDescriptors
+    load: () => Promise<FontFace>
+  }> = []
+  const add = vi.fn()
+  const deleteFace = vi.fn()
+
+  class FakeFontFace {
+    family: string
+    source: string | BufferSource
+    descriptors?: FontFaceDescriptors
+
+    constructor(family: string, source: string | BufferSource, descriptors?: FontFaceDescriptors) {
+      this.family = family
+      this.source = source
+      this.descriptors = descriptors
+      created.push(this as unknown as typeof created[number])
+    }
+
+    async load(): Promise<FontFace> {
+      return this as unknown as FontFace
+    }
+  }
+
+  Object.defineProperty(window, 'FontFace', {
+    configurable: true,
+    value: FakeFontFace,
+  })
+  Object.defineProperty(document, 'fonts', {
+    configurable: true,
+    value: {
+      add,
+      delete: deleteFace,
+    },
+  })
+
+  return {
+    created,
+    add,
+    delete: deleteFace,
+    restore() {
+      if (originalFontFace) {
+        Object.defineProperty(window, 'FontFace', originalFontFace)
+      }
+      else {
+        delete (window as Partial<Window>).FontFace
+      }
+      if (originalDocumentFonts) {
+        Object.defineProperty(document, 'fonts', originalDocumentFonts)
+      }
+      else {
+        delete (document as Partial<Document>).fonts
+      }
+    },
   }
 }
 

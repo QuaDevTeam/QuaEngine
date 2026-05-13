@@ -1,4 +1,4 @@
-export type AssetType = 'images' | 'characters' | 'audio' | 'video' | 'scripts' | 'data'
+export type AssetType = 'images' | 'characters' | 'audio' | 'video' | 'fonts' | 'scripts' | 'data'
 export type AssetLocale = string
 export type BundleFormat = 'zip' | 'qpk'
 export type LoadingState = 'idle' | 'loading' | 'loaded' | 'error'

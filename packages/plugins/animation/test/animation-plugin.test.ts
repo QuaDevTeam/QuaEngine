@@ -244,6 +244,87 @@ describe('@quajs/plugin-animation', () => {
     })
   })
 
+  it('commits rich dialogue typography transitions back into dialogue text projection', async () => {
+    const engine = createEngine({
+      dialogue: {
+        visible: true,
+        text: {
+          kind: 'rich-text',
+          blocks: [{
+            id: 'line',
+            spans: [
+              { text: 'Hello ' },
+              { id: 'keyword', text: 'World', color: '#000000', fontSize: 20, fontWeight: 400 },
+            ],
+          }],
+        },
+      },
+    })
+
+    const played = playTimelineWithEngine(engine, {
+      duration: 100,
+      tracks: [
+        {
+          target: 'richText:dialogue',
+          property: 'fontFamily',
+          keyframes: [
+            { at: 0, value: 'Qua Sans' },
+            { at: 100, value: 'Qua Serif' },
+          ],
+        },
+        {
+          target: 'richTextBlock:dialogue:line',
+          property: 'x',
+          keyframes: [
+            { at: 0, value: 0 },
+            { at: 100, value: 12 },
+          ],
+        },
+        {
+          target: 'richTextSpan:dialogue:keyword',
+          property: 'color',
+          interpolation: 'color',
+          keyframes: [
+            { at: 0, value: '#000000' },
+            { at: 100, value: '#ffffff' },
+          ],
+        },
+        {
+          target: 'richTextSpan:dialogue:keyword',
+          property: 'fontSize',
+          keyframes: [
+            { at: 0, value: 20 },
+            { at: 100, value: 40 },
+          ],
+        },
+        {
+          target: 'richTextSpan:dialogue:keyword',
+          property: 'fontWeight',
+          keyframes: [
+            { at: 0, value: 400 },
+            { at: 100, value: 700 },
+          ],
+        },
+      ],
+    }, { wait: true })
+
+    await vi.advanceTimersByTimeAsync(100)
+    await played
+
+    const text = engine.getViewState().dialogue.text as any
+    expect(engine.getViewState().animations).toEqual([])
+    expect(text.fontFamily).toBe('Qua Serif')
+    expect(text.blocks[0].x).toBe(12)
+    expect(text.blocks[0].spans[1]).toEqual(expect.objectContaining({
+      color: '#ffffff',
+      fontSize: 40,
+      fontWeight: 700,
+    }))
+    expect(engine.showDialogue).toHaveBeenCalledWith(expect.objectContaining({
+      text: expect.objectContaining({ kind: 'rich-text' }),
+    }))
+  })
+
   it('reconciles restored running projections into completion timers', async () => {
     const engine = createEngine({
       animations: [{

@@ -44,6 +44,10 @@
       "types": "./dist/plugins/effects/index.d.ts",
       "import": "./dist/plugins/effects/index.js"
     },
+    "./plugins/fonts": {
+      "types": "./dist/plugins/fonts/index.d.ts",
+      "import": "./dist/plugins/fonts/index.js"
+    },
     "./plugins/dialogue": {
       "types": "./dist/plugins/dialogue/index.d.ts",
       "import": "./dist/plugins/dialogue/index.js"
@@ -93,6 +97,7 @@
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
+    "@quajs/plugin-fonts": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",
     "@quajs/renderer-web": "workspace:*",
@@ -100,6 +105,9 @@
   },
   "peerDependenciesMeta": {
     "@quajs/plugin-backlog": {
+      "optional": true
+    },
+    "@quajs/plugin-fonts": {
       "optional": true
     }
   },
@@ -109,6 +117,7 @@
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
+    "@quajs/plugin-fonts": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",
     "@quajs/renderer-web": "workspace:*",

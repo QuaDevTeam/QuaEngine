@@ -5,6 +5,8 @@ export {
   onLogicToRender,
   onRenderToLogic,
   RenderToLogicEvents,
+  isRichTextDocument,
+  richTextToPlainText,
   waitForPipelineEvent,
 } from '@quajs/render-core'
 
@@ -41,6 +43,11 @@ export type {
   LogicToRenderEventPayloadMap,
   LogicToRenderPayload,
   QuaViewProjection,
+  RichTextBlockProjection,
+  RichTextContent,
+  RichTextDocumentProjection,
+  RichTextSpanProjection,
+  RichTextStyleProjection,
   RendererLifecyclePayload,
   RenderToLogicEventPayloadMap,
   RenderToLogicPayload,

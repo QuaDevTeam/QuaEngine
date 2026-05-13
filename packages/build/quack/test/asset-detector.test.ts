@@ -70,6 +70,7 @@ describe('assetDetector', () => {
         { file: 'characters/hero.sprite', expectedType: 'characters' },
         { file: 'scripts/scene.js', expectedType: 'scripts' },
         { file: 'audio/music.mp3', expectedType: 'audio' },
+        { file: 'fonts/display.woff2', expectedType: 'fonts' },
         { file: 'data/config.json', expectedType: 'data' },
       ]
 

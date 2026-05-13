@@ -6,12 +6,14 @@ import { createCharacterRendererPlugin } from '../character'
 import { createChoicesRendererPlugin } from '../choices'
 import { createDialogueRendererPlugin } from '../dialogue'
 import { createEffectsRendererPlugin } from '../effects'
+import { createFontsRendererPlugin } from '../fonts'
 import { createSceneRendererPlugin } from '../scene'
 import { createSpriteRendererPlugin } from '../sprite'
 import { createUiRendererPlugin } from '../ui'
 
 export function createVisualNovelRendererPlugins(): QuaVueRendererPlugin[] {
   return [
+    createFontsRendererPlugin(),
     createBackgroundRendererPlugin(),
     createSpriteRendererPlugin(),
     createCharacterRendererPlugin(),

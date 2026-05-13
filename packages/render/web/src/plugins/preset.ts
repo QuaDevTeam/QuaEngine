@@ -7,6 +7,7 @@ import { createCharacterWebRendererPlugin } from './character'
 import { createChoicesWebRendererPlugin } from './choices'
 import { createDialogueWebRendererPlugin } from './dialogue'
 import { createEffectsWebRendererPlugin } from './effects'
+import { createFontsWebRendererPlugin } from './fonts'
 import { createSceneWebRendererPlugin } from './scene'
 import { createSpriteCharacterRenderer, createSpriteWebRendererPlugin } from './sprite'
 import { createUiWebRendererPlugin } from './ui'
@@ -14,6 +15,7 @@ import { createUiWebRendererPlugin } from './ui'
 export function createVisualNovelWebRendererPlugins(): Array<QuaWebDomRendererPlugin | RendererPlugin> {
   const renderSprite = createSpriteCharacterRenderer()
   return [
+    createFontsWebRendererPlugin(),
     createBackgroundWebRendererPlugin(),
     createSpriteWebRendererPlugin(),
     createCharacterWebRendererPlugin({ renderSprite }),

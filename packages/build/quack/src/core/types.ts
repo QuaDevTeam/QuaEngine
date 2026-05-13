@@ -1,9 +1,10 @@
-export type AssetType = 'images' | 'characters' | 'audio' | 'video' | 'scripts' | 'data'
+export type AssetType = 'images' | 'characters' | 'audio' | 'video' | 'fonts' | 'scripts' | 'data'
 export type AssetSubType
   = | 'backgrounds' | 'cg' | 'ui' // Images
     | 'sprites' // Characters
     | 'sfx' | 'voice' | 'bgm' // Audio
     | 'cutscenes' | 'effects' | 'intro' // Video
+    | 'typefaces' | 'fontFamilies' // Fonts
     | 'logic' // Scripts
     | 'config' | 'save' // Data
 

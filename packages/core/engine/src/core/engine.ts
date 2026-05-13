@@ -1166,7 +1166,7 @@ function createEngineMutations() {
         visible: true,
         characterId: payload.characterId,
         characterName: payload.characterName,
-        text: payload.text,
+        text: cloneUnknownValue(payload.text) as DialogueIntent['text'],
         mode: payload.mode || (payload.characterId || payload.characterName ? 'say' : 'narration'),
       }
     },
@@ -1285,7 +1285,10 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
       position: character.position ? { ...character.position } : undefined,
       metadata: character.metadata ? { ...character.metadata } : undefined,
     })),
-    dialogue: { ...view.dialogue },
+    dialogue: {
+      ...view.dialogue,
+      text: cloneUnknownValue(view.dialogue.text) as DialogueIntent['text'],
+    },
     choices: view.choices.map(choice => ({
       ...choice,
       metadata: choice.metadata ? { ...choice.metadata } : undefined,
