@@ -177,16 +177,17 @@ export class RuntimeContentManager {
       }
     }
 
+    await emitLogicToRender(this.engine.getPipeline(), LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
+      packageId,
+      bundleName: record.bundle.bundleName,
+    })
+
     await this.engine.getAssets().unloadDynamicBundle(record.bundle.bundleName)
     record.state = {
       ...record.state,
       state: 'unloaded',
     }
     this.engine.getStore().commit('upsertRuntimePackage', record.state)
-    await emitLogicToRender(this.engine.getPipeline(), LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
-      packageId,
-      bundleName: record.bundle.bundleName,
-    })
   }
 
   getRuntimePackages(): RuntimePackageStateRecord[] {

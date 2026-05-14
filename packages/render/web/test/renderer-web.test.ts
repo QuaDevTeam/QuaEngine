@@ -369,6 +369,7 @@ describe('@quajs/renderer-web', () => {
       plugins: [{ id: 'runtime.renderer', kind: 'renderer', assetName: 'renderer.js' }],
     })
     await flushDom()
+    expect(plugin.setup).toHaveBeenCalledTimes(1)
 
     expect(loader).toHaveBeenCalledWith(
       { id: 'runtime.renderer', kind: 'renderer', assetName: 'renderer.js' },
@@ -386,6 +387,48 @@ describe('@quajs/renderer-web', () => {
     await flushDom()
 
     expect(destroy).toHaveBeenCalledTimes(1)
+    await controller.destroy()
+  })
+
+  it('waits for runtime renderer plugin cleanup before resolving unload events', async () => {
+    const pipeline = new Pipeline()
+    let resolveDestroy!: () => void
+    const destroy = vi.fn(() => new Promise<void>((resolve) => {
+      resolveDestroy = resolve
+    }))
+    const plugin: RendererPlugin = {
+      name: 'runtime-renderer-plugin',
+      setup: vi.fn(),
+      destroy,
+    }
+    const controller = createQuaWebRendererController({
+      pipeline,
+      initialView: view(),
+      runtimePluginLoader: vi.fn(async () => plugin),
+    })
+
+    await controller.start()
+    await emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN, {
+      packageId: 'runtime.story',
+      plugins: [{ id: 'runtime.renderer', kind: 'renderer', assetName: 'renderer.js' }],
+    })
+    await flushDom()
+
+    let unloadResolved = false
+    const unload = emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
+      packageId: 'runtime.story',
+      bundleName: 'runtime.story',
+    }).then(() => {
+      unloadResolved = true
+    })
+    await flushDom()
+
+    expect(destroy).toHaveBeenCalledTimes(1)
+    expect(unloadResolved).toBe(false)
+
+    resolveDestroy()
+    await unload
+    expect(unloadResolved).toBe(true)
     await controller.destroy()
   })
 
