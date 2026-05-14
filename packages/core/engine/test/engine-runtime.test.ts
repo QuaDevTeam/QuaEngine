@@ -585,6 +585,50 @@ describe('quaEngine runtime architecture', () => {
     expect(enginePluginInit).toHaveBeenCalledTimes(2)
   })
 
+  it('notifies renderer runtime unload before removing dynamic bundle assets', async () => {
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.unload-order',
+      version: '1.0.0',
+      plugins: [
+        { id: 'runtime.unload-order.renderer', kind: 'renderer', assetName: 'renderer.js' },
+      ],
+    })
+    const qpk = createQpkBundle(manifest, new Map([
+      ['assets/scripts/renderer.js', utf8('export default {}')],
+    ]))
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/unload-order.qpk': qpk,
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    const eventOrder: string[] = []
+    onLogicToRender(engine.getPipeline(), LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, () => eventOrder.push('runtime-unload'))
+    onLogicToRender(engine.getPipeline(), LogicToRenderEvents.ASSET_CHANGED, (payload) => {
+      if (payload.type === 'removed') {
+        eventOrder.push('asset-removed')
+      }
+    })
+
+    await engine.init()
+    await engine.loadRuntimePackage('unload-order.qpk')
+    await engine.unloadRuntimePackage('runtime.unload-order', { force: true })
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(eventOrder[0]).toBe('runtime-unload')
+    expect(eventOrder).toContain('asset-removed')
+  })
+
   it('continues the same scene across different runtime QPK script modules', async () => {
     const manifestA = createRuntimeBundleManifest({
       id: 'runtime.scene.a',

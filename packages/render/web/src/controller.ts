@@ -176,8 +176,8 @@ export class QuaWebRendererController {
         console.warn(`[quajs:renderer-web] Failed to load runtime renderer plugins for package "${payload.packageId}".`, error)
       })
     }))
-    this.pipelineUnsubscribers.push(onLogicToRender(this.pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, (payload) => {
-      void this.unloadRuntimeRendererPlugins(payload.packageId).catch((error) => {
+    this.pipelineUnsubscribers.push(onLogicToRender(this.pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, async (payload) => {
+      await this.unloadRuntimeRendererPlugins(payload.packageId).catch((error) => {
         console.warn(`[quajs:renderer-web] Failed to unload runtime renderer plugins for package "${payload.packageId}".`, error)
       })
     }))
