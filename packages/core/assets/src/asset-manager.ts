@@ -4,6 +4,7 @@ import type {
   AssetManifest,
   AssetProcessingPlugin,
   AssetProvider,
+  AssetManifestRecord,
   AssetQueryResult,
   AssetStorage,
   AssetType,
@@ -12,7 +13,7 @@ import type {
   StoredAsset,
 } from './types'
 import { bytesToUtf8 } from './encoding'
-import { findBestAssetRecord } from './providers'
+import { findBestAssetRecord, findBestRankedAssetRecord } from './providers'
 import { AssetNotFoundError } from './types'
 
 export class AssetManager {
@@ -145,12 +146,9 @@ export class AssetManager {
     name: string,
     options: LoadAssetOptions = {},
   ): Promise<AssetQueryResult> {
-    const providerAsset = await this.getProviderAsset(type, name, options)
-    if (providerAsset)
-      return providerAsset
-
     const locale = options.locale || this.defaultLocale
     const bundleName = options.bundleName
+    const providerRecord = await this.getProviderRecord(type, name, options)
     let asset: StoredAsset | undefined
 
     if (bundleName) {
@@ -159,6 +157,10 @@ export class AssetManager {
     else {
       const assets = await this.storage.findAssets({ type, name })
       asset = this.findBestLocaleMatch(assets, locale)
+    }
+
+    if (providerRecord && isProviderRecordPreferred(providerRecord, asset, locale)) {
+      return await this.getProviderAsset(providerRecord)
     }
 
     if (!asset) {
@@ -173,11 +175,11 @@ export class AssetManager {
     }
   }
 
-  private async getProviderAsset(
+  private async getProviderRecord(
     type: AssetType,
     name: string,
     options: LoadAssetOptions,
-  ): Promise<AssetQueryResult | null> {
+  ): Promise<AssetManifestRecord | null> {
     if (!this.provider)
       return null
 
@@ -193,14 +195,24 @@ export class AssetManager {
     if (!record)
       return null
 
-    const providerResult = await this.provider.getAsset(record.id, record)
+    return record
+  }
+
+  private async getProviderAsset(
+    record: AssetManifestRecord,
+  ): Promise<AssetQueryResult> {
+    const provider = this.provider
+    if (!provider) {
+      throw new AssetNotFoundError(record.type, record.name)
+    }
+    const providerResult = await provider.getAsset(record.id, record)
     const now = Date.now()
     const data = providerResult instanceof Uint8Array
       ? providerResult
       : providerResult.data
     const asset: StoredAsset = {
       id: record.id,
-      bundleName: record.bundleName || this.provider.mode,
+      bundleName: record.bundleName || provider.mode,
       name: record.name,
       type: record.type,
       locale: record.locale || 'default',
@@ -231,9 +243,7 @@ export class AssetManager {
   }
 
   private findBestLocaleMatch(assets: StoredAsset[], preferredLocale: AssetLocale): StoredAsset | undefined {
-    return assets.find(asset => asset.locale === preferredLocale)
-      || assets.find(asset => asset.locale === 'default')
-      || assets[0]
+    return findBestRankedAssetRecord(assets, preferredLocale)
   }
 
   private async processAsset(asset: StoredAsset): Promise<StoredAsset> {
@@ -264,4 +274,15 @@ function toAssetData(result: AssetQueryResult): AssetData {
     mtime: result.asset.mtime,
     fromCache: result.fromCache,
   }
+}
+
+function isProviderRecordPreferred(
+  providerRecord: AssetManifestRecord,
+  storageAsset: StoredAsset | undefined,
+  locale: AssetLocale,
+): boolean {
+  if (!storageAsset) {
+    return true
+  }
+  return findBestRankedAssetRecord([providerRecord, storageAsset], locale) === providerRecord
 }

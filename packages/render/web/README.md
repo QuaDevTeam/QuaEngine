@@ -45,7 +45,7 @@ Stage contents are separated by projection plane:
 
 Default landscape layout adapts from 16:10 to 16:9. Default portrait layout uses a 9:19.5 phone reference and adapts from 9:21 to 9:16 so common mobile screens can fill without black bars.
 
-Use `resolveStageLayout`, `clientPointToStageLogical`, and `stageLogicalToClientPoint` for shared layout and pointer coordinate math. Pipeline payload coordinates should be logical stage coordinates unless a field explicitly names raw browser/client units.
+Use `resolveStageLayout`, `clientPointToStageLogical`, `stageLogicalToClientPoint`, and `observeStageViewportEnvironment` for shared layout, pointer coordinate math, and mobile viewport changes. Pipeline payload coordinates should be logical stage coordinates unless a field explicitly names raw browser/client units.
 
 Mobile CSS safe-area insets and `devicePixelRatio` are renderer-local inputs to layout resolution. Safe-area insets are converted from CSS pixels into logical stage pixels and intersected with the aspect safe area. DPR is exposed as physical-pixel metadata for Canvas/WebGL/screenshot paths; it does not change DOM CSS sizing.
 

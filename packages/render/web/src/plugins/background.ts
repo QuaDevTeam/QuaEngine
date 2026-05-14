@@ -10,6 +10,8 @@ import {
 import { defineWebRendererPlugin } from './core'
 import { applyStyleVars } from './shared'
 
+const backgroundMaskDisposers = new WeakMap<HTMLElement, () => void>()
+
 export function createBackgroundWebRendererPlugin(): QuaWebDomRendererPlugin {
   return defineWebRendererPlugin({
     name: '@quajs/renderer-web/background',
@@ -53,7 +55,7 @@ function renderBackgroundProjection(context: QuaWebDomLayerContext, background: 
     }
     video.setAttribute('aria-hidden', 'true')
     applyStyleVars(video, backgroundProjectionVars(background))
-    bindBackgroundMask(context, video, background.composition?.mask)
+    syncBackgroundMask(context, video, background.composition?.mask)
     context.bindAssetUrl(video, 'video', background.video.assetName)
     context.bindAssetUrl(video, 'images', background.video.poster, 'poster')
     return video
@@ -63,7 +65,7 @@ function renderBackgroundProjection(context: QuaWebDomLayerContext, background: 
     const root = context.document.createElement('div')
     root.className = 'qua-layered-background'
     applyStyleVars(root, backgroundProjectionVars(background))
-    bindBackgroundMask(context, root, background.composition?.mask)
+    syncBackgroundMask(context, root, background.composition?.mask)
     for (const item of background.layers || []) {
       const assetType = normalizeBackgroundLayerAssetType(item.assetType)
       const element = item.assetType === 'video'
@@ -87,7 +89,7 @@ function renderBackgroundProjection(context: QuaWebDomLayerContext, background: 
         element.muted = true
       }
       applyStyleVars(element, backgroundLayerProjectionVars(item))
-      bindBackgroundMask(context, element, item.composition?.mask)
+      syncBackgroundMask(context, element, item.composition?.mask)
       context.bindAssetUrl(element, assetType, item.assetName)
       root.append(element)
     }
@@ -103,7 +105,7 @@ function renderBackgroundProjection(context: QuaWebDomLayerContext, background: 
   image.alt = ''
   image.setAttribute('aria-hidden', 'true')
   applyStyleVars(image, backgroundProjectionVars(background))
-  bindBackgroundMask(context, image, background.composition?.mask)
+  syncBackgroundMask(context, image, background.composition?.mask)
   context.bindAssetUrl(image, 'images', background.assetName)
   return image
 }
@@ -119,29 +121,50 @@ function updateBackgroundLayer(context: QuaWebDomLayerContext, node: Node): void
   }
   if (background.mode === 'layered') {
     applyStyleVars(projection, backgroundProjectionVars(background))
+    syncBackgroundMask(context, projection, background.composition?.mask)
     for (const item of background.layers || []) {
       const element = findBackgroundLayerElement(projection, item.id)
       if (element instanceof HTMLElement) {
         element.classList.toggle('is-hidden', item.visible === false)
         applyStyleVars(element, backgroundLayerProjectionVars(item))
+        syncBackgroundMask(context, element, item.composition?.mask)
       }
     }
     return
   }
   applyStyleVars(projection, backgroundProjectionVars(background))
+  syncBackgroundMask(context, projection, background.composition?.mask)
 }
 
-function bindBackgroundMask(
+function syncBackgroundMask(
   context: QuaWebDomLayerContext,
   element: HTMLElement,
   mask: Readonly<BackgroundMaskProjection> | undefined,
 ): void {
+  const key = mask?.assetName
+    ? `${normalizeBackgroundLayerAssetType(mask.assetType)}:${mask.assetName}`
+    : ''
+  if (element.dataset.backgroundMaskKey === key) {
+    return
+  }
+
+  backgroundMaskDisposers.get(element)?.()
+  backgroundMaskDisposers.delete(element)
+  element.dataset.backgroundMaskKey = key
+  applyStyleVars(element, backgroundMaskImageVars(undefined))
+
   if (!mask?.assetName) {
     return
   }
-  context.watchAssetUrl(normalizeBackgroundLayerAssetType(mask.assetType), mask.assetName, (state) => {
+
+  const assetType = normalizeBackgroundLayerAssetType(mask.assetType)
+  const dispose = context.watchAssetUrl(assetType, mask.assetName, (state) => {
+    if (element.dataset.backgroundMaskKey !== key) {
+      return
+    }
     applyStyleVars(element, backgroundMaskImageVars(state.url))
   })
+  backgroundMaskDisposers.set(element, dispose)
 }
 
 function findBackgroundLayerElement(root: HTMLElement, layerId: string): HTMLElement | undefined {

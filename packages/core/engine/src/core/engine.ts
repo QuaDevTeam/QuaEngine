@@ -37,6 +37,12 @@ import type {
   JumpTarget,
   LoadSlotOptions,
   OptionalGameStepFactory,
+  RuntimePackageLoadOptions,
+  RuntimePackageManifest,
+  RuntimePackageStateRecord,
+  RuntimePackageStoreMigrationManifest,
+  RuntimePackageUnloadOptions,
+  RuntimeScriptModuleRecord,
   Scene,
   SlotMetadata,
   StepContext,
@@ -60,6 +66,7 @@ import {
 import { GameManager } from '../managers/game-manager'
 import { SceneManager } from '../managers/scene-manager'
 import { PluginContextImpl } from '../plugins/core/context'
+import { RuntimeContentManager } from '../runtime-content/manager'
 import { resolveGameSteps } from './script'
 import { createInitialEngineState } from './types'
 
@@ -84,6 +91,7 @@ export class QuaEngine {
   private readonly plugins: Map<string, EnginePlugin> = new Map()
   private readonly pluginContext: PluginContextImpl = new PluginContextImpl()
   private readonly flowControlDisposers: Array<() => void> = []
+  private readonly runtimeContentManager: RuntimeContentManager
   private currentStepAbortController?: AbortController
   private flowControlAdvanceTimer?: ReturnType<typeof setTimeout>
   private checkpointCounter = 0
@@ -114,6 +122,12 @@ export class QuaEngine {
     this.pipeline = new Pipeline()
     this.sceneManager = new SceneManager(this)
     this.gameManager = new GameManager(this)
+    this.runtimeContentManager = new RuntimeContentManager(
+      this,
+      config.runtimeModuleLoader,
+      config.trustPolicy,
+      config.runtimePackageRegistry,
+    )
 
     this.setupAssetForwarding()
     this.setupFlowControlIntents()
@@ -166,13 +180,10 @@ export class QuaEngine {
       ? new (pluginOrClass as PluginConstructor)(options || {})
       : pluginOrClass
 
-    if (this.plugins.has(plugin.name)) {
-      logger.warn(`Plugin ${plugin.name} already registered, skipping`)
+    const registered = this.registerPluginInstance(plugin)
+    if (!registered) {
       return this
     }
-
-    this.plugins.set(plugin.name, plugin)
-    this.pluginContext.registerPlugin(plugin)
 
     if (this.isInitialized) {
       this.initializePlugin(plugin).catch((error) => {
@@ -181,6 +192,64 @@ export class QuaEngine {
     }
 
     return this
+  }
+
+  async useRuntimePlugin(plugin: EnginePlugin): Promise<boolean> {
+    const registered = this.registerPluginInstance(plugin)
+    if (registered && this.isInitialized) {
+      try {
+        await this.initializePlugin(plugin)
+      }
+      catch (error) {
+        this.plugins.delete(plugin.name)
+        this.pluginContext.unregisterPlugin(plugin)
+        throw error
+      }
+    }
+    return registered
+  }
+
+  async unuse(pluginName: string): Promise<void> {
+    const plugin = this.plugins.get(pluginName)
+    if (!plugin) {
+      return
+    }
+    await plugin.destroy?.()
+    this.plugins.delete(pluginName)
+    this.pluginContext.unregisterPlugin(plugin)
+  }
+
+  async loadRuntimePackage(source: string, options?: RuntimePackageLoadOptions): Promise<RuntimePackageStateRecord> {
+    this.assertInitialized()
+    return await this.runtimeContentManager.loadRuntimePackage(source, options)
+  }
+
+  async activateRuntimePackage(packageId: string): Promise<RuntimePackageStateRecord> {
+    this.assertInitialized()
+    return await this.runtimeContentManager.activateRuntimePackage(packageId)
+  }
+
+  async unloadRuntimePackage(packageId: string, options?: RuntimePackageUnloadOptions): Promise<void> {
+    this.assertInitialized()
+    await this.runtimeContentManager.unloadRuntimePackage(packageId, options)
+  }
+
+  getRuntimePackages(): RuntimePackageStateRecord[] {
+    return this.runtimeContentManager.getRuntimePackages()
+  }
+
+  registerScriptModule(record: RuntimeScriptModuleRecord): void {
+    this.runtimeContentManager.registerScriptModule(record)
+  }
+
+  async runScriptModule<TScope>(moduleId: string, scope?: TScope): Promise<void> {
+    this.assertInitialized()
+    await this.runtimeContentManager.runScriptModule(moduleId, scope)
+  }
+
+  async ensureRuntimePackages(packageIds: readonly string[]): Promise<void> {
+    this.assertInitialized()
+    await this.runtimeContentManager.ensureRuntimePackages(packageIds)
   }
 
   async loadScene(scene: Scene, transition?: SceneTransitionOptions): Promise<void> {
@@ -228,7 +297,13 @@ export class QuaEngine {
           id: step.uuid,
           kind: 'step',
           point,
-          metadata: step.metadata,
+          metadata: {
+            ...(step.metadata || {}),
+            requiredRuntimePackages: mergeRequiredRuntimePackages(
+              step.metadata?.requiredRuntimePackages,
+              this.getRequiredRuntimePackagesForPoint(point),
+            ),
+          },
         })
       }
 
@@ -296,7 +371,7 @@ export class QuaEngine {
   async showChoices(choices: ChoiceIntent[]): Promise<void> {
     this.assertInitialized()
     const normalized = choices.map(choice => ({
-      ...choice,
+      ...this.withCurrentRuntimeContentMetadata(choice),
       enabled: choice.enabled !== false,
     }))
     this.store.commit('setChoices', normalized)
@@ -322,11 +397,12 @@ export class QuaEngine {
 
   async showCharacter(payload: CharacterIntent): Promise<void> {
     this.assertInitialized()
-    this.store.commit('upsertCharacter', {
+    const character = this.withCurrentRuntimeContentMetadata({
       ...payload,
       visible: payload.visible !== false,
     })
-    await emitLogicToRender(this.pipeline, L2R.CHARACTER_SHOW, payload)
+    this.store.commit('upsertCharacter', character)
+    await emitLogicToRender(this.pipeline, L2R.CHARACTER_SHOW, character)
     await this.emitViewUpdate()
   }
 
@@ -339,30 +415,33 @@ export class QuaEngine {
 
   async moveCharacter(id: string, position: CharacterIntent['position']): Promise<void> {
     this.assertInitialized()
-    this.store.commit('moveCharacter', { id, position })
+    this.store.commit('moveCharacter', { id, position, contentPackageId: this.getStoryPoint()?.contentPackageId })
     await emitLogicToRender(this.pipeline, L2R.CHARACTER_MOVE, { id, position })
     await this.emitViewUpdate()
   }
 
   async setCharacterExpression(id: string, expression?: string): Promise<void> {
     this.assertInitialized()
-    this.store.commit('setCharacterExpression', { id, expression })
+    this.store.commit('setCharacterExpression', { id, expression, contentPackageId: this.getStoryPoint()?.contentPackageId })
     await emitLogicToRender(this.pipeline, L2R.CHARACTER_EXPRESSION, { id, expression })
     await this.emitViewUpdate()
   }
 
   async setCharacterSprite(id: string, sprite?: string): Promise<void> {
     this.assertInitialized()
-    this.store.commit('setCharacterSprite', { id, sprite })
+    this.store.commit('setCharacterSprite', { id, sprite, contentPackageId: this.getStoryPoint()?.contentPackageId })
     await emitLogicToRender(this.pipeline, L2R.CHARACTER_SPRITE, { id, sprite })
     await this.emitViewUpdate()
   }
 
   async setBackgroundProjection(background?: BackgroundIntent): Promise<void> {
     this.assertInitialized()
-    this.store.commit('setBackground', background)
-    if (background) {
-      await emitLogicToRender(this.pipeline, L2R.BACKGROUND_SET, background)
+    const projectedBackground = background
+      ? this.withCurrentRuntimeBackgroundMetadata(background)
+      : undefined
+    this.store.commit('setBackground', projectedBackground)
+    if (projectedBackground) {
+      await emitLogicToRender(this.pipeline, L2R.BACKGROUND_SET, projectedBackground)
     }
     else {
       await emitLogicToRender(this.pipeline, L2R.BACKGROUND_CLEAR, {})
@@ -394,15 +473,16 @@ export class QuaEngine {
     await this.emitViewUpdate()
   }
 
-  async getAssetMetadata(type: 'audio' | 'images' | 'characters' | 'video' | 'scripts' | 'data', assetName: string): Promise<unknown> {
+  async getAssetMetadata(type: 'audio' | 'images' | 'characters' | 'video' | 'fonts' | 'scripts' | 'data', assetName: string): Promise<unknown> {
     this.assertInitialized()
     return await this.assets.getMediaMetadata(type, assetName)
   }
 
   async showUI(elementId: string, config: Record<string, unknown> = {}): Promise<void> {
     this.assertInitialized()
-    this.store.commit('upsertUiOverlay', { elementId, config })
-    await emitLogicToRender(this.pipeline, L2R.UI_SHOW, { elementId, config })
+    const projectedConfig = this.withCurrentRuntimeContentConfig(config)
+    this.store.commit('upsertUiOverlay', { elementId, config: projectedConfig })
+    await emitLogicToRender(this.pipeline, L2R.UI_SHOW, { elementId, config: projectedConfig })
     await this.emitViewUpdate()
   }
 
@@ -415,16 +495,21 @@ export class QuaEngine {
 
   async updateUI(elementId: string, config: Record<string, unknown>): Promise<void> {
     this.assertInitialized()
-    this.store.commit('upsertUiOverlay', { elementId, config })
-    await emitLogicToRender(this.pipeline, L2R.UI_UPDATE, { elementId, config })
+    const projectedConfig = this.withCurrentRuntimeContentConfig(config)
+    this.store.commit('upsertUiOverlay', { elementId, config: projectedConfig })
+    await emitLogicToRender(this.pipeline, L2R.UI_UPDATE, { elementId, config: projectedConfig })
     await this.emitViewUpdate()
   }
 
   async applyEffect(effect: EffectIntent): Promise<void> {
     this.assertInitialized()
+    const effectOptions = (effect.options || this.getStoryPoint()?.contentPackageId)
+      ? this.withCurrentRuntimeContentConfig(effect.options || {})
+      : undefined
     const next = {
       ...effect,
       id: effect.id || `${effect.type}:${Date.now()}`,
+      options: effectOptions,
     }
     this.store.commit('upsertEffect', next)
     const eventMap: Partial<Record<string, LogicToRenderEvents>> = {
@@ -555,12 +640,16 @@ export class QuaEngine {
     this.assertInitialized()
     const point = cloneStoryPoint(options.point || this.getStoryPoint() || this.createCurrentStoryPoint())
     const id = options.id || this.createCheckpointId(options.kind || 'manual', point)
+    const metadata = createCheckpointMetadata(
+      options.metadata,
+      this.getRequiredRuntimePackagesForCurrentState(point),
+    )
     const checkpoint: EngineCheckpoint = {
       id,
       point,
       snapshotId: id,
       kind: options.kind || 'manual',
-      metadata: options.metadata ? cloneUnknownRecord(options.metadata) : undefined,
+      metadata,
     }
 
     await this.notifyPlugins('onBeforeCheckpoint', this.createEngineContext(point.stepId, { point, checkpoint }))
@@ -594,6 +683,7 @@ export class QuaEngine {
     if (!point) {
       throw new Error(`Unable to resolve jump target: ${typeof target === 'string' ? target : JSON.stringify(target)}`)
     }
+    await this.ensureRuntimeDependencies(point, checkpoint?.metadata)
 
     const jump: JumpContext = {
       target,
@@ -657,14 +747,19 @@ export class QuaEngine {
     const checkpoint = await this.createCheckpoint({
       id: `save:${slotId}`,
       kind: 'save',
-      metadata,
+      metadata: {
+        ...metadata,
+        requiredRuntimePackages: this.getRequiredRuntimePackagesForCurrentState(this.getStoryPoint(), metadata),
+      },
     })
+    const requiredRuntimePackages = this.getRequiredRuntimePackagesForCurrentState(this.getStoryPoint(), metadata)
     await this.store.saveToSlot(slotId, {
       ...metadata,
       sceneName: metadata.sceneName || this.getCurrentSceneName(),
       stepId: metadata.stepId || this.getCurrentStepId(),
       checkpointId: checkpoint.id,
       storyPoint: this.getStoryPoint(),
+      requiredRuntimePackages,
       timestamp: Date.now(),
     })
   }
@@ -673,6 +768,7 @@ export class QuaEngine {
     this.assertInitialized()
     const slot = await this.store.getSlot(slotId)
     const slotPoint = isStoryPoint(slot?.metadata.storyPoint) ? cloneStoryPoint(slot.metadata.storyPoint) : undefined
+    await this.ensureRuntimeDependencies(slotPoint, slot?.metadata)
     const beforeJump = slotPoint
       ? this.createLoadJumpContext(slotPoint, options)
       : undefined
@@ -737,6 +833,33 @@ export class QuaEngine {
     return this.getRuntimeState().currentStepId || undefined
   }
 
+  getRuntimeStateSnapshot() {
+    const runtime = this.getRuntimeState()
+    return {
+      ...runtime,
+      sceneHistory: [...(runtime.sceneHistory || [])],
+      stepHistory: [...(runtime.stepHistory || [])],
+      checkpointHistory: [...(runtime.checkpointHistory || [])],
+      runtimePackages: { ...(runtime.runtimePackages || {}) },
+      appliedRuntimeMigrations: [...(runtime.appliedRuntimeMigrations || [])],
+    }
+  }
+
+  getRuntimeViewRequiredPackageIds(): string[] {
+    return this.getRequiredRuntimePackagesForCurrentView()
+  }
+
+  async clearRuntimePackageViewState(packageId: string): Promise<void> {
+    this.store.commit('removeCharactersByRuntimePackage', packageId)
+    this.store.commit('clearBackgroundByRuntimePackage', packageId)
+    this.store.commit('removeChoicesByRuntimePackage', packageId)
+    this.store.commit('removeEffectsByRuntimePackage', packageId)
+    this.store.commit('removeAnimationsByRuntimePackage', packageId)
+    this.store.commit('removeUiOverlaysByRuntimePackage', packageId)
+    this.store.commit('removePluginProjectionsByRuntimePackage', packageId)
+    await this.emitViewUpdate()
+  }
+
   async destroy(): Promise<void> {
     if (this.isDestroyed)
       return
@@ -746,6 +869,7 @@ export class QuaEngine {
     while (this.flowControlDisposers.length > 0) {
       this.flowControlDisposers.pop()?.()
     }
+    await this.runtimeContentManager.destroy()
     await this.sceneManager.destroy()
     for (const plugin of this.plugins.values()) {
       await plugin.destroy?.()
@@ -780,6 +904,17 @@ export class QuaEngine {
     await plugin.init(context)
   }
 
+  private registerPluginInstance(plugin: EnginePlugin): boolean {
+    if (this.plugins.has(plugin.name)) {
+      logger.warn(`Plugin ${plugin.name} already registered, skipping`)
+      return false
+    }
+
+    this.plugins.set(plugin.name, plugin)
+    this.pluginContext.registerPlugin(plugin)
+    return true
+  }
+
   private async notifyPluginsOnStep(stepContext: StepContext): Promise<void> {
     await Promise.all(Array.from(this.plugins.values())
       .filter(plugin => plugin.onStep)
@@ -787,7 +922,7 @@ export class QuaEngine {
   }
 
   private async notifyPlugins(
-    hook: 'onStepStart' | 'onStepComplete' | 'onBeforeCheckpoint' | 'onAfterCheckpoint' | 'onBeforeJump' | 'onAfterJump',
+    hook: 'onStepStart' | 'onStepComplete' | 'onBeforeCheckpoint' | 'onAfterCheckpoint' | 'onBeforeJump' | 'onAfterJump' | 'onRuntimePackageActivate' | 'onRuntimePackageUnload' | 'onRuntimePackageMigrate',
     context: EngineContext,
   ): Promise<void> {
     await Promise.all(Array.from(this.plugins.values())
@@ -795,9 +930,32 @@ export class QuaEngine {
       .map(plugin => plugin[hook]!(context)))
   }
 
+  async notifyRuntimePackageActivate(runtimePackage: RuntimePackageManifest, bundleName?: string): Promise<void> {
+    await this.notifyPlugins('onRuntimePackageActivate', this.createEngineContext(undefined, {
+      runtimePackage: { package: runtimePackage, bundleName },
+    }))
+  }
+
+  async notifyRuntimePackageUnload(runtimePackage: RuntimePackageManifest, bundleName?: string): Promise<void> {
+    await this.notifyPlugins('onRuntimePackageUnload', this.createEngineContext(undefined, {
+      runtimePackage: { package: runtimePackage, bundleName },
+    }))
+  }
+
+  async notifyRuntimePackageMigrate(
+    runtimePackage: RuntimePackageManifest,
+    bundleName: string | undefined,
+    migration: RuntimePackageStoreMigrationManifest,
+  ): Promise<void> {
+    await this.notifyPlugins('onRuntimePackageMigrate', this.createEngineContext(undefined, {
+      runtimePackage: { package: runtimePackage, bundleName },
+      runtimeMigration: migration,
+    }))
+  }
+
   private createEngineContext(
     stepId?: string,
-    extras: Pick<EngineContext, 'point' | 'checkpoint' | 'jump'> = {},
+    extras: Pick<EngineContext, 'point' | 'checkpoint' | 'jump' | 'runtimePackage' | 'runtimeMigration'> = {},
   ): EngineContext {
     return {
       engine: this,
@@ -971,6 +1129,93 @@ export class QuaEngine {
     }
   }
 
+  private async ensureRuntimeDependencies(point?: StoryPoint, metadata?: Record<string, unknown>): Promise<void> {
+    const required = mergeRequiredRuntimePackages(
+      getMetadataRequiredRuntimePackages(metadata),
+      this.getRequiredRuntimePackagesForPoint(point),
+    )
+    if (required.length > 0) {
+      await this.runtimeContentManager.ensureRuntimePackages(required)
+    }
+  }
+
+  private getRequiredRuntimePackagesForPoint(point?: StoryPoint): string[] {
+    return point?.contentPackageId ? [point.contentPackageId] : []
+  }
+
+  private getRequiredRuntimePackagesForCurrentState(
+    point?: StoryPoint,
+    metadata?: Record<string, unknown>,
+  ): string[] {
+    return mergeRequiredRuntimePackages(
+      getMetadataRequiredRuntimePackages(metadata),
+      this.getRequiredRuntimePackagesForPoint(point),
+      this.getCurrentCheckpointRequiredRuntimePackages(point),
+      this.getRequiredRuntimePackagesForCurrentView(),
+    )
+  }
+
+  private getRequiredRuntimePackagesForCurrentView(): string[] {
+    return collectRuntimePackagesFromUnknown(this.getEngineState().view)
+  }
+
+  private getCurrentCheckpointRequiredRuntimePackages(point?: StoryPoint): string[] {
+    const checkpointId = this.getRuntimeState().currentCheckpointId
+    const checkpoint = checkpointId ? this.getCheckpoint(checkpointId) : undefined
+    if (!checkpoint || !point || !storyPointsHaveSameReadIdentity(checkpoint.point, point)) {
+      return []
+    }
+    return getMetadataRequiredRuntimePackages(checkpoint.metadata)
+  }
+
+  private withCurrentRuntimeContentMetadata<T extends { metadata?: Readonly<Record<string, unknown>> }>(value: T): T {
+    const packageId = this.getStoryPoint()?.contentPackageId
+    if (!packageId) {
+      return value
+    }
+    return {
+      ...value,
+      metadata: mergeRuntimePackageMetadata(value.metadata, packageId),
+    }
+  }
+
+  private withCurrentRuntimeBackgroundMetadata<T extends BackgroundIntent>(background: T): T {
+    const packageId = this.getStoryPoint()?.contentPackageId
+    if (!packageId) {
+      return background
+    }
+    const projected = this.withCurrentRuntimeContentMetadata(background)
+    const next: BackgroundIntent = { ...projected }
+    if (projected.video) {
+      next.video = {
+        ...projected.video,
+        metadata: projected.video.metadata?.contentPackageId
+          ? cloneUnknownRecord(projected.video.metadata)
+          : mergeRuntimePackageMetadata(projected.video.metadata, packageId),
+      }
+    }
+    if (projected.layers) {
+      next.layers = projected.layers.map(layer => ({
+        ...layer,
+        metadata: layer.metadata?.contentPackageId
+          ? cloneUnknownRecord(layer.metadata)
+          : mergeRuntimePackageMetadata(layer.metadata, packageId),
+      }))
+    }
+    return next as T
+  }
+
+  private withCurrentRuntimeContentConfig<T extends Readonly<Record<string, unknown>>>(value: T): Record<string, unknown> {
+    const packageId = this.getStoryPoint()?.contentPackageId
+    if (!packageId || value.contentPackageId) {
+      return cloneUnknownRecord(value)
+    }
+    return {
+      ...cloneUnknownRecord(value),
+      contentPackageId: packageId,
+    }
+  }
+
   private createCurrentStoryPoint(): StoryPoint {
     return {
       sceneId: this.getCurrentSceneName(),
@@ -1073,6 +1318,24 @@ function createEngineMutations() {
     setCurrentCheckpoint(state: any, checkpointId: string) {
       state.engine.runtime.currentCheckpointId = checkpointId
     },
+    upsertRuntimePackage(state: any, payload: RuntimePackageStateRecord) {
+      state.engine.runtime.runtimePackages = {
+        ...(state.engine.runtime.runtimePackages || {}),
+        [payload.id]: {
+          ...payload,
+          dependencies: [...payload.dependencies],
+          scriptModuleIds: [...payload.scriptModuleIds],
+          pluginIds: [...payload.pluginIds],
+          migrationIds: [...payload.migrationIds],
+        },
+      }
+    },
+    markRuntimeMigrationApplied(state: any, migrationKey: string) {
+      state.engine.runtime.appliedRuntimeMigrations = Array.from(new Set([
+        ...(state.engine.runtime.appliedRuntimeMigrations || []),
+        migrationKey,
+      ]))
+    },
     setLayout(state: any, layout: ViewLayoutInput) {
       state.engine.view.layout = createViewLayoutProjection(layout)
     },
@@ -1108,6 +1371,15 @@ function createEngineMutations() {
       }
       state.engine.view.plugins = plugins
     },
+    removePluginProjectionsByRuntimePackage(state: any, packageId: string) {
+      const plugins = { ...(state.engine.view.plugins || {}) }
+      for (const [pluginId, projection] of Object.entries(plugins)) {
+        if (collectRuntimePackagesFromUnknown(projection).includes(packageId)) {
+          delete plugins[pluginId]
+        }
+      }
+      state.engine.view.plugins = plugins
+    },
     upsertUiOverlay(state: any, payload: { elementId: string, config?: Record<string, unknown> }) {
       const overlays = {
         ...(state.engine.view.ui.overlays || {}),
@@ -1133,6 +1405,18 @@ function createEngineMutations() {
         overlays: {},
       } satisfies UiIntent
     },
+    removeUiOverlaysByRuntimePackage(state: any, packageId: string) {
+      const overlays = { ...(state.engine.view.ui.overlays || {}) }
+      for (const [elementId, config] of Object.entries(overlays)) {
+        if (recordRequiresPackage(config, packageId)) {
+          delete overlays[elementId]
+        }
+      }
+      state.engine.view.ui = {
+        ...state.engine.view.ui,
+        overlays,
+      } satisfies UiIntent
+    },
     upsertEffect(state: any, payload: EffectIntent) {
       state.engine.view.effects = [
         ...state.engine.view.effects.filter((effect: EffectIntent) => effect.id !== payload.id),
@@ -1145,8 +1429,33 @@ function createEngineMutations() {
     clearEffects(state: any) {
       state.engine.view.effects = []
     },
+    removeEffectsByRuntimePackage(state: any, packageId: string) {
+      state.engine.view.effects = (state.engine.view.effects || []).filter((effect: EffectIntent) =>
+        !recordRequiresPackage(effect.options, packageId),
+      )
+    },
     setBackground(state: any, payload?: BackgroundIntent) {
       state.engine.view.background = payload
+    },
+    clearBackgroundByRuntimePackage(state: any, packageId: string) {
+      const background = state.engine.view.background as BackgroundIntent | undefined
+      if (!background) {
+        return
+      }
+      if (recordRequiresPackage(background.metadata, packageId) || recordRequiresPackage(background.video?.metadata, packageId)) {
+        state.engine.view.background = undefined
+        return
+      }
+      if (background.mode !== 'layered' || !background.layers?.length) {
+        return
+      }
+      const layers = background.layers.filter(layer => !recordRequiresPackage(layer.metadata, packageId))
+      if (layers.length !== background.layers.length) {
+        state.engine.view.background = {
+          ...background,
+          layers,
+        }
+      }
     },
     upsertAnimation(state: any, payload: ActiveAnimationProjection) {
       const animations = state.engine.view.animations || []
@@ -1160,6 +1469,11 @@ function createEngineMutations() {
     },
     clearAnimations(state: any) {
       state.engine.view.animations = []
+    },
+    removeAnimationsByRuntimePackage(state: any, packageId: string) {
+      state.engine.view.animations = (state.engine.view.animations || []).filter((animation: ActiveAnimationProjection) =>
+        animation.contentPackageId !== packageId,
+      )
     },
     setDialogue(state: any, payload: DialogueIntent) {
       state.engine.view.dialogue = {
@@ -1181,6 +1495,11 @@ function createEngineMutations() {
         metadata: choice.metadata,
       }))
     },
+    removeChoicesByRuntimePackage(state: any, packageId: string) {
+      state.engine.view.choices = (state.engine.view.choices || []).filter((choice: ChoiceIntent) =>
+        !recordRequiresPackage(choice.metadata, packageId),
+      )
+    },
     upsertCharacter(state: any, payload: CharacterIntent) {
       const characters = [...state.engine.view.characters]
       const index = characters.findIndex((character: CharacterIntent) => character.id === payload.id)
@@ -1198,24 +1517,53 @@ function createEngineMutations() {
       }
       state.engine.view.characters = characters
     },
+    removeCharactersByRuntimePackage(state: any, packageId: string) {
+      state.engine.view.characters = (state.engine.view.characters || []).filter((character: CharacterIntent) =>
+        !recordRequiresPackage(character.metadata, packageId),
+      )
+    },
     hideCharacter(state: any, id: string) {
       state.engine.view.characters = state.engine.view.characters.map((character: CharacterIntent) =>
         character.id === id ? { ...character, visible: false } : character,
       )
     },
-    moveCharacter(state: any, payload: { id: string, position: CharacterIntent['position'] }) {
+    moveCharacter(state: any, payload: { id: string, position: CharacterIntent['position'], contentPackageId?: string }) {
       state.engine.view.characters = state.engine.view.characters.map((character: CharacterIntent) =>
-        character.id === payload.id ? { ...character, position: payload.position } : character,
+        character.id === payload.id
+          ? {
+              ...character,
+              position: payload.position,
+              metadata: payload.contentPackageId
+                ? mergeRuntimePackageMetadata(character.metadata, payload.contentPackageId)
+                : character.metadata,
+            }
+          : character,
       )
     },
-    setCharacterExpression(state: any, payload: { id: string, expression?: string }) {
+    setCharacterExpression(state: any, payload: { id: string, expression?: string, contentPackageId?: string }) {
       state.engine.view.characters = state.engine.view.characters.map((character: CharacterIntent) =>
-        character.id === payload.id ? { ...character, expression: payload.expression } : character,
+        character.id === payload.id
+          ? {
+              ...character,
+              expression: payload.expression,
+              metadata: payload.contentPackageId
+                ? mergeRuntimePackageMetadata(character.metadata, payload.contentPackageId)
+                : character.metadata,
+            }
+          : character,
       )
     },
-    setCharacterSprite(state: any, payload: { id: string, sprite?: string }) {
+    setCharacterSprite(state: any, payload: { id: string, sprite?: string, contentPackageId?: string }) {
       state.engine.view.characters = state.engine.view.characters.map((character: CharacterIntent) =>
-        character.id === payload.id ? { ...character, sprite: payload.sprite } : character,
+        character.id === payload.id
+          ? {
+              ...character,
+              sprite: payload.sprite,
+              metadata: payload.contentPackageId
+                ? mergeRuntimePackageMetadata(character.metadata, payload.contentPackageId)
+                : character.metadata,
+            }
+          : character,
       )
     },
   }
@@ -1345,8 +1693,13 @@ function createStoryPointReadKey(point: StoryPoint | undefined): string | undefi
     'storyId',
     'chapterId',
     'sceneId',
+    'contentPackageId',
+    'scriptModuleId',
+    'scriptModuleVersion',
+    'laneId',
     'routeId',
     'timelineId',
+    'protagonistId',
     'nodeId',
     'stepId',
     'lineId',
@@ -1354,6 +1707,10 @@ function createStoryPointReadKey(point: StoryPoint | undefined): string | undefi
   return fields
     .map(field => `${field}:${String(point[field] ?? '')}`)
     .join('|')
+}
+
+function storyPointsHaveSameReadIdentity(left: StoryPoint, right: StoryPoint): boolean {
+  return createStoryPointReadKey(left) === createStoryPointReadKey(right)
 }
 
 function storyPointMatches(point: StoryPoint, partial: StoryPoint): boolean {
@@ -1366,6 +1723,99 @@ function isStoryPoint(value: unknown): value is StoryPoint {
   return Boolean(value)
     && typeof value === 'object'
     && typeof (value as { stepId?: unknown }).stepId === 'string'
+}
+
+function getMetadataRequiredRuntimePackages(metadata?: Record<string, unknown>): string[] {
+  const value = metadata?.requiredRuntimePackages
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : []
+}
+
+function getRecordRuntimePackages(value: unknown): string[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return []
+  }
+  const record = value as Record<string, unknown>
+  return mergeRequiredRuntimePackages(
+    typeof record.contentPackageId === 'string' ? [record.contentPackageId] : [],
+    getMetadataRequiredRuntimePackages(record),
+  )
+}
+
+function recordRequiresPackage(value: unknown, packageId: string): boolean {
+  return getRecordRuntimePackages(value).includes(packageId)
+}
+
+function mergeRuntimePackageMetadata(
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  packageId: string,
+): Record<string, unknown> {
+  const next = metadata ? cloneUnknownRecord(metadata) : {}
+  const currentPackageId = typeof next.contentPackageId === 'string' ? next.contentPackageId : undefined
+  const requiredRuntimePackages = mergeRequiredRuntimePackages(
+    currentPackageId ? [currentPackageId] : [],
+    getMetadataRequiredRuntimePackages(next),
+    [packageId],
+  )
+
+  if (!currentPackageId) {
+    next.contentPackageId = packageId
+  }
+  else if (currentPackageId !== packageId) {
+    next.requiredRuntimePackages = requiredRuntimePackages
+  }
+  else if (getMetadataRequiredRuntimePackages(next).length > 0) {
+    next.requiredRuntimePackages = requiredRuntimePackages
+  }
+
+  return next
+}
+
+function collectRuntimePackagesFromUnknown(value: unknown, seen = new Set<object>()): string[] {
+  if (!value || typeof value !== 'object') {
+    return []
+  }
+  if (seen.has(value)) {
+    return []
+  }
+  seen.add(value)
+
+  const packages = new Set(getRecordRuntimePackages(value))
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      for (const packageId of collectRuntimePackagesFromUnknown(item, seen)) {
+        packages.add(packageId)
+      }
+    }
+    return [...packages]
+  }
+
+  for (const item of Object.values(value as Record<string, unknown>)) {
+    for (const packageId of collectRuntimePackagesFromUnknown(item, seen)) {
+      packages.add(packageId)
+    }
+  }
+  return [...packages]
+}
+
+function createCheckpointMetadata(
+  metadata: Record<string, unknown> | undefined,
+  pointPackages: readonly string[],
+): Record<string, unknown> | undefined {
+  const next = metadata ? cloneUnknownRecord(metadata) : {}
+  const requiredRuntimePackages = mergeRequiredRuntimePackages(
+    getMetadataRequiredRuntimePackages(metadata),
+    pointPackages,
+  )
+  if (requiredRuntimePackages.length > 0) {
+    next.requiredRuntimePackages = requiredRuntimePackages
+  }
+  return Object.keys(next).length > 0 ? next : undefined
+}
+
+function mergeRequiredRuntimePackages(...groups: Array<readonly string[] | undefined>): string[] {
+  return Array.from(new Set(groups.flatMap(group => group || []).filter(Boolean)))
 }
 
 function cloneUnknownRecord<T extends Readonly<Record<string, unknown>>>(value: T): Record<string, unknown> {

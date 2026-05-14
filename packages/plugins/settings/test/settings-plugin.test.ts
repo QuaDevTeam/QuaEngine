@@ -9,6 +9,7 @@ import {
   createMemorySettingsStorage,
   emitSettingsRenderToLogic,
   getSettingsDeveloperValues,
+  getSettingsBridge,
   getSettingsPlayerValues,
   getSettingsProjection,
   registerSettingsScope,
@@ -156,6 +157,35 @@ describe('@quajs/plugin-settings', () => {
     expect(getSettingsProjection(engine)?.scopes.demo.values).toEqual({ volume: 0.9 })
   })
 
+  it('unregisters runtime package settings scopes while keeping player values for remount', async () => {
+    const engine = createEngine()
+    const plugin = new SettingsPlugin({ builtin: false })
+    engine.use(plugin)
+    await engine.init()
+    registerRuntimeScope(engine)
+    await getSettingsBridge(engine)?.rebuildProjection({ reason: 'rebuild', apply: true, persist: false })
+    await updatePlayerSettingsWithEngine(engine, 'runtime-demo', { intensity: 0.35 })
+
+    expect(getSettingsProjection(engine)?.scopes['runtime-demo']).toEqual(expect.objectContaining({
+      packageId: 'runtime.settings',
+      values: { intensity: 0.35 },
+    }))
+
+    await plugin.onRuntimePackageUnload?.({
+      engine,
+      runtimePackage: {
+        package: { id: 'runtime.settings', version: '1.0.0' },
+      },
+    } as any)
+
+    expect(getSettingsProjection(engine)?.scopes['runtime-demo']).toBeUndefined()
+
+    registerRuntimeScope(engine)
+    await getSettingsBridge(engine)?.rebuildProjection({ reason: 'rebuild', apply: true, persist: false })
+
+    expect(getSettingsProjection(engine)?.scopes['runtime-demo'].values).toEqual({ intensity: 0.35 })
+  })
+
   it('provides a built-in core settings scope', async () => {
     const engine = createEngine()
     engine.use(new SettingsPlugin())
@@ -287,6 +317,29 @@ function registerFailingApplyScope(engine: QuaEngine): void {
       if (player.enabled) {
         throw new Error('apply failed')
       }
+    },
+  })
+}
+
+function registerRuntimeScope(engine: QuaEngine): void {
+  registerSettingsScope(engine, {
+    scope: 'runtime-demo',
+    packageId: 'runtime.settings',
+    player: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          intensity: {
+            type: 'number',
+            minimum: 0,
+            maximum: 1,
+          },
+        },
+      },
+      defaults: {
+        intensity: 0.8,
+      },
     },
   })
 }

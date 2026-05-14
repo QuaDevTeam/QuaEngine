@@ -5,7 +5,7 @@ export const SETTINGS_PLUGIN_ID = 'settings' as const
 export const BASE_SETTINGS_SCOPE = '@quajs/plugin-settings' as const
 
 export type SettingsPlane = 'developer' | 'player'
-export type SettingsApplyReason = 'init' | 'rebuild' | 'update' | 'reset' | 'load' | 'jump'
+export type SettingsApplyReason = 'init' | 'rebuild' | 'update' | 'reset' | 'load' | 'jump' | 'runtime-package-unload'
 
 export type SettingsJsonPrimitive = string | number | boolean | null
 export type SettingsJsonValue = SettingsJsonPrimitive | SettingsJsonValue[] | { [key: string]: SettingsJsonValue }
@@ -126,6 +126,7 @@ export interface SettingsScopeContribution<
 > {
   scope: string
   version?: number | string
+  packageId?: string
   title?: string
   description?: string
   developer?: SettingsDeveloperDefinition<TDeveloper>
@@ -158,6 +159,7 @@ export interface SettingsValidationIssue {
 
 export interface SettingsScopeProjection {
   version?: number | string
+  packageId?: string
   title?: string
   description?: string
   schema: SettingsJsonSchema

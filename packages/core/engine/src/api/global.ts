@@ -1,4 +1,4 @@
-import type { ChoiceIntent, CreateCheckpointOptions, DialogueIntent, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, Scene, SlotMetadata, StoryPoint, ViewLayoutInput } from '../core/types'
+import type { ChoiceIntent, CreateCheckpointOptions, DialogueIntent, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, RuntimePackageLoadOptions, RuntimePackageStateRecord, RuntimePackageUnloadOptions, RuntimeScriptModuleRecord, Scene, SlotMetadata, StoryPoint, ViewLayoutInput } from '../core/types'
 import type { SceneTransitionOptions } from '../managers/scene-manager'
 import { QuaEngine } from '../core/engine'
 
@@ -27,6 +27,30 @@ function getEngine(): QuaEngine {
  */
 export async function loadScene(scene: Scene, transition?: SceneTransitionOptions): Promise<void> {
   return getEngine().loadScene(scene, transition)
+}
+
+export async function loadRuntimePackage(source: string, options?: RuntimePackageLoadOptions): Promise<RuntimePackageStateRecord> {
+  return getEngine().loadRuntimePackage(source, options)
+}
+
+export async function activateRuntimePackage(packageId: string): Promise<RuntimePackageStateRecord> {
+  return getEngine().activateRuntimePackage(packageId)
+}
+
+export async function unloadRuntimePackage(packageId: string, options?: RuntimePackageUnloadOptions): Promise<void> {
+  return getEngine().unloadRuntimePackage(packageId, options)
+}
+
+export function getRuntimePackages(): RuntimePackageStateRecord[] {
+  return getEngine().getRuntimePackages()
+}
+
+export function registerScriptModule(record: RuntimeScriptModuleRecord): void {
+  return getEngine().registerScriptModule(record)
+}
+
+export async function runScriptModule<TScope>(moduleId: string, scope?: TScope): Promise<void> {
+  return getEngine().runScriptModule(moduleId, scope)
 }
 
 /**
@@ -106,7 +130,7 @@ export async function jumpTo(target: JumpTarget, options?: JumpOptions): Promise
 /**
  * Get asset metadata
  */
-export async function getAssetMetadata(type: 'audio' | 'images' | 'characters' | 'scripts' | 'data', assetName: string): Promise<any> {
+export async function getAssetMetadata(type: 'audio' | 'images' | 'characters' | 'video' | 'fonts' | 'scripts' | 'data', assetName: string): Promise<any> {
   return getEngine().getAssetMetadata(type, assetName)
 }
 

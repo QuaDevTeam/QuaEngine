@@ -1,4 +1,4 @@
-import type { BackgroundIntent, QuaEngineInterface } from '@quajs/engine'
+import type { BackgroundIntent, EngineContext, QuaEngineInterface } from '@quajs/engine'
 import type { AnimationTimeline } from '@quajs/plugin-animation'
 import type {
   TransitionIntent,
@@ -28,6 +28,13 @@ export class BackgroundPlugin extends BaseEnginePlugin {
   readonly version = '0.1.0'
   readonly description = 'Background image, video, layered background, and transition APIs'
 
+  override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
+    const packageId = ctx.runtimePackage?.package.id
+    if (packageId) {
+      await clearRuntimePackageBackgroundWithEngine(ctx.engine, packageId)
+    }
+  }
+
   registerAPIs() {
     return {
       pluginName: this.name,
@@ -42,6 +49,7 @@ export class BackgroundPlugin extends BaseEnginePlugin {
         { name: 'clearBackgroundLayersWithEngine', fn: clearBackgroundLayersWithEngine, module: this.name },
         { name: 'transitionBackgroundWithEngine', fn: transitionBackgroundWithEngine, module: this.name },
         { name: 'transitionBackgroundLayerWithEngine', fn: transitionBackgroundLayerWithEngine, module: this.name },
+        { name: 'clearRuntimePackageBackgroundWithEngine', fn: clearRuntimePackageBackgroundWithEngine, module: this.name },
       ],
       decorators: backgroundDecoratorMappings,
     }
@@ -62,6 +70,32 @@ export async function setBackgroundWithEngine(
 
 export async function clearBackgroundWithEngine(engine: QuaEngineInterface): Promise<void> {
   await engine.setBackgroundProjection(undefined)
+}
+
+export async function clearRuntimePackageBackgroundWithEngine(
+  engine: QuaEngineInterface,
+  packageId: string,
+): Promise<void> {
+  const current = engine.getViewState().background
+  if (!current) {
+    return
+  }
+  if (backgroundBelongsToPackage(current, packageId)) {
+    await engine.setBackgroundProjection(undefined)
+    return
+  }
+  if (current.mode !== 'layered' || !current.layers?.length) {
+    return
+  }
+
+  const layers = current.layers.filter(layer => !backgroundLayerBelongsToPackage(layer, packageId))
+  if (layers.length === current.layers.length) {
+    return
+  }
+  await engine.setBackgroundProjection({
+    ...cloneBackground(current),
+    layers,
+  })
 }
 
 export async function setVideoBackgroundWithEngine(
@@ -133,7 +167,7 @@ export async function updateBackgroundLayerWithEngine(
   const current = getLayeredBackground(engine)
   const layers = normalizeLayers(current.layers.map(layer =>
     layer.id === layerId
-      ? normalizeLayer(mergeLayerPatch(layer, patch, layerId))
+      ? withCurrentRuntimeLayerMetadata(engine, normalizeLayer(mergeLayerPatch(layer, patch, layerId)))
       : layer,
   ))
   await engine.setBackgroundProjection({
@@ -272,6 +306,19 @@ function cloneBackground(background: Readonly<BackgroundIntent>): BackgroundInte
   return normalizeBackground(background)
 }
 
+function backgroundBelongsToPackage(background: Readonly<ViewBackgroundProjection>, packageId: string): boolean {
+  return metadataBelongsToPackage(background.metadata, packageId)
+    || metadataBelongsToPackage(background.video?.metadata, packageId)
+}
+
+function backgroundLayerBelongsToPackage(layer: Readonly<ViewBackgroundLayerProjection>, packageId: string): boolean {
+  return metadataBelongsToPackage(layer.metadata, packageId)
+}
+
+function metadataBelongsToPackage(metadata: Readonly<Record<string, unknown>> | undefined, packageId: string): boolean {
+  return metadata?.contentPackageId === packageId
+}
+
 function normalizeComposition(composition: NonNullable<ViewBackgroundProjection['composition']>) {
   return cloneUnknownRecord(composition) as NonNullable<ViewBackgroundProjection['composition']>
 }
@@ -312,6 +359,56 @@ function mergeUnknownRecord(
     }
   }
   return next
+}
+
+function withCurrentRuntimeLayerMetadata(
+  engine: QuaEngineInterface,
+  layer: ViewBackgroundLayerProjection,
+): ViewBackgroundLayerProjection {
+  const packageId = (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
+  if (!packageId) {
+    return layer
+  }
+  return {
+    ...layer,
+    metadata: mergeRuntimePackageMetadata(layer.metadata, packageId),
+  }
+}
+
+function mergeRuntimePackageMetadata(
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  packageId: string,
+): Record<string, unknown> {
+  const next = metadata ? cloneUnknownRecord(metadata) : {}
+  const currentPackageId = typeof next.contentPackageId === 'string' ? next.contentPackageId : undefined
+  const requiredRuntimePackages = mergeRequiredRuntimePackages(
+    currentPackageId ? [currentPackageId] : [],
+    getRequiredRuntimePackages(next),
+    [packageId],
+  )
+
+  if (!currentPackageId) {
+    next.contentPackageId = packageId
+  }
+  else if (currentPackageId !== packageId) {
+    next.requiredRuntimePackages = requiredRuntimePackages
+  }
+  else if (getRequiredRuntimePackages(next).length > 0) {
+    next.requiredRuntimePackages = requiredRuntimePackages
+  }
+
+  return next
+}
+
+function getRequiredRuntimePackages(metadata?: Readonly<Record<string, unknown>>): string[] {
+  const value = metadata?.requiredRuntimePackages
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : []
+}
+
+function mergeRequiredRuntimePackages(...groups: Array<readonly string[] | undefined>): string[] {
+  return Array.from(new Set(groups.flatMap(group => group || []).filter(Boolean)))
 }
 
 async function setBackgroundProjectionWithTransition(

@@ -252,17 +252,19 @@ export function createSpriteManifestFromAssets(assets: readonly SpriteAssetSourc
   }
 
   const baseAsset = selectBaseSpriteAsset(familyAssets, normalizedFamily)
-  if (!baseAsset) {
+  const baseRelativePath = baseAsset
+    ? getFamilyRelativePath(baseAsset.relativePath, normalizedFamily)
+    : 'base.png'
+  const expressions = collectExpressionDefinitions(familyAssets, normalizedFamily, baseRelativePath)
+
+  if (!baseAsset && Object.keys(expressions).length === 0) {
     return null
   }
-
-  const baseRelativePath = getFamilyRelativePath(baseAsset.relativePath, normalizedFamily)
-  const expressions = collectExpressionDefinitions(familyAssets, normalizedFamily, baseRelativePath)
 
   return normalizeSpriteManifest({
     version: 1,
     family: normalizedFamily,
-    base: toLayerDefinition(baseAsset, normalizedFamily),
+    base: baseAsset ? toLayerDefinition(baseAsset, normalizedFamily) : { asset: baseRelativePath },
     expressions: Object.keys(expressions).length > 0 ? expressions : undefined,
   })
 }
@@ -327,7 +329,7 @@ function selectBaseSpriteAsset(assets: readonly SpriteAssetSource[], family: str
   }
 
   const rootAssets = assets.filter(asset => isRootFamilyAsset(asset.relativePath, family))
-  return rootAssets[0] || assets[0]
+  return rootAssets[0]
 }
 
 function collectExpressionDefinitions(

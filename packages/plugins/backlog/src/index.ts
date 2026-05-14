@@ -123,7 +123,12 @@ export class BacklogPlugin extends BaseEnginePlugin {
     if (!view.dialogue.visible || !view.dialogue.text) {
       return
     }
-    const checkpoint = await engine.createCheckpoint({ kind: 'line' })
+    const checkpoint = await engine.createCheckpoint({
+      kind: 'line',
+      metadata: {
+        requiredRuntimePackages: requiredPackagesForPoint(engine.getStoryPoint()),
+      },
+    })
     const entry = createBacklogEntry(engine, checkpoint, {
       kind: 'dialogue',
       speaker: view.dialogue.characterName || view.dialogue.characterId,
@@ -138,7 +143,12 @@ export class BacklogPlugin extends BaseEnginePlugin {
     if (payload.choices.length === 0) {
       return
     }
-    const checkpoint = await engine.createCheckpoint({ kind: 'choice' })
+    const checkpoint = await engine.createCheckpoint({
+      kind: 'choice',
+      metadata: {
+        requiredRuntimePackages: requiredPackagesForPoint(engine.getStoryPoint()),
+      },
+    })
     const entry = createBacklogEntry(engine, checkpoint, {
       kind: 'choice',
       text: payload.choices.map(choice => choice.text).join(' / '),
@@ -163,11 +173,13 @@ export class BacklogPlugin extends BaseEnginePlugin {
       return
     }
     try {
+      await engine.ensureRuntimePackages(entry.voice.requiredRuntimePackages || entry.requiredRuntimePackages || [])
       const audio = await import('@quajs/plugin-audio')
       await audio.playVoiceWithEngine(engine, entry.voice.assetKey, {
         chapterId: entry.voice.chapterId,
         lineId: entry.voice.lineId,
         characterId: entry.voice.characterId,
+        contentPackageId: entry.voice.contentPackageId,
       })
     }
     catch {
@@ -271,11 +283,19 @@ function createBacklogEntry(
   checkpoint: EngineCheckpoint,
   entry: Omit<BacklogEntry, 'id' | 'point' | 'checkpointId' | 'rewindable' | 'voiceReplay' | 'timestamp'>,
 ): BacklogEntry {
+  const point = engine.getStoryPoint()
+  const requiredRuntimePackages = mergeRequiredPackages(
+    requiredPackagesForPoint(point),
+    requiredPackagesFromMetadata(checkpoint.metadata),
+    entry.voice?.requiredRuntimePackages,
+    entry.voice?.contentPackageId ? [entry.voice.contentPackageId] : undefined,
+  )
   return {
     ...entry,
     id: `${entry.kind}:${checkpoint.id}:${Date.now()}`,
-    point: engine.getStoryPoint(),
+    point,
     checkpointId: checkpoint.id,
+    requiredRuntimePackages,
     rewindable: true,
     voiceReplay: Boolean(entry.voice),
     timestamp: Date.now(),
@@ -313,6 +333,8 @@ function findCurrentVoice(engine: QuaEngineInterface): BacklogVoiceReference | u
       chapterId?: string
       lineId?: string
       characterId?: string
+      contentPackageId?: string
+      requiredRuntimePackages?: readonly string[]
     }>
   }>('audio')
   if (!audio?.voices?.length) {
@@ -321,14 +343,38 @@ function findCurrentVoice(engine: QuaEngineInterface): BacklogVoiceReference | u
   const voice = audio.currentLineId
     ? [...audio.voices].reverse().find(item => item.lineId === audio.currentLineId)
     : audio.voices[audio.voices.length - 1]
+  const contentPackageId = typeof voice?.contentPackageId === 'string' ? voice.contentPackageId : undefined
+  const requiredRuntimePackages = mergeRequiredPackages(
+    Array.isArray(voice?.requiredRuntimePackages)
+      ? voice.requiredRuntimePackages.filter((item): item is string => typeof item === 'string')
+      : undefined,
+    contentPackageId ? [contentPackageId] : undefined,
+  )
   return voice
     ? {
         assetKey: voice.assetKey,
         chapterId: voice.chapterId,
         lineId: voice.lineId,
         characterId: voice.characterId,
+        contentPackageId,
+        requiredRuntimePackages,
       }
     : undefined
+}
+
+function requiredPackagesForPoint(point?: StoryPoint): string[] {
+  return point?.contentPackageId ? [point.contentPackageId] : []
+}
+
+function requiredPackagesFromMetadata(metadata?: Record<string, unknown>): string[] {
+  const value = metadata?.requiredRuntimePackages
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : []
+}
+
+function mergeRequiredPackages(...groups: Array<readonly string[] | undefined>): string[] {
+  return Array.from(new Set(groups.flatMap(group => group || []).filter(Boolean)))
 }
 
 function isAudioPluginInstalled(ctx: EngineContext): boolean {

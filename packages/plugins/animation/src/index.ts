@@ -1,4 +1,4 @@
-import type { QuaEngineInterface } from '@quajs/engine'
+import type { EngineContext, QuaEngineInterface } from '@quajs/engine'
 import type {
   ActiveAnimationProjection,
   AnimationCommitMode,
@@ -37,6 +37,7 @@ export interface AnimationTrack {
 
 export interface AnimationTimeline {
   id?: string
+  contentPackageId?: string
   duration: number
   tracks: readonly AnimationTrack[]
   delay?: number
@@ -50,6 +51,7 @@ export interface AnimationTimeline {
 
 export interface PlayAnimationOptions {
   id?: string
+  contentPackageId?: string
   bindings?: AnimationTargetBindings
   wait?: boolean
   defaultTarget?: string
@@ -127,6 +129,13 @@ export class AnimationPlugin extends BaseEnginePlugin {
     }
   }
 
+  override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
+    const packageId = ctx.runtimePackage?.package.id
+    if (packageId) {
+      await removeRuntimePackageAnimations(ctx.engine, packageId)
+    }
+  }
+
   override async destroy(): Promise<void> {
     if (this.ctx) {
       await clearAnimationRuntime(this.ctx.engine)
@@ -196,7 +205,7 @@ export async function registerAnimationWithEngine(
   engine: QuaEngineInterface,
   timeline: AnimationTimeline,
 ): Promise<AnimationTimeline> {
-  const normalized = normalizeTimeline(timeline)
+  const normalized = withCurrentRuntimeAnimationPackage(engine, normalizeTimeline(timeline))
   if (!normalized.id) {
     throw new Error('Named animation definitions require an id.')
   }
@@ -226,7 +235,7 @@ export async function playTimelineWithEngine(
   options: PlayAnimationOptions = {},
 ): Promise<ActiveAnimationProjection> {
   const runtime = getRuntime(engine)
-  return playNormalizedTimeline(engine, runtime, normalizeTimeline(timeline), options)
+  return playNormalizedTimeline(engine, runtime, withCurrentRuntimeAnimationPackage(engine, normalizeTimeline(timeline)), options)
 }
 
 export async function pauseAnimationWithEngine(
@@ -347,6 +356,7 @@ async function playNormalizedTimeline(
   const projection: ActiveAnimationProjection = {
     id,
     definitionId: definitionId || definition.id,
+    contentPackageId: options.contentPackageId || definition.contentPackageId || contentPackageIdFromMetadata(definition.metadata) || currentRuntimePackageId(engine),
     bindings: Object.keys(bindings).length ? bindings : undefined,
     state: 'running',
     startedAt: Date.now(),
@@ -676,6 +686,28 @@ async function clearAnimationRuntime(engine: QuaEngineInterface): Promise<void> 
   await engine.clearAnimationProjections()
 }
 
+async function removeRuntimePackageAnimations(engine: QuaEngineInterface, packageId: string): Promise<void> {
+  const runtime = getRuntime(engine)
+  const playbacks = [...runtime.playbacks.values()]
+    .filter(playback =>
+      playback.projection.contentPackageId === packageId
+      || playback.definition.contentPackageId === packageId
+      || contentPackageIdFromMetadata(playback.definition.metadata) === packageId,
+    )
+  await Promise.all(playbacks.map(playback => finishPlayback(engine, runtime, playback, false)))
+
+  const packageProjectionIds = (engine.getViewState().animations || [])
+    .filter(projection => projection.contentPackageId === packageId)
+    .map(projection => projection.id)
+  await Promise.all(packageProjectionIds.map(id => engine.removeAnimationProjection(id)))
+
+  for (const [id, definition] of runtime.definitions.entries()) {
+    if (definition.contentPackageId === packageId || contentPackageIdFromMetadata(definition.metadata) === packageId) {
+      runtime.definitions.delete(id)
+    }
+  }
+}
+
 function reconcileAnimationRuntime(engine: QuaEngineInterface): void {
   const runtime = getRuntime(engine)
   for (const playback of runtime.playbacks.values()) {
@@ -712,6 +744,7 @@ function reconcileAnimationRuntime(engine: QuaEngineInterface): void {
 function timelineFromProjection(projection: Readonly<ActiveAnimationProjection>): NormalizedAnimationTimeline {
   return {
     id: projection.definitionId || projection.id,
+    contentPackageId: projection.contentPackageId,
     duration: projection.duration,
     delay: Math.max(0, projection.delay ?? 0),
     playbackRate: projection.playbackRate,
@@ -726,6 +759,31 @@ function timelineFromProjection(projection: Readonly<ActiveAnimationProjection>)
       keyframes: track.keyframes.map(keyframe => ({ ...keyframe })),
     })),
   }
+}
+
+function contentPackageIdFromMetadata(metadata?: Readonly<Record<string, unknown>>): string | undefined {
+  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
+}
+
+function withCurrentRuntimeAnimationPackage<TTimeline extends NormalizedAnimationTimeline>(
+  engine: QuaEngineInterface,
+  timeline: TTimeline,
+): TTimeline {
+  if (timeline.contentPackageId || contentPackageIdFromMetadata(timeline.metadata)) {
+    return timeline
+  }
+  const packageId = currentRuntimePackageId(engine)
+  if (!packageId) {
+    return timeline
+  }
+  return {
+    ...timeline,
+    contentPackageId: packageId,
+  }
+}
+
+function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined {
+  return (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
 }
 
 function assertAdapter(

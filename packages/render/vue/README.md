@@ -123,7 +123,7 @@ Default landscape layout adapts from 16:10 to 16:9. Default portrait layout uses
 
 Background components reuse `@quajs/renderer-web` projection helpers, so image, video, and layered backgrounds share fit, origin, transform, opacity, blend, filter, and mask semantics with the native DOM renderer.
 
-Vue renderer code should reuse `@quajs/renderer-web` layout and coordinate helpers through `QuaStage` and shared composables instead of duplicating viewport or pointer math.
+Vue renderer code should reuse `@quajs/renderer-web` layout, coordinate, and viewport environment helpers through `QuaStage` and shared composables instead of duplicating viewport or pointer math.
 
 `QuaStage` also forwards mobile CSS safe-area insets and `devicePixelRatio` into the shared Web layout resolver. These values affect exported safe-area variables and physical-pixel metadata only; DOM projection still uses CSS pixels.
 

@@ -158,6 +158,17 @@ export class SettingsPlugin extends BaseEnginePlugin {
     await this.bridge?.rebuildProjection({ reason: 'jump', apply: true, persist: false })
   }
 
+  override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
+    const packageId = ctx.runtimePackage?.package.id
+    if (!packageId || !this.bridge) {
+      return
+    }
+    const removed = getSettingsScopeRegistry(ctx).unregisterPackageScopes(packageId)
+    if (removed.length > 0) {
+      await this.bridge.rebuildProjection({ reason: 'runtime-package-unload', apply: true, persist: false })
+    }
+  }
+
   override async destroy(): Promise<void> {
     while (this.disposers.length > 0) {
       this.disposers.pop()?.()

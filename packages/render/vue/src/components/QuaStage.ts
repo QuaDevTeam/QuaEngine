@@ -1,7 +1,7 @@
 import type { StageContainerSize } from '@quajs/renderer-web'
 import type { PropType } from 'vue'
 import type { QuaVueRendererLayer } from '../plugins/core'
-import { projectStageMotion, readCssSafeAreaInsets, readDevicePixelRatio, resolveStageLayout, stageContentStyle, stageFrameStyle, stageMotionVars, stagePlaneStyle, stageSafeAreaStyle, stageSceneStyle, stageViewportStyle } from '@quajs/renderer-web'
+import { observeStageViewportEnvironment, projectStageMotion, readCssSafeAreaInsets, readDevicePixelRatio, resolveStageLayout, stageContentStyle, stageFrameStyle, stageMotionVars, stagePlaneStyle, stageSafeAreaStyle, stageSceneStyle, stageViewportStyle } from '@quajs/renderer-web'
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAnimationClock, useRendererActions } from '../composables'
 import { projectionProps, useProjectionProps } from './projection'
@@ -27,6 +27,7 @@ export const QuaStage = defineComponent({
     const frame = ref<HTMLElement>()
     const frameSize = ref<Partial<StageContainerSize>>({ width: 0, height: 0 })
     let resizeObserver: ResizeObserver | undefined
+    let viewportEnvironmentDisposer: (() => void) | undefined
 
     const measure = () => {
       const rect = frame.value?.getBoundingClientRect()
@@ -45,11 +46,14 @@ export const QuaStage = defineComponent({
         resizeObserver = new ResizeObserverCtor(measure)
         resizeObserver.observe(frame.value)
       }
+      viewportEnvironmentDisposer = observeStageViewportEnvironment(frame.value, measure)
     })
 
     onBeforeUnmount(() => {
       resizeObserver?.disconnect()
       resizeObserver = undefined
+      viewportEnvironmentDisposer?.()
+      viewportEnvironmentDisposer = undefined
     })
 
     watch(() => props.view?.layout, async () => {

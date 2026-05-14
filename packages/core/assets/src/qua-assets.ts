@@ -7,8 +7,10 @@ import type {
   AssetType,
   BundleIndex,
   BundleStatus,
+  DynamicBundleRecord,
   DecompressionPlugin,
   DecryptionPlugin,
+  LoadDynamicBundleOptions,
   LoadAssetOptions,
   LoadBundleOptions,
   MediaMetadata,
@@ -139,6 +141,9 @@ export class QuaAssets {
       })
       const bytes = fetched instanceof Uint8Array ? fetched : fetched.data
       const { manifest, assets } = await this.bundleLoader.loadBundle(bytes, baseBundleName, options)
+      const loadedAt = this.now()
+      const runtimePackageId = manifest.runtimePackage?.id
+      const bundlePriority = manifest.runtimePackage?.priority ?? 0
 
       this.updateBundleProgress(baseBundleName, 0.8)
 
@@ -152,11 +157,19 @@ export class QuaAssets {
           size: assets.reduce((sum, asset) => sum + asset.size, 0),
           assetCount: assets.length,
           locales: manifest.locales || ['default'],
-          createdAt: this.now(),
-          lastUpdated: this.now(),
+          createdAt: loadedAt,
+          lastUpdated: loadedAt,
           manifest,
+          runtimePackageId,
+          priority: bundlePriority,
+          loadedAt,
         })
-        await this.adapter.storage.storeAssets(assets)
+        await this.adapter.storage.storeAssets(assets.map(asset => ({
+          ...asset,
+          runtimePackageId,
+          bundlePriority,
+          loadedAt,
+        })))
         await this.manageCacheSize()
       }
 
@@ -374,6 +387,151 @@ export class QuaAssets {
   async canApplyPatch(patchNameOrUrl: string, targetBundleName: string): Promise<boolean> {
     this.ensureInitialized()
     return await this.patchManager.canApplyPatch(this.resolveUrl(patchNameOrUrl), targetBundleName)
+  }
+
+  async loadDynamicBundle(bundleNameOrUrl: string, options: LoadDynamicBundleOptions = {}): Promise<DynamicBundleRecord> {
+    this.ensureInitialized()
+    const sourceName = bundleNameOrUrl.replace(/\.(qpk|zip|bundle)$/, '')
+    this.bundleStatuses.set(sourceName, createBundleStatus(sourceName, 'loading'))
+
+    try {
+      this.emit('bundle:loading', { bundleName: sourceName })
+      const fetcher = this.ensureFetcher()
+      const fetched = await fetcher.fetchBytes(this.resolveUrl(bundleNameOrUrl), {
+        cache: options.enableCache !== false,
+        signal: options.signal,
+        onProgress: (loaded, total) => {
+          this.updateBundleProgress(sourceName, total > 0 ? (loaded / total) * 0.8 : 0)
+          options.onProgress?.(loaded, total)
+        },
+      })
+      const bytes = fetched instanceof Uint8Array ? fetched : fetched.data
+      const bundleHash = await this.adapter.crypto.sha256(bytes)
+      const loaded = await this.bundleLoader.loadBundle(bytes, sourceName, options)
+      const runtimePackage = loaded.manifest.runtimePackage
+      if (!runtimePackage) {
+        throw new BundleLoadError('Dynamic bundle manifest missing runtimePackage metadata', sourceName)
+      }
+
+      const bundleName = options.bundleName || loaded.manifest.name || runtimePackage.id || sourceName
+      const existingBundle = await this.adapter.storage.getBundle(bundleName)
+      if (!options.force && existingBundle) {
+        throw new BundleLoadError(`Dynamic bundle "${bundleName}" is already loaded. Unload it before loading a replacement.`, bundleName)
+      }
+      const loadedAt = this.now()
+      const priority = options.priority ?? runtimePackage.priority ?? 0
+      const assets = loaded.assets.map(asset => ({
+        ...asset,
+        id: `${bundleName}:${asset.locale}:${asset.type}:${asset.name}`,
+        bundleName,
+        runtimePackageId: runtimePackage.id,
+        bundlePriority: priority,
+        loadedAt,
+      }))
+
+      if (existingBundle) {
+        await this.removeBundleAssets(bundleName)
+      }
+
+      await this.adapter.storage.storeBundle({
+        name: bundleName,
+        version: loaded.manifest.bundleVersion || 1,
+        buildNumber: loaded.manifest.buildNumber || 'unknown',
+        format: loaded.manifest.format,
+        hash: bundleHash,
+        size: assets.reduce((sum, asset) => sum + asset.size, 0),
+        assetCount: assets.length,
+        locales: loaded.manifest.locales || ['default'],
+        createdAt: loadedAt,
+        lastUpdated: loadedAt,
+        manifest: loaded.manifest,
+        runtimePackageId: runtimePackage.id,
+        priority,
+        loadedAt,
+      })
+      await this.adapter.storage.storeAssets(assets)
+      if (options.enableCache !== false && this.config.enableCache) {
+        await this.manageCacheSize()
+      }
+
+      const status = {
+        name: bundleName,
+        version: loaded.manifest.bundleVersion || 1,
+        state: 'loaded' as const,
+        progress: 1,
+        assetCount: assets.length,
+        loadedAssets: assets.length,
+        lastUpdated: loadedAt,
+      }
+      this.bundleStatuses.delete(sourceName)
+      this.bundleStatuses.set(bundleName, status)
+
+      const record: DynamicBundleRecord = {
+        packageId: runtimePackage.id,
+        bundleName,
+        version: runtimePackage.version,
+        bundleVersion: loaded.manifest.bundleVersion || 1,
+        hash: bundleHash,
+        priority,
+        loadedAt,
+        assetCount: assets.length,
+        manifest: loaded.manifest,
+      }
+      this.emit('bundle:loaded', { bundleName, status })
+      this.emit('dynamic-bundle:loaded', record)
+      return record
+    }
+    catch (error) {
+      const bundleError = error instanceof BundleLoadError
+        ? error
+        : new BundleLoadError(`Failed to load dynamic bundle: ${error instanceof Error ? error.message : String(error)}`, sourceName)
+      this.bundleStatuses.set(sourceName, {
+        ...createBundleStatus(sourceName, 'error'),
+        error: bundleError,
+      })
+      this.emit('bundle:error', { bundleName: sourceName, error: bundleError })
+      throw bundleError
+    }
+  }
+
+  async unloadDynamicBundle(bundleNameOrPackageId: string): Promise<void> {
+    this.ensureInitialized()
+    const bundles = await this.adapter.storage.getAllBundles()
+    const targets = bundles.filter(bundle =>
+      bundle.name === bundleNameOrPackageId
+      || bundle.runtimePackageId === bundleNameOrPackageId
+      || bundle.manifest.runtimePackage?.id === bundleNameOrPackageId,
+    )
+    if (targets.length === 0) {
+      throw new Error(`Dynamic bundle not found: ${bundleNameOrPackageId}`)
+    }
+
+    for (const bundle of targets) {
+      await this.removeBundleAssets(bundle.name)
+      this.emit('dynamic-bundle:unloaded', {
+        packageId: bundle.runtimePackageId || bundle.manifest.runtimePackage?.id || bundle.name,
+        bundleName: bundle.name,
+      })
+    }
+  }
+
+  async getBundleManifest(bundleName: string) {
+    this.ensureInitialized()
+    return (await this.adapter.storage.getBundle(bundleName))?.manifest
+  }
+
+  private async removeBundleAssets(bundleName: string): Promise<void> {
+    const assets = await this.adapter.storage.findAssets({ bundleName })
+    await this.adapter.storage.deleteBundle(bundleName)
+    this.bundleStatuses.delete(bundleName)
+    for (const asset of assets) {
+      this.emit('asset:changed', {
+        type: 'removed',
+        assetId: asset.id,
+        path: asset.name,
+        timestamp: this.now(),
+      })
+    }
   }
 
   async clearBundleCache(bundleName: string): Promise<void> {

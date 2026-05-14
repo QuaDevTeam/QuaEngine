@@ -174,6 +174,37 @@ export function stageLogicalToClientPoint(
   }
 }
 
+export function observeStageViewportEnvironment(
+  element: Element | undefined,
+  callback: () => void,
+): () => void {
+  const win = element?.ownerDocument?.defaultView || (typeof window === 'undefined' ? undefined : window)
+  if (!win || typeof win.addEventListener !== 'function') {
+    return () => {}
+  }
+
+  const disposers: Array<() => void> = []
+  const addListener = (target: EventTarget | undefined, type: string) => {
+    if (!target || typeof target.addEventListener !== 'function') {
+      return
+    }
+
+    target.addEventListener(type, callback)
+    disposers.push(() => target.removeEventListener(type, callback))
+  }
+
+  addListener(win, 'resize')
+  addListener(win, 'orientationchange')
+  addListener(win.visualViewport || undefined, 'resize')
+  addListener(win.visualViewport || undefined, 'scroll')
+
+  return () => {
+    while (disposers.length > 0) {
+      disposers.pop()?.()
+    }
+  }
+}
+
 export function rendererRootStyle(): Record<string, string> {
   return {
     'position': 'relative',
@@ -420,21 +451,28 @@ function resolveElementSafeAreaInsets(
     return viewportInsets
   }
 
+  const visualViewport = win.visualViewport
+  const viewportLeft = finiteNumber(visualViewport?.offsetLeft, 0)
+  const viewportTop = finiteNumber(visualViewport?.offsetTop, 0)
   const viewportWidth = positiveNumber(
-    win.innerWidth,
-    positiveNumber(doc.documentElement?.clientWidth, rect.right + viewportInsets.right),
+    visualViewport?.width,
+    positiveNumber(win.innerWidth, positiveNumber(doc.documentElement?.clientWidth, rect.right + viewportInsets.right)),
   )
   const viewportHeight = positiveNumber(
-    win.innerHeight,
-    positiveNumber(doc.documentElement?.clientHeight, rect.bottom + viewportInsets.bottom),
+    visualViewport?.height,
+    positiveNumber(win.innerHeight, positiveNumber(doc.documentElement?.clientHeight, rect.bottom + viewportInsets.bottom)),
   )
-  const safeRight = viewportWidth - viewportInsets.right
-  const safeBottom = viewportHeight - viewportInsets.bottom
+  const safeRight = viewportLeft + viewportWidth - viewportInsets.right
+  const safeBottom = viewportTop + viewportHeight - viewportInsets.bottom
 
   return {
-    top: Math.max(0, viewportInsets.top - rect.top),
+    top: Math.max(0, viewportTop + viewportInsets.top - rect.top),
     right: Math.max(0, rect.right - safeRight),
     bottom: Math.max(0, rect.bottom - safeBottom),
-    left: Math.max(0, viewportInsets.left - rect.left),
+    left: Math.max(0, viewportLeft + viewportInsets.left - rect.left),
   }
+}
+
+function finiteNumber(value: number | undefined, fallback: number): number {
+  return Number.isFinite(value) && value !== undefined ? value : fallback
 }

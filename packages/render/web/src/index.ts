@@ -39,6 +39,7 @@ export type {
 } from './layout'
 export {
   clientPointToStageLogical,
+  observeStageViewportEnvironment,
   readCssSafeAreaInsets,
   readDevicePixelRatio,
   rendererRootStyle,

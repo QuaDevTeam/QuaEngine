@@ -68,7 +68,7 @@ export class SceneManager {
 
   async showDialogue(
     characterName: string | undefined,
-    text: string,
+    text: DialogueIntent['text'],
     choices?: ChoiceIntent[],
   ): Promise<void> {
     const payload: DialogueIntent = {
@@ -86,7 +86,7 @@ export class SceneManager {
   }
 
   async updateDialogue(
-    text: string,
+    text: DialogueIntent['text'],
     characterName?: string,
     choices?: ChoiceIntent[],
   ): Promise<void> {

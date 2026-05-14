@@ -112,6 +112,76 @@ export interface PatchManifest {
   }
 }
 
+export type RuntimePackagePluginKind = 'engine' | 'renderer' | 'compiler'
+
+export interface RuntimePackageScriptManifest {
+  id: string
+  version?: string
+  assetName: string
+  exportName?: string
+  dependsOnBundles?: string[]
+  metadata?: Record<string, unknown>
+}
+
+export interface RuntimePackagePluginManifest {
+  id: string
+  kind: RuntimePackagePluginKind
+  version?: string
+  assetName?: string
+  module?: string
+  exportName?: string
+  renderer?: string
+  dependencies?: string[]
+  metadata?: Record<string, unknown>
+}
+
+export interface RuntimePackageStoreMigrationManifest {
+  id: string
+  version?: string
+  scope?: string
+  assetName: string
+  exportName?: string
+  dependsOn?: string[]
+  metadata?: Record<string, unknown>
+}
+
+export interface RuntimePackageStoryGraphDeltaManifest {
+  id: string
+  graphId?: string
+  operation?: 'upsert' | 'remove'
+  nodes?: readonly Record<string, unknown>[]
+  edges?: readonly Record<string, unknown>[]
+  lanes?: readonly Record<string, unknown>[]
+  timelines?: readonly Record<string, unknown>[]
+  metadata?: Record<string, unknown>
+}
+
+export interface RuntimePackageIntegrityManifest {
+  hash: string
+  algorithm?: 'sha256' | string
+}
+
+export interface RuntimePackageSignatureManifest {
+  value: string
+  algorithm?: string
+  keyId?: string
+}
+
+export interface RuntimePackageManifest {
+  id: string
+  version: string
+  sequence?: number
+  priority?: number
+  dependencies?: string[]
+  scripts?: RuntimePackageScriptManifest[]
+  plugins?: RuntimePackagePluginManifest[]
+  storyGraphDeltas?: RuntimePackageStoryGraphDeltaManifest[]
+  storeMigrations?: RuntimePackageStoreMigrationManifest[]
+  integrity?: RuntimePackageIntegrityManifest
+  signature?: RuntimePackageSignatureManifest
+  metadata?: Record<string, unknown>
+}
+
 export interface BundleManifest {
   name: string
   version: string
@@ -147,6 +217,7 @@ export interface BundleManifest {
     estimatedDecompressionTime: number
     memoryUsageEstimate: number
   }
+  runtimePackage?: RuntimePackageManifest
 }
 
 export interface MerkleNode {
@@ -353,6 +424,7 @@ export interface QuackConfig {
   plugins?: QuackPlugin[]
   ignore?: string[]
   verbose?: boolean
+  runtimePackage?: RuntimePackageManifest
 
   // Workspace mode (multi-bundle)
   workspace?: WorkspaceConfig
@@ -428,6 +500,7 @@ export interface BundleOptions {
   plugins: QuackPlugin[]
   ignore: string[]
   verbose: boolean
+  runtimePackage?: RuntimePackageManifest
 }
 
 export interface AssetFilter {

@@ -9,6 +9,7 @@ import {
   createInitialAudioProjection,
   emitAudioRenderToLogic,
   pauseAudioWithEngine,
+  playBGMWithEngine,
   playAmbientWithEngine,
   playSFXWithEngine,
   playVoiceWithEngine,
@@ -217,6 +218,34 @@ describe('@quajs/plugin-audio', () => {
     await engine.jumpTo(checkpoint.id, { audio: 'stop' })
     expect((engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any).voices)
       .toEqual([expect.objectContaining({ id: 'checkpoint-voice', state: 'stopping' })])
+  })
+
+  it('stops tracks owned by an unloaded runtime package', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    await engine.init()
+
+    await engine.setStoryPoint({ stepId: 'runtime-audio-step', contentPackageId: 'runtime.audio' })
+    await configureAudioChapterWithEngine(engine, 'runtime-audio', {
+      bgm: 'bgm/runtime-chapter',
+    })
+    await playVoiceWithEngine(engine, 'voice/runtime', { id: 'runtime-voice' })
+    await playBGMWithEngine(engine, 'bgm/runtime', { id: 'runtime-bgm' })
+    await engine.setStoryPoint({ stepId: 'base-audio-step' })
+    await playSFXWithEngine(engine, 'sfx/base', { id: 'base-sfx' })
+
+    let projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.chapter.metadata).toEqual({ contentPackageId: 'runtime.audio' })
+    expect(projection.voices[0]).toEqual(expect.objectContaining({ contentPackageId: 'runtime.audio' }))
+    expect(projection.bgm).toEqual(expect.objectContaining({ contentPackageId: 'runtime.audio' }))
+
+    await engine.notifyRuntimePackageUnload({ id: 'runtime.audio', version: '1.0.0' }, 'runtime.audio')
+
+    projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.chapter).toBeUndefined()
+    expect(projection.voices).toEqual([expect.objectContaining({ id: 'runtime-voice', state: 'stopping' })])
+    expect(projection.bgm).toEqual(expect.objectContaining({ id: 'runtime-bgm', state: 'stopping' }))
+    expect(projection.sfx).toEqual([expect.objectContaining({ id: 'base-sfx', state: 'playing' })])
   })
 })
 

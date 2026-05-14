@@ -1,4 +1,12 @@
-import type { QuaAssets, QuaAssetsConfig } from '@quajs/assets'
+import type {
+  DynamicBundleRecord,
+  QuaAssets,
+  QuaAssetsConfig,
+  RuntimePackageManifest,
+  RuntimePackagePluginManifest,
+  RuntimePackageScriptManifest,
+  RuntimePackageStoreMigrationManifest,
+} from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
 import type { QuaStore, StorageConfig } from '@quajs/store'
 import type {
@@ -17,6 +25,14 @@ import type {
 } from '../events/events'
 import type { EnginePlugin, PluginConstructorOptions } from '../plugins/core/types'
 import { createFlowControlProjection, createViewLayoutProjection } from '../events/events'
+
+export type {
+  RuntimePackageManifest,
+  RuntimePackagePluginManifest,
+  RuntimePackageScriptManifest,
+  RuntimePackageStoreMigrationManifest,
+  RuntimePackageStoryGraphDeltaManifest,
+} from '@quajs/assets'
 
 export type {
   ViewFlowControlProjection,
@@ -53,6 +69,12 @@ export interface GameStep {
     description?: string
     tags?: string[]
     point?: Partial<StoryPoint>
+    requiredRuntimePackages?: string[]
+    runtimePackage?: {
+      packageId: string
+      scriptModuleId?: string
+      scriptModuleVersion?: string
+    }
   }
 }
 
@@ -90,8 +112,10 @@ export interface QuaEngineInterface {
   getStore: () => QuaStore
   getAssets: () => QuaAssets
   getPipeline: () => Pipeline
+  ensureRuntimePackages: (packageIds: readonly string[]) => Promise<void>
   getViewState: () => QuaViewProjection
   getFlowControlState: () => ViewFlowControlProjection
+  unloadRuntimePackage: (packageId: string, options?: RuntimePackageUnloadOptions) => Promise<void>
   setFlowControlOptions: (options: FlowControlRuntimeOptions) => Promise<void>
   setFlowControlMode: (mode: FlowControlMode) => Promise<void>
   setFlowControlPolicy: (policy: FlowControlPolicy) => Promise<void>
@@ -168,6 +192,9 @@ export interface StoryPoint {
   nodeId?: string
   stepId: string
   lineId?: string
+  contentPackageId?: string
+  scriptModuleId?: string
+  scriptModuleVersion?: string
 }
 
 export type EngineCheckpointKind = 'step' | 'line' | 'choice' | 'manual' | 'save'
@@ -212,6 +239,112 @@ export interface LoadSlotOptions {
   reason?: string
 }
 
+export type RuntimePackageState = 'loaded' | 'active' | 'unloaded'
+
+export interface RuntimePackageStateRecord {
+  id: string
+  version: string
+  state: RuntimePackageState
+  bundleName?: string
+  priority?: number
+  loadedAt: number
+  activatedAt?: number
+  dependencies: string[]
+  scriptModuleIds: string[]
+  pluginIds: string[]
+  migrationIds: string[]
+}
+
+export interface RuntimeScriptModuleRecord extends RuntimePackageScriptManifest {
+  packageId: string
+  bundleName?: string
+  factory?: GameStepFactory<any> | OptionalGameStepFactory<any>
+  module?: Record<string, unknown>
+}
+
+export interface RuntimePackageLoadOptions {
+  activate?: boolean
+  bundleName?: string
+  priority?: number
+}
+
+export interface RuntimePackageUnloadOptions {
+  force?: boolean
+}
+
+export interface RuntimePackageRegistryEntry {
+  source: string
+  options?: RuntimePackageLoadOptions
+}
+
+export interface RuntimePackageRegistryResolveContext {
+  engine: QuaEngineInterface
+  assets: QuaAssets
+  requestedPackageId: string
+}
+
+export interface RuntimePackageRegistry {
+  resolvePackage: (
+    packageId: string,
+    ctx: RuntimePackageRegistryResolveContext,
+  ) => string | RuntimePackageRegistryEntry | undefined | Promise<string | RuntimePackageRegistryEntry | undefined>
+}
+
+export interface RuntimeLoadedScriptModule {
+  default?: GameStepFactory<any> | OptionalGameStepFactory<any>
+  [key: string]: unknown
+}
+
+export interface RuntimeLoadedPluginModule {
+  default?: unknown
+  Plugin?: unknown
+  [key: string]: unknown
+}
+
+export interface RuntimeLoadedMigrationModule {
+  default?: RuntimeStoreMigrationHandler
+  [key: string]: unknown
+}
+
+export interface RuntimeStoreMigrationContext {
+  engine: QuaEngineInterface
+  store: QuaStore
+  assets: QuaAssets
+  pipeline: Pipeline
+  package: RuntimePackageManifest
+  migration: RuntimePackageStoreMigrationManifest
+}
+
+export type RuntimeStoreMigrationHandler = (ctx: RuntimeStoreMigrationContext) => void | Promise<void>
+
+export interface RuntimeModuleLoader {
+  loadScriptModule?: (record: RuntimeScriptModuleRecord, ctx: RuntimeModuleLoadContext) => Promise<RuntimeLoadedScriptModule>
+  loadEnginePluginModule?: (record: RuntimePackagePluginManifest, ctx: RuntimeModuleLoadContext) => Promise<RuntimeLoadedPluginModule>
+  loadStoreMigrationModule?: (record: RuntimePackageStoreMigrationManifest, ctx: RuntimeModuleLoadContext) => Promise<RuntimeLoadedMigrationModule>
+}
+
+export interface RuntimeModuleLoadContext {
+  assets: QuaAssets
+  package: RuntimePackageManifest
+  bundle: DynamicBundleRecord
+}
+
+export interface RuntimeTrustPolicy {
+  requireSignature?: boolean
+  allowUnsignedInDevelopment?: boolean
+  verifyPackage?: (ctx: RuntimePackageTrustContext) => boolean | Promise<boolean>
+}
+
+export interface RuntimePackageTrustContext {
+  package: RuntimePackageManifest
+  bundle: DynamicBundleRecord
+}
+
+export interface RuntimePackageContext {
+  package: RuntimePackageManifest
+  bundleName?: string
+}
+
 export interface GameSaveData {
   version: string
   timestamp: number
@@ -239,6 +372,9 @@ export interface EngineConfig {
     autoSaveInterval?: number
     encryptionKey?: string
   }
+  runtimeModuleLoader?: RuntimeModuleLoader
+  runtimePackageRegistry?: RuntimePackageRegistry
+  trustPolicy?: RuntimeTrustPolicy
   debug?: {
     enableLogs?: boolean
     logLevel?: 'debug' | 'info' | 'warn' | 'error'
@@ -301,6 +437,8 @@ export interface EngineRuntimeState {
   sceneHistory: string[]
   stepHistory: string[]
   checkpointHistory: string[]
+  runtimePackages: Record<string, RuntimePackageStateRecord>
+  appliedRuntimeMigrations: string[]
 }
 
 export interface EngineFlowControlProgressState {
@@ -343,6 +481,8 @@ export function createInitialEngineState(layout?: ViewLayoutInput, flowControl?:
       sceneHistory: [],
       stepHistory: [],
       checkpointHistory: [],
+      runtimePackages: {},
+      appliedRuntimeMigrations: [],
     },
     flowControlProgress: {
       readKeys: [],

@@ -299,11 +299,13 @@ describe('@quajs/vite-plugin', () => {
       expect(assetResponse.body).toBe('image-data')
     })
 
-    it('should classify video assets in the dev VFS manifest', async () => {
+    it('should classify video and font assets in the dev VFS manifest', async () => {
       tempDir = join(tmpdir(), `qua-vfs-${Date.now()}`)
       const assetsDir = join(tempDir, 'assets')
       await mkdir(join(assetsDir, 'video'), { recursive: true })
+      await mkdir(join(assetsDir, 'fonts'), { recursive: true })
       await writeFile(join(assetsDir, 'video', 'intro.mp4'), 'video-data')
+      await writeFile(join(assetsDir, 'fonts', 'display.woff2'), 'font-data')
 
       const plugin = quackPlugin({ source: 'assets' })
       const middlewareHandlers: MockMiddlewareHandler[] = []
@@ -331,12 +333,19 @@ describe('@quajs/vite-plugin', () => {
       )
 
       const manifest = JSON.parse(manifestResponse.body)
-      expect(manifest.assets[0]).toMatchObject({
+      expect(manifest.assets.find((asset: any) => asset.path === 'video/intro.mp4')).toMatchObject({
         id: 'dev-vfs:default:video:intro.mp4',
         name: 'intro.mp4',
         type: 'video',
         path: 'video/intro.mp4',
         mimeType: 'video/mp4',
+      })
+      expect(manifest.assets.find((asset: any) => asset.path === 'fonts/display.woff2')).toMatchObject({
+        id: 'dev-vfs:default:fonts:display.woff2',
+        name: 'display.woff2',
+        type: 'fonts',
+        path: 'fonts/display.woff2',
+        mimeType: 'font/woff2',
       })
     })
 
