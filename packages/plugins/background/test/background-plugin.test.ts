@@ -7,6 +7,7 @@ import {
   BackgroundPlugin,
   clearBackgroundLayersWithEngine,
   clearBackgroundWithEngine,
+  clearRuntimePackageBackgroundWithEngine,
   removeBackgroundLayerWithEngine,
   setBackgroundWithEngine,
   setLayeredBackgroundWithEngine,
@@ -211,6 +212,42 @@ describe('@quajs/plugin-background', () => {
 
     await clearBackgroundLayersWithEngine(engine)
     expect(engine.getViewState().background?.layers).toEqual([])
+  })
+
+  it('removes runtime package background projections on package unload', async () => {
+    const engine = createEngine()
+
+    await setLayeredBackgroundWithEngine(engine, [
+      {
+        id: 'runtime-fog',
+        assetName: 'runtime-fog.png',
+        metadata: { contentPackageId: 'runtime.background' },
+      },
+      {
+        id: 'base-sky',
+        assetName: 'base-sky.png',
+      },
+    ])
+
+    await clearRuntimePackageBackgroundWithEngine(engine, 'runtime.background')
+
+    expect(engine.getViewState().background?.layers).toEqual([
+      expect.objectContaining({ id: 'base-sky' }),
+    ])
+
+    await setBackgroundWithEngine(engine, 'runtime-room.png', {
+      metadata: { contentPackageId: 'runtime.background' },
+    })
+    const plugin = new BackgroundPlugin()
+    await plugin.onRuntimePackageUnload?.({
+      engine,
+      runtimePackage: {
+        package: { id: 'runtime.background', version: '1.0.0' },
+        bundleName: 'runtime.background',
+      },
+    } as any)
+
+    expect(engine.getViewState().background).toBeUndefined()
   })
 
   it('plays current background visibility transitions through animation', async () => {

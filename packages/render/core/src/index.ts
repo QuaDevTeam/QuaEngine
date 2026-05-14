@@ -28,6 +28,8 @@ export enum LogicToRenderEvents {
   GAME_PAUSE = 'game/pause',
   GAME_RESUME = 'game/resume',
   ASSET_CHANGED = 'asset/changed',
+  RUNTIME_PACKAGE_PLUGIN = 'runtime_package/plugin',
+  RUNTIME_PACKAGE_UNLOAD = 'runtime_package/unload',
   SYSTEM_MESSAGE = 'system/message',
   SYSTEM_ERROR = 'system/error',
 }
@@ -455,6 +457,7 @@ export interface ResolvedAnimationTrackProjection {
 export interface ActiveAnimationProjection {
   id: string
   definitionId?: string
+  contentPackageId?: string
   bindings?: Readonly<Record<string, string>>
   state: AnimationPlaybackState
   startedAt: number
@@ -590,6 +593,16 @@ export interface AssetErrorPayload {
   error: string
 }
 
+export interface RuntimePackagePluginPayload {
+  packageId: string
+  plugins: readonly unknown[]
+}
+
+export interface RuntimePackageUnloadPayload {
+  packageId: string
+  bundleName?: string
+}
+
 export interface LogicToRenderEventPayloadMap {
   [LogicToRenderEvents.SCENE_INIT]: SceneInitPayload
   [LogicToRenderEvents.SCENE_CHANGE]: SceneChangePayload
@@ -618,6 +631,8 @@ export interface LogicToRenderEventPayloadMap {
   [LogicToRenderEvents.GAME_PAUSE]: Record<string, never>
   [LogicToRenderEvents.GAME_RESUME]: Record<string, never>
   [LogicToRenderEvents.ASSET_CHANGED]: unknown
+  [LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN]: RuntimePackagePluginPayload
+  [LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD]: RuntimePackageUnloadPayload
   [LogicToRenderEvents.SYSTEM_MESSAGE]: { type?: string, message: string }
   [LogicToRenderEvents.SYSTEM_ERROR]: { message: string, error?: unknown }
 }

@@ -344,19 +344,12 @@ export function backgroundCompositionVars(
   prefix = '--qua-background',
 ): Record<string, string | number> {
   const vars: Record<string, string | number> = {}
-  if (!composition) {
-    vars.filter = 'none'
-    return vars
-  }
-
-  assignVar(vars, `${prefix}-blend-mode`, composition.blendMode)
+  vars[`${prefix}-blend-mode`] = composition?.blendMode || 'normal'
   vars['mix-blend-mode'] = `var(${prefix}-blend-mode, normal)`
-  if (composition.isolation !== undefined) {
-    vars.isolation = composition.isolation ? 'isolate' : 'auto'
-  }
+  vars.isolation = composition?.isolation ? 'isolate' : 'auto'
 
-  Object.assign(vars, backgroundFilterVars(composition.filter, prefix))
-  Object.assign(vars, backgroundMaskVars(composition.mask, prefix))
+  Object.assign(vars, backgroundFilterVars(composition?.filter, prefix))
+  Object.assign(vars, backgroundMaskVars(composition?.mask, prefix))
   return vars
 }
 
@@ -383,9 +376,21 @@ export function backgroundMaskVars(
 ): Record<string, string | number> {
   const vars: Record<string, string | number> = {}
   if (!mask) {
-    return vars
+    return {
+      '-webkit-mask-image': 'none',
+      'mask-image': 'none',
+      '-webkit-mask-mode': 'match-source',
+      'mask-mode': 'match-source',
+      '-webkit-mask-position': 'center',
+      'mask-position': 'center',
+      '-webkit-mask-size': 'auto',
+      'mask-size': 'auto',
+      '-webkit-mask-repeat': 'repeat',
+      'mask-repeat': 'repeat',
+    }
   }
   assignVar(vars, `${prefix}-mask-mode`, mask.mode)
+  vars['-webkit-mask-mode'] = `var(${prefix}-mask-mode, match-source)`
   vars['mask-mode'] = `var(${prefix}-mask-mode, match-source)`
   vars['-webkit-mask-position'] = mask.position || 'center'
   vars['mask-position'] = mask.position || 'center'
@@ -396,9 +401,12 @@ export function backgroundMaskVars(
   return vars
 }
 
-export function backgroundMaskImageVars(url: string | undefined): Record<string, string> | undefined {
+export function backgroundMaskImageVars(url: string | undefined): Record<string, string> {
   if (!url) {
-    return undefined
+    return {
+      '-webkit-mask-image': 'none',
+      'mask-image': 'none',
+    }
   }
   const image = `url("${url.replace(/"/g, '\\"')}")`
   return {

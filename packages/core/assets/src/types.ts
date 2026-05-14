@@ -65,6 +65,9 @@ export interface StoredAsset {
   createdAt: number
   lastAccessed: number
   mediaMetadata?: MediaMetadata
+  runtimePackageId?: string
+  bundlePriority?: number
+  loadedAt?: number
 }
 
 export interface StoredBundle {
@@ -79,6 +82,9 @@ export interface StoredBundle {
   createdAt: number
   lastUpdated: number
   manifest: BundleManifest
+  runtimePackageId?: string
+  priority?: number
+  loadedAt?: number
 }
 
 export interface AssetManifest {
@@ -101,6 +107,9 @@ export interface AssetManifestRecord {
   mtime?: number
   mimeType?: string
   mediaMetadata?: MediaMetadata
+  runtimePackageId?: string
+  bundlePriority?: number
+  loadedAt?: number
 }
 
 export type AssetChangeType = 'added' | 'changed' | 'removed'
@@ -271,6 +280,89 @@ export interface BundleManifest {
     dependencies?: string[]
     loadTrigger?: string
   }
+  runtimePackage?: RuntimePackageManifest
+}
+
+export type RuntimePackagePluginKind = 'engine' | 'renderer' | 'compiler'
+
+export interface RuntimePackageScriptManifest {
+  id: string
+  version?: string
+  assetName: string
+  exportName?: string
+  dependsOnBundles?: string[]
+  metadata?: Record<string, unknown>
+}
+
+export interface RuntimePackagePluginManifest {
+  id: string
+  kind: RuntimePackagePluginKind
+  version?: string
+  assetName?: string
+  module?: string
+  exportName?: string
+  renderer?: string
+  dependencies?: string[]
+  metadata?: Record<string, unknown>
+}
+
+export interface RuntimePackageStoreMigrationManifest {
+  id: string
+  version?: string
+  scope?: string
+  assetName: string
+  exportName?: string
+  dependsOn?: string[]
+  metadata?: Record<string, unknown>
+}
+
+export interface RuntimePackageStoryGraphDeltaManifest {
+  id: string
+  graphId?: string
+  operation?: 'upsert' | 'remove'
+  nodes?: readonly Record<string, unknown>[]
+  edges?: readonly Record<string, unknown>[]
+  lanes?: readonly Record<string, unknown>[]
+  timelines?: readonly Record<string, unknown>[]
+  metadata?: Record<string, unknown>
+}
+
+export interface RuntimePackageIntegrityManifest {
+  hash: string
+  algorithm?: 'sha256' | string
+}
+
+export interface RuntimePackageSignatureManifest {
+  value: string
+  algorithm?: string
+  keyId?: string
+}
+
+export interface RuntimePackageManifest {
+  id: string
+  version: string
+  sequence?: number
+  priority?: number
+  dependencies?: string[]
+  scripts?: RuntimePackageScriptManifest[]
+  plugins?: RuntimePackagePluginManifest[]
+  storyGraphDeltas?: RuntimePackageStoryGraphDeltaManifest[]
+  storeMigrations?: RuntimePackageStoreMigrationManifest[]
+  integrity?: RuntimePackageIntegrityManifest
+  signature?: RuntimePackageSignatureManifest
+  metadata?: Record<string, unknown>
+}
+
+export interface DynamicBundleRecord {
+  packageId: string
+  bundleName: string
+  version: string
+  bundleVersion: number
+  hash: string
+  priority: number
+  loadedAt: number
+  assetCount: number
+  manifest: BundleManifest
 }
 
 export interface AssetDiff {
@@ -398,6 +490,11 @@ export interface LoadBundleOptions {
   format?: BundleFormat
 }
 
+export interface LoadDynamicBundleOptions extends LoadBundleOptions {
+  bundleName?: string
+  priority?: number
+}
+
 export interface AssetQueryResult {
   asset: StoredAsset
   data: Uint8Array
@@ -425,6 +522,8 @@ export interface QuaAssetsEvents {
   'asset:evicted': { assetId: string }
   'cache:full': { size: number, limit: number }
   'patch:applied': { bundleName: string, fromVersion: number, toVersion: number }
+  'dynamic-bundle:loaded': DynamicBundleRecord
+  'dynamic-bundle:unloaded': { packageId: string, bundleName: string }
   'update:available': AssetUpdateInfo
   'update:applied': AssetUpdateInfo
 }

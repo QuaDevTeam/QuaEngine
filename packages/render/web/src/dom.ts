@@ -7,7 +7,7 @@ import type { StageContainerSize, StageRenderPlane } from './layout'
 import { WebAssetUrlHandle } from './assets'
 import { QuaWebRendererController } from './controller'
 import { sortRendererLayers } from './layers'
-import { readCssSafeAreaInsets, readDevicePixelRatio, rendererRootStyle, resolveStageLayout, stageContentStyle, stageFrameStyle, stagePlaneStyle, stageSafeAreaStyle, stageSceneStyle, stageViewportStyle } from './layout'
+import { observeStageViewportEnvironment, readCssSafeAreaInsets, readDevicePixelRatio, rendererRootStyle, resolveStageLayout, stageContentStyle, stageFrameStyle, stagePlaneStyle, stageSafeAreaStyle, stageSceneStyle, stageViewportStyle } from './layout'
 import { projectStageMotion, stageMotionVars } from './projection'
 
 export interface QuaWebDomLayerContext {
@@ -22,7 +22,7 @@ export interface QuaWebDomLayerContext {
     type: AssetType,
     name: string | undefined,
     onChange: (state: Readonly<WebAssetUrlState>) => void,
-  ) => void
+  ) => () => void
 }
 
 export interface QuaWebDomRendererLayer {
@@ -54,6 +54,7 @@ export class QuaWebDomRenderer {
   private animationFrame?: number
   private animationTimeout?: ReturnType<typeof setTimeout>
   private resizeObserver?: ResizeObserver
+  private viewportEnvironmentDisposer?: () => void
   private unsubscribe?: () => void
   private mounted = false
 
@@ -92,6 +93,8 @@ export class QuaWebDomRenderer {
     this.cancelAnimationTick()
     this.resizeObserver?.disconnect()
     this.resizeObserver = undefined
+    this.viewportEnvironmentDisposer?.()
+    this.viewportEnvironmentDisposer = undefined
     this.scenePlaneNode = undefined
     this.disposeAssetHandles()
     this.root.remove()
@@ -183,12 +186,11 @@ export class QuaWebDomRenderer {
 
   private observeContainer(): void {
     const ResizeObserverCtor = this.getWindow().ResizeObserver
-    if (!ResizeObserverCtor) {
-      return
+    if (ResizeObserverCtor) {
+      this.resizeObserver = new ResizeObserverCtor(() => this.render())
+      this.resizeObserver.observe(this.options.container)
     }
-
-    this.resizeObserver = new ResizeObserverCtor(() => this.render())
-    this.resizeObserver.observe(this.options.container)
+    this.viewportEnvironmentDisposer = observeStageViewportEnvironment(this.options.container, () => this.render())
   }
 
   private readContainerSize(): StageContainerSize {
@@ -231,7 +233,7 @@ export class QuaWebDomRenderer {
     type: AssetType,
     name: string | undefined,
     onChange: (state: Readonly<WebAssetUrlState>) => void,
-  ): void {
+  ): () => void {
     const handle = new WebAssetUrlHandle({
       getAssets: () => this.controller.getAssets(),
       getType: () => type,
@@ -240,6 +242,13 @@ export class QuaWebDomRenderer {
     })
     this.assetHandles.push(handle)
     void handle.load()
+    return () => {
+      handle.dispose()
+      const index = this.assetHandles.indexOf(handle)
+      if (index >= 0) {
+        this.assetHandles.splice(index, 1)
+      }
+    }
   }
 
   private disposeAssetHandles(): void {

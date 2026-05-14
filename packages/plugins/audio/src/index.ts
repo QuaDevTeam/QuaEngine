@@ -139,6 +139,13 @@ export class AudioPlugin extends BaseEnginePlugin {
     this.projectionBeforeJump = undefined
   }
 
+  override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
+    const packageId = ctx.runtimePackage?.package.id
+    if (packageId) {
+      await stopRuntimePackageAudioWithEngine(ctx.engine, packageId)
+    }
+  }
+
   registerAPIs() {
     return {
       pluginName: this.name,
@@ -159,6 +166,7 @@ export class AudioPlugin extends BaseEnginePlugin {
         { name: 'stopBGMWithEngine', fn: stopBGMWithEngine, module: this.name },
         { name: 'stopSFXWithEngine', fn: stopSFXWithEngine, module: this.name },
         { name: 'stopAmbientWithEngine', fn: stopAmbientWithEngine, module: this.name },
+        { name: 'stopRuntimePackageAudioWithEngine', fn: stopRuntimePackageAudioWithEngine, module: this.name },
       ],
       decorators: audioDecoratorMappings,
     }
@@ -185,16 +193,16 @@ export async function configureAudioChapterWithEngine(
     voiceMap: options.voiceMap ? { ...options.voiceMap } : undefined,
     bgm: options.bgm,
     defaults: cloneAudioDefaultsProjection(options.defaults),
-    metadata: options.metadata ? { ...options.metadata } : undefined,
+    metadata: withCurrentRuntimeAudioMetadata(engine, options.metadata),
   }
   next.currentLineId = undefined
   next.revision += 1
 
   if (options.bgm) {
-    const bgmOptions = mergeBgmOptions(options.defaults?.bgm, {
+    const bgmOptions = withCurrentRuntimeAudioPackage(engine, mergeBgmOptions(options.defaults?.bgm, {
       id: next.bgm?.id || 'bgm',
       chapterId,
-    })
+    }))
     next.bgm = createBgmProjection(options.bgm, bgmOptions, next)
   }
 
@@ -207,7 +215,7 @@ export async function playVoiceWithEngine(
   options: AudioPlayVoiceOptions = {},
 ): Promise<void> {
   const projection = getAudioProjection(engine)
-  const nextVoice = createVoiceProjection(assetKey, mergeVoiceOptions(projection, options), projection)
+  const nextVoice = createVoiceProjection(assetKey, withCurrentRuntimeAudioPackage(engine, mergeVoiceOptions(projection, options)), projection)
   await engine.setPluginProjection(AUDIO_PLUGIN_ID, {
     ...projection,
     revision: projection.revision + 1,
@@ -223,7 +231,7 @@ export async function playBGMWithEngine(
   options: AudioPlayBgmOptions = {},
 ): Promise<void> {
   const projection = getAudioProjection(engine)
-  const next = createBgmProjection(assetKey, mergeBgmOptions(projection.chapter?.defaults?.bgm, options, projection), projection)
+  const next = createBgmProjection(assetKey, withCurrentRuntimeAudioPackage(engine, mergeBgmOptions(projection.chapter?.defaults?.bgm, options, projection)), projection)
   await engine.setPluginProjection(AUDIO_PLUGIN_ID, {
     ...projection,
     revision: projection.revision + 1,
@@ -238,7 +246,7 @@ export async function playSFXWithEngine(
   options: AudioPlaySfxOptions = {},
 ): Promise<void> {
   const projection = getAudioProjection(engine)
-  const next = createSfxProjection(assetKey, mergeSfxOptions(projection, options), projection)
+  const next = createSfxProjection(assetKey, withCurrentRuntimeAudioPackage(engine, mergeSfxOptions(projection, options)), projection)
   await engine.setPluginProjection(AUDIO_PLUGIN_ID, {
     ...projection,
     revision: projection.revision + 1,
@@ -253,7 +261,7 @@ export async function playAmbientWithEngine(
   options: AudioPlayAmbientOptions = {},
 ): Promise<void> {
   const projection = getAudioProjection(engine)
-  const next = createAmbientProjection(assetKey, mergeAmbientOptions(projection, options), projection)
+  const next = createAmbientProjection(assetKey, withCurrentRuntimeAudioPackage(engine, mergeAmbientOptions(projection, options)), projection)
   await engine.setPluginProjection(AUDIO_PLUGIN_ID, {
     ...projection,
     revision: projection.revision + 1,
@@ -378,6 +386,44 @@ export async function stopAmbientWithEngine(
   options: AudioStopOptions = {},
 ): Promise<void> {
   await stopAudioWithEngine(engine, target, options)
+}
+
+export async function stopRuntimePackageAudioWithEngine(
+  engine: QuaEngineInterface,
+  packageId: string,
+  options: AudioStopOptions = {},
+): Promise<void> {
+  const projection = getAudioProjection(engine)
+  const next = cloneAudioProjection(projection)
+  let changed = false
+  const stopTrack = (track: AudioTrackProjection): AudioTrackProjection => {
+    if (!trackBelongsToPackage(track, packageId)) {
+      return track
+    }
+    changed = true
+    return {
+      ...track,
+      state: 'stopping',
+      fadeOutMs: options.fadeOutMs ?? track.fadeOutMs,
+    }
+  }
+
+  next.voices = next.voices.map(stopTrack)
+  next.sfx = next.sfx.map(stopTrack)
+  next.ambients = next.ambients.map(stopTrack)
+  if (next.bgm) {
+    next.bgm = stopTrack(next.bgm)
+  }
+  if (contentPackageIdFromMetadata(next.chapter?.metadata) === packageId) {
+    next.chapter = undefined
+    next.currentLineId = undefined
+    changed = true
+  }
+  if (!changed) {
+    return
+  }
+  next.revision += 1
+  await engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
 }
 
 export function getAudioProjection(engine: QuaEngineInterface): AudioViewProjection {
@@ -505,6 +551,7 @@ function createVoiceProjection(
   return {
     id: options.id || options.lineId || `voice:${Date.now()}`,
     kind: 'voice',
+    contentPackageId: options.contentPackageId || contentPackageIdFromMetadata(options.metadata),
     assetKey,
     chapterId: options.chapterId || projection.chapter?.chapterId,
     lineId: options.lineId || projection.currentLineId,
@@ -530,6 +577,7 @@ function createBgmProjection(
   return {
     id: options.id || 'bgm',
     kind: 'bgm',
+    contentPackageId: options.contentPackageId || contentPackageIdFromMetadata(options.metadata),
     assetKey,
     chapterId: options.chapterId || projection.chapter?.chapterId,
     state: 'playing',
@@ -554,6 +602,7 @@ function createSfxProjection(
   return {
     id: options.id || nextAudioTrackId('sfx'),
     kind: 'sfx',
+    contentPackageId: options.contentPackageId || contentPackageIdFromMetadata(options.metadata),
     assetKey,
     chapterId: options.chapterId || projection.chapter?.chapterId,
     lineId: options.lineId,
@@ -579,6 +628,7 @@ function createAmbientProjection(
   return {
     id: options.id || 'ambient',
     kind: 'ambient',
+    contentPackageId: options.contentPackageId || contentPackageIdFromMetadata(options.metadata),
     assetKey,
     chapterId: options.chapterId || projection.chapter?.chapterId,
     lineId: options.lineId,
@@ -605,6 +655,41 @@ function updateTrackList(tracks: readonly AudioTrackProjection[], nextTrack: Aud
     }),
     nextTrack,
   ]
+}
+
+function trackBelongsToPackage(track: AudioTrackProjection, packageId: string): boolean {
+  return track.contentPackageId === packageId || contentPackageIdFromMetadata(track.metadata) === packageId
+}
+
+function withCurrentRuntimeAudioPackage<
+  TOptions extends { contentPackageId?: string, metadata?: Readonly<Record<string, unknown>> },
+>(engine: QuaEngineInterface, options: TOptions): TOptions {
+  const packageId = engine.getStoryPoint()?.contentPackageId
+  if (!packageId || options.contentPackageId || contentPackageIdFromMetadata(options.metadata)) {
+    return options
+  }
+  return {
+    ...options,
+    contentPackageId: packageId,
+  }
+}
+
+function withCurrentRuntimeAudioMetadata(
+  engine: QuaEngineInterface,
+  metadata?: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> | undefined {
+  const packageId = engine.getStoryPoint()?.contentPackageId
+  if (!packageId || metadata?.contentPackageId) {
+    return metadata ? { ...metadata } : metadata
+  }
+  return {
+    ...(metadata || {}),
+    contentPackageId: packageId,
+  }
+}
+
+function contentPackageIdFromMetadata(metadata?: Readonly<Record<string, unknown>>): string | undefined {
+  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
 }
 
 function mutateTracks(

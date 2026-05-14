@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -47,6 +47,55 @@ describe('quackBundler', () => {
       expect(result.totalFiles).toBeGreaterThan(0)
       expect(result.totalSize).toBeGreaterThan(0)
       expect(result.processingTime).toBeGreaterThan(0)
+    })
+
+    it('should embed runtime package metadata in dynamic QPK manifests', async () => {
+      await mkdir(join(tempDir, 'scripts'), { recursive: true })
+      await mkdir(join(tempDir, 'data'), { recursive: true })
+      await writeFile(join(tempDir, 'scripts', 'scene.js'), 'export default function createQuaScript() { return [] }')
+      await writeFile(join(tempDir, 'scripts', 'renderer.js'), 'export default {}')
+      await writeFile(join(tempDir, 'data', 'migration.js'), 'export default function migrate() {}')
+
+      bundler = new QuackBundler({
+        source: tempDir,
+        output: join(tempDir, 'runtime-dynamic.qpk'),
+        format: 'qpk',
+        compression: { algorithm: 'none', level: 0 },
+        versioning: { bundleVersion: 7, buildNumber: 'runtime-build' },
+        runtimePackage: {
+          id: 'runtime.story',
+          version: '1.2.3',
+          sequence: 3,
+          priority: 20,
+          dependencies: ['runtime.base'],
+          scripts: [{ id: 'runtime.story.scene', version: '1.2.3', assetName: 'scene.js' }],
+          plugins: [{ id: 'runtime.story.renderer', kind: 'renderer', assetName: 'renderer.js' }],
+          storyGraphDeltas: [{ id: 'runtime.story.delta', graphId: 'main', nodes: [{ id: 'runtime-start', point: { stepId: 'runtime-step' } }] }],
+          storeMigrations: [{ id: 'runtime.story.defaults', version: '1', scope: 'story', assetName: 'migration.js' }],
+          integrity: { hash: 'runtime-hash', algorithm: 'sha256' },
+          signature: { value: 'runtime-signature', algorithm: 'ed25519', keyId: 'test-key' },
+        },
+      })
+
+      await bundler.bundle()
+
+      const bundleFile = (await readdir(tempDir)).find(file => file.startsWith('runtime-dynamic.') && file.endsWith('.qpk'))
+      expect(bundleFile).toBeDefined()
+      const manifest = parseQpkManifest(await readFile(join(tempDir, bundleFile!)))
+
+      expect(manifest.runtimePackage).toEqual(expect.objectContaining({
+        id: 'runtime.story',
+        version: '1.2.3',
+        sequence: 3,
+        priority: 20,
+        dependencies: ['runtime.base'],
+        signature: { value: 'runtime-signature', algorithm: 'ed25519', keyId: 'test-key' },
+      }))
+      expect(manifest.runtimePackage?.integrity).toEqual({ hash: manifest.merkleRoot, algorithm: 'sha256' })
+      expect(manifest.runtimePackage?.scripts).toEqual([expect.objectContaining({ id: 'runtime.story.scene', assetName: 'scene.js' })])
+      expect(manifest.runtimePackage?.plugins).toEqual([expect.objectContaining({ id: 'runtime.story.renderer', kind: 'renderer' })])
+      expect(manifest.runtimePackage?.storyGraphDeltas).toEqual([expect.objectContaining({ id: 'runtime.story.delta', graphId: 'main' })])
+      expect(manifest.runtimePackage?.storeMigrations).toEqual([expect.objectContaining({ id: 'runtime.story.defaults', scope: 'story' })])
     })
 
     it('should create bundle with custom options', async () => {
@@ -544,3 +593,18 @@ describe('quackBundler', () => {
     })
   })
 })
+
+function parseQpkManifest(bytes: Uint8Array): { runtimePackage?: any } {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  expect(view.getUint32(0, false)).toBe(0x51504B00)
+  const manifestOffset = readUint64LE(view, 16)
+  const manifestSize = readUint64LE(view, 24)
+  const manifestBytes = bytes.slice(manifestOffset, manifestOffset + manifestSize)
+  return JSON.parse(new TextDecoder().decode(manifestBytes)) as { runtimePackage?: any }
+}
+
+function readUint64LE(view: DataView, offset: number): number {
+  const low = view.getUint32(offset, true)
+  const high = view.getUint32(offset + 4, true)
+  return high * 2 ** 32 + low
+}

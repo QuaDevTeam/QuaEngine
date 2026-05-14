@@ -35,6 +35,20 @@ export class SettingsScopeRegistry {
     return this.scopes.get(scope)
   }
 
+  unregisterPackageScopes(packageId: string): string[] {
+    const removed: string[] = []
+    for (const [scope, contribution] of this.scopes.entries()) {
+      if (contribution.packageId === packageId) {
+        this.scopes.delete(scope)
+        removed.push(scope)
+      }
+    }
+    if (removed.length > 0) {
+      this.notify()
+    }
+    return removed
+  }
+
   subscribe(listener: SettingsRegistryListener): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)

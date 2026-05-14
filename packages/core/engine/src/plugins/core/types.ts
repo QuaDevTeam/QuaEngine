@@ -1,7 +1,7 @@
 import type { QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
 import type { QuaStore } from '@quajs/store'
-import type { EngineCheckpoint, JumpContext, QuaEngineInterface, StoryPoint } from '../../core/types'
+import type { EngineCheckpoint, JumpContext, QuaEngineInterface, RuntimePackageContext, RuntimePackageStoreMigrationManifest, StoryPoint } from '../../core/types'
 import type { PluginAPIRegistration } from './registry'
 import { getPluginRegistry } from './registry'
 
@@ -42,6 +42,8 @@ export interface EngineContext {
   point?: StoryPoint
   checkpoint?: EngineCheckpoint
   jump?: JumpContext
+  runtimePackage?: RuntimePackageContext
+  runtimeMigration?: RuntimePackageStoreMigrationManifest
   plugins: PluginContext
 }
 
@@ -76,6 +78,12 @@ export interface EnginePlugin {
   onBeforeJump?: (ctx: EngineContext) => void | Promise<void>
 
   onAfterJump?: (ctx: EngineContext) => void | Promise<void>
+
+  onRuntimePackageActivate?: (ctx: EngineContext) => void | Promise<void>
+
+  onRuntimePackageUnload?: (ctx: EngineContext) => void | Promise<void>
+
+  onRuntimePackageMigrate?: (ctx: EngineContext) => void | Promise<void>
 
   /**
    * Called when the engine is destroyed
@@ -156,6 +164,12 @@ export abstract class BaseEnginePlugin implements EnginePlugin {
   async onBeforeJump?(ctx: EngineContext): Promise<void>
 
   async onAfterJump?(ctx: EngineContext): Promise<void>
+
+  async onRuntimePackageActivate?(ctx: EngineContext): Promise<void>
+
+  async onRuntimePackageUnload?(ctx: EngineContext): Promise<void>
+
+  async onRuntimePackageMigrate?(ctx: EngineContext): Promise<void>
 
   /**
    * Register plugin APIs and decorators (optional)

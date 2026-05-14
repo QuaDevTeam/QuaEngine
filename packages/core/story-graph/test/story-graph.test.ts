@@ -8,7 +8,9 @@ import {
   enterStoryPointWithEngine,
   getStoryGraphProjection,
   jumpToStoryPointWithEngine,
+  registerStoryGraphDeltaWithEngine,
   registerStoryGraphWithEngine,
+  removeRuntimePackageStoryGraphContentWithEngine,
   setStoryMetadataWithEngine,
   StoryGraphPlugin,
   unlockStoryNodeWithEngine,
@@ -154,6 +156,270 @@ describe('@quajs/story-graph', () => {
     expect(edges.find(edge => edge.to === 'outside')).toMatchObject({
       metadata: { choiceId: 'outside', text: 'Go outside' },
     })
+  })
+
+  it('merges package-scoped dynamic graph deltas with timeline and lane provenance', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+
+    await registerStoryGraphDeltaWithEngine(engine, {
+      id: 'delta:runtime-story',
+      graphId: 'main',
+      timelines: [
+        { id: 'timeline-1985', title: '1985' },
+      ],
+      lanes: [
+        { id: 'juro', kind: 'protagonist', title: 'Juro' },
+      ],
+      nodes: [
+        {
+          id: 'runtime-start',
+          point: {
+            storyId: 'main',
+            laneId: 'juro',
+            timelineId: 'timeline-1985',
+            stepId: 'runtime-step',
+            scriptModuleId: 'runtime.story.scene',
+          },
+          title: 'Runtime Start',
+        },
+      ],
+      edges: [
+        { from: 'runtime-start', to: 'runtime-next', kind: 'choice' },
+      ],
+    }, { packageId: 'runtime.story' })
+
+    const graph = getStoryGraphProjection(engine).graphs.main
+
+    expect(graph.metadata).toEqual(expect.objectContaining({ contentPackageId: 'runtime.story' }))
+    expect(graph.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'runtime-start',
+        point: expect.objectContaining({
+          stepId: 'runtime-step',
+          contentPackageId: 'runtime.story',
+          scriptModuleId: 'runtime.story.scene',
+        }),
+        metadata: expect.objectContaining({ contentPackageId: 'runtime.story' }),
+      }),
+    ]))
+    expect(graph.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        from: 'runtime-start',
+        to: 'runtime-next',
+        metadata: expect.objectContaining({ contentPackageId: 'runtime.story' }),
+      }),
+    ]))
+    expect(graph.lanes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'timeline-1985',
+        kind: 'timeline',
+        metadata: expect.objectContaining({ contentPackageId: 'runtime.story' }),
+      }),
+      expect.objectContaining({
+        id: 'juro',
+        kind: 'protagonist',
+        metadata: expect.objectContaining({ contentPackageId: 'runtime.story' }),
+      }),
+    ]))
+  })
+
+  it('removes package-scoped graph deltas without deleting base graph content', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+    await registerStoryGraphWithEngine(engine, {
+      id: 'main',
+      lanes: [{ id: 'base-lane', kind: 'main' }],
+      nodes: [{ id: 'base', point: { storyId: 'main', stepId: 'base' } }],
+      edges: [],
+    })
+    await registerStoryGraphDeltaWithEngine(engine, {
+      id: 'delta:runtime-story',
+      graphId: 'main',
+      timelines: [{ id: 'runtime-timeline', title: 'Runtime Timeline' }],
+      nodes: [
+        { id: 'runtime-node', point: { storyId: 'main', stepId: 'runtime-step' } },
+      ],
+      edges: [
+        { from: 'base', to: 'runtime-node', kind: 'choice' },
+      ],
+    }, { packageId: 'runtime.story' })
+    await enterStoryPointWithEngine(engine, { storyId: 'main', stepId: 'runtime-step', contentPackageId: 'runtime.story' })
+    await emitStoryEventWithEngine(engine, 'runtime-event')
+    await unlockStoryNodeWithEngine(engine, 'runtime-node')
+
+    await removeRuntimePackageStoryGraphContentWithEngine(engine, 'runtime.story')
+
+    const projection = getStoryGraphProjection(engine)
+    expect(projection.graphs.main.nodes).toEqual([
+      expect.objectContaining({ id: 'base' }),
+    ])
+    expect(projection.graphs.main.edges).toEqual([])
+    expect(projection.graphs.main.lanes).toEqual([
+      expect.objectContaining({ id: 'base-lane' }),
+    ])
+    expect(projection.graphs.main.metadata?.contentPackageId).toBeUndefined()
+    expect(projection.cursors.main).toBeUndefined()
+    expect(projection.events).toEqual([])
+    expect(projection.unlockedNodes).toEqual([])
+  })
+
+  it('restores base graph nodes when a package delta temporarily overlays the same id', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+    await registerStoryGraphWithEngine(engine, {
+      id: 'main',
+      nodes: [{
+        id: 'shared-node',
+        title: 'Base Title',
+        point: { storyId: 'main', stepId: 'base-step' },
+        metadata: { source: 'base' },
+      }],
+      edges: [],
+    })
+
+    await registerStoryGraphDeltaWithEngine(engine, {
+      id: 'delta:overlay',
+      graphId: 'main',
+      nodes: [{
+        id: 'shared-node',
+        title: 'Runtime Title',
+        point: { storyId: 'main', stepId: 'runtime-step' },
+        metadata: { source: 'runtime' },
+      }],
+    }, { packageId: 'runtime.story' })
+
+    expect(getStoryGraphProjection(engine).graphs.main.nodes[0]).toEqual(expect.objectContaining({
+      id: 'shared-node',
+      title: 'Runtime Title',
+      point: expect.objectContaining({
+        stepId: 'runtime-step',
+        contentPackageId: 'runtime.story',
+      }),
+    }))
+
+    await removeRuntimePackageStoryGraphContentWithEngine(engine, 'runtime.story')
+
+    expect(getStoryGraphProjection(engine).graphs.main.nodes[0]).toEqual(expect.objectContaining({
+      id: 'shared-node',
+      title: 'Base Title',
+      point: { storyId: 'main', stepId: 'base-step' },
+      metadata: { source: 'base' },
+    }))
+  })
+
+  it('keeps same-scene timeline deltas from other packages when one package unloads', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+    await registerStoryGraphWithEngine(engine, {
+      id: 'main',
+      nodes: [{ id: 'base', point: { storyId: 'main', sceneId: 'shared-scene', stepId: 'base' } }],
+      edges: [],
+    })
+
+    await registerStoryGraphDeltaWithEngine(engine, {
+      id: 'delta:runtime-a',
+      graphId: 'main',
+      timelines: [{ id: 'shared-timeline', title: 'Shared Scene Timeline' }],
+      lanes: [{ id: 'hero', kind: 'protagonist' }],
+      nodes: [{
+        id: 'runtime-a-node',
+        point: {
+          storyId: 'main',
+          sceneId: 'shared-scene',
+          timelineId: 'shared-timeline',
+          laneId: 'hero',
+          stepId: 'runtime-a-step',
+        },
+      }],
+      edges: [{ from: 'base', to: 'runtime-a-node', kind: 'event' }],
+    }, { packageId: 'runtime.scene.a' })
+    await registerStoryGraphDeltaWithEngine(engine, {
+      id: 'delta:runtime-b',
+      graphId: 'main',
+      timelines: [{ id: 'shared-timeline', title: 'Shared Scene Timeline' }],
+      lanes: [{ id: 'hero', kind: 'protagonist' }],
+      nodes: [{
+        id: 'runtime-b-node',
+        point: {
+          storyId: 'main',
+          sceneId: 'shared-scene',
+          timelineId: 'shared-timeline',
+          laneId: 'hero',
+          stepId: 'runtime-b-step',
+        },
+      }],
+      edges: [{ from: 'base', to: 'runtime-b-node', kind: 'event' }],
+    }, { packageId: 'runtime.scene.b' })
+
+    await removeRuntimePackageStoryGraphContentWithEngine(engine, 'runtime.scene.a')
+
+    const graph = getStoryGraphProjection(engine).graphs.main
+    expect(graph.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'base' }),
+      expect.objectContaining({
+        id: 'runtime-b-node',
+        point: expect.objectContaining({
+          sceneId: 'shared-scene',
+          timelineId: 'shared-timeline',
+          contentPackageId: 'runtime.scene.b',
+        }),
+      }),
+    ]))
+    expect(graph.nodes.some(node => node.id === 'runtime-a-node')).toBe(false)
+    expect(graph.edges).toEqual([
+      expect.objectContaining({ from: 'base', to: 'runtime-b-node' }),
+    ])
+    expect(graph.lanes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'shared-timeline',
+        metadata: expect.objectContaining({ contentPackageId: 'runtime.scene.b' }),
+      }),
+      expect.objectContaining({
+        id: 'hero',
+        metadata: expect.objectContaining({ contentPackageId: 'runtime.scene.b' }),
+      }),
+    ]))
+  })
+
+  it('replays package graph deltas without leaving implicit nodes or empty graphs', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+
+    await registerStoryGraphDeltaWithEngine(engine, {
+      id: 'delta:runtime-a',
+      graphId: 'runtime-only',
+      nodes: [{ id: 'a-node', point: { storyId: 'runtime-only', stepId: 'a-step' } }],
+      edges: [],
+    }, { packageId: 'runtime.scene.a' })
+    await registerStoryGraphDeltaWithEngine(engine, {
+      id: 'delta:runtime-b',
+      graphId: 'runtime-only',
+      nodes: [{ id: 'b-node', point: { storyId: 'runtime-only', stepId: 'b-step' } }],
+      edges: [{ from: 'a-node', to: 'b-node', kind: 'event' }],
+    }, { packageId: 'runtime.scene.b' })
+
+    expect(getStoryGraphProjection(engine).graphs['runtime-only'].nodes.map(node => node.id).sort()).toEqual([
+      'a-node',
+      'b-node',
+    ])
+
+    await removeRuntimePackageStoryGraphContentWithEngine(engine, 'runtime.scene.b')
+    expect(getStoryGraphProjection(engine).graphs['runtime-only'].nodes).toEqual([
+      expect.objectContaining({
+        id: 'a-node',
+        point: expect.objectContaining({ contentPackageId: 'runtime.scene.a' }),
+      }),
+    ])
+    expect(getStoryGraphProjection(engine).graphs['runtime-only'].edges).toEqual([])
+
+    await removeRuntimePackageStoryGraphContentWithEngine(engine, 'runtime.scene.a')
+    expect(getStoryGraphProjection(engine).graphs['runtime-only']).toBeUndefined()
   })
 })
 

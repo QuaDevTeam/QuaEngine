@@ -21,6 +21,7 @@ export interface BacklogEntry {
   text?: string
   choices?: readonly ChoiceIntent[]
   voice?: BacklogVoiceReference
+  requiredRuntimePackages?: readonly string[]
   rewindable: boolean
   voiceReplay: boolean
   tags?: readonly string[]
@@ -32,6 +33,8 @@ export interface BacklogVoiceReference {
   chapterId?: string
   lineId?: string
   characterId?: string
+  contentPackageId?: string
+  requiredRuntimePackages?: readonly string[]
 }
 
 export interface BacklogPolicy {

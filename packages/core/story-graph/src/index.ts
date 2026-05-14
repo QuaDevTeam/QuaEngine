@@ -69,6 +69,24 @@ export interface StoryGraphPluginOptions {
   defaultCursorId?: string
 }
 
+export interface StoryGraphDelta {
+  id: string
+  graphId?: string
+  operation?: 'upsert' | 'remove'
+  nodes?: readonly Partial<StoryNode>[]
+  edges?: readonly Partial<StoryEdge>[]
+  lanes?: readonly Partial<StoryLane>[]
+  timelines?: readonly Partial<StoryLane>[]
+  metadata?: Record<string, unknown>
+}
+
+interface RuntimeStoryGraphDeltaState {
+  baseGraphs: Readonly<Record<string, StoryGraph>>
+  packageDeltas: Map<string, StoryGraphDelta[]>
+}
+
+const runtimeStoryGraphDeltas = new WeakMap<QuaEngineInterface, RuntimeStoryGraphDeltaState>()
+
 export class StoryGraphPlugin extends BaseEnginePlugin {
   readonly name = '@quajs/story-graph'
   readonly id = STORY_GRAPH_PLUGIN_ID
@@ -99,6 +117,13 @@ export class StoryGraphPlugin extends BaseEnginePlugin {
     await setCursor(ctx.engine, this.getDefaultCursorId(), ctx.point)
   }
 
+  override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
+    const packageId = ctx.runtimePackage?.package.id
+    if (packageId) {
+      await removeRuntimePackageStoryGraphContentWithEngine(ctx.engine, packageId)
+    }
+  }
+
   registerAPIs() {
     return {
       pluginName: this.name,
@@ -111,6 +136,8 @@ export class StoryGraphPlugin extends BaseEnginePlugin {
         { name: 'setStoryMetadataWithEngine', fn: setStoryMetadataWithEngine, module: this.name },
         { name: 'recordChoiceEdgeWithEngine', fn: recordChoiceEdgeWithEngine, module: this.name },
         { name: 'recordChoiceEdgesWithEngine', fn: recordChoiceEdgesWithEngine, module: this.name },
+        { name: 'registerStoryGraphDeltaWithEngine', fn: registerStoryGraphDeltaWithEngine, module: this.name },
+        { name: 'removeRuntimePackageStoryGraphContentWithEngine', fn: removeRuntimePackageStoryGraphContentWithEngine, module: this.name },
       ],
       decorators: storyGraphDecoratorMappings,
     }
@@ -126,6 +153,16 @@ export async function registerStoryGraphWithEngine(
   engine: QuaEngineInterface,
   graph: StoryGraph,
 ): Promise<void> {
+  const runtimeState = runtimeStoryGraphDeltas.get(engine)
+  if (runtimeState) {
+    runtimeState.baseGraphs = {
+      ...runtimeState.baseGraphs,
+      [graph.id]: cloneStoryGraph(graph),
+    }
+    await rebuildRuntimeStoryGraphDeltas(engine, runtimeState)
+    return
+  }
+
   const projection = getStoryGraphProjection(engine)
   await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, {
     ...projection,
@@ -134,6 +171,106 @@ export async function registerStoryGraphWithEngine(
       ...projection.graphs,
       [graph.id]: cloneStoryGraph(graph),
     },
+  })
+}
+
+export async function registerStoryGraphDeltaWithEngine(
+  engine: QuaEngineInterface,
+  delta: StoryGraphDelta,
+  options: { packageId?: string } = {},
+): Promise<void> {
+  if (options.packageId) {
+    const runtimeState = getRuntimeStoryGraphDeltaState(engine)
+    const packageDeltas = runtimeState.packageDeltas.get(options.packageId) || []
+    runtimeState.packageDeltas.set(options.packageId, [...packageDeltas, delta])
+    await rebuildRuntimeStoryGraphDeltas(engine, runtimeState)
+    return
+  }
+
+  const point = engine.getStoryPoint()
+  const projection = getStoryGraphProjection(engine)
+  const graphs = applyStoryGraphDeltaToGraphMap(projection.graphs, delta, point)
+  await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, {
+    ...projection,
+    revision: projection.revision + 1,
+    graphs,
+  })
+}
+
+export async function removeRuntimePackageStoryGraphContentWithEngine(
+  engine: QuaEngineInterface,
+  packageId: string,
+): Promise<void> {
+  const runtimeState = runtimeStoryGraphDeltas.get(engine)
+  if (runtimeState?.packageDeltas.has(packageId)) {
+    runtimeState.packageDeltas.delete(packageId)
+    await rebuildRuntimeStoryGraphDeltas(engine, runtimeState, packageId)
+    if (runtimeState.packageDeltas.size === 0) {
+      runtimeStoryGraphDeltas.delete(engine)
+    }
+    return
+  }
+
+  const projection = getStoryGraphProjection(engine)
+  const graphs: Record<string, StoryGraph> = {}
+  let changed = false
+
+  for (const [graphId, graph] of Object.entries(projection.graphs)) {
+    const removedGraphNodeIds = new Set<string>()
+    const nodes = graph.nodes.filter((node) => {
+      const remove = storyNodeBelongsToPackage(node, packageId)
+      if (remove) {
+        removedGraphNodeIds.add(node.id)
+      }
+      return !remove
+    })
+    const edges = (graph.edges || []).filter(edge =>
+      !storyEdgeBelongsToPackage(edge, packageId)
+      && !removedGraphNodeIds.has(edge.from)
+      && !removedGraphNodeIds.has(edge.to),
+    )
+    const lanes = (graph.lanes || []).filter(lane => !metadataBelongsToPackage(lane.metadata, packageId))
+    const metadata = metadataBelongsToPackage(graph.metadata, packageId)
+      ? stripRuntimePackageMetadata(graph.metadata)
+      : graph.metadata
+
+    const nextGraph: StoryGraph = {
+      ...graph,
+      metadata,
+      nodes,
+      edges,
+      lanes,
+    }
+    const graphChanged = nodes.length !== graph.nodes.length
+      || edges.length !== (graph.edges || []).length
+      || lanes.length !== (graph.lanes || []).length
+      || metadata !== graph.metadata
+    changed = changed || graphChanged
+
+    if (nodes.length === 0 && edges.length === 0 && lanes.length === 0 && metadataBelongsToPackage(graph.metadata, packageId)) {
+      changed = true
+      continue
+    }
+    graphs[graphId] = nextGraph
+  }
+
+  const cleaned = cleanRuntimePackageProjectionState({ ...projection, graphs }, packageId, graphs)
+  changed = changed
+    || Object.keys(cleaned.cursors).length !== Object.keys(projection.cursors).length
+    || cleaned.events.length !== projection.events.length
+    || cleaned.unlockedNodes.length !== projection.unlockedNodes.length
+
+  if (!changed) {
+    return
+  }
+
+  await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, {
+    ...projection,
+    revision: projection.revision + 1,
+    graphs,
+    cursors: cleaned.cursors,
+    unlockedNodes: cleaned.unlockedNodes,
+    events: cleaned.events,
   })
 }
 
@@ -391,6 +528,14 @@ function createImplicitGraph(graphId: string, point: StoryPoint): StoryGraph {
   }
 }
 
+function createEmptyGraph(graphId: string): StoryGraph {
+  return {
+    id: graphId,
+    nodes: [],
+    edges: [],
+  }
+}
+
 function ensureChoiceEdgeNodes(
   nodes: readonly StoryNode[],
   fromPoint: StoryPoint,
@@ -450,8 +595,220 @@ function getChoiceEdgeIntent(metadata: Readonly<Record<string, unknown>> | undef
     condition: typeof value.condition === 'string' ? value.condition : undefined,
     metadata: value.metadata && typeof value.metadata === 'object'
       ? { ...(value.metadata as Record<string, unknown>) }
-      : undefined,
+    : undefined,
   }
+}
+
+function getRuntimeStoryGraphDeltaState(engine: QuaEngineInterface): RuntimeStoryGraphDeltaState {
+  const existing = runtimeStoryGraphDeltas.get(engine)
+  if (existing) {
+    return existing
+  }
+  const state: RuntimeStoryGraphDeltaState = {
+    baseGraphs: cloneGraphMap(getStoryGraphProjection(engine).graphs),
+    packageDeltas: new Map(),
+  }
+  runtimeStoryGraphDeltas.set(engine, state)
+  return state
+}
+
+async function rebuildRuntimeStoryGraphDeltas(
+  engine: QuaEngineInterface,
+  state: RuntimeStoryGraphDeltaState,
+  removedPackageId?: string,
+): Promise<void> {
+  const projection = getStoryGraphProjection(engine)
+  const point = engine.getStoryPoint()
+  let graphs = cloneGraphMap(state.baseGraphs)
+
+  for (const [packageId, deltas] of state.packageDeltas.entries()) {
+    for (const delta of deltas) {
+      graphs = applyStoryGraphDeltaToGraphMap(graphs, delta, point, packageId)
+    }
+  }
+
+  const cleaned = removedPackageId
+    ? cleanRuntimePackageProjectionState({ ...projection, graphs }, removedPackageId, graphs)
+    : { cursors: projection.cursors, events: projection.events, unlockedNodes: projection.unlockedNodes }
+
+  await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, {
+    ...projection,
+    revision: projection.revision + 1,
+    graphs,
+    cursors: cleaned.cursors,
+    events: cleaned.events,
+    unlockedNodes: cleaned.unlockedNodes,
+  })
+}
+
+function applyStoryGraphDeltaToGraphMap(
+  graphs: Readonly<Record<string, StoryGraph>>,
+  delta: StoryGraphDelta,
+  fallbackPoint?: StoryPoint,
+  packageId?: string,
+): Record<string, StoryGraph> {
+  const graphId = delta.graphId || fallbackPoint?.storyId || 'default'
+  if (delta.operation === 'remove') {
+    const next = { ...graphs }
+    delete next[graphId]
+    return next
+  }
+
+  const packageMetadata = packageId ? { contentPackageId: packageId } : {}
+  const existingGraph = graphs[graphId] || (fallbackPoint
+    ? createImplicitGraph(graphId, fallbackPoint)
+    : createEmptyGraph(graphId))
+  const nextGraph: StoryGraph = {
+    ...existingGraph,
+    metadata: {
+      ...(existingGraph.metadata || {}),
+      ...(delta.metadata || {}),
+      ...packageMetadata,
+    },
+    nodes: mergeById(existingGraph.nodes, (delta.nodes || []).map(node => normalizeDeltaNode(node, graphId, packageMetadata))),
+    edges: mergeById(existingGraph.edges || [], (delta.edges || []).map(edge => normalizeDeltaEdge(edge, packageMetadata))),
+    lanes: mergeById(existingGraph.lanes || [], [
+      ...(delta.lanes || []).map(lane => normalizeDeltaLane(lane, packageMetadata)),
+      ...(delta.timelines || []).map(lane => normalizeDeltaLane({ ...lane, kind: lane.kind || 'timeline' }, packageMetadata)),
+    ]),
+  }
+
+  return {
+    ...graphs,
+    [graphId]: nextGraph,
+  }
+}
+
+function cleanRuntimePackageProjectionState(
+  projection: StoryGraphProjection,
+  packageId: string,
+  graphs: Readonly<Record<string, StoryGraph>>,
+): Pick<StoryGraphProjection, 'cursors' | 'events' | 'unlockedNodes'> {
+  const graphNodeIds = getGraphNodeIds(graphs)
+  return {
+    cursors: Object.fromEntries(
+      Object.entries(projection.cursors).filter(([, cursor]) => cursor.point.contentPackageId !== packageId),
+    ),
+    events: projection.events.filter(event => event.point?.contentPackageId !== packageId),
+    unlockedNodes: projection.unlockedNodes.filter(nodeId => graphNodeIds.has(nodeId)),
+  }
+}
+
+function getGraphNodeIds(graphs: Readonly<Record<string, StoryGraph>>): Set<string> {
+  const ids = new Set<string>()
+  for (const graph of Object.values(graphs)) {
+    for (const node of graph.nodes) {
+      ids.add(node.id)
+    }
+  }
+  return ids
+}
+
+function cloneGraphMap(graphs: Readonly<Record<string, StoryGraph>>): Record<string, StoryGraph> {
+  return Object.fromEntries(Object.entries(graphs).map(([id, graph]) => [id, cloneStoryGraph(graph)]))
+}
+
+function normalizeDeltaNode(
+  node: Partial<StoryNode>,
+  graphId: string,
+  metadata: Record<string, unknown>,
+): StoryNode {
+  const id = node.id || node.point?.nodeId || node.point?.stepId
+  if (!id) {
+    throw new Error(`Story graph delta for "${graphId}" contains a node without an id.`)
+  }
+  const point = {
+    storyId: graphId,
+    ...(node.point || { stepId: id, nodeId: id }),
+    stepId: node.point?.stepId || id,
+    nodeId: node.point?.nodeId || id,
+    contentPackageId: node.point?.contentPackageId || (typeof metadata.contentPackageId === 'string' ? metadata.contentPackageId : undefined),
+  }
+  return {
+    id,
+    point,
+    title: node.title,
+    laneId: node.laneId || point.laneId,
+    routeId: node.routeId || point.routeId,
+    timelineId: node.timelineId || point.timelineId,
+    protagonistId: node.protagonistId || point.protagonistId,
+    chapterId: node.chapterId || point.chapterId,
+    metadata: {
+      ...(node.metadata || {}),
+      ...metadata,
+    },
+  }
+}
+
+function normalizeDeltaEdge(edge: Partial<StoryEdge>, metadata: Record<string, unknown>): StoryEdge {
+  if (!edge.from || !edge.to) {
+    throw new Error('Story graph delta edge requires both "from" and "to".')
+  }
+  return {
+    id: edge.id || `${edge.kind || 'event'}:${edge.from}:${edge.to}`,
+    from: edge.from,
+    to: edge.to,
+    kind: edge.kind || 'event',
+    condition: edge.condition,
+    event: edge.event,
+    metadata: {
+      ...(edge.metadata || {}),
+      ...metadata,
+    },
+  }
+}
+
+function normalizeDeltaLane(lane: Partial<StoryLane>, metadata: Record<string, unknown>): StoryLane {
+  if (!lane.id) {
+    throw new Error('Story graph delta lane requires an id.')
+  }
+  return {
+    id: lane.id,
+    kind: lane.kind,
+    title: lane.title,
+    metadata: {
+      ...(lane.metadata || {}),
+      ...metadata,
+    },
+  }
+}
+
+function storyNodeBelongsToPackage(node: StoryNode, packageId: string): boolean {
+  return node.point.contentPackageId === packageId || metadataBelongsToPackage(node.metadata, packageId)
+}
+
+function storyEdgeBelongsToPackage(edge: StoryEdge, packageId: string): boolean {
+  return metadataBelongsToPackage(edge.metadata, packageId)
+}
+
+function metadataBelongsToPackage(metadata: Readonly<Record<string, unknown>> | undefined, packageId: string): boolean {
+  return metadata?.contentPackageId === packageId
+}
+
+function stripRuntimePackageMetadata<TMetadata extends Readonly<Record<string, unknown>> | undefined>(
+  metadata: TMetadata,
+): TMetadata {
+  if (!metadata) {
+    return metadata
+  }
+  const { contentPackageId, ...rest } = metadata
+  void contentPackageId
+  return (Object.keys(rest).length > 0 ? rest : undefined) as TMetadata
+}
+
+function mergeById<T extends { id: string }>(base: readonly T[], patches: readonly T[]): T[] {
+  const map = new Map(base.map(item => [item.id, item]))
+  for (const patch of patches) {
+    map.set(patch.id, {
+      ...(map.get(patch.id) || {}),
+      ...patch,
+      metadata: {
+        ...((map.get(patch.id) as { metadata?: Record<string, unknown> } | undefined)?.metadata || {}),
+        ...((patch as { metadata?: Record<string, unknown> }).metadata || {}),
+      },
+    } as T)
+  }
+  return Array.from(map.values())
 }
 
 function onPipeline<T>(

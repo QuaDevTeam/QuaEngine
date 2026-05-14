@@ -159,6 +159,8 @@ function resolveTrackValue(
     const previousAt = resolveAt(previous.at, duration)
     const nextAt = resolveAt(next.at, duration)
     if (elapsed <= nextAt) {
+      if (elapsed === nextAt)
+        return next.value
       if (track.interpolation === 'step' || track.interpolation === 'discrete')
         return previous.value
       const progress = nextAt === previousAt ? 1 : (elapsed - previousAt) / (nextAt - previousAt)

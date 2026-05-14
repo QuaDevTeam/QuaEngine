@@ -36,6 +36,7 @@ export function createSettingsScopeProjection(input: SettingsScopeProjectionInpu
 
   return {
     version: contribution.version,
+    packageId: contribution.packageId,
     title: contribution.title || filteredSchema.title,
     description: contribution.description || filteredSchema.description,
     schema: filteredSchema,

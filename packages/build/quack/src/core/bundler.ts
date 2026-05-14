@@ -10,6 +10,7 @@ import type {
   EncryptionAlgorithm,
   QuackConfig,
   QuackPlugin,
+  RuntimePackageManifest,
   WorkspaceConfig,
 } from './types'
 import { createHash } from 'node:crypto'
@@ -111,6 +112,7 @@ export class QuackBundler extends EventEmitter {
       manifest.bundleVersion = normalizedConfig.versioning.bundleVersion
       manifest.buildNumber = normalizedConfig.versioning.buildNumber
       manifest.merkleRoot = root
+      manifest.runtimePackage = withRuntimePackageIntegrity(normalizedConfig.runtimePackage, root)
 
       // Validate manifest
       if (!this.metadataGenerator.validateManifest(manifest)) {
@@ -316,6 +318,7 @@ export class QuackBundler extends EventEmitter {
       manifest.bundleVersion = normalizedConfig.versioning.bundleVersion
       manifest.buildNumber = normalizedConfig.versioning.buildNumber
       manifest.merkleRoot = root
+      manifest.runtimePackage = withRuntimePackageIntegrity(normalizedConfig.runtimePackage, root)
 
       // Add workspace metadata
       ;(manifest as any).workspaceBundle = {
@@ -502,6 +505,7 @@ export class QuackBundler extends EventEmitter {
       plugins: config.plugins || [],
       ignore: config.ignore || [],
       verbose: config.verbose || false,
+      runtimePackage: config.runtimePackage,
     }
   }
 
@@ -675,6 +679,24 @@ export class QuackBundler extends EventEmitter {
  */
 export function defineConfig(config: QuackConfig): QuackConfig {
   return config
+}
+
+function withRuntimePackageIntegrity(
+  runtimePackage: RuntimePackageManifest | undefined,
+  merkleRoot: string,
+): RuntimePackageManifest | undefined {
+  if (!runtimePackage) {
+    return undefined
+  }
+
+  return {
+    ...runtimePackage,
+    integrity: {
+      ...(runtimePackage.integrity || {}),
+      algorithm: runtimePackage.integrity?.algorithm || 'sha256',
+      hash: merkleRoot,
+    },
+  }
 }
 
 async function readAssetBuffer(asset: AssetInfo): Promise<Buffer> {

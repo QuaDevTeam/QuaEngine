@@ -78,6 +78,38 @@ describe('assetManager core', () => {
     }))
   })
 
+  it('lets higher-priority dynamic storage assets outrank provider records', async () => {
+    const provider: AssetProvider = {
+      mode: 'memory',
+      getManifest: vi.fn().mockResolvedValue({
+        version: '1',
+        assets: [{
+          id: 'provider:default:data:shared.txt',
+          name: 'shared.txt',
+          type: 'data',
+          locale: 'default',
+          path: 'data/shared.txt',
+          bundlePriority: 1,
+        }],
+      }),
+      getAsset: vi.fn().mockResolvedValue(utf8('provider')),
+    }
+
+    await storage.storeAsset(createStoredAsset({
+      id: 'runtime:default:data:shared.txt',
+      bundleName: 'runtime',
+      type: 'data',
+      name: 'shared.txt',
+      data: utf8('runtime'),
+      bundlePriority: 10,
+      loadedAt: 200,
+    }))
+    assetManager = new AssetManager(storage, 'default', provider)
+
+    expect(await assetManager.getText('data', 'shared.txt')).toBe('runtime')
+    expect(provider.getAsset).not.toHaveBeenCalled()
+  })
+
   it('uses locale fallback and bundle-specific lookup from storage', async () => {
     await storage.storeAssets([
       createStoredAsset({

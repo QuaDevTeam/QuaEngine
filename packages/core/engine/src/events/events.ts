@@ -49,6 +49,8 @@ export type {
   RichTextSpanProjection,
   RichTextStyleProjection,
   RendererLifecyclePayload,
+  RuntimePackagePluginPayload,
+  RuntimePackageUnloadPayload,
   RenderToLogicEventPayloadMap,
   RenderToLogicPayload,
   ResolvedAnimationTrackProjection,

@@ -55,6 +55,7 @@ export interface AudioAutomationProjection {
 export interface AudioTrackProjection {
   id: string
   kind: AudioTrackKind
+  contentPackageId?: string
   assetKey: string
   chapterId?: string
   lineId?: string
@@ -115,6 +116,7 @@ export interface AudioChapterDirectiveOptions {
 
 export interface AudioPlayVoiceOptions {
   id?: string
+  contentPackageId?: string
   chapterId?: string
   lineId?: string
   characterId?: string
@@ -132,6 +134,7 @@ export interface AudioPlayVoiceOptions {
 
 export interface AudioPlayBgmOptions {
   id?: string
+  contentPackageId?: string
   chapterId?: string
   gainDb?: number
   loop?: boolean
@@ -146,6 +149,7 @@ export interface AudioPlayBgmOptions {
 
 export interface AudioPlaySfxOptions {
   id?: string
+  contentPackageId?: string
   chapterId?: string
   lineId?: string
   interruptible?: boolean
@@ -162,6 +166,7 @@ export interface AudioPlaySfxOptions {
 
 export interface AudioPlayAmbientOptions {
   id?: string
+  contentPackageId?: string
   chapterId?: string
   lineId?: string
   interruptible?: boolean

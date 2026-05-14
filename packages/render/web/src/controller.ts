@@ -18,6 +18,7 @@ export interface QuaWebRendererOptions {
   assets?: QuaAssets
   initialView?: QuaViewProjection
   plugins?: readonly RendererPlugin[]
+  runtimePluginLoader?: (pluginManifest: unknown, context: { packageId: string }) => Promise<RendererPlugin | undefined> | RendererPlugin | undefined
   autoReady?: boolean
 }
 
@@ -46,10 +47,13 @@ export class QuaWebRendererController {
   private assetRevision = 0
   private snapshot: QuaWebRendererSnapshot
   private readonly plugins: readonly RendererPlugin[]
+  private readonly runtimePluginLoader?: QuaWebRendererOptions['runtimePluginLoader']
   private readonly autoReady: boolean
   private readonly listeners = new Set<QuaWebRendererSnapshotListener>()
   private readonly pipelineUnsubscribers: Array<() => void> = []
   private pluginHost?: RendererPluginHost
+  private readonly runtimePluginHosts = new Map<string, RendererPluginHost[]>()
+  private readonly runtimePluginEpochs = new Map<string, number>()
   private subscribedAssets?: QuaAssets
   private started = false
 
@@ -63,6 +67,7 @@ export class QuaWebRendererController {
     this.assets = options.assets
     this.projection = options.initialView || emptyView()
     this.plugins = options.plugins || []
+    this.runtimePluginLoader = options.runtimePluginLoader
     this.autoReady = options.autoReady !== false
     this.actions = createRendererActions(() => this.requirePipeline())
     this.snapshot = this.createSnapshot()
@@ -98,16 +103,7 @@ export class QuaWebRendererController {
     this.subscribePipeline()
     this.subscribeAssets()
     this.pluginHost = new RendererPluginHost(this.plugins)
-    const pluginContext: Omit<QuaWebRendererPluginContext, 'addDisposer'> = {
-      getPipeline: () => this.requirePipeline(),
-      getViewState: () => this.projection,
-      getAssets: () => this.assets,
-      refresh: () => this.refresh(),
-      emitRenderToLogic: (type, payload) => emitRenderToLogic(this.requirePipeline(), type as any, payload as any),
-      onLogicToRender: (type, handler) => onLogicToRender(this.requirePipeline(), type as any, handler as any),
-      onRenderToLogic: (type, handler) => onRenderToLogic(this.requirePipeline(), type as any, handler as any),
-    }
-    await this.pluginHost.init(pluginContext)
+    await this.pluginHost.init(this.createPluginContext())
 
     if (this.autoReady) {
       await this.actions.ready()
@@ -119,6 +115,7 @@ export class QuaWebRendererController {
     this.started = false
     this.cleanupPipelineSubscriptions()
     this.cleanupAssetSubscription()
+    await this.destroyRuntimePluginHosts()
     await this.pluginHost?.destroy()
     this.pluginHost = undefined
 
@@ -174,6 +171,16 @@ export class QuaWebRendererController {
       this.assetRevision += 1
       this.refresh()
     }))
+    this.pipelineUnsubscribers.push(onLogicToRender(this.pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN, (payload) => {
+      void this.loadRuntimeRendererPlugins(payload.packageId, payload.plugins).catch((error) => {
+        console.warn(`[quajs:renderer-web] Failed to load runtime renderer plugins for package "${payload.packageId}".`, error)
+      })
+    }))
+    this.pipelineUnsubscribers.push(onLogicToRender(this.pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, (payload) => {
+      void this.unloadRuntimeRendererPlugins(payload.packageId).catch((error) => {
+        console.warn(`[quajs:renderer-web] Failed to unload runtime renderer plugins for package "${payload.packageId}".`, error)
+      })
+    }))
   }
 
   private subscribeAssets(): void {
@@ -220,6 +227,96 @@ export class QuaWebRendererController {
       throw new Error('QuaWebRendererController requires a pipeline')
     }
     return this.pipeline
+  }
+
+  private createPluginContext(): Omit<QuaWebRendererPluginContext, 'addDisposer'> {
+    return {
+      getPipeline: () => this.requirePipeline(),
+      getViewState: () => this.projection,
+      getAssets: () => this.assets,
+      refresh: () => this.refresh(),
+      emitRenderToLogic: (type, payload) => emitRenderToLogic(this.requirePipeline(), type as any, payload as any),
+      onLogicToRender: (type, handler) => onLogicToRender(this.requirePipeline(), type as any, handler as any),
+      onRenderToLogic: (type, handler) => onRenderToLogic(this.requirePipeline(), type as any, handler as any),
+    }
+  }
+
+  private async loadRuntimeRendererPlugins(packageId: string, pluginManifests: readonly unknown[]): Promise<void> {
+    if (!this.runtimePluginLoader || pluginManifests.length === 0) {
+      return
+    }
+
+    const epoch = this.bumpRuntimePluginEpoch(packageId)
+    await this.destroyRuntimePluginHostsForPackage(packageId)
+    const hosts: RendererPluginHost[] = []
+    try {
+      for (const pluginManifest of pluginManifests) {
+        const plugin = await this.runtimePluginLoader(pluginManifest, { packageId })
+        if (!this.isRuntimePluginEpochCurrent(packageId, epoch)) {
+          break
+        }
+        if (!plugin) {
+          continue
+        }
+        const host = new RendererPluginHost([plugin])
+        hosts.push(host)
+        await host.init(this.createPluginContext())
+        if (!this.isRuntimePluginEpochCurrent(packageId, epoch)) {
+          hosts.pop()
+          await host.destroy()
+          break
+        }
+      }
+    }
+    catch (error) {
+      await Promise.all(hosts.map(host => host.destroy()))
+      throw error
+    }
+
+    if (hosts.length === 0) {
+      return
+    }
+    if (!this.isRuntimePluginEpochCurrent(packageId, epoch)) {
+      await Promise.all(hosts.map(host => host.destroy()))
+      return
+    }
+    this.runtimePluginHosts.set(packageId, [
+      ...(this.runtimePluginHosts.get(packageId) || []),
+      ...hosts,
+    ])
+    this.refresh()
+  }
+
+  private async unloadRuntimeRendererPlugins(packageId: string): Promise<void> {
+    this.bumpRuntimePluginEpoch(packageId)
+    const hosts = await this.destroyRuntimePluginHostsForPackage(packageId)
+    if (hosts.length > 0) {
+      this.refresh()
+    }
+  }
+
+  private async destroyRuntimePluginHosts(): Promise<void> {
+    const hosts = Array.from(this.runtimePluginHosts.values()).flat()
+    this.runtimePluginHosts.clear()
+    this.runtimePluginEpochs.clear()
+    await Promise.all(hosts.map(host => host.destroy()))
+  }
+
+  private async destroyRuntimePluginHostsForPackage(packageId: string): Promise<RendererPluginHost[]> {
+    const hosts = this.runtimePluginHosts.get(packageId) || []
+    this.runtimePluginHosts.delete(packageId)
+    await Promise.all(hosts.map(host => host.destroy()))
+    return hosts
+  }
+
+  private bumpRuntimePluginEpoch(packageId: string): number {
+    const epoch = (this.runtimePluginEpochs.get(packageId) || 0) + 1
+    this.runtimePluginEpochs.set(packageId, epoch)
+    return epoch
+  }
+
+  private isRuntimePluginEpochCurrent(packageId: string, epoch: number): boolean {
+    return this.started && this.runtimePluginEpochs.get(packageId) === epoch
   }
 }
 

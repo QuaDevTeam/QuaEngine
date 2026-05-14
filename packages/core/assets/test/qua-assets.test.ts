@@ -87,6 +87,113 @@ describe('quaAssets core runtime', () => {
     expect((await assets.getAsset('data', 'config.json')).data).toBeInstanceOf(Uint8Array)
   })
 
+  it('mounts dynamic QPK bundles side by side and resolves by priority before locale fallback', async () => {
+    const lowManifest = createDynamicManifest('low', 'runtime.low', 1, {
+      locales: ['zh-cn'],
+      version: 1,
+    })
+    const highManifest = createDynamicManifest('high', 'runtime.high', 10, {
+      locales: ['default'],
+      version: 1,
+    })
+    const adapterWithBundles = createAdapter({
+      files: {
+        'https://cdn.example.com/low.qpk': createQpkBundle(lowManifest, new Map([
+          ['assets/data/shared.txt', utf8('low-localized')],
+        ])),
+        'https://cdn.example.com/high.qpk': createQpkBundle(highManifest, new Map([
+          ['assets/data/shared.txt', utf8('high-default')],
+        ])),
+      },
+    })
+    assets = new QuaAssets({
+      endpoint: 'https://cdn.example.com',
+      adapter: adapterWithBundles,
+      locale: 'zh-cn',
+      enableCache: false,
+    })
+    const changed = vi.fn()
+    const unloaded = vi.fn()
+
+    await assets.initialize()
+    assets.on('asset:changed', changed)
+    assets.on('dynamic-bundle:unloaded', unloaded)
+
+    const low = await assets.loadDynamicBundle('low.qpk', { enableCache: false })
+    const high = await assets.loadDynamicBundle('high.qpk', { enableCache: false })
+
+    expect(low).toEqual(expect.objectContaining({ packageId: 'runtime.low', bundleName: 'low', priority: 1 }))
+    expect(high).toEqual(expect.objectContaining({ packageId: 'runtime.high', bundleName: 'high', priority: 10 }))
+    expect(await assets.getBundleManifest('high')).toEqual(expect.objectContaining({
+      runtimePackage: expect.objectContaining({ id: 'runtime.high' }),
+    }))
+    expect(await assets.getText('data', 'shared.txt')).toBe('high-default')
+    expect(await assets.getText('data', 'shared.txt', { bundleName: 'low', locale: 'zh-cn' })).toBe('low-localized')
+
+    await assets.unloadDynamicBundle('runtime.high')
+
+    expect(await assets.getText('data', 'shared.txt')).toBe('low-localized')
+    expect(changed).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'removed',
+      assetId: 'high:default:data:shared.txt',
+    }))
+    expect(unloaded).toHaveBeenCalledWith({ packageId: 'runtime.high', bundleName: 'high' })
+  })
+
+  it('rejects replacing a mounted dynamic bundle unless explicitly forced', async () => {
+    const firstManifest = createDynamicManifest('runtime', 'runtime.story', 1, {
+      locales: ['default'],
+      version: 1,
+    })
+    firstManifest.assets.data!['old.txt'] = {
+      name: 'old.txt',
+      path: 'data/old.txt',
+      relativePath: 'data/old.txt',
+      size: 0,
+      hash: '',
+      type: 'data',
+      locales: ['default'],
+      mimeType: 'text/plain',
+      version: 1,
+    }
+    firstManifest.totalFiles = 2
+    const replacementManifest = createDynamicManifest('runtime', 'runtime.story', 2, {
+      locales: ['default'],
+      version: 2,
+    })
+    const adapterWithBundles = createAdapter({
+      files: {
+        'https://cdn.example.com/runtime-a.qpk': createQpkBundle(firstManifest, new Map([
+          ['assets/data/shared.txt', utf8('first')],
+          ['assets/data/old.txt', utf8('old')],
+        ])),
+        'https://cdn.example.com/runtime-b.qpk': createQpkBundle(replacementManifest, new Map([
+          ['assets/data/shared.txt', utf8('replacement')],
+        ])),
+      },
+    })
+    assets = new QuaAssets({
+      endpoint: 'https://cdn.example.com',
+      adapter: adapterWithBundles,
+    })
+    const changed = vi.fn()
+    await assets.initialize()
+    assets.on('asset:changed', changed)
+
+    await assets.loadDynamicBundle('runtime-a.qpk')
+    await expect(assets.loadDynamicBundle('runtime-b.qpk')).rejects.toThrow('already loaded')
+    expect(await assets.getText('data', 'shared.txt', { bundleName: 'runtime' })).toBe('first')
+    expect(await assets.getText('data', 'old.txt', { bundleName: 'runtime' })).toBe('old')
+
+    await assets.loadDynamicBundle('runtime-b.qpk', { force: true })
+    expect(await assets.getText('data', 'shared.txt', { bundleName: 'runtime' })).toBe('replacement')
+    await expect(assets.getText('data', 'old.txt', { bundleName: 'runtime' })).rejects.toThrow('Asset not found')
+    expect(changed).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'removed',
+      assetId: 'runtime:default:data:old.txt',
+    }))
+  })
+
   it('uses provider data and forwards provider changes', async () => {
     let watcher: ((change: any) => void) | undefined
     const provider: AssetProvider = {
@@ -241,6 +348,45 @@ function createManifest(overrides: Partial<BundleManifest> = {}): BundleManifest
     totalSize: 0,
     ...overrides,
   }
+}
+
+function createDynamicManifest(
+  bundleName: string,
+  packageId: string,
+  priority: number,
+  asset: { locales: string[], version: number },
+): BundleManifest {
+  return createManifest({
+    name: bundleName,
+    locales: asset.locales,
+    defaultLocale: asset.locales.includes('default') ? 'default' : asset.locales[0],
+    assets: {
+      data: {
+        'shared.txt': {
+          name: 'shared.txt',
+          path: 'data/shared.txt',
+          relativePath: 'data/shared.txt',
+          size: 0,
+          hash: '',
+          type: 'data',
+          locales: asset.locales,
+          mimeType: 'text/plain',
+          version: asset.version,
+        },
+      },
+    },
+    totalFiles: 1,
+    runtimePackage: {
+      id: packageId,
+      version: '1.0.0',
+      priority,
+      scripts: [],
+      plugins: [],
+      storyGraphDeltas: [],
+      storeMigrations: [],
+      signature: { value: `${packageId}.signature` },
+    },
+  })
 }
 
 function createQpkBundle(manifest: BundleManifest, files: Map<string, Uint8Array>): Uint8Array {

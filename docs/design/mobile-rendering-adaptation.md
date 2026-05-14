@@ -67,6 +67,8 @@ logicalInsets = {
 
 DPR does not change DOM layout because DOM projection uses CSS pixels. Renderers expose `devicePixelRatio`, `physicalScale`, and physical viewport dimensions for Canvas/WebGL/video processing and screenshot pipelines that need physical pixels.
 
+Mobile browser chrome, soft keyboards, rotation, and display zoom can change the effective viewport without changing game state. Web renderers must subscribe to the shared `observeStageViewportEnvironment()` helper in addition to `ResizeObserver`; it listens to `window.resize`, `orientationchange`, and `visualViewport.resize/scroll`, then re-runs the same layout resolution path.
+
 Use these CSS variables for UI layout and custom renderers:
 
 - `--qua-layout-safe-x`, `--qua-layout-safe-y`, `--qua-layout-safe-width`, `--qua-layout-safe-height`: final logical safe rectangle.
@@ -145,5 +147,6 @@ Coordinate-sensitive features should cover:
 - landscape `16:10` and `16:9` endpoints;
 - at least one portrait phone reference such as `360x780`;
 - at least one CSS safe-area/DPR case;
+- a mobile viewport environment change when renderer layout depends on the container size;
 - pointer or hit-test conversion when a feature emits coordinates;
 - safe-area behavior when important UI is expected to remain stable across the supported interval.

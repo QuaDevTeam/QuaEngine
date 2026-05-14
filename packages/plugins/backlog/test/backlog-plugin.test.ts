@@ -1,8 +1,9 @@
 import type { AssetRuntimeAdapter } from '@quajs/assets'
 import { MemoryAssetStorage } from '@quajs/assets'
 import { emitRenderToLogic, QuaEngine } from '@quajs/engine'
+import { AudioPlugin, playVoiceWithEngine } from '@quajs/plugin-audio'
 import { MemoryBackend } from '@quajs/store'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   BACKLOG_PLUGIN_ID,
   BacklogPlugin,
@@ -95,6 +96,58 @@ describe('@quajs/plugin-backlog', () => {
       voice: { assetKey: 'voice/line-1.ogg' },
       voiceReplay: false,
     })
+  })
+
+  it('records runtime package dependencies on entries and checkpoints', async () => {
+    const engine = createEngine()
+    engine.use(new BacklogPlugin())
+    await engine.init()
+    await engine.setStoryPoint({
+      chapterId: 'chapter-1',
+      stepId: 'runtime-line',
+      contentPackageId: 'runtime.story',
+    })
+
+    await engine.showDialogue({ text: 'Runtime line' })
+
+    const entry = getBacklogProjection(engine).entries[0]
+    expect(entry.requiredRuntimePackages).toEqual(['runtime.story'])
+    expect(engine.getCheckpoint(entry.checkpointId!)?.metadata?.requiredRuntimePackages).toEqual(['runtime.story'])
+  })
+
+  it('loads required runtime packages before replaying package-scoped voices', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    engine.use(new BacklogPlugin())
+    await engine.init()
+    await engine.setStoryPoint({
+      chapterId: 'chapter-1',
+      stepId: 'line-1',
+      lineId: 'line-1',
+      contentPackageId: 'runtime.story',
+    })
+    await playVoiceWithEngine(engine, 'voice/runtime.ogg', {
+      lineId: 'line-1',
+      contentPackageId: 'runtime.voice',
+    })
+    const ensureRuntimePackages = vi.spyOn(engine, 'ensureRuntimePackages').mockResolvedValue(undefined)
+
+    await engine.showDialogue({ text: 'Voiced runtime line' })
+    const entry = getBacklogProjection(engine).entries[0]
+
+    expect(entry).toEqual(expect.objectContaining({
+      requiredRuntimePackages: ['runtime.story', 'runtime.voice'],
+      voiceReplay: true,
+      voice: expect.objectContaining({
+        assetKey: 'voice/runtime.ogg',
+        contentPackageId: 'runtime.voice',
+        requiredRuntimePackages: ['runtime.voice'],
+      }),
+    }))
+
+    await engine.getPipeline().emit(BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, { entryId: entry.id })
+
+    expect(ensureRuntimePackages).toHaveBeenCalledWith(['runtime.voice'])
   })
 
   it('handles backlog jump and optional voice replay intents through pipeline', async () => {

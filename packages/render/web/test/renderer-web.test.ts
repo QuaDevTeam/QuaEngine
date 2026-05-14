@@ -1,4 +1,5 @@
-import type { QuaViewProjection } from '@quajs/render-core'
+import type { AssetData } from '@quajs/assets'
+import type { QuaViewProjection, RendererPlugin } from '@quajs/render-core'
 import { MemoryAssetStorage, QuaAssets } from '@quajs/assets'
 import { Pipeline } from '@quajs/pipeline'
 import {
@@ -211,6 +212,34 @@ describe('@quajs/renderer-web', () => {
       bottom: 0,
       left: 0,
     })
+
+    const originalVisualViewport = Object.getOwnPropertyDescriptor(window, 'visualViewport')
+    try {
+      Object.defineProperty(window, 'visualViewport', {
+        configurable: true,
+        value: {
+          offsetLeft: 0,
+          offsetTop: 0,
+          width: 390,
+          height: 600,
+        },
+      })
+      rectSpy.mockReturnValue(rectAt(0, 0, 390, 844))
+      expect(readCssSafeAreaInsets(element)).toEqual({
+        top: 30,
+        right: 12,
+        bottom: 281,
+        left: 8,
+      })
+    }
+    finally {
+      if (originalVisualViewport) {
+        Object.defineProperty(window, 'visualViewport', originalVisualViewport)
+      }
+      else {
+        delete (window as Partial<Window>).visualViewport
+      }
+    }
   })
 
   it('keeps full-stage background separate from safe-area content in native DOM rendering', async () => {
@@ -253,6 +282,41 @@ describe('@quajs/renderer-web', () => {
     await renderer.unmount()
   })
 
+  it('rerenders native DOM layout when the mobile visual viewport changes', async () => {
+    const visualViewport = new EventTarget()
+    Object.defineProperty(window, 'visualViewport', {
+      value: visualViewport,
+      configurable: true,
+    })
+    let height = 780
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockImplementation(() => rect(360, height))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        layout: createViewLayoutProjection('portrait'),
+        background: { mode: 'image', assetName: 'bg.png' },
+      }),
+    })
+
+    await renderer.mount()
+    expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('height: 780px')
+    expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1080px')
+
+    height = 840
+    visualViewport.dispatchEvent(new Event('resize'))
+    await flushDom()
+
+    expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('height: 840px')
+    expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1002.857')
+
+    await renderer.unmount()
+  })
+
   it('owns framework-neutral pipeline lifecycle and exposes external-store snapshots', async () => {
     const pipeline = new Pipeline()
     const received: string[] = []
@@ -281,6 +345,137 @@ describe('@quajs/renderer-web', () => {
     unsubscribe()
     await controller.destroy()
     expect(received).toEqual(['ready', 'destroyed'])
+  })
+
+  it('loads transient renderer plugins from runtime package events and destroys them on unload', async () => {
+    const pipeline = new Pipeline()
+    const setup = vi.fn()
+    const destroy = vi.fn()
+    const plugin: RendererPlugin = {
+      name: 'runtime-renderer-plugin',
+      setup,
+      destroy,
+    }
+    const loader = vi.fn(async () => plugin)
+    const controller = createQuaWebRendererController({
+      pipeline,
+      initialView: view(),
+      runtimePluginLoader: loader,
+    })
+
+    await controller.start()
+    await emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN, {
+      packageId: 'runtime.story',
+      plugins: [{ id: 'runtime.renderer', kind: 'renderer', assetName: 'renderer.js' }],
+    })
+    await flushDom()
+
+    expect(loader).toHaveBeenCalledWith(
+      { id: 'runtime.renderer', kind: 'renderer', assetName: 'renderer.js' },
+      { packageId: 'runtime.story' },
+    )
+    expect(setup).toHaveBeenCalledWith(expect.objectContaining({
+      getPipeline: expect.any(Function),
+      getViewState: expect.any(Function),
+    }))
+
+    await emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
+      packageId: 'runtime.story',
+      bundleName: 'runtime.story',
+    })
+    await flushDom()
+
+    expect(destroy).toHaveBeenCalledTimes(1)
+    await controller.destroy()
+  })
+
+  it('ignores runtime renderer plugins that resolve after their package unloads', async () => {
+    const pipeline = new Pipeline()
+    const setup = vi.fn()
+    const destroy = vi.fn()
+    const plugin: RendererPlugin = {
+      name: 'late-runtime-renderer-plugin',
+      setup,
+      destroy,
+    }
+    let resolveLoader!: (plugin: RendererPlugin) => void
+    const loader = vi.fn(() => new Promise<RendererPlugin>((resolve) => {
+      resolveLoader = resolve
+    }))
+    const controller = createQuaWebRendererController({
+      pipeline,
+      initialView: view(),
+      runtimePluginLoader: loader,
+    })
+
+    await controller.start()
+    await emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN, {
+      packageId: 'runtime.story',
+      plugins: [{ id: 'runtime.renderer', kind: 'renderer', assetName: 'renderer.js' }],
+    })
+    expect(loader).toHaveBeenCalledTimes(1)
+
+    await emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
+      packageId: 'runtime.story',
+      bundleName: 'runtime.story',
+    })
+    resolveLoader(plugin)
+    await flushDom()
+
+    expect(setup).not.toHaveBeenCalled()
+    expect(destroy).not.toHaveBeenCalled()
+    await controller.destroy()
+  })
+
+  it('destroys partially initialized runtime renderer plugins when a later plugin fails to load', async () => {
+    const pipeline = new Pipeline()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const setup = vi.fn()
+    const destroy = vi.fn()
+    const plugin: RendererPlugin = {
+      name: 'partial-runtime-renderer-plugin',
+      setup,
+      destroy,
+    }
+    let callCount = 0
+    const loader = vi.fn(async () => {
+      callCount += 1
+      if (callCount === 1) {
+        return plugin
+      }
+      throw new Error('renderer plugin load failed')
+    })
+    const controller = createQuaWebRendererController({
+      pipeline,
+      initialView: view(),
+      runtimePluginLoader: loader,
+    })
+
+    await controller.start()
+    await emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN, {
+      packageId: 'runtime.story',
+      plugins: [
+        { id: 'runtime.renderer.one', kind: 'renderer', assetName: 'one.js' },
+        { id: 'runtime.renderer.two', kind: 'renderer', assetName: 'two.js' },
+      ],
+    })
+    await flushDom()
+    await flushDom()
+
+    expect(setup).toHaveBeenCalledTimes(1)
+    expect(destroy).toHaveBeenCalledTimes(1)
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to load runtime renderer plugins'),
+      expect.any(Error),
+    )
+
+    await emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
+      packageId: 'runtime.story',
+      bundleName: 'runtime.story',
+    })
+    await flushDom()
+    expect(destroy).toHaveBeenCalledTimes(1)
+    await controller.destroy()
   })
 
   it('renders an opt-in native DOM visual novel projection and emits user intents', async () => {
@@ -702,6 +897,25 @@ describe('@quajs/renderer-web', () => {
     expect(values.find(track => track.property === 'x')?.value).toBe(25)
     expect(values.find(track => track.property === 'color')?.value).toBe('rgb(128, 128, 128)')
     expect(values.find(track => track.property === 'offset')?.value).toEqual({ x: 5, y: 15 })
+
+    const stepAnimation = {
+      id: 'animation:step-boundary',
+      state: 'running' as const,
+      startedAt: 1000,
+      duration: 1000,
+      playbackRate: 1,
+      resolvedTracks: [{
+        target: 'target:step',
+        property: 'fit',
+        interpolation: 'discrete' as const,
+        keyframes: [
+          { at: 0, value: 'cover' },
+          { at: 500, value: 'contain' },
+        ],
+      }],
+    }
+    expect(collectTrackValues([stepAnimation], 'target:step', 1499)[0]?.value).toBe('cover')
+    expect(collectTrackValues([stepAnimation], 'target:step', 1500)[0]?.value).toBe('contain')
   })
 
   it('updates running background animations through the native DOM animation clock', async () => {
@@ -747,6 +961,80 @@ describe('@quajs/renderer-web', () => {
     expect(root.querySelector('.qua-background')?.getAttribute('style')).toContain('--qua-background-x: 50')
 
     await renderer.unmount()
+  })
+
+  it('updates animated background mask URLs without churning unchanged asset URLs', async () => {
+    const assets = await createImageAssets(['fog.png', 'mask-a.png', 'mask-b.png'])
+    let urlIndex = 0
+    const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:background-mask:${++urlIndex}`)
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    let frame: FrameRequestCallback | undefined
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frame = callback
+      return 1
+    })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+    vi.spyOn(Date, 'now').mockReturnValue(1000)
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      assets,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        background: {
+          mode: 'layered',
+          layers: [{
+            id: 'fog',
+            assetName: 'fog.png',
+            composition: {
+              mask: { assetName: 'mask-a.png' },
+            },
+          }],
+        },
+        animations: [{
+          id: 'animation:mask',
+          state: 'running',
+          startedAt: 1000,
+          duration: 1000,
+          playbackRate: 1,
+          resolvedTracks: [{
+            target: 'backgroundLayer:fog',
+            property: 'composition.mask.assetName',
+            interpolation: 'discrete',
+            keyframes: [
+              { at: 0, value: 'mask-a.png' },
+              { at: 500, value: 'mask-b.png' },
+            ],
+          }],
+        }],
+      }),
+    })
+
+    await renderer.mount()
+    await flushDom()
+    const item = root.querySelector<HTMLElement>('[data-background-layer-id="fog"]')
+    const initialStyle = item?.getAttribute('style') || ''
+    expect(initialStyle).toContain('mask-image: url("blob:background-mask:')
+    expect(create).toHaveBeenCalledTimes(2)
+
+    vi.mocked(Date.now).mockReturnValue(1200)
+    frame?.(1200)
+    await flushDom()
+    expect(create).toHaveBeenCalledTimes(2)
+
+    vi.mocked(Date.now).mockReturnValue(1500)
+    frame?.(1500)
+    await flushDom()
+    expect(create).toHaveBeenCalledTimes(3)
+    expect(item?.dataset.backgroundMaskKey).toBe('images:mask-b.png')
+    expect(item?.getAttribute('style')).toContain('mask-image: url("blob:background-mask:3")')
+
+    await renderer.unmount()
+    expect(revoke).toHaveBeenCalled()
+    await assets.cleanup()
   })
 
   it('renders sprite manifests and expressions through the Web sprite preset', async () => {
@@ -1189,6 +1477,26 @@ async function createFontAssets(): Promise<QuaAssets> {
   return assets
 }
 
+async function createImageAssets(names: string[]): Promise<QuaAssets> {
+  const assets = new QuaAssets({
+    adapter: {
+      name: 'renderer-web-image-test',
+      storage: new MemoryAssetStorage(),
+      crypto: { sha256: async () => '' },
+    },
+    provider: {
+      mode: 'memory',
+      getManifest: async () => ({
+        version: '1',
+        assets: names.map(imageAssetRecord),
+      }),
+      getAsset: async () => new Uint8Array([1, 2, 3, 4]),
+    },
+  })
+  await assets.initialize()
+  return assets
+}
+
 function audioAssetRecord(name: string) {
   return {
     id: `memory:default:audio:${name}`,
@@ -1198,6 +1506,18 @@ function audioAssetRecord(name: string) {
     locale: 'default',
     path: `audio/${name}`,
     mimeType: 'audio/ogg',
+  }
+}
+
+function imageAssetRecord(name: string) {
+  return {
+    id: `memory:default:images:${name}`,
+    bundleName: 'memory',
+    name,
+    type: 'images' as const,
+    locale: 'default',
+    path: `images/${name}`,
+    mimeType: 'image/png',
   }
 }
 

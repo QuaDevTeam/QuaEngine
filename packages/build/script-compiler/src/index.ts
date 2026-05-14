@@ -1,4 +1,5 @@
 import type { DecoratorMapping } from './core/types'
+import type { QuaScriptTransformerOptions } from './core/transformer'
 import process from 'node:process'
 import { getHotReloadManager } from './core/hot-reload'
 import { createHotReloadAwareTransformer } from './integrations/hot-reload-transformer'
@@ -16,6 +17,7 @@ export {
 export type { HotReloadCallback, HotReloadEvent } from './core/hot-reload'
 export { QuaScriptParser } from './core/parser'
 export { QuaScriptTransformer } from './core/transformer'
+export type { QuaScriptTransformerOptions } from './core/transformer'
 
 // Core types
 export type {
@@ -73,6 +75,7 @@ export function compileQuaScript(
     projectRoot?: string
     /** Enable hot-reload features */
     hotReload?: boolean
+    runtimeModule?: QuaScriptTransformerOptions['runtimeModule']
   },
 ): string {
   const { hotReload = process.env.NODE_ENV !== 'production', ...restOptions } = options || {}
@@ -82,12 +85,14 @@ export function compileQuaScript(
         restOptions.decoratorMappings,
         {
           projectRoot: restOptions.projectRoot,
+          runtimeModule: restOptions.runtimeModule,
         },
       )
     : createPluginAwareTransformer(
         restOptions.decoratorMappings,
         {
           projectRoot: restOptions.projectRoot,
+          runtimeModule: restOptions.runtimeModule,
         },
       )
 
@@ -109,6 +114,7 @@ export function compileQuaScriptModuleToTs(
     projectRoot?: string
     /** Enable hot-reload features */
     hotReload?: boolean
+    runtimeModule?: QuaScriptTransformerOptions['runtimeModule']
   },
 ): string {
   const { hotReload = process.env.NODE_ENV !== 'production', ...restOptions } = options || {}
@@ -118,12 +124,14 @@ export function compileQuaScriptModuleToTs(
         restOptions.decoratorMappings,
         {
           projectRoot: restOptions.projectRoot,
+          runtimeModule: restOptions.runtimeModule,
         },
       )
     : createPluginAwareTransformer(
         restOptions.decoratorMappings,
         {
           projectRoot: restOptions.projectRoot,
+          runtimeModule: restOptions.runtimeModule,
         },
       )
 

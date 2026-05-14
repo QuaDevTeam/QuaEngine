@@ -40,6 +40,32 @@ describe('core provider helpers', () => {
       .toBe('story:default:data:config.json')
   })
 
+  it('ranks provider records by dynamic bundle priority before locale fallback', () => {
+    const ranked: AssetManifestRecord[] = [
+      {
+        id: 'low:zh-cn:data:shared.txt',
+        bundleName: 'low',
+        name: 'shared.txt',
+        type: 'data',
+        locale: 'zh-cn',
+        path: 'data/shared.txt',
+        bundlePriority: 1,
+      },
+      {
+        id: 'high:default:data:shared.txt',
+        bundleName: 'high',
+        name: 'shared.txt',
+        type: 'data',
+        locale: 'default',
+        path: 'data/shared.txt',
+        bundlePriority: 10,
+      },
+    ]
+
+    expect(findBestAssetRecord(ranked, 'data', 'shared.txt', 'zh-cn')?.id)
+      .toBe('high:default:data:shared.txt')
+  })
+
   it('returns undefined for unmatched records', () => {
     expect(findBestAssetRecord(records, 'images', 'bg.png', 'default')).toBeUndefined()
   })

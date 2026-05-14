@@ -147,7 +147,8 @@ Production runtime JS and plugin modules require integrity and signature verific
 Rules:
 
 - `trustPolicy.requireSignature` rejects unsigned packages.
-- `trustPolicy.verifyPackage` receives bundle hash and manifest metadata.
+- `runtimePackage.integrity.hash` is the Quack manifest `merkleRoot`; it is stable because it is derived from package payload assets instead of the final QPK bytes that contain the manifest itself.
+- `trustPolicy.verifyPackage` receives the full bundle hash plus manifest metadata, including the package integrity hash and manifest merkle root.
 - Failed trust verification must unload the mounted bundle and leave runtime package state clean.
 - Engine core verifies policy but does not perform Web module import details.
 

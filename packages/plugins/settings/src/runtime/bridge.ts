@@ -292,6 +292,9 @@ export class SettingsBridgeController implements SettingsBridge {
   private async persistProfile(): Promise<void> {
     this.revision += 1
     const scopes: Record<string, SettingsValues> = {}
+    for (const [scope, values] of this.playerOverrides.entries()) {
+      scopes[scope] = cloneSettingsValue(values)
+    }
     for (const contribution of this.registry.getScopes()) {
       if (contribution.player) {
         scopes[contribution.scope] = cloneSettingsValue(this.playerOverrides.get(contribution.scope) || {})

@@ -81,6 +81,43 @@ describe('quaScriptTransformer', () => {
     expect(result).toContain('enabled: scope.unlocked')
   })
 
+  it('generates stable runtime module step ids for dynamic QuaScript packages', () => {
+    const source = `
+      Jack: Hello runtime package.
+      - Continue -> next
+    `
+    const first = compileQuaScriptModuleToTs(source, {
+      hotReload: false,
+      runtimeModule: {
+        moduleId: 'runtime.chapter1',
+        version: '1.0.0',
+        stableSeed: 'build-42',
+      },
+    })
+    const second = compileQuaScriptModuleToTs(source, {
+      hotReload: false,
+      runtimeModule: {
+        moduleId: 'runtime.chapter1',
+        version: '1.0.0',
+        stableSeed: 'build-42',
+      },
+    })
+    const changedSeed = compileQuaScriptModuleToTs(source, {
+      hotReload: false,
+      runtimeModule: {
+        moduleId: 'runtime.chapter1',
+        version: '1.0.0',
+        stableSeed: 'build-43',
+      },
+    })
+
+    const ids = (code: string) => Array.from(code.matchAll(/uuid: "(qs:runtime\.chapter1:[^"]+)"/g), match => match[1])
+
+    expect(ids(first)).toHaveLength(2)
+    expect(ids(first)).toEqual(ids(second))
+    expect(ids(first)).not.toEqual(ids(changedSeed))
+  })
+
   it('should compile typed qs files with module and setup scripts', () => {
     const result = compileQuaScriptModuleToTs(`
 <script lang="ts">

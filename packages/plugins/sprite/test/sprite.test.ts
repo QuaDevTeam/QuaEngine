@@ -44,6 +44,30 @@ describe('@quajs/plugin-sprite', () => {
     expect(fallbackProjection?.fallbackUsed).toBe(true)
   })
 
+  it('creates expression-only manifests as runtime sprite deltas over a shared base asset', () => {
+    const manifest = createSpriteManifestFromAssets([
+      spriteAsset('characters/alice/expressions/happy.png'),
+    ], 'alice')
+
+    expect(manifest).toMatchObject({
+      version: 1,
+      family: 'alice',
+      base: { asset: 'alice/base.png' },
+      expressions: {
+        happy: {
+          fallback: 'base.png',
+          layers: [{ asset: 'alice/expressions/happy.png' }],
+        },
+      },
+    })
+
+    const projection = resolveSpriteProjection(manifest!, 'alice/base.png', 'happy')
+    expect(projection?.layers.map(layer => layer.asset)).toEqual([
+      'alice/base.png',
+      'alice/expressions/happy.png',
+    ])
+  })
+
   it('contributes generated sprite manifests as character assets with family-relative names', async () => {
     const plugin = createSpriteQuackPlugin()
     const generated = await plugin.collectAssets({

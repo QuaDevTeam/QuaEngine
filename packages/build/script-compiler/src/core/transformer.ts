@@ -7,6 +7,7 @@ import type {
   QuaScriptChoice,
   QuaScriptDecorator,
   QuaScriptDialogue,
+  SourceRange,
 } from './types'
 import generateModule from '@babel/generator'
 import { parse } from '@babel/parser'
@@ -32,6 +33,11 @@ function resolveCallableDefault<T extends (...args: any[]) => unknown>(module: T
 
 export interface QuaScriptTransformerOptions {
   decoratorCompilerRegistry?: DecoratorCompilerRegistry
+  runtimeModule?: {
+    moduleId: string
+    version?: string
+    stableSeed?: string
+  }
 }
 
 /**
@@ -46,6 +52,7 @@ export class QuaScriptTransformer {
   private usedRuntimeHelpers: Set<string> = new Set()
   private handledDecoratorModules: Set<string> = new Set()
   protected decoratorCompilerRegistry: DecoratorCompilerRegistry
+  private runtimeModule?: NonNullable<QuaScriptTransformerOptions['runtimeModule']>
 
   constructor(
     decoratorMappings: DecoratorMapping = DEFAULT_DECORATOR_MAPPINGS,
@@ -55,6 +62,7 @@ export class QuaScriptTransformer {
 
     this.decoratorMappings = decoratorMappings
     this.decoratorCompilerRegistry = decoratorCompilerRegistry || createDefaultDecoratorCompilerRegistry()
+    this.runtimeModule = options.runtimeModule
   }
 
   /**
@@ -216,16 +224,32 @@ export class QuaScriptTransformer {
   ): t.ArrayExpression {
     const compileState: Record<string, unknown> = {}
     const elements = parsed.steps.map((step, index) => {
+      const stepUuid = this.resolveStepUuid(step, index)
       if (step.type === 'dialogue') {
-        return this.createDialogueStep(step.content as QuaScriptDialogue, step.uuid, index, compileState, options)
+        return this.createDialogueStep(step.content as QuaScriptDialogue, stepUuid, index, compileState, options)
       }
       if (step.type === 'choice') {
-        return this.createChoiceStep(step.content as QuaScriptChoice, step.uuid, index, compileState, options)
+        return this.createChoiceStep(step.content as QuaScriptChoice, stepUuid, index, compileState, options)
       }
-      return this.createActionStep(step.content, step.uuid, index, compileState, options)
+      return this.createActionStep(step.content, stepUuid, index, compileState, options)
     })
 
     return t.arrayExpression(elements)
+  }
+
+  private resolveStepUuid(step: { uuid: string, range?: SourceRange }, index: number): string {
+    if (!this.runtimeModule)
+      return step.uuid
+
+    const seed = [
+      this.runtimeModule.moduleId,
+      this.runtimeModule.version || '',
+      this.runtimeModule.stableSeed || '',
+      index,
+      step.range?.start.offset ?? '',
+      step.range?.end.offset ?? '',
+    ].join('|')
+    return `qs:${this.runtimeModule.moduleId}:${stableHash(seed)}`
   }
 
   private createDialogueStep(
@@ -720,6 +744,15 @@ export class QuaScriptTransformer {
 
 function hasExportedScopeType(source: string): boolean {
   return /\bexport\s+(?:interface|type)\s+Scope\b/.test(source)
+}
+
+function stableHash(value: string): string {
+  let hash = 0x811C9DC5
+  for (let index = 0; index < value.length; index++) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(36)
 }
 
 function indent(source: string): string {

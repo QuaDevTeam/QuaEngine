@@ -133,6 +133,43 @@ describe('@quajs/plugin-animation', () => {
     expect(engine.getViewState().animations).toEqual([])
   })
 
+  it('removes runtime package animation definitions and playbacks on package unload', async () => {
+    const engine = createEngine()
+    const plugin = new AnimationPlugin()
+    await plugin.init(createPluginContext(engine))
+    vi.mocked(engine.getStoryPoint).mockReturnValue({ stepId: 'runtime-animation-step', contentPackageId: 'runtime.animation' })
+
+    await registerAnimationWithEngine(engine, {
+      id: 'runtime.flash',
+      duration: 1000,
+      tracks: [{
+        target: 'stage:main',
+        property: 'opacity',
+        keyframes: [
+          { at: 0, value: 0 },
+          { at: 1000, value: 1 },
+        ],
+      }],
+    })
+    await playAnimationWithEngine(engine, 'runtime.flash')
+
+    expect(engine.getViewState().animations[0]).toEqual(expect.objectContaining({
+      definitionId: 'runtime.flash',
+      contentPackageId: 'runtime.animation',
+    }))
+
+    await plugin.onRuntimePackageUnload?.({
+      ...createPluginContext(engine),
+      runtimePackage: {
+        package: { id: 'runtime.animation', version: '1.0.0' },
+        bundleName: 'runtime.animation',
+      },
+    })
+
+    expect(engine.getViewState().animations).toEqual([])
+    await expect(playAnimationWithEngine(engine, 'runtime.flash')).rejects.toThrow('Animation definition "runtime.flash" is not registered.')
+  })
+
   it('projects delay, direction, fill, and commit metadata and keeps filled projections when requested', async () => {
     const engine = createEngine()
     const played = playTimelineWithEngine(engine, {
@@ -165,6 +202,43 @@ describe('@quajs/plugin-animation', () => {
       state: 'stopped',
       endedAt: expect.any(Number),
     }))
+  })
+
+  it('removes filled stopped runtime package projections on package unload', async () => {
+    const engine = createEngine()
+    const plugin = new AnimationPlugin()
+    await plugin.init(createPluginContext(engine))
+    const played = playTimelineWithEngine(engine, {
+      contentPackageId: 'runtime.animation',
+      duration: 100,
+      fill: 'forwards',
+      commit: 'none',
+      tracks: [{
+        target: 'stage:main',
+        property: 'opacity',
+        keyframes: [
+          { at: 0, value: 0 },
+          { at: 100, value: 1 },
+        ],
+      }],
+    }, { wait: true })
+
+    await vi.advanceTimersByTimeAsync(100)
+    await played
+    expect(engine.getViewState().animations[0]).toEqual(expect.objectContaining({
+      state: 'stopped',
+      contentPackageId: 'runtime.animation',
+    }))
+
+    await plugin.onRuntimePackageUnload?.({
+      ...createPluginContext(engine),
+      runtimePackage: {
+        package: { id: 'runtime.animation', version: '1.0.0' },
+        bundleName: 'runtime.animation',
+      },
+    })
+
+    expect(engine.getViewState().animations).toEqual([])
   })
 
   it('commits terminal values according to playback direction', async () => {
@@ -491,6 +565,7 @@ function createEngine(viewPatch: Partial<QuaViewProjection> = {}) {
   }
 
   const engine = {
+    getStoryPoint: vi.fn(() => undefined),
     getViewState: vi.fn(() => ({
       ...view,
       plugins: { ...view.plugins },

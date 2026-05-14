@@ -52,8 +52,10 @@ export type {
 
   DecompressionPlugin,
   DecryptionPlugin,
+  DynamicBundleRecord,
   IntegrityError,
 
+  LoadDynamicBundleOptions,
   LoadAssetOptions,
   LoadBundleOptions,
 
@@ -69,6 +71,14 @@ export type {
 
   // Plugin interfaces
   QuaAssetsPlugin,
+  RuntimePackageIntegrityManifest,
+  RuntimePackageManifest,
+  RuntimePackagePluginKind,
+  RuntimePackagePluginManifest,
+  RuntimePackageScriptManifest,
+  RuntimePackageSignatureManifest,
+  RuntimePackageStoreMigrationManifest,
+  RuntimePackageStoryGraphDeltaManifest,
   // Data structures
   StoredAsset,
   StoredBundle,
