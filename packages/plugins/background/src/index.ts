@@ -365,7 +365,7 @@ function withCurrentRuntimeLayerMetadata(
   engine: QuaEngineInterface,
   layer: ViewBackgroundLayerProjection,
 ): ViewBackgroundLayerProjection {
-  const packageId = (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
+  const packageId = currentRuntimePackageId(engine)
   if (!packageId) {
     return layer
   }
@@ -373,6 +373,11 @@ function withCurrentRuntimeLayerMetadata(
     ...layer,
     metadata: mergeRuntimePackageMetadata(layer.metadata, packageId),
   }
+}
+
+function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined {
+  return (engine as Partial<QuaEngineInterface>).getCurrentRuntimePackageId?.()
+    || (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
 }
 
 function mergeRuntimePackageMetadata(

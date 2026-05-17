@@ -783,7 +783,8 @@ function withCurrentRuntimeAnimationPackage<TTimeline extends NormalizedAnimatio
 }
 
 function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined {
-  return (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
+  return (engine as Partial<QuaEngineInterface>).getCurrentRuntimePackageId?.()
+    || (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
 }
 
 function assertAdapter(

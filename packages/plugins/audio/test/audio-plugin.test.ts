@@ -247,6 +247,24 @@ describe('@quajs/plugin-audio', () => {
     expect(projection.bgm).toEqual(expect.objectContaining({ id: 'runtime-bgm', state: 'stopping' }))
     expect(projection.sfx).toEqual([expect.objectContaining({ id: 'base-sfx', state: 'playing' })])
   })
+
+  it('preserves mixed-package audio projection when engine clears package view state', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    await engine.init()
+
+    await engine.setStoryPoint({ stepId: 'runtime-audio-step', contentPackageId: 'runtime.audio' })
+    await playVoiceWithEngine(engine, 'voice/runtime', { id: 'runtime-voice' })
+    await engine.setStoryPoint({ stepId: 'base-audio-step' })
+    await playSFXWithEngine(engine, 'sfx/base', { id: 'base-sfx' })
+
+    await engine.clearRuntimePackageViewState('runtime.audio')
+
+    const projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection).toBeDefined()
+    expect(projection.voices).toEqual([expect.objectContaining({ id: 'runtime-voice', contentPackageId: 'runtime.audio' })])
+    expect(projection.sfx).toEqual([expect.objectContaining({ id: 'base-sfx', state: 'playing' })])
+  })
 })
 
 function createEngine(): QuaEngine {
