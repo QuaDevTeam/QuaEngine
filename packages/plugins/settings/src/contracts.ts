@@ -2,6 +2,8 @@ import type { EngineContext, QuaEngineInterface } from '@quajs/engine'
 import type { Pipeline, PipelineContext } from '@quajs/pipeline'
 
 export const SETTINGS_PLUGIN_ID = 'settings' as const
+export const SETTINGS_WEB_RENDERER_ENTRY = '@quajs/renderer-web/plugins/settings' as const
+export const SETTINGS_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/settings' as const
 export const BASE_SETTINGS_SCOPE = '@quajs/plugin-settings' as const
 
 export type SettingsPlane = 'developer' | 'player'

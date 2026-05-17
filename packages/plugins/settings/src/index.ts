@@ -44,6 +44,8 @@ export {
   emitSettingsRenderToLogic,
   onSettingsRenderToLogic,
   SETTINGS_PLUGIN_ID,
+  SETTINGS_VUE_RENDERER_ENTRY,
+  SETTINGS_WEB_RENDERER_ENTRY,
   SettingsRenderToLogicEvents,
 } from './contracts'
 

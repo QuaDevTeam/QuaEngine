@@ -68,6 +68,10 @@
       "types": "./dist/plugins/scene/index.d.ts",
       "import": "./dist/plugins/scene/index.js"
     },
+    "./plugins/settings": {
+      "types": "./dist/plugins/settings/index.d.ts",
+      "import": "./dist/plugins/settings/index.js"
+    },
     "./styles/base.scss": "./src/styles/base.scss",
     "./styles/default.scss": "./src/styles/default.scss"
   },
@@ -98,6 +102,7 @@
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
+    "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",
     "@quajs/renderer-web": "workspace:*",
@@ -109,6 +114,9 @@
     },
     "@quajs/plugin-fonts": {
       "optional": true
+    },
+    "@quajs/plugin-settings": {
+      "optional": true
     }
   },
   "devDependencies": {
@@ -118,6 +126,7 @@
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
+    "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",
     "@quajs/renderer-web": "workspace:*",

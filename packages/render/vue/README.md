@@ -9,7 +9,7 @@ Stateless Vue renderer for QuaEngine. The renderer projects view state received 
 - `pipeline`: the only logic/render communication channel.
 - `assets`: the browser-side asset runtime used to resolve projected asset names into object URLs.
 - `initialView`: optional first-frame projection. Later projection updates should arrive through `LogicToRenderEvents.VIEW_UPDATE`.
-- `plugins`: optional renderer feature plugins such as background, character, dialogue, choices, audio, effects, and UI.
+- `plugins`: optional renderer feature plugins such as background, character, dialogue, choices, audio, effects, settings, and UI.
 
 ```vue
 <template>
@@ -106,6 +106,10 @@ const projectedView = {
 ```
 
 The Vue renderer asks `assets.getAsset('images', 'classroom.png')` or `assets.getAsset('characters', 'alice.png')`, creates browser object URLs, and revokes them on cleanup.
+
+## Settings Forms
+
+`@quajs/renderer-vue/plugins/settings` renders the `@quajs/plugin-settings` projection as a schema-driven settings panel. It consumes `view.plugins.settings`, uses the projected JSON Schema plus UI hints to create controls, and emits `settings/update_request`, `settings/reset_scope_request`, and `settings/reset_all_request` through the shared pipeline. The default visual novel preset includes this plugin; open the generic `settings` overlay through the UI overlay flow to show it.
 
 ## Stage And Background Projection
 

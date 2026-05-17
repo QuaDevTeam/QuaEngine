@@ -60,7 +60,8 @@
 .qua-character-layer,
 .qua-effect-layer,
 .qua-scene-transition-layer,
-.qua-overlay-layer {
+.qua-overlay-layer,
+.qua-settings-layer {
   position: absolute;
   inset: 0;
 }
@@ -159,6 +160,17 @@
 
 .qua-choice-button {
   font: inherit;
+}
+
+.qua-settings-form,
+.qua-settings-scope,
+.qua-settings-group,
+.qua-settings-nested-group {
+  display: grid;
+}
+
+.qua-settings-field {
+  display: grid;
 }
 
 .qua-audio-controller {

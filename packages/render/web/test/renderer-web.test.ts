@@ -1,4 +1,3 @@
-import type { AssetData } from '@quajs/assets'
 import type { QuaViewProjection, RendererPlugin } from '@quajs/render-core'
 import { MemoryAssetStorage, QuaAssets } from '@quajs/assets'
 import { Pipeline } from '@quajs/pipeline'
@@ -10,6 +9,7 @@ import {
 } from '@quajs/plugin-audio/contracts'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import { FONTS_PLUGIN_ID } from '@quajs/plugin-fonts/contracts'
+import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
 import {
   createFlowControlProjection,
   createViewLayoutProjection,
@@ -20,8 +20,8 @@ import {
 } from '@quajs/render-core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  clientPointToStageLogical,
   characterProjectionVars,
+  clientPointToStageLogical,
   collectTrackValues,
   createQuaWebDomRenderer,
   createQuaWebRendererController,
@@ -562,6 +562,69 @@ describe('@quajs/renderer-web', () => {
 
     expect(choices).toEqual(['yes'])
     expect(advances).toEqual([{ source: 'dialogue' }, { source: 'stage-click' }])
+
+    await renderer.unmount()
+  })
+
+  it('renders native DOM schema-driven settings forms and emits settings update intents', async () => {
+    const pipeline = new Pipeline()
+    const updates: unknown[] = []
+    pipeline.on(SettingsRenderToLogicEvents.UPDATE_REQUEST, context => updates.push(context.event.payload))
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            settings: { open: true },
+          },
+        },
+        plugins: {
+          [SETTINGS_PLUGIN_ID]: settingsProjection(),
+        },
+      }),
+    })
+
+    await renderer.mount()
+
+    expect(root.querySelector('.qua-settings-panel')).not.toBeNull()
+    expect(root.textContent).toContain('System')
+    expect(root.textContent).toContain('Text Speed')
+
+    const textSpeed = root.querySelector<HTMLInputElement>('[data-settings-field="textSpeedCps"] input')
+    textSpeed!.value = '72'
+    textSpeed!.dispatchEvent(new Event('input'))
+    await flushDom()
+    expect(updates).toEqual([])
+
+    textSpeed!.dispatchEvent(new Event('change'))
+    await flushDom()
+
+    const skipMode = root.querySelector<HTMLSelectElement>('[data-settings-field="skipMode"] select')
+    skipMode!.value = JSON.stringify('all')
+    skipMode!.dispatchEvent(new Event('change'))
+    await flushDom()
+
+    const layout = root.querySelector<HTMLTextAreaElement>('[data-settings-field="layout"] textarea')
+    layout!.value = JSON.stringify({ gap: 16 })
+    layout!.dispatchEvent(new Event('change'))
+    await flushDom()
+
+    const custom = root.querySelector<HTMLElement>('[data-settings-field="shader"] .qua-settings-custom-control')
+    expect(custom?.getAttribute('data-settings-component')).toBe('ShaderPicker')
+    expect(root.querySelector('[data-settings-field="shader"] input')).toBeNull()
+
+    expect(updates).toEqual([
+      { scope: 'system', patch: { textSpeedCps: 72 } },
+      { scope: 'system', patch: { skipMode: 'all' } },
+      { scope: 'system', patch: { layout: { gap: 16 } } },
+    ])
 
     await renderer.unmount()
   })
@@ -1364,6 +1427,109 @@ function view(overrides: Partial<QuaViewProjection> = {}): QuaViewProjection {
     animations: [],
     plugins: {},
     ...overrides,
+  }
+}
+
+function settingsProjection() {
+  return {
+    revision: 1,
+    profileId: 'default',
+    updatedAt: 1,
+    scopes: {
+      system: {
+        title: 'System',
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            textSpeedCps: {
+              type: 'number',
+              title: 'Text Speed',
+              minimum: 5,
+              maximum: 120,
+              multipleOf: 1,
+            },
+            skipMode: {
+              type: 'string',
+              title: 'Skip Mode',
+              enum: ['read', 'all'],
+            },
+            confirmBeforeQuit: {
+              type: 'boolean',
+              title: 'Confirm Before Quit',
+            },
+            layout: {
+              type: 'object',
+              title: 'Layout',
+              properties: {
+                gap: {
+                  type: 'number',
+                },
+              },
+            },
+            shader: {
+              type: 'string',
+              title: 'Shader',
+            },
+          },
+        },
+        ui: {
+          label: 'System',
+          order: 0,
+          controls: {
+            textSpeedCps: {
+              control: 'slider',
+              order: 0,
+              min: 5,
+              max: 120,
+              step: 1,
+            },
+            skipMode: {
+              control: 'select',
+              order: 1,
+              options: [
+                { label: 'Read Text', value: 'read' },
+                { label: 'All Text', value: 'all' },
+              ],
+            },
+            confirmBeforeQuit: {
+              control: 'switch',
+              order: 2,
+            },
+            layout: {
+              control: 'text',
+              order: 3,
+            },
+            shader: {
+              control: 'custom',
+              component: 'ShaderPicker',
+              props: {
+                mode: 'compact',
+              },
+              order: 4,
+            },
+          },
+        },
+        defaults: {
+          textSpeedCps: 45,
+          skipMode: 'read',
+          confirmBeforeQuit: true,
+          layout: {
+            gap: 8,
+          },
+          shader: 'soft',
+        },
+        values: {
+          textSpeedCps: 45,
+          skipMode: 'read',
+          confirmBeforeQuit: true,
+          layout: {
+            gap: 8,
+          },
+          shader: 'soft',
+        },
+      },
+    },
   }
 }
 

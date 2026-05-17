@@ -28,8 +28,9 @@ Framework renderers such as `@quajs/renderer-vue` should build on this package i
 - `@quajs/renderer-web/plugins/choices`
 - `@quajs/renderer-web/plugins/effects`
 - `@quajs/renderer-web/plugins/ui`
+- `@quajs/renderer-web/plugins/settings`: schema-driven settings panel projection for `@quajs/plugin-settings`.
 - `@quajs/renderer-web/plugins/audio`: WebAudio renderer plugin for framework-neutral Web renderer hosts.
-- `@quajs/renderer-web/plugins/preset`: visual novel DOM preset, including background, sprite, character, effects, dialogue, choices, audio, and UI overlay projection.
+- `@quajs/renderer-web/plugins/preset`: visual novel DOM preset, including background, sprite, character, effects, dialogue, choices, audio, settings, and UI overlay projection.
 
 ## Stage And Background Projection
 
