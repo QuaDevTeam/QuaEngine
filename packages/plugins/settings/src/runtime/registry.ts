@@ -16,11 +16,12 @@ export class SettingsScopeRegistry {
       throw new Error(`Settings scope "${contribution.scope}" is already registered.`)
     }
 
-    this.scopes.set(contribution.scope, contribution)
+    const registered = { ...contribution }
+    this.scopes.set(contribution.scope, registered)
     this.notify()
 
     return () => {
-      if (this.scopes.get(contribution.scope) === contribution) {
+      if (this.scopes.get(contribution.scope) === registered) {
         this.scopes.delete(contribution.scope)
         this.notify()
       }
@@ -69,17 +70,18 @@ export class SettingsScopeRegistry {
   }
 }
 
-const registries = new WeakMap<QuaEngineInterface, SettingsScopeRegistry>()
+const registries = new WeakMap<object, SettingsScopeRegistry>()
 
 export function getSettingsScopeRegistry(target: EngineContext | QuaEngineInterface): SettingsScopeRegistry {
   const engine = resolveSettingsEngine(target)
-  const existing = registries.get(engine)
+  const key = settingsRegistryKey(engine)
+  const existing = registries.get(key)
   if (existing) {
     return existing
   }
 
   const registry = new SettingsScopeRegistry()
-  registries.set(engine, registry)
+  registries.set(key, registry)
   return registry
 }
 
@@ -87,7 +89,8 @@ export function registerSettingsScope(
   target: EngineContext | QuaEngineInterface,
   contribution: AnySettingsScopeContribution,
 ): () => void {
-  return getSettingsScopeRegistry(target).registerScope(contribution)
+  const engine = resolveSettingsEngine(target)
+  return getSettingsScopeRegistry(engine).registerScope(withCurrentRuntimeSettingsPackage(engine, contribution))
 }
 
 export function getSettingsBridge(target: EngineContext | QuaEngineInterface): SettingsBridge | undefined {
@@ -96,4 +99,30 @@ export function getSettingsBridge(target: EngineContext | QuaEngineInterface): S
 
 function resolveSettingsEngine(target: EngineContext | QuaEngineInterface): QuaEngineInterface {
   return 'engine' in target ? target.engine : target
+}
+
+function settingsRegistryKey(engine: QuaEngineInterface): object {
+  return engine.getStore()
+}
+
+function withCurrentRuntimeSettingsPackage(
+  engine: QuaEngineInterface,
+  contribution: AnySettingsScopeContribution,
+): AnySettingsScopeContribution {
+  if (contribution.packageId) {
+    return contribution
+  }
+  const packageId = currentRuntimePackageId(engine)
+  if (!packageId) {
+    return contribution
+  }
+  return {
+    ...contribution,
+    packageId,
+  }
+}
+
+function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined {
+  return (engine as Partial<QuaEngineInterface>).getCurrentRuntimePackageId?.()
+    || (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
 }

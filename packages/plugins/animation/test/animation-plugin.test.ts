@@ -170,6 +170,45 @@ describe('@quajs/plugin-animation', () => {
     await expect(playAnimationWithEngine(engine, 'runtime.flash')).rejects.toThrow('Animation definition "runtime.flash" is not registered.')
   })
 
+  it('shares animation definitions across package-scoped engine facades', async () => {
+    const engine = createEngine()
+    const plugin = new AnimationPlugin()
+    await plugin.init(createPluginContext(engine))
+
+    await withRuntimePackageContext(engine, 'runtime.animation', async (runtimeEngine) => {
+      await registerAnimationWithEngine(runtimeEngine, {
+        id: 'runtime.flash',
+        duration: 1000,
+        tracks: [{
+          target: 'stage:main',
+          property: 'opacity',
+          keyframes: [
+            { at: 0, value: 0 },
+            { at: 1000, value: 1 },
+          ],
+        }],
+      })
+    })
+
+    await playAnimationWithEngine(engine, 'runtime.flash')
+
+    expect(engine.getViewState().animations[0]).toEqual(expect.objectContaining({
+      definitionId: 'runtime.flash',
+      contentPackageId: 'runtime.animation',
+    }))
+
+    await plugin.onRuntimePackageUnload?.({
+      ...createPluginContext(engine),
+      runtimePackage: {
+        package: { id: 'runtime.animation', version: '1.0.0' },
+        bundleName: 'runtime.animation',
+      },
+    })
+
+    expect(engine.getViewState().animations).toEqual([])
+    await expect(playAnimationWithEngine(engine, 'runtime.flash')).rejects.toThrow('Animation definition "runtime.flash" is not registered.')
+  })
+
   it('projects delay, direction, fill, and commit metadata and keeps filled projections when requested', async () => {
     const engine = createEngine()
     const played = playTimelineWithEngine(engine, {
@@ -564,6 +603,7 @@ function createEngine(viewPatch: Partial<QuaViewProjection> = {}) {
     ...viewPatch,
   }
 
+  const store = { commit: vi.fn() }
   const engine = {
     getStoryPoint: vi.fn(() => undefined),
     getViewState: vi.fn(() => ({
@@ -658,13 +698,28 @@ function createEngine(viewPatch: Partial<QuaViewProjection> = {}) {
         [pluginId]: projection,
       }
     }),
-    getStore: vi.fn(() => ({
-      commit: vi.fn(),
-    })),
+    getStore: vi.fn(() => store),
   } as unknown as QuaEngineInterface & {
     moveCharacter: ReturnType<typeof vi.fn>
     setBackgroundProjection: ReturnType<typeof vi.fn>
   }
 
   return engine
+}
+
+async function withRuntimePackageContext<T>(
+  engine: QuaEngineInterface,
+  packageId: string,
+  operation: (engine: QuaEngineInterface) => T | Promise<T>,
+): Promise<T> {
+  const facade = new Proxy(engine, {
+    get(target, property, receiver) {
+      if (property === 'getCurrentRuntimePackageId') {
+        return () => packageId
+      }
+      const value = Reflect.get(target, property, receiver)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  })
+  return await operation(facade)
 }

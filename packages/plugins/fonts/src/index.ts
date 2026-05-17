@@ -154,7 +154,9 @@ function normalizeFontFace(
   if (!face.assetName.trim()) {
     throw new Error('Font assetName must not be empty.')
   }
-  const contentPackageId = face.contentPackageId || contentPackageIdFromMetadata(face.metadata) || engine.getStoryPoint()?.contentPackageId
+  const contentPackageId = face.contentPackageId
+    || contentPackageIdFromMetadata(face.metadata)
+    || currentRuntimePackageId(engine)
   return {
     ...face,
     family: face.family.trim(),
@@ -170,6 +172,11 @@ function fontFaceBelongsToPackage(face: Readonly<FontFaceProjection>, packageId:
 
 function contentPackageIdFromMetadata(metadata?: Readonly<Record<string, unknown>>): string | undefined {
   return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
+}
+
+function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined {
+  return (engine as Partial<QuaEngineInterface>).getCurrentRuntimePackageId?.()
+    || (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
 }
 
 export const metadata = {
