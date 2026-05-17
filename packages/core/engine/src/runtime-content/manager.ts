@@ -180,11 +180,8 @@ export class RuntimeContentManager {
       this.assertPackageNotReferencedByCurrentRuntimeState(packageId)
     }
 
-    await this.engine.withRuntimePackageContext(packageId, async (engine) => {
-      const scopedEngine = engine as RuntimePackageScopedEngine
-      await scopedEngine.notifyRuntimePackageUnload(record.manifest, record.bundle.bundleName)
-      await scopedEngine.clearRuntimePackageViewState(packageId)
-    })
+    await this.engine.notifyRuntimePackageUnload(record.manifest, record.bundle.bundleName)
+    await this.engine.clearRuntimePackageViewState(packageId)
 
     for (const pluginName of record.activatedEnginePluginNames.reverse()) {
       await this.engine.unuse(pluginName)

@@ -1,4 +1,5 @@
 import type { AssetRuntimeAdapter, BundleManifest, RuntimePackageManifest } from '@quajs/assets'
+import type { EngineContext, EnginePlugin } from '../src'
 import type { RuntimePackageTrustContext } from '../src'
 import { MemoryAssetStorage } from '@quajs/assets'
 import { MemoryBackend } from '@quajs/store'
@@ -914,6 +915,73 @@ describe('quaEngine runtime architecture', () => {
     expect(engine.getPluginProjection('runtime-custom-view')).toBeUndefined()
   })
 
+  it('does not block plugin unload hooks for package-scoped registries', async () => {
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.registry',
+      version: '1.0.0',
+    })
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/registry.qpk': createQpkBundle(manifest, new Map()),
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+    engine.use(createRegistryProjectionPlugin())
+    await engine.loadRuntimePackage('registry.qpk')
+    await engine.setPluginProjection('runtime-registry', {
+      revision: 1,
+      entries: [{ id: 'font-face', contentPackageId: 'runtime.registry' }],
+    })
+
+    expect(engine.getRuntimeViewRequiredPackageIds()).toEqual([])
+    await engine.unloadRuntimePackage('runtime.registry')
+
+    expect(engine.getPluginProjection('runtime-registry')).toEqual({ revision: 2, entries: [] })
+  })
+
+  it('keeps top-level plugin projections as active unload blockers', async () => {
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.plugin-view',
+      version: '1.0.0',
+    })
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/plugin-view.qpk': createQpkBundle(manifest, new Map()),
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+    await engine.loadRuntimePackage('plugin-view.qpk')
+    await engine.setPluginProjection('runtime-active-plugin-view', {
+      contentPackageId: 'runtime.plugin-view',
+      value: true,
+    })
+
+    expect(engine.getRuntimeViewRequiredPackageIds()).toEqual(['runtime.plugin-view'])
+    await expect(engine.unloadRuntimePackage('runtime.plugin-view')).rejects.toThrow('current view projection')
+  })
+
   it('rejects runtime packages that fail the configured trust policy', async () => {
     const manifest = createRuntimeBundleManifest({
       id: 'runtime.unsigned',
@@ -1698,6 +1766,28 @@ function createScriptAssetInfo(name: string) {
     type: 'scripts' as const,
     locales: ['default'],
     mimeType: 'text/javascript',
+  }
+}
+
+function createRegistryProjectionPlugin(): EnginePlugin {
+  return {
+    name: 'runtime-registry-plugin',
+    id: 'runtime-registry',
+    async init() {},
+    async onRuntimePackageUnload(ctx: EngineContext) {
+      const packageId = ctx.runtimePackage?.package.id
+      if (!packageId) {
+        return
+      }
+      const projection = ctx.engine.getPluginProjection<{ revision: number, entries: Array<{ contentPackageId?: string }> }>('runtime-registry')
+      if (!projection) {
+        return
+      }
+      await ctx.engine.setPluginProjection('runtime-registry', {
+        revision: projection.revision + 1,
+        entries: projection.entries.filter(entry => entry.contentPackageId !== packageId),
+      })
+    },
   }
 }
 
