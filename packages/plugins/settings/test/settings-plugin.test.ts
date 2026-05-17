@@ -8,8 +8,8 @@ import {
   BASE_SETTINGS_SCOPE,
   createMemorySettingsStorage,
   emitSettingsRenderToLogic,
-  getSettingsDeveloperValues,
   getSettingsBridge,
+  getSettingsDeveloperValues,
   getSettingsPlayerValues,
   getSettingsProjection,
   registerSettingsScope,
@@ -114,6 +114,110 @@ describe('@quajs/plugin-settings', () => {
     expect(getSettingsProjection(engine)?.scopes['readonly-demo'].values).toEqual({
       buildLabel: 'stable',
       volume: 0.7,
+    })
+  })
+
+  it('filters nested renderer fields and rejects hidden or read-only nested patches', async () => {
+    const engine = createEngine()
+    registerSettingsScope(engine, {
+      scope: 'nested-demo',
+      player: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            profile: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                theme: {
+                  type: 'string',
+                  title: 'Theme',
+                },
+                secret: {
+                  'type': 'string',
+                  'title': 'Secret',
+                  'x-qua-expose': false,
+                },
+                uiOnlyHidden: {
+                  type: 'string',
+                  title: 'UI Only Hidden',
+                },
+                locked: {
+                  type: 'string',
+                  title: 'Locked',
+                },
+              },
+            },
+          },
+        },
+        defaults: {
+          profile: {
+            theme: 'light',
+            secret: 'keep',
+            uiOnlyHidden: 'hidden',
+            locked: 'stable',
+          },
+        },
+        expose: {
+          include: ['profile'],
+          readonly: ['profile.locked'],
+        },
+        ui: {
+          controls: {
+            'profile.uiOnlyHidden': {
+              hidden: true,
+            },
+          },
+        },
+      },
+    })
+    engine.use(new SettingsPlugin({ builtin: false }))
+    await engine.init()
+
+    const projectedProfile = getSettingsProjection(engine)?.scopes['nested-demo'].schema.properties?.profile
+    expect(projectedProfile?.properties).toHaveProperty('theme')
+    expect(projectedProfile?.properties).toHaveProperty('locked')
+    expect(projectedProfile?.properties?.locked.readOnly).toBe(true)
+    expect(projectedProfile?.properties).not.toHaveProperty('secret')
+    expect(projectedProfile?.properties).not.toHaveProperty('uiOnlyHidden')
+    expect(getSettingsProjection(engine)?.scopes['nested-demo'].values).toEqual({
+      profile: {
+        theme: 'light',
+        locked: 'stable',
+      },
+    })
+
+    await expect(updatePlayerSettingsWithEngine(engine, 'nested-demo', {
+      profile: {
+        secret: 'leak',
+      },
+    })).resolves.toEqual(expect.objectContaining({
+      ok: false,
+      errors: [expect.objectContaining({ keyword: 'expose', path: 'profile.secret' })],
+    }))
+
+    await expect(updatePlayerSettingsWithEngine(engine, 'nested-demo', {
+      profile: {
+        locked: 'patched',
+      },
+    })).resolves.toEqual(expect.objectContaining({
+      ok: false,
+      errors: [expect.objectContaining({ keyword: 'readOnly', path: 'profile.locked' })],
+    }))
+
+    await expect(updatePlayerSettingsWithEngine(engine, 'nested-demo', {
+      profile: {
+        theme: 'dark',
+      },
+    })).resolves.toEqual(expect.objectContaining({ ok: true }))
+    expect(getSettingsPlayerValues(engine, 'nested-demo')).toEqual({
+      profile: {
+        theme: 'dark',
+        secret: 'keep',
+        uiOnlyHidden: 'hidden',
+        locked: 'stable',
+      },
     })
   })
 
