@@ -664,7 +664,7 @@ function trackBelongsToPackage(track: AudioTrackProjection, packageId: string): 
 function withCurrentRuntimeAudioPackage<
   TOptions extends { contentPackageId?: string, metadata?: Readonly<Record<string, unknown>> },
 >(engine: QuaEngineInterface, options: TOptions): TOptions {
-  const packageId = engine.getStoryPoint()?.contentPackageId
+  const packageId = currentRuntimePackageId(engine)
   if (!packageId || options.contentPackageId || contentPackageIdFromMetadata(options.metadata)) {
     return options
   }
@@ -678,7 +678,7 @@ function withCurrentRuntimeAudioMetadata(
   engine: QuaEngineInterface,
   metadata?: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> | undefined {
-  const packageId = engine.getStoryPoint()?.contentPackageId
+  const packageId = currentRuntimePackageId(engine)
   if (!packageId || metadata?.contentPackageId) {
     return metadata ? { ...metadata } : metadata
   }
@@ -690,6 +690,11 @@ function withCurrentRuntimeAudioMetadata(
 
 function contentPackageIdFromMetadata(metadata?: Readonly<Record<string, unknown>>): string | undefined {
   return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
+}
+
+function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined {
+  return (engine as Partial<QuaEngineInterface>).getCurrentRuntimePackageId?.()
+    || (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
 }
 
 function mutateTracks(

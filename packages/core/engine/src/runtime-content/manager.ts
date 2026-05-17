@@ -4,8 +4,10 @@ import type {
   RuntimePackagePluginManifest,
   RuntimePackageStoreMigrationManifest,
 } from '@quajs/assets'
+import type { QuaSerializedState } from '@quajs/store'
 import type { QuaEngine } from '../core/engine'
 import type {
+  QuaEngineInterface,
   RuntimeLoadedPluginModule,
   RuntimeLoadedScriptModule,
   RuntimeModuleLoader,
@@ -29,6 +31,20 @@ interface LoadedRuntimePackage {
   state: RuntimePackageStateRecord
   activatedEnginePluginNames: string[]
 }
+
+interface ActivationRollbackState {
+  serializedState: QuaSerializedState
+  runtimeState: RuntimePackageStateRecord
+  activatedEnginePluginCount: number
+}
+
+type RuntimePackageScopedEngine = QuaEngineInterface & Pick<QuaEngine,
+  | 'useRuntimePlugin'
+  | 'notifyRuntimePackageActivate'
+  | 'notifyRuntimePackageUnload'
+  | 'notifyRuntimePackageMigrate'
+  | 'clearRuntimePackageViewState'
+>
 
 export class RuntimeContentManager {
   private readonly packages = new Map<string, LoadedRuntimePackage>()
@@ -106,12 +122,17 @@ export class RuntimeContentManager {
     }
 
     this.activatingPackages.add(packageId)
+    let rollback: ActivationRollbackState | undefined
     try {
       await this.ensureRuntimePackages(record.manifest.dependencies || [])
+      rollback = this.createActivationRollbackState(record)
 
-      await this.activateEnginePlugins(record)
-      await this.applyStoryGraphDeltas(record)
-      await this.applyStoreMigrations(record)
+      await this.engine.withRuntimePackageContext(packageId, async (engine) => {
+        const scopedEngine = engine as RuntimePackageScopedEngine
+        await this.activateEnginePlugins(record, scopedEngine)
+        await this.applyStoryGraphDeltas(record, engine)
+        await this.applyStoreMigrations(record, engine)
+      })
 
       record.state = {
         ...record.state,
@@ -119,7 +140,9 @@ export class RuntimeContentManager {
         activatedAt: Date.now(),
       }
       this.engine.getStore().commit('upsertRuntimePackage', record.state)
-      await this.engine.notifyRuntimePackageActivate(record.manifest, record.bundle.bundleName)
+      await this.engine.withRuntimePackageContext(packageId, async (engine) => {
+        await (engine as RuntimePackageScopedEngine).notifyRuntimePackageActivate(record.manifest, record.bundle.bundleName)
+      })
       await emitLogicToRender(this.engine.getPipeline(), LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN, {
         packageId,
         plugins: (record.manifest.plugins || []).filter(plugin => plugin.kind === 'renderer'),
@@ -127,15 +150,9 @@ export class RuntimeContentManager {
       return { ...record.state }
     }
     catch (error) {
-      await this.rollbackActivatedEnginePlugins(record, 0)
-      await this.rollbackStoryGraphDeltas(record)
-      if (record.state.state === 'active') {
-        record.state = {
-          ...record.state,
-          state: 'loaded',
-          activatedAt: undefined,
-        }
-        this.engine.getStore().commit('upsertRuntimePackage', record.state)
+      if (rollback) {
+        await this.rollbackActivation(record, rollback)
+        await this.rollbackStoryGraphDeltas(record)
       }
       throw error
     }
@@ -163,8 +180,11 @@ export class RuntimeContentManager {
       this.assertPackageNotReferencedByCurrentRuntimeState(packageId)
     }
 
-    await this.engine.notifyRuntimePackageUnload(record.manifest, record.bundle.bundleName)
-    await this.engine.clearRuntimePackageViewState(packageId)
+    await this.engine.withRuntimePackageContext(packageId, async (engine) => {
+      const scopedEngine = engine as RuntimePackageScopedEngine
+      await scopedEngine.notifyRuntimePackageUnload(record.manifest, record.bundle.bundleName)
+      await scopedEngine.clearRuntimePackageViewState(packageId)
+    })
 
     for (const pluginName of record.activatedEnginePluginNames.reverse()) {
       await this.engine.unuse(pluginName)
@@ -281,8 +301,9 @@ export class RuntimeContentManager {
     const isProduction = (globalThis as typeof globalThis & {
       process?: { env?: { NODE_ENV?: string } }
     }).process?.env?.NODE_ENV === 'production'
-    const requireSignature = this.trustPolicy.requireSignature
-      ?? (isProduction || this.trustPolicy.allowUnsignedInDevelopment !== true)
+    const requireSignature = isProduction
+      ? true
+      : this.trustPolicy.requireSignature ?? this.trustPolicy.allowUnsignedInDevelopment !== true
 
     if (requireSignature && !manifest.signature?.value) {
       throw new Error(`Runtime package "${manifest.id}" is missing a required signature.`)
@@ -339,7 +360,7 @@ export class RuntimeContentManager {
     }
   }
 
-  private async activateEnginePlugins(record: LoadedRuntimePackage): Promise<void> {
+  private async activateEnginePlugins(record: LoadedRuntimePackage, engine: RuntimePackageScopedEngine = this.engine): Promise<void> {
     for (const plugin of record.manifest.plugins || []) {
       if (plugin.kind !== 'engine') {
         continue
@@ -351,7 +372,7 @@ export class RuntimeContentManager {
       if (!pluginInstance) {
         throw new Error(`Runtime package plugin "${plugin.id}" did not export an engine plugin.`)
       }
-      const registered = await this.engine.useRuntimePlugin(pluginInstance)
+      const registered = await engine.useRuntimePlugin(pluginInstance)
       if (!registered) {
         throw new Error(`Runtime package plugin "${plugin.id}" conflicts with already registered engine plugin "${pluginInstance.name}".`)
       }
@@ -364,6 +385,25 @@ export class RuntimeContentManager {
     for (const pluginName of pluginNames) {
       await this.engine.unuse(pluginName)
     }
+  }
+
+  private createActivationRollbackState(record: LoadedRuntimePackage): ActivationRollbackState {
+    return {
+      serializedState: this.engine.getStore().serializeState(),
+      runtimeState: { ...record.state },
+      activatedEnginePluginCount: record.activatedEnginePluginNames.length,
+    }
+  }
+
+  private async rollbackActivation(record: LoadedRuntimePackage, rollback: ActivationRollbackState): Promise<void> {
+    await this.rollbackActivatedEnginePlugins(record, rollback.activatedEnginePluginCount)
+    this.engine.getStore().restoreSerializedState(rollback.serializedState)
+    record.state = {
+      ...rollback.runtimeState,
+      state: 'loaded',
+      activatedAt: undefined,
+    }
+    this.engine.getStore().commit('upsertRuntimePackage', record.state)
   }
 
   private async rollbackStoryGraphDeltas(record: LoadedRuntimePackage): Promise<void> {
@@ -388,7 +428,7 @@ export class RuntimeContentManager {
     })
   }
 
-  private async applyStoryGraphDeltas(record: LoadedRuntimePackage): Promise<void> {
+  private async applyStoryGraphDeltas(record: LoadedRuntimePackage, engine: QuaEngineInterface = this.engine): Promise<void> {
     const deltas = record.manifest.storyGraphDeltas || []
     if (deltas.length === 0) {
       return
@@ -401,28 +441,28 @@ export class RuntimeContentManager {
     }
 
     for (const delta of deltas) {
-      await applyDelta(this.engine, delta, { packageId: record.manifest.id })
+      await applyDelta(engine, delta, { packageId: record.manifest.id })
     }
   }
 
-  private async applyStoreMigrations(record: LoadedRuntimePackage): Promise<void> {
-    const applied = new Set(this.engine.getRuntimeStateSnapshot().appliedRuntimeMigrations)
+  private async applyStoreMigrations(record: LoadedRuntimePackage, engine: QuaEngineInterface = this.engine): Promise<void> {
+    const applied = new Set(engine.getRuntimeStateSnapshot().appliedRuntimeMigrations)
     for (const migration of record.manifest.storeMigrations || []) {
       const migrationKey = createMigrationKey(record.manifest.id, migration)
       if (applied.has(migrationKey)) {
         continue
       }
       const handler = await this.resolveMigrationHandler(migration, record)
-      await this.engine.notifyRuntimePackageMigrate(record.manifest, record.bundle.bundleName, migration)
+      await (engine as RuntimePackageScopedEngine).notifyRuntimePackageMigrate(record.manifest, record.bundle.bundleName, migration)
       await handler({
-        engine: this.engine,
-        store: this.engine.getStore(),
-        assets: this.engine.getAssets(),
-        pipeline: this.engine.getPipeline(),
+        engine,
+        store: engine.getStore(),
+        assets: engine.getAssets(),
+        pipeline: engine.getPipeline(),
         package: record.manifest,
         migration,
       })
-      this.engine.getStore().commit('markRuntimeMigrationApplied', migrationKey)
+      engine.getStore().commit('markRuntimeMigrationApplied', migrationKey)
       applied.add(migrationKey)
     }
   }

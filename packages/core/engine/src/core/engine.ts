@@ -39,6 +39,7 @@ import type {
   OptionalGameStepFactory,
   RuntimePackageLoadOptions,
   RuntimePackageManifest,
+  QuaEngineInterface,
   RuntimePackageStateRecord,
   RuntimePackageStoreMigrationManifest,
   RuntimePackageUnloadOptions,
@@ -252,6 +253,10 @@ export class QuaEngine {
     await this.runtimeContentManager.ensureRuntimePackages(packageIds)
   }
 
+  async withRuntimePackageContext<T>(packageId: string | undefined, operation: (engine: QuaEngineInterface) => T | Promise<T>): Promise<T> {
+    return await operation(packageId ? createRuntimePackageEngineFacade(this, packageId) : this)
+  }
+
   async loadScene(scene: Scene, transition?: SceneTransitionOptions): Promise<void> {
     this.assertInitialized()
     await this.sceneManager.loadScene(scene, transition)
@@ -350,11 +355,12 @@ export class QuaEngine {
 
   async showDialogue(payload: DialogueIntent): Promise<void> {
     this.assertInitialized()
-    this.store.commit('setDialogue', payload)
+    const dialogue = this.withCurrentRuntimeContentMetadata(payload)
+    this.store.commit('setDialogue', dialogue)
     await emitLogicToRender(this.pipeline, L2R.DIALOGUE_SHOW, {
-      characterId: payload.characterId,
-      characterName: payload.characterName,
-      text: payload.text,
+      characterId: dialogue.characterId,
+      characterName: dialogue.characterName,
+      text: dialogue.text,
     })
     await this.emitViewUpdate()
     this.scheduleFlowControlAdvance()
@@ -415,21 +421,21 @@ export class QuaEngine {
 
   async moveCharacter(id: string, position: CharacterIntent['position']): Promise<void> {
     this.assertInitialized()
-    this.store.commit('moveCharacter', { id, position, contentPackageId: this.getStoryPoint()?.contentPackageId })
+    this.store.commit('moveCharacter', { id, position, contentPackageId: this.getCurrentRuntimePackageId() })
     await emitLogicToRender(this.pipeline, L2R.CHARACTER_MOVE, { id, position })
     await this.emitViewUpdate()
   }
 
   async setCharacterExpression(id: string, expression?: string): Promise<void> {
     this.assertInitialized()
-    this.store.commit('setCharacterExpression', { id, expression, contentPackageId: this.getStoryPoint()?.contentPackageId })
+    this.store.commit('setCharacterExpression', { id, expression, contentPackageId: this.getCurrentRuntimePackageId() })
     await emitLogicToRender(this.pipeline, L2R.CHARACTER_EXPRESSION, { id, expression })
     await this.emitViewUpdate()
   }
 
   async setCharacterSprite(id: string, sprite?: string): Promise<void> {
     this.assertInitialized()
-    this.store.commit('setCharacterSprite', { id, sprite, contentPackageId: this.getStoryPoint()?.contentPackageId })
+    this.store.commit('setCharacterSprite', { id, sprite, contentPackageId: this.getCurrentRuntimePackageId() })
     await emitLogicToRender(this.pipeline, L2R.CHARACTER_SPRITE, { id, sprite })
     await this.emitViewUpdate()
   }
@@ -469,7 +475,10 @@ export class QuaEngine {
 
   async setPluginProjection<T = unknown>(pluginId: string, projection?: T): Promise<void> {
     this.assertInitialized()
-    this.store.commit('setPluginProjection', { pluginId, projection })
+    const projected = shouldTagPluginProjectionWithRuntimePackage(projection)
+      ? this.withCurrentRuntimeContentConfig(projection as Readonly<Record<string, unknown>>) as T
+      : projection
+    this.store.commit('setPluginProjection', { pluginId, projection: projected })
     await this.emitViewUpdate()
   }
 
@@ -503,7 +512,7 @@ export class QuaEngine {
 
   async applyEffect(effect: EffectIntent): Promise<void> {
     this.assertInitialized()
-    const effectOptions = (effect.options || this.getStoryPoint()?.contentPackageId)
+    const effectOptions = (effect.options || this.getCurrentRuntimePackageId())
       ? this.withCurrentRuntimeContentConfig(effect.options || {})
       : undefined
     const next = {
@@ -851,6 +860,7 @@ export class QuaEngine {
 
   async clearRuntimePackageViewState(packageId: string): Promise<void> {
     this.store.commit('removeCharactersByRuntimePackage', packageId)
+    this.store.commit('clearDialogueByRuntimePackage', packageId)
     this.store.commit('clearBackgroundByRuntimePackage', packageId)
     this.store.commit('removeChoicesByRuntimePackage', packageId)
     this.store.commit('removeEffectsByRuntimePackage', packageId)
@@ -1143,6 +1153,10 @@ export class QuaEngine {
     return point?.contentPackageId ? [point.contentPackageId] : []
   }
 
+  getCurrentRuntimePackageId(): string | undefined {
+    return this.getStoryPoint()?.contentPackageId
+  }
+
   private getRequiredRuntimePackagesForCurrentState(
     point?: StoryPoint,
     metadata?: Record<string, unknown>,
@@ -1169,7 +1183,7 @@ export class QuaEngine {
   }
 
   private withCurrentRuntimeContentMetadata<T extends { metadata?: Readonly<Record<string, unknown>> }>(value: T): T {
-    const packageId = this.getStoryPoint()?.contentPackageId
+    const packageId = this.getCurrentRuntimePackageId()
     if (!packageId) {
       return value
     }
@@ -1180,7 +1194,7 @@ export class QuaEngine {
   }
 
   private withCurrentRuntimeBackgroundMetadata<T extends BackgroundIntent>(background: T): T {
-    const packageId = this.getStoryPoint()?.contentPackageId
+    const packageId = this.getCurrentRuntimePackageId()
     if (!packageId) {
       return background
     }
@@ -1206,7 +1220,7 @@ export class QuaEngine {
   }
 
   private withCurrentRuntimeContentConfig<T extends Readonly<Record<string, unknown>>>(value: T): Record<string, unknown> {
-    const packageId = this.getStoryPoint()?.contentPackageId
+    const packageId = this.getCurrentRuntimePackageId()
     if (!packageId || value.contentPackageId) {
       return cloneUnknownRecord(value)
     }
@@ -1374,7 +1388,7 @@ function createEngineMutations() {
     removePluginProjectionsByRuntimePackage(state: any, packageId: string) {
       const plugins = { ...(state.engine.view.plugins || {}) }
       for (const [pluginId, projection] of Object.entries(plugins)) {
-        if (collectRuntimePackagesFromUnknown(projection).includes(packageId)) {
+        if (recordRequiresPackage(projection, packageId)) {
           delete plugins[pluginId]
         }
       }
@@ -1482,10 +1496,17 @@ function createEngineMutations() {
         characterName: payload.characterName,
         text: cloneUnknownValue(payload.text) as DialogueIntent['text'],
         mode: payload.mode || (payload.characterId || payload.characterName ? 'say' : 'narration'),
+        metadata: payload.metadata,
       }
     },
     hideDialogue(state: any) {
       state.engine.view.dialogue = { visible: false, text: '' }
+    },
+    clearDialogueByRuntimePackage(state: any, packageId: string) {
+      const dialogue = state.engine.view.dialogue as DialogueIntent | undefined
+      if (recordRequiresPackage(dialogue?.metadata, packageId)) {
+        state.engine.view.dialogue = { visible: false, text: '' }
+      }
     },
     setChoices(state: any, choices: ChoiceIntent[]) {
       state.engine.view.choices = choices.map(choice => ({
@@ -1636,6 +1657,7 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
     dialogue: {
       ...view.dialogue,
       text: cloneUnknownValue(view.dialogue.text) as DialogueIntent['text'],
+      metadata: view.dialogue.metadata ? cloneUnknownRecord(view.dialogue.metadata) : undefined,
     },
     choices: view.choices.map(choice => ({
       ...choice,
@@ -1745,6 +1767,26 @@ function getRecordRuntimePackages(value: unknown): string[] {
 
 function recordRequiresPackage(value: unknown, packageId: string): boolean {
   return getRecordRuntimePackages(value).includes(packageId)
+}
+
+function shouldTagPluginProjectionWithRuntimePackage(value: unknown): value is Readonly<Record<string, unknown>> {
+  return Boolean(value)
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && collectRuntimePackagesFromUnknown(value).length === 0
+}
+
+function createRuntimePackageEngineFacade(engine: QuaEngine, packageId: string): QuaEngineInterface {
+  const facade = new Proxy(engine as unknown as QuaEngineInterface, {
+    get(target, property, receiver) {
+      if (property === 'getCurrentRuntimePackageId') {
+        return () => packageId
+      }
+      const value = Reflect.get(target, property, receiver)
+      return typeof value === 'function' ? value.bind(receiver) : value
+    },
+  })
+  return facade
 }
 
 function mergeRuntimePackageMetadata(

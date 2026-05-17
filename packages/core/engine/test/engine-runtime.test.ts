@@ -536,7 +536,10 @@ describe('quaEngine runtime architecture', () => {
             name: 'runtime-engine-plugin',
             init: enginePluginInit,
             destroy: enginePluginDestroy,
-            onRuntimePackageActivate: (ctx: any) => enginePluginHooks.push(`activate:${ctx.runtimePackage?.package.id}`),
+            onRuntimePackageActivate: async (ctx: any) => {
+              enginePluginHooks.push(`activate:${ctx.runtimePackage?.package.id}`)
+              await ctx.engine.showUI('runtime-activation-ui', { open: true })
+            },
             onRuntimePackageUnload: (ctx: any) => enginePluginHooks.push(`unload:${ctx.runtimePackage?.package.id}`),
           },
         })),
@@ -564,7 +567,15 @@ describe('quaEngine runtime architecture', () => {
     }))
     expect(engine.getCheckpoint('runtime-step')?.metadata?.requiredRuntimePackages).toEqual(['runtime.story'])
     expect((await engine.listSaveSlots())[0].metadata.requiredRuntimePackages).toEqual(['runtime.story'])
-    expect(engine.getPluginProjection('runtimeDefaults')).toEqual({ packageId: 'runtime.story', migrated: true })
+    expect(engine.getPluginProjection('runtimeDefaults')).toEqual({
+      contentPackageId: 'runtime.story',
+      packageId: 'runtime.story',
+      migrated: true,
+    })
+    expect(engine.getViewState().ui.overlays?.['runtime-activation-ui']).toEqual({
+      contentPackageId: 'runtime.story',
+      open: true,
+    })
     expect(migration).toHaveBeenCalledTimes(1)
     expect(enginePluginInit).toHaveBeenCalledTimes(1)
     expect(enginePluginHooks).toContain('activate:runtime.story')
@@ -698,7 +709,10 @@ describe('quaEngine runtime architecture', () => {
       contentPackageId: 'runtime.scene.b',
       scriptModuleId: 'runtime.scene.b.module',
     }))
-    expect((await engine.listSaveSlots())[0].metadata.requiredRuntimePackages).toEqual(['runtime.scene.b'])
+    expect((await engine.listSaveSlots())[0].metadata.requiredRuntimePackages).toEqual([
+      'runtime.scene.b',
+      'runtime.scene.a',
+    ])
 
     await engine.unloadRuntimePackage('runtime.scene.b', { force: true })
     await engine.quickLoad()
@@ -850,6 +864,7 @@ describe('quaEngine runtime architecture', () => {
             uuid: 'runtime-view-step',
             run: async (ctx: any) => {
               await ctx.engine.showCharacter({ id: 'RuntimeHero', sprite: 'hero/base.png' })
+              await ctx.engine.showDialogue({ text: 'Runtime dialogue' })
               await ctx.engine.setBackgroundProjection({ mode: 'image', assetName: 'runtime-bg.png' })
               await ctx.engine.showChoices([{ id: 'runtime-choice', text: 'Runtime Choice' }])
               await ctx.engine.applyEffect({ id: 'runtime-flash', type: 'flash' })
@@ -871,11 +886,19 @@ describe('quaEngine runtime architecture', () => {
     await engine.runScriptModule('runtime.view.module')
 
     expect(engine.getViewState().characters[0].metadata).toEqual({ contentPackageId: 'runtime.view' })
+    expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
+      visible: true,
+      text: 'Runtime dialogue',
+      metadata: { contentPackageId: 'runtime.view' },
+    }))
     expect(engine.getViewState().background?.metadata).toEqual({ contentPackageId: 'runtime.view' })
     expect(engine.getViewState().choices[0].metadata).toEqual({ contentPackageId: 'runtime.view' })
     expect(engine.getViewState().effects[0].options).toEqual({ contentPackageId: 'runtime.view' })
     expect(engine.getViewState().ui.overlays?.['runtime-panel']).toEqual({ open: true, contentPackageId: 'runtime.view' })
     expect(engine.getPluginProjection('runtime-custom-view')).toEqual({ contentPackageId: 'runtime.view', value: true })
+
+    await engine.quickSave({ name: 'Runtime view deps' })
+    expect((await engine.listSaveSlots())[0].metadata.requiredRuntimePackages).toEqual(['runtime.view'])
 
     await engine.setStoryPoint({ sceneId: 'base-scene', stepId: 'base-step' })
     await engine.createCheckpoint({ id: 'base-checkpoint', kind: 'manual' })
@@ -883,6 +906,7 @@ describe('quaEngine runtime architecture', () => {
     await engine.unloadRuntimePackage('runtime.view', { force: true })
 
     expect(engine.getViewState().characters).toEqual([])
+    expect(engine.getViewState().dialogue).toEqual({ visible: false, text: '' })
     expect(engine.getViewState().background).toBeUndefined()
     expect(engine.getViewState().choices).toEqual([])
     expect(engine.getViewState().effects).toEqual([])
@@ -912,6 +936,37 @@ describe('quaEngine runtime architecture', () => {
     await engine.init()
 
     await expect(engine.loadRuntimePackage('unsigned.qpk')).rejects.toThrow('missing a required signature')
+  })
+
+  it('requires signatures in production even when development opts allow unsigned packages', async () => {
+    const previousNodeEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.production-unsigned',
+      version: '1.0.0',
+    })
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/production-unsigned.qpk': createQpkBundle(manifest, new Map()),
+        }),
+      },
+      trustPolicy: {
+        requireSignature: false,
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+
+    try {
+      await expect(engine.loadRuntimePackage('production-unsigned.qpk')).rejects.toThrow('missing a required signature')
+      expect(engine.getRuntimePackages()).toEqual([])
+      expect(await engine.getAssets().getBundleManifest('runtime.production-unsigned')).toBeUndefined()
+    }
+    finally {
+      process.env.NODE_ENV = previousNodeEnv
+    }
   })
 
   it('exposes the computed bundle hash to the trust verifier', async () => {
@@ -1004,14 +1059,24 @@ describe('quaEngine runtime architecture', () => {
         { id: 'runtime.activate-fails.engine', kind: 'engine', module: 'runtime-engine-plugin' },
         { id: 'runtime.activate-fails.renderer', kind: 'renderer', assetName: 'renderer.js' },
       ],
+      storeMigrations: [
+        { id: 'runtime.activate-fails.defaults', version: '1', scope: 'runtime', assetName: 'migrate.js' },
+      ],
     })
     const runtimeDestroy = vi.fn()
+    const migration = vi.fn(async (ctx: any) => {
+      await ctx.engine.setPluginProjection('activationRollback', {
+        contentPackageId: ctx.package.id,
+        migrated: true,
+      })
+    })
     const rendererPluginEvents: unknown[] = []
     const engine = new QuaEngine({
       assets: {
         endpoint: 'https://cdn.example.com',
         adapter: createMemoryAdapter({
           'https://cdn.example.com/activate-fails.qpk': createQpkBundle(manifest, new Map([
+            ['assets/scripts/migrate.js', utf8('export default function migrate() {}')],
             ['assets/scripts/renderer.js', utf8('export default {}')],
           ])),
         }),
@@ -1022,6 +1087,7 @@ describe('quaEngine runtime architecture', () => {
         },
       },
       runtimeModuleLoader: {
+        loadStoreMigrationModule: vi.fn(async () => ({ default: migration })),
         loadEnginePluginModule: vi.fn(async () => ({
           default: {
             name: 'activate-fails-plugin',
@@ -1043,6 +1109,9 @@ describe('quaEngine runtime architecture', () => {
     await engine.loadRuntimePackage('activate-fails.qpk', { activate: false })
     await expect(engine.activateRuntimePackage('runtime.activate-fails')).rejects.toThrow('activation hook failed')
 
+    expect(migration).toHaveBeenCalledTimes(1)
+    expect(engine.getPluginProjection('activationRollback')).toBeUndefined()
+    expect(engine.getRuntimeStateSnapshot().appliedRuntimeMigrations).not.toContain('runtime.activate-fails:runtime.activate-fails.defaults:1')
     expect(engine.getRuntimePackages().find(pkg => pkg.id === 'runtime.activate-fails')).toEqual(expect.objectContaining({
       state: 'loaded',
       activatedAt: undefined,
@@ -1050,6 +1119,82 @@ describe('quaEngine runtime architecture', () => {
     expect(runtimeDestroy).toHaveBeenCalledTimes(1)
     expect(rendererPluginEvents).toEqual([])
     expect(await engine.getAssets().getBundleManifest('runtime.activate-fails')).toBeDefined()
+  })
+
+  it('keeps dependency package activation when a dependent package rolls back', async () => {
+    const baseManifest = createRuntimeBundleManifest({
+      id: 'runtime.rollback-base',
+      version: '1.0.0',
+      storeMigrations: [
+        { id: 'runtime.rollback-base.defaults', version: '1', scope: 'runtime', assetName: 'base-migrate.js' },
+      ],
+    })
+    const childManifest = createRuntimeBundleManifest({
+      id: 'runtime.rollback-child',
+      version: '1.0.0',
+      dependencies: ['runtime.rollback-base'],
+      plugins: [
+        { id: 'runtime.rollback-child.engine', kind: 'engine', module: 'runtime-child-plugin' },
+      ],
+    })
+    const baseMigration = vi.fn(async (ctx: any) => {
+      await ctx.engine.setPluginProjection('rollbackBase', {
+        contentPackageId: ctx.package.id,
+        activated: true,
+      })
+    })
+    const childDestroy = vi.fn()
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/rollback-base.qpk': createQpkBundle(baseManifest, new Map([
+            ['assets/scripts/base-migrate.js', utf8('export default function migrate() {}')],
+          ])),
+          'https://cdn.example.com/rollback-child.qpk': createQpkBundle(childManifest, new Map()),
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      runtimeModuleLoader: {
+        loadStoreMigrationModule: vi.fn(async () => ({ default: baseMigration })),
+        loadEnginePluginModule: vi.fn(async () => ({
+          default: {
+            name: 'rollback-child-plugin',
+            init: vi.fn(),
+            destroy: childDestroy,
+            onRuntimePackageActivate: () => {
+              throw new Error('child activation failed')
+            },
+          },
+        })),
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+
+    await engine.loadRuntimePackage('rollback-base.qpk', { activate: false })
+    await engine.loadRuntimePackage('rollback-child.qpk', { activate: false })
+    await expect(engine.activateRuntimePackage('runtime.rollback-child')).rejects.toThrow('child activation failed')
+
+    expect(baseMigration).toHaveBeenCalledTimes(1)
+    expect(childDestroy).toHaveBeenCalledTimes(1)
+    expect(engine.getRuntimePackages().find(pkg => pkg.id === 'runtime.rollback-base')).toEqual(expect.objectContaining({
+      state: 'active',
+    }))
+    expect(engine.getRuntimePackages().find(pkg => pkg.id === 'runtime.rollback-child')).toEqual(expect.objectContaining({
+      state: 'loaded',
+      activatedAt: undefined,
+    }))
+    expect(engine.getPluginProjection('rollbackBase')).toEqual({
+      contentPackageId: 'runtime.rollback-base',
+      activated: true,
+    })
   })
 
   it('prevents unloading active runtime package dependencies', async () => {

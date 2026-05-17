@@ -113,6 +113,8 @@ export interface QuaEngineInterface {
   getAssets: () => QuaAssets
   getPipeline: () => Pipeline
   ensureRuntimePackages: (packageIds: readonly string[]) => Promise<void>
+  getCurrentRuntimePackageId: () => string | undefined
+  getRuntimeStateSnapshot: () => EngineRuntimeState
   getViewState: () => QuaViewProjection
   getFlowControlState: () => ViewFlowControlProjection
   unloadRuntimePackage: (packageId: string, options?: RuntimePackageUnloadOptions) => Promise<void>
@@ -153,6 +155,7 @@ export interface QuaEngineInterface {
   autoSave: (metadata?: SlotMetadata) => Promise<void>
   listSaveSlots: () => Promise<import('@quajs/store').QuaGameSaveSlotMeta[]>
   deleteSaveSlot: (slotId: string) => Promise<void>
+  withRuntimePackageContext: <T>(packageId: string | undefined, operation: (engine: QuaEngineInterface) => T | Promise<T>) => Promise<T>
 }
 
 export type QuaEngineWaitFor = <T extends import('../events/events').LogicToRenderEvents | import('../events/events').RenderToLogicEvents>(
@@ -402,6 +405,7 @@ export interface DialogueIntent {
   characterName?: string
   text: RichTextContent
   mode?: 'say' | 'narration'
+  metadata?: Record<string, unknown>
 }
 
 export interface ChoiceIntent {

@@ -319,6 +319,7 @@ export interface ViewDialogueProjection {
   characterName?: string
   text: RichTextContent
   mode?: 'say' | 'narration'
+  metadata?: Readonly<Record<string, unknown>>
 }
 
 export interface ViewChoiceProjection {
