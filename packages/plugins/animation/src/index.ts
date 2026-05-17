@@ -106,7 +106,7 @@ interface AnimationRuntime {
   counter: number
 }
 
-const runtimes = new WeakMap<QuaEngineInterface, AnimationRuntime>()
+const runtimes = new WeakMap<object, AnimationRuntime>()
 const globalAdapters = new Map<string, AnimationTargetAdapter>()
 
 registerBuiltInAdapters()
@@ -662,7 +662,8 @@ function isBindingArray(bindings: AnimationTargetBindings): bindings is readonly
 }
 
 function getRuntime(engine: QuaEngineInterface): AnimationRuntime {
-  const current = runtimes.get(engine)
+  const key = animationRuntimeKey(engine)
+  const current = runtimes.get(key)
   if (current)
     return current
 
@@ -674,8 +675,12 @@ function getRuntime(engine: QuaEngineInterface): AnimationRuntime {
     warned: new Set(),
     counter: 0,
   }
-  runtimes.set(engine, runtime)
+  runtimes.set(key, runtime)
   return runtime
+}
+
+function animationRuntimeKey(engine: QuaEngineInterface): object {
+  return engine.getStore()
 }
 
 async function clearAnimationRuntime(engine: QuaEngineInterface): Promise<void> {

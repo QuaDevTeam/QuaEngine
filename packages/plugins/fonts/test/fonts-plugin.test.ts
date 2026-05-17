@@ -93,6 +93,27 @@ describe('@quajs/plugin-fonts', () => {
       expect.objectContaining({ family: 'Base Serif', contentPackageId: 'base' }),
     ])
   })
+
+  it('tags fonts registered through package-scoped engine facades', async () => {
+    const engine = createEngine()
+    engine.use(new FontsPlugin())
+    await engine.init()
+
+    await engine.withRuntimePackageContext('runtime.fonts', async (runtimeEngine) => {
+      await registerFontWithEngine(runtimeEngine, 'Runtime Sans', 'runtime.woff2')
+    })
+
+    expect(getFontsProjection(engine).faces).toEqual([
+      expect.objectContaining({
+        family: 'Runtime Sans',
+        contentPackageId: 'runtime.fonts',
+      }),
+    ])
+
+    await clearRuntimePackageFontsWithEngine(engine, 'runtime.fonts')
+
+    expect(getFontsProjection(engine).faces).toEqual([])
+  })
 })
 
 function createEngine(): QuaEngine {

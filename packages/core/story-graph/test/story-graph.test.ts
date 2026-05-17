@@ -421,6 +421,143 @@ describe('@quajs/story-graph', () => {
     await removeRuntimePackageStoryGraphContentWithEngine(engine, 'runtime.scene.a')
     expect(getStoryGraphProjection(engine).graphs['runtime-only']).toBeUndefined()
   })
+
+  it('keeps package deltas shared across package-scoped engine facades', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+    await registerStoryGraphWithEngine(engine, {
+      id: 'main',
+      nodes: [{ id: 'base', point: { storyId: 'main', stepId: 'base' } }],
+      edges: [],
+    })
+
+    await engine.withRuntimePackageContext('runtime.scene.a', async (runtimeAEngine) => {
+      await registerStoryGraphDeltaWithEngine(runtimeAEngine, {
+        id: 'delta:runtime-a',
+        graphId: 'main',
+        nodes: [{ id: 'a-node', point: { storyId: 'main', stepId: 'a-step' } }],
+        edges: [{ from: 'base', to: 'a-node', kind: 'event' }],
+      }, { packageId: 'runtime.scene.a' })
+    })
+    await engine.withRuntimePackageContext('runtime.scene.b', async (runtimeBEngine) => {
+      await registerStoryGraphDeltaWithEngine(runtimeBEngine, {
+        id: 'delta:runtime-b',
+        graphId: 'main',
+        nodes: [{ id: 'b-node', point: { storyId: 'main', stepId: 'b-step' } }],
+        edges: [{ from: 'a-node', to: 'b-node', kind: 'event' }],
+      }, { packageId: 'runtime.scene.b' })
+    })
+
+    expect(getStoryGraphProjection(engine).graphs.main.nodes.map(node => node.id).sort()).toEqual([
+      'a-node',
+      'b-node',
+      'base',
+    ])
+
+    await removeRuntimePackageStoryGraphContentWithEngine(engine, 'runtime.scene.a')
+
+    const graph = getStoryGraphProjection(engine).graphs.main
+    expect(graph.nodes.map(node => node.id).sort()).toEqual([
+      'b-node',
+      'base',
+    ])
+    expect(graph.edges).toEqual([])
+  })
+
+  it('tags full graphs registered through package-scoped engine facades', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+
+    await engine.withRuntimePackageContext('runtime.graph', async (runtimeEngine) => {
+      await registerStoryGraphWithEngine(runtimeEngine, {
+        id: 'runtime-main',
+        lanes: [{ id: 'lane-a', kind: 'timeline' }],
+        nodes: [{ id: 'runtime-node', point: { storyId: 'runtime-main', stepId: 'runtime-step' } }],
+        edges: [{ id: 'runtime-edge', from: 'runtime-node', to: 'future-node', kind: 'event' }],
+      })
+    })
+
+    const graph = getStoryGraphProjection(engine).graphs['runtime-main']
+    expect(graph.metadata).toEqual(expect.objectContaining({ contentPackageId: 'runtime.graph' }))
+    expect(graph.nodes[0].point.contentPackageId).toBe('runtime.graph')
+    expect(graph.nodes[0].metadata).toEqual(expect.objectContaining({ contentPackageId: 'runtime.graph' }))
+    expect(graph.edges?.[0].metadata).toEqual(expect.objectContaining({ contentPackageId: 'runtime.graph' }))
+    expect(graph.lanes?.[0].metadata).toEqual(expect.objectContaining({ contentPackageId: 'runtime.graph' }))
+
+    await removeRuntimePackageStoryGraphContentWithEngine(engine, 'runtime.graph')
+
+    expect(getStoryGraphProjection(engine).graphs['runtime-main']).toBeUndefined()
+  })
+
+  it('does not resurrect package-owned base graphs after later delta rebuilds', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+
+    await registerStoryGraphDeltaWithEngine(engine, {
+      id: 'delta:runtime-a',
+      graphId: 'main',
+      nodes: [{ id: 'a-node', point: { storyId: 'main', stepId: 'a-step' } }],
+    }, { packageId: 'runtime.scene.a' })
+    await engine.withRuntimePackageContext('runtime.graph', async (runtimeEngine) => {
+      await registerStoryGraphWithEngine(runtimeEngine, {
+        id: 'runtime-main',
+        nodes: [{ id: 'runtime-node', point: { storyId: 'runtime-main', stepId: 'runtime-step' } }],
+      })
+    })
+
+    await removeRuntimePackageStoryGraphContentWithEngine(engine, 'runtime.graph')
+    await registerStoryGraphDeltaWithEngine(engine, {
+      id: 'delta:runtime-b',
+      graphId: 'main',
+      nodes: [{ id: 'b-node', point: { storyId: 'main', stepId: 'b-step' } }],
+    }, { packageId: 'runtime.scene.b' })
+
+    expect(getStoryGraphProjection(engine).graphs['runtime-main']).toBeUndefined()
+    expect(getStoryGraphProjection(engine).graphs.main.nodes.map(node => node.id).sort()).toEqual([
+      'a-node',
+      'b-node',
+    ])
+  })
+
+  it('preserves valid forward-declared edges when another package unloads', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+    await registerStoryGraphWithEngine(engine, {
+      id: 'main',
+      nodes: [{ id: 'base', point: { storyId: 'main', stepId: 'base' } }],
+      edges: [],
+    })
+
+    await engine.withRuntimePackageContext('runtime.scene.a', async (runtimeAEngine) => {
+      await registerStoryGraphDeltaWithEngine(runtimeAEngine, {
+        id: 'delta:runtime-a',
+        graphId: 'main',
+        nodes: [{ id: 'a-node', point: { storyId: 'main', stepId: 'a-step' } }],
+        edges: [{ from: 'base', to: 'a-node', kind: 'event' }],
+      }, { packageId: 'runtime.scene.a' })
+    })
+    await engine.withRuntimePackageContext('runtime.scene.b', async (runtimeBEngine) => {
+      await registerStoryGraphDeltaWithEngine(runtimeBEngine, {
+        id: 'delta:runtime-b',
+        graphId: 'main',
+        nodes: [{ id: 'b-node', point: { storyId: 'main', stepId: 'b-step' } }],
+        edges: [{ from: 'b-node', to: 'future-c-node', kind: 'event' }],
+      }, { packageId: 'runtime.scene.b' })
+    })
+
+    await removeRuntimePackageStoryGraphContentWithEngine(engine, 'runtime.scene.a')
+
+    expect(getStoryGraphProjection(engine).graphs.main.edges).toEqual([
+      expect.objectContaining({
+        from: 'b-node',
+        to: 'future-c-node',
+      }),
+    ])
+  })
 })
 
 function createEngine(): QuaEngine {
