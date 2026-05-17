@@ -855,7 +855,7 @@ export class QuaEngine {
   }
 
   getRuntimeViewRequiredPackageIds(): string[] {
-    return this.getRequiredRuntimePackagesForCurrentView()
+    return this.getRequiredRuntimePackagesForActiveView()
   }
 
   async clearRuntimePackageViewState(packageId: string): Promise<void> {
@@ -1171,6 +1171,10 @@ export class QuaEngine {
 
   private getRequiredRuntimePackagesForCurrentView(): string[] {
     return collectRuntimePackagesFromUnknown(this.getEngineState().view)
+  }
+
+  private getRequiredRuntimePackagesForActiveView(): string[] {
+    return collectRuntimePackagesFromActiveView(this.getEngineState().view)
   }
 
   private getCurrentCheckpointRequiredRuntimePackages(point?: StoryPoint): string[] {
@@ -1839,6 +1843,25 @@ function collectRuntimePackagesFromUnknown(value: unknown, seen = new Set<object
     }
   }
   return [...packages]
+}
+
+function collectRuntimePackagesFromActiveView(view: QuaViewProjection): string[] {
+  return mergeRequiredRuntimePackages(
+    collectRuntimePackagesFromUnknown(view.background),
+    collectRuntimePackagesFromUnknown(view.characters),
+    collectRuntimePackagesFromUnknown(view.dialogue),
+    collectRuntimePackagesFromUnknown(view.choices),
+    collectRuntimePackagesFromUnknown(view.ui),
+    collectRuntimePackagesFromUnknown(view.effects),
+    collectRuntimePackagesFromUnknown(view.animations),
+    collectRuntimePackagesFromPluginProjectionRoots(view.plugins),
+  )
+}
+
+function collectRuntimePackagesFromPluginProjectionRoots(plugins: QuaViewProjection['plugins']): string[] {
+  return mergeRequiredRuntimePackages(
+    ...Object.values(plugins || {}).map(projection => getRecordRuntimePackages(projection)),
+  )
 }
 
 function createCheckpointMetadata(
