@@ -28,6 +28,7 @@ export default defineConfig({
         'plugins/audio/index': resolve(import.meta.dirname, 'src/plugins/audio/index.ts'),
         'plugins/preset/index': resolve(import.meta.dirname, 'src/plugins/preset/index.ts'),
         'plugins/scene/index': resolve(import.meta.dirname, 'src/plugins/scene/index.ts'),
+        'plugins/settings/index': resolve(import.meta.dirname, 'src/plugins/settings/index.ts'),
         'plugins/ui/index': resolve(import.meta.dirname, 'src/plugins/ui/index.ts'),
       },
       name: 'rendererVue',
@@ -35,7 +36,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['vue', '@quajs/assets-web', '@quajs/pipeline', '@quajs/render-core', '@quajs/renderer-web', '@quajs/renderer-web/audio', '@quajs/renderer-web/plugins/fonts', '@quajs/plugin-audio', '@quajs/plugin-backlog/contracts', '@quajs/plugin-fonts/contracts', '@quajs/plugin-sprite', '@quajs/plugin-sprite/contracts'],
+      external: ['vue', '@quajs/assets-web', '@quajs/pipeline', '@quajs/render-core', '@quajs/renderer-web', '@quajs/renderer-web/audio', '@quajs/renderer-web/plugins/fonts', '@quajs/renderer-web/plugins/settings', '@quajs/plugin-audio', '@quajs/plugin-backlog/contracts', '@quajs/plugin-fonts/contracts', '@quajs/plugin-settings/contracts', '@quajs/plugin-sprite', '@quajs/plugin-sprite/contracts'],
       output: {
         globals: {},
       },

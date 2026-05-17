@@ -9,6 +9,7 @@ import { createDialogueWebRendererPlugin } from './dialogue'
 import { createEffectsWebRendererPlugin } from './effects'
 import { createFontsWebRendererPlugin } from './fonts'
 import { createSceneWebRendererPlugin } from './scene'
+import { createSettingsWebRendererPlugin } from './settings'
 import { createSpriteCharacterRenderer, createSpriteWebRendererPlugin } from './sprite'
 import { createUiWebRendererPlugin } from './ui'
 
@@ -25,6 +26,7 @@ export function createVisualNovelWebRendererPlugins(): Array<QuaWebDomRendererPl
     createAudioWebRendererPlugin(),
     createSceneWebRendererPlugin(),
     createUiWebRendererPlugin(),
+    createSettingsWebRendererPlugin(),
     createBacklogWebRendererPlugin(),
   ]
 }

@@ -518,6 +518,21 @@ importers:
         specifier: workspace:*
         version: link:../../core/store
 
+  packages/plugins/settings:
+    devDependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../../core/assets
+      '@quajs/engine':
+        specifier: workspace:*
+        version: link:../../core/engine
+      '@quajs/pipeline':
+        specifier: workspace:*
+        version: link:../../core/pipeline
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
+
   packages/plugins/sprite:
     devDependencies:
       '@quajs/assets-web':
@@ -556,6 +571,9 @@ importers:
       '@quajs/plugin-fonts':
         specifier: workspace:*
         version: link:../../plugins/fonts
+      '@quajs/plugin-settings':
+        specifier: workspace:*
+        version: link:../../plugins/settings
       '@quajs/plugin-sprite':
         specifier: workspace:*
         version: link:../../plugins/sprite
@@ -589,6 +607,9 @@ importers:
       '@quajs/plugin-fonts':
         specifier: workspace:*
         version: link:../../plugins/fonts
+      '@quajs/plugin-settings':
+        specifier: workspace:*
+        version: link:../../plugins/settings
       '@quajs/plugin-sprite':
         specifier: workspace:*
         version: link:../../plugins/sprite

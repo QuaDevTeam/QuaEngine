@@ -5,6 +5,7 @@ import { createViteDevAssetRuntime } from '@quajs/assets-web'
 import { Pipeline } from '@quajs/pipeline'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import { FONTS_PLUGIN_ID } from '@quajs/plugin-fonts/contracts'
+import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
 import {
   createFlowControlProjection,
   createViewLayoutProjection,
@@ -23,6 +24,7 @@ import {
   useRendererActions,
 } from '../src'
 import { createVisualNovelRendererPlugins } from '../src/plugins/preset'
+import { createSettingsRendererPlugin } from '../src/plugins/settings'
 import { QuaMenuOverlay, QuaSettingsPanel, QuaUiOverlay } from '../src/plugins/ui'
 
 describe('@quajs/renderer-vue', () => {
@@ -450,6 +452,92 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.textContent).toContain('menu')
     expect(host.el.textContent).toContain('settings')
     expect(host.el.textContent).toContain('Custom')
+  })
+
+  it('renders schema-driven settings forms and emits settings update intents', async () => {
+    const pipeline = new Pipeline()
+    const updates: unknown[] = []
+    pipeline.on(SettingsRenderToLogicEvents.UPDATE_REQUEST, context => updates.push(context.event.payload))
+    const ShaderPicker = defineComponent({
+      name: 'ShaderPicker',
+      props: {
+        update: {
+          type: Function,
+          required: true,
+        },
+        value: {
+          type: String,
+          required: true,
+        },
+      },
+      setup(props) {
+        return () => h('button', {
+          class: 'shader-picker',
+          type: 'button',
+          onClick: () => props.update('crisp'),
+        }, props.value)
+      },
+    })
+    const plugins = [
+      ...createVisualNovelRendererPlugins().filter(plugin => plugin.name !== '@quajs/renderer-vue/settings'),
+      createSettingsRendererPlugin({
+        customControls: {
+          ShaderPicker,
+        },
+      }),
+    ]
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins,
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            settings: { open: true },
+          },
+        },
+        plugins: {
+          [SETTINGS_PLUGIN_ID]: settingsProjection(),
+        },
+      }),
+    })
+
+    await flushVue()
+
+    expect(host.el.querySelector('.qua-settings-panel')).not.toBeNull()
+    expect(host.el.textContent).toContain('System')
+    expect(host.el.textContent).toContain('Text Speed')
+
+    const textSpeed = host.el.querySelector<HTMLInputElement>('[data-settings-field="textSpeedCps"] input')
+    textSpeed!.value = '72'
+    textSpeed!.dispatchEvent(new Event('input'))
+    await flushVue()
+    expect(updates).toEqual([])
+
+    textSpeed!.dispatchEvent(new Event('change'))
+    await flushVue()
+
+    const skipMode = host.el.querySelector<HTMLSelectElement>('[data-settings-field="skipMode"] select')
+    skipMode!.value = JSON.stringify('all')
+    skipMode!.dispatchEvent(new Event('change'))
+    await flushVue()
+
+    const layout = host.el.querySelector<HTMLTextAreaElement>('[data-settings-field="layout"] textarea')
+    layout!.value = JSON.stringify({ gap: 16 })
+    layout!.dispatchEvent(new Event('change'))
+    await flushVue()
+
+    const shader = host.el.querySelector<HTMLButtonElement>('[data-settings-field="shader"] .shader-picker')
+    expect(shader?.textContent).toBe('soft')
+    shader!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushVue()
+
+    expect(updates).toEqual([
+      { scope: 'system', patch: { textSpeedCps: 72 } },
+      { scope: 'system', patch: { skipMode: 'all' } },
+      { scope: 'system', patch: { layout: { gap: 16 } } },
+      { scope: 'system', patch: { shader: 'crisp' } },
+    ])
   })
 
   it('passes full projection props to layer slots', async () => {
@@ -1008,6 +1096,109 @@ function view(overrides: Partial<QuaViewProjection> = {}): QuaViewProjection {
     animations: [],
     plugins: {},
     ...overrides,
+  }
+}
+
+function settingsProjection() {
+  return {
+    revision: 1,
+    profileId: 'default',
+    updatedAt: 1,
+    scopes: {
+      system: {
+        title: 'System',
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            textSpeedCps: {
+              type: 'number',
+              title: 'Text Speed',
+              minimum: 5,
+              maximum: 120,
+              multipleOf: 1,
+            },
+            skipMode: {
+              type: 'string',
+              title: 'Skip Mode',
+              enum: ['read', 'all'],
+            },
+            confirmBeforeQuit: {
+              type: 'boolean',
+              title: 'Confirm Before Quit',
+            },
+            layout: {
+              type: 'object',
+              title: 'Layout',
+              properties: {
+                gap: {
+                  type: 'number',
+                },
+              },
+            },
+            shader: {
+              type: 'string',
+              title: 'Shader',
+            },
+          },
+        },
+        ui: {
+          label: 'System',
+          order: 0,
+          controls: {
+            textSpeedCps: {
+              control: 'slider',
+              order: 0,
+              min: 5,
+              max: 120,
+              step: 1,
+            },
+            skipMode: {
+              control: 'select',
+              order: 1,
+              options: [
+                { label: 'Read Text', value: 'read' },
+                { label: 'All Text', value: 'all' },
+              ],
+            },
+            confirmBeforeQuit: {
+              control: 'switch',
+              order: 2,
+            },
+            layout: {
+              control: 'text',
+              order: 3,
+            },
+            shader: {
+              control: 'custom',
+              component: 'ShaderPicker',
+              props: {
+                mode: 'compact',
+              },
+              order: 4,
+            },
+          },
+        },
+        defaults: {
+          textSpeedCps: 45,
+          skipMode: 'read',
+          confirmBeforeQuit: true,
+          layout: {
+            gap: 8,
+          },
+          shader: 'soft',
+        },
+        values: {
+          textSpeedCps: 45,
+          skipMode: 'read',
+          confirmBeforeQuit: true,
+          layout: {
+            gap: 8,
+          },
+          shader: 'soft',
+        },
+      },
+    },
   }
 }
 
