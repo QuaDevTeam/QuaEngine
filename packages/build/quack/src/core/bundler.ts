@@ -16,8 +16,10 @@ import type {
 import { createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import { mkdir, readFile, rename } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
+import { basename, dirname, resolve } from 'node:path'
 import { createLogger } from '@quajs/logger'
+import { compileLocalizedQuaScriptModuleToTs, compileQuaScriptModuleToTs } from '@quajs/script-compiler'
+import ts from 'typescript'
 import { AssetDetector } from '../assets/asset-detector'
 import { MetadataGenerator } from '../assets/metadata'
 import { QPKBundler } from '../bundlers/qpk-bundler'
@@ -84,6 +86,7 @@ export class QuackBundler extends EventEmitter {
         source: normalizedConfig.source,
         assets,
       })
+      assets = await this.compileQuaScriptAssets(assets, normalizedConfig)
 
       if (assets.length === 0) {
         throw new Error('No assets found in source directory')
@@ -278,6 +281,7 @@ export class QuackBundler extends EventEmitter {
         source: normalizedConfig.source,
         assets,
       })
+      assets = await this.compileQuaScriptAssets(assets, normalizedConfig)
 
       if (assets.length === 0) {
         logger.warn(`No assets found in bundle "${bundleDefinition.name}" source directory`)
@@ -539,6 +543,87 @@ export class QuackBundler extends EventEmitter {
    * Run asset processors before manifest generation so size/hash metadata
    * describes the actual bytes written to the bundle.
    */
+  private async compileQuaScriptAssets(assets: AssetInfo[], config: BundleOptions): Promise<AssetInfo[]> {
+    const compiled: AssetInfo[] = []
+    const scriptVariants = new Map<string, { locales: Set<string>, stableRelativePath: string }>()
+
+    for (const asset of assets) {
+      if (asset.type !== 'scripts' || !asset.relativePath.toLowerCase().endsWith('.qs')) {
+        compiled.push(asset)
+        continue
+      }
+
+      const locale = asset.locales[0] || 'default'
+      const stableRelativePath = stripLocaleFromRelativePath(asset.relativePath, locale).replace(/\.qs$/i, '.js')
+      const assetName = basename(stableRelativePath)
+      const baseAsset = locale === 'default'
+        ? asset
+        : assets.find(candidate =>
+            candidate.type === 'scripts'
+            && candidate.relativePath.toLowerCase().endsWith('.qs')
+            && (candidate.locales[0] || 'default') === 'default'
+            && stripLocaleFromRelativePath(candidate.relativePath, 'default').replace(/\.qs$/i, '.js') === stableRelativePath,
+          )
+      if (!baseAsset) {
+        throw new Error(`Localized QuaScript "${asset.relativePath}" requires a default base "${stableRelativePath.replace(/\.js$/i, '.qs')}".`)
+      }
+      const moduleId = resolveQuaScriptModuleId(config.runtimePackage, assetName, stableRelativePath)
+      const source = await readFile(asset.path, 'utf8')
+      const runtimeModule = moduleId
+        ? {
+            moduleId,
+            version: config.runtimePackage?.version,
+            stableSeed: baseAsset.hash,
+          }
+        : undefined
+      const compiledTs = locale === 'default'
+        ? compileQuaScriptModuleToTs(source, {
+            hotReload: false,
+            projectRoot: config.source,
+            runtimeModule,
+          })
+        : compileLocalizedQuaScriptModuleToTs({
+            baseSource: await readFile(baseAsset.path, 'utf8'),
+            localizedSource: source,
+            locale,
+            projectRoot: config.source,
+            runtimeModule,
+          })
+      const output = ts.transpileModule(compiledTs, {
+        compilerOptions: {
+          module: ts.ModuleKind.ESNext,
+          target: ts.ScriptTarget.ES2020,
+        },
+      }).outputText
+      const content = Buffer.from(output, 'utf8')
+      const relativePath = asset.relativePath.replace(/\.qs$/i, '.js')
+
+      compiled.push({
+        ...asset,
+        name: basename(relativePath),
+        relativePath,
+        size: content.length,
+        hash: calculateHash(content),
+        mimeType: 'text/javascript',
+        content,
+      })
+
+      const variant = scriptVariants.get(assetName) || { locales: new Set<string>(), stableRelativePath }
+      variant.locales.add(locale)
+      scriptVariants.set(assetName, variant)
+    }
+
+    if (config.runtimePackage && scriptVariants.size > 0) {
+      config.runtimePackage.scripts = mergeRuntimeQuaScriptVariants(config.runtimePackage, scriptVariants)
+    }
+
+    return compiled
+  }
+
+  /**
+   * Run asset processors before manifest generation so size/hash metadata
+   * describes the actual bytes written to the bundle.
+   */
   private async processAssetsForBundle(assets: AssetInfo[]): Promise<AssetInfo[]> {
     if (this.pluginManager.getPlugins().length === 0) {
       return assets
@@ -697,6 +782,88 @@ function withRuntimePackageIntegrity(
       hash: merkleRoot,
     },
   }
+}
+
+function mergeRuntimeQuaScriptVariants(
+  runtimePackage: RuntimePackageManifest,
+  groups: Map<string, { locales: Set<string>, stableRelativePath: string }>,
+): NonNullable<RuntimePackageManifest['scripts']> {
+  const scripts = [...(runtimePackage.scripts || [])]
+
+  for (const [assetName, group] of groups) {
+    let script = scripts.find(candidate =>
+      candidate.assetName === assetName
+      || candidate.assetName === group.stableRelativePath
+      || candidate.assetName === basename(group.stableRelativePath),
+    )
+    if (!script) {
+      script = {
+        id: `${runtimePackage.id}.${assetName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_.-]+/g, '.')}`,
+        version: runtimePackage.version,
+        assetName,
+      }
+      scripts.push(script)
+    }
+
+    const variants = { ...(script.variants || {}) }
+    for (const locale of group.locales) {
+      if (locale === 'default') {
+        script.assetName = assetName
+        continue
+      }
+      variants[locale] = {
+        ...(variants[locale] || {}),
+        assetName,
+        version: script.version,
+      }
+    }
+    if (Object.keys(variants).length > 0) {
+      script.variants = variants
+    }
+  }
+
+  return scripts
+}
+
+function resolveQuaScriptModuleId(
+  runtimePackage: RuntimePackageManifest | undefined,
+  assetName: string,
+  stableRelativePath: string,
+): string | undefined {
+  if (!runtimePackage) {
+    return undefined
+  }
+  const existing = runtimePackage.scripts?.find(script =>
+    script.assetName === assetName
+    || script.assetName === stableRelativePath
+    || script.assetName === basename(stableRelativePath),
+  )
+  if (existing) {
+    return existing.id
+  }
+  return `${runtimePackage.id}.${assetName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_.-]+/g, '.')}`
+}
+
+function stripLocaleFromRelativePath(relativePath: string, locale: string): string {
+  if (!locale || locale === 'default') {
+    return relativePath
+  }
+
+  const normalized = locale.toLowerCase()
+  const parts = relativePath.split('/')
+  const withoutLocaleDirs = parts.filter(part => part.toLowerCase() !== normalized)
+  const fileName = withoutLocaleDirs.pop()
+  if (!fileName) {
+    return withoutLocaleDirs.join('/')
+  }
+
+  const localePattern = new RegExp(`\\.${escapeRegExp(normalized)}(?=\\.[^.]+$)`, 'i')
+  withoutLocaleDirs.push(fileName.replace(localePattern, ''))
+  return withoutLocaleDirs.join('/')
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 async function readAssetBuffer(asset: AssetInfo): Promise<Buffer> {

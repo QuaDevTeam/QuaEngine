@@ -234,6 +234,7 @@ describe('assetDetector', () => {
         'images/.DS_Store',
         'scripts/temp.tmp',
         'scripts/scene.js',
+        'scripts/scene.zh-cn.qs.sync.json',
         'node_modules/package/index.js',
       ]
 
@@ -254,6 +255,7 @@ describe('assetDetector', () => {
         // Should not contain ignored files
         expect(assets.every(asset => !asset.path.includes('.DS_Store'))).toBe(true)
         expect(assets.every(asset => !asset.path.includes('.tmp'))).toBe(true)
+        expect(assets.every(asset => !asset.path.includes('.qs.sync.json'))).toBe(true)
         expect(assets.every(asset => !asset.path.includes('node_modules'))).toBe(true)
 
         // Should contain valid files

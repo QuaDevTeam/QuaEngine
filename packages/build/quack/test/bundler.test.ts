@@ -98,6 +98,57 @@ describe('quackBundler', () => {
       expect(manifest.runtimePackage?.storeMigrations).toEqual([expect.objectContaining({ id: 'runtime.story.defaults', scope: 'story' })])
     })
 
+    it('compiles QuaScript locale variants into runtime script variants', async () => {
+      await mkdir(join(tempDir, 'scripts'), { recursive: true })
+      await writeFile(join(tempDir, 'scripts', 'intro.qs'), '@QuickSave()\nYuki: Hello')
+      await writeFile(join(tempDir, 'scripts', 'intro.zh-cn.qs'), '@SaveToSlot(\'locale-should-not-run\')\nYuki: 你好')
+
+      bundler = new QuackBundler({
+        source: tempDir,
+        output: join(tempDir, 'runtime-i18n.qpk'),
+        format: 'qpk',
+        compression: { algorithm: 'none', level: 0 },
+        runtimePackage: {
+          id: 'runtime.i18n',
+          version: '1.0.0',
+          scripts: [{ id: 'runtime.i18n.intro', version: '1.0.0', assetName: 'scripts/intro.js' }],
+          signature: { value: 'runtime-signature' },
+        },
+      })
+
+      await bundler.bundle()
+
+      const bundleFile = (await readdir(tempDir)).find(file => file.startsWith('runtime-i18n.') && file.endsWith('.qpk'))
+      expect(bundleFile).toBeDefined()
+      const qpk = parseQpk(await readFile(join(tempDir, bundleFile!)))
+      const manifest = qpk.manifest
+      const defaultScript = new TextDecoder().decode(qpk.files.get('assets/scripts/intro.js')!)
+      const zhScript = new TextDecoder().decode(qpk.files.get('assets/scripts/intro.zh-cn.js')!)
+      const ids = (code: string) => Array.from(code.matchAll(/uuid: "(qs:runtime\.i18n\.intro:[^"]+)"/g), match => match[1])
+
+      expect(manifest.assets.scripts['intro.js']).toEqual(expect.objectContaining({
+        name: 'intro.js',
+        locales: expect.arrayContaining(['default', 'zh-cn']),
+        variants: expect.objectContaining({
+          default: expect.objectContaining({ relativePath: 'scripts/intro.js' }),
+          'zh-cn': expect.objectContaining({ relativePath: 'scripts/intro.zh-cn.js' }),
+        }),
+      }))
+      expect(manifest.runtimePackage?.scripts).toHaveLength(1)
+      expect(manifest.runtimePackage?.scripts?.[0]).toEqual(expect.objectContaining({
+        id: 'runtime.i18n.intro',
+        assetName: 'intro.js',
+        variants: {
+          'zh-cn': expect.objectContaining({ assetName: 'intro.js' }),
+        },
+      }))
+      expect(zhScript).toContain('ctx.engine.quickSave()')
+      expect(zhScript).not.toContain('locale-should-not-run')
+      expect(zhScript).toContain('\\u4F60\\u597D')
+      expect(zhScript).not.toContain('"Hello"')
+      expect(ids(zhScript)).toEqual(ids(defaultScript))
+    })
+
     it('should create bundle with custom options', async () => {
       await mkdir(join(tempDir, 'data'), { recursive: true })
       await writeFile(join(tempDir, 'data', 'config.json'), JSON.stringify({ test: true }))
@@ -595,12 +646,33 @@ describe('quackBundler', () => {
 })
 
 function parseQpkManifest(bytes: Uint8Array): { runtimePackage?: any } {
+  return parseQpk(bytes).manifest as { runtimePackage?: any }
+}
+
+function parseQpk(bytes: Uint8Array): { files: Map<string, Uint8Array>, manifest: { runtimePackage?: any, assets: any } } {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   expect(view.getUint32(0, false)).toBe(0x51504B00)
+  const headerSize = view.getUint32(12, true)
   const manifestOffset = readUint64LE(view, 16)
   const manifestSize = readUint64LE(view, 24)
+  const files = new Map<string, Uint8Array>()
+
+  let offset = headerSize
+  while (offset < manifestOffset) {
+    const pathLength = view.getUint32(offset, true)
+    offset += 4
+    const pathBytes = bytes.slice(offset, offset + pathLength)
+    const path = new TextDecoder().decode(pathBytes)
+    offset += pathLength
+    const dataLength = view.getUint32(offset, true)
+    offset += 4
+    files.set(path, bytes.slice(offset, offset + dataLength))
+    offset += dataLength
+  }
+
   const manifestBytes = bytes.slice(manifestOffset, manifestOffset + manifestSize)
-  return JSON.parse(new TextDecoder().decode(manifestBytes)) as { runtimePackage?: any }
+  const manifest = JSON.parse(new TextDecoder().decode(manifestBytes)) as { runtimePackage?: any, assets: any }
+  return { files, manifest }
 }
 
 function readUint64LE(view: DataView, offset: number): number {

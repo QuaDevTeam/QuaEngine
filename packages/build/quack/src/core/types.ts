@@ -61,6 +61,19 @@ export interface AssetInfo {
   version?: number // Asset version number
   mediaMetadata?: MediaMetadata // Extracted media information
   content?: Uint8Array
+  variants?: Record<string, AssetVariantInfo>
+}
+
+export interface AssetVariantInfo {
+  locale: string
+  path: string
+  relativePath: string
+  size: number
+  hash: string
+  mimeType?: string
+  mtime?: number
+  version?: number
+  mediaMetadata?: MediaMetadata
 }
 
 export interface LocaleInfo {
@@ -120,6 +133,14 @@ export interface RuntimePackageScriptManifest {
   assetName: string
   exportName?: string
   dependsOnBundles?: string[]
+  variants?: Record<string, RuntimePackageScriptVariantManifest>
+  metadata?: Record<string, unknown>
+}
+
+export interface RuntimePackageScriptVariantManifest {
+  assetName: string
+  version?: string
+  exportName?: string
   metadata?: Record<string, unknown>
 }
 

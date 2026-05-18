@@ -2,9 +2,10 @@
 
 import type { BundleFormat, QuackConfig } from '../core/types'
 import { existsSync } from 'node:fs'
-import { writeFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { Command } from 'commander'
+import { createQuaScriptLocaleSkeleton, syncQuaScriptLocale } from '@quajs/script-compiler'
 import { QPKBundler } from '../bundlers/qpk-bundler'
 import { ZipBundler } from '../bundlers/zip-bundler'
 import { QuackBundler } from '../core/bundler'
@@ -519,6 +520,64 @@ program
     }
     catch (error) {
       console.error('❌ Patch validation failed:', getErrorMessage(error))
+      if (options.verbose) {
+        console.error(getErrorStack(error))
+      }
+      process.exit(1)
+    }
+  })
+
+const i18n = program
+  .command('i18n')
+  .description('QuaScript localization helpers')
+
+i18n
+  .command('sync')
+  .description('Synchronize a locale .qs overlay with its base .qs file')
+  .argument('<base>', 'Base QuaScript file')
+  .argument('<locale>', 'Locale QuaScript overlay file')
+  .option('-o, --output <path>', 'Output path. Defaults to overwriting the locale file.')
+  .option('--state <path>', 'Sync state JSON path. Defaults to <output>.sync.json.')
+  .option('--skeleton <locale>', 'Create a new locale skeleton when the locale file does not exist')
+  .option('-v, --verbose', 'Verbose output')
+  .action(async (basePath, localePath, options) => {
+    try {
+      const resolvedBase = resolve(basePath)
+      const resolvedLocale = resolve(localePath)
+      const outputPath = resolve(options.output || localePath)
+      const statePath = resolve(options.state || `${outputPath}.sync.json`)
+      const baseSource = await readFile(resolvedBase, 'utf8')
+      if (!existsSync(resolvedLocale) && !options.skeleton) {
+        throw new Error(`Locale file does not exist: ${resolvedLocale}. Pass --skeleton <locale> to create one.`)
+      }
+      const localeSource = existsSync(resolvedLocale)
+        ? await readFile(resolvedLocale, 'utf8')
+        : createQuaScriptLocaleSkeleton(baseSource, options.skeleton)
+      const previousState = existsSync(statePath)
+        ? JSON.parse(await readFile(statePath, 'utf8'))
+        : undefined
+      const result = syncQuaScriptLocale(baseSource, localeSource, { previousState })
+
+      await mkdir(dirname(outputPath), { recursive: true })
+      await writeFile(outputPath, result.source, 'utf8')
+      await mkdir(dirname(statePath), { recursive: true })
+      await writeFile(statePath, JSON.stringify(result.state, null, 2), 'utf8')
+
+      const counts = result.units.reduce<Record<string, number>>((acc, unit) => {
+        acc[unit.status] = (acc[unit.status] || 0) + 1
+        return acc
+      }, {})
+      console.log(`✅ Synced locale overlay: ${outputPath}`)
+      console.log(`🧭 Sync state: ${statePath}`)
+      console.log(`📊 matched=${counts.matched || 0}, needs-review=${counts['needs-review'] || 0}, todo=${counts.todo || 0}, conflict=${counts.conflict || 0}, obsolete=${result.obsolete.length}`)
+      if (options.verbose) {
+        for (const unit of result.units) {
+          console.log(`  ${unit.status.padEnd(12)} ${unit.base.kind} ${unit.base.character || unit.base.target || unit.base.id}`)
+        }
+      }
+    }
+    catch (error) {
+      console.error('❌ i18n sync failed:', getErrorMessage(error))
       if (options.verbose) {
         console.error(getErrorStack(error))
       }
