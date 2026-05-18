@@ -59,6 +59,7 @@ export interface QuaScriptDialogue {
   type: 'dialogue'
   character: string
   text: string
+  textRange: SourceRange
   decorators: QuaScriptDecorator[]
   templateExpressions: string[]
   templateExpressionRanges: SourceRange[]
@@ -83,9 +84,12 @@ export interface QuaScriptChoice {
   options: Array<{
     id: string
     text: string
+    textRange: SourceRange
     target: string
     condition?: string
     conditionRange?: SourceRange
+    templateExpressions: string[]
+    templateExpressionRanges: SourceRange[]
     range?: SourceRange
   }>
   range?: SourceRange

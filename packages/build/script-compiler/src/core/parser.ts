@@ -207,6 +207,11 @@ export class QuaScriptParser {
           type: 'dialogue',
           character: dialogue.character,
           text: dialogue.text,
+          textRange: rangeFromOffsets(
+            this.lineStarts,
+            dialogue.textOffset,
+            dialogue.textOffset + dialogue.text.length,
+          ),
           decorators,
           templateExpressions: templateScan.expressions,
           templateExpressionRanges: templateScan.expressionRanges.map(expressionRange =>
@@ -304,15 +309,37 @@ export class QuaScriptParser {
 
     const target = targetSource?.trim()
     const id = target || this.slugChoiceId(text)
+    const textRange = createTrimmedRange(this.lineStarts, textSource, bodyOffset)
+    const templateScan = scanTemplateText(text)
+    templateScan.diagnostics.forEach((diagnostic) => {
+      this.diagnostics.push({
+        message: diagnostic.message,
+        range: rangeFromOffsets(
+          this.lineStarts,
+          textRange.start.offset + diagnostic.start,
+          textRange.start.offset + diagnostic.end,
+        ),
+        severity: 'error',
+      })
+    })
     const conditionRange = condition
       ? this.createChoiceConditionRange(body, bodyOffset, arrow, conditionSplit)
       : undefined
     return {
       id,
       text,
+      textRange,
       target: target || id,
       condition: condition?.trim(),
       conditionRange,
+      templateExpressions: templateScan.expressions,
+      templateExpressionRanges: templateScan.expressionRanges.map(expressionRange =>
+        rangeFromOffsets(
+          this.lineStarts,
+          textRange.start.offset + expressionRange.start,
+          textRange.start.offset + expressionRange.end,
+        ),
+      ),
       range: line.range,
     }
   }
@@ -567,6 +594,14 @@ export function scanTemplateText(text: string): TemplateScanResult {
 
   parts.push(text.slice(cursor))
   return { diagnostics, expressionRanges, expressions, parts }
+}
+
+function createTrimmedRange(lineStarts: readonly number[], source: string, sourceOffset: number): SourceRange {
+  const leading = source.length - source.trimStart().length
+  const trailing = source.trimEnd().length
+  const start = sourceOffset + leading
+  const end = sourceOffset + trailing
+  return rangeFromOffsets(lineStarts, start, end)
 }
 
 function findBalancedExpressionEnd(source: string, start: number): number {
