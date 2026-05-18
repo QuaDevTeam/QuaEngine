@@ -49,11 +49,13 @@
     "@quajs/utils": "workspace:*"
   },
   "dependencies": {
+    "@quajs/script-compiler": "workspace:*",
     "commander": "catalog:",
     "glob": "catalog:",
     "lzma-native": "catalog:",
     "mime-types": "catalog:",
     "sharp": "catalog:",
+    "typescript": "catalog:",
     "yauzl": "catalog:",
     "yazl": "catalog:"
   },

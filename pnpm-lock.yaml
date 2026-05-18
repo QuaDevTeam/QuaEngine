@@ -197,6 +197,9 @@ importers:
       '@quajs/logger':
         specifier: workspace:*
         version: link:../../utils
+      '@quajs/script-compiler':
+        specifier: workspace:*
+        version: link:../script-compiler
       '@quajs/utils':
         specifier: workspace:*
         version: link:../../utils/common
@@ -215,6 +218,9 @@ importers:
       sharp:
         specifier: 'catalog:'
         version: 0.34.5
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
       yauzl:
         specifier: 'catalog:'
         version: 3.3.0

@@ -59,7 +59,7 @@ export class MetadataGenerator {
     const locales = this.getLocalesFromAssets(assets)
 
     // Find default locale
-    const defaultLocale = locales.find(l => l.isDefault)?.code || 'default'
+    const defaultLocale = locales.find(l => l.isDefault)?.code || locales[0]?.code || 'default'
 
     const manifest: BundleManifest = {
       name: bundleName,
@@ -112,11 +112,36 @@ export class MetadataGenerator {
     for (const asset of assets) {
       const type = asset.type
       const key = this.getAssetKey(asset)
-
-      grouped[type][key] = {
-        name: asset.name,
+      const locale = asset.locales[0] || 'default'
+      const variant = {
+        locale,
         path: asset.path,
         relativePath: asset.relativePath,
+        size: asset.size,
+        hash: asset.hash,
+        mimeType: asset.mimeType,
+        mtime: asset.mtime,
+        version: asset.version,
+        mediaMetadata: asset.mediaMetadata,
+      }
+
+      const existing = grouped[type][key]
+      if (existing) {
+        grouped[type][key] = {
+          ...existing,
+          locales: Array.from(new Set([...existing.locales, ...asset.locales])),
+          variants: {
+            ...(existing.variants || {}),
+            [locale]: variant,
+          },
+        }
+        continue
+      }
+
+      grouped[type][key] = {
+        name: createStableAssetName(asset),
+        path: asset.path,
+        relativePath: stripLocaleFromRelativePath(asset.relativePath, locale),
         size: asset.size,
         hash: asset.hash,
         type: asset.type,
@@ -126,6 +151,9 @@ export class MetadataGenerator {
         mtime: asset.mtime,
         version: asset.version,
         mediaMetadata: asset.mediaMetadata,
+        variants: {
+          [locale]: variant,
+        },
       }
     }
 
@@ -136,7 +164,9 @@ export class MetadataGenerator {
    * Generate a unique key for an asset in the manifest
    */
   private getAssetKey(asset: AssetInfo): string {
-    const parts = asset.relativePath.split('/')
+    const locale = asset.locales[0] || 'default'
+    const relativePath = stripLocaleFromRelativePath(asset.relativePath, locale)
+    const parts = relativePath.split('/')
 
     // For character assets, include character name
     if (asset.type === 'characters') {
@@ -149,7 +179,7 @@ export class MetadataGenerator {
       return parts.slice(1).join('/')
     }
 
-    return asset.relativePath
+    return relativePath
   }
 
   /**
@@ -582,4 +612,32 @@ export class MetadataGenerator {
       throw new Error(`Invalid version format: ${version}`)
     }
   }
+}
+
+function createStableAssetName(asset: AssetInfo): string {
+  const locale = asset.locales[0] || 'default'
+  const relativePath = stripLocaleFromRelativePath(asset.relativePath, locale)
+  return relativePath.split('/').pop() || asset.name
+}
+
+function stripLocaleFromRelativePath(relativePath: string, locale: string): string {
+  if (!locale || locale === 'default') {
+    return relativePath
+  }
+
+  const normalized = locale.toLowerCase()
+  const parts = relativePath.split('/')
+  const withoutLocaleDirs = parts.filter(part => part.toLowerCase() !== normalized)
+  const fileName = withoutLocaleDirs.pop()
+  if (!fileName) {
+    return withoutLocaleDirs.join('/')
+  }
+
+  const localePattern = new RegExp(`\\.${escapeRegExp(normalized)}(?=\\.[^.]+$)`, 'i')
+  withoutLocaleDirs.push(fileName.replace(localePattern, ''))
+  return withoutLocaleDirs.join('/')
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

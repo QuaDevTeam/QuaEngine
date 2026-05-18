@@ -87,7 +87,7 @@ const ASSET_PATTERNS = {
     },
   },
   scripts: {
-    extensions: ['.js', '.mjs'],
+    extensions: ['.js', '.mjs', '.qs'],
     subTypes: {
       logic: ['script', 'logic', 'game'],
     },
@@ -109,8 +109,11 @@ export class AssetDetector {
     this.ignoredPatterns = [
       '**/node_modules/**',
       '**/.git/**',
+      '**/.quack/**',
       '**/.DS_Store',
       '**/Thumbs.db',
+      '**/*.qs.sync.json',
+      '**/*.qsync.json',
       '**/*.tmp',
       '**/*.temp',
       ...ignoredPatterns,
@@ -287,11 +290,11 @@ export class AssetDetector {
     }
 
     // Check file-based locales (e.g., file.en-us.png)
-    // Remove the file extension first to avoid false positives
-    const nameParts = fileName.split('.')
-    // Remove the last part (file extension) and check the remaining parts
-    const partsWithoutExtension = nameParts.slice(0, -1)
-    for (const part of partsWithoutExtension) {
+    const rawName = basename(relativePath)
+    const extension = extname(rawName)
+    const nameWithoutExtension = extension ? rawName.slice(0, -extension.length) : fileName
+    const nameParts = nameWithoutExtension.split('.')
+    for (const part of nameParts.slice(1)) {
       if (this.isValidLocale(part)) {
         locales.add(this.normalizeLocale(part))
       }

@@ -127,7 +127,7 @@ describe('metadataGenerator', () => {
 
       expect(imageCount).toBe(1)
       expect(characterCount).toBe(1)
-      expect(scriptCount).toBe(2)
+      expect(scriptCount).toBe(1)
     })
 
     it('should include asset metadata in manifest', () => {
