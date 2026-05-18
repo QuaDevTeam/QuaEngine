@@ -87,6 +87,64 @@ describe('quaAssets core runtime', () => {
     expect((await assets.getAsset('data', 'config.json')).data).toBeInstanceOf(Uint8Array)
   })
 
+  it('loads and formats i18n catalogs with locale fallback', async () => {
+    const manifest = createManifest({
+      locales: ['default', 'zh'],
+      assets: {
+        data: {
+          'i18n/messages.json': {
+            name: 'messages.json',
+            path: 'data/i18n/messages.json',
+            relativePath: 'data/i18n/messages.json',
+            size: 2,
+            hash: '',
+            type: 'data',
+            locales: ['default', 'zh'],
+            mimeType: 'application/json',
+            variants: {
+              default: {
+                locale: 'default',
+                path: 'data/i18n/messages.json',
+                relativePath: 'data/i18n/messages.json',
+                size: 48,
+                hash: '',
+              },
+              zh: {
+                locale: 'zh',
+                path: 'data/i18n/messages.zh.json',
+                relativePath: 'data/i18n/messages.zh.json',
+                size: 38,
+                hash: '',
+              },
+            },
+          },
+        },
+      },
+      totalFiles: 2,
+      totalSize: 86,
+    })
+    const adapterWithBundle = createAdapter({
+      files: {
+        'https://cdn.example.com/i18n.qpk': createQpkBundle(manifest, new Map([
+          ['assets/data/i18n/messages.json', utf8('{"hello":"Hello {name}","bye":"Bye"}')],
+          ['assets/data/i18n/messages.zh.json', utf8('{"hello":"你好 {name}"}')],
+        ])),
+      },
+    })
+    assets = new QuaAssets({
+      endpoint: 'https://cdn.example.com',
+      adapter: adapterWithBundle,
+      locale: 'zh-cn',
+    })
+    await assets.initialize()
+    await assets.loadBundle('i18n.qpk')
+
+    expect(await assets.translate('hello', { name: 'Yuki' })).toBe('你好 Yuki')
+    expect(await assets.translate('hello', { values: { name: 'Yuki' } })).toBe('你好 Yuki')
+    expect(await assets.translate('bye')).toBe('Bye')
+    expect(await assets.translate('missing', { missing: 'key' })).toBe('missing')
+  })
+
   it('mounts dynamic QPK bundles side by side and resolves by priority before locale fallback', async () => {
     const lowManifest = createDynamicManifest('low', 'runtime.low', 1, {
       locales: ['zh-cn'],

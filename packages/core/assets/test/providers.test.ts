@@ -40,6 +40,50 @@ describe('core provider helpers', () => {
       .toBe('story:default:data:config.json')
   })
 
+  it('falls back through base language before default', () => {
+    const ranked: AssetManifestRecord[] = [
+      {
+        id: 'dev:default:data:config.json',
+        name: 'config.json',
+        type: 'data',
+        locale: 'default',
+        path: 'data/config.json',
+      },
+      {
+        id: 'dev:zh:data:config.json',
+        name: 'config.json',
+        type: 'data',
+        locale: 'zh',
+        path: 'data/config.zh.json',
+      },
+    ]
+
+    expect(findBestAssetRecord(ranked, 'data', 'config.json', 'zh-cn')?.id)
+      .toBe('dev:zh:data:config.json')
+  })
+
+  it('normalizes locale case while ranking records', () => {
+    const ranked: AssetManifestRecord[] = [
+      {
+        id: 'dev:default:data:config.json',
+        name: 'config.json',
+        type: 'data',
+        locale: 'default',
+        path: 'data/config.json',
+      },
+      {
+        id: 'dev:zh-CN:data:config.json',
+        name: 'config.json',
+        type: 'data',
+        locale: 'zh-CN',
+        path: 'data/config.zh-CN.json',
+      },
+    ]
+
+    expect(findBestAssetRecord(ranked, 'data', 'config.json', 'zh-cn')?.id)
+      .toBe('dev:zh-CN:data:config.json')
+  })
+
   it('ranks provider records by dynamic bundle priority before locale fallback', () => {
     const ranked: AssetManifestRecord[] = [
       {

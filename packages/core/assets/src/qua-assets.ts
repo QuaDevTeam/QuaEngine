@@ -23,8 +23,21 @@ import { createLogger } from '@quajs/logger'
 import { AssetManager } from './asset-manager'
 import { BundleLoader } from './bundle-loader'
 import { bytesToUtf8 } from './encoding'
+import {
+  DEFAULT_I18N_LOCALE,
+  DEFAULT_I18N_NAMESPACE,
+  formatI18nMessage,
+  i18nCatalogAssetName,
+  mergeI18nCatalogs,
+  normalizeI18nCatalog,
+  normalizeTranslateOptions,
+  type I18nCatalogOptions,
+  type I18nMessages,
+  type TranslateInput,
+  type TranslateOptions,
+} from './i18n'
 import { PatchManager } from './patch-manager'
-import { BundleLoadError } from './types'
+import { AssetNotFoundError, BundleLoadError } from './types'
 
 const logger = createLogger('quaassets')
 
@@ -246,6 +259,40 @@ export class QuaAssets {
     })
   }
 
+  async getI18nCatalog(namespace = DEFAULT_I18N_NAMESPACE, options: I18nCatalogOptions = {}): Promise<I18nMessages> {
+    this.ensureInitialized()
+    const assetName = i18nCatalogAssetName(options.namespace || namespace)
+    const locale = options.locale || this.currentLocale
+    const defaultLocale = options.defaultLocale || DEFAULT_I18N_LOCALE
+    const base = await this.readI18nCatalogAsset(assetName, {
+      bundleName: options.bundleName,
+      locale: defaultLocale,
+    })
+
+    if (locale === defaultLocale) {
+      return base.messages
+    }
+
+    const localized = await this.readI18nCatalogAsset(assetName, {
+      bundleName: options.bundleName,
+      locale,
+    })
+
+    if (localized.locale === defaultLocale) {
+      return base.messages
+    }
+
+    return mergeI18nCatalogs(base.messages, localized.messages)
+  }
+
+  async translate(key: string, input?: TranslateInput): Promise<string> {
+    this.ensureInitialized()
+    const options = normalizeTranslateOptions(input)
+    const catalog = await this.getI18nCatalog(options.namespace, options)
+    const message = catalog[key] ?? resolveMissingTranslation(key, options)
+    return formatI18nMessage(message, options.values)
+  }
+
   async hasAsset(type: AssetType, name: string, options?: LoadAssetOptions): Promise<boolean> {
     this.ensureInitialized()
     return await this.assetManager.hasAsset(type, name, {
@@ -268,6 +315,28 @@ export class QuaAssets {
       locale: this.currentLocale,
       ...options,
     })
+  }
+
+  private async readI18nCatalogAsset(
+    assetName: string,
+    options: LoadAssetOptions,
+  ): Promise<{ locale: AssetLocale, messages: I18nMessages }> {
+    try {
+      const asset = await this.getAsset('data', assetName, options)
+      return {
+        locale: asset.locale,
+        messages: normalizeI18nCatalog(JSON.parse(bytesToUtf8(asset.data))),
+      }
+    }
+    catch (error) {
+      if (!(error instanceof AssetNotFoundError)) {
+        throw error
+      }
+      return {
+        locale: options.locale || DEFAULT_I18N_LOCALE,
+        messages: {},
+      }
+    }
   }
 
   async preloadAssets(requests: Array<{
@@ -697,6 +766,16 @@ function createBundleStatus(name: string, state: BundleStatus['state']): BundleS
     loadedAssets: 0,
     lastUpdated: Date.now(),
   }
+}
+
+function resolveMissingTranslation(key: string, options: TranslateOptions): string {
+  if (options.fallback !== undefined) {
+    return options.fallback
+  }
+  if (options.missing === 'key') {
+    return key
+  }
+  return ''
 }
 
 function isDecompressionPlugin(plugin: QuaAssetsPlugin): plugin is DecompressionPlugin {
