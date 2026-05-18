@@ -46,6 +46,8 @@ export {
   stopAuto,
   stopFastForward,
   stopSkip,
+  t,
+  translate,
   unloadRuntimePackage,
   waitFor,
 } from './api/global'
@@ -91,6 +93,7 @@ export type {
   RuntimePackageRegistryEntry,
   RuntimePackageRegistryResolveContext,
   RuntimePackageScriptManifest,
+  RuntimePackageScriptVariantManifest,
   RuntimePackageState,
   RuntimePackageStateRecord,
   RuntimePackageStoreMigrationManifest,
@@ -98,6 +101,7 @@ export type {
   RuntimePackageTrustContext,
   RuntimePackageUnloadOptions,
   RuntimeScriptModuleRecord,
+  RuntimeScriptModuleRunOptions,
   RuntimeStoreMigrationContext,
   RuntimeStoreMigrationHandler,
   RuntimeTrustPolicy,
@@ -105,9 +109,13 @@ export type {
   SlotMetadata,
   StepContext,
   StoryPoint,
+  TranslateInput,
+  TranslateOptions,
   UsePluginOptions,
   ViewPluginProjectionMap,
 } from './core/types'
+export { resolveQuaText } from './core/text'
+export type { QuaTextPart, QuaTranslate } from './core/text'
 // Events
 export {
   emitLogicToRender,

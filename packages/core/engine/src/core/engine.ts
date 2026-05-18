@@ -44,10 +44,12 @@ import type {
   RuntimePackageStoreMigrationManifest,
   RuntimePackageUnloadOptions,
   RuntimeScriptModuleRecord,
+  RuntimeScriptModuleRunOptions,
   Scene,
   SlotMetadata,
   StepContext,
   StoryPoint,
+  TranslateInput,
   UiIntent,
   ViewLayoutInput,
 } from './types'
@@ -243,9 +245,9 @@ export class QuaEngine {
     this.runtimeContentManager.registerScriptModule(record)
   }
 
-  async runScriptModule<TScope>(moduleId: string, scope?: TScope): Promise<void> {
+  async runScriptModule<TScope>(moduleId: string, scope?: TScope, options?: RuntimeScriptModuleRunOptions): Promise<void> {
     this.assertInitialized()
-    await this.runtimeContentManager.runScriptModule(moduleId, scope)
+    await this.runtimeContentManager.runScriptModule(moduleId, scope, options)
   }
 
   async ensureRuntimePackages(packageIds: readonly string[]): Promise<void> {
@@ -321,6 +323,7 @@ export class QuaEngine {
         store: this.store,
         assets: this.assets,
         pipeline: this.pipeline,
+        t: (key, options) => this.translate(key, options),
       }
 
       await this.notifyPlugins('onStepStart', this.createEngineContext(step.uuid, { point }))
@@ -546,6 +549,11 @@ export class QuaEngine {
 
   getPipeline(): Pipeline {
     return this.pipeline
+  }
+
+  async translate(key: string, options?: TranslateInput): Promise<string> {
+    this.assertInitialized()
+    return await this.assets.translate(key, options)
   }
 
   getStore(): QuaStore {

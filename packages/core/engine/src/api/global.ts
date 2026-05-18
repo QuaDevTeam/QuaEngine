@@ -1,4 +1,4 @@
-import type { ChoiceIntent, CreateCheckpointOptions, DialogueIntent, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, RuntimePackageLoadOptions, RuntimePackageStateRecord, RuntimePackageUnloadOptions, RuntimeScriptModuleRecord, Scene, SlotMetadata, StoryPoint, ViewLayoutInput } from '../core/types'
+import type { ChoiceIntent, CreateCheckpointOptions, DialogueIntent, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, RuntimePackageLoadOptions, RuntimePackageStateRecord, RuntimePackageUnloadOptions, RuntimeScriptModuleRecord, RuntimeScriptModuleRunOptions, Scene, SlotMetadata, StoryPoint, TranslateInput, ViewLayoutInput } from '../core/types'
 import type { SceneTransitionOptions } from '../managers/scene-manager'
 import { QuaEngine } from '../core/engine'
 
@@ -49,8 +49,8 @@ export function registerScriptModule(record: RuntimeScriptModuleRecord): void {
   return getEngine().registerScriptModule(record)
 }
 
-export async function runScriptModule<TScope>(moduleId: string, scope?: TScope): Promise<void> {
-  return getEngine().runScriptModule(moduleId, scope)
+export async function runScriptModule<TScope>(moduleId: string, scope?: TScope, options?: RuntimeScriptModuleRunOptions): Promise<void> {
+  return getEngine().runScriptModule(moduleId, scope, options)
 }
 
 /**
@@ -161,6 +161,14 @@ export function getAssets() {
 
 export function getPipeline() {
   return getEngine().getPipeline()
+}
+
+export async function translate(key: string, options?: TranslateInput): Promise<string> {
+  return getEngine().translate(key, options)
+}
+
+export async function t(key: string, options?: TranslateInput): Promise<string> {
+  return translate(key, options)
 }
 
 export function getViewState() {

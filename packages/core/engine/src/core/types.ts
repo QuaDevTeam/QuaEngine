@@ -6,6 +6,7 @@ import type {
   RuntimePackagePluginManifest,
   RuntimePackageScriptManifest,
   RuntimePackageStoreMigrationManifest,
+  TranslateInput,
 } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
 import type { QuaStore, StorageConfig } from '@quajs/store'
@@ -30,8 +31,11 @@ export type {
   RuntimePackageManifest,
   RuntimePackagePluginManifest,
   RuntimePackageScriptManifest,
+  RuntimePackageScriptVariantManifest,
   RuntimePackageStoreMigrationManifest,
   RuntimePackageStoryGraphDeltaManifest,
+  TranslateInput,
+  TranslateOptions,
 } from '@quajs/assets'
 
 export type {
@@ -74,6 +78,7 @@ export interface GameStep {
       packageId: string
       scriptModuleId?: string
       scriptModuleVersion?: string
+      scriptModuleLocale?: string
     }
   }
 }
@@ -95,6 +100,7 @@ export interface StepContext {
   store: QuaStore
   assets: QuaAssets
   pipeline: Pipeline
+  t: (key: string, options?: TranslateInput) => Promise<string>
   choice?: {
     choiceId: string
     [key: string]: unknown
@@ -112,6 +118,7 @@ export interface QuaEngineInterface {
   getStore: () => QuaStore
   getAssets: () => QuaAssets
   getPipeline: () => Pipeline
+  translate: (key: string, options?: TranslateInput) => Promise<string>
   ensureRuntimePackages: (packageIds: readonly string[]) => Promise<void>
   getCurrentRuntimePackageId: () => string | undefined
   getRuntimeStateSnapshot: () => EngineRuntimeState
@@ -155,6 +162,7 @@ export interface QuaEngineInterface {
   autoSave: (metadata?: SlotMetadata) => Promise<void>
   listSaveSlots: () => Promise<import('@quajs/store').QuaGameSaveSlotMeta[]>
   deleteSaveSlot: (slotId: string) => Promise<void>
+  runScriptModule: <TScope>(moduleId: string, scope?: TScope, options?: RuntimeScriptModuleRunOptions) => Promise<void>
   withRuntimePackageContext: <T>(packageId: string | undefined, operation: (engine: QuaEngineInterface) => T | Promise<T>) => Promise<T>
 }
 
@@ -198,6 +206,7 @@ export interface StoryPoint {
   contentPackageId?: string
   scriptModuleId?: string
   scriptModuleVersion?: string
+  scriptModuleLocale?: string
 }
 
 export type EngineCheckpointKind = 'step' | 'line' | 'choice' | 'manual' | 'save'
@@ -265,6 +274,10 @@ export interface RuntimeScriptModuleRecord extends RuntimePackageScriptManifest 
   module?: Record<string, unknown>
 }
 
+export interface RuntimeScriptModuleRunOptions {
+  locale?: string
+}
+
 export interface RuntimePackageLoadOptions {
   activate?: boolean
   bundleName?: string
@@ -330,6 +343,7 @@ export interface RuntimeModuleLoadContext {
   assets: QuaAssets
   package: RuntimePackageManifest
   bundle: DynamicBundleRecord
+  locale?: string
 }
 
 export interface RuntimeTrustPolicy {

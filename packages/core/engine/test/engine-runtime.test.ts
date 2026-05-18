@@ -597,6 +597,92 @@ describe('quaEngine runtime architecture', () => {
     expect(enginePluginInit).toHaveBeenCalledTimes(2)
   })
 
+  it('resolves runtime script locale variants and caches modules by fallback locale', async () => {
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.locale',
+      version: '1.0.0',
+      scripts: [{
+        id: 'runtime.locale.scene',
+        version: '1.0.0',
+        assetName: 'scene.js',
+        variants: {
+          zh: {
+            assetName: 'scene.zh.js',
+            version: '1.0.0-zh',
+          },
+          'en-US': {
+            assetName: 'scene.en-us.js',
+            version: '1.0.0-en',
+          },
+        },
+      }],
+    })
+    const qpk = createQpkBundle(manifest, new Map([
+      ['assets/scripts/scene.js', utf8('export default function createQuaScript() {}')],
+      ['assets/scripts/scene.zh.js', utf8('export default function createQuaScript() {}')],
+      ['assets/scripts/scene.en-us.js', utf8('export default function createQuaScript() {}')],
+    ]))
+    const loadCalls: Array<{ assetName: string, locale?: string, version?: string }> = []
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/locale.qpk': qpk,
+        }),
+        locale: 'zh-CN',
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      runtimeModuleLoader: {
+        loadScriptModule: vi.fn(async (record, ctx) => {
+          loadCalls.push({
+            assetName: record.assetName,
+            locale: ctx.locale,
+            version: record.version,
+          })
+          return {
+            default: () => [{
+              uuid: `locale-step-${ctx.locale}`,
+              run: async (stepCtx: any) => {
+                await stepCtx.engine.showDialogue({
+                  text: `${ctx.locale}:${record.assetName}:${record.version}`,
+                })
+              },
+            }],
+          }
+        }),
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+
+    await engine.init()
+    await engine.loadRuntimePackage('locale.qpk')
+    await engine.runScriptModule('runtime.locale.scene')
+    await engine.runScriptModule('runtime.locale.scene')
+    engine.getAssets().setLocale('zh-HK')
+    await engine.runScriptModule('runtime.locale.scene')
+    engine.getAssets().setLocale('ja-JP')
+    await engine.runScriptModule('runtime.locale.scene')
+    await engine.runScriptModule('runtime.locale.scene', undefined, { locale: 'en-US' })
+
+    expect(loadCalls).toEqual([
+      { assetName: 'scene.zh.js', locale: 'zh', version: '1.0.0-zh' },
+      { assetName: 'scene.js', locale: 'default', version: '1.0.0' },
+      { assetName: 'scene.en-us.js', locale: 'en-us', version: '1.0.0-en' },
+    ])
+    expect(engine.getViewState().dialogue.text).toBe('en-us:scene.en-us.js:1.0.0-en')
+    expect(engine.getStoryPoint()).toEqual(expect.objectContaining({
+      contentPackageId: 'runtime.locale',
+      scriptModuleLocale: 'en-us',
+      scriptModuleVersion: '1.0.0-en',
+    }))
+  })
+
   it('notifies renderer runtime unload before removing dynamic bundle assets', async () => {
     const manifest = createRuntimeBundleManifest({
       id: 'runtime.unload-order',
