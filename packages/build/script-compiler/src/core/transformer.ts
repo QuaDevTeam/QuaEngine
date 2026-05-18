@@ -4,6 +4,7 @@ import type { DecoratorCompilerRegistry } from '../decorators'
 import type {
   DecoratorMapping,
   ParsedQuaScript,
+  ParsedQuaScriptDocument,
   QuaScriptChoice,
   QuaScriptDecorator,
   QuaScriptDialogue,
@@ -50,6 +51,7 @@ export class QuaScriptTransformer {
   protected decoratorMappings: DecoratorMapping
   private usedDecorators: Set<string> = new Set()
   private usedRuntimeHelpers: Set<string> = new Set()
+  private usedEngineHelpers: Set<string> = new Set()
   private handledDecoratorModules: Set<string> = new Set()
   protected decoratorCompilerRegistry: DecoratorCompilerRegistry
   private runtimeModule?: NonNullable<QuaScriptTransformerOptions['runtimeModule']>
@@ -71,6 +73,7 @@ export class QuaScriptTransformer {
   transformSource(source: string): string {
     this.usedDecorators.clear()
     this.usedRuntimeHelpers.clear()
+    this.usedEngineHelpers.clear()
     this.handledDecoratorModules.clear()
 
     const ast = parse(source, {
@@ -120,15 +123,19 @@ export class QuaScriptTransformer {
    * The module exports a factory so the caller can provide runtime bindings.
    */
   transformModuleSource(source: string, _filePath?: string): string {
-    this.usedDecorators.clear()
-    this.usedRuntimeHelpers.clear()
-    this.handledDecoratorModules.clear()
-
     const document = parseQuaScriptDocument(source)
-    this.throwDocumentDiagnostics(document.diagnostics)
-
     const parser = new QuaScriptParser()
     const parsed = parser.parse(document.dslBody)
+    return this.transformParsedModuleSource(document, parsed)
+  }
+
+  transformParsedModuleSource(document: ParsedQuaScriptDocument, parsed: ParsedQuaScript): string {
+    this.usedDecorators.clear()
+    this.usedRuntimeHelpers.clear()
+    this.usedEngineHelpers.clear()
+    this.handledDecoratorModules.clear()
+
+    this.throwDocumentDiagnostics(document.diagnostics)
     this.throwDocumentDiagnostics(parsed.diagnostics.filter(diagnostic => diagnostic.severity === 'error'))
     this.collectUsedDecorators(parsed)
 
@@ -319,6 +326,9 @@ export class QuaScriptTransformer {
       state: compileState,
     }
 
+    if (dialogue.templateExpressions.length > 0) {
+      statements.push(...this.createTextHelperStatements())
+    }
     statements.push(...this.createDecoratorStatements(dialogue.decorators, context, options.scopeIdentifier))
     statements.push(...this.createImplicitDecoratorStatements(dialogue.decorators, context, options.scopeIdentifier))
 
@@ -369,12 +379,11 @@ export class QuaScriptTransformer {
     void stepUuid
     void stepIndex
     void compileState
-    void options
     const choicesIdentifier = t.identifier('choices')
     const choicesArray = t.arrayExpression(choice.options.map(option =>
       t.objectExpression([
         t.objectProperty(t.identifier('id'), t.stringLiteral(option.id)),
-        t.objectProperty(t.identifier('text'), t.stringLiteral(option.text)),
+        t.objectProperty(t.identifier('text'), this.createTextExpression(option.text, option.templateExpressions, options)),
         t.objectProperty(t.identifier('enabled'), option.condition ? this.parseExpression(option.condition, options.scopeIdentifier) : t.booleanLiteral(true)),
         t.objectProperty(t.identifier('metadata'), t.objectExpression([
           t.objectProperty(t.identifier('target'), t.stringLiteral(option.target)),
@@ -395,7 +404,11 @@ export class QuaScriptTransformer {
     ))
 
     const selected = t.identifier('selected')
-    const statements: t.Statement[] = [
+    const statements: t.Statement[] = []
+    if (choice.options.some(option => option.templateExpressions.length > 0)) {
+      statements.push(...this.createTextHelperStatements())
+    }
+    statements.push(
       t.variableDeclaration('const', [
         t.variableDeclarator(choicesIdentifier, choicesArray),
       ]),
@@ -448,7 +461,7 @@ export class QuaScriptTransformer {
         t.memberExpression(t.identifier('ctx'), t.identifier('choice')),
         selected,
       )),
-    ]
+    )
 
     return t.arrowFunctionExpression(
       [t.identifier('ctx')],
@@ -627,6 +640,59 @@ export class QuaScriptTransformer {
     return parsed.program
   }
 
+  private createTextHelperStatements(): t.Statement[] {
+    const translate = t.identifier('$t')
+    return [
+      t.variableDeclaration('const', [
+        t.variableDeclarator(
+          translate,
+          t.arrowFunctionExpression(
+            [t.identifier('key'), t.identifier('options')],
+            t.callExpression(
+              t.memberExpression(t.identifier('ctx'), t.identifier('t')),
+              [t.identifier('key'), t.identifier('options')],
+            ),
+          ),
+        ),
+      ]),
+      t.variableDeclaration('const', [
+        t.variableDeclarator(t.identifier('t'), translate),
+      ]),
+    ]
+  }
+
+  private createTextExpression(
+    text: string,
+    templateExpressions: readonly string[],
+    options: {
+      quasi?: t.TemplateLiteral
+      scopeIdentifier?: t.Identifier
+    } = {},
+  ): t.Expression {
+    void options.quasi
+    if (templateExpressions.length === 0) {
+      return t.stringLiteral(text)
+    }
+
+    const { parts } = scanTemplateText(text)
+    const values: t.Expression[] = []
+    parts.forEach((part, index) => {
+      values.push(t.stringLiteral(part))
+      if (index < templateExpressions.length) {
+        values.push(this.parseExpression(templateExpressions[index], options.scopeIdentifier))
+      }
+    })
+
+    this.usedEngineHelpers.add('resolveQuaText')
+    return t.awaitExpression(t.callExpression(
+      t.identifier('resolveQuaText'),
+      [
+        t.identifier('ctx'),
+        t.arrayExpression(values),
+      ],
+    ))
+  }
+
   private createSpeakCall(
     dialogue: QuaScriptDialogue,
     options: {
@@ -634,35 +700,7 @@ export class QuaScriptTransformer {
       scopeIdentifier?: t.Identifier
     } = {},
   ): t.CallExpression {
-    let textExpression: t.Expression
-
-    if (dialogue.templateExpressions.length > 0) {
-      const { parts } = scanTemplateText(dialogue.text)
-      const expressions: t.Expression[] = []
-
-      dialogue.templateExpressions.forEach((expr, index) => {
-        if (options.quasi && index < options.quasi.expressions.length) {
-          const expression = options.quasi.expressions[index]
-          expressions.push(t.isExpression(expression) ? expression : t.identifier(expr))
-        }
-        else {
-          expressions.push(this.parseExpression(expr, options.scopeIdentifier))
-        }
-      })
-
-      const quasis = parts.map((part, index) => {
-        const isLast = index === parts.length - 1
-        return t.templateElement(
-          { raw: escapeTemplateRaw(part), cooked: part },
-          isLast,
-        )
-      })
-
-      textExpression = t.templateLiteral(quasis, expressions)
-    }
-    else {
-      textExpression = t.stringLiteral(dialogue.text)
-    }
+    const textExpression = this.createTextExpression(dialogue.text, dialogue.templateExpressions, options)
 
     this.usedRuntimeHelpers.add('speakWithEngine')
     return t.callExpression(
@@ -704,6 +742,12 @@ export class QuaScriptTransformer {
       }
 
       this.addImport(importMap, module, helperName)
+    })
+
+    this.usedEngineHelpers.forEach((helperName) => {
+      if (!this.isAlreadyImported(ast, '@quajs/engine', helperName)) {
+        this.addImport(importMap, '@quajs/engine', helperName)
+      }
     })
 
     importMap.forEach((functions, module) => {
@@ -760,13 +804,6 @@ function indent(source: string): string {
     .split('\n')
     .map(line => (line.trim().length > 0 ? `  ${line}` : line))
     .join('\n')
-}
-
-function escapeTemplateRaw(value: string): string {
-  return value
-    .replace(/\\/g, '\\\\')
-    .replace(/`/g, '\\`')
-    .replace(/\$\{/g, '\\${')
 }
 
 function isTerminatingEngineDecorator(decoratorName: string): boolean {

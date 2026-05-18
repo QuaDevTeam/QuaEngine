@@ -7,6 +7,24 @@ import { createPluginAwareTransformer } from './integrations/plugin-aware-transf
 
 export { generateQuaScriptModuleDeclaration } from './core/declaration'
 export { createLineStarts, parseQuaScriptDocument, positionAt, rangeFromOffsets } from './core/document'
+export {
+  applyQuaScriptLocaleOverlay,
+  compileLocalizedQuaScriptModuleToTs,
+  createQuaScriptLocaleSkeleton,
+  createQuaScriptLocaleSyncState,
+  extractQuaScriptLocalizableUnits,
+  syncQuaScriptLocale,
+} from './core/localization'
+export type {
+  CompileLocalizedQuaScriptModuleOptions,
+  QuaScriptLocalizableUnit,
+  QuaScriptLocalizableUnitKind,
+  QuaScriptLocaleSyncResult,
+  QuaScriptLocaleSyncState,
+  QuaScriptLocaleSyncStateUnit,
+  QuaScriptLocaleSyncStatus,
+  SyncQuaScriptLocaleOptions,
+} from './core/localization'
 
 // Hot-reload manager
 export {

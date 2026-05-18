@@ -141,8 +141,22 @@ Yuki: Hello \${formatName(displayName)}!
     expect(result).toContain('export interface Scope')
     expect(result).toContain('export default function createQuaScript(scope: Scope): GameStep[]')
     expect(result).toContain('const displayName = formatName(scope.playerName)')
-    expect(result).toContain('`Hello $' + '{formatName(displayName)}!`')
+    expect(result).toContain('resolveQuaText(ctx, ["Hello ", formatName(displayName), "!"])')
     expect(result).toContain('enabled: canContinue(scope.playerName) && scope.unlocked')
+  })
+
+  it('compiles QuaScript text expressions as async text parts with translation helpers', () => {
+    const result = compileQuaScriptModuleToTs(`
+      Yuki: \${$t('intro.greeting', { name: scope.playerName })}!
+      - \${Promise.resolve('Continue')} -> next
+    `, { hotReload: false })
+
+    expect(result).toContain('import { resolveQuaText } from "@quajs/engine";')
+    expect(result).toContain('const $t = (key, options) => ctx.t(key, options)')
+    expect(result).toContain('const t = $t')
+    expect(result).toContain('await resolveQuaText(ctx, ["", $t(\'intro.greeting\', {')
+    expect(result).toContain('name: scope.playerName')
+    expect(result).toContain('text: await resolveQuaText(ctx, ["", Promise.resolve(\'Continue\'), ""])')
   })
 
   it('should generate per-file qs declarations', () => {
@@ -461,7 +475,7 @@ Yuki: Hello
       sourceType: 'module',
       plugins: ['typescript'],
     })).not.toThrow()
-    expect(result).toContain('`Path C:\\\\temp and tick \\`value\\` $' + '{scope.playerName}`')
+    expect(result).toContain('resolveQuaText(ctx, ["Path C:\\\\temp and tick `value` ", scope.playerName, ""])')
   })
 
   it('rejects malformed QuaScript TypeScript expressions and decorator arguments', () => {
