@@ -17,9 +17,11 @@ import type {
   RuntimePackageStateRecord,
   RuntimePackageUnloadOptions,
   RuntimeScriptModuleRecord,
+  RuntimeScriptModuleRunOptions,
   RuntimeStoreMigrationHandler,
   RuntimeTrustPolicy,
 } from '../core/types'
+import { createLocaleFallbackChain, normalizeLocale } from '@quajs/assets'
 import type { EnginePlugin } from '../plugins/core/types'
 import { emitLogicToRender, LogicToRenderEvents } from '../events/events'
 import { getPluginRegistry } from '../plugins'
@@ -190,7 +192,11 @@ export class RuntimeContentManager {
     for (const [moduleId, moduleRecord] of this.scripts.entries()) {
       if (moduleRecord.packageId === packageId) {
         this.scripts.delete(moduleId)
-        this.loadedScriptModules.delete(moduleId)
+        for (const cacheKey of this.loadedScriptModules.keys()) {
+          if (cacheKey === moduleId || cacheKey.startsWith(`${moduleId}::`)) {
+            this.loadedScriptModules.delete(cacheKey)
+          }
+        }
       }
     }
 
@@ -219,7 +225,7 @@ export class RuntimeContentManager {
     this.scripts.set(record.id, { ...record })
   }
 
-  async runScriptModule<TScope>(moduleId: string, scope?: TScope): Promise<void> {
+  async runScriptModule<TScope>(moduleId: string, scope?: TScope, options: RuntimeScriptModuleRunOptions = {}): Promise<void> {
     const record = this.scripts.get(moduleId)
     if (!record) {
       throw new Error(`Runtime script module "${moduleId}" is not registered.`)
@@ -227,7 +233,8 @@ export class RuntimeContentManager {
 
     await this.ensureRuntimePackages([record.packageId])
 
-    const factory = await this.resolveScriptFactory(record)
+    const scriptVariant = this.resolveScriptVariant(record, options.locale || this.engine.getAssets().getLocale())
+    const factory = await this.resolveScriptFactory(scriptVariant.record, scriptVariant.locale)
     const steps = resolveGameSteps(factory as any, scope)
     await this.engine.dialogue(steps.map(step => ({
       ...step,
@@ -237,12 +244,14 @@ export class RuntimeContentManager {
           ...(step.metadata?.point || {}),
           contentPackageId: record.packageId,
           scriptModuleId: record.id,
-          scriptModuleVersion: record.version,
+          scriptModuleVersion: scriptVariant.record.version,
+          scriptModuleLocale: scriptVariant.locale,
         },
         runtimePackage: {
           packageId: record.packageId,
           scriptModuleId: record.id,
-          scriptModuleVersion: record.version,
+          scriptModuleVersion: scriptVariant.record.version,
+          scriptModuleLocale: scriptVariant.locale,
         },
         requiredRuntimePackages: unique([
           record.packageId,
@@ -483,7 +492,40 @@ export class RuntimeContentManager {
     return handler as RuntimeStoreMigrationHandler
   }
 
-  private async resolveScriptFactory(record: RuntimeScriptModuleRecord) {
+  private resolveScriptVariant(
+    record: RuntimeScriptModuleRecord,
+    preferredLocale: string,
+  ): { locale: string, record: RuntimeScriptModuleRecord } {
+    const variants = Object.fromEntries(
+      Object.entries(record.variants || {}).map(([locale, variant]) => [normalizeLocale(locale), variant]),
+    )
+    for (const locale of createLocaleFallbackChain(preferredLocale)) {
+      const variant = variants[locale]
+      if (!variant) {
+        continue
+      }
+      return {
+        locale,
+        record: {
+          ...record,
+          assetName: variant.assetName,
+          exportName: variant.exportName || record.exportName,
+          version: variant.version || record.version,
+          metadata: {
+            ...(record.metadata || {}),
+            ...(variant.metadata || {}),
+          },
+        },
+      }
+    }
+
+    return {
+      locale: 'default',
+      record,
+    }
+  }
+
+  private async resolveScriptFactory(record: RuntimeScriptModuleRecord, locale = 'default') {
     if (record.factory) {
       return record.factory
     }
@@ -491,7 +533,8 @@ export class RuntimeContentManager {
       return selectScriptFactory(record, record.module)
     }
 
-    const cached = this.loadedScriptModules.get(record.id)
+    const cacheKey = createScriptModuleCacheKey(record.id, locale)
+    const cached = this.loadedScriptModules.get(cacheKey)
     if (cached) {
       return selectScriptFactory(record, cached)
     }
@@ -504,8 +547,9 @@ export class RuntimeContentManager {
       assets: this.engine.getAssets(),
       package: packageRecord.manifest,
       bundle: packageRecord.bundle,
+      locale,
     })
-    this.loadedScriptModules.set(record.id, loaded)
+    this.loadedScriptModules.set(cacheKey, loaded)
     return selectScriptFactory(record, loaded)
   }
 
@@ -632,6 +676,10 @@ function isEnginePlugin(value: unknown): value is EnginePlugin {
 
 function createMigrationKey(packageId: string, migration: RuntimePackageStoreMigrationManifest): string {
   return `${packageId}:${migration.id}:${migration.version || '1'}`
+}
+
+function createScriptModuleCacheKey(moduleId: string, locale: string): string {
+  return `${moduleId}::${normalizeLocale(locale || 'default')}`
 }
 
 function unique(values: readonly string[]): string[] {
