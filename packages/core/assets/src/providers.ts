@@ -31,7 +31,8 @@ export function findBestRankedAssetRecord<T extends RankableAssetRecord>(
   records: readonly T[],
   preferredLocale: AssetLocale,
 ): T | undefined {
-  const localeCandidates = records.filter(record => (record.locale || 'default') === preferredLocale || (record.locale || 'default') === 'default')
+  const fallbackChain = createLocaleFallbackChain(preferredLocale)
+  const localeCandidates = records.filter(record => fallbackChain.includes(normalizeLocale(record.locale || 'default')))
   const candidates = localeCandidates.length > 0 ? localeCandidates : records
   return [...candidates].sort((left, right) => compareRankedAssetRecords(left, right, preferredLocale))[0]
 }
@@ -59,10 +60,25 @@ function compareRankedAssetRecords(
 }
 
 function localeRank(locale: AssetLocale | undefined, preferredLocale: AssetLocale): number {
-  const normalized = locale || 'default'
-  if (normalized === preferredLocale)
-    return 2
-  if (normalized === 'default')
-    return 1
-  return 0
+  const normalized = normalizeLocale(locale || 'default')
+  const fallbackChain = createLocaleFallbackChain(preferredLocale)
+  const index = fallbackChain.indexOf(normalized)
+  return index === -1 ? 0 : fallbackChain.length - index
+}
+
+export function createLocaleFallbackChain(locale: AssetLocale): AssetLocale[] {
+  const normalized = normalizeLocale(locale || 'default')
+  const chain = [normalized]
+  const baseLocale = normalized.split('-')[0]
+  if (baseLocale && baseLocale !== normalized && baseLocale !== 'default') {
+    chain.push(baseLocale)
+  }
+  if (!chain.includes('default')) {
+    chain.push('default')
+  }
+  return chain
+}
+
+export function normalizeLocale(locale: AssetLocale): AssetLocale {
+  return locale.toLowerCase().replace(/_/g, '-')
 }

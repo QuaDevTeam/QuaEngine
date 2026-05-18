@@ -1,6 +1,21 @@
 export { AssetManager } from './asset-manager'
 
 export { BundleLoader } from './bundle-loader'
+export {
+  DEFAULT_I18N_LOCALE,
+  DEFAULT_I18N_NAMESPACE,
+  formatI18nMessage,
+  i18nCatalogAssetName,
+  mergeI18nCatalogs,
+  normalizeI18nCatalog,
+  normalizeTranslateOptions,
+} from './i18n'
+export {
+  createLocaleFallbackChain,
+  findBestAssetRecord,
+  findBestRankedAssetRecord,
+  normalizeLocale,
+} from './providers'
 // Core components
 export { MemoryAssetStorage, QuaAssetsDatabase } from './database'
 export { PatchManager } from './patch-manager'
@@ -11,7 +26,6 @@ export {
   NoopDecompressionPlugin,
   XORDecryptionPlugin,
 } from './plugins/index'
-export { findBestAssetRecord } from './providers'
 
 // Main QuaAssets class
 export { QuaAssets } from './qua-assets'
@@ -30,6 +44,7 @@ export type {
   AssetFetchResult,
   AssetFindCriteria,
   AssetLocale,
+  AssetInfo,
   AssetManifest,
   AssetManifestRecord,
   AssetNotFoundError,
@@ -40,6 +55,7 @@ export type {
   AssetStorage,
   // Core types
   AssetType,
+  AssetVariantInfo,
 
   AssetUpdateInfo,
   BundleFormat,
@@ -76,6 +92,7 @@ export type {
   RuntimePackagePluginKind,
   RuntimePackagePluginManifest,
   RuntimePackageScriptManifest,
+  RuntimePackageScriptVariantManifest,
   RuntimePackageSignatureManifest,
   RuntimePackageStoreMigrationManifest,
   RuntimePackageStoryGraphDeltaManifest,
@@ -84,3 +101,12 @@ export type {
   StoredBundle,
   WorkspaceBundleIndex,
 } from './types'
+export type {
+  I18nCatalog,
+  I18nCatalogOptions,
+  I18nMessageValue,
+  I18nMessageValues,
+  I18nMessages,
+  TranslateInput,
+  TranslateOptions,
+} from './i18n'

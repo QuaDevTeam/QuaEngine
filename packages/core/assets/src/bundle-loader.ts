@@ -187,7 +187,54 @@ export class BundleLoader {
         continue
 
       for (const [key, assetInfo] of Object.entries(records as Record<string, AssetInfo>)) {
-        for (const locale of assetInfo.locales?.length ? assetInfo.locales : [manifest.defaultLocale || 'default']) {
+        const variantLocales = new Set<string>()
+        if (assetInfo.variants && Object.keys(assetInfo.variants).length > 0) {
+          for (const [locale, variant] of Object.entries(assetInfo.variants)) {
+            const variantLocale = variant.locale || locale
+            variantLocales.add(variantLocale)
+            const path = findAssetPath(files, {
+              ...assetInfo,
+              path: variant.path,
+              relativePath: variant.relativePath,
+              size: variant.size,
+              hash: variant.hash,
+              mimeType: variant.mimeType || assetInfo.mimeType,
+              mtime: variant.mtime || assetInfo.mtime,
+              version: variant.version || assetInfo.version,
+              mediaMetadata: variant.mediaMetadata || assetInfo.mediaMetadata,
+            }, key, variantLocale)
+            if (!path)
+              continue
+
+            const data = files.get(path)!
+            if (variant.hash) {
+              const actualHash = await this.crypto.sha256(data)
+              if (actualHash !== variant.hash) {
+                throw new IntegrityError(variant.hash, actualHash)
+              }
+            }
+
+            const name = assetInfo.name || inferAssetName(key)
+            assets.push({
+              id: `${bundleName}:${variantLocale}:${type}:${name}`,
+              bundleName,
+              name,
+              type: type as AssetType,
+              locale: variantLocale,
+              data: new Uint8Array(data),
+              hash: variant.hash || '',
+              mimeType: variant.mimeType || assetInfo.mimeType,
+              size: variant.size ?? data.byteLength,
+              version: variant.version || assetInfo.version || 1,
+              mtime: variant.mtime || assetInfo.mtime || now,
+              createdAt: now,
+              lastAccessed: now,
+              mediaMetadata: variant.mediaMetadata || assetInfo.mediaMetadata,
+            })
+          }
+        }
+
+        for (const locale of (assetInfo.locales?.length ? assetInfo.locales : [manifest.defaultLocale || 'default']).filter(locale => !variantLocales.has(locale))) {
           const path = findAssetPath(files, assetInfo, key, locale)
           if (!path)
             continue

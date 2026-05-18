@@ -7,6 +7,7 @@ import type {
   StoredAsset,
   StoredBundle,
 } from './types'
+import { findBestRankedAssetRecord } from './providers'
 
 /**
  * Platform-neutral in-memory storage used by the core package and tests.
@@ -53,18 +54,8 @@ export class MemoryAssetStorage implements AssetStorage {
     name: string,
     preferredLocale: AssetLocale = 'default',
   ): Promise<StoredAsset | undefined> {
-    const preferred = await this.getAsset(`${bundleName}:${preferredLocale}:${type}:${name}`)
-    if (preferred)
-      return preferred
-
-    if (preferredLocale !== 'default') {
-      const fallback = await this.getAsset(`${bundleName}:default:${type}:${name}`)
-      if (fallback)
-        return fallback
-    }
-
     const matches = await this.findAssets({ bundleName, type, name })
-    return matches[0]
+    return findBestRankedAssetRecord(matches, preferredLocale)
   }
 
   async deleteAsset(id: string): Promise<void> {
