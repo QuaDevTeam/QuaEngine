@@ -7,13 +7,19 @@ import { createChoicesRendererPlugin } from '../choices'
 import { createDialogueRendererPlugin } from '../dialogue'
 import { createEffectsRendererPlugin } from '../effects'
 import { createFontsRendererPlugin } from '../fonts'
+import { createInputRendererPlugin, type InputVueRendererPluginOptions } from '../input'
 import { createSceneRendererPlugin } from '../scene'
 import { createSettingsRendererPlugin } from '../settings'
 import { createSpriteRendererPlugin } from '../sprite'
 import { createUiRendererPlugin } from '../ui'
 
-export function createVisualNovelRendererPlugins(): QuaVueRendererPlugin[] {
+export interface VisualNovelRendererPresetOptions {
+  input?: false | InputVueRendererPluginOptions
+}
+
+export function createVisualNovelRendererPlugins(options: VisualNovelRendererPresetOptions = {}): QuaVueRendererPlugin[] {
   return [
+    ...(options.input === false ? [] : [createInputRendererPlugin(options.input || {})]),
     createFontsRendererPlugin(),
     createBackgroundRendererPlugin(),
     createSpriteRendererPlugin(),

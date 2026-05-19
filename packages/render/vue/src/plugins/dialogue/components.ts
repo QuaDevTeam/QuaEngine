@@ -19,10 +19,6 @@ export const QuaDialogueBox = defineComponent({
         ? h('div', {
             class: 'qua-dialogue-box',
             style: motionProjectionVars(projectedDialogue as unknown as Record<string, unknown>, '--qua-dialogue'),
-            onClick: (event: Event) => {
-              event.stopPropagation()
-              actions.advance('dialogue')
-            },
           }, slots.default?.({ ...useProjectionProps(), dialogue: projectedDialogue, actions }) || [
             projectedDialogue.characterName ? h('div', { class: 'qua-dialogue-speaker' }, projectedDialogue.characterName) : null,
             h('p', {

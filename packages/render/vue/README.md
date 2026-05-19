@@ -9,7 +9,7 @@ Stateless Vue renderer for QuaEngine. The renderer projects view state received 
 - `pipeline`: the only logic/render communication channel.
 - `assets`: the browser-side asset runtime used to resolve projected asset names into object URLs.
 - `initialView`: optional first-frame projection. Later projection updates should arrive through `LogicToRenderEvents.VIEW_UPDATE`.
-- `plugins`: optional renderer feature plugins such as background, character, dialogue, choices, audio, effects, settings, and UI.
+- `plugins`: optional renderer feature plugins such as input, background, character, dialogue, choices, audio, effects, settings, and UI.
 
 ```vue
 <template>
@@ -106,6 +106,27 @@ const projectedView = {
 ```
 
 The Vue renderer asks `assets.getAsset('images', 'classroom.png')` or `assets.getAsset('characters', 'alice.png')`, creates browser object URLs, and revokes them on cleanup.
+
+## Input
+
+The default visual novel preset includes `@quajs/renderer-vue/plugins/input`, which is a thin adapter over `@quajs/renderer-web/plugins/input`. It maps keyboard, pointer, and gamepad input to semantic renderer commands, emits `RenderToLogicEvents.USER_INPUT_COMMAND`, and then calls existing intent actions such as `USER_ADVANCE` or flow-control requests. It does not store game state or decide progression.
+
+Disable or customize it through the preset option:
+
+```ts
+const plugins = createVisualNovelRendererPlugins({
+  input: {
+    gamepad: false,
+    bindings: [
+      { source: 'keyboard', code: 'KeyN', command: 'advance', preventDefault: true },
+    ],
+  },
+})
+
+const pluginsWithoutInput = createVisualNovelRendererPlugins({ input: false })
+```
+
+Pointer advance is filtered for buttons, form controls, choices, overlays, settings, backlog, and elements marked with `data-qua-input-ignore`. Pointer payload metadata is converted into logical stage coordinates by the shared Web renderer helpers.
 
 ## Settings Forms
 
