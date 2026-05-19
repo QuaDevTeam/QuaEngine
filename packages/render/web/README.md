@@ -8,6 +8,7 @@ This package owns browser-side implementation details that are shared by Web ren
 - renderer intent actions over `@quajs/pipeline`
 - object URL loading and revocation for `@quajs/assets`
 - animation projection helpers
+- renderer input command mapping for keyboard, pointer, and gamepad devices
 - optional native DOM projection layers under `@quajs/renderer-web/plugins/*`
 - WebAudio runtime primitives and renderer controller under `@quajs/renderer-web/audio`
 - a React-compatible external-store adapter for `useSyncExternalStore`
@@ -18,6 +19,7 @@ Framework renderers such as `@quajs/renderer-vue` should build on this package i
 
 - `@quajs/renderer-web`: framework-neutral controller, actions, projection helpers, asset URL handles, DOM renderer shell, and non-audio DOM plugin factories.
 - `@quajs/renderer-web/dom`: native DOM renderer shell.
+- `@quajs/renderer-web/input`: framework-neutral input controller and default keyboard/pointer/gamepad bindings.
 - `@quajs/renderer-web/react`: React-compatible store adapter without a React dependency.
 - `@quajs/renderer-web/audio`: `WebAudioAudioRuntime` and `WebAudioRendererController`.
 - `@quajs/renderer-web/plugins/core`: DOM renderer plugin layer contracts/helpers.
@@ -28,9 +30,44 @@ Framework renderers such as `@quajs/renderer-vue` should build on this package i
 - `@quajs/renderer-web/plugins/choices`
 - `@quajs/renderer-web/plugins/effects`
 - `@quajs/renderer-web/plugins/ui`
+- `@quajs/renderer-web/plugins/input`: optional input plugin that maps physical inputs to semantic renderer commands and existing render-to-logic intents.
 - `@quajs/renderer-web/plugins/settings`: schema-driven settings panel projection for `@quajs/plugin-settings`.
 - `@quajs/renderer-web/plugins/audio`: WebAudio renderer plugin for framework-neutral Web renderer hosts.
-- `@quajs/renderer-web/plugins/preset`: visual novel DOM preset, including background, sprite, character, effects, dialogue, choices, audio, settings, and UI overlay projection.
+- `@quajs/renderer-web/plugins/preset`: visual novel DOM preset, including input, background, sprite, character, effects, dialogue, choices, audio, settings, and UI overlay projection.
+
+## Renderer Input
+
+`createInputWebRendererPlugin()` and `createRendererInputController()` map transient Web input into semantic renderer commands. The input layer does not own game state or decide narrative progression. It emits `RenderToLogicEvents.USER_INPUT_COMMAND` first for audit/plugin observation, then calls the existing renderer action for built-in commands such as `USER_ADVANCE`, `FLOW_CONTROL_START_SKIP_REQUEST`, or `FLOW_CONTROL_START_FAST_FORWARD_REQUEST`.
+
+Default keyboard bindings:
+
+- `Enter`, `Space`, `ArrowRight`, `PageDown`: advance
+- `ControlLeft` / `ControlRight` hold: skip start/stop
+- `KeyF` hold: fast-forward start/stop
+- `KeyA`: auto toggle
+- `ArrowUp` / `ArrowDown`: transient choice navigation command
+- `Escape`: UI cancel command
+
+Default pointer binding maps primary clicks inside `.qua-stage` to `advance`. Clicks on buttons, form controls, links, choices, overlays, settings, backlog, and elements marked with `data-qua-input-ignore` are ignored so UI controls do not accidentally advance the story. Pointer metadata uses `clientPointToStageLogical()` and carries logical `x/y` coordinates.
+
+Default gamepad bindings map `A/Cross` to choice confirm or advance, `B/Circle` to UI cancel, D-pad up/down to choice navigation commands, right bumper hold to fast-forward, right trigger hold to skip, and Start/Menu to UI menu. Gamepad polling is renderer-local and stops when the input controller is disposed.
+
+Use the preset option to customize or disable input:
+
+```ts
+import { createVisualNovelWebRendererPlugins } from '@quajs/renderer-web/plugins/preset'
+
+const plugins = createVisualNovelWebRendererPlugins({
+  input: {
+    gamepad: false,
+    bindings: [
+      { source: 'keyboard', code: 'KeyN', command: 'advance', preventDefault: true },
+    ],
+  },
+})
+
+const pluginsWithoutInput = createVisualNovelWebRendererPlugins({ input: false })
+```
 
 ## Stage And Background Projection
 

@@ -30,11 +30,6 @@ function renderDialogueLayer(context: QuaWebDomLayerContext): Node | undefined {
   const box = context.document.createElement('div')
   box.className = 'qua-dialogue-box'
   applyStyleVars(box, motionProjectionVars(dialogue as unknown as Record<string, unknown>, '--qua-dialogue'))
-  box.addEventListener('click', (event) => {
-    event.stopPropagation()
-    void context.actions.advance('dialogue')
-  })
-
   renderDialogueContent(context, box, dialogue)
   return box
 }

@@ -149,10 +149,6 @@ export class QuaWebDomRenderer {
     safePlane.className = 'qua-stage-safe'
     applyStyles(safePlane, stageSafeAreaStyle(layout))
 
-    stage.addEventListener('click', () => {
-      void snapshot.actions.advance('stage-click')
-    })
-
     const context: QuaWebDomLayerContext = {
       renderer: this,
       controller: this.controller,

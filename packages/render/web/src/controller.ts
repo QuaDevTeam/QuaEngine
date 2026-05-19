@@ -35,6 +35,7 @@ export type QuaWebRendererSnapshotListener = (snapshot: QuaWebRendererSnapshot) 
 
 export interface QuaWebRendererPluginContext extends RendererPluginContext {
   getAssets: () => QuaAssets | undefined
+  getActions: () => RendererActions
 }
 
 export class QuaWebRendererController {
@@ -234,6 +235,7 @@ export class QuaWebRendererController {
       getPipeline: () => this.requirePipeline(),
       getViewState: () => this.projection,
       getAssets: () => this.assets,
+      getActions: () => this.actions,
       refresh: () => this.refresh(),
       emitRenderToLogic: (type, payload) => emitRenderToLogic(this.requirePipeline(), type as any, payload as any),
       onLogicToRender: (type, handler) => onLogicToRender(this.requirePipeline(), type as any, handler as any),

@@ -8,14 +8,20 @@ import { createChoicesWebRendererPlugin } from './choices'
 import { createDialogueWebRendererPlugin } from './dialogue'
 import { createEffectsWebRendererPlugin } from './effects'
 import { createFontsWebRendererPlugin } from './fonts'
+import { createInputWebRendererPlugin, type InputWebRendererPluginOptions } from './input'
 import { createSceneWebRendererPlugin } from './scene'
 import { createSettingsWebRendererPlugin } from './settings'
 import { createSpriteCharacterRenderer, createSpriteWebRendererPlugin } from './sprite'
 import { createUiWebRendererPlugin } from './ui'
 
-export function createVisualNovelWebRendererPlugins(): Array<QuaWebDomRendererPlugin | RendererPlugin> {
+export interface VisualNovelWebRendererPresetOptions {
+  input?: false | InputWebRendererPluginOptions
+}
+
+export function createVisualNovelWebRendererPlugins(options: VisualNovelWebRendererPresetOptions = {}): Array<QuaWebDomRendererPlugin | RendererPlugin> {
   const renderSprite = createSpriteCharacterRenderer()
   return [
+    ...(options.input === false ? [] : [createInputWebRendererPlugin(options.input || {})]),
     createFontsWebRendererPlugin(),
     createBackgroundWebRendererPlugin(),
     createSpriteWebRendererPlugin(),

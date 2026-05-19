@@ -24,6 +24,7 @@ import {
   clientPointToStageLogical,
   collectTrackValues,
   createQuaWebDomRenderer,
+  createRendererInputController,
   createQuaWebRendererController,
   createReactRendererStoreAdapter,
   projectAudioProjection,
@@ -37,6 +38,7 @@ import { createVisualNovelWebRendererPlugins } from '../src/plugins/preset'
 
 describe('@quajs/renderer-web', () => {
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     document.body.innerHTML = ''
@@ -561,9 +563,214 @@ describe('@quajs/renderer-web', () => {
     await flushDom()
 
     expect(choices).toEqual(['yes'])
-    expect(advances).toEqual([{ source: 'dialogue' }, { source: 'stage-click' }])
+    expect(advances).toEqual([{ source: 'pointer:dialogue' }, { source: 'pointer:stage' }])
 
     await renderer.unmount()
+  })
+
+  it('maps keyboard input commands to built-in renderer intents', async () => {
+    const pipeline = new Pipeline()
+    const events: string[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_INPUT_COMMAND, payload => events.push(`command:${payload.command}:${payload.source}`))
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_ADVANCE, payload => events.push(`advance:${payload.source}`))
+    onRenderToLogic(pipeline, RenderToLogicEvents.FLOW_CONTROL_START_SKIP_REQUEST, payload => events.push(`skip:start:${payload.source}`))
+    onRenderToLogic(pipeline, RenderToLogicEvents.FLOW_CONTROL_STOP_SKIP_REQUEST, payload => events.push(`skip:stop:${payload.source}`))
+
+    const controller = createQuaWebRendererController({ pipeline })
+    const input = createRendererInputController({
+      actions: controller.actions,
+      getViewState: () => controller.getViewState(),
+      target: document,
+      gamepad: false,
+      pointer: false,
+    })
+    input.start()
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', repeat: true, bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ControlLeft', key: 'Control', bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keyup', { code: 'ControlLeft', key: 'Control', bubbles: true }))
+    await flushDom()
+
+    expect(events).toEqual([
+      'command:advance:keyboard:Enter',
+      'advance:keyboard:Enter',
+      'command:skip:start:keyboard:ControlLeft',
+      'skip:start:keyboard:ControlLeft',
+      'command:skip:stop:keyboard:ControlLeft',
+      'skip:stop:keyboard:ControlLeft',
+    ])
+
+    input.dispose()
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', bubbles: true }))
+    await flushDom()
+    expect(events).toHaveLength(6)
+  })
+
+  it('maps pointer input through logical stage coordinates and filters controls', async () => {
+    const pipeline = new Pipeline()
+    const commands: unknown[] = []
+    const advances: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_INPUT_COMMAND, payload => commands.push(payload))
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_ADVANCE, payload => advances.push(payload))
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        dialogue: { visible: true, text: 'Line' },
+        choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+      }),
+    })
+
+    await renderer.mount()
+    root.querySelector('.qua-stage')!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 800, clientY: 500 }))
+    root.querySelector('.qua-choice-button')!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 800, clientY: 500 }))
+    await flushDom()
+
+    expect(advances).toEqual([{ source: 'pointer:stage' }])
+    expect(commands).toEqual([expect.objectContaining({
+      command: 'advance',
+      device: 'pointer',
+      source: 'pointer:stage',
+      metadata: expect.objectContaining({
+        x: expect.closeTo(864),
+        y: expect.closeTo(540),
+        insideStage: true,
+      }),
+    })])
+
+    await renderer.unmount()
+  })
+
+  it('keeps choice navigation as renderer-local focus before confirming selection', async () => {
+    const pipeline = new Pipeline()
+    const selected: string[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_CHOICE_SELECT, payload => selected.push(payload.choiceId))
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins({ input: { pointer: false, gamepad: false } }),
+      initialView: view({
+        choices: [
+          { id: 'yes', text: 'Yes', enabled: true },
+          { id: 'no', text: 'No', enabled: true },
+        ],
+      }),
+    })
+
+    await renderer.mount()
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowDown', key: 'ArrowDown', bubbles: true }))
+    await flushDom()
+    expect(document.activeElement).toBe(root.querySelector('[data-choice-id="yes"]'))
+    document.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowDown', key: 'ArrowDown', bubbles: true }))
+    await flushDom()
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowDown', key: 'ArrowDown', bubbles: true }))
+    await flushDom()
+    expect(document.activeElement).toBe(root.querySelector('[data-choice-id="no"]'))
+
+    expect(selected).toEqual([])
+    const input = createRendererInputController({
+      actions: renderer.controller.actions,
+      getViewState: () => renderer.controller.getViewState(),
+      includeDefaultBindings: false,
+      keyboard: false,
+      pointer: false,
+      gamepad: false,
+    })
+    input.start()
+    await input.dispatchCommand({ command: 'choice:confirm', device: 'keyboard', source: 'keyboard:Enter' })
+    expect(selected).toEqual(['no'])
+    input.dispose()
+
+    await renderer.unmount()
+  })
+
+  it('supports wheel bindings without making wheel a default advance input', async () => {
+    const pipeline = new Pipeline()
+    const commands: string[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_INPUT_COMMAND, payload => commands.push(`${payload.command}:${payload.source}`))
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins({
+        input: {
+          keyboard: false,
+          pointer: false,
+          gamepad: false,
+          bindings: [{ source: 'wheel', direction: 'down', command: 'choice:next', throttleMs: 0 }],
+        },
+      }),
+      initialView: view(),
+    })
+
+    await renderer.mount()
+    root.querySelector('.qua-stage')!.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 10 }))
+    await flushDom()
+
+    expect(commands).toEqual(['choice:next:wheel:down'])
+
+    await renderer.unmount()
+  })
+
+  it('maps gamepad edge changes to semantic commands and stops polling after dispose', async () => {
+    vi.useFakeTimers()
+    try {
+      const pipeline = new Pipeline()
+      const received: string[] = []
+      const stopReceived = new Promise<void>((resolve) => {
+        onRenderToLogic(pipeline, RenderToLogicEvents.FLOW_CONTROL_STOP_FAST_FORWARD_REQUEST, () => resolve())
+      })
+      const buttons = Array.from({ length: 16 }, () => ({ pressed: false, value: 0 }))
+      const gamepad = { index: 0, id: 'pad', buttons } as Gamepad
+      Object.defineProperty(window.navigator, 'getGamepads', {
+        configurable: true,
+        value: vi.fn(() => [gamepad]),
+      })
+      onRenderToLogic(pipeline, RenderToLogicEvents.USER_INPUT_COMMAND, payload => received.push(`${payload.command}:${payload.source}:${payload.pressed}`))
+      onRenderToLogic(pipeline, RenderToLogicEvents.FLOW_CONTROL_START_FAST_FORWARD_REQUEST, payload => received.push(`start:${payload.source}`))
+      onRenderToLogic(pipeline, RenderToLogicEvents.FLOW_CONTROL_STOP_FAST_FORWARD_REQUEST, payload => received.push(`stop:${payload.source}`))
+      const controller = createQuaWebRendererController({ pipeline })
+      const input = createRendererInputController({
+        actions: controller.actions,
+        getViewState: () => controller.getViewState(),
+        keyboard: false,
+        pointer: false,
+        focusTracking: false,
+        gamepadPollIntervalMs: 10,
+      })
+
+      input.start()
+      buttons[5] = { pressed: true, value: 1 } as GamepadButton
+      vi.advanceTimersByTime(10)
+      await waitForMicrotasks(() => received.length >= 2)
+      buttons[5] = { pressed: false, value: 0 } as GamepadButton
+      vi.advanceTimersByTime(10)
+      await stopReceived
+      input.dispose()
+      buttons[5] = { pressed: true, value: 1 } as GamepadButton
+      vi.advanceTimersByTime(20)
+      await waitForMicrotasks(() => received.length > 4)
+
+      expect(received).toEqual([
+        'fastForward:start:gamepad:0:button:5:true',
+        'start:gamepad:0:button:5',
+        'fastForward:stop:gamepad:0:button:5:false',
+        'stop:gamepad:0:button:5',
+      ])
+    }
+    finally {
+      vi.useRealTimers()
+    }
   })
 
   it('renders native DOM schema-driven settings forms and emits settings update intents', async () => {
@@ -1535,6 +1742,21 @@ function settingsProjection() {
 
 async function flushDom(): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 0))
+}
+
+async function flushMicrotasks(): Promise<void> {
+  await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
+async function waitForMicrotasks(predicate: () => boolean): Promise<void> {
+  for (let index = 0; index < 10; index += 1) {
+    if (predicate()) {
+      return
+    }
+    await Promise.resolve()
+  }
 }
 
 function rect(width: number, height: number): DOMRect {

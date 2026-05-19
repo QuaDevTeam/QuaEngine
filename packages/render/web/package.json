@@ -60,6 +60,14 @@
       "types": "./dist/plugins/fonts.d.ts",
       "import": "./dist/plugins/fonts.js"
     },
+    "./input": {
+      "types": "./dist/input.d.ts",
+      "import": "./dist/input.js"
+    },
+    "./plugins/input": {
+      "types": "./dist/plugins/input.d.ts",
+      "import": "./dist/plugins/input.js"
+    },
     "./plugins/preset": {
       "types": "./dist/plugins/preset.d.ts",
       "import": "./dist/plugins/preset.js"
