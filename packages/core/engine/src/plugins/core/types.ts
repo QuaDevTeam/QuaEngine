@@ -1,7 +1,7 @@
 import type { QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
 import type { QuaStore } from '@quajs/store'
-import type { EngineCheckpoint, JumpContext, QuaEngineInterface, RuntimePackageContext, RuntimePackageStoreMigrationManifest, StoryPoint } from '../../core/types'
+import type { EngineCheckpoint, JumpContext, QuaEngineInterface, RollbackContext, RuntimePackageContext, RuntimePackageStoreMigrationManifest, StoryPoint } from '../../core/types'
 import type { PluginAPIRegistration } from './registry'
 import { getPluginRegistry } from './registry'
 
@@ -42,6 +42,7 @@ export interface EngineContext {
   point?: StoryPoint
   checkpoint?: EngineCheckpoint
   jump?: JumpContext
+  rollback?: RollbackContext
   runtimePackage?: RuntimePackageContext
   runtimeMigration?: RuntimePackageStoreMigrationManifest
   plugins: PluginContext
@@ -78,6 +79,10 @@ export interface EnginePlugin {
   onBeforeJump?: (ctx: EngineContext) => void | Promise<void>
 
   onAfterJump?: (ctx: EngineContext) => void | Promise<void>
+
+  onBeforeRollback?: (ctx: EngineContext) => void | Promise<void>
+
+  onAfterRollback?: (ctx: EngineContext) => void | Promise<void>
 
   onRuntimePackageActivate?: (ctx: EngineContext) => void | Promise<void>
 
@@ -164,6 +169,10 @@ export abstract class BaseEnginePlugin implements EnginePlugin {
   async onBeforeJump?(ctx: EngineContext): Promise<void>
 
   async onAfterJump?(ctx: EngineContext): Promise<void>
+
+  async onBeforeRollback?(ctx: EngineContext): Promise<void>
+
+  async onAfterRollback?(ctx: EngineContext): Promise<void>
 
   async onRuntimePackageActivate?(ctx: EngineContext): Promise<void>
 

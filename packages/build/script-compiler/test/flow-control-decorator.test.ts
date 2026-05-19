@@ -40,4 +40,28 @@ Alice: This line carries flow metadata.
 
     expect(result).toContain('"skip-reason": "opening-credits"')
   })
+
+  it('compiles rollback navigation decorators through engine APIs', async () => {
+    const transformer = await createPluginAwareTransformerAsync()
+    const result = transformer.transformSource(`
+const steps = qs\`
+@RollbackAnchor("branch")
+Alice: This line is an anchor.
+
+@RollbackBoundary("chapter-end")
+Alice: This line closes a rollback segment.
+
+@FixRollback
+Alice: This line fixes previous rollback history.
+
+@NoRollback
+Alice: This line blocks rollback across itself.
+\`
+`)
+
+    expect(result).toContain('ctx.engine.createRollbackAnchor("branch")')
+    expect(result).toContain('ctx.engine.markRollbackBoundary("chapter-end")')
+    expect(result).toContain('ctx.engine.fixRollback()')
+    expect(result).toContain('ctx.engine.markRollbackBoundary("no-rollback")')
+  })
 })

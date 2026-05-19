@@ -1,8 +1,8 @@
 import type { AssetRuntimeAdapter, BundleManifest, RuntimePackageManifest } from '@quajs/assets'
-import type { EngineContext, EnginePlugin } from '../src'
+import type { EngineContext, EnginePlugin, StepContext } from '../src'
 import type { RuntimePackageTrustContext } from '../src'
 import { MemoryAssetStorage } from '@quajs/assets'
-import { MemoryBackend } from '@quajs/store'
+import { createStore, MemoryBackend } from '@quajs/store'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createViewLayoutProjection, emitRenderToLogic, LogicToRenderEvents, onLogicToRender, QuaEngine, RenderToLogicEvents, UiOverlayPlugin } from '../src'
 
@@ -334,6 +334,467 @@ describe('quaEngine runtime architecture', () => {
     expect(engine.getViewState().choices).toEqual([])
     expect(engine.getCheckpoint('line:first')).toEqual(checkpoint)
     expect(hooks).toEqual(['before', 'after'])
+  })
+
+  it('rolls back statements through silent replay and emits only the final projection', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.dialogue([
+      createDialogueStep('rollback-a', 'Alpha'),
+      createDialogueStep('rollback-b', 'Beta'),
+      createDialogueStep('rollback-c', 'Gamma'),
+    ])
+
+    const emitted: string[] = []
+    const offDialogue = onLogicToRender(engine.getPipeline(), LogicToRenderEvents.DIALOGUE_SHOW, () => {
+      emitted.push('dialogue')
+    })
+    const offScene = onLogicToRender(engine.getPipeline(), LogicToRenderEvents.SCENE_INIT, () => {
+      emitted.push('scene')
+    })
+    const offView = onLogicToRender(engine.getPipeline(), LogicToRenderEvents.VIEW_UPDATE, () => {
+      emitted.push('view')
+    })
+
+    await engine.rollback('rollback-a')
+
+    offDialogue()
+    offScene()
+    offView()
+
+    expect(engine.getStoryPoint()?.stepId).toBe('rollback-a')
+    expect(engine.getViewState().dialogue.text).toBe('Alpha')
+    expect(emitted).toEqual(['scene', 'view'])
+  })
+
+  it('records renderer input and reuses it during rollback replay', async () => {
+    const engine = createEngine()
+    await engine.init()
+    let waitReady!: () => void
+    const ready = new Promise<void>((resolve) => {
+      waitReady = resolve
+    })
+
+    const active = engine.dialogue([
+      {
+        uuid: 'input-a',
+        run: async (ctx) => {
+          await ctx.engine.showDialogue({ text: 'Input A' })
+          const wait = ctx.engine.waitFor(RenderToLogicEvents.USER_ADVANCE)
+          waitReady()
+          await wait
+        },
+      },
+      createDialogueStep('input-b', 'Input B'),
+    ])
+    await ready
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_ADVANCE, { source: 'manual' })
+    await active
+
+    await engine.rollback('input-a')
+
+    expect(engine.getStoryPoint()?.stepId).toBe('input-a')
+    expect(engine.getViewState().dialogue.text).toBe('Input A')
+  })
+
+  it('uses checkpoint density instead of LRU-style checkpoint truncation', async () => {
+    const engine = new QuaEngine({
+      assets: {
+        adapter: createMemoryAdapter(),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      rollback: {
+        checkpoints: {
+          interval: 50,
+        },
+      },
+    })
+    await engine.init()
+
+    await engine.dialogue(Array.from({ length: 220 }, (_, index) =>
+      createDialogueStep(`dense-${index + 1}`, `Line ${index + 1}`),
+    ))
+
+    const history = engine.getRuntimeStateSnapshot().checkpointHistory
+    expect(history).toEqual(['dense-1', 'dense-51', 'dense-101', 'dense-151', 'dense-201'])
+    expect(history.length).toBe(5)
+  })
+
+  it('keeps density anchors even when interval is not listed in mandatory anchor reasons', async () => {
+    const engine = new QuaEngine({
+      assets: {
+        adapter: createMemoryAdapter(),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      rollback: {
+        checkpoints: {
+          interval: 3,
+          anchorOn: ['segment-start'],
+        },
+      },
+    })
+    await engine.init()
+
+    await engine.dialogue(Array.from({ length: 8 }, (_, index) =>
+      createDialogueStep(`density-required-${index + 1}`, `Line ${index + 1}`),
+    ))
+
+    expect(engine.getRuntimeStateSnapshot().checkpointHistory).toEqual([
+      'density-required-1',
+      'density-required-4',
+      'density-required-7',
+    ])
+    await engine.rollback('density-required-3')
+    expect(engine.getViewState().dialogue.text).toBe('Line 3')
+  })
+
+  it('keeps rollback inside scene boundaries by default and allows configured cross-scene rollback', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.dialogue([
+      createDialogueStep('scene-a-step', 'Scene A', { sceneId: 'scene-a' }),
+      createDialogueStep('scene-b-step', 'Scene B', { sceneId: 'scene-b' }),
+    ])
+
+    expect(engine.getRollbackTargets().map(target => target.stepId)).not.toContain('scene-a-step')
+    await expect(engine.rollback('scene-a-step')).rejects.toThrow('outside the current rollback boundary')
+
+    const flexible = new QuaEngine({
+      assets: {
+        adapter: createMemoryAdapter(),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      rollback: {
+        boundary: {
+          scene: 'allow',
+        },
+      },
+    })
+    await flexible.init()
+    await flexible.dialogue([
+      createDialogueStep('allow-scene-a-step', 'Scene A', { sceneId: 'scene-a' }),
+      createDialogueStep('allow-scene-b-step', 'Scene B', { sceneId: 'scene-b' }),
+    ])
+
+    await flexible.rollback('allow-scene-a-step')
+    expect(flexible.getViewState().dialogue.text).toBe('Scene A')
+  })
+
+  it('moves the rollback cursor segment after forced cross-boundary rollback', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.setPluginProjection('protected-reference', { checkpointId: 'force-boundary-a' })
+    await engine.dialogue([
+      createDialogueStep('force-boundary-a', 'Scene A', { sceneId: 'force-scene-a' }),
+      createDialogueStep('force-boundary-b', 'Scene B', { sceneId: 'force-scene-b' }),
+    ])
+
+    await engine.rollback('force-boundary-a', { force: true })
+
+    expect(engine.canRollback()).toBe(false)
+    await engine.dialogue([createDialogueStep('force-boundary-branch', 'Branch from A')])
+    expect(engine.getRollbackTargets().map(target => target.stepId)).toEqual(['force-boundary-a'])
+    expect(engine.canRollForward()).toBe(false)
+  })
+
+  it('rolls forward after rollback and truncates future on divergence', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.dialogue([
+      createDialogueStep('forward-a', 'Alpha'),
+      createDialogueStep('forward-b', 'Beta'),
+      createDialogueStep('forward-c', 'Gamma'),
+    ])
+
+    await engine.rollback('forward-a')
+    expect(engine.canRollForward()).toBe(true)
+    await engine.rollForward()
+    expect(engine.getStoryPoint()?.stepId).toBe('forward-b')
+    expect(engine.getViewState().dialogue.text).toBe('Beta')
+
+    await engine.rollback('forward-a')
+    await engine.dialogue([createDialogueStep('forward-branch', 'Branch')])
+    expect(engine.canRollForward()).toBe(false)
+    expect(engine.getRollbackTargets().map(target => target.stepId)).not.toContain('forward-c')
+  })
+
+  it('restores registered developer QuaStores together with engine state', async () => {
+    const engine = createEngine()
+    const devStore = createStore({
+      name: `rollback-dev-${Date.now()}`,
+      state: { value: 0 },
+      mutations: {
+        set(state, value: number) {
+          state.value = value
+        },
+      },
+      storage: {
+        backend: MemoryBackend,
+      },
+    })
+    engine.registerRollbackStore(devStore.getName(), devStore)
+    await engine.init()
+
+    await engine.dialogue([
+      {
+        uuid: 'store-a',
+        run: async (ctx) => {
+          devStore.commit('set', 1)
+          await ctx.engine.showDialogue({ text: 'Store A' })
+        },
+      },
+      {
+        uuid: 'store-b',
+        run: async (ctx) => {
+          devStore.commit('set', 2)
+          await ctx.engine.showDialogue({ text: 'Store B' })
+        },
+      },
+    ])
+
+    await engine.rollback('store-a')
+
+    expect(devStore.state.value).toBe(1)
+    expect(engine.getViewState().dialogue.text).toBe('Store A')
+  })
+
+  it('does not replay the current statement again when restoring an in-statement anchor', async () => {
+    const engine = createEngine()
+    const devStore = createStore({
+      name: `rollback-anchor-dev-${Date.now()}`,
+      state: { value: 0 },
+      mutations: {
+        add(state, value: number) {
+          state.value += value
+        },
+      },
+      storage: {
+        backend: MemoryBackend,
+      },
+    })
+    engine.registerRollbackStore(devStore.getName(), devStore)
+    await engine.init()
+
+    await engine.dialogue([
+      {
+        uuid: 'anchor-a',
+        run: async (ctx) => {
+          devStore.commit('add', 1)
+          await ctx.engine.createRollbackAnchor('developer')
+          await ctx.engine.showDialogue({ text: 'Anchor A' })
+        },
+      },
+      {
+        uuid: 'anchor-b',
+        run: async (ctx) => {
+          devStore.commit('add', 10)
+          await ctx.engine.showDialogue({ text: 'Anchor B' })
+        },
+      },
+    ])
+
+    await engine.rollback('anchor-a')
+
+    expect(devStore.state.value).toBe(1)
+    expect(engine.getViewState().dialogue.text).toBe('Anchor A')
+  })
+
+  it('applies rollback boundaries immediately to the current statement', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.dialogue([
+      createDialogueStep('boundary-a', 'Before boundary'),
+      {
+        uuid: 'boundary-b',
+        run: async (ctx) => {
+          await ctx.engine.markRollbackBoundary('no-rollback')
+          await ctx.engine.showDialogue({ text: 'Boundary' })
+        },
+      },
+    ])
+
+    expect(engine.canRollback()).toBe(false)
+
+    await engine.dialogue([createDialogueStep('boundary-c', 'After boundary')])
+
+    expect(engine.getRollbackTargets().map(target => target.stepId)).toEqual(['boundary-b'])
+    await expect(engine.rollback('boundary-a')).rejects.toThrow('outside the current rollback boundary')
+  })
+
+  it('prunes checkpoint anchors from closed rollback segments without LRU limits', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.dialogue([
+      createDialogueStep('prune-scene-a-1', 'Scene A 1', { sceneId: 'prune-scene-a' }),
+      createDialogueStep('prune-scene-a-2', 'Scene A 2', { sceneId: 'prune-scene-a' }),
+      createDialogueStep('prune-scene-b-1', 'Scene B 1', { sceneId: 'prune-scene-b' }),
+    ])
+
+    expect(engine.getRuntimeStateSnapshot().checkpointHistory).toEqual(['prune-scene-b-1'])
+    await expect(engine.rollback('prune-scene-a-1')).rejects.toThrow('outside the current rollback boundary')
+  })
+
+  it('replays recorded inputs through engine intent handlers during silent replay', async () => {
+    const engine = createEngine()
+    await engine.init()
+    let waitReady!: () => void
+    const ready = new Promise<void>((resolve) => {
+      waitReady = resolve
+    })
+
+    const active = engine.dialogue([
+      {
+        uuid: 'advance-read',
+        metadata: {
+          point: { sceneId: 'read-scene', lineId: 'read-line' },
+        },
+        run: async (ctx) => {
+          await ctx.engine.showDialogue({ text: 'Needs advance' })
+          const wait = ctx.engine.waitFor(RenderToLogicEvents.USER_ADVANCE)
+          waitReady()
+          await wait
+        },
+      },
+      createDialogueStep('after-advance-read', 'After'),
+    ])
+    await ready
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_ADVANCE, { source: 'manual' })
+    await active
+
+    const readKeysBeforeRollback = [...engine.getStore().state.engine.flowControlProgress.readKeys]
+    expect(readKeysBeforeRollback.length).toBeGreaterThan(0)
+
+    await engine.rollback('advance-read')
+
+    expect(engine.getStore().state.engine.flowControlProgress.readKeys).toEqual(readKeysBeforeRollback)
+  })
+
+  it('saves and loads registered rollback stores with rollback history', async () => {
+    const engine = createEngine()
+    const devStore = createStore({
+      name: `rollback-save-dev-${Date.now()}`,
+      state: { value: 0 },
+      mutations: {
+        set(state, value: number) {
+          state.value = value
+        },
+      },
+      storage: {
+        backend: MemoryBackend,
+      },
+    })
+    engine.registerRollbackStore(devStore.getName(), devStore)
+    await engine.init()
+
+    await engine.dialogue([
+      {
+        uuid: 'save-store-a',
+        run: async (ctx) => {
+          devStore.commit('set', 1)
+          await ctx.engine.showDialogue({ text: 'Save Store A' })
+        },
+      },
+      {
+        uuid: 'save-store-b',
+        run: async (ctx) => {
+          devStore.commit('set', 2)
+          await ctx.engine.showDialogue({ text: 'Save Store B' })
+        },
+      },
+    ])
+    await engine.saveToSlot('rollback-store-slot')
+    devStore.commit('set', 99)
+
+    await engine.loadFromSlot('rollback-store-slot', { force: true })
+    expect(devStore.state.value).toBe(2)
+
+    await engine.rollback('save-store-a')
+    expect(devStore.state.value).toBe(1)
+  })
+
+  it('hydrates rollback checkpoints from save data after load', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.dialogue([
+      createDialogueStep('load-rollback-a', 'Load A'),
+      createDialogueStep('load-rollback-b', 'Load B'),
+    ])
+    await engine.saveToSlot('rollback-load-slot')
+    await engine.dialogue([createDialogueStep('load-rollback-c', 'Load C')])
+
+    await engine.loadFromSlot('rollback-load-slot', { force: true })
+
+    expect(engine.getRuntimeStateSnapshot().checkpointHistory).toContain('load-rollback-a')
+    await engine.rollback('load-rollback-a')
+    expect(engine.getViewState().dialogue.text).toBe('Load A')
+  })
+
+  it('clears rollback journal when loading a save without rollback history', async () => {
+    const engine = new QuaEngine({
+      assets: {
+        adapter: createMemoryAdapter(),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      rollback: {
+        saves: {
+          includeRollbackHistory: false,
+        },
+      },
+    })
+    await engine.init()
+
+    await engine.dialogue([
+      createDialogueStep('no-history-a', 'No History A'),
+      createDialogueStep('no-history-b', 'No History B'),
+    ])
+    await engine.saveToSlot('no-rollback-history-slot')
+    await engine.dialogue([createDialogueStep('no-history-c', 'No History C')])
+
+    await engine.loadFromSlot('no-rollback-history-slot', { force: true })
+
+    expect(engine.canRollback()).toBe(false)
+    await expect(engine.rollback('no-history-a')).rejects.toThrow('Unable to resolve rollback target')
+  })
+
+  it('prevents divergence inside fixed rollback history', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.dialogue([
+      createDialogueStep('fixed-a', 'Fixed A'),
+      createDialogueStep('fixed-b', 'Fixed B'),
+    ])
+    await engine.fixRollback()
+    await engine.rollback('fixed-a')
+
+    await expect(engine.dialogue([createDialogueStep('fixed-branch', 'Branch')]))
+      .rejects.toThrow('Cannot diverge inside fixed rollback history')
+    await engine.rollForward()
+    await engine.dialogue([createDialogueStep('fixed-after', 'After fixed')])
+    expect(engine.getViewState().dialogue.text).toBe('After fixed')
   })
 
   it('records runtime package dependencies on manual checkpoints from the current story point', async () => {
@@ -681,6 +1142,117 @@ describe('quaEngine runtime architecture', () => {
       scriptModuleLocale: 'en-us',
       scriptModuleVersion: '1.0.0-en',
     }))
+  })
+
+  it('loads deferred locale packs through the registry and merges script variants into the base module', async () => {
+    const baseManifest = createRuntimeBundleManifest({
+      id: 'runtime.base',
+      version: '1.0.0',
+      scripts: [{
+        id: 'runtime.base.scene',
+        version: '1.0.0',
+        assetName: 'scene.js',
+      }],
+    })
+    const localeManifest = createRuntimeBundleManifest({
+      id: 'runtime.base.locale.zh-cn',
+      version: '1.0.0',
+      dependencies: ['runtime.base'],
+      localePack: {
+        locale: 'zh-cn',
+        targets: [{ kind: 'runtimePackage', id: 'runtime.base' }],
+        resourceTypes: ['scripts'],
+      },
+      scripts: [{
+        id: 'runtime.base.scene',
+        version: '1.0.0-zh',
+        assetName: 'scene.zh-cn.js',
+      }],
+    })
+    baseManifest.assets.data = {
+      'i18n/messages.json': createDataAssetInfo('i18n/messages.json'),
+    }
+    localeManifest.locales = ['zh-cn']
+    localeManifest.defaultLocale = 'zh-cn'
+    localeManifest.assets.data = {
+      'i18n/messages.json': createDataAssetInfo('i18n/messages.json', ['zh-cn']),
+    }
+    const loadCalls: Array<{ packageId: string, assetName: string, locale?: string, version?: string }> = []
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/base.qpk': createQpkBundle(baseManifest, new Map([
+            ['assets/scripts/scene.js', utf8('export default function createQuaScript() {}')],
+            ['assets/data/i18n/messages.json', utf8('{"runtime.greeting":"Base hello"}')],
+          ])),
+          'https://cdn.example.com/locale.qpk': createQpkBundle(localeManifest, new Map([
+            ['assets/scripts/scene.zh-cn.js', utf8('export default function createQuaScript() {}')],
+            ['assets/data/i18n/messages.json', utf8('{"runtime.greeting":"本地化你好"}')],
+          ])),
+        }),
+        locale: 'default',
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      runtimePackageRegistry: {
+        resolvePackage: vi.fn(async () => undefined),
+        resolveLocalePacks: vi.fn(async locale => locale === 'zh-cn' ? [{ source: 'locale.qpk' }] : []),
+      },
+      runtimeModuleLoader: {
+        loadScriptModule: vi.fn(async (record, ctx) => {
+          loadCalls.push({
+            packageId: ctx.package.id,
+            assetName: record.assetName,
+            locale: ctx.locale,
+            version: record.version,
+          })
+          return {
+            default: () => [{
+              uuid: 'base-step',
+              run: async (stepCtx: StepContext) => {
+                await stepCtx.engine.showDialogue({
+                  text: `${ctx.package.id}:${ctx.locale}:${record.assetName}:${record.version}:${await stepCtx.t('runtime.greeting')}`,
+                })
+              },
+            }],
+          }
+        }),
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+
+    await engine.init()
+    await engine.loadRuntimePackage('base.qpk')
+    await engine.setLocale('zh-CN', { ensurePacks: true, targetPackageIds: ['runtime.base'] })
+    await engine.runScriptModule('runtime.base.scene')
+
+    expect(loadCalls).toEqual([{
+      packageId: 'runtime.base.locale.zh-cn',
+      assetName: 'scene.zh-cn.js',
+      locale: 'zh-cn',
+      version: '1.0.0-zh',
+    }])
+    expect(engine.getLocale()).toBe('zh-cn')
+    expect(engine.getRuntimeStateSnapshot().activeLocalePackIds).toEqual(['runtime.base.locale.zh-cn'])
+    expect(engine.getViewState().dialogue.text).toBe('runtime.base.locale.zh-cn:zh-cn:scene.zh-cn.js:1.0.0-zh:本地化你好')
+    expect(engine.getStoryPoint()).toEqual(expect.objectContaining({
+      contentPackageId: 'runtime.base',
+      scriptModuleLocale: 'zh-cn',
+      scriptModuleVersion: '1.0.0-zh',
+    }))
+    expect(engine.getCheckpoint('base-step')?.metadata?.requiredRuntimePackages).toEqual([
+      'runtime.base',
+      'runtime.base.locale.zh-cn',
+    ])
+    await expect(engine.unloadRuntimePackage('runtime.base.locale.zh-cn')).rejects.toThrow('current locale')
+    await engine.unloadRuntimePackage('runtime.base.locale.zh-cn', { force: true })
+    expect(engine.getRuntimeStateSnapshot().activeLocalePackIds).toEqual([])
   })
 
   it('notifies renderer runtime unload before removing dynamic bundle assets', async () => {
@@ -1780,6 +2352,18 @@ function createEngine(): QuaEngine {
   })
 }
 
+function createDialogueStep(uuid: string, text: string, point: Partial<StoryPoint> = {}) {
+  return {
+    uuid,
+    metadata: {
+      point,
+    },
+    run: async (ctx: StepContext) => {
+      await ctx.engine.showDialogue({ text })
+    },
+  }
+}
+
 function createMemoryAdapter(files: Record<string, Uint8Array> = {}, hash = ''): AssetRuntimeAdapter {
   const fileMap = new Map(Object.entries(files))
   return {
@@ -1852,6 +2436,19 @@ function createScriptAssetInfo(name: string) {
     type: 'scripts' as const,
     locales: ['default'],
     mimeType: 'text/javascript',
+  }
+}
+
+function createDataAssetInfo(name: string, locales = ['default']) {
+  return {
+    name: name.split('/').pop() || name,
+    path: `data/${name}`,
+    relativePath: `data/${name}`,
+    size: 0,
+    hash: '',
+    type: 'data' as const,
+    locales,
+    mimeType: 'application/json',
   }
 }
 

@@ -1,13 +1,17 @@
 import type {
   DynamicBundleRecord,
   RuntimePackageManifest,
+  RuntimePackageScriptVariantManifest,
   RuntimePackagePluginManifest,
   RuntimePackageStoreMigrationManifest,
 } from '@quajs/assets'
 import type { QuaSerializedState } from '@quajs/store'
 import type { QuaEngine } from '../core/engine'
 import type {
+  GameStep,
   QuaEngineInterface,
+  EnsureLocalePacksOptions,
+  RollbackEntry,
   RuntimeLoadedPluginModule,
   RuntimeLoadedScriptModule,
   RuntimeModuleLoader,
@@ -23,7 +27,6 @@ import type {
 } from '../core/types'
 import { createLocaleFallbackChain, normalizeLocale } from '@quajs/assets'
 import type { EnginePlugin } from '../plugins/core/types'
-import { emitLogicToRender, LogicToRenderEvents } from '../events/events'
 import { getPluginRegistry } from '../plugins'
 import { resolveGameSteps } from '../core/script'
 
@@ -38,6 +41,12 @@ interface ActivationRollbackState {
   serializedState: QuaSerializedState
   runtimeState: RuntimePackageStateRecord
   activatedEnginePluginCount: number
+}
+
+interface ResolvedScriptVariant {
+  locale: string
+  record: RuntimeScriptModuleRecord
+  packageId: string
 }
 
 type RuntimePackageScopedEngine = QuaEngineInterface & Pick<QuaEngine,
@@ -83,6 +92,15 @@ export class RuntimeContentManager {
     if (existing && existing.state.state !== 'unloaded') {
       await this.engine.getAssets().unloadDynamicBundle(bundle.bundleName).catch(() => {})
       throw new Error(`Runtime package "${manifest.id}" is already ${existing.state.state}. Unload it before loading a replacement.`)
+    }
+    try {
+      if (manifest.localePack) {
+        await this.ensureRuntimePackages(manifest.dependencies || [])
+      }
+    }
+    catch (error) {
+      await this.engine.getAssets().unloadDynamicBundle(bundle.bundleName).catch(() => {})
+      throw error
     }
     try {
       this.assertPackageScriptIdsAvailable(manifest)
@@ -145,10 +163,10 @@ export class RuntimeContentManager {
       await this.engine.withRuntimePackageContext(packageId, async (engine) => {
         await (engine as RuntimePackageScopedEngine).notifyRuntimePackageActivate(record.manifest, record.bundle.bundleName)
       })
-      await emitLogicToRender(this.engine.getPipeline(), LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN, {
+      await this.engine.emitRuntimePackageRendererPlugins(
         packageId,
-        plugins: (record.manifest.plugins || []).filter(plugin => plugin.kind === 'renderer'),
-      })
+        (record.manifest.plugins || []).filter(plugin => plugin.kind === 'renderer'),
+      )
       return { ...record.state }
     }
     catch (error) {
@@ -197,13 +215,23 @@ export class RuntimeContentManager {
             this.loadedScriptModules.delete(cacheKey)
           }
         }
+        continue
+      }
+      const nextVariants = removeScriptVariantsOwnedByPackage(moduleRecord.variants, packageId)
+      if (nextVariants !== moduleRecord.variants) {
+        this.scripts.set(moduleId, {
+          ...moduleRecord,
+          variants: nextVariants,
+        })
+        for (const cacheKey of this.loadedScriptModules.keys()) {
+          if (cacheKey.startsWith(`${moduleId}::`) && cacheKey.includes(`::${packageId}::`)) {
+            this.loadedScriptModules.delete(cacheKey)
+          }
+        }
       }
     }
 
-    await emitLogicToRender(this.engine.getPipeline(), LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
-      packageId,
-      bundleName: record.bundle.bundleName,
-    })
+    await this.engine.emitRuntimePackageUnload(packageId, record.bundle.bundleName)
 
     await this.engine.getAssets().unloadDynamicBundle(record.bundle.bundleName)
     record.state = {
@@ -234,8 +262,13 @@ export class RuntimeContentManager {
     await this.ensureRuntimePackages([record.packageId])
 
     const scriptVariant = this.resolveScriptVariant(record, options.locale || this.engine.getAssets().getLocale())
-    const factory = await this.resolveScriptFactory(scriptVariant.record, scriptVariant.locale)
+    await this.ensureRuntimePackages(unique([record.packageId, scriptVariant.packageId]))
+    const factory = await this.resolveScriptFactory(scriptVariant.record, scriptVariant.locale, scriptVariant.packageId)
     const steps = resolveGameSteps(factory as any, scope)
+    const requiredPackages = unique([
+      record.packageId,
+      scriptVariant.packageId,
+    ])
     await this.engine.dialogue(steps.map(step => ({
       ...step,
       metadata: {
@@ -254,11 +287,62 @@ export class RuntimeContentManager {
           scriptModuleLocale: scriptVariant.locale,
         },
         requiredRuntimePackages: unique([
-          record.packageId,
+          ...requiredPackages,
           ...(step.metadata?.requiredRuntimePackages || []),
         ]),
       },
     })))
+  }
+
+  async resolveRollbackStep(entry: RollbackEntry): Promise<GameStep | undefined> {
+    const moduleId = entry.source?.scriptModuleId
+    if (!moduleId) {
+      return undefined
+    }
+    const record = this.scripts.get(moduleId)
+    if (!record) {
+      return undefined
+    }
+
+    await this.ensureRuntimePackages([record.packageId])
+    const scriptVariant = this.resolveScriptVariant(record, entry.source?.scriptModuleLocale || this.engine.getAssets().getLocale())
+    await this.ensureRuntimePackages(unique([record.packageId, scriptVariant.packageId]))
+    if (
+      entry.source?.scriptModuleVersion
+      && scriptVariant.record.version
+      && entry.source.scriptModuleVersion !== scriptVariant.record.version
+    ) {
+      throw new Error(`Rollback step "${entry.stepId}" requires script module "${moduleId}" version "${entry.source.scriptModuleVersion}", but "${scriptVariant.record.version}" is available.`)
+    }
+    const factory = await this.resolveScriptFactory(scriptVariant.record, scriptVariant.locale, scriptVariant.packageId)
+    const step = resolveGameSteps(factory as any).find(candidate => candidate.uuid === entry.stepId)
+    if (!step) {
+      return undefined
+    }
+    return {
+      ...step,
+      metadata: {
+        ...step.metadata,
+        point: {
+          ...(step.metadata?.point || {}),
+          contentPackageId: record.packageId,
+          scriptModuleId: record.id,
+          scriptModuleVersion: scriptVariant.record.version,
+          scriptModuleLocale: scriptVariant.locale,
+        },
+        runtimePackage: {
+          packageId: record.packageId,
+          scriptModuleId: record.id,
+          scriptModuleVersion: scriptVariant.record.version,
+          scriptModuleLocale: scriptVariant.locale,
+        },
+        requiredRuntimePackages: unique([
+          record.packageId,
+          scriptVariant.packageId,
+          ...(step.metadata?.requiredRuntimePackages || []),
+        ]),
+      },
+    }
   }
 
   async ensureRuntimePackages(packageIds: readonly string[]): Promise<void> {
@@ -276,6 +360,63 @@ export class RuntimeContentManager {
       }
       throw new Error(`Required runtime package "${packageId}" is not active.`)
     }
+  }
+
+  async ensureLocalePacks(locale: string, options: EnsureLocalePacksOptions = {}): Promise<RuntimePackageStateRecord[]> {
+    const normalizedLocale = normalizeLocale(locale)
+    const fallbackChain = createLocaleFallbackChain(normalizedLocale)
+    const targetPackageIds = new Set(options.targetPackageIds || [])
+    if (!this.registry?.resolveLocalePacks) {
+      return this.getActiveLocalePackRecords(normalizedLocale, options).map(record => ({ ...record.state }))
+    }
+
+    const activePackageIds = Array.from(this.packages.values())
+      .filter(record => record.state.state === 'active')
+      .map(record => record.manifest.id)
+    const resolved = await this.registry.resolveLocalePacks(normalizedLocale, {
+      engine: this.engine,
+      assets: this.engine.getAssets(),
+      locale: normalizedLocale,
+      activePackageIds,
+      targetPackageIds: options.targetPackageIds ? [...options.targetPackageIds] : undefined,
+    })
+    const entries = resolved || []
+    const loaded: RuntimePackageStateRecord[] = []
+    for (const entryValue of entries) {
+      const entry = normalizeRegistryEntry(entryValue)
+      const state = await this.loadRuntimePackage(entry.source, {
+        ...entry.options,
+        activate: true,
+      })
+      const record = this.requirePackage(state.id)
+      if (!record.manifest.localePack) {
+        await this.unloadRuntimePackage(state.id, { force: true }).catch(() => {})
+        throw new Error(`Runtime package registry resolved locale "${normalizedLocale}" to non-locale package "${state.id}".`)
+      }
+      if (!fallbackChain.includes(normalizeLocale(record.manifest.localePack.locale))) {
+        await this.unloadRuntimePackage(state.id, { force: true }).catch(() => {})
+        throw new Error(`Runtime package registry resolved locale "${normalizedLocale}" to locale "${record.manifest.localePack.locale}".`)
+      }
+      if (
+        targetPackageIds.size > 0
+        && !record.manifest.localePack.targets.some(target =>
+          target.kind === 'runtimePackage'
+          && targetPackageIds.has(target.id),
+        )
+      ) {
+        await this.unloadRuntimePackage(state.id, { force: true }).catch(() => {})
+        throw new Error(`Runtime package registry resolved locale "${normalizedLocale}" to package "${state.id}" that does not target the requested runtime package.`)
+      }
+      loaded.push(state)
+    }
+    return uniqueRecords([
+      ...this.getActiveLocalePackRecords(normalizedLocale, options).map(record => record.state),
+      ...loaded,
+    ])
+  }
+
+  getActiveLocalePackIds(locale: string, options: EnsureLocalePacksOptions = {}): string[] {
+    return this.getActiveLocalePackRecords(locale, options).map(record => record.manifest.id)
   }
 
   async destroy(): Promise<void> {
@@ -343,6 +484,10 @@ export class RuntimeContentManager {
   }
 
   private registerPackageScripts(bundle: DynamicBundleRecord, manifest: RuntimePackageManifest): void {
+    if (manifest.localePack) {
+      this.registerLocalePackScriptVariants(bundle, manifest)
+      return
+    }
     for (const script of manifest.scripts || []) {
       this.registerScriptModule({
         ...script,
@@ -352,14 +497,51 @@ export class RuntimeContentManager {
     }
   }
 
+  private registerLocalePackScriptVariants(bundle: DynamicBundleRecord, manifest: RuntimePackageManifest): void {
+    const localePack = manifest.localePack
+    if (!localePack) {
+      return
+    }
+    const locale = normalizeLocale(localePack.locale)
+    for (const script of manifest.scripts || []) {
+      const existing = this.scripts.get(script.id)
+      if (!existing) {
+        throw new Error(`Locale pack "${manifest.id}" declares script variant "${script.id}", but the base script is not registered.`)
+      }
+      const variant: RuntimePackageScriptVariantManifest = {
+        assetName: script.assetName,
+        version: script.version || manifest.version,
+        exportName: script.exportName,
+        runtimePackageId: manifest.id,
+        bundleName: bundle.bundleName,
+        metadata: {
+          ...(script.metadata || {}),
+          localePackPackageId: manifest.id,
+          localePackBundleName: bundle.bundleName,
+        },
+      }
+      this.scripts.set(script.id, {
+        ...existing,
+        variants: {
+          ...(existing.variants || {}),
+          [locale]: variant,
+        },
+      })
+    }
+  }
+
   private assertPackageScriptIdsAvailable(manifest: RuntimePackageManifest): void {
     const seen = new Set<string>()
+    const localePackTargetPackageIds = getLocalePackRuntimeTargetIds(manifest)
     for (const script of manifest.scripts || []) {
       if (seen.has(script.id)) {
         throw new Error(`Runtime package "${manifest.id}" declares duplicate script module "${script.id}".`)
       }
       seen.add(script.id)
       const existing = this.scripts.get(script.id)
+      if (manifest.localePack && existing && localePackTargetPackageIds.includes(existing.packageId)) {
+        continue
+      }
       if (existing && existing.packageId !== manifest.id) {
         throw new Error(`Runtime script module "${script.id}" is already registered by package "${existing.packageId}".`)
       }
@@ -495,7 +677,7 @@ export class RuntimeContentManager {
   private resolveScriptVariant(
     record: RuntimeScriptModuleRecord,
     preferredLocale: string,
-  ): { locale: string, record: RuntimeScriptModuleRecord } {
+  ): ResolvedScriptVariant {
     const variants = Object.fromEntries(
       Object.entries(record.variants || {}).map(([locale, variant]) => [normalizeLocale(locale), variant]),
     )
@@ -506,8 +688,11 @@ export class RuntimeContentManager {
       }
       return {
         locale,
+        packageId: variant.runtimePackageId || record.packageId,
         record: {
           ...record,
+          packageId: variant.runtimePackageId || record.packageId,
+          bundleName: variant.bundleName || record.bundleName,
           assetName: variant.assetName,
           exportName: variant.exportName || record.exportName,
           version: variant.version || record.version,
@@ -521,11 +706,12 @@ export class RuntimeContentManager {
 
     return {
       locale: 'default',
+      packageId: record.packageId,
       record,
     }
   }
 
-  private async resolveScriptFactory(record: RuntimeScriptModuleRecord, locale = 'default') {
+  private async resolveScriptFactory(record: RuntimeScriptModuleRecord, locale = 'default', packageId = record.packageId) {
     if (record.factory) {
       return record.factory
     }
@@ -533,7 +719,7 @@ export class RuntimeContentManager {
       return selectScriptFactory(record, record.module)
     }
 
-    const cacheKey = createScriptModuleCacheKey(record.id, locale)
+    const cacheKey = createScriptModuleCacheKey(record.id, locale, packageId, record.version)
     const cached = this.loadedScriptModules.get(cacheKey)
     if (cached) {
       return selectScriptFactory(record, cached)
@@ -542,7 +728,7 @@ export class RuntimeContentManager {
       throw new Error(`Runtime script module "${record.id}" requires a runtime module loader.`)
     }
 
-    const packageRecord = this.requirePackage(record.packageId)
+    const packageRecord = this.requirePackage(packageId)
     const loaded = await this.loader.loadScriptModule(record, {
       assets: this.engine.getAssets(),
       package: packageRecord.manifest,
@@ -559,6 +745,27 @@ export class RuntimeContentManager {
       throw new Error(`Runtime package "${packageId}" is not loaded.`)
     }
     return record
+  }
+
+  private getActiveLocalePackRecords(locale: string, options: EnsureLocalePacksOptions = {}): LoadedRuntimePackage[] {
+    const fallbackChain = createLocaleFallbackChain(locale)
+    const targetPackageIds = new Set(options.targetPackageIds || [])
+    return Array.from(this.packages.values()).filter((record) => {
+      const localePack = record.manifest.localePack
+      if (record.state.state !== 'active' || !localePack) {
+        return false
+      }
+      if (!fallbackChain.includes(normalizeLocale(localePack.locale))) {
+        return false
+      }
+      if (targetPackageIds.size === 0) {
+        return true
+      }
+      return localePack.targets.some(target =>
+        target.kind === 'runtimePackage'
+        && targetPackageIds.has(target.id),
+      )
+    })
   }
 
   private async loadRequiredPackageFromRegistry(packageId: string): Promise<boolean> {
@@ -607,6 +814,10 @@ export class RuntimeContentManager {
       references.push('current view projection')
     }
 
+    if (this.engine.getRuntimeStateSnapshot().activeLocalePackIds.includes(packageId)) {
+      references.push('current locale')
+    }
+
     if (references.length > 0) {
       throw new Error(`Cannot unload runtime package "${packageId}" because it is referenced by ${references.join(' and ')}. Pass force: true only after moving runtime state away from that package.`)
     }
@@ -615,6 +826,39 @@ export class RuntimeContentManager {
 
 function normalizeRegistryEntry(entry: string | RuntimePackageRegistryEntry): RuntimePackageRegistryEntry {
   return typeof entry === 'string' ? { source: entry } : entry
+}
+
+function uniqueRecords(records: RuntimePackageStateRecord[]): RuntimePackageStateRecord[] {
+  const byId = new Map<string, RuntimePackageStateRecord>()
+  for (const record of records) {
+    byId.set(record.id, { ...record })
+  }
+  return Array.from(byId.values())
+}
+
+function getLocalePackRuntimeTargetIds(manifest: RuntimePackageManifest): string[] {
+  return (manifest.localePack?.targets || [])
+    .filter(target => target.kind === 'runtimePackage')
+    .map(target => target.id)
+}
+
+function removeScriptVariantsOwnedByPackage(
+  variants: RuntimeScriptModuleRecord['variants'],
+  packageId: string,
+): RuntimeScriptModuleRecord['variants'] {
+  if (!variants) {
+    return variants
+  }
+  let changed = false
+  const next: NonNullable<RuntimeScriptModuleRecord['variants']> = {}
+  for (const [locale, variant] of Object.entries(variants)) {
+    if (variant.runtimePackageId === packageId) {
+      changed = true
+      continue
+    }
+    next[locale] = variant
+  }
+  return changed ? next : variants
 }
 
 function createPackageState(
@@ -633,6 +877,7 @@ function createPackageState(
     scriptModuleIds: (manifest.scripts || []).map(script => script.id),
     pluginIds: (manifest.plugins || []).map(plugin => plugin.id),
     migrationIds: (manifest.storeMigrations || []).map(migration => createMigrationKey(manifest.id, migration)),
+    localePack: manifest.localePack ? { ...manifest.localePack, targets: [...manifest.localePack.targets], resourceTypes: [...manifest.localePack.resourceTypes], fallbackLocales: manifest.localePack.fallbackLocales ? [...manifest.localePack.fallbackLocales] : undefined } : undefined,
   }
 }
 
@@ -678,8 +923,8 @@ function createMigrationKey(packageId: string, migration: RuntimePackageStoreMig
   return `${packageId}:${migration.id}:${migration.version || '1'}`
 }
 
-function createScriptModuleCacheKey(moduleId: string, locale: string): string {
-  return `${moduleId}::${normalizeLocale(locale || 'default')}`
+function createScriptModuleCacheKey(moduleId: string, locale: string, packageId: string, version?: string): string {
+  return `${moduleId}::${normalizeLocale(locale || 'default')}::${packageId}::${version || '0'}`
 }
 
 function unique(values: readonly string[]): string[] {

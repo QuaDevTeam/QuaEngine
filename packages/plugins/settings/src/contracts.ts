@@ -7,7 +7,7 @@ export const SETTINGS_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/settings
 export const BASE_SETTINGS_SCOPE = '@quajs/plugin-settings' as const
 
 export type SettingsPlane = 'developer' | 'player'
-export type SettingsApplyReason = 'init' | 'rebuild' | 'update' | 'reset' | 'load' | 'jump' | 'runtime-package-unload'
+export type SettingsApplyReason = 'init' | 'rebuild' | 'update' | 'reset' | 'load' | 'jump' | 'rollback' | 'runtime-package-unload'
 
 export type SettingsJsonPrimitive = string | number | boolean | null
 export type SettingsJsonValue = SettingsJsonPrimitive | SettingsJsonValue[] | { [key: string]: SettingsJsonValue }

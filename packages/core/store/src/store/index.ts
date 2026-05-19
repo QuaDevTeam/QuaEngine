@@ -1,4 +1,4 @@
-import type { QuaActions, QuaConstructorOpts, QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaGetters, QuaMutations, QuaRestoreOptions, QuaSerializedState, QuaSnapshot, QuaState, QuaStateSerializer } from '../types/base'
+import type { QuaActions, QuaConstructorOpts, QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaGetters, QuaMutations, QuaRestoreOptions, QuaSerializedState, QuaSnapshot, QuaState, QuaStateSerializer, QuaStoreSaveData } from '../types/base'
 import { assertStateSerializer, jsonStateSerializer } from '../serializer'
 import { StorageManager } from '../storage/manager'
 import logger, { generateId } from '../utils'
@@ -131,6 +131,11 @@ class QuaStore {
     return this
   }
 
+  public async deleteSnapshot(snapshotId: string): Promise<void> {
+    const storageManager = await this.getStorageManager()
+    await storageManager.deleteSnapshot(snapshotId)
+  }
+
   /**
    * Save current store state and all snapshots to a game slot
    */
@@ -181,6 +186,24 @@ class QuaStore {
     logger.module(this.name).info(`Store saved to slot successfully: ${slotId}`)
   }
 
+  public async exportSaveData(): Promise<QuaStoreSaveData> {
+    const storageManager = await this.getStorageManager()
+    const allSnapshots = await storageManager.listSnapshots(this.name)
+    const snapshotData: QuaSnapshot[] = []
+
+    for (const snapshotMeta of allSnapshots) {
+      const snapshot = await storageManager.getSnapshot(snapshotMeta.id)
+      if (snapshot) {
+        snapshotData.push(snapshot)
+      }
+    }
+
+    return {
+      state: this.serializeState(),
+      snapshots: snapshotData,
+    }
+  }
+
   /**
    * Load store state and snapshots from a game slot
    * This will completely overwrite the current state and all snapshots
@@ -213,6 +236,20 @@ class QuaStore {
     this.restoreSerializedState(gameSlot.storeData.state)
 
     logger.module(this.name).info(`Store loaded from slot successfully: ${slotId}`)
+  }
+
+  public async importSaveData(data: QuaStoreSaveData, options: { force?: boolean } = {}): Promise<void> {
+    const { force = false } = options
+    if (Object.keys(this.state).length && !force) {
+      throw new Error('Cannot import store save data due to some data already exists in store. Use force option to override.')
+    }
+
+    const storageManager = await this.getStorageManager()
+    await storageManager.clearSnapshots(this.name)
+    for (const snapshot of data.snapshots) {
+      await storageManager.saveSnapshot(snapshot)
+    }
+    this.restoreSerializedState(data.state)
   }
 
   /**
