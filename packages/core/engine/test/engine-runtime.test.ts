@@ -398,6 +398,43 @@ describe('quaEngine runtime architecture', () => {
     expect(engine.getViewState().dialogue.text).toBe('Input A')
   })
 
+  it('rolls back to choices without consuming the recorded choice input', async () => {
+    const engine = createEngine()
+    await engine.init()
+    let choiceReady!: () => void
+    const ready = new Promise<void>((resolve) => {
+      choiceReady = resolve
+    })
+
+    const active = engine.dialogue([
+      {
+        uuid: 'choice-anchor-step',
+        run: async (ctx) => {
+          await ctx.engine.showChoices([
+            { id: 'left', text: 'Left' },
+            { id: 'right', text: 'Right' },
+          ])
+          const wait = ctx.engine.waitFor(RenderToLogicEvents.USER_CHOICE_SELECT)
+          choiceReady()
+          await wait
+          await ctx.engine.clearChoices()
+        },
+      },
+      createDialogueStep('choice-after-step', 'After choice'),
+    ])
+    await ready
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_CHOICE_SELECT, { choiceId: 'left' })
+    await active
+
+    await engine.rollback('choice-anchor-step')
+
+    expect(engine.getStoryPoint()?.stepId).toBe('choice-anchor-step')
+    expect(engine.getViewState().choices).toEqual([
+      { id: 'left', text: 'Left', enabled: true, metadata: undefined },
+      { id: 'right', text: 'Right', enabled: true, metadata: undefined },
+    ])
+  })
+
   it('uses checkpoint density instead of LRU-style checkpoint truncation', async () => {
     const engine = new QuaEngine({
       assets: {
