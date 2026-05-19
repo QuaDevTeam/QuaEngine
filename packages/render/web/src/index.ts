@@ -27,6 +27,26 @@ export { createQuaWebDomRenderer, QuaWebDomRenderer } from './dom'
 export type { OrderedRendererLayer } from './layers'
 export { sortRendererLayers } from './layers'
 export type {
+  RendererInputBinding,
+  RendererInputBindingPhase,
+  RendererInputCommandDispatch,
+  RendererInputController,
+  RendererInputControllerOptions,
+  RendererInputGamepadBinding,
+  RendererInputKeyboardBinding,
+  RendererInputPointerBinding,
+  RendererInputSource,
+  RendererInputWheelBinding,
+  RendererInputWheelDirection,
+} from './input'
+export {
+  createDefaultGamepadInputBindings,
+  createDefaultKeyboardInputBindings,
+  createDefaultPointerInputBindings,
+  createDefaultRendererInputBindings,
+  createRendererInputController,
+} from './input'
+export type {
   ResolvedStageLayout,
   StageClientPoint,
   StageClientRectOrigin,
@@ -58,6 +78,8 @@ export { createChoicesWebRendererPlugin } from './plugins/choices'
 export { defineWebRendererPlugin } from './plugins/core'
 export { createDialogueWebRendererPlugin } from './plugins/dialogue'
 export { createEffectsWebRendererPlugin } from './plugins/effects'
+export type { InputWebRendererPluginOptions } from './plugins/input'
+export { createInputWebRendererPlugin } from './plugins/input'
 export { createSceneWebRendererPlugin } from './plugins/scene'
 export { createUiWebRendererPlugin } from './plugins/ui'
 export {

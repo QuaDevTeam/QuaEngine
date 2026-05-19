@@ -1,11 +1,12 @@
 import type { Pipeline } from '@quajs/pipeline'
-import type { FlowControlMode } from '@quajs/render-core'
+import type { FlowControlMode, RendererInputCommandPayload } from '@quajs/render-core'
 import { emitRenderToLogic, RenderToLogicEvents } from '@quajs/render-core'
 
 export interface RendererActions {
   ready: () => Promise<void>
   sceneReady: (sceneId?: string) => Promise<void>
   click: (payload?: { x?: number, y?: number, target?: string }) => Promise<void>
+  inputCommand: (payload: RendererInputCommandPayload) => Promise<void>
   advance: (source?: string) => Promise<void>
   setFlowControlMode: (mode: FlowControlMode, source?: string) => Promise<void>
   startAuto: (source?: string) => Promise<void>
@@ -28,6 +29,7 @@ export function createRendererActions(getPipeline: () => Pipeline): RendererActi
     ready: () => emitRenderToLogic(getPipeline(), RenderToLogicEvents.RENDER_READY, { timestamp: Date.now() }),
     sceneReady: (sceneId?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.SCENE_READY, { sceneId, timestamp: Date.now() }),
     click: (payload = {}) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_CLICK, payload),
+    inputCommand: (payload: RendererInputCommandPayload) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_INPUT_COMMAND, payload),
     advance: (source?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_ADVANCE, { source }),
     setFlowControlMode: (mode: FlowControlMode, source?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.FLOW_CONTROL_SET_MODE_REQUEST, { mode, source }),
     startAuto: (source?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.FLOW_CONTROL_START_AUTO_REQUEST, { source }),
