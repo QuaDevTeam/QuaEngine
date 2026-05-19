@@ -104,6 +104,27 @@ describe('render-core event contracts', () => {
     expect(handler).toHaveBeenCalledWith({ choiceId: 'yes' }, expect.any(Object))
   })
 
+  it('dispatches semantic renderer input commands before built-in intents', async () => {
+    const pipeline = new Pipeline()
+    const commands: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_INPUT_COMMAND, payload => commands.push(payload))
+
+    await emitRenderToLogic(pipeline, RenderToLogicEvents.USER_INPUT_COMMAND, {
+      command: 'advance',
+      device: 'keyboard',
+      source: 'keyboard:Enter',
+      pressed: true,
+      timestamp: 123,
+      metadata: { code: 'Enter' },
+    })
+
+    expect(commands).toEqual([expect.objectContaining({
+      command: 'advance',
+      device: 'keyboard',
+      source: 'keyboard:Enter',
+    })])
+  })
+
   it('waits for matching pipeline events, timeout, and cancellation', async () => {
     const pipeline = new Pipeline()
 

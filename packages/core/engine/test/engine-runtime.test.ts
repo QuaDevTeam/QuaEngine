@@ -293,6 +293,24 @@ describe('quaEngine runtime architecture', () => {
     expect(engine.getFlowControlState().mode).toBe('normal')
   })
 
+  it('records semantic renderer input commands without making them authoritative flow state', async () => {
+    const engine = createEngine()
+    await engine.init()
+    const inputCommands: unknown[] = []
+    engine.getPipeline().on(RenderToLogicEvents.USER_INPUT_COMMAND, context => inputCommands.push(context.event.payload))
+
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_INPUT_COMMAND, {
+      command: 'skip:start',
+      device: 'keyboard',
+      source: 'keyboard:ControlLeft',
+      pressed: true,
+      timestamp: 1,
+    })
+
+    expect(inputCommands).toEqual([expect.objectContaining({ command: 'skip:start' })])
+    expect(engine.getFlowControlState().mode).toBe('normal')
+  })
+
   it('creates checkpoints, restores story points through jump, and cancels pending waits', async () => {
     const engine = createEngine()
     await engine.init()
