@@ -60,6 +60,10 @@
       "types": "./dist/plugins/audio/index.d.ts",
       "import": "./dist/plugins/audio/index.js"
     },
+    "./plugins/input": {
+      "types": "./dist/plugins/input/index.d.ts",
+      "import": "./dist/plugins/input/index.js"
+    },
     "./plugins/preset": {
       "types": "./dist/plugins/preset/index.d.ts",
       "import": "./dist/plugins/preset/index.js"

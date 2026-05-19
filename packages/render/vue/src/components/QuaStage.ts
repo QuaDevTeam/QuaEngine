@@ -3,7 +3,7 @@ import type { PropType } from 'vue'
 import type { QuaVueRendererLayer } from '../plugins/core'
 import { observeStageViewportEnvironment, projectStageMotion, readCssSafeAreaInsets, readDevicePixelRatio, resolveStageLayout, stageContentStyle, stageFrameStyle, stageMotionVars, stagePlaneStyle, stageSafeAreaStyle, stageSceneStyle, stageViewportStyle } from '@quajs/renderer-web'
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useAnimationClock, useRendererActions } from '../composables'
+import { useAnimationClock } from '../composables'
 import { projectionProps, useProjectionProps } from './projection'
 
 export const QuaStage = defineComponent({
@@ -16,8 +16,8 @@ export const QuaStage = defineComponent({
     },
   },
   setup(props, { slots }) {
-    const actions = useRendererActions()
     const animationNow = useAnimationClock()
+    const actions = props.actions
     const slotProps = () => ({ ...useProjectionProps(), actions })
     const layers = computed(() => props.layers || [])
     const sceneLayers = computed(() => layers.value.filter(layer => (layer.plane || 'scene') === 'scene'))
@@ -79,7 +79,6 @@ export const QuaStage = defineComponent({
         h('section', {
           class: 'qua-stage',
           style: stageContentStyle(stageLayout.value),
-          onClick: () => actions.advance('stage-click'),
         }, [
           h('div', {
             class: 'qua-stage-scene',

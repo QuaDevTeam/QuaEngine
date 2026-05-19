@@ -17,6 +17,7 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, isReadonly, nextTick } from 'vue'
 import {
+  createInputRendererPlugin,
   QuaRenderer,
   useAssetUrl,
   useChoices,
@@ -384,6 +385,8 @@ describe('@quajs/renderer-vue', () => {
   it('does not turn nested renderer or plugin UI clicks into duplicate advance intents', async () => {
     const pipeline = new Pipeline()
     const advances: Array<{ source?: string }> = []
+    const commands: string[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_INPUT_COMMAND, payload => commands.push(`${payload.command}:${payload.source}`))
     onRenderToLogic(pipeline, RenderToLogicEvents.USER_ADVANCE, payload => advances.push(payload))
     const current = view({
       dialogue: { visible: true, text: 'Line' },
@@ -417,9 +420,62 @@ describe('@quajs/renderer-vue', () => {
     await flushVue()
 
     expect(advances).toEqual([
-      { source: 'dialogue' },
-      { source: 'stage-click' },
+      { source: 'pointer:dialogue' },
+      { source: 'pointer:stage' },
     ])
+    expect(commands).toEqual([
+      'advance:pointer:dialogue',
+      'advance:pointer:stage',
+    ])
+  })
+
+  it('wires the input Vue plugin as a thin adapter over renderer-web actions', async () => {
+    const pipeline = new Pipeline()
+    const received: string[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_INPUT_COMMAND, payload => received.push(`command:${payload.command}:${payload.source}`))
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_ADVANCE, payload => received.push(`advance:${payload.source}`))
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins({ input: { pointer: false, gamepad: false } }),
+      initialView: view(),
+    })
+
+    await flushVue()
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', repeat: true, bubbles: true }))
+    await flushVue()
+
+    expect(received).toEqual([
+      'command:advance:keyboard:Enter',
+      'advance:keyboard:Enter',
+    ])
+
+    host.app.unmount()
+    await flushVue()
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', bubbles: true }))
+    await flushVue()
+
+    expect(received).toHaveLength(2)
+  })
+
+  it('exposes a standalone input Vue plugin without duplicating renderer-web runtime', async () => {
+    const pipeline = new Pipeline()
+    const received: string[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_ADVANCE, payload => received.push(payload.source || ''))
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: [createInputRendererPlugin({ pointer: false, gamepad: false })],
+      initialView: view(),
+    })
+
+    await flushVue()
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true }))
+    await flushVue()
+
+    expect(received).toEqual(['keyboard:Space'])
+    expect(createInputRendererPlugin().name).toBe('@quajs/renderer-vue/input')
+
+    host.app.unmount()
   })
 
   it('keeps menu/settings panels in the UI plugin entry and reads generic overlays', async () => {
@@ -806,7 +862,7 @@ describe('@quajs/renderer-vue', () => {
     host.el.querySelector('.qua-stage')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await flushVue()
 
-    expect(received).toEqual([{ source: 'stage-click' }])
+    expect(received).toEqual([])
   })
 
   it('creates and revokes object URLs as renderer implementation state', async () => {
