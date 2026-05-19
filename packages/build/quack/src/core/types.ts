@@ -141,6 +141,8 @@ export interface RuntimePackageScriptVariantManifest {
   assetName: string
   version?: string
   exportName?: string
+  runtimePackageId?: string
+  bundleName?: string
   metadata?: Record<string, unknown>
 }
 
@@ -188,12 +190,25 @@ export interface RuntimePackageSignatureManifest {
   keyId?: string
 }
 
+export interface RuntimeLocalePackTargetManifest {
+  kind: 'bundle' | 'runtimePackage'
+  id: string
+}
+
+export interface RuntimeLocalePackManifest {
+  locale: string
+  targets: RuntimeLocalePackTargetManifest[]
+  resourceTypes: AssetType[]
+  fallbackLocales?: string[]
+}
+
 export interface RuntimePackageManifest {
   id: string
   version: string
   sequence?: number
   priority?: number
   dependencies?: string[]
+  localePack?: RuntimeLocalePackManifest
   scripts?: RuntimePackageScriptManifest[]
   plugins?: RuntimePackagePluginManifest[]
   storyGraphDeltas?: RuntimePackageStoryGraphDeltaManifest[]

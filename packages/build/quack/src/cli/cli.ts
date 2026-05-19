@@ -9,6 +9,7 @@ import { createQuaScriptLocaleSkeleton, syncQuaScriptLocale } from '@quajs/scrip
 import { QPKBundler } from '../bundlers/qpk-bundler'
 import { ZipBundler } from '../bundlers/zip-bundler'
 import { QuackBundler } from '../core/bundler'
+import { buildLocalePack } from '../i18n/locale-pack'
 import { getErrorMessage, getErrorStack } from '../utils/error'
 import { PatchGenerator } from '../workspace/patch-generator'
 import { VersionManager } from '../workspace/versioning'
@@ -585,6 +586,55 @@ i18n
     }
   })
 
+i18n
+  .command('pack')
+  .description('Build a deferred locale QPK Runtime Package')
+  .argument('<source>', 'Source directory containing localized assets')
+  .requiredOption('--locale <locale>', 'Locale to package, for example zh-CN')
+  .requiredOption('--base <path>', 'Base QPK or manifest.json used for diffing and script ids')
+  .requiredOption('--target <target...>', 'Locale pack target, formatted as runtimePackage:id or bundle:id')
+  .requiredOption('-o, --output <path>', 'Output QPK file')
+  .option('--base-source <dir>', 'Base source directory. Required for localized .qs overlays.')
+  .option('--package-id <id>', 'Runtime package id. Defaults to <targetId>.locale.<locale>.')
+  .option('--version <version>', 'Runtime package version')
+  .option('--priority <priority>', 'Runtime package priority')
+  .option('--compression-level <level>', 'QPK compression level (0 disables compression)', '0')
+  .option('--signature <value>', 'Runtime package signature value')
+  .option('-v, --verbose', 'Verbose output')
+  .action(async (source, options) => {
+    try {
+      const compressionLevel = Number.parseInt(options.compressionLevel, 10)
+      const result = await buildLocalePack({
+        source: resolve(source),
+        base: resolve(options.base),
+        baseSource: options.baseSource ? resolve(options.baseSource) : undefined,
+        locale: options.locale,
+        targets: parseLocalePackTargets(options.target),
+        output: resolve(options.output),
+        packageId: options.packageId,
+        version: options.version,
+        priority: options.priority === undefined ? undefined : Number.parseInt(options.priority, 10),
+        compression: {
+          algorithm: compressionLevel > 0 ? 'lzma' : 'none',
+          level: compressionLevel,
+        },
+        signature: options.signature ? { value: options.signature } : undefined,
+      })
+
+      console.log(`✅ Locale pack created: ${result.output}`)
+      console.log(`🌍 Locale: ${result.manifest.runtimePackage?.localePack?.locale}`)
+      console.log(`📦 Package: ${result.manifest.runtimePackage?.id}`)
+      console.log(`📊 ${result.assets.length} localized files, ${formatBytes(result.assets.reduce((sum, asset) => sum + asset.size, 0))}`)
+    }
+    catch (error) {
+      console.error('❌ i18n pack failed:', getErrorMessage(error))
+      if (options.verbose) {
+        console.error(getErrorStack(error))
+      }
+      process.exit(1)
+    }
+  })
+
 // ==== WORKSPACE COMMANDS ====
 
 // Workspace init command
@@ -934,6 +984,17 @@ async function loadConfig(source: string, options: any): Promise<QuackConfig> {
   }
 
   return config
+}
+
+function parseLocalePackTargets(values: string[]): Array<{ kind: 'bundle' | 'runtimePackage', id: string }> {
+  return values.map((value) => {
+    const [kind, ...idParts] = value.split(':')
+    const id = idParts.join(':')
+    if ((kind !== 'bundle' && kind !== 'runtimePackage') || !id) {
+      throw new Error(`Invalid locale pack target "${value}". Expected runtimePackage:id or bundle:id.`)
+    }
+    return { kind, id }
+  })
 }
 
 /**
