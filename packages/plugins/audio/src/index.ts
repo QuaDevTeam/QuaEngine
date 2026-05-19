@@ -139,6 +139,14 @@ export class AudioPlugin extends BaseEnginePlugin {
     this.projectionBeforeJump = undefined
   }
 
+  override async onBeforeRollback(): Promise<void> {
+    this.projectionBeforeJump = undefined
+  }
+
+  override async onAfterRollback(): Promise<void> {
+    this.projectionBeforeJump = undefined
+  }
+
   override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
     const packageId = ctx.runtimePackage?.package.id
     if (packageId) {

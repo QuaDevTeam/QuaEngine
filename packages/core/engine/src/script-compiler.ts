@@ -13,6 +13,13 @@ const POLICY_DECORATORS = new Set([
 
 const RESET_DECORATORS = new Set(['ResetFlowControlPolicy'])
 
+const ROLLBACK_DECORATORS = new Set([
+  'RollbackAnchor',
+  'RollbackBoundary',
+  'FixRollback',
+  'NoRollback',
+])
+
 export const flowControlDecoratorMappings = {
   FlowControl: {
     function: 'setFlowControlPolicy',
@@ -52,6 +59,25 @@ export const flowControlDecoratorMappings = {
   },
 } as const
 
+export const rollbackDecoratorMappings = {
+  RollbackAnchor: {
+    function: 'createRollbackAnchor',
+    module: '@quajs/engine',
+  },
+  RollbackBoundary: {
+    function: 'markRollbackBoundary',
+    module: '@quajs/engine',
+  },
+  FixRollback: {
+    function: 'fixRollback',
+    module: '@quajs/engine',
+  },
+  NoRollback: {
+    function: 'markRollbackBoundary',
+    module: '@quajs/engine',
+  },
+} as const
+
 export function createFlowControlDecoratorCompiler() {
   return {
     module: '@quajs/engine',
@@ -86,11 +112,62 @@ export function createFlowControlDecoratorCompiler() {
   }
 }
 
+export function createRollbackDecoratorCompiler() {
+  return {
+    module: '@quajs/engine',
+    supports(decoratorName: string, mapping: { function: string, module: string }) {
+      return mapping.module === '@quajs/engine'
+        && ROLLBACK_DECORATORS.has(decoratorName)
+        && (
+          mapping.function === 'createRollbackAnchor'
+          || mapping.function === 'markRollbackBoundary'
+          || mapping.function === 'fixRollback'
+        )
+    },
+    compile({ decorator }: {
+      decorator: { name: string, args: unknown[] }
+    }) {
+      const engineArg = t.memberExpression(t.identifier('ctx'), t.identifier('engine'))
+
+      if (decorator.name === 'NoRollback') {
+        return {
+          call: t.callExpression(
+            t.memberExpression(engineArg, t.identifier('markRollbackBoundary')),
+            [t.stringLiteral('no-rollback')],
+          ),
+        }
+      }
+
+      if (decorator.name === 'FixRollback') {
+        return {
+          call: t.callExpression(
+            t.memberExpression(engineArg, t.identifier('fixRollback')),
+            decorator.args.length > 0 ? [toExpression(decorator.args[0])] : [],
+          ),
+        }
+      }
+
+      const method = decorator.name === 'RollbackAnchor'
+        ? 'createRollbackAnchor'
+        : 'markRollbackBoundary'
+      return {
+        call: t.callExpression(
+          t.memberExpression(engineArg, t.identifier(method)),
+          decorator.args.map(arg => toExpression(arg)),
+        ),
+      }
+    },
+  }
+}
+
 export const scriptCompiler = {
-  compilers: [createFlowControlDecoratorCompiler()],
+  compilers: [createFlowControlDecoratorCompiler(), createRollbackDecoratorCompiler()],
 } as const
 
-export const decorators = flowControlDecoratorMappings
+export const decorators = {
+  ...flowControlDecoratorMappings,
+  ...rollbackDecoratorMappings,
+}
 
 function createPolicyObject(decorator: { name: string, args: unknown[] }): t.Expression {
   switch (decorator.name) {

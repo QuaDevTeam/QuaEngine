@@ -160,6 +160,10 @@ export class SettingsPlugin extends BaseEnginePlugin {
     await this.bridge?.rebuildProjection({ reason: 'jump', apply: true, persist: false })
   }
 
+  override async onAfterRollback(): Promise<void> {
+    await this.bridge?.rebuildProjection({ reason: 'rollback', apply: true, persist: false })
+  }
+
   override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
     const packageId = ctx.runtimePackage?.package.id
     if (!packageId || !this.bridge) {

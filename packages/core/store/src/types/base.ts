@@ -75,6 +75,11 @@ export interface QuaSnapshotMeta {
   scope?: QuaSnapshotScopeMeta
 }
 
+export interface QuaStoreSaveData {
+  state: QuaSerializedState
+  snapshots: QuaSnapshot[]
+}
+
 /**
  * Game save slot data structure
  */
@@ -90,10 +95,7 @@ export interface QuaGameSaveSlot {
     [key: string]: unknown
   }
   // Complete store state including all snapshots
-  storeData: {
-    state: QuaSerializedState
-    snapshots: QuaSnapshot[]
-  }
+  storeData: QuaStoreSaveData
 }
 
 /**

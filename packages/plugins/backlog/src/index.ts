@@ -45,6 +45,7 @@ export class BacklogPlugin extends BaseEnginePlugin {
   readonly description = 'Backlog recording, retention, rewind, and voice replay projection'
   private disposers: Array<() => void> = []
   private projectionBeforeBacklogJump?: BacklogProjection
+  private projectionBeforeRollback?: BacklogProjection
 
   protected setup(ctx: EngineContext): void {
     this.ensureProjection(ctx)
@@ -73,6 +74,7 @@ export class BacklogPlugin extends BaseEnginePlugin {
       this.disposers.pop()?.()
     }
     this.projectionBeforeBacklogJump = undefined
+    this.projectionBeforeRollback = undefined
     await super.destroy?.()
   }
 
@@ -94,6 +96,22 @@ export class BacklogPlugin extends BaseEnginePlugin {
       visible: false,
     })
     this.projectionBeforeBacklogJump = undefined
+  }
+
+  override async onBeforeRollback(ctx: EngineContext): Promise<void> {
+    this.projectionBeforeRollback = getBacklogProjection(ctx.engine)
+  }
+
+  override async onAfterRollback(ctx: EngineContext): Promise<void> {
+    if (!this.projectionBeforeRollback) {
+      this.ensureProjection(ctx)
+      return
+    }
+    await ctx.engine.setPluginProjection(BACKLOG_PLUGIN_ID, {
+      ...this.projectionBeforeRollback,
+      revision: this.projectionBeforeRollback.revision + 1,
+    })
+    this.projectionBeforeRollback = undefined
   }
 
   private ensureProjection(ctx: EngineContext): void {

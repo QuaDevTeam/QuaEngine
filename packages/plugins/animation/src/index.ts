@@ -129,6 +129,12 @@ export class AnimationPlugin extends BaseEnginePlugin {
     }
   }
 
+  override async onAfterRollback(): Promise<void> {
+    if (this.ctx) {
+      reconcileAnimationRuntime(this.ctx.engine)
+    }
+  }
+
   override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
     const packageId = ctx.runtimePackage?.package.id
     if (packageId) {

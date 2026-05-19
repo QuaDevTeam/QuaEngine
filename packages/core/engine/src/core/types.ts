@@ -2,6 +2,7 @@ import type {
   DynamicBundleRecord,
   QuaAssets,
   QuaAssetsConfig,
+  RuntimeLocalePackManifest,
   RuntimePackageManifest,
   RuntimePackagePluginManifest,
   RuntimePackageScriptManifest,
@@ -28,6 +29,8 @@ import type { EnginePlugin, PluginConstructorOptions } from '../plugins/core/typ
 import { createFlowControlProjection, createViewLayoutProjection } from '../events/events'
 
 export type {
+  RuntimeLocalePackManifest,
+  RuntimeLocalePackTargetManifest,
   RuntimePackageManifest,
   RuntimePackagePluginManifest,
   RuntimePackageScriptManifest,
@@ -115,11 +118,26 @@ export interface QuaEngineInterface {
   createCheckpoint: (options?: CreateCheckpointOptions) => Promise<EngineCheckpoint>
   getCheckpoint: (id: string) => EngineCheckpoint | undefined
   jumpTo: (target: JumpTarget, options?: JumpOptions) => Promise<void>
+  getRollbackConfig: () => RollbackConfig
+  setRollbackConfig: (patch: RollbackConfigPatch) => RollbackConfig
+  getRollbackTargets: () => RollbackTargetInfo[]
+  canRollback: () => boolean
+  canRollForward: () => boolean
+  rollback: (target?: RollbackTarget, options?: RollbackNavigationOptions) => Promise<void>
+  rollForward: (target?: RollbackTarget, options?: RollbackNavigationOptions) => Promise<void>
+  createRollbackAnchor: (reason?: RollbackAnchorReason | string, metadata?: Record<string, unknown>) => Promise<RollbackAnchor | undefined>
+  markRollbackBoundary: (reason?: string, metadata?: Record<string, unknown>) => Promise<void>
+  fixRollback: (metadata?: Record<string, unknown>) => Promise<void>
+  registerRollbackStore: (name: string, store: QuaStore) => void
+  unregisterRollbackStore: (name: string) => void
   getStore: () => QuaStore
   getAssets: () => QuaAssets
   getPipeline: () => Pipeline
   translate: (key: string, options?: TranslateInput) => Promise<string>
   ensureRuntimePackages: (packageIds: readonly string[]) => Promise<void>
+  ensureLocalePacks: (locale: string, options?: EnsureLocalePacksOptions) => Promise<RuntimePackageStateRecord[]>
+  getLocale: () => string
+  setLocale: (locale: string, options?: SetLocaleOptions) => Promise<void>
   getCurrentRuntimePackageId: () => string | undefined
   getRuntimeStateSnapshot: () => EngineRuntimeState
   getViewState: () => QuaViewProjection
@@ -211,6 +229,147 @@ export interface StoryPoint {
 
 export type EngineCheckpointKind = 'step' | 'line' | 'choice' | 'manual' | 'save'
 
+export type RollbackBoundaryMode = 'stop' | 'allow'
+
+export type RollbackAnchorReason
+  = | 'segment-start'
+    | 'interval'
+    | 'choice'
+    | 'save'
+    | 'load'
+    | 'runtime-package'
+    | 'developer'
+    | 'manual'
+    | 'line'
+    | 'step'
+    | 'rollback-origin'
+
+export interface RollbackBoundaryConfig {
+  scene: RollbackBoundaryMode
+  chapter: RollbackBoundaryMode
+}
+
+export interface RollbackCheckpointConfig {
+  interval: number
+  anchorOn: RollbackAnchorReason[]
+}
+
+export interface RollbackForwardConfig {
+  preserveFuture: boolean
+  truncateOnDivergence: boolean
+}
+
+export interface RollbackSaveConfig {
+  includeRollbackHistory: boolean
+}
+
+export interface RollbackConfig {
+  enabled: boolean
+  boundary: RollbackBoundaryConfig
+  checkpoints: RollbackCheckpointConfig
+  forward: RollbackForwardConfig
+  saves: RollbackSaveConfig
+}
+
+export interface RollbackConfigPatch {
+  enabled?: boolean
+  boundary?: Partial<RollbackBoundaryConfig>
+  checkpoints?: Partial<RollbackCheckpointConfig>
+  forward?: Partial<RollbackForwardConfig>
+  saves?: Partial<RollbackSaveConfig>
+}
+
+export interface RollbackSnapshotSet {
+  id: string
+  storeSnapshots: Record<string, string>
+  createdAt: number
+}
+
+export interface RollbackRecordedInput {
+  event: string
+  payload: unknown
+}
+
+export interface RollbackEntry {
+  entryIndex: number
+  stepId: string
+  point: StoryPoint
+  segmentId: string
+  requiredRuntimePackages: string[]
+  inputs: RollbackRecordedInput[]
+  replayable: boolean
+  decision: boolean
+  fixed: boolean
+  source?: {
+    runtimePackageId?: string
+    scriptModuleId?: string
+    scriptModuleVersion?: string
+    scriptModuleLocale?: string
+  }
+  metadata?: Record<string, unknown>
+}
+
+export interface RollbackAnchor {
+  id: string
+  entryIndex: number
+  replayStartEntryIndex: number
+  segmentId: string
+  reason: RollbackAnchorReason | string
+  replayable?: boolean
+  snapshotSet: RollbackSnapshotSet
+  checkpointId?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface RollbackSegment {
+  id: string
+  startEntryIndex: number
+  reason: string
+  sceneId?: string
+  chapterId?: string
+  createdAt: number
+  closedAt?: number
+}
+
+export interface RollbackJournal {
+  entries: RollbackEntry[]
+  anchors: RollbackAnchor[]
+  segments: RollbackSegment[]
+  cursor: number
+  liveTail: number
+  currentSegmentId?: string
+  fixedUntilEntryIndex?: number
+}
+
+export type RollbackTarget = number | string | StoryPoint | {
+  entryIndex?: number
+  stepId?: string
+  point?: StoryPoint
+}
+
+export interface RollbackTargetInfo {
+  entryIndex: number
+  stepId: string
+  point: StoryPoint
+  segmentId: string
+  fixed: boolean
+  decision: boolean
+  requiredRuntimePackages: string[]
+}
+
+export interface RollbackNavigationOptions {
+  reason?: string
+  force?: boolean
+}
+
+export interface RollbackContext {
+  direction: 'rollback' | 'forward'
+  reason?: string
+  target: RollbackTargetInfo
+  anchor: RollbackAnchor
+  replayedEntries: RollbackTargetInfo[]
+}
+
 export interface EngineCheckpoint {
   id: string
   point: StoryPoint
@@ -265,6 +424,7 @@ export interface RuntimePackageStateRecord {
   scriptModuleIds: string[]
   pluginIds: string[]
   migrationIds: string[]
+  localePack?: RuntimeLocalePackManifest
 }
 
 export interface RuntimeScriptModuleRecord extends RuntimePackageScriptManifest {
@@ -276,6 +436,14 @@ export interface RuntimeScriptModuleRecord extends RuntimePackageScriptManifest 
 
 export interface RuntimeScriptModuleRunOptions {
   locale?: string
+}
+
+export interface EnsureLocalePacksOptions {
+  targetPackageIds?: string[]
+}
+
+export interface SetLocaleOptions extends EnsureLocalePacksOptions {
+  ensurePacks?: boolean
 }
 
 export interface RuntimePackageLoadOptions {
@@ -299,11 +467,23 @@ export interface RuntimePackageRegistryResolveContext {
   requestedPackageId: string
 }
 
+export interface RuntimeLocalePackRegistryResolveContext {
+  engine: QuaEngineInterface
+  assets: QuaAssets
+  locale: string
+  activePackageIds: string[]
+  targetPackageIds?: string[]
+}
+
 export interface RuntimePackageRegistry {
   resolvePackage: (
     packageId: string,
     ctx: RuntimePackageRegistryResolveContext,
   ) => string | RuntimePackageRegistryEntry | undefined | Promise<string | RuntimePackageRegistryEntry | undefined>
+  resolveLocalePacks?: (
+    locale: string,
+    ctx: RuntimeLocalePackRegistryResolveContext,
+  ) => Array<string | RuntimePackageRegistryEntry> | undefined | Promise<Array<string | RuntimePackageRegistryEntry> | undefined>
 }
 
 export interface RuntimeLoadedScriptModule {
@@ -380,9 +560,9 @@ export interface EngineConfig {
   store?: {
     persistKey?: string
     enableSnapshots?: boolean
-    maxSnapshots?: number
     storage?: StorageConfig
   }
+  rollback?: RollbackConfigPatch
   saves?: {
     maxSlots?: number
     autoSave?: boolean
@@ -448,6 +628,8 @@ export interface CharacterIntent {
 }
 
 export interface EngineRuntimeState {
+  locale: string
+  activeLocalePackIds: string[]
   currentScene: string | null
   currentStepId: string | null
   currentStoryPoint?: StoryPoint
@@ -492,6 +674,8 @@ export type UsePluginOptions<T extends EnginePlugin = EnginePlugin>
 export function createInitialEngineState(layout?: ViewLayoutInput, flowControl?: FlowControlOptions): EngineState {
   return {
     runtime: {
+      locale: 'default',
+      activeLocalePackIds: [],
       currentScene: null,
       currentStepId: null,
       currentStoryPoint: undefined,

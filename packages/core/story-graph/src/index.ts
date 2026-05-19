@@ -130,6 +130,13 @@ export class StoryGraphPlugin extends BaseEnginePlugin {
     }
   }
 
+  override async onAfterRollback(ctx: EngineContext): Promise<void> {
+    const runtimeState = runtimeStoryGraphDeltas.get(runtimeStoryGraphDeltaKey(ctx.engine))
+    if (runtimeState) {
+      await rebuildRuntimeStoryGraphDeltas(ctx.engine, runtimeState)
+    }
+  }
+
   registerAPIs() {
     return {
       pluginName: this.name,

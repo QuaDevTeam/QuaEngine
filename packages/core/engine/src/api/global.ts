@@ -1,4 +1,5 @@
-import type { ChoiceIntent, CreateCheckpointOptions, DialogueIntent, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, RuntimePackageLoadOptions, RuntimePackageStateRecord, RuntimePackageUnloadOptions, RuntimeScriptModuleRecord, RuntimeScriptModuleRunOptions, Scene, SlotMetadata, StoryPoint, TranslateInput, ViewLayoutInput } from '../core/types'
+import type { ChoiceIntent, CreateCheckpointOptions, DialogueIntent, EnsureLocalePacksOptions, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, RollbackAnchorReason, RollbackConfigPatch, RollbackNavigationOptions, RollbackTarget, RuntimePackageLoadOptions, RuntimePackageStateRecord, RuntimePackageUnloadOptions, RuntimeScriptModuleRecord, RuntimeScriptModuleRunOptions, Scene, SetLocaleOptions, SlotMetadata, StoryPoint, TranslateInput, ViewLayoutInput } from '../core/types'
+import type { QuaStore } from '@quajs/store'
 import type { SceneTransitionOptions } from '../managers/scene-manager'
 import { QuaEngine } from '../core/engine'
 
@@ -51,6 +52,18 @@ export function registerScriptModule(record: RuntimeScriptModuleRecord): void {
 
 export async function runScriptModule<TScope>(moduleId: string, scope?: TScope, options?: RuntimeScriptModuleRunOptions): Promise<void> {
   return getEngine().runScriptModule(moduleId, scope, options)
+}
+
+export function getLocale(): string {
+  return getEngine().getLocale()
+}
+
+export async function setLocale(locale: string, options?: SetLocaleOptions): Promise<void> {
+  return getEngine().setLocale(locale, options)
+}
+
+export async function ensureLocalePacks(locale: string, options?: EnsureLocalePacksOptions): Promise<RuntimePackageStateRecord[]> {
+  return getEngine().ensureLocalePacks(locale, options)
 }
 
 /**
@@ -125,6 +138,54 @@ export function getCheckpoint(id: string) {
 
 export async function jumpTo(target: JumpTarget, options?: JumpOptions): Promise<void> {
   return getEngine().jumpTo(target, options)
+}
+
+export function getRollbackConfig() {
+  return getEngine().getRollbackConfig()
+}
+
+export function setRollbackConfig(patch: RollbackConfigPatch) {
+  return getEngine().setRollbackConfig(patch)
+}
+
+export function getRollbackTargets() {
+  return getEngine().getRollbackTargets()
+}
+
+export function canRollback(): boolean {
+  return getEngine().canRollback()
+}
+
+export function canRollForward(): boolean {
+  return getEngine().canRollForward()
+}
+
+export async function rollback(target?: RollbackTarget, options?: RollbackNavigationOptions): Promise<void> {
+  return getEngine().rollback(target, options)
+}
+
+export async function rollForward(target?: RollbackTarget, options?: RollbackNavigationOptions): Promise<void> {
+  return getEngine().rollForward(target, options)
+}
+
+export async function createRollbackAnchor(reason?: RollbackAnchorReason | string, metadata?: Record<string, unknown>) {
+  return getEngine().createRollbackAnchor(reason, metadata)
+}
+
+export async function markRollbackBoundary(reason?: string, metadata?: Record<string, unknown>): Promise<void> {
+  return getEngine().markRollbackBoundary(reason, metadata)
+}
+
+export async function fixRollback(metadata?: Record<string, unknown>): Promise<void> {
+  return getEngine().fixRollback(metadata)
+}
+
+export function registerRollbackStore(name: string, store: QuaStore): void {
+  return getEngine().registerRollbackStore(name, store)
+}
+
+export function unregisterRollbackStore(name: string): void {
+  return getEngine().unregisterRollbackStore(name)
 }
 
 /**

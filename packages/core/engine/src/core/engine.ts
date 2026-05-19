@@ -26,6 +26,7 @@ import type {
   EffectIntent,
   EngineCheckpoint,
   EngineConfig,
+  EnsureLocalePacksOptions,
   EngineFlowControlProgressState,
   FlowControlRuntimeOptions,
   GameStep,
@@ -38,7 +39,17 @@ import type {
   LoadSlotOptions,
   OptionalGameStepFactory,
   RuntimePackageLoadOptions,
+  RollbackAnchor,
+  RollbackAnchorReason,
+  RollbackConfig,
+  RollbackConfigPatch,
+  RollbackEntry,
+  RollbackNavigationOptions,
+  RollbackSnapshotSet,
+  RollbackTarget,
+  RollbackTargetInfo,
   RuntimePackageManifest,
+  RuntimePackagePluginManifest,
   QuaEngineInterface,
   RuntimePackageStateRecord,
   RuntimePackageStoreMigrationManifest,
@@ -46,6 +57,7 @@ import type {
   RuntimeScriptModuleRecord,
   RuntimeScriptModuleRunOptions,
   Scene,
+  SetLocaleOptions,
   SlotMetadata,
   StepContext,
   StoryPoint,
@@ -53,7 +65,7 @@ import type {
   UiIntent,
   ViewLayoutInput,
 } from './types'
-import { QuaAssets } from '@quajs/assets'
+import { normalizeLocale, normalizeTranslateOptions, QuaAssets } from '@quajs/assets'
 import { getPackageLogger } from '@quajs/logger'
 import { Pipeline } from '@quajs/pipeline'
 import { createStore } from '@quajs/store'
@@ -70,6 +82,8 @@ import { GameManager } from '../managers/game-manager'
 import { SceneManager } from '../managers/scene-manager'
 import { PluginContextImpl } from '../plugins/core/context'
 import { RuntimeContentManager } from '../runtime-content/manager'
+import { createRollbackConfig, isSerializedRollbackJournal, RollbackController } from './rollback'
+import type { RollbackStoreSaveData } from './rollback'
 import { resolveGameSteps } from './script'
 import { createInitialEngineState } from './types'
 
@@ -86,6 +100,10 @@ type FlowControlProjectionPatch = FlowControlRuntimeOptions & {
   lastAdvance?: ViewFlowControlProjection['lastAdvance']
 }
 
+interface ExecuteStepOptions {
+  rollbackReplay?: boolean
+}
+
 export class QuaEngine {
   private static instance: QuaEngine | null = null
   private readonly store: QuaStore
@@ -95,10 +113,12 @@ export class QuaEngine {
   private readonly pluginContext: PluginContextImpl = new PluginContextImpl()
   private readonly flowControlDisposers: Array<() => void> = []
   private readonly runtimeContentManager: RuntimeContentManager
+  private readonly rollbackController: RollbackController
   private currentStepAbortController?: AbortController
   private flowControlAdvanceTimer?: ReturnType<typeof setTimeout>
   private checkpointCounter = 0
   private navigationVersion = 0
+  private renderEventSuppressionDepth = 0
   private isInitialized = false
   private isDestroyed = false
 
@@ -111,6 +131,10 @@ export class QuaEngine {
     }
     if (!config.assets) {
       throw new Error('QuaEngine requires assets config with an adapter')
+    }
+    this.config = {
+      ...config,
+      rollback: createRollbackConfig(config.rollback),
     }
 
     this.store = createStore({
@@ -131,6 +155,24 @@ export class QuaEngine {
       config.trustPolicy,
       config.runtimePackageRegistry,
     )
+    this.rollbackController = new RollbackController(
+      createRollbackConfig(this.config.rollback),
+      {
+        ensureRuntimePackages: packageIds => this.ensureRuntimePackages(packageIds),
+        resolveStep: entry => this.resolveRollbackStep(entry),
+        replayEntry: async (_entry, step) => {
+          await this.executeStep(step, { rollbackReplay: true })
+        },
+        notifyRollback: (hook, context) => this.notifyPlugins(hook, this.createEngineContext(context.target.stepId, {
+          point: context.target.point,
+          rollback: context,
+        })),
+        emitFinalProjection: point => this.emitRollbackFinalProjection(point),
+        hydrateCheckpoints: (checkpoints, currentCheckpointId) => this.hydrateCheckpoints(checkpoints, currentCheckpointId),
+        getProtectedCheckpointIds: () => this.getProtectedRollbackCheckpointIds(),
+      },
+    )
+    this.rollbackController.registerStore(this.store.getName(), this.store)
 
     this.setupAssetForwarding()
     this.setupFlowControlIntents()
@@ -163,7 +205,7 @@ export class QuaEngine {
     ])
 
     this.isInitialized = true
-    await emitLogicToRender(this.pipeline, L2R.SYSTEM_MESSAGE, {
+    await this.emitLogicToRender(L2R.SYSTEM_MESSAGE, {
       type: 'engine_ready',
       message: 'QuaEngine initialized successfully',
     })
@@ -222,19 +264,42 @@ export class QuaEngine {
     this.pluginContext.unregisterPlugin(plugin)
   }
 
-  async loadRuntimePackage(source: string, options?: RuntimePackageLoadOptions): Promise<RuntimePackageStateRecord> {
+  async loadRuntimePackage(source: string, options: RuntimePackageLoadOptions = {}): Promise<RuntimePackageStateRecord> {
     this.assertInitialized()
-    return await this.runtimeContentManager.loadRuntimePackage(source, options)
+    if (options.activate === false) {
+      return await this.runtimeContentManager.loadRuntimePackage(source, options)
+    }
+    const loaded = await this.runtimeContentManager.loadRuntimePackage(source, {
+      ...options,
+      activate: false,
+    })
+    try {
+      return await this.activateRuntimePackage(loaded.id)
+    }
+    catch (error) {
+      await this.runtimeContentManager.unloadRuntimePackage(loaded.id, { force: true }).catch(() => {})
+      throw error
+    }
   }
 
   async activateRuntimePackage(packageId: string): Promise<RuntimePackageStateRecord> {
     this.assertInitialized()
-    return await this.runtimeContentManager.activateRuntimePackage(packageId)
+    const wasActive = this.getRuntimePackages().some(pkg => pkg.id === packageId && pkg.state === 'active')
+    const state = await this.runtimeContentManager.activateRuntimePackage(packageId)
+    if (!wasActive && state.state === 'active') {
+      await this.markRuntimePackageRollbackBoundary('activate', packageId, [packageId])
+    }
+    return state
   }
 
   async unloadRuntimePackage(packageId: string, options?: RuntimePackageUnloadOptions): Promise<void> {
     this.assertInitialized()
+    const wasLoaded = this.getRuntimePackages().some(pkg => pkg.id === packageId && pkg.state !== 'unloaded')
     await this.runtimeContentManager.unloadRuntimePackage(packageId, options)
+    this.removeActiveLocalePackId(packageId)
+    if (wasLoaded) {
+      await this.markRuntimePackageRollbackBoundary('unload', packageId)
+    }
   }
 
   getRuntimePackages(): RuntimePackageStateRecord[] {
@@ -253,6 +318,44 @@ export class QuaEngine {
   async ensureRuntimePackages(packageIds: readonly string[]): Promise<void> {
     this.assertInitialized()
     await this.runtimeContentManager.ensureRuntimePackages(packageIds)
+  }
+
+  async emitRuntimePackageRendererPlugins(packageId: string, plugins: RuntimePackagePluginManifest[]): Promise<void> {
+    await this.emitLogicToRender(L2R.RUNTIME_PACKAGE_PLUGIN, { packageId, plugins })
+  }
+
+  async emitRuntimePackageUnload(packageId: string, bundleName?: string): Promise<void> {
+    await this.emitLogicToRender(L2R.RUNTIME_PACKAGE_UNLOAD, { packageId, bundleName })
+  }
+
+  getLocale(): string {
+    return this.assets.getLocale()
+  }
+
+  async ensureLocalePacks(locale: string, options: EnsureLocalePacksOptions = {}): Promise<RuntimePackageStateRecord[]> {
+    this.assertInitialized()
+    const normalizedLocale = normalizeLocale(locale)
+    const packages = await this.runtimeContentManager.ensureLocalePacks(normalizedLocale, options)
+    this.store.commit('setActiveLocalePacks', {
+      locale: normalizedLocale,
+      packageIds: this.runtimeContentManager.getActiveLocalePackIds(normalizedLocale, options),
+    })
+    return packages
+  }
+
+  async setLocale(locale: string, options: SetLocaleOptions = {}): Promise<void> {
+    this.assertInitialized()
+    const normalizedLocale = normalizeLocale(locale)
+    if (options.ensurePacks) {
+      await this.ensureLocalePacks(normalizedLocale, options)
+    }
+    else {
+      this.store.commit('setActiveLocalePacks', {
+        locale: normalizedLocale,
+        packageIds: this.runtimeContentManager.getActiveLocalePackIds(normalizedLocale, options),
+      })
+    }
+    this.assets.setLocale(normalizedLocale)
   }
 
   async withRuntimePackageContext<T>(packageId: string | undefined, operation: (engine: QuaEngineInterface) => T | Promise<T>): Promise<T> {
@@ -282,7 +385,7 @@ export class QuaEngine {
     }
   }
 
-  async executeStep(step: GameStep): Promise<void> {
+  async executeStep(step: GameStep, options: ExecuteStepOptions = {}): Promise<void> {
     this.assertInitialized()
 
     const runtime = this.getRuntimeState()
@@ -293,14 +396,21 @@ export class QuaEngine {
     this.currentStepAbortController = abortController
 
     try {
+      const rollbackStep = this.config.store?.enableSnapshots === false || options.rollbackReplay
+        ? undefined
+        : await this.rollbackController.beginStep(step, point)
+      const rollbackSnapshotSet = rollbackStep?.anchorReason
+        ? await this.rollbackController.createSnapshotSet(step.uuid)
+        : undefined
+
       this.store.commit('setCurrentStep', {
         stepId: step.uuid,
         stepHistory,
       })
       this.store.commit('setStoryPoint', point)
 
-      if (this.config.store?.enableSnapshots !== false) {
-        await this.createCheckpoint({
+      if (rollbackStep?.anchorReason) {
+        const checkpoint = await this.createCheckpointInternal({
           id: step.uuid,
           kind: 'step',
           point,
@@ -311,6 +421,9 @@ export class QuaEngine {
               this.getRequiredRuntimePackagesForPoint(point),
             ),
           },
+        }, rollbackSnapshotSet)
+        this.rollbackController.registerStepAnchor(checkpoint, rollbackStep.anchorReason, rollbackSnapshotSet!, {
+          requiredRuntimePackages: checkpoint.metadata?.requiredRuntimePackages,
         })
       }
 
@@ -334,7 +447,9 @@ export class QuaEngine {
         return
       }
       await this.notifyPlugins('onStepComplete', this.createEngineContext(step.uuid, { point }))
-      await this.emitViewUpdate()
+      if (!options.rollbackReplay) {
+        await this.emitViewUpdate()
+      }
     }
     catch (error) {
       if (abortController.signal.aborted) {
@@ -345,6 +460,9 @@ export class QuaEngine {
       throw error
     }
     finally {
+      if (!options.rollbackReplay) {
+        this.rollbackController.completeStep()
+      }
       if (this.currentStepAbortController === abortController) {
         this.currentStepAbortController = undefined
       }
@@ -353,6 +471,10 @@ export class QuaEngine {
 
   async rewind(stepUUID: string): Promise<void> {
     this.assertInitialized()
+    if (this.rollbackController.hasTarget(stepUUID)) {
+      await this.rollback(stepUUID, { reason: 'rewind' })
+      return
+    }
     await this.jumpTo(stepUUID, { reason: 'rewind', force: true })
   }
 
@@ -360,7 +482,7 @@ export class QuaEngine {
     this.assertInitialized()
     const dialogue = this.withCurrentRuntimeContentMetadata(payload)
     this.store.commit('setDialogue', dialogue)
-    await emitLogicToRender(this.pipeline, L2R.DIALOGUE_SHOW, {
+    await this.emitLogicToRender(L2R.DIALOGUE_SHOW, {
       characterId: dialogue.characterId,
       characterName: dialogue.characterName,
       text: dialogue.text,
@@ -373,7 +495,7 @@ export class QuaEngine {
     this.assertInitialized()
     this.clearFlowControlAdvance()
     this.store.commit('hideDialogue')
-    await emitLogicToRender(this.pipeline, L2R.DIALOGUE_HIDE, {})
+    await this.emitLogicToRender(L2R.DIALOGUE_HIDE, {})
     await this.emitViewUpdate()
   }
 
@@ -384,7 +506,12 @@ export class QuaEngine {
       enabled: choice.enabled !== false,
     }))
     this.store.commit('setChoices', normalized)
-    await emitLogicToRender(this.pipeline, L2R.DIALOGUE_CHOICE, { choices: normalized })
+    if (normalized.length > 0) {
+      await this.createInternalRollbackAnchor('choice', {
+        requiredRuntimePackages: this.getRequiredRuntimePackagesForCurrentState(this.getStoryPoint()),
+      })
+    }
+    await this.emitLogicToRender(L2R.DIALOGUE_CHOICE, { choices: normalized })
     this.clearFlowControlAdvance()
     const flowControl = this.getEngineState().view.flowControl
     if (normalized.length > 0 && flowControl.stopAtChoices && flowControl.mode !== 'normal') {
@@ -411,35 +538,35 @@ export class QuaEngine {
       visible: payload.visible !== false,
     })
     this.store.commit('upsertCharacter', character)
-    await emitLogicToRender(this.pipeline, L2R.CHARACTER_SHOW, character)
+    await this.emitLogicToRender(L2R.CHARACTER_SHOW, character)
     await this.emitViewUpdate()
   }
 
   async hideCharacter(id: string): Promise<void> {
     this.assertInitialized()
     this.store.commit('hideCharacter', id)
-    await emitLogicToRender(this.pipeline, L2R.CHARACTER_HIDE, { id })
+    await this.emitLogicToRender(L2R.CHARACTER_HIDE, { id })
     await this.emitViewUpdate()
   }
 
   async moveCharacter(id: string, position: CharacterIntent['position']): Promise<void> {
     this.assertInitialized()
     this.store.commit('moveCharacter', { id, position, contentPackageId: this.getCurrentRuntimePackageId() })
-    await emitLogicToRender(this.pipeline, L2R.CHARACTER_MOVE, { id, position })
+    await this.emitLogicToRender(L2R.CHARACTER_MOVE, { id, position })
     await this.emitViewUpdate()
   }
 
   async setCharacterExpression(id: string, expression?: string): Promise<void> {
     this.assertInitialized()
     this.store.commit('setCharacterExpression', { id, expression, contentPackageId: this.getCurrentRuntimePackageId() })
-    await emitLogicToRender(this.pipeline, L2R.CHARACTER_EXPRESSION, { id, expression })
+    await this.emitLogicToRender(L2R.CHARACTER_EXPRESSION, { id, expression })
     await this.emitViewUpdate()
   }
 
   async setCharacterSprite(id: string, sprite?: string): Promise<void> {
     this.assertInitialized()
     this.store.commit('setCharacterSprite', { id, sprite, contentPackageId: this.getCurrentRuntimePackageId() })
-    await emitLogicToRender(this.pipeline, L2R.CHARACTER_SPRITE, { id, sprite })
+    await this.emitLogicToRender(L2R.CHARACTER_SPRITE, { id, sprite })
     await this.emitViewUpdate()
   }
 
@@ -450,10 +577,10 @@ export class QuaEngine {
       : undefined
     this.store.commit('setBackground', projectedBackground)
     if (projectedBackground) {
-      await emitLogicToRender(this.pipeline, L2R.BACKGROUND_SET, projectedBackground)
+      await this.emitLogicToRender(L2R.BACKGROUND_SET, projectedBackground)
     }
     else {
-      await emitLogicToRender(this.pipeline, L2R.BACKGROUND_CLEAR, {})
+      await this.emitLogicToRender(L2R.BACKGROUND_CLEAR, {})
     }
     await this.emitViewUpdate()
   }
@@ -494,14 +621,14 @@ export class QuaEngine {
     this.assertInitialized()
     const projectedConfig = this.withCurrentRuntimeContentConfig(config)
     this.store.commit('upsertUiOverlay', { elementId, config: projectedConfig })
-    await emitLogicToRender(this.pipeline, L2R.UI_SHOW, { elementId, config: projectedConfig })
+    await this.emitLogicToRender(L2R.UI_SHOW, { elementId, config: projectedConfig })
     await this.emitViewUpdate()
   }
 
   async hideUI(elementId: string): Promise<void> {
     this.assertInitialized()
     this.store.commit('removeUiOverlay', elementId)
-    await emitLogicToRender(this.pipeline, L2R.UI_HIDE, { elementId })
+    await this.emitLogicToRender(L2R.UI_HIDE, { elementId })
     await this.emitViewUpdate()
   }
 
@@ -509,7 +636,7 @@ export class QuaEngine {
     this.assertInitialized()
     const projectedConfig = this.withCurrentRuntimeContentConfig(config)
     this.store.commit('upsertUiOverlay', { elementId, config: projectedConfig })
-    await emitLogicToRender(this.pipeline, L2R.UI_UPDATE, { elementId, config: projectedConfig })
+    await this.emitLogicToRender(L2R.UI_UPDATE, { elementId, config: projectedConfig })
     await this.emitViewUpdate()
   }
 
@@ -532,7 +659,7 @@ export class QuaEngine {
     }
     const eventType = eventMap[next.type]
     if (eventType) {
-      await emitLogicToRender(this.pipeline, eventType, next)
+      await this.emitLogicToRender(eventType, next)
     }
     await this.emitViewUpdate()
   }
@@ -553,7 +680,7 @@ export class QuaEngine {
 
   async translate(key: string, options?: TranslateInput): Promise<string> {
     this.assertInitialized()
-    return await this.assets.translate(key, options)
+    return await this.assets.translate(key, this.withCurrentTranslationTarget(options))
   }
 
   getStore(): QuaStore {
@@ -654,23 +781,40 @@ export class QuaEngine {
   }
 
   async createCheckpoint(options: CreateCheckpointOptions = {}): Promise<EngineCheckpoint> {
+    const point = cloneStoryPoint(options.point || this.getStoryPoint() || this.createCurrentStoryPoint())
+    const id = options.id || this.createCheckpointId(options.kind || 'manual', point)
+    const snapshotSet = await this.rollbackController.createSnapshotSet(id)
+    const checkpoint = await this.createCheckpointInternal({ ...options, id, point }, snapshotSet)
+    const currentEntryIndex = this.rollbackController.getCurrentEntryIndex()
+    this.rollbackController.registerStepAnchor(checkpoint, checkpoint.kind, snapshotSet, {
+      requiredRuntimePackages: checkpoint.metadata?.requiredRuntimePackages,
+    }, currentEntryIndex === undefined ? undefined : currentEntryIndex + 1, !this.rollbackController.hasActiveEntry())
+    return checkpoint
+  }
+
+  private async createCheckpointInternal(options: CreateCheckpointOptions = {}, snapshotSet?: RollbackSnapshotSet): Promise<EngineCheckpoint> {
     this.assertInitialized()
     const point = cloneStoryPoint(options.point || this.getStoryPoint() || this.createCurrentStoryPoint())
     const id = options.id || this.createCheckpointId(options.kind || 'manual', point)
     const metadata = createCheckpointMetadata(
-      options.metadata,
+      {
+        ...(options.metadata || {}),
+        ...(snapshotSet ? { rollbackSnapshotSet: cloneRollbackSnapshotSet(snapshotSet) } : {}),
+      },
       this.getRequiredRuntimePackagesForCurrentState(point),
     )
+    const resolvedSnapshotSet = snapshotSet || await this.rollbackController.createSnapshotSet(id)
+    const snapshotId = resolvedSnapshotSet.storeSnapshots[this.store.getName()]
+      || Object.values(resolvedSnapshotSet.storeSnapshots)[0]
     const checkpoint: EngineCheckpoint = {
       id,
       point,
-      snapshotId: id,
+      snapshotId,
       kind: options.kind || 'manual',
       metadata,
     }
 
     await this.notifyPlugins('onBeforeCheckpoint', this.createEngineContext(point.stepId, { point, checkpoint }))
-    await this.store.snapshot(checkpoint.snapshotId)
     this.store.commit('upsertCheckpoint', checkpoint)
     await this.notifyPlugins('onAfterCheckpoint', this.createEngineContext(point.stepId, { point, checkpoint }))
     return cloneCheckpoint(checkpoint)
@@ -681,16 +825,153 @@ export class QuaEngine {
     return checkpoint ? cloneCheckpoint(checkpoint) : undefined
   }
 
+  getRollbackConfig(): RollbackConfig {
+    return this.rollbackController.getConfig()
+  }
+
+  setRollbackConfig(patch: RollbackConfigPatch): RollbackConfig {
+    const config = this.rollbackController.setConfig(patch)
+    this.config = {
+      ...this.config,
+      rollback: config,
+    }
+    return config
+  }
+
+  getRollbackTargets(): RollbackTargetInfo[] {
+    return this.rollbackController.getTargets()
+  }
+
+  canRollback(): boolean {
+    return this.rollbackController.canRollback()
+  }
+
+  canRollForward(): boolean {
+    return this.rollbackController.canRollForward()
+  }
+
+  async rollback(target?: RollbackTarget, options?: RollbackNavigationOptions): Promise<void> {
+    this.assertInitialized()
+    this.currentStepAbortController?.abort()
+    this.navigationVersion++
+    this.clearFlowControlAdvance()
+    await this.withSuppressedRenderEvents(async () => {
+      await this.rollbackController.rollback(target, options)
+    })
+  }
+
+  async rollForward(target?: RollbackTarget, options?: RollbackNavigationOptions): Promise<void> {
+    this.assertInitialized()
+    this.currentStepAbortController?.abort()
+    this.navigationVersion++
+    this.clearFlowControlAdvance()
+    await this.withSuppressedRenderEvents(async () => {
+      await this.rollbackController.rollForward(target, options)
+    })
+  }
+
+  async createRollbackAnchor(reason: RollbackAnchorReason | string = 'developer', metadata?: Record<string, unknown>): Promise<RollbackAnchor | undefined> {
+    this.assertInitialized()
+    const anchor = await this.createInternalRollbackAnchor(reason, metadata)
+    if (!anchor) {
+      if (this.rollbackController.isReplaying()) {
+        return undefined
+      }
+      throw new Error('Unable to create rollback anchor without an active rollback entry.')
+    }
+    return anchor
+  }
+
+  private async createInternalRollbackAnchor(
+    reason: RollbackAnchorReason | string = 'developer',
+    metadata?: Record<string, unknown>,
+    replayStart: 'current-entry' | 'after-current-entry' = 'after-current-entry',
+  ): Promise<RollbackAnchor | undefined> {
+    const manual = await this.rollbackController.createManualAnchor(reason, metadata)
+    if (!manual) {
+      return undefined
+    }
+    const currentEntryIndex = this.rollbackController.getCurrentEntryIndex()
+    const point = this.getStoryPoint() || this.createCurrentStoryPoint()
+    const snapshotSet = await this.rollbackController.createSnapshotSet(`rollback-anchor:${String(reason)}:${point.stepId}`)
+    const checkpoint = await this.createCheckpointInternal({
+      kind: reason === 'choice' ? 'choice' : 'manual',
+      point,
+      metadata: {
+        ...(metadata || {}),
+        rollbackAnchorReason: reason,
+      },
+    }, snapshotSet)
+    const anchor = this.rollbackController.registerStepAnchor(
+      checkpoint,
+      manual.reason,
+      snapshotSet,
+      metadata,
+      currentEntryIndex === undefined
+        ? undefined
+        : replayStart === 'current-entry'
+          ? currentEntryIndex
+          : currentEntryIndex + 1,
+      replayStart === 'current-entry' || !this.rollbackController.hasActiveEntry(),
+    )
+    if (!anchor) {
+      throw new Error('Unable to register rollback anchor.')
+    }
+    return anchor
+  }
+
+  async markRollbackBoundary(reason = 'developer', metadata?: Record<string, unknown>): Promise<void> {
+    this.assertInitialized()
+    await this.createInternalRollbackAnchor(reason, {
+      ...(metadata || {}),
+      rollbackBoundaryReason: reason,
+    }, 'current-entry')
+    await this.rollbackController.markBoundary(reason, metadata)
+  }
+
+  async fixRollback(metadata?: Record<string, unknown>): Promise<void> {
+    this.assertInitialized()
+    this.rollbackController.fixRollback(metadata)
+  }
+
+  private async markRuntimePackageRollbackBoundary(operation: 'activate' | 'unload', packageId: string, requiredRuntimePackages: string[] = []): Promise<void> {
+    if (!this.rollbackController.isEnabled()) {
+      return
+    }
+    await this.createInternalRollbackAnchor('runtime-package', {
+      operation,
+      packageId,
+      ...(requiredRuntimePackages.length > 0 ? { requiredRuntimePackages } : {}),
+    })
+    await this.rollbackController.markBoundary('runtime-package', { operation, packageId })
+  }
+
+  registerRollbackStore(name: string, store: QuaStore): void {
+    this.rollbackController.registerStore(name, store)
+  }
+
+  unregisterRollbackStore(name: string): void {
+    this.rollbackController.unregisterStore(name)
+  }
+
   waitFor<T extends LogicToRenderEvents | RenderToLogicEvents>(
     event: T,
     matcher?: (payload: EventPayload<T>) => boolean,
     options?: { timeout?: number, signal?: any },
   ): Promise<EventPayload<T>> {
+    if (this.rollbackController.isReplaying()) {
+      const payload = this.rollbackController.consumeReplayInput(event, matcher)
+      return this.pipeline.receive({ type: String(event), payload }).then(() => payload)
+    }
     const signal = options?.signal || this.currentStepAbortController?.signal
     if (signal?.aborted) {
       return Promise.reject(new Error(`Waiting for ${event} was cancelled`))
     }
     return waitForPipelineEvent(this.pipeline, event, matcher, { ...options, signal })
+      .then((payload) => {
+        this.rollbackController.recordInput(event, payload)
+        return payload
+      })
   }
 
   async jumpTo(target: JumpTarget, options: JumpOptions = {}): Promise<void> {
@@ -724,7 +1005,7 @@ export class QuaEngine {
     await this.notifyPlugins('onBeforeJump', this.createEngineContext(point.stepId, { point, checkpoint, jump }))
 
     if (jump.options.mode === 'restore' && checkpoint) {
-      await this.store.restore(checkpoint.snapshotId, { force: options.force ?? true })
+      await this.restoreCheckpointSnapshot(checkpoint, { force: options.force ?? true })
     }
     else {
       this.store.commit('setStoryPoint', point)
@@ -751,7 +1032,7 @@ export class QuaEngine {
     }
     this.store.commit('mergeFlowControlReadKeys', preservedReadKeys)
 
-    await emitLogicToRender(this.pipeline, L2R.SCENE_INIT, {
+    await this.emitLogicToRender(L2R.SCENE_INIT, {
       sceneId: point.sceneId || this.getRuntimeState().currentScene || 'unknown',
       stepId: point.stepId,
     })
@@ -761,19 +1042,30 @@ export class QuaEngine {
 
   async saveToSlot(slotId: string, metadata: SlotMetadata = {}): Promise<void> {
     this.assertInitialized()
+    const rollbackConfig = this.rollbackController.getConfig()
     const checkpoint = await this.createCheckpoint({
       id: `save:${slotId}`,
       kind: 'save',
       metadata: {
         ...metadata,
+        locale: this.getLocale(),
         requiredRuntimePackages: this.getRequiredRuntimePackagesForCurrentState(this.getStoryPoint(), metadata),
       },
     })
+    const rollbackJournal = rollbackConfig.saves.includeRollbackHistory
+      ? this.rollbackController.serialize()
+      : undefined
+    const rollbackStoreData = rollbackConfig.saves.includeRollbackHistory
+      ? await this.rollbackController.exportStoreSaveData(this.store.getName())
+      : undefined
     const requiredRuntimePackages = this.getRequiredRuntimePackagesForCurrentState(this.getStoryPoint(), metadata)
     await this.store.saveToSlot(slotId, {
       ...metadata,
+      ...(rollbackJournal ? { rollbackJournal } : {}),
+      ...(rollbackStoreData && Object.keys(rollbackStoreData).length > 0 ? { rollbackStoreData } : {}),
       sceneName: metadata.sceneName || this.getCurrentSceneName(),
       stepId: metadata.stepId || this.getCurrentStepId(),
+      locale: this.getLocale(),
       checkpointId: checkpoint.id,
       storyPoint: this.getStoryPoint(),
       requiredRuntimePackages,
@@ -785,6 +1077,15 @@ export class QuaEngine {
     this.assertInitialized()
     const slot = await this.store.getSlot(slotId)
     const slotPoint = isStoryPoint(slot?.metadata.storyPoint) ? cloneStoryPoint(slot.metadata.storyPoint) : undefined
+    const slotLocale = typeof slot?.metadata.locale === 'string'
+      ? normalizeLocale(slot.metadata.locale)
+      : undefined
+    const rollbackJournal = isSerializedRollbackJournal(slot?.metadata.rollbackJournal)
+      ? slot.metadata.rollbackJournal
+      : undefined
+    const rollbackStoreData = isRollbackStoreSaveDataRecord(slot?.metadata.rollbackStoreData)
+      ? slot.metadata.rollbackStoreData
+      : undefined
     await this.ensureRuntimeDependencies(slotPoint, slot?.metadata)
     const beforeJump = slotPoint
       ? this.createLoadJumpContext(slotPoint, options)
@@ -802,6 +1103,18 @@ export class QuaEngine {
     }
 
     await this.store.loadFromSlot(slotId, options)
+    await this.rollbackController.importStoreSaveData(rollbackStoreData, options)
+    const restoredLocale = this.getRuntimeState().locale || slotLocale
+    if (restoredLocale) {
+      this.assets.setLocale(restoredLocale)
+    }
+    if (rollbackJournal) {
+      this.rollbackController.hydrate(rollbackJournal, Object.values(this.getEngineState().checkpoints))
+      this.rollbackController.hydrateKnownCheckpoints()
+    }
+    else {
+      this.rollbackController.hydrate(undefined)
+    }
     this.store.commit('mergeFlowControlReadKeys', preservedReadKeys)
     const point = this.getStoryPoint() || slotPoint
     if (point && !this.getStoryPoint()) {
@@ -854,6 +1167,8 @@ export class QuaEngine {
     const runtime = this.getRuntimeState()
     return {
       ...runtime,
+      locale: runtime.locale || this.assets.getLocale(),
+      activeLocalePackIds: [...(runtime.activeLocalePackIds || [])],
       sceneHistory: [...(runtime.sceneHistory || [])],
       stepHistory: [...(runtime.stepHistory || [])],
       checkpointHistory: [...(runtime.checkpointHistory || [])],
@@ -940,7 +1255,7 @@ export class QuaEngine {
   }
 
   private async notifyPlugins(
-    hook: 'onStepStart' | 'onStepComplete' | 'onBeforeCheckpoint' | 'onAfterCheckpoint' | 'onBeforeJump' | 'onAfterJump' | 'onRuntimePackageActivate' | 'onRuntimePackageUnload' | 'onRuntimePackageMigrate',
+    hook: 'onStepStart' | 'onStepComplete' | 'onBeforeCheckpoint' | 'onAfterCheckpoint' | 'onBeforeJump' | 'onAfterJump' | 'onBeforeRollback' | 'onAfterRollback' | 'onRuntimePackageActivate' | 'onRuntimePackageUnload' | 'onRuntimePackageMigrate',
     context: EngineContext,
   ): Promise<void> {
     await Promise.all(Array.from(this.plugins.values())
@@ -973,7 +1288,7 @@ export class QuaEngine {
 
   private createEngineContext(
     stepId?: string,
-    extras: Pick<EngineContext, 'point' | 'checkpoint' | 'jump' | 'runtimePackage' | 'runtimeMigration'> = {},
+    extras: Pick<EngineContext, 'point' | 'checkpoint' | 'jump' | 'rollback' | 'runtimePackage' | 'runtimeMigration'> = {},
   ): EngineContext {
     return {
       engine: this,
@@ -986,9 +1301,37 @@ export class QuaEngine {
     }
   }
 
+  private hydrateCheckpoints(checkpoints: EngineCheckpoint[], currentCheckpointId?: string): void {
+    this.store.commit('hydrateCheckpoints', {
+      checkpoints,
+      currentCheckpointId,
+    })
+  }
+
+  private getProtectedRollbackCheckpointIds(): ReadonlySet<string> {
+    const protectedIds = new Set<string>()
+    collectCheckpointIdsFromUnknown(this.getEngineState().view.plugins, protectedIds)
+    collectCheckpointIdsFromUnknown(this.getEngineState().view.ui, protectedIds)
+    return protectedIds
+  }
+
+  private async restoreCheckpointSnapshot(checkpoint: EngineCheckpoint, options: { force?: boolean } = {}): Promise<void> {
+    const snapshotSet = getRollbackSnapshotSet(checkpoint.metadata?.rollbackSnapshotSet)
+    if (snapshotSet) {
+      await this.rollbackController.restoreSnapshotSet(snapshotSet)
+      this.rollbackController.hydrateKnownCheckpoints()
+      return
+    }
+    await this.store.restore(checkpoint.snapshotId, { force: options.force ?? true })
+  }
+
+  private async resolveRollbackStep(entry: RollbackEntry): Promise<GameStep | undefined> {
+    return await this.runtimeContentManager.resolveRollbackStep(entry)
+  }
+
   private setupAssetForwarding(): void {
     this.assets.on('asset:changed', (change) => {
-      emitLogicToRender(this.pipeline, L2R.ASSET_CHANGED, change).catch((error) => {
+      this.emitLogicToRender(L2R.ASSET_CHANGED, change).catch((error) => {
         logger.warn('Failed to forward asset change:', error)
       })
     })
@@ -1025,6 +1368,9 @@ export class QuaEngine {
   }
 
   private scheduleFlowControlAdvance(): void {
+    if (this.shouldSuppressRenderEvents()) {
+      return
+    }
     this.clearFlowControlAdvance()
     const view = this.getEngineState().view
     if (!view.dialogue.visible || view.choices.length > 0) {
@@ -1122,7 +1468,46 @@ export class QuaEngine {
   }
 
   private async emitViewUpdate(): Promise<void> {
+    if (this.shouldSuppressRenderEvents()) {
+      return
+    }
+    await this.forceEmitViewUpdate()
+  }
+
+  private async forceEmitViewUpdate(): Promise<void> {
     await emitLogicToRender(this.pipeline, L2R.VIEW_UPDATE, { view: this.getViewState() })
+  }
+
+  private async emitLogicToRender<T extends LogicToRenderEvents>(
+    event: T,
+    payload: EventPayload<T>,
+  ): Promise<void> {
+    if (this.shouldSuppressRenderEvents()) {
+      return
+    }
+    await emitLogicToRender(this.pipeline, event, payload)
+  }
+
+  private shouldSuppressRenderEvents(): boolean {
+    return this.renderEventSuppressionDepth > 0 || this.rollbackController.isReplaying()
+  }
+
+  private async withSuppressedRenderEvents<T>(operation: () => Promise<T>): Promise<T> {
+    this.renderEventSuppressionDepth++
+    try {
+      return await operation()
+    }
+    finally {
+      this.renderEventSuppressionDepth--
+    }
+  }
+
+  private async emitRollbackFinalProjection(point: StoryPoint): Promise<void> {
+    await emitLogicToRender(this.pipeline, L2R.SCENE_INIT, {
+      sceneId: point.sceneId || this.getRuntimeState().currentScene || 'unknown',
+      stepId: point.stepId,
+    })
+    await this.forceEmitViewUpdate()
   }
 
   private getRuntimeState() {
@@ -1173,8 +1558,36 @@ export class QuaEngine {
       getMetadataRequiredRuntimePackages(metadata),
       this.getRequiredRuntimePackagesForPoint(point),
       this.getCurrentCheckpointRequiredRuntimePackages(point),
+      this.getActiveLocalePackIds(),
       this.getRequiredRuntimePackagesForCurrentView(),
     )
+  }
+
+  private withCurrentTranslationTarget(options?: TranslateInput): TranslateInput | undefined {
+    const currentPackageId = this.getCurrentRuntimePackageId()
+    if (!currentPackageId) {
+      return options
+    }
+    const normalized = normalizeTranslateOptions(options)
+    return {
+      ...normalized,
+      targetPackageId: normalized.targetPackageId || currentPackageId,
+    }
+  }
+
+  private getActiveLocalePackIds(): string[] {
+    return [...(this.getRuntimeState().activeLocalePackIds || [])]
+  }
+
+  private removeActiveLocalePackId(packageId: string): void {
+    const runtime = this.getRuntimeState()
+    if (!runtime.activeLocalePackIds?.includes(packageId)) {
+      return
+    }
+    this.store.commit('setActiveLocalePacks', {
+      locale: runtime.locale || this.assets.getLocale(),
+      packageIds: runtime.activeLocalePackIds.filter(id => id !== packageId),
+    })
   }
 
   private getRequiredRuntimePackagesForCurrentView(): string[] {
@@ -1330,6 +1743,10 @@ function createEngineMutations() {
       state.engine.runtime.currentStoryPoint = cloneStoryPoint(payload)
       state.engine.runtime.currentStepId = payload.stepId
     },
+    setActiveLocalePacks(state: any, payload: { locale: string, packageIds: string[] }) {
+      state.engine.runtime.locale = payload.locale
+      state.engine.runtime.activeLocalePackIds = [...payload.packageIds]
+    },
     upsertCheckpoint(state: any, payload: EngineCheckpoint) {
       state.engine.checkpoints = {
         ...(state.engine.checkpoints || {}),
@@ -1339,7 +1756,12 @@ function createEngineMutations() {
       state.engine.runtime.checkpointHistory = [
         ...(state.engine.runtime.checkpointHistory || []).filter((id: string) => id !== payload.id),
         payload.id,
-      ].slice(-200)
+      ]
+    },
+    hydrateCheckpoints(state: any, payload: { checkpoints: EngineCheckpoint[], currentCheckpointId?: string }) {
+      state.engine.checkpoints = Object.fromEntries(payload.checkpoints.map(checkpoint => [checkpoint.id, cloneCheckpoint(checkpoint)]))
+      state.engine.runtime.checkpointHistory = payload.checkpoints.map(checkpoint => checkpoint.id)
+      state.engine.runtime.currentCheckpointId = payload.currentCheckpointId
     },
     setCurrentCheckpoint(state: any, checkpointId: string) {
       state.engine.runtime.currentCheckpointId = checkpointId
@@ -1353,6 +1775,7 @@ function createEngineMutations() {
           scriptModuleIds: [...payload.scriptModuleIds],
           pluginIds: [...payload.pluginIds],
           migrationIds: [...payload.migrationIds],
+          localePack: cloneRuntimeLocalePack(payload.localePack),
         },
       }
     },
@@ -1714,6 +2137,39 @@ function cloneCheckpoint(checkpoint: EngineCheckpoint): EngineCheckpoint {
   }
 }
 
+function cloneRollbackSnapshotSet(snapshotSet: RollbackSnapshotSet): RollbackSnapshotSet {
+  return {
+    ...snapshotSet,
+    storeSnapshots: { ...snapshotSet.storeSnapshots },
+  }
+}
+
+function getRollbackSnapshotSet(value: unknown): RollbackSnapshotSet | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined
+  }
+  const candidate = value as Partial<RollbackSnapshotSet>
+  if (
+    typeof candidate.id !== 'string'
+    || typeof candidate.createdAt !== 'number'
+    || !candidate.storeSnapshots
+    || typeof candidate.storeSnapshots !== 'object'
+  ) {
+    return undefined
+  }
+  const storeSnapshots: Record<string, string> = {}
+  for (const [storeName, snapshotId] of Object.entries(candidate.storeSnapshots)) {
+    if (typeof snapshotId === 'string') {
+      storeSnapshots[storeName] = snapshotId
+    }
+  }
+  return {
+    id: candidate.id,
+    createdAt: candidate.createdAt,
+    storeSnapshots,
+  }
+}
+
 function cloneStoryPoint(point: StoryPoint): StoryPoint {
   return { ...point }
 }
@@ -1757,6 +2213,18 @@ function isStoryPoint(value: unknown): value is StoryPoint {
   return Boolean(value)
     && typeof value === 'object'
     && typeof (value as { stepId?: unknown }).stepId === 'string'
+}
+
+function isRollbackStoreSaveDataRecord(value: unknown): value is Record<string, RollbackStoreSaveData> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  return Object.values(value as Record<string, unknown>).every((item) => {
+    if (!item || typeof item !== 'object') {
+      return false
+    }
+    return 'state' in item && Array.isArray((item as { snapshots?: unknown }).snapshots)
+  })
 }
 
 function getMetadataRequiredRuntimePackages(metadata?: Record<string, unknown>): string[] {
@@ -1853,6 +2321,31 @@ function collectRuntimePackagesFromUnknown(value: unknown, seen = new Set<object
   return [...packages]
 }
 
+function collectCheckpointIdsFromUnknown(value: unknown, output: Set<string>, seen = new Set<object>()): void {
+  if (!value || typeof value !== 'object') {
+    return
+  }
+  if (seen.has(value)) {
+    return
+  }
+  seen.add(value)
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectCheckpointIdsFromUnknown(item, output, seen)
+    }
+    return
+  }
+
+  const record = value as Record<string, unknown>
+  if (typeof record.checkpointId === 'string') {
+    output.add(record.checkpointId)
+  }
+  for (const item of Object.values(record)) {
+    collectCheckpointIdsFromUnknown(item, output, seen)
+  }
+}
+
 function collectRuntimePackagesFromActiveView(view: QuaViewProjection): string[] {
   return mergeRequiredRuntimePackages(
     collectRuntimePackagesFromUnknown(view.background),
@@ -1893,6 +2386,19 @@ function mergeRequiredRuntimePackages(...groups: Array<readonly string[] | undef
 
 function cloneUnknownRecord<T extends Readonly<Record<string, unknown>>>(value: T): Record<string, unknown> {
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cloneUnknownValue(item)]))
+}
+
+function cloneRuntimeLocalePack(
+  localePack: RuntimePackageStateRecord['localePack'] | undefined,
+): RuntimePackageStateRecord['localePack'] | undefined {
+  return localePack
+    ? {
+        ...localePack,
+        targets: localePack.targets.map(target => ({ ...target })),
+        resourceTypes: [...localePack.resourceTypes],
+        fallbackLocales: localePack.fallbackLocales ? [...localePack.fallbackLocales] : undefined,
+      }
+    : undefined
 }
 
 function cloneUnknownValue(value: unknown): unknown {
