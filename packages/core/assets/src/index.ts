@@ -14,6 +14,7 @@ export {
   createLocaleFallbackChain,
   findBestAssetRecord,
   findBestRankedAssetRecord,
+  findBestTargetRankedAssetRecord,
   normalizeLocale,
 } from './providers'
 // Core components
@@ -88,6 +89,8 @@ export type {
   // Plugin interfaces
   QuaAssetsPlugin,
   RuntimePackageIntegrityManifest,
+  RuntimeLocalePackManifest,
+  RuntimeLocalePackTargetManifest,
   RuntimePackageManifest,
   RuntimePackagePluginKind,
   RuntimePackagePluginManifest,

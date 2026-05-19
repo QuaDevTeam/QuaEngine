@@ -37,6 +37,15 @@ export function findBestRankedAssetRecord<T extends RankableAssetRecord>(
   return [...candidates].sort((left, right) => compareRankedAssetRecords(left, right, preferredLocale))[0]
 }
 
+export function findBestTargetRankedAssetRecord<T extends RankableAssetRecord>(
+  records: readonly T[],
+  preferredLocale: AssetLocale,
+): T | undefined {
+  const fallbackChain = createLocaleFallbackChain(preferredLocale)
+  const candidates = records.filter(record => fallbackChain.includes(normalizeLocale(record.locale || 'default')))
+  return [...candidates].sort((left, right) => compareTargetRankedAssetRecords(left, right, preferredLocale))[0]
+}
+
 function compareRankedAssetRecords(
   left: RankableAssetRecord,
   right: RankableAssetRecord,
@@ -57,6 +66,20 @@ function compareRankedAssetRecords(
   const leftLocaleRank = localeRank(left.locale, preferredLocale)
   const rightLocaleRank = localeRank(right.locale, preferredLocale)
   return rightLocaleRank - leftLocaleRank
+}
+
+function compareTargetRankedAssetRecords(
+  left: RankableAssetRecord,
+  right: RankableAssetRecord,
+  preferredLocale: AssetLocale,
+): number {
+  const leftLocaleRank = localeRank(left.locale, preferredLocale)
+  const rightLocaleRank = localeRank(right.locale, preferredLocale)
+  const localeDelta = rightLocaleRank - leftLocaleRank
+  if (localeDelta !== 0)
+    return localeDelta
+
+  return compareRankedAssetRecords(left, right, preferredLocale)
 }
 
 function localeRank(locale: AssetLocale | undefined, preferredLocale: AssetLocale): number {

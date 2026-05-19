@@ -37,6 +37,7 @@ import {
   type TranslateOptions,
 } from './i18n'
 import { PatchManager } from './patch-manager'
+import { normalizeLocale } from './providers'
 import { AssetNotFoundError, BundleLoadError } from './types'
 
 const logger = createLogger('quaassets')
@@ -59,7 +60,7 @@ export class QuaAssets {
 
     this.config = {
       endpoint: config.endpoint?.replace(/\/$/, '') || '',
-      locale: config.locale || 'default',
+      locale: normalizeLocale(config.locale || 'default'),
       enableCache: config.enableCache ?? true,
       cacheSize: config.cacheSize || 100 * 1024 * 1024,
       retryAttempts: config.retryAttempts || 3,
@@ -213,14 +214,24 @@ export class QuaAssets {
   }
 
   setLocale(locale: AssetLocale): void {
-    this.currentLocale = locale
+    const normalizedLocale = normalizeLocale(locale)
+    if (this.currentLocale === normalizedLocale) {
+      return
+    }
+    this.currentLocale = normalizedLocale
     this.assetManager.cleanup()
-    this.assetManager = new AssetManager(this.adapter.storage, locale, this.provider)
+    this.assetManager = new AssetManager(this.adapter.storage, normalizedLocale, this.provider)
     for (const plugin of this.config.plugins) {
       if (isAssetProcessingPlugin(plugin)) {
         this.assetManager.registerProcessingPlugin(plugin)
       }
     }
+    this.emit('asset:changed', {
+      type: 'changed',
+      assetId: `locale:${normalizedLocale}`,
+      path: 'locale',
+      timestamp: this.now(),
+    })
   }
 
   getLocale(): AssetLocale {
@@ -267,6 +278,7 @@ export class QuaAssets {
     const base = await this.readI18nCatalogAsset(assetName, {
       bundleName: options.bundleName,
       locale: defaultLocale,
+      targetPackageId: options.targetPackageId,
     })
 
     if (locale === defaultLocale) {
@@ -276,6 +288,7 @@ export class QuaAssets {
     const localized = await this.readI18nCatalogAsset(assetName, {
       bundleName: options.bundleName,
       locale,
+      targetPackageId: options.targetPackageId,
     })
 
     if (localized.locale === defaultLocale) {

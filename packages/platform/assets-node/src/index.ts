@@ -11,7 +11,7 @@ import type {
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
-import { QuaAssets } from '@quajs/assets'
+import { findBestRankedAssetRecord, QuaAssets } from '@quajs/assets'
 import lzma from 'lzma-native'
 
 export interface NodeAssetsAdapterOptions {
@@ -136,9 +136,7 @@ export class FileSystemAssetStorage implements AssetStorage {
   }
 
   async getAssetWithLocaleFallback(bundleName: string, type: any, name: string, preferredLocale = 'default'): Promise<StoredAsset | undefined> {
-    return await this.getAsset(`${bundleName}:${preferredLocale}:${type}:${name}`)
-      || (preferredLocale !== 'default' ? await this.getAsset(`${bundleName}:default:${type}:${name}`) : undefined)
-      || (await this.findAssets({ bundleName, type, name }))[0]
+    return findBestRankedAssetRecord(await this.findAssets({ bundleName, type, name }), preferredLocale)
   }
 
   async deleteAsset(id: string): Promise<void> {

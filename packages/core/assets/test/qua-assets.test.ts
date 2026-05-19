@@ -23,6 +23,25 @@ describe('quaAssets core runtime', () => {
     expect(() => new QuaAssets({ adapter, locale: 'zh-cn' })).not.toThrow()
   })
 
+  it('normalizes locale and emits asset changes when locale switches', () => {
+    assets = new QuaAssets({ adapter, locale: 'zh-CN' })
+    const changed = vi.fn()
+    assets.on('asset:changed', changed)
+
+    expect(assets.getLocale()).toBe('zh-cn')
+
+    assets.setLocale('en_US')
+    assets.setLocale('en-US')
+
+    expect(assets.getLocale()).toBe('en-us')
+    expect(changed).toHaveBeenCalledTimes(1)
+    expect(changed).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'changed',
+      assetId: 'locale:en-us',
+      path: 'locale',
+    }))
+  })
+
   it('initializes storage, providers, plugins, and event listeners', async () => {
     const plugin = {
       name: 'lifecycle',
@@ -196,6 +215,79 @@ describe('quaAssets core runtime', () => {
       assetId: 'high:default:data:shared.txt',
     }))
     expect(unloaded).toHaveBeenCalledWith({ packageId: 'runtime.high', bundleName: 'high' })
+  })
+
+  it('resolves target-aware locale packs without leaking into unrelated runtime packages', async () => {
+    const baseManifest = createDynamicManifest('base', 'runtime.base', 1, {
+      locales: ['default'],
+      version: 1,
+    })
+    const baseLocaleManifest = createDynamicManifest('base-locale', 'runtime.base.locale.zh-cn', 1, {
+      locales: ['zh-cn'],
+      version: 1,
+    })
+    baseLocaleManifest.runtimePackage = {
+      ...baseLocaleManifest.runtimePackage!,
+      dependencies: ['runtime.base'],
+      localePack: {
+        locale: 'zh-cn',
+        targets: [{ kind: 'runtimePackage', id: 'runtime.base' }],
+        resourceTypes: ['data'],
+      },
+    }
+    const otherLocaleManifest = createDynamicManifest('other-locale', 'runtime.other.locale.zh-cn', 50, {
+      locales: ['zh-cn'],
+      version: 1,
+    })
+    otherLocaleManifest.runtimePackage = {
+      ...otherLocaleManifest.runtimePackage!,
+      localePack: {
+        locale: 'zh-cn',
+        targets: [{ kind: 'runtimePackage', id: 'runtime.other' }],
+        resourceTypes: ['data'],
+      },
+    }
+    baseManifest.assets.data!['i18n/messages.json'] = createCatalogAsset(['default'])
+    baseLocaleManifest.assets.data!['i18n/messages.json'] = createCatalogAsset(['zh-cn'])
+    otherLocaleManifest.assets.data!['i18n/messages.json'] = createCatalogAsset(['zh-cn'])
+
+    const adapterWithBundles = createAdapter({
+      files: {
+        'https://cdn.example.com/base.qpk': createQpkBundle(baseManifest, new Map([
+          ['assets/data/shared.txt', utf8('base-default')],
+          ['assets/data/i18n/messages.json', utf8('{"hello":"Base default"}')],
+        ])),
+        'https://cdn.example.com/base-locale.qpk': createQpkBundle(baseLocaleManifest, new Map([
+          ['assets/data/shared.txt', utf8('base-localized')],
+          ['assets/data/i18n/messages.json', utf8('{"hello":"Base localized"}')],
+        ])),
+        'https://cdn.example.com/other-locale.qpk': createQpkBundle(otherLocaleManifest, new Map([
+          ['assets/data/shared.txt', utf8('other-localized')],
+          ['assets/data/i18n/messages.json', utf8('{"hello":"Other localized"}')],
+        ])),
+      },
+    })
+    assets = new QuaAssets({
+      endpoint: 'https://cdn.example.com',
+      adapter: adapterWithBundles,
+      locale: 'zh-CN',
+      enableCache: false,
+    })
+    await assets.initialize()
+    await assets.loadDynamicBundle('base.qpk', { enableCache: false })
+    await assets.loadDynamicBundle('base-locale.qpk', { enableCache: false })
+    await assets.loadDynamicBundle('other-locale.qpk', { enableCache: false })
+
+    expect(await assets.getText('data', 'shared.txt', { targetPackageId: 'runtime.base' })).toBe('base-localized')
+    expect(await assets.getText('data', 'shared.txt', { targetPackageId: 'runtime.other' })).toBe('other-localized')
+    expect(await assets.getText('data', 'shared.txt', { bundleName: 'base', targetPackageId: 'runtime.base' })).toBe('base-localized')
+    expect(await assets.translate('hello', { targetPackageId: 'runtime.base' })).toBe('Base localized')
+    expect(await assets.translate('hello', { targetPackageId: 'runtime.other' })).toBe('Other localized')
+
+    assets.setLocale('ja-JP')
+
+    expect(await assets.getText('data', 'shared.txt', { targetPackageId: 'runtime.base' })).toBe('base-default')
+    expect(await assets.translate('hello', { targetPackageId: 'runtime.base' })).toBe('Base default')
   })
 
   it('rejects replacing a mounted dynamic bundle unless explicitly forced', async () => {
@@ -445,6 +537,19 @@ function createDynamicManifest(
       signature: { value: `${packageId}.signature` },
     },
   })
+}
+
+function createCatalogAsset(locales: string[]) {
+  return {
+    name: 'messages.json',
+    path: 'data/i18n/messages.json',
+    relativePath: 'data/i18n/messages.json',
+    size: 0,
+    hash: '',
+    type: 'data' as const,
+    locales,
+    mimeType: 'application/json',
+  }
 }
 
 function createQpkBundle(manifest: BundleManifest, files: Map<string, Uint8Array>): Uint8Array {

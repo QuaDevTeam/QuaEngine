@@ -19,6 +19,7 @@ export interface I18nCatalogOptions {
   defaultLocale?: AssetLocale
   namespace?: string
   bundleName?: string
+  targetPackageId?: string
 }
 
 export interface TranslateOptions extends I18nCatalogOptions {
@@ -36,6 +37,7 @@ const TRANSLATE_OPTION_KEYS = new Set([
   'locale',
   'missing',
   'namespace',
+  'targetPackageId',
   'values',
 ])
 

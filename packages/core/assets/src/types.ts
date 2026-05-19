@@ -312,6 +312,8 @@ export interface RuntimePackageScriptVariantManifest {
   assetName: string
   version?: string
   exportName?: string
+  runtimePackageId?: string
+  bundleName?: string
   metadata?: Record<string, unknown>
 }
 
@@ -359,12 +361,25 @@ export interface RuntimePackageSignatureManifest {
   keyId?: string
 }
 
+export interface RuntimeLocalePackTargetManifest {
+  kind: 'bundle' | 'runtimePackage'
+  id: string
+}
+
+export interface RuntimeLocalePackManifest {
+  locale: AssetLocale
+  targets: RuntimeLocalePackTargetManifest[]
+  resourceTypes: AssetType[]
+  fallbackLocales?: AssetLocale[]
+}
+
 export interface RuntimePackageManifest {
   id: string
   version: string
   sequence?: number
   priority?: number
   dependencies?: string[]
+  localePack?: RuntimeLocalePackManifest
   scripts?: RuntimePackageScriptManifest[]
   plugins?: RuntimePackagePluginManifest[]
   storyGraphDeltas?: RuntimePackageStoryGraphDeltaManifest[]
@@ -499,6 +514,7 @@ export interface QuaAssetsConfig {
 export interface LoadAssetOptions {
   locale?: AssetLocale
   bundleName?: string
+  targetPackageId?: string
   enableCache?: boolean
   priority?: 'high' | 'normal' | 'low'
 }
