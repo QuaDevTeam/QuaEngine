@@ -14,7 +14,7 @@ import type {
   StoredBundle,
 } from '@quajs/assets'
 import type { Table } from 'dexie'
-import { QuaAssets } from '@quajs/assets'
+import { findBestRankedAssetRecord, QuaAssets } from '@quajs/assets'
 import Dexie from 'dexie'
 import LZMA from 'lzma-web'
 
@@ -384,9 +384,7 @@ class IndexedDBAssetStorage extends Dexie {
   }
 
   async getAssetWithLocaleFallback(bundleName: string, type: any, name: string, preferredLocale = 'default'): Promise<StoredAsset | undefined> {
-    return await this.getAsset(`${bundleName}:${preferredLocale}:${type}:${name}`)
-      || (preferredLocale !== 'default' ? await this.getAsset(`${bundleName}:default:${type}:${name}`) : undefined)
-      || (await this.findAssets({ bundleName, type, name }))[0]
+    return findBestRankedAssetRecord(await this.findAssets({ bundleName, type, name }), preferredLocale)
   }
 
   async deleteAsset(id: string): Promise<void> {

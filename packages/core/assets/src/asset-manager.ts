@@ -11,9 +11,10 @@ import type {
   LoadAssetOptions,
   MediaMetadata,
   StoredAsset,
+  StoredBundle,
 } from './types'
 import { bytesToUtf8 } from './encoding'
-import { findBestAssetRecord, findBestRankedAssetRecord } from './providers'
+import { createLocaleFallbackChain, findBestAssetRecord, findBestRankedAssetRecord, findBestTargetRankedAssetRecord, normalizeLocale } from './providers'
 import { AssetNotFoundError } from './types'
 
 export class AssetManager {
@@ -151,7 +152,12 @@ export class AssetManager {
     const providerRecord = await this.getProviderRecord(type, name, options)
     let asset: StoredAsset | undefined
 
-    if (bundleName) {
+    if (options.targetPackageId) {
+      const assets = await this.storage.findAssets({ type, name })
+      const bundles = await this.storage.getAllBundles()
+      asset = this.findBestTargetLocaleMatch(assets, bundles, options.targetPackageId, locale)
+    }
+    else if (bundleName) {
       asset = await this.storage.getAssetWithLocaleFallback(bundleName, type, name, locale)
     }
     else {
@@ -194,6 +200,10 @@ export class AssetManager {
 
     if (!record)
       return null
+
+    if (options.targetPackageId && record.runtimePackageId !== options.targetPackageId) {
+      return null
+    }
 
     return record
   }
@@ -244,6 +254,31 @@ export class AssetManager {
 
   private findBestLocaleMatch(assets: StoredAsset[], preferredLocale: AssetLocale): StoredAsset | undefined {
     return findBestRankedAssetRecord(assets, preferredLocale)
+  }
+
+  private findBestTargetLocaleMatch(
+    assets: StoredAsset[],
+    bundles: StoredBundle[],
+    targetPackageId: string,
+    preferredLocale: AssetLocale,
+  ): StoredAsset | undefined {
+    const bundleByName = new Map(bundles.map(bundle => [bundle.name, bundle]))
+    const fallbackChain = createLocaleFallbackChain(preferredLocale)
+    const candidates = assets.filter((asset) => {
+      const bundle = bundleByName.get(asset.bundleName)
+      if (asset.runtimePackageId === targetPackageId) {
+        return true
+      }
+      const localePack = bundle?.manifest.runtimePackage?.localePack
+      if (!localePack || !fallbackChain.includes(normalizeLocale(localePack.locale))) {
+        return false
+      }
+      return localePack.targets.some(target =>
+        target.kind === 'runtimePackage'
+        && target.id === targetPackageId,
+      )
+    })
+    return findBestTargetRankedAssetRecord(candidates, preferredLocale)
   }
 
   private async processAsset(asset: StoredAsset): Promise<StoredAsset> {
