@@ -1,8 +1,10 @@
+import { createHash } from 'node:crypto'
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { QuackBundler } from '../src/core/bundler'
+import { buildLocalePack } from '../src/i18n/locale-pack'
 
 describe('quackBundler', () => {
   let bundler: QuackBundler
@@ -147,6 +149,112 @@ describe('quackBundler', () => {
       expect(zhScript).toContain('\\u4F60\\u597D')
       expect(zhScript).not.toContain('"Hello"')
       expect(ids(zhScript)).toEqual(ids(defaultScript))
+    })
+
+    it('builds deferred locale QPK runtime packages with localized scripts and assets', async () => {
+      const baseSource = join(tempDir, 'base-source')
+      const localeSource = join(tempDir, 'locale-source')
+      await mkdir(join(baseSource, 'scripts'), { recursive: true })
+      await mkdir(join(localeSource, 'scripts'), { recursive: true })
+      await mkdir(join(localeSource, 'data', 'i18n'), { recursive: true })
+      await mkdir(join(localeSource, 'audio'), { recursive: true })
+      await writeFile(join(baseSource, 'scripts', 'intro.qs'), '@QuickSave()\nYuki: Hello')
+      await writeFile(join(localeSource, 'scripts', 'intro.zh-cn.qs'), '@SaveToSlot(\'locale-should-not-run\')\nYuki: 你好')
+      await writeFile(join(localeSource, 'data', 'i18n', 'messages.zh-cn.json'), '{"intro":"你好"}')
+      await writeFile(join(localeSource, 'audio', 'voice.zh-cn.ogg'), 'localized voice')
+      await writeFile(join(localeSource, 'data', 'unchanged.zh-cn.txt'), 'same')
+
+      const unchangedHash = createHash('sha256').update('same').digest('hex')
+      const baseManifest = {
+        name: 'runtime.story',
+        version: '1.0.0',
+        bundler: '@quajs/quack',
+        created: new Date(0).toISOString(),
+        format: 'qpk',
+        compression: { algorithm: 'none' },
+        encryption: { enabled: false, algorithm: 'none' },
+        locales: ['default', 'zh-cn'],
+        defaultLocale: 'default',
+        assets: {
+          scripts: {
+            'intro.js': {
+              name: 'intro.js',
+              path: 'scripts/intro.js',
+              relativePath: 'scripts/intro.js',
+              size: 0,
+              hash: 'base-script',
+              type: 'scripts',
+              locales: ['default'],
+            },
+          },
+          data: {
+            'unchanged.txt': {
+              name: 'unchanged.txt',
+              path: 'data/unchanged.txt',
+              relativePath: 'data/unchanged.txt',
+              size: 4,
+              hash: unchangedHash,
+              type: 'data',
+              locales: ['default', 'zh-cn'],
+              variants: {
+                'zh-cn': {
+                  locale: 'zh-cn',
+                  path: 'data/unchanged.zh-cn.txt',
+                  relativePath: 'data/unchanged.zh-cn.txt',
+                  size: 4,
+                  hash: unchangedHash,
+                },
+              },
+            },
+          },
+        },
+        runtimePackage: {
+          id: 'runtime.story',
+          version: '1.0.0',
+          scripts: [{ id: 'runtime.story.intro', version: '1.0.0', assetName: 'intro.js' }],
+        },
+      }
+      const baseManifestPath = join(tempDir, 'base-manifest.json')
+      await writeFile(baseManifestPath, JSON.stringify(baseManifest))
+
+      const result = await buildLocalePack({
+        source: localeSource,
+        base: baseManifestPath,
+        baseSource,
+        locale: 'zh-CN',
+        targets: [{ kind: 'runtimePackage', id: 'runtime.story' }],
+        output: join(tempDir, 'runtime.story.locale.zh-cn.qpk'),
+        version: '1.0.0',
+      })
+
+      const qpk = parseQpk(await readFile(result.output))
+      const manifest = qpk.manifest
+      const zhScript = new TextDecoder().decode(qpk.files.get('assets/scripts/intro.zh-cn.js')!)
+
+      expect(manifest.runtimePackage).toEqual(expect.objectContaining({
+        id: 'runtime.story.locale.zh-cn',
+        version: '1.0.0',
+        dependencies: ['runtime.story'],
+        localePack: {
+          locale: 'zh-cn',
+          targets: [{ kind: 'runtimePackage', id: 'runtime.story' }],
+          resourceTypes: expect.arrayContaining(['scripts', 'data', 'audio']),
+        },
+      }))
+      expect(manifest.runtimePackage?.integrity?.hash).toBe(manifest.merkleRoot)
+      expect(manifest.runtimePackage?.scripts).toEqual([
+        expect.objectContaining({ id: 'runtime.story.intro', assetName: 'intro.js' }),
+      ])
+      expect(manifest.assets.scripts['intro.js'].variants['zh-cn']).toEqual(expect.objectContaining({
+        relativePath: 'scripts/intro.zh-cn.js',
+      }))
+      expect(manifest.assets.data['i18n/messages.json'].variants['zh-cn']).toEqual(expect.objectContaining({
+        relativePath: 'data/i18n/messages.zh-cn.json',
+      }))
+      expect(manifest.assets.data['unchanged.txt']).toBeUndefined()
+      expect(qpk.files.has('assets/audio/voice.zh-cn.ogg')).toBe(true)
+      expect(zhScript).toContain('ctx.engine.quickSave()')
+      expect(zhScript).not.toContain('locale-should-not-run')
     })
 
     it('should create bundle with custom options', async () => {

@@ -11,6 +11,8 @@ export { ZipBundler } from './bundlers/zip-bundler'
 
 // Main bundler class
 export { defineConfig, QuackBundler } from './core/bundler'
+export { buildLocalePack } from './i18n/locale-pack'
+export type { LocalePackBuildOptions, LocalePackBuildResult } from './i18n/locale-pack'
 // Core types
 export type {
   AssetCollectionContext,
@@ -41,6 +43,8 @@ export type {
   PatchOptions,
   QuackConfig,
   RuntimePackageIntegrityManifest,
+  RuntimeLocalePackManifest,
+  RuntimeLocalePackTargetManifest,
   RuntimePackageManifest,
   RuntimePackagePluginKind,
   RuntimePackagePluginManifest,
