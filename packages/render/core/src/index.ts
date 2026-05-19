@@ -37,6 +37,7 @@ export enum LogicToRenderEvents {
 export enum RenderToLogicEvents {
   USER_CLICK = 'user/click',
   USER_KEY_PRESS = 'user/key_press',
+  USER_INPUT_COMMAND = 'user/input_command',
   USER_ADVANCE = 'user/advance',
   USER_CHOICE_SELECT = 'user/choice_select',
   FLOW_CONTROL_SET_MODE_REQUEST = 'flow_control/set_mode_request',
@@ -571,6 +572,37 @@ export interface UserChoiceSelectPayload {
   choiceId: string
 }
 
+export type RendererInputCommand
+  = | 'advance'
+    | 'auto:start'
+    | 'auto:stop'
+    | 'auto:toggle'
+    | 'skip:start'
+    | 'skip:stop'
+    | 'skip:toggle'
+    | 'fastForward:start'
+    | 'fastForward:stop'
+    | 'fastForward:toggle'
+    | 'choice:previous'
+    | 'choice:next'
+    | 'choice:confirm'
+    | 'ui:cancel'
+    | 'ui:menu'
+    | 'ui:save'
+    | 'ui:load'
+
+export type RendererInputDevice = 'keyboard' | 'pointer' | 'wheel' | 'gamepad'
+
+export interface RendererInputCommandPayload {
+  command: RendererInputCommand
+  device: RendererInputDevice
+  source: string
+  repeat?: boolean
+  pressed?: boolean
+  timestamp: number
+  metadata?: Readonly<Record<string, unknown>>
+}
+
 export interface FlowControlSetModePayload {
   mode: FlowControlMode
   source?: string
@@ -641,6 +673,7 @@ export interface LogicToRenderEventPayloadMap {
 export interface RenderToLogicEventPayloadMap {
   [RenderToLogicEvents.USER_CLICK]: UserClickPayload
   [RenderToLogicEvents.USER_KEY_PRESS]: { key: string, code?: string }
+  [RenderToLogicEvents.USER_INPUT_COMMAND]: RendererInputCommandPayload
   [RenderToLogicEvents.USER_ADVANCE]: { source?: string }
   [RenderToLogicEvents.USER_CHOICE_SELECT]: UserChoiceSelectPayload
   [RenderToLogicEvents.FLOW_CONTROL_SET_MODE_REQUEST]: FlowControlSetModePayload
