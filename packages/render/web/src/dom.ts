@@ -17,11 +17,12 @@ export interface QuaWebDomLayerContext {
   document: Document
   view: Readonly<QuaViewProjection>
   actions: RendererActions
-  bindAssetUrl: (element: HTMLImageElement | HTMLVideoElement, type: AssetType, name: string | undefined, attribute?: 'src' | 'poster') => void
+  bindAssetUrl: (element: HTMLImageElement | HTMLVideoElement, type: AssetType, name: string | undefined, attribute?: 'src' | 'poster', targetPackageId?: string) => void
   watchAssetUrl: (
     type: AssetType,
     name: string | undefined,
     onChange: (state: Readonly<WebAssetUrlState>) => void,
+    targetPackageId?: string,
   ) => () => void
 }
 
@@ -159,8 +160,8 @@ export class QuaWebDomRenderer {
       document,
       view: snapshot.view,
       actions: snapshot.actions,
-      bindAssetUrl: (element, type, name, attribute = 'src') => this.bindAssetUrl(element, type, name, attribute),
-      watchAssetUrl: (type, name, onChange) => this.watchAssetUrl(type, name, onChange),
+      bindAssetUrl: (element, type, name, attribute = 'src', targetPackageId) => this.bindAssetUrl(element, type, name, attribute, targetPackageId),
+      watchAssetUrl: (type, name, onChange, targetPackageId) => this.watchAssetUrl(type, name, onChange, targetPackageId),
     }
 
     for (const layer of this.layers) {
@@ -218,6 +219,7 @@ export class QuaWebDomRenderer {
     type: AssetType,
     name: string | undefined,
     attribute: 'src' | 'poster',
+    targetPackageId?: string,
   ): void {
     this.watchAssetUrl(type, name, (state) => {
       if (state.url) {
@@ -226,18 +228,20 @@ export class QuaWebDomRenderer {
       else {
         element.removeAttribute(attribute)
       }
-    })
+    }, targetPackageId)
   }
 
   private watchAssetUrl(
     type: AssetType,
     name: string | undefined,
     onChange: (state: Readonly<WebAssetUrlState>) => void,
+    targetPackageId?: string,
   ): () => void {
     const handle = new WebAssetUrlHandle({
       getAssets: () => this.controller.getAssets(),
       getType: () => type,
       getName: () => name,
+      getTargetPackageId: () => targetPackageId,
       onChange,
     })
     this.assetHandles.push(handle)
