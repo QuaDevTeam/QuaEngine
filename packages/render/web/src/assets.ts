@@ -11,6 +11,7 @@ export interface WebAssetUrlHandleOptions {
   getAssets: () => QuaAssets | undefined
   getType: () => AssetType
   getName: () => string | undefined
+  getTargetPackageId?: () => string | undefined
   onChange?: (state: Readonly<WebAssetUrlState>) => void
 }
 
@@ -40,7 +41,9 @@ export class WebAssetUrlHandle {
     this.notify()
 
     try {
-      const asset = await assets.getAsset(this.options.getType(), assetName)
+      const asset = await assets.getAsset(this.options.getType(), assetName, {
+        targetPackageId: this.options.getTargetPackageId?.(),
+      })
       const nextUrl = createObjectURL(asset)
       if (currentRequestId === this.requestId) {
         this.state = { url: nextUrl, loading: false }

@@ -99,6 +99,7 @@ export class WebFontFaceRegistry {
       const asset = await assets.getAsset('fonts', record.face.assetName, {
         bundleName: record.face.bundleName,
         locale: record.face.locale,
+        targetPackageId: record.face.contentPackageId || contentPackageIdFromMetadata(record.face.metadata),
       })
       if (!this.isCurrentRecord(record)) {
         return
@@ -186,4 +187,8 @@ function cloneFontFace(face: Readonly<FontFaceProjection>): FontFaceProjection {
     ...face,
     metadata: face.metadata ? { ...face.metadata } : undefined,
   }
+}
+
+function contentPackageIdFromMetadata(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
+  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
 }

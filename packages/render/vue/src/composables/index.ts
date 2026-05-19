@@ -127,7 +127,11 @@ export function useRendererActions() {
   return useQuaRenderer().actions
 }
 
-export function useAssetUrl(type: AssetType | ComputedRef<AssetType>, name: () => string | undefined) {
+export function useAssetUrl(
+  type: AssetType | ComputedRef<AssetType>,
+  name: () => string | undefined,
+  targetPackageId?: () => string | undefined,
+) {
   const { assets, assetRevision } = useQuaRenderer()
   const assetType = computed(() => typeof type === 'string' ? type : type.value)
   const url = ref<string>()
@@ -137,6 +141,7 @@ export function useAssetUrl(type: AssetType | ComputedRef<AssetType>, name: () =
     getAssets: () => assets.value,
     getType: () => assetType.value,
     getName: name,
+    getTargetPackageId: targetPackageId,
     onChange: (state) => {
       url.value = state.url
       loading.value = state.loading
@@ -144,7 +149,7 @@ export function useAssetUrl(type: AssetType | ComputedRef<AssetType>, name: () =
     },
   })
 
-  watch([name, () => assetRevision.value, () => assets.value, () => assetType.value], async ([assetName]) => {
+  watch([name, () => assetRevision.value, () => assets.value, () => assetType.value, () => targetPackageId?.()], async ([assetName]) => {
     if (!assetName || !assets.value) {
       handle.dispose()
       return

@@ -37,6 +37,7 @@ interface SlotRuntime {
   pendingStart?: boolean
   staleBuffer?: boolean
   assetKey?: string
+  targetPackageId?: string
   generation: number
 }
 
@@ -151,7 +152,21 @@ export class WebAudioAudioRuntime {
       return
     }
 
-    this.bufferCache.delete(assetKey)
+    if (change.assetId.startsWith('locale:')) {
+      this.bufferCache.clear()
+      for (const slot of this.getAllSlots()) {
+        if (slot) {
+          slot.staleBuffer = true
+        }
+      }
+      return
+    }
+
+    for (const key of this.bufferCache.keys()) {
+      if (key === assetKey || key.startsWith(`${assetKey}::`)) {
+        this.bufferCache.delete(key)
+      }
+    }
     for (const slot of this.getAllSlots()) {
       if (slot?.assetKey === assetKey) {
         slot.staleBuffer = true
@@ -276,6 +291,7 @@ export class WebAudioAudioRuntime {
     bus: BusRuntime,
     context: AudioContext,
   ): Promise<void> {
+    const targetPackageId = this.resolveTrackTargetPackageId(projection)
     slot.assetKey = projection.assetKey
     const controlSignature = this.createControlSignature(projection)
     const fxSignature = this.createFxSignature(projection)
@@ -297,12 +313,13 @@ export class WebAudioAudioRuntime {
 
     const needsSource = !slot.source
       || slot.staleBuffer
+      || slot.targetPackageId !== targetPackageId
       || slot.controlSignature !== controlSignature
       || resumingPausedTrack
 
     if (needsSource) {
       this.stopSlot(slot, 0, 'replaced', true)
-      await this.startTrackSource(kind, projection, slot, bus, context, resumingPausedTrack ? slot.offsetSeconds : undefined)
+      await this.startTrackSource(kind, projection, slot, bus, context, resumingPausedTrack ? slot.offsetSeconds : undefined, targetPackageId)
       slot.controlSignature = controlSignature
       slot.staleBuffer = false
     }
@@ -332,9 +349,10 @@ export class WebAudioAudioRuntime {
     bus: BusRuntime,
     context: AudioContext,
     resumeOffsetSeconds?: number,
+    targetPackageId = this.resolveTrackTargetPackageId(projection),
   ): Promise<void> {
     const generation = ++slot.generation
-    const buffer = await this.loadBuffer(projection.assetKey)
+    const buffer = await this.loadBuffer(projection.assetKey, targetPackageId)
     if (this.destroyed || generation !== slot.generation || !buffer) {
       return
     }
@@ -356,6 +374,7 @@ export class WebAudioAudioRuntime {
     slot.startedAt = undefined
     slot.stopReason = undefined
     slot.assetKey = projection.assetKey
+    slot.targetPackageId = targetPackageId
 
     source.onended = () => {
       const current = slot.currentTrack
@@ -586,8 +605,9 @@ export class WebAudioAudioRuntime {
     }
   }
 
-  private async loadBuffer(assetKey: string): Promise<AudioBuffer> {
-    const cached = this.bufferCache.get(assetKey)
+  private async loadBuffer(assetKey: string, targetPackageId?: string): Promise<AudioBuffer> {
+    const cacheKey = `${assetKey}::${targetPackageId || ''}`
+    const cached = this.bufferCache.get(cacheKey)
     if (cached) {
       return cached
     }
@@ -598,7 +618,7 @@ export class WebAudioAudioRuntime {
         throw new Error('Audio runtime requires assets access.')
       }
 
-      const asset = await assets.getAsset('audio', assetKey)
+      const asset = await assets.getAsset('audio', assetKey, { targetPackageId })
       const context = this.ensureContext()
       const bytes = asset.data.buffer.slice(
         asset.data.byteOffset,
@@ -607,7 +627,7 @@ export class WebAudioAudioRuntime {
       return await context.decodeAudioData(bytes)
     })()
 
-    this.bufferCache.set(assetKey, promise)
+    this.bufferCache.set(cacheKey, promise)
     return promise
   }
 
@@ -704,6 +724,10 @@ export class WebAudioAudioRuntime {
     return change.record?.name || change.path || change.assetId.split(':').pop()
   }
 
+  private resolveTrackTargetPackageId(projection: AudioTrackProjection): string | undefined {
+    return projection.contentPackageId || contentPackageIdFromMetadata(projection.metadata)
+  }
+
   private async startPendingSources(): Promise<void> {
     await Promise.all(this.getAllSlots().map(async (slot) => {
       if (!slot?.source || !slot.currentTrack || !slot.pendingStart || slot.currentTrack.state !== 'playing') {
@@ -753,4 +777,8 @@ function ensureFilterCount(filters: BiquadFilterNode[], count: number, create: (
   while (filters.length < count) {
     filters.push(create())
   }
+}
+
+function contentPackageIdFromMetadata(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
+  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
 }
