@@ -42,7 +42,7 @@
       ]
     },
     "choice": {
-      "match": "^\\s*(-)\\s+(.+?)(?:\\s*(->)\\s*([^\\s]+))?(?:\\s+(if)\\s+(.+))?$",
+      "match": "^\\s*(-)\\s+(.+?)(?:\\s*(->)\\s*((?:scene:[^\\s#]+(?:#[^\\s]+)?)|(?:#[^\\s]+)|(?:package:[^\\s#]+#[^\\s]+)|(?:script:[^\\s#]+(?:#[^\\s]+)?)|[^\\s]+))?(?:\\s+(if)\\s+(.+))?$",
       "captures": {
         "1": { "name": "punctuation.definition.choice.quascript" },
         "2": { "name": "string.unquoted.choice.quascript" },
@@ -50,6 +50,13 @@
         "4": { "name": "entity.name.label.choice-target.quascript" },
         "5": { "name": "keyword.control.conditional.quascript" },
         "6": { "name": "meta.embedded.inline.typescript" }
+      }
+    },
+    "target-helper": {
+      "match": "\\b(node|label|scene|script|packageNode|checkpoint|image|Entry)\\s*(\\()",
+      "captures": {
+        "1": { "name": "support.function.choice-target.quascript" },
+        "2": { "name": "punctuation.section.arguments.begin.quascript" }
       }
     },
     "dialogue": {
@@ -64,9 +71,10 @@
       "begin": "\\$\\{",
       "end": "\\}",
       "name": "meta.embedded.inline.typescript",
-      "patterns": [
-        { "include": "source.ts#expression" },
-        { "include": "source.ts" }
+          "patterns": [
+            { "include": "#target-helper" },
+            { "include": "source.ts#expression" },
+            { "include": "source.ts" }
       ]
     }
   }

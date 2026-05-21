@@ -73,6 +73,13 @@ export function createQuaScriptVirtualDocument(
   append('type GameStep = { uuid: string; run: (...args: any[]) => any }\n')
   append('declare function __quaExpr<T>(value: T): T\n')
   append('declare function __quaDecorator(...args: any[]): void\n\n')
+  append('declare function node(id: string, options?: Record<string, unknown>): unknown\n')
+  append('declare function label(id: string, options?: Record<string, unknown>): unknown\n')
+  append('declare function scene(id: string, options?: Record<string, unknown>): unknown\n')
+  append('declare function script(id: string, options?: Record<string, unknown>): unknown\n')
+  append('declare function packageNode(packageId: string, nodeId: string, options?: Record<string, unknown>): unknown\n')
+  append('declare function checkpoint(id: string): unknown\n')
+  append('declare function image(name: string, options?: Record<string, unknown>): unknown\n\n')
 
   const moduleScript = document.moduleScript
   if (moduleScript) {

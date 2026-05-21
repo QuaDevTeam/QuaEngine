@@ -12,7 +12,7 @@ This document defines the development standard for AI generated incremental cont
 
 ## Terms
 
-- **Runtime Package**: A dynamic QPK with `manifest.runtimePackage`. It may contain assets, compiled QuaScript modules, engine/renderer/compiler plugin modules, story graph deltas, and store migrations.
+- **Runtime Package**: A dynamic QPK with `manifest.runtimePackage`. It may contain assets, compiled QuaScript modules, scene modules, engine/renderer/compiler plugin modules, story graph deltas, and store migrations.
 - **Bundle**: A QuaAssets mounted unit. Runtime packages mount as side-by-side bundles and do not patch an existing bundle unless an explicit force replacement is requested.
 - **Content provenance**: `contentPackageId` records the primary package that created a story point or projection. `requiredRuntimePackages` records all packages that must be present to safely restore or keep that projection.
 - **View projection**: Engine-owned render-relevant state such as characters, background, choices, effects, UI overlays, animations, and plugin projections.
@@ -23,7 +23,7 @@ This document defines the development standard for AI generated incremental cont
 2. QuaAssets loads it with `loadDynamicBundle(source, options)` and stores `runtimePackageId`, priority, version, and loaded time on the bundle and its assets.
 3. Engine calls `loadRuntimePackage(source)` through `RuntimeContentManager`.
 4. The trust policy verifies required hash/signature metadata before activation.
-5. Engine activates runtime engine plugins, story graph deltas, store migrations, script modules, and renderer plugin manifests.
+5. Engine activates runtime engine plugins, scene factories, story graph deltas, store migrations, script modules, and renderer plugin manifests.
 6. Renderer receives only pipeline events and view snapshots. Web runtime code loads renderer plugin JS through a Web-side loader, not through engine core.
 
 Runtime packages are additive side-by-side mounts. Use the old patch flow only to update an already existing bundle. Do not model AI generated scene continuations as individual resource pushes.
@@ -34,12 +34,15 @@ Runtime packages are additive side-by-side mounts. Use the old patch flow only t
 
 - `id`, `version`, optional `sequence`, `priority`, and `dependencies`
 - `scripts[]` for compiled QuaScript modules
+- `scenes[]` for scene modules registered by `RuntimeContentManager`
 - `plugins[]` for engine, renderer, or compiler plugin modules
 - `storyGraphDeltas[]` for graph, node, edge, lane, route, and timeline increments
 - `storeMigrations[]` for idempotent runtime state/schema defaults
 - `integrity` and `signature` for production trust policy
 
 Dynamic QuaScript modules must use stable IDs. Do not generate random step UUIDs for runtime content. Compile step IDs from module ID, stable seed, and step index or label so save/load and read-progress keys remain deterministic.
+
+Runtime scene modules use `{ id, assetName, exportName?, version?, metadata? }`. Engine core loads them only through the injected `runtimeModuleLoader.loadSceneModule` and registers the returned `Scene` or scene factory with `registerScene`. Scene modules are unloaded with the owning package and must not depend on renderer-owned state.
 
 ## Asset Resolution
 
@@ -55,6 +58,8 @@ Provider records and stored bundle records must follow the same ranking. A dev p
 
 Dynamic unload removes that bundle's assets and emits `asset:changed` removals. Renderer object URLs, WebAudio buffers, and DOM plugin resources are renderer implementation details and must refresh or dispose through existing asset revision paths.
 
+Story tree presentation assets are stored as structural refs, not URLs. Engine may resolve `{ type, name, runtimePackageId? }` through `resolveStoryAssetRef()` to package-aware `AssetData`; Web/story-map UI creates any object URL transiently outside engine core.
+
 ## Engine Runtime Ownership
 
 `RuntimeContentManager` owns runtime package lifecycle in `@quajs/engine`:
@@ -65,6 +70,8 @@ Dynamic unload removes that bundle's assets and emits `asset:changed` removals. 
 - `getRuntimePackages()`
 - `registerScriptModule(record)`
 - `runScriptModule(moduleId, scope?)`
+- `runScriptModuleFrom(moduleId, { nodeId?, labelId?, entryId?, stepId?, packageId?, scope? })`
+- runtime scene factory activation from `runtimePackage.scenes[]`
 - `ensureRuntimePackages(packageIds)`
 
 Engine core stays platform neutral. JS byte loading and `import()` are supplied through injected runtime module loaders. Engine core must not use `Blob`, object URLs, DOM APIs, or browser globals.
@@ -157,6 +164,7 @@ Rules:
 Any runtime package feature should include targeted coverage for:
 
 - dynamic QPK manifest creation with assets, scripts, plugins, graph deltas, migrations, and trust metadata
+- runtime scene factory registration, duplicate rejection, registry loading, rollback cleanup, and unload cleanup
 - dynamic bundle load/unload, same asset ranking, locale fallback, and `asset:changed`
 - stable script step IDs and same-scene multi-package continuation
 - save/load and jump with missing package failure and registry recovery

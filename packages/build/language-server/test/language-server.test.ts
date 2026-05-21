@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   analyzeQuaScript,
+  getQuaScriptCodeActions,
   getQuaScriptCompletions,
   getQuaScriptDefinitions,
   getQuaScriptHover,
@@ -213,6 +214,195 @@ Yuki: Hello \${displayName}
 
     const transitionCompletions = await getQuaScriptCompletions('@SetBackground("classroom.png", ', { line: 0, character: 31 }, { projectRoot })
     expect(transitionCompletions.map(item => item.label)).toContain('fade')
+  })
+
+  it('suggests canonical choice decorators and helper targets', async () => {
+    const decorators = await getQuaScriptCompletions('@Cho', { line: 0, character: 4 })
+    expect(decorators.map(item => item.label)).toContain('Choice')
+
+    const helpers = await getQuaScriptCompletions('@Choice("Go", ', { line: 0, character: 14 })
+    expect(helpers.map(item => item.label)).toEqual(expect.arrayContaining(['node', 'scene', 'packageNode', 'image']))
+
+    const source = '@Node("library")\nYuki: Hi\n- Go -> '
+    const targets = await getQuaScriptCompletions(source, { line: 2, character: 8 })
+    expect(targets.map(item => item.label)).toContain('library')
+  })
+
+  it('suggests target and image assets from project story declarations and runtime package metadata', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
+    mkdirSync(join(projectRoot, 'assets/images/story'), { recursive: true })
+    writeFileSync(join(projectRoot, 'assets/images/story/library.png'), '')
+    const source = '@Scene("school")\n@Node("start")\nYuki: Go?\n- Go -> '
+
+    const targets = await getQuaScriptCompletions(source, { line: 3, character: 8 }, {
+      extraFiles: {
+        [join(projectRoot, 'library.qs')]: '@Scene("school")\n@Node("library")\nYuki: Library.',
+        [join(projectRoot, 'runtime-story.json')]: JSON.stringify({
+          runtimePackage: {
+            id: 'runtime.extra',
+            scripts: [{
+              id: 'runtime.extra.story',
+              metadata: {
+                story: {
+                  scenes: [{ id: 'runtime-scene' }],
+                  nodes: [{ id: 'runtime-node', point: { sceneId: 'school', nodeId: 'runtime-node', contentPackageId: 'runtime.extra' } }],
+                  labels: [{ id: 'runtime-label', point: { sceneId: 'school', labelId: 'runtime-label', contentPackageId: 'runtime.extra' } }],
+                },
+              },
+            }],
+          },
+        }),
+      },
+      filePath: join(projectRoot, 'school.qs'),
+      projectRoot,
+    })
+    const labels = targets.map(item => item.label)
+    expect(labels).toEqual(expect.arrayContaining(['library', 'runtime.extra#runtime-node', '#runtime-label', 'scene:runtime-scene', 'script:runtime.extra.story']))
+
+    const assets = await getQuaScriptCompletions('@Node("start", { thumbnail: image("', { line: 0, character: 35 }, { projectRoot })
+    expect(assets.map(item => item.label)).toContain('story/library.png')
+  })
+
+  it('expands choice sugar to the canonical Choice decorator', () => {
+    const source = '- Go -> scene:dorm#night if canGo'
+    const actions = getQuaScriptCodeActions(source, { line: 0, character: 4 })
+
+    expect(actions).toHaveLength(1)
+    expect(actions[0]?.title).toBe('Expand choice sugar to @Choice')
+    expect(actions[0]?.edit.newText).toBe("@Choice('Go', scene('dorm', { entry: 'night' }), { when: canGo })")
+  })
+
+  it('reports rich story diagnostics for targets, assets, packages, and complex sugar conditions', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
+    const filePath = join(projectRoot, 'school.qs')
+    mkdirSync(join(projectRoot, 'assets/images'), { recursive: true })
+    writeFileSync(join(projectRoot, 'assets/images/library.png'), '')
+    const source = `
+@Scene('school')
+@Node('start')
+Yuki: Choose.
+- Cross -> dorm if scope.a && scope.b && scope.c
+@Choice('Missing asset', node('start', { requiredRuntimePackages: ['runtime.extra'] }), {
+  presentation: { thumbnail: image('missing.png') }
+})
+@Choice('Unknown package', packageNode('runtime.unknown', 'extra'))
+@Choice('Known package without dependency', packageNode('runtime.extra', 'extra'))
+`
+
+    const analysis = await analyzeQuaScript(source, {
+      extraFiles: {
+        [join(projectRoot, 'dorm.qs')]: "@Scene('dorm')\n@Node('dorm')\nYuki: Dorm.",
+        [join(projectRoot, 'runtime-extra.json')]: JSON.stringify({
+          runtimePackage: {
+            id: 'runtime.extra',
+            scripts: [{
+              id: 'runtime.extra.story',
+              metadata: {
+                story: {
+                  nodes: [{ id: 'extra', point: { sceneId: 'school', nodeId: 'extra', contentPackageId: 'runtime.extra' } }],
+                },
+              },
+            }],
+          },
+        }),
+      },
+      filePath,
+      projectRoot,
+    })
+    const messages = analysis.diagnostics.map(item => item.message)
+
+    expect(messages).toContain('Choice sugar uses a complex if expression. Prefer <script setup> bindings or @Choice(..., { when }) for maintainable branching.')
+    expect(messages).toContain('Choice "Cross" targets "node:dorm" in another scene. Use scene(...) or scene:id#entry for cross-scene choice jumps.')
+    expect(messages).toContain('Story asset "missing.png" was not found under project assets.')
+    expect(messages).toContain('Package-scoped target references unknown runtime package "runtime.unknown".')
+    expect(messages).toContain('Package-scoped target "runtime.extra" should be declared through runtime package dependencies or requiredRuntimePackages.')
+  })
+
+  it('does not report story diagnostics for valid same-scene targets and assets', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
+    mkdirSync(join(projectRoot, 'assets/images'), { recursive: true })
+    writeFileSync(join(projectRoot, 'assets/images/library.png'), '')
+    const source = `
+@Scene('school')
+@Node('start', { thumbnail: image('library.png') })
+Yuki: Choose.
+@Choice('Library', node('library', { requiredRuntimePackages: ['runtime.extra'] }), { presentation: { thumbnail: image('library.png') } })
+
+@Node('library')
+Yuki: Library.
+`
+
+    const analysis = await analyzeQuaScript(source, {
+      extraFiles: {
+        [join(projectRoot, 'runtime-extra.json')]: JSON.stringify({
+          runtimePackage: {
+            id: 'runtime.extra',
+            dependencies: ['runtime.base'],
+          },
+        }),
+      },
+      filePath: join(projectRoot, 'school.qs'),
+      projectRoot,
+    })
+
+    expect(analysis.diagnostics).toEqual([])
+  })
+
+  it('jumps from story targets to Node, Label, and Scene declarations', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
+    const filePath = join(projectRoot, 'school.qs')
+    const source = `
+@Scene('school')
+@Node('start')
+Yuki: Choose.
+- Library -> library
+@Choice('Label', label('return'))
+@Choice('Dorm', scene('dorm'))
+
+@Label('return')
+Yuki: Back.
+`
+    const extraPath = join(projectRoot, 'library.qs')
+    const extraSource = "@Scene('dorm')\n@Node('library')\nYuki: Library."
+
+    const libraryDefinition = getQuaScriptDefinitions(source, positionOf(source, 'library'), {
+      extraFiles: { [extraPath]: extraSource },
+      filePath,
+      projectRoot,
+    })
+    expect(libraryDefinition[0]?.filePath).toBe(extraPath)
+    expect(libraryDefinition[0]?.range.start.line).toBe(1)
+
+    const labelDefinition = getQuaScriptDefinitions(source, positionOf(source, 'return\'))'), { filePath, projectRoot })
+    expect(labelDefinition[0]?.filePath).toBeUndefined()
+    expect(labelDefinition[0]?.range.start.line).toBe(8)
+
+    const sceneDefinition = getQuaScriptDefinitions(source, positionOf(source, 'dorm\'))'), {
+      extraFiles: { [extraPath]: extraSource },
+      filePath,
+      projectRoot,
+    })
+    expect(sceneDefinition[0]?.filePath).toBe(extraPath)
+    expect(sceneDefinition[0]?.range.start.line).toBe(0)
+  })
+
+  it('understands entry-scoped scene targets from story declarations', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
+    const filePath = join(projectRoot, 'scene.qs')
+    const source = `
+@Scene('dorm')
+@Entry('nightReturn')
+Yuki: Back.
+- Go home -> scene:dorm#nightReturn
+`
+
+    const definitions = getQuaScriptDefinitions(source, positionOf(source, 'scene:dorm#nightReturn'), {
+      filePath,
+      projectRoot,
+    })
+
+    expect(definitions[0]?.filePath).toBeUndefined()
+    expect(definitions[0]?.range.start.line).toBe(2)
   })
 })
 
