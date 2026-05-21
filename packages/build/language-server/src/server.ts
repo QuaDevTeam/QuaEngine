@@ -4,6 +4,7 @@ import type { InitializeParams } from 'vscode-languageserver/node'
 import { pathToFileURL } from 'node:url'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
+  CodeActionKind,
   CompletionItemKind,
   createConnection,
   DiagnosticSeverity,
@@ -13,7 +14,7 @@ import {
   TextDocuments,
   TextDocumentSyncKind,
 } from 'vscode-languageserver/node'
-import { analyzeQuaScript, getQuaScriptCompletions, getQuaScriptDefinitions, getQuaScriptHover, uriToFilePath } from './index'
+import { analyzeQuaScript, getQuaScriptCodeActions, getQuaScriptCompletions, getQuaScriptDefinitions, getQuaScriptHover, uriToFilePath } from './index'
 
 const connection = createConnection(ProposedFeatures.all)
 const documents = new TextDocuments(TextDocument)
@@ -29,6 +30,9 @@ connection.onInitialize((params: InitializeParams) => {
       },
       hoverProvider: true,
       definitionProvider: true,
+      codeActionProvider: {
+        codeActionKinds: [CodeActionKind.RefactorRewrite],
+      },
     },
   }
 })
@@ -125,6 +129,37 @@ connection.onDefinition((params) => {
       },
     })
   })
+})
+
+connection.onCodeAction((params) => {
+  const document = documents.get(params.textDocument.uri)
+  if (!document) {
+    return []
+  }
+  return getQuaScriptCodeActions(document.getText(), {
+    line: params.range.start.line,
+    character: params.range.start.character,
+  }).map(action => ({
+    title: action.title,
+    kind: action.kind,
+    edit: {
+      changes: {
+        [document.uri]: [{
+          range: {
+            start: {
+              line: action.edit.range?.start.line || 0,
+              character: action.edit.range?.start.column || 0,
+            },
+            end: {
+              line: action.edit.range?.end.line || 0,
+              character: action.edit.range?.end.column || 0,
+            },
+          },
+          newText: action.edit.newText,
+        }],
+      },
+    },
+  }))
 })
 
 documents.listen(connection)

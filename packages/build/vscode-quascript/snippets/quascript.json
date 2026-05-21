@@ -19,11 +19,22 @@
     ],
     "description": "QuaScript dialogue line"
   },
-  "Choice": {
+  "Choice Decorator": {
     "prefix": "choice",
+    "body": [
+      "@Choice('${1:Continue}', node('${2:next}'), {",
+      "  when: ${3:scope.unlocked},",
+      "  unavailable: { mode: 'disabled', reason: '${4:Locked}' },",
+      "  presentation: { thumbnail: image('${5:story/thumb.png}') }",
+      "})"
+    ],
+    "description": "Canonical QuaScript choice decorator"
+  },
+  "Choice Line": {
+    "prefix": "choice-line",
     "body": [
       "- ${1:Continue} -> ${2:next} if ${3:scope.unlocked}"
     ],
-    "description": "QuaScript choice line"
+    "description": "QuaScript choice sugar line"
   }
 }

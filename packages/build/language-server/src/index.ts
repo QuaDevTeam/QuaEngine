@@ -17,6 +17,7 @@ import {
   getTypeScriptDefinitionsAtSourcePosition,
   getTypeScriptHoverAtSourcePosition,
 } from './typescript-service'
+import { collectQuaScriptStoryDiagnostics, getQuaScriptStoryDefinitions, getQuaScriptStoryTargetCompletions } from './story-diagnostics'
 import { createQuaScriptVirtualDocument } from './virtual'
 
 export type { QuaScriptDefinition, QuaScriptHover } from './typescript-service'
@@ -69,6 +70,15 @@ export interface QuaScriptAnalysis {
   virtualTypeScript: string
 }
 
+export interface QuaScriptCodeAction {
+  title: string
+  kind: 'refactor.rewrite'
+  edit: {
+    range: QuaScriptDiagnostic['range']
+    newText: string
+  }
+}
+
 export async function analyzeQuaScript(source: string, options: QuaScriptLanguageOptions = {}): Promise<QuaScriptAnalysis> {
   const document = parseQuaScriptDocument(source)
 
@@ -82,6 +92,7 @@ export async function analyzeQuaScript(source: string, options: QuaScriptLanguag
     diagnostics = [
       ...context.virtualDocument.diagnostics,
       ...collectQuaScriptTypeScriptDiagnostics(context),
+      ...collectQuaScriptStoryDiagnostics(source, parsed, options),
     ]
   }
   catch (error) {
@@ -110,6 +121,18 @@ export async function getQuaScriptCompletions(
 
   if (isDecoratorContext(beforeCursor)) {
     return getDecoratorCompletions(options.projectRoot)
+  }
+
+  if (isChoiceHelperContext(beforeCursor)) {
+    return getChoiceHelperCompletions()
+  }
+
+  if (isChoiceTargetContext(beforeCursor)) {
+    return getChoiceTargetCompletions(source, options)
+  }
+
+  if (isImageAssetContext(beforeCursor)) {
+    return getStoryImageAssetCompletions(options.projectRoot)
   }
 
   if (isSpeakerContext(beforeCursor)) {
@@ -183,19 +206,85 @@ export function getQuaScriptDefinitions(
   position: QuaScriptLanguagePosition,
   options: QuaScriptLanguageOptions = {},
 ) {
+  const storyDefinitions = getQuaScriptStoryDefinitions(source, position, options)
+  if (storyDefinitions.length > 0) {
+    return storyDefinitions
+  }
   const context = createQuaScriptTypeScriptContext(source, options)
   return getTypeScriptDefinitionsAtSourcePosition(context, position)
 }
 
+export function getQuaScriptCodeActions(
+  source: string,
+  position: QuaScriptLanguagePosition,
+): QuaScriptCodeAction[] {
+  const lines = source.split(/\r?\n/)
+  const line = lines[position.line] || ''
+  const expanded = expandChoiceSugarLine(line)
+  if (!expanded) {
+    return []
+  }
+  return [{
+    title: 'Expand choice sugar to @Choice',
+    kind: 'refactor.rewrite',
+    edit: {
+      newText: expanded,
+      range: {
+        start: { line: position.line, column: 0, offset: sourceOffsetAt(source, position.line, 0) },
+        end: { line: position.line, column: line.length, offset: sourceOffsetAt(source, position.line, line.length) },
+      },
+    },
+  }]
+}
+
 async function getDecoratorCompletions(projectRoot?: string): Promise<QuaScriptCompletionItem[]> {
   const mappings = await getDecoratorMappings(projectRoot)
-  return Object.keys(mappings)
+  return [...new Set([...Object.keys(mappings), 'Choice', 'Node', 'Label', 'Scene', 'Entry'])]
     .sort()
     .map(label => ({
       label,
       kind: 'decorator' as const,
       detail: 'QuaScript decorator',
     }))
+}
+
+function getChoiceHelperCompletions(): QuaScriptCompletionItem[] {
+  return [
+    { label: 'node', insertText: 'node("${1:id}")', detail: 'Choice target helper', kind: 'function' },
+    { label: 'label', insertText: 'label("${1:id}")', detail: 'Choice target helper', kind: 'function' },
+    { label: 'scene', insertText: 'scene("${1:sceneId}", { entry: "${2:entry}" })', detail: 'Choice target helper', kind: 'function' },
+    { label: 'script', insertText: 'script("${1:moduleId}", { nodeId: "${2:nodeId}" })', detail: 'Choice target helper', kind: 'function' },
+    { label: 'packageNode', insertText: 'packageNode("${1:packageId}", "${2:nodeId}")', detail: 'Choice target helper', kind: 'function' },
+    { label: 'checkpoint', insertText: 'checkpoint("${1:id}")', detail: 'Choice target helper', kind: 'function' },
+    { label: 'image', insertText: 'image("${1:asset.png}")', detail: 'Story asset reference helper', kind: 'function' },
+  ]
+}
+
+function getChoiceTargetCompletions(source: string, options: QuaScriptLanguageOptions): QuaScriptCompletionItem[] {
+  return getQuaScriptStoryTargetCompletions(source, options).map(item => ({
+    label: item.label,
+    insertText: item.insertText,
+    kind: 'value' as const,
+    detail: item.detail,
+  }))
+}
+
+function getStoryImageAssetCompletions(projectRoot?: string): QuaScriptCompletionItem[] {
+  if (!projectRoot) {
+    return []
+  }
+  return ['assets/images', 'assets/backgrounds']
+    .flatMap(assetRoot => listAssetFiles(join(projectRoot, assetRoot))
+      .filter(filePath => ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif'].includes(extname(filePath).toLowerCase()))
+      .map((filePath) => {
+        const label = relative(join(projectRoot, assetRoot), filePath).replace(/\\/g, '/')
+        return {
+          detail: assetRoot,
+          insertText: label,
+          kind: 'asset' as const,
+          label,
+        }
+      }))
 }
 
 async function getDecoratorArgumentCompletions(
@@ -374,6 +463,80 @@ function listAssetFiles(root: string): string[] {
 
 function isDecoratorContext(beforeCursor: string): boolean {
   return /^\s*@[\w$]*$/.test(beforeCursor)
+}
+
+function isChoiceHelperContext(beforeCursor: string): boolean {
+  return /@Choice\([^)]*$/.test(beforeCursor)
+    && /(?:^|[,\s])([A-Za-z_$][\w$]*)?$/.test(beforeCursor)
+}
+
+function isChoiceTargetContext(beforeCursor: string): boolean {
+  return /^\s*-\s+.+->\s*[#\w:.-]*$/.test(beforeCursor)
+}
+
+function isImageAssetContext(beforeCursor: string): boolean {
+  return /\bimage\(\s*["'][^"']*$/.test(beforeCursor)
+}
+
+function expandChoiceSugarLine(line: string): string | undefined {
+  const match = /^(\s*)-\s+(.+?)(?:\s*->\s*([^\s]+))?(?:\s+if\s+(.+))?\s*$/.exec(line)
+  if (!match) {
+    return undefined
+  }
+  const [, indent, rawText, rawTarget, rawCondition] = match
+  const text = rawText.trim()
+  if (!text) {
+    return undefined
+  }
+  const target = targetSugarToHelper(rawTarget?.trim() || slugChoiceId(text))
+  const condition = rawCondition?.trim()
+  const options = condition ? `, { when: ${condition} }` : ''
+  return `${indent}@Choice('${escapeSingleQuoted(text)}', ${target}${options})`
+}
+
+function targetSugarToHelper(target: string): string {
+  if (target.startsWith('#')) {
+    return `label('${escapeSingleQuoted(target.slice(1))}')`
+  }
+  const sceneMatch = /^scene:([^#\s]+)(?:#([^\s]+))?$/.exec(target)
+  if (sceneMatch) {
+    return sceneMatch[2]
+      ? `scene('${escapeSingleQuoted(sceneMatch[1])}', { entry: '${escapeSingleQuoted(sceneMatch[2])}' })`
+      : `scene('${escapeSingleQuoted(sceneMatch[1])}')`
+  }
+  const packageMatch = /^package:([^#\s]+)#([^\s]+)$/.exec(target)
+  if (packageMatch) {
+    return `packageNode('${escapeSingleQuoted(packageMatch[1])}', '${escapeSingleQuoted(packageMatch[2])}')`
+  }
+  const scriptMatch = /^script:([^#\s]+)(?:#([^\s]+))?$/.exec(target)
+  if (scriptMatch) {
+    return scriptMatch[2]
+      ? `script('${escapeSingleQuoted(scriptMatch[1])}', { nodeId: '${escapeSingleQuoted(scriptMatch[2])}' })`
+      : `script('${escapeSingleQuoted(scriptMatch[1])}')`
+  }
+  return `node('${escapeSingleQuoted(target)}')`
+}
+
+function slugChoiceId(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'choice'
+}
+
+function escapeSingleQuoted(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+}
+
+function sourceOffsetAt(source: string, line: number, character: number): number {
+  const lines = source.split(/\r?\n/)
+  let offset = 0
+  for (let index = 0; index < line; index++) {
+    offset += (lines[index] || '').length + 1
+  }
+  return offset + character
 }
 
 function isSpeakerContext(beforeCursor: string): boolean {
