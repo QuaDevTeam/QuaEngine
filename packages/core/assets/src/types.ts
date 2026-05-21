@@ -18,6 +18,9 @@ export interface AssetData {
   version: number
   mtime: number
   fromCache: boolean
+  runtimePackageId?: string
+  bundlePriority?: number
+  loadedAt?: number
 }
 
 export interface MediaMetadata {
@@ -317,6 +320,15 @@ export interface RuntimePackageScriptVariantManifest {
   metadata?: Record<string, unknown>
 }
 
+export interface RuntimePackageSceneManifest {
+  id: string
+  version?: string
+  assetName: string
+  exportName?: string
+  module?: string
+  metadata?: Record<string, unknown>
+}
+
 export interface RuntimePackagePluginManifest {
   id: string
   kind: RuntimePackagePluginKind
@@ -381,6 +393,7 @@ export interface RuntimePackageManifest {
   dependencies?: string[]
   localePack?: RuntimeLocalePackManifest
   scripts?: RuntimePackageScriptManifest[]
+  scenes?: RuntimePackageSceneManifest[]
   plugins?: RuntimePackagePluginManifest[]
   storyGraphDeltas?: RuntimePackageStoryGraphDeltaManifest[]
   storeMigrations?: RuntimePackageStoreMigrationManifest[]

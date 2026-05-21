@@ -3,6 +3,7 @@ import type {
   RuntimePackageManifest,
   RuntimePackageScriptVariantManifest,
   RuntimePackagePluginManifest,
+  RuntimePackageSceneManifest,
   RuntimePackageStoreMigrationManifest,
 } from '@quajs/assets'
 import type { QuaSerializedState } from '@quajs/store'
@@ -10,20 +11,26 @@ import type { QuaEngine } from '../core/engine'
 import type {
   GameStep,
   QuaEngineInterface,
+  ChoiceTarget,
   EnsureLocalePacksOptions,
   RollbackEntry,
   RuntimeLoadedPluginModule,
+  RuntimeLoadedSceneModule,
   RuntimeLoadedScriptModule,
   RuntimeModuleLoader,
   RuntimePackageRegistry,
   RuntimePackageRegistryEntry,
+  StoryTargetResolveContext,
   RuntimePackageLoadOptions,
   RuntimePackageStateRecord,
   RuntimePackageUnloadOptions,
   RuntimeScriptModuleRecord,
   RuntimeScriptModuleRunOptions,
+  RuntimeScriptModuleRunFromOptions,
   RuntimeStoreMigrationHandler,
   RuntimeTrustPolicy,
+  Scene,
+  SceneFactory,
 } from '../core/types'
 import { createLocaleFallbackChain, normalizeLocale } from '@quajs/assets'
 import type { EnginePlugin } from '../plugins/core/types'
@@ -35,12 +42,14 @@ interface LoadedRuntimePackage {
   manifest: RuntimePackageManifest
   state: RuntimePackageStateRecord
   activatedEnginePluginNames: string[]
+  sceneDisposers: Array<() => void>
 }
 
 interface ActivationRollbackState {
   serializedState: QuaSerializedState
   runtimeState: RuntimePackageStateRecord
   activatedEnginePluginCount: number
+  sceneDisposerCount: number
 }
 
 interface ResolvedScriptVariant {
@@ -116,6 +125,7 @@ export class RuntimeContentManager {
       manifest,
       state,
       activatedEnginePluginNames: [],
+      sceneDisposers: [],
     })
     this.engine.getStore().commit('upsertRuntimePackage', state)
     this.registerPackageScripts(bundle, manifest)
@@ -150,6 +160,7 @@ export class RuntimeContentManager {
       await this.engine.withRuntimePackageContext(packageId, async (engine) => {
         const scopedEngine = engine as RuntimePackageScopedEngine
         await this.activateEnginePlugins(record, scopedEngine)
+        await this.activateSceneFactories(record, scopedEngine)
         await this.applyStoryGraphDeltas(record, engine)
         await this.applyStoreMigrations(record, engine)
       })
@@ -207,6 +218,7 @@ export class RuntimeContentManager {
       await this.engine.unuse(pluginName)
     }
     record.activatedEnginePluginNames = []
+    this.disposeSceneFactories(record)
     for (const [moduleId, moduleRecord] of this.scripts.entries()) {
       if (moduleRecord.packageId === packageId) {
         this.scripts.delete(moduleId)
@@ -292,6 +304,80 @@ export class RuntimeContentManager {
         ]),
       },
     })))
+  }
+
+  async runScriptModuleFrom<TScope>(moduleId: string, options: RuntimeScriptModuleRunFromOptions<TScope> = {}): Promise<void> {
+    const record = this.scripts.get(moduleId)
+    if (!record) {
+      throw new Error(`Runtime script module "${moduleId}" is not registered.`)
+    }
+    if (options.packageId && record.packageId !== options.packageId) {
+      await this.ensureRuntimePackages([options.packageId])
+    }
+
+    await this.ensureRuntimePackages([record.packageId])
+    const scriptVariant = this.resolveScriptVariant(record, options.locale || this.engine.getAssets().getLocale())
+    await this.ensureRuntimePackages(unique([record.packageId, scriptVariant.packageId, ...(options.packageId ? [options.packageId] : [])]))
+    const factory = await this.resolveScriptFactory(scriptVariant.record, scriptVariant.locale, scriptVariant.packageId)
+    const steps = this.sliceScriptSteps(resolveGameSteps(factory as any, options.scope), options)
+    const requiredPackages = unique([
+      record.packageId,
+      scriptVariant.packageId,
+      ...(options.packageId ? [options.packageId] : []),
+    ])
+    await this.engine.dialogue(steps.map(step => ({
+      ...step,
+      metadata: {
+        ...step.metadata,
+        point: {
+          ...(step.metadata?.point || {}),
+          contentPackageId: record.packageId,
+          scriptModuleId: record.id,
+          scriptModuleVersion: scriptVariant.record.version,
+          scriptModuleLocale: scriptVariant.locale,
+        },
+        runtimePackage: {
+          packageId: record.packageId,
+          scriptModuleId: record.id,
+          scriptModuleVersion: scriptVariant.record.version,
+          scriptModuleLocale: scriptVariant.locale,
+        },
+        requiredRuntimePackages: unique([
+          ...requiredPackages,
+          ...(step.metadata?.requiredRuntimePackages || []),
+        ]),
+      },
+    })))
+  }
+
+  async resolveStoryTargetFromRegistry(target: ChoiceTarget, context: StoryTargetResolveContext): Promise<boolean> {
+    if (!this.registry?.resolveStoryTarget) {
+      return false
+    }
+
+    const resolved = await this.registry.resolveStoryTarget(target, {
+      engine: this.engine,
+      assets: this.engine.getAssets(),
+      target,
+      currentPoint: context.currentPoint,
+      currentSceneId: context.currentSceneId,
+      activePackageIds: Array.from(this.packages.values())
+        .filter(record => record.state.state === 'active')
+        .map(record => record.manifest.id),
+    })
+    if (!resolved) {
+      return false
+    }
+
+    const entries = Array.isArray(resolved) ? resolved : [resolved]
+    for (const entryValue of entries) {
+      const entry = normalizeRegistryEntry(entryValue)
+      await this.loadRuntimePackage(entry.source, {
+        ...entry.options,
+        activate: true,
+      })
+    }
+    return entries.length > 0
   }
 
   async resolveRollbackStep(entry: RollbackEntry): Promise<GameStep | undefined> {
@@ -548,6 +634,30 @@ export class RuntimeContentManager {
     }
   }
 
+  private assertPackageSceneIdsAvailable(record: LoadedRuntimePackage): void {
+    const seen = new Set<string>()
+    for (const scene of record.manifest.scenes || []) {
+      if (seen.has(scene.id)) {
+        throw new Error(`Runtime package "${record.manifest.id}" declares duplicate scene "${scene.id}".`)
+      }
+      seen.add(scene.id)
+      if (this.isSceneOwnedByAnotherActivePackage(scene.id, record.manifest.id)) {
+        throw new Error(`Runtime scene "${scene.id}" is already registered by another active runtime package.`)
+      }
+      if (this.engine.hasScene(scene.id)) {
+        throw new Error(`Runtime scene "${scene.id}" conflicts with an already registered scene factory.`)
+      }
+    }
+  }
+
+  private isSceneOwnedByAnotherActivePackage(sceneId: string, packageId: string): boolean {
+    return Array.from(this.packages.values()).some(candidate =>
+      candidate.manifest.id !== packageId
+      && candidate.state.state === 'active'
+      && (candidate.manifest.scenes || []).some(scene => scene.id === sceneId),
+    )
+  }
+
   private async activateEnginePlugins(record: LoadedRuntimePackage, engine: RuntimePackageScopedEngine = this.engine): Promise<void> {
     for (const plugin of record.manifest.plugins || []) {
       if (plugin.kind !== 'engine') {
@@ -568,6 +678,26 @@ export class RuntimeContentManager {
     }
   }
 
+  private async activateSceneFactories(record: LoadedRuntimePackage, engine: RuntimePackageScopedEngine = this.engine): Promise<void> {
+    this.assertPackageSceneIdsAvailable(record)
+    for (const scene of record.manifest.scenes || []) {
+      const loaded = await this.loadSceneModule(scene, record)
+      const sceneExport = selectExport(loaded, scene.exportName, ['createScene', 'Scene', 'default'])
+      const factory = createSceneFactory(scene, sceneExport)
+      if (!factory) {
+        throw new Error(`Runtime package scene "${scene.id}" did not export a Scene or Scene factory.`)
+      }
+      record.sceneDisposers.push(engine.registerScene(scene.id, factory))
+    }
+  }
+
+  private disposeSceneFactories(record: LoadedRuntimePackage, fromIndex = 0): void {
+    const disposers = record.sceneDisposers.splice(fromIndex).reverse()
+    for (const dispose of disposers) {
+      dispose()
+    }
+  }
+
   private async rollbackActivatedEnginePlugins(record: LoadedRuntimePackage, fromIndex: number): Promise<void> {
     const pluginNames = record.activatedEnginePluginNames.splice(fromIndex).reverse()
     for (const pluginName of pluginNames) {
@@ -580,10 +710,12 @@ export class RuntimeContentManager {
       serializedState: this.engine.getStore().serializeState(),
       runtimeState: { ...record.state },
       activatedEnginePluginCount: record.activatedEnginePluginNames.length,
+      sceneDisposerCount: record.sceneDisposers.length,
     }
   }
 
   private async rollbackActivation(record: LoadedRuntimePackage, rollback: ActivationRollbackState): Promise<void> {
+    this.disposeSceneFactories(record, rollback.sceneDisposerCount)
     await this.rollbackActivatedEnginePlugins(record, rollback.activatedEnginePluginCount)
     this.engine.getStore().restoreSerializedState(rollback.serializedState)
     record.state = {
@@ -610,6 +742,20 @@ export class RuntimeContentManager {
       throw new Error(`Runtime plugin "${plugin.id}" requires a runtime module loader.`)
     }
     return await this.loader.loadEnginePluginModule(plugin, {
+      assets: this.engine.getAssets(),
+      package: record.manifest,
+      bundle: record.bundle,
+    })
+  }
+
+  private async loadSceneModule(
+    scene: RuntimePackageSceneManifest,
+    record: LoadedRuntimePackage,
+  ): Promise<RuntimeLoadedSceneModule> {
+    if (!this.loader?.loadSceneModule) {
+      throw new Error(`Runtime scene "${scene.id}" requires a runtime module loader.`)
+    }
+    return await this.loader.loadSceneModule(scene, {
       assets: this.engine.getAssets(),
       package: record.manifest,
       bundle: record.bundle,
@@ -709,6 +855,27 @@ export class RuntimeContentManager {
       packageId: record.packageId,
       record,
     }
+  }
+
+  private sliceScriptSteps<TScope>(steps: GameStep[], options: RuntimeScriptModuleRunFromOptions<TScope>): GameStep[] {
+    const startIndex = this.findScriptStepIndex(steps, options)
+    return startIndex === -1 ? steps : steps.slice(startIndex)
+  }
+
+  private findScriptStepIndex<TScope>(steps: GameStep[], options: RuntimeScriptModuleRunFromOptions<TScope>): number {
+    if (options.stepId) {
+      return steps.findIndex(step => step.uuid === options.stepId || step.metadata?.point?.stepId === options.stepId)
+    }
+    if (options.nodeId) {
+      return steps.findIndex(step => step.metadata?.point?.nodeId === options.nodeId)
+    }
+    if (options.labelId) {
+      return steps.findIndex(step => step.metadata?.point?.labelId === options.labelId || step.metadata?.point?.nodeId === options.labelId)
+    }
+    if (options.entryId) {
+      return steps.findIndex(step => step.metadata?.point?.entryId === options.entryId || step.metadata?.point?.nodeId === options.entryId)
+    }
+    return 0
   }
 
   private async resolveScriptFactory(record: RuntimeScriptModuleRecord, locale = 'default', packageId = record.packageId) {
@@ -875,6 +1042,7 @@ function createPackageState(
     loadedAt: bundle.loadedAt,
     dependencies: [...(manifest.dependencies || [])],
     scriptModuleIds: (manifest.scripts || []).map(script => script.id),
+    sceneIds: (manifest.scenes || []).map(scene => scene.id),
     pluginIds: (manifest.plugins || []).map(plugin => plugin.id),
     migrationIds: (manifest.storeMigrations || []).map(migration => createMigrationKey(manifest.id, migration)),
     localePack: manifest.localePack ? { ...manifest.localePack, targets: [...manifest.localePack.targets], resourceTypes: [...manifest.localePack.resourceTypes], fallbackLocales: manifest.localePack.fallbackLocales ? [...manifest.localePack.fallbackLocales] : undefined } : undefined,
@@ -887,6 +1055,36 @@ function selectScriptFactory(record: RuntimeScriptModuleRecord, loaded: Record<s
     throw new Error(`Runtime script module "${record.id}" did not export a GameStep factory.`)
   }
   return factory
+}
+
+function createSceneFactory(scene: RuntimePackageSceneManifest, value: unknown): SceneFactory | undefined {
+  if (isSceneInstance(value)) {
+    return () => value
+  }
+  if (typeof value !== 'function') {
+    return undefined
+  }
+  return async () => {
+    const created = isClassLike(value)
+      ? new (value as new () => Scene)()
+      : await (value as () => Scene | Promise<Scene>)()
+    if (!isSceneInstance(created)) {
+      throw new Error(`Runtime scene "${scene.id}" factory did not create a Scene.`)
+    }
+    return created
+  }
+}
+
+function isSceneInstance(value: unknown): value is Scene {
+  return typeof value === 'object'
+    && value !== null
+    && typeof (value as Scene).name === 'string'
+    && typeof (value as Scene).init === 'function'
+    && typeof (value as Scene).run === 'function'
+}
+
+function isClassLike(value: Function): boolean {
+  return /^class\s/.test(Function.prototype.toString.call(value))
 }
 
 function selectExport(moduleExports: Record<string, unknown>, preferred: string | undefined, fallbacks: string[]): unknown {

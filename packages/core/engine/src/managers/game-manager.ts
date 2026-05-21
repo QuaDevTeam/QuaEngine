@@ -1,6 +1,6 @@
 import type { QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaStore } from '@quajs/store'
 import type { QuaEngine } from '../core/engine'
-import type { GameStep, GameStepFactory, GameStepScope, GameStepSource, OptionalGameStepFactory, Scene, StepContext } from '../core/types'
+import type { GameStep, GameStepFactory, GameStepScope, GameStepSource, OptionalGameStepFactory, Scene, SceneEnterContext, StepContext } from '../core/types'
 import type { SceneTransitionOptions } from './scene-manager'
 
 import { getPackageLogger } from '@quajs/logger'
@@ -25,11 +25,11 @@ export class GameManager {
   /**
    * Load a scene and prepare it for execution
    */
-  async loadScene(sceneInstance: Scene, transition?: SceneTransitionOptions): Promise<void> {
+  async loadScene(sceneInstance: Scene, transition?: SceneTransitionOptions, enterContext?: SceneEnterContext): Promise<void> {
     logger.info(`Loading scene: ${sceneInstance.name}`)
 
     try {
-      await this.engine.loadScene(sceneInstance, transition)
+      await this.engine.loadScene(sceneInstance, transition, enterContext)
       logger.info(`Scene loaded successfully: ${sceneInstance.name}`)
     }
     catch (error) {

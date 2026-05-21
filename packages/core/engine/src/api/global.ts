@@ -1,4 +1,4 @@
-import type { ChoiceIntent, CreateCheckpointOptions, DialogueIntent, EnsureLocalePacksOptions, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, RollbackAnchorReason, RollbackConfigPatch, RollbackNavigationOptions, RollbackTarget, RuntimePackageLoadOptions, RuntimePackageStateRecord, RuntimePackageUnloadOptions, RuntimeScriptModuleRecord, RuntimeScriptModuleRunOptions, Scene, SetLocaleOptions, SlotMetadata, StoryPoint, TranslateInput, ViewLayoutInput } from '../core/types'
+import type { ChoiceIntent, ChoiceJumpOptions, ChoiceTarget, CreateCheckpointOptions, DialogueIntent, EnsureLocalePacksOptions, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, ResolvedStoryAsset, ResolvedStoryJump, RollbackAnchorReason, RollbackConfigPatch, RollbackNavigationOptions, RollbackTarget, RuntimePackageLoadOptions, RuntimePackageStateRecord, RuntimePackageUnloadOptions, RuntimeScriptModuleRecord, RuntimeScriptModuleRunFromOptions, RuntimeScriptModuleRunOptions, Scene, SceneEnterContext, SceneFactory, SetLocaleOptions, SlotMetadata, StoryAssetRef, StoryPoint, StoryTargetResolver, TranslateInput, ViewLayoutInput } from '../core/types'
 import type { QuaStore } from '@quajs/store'
 import type { SceneTransitionOptions } from '../managers/scene-manager'
 import { QuaEngine } from '../core/engine'
@@ -26,8 +26,12 @@ function getEngine(): QuaEngine {
 /**
  * Load and activate a scene
  */
-export async function loadScene(scene: Scene, transition?: SceneTransitionOptions): Promise<void> {
-  return getEngine().loadScene(scene, transition)
+export async function loadScene(scene: Scene, transition?: SceneTransitionOptions, enterContext?: SceneEnterContext): Promise<void> {
+  return getEngine().loadScene(scene, transition, enterContext)
+}
+
+export function registerScene(sceneId: string, factory: SceneFactory): () => void {
+  return getEngine().registerScene(sceneId, factory)
 }
 
 export async function loadRuntimePackage(source: string, options?: RuntimePackageLoadOptions): Promise<RuntimePackageStateRecord> {
@@ -52,6 +56,10 @@ export function registerScriptModule(record: RuntimeScriptModuleRecord): void {
 
 export async function runScriptModule<TScope>(moduleId: string, scope?: TScope, options?: RuntimeScriptModuleRunOptions): Promise<void> {
   return getEngine().runScriptModule(moduleId, scope, options)
+}
+
+export async function runScriptModuleFrom<TScope>(moduleId: string, options?: RuntimeScriptModuleRunFromOptions<TScope>): Promise<void> {
+  return getEngine().runScriptModuleFrom(moduleId, options)
 }
 
 export function getLocale(): string {
@@ -81,6 +89,18 @@ export async function dialogue<TScope = GameStepScope>(steps: GameStepSource<TSc
  */
 export async function rewind(stepUUID: string): Promise<void> {
   return getEngine().rewind(stepUUID)
+}
+
+export async function jumpToChoice(choiceId: string, options?: ChoiceJumpOptions): Promise<void> {
+  return getEngine().jumpToChoice(choiceId, options)
+}
+
+export async function resolveStoryTarget(target: ChoiceTarget): Promise<ResolvedStoryJump> {
+  return getEngine().resolveStoryTarget(target)
+}
+
+export function registerStoryTargetResolver(resolver: StoryTargetResolver): () => void {
+  return getEngine().registerStoryTargetResolver(resolver)
 }
 
 /**
@@ -193,6 +213,10 @@ export function unregisterRollbackStore(name: string): void {
  */
 export async function getAssetMetadata(type: 'audio' | 'images' | 'characters' | 'video' | 'fonts' | 'scripts' | 'data', assetName: string): Promise<any> {
   return getEngine().getAssetMetadata(type, assetName)
+}
+
+export async function resolveStoryAssetRef(ref: StoryAssetRef): Promise<ResolvedStoryAsset> {
+  return getEngine().resolveStoryAssetRef(ref)
 }
 
 /**

@@ -21,6 +21,9 @@ import type {
   BackgroundIntent,
   CharacterIntent,
   ChoiceIntent,
+  ChoiceJumpOptions,
+  ChoicePresentation,
+  ChoiceTarget,
   CreateCheckpointOptions,
   DialogueIntent,
   EffectIntent,
@@ -51,16 +54,24 @@ import type {
   RuntimePackageManifest,
   RuntimePackagePluginManifest,
   QuaEngineInterface,
+  ResolvedStoryJump,
+  ResolvedStoryAsset,
   RuntimePackageStateRecord,
   RuntimePackageStoreMigrationManifest,
   RuntimePackageUnloadOptions,
   RuntimeScriptModuleRecord,
   RuntimeScriptModuleRunOptions,
+  RuntimeScriptModuleRunFromOptions,
   Scene,
+  SceneEnterContext,
+  SceneFactory,
   SetLocaleOptions,
   SlotMetadata,
   StepContext,
   StoryPoint,
+  StoryAssetRef,
+  StoryTargetResolveContext,
+  StoryTargetResolver,
   TranslateInput,
   UiIntent,
   ViewLayoutInput,
@@ -85,6 +96,7 @@ import { RuntimeContentManager } from '../runtime-content/manager'
 import { createRollbackConfig, isSerializedRollbackJournal, RollbackController } from './rollback'
 import type { RollbackStoreSaveData } from './rollback'
 import { resolveGameSteps } from './script'
+import { assertSerializableSceneState, isChoiceTarget } from './story-targets'
 import { createInitialEngineState } from './types'
 
 const logger = getPackageLogger('engine')
@@ -112,6 +124,8 @@ export class QuaEngine {
   private readonly plugins: Map<string, EnginePlugin> = new Map()
   private readonly pluginContext: PluginContextImpl = new PluginContextImpl()
   private readonly flowControlDisposers: Array<() => void> = []
+  private readonly storyTargetResolvers: StoryTargetResolver[] = []
+  private readonly sceneFactories = new Map<string, SceneFactory>()
   private readonly runtimeContentManager: RuntimeContentManager
   private readonly rollbackController: RollbackController
   private currentStepAbortController?: AbortController
@@ -315,6 +329,11 @@ export class QuaEngine {
     await this.runtimeContentManager.runScriptModule(moduleId, scope, options)
   }
 
+  async runScriptModuleFrom<TScope>(moduleId: string, options: RuntimeScriptModuleRunFromOptions<TScope> = {}): Promise<void> {
+    this.assertInitialized()
+    await this.runtimeContentManager.runScriptModuleFrom(moduleId, options)
+  }
+
   async ensureRuntimePackages(packageIds: readonly string[]): Promise<void> {
     this.assertInitialized()
     await this.runtimeContentManager.ensureRuntimePackages(packageIds)
@@ -362,9 +381,22 @@ export class QuaEngine {
     return await operation(packageId ? createRuntimePackageEngineFacade(this, packageId) : this)
   }
 
-  async loadScene(scene: Scene, transition?: SceneTransitionOptions): Promise<void> {
+  registerScene(sceneId: string, factory: SceneFactory): () => void {
+    this.sceneFactories.set(sceneId, factory)
+    return () => {
+      if (this.sceneFactories.get(sceneId) === factory) {
+        this.sceneFactories.delete(sceneId)
+      }
+    }
+  }
+
+  hasScene(sceneId: string): boolean {
+    return this.sceneFactories.has(sceneId)
+  }
+
+  async loadScene(scene: Scene, transition?: SceneTransitionOptions, enterContext?: SceneEnterContext): Promise<void> {
     this.assertInitialized()
-    await this.sceneManager.loadScene(scene, transition)
+    await this.sceneManager.loadScene(scene, transition, enterContext)
   }
 
   async dialogue(steps: GameStep[]): Promise<void>
@@ -501,10 +533,22 @@ export class QuaEngine {
 
   async showChoices(choices: ChoiceIntent[]): Promise<void> {
     this.assertInitialized()
-    const normalized = choices.map(choice => ({
-      ...this.withCurrentRuntimeContentMetadata(choice),
-      enabled: choice.enabled !== false,
-    }))
+    const normalized = choices.map((choice) => {
+      const projected = this.withCurrentRuntimeContentMetadata(choice)
+      const contentPackageId = this.getCurrentRuntimePackageId()
+      const presentation = contentPackageId && projected.presentation
+        ? tagChoicePresentationWithRuntimePackage(projected.presentation, contentPackageId)
+        : projected.presentation
+      const projectedChoice = {
+        ...projected,
+        presentation,
+      }
+      return {
+        ...projectedChoice,
+        enabled: choice.enabled !== false,
+        metadata: normalizeChoiceMetadata(projectedChoice),
+      }
+    })
     this.store.commit('setChoices', normalized)
     if (normalized.length > 0) {
       await this.createInternalRollbackAnchor('choice', {
@@ -615,6 +659,22 @@ export class QuaEngine {
   async getAssetMetadata(type: 'audio' | 'images' | 'characters' | 'video' | 'fonts' | 'scripts' | 'data', assetName: string): Promise<unknown> {
     this.assertInitialized()
     return await this.assets.getMediaMetadata(type, assetName)
+  }
+
+  async resolveStoryAssetRef(ref: StoryAssetRef): Promise<ResolvedStoryAsset> {
+    this.assertInitialized()
+    const targetPackageId = ref.runtimePackageId
+    if (targetPackageId) {
+      await this.ensureRuntimePackages([targetPackageId])
+    }
+    const asset = await this.assets.getAsset(ref.type, ref.name, targetPackageId ? { targetPackageId } : undefined)
+    const contentPackageId = ref.runtimePackageId || targetPackageId || getAssetRuntimePackageId(asset)
+    return {
+      ref: cloneStoryAssetRef(ref),
+      asset,
+      contentPackageId,
+      requiredRuntimePackages: contentPackageId ? [contentPackageId] : [],
+    }
   }
 
   async showUI(elementId: string, config: Record<string, unknown> = {}): Promise<void> {
@@ -972,6 +1032,228 @@ export class QuaEngine {
         this.rollbackController.recordInput(event, payload)
         return payload
       })
+  }
+
+  registerStoryTargetResolver(resolver: StoryTargetResolver): () => void {
+    this.storyTargetResolvers.push(resolver)
+    return () => {
+      const index = this.storyTargetResolvers.indexOf(resolver)
+      if (index !== -1) {
+        this.storyTargetResolvers.splice(index, 1)
+      }
+    }
+  }
+
+  async jumpToChoice(choiceId: string, options: ChoiceJumpOptions = {}): Promise<void> {
+    this.assertInitialized()
+    const choice = this.getViewState().choices.find(item => item.id === choiceId)
+    if (!choice) {
+      throw new Error(`Unable to resolve choice "${choiceId}" from current engine-owned choices.`)
+    }
+    if (choice.enabled === false) {
+      throw new Error(`Cannot jump through disabled choice "${choiceId}".`)
+    }
+    const target = (choice as { target?: ChoiceTarget }).target || getChoiceMetadataTarget(choice.metadata)
+    if (!target) {
+      throw new Error(`Choice "${choiceId}" does not declare a structured jump target.`)
+    }
+
+    const resolved = await this.resolveStoryTarget(target, {
+      choiceId,
+      source: 'choice',
+    })
+    const requiredRuntimePackages = mergeRequiredRuntimePackages(
+      target.requiredRuntimePackages as string[] | undefined,
+      resolved.requiredRuntimePackages as string[] | undefined,
+      getMetadataRequiredRuntimePackages(choice.metadata as Record<string, unknown> | undefined),
+    )
+    if (requiredRuntimePackages.length > 0) {
+      await this.ensureRuntimePackages(requiredRuntimePackages)
+    }
+
+    if (options.clearChoices !== false) {
+      await this.clearChoices()
+    }
+
+    if (resolved.scene) {
+      await this.enterResolvedScene(resolved, choiceId, options)
+      return
+    }
+    if (resolved.checkpoint) {
+      await this.jumpTo(resolved.checkpoint, options)
+    }
+    else if (resolved.point) {
+      await this.jumpTo(resolved.point, options)
+    }
+    if (resolved.script && options.runTarget !== false) {
+      await this.runScriptModuleFrom(resolved.script.moduleId, {
+        locale: this.getLocale(),
+        nodeId: resolved.script.nodeId,
+        labelId: resolved.script.labelId,
+        entryId: resolved.script.entryId,
+        stepId: resolved.script.stepId,
+        packageId: resolved.script.packageId,
+        scope: resolved.script.scope,
+      })
+    }
+  }
+
+  async resolveStoryTarget(target: ChoiceTarget, context: Partial<StoryTargetResolveContext> = {}): Promise<ResolvedStoryJump> {
+    this.assertInitialized()
+    const resolvedContext: StoryTargetResolveContext = {
+      engine: this,
+      assets: this.assets,
+      target,
+      currentPoint: context.currentPoint || this.getStoryPoint(),
+      currentSceneId: context.currentSceneId || this.getCurrentSceneName(),
+      choiceId: context.choiceId,
+      source: context.source,
+    }
+    const direct = await this.resolveBuiltInStoryTarget(target, resolvedContext)
+    if (direct) {
+      return direct
+    }
+
+    const fromResolvers = await this.resolveStoryTargetFromResolvers(target, resolvedContext)
+    if (fromResolvers) {
+      return fromResolvers
+    }
+
+    const loaded = await this.runtimeContentManager.resolveStoryTargetFromRegistry(target, resolvedContext)
+    if (loaded) {
+      const afterLoad = await this.resolveBuiltInStoryTarget(target, resolvedContext)
+        || await this.resolveStoryTargetFromResolvers(target, resolvedContext)
+      if (afterLoad) {
+        return afterLoad
+      }
+    }
+
+    throw new Error(`Unable to resolve story target: ${JSON.stringify(target)}`)
+  }
+
+  private async resolveBuiltInStoryTarget(target: ChoiceTarget, context: StoryTargetResolveContext): Promise<ResolvedStoryJump | undefined> {
+    switch (target.kind) {
+      case 'checkpoint': {
+        const checkpoint = this.getCheckpoint(target.id)
+        return checkpoint
+          ? {
+              target,
+              checkpoint,
+              point: checkpoint.point,
+              requiredRuntimePackages: getMetadataRequiredRuntimePackages(checkpoint.metadata),
+            }
+          : undefined
+      }
+      case 'scene': {
+        assertSerializableSceneState(target.state)
+        if (!this.sceneFactories.has(target.sceneId)) {
+          return undefined
+        }
+        return {
+          target,
+          requiredRuntimePackages: mergeRequiredRuntimePackages(target.requiredRuntimePackages as string[] | undefined),
+          scene: {
+            sceneId: target.sceneId,
+            entry: target.entry,
+            initialState: target.state,
+            transition: target.transition,
+          },
+          point: {
+            ...createSceneTargetBasePoint(context.currentPoint),
+            sceneId: target.sceneId,
+            entryId: target.entry,
+            stepId: target.entry || target.sceneId,
+          },
+        }
+      }
+      case 'script': {
+        assertSerializableSceneState(target.scope)
+        return {
+          target,
+          requiredRuntimePackages: mergeRequiredRuntimePackages(
+            target.requiredRuntimePackages as string[] | undefined,
+            target.packageId ? [target.packageId] : [],
+          ),
+          point: {
+            ...(context.currentPoint || {}),
+            nodeId: target.nodeId || context.currentPoint?.nodeId,
+            labelId: target.labelId || context.currentPoint?.labelId,
+            entryId: target.entryId || context.currentPoint?.entryId,
+            stepId: target.stepId || target.labelId || target.nodeId || target.entryId || target.moduleId,
+            contentPackageId: target.packageId || context.currentPoint?.contentPackageId,
+            scriptModuleId: target.moduleId,
+          },
+          script: {
+            moduleId: target.moduleId,
+            nodeId: target.nodeId,
+            labelId: target.labelId,
+            entryId: target.entryId,
+            stepId: target.stepId,
+            packageId: target.packageId,
+            scope: target.scope,
+          },
+        }
+      }
+      default:
+        return undefined
+    }
+  }
+
+  private async resolveStoryTargetFromResolvers(target: ChoiceTarget, context: StoryTargetResolveContext): Promise<ResolvedStoryJump | undefined> {
+    for (let index = this.storyTargetResolvers.length - 1; index >= 0; index--) {
+      const resolved = await this.storyTargetResolvers[index](target, context)
+      if (resolved) {
+        return resolved
+      }
+    }
+    return undefined
+  }
+
+  private async enterResolvedScene(resolved: ResolvedStoryJump, choiceId: string | undefined, options: ChoiceJumpOptions): Promise<void> {
+    const sceneTarget = resolved.scene
+    if (!sceneTarget) {
+      return
+    }
+
+    assertSerializableSceneState(sceneTarget.initialState)
+    const factory = this.sceneFactories.get(sceneTarget.sceneId)
+    if (!factory) {
+      throw new Error(`Scene target "${sceneTarget.sceneId}" resolved, but no scene factory is registered.`)
+    }
+
+    const fromPoint = this.getStoryPoint()
+    await this.rollbackController.markBoundary('scene', {
+      reason: options.reason || 'choice-scene-jump',
+      choiceId,
+      target: resolved.target,
+      requiredRuntimePackages: resolved.requiredRuntimePackages,
+    })
+    const scene = await factory()
+    const enterContext: SceneEnterContext = {
+      sceneId: sceneTarget.sceneId,
+      entry: sceneTarget.entry,
+      initialState: sceneTarget.initialState,
+      transition: sceneTarget.transition,
+      reason: options.reason || 'choice-scene-jump',
+      choiceId,
+      target: resolved.target,
+      fromScene: this.getCurrentSceneName(),
+      fromPoint,
+      requiredRuntimePackages: resolved.requiredRuntimePackages,
+    }
+    await this.loadScene(scene, sceneTarget.transition, enterContext)
+    const point = resolved.point || {
+      ...(fromPoint || {}),
+      sceneId: sceneTarget.sceneId,
+      entryId: sceneTarget.entry,
+      stepId: sceneTarget.entry || sceneTarget.sceneId,
+    }
+    this.store.commit('setStoryPoint', point)
+    this.store.commit('setCurrentStep', {
+      stepId: point.stepId,
+      stepHistory: this.truncateStepHistory(point.stepId),
+    })
+    await this.emitViewUpdate()
   }
 
   async jumpTo(target: JumpTarget, options: JumpOptions = {}): Promise<void> {
@@ -1773,6 +2055,7 @@ function createEngineMutations() {
           ...payload,
           dependencies: [...payload.dependencies],
           scriptModuleIds: [...payload.scriptModuleIds],
+          sceneIds: [...payload.sceneIds],
           pluginIds: [...payload.pluginIds],
           migrationIds: [...payload.migrationIds],
           localePack: cloneRuntimeLocalePack(payload.localePack),
@@ -1948,6 +2231,9 @@ function createEngineMutations() {
         id: choice.id,
         text: choice.text,
         enabled: choice.enabled !== false,
+        target: choice.target ? cloneUnknownValue(choice.target) : undefined,
+        unavailable: choice.unavailable ? cloneUnknownValue(choice.unavailable) : undefined,
+        presentation: choice.presentation ? cloneUnknownValue(choice.presentation) : undefined,
         metadata: choice.metadata,
       }))
     },
@@ -2174,6 +2460,42 @@ function cloneStoryPoint(point: StoryPoint): StoryPoint {
   return { ...point }
 }
 
+function cloneStoryAssetRef(ref: StoryAssetRef): StoryAssetRef {
+  return {
+    ...ref,
+    focalPoint: ref.focalPoint ? { ...ref.focalPoint } : undefined,
+    metadata: ref.metadata ? cloneUnknownRecord(ref.metadata) : undefined,
+  }
+}
+
+function createSceneTargetBasePoint(point: StoryPoint | undefined): Partial<StoryPoint> {
+  if (!point) {
+    return {}
+  }
+  const {
+    entryId,
+    labelId,
+    lineId,
+    nodeId,
+    scriptModuleId,
+    scriptModuleLocale,
+    scriptModuleVersion,
+    stepId,
+    contentPackageId,
+    ...base
+  } = point
+  void entryId
+  void labelId
+  void lineId
+  void nodeId
+  void scriptModuleId
+  void scriptModuleLocale
+  void scriptModuleVersion
+  void stepId
+  void contentPackageId
+  return base
+}
+
 function createStoryPointReadKey(point: StoryPoint | undefined): string | undefined {
   if (!point?.stepId) {
     return undefined
@@ -2234,6 +2556,50 @@ function getMetadataRequiredRuntimePackages(metadata?: Record<string, unknown>):
     : []
 }
 
+function normalizeChoiceMetadata(choice: ChoiceIntent): Record<string, unknown> | undefined {
+  const next = choice.metadata ? cloneUnknownRecord(choice.metadata) : {}
+  if (choice.target) {
+    next.jumpTarget = cloneUnknownValue(choice.target)
+  }
+  if (choice.presentation) {
+    next.presentation = cloneUnknownValue(choice.presentation)
+  }
+  if (choice.unavailable) {
+    next.unavailable = cloneUnknownValue(choice.unavailable)
+  }
+  const requiredRuntimePackages = mergeRequiredRuntimePackages(
+    getMetadataRequiredRuntimePackages(next),
+    choice.target?.requiredRuntimePackages as string[] | undefined,
+  )
+  if (requiredRuntimePackages.length > 0) {
+    next.requiredRuntimePackages = requiredRuntimePackages
+  }
+  return Object.keys(next).length > 0 ? next : undefined
+}
+
+function tagChoicePresentationWithRuntimePackage(presentation: ChoicePresentation, packageId: string): ChoicePresentation {
+  return {
+    ...presentation,
+    thumbnail: presentation.thumbnail ? tagStoryAssetRefWithRuntimePackage(presentation.thumbnail, packageId) : undefined,
+    background: presentation.background ? tagStoryAssetRefWithRuntimePackage(presentation.background, packageId) : undefined,
+    image: presentation.image ? tagStoryAssetRefWithRuntimePackage(presentation.image, packageId) : undefined,
+  }
+}
+
+function tagStoryAssetRefWithRuntimePackage(ref: StoryAssetRef, packageId: string): StoryAssetRef {
+  return ref.runtimePackageId
+    ? cloneStoryAssetRef(ref)
+    : {
+        ...cloneStoryAssetRef(ref),
+        runtimePackageId: packageId,
+      }
+}
+
+function getChoiceMetadataTarget(metadata: Readonly<Record<string, unknown>> | undefined): ChoiceTarget | undefined {
+  const target = metadata?.jumpTarget
+  return isChoiceTarget(target) ? target : undefined
+}
+
 function getRecordRuntimePackages(value: unknown): string[] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return []
@@ -2243,6 +2609,10 @@ function getRecordRuntimePackages(value: unknown): string[] {
     typeof record.contentPackageId === 'string' ? [record.contentPackageId] : [],
     getMetadataRequiredRuntimePackages(record),
   )
+}
+
+function getAssetRuntimePackageId(asset: { runtimePackageId?: string, bundleName?: string }): string | undefined {
+  return asset.runtimePackageId || (asset.bundleName?.startsWith('runtime.') ? asset.bundleName : undefined)
 }
 
 function recordRequiresPackage(value: unknown, packageId: string): boolean {

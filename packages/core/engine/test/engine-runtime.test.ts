@@ -4,7 +4,7 @@ import type { RuntimePackageTrustContext } from '../src'
 import { MemoryAssetStorage } from '@quajs/assets'
 import { createStore, MemoryBackend } from '@quajs/store'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createViewLayoutProjection, emitRenderToLogic, LogicToRenderEvents, onLogicToRender, QuaEngine, RenderToLogicEvents, UiOverlayPlugin } from '../src'
+import { createViewLayoutProjection, emitRenderToLogic, LogicToRenderEvents, onLogicToRender, QuaEngine, RenderToLogicEvents, Scene, UiOverlayPlugin } from '../src'
 
 describe('quaEngine runtime architecture', () => {
   afterEach(async () => {
@@ -352,6 +352,232 @@ describe('quaEngine runtime architecture', () => {
     expect(engine.getViewState().choices).toEqual([])
     expect(engine.getCheckpoint('line:first')).toEqual(checkpoint)
     expect(hooks).toEqual(['before', 'after'])
+  })
+
+  it('resolves structured choice targets through engine-owned story target resolvers', async () => {
+    const engine = createEngine()
+    await engine.init()
+    engine.registerStoryTargetResolver((target) => {
+      if (target.kind !== 'node' || (target as any).id !== 'library') {
+        return undefined
+      }
+      return {
+        target,
+        point: { sceneId: 'school', nodeId: 'library', stepId: 'library-step' },
+        requiredRuntimePackages: ['runtime.library'],
+      }
+    })
+
+    await engine.setStoryPoint({ sceneId: 'school', nodeId: 'start', stepId: 'start' })
+    await engine.showChoices([{
+      id: 'go-library',
+      text: 'Go library',
+      target: { kind: 'node', id: 'library', requiredRuntimePackages: ['runtime.library'] } as any,
+    }])
+
+    await expect(engine.jumpToChoice('go-library')).rejects.toThrow('Required runtime package "runtime.library" is not active')
+  })
+
+  it('enters registered scenes from explicit scene choice targets with initial state', async () => {
+    const engine = createEngine()
+    await engine.init()
+    const received: unknown[] = []
+    class DormScene extends Scene {
+      readonly name = 'dorm'
+      init(ctx?: any) { received.push(['init', ctx?.entry, ctx?.initialState]) }
+      run(ctx?: any) { received.push(['run', ctx?.entry, ctx?.initialState]) }
+    }
+    engine.registerScene('dorm', () => new DormScene())
+    await engine.setStoryPoint({
+      storyId: 'main',
+      chapterId: 'chapter-1',
+      sceneId: 'library',
+      nodeId: 'library.enter',
+      labelId: 'old-label',
+      stepId: 'library-step',
+      contentPackageId: 'runtime.library',
+      scriptModuleId: 'runtime.library.scene',
+      scriptModuleVersion: '1.0.0',
+    } as any)
+    await engine.showChoices([{
+      id: 'return-dorm',
+      text: 'Return dorm',
+      target: { kind: 'scene', sceneId: 'dorm', entry: 'nightReturn', state: { from: 'library' } } as any,
+    }])
+
+    await engine.jumpToChoice('return-dorm')
+
+    expect(received).toEqual([
+      ['init', 'nightReturn', { from: 'library' }],
+      ['run', 'nightReturn', { from: 'library' }],
+    ])
+    expect(engine.getCurrentSceneName()).toBe('dorm')
+    expect(engine.getStoryPoint()).toEqual(expect.objectContaining({
+      storyId: 'main',
+      chapterId: 'chapter-1',
+      sceneId: 'dorm',
+      entryId: 'nightReturn',
+      stepId: 'nightReturn',
+    }))
+    expect(engine.getStoryPoint()).not.toEqual(expect.objectContaining({
+      nodeId: 'library.enter',
+      labelId: 'old-label',
+      contentPackageId: 'runtime.library',
+      scriptModuleId: 'runtime.library.scene',
+      scriptModuleVersion: '1.0.0',
+    }))
+  })
+
+  it('loads QPK scene factories through the runtime package registry before entering scene targets', async () => {
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.dorm.scene',
+      version: '1.0.0',
+      scenes: [{ id: 'dorm', version: '1.0.0', assetName: 'dorm-scene.js', exportName: 'createScene' }],
+    })
+    const qpk = createQpkBundle(manifest, new Map([
+      ['assets/scripts/dorm-scene.js', utf8('export function createScene() { return { name: "dorm", init() {}, run() {} } }')],
+    ]))
+    const received: unknown[] = []
+    const resolveStoryTarget = vi.fn(async target => target.kind === 'scene' && target.sceneId === 'dorm' ? 'dorm-scene.qpk' : undefined)
+    const loadSceneModule = vi.fn(async () => ({
+      createScene: () => ({
+        name: 'dorm',
+        init: (ctx?: any) => received.push(['init', ctx?.entry, ctx?.initialState, ctx?.requiredRuntimePackages]),
+        run: (ctx?: any) => received.push(['run', ctx?.entry, ctx?.initialState, ctx?.requiredRuntimePackages]),
+      }),
+    }))
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/dorm-scene.qpk': qpk,
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      runtimePackageRegistry: {
+        resolvePackage: vi.fn(async () => undefined),
+        resolveStoryTarget,
+      },
+      runtimeModuleLoader: {
+        loadSceneModule,
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+    await engine.setStoryPoint({
+      storyId: 'main',
+      chapterId: 'chapter-1',
+      sceneId: 'library',
+      nodeId: 'library.enter',
+      stepId: 'library-step',
+      contentPackageId: 'runtime.library',
+      scriptModuleId: 'runtime.library.scene',
+    })
+    await engine.showChoices([{
+      id: 'return-dorm',
+      text: 'Return dorm',
+      target: {
+        kind: 'scene',
+        sceneId: 'dorm',
+        entry: 'nightReturn',
+        state: { from: 'library' },
+        requiredRuntimePackages: ['runtime.dorm.scene'],
+      } as any,
+    }])
+
+    await engine.jumpToChoice('return-dorm')
+
+    expect(resolveStoryTarget).toHaveBeenCalledTimes(1)
+    expect(resolveStoryTarget.mock.calls[0][0]).toEqual(expect.objectContaining({ kind: 'scene', sceneId: 'dorm' }))
+    expect(resolveStoryTarget.mock.calls[0][1].currentPoint).toEqual(expect.objectContaining({ sceneId: 'library' }))
+    expect(loadSceneModule).toHaveBeenCalledTimes(1)
+    expect(loadSceneModule.mock.calls[0][0]).toEqual(expect.objectContaining({ id: 'dorm', assetName: 'dorm-scene.js' }))
+    expect(loadSceneModule.mock.calls[0][1].package.id).toBe('runtime.dorm.scene')
+    expect(engine.getRuntimePackages()).toEqual([expect.objectContaining({
+      id: 'runtime.dorm.scene',
+      state: 'active',
+      sceneIds: ['dorm'],
+    })])
+    expect(received).toEqual([
+      ['init', 'nightReturn', { from: 'library' }, ['runtime.dorm.scene']],
+      ['run', 'nightReturn', { from: 'library' }, ['runtime.dorm.scene']],
+    ])
+    expect(engine.getCurrentSceneName()).toBe('dorm')
+    expect(engine.getStoryPoint()).toEqual(expect.objectContaining({
+      storyId: 'main',
+      chapterId: 'chapter-1',
+      sceneId: 'dorm',
+      entryId: 'nightReturn',
+      stepId: 'nightReturn',
+    }))
+    expect(engine.getStoryPoint()).not.toEqual(expect.objectContaining({
+      contentPackageId: 'runtime.library',
+      scriptModuleId: 'runtime.library.scene',
+      nodeId: 'library.enter',
+    }))
+
+    await engine.unloadRuntimePackage('runtime.dorm.scene', { force: true })
+    expect(engine.hasScene('dorm')).toBe(false)
+    resolveStoryTarget.mockResolvedValue(undefined)
+    await expect(engine.resolveStoryTarget({ kind: 'scene', sceneId: 'dorm', entry: 'nightReturn' } as any))
+      .rejects.toThrow('Unable to resolve story target')
+  })
+
+  it('resolves story asset refs through engine-owned assets without creating renderer URLs', async () => {
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.story.assets',
+      version: '1.0.0',
+    })
+    manifest.assets.images = {
+      'story/library.png': createImageAssetInfo('story/library.png'),
+    }
+    const qpk = createQpkBundle(manifest, new Map([
+      ['assets/images/story/library.png', utf8('PNG')],
+    ]))
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/story-assets.qpk': qpk,
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      runtimePackageRegistry: {
+        resolvePackage: vi.fn(packageId => packageId === 'runtime.story.assets' ? 'story-assets.qpk' : undefined),
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+
+    const resolved = await engine.resolveStoryAssetRef({
+      type: 'images',
+      name: 'story/library.png',
+      runtimePackageId: 'runtime.story.assets',
+      alt: 'Library',
+    })
+
+    expect(new TextDecoder().decode(resolved.asset.data)).toBe('PNG')
+    expect(resolved.asset.runtimePackageId).toBe('runtime.story.assets')
+    expect(resolved.contentPackageId).toBe('runtime.story.assets')
+    expect(resolved.requiredRuntimePackages).toEqual(['runtime.story.assets'])
+    expect(resolved.ref).toEqual({
+      type: 'images',
+      name: 'story/library.png',
+      runtimePackageId: 'runtime.story.assets',
+      alt: 'Library',
+    })
   })
 
   it('rolls back statements through silent replay and emits only the final projection', async () => {
@@ -2468,6 +2694,7 @@ function createRuntimeBundleManifest(runtimePackage: RuntimePackageManifest): Bu
     assets: {
       scripts: Object.fromEntries([
         ...(runtimePackage.scripts || []).map(script => [script.assetName, createScriptAssetInfo(script.assetName)]),
+        ...(runtimePackage.scenes || []).map(scene => [scene.assetName, createScriptAssetInfo(scene.assetName)]),
         ...(runtimePackage.plugins || [])
           .filter(plugin => plugin.assetName)
           .map(plugin => [plugin.assetName!, createScriptAssetInfo(plugin.assetName!)]),
@@ -2504,6 +2731,19 @@ function createDataAssetInfo(name: string, locales = ['default']) {
     type: 'data' as const,
     locales,
     mimeType: 'application/json',
+  }
+}
+
+function createImageAssetInfo(name: string, locales = ['default']) {
+  return {
+    name,
+    path: `images/${name}`,
+    relativePath: `images/${name}`,
+    size: 0,
+    hash: '',
+    type: 'images' as const,
+    locales,
+    mimeType: 'image/png',
   }
 }
 
