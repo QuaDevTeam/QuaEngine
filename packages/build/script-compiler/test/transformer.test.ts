@@ -3,7 +3,7 @@ import { animationDecoratorMappings } from '@quajs/plugin-animation'
 import { audioDecoratorMappings } from '@quajs/plugin-audio'
 import { backgroundDecoratorMappings } from '@quajs/plugin-background'
 import { describe, expect, it } from 'vitest'
-import { compileQuaScriptModuleToTs, createPluginAwareTransformerAsync, generateQuaScriptModuleDeclaration } from '../src'
+import { compileQuaScriptModuleToTs, createPluginAwareTransformerAsync, extractQuaScriptStoryDeclaration, generateQuaScriptModuleDeclaration } from '../src'
 import { QuaScriptTransformer } from '../src/core/transformer'
 import { mergeDecoratorMappings } from '../src/core/types'
 
@@ -242,6 +242,7 @@ Yuki: Hello \${scope.playerName}
       function scene1() {
         dialogue(qs\`
           @Chapter('chapter-1')
+          @Entry('nightReturn')
           @NoBacklog
           Jack: Hidden line.
         \`)
@@ -252,10 +253,96 @@ Yuki: Hello \${scope.playerName}
 
     expect(result).toContain('setStoryMetadataWithEngine(ctx.engine, {')
     expect(result).toContain('chapterId: "chapter-1"')
+    expect(result).toContain('entryId: "nightReturn"')
     expect(result).toContain('setBacklogPolicyWithEngine(ctx.engine, {')
     expect(result).toContain('include: false')
     expect(result).toContain('from "@quajs/story-graph"')
     expect(result).toContain('from "@quajs/plugin-backlog"')
+  })
+
+  it('compiles entry decorators into step story metadata', () => {
+    const transformer = new QuaScriptTransformer()
+    const result = transformer.transformSource(`
+      function scene1() {
+        dialogue(qs\`
+          @Scene('dorm')
+          @Entry('nightReturn')
+          Yuki: Back home.
+        \`)
+      }
+    `)
+
+    expect(result).toContain('metadata: {')
+    expect(result).toContain('point: {')
+    expect(result).toContain('sceneId: "dorm"')
+    expect(result).toContain('entryId: "nightReturn"')
+  })
+
+  it('keeps entry metadata active across story declarations', () => {
+    const story = extractQuaScriptStoryDeclaration(`
+@Scene('library')
+@Entry('main')
+
+@Node('library.enter', { title: 'Library' })
+Yuki: We arrived.
+- Continue -> #afterIntro
+    `, { moduleId: 'runtime.story.library', runtimePackageId: 'runtime.story' })
+
+    expect(story.entries[0]).toEqual(expect.objectContaining({
+      id: 'main',
+      point: expect.objectContaining({ sceneId: 'library', entryId: 'main' }),
+    }))
+    expect(story.nodes[0].point).toEqual(expect.objectContaining({
+      sceneId: 'library',
+      entryId: 'main',
+      nodeId: 'library.enter',
+      scriptModuleId: 'runtime.story.library',
+      contentPackageId: 'runtime.story',
+    }))
+    expect(story.choices[0].point).toEqual(expect.objectContaining({
+      sceneId: 'library',
+      entryId: 'main',
+      nodeId: 'library.enter',
+    }))
+  })
+
+  it('adds runtime package provenance to story asset refs in declarations', () => {
+    const story = extractQuaScriptStoryDeclaration(`
+@Scene('library', { thumbnail: image('story/library-scene.png') })
+@Entry('main', { thumbnail: image('story/library-entry.png') })
+@Node('library.enter', { title: 'Library', thumbnail: image('story/library.png') })
+Yuki: We arrived.
+    `, { moduleId: 'runtime.story.library', runtimePackageId: 'runtime.story' })
+
+    expect(story.scenes[0].metadata?.thumbnail).toEqual({ type: 'images', name: 'story/library-scene.png', runtimePackageId: 'runtime.story' })
+    expect(story.entries?.[0].metadata?.thumbnail).toEqual({ type: 'images', name: 'story/library-entry.png', runtimePackageId: 'runtime.story' })
+    expect(story.nodes[0].presentation?.thumbnail).toEqual({ type: 'images', name: 'story/library.png', runtimePackageId: 'runtime.story' })
+  })
+
+  it('resets lower-level story declaration metadata when scene changes', () => {
+    const story = extractQuaScriptStoryDeclaration(`
+@Scene('library')
+@Entry('main')
+@Node('library.enter')
+Yuki: We arrived.
+
+@Scene('dorm')
+@Node('dorm.start')
+Yuki: Back home.
+    `)
+
+    expect(story.nodes[0].point).toEqual(expect.objectContaining({
+      sceneId: 'library',
+      entryId: 'main',
+      nodeId: 'library.enter',
+    }))
+    expect(story.nodes[1].point).toEqual(expect.objectContaining({
+      sceneId: 'dorm',
+      nodeId: 'dorm.start',
+    }))
+    expect(story.nodes[1].point).not.toEqual(expect.objectContaining({
+      entryId: 'main',
+    }))
   })
 
   it('rejects invalid script blocks while generating declarations', () => {
@@ -568,13 +655,39 @@ Yuki: Hello
     expect(result).toContain('await ctx.engine.waitFor("user/choice_select"')
     expect(result).toContain('await ctx.engine.clearChoices()')
     expect(result).toContain('ctx.choice = selected')
-    expect(result).toContain('target: "outside"')
+    expect(result).toContain('target: {')
+    expect(result).toContain('kind: "node"')
+    expect(result).toContain('id: "outside"')
+    expect(result).toContain('jumpTarget: {')
     expect(result).toContain('storyGraph: {')
     expect(result).toContain('edge: {')
     expect(result).toContain('kind: "choice"')
     expect(result).toContain('to: "outside"')
-    expect(result).toContain('target: "home"')
     expect(result).toContain('enabled: flags.canStayHome')
+  })
+
+  it('transforms @Choice decorators with helper targets and presentation metadata', () => {
+    const result = compileQuaScriptModuleToTs(`
+<script setup lang="ts">
+const canEnterLibrary = scope.hasKey
+</script>
+
+@Choice('Go library', node('library'), {
+  when: canEnterLibrary,
+  unavailable: { mode: 'disabled', reason: 'Need key' },
+  presentation: { thumbnail: image('story/library.png') }
+})
+@Choice('Return dorm', scene('dorm', { entry: 'nightReturn', state: { from: 'library' } }))
+    `, { hotReload: false })
+
+    expect(result).toContain('import { node, image, scene } from "@quajs/engine"')
+    expect(result).toContain('text: "Go library"')
+    expect(result).toContain("target: node('library')")
+    expect(result).toContain('enabled: canEnterLibrary')
+    expect(result).toContain('unavailable: {')
+    expect(result).toContain("thumbnail: image('story/library.png')")
+    expect(result).toContain("target: scene('dorm', {")
+    expect(result).toContain("entry: 'nightReturn'")
   })
 
   it('should transform named animation definitions from decorator timelines', () => {

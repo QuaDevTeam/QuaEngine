@@ -21,6 +21,13 @@ interface ParsedLine {
   text: string
 }
 
+interface DecoratorSource {
+  lines: ParsedLine[]
+  offset: number
+  range: SourceRange
+  text: string
+}
+
 interface TemplateScanResult {
   diagnostics: Array<{
     end: number
@@ -118,12 +125,12 @@ export class QuaScriptParser {
         break
       }
 
-      const decorator = this.parseDecorator(line)
+      const { consumedLines, decorator } = this.parseDecoratorAtCurrentPosition()
       if (decorator) {
         decorators.push(decorator)
       }
 
-      this.advance()
+      this.position += consumedLines
     }
 
     let shouldCreateSeparateAction = false
@@ -156,6 +163,16 @@ export class QuaScriptParser {
   private parseStep(): QuaScriptStep | null {
     const { decorators, shouldCreateSeparateAction } = this.parseDecorators()
     this.skipBlankLines()
+
+    const decoratorChoice = this.createChoiceBlockFromDecorators(decorators)
+    if (decoratorChoice) {
+      return {
+        uuid: uuidv4(),
+        type: 'choice',
+        content: decoratorChoice,
+        range: decoratorChoice.range,
+      }
+    }
 
     const choice = this.parseChoiceBlock()
     if (choice) {
@@ -251,6 +268,58 @@ export class QuaScriptParser {
     return null
   }
 
+  private createChoiceBlockFromDecorators(decorators: QuaScriptDecorator[]): QuaScriptChoice | null {
+    const choiceDecorators = decorators.filter(decorator => decorator.name === 'Choice')
+    if (choiceDecorators.length === 0) {
+      return null
+    }
+    if (choiceDecorators.length !== decorators.length) {
+      this.diagnostics.push({
+        message: '@Choice decorators cannot be mixed with non-choice decorators in the same action block.',
+        range: choiceDecorators[0].range,
+        severity: 'error',
+      })
+    }
+
+    const options = choiceDecorators.map((decorator, index): QuaScriptChoice['options'][number] => {
+      const rawText = decorator.args[0]
+      if (typeof rawText !== 'string') {
+        this.diagnostics.push({
+          message: '@Choice requires a string label as its first argument.',
+          range: decorator.range,
+          severity: 'error',
+        })
+      }
+      const text = typeof rawText === 'string' ? rawText : `Choice ${index + 1}`
+      const templateScan = scanTemplateText(text)
+      templateScan.diagnostics.forEach((diagnostic) => {
+        this.diagnostics.push({
+          message: diagnostic.message,
+          range: decorator.range,
+          severity: 'error',
+        })
+      })
+      return {
+        id: getDecoratorChoiceId(decorator.args[2]) || getChoiceTargetId(decorator.args[1]) || this.slugChoiceId(text),
+        text,
+        textRange: decorator.argsRange || decorator.range!,
+        target: decorator.args[1],
+        options: decorator.args[2],
+        templateExpressions: templateScan.expressions,
+        templateExpressionRanges: [],
+        range: decorator.range,
+        source: 'decorator',
+      }
+    })
+    const start = choiceDecorators[0].range?.start
+    const end = choiceDecorators[choiceDecorators.length - 1].range?.end
+    return {
+      type: 'choice',
+      options,
+      range: start && end ? { start, end } : undefined,
+    }
+  }
+
   private parseChoiceBlock(): QuaScriptChoice | null {
     const options: QuaScriptChoice['options'] = []
     const start = this.getCurrentLine()?.range.start
@@ -341,6 +410,7 @@ export class QuaScriptParser {
         ),
       ),
       range: line.range,
+      source: 'sugar',
     }
   }
 
@@ -353,13 +423,45 @@ export class QuaScriptParser {
       || 'choice'
   }
 
-  private parseDecorator(line: ParsedLine): QuaScriptDecorator | null {
-    const decoratorSource = line.text.slice(1)
+  private parseDecoratorAtCurrentPosition(): { consumedLines: number, decorator: QuaScriptDecorator | null } {
+    const line = this.getCurrentLine()
+    if (!line) {
+      return { consumedLines: 1, decorator: null }
+    }
+    const source = this.collectDecoratorSource(line)
+    return {
+      consumedLines: source.lines.length,
+      decorator: this.parseDecorator(source),
+    }
+  }
+
+  private collectDecoratorSource(firstLine: ParsedLine): DecoratorSource {
+    const lines = [firstLine]
+    let text = firstLine.text
+    while (needsMoreDecoratorSource(text) && this.position + lines.length < this.lines.length) {
+      const next = this.lines[this.position + lines.length]
+      text += `\n${next.text}`
+      lines.push(next)
+    }
+    const lastLine = lines[lines.length - 1]
+    return {
+      lines,
+      offset: firstLine.offset,
+      range: {
+        start: firstLine.range.start,
+        end: lastLine.range.end,
+      },
+      text,
+    }
+  }
+
+  private parseDecorator(source: DecoratorSource): QuaScriptDecorator | null {
+    const decoratorSource = source.text.slice(1)
     const name = readIdentifierName(decoratorSource)
     if (!name) {
       this.diagnostics.push({
-        message: `Invalid decorator syntax: ${line.text}`,
-        range: line.range,
+        message: `Invalid decorator syntax: ${source.text}`,
+        range: source.range,
         severity: 'error',
       })
       return null
@@ -369,26 +471,48 @@ export class QuaScriptParser {
     const restLeading = restSource.length - restSource.trimStart().length
     const rest = restSource.trim()
     if (!rest) {
-      return { name, args: [], range: line.range }
+      return { name, args: [], range: source.range }
     }
 
     if (!rest.startsWith('(') || !rest.endsWith(')') || !isBalancedWrapper(rest, '(', ')')) {
       this.diagnostics.push({
         message: `Invalid decorator arguments for @${name}.`,
-        range: line.range,
+        range: source.range,
         severity: 'error',
       })
-      return { name, args: [], range: line.range }
+      return { name, args: [], range: source.range }
     }
 
-    const argsString = rest.slice(1, -1)
-    const argsStart = line.offset + 1 + name.length + restLeading + 1
+    const openLocal = 1 + name.length + restLeading
+    const closeLocal = findWrapperClose(source.text, openLocal, '(', ')')
+    const argsString = source.text.slice(openLocal + 1, closeLocal)
+    const argsStart = this.decoratorLocalOffsetToSourceOffset(source, openLocal + 1)
+    const argsEnd = this.decoratorLocalOffsetToSourceOffset(source, closeLocal)
     return {
       name,
-      args: this.parseDecoratorArgs(argsString, line),
-      argsRange: rangeFromOffsets(this.lineStarts, argsStart, argsStart + argsString.length),
-      range: line.range,
+      args: this.parseDecoratorArgs(argsString, source),
+      argsRange: rangeFromOffsets(this.lineStarts, argsStart, argsEnd),
+      range: source.range,
     }
+  }
+
+  private decoratorLocalOffsetToSourceOffset(source: DecoratorSource, localOffset: number): number {
+    let cursor = 0
+    for (let index = 0; index < source.lines.length; index++) {
+      const line = source.lines[index]
+      const lineTextLength = line.text.length
+      if (localOffset <= cursor + lineTextLength) {
+        return line.offset + (localOffset - cursor)
+      }
+      cursor += lineTextLength
+      if (index < source.lines.length - 1) {
+        if (localOffset === cursor) {
+          return line.range.end.offset
+        }
+        cursor += 1
+      }
+    }
+    return source.lines[source.lines.length - 1].range.end.offset
   }
 
   private createChoiceConditionRange(
@@ -414,7 +538,7 @@ export class QuaScriptParser {
     return rangeFromOffsets(this.lineStarts, start, end)
   }
 
-  private parseDecoratorArgs(argsString: string, line: ParsedLine): QuaScriptDecoratorValue[] {
+  private parseDecoratorArgs(argsString: string, line: Pick<ParsedLine, 'range'>): QuaScriptDecoratorValue[] {
     if (!argsString.trim()) {
       return []
     }
@@ -702,6 +826,14 @@ function isBalancedWrapper(source: string, open: string, close: string): boolean
   return findWrapperClose(source, 0, open, close) === source.length - 1
 }
 
+function needsMoreDecoratorSource(source: string): boolean {
+  const open = source.indexOf('(')
+  if (open === -1) {
+    return false
+  }
+  return findWrapperClose(source, open, '(', ')') === -1
+}
+
 function findWrapperClose(source: string, start: number, open: string, close: string): number {
   let depth = 0
   let quote: '"' | '\'' | '`' | null = null
@@ -801,6 +933,65 @@ function readIdentifierName(source: string): string | null {
     end++
   }
   return source.slice(0, end)
+}
+
+function getDecoratorChoiceId(value: QuaScriptDecoratorValue | undefined): string | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || isBabelExpressionValue(value)) {
+    return undefined
+  }
+  const id = (value as Record<string, QuaScriptDecoratorValue>).id
+  return typeof id === 'string' ? id : undefined
+}
+
+function getChoiceTargetId(value: QuaScriptDecoratorValue | undefined): string | undefined {
+  if (typeof value === 'string') {
+    return value
+  }
+  if (isBabelExpressionValue(value)) {
+    return getChoiceTargetIdFromExpression(value)
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value) || isBabelExpressionValue(value)) {
+    return undefined
+  }
+  const record = value as Record<string, QuaScriptDecoratorValue>
+  const kind = record.kind
+  if (kind === 'node' || kind === 'label' || kind === 'checkpoint') {
+    return typeof record.id === 'string' ? record.id : undefined
+  }
+  if (kind === 'scene') {
+    return typeof record.sceneId === 'string' ? record.sceneId : undefined
+  }
+  if (kind === 'script') {
+    return typeof record.stepId === 'string'
+      ? record.stepId
+      : typeof record.nodeId === 'string'
+        ? record.nodeId
+        : typeof record.labelId === 'string'
+          ? record.labelId
+          : typeof record.moduleId === 'string'
+            ? record.moduleId
+            : undefined
+  }
+  if (kind === 'package-node') {
+    return typeof record.nodeId === 'string' ? record.nodeId : undefined
+  }
+  return undefined
+}
+
+function getChoiceTargetIdFromExpression(value: t.Expression): string | undefined {
+  if (!t.isCallExpression(value) || !t.isIdentifier(value.callee)) {
+    return undefined
+  }
+  const first = value.arguments[0]
+  const second = value.arguments[1]
+  if (value.callee.name === 'packageNode' && t.isStringLiteral(second)) {
+    return second.value
+  }
+  return t.isStringLiteral(first) ? first.value : undefined
+}
+
+function isBabelExpressionValue(value: unknown): value is t.Expression {
+  return typeof value === 'object' && value !== null && t.isExpression(value as t.Node)
 }
 
 function isIdentifierStart(char: string): boolean {

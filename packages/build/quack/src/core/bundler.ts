@@ -18,7 +18,7 @@ import { EventEmitter } from 'node:events'
 import { mkdir, readFile, rename } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
 import { createLogger } from '@quajs/logger'
-import { compileLocalizedQuaScriptModuleToTs, compileQuaScriptModuleToTs } from '@quajs/script-compiler'
+import { compileLocalizedQuaScriptModuleToTs, compileQuaScriptModuleToTs, extractQuaScriptStoryDeclaration } from '@quajs/script-compiler'
 import ts from 'typescript'
 import { AssetDetector } from '../assets/asset-detector'
 import { MetadataGenerator } from '../assets/metadata'
@@ -589,6 +589,9 @@ export class QuackBundler extends EventEmitter {
             projectRoot: config.source,
             runtimeModule,
           })
+      if (locale === 'default' && config.runtimePackage && moduleId) {
+        mergeQuaScriptStoryDeclaration(config.runtimePackage, moduleId, source)
+      }
       const output = ts.transpileModule(compiledTs, {
         compilerOptions: {
           module: ts.ModuleKind.ESNext,
@@ -823,6 +826,48 @@ function mergeRuntimeQuaScriptVariants(
   }
 
   return scripts
+}
+
+function mergeQuaScriptStoryDeclaration(
+  runtimePackage: RuntimePackageManifest,
+  moduleId: string,
+  source: string,
+): void {
+  const declaration = extractQuaScriptStoryDeclaration(source, {
+    moduleId,
+    runtimePackageId: runtimePackage.id,
+  })
+  const hasStory = declaration.nodes.length > 0
+    || declaration.labels.length > 0
+    || declaration.choices.length > 0
+    || declaration.edges.length > 0
+  if (!hasStory) {
+    return
+  }
+
+  const scripts = runtimePackage.scripts || []
+  runtimePackage.scripts = scripts.map(script => script.id === moduleId
+    ? {
+        ...script,
+        metadata: {
+          ...(script.metadata || {}),
+          story: declaration,
+        },
+      }
+    : script)
+  runtimePackage.storyGraphDeltas = [
+    ...(runtimePackage.storyGraphDeltas || []),
+    {
+      id: `story:${moduleId}`,
+      graphId: 'default',
+      nodes: declaration.nodes,
+      edges: declaration.edges,
+      metadata: {
+        moduleId,
+        contentPackageId: runtimePackage.id,
+      },
+    },
+  ]
 }
 
 function resolveQuaScriptModuleId(

@@ -132,8 +132,23 @@ describe('quaScriptParser', () => {
     expect(result.steps).toHaveLength(2)
     expect(result.steps[1].type).toBe('choice')
     expect((result.steps[1].content as any).options).toMatchObject([
-      { id: 'outside', text: 'Go outside', target: 'outside', condition: undefined },
-      { id: 'home', text: 'Stay home', target: 'home', condition: 'canStayHome' },
+      { id: 'outside', text: 'Go outside', target: 'outside', condition: undefined, source: 'sugar' },
+      { id: 'home', text: 'Stay home', target: 'home', condition: 'canStayHome', source: 'sugar' },
+    ])
+  })
+
+  it('parses @Choice decorators as canonical choice steps', () => {
+    const parser = new QuaScriptParser()
+    const result = parser.parse(`
+      @Choice('Go outside', node('outside'), { when: flags.open })
+      @Choice('Return', scene('dorm', { entry: 'night' }))
+    `)
+
+    expect(result.steps).toHaveLength(1)
+    expect(result.steps[0].type).toBe('choice')
+    expect((result.steps[0].content as any).options).toMatchObject([
+      { text: 'Go outside', source: 'decorator' },
+      { text: 'Return', source: 'decorator' },
     ])
   })
 

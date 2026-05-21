@@ -22,6 +22,7 @@ import { DEFAULT_DECORATOR_MAPPINGS } from './types'
 const HOST_SOURCE_PARSER_PLUGINS: ParserPlugin[] = ['typescript', 'jsx', 'decorators']
 const generateCode = resolveCallableDefault(generateModule)
 const traverseAst = resolveCallableDefault(traverseModule)
+const ENGINE_EXPRESSION_HELPERS = new Set(['node', 'label', 'scene', 'script', 'packageNode', 'checkpoint', 'image'])
 
 // Babel ships these helpers through CommonJS interop, so resolve a callable
 // default export that works both in Vitest bundling and native Node ESM.
@@ -211,14 +212,48 @@ export class QuaScriptTransformer {
         const dialogue = step.content as QuaScriptDialogue
         dialogue.decorators.forEach((decorator) => {
           this.usedDecorators.add(decorator.name)
+          decorator.args.forEach(arg => this.collectEngineHelpersFromUnknown(arg))
         })
       }
       else if (step.type === 'action') {
         const action = step.content as any
         action.decorators?.forEach((decorator: QuaScriptDecorator) => {
           this.usedDecorators.add(decorator.name)
+          decorator.args.forEach(arg => this.collectEngineHelpersFromUnknown(arg))
         })
       }
+      else if (step.type === 'choice') {
+        const choice = step.content as QuaScriptChoice
+        choice.options.forEach((option) => {
+          this.collectEngineHelpersFromUnknown(option.target)
+          this.collectEngineHelpersFromUnknown(option.options)
+        })
+      }
+    })
+  }
+
+  private collectEngineHelpersFromUnknown(value: unknown): void {
+    if (isBabelExpression(value)) {
+      this.collectEngineHelpersFromExpression(value)
+      return
+    }
+    if (Array.isArray(value)) {
+      value.forEach(item => this.collectEngineHelpersFromUnknown(item))
+      return
+    }
+    if (value && typeof value === 'object') {
+      Object.values(value as Record<string, unknown>).forEach(item => this.collectEngineHelpersFromUnknown(item))
+    }
+  }
+
+  private collectEngineHelpersFromExpression(expression: t.Expression): void {
+    const file = t.file(t.program([t.expressionStatement(expression)]))
+    traverseAst(file, {
+      CallExpression: (path: NodePath<t.CallExpression>) => {
+        if (t.isIdentifier(path.node.callee) && ENGINE_EXPRESSION_HELPERS.has(path.node.callee.name)) {
+          this.usedEngineHelpers.add(path.node.callee.name)
+        }
+      },
     })
   }
 
@@ -232,16 +267,86 @@ export class QuaScriptTransformer {
     const compileState: Record<string, unknown> = {}
     const elements = parsed.steps.map((step, index) => {
       const stepUuid = this.resolveStepUuid(step, index)
+      const metadataPoint = this.updateStoryPointCompileState(compileState, step)
       if (step.type === 'dialogue') {
-        return this.createDialogueStep(step.content as QuaScriptDialogue, stepUuid, index, compileState, options)
+        return this.createDialogueStep(step.content as QuaScriptDialogue, stepUuid, index, compileState, options, metadataPoint)
       }
       if (step.type === 'choice') {
-        return this.createChoiceStep(step.content as QuaScriptChoice, stepUuid, index, compileState, options)
+        return this.createChoiceStep(step.content as QuaScriptChoice, stepUuid, index, compileState, options, metadataPoint)
       }
-      return this.createActionStep(step.content, stepUuid, index, compileState, options)
+      return this.createActionStep(step.content, stepUuid, index, compileState, options, metadataPoint)
     })
 
     return t.arrayExpression(elements)
+  }
+
+  private updateStoryPointCompileState(state: Record<string, unknown>, step: { type: 'dialogue' | 'action' | 'choice', content: unknown }): Record<string, unknown> | undefined {
+    const current = isPlainRecord(state.__quaStoryPoint)
+      ? { ...(state.__quaStoryPoint as Record<string, unknown>) }
+      : {}
+    const decorators = getStoryPointDecorators(step)
+    for (const decorator of decorators) {
+      const value = typeof decorator.args[0] === 'string' ? decorator.args[0] : undefined
+      if (!value) {
+        continue
+      }
+      switch (decorator.name) {
+        case 'Chapter':
+          delete current.sceneId
+          delete current.entryId
+          delete current.nodeId
+          delete current.labelId
+          current.chapterId = value
+          break
+        case 'Scene':
+          delete current.entryId
+          delete current.nodeId
+          delete current.labelId
+          current.sceneId = value
+          break
+        case 'Entry':
+          delete current.nodeId
+          delete current.labelId
+          current.entryId = value
+          break
+        case 'Node':
+        case 'Interaction':
+          delete current.labelId
+          current.nodeId = value
+          break
+        case 'Label':
+          current.labelId = value
+          break
+        case 'Lane':
+          current.laneId = value
+          break
+        case 'Route':
+          current.routeId = value
+          break
+        case 'Timeline':
+          current.timelineId = value
+          break
+        case 'Protagonist':
+          current.protagonistId = value
+          break
+      }
+    }
+
+    if (Object.keys(current).length === 0) {
+      delete state.__quaStoryPoint
+      return undefined
+    }
+
+    state.__quaStoryPoint = current
+    return current
+  }
+
+  private createStepMetadataProperties(point?: Record<string, unknown>): t.ObjectProperty[] {
+    return point
+      ? [t.objectProperty(t.identifier('metadata'), t.objectExpression([
+          t.objectProperty(t.identifier('point'), this.createLiteralExpression(point)),
+        ]))]
+      : []
   }
 
   private resolveStepUuid(step: { uuid: string, range?: SourceRange }, index: number): string {
@@ -268,9 +373,11 @@ export class QuaScriptTransformer {
       quasi?: t.TemplateLiteral
       scopeIdentifier?: t.Identifier
     } = {},
+    metadataPoint?: Record<string, unknown>,
   ): t.ObjectExpression {
     return t.objectExpression([
       t.objectProperty(t.identifier('uuid'), t.stringLiteral(uuid)),
+      ...this.createStepMetadataProperties(metadataPoint),
       t.objectProperty(t.identifier('run'), this.createRunFunction(dialogue, uuid, stepIndex, compileState, options)),
     ])
   }
@@ -284,9 +391,11 @@ export class QuaScriptTransformer {
       quasi?: t.TemplateLiteral
       scopeIdentifier?: t.Identifier
     } = {},
+    metadataPoint?: Record<string, unknown>,
   ): t.ObjectExpression {
     return t.objectExpression([
       t.objectProperty(t.identifier('uuid'), t.stringLiteral(uuid)),
+      ...this.createStepMetadataProperties(metadataPoint),
       t.objectProperty(t.identifier('run'), this.createActionRunFunction(content, uuid, stepIndex, compileState, options)),
     ])
   }
@@ -300,9 +409,11 @@ export class QuaScriptTransformer {
       quasi?: t.TemplateLiteral
       scopeIdentifier?: t.Identifier
     } = {},
+    metadataPoint?: Record<string, unknown>,
   ): t.ObjectExpression {
     return t.objectExpression([
       t.objectProperty(t.identifier('uuid'), t.stringLiteral(uuid)),
+      ...this.createStepMetadataProperties(metadataPoint),
       t.objectProperty(t.identifier('run'), this.createChoiceRunFunction(choice, uuid, stepIndex, compileState, options)),
     ])
   }
@@ -380,30 +491,10 @@ export class QuaScriptTransformer {
     void stepIndex
     void compileState
     const choicesIdentifier = t.identifier('choices')
-    const choicesArray = t.arrayExpression(choice.options.map(option =>
-      t.objectExpression([
-        t.objectProperty(t.identifier('id'), t.stringLiteral(option.id)),
-        t.objectProperty(t.identifier('text'), this.createTextExpression(option.text, option.templateExpressions, options)),
-        t.objectProperty(t.identifier('enabled'), option.condition ? this.parseExpression(option.condition, options.scopeIdentifier) : t.booleanLiteral(true)),
-        t.objectProperty(t.identifier('metadata'), t.objectExpression([
-          t.objectProperty(t.identifier('target'), t.stringLiteral(option.target)),
-          t.objectProperty(t.identifier('storyGraph'), t.objectExpression([
-            t.objectProperty(t.identifier('edge'), t.objectExpression([
-              t.objectProperty(t.identifier('kind'), t.stringLiteral('choice')),
-              t.objectProperty(t.identifier('to'), t.stringLiteral(option.target)),
-              ...(option.condition
-                ? [t.objectProperty(t.identifier('condition'), t.stringLiteral(option.condition))]
-                : []),
-            ])),
-          ])),
-          ...(option.condition
-            ? [t.objectProperty(t.identifier('condition'), t.stringLiteral(option.condition))]
-            : []),
-        ])),
-      ]),
-    ))
+    const choicesArray = t.arrayExpression(choice.options.map(option => this.createChoiceDefinitionExpression(option, options)))
 
     const selected = t.identifier('selected')
+    const selectedChoice = t.identifier('selectedChoice')
     const statements: t.Statement[] = []
     if (choice.options.some(option => option.templateExpressions.length > 0)) {
       statements.push(...this.createTextHelperStatements())
@@ -449,18 +540,55 @@ export class QuaScriptTransformer {
           )),
         ),
       ]),
-      t.expressionStatement(t.awaitExpression(t.callExpression(
-        t.memberExpression(
-          t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
-          t.identifier('clearChoices'),
-        ),
-        [],
-      ))),
       t.expressionStatement(t.assignmentExpression(
         '=',
         t.memberExpression(t.identifier('ctx'), t.identifier('choice')),
         selected,
       )),
+      t.variableDeclaration('const', [
+        t.variableDeclarator(
+          selectedChoice,
+          t.callExpression(
+            t.memberExpression(choicesIdentifier, t.identifier('find')),
+            [
+              t.arrowFunctionExpression(
+                [t.identifier('choice')],
+                t.binaryExpression(
+                  '===',
+                  t.memberExpression(t.identifier('choice'), t.identifier('id')),
+                  t.memberExpression(selected, t.identifier('choiceId')),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ]),
+      t.ifStatement(
+        t.logicalExpression(
+          '&&',
+          selectedChoice,
+          t.memberExpression(selectedChoice, t.identifier('target')),
+        ),
+        t.blockStatement([
+          t.expressionStatement(t.awaitExpression(t.callExpression(
+            t.memberExpression(
+              t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
+              t.identifier('jumpToChoice'),
+            ),
+            [t.memberExpression(selected, t.identifier('choiceId'))],
+          ))),
+        ]),
+        t.blockStatement([
+          t.expressionStatement(t.awaitExpression(t.callExpression(
+            t.memberExpression(
+              t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
+              t.identifier('clearChoices'),
+            ),
+            [],
+          ))),
+        ]),
+      ),
+      t.returnStatement(),
     )
 
     return t.arrowFunctionExpression(
@@ -468,6 +596,154 @@ export class QuaScriptTransformer {
       t.blockStatement(statements),
       true,
     )
+  }
+
+  private createChoiceDefinitionExpression(
+    option: QuaScriptChoice['options'][number],
+    options: {
+      quasi?: t.TemplateLiteral
+      scopeIdentifier?: t.Identifier
+    } = {},
+  ): t.ObjectExpression {
+    const textExpression = this.createTextExpression(option.text, option.templateExpressions, options)
+    const targetExpression = this.createChoiceTargetExpression(option)
+    const choiceOptions = this.createChoiceOptionsExpression(option, options)
+    const enabledExpression = option.condition
+      ? this.parseExpression(option.condition, options.scopeIdentifier)
+      : getObjectPropertyExpression(choiceOptions, 'when') || t.booleanLiteral(true)
+    const idExpression = getObjectPropertyExpression(choiceOptions, 'id') || t.stringLiteral(option.id || this.createStaticChoiceId(option))
+    const unavailable = getObjectPropertyExpression(choiceOptions, 'unavailable')
+    const presentation = getObjectPropertyExpression(choiceOptions, 'presentation')
+    const optionMetadata = getObjectPropertyExpression(choiceOptions, 'metadata')
+    const targetNodeId = this.createChoiceTargetNodeIdExpression(targetExpression, option)
+    const metadataProperties: t.ObjectProperty[] = [
+      t.objectProperty(t.identifier('jumpTarget'), targetExpression),
+      t.objectProperty(t.identifier('storyGraph'), t.objectExpression([
+        t.objectProperty(t.identifier('edge'), t.objectExpression([
+          t.objectProperty(t.identifier('kind'), t.stringLiteral('choice')),
+          t.objectProperty(t.identifier('to'), targetNodeId),
+          ...(option.condition
+            ? [t.objectProperty(t.identifier('condition'), t.stringLiteral(option.condition))]
+            : []),
+        ])),
+      ])),
+      ...(option.condition
+        ? [t.objectProperty(t.identifier('condition'), t.stringLiteral(option.condition))]
+        : []),
+      ...(optionMetadata && t.isObjectExpression(optionMetadata)
+        ? optionMetadata.properties.filter((property): property is t.ObjectProperty => t.isObjectProperty(property))
+        : optionMetadata
+          ? [t.objectProperty(t.identifier('custom'), optionMetadata)]
+          : []),
+    ]
+
+    return t.objectExpression([
+      t.objectProperty(t.identifier('id'), idExpression),
+      t.objectProperty(t.identifier('text'), textExpression),
+      t.objectProperty(t.identifier('target'), targetExpression),
+      t.objectProperty(t.identifier('enabled'), enabledExpression),
+      ...(unavailable ? [t.objectProperty(t.identifier('unavailable'), unavailable)] : []),
+      ...(presentation ? [t.objectProperty(t.identifier('presentation'), presentation)] : []),
+      t.objectProperty(t.identifier('metadata'), t.objectExpression(metadataProperties)),
+    ])
+  }
+
+  private createChoiceOptionsExpression(
+    option: QuaScriptChoice['options'][number],
+    options: { scopeIdentifier?: t.Identifier } = {},
+  ): t.ObjectExpression {
+    const source = option.options
+    const properties: t.ObjectProperty[] = []
+    if (source && typeof source === 'object' && !Array.isArray(source) && !isBabelExpression(source)) {
+      for (const [key, value] of Object.entries(source as Record<string, unknown>)) {
+        properties.push(t.objectProperty(createObjectKey(key), this.createLiteralExpression(value)))
+      }
+    }
+    else if (isBabelExpression(source)) {
+      return t.objectExpression([t.objectProperty(t.identifier('metadata'), source)])
+    }
+    if (option.condition && !properties.some(property => getObjectKeyName(property.key) === 'when')) {
+      properties.push(t.objectProperty(t.identifier('when'), this.parseExpression(option.condition, options.scopeIdentifier)))
+    }
+    return t.objectExpression(properties)
+  }
+
+  private createChoiceTargetExpression(option: QuaScriptChoice['options'][number]): t.Expression {
+    if (option.source === 'decorator') {
+      if (!option.target) {
+        return t.objectExpression([t.objectProperty(t.identifier('kind'), t.stringLiteral('node')), t.objectProperty(t.identifier('id'), t.stringLiteral(option.id || this.createStaticChoiceId(option)))])
+      }
+      return this.createLiteralExpression(option.target)
+    }
+    if (typeof option.target === 'string') {
+      return this.createTargetExpressionFromSugar(option.target)
+    }
+    return this.createLiteralExpression(option.target)
+  }
+
+  private createTargetExpressionFromSugar(source: string): t.ObjectExpression {
+    const target = source.trim()
+    if (target.startsWith('#')) {
+      return t.objectExpression([
+        t.objectProperty(t.identifier('kind'), t.stringLiteral('label')),
+        t.objectProperty(t.identifier('id'), t.stringLiteral(target.slice(1))),
+      ])
+    }
+    const sceneMatch = /^scene:([^#\s]+)(?:#([^\s]+))?$/.exec(target)
+    if (sceneMatch) {
+      return t.objectExpression([
+        t.objectProperty(t.identifier('kind'), t.stringLiteral('scene')),
+        t.objectProperty(t.identifier('sceneId'), t.stringLiteral(sceneMatch[1])),
+        ...(sceneMatch[2] ? [t.objectProperty(t.identifier('entry'), t.stringLiteral(sceneMatch[2]))] : []),
+      ])
+    }
+    const packageMatch = /^package:([^#\s]+)#([^\s]+)$/.exec(target)
+    if (packageMatch) {
+      return t.objectExpression([
+        t.objectProperty(t.identifier('kind'), t.stringLiteral('package-node')),
+        t.objectProperty(t.identifier('packageId'), t.stringLiteral(packageMatch[1])),
+        t.objectProperty(t.identifier('nodeId'), t.stringLiteral(packageMatch[2])),
+      ])
+    }
+    const scriptMatch = /^script:([^#\s]+)(?:#([^\s]+))?$/.exec(target)
+    if (scriptMatch) {
+      return t.objectExpression([
+        t.objectProperty(t.identifier('kind'), t.stringLiteral('script')),
+        t.objectProperty(t.identifier('moduleId'), t.stringLiteral(scriptMatch[1])),
+        ...(scriptMatch[2] ? [t.objectProperty(t.identifier('nodeId'), t.stringLiteral(scriptMatch[2]))] : []),
+      ])
+    }
+    return t.objectExpression([
+      t.objectProperty(t.identifier('kind'), t.stringLiteral('node')),
+      t.objectProperty(t.identifier('id'), t.stringLiteral(target)),
+    ])
+  }
+
+  private createChoiceTargetNodeIdExpression(targetExpression: t.Expression, option: QuaScriptChoice['options'][number]): t.Expression {
+    if (t.isObjectExpression(targetExpression)) {
+      const nodeId = getObjectPropertyExpression(targetExpression, 'id')
+        || getObjectPropertyExpression(targetExpression, 'nodeId')
+        || getObjectPropertyExpression(targetExpression, 'labelId')
+        || getObjectPropertyExpression(targetExpression, 'entry')
+        || getObjectPropertyExpression(targetExpression, 'stepId')
+        || getObjectPropertyExpression(targetExpression, 'moduleId')
+      if (nodeId) {
+        return nodeId
+      }
+    }
+    return t.stringLiteral(option.id || this.createStaticChoiceId(option))
+  }
+
+  private createStaticChoiceId(option: QuaScriptChoice['options'][number]): string {
+    if (typeof option.target === 'string' && option.target.trim()) {
+      return option.target.trim()
+    }
+    return option.text
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      || 'choice'
   }
 
   private createDecoratorStatements(
@@ -572,6 +848,7 @@ export class QuaScriptTransformer {
 
   private createLiteralExpression(value: unknown): t.Expression {
     if (isBabelExpression(value)) {
+      this.collectEngineHelpersFromExpression(value)
       return value
     }
     if (typeof value === 'string') {
@@ -808,6 +1085,41 @@ function indent(source: string): string {
 
 function isTerminatingEngineDecorator(decoratorName: string): boolean {
   return decoratorName === 'LoadFromSlot' || decoratorName === 'QuickLoad'
+}
+
+function createObjectKey(key: string): t.Identifier | t.StringLiteral {
+  return t.isValidIdentifier(key) ? t.identifier(key) : t.stringLiteral(key)
+}
+
+function getObjectPropertyExpression(object: t.ObjectExpression, propertyName: string): t.Expression | undefined {
+  const property = object.properties.find((item): item is t.ObjectProperty =>
+    t.isObjectProperty(item) && getObjectKeyName(item.key) === propertyName,
+  )
+  return property && t.isExpression(property.value) ? property.value : undefined
+}
+
+function getObjectKeyName(key: t.ObjectProperty['key']): string | undefined {
+  if (t.isIdentifier(key)) {
+    return key.name
+  }
+  if (t.isStringLiteral(key) || t.isNumericLiteral(key)) {
+    return String(key.value)
+  }
+  return undefined
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function getStoryPointDecorators(step: { type: 'dialogue' | 'action' | 'choice', content: unknown }): QuaScriptDecorator[] {
+  if (step.type === 'dialogue') {
+    return (step.content as QuaScriptDialogue).decorators || []
+  }
+  if (step.type === 'action') {
+    return ((step.content as { decorators?: QuaScriptDecorator[] }).decorators || [])
+  }
+  return []
 }
 
 function isBabelExpression(value: unknown): value is t.Expression {

@@ -11,6 +11,7 @@ import {
   registerStoryGraphDeltaWithEngine,
   registerStoryGraphWithEngine,
   removeRuntimePackageStoryGraphContentWithEngine,
+  resolveStoryTargetFromGraphWithEngine,
   setStoryMetadataWithEngine,
   StoryGraphPlugin,
   unlockStoryNodeWithEngine,
@@ -113,6 +114,45 @@ describe('@quajs/story-graph', () => {
     })
   })
 
+  it('resets lower-level story metadata when scene and entry markers change', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+    await engine.setStoryPoint({
+      storyId: 'main',
+      sceneId: 'library',
+      entryId: 'intro',
+      nodeId: 'library.enter',
+      labelId: 'old-label',
+      stepId: 'step-1',
+    } as any)
+
+    await setStoryMetadataWithEngine(engine, { sceneId: 'dorm' } as any)
+
+    expect(engine.getStoryPoint()).toEqual(expect.objectContaining({
+      storyId: 'main',
+      sceneId: 'dorm',
+      stepId: 'step-1',
+    }))
+    expect(engine.getStoryPoint()).not.toEqual(expect.objectContaining({
+      entryId: 'intro',
+      nodeId: 'library.enter',
+      labelId: 'old-label',
+    }))
+
+    await setStoryMetadataWithEngine(engine, { entryId: 'nightReturn' } as any)
+
+    expect(engine.getStoryPoint()).toEqual(expect.objectContaining({
+      sceneId: 'dorm',
+      entryId: 'nightReturn',
+      stepId: 'step-1',
+    }))
+    expect(engine.getStoryPoint()).not.toEqual(expect.objectContaining({
+      nodeId: 'library.enter',
+      labelId: 'old-label',
+    }))
+  })
+
   it('records choice targets as graph edges from engine-owned choice projection', async () => {
     const engine = createEngine()
     engine.use(new StoryGraphPlugin())
@@ -156,6 +196,39 @@ describe('@quajs/story-graph', () => {
     expect(edges.find(edge => edge.to === 'outside')).toMatchObject({
       metadata: { choiceId: 'outside', text: 'Go outside' },
     })
+  })
+
+  it('resolves structured node targets from active graph projection', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+    await registerStoryGraphWithEngine(engine, {
+      id: 'main',
+      nodes: [{
+        id: 'library',
+        point: {
+          storyId: 'main',
+          sceneId: 'school',
+          nodeId: 'library',
+          stepId: 'library-step',
+          scriptModuleId: 'main.school',
+          contentPackageId: 'runtime.school',
+        } as any,
+        presentation: {
+          thumbnail: { type: 'images', name: 'story/library.png' },
+        },
+      }],
+    })
+
+    const resolved = await resolveStoryTargetFromGraphWithEngine({ kind: 'node', id: 'library' }, {
+      engine,
+      target: { kind: 'node', id: 'library' },
+      currentPoint: { storyId: 'main', sceneId: 'school', stepId: 'start' },
+    })
+
+    expect(resolved?.point).toEqual(expect.objectContaining({ nodeId: 'library', stepId: 'library-step' }))
+    expect(resolved?.script).toEqual(expect.objectContaining({ moduleId: 'main.school', nodeId: 'library' }))
+    expect(resolved?.requiredRuntimePackages).toEqual(['runtime.school'])
   })
 
   it('merges package-scoped dynamic graph deltas with timeline and lane provenance', async () => {

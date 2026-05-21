@@ -213,7 +213,7 @@ function extractStepUnits(step: QuaScriptStep, stepIndex: number, sourceId: stri
       textRange: option.textRange,
       stepIndex,
       optionIndex,
-      target: option.target,
+      target: typeof option.target === 'string' ? option.target : undefined,
       condition: option.condition,
       decorators: [],
       sourceId,

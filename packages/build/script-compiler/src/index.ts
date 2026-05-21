@@ -6,6 +6,7 @@ import { createHotReloadAwareTransformer } from './integrations/hot-reload-trans
 import { createPluginAwareTransformer } from './integrations/plugin-aware-transformer'
 
 export { generateQuaScriptModuleDeclaration } from './core/declaration'
+export { extractQuaScriptStoryDeclaration } from './core/story-declaration'
 export { createLineStarts, parseQuaScriptDocument, positionAt, rangeFromOffsets } from './core/document'
 export {
   applyQuaScriptLocaleOverlay,
@@ -51,6 +52,7 @@ export type {
   QuaScriptStep,
   SourcePosition,
   SourceRange,
+  StoryDeclaration,
 } from './core/types'
 
 export { DEFAULT_DECORATOR_MAPPINGS, mergeDecoratorMappings } from './core/types'
