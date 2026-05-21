@@ -55,6 +55,7 @@ describe('quackBundler', () => {
       await mkdir(join(tempDir, 'scripts'), { recursive: true })
       await mkdir(join(tempDir, 'data'), { recursive: true })
       await writeFile(join(tempDir, 'scripts', 'scene.js'), 'export default function createQuaScript() { return [] }')
+      await writeFile(join(tempDir, 'scripts', 'dorm-scene.js'), 'export function createScene() { return { name: "dorm", init() {}, run() {} } }')
       await writeFile(join(tempDir, 'scripts', 'renderer.js'), 'export default {}')
       await writeFile(join(tempDir, 'data', 'migration.js'), 'export default function migrate() {}')
 
@@ -71,6 +72,7 @@ describe('quackBundler', () => {
           priority: 20,
           dependencies: ['runtime.base'],
           scripts: [{ id: 'runtime.story.scene', version: '1.2.3', assetName: 'scene.js' }],
+          scenes: [{ id: 'dorm', version: '1.2.3', assetName: 'dorm-scene.js', exportName: 'createScene' }],
           plugins: [{ id: 'runtime.story.renderer', kind: 'renderer', assetName: 'renderer.js' }],
           storyGraphDeltas: [{ id: 'runtime.story.delta', graphId: 'main', nodes: [{ id: 'runtime-start', point: { stepId: 'runtime-step' } }] }],
           storeMigrations: [{ id: 'runtime.story.defaults', version: '1', scope: 'story', assetName: 'migration.js' }],
@@ -95,6 +97,8 @@ describe('quackBundler', () => {
       }))
       expect(manifest.runtimePackage?.integrity).toEqual({ hash: manifest.merkleRoot, algorithm: 'sha256' })
       expect(manifest.runtimePackage?.scripts).toEqual([expect.objectContaining({ id: 'runtime.story.scene', assetName: 'scene.js' })])
+      expect(manifest.runtimePackage?.scenes).toEqual([expect.objectContaining({ id: 'dorm', assetName: 'dorm-scene.js' })])
+      expect(manifest.assets.scripts['dorm-scene.js']).toEqual(expect.objectContaining({ type: 'scripts' }))
       expect(manifest.runtimePackage?.plugins).toEqual([expect.objectContaining({ id: 'runtime.story.renderer', kind: 'renderer' })])
       expect(manifest.runtimePackage?.storyGraphDeltas).toEqual([expect.objectContaining({ id: 'runtime.story.delta', graphId: 'main' })])
       expect(manifest.runtimePackage?.storeMigrations).toEqual([expect.objectContaining({ id: 'runtime.story.defaults', scope: 'story' })])
@@ -149,6 +153,46 @@ describe('quackBundler', () => {
       expect(zhScript).toContain('\\u4F60\\u597D')
       expect(zhScript).not.toContain('"Hello"')
       expect(ids(zhScript)).toEqual(ids(defaultScript))
+    })
+
+    it('writes QuaScript story declarations into runtime package metadata', async () => {
+      await mkdir(join(tempDir, 'scripts'), { recursive: true })
+      await writeFile(join(tempDir, 'scripts', 'story.qs'), `@Scene('library')
+@Entry('main')
+@Node('library.enter', { title: 'Library', thumbnail: image('story/library.png') })
+Yuki: We arrived.
+- Return dorm -> scene:dorm#nightReturn`)
+
+      bundler = new QuackBundler({
+        source: tempDir,
+        output: join(tempDir, 'runtime-story.qpk'),
+        format: 'qpk',
+        compression: { algorithm: 'none', level: 0 },
+        runtimePackage: {
+          id: 'runtime.storytree',
+          version: '1.0.0',
+          scripts: [{ id: 'runtime.storytree.story', version: '1.0.0', assetName: 'story.js' }],
+          signature: { value: 'runtime-signature' },
+        },
+      })
+
+      await bundler.bundle()
+
+      const bundleFile = (await readdir(tempDir)).find(file => file.startsWith('runtime-story.') && file.endsWith('.qpk'))
+      expect(bundleFile).toBeDefined()
+      const manifest = parseQpkManifest(await readFile(join(tempDir, bundleFile!)))
+      const story = manifest.runtimePackage?.scripts?.[0].metadata?.story
+      expect(story.entries[0]).toEqual(expect.objectContaining({
+        id: 'main',
+        point: expect.objectContaining({ sceneId: 'library', entryId: 'main' }),
+      }))
+      expect(story.nodes[0]).toEqual(expect.objectContaining({ id: 'library.enter' }))
+      expect(story.nodes[0].presentation.thumbnail).toEqual({ type: 'images', name: 'story/library.png', runtimePackageId: 'runtime.storytree' })
+      expect(story.choices[0]).toEqual(expect.objectContaining({ text: 'Return dorm', source: 'sugar' }))
+      expect(story.choices[0].target).toEqual({ kind: 'scene', sceneId: 'dorm', entry: 'nightReturn' })
+      expect(manifest.runtimePackage?.storyGraphDeltas).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: 'story:runtime.storytree.story' }),
+      ]))
     })
 
     it('builds deferred locale QPK runtime packages with localized scripts and assets', async () => {

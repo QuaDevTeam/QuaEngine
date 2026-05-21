@@ -6,6 +6,56 @@ export const STORY_GRAPH_PLUGIN_ID = 'storyGraph' as const
 
 export type StoryEdgeKind = 'choice' | 'event' | 'unlock' | 'interaction' | 'jump'
 
+export interface StoryAssetRef {
+  type: string
+  name: string
+  runtimePackageId?: string
+  alt?: string
+  focalPoint?: {
+    x: number
+    y: number
+  }
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface ChoiceTarget {
+  kind: string
+  id?: string
+  nodeId?: string
+  labelId?: string
+  entryId?: string
+  stepId?: string
+  moduleId?: string
+  packageId?: string
+  graphId?: string
+  sceneId?: string
+  requiredRuntimePackages?: readonly string[]
+  [key: string]: unknown
+}
+
+export interface StoryTargetResolveContext {
+  engine: QuaEngineInterface
+  target: ChoiceTarget
+  currentPoint?: StoryPoint
+  currentSceneId?: string
+  choiceId?: string
+  source?: string
+}
+
+export interface ResolvedStoryJump {
+  target: ChoiceTarget
+  point?: StoryPoint
+  requiredRuntimePackages?: readonly string[]
+  script?: {
+    moduleId: string
+    nodeId?: string
+    labelId?: string
+    entryId?: string
+    stepId?: string
+    packageId?: string
+  }
+}
+
 export interface StoryGraph {
   id: string
   nodes: readonly StoryNode[]
@@ -18,11 +68,21 @@ export interface StoryNode {
   id: string
   point: StoryPoint
   title?: string
+  summary?: string
+  presentation?: StoryNodePresentation
   laneId?: string
   routeId?: string
   timelineId?: string
   protagonistId?: string
   chapterId?: string
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface StoryNodePresentation {
+  thumbnail?: StoryAssetRef
+  background?: StoryAssetRef
+  image?: StoryAssetRef
+  assets?: readonly StoryAssetRef[]
   metadata?: Readonly<Record<string, unknown>>
 }
 
@@ -99,8 +159,12 @@ export class StoryGraphPlugin extends BaseEnginePlugin {
   readonly version = '0.1.0'
   readonly description = 'Story graph metadata, multi-lane cursors, events, and jump helpers'
   private disposers: Array<() => void> = []
+  private unregisterStoryTargetResolver?: () => void
 
   protected setup(ctx: EngineContext): void {
+    this.unregisterStoryTargetResolver = (ctx.engine as QuaEngineInterface & {
+      registerStoryTargetResolver?: (resolver: typeof resolveStoryTargetFromGraphWithEngine) => () => void
+    }).registerStoryTargetResolver?.(resolveStoryTargetFromGraphWithEngine)
     this.disposers.push(onPipeline(ctx.pipeline, LogicToRenderEvents.DIALOGUE_CHOICE, async (payload) => {
       await recordChoiceEdgesWithEngine(ctx.engine, (payload as { choices?: ChoiceIntent[] }).choices || [])
     }))
@@ -110,6 +174,8 @@ export class StoryGraphPlugin extends BaseEnginePlugin {
   }
 
   override async destroy(): Promise<void> {
+    this.unregisterStoryTargetResolver?.()
+    this.unregisterStoryTargetResolver = undefined
     while (this.disposers.length > 0) {
       this.disposers.pop()?.()
     }
@@ -149,6 +215,7 @@ export class StoryGraphPlugin extends BaseEnginePlugin {
         { name: 'setStoryMetadataWithEngine', fn: setStoryMetadataWithEngine, module: this.name },
         { name: 'recordChoiceEdgeWithEngine', fn: recordChoiceEdgeWithEngine, module: this.name },
         { name: 'recordChoiceEdgesWithEngine', fn: recordChoiceEdgesWithEngine, module: this.name },
+        { name: 'resolveStoryTargetFromGraphWithEngine', fn: resolveStoryTargetFromGraphWithEngine, module: this.name },
         { name: 'registerStoryGraphDeltaWithEngine', fn: registerStoryGraphDeltaWithEngine, module: this.name },
         { name: 'removeRuntimePackageStoryGraphContentWithEngine', fn: removeRuntimePackageStoryGraphContentWithEngine, module: this.name },
       ],
@@ -389,7 +456,7 @@ export async function recordChoiceEdgesWithEngine(
 
   for (const choice of choices) {
     const edgeIntent = getChoiceEdgeIntent(choice?.metadata)
-    const target = edgeIntent?.to || getChoiceTarget(choice?.metadata)
+    const target = edgeIntent?.to || getChoiceTargetNodeId(choice?.metadata)
     if (!target) {
       continue
     }
@@ -437,6 +504,48 @@ export async function recordChoiceEdgesWithEngine(
   })
 }
 
+export async function resolveStoryTargetFromGraphWithEngine(
+  target: ChoiceTarget,
+  ctx: StoryTargetResolveContext,
+): Promise<ResolvedStoryJump | undefined> {
+  const projection = getStoryGraphProjection(ctx.engine)
+  const currentPoint = ctx.currentPoint || ctx.engine.getStoryPoint()
+  const candidates = findStoryTargetCandidates(projection, target, currentPoint)
+  if (candidates.length === 0) {
+    return undefined
+  }
+  if (candidates.length > 1) {
+    throw new Error(`Ambiguous story target "${describeStoryTarget(target)}" resolved to ${candidates.length} graph nodes.`)
+  }
+  const { graph, node } = candidates[0]
+  const targetPackageId = getTargetPackageId(target)
+  const requiredRuntimePackages = mergeStringLists(
+    target.requiredRuntimePackages as string[] | undefined,
+    node.point.contentPackageId ? [node.point.contentPackageId] : [],
+    targetPackageId ? [targetPackageId] : [],
+    getMetadataRequiredRuntimePackages(node.metadata),
+  )
+  const moduleId = node.point.scriptModuleId || getMetadataString(node.metadata, 'scriptModuleId')
+  return {
+    target,
+    point: {
+      ...node.point,
+      storyId: node.point.storyId || graph.id,
+    },
+    requiredRuntimePackages,
+    script: moduleId
+      ? {
+          moduleId,
+          nodeId: node.point.nodeId || node.id,
+          labelId: getStoryPointField(node.point, 'labelId'),
+          entryId: getStoryPointField(node.point, 'entryId'),
+          stepId: node.point.stepId,
+          packageId: node.point.contentPackageId || targetPackageId,
+        }
+      : undefined,
+  }
+}
+
 export async function setStoryMetadataWithEngine(
   engine: QuaEngineInterface,
   patch: Partial<StoryPoint> & { metadata?: Record<string, unknown> },
@@ -449,7 +558,7 @@ export async function setStoryMetadataWithEngine(
     return
   }
   const point: StoryPoint = {
-    ...(current || { stepId }),
+    ...(current ? resetStoryPointByPatch(current, pointPatch) : { stepId }),
     ...pointPatch,
     stepId,
   }
@@ -461,6 +570,32 @@ function stripStoryMetadata(patch: Partial<StoryPoint> & { metadata?: Record<str
   const { metadata, ...pointPatch } = patch
   void metadata
   return pointPatch
+}
+
+function resetStoryPointByPatch(current: StoryPoint, patch: Partial<StoryPoint>): StoryPoint {
+  const point = { ...current } as StoryPoint & Record<string, unknown>
+  if (patch.chapterId !== undefined) {
+    delete point['sceneId']
+    delete point['entryId']
+    delete point['nodeId']
+    delete point['labelId']
+  }
+  if (patch.sceneId !== undefined) {
+    delete point['entryId']
+    delete point['nodeId']
+    delete point['labelId']
+  }
+  if (patch.entryId !== undefined) {
+    delete point['nodeId']
+    delete point['labelId']
+  }
+  if (patch.nodeId !== undefined) {
+    delete point['labelId']
+  }
+  if (patch.labelId !== undefined) {
+    delete point['nodeId']
+  }
+  return point
 }
 
 export function getStoryGraphProjection(engine: QuaEngineInterface): StoryGraphProjection {
@@ -539,6 +674,7 @@ function cloneStoryGraph(graph: StoryGraph): StoryGraph {
     nodes: graph.nodes.map(node => ({
       ...node,
       point: { ...node.point },
+      presentation: node.presentation ? cloneUnknownValue(node.presentation) as StoryNodePresentation : undefined,
       metadata: node.metadata ? { ...node.metadata } : undefined,
     })),
     edges: graph.edges?.map(edge => ({
@@ -591,6 +727,141 @@ function ensureChoiceEdgeNodes(
   return Array.from(byId.values())
 }
 
+function findStoryTargetCandidates(
+  projection: StoryGraphProjection,
+  target: ChoiceTarget,
+  currentPoint?: StoryPoint,
+): Array<{ graph: StoryGraph, node: StoryNode }> {
+  const graphFilter = getTargetGraphId(target) || currentPoint?.storyId
+  const sceneFilter = getTargetSceneId(target) || (target.kind === 'package-node' ? currentPoint?.sceneId : undefined)
+  const packageFilter = getTargetPackageId(target)
+  const id = getTargetNodeId(target)
+  if (!id) {
+    return []
+  }
+
+  const result: Array<{ graph: StoryGraph, node: StoryNode }> = []
+  for (const graph of Object.values(projection.graphs)) {
+    if (graphFilter && graph.id !== graphFilter) {
+      continue
+    }
+    for (const node of graph.nodes) {
+      if (!storyNodeMatchesTarget(node, target, id)) {
+        continue
+      }
+      if (sceneFilter && node.point.sceneId && node.point.sceneId !== sceneFilter) {
+        continue
+      }
+      if (packageFilter && node.point.contentPackageId !== packageFilter && node.metadata?.contentPackageId !== packageFilter) {
+        continue
+      }
+      if (target.kind !== 'scene' && currentPoint?.sceneId && node.point.sceneId && node.point.sceneId !== currentPoint.sceneId) {
+        continue
+      }
+      result.push({ graph, node })
+    }
+  }
+  return result
+}
+
+function storyNodeMatchesTarget(node: StoryNode, target: ChoiceTarget, id: string): boolean {
+  if (target.kind === 'label') {
+    return getStoryPointField(node.point, 'labelId') === id || node.id === id
+  }
+  if (target.kind === 'script') {
+    return Boolean(
+      node.point.scriptModuleId === target.moduleId
+      && (
+        target.nodeId === undefined && target.labelId === undefined && target.entryId === undefined && target.stepId === undefined
+        || node.point.nodeId === target.nodeId
+        || getStoryPointField(node.point, 'labelId') === target.labelId
+        || getStoryPointField(node.point, 'entryId') === target.entryId
+        || node.point.stepId === target.stepId
+        || node.id === id
+      ),
+    )
+  }
+  return node.id === id || node.point.nodeId === id
+}
+
+function getStoryPointField(point: StoryPoint, field: string): string | undefined {
+  const value = (point as StoryPoint & Record<string, unknown>)[field]
+  return typeof value === 'string' ? value : undefined
+}
+
+function getTargetNodeId(target: ChoiceTarget): string | undefined {
+  switch (target.kind) {
+    case 'node':
+      return target.id
+    case 'label':
+      return target.id
+    case 'package-node':
+      return target.nodeId
+    case 'script':
+      return target.nodeId || target.labelId || target.entryId || target.stepId || target.moduleId
+    default:
+      return undefined
+  }
+}
+
+function getTargetGraphId(target: ChoiceTarget): string | undefined {
+  return 'graphId' in target ? target.graphId : undefined
+}
+
+function getTargetSceneId(target: ChoiceTarget): string | undefined {
+  if (target.kind === 'scene') {
+    return target.sceneId
+  }
+  return 'sceneId' in target ? target.sceneId : undefined
+}
+
+function getTargetPackageId(target: ChoiceTarget): string | undefined {
+  if (target.kind === 'package-node') {
+    return target.packageId
+  }
+  return 'packageId' in target ? target.packageId : undefined
+}
+
+function describeStoryTarget(target: ChoiceTarget): string {
+  return `${target.kind}:${getTargetNodeId(target) || getTargetSceneId(target) || getTargetPackageId(target) || 'unknown'}`
+}
+
+function isChoiceTarget(value: unknown): value is ChoiceTarget {
+  return Boolean(value)
+    && typeof value === 'object'
+    && typeof (value as { kind?: unknown }).kind === 'string'
+}
+
+function getMetadataString(metadata: Readonly<Record<string, unknown>> | undefined, key: string): string | undefined {
+  const value = metadata?.[key]
+  return typeof value === 'string' ? value : undefined
+}
+
+function getMetadataRequiredRuntimePackages(metadata?: Readonly<Record<string, unknown>>): string[] {
+  const value = metadata?.requiredRuntimePackages
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : []
+}
+
+function mergeStringLists(...groups: Array<readonly string[] | undefined>): string[] {
+  return Array.from(new Set(groups.flatMap(group => group || []).filter(Boolean)))
+}
+
+function cloneUnknownRecord<T extends Readonly<Record<string, unknown>>>(value: T): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cloneUnknownValue(item)]))
+}
+
+function cloneUnknownValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(cloneUnknownValue)
+  }
+  if (value && typeof value === 'object') {
+    return cloneUnknownRecord(value as Readonly<Record<string, unknown>>)
+  }
+  return value
+}
+
 function createStoryNodeFromPoint(id: string, point: StoryPoint): StoryNode {
   return {
     id,
@@ -603,8 +874,27 @@ function createStoryNodeFromPoint(id: string, point: StoryPoint): StoryNode {
   }
 }
 
-function getChoiceTarget(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
-  return typeof metadata?.target === 'string' ? metadata.target : undefined
+function getChoiceTargetNodeId(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
+  if (typeof metadata?.target === 'string') {
+    return metadata.target
+  }
+  const target = metadata?.jumpTarget
+  if (!isChoiceTarget(target)) {
+    return undefined
+  }
+  if (target.kind === 'node') {
+    return target.id
+  }
+  if (target.kind === 'label') {
+    return target.id
+  }
+  if (target.kind === 'package-node') {
+    return target.nodeId
+  }
+  if (target.kind === 'script') {
+    return target.nodeId || target.labelId || target.entryId || target.stepId
+  }
+  return undefined
 }
 
 function getChoiceEdgeIntent(metadata: Readonly<Record<string, unknown>> | undefined): {
@@ -817,6 +1107,8 @@ function normalizeDeltaNode(
     id,
     point,
     title: node.title,
+    summary: node.summary,
+    presentation: node.presentation ? cloneUnknownValue(node.presentation) as StoryNodePresentation : undefined,
     laneId: node.laneId || point.laneId,
     routeId: node.routeId || point.routeId,
     timelineId: node.timelineId || point.timelineId,

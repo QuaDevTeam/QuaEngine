@@ -327,6 +327,9 @@ export interface ViewChoiceProjection {
   id: string
   text: string
   enabled: boolean
+  target?: Readonly<Record<string, unknown>>
+  unavailable?: Readonly<Record<string, unknown>>
+  presentation?: Readonly<Record<string, unknown>>
   metadata?: Readonly<Record<string, unknown>>
 }
 

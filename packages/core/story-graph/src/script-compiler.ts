@@ -2,6 +2,8 @@ import * as t from '@babel/types'
 
 const STORY_METADATA_DECORATORS = new Set([
   'Chapter',
+  'Scene',
+  'Entry',
   'Node',
   'Label',
   'Lane',
@@ -13,6 +15,14 @@ const STORY_METADATA_DECORATORS = new Set([
 
 export const storyGraphDecoratorMappings = {
   Chapter: {
+    function: 'setStoryMetadataWithEngine',
+    module: '@quajs/story-graph',
+  },
+  Scene: {
+    function: 'setStoryMetadataWithEngine',
+    module: '@quajs/story-graph',
+  },
+  Entry: {
     function: 'setStoryMetadataWithEngine',
     module: '@quajs/story-graph',
   },
@@ -110,10 +120,15 @@ function storyPointPropertyForDecorator(name: string): string {
   switch (name) {
     case 'Chapter':
       return 'chapterId'
+    case 'Scene':
+      return 'sceneId'
+    case 'Entry':
+      return 'entryId'
     case 'Node':
-    case 'Label':
     case 'Interaction':
       return 'nodeId'
+    case 'Label':
+      return 'labelId'
     case 'Lane':
       return 'laneId'
     case 'Route':

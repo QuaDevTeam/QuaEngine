@@ -66,6 +66,20 @@ export interface QuaScriptDialogue {
   range?: SourceRange
 }
 
+export interface QuaScriptChoiceDefinition {
+  id?: string
+  text: string
+  textRange: SourceRange
+  target?: QuaScriptDecoratorValue
+  options?: QuaScriptDecoratorValue
+  condition?: string
+  conditionRange?: SourceRange
+  templateExpressions: string[]
+  templateExpressionRanges: SourceRange[]
+  range?: SourceRange
+  source: 'decorator' | 'sugar'
+}
+
 export interface QuaScriptStep {
   uuid: string
   type: 'dialogue' | 'action' | 'choice'
@@ -81,17 +95,7 @@ export interface QuaScriptAction {
 
 export interface QuaScriptChoice {
   type: 'choice'
-  options: Array<{
-    id: string
-    text: string
-    textRange: SourceRange
-    target: string
-    condition?: string
-    conditionRange?: SourceRange
-    templateExpressions: string[]
-    templateExpressionRanges: SourceRange[]
-    range?: SourceRange
-  }>
+  options: QuaScriptChoiceDefinition[]
   range?: SourceRange
 }
 
@@ -100,6 +104,17 @@ export interface ParsedQuaScript {
   imports: Set<string>
   characters: Set<string>
   diagnostics: QuaScriptDiagnostic[]
+}
+
+export interface StoryDeclaration {
+  moduleId?: string
+  runtimePackageId?: string
+  scenes: Array<{ id: string, metadata?: Record<string, unknown> }>
+  entries?: Array<{ id: string, point: Record<string, unknown>, metadata?: Record<string, unknown> }>
+  nodes: Array<{ id: string, point: Record<string, unknown>, title?: string, summary?: string, presentation?: Record<string, unknown>, metadata?: Record<string, unknown> }>
+  labels: Array<{ id: string, point: Record<string, unknown>, metadata?: Record<string, unknown> }>
+  choices: Array<{ id: string, text: string, target?: Record<string, unknown>, condition?: string, source: 'decorator' | 'sugar', point: Record<string, unknown> }>
+  edges: Array<{ id: string, from: string, to: string, kind: 'choice' | string, condition?: string, metadata?: Record<string, unknown> }>
 }
 
 /**
@@ -131,6 +146,10 @@ export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
   },
   AutoSave: {
     function: 'autoSave',
+    module: '@quajs/engine',
+  },
+  Choice: {
+    function: 'defineChoice',
     module: '@quajs/engine',
   },
   ...flowControlDecoratorMappings,

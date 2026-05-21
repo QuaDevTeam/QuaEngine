@@ -58,6 +58,14 @@
         "function": "setStoryMetadataWithEngine",
         "module": "@quajs/story-graph"
       },
+      "Scene": {
+        "function": "setStoryMetadataWithEngine",
+        "module": "@quajs/story-graph"
+      },
+      "Entry": {
+        "function": "setStoryMetadataWithEngine",
+        "module": "@quajs/story-graph"
+      },
       "Node": {
         "function": "setStoryMetadataWithEngine",
         "module": "@quajs/story-graph"
