@@ -308,6 +308,9 @@ function toAssetData(result: AssetQueryResult): AssetData {
     version: result.asset.version,
     mtime: result.asset.mtime,
     fromCache: result.fromCache,
+    runtimePackageId: result.asset.runtimePackageId,
+    bundlePriority: result.asset.bundlePriority,
+    loadedAt: result.asset.loadedAt,
   }
 }
 

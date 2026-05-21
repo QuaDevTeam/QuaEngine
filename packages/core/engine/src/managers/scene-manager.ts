@@ -1,5 +1,5 @@
 import type { QuaEngine } from '../core/engine'
-import type { ChoiceIntent, DialogueIntent, Scene } from '../core/types'
+import type { ChoiceIntent, DialogueIntent, Scene, SceneEnterContext } from '../core/types'
 import type { SceneTransitionIntent, SceneTransitionType } from '../events/events'
 import { getPackageLogger } from '@quajs/logger'
 import { emitLogicToRender, LogicToRenderEvents, RenderToLogicEvents, waitForPipelineEvent } from '../events/events'
@@ -16,7 +16,7 @@ export class SceneManager {
 
   constructor(private engine: QuaEngine) {}
 
-  async loadScene(scene: Scene, transition?: SceneTransitionOptions): Promise<void> {
+  async loadScene(scene: Scene, transition?: SceneTransitionOptions, enterContext?: SceneEnterContext): Promise<void> {
     const previousScene = this.currentScene
     logger.info(`Loading scene: ${scene.name}`)
 
@@ -26,7 +26,7 @@ export class SceneManager {
 
     this.currentScene = scene
     this.engine.getStore().commit('setCurrentScene', scene.name)
-    await scene.init()
+    await scene.init(enterContext)
     const sceneReady = transition?.waitForRenderer
       ? waitForPipelineEvent(
           this.engine.getPipeline(),
@@ -43,7 +43,7 @@ export class SceneManager {
       transition,
     })
     await sceneReady
-    await scene.run()
+    await scene.run(enterContext)
   }
 
   async initializeScene(sceneId: string, config: Record<string, unknown> = {}): Promise<void> {

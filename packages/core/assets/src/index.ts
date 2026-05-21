@@ -94,6 +94,7 @@ export type {
   RuntimePackageManifest,
   RuntimePackagePluginKind,
   RuntimePackagePluginManifest,
+  RuntimePackageSceneManifest,
   RuntimePackageScriptManifest,
   RuntimePackageScriptVariantManifest,
   RuntimePackageSignatureManifest,

@@ -1,10 +1,13 @@
 import type {
+  AssetData,
+  AssetType,
   DynamicBundleRecord,
   QuaAssets,
   QuaAssetsConfig,
   RuntimeLocalePackManifest,
   RuntimePackageManifest,
   RuntimePackagePluginManifest,
+  RuntimePackageSceneManifest,
   RuntimePackageScriptManifest,
   RuntimePackageStoreMigrationManifest,
   TranslateInput,
@@ -19,6 +22,7 @@ import type {
   FlowControlTimingProjection,
   QuaViewProjection,
   RichTextContent,
+  SceneTransitionIntent,
   ViewBackgroundProjection,
   ViewEffectProjection,
   ViewFlowControlProjection,
@@ -33,6 +37,7 @@ export type {
   RuntimeLocalePackTargetManifest,
   RuntimePackageManifest,
   RuntimePackagePluginManifest,
+  RuntimePackageSceneManifest,
   RuntimePackageScriptManifest,
   RuntimePackageScriptVariantManifest,
   RuntimePackageStoreMigrationManifest,
@@ -110,14 +115,173 @@ export interface StepContext {
   }
 }
 
+export type JsonSerializable = string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }
+
+export type JsonSerializableRecord = Record<string, JsonSerializable>
+
+export interface StoryAssetRef {
+  type: AssetType
+  name: string
+  runtimePackageId?: string
+  alt?: string
+  focalPoint?: {
+    x: number
+    y: number
+  }
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface ResolvedStoryAsset {
+  ref: StoryAssetRef
+  asset: AssetData
+  contentPackageId?: string
+  requiredRuntimePackages: string[]
+}
+
+export interface ChoiceTargetBase {
+  kind: string
+  requiredRuntimePackages?: readonly string[]
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface NodeChoiceTarget extends ChoiceTargetBase {
+  kind: 'node'
+  id: string
+  graphId?: string
+  sceneId?: string
+  packageId?: string
+}
+
+export interface LabelChoiceTarget extends ChoiceTargetBase {
+  kind: 'label'
+  id: string
+  graphId?: string
+  sceneId?: string
+  packageId?: string
+}
+
+export interface SceneChoiceTarget extends ChoiceTargetBase {
+  kind: 'scene'
+  sceneId: string
+  entry?: string
+  state?: JsonSerializableRecord
+  transition?: SceneTransitionIntent
+}
+
+export interface ScriptChoiceTarget extends ChoiceTargetBase {
+  kind: 'script'
+  moduleId: string
+  nodeId?: string
+  labelId?: string
+  entryId?: string
+  stepId?: string
+  packageId?: string
+  scope?: JsonSerializableRecord
+}
+
+export interface CheckpointChoiceTarget extends ChoiceTargetBase {
+  kind: 'checkpoint'
+  id: string
+}
+
+export interface PackageNodeChoiceTarget extends ChoiceTargetBase {
+  kind: 'package-node'
+  packageId: string
+  nodeId: string
+  graphId?: string
+  sceneId?: string
+}
+
+export type ChoiceTarget
+  = | NodeChoiceTarget
+    | LabelChoiceTarget
+    | SceneChoiceTarget
+    | ScriptChoiceTarget
+    | CheckpointChoiceTarget
+    | PackageNodeChoiceTarget
+
+export interface ChoiceUnavailablePolicy {
+  mode: 'disabled' | 'hidden'
+  reason?: string
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface ChoicePresentation {
+  title?: string
+  subtitle?: string
+  description?: string
+  thumbnail?: StoryAssetRef
+  background?: StoryAssetRef
+  image?: StoryAssetRef
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface ChoiceDefinitionOptions {
+  id?: string
+  when?: boolean
+  unavailable?: ChoiceUnavailablePolicy
+  presentation?: ChoicePresentation
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface ChoiceDefinition {
+  id: string
+  text: string
+  target?: ChoiceTarget
+  enabled: boolean
+  unavailable?: ChoiceUnavailablePolicy
+  presentation?: ChoicePresentation
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface StoryTargetResolveContext {
+  engine: QuaEngineInterface
+  assets: QuaAssets
+  target: ChoiceTarget
+  currentPoint?: StoryPoint
+  currentSceneId?: string
+  choiceId?: string
+  source?: 'choice' | 'jump' | string
+}
+
+export interface ResolvedStoryJump {
+  target: ChoiceTarget
+  point?: StoryPoint
+  checkpoint?: EngineCheckpoint
+  requiredRuntimePackages?: readonly string[]
+  script?: {
+    moduleId: string
+    nodeId?: string
+    labelId?: string
+    entryId?: string
+    stepId?: string
+    packageId?: string
+    scope?: JsonSerializableRecord
+  }
+  scene?: {
+    sceneId: string
+    entry?: string
+    initialState?: JsonSerializableRecord
+    transition?: SceneTransitionIntent
+  }
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export type StoryTargetResolver = (target: ChoiceTarget, ctx: StoryTargetResolveContext) => ResolvedStoryJump | undefined | Promise<ResolvedStoryJump | undefined>
+
 export interface QuaEngineInterface {
   getCurrentSceneName: () => string | undefined
   getCurrentStepId: () => string | undefined
+  registerScene: (sceneId: string, factory: SceneFactory) => () => void
+  hasScene: (sceneId: string) => boolean
   getStoryPoint: () => StoryPoint | undefined
   setStoryPoint: (point: StoryPoint) => Promise<void>
   createCheckpoint: (options?: CreateCheckpointOptions) => Promise<EngineCheckpoint>
   getCheckpoint: (id: string) => EngineCheckpoint | undefined
   jumpTo: (target: JumpTarget, options?: JumpOptions) => Promise<void>
+  jumpToChoice: (choiceId: string, options?: ChoiceJumpOptions) => Promise<void>
+  resolveStoryTarget: (target: ChoiceTarget, context?: Partial<StoryTargetResolveContext>) => Promise<ResolvedStoryJump>
+  registerStoryTargetResolver: (resolver: StoryTargetResolver) => () => void
   getRollbackConfig: () => RollbackConfig
   setRollbackConfig: (patch: RollbackConfigPatch) => RollbackConfig
   getRollbackTargets: () => RollbackTargetInfo[]
@@ -132,6 +296,7 @@ export interface QuaEngineInterface {
   unregisterRollbackStore: (name: string) => void
   getStore: () => QuaStore
   getAssets: () => QuaAssets
+  resolveStoryAssetRef: (ref: StoryAssetRef) => Promise<ResolvedStoryAsset>
   getPipeline: () => Pipeline
   translate: (key: string, options?: TranslateInput) => Promise<string>
   ensureRuntimePackages: (packageIds: readonly string[]) => Promise<void>
@@ -181,6 +346,7 @@ export interface QuaEngineInterface {
   listSaveSlots: () => Promise<import('@quajs/store').QuaGameSaveSlotMeta[]>
   deleteSaveSlot: (slotId: string) => Promise<void>
   runScriptModule: <TScope>(moduleId: string, scope?: TScope, options?: RuntimeScriptModuleRunOptions) => Promise<void>
+  runScriptModuleFrom: <TScope>(moduleId: string, options?: RuntimeScriptModuleRunFromOptions<TScope>) => Promise<void>
   withRuntimePackageContext: <T>(packageId: string | undefined, operation: (engine: QuaEngineInterface) => T | Promise<T>) => Promise<T>
 }
 
@@ -192,9 +358,24 @@ export type QuaEngineWaitFor = <T extends import('../events/events').LogicToRend
 
 export abstract class Scene {
   abstract readonly name: string
-  abstract init(): void | Promise<void>
-  abstract run(): void | Promise<void>
+  abstract init(ctx?: SceneEnterContext): void | Promise<void>
+  abstract run(ctx?: SceneEnterContext): void | Promise<void>
   destroy?(): void | Promise<void>
+}
+
+export type SceneFactory = () => Scene | Promise<Scene>
+
+export interface SceneEnterContext {
+  sceneId: string
+  entry?: string
+  initialState?: JsonSerializableRecord
+  transition?: SceneTransitionIntent
+  reason?: string
+  choiceId?: string
+  target?: ChoiceTarget
+  fromScene?: string
+  fromPoint?: StoryPoint
+  requiredRuntimePackages?: readonly string[]
 }
 
 export interface SaveSlot {
@@ -219,6 +400,8 @@ export interface StoryPoint {
   timelineId?: string
   protagonistId?: string
   nodeId?: string
+  labelId?: string
+  entryId?: string
   stepId: string
   lineId?: string
   contentPackageId?: string
@@ -398,6 +581,11 @@ export interface JumpOptions {
   ui?: 'clear-transient' | 'restore'
 }
 
+export interface ChoiceJumpOptions extends JumpOptions {
+  clearChoices?: boolean
+  runTarget?: boolean
+}
+
 export interface JumpContext {
   target: JumpTarget
   checkpoint?: EngineCheckpoint
@@ -422,6 +610,7 @@ export interface RuntimePackageStateRecord {
   activatedAt?: number
   dependencies: string[]
   scriptModuleIds: string[]
+  sceneIds: string[]
   pluginIds: string[]
   migrationIds: string[]
   localePack?: RuntimeLocalePackManifest
@@ -436,6 +625,15 @@ export interface RuntimeScriptModuleRecord extends RuntimePackageScriptManifest 
 
 export interface RuntimeScriptModuleRunOptions {
   locale?: string
+}
+
+export interface RuntimeScriptModuleRunFromOptions<TScope = GameStepScope> extends RuntimeScriptModuleRunOptions {
+  scope?: TScope
+  nodeId?: string
+  labelId?: string
+  entryId?: string
+  stepId?: string
+  packageId?: string
 }
 
 export interface EnsureLocalePacksOptions {
@@ -467,6 +665,15 @@ export interface RuntimePackageRegistryResolveContext {
   requestedPackageId: string
 }
 
+export interface RuntimePackageRegistryResolveStoryTargetContext {
+  engine: QuaEngineInterface
+  assets: QuaAssets
+  target: ChoiceTarget
+  currentPoint?: StoryPoint
+  currentSceneId?: string
+  activePackageIds: string[]
+}
+
 export interface RuntimeLocalePackRegistryResolveContext {
   engine: QuaEngineInterface
   assets: QuaAssets
@@ -484,6 +691,10 @@ export interface RuntimePackageRegistry {
     locale: string,
     ctx: RuntimeLocalePackRegistryResolveContext,
   ) => Array<string | RuntimePackageRegistryEntry> | undefined | Promise<Array<string | RuntimePackageRegistryEntry> | undefined>
+  resolveStoryTarget?: (
+    target: ChoiceTarget,
+    ctx: RuntimePackageRegistryResolveStoryTargetContext,
+  ) => string | RuntimePackageRegistryEntry | Array<string | RuntimePackageRegistryEntry> | undefined | Promise<string | RuntimePackageRegistryEntry | Array<string | RuntimePackageRegistryEntry> | undefined>
 }
 
 export interface RuntimeLoadedScriptModule {
@@ -494,6 +705,13 @@ export interface RuntimeLoadedScriptModule {
 export interface RuntimeLoadedPluginModule {
   default?: unknown
   Plugin?: unknown
+  [key: string]: unknown
+}
+
+export interface RuntimeLoadedSceneModule {
+  default?: unknown
+  Scene?: unknown
+  createScene?: unknown
   [key: string]: unknown
 }
 
@@ -515,6 +733,7 @@ export type RuntimeStoreMigrationHandler = (ctx: RuntimeStoreMigrationContext) =
 
 export interface RuntimeModuleLoader {
   loadScriptModule?: (record: RuntimeScriptModuleRecord, ctx: RuntimeModuleLoadContext) => Promise<RuntimeLoadedScriptModule>
+  loadSceneModule?: (record: RuntimePackageSceneManifest, ctx: RuntimeModuleLoadContext) => Promise<RuntimeLoadedSceneModule>
   loadEnginePluginModule?: (record: RuntimePackagePluginManifest, ctx: RuntimeModuleLoadContext) => Promise<RuntimeLoadedPluginModule>
   loadStoreMigrationModule?: (record: RuntimePackageStoreMigrationManifest, ctx: RuntimeModuleLoadContext) => Promise<RuntimeLoadedMigrationModule>
 }
@@ -606,6 +825,9 @@ export interface ChoiceIntent {
   id: string
   text: string
   enabled?: boolean
+  target?: ChoiceTarget
+  unavailable?: ChoiceUnavailablePolicy
+  presentation?: ChoicePresentation
   metadata?: Record<string, unknown>
 }
 
