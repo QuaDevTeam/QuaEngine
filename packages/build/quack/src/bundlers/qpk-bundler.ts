@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import { createLogger } from '@quajs/logger'
 import * as lzma from 'lzma-native'
 import { EncryptionManager } from '../crypto/encryption'
+import { readQpkBundle } from '../qpk-reader'
 import { getErrorMessage } from '../utils/error'
 
 const logger = createLogger('quack:qpk-bundler')
@@ -29,22 +30,15 @@ const QPK_MAGIC = Buffer.from('QPK\0', 'ascii')
 const QPK_VERSION = 1
 const QPK_HEADER_SIZE = 32
 
-interface QPKHeader {
-  magic: Buffer
-  version: number
-  flags: number
-  headerSize: number
-  manifestOffset: bigint
-  manifestSize: bigint
-  reserved: number
-}
-
 interface QPKFlags {
   compressed: boolean
   encrypted: boolean
 }
 
 export class QPKBundler {
+  private encryptionAlgorithm: EncryptionAlgorithm
+  private encryptionKey?: string
+  private encryptionPlugin?: EncryptionPlugin
   private plugins: QuackPlugin[]
   private encryptionManager: EncryptionManager
 
@@ -54,6 +48,9 @@ export class QPKBundler {
     encryptionKey?: string,
     encryptionPlugin?: EncryptionPlugin,
   ) {
+    this.encryptionAlgorithm = encryptionAlgorithm
+    this.encryptionKey = encryptionKey
+    this.encryptionPlugin = encryptionPlugin
     this.plugins = plugins
     this.encryptionManager = new EncryptionManager(encryptionAlgorithm, encryptionKey, encryptionPlugin)
   }
@@ -316,14 +313,6 @@ export class QPKBundler {
   }
 
   /**
-   * Decompress buffer using LZMA
-   */
-  private async decompressBuffer(buffer: Buffer): Promise<Buffer> {
-    const result = await lzma.decompress(buffer)
-    return Buffer.from(result)
-  }
-
-  /**
    * Write buffer to stream
    */
   private async writeBuffer(stream: NodeJS.WritableStream, buffer: Buffer): Promise<void> {
@@ -352,121 +341,13 @@ export class QPKBundler {
    */
   async readBundle(qpkPath: string): Promise<{ manifest: BundleManifest, assets: Map<string, Buffer> }> {
     logger.info(`Reading QPK bundle: ${qpkPath}`)
-
-    const fileBuffer = await readFile(qpkPath)
-
-    // Parse header
-    const header = this.parseHeader(fileBuffer)
-    this.validateHeader(header)
-
-    // Extract manifest
-    const manifestStart = Number(header.manifestOffset)
-    const manifestEnd = manifestStart + Number(header.manifestSize)
-    let manifestBuffer: Buffer<ArrayBufferLike> = fileBuffer.subarray(manifestStart, manifestEnd)
-
-    // Decrypt if needed
-    if (header.flags & 2) {
-      manifestBuffer = await this.encryptionManager.decrypt(manifestBuffer, { type: 'manifest' })
-    }
-
-    // Decompress if needed
-    if (header.flags & 1) {
-      manifestBuffer = await this.decompressBuffer(manifestBuffer)
-    }
-
-    const manifest: BundleManifest = JSON.parse(manifestBuffer.toString('utf8'))
-
-    // Extract assets
-    const assets = new Map<string, Buffer>()
-    let offset = header.headerSize
-
-    while (offset < manifestStart) {
-      // Read path length
-      const pathLength = fileBuffer.readUInt32LE(offset)
-      offset += 4
-
-      // Read path
-      const path = fileBuffer.subarray(offset, offset + pathLength).toString('utf8')
-      offset += pathLength
-
-      // Read data length
-      const dataLength = fileBuffer.readUInt32LE(offset)
-      offset += 4
-
-      // Read data
-      const data = fileBuffer.subarray(offset, offset + dataLength)
-      offset += dataLength
-
-      assets.set(path, data)
-    }
-
+    const { assets, manifest } = await readQpkBundle(qpkPath, {
+      encryptionAlgorithm: this.encryptionAlgorithm,
+      encryptionKey: this.encryptionKey,
+      encryptionPlugin: this.encryptionPlugin,
+    })
     logger.info(`Read QPK bundle with ${assets.size} assets`)
     return { manifest, assets }
-  }
-
-  /**
-   * Parse QPK header
-   */
-  private parseHeader(buffer: Buffer): QPKHeader & { flags: number } {
-    if (buffer.length < QPK_HEADER_SIZE) {
-      throw new Error('Invalid QPK file: too small')
-    }
-
-    let offset = 0
-
-    // Magic
-    const magic = buffer.subarray(offset, offset + 4)
-    offset += 4
-
-    // Version
-    const version = buffer.readUInt32LE(offset)
-    offset += 4
-
-    // Flags
-    const flags = buffer.readUInt32LE(offset)
-    offset += 4
-
-    // Header size
-    const headerSize = buffer.readUInt32LE(offset)
-    offset += 4
-
-    // Manifest offset
-    const manifestOffset = buffer.readBigUInt64LE(offset)
-    offset += 8
-
-    // Manifest size
-    const manifestSize = buffer.readBigUInt64LE(offset)
-    offset += 8
-
-    // Reserved
-    const reserved = buffer.readUInt32LE(offset)
-
-    return {
-      magic,
-      version,
-      flags,
-      headerSize,
-      manifestOffset,
-      manifestSize,
-      reserved,
-    }
-  }
-
-  /**
-   * Validate QPK header
-   */
-  private validateHeader(header: QPKHeader & { flags: number }): void {
-    if (!header.magic.equals(QPK_MAGIC)) {
-      throw new Error('Invalid QPK file: wrong magic number')
-    }
-
-    if (header.version !== QPK_VERSION) {
-      throw new Error(`Unsupported QPK version: ${header.version}`)
-    }
-
-    if (header.headerSize !== QPK_HEADER_SIZE) {
-      throw new Error(`Invalid header size: ${header.headerSize}`)
-    }
   }
 
   /**

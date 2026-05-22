@@ -3,4 +3,11 @@ declare module 'lzma-native' {
   export function decompress(data: Buffer | Uint8Array, options?: any): Promise<Buffer>
   export function compressSync(data: Buffer | Uint8Array, options?: any): Buffer
   export function decompressSync(data: Buffer | Uint8Array, options?: any): Buffer
+  const lzma: {
+    compress: typeof compress
+    decompress: typeof decompress
+    compressSync: typeof compressSync
+    decompressSync: typeof decompressSync
+  }
+  export default lzma
 }
