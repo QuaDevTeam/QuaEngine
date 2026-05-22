@@ -192,6 +192,18 @@ importers:
         specifier: 'catalog:'
         version: 1.0.12
 
+  packages/build/project-inspector:
+    dependencies:
+      '@quajs/plugin-discovery':
+        specifier: workspace:*
+        version: link:../../core/plugin-discovery
+      '@quajs/quack':
+        specifier: workspace:*
+        version: link:../quack
+      '@quajs/script-compiler':
+        specifier: workspace:*
+        version: link:../script-compiler
+
   packages/build/quack:
     dependencies:
       '@quajs/logger':
