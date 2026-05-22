@@ -1,4 +1,5 @@
 import type { Plugin, ViteDevServer } from 'vite'
+import type { QuaScriptTransformResult } from '../core/transformer'
 import type { DecoratorMapping } from '../core/types'
 import process from 'node:process'
 import { getHotReloadManager } from '../core/hot-reload'
@@ -119,20 +120,20 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
       if (isStandaloneFile) {
         try {
           const transformedCode = await transformQuaScriptTypeScriptForVite(
-            transformer.transformModuleSource(code, id),
+            transformer.transformModuleSourceWithMap(code, id),
             id,
           )
 
           if (hotReload && server) {
             return {
               code: transformedCode.code + generateHMRCode(id),
-              map: transformedCode.map,
+              map: transformedCode.map as any,
             }
           }
 
           return {
             code: transformedCode.code,
-            map: transformedCode.map,
+            map: transformedCode.map as any,
           }
         }
         catch (error) {
@@ -147,20 +148,20 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
 
       try {
         // Use hot-reload aware transformer
-        const transformedCode = transformer.transformSource(code, id)
+        const transformedCode = transformer.transformSourceWithMap(code, id)
 
         // In development with HMR, add hot-reload client code
         if (hotReload && server) {
           const hmrCode = generateHMRCode(id)
           return {
-            code: transformedCode + hmrCode,
-            map: null, // TODO: Implement proper source map generation
+            code: transformedCode.code + hmrCode,
+            map: transformedCode.map as any,
           }
         }
 
         return {
-          code: transformedCode,
-          map: null,
+          code: transformedCode.code,
+          map: transformedCode.map as any,
         }
       }
       catch (error) {
@@ -203,13 +204,18 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
   }
 }
 
-async function transformQuaScriptTypeScriptForVite(code: string, id: string) {
+async function transformQuaScriptTypeScriptForVite(result: QuaScriptTransformResult, id: string) {
   const vite = await import('vite')
   const filename = `${stripQuery(id)}.ts`
-  return vite.transformWithOxc(code, filename, {
-    lang: 'ts',
-    sourcemap: true,
-  })
+  return vite.transformWithOxc(
+    result.code,
+    filename,
+    {
+      lang: 'ts',
+      sourcemap: true,
+    },
+    result.map || undefined,
+  )
 }
 
 /**

@@ -17,6 +17,15 @@ import { VersionManager } from './versioning'
 
 const logger = createLogger('quack:patch-generator')
 
+interface PatchChainEntry {
+  filename: string
+  fromVersion: number
+  toVersion: number
+  patchVersion: number
+  changeCount?: number
+  size?: number
+}
+
 export class PatchGenerator {
   private versionManager: VersionManager
 
@@ -399,20 +408,7 @@ export class PatchGenerator {
     patchVersion: number
   }> | null> {
     const availablePatches = await this.listAvailablePatches()
-
-    // Simple implementation: direct patch
-    const directPatch = availablePatches.find(
-      patch => patch.fromVersion === fromVersion && patch.toVersion === toVersion,
-    )
-
-    if (directPatch) {
-      return [directPatch]
-    }
-
-    // TODO: Implement multi-step patch chain resolution
-    // This would find a series of patches that can update from fromVersion to toVersion
-
-    return null
+    return resolvePatchChain(availablePatches, fromVersion, toVersion)
   }
 
   // ==== WORKSPACE METHODS ====
@@ -539,6 +535,19 @@ export class PatchGenerator {
     }
 
     return patches
+  }
+
+  /**
+   * Get patch chain for a specific bundle in workspace.
+   */
+  async getWorkspaceBundlePatchChain(bundleName: string, fromVersion: number, toVersion: number): Promise<Array<{
+    filename: string
+    fromVersion: number
+    toVersion: number
+    patchVersion: number
+  }> | null> {
+    const availablePatches = await this.listWorkspaceBundlePatches(bundleName)
+    return resolvePatchChain(availablePatches, fromVersion, toVersion)
   }
 
   /**
@@ -688,5 +697,101 @@ export class PatchGenerator {
     }
 
     return patchManifest as PatchManifest
+  }
+}
+
+function resolvePatchChain<T extends PatchChainEntry>(
+  availablePatches: readonly T[],
+  fromVersion: number,
+  toVersion: number,
+): Array<{
+  filename: string
+  fromVersion: number
+  toVersion: number
+  patchVersion: number
+}> | null {
+  if (fromVersion === toVersion) {
+    return []
+  }
+
+  const forwardPatches = availablePatches
+    .filter(patch => patch.fromVersion !== patch.toVersion)
+    .filter(patch => fromVersion < toVersion
+      ? patch.fromVersion >= fromVersion && patch.toVersion <= toVersion && patch.toVersion > patch.fromVersion
+      : patch.fromVersion <= fromVersion && patch.toVersion >= toVersion && patch.toVersion < patch.fromVersion)
+    .sort(comparePatchCandidates)
+
+  const patchesByStart = new Map<number, T[]>()
+  for (const patch of forwardPatches) {
+    const patches = patchesByStart.get(patch.fromVersion) || []
+    patches.push(patch)
+    patchesByStart.set(patch.fromVersion, patches)
+  }
+
+  const queue: Array<{ chain: T[], version: number }> = [{ version: fromVersion, chain: [] }]
+  const bestDepthByVersion = new Map<number, number>([[fromVersion, 0]])
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    const nextPatches = patchesByStart.get(current.version) || []
+
+    for (const patch of nextPatches) {
+      const nextDepth = current.chain.length + 1
+      const knownDepth = bestDepthByVersion.get(patch.toVersion)
+      if (knownDepth !== undefined && knownDepth <= nextDepth) {
+        continue
+      }
+
+      const chain = [...current.chain, patch]
+      if (patch.toVersion === toVersion) {
+        return chain.map(toPatchChainEntry)
+      }
+
+      bestDepthByVersion.set(patch.toVersion, nextDepth)
+      queue.push({ version: patch.toVersion, chain })
+    }
+  }
+
+  return null
+}
+
+function comparePatchCandidates(left: PatchChainEntry, right: PatchChainEntry): number {
+  const versionDirection = left.fromVersion - right.fromVersion
+  if (versionDirection !== 0) {
+    return versionDirection
+  }
+
+  const leftSpan = Math.abs(left.toVersion - left.fromVersion)
+  const rightSpan = Math.abs(right.toVersion - right.fromVersion)
+  if (leftSpan !== rightSpan) {
+    return rightSpan - leftSpan
+  }
+
+  const leftChangeCount = left.changeCount ?? Number.MAX_SAFE_INTEGER
+  const rightChangeCount = right.changeCount ?? Number.MAX_SAFE_INTEGER
+  if (leftChangeCount !== rightChangeCount) {
+    return leftChangeCount - rightChangeCount
+  }
+
+  const leftSize = left.size ?? Number.MAX_SAFE_INTEGER
+  const rightSize = right.size ?? Number.MAX_SAFE_INTEGER
+  if (leftSize !== rightSize) {
+    return leftSize - rightSize
+  }
+
+  return left.patchVersion - right.patchVersion
+}
+
+function toPatchChainEntry(patch: PatchChainEntry): {
+  filename: string
+  fromVersion: number
+  toVersion: number
+  patchVersion: number
+} {
+  return {
+    filename: patch.filename,
+    fromVersion: patch.fromVersion,
+    toVersion: patch.toVersion,
+    patchVersion: patch.patchVersion,
   }
 }

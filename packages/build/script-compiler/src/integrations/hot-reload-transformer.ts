@@ -1,5 +1,5 @@
 import type { HotReloadEvent } from '../core/hot-reload'
-import type { QuaScriptTransformerOptions } from '../core/transformer'
+import type { QuaScriptTransformerOptions, QuaScriptTransformResult } from '../core/transformer'
 import type { DecoratorMapping } from '../core/types'
 import process from 'node:process'
 import { getHotReloadManager } from '../core/hot-reload'
@@ -53,8 +53,12 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
    * Transform source with hot-reload support
    */
   transformSource(source: string, filePath?: string): string {
+    return this.transformSourceWithMap(source, filePath).code
+  }
+
+  transformSourceWithMap(source: string, filePath?: string): QuaScriptTransformResult {
     if (!this.hotReloadManager.isHotReloadEnabled() || !filePath) {
-      return super.transformSource(source)
+      return super.transformSourceWithMap(source, filePath)
     }
 
     // Check cache first
@@ -64,7 +68,7 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
     }
 
     // Transform and cache result
-    const result = super.transformSource(source)
+    const result = super.transformSourceWithMap(source, filePath)
 
     // Extract dependencies (files that this QuaScript depends on)
     const dependencies = this.extractDependencies(source)
@@ -77,8 +81,12 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
    * Transform standalone QuaScript source with hot-reload support.
    */
   transformModuleSource(source: string, filePath?: string): string {
+    return this.transformModuleSourceWithMap(source, filePath).code
+  }
+
+  transformModuleSourceWithMap(source: string, filePath?: string): QuaScriptTransformResult {
     if (!this.hotReloadManager.isHotReloadEnabled() || !filePath) {
-      return super.transformModuleSource(source, filePath)
+      return super.transformModuleSourceWithMap(source, filePath)
     }
 
     const cached = this.hotReloadManager.getCached(filePath, source)
@@ -86,7 +94,7 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
       return cached
     }
 
-    const result = super.transformModuleSource(source, filePath)
+    const result = super.transformModuleSourceWithMap(source, filePath)
     const dependencies = this.extractDependencies(source)
     this.hotReloadManager.setCached(filePath, source, result, dependencies)
 

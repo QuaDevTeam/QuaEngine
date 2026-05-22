@@ -134,6 +134,9 @@ describe('vite Plugin Hot-Reload Integration', () => {
       expect(result).toBeTruthy()
       expect(result.code).toContain('speakWithEngine(ctx.engine, "Yuki"')
       expect(result.code).toContain('import.meta.hot') // HMR code
+      expect(result.map).toBeTruthy()
+      expect(result.map.sources).toContain(id)
+      expect(result.map.mappings).not.toBe('')
     })
 
     it('should transform standalone .qs files into modules', async () => {
@@ -153,6 +156,9 @@ describe('vite Plugin Hot-Reload Integration', () => {
       expect(result.code).toContain('export default function createQuaScript(scope = {})')
       expect(result.code).toContain('speakWithEngine(ctx.engine, "Yuki"')
       expect(result.code).toContain('import.meta.hot')
+      expect(result.map).toBeTruthy()
+      expect(result.map.sources.length).toBeGreaterThan(0)
+      expect(result.map.mappings).not.toBe('')
     })
 
     it('should skip non-QuaScript files', async () => {
