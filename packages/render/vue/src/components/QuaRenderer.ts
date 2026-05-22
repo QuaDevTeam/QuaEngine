@@ -5,7 +5,7 @@ import type { RendererActions } from '@quajs/renderer-web'
 import type { PropType } from 'vue'
 import type { QuaVueRendererPlugin } from '../plugins/core'
 import { emptyView, QuaWebRendererController, rendererRootStyle } from '@quajs/renderer-web'
-import { computed, defineComponent, h, onBeforeUnmount, onMounted, provide, readonly, shallowRef, watch } from 'vue'
+import { computed, defineComponent, h, onBeforeUnmount, onErrorCaptured, onMounted, provide, readonly, shallowRef, watch } from 'vue'
 import { QuaRendererContextKey } from '../context'
 import { sortRendererLayers } from '../plugins/core'
 import { QuaStage } from './QuaStage'
@@ -61,6 +61,13 @@ export const QuaRenderer = defineComponent({
     const assetRevision = computed(() => snapshot.value.assetRevision)
     const actions = web.actions
 
+    const reportVueError = (error: unknown, phase: string) => {
+      void web.reportError(error, {
+        message: 'Vue renderer failed.',
+        phase,
+      })
+    }
+
     provide(QuaRendererContextKey, {
       web,
       pipeline: computed(() => requirePipeline(pipeline.value)),
@@ -74,7 +81,14 @@ export const QuaRenderer = defineComponent({
       unsubscribeSnapshot = web.subscribe(nextSnapshot => snapshot.value = nextSnapshot)
       stopPipelineWatch = watch(pipeline, currentPipeline => web.setPipeline(requirePipeline(currentPipeline)), { immediate: true })
       stopAssetWatch = watch(assets, currentAssets => web.setAssets(currentAssets), { immediate: true })
-      await web.start()
+      await web.start().catch((error) => {
+        reportVueError(error, 'vue-renderer:start')
+      })
+    })
+
+    onErrorCaptured((error, _instance, info) => {
+      reportVueError(error, `vue-renderer:${info || 'error-captured'}`)
+      return false
     })
 
     onBeforeUnmount(() => {

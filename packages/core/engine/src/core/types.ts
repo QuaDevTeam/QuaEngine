@@ -20,6 +20,9 @@ import type {
   FlowControlPolicy,
   FlowControlProjectionInput,
   FlowControlTimingProjection,
+  QuaErrorPayload,
+  QuaErrorSeverity,
+  QuaErrorSource,
   QuaViewProjection,
   RichTextContent,
   SceneTransitionIntent,
@@ -348,6 +351,13 @@ export interface QuaEngineInterface {
   runScriptModule: <TScope>(moduleId: string, scope?: TScope, options?: RuntimeScriptModuleRunOptions) => Promise<void>
   runScriptModuleFrom: <TScope>(moduleId: string, options?: RuntimeScriptModuleRunFromOptions<TScope>) => Promise<void>
   withRuntimePackageContext: <T>(packageId: string | undefined, operation: (engine: QuaEngineInterface) => T | Promise<T>) => Promise<T>
+  reportError: (error: unknown, options?: EngineReportErrorOptions) => Promise<QuaErrorPayload>
+}
+
+export interface EngineReportErrorOptions extends Partial<Omit<QuaErrorPayload, 'error'>> {
+  source?: QuaErrorSource | string
+  severity?: QuaErrorSeverity
+  metadata?: Readonly<Record<string, unknown>>
 }
 
 export type QuaEngineWaitFor = <T extends import('../events/events').LogicToRenderEvents | import('../events/events').RenderToLogicEvents>(

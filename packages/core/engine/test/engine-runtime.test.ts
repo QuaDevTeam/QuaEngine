@@ -107,6 +107,48 @@ describe('quaEngine runtime architecture', () => {
     await expect(wait).resolves.toEqual({ choiceId: 'yes' })
   })
 
+  it('reports step errors through system error events before rejecting', async () => {
+    const engine = createEngine()
+    await engine.init()
+    const errors: unknown[] = []
+    onLogicToRender(engine.getPipeline(), LogicToRenderEvents.SYSTEM_ERROR, payload => errors.push(payload))
+
+    await expect(engine.dialogue([{
+      uuid: 'broken-step',
+      run: async () => {
+        throw new Error('broken step')
+      },
+    }])).rejects.toThrow('broken step')
+
+    expect(errors).toEqual([expect.objectContaining({
+      message: 'Step "broken-step" failed.',
+      source: 'script',
+      phase: 'step:run',
+    })])
+  })
+
+  it('bridges renderer errors into engine-owned system error events', async () => {
+    const engine = createEngine()
+    await engine.init()
+    const errors: unknown[] = []
+    onLogicToRender(engine.getPipeline(), LogicToRenderEvents.SYSTEM_ERROR, payload => errors.push(payload))
+
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.RENDER_ERROR, {
+      message: 'Renderer layer failed',
+      source: 'renderer',
+      phase: 'vue-layer:render',
+      rendererId: 'vue',
+      error: { message: 'render exploded' },
+    })
+
+    expect(errors).toEqual([expect.objectContaining({
+      message: 'Renderer layer failed',
+      source: 'renderer',
+      phase: 'vue-layer:render',
+      metadata: expect.objectContaining({ rendererId: 'vue' }),
+    })])
+  })
+
   it('owns flow control state and advances skippable dialogue through pipeline', async () => {
     vi.useFakeTimers()
     const engine = createEngine()

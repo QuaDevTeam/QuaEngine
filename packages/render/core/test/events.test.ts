@@ -125,6 +125,27 @@ describe('render-core event contracts', () => {
     })])
   })
 
+  it('normalizes renderer errors through the shared render-to-logic channel', async () => {
+    const pipeline = new Pipeline()
+    const errors: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, payload => errors.push(payload))
+
+    await emitRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, {
+      message: 'Layer failed',
+      source: 'renderer',
+      phase: 'layer:render',
+      error: { message: 'boom' },
+      recoverable: true,
+    })
+
+    expect(errors).toEqual([expect.objectContaining({
+      message: 'Layer failed',
+      source: 'renderer',
+      phase: 'layer:render',
+      recoverable: true,
+    })])
+  })
+
   it('waits for matching pipeline events, timeout, and cancellation', async () => {
     const pipeline = new Pipeline()
 
@@ -210,5 +231,122 @@ describe('render-core event contracts', () => {
       },
     })
     expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports renderer plugin setup failures and keeps healthy plugins active', async () => {
+    const pipeline = new Pipeline()
+    const reportError = vi.fn(async () => {})
+    const failedDisposer = vi.fn()
+    const failedDestroy = vi.fn()
+    const healthySetup = vi.fn()
+    const healthyDestroy = vi.fn()
+    const host = new RendererPluginHost([{
+      name: 'broken-plugin',
+      setup(context) {
+        context.addDisposer(failedDisposer)
+        throw new Error('plugin setup failed')
+      },
+      destroy: failedDestroy,
+    }, {
+      name: 'healthy-plugin',
+      setup: healthySetup,
+      destroy: healthyDestroy,
+    }])
+
+    await expect(host.init({
+      getPipeline: () => pipeline,
+      getViewState: () => ({
+        layout: createViewLayoutProjection(),
+        characters: [],
+        dialogue: { visible: false, text: '' },
+        choices: [],
+        ui: { visible: true },
+        flowControl: createFlowControlProjection(),
+        effects: [],
+        animations: [],
+        plugins: { audio: { revision: 0, unlocked: false } },
+      }),
+      refresh: vi.fn(),
+      emitRenderToLogic: (type, payload) => emitRenderToLogic(pipeline, type as any, payload as any),
+      onLogicToRender: (type, handler) => onLogicToRender(pipeline, type as any, handler as any),
+      onRenderToLogic: (type, handler) => onRenderToLogic(pipeline, type as any, handler as any),
+      reportError,
+    })).resolves.toBeUndefined()
+
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({
+      phase: 'renderer-plugin:setup',
+      pluginName: 'broken-plugin',
+    }))
+    expect(failedDisposer).toHaveBeenCalledTimes(1)
+    expect(healthySetup).toHaveBeenCalledTimes(1)
+
+    await host.destroy()
+
+    expect(failedDestroy).not.toHaveBeenCalled()
+    expect(failedDisposer).toHaveBeenCalledTimes(1)
+    expect(healthyDestroy).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports renderer plugin event handler failures without recursively reporting error-channel failures', async () => {
+    const pipeline = new Pipeline()
+    const reportError = vi.fn(async () => {})
+    const host = new RendererPluginHost([{
+      name: 'event-plugin',
+      setup(context) {
+        context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, () => {
+          throw new Error('handler failed')
+        }))
+        context.addDisposer(context.onRenderToLogic(RenderToLogicEvents.RENDER_ERROR, () => {
+          throw new Error('error handler failed')
+        }))
+      },
+    }])
+
+    await host.init({
+      getPipeline: () => pipeline,
+      getViewState: () => ({
+        layout: createViewLayoutProjection(),
+        characters: [],
+        dialogue: { visible: false, text: '' },
+        choices: [],
+        ui: { visible: true },
+        flowControl: createFlowControlProjection(),
+        effects: [],
+        animations: [],
+        plugins: { audio: { revision: 0, unlocked: false } },
+      }),
+      refresh: vi.fn(),
+      emitRenderToLogic: (type, payload) => emitRenderToLogic(pipeline, type as any, payload as any),
+      onLogicToRender: (type, handler) => onLogicToRender(pipeline, type as any, handler as any),
+      onRenderToLogic: (type, handler) => onRenderToLogic(pipeline, type as any, handler as any),
+      reportError,
+    })
+
+    await expect(emitLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, {
+      view: {
+        layout: createViewLayoutProjection(),
+        characters: [],
+        dialogue: { visible: false, text: '' },
+        choices: [],
+        ui: { visible: true },
+        flowControl: createFlowControlProjection(),
+        effects: [],
+        animations: [],
+        plugins: { audio: { revision: 1, unlocked: true } },
+      },
+    })).resolves.toBeUndefined()
+
+    expect(reportError).toHaveBeenCalledTimes(1)
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({
+      phase: 'renderer-plugin:on-logic-to-render',
+      pluginName: 'event-plugin',
+      metadata: { event: LogicToRenderEvents.VIEW_UPDATE },
+    }))
+    await emitRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, {
+      message: 'existing renderer error',
+      source: 'renderer',
+    })
+    expect(reportError).toHaveBeenCalledTimes(1)
+    await host.destroy()
   })
 })

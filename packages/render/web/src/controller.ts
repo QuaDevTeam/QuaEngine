@@ -1,8 +1,9 @@
 import type { AssetChange, QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
-import type { QuaViewProjection, RendererPlugin, RendererPluginContext } from '@quajs/render-core'
+import type { QuaViewProjection, RenderErrorPayload, RendererPlugin, RendererPluginContext } from '@quajs/render-core'
 import type { RendererActions } from './actions'
 import {
+  createQuaErrorPayload,
   emitRenderToLogic,
   LogicToRenderEvents,
   onLogicToRender,
@@ -20,6 +21,7 @@ export interface QuaWebRendererOptions {
   plugins?: readonly RendererPlugin[]
   runtimePluginLoader?: (pluginManifest: unknown, context: { packageId: string }) => Promise<RendererPlugin | undefined> | RendererPlugin | undefined
   autoReady?: boolean
+  rendererId?: string
 }
 
 export interface QuaWebRendererSnapshot {
@@ -50,6 +52,7 @@ export class QuaWebRendererController {
   private readonly plugins: readonly RendererPlugin[]
   private readonly runtimePluginLoader?: QuaWebRendererOptions['runtimePluginLoader']
   private readonly autoReady: boolean
+  private readonly rendererId?: string
   private readonly listeners = new Set<QuaWebRendererSnapshotListener>()
   private readonly pipelineUnsubscribers: Array<() => void> = []
   private pluginHost?: RendererPluginHost
@@ -70,6 +73,7 @@ export class QuaWebRendererController {
     this.plugins = options.plugins || []
     this.runtimePluginLoader = options.runtimePluginLoader
     this.autoReady = options.autoReady !== false
+    this.rendererId = options.rendererId
     this.actions = createRendererActions(() => this.requirePipeline())
     this.snapshot = this.createSnapshot()
   }
@@ -104,7 +108,16 @@ export class QuaWebRendererController {
     this.subscribePipeline()
     this.subscribeAssets()
     this.pluginHost = new RendererPluginHost(this.plugins)
-    await this.pluginHost.init(this.createPluginContext())
+    try {
+      await this.pluginHost.init(this.createPluginContext())
+    }
+    catch (error) {
+      await this.reportError(error, {
+        message: 'Renderer plugin initialization failed.',
+        phase: 'renderer:start',
+      })
+      throw error
+    }
 
     if (this.autoReady) {
       await this.actions.ready()
@@ -174,12 +187,20 @@ export class QuaWebRendererController {
     }))
     this.pipelineUnsubscribers.push(onLogicToRender(this.pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN, (payload) => {
       void this.loadRuntimeRendererPlugins(payload.packageId, payload.plugins).catch((error) => {
-        console.warn(`[quajs:renderer-web] Failed to load runtime renderer plugins for package "${payload.packageId}".`, error)
+        void this.reportError(error, {
+          message: `Failed to load runtime renderer plugins for package "${payload.packageId}".`,
+          phase: 'runtime-renderer-plugin:load',
+          metadata: { packageId: payload.packageId },
+        })
       })
     }))
     this.pipelineUnsubscribers.push(onLogicToRender(this.pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, async (payload) => {
       await this.unloadRuntimeRendererPlugins(payload.packageId).catch((error) => {
-        console.warn(`[quajs:renderer-web] Failed to unload runtime renderer plugins for package "${payload.packageId}".`, error)
+        void this.reportError(error, {
+          message: `Failed to unload runtime renderer plugins for package "${payload.packageId}".`,
+          phase: 'runtime-renderer-plugin:unload',
+          metadata: { packageId: payload.packageId },
+        })
       })
     }))
   }
@@ -208,7 +229,15 @@ export class QuaWebRendererController {
   private publish(): void {
     this.snapshot = this.createSnapshot()
     for (const listener of this.listeners) {
-      listener(this.snapshot)
+      try {
+        listener(this.snapshot)
+      }
+      catch (error) {
+        void this.reportError(error, {
+          message: 'Renderer snapshot listener failed.',
+          phase: 'renderer:snapshot',
+        })
+      }
     }
   }
 
@@ -240,7 +269,30 @@ export class QuaWebRendererController {
       emitRenderToLogic: (type, payload) => emitRenderToLogic(this.requirePipeline(), type as any, payload as any),
       onLogicToRender: (type, handler) => onLogicToRender(this.requirePipeline(), type as any, handler as any),
       onRenderToLogic: (type, handler) => onRenderToLogic(this.requirePipeline(), type as any, handler as any),
+      reportError: (error, payload) => this.reportError(error, payload),
     }
+  }
+
+  async reportError(error: unknown, payload: Partial<RenderErrorPayload> = {}): Promise<void> {
+    const next = createQuaErrorPayload(error, {
+      source: 'renderer',
+      severity: 'error',
+      recoverable: true,
+      ...payload,
+      metadata: {
+        ...(payload.metadata || {}),
+        rendererId: payload.rendererId || this.rendererId,
+      },
+    }) as RenderErrorPayload
+    if (payload.rendererId || this.rendererId) {
+      next.rendererId = payload.rendererId || this.rendererId
+    }
+    if (payload.pluginName) {
+      next.pluginName = payload.pluginName
+    }
+    await emitRenderToLogic(this.requirePipeline(), RenderToLogicEvents.RENDER_ERROR, next).catch((emitError) => {
+      console.warn('[quajs:renderer-web] Failed to emit renderer error.', emitError)
+    })
   }
 
   private async loadRuntimeRendererPlugins(packageId: string, pluginManifests: readonly unknown[]): Promise<void> {
