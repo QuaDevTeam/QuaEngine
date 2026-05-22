@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@quajs/plugin-discovery": "workspace:*",
+    "@quajs/project-inspector": "workspace:*",
     "@quajs/script-compiler": "workspace:*",
     "typescript": "catalog:",
     "vscode-languageserver": "catalog:",

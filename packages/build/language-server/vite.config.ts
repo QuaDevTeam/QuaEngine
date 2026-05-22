@@ -23,6 +23,7 @@ export default defineConfig({
     rollupOptions: {
       external: [
         '@quajs/plugin-discovery',
+        '@quajs/project-inspector',
         '@quajs/script-compiler',
         'node:fs',
         'node:path',
