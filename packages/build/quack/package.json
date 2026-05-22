@@ -21,6 +21,10 @@
     "./plugins": {
       "types": "./dist/plugins/index.d.ts",
       "import": "./dist/plugins/index.js"
+    },
+    "./qpk-reader": {
+      "types": "./dist/qpk-reader.d.ts",
+      "import": "./dist/qpk-reader.js"
     }
   },
   "main": "./dist/index.js",

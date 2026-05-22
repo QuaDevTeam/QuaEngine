@@ -6,6 +6,7 @@ export { MediaMetadataExtractor } from './assets/media-extractor'
 export { MetadataGenerator } from './assets/metadata'
 
 export { QPKBundler } from './bundlers/qpk-bundler'
+export { readQpkBundle, readQpkSummary } from './qpk-reader'
 // Bundler implementations
 export { ZipBundler } from './bundlers/zip-bundler'
 
@@ -59,6 +60,12 @@ export type {
   WorkspaceBundleIndex,
   WorkspaceConfig,
 } from './core/types'
+export type {
+  QpkAssetSummary,
+  QpkHeaderInfo,
+  QpkReaderOptions,
+  QpkReadSummary,
+} from './qpk-reader'
 // Plugin base classes and types
 export { QuackPlugin } from './core/types'
 export type { EncryptionPlugin } from './core/types'

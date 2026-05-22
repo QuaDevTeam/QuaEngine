@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { QPKBundler } from '../src/bundlers/qpk-bundler'
+import { readQpkSummary } from '../src/qpk-reader'
 
 describe('qPKBundler', () => {
   let qpkBundler: QPKBundler
@@ -84,6 +85,43 @@ describe('qPKBundler', () => {
 
       const contents = await qpkBundler.listContents(outputPath)
       expect(contents).toContain('assets/scripts/entry.txt')
+    })
+
+    it('should read lightweight QPK summaries without asset bytes', async () => {
+      const testContent = 'test file content'
+      const asset = await createTestAsset(tempDir, 'summary.txt', testContent)
+      const manifest = createQpkManifest({
+        name: 'summary-bundle',
+        totalFiles: 1,
+        totalSize: asset.size,
+      })
+      const outputPath = join(tempDir, 'summary.qpk')
+
+      await qpkBundler.createBundle([asset], manifest, outputPath, { compress: false, encrypt: false })
+      const summary = await readQpkSummary(outputPath)
+
+      expect(summary.locked).toBe(false)
+      expect(summary.manifest?.name).toBe('summary-bundle')
+      expect(summary.assets).toEqual([
+        expect.objectContaining({ path: 'assets/scripts/summary.txt', size: Buffer.byteLength(testContent) }),
+      ])
+    })
+
+    it('should report encrypted summaries as locked without a key', async () => {
+      const asset = await createTestAsset(tempDir, 'locked.txt', 'locked content')
+      const manifest = createQpkManifest({
+        encryption: { enabled: true, algorithm: 'xor' },
+        totalFiles: 1,
+        totalSize: asset.size,
+      })
+      const outputPath = join(tempDir, 'locked.qpk')
+
+      await new QPKBundler([], 'xor', 'secret-key').createBundle([asset], manifest, outputPath, { compress: false, encrypt: true })
+      const summary = await readQpkSummary(outputPath)
+
+      expect(summary.locked).toBe(true)
+      expect(summary.manifest).toBeUndefined()
+      expect(summary.assets[0]?.path).toBe('assets/scripts/locked.txt')
     })
   })
 
