@@ -179,6 +179,9 @@ importers:
       '@quajs/plugin-discovery':
         specifier: workspace:*
         version: link:../../core/plugin-discovery
+      '@quajs/project-inspector':
+        specifier: workspace:*
+        version: link:../project-inspector
       '@quajs/script-compiler':
         specifier: workspace:*
         version: link:../script-compiler
