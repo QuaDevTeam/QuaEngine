@@ -78,9 +78,9 @@ export class QuaWebDomRenderer {
     this.mounted = true
     this.options.container.append(this.root)
     this.observeContainer()
-    this.unsubscribe = this.controller.subscribe(() => this.render())
+    this.unsubscribe = this.controller.subscribe(() => this.safeRender('snapshot'))
     await this.controller.start()
-    this.render()
+    this.safeRender('mount')
   }
 
   async unmount(): Promise<void> {
@@ -161,15 +161,24 @@ export class QuaWebDomRenderer {
     }
 
     for (const layer of this.layers) {
-      const node = layer.render(context)
-      if (node) {
-        this.layerNodes.set(layer.id, node)
-        this.resolveLayerPlane(layer, {
-          scene: sceneContentPlane,
-          subject: subjectPlane,
-          stage: stagePlane,
-          safe: safePlane,
-        }).append(node)
+      try {
+        const node = layer.render(context)
+        if (node) {
+          this.layerNodes.set(layer.id, node)
+          this.resolveLayerPlane(layer, {
+            scene: sceneContentPlane,
+            subject: subjectPlane,
+            stage: stagePlane,
+            safe: safePlane,
+          }).append(node)
+        }
+      }
+      catch (error) {
+        void this.controller.reportError(error, {
+          message: `DOM renderer layer "${layer.id}" failed during render.`,
+          phase: 'dom-layer:render',
+          metadata: { layerId: layer.id },
+        })
       }
     }
 
@@ -184,10 +193,10 @@ export class QuaWebDomRenderer {
   private observeContainer(): void {
     const ResizeObserverCtor = this.getWindow().ResizeObserver
     if (ResizeObserverCtor) {
-      this.resizeObserver = new ResizeObserverCtor(() => this.render())
+      this.resizeObserver = new ResizeObserverCtor(() => this.safeRender('resize'))
       this.resizeObserver.observe(this.options.container)
     }
-    this.viewportEnvironmentDisposer = observeStageViewportEnvironment(this.options.container, () => this.render())
+    this.viewportEnvironmentDisposer = observeStageViewportEnvironment(this.options.container, () => this.safeRender('viewport'))
   }
 
   private readContainerSize(): StageContainerSize {
@@ -273,7 +282,16 @@ export class QuaWebDomRenderer {
     for (const layer of this.layers) {
       const node = this.layerNodes.get(layer.id)
       if (node && layer.update) {
-        layer.update(context, node)
+        try {
+          layer.update(context, node)
+        }
+        catch (error) {
+          void this.controller.reportError(error, {
+            message: `DOM renderer layer "${layer.id}" failed during update.`,
+            phase: 'dom-layer:update',
+            metadata: { layerId: layer.id },
+          })
+        }
       }
     }
   }
@@ -311,7 +329,7 @@ export class QuaWebDomRenderer {
         return
       }
       const nextSnapshot = this.controller.getSnapshot()
-      this.updateAnimatedLayers(nextSnapshot)
+      this.safeUpdateAnimatedLayers(nextSnapshot)
       this.scheduleAnimationTick(nextSnapshot)
     }
 
@@ -345,6 +363,30 @@ export class QuaWebDomRenderer {
       actions: snapshot.actions,
       bindAssetUrl: (element, type, name, attribute = 'src') => this.bindAssetUrl(element, type, name, attribute),
       watchAssetUrl: (type, name, onChange) => this.watchAssetUrl(type, name, onChange),
+    }
+  }
+
+  private safeRender(phase: string, snapshot = this.controller.getSnapshot()): void {
+    try {
+      this.render(snapshot)
+    }
+    catch (error) {
+      void this.controller.reportError(error, {
+        message: 'DOM renderer failed during render.',
+        phase: `dom-renderer:${phase}`,
+      })
+    }
+  }
+
+  private safeUpdateAnimatedLayers(snapshot = this.controller.getSnapshot()): void {
+    try {
+      this.updateAnimatedLayers(snapshot)
+    }
+    catch (error) {
+      void this.controller.reportError(error, {
+        message: 'DOM renderer failed during animation update.',
+        phase: 'dom-renderer:animation',
+      })
     }
   }
 }

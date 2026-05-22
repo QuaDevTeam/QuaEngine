@@ -1,4 +1,4 @@
-import type { ChoiceIntent, ChoiceJumpOptions, ChoiceTarget, CreateCheckpointOptions, DialogueIntent, EnsureLocalePacksOptions, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, ResolvedStoryAsset, ResolvedStoryJump, RollbackAnchorReason, RollbackConfigPatch, RollbackNavigationOptions, RollbackTarget, RuntimePackageLoadOptions, RuntimePackageStateRecord, RuntimePackageUnloadOptions, RuntimeScriptModuleRecord, RuntimeScriptModuleRunFromOptions, RuntimeScriptModuleRunOptions, Scene, SceneEnterContext, SceneFactory, SetLocaleOptions, SlotMetadata, StoryAssetRef, StoryPoint, StoryTargetResolver, TranslateInput, ViewLayoutInput } from '../core/types'
+import type { ChoiceIntent, ChoiceJumpOptions, ChoiceTarget, CreateCheckpointOptions, DialogueIntent, EngineReportErrorOptions, EnsureLocalePacksOptions, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, ResolvedStoryAsset, ResolvedStoryJump, RollbackAnchorReason, RollbackConfigPatch, RollbackNavigationOptions, RollbackTarget, RuntimePackageLoadOptions, RuntimePackageStateRecord, RuntimePackageUnloadOptions, RuntimeScriptModuleRecord, RuntimeScriptModuleRunFromOptions, RuntimeScriptModuleRunOptions, Scene, SceneEnterContext, SceneFactory, SetLocaleOptions, SlotMetadata, StoryAssetRef, StoryPoint, StoryTargetResolver, TranslateInput, ViewLayoutInput } from '../core/types'
 import type { QuaStore } from '@quajs/store'
 import type { SceneTransitionOptions } from '../managers/scene-manager'
 import { QuaEngine } from '../core/engine'
@@ -318,6 +318,10 @@ export async function setPluginProjection<T = unknown>(pluginId: string, project
 
 export function waitFor(event: string, matcher?: (payload: any) => boolean, options?: { timeout?: number, signal?: any }) {
   return getEngine().waitFor(event as any, matcher, options)
+}
+
+export async function reportError(error: unknown, options?: EngineReportErrorOptions) {
+  return getEngine().reportError(error, options)
 }
 
 export async function showDialogue(payload: DialogueIntent): Promise<void> {

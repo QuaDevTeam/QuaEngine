@@ -29,6 +29,7 @@ import type {
   EffectIntent,
   EngineCheckpoint,
   EngineConfig,
+  EngineReportErrorOptions,
   EnsureLocalePacksOptions,
   EngineFlowControlProgressState,
   FlowControlRuntimeOptions,
@@ -82,6 +83,7 @@ import { Pipeline } from '@quajs/pipeline'
 import { createStore } from '@quajs/store'
 import {
   createFlowControlProjection,
+  createQuaErrorPayload,
   createViewLayoutProjection,
   emitLogicToRender,
   emitRenderToLogic,
@@ -128,6 +130,7 @@ export class QuaEngine {
   private readonly sceneFactories = new Map<string, SceneFactory>()
   private readonly runtimeContentManager: RuntimeContentManager
   private readonly rollbackController: RollbackController
+  private readonly handledErrors = new WeakSet<object>()
   private currentStepAbortController?: AbortController
   private flowControlAdvanceTimer?: ReturnType<typeof setTimeout>
   private checkpointCounter = 0
@@ -189,6 +192,7 @@ export class QuaEngine {
     this.rollbackController.registerStore(this.store.getName(), this.store)
 
     this.setupAssetForwarding()
+    this.setupRendererErrorForwarding()
     this.setupFlowControlIntents()
     logger.info('QuaEngine initialized')
   }
@@ -246,7 +250,12 @@ export class QuaEngine {
 
     if (this.isInitialized) {
       this.initializePlugin(plugin).catch((error) => {
-        logger.error(`Failed to initialize plugin ${plugin.name}:`, error)
+        void this.reportError(error, {
+          message: `Failed to initialize plugin "${plugin.name}".`,
+          source: 'plugin',
+          phase: 'engine-plugin:init',
+          metadata: { pluginName: plugin.name },
+        })
       })
     }
 
@@ -262,6 +271,12 @@ export class QuaEngine {
       catch (error) {
         this.plugins.delete(plugin.name)
         this.pluginContext.unregisterPlugin(plugin)
+        await this.reportError(error, {
+          message: `Failed to initialize runtime plugin "${plugin.name}".`,
+          source: 'plugin',
+          phase: 'runtime-plugin:init',
+          metadata: { pluginName: plugin.name },
+        })
         throw error
       }
     }
@@ -292,6 +307,12 @@ export class QuaEngine {
     }
     catch (error) {
       await this.runtimeContentManager.unloadRuntimePackage(loaded.id, { force: true }).catch(() => {})
+      await this.reportError(error, {
+        message: `Failed to activate runtime package "${loaded.id}".`,
+        source: 'runtime',
+        phase: 'runtime-package:activate',
+        metadata: { packageId: loaded.id, source },
+      })
       throw error
     }
   }
@@ -299,20 +320,42 @@ export class QuaEngine {
   async activateRuntimePackage(packageId: string): Promise<RuntimePackageStateRecord> {
     this.assertInitialized()
     const wasActive = this.getRuntimePackages().some(pkg => pkg.id === packageId && pkg.state === 'active')
-    const state = await this.runtimeContentManager.activateRuntimePackage(packageId)
-    if (!wasActive && state.state === 'active') {
-      await this.markRuntimePackageRollbackBoundary('activate', packageId, [packageId])
+    try {
+      const state = await this.runtimeContentManager.activateRuntimePackage(packageId)
+      if (!wasActive && state.state === 'active') {
+        await this.markRuntimePackageRollbackBoundary('activate', packageId, [packageId])
+      }
+      return state
     }
-    return state
+    catch (error) {
+      await this.reportError(error, {
+        message: `Failed to activate runtime package "${packageId}".`,
+        source: 'runtime',
+        phase: 'runtime-package:activate',
+        metadata: { packageId },
+      })
+      throw error
+    }
   }
 
   async unloadRuntimePackage(packageId: string, options?: RuntimePackageUnloadOptions): Promise<void> {
     this.assertInitialized()
     const wasLoaded = this.getRuntimePackages().some(pkg => pkg.id === packageId && pkg.state !== 'unloaded')
-    await this.runtimeContentManager.unloadRuntimePackage(packageId, options)
-    this.removeActiveLocalePackId(packageId)
-    if (wasLoaded) {
-      await this.markRuntimePackageRollbackBoundary('unload', packageId)
+    try {
+      await this.runtimeContentManager.unloadRuntimePackage(packageId, options)
+      this.removeActiveLocalePackId(packageId)
+      if (wasLoaded) {
+        await this.markRuntimePackageRollbackBoundary('unload', packageId)
+      }
+    }
+    catch (error) {
+      await this.reportError(error, {
+        message: `Failed to unload runtime package "${packageId}".`,
+        source: 'runtime',
+        phase: 'runtime-package:unload',
+        metadata: { packageId },
+      })
+      throw error
     }
   }
 
@@ -326,12 +369,41 @@ export class QuaEngine {
 
   async runScriptModule<TScope>(moduleId: string, scope?: TScope, options?: RuntimeScriptModuleRunOptions): Promise<void> {
     this.assertInitialized()
-    await this.runtimeContentManager.runScriptModule(moduleId, scope, options)
+    try {
+      await this.runtimeContentManager.runScriptModule(moduleId, scope, options)
+    }
+    catch (error) {
+      await this.reportError(error, {
+        message: `Runtime script module "${moduleId}" failed.`,
+        source: 'script',
+        phase: 'runtime-script:run',
+        metadata: { moduleId },
+      })
+      throw error
+    }
   }
 
   async runScriptModuleFrom<TScope>(moduleId: string, options: RuntimeScriptModuleRunFromOptions<TScope> = {}): Promise<void> {
     this.assertInitialized()
-    await this.runtimeContentManager.runScriptModuleFrom(moduleId, options)
+    try {
+      await this.runtimeContentManager.runScriptModuleFrom(moduleId, options)
+    }
+    catch (error) {
+      await this.reportError(error, {
+        message: `Runtime script module "${moduleId}" failed from target entry.`,
+        source: 'script',
+        phase: 'runtime-script:run-from',
+        metadata: {
+          moduleId,
+          nodeId: options.nodeId,
+          labelId: options.labelId,
+          entryId: options.entryId,
+          stepId: options.stepId,
+          packageId: options.packageId,
+        },
+      })
+      throw error
+    }
   }
 
   async ensureRuntimePackages(packageIds: readonly string[]): Promise<void> {
@@ -381,6 +453,28 @@ export class QuaEngine {
     return await operation(packageId ? createRuntimePackageEngineFacade(this, packageId) : this)
   }
 
+  async reportError(error: unknown, options: EngineReportErrorOptions = {}): Promise<ReturnType<typeof createQuaErrorPayload>> {
+    const payload = createQuaErrorPayload(error, {
+      source: 'engine',
+      severity: 'error',
+      recoverable: true,
+      ...options,
+      metadata: {
+        ...(options.metadata || {}),
+        currentScene: this.getCurrentSceneName(),
+        currentStepId: this.getCurrentStepId(),
+      },
+    })
+    this.markErrorHandled(error)
+    logger.error(`[${payload.source || 'engine'}] ${payload.message}`, error)
+    if (!this.isDestroyed && !this.shouldSuppressRenderEvents()) {
+      await emitLogicToRender(this.pipeline, L2R.SYSTEM_ERROR, payload).catch((emitError) => {
+        logger.error('Failed to emit system error:', emitError)
+      })
+    }
+    return payload
+  }
+
   registerScene(sceneId: string, factory: SceneFactory): () => void {
     this.sceneFactories.set(sceneId, factory)
     return () => {
@@ -396,7 +490,18 @@ export class QuaEngine {
 
   async loadScene(scene: Scene, transition?: SceneTransitionOptions, enterContext?: SceneEnterContext): Promise<void> {
     this.assertInitialized()
-    await this.sceneManager.loadScene(scene, transition, enterContext)
+    try {
+      await this.sceneManager.loadScene(scene, transition, enterContext)
+    }
+    catch (error) {
+      await this.reportError(error, {
+        message: `Scene "${scene.name}" failed to load.`,
+        source: 'scene',
+        phase: 'scene:load',
+        metadata: { sceneName: scene.name, sceneId: enterContext?.sceneId },
+      })
+      throw error
+    }
   }
 
   async dialogue(steps: GameStep[]): Promise<void>
@@ -404,16 +509,26 @@ export class QuaEngine {
   async dialogue<TScope>(steps: GameStepFactory<TScope>, scope: TScope): Promise<void>
   async dialogue<TScope = GameStepScope>(steps: GameStepSource<TScope>, scope?: TScope): Promise<void> {
     this.assertInitialized()
-    const resolvedSteps = resolveGameSteps(steps, scope)
-    const navigationVersion = this.navigationVersion
-    for (const step of resolvedSteps) {
-      if (this.navigationVersion !== navigationVersion) {
-        break
+    try {
+      const resolvedSteps = resolveGameSteps(steps, scope)
+      const navigationVersion = this.navigationVersion
+      for (const step of resolvedSteps) {
+        if (this.navigationVersion !== navigationVersion) {
+          break
+        }
+        await this.executeStep(step)
+        if (this.navigationVersion !== navigationVersion) {
+          break
+        }
       }
-      await this.executeStep(step)
-      if (this.navigationVersion !== navigationVersion) {
-        break
-      }
+    }
+    catch (error) {
+      await this.reportErrorOnce(error, {
+        message: 'Dialogue sequence failed.',
+        source: 'script',
+        phase: 'dialogue:run',
+      })
+      throw error
     }
   }
 
@@ -488,7 +603,15 @@ export class QuaEngine {
         logger.debug(`Step execution cancelled: ${step.uuid}`)
         return
       }
-      logger.error(`Step execution failed: ${step.uuid}`, error)
+      await this.reportErrorOnce(error, {
+        message: `Step "${step.uuid}" failed.`,
+        source: 'script',
+        phase: 'step:run',
+        metadata: {
+          stepId: step.uuid,
+          storyPoint: point,
+        },
+      })
       throw error
     }
     finally {
@@ -1046,55 +1169,66 @@ export class QuaEngine {
 
   async jumpToChoice(choiceId: string, options: ChoiceJumpOptions = {}): Promise<void> {
     this.assertInitialized()
-    const choice = this.getViewState().choices.find(item => item.id === choiceId)
-    if (!choice) {
-      throw new Error(`Unable to resolve choice "${choiceId}" from current engine-owned choices.`)
-    }
-    if (choice.enabled === false) {
-      throw new Error(`Cannot jump through disabled choice "${choiceId}".`)
-    }
-    const target = (choice as { target?: ChoiceTarget }).target || getChoiceMetadataTarget(choice.metadata)
-    if (!target) {
-      throw new Error(`Choice "${choiceId}" does not declare a structured jump target.`)
-    }
+    try {
+      const choice = this.getViewState().choices.find(item => item.id === choiceId)
+      if (!choice) {
+        throw new Error(`Unable to resolve choice "${choiceId}" from current engine-owned choices.`)
+      }
+      if (choice.enabled === false) {
+        throw new Error(`Cannot jump through disabled choice "${choiceId}".`)
+      }
+      const target = (choice as { target?: ChoiceTarget }).target || getChoiceMetadataTarget(choice.metadata)
+      if (!target) {
+        throw new Error(`Choice "${choiceId}" does not declare a structured jump target.`)
+      }
 
-    const resolved = await this.resolveStoryTarget(target, {
-      choiceId,
-      source: 'choice',
-    })
-    const requiredRuntimePackages = mergeRequiredRuntimePackages(
-      target.requiredRuntimePackages as string[] | undefined,
-      resolved.requiredRuntimePackages as string[] | undefined,
-      getMetadataRequiredRuntimePackages(choice.metadata as Record<string, unknown> | undefined),
-    )
-    if (requiredRuntimePackages.length > 0) {
-      await this.ensureRuntimePackages(requiredRuntimePackages)
-    }
-
-    if (options.clearChoices !== false) {
-      await this.clearChoices()
-    }
-
-    if (resolved.scene) {
-      await this.enterResolvedScene(resolved, choiceId, options)
-      return
-    }
-    if (resolved.checkpoint) {
-      await this.jumpTo(resolved.checkpoint, options)
-    }
-    else if (resolved.point) {
-      await this.jumpTo(resolved.point, options)
-    }
-    if (resolved.script && options.runTarget !== false) {
-      await this.runScriptModuleFrom(resolved.script.moduleId, {
-        locale: this.getLocale(),
-        nodeId: resolved.script.nodeId,
-        labelId: resolved.script.labelId,
-        entryId: resolved.script.entryId,
-        stepId: resolved.script.stepId,
-        packageId: resolved.script.packageId,
-        scope: resolved.script.scope,
+      const resolved = await this.resolveStoryTarget(target, {
+        choiceId,
+        source: 'choice',
       })
+      const requiredRuntimePackages = mergeRequiredRuntimePackages(
+        target.requiredRuntimePackages as string[] | undefined,
+        resolved.requiredRuntimePackages as string[] | undefined,
+        getMetadataRequiredRuntimePackages(choice.metadata as Record<string, unknown> | undefined),
+      )
+      if (requiredRuntimePackages.length > 0) {
+        await this.ensureRuntimePackages(requiredRuntimePackages)
+      }
+
+      if (options.clearChoices !== false) {
+        await this.clearChoices()
+      }
+
+      if (resolved.scene) {
+        await this.enterResolvedScene(resolved, choiceId, options)
+        return
+      }
+      if (resolved.checkpoint) {
+        await this.jumpTo(resolved.checkpoint, options)
+      }
+      else if (resolved.point) {
+        await this.jumpTo(resolved.point, options)
+      }
+      if (resolved.script && options.runTarget !== false) {
+        await this.runScriptModuleFrom(resolved.script.moduleId, {
+          locale: this.getLocale(),
+          nodeId: resolved.script.nodeId,
+          labelId: resolved.script.labelId,
+          entryId: resolved.script.entryId,
+          stepId: resolved.script.stepId,
+          packageId: resolved.script.packageId,
+          scope: resolved.script.scope,
+        })
+      }
+    }
+    catch (error) {
+      await this.reportErrorOnce(error, {
+        message: `Choice jump "${choiceId}" failed.`,
+        source: 'engine',
+        phase: 'choice:jump',
+        metadata: { choiceId },
+      })
+      throw error
     }
   }
 
@@ -1258,68 +1392,79 @@ export class QuaEngine {
 
   async jumpTo(target: JumpTarget, options: JumpOptions = {}): Promise<void> {
     this.assertInitialized()
-    const checkpoint = this.resolveJumpCheckpoint(target)
-    const point = checkpoint?.point || this.resolveJumpPoint(target)
-    if (!point) {
-      throw new Error(`Unable to resolve jump target: ${typeof target === 'string' ? target : JSON.stringify(target)}`)
-    }
-    await this.ensureRuntimeDependencies(point, checkpoint?.metadata)
+    try {
+      const checkpoint = this.resolveJumpCheckpoint(target)
+      const point = checkpoint?.point || this.resolveJumpPoint(target)
+      if (!point) {
+        throw new Error(`Unable to resolve jump target: ${typeof target === 'string' ? target : JSON.stringify(target)}`)
+      }
+      await this.ensureRuntimeDependencies(point, checkpoint?.metadata)
 
-    const jump: JumpContext = {
-      target,
-      checkpoint,
-      point,
-      options: {
-        reason: options.reason,
-        resume: options.resume || 'pause',
-        mode: options.mode || (checkpoint ? 'restore' : 'fresh'),
-        force: options.force,
-        audio: options.audio || 'restore',
-        animation: options.animation || 'clear-active',
-        effects: options.effects || 'clear-active',
-        ui: options.ui || 'clear-transient',
-      },
-    }
+      const jump: JumpContext = {
+        target,
+        checkpoint,
+        point,
+        options: {
+          reason: options.reason,
+          resume: options.resume || 'pause',
+          mode: options.mode || (checkpoint ? 'restore' : 'fresh'),
+          force: options.force,
+          audio: options.audio || 'restore',
+          animation: options.animation || 'clear-active',
+          effects: options.effects || 'clear-active',
+          ui: options.ui || 'clear-transient',
+        },
+      }
 
-    this.currentStepAbortController?.abort()
-    this.navigationVersion++
-    const preservedReadKeys = this.getFlowControlReadKeys()
-    await this.notifyPlugins('onBeforeJump', this.createEngineContext(point.stepId, { point, checkpoint, jump }))
+      this.currentStepAbortController?.abort()
+      this.navigationVersion++
+      const preservedReadKeys = this.getFlowControlReadKeys()
+      await this.notifyPlugins('onBeforeJump', this.createEngineContext(point.stepId, { point, checkpoint, jump }))
 
-    if (jump.options.mode === 'restore' && checkpoint) {
-      await this.restoreCheckpointSnapshot(checkpoint, { force: options.force ?? true })
-    }
-    else {
+      if (jump.options.mode === 'restore' && checkpoint) {
+        await this.restoreCheckpointSnapshot(checkpoint, { force: options.force ?? true })
+      }
+      else {
+        this.store.commit('setStoryPoint', point)
+        this.store.commit('setCurrentStep', {
+          stepId: point.stepId,
+          stepHistory: this.truncateStepHistory(point.stepId),
+        })
+      }
+
+      this.store.commit('setChoices', [])
+      if (jump.options.animation === 'clear-active') {
+        this.store.commit('clearAnimations')
+      }
+      if (jump.options.effects === 'clear-active') {
+        this.store.commit('clearEffects')
+      }
+      if (jump.options.ui === 'clear-transient') {
+        this.store.commit('clearUiOverlays')
+      }
       this.store.commit('setStoryPoint', point)
-      this.store.commit('setCurrentStep', {
+      if (checkpoint) {
+        this.store.commit('upsertCheckpoint', checkpoint)
+        this.store.commit('setCurrentCheckpoint', checkpoint.id)
+      }
+      this.store.commit('mergeFlowControlReadKeys', preservedReadKeys)
+
+      await this.emitLogicToRender(L2R.SCENE_INIT, {
+        sceneId: point.sceneId || this.getRuntimeState().currentScene || 'unknown',
         stepId: point.stepId,
-        stepHistory: this.truncateStepHistory(point.stepId),
       })
+      await this.notifyPlugins('onAfterJump', this.createEngineContext(point.stepId, { point, checkpoint, jump }))
+      await this.emitViewUpdate()
     }
-
-    this.store.commit('setChoices', [])
-    if (jump.options.animation === 'clear-active') {
-      this.store.commit('clearAnimations')
+    catch (error) {
+      await this.reportErrorOnce(error, {
+        message: 'Jump failed.',
+        source: 'engine',
+        phase: 'jump',
+        metadata: { target: cloneUnknownValue(target as unknown) as Record<string, unknown> | string },
+      })
+      throw error
     }
-    if (jump.options.effects === 'clear-active') {
-      this.store.commit('clearEffects')
-    }
-    if (jump.options.ui === 'clear-transient') {
-      this.store.commit('clearUiOverlays')
-    }
-    this.store.commit('setStoryPoint', point)
-    if (checkpoint) {
-      this.store.commit('upsertCheckpoint', checkpoint)
-      this.store.commit('setCurrentCheckpoint', checkpoint.id)
-    }
-    this.store.commit('mergeFlowControlReadKeys', preservedReadKeys)
-
-    await this.emitLogicToRender(L2R.SCENE_INIT, {
-      sceneId: point.sceneId || this.getRuntimeState().currentScene || 'unknown',
-      stepId: point.stepId,
-    })
-    await this.notifyPlugins('onAfterJump', this.createEngineContext(point.stepId, { point, checkpoint, jump }))
-    await this.emitViewUpdate()
   }
 
   async saveToSlot(slotId: string, metadata: SlotMetadata = {}): Promise<void> {
@@ -1614,9 +1759,29 @@ export class QuaEngine {
   private setupAssetForwarding(): void {
     this.assets.on('asset:changed', (change) => {
       this.emitLogicToRender(L2R.ASSET_CHANGED, change).catch((error) => {
-        logger.warn('Failed to forward asset change:', error)
+        void this.reportErrorOnce(error, {
+          message: 'Failed to forward asset change.',
+          source: 'asset',
+          phase: 'asset:changed',
+        })
       })
     })
+  }
+
+  private setupRendererErrorForwarding(): void {
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.RENDER_ERROR, async (payload) => {
+      await this.reportError(payload.error || payload.message, {
+        ...payload,
+        source: payload.source || 'renderer',
+        phase: payload.phase || 'renderer:error',
+        message: payload.message,
+        metadata: {
+          ...(payload.metadata || {}),
+          rendererId: payload.rendererId,
+          pluginName: payload.pluginName,
+        },
+      })
+    }))
   }
 
   private setupFlowControlIntents(): void {
@@ -1643,7 +1808,21 @@ export class QuaEngine {
     handler: (payload: EventPayload<T>) => void | Promise<void>,
   ): () => void {
     const listener: EventListener<EventPayload<T>> = async (context) => {
-      await handler(context.event.payload)
+      try {
+        await handler(context.event.payload)
+      }
+      catch (error) {
+        await this.reportErrorOnce(error, {
+          message: `Failed to handle renderer intent "${event}".`,
+          source: 'engine',
+          phase: 'renderer-intent',
+          metadata: {
+            event,
+            payload: cloneUnknownValue(context.event.payload),
+          },
+        })
+        throw error
+      }
     }
     this.pipeline.on(event, listener as EventListener)
     return () => this.pipeline.off(event, listener as EventListener)
@@ -1666,7 +1845,11 @@ export class QuaEngine {
     ) {
       this.updateFlowControl({ mode: 'normal' })
       this.emitViewUpdate().catch((error) => {
-        logger.warn('Failed to stop read-only skip mode:', error)
+        void this.reportErrorOnce(error, {
+          message: 'Failed to stop read-only skip mode.',
+          source: 'engine',
+          phase: 'flow-control:stop-read-skip',
+        })
       })
       return
     }
@@ -1679,7 +1862,12 @@ export class QuaEngine {
     this.flowControlAdvanceTimer = setTimeout(() => {
       this.flowControlAdvanceTimer = undefined
       this.emitFlowControlAdvance(plan).catch((error) => {
-        logger.warn('Failed to advance flow control:', error)
+        void this.reportErrorOnce(error, {
+          message: 'Failed to advance flow control.',
+          source: 'engine',
+          phase: 'flow-control:advance',
+          metadata: { mode: plan.mode, source: plan.source },
+        })
       })
     }, plan.delayMs)
   }
@@ -1768,6 +1956,23 @@ export class QuaEngine {
       return
     }
     await emitLogicToRender(this.pipeline, event, payload)
+  }
+
+  private markErrorHandled(error: unknown): void {
+    if (error && typeof error === 'object') {
+      this.handledErrors.add(error)
+    }
+  }
+
+  private hasHandledError(error: unknown): boolean {
+    return Boolean(error && typeof error === 'object' && this.handledErrors.has(error))
+  }
+
+  private async reportErrorOnce(error: unknown, options: EngineReportErrorOptions = {}): Promise<void> {
+    if (this.hasHandledError(error)) {
+      return
+    }
+    await this.reportError(error, options)
   }
 
   private shouldSuppressRenderEvents(): boolean {

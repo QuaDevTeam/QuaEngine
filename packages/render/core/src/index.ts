@@ -56,6 +56,7 @@ export enum RenderToLogicEvents {
   WINDOW_BLUR = 'window/blur',
   ASSET_LOADED = 'asset/loaded',
   ASSET_ERROR = 'asset/error',
+  RENDER_ERROR = 'render/error',
   RENDER_READY = 'render/ready',
   RENDER_DESTROYED = 'render/destroyed',
   SCENE_READY = 'scene/ready',
@@ -327,9 +328,10 @@ export interface ViewChoiceProjection {
   id: string
   text: string
   enabled: boolean
-  target?: Readonly<Record<string, unknown>>
-  unavailable?: Readonly<Record<string, unknown>>
-  presentation?: Readonly<Record<string, unknown>>
+  /** Opaque structured engine target. Renderers carry it but must not resolve it. */
+  target?: Readonly<object>
+  unavailable?: Readonly<object>
+  presentation?: Readonly<object>
   metadata?: Readonly<Record<string, unknown>>
 }
 
@@ -629,6 +631,33 @@ export interface AssetErrorPayload {
   error: string
 }
 
+export type QuaErrorSeverity = 'info' | 'warning' | 'error' | 'fatal'
+export type QuaErrorSource = 'engine' | 'renderer' | 'runtime' | 'plugin' | 'asset' | 'scene' | 'script' | 'unknown'
+
+export interface QuaErrorDetails {
+  name?: string
+  message: string
+  stack?: string
+  cause?: unknown
+}
+
+export interface QuaErrorPayload {
+  id?: string
+  message: string
+  error?: QuaErrorDetails | unknown
+  source?: QuaErrorSource | string
+  severity?: QuaErrorSeverity
+  recoverable?: boolean
+  phase?: string
+  timestamp?: number
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface RenderErrorPayload extends QuaErrorPayload {
+  rendererId?: string
+  pluginName?: string
+}
+
 export interface RuntimePackagePluginPayload {
   packageId: string
   plugins: readonly unknown[]
@@ -670,7 +699,7 @@ export interface LogicToRenderEventPayloadMap {
   [LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN]: RuntimePackagePluginPayload
   [LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD]: RuntimePackageUnloadPayload
   [LogicToRenderEvents.SYSTEM_MESSAGE]: { type?: string, message: string }
-  [LogicToRenderEvents.SYSTEM_ERROR]: { message: string, error?: unknown }
+  [LogicToRenderEvents.SYSTEM_ERROR]: QuaErrorPayload
 }
 
 export interface RenderToLogicEventPayloadMap {
@@ -695,6 +724,7 @@ export interface RenderToLogicEventPayloadMap {
   [RenderToLogicEvents.WINDOW_BLUR]: Record<string, never>
   [RenderToLogicEvents.ASSET_LOADED]: AssetLoadedPayload
   [RenderToLogicEvents.ASSET_ERROR]: AssetErrorPayload
+  [RenderToLogicEvents.RENDER_ERROR]: RenderErrorPayload
   [RenderToLogicEvents.RENDER_READY]: RendererLifecyclePayload
   [RenderToLogicEvents.RENDER_DESTROYED]: RendererLifecyclePayload
   [RenderToLogicEvents.SCENE_READY]: RendererLifecyclePayload & { sceneId?: string }
@@ -717,6 +747,7 @@ export interface RendererPluginContext {
     type: T,
     handler: (payload: RenderToLogicEventPayloadMap[T], context: PipelineContext<RenderToLogicEventPayloadMap[T]>) => void | Promise<void>,
   ) => () => void
+  reportError: (error: unknown, payload?: Partial<RenderErrorPayload>) => Promise<void>
 }
 
 export interface RendererPlugin {
@@ -728,6 +759,8 @@ export interface RendererPlugin {
 export class RendererPluginHost {
   private readonly plugins: RendererPlugin[]
   private readonly disposers: Array<() => void> = []
+  private readonly activePlugins: RendererPlugin[] = []
+  private reportError?: RendererPluginContext['reportError']
   private initialized = false
 
   constructor(plugins: readonly RendererPlugin[] = []) {
@@ -738,25 +771,173 @@ export class RendererPluginHost {
     if (this.initialized)
       return
 
-    const pluginContext: RendererPluginContext = {
-      ...context,
-      addDisposer: disposer => this.disposers.push(disposer),
-    }
+    this.reportError = context.reportError
 
     for (const plugin of this.plugins) {
-      await plugin.setup(pluginContext)
+      const disposerStart = this.disposers.length
+      const pluginContext = this.createPluginContext(plugin.name, context)
+      try {
+        await plugin.setup(pluginContext)
+        this.activePlugins.push(plugin)
+      }
+      catch (error) {
+        await this.reportPluginError(context.reportError, error, {
+          message: `Renderer plugin "${plugin.name}" failed during setup.`,
+          phase: 'renderer-plugin:setup',
+          pluginName: plugin.name,
+          severity: 'error',
+        })
+        await this.disposeFailedSetupDisposers(disposerStart, plugin.name)
+      }
     }
 
     this.initialized = true
   }
 
+  private createPluginContext(
+    pluginName: string,
+    context: Omit<RendererPluginContext, 'addDisposer'>,
+  ): RendererPluginContext {
+    return {
+      ...context,
+      addDisposer: disposer => this.disposers.push(disposer),
+      onLogicToRender: (type, handler) => context.onLogicToRender(type, async (payload, pipelineContext) => {
+        try {
+          await handler(payload, pipelineContext)
+        }
+        catch (error) {
+          if (type === LogicToRenderEvents.SYSTEM_ERROR) {
+            return
+          }
+          await this.reportPluginError(context.reportError, error, {
+            message: `Renderer plugin "${pluginName}" failed while handling logic event "${type}".`,
+            phase: 'renderer-plugin:on-logic-to-render',
+            pluginName,
+            severity: 'error',
+            metadata: { event: type },
+          })
+        }
+      }) as ReturnType<RendererPluginContext['onLogicToRender']>,
+      onRenderToLogic: (type, handler) => context.onRenderToLogic(type, async (payload, pipelineContext) => {
+        try {
+          await handler(payload, pipelineContext)
+        }
+        catch (error) {
+          if (type === RenderToLogicEvents.RENDER_ERROR) {
+            return
+          }
+          await this.reportPluginError(context.reportError, error, {
+            message: `Renderer plugin "${pluginName}" failed while handling renderer event "${type}".`,
+            phase: 'renderer-plugin:on-render-to-logic',
+            pluginName,
+            severity: 'error',
+            metadata: { event: type },
+          })
+        }
+      }) as ReturnType<RendererPluginContext['onRenderToLogic']>,
+    }
+  }
+
   async destroy(): Promise<void> {
     while (this.disposers.length > 0) {
-      this.disposers.pop()?.()
+      const disposer = this.disposers.pop()
+      try {
+        disposer?.()
+      }
+      catch (error) {
+        await this.reportPluginDestroyError(error, 'renderer-plugin:disposer')
+      }
     }
 
-    await Promise.all(this.plugins.map(plugin => plugin.destroy?.()))
+    await Promise.all(this.activePlugins.map(async (plugin) => {
+      try {
+        await plugin.destroy?.()
+      }
+      catch (error) {
+        await this.reportPluginDestroyError(error, 'renderer-plugin:destroy', plugin.name)
+      }
+    }))
+    this.activePlugins.length = 0
     this.initialized = false
+  }
+
+  private async disposeFailedSetupDisposers(startIndex: number, pluginName: string): Promise<void> {
+    const disposers = this.disposers.splice(startIndex)
+    while (disposers.length > 0) {
+      const disposer = disposers.pop()
+      try {
+        disposer?.()
+      }
+      catch (error) {
+        await this.reportPluginDestroyError(error, 'renderer-plugin:setup-disposer', pluginName)
+      }
+    }
+  }
+
+  private async reportPluginError(
+    reportError: RendererPluginContext['reportError'],
+    error: unknown,
+    payload: Partial<RenderErrorPayload>,
+  ): Promise<void> {
+    try {
+      await reportError(error, payload)
+    }
+    catch {
+      // Error reporting must never become the crash path for renderer fallback handling.
+    }
+  }
+
+  private async reportPluginDestroyError(error: unknown, phase: string, pluginName?: string): Promise<void> {
+    if (this.reportError) {
+      await this.reportPluginError(this.reportError, error, {
+        message: `Renderer plugin${pluginName ? ` "${pluginName}"` : ''} failed during cleanup.`,
+        phase,
+        pluginName,
+        severity: 'error',
+      })
+    }
+  }
+}
+
+export function normalizeQuaError(error: unknown): QuaErrorDetails {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message || error.name,
+      stack: error.stack,
+      cause: (error as { cause?: unknown }).cause,
+    }
+  }
+  return {
+    message: typeof error === 'string' ? error : safeStringify(error),
+  }
+}
+
+export function createQuaErrorPayload(
+  error: unknown,
+  payload: Partial<QuaErrorPayload> = {},
+): QuaErrorPayload {
+  const normalized = normalizeQuaError(error)
+  return {
+    ...payload,
+    message: payload.message || normalized.message,
+    error: payload.error || normalized,
+    source: payload.source || 'unknown',
+    severity: payload.severity || 'error',
+    recoverable: payload.recoverable ?? true,
+    phase: payload.phase,
+    timestamp: payload.timestamp || Date.now(),
+    metadata: payload.metadata,
+    id: payload.id,
+  }
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value) || String(value)
+  }
+  catch {
+    return String(value)
   }
 }
 

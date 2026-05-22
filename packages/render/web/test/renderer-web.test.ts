@@ -474,7 +474,8 @@ describe('@quajs/renderer-web', () => {
 
   it('destroys partially initialized runtime renderer plugins when a later plugin fails to load', async () => {
     const pipeline = new Pipeline()
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const errors: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, payload => errors.push(payload))
     const setup = vi.fn()
     const destroy = vi.fn()
     const plugin: RendererPlugin = {
@@ -509,10 +510,12 @@ describe('@quajs/renderer-web', () => {
 
     expect(setup).toHaveBeenCalledTimes(1)
     expect(destroy).toHaveBeenCalledTimes(1)
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('Failed to load runtime renderer plugins'),
-      expect.any(Error),
-    )
+    expect(errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: expect.stringContaining('Failed to load runtime renderer plugins'),
+        phase: 'runtime-renderer-plugin:load',
+      }),
+    ]))
 
     await emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
       packageId: 'runtime.story',
@@ -521,6 +524,78 @@ describe('@quajs/renderer-web', () => {
     await flushDom()
     expect(destroy).toHaveBeenCalledTimes(1)
     await controller.destroy()
+  })
+
+  it('reports snapshot listener errors without stopping renderer updates', async () => {
+    const pipeline = new Pipeline()
+    const errors: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, payload => errors.push(payload))
+    const controller = createQuaWebRendererController({ pipeline, initialView: view() })
+    const healthy = vi.fn()
+    controller.subscribe(() => {
+      throw new Error('listener failed')
+    })
+    controller.subscribe(healthy)
+
+    await controller.start()
+    await emitLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, {
+      view: view({ dialogue: { visible: true, text: 'Still updates' } }),
+    })
+    await flushDom()
+
+    expect(healthy).toHaveBeenCalled()
+    expect(controller.getSnapshot().view.dialogue.text).toBe('Still updates')
+    expect(errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: 'Renderer snapshot listener failed.',
+        phase: 'renderer:snapshot',
+      }),
+    ]))
+    await controller.destroy()
+  })
+
+  it('reports DOM layer render errors while keeping other layers mounted', async () => {
+    const pipeline = new Pipeline()
+    const errors: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, payload => errors.push(payload))
+    const root = document.createElement('div')
+    root.style.width = '800px'
+    root.style.height = '450px'
+    document.body.append(root)
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      initialView: view(),
+      plugins: [{
+        name: 'faulty-dom-plugin',
+        setup() {},
+        layers: [{
+          id: 'broken-layer',
+          render() {
+            throw new Error('layer exploded')
+          },
+        }, {
+          id: 'healthy-layer',
+          render(context) {
+            const node = context.document.createElement('div')
+            node.className = 'healthy-layer'
+            return node
+          },
+        }],
+      }],
+    })
+
+    await renderer.mount()
+    await flushDom()
+
+    expect(root.querySelector('.healthy-layer')).not.toBeNull()
+    expect(errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: 'DOM renderer layer "broken-layer" failed during render.',
+        phase: 'dom-layer:render',
+      }),
+    ]))
+    await renderer.unmount()
   })
 
   it('renders an opt-in native DOM visual novel projection and emits user intents', async () => {
