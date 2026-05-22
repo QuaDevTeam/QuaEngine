@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { copyFileSync, existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -9,6 +10,7 @@ const repoRoot = resolve(packageDir, '../../..')
 const workspacePath = resolve(repoRoot, 'pnpm-workspace.yaml')
 const packageLicensePath = resolve(packageDir, 'LICENSE')
 const repoLicensePath = resolve(repoRoot, 'LICENSE')
+const require = createRequire(import.meta.url)
 
 const dependencyFields = [
   'dependencies',
@@ -130,7 +132,10 @@ try {
   if (!hadPackageLicense && existsSync(repoLicensePath)) {
     copyFileSync(repoLicensePath, packageLicensePath)
   }
-  result = spawnSync('pnpm', ['exec', 'vsce', ...process.argv.slice(2)], {
+  result = spawnSync(process.execPath, [
+    require.resolve('@vscode/vsce/vsce', { paths: [packageDir] }),
+    ...process.argv.slice(2),
+  ], {
     cwd: packageDir,
     stdio: 'inherit',
   })

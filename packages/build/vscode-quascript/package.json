@@ -43,7 +43,14 @@
     }
   },
   "activationEvents": [
-    "onLanguage:quascript"
+    "onLanguage:quascript",
+    "onView:quascript.storyTree",
+    "onView:quascript.qpkExplorer",
+    "onView:quascript.assetLineage",
+    "onView:quascript.storyPointInspector",
+    "onView:quascript.packageHealth",
+    "onCommand:quascript.refreshInspector",
+    "onCommand:quascript.openStoryGraph"
   ],
   "contributes": {
     "languages": [
@@ -75,7 +82,133 @@
         "language": "quascript",
         "path": "./snippets/quascript.json"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "quascript",
+          "title": "QuaScript",
+          "icon": "media/quascript.svg"
+        }
+      ]
+    },
+    "views": {
+      "quascript": [
+        {
+          "id": "quascript.storyTree",
+          "name": "Story Tree"
+        },
+        {
+          "id": "quascript.qpkExplorer",
+          "name": "QPK Explorer"
+        },
+        {
+          "id": "quascript.assetLineage",
+          "name": "Asset Lineage"
+        },
+        {
+          "id": "quascript.storyPointInspector",
+          "name": "Story Point Inspector"
+        },
+        {
+          "id": "quascript.packageHealth",
+          "name": "Package Health"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "quascript.refreshInspector",
+        "title": "QuaScript: Refresh Project Inspector",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "quascript.openStoryGraph",
+        "title": "QuaScript: Open Story Graph",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "quascript.filterToPackage",
+        "title": "Filter To Package",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "quascript.clearPackageFilter",
+        "title": "Clear Package Filter",
+        "icon": "$(filter-filled)"
+      },
+      {
+        "command": "quascript.inspectStoryPoint",
+        "title": "Inspect Story Point",
+        "icon": "$(inspect)"
+      },
+      {
+        "command": "quascript.revealPackage",
+        "title": "Reveal Package",
+        "icon": "$(package)"
+      },
+      {
+        "command": "quascript.openSource",
+        "title": "Open Source",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "quascript.copyRef",
+        "title": "Copy Reference",
+        "icon": "$(copy)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "quascript.refreshInspector",
+          "when": "view == quascript.storyTree || view == quascript.qpkExplorer || view == quascript.assetLineage || view == quascript.storyPointInspector || view == quascript.packageHealth",
+          "group": "navigation"
+        },
+        {
+          "command": "quascript.openStoryGraph",
+          "when": "view == quascript.storyTree",
+          "group": "navigation"
+        },
+        {
+          "command": "quascript.clearPackageFilter",
+          "when": "view == quascript.storyTree && quascript.packageFilterActive",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "quascript.inspectStoryPoint",
+          "when": "view == quascript.storyTree && (viewItem == node || viewItem == entry || viewItem == label)",
+          "group": "inline"
+        },
+        {
+          "command": "quascript.revealPackage",
+          "when": "view == quascript.storyTree && (viewItem == package || viewItem == scene || viewItem == node || viewItem == entry || viewItem == label)",
+          "group": "inline"
+        },
+        {
+          "command": "quascript.revealPackage",
+          "when": "view == quascript.assetLineage && (viewItem == assetPackage || viewItem == assetLineage)",
+          "group": "inline"
+        },
+        {
+          "command": "quascript.filterToPackage",
+          "when": "view == quascript.storyTree && (viewItem == package || viewItem == scene || viewItem == node || viewItem == entry || viewItem == label)",
+          "group": "navigation"
+        },
+        {
+          "command": "quascript.openSource",
+          "when": "view == quascript.storyTree || view == quascript.qpkExplorer || view == quascript.assetLineage",
+          "group": "navigation"
+        },
+        {
+          "command": "quascript.copyRef",
+          "when": "view == quascript.storyTree || view == quascript.qpkExplorer || view == quascript.assetLineage",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "build": "vite build && vite build --config vite.server.config.ts",
@@ -88,6 +221,7 @@
   },
   "devDependencies": {
     "@quajs/language-server": "workspace:*",
+    "@quajs/project-inspector": "workspace:*",
     "@types/vscode": "catalog:",
     "@vscode/vsce": "catalog:",
     "vscode-languageclient": "catalog:"

@@ -3,6 +3,7 @@
 src/**
 scripts/**
 node_modules/**
+!dist/node_modules/**
 *.config.ts
 *.log
 tsconfig.json

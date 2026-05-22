@@ -327,6 +327,9 @@ importers:
       '@quajs/language-server':
         specifier: workspace:*
         version: link:../language-server
+      '@quajs/project-inspector':
+        specifier: workspace:*
+        version: link:../project-inspector
       '@types/vscode':
         specifier: 'catalog:'
         version: 1.118.0
