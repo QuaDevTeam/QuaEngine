@@ -24,6 +24,19 @@ const generateCode = resolveCallableDefault(generateModule)
 const traverseAst = resolveCallableDefault(traverseModule)
 const ENGINE_EXPRESSION_HELPERS = new Set(['node', 'label', 'scene', 'script', 'packageNode', 'checkpoint', 'image'])
 
+export interface QuaScriptTransformResult {
+  code: string
+  map: {
+    file: string
+    mappings: string
+    names: string[]
+    sourceRoot?: string
+    sources: string[]
+    sourcesContent?: string[]
+    version: number
+  } | null
+}
+
 // Babel ships these helpers through CommonJS interop, so resolve a callable
 // default export that works both in Vitest bundling and native Node ESM.
 function resolveCallableDefault<T extends (...args: any[]) => unknown>(module: T | { default?: T }): T {
@@ -72,6 +85,10 @@ export class QuaScriptTransformer {
    * Transform TypeScript source containing qs template literals.
    */
   transformSource(source: string): string {
+    return this.transformSourceWithMap(source).code
+  }
+
+  transformSourceWithMap(source: string, filePath = 'input.ts'): QuaScriptTransformResult {
     this.usedDecorators.clear()
     this.usedRuntimeHelpers.clear()
     this.usedEngineHelpers.clear()
@@ -93,9 +110,13 @@ export class QuaScriptTransformer {
             const parsed = parser.parse(quasiValue)
             this.throwDocumentDiagnostics(parsed.diagnostics.filter(diagnostic => diagnostic.severity === 'error'))
             this.collectUsedDecorators(parsed)
+            const sourceRangeOffset = createTemplateLiteralSourceRangeOffset(path.node.quasi)
             const gameStepsArray = this.transformToGameSteps(parsed, {
               quasi: path.node.quasi,
+              sourceRangeOffset,
             })
+            t.inherits(gameStepsArray, path.node)
+            inheritSourceRange(gameStepsArray, parsed.steps[0]?.range, sourceRangeOffset)
             path.replaceWith(gameStepsArray)
             transformed = true
           }
@@ -114,23 +135,40 @@ export class QuaScriptTransformer {
     const result = generateCode(ast, {
       retainLines: false,
       compact: false,
-    })
+      sourceMaps: true,
+      sourceFileName: filePath,
+    }, source)
 
-    return result.code
+    return {
+      code: result.code,
+      map: result.map ?? null,
+    }
   }
 
   /**
    * Transform a standalone QuaScript source file into a TypeScript ES module.
    * The module exports a factory so the caller can provide runtime bindings.
    */
-  transformModuleSource(source: string, _filePath?: string): string {
+  transformModuleSource(source: string, filePath?: string): string {
+    return this.transformModuleSourceWithMap(source, filePath).code
+  }
+
+  transformModuleSourceWithMap(source: string, filePath = 'input.qs'): QuaScriptTransformResult {
     const document = parseQuaScriptDocument(source)
     const parser = new QuaScriptParser()
     const parsed = parser.parse(document.dslBody)
-    return this.transformParsedModuleSource(document, parsed)
+    return this.transformParsedModuleSourceWithMap(document, parsed, filePath)
   }
 
   transformParsedModuleSource(document: ParsedQuaScriptDocument, parsed: ParsedQuaScript): string {
+    return this.transformParsedModuleSourceWithMap(document, parsed).code
+  }
+
+  transformParsedModuleSourceWithMap(
+    document: ParsedQuaScriptDocument,
+    parsed: ParsedQuaScript,
+    filePath = 'input.qs',
+  ): QuaScriptTransformResult {
     this.usedDecorators.clear()
     this.usedRuntimeHelpers.clear()
     this.usedEngineHelpers.clear()
@@ -140,44 +178,66 @@ export class QuaScriptTransformer {
     this.throwDocumentDiagnostics(parsed.diagnostics.filter(diagnostic => diagnostic.severity === 'error'))
     this.collectUsedDecorators(parsed)
 
+    const moduleScript = document.moduleScript?.content || ''
+    const setupScript = document.setupScript?.content || ''
+    const moduleAst = this.parseModuleScriptForImports(moduleScript, document.moduleScript?.contentRange)
+    const hasScopeType = hasExportedScopeType(moduleScript)
     const scopeIdentifier = t.identifier('scope')
+    scopeIdentifier.typeAnnotation = t.tsTypeAnnotation(hasScopeType
+      ? t.tsTypeReference(t.identifier('Scope'))
+      : t.tsTypeReference(
+          t.identifier('Record'),
+          t.tsTypeParameterInstantiation([
+            t.tsStringKeyword(),
+            t.tsUnknownKeyword(),
+          ]),
+        ))
+    const scopeParam = hasScopeType
+      ? scopeIdentifier
+      : t.assignmentPattern(scopeIdentifier, t.objectExpression([]))
     const stepsArray = this.transformToGameSteps(parsed, {
       scopeIdentifier,
     })
-
-    const moduleScript = document.moduleScript?.content.trim() || ''
-    const setupScript = document.setupScript?.content.trim() || ''
-    const moduleAst = this.parseModuleScriptForImports(moduleScript)
     const imports = this.generateImports(moduleAst)
-    const importProgram = t.program(imports)
-    const runtimeImports = generateCode(importProgram, {
-      retainLines: false,
-      compact: false,
-    }).code
-    const gameStepImport = this.isAlreadyImported(moduleAst, '@quajs/engine', 'GameStep')
-      ? ''
-      : 'import type { GameStep } from "@quajs/engine";'
-    const stepsCode = generateCode(stepsArray, {
-      retainLines: false,
-      compact: false,
-      sourceMaps: false,
-    }).code
-    const hasScopeType = hasExportedScopeType(moduleScript)
-    const scopeParam = hasScopeType
-      ? 'scope: Scope'
-      : 'scope: Record<string, unknown> = {}'
-    const setupCode = setupScript
-      ? `${indent(setupScript)}\n`
-      : ''
-
-    return [
-      gameStepImport,
-      runtimeImports,
-      moduleScript,
-      `export default function createQuaScript(${scopeParam}): GameStep[] {\n${setupCode}  return ${stepsCode}\n}`,
+    const body: t.Statement[] = [
+      ...imports,
+      ...moduleAst.body,
     ]
-      .filter(part => part.trim().length > 0)
-      .join('\n\n')
+    if (!this.isAlreadyImported(moduleAst, '@quajs/engine', 'GameStep')) {
+      const gameStepImport = t.importDeclaration(
+        [t.importSpecifier(t.identifier('GameStep'), t.identifier('GameStep'))],
+        t.stringLiteral('@quajs/engine'),
+      )
+      gameStepImport.importKind = 'type'
+      body.unshift(gameStepImport)
+    }
+    const setupStatements = this.parseSetupStatements(setupScript, document.setupScript?.contentRange)
+    const factoryDeclaration = t.functionDeclaration(
+      t.identifier('createQuaScript'),
+      [scopeParam],
+      t.blockStatement([
+        ...setupStatements,
+        t.returnStatement(stepsArray),
+      ]),
+      false,
+      false,
+    )
+    factoryDeclaration.returnType = t.tsTypeAnnotation(t.tsArrayType(t.tsTypeReference(t.identifier('GameStep'))))
+    const factory = t.exportDefaultDeclaration(factoryDeclaration)
+    body.push(factory)
+
+    const program = t.program(body, [], 'module')
+    const output = generateCode(t.file(program), {
+      retainLines: false,
+      compact: false,
+      sourceMaps: true,
+      sourceFileName: filePath,
+    }, document.source)
+
+    return {
+      code: output.code,
+      map: output.map ?? null,
+    }
   }
 
   private extractQuasiValue(quasi: t.TemplateLiteral): string | null {
@@ -261,6 +321,7 @@ export class QuaScriptTransformer {
     parsed: ParsedQuaScript,
     options: {
       quasi?: t.TemplateLiteral
+      sourceRangeOffset?: SourceRangeOffset
       scopeIdentifier?: t.Identifier
     } = {},
   ): t.ArrayExpression {
@@ -268,16 +329,21 @@ export class QuaScriptTransformer {
     const elements = parsed.steps.map((step, index) => {
       const stepUuid = this.resolveStepUuid(step, index)
       const metadataPoint = this.updateStoryPointCompileState(compileState, step)
+      let stepExpression: t.ObjectExpression
       if (step.type === 'dialogue') {
-        return this.createDialogueStep(step.content as QuaScriptDialogue, stepUuid, index, compileState, options, metadataPoint)
+        stepExpression = this.createDialogueStep(step.content as QuaScriptDialogue, stepUuid, index, compileState, options, metadataPoint)
       }
-      if (step.type === 'choice') {
-        return this.createChoiceStep(step.content as QuaScriptChoice, stepUuid, index, compileState, options, metadataPoint)
+      else if (step.type === 'choice') {
+        stepExpression = this.createChoiceStep(step.content as QuaScriptChoice, stepUuid, index, compileState, options, metadataPoint)
       }
-      return this.createActionStep(step.content, stepUuid, index, compileState, options, metadataPoint)
+      else {
+        stepExpression = this.createActionStep(step.content, stepUuid, index, compileState, options, metadataPoint)
+      }
+      return inheritSourceRange(stepExpression, step.range, options.sourceRangeOffset)
     })
 
-    return t.arrayExpression(elements)
+    const arrayExpression = t.arrayExpression(elements)
+    return inheritSourceRange(arrayExpression, parsed.steps[0]?.range, options.sourceRangeOffset)
   }
 
   private updateStoryPointCompileState(state: Record<string, unknown>, step: { type: 'dialogue' | 'action' | 'choice', content: unknown }): Record<string, unknown> | undefined {
@@ -689,28 +755,28 @@ export class QuaScriptTransformer {
         t.objectProperty(t.identifier('id'), t.stringLiteral(target.slice(1))),
       ])
     }
-    const sceneMatch = /^scene:([^#\s]+)(?:#([^\s]+))?$/.exec(target)
-    if (sceneMatch) {
+    const sceneTarget = splitHashTarget(target, 'scene:', false)
+    if (sceneTarget) {
       return t.objectExpression([
         t.objectProperty(t.identifier('kind'), t.stringLiteral('scene')),
-        t.objectProperty(t.identifier('sceneId'), t.stringLiteral(sceneMatch[1])),
-        ...(sceneMatch[2] ? [t.objectProperty(t.identifier('entry'), t.stringLiteral(sceneMatch[2]))] : []),
+        t.objectProperty(t.identifier('sceneId'), t.stringLiteral(sceneTarget.id)),
+        ...(sceneTarget.fragment ? [t.objectProperty(t.identifier('entry'), t.stringLiteral(sceneTarget.fragment))] : []),
       ])
     }
-    const packageMatch = /^package:([^#\s]+)#([^\s]+)$/.exec(target)
-    if (packageMatch) {
+    const packageTarget = splitHashTarget(target, 'package:', true)
+    if (packageTarget) {
       return t.objectExpression([
         t.objectProperty(t.identifier('kind'), t.stringLiteral('package-node')),
-        t.objectProperty(t.identifier('packageId'), t.stringLiteral(packageMatch[1])),
-        t.objectProperty(t.identifier('nodeId'), t.stringLiteral(packageMatch[2])),
+        t.objectProperty(t.identifier('packageId'), t.stringLiteral(packageTarget.id)),
+        t.objectProperty(t.identifier('nodeId'), t.stringLiteral(packageTarget.fragment)),
       ])
     }
-    const scriptMatch = /^script:([^#\s]+)(?:#([^\s]+))?$/.exec(target)
-    if (scriptMatch) {
+    const scriptTarget = splitHashTarget(target, 'script:', false)
+    if (scriptTarget) {
       return t.objectExpression([
         t.objectProperty(t.identifier('kind'), t.stringLiteral('script')),
-        t.objectProperty(t.identifier('moduleId'), t.stringLiteral(scriptMatch[1])),
-        ...(scriptMatch[2] ? [t.objectProperty(t.identifier('nodeId'), t.stringLiteral(scriptMatch[2]))] : []),
+        t.objectProperty(t.identifier('moduleId'), t.stringLiteral(scriptTarget.id)),
+        ...(scriptTarget.fragment ? [t.objectProperty(t.identifier('nodeId'), t.stringLiteral(scriptTarget.fragment))] : []),
       ])
     }
     return t.objectExpression([
@@ -905,7 +971,7 @@ export class QuaScriptTransformer {
     }
   }
 
-  private parseModuleScriptForImports(moduleScript: string): t.Program {
+  private parseModuleScriptForImports(moduleScript: string, sourceRange?: SourceRange): t.Program {
     if (!moduleScript.trim()) {
       return t.program([])
     }
@@ -913,8 +979,23 @@ export class QuaScriptTransformer {
     const parsed = parse(moduleScript, {
       sourceType: 'module',
       plugins: HOST_SOURCE_PARSER_PLUGINS,
+      ...createParserStartOptions(sourceRange),
     })
     return parsed.program
+  }
+
+  private parseSetupStatements(setupScript: string, sourceRange?: SourceRange): t.Statement[] {
+    if (!setupScript.trim()) {
+      return []
+    }
+
+    const parsed = parse(setupScript, {
+      sourceType: 'module',
+      plugins: HOST_SOURCE_PARSER_PLUGINS,
+      ...createParserStartOptions(sourceRange),
+    })
+
+    return parsed.program.body
   }
 
   private createTextHelperStatements(): t.Statement[] {
@@ -1076,13 +1157,6 @@ function stableHash(value: string): string {
   return (hash >>> 0).toString(36)
 }
 
-function indent(source: string): string {
-  return source
-    .split('\n')
-    .map(line => (line.trim().length > 0 ? `  ${line}` : line))
-    .join('\n')
-}
-
 function isTerminatingEngineDecorator(decoratorName: string): boolean {
   return decoratorName === 'LoadFromSlot' || decoratorName === 'QuickLoad'
 }
@@ -1106,6 +1180,111 @@ function getObjectKeyName(key: t.ObjectProperty['key']): string | undefined {
     return String(key.value)
   }
   return undefined
+}
+
+function splitHashTarget(
+  target: string,
+  prefix: string,
+  requireFragment: boolean,
+): { fragment: string, id: string } | undefined {
+  if (!target.startsWith(prefix)) {
+    return undefined
+  }
+
+  const value = target.slice(prefix.length)
+  const hashIndex = value.indexOf('#')
+  const id = hashIndex >= 0 ? value.slice(0, hashIndex) : value
+  const fragment = hashIndex >= 0 ? value.slice(hashIndex + 1) : ''
+  if (!id || /\s/.test(id) || (hashIndex >= 0 && (!fragment || /\s/.test(fragment)))) {
+    return undefined
+  }
+  if (requireFragment && hashIndex < 0) {
+    return undefined
+  }
+
+  return { id, fragment }
+}
+
+function createParserStartOptions(sourceRange?: SourceRange): {
+  startColumn?: number
+  startIndex?: number
+  startLine?: number
+} {
+  if (!sourceRange) {
+    return {}
+  }
+
+  return {
+    startIndex: sourceRange.start.offset,
+    startLine: sourceRange.start.line + 1,
+    startColumn: sourceRange.start.column,
+  }
+}
+
+interface SourceRangeOffset {
+  column: number
+  line: number
+  offset: number
+}
+
+function createTemplateLiteralSourceRangeOffset(quasi: t.TemplateLiteral): SourceRangeOffset | undefined {
+  const firstQuasi = quasi.quasis[0]
+  if (
+    firstQuasi?.start == null
+    || firstQuasi.loc?.start.line == null
+    || firstQuasi.loc?.start.column == null
+  ) {
+    return undefined
+  }
+
+  const rawOffset = firstQuasi.start
+  const rawLine = firstQuasi.loc.start.line - 1
+  const rawColumn = firstQuasi.loc.start.column
+  const startsWithNewline = firstQuasi.value.raw.startsWith('\n')
+
+  return {
+    offset: rawOffset,
+    line: rawLine,
+    column: startsWithNewline ? 0 : rawColumn,
+  }
+}
+
+function inheritSourceRange<T extends t.Node>(node: T, range?: SourceRange, offset?: SourceRangeOffset): T {
+  if (!range) {
+    return node
+  }
+
+  const start = applySourceRangeOffset(range.start, offset)
+  const end = applySourceRangeOffset(range.end, offset)
+  node.start = start.offset
+  node.end = end.offset
+  node.loc = {
+    start: {
+      line: start.line + 1,
+      column: start.column,
+      index: start.offset,
+    },
+    end: {
+      line: end.line + 1,
+      column: end.column,
+      index: end.offset,
+    },
+    filename: '',
+    identifierName: '',
+  }
+  return node
+}
+
+function applySourceRangeOffset(position: SourceRange['start'], offset?: SourceRangeOffset): SourceRange['start'] {
+  if (!offset) {
+    return position
+  }
+
+  return {
+    offset: position.offset + offset.offset,
+    line: position.line + offset.line,
+    column: position.line === 0 ? position.column + offset.column : position.column,
+  }
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {

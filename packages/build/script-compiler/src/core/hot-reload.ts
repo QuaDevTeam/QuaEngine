@@ -1,5 +1,6 @@
 import type { FSWatcher } from 'vite'
 import type { DecoratorMapping } from '../core/types'
+import type { QuaScriptTransformResult } from './transformer'
 import process from 'node:process'
 
 /**
@@ -22,7 +23,7 @@ export type HotReloadCallback = (event: HotReloadEvent) => void | Promise<void>
  */
 interface CacheEntry {
   source: string
-  compiled: string
+  compiled: QuaScriptTransformResult
   dependencies: Set<string>
   timestamp: number
   decoratorMappings: DecoratorMapping
@@ -93,7 +94,7 @@ export class HotReloadManager {
   /**
    * Get cached compilation result
    */
-  getCached(filePath: string, source: string): string | null {
+  getCached(filePath: string, source: string): QuaScriptTransformResult | null {
     if (!this.isEnabled) {
       return null
     }
@@ -121,7 +122,7 @@ export class HotReloadManager {
   /**
    * Set cached compilation result
    */
-  setCached(filePath: string, source: string, compiled: string, dependencies: string[] = []): void {
+  setCached(filePath: string, source: string, compiled: QuaScriptTransformResult, dependencies: string[] = []): void {
     if (!this.isEnabled) {
       return
     }
