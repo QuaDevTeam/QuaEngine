@@ -2,12 +2,15 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { applyQuaScriptTextEdits } from '@quajs/script-compiler'
 import {
   analyzeQuaScript,
+  formatQuaScriptDocumentEdits,
   getQuaScriptCodeActions,
   getQuaScriptCompletions,
   getQuaScriptDefinitions,
   getQuaScriptHover,
+  lintQuaScript,
 } from '../src'
 
 describe('@quajs/language-server helpers', () => {
@@ -69,8 +72,75 @@ Yuki: Hello \${scope.missing}
 `)
 
     const diagnostic = analysis.diagnostics.find(item => item.message.includes('missing'))
+    expect(diagnostic?.code).toMatch(/^TS_/)
+    expect(diagnostic?.source).toBe('quascript/typescript')
     expect(diagnostic?.range?.start.line).toBe(7)
     expect(diagnostic?.range?.start.column).toBeGreaterThan(10)
+  })
+
+  it('returns lint summary counts with stable style diagnostic metadata', async () => {
+    const lint = await lintQuaScript('Yuki: Hello  ')
+
+    expect(lint.errorCount).toBe(0)
+    expect(lint.warningCount).toBeGreaterThanOrEqual(2)
+    expect(lint.fixableCount).toBeGreaterThanOrEqual(2)
+    expect(lint.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'QS_STYLE_TRAILING_WHITESPACE',
+        severity: 'warning',
+        source: 'quascript/style',
+      }),
+      expect.objectContaining({
+        code: 'QS_STYLE_FINAL_NEWLINE',
+        severity: 'warning',
+        source: 'quascript/style',
+      }),
+    ]))
+  })
+
+  it('keeps parser diagnostics on the unified lint model', async () => {
+    const lint = await lintQuaScript('<script>\nconst value = 1\n')
+
+    expect(lint.errorCount).toBeGreaterThanOrEqual(2)
+    expect(lint.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'QS_PARSE_INVALID_SCRIPT_LANG',
+        severity: 'error',
+        source: 'quascript/parser',
+      }),
+      expect.objectContaining({
+        code: 'QS_PARSE_MISSING_SCRIPT_CLOSE',
+        severity: 'error',
+        source: 'quascript/parser',
+      }),
+    ]))
+  })
+
+  it('applies lint rule severity overrides and off switches', async () => {
+    const lint = await lintQuaScript('Yuki: Hello  ', {
+      toolingConfig: {
+        lint: {
+          rules: {
+            QS_STYLE_FINAL_NEWLINE: 'error',
+            QS_STYLE_TRAILING_WHITESPACE: 'off',
+          },
+        },
+      },
+    })
+
+    expect(lint.diagnostics.map(diagnostic => diagnostic.code)).toEqual(['QS_STYLE_FINAL_NEWLINE'])
+    expect(lint.errorCount).toBe(1)
+    expect(lint.warningCount).toBe(0)
+  })
+
+  it('formats documents with minimal edits and returns no edits when already formatted', () => {
+    const source = '@SetBackground("classroom.png")\n\nYuki: Hello  '
+    const edits = formatQuaScriptDocumentEdits(source)
+    const formatted = applyQuaScriptTextEdits(source, edits)
+
+    expect(edits).toHaveLength(1)
+    expect(formatted).toBe('@SetBackground("classroom.png")\nYuki: Hello\n')
+    expect(formatQuaScriptDocumentEdits(formatted)).toEqual([])
   })
 
   it('uses TypeScript completions inside QuaScript expressions', async () => {
@@ -164,7 +234,9 @@ Yuki: Hello \${displayName}
 - What if we wait -> wait
 `)
 
-    expect(analysis.diagnostics).toEqual([])
+    expect(analysis.diagnostics.filter(diagnostic =>
+      diagnostic.source === 'quascript/story' || diagnostic.source === 'quascript/project',
+    )).toEqual([])
   })
 
   it('returns decorator hover on decorator names with arguments', async () => {
@@ -272,6 +344,51 @@ Yuki: Hello \${displayName}
     expect(actions[0]?.edit.newText).toBe("@Choice('Go', scene('dorm', { entry: 'night' }), { when: canGo })")
   })
 
+  it('expands choice sugar with correct edit offsets in CRLF documents', () => {
+    const source = 'Yuki: Choose\r\n- Go -> scene:dorm#night if canGo\r\nYuki: Done\r\n'
+    const actions = getQuaScriptCodeActions(source, { line: 1, character: 4 })
+    const edit = actions[0]?.edit.edits[0]
+
+    expect(edit?.range.start.offset).toBe('Yuki: Choose\r\n'.length)
+    expect(edit?.range.end.offset).toBe('Yuki: Choose\r\n- Go -> scene:dorm#night if canGo'.length)
+    expect(applyQuaScriptTextEdits(source, edit ? [edit] : [])).toBe([
+      'Yuki: Choose\r\n',
+      "@Choice('Go', scene('dorm', { entry: 'night' }), { when: canGo })",
+      '\r\nYuki: Done\r\n',
+    ].join(''))
+  })
+
+  it('returns lint quick fixes and source fixAll without dropping refactor actions', async () => {
+    const source = [
+      '@SetBackground("classroom.png")',
+      '',
+      'Yuki: Hello  ',
+      '- Go -> library',
+    ].join('\n')
+    const lint = await lintQuaScript(source)
+    const actions = getQuaScriptCodeActions(source, { line: 2, character: 12 }, {
+      diagnostics: lint.diagnostics,
+      includeLintFixes: true,
+    })
+    const quickFix = actions.find(action => action.kind === 'quickfix' && action.title === 'Remove trailing whitespace')
+    const fixAll = actions.find(action => action.kind === 'source.fixAll.quascript')
+
+    expect(quickFix?.diagnostics?.[0]?.code).toBe('QS_STYLE_TRAILING_WHITESPACE')
+    expect(fixAll?.edit.edits.length).toBeGreaterThanOrEqual(3)
+    expect(applyQuaScriptTextEdits(source, fixAll?.edit.edits || [])).toBe([
+      '@SetBackground("classroom.png")',
+      'Yuki: Hello',
+      '- Go -> library',
+      '',
+    ].join('\n'))
+
+    const refactorActions = getQuaScriptCodeActions(source, { line: 3, character: 4 }, {
+      diagnostics: lint.diagnostics,
+      includeLintFixes: true,
+    })
+    expect(refactorActions.map(action => action.title)).toContain('Expand choice sugar to @Choice')
+  })
+
   it('reports rich story diagnostics for targets, assets, packages, and complex sugar conditions', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
     const filePath = join(projectRoot, 'school.qs')
@@ -310,12 +427,20 @@ Yuki: Choose.
       projectRoot,
     })
     const messages = analysis.diagnostics.map(item => item.message)
+    const metadata = analysis.diagnostics.map(item => [item.code, item.source])
 
     expect(messages).toContain('Choice sugar uses a complex if expression. Prefer <script setup> bindings or @Choice(..., { when }) for maintainable branching.')
     expect(messages).toContain('Choice "Cross" targets "node:dorm" in another scene. Use scene(...) or scene:id#entry for cross-scene choice jumps.')
     expect(messages).toContain('Story asset "missing.png" was not found under project assets.')
     expect(messages).toContain('Package-scoped target references unknown runtime package "runtime.unknown".')
     expect(messages).toContain('Package-scoped target "runtime.extra" should be declared through runtime package dependencies or requiredRuntimePackages.')
+    expect(metadata).toEqual(expect.arrayContaining([
+      ['QS_STORY_COMPLEX_CHOICE_CONDITION', 'quascript/story'],
+      ['QS_STORY_CROSS_SCENE_TARGET', 'quascript/story'],
+      ['QS_PROJECT_MISSING_ASSET', 'quascript/project'],
+      ['QS_PROJECT_UNKNOWN_RUNTIME_PACKAGE', 'quascript/project'],
+      ['QS_PROJECT_MISSING_RUNTIME_PACKAGE_DEPENDENCY', 'quascript/project'],
+    ]))
   })
 
   it('does not report story diagnostics for valid same-scene targets and assets', async () => {
@@ -345,7 +470,9 @@ Yuki: Library.
       projectRoot,
     })
 
-    expect(analysis.diagnostics).toEqual([])
+    expect(analysis.diagnostics.filter(diagnostic =>
+      diagnostic.source === 'quascript/story' || diagnostic.source === 'quascript/project',
+    )).toEqual([])
   })
 
   it('jumps from story targets to Node, Label, and Scene declarations', () => {
