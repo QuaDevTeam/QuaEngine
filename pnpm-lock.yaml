@@ -465,6 +465,16 @@ importers:
         specifier: 'catalog:'
         version: 3.0.1
 
+  packages/platform/store-node:
+    dependencies:
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+
   packages/plugins/animation:
     dependencies:
       '@babel/types':
