@@ -1,0 +1,44 @@
+{
+  "name": "create-qua-game",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Project scaffolding CLI for QuaEngine visual novel games.",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "create",
+    "quaengine",
+    "quascript",
+    "scaffold",
+    "visual-novel",
+    "vue"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "create-qua-game": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint . --ignore-pattern templates/**",
+    "lint:fix": "eslint . --ignore-pattern templates/** --fix",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {}
+}

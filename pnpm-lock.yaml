@@ -174,6 +174,8 @@ importers:
         specifier: ^4.1.5
         version: 4.1.5(@types/node@25.6.2)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(happy-dom@20.9.0)(vite@8.0.12(@types/node@25.6.2)(yaml@2.8.4))
 
+  packages/build/create-qua-game: {}
+
   packages/build/language-server:
     dependencies:
       '@quajs/plugin-discovery':
