@@ -17,6 +17,23 @@ import { createQuaProjectInspector } from '@quajs/project-inspector'
 import { LanguageClient, TransportKind } from 'vscode-languageclient/node'
 
 type LzmaNative = typeof import('lzma-native')
+type QuaScriptRuleSeverity = 'error' | 'info' | 'off' | 'warning'
+
+interface QuaScriptClientSettings {
+  files?: {
+    exclude?: string[]
+    include?: string[]
+  }
+  format?: {
+    enable?: boolean
+    insertFinalNewline?: boolean
+    maxBlankLines?: number
+  }
+  lint?: {
+    enable?: boolean
+    rules?: Record<string, QuaScriptRuleSeverity>
+  }
+}
 
 let client: LanguageClient | undefined
 
@@ -24,39 +41,7 @@ export function activate(context: ExtensionContext): void {
   const serverModule = context.asAbsolutePath('server/server.js')
   const projectRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
 
-  client = new LanguageClient(
-    'quascript',
-    'QuaScript',
-    {
-      run: {
-        module: serverModule,
-        transport: TransportKind.ipc,
-      },
-      debug: {
-        module: serverModule,
-        options: {
-          execArgv: ['--nolazy', '--inspect=6009'],
-        },
-        transport: TransportKind.ipc,
-      },
-    },
-    {
-      documentSelector: [
-        {
-          language: 'quascript',
-          scheme: 'file',
-        },
-      ],
-      initializationOptions: {
-        projectRoot,
-      },
-      synchronize: {
-        fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{qs,ts,tsx,js,jsx,json}'),
-      },
-    },
-  )
-
-  client.start()
+  client = startQuaScriptLanguageClient(serverModule, projectRoot)
   const inspectorService = new QuaProjectInspectorService(projectRoot)
   const storyTreeProvider = new StoryTreeProvider(inspectorService)
   const qpkProvider = new QpkExplorerProvider(inspectorService)
@@ -85,6 +70,19 @@ export function activate(context: ExtensionContext): void {
     assetLineageTree,
     vscode.window.registerWebviewViewProvider('quascript.storyPointInspector', storyInspectorProvider),
     vscode.window.registerWebviewViewProvider('quascript.packageHealth', packageHealthProvider),
+    vscode.commands.registerCommand('quascript.formatDocument', async () => {
+      await vscode.commands.executeCommand('editor.action.formatDocument')
+    }),
+    vscode.commands.registerCommand('quascript.fixAll', async () => {
+      await vscode.commands.executeCommand('editor.action.codeAction', {
+        apply: 'first',
+        kind: 'source.fixAll.quascript',
+      })
+    }),
+    vscode.commands.registerCommand('quascript.restartLanguageServer', async () => {
+      await restartQuaScriptLanguageClient(serverModule, projectRoot)
+      vscode.window.showInformationMessage('QuaScript language server restarted.')
+    }),
     vscode.commands.registerCommand('quascript.refreshInspector', refresh),
     vscode.commands.registerCommand('quascript.openStoryGraph', () => openStoryGraph(context.extensionUri, inspectorService, storyInspectorProvider)),
     vscode.commands.registerCommand('quascript.inspectStoryPoint', async (item?: InspectorTreeItem) => {
@@ -120,6 +118,11 @@ export function activate(context: ExtensionContext): void {
     inspectorWatcher.onDidChange(scheduleRefresh),
     inspectorWatcher.onDidCreate(scheduleRefresh),
     inspectorWatcher.onDidDelete(scheduleRefresh),
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration('quascript')) {
+        sendQuaScriptConfiguration()
+      }
+    }),
     {
       dispose: () => {
         client?.stop()
@@ -134,6 +137,98 @@ export function deactivate(): Thenable<void> | undefined {
   const activeClient = client
   client = undefined
   return activeClient?.stop()
+}
+
+function startQuaScriptLanguageClient(serverModule: string, projectRoot: string | undefined): LanguageClient {
+  const nextClient = new LanguageClient(
+    'quascript',
+    'QuaScript',
+    {
+      run: {
+        module: serverModule,
+        transport: TransportKind.ipc,
+      },
+      debug: {
+        module: serverModule,
+        options: {
+          execArgv: ['--nolazy', '--inspect=6009'],
+        },
+        transport: TransportKind.ipc,
+      },
+    },
+    {
+      documentSelector: [
+        {
+          language: 'quascript',
+          scheme: 'file',
+        },
+      ],
+      initializationOptions: {
+        projectRoot,
+        quascript: getQuaScriptSettings(),
+      },
+      synchronize: {
+        fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{qs,ts,tsx,js,jsx,json}'),
+      },
+    },
+  )
+  nextClient.start().catch(error => vscode.window.showWarningMessage(`QuaScript language server failed to start: ${String(error)}`))
+  return nextClient
+}
+
+async function restartQuaScriptLanguageClient(serverModule: string, projectRoot: string | undefined): Promise<void> {
+  const activeClient = client
+  client = undefined
+  await activeClient?.stop()
+  client = startQuaScriptLanguageClient(serverModule, projectRoot)
+}
+
+function sendQuaScriptConfiguration(): void {
+  client?.sendNotification('workspace/didChangeConfiguration', {
+    settings: {
+      quascript: getQuaScriptSettings(),
+    },
+  }).catch(error => vscode.window.showWarningMessage(`QuaScript configuration sync failed: ${String(error)}`))
+}
+
+function getQuaScriptSettings(): QuaScriptClientSettings {
+  const configuration = vscode.workspace.getConfiguration('quascript')
+  const files: NonNullable<QuaScriptClientSettings['files']> = {}
+  const format: NonNullable<QuaScriptClientSettings['format']> = {}
+  const lint: NonNullable<QuaScriptClientSettings['lint']> = {}
+
+  setExplicitConfigurationValue(configuration, 'files.exclude', files, 'exclude')
+  setExplicitConfigurationValue(configuration, 'files.include', files, 'include')
+  setExplicitConfigurationValue(configuration, 'format.enable', format, 'enable')
+  setExplicitConfigurationValue(configuration, 'format.insertFinalNewline', format, 'insertFinalNewline')
+  setExplicitConfigurationValue(configuration, 'format.maxBlankLines', format, 'maxBlankLines')
+  setExplicitConfigurationValue(configuration, 'lint.enable', lint, 'enable')
+  setExplicitConfigurationValue(configuration, 'lint.rules', lint, 'rules')
+
+  return {
+    ...(Object.keys(files).length > 0 ? { files } : {}),
+    ...(Object.keys(format).length > 0 ? { format } : {}),
+    ...(Object.keys(lint).length > 0 ? { lint } : {}),
+  }
+}
+
+function setExplicitConfigurationValue<TTarget extends object, TKey extends keyof TTarget>(
+  configuration: vscode.WorkspaceConfiguration,
+  section: string,
+  target: TTarget,
+  key: TKey,
+): void {
+  const inspection = configuration.inspect<TTarget[TKey]>(section)
+  const value = inspection?.workspaceFolderLanguageValue
+    ?? inspection?.workspaceLanguageValue
+    ?? inspection?.globalLanguageValue
+    ?? inspection?.workspaceFolderValue
+    ?? inspection?.workspaceValue
+    ?? inspection?.globalValue
+
+  if (value !== undefined) {
+    target[key] = value as TTarget[TKey]
+  }
 }
 
 class QuaProjectInspectorService {

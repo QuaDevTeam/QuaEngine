@@ -1,13 +1,27 @@
 import type { DecoratorArgumentLanguageContribution, LanguageCompletionValue } from '@quajs/plugin-discovery'
-import type { QuaScriptDiagnostic } from '@quajs/script-compiler'
+import type {
+  QuaScriptDiagnostic,
+  QuaScriptLintResult,
+  QuaScriptTextEdit,
+  QuaScriptToolingConfig,
+  SourceRange,
+} from '@quajs/script-compiler'
 import { existsSync, readdirSync } from 'node:fs'
 import { extname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getDiscoveredDecoratorMappings, getDiscoveredLanguageContributions } from '@quajs/plugin-discovery'
 import {
+  applyQuaScriptLintRules,
+  collectQuaScriptStyleDiagnostics,
+  createLineStarts,
+  createQuaScriptLintResult,
   DEFAULT_DECORATOR_MAPPINGS,
+  formatQuaScriptWithEdits,
+  getQuaScriptFixAllEdits,
   parseQuaScriptDocument,
+  rangeFromOffsets,
   QuaScriptParser,
+  lintQuaScriptSource,
 } from '@quajs/script-compiler'
 import ts from 'typescript'
 import {
@@ -61,6 +75,7 @@ export interface QuaScriptLanguageOptions {
   extraFiles?: Record<string, string>
   filePath?: string
   projectRoot?: string
+  toolingConfig?: QuaScriptToolingConfig
 }
 
 export interface QuaScriptAnalysis {
@@ -72,11 +87,20 @@ export interface QuaScriptAnalysis {
 
 export interface QuaScriptCodeAction {
   title: string
-  kind: 'refactor.rewrite'
+  kind: 'quickfix' | 'refactor.rewrite' | 'source.fixAll.quascript'
+  diagnostics?: QuaScriptDiagnostic[]
   edit: {
-    range: QuaScriptDiagnostic['range']
-    newText: string
+    edits: QuaScriptTextEdit[]
+    range?: SourceRange
+    newText?: string
   }
+}
+
+export interface QuaScriptCodeActionOptions {
+  diagnostics?: readonly QuaScriptDiagnostic[]
+  includeFixAll?: boolean
+  includeLintFixes?: boolean
+  toolingConfig?: QuaScriptToolingConfig
 }
 
 export async function analyzeQuaScript(source: string, options: QuaScriptLanguageOptions = {}): Promise<QuaScriptAnalysis> {
@@ -84,22 +108,41 @@ export async function analyzeQuaScript(source: string, options: QuaScriptLanguag
 
   const parser = new QuaScriptParser()
   const parsed = parser.parse(document.dslBody)
+  const lintEnabled = options.toolingConfig?.lint?.enable !== false
+  const styleDiagnostics = collectQuaScriptStyleDiagnostics(source, options.toolingConfig?.format)
+  const baseDiagnostics = lintEnabled
+    ? [
+        ...document.diagnostics,
+        ...parsed.diagnostics,
+        ...styleDiagnostics,
+      ]
+    : []
   let diagnostics: QuaScriptDiagnostic[] = []
   let virtualTypeScript = createQuaScriptVirtualDocument(source, options).text
   try {
     const context = createQuaScriptTypeScriptContext(source, options)
     virtualTypeScript = context.virtualDocument.text
-    diagnostics = [
-      ...context.virtualDocument.diagnostics,
-      ...collectQuaScriptTypeScriptDiagnostics(context),
-      ...collectQuaScriptStoryDiagnostics(source, parsed, options),
-    ]
+    diagnostics = !lintEnabled
+      ? []
+      : applyQuaScriptLintRules([
+          ...context.virtualDocument.diagnostics,
+          ...collectQuaScriptTypeScriptDiagnostics(context),
+          ...collectQuaScriptStoryDiagnostics(source, parsed, options),
+          ...styleDiagnostics,
+        ], options.toolingConfig?.lint)
   }
   catch (error) {
-    diagnostics.push({
-      message: error instanceof Error ? error.message : String(error),
-      severity: 'error',
-    })
+    diagnostics = !lintEnabled
+      ? []
+      : applyQuaScriptLintRules([
+          ...baseDiagnostics,
+          {
+            code: 'QS_PROJECT_ANALYSIS_FAILED',
+            message: error instanceof Error ? error.message : String(error),
+            severity: 'error',
+            source: 'quascript/project',
+          },
+        ], options.toolingConfig?.lint)
   }
 
   return {
@@ -108,6 +151,21 @@ export async function analyzeQuaScript(source: string, options: QuaScriptLanguag
     setupVariables: collectSetupVariables(document.setupScript?.content || '', document.moduleScript?.content || ''),
     virtualTypeScript,
   }
+}
+
+export async function lintQuaScript(source: string, options: QuaScriptLanguageOptions = {}): Promise<QuaScriptLintResult> {
+  if (options.toolingConfig?.lint?.enable === false) {
+    return createQuaScriptLintResult([])
+  }
+  const analysis = await analyzeQuaScript(source, options)
+  return createQuaScriptLintResult(analysis.diagnostics)
+}
+
+export function formatQuaScriptDocumentEdits(source: string, options: QuaScriptLanguageOptions = {}): QuaScriptTextEdit[] {
+  if (options.toolingConfig?.format?.enable === false) {
+    return []
+  }
+  return formatQuaScriptWithEdits(source, options.toolingConfig?.format)
 }
 
 export async function getQuaScriptCompletions(
@@ -217,24 +275,62 @@ export function getQuaScriptDefinitions(
 export function getQuaScriptCodeActions(
   source: string,
   position: QuaScriptLanguagePosition,
+  options: QuaScriptCodeActionOptions = {},
 ): QuaScriptCodeAction[] {
+  const actions: QuaScriptCodeAction[] = []
   const lines = source.split(/\r?\n/)
   const line = lines[position.line] || ''
   const expanded = expandChoiceSugarLine(line)
-  if (!expanded) {
-    return []
-  }
-  return [{
-    title: 'Expand choice sugar to @Choice',
-    kind: 'refactor.rewrite',
-    edit: {
-      newText: expanded,
-      range: {
-        start: { line: position.line, column: 0, offset: sourceOffsetAt(source, position.line, 0) },
-        end: { line: position.line, column: line.length, offset: sourceOffsetAt(source, position.line, line.length) },
+  if (expanded) {
+    const range = sourceLineRangeAt(source, position.line, line.length)
+    actions.push({
+      title: 'Expand choice sugar to @Choice',
+      kind: 'refactor.rewrite',
+      edit: {
+        edits: [{ newText: expanded, range }],
+        newText: expanded,
+        range,
       },
-    },
-  }]
+    })
+  }
+
+  if (!options.includeLintFixes) {
+    return actions
+  }
+
+  const diagnostics = options.diagnostics
+    ?? lintQuaScriptSource(source, {
+      format: options.toolingConfig?.format,
+      lint: options.toolingConfig?.lint,
+    }).diagnostics
+  const fixableDiagnostics = diagnostics.filter(diagnostic => diagnostic.fix?.edits.length)
+
+  actions.push(...fixableDiagnostics
+    .filter(diagnostic => diagnosticTouchesPosition(diagnostic, position))
+    .map(diagnostic => ({
+      title: diagnostic.fix?.title || `Fix ${diagnostic.code}`,
+      kind: 'quickfix' as const,
+      diagnostics: [diagnostic],
+      edit: {
+        edits: diagnostic.fix?.edits || [],
+      },
+    })))
+
+  if (options.includeFixAll !== false) {
+    const edits = getQuaScriptFixAllEdits(fixableDiagnostics)
+    if (edits.length > 0) {
+      actions.push({
+        title: 'Fix all auto-fixable QuaScript problems',
+        kind: 'source.fixAll.quascript',
+        diagnostics: fixableDiagnostics,
+        edit: {
+          edits,
+        },
+      })
+    }
+  }
+
+  return actions
 }
 
 async function getDecoratorCompletions(projectRoot?: string): Promise<QuaScriptCompletionItem[]> {
@@ -246,6 +342,23 @@ async function getDecoratorCompletions(projectRoot?: string): Promise<QuaScriptC
       kind: 'decorator' as const,
       detail: 'QuaScript decorator',
     }))
+}
+
+function diagnosticTouchesPosition(diagnostic: QuaScriptDiagnostic, position: QuaScriptLanguagePosition): boolean {
+  const range = diagnostic.range
+  if (!range) {
+    return true
+  }
+
+  if (range.start.line === range.end.line && range.start.column === range.end.column) {
+    return position.line === range.start.line
+  }
+
+  const afterStart = position.line > range.start.line
+    || (position.line === range.start.line && position.character >= range.start.column)
+  const beforeEnd = position.line < range.end.line
+    || (position.line === range.end.line && position.character <= range.end.column)
+  return afterStart && beforeEnd
 }
 
 function getChoiceHelperCompletions(): QuaScriptCompletionItem[] {
@@ -530,13 +643,10 @@ function escapeSingleQuoted(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 }
 
-function sourceOffsetAt(source: string, line: number, character: number): number {
-  const lines = source.split(/\r?\n/)
-  let offset = 0
-  for (let index = 0; index < line; index++) {
-    offset += (lines[index] || '').length + 1
-  }
-  return offset + character
+function sourceLineRangeAt(source: string, line: number, character: number): SourceRange {
+  const lineStarts = createLineStarts(source)
+  const lineStart = lineStarts[line] ?? source.length
+  return rangeFromOffsets(lineStarts, lineStart, lineStart + character)
 }
 
 function isSpeakerContext(beforeCursor: string): boolean {
