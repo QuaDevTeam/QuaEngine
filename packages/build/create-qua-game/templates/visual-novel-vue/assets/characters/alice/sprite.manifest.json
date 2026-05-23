@@ -1,0 +1,7 @@
+{
+  "family": "alice",
+  "base": {
+    "asset": "base.svg"
+  },
+  "expressions": {}
+}

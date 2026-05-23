@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" role="img" aria-label="Painterly classroom placeholder background">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#8fb8bd"/>
+      <stop offset="0.5" stop-color="#d7b67b"/>
+      <stop offset="1" stop-color="#2d3739"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#7a5b42"/>
+      <stop offset="1" stop-color="#322923"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="#20272a"/>
+  <rect x="0" y="0" width="1920" height="650" fill="url(#sky)"/>
+  <rect x="0" y="650" width="1920" height="430" fill="url(#floor)"/>
+  <rect x="210" y="130" width="510" height="330" rx="12" fill="#e9d9ad" opacity="0.88"/>
+  <rect x="760" y="130" width="510" height="330" rx="12" fill="#e9d9ad" opacity="0.72"/>
+  <rect x="1320" y="120" width="390" height="350" rx="12" fill="#263438" opacity="0.82"/>
+  <path d="M0 650h1920v60H0z" fill="#14191b" opacity="0.54"/>
+  <g fill="#31251d" opacity="0.78">
+    <rect x="160" y="705" width="330" height="72" rx="10"/>
+    <rect x="585" y="735" width="330" height="72" rx="10"/>
+    <rect x="1010" y="705" width="330" height="72" rx="10"/>
+    <rect x="1435" y="735" width="330" height="72" rx="10"/>
+  </g>
+  <path d="M0 990c390-110 720-112 1050-28 300 76 560 80 870-8v126H0z" fill="#151718" opacity="0.48"/>
+</svg>

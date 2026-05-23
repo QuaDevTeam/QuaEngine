@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1080" role="img" aria-label="Alice placeholder character sprite">
+  <defs>
+    <linearGradient id="hair" x1="0" x2="1">
+      <stop offset="0" stop-color="#2b2626"/>
+      <stop offset="1" stop-color="#75513f"/>
+    </linearGradient>
+    <linearGradient id="dress" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#b94f45"/>
+      <stop offset="1" stop-color="#442c36"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="1080" fill="none"/>
+  <ellipse cx="360" cy="315" rx="190" ry="240" fill="url(#hair)"/>
+  <circle cx="360" cy="260" r="125" fill="#f0c8a9"/>
+  <path d="M220 230c62-120 236-126 292 0-90-38-190-30-292 0z" fill="url(#hair)"/>
+  <path d="M245 490c34-80 196-96 238 0l92 470H145z" fill="url(#dress)"/>
+  <path d="M275 505h170l-32 92H307z" fill="#f7e7c8" opacity="0.86"/>
+  <circle cx="318" cy="274" r="11" fill="#2a2629"/>
+  <circle cx="404" cy="274" r="11" fill="#2a2629"/>
+  <path d="M322 342c28 24 58 24 84 0" fill="none" stroke="#8c4d45" stroke-width="10" stroke-linecap="round"/>
+  <path d="M190 575c-55 95-72 185-82 310" stroke="#f0c8a9" stroke-width="64" stroke-linecap="round"/>
+  <path d="M530 575c55 95 72 185 82 310" stroke="#f0c8a9" stroke-width="64" stroke-linecap="round"/>
+</svg>

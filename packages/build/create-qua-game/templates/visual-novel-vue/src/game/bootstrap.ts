@@ -1,0 +1,125 @@
+import { MemoryAssetStorage } from '@quajs/assets'
+import { createViteDevAssetRuntime, createWebAssetsAdapter } from '@quajs/assets-web'
+import { QuaEngine, Scene, UiOverlayPlugin } from '@quajs/engine'
+import { AudioPlugin } from '@quajs/plugin-audio'
+import { BacklogPlugin, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog'
+import { BackgroundPlugin } from '@quajs/plugin-background'
+import { FontsPlugin } from '@quajs/plugin-fonts'
+import { SettingsPlugin } from '@quajs/plugin-settings'
+import { QuaRenderer } from '@quajs/renderer-vue'
+import { createVisualNovelRendererPlugins } from '@quajs/renderer-vue/plugins/preset'
+import { defineComponent, h, ref } from 'vue'
+import opening from './scenes/opening.qs'
+
+const GAME_TITLE = '__PROJECT_TITLE__'
+
+export async function createQuaGameApp() {
+  const bootMessage = ref('Loading QuaEngine...')
+  const assets = await createViteDevAssetRuntime({
+    hmr: import.meta.hot,
+    web: {
+      databaseName: '__PROJECT_NAME__-assets',
+    },
+  })
+  bootMessage.value = 'Preparing story runtime...'
+
+  const engine = new QuaEngine({
+    layout: 'landscape',
+    assets: {
+      adapter: createWebAssetsAdapter({
+        databaseName: '__PROJECT_NAME__-engine-assets',
+        storage: new MemoryAssetStorage(),
+      }),
+      provider: assets.getProvider(),
+      locale: 'default',
+      enableCache: false,
+    },
+    flowControl: {
+      skipMode: 'read',
+      timings: {
+        autoAdvanceDelayMs: 1400,
+      },
+    },
+  })
+
+  engine
+    .use(new BackgroundPlugin())
+    .use(new AudioPlugin())
+    .use(new BacklogPlugin())
+    .use(new SettingsPlugin())
+    .use(new FontsPlugin())
+    .use(new UiOverlayPlugin())
+
+  engine.registerStoryTargetResolver(async (target, context) => {
+    if (target.kind !== 'node') {
+      return undefined
+    }
+    if (target.id === 'settings') {
+      await context.engine.showUI('settings')
+    }
+    if (target.id === 'settings' || target.id === 'continue') {
+      return {
+        target,
+        point: {
+          ...(context.currentPoint || {}),
+          nodeId: target.id,
+          stepId: `${target.id}:selected`,
+        },
+      }
+    }
+    return undefined
+  })
+
+  await engine.init()
+  bootMessage.value = 'Starting opening scene...'
+  void engine.loadScene(new OpeningScene(engine)).catch((error) => {
+    console.error(error)
+    bootMessage.value = 'The opening scene failed to start. Check the browser console.'
+  })
+
+  return defineComponent({
+    name: 'QuaGameRoot',
+    setup() {
+      const rendererPlugins = createVisualNovelRendererPlugins()
+      return () => h('main', { class: 'game-root' }, [
+        h('div', { class: 'game-toolbar', 'data-qua-input-ignore': '' }, [
+          h('strong', { class: 'game-title' }, GAME_TITLE),
+          h('div', { class: 'game-actions' }, [
+            h('button', { type: 'button', onClick: () => engine.startAuto() }, 'Auto'),
+            h('button', { type: 'button', onClick: () => engine.stopAuto() }, 'Stop'),
+            h('button', { type: 'button', onClick: () => engine.showUI('settings') }, 'Settings'),
+            h('button', { type: 'button', onClick: () => engine.getPipeline().emit(BacklogRenderToLogicEvents.OPEN_REQUEST, {}) }, 'Backlog'),
+          ]),
+        ]),
+        h(QuaRenderer, {
+          pipeline: engine.getPipeline(),
+          assets,
+          initialView: engine.getViewState(),
+          plugins: rendererPlugins,
+        }),
+        h('p', { class: 'boot-message', 'data-qua-input-ignore': '' }, bootMessage.value),
+      ])
+    },
+  })
+}
+
+class OpeningScene extends Scene {
+  readonly name = 'opening'
+
+  constructor(private readonly engine: QuaEngine) {
+    super()
+  }
+
+  async init(): Promise<void> {
+    await this.engine.showUI('hud', {
+      open: true,
+      title: GAME_TITLE,
+    })
+  }
+
+  async run(): Promise<void> {
+    await this.engine.dialogue(opening, {
+      playerName: 'Player',
+    })
+  }
+}
