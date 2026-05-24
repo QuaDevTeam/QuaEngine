@@ -1,13 +1,15 @@
+import { createHash } from 'node:crypto'
 import type {
   BundleDefinition,
   QuackConfig,
   WorkspaceConfig,
 } from '../core/types'
 import { existsSync } from 'node:fs'
-import { readFile, stat } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { basename, dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createLogger } from '@quajs/logger'
+import ts from 'typescript'
 import { getErrorMessage } from '../utils/error'
 
 const logger = createLogger('quack:workspace')
@@ -47,6 +49,10 @@ export class WorkspaceManager {
         const content = await readFile(configFile, 'utf8')
         config = JSON.parse(content)
       }
+      else if (configFile.endsWith('.ts')) {
+        const configModule = await this.loadTypeScriptConfig(configFile)
+        config = (configModule.default ?? configModule) as WorkspaceConfig
+      }
       else {
         // Dynamic import for JS config files
         const configModule = await import(pathToFileURL(configFile).href)
@@ -77,6 +83,34 @@ export class WorkspaceManager {
     }
 
     return null
+  }
+
+  private async loadTypeScriptConfig(configFile: string): Promise<{ default?: WorkspaceConfig } & Record<string, unknown>> {
+    const source = await readFile(configFile, 'utf8')
+    const output = ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.ESNext,
+        target: ts.ScriptTarget.ES2022,
+        moduleResolution: ts.ModuleResolutionKind.Bundler,
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+      },
+      fileName: configFile,
+    }).outputText
+
+    const tempFile = resolve(
+      dirname(configFile),
+      `.${basename(configFile, '.ts')}.${createHash('sha1').update(source).digest('hex').slice(0, 8)}.mjs`,
+    )
+
+    await writeFile(tempFile, output, 'utf8')
+
+    try {
+      return await import(pathToFileURL(tempFile).href)
+    }
+    finally {
+      await rm(tempFile, { force: true }).catch(() => {})
+    }
   }
 
   /**
