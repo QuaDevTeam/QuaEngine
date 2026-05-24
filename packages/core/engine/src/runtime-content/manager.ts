@@ -32,7 +32,7 @@ import type {
   Scene,
   SceneFactory,
 } from '../core/types'
-import { createLocaleFallbackChain, normalizeLocale } from '@quajs/assets'
+import { assertCompatibleGameVersion, createLocaleFallbackChain, normalizeLocale } from '@quajs/assets'
 import type { EnginePlugin } from '../plugins/core/types'
 import { getPluginRegistry } from '../plugins'
 import { resolveGameSteps } from '../core/script'
@@ -83,23 +83,29 @@ export class RuntimeContentManager {
     const bundle = await this.engine.getAssets().loadDynamicBundle(source, {
       bundleName: options.bundleName,
       priority: options.priority,
+      appVersion: this.engine.getAppVersion(),
     })
     const manifest = bundle.manifest.runtimePackage
     if (!manifest) {
       throw new Error(`Runtime package metadata missing for bundle "${bundle.bundleName}".`)
     }
+    const existing = this.packages.get(manifest.id)
 
     try {
+      this.assertCompatibleRuntimePackage(manifest)
       await this.verifyPackage(bundle, manifest)
     }
     catch (error) {
-      await this.engine.getAssets().unloadDynamicBundle(bundle.bundleName).catch(() => {})
+      if (!isSameLoadedBundle(existing, bundle)) {
+        await this.engine.getAssets().unloadDynamicBundle(bundle.bundleVersionKey || bundle.bundleName).catch(() => {})
+      }
       throw error
     }
 
-    const existing = this.packages.get(manifest.id)
     if (existing && existing.state.state !== 'unloaded') {
-      await this.engine.getAssets().unloadDynamicBundle(bundle.bundleName).catch(() => {})
+      if (!isSameLoadedBundle(existing, bundle)) {
+        await this.engine.getAssets().unloadDynamicBundle(bundle.bundleVersionKey || bundle.bundleName).catch(() => {})
+      }
       throw new Error(`Runtime package "${manifest.id}" is already ${existing.state.state}. Unload it before loading a replacement.`)
     }
     try {
@@ -108,14 +114,14 @@ export class RuntimeContentManager {
       }
     }
     catch (error) {
-      await this.engine.getAssets().unloadDynamicBundle(bundle.bundleName).catch(() => {})
+      await this.engine.getAssets().unloadDynamicBundle(bundle.bundleVersionKey || bundle.bundleName).catch(() => {})
       throw error
     }
     try {
       this.assertPackageScriptIdsAvailable(manifest)
     }
     catch (error) {
-      await this.engine.getAssets().unloadDynamicBundle(bundle.bundleName).catch(() => {})
+      await this.engine.getAssets().unloadDynamicBundle(bundle.bundleVersionKey || bundle.bundleName).catch(() => {})
       throw error
     }
 
@@ -147,6 +153,7 @@ export class RuntimeContentManager {
     if (record.state.state === 'active') {
       return { ...record.state }
     }
+    this.assertCompatibleRuntimePackage(record.manifest)
     if (this.activatingPackages.has(packageId)) {
       throw new Error(`Runtime package dependency cycle detected while activating "${packageId}".`)
     }
@@ -567,6 +574,14 @@ export class RuntimeContentManager {
     if (manifest.integrity?.hash !== bundle.manifest.merkleRoot) {
       throw new Error(`Runtime package "${manifest.id}" integrity hash mismatch.`)
     }
+  }
+
+  private assertCompatibleRuntimePackage(manifest: RuntimePackageManifest): void {
+    assertCompatibleGameVersion(
+      manifest.compatibility,
+      this.engine.getAppVersion(),
+      `Runtime package "${manifest.id}"`,
+    )
   }
 
   private registerPackageScripts(bundle: DynamicBundleRecord, manifest: RuntimePackageManifest): void {
@@ -1038,6 +1053,7 @@ function createPackageState(
     version: manifest.version,
     state,
     bundleName: bundle.bundleName,
+    compatibility: manifest.compatibility || bundle.compatibility,
     priority: bundle.priority,
     loadedAt: bundle.loadedAt,
     dependencies: [...(manifest.dependencies || [])],
@@ -1055,6 +1071,18 @@ function selectScriptFactory(record: RuntimeScriptModuleRecord, loaded: Record<s
     throw new Error(`Runtime script module "${record.id}" did not export a GameStep factory.`)
   }
   return factory
+}
+
+function isSameLoadedBundle(
+  existing: LoadedRuntimePackage | undefined,
+  bundle: DynamicBundleRecord,
+): boolean {
+  if (!existing || existing.state.state === 'unloaded') {
+    return false
+  }
+  const existingKey = existing.bundle.bundleVersionKey || existing.bundle.bundleName
+  const loadedKey = bundle.bundleVersionKey || bundle.bundleName
+  return existingKey === loadedKey
 }
 
 function createSceneFactory(scene: RuntimePackageSceneManifest, value: unknown): SceneFactory | undefined {

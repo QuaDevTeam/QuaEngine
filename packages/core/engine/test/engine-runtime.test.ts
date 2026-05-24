@@ -1381,6 +1381,113 @@ describe('quaEngine runtime architecture', () => {
     expect(enginePluginInit).toHaveBeenCalledTimes(2)
   })
 
+  it('rejects runtime packages that require a newer game version and leaves no loaded package behind', async () => {
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.future',
+      version: '1.0.0',
+      compatibility: { minGameVersion: '1.1.0' },
+      scripts: [{ id: 'runtime.future.scene', version: '1.0.0', assetName: 'scene.js' }],
+    })
+    const qpk = createQpkBundle(manifest, new Map([
+      ['assets/scripts/scene.js', utf8('export default function createQuaScript() {}')],
+    ]))
+    const engine = new QuaEngine({
+      appVersion: '1.0.0',
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/future.qpk': qpk,
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+
+    await expect(engine.loadRuntimePackage('future.qpk')).rejects.toThrow('requires game version 1.1.0')
+    expect(engine.getRuntimePackages()).toEqual([])
+    await expect(engine.getAssets().getText('scripts', 'scene.js', { bundleName: 'runtime.future' })).rejects.toThrow('Asset not found')
+  })
+
+  it('loads runtime packages when the app version satisfies minGameVersion', async () => {
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.compatible',
+      version: '1.0.0',
+      compatibility: { minGameVersion: '1.1.0' },
+      scripts: [{ id: 'runtime.compatible.scene', version: '1.0.0', assetName: 'scene.js' }],
+    })
+    const qpk = createQpkBundle(manifest, new Map([
+      ['assets/scripts/scene.js', utf8('export default function createQuaScript() {}')],
+    ]))
+    const engine = new QuaEngine({
+      appVersion: '1.1.0',
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/compatible.qpk': qpk,
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+
+    await expect(engine.loadRuntimePackage('compatible.qpk', { activate: false })).resolves.toEqual(expect.objectContaining({
+      id: 'runtime.compatible',
+      state: 'loaded',
+      compatibility: { minGameVersion: '1.1.0' },
+    }))
+  })
+
+  it('rejects duplicate runtime package loads without unloading the existing mounted bundle', async () => {
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.duplicate',
+      version: '1.0.0',
+      scripts: [{ id: 'runtime.duplicate.scene', version: '1.0.0', assetName: 'scene.js' }],
+    })
+    const qpk = createQpkBundle(manifest, new Map([
+      ['assets/scripts/scene.js', utf8('export default function createQuaScript() {}')],
+    ]))
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/duplicate.qpk': qpk,
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+
+    await engine.loadRuntimePackage('duplicate.qpk', { activate: false })
+    await expect(engine.loadRuntimePackage('duplicate.qpk', { activate: false })).rejects.toThrow('already loaded')
+
+    expect(engine.getRuntimePackages()).toEqual([expect.objectContaining({
+      id: 'runtime.duplicate',
+      state: 'loaded',
+    })])
+    await expect(engine.getAssets().getText('scripts', 'scene.js', { bundleName: 'runtime.duplicate' })).resolves.toContain('createQuaScript')
+  })
+
   it('resolves runtime script locale variants and caches modules by fallback locale', async () => {
     const manifest = createRuntimeBundleManifest({
       id: 'runtime.locale',
@@ -2746,6 +2853,7 @@ function createRuntimeBundleManifest(runtimePackage: RuntimePackageManifest): Bu
     totalFiles: 0,
     totalSize: 0,
     merkleRoot: integrity.hash,
+    compatibility: runtimePackageWithIntegrity.compatibility,
     runtimePackage: runtimePackageWithIntegrity,
   }
 }

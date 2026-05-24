@@ -77,7 +77,7 @@ import type {
   UiIntent,
   ViewLayoutInput,
 } from './types'
-import { normalizeLocale, normalizeTranslateOptions, QuaAssets } from '@quajs/assets'
+import { assertValidAppVersion, normalizeLocale, normalizeTranslateOptions, QuaAssets } from '@quajs/assets'
 import { getPackageLogger } from '@quajs/logger'
 import { Pipeline } from '@quajs/pipeline'
 import { createStore } from '@quajs/store'
@@ -153,6 +153,7 @@ export class QuaEngine {
       ...config,
       rollback: createRollbackConfig(config.rollback),
     }
+    assertValidAppVersion(config.appVersion)
 
     this.store = createStore({
       name: 'quaengine-main',
@@ -163,7 +164,10 @@ export class QuaEngine {
       serializer: config.store?.serializer,
       storage: config.store?.storage,
     })
-    this.assets = new QuaAssets(config.assets)
+    this.assets = new QuaAssets({
+      ...config.assets,
+      appVersion: config.assets.appVersion || config.appVersion,
+    })
     this.pipeline = new Pipeline()
     this.sceneManager = new SceneManager(this)
     this.gameManager = new GameManager(this)
@@ -856,6 +860,10 @@ export class QuaEngine {
 
   getAssets(): QuaAssets {
     return this.assets
+  }
+
+  getAppVersion(): string | undefined {
+    return this.config.appVersion || this.config.assets?.appVersion
   }
 
   getPipeline(): Pipeline {
