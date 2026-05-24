@@ -20,12 +20,11 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['@quajs/logger', '@quajs/utils', 'dexie'],
+      external: ['@quajs/logger', '@quajs/utils'],
       output: {
         globals: {
           '@quajs/logger': 'QuaLogger',
           '@quajs/utils': 'QuaUtils',
-          'dexie': 'Dexie',
         },
       },
     },

@@ -74,7 +74,7 @@ export class LoggingMiddleware implements StorageMiddleware {
   private logger: (message: string, ...args: any[]) => void
 
   constructor(logger?: (message: string, ...args: any[]) => void) {
-    this.logger = logger || console.log
+    this.logger = logger || (() => {})
   }
 
   async beforeWrite(key: string, value: any): Promise<any> {

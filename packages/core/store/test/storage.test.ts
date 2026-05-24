@@ -1,43 +1,21 @@
 import type { QuaSnapshot } from '../src/types/base'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { LocalStorageBackend } from '../examples/backends/custom-backends'
+import { MemoryBackend as ExampleMemoryBackend } from '../examples/backends/custom-backends'
 import { CompressionMiddleware, EncryptionMiddleware, LoggingMiddleware } from '../examples/middlewares/custom-middlewares'
 import { MemoryBackend } from '../src/backends/memory'
 import { StorageManager } from '../src/storage/manager'
 
-// Mock localStorage for testing
-const localStorageMock = {
-  storage: new Map<string, string>(),
-  getItem: vi.fn((key: string) => localStorageMock.storage.get(key) || null),
-  setItem: vi.fn((key: string, value: string) => {
-    localStorageMock.storage.set(key, value)
-  }),
-  removeItem: vi.fn((key: string) => {
-    localStorageMock.storage.delete(key)
-  }),
-  clear: vi.fn(() => {
-    localStorageMock.storage.clear()
-  }),
-}
-
-Object.defineProperty(globalThis, 'localStorage', {
-  value: localStorageMock,
-  writable: true,
-})
-
 describe('storage Manager', () => {
   beforeEach(() => {
-    // Clear localStorage mock
-    localStorageMock.storage.clear()
     vi.clearAllMocks()
   })
 
   describe('backend Management', () => {
-    it('should use default IndexedDB backend when no config provided', () => {
+    it('should use default memory backend when no config provided', () => {
       const manager = new StorageManager()
       const backend = manager.getBackend()
       expect(backend).toBeDefined()
-      expect(backend.constructor.name).toBe('IndexedDBBackend')
+      expect(backend).toBeInstanceOf(MemoryBackend)
     })
 
     it('should use custom backend when provided', () => {
@@ -51,12 +29,13 @@ describe('storage Manager', () => {
     it('should use backend with options', () => {
       const manager = new StorageManager({
         backend: {
-          driver: LocalStorageBackend,
-          options: { prefix: 'test_' },
+          driver: ExampleMemoryBackend,
+          options: { namespace: 'test' },
         },
       })
       const backend = manager.getBackend()
-      expect(backend).toBeInstanceOf(LocalStorageBackend)
+      expect(backend).toBeInstanceOf(ExampleMemoryBackend)
+      expect((backend as ExampleMemoryBackend).getNamespace()).toBe('test')
     })
   })
 
@@ -270,12 +249,12 @@ describe('storage Manager', () => {
     })
   })
 
-  describe('localStorage Backend', () => {
-    let backend: LocalStorageBackend
+  describe('custom example Backend', () => {
+    let backend: ExampleMemoryBackend
     let testSnapshot: QuaSnapshot
 
     beforeEach(() => {
-      backend = new LocalStorageBackend({ prefix: 'test_' })
+      backend = new ExampleMemoryBackend({ namespace: 'test' })
       testSnapshot = {
         id: 'test-123',
         storeName: 'testStore',
@@ -292,9 +271,6 @@ describe('storage Manager', () => {
       expect(retrieved!.id).toBe('test-123')
       expect(retrieved!.storeName).toBe('testStore')
       expect(retrieved!.data).toEqual({ count: 5, name: 'test' })
-
-      // Check that localStorage was called
-      expect(localStorageMock.setItem).toHaveBeenCalled()
     })
 
     it('should list snapshots with proper sorting', async () => {

@@ -82,7 +82,6 @@ class QuaStore {
         return this.storageManager
       }
 
-      // Create default storage manager with IndexedDB backend
       this.storageManager = new StorageManager()
       await this.storageManager.init()
     }

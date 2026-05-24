@@ -1,9 +1,24 @@
+import type {
+  QuaGameSaveSlot,
+  QuaGameSaveSlotMeta,
+  QuaSnapshot,
+  QuaSnapshotMeta,
+  StorageBackend,
+  StorageConfig,
+  StorageMiddleware,
+} from '@quajs/store'
 import type { Table } from 'dexie'
-import type { QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaSnapshot, QuaSnapshotMeta } from '../types/base'
-import type { StorageBackend } from '../types/storage'
 import Dexie from 'dexie'
 
-class QuaStoreDB extends Dexie {
+export interface IndexedDBBackendOptions {
+  dbName?: string
+}
+
+export interface WebStoreStorageOptions extends IndexedDBBackendOptions {
+  middlewares?: StorageMiddleware[]
+}
+
+class QuaStoreIndexedDB extends Dexie {
   snapshots!: Table<QuaSnapshot, string>
   gameSlots!: Table<QuaGameSaveSlot, string>
 
@@ -16,24 +31,17 @@ class QuaStoreDB extends Dexie {
   }
 }
 
-/**
- * IndexedDB storage backend implementation
- */
 export class IndexedDBBackend implements StorageBackend {
-  private db: QuaStoreDB
-  private dbName: string
+  private db: QuaStoreIndexedDB
 
-  constructor(options?: { dbName?: string }) {
-    this.dbName = options?.dbName || 'QuaStore'
-    this.db = new QuaStoreDB(this.dbName)
+  constructor(options?: IndexedDBBackendOptions) {
+    this.db = new QuaStoreIndexedDB(options?.dbName)
   }
 
   async init(): Promise<void> {
-    // Ensure database is open
     await this.db.open()
   }
 
-  // Snapshot methods (runtime game state)
   async saveSnapshot(snapshot: QuaSnapshot): Promise<void> {
     await this.db.snapshots.put(snapshot)
   }
@@ -54,7 +62,7 @@ export class IndexedDBBackend implements StorageBackend {
     }
 
     const snapshots = await collection.toArray()
-    return snapshots.map((snapshot: QuaSnapshot) => ({
+    return snapshots.map(snapshot => ({
       id: snapshot.id,
       storeName: snapshot.storeName,
       createdAt: snapshot.createdAt,
@@ -65,13 +73,12 @@ export class IndexedDBBackend implements StorageBackend {
   async clearSnapshots(storeName?: string): Promise<void> {
     if (storeName) {
       await this.db.snapshots.where('storeName').equals(storeName).delete()
+      return
     }
-    else {
-      await this.db.snapshots.clear()
-    }
+
+    await this.db.snapshots.clear()
   }
 
-  // Game slot methods (persistent save files)
   async saveGameSlot(slot: QuaGameSaveSlot): Promise<void> {
     await this.db.gameSlots.put(slot)
   }
@@ -86,7 +93,7 @@ export class IndexedDBBackend implements StorageBackend {
 
   async listGameSlots(): Promise<QuaGameSaveSlotMeta[]> {
     const slots = await this.db.gameSlots.orderBy('timestamp').reverse().toArray()
-    return slots.map((slot: QuaGameSaveSlot) => ({
+    return slots.map(slot => ({
       slotId: slot.slotId,
       name: slot.name,
       timestamp: slot.timestamp,
@@ -100,6 +107,17 @@ export class IndexedDBBackend implements StorageBackend {
   }
 
   async close(): Promise<void> {
-    await this.db.close()
+    this.db.close()
+  }
+}
+
+export function createWebStoreStorage(options: WebStoreStorageOptions = {}): StorageConfig {
+  const { middlewares, ...backendOptions } = options
+  return {
+    backend: {
+      driver: IndexedDBBackend,
+      options: backendOptions,
+    },
+    middlewares,
   }
 }

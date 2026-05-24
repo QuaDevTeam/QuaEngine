@@ -31,10 +31,6 @@
   },
   "dependencies": {
     "@quajs/logger": "workspace:*",
-    "@quajs/utils": "workspace:*",
-    "dexie": "catalog:"
-  },
-  "devDependencies": {
-    "fake-indexeddb": "catalog:"
+    "@quajs/utils": "workspace:*"
   }
 }

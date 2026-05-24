@@ -34,7 +34,7 @@ function getTargetNames(name: string): [string, string] {
 export function useStore(name: string): QuaStore | null {
   const store = QuaStoreManager.stores[name]
   if (!store) {
-    console.error('No matched store.')
+    logger.module('manager').error(`No matched store: ${name}`)
     return null
   }
   return store
