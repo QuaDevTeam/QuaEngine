@@ -205,7 +205,7 @@ class WorkspaceManager {
 ```typescript
 import { WorkspaceManager } from '@quajs/quack'
 
-const workspace = new WorkspaceManager('./quack.workspace.js')
+const workspace = new WorkspaceManager('./quack.workspace.ts')
 await workspace.loadWorkspace()
 
 // Build all bundles

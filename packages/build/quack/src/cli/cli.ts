@@ -687,7 +687,7 @@ program
   .option('-n, --name <name>', 'Workspace name')
   .action(async (options) => {
     try {
-      const configPath = resolve('quack.workspace.js')
+      const configPath = resolve('quack.workspace.ts')
 
       if (existsSync(configPath) && !options.force) {
         console.log('❌ Workspace configuration already exists. Use --force to overwrite.')

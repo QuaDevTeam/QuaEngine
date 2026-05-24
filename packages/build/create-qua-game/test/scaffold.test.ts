@@ -38,6 +38,7 @@ describe('create-qua-game scaffold', () => {
     await expectFile(projectRoot, 'assets/audio/.gitkeep')
     await expectFile(projectRoot, 'assets/fonts/.gitkeep')
     await expectFile(projectRoot, 'public/.gitkeep')
+    await expectFile(projectRoot, 'quack.workspace.ts')
     await expectFile(projectRoot, '.gitignore')
 
     const packageJson = JSON.parse(await readFile(join(projectRoot, 'package.json'), 'utf8')) as {
