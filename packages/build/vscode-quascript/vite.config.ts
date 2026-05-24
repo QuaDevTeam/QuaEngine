@@ -46,6 +46,9 @@ export default defineConfig({
     sourcemap: true,
   },
   resolve: {
+    alias: {
+      '@quajs/project-inspector': resolve(import.meta.dirname, '../project-inspector/src/index.ts'),
+    },
     conditions: ['node', 'module', 'import', 'default'],
     mainFields: ['module', 'main'],
   },

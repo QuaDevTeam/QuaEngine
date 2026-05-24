@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
+import type { QuaScriptTextEdit, QuaScriptToolingConfig, SourceRange } from '@quajs/script-compiler'
 import type { InitializeParams } from 'vscode-languageserver/node'
 import { pathToFileURL } from 'node:url'
+import { loadQuaScriptToolingConfig, mergeQuaScriptToolingConfig } from '@quajs/script-compiler'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
   CodeActionKind,
@@ -11,17 +13,30 @@ import {
   Location,
   MarkupKind,
   ProposedFeatures,
+  Range,
   TextDocuments,
   TextDocumentSyncKind,
+  TextEdit,
 } from 'vscode-languageserver/node'
-import { analyzeQuaScript, getQuaScriptCodeActions, getQuaScriptCompletions, getQuaScriptDefinitions, getQuaScriptHover, uriToFilePath } from './index'
+import {
+  formatQuaScriptDocumentEdits,
+  getQuaScriptCodeActions,
+  getQuaScriptCompletions,
+  getQuaScriptDefinitions,
+  getQuaScriptHover,
+  lintQuaScript,
+  uriToFilePath,
+} from './index'
 
 const connection = createConnection(ProposedFeatures.all)
 const documents = new TextDocuments(TextDocument)
 let projectRoot: string | undefined
+let initializationConfig: QuaScriptToolingConfig = {}
+let workspaceConfig: QuaScriptToolingConfig = {}
 
 connection.onInitialize((params: InitializeParams) => {
   projectRoot = resolveProjectRoot(params)
+  initializationConfig = resolveInitializationConfig(params)
   return {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
@@ -30,8 +45,13 @@ connection.onInitialize((params: InitializeParams) => {
       },
       hoverProvider: true,
       definitionProvider: true,
+      documentFormattingProvider: true,
       codeActionProvider: {
-        codeActionKinds: [CodeActionKind.RefactorRewrite],
+        codeActionKinds: [
+          CodeActionKind.QuickFix,
+          CodeActionKind.RefactorRewrite,
+          `${CodeActionKind.SourceFixAll}.quascript`,
+        ],
       },
     },
   }
@@ -58,7 +78,7 @@ connection.onCompletion(async (params) => {
   const completions = await getQuaScriptCompletions(document.getText(), {
     line: params.position.line,
     character: params.position.character,
-  }, { filePath: uriToFilePath(document.uri), projectRoot })
+  }, documentOptions(document))
 
   return completions.map(item => ({
     label: item.label,
@@ -78,7 +98,7 @@ connection.onHover(async (params) => {
   const hover = await getQuaScriptHover(document.getText(), {
     line: params.position.line,
     character: params.position.character,
-  }, { filePath: uriToFilePath(document.uri), projectRoot })
+  }, documentOptions(document))
   if (!hover) {
     return null
   }
@@ -112,7 +132,7 @@ connection.onDefinition((params) => {
   const definitions = getQuaScriptDefinitions(document.getText(), {
     line: params.position.line,
     character: params.position.character,
-  }, { filePath: uriToFilePath(document.uri), projectRoot })
+  }, documentOptions(document))
 
   return definitions.map((definition) => {
     const uri = definition.filePath
@@ -131,65 +151,124 @@ connection.onDefinition((params) => {
   })
 })
 
-connection.onCodeAction((params) => {
+connection.onCodeAction(async (params) => {
   const document = documents.get(params.textDocument.uri)
   if (!document) {
     return []
   }
+  const lint = await lintQuaScript(document.getText(), documentOptions(document))
   return getQuaScriptCodeActions(document.getText(), {
     line: params.range.start.line,
     character: params.range.start.character,
+  }, {
+    diagnostics: lint.diagnostics,
+    includeFixAll: true,
+    includeLintFixes: true,
+    toolingConfig: currentToolingConfig(),
   }).map(action => ({
     title: action.title,
     kind: action.kind,
+    diagnostics: action.diagnostics?.map(toLspDiagnostic),
     edit: {
       changes: {
-        [document.uri]: [{
-          range: {
-            start: {
-              line: action.edit.range?.start.line || 0,
-              character: action.edit.range?.start.column || 0,
-            },
-            end: {
-              line: action.edit.range?.end.line || 0,
-              character: action.edit.range?.end.column || 0,
-            },
-          },
-          newText: action.edit.newText,
-        }],
+        [document.uri]: action.edit.edits.map(toLspTextEdit),
       },
     },
   }))
+})
+
+connection.onDocumentFormatting((params) => {
+  const document = documents.get(params.textDocument.uri)
+  if (!document) {
+    return []
+  }
+  return formatQuaScriptDocumentEdits(document.getText(), documentOptions(document)).map(toLspTextEdit)
+})
+
+connection.onDidChangeConfiguration((params) => {
+  workspaceConfig = normalizeToolingConfig((params.settings as { quascript?: unknown } | undefined)?.quascript)
+  validateAllOpenDocuments()
 })
 
 documents.listen(connection)
 connection.listen()
 
 async function validateDocument(document: TextDocument): Promise<void> {
-  const analysis = await analyzeQuaScript(document.getText(), { filePath: uriToFilePath(document.uri), projectRoot })
+  const lint = await lintQuaScript(document.getText(), documentOptions(document))
   connection.sendDiagnostics({
     uri: document.uri,
-    diagnostics: analysis.diagnostics.map(diagnostic => ({
-      message: diagnostic.message,
-      range: diagnostic.range
-        ? {
-            start: {
-              line: diagnostic.range.start.line,
-              character: diagnostic.range.start.column,
-            },
-            end: {
-              line: diagnostic.range.end.line,
-              character: diagnostic.range.end.column,
-            },
-          }
-        : {
-            start: { line: 0, character: 0 },
-            end: { line: 0, character: 0 },
-          },
-      severity: diagnostic.severity === 'warning' ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
-      source: 'quascript',
-    })),
+    diagnostics: lint.diagnostics.map(toLspDiagnostic),
   })
+}
+
+function validateAllOpenDocuments(): void {
+  documents.all().forEach((document) => {
+    validateDocument(document).catch((error) => {
+      connection.console.error(String(error))
+    })
+  })
+}
+
+function documentOptions(document: TextDocument) {
+  return {
+    filePath: uriToFilePath(document.uri),
+    projectRoot,
+    toolingConfig: currentToolingConfig(),
+  }
+}
+
+function currentToolingConfig(): QuaScriptToolingConfig {
+  const projectConfig = projectRoot ? loadQuaScriptToolingConfig(projectRoot) : {}
+  return mergeQuaScriptToolingConfig(
+    mergeQuaScriptToolingConfig(projectConfig, initializationConfig),
+    workspaceConfig,
+  )
+}
+
+function toLspDiagnostic(diagnostic: import('@quajs/script-compiler').QuaScriptDiagnostic) {
+  return {
+    code: diagnostic.code,
+    message: diagnostic.message,
+    range: toLspRange(diagnostic.range),
+    severity: toDiagnosticSeverity(diagnostic.severity),
+    source: diagnostic.source,
+  }
+}
+
+function toLspTextEdit(edit: QuaScriptTextEdit): TextEdit {
+  return {
+    newText: edit.newText,
+    range: toLspRange(edit.range),
+  }
+}
+
+function toLspRange(range?: SourceRange): Range {
+  return range
+    ? {
+        start: {
+          line: range.start.line,
+          character: range.start.column,
+        },
+        end: {
+          line: range.end.line,
+          character: range.end.column,
+        },
+      }
+    : {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 },
+      }
+}
+
+function toDiagnosticSeverity(severity: string): DiagnosticSeverity {
+  switch (severity) {
+    case 'warning':
+      return DiagnosticSeverity.Warning
+    case 'info':
+      return DiagnosticSeverity.Information
+    default:
+      return DiagnosticSeverity.Error
+  }
 }
 
 function resolveProjectRoot(params: InitializeParams): string | undefined {
@@ -208,6 +287,20 @@ function resolveProjectRoot(params: InitializeParams): string | undefined {
   }
 
   return params.rootPath || undefined
+}
+
+function resolveInitializationConfig(params: InitializeParams): QuaScriptToolingConfig {
+  const options = params.initializationOptions as { quascript?: unknown, settings?: unknown, toolingConfig?: unknown } | undefined
+  return mergeQuaScriptToolingConfig(
+    normalizeToolingConfig(options?.toolingConfig),
+    normalizeToolingConfig(options?.quascript ?? options?.settings),
+  )
+}
+
+function normalizeToolingConfig(value: unknown): QuaScriptToolingConfig {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as QuaScriptToolingConfig
+    : {}
 }
 
 function toCompletionKind(kind: string): CompletionItemKind {
