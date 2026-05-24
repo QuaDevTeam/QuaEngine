@@ -18,6 +18,7 @@ export default defineConfig({
         'index': resolve(import.meta.dirname, 'src/index.ts'),
         'audio': resolve(import.meta.dirname, 'src/audio.ts'),
         'dom': resolve(import.meta.dirname, 'src/dom.ts'),
+        'framework-host': resolve(import.meta.dirname, 'src/framework-host.ts'),
         'input': resolve(import.meta.dirname, 'src/input.ts'),
         'plugins/audio': resolve(import.meta.dirname, 'src/plugins/audio.ts'),
         'plugins/background': resolve(import.meta.dirname, 'src/plugins/background.ts'),

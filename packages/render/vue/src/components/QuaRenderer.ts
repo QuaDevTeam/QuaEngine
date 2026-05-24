@@ -1,6 +1,6 @@
 import type { QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
-import type { QuaViewProjection } from '@quajs/render-core'
+import type { QuaViewProjection, RendererPlugin } from '@quajs/render-core'
 import type { RendererActions } from '@quajs/renderer-web'
 import type { PropType } from 'vue'
 import type { QuaVueRendererPlugin } from '../plugins/core'
@@ -36,6 +36,7 @@ export const QuaRenderer = defineComponent({
       type: Array as PropType<readonly QuaVueRendererPlugin[]>,
       default: () => [],
     },
+    runtimePluginLoader: Function as PropType<(pluginManifest: unknown, context: { packageId: string }) => Promise<RendererPlugin | undefined> | RendererPlugin | undefined>,
     unstyled: Boolean,
   },
   setup(props, { slots }) {
@@ -47,6 +48,7 @@ export const QuaRenderer = defineComponent({
       assets: props.assets,
       initialView: props.initialView,
       plugins: rendererPlugins.value,
+      runtimePluginLoader: props.runtimePluginLoader,
     })
     const snapshot = shallowRef(web.getSnapshot())
     const rendererLayers = computed(() => sortRendererLayers(rendererPlugins.value.flatMap(plugin => plugin.layers || [])))

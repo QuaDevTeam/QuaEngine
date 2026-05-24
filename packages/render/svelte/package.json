@@ -1,0 +1,64 @@
+{
+  "name": "@quajs/renderer-svelte",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Stateless Svelte renderer adapter for QuaEngine",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "svelte",
+    "renderer",
+    "visual-novel"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./plugins/core": {
+      "types": "./dist/plugins/core.d.ts",
+      "import": "./dist/plugins/core.js"
+    },
+    "./plugins/input": {
+      "types": "./dist/plugins/input.d.ts",
+      "import": "./dist/plugins/input.js"
+    },
+    "./plugins/preset": {
+      "types": "./dist/plugins/preset.d.ts",
+      "import": "./dist/plugins/preset.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@quajs/assets": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/render-core": "workspace:*",
+    "@quajs/renderer-web": "workspace:*",
+    "svelte": "catalog:"
+  },
+  "devDependencies": {
+    "@quajs/assets": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/render-core": "workspace:*",
+    "@quajs/renderer-web": "workspace:*",
+    "svelte": "catalog:"
+  }
+}
