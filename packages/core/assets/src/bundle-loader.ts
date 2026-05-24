@@ -181,6 +181,7 @@ export class BundleLoader {
   ): Promise<StoredAsset[]> {
     const assets: StoredAsset[] = []
     const now = this.now()
+    const bundleVersion = manifest.bundleVersion || 1
 
     for (const [type, records] of Object.entries(manifest.assets)) {
       if (!records)
@@ -215,9 +216,15 @@ export class BundleLoader {
             }
 
             const name = assetInfo.name || inferAssetName(key)
+            const logicalPath = getLogicalAssetPath({
+              ...assetInfo,
+              relativePath: variant.relativePath,
+              path: variant.path,
+            }, key)
             assets.push({
               id: `${bundleName}:${variantLocale}:${type}:${name}`,
               bundleName,
+              logicalBundleName: bundleName,
               name,
               type: type as AssetType,
               locale: variantLocale,
@@ -226,10 +233,13 @@ export class BundleLoader {
               mimeType: variant.mimeType || assetInfo.mimeType,
               size: variant.size ?? data.byteLength,
               version: variant.version || assetInfo.version || 1,
+              bundleVersion,
               mtime: variant.mtime || assetInfo.mtime || now,
+              path: logicalPath,
               createdAt: now,
               lastAccessed: now,
               mediaMetadata: variant.mediaMetadata || assetInfo.mediaMetadata,
+              compatibility: variant.compatibility || assetInfo.compatibility || manifest.compatibility,
             })
           }
         }
@@ -248,9 +258,11 @@ export class BundleLoader {
           }
 
           const name = assetInfo.name || inferAssetName(key)
+          const logicalPath = getLogicalAssetPath(assetInfo, key)
           assets.push({
             id: `${bundleName}:${locale}:${type}:${name}`,
             bundleName,
+            logicalBundleName: bundleName,
             name,
             type: type as AssetType,
             locale,
@@ -259,10 +271,13 @@ export class BundleLoader {
             mimeType: assetInfo.mimeType,
             size: assetInfo.size ?? data.byteLength,
             version: assetInfo.version || 1,
+            bundleVersion,
             mtime: assetInfo.mtime || now,
+            path: logicalPath,
             createdAt: now,
             lastAccessed: now,
             mediaMetadata: assetInfo.mediaMetadata,
+            compatibility: assetInfo.compatibility || manifest.compatibility,
           })
         }
       }
@@ -337,15 +352,16 @@ function findAssetPath(
       return normalized
   }
 
-  return Array.from(files.keys()).find(path =>
-    path.endsWith(`/${assetInfo.name}`)
-    && path.startsWith(`assets/${type}/`),
-  )
+  return undefined
 }
 
 function inferAssetName(key: string): string {
   const parts = normalizePath(key).split('/')
   return parts[parts.length - 1] || key
+}
+
+function getLogicalAssetPath(assetInfo: AssetInfo, key: string): string {
+  return normalizePath(assetInfo.relativePath || assetInfo.path || key || assetInfo.name)
 }
 
 function normalizePath(path: string): string {

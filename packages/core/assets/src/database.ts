@@ -7,6 +7,13 @@ import type {
   StoredAsset,
   StoredBundle,
 } from './types'
+import {
+  compareStoredBundles,
+  getBundleLogicalName,
+  getBundleStorageKey,
+  isBundleIdentityMatch,
+  selectBestStoredBundle,
+} from './bundle-identity'
 import { findBestRankedAssetRecord } from './providers'
 
 /**
@@ -53,8 +60,15 @@ export class MemoryAssetStorage implements AssetStorage {
     type: AssetType,
     name: string,
     preferredLocale: AssetLocale = 'default',
+    bundleVersionKey?: string,
   ): Promise<StoredAsset | undefined> {
-    const matches = await this.findAssets({ bundleName, type, name })
+    const activeBundle = bundleVersionKey ? undefined : this.resolveBundle(bundleName)
+    const matches = await this.findAssets({
+      bundleName,
+      bundleVersionKey: bundleVersionKey || activeBundle?.versionKey,
+      type,
+      name,
+    })
     return findBestRankedAssetRecord(matches, preferredLocale)
   }
 
@@ -63,9 +77,11 @@ export class MemoryAssetStorage implements AssetStorage {
   }
 
   async deleteAssetsByBundle(bundleName: string): Promise<number> {
+    const bundle = this.resolveBundle(bundleName)
+    const versionKey = bundle?.versionKey
     let count = 0
     for (const asset of this.assets.values()) {
-      if (asset.bundleName === bundleName) {
+      if (matchesBundleForDeletion(asset, bundleName, versionKey)) {
         this.assets.delete(asset.id)
         count++
       }
@@ -74,11 +90,28 @@ export class MemoryAssetStorage implements AssetStorage {
   }
 
   async storeBundle(bundle: StoredBundle): Promise<void> {
-    this.bundles.set(bundle.name, cloneStoredBundle({ ...bundle, lastUpdated: Date.now() }))
+    const now = Date.now()
+    const logicalName = getBundleLogicalName(bundle)
+    const active = bundle.active !== false
+    if (active) {
+      for (const [key, existing] of this.bundles.entries()) {
+        if (getBundleLogicalName(existing) === logicalName) {
+          this.bundles.set(key, cloneStoredBundle({ ...existing, active: false }))
+        }
+      }
+    }
+    const stored = cloneStoredBundle({
+      ...bundle,
+      logicalName,
+      versionKey: bundle.versionKey || bundle.name,
+      active,
+      lastUpdated: now,
+    })
+    this.bundles.set(getBundleStorageKey(stored), stored)
   }
 
   async getBundle(name: string): Promise<StoredBundle | undefined> {
-    const bundle = this.bundles.get(name)
+    const bundle = this.resolveBundle(name)
     return bundle ? cloneStoredBundle(bundle) : undefined
   }
 
@@ -87,8 +120,15 @@ export class MemoryAssetStorage implements AssetStorage {
   }
 
   async deleteBundle(name: string): Promise<void> {
-    this.bundles.delete(name)
-    await this.deleteAssetsByBundle(name)
+    const bundle = this.resolveBundle(name)
+    if (!bundle) {
+      return
+    }
+    await this.deleteAssetsByBundle(bundle.versionKey || bundle.name)
+    this.bundles.delete(getBundleStorageKey(bundle))
+    if (bundle.active) {
+      this.promoteNextActiveBundle(getBundleLogicalName(bundle))
+    }
   }
 
   async clearAll(): Promise<void> {
@@ -143,15 +183,59 @@ export class MemoryAssetStorage implements AssetStorage {
       newestAsset,
     }
   }
+
+  protected resolveBundle(name: string): StoredBundle | undefined {
+    const exact = this.bundles.get(name)
+    if (exact)
+      return exact
+
+    const matches = Array.from(this.bundles.values()).filter(bundle => isBundleIdentityMatch(bundle, name))
+    const active = matches.filter(bundle => bundle.active)
+    return selectBestStoredBundle(active.length > 0 ? active : matches)
+  }
+
+  private promoteNextActiveBundle(logicalName: string): void {
+    const candidates = Array.from(this.bundles.entries())
+      .filter(([, bundle]) => getBundleLogicalName(bundle) === logicalName)
+      .sort(([, left], [, right]) => compareStoredBundles(left, right))
+    const next = candidates[0]
+    if (!next)
+      return
+    const [key, bundle] = next
+    this.bundles.set(key, cloneStoredBundle({ ...bundle, active: true }))
+  }
 }
 
 export class QuaAssetsDatabase extends MemoryAssetStorage {}
 
-function matchesCriteria(asset: StoredAsset, criteria: AssetFindCriteria): boolean {
-  return (!criteria.bundleName || asset.bundleName === criteria.bundleName)
+function matchesCriteria(
+  asset: StoredAsset,
+  criteria: AssetFindCriteria,
+): boolean {
+  return (!criteria.bundleVersionKey || asset.bundleVersionKey === criteria.bundleVersionKey)
+    && (!criteria.bundleName || matchesBundleCriteria(asset, criteria.bundleName))
     && (!criteria.type || asset.type === criteria.type)
     && (!criteria.locale || asset.locale === criteria.locale)
-    && (!criteria.name || asset.name === criteria.name)
+    && (!criteria.name || matchesAssetName(asset, criteria.name))
+}
+
+function matchesBundleCriteria(asset: StoredAsset, bundleName: string): boolean {
+  return asset.bundleName === bundleName
+    || asset.logicalBundleName === bundleName
+    || asset.bundleVersionKey === bundleName
+}
+
+function matchesAssetName(asset: StoredAsset, name: string): boolean {
+  return asset.name === name || asset.path === name || asset.path?.endsWith(`/${name}`) === true
+}
+
+function matchesBundleForDeletion(asset: StoredAsset, bundleName: string, versionKey?: string): boolean {
+  if (versionKey) {
+    return asset.bundleVersionKey === versionKey
+  }
+  return asset.bundleName === bundleName
+    || asset.logicalBundleName === bundleName
+    || asset.bundleVersionKey === bundleName
 }
 
 function cloneStoredAsset(asset: StoredAsset): StoredAsset {

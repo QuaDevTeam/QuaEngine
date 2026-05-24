@@ -23,11 +23,13 @@ export class AssetManager {
   private defaultLocale: AssetLocale
   private provider?: AssetProvider
   private providerManifest?: AssetManifest
+  private appVersion?: string
 
-  constructor(storage: AssetStorage, defaultLocale: AssetLocale = 'default', provider?: AssetProvider) {
+  constructor(storage: AssetStorage, defaultLocale: AssetLocale = 'default', provider?: AssetProvider, appVersion?: string) {
     this.storage = storage
     this.defaultLocale = defaultLocale
     this.provider = provider
+    this.appVersion = appVersion
   }
 
   registerProcessingPlugin(plugin: AssetProcessingPlugin): void {
@@ -149,23 +151,40 @@ export class AssetManager {
   ): Promise<AssetQueryResult> {
     const locale = options.locale || this.defaultLocale
     const bundleName = options.bundleName
+    const appVersion = options.appVersion || this.appVersion
     const providerRecord = await this.getProviderRecord(type, name, options)
     let asset: StoredAsset | undefined
 
-    if (options.targetPackageId) {
-      const assets = await this.storage.findAssets({ type, name })
+    if (options.bundleVersionKey && !bundleName && !options.targetPackageId) {
+      const assets = await this.storage.findAssets({
+        bundleVersionKey: options.bundleVersionKey,
+        type,
+        name,
+      })
+      asset = findBestRankedAssetRecord(assets, locale, appVersion)
+    }
+    else if (options.targetPackageId) {
+      const assets = await this.storage.findAssets({ type, name, bundleVersionKey: options.bundleVersionKey })
       const bundles = await this.storage.getAllBundles()
-      asset = this.findBestTargetLocaleMatch(assets, bundles, options.targetPackageId, locale)
+      asset = this.findBestTargetLocaleMatch(assets, bundles, options.targetPackageId, locale, appVersion, options.bundleVersionKey)
     }
     else if (bundleName) {
-      asset = await this.storage.getAssetWithLocaleFallback(bundleName, type, name, locale)
+      const assets = await this.storage.findAssets({
+        bundleName,
+        bundleVersionKey: options.bundleVersionKey,
+        type,
+        name,
+      })
+      const bundles = await this.storage.getAllBundles()
+      asset = this.findBestBundleLocaleMatch(assets, bundles, bundleName, locale, appVersion, options.bundleVersionKey)
     }
     else {
       const assets = await this.storage.findAssets({ type, name })
-      asset = this.findBestLocaleMatch(assets, locale)
+      const bundles = await this.storage.getAllBundles()
+      asset = this.findBestLocaleMatch(assets, bundles, locale, appVersion)
     }
 
-    if (providerRecord && isProviderRecordPreferred(providerRecord, asset, locale)) {
+    if (providerRecord && isProviderRecordPreferred(providerRecord, asset, locale, appVersion)) {
       return await this.getProviderAsset(providerRecord)
     }
 
@@ -196,6 +215,7 @@ export class AssetManager {
       name,
       options.locale || this.defaultLocale,
       options.bundleName,
+      options.appVersion || this.appVersion,
     )
 
     if (!record)
@@ -223,6 +243,8 @@ export class AssetManager {
     const asset: StoredAsset = {
       id: record.id,
       bundleName: record.bundleName || provider.mode,
+      logicalBundleName: record.bundleName || provider.mode,
+      bundleVersionKey: record.bundleVersionKey,
       name: record.name,
       type: record.type,
       locale: record.locale || 'default',
@@ -231,10 +253,16 @@ export class AssetManager {
       mimeType: record.mimeType || (providerResult instanceof Uint8Array ? undefined : providerResult.mimeType),
       size: record.size ?? data.byteLength,
       version: record.version || 1,
+      bundleVersion: record.bundleVersion,
       mtime: record.mtime || now,
+      path: record.path,
       createdAt: now,
       lastAccessed: now,
       mediaMetadata: record.mediaMetadata,
+      compatibility: record.compatibility,
+      runtimePackageId: record.runtimePackageId,
+      bundlePriority: record.bundlePriority,
+      loadedAt: record.loadedAt,
     }
 
     const processedAsset = await this.processAsset(asset)
@@ -252,8 +280,34 @@ export class AssetManager {
     return this.providerManifest
   }
 
-  private findBestLocaleMatch(assets: StoredAsset[], preferredLocale: AssetLocale): StoredAsset | undefined {
-    return findBestRankedAssetRecord(assets, preferredLocale)
+  private findBestLocaleMatch(
+    assets: StoredAsset[],
+    bundles: StoredBundle[],
+    preferredLocale: AssetLocale,
+    appVersion?: string,
+  ): StoredAsset | undefined {
+    return findBestRankedAssetRecord(filterActiveBundleAssets(assets, bundles), preferredLocale, appVersion)
+  }
+
+  private findBestBundleLocaleMatch(
+    assets: StoredAsset[],
+    bundles: StoredBundle[],
+    bundleName: string,
+    preferredLocale: AssetLocale,
+    appVersion?: string,
+    bundleVersionKey?: string,
+  ): StoredAsset | undefined {
+    if (bundleVersionKey) {
+      return findBestRankedAssetRecord(assets, preferredLocale, appVersion)
+    }
+
+    const activeBundle = this.selectActiveBundle(bundles, bundleName)
+    if (activeBundle?.versionKey) {
+      const activeAssets = assets.filter(asset => asset.bundleVersionKey === activeBundle.versionKey)
+      return findBestRankedAssetRecord(activeAssets, preferredLocale, appVersion)
+    }
+
+    return findBestRankedAssetRecord(assets, preferredLocale, appVersion)
   }
 
   private findBestTargetLocaleMatch(
@@ -261,11 +315,17 @@ export class AssetManager {
     bundles: StoredBundle[],
     targetPackageId: string,
     preferredLocale: AssetLocale,
+    appVersion?: string,
+    bundleVersionKey?: string,
   ): StoredAsset | undefined {
-    const bundleByName = new Map(bundles.map(bundle => [bundle.name, bundle]))
+    const bundleByName = new Map(bundles.map(bundle => [bundle.versionKey || bundle.name, bundle]))
+    const activeKeys = new Set(bundles.filter(bundle => bundle.active).map(bundle => bundle.versionKey || bundle.name))
     const fallbackChain = createLocaleFallbackChain(preferredLocale)
     const candidates = assets.filter((asset) => {
-      const bundle = bundleByName.get(asset.bundleName)
+      const bundle = bundleByName.get(asset.bundleVersionKey || asset.bundleName)
+      if (!bundleVersionKey && activeKeys.size > 0 && asset.bundleVersionKey && !activeKeys.has(asset.bundleVersionKey)) {
+        return false
+      }
       if (asset.runtimePackageId === targetPackageId) {
         return true
       }
@@ -278,7 +338,17 @@ export class AssetManager {
         && target.id === targetPackageId,
       )
     })
-    return findBestTargetRankedAssetRecord(candidates, preferredLocale)
+    return findBestTargetRankedAssetRecord(candidates, preferredLocale, appVersion)
+  }
+
+  private selectActiveBundle(bundles: StoredBundle[], bundleName: string): StoredBundle | undefined {
+    const matches = bundles.filter(bundle =>
+      bundle.name === bundleName
+      || bundle.logicalName === bundleName
+      || bundle.versionKey === bundleName,
+    )
+    const active = matches.filter(bundle => bundle.active)
+    return active[0] || matches[0]
   }
 
   private async processAsset(asset: StoredAsset): Promise<StoredAsset> {
@@ -299,6 +369,8 @@ function toAssetData(result: AssetQueryResult): AssetData {
     type: result.asset.type,
     name: result.asset.name,
     bundleName: result.asset.bundleName,
+    logicalBundleName: result.asset.logicalBundleName,
+    bundleVersionKey: result.asset.bundleVersionKey,
     locale: result.asset.locale,
     data: new Uint8Array(result.data),
     hash: result.asset.hash,
@@ -306,8 +378,11 @@ function toAssetData(result: AssetQueryResult): AssetData {
     mediaMetadata: result.asset.mediaMetadata,
     size: result.asset.size,
     version: result.asset.version,
+    bundleVersion: result.asset.bundleVersion,
     mtime: result.asset.mtime,
     fromCache: result.fromCache,
+    path: result.asset.path,
+    compatibility: result.asset.compatibility,
     runtimePackageId: result.asset.runtimePackageId,
     bundlePriority: result.asset.bundlePriority,
     loadedAt: result.asset.loadedAt,
@@ -318,9 +393,26 @@ function isProviderRecordPreferred(
   providerRecord: AssetManifestRecord,
   storageAsset: StoredAsset | undefined,
   locale: AssetLocale,
+  appVersion?: string,
 ): boolean {
   if (!storageAsset) {
     return true
   }
-  return findBestRankedAssetRecord([providerRecord, storageAsset], locale) === providerRecord
+  return findBestRankedAssetRecord([providerRecord, storageAsset], locale, appVersion) === providerRecord
+}
+
+function filterActiveBundleAssets(assets: StoredAsset[], bundles: StoredBundle[]): StoredAsset[] {
+  if (bundles.length === 0) {
+    return assets
+  }
+
+  const activeKeys = new Set(
+    bundles
+      .filter(bundle => bundle.active)
+      .map(bundle => bundle.versionKey || bundle.name),
+  )
+  if (activeKeys.size === 0) {
+    return assets
+  }
+  return assets.filter(asset => !asset.bundleVersionKey || activeKeys.has(asset.bundleVersionKey))
 }

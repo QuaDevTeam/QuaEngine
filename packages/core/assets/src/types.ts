@@ -4,11 +4,17 @@ export type BundleFormat = 'zip' | 'qpk'
 export type LoadingState = 'idle' | 'loading' | 'loaded' | 'error'
 export type PatchOperation = 'added' | 'modified' | 'deleted'
 
+export interface VersionCompatibility {
+  minGameVersion?: string
+}
+
 export interface AssetData {
   id: string
   type: AssetType
   name: string
   bundleName: string
+  logicalBundleName?: string
+  bundleVersionKey?: string
   locale: AssetLocale
   data: Uint8Array
   hash?: string
@@ -16,8 +22,11 @@ export interface AssetData {
   mediaMetadata?: MediaMetadata
   size: number
   version: number
+  bundleVersion?: number
   mtime: number
   fromCache: boolean
+  path?: string
+  compatibility?: VersionCompatibility
   runtimePackageId?: string
   bundlePriority?: number
   loadedAt?: number
@@ -56,6 +65,8 @@ export interface VideoMetadata extends MediaMetadata {
 export interface StoredAsset {
   id: string
   bundleName: string
+  logicalBundleName?: string
+  bundleVersionKey?: string
   name: string
   type: AssetType
   locale: AssetLocale
@@ -64,10 +75,13 @@ export interface StoredAsset {
   mimeType?: string
   size: number
   version: number
+  bundleVersion?: number
   mtime: number
+  path?: string
   createdAt: number
   lastAccessed: number
   mediaMetadata?: MediaMetadata
+  compatibility?: VersionCompatibility
   runtimePackageId?: string
   bundlePriority?: number
   loadedAt?: number
@@ -75,6 +89,9 @@ export interface StoredAsset {
 
 export interface StoredBundle {
   name: string
+  logicalName?: string
+  versionKey?: string
+  active?: boolean
   version: number
   buildNumber: string
   format: BundleFormat
@@ -85,6 +102,7 @@ export interface StoredBundle {
   createdAt: number
   lastUpdated: number
   manifest: BundleManifest
+  compatibility?: VersionCompatibility
   runtimePackageId?: string
   priority?: number
   loadedAt?: number
@@ -94,12 +112,15 @@ export interface AssetManifest {
   version: string
   created?: string
   provider?: string
+  compatibility?: VersionCompatibility
   assets: AssetManifestRecord[]
 }
 
 export interface AssetManifestRecord {
   id: string
   bundleName?: string
+  logicalBundleName?: string
+  bundleVersionKey?: string
   name: string
   type: AssetType
   locale?: AssetLocale
@@ -107,9 +128,11 @@ export interface AssetManifestRecord {
   hash?: string
   size?: number
   version?: number
+  bundleVersion?: number
   mtime?: number
   mimeType?: string
   mediaMetadata?: MediaMetadata
+  compatibility?: VersionCompatibility
   runtimePackageId?: string
   bundlePriority?: number
   loadedAt?: number
@@ -157,6 +180,7 @@ export interface AssetStorage {
     type: AssetType,
     name: string,
     preferredLocale?: AssetLocale,
+    bundleVersionKey?: string,
   ) => Promise<StoredAsset | undefined>
   deleteAsset?: (id: string) => Promise<void>
   deleteAssetsByBundle: (bundleName: string) => Promise<number>
@@ -174,6 +198,7 @@ export interface AssetStorage {
 
 export interface AssetFindCriteria {
   bundleName?: string
+  bundleVersionKey?: string
   type?: AssetType
   locale?: AssetLocale
   name?: string
@@ -239,6 +264,7 @@ export interface AssetInfo {
   mtime?: number
   version?: number
   mediaMetadata?: MediaMetadata
+  compatibility?: VersionCompatibility
   variants?: Record<string, AssetVariantInfo>
 }
 
@@ -252,6 +278,7 @@ export interface AssetVariantInfo {
   mtime?: number
   version?: number
   mediaMetadata?: MediaMetadata
+  compatibility?: VersionCompatibility
 }
 
 export interface BundleManifest {
@@ -278,6 +305,7 @@ export interface BundleManifest {
   totalSize?: number
   totalFiles?: number
   merkleRoot?: string
+  compatibility?: VersionCompatibility
   performanceMetrics?: Record<string, unknown>
   isPatch?: boolean
   patchVersion?: number
@@ -390,6 +418,7 @@ export interface RuntimePackageManifest {
   version: string
   sequence?: number
   priority?: number
+  compatibility?: VersionCompatibility
   dependencies?: string[]
   localePack?: RuntimeLocalePackManifest
   scripts?: RuntimePackageScriptManifest[]
@@ -405,12 +434,15 @@ export interface RuntimePackageManifest {
 export interface DynamicBundleRecord {
   packageId: string
   bundleName: string
+  logicalBundleName?: string
+  bundleVersionKey?: string
   version: string
   bundleVersion: number
   hash: string
   priority: number
   loadedAt: number
   assetCount: number
+  compatibility?: VersionCompatibility
   manifest: BundleManifest
 }
 
@@ -434,6 +466,7 @@ export interface BundleIndex {
     buildNumber: string
     created: string
     size: number
+    compatibility?: VersionCompatibility
   }
   previousBuilds: Array<{
     filename: string
@@ -442,6 +475,7 @@ export interface BundleIndex {
     buildNumber: string
     created: string
     size: number
+    compatibility?: VersionCompatibility
   }>
   availablePatches: Array<{
     filename: string
@@ -452,6 +486,7 @@ export interface BundleIndex {
     created: string
     size: number
     changeCount: number
+    compatibility?: VersionCompatibility
   }>
 }
 
@@ -475,6 +510,7 @@ export interface WorkspaceBundleIndex {
     size: number
     changeCount: number
     affectedBundles: string[]
+    compatibility?: VersionCompatibility
   }>
 }
 
@@ -517,6 +553,7 @@ export interface QuaAssetsConfig {
   adapter: AssetRuntimeAdapter
   provider?: AssetProvider
   locale?: AssetLocale
+  appVersion?: string
   enableCache?: boolean
   cacheSize?: number
   retryAttempts?: number
@@ -527,13 +564,16 @@ export interface QuaAssetsConfig {
 export interface LoadAssetOptions {
   locale?: AssetLocale
   bundleName?: string
+  bundleVersionKey?: string
   targetPackageId?: string
+  appVersion?: string
   enableCache?: boolean
   priority?: 'high' | 'normal' | 'low'
 }
 
 export interface LoadBundleOptions {
   force?: boolean
+  appVersion?: string
   enableCache?: boolean
   onProgress?: (loaded: number, total: number) => void
   signal?: unknown
