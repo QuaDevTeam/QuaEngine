@@ -83,7 +83,18 @@ export { createEffectsWebRendererPlugin } from './plugins/effects'
 export type { InputWebRendererPluginOptions } from './plugins/input'
 export { createInputWebRendererPlugin } from './plugins/input'
 export { createSceneWebRendererPlugin } from './plugins/scene'
+export { applySpriteSkinStyle, createSpriteCharacterRenderer, createSpriteWebRendererPlugin, resolveSpriteSkin, spriteSkinStyle } from './plugins/sprite'
 export { createUiWebRendererPlugin } from './plugins/ui'
+export type { UiSkinControlKind } from './ui-skin'
+export {
+  getUiSkinDefaults,
+  getUiSkinProjection,
+  resolveUiChoiceSkinReference,
+  resolveUiControlSkinReference,
+  resolveUiOverlaySkinReference,
+  resolveUiSkinReference,
+  resolveUiThemeId,
+} from './ui-skin'
 export {
   backgroundCompositionVars,
   backgroundFilterVars,

@@ -1,31 +1,22 @@
-import type { DevAssetManifestRecord } from '@quajs/assets-web/vite'
-import type { Plugin, ViteDevServer } from 'vite'
+import type { DevAssetManifestRecord, DevVfsMiddlewareOptions } from '@quajs/assets-web/vite'
+import type { Plugin } from 'vite'
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { access, readdir, readFile, stat } from 'node:fs/promises'
+import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative, resolve } from 'node:path'
 import { createDevAssetRecord } from '@quajs/assets-web/vite'
 import { createLogger } from '@quajs/logger'
-import {
-  createSpriteManifestFromAssets,
-  getSpriteManifestPath,
-  resolveSpriteFamily,
-  serializeSpriteManifest,
-  SPRITE_CHARACTERS_DIR,
-} from './contracts'
+import { createDerivedSpriteAssets } from './importers'
+import { normalizeSpritePath, SPRITE_UI_SKIN_SOURCE_FILE } from './contracts'
 
 const logger = createLogger('plugin-sprite:vite')
+
+type SyntheticSpriteRecord = DevAssetManifestRecord & { content?: Uint8Array }
 
 export interface SpriteVitePluginOptions {
   enabled?: boolean
   source?: string
   devVfsBase?: string
-}
-
-interface SyntheticSpriteManifestAsset {
-  family: string
-  record: DevAssetManifestRecord
-  content: Buffer
 }
 
 export function createSpriteVitePlugin(options: SpriteVitePluginOptions = {}): Plugin {
@@ -44,6 +35,7 @@ export function createSpriteVitePlugin(options: SpriteVitePluginOptions = {}): P
 
   let projectRoot = process.cwd()
   let command: 'build' | 'serve' = 'build'
+  let lastSyntheticRecords = new Map<string, DevAssetManifestRecord>()
 
   return {
     name: '@quajs/plugin-sprite:vite',
@@ -71,223 +63,145 @@ export function createSpriteVitePlugin(options: SpriteVitePluginOptions = {}): P
         try {
           if (pathname === `${vfsBase}/manifest.json`) {
             const records = await createPhysicalAssetRecords(sourcePath, vfsBase)
-            const synthetic = createSyntheticSpriteManifestAssets(records)
+            const synthetic = await createSyntheticSpriteRecords(sourcePath, records)
             sendJson(res, {
               version: 'dev',
               created: new Date().toISOString(),
               provider: 'dev-vfs',
-              assets: mergeRecords(records, synthetic.map(asset => asset.record)),
+              assets: mergeRecords(records, synthetic),
             })
             return
           }
 
           const relativeAssetPath = safeDecodeURIComponent(pathname.slice(vfsBase.length + 1))
-          if (!relativeAssetPath || !isSpriteManifestAssetRequest(relativeAssetPath)) {
+          if (!relativeAssetPath) {
             next()
             return
           }
 
-          if (await pathExists(resolve(sourcePath, relativeAssetPath))) {
+          const physicalPath = resolve(sourcePath, relativeAssetPath)
+          if (await pathExists(physicalPath)) {
             next()
             return
           }
 
           const records = await createPhysicalAssetRecords(sourcePath, vfsBase)
-          const synthetic = createSyntheticSpriteManifestAssets(records)
-          const asset = synthetic.find(item => item.record.path === relativeAssetPath)
+          const synthetic = await createSyntheticSpriteRecords(sourcePath, records)
+          const asset = synthetic.find(item => item.path === relativeAssetPath)
           if (!asset) {
             next()
             return
           }
 
-          sendJsonBuffer(res, asset.content)
+          sendJsonBuffer(res, Buffer.from(asset.content || new Uint8Array()))
         }
         catch (error) {
           sendError(res, 500, error instanceof Error ? error.message : String(error))
         }
       })
 
-      const sendUpdate = async (file: string) => {
-        await maybeSendSpriteManifestUpdate(server, sourcePath, file)
+      const updateSyntheticAssets = async () => {
+        try {
+          const records = await createPhysicalAssetRecords(sourcePath, vfsBase)
+          const synthetic = await createSyntheticSpriteRecords(sourcePath, records)
+          const nextMap = new Map<string, DevAssetManifestRecord>()
+          for (const record of synthetic) {
+            nextMap.set(record.id, record)
+          }
+
+          for (const [id, record] of nextMap) {
+            const prev = lastSyntheticRecords.get(id)
+            if (!prev || prev.hash !== record.hash || prev.size !== record.size || prev.path !== record.path) {
+              server.ws.send({
+                type: 'custom',
+                event: 'qua-assets:update',
+                data: {
+                  type: 'changed',
+                  assetId: record.id,
+                  record,
+                  path: record.path,
+                  hash: record.hash,
+                  timestamp: Date.now(),
+                },
+              })
+            }
+          }
+
+          for (const [id, record] of lastSyntheticRecords) {
+            if (nextMap.has(id)) {
+              continue
+            }
+            server.ws.send({
+              type: 'custom',
+              event: 'qua-assets:update',
+              data: {
+                type: 'removed',
+                assetId: id,
+                path: record.path,
+                timestamp: Date.now(),
+              },
+            })
+          }
+
+          lastSyntheticRecords = nextMap
+        }
+        catch (error) {
+          logger.warn(`Failed to refresh synthetic sprite assets: ${error instanceof Error ? error.message : String(error)}`)
+        }
       }
 
-      server.watcher.on('change', sendUpdate)
-      server.watcher.on('add', sendUpdate)
-      server.watcher.on('unlink', sendUpdate)
+      server.watcher.on('change', updateSyntheticAssets)
+      server.watcher.on('add', updateSyntheticAssets)
+      server.watcher.on('unlink', updateSyntheticAssets)
 
       logger.info(`Sprite dev manifest HMR mounted under ${vfsBase}`)
     },
   }
 }
 
-async function maybeSendSpriteManifestUpdate(
-  server: ViteDevServer,
-  sourcePath: string,
-  file: string,
-): Promise<void> {
-  const normalizedSource = normalizeFilePath(sourcePath)
-  const normalizedFile = normalizeFilePath(file)
-  if (!isInsideDirectory(normalizedFile, normalizedSource)) {
-    return
-  }
-
-  const relativePath = normalizeFilePath(relative(sourcePath, file))
-  if (!relativePath.startsWith(`${SPRITE_CHARACTERS_DIR}/`)) {
-    return
-  }
-
-  const family = resolveSpriteFamily(relativePath)
-  if (!family) {
-    return
-  }
-
-  try {
-    const records = await createPhysicalAssetRecords(sourcePath)
-    const synthetic = createSyntheticSpriteManifestAssets(records)
-    const manifestPath = `${SPRITE_CHARACTERS_DIR}/${getSpriteManifestPath(family)}`
-    const asset = synthetic.find(item => item.record.path === manifestPath)
-
-    if (asset) {
-      server.ws.send({
-        type: 'custom',
-        event: 'qua-assets:update',
-        data: {
-          type: 'changed',
-          assetId: asset.record.id,
-          record: asset.record,
-          path: asset.record.path,
-          hash: asset.record.hash,
-          timestamp: Date.now(),
-        },
-      })
-      return
-    }
-
-    server.ws.send({
-      type: 'custom',
-      event: 'qua-assets:update',
-      data: {
-        type: 'removed',
-        assetId: createDevAssetId('characters', getSpriteManifestPath(family), 'default'),
-        path: manifestPath,
-        timestamp: Date.now(),
-      },
-    })
-  }
-  catch (error) {
-    logger.warn(`Failed to send sprite manifest update: ${error instanceof Error ? error.message : String(error)}`)
-  }
-}
-
 async function createPhysicalAssetRecords(sourcePath: string, vfsBase = '/@qua-assets'): Promise<DevAssetManifestRecord[]> {
   const devOptions = createDevRecordOptions(sourcePath, vfsBase)
   const files = await listFiles(sourcePath)
-  return await Promise.all(files.map(file => createDevAssetRecord(devOptions, file)))
+  return await Promise.all(files
+    .filter(file => !isSpriteSourceOnlyFile(file))
+    .map(file => createDevAssetRecord(devOptions, file)))
 }
 
-function createSyntheticSpriteManifestAssets(records: readonly DevAssetManifestRecord[]): SyntheticSpriteManifestAsset[] {
-  const assetSources = records.map(record => ({
+async function createSyntheticSpriteRecords(sourcePath: string, physicalRecords: readonly DevAssetManifestRecord[]): Promise<SyntheticSpriteRecord[]> {
+  const assets = physicalRecords.map(record => ({
+    name: record.name,
+    path: record.path,
     relativePath: record.path,
     size: record.size,
     hash: record.hash,
+    type: record.type,
+    locales: [record.locale],
     mimeType: record.mimeType,
     mtime: record.mtime,
   }))
-  const families = collectSpriteFamilies(records)
-  const generated: SyntheticSpriteManifestAsset[] = []
 
-  for (const family of families) {
-    const manifestPath = `${SPRITE_CHARACTERS_DIR}/${getSpriteManifestPath(family)}`
-    if (records.some(record => record.path === manifestPath)) {
-      continue
-    }
-
-    const manifest = createSpriteManifestFromAssets(assetSources, family)
-    if (!manifest) {
-      continue
-    }
-
-    const content = Buffer.from(`${serializeSpriteManifest(manifest)}\n`, 'utf8')
-    const familyRecords = records.filter(record => resolveSpriteFamily(record.path) === family)
-    const familyMtimes = familyRecords.map(record => record.mtime || 0).filter(Boolean)
-    const mtime = familyMtimes.length > 0 ? Math.max(...familyMtimes) : Date.now()
-
-    generated.push({
-      family,
-      content,
-      record: {
-        id: createDevAssetId('characters', getSpriteManifestPath(family), 'default'),
-        bundleName: 'dev-vfs',
-        name: getSpriteManifestPath(family),
-        type: 'characters',
-        locale: 'default',
-        path: manifestPath,
-        hash: createHash('sha256').update(content).digest('hex'),
-        size: content.byteLength,
-        version: mtime,
-        mtime,
-        mimeType: 'application/json',
-      },
-    })
-  }
-
-  return generated
+  const generated = await createDerivedSpriteAssets(sourcePath, assets)
+  return generated.map(asset => ({
+    id: createDevAssetId(asset.type, asset.relativePath, asset.locales?.[0] || 'default'),
+    bundleName: 'dev-vfs',
+    name: asset.name,
+    type: asset.type,
+    locale: asset.locales?.[0] || 'default',
+    path: asset.relativePath,
+    hash: asset.hash,
+    size: asset.size,
+    version: asset.mtime || Date.now(),
+    mtime: asset.mtime || Date.now(),
+    mimeType: asset.mimeType || inferGeneratedMimeType(asset.relativePath),
+    content: asset.content,
+  }))
 }
 
-function collectSpriteFamilies(records: readonly DevAssetManifestRecord[]): string[] {
-  const families = new Set<string>()
-  for (const record of records) {
-    if (!record.path.startsWith(`${SPRITE_CHARACTERS_DIR}/`)) {
-      continue
-    }
-
-    const family = resolveSpriteFamily(record.path)
-    if (family) {
-      families.add(family)
-    }
-  }
-  return [...families].sort()
-}
-
-function mergeRecords(
-  physical: readonly DevAssetManifestRecord[],
-  synthetic: readonly DevAssetManifestRecord[],
-): DevAssetManifestRecord[] {
-  const records = new Map<string, DevAssetManifestRecord>()
-  for (const record of physical) {
-    records.set(record.id, record)
-  }
-  for (const record of synthetic) {
-    records.set(record.id, record)
-  }
-  return [...records.values()]
-}
-
-function isSpriteManifestAssetRequest(relativePath: string): boolean {
-  return relativePath.startsWith(`${SPRITE_CHARACTERS_DIR}/`)
-    && relativePath.endsWith('/sprite.manifest.json')
-}
-
-function createDevRecordOptions(sourcePath: string, vfsBase?: string) {
-  return {
-    sourcePath,
-    vfsBase,
-    listFiles,
-    readFile: async (path: string) => new Uint8Array(await readFile(path)),
-    statFile: stat,
-    createReadStream,
-    resolvePath: resolve,
-    relativePath: relative,
-    normalizePath: normalizeFilePath,
-    sha256: (data: Uint8Array) => createHash('sha256').update(data).digest('hex'),
-  }
-}
-
-async function listFiles(directory: string): Promise<string[]> {
+async function listFiles(root: string): Promise<string[]> {
   try {
-    const entries = await readdir(directory, { withFileTypes: true })
+    const entries = await readdir(root, { withFileTypes: true })
     const files = await Promise.all(entries.map(async (entry) => {
-      const entryPath = join(directory, entry.name)
+      const entryPath = join(root, entry.name)
       if (entry.isDirectory()) {
         return await listFiles(entryPath)
       }
@@ -300,10 +214,24 @@ async function listFiles(directory: string): Promise<string[]> {
   }
 }
 
+function createDevRecordOptions(sourcePath: string, vfsBase: string) {
+  return {
+    sourcePath,
+    vfsBase,
+    listFiles,
+    readFile: async (filePath: string) => new Uint8Array(await readFile(filePath)),
+    statFile: async (filePath: string) => await stat(filePath),
+    createReadStream,
+    resolvePath: (...segments: string[]) => resolve(...segments),
+    relativePath: (from: string, to: string) => relative(from, to),
+    normalizePath: (filePath: string) => normalizeSpritePath(filePath) || filePath.replace(/\\/g, '/'),
+    sha256: async (data: Uint8Array) => createHash('sha256').update(data).digest('hex'),
+  } satisfies DevVfsMiddlewareOptions
+}
+
 async function pathExists(path: string): Promise<boolean> {
   try {
-    await access(path)
-    return true
+    return (await stat(path)).isFile()
   }
   catch {
     return false
@@ -340,15 +268,6 @@ function safeDecodeURIComponent(value: string): string | null {
   }
 }
 
-function normalizeFilePath(path: string): string {
-  return path.replace(/\\/g, '/')
-}
-
-function isInsideDirectory(path: string, directory: string): boolean {
-  const normalizedDirectory = directory.replace(/\/$/, '')
-  return path === normalizedDirectory || path.startsWith(`${normalizedDirectory}/`)
-}
-
 function sendJson(res: any, data: unknown): void {
   res.statusCode = 200
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
@@ -367,4 +286,30 @@ function sendError(res: any, statusCode: number, message: string): void {
   res.statusCode = statusCode
   res.setHeader('Content-Type', 'text/plain; charset=utf-8')
   res.end(message)
+}
+
+function isSpriteSourceOnlyFile(path: string): boolean {
+  const normalized = normalizeSpritePath(path) || path
+  return normalized.endsWith('.psd')
+    || normalized.endsWith('.psb')
+    || normalized.endsWith(`/${SPRITE_UI_SKIN_SOURCE_FILE}`)
+}
+
+function mergeRecords(
+  physical: readonly DevAssetManifestRecord[],
+  synthetic: readonly SyntheticSpriteRecord[],
+): DevAssetManifestRecord[] {
+  const records = new Map<string, DevAssetManifestRecord>()
+  for (const record of synthetic) {
+    const { content: _content, ...rest } = record
+    records.set(record.id, rest)
+  }
+  for (const record of physical) {
+    records.set(record.id, record)
+  }
+  return [...records.values()]
+}
+
+function inferGeneratedMimeType(relativePath: string): string {
+  return relativePath.toLowerCase().endsWith('.json') ? 'application/json' : 'image/png'
 }

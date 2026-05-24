@@ -4,8 +4,11 @@ import { useAudio, useRendererActions } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
 import { QuaOverlayLayer } from './components'
+import { useUiControlSkin } from '../../composables'
 
 export { QuaOverlayLayer } from './components'
+
+type UiOverlaySkinConfig = Readonly<Record<string, unknown>> & { skinId?: string }
 
 export interface QuaUiOverlayProps {
   elementId?: string
@@ -38,11 +41,19 @@ export const QuaUiOverlay = defineComponent({
   setup(props, { slots }) {
     const { view } = useQuaRenderer()
     const actions = useRendererActions()
-    const config = computed(() => view.value.ui.overlays?.[props.elementId])
+    const config = computed<UiOverlaySkinConfig | undefined>(() => view.value.ui.overlays?.[props.elementId] as UiOverlaySkinConfig | undefined)
+    const skin = useUiControlSkin({
+      kind: 'panel',
+      skinId: () => config.value?.skinId,
+    })
     return () => config.value
       ? h('div', {
           'class': 'qua-ui-overlay',
+          style: skin.skinStyle.value,
           'data-overlay': props.elementId,
+          'data-skin-kind': 'panel',
+          'data-skin-reference': skin.skinReference.value || undefined,
+          'data-skin-state': skin.skinState.value,
           'onClick': (event: Event) => event.stopPropagation(),
         }, slots.default?.({
           view: view.value,
@@ -65,11 +76,19 @@ export const QuaMenuOverlay = defineComponent({
   setup(props, { slots }) {
     const { view } = useQuaRenderer()
     const actions = useRendererActions()
-    const config = computed(() => view.value.ui.overlays?.[props.elementId])
+    const config = computed<UiOverlaySkinConfig | undefined>(() => view.value.ui.overlays?.[props.elementId] as UiOverlaySkinConfig | undefined)
+    const skin = useUiControlSkin({
+      kind: 'panel',
+      skinId: () => config.value?.skinId,
+    })
     return () => config.value
       ? h('div', {
           'class': 'qua-menu-overlay',
+          style: skin.skinStyle.value,
           'data-overlay': props.elementId,
+          'data-skin-kind': 'panel',
+          'data-skin-reference': skin.skinReference.value || undefined,
+          'data-skin-state': skin.skinState.value,
           'onClick': (event: Event) => event.stopPropagation(),
         }, slots.default?.({
           view: view.value,
@@ -92,11 +111,19 @@ export const QuaSaveLoadPanel = defineComponent({
   setup(props, { slots }) {
     const { view } = useQuaRenderer()
     const actions = useRendererActions()
-    const config = computed(() => view.value.ui.overlays?.[props.elementId])
+    const config = computed<UiOverlaySkinConfig | undefined>(() => view.value.ui.overlays?.[props.elementId] as UiOverlaySkinConfig | undefined)
+    const skin = useUiControlSkin({
+      kind: 'panel',
+      skinId: () => config.value?.skinId,
+    })
     return () => config.value
       ? h('div', {
           'class': 'qua-save-load-panel',
+          style: skin.skinStyle.value,
           'data-overlay': props.elementId,
+          'data-skin-kind': 'panel',
+          'data-skin-reference': skin.skinReference.value || undefined,
+          'data-skin-state': skin.skinState.value,
           'onClick': (event: Event) => event.stopPropagation(),
         }, slots.default?.({
           view: view.value,
@@ -120,11 +147,19 @@ export const QuaSettingsPanel = defineComponent({
     const { view } = useQuaRenderer()
     const audio = useAudio()
     const actions = useRendererActions()
-    const config = computed(() => view.value.ui.overlays?.[props.elementId])
+    const config = computed<UiOverlaySkinConfig | undefined>(() => view.value.ui.overlays?.[props.elementId] as UiOverlaySkinConfig | undefined)
+    const skin = useUiControlSkin({
+      kind: 'panel',
+      skinId: () => config.value?.skinId,
+    })
     return () => config.value
       ? h('div', {
           'class': 'qua-settings-panel',
+          style: skin.skinStyle.value,
           'data-overlay': props.elementId,
+          'data-skin-kind': 'panel',
+          'data-skin-reference': skin.skinReference.value || undefined,
+          'data-skin-state': skin.skinState.value,
           'onClick': (event: Event) => event.stopPropagation(),
         }, slots.default?.({
           view: view.value,

@@ -1510,6 +1510,163 @@ describe('@quajs/renderer-web', () => {
     await assets.cleanup()
   })
 
+  it('applies unity-style ui skin borders and transient state changes', async () => {
+    let urlIndex = 0
+    const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:web-ui-skin:${++urlIndex}`)
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const assets = new QuaAssets({
+      adapter: {
+        name: 'renderer-web-ui-skin-test',
+        storage: new MemoryAssetStorage(),
+        crypto: { sha256: async () => '' },
+      },
+      provider: {
+        mode: 'memory',
+        getManifest: async () => ({
+          version: '1',
+          assets: uiSkinAssetManifest(),
+        }),
+        getAsset: async (_id, record) => {
+          if (record?.path === 'ui/default/ui-skin.manifest.json') {
+            return new TextEncoder().encode(JSON.stringify({
+              version: 1,
+              family: 'ui/default',
+              skins: {
+                panel: {
+                  base: { asset: 'panel/default.png' },
+                  slice: { top: 6, right: 6, bottom: 6, left: 6 },
+                  contentInsets: { top: 8, right: 10, bottom: 8, left: 10 },
+                },
+                button: {
+                  base: { asset: 'button/default.png' },
+                  states: {
+                    hover: { asset: 'button/hover.png' },
+                    pressed: { asset: 'button/pressed.png' },
+                    disabled: { asset: 'button/disabled.png' },
+                  },
+                  slice: { top: 4, right: 4, bottom: 4, left: 4 },
+                  contentInsets: { top: 8, right: 12, bottom: 8, left: 12 },
+                },
+                toggle: {
+                  base: { asset: 'toggle/default.png' },
+                  states: {
+                    selected: { asset: 'toggle/selected.png' },
+                    hover: { asset: 'toggle/hover.png' },
+                  },
+                  slice: { top: 4, right: 4, bottom: 4, left: 4 },
+                  contentInsets: { top: 6, right: 10, bottom: 6, left: 10 },
+                },
+              },
+            }))
+          }
+          return new Uint8Array([1, 2, 3])
+        },
+      },
+    })
+    await assets.initialize()
+
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      assets,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        choices: [{
+          id: 'yes',
+          text: 'Yes',
+          enabled: true,
+          presentation: {
+            skinId: 'button',
+          },
+        }, {
+          id: 'locked',
+          text: 'Locked',
+          enabled: false,
+          presentation: {
+            skinId: 'button',
+          },
+        }],
+        ui: {
+          visible: true,
+          overlays: {
+            settings: {
+              open: true,
+            },
+          },
+        },
+        plugins: {
+          ui: {
+            themeId: 'default',
+            defaults: {
+              button: 'button',
+              panel: 'panel',
+              toggle: 'toggle',
+            },
+          },
+          [SETTINGS_PLUGIN_ID]: settingsProjection(),
+        },
+      }),
+    })
+
+    await renderer.mount()
+    await flushDom()
+    await flushDom()
+    await flushDom()
+
+    const button = await waitForStyle(() => root.querySelector<HTMLButtonElement>('.qua-choice-button[data-choice-id="yes"]'), style => style.includes('border-image-slice: 4 4 4 4'))
+    expect(button?.dataset.skinReference).toBe('ui/default/button')
+    const initialStyle = button?.getAttribute('style') || ''
+    expect(initialStyle).toContain('border-image-slice: 4 4 4 4')
+    expect(initialStyle).toContain('--qua-skin-source-current')
+    expect(button?.dataset.skinState).toBe('default')
+
+    button!.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    await flushDom()
+    await flushDom()
+    expect(button?.dataset.skinState).toBe('hover')
+    const hoverStyle = button?.getAttribute('style') || ''
+    expect(hoverStyle).not.toBe(initialStyle)
+
+    button!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))
+    await flushDom()
+    await flushDom()
+    expect(button?.dataset.skinState).toBe('pressed')
+    const pressedStyle = button?.getAttribute('style') || ''
+    expect(pressedStyle).not.toBe(hoverStyle)
+
+    button!.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }))
+    await flushDom()
+    await flushDom()
+    expect(button?.dataset.skinState).toBe('hover')
+
+    button!.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }))
+    await flushDom()
+    await flushDom()
+    expect(button?.dataset.skinState).toBe('default')
+
+    const locked = root.querySelector<HTMLButtonElement>('.qua-choice-button[data-choice-id="locked"]')
+    expect(locked?.dataset.skinState).toBe('disabled')
+    locked!.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    await flushDom()
+    await flushDom()
+    expect(locked?.dataset.skinState).toBe('disabled')
+
+    const toggle = root.querySelector<HTMLInputElement>('[data-settings-field="confirmBeforeQuit"] input[type="checkbox"]')
+    expect(toggle?.dataset.skinState).toBe('selected')
+    toggle!.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    await flushDom()
+    await flushDom()
+    expect(toggle?.dataset.skinState).toBe('selected')
+
+    await renderer.unmount()
+    expect(revoke).toHaveBeenCalled()
+    expect(create).toHaveBeenCalled()
+    await assets.cleanup()
+  })
+
   it('starts playing audio immediately when the Web Audio context is already running', async () => {
     installFakeAudioContext({ initialState: 'running' })
     const assets = await createAudioAssets()
@@ -1834,6 +1991,21 @@ async function waitForMicrotasks(predicate: () => boolean): Promise<void> {
   }
 }
 
+async function waitForStyle(
+  getElement: () => HTMLElement | null | undefined,
+  predicate: (style: string) => boolean,
+): Promise<HTMLElement | null> {
+  for (let index = 0; index < 20; index += 1) {
+    const element = getElement()
+    if (element && predicate(element.getAttribute('style') || '')) {
+      return element
+    }
+    await flushDom()
+    await flushMicrotasks()
+  }
+  return getElement() || null
+}
+
 function rect(width: number, height: number): DOMRect {
   return rectAt(0, 0, width, height)
 }
@@ -1879,6 +2051,92 @@ function spriteAssetManifest() {
       type: 'characters' as const,
       locale: 'default',
       path: 'characters/alice/happy.png',
+      mimeType: 'image/png',
+    },
+  ]
+}
+
+function uiSkinAssetManifest() {
+  return [
+    {
+      id: 'memory:default:data:ui/default/ui-skin.manifest.json',
+      bundleName: 'memory',
+      name: 'ui/default/ui-skin.manifest.json',
+      type: 'data' as const,
+      locale: 'default',
+      path: 'ui/default/ui-skin.manifest.json',
+      mimeType: 'application/json',
+    },
+    {
+      id: 'memory:default:images:ui/default/button/default.png',
+      bundleName: 'memory',
+      name: 'ui/default/button/default.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/button/default.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/button/hover.png',
+      bundleName: 'memory',
+      name: 'ui/default/button/hover.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/button/hover.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/button/pressed.png',
+      bundleName: 'memory',
+      name: 'ui/default/button/pressed.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/button/pressed.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/button/disabled.png',
+      bundleName: 'memory',
+      name: 'ui/default/button/disabled.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/button/disabled.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/toggle/default.png',
+      bundleName: 'memory',
+      name: 'ui/default/toggle/default.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/toggle/default.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/toggle/hover.png',
+      bundleName: 'memory',
+      name: 'ui/default/toggle/hover.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/toggle/hover.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/toggle/selected.png',
+      bundleName: 'memory',
+      name: 'ui/default/toggle/selected.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/toggle/selected.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/panel/default.png',
+      bundleName: 'memory',
+      name: 'ui/default/panel/default.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/panel/default.png',
       mimeType: 'image/png',
     },
   ]

@@ -2,6 +2,7 @@ import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { motionProjectionVars, projectChoices } from '../projection'
 import { defineWebRendererPlugin } from './core'
 import { applyStyleVars } from './shared'
+import { bindUiControlSkin } from '../ui-skin'
 
 export function createChoicesWebRendererPlugin(): QuaWebDomRendererPlugin {
   return defineWebRendererPlugin({
@@ -28,6 +29,9 @@ function renderChoicesLayer(context: QuaWebDomLayerContext): Node | undefined {
   const panel = context.document.createElement('div')
   panel.className = 'qua-choice-panel'
   applyStyleVars(panel, motionProjectionVars(projection.panel, '--qua-choices'))
+  bindUiControlSkin(context, panel, {
+    kind: 'panel',
+  })
   panel.addEventListener('click', event => event.stopPropagation())
   for (const choice of projection.choices) {
     const button = context.document.createElement('button')
@@ -36,6 +40,11 @@ function renderChoicesLayer(context: QuaWebDomLayerContext): Node | undefined {
     button.disabled = !choice.enabled
     button.textContent = choice.text
     applyStyleVars(button, motionProjectionVars(choice as unknown as Record<string, unknown>, '--qua-choice'))
+    bindUiControlSkin(context, button, {
+      kind: 'button',
+      skinId: choice.presentation?.skinId,
+      disabled: !choice.enabled,
+    })
     button.addEventListener('click', (event) => {
       event.stopPropagation()
       void context.actions.selectChoice(choice.id)

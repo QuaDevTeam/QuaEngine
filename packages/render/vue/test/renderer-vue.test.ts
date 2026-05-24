@@ -24,8 +24,9 @@ import {
   useQuaRenderer,
   useRendererActions,
 } from '../src'
+import { QuaSpriteSkinBox } from '../src/plugins/sprite'
 import { createVisualNovelRendererPlugins } from '../src/plugins/preset'
-import { createSettingsRendererPlugin } from '../src/plugins/settings'
+import { createSettingsRendererPlugin, QuaSettingsLayer } from '../src/plugins/settings'
 import { QuaMenuOverlay, QuaSettingsPanel, QuaUiOverlay } from '../src/plugins/ui'
 
 describe('@quajs/renderer-vue', () => {
@@ -508,6 +509,139 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.textContent).toContain('menu')
     expect(host.el.textContent).toContain('settings')
     expect(host.el.textContent).toContain('Custom')
+  })
+
+  it('applies ui skins to vue settings toggles and sprite skin boxes', async () => {
+    let urlIndex = 0
+    const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:vue-ui-skin:${++urlIndex}`)
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const assets = new QuaAssets({
+      adapter: {
+        name: 'renderer-vue-ui-skin-test',
+        storage: new MemoryAssetStorage(),
+        crypto: { sha256: async () => '' },
+      },
+      provider: {
+        mode: 'memory',
+        getManifest: async () => ({
+          version: '1',
+          assets: uiSkinAssetManifest(),
+        }),
+        getAsset: async (_id, record) => {
+          if (record?.path === 'ui/default/ui-skin.manifest.json') {
+            return new TextEncoder().encode(JSON.stringify({
+              version: 1,
+              family: 'ui/default',
+              skins: {
+                panel: {
+                  base: { asset: 'panel/default.png' },
+                  slice: { top: 6, right: 6, bottom: 6, left: 6 },
+                  contentInsets: { top: 8, right: 10, bottom: 8, left: 10 },
+                },
+                button: {
+                  base: { asset: 'button/default.png' },
+                  states: {
+                    hover: { asset: 'button/hover.png' },
+                    pressed: { asset: 'button/pressed.png' },
+                    disabled: { asset: 'button/disabled.png' },
+                  },
+                  slice: { top: 4, right: 4, bottom: 4, left: 4 },
+                  contentInsets: { top: 8, right: 12, bottom: 8, left: 12 },
+                },
+                toggle: {
+                  base: { asset: 'toggle/default.png' },
+                  states: {
+                    selected: { asset: 'toggle/selected.png' },
+                    hover: { asset: 'toggle/hover.png' },
+                  },
+                  slice: { top: 4, right: 4, bottom: 4, left: 4 },
+                  contentInsets: { top: 6, right: 10, bottom: 6, left: 10 },
+                },
+              },
+            }))
+          }
+          return new Uint8Array([1, 2, 3])
+        },
+      },
+    })
+    await assets.initialize()
+
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      assets,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        choices: [{
+          id: 'yes',
+          text: 'Yes',
+          enabled: true,
+          presentation: {
+            skinId: 'button',
+          },
+        }, {
+          id: 'locked',
+          text: 'Locked',
+          enabled: false,
+          presentation: {
+            skinId: 'button',
+          },
+        }],
+        ui: {
+          visible: true,
+          overlays: {
+            settings: { open: true },
+          },
+        },
+        plugins: {
+          ui: {
+            themeId: 'default',
+            defaults: {
+              button: 'button',
+              panel: 'panel',
+              toggle: 'toggle',
+            },
+          },
+          [SETTINGS_PLUGIN_ID]: settingsProjection(),
+        },
+      }),
+    }, {
+      stage: () => h('div', [
+        h(QuaSpriteSkinBox, {
+          kind: 'button',
+          skinId: 'button',
+          as: 'button',
+        }, {
+          default: () => 'Skin Box',
+        }),
+        h(QuaSettingsLayer),
+      ]),
+    })
+
+    await flushVue()
+    await flushVue()
+    await flushVue()
+
+    await waitForStyle(() => host.el.querySelector<HTMLButtonElement>('.qua-sprite-skin-box'), style => style.includes('border-image-slice: 4 4 4 4'))
+    const box = host.el.querySelector<HTMLButtonElement>('.qua-sprite-skin-box')
+    expect(box?.dataset.skinState).toBe('default')
+    const initialStyle = box?.getAttribute('style') || ''
+    expect(initialStyle).toContain('border-image-slice: 4 4 4 4')
+    expect(initialStyle).toContain('--qua-skin-source-current')
+
+    box!.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    await flushVue()
+    await flushVue()
+    expect(box?.dataset.skinState).toBe('hover')
+
+    const toggle = host.el.querySelector<HTMLInputElement>('[data-settings-field="confirmBeforeQuit"] input[type="checkbox"]')
+    expect(toggle?.dataset.skinState).toBe('selected')
+
+    await host.app.unmount()
+    await flushVue()
+    expect(revoke).toHaveBeenCalled()
+    expect(create).toHaveBeenCalled()
+    await assets.cleanup()
   })
 
   it('renders schema-driven settings forms and emits settings update intents', async () => {
@@ -1126,6 +1260,19 @@ async function flushVue(): Promise<void> {
   await nextTick()
 }
 
+async function waitForStyle(
+  getElement: () => HTMLElement | null | undefined,
+  predicate: (style: string) => boolean,
+): Promise<void> {
+  for (let index = 0; index < 20; index += 1) {
+    const element = getElement()
+    if (element && predicate(element.getAttribute('style') || '')) {
+      return
+    }
+    await flushVue()
+  }
+}
+
 function rect(width: number, height: number): DOMRect {
   return {
     x: 0,
@@ -1420,6 +1567,92 @@ function spriteAssetManifest() {
       type: 'characters' as const,
       locale: 'default',
       path: 'characters/alice/happy.png',
+      mimeType: 'image/png',
+    },
+  ]
+}
+
+function uiSkinAssetManifest() {
+  return [
+    {
+      id: 'memory:default:data:ui/default/ui-skin.manifest.json',
+      bundleName: 'memory',
+      name: 'ui/default/ui-skin.manifest.json',
+      type: 'data' as const,
+      locale: 'default',
+      path: 'ui/default/ui-skin.manifest.json',
+      mimeType: 'application/json',
+    },
+    {
+      id: 'memory:default:images:ui/default/button/default.png',
+      bundleName: 'memory',
+      name: 'ui/default/button/default.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/button/default.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/button/hover.png',
+      bundleName: 'memory',
+      name: 'ui/default/button/hover.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/button/hover.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/button/pressed.png',
+      bundleName: 'memory',
+      name: 'ui/default/button/pressed.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/button/pressed.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/button/disabled.png',
+      bundleName: 'memory',
+      name: 'ui/default/button/disabled.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/button/disabled.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/toggle/default.png',
+      bundleName: 'memory',
+      name: 'ui/default/toggle/default.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/toggle/default.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/toggle/hover.png',
+      bundleName: 'memory',
+      name: 'ui/default/toggle/hover.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/toggle/hover.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/toggle/selected.png',
+      bundleName: 'memory',
+      name: 'ui/default/toggle/selected.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/toggle/selected.png',
+      mimeType: 'image/png',
+    },
+    {
+      id: 'memory:default:images:ui/default/panel/default.png',
+      bundleName: 'memory',
+      name: 'ui/default/panel/default.png',
+      type: 'images' as const,
+      locale: 'default',
+      path: 'ui/default/panel/default.png',
       mimeType: 'image/png',
     },
   ]

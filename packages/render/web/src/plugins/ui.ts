@@ -2,6 +2,7 @@ import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { motionProjectionVars, projectUiOverlay } from '../projection'
 import { defineWebRendererPlugin } from './core'
 import { applyStyleVars } from './shared'
+import { bindUiControlSkin } from '../ui-skin'
 
 export function createUiWebRendererPlugin(): QuaWebDomRendererPlugin {
   return defineWebRendererPlugin({
@@ -29,11 +30,16 @@ function renderUiLayer(context: QuaWebDomLayerContext): Node | undefined {
   layer.className = 'qua-overlay-layer'
   layer.addEventListener('click', event => event.stopPropagation())
   for (const elementId of Object.keys(overlays)) {
-    const projected = projectUiOverlay(overlays[elementId] as Readonly<Record<string, unknown>>, elementId, context.view.animations, Date.now())
+    const overlayConfig = overlays[elementId] as Readonly<Record<string, unknown>> & { skinId?: string }
+    const projected = projectUiOverlay(overlayConfig, elementId, context.view.animations, Date.now())
     const overlay = context.document.createElement('div')
     overlay.className = 'qua-ui-overlay'
     overlay.setAttribute('data-overlay', elementId)
     applyStyleVars(overlay, motionProjectionVars(projected, '--qua-ui'))
+    bindUiControlSkin(context, overlay, {
+      kind: 'panel',
+      skinId: overlayConfig.skinId,
+    })
     layer.append(overlay)
   }
   return layer

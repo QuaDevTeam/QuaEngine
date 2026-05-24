@@ -172,3 +172,5 @@ export function useAssetUrl(
 export function useAudioAsset(name: () => string | undefined) {
   return useAssetUrl('audio', name)
 }
+
+export { useUiControlSkin } from './useUiControlSkin'
