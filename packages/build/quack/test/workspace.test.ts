@@ -48,6 +48,37 @@ describe('WorkspaceManager', () => {
 
     expect(loaded.name).toBe('ts-workspace')
   })
+
+  it('inherits and validates bundle compatibility from global settings', async () => {
+    const root = await createWorkspaceRoot()
+    const config = {
+      ...createWorkspaceConfig('compatible-workspace'),
+      globalSettings: {
+        compatibility: { minGameVersion: '1.2.3' },
+      },
+    }
+    await writeFile(join(root, 'quack.workspace.json'), JSON.stringify(config, null, 2), 'utf8')
+
+    const workspace = new WorkspaceManager(root)
+    const loaded = await workspace.loadConfig()
+    const bundleConfig = workspace.createBundleConfig('core')
+
+    expect(loaded.bundles[0].compatibility).toEqual({ minGameVersion: '1.2.3' })
+    expect(bundleConfig.compatibility).toEqual({ minGameVersion: '1.2.3' })
+  })
+
+  it('rejects invalid bundle compatibility versions', async () => {
+    const root = await createWorkspaceRoot()
+    const config = {
+      ...createWorkspaceConfig('bad-compat-workspace'),
+      globalSettings: {
+        compatibility: { minGameVersion: 'bad-version' },
+      },
+    }
+    await writeFile(join(root, 'quack.workspace.json'), JSON.stringify(config, null, 2), 'utf8')
+
+    await expect(new WorkspaceManager(root).loadConfig()).rejects.toThrow('invalid minGameVersion')
+  })
 })
 
 async function createWorkspaceRoot(): Promise<string> {

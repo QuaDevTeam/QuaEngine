@@ -14,6 +14,32 @@ export type EncryptionAlgorithm = 'none' | 'xor' | 'custom'
 
 export type PatchOperation = 'added' | 'modified' | 'deleted'
 
+export interface VersionCompatibility {
+  minGameVersion?: string
+}
+
+export interface VersionedBundleRecord {
+  filename: string
+  hash: string
+  version: number
+  buildNumber: string
+  created: string
+  size: number
+  compatibility?: VersionCompatibility
+}
+
+export interface VersionedPatchRecord {
+  filename: string
+  hash: string
+  fromVersion: number
+  toVersion: number
+  patchVersion: number
+  created: string
+  size: number
+  changeCount: number
+  compatibility?: VersionCompatibility
+}
+
 // Media metadata interfaces
 export interface ImageMetadata {
   width: number
@@ -98,9 +124,11 @@ export interface PatchManifest {
   created: string
   format: BundleFormat
   isPatch: true
+  buildNumber?: string
   patchVersion: number
   fromVersion: number
   toVersion: number
+  compatibility?: VersionCompatibility
   compression: {
     algorithm: CompressionAlgorithm
     level?: number
@@ -216,6 +244,7 @@ export interface RuntimePackageManifest {
   version: string
   sequence?: number
   priority?: number
+  compatibility?: VersionCompatibility
   dependencies?: string[]
   localePack?: RuntimeLocalePackManifest
   scripts?: RuntimePackageScriptManifest[]
@@ -238,6 +267,7 @@ export interface BundleManifest {
   isPatch?: boolean
   bundleVersion: number // Overall bundle version
   buildNumber?: string // Build identifier
+  compatibility?: VersionCompatibility
   buildMetadata?: {
     branch?: string
     commit?: string
@@ -280,10 +310,12 @@ export interface BuildLog {
   timestamp: string
   bundlePath: string
   bundleHash: string
+  compatibility?: VersionCompatibility
   totalFiles: number
   totalSize: number
   assets: Record<string, {
     hash: string
+    path?: string
     size: number
     version: number
     mtime: number
@@ -307,6 +339,7 @@ export interface WorkspaceConfig {
       level?: number
       algorithm?: CompressionAlgorithm
     }
+    compatibility?: VersionCompatibility
     encryption?: {
       enabled?: boolean
       algorithm?: EncryptionAlgorithm
@@ -322,6 +355,7 @@ export interface BundleDefinition {
   displayName?: string // Human-readable name
   source: string // Source directory relative to workspace root
   priority?: number // Loading priority (lower numbers load first)
+  compatibility?: VersionCompatibility
   dependencies?: string[] // Other bundles this depends on
   loadTrigger?: 'immediate' | 'lazy' | 'manual' // When to load this bundle
   description?: string
@@ -349,15 +383,7 @@ export interface WorkspaceBundleIndex {
   currentVersion: number
   currentBuild: string
   bundles: Record<string, BundleInfo> // Bundle name -> BundleInfo
-  globalPatches: Array<{
-    filename: string
-    hash: string
-    fromVersion: number
-    toVersion: number
-    patchVersion: number
-    created: string
-    size: number
-    changeCount: number
+  globalPatches: Array<VersionedPatchRecord & {
     affectedBundles: string[] // Which bundles this patch affects
   }>
 }
@@ -370,63 +396,17 @@ export interface BundleInfo {
   priority: number
   dependencies: string[]
   loadTrigger: string
-  latestBundle: {
-    filename: string
-    hash: string
-    version: number
-    buildNumber: string
-    created: string
-    size: number
-  }
-  previousBuilds: Array<{
-    filename: string
-    hash: string
-    version: number
-    buildNumber: string
-    created: string
-    size: number
-  }>
-  availablePatches: Array<{
-    filename: string
-    hash: string
-    fromVersion: number
-    toVersion: number
-    patchVersion: number
-    created: string
-    size: number
-    changeCount: number
-  }>
+  latestBundle: VersionedBundleRecord
+  previousBuilds: VersionedBundleRecord[]
+  availablePatches: VersionedPatchRecord[]
 }
 
 export interface BundleIndex {
   currentVersion: number
   currentBuild: string
-  latestBundle: {
-    filename: string
-    hash: string
-    version: number
-    buildNumber: string
-    created: string
-    size: number
-  }
-  previousBuilds: Array<{
-    filename: string
-    hash: string
-    version: number
-    buildNumber: string
-    created: string
-    size: number
-  }>
-  availablePatches: Array<{
-    filename: string
-    hash: string
-    fromVersion: number
-    toVersion: number
-    patchVersion: number
-    created: string
-    size: number
-    changeCount: number
-  }>
+  latestBundle: VersionedBundleRecord
+  previousBuilds: VersionedBundleRecord[]
+  availablePatches: VersionedPatchRecord[]
 }
 
 export interface VersionConfig {
@@ -464,6 +444,7 @@ export interface QuackConfig {
     level?: number
     algorithm?: CompressionAlgorithm
   }
+  compatibility?: VersionCompatibility
   encryption?: {
     enabled?: boolean
     algorithm?: EncryptionAlgorithm
@@ -498,6 +479,7 @@ export interface MultiBundlePatchOptions {
   output: string
   format: BundleFormat
   workspaceIndex: WorkspaceBundleIndex
+  compatibility?: VersionCompatibility
 }
 
 export interface AssetContext {
@@ -539,6 +521,7 @@ export interface BundleOptions {
     level: number
     algorithm: CompressionAlgorithm
   }
+  compatibility?: VersionCompatibility
   encryption: {
     enabled: boolean
     algorithm: EncryptionAlgorithm
@@ -582,4 +565,5 @@ export interface PatchOptions {
   toBuildLog: BuildLog
   output: string
   format: BundleFormat
+  compatibility?: VersionCompatibility
 }

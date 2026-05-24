@@ -8,8 +8,9 @@ import type {
 } from '../core/types'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, stat } from 'node:fs/promises'
-import { basename, dirname } from 'node:path'
+import { basename, dirname, isAbsolute, join } from 'node:path'
 import { createLogger } from '@quajs/logger'
+import { isValidSemverVersion } from '@quajs/utils'
 import { QPKBundler } from '../bundlers/qpk-bundler'
 import { ZipBundler } from '../bundlers/zip-bundler'
 import { getErrorMessage } from '../utils/error'
@@ -147,7 +148,7 @@ export class PatchGenerator {
         // Create AssetInfo for patch
         const patchAsset: AssetInfo = {
           name: basename(diff.path),
-          path: diff.path,
+          path: resolvePatchAssetPath(assetInfo.path, diff.path, toBuildLog),
           relativePath: diff.path,
           size: assetInfo.size,
           hash: assetInfo.hash,
@@ -223,9 +224,11 @@ export class PatchGenerator {
       created: new Date().toISOString(),
       format: options.format,
       isPatch: true,
+      buildNumber: options.toBuildLog.buildNumber,
       patchVersion: this.generatePatchVersion(options.fromVersion, options.toVersion),
       fromVersion: options.fromVersion,
       toVersion: options.toVersion,
+      compatibility: resolvePatchCompatibility(options.compatibility, options.toBuildLog, 'Patch'),
       compression: {
         algorithm: options.format === 'qpk' ? 'lzma' : 'deflate',
       },
@@ -298,6 +301,7 @@ export class PatchGenerator {
       created: patchManifest.created,
       size: patchStats.size,
       changeCount: patchManifest.totalChanges,
+      compatibility: patchManifest.compatibility,
     }
 
     await this.versionManager.addPatchToIndex(patchInfo)
@@ -457,9 +461,11 @@ export class PatchGenerator {
       created: new Date().toISOString(),
       format: options.format,
       isPatch: true,
+      buildNumber: options.toBuildLog.buildNumber,
       patchVersion: this.generatePatchVersion(options.fromVersion, options.toVersion),
       fromVersion: options.fromVersion,
       toVersion: options.toVersion,
+      compatibility: resolvePatchCompatibility(options.compatibility, options.toBuildLog, `Workspace patch "${options.bundleName}"`),
       compression: {
         algorithm: options.format === 'qpk' ? 'lzma' : 'deflate',
       },
@@ -505,6 +511,7 @@ export class PatchGenerator {
       created: patchManifest.created,
       size: patchStats.size,
       changeCount: patchManifest.totalChanges,
+      compatibility: patchManifest.compatibility,
     }
 
     await this.versionManager.addPatchToWorkspace(options.bundleName, patchInfo)
@@ -794,4 +801,35 @@ function toPatchChainEntry(patch: PatchChainEntry): {
     toVersion: patch.toVersion,
     patchVersion: patch.patchVersion,
   }
+}
+
+function resolvePatchCompatibility(
+  requested: PatchOptions['compatibility'] | undefined,
+  targetBuildLog: BuildLog,
+  subject: string,
+): NonNullable<PatchOptions['compatibility']> {
+  const compatibility = targetBuildLog.compatibility
+  if (!compatibility?.minGameVersion) {
+    throw new Error(`${subject} requires compatibility.minGameVersion.`)
+  }
+  if (!isValidSemverVersion(compatibility.minGameVersion)) {
+    throw new Error(`${subject} has invalid minGameVersion "${compatibility.minGameVersion}".`)
+  }
+  if (requested?.minGameVersion && requested.minGameVersion !== compatibility.minGameVersion) {
+    throw new Error(`${subject} compatibility.minGameVersion must match target build minGameVersion "${compatibility.minGameVersion}".`)
+  }
+  return { ...compatibility }
+}
+
+function resolvePatchAssetPath(
+  assetPath: string | undefined,
+  relativePath: string,
+  targetBuildLog: BuildLog,
+): string {
+  if (assetPath) {
+    return assetPath
+  }
+
+  const baseDir = targetBuildLog.bundlePath ? dirname(targetBuildLog.bundlePath) : process.cwd()
+  return isAbsolute(relativePath) ? relativePath : join(baseDir, relativePath)
 }

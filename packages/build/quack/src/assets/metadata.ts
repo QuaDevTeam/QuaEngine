@@ -6,9 +6,11 @@ import type {
   CompressionAlgorithm,
   EncryptionAlgorithm,
   LocaleInfo,
+  VersionCompatibility,
 } from '../core/types'
 import { createHash } from 'node:crypto'
 import { createLogger } from '@quajs/logger'
+import { isValidSemverVersion } from '@quajs/utils'
 
 const logger = createLogger('quack:metadata')
 
@@ -36,6 +38,7 @@ export class MetadataGenerator {
         enabled: boolean
         algorithm: EncryptionAlgorithm
       }
+      compatibility?: VersionCompatibility
       version?: string
       buildNumber?: string
       buildMetadata?: {
@@ -61,6 +64,10 @@ export class MetadataGenerator {
     // Find default locale
     const defaultLocale = locales.find(l => l.isDefault)?.code || locales[0]?.code || 'default'
 
+    if (options.compatibility?.minGameVersion && !isValidSemverVersion(options.compatibility.minGameVersion)) {
+      throw new Error(`Invalid minGameVersion format: ${options.compatibility.minGameVersion}`)
+    }
+
     const manifest: BundleManifest = {
       name: bundleName,
       version: options.version || '1.0.0',
@@ -70,6 +77,7 @@ export class MetadataGenerator {
       format: options.format,
       bundleVersion: 1,
       buildNumber: options.buildNumber,
+      compatibility: options.compatibility,
       buildMetadata: options.buildMetadata,
       compression: {
         algorithm: options.compression.algorithm,
@@ -607,8 +615,7 @@ export class MetadataGenerator {
    * Validate version format
    */
   validateVersion(version: string): void {
-    const semverPattern = /^\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/i
-    if (!semverPattern.test(version)) {
+    if (!isValidSemverVersion(version)) {
       throw new Error(`Invalid version format: ${version}`)
     }
   }

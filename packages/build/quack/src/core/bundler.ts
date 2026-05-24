@@ -18,6 +18,7 @@ import { EventEmitter } from 'node:events'
 import { mkdir, readFile, rename } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
 import { createLogger } from '@quajs/logger'
+import { isValidSemverVersion } from '@quajs/utils'
 import { compileLocalizedQuaScriptModuleToTs, compileQuaScriptModuleToTs, extractQuaScriptStoryDeclaration } from '@quajs/script-compiler'
 import ts from 'typescript'
 import { AssetDetector } from '../assets/asset-detector'
@@ -108,6 +109,7 @@ export class QuackBundler extends EventEmitter {
         format: normalizedConfig.format,
         compression: normalizedConfig.compression,
         encryption: normalizedConfig.encryption,
+        compatibility: normalizedConfig.compatibility,
         version: normalizedConfig.versioning.bundleVersion?.toString() || '1.0.0',
         buildNumber: normalizedConfig.versioning.buildNumber,
       })
@@ -166,11 +168,13 @@ export class QuackBundler extends EventEmitter {
         timestamp: new Date().toISOString(),
         bundlePath: finalBundlePath,
         bundleHash: '', // Will be calculated by versionManager
+        compatibility: manifest.compatibility,
         totalFiles: assets.length,
         totalSize: assets.reduce((sum, asset) => sum + asset.size, 0),
         assets: Object.fromEntries(
           assets.map(asset => [asset.relativePath, {
             hash: asset.hash,
+            path: asset.path,
             size: asset.size,
             version: asset.version || 1,
             mtime: asset.mtime || Date.now(),
@@ -316,6 +320,7 @@ export class QuackBundler extends EventEmitter {
         format: normalizedConfig.format,
         compression: normalizedConfig.compression,
         encryption: normalizedConfig.encryption,
+        compatibility: normalizedConfig.compatibility,
         version: normalizedConfig.versioning.bundleVersion?.toString() || '1.0.0',
         buildNumber: normalizedConfig.versioning.buildNumber,
       })
@@ -383,11 +388,13 @@ export class QuackBundler extends EventEmitter {
         timestamp: new Date().toISOString(),
         bundlePath: finalBundlePath,
         bundleHash: '', // Will be calculated by versionManager
+        compatibility: manifest.compatibility,
         totalFiles: assets.length,
         totalSize: assets.reduce((sum, asset) => sum + asset.size, 0),
         assets: Object.fromEntries(
           assets.map(asset => [asset.relativePath, {
             hash: asset.hash,
+            path: asset.path,
             size: asset.size,
             version: asset.version || 1,
             mtime: asset.mtime || Date.now(),
@@ -474,6 +481,13 @@ export class QuackBundler extends EventEmitter {
     // Get versioning info
     const versionManager = new VersionManager(dirname(output))
     const versionInfo = await versionManager.getVersionInfo(config.versioning || {})
+    const compatibility = resolveCompatibility(config.compatibility, config.runtimePackage)
+    const runtimePackage = config.runtimePackage
+      ? {
+          ...config.runtimePackage,
+          compatibility,
+        }
+      : undefined
 
     // Normalize compression
     const compressionAlgorithm = config.compression?.algorithm ?? (format === 'qpk' ? 'lzma' : 'deflate') as CompressionAlgorithm
@@ -509,10 +523,11 @@ export class QuackBundler extends EventEmitter {
         ...config.versioning,
         ...versionInfo,
       },
+      compatibility,
       plugins: config.plugins || [],
       ignore: config.ignore || [],
       verbose: config.verbose || false,
-      runtimePackage: config.runtimePackage,
+      runtimePackage,
       signing: config.signing,
     }
   }
@@ -789,6 +804,43 @@ export class QuackBundler extends EventEmitter {
  */
 export function defineConfig(config: QuackConfig): QuackConfig {
   return config
+}
+
+function resolveCompatibility(
+  compatibility: QuackConfig['compatibility'],
+  runtimePackage: RuntimePackageManifest | undefined,
+): QuackConfig['compatibility'] {
+  const runtimeCompatibility = runtimePackage?.compatibility
+  const merged = {
+    ...runtimeCompatibility,
+    ...compatibility,
+  }
+  const hasCompatibility = compatibility !== undefined || runtimeCompatibility !== undefined
+
+  if (runtimePackage) {
+    if (
+      compatibility?.minGameVersion
+      && runtimeCompatibility?.minGameVersion
+      && compatibility.minGameVersion !== runtimeCompatibility.minGameVersion
+    ) {
+      throw new Error(`Runtime package "${runtimePackage.id}" compatibility conflicts with top-level compatibility.`)
+    }
+    if (!merged?.minGameVersion) {
+      throw new Error(`Runtime package "${runtimePackage.id}" requires compatibility.minGameVersion.`)
+    }
+    validateCompatibilityMinVersion(merged.minGameVersion, `Runtime package "${runtimePackage.id}"`)
+  }
+  else if (merged?.minGameVersion) {
+    validateCompatibilityMinVersion(merged.minGameVersion, 'Bundle')
+  }
+
+  return hasCompatibility ? { ...merged } : undefined
+}
+
+function validateCompatibilityMinVersion(version: string, subject: string): void {
+  if (!isValidSemverVersion(version)) {
+    throw new Error(`${subject} has invalid minGameVersion "${version}".`)
+  }
 }
 
 function withRuntimePackageIntegrity(
