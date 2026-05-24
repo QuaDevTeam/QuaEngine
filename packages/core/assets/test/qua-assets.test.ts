@@ -212,7 +212,7 @@ describe('quaAssets core runtime', () => {
     expect(await assets.getText('data', 'shared.txt')).toBe('low-localized')
     expect(changed).toHaveBeenCalledWith(expect.objectContaining({
       type: 'removed',
-      assetId: 'high:default:data:shared.txt',
+      assetId: 'high@1#test:default:data:data/shared.txt',
     }))
     expect(unloaded).toHaveBeenCalledWith({ packageId: 'runtime.high', bundleName: 'high' })
   })
@@ -290,7 +290,7 @@ describe('quaAssets core runtime', () => {
     expect(await assets.translate('hello', { targetPackageId: 'runtime.base' })).toBe('Base default')
   })
 
-  it('rejects replacing a mounted dynamic bundle unless explicitly forced', async () => {
+  it('keeps all dynamic bundle versions side by side and allows downgrade by reloading an old version', async () => {
     const firstManifest = createDynamicManifest('runtime', 'runtime.story', 1, {
       locales: ['default'],
       version: 1,
@@ -311,6 +311,8 @@ describe('quaAssets core runtime', () => {
       locales: ['default'],
       version: 2,
     })
+    replacementManifest.bundleVersion = 2
+    replacementManifest.buildNumber = 'test-v2'
     const adapterWithBundles = createAdapter({
       files: {
         'https://cdn.example.com/runtime-a.qpk': createQpkBundle(firstManifest, new Map([
@@ -330,18 +332,205 @@ describe('quaAssets core runtime', () => {
     await assets.initialize()
     assets.on('asset:changed', changed)
 
-    await assets.loadDynamicBundle('runtime-a.qpk')
-    await expect(assets.loadDynamicBundle('runtime-b.qpk')).rejects.toThrow('already loaded')
+    const first = await assets.loadDynamicBundle('runtime-a.qpk')
     expect(await assets.getText('data', 'shared.txt', { bundleName: 'runtime' })).toBe('first')
     expect(await assets.getText('data', 'old.txt', { bundleName: 'runtime' })).toBe('old')
 
-    await assets.loadDynamicBundle('runtime-b.qpk', { force: true })
+    const second = await assets.loadDynamicBundle('runtime-b.qpk')
     expect(await assets.getText('data', 'shared.txt', { bundleName: 'runtime' })).toBe('replacement')
     await expect(assets.getText('data', 'old.txt', { bundleName: 'runtime' })).rejects.toThrow('Asset not found')
-    expect(changed).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'removed',
-      assetId: 'runtime:default:data:old.txt',
-    }))
+    expect(changed).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'removed' }))
+
+    await assets.loadDynamicBundle('runtime-a.qpk')
+    expect(await assets.getText('data', 'shared.txt', { bundleName: 'runtime' })).toBe('first')
+    expect(await assets.getText('data', 'old.txt', { bundleName: 'runtime' })).toBe('old')
+    expect(await assets.getText('data', 'shared.txt', { bundleVersionKey: second.bundleVersionKey })).toBe('replacement')
+    expect(await assets.getText('data', 'shared.txt', { targetPackageId: 'runtime.story' })).toBe('first')
+    await expect(assets.getText('data', 'old.txt', { bundleVersionKey: second.bundleVersionKey })).rejects.toThrow('Asset not found')
+
+    const storedBundles = await adapterWithBundles.storage.getAllBundles()
+    expect(storedBundles.map(bundle => bundle.versionKey).sort()).toEqual([first.bundleVersionKey, second.bundleVersionKey].sort())
+  })
+
+  it('filters incompatible resource versions but permits compatible downgrade resolution', async () => {
+    const compatibleManifest = createDynamicManifest('runtime', 'runtime.story', 1, {
+      locales: ['default'],
+      version: 1,
+    })
+    compatibleManifest.compatibility = { minGameVersion: '1.0.0' }
+    compatibleManifest.runtimePackage = {
+      ...compatibleManifest.runtimePackage!,
+      compatibility: { minGameVersion: '1.0.0' },
+    }
+    const incompatibleManifest = createDynamicManifest('runtime', 'runtime.story', 1, {
+      locales: ['default'],
+      version: 2,
+    })
+    incompatibleManifest.bundleVersion = 2
+    incompatibleManifest.buildNumber = 'test-v2'
+    incompatibleManifest.compatibility = { minGameVersion: '2.0.0' }
+    incompatibleManifest.runtimePackage = {
+      ...incompatibleManifest.runtimePackage!,
+      compatibility: { minGameVersion: '2.0.0' },
+    }
+    const adapterWithBundles = createAdapter({
+      files: {
+        'https://cdn.example.com/runtime-v1.qpk': createQpkBundle(compatibleManifest, new Map([
+          ['assets/data/shared.txt', utf8('compatible')],
+        ])),
+        'https://cdn.example.com/runtime-v2.qpk': createQpkBundle(incompatibleManifest, new Map([
+          ['assets/data/shared.txt', utf8('incompatible')],
+        ])),
+      },
+    })
+    assets = new QuaAssets({
+      endpoint: 'https://cdn.example.com',
+      adapter: adapterWithBundles,
+      appVersion: '1.0.0',
+    })
+    await assets.initialize()
+
+    await assets.loadDynamicBundle('runtime-v1.qpk')
+    await expect(assets.loadDynamicBundle('runtime-v2.qpk')).rejects.toThrow('requires game version 2.0.0')
+
+    expect(await assets.getText('data', 'shared.txt', { bundleName: 'runtime' })).toBe('compatible')
+  })
+
+  it('applies patches atomically with full relative paths and preserves previous bundle versions', async () => {
+    const baseManifest = createManifest({
+      name: 'main',
+      bundleVersion: 1,
+      buildNumber: 'base',
+      compatibility: { minGameVersion: '1.0.0' },
+      assets: {
+        data: {
+          'folder-a/same.txt': createDataAsset('folder-a/same.txt', 'hash-a'),
+          'folder-b/same.txt': createDataAsset('folder-b/same.txt', 'hash-b'),
+          'keep.txt': createDataAsset('keep.txt', 'hash-keep'),
+        },
+      },
+      totalFiles: 3,
+      totalSize: 3,
+    })
+    const patchManifest = createManifest({
+      name: 'main-patch',
+      isPatch: true,
+      patchVersion: 1002,
+      fromVersion: 1,
+      toVersion: 2,
+      compatibility: { minGameVersion: '1.0.0' },
+      assets: {
+        data: {
+          'folder-b/same.txt': createDataAsset('folder-b/same.txt', 'hash-b2', 2),
+          'new.txt': createDataAsset('new.txt', 'hash-new', 1),
+        },
+      },
+      changes: {
+        added: [{ path: 'data/new.txt', operation: 'added', newHash: 'hash-new', newVersion: 1 }],
+        modified: [{ path: 'data/folder-b/same.txt', operation: 'modified', oldHash: 'hash-b', newHash: 'hash-b2', newVersion: 2 }],
+        deleted: [{ path: 'data/folder-a/same.txt', operation: 'deleted', oldHash: 'hash-a' }],
+      },
+      totalChanges: 3,
+      totalFiles: 2,
+    })
+    const adapterWithBundles = createAdapter({
+      files: {
+        'https://cdn.example.com/main.qpk': createQpkBundle(baseManifest, new Map([
+          ['assets/data/folder-a/same.txt', utf8('a')],
+          ['assets/data/folder-b/same.txt', utf8('b')],
+          ['assets/data/keep.txt', utf8('keep')],
+        ])),
+        'https://cdn.example.com/main.patch.qpk': createQpkBundle(patchManifest, new Map([
+          ['assets/data/folder-b/same.txt', utf8('b2')],
+          ['assets/data/new.txt', utf8('new')],
+        ])),
+      },
+    })
+    assets = new QuaAssets({
+      endpoint: 'https://cdn.example.com',
+      adapter: adapterWithBundles,
+      appVersion: '1.0.0',
+    })
+    await assets.initialize()
+    await assets.loadBundle('main.qpk')
+
+    const result = await assets.applyPatch('main.patch.qpk', 'main')
+
+    expect(result).toEqual({
+      success: true,
+      changes: { added: 1, modified: 1, deleted: 1 },
+      errors: [],
+    })
+    expect(await assets.getText('data', 'same.txt', { bundleName: 'main' })).toBe('b2')
+    expect(await assets.getText('data', 'keep.txt', { bundleName: 'main' })).toBe('keep')
+    expect(await assets.getText('data', 'new.txt', { bundleName: 'main' })).toBe('new')
+    await expect(assets.getText('data', 'same.txt', { bundleName: 'main', bundleVersionKey: 'main@2#test' })).resolves.toBe('b2')
+    await expect(assets.getText('data', 'same.txt', { bundleName: 'main', bundleVersionKey: 'main@1#base' })).resolves.toBe('a')
+    await expect(assets.getText('data', 'same.txt', { bundleVersionKey: 'main@2#test' })).resolves.toBe('b2')
+
+    const bundles = await adapterWithBundles.storage.getAllBundles()
+    expect(bundles.map(bundle => bundle.versionKey).sort()).toEqual(['main@1#base', 'main@2#test'])
+    expect((await assets.getBundleManifest('main'))?.assets.data?.['data/folder-a/same.txt']).toBeUndefined()
+  })
+
+  it('does not mutate active bundle assets when patch precheck fails', async () => {
+    const baseManifest = createManifest({
+      name: 'main',
+      bundleVersion: 1,
+      buildNumber: 'base',
+      compatibility: { minGameVersion: '1.0.0' },
+      assets: {
+        data: {
+          'keep.txt': createDataAsset('keep.txt', 'hash-keep'),
+        },
+      },
+      totalFiles: 1,
+      totalSize: 1,
+    })
+    const badPatchManifest = createManifest({
+      name: 'main-patch',
+      isPatch: true,
+      patchVersion: 1002,
+      fromVersion: 1,
+      toVersion: 2,
+      compatibility: { minGameVersion: '1.0.0' },
+      assets: {
+        data: {
+          'keep.txt': createDataAsset('keep.txt', 'hash-new'),
+        },
+      },
+      changes: {
+        added: [],
+        modified: [{ path: 'data/keep.txt', operation: 'modified', oldHash: 'wrong-old-hash', newHash: 'hash-new' }],
+        deleted: [],
+      },
+      totalChanges: 1,
+      totalFiles: 1,
+    })
+    const adapterWithBundles = createAdapter({
+      files: {
+        'https://cdn.example.com/main.qpk': createQpkBundle(baseManifest, new Map([
+          ['assets/data/keep.txt', utf8('keep')],
+        ])),
+        'https://cdn.example.com/bad.patch.qpk': createQpkBundle(badPatchManifest, new Map([
+          ['assets/data/keep.txt', utf8('new')],
+        ])),
+      },
+    })
+    assets = new QuaAssets({
+      endpoint: 'https://cdn.example.com',
+      adapter: adapterWithBundles,
+      appVersion: '1.0.0',
+    })
+    await assets.initialize()
+    await assets.loadBundle('main.qpk')
+
+    const result = await assets.applyPatch('bad.patch.qpk', 'main')
+
+    expect(result.success).toBe(false)
+    expect(result.errors).toContain('Patch modification hash mismatch: data/keep.txt')
+    expect(await assets.getText('data', 'keep.txt', { bundleName: 'main' })).toBe('keep')
+    expect((await adapterWithBundles.storage.getAllBundles()).map(bundle => bundle.versionKey)).toEqual(['main@1#base'])
   })
 
   it('uses provider data and forwards provider changes', async () => {
@@ -471,8 +660,16 @@ function createAdapter(options: { files?: Record<string, Uint8Array> } = {}): As
       },
     },
     crypto: {
-      async sha256() {
-        return ''
+      async sha256(data) {
+        const text = new TextDecoder().decode(data)
+        const hashes: Record<string, string> = {
+          a: 'hash-a',
+          b: 'hash-b',
+          b2: 'hash-b2',
+          new: 'hash-new',
+          keep: 'hash-keep',
+        }
+        return hashes[text] || ''
       },
     },
     now: () => 1_700_000_000_000,
@@ -549,6 +746,21 @@ function createCatalogAsset(locales: string[]) {
     type: 'data' as const,
     locales,
     mimeType: 'application/json',
+  }
+}
+
+function createDataAsset(path: string, hash = '', version = 1) {
+  const normalizedPath = path.replace(/^data\//, '')
+  return {
+    name: normalizedPath.split('/').pop() || normalizedPath,
+    path: `data/${normalizedPath}`,
+    relativePath: `data/${normalizedPath}`,
+    size: 0,
+    hash,
+    type: 'data' as const,
+    locales: ['default'],
+    mimeType: 'text/plain',
+    version,
   }
 }
 

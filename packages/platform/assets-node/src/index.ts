@@ -11,7 +11,15 @@ import type {
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
-import { findBestRankedAssetRecord, QuaAssets } from '@quajs/assets'
+import {
+  compareStoredBundles,
+  findBestRankedAssetRecord,
+  getBundleLogicalName,
+  getBundleStorageKey,
+  isBundleIdentityMatch,
+  QuaAssets,
+  selectBestStoredBundle,
+} from '@quajs/assets'
 import lzma from 'lzma-native'
 
 export interface NodeAssetsAdapterOptions {
@@ -123,10 +131,11 @@ export class FileSystemAssetStorage implements AssetStorage {
   async findAssets(criteria: AssetFindCriteria): Promise<StoredAsset[]> {
     const results: StoredAsset[] = []
     for (const asset of this.assets.values()) {
-      if ((!criteria.bundleName || asset.bundleName === criteria.bundleName)
+      if ((!criteria.bundleVersionKey || asset.bundleVersionKey === criteria.bundleVersionKey)
+        && (!criteria.bundleName || matchesBundleCriteria(asset, criteria.bundleName))
         && (!criteria.type || asset.type === criteria.type)
         && (!criteria.locale || asset.locale === criteria.locale)
-        && (!criteria.name || asset.name === criteria.name)) {
+        && (!criteria.name || matchesAssetName(asset, criteria.name))) {
         const loaded = await this.getAsset(asset.id)
         if (loaded)
           results.push(loaded)
@@ -135,8 +144,14 @@ export class FileSystemAssetStorage implements AssetStorage {
     return results
   }
 
-  async getAssetWithLocaleFallback(bundleName: string, type: any, name: string, preferredLocale = 'default'): Promise<StoredAsset | undefined> {
-    return findBestRankedAssetRecord(await this.findAssets({ bundleName, type, name }), preferredLocale)
+  async getAssetWithLocaleFallback(bundleName: string, type: any, name: string, preferredLocale = 'default', bundleVersionKey?: string): Promise<StoredAsset | undefined> {
+    const activeBundle = bundleVersionKey ? undefined : this.resolveBundle(bundleName)
+    return findBestRankedAssetRecord(await this.findAssets({
+      bundleName,
+      bundleVersionKey: bundleVersionKey || activeBundle?.versionKey,
+      type,
+      name,
+    }), preferredLocale)
   }
 
   async deleteAsset(id: string): Promise<void> {
@@ -146,18 +161,38 @@ export class FileSystemAssetStorage implements AssetStorage {
   }
 
   async deleteAssetsByBundle(bundleName: string): Promise<number> {
-    const ids = Array.from(this.assets.values()).filter(asset => asset.bundleName === bundleName).map(asset => asset.id)
+    const bundle = this.resolveBundle(bundleName)
+    const versionKey = bundle?.versionKey
+    const ids = Array.from(this.assets.values())
+      .filter(asset => matchesBundleForDeletion(asset, bundleName, versionKey))
+      .map(asset => asset.id)
     await Promise.all(ids.map(id => this.deleteAsset(id)))
     return ids.length
   }
 
   async storeBundle(bundle: StoredBundle): Promise<void> {
-    this.bundles.set(bundle.name, bundle)
+    const logicalName = getBundleLogicalName(bundle)
+    const active = bundle.active !== false
+    if (active) {
+      for (const [key, existing] of this.bundles.entries()) {
+        if (getBundleLogicalName(existing) === logicalName) {
+          this.bundles.set(key, { ...existing, active: false })
+        }
+      }
+    }
+    const stored: StoredBundle = {
+      ...bundle,
+      logicalName,
+      versionKey: bundle.versionKey || bundle.name,
+      active,
+      lastUpdated: Date.now(),
+    }
+    this.bundles.set(getBundleStorageKey(stored), stored)
     await this.saveIndex()
   }
 
   async getBundle(name: string): Promise<StoredBundle | undefined> {
-    return this.bundles.get(name)
+    return this.resolveBundle(name)
   }
 
   async getAllBundles(): Promise<StoredBundle[]> {
@@ -165,8 +200,15 @@ export class FileSystemAssetStorage implements AssetStorage {
   }
 
   async deleteBundle(name: string): Promise<void> {
-    this.bundles.delete(name)
-    await this.deleteAssetsByBundle(name)
+    const bundle = this.resolveBundle(name)
+    if (!bundle) {
+      return
+    }
+    await this.deleteAssetsByBundle(bundle.versionKey || bundle.name)
+    this.bundles.delete(getBundleStorageKey(bundle))
+    if (bundle.active) {
+      this.promoteNextActiveBundle(getBundleLogicalName(bundle))
+    }
     await this.saveIndex()
   }
 
@@ -219,6 +261,27 @@ export class FileSystemAssetStorage implements AssetStorage {
     return join(this.root, 'assets', encodeURIComponent(id))
   }
 
+  private resolveBundle(name: string): StoredBundle | undefined {
+    const exact = this.bundles.get(name)
+    if (exact)
+      return exact
+
+    const matches = Array.from(this.bundles.values()).filter(bundle => isBundleIdentityMatch(bundle, name))
+    const active = matches.filter(bundle => bundle.active)
+    return selectBestStoredBundle(active.length > 0 ? active : matches)
+  }
+
+  private promoteNextActiveBundle(logicalName: string): void {
+    const candidates = Array.from(this.bundles.entries())
+      .filter(([, bundle]) => getBundleLogicalName(bundle) === logicalName)
+      .sort(([, left], [, right]) => compareStoredBundles(left, right))
+    const next = candidates[0]
+    if (!next)
+      return
+    const [key, bundle] = next
+    this.bundles.set(key, { ...bundle, active: true })
+  }
+
   private async loadIndex(): Promise<void> {
     try {
       const index = JSON.parse(await readFile(join(this.root, 'index.json'), 'utf8')) as {
@@ -226,7 +289,7 @@ export class FileSystemAssetStorage implements AssetStorage {
         bundles: StoredBundle[]
       }
       this.assets = new Map(index.assets.map(asset => [asset.id, asset]))
-      this.bundles = new Map(index.bundles.map(bundle => [bundle.name, bundle]))
+      this.bundles = new Map(index.bundles.map(bundle => [bundle.versionKey || bundle.name, bundle]))
     }
     catch {
       this.assets.clear()
@@ -241,6 +304,28 @@ export class FileSystemAssetStorage implements AssetStorage {
       bundles: Array.from(this.bundles.values()),
     }))
   }
+}
+
+function matchesBundleCriteria(asset: StoredAsset, bundleName: string, activeBundle?: StoredBundle): boolean {
+  if (activeBundle?.versionKey) {
+    return asset.bundleVersionKey === activeBundle.versionKey
+  }
+  return asset.bundleName === bundleName
+    || asset.logicalBundleName === bundleName
+    || asset.bundleVersionKey === bundleName
+}
+
+function matchesAssetName(asset: StoredAsset, name: string): boolean {
+  return asset.name === name || asset.path === name || asset.path?.endsWith(`/${name}`) === true
+}
+
+function matchesBundleForDeletion(asset: StoredAsset, bundleName: string, versionKey?: string): boolean {
+  if (versionKey) {
+    return asset.bundleVersionKey === versionKey
+  }
+  return asset.bundleName === bundleName
+    || asset.logicalBundleName === bundleName
+    || asset.bundleVersionKey === bundleName
 }
 
 function resolveFileUrl(url: string, rootDir = process.cwd()): string {

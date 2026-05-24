@@ -1,6 +1,22 @@
 export { AssetManager } from './asset-manager'
 
+export {
+  compareStoredBundles,
+  createBundleVersionKey,
+  getBundleLogicalName,
+  getBundleStorageKey,
+  isBundleIdentityMatch,
+  selectBestStoredBundle,
+} from './bundle-identity'
+
 export { BundleLoader } from './bundle-loader'
+export {
+  assertCompatibleGameVersion,
+  assertValidAppVersion,
+  assertValidCompatibility,
+  getCompatibilityErrors,
+  isCompatibleWithGameVersion,
+} from './compatibility'
 export {
   DEFAULT_I18N_LOCALE,
   DEFAULT_I18N_NAMESPACE,
@@ -100,6 +116,7 @@ export type {
   RuntimePackageSignatureManifest,
   RuntimePackageStoreMigrationManifest,
   RuntimePackageStoryGraphDeltaManifest,
+  VersionCompatibility,
   // Data structures
   StoredAsset,
   StoredBundle,

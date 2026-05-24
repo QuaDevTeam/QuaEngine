@@ -362,6 +362,9 @@ importers:
       '@quajs/logger':
         specifier: workspace:*
         version: link:../../utils
+      '@quajs/utils':
+        specifier: workspace:*
+        version: link:../../utils/common
       fflate:
         specifier: 'catalog:'
         version: 0.8.2

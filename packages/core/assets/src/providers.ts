@@ -2,13 +2,17 @@ import type {
   AssetLocale,
   AssetManifestRecord,
   AssetType,
+  VersionCompatibility,
 } from './types'
+import { isCompatibleWithGameVersion } from './compatibility'
 
 export interface RankableAssetRecord {
   locale?: AssetLocale
   bundlePriority?: number
   version?: number
+  bundleVersion?: number
   loadedAt?: number
+  compatibility?: VersionCompatibility
 }
 
 export function findBestAssetRecord(
@@ -17,6 +21,7 @@ export function findBestAssetRecord(
   name: string,
   locale: AssetLocale,
   bundleName?: string,
+  appVersion?: string,
 ): AssetManifestRecord | undefined {
   const matches = records.filter(record =>
     record.type === type
@@ -24,26 +29,34 @@ export function findBestAssetRecord(
     && (!bundleName || record.bundleName === bundleName),
   )
 
-  return findBestRankedAssetRecord(matches, locale)
+  return findBestRankedAssetRecord(matches, locale, appVersion)
 }
 
 export function findBestRankedAssetRecord<T extends RankableAssetRecord>(
   records: readonly T[],
   preferredLocale: AssetLocale,
+  appVersion?: string,
 ): T | undefined {
+  const compatibleRecords = filterCompatibleRecords(records, appVersion)
   const fallbackChain = createLocaleFallbackChain(preferredLocale)
-  const localeCandidates = records.filter(record => fallbackChain.includes(normalizeLocale(record.locale || 'default')))
-  const candidates = localeCandidates.length > 0 ? localeCandidates : records
+  const localeCandidates = compatibleRecords.filter(record => fallbackChain.includes(normalizeLocale(record.locale || 'default')))
+  const candidates = localeCandidates.length > 0 ? localeCandidates : compatibleRecords
   return [...candidates].sort((left, right) => compareRankedAssetRecords(left, right, preferredLocale))[0]
 }
 
 export function findBestTargetRankedAssetRecord<T extends RankableAssetRecord>(
   records: readonly T[],
   preferredLocale: AssetLocale,
+  appVersion?: string,
 ): T | undefined {
   const fallbackChain = createLocaleFallbackChain(preferredLocale)
-  const candidates = records.filter(record => fallbackChain.includes(normalizeLocale(record.locale || 'default')))
+  const candidates = filterCompatibleRecords(records, appVersion)
+    .filter(record => fallbackChain.includes(normalizeLocale(record.locale || 'default')))
   return [...candidates].sort((left, right) => compareTargetRankedAssetRecords(left, right, preferredLocale))[0]
+}
+
+function filterCompatibleRecords<T extends RankableAssetRecord>(records: readonly T[], appVersion?: string): T[] {
+  return records.filter(record => isCompatibleWithGameVersion(record.compatibility, appVersion))
 }
 
 function compareRankedAssetRecords(
@@ -55,7 +68,7 @@ function compareRankedAssetRecords(
   if (priorityDelta !== 0)
     return priorityDelta
 
-  const versionDelta = (right.version ?? 1) - (left.version ?? 1)
+  const versionDelta = (right.bundleVersion ?? right.version ?? 1) - (left.bundleVersion ?? left.version ?? 1)
   if (versionDelta !== 0)
     return versionDelta
 

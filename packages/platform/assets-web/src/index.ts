@@ -3,6 +3,7 @@ import type {
   AssetChangeListener,
   AssetData,
   AssetFetchResult,
+  AssetFindCriteria,
   AssetManifest,
   AssetManifestRecord,
   AssetProvider,
@@ -14,7 +15,15 @@ import type {
   StoredBundle,
 } from '@quajs/assets'
 import type { Table } from 'dexie'
-import { findBestRankedAssetRecord, QuaAssets } from '@quajs/assets'
+import {
+  compareStoredBundles,
+  findBestRankedAssetRecord,
+  getBundleLogicalName,
+  getBundleStorageKey,
+  isBundleIdentityMatch,
+  QuaAssets,
+  selectBestStoredBundle,
+} from '@quajs/assets'
 import Dexie from 'dexie'
 import LZMA from 'lzma-web'
 
@@ -347,11 +356,11 @@ class IndexedDBAssetStorage extends Dexie {
   assets!: Table<StoredAsset, string>
   bundles!: Table<StoredBundle, string>
 
-  constructor(databaseName = 'QuaAssetsDB', version = 1) {
+  constructor(databaseName = 'QuaAssetsDB', version = 2) {
     super(databaseName)
     this.version(version).stores({
-      assets: 'id, bundleName, name, type, locale, hash, version, lastAccessed, createdAt',
-      bundles: 'name, version, buildNumber, hash, lastUpdated, createdAt',
+      assets: 'id, bundleName, logicalBundleName, bundleVersionKey, name, type, locale, hash, version, lastAccessed, createdAt',
+      bundles: 'versionKey, name, logicalName, version, buildNumber, hash, lastUpdated, createdAt, active',
     })
   }
 
@@ -372,19 +381,26 @@ class IndexedDBAssetStorage extends Dexie {
     return asset
   }
 
-  async findAssets(criteria: { bundleName?: string, type?: any, locale?: string, name?: string }): Promise<StoredAsset[]> {
+  async findAssets(criteria: AssetFindCriteria): Promise<StoredAsset[]> {
     return await this.assets
       .filter(asset =>
-        (!criteria.bundleName || asset.bundleName === criteria.bundleName)
+        (!criteria.bundleVersionKey || asset.bundleVersionKey === criteria.bundleVersionKey)
+        && (!criteria.bundleName || matchesBundleCriteria(asset, criteria.bundleName))
         && (!criteria.type || asset.type === criteria.type)
         && (!criteria.locale || asset.locale === criteria.locale)
-        && (!criteria.name || asset.name === criteria.name),
+        && (!criteria.name || matchesAssetName(asset, criteria.name)),
       )
       .toArray()
   }
 
-  async getAssetWithLocaleFallback(bundleName: string, type: any, name: string, preferredLocale = 'default'): Promise<StoredAsset | undefined> {
-    return findBestRankedAssetRecord(await this.findAssets({ bundleName, type, name }), preferredLocale)
+  async getAssetWithLocaleFallback(bundleName: string, type: any, name: string, preferredLocale = 'default', bundleVersionKey?: string): Promise<StoredAsset | undefined> {
+    const activeBundle = bundleVersionKey ? undefined : await this.resolveBundle(bundleName)
+    return findBestRankedAssetRecord(await this.findAssets({
+      bundleName,
+      bundleVersionKey: bundleVersionKey || activeBundle?.versionKey,
+      type,
+      name,
+    }), preferredLocale)
   }
 
   async deleteAsset(id: string): Promise<void> {
@@ -392,15 +408,38 @@ class IndexedDBAssetStorage extends Dexie {
   }
 
   async deleteAssetsByBundle(bundleName: string): Promise<number> {
-    return await this.assets.where('bundleName').equals(bundleName).delete()
+    const bundle = await this.resolveBundle(bundleName)
+    const versionKey = bundle?.versionKey
+    return await this.assets
+      .filter(asset => matchesBundleForDeletion(asset, bundleName, versionKey))
+      .delete()
   }
 
   async storeBundle(bundle: StoredBundle): Promise<void> {
-    await this.bundles.put({ ...bundle, lastUpdated: Date.now() })
+    await this.transaction('rw', this.bundles, async () => {
+      const logicalName = getBundleLogicalName(bundle)
+      const active = bundle.active !== false
+      if (active) {
+        const existing = await this.bundles
+          .filter(candidate => getBundleLogicalName(candidate) === logicalName)
+          .toArray()
+        await Promise.all(existing.map(candidate =>
+          this.bundles.put({ ...candidate, active: false }),
+        ))
+      }
+      const stored: StoredBundle = {
+        ...bundle,
+        logicalName,
+        versionKey: bundle.versionKey || bundle.name,
+        active,
+        lastUpdated: Date.now(),
+      }
+      await this.bundles.put(stored)
+    })
   }
 
   async getBundle(name: string): Promise<StoredBundle | undefined> {
-    return await this.bundles.get(name)
+    return await this.resolveBundle(name)
   }
 
   async getAllBundles(): Promise<StoredBundle[]> {
@@ -409,8 +448,15 @@ class IndexedDBAssetStorage extends Dexie {
 
   async deleteBundle(name: string): Promise<void> {
     await this.transaction('rw', this.bundles, this.assets, async () => {
-      await this.bundles.delete(name)
-      await this.deleteAssetsByBundle(name)
+      const bundle = await this.resolveBundle(name)
+      if (!bundle) {
+        return
+      }
+      await this.deleteAssetsByBundle(bundle.versionKey || bundle.name)
+      await this.bundles.delete(getBundleStorageKey(bundle))
+      if (bundle.active) {
+        await this.promoteNextActiveBundle(getBundleLogicalName(bundle))
+      }
     })
   }
 
@@ -457,6 +503,51 @@ class IndexedDBAssetStorage extends Dexie {
       newestAsset: assets.length ? new Date(Math.max(...assets.map(asset => asset.lastAccessed))) : null,
     }
   }
+
+  private async resolveBundle(name: string): Promise<StoredBundle | undefined> {
+    const exact = await this.bundles.get(name)
+    if (exact)
+      return exact
+
+    const matches = await this.bundles
+      .filter(bundle => isBundleIdentityMatch(bundle, name))
+      .toArray()
+    const active = matches.filter(bundle => bundle.active)
+    return selectBestStoredBundle(active.length > 0 ? active : matches)
+  }
+
+  private async promoteNextActiveBundle(logicalName: string): Promise<void> {
+    const candidates = (await this.bundles
+      .filter(bundle => getBundleLogicalName(bundle) === logicalName)
+      .toArray())
+      .sort(compareStoredBundles)
+    const next = candidates[0]
+    if (!next)
+      return
+    await this.bundles.put({ ...next, active: true })
+  }
+}
+
+function matchesBundleCriteria(asset: StoredAsset, bundleName: string, activeBundle?: StoredBundle): boolean {
+  if (activeBundle?.versionKey) {
+    return asset.bundleVersionKey === activeBundle.versionKey
+  }
+  return asset.bundleName === bundleName
+    || asset.logicalBundleName === bundleName
+    || asset.bundleVersionKey === bundleName
+}
+
+function matchesAssetName(asset: StoredAsset, name: string): boolean {
+  return asset.name === name || asset.path === name || asset.path?.endsWith(`/${name}`) === true
+}
+
+function matchesBundleForDeletion(asset: StoredAsset, bundleName: string, versionKey?: string): boolean {
+  if (versionKey) {
+    return asset.bundleVersionKey === versionKey
+  }
+  return asset.bundleName === bundleName
+    || asset.logicalBundleName === bundleName
+    || asset.bundleVersionKey === bundleName
 }
 
 function concatBytes(chunks: Uint8Array[]): Uint8Array {
