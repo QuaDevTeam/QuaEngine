@@ -11,6 +11,7 @@ import type {
   RuntimePackageScriptManifest,
   RuntimePackageStoreMigrationManifest,
   TranslateInput,
+  VersionCompatibility,
 } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
 import type { QuaStateSerializer, QuaStore, StorageConfig } from '@quajs/store'
@@ -616,6 +617,7 @@ export interface RuntimePackageStateRecord {
   version: string
   state: RuntimePackageState
   bundleName?: string
+  compatibility?: VersionCompatibility
   priority?: number
   loadedAt: number
   activatedAt?: number
@@ -785,6 +787,7 @@ export interface GameSaveData {
 }
 
 export interface EngineConfig {
+  appVersion?: string
   layout?: ViewLayoutInput
   assets?: QuaAssetsConfig
   store?: {
