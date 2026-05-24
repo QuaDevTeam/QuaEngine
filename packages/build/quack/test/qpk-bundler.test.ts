@@ -1,10 +1,12 @@
 import type { AssetInfo, BundleManifest } from '../src/core/types'
+import { createHash, generateKeyPairSync } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { QPKBundler } from '../src/bundlers/qpk-bundler'
 import { readQpkSummary } from '../src/qpk-reader'
+import { signQpkFile, verifyQpkFile } from '../src/security/signature'
 
 describe('qPKBundler', () => {
   let qpkBundler: QPKBundler
@@ -183,6 +185,82 @@ describe('qPKBundler', () => {
       const bundle = await qpkBundler.readBundle(outputPath)
       expect(bundle.manifest.totalFiles).toBe(0)
       expect(bundle.assets.size).toBe(0)
+    })
+
+    it('should sign and verify runtime QPK bundles', async () => {
+      const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' })
+      const content = 'export default async function step() {}'
+      const asset = await createTestAsset(tempDir, 'runtime.js', content)
+      const hash = createHash('sha256').update(content).digest('hex')
+      const manifest = createSignedRuntimeManifest(asset, hash)
+      const outputPath = join(tempDir, 'runtime.qpk')
+
+      await qpkBundler.createBundle([asset], manifest, outputPath, { compress: false, encrypt: false })
+      await signQpkFile(outputPath, {
+        keyId: 'release-key',
+        privateKey: privateKey.export({ format: 'pem', type: 'pkcs8' }),
+      })
+
+      await expect(verifyQpkFile(outputPath, {
+        expectedKeyId: 'release-key',
+        publicKey: publicKey.export({ format: 'pem', type: 'spki' }),
+        requireSignature: true,
+      })).resolves.toEqual(expect.objectContaining({ valid: true }))
+    })
+
+    it('should fail verification when runtime QPK asset bytes are modified', async () => {
+      const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' })
+      const content = 'export default async function step() {}'
+      const asset = await createTestAsset(tempDir, 'tamper.js', content)
+      const hash = createHash('sha256').update(content).digest('hex')
+      const manifest = createSignedRuntimeManifest(asset, hash)
+      const outputPath = join(tempDir, 'tamper.qpk')
+
+      await qpkBundler.createBundle([asset], manifest, outputPath, { compress: false, encrypt: false })
+      await signQpkFile(outputPath, {
+        keyId: 'release-key',
+        privateKey: privateKey.export({ format: 'pem', type: 'pkcs8' }),
+      })
+
+      const bundle = await qpkBundler.readBundle(outputPath)
+      bundle.assets.set('assets/scripts/tamper.js', Buffer.from('tampered'))
+      await qpkBundler.createBundle([{
+        ...asset,
+        content: bundle.assets.get('assets/scripts/tamper.js')!,
+        size: Buffer.byteLength('tampered'),
+      }], bundle.manifest, outputPath, { compress: false, encrypt: false })
+
+      const result = await verifyQpkFile(outputPath, {
+        publicKey: publicKey.export({ format: 'pem', type: 'spki' }),
+        requireSignature: true,
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.errors.join('\n')).toContain('Hash mismatch')
+    })
+
+    it('should fail verification when expected signature keyId does not match', async () => {
+      const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' })
+      const content = 'export default async function step() {}'
+      const asset = await createTestAsset(tempDir, 'keyid.js', content)
+      const hash = createHash('sha256').update(content).digest('hex')
+      const manifest = createSignedRuntimeManifest(asset, hash)
+      const outputPath = join(tempDir, 'keyid.qpk')
+
+      await qpkBundler.createBundle([asset], manifest, outputPath, { compress: false, encrypt: false })
+      await signQpkFile(outputPath, {
+        keyId: 'release-key',
+        privateKey: privateKey.export({ format: 'pem', type: 'pkcs8' }),
+      })
+
+      const result = await verifyQpkFile(outputPath, {
+        expectedKeyId: 'other-key',
+        publicKey: publicKey.export({ format: 'pem', type: 'spki' }),
+        requireSignature: true,
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.errors.join('\n')).toContain('signature keyId mismatch')
     })
   })
 
@@ -406,4 +484,48 @@ function createQpkManifest(overrides: Partial<BundleManifest> = {}): BundleManif
     totalFiles: 0,
     ...overrides,
   }
+}
+
+function createSignedRuntimeManifest(asset: AssetInfo, hash: string): BundleManifest {
+  const merkleRoot = hash
+  return createQpkManifest({
+    assets: {
+      images: {},
+      characters: {},
+      audio: {},
+      video: {},
+      fonts: {},
+      scripts: {
+        [asset.name]: {
+          ...asset,
+          hash,
+          variants: {
+            default: {
+              locale: 'default',
+              path: asset.path,
+              relativePath: asset.relativePath,
+              size: asset.size,
+              hash,
+            },
+          },
+        },
+      },
+      data: {},
+    },
+    merkleRoot,
+    runtimePackage: {
+      id: 'runtime-test',
+      version: '1.0.0',
+      integrity: {
+        algorithm: 'sha256',
+        hash: merkleRoot,
+      },
+      scripts: [{
+        id: 'runtime-test.script',
+        assetName: asset.name,
+      }],
+    },
+    totalFiles: 1,
+    totalSize: asset.size,
+  })
 }

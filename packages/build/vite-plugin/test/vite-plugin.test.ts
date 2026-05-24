@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Writable } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { quackPlugin, quaEngine, quaEnginePlugin, quaScriptCompilerPlugin } from '../src/index'
+import { quackPlugin, quaEngine, quaEnginePlugin, quaScriptCompilerPlugin, webSecurityPlugin } from '../src/index'
 
 const quackMocks = vi.hoisted(() => ({
   bundle: vi.fn().mockResolvedValue({
@@ -215,6 +215,63 @@ describe('@quajs/vite-plugin', () => {
 
       expect(plugins).toContain(featurePlugin)
       expect(plugins.some(plugin => plugin === false || plugin == null)).toBe(false)
+    })
+
+    it('should include web security plugin when enabled', () => {
+      const plugins = quaEngine({
+        webSecurity: { enabled: true },
+      })
+
+      expect(plugins.some(plugin => plugin.name === 'qua-web-security')).toBe(true)
+    })
+  })
+
+  describe('web security', () => {
+    it('should inject SRI attributes and emit hash CSP assets', () => {
+      const plugin = webSecurityPlugin({
+        enabled: true,
+        csp: { mode: 'hash' },
+        sri: { enabled: true, algorithm: 'sha384' },
+      })
+      const emitted: any[] = []
+      const bundle = {
+        'assets/index.js': {
+          type: 'chunk',
+          code: 'console.log("qua")',
+        },
+        'assets/index.css': {
+          type: 'asset',
+          source: '.qua{display:block}',
+        },
+      }
+
+      const html = (plugin.transformIndexHtml as any).handler(
+        '<html><head><link rel="stylesheet" href="/assets/index.css"></head><body><script type="module" src="/assets/index.js"></script></body></html>',
+        { bundle },
+      )
+      ;(plugin.generateBundle as any).call({ emitFile: (file: any) => emitted.push(file) }, {}, bundle)
+
+      expect(html).toContain('integrity="sha384-')
+      expect(html).toContain('crossorigin="anonymous"')
+      const csp = emitted.find(file => file.fileName === 'qua-security/csp.txt')?.source
+      expect(csp).toContain('script-src')
+      expect(csp).toContain('sha384-')
+      expect(csp.match(/script-src[^;]+/)?.[0]).not.toContain('blob:')
+    })
+
+    it('should include blob script source only when runtime blob modules are allowed', () => {
+      const plugin = webSecurityPlugin({
+        enabled: true,
+        csp: { mode: 'nonce', allowRuntimeBlobModules: true, trustedTypes: true },
+      })
+      const emitted: any[] = []
+      ;(plugin.generateBundle as any).call({ emitFile: (file: any) => emitted.push(file) }, {}, {})
+
+      const csp = emitted.find(file => file.fileName === 'qua-security/csp.txt')?.source
+      expect(csp).toContain('script-src')
+      expect(csp).toContain('blob:')
+      expect(csp).toContain('require-trusted-types-for')
+      expect(csp).toContain('__QUA_CSP_NONCE__')
     })
   })
 

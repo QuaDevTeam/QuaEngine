@@ -10,6 +10,7 @@ import { QPKBundler } from '../bundlers/qpk-bundler'
 import { ZipBundler } from '../bundlers/zip-bundler'
 import { QuackBundler } from '../core/bundler'
 import { buildLocalePack } from '../i18n/locale-pack'
+import { readKeyFile, signQpkFile, verifyQpkFile } from '../security/signature'
 import { getErrorMessage, getErrorStack } from '../utils/error'
 import { PatchGenerator } from '../workspace/patch-generator'
 import { VersionManager } from '../workspace/versioning'
@@ -40,6 +41,8 @@ program
   .option('--no-compress', 'Disable compression')
   .option('--no-encrypt', 'Disable encryption (QPK only)')
   .option('--encryption-key <key>', 'Custom encryption key')
+  .option('--sign-key <path>', 'PKCS8 PEM or JWK private key for signing runtime QPK output')
+  .option('--sign-key-id <id>', 'Key identifier to write into runtime package signature metadata')
   .option('--plugin <name...>', 'Load plugins')
   .option('-v, --verbose', 'Verbose output')
   .action(async (source, options) => {
@@ -148,6 +151,9 @@ program
   .command('verify')
   .description('Verify bundle integrity')
   .argument('<bundle>', 'Bundle file to verify')
+  .option('--public-key <path>', 'SPKI PEM or JWK public key for runtime QPK signature verification')
+  .option('--require-signature', 'Require runtime QPK signature metadata')
+  .option('--key-id <id>', 'Expected runtime QPK signature keyId')
   .option('-v, --verbose', 'Verbose output')
   .action(async (bundlePath, options) => {
     try {
@@ -161,8 +167,11 @@ program
 
       let result: { valid: boolean, errors: string[] }
       if (bundlePath.endsWith('.qpk')) {
-        const qpkBundler = new QPKBundler()
-        result = await qpkBundler.verifyBundle(resolvedBundle)
+        result = await verifyQpkFile(resolvedBundle, {
+          expectedKeyId: options.keyId,
+          publicKey: options.publicKey ? await readKeyFile(resolve(options.publicKey)) : undefined,
+          requireSignature: options.requireSignature,
+        })
       }
       else {
         const zipBundler = new ZipBundler()
@@ -182,6 +191,39 @@ program
     }
     catch (error) {
       console.error('❌ Verification failed:', getErrorMessage(error))
+      if (options.verbose) {
+        console.error(getErrorStack(error))
+      }
+      process.exit(1)
+    }
+  })
+
+// Sign command
+program
+  .command('sign')
+  .description('Sign a runtime QPK bundle')
+  .argument('<qpk>', 'QPK file to sign in place')
+  .requiredOption('--key <path>', 'PKCS8 PEM or JWK private key')
+  .requiredOption('--key-id <id>', 'Signature key identifier')
+  .option('-v, --verbose', 'Verbose output')
+  .action(async (qpkPath, options) => {
+    try {
+      const resolvedQpk = resolve(qpkPath)
+      if (!existsSync(resolvedQpk)) {
+        throw new Error(`QPK not found: ${resolvedQpk}`)
+      }
+
+      const manifest = await signQpkFile(resolvedQpk, {
+        keyId: options.keyId,
+        privateKey: await readKeyFile(resolve(options.key)),
+      })
+
+      console.log(`✅ QPK signed: ${resolvedQpk}`)
+      console.log(`🔐 Package: ${manifest.runtimePackage?.id}`)
+      console.log(`🔑 Key ID: ${manifest.runtimePackage?.signature?.keyId}`)
+    }
+    catch (error) {
+      console.error('❌ Signing failed:', getErrorMessage(error))
       if (options.verbose) {
         console.error(getErrorStack(error))
       }
@@ -970,6 +1012,20 @@ async function loadConfig(source: string, options: any): Promise<QuackConfig> {
 
   if (options.encryptionKey) {
     config.encryption = { ...config.encryption, key: options.encryptionKey }
+  }
+
+  if (options.signKey) {
+    config.signing = {
+      ...config.signing,
+      key: resolve(options.signKey),
+      keyId: options.signKeyId || config.signing?.keyId,
+    }
+  }
+  else if (options.signKeyId) {
+    config.signing = {
+      ...config.signing,
+      keyId: options.signKeyId,
+    }
   }
 
   if (options.verbose) {

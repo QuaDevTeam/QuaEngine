@@ -12,6 +12,18 @@ export default defineConfig({
         devVfs: true,
         devVfsBase: '/@qua-assets',
       },
+      webSecurity: {
+        enabled: true,
+        csp: {
+          mode: 'hash',
+          allowRuntimeBlobModules: false,
+          trustedTypes: false,
+        },
+        sri: {
+          enabled: true,
+          algorithm: 'sha384',
+        },
+      },
     }),
     createSpriteVitePlugin({
       source: 'assets',

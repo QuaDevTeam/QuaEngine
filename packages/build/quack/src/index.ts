@@ -14,6 +14,21 @@ export { ZipBundler } from './bundlers/zip-bundler'
 export { defineConfig, QuackBundler } from './core/bundler'
 export { buildLocalePack } from './i18n/locale-pack'
 export type { LocalePackBuildOptions, LocalePackBuildResult } from './i18n/locale-pack'
+export {
+  base64UrlDecode,
+  base64UrlEncode,
+  canonicalJson,
+  createRuntimePackageSignaturePayload,
+  QUA_RUNTIME_SIGNATURE_ALGORITHM,
+  QUA_RUNTIME_SIGNATURE_SCHEMA,
+  readKeyFile,
+  signQpkFile,
+  signRuntimePackageManifest,
+  stripRuntimePackageSignature,
+  verifyQpkFile,
+  verifyRuntimePackageSignature,
+} from './security/signature'
+export type { QpkKeyInput, QpkSignatureOptions, QpkVerifyOptions, QpkVerifyResult, RuntimePackageSignaturePayload } from './security/signature'
 // Core types
 export type {
   AssetCollectionContext,
@@ -43,6 +58,7 @@ export type {
   PatchManifest,
   PatchOptions,
   QuackConfig,
+  QuackSigningConfig,
   RuntimePackageIntegrityManifest,
   RuntimeLocalePackManifest,
   RuntimeLocalePackTargetManifest,

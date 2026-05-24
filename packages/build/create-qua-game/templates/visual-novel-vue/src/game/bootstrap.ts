@@ -8,10 +8,20 @@ import { FontsPlugin } from '@quajs/plugin-fonts'
 import { SettingsPlugin } from '@quajs/plugin-settings'
 import { QuaRenderer } from '@quajs/renderer-vue'
 import { createVisualNovelRendererPlugins } from '@quajs/renderer-vue/plugins/preset'
+import {
+  createWebRuntimeModuleLoader,
+  createWebRuntimeRendererPluginLoader,
+  createWebRuntimeTrustPolicy,
+} from '@quajs/security-web'
 import { defineComponent, h, ref } from 'vue'
 import opening from './scenes/opening.qs'
 
 const GAME_TITLE = '__PROJECT_TITLE__'
+const TRUSTED_RUNTIME_KEYS = [
+  // Production runtime QPKs should be signed with a private key whose public key is registered here.
+  // Example:
+  // { id: 'release-2026-01', key: { kty: 'EC', crv: 'P-256', x: '...', y: '...', ext: true } },
+]
 
 export async function createQuaGameApp() {
   const bootMessage = ref('Loading QuaEngine...')
@@ -22,6 +32,21 @@ export async function createQuaGameApp() {
     },
   })
   bootMessage.value = 'Preparing story runtime...'
+  const trustPolicy = createWebRuntimeTrustPolicy({
+    keys: TRUSTED_RUNTIME_KEYS,
+    requireSignature: import.meta.env.PROD,
+    allowUnsignedInDevelopment: true,
+  })
+  const runtimeModuleLoader = createWebRuntimeModuleLoader({
+    allowBlobFallback: false,
+    assets,
+    moduleUrlMode: 'same-origin-with-blob-fallback',
+  })
+  const runtimePluginLoader = createWebRuntimeRendererPluginLoader({
+    allowBlobFallback: false,
+    assets,
+    moduleUrlMode: 'same-origin-with-blob-fallback',
+  })
 
   const engine = new QuaEngine({
     layout: 'landscape',
@@ -40,6 +65,8 @@ export async function createQuaGameApp() {
         autoAdvanceDelayMs: 1400,
       },
     },
+    runtimeModuleLoader,
+    trustPolicy,
   })
 
   engine
@@ -96,6 +123,7 @@ export async function createQuaGameApp() {
           assets,
           initialView: engine.getViewState(),
           plugins: rendererPlugins,
+          runtimePluginLoader,
         }),
         h('p', { class: 'boot-message', 'data-qua-input-ignore': '' }, bootMessage.value),
       ])
