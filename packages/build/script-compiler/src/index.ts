@@ -6,6 +6,38 @@ import { createHotReloadAwareTransformer } from './integrations/hot-reload-trans
 import { createPluginAwareTransformer } from './integrations/plugin-aware-transformer'
 
 export { generateQuaScriptModuleDeclaration } from './core/declaration'
+export {
+  applyQuaScriptLintRules,
+  applyQuaScriptTextEdits,
+  createFullDocumentEdit,
+  createMinimalTextEdit,
+  createQuaScriptLintResult,
+  resolveQuaScriptRuleSeverity,
+  summarizeQuaScriptDiagnostics,
+} from './core/diagnostics'
+export { fileMatchesQuaScriptConfig, resolveQuaScriptFiles } from './core/files'
+export type { QuaScriptFileMatchOptions } from './core/files'
+export {
+  collectScriptRanges,
+  detectLineEnding,
+  formatQuaScript,
+  formatQuaScriptDocument,
+  formatQuaScriptWithEdits,
+  splitQuaScriptSourceLines,
+} from './core/format'
+export type { QuaScriptScriptRange, QuaScriptSourceLine } from './core/format'
+export {
+  collectQuaScriptStyleDiagnostics,
+  getQuaScriptFixAllEdits,
+  lintQuaScriptSource,
+  QUASCRIPT_STYLE_RULES,
+} from './core/lint'
+export type { QuaScriptSourceLintOptions } from './core/lint'
+export {
+  DEFAULT_QUASCRIPT_TOOLING_CONFIG,
+  loadQuaScriptToolingConfig,
+  mergeQuaScriptToolingConfig,
+} from './core/config'
 export { extractQuaScriptStoryDeclaration } from './core/story-declaration'
 export { createLineStarts, parseQuaScriptDocument, positionAt, rangeFromOffsets } from './core/document'
 export {
@@ -46,10 +78,21 @@ export type {
   QuaScriptAction,
   QuaScriptChoice,
   QuaScriptDecorator,
+  QuaScriptDiagnosticSeverity,
+  QuaScriptDiagnosticSource,
   QuaScriptDiagnostic,
   QuaScriptDialogue,
   QuaScriptDocumentBlock,
+  QuaScriptFix,
+  QuaScriptFormatOptions,
+  QuaScriptFormatResult,
+  QuaScriptLintOptions,
+  QuaScriptLintResult,
+  QuaScriptLintRule,
+  QuaScriptRuleSeverity,
   QuaScriptStep,
+  QuaScriptTextEdit,
+  QuaScriptToolingConfig,
   SourcePosition,
   SourceRange,
   StoryDeclaration,

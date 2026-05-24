@@ -52,6 +52,7 @@ export default defineConfig({
         '@babel/generator',
         '@quajs/character/script-compiler',
         '@quajs/engine',
+        '@quajs/language-server',
         '@quajs/plugin-audio',
         '@quajs/plugin-audio/script-compiler',
         '@quajs/plugin-animation/script-compiler',

@@ -26,10 +26,76 @@ export interface SourceRange {
   end: SourcePosition
 }
 
+export type QuaScriptDiagnosticSeverity = 'error' | 'warning' | 'info'
+
+export type QuaScriptDiagnosticSource
+  = 'quascript/parser'
+    | 'quascript/typescript'
+    | 'quascript/story'
+    | 'quascript/project'
+    | 'quascript/style'
+
+export interface QuaScriptTextEdit {
+  newText: string
+  range: SourceRange
+}
+
+export interface QuaScriptFix {
+  edits: QuaScriptTextEdit[]
+  title: string
+}
+
 export interface QuaScriptDiagnostic {
+  code: string
+  fix?: QuaScriptFix
   message: string
   range?: SourceRange
-  severity: 'error' | 'warning'
+  severity: QuaScriptDiagnosticSeverity
+  source: QuaScriptDiagnosticSource
+}
+
+export type QuaScriptRuleSeverity = QuaScriptDiagnosticSeverity | 'off'
+
+export interface QuaScriptLintRule {
+  code: string
+  defaultSeverity: QuaScriptRuleSeverity
+  description: string
+}
+
+export interface QuaScriptLintOptions {
+  rules?: Record<string, QuaScriptRuleSeverity>
+}
+
+export interface QuaScriptLintResult {
+  diagnostics: QuaScriptDiagnostic[]
+  errorCount: number
+  fixableCount: number
+  infoCount: number
+  warningCount: number
+}
+
+export interface QuaScriptFormatOptions {
+  insertFinalNewline?: boolean
+  maxBlankLines?: number
+}
+
+export interface QuaScriptFormatResult {
+  formatted: string
+  changed: boolean
+  edits: QuaScriptTextEdit[]
+}
+
+export interface QuaScriptToolingConfig {
+  files?: {
+    exclude?: string[]
+    include?: string[]
+  }
+  format?: QuaScriptFormatOptions & {
+    enable?: boolean
+  }
+  lint?: QuaScriptLintOptions & {
+    enable?: boolean
+  }
 }
 
 export interface QuaScriptDocumentBlock {

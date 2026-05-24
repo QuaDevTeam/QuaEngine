@@ -50,7 +50,10 @@
     "onView:quascript.storyPointInspector",
     "onView:quascript.packageHealth",
     "onCommand:quascript.refreshInspector",
-    "onCommand:quascript.openStoryGraph"
+    "onCommand:quascript.openStoryGraph",
+    "onCommand:quascript.formatDocument",
+    "onCommand:quascript.fixAll",
+    "onCommand:quascript.restartLanguageServer"
   ],
   "contributes": {
     "languages": [
@@ -117,6 +120,21 @@
       ]
     },
     "commands": [
+      {
+        "command": "quascript.formatDocument",
+        "title": "QuaScript: Format Document",
+        "icon": "$(wand)"
+      },
+      {
+        "command": "quascript.fixAll",
+        "title": "QuaScript: Fix All Auto-fixable Problems",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "quascript.restartLanguageServer",
+        "title": "QuaScript: Restart Language Server",
+        "icon": "$(debug-restart)"
+      },
       {
         "command": "quascript.refreshInspector",
         "title": "QuaScript: Refresh Project Inspector",
@@ -208,6 +226,70 @@
           "group": "navigation"
         }
       ]
+    },
+    "configuration": {
+      "title": "QuaScript",
+      "properties": {
+        "quascript.lint.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable QuaScript lint diagnostics."
+        },
+        "quascript.lint.rules": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "off",
+              "warning",
+              "error",
+              "info"
+            ]
+          },
+          "description": "Override QuaScript lint rule severities by diagnostic code."
+        },
+        "quascript.format.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable QuaScript document formatting."
+        },
+        "quascript.format.maxBlankLines": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0,
+          "description": "Maximum consecutive blank lines preserved by the QuaScript formatter."
+        },
+        "quascript.format.insertFinalNewline": {
+          "type": "boolean",
+          "default": true,
+          "description": "Insert a final newline when formatting QuaScript files."
+        },
+        "quascript.files.include": {
+          "type": "array",
+          "default": [
+            "**/*.qs"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "QuaScript file include patterns used by tooling."
+        },
+        "quascript.files.exclude": {
+          "type": "array",
+          "default": [
+            "node_modules/**",
+            "dist/**",
+            ".git/**",
+            ".qua/**",
+            "coverage/**"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "QuaScript file exclude patterns used by tooling."
+        }
+      }
     }
   },
   "scripts": {

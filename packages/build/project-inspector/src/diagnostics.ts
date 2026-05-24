@@ -134,18 +134,22 @@ function collectCurrentChoiceDiagnostics(parsed: ParsedQuaScript, index: StoryIn
       }
       if (option.source === 'sugar' && option.condition && isComplexSugarCondition(option.condition)) {
         diagnostics.push({
+          code: 'QS_STORY_COMPLEX_CHOICE_CONDITION',
           message: 'Choice sugar uses a complex if expression. Prefer <script setup> bindings or @Choice(..., { when }) for maintainable branching.',
           range: option.conditionRange || option.range,
           severity: 'warning',
+          source: 'quascript/story',
         })
       }
 
       const target = normalizeChoiceTarget(option.target)
       if (!target) {
         diagnostics.push({
+          code: 'QS_STORY_UNSTRUCTURED_CHOICE_TARGET',
           message: `Choice "${option.text}" does not declare a structured story target.`,
           range: context.range,
           severity: 'error',
+          source: 'quascript/story',
         })
         continue
       }
@@ -168,9 +172,11 @@ function diagnoseTarget(
   if (target.kind === 'scene') {
     if (!isSerializableLiteral(target.state)) {
       diagnostics.push({
+        code: 'QS_STORY_NON_SERIALIZABLE_SCENE_STATE',
         message: `Scene target "${target.sceneId || 'unknown'}" passes non-serializable initial state. Scene state must be JSON-serializable.`,
         range: context.range,
         severity: 'warning',
+        source: 'quascript/story',
       })
     }
     const sceneMatches = index.scenes.filter(scene => scene.id === target.sceneId)
@@ -179,17 +185,21 @@ function diagnoseTarget(
       : []
     if (index.hasProjectDeclarations && sceneMatches.length === 0 && entryMatches.length === 0) {
       diagnostics.push({
+        code: 'QS_STORY_UNRESOLVED_SCENE_TARGET',
         message: `Unresolved scene target "${describeTarget(target)}".`,
         range: context.range,
         severity: 'error',
+        source: 'quascript/story',
       })
       return diagnostics
     }
     if (target.entry && entryMatches.length === 0 && sceneMatches.length > 0) {
       diagnostics.push({
+        code: 'QS_STORY_UNRESOLVED_SCENE_ENTRY',
         message: `Scene target "${describeTarget(target)}" references an entry that does not exist in the indexed story tree.`,
         range: context.range,
         severity: 'error',
+        source: 'quascript/story',
       })
     }
     return diagnostics
@@ -198,16 +208,20 @@ function diagnoseTarget(
   if (target.kind === 'script') {
     if (!isSerializableLiteral(target.scope)) {
       diagnostics.push({
+        code: 'QS_STORY_NON_SERIALIZABLE_SCRIPT_SCOPE',
         message: `Script target "${target.moduleId || 'unknown'}" passes non-serializable scope. Script jump scope must be JSON-serializable.`,
         range: context.range,
         severity: 'warning',
+        source: 'quascript/story',
       })
     }
     if (target.moduleId && index.scriptModuleIds.size > 0 && !index.scriptModuleIds.has(target.moduleId)) {
       diagnostics.push({
+        code: 'QS_STORY_UNRESOLVED_SCRIPT_TARGET',
         message: `Unresolved script target "${target.moduleId}".`,
         range: context.range,
         severity: 'error',
+        source: 'quascript/story',
       })
     }
     return diagnostics
@@ -221,16 +235,20 @@ function diagnoseTarget(
   if (packageId) {
     if (index.packageIds.size > 0 && !index.packageIds.has(packageId)) {
       diagnostics.push({
+        code: 'QS_PROJECT_UNKNOWN_RUNTIME_PACKAGE',
         message: `Package-scoped target references unknown runtime package "${packageId}".`,
         range: context.range,
         severity: 'error',
+        source: 'quascript/project',
       })
     }
     else if (!target.requiredRuntimePackages?.includes(packageId) && !projectDeclaresDependencyOn(index, packageId)) {
       diagnostics.push({
+        code: 'QS_PROJECT_MISSING_RUNTIME_PACKAGE_DEPENDENCY',
         message: `Package-scoped target "${packageId}" should be declared through runtime package dependencies or requiredRuntimePackages.`,
         range: context.range,
         severity: 'warning',
+        source: 'quascript/project',
       })
     }
   }
@@ -243,27 +261,33 @@ function diagnoseTarget(
 
   if (sameSceneCandidates.length > 1) {
     diagnostics.push({
+      code: 'QS_STORY_AMBIGUOUS_TARGET',
       message: `Ambiguous story target "${describeTarget(target)}" resolves to ${sameSceneCandidates.length} story nodes.`,
       range: context.range,
       severity: 'error',
+      source: 'quascript/story',
     })
     return diagnostics
   }
 
   if (sameSceneCandidates.length === 0 && crossSceneCandidates.length > 0) {
     diagnostics.push({
+      code: 'QS_STORY_CROSS_SCENE_TARGET',
       message: `Choice "${choiceText}" targets "${describeTarget(target)}" in another scene. Use scene(...) or scene:id#entry for cross-scene choice jumps.`,
       range: context.range,
       severity: 'error',
+      source: 'quascript/story',
     })
     return diagnostics
   }
 
   if (sameSceneCandidates.length === 0 && index.hasProjectDeclarations) {
     diagnostics.push({
+      code: 'QS_STORY_UNRESOLVED_TARGET',
       message: `Unresolved story target "${describeTarget(target)}".`,
       range: context.range,
       severity: 'error',
+      source: 'quascript/story',
     })
   }
 
@@ -278,16 +302,20 @@ function collectCurrentAssetDiagnostics(index: StoryIndex, options: QuaProjectIn
     const diagnostics: QuaScriptDiagnostic[] = []
     if (asset.packageId && index.packageIds.size > 0 && !index.packageIds.has(asset.packageId)) {
       diagnostics.push({
+        code: 'QS_PROJECT_UNKNOWN_RUNTIME_PACKAGE',
         message: `Story asset "${asset.name}" references unknown runtime package "${asset.packageId}".`,
         range: asset.sourceLocation?.range,
         severity: 'error',
+        source: 'quascript/project',
       })
     }
     if (!storyAssetExists({ filePath: asset.sourceLocation?.filePath || options.filePath, projectRoot: options.projectRoot }, asset.type, asset.name)) {
       diagnostics.push({
+        code: 'QS_PROJECT_MISSING_ASSET',
         message: `Story asset "${asset.name}" was not found under project assets.`,
         range: asset.sourceLocation?.range,
         severity: 'error',
+        source: 'quascript/project',
       })
     }
     return diagnostics

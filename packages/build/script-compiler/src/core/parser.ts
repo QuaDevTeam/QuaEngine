@@ -30,6 +30,7 @@ interface DecoratorSource {
 
 interface TemplateScanResult {
   diagnostics: Array<{
+    code: string
     end: number
     message: string
     start: number
@@ -207,6 +208,7 @@ export class QuaScriptParser {
       const templateScan = scanTemplateText(dialogue.text)
       templateScan.diagnostics.forEach((diagnostic) => {
         this.diagnostics.push({
+          code: diagnostic.code,
           message: diagnostic.message,
           range: rangeFromOffsets(
             this.lineStarts,
@@ -214,6 +216,7 @@ export class QuaScriptParser {
             dialogue.textOffset + diagnostic.end,
           ),
           severity: 'error',
+          source: 'quascript/parser',
         })
       })
 
@@ -259,9 +262,11 @@ export class QuaScriptParser {
 
     if (line?.text) {
       this.diagnostics.push({
+        code: 'QS_PARSE_UNRECOGNIZED_LINE',
         message: `Unrecognized QuaScript line: ${line.text}`,
         range: line.range,
         severity: 'warning',
+        source: 'quascript/parser',
       })
       this.advance()
     }
@@ -275,9 +280,11 @@ export class QuaScriptParser {
     }
     if (choiceDecorators.length !== decorators.length) {
       this.diagnostics.push({
+        code: 'QS_PARSE_MIXED_CHOICE_DECORATORS',
         message: '@Choice decorators cannot be mixed with non-choice decorators in the same action block.',
         range: choiceDecorators[0].range,
         severity: 'error',
+        source: 'quascript/parser',
       })
     }
 
@@ -285,18 +292,22 @@ export class QuaScriptParser {
       const rawText = decorator.args[0]
       if (typeof rawText !== 'string') {
         this.diagnostics.push({
+          code: 'QS_PARSE_CHOICE_LABEL_REQUIRED',
           message: '@Choice requires a string label as its first argument.',
           range: decorator.range,
           severity: 'error',
+          source: 'quascript/parser',
         })
       }
       const text = typeof rawText === 'string' ? rawText : `Choice ${index + 1}`
       const templateScan = scanTemplateText(text)
       templateScan.diagnostics.forEach((diagnostic) => {
         this.diagnostics.push({
+          code: diagnostic.code,
           message: diagnostic.message,
           range: decorator.range,
           severity: 'error',
+          source: 'quascript/parser',
         })
       })
       return {
@@ -369,9 +380,11 @@ export class QuaScriptParser {
     const text = textSource.trim()
     if (!text) {
       this.diagnostics.push({
+        code: 'QS_PARSE_EMPTY_CHOICE_TEXT',
         message: 'Choice text cannot be empty.',
         range: line.range,
         severity: 'error',
+        source: 'quascript/parser',
       })
       return null
     }
@@ -382,6 +395,7 @@ export class QuaScriptParser {
     const templateScan = scanTemplateText(text)
     templateScan.diagnostics.forEach((diagnostic) => {
       this.diagnostics.push({
+        code: diagnostic.code,
         message: diagnostic.message,
         range: rangeFromOffsets(
           this.lineStarts,
@@ -389,6 +403,7 @@ export class QuaScriptParser {
           textRange.start.offset + diagnostic.end,
         ),
         severity: 'error',
+        source: 'quascript/parser',
       })
     })
     const conditionRange = condition
@@ -460,9 +475,11 @@ export class QuaScriptParser {
     const name = readIdentifierName(decoratorSource)
     if (!name) {
       this.diagnostics.push({
+        code: 'QS_PARSE_INVALID_DECORATOR_SYNTAX',
         message: `Invalid decorator syntax: ${source.text}`,
         range: source.range,
         severity: 'error',
+        source: 'quascript/parser',
       })
       return null
     }
@@ -476,9 +493,11 @@ export class QuaScriptParser {
 
     if (!rest.startsWith('(') || !rest.endsWith(')') || !isBalancedWrapper(rest, '(', ')')) {
       this.diagnostics.push({
+        code: 'QS_PARSE_INVALID_DECORATOR_ARGUMENTS',
         message: `Invalid decorator arguments for @${name}.`,
         range: source.range,
         severity: 'error',
+        source: 'quascript/parser',
       })
       return { name, args: [], range: source.range }
     }
@@ -558,9 +577,11 @@ export class QuaScriptParser {
           }
 
           this.diagnostics.push({
+            code: 'QS_PARSE_UNSUPPORTED_DECORATOR_ARGUMENT',
             message: 'Unsupported TypeScript decorator argument syntax.',
             range: line.range,
             severity: 'error',
+            source: 'quascript/parser',
           })
         })
         return values
@@ -568,17 +589,21 @@ export class QuaScriptParser {
     }
     catch (error) {
       this.diagnostics.push({
+        code: 'QS_PARSE_INVALID_TYPESCRIPT_DECORATOR_ARGUMENTS',
         message: `Invalid TypeScript decorator arguments: ${error instanceof Error ? error.message : String(error)}`,
         range: line.range,
         severity: 'error',
+        source: 'quascript/parser',
       })
       return []
     }
 
     this.diagnostics.push({
+      code: 'QS_PARSE_INVALID_TYPESCRIPT_DECORATOR_ARGUMENTS',
       message: 'Invalid TypeScript decorator arguments.',
       range: line.range,
       severity: 'error',
+      source: 'quascript/parser',
     })
     return []
   }
@@ -691,6 +716,7 @@ export function scanTemplateText(text: string): TemplateScanResult {
     const end = findBalancedExpressionEnd(text, start + 2)
     if (end === -1) {
       diagnostics.push({
+        code: 'QS_PARSE_UNTERMINATED_INTERPOLATION',
         message: 'Unterminated QuaScript interpolation. Expected a closing }.',
         start,
         end: text.length,
@@ -701,6 +727,7 @@ export function scanTemplateText(text: string): TemplateScanResult {
     const expression = text.slice(start + 2, end).trim()
     if (!expression) {
       diagnostics.push({
+        code: 'QS_PARSE_EMPTY_INTERPOLATION',
         message: 'QuaScript interpolation cannot be empty.',
         start,
         end: end + 1,

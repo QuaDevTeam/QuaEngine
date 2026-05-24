@@ -24,17 +24,21 @@ export function parseQuaScriptDocument(source: string): ParsedQuaScriptDocument 
 
     if (attrs.lang !== 'ts') {
       diagnostics.push({
+        code: 'QS_PARSE_INVALID_SCRIPT_LANG',
         message: '<script> blocks in .qs files must use lang="ts".',
         range: rangeFromOffsets(lineStarts, openStart, openEnd),
         severity: 'error',
+        source: 'quascript/parser',
       })
     }
 
     if (closeStart === -1) {
       diagnostics.push({
+        code: 'QS_PARSE_MISSING_SCRIPT_CLOSE',
         message: 'Missing closing </script> tag.',
         range: rangeFromOffsets(lineStarts, openStart, openEnd),
         severity: 'error',
+        source: 'quascript/parser',
       })
       break
     }
@@ -60,9 +64,11 @@ export function parseQuaScriptDocument(source: string): ParsedQuaScriptDocument 
   if (moduleBlocks.length > 1) {
     moduleBlocks.slice(1).forEach((block) => {
       diagnostics.push({
+        code: 'QS_PARSE_DUPLICATE_MODULE_SCRIPT',
         message: 'Only one module <script lang="ts"> block is allowed in a .qs file.',
         range: rangeFromOffsets(lineStarts, block.openStart, block.closeEnd),
         severity: 'error',
+        source: 'quascript/parser',
       })
     })
   }
@@ -70,9 +76,11 @@ export function parseQuaScriptDocument(source: string): ParsedQuaScriptDocument 
   if (setupBlocks.length > 1) {
     setupBlocks.slice(1).forEach((block) => {
       diagnostics.push({
+        code: 'QS_PARSE_DUPLICATE_SETUP_SCRIPT',
         message: 'Only one <script setup lang="ts"> block is allowed in a .qs file.',
         range: rangeFromOffsets(lineStarts, block.openStart, block.closeEnd),
         severity: 'error',
+        source: 'quascript/parser',
       })
     })
   }

@@ -120,12 +120,47 @@ export default defineConfig({
 # Compile a single file
 qua-script scene1.ts
 qua-script scene1.qs # writes scene1.compiled.ts
+qua-script compile scene1.qs
 
 # Specify output file
 qua-script -i scene1.ts -o scene1.compiled.ts
 
 # Generate a TypeScript arbitrary-extension declaration
 qua-script scene1.qs --declaration
+
+# Lint and format QuaScript files
+qua-script lint "src/**/*.qs"
+qua-script lint "src/**/*.qs" --json --max-warnings 0
+qua-script lint "src/**/*.qs" --fix
+qua-script format "src/**/*.qs" --check
+qua-script format "src/**/*.qs" --write
+```
+
+`qua-script lint` always runs parser/document and style lint. When `@quajs/language-server` is resolvable from the current project it also runs virtual TypeScript diagnostics and project/story diagnostics. If the language server cannot be loaded, the CLI prints a warning and falls back to parser/style lint only instead of silently omitting project diagnostics.
+
+`qua-script format` is conservative: it preserves `<script lang="ts">` and `<script setup lang="ts">` content byte-for-byte, trims DSL trailing whitespace, collapses excessive blank lines, attaches decorators to their target statement, preserves line-ending policy, and inserts a final newline by default.
+
+QuaScript tooling reads configuration from `quascript.config.json`, `qua.config.json#quascript`, or `package.json#quascript`:
+
+```json
+{
+  "lint": {
+    "rules": {
+      "QS_STYLE_TRAILING_WHITESPACE": "error",
+      "QS_STYLE_MULTIPLE_BLANK_LINES": "warning",
+      "QS_STYLE_DECORATOR_SPACING": "warning",
+      "QS_STYLE_FINAL_NEWLINE": "warning"
+    }
+  },
+  "format": {
+    "maxBlankLines": 1,
+    "insertFinalNewline": true
+  },
+  "files": {
+    "include": ["src/**/*.qs"],
+    "exclude": ["node_modules/**", "dist/**", ".git/**", ".qua/**", "coverage/**"]
+  }
+}
 ```
 
 ### Programmatic Usage

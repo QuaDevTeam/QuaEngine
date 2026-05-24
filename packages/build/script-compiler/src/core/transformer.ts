@@ -964,7 +964,7 @@ export class QuaScriptTransformer {
     throw new Error(`Invalid TypeScript expression in QuaScript: ${source}`)
   }
 
-  private throwDocumentDiagnostics(diagnostics: Array<{ message: string, severity: 'error' | 'warning' }>): void {
+  private throwDocumentDiagnostics(diagnostics: Array<{ message: string, severity: string }>): void {
     const errors = diagnostics.filter(diagnostic => diagnostic.severity === 'error')
     if (errors.length > 0) {
       throw new Error(errors.map(error => error.message).join('\n'))

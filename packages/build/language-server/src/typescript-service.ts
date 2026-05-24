@@ -172,9 +172,23 @@ function mapTypeScriptDiagnostic(
   }
 
   return {
+    code: `TS_${diagnostic.code}`,
     message: ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
     range,
-    severity: diagnostic.category === ts.DiagnosticCategory.Warning ? 'warning' : 'error',
+    severity: mapTypeScriptDiagnosticSeverity(diagnostic.category),
+    source: 'quascript/typescript',
+  }
+}
+
+function mapTypeScriptDiagnosticSeverity(category: ts.DiagnosticCategory): QuaScriptDiagnostic['severity'] {
+  switch (category) {
+    case ts.DiagnosticCategory.Warning:
+      return 'warning'
+    case ts.DiagnosticCategory.Suggestion:
+    case ts.DiagnosticCategory.Message:
+      return 'info'
+    default:
+      return 'error'
   }
 }
 
