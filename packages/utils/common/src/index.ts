@@ -58,3 +58,6 @@ export {
 
 // Validation utilities
 export * from './validation'
+
+// Version utilities
+export * from './version'
