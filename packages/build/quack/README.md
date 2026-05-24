@@ -121,10 +121,10 @@ export default defineConfig({
 
 ### Workspace Configuration
 
-For multi-bundle projects:
+For multi-bundle projects, use `quack.workspace.ts` (or `.js` / `.json`):
 
 ```typescript
-// quack.workspace.js
+// quack.workspace.ts
 export default {
   name: 'my-game',
   version: '1.0.0',

@@ -6,10 +6,19 @@ import type {
 import { existsSync } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { createLogger } from '@quajs/logger'
 import { getErrorMessage } from '../utils/error'
 
 const logger = createLogger('quack:workspace')
+const WORKSPACE_CONFIG_CANDIDATES = [
+  'quack.workspace.ts',
+  'quack.workspace.js',
+  'quack.workspace.json',
+  'workspace.config.ts',
+  'workspace.config.js',
+  'workspace.config.json',
+] as const
 
 export class WorkspaceManager {
   private workspaceRoot: string
@@ -26,7 +35,7 @@ export class WorkspaceManager {
     const configFile = configPath || this.findConfigFile()
 
     if (!configFile) {
-      throw new Error('No workspace configuration file found. Expected quack.workspace.js or quack.workspace.json')
+      throw new Error(`No workspace configuration file found. Expected one of: ${WORKSPACE_CONFIG_CANDIDATES.join(', ')}`)
     }
 
     logger.info(`Loading workspace config: ${configFile}`)
@@ -40,7 +49,7 @@ export class WorkspaceManager {
       }
       else {
         // Dynamic import for JS config files
-        const configModule = await import(`file://${configFile}`)
+        const configModule = await import(pathToFileURL(configFile).href)
         config = configModule.default || configModule
       }
 
@@ -60,14 +69,7 @@ export class WorkspaceManager {
    * Find workspace configuration file
    */
   private findConfigFile(): string | null {
-    const candidates = [
-      'quack.workspace.js',
-      'quack.workspace.json',
-      'workspace.config.js',
-      'workspace.config.json',
-    ]
-
-    for (const candidate of candidates) {
+    for (const candidate of WORKSPACE_CONFIG_CANDIDATES) {
       const fullPath = resolve(this.workspaceRoot, candidate)
       if (existsSync(fullPath)) {
         return fullPath
