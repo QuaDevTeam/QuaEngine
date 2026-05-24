@@ -24,8 +24,8 @@ export type {
   QuaWebDomRendererPlugin,
 } from './dom'
 export { createQuaWebDomRenderer, QuaWebDomRenderer } from './dom'
-export type { OrderedRendererLayer } from './layers'
-export { sortRendererLayers } from './layers'
+export type { QuaWebDomRendererHostOptions } from './framework-host'
+export { createQuaWebDomRendererHost, QuaWebDomRendererHost } from './framework-host'
 export type {
   RendererInputBinding,
   RendererInputBindingPhase,
@@ -46,6 +46,8 @@ export {
   createDefaultRendererInputBindings,
   createRendererInputController,
 } from './input'
+export type { OrderedRendererLayer } from './layers'
+export { sortRendererLayers } from './layers'
 export type {
   ResolvedStageLayout,
   StageClientPoint,
