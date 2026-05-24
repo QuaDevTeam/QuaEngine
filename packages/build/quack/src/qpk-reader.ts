@@ -1,5 +1,5 @@
 import type { BundleManifest, EncryptionAlgorithm, EncryptionPlugin } from './core/types'
-import { open } from 'node:fs/promises'
+import { open, stat } from 'node:fs/promises'
 import { EncryptionManager } from './crypto/encryption'
 
 const QPK_MAGIC = Buffer.from('QPK\0', 'ascii')
@@ -39,11 +39,13 @@ export interface QpkReadSummary {
 }
 
 export async function readQpkSummary(qpkPath: string, options: QpkReaderOptions = {}): Promise<QpkReadSummary> {
+  const fileStats = await stat(qpkPath)
   const file = await open(qpkPath, 'r')
   try {
     const headerBuffer = Buffer.alloc(QPK_HEADER_SIZE)
     await file.read(headerBuffer, 0, QPK_HEADER_SIZE, 0)
     const header = parseQpkHeader(headerBuffer)
+    validateQpkBounds(header, fileStats.size)
     const assets = await readQpkAssetSummary(file, header)
     const manifestResult = await readQpkManifest(file, header, options)
 
@@ -62,6 +64,9 @@ export async function readQpkSummary(qpkPath: string, options: QpkReaderOptions 
 
 export async function readQpkBundle(qpkPath: string, options: QpkReaderOptions = {}): Promise<{ manifest: BundleManifest, assets: Map<string, Buffer> }> {
   const summary = await readQpkSummary(qpkPath, options)
+  if (summary.errors.length > 0 && !summary.locked) {
+    throw new Error(`Invalid QPK structure: ${summary.errors.join('; ')}`)
+  }
   if (!summary.manifest) {
     throw new Error(summary.locked
       ? 'QPK manifest is encrypted and could not be decrypted'
@@ -128,25 +133,54 @@ function parseQpkHeader(buffer: Buffer): QpkHeaderInfo {
   }
 }
 
+function validateQpkBounds(header: QpkHeaderInfo, fileSize: number): void {
+  if (!Number.isSafeInteger(header.manifestOffset) || !Number.isSafeInteger(header.manifestSize)) {
+    throw new Error('Invalid QPK manifest bounds: offset or size exceeds safe integer range')
+  }
+  if (header.manifestOffset < header.headerSize || header.manifestSize < 0) {
+    throw new Error('Invalid QPK manifest bounds')
+  }
+  if (header.manifestOffset > fileSize || header.manifestOffset + header.manifestSize > fileSize) {
+    throw new Error('Invalid QPK manifest bounds')
+  }
+}
+
 async function readQpkAssetSummary(file: Awaited<ReturnType<typeof open>>, header: QpkHeaderInfo): Promise<QpkAssetSummary[]> {
   const assets: QpkAssetSummary[] = []
+  const seen = new Set<string>()
   let offset = header.headerSize
 
   while (offset < header.manifestOffset) {
+    if (offset + 4 > header.manifestOffset) {
+      throw new Error('Invalid QPK asset entry: missing path length')
+    }
     const pathLengthBuffer = Buffer.alloc(4)
     await file.read(pathLengthBuffer, 0, 4, offset)
     const pathLength = pathLengthBuffer.readUInt32LE(0)
     offset += 4
 
+    if (pathLength === 0 || offset + pathLength + 4 > header.manifestOffset) {
+      throw new Error('Invalid QPK asset entry: path out of bounds')
+    }
     const pathBuffer = Buffer.alloc(pathLength)
     await file.read(pathBuffer, 0, pathLength, offset)
     const path = pathBuffer.toString('utf8')
+    if (!isSafeQpkPath(path)) {
+      throw new Error(`Unsafe QPK asset path: ${path}`)
+    }
+    if (seen.has(path)) {
+      throw new Error(`Duplicate QPK asset path: ${path}`)
+    }
+    seen.add(path)
     offset += pathLength
 
     const dataLengthBuffer = Buffer.alloc(4)
     await file.read(dataLengthBuffer, 0, 4, offset)
     const size = dataLengthBuffer.readUInt32LE(0)
     offset += 4
+    if (offset + size > header.manifestOffset) {
+      throw new Error(`Invalid QPK asset entry: ${path} data out of bounds`)
+    }
 
     assets.push({
       dataOffset: offset,
@@ -157,6 +191,14 @@ async function readQpkAssetSummary(file: Awaited<ReturnType<typeof open>>, heade
   }
 
   return assets
+}
+
+function isSafeQpkPath(path: string): boolean {
+  if (!path || path.startsWith('/') || path.startsWith('\\') || /^[a-zA-Z]:/.test(path)) {
+    return false
+  }
+  const normalized = path.replace(/\\/g, '/')
+  return normalized.split('/').every(segment => segment !== '' && segment !== '..')
 }
 
 async function readQpkManifest(

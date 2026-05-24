@@ -8,6 +8,7 @@ import { flattenPluginOptions, logPluginMessage } from './core/utils'
 import { quaEnginePlugin } from './plugins/engine'
 import { quackPlugin } from './plugins/quack'
 import { quaScriptCompilerPlugin } from './plugins/script-compiler'
+import { webSecurityPlugin } from './plugins/web-security'
 
 /**
  * Main QuaEngine Vite plugin that integrates all QuaEngine build pipeline components
@@ -26,6 +27,7 @@ export function quaEngine(options: QuaEngineVitePluginOptions = {}): PluginOptio
     pluginDiscovery = { enabled: true },
     assetBundling = { enabled: true },
     vitePlugins = [],
+    webSecurity = { enabled: false },
     devServer = { hotReloadScripts: true, watchAssets: true },
   } = options
 
@@ -46,6 +48,10 @@ export function quaEngine(options: QuaEngineVitePluginOptions = {}): PluginOptio
   // Quack asset bundling plugin
   if (assetBundling.enabled !== false) {
     plugins.push(quackPlugin(assetBundling))
+  }
+
+  if (webSecurity.enabled === true) {
+    plugins.push(webSecurityPlugin(webSecurity))
   }
 
   // Development server enhancements
@@ -93,7 +99,7 @@ function createDevServerPlugin(devOptions: NonNullable<QuaEngineVitePluginOption
 }
 
 // Re-export individual plugins for advanced users
-export { quackPlugin, quaEnginePlugin, quaScriptCompilerPlugin }
+export { quackPlugin, quaEnginePlugin, quaScriptCompilerPlugin, webSecurityPlugin }
 
 // Re-export types
 export type { AssetBundleManifest, QuaEngineVitePluginOptions, VirtualPluginRegistryEntry } from './core/types'

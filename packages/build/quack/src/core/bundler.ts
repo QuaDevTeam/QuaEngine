@@ -26,6 +26,7 @@ import { QPKBundler } from '../bundlers/qpk-bundler'
 import { ZipBundler } from '../bundlers/zip-bundler'
 import { EncryptionManager } from '../crypto/encryption'
 import { PluginManager } from '../managers/plugin-manager'
+import { readKeyFile, signRuntimePackageManifest } from '../security/signature'
 import { VersionManager } from '../workspace/versioning'
 import { WorkspaceManager } from '../workspace/workspace'
 
@@ -116,6 +117,7 @@ export class QuackBundler extends EventEmitter {
       manifest.buildNumber = normalizedConfig.versioning.buildNumber
       manifest.merkleRoot = root
       manifest.runtimePackage = withRuntimePackageIntegrity(normalizedConfig.runtimePackage, root)
+      await this.applyManifestSignature(manifest, normalizedConfig)
 
       // Validate manifest
       if (!this.metadataGenerator.validateManifest(manifest)) {
@@ -323,6 +325,7 @@ export class QuackBundler extends EventEmitter {
       manifest.buildNumber = normalizedConfig.versioning.buildNumber
       manifest.merkleRoot = root
       manifest.runtimePackage = withRuntimePackageIntegrity(normalizedConfig.runtimePackage, root)
+      await this.applyManifestSignature(manifest, normalizedConfig)
 
       // Add workspace metadata
       ;(manifest as any).workspaceBundle = {
@@ -510,7 +513,26 @@ export class QuackBundler extends EventEmitter {
       ignore: config.ignore || [],
       verbose: config.verbose || false,
       runtimePackage: config.runtimePackage,
+      signing: config.signing,
     }
+  }
+
+  private async applyManifestSignature(manifest: BundleManifest, config: BundleOptions): Promise<void> {
+    if (!config.signing?.key) {
+      return
+    }
+    if (config.format !== 'qpk') {
+      throw new Error('Runtime package signing requires QPK output format.')
+    }
+    if (!manifest.runtimePackage) {
+      throw new Error('Runtime package signing requires runtimePackage metadata.')
+    }
+
+    const privateKey = await readKeyFile(config.signing.key)
+    manifest.runtimePackage = await signRuntimePackageManifest(manifest, {
+      keyId: config.signing.keyId || manifest.runtimePackage.signature?.keyId,
+      privateKey,
+    })
   }
 
   /**

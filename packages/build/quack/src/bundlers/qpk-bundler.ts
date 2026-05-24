@@ -6,7 +6,7 @@ import { createLogger } from '@quajs/logger'
 import * as lzma from 'lzma-native'
 import { EncryptionManager } from '../crypto/encryption'
 import { readQpkBundle } from '../qpk-reader'
-import { getErrorMessage } from '../utils/error'
+import { verifyQpkFile } from '../security/signature'
 
 const logger = createLogger('quack:qpk-bundler')
 
@@ -389,39 +389,7 @@ export class QPKBundler {
    * Verify QPK bundle integrity
    */
   async verifyBundle(qpkPath: string): Promise<{ valid: boolean, errors: string[] }> {
-    try {
-      const { manifest, assets: _assets } = await this.readBundle(qpkPath)
-      const errors: string[] = []
-
-      // Check manifest validity
-      if (!manifest || typeof manifest !== 'object') {
-        errors.push('Invalid or missing manifest')
-      }
-
-      // Check for required manifest fields
-      const requiredFields = ['version', 'bundler', 'created', 'format', 'assets']
-      for (const field of requiredFields) {
-        if (!(field in manifest)) {
-          errors.push(`Missing manifest field: ${field}`)
-        }
-      }
-
-      // Check format
-      if (manifest.format !== 'qpk') {
-        errors.push(`Wrong format in manifest: ${manifest.format}`)
-      }
-
-      return {
-        valid: errors.length === 0,
-        errors,
-      }
-    }
-    catch (error) {
-      return {
-        valid: false,
-        errors: [`Failed to verify bundle: ${getErrorMessage(error)}`],
-      }
-    }
+    return await verifyQpkFile(qpkPath)
   }
 }
 

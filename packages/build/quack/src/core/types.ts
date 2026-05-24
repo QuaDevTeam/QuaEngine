@@ -436,6 +436,11 @@ export interface VersionConfig {
   versionFile?: string
 }
 
+export interface QuackSigningConfig {
+  key?: string
+  keyId?: string
+}
+
 export interface EncryptionContext {
   buffer: Buffer
   key: string
@@ -471,6 +476,7 @@ export interface QuackConfig {
   ignore?: string[]
   verbose?: boolean
   runtimePackage?: RuntimePackageManifest
+  signing?: QuackSigningConfig
 
   // Workspace mode (multi-bundle)
   workspace?: WorkspaceConfig
@@ -547,6 +553,7 @@ export interface BundleOptions {
   ignore: string[]
   verbose: boolean
   runtimePackage?: RuntimePackageManifest
+  signing?: QuackSigningConfig
 }
 
 export interface AssetFilter {

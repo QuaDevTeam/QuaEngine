@@ -53,6 +53,22 @@ export interface QuaEngineVitePluginOptions {
   /** Additional Vite plugins contributed by feature packages */
   vitePlugins?: readonly PluginOption[]
 
+  /** Web packaging security helpers for CSP, SRI, and runtime module policies */
+  webSecurity?: {
+    enabled?: boolean
+    csp?: {
+      mode?: 'hash' | 'nonce' | 'both'
+      allowRuntimeBlobModules?: boolean
+      trustedTypes?: boolean
+      connectSrc?: string[]
+      reportUri?: string
+    }
+    sri?: {
+      enabled?: boolean
+      algorithm?: 'sha384' | 'sha512'
+    }
+  }
+
   /** Development server enhancements */
   devServer?: {
     /** Enable hot reload for scripts */
