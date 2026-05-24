@@ -7,11 +7,13 @@ import type {
   RuntimeLocalePackTargetManifest,
   RuntimePackageManifest,
   RuntimePackageScriptManifest,
+  VersionCompatibility,
 } from '../core/types'
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { basename, extname, resolve } from 'node:path'
 import { compileLocalizedQuaScriptModuleToTs } from '@quajs/script-compiler'
+import { isValidSemverVersion } from '@quajs/utils'
 import ts from 'typescript'
 import { AssetDetector } from '../assets/asset-detector'
 import { MetadataGenerator } from '../assets/metadata'
@@ -27,6 +29,7 @@ export interface LocalePackBuildOptions {
   packageId?: string
   version?: string
   priority?: number
+  compatibility?: VersionCompatibility
   compression?: {
     level?: number
     algorithm?: CompressionAlgorithm
@@ -56,6 +59,7 @@ export async function buildLocalePack(options: LocalePackBuildOptions): Promise<
   const source = resolve(options.source)
   const output = resolve(options.output)
   const baseManifest = await readBaseManifest(resolve(options.base))
+  const compatibility = resolveLocalePackCompatibility(options.compatibility, baseManifest.runtimePackage?.compatibility || baseManifest.compatibility)
   const detector = new AssetDetector(options.ignore || [])
   const sourceAssets = await detector.discoverAssets(source)
   const baseSourceAssets = options.baseSource
@@ -92,6 +96,7 @@ export async function buildLocalePack(options: LocalePackBuildOptions): Promise<
     format: 'qpk',
     compression,
     encryption,
+    compatibility,
     version: runtimePackage.version,
   })
   manifest.runtimePackage = withRuntimePackageIntegrity(runtimePackage, createMerkleRoot(assets))
@@ -205,6 +210,7 @@ function createLocaleRuntimePackage(input: {
     id,
     version,
     priority: input.options.priority ?? input.baseManifest.runtimePackage?.priority,
+    compatibility: input.options.compatibility || input.baseManifest.runtimePackage?.compatibility || input.baseManifest.compatibility,
     dependencies: unique([
       ...(input.baseManifest.runtimePackage?.dependencies || []),
       ...runtimeTargetIds,
@@ -316,4 +322,21 @@ function normalizeLocale(locale: string): string {
 
 function unique<T>(items: T[]): T[] {
   return Array.from(new Set(items))
+}
+
+function resolveLocalePackCompatibility(
+  compatibility: VersionCompatibility | undefined,
+  baseCompatibility: VersionCompatibility | undefined,
+): VersionCompatibility {
+  const resolved = {
+    ...baseCompatibility,
+    ...compatibility,
+  }
+  if (!resolved?.minGameVersion) {
+    throw new Error('Locale pack runtime packages require compatibility.minGameVersion.')
+  }
+  if (!isValidSemverVersion(resolved.minGameVersion)) {
+    throw new Error(`Invalid minGameVersion format: ${resolved.minGameVersion}`)
+  }
+  return { ...resolved }
 }

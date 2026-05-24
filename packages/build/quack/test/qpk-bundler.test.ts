@@ -516,6 +516,7 @@ function createSignedRuntimeManifest(asset: AssetInfo, hash: string): BundleMani
     runtimePackage: {
       id: 'runtime-test',
       version: '1.0.0',
+      compatibility: { minGameVersion: '1.0.0' },
       integrity: {
         algorithm: 'sha256',
         hash: merkleRoot,

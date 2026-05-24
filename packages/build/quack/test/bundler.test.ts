@@ -68,6 +68,7 @@ describe('quackBundler', () => {
         runtimePackage: {
           id: 'runtime.story',
           version: '1.2.3',
+          compatibility: { minGameVersion: '1.0.0' },
           sequence: 3,
           priority: 20,
           dependencies: ['runtime.base'],
@@ -104,6 +105,25 @@ describe('quackBundler', () => {
       expect(manifest.runtimePackage?.storeMigrations).toEqual([expect.objectContaining({ id: 'runtime.story.defaults', scope: 'story' })])
     })
 
+    it('requires runtime packages to declare minGameVersion', async () => {
+      await mkdir(join(tempDir, 'scripts'), { recursive: true })
+      await writeFile(join(tempDir, 'scripts', 'scene.js'), 'export default function createQuaScript() { return [] }')
+
+      bundler = new QuackBundler({
+        source: tempDir,
+        output: join(tempDir, 'runtime-missing-compat.qpk'),
+        format: 'qpk',
+        compression: { algorithm: 'none', level: 0 },
+        runtimePackage: {
+          id: 'runtime.missing.compat',
+          version: '1.0.0',
+          scripts: [{ id: 'runtime.missing.compat.scene', version: '1.0.0', assetName: 'scene.js' }],
+        },
+      })
+
+      await expect(bundler.bundle()).rejects.toThrow('requires compatibility.minGameVersion')
+    })
+
     it('compiles QuaScript locale variants into runtime script variants', async () => {
       await mkdir(join(tempDir, 'scripts'), { recursive: true })
       await writeFile(join(tempDir, 'scripts', 'intro.qs'), '@QuickSave()\nYuki: Hello')
@@ -117,6 +137,7 @@ describe('quackBundler', () => {
         runtimePackage: {
           id: 'runtime.i18n',
           version: '1.0.0',
+          compatibility: { minGameVersion: '1.0.0' },
           scripts: [{ id: 'runtime.i18n.intro', version: '1.0.0', assetName: 'scripts/intro.js' }],
           signature: { value: 'runtime-signature' },
         },
@@ -171,6 +192,7 @@ Yuki: We arrived.
         runtimePackage: {
           id: 'runtime.storytree',
           version: '1.0.0',
+          compatibility: { minGameVersion: '1.0.0' },
           scripts: [{ id: 'runtime.storytree.story', version: '1.0.0', assetName: 'story.js' }],
           signature: { value: 'runtime-signature' },
         },
@@ -255,6 +277,7 @@ Yuki: We arrived.
         runtimePackage: {
           id: 'runtime.story',
           version: '1.0.0',
+          compatibility: { minGameVersion: '1.0.0' },
           scripts: [{ id: 'runtime.story.intro', version: '1.0.0', assetName: 'intro.js' }],
         },
       }

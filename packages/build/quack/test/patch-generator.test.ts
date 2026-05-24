@@ -1,7 +1,9 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import type { BuildLog } from '../src/core/types'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { QPKBundler } from '../src/bundlers/qpk-bundler'
 import { PatchGenerator } from '../src/workspace/patch-generator'
 
 describe('patchGenerator', () => {
@@ -103,6 +105,70 @@ describe('patchGenerator', () => {
       { filename: 'voice-1-3.qpk', fromVersion: 1, toVersion: 3, patchVersion: 1003 },
     ])
   })
+
+  it('requires minGameVersion and records compatibility in patch manifest and index', async () => {
+    await writeFile(join(tempDir, 'asset.txt'), 'new')
+    const fromBuildLog = createBuildLog(1, {
+      'asset.txt': { hash: 'old-hash', size: 3, version: 1, mtime: 1 },
+    })
+    const toBuildLog = createBuildLog(2, {
+      'asset.txt': { hash: 'new-hash', path: join(tempDir, 'asset.txt'), size: 3, version: 2, mtime: 2 },
+    }, { minGameVersion: '1.2.0' })
+    const generator = new PatchGenerator(tempDir)
+
+    await generator.generatePatch({
+      fromVersion: 1,
+      toVersion: 2,
+      fromBuildLog,
+      toBuildLog,
+      output: join(tempDir, 'patch-1-2.qpk'),
+      format: 'qpk',
+    })
+
+    const { manifest } = await new QPKBundler().readBundle(join(tempDir, 'patch-1-2.qpk'))
+    const index = JSON.parse(await readFile(join(tempDir, 'index.json'), 'utf8'))
+
+    expect(manifest.compatibility).toEqual({ minGameVersion: '1.2.0' })
+    expect(manifest.buildNumber).toBe('build-2')
+    expect(index.availablePatches[0].compatibility).toEqual({ minGameVersion: '1.2.0' })
+  })
+
+  it('fails patch generation when target compatibility is missing', async () => {
+    await writeFile(join(tempDir, 'asset.txt'), 'new')
+    const generator = new PatchGenerator(tempDir)
+
+    await expect(generator.generatePatch({
+      fromVersion: 1,
+      toVersion: 2,
+      fromBuildLog: createBuildLog(1, {
+        'asset.txt': { hash: 'old-hash', size: 3, version: 1, mtime: 1 },
+      }),
+      toBuildLog: createBuildLog(2, {
+        'asset.txt': { hash: 'new-hash', size: 3, version: 2, mtime: 2 },
+      }),
+      output: join(tempDir, 'patch-1-2.qpk'),
+      format: 'qpk',
+    })).rejects.toThrow('Patch requires compatibility.minGameVersion')
+  })
+
+  it('rejects patch compatibility that differs from the target build compatibility', async () => {
+    await writeFile(join(tempDir, 'asset.txt'), 'new')
+    const generator = new PatchGenerator(tempDir)
+
+    await expect(generator.generatePatch({
+      fromVersion: 1,
+      toVersion: 2,
+      fromBuildLog: createBuildLog(1, {
+        'asset.txt': { hash: 'old-hash', size: 3, version: 1, mtime: 1 },
+      }),
+      toBuildLog: createBuildLog(2, {
+        'asset.txt': { hash: 'new-hash', path: join(tempDir, 'asset.txt'), size: 3, version: 2, mtime: 2 },
+      }, { minGameVersion: '1.2.0' }),
+      output: join(tempDir, 'patch-1-2.qpk'),
+      format: 'qpk',
+      compatibility: { minGameVersion: '1.0.0' },
+    })).rejects.toThrow('must match target build minGameVersion "1.2.0"')
+  })
 })
 
 function createPatch(
@@ -167,4 +233,29 @@ async function writeWorkspaceIndex(
     ),
     globalPatches: [],
   }, null, 2))
+}
+
+function createBuildLog(
+  bundleVersion: number,
+  assets: BuildLog['assets'],
+  compatibility?: BuildLog['compatibility'],
+): BuildLog {
+  return {
+    buildNumber: `build-${bundleVersion}`,
+    bundleVersion,
+    timestamp: new Date(bundleVersion).toISOString(),
+    bundlePath: '',
+    bundleHash: '',
+    compatibility,
+    totalFiles: Object.keys(assets).length,
+    totalSize: Object.values(assets).reduce((sum, asset) => sum + asset.size, 0),
+    assets,
+    merkleTree: { hash: '', isLeaf: true },
+    merkleRoot: '',
+    buildStats: {
+      processingTime: 0,
+      compressionRatio: 0,
+      locales: ['default'],
+    },
+  }
 }

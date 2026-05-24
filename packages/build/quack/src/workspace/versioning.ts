@@ -191,6 +191,7 @@ export class VersionManager {
       bundlePath,
       bundleHash,
       merkleRoot: manifest.merkleRoot || '',
+      compatibility: buildLog.compatibility || manifest.compatibility,
       timestamp: new Date().toISOString(),
     }
 
@@ -232,13 +233,12 @@ export class VersionManager {
       buildNumber: buildLog.buildNumber,
       created: buildLog.timestamp,
       size: bundleStats.size,
+      compatibility: buildLog.compatibility,
     }
 
     // Move current latest to previous builds if it exists
     if (index.latestBundle) {
       index.previousBuilds.unshift(index.latestBundle)
-      // Keep only last 10 builds
-      index.previousBuilds = index.previousBuilds.slice(0, 10)
     }
 
     // Update current info
@@ -305,6 +305,12 @@ export class VersionManager {
       const previousBuild = index.previousBuilds.find(build => build.version === version)
       if (previousBuild) {
         return this.getBuildLog(previousBuild.buildNumber)
+      }
+
+      for (const buildLog of await this.listBuildLogs()) {
+        if (buildLog.bundleVersion === version) {
+          return buildLog
+        }
       }
 
       return null
@@ -477,8 +483,6 @@ export class VersionManager {
     // Move current latest to previous builds
     if (bundleInfo.latestBundle) {
       bundleInfo.previousBuilds.unshift(bundleInfo.latestBundle)
-      // Keep only last 10 builds
-      bundleInfo.previousBuilds = bundleInfo.previousBuilds.slice(0, 10)
     }
 
     // Update bundle info
@@ -491,6 +495,7 @@ export class VersionManager {
       buildNumber: buildLog.buildNumber,
       created: buildLog.timestamp,
       size: bundleStats.size,
+      compatibility: buildLog.compatibility,
     }
 
     // Update workspace global version if this bundle has the highest version
@@ -517,6 +522,7 @@ export class VersionManager {
       created: string
       size: number
       changeCount: number
+      compatibility?: BundleIndex['availablePatches'][0]['compatibility']
     },
   ): Promise<void> {
     const index = await this.getWorkspaceIndex()
@@ -592,6 +598,12 @@ export class VersionManager {
     for (const build of bundleInfo.previousBuilds) {
       if (build.version === version) {
         return this.getBuildLog(build.buildNumber)
+      }
+    }
+
+    for (const buildLog of await this.listBuildLogs()) {
+      if (buildLog.bundleVersion === version) {
+        return buildLog
       }
     }
 

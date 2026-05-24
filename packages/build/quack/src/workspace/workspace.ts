@@ -9,6 +9,7 @@ import { readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createLogger } from '@quajs/logger'
+import { isValidSemverVersion } from '@quajs/utils'
 import ts from 'typescript'
 import { getErrorMessage } from '../utils/error'
 
@@ -192,6 +193,7 @@ export class WorkspaceManager {
         algorithm: bundle.encryption?.algorithm ?? workspaceConfig.globalSettings?.encryption?.algorithm ?? 'xor',
         key: bundle.encryption?.key ?? workspaceConfig.globalSettings?.encryption?.key,
       },
+      compatibility: normalizeCompatibility(bundle.compatibility ?? workspaceConfig.globalSettings?.compatibility, `Bundle "${bundle.name}"`),
     }
   }
 
@@ -328,6 +330,7 @@ export class WorkspaceManager {
         level: bundle.compression?.level || 6,
         algorithm: bundle.compression?.algorithm || 'deflate',
       },
+      compatibility: bundle.compatibility || this.config.globalSettings?.compatibility,
       encryption: {
         enabled: bundle.encryption?.enabled || false,
         algorithm: bundle.encryption?.algorithm || 'xor',
@@ -418,4 +421,17 @@ export class WorkspaceManager {
       output: './dist',
     }
   }
+}
+
+function normalizeCompatibility(
+  compatibility: BundleDefinition['compatibility'] | undefined,
+  subject: string,
+): BundleDefinition['compatibility'] | undefined {
+  if (!compatibility) {
+    return undefined
+  }
+  if (compatibility.minGameVersion && !isValidSemverVersion(compatibility.minGameVersion)) {
+    throw new Error(`${subject} has invalid minGameVersion "${compatibility.minGameVersion}".`)
+  }
+  return { ...compatibility }
 }
