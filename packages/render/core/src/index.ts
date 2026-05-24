@@ -315,6 +315,35 @@ export function richTextToPlainText(content: RichTextContent): string {
     .join('\n')
 }
 
+export interface ViewUiSkinDefaultsProjection {
+  button?: string
+  panel?: string
+  input?: string
+  tab?: string
+  toggle?: string
+  [control: string]: string | undefined
+}
+
+export interface ViewUiPluginProjection {
+  themeId?: string
+  defaults?: Readonly<ViewUiSkinDefaultsProjection>
+}
+
+export interface ViewUiOverlayProjection extends Readonly<Record<string, unknown>> {
+  skinId?: string
+}
+
+export interface ViewChoicePresentationProjection extends Readonly<object> {
+  skinId?: string
+  title?: string
+  subtitle?: string
+  description?: string
+  thumbnail?: Readonly<object>
+  background?: Readonly<object>
+  image?: Readonly<object>
+  metadata?: Readonly<Record<string, unknown>>
+}
+
 export interface ViewDialogueProjection {
   visible: boolean
   characterId?: string
@@ -331,13 +360,13 @@ export interface ViewChoiceProjection {
   /** Opaque structured engine target. Renderers carry it but must not resolve it. */
   target?: Readonly<object>
   unavailable?: Readonly<object>
-  presentation?: Readonly<object>
+  presentation?: Readonly<ViewChoicePresentationProjection>
   metadata?: Readonly<Record<string, unknown>>
 }
 
 export interface ViewUiProjection {
   visible: boolean
-  overlays?: Readonly<Record<string, unknown>>
+  overlays?: Readonly<Record<string, ViewUiOverlayProjection>>
 }
 
 export interface ViewEffectProjection {
@@ -494,6 +523,7 @@ export interface QuaViewProjection {
 }
 
 export interface ViewPluginProjectionMap {
+  ui?: Readonly<ViewUiPluginProjection>
   [pluginId: string]: unknown
 }
 

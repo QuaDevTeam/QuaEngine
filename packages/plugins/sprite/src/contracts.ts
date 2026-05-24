@@ -4,9 +4,13 @@ export const SPRITE_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/sprite' as
 export const SPRITE_RENDERER_ENTRY = SPRITE_WEB_RENDERER_ENTRY
 export const SPRITE_MANIFEST_FILE = 'sprite.manifest.json' as const
 export const SPRITE_CHARACTERS_DIR = 'characters' as const
+export const SPRITE_UI_SKINS_DIR = 'ui' as const
+export const SPRITE_UI_SKIN_MANIFEST_FILE = 'ui-skin.manifest.json' as const
+export const SPRITE_UI_SKIN_SOURCE_FILE = 'ui-skin.json' as const
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif', '.svg'])
 const SPECIAL_FAMILY_SEGMENTS = new Set(['expressions', 'atlas', 'frames', 'layers', 'masks'])
+const SPRITE_SKIN_STATES = new Set(['default', 'hover', 'pressed', 'disabled', 'selected'])
 
 export interface SpriteAssetSource {
   relativePath: string
@@ -114,6 +118,75 @@ export interface ResolvedSpriteProjection {
   fallbackUsed: boolean
 }
 
+export interface SpriteInsets {
+  top: number
+  right: number
+  bottom: number
+  left: number
+}
+
+export interface SpriteSkinAssetDefinition {
+  asset: string
+  fallback?: string
+  hash?: string
+  size?: number
+  mimeType?: string
+}
+
+export interface SpriteSkinStateDefinition extends SpriteSkinAssetDefinition {
+  tint?: string
+  opacity?: number
+}
+
+export interface SpriteSkinDefinition {
+  base: SpriteSkinAssetDefinition
+  states?: Partial<Record<SpriteSkinStateName, SpriteSkinStateDefinition>>
+  slice: SpriteInsets
+  mode?: 'sliced' | 'tiled'
+  fill?: boolean
+  contentInsets?: SpriteInsets
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface SpriteSkinManifest {
+  version: 1
+  family: string
+  skins: Record<string, SpriteSkinDefinition>
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export type SpriteSkinStateName = 'default' | 'hover' | 'pressed' | 'disabled' | 'selected'
+
+export interface SpriteSkinReference {
+  input: string
+  family: string
+  skin: string
+  manifestPath: string
+}
+
+export interface ResolvedSpriteSkinState {
+  kind: SpriteSkinStateName
+  asset: string
+  fallback?: string
+  hash?: string
+  size?: number
+  mimeType?: string
+  tint?: string
+  opacity?: number
+}
+
+export interface ResolvedSpriteSkinProjection {
+  family: string
+  skin: string
+  state: SpriteSkinStateName
+  manifestPath: string
+  manifest?: SpriteSkinManifest
+  definition: SpriteSkinDefinition
+  base: ResolvedSpriteSkinState
+  active: ResolvedSpriteSkinState
+  fallbackUsed: boolean
+}
+
 export function normalizeSpritePath(value?: string): string | undefined {
   if (!value) {
     return undefined
@@ -194,6 +267,36 @@ export function getSpriteManifestPath(family: string): string {
   return `${normalizeSpritePath(family) || family}/${SPRITE_MANIFEST_FILE}`.replace(/^\/+/, '')
 }
 
+export function resolveSpriteSkinReference(skin?: string): SpriteSkinReference | undefined {
+  const normalized = normalizeSpritePath(skin)
+  if (!normalized) {
+    return undefined
+  }
+
+  const asset = stripCharactersRoot(normalized)
+  const segments = asset.split('/').filter(Boolean)
+  if (segments.length < 2) {
+    return undefined
+  }
+
+  const skinName = segments[segments.length - 1]
+  const family = segments.slice(0, -1).join('/')
+  if (!family || !skinName) {
+    return undefined
+  }
+
+  return {
+    input: normalized,
+    family,
+    skin: skinName,
+    manifestPath: getSpriteSkinManifestPath(family),
+  }
+}
+
+export function getSpriteSkinManifestPath(family: string): string {
+  return `${normalizeSpritePath(family) || family}/${SPRITE_UI_SKIN_MANIFEST_FILE}`.replace(/^\/+/, '')
+}
+
 export function resolveSpriteAssetPath(family: string, asset: string): string {
   const normalizedFamily = normalizeSpritePath(family) || family
   const normalizedAsset = stripCharactersRoot(normalizeSpritePath(asset) || asset)
@@ -203,6 +306,56 @@ export function resolveSpriteAssetPath(family: string, asset: string): string {
   }
 
   return `${normalizedFamily}/${normalizedAsset}`.replace(/\/+/g, '/')
+}
+
+export function normalizeSpriteSkinManifest(manifest: SpriteSkinManifest): SpriteSkinManifest {
+  const family = normalizeSpritePath(manifest.family) || manifest.family
+  return {
+    ...manifest,
+    version: 1,
+    family,
+    skins: Object.fromEntries(Object.entries(manifest.skins).map(([name, skin]) => [
+      name,
+      normalizeSpriteSkinDefinition(skin, family),
+    ])),
+  }
+}
+
+export function serializeSpriteSkinManifest(manifest: SpriteSkinManifest): string {
+  return JSON.stringify(normalizeSpriteSkinManifest(manifest), null, 2)
+}
+
+export function resolveSpriteSkinProjection(
+  manifest: SpriteSkinManifest | undefined,
+  skin?: string,
+  state: SpriteSkinStateName = 'default',
+): ResolvedSpriteSkinProjection | undefined {
+  const reference = resolveSpriteSkinReference(skin)
+  if (!reference) {
+    return undefined
+  }
+
+  const normalizedManifest = manifest ? normalizeSpriteSkinManifestForFamily(manifest, reference.family) : undefined
+  const definition = normalizedManifest?.skins?.[reference.skin]
+  if (!definition) {
+    return undefined
+  }
+
+  const requestedState = definition.states?.[state] || definition.states?.default || definition.base
+  const base = resolveSpriteSkinState(definition.base, reference.family, 'default')
+  const active = resolveSpriteSkinState(requestedState, reference.family, state)
+
+  return {
+    family: reference.family,
+    skin: reference.skin,
+    state,
+    manifestPath: reference.manifestPath,
+    manifest: normalizedManifest,
+    definition,
+    base,
+    active,
+    fallbackUsed: active.asset !== resolveSpriteAssetPath(reference.family, requestedState.asset),
+  }
 }
 
 export function normalizeSpriteManifest(manifest: SpriteManifest): SpriteManifest {
@@ -505,4 +658,59 @@ function stripExtension(value: string): string {
 function getExtension(value: string): string {
   const index = value.lastIndexOf('.')
   return index >= 0 ? value.slice(index).toLowerCase() : ''
+}
+
+function normalizeSpriteSkinDefinition(definition: SpriteSkinDefinition, family: string): SpriteSkinDefinition {
+  return {
+    ...definition,
+    base: normalizeSpriteSkinAssetDefinition(definition.base, family),
+    states: definition.states
+      ? Object.fromEntries(Object.entries(definition.states).map(([name, state]) => [
+          name,
+          normalizeSpriteSkinAssetDefinition(state, family),
+        ]))
+      : undefined,
+  }
+}
+
+function normalizeSpriteSkinManifestForFamily(manifest: SpriteSkinManifest, family: string): SpriteSkinManifest {
+  const normalizedFamily = normalizeSpritePath(family) || family
+  return {
+    ...manifest,
+    version: 1,
+    family: normalizedFamily,
+    skins: Object.fromEntries(Object.entries(manifest.skins).map(([name, skin]) => [
+      name,
+      normalizeSpriteSkinDefinition(skin, normalizedFamily),
+    ])),
+  }
+}
+
+function normalizeSpriteSkinAssetDefinition(definition: SpriteSkinAssetDefinition | SpriteSkinStateDefinition, family: string): SpriteSkinAssetDefinition | SpriteSkinStateDefinition {
+  return {
+    ...definition,
+    asset: resolveSpriteAssetPath(family, definition.asset),
+  }
+}
+
+function resolveSpriteSkinState(
+  definition: SpriteSkinAssetDefinition | SpriteSkinStateDefinition,
+  family: string,
+  kind: SpriteSkinStateName,
+): ResolvedSpriteSkinState {
+  const normalized = normalizeSpriteSkinAssetDefinition(definition, family)
+  return {
+    kind,
+    asset: normalized.asset,
+    fallback: normalized.fallback,
+    hash: normalized.hash,
+    size: normalized.size,
+    mimeType: normalized.mimeType,
+    tint: 'tint' in normalized ? normalized.tint : undefined,
+    opacity: 'opacity' in normalized ? normalized.opacity : undefined,
+  }
+}
+
+export function isSpriteSkinStateName(value: string): value is SpriteSkinStateName {
+  return SPRITE_SKIN_STATES.has(value)
 }

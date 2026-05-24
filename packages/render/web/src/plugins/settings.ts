@@ -10,6 +10,7 @@ import type { QuaViewProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
 import { defineWebRendererPlugin } from './core'
+import { bindUiControlSkin } from '../ui-skin'
 
 export interface SettingsFormProjection {
   revision: number
@@ -311,6 +312,9 @@ function renderSettingsLayer(context: QuaWebDomLayerContext, options: SettingsRe
   const panel = context.document.createElement('section')
   panel.className = 'qua-settings-panel'
   panel.setAttribute('data-settings-overlay', elementId)
+  bindUiControlSkin(context, panel, {
+    kind: 'panel',
+  })
 
   const header = context.document.createElement('header')
   header.className = 'qua-settings-header'
@@ -323,6 +327,9 @@ function renderSettingsLayer(context: QuaWebDomLayerContext, options: SettingsRe
   close.className = 'qua-settings-close'
   close.type = 'button'
   close.textContent = 'Close'
+  bindUiControlSkin(context, close, {
+    kind: 'button',
+  })
   close.addEventListener('click', () => {
     void context.actions.requestUiClose(elementId)
   })
@@ -341,6 +348,9 @@ function renderSettingsLayer(context: QuaWebDomLayerContext, options: SettingsRe
   resetAll.className = 'qua-settings-reset-all'
   resetAll.type = 'button'
   resetAll.textContent = 'Reset All'
+  bindUiControlSkin(context, resetAll, {
+    kind: 'button',
+  })
   resetAll.addEventListener('click', () => {
     void context.actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_ALL_REQUEST)
   })
@@ -476,6 +486,11 @@ function renderSettingsFieldControl(
   options: SettingsRendererPluginOptions,
 ): Node {
   const control = field.control.control || inferSettingsControlKind(field.schema)
+  const skinKind = control === 'switch' || control === 'checkbox'
+    ? 'toggle'
+    : control === 'select' || control === 'radio'
+      ? 'tab'
+      : 'input'
   if (control === 'custom') {
     return renderSettingsCustomControl(context, scope, field, options)
   }
@@ -486,6 +501,10 @@ function renderSettingsFieldControl(
     textarea.id = settingsFieldInputId(scope.scope, field.pathKey)
     textarea.disabled = field.readonly
     textarea.value = stringifySettingsInputValue(field)
+    bindUiControlSkin(context, textarea, {
+      kind: skinKind,
+      disabled: field.readonly,
+    })
     textarea.addEventListener('change', () => updateSettingsField(context, scope, field, textarea.value))
     return textarea
   }
@@ -502,6 +521,10 @@ function renderSettingsFieldControl(
       optionNode.selected = settingsValuesEqual(option.value, field.value)
       select.append(optionNode)
     }
+    bindUiControlSkin(context, select, {
+      kind: skinKind,
+      disabled: field.readonly,
+    })
     select.addEventListener('change', () => updateSettingsField(context, scope, field, select.value))
     return select
   }
@@ -509,6 +532,10 @@ function renderSettingsFieldControl(
   if (control === 'radio') {
     const group = context.document.createElement('div')
     group.className = 'qua-settings-radio-group'
+    bindUiControlSkin(context, group, {
+      kind: skinKind,
+      disabled: field.readonly,
+    })
     for (const option of createSettingsOptions(field)) {
       const optionLabel = context.document.createElement('label')
       optionLabel.className = 'qua-settings-radio-option'
@@ -518,6 +545,11 @@ function renderSettingsFieldControl(
       radio.value = encodeSettingsOptionValue(option.value)
       radio.checked = settingsValuesEqual(option.value, field.value)
       radio.disabled = field.readonly
+      bindUiControlSkin(context, optionLabel, {
+        kind: skinKind,
+        disabled: field.readonly,
+        selected: settingsValuesEqual(option.value, field.value),
+      })
       radio.addEventListener('change', () => {
         if (radio.checked) {
           updateSettingsField(context, scope, field, radio.value)
@@ -537,6 +569,11 @@ function renderSettingsFieldControl(
   if (control === 'switch' || control === 'checkbox') {
     input.type = 'checkbox'
     input.checked = Boolean(field.value)
+    bindUiControlSkin(context, input, {
+      kind: skinKind,
+      disabled: field.readonly,
+      selected: Boolean(field.value),
+    })
     input.addEventListener('change', () => updateSettingsField(context, scope, field, input.value, input.checked))
     return input
   }
@@ -561,6 +598,10 @@ function renderSettingsFieldControl(
     input.placeholder = field.control.placeholder
   }
   input.value = stringifySettingsInputValue(field)
+  bindUiControlSkin(context, input, {
+    kind: skinKind,
+    disabled: field.readonly,
+  })
   input.addEventListener('change', () => updateSettingsField(context, scope, field, input.value))
   return input
 }
@@ -594,6 +635,10 @@ function renderSettingsCustomControl(
   if (field.control.props) {
     custom.setAttribute('data-settings-props', JSON.stringify(field.control.props))
   }
+  bindUiControlSkin(context, custom, {
+    kind: 'input',
+    disabled: field.readonly,
+  })
   return custom
 }
 

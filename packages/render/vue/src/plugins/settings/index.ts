@@ -1,5 +1,5 @@
 import type { SettingsProjection } from '@quajs/plugin-settings/contracts'
-import type { RendererActions } from '@quajs/renderer-web'
+import type { RendererActions, UiSkinControlKind } from '@quajs/renderer-web'
 import type {
   SettingsFieldFormProjection,
   SettingsFieldGroupProjection,
@@ -20,7 +20,7 @@ import {
   stringifySettingsInputValue,
 } from '@quajs/renderer-web/plugins/settings'
 import { computed, defineComponent, h } from 'vue'
-import { usePluginProjection, useRendererActions } from '../../composables'
+import { usePluginProjection, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
 
@@ -43,6 +43,14 @@ export interface SettingsCustomControlComponentProps {
 const DEFAULT_SETTINGS_ELEMENT_ID = 'settings'
 const DEFAULT_GROUP_ID = 'default'
 
+type UiControlSkinBinding = ReturnType<typeof useUiControlSkin>
+
+interface SettingsControlSkins {
+  input: UiControlSkinBinding
+  tab: UiControlSkinBinding
+  toggle: UiControlSkinBinding
+}
+
 export function useSettingsProjection() {
   return usePluginProjection<SettingsProjection>(SETTINGS_PLUGIN_ID)
 }
@@ -64,7 +72,6 @@ export const QuaSettingsField: Component = defineComponent({
     },
   },
   setup(props): () => VNode | null {
-    const actions = useRendererActions()
     return () => {
       const field = props.field
       if (field.control.hidden) {
@@ -85,13 +92,57 @@ export const QuaSettingsField: Component = defineComponent({
             field.control.description || field.schema.description
               ? h('p', { class: 'qua-settings-field-description' }, field.control.description || field.schema.description)
               : null,
-            renderControl(actions, props.scope, field, props.customControls),
+            h(QuaSettingsControl, {
+              scope: props.scope,
+              field,
+              customControls: props.customControls,
+            }),
             field.errors.map(error => h('p', {
               key: `${field.pathKey}:${error.keyword || error.message}`,
               class: 'qua-settings-field-error',
             }, error.message)),
           ])
     }
+  },
+})
+
+export const QuaSettingsControl: Component = defineComponent({
+  name: 'QuaSettingsControl',
+  props: {
+    scope: {
+      type: Object as PropType<SettingsScopeFormProjection>,
+      required: true,
+    },
+    field: {
+      type: Object as PropType<SettingsFieldFormProjection>,
+      required: true,
+    },
+    customControls: {
+      type: Object as PropType<SettingsCustomControlRegistry>,
+      required: false,
+    },
+  },
+  setup(props): () => VNode {
+    const actions = useRendererActions()
+    const inputSkin = useUiControlSkin({
+      kind: 'input',
+      disabled: () => props.field.readonly,
+    })
+    const tabSkin = useUiControlSkin({
+      kind: 'tab',
+      disabled: () => props.field.readonly,
+    })
+    const toggleSkin = useUiControlSkin({
+      kind: 'toggle',
+      disabled: () => props.field.readonly,
+      selected: () => Boolean(props.field.value),
+    })
+
+    return () => renderControl(actions, props.scope, props.field, props.customControls, {
+      input: inputSkin,
+      tab: tabSkin,
+      toggle: toggleSkin,
+    })
   },
 })
 
@@ -146,6 +197,7 @@ export const QuaSettingsScope = defineComponent({
   },
   setup(props) {
     const actions = useRendererActions()
+    const resetSkin = useUiControlSkin({ kind: 'button' })
     return () => h('section', {
       'class': 'qua-settings-scope',
       'data-settings-scope': props.scope.scope,
@@ -155,6 +207,11 @@ export const QuaSettingsScope = defineComponent({
         h('button', {
           class: 'qua-settings-scope-reset',
           type: 'button',
+          style: resetSkin.skinStyle.value,
+          'data-skin-kind': 'button',
+          'data-skin-reference': resetSkin.skinReference.value || undefined,
+          'data-skin-state': resetSkin.skinState.value,
+          ...createSkinButtonHandlers(resetSkin),
           onClick: () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST, { scope: props.scope.scope }),
         }, 'Reset'),
       ]),
@@ -189,8 +246,15 @@ export const QuaSettingsForm = defineComponent({
   },
   setup(props) {
     const actions = useRendererActions()
+    const panelSkin = useUiControlSkin({ kind: 'panel' })
+    const closeSkin = useUiControlSkin({ kind: 'button' })
+    const resetAllSkin = useUiControlSkin({ kind: 'button' })
     return () => h('section', {
       'class': 'qua-settings-panel',
+      style: panelSkin.skinStyle.value,
+      'data-skin-kind': 'panel',
+      'data-skin-reference': panelSkin.skinReference.value || undefined,
+      'data-skin-state': panelSkin.skinState.value,
       'data-settings-overlay': props.elementId,
     }, [
       h('header', { class: 'qua-settings-header' }, [
@@ -198,6 +262,11 @@ export const QuaSettingsForm = defineComponent({
         h('button', {
           class: 'qua-settings-close',
           type: 'button',
+          style: closeSkin.skinStyle.value,
+          'data-skin-kind': 'button',
+          'data-skin-reference': closeSkin.skinReference.value || undefined,
+          'data-skin-state': closeSkin.skinState.value,
+          ...createSkinButtonHandlers(closeSkin),
           onClick: () => actions.requestUiClose(props.elementId),
         }, 'Close'),
       ]),
@@ -212,6 +281,11 @@ export const QuaSettingsForm = defineComponent({
       h('button', {
         class: 'qua-settings-reset-all',
         type: 'button',
+        style: resetAllSkin.skinStyle.value,
+        'data-skin-kind': 'button',
+        'data-skin-reference': resetAllSkin.skinReference.value || undefined,
+        'data-skin-state': resetAllSkin.skinState.value,
+        ...createSkinButtonHandlers(resetAllSkin),
         onClick: () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_ALL_REQUEST),
       }, 'Reset All'),
     ])
@@ -295,27 +369,32 @@ function renderControl(
   scope: SettingsScopeFormProjection,
   field: SettingsFieldFormProjection,
   customControls: SettingsCustomControlRegistry | undefined,
+  skins: SettingsControlSkins,
 ) {
   const control = field.control.control || 'text'
   if (control === 'custom') {
-    return renderCustomControl(actions, scope, field, customControls)
+    return renderCustomControl(actions, scope, field, customControls, skins.input)
   }
 
   if (control === 'textarea' || fieldSchemaHasType(field, 'array') || fieldSchemaHasType(field, 'object')) {
+    const skin = skins.input
     return h('textarea', {
       class: 'qua-settings-field-control',
       id: settingsFieldInputId(scope.scope, field.pathKey),
       disabled: field.readonly,
       value: stringifySettingsInputValue(field),
+      ...createSkinAttrs('input', skin),
       onChange: (event: Event) => updateField(actions, scope, field, parseEventValue(field, event)),
     })
   }
   if (control === 'select') {
+    const skin = skins.tab
     return h('select', {
       class: 'qua-settings-field-control',
       id: settingsFieldInputId(scope.scope, field.pathKey),
       disabled: field.readonly,
       value: encodeSettingsOptionValue(field.value),
+      ...createSkinAttrs('tab', skin),
       onChange: (event: Event) => updateField(actions, scope, field, parseEventValue(field, event)),
     }, settingsOptions(field).map(option => h('option', {
       key: encodeSettingsOptionValue(option.value),
@@ -323,7 +402,11 @@ function renderControl(
     }, option.label || String(option.value))))
   }
   if (control === 'radio') {
-    return h('div', { class: 'qua-settings-radio-group' }, settingsOptions(field).map(option => h('label', {
+    const skin = skins.tab
+    return h('div', {
+      class: 'qua-settings-radio-group',
+      ...createSkinAttrs('tab', skin),
+    }, settingsOptions(field).map(option => h('label', {
       key: encodeSettingsOptionValue(option.value),
       class: 'qua-settings-radio-option',
     }, [
@@ -353,6 +436,8 @@ function renderControl(
         : control === 'slider' || control === 'range'
           ? 'range'
           : 'text'
+  const skinKind = inputType === 'checkbox' ? 'toggle' : 'input'
+  const skin = inputType === 'checkbox' ? skins.toggle : skins.input
 
   return h('input', {
     class: 'qua-settings-field-control',
@@ -365,6 +450,7 @@ function renderControl(
     max: field.control.max,
     step: field.control.step,
     placeholder: field.control.placeholder,
+    ...createSkinAttrs(skinKind, skin),
     onChange: (event: Event) => updateField(actions, scope, field, parseEventValue(field, event)),
   })
 }
@@ -374,6 +460,7 @@ function renderCustomControl(
   scope: SettingsScopeFormProjection,
   field: SettingsFieldFormProjection,
   customControls: SettingsCustomControlRegistry | undefined,
+  skin: UiControlSkinBinding,
 ) {
   const component = field.control.component ? customControls?.[field.control.component] : undefined
   const update = (value: unknown) => updateFieldValue(actions, scope, field, value)
@@ -397,6 +484,7 @@ function renderCustomControl(
     'aria-disabled': field.readonly ? 'true' : 'false',
     'data-settings-component': field.control.component,
     'data-settings-props': field.control.props ? JSON.stringify(field.control.props) : undefined,
+    ...createSkinAttrs('input', skin),
   })
 }
 
@@ -470,4 +558,34 @@ function titleFromField(field: string): string {
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/[-_]+/g, ' ')
     .replace(/\b\w/g, char => char.toUpperCase())
+}
+
+function createSkinAttrs(
+  kind: UiSkinControlKind,
+  skin: UiControlSkinBinding,
+): Record<string, unknown> {
+  return {
+    'style': skin.skinStyle.value,
+    'data-skin-kind': kind,
+    'data-skin-reference': skin.skinReference.value || undefined,
+    'data-skin-state': skin.skinState.value,
+    ...createSkinButtonHandlers(skin),
+  }
+}
+
+function createSkinButtonHandlers(
+  skin: Pick<ReturnType<typeof useUiControlSkin>, 'setInteractiveState'>,
+): Record<string, (event: Event) => void> {
+  return {
+    onMouseenter: () => skin.setInteractiveState('hover'),
+    onMouseleave: () => skin.setInteractiveState('default'),
+    onMousedown: (event: Event) => {
+      if ((event as MouseEvent).button === 0) {
+        skin.setInteractiveState('pressed')
+      }
+    },
+    onMouseup: () => skin.setInteractiveState('hover'),
+    onFocus: () => skin.setInteractiveState('hover'),
+    onBlur: () => skin.setInteractiveState('default'),
+  }
 }

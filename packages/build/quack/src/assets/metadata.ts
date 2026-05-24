@@ -617,6 +617,19 @@ export class MetadataGenerator {
 function createStableAssetName(asset: AssetInfo): string {
   const locale = asset.locales[0] || 'default'
   const relativePath = stripLocaleFromRelativePath(asset.relativePath, locale)
+  const normalizedName = asset.name.replace(/\\/g, '/')
+  if (normalizedName.includes('/')) {
+    return normalizedName
+  }
+  if (asset.type === 'characters' && relativePath.startsWith('characters/')) {
+    return relativePath.slice('characters/'.length)
+  }
+  if (relativePath.startsWith('ui/')) {
+    return relativePath
+  }
+  if (relativePath.startsWith('data/ui/')) {
+    return relativePath.slice('data/'.length)
+  }
   return relativePath.split('/').pop() || asset.name
 }
 

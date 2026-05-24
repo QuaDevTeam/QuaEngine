@@ -9,9 +9,13 @@ import {
   resolveSpriteProjection,
   resolveSpriteReference,
 } from '@quajs/plugin-sprite/contracts'
-import { applyTrackValues, collectTrackValues } from '@quajs/renderer-web'
+import {
+  applyTrackValues,
+  collectTrackValues,
+  type UiSkinControlKind,
+} from '@quajs/renderer-web'
 import { computed, defineComponent, h, ref, watch } from 'vue'
-import { useAnimationClock, useAnimations, useAssetUrl } from '../../composables'
+import { useAnimationClock, useAnimations, useAssetUrl, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 
 export const QuaSpriteLayerItem = defineComponent({
@@ -155,6 +159,62 @@ export const QuaSprite = defineComponent({
         }),
       ))
     }
+  },
+})
+
+export const QuaSpriteSkinBox = defineComponent({
+  name: 'QuaSpriteSkinBox',
+  props: {
+    kind: {
+      type: String as () => UiSkinControlKind,
+      default: 'panel',
+    },
+    skinId: String,
+    as: {
+      type: String,
+      default: 'div',
+    },
+    disabled: Boolean,
+    selected: Boolean,
+  },
+  setup(props, { slots }) {
+    const skin = useUiControlSkin({
+      kind: props.kind,
+      skinId: () => props.skinId,
+      disabled: () => props.disabled,
+      selected: () => props.selected,
+    })
+
+    return () => h(props.as as any, {
+      class: [
+        'qua-sprite-skin-box',
+        `qua-sprite-skin-box--${props.kind}`,
+        `is-${skin.skinState.value}`,
+      ],
+      style: skin.skinStyle.value,
+      'data-skin-kind': props.kind,
+      'data-skin-reference': skin.skinReference.value || undefined,
+      'data-skin-state': skin.skinState.value,
+      'aria-disabled': props.disabled || undefined,
+      'aria-selected': props.selected || undefined,
+      disabled: props.as === 'button' ? props.disabled || undefined : undefined,
+      type: props.as === 'button' ? 'button' : undefined,
+      onMouseenter: () => skin.setInteractiveState('hover'),
+      onMouseleave: () => skin.setInteractiveState('default'),
+      onMousedown: (event: MouseEvent) => {
+        if (event.button === 0) {
+          skin.setInteractiveState('pressed')
+        }
+      },
+      onMouseup: () => skin.setInteractiveState('hover'),
+      onFocus: () => skin.setInteractiveState('hover'),
+      onBlur: () => skin.setInteractiveState('default'),
+    }, slots.default?.({
+      skin: skin.skinProjection.value,
+      skinState: skin.skinState.value,
+      skinAsset: skin.skinAssetUrl.value,
+      reference: skin.skinReference.value,
+    }))
   },
 })
 

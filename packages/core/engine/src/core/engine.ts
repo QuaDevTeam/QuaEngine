@@ -2592,7 +2592,14 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
     })),
     ui: {
       ...view.ui,
-      overlays: view.ui.overlays ? cloneUnknownRecord(view.ui.overlays) : undefined,
+      overlays: view.ui.overlays
+        ? (Object.fromEntries(
+            Object.entries(view.ui.overlays).map(([overlayId, overlay]) => [
+              overlayId,
+              { ...overlay },
+            ]),
+          ) as QuaViewProjection['ui']['overlays'])
+        : undefined,
     },
     flowControl: cloneFlowControlProjection(view.flowControl),
     effects: view.effects.map(effect => ({

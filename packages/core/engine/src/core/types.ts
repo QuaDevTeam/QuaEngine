@@ -210,6 +210,7 @@ export interface ChoiceUnavailablePolicy {
 }
 
 export interface ChoicePresentation {
+  skinId?: string
   title?: string
   subtitle?: string
   description?: string

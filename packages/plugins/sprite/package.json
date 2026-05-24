@@ -66,5 +66,9 @@
       "web": "@quajs/renderer-web/plugins/sprite",
       "vue": "@quajs/renderer-vue/plugins/sprite"
     }
+  },
+  "dependencies": {
+    "ag-psd": "^30.1.1",
+    "sharp": "catalog:"
   }
 }

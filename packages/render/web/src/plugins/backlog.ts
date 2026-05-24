@@ -2,6 +2,7 @@ import type { BacklogEntry, BacklogProjection } from '@quajs/plugin-backlog/cont
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import { defineWebRendererPlugin } from './core'
+import { bindUiControlSkin } from '../ui-skin'
 
 export function createBacklogWebRendererPlugin(): QuaWebDomRendererPlugin {
   return defineWebRendererPlugin({
@@ -30,11 +31,17 @@ function renderBacklogLayer(context: QuaWebDomLayerContext): Node | undefined {
 
   const panel = context.document.createElement('section')
   panel.className = 'qua-backlog-panel'
+  bindUiControlSkin(context, panel, {
+    kind: 'panel',
+  })
 
   const close = context.document.createElement('button')
   close.className = 'qua-backlog-close'
   close.type = 'button'
   close.textContent = 'Close'
+  bindUiControlSkin(context, close, {
+    kind: 'button',
+  })
   close.addEventListener('click', () => {
     void context.actions.requestPluginEvent(BacklogRenderToLogicEvents.CLOSE_REQUEST)
   })
@@ -62,6 +69,9 @@ function renderBacklogEntry(context: QuaWebDomLayerContext, entry: BacklogEntry)
   text.textContent = entry.kind === 'choice'
     ? entry.text || entry.choices?.map(choice => choice.text).join(' / ') || ''
     : `${entry.speaker ? `${entry.speaker}: ` : ''}${entry.text || ''}`
+  bindUiControlSkin(context, text, {
+    kind: 'button',
+  })
   text.addEventListener('click', () => {
     void context.actions.requestPluginEvent(BacklogRenderToLogicEvents.JUMP_REQUEST, { entryId: entry.id })
   })
@@ -73,6 +83,9 @@ function renderBacklogEntry(context: QuaWebDomLayerContext, entry: BacklogEntry)
     voice.type = 'button'
     voice.disabled = !entry.voiceReplay
     voice.textContent = 'Voice'
+    bindUiControlSkin(context, voice, {
+      kind: 'button',
+    })
     voice.addEventListener('click', () => {
       void context.actions.requestPluginEvent(BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, { entryId: entry.id })
     })
