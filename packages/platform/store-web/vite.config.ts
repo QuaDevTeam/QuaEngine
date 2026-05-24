@@ -15,17 +15,14 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(import.meta.dirname, 'src/index.ts'),
-      name: 'store',
+      name: 'storeWeb',
       fileName: 'index',
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['@quajs/logger', '@quajs/utils'],
+      external: ['@quajs/store', 'dexie'],
       output: {
-        globals: {
-          '@quajs/logger': 'QuaLogger',
-          '@quajs/utils': 'QuaUtils',
-        },
+        globals: {},
       },
     },
     target: 'es2020',

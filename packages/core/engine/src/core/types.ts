@@ -13,7 +13,7 @@ import type {
   TranslateInput,
 } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
-import type { QuaStore, StorageConfig } from '@quajs/store'
+import type { QuaStateSerializer, QuaStore, StorageConfig } from '@quajs/store'
 import type {
   ActiveAnimationProjection,
   FlowControlMode,
@@ -789,6 +789,7 @@ export interface EngineConfig {
   store?: {
     persistKey?: string
     enableSnapshots?: boolean
+    serializer?: QuaStateSerializer
     storage?: StorageConfig
   }
   rollback?: RollbackConfigPatch

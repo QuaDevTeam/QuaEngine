@@ -1,11 +1,16 @@
 {
-  "name": "@quajs/store",
+  "name": "@quajs/store-web",
   "type": "module",
   "version": "0.1.0",
-  "description": "Runtime global state management for QuaEngine",
+  "description": "Web QuaStore storage adapter with IndexedDB persistence",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
-  "keywords": [],
+  "keywords": [
+    "quaengine",
+    "store",
+    "web",
+    "adapter"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -27,10 +32,14 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest",
+    "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@quajs/logger": "workspace:*",
-    "@quajs/utils": "workspace:*"
+    "@quajs/store": "workspace:*",
+    "dexie": "catalog:"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "catalog:"
   }
 }

@@ -1,6 +1,6 @@
 import type { QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaSnapshot, QuaSnapshotMeta } from '../types/base'
 import type { BackendConfig, StorageBackend, StorageBackendConstructor, StorageConfig, StorageMiddleware } from '../types/storage'
-import { IndexedDBBackend } from '../backends/indexeddb'
+import { MemoryBackend } from '../backends/memory'
 import logger from '../utils'
 
 /**
@@ -20,8 +20,7 @@ export class StorageManager {
    */
   private createBackend(backendConfig?: StorageBackendConstructor | BackendConfig): StorageBackend {
     if (!backendConfig) {
-      // Default to IndexedDB backend
-      return new IndexedDBBackend()
+      return new MemoryBackend()
     }
 
     if (typeof backendConfig === 'function') {

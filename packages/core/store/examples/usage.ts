@@ -1,7 +1,8 @@
-import { configureStorage, createStore, EncryptionMiddleware } from '@quaengine/store'
+import { configureStorage, createStore } from '@quajs/store'
 import { MemoryBackend } from './backends/custom-backends'
+import { EncryptionMiddleware } from './middlewares/custom-middlewares'
 
-// Example 1: Basic store creation with default IndexedDB backend
+// Example 1: Basic store creation with default memory backend
 const basicStore = createStore({
   name: 'gameState',
   state: {
@@ -91,12 +92,8 @@ async function gameExample() {
   // Dispatch actions
   await basicStore.dispatch('startNewGame', 'Bob')
 
-  // Access state through getters (if defined)
-  console.log('Current state:', basicStore.state)
-
   // Create snapshot
   const snapshotId = await basicStore.snapshot('save-game-1')
-  console.log('Snapshot created:', snapshotId)
 
   // Later, restore from snapshot
   await basicStore.restore(snapshotId)

@@ -1,11 +1,11 @@
-# @quaengine/store
+# @quajs/store
 
 A flexible, TypeScript-first state management library with pluggable storage backends and middleware support.
 
 ## Features
 
 - **Redux-like Architecture**: Familiar state management patterns with state, mutations, actions, and getters
-- **Pluggable Storage Backends**: Swap between IndexedDB, LocalStorage, Memory, or create custom backends
+- **Pluggable Storage Backends**: Use the included memory backend, inject platform adapters such as `@quajs/store-web` or `@quajs/store-node`, or create custom backends
 - **Middleware System**: Add encryption, compression, logging, validation, and more
 - **Snapshot System**: Save and restore complete application state
 - **TypeScript-First**: Full type safety and excellent IDE support
@@ -15,9 +15,9 @@ A flexible, TypeScript-first state management library with pluggable storage bac
 ## Installation
 
 ```bash
-npm install @quaengine/store
+npm install @quajs/store
 # or
-pnpm add @quaengine/store
+pnpm add @quajs/store
 ```
 
 ## Quick Start
@@ -25,7 +25,7 @@ pnpm add @quaengine/store
 ### Basic Store Creation
 
 ```typescript
-import { createStore } from '@quaengine/store'
+import { createStore } from '@quajs/store'
 
 const gameStore = createStore({
   name: 'gameState',
@@ -61,28 +61,57 @@ const gameStore = createStore({
 // Use the store
 gameStore.commit('setPlayerName', 'Alice')
 await gameStore.dispatch('startNewGame', 'Bob')
-console.log(gameStore.getters.playerInfo) // "Bob - Level 1"
+const playerInfo = gameStore.getters.playerInfo // "Bob - Level 1"
 ```
 
 ## Storage Backends
 
-### Default IndexedDB Backend
+### Default Memory Backend
 
-By default, all stores use IndexedDB for persistence. No configuration needed:
+By default, store snapshots and save slots use the platform-neutral in-memory backend. This keeps `@quajs/store` free of Web APIs. Applications that need durable saves must inject a storage backend.
 
 ```typescript
 const store = createStore({
   name: 'myStore',
-  state: { data: 'persisted automatically' }
+  state: { data: 'kept in memory unless storage is configured' }
 })
 ```
+
+### Web IndexedDB Backend
+
+Browser persistence lives in the Web adapter package and is injected through the same storage contract:
+
+```typescript
+import { configureStorage } from '@quajs/store'
+import { createWebStoreStorage } from '@quajs/store-web'
+
+configureStorage(createWebStoreStorage({ dbName: 'MyGameSaves' }))
+```
+
+### Node .quastore File Backend
+
+Node persistence lives in `@quajs/store-node`. It writes binary `.quastore` files and encrypts them by default with a user-provided key.
+
+```typescript
+import { configureStorage } from '@quajs/store'
+import { createNodeStoreStorage } from '@quajs/store-node'
+
+configureStorage(createNodeStoreStorage({
+  rootDir: './saves',
+  encryption: {
+    key: process.env.QUASTORE_KEY
+  }
+}))
+```
+
+If `encryption.key` is omitted, the backend reads `QUASTORE_KEY`. To write plaintext `.quastore` files for development only, pass `encryption: false`.
 
 ### Custom Storage Backend
 
 You can specify a different storage backend:
 
 ```typescript
-import { createStore, LocalStorageBackend, MemoryBackend } from '@quaengine/store'
+import { createStore, MemoryBackend } from '@quajs/store'
 
 // Use memory storage (data lost on app close)
 const tempStore = createStore({
@@ -93,23 +122,14 @@ const tempStore = createStore({
   }
 })
 
-// Use LocalStorage
-const localStore = createStore({
-  name: 'localStore',
-  state: { persistent: 'data' },
-  storage: {
-    backend: LocalStorageBackend
-  }
-})
-
 // Custom backend with options
 const customStore = createStore({
   name: 'customStore',
   state: { data: 'value' },
   storage: {
     backend: {
-      driver: LocalStorageBackend,
-      options: { prefix: 'myapp_' }
+      driver: FileSystemBackend,
+      options: { basePath: './saves' }
     }
   }
 })
@@ -120,16 +140,16 @@ const customStore = createStore({
 Implement the `StorageBackend` interface:
 
 ```typescript
-import { QSSnapshot, QSSnapshotMeta, StorageBackend } from '@quaengine/store'
+import { QuaGameSaveSlot, QuaSnapshot, StorageBackend } from '@quajs/store'
 
 class FileSystemBackend implements StorageBackend {
   constructor(private basePath: string) {}
 
-  async saveSnapshot(snapshot: QSSnapshot): Promise<void> {
+  async saveSnapshot(snapshot: QuaSnapshot): Promise<void> {
     // Implement file system storage
   }
 
-  async getSnapshot(id: string): Promise<QSSnapshot | undefined> {
+  async getSnapshot(id: string): Promise<QuaSnapshot | undefined> {
     // Implement file system retrieval
   }
 
@@ -141,24 +161,29 @@ class FileSystemBackend implements StorageBackend {
 
 Middleware allows you to intercept and modify data during storage operations:
 
-### Built-in Middleware Examples
+### Middleware Example
 
 ```typescript
-import {
-  CompressionMiddleware,
-  createStore,
-  EncryptionMiddleware,
-  LoggingMiddleware
-} from '@quaengine/store'
+import { createStore, StorageMiddleware } from '@quajs/store'
+
+class AuditMiddleware implements StorageMiddleware {
+  beforeWrite(key, value) {
+    return {
+      ...value,
+      metadata: {
+        ...value.metadata,
+        updatedBy: 'player-session',
+      },
+    }
+  }
+}
 
 const secureStore = createStore({
   name: 'secureStore',
   state: { sensitiveData: 'secret' },
   storage: {
     middlewares: [
-      new EncryptionMiddleware('my-secret-key'),
-      new CompressionMiddleware(),
-      new LoggingMiddleware(console.log)
+      new AuditMiddleware()
     ]
   }
 })
@@ -167,7 +192,7 @@ const secureStore = createStore({
 ### Custom Middleware
 
 ```typescript
-import { StorageMiddleware } from '@quaengine/store'
+import { StorageMiddleware } from '@quajs/store'
 
 class TimestampMiddleware implements StorageMiddleware {
   async beforeWrite(key: string, value: any): Promise<any> {
@@ -178,8 +203,10 @@ class TimestampMiddleware implements StorageMiddleware {
   }
 
   async afterRead(key: string, value: any): Promise<any> {
-    console.log(`Data was stored at: ${new Date(value._timestamp)}`)
-    return value
+    return {
+      ...value,
+      _readAt: Date.now()
+    }
   }
 }
 ```
@@ -190,7 +217,7 @@ Save and restore complete application state:
 
 ```typescript
 // Single-store snapshots
-import { QuaStoreManager } from '@quaengine/store'
+import { QuaStoreManager } from '@quajs/store'
 
 const snapshotId = await store.snapshot('save-point-1')
 await store.restore(snapshotId)
@@ -220,7 +247,7 @@ const snapshots = await QuaStoreManager.listSnapshots()
 Store state serialization is pluggable. The default serializer keeps the current JSON clone behavior, while custom serializers can encode state types such as `Map`, `Date`, or domain classes before snapshots and save slots are written.
 
 ```typescript
-import { configureSerialization, createStore, QuaStateSerializer } from '@quaengine/store'
+import { configureSerialization, createStore, QuaStateSerializer } from '@quajs/store'
 
 const mapSerializer: QuaStateSerializer = {
   serialize(state) {
@@ -253,15 +280,27 @@ configureSerialization(mapSerializer)
 Configure storage settings globally:
 
 ```typescript
-import { configureStorage, EncryptionMiddleware } from '@quaengine/store'
+import { configureStorage, StorageMiddleware } from '@quajs/store'
+
+class EncryptSaveMiddleware implements StorageMiddleware {
+  beforeWrite(key, value) {
+    // Encrypt or encode the full snapshot/save slot envelope here.
+    return value
+  }
+
+  afterRead(key, value) {
+    // Decrypt or decode the full snapshot/save slot envelope here.
+    return value
+  }
+}
 
 configureStorage({
   backend: {
-    driver: LocalStorageBackend,
-    options: { prefix: 'myapp_' }
+    driver: FileSystemBackend,
+    options: { basePath: './saves' }
   },
   middlewares: [
-    new EncryptionMiddleware('global-encryption-key')
+    new EncryptSaveMiddleware()
   ]
 })
 
@@ -271,7 +310,7 @@ configureStorage({
 ## Multiple Store Management
 
 ```typescript
-import { commit, dispatch, useStore } from '@quaengine/store'
+import { commit, dispatch, useStore } from '@quajs/store'
 
 // Create multiple stores
 const userStore = createStore({ name: 'user', state: { name: '' } })
@@ -325,20 +364,25 @@ commit('game/levelUp')
 
 ### Included Backends
 
-- **IndexedDBBackend** (default) - Browser persistence with IndexedDB
-- **MemoryBackend** - In-memory storage (data lost on app close)
-- **LocalStorageBackend** - Browser persistence with LocalStorage
+- **MemoryBackend** - In-memory storage, included in `@quajs/store`
+- **IndexedDBBackend** - Browser persistence, provided by `@quajs/store-web`
+- **QuastoreFileBackend** - Encrypted binary `.quastore` file persistence, provided by `@quajs/store-node`
 
 ### Backend Interface
 
 ```typescript
 interface StorageBackend {
   init?: (options?: any) => Promise<void> | void
-  saveSnapshot: (snapshot: QSSnapshot) => Promise<void>
-  getSnapshot: (id: string) => Promise<QSSnapshot | undefined>
+  saveSnapshot: (snapshot: QuaSnapshot) => Promise<void>
+  getSnapshot: (id: string) => Promise<QuaSnapshot | undefined>
   deleteSnapshot: (id: string) => Promise<void>
-  listSnapshots: (storeName?: string) => Promise<QSSnapshotMeta[]>
+  listSnapshots: (storeName?: string) => Promise<QuaSnapshotMeta[]>
   clearSnapshots: (storeName?: string) => Promise<void>
+  saveGameSlot: (slot: QuaGameSaveSlot) => Promise<void>
+  getGameSlot: (slotId: string) => Promise<QuaGameSaveSlot | undefined>
+  deleteGameSlot: (slotId: string) => Promise<void>
+  listGameSlots: () => Promise<QuaGameSaveSlotMeta[]>
+  clearGameSlots: () => Promise<void>
   close?: () => Promise<void> | void
 }
 ```
@@ -388,8 +432,8 @@ const typedStore = createStore({
 
 ## Environment Support
 
-- **Browser**: Full support with IndexedDB and LocalStorage backends
-- **Node.js**: Supports custom backends (file system, database, etc.)
+- **Browser**: Use `@quajs/store-web` for IndexedDB persistence or inject a custom browser backend
+- **Node.js**: Use `@quajs/store-node` for encrypted `.quastore` files or inject a custom backend
 - **Electron/Tauri**: Works with any backend, ideal for desktop apps
 
 ## Error Handling

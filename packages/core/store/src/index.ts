@@ -1,6 +1,5 @@
 import QuaStoreManager from './manager'
 
-export { IndexedDBBackend } from './backends/indexeddb'
 export { MemoryBackend } from './backends/memory'
 export { commit, dispatch, default as QuaStoreManager, useStore } from './manager'
 export { assertStateSerializer, jsonStateSerializer } from './serializer'

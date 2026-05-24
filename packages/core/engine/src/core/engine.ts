@@ -160,6 +160,7 @@ export class QuaEngine {
         engine: createInitialEngineState(config.layout, config.flowControl),
       },
       mutations: createEngineMutations(),
+      serializer: config.store?.serializer,
       storage: config.store?.storage,
     })
     this.assets = new QuaAssets(config.assets)
