@@ -262,8 +262,8 @@ Yuki: Hello \${scope.playerName}
     expect(result).toContain('from "@quajs/plugin-backlog"')
   })
 
-  it('compiles entry decorators into step story metadata', () => {
-    const transformer = new QuaScriptTransformer()
+  it('compiles entry decorators into step story metadata', async () => {
+    const transformer = await createPluginAwareTransformerAsync()
     const result = transformer.transformSource(`
       function scene1() {
         dialogue(qs\`
@@ -508,10 +508,36 @@ Yuki: Hello
       }
     `
 
-    const result = transformer.transformSource(source)
+    expect(() => transformer.transformSource(source)).toThrow(
+      'Unknown QuaScript decorator @SetBackground. Register it explicitly, import its module in the QuaScript file, or enable automatic decorator collection.',
+    )
+  })
 
-    expect(result).not.toContain('setBackgroundWithEngine')
-    expect(result).not.toContain('ctx.engine.setBackground')
+  it('activates decorators from standalone qs imports when automatic collection is disabled', () => {
+    const result = compileQuaScriptModuleToTs(`
+<script lang="ts">
+import { decorators } from '@quajs/plugin-background'
+</script>
+
+@SetBackground('classroom.png')
+Jack: Hello world!
+    `, {
+      autoCollectDecorators: false,
+      hotReload: false,
+    })
+
+    expect(result).toContain("import { decorators } from '@quajs/plugin-background';")
+    expect(result).toContain('setBackgroundWithEngine(ctx.engine, "classroom.png")')
+  })
+
+  it('rejects plugin decorators that are neither imported nor auto-collected', () => {
+    expect(() => compileQuaScriptModuleToTs(`
+@SetBackground('classroom.png')
+Jack: Hello world!
+    `, {
+      autoCollectDecorators: false,
+      hotReload: false,
+    })).toThrow('Unknown QuaScript decorator @SetBackground')
   })
 
   it('should add required imports', async () => {

@@ -6,6 +6,7 @@ A TypeScript-first DSL compiler for QuaEngine that transforms QuaScript dialogue
 
 - **Simple Dialogue Syntax**: Write natural dialogue using `Character: Text` format
 - **Decorator System**: Use `@Decorator()` syntax for actions and effects
+- **Decorator Auto-Collection**: Discover plugin decorators from project metadata by default, with an opt-out switch
 - **Template Literals**: Full TypeScript template string support with `${expression}`
 - **Standalone Modules**: Compile `.qs` files into importable script factories
 - **Typed `.qs` Files**: Use `<script lang="ts">`, `<script setup lang="ts">`, and typed `Scope`
@@ -89,6 +90,30 @@ dialogue(intro, { playerName: 'Hero' })
 
 Standalone `.qs` compilation targets TypeScript, not JavaScript. The generated factory is typed as `GameStep[]`; if the module script exports `interface Scope` or `type Scope`, that type is used for the `scope` parameter. QuaScript expressions are normal TypeScript expressions, so standalone files should reference scope values explicitly, for example `scope.playerName`.
 
+### Decorator Resolution
+
+QuaScript decorator names are resolved in this order:
+
+1. built-in engine decorators
+2. explicit `decoratorMappings`
+3. decorators activated by value imports in the current file
+4. auto-collected plugin decorators discovered from package metadata
+
+Plugins no longer inject custom compiler modules into QuaScript. They may only contribute decorator metadata and runtime functions. If a plugin decorator is neither registered explicitly, imported in the current `.qs`/host module, nor auto-collected, compilation fails with an unknown decorator error.
+
+When you want local, explicit wiring inside a standalone `.qs` file, import any value from the plugin module in `<script lang="ts">`:
+
+```qs
+<script lang="ts">
+import { decorators } from '@quajs/plugin-background'
+</script>
+
+@SetBackground('classroom.png')
+Yuki: Ready.
+```
+
+To disable project-wide automatic decorator collection, set `autoCollectDecorators: false` in the Vite/plugin API or pass `--no-auto-collect-decorators` to the CLI.
+
 ## Installation
 
 ```bash
@@ -107,6 +132,7 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [
     quaScriptPlugin({
+      autoCollectDecorators: true,
       include: /\.(qs|ts|tsx|js|jsx)$/,
       exclude: /node_modules/
     })
@@ -124,6 +150,7 @@ qua-script compile scene1.qs
 
 # Specify output file
 qua-script -i scene1.ts -o scene1.compiled.ts
+qua-script compile scene1.qs --no-auto-collect-decorators
 
 # Generate a TypeScript arbitrary-extension declaration
 qua-script scene1.qs --declaration

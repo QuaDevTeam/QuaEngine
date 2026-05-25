@@ -4,8 +4,7 @@ import type { DecoratorMapping } from '../core/types'
 import process from 'node:process'
 import { getHotReloadManager } from '../core/hot-reload'
 import { QuaScriptTransformer } from '../core/transformer'
-import { mergeDecoratorMappings } from '../core/types'
-import { clearDecoratorCompilerCache, loadDecoratorCompilerRegistry, loadPackageDecoratorMappingsSync, loadProjectDecoratorMappings } from '../decorators'
+import { loadPackageDecoratorMappingsSync, loadProjectDecoratorMappings } from '../decorators'
 
 /**
  * Get plugin decorators using the discovery system
@@ -22,19 +21,16 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
   private projectRoot?: string
   private hotReloadManager = getHotReloadManager()
   private isInitialized = false
-  private initialMappings: DecoratorMapping
 
   constructor(
     decoratorMappings?: DecoratorMapping,
     options?: QuaScriptTransformerOptions & { projectRoot?: string },
   ) {
-    const packageMappings = loadPackageDecoratorMappingsSync(options?.projectRoot)
-    const initialMappings = mergeDecoratorMappings({
-      ...packageMappings,
-      ...(decoratorMappings || {}),
+    const discoveredMappings = loadPackageDecoratorMappingsSync(options?.projectRoot)
+    super(decoratorMappings || {}, {
+      ...options,
+      availableDecoratorMappings: discoveredMappings,
     })
-    super(initialMappings, options)
-    this.initialMappings = decoratorMappings || {}
     this.projectRoot = options?.projectRoot
 
     // Enable hot-reload in development
@@ -105,7 +101,7 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
    * Get current decorator mappings (for hot-reload updates)
    */
   getCurrentDecoratorMappings(): DecoratorMapping {
-    return { ...this.decoratorMappings }
+    return { ...this.getBaseDecoratorMappings() }
   }
 
   /**
@@ -114,18 +110,10 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
   async updateDecoratorMappings(): Promise<void> {
     try {
       const pluginDecorators = await getPluginDecorators(this.projectRoot)
-      const updatedMappings = mergeDecoratorMappings({
-        ...this.initialMappings,
-        ...pluginDecorators,
-      })
-
-      // Update internal mappings
-      this.decoratorMappings = updatedMappings
-      clearDecoratorCompilerCache()
-      this.decoratorCompilerRegistry = await loadDecoratorCompilerRegistry(updatedMappings)
+      this.setAvailableDecoratorMappings(pluginDecorators)
 
       // Notify hot-reload manager
-      this.hotReloadManager.updateDecoratorMappings(updatedMappings)
+      this.hotReloadManager.updateDecoratorMappings(this.getBaseDecoratorMappings())
     }
     catch (error) {
       console.warn('Failed to update decorator mappings:', error)

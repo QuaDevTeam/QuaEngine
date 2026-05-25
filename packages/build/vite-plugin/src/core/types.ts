@@ -4,6 +4,8 @@ import type { PluginOption } from 'vite'
 export interface QuaEngineVitePluginOptions {
   /** Enable QuaScript compilation */
   scriptCompiler?: {
+    /** Automatically collect decorators from discovered plugin metadata. */
+    autoCollectDecorators?: boolean
     enabled?: boolean
     include?: string | RegExp | (string | RegExp)[]
     exclude?: string | RegExp | (string | RegExp)[]

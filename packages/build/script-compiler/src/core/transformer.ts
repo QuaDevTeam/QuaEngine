@@ -17,7 +17,7 @@ import * as t from '@babel/types'
 import { createDefaultDecoratorCompilerRegistry } from '../decorators'
 import { parseQuaScriptDocument } from './document'
 import { QuaScriptParser, scanTemplateText } from './parser'
-import { DEFAULT_DECORATOR_MAPPINGS } from './types'
+import { mergeDecoratorMappings } from './types'
 
 const HOST_SOURCE_PARSER_PLUGINS: ParserPlugin[] = ['typescript', 'jsx', 'decorators']
 const generateCode = resolveCallableDefault(generateModule)
@@ -47,7 +47,8 @@ function resolveCallableDefault<T extends (...args: any[]) => unknown>(module: T
 }
 
 export interface QuaScriptTransformerOptions {
-  decoratorCompilerRegistry?: DecoratorCompilerRegistry
+  autoCollectDecorators?: boolean
+  availableDecoratorMappings?: DecoratorMapping
   runtimeModule?: {
     moduleId: string
     version?: string
@@ -63,6 +64,9 @@ export interface QuaScriptTransformerOptions {
  */
 export class QuaScriptTransformer {
   protected decoratorMappings: DecoratorMapping
+  private explicitDecoratorMappings: DecoratorMapping
+  private availableDecoratorMappings: DecoratorMapping
+  private autoCollectDecorators: boolean
   private usedDecorators: Set<string> = new Set()
   private usedRuntimeHelpers: Set<string> = new Set()
   private usedEngineHelpers: Set<string> = new Set()
@@ -71,14 +75,24 @@ export class QuaScriptTransformer {
   private runtimeModule?: NonNullable<QuaScriptTransformerOptions['runtimeModule']>
 
   constructor(
-    decoratorMappings: DecoratorMapping = DEFAULT_DECORATOR_MAPPINGS,
+    decoratorMappings: DecoratorMapping = {},
     options: QuaScriptTransformerOptions = {},
   ) {
-    const { decoratorCompilerRegistry } = options
-
-    this.decoratorMappings = decoratorMappings
-    this.decoratorCompilerRegistry = decoratorCompilerRegistry || createDefaultDecoratorCompilerRegistry()
+    this.explicitDecoratorMappings = decoratorMappings
+    this.availableDecoratorMappings = options.availableDecoratorMappings || {}
+    this.autoCollectDecorators = options.autoCollectDecorators ?? true
+    this.decoratorMappings = this.resolveBaseDecoratorMappings()
+    this.decoratorCompilerRegistry = createDefaultDecoratorCompilerRegistry()
     this.runtimeModule = options.runtimeModule
+  }
+
+  protected setAvailableDecoratorMappings(mappings: DecoratorMapping): void {
+    this.availableDecoratorMappings = mappings
+    this.decoratorMappings = this.resolveBaseDecoratorMappings()
+  }
+
+  protected getBaseDecoratorMappings(): DecoratorMapping {
+    return this.resolveBaseDecoratorMappings()
   }
 
   /**
@@ -99,49 +113,57 @@ export class QuaScriptTransformer {
       plugins: HOST_SOURCE_PARSER_PLUGINS,
     })
 
-    let transformed = false
+    const previousMappings = this.decoratorMappings
+    this.decoratorMappings = this.resolveDecoratorMappingsForAst(ast.program)
 
-    traverseAst(ast, {
-      TaggedTemplateExpression: (path: NodePath<t.TaggedTemplateExpression>) => {
-        if (t.isIdentifier(path.node.tag) && path.node.tag.name === 'qs') {
-          const quasiValue = this.extractQuasiValue(path.node.quasi)
-          if (quasiValue) {
-            const parser = new QuaScriptParser()
-            const parsed = parser.parse(quasiValue)
-            this.throwDocumentDiagnostics(parsed.diagnostics.filter(diagnostic => diagnostic.severity === 'error'))
-            this.collectUsedDecorators(parsed)
-            const sourceRangeOffset = createTemplateLiteralSourceRangeOffset(path.node.quasi)
-            const gameStepsArray = this.transformToGameSteps(parsed, {
-              quasi: path.node.quasi,
-              sourceRangeOffset,
-            })
-            t.inherits(gameStepsArray, path.node)
-            inheritSourceRange(gameStepsArray, parsed.steps[0]?.range, sourceRangeOffset)
-            path.replaceWith(gameStepsArray)
-            transformed = true
+    try {
+      let transformed = false
+
+      traverseAst(ast, {
+        TaggedTemplateExpression: (path: NodePath<t.TaggedTemplateExpression>) => {
+          if (t.isIdentifier(path.node.tag) && path.node.tag.name === 'qs') {
+            const quasiValue = this.extractQuasiValue(path.node.quasi)
+            if (quasiValue) {
+              const parser = new QuaScriptParser()
+              const parsed = parser.parse(quasiValue)
+              this.throwDocumentDiagnostics(parsed.diagnostics.filter(diagnostic => diagnostic.severity === 'error'))
+              this.collectUsedDecorators(parsed)
+              const sourceRangeOffset = createTemplateLiteralSourceRangeOffset(path.node.quasi)
+              const gameStepsArray = this.transformToGameSteps(parsed, {
+                quasi: path.node.quasi,
+                sourceRangeOffset,
+              })
+              t.inherits(gameStepsArray, path.node)
+              inheritSourceRange(gameStepsArray, parsed.steps[0]?.range, sourceRangeOffset)
+              path.replaceWith(gameStepsArray)
+              transformed = true
+            }
           }
-        }
-      },
-    })
+        },
+      })
 
-    if (transformed) {
-      const imports = this.generateImports(ast)
-      if (imports.length > 0) {
-        const program = ast.program || ast
-        program.body.unshift(...imports)
+      if (transformed) {
+        const imports = this.generateImports(ast)
+        if (imports.length > 0) {
+          const program = ast.program || ast
+          program.body.unshift(...imports)
+        }
+      }
+
+      const result = generateCode(ast, {
+        retainLines: false,
+        compact: false,
+        sourceMaps: true,
+        sourceFileName: filePath,
+      }, source)
+
+      return {
+        code: result.code,
+        map: result.map ?? null,
       }
     }
-
-    const result = generateCode(ast, {
-      retainLines: false,
-      compact: false,
-      sourceMaps: true,
-      sourceFileName: filePath,
-    }, source)
-
-    return {
-      code: result.code,
-      map: result.map ?? null,
+    finally {
+      this.decoratorMappings = previousMappings
     }
   }
 
@@ -176,67 +198,75 @@ export class QuaScriptTransformer {
 
     this.throwDocumentDiagnostics(document.diagnostics)
     this.throwDocumentDiagnostics(parsed.diagnostics.filter(diagnostic => diagnostic.severity === 'error'))
-    this.collectUsedDecorators(parsed)
 
     const moduleScript = document.moduleScript?.content || ''
     const setupScript = document.setupScript?.content || ''
     const moduleAst = this.parseModuleScriptForImports(moduleScript, document.moduleScript?.contentRange)
-    const hasScopeType = hasExportedScopeType(moduleScript)
-    const scopeIdentifier = t.identifier('scope')
-    scopeIdentifier.typeAnnotation = t.tsTypeAnnotation(hasScopeType
-      ? t.tsTypeReference(t.identifier('Scope'))
-      : t.tsTypeReference(
-          t.identifier('Record'),
-          t.tsTypeParameterInstantiation([
-            t.tsStringKeyword(),
-            t.tsUnknownKeyword(),
-          ]),
-        ))
-    const scopeParam = hasScopeType
-      ? scopeIdentifier
-      : t.assignmentPattern(scopeIdentifier, t.objectExpression([]))
-    const stepsArray = this.transformToGameSteps(parsed, {
-      scopeIdentifier,
-    })
-    const imports = this.generateImports(moduleAst)
-    const body: t.Statement[] = [
-      ...imports,
-      ...moduleAst.body,
-    ]
-    if (!this.isAlreadyImported(moduleAst, '@quajs/engine', 'GameStep')) {
-      const gameStepImport = t.importDeclaration(
-        [t.importSpecifier(t.identifier('GameStep'), t.identifier('GameStep'))],
-        t.stringLiteral('@quajs/engine'),
+    const previousMappings = this.decoratorMappings
+    this.decoratorMappings = this.resolveDecoratorMappingsForAst(moduleAst)
+
+    try {
+      this.collectUsedDecorators(parsed)
+      const hasScopeType = hasExportedScopeType(moduleScript)
+      const scopeIdentifier = t.identifier('scope')
+      scopeIdentifier.typeAnnotation = t.tsTypeAnnotation(hasScopeType
+        ? t.tsTypeReference(t.identifier('Scope'))
+        : t.tsTypeReference(
+            t.identifier('Record'),
+            t.tsTypeParameterInstantiation([
+              t.tsStringKeyword(),
+              t.tsUnknownKeyword(),
+            ]),
+          ))
+      const scopeParam = hasScopeType
+        ? scopeIdentifier
+        : t.assignmentPattern(scopeIdentifier, t.objectExpression([]))
+      const stepsArray = this.transformToGameSteps(parsed, {
+        scopeIdentifier,
+      })
+      const imports = this.generateImports(moduleAst)
+      const body: t.Statement[] = [
+        ...imports,
+        ...moduleAst.body,
+      ]
+      if (!this.isAlreadyImported(moduleAst, '@quajs/engine', 'GameStep')) {
+        const gameStepImport = t.importDeclaration(
+          [t.importSpecifier(t.identifier('GameStep'), t.identifier('GameStep'))],
+          t.stringLiteral('@quajs/engine'),
+        )
+        gameStepImport.importKind = 'type'
+        body.unshift(gameStepImport)
+      }
+      const setupStatements = this.parseSetupStatements(setupScript, document.setupScript?.contentRange)
+      const factoryDeclaration = t.functionDeclaration(
+        t.identifier('createQuaScript'),
+        [scopeParam],
+        t.blockStatement([
+          ...setupStatements,
+          t.returnStatement(stepsArray),
+        ]),
+        false,
+        false,
       )
-      gameStepImport.importKind = 'type'
-      body.unshift(gameStepImport)
+      factoryDeclaration.returnType = t.tsTypeAnnotation(t.tsArrayType(t.tsTypeReference(t.identifier('GameStep'))))
+      const factory = t.exportDefaultDeclaration(factoryDeclaration)
+      body.push(factory)
+
+      const program = t.program(body, [], 'module')
+      const output = generateCode(t.file(program), {
+        retainLines: false,
+        compact: false,
+        sourceMaps: true,
+        sourceFileName: filePath,
+      }, document.source)
+
+      return {
+        code: output.code,
+        map: output.map ?? null,
+      }
     }
-    const setupStatements = this.parseSetupStatements(setupScript, document.setupScript?.contentRange)
-    const factoryDeclaration = t.functionDeclaration(
-      t.identifier('createQuaScript'),
-      [scopeParam],
-      t.blockStatement([
-        ...setupStatements,
-        t.returnStatement(stepsArray),
-      ]),
-      false,
-      false,
-    )
-    factoryDeclaration.returnType = t.tsTypeAnnotation(t.tsArrayType(t.tsTypeReference(t.identifier('GameStep'))))
-    const factory = t.exportDefaultDeclaration(factoryDeclaration)
-    body.push(factory)
-
-    const program = t.program(body, [], 'module')
-    const output = generateCode(t.file(program), {
-      retainLines: false,
-      compact: false,
-      sourceMaps: true,
-      sourceFileName: filePath,
-    }, document.source)
-
-    return {
-      code: output.code,
-      map: output.map ?? null,
+    finally {
+      this.decoratorMappings = previousMappings
     }
   }
 
@@ -271,6 +301,7 @@ export class QuaScriptTransformer {
       if (step.type === 'dialogue') {
         const dialogue = step.content as QuaScriptDialogue
         dialogue.decorators.forEach((decorator) => {
+          this.assertKnownDecorator(decorator.name)
           this.usedDecorators.add(decorator.name)
           decorator.args.forEach(arg => this.collectEngineHelpersFromUnknown(arg))
         })
@@ -278,6 +309,7 @@ export class QuaScriptTransformer {
       else if (step.type === 'action') {
         const action = step.content as any
         action.decorators?.forEach((decorator: QuaScriptDecorator) => {
+          this.assertKnownDecorator(decorator.name)
           this.usedDecorators.add(decorator.name)
           decorator.args.forEach(arg => this.collectEngineHelpersFromUnknown(arg))
         })
@@ -290,6 +322,14 @@ export class QuaScriptTransformer {
         })
       }
     })
+  }
+
+  private assertKnownDecorator(name: string): void {
+    if (this.decoratorMappings[name]) {
+      return
+    }
+
+    throw new Error(`Unknown QuaScript decorator @${name}. Register it explicitly, import its module in the QuaScript file, or enable automatic decorator collection.`)
   }
 
   private collectEngineHelpersFromUnknown(value: unknown): void {
@@ -969,6 +1009,65 @@ export class QuaScriptTransformer {
     if (errors.length > 0) {
       throw new Error(errors.map(error => error.message).join('\n'))
     }
+  }
+
+  private resolveBaseDecoratorMappings(): DecoratorMapping {
+    return mergeDecoratorMappings({
+      ...(this.autoCollectDecorators ? this.availableDecoratorMappings : {}),
+      ...this.explicitDecoratorMappings,
+    })
+  }
+
+  private resolveDecoratorMappingsForAst(ast: t.Program): DecoratorMapping {
+    return mergeDecoratorMappings({
+      ...(this.autoCollectDecorators ? this.availableDecoratorMappings : {}),
+      ...this.collectImportedDecoratorMappings(ast),
+      ...this.explicitDecoratorMappings,
+    })
+  }
+
+  private collectImportedDecoratorMappings(ast: t.Program): DecoratorMapping {
+    const mappings: DecoratorMapping = {}
+
+    for (const source of this.collectDecoratorImportSources(ast)) {
+      for (const [decoratorName, mapping] of Object.entries(this.availableDecoratorMappings)) {
+        if (mapping.module !== source) {
+          continue
+        }
+
+        const existing = mappings[decoratorName]
+        if (existing && (existing.module !== mapping.module || existing.function !== mapping.function)) {
+          throw new Error(`Decorator @${decoratorName} is provided by multiple imported modules: "${existing.module}" and "${mapping.module}".`)
+        }
+
+        mappings[decoratorName] = mapping
+      }
+    }
+
+    return mappings
+  }
+
+  private collectDecoratorImportSources(ast: t.Program): Set<string> {
+    const sources = new Set<string>()
+
+    ast.body.forEach((node) => {
+      if (!t.isImportDeclaration(node) || node.importKind === 'type') {
+        return
+      }
+
+      const hasValueImport = node.specifiers.length === 0 || node.specifiers.some((specifier) => {
+        if (!t.isImportSpecifier(specifier)) {
+          return true
+        }
+        return specifier.importKind !== 'type'
+      })
+
+      if (hasValueImport) {
+        sources.add(node.source.value)
+      }
+    })
+
+    return sources
   }
 
   private parseModuleScriptForImports(moduleScript: string, sourceRange?: SourceRange): t.Program {
