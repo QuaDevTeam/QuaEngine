@@ -4,7 +4,7 @@ import type { DecoratorMapping } from '../core/types'
 import process from 'node:process'
 import { getHotReloadManager } from '../core/hot-reload'
 import { QuaScriptTransformer } from '../core/transformer'
-import { loadPackageDecoratorMappingsSync, loadProjectDecoratorMappings } from '../decorators'
+import { loadProjectDecoratorMappings, loadProjectDecoratorMappingsSync } from '../decorators'
 
 /**
  * Get plugin decorators using the discovery system
@@ -20,13 +20,12 @@ async function getPluginDecorators(projectRoot?: string): Promise<DecoratorMappi
 export class HotReloadAwareTransformer extends QuaScriptTransformer {
   private projectRoot?: string
   private hotReloadManager = getHotReloadManager()
-  private isInitialized = false
 
   constructor(
     decoratorMappings?: DecoratorMapping,
     options?: QuaScriptTransformerOptions & { projectRoot?: string },
   ) {
-    const discoveredMappings = loadPackageDecoratorMappingsSync(options?.projectRoot)
+    const discoveredMappings = loadProjectDecoratorMappingsSync(options?.projectRoot)
     super(decoratorMappings || {}, {
       ...options,
       availableDecoratorMappings: discoveredMappings,
@@ -40,9 +39,6 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
 
     // Set up hot-reload callbacks
     this.setupHotReload()
-
-    // Load plugins and initialize
-    this.initialize()
   }
 
   /**
@@ -107,17 +103,19 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
   /**
    * Update decorator mappings (triggered by hot-reload)
    */
-  async updateDecoratorMappings(): Promise<void> {
-    try {
-      const pluginDecorators = await getPluginDecorators(this.projectRoot)
-      this.setAvailableDecoratorMappings(pluginDecorators)
+  async updateDecoratorMappings(options: {
+    autoCollectDecorators?: boolean
+    decoratorMappings?: DecoratorMapping
+  } = {}): Promise<void> {
+    const pluginDecorators = await getPluginDecorators(this.projectRoot)
+    this.configureDecoratorResolution({
+      autoCollectDecorators: options.autoCollectDecorators,
+      availableDecoratorMappings: pluginDecorators,
+      decoratorMappings: options.decoratorMappings,
+    })
 
-      // Notify hot-reload manager
-      this.hotReloadManager.updateDecoratorMappings(this.getBaseDecoratorMappings())
-    }
-    catch (error) {
-      console.warn('Failed to update decorator mappings:', error)
-    }
+    // Notify hot-reload manager
+    this.hotReloadManager.updateDecoratorMappings(this.getBaseDecoratorMappings())
   }
 
   /**
@@ -142,31 +140,17 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
   }
 
   /**
-   * Initialize the transformer with plugin loading
-   */
-  private async initialize(): Promise<void> {
-    if (this.isInitialized)
-      return
-
-    try {
-      await this.updateDecoratorMappings()
-      this.isInitialized = true
-    }
-    catch (error) {
-      console.warn('Transformer initialization failed:', error)
-    }
-  }
-
-  /**
    * Set up hot-reload event handlers
    */
   private setupHotReload(): void {
-    this.hotReloadManager.onHotReload(async (event: HotReloadEvent) => {
+    this.hotReloadManager.onHotReload((event: HotReloadEvent) => {
       switch (event.type) {
         case 'plugin-change':
         case 'config-change':
           // Reload plugins and update decorator mappings
-          await this.updateDecoratorMappings()
+          void this.updateDecoratorMappings().catch((error) => {
+            console.warn('Failed to update decorator mappings:', error)
+          })
           break
 
         case 'quascript-change':

@@ -184,7 +184,7 @@ export class HotReloadManager {
     // Determine event type based on file path
     let eventType: HotReloadEvent['type'] = 'quascript-change'
 
-    if (filePath.includes('qua.plugins.json') || filePath.includes('package.json')) {
+    if (isQuaScriptConfigFile(filePath) || filePath.includes('qua.plugins.json') || filePath.includes('package.json')) {
       eventType = 'config-change'
     }
     else if (filePath.includes('plugin') || filePath.endsWith('.plugin.js') || filePath.endsWith('.plugin.ts')) {
@@ -255,6 +255,10 @@ export class HotReloadManager {
       }
     }
   }
+}
+
+function isQuaScriptConfigFile(filePath: string): boolean {
+  return filePath.includes('quascript.config.json') || filePath.includes('qua.config.json')
 }
 
 /**

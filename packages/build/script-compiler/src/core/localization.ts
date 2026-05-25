@@ -1,6 +1,7 @@
 import type { DecoratorMapping, ParsedQuaScript, QuaScriptChoice, QuaScriptDecorator, QuaScriptDialogue, QuaScriptStep, SourceRange } from './types'
 import { parse } from '@babel/parser'
-import { loadPackageDecoratorMappingsSync } from '../decorators'
+import { loadProjectDecoratorMappingsSync } from '../decorators'
+import { resolveQuaScriptDecoratorCompileOptions } from './config'
 import { parseQuaScriptDocument } from './document'
 import { QuaScriptParser, scanTemplateText } from './parser'
 import { QuaScriptTransformer, type QuaScriptTransformerOptions } from './transformer'
@@ -85,13 +86,19 @@ export function compileLocalizedQuaScriptModuleToTs(options: CompileLocalizedQua
   const { baseSource, localizedSource, strict, decoratorMappings, locale: _locale, sourceId: _sourceId, projectRoot, ...transformerOptions } = options
   void _locale
   void _sourceId
+  const resolvedDecoratorOptions = resolveQuaScriptDecoratorCompileOptions({
+    autoCollectDecorators: transformerOptions.autoCollectDecorators,
+    decoratorMappings,
+    projectRoot,
+  })
   const document = parseQuaScriptDocument(baseSource)
   const parser = new QuaScriptParser()
   const parsed = parser.parse(document.dslBody)
   applyLocalizedTextToParsedQuaScript(parsed, localizedSource, { strict })
-  return new QuaScriptTransformer(mergeDecoratorMappings(decoratorMappings || {}), {
+  return new QuaScriptTransformer(mergeDecoratorMappings(resolvedDecoratorOptions.decoratorMappings), {
     ...transformerOptions,
-    availableDecoratorMappings: loadPackageDecoratorMappingsSync(projectRoot),
+    autoCollectDecorators: resolvedDecoratorOptions.autoCollectDecorators,
+    availableDecoratorMappings: loadProjectDecoratorMappingsSync(projectRoot),
   }).transformParsedModuleSource(document, parsed)
 }
 

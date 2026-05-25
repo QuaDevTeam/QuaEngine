@@ -31,12 +31,16 @@ import {
 const connection = createConnection(ProposedFeatures.all)
 const documents = new TextDocuments(TextDocument)
 let projectRoot: string | undefined
-let initializationConfig: QuaScriptToolingConfig = {}
-let workspaceConfig: QuaScriptToolingConfig = {}
+let initializationToolingConfig: QuaScriptToolingConfig = {}
+let initializationWorkspaceConfig: QuaScriptToolingConfig = {}
+let workspaceConfig: QuaScriptToolingConfig | undefined
 
 connection.onInitialize((params: InitializeParams) => {
   projectRoot = resolveProjectRoot(params)
-  initializationConfig = resolveInitializationConfig(params)
+  const initializationConfig = resolveInitializationConfig(params)
+  initializationToolingConfig = initializationConfig.toolingConfig
+  initializationWorkspaceConfig = initializationConfig.workspaceConfig
+  workspaceConfig = undefined
   return {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
@@ -190,6 +194,10 @@ connection.onDidChangeConfiguration((params) => {
   validateAllOpenDocuments()
 })
 
+connection.onDidChangeWatchedFiles(() => {
+  validateAllOpenDocuments()
+})
+
 documents.listen(connection)
 connection.listen()
 
@@ -220,8 +228,8 @@ function documentOptions(document: TextDocument) {
 function currentToolingConfig(): QuaScriptToolingConfig {
   const projectConfig = projectRoot ? loadQuaScriptToolingConfig(projectRoot) : {}
   return mergeQuaScriptToolingConfig(
-    mergeQuaScriptToolingConfig(projectConfig, initializationConfig),
-    workspaceConfig,
+    mergeQuaScriptToolingConfig(projectConfig, initializationToolingConfig),
+    workspaceConfig ?? initializationWorkspaceConfig,
   )
 }
 
@@ -289,12 +297,15 @@ function resolveProjectRoot(params: InitializeParams): string | undefined {
   return params.rootPath || undefined
 }
 
-function resolveInitializationConfig(params: InitializeParams): QuaScriptToolingConfig {
+function resolveInitializationConfig(params: InitializeParams): {
+  toolingConfig: QuaScriptToolingConfig
+  workspaceConfig: QuaScriptToolingConfig
+} {
   const options = params.initializationOptions as { quascript?: unknown, settings?: unknown, toolingConfig?: unknown } | undefined
-  return mergeQuaScriptToolingConfig(
-    normalizeToolingConfig(options?.toolingConfig),
-    normalizeToolingConfig(options?.quascript ?? options?.settings),
-  )
+  return {
+    toolingConfig: normalizeToolingConfig(options?.toolingConfig),
+    workspaceConfig: normalizeToolingConfig(options?.quascript ?? options?.settings),
+  }
 }
 
 function normalizeToolingConfig(value: unknown): QuaScriptToolingConfig {

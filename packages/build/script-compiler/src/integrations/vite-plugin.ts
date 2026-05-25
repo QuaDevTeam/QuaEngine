@@ -3,6 +3,7 @@ import type { QuaScriptTransformResult } from '../core/transformer'
 import type { DecoratorMapping } from '../core/types'
 import process from 'node:process'
 import { getHotReloadManager } from '../core/hot-reload'
+import { loadQuaScriptToolingConfig } from '../core/config'
 import { createHotReloadAwareTransformer } from './hot-reload-transformer'
 
 export interface QuaScriptPluginOptions {
@@ -21,7 +22,7 @@ export interface QuaScriptPluginOptions {
  */
 export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
   const {
-    autoCollectDecorators = true,
+    autoCollectDecorators,
     include = /\.(qs|ts|tsx|js|jsx)$/,
     exclude = /node_modules/,
     decoratorMappings,
@@ -32,17 +33,42 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
   let transformer: ReturnType<typeof createHotReloadAwareTransformer>
   let server: ViteDevServer | undefined
   const hotReloadManager = getHotReloadManager(projectRoot)
+  let resolvedProjectRoot = projectRoot || process.cwd()
+
+  async function refreshTransformerConfig(root: string): Promise<void> {
+    const toolingConfig = loadQuaScriptToolingConfig(root)
+    const resolvedDecoratorMappings: DecoratorMapping = {
+      ...(toolingConfig.decorators?.mappings || {}),
+      ...(decoratorMappings || {}),
+    }
+    const resolvedAutoCollectDecorators = autoCollectDecorators
+      ?? toolingConfig.decorators?.autoCollect
+      ?? true
+
+    if (!transformer) {
+      transformer = createHotReloadAwareTransformer(resolvedDecoratorMappings, {
+        autoCollectDecorators: resolvedAutoCollectDecorators,
+        projectRoot: root,
+      })
+      await transformer.updateDecoratorMappings({
+        autoCollectDecorators: resolvedAutoCollectDecorators,
+        decoratorMappings: resolvedDecoratorMappings,
+      })
+      return
+    }
+
+    await transformer.updateDecoratorMappings({
+      autoCollectDecorators: resolvedAutoCollectDecorators,
+      decoratorMappings: resolvedDecoratorMappings,
+    })
+  }
 
   return {
     name: 'qua-script',
 
     async configResolved(config) {
-      // Create transformer after config is resolved
-      transformer = createHotReloadAwareTransformer(decoratorMappings, {
-        autoCollectDecorators,
-        projectRoot: projectRoot || config.root,
-      })
-      await transformer.updateDecoratorMappings()
+      resolvedProjectRoot = projectRoot || config.root
+      await refreshTransformerConfig(resolvedProjectRoot)
 
       // Enable hot-reload in development
       if (hotReload && config.command === 'serve') {
@@ -98,6 +124,8 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
       // Watch plugin files
       chokidar.add([
         '**/qua.plugins.json',
+        '**/quascript.config.json',
+        '**/qua.config.json',
         '**/plugins/**/*.{js,ts}',
         '**/*plugin*.{js,ts}',
         '**/package.json', // For dependency changes
@@ -106,7 +134,11 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
       // Handle file changes
       chokidar.on('change', (filePath) => {
         if (shouldWatchFile(filePath)) {
-          hotReloadManager.handleFileChange(filePath)
+          void refreshTransformerConfig(resolvedProjectRoot)
+            .then(() => {
+              hotReloadManager.handleFileChange(filePath)
+            })
+            .catch(console.error)
         }
       })
     },
@@ -172,7 +204,7 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
       }
     },
 
-    handleHotUpdate(ctx) {
+    async handleHotUpdate(ctx) {
       if (!hotReload)
         return
 
@@ -180,6 +212,7 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
 
       // Handle plugin-related file changes before generic .ts/.js transforms.
       if (shouldWatchFile(file)) {
+        await refreshTransformerConfig(resolvedProjectRoot)
         hotReloadManager.handleFileChange(file)
 
         // Return empty array to prevent default HMR
@@ -274,6 +307,8 @@ function stripQuery(id: string): string {
 function shouldWatchFile(filePath: string): boolean {
   return (
     filePath.includes('qua.plugins.json')
+    || filePath.includes('quascript.config.json')
+    || filePath.includes('qua.config.json')
     || filePath.includes('package.json')
     || filePath.includes('plugin')
     || filePath.endsWith('.plugin.js')

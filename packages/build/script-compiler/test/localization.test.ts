@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   applyQuaScriptLocaleOverlay,
@@ -82,6 +85,41 @@ describe('quaScript localization helpers', () => {
     expect(ids(result)).toEqual(ids(baseResult))
     expect(result).toContain('$t(\'intro.opening\'')
     expect(result).toContain('resolveQuaText')
+  })
+
+  it('applies project tooling config during localized module compilation', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'quascript-localized-config-'))
+    writeFileSync(join(projectRoot, 'quascript.config.json'), JSON.stringify({
+      decorators: {
+        autoCollect: false,
+      },
+    }), 'utf-8')
+    writeFileSync(join(projectRoot, 'qua.plugins.json'), JSON.stringify({
+      plugins: [
+        {
+          name: '@quajs/plugin-background',
+          decorators: {
+            SetBackground: {
+              function: 'setBackgroundWithEngine',
+              module: '@quajs/plugin-background',
+            },
+          },
+        },
+      ],
+    }), 'utf-8')
+
+    expect(() => compileLocalizedQuaScriptModuleToTs({
+      baseSource: `
+        @SetBackground('classroom.png')
+        Yuki: Hello
+      `,
+      localizedSource: `
+        @SetBackground('classroom.png')
+        Yuki: 你好
+      `,
+      locale: 'zh-cn',
+      projectRoot,
+    })).toThrow('Unknown QuaScript decorator @SetBackground')
   })
 
   it('creates skeletons and reports sync statuses', () => {

@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { parse } from '@babel/parser'
 import { animationDecoratorMappings } from '@quajs/plugin-animation'
 import { audioDecoratorMappings } from '@quajs/plugin-audio'
@@ -79,6 +82,63 @@ describe('quaScriptTransformer', () => {
     expect(result).toContain('speakWithEngine(ctx.engine, "Jack"')
     expect(result).toContain('scope.playerName')
     expect(result).toContain('enabled: scope.unlocked')
+  })
+
+  it('loads project decorators from qua.plugins.json during standalone compilation', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'quascript-standalone-'))
+    writeFileSync(join(projectRoot, 'qua.plugins.json'), JSON.stringify({
+      plugins: [
+        {
+          name: '@quajs/plugin-background',
+          decorators: {
+            SetBackground: {
+              function: 'setBackgroundWithEngine',
+              module: '@quajs/plugin-background',
+            },
+          },
+        },
+      ],
+    }), 'utf-8')
+
+    const result = compileQuaScriptModuleToTs(`
+      @SetBackground('classroom.png')
+      Jack: Hello world!
+    `, {
+      hotReload: false,
+      projectRoot,
+    })
+
+    expect(result).toContain('setBackgroundWithEngine(ctx.engine, "classroom.png")')
+  })
+
+  it('applies project tooling config during standalone compilation', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'quascript-standalone-config-'))
+    writeFileSync(join(projectRoot, 'quascript.config.json'), JSON.stringify({
+      decorators: {
+        autoCollect: false,
+      },
+    }), 'utf-8')
+    writeFileSync(join(projectRoot, 'qua.plugins.json'), JSON.stringify({
+      plugins: [
+        {
+          name: '@quajs/plugin-background',
+          decorators: {
+            SetBackground: {
+              function: 'setBackgroundWithEngine',
+              module: '@quajs/plugin-background',
+            },
+          },
+        },
+      ],
+    }), 'utf-8')
+
+    expect(() => compileQuaScriptModuleToTs(`
+      @SetBackground('classroom.png')
+      Jack: Hello world!
+    `, {
+      hotReload: false,
+      projectRoot,
+    })).toThrow('Unknown QuaScript decorator @SetBackground')
   })
 
   it('generates stable runtime module step ids for dynamic QuaScript packages', () => {

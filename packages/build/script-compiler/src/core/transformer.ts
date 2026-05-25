@@ -98,6 +98,23 @@ export class QuaScriptTransformer {
     this.decoratorMappings = this.getBaseDecoratorMappings()
   }
 
+  protected configureDecoratorResolution(options: {
+    autoCollectDecorators?: boolean
+    availableDecoratorMappings?: DecoratorMapping
+    decoratorMappings?: DecoratorMapping
+  }): void {
+    if (options.autoCollectDecorators !== undefined) {
+      this.autoCollectDecorators = options.autoCollectDecorators
+    }
+    if (options.availableDecoratorMappings !== undefined) {
+      this.availableDecoratorMappings = options.availableDecoratorMappings
+    }
+    if (options.decoratorMappings !== undefined) {
+      this.explicitDecoratorMappings = options.decoratorMappings
+    }
+    this.decoratorMappings = this.getBaseDecoratorMappings()
+  }
+
   protected getBaseDecoratorMappings(): DecoratorMapping {
     return resolveBaseDecoratorMappings({
       autoCollectDecorators: this.autoCollectDecorators,

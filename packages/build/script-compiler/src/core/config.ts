@@ -1,4 +1,4 @@
-import type { QuaScriptToolingConfig } from './types'
+import type { DecoratorMapping, QuaScriptToolingConfig } from './types'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -68,6 +68,29 @@ export function mergeQuaScriptToolingConfig(
         ...(base.lint?.rules || {}),
         ...(override.lint?.rules || {}),
       },
+    },
+  }
+}
+
+export function resolveQuaScriptDecoratorCompileOptions(options: {
+  autoCollectDecorators?: boolean
+  decoratorMappings?: DecoratorMapping
+  projectRoot?: string
+}): {
+  autoCollectDecorators: boolean
+  decoratorMappings: DecoratorMapping
+} {
+  const toolingConfig = options.projectRoot
+    ? loadQuaScriptToolingConfig(options.projectRoot)
+    : undefined
+
+  return {
+    autoCollectDecorators: options.autoCollectDecorators
+      ?? toolingConfig?.decorators?.autoCollect
+      ?? true,
+    decoratorMappings: {
+      ...(toolingConfig?.decorators?.mappings || {}),
+      ...(options.decoratorMappings || {}),
     },
   }
 }
