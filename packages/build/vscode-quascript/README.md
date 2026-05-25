@@ -66,6 +66,15 @@ Example:
 
 ```json
 {
+  "decorators": {
+    "autoCollect": true,
+    "mappings": {
+      "SetBackground": {
+        "function": "setBackgroundWithEngine",
+        "module": "@quajs/plugin-background"
+      }
+    }
+  },
   "lint": {
     "rules": {
       "QS_STYLE_TRAILING_WHITESPACE": "error",
@@ -85,7 +94,7 @@ Example:
 }
 ```
 
-The same settings are available in VS Code under `quascript.lint.*`, `quascript.format.*`, and `quascript.files.*`.
+The same settings are available in VS Code under `quascript.decorators.*`, `quascript.lint.*`, `quascript.format.*`, and `quascript.files.*`.
 
 ## Packaging
 

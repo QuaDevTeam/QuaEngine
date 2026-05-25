@@ -20,6 +20,13 @@ type LzmaNative = typeof import('lzma-native')
 type QuaScriptRuleSeverity = 'error' | 'info' | 'off' | 'warning'
 
 interface QuaScriptClientSettings {
+  decorators?: {
+    autoCollect?: boolean
+    mappings?: Record<string, {
+      function: string
+      module: string
+    }>
+  }
   files?: {
     exclude?: string[]
     include?: string[]
@@ -193,10 +200,13 @@ function sendQuaScriptConfiguration(): void {
 
 function getQuaScriptSettings(): QuaScriptClientSettings {
   const configuration = vscode.workspace.getConfiguration('quascript')
+  const decorators: NonNullable<QuaScriptClientSettings['decorators']> = {}
   const files: NonNullable<QuaScriptClientSettings['files']> = {}
   const format: NonNullable<QuaScriptClientSettings['format']> = {}
   const lint: NonNullable<QuaScriptClientSettings['lint']> = {}
 
+  setExplicitConfigurationValue(configuration, 'decorators.autoCollect', decorators, 'autoCollect')
+  setExplicitConfigurationValue(configuration, 'decorators.mappings', decorators, 'mappings')
   setExplicitConfigurationValue(configuration, 'files.exclude', files, 'exclude')
   setExplicitConfigurationValue(configuration, 'files.include', files, 'include')
   setExplicitConfigurationValue(configuration, 'format.enable', format, 'enable')
@@ -206,6 +216,7 @@ function getQuaScriptSettings(): QuaScriptClientSettings {
   setExplicitConfigurationValue(configuration, 'lint.rules', lint, 'rules')
 
   return {
+    ...(Object.keys(decorators).length > 0 ? { decorators } : {}),
     ...(Object.keys(files).length > 0 ? { files } : {}),
     ...(Object.keys(format).length > 0 ? { format } : {}),
     ...(Object.keys(lint).length > 0 ? { lint } : {}),

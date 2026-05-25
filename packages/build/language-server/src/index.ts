@@ -1,5 +1,6 @@
 import type { DecoratorArgumentLanguageContribution, LanguageCompletionValue } from '@quajs/plugin-discovery'
 import type {
+  DecoratorMapping,
   QuaScriptDiagnostic,
   QuaScriptLintResult,
   QuaScriptTextEdit,
@@ -9,19 +10,22 @@ import type {
 import { existsSync, readdirSync } from 'node:fs'
 import { extname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { getDiscoveredDecoratorMappings, getDiscoveredLanguageContributions } from '@quajs/plugin-discovery'
+import { getDiscoveredLanguageContributions } from '@quajs/plugin-discovery'
 import {
   applyQuaScriptLintRules,
   collectQuaScriptStyleDiagnostics,
+  createPluginAwareTransformerAsync,
   createLineStarts,
   createQuaScriptLintResult,
-  DEFAULT_DECORATOR_MAPPINGS,
   formatQuaScriptWithEdits,
   getQuaScriptFixAllEdits,
+  loadProjectDecoratorMappings,
   parseQuaScriptDocument,
   rangeFromOffsets,
   QuaScriptParser,
   lintQuaScriptSource,
+  resolveBaseDecoratorMappings,
+  resolveDecoratorMappingsForModuleSource,
 } from '@quajs/script-compiler'
 import ts from 'typescript'
 import {
@@ -110,10 +114,14 @@ export async function analyzeQuaScript(source: string, options: QuaScriptLanguag
   const parsed = parser.parse(document.dslBody)
   const lintEnabled = options.toolingConfig?.lint?.enable !== false
   const styleDiagnostics = collectQuaScriptStyleDiagnostics(source, options.toolingConfig?.format)
+  const compilerDiagnostics = lintEnabled
+    ? await collectQuaScriptCompilerDiagnostics(source, document.diagnostics, parsed, options)
+    : []
   const baseDiagnostics = lintEnabled
     ? [
         ...document.diagnostics,
         ...parsed.diagnostics,
+        ...compilerDiagnostics,
         ...styleDiagnostics,
       ]
     : []
@@ -126,6 +134,7 @@ export async function analyzeQuaScript(source: string, options: QuaScriptLanguag
       ? []
       : applyQuaScriptLintRules([
           ...context.virtualDocument.diagnostics,
+          ...compilerDiagnostics,
           ...collectQuaScriptTypeScriptDiagnostics(context),
           ...collectQuaScriptStoryDiagnostics(source, parsed, options),
           ...styleDiagnostics,
@@ -178,7 +187,7 @@ export async function getQuaScriptCompletions(
   const beforeCursor = line.slice(0, position.character)
 
   if (isDecoratorContext(beforeCursor)) {
-    return getDecoratorCompletions(options.projectRoot)
+    return getDecoratorCompletions(source, options)
   }
 
   if (isChoiceHelperContext(beforeCursor)) {
@@ -246,7 +255,7 @@ export async function getQuaScriptHover(
   const line = source.split(/\r?\n/)[position.line] || ''
   const decoratorName = getDecoratorNameAtPosition(line, position.character)
   if (decoratorName) {
-    const mappings = await getDecoratorMappings(options.projectRoot)
+    const mappings = await getActiveDecoratorMappings(source, options)
     const mapping = mappings[decoratorName]
     if (mapping) {
       return {
@@ -333,9 +342,12 @@ export function getQuaScriptCodeActions(
   return actions
 }
 
-async function getDecoratorCompletions(projectRoot?: string): Promise<QuaScriptCompletionItem[]> {
-  const mappings = await getDecoratorMappings(projectRoot)
-  return [...new Set([...Object.keys(mappings), 'Choice', 'Node', 'Label', 'Scene', 'Entry'])]
+async function getDecoratorCompletions(
+  source: string,
+  options: QuaScriptLanguageOptions,
+): Promise<QuaScriptCompletionItem[]> {
+  const mappings = await getActiveDecoratorMappings(source, options)
+  return [...new Set(Object.keys(mappings))]
     .sort()
     .map(label => ({
       label,
@@ -410,6 +422,11 @@ async function getDecoratorArgumentCompletions(
     return []
   }
 
+  const mappings = await getActiveDecoratorMappings(source, options)
+  if (!mappings[context.decoratorName]) {
+    return []
+  }
+
   const language = await getDiscoveredLanguageContributions(options.projectRoot)
   const contribution = language.decorators?.[context.decoratorName]
   const arg = contribution?.args?.[context.argumentIndex]
@@ -434,12 +451,103 @@ async function getDecoratorArgumentCompletions(
   return uniqueCompletions(completions)
 }
 
-async function getDecoratorMappings(projectRoot?: string) {
-  const discovered = await getDiscoveredDecoratorMappings(projectRoot)
-  return {
-    ...DEFAULT_DECORATOR_MAPPINGS,
-    ...discovered,
+async function getActiveDecoratorMappings(
+  source: string,
+  options: QuaScriptLanguageOptions,
+): Promise<DecoratorMapping> {
+  const availableMappings = await loadProjectDecoratorMappings(options.projectRoot)
+  const resolutionOptions = createDecoratorResolutionOptions(options.toolingConfig, availableMappings)
+  const moduleScript = parseQuaScriptDocument(source).moduleScript?.content || ''
+
+  try {
+    return resolveDecoratorMappingsForModuleSource(moduleScript, resolutionOptions)
   }
+  catch {
+    return resolveBaseDecoratorMappings(resolutionOptions)
+  }
+}
+
+function createDecoratorResolutionOptions(
+  toolingConfig: QuaScriptToolingConfig | undefined,
+  availableDecoratorMappings: DecoratorMapping,
+) {
+  return {
+    autoCollectDecorators: toolingConfig?.decorators?.autoCollect,
+    availableDecoratorMappings,
+    decoratorMappings: toolingConfig?.decorators?.mappings,
+  }
+}
+
+async function collectQuaScriptCompilerDiagnostics(
+  source: string,
+  documentDiagnostics: readonly QuaScriptDiagnostic[],
+  parsed: ReturnType<QuaScriptParser['parse']>,
+  options: QuaScriptLanguageOptions,
+): Promise<QuaScriptDiagnostic[]> {
+  if (
+    documentDiagnostics.some(diagnostic => diagnostic.severity === 'error')
+    || parsed.diagnostics.some(diagnostic => diagnostic.severity === 'error')
+  ) {
+    return []
+  }
+
+  try {
+    const transformer = await createPluginAwareTransformerAsync(
+      options.toolingConfig?.decorators?.mappings,
+      {
+        autoCollectDecorators: options.toolingConfig?.decorators?.autoCollect,
+        projectRoot: options.projectRoot,
+      },
+    )
+    transformer.transformModuleSource(source, options.filePath)
+    return []
+  }
+  catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return [{
+      code: 'QS_COMPILER_SEMANTICS',
+      message,
+      range: findCompilerDiagnosticRange(parsed, message),
+      severity: 'error',
+      source: 'quascript/compiler',
+    }]
+  }
+}
+
+function findCompilerDiagnosticRange(
+  parsed: ReturnType<QuaScriptParser['parse']>,
+  message: string,
+): SourceRange | undefined {
+  const decoratorMatch = message.match(/@([A-Za-z_]\w*)/)
+  if (!decoratorMatch) {
+    return undefined
+  }
+
+  const decoratorName = decoratorMatch[1]
+  for (const step of parsed.steps) {
+    if (step.type === 'dialogue') {
+      const dialogue = step.content as { decorators: Array<{ name: string, range?: SourceRange }> }
+      const match = dialogue.decorators.find((decorator) => {
+        return decorator.name === decoratorName
+      })
+      if (match?.range) {
+        return match.range
+      }
+      continue
+    }
+
+    if (step.type === 'action') {
+      const action = step.content as { decorators: Array<{ name: string, range?: SourceRange }> }
+      const match = action.decorators.find((decorator) => {
+        return decorator.name === decoratorName
+      })
+      if (match?.range) {
+        return match.range
+      }
+    }
+  }
+
+  return undefined
 }
 
 function completionValuesToItems(

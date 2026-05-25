@@ -30,6 +30,7 @@ export type QuaScriptDiagnosticSeverity = 'error' | 'warning' | 'info'
 
 export type QuaScriptDiagnosticSource
   = 'quascript/parser'
+    | 'quascript/compiler'
     | 'quascript/typescript'
     | 'quascript/story'
     | 'quascript/project'
@@ -74,6 +75,16 @@ export interface QuaScriptLintResult {
   warningCount: number
 }
 
+/**
+ * Decorator mapping configuration
+ */
+export interface DecoratorMapping {
+  [decoratorName: string]: {
+    function: string
+    module: string
+  }
+}
+
 export interface QuaScriptFormatOptions {
   insertFinalNewline?: boolean
   maxBlankLines?: number
@@ -86,6 +97,10 @@ export interface QuaScriptFormatResult {
 }
 
 export interface QuaScriptToolingConfig {
+  decorators?: {
+    autoCollect?: boolean
+    mappings?: DecoratorMapping
+  }
   files?: {
     exclude?: string[]
     include?: string[]
@@ -181,16 +196,6 @@ export interface StoryDeclaration {
   labels: Array<{ id: string, point: Record<string, unknown>, metadata?: Record<string, unknown> }>
   choices: Array<{ id: string, text: string, target?: Record<string, unknown>, condition?: string, source: 'decorator' | 'sugar', point: Record<string, unknown> }>
   edges: Array<{ id: string, from: string, to: string, kind: 'choice' | string, condition?: string, metadata?: Record<string, unknown> }>
-}
-
-/**
- * Decorator mapping configuration
- */
-export interface DecoratorMapping {
-  [decoratorName: string]: {
-    function: string
-    module: string
-  }
 }
 
 export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {

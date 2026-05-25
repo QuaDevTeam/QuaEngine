@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { backgroundDecoratorMappings } from '@quajs/plugin-background'
 import { describe, expect, it } from 'vitest'
 import { loadQuaScriptToolingConfig, mergeQuaScriptToolingConfig, resolveQuaScriptFiles } from '../src'
 
@@ -52,10 +53,16 @@ describe('QuaScript tooling config', () => {
     }), 'utf-8')
 
     const merged = mergeQuaScriptToolingConfig(loadQuaScriptToolingConfig(root), {
+      decorators: {
+        autoCollect: false,
+        mappings: backgroundDecoratorMappings,
+      },
       format: { enable: false },
     })
 
     expect(merged.files?.include).toEqual(['story/**/*.qs'])
+    expect(merged.decorators?.autoCollect).toBe(false)
+    expect(merged.decorators?.mappings?.SetBackground).toEqual(backgroundDecoratorMappings.SetBackground)
     expect(merged.format).toMatchObject({
       enable: false,
       insertFinalNewline: false,

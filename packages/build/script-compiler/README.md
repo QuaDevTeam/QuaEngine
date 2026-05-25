@@ -171,6 +171,15 @@ QuaScript tooling reads configuration from `quascript.config.json`, `qua.config.
 
 ```json
 {
+  "decorators": {
+    "autoCollect": true,
+    "mappings": {
+      "SetBackground": {
+        "function": "setBackgroundWithEngine",
+        "module": "@quajs/plugin-background"
+      }
+    }
+  },
   "lint": {
     "rules": {
       "QS_STYLE_TRAILING_WHITESPACE": "error",
@@ -189,6 +198,8 @@ QuaScript tooling reads configuration from `quascript.config.json`, `qua.config.
   }
 }
 ```
+
+`decorators.autoCollect` and `decorators.mappings` are shared by the CLI, language server, and VS Code extension so editor semantics stay aligned with build-time compilation.
 
 ### Programmatic Usage
 
