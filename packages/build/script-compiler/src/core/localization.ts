@@ -89,11 +89,10 @@ export function compileLocalizedQuaScriptModuleToTs(options: CompileLocalizedQua
   const parser = new QuaScriptParser()
   const parsed = parser.parse(document.dslBody)
   applyLocalizedTextToParsedQuaScript(parsed, localizedSource, { strict })
-  const mergedMappings = mergeDecoratorMappings({
-    ...loadPackageDecoratorMappingsSync(projectRoot),
-    ...(decoratorMappings || {}),
-  })
-  return new QuaScriptTransformer(mergedMappings, transformerOptions).transformParsedModuleSource(document, parsed)
+  return new QuaScriptTransformer(mergeDecoratorMappings(decoratorMappings || {}), {
+    ...transformerOptions,
+    availableDecoratorMappings: loadPackageDecoratorMappingsSync(projectRoot),
+  }).transformParsedModuleSource(document, parsed)
 }
 
 export function applyQuaScriptLocaleOverlay(

@@ -24,6 +24,7 @@ const currentFile = fileURLToPath(import.meta.url)
 const languageServerPackage = '@quajs/language-server'
 
 interface CompileOptions {
+  autoCollectDecorators?: boolean
   command: 'compile'
   declaration?: boolean
   declarationOnly?: boolean
@@ -85,6 +86,7 @@ function parseArgs(argv = process.argv.slice(2)): CLIOptions {
 
 function parseCompileArgs(args: string[]): CompileOptions {
   const options: CompileOptions = {
+    autoCollectDecorators: true,
     command: 'compile',
     input: '',
   }
@@ -110,6 +112,9 @@ function parseCompileArgs(args: string[]): CompileOptions {
         break
       case '--decorator-mappings':
         options.decoratorMappings = readOptionValue(args, ++index, arg)
+        break
+      case '--no-auto-collect-decorators':
+        options.autoCollectDecorators = false
         break
       case '--declaration':
         options.declaration = true
@@ -265,6 +270,7 @@ async function runCompile(options: CompileOptions): Promise<number> {
   const transformer = await createPluginAwareTransformerAsync(
     decoratorMappings,
     {
+      autoCollectDecorators: options.autoCollectDecorators,
       projectRoot: process.cwd(),
     },
   )
@@ -553,6 +559,7 @@ Compile options:
   -i, --input <file>           Input .qs file or TypeScript/JavaScript file containing QuaScript
   -o, --output <file>          Output file
   --decorator-mappings <json>  JSON file containing decorator mappings
+  --no-auto-collect-decorators Disable automatic decorator collection from discovered plugins
   --declaration                Also emit a sibling .d.qs.ts declaration for .qs inputs
   --declaration-only           Emit only the .d.qs.ts declaration for .qs inputs
   -h, --help                   Show help

@@ -147,6 +147,18 @@ describe('@quajs/vite-plugin', () => {
       expect(typeof plugin.transform).toBe('function')
     })
 
+    it('should forward decorator auto-collection settings to the base script compiler plugin', async () => {
+      const { quaScriptPlugin } = await import('@quajs/script-compiler')
+
+      quaScriptCompilerPlugin({
+        autoCollectDecorators: false,
+      })
+
+      expect(vi.mocked(quaScriptPlugin)).toHaveBeenCalledWith(expect.objectContaining({
+        autoCollectDecorators: false,
+      }))
+    })
+
     it('should forward lifecycle hooks to the base script compiler plugin', async () => {
       const plugin = quaScriptCompilerPlugin()
       const server = {

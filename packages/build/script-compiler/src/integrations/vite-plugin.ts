@@ -6,6 +6,7 @@ import { getHotReloadManager } from '../core/hot-reload'
 import { createHotReloadAwareTransformer } from './hot-reload-transformer'
 
 export interface QuaScriptPluginOptions {
+  autoCollectDecorators?: boolean
   include?: string | RegExp | (string | RegExp)[]
   exclude?: string | RegExp | (string | RegExp)[]
   decoratorMappings?: DecoratorMapping
@@ -20,6 +21,7 @@ export interface QuaScriptPluginOptions {
  */
 export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
   const {
+    autoCollectDecorators = true,
     include = /\.(qs|ts|tsx|js|jsx)$/,
     exclude = /node_modules/,
     decoratorMappings,
@@ -37,6 +39,7 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
     async configResolved(config) {
       // Create transformer after config is resolved
       transformer = createHotReloadAwareTransformer(decoratorMappings, {
+        autoCollectDecorators,
         projectRoot: projectRoot || config.root,
       })
       await transformer.updateDecoratorMappings()

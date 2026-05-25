@@ -20,7 +20,7 @@ Build Time (Node.js)          →     Runtime (Browser)
 
 1. **PluginDiscovery** (Node.js only) - Scans packages with explicit `quajs` metadata and custom registries
 2. **PluginAPIRegistry** (Universal) - Runtime plugin management
-3. **PluginAwareTransformer** (Build time) - QuaScript compilation with plugins
+3. **PluginAwareTransformer** (Build time) - QuaScript compilation with discovered decorator metadata
 4. **Package-based Plugins** - Each plugin is a separate npm package
 
 ## 📦 **Plugin Package Specification**
@@ -145,6 +145,8 @@ const transformer = await createPluginAwareTransformerAsync(
 
 const compiled = transformer.transformSource(quaScriptCode)
 ```
+
+Plugin discovery contributes decorator metadata only. Plugins do not inject custom QuaScript compiler modules or extend the QuaScript grammar.
 
 ### **Vite Plugin**
 

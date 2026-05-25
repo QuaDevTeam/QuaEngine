@@ -27,6 +27,7 @@ interface BaseScriptPlugin extends Plugin {
 
 export function quaScriptCompilerPlugin(options: QuaEngineVitePluginOptions['scriptCompiler'] = {}): Plugin {
   const {
+    autoCollectDecorators = true,
     enabled = true,
     include = /\.(qs|ts|tsx|js|jsx)$/,
     exclude = /node_modules/,
@@ -42,6 +43,7 @@ export function quaScriptCompilerPlugin(options: QuaEngineVitePluginOptions['scr
   }
 
   const basePlugin = quaScriptPlugin({
+    autoCollectDecorators,
     include,
     exclude,
     decoratorMappings,

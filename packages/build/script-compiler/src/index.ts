@@ -100,18 +100,8 @@ export type {
 
 export { DEFAULT_DECORATOR_MAPPINGS, mergeDecoratorMappings } from './core/types'
 export {
-  clearDecoratorCompilerCache,
-  createDefaultDecoratorCompilerRegistry,
-  DecoratorCompilerRegistry,
-  loadDecoratorCompilerRegistry,
   loadPackageDecoratorMappingsSync,
   loadProjectDecoratorMappings,
-} from './decorators'
-export type {
-  DecoratorCompilationResult,
-  DecoratorCompileContext,
-  DecoratorCompileInput,
-  DecoratorCompiler,
 } from './decorators'
 // Hot-reload transformers
 export {
@@ -133,6 +123,7 @@ export type { QuaScriptPluginOptions } from './integrations/vite-plugin'
 export function compileQuaScript(
   source: string,
   options?: {
+    autoCollectDecorators?: boolean
     decoratorMappings?: DecoratorMapping
     /** Project root for plugin discovery */
     projectRoot?: string
@@ -148,6 +139,7 @@ export function compileQuaScript(
         restOptions.decoratorMappings,
         {
           projectRoot: restOptions.projectRoot,
+          autoCollectDecorators: restOptions.autoCollectDecorators,
           runtimeModule: restOptions.runtimeModule,
         },
       )
@@ -155,6 +147,7 @@ export function compileQuaScript(
         restOptions.decoratorMappings,
         {
           projectRoot: restOptions.projectRoot,
+          autoCollectDecorators: restOptions.autoCollectDecorators,
           runtimeModule: restOptions.runtimeModule,
         },
       )
@@ -172,6 +165,7 @@ export function compileQuaScript(
 export function compileQuaScriptModuleToTs(
   source: string,
   options?: {
+    autoCollectDecorators?: boolean
     decoratorMappings?: DecoratorMapping
     /** Project root for plugin discovery */
     projectRoot?: string
@@ -187,6 +181,7 @@ export function compileQuaScriptModuleToTs(
         restOptions.decoratorMappings,
         {
           projectRoot: restOptions.projectRoot,
+          autoCollectDecorators: restOptions.autoCollectDecorators,
           runtimeModule: restOptions.runtimeModule,
         },
       )
@@ -194,6 +189,7 @@ export function compileQuaScriptModuleToTs(
         restOptions.decoratorMappings,
         {
           projectRoot: restOptions.projectRoot,
+          autoCollectDecorators: restOptions.autoCollectDecorators,
           runtimeModule: restOptions.runtimeModule,
         },
       )

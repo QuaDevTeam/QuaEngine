@@ -45,6 +45,7 @@ export default {
     quaEngine({
       // Script compilation options
       scriptCompiler: {
+        autoCollectDecorators: true,
         enabled: true,
         include: /\.(qs|ts|tsx|js|jsx)$/,
         exclude: /node_modules/,
@@ -189,11 +190,14 @@ import type { QuaEngineVitePluginOptions } from '@quajs/vite-plugin'
 
 const config: QuaEngineVitePluginOptions = {
   scriptCompiler: {
+    autoCollectDecorators: true,
     enabled: true,
     projectRoot: './src'
   }
 }
 ```
+
+`scriptCompiler.autoCollectDecorators` defaults to `true`. Set it to `false` when you want QuaScript decorators to come only from explicit `decoratorMappings` or from imports inside the current `.qs` / host module.
 
 Standalone `.qs` files compile through the core QuaScript compiler as TypeScript, then the Vite adapter passes that output through Vite's Oxc transform for browser-ready JavaScript. Inside `.qs`, use `<script lang="ts">` for imports/types and `<script setup lang="ts">` for factory-local bindings:
 

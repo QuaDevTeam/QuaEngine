@@ -1,8 +1,7 @@
 import type { QuaScriptTransformerOptions } from '../core/transformer'
 import type { DecoratorMapping } from '../core/types'
 import { QuaScriptTransformer } from '../core/transformer'
-import { mergeDecoratorMappings } from '../core/types'
-import { clearDecoratorCompilerCache, loadDecoratorCompilerRegistry, loadPackageDecoratorMappingsSync, loadProjectDecoratorMappings } from '../decorators'
+import { loadPackageDecoratorMappingsSync, loadProjectDecoratorMappings } from '../decorators'
 
 /**
  * Get project decorators using package metadata and engine discovery.
@@ -20,23 +19,19 @@ async function getPluginDecorators(projectRoot?: string): Promise<DecoratorMappi
  */
 export class PluginAwareQuaScriptTransformer extends QuaScriptTransformer {
   private projectRoot?: string
-  private explicitMappings: DecoratorMapping
 
   constructor(
     decoratorMappings?: DecoratorMapping,
     options?: QuaScriptTransformerOptions & { projectRoot?: string },
   ) {
-    const packageMappings = loadPackageDecoratorMappingsSync(options?.projectRoot)
-    const initialMappings = mergeDecoratorMappings({
-      ...packageMappings,
-      ...(decoratorMappings || {}),
+    const discoveredMappings = loadPackageDecoratorMappingsSync(options?.projectRoot)
+    super(decoratorMappings || {}, {
+      ...options,
+      availableDecoratorMappings: discoveredMappings,
     })
-
-    super(initialMappings, options)
 
     // Store project root for plugin discovery
     this.projectRoot = options?.projectRoot
-    this.explicitMappings = decoratorMappings || {}
 
     // Load plugins asynchronously and update mappings
     this.loadPlugins()
@@ -48,17 +43,7 @@ export class PluginAwareQuaScriptTransformer extends QuaScriptTransformer {
   private async loadPlugins(): Promise<void> {
     try {
       const pluginDecorators = await getPluginDecorators(this.projectRoot)
-
-      // Merge with existing mappings
-      const updatedMappings = mergeDecoratorMappings({
-        ...pluginDecorators,
-        ...this.explicitMappings,
-      })
-
-      // Update internal mappings
-      this.decoratorMappings = updatedMappings
-      clearDecoratorCompilerCache()
-      this.decoratorCompilerRegistry = await loadDecoratorCompilerRegistry(updatedMappings)
+      this.setAvailableDecoratorMappings(pluginDecorators)
     }
     catch {
       // Plugin loading failed, continue with existing mappings
@@ -93,15 +78,8 @@ export async function createPluginAwareTransformerAsync(
 ): Promise<QuaScriptTransformer> {
   const pluginDecorators = await getPluginDecorators(options?.projectRoot)
 
-  const finalMappings = mergeDecoratorMappings({
-    ...pluginDecorators,
-    ...(decoratorMappings || {}),
-  })
-  clearDecoratorCompilerCache()
-  const decoratorCompilerRegistry = await loadDecoratorCompilerRegistry(finalMappings)
-
-  return new QuaScriptTransformer(finalMappings, {
+  return new QuaScriptTransformer(decoratorMappings || {}, {
     ...options,
-    decoratorCompilerRegistry,
+    availableDecoratorMappings: pluginDecorators,
   })
 }
