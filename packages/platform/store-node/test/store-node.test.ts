@@ -67,6 +67,78 @@ describe('node .quastore file backend', () => {
     expect(await backend.listGameSlots()).toHaveLength(1)
   })
 
+  it('rolls back partial writes when a transaction fails', async () => {
+    const root = await createTempRoot()
+    const backend = new QuastoreFileBackend({
+      rootDir: root,
+      encryption: false,
+    })
+    await backend.init()
+
+    await expect(backend.transaction('readwrite', async () => {
+      await backend.saveGameSlotPayload({
+        slotId: 'slot-rollback',
+        index: {
+          slotId: 'slot-rollback',
+          name: 'Rollback',
+          timestamp: new Date('2026-05-24T00:02:00.000Z'),
+          revision: 1,
+          previewStatus: 'none',
+          metadata: { sceneName: 'rollback' },
+        },
+        storeData: {
+          state: { playerName: 'Alice' },
+          snapshots: [],
+        },
+      })
+      await backend.saveGameSlotIndex({
+        slotId: 'slot-rollback',
+        name: 'Rollback',
+        timestamp: new Date('2026-05-24T00:02:00.000Z'),
+        revision: 1,
+        previewStatus: 'none',
+        metadata: { sceneName: 'rollback' },
+      })
+      throw new Error('transaction failed')
+    })).rejects.toThrow('transaction failed')
+
+    expect(await backend.getGameSlotIndex('slot-rollback')).toBeUndefined()
+    expect(await backend.getGameSlotPayload('slot-rollback')).toBeUndefined()
+    expect(await readdir(join(root, 'slot-indexes'))).toHaveLength(0)
+    expect(await readdir(join(root, 'slot-payloads'))).toHaveLength(0)
+    expect(await readdir(join(root, 'slot-previews'))).toHaveLength(0)
+  })
+
+  it('rolls back and resets transaction state when the action throws synchronously', async () => {
+    const root = await createTempRoot()
+    const backend = new QuastoreFileBackend({
+      rootDir: root,
+      encryption: false,
+    })
+    await backend.init()
+
+    const syncFailureAction = (() => {
+      throw new Error('sync failure')
+    }) as unknown as () => Promise<never>
+
+    await expect(backend.transaction('readwrite', syncFailureAction)).rejects.toThrow('sync failure')
+
+    await backend.saveGameSlotIndex({
+      slotId: 'slot-after-sync-failure',
+      name: 'After Sync Failure',
+      timestamp: new Date('2026-05-24T00:03:00.000Z'),
+      revision: 1,
+      previewStatus: 'none',
+      metadata: { sceneName: 'after-sync-failure' },
+    })
+
+    expect(await backend.getGameSlotIndex('slot-after-sync-failure')).toEqual(expect.objectContaining({
+      slotId: 'slot-after-sync-failure',
+      name: 'After Sync Failure',
+    }))
+    expect(await readdir(join(root, 'slot-indexes'))).toHaveLength(1)
+  })
+
   it('uses QUASTORE_KEY when no explicit key is provided', async () => {
     process.env.QUASTORE_KEY = 'environment-secret'
     const root = await createTempRoot()

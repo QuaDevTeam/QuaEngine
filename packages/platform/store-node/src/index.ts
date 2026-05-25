@@ -72,6 +72,18 @@ interface LoadedRecord<T> {
   record: T
 }
 
+interface QuastoreDirectoryRecord {
+  fileName: string
+  bytes: Buffer
+}
+
+interface QuastoreTransactionSnapshot {
+  snapshots: QuastoreDirectoryRecord[]
+  gameSlotIndexes: QuastoreDirectoryRecord[]
+  gameSlotPayloads: QuastoreDirectoryRecord[]
+  gameSlotPreviews: QuastoreDirectoryRecord[]
+}
+
 export class QuastoreFileBackend implements StorageBackend {
   private readonly rootDir: string
   private readonly snapshotsDir: string
@@ -80,6 +92,7 @@ export class QuastoreFileBackend implements StorageBackend {
   private readonly gameSlotPreviewsDir: string
   private readonly encryptionOptions: QuastoreEncryptionOptions | false | undefined
   private encryptionConfig: ResolvedEncryptionConfig | false | undefined
+  private transactionDepth = 0
 
   constructor(options: QuastoreFileBackendOptions = {}) {
     this.rootDir = resolve(options.rootDir || join(process.cwd(), '.qua-store'))
@@ -130,18 +143,20 @@ export class QuastoreFileBackend implements StorageBackend {
   }
 
   async clearSnapshots(storeName?: string): Promise<void> {
-    if (!storeName) {
-      await rm(this.snapshotsDir, { recursive: true, force: true })
-      await mkdir(this.snapshotsDir, { recursive: true })
-      return
-    }
+    await this.transaction('readwrite', async () => {
+      if (!storeName) {
+        await rm(this.snapshotsDir, { recursive: true, force: true })
+        await mkdir(this.snapshotsDir, { recursive: true })
+        return
+      }
 
-    const snapshots = await this.readRecords<QuaSnapshot>(this.snapshotsDir, 'snapshot')
-    await Promise.all(
-      snapshots
-        .filter(({ record }) => record.storeName === storeName)
-        .map(({ path }) => rm(path, { force: true })),
-    )
+      const snapshots = await this.readRecords<QuaSnapshot>(this.snapshotsDir, 'snapshot')
+      for (const snapshot of snapshots) {
+        if (snapshot.record.storeName === storeName) {
+          await rm(snapshot.path, { force: true })
+        }
+      }
+    })
   }
 
   async saveGameSlotIndex(slot: QuaGameSaveSlotIndex): Promise<void> {
@@ -203,8 +218,10 @@ export class QuastoreFileBackend implements StorageBackend {
   }
 
   async saveGameSlot(slot: QuaGameSaveSlotPayload): Promise<void> {
-    await this.saveGameSlotPayload(slot)
-    await this.saveGameSlotIndex(slot.index)
+    await this.transaction('readwrite', async () => {
+      await this.saveGameSlotPayload(slot)
+      await this.saveGameSlotIndex(slot.index)
+    })
   }
 
   async getGameSlot(slotId: string): Promise<QuaGameSaveSlotPayload | undefined> {
@@ -216,15 +233,44 @@ export class QuastoreFileBackend implements StorageBackend {
   }
 
   async clearGameSlots(): Promise<void> {
-    await rm(this.gameSlotIndexesDir, { recursive: true, force: true })
-    await rm(this.gameSlotPayloadsDir, { recursive: true, force: true })
-    await rm(this.gameSlotPreviewsDir, { recursive: true, force: true })
-    await mkdir(this.gameSlotIndexesDir, { recursive: true })
-    await mkdir(this.gameSlotPayloadsDir, { recursive: true })
-    await mkdir(this.gameSlotPreviewsDir, { recursive: true })
+    await this.transaction('readwrite', async () => {
+      await rm(this.gameSlotIndexesDir, { recursive: true, force: true })
+      await rm(this.gameSlotPayloadsDir, { recursive: true, force: true })
+      await rm(this.gameSlotPreviewsDir, { recursive: true, force: true })
+      await mkdir(this.gameSlotIndexesDir, { recursive: true })
+      await mkdir(this.gameSlotPayloadsDir, { recursive: true })
+      await mkdir(this.gameSlotPreviewsDir, { recursive: true })
+    })
   }
 
   async close(): Promise<void> {}
+
+  async transaction<T>(mode: 'readonly' | 'readwrite', action: () => Promise<T>): Promise<T> {
+    if (mode === 'readonly' || this.transactionDepth > 0) {
+      this.transactionDepth += 1
+      try {
+        return await action()
+      }
+      finally {
+        this.transactionDepth -= 1
+      }
+    }
+
+    this.transactionDepth = 1
+    try {
+      const backup = await this.captureTransactionSnapshot()
+      try {
+        return await Promise.resolve().then(action)
+      }
+      catch (error) {
+        await this.restoreTransactionSnapshot(backup)
+        throw error
+      }
+    }
+    finally {
+      this.transactionDepth = 0
+    }
+  }
 
   getRootDir(): string {
     return this.rootDir
@@ -235,8 +281,14 @@ export class QuastoreFileBackend implements StorageBackend {
     const plaintext = serialize(envelope)
     const bytes = await this.encode(plaintext)
     const tempPath = `${path}.${randomBytes(8).toString('hex')}.tmp`
-    await writeFile(tempPath, bytes)
-    await rename(tempPath, path)
+    try {
+      await writeFile(tempPath, bytes)
+      await rename(tempPath, path)
+    }
+    catch (error) {
+      await rm(tempPath, { force: true }).catch(() => {})
+      throw error
+    }
   }
 
   private async readOptionalRecord<T extends QuastoreRecord>(path: string, expectedKind: QuastoreRecordKind): Promise<T | undefined> {
@@ -276,6 +328,55 @@ export class QuastoreFileBackend implements StorageBackend {
       records.push({ path, record: envelope.record })
     }
     return records
+  }
+
+  private async captureTransactionSnapshot(): Promise<QuastoreTransactionSnapshot> {
+    return {
+      snapshots: await this.captureDirectorySnapshot(this.snapshotsDir),
+      gameSlotIndexes: await this.captureDirectorySnapshot(this.gameSlotIndexesDir),
+      gameSlotPayloads: await this.captureDirectorySnapshot(this.gameSlotPayloadsDir),
+      gameSlotPreviews: await this.captureDirectorySnapshot(this.gameSlotPreviewsDir),
+    }
+  }
+
+  private async captureDirectorySnapshot(dir: string): Promise<QuastoreDirectoryRecord[]> {
+    let entries: string[]
+    try {
+      entries = await readdir(dir)
+    }
+    catch (error) {
+      if (isNodeError(error) && error.code === 'ENOENT') {
+        return []
+      }
+      throw error
+    }
+
+    const records: QuastoreDirectoryRecord[] = []
+    for (const fileName of entries.sort()) {
+      if (!fileName.endsWith(QUASTORE_FILE_EXTENSION)) {
+        continue
+      }
+      records.push({
+        fileName,
+        bytes: await readFile(join(dir, fileName)),
+      })
+    }
+    return records
+  }
+
+  private async restoreTransactionSnapshot(snapshot: QuastoreTransactionSnapshot): Promise<void> {
+    await this.restoreDirectorySnapshot(this.snapshotsDir, snapshot.snapshots)
+    await this.restoreDirectorySnapshot(this.gameSlotIndexesDir, snapshot.gameSlotIndexes)
+    await this.restoreDirectorySnapshot(this.gameSlotPayloadsDir, snapshot.gameSlotPayloads)
+    await this.restoreDirectorySnapshot(this.gameSlotPreviewsDir, snapshot.gameSlotPreviews)
+  }
+
+  private async restoreDirectorySnapshot(dir: string, records: QuastoreDirectoryRecord[]): Promise<void> {
+    await rm(dir, { recursive: true, force: true })
+    await mkdir(dir, { recursive: true })
+    for (const record of records) {
+      await writeFile(join(dir, record.fileName), record.bytes)
+    }
   }
 
   private async encode(plaintext: Buffer): Promise<Buffer> {

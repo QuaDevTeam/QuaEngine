@@ -13,16 +13,18 @@ export default defineConfig({
     }),
   ],
   build: {
-    lib: {
-      entry: {
-        'index': resolve(import.meta.dirname, 'src/index.ts'),
-        'audio': resolve(import.meta.dirname, 'src/audio.ts'),
-        'dom': resolve(import.meta.dirname, 'src/dom.ts'),
-        'framework-host': resolve(import.meta.dirname, 'src/framework-host.ts'),
-        'input': resolve(import.meta.dirname, 'src/input.ts'),
-        'plugins/audio': resolve(import.meta.dirname, 'src/plugins/audio.ts'),
-        'plugins/background': resolve(import.meta.dirname, 'src/plugins/background.ts'),
-        'plugins/backlog': resolve(import.meta.dirname, 'src/plugins/backlog.ts'),
+      lib: {
+        entry: {
+          'index': resolve(import.meta.dirname, 'src/index.ts'),
+          'audio': resolve(import.meta.dirname, 'src/audio.ts'),
+          'dom': resolve(import.meta.dirname, 'src/dom.ts'),
+          'framework-host': resolve(import.meta.dirname, 'src/framework-host.ts'),
+          'input': resolve(import.meta.dirname, 'src/input.ts'),
+          'save-preview': resolve(import.meta.dirname, 'src/save-preview.ts'),
+          'save-preview-capture': resolve(import.meta.dirname, 'src/save-preview-capture.ts'),
+          'plugins/audio': resolve(import.meta.dirname, 'src/plugins/audio.ts'),
+          'plugins/background': resolve(import.meta.dirname, 'src/plugins/background.ts'),
+          'plugins/backlog': resolve(import.meta.dirname, 'src/plugins/backlog.ts'),
         'plugins/character': resolve(import.meta.dirname, 'src/plugins/character.ts'),
         'plugins/choices': resolve(import.meta.dirname, 'src/plugins/choices.ts'),
         'plugins/core': resolve(import.meta.dirname, 'src/plugins/core.ts'),

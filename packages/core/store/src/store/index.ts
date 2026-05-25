@@ -170,41 +170,45 @@ class QuaStore {
     logger.module(this.name).info(`Saving store to slot: ${input.slotId}`)
 
     const storageManager = await this.getStorageManager()
-    const existingIndex = await storageManager.getGameSlotIndex(input.slotId)
-    const previewRecord = input.preview
-      ? normalizePreviewInput(input.slotId, input.preview)
-      : undefined
-    const nextIndex: QuaGameSaveSlotIndex = {
-      slotId: input.slotId,
-      name: input.name,
-      timestamp: input.timestamp ? new Date(input.timestamp) : new Date(),
-      revision: input.revision ?? (existingIndex?.revision ?? 0) + 1,
-      saveOpId: input.saveOpId,
-      previewStatus: previewRecord ? 'ready' : input.previewStatus || 'none',
-      preview: previewRecord ? getPreviewDescriptorFromRecord(previewRecord) : undefined,
-      metadata: {
-        ...input.metadata,
-      },
-    }
-    const nextSlot: QuaGameSaveSlotPayload = {
-      slotId: input.slotId,
-      index: nextIndex,
-      storeData: {
-        state: input.storeData.state,
-        snapshots: input.storeData.snapshots,
-      },
-    }
+    const nextSlot = await storageManager.transaction('readwrite', async () => {
+      const existingIndex = await storageManager.getGameSlotIndex(input.slotId)
+      const previewRecord = input.preview
+        ? normalizePreviewInput(input.slotId, input.preview)
+        : undefined
+      const nextIndex: QuaGameSaveSlotIndex = {
+        slotId: input.slotId,
+        name: input.name,
+        timestamp: input.timestamp ? new Date(input.timestamp) : new Date(),
+        revision: input.revision ?? (existingIndex?.revision ?? 0) + 1,
+        saveOpId: input.saveOpId,
+        previewStatus: previewRecord ? 'ready' : input.previewStatus || 'none',
+        preview: previewRecord ? getPreviewDescriptorFromRecord(previewRecord) : undefined,
+        metadata: {
+          ...input.metadata,
+        },
+      }
+      const nextSlot: QuaGameSaveSlotPayload = {
+        slotId: input.slotId,
+        index: nextIndex,
+        storeData: {
+          state: input.storeData.state,
+          snapshots: input.storeData.snapshots,
+        },
+      }
 
-    await storageManager.saveGameSlotPayload(nextSlot)
-    if (previewRecord) {
-      await storageManager.saveGameSlotPreview(previewRecord)
-    }
-    await storageManager.saveGameSlotIndex(nextIndex)
+      await storageManager.saveGameSlotPayload(nextSlot)
+      if (previewRecord) {
+        await storageManager.saveGameSlotPreview(previewRecord)
+      }
+      await storageManager.saveGameSlotIndex(nextIndex)
 
-    const previousPreviewId = existingIndex?.preview?.previewId
-    if (previousPreviewId && previousPreviewId !== previewRecord?.previewId) {
-      await storageManager.deleteGameSlotPreview(previousPreviewId)
-    }
+      const previousPreviewId = existingIndex?.preview?.previewId
+      if (previousPreviewId && previousPreviewId !== previewRecord?.previewId) {
+        await storageManager.deleteGameSlotPreview(previousPreviewId)
+      }
+
+      return nextSlot
+    })
 
     logger.module(this.name).info(`Store saved to slot successfully: ${input.slotId}`)
     return cloneSaveSlotPayload(nextSlot)
@@ -212,65 +216,67 @@ class QuaStore {
 
   public async patchSlotPreview(slotId: string, patch: QuaGameSaveSlotPreviewPatchInput): Promise<QuaGameSaveSlotIndex | undefined> {
     const storageManager = await this.getStorageManager()
-    const currentIndex = await storageManager.getGameSlotIndex(slotId)
-    if (!currentIndex) {
-      return undefined
-    }
-    const currentPayload = await storageManager.getGameSlotPayload(slotId)
+    return await storageManager.transaction('readwrite', async () => {
+      const currentIndex = await storageManager.getGameSlotIndex(slotId)
+      if (!currentIndex) {
+        return undefined
+      }
+      const currentPayload = await storageManager.getGameSlotPayload(slotId)
 
-    if (patch.expectedSaveOpId && currentIndex.saveOpId !== patch.expectedSaveOpId) {
-      return undefined
-    }
-    if (patch.expectedRevision !== undefined && currentIndex.revision !== patch.expectedRevision) {
-      return undefined
-    }
+      if (patch.expectedSaveOpId && currentIndex.saveOpId !== patch.expectedSaveOpId) {
+        return undefined
+      }
+      if (patch.expectedRevision !== undefined && currentIndex.revision !== patch.expectedRevision) {
+        return undefined
+      }
 
-    const previewRecord = patch.preview
-      ? normalizePreviewInput(slotId, patch.preview)
-      : undefined
-    const nextIndex: QuaGameSaveSlotIndex = {
-      ...currentIndex,
-      timestamp: patch.timestamp ? new Date(patch.timestamp) : currentIndex.timestamp,
-      revision: currentIndex.revision + 1,
-      saveOpId: patch.saveOpId ?? currentIndex.saveOpId,
-      previewStatus: previewRecord
-        ? 'ready'
-        : patch.clearPreview
-          ? patch.previewStatus || 'none'
-          : patch.previewStatus || currentIndex.previewStatus,
-      preview: previewRecord
-        ? getPreviewDescriptorFromRecord(previewRecord)
-        : patch.clearPreview
-          ? undefined
-          : currentIndex.preview,
-      metadata: {
-        ...currentIndex.metadata,
-      },
-    }
-    const nextPayload = currentPayload
-      ? {
-          ...currentPayload,
-          index: nextIndex,
-        }
-      : undefined
+      const previewRecord = patch.preview
+        ? normalizePreviewInput(slotId, patch.preview)
+        : undefined
+      const nextIndex: QuaGameSaveSlotIndex = {
+        ...currentIndex,
+        timestamp: patch.timestamp ? new Date(patch.timestamp) : currentIndex.timestamp,
+        revision: currentIndex.revision + 1,
+        saveOpId: patch.saveOpId ?? currentIndex.saveOpId,
+        previewStatus: previewRecord
+          ? 'ready'
+          : patch.clearPreview
+            ? patch.previewStatus || 'none'
+            : patch.previewStatus || currentIndex.previewStatus,
+        preview: previewRecord
+          ? getPreviewDescriptorFromRecord(previewRecord)
+          : patch.clearPreview
+            ? undefined
+            : currentIndex.preview,
+        metadata: {
+          ...currentIndex.metadata,
+        },
+      }
+      const nextPayload = currentPayload
+        ? {
+            ...currentPayload,
+            index: nextIndex,
+          }
+        : undefined
 
-    if (previewRecord) {
-      await storageManager.saveGameSlotPreview(previewRecord)
-    }
-    if (nextPayload) {
-      await storageManager.saveGameSlotPayload(nextPayload)
-    }
-    await storageManager.saveGameSlotIndex(nextIndex)
+      if (previewRecord) {
+        await storageManager.saveGameSlotPreview(previewRecord)
+      }
+      if (nextPayload) {
+        await storageManager.saveGameSlotPayload(nextPayload)
+      }
+      await storageManager.saveGameSlotIndex(nextIndex)
 
-    const previousPreviewId = currentIndex.preview?.previewId
-    if (patch.clearPreview && previousPreviewId) {
-      await storageManager.deleteGameSlotPreview(previousPreviewId)
-    }
-    else if (previewRecord && previousPreviewId && previousPreviewId !== previewRecord.previewId) {
-      await storageManager.deleteGameSlotPreview(previousPreviewId)
-    }
+      const previousPreviewId = currentIndex.preview?.previewId
+      if (patch.clearPreview && previousPreviewId) {
+        await storageManager.deleteGameSlotPreview(previousPreviewId)
+      }
+      else if (previewRecord && previousPreviewId && previousPreviewId !== previewRecord.previewId) {
+        await storageManager.deleteGameSlotPreview(previousPreviewId)
+      }
 
-    return cloneSaveSlotIndex(nextIndex)
+      return cloneSaveSlotIndex(nextIndex)
+    })
   }
 
   public async exportSaveData(): Promise<QuaStoreSaveData> {
@@ -296,13 +302,16 @@ class QuaStore {
       throw new Error('Cannot load from slot due to some data already exists in store. Use force option to override.')
     }
 
-    await storageManager.clearSnapshots(this.name)
+    const nextState = this.deserializeState(gameSlot.storeData.state)
+    await storageManager.transaction('readwrite', async () => {
+      await storageManager.clearSnapshots(this.name)
 
-    for (const snapshot of gameSlot.storeData.snapshots) {
-      await storageManager.saveSnapshot(snapshot)
-    }
+      for (const snapshot of gameSlot.storeData.snapshots) {
+        await storageManager.saveSnapshot(snapshot)
+      }
+    })
 
-    this.restoreSerializedState(gameSlot.storeData.state)
+    this.state = nextState
 
     logger.module(this.name).info(`Store loaded from slot successfully: ${slotId}`)
   }
@@ -313,24 +322,29 @@ class QuaStore {
       throw new Error('Cannot import store save data due to some data already exists in store. Use force option to override.')
     }
 
+    const nextState = this.deserializeState(data.state)
     const storageManager = await this.getStorageManager()
-    await storageManager.clearSnapshots(this.name)
-    for (const snapshot of data.snapshots) {
-      await storageManager.saveSnapshot(snapshot)
-    }
-    this.restoreSerializedState(data.state)
+    await storageManager.transaction('readwrite', async () => {
+      await storageManager.clearSnapshots(this.name)
+      for (const snapshot of data.snapshots) {
+        await storageManager.saveSnapshot(snapshot)
+      }
+    })
+    this.state = nextState
   }
 
   public async deleteSlot(slotId: string): Promise<void> {
     logger.module(this.name).info(`Deleting slot: ${slotId}`)
 
     const storageManager = await this.getStorageManager()
-    const index = await storageManager.getGameSlotIndex(slotId)
-    if (index?.preview?.previewId) {
-      await storageManager.deleteGameSlotPreview(index.preview.previewId)
-    }
-    await storageManager.deleteGameSlotPayload(slotId)
-    await storageManager.deleteGameSlotIndex(slotId)
+    await storageManager.transaction('readwrite', async () => {
+      const index = await storageManager.getGameSlotIndex(slotId)
+      if (index?.preview?.previewId) {
+        await storageManager.deleteGameSlotPreview(index.preview.previewId)
+      }
+      await storageManager.deleteGameSlotPayload(slotId)
+      await storageManager.deleteGameSlotIndex(slotId)
+    })
 
     logger.module(this.name).info(`Slot deleted successfully: ${slotId}`)
   }

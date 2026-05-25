@@ -14,6 +14,22 @@ import { createStore, MemoryBackend } from '@quajs/store'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createViewLayoutProjection, emitRenderToLogic, LogicToRenderEvents, onLogicToRender, QuaEngine, RenderToLogicEvents, Scene, UiOverlayPlugin } from '../src'
 
+class TrackingMemoryBackend extends MemoryBackend {
+  static latest: TrackingMemoryBackend | undefined
+
+  constructor() {
+    super()
+    TrackingMemoryBackend.latest = this
+  }
+}
+
+class FailingSaveIndexBackend extends TrackingMemoryBackend {
+  override async saveGameSlotIndex(slot: any): Promise<void> {
+    await super.saveGameSlotIndex(slot)
+    throw new Error('save slot index failed')
+  }
+}
+
 describe('quaEngine runtime architecture', () => {
   afterEach(async () => {
     vi.useRealTimers()
@@ -1285,6 +1301,43 @@ describe('quaEngine runtime architecture', () => {
       }))
   })
 
+  it('stores JSON-safe preview policy summaries without renderer hints', async () => {
+    const engine = createEngine()
+    await engine.init()
+    const previewDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+
+    await engine.saveToSlot('slot-policy-summary', { name: 'Policy Summary' }, {
+      preview: {
+        mode: 'provided',
+        policy: {
+          uiMode: 'custom',
+          format: 'image/png',
+          quality: 0.75,
+          maxWidth: 320,
+          timeoutMs: 250,
+          rendererHints: {
+            hiddenRoles: ['overlay'],
+            hideSelectors: ['.debug'],
+          },
+        },
+        image: {
+          kind: 'data-url',
+          dataUrl: previewDataUrl,
+        },
+      },
+    })
+
+    const slot = await engine.getStore().getSlot('slot-policy-summary')
+    expect(slot?.index.preview?.policySummary).toEqual(expect.objectContaining({
+      uiMode: 'custom',
+      format: 'image/png',
+      quality: 0.75,
+      maxWidth: 320,
+      timeoutMs: 250,
+    }))
+    expect(slot?.index.preview?.policySummary).not.toHaveProperty('rendererHints')
+  })
+
   it('captures sync save previews through the test responder plugin', async () => {
     const engine = createPreviewEngine()
     await engine.init()
@@ -1456,6 +1509,77 @@ describe('quaEngine runtime architecture', () => {
       slotId: 'autosave',
       previewStatus: 'error',
     }))
+  })
+
+  it('restores the previous checkpoint state when checkpoint creation fails after a hook error', async () => {
+    const engine = new QuaEngine({
+      assets: {
+        adapter: createMemoryAdapter(),
+      },
+      store: {
+        storage: {
+          backend: TrackingMemoryBackend,
+        },
+      },
+      saves: {
+        preview: {
+          defaults: {
+            mode: 'disabled',
+          },
+        },
+      },
+    })
+    engine.use({
+      name: 'failing-checkpoint-hook',
+      async init() {},
+      async onAfterCheckpoint(ctx: EngineContext) {
+        if (ctx.checkpoint?.id === 'broken-checkpoint') {
+          throw new Error('checkpoint hook failed')
+        }
+      },
+    })
+    await engine.init()
+
+    await engine.createCheckpoint({ id: 'base-checkpoint', kind: 'manual' })
+    await expect(engine.createCheckpoint({ id: 'broken-checkpoint', kind: 'manual' })).rejects.toThrow('checkpoint hook failed')
+
+    expect(engine.getCheckpoint('base-checkpoint')).toEqual(expect.objectContaining({
+      id: 'base-checkpoint',
+    }))
+    expect(engine.getCheckpoint('broken-checkpoint')).toBeUndefined()
+    expect(engine.getRuntimeStateSnapshot().checkpointHistory).toEqual(['base-checkpoint'])
+    expect(TrackingMemoryBackend.latest?.getSnapshotStorageSize()).toBe(1)
+  })
+
+  it('restores the previous save checkpoint when slot persistence fails', async () => {
+    const engine = new QuaEngine({
+      assets: {
+        adapter: createMemoryAdapter(),
+      },
+      store: {
+        storage: {
+          backend: FailingSaveIndexBackend,
+        },
+      },
+      saves: {
+        preview: {
+          defaults: {
+            mode: 'disabled',
+          },
+        },
+      },
+    })
+    await engine.init()
+
+    await engine.createCheckpoint({ id: 'base-checkpoint', kind: 'manual' })
+    await expect(engine.saveToSlot('failed-save', { name: 'Failed Save' })).rejects.toThrow('save slot index failed')
+
+    expect(engine.getCheckpoint('base-checkpoint')).toEqual(expect.objectContaining({
+      id: 'base-checkpoint',
+    }))
+    expect(engine.getCheckpoint('save:failed-save')).toBeUndefined()
+    expect(engine.getRuntimeStateSnapshot().checkpointHistory).toEqual(['base-checkpoint'])
+    expect(TrackingMemoryBackend.latest?.getSnapshotStorageSize()).toBe(1)
   })
 
   it('executes imported QuaScript factories through dialogue', async () => {

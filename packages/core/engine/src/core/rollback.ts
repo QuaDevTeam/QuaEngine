@@ -257,17 +257,26 @@ export class RollbackController {
       throw new Error('Rollback requires at least one registered QuaStore.')
     }
 
-    for (const [name, store] of entries) {
-      const snapshotId = entries.length === 1
-        ? snapshotBase
-        : `${snapshotBase}:${sanitizeSnapshotPart(name)}`
-      storeSnapshots[name] = await store.snapshot(snapshotId)
+    const createdSnapshots: Array<{ store: QuaStore, snapshotId: string }> = []
+    try {
+      for (const [name, store] of entries) {
+        const snapshotId = entries.length === 1
+          ? snapshotBase
+          : `${snapshotBase}:${sanitizeSnapshotPart(name)}`
+        storeSnapshots[name] = await store.snapshot(snapshotId)
+        createdSnapshots.push({ store, snapshotId: storeSnapshots[name] })
+      }
+      return {
+        id,
+        storeSnapshots,
+        createdAt: Date.now(),
+      }
     }
-
-    return {
-      id,
-      storeSnapshots,
-      createdAt: Date.now(),
+    catch (error) {
+      await Promise.allSettled(
+        createdSnapshots.map(({ store, snapshotId }) => deleteStoreSnapshot(store, snapshotId)),
+      )
+      throw error
     }
   }
 

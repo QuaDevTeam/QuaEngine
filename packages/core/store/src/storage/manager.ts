@@ -5,7 +5,7 @@ import type {
   QuaSnapshot,
   QuaSnapshotMeta,
 } from '../types/base'
-import type { BackendConfig, StorageBackend, StorageBackendConstructor, StorageConfig, StorageMiddleware } from '../types/storage'
+import type { BackendConfig, StorageBackend, StorageBackendConstructor, StorageConfig, StorageMiddleware, StorageTransactionMode } from '../types/storage'
 import { MemoryBackend } from '../backends/memory'
 import { clonePreviewRecord, cloneSaveSlotIndex, cloneSaveSlotPayload } from '../preview'
 import logger from '../utils'
@@ -121,6 +121,13 @@ export class StorageManager {
    */
   async clearSnapshots(storeName?: string): Promise<void> {
     await this.backend.clearSnapshots(storeName)
+  }
+
+  async transaction<T>(mode: StorageTransactionMode, action: () => Promise<T>): Promise<T> {
+    if (this.backend.transaction) {
+      return await this.backend.transaction(mode, action)
+    }
+    return await action()
   }
 
   async saveGameSlotIndex(index: QuaGameSaveSlotIndex): Promise<void> {

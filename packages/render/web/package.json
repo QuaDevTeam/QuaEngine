@@ -28,6 +28,14 @@
       "types": "./dist/framework-host.d.ts",
       "import": "./dist/framework-host.js"
     },
+    "./save-preview": {
+      "types": "./dist/save-preview.d.ts",
+      "import": "./dist/save-preview.js"
+    },
+    "./save-preview-capture": {
+      "types": "./dist/save-preview-capture.d.ts",
+      "import": "./dist/save-preview-capture.js"
+    },
     "./plugins/audio": {
       "types": "./dist/plugins/audio.d.ts",
       "import": "./dist/plugins/audio.js"

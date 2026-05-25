@@ -7,6 +7,7 @@ import type {
   StorageBackend,
   StorageConfig,
   StorageMiddleware,
+  StorageTransactionMode,
 } from '@quajs/store'
 import type { Table } from 'dexie'
 import Dexie from 'dexie'
@@ -84,6 +85,18 @@ export class IndexedDBBackend implements StorageBackend {
     await this.db.snapshots.clear()
   }
 
+  async transaction<T>(mode: StorageTransactionMode, action: () => Promise<T>): Promise<T> {
+    const txnMode = mode === 'readwrite' ? 'rw' : 'r'
+    return await this.db.transaction(
+      txnMode,
+      this.db.snapshots,
+      this.db.gameSlotIndexes,
+      this.db.gameSlotPayloads,
+      this.db.gameSlotPreviews,
+      async () => action(),
+    )
+  }
+
   async saveGameSlotIndex(slot: QuaGameSaveSlotIndex): Promise<void> {
     await this.db.gameSlotIndexes.put(slot)
   }
@@ -125,8 +138,10 @@ export class IndexedDBBackend implements StorageBackend {
   }
 
   async saveGameSlot(slot: QuaGameSaveSlotPayload): Promise<void> {
-    await this.saveGameSlotPayload(slot)
-    await this.saveGameSlotIndex(slot.index)
+    await this.transaction('readwrite', async () => {
+      await this.saveGameSlotPayload(slot)
+      await this.saveGameSlotIndex(slot.index)
+    })
   }
 
   async getGameSlot(slotId: string): Promise<QuaGameSaveSlotPayload | undefined> {

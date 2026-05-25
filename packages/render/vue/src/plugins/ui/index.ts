@@ -1,8 +1,9 @@
 import type { PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import { LogicToRenderEvents, onLogicToRender } from '@quajs/render-core'
-import { SaveSlotDataSource, WebSaveSlotPreviewCache } from '@quajs/renderer-web'
-import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { WebSaveSlotPreviewCache } from '@quajs/renderer-web/save-preview'
+import type { SaveSlotDataSource } from '@quajs/renderer-web/save-preview'
+import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from 'vue'
 import { useAudio, useFlowControl, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
@@ -314,9 +315,15 @@ export const QuaSaveLoadPanel = defineComponent({
       const readySlotIds = nextSlots
         .filter(slot => slot.previewStatus === 'ready' && slot.preview)
         .map(slot => slot.slotId)
-      const resolved = readySlotIds.length > 0
-        ? await previewCache.resolveMany(readySlotIds)
-        : {}
+      let resolved: Record<string, string | undefined> = {}
+      if (readySlotIds.length > 0) {
+        try {
+          resolved = await previewCache.resolveMany(readySlotIds)
+        }
+        catch {
+          resolved = {}
+        }
+      }
       if (currentVersion !== refreshVersion) {
         return
       }
@@ -345,11 +352,7 @@ export const QuaSaveLoadPanel = defineComponent({
         stopSlotUpdates = undefined
       })
       void loadSlotGrid()
-    }, { immediate: true })
-
-    onMounted(() => {
-      void loadSlotGrid()
-    })
+      }, { immediate: true })
 
     onBeforeUnmount(() => {
       previewCache?.dispose()

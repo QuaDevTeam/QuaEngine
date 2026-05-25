@@ -6,7 +6,7 @@ import type {
   QuaSnapshotMeta,
 } from '../types/base'
 import { clonePreviewRecord, cloneSaveSlotIndex, cloneSaveSlotPayload } from '../preview'
-import type { StorageBackend } from '../types/storage'
+import type { StorageBackend, StorageTransactionMode } from '../types/storage'
 
 /**
  * In-memory storage backend for testing and development
@@ -63,6 +63,26 @@ export class MemoryBackend implements StorageBackend {
     }
     else {
       this.snapshots.clear()
+    }
+  }
+
+  async transaction<T>(_mode: StorageTransactionMode, action: () => Promise<T>): Promise<T> {
+    const snapshot = {
+      snapshots: new Map(this.snapshots),
+      gameSlotIndexes: new Map(this.gameSlotIndexes),
+      gameSlotPayloads: new Map(this.gameSlotPayloads),
+      gameSlotPreviews: new Map(this.gameSlotPreviews),
+    }
+
+    try {
+      return await action()
+    }
+    catch (error) {
+      this.snapshots = snapshot.snapshots
+      this.gameSlotIndexes = snapshot.gameSlotIndexes
+      this.gameSlotPayloads = snapshot.gameSlotPayloads
+      this.gameSlotPreviews = snapshot.gameSlotPreviews
+      throw error
     }
   }
 

@@ -118,8 +118,8 @@ export {
   stageMotionVars,
 } from './projection'
 export type { MotionProjection } from './projection'
-export type { SaveSlotDataSource, WebSavePreviewCapturePluginOptions, WebSaveSlotPreviewCacheOptions } from './save-preview'
-export { createWebSavePreviewCapturePlugin, WebSaveSlotPreviewCache } from './save-preview'
+export type { WebSavePreviewCapturePluginOptions } from './save-preview-capture'
+export { createWebSavePreviewCapturePlugin } from './save-preview-capture'
 export type { ReactRendererStoreAdapter } from './react'
 export { createReactRendererStoreAdapter } from './react'
 export type { SceneTransitionRenderState, SceneTransitionStoreListener } from './scene'
