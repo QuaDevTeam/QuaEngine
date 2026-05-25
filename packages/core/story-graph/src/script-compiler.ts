@@ -8,7 +8,7 @@ const STORY_METADATA_DECORATORS = new Set([
   'Label',
   'Lane',
   'Route',
-  'Timeline',
+  'StoryTimeline',
   'Protagonist',
   'Interaction',
 ])
@@ -42,7 +42,7 @@ export const storyGraphDecoratorMappings = {
     function: 'setStoryMetadataWithEngine',
     module: '@quajs/story-graph',
   },
-  Timeline: {
+  StoryTimeline: {
     function: 'setStoryMetadataWithEngine',
     module: '@quajs/story-graph',
   },
@@ -133,7 +133,7 @@ function storyPointPropertyForDecorator(name: string): string {
       return 'laneId'
     case 'Route':
       return 'routeId'
-    case 'Timeline':
+    case 'StoryTimeline':
       return 'timelineId'
     case 'Protagonist':
       return 'protagonistId'

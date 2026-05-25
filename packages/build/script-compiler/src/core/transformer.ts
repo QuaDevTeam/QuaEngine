@@ -389,7 +389,7 @@ export class QuaScriptTransformer {
         case 'Route':
           current.routeId = value
           break
-        case 'Timeline':
+        case 'StoryTimeline':
           current.timelineId = value
           break
         case 'Protagonist':

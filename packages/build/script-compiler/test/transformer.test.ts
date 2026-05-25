@@ -242,6 +242,7 @@ Yuki: Hello \${scope.playerName}
       function scene1() {
         dialogue(qs\`
           @Chapter('chapter-1')
+          @StoryTimeline('route-a')
           @Entry('nightReturn')
           @NoBacklog
           Jack: Hidden line.
@@ -253,6 +254,7 @@ Yuki: Hello \${scope.playerName}
 
     expect(result).toContain('setStoryMetadataWithEngine(ctx.engine, {')
     expect(result).toContain('chapterId: "chapter-1"')
+    expect(result).toContain('timelineId: "route-a"')
     expect(result).toContain('entryId: "nightReturn"')
     expect(result).toContain('setBacklogPolicyWithEngine(ctx.engine, {')
     expect(result).toContain('include: false')
@@ -719,7 +721,7 @@ const canEnterLibrary = scope.hasKey
     const source = `
       function scene1() {
         dialogue(qs\`
-          @Timeline(360, true)
+          @AnimationTimeline(360, true)
           @Key('position.x', 0, -180)
           @Key('position.x', 360, 0)
           Jack: Hello world!
@@ -778,7 +780,7 @@ const canEnterLibrary = scope.hasKey
     const source = `
       function scene1() {
         dialogue(qs\`
-          @Timeline(360)
+          @AnimationTimeline(360)
           @Key('position.x', 0, -180)
 
           Jack: Hello world!
