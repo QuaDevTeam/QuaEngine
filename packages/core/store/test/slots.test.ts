@@ -19,6 +19,13 @@ const mapValuesSerializer: QuaStateSerializer = {
   },
 }
 
+class FailingMemoryBackend extends MemoryBackend {
+  override async saveGameSlotIndex(slot: any): Promise<void> {
+    await super.saveGameSlotIndex(slot)
+    throw new Error('save slot index failed')
+  }
+}
+
 describe('game Slot System', () => {
   beforeEach(async () => {
     // Clear all stores before each test
@@ -438,6 +445,25 @@ describe('game Slot System', () => {
         mimeType: 'image/webp',
         bytes: new Uint8Array([1, 2, 3]),
       }))
+    })
+
+    it('should roll back partial slot writes when a transaction fails', async () => {
+      const store = createStore({
+        name: 'gameStore',
+        state: { level: 1 },
+        storage: { backend: FailingMemoryBackend },
+      })
+
+      await expect(store.saveToSlot('slot-rollback', {
+        name: 'Rollback Save',
+        preview: {
+          kind: 'data-url',
+          dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+        },
+      })).rejects.toThrow('save slot index failed')
+
+      expect(await store.listSlots()).toEqual([])
+      expect(await store.getSlot('slot-rollback')).toBeUndefined()
     })
   })
 

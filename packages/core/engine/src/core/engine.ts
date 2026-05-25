@@ -100,7 +100,7 @@ import { SceneManager } from '../managers/scene-manager'
 import { PluginContextImpl } from '../plugins/core/context'
 import { RuntimeContentManager } from '../runtime-content/manager'
 import { createRollbackConfig, isSerializedRollbackJournal, RollbackController } from './rollback'
-import type { RollbackStoreSaveData } from './rollback'
+import type { RollbackStoreSaveData, SerializedRollbackJournal } from './rollback'
 import { resolveGameSteps } from './script'
 import { assertSerializableSceneState, isChoiceTarget } from './story-targets'
 import { createInitialEngineState } from './types'
@@ -123,6 +123,12 @@ interface ExecuteStepOptions {
 }
 
 type SaveReason = NonNullable<SaveToSlotOptions['reason']>
+
+interface CheckpointStateSnapshot {
+  checkpoints: EngineCheckpoint[]
+  currentCheckpointId?: string
+  rollbackJournal: SerializedRollbackJournal
+}
 
 export class QuaEngine {
   private static instance: QuaEngine | null = null
@@ -982,13 +988,20 @@ export class QuaEngine {
   async createCheckpoint(options: CreateCheckpointOptions = {}): Promise<EngineCheckpoint> {
     const point = cloneStoryPoint(options.point || this.getStoryPoint() || this.createCurrentStoryPoint())
     const id = options.id || this.createCheckpointId(options.kind || 'manual', point)
+    const checkpointState = this.captureCheckpointStateSnapshot()
     const snapshotSet = await this.rollbackController.createSnapshotSet(id)
-    const checkpoint = await this.createCheckpointInternal({ ...options, id, point }, snapshotSet)
-    const currentEntryIndex = this.rollbackController.getCurrentEntryIndex()
-    this.rollbackController.registerStepAnchor(checkpoint, checkpoint.kind, snapshotSet, {
-      requiredRuntimePackages: checkpoint.metadata?.requiredRuntimePackages,
-    }, currentEntryIndex === undefined ? undefined : currentEntryIndex + 1, !this.rollbackController.hasActiveEntry())
-    return checkpoint
+    try {
+      const checkpoint = await this.createCheckpointInternal({ ...options, id, point }, snapshotSet)
+      const currentEntryIndex = this.rollbackController.getCurrentEntryIndex()
+      this.rollbackController.registerStepAnchor(checkpoint, checkpoint.kind, snapshotSet, {
+        requiredRuntimePackages: checkpoint.metadata?.requiredRuntimePackages,
+      }, currentEntryIndex === undefined ? undefined : currentEntryIndex + 1, !this.rollbackController.hasActiveEntry())
+      return checkpoint
+    }
+    catch (error) {
+      await this.cleanupCheckpointState(checkpointState, snapshotSet)
+      throw error
+    }
   }
 
   private async createCheckpointInternal(options: CreateCheckpointOptions = {}, snapshotSet?: RollbackSnapshotSet): Promise<EngineCheckpoint> {
@@ -1092,31 +1105,38 @@ export class QuaEngine {
     }
     const currentEntryIndex = this.rollbackController.getCurrentEntryIndex()
     const point = this.getStoryPoint() || this.createCurrentStoryPoint()
+    const checkpointState = this.captureCheckpointStateSnapshot()
     const snapshotSet = await this.rollbackController.createSnapshotSet(`rollback-anchor:${String(reason)}:${point.stepId}`)
-    const checkpoint = await this.createCheckpointInternal({
-      kind: reason === 'choice' ? 'choice' : 'manual',
-      point,
-      metadata: {
-        ...(metadata || {}),
-        rollbackAnchorReason: reason,
-      },
-    }, snapshotSet)
-    const anchor = this.rollbackController.registerStepAnchor(
-      checkpoint,
-      manual.reason,
-      snapshotSet,
-      metadata,
-      currentEntryIndex === undefined
-        ? undefined
-        : replayStart === 'current-entry'
-          ? currentEntryIndex
-          : currentEntryIndex + 1,
-      replayStart === 'current-entry' || !this.rollbackController.hasActiveEntry(),
-    )
-    if (!anchor) {
-      throw new Error('Unable to register rollback anchor.')
+    try {
+      const checkpoint = await this.createCheckpointInternal({
+        kind: reason === 'choice' ? 'choice' : 'manual',
+        point,
+        metadata: {
+          ...(metadata || {}),
+          rollbackAnchorReason: reason,
+        },
+      }, snapshotSet)
+      const anchor = this.rollbackController.registerStepAnchor(
+        checkpoint,
+        manual.reason,
+        snapshotSet,
+        metadata,
+        currentEntryIndex === undefined
+          ? undefined
+          : replayStart === 'current-entry'
+            ? currentEntryIndex
+            : currentEntryIndex + 1,
+        replayStart === 'current-entry' || !this.rollbackController.hasActiveEntry(),
+      )
+      if (!anchor) {
+        throw new Error('Unable to register rollback anchor.')
+      }
+      return anchor
     }
-    return anchor
+    catch (error) {
+      await this.cleanupCheckpointState(checkpointState, snapshotSet)
+      throw error
+    }
   }
 
   async markRollbackBoundary(reason = 'developer', metadata?: Record<string, unknown>): Promise<void> {
@@ -1487,53 +1507,81 @@ export class QuaEngine {
     this.assertInitialized()
     const reason: SaveReason = options.reason || 'save'
     const rollbackConfig = this.rollbackController.getConfig()
-    const checkpoint = await this.createCheckpoint({
-      id: `save:${slotId}`,
-      kind: 'save',
-      metadata: {
+    const checkpointState = this.captureCheckpointStateSnapshot()
+    let checkpoint: EngineCheckpoint | undefined
+    let savedSlot: Awaited<ReturnType<QuaStore['saveToSlot']>> | undefined
+    let resolvedPreview: Awaited<ReturnType<typeof this.resolveSavePreview>> | undefined
+    try {
+      checkpoint = await this.createCheckpoint({
+        id: `save:${slotId}`,
+        kind: 'save',
+        metadata: {
+          ...metadata,
+          locale: this.getLocale(),
+          requiredRuntimePackages: this.getRequiredRuntimePackagesForCurrentState(this.getStoryPoint(), metadata),
+        },
+      })
+      const rollbackJournal = rollbackConfig.saves.includeRollbackHistory
+        ? this.rollbackController.serialize()
+        : undefined
+      const rollbackStoreData = rollbackConfig.saves.includeRollbackHistory
+        ? await this.rollbackController.exportStoreSaveData(this.store.getName())
+        : undefined
+      const requiredRuntimePackages = this.getRequiredRuntimePackagesForCurrentState(this.getStoryPoint(), metadata)
+      const mergedMetadata = {
         ...metadata,
+        ...(rollbackJournal ? { rollbackJournal } : {}),
+        ...(rollbackStoreData && Object.keys(rollbackStoreData).length > 0 ? { rollbackStoreData } : {}),
+        sceneName: metadata.sceneName || this.getCurrentSceneName(),
+        stepId: metadata.stepId || this.getCurrentStepId(),
         locale: this.getLocale(),
-        requiredRuntimePackages: this.getRequiredRuntimePackagesForCurrentState(this.getStoryPoint(), metadata),
-      },
-    })
-    const rollbackJournal = rollbackConfig.saves.includeRollbackHistory
-      ? this.rollbackController.serialize()
-      : undefined
-    const rollbackStoreData = rollbackConfig.saves.includeRollbackHistory
-      ? await this.rollbackController.exportStoreSaveData(this.store.getName())
-      : undefined
-    const requiredRuntimePackages = this.getRequiredRuntimePackagesForCurrentState(this.getStoryPoint(), metadata)
-    const mergedMetadata = {
-      ...metadata,
-      ...(rollbackJournal ? { rollbackJournal } : {}),
-      ...(rollbackStoreData && Object.keys(rollbackStoreData).length > 0 ? { rollbackStoreData } : {}),
-      sceneName: metadata.sceneName || this.getCurrentSceneName(),
-      stepId: metadata.stepId || this.getCurrentStepId(),
-      locale: this.getLocale(),
-      checkpointId: checkpoint.id,
-      storyPoint: this.getStoryPoint(),
-      requiredRuntimePackages,
-      timestamp: Date.now(),
+        checkpointId: checkpoint.id,
+        storyPoint: this.getStoryPoint(),
+        requiredRuntimePackages,
+        timestamp: Date.now(),
+      }
+      const baseStoreData = await this.store.exportSaveData()
+      resolvedPreview = await this.resolveSavePreview(slotId, reason, options)
+      savedSlot = await this.store.saveToSlot({
+        slotId,
+        name: mergedMetadata.name,
+        saveOpId: resolvedPreview.saveOpId,
+        previewStatus: resolvedPreview.previewStatus,
+        preview: resolvedPreview.preview,
+        metadata: mergedMetadata,
+        storeData: baseStoreData,
+      })
     }
-    const baseStoreData = await this.store.exportSaveData()
-    const resolvedPreview = await this.resolveSavePreview(slotId, reason, options)
-    const savedSlot = await this.store.saveToSlot({
-      slotId,
-      name: mergedMetadata.name,
-      saveOpId: resolvedPreview.saveOpId,
-      previewStatus: resolvedPreview.previewStatus,
-      preview: resolvedPreview.preview,
-      metadata: mergedMetadata,
-      storeData: baseStoreData,
-    })
+    catch (error) {
+      await this.cleanupCheckpointState(
+        checkpointState,
+        getRollbackSnapshotSet(checkpoint?.metadata?.rollbackSnapshotSet),
+      )
+      throw error
+    }
+
     await this.emitLogicToRender(L2R.SLOT_UPDATED, {
       slotId,
       revision: savedSlot.index.revision,
       previewStatus: savedSlot.index.previewStatus,
       source: reason,
+    }).catch((error) => {
+      void this.reportErrorOnce(error, {
+        message: `Failed to emit save slot update for slot "${slotId}".`,
+        source: 'engine',
+        phase: 'save:slot-updated',
+        metadata: { slotId, revision: savedSlot.index.revision, previewStatus: savedSlot.index.previewStatus, reason },
+      })
     })
-    await this.emitLogicToRender(L2R.GAME_SAVE, { slotId })
-    if (resolvedPreview.pending) {
+    await this.emitLogicToRender(L2R.GAME_SAVE, { slotId }).catch((error) => {
+      void this.reportErrorOnce(error, {
+        message: `Failed to emit game save event for slot "${slotId}".`,
+        source: 'engine',
+        phase: 'save:complete',
+        metadata: { slotId, reason },
+      })
+    })
+    if (resolvedPreview?.pending) {
       void this.finishAsyncSavePreview(slotId, resolvedPreview.pending).catch((error) => {
         void this.reportErrorOnce(error, {
           message: `Failed to patch async save preview for slot "${slotId}".`,
@@ -1785,6 +1833,37 @@ export class QuaEngine {
       checkpoints,
       currentCheckpointId,
     })
+  }
+
+  private captureCheckpointStateSnapshot(): CheckpointStateSnapshot {
+    const runtime = this.getRuntimeState()
+    const checkpointMap = this.getEngineState().checkpoints
+    const checkpoints = runtime.checkpointHistory
+      .map(id => checkpointMap[id])
+      .filter((checkpoint): checkpoint is EngineCheckpoint => Boolean(checkpoint))
+      .map(cloneCheckpoint)
+
+    return {
+      checkpoints,
+      currentCheckpointId: runtime.currentCheckpointId,
+      rollbackJournal: this.rollbackController.serialize(),
+    }
+  }
+
+  private async cleanupCheckpointState(
+    snapshot: CheckpointStateSnapshot,
+    snapshotSet?: RollbackSnapshotSet,
+  ): Promise<void> {
+    this.store.commit('hydrateCheckpoints', {
+      checkpoints: snapshot.checkpoints,
+      currentCheckpointId: snapshot.currentCheckpointId,
+    })
+    this.rollbackController.hydrate(snapshot.rollbackJournal, snapshot.checkpoints)
+    if (snapshotSet) {
+      await this.rollbackController.deleteSnapshotSet(snapshotSet).catch((error) => {
+        logger.warn('Failed to clean up rollback snapshot set after checkpoint failure.', error)
+      })
+    }
   }
 
   private getProtectedRollbackCheckpointIds(): ReadonlySet<string> {
@@ -2145,7 +2224,7 @@ export class QuaEngine {
         width: preview.width,
         height: preview.height,
         capturedAt: preview.capturedAt,
-        policySummary: policy ? { ...policy } : undefined,
+        policySummary: this.createSavePreviewPolicySummary(policy),
       }
     }
 
@@ -2156,7 +2235,7 @@ export class QuaEngine {
       width: preview.width,
       height: preview.height,
       capturedAt: preview.capturedAt,
-      policySummary: policy ? { ...policy } : undefined,
+      policySummary: this.createSavePreviewPolicySummary(policy),
     }
   }
 
@@ -2173,7 +2252,7 @@ export class QuaEngine {
         width: result.width,
         height: result.height,
         capturedAt: result.capturedAt,
-        policySummary: policy ? { ...policy } : undefined,
+        policySummary: this.createSavePreviewPolicySummary(policy),
       }
     }
 
@@ -2184,8 +2263,40 @@ export class QuaEngine {
       width: result.width,
       height: result.height,
       capturedAt: result.capturedAt,
-      policySummary: policy ? { ...policy } : undefined,
+      policySummary: this.createSavePreviewPolicySummary(policy),
     }
+  }
+
+  private createSavePreviewPolicySummary(
+    policy?: SavePreviewCapturePolicy,
+  ): Readonly<Record<string, unknown>> | undefined {
+    if (!policy) {
+      return undefined
+    }
+
+    const summary: Record<string, unknown> = {}
+    const assignNumber = (key: string, value: number | undefined) => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        summary[key] = value
+      }
+    }
+
+    if (policy.uiMode !== undefined) {
+      summary.uiMode = policy.uiMode
+    }
+    if (policy.format !== undefined) {
+      summary.format = policy.format
+    }
+    assignNumber('quality', policy.quality)
+    assignNumber('maxWidth', policy.maxWidth)
+    assignNumber('maxHeight', policy.maxHeight)
+    assignNumber('pixelRatio', policy.pixelRatio)
+    if (policy.background !== undefined) {
+      summary.background = policy.background
+    }
+    assignNumber('timeoutMs', policy.timeoutMs)
+
+    return Object.keys(summary).length > 0 ? summary : undefined
   }
 
   private scheduleFlowControlAdvance(): void {

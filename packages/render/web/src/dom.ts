@@ -9,7 +9,7 @@ import { QuaWebRendererController } from './controller'
 import { sortRendererLayers } from './layers'
 import { observeStageViewportEnvironment, readCssSafeAreaInsets, readDevicePixelRatio, rendererRootStyle, resolveStageLayout, stageContentStyle, stageFrameStyle, stagePlaneStyle, stageSafeAreaStyle, stageSceneStyle, stageViewportStyle } from './layout'
 import { projectStageMotion, stageMotionVars } from './projection'
-import { createWebSavePreviewCapturePlugin } from './save-preview'
+import { createWebSavePreviewCapturePlugin } from './save-preview-capture'
 
 export interface QuaWebDomLayerContext {
   renderer: QuaWebDomRenderer

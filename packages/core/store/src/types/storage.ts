@@ -27,6 +27,8 @@ export interface StorageMiddleware {
   afterRead?: (key: string, value: any) => any | Promise<any>
 }
 
+export type StorageTransactionMode = 'readonly' | 'readwrite'
+
 /**
  * Abstract storage backend interface
  */
@@ -96,6 +98,8 @@ export interface StorageBackend {
    * Close/cleanup the storage backend
    */
   close?: () => Promise<void> | void
+
+  transaction?: <T>(mode: StorageTransactionMode, action: () => Promise<T>) => Promise<T>
 }
 
 /**

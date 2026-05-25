@@ -32,8 +32,8 @@ import {
   resolveStageLayout,
   stageContentStyle,
   stageLogicalToClientPoint,
-  WebSaveSlotPreviewCache,
 } from '../src'
+import { WebSaveSlotPreviewCache } from '../src/save-preview'
 import { WebAudioRendererController } from '../src/audio'
 import { createVisualNovelWebRendererPlugins } from '../src/plugins/preset'
 
