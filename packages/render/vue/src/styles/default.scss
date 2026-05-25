@@ -95,16 +95,211 @@
 .qua-save-load-panel,
 .qua-settings-panel {
   inset: 5%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
   padding: 24px;
   border: 1px solid var(--qua-color-panel-border);
   border-radius: 8px;
   background: var(--qua-color-panel);
   box-shadow: var(--qua-shadow-panel);
   color: var(--qua-color-text);
+  overflow: auto;
 }
 
 .qua-settings-panel {
   overflow: auto;
+}
+
+.qua-ui-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.qua-ui-panel-heading {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.qua-ui-panel-title {
+  margin: 0;
+  color: var(--qua-color-text);
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.qua-ui-panel-subtitle,
+.qua-ui-overlay-description,
+.qua-save-slot-meta,
+.qua-settings-summary-meta,
+.qua-menu-footer {
+  margin: 0;
+  color: var(--qua-color-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.qua-ui-action-button {
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid var(--qua-color-panel-border);
+  border-radius: 6px;
+  background: var(--qua-color-button-bg);
+  color: var(--qua-color-button-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.qua-ui-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.qua-ui-action-button.is-active {
+  border-color: var(--qua-color-accent);
+}
+
+.qua-ui-panel-close {
+  flex: 0 0 auto;
+}
+
+.qua-menu-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.qua-menu-action--continue {
+  grid-column: 1 / -1;
+}
+
+.qua-menu-footer,
+.qua-save-load-footer,
+.qua-settings-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.qua-save-load-mode-tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid var(--qua-color-panel-border);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 14%);
+}
+
+.qua-save-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qua-save-slot-button {
+  display: grid;
+  grid-template-columns: auto 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 88px;
+  padding: 10px;
+  border: 1px solid var(--qua-color-panel-border);
+  border-radius: 8px;
+  background: rgb(255 250 242 / 88%);
+  color: var(--qua-color-button-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.qua-save-slot-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.qua-save-slot-index {
+  color: rgb(20 17 15 / 60%);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.qua-save-slot-preview {
+  display: grid;
+  width: 72px;
+  aspect-ratio: 16 / 9;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgb(20 17 15 / 14%);
+  color: rgb(20 17 15 / 62%);
+  font-size: 12px;
+}
+
+.qua-save-slot-screenshot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qua-save-slot-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.qua-save-slot-name {
+  overflow: hidden;
+  color: var(--qua-color-button-text);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qua-save-slot-meta {
+  color: rgb(20 17 15 / 62%);
+}
+
+.qua-settings-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.qua-settings-summary-section {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--qua-color-panel-border);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 14%);
+}
+
+.qua-settings-summary-title,
+.qua-settings-summary-value {
+  margin: 0;
+}
+
+.qua-settings-summary-title {
+  color: var(--qua-color-accent);
+  font-size: 14px;
+}
+
+.qua-settings-summary-value {
+  color: var(--qua-color-text);
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .qua-settings-header,

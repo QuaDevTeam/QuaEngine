@@ -24,10 +24,10 @@ import {
   useQuaRenderer,
   useRendererActions,
 } from '../src'
-import { QuaSpriteSkinBox } from '../src/plugins/sprite'
 import { createVisualNovelRendererPlugins } from '../src/plugins/preset'
 import { createSettingsRendererPlugin, QuaSettingsLayer } from '../src/plugins/settings'
-import { QuaMenuOverlay, QuaSettingsPanel, QuaUiOverlay } from '../src/plugins/ui'
+import { QuaSpriteSkinBox } from '../src/plugins/sprite'
+import { QuaMenuOverlay, QuaSaveLoadPanel, QuaSettingsPanel, QuaUiOverlay } from '../src/plugins/ui'
 
 describe('@quajs/renderer-vue', () => {
   afterEach(() => {
@@ -509,6 +509,152 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.textContent).toContain('menu')
     expect(host.el.textContent).toContain('settings')
     expect(host.el.textContent).toContain('Custom')
+  })
+
+  it('renders default menu overlay content and emits shell intents', async () => {
+    const pipeline = new Pipeline()
+    const received: string[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.UI_REQUEST_CLOSE, payload => received.push(`close:${payload.elementId}`))
+    onRenderToLogic(pipeline, RenderToLogicEvents.UI_REQUEST_OPEN, payload => received.push(`open:${payload.elementId}:${(payload.config as any)?.mode || ''}`))
+    pipeline.on(BacklogRenderToLogicEvents.OPEN_REQUEST, () => received.push('backlog:open'))
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            menu: { open: true, title: 'Pause' },
+          },
+        },
+      }),
+    })
+
+    await flushVue()
+    expect(host.el.querySelector('.qua-overlay-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-menu-overlay')?.textContent).toContain('Pause')
+
+    host.el.querySelector<HTMLButtonElement>('.qua-menu-action--continue')!.click()
+    host.el.querySelector<HTMLButtonElement>('.qua-menu-action--save')!.click()
+    host.el.querySelector<HTMLButtonElement>('.qua-menu-action--load')!.click()
+    host.el.querySelector<HTMLButtonElement>('.qua-menu-action--settings')!.click()
+    host.el.querySelector<HTMLButtonElement>('.qua-menu-action--backlog')!.click()
+    await flushVue()
+
+    expect(received).toEqual([
+      'close:menu',
+      'open:saveLoad:save',
+      'open:saveLoad:load',
+      'open:settings:',
+      'backlog:open',
+    ])
+  })
+
+  it('renders default save/load slots and emits save/load intents', async () => {
+    const pipeline = new Pipeline()
+    const received: string[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.GAME_SAVE_REQUEST, payload => received.push(`save:${payload.slotId || 'quick'}`))
+    onRenderToLogic(pipeline, RenderToLogicEvents.GAME_LOAD_REQUEST, payload => received.push(`load:${payload.slotId || 'quick'}`))
+    onRenderToLogic(pipeline, RenderToLogicEvents.UI_REQUEST_UPDATE, payload => received.push(`update:${payload.elementId}:${(payload.config as any).mode}`))
+    const current = view({
+      ui: {
+        visible: true,
+        overlays: {
+          saveLoad: {
+            open: true,
+            mode: 'load',
+            slotCount: 2,
+            slots: [{
+              slotId: 'slot-1',
+              name: 'Classroom',
+              timestamp: '2026-05-25T00:00:00Z',
+              metadata: {
+                sceneName: 'opening',
+                stepId: 'line-1',
+                playtime: 120000,
+              },
+            }],
+          },
+        },
+      },
+    })
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: current,
+    })
+
+    await flushVue()
+    expect(host.el.querySelectorAll('.qua-save-slot-button')).toHaveLength(2)
+    expect(host.el.textContent).toContain('Classroom')
+
+    host.el.querySelector<HTMLButtonElement>('[data-save-slot-id="slot-1"]')!.click()
+    host.el.querySelector<HTMLButtonElement>('[data-save-slot-id="slot-2"]')!.click()
+    host.el.querySelector<HTMLButtonElement>('.qua-save-load-mode-tab')!.click()
+    host.el.querySelector<HTMLButtonElement>('.qua-save-load-quick-action')!.click()
+    await flushVue()
+
+    expect(received).toEqual([
+      'load:slot-1',
+      'update:saveLoad:save',
+      'save:quick',
+    ])
+  })
+
+  it('keeps save/load wrapper slot overrides available', async () => {
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            saveLoad: {
+              open: true,
+              mode: 'save',
+              slotCount: 1,
+            },
+          },
+        },
+      }),
+    }, {
+      stage: () => h(QuaSaveLoadPanel, undefined, {
+        default: ({ mode, slots }: any) => h('div', `custom ${mode} ${slots.length}`),
+      }),
+    })
+
+    await flushVue()
+
+    expect(host.el.textContent).toContain('custom save 1')
+  })
+
+  it('falls back to the default settings panel when the settings layer is not mounted', async () => {
+    const pipeline = new Pipeline()
+    const plugins = createVisualNovelRendererPlugins()
+      .filter(plugin => plugin.name !== '@quajs/renderer-vue/settings')
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins,
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            settings: { open: true },
+          },
+        },
+        plugins: {
+          [SETTINGS_PLUGIN_ID]: settingsProjection(),
+        },
+      }),
+    })
+
+    await flushVue()
+
+    expect(host.el.querySelector('.qua-settings-panel')).not.toBeNull()
+    expect(host.el.textContent).toContain('Playback')
+    expect(host.el.textContent).toContain('No audio projection')
+    expect(host.el.textContent).not.toContain('Text Speed')
   })
 
   it('applies ui skins to vue settings toggles and sprite skin boxes', async () => {

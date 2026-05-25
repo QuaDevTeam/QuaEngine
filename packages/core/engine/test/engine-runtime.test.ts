@@ -2767,6 +2767,19 @@ describe('quaEngine runtime architecture', () => {
 
     expect(engine.getViewState().ui.overlays).toEqual({})
   })
+
+  it('handles renderer save and load intents through engine-owned slot APIs', async () => {
+    const engine = createEngine()
+    await engine.init()
+    const saveToSlot = vi.spyOn(engine, 'saveToSlot')
+    const loadFromSlot = vi.spyOn(engine, 'loadFromSlot')
+
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.GAME_SAVE_REQUEST, { slotId: 'slot-1' })
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.GAME_LOAD_REQUEST, { slotId: 'slot-1' })
+
+    expect(saveToSlot).toHaveBeenCalledWith('slot-1')
+    expect(loadFromSlot).toHaveBeenCalledWith('slot-1', { force: true, reason: 'renderer-load' })
+  })
 })
 
 function createEngine(): QuaEngine {

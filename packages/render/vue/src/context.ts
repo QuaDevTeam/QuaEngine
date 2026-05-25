@@ -12,6 +12,7 @@ export interface QuaRendererContext {
   pipeline: Ref<Pipeline>
   assets: Ref<QuaAssets | undefined>
   view: Readonly<Ref<QuaViewProjection>>
+  rendererLayerIds: Readonly<Ref<readonly string[]>>
   assetRevision: Readonly<Ref<number>>
   actions: RendererActions
 }

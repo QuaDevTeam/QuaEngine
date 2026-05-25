@@ -199,6 +199,7 @@ export class QuaEngine {
     this.setupAssetForwarding()
     this.setupRendererErrorForwarding()
     this.setupFlowControlIntents()
+    this.setupSaveLoadIntents()
     logger.info('QuaEngine initialized')
   }
 
@@ -1809,6 +1810,29 @@ export class QuaEngine {
     this.flowControlDisposers.push(this.onRenderIntent(R2L.USER_ADVANCE, () => {
       this.clearFlowControlAdvance()
       this.markCurrentStoryPointRead()
+    }))
+  }
+
+  private setupSaveLoadIntents(): void {
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.GAME_SAVE_REQUEST, async (payload) => {
+      const slotId = typeof (payload as { slotId?: unknown }).slotId === 'string'
+        ? (payload as { slotId: string }).slotId
+        : 'quicksave'
+      if (slotId === 'quicksave') {
+        await this.quickSave()
+        return
+      }
+      await this.saveToSlot(slotId)
+    }))
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.GAME_LOAD_REQUEST, async (payload) => {
+      const slotId = typeof (payload as { slotId?: unknown }).slotId === 'string'
+        ? (payload as { slotId: string }).slotId
+        : 'quicksave'
+      if (slotId === 'quicksave') {
+        await this.quickLoad()
+        return
+      }
+      await this.loadFromSlot(slotId, { force: true, reason: 'renderer-load' })
     }))
   }
 
