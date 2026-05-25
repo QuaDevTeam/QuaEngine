@@ -52,6 +52,7 @@ export const QuaRenderer = defineComponent({
     })
     const snapshot = shallowRef(web.getSnapshot())
     const rendererLayers = computed(() => sortRendererLayers(rendererPlugins.value.flatMap(plugin => plugin.layers || [])))
+    const rendererLayerIds = computed(() => rendererLayers.value.map(layer => layer.id))
     let stopPipelineWatch: (() => void) | undefined
     let stopAssetWatch: (() => void) | undefined
     let unsubscribeSnapshot: (() => void) | undefined
@@ -75,6 +76,7 @@ export const QuaRenderer = defineComponent({
       pipeline: computed(() => requirePipeline(pipeline.value)),
       assets,
       view: readonlyView,
+      rendererLayerIds: readonly(rendererLayerIds),
       assetRevision: readonly(assetRevision),
       actions,
     })
