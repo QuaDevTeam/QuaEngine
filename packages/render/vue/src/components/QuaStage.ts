@@ -84,23 +84,28 @@ export const QuaStage = defineComponent({
         }, [
           h('div', {
             class: 'qua-stage-scene',
+            'data-qua-capture-role': 'scene',
             style: sceneStyle.value,
           }, [
             h('div', {
               class: 'qua-stage-scene-content',
+              'data-qua-capture-role': 'scene',
               style: stagePlaneStyle(),
             }, renderLayers(sceneLayers.value, slots, slotProps, renderer.web.reportError.bind(renderer.web))),
             h('div', {
               class: 'qua-stage-subject',
+              'data-qua-capture-role': 'scene',
               style: stagePlaneStyle(),
             }, renderLayers(subjectLayers.value, slots, slotProps, renderer.web.reportError.bind(renderer.web))),
           ]),
           h('div', {
             class: 'qua-stage-plane',
+            'data-qua-capture-role': 'scene',
             style: stagePlaneStyle(),
           }, renderLayers(stageLayers.value, slots, slotProps, renderer.web.reportError.bind(renderer.web))),
           h('div', {
             class: 'qua-stage-safe',
+            'data-qua-capture-role': 'safe-ui',
             style: stageSafeAreaStyle(stageLayout.value),
           }, renderLayers(safeLayers.value, slots, slotProps, renderer.web.reportError.bind(renderer.web))),
         ]),

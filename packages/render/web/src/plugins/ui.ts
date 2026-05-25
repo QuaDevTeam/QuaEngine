@@ -28,6 +28,7 @@ function renderUiLayer(context: QuaWebDomLayerContext): Node | undefined {
 
   const layer = context.document.createElement('div')
   layer.className = 'qua-overlay-layer'
+  layer.setAttribute('data-qua-capture-role', 'overlay')
   layer.addEventListener('click', event => event.stopPropagation())
   for (const elementId of Object.keys(overlays)) {
     const overlayConfig = overlays[elementId] as Readonly<Record<string, unknown>> & { skinId?: string }
@@ -35,6 +36,7 @@ function renderUiLayer(context: QuaWebDomLayerContext): Node | undefined {
     const overlay = context.document.createElement('div')
     overlay.className = 'qua-ui-overlay'
     overlay.setAttribute('data-overlay', elementId)
+    overlay.setAttribute('data-qua-capture-role', 'overlay')
     applyStyleVars(overlay, motionProjectionVars(projected, '--qua-ui'))
     bindUiControlSkin(context, overlay, {
       kind: 'panel',

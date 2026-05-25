@@ -164,7 +164,7 @@ await setPluginProjection('audio', {
 
 ## Save System
 
-### `saveToSlot(slotId: string, metadata?: SaveMetadata): Promise<void>`
+### `saveToSlot(slotId: string, metadata?: SaveMetadata, options?: SaveToSlotOptions): Promise<void>`
 
 Saves the current game state to a specific save slot.
 
@@ -173,11 +173,13 @@ Saves the current game state to a specific save slot.
 - `slotId`: Unique identifier for the save slot
 - `metadata` (optional): Save file metadata including:
   - `name?: string` - Display name for the save
-  - `screenshot?: string` - Screenshot data
   - `sceneName?: string` - Current scene name
   - `stepId?: string` - Current step ID
   - `playtime?: number` - Total playtime in milliseconds
   - `[key: string]: unknown` - Additional custom metadata
+- `options` (optional): Save behavior overrides including:
+  - `reason?: 'save' | 'quickSave' | 'autoSave'`
+  - `preview?: { mode?: 'disabled' | 'provided' | 'renderer-capture'; transaction?: 'sync' | 'async-clone'; policy?: { uiMode?: 'full' | 'hide-overlays' | 'scene-only' | 'custom'; format?: 'image/webp' | 'image/png' | 'image/jpeg'; quality?: number; maxWidth?: number; maxHeight?: number; pixelRatio?: number; background?: string | null; timeoutMs?: number }; image?: { kind: 'bytes' | 'data-url'; ... } }`
 
 **Returns:** Promise that resolves when save is complete
 
@@ -190,6 +192,16 @@ await saveToSlot('slot1', {
   name: 'Chapter 1 Complete',
   playtime: 3600000, // 1 hour
   sceneName: 'ending_scene',
+}, {
+  preview: {
+    mode: 'renderer-capture',
+    transaction: 'sync',
+    policy: {
+      uiMode: 'hide-overlays',
+      format: 'image/webp',
+      maxWidth: 480,
+    },
+  },
 })
 ```
 

@@ -1,4 +1,11 @@
-import type { QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaSnapshot, QuaSnapshotMeta } from '../types/base'
+import type {
+  QuaGameSavePreviewRecord,
+  QuaGameSaveSlotIndex,
+  QuaGameSaveSlotPayload,
+  QuaSnapshot,
+  QuaSnapshotMeta,
+} from '../types/base'
+import { clonePreviewRecord, cloneSaveSlotIndex, cloneSaveSlotPayload } from '../preview'
 import type { StorageBackend } from '../types/storage'
 
 /**
@@ -7,7 +14,9 @@ import type { StorageBackend } from '../types/storage'
  */
 export class MemoryBackend implements StorageBackend {
   private snapshots: Map<string, QuaSnapshot> = new Map()
-  private gameSlots: Map<string, QuaGameSaveSlot> = new Map()
+  private gameSlotIndexes: Map<string, QuaGameSaveSlotIndex> = new Map()
+  private gameSlotPayloads: Map<string, QuaGameSaveSlotPayload> = new Map()
+  private gameSlotPreviews: Map<string, QuaGameSavePreviewRecord> = new Map()
 
   async init(): Promise<void> {
     // No initialization needed for memory storage
@@ -58,39 +67,62 @@ export class MemoryBackend implements StorageBackend {
   }
 
   // Game slot methods (persistent save files)
-  async saveGameSlot(slot: QuaGameSaveSlot): Promise<void> {
-    this.gameSlots.set(slot.slotId, { ...slot })
+  async saveGameSlotIndex(slot: QuaGameSaveSlotIndex): Promise<void> {
+    this.gameSlotIndexes.set(slot.slotId, cloneSaveSlotIndex(slot))
   }
 
-  async getGameSlot(slotId: string): Promise<QuaGameSaveSlot | undefined> {
-    const slot = this.gameSlots.get(slotId)
-    return slot ? { ...slot } : undefined
+  async getGameSlotIndex(slotId: string): Promise<QuaGameSaveSlotIndex | undefined> {
+    const slot = this.gameSlotIndexes.get(slotId)
+    return slot ? cloneSaveSlotIndex(slot) : undefined
   }
 
-  async deleteGameSlot(slotId: string): Promise<void> {
-    this.gameSlots.delete(slotId)
-  }
-
-  async listGameSlots(): Promise<QuaGameSaveSlotMeta[]> {
-    const slots = Array.from(this.gameSlots.values())
-    return slots
+  async listGameSlotIndexes(): Promise<QuaGameSaveSlotIndex[]> {
+    return Array.from(this.gameSlotIndexes.values())
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .map(slot => ({
-        slotId: slot.slotId,
-        name: slot.name,
-        timestamp: slot.timestamp,
-        screenshot: slot.screenshot,
-        metadata: slot.metadata,
-      }))
+      .map(slot => cloneSaveSlotIndex(slot))
+  }
+
+  async deleteGameSlotIndex(slotId: string): Promise<void> {
+    this.gameSlotIndexes.delete(slotId)
+  }
+
+  async saveGameSlotPayload(slot: QuaGameSaveSlotPayload): Promise<void> {
+    this.gameSlotPayloads.set(slot.slotId, cloneSaveSlotPayload(slot))
+  }
+
+  async getGameSlotPayload(slotId: string): Promise<QuaGameSaveSlotPayload | undefined> {
+    const slot = this.gameSlotPayloads.get(slotId)
+    return slot ? cloneSaveSlotPayload(slot) : undefined
+  }
+
+  async deleteGameSlotPayload(slotId: string): Promise<void> {
+    this.gameSlotPayloads.delete(slotId)
+  }
+
+  async saveGameSlotPreview(preview: QuaGameSavePreviewRecord): Promise<void> {
+    this.gameSlotPreviews.set(preview.previewId, clonePreviewRecord(preview))
+  }
+
+  async getGameSlotPreview(previewId: string): Promise<QuaGameSavePreviewRecord | undefined> {
+    const preview = this.gameSlotPreviews.get(previewId)
+    return preview ? clonePreviewRecord(preview) : undefined
+  }
+
+  async deleteGameSlotPreview(previewId: string): Promise<void> {
+    this.gameSlotPreviews.delete(previewId)
   }
 
   async clearGameSlots(): Promise<void> {
-    this.gameSlots.clear()
+    this.gameSlotIndexes.clear()
+    this.gameSlotPayloads.clear()
+    this.gameSlotPreviews.clear()
   }
 
   async close(): Promise<void> {
     this.snapshots.clear()
-    this.gameSlots.clear()
+    this.gameSlotIndexes.clear()
+    this.gameSlotPayloads.clear()
+    this.gameSlotPreviews.clear()
   }
 
   /**
@@ -104,7 +136,7 @@ export class MemoryBackend implements StorageBackend {
    * Get the current number of stored game slots (for testing/debugging)
    */
   getGameSlotStorageSize(): number {
-    return this.gameSlots.size
+    return this.gameSlotIndexes.size
   }
 
   /**
@@ -118,6 +150,6 @@ export class MemoryBackend implements StorageBackend {
    * Check if a game slot exists (for testing/debugging)
    */
   hasGameSlot(slotId: string): boolean {
-    return this.gameSlots.has(slotId)
+    return this.gameSlotIndexes.has(slotId)
   }
 }

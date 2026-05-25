@@ -1,4 +1,4 @@
-import type { ChoiceIntent, ChoiceJumpOptions, ChoiceTarget, CreateCheckpointOptions, DialogueIntent, EngineReportErrorOptions, EnsureLocalePacksOptions, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, ResolvedStoryAsset, ResolvedStoryJump, RollbackAnchorReason, RollbackConfigPatch, RollbackNavigationOptions, RollbackTarget, RuntimePackageLoadOptions, RuntimePackageStateRecord, RuntimePackageUnloadOptions, RuntimeScriptModuleRecord, RuntimeScriptModuleRunFromOptions, RuntimeScriptModuleRunOptions, Scene, SceneEnterContext, SceneFactory, SetLocaleOptions, SlotMetadata, StoryAssetRef, StoryPoint, StoryTargetResolver, TranslateInput, ViewLayoutInput } from '../core/types'
+import type { ChoiceIntent, ChoiceJumpOptions, ChoiceTarget, CreateCheckpointOptions, DialogueIntent, EngineReportErrorOptions, EnsureLocalePacksOptions, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, ResolvedStoryAsset, ResolvedStoryJump, RollbackAnchorReason, RollbackConfigPatch, RollbackNavigationOptions, RollbackTarget, RuntimePackageLoadOptions, RuntimePackageStateRecord, RuntimePackageUnloadOptions, RuntimeScriptModuleRecord, RuntimeScriptModuleRunFromOptions, RuntimeScriptModuleRunOptions, SaveToSlotOptions, Scene, SceneEnterContext, SceneFactory, SetLocaleOptions, SlotMetadata, StoryAssetRef, StoryPoint, StoryTargetResolver, TranslateInput, ViewLayoutInput } from '../core/types'
 import type { QuaStore } from '@quajs/store'
 import type { SceneTransitionOptions } from '../managers/scene-manager'
 import { QuaEngine } from '../core/engine'
@@ -109,8 +109,9 @@ export function registerStoryTargetResolver(resolver: StoryTargetResolver): () =
 export async function saveToSlot(
   slotId: string,
   metadata?: SlotMetadata,
+  options?: SaveToSlotOptions,
 ): Promise<void> {
-  return getEngine().saveToSlot(slotId, metadata)
+  return getEngine().saveToSlot(slotId, metadata, options)
 }
 
 /**
@@ -120,16 +121,16 @@ export async function loadFromSlot(slotId: string, options?: LoadSlotOptions): P
   return getEngine().loadFromSlot(slotId, options)
 }
 
-export async function quickSave(metadata?: SlotMetadata): Promise<void> {
-  return getEngine().quickSave(metadata)
+export async function quickSave(metadata?: SlotMetadata, options?: SaveToSlotOptions): Promise<void> {
+  return getEngine().quickSave(metadata, options)
 }
 
 export async function quickLoad(): Promise<void> {
   return getEngine().quickLoad()
 }
 
-export async function autoSave(metadata?: SlotMetadata): Promise<void> {
-  return getEngine().autoSave(metadata)
+export async function autoSave(metadata?: SlotMetadata, options?: SaveToSlotOptions): Promise<void> {
+  return getEngine().autoSave(metadata, options)
 }
 
 export async function listSaveSlots() {

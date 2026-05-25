@@ -80,36 +80,110 @@ export interface QuaStoreSaveData {
   snapshots: QuaSnapshot[]
 }
 
-/**
- * Game save slot data structure
- */
-export interface QuaGameSaveSlot {
+export interface QuaGameSaveSlotMetadata {
+  sceneName?: string
+  stepId?: string
+  playtime?: number
+  [key: string]: unknown
+}
+
+export type QuaGameSavePreviewStatus = 'none' | 'pending' | 'ready' | 'error'
+export type QuaGameSavePreviewReadFormat = 'bytes' | 'data-url'
+
+export interface QuaGameSavePreviewBytesPayload {
+  kind: 'bytes'
+  mimeType: string
+  bytes: Uint8Array
+  width?: number
+  height?: number
+  capturedAt?: number
+}
+
+export interface QuaGameSavePreviewDataUrlPayload {
+  kind: 'data-url'
+  dataUrl: string
+  mimeType?: string
+  width?: number
+  height?: number
+  capturedAt?: number
+}
+
+export type QuaGameSavePreviewPayload
+  = | QuaGameSavePreviewBytesPayload
+    | QuaGameSavePreviewDataUrlPayload
+
+export type QuaGameSavePreviewWriteInput = QuaGameSavePreviewPayload & {
+  previewId?: string
+  hash?: string
+  policySummary?: Readonly<Record<string, unknown>>
+}
+
+export interface QuaGameSavePreviewDescriptor {
+  previewId: string
+  mimeType: string
+  byteLength: number
+  width?: number
+  height?: number
+  capturedAt: number
+  hash: string
+  policySummary?: Readonly<Record<string, unknown>>
+}
+
+export interface QuaGameSavePreviewRecord {
+  previewId: string
+  slotId: string
+  mimeType: string
+  bytes: Uint8Array
+  byteLength: number
+  width?: number
+  height?: number
+  capturedAt: number
+  hash: string
+  policySummary?: Readonly<Record<string, unknown>>
+}
+
+export interface QuaGameSaveSlotIndex {
   slotId: string
   name?: string
   timestamp: Date
-  screenshot?: string
-  metadata: {
-    sceneName?: string
-    stepId?: string
-    playtime?: number
-    [key: string]: unknown
-  }
-  // Complete store state including all snapshots
+  revision: number
+  saveOpId?: string
+  previewStatus: QuaGameSavePreviewStatus
+  preview?: QuaGameSavePreviewDescriptor
+  metadata: QuaGameSaveSlotMetadata
+}
+
+export interface QuaGameSaveSlotPayload {
+  slotId: string
+  index: QuaGameSaveSlotIndex
   storeData: QuaStoreSaveData
 }
 
-/**
- * Game save slot metadata (without full data)
- */
-export interface QuaGameSaveSlotMeta {
+export type QuaGameSaveSlot = QuaGameSaveSlotPayload
+export type QuaGameSaveSlotMeta = QuaGameSaveSlotIndex
+
+export interface QuaGameSaveSlotWriteInput {
   slotId: string
   name?: string
-  timestamp: Date
-  screenshot?: string
-  metadata: {
-    sceneName?: string
-    stepId?: string
-    playtime?: number
-    [key: string]: unknown
-  }
+  timestamp?: Date
+  revision?: number
+  saveOpId?: string
+  previewStatus?: QuaGameSavePreviewStatus
+  preview?: QuaGameSavePreviewWriteInput
+  metadata: QuaGameSaveSlotMetadata
+  storeData: QuaStoreSaveData
+}
+
+export interface QuaGameSaveSlotPreviewPatchInput {
+  preview?: QuaGameSavePreviewWriteInput
+  previewStatus?: QuaGameSavePreviewStatus
+  saveOpId?: string
+  expectedSaveOpId?: string
+  expectedRevision?: number
+  timestamp?: Date
+  clearPreview?: boolean
+}
+
+export interface QuaGameSavePreviewReadOptions {
+  format?: QuaGameSavePreviewReadFormat
 }

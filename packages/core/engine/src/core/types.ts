@@ -14,7 +14,7 @@ import type {
   VersionCompatibility,
 } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
-import type { QuaStateSerializer, QuaStore, StorageConfig } from '@quajs/store'
+import type { QuaGameSavePreviewPayload, QuaStateSerializer, QuaStore, StorageConfig } from '@quajs/store'
 import type {
   ActiveAnimationProjection,
   FlowControlMode,
@@ -26,6 +26,9 @@ import type {
   QuaErrorSource,
   QuaViewProjection,
   RichTextContent,
+  SavePreviewCapturePolicy,
+  SavePreviewCaptureReason,
+  SavePreviewCaptureTransaction,
   SceneTransitionIntent,
   ViewBackgroundProjection,
   ViewEffectProjection,
@@ -61,6 +64,10 @@ export type {
 } from '../events/events'
 
 export type {
+  SavePreviewCapturePolicy,
+  SavePreviewCaptureReason,
+  SavePreviewCaptureTransaction,
+  SaveRequestPayload,
   FlowControlMode,
   FlowControlPolicy,
   FlowControlProjectionInput,
@@ -70,11 +77,25 @@ export type {
 
 export interface SlotMetadata {
   name?: string
-  screenshot?: string
   sceneName?: string
   stepId?: string
   playtime?: number
   [key: string]: unknown
+}
+
+export type SavePreviewProvidedInput = QuaGameSavePreviewPayload
+
+export interface SavePreviewOptions {
+  mode?: 'disabled' | 'provided' | 'renderer-capture'
+  transaction?: SavePreviewCaptureTransaction
+  strict?: boolean
+  policy?: SavePreviewCapturePolicy
+  image?: SavePreviewProvidedInput
+}
+
+export interface SaveToSlotOptions {
+  reason?: SavePreviewCaptureReason
+  preview?: SavePreviewOptions
 }
 
 export interface GameStep {
@@ -343,11 +364,11 @@ export interface QuaEngineInterface {
   showUI: (elementId: string, config?: Record<string, unknown>) => Promise<void>
   hideUI: (elementId: string) => Promise<void>
   updateUI: (elementId: string, config: Record<string, unknown>) => Promise<void>
-  saveToSlot: (slotId: string, metadata?: SlotMetadata) => Promise<void>
+  saveToSlot: (slotId: string, metadata?: SlotMetadata, options?: SaveToSlotOptions) => Promise<void>
   loadFromSlot: (slotId: string, options?: LoadSlotOptions) => Promise<void>
-  quickSave: (metadata?: SlotMetadata) => Promise<void>
+  quickSave: (metadata?: SlotMetadata, options?: SaveToSlotOptions) => Promise<void>
   quickLoad: () => Promise<void>
-  autoSave: (metadata?: SlotMetadata) => Promise<void>
+  autoSave: (metadata?: SlotMetadata, options?: SaveToSlotOptions) => Promise<void>
   listSaveSlots: () => Promise<import('@quajs/store').QuaGameSaveSlotMeta[]>
   deleteSaveSlot: (slotId: string) => Promise<void>
   runScriptModule: <TScope>(moduleId: string, scope?: TScope, options?: RuntimeScriptModuleRunOptions) => Promise<void>
@@ -392,15 +413,7 @@ export interface SceneEnterContext {
 
 export interface SaveSlot {
   slotId: string
-  name?: string
-  timestamp: Date
-  screenshot?: string
-  metadata: {
-    sceneName?: string
-    stepId?: string
-    playtime?: number
-    [key: string]: unknown
-  }
+  index: import('@quajs/store').QuaGameSaveSlotMeta
 }
 
 export interface StoryPoint {
@@ -802,6 +815,12 @@ export interface EngineConfig {
     autoSave?: boolean
     autoSaveInterval?: number
     encryptionKey?: string
+    preview?: {
+      defaults?: SavePreviewOptions
+      save?: SavePreviewOptions
+      quickSave?: SavePreviewOptions
+      autoSave?: SavePreviewOptions
+    }
   }
   runtimeModuleLoader?: RuntimeModuleLoader
   runtimePackageRegistry?: RuntimePackageRegistry

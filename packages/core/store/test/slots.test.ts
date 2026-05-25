@@ -74,7 +74,10 @@ describe('game Slot System', () => {
         sceneName: 'forest_entrance',
         stepId: 'step_42',
         playtime: 3600000, // 1 hour in milliseconds
-        screenshot: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+        preview: {
+          kind: 'data-url',
+          dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+        },
       })
 
       // Modify store state
@@ -254,12 +257,12 @@ describe('game Slot System', () => {
       const slot = await store.getSlot('detailed-slot')
       expect(slot).toBeDefined()
       expect(slot!.slotId).toBe('detailed-slot')
-      expect(slot!.name).toBe('Boss Fight')
-      expect(slot!.metadata.sceneName).toBe('dragon_lair')
-      expect(slot!.metadata.stepId).toBe('boss_intro')
-      expect(slot!.metadata.playtime).toBe(7200000)
-      expect(slot!.metadata.difficulty).toBe('hard')
-      expect(slot!.metadata.completionPercent).toBe(75)
+      expect(slot!.index.name).toBe('Boss Fight')
+      expect(slot!.index.metadata.sceneName).toBe('dragon_lair')
+      expect(slot!.index.metadata.stepId).toBe('boss_intro')
+      expect(slot!.index.metadata.playtime).toBe(7200000)
+      expect(slot!.index.metadata.difficulty).toBe('hard')
+      expect(slot!.index.metadata.completionPercent).toBe(75)
       expect(slot!.storeData.state.level).toBe(5)
       expect(slot!.storeData.state.playerName).toBe('Charlie')
     })
@@ -356,11 +359,11 @@ describe('game Slot System', () => {
       const slot = await store.getSlot('minimal-slot')
       expect(slot).toBeDefined()
       expect(slot!.slotId).toBe('minimal-slot')
-      expect(slot!.name).toBeUndefined()
-      expect(slot!.screenshot).toBeUndefined()
-      expect(slot!.metadata).toEqual({})
-      expect(slot!.timestamp).toBeDefined()
-      expect(slot!.timestamp).toBeInstanceOf(Date)
+      expect(slot!.index.name).toBeUndefined()
+      expect(slot!.index.preview).toBeUndefined()
+      expect(slot!.index.metadata).toEqual({})
+      expect(slot!.index.timestamp).toBeDefined()
+      expect(slot!.index.timestamp).toBeInstanceOf(Date)
     })
 
     it('should overwrite existing slots', async () => {
@@ -379,7 +382,7 @@ describe('game Slot System', () => {
       await store.saveToSlot('reused-slot', { name: 'First Save' })
 
       let slot = await store.getSlot('reused-slot')
-      expect(slot!.name).toBe('First Save')
+      expect(slot!.index.name).toBe('First Save')
       expect(slot!.storeData.state.level).toBe(1)
 
       // Modify state and overwrite slot
@@ -387,12 +390,54 @@ describe('game Slot System', () => {
       await store.saveToSlot('reused-slot', { name: 'Updated Save' })
 
       slot = await store.getSlot('reused-slot')
-      expect(slot!.name).toBe('Updated Save')
+      expect(slot!.index.name).toBe('Updated Save')
       expect(slot!.storeData.state.level).toBe(5)
 
       // Should still have only one slot
       const slots = await store.listSlots()
       expect(slots).toHaveLength(1)
+    })
+
+    it('should keep slot payload index in sync when patching previews', async () => {
+      const store = createStore({
+        name: 'gameStore',
+        state: { level: 1 },
+        storage: { backend: MemoryBackend },
+      })
+
+      await store.saveToSlot({
+        slotId: 'preview-slot',
+        saveOpId: 'save-op-1',
+        previewStatus: 'pending',
+        storeData: await store.exportSaveData(),
+      })
+
+      await store.patchSlotPreview('preview-slot', {
+        expectedSaveOpId: 'save-op-1',
+        previewStatus: 'ready',
+        preview: {
+          kind: 'bytes',
+          mimeType: 'image/webp',
+          bytes: new Uint8Array([1, 2, 3]),
+          width: 64,
+          height: 36,
+        },
+      })
+
+      const slot = await store.getSlot('preview-slot')
+      expect(slot?.index.previewStatus).toBe('ready')
+      expect(slot?.index.preview).toEqual(expect.objectContaining({
+        mimeType: 'image/webp',
+        byteLength: 3,
+        width: 64,
+        height: 36,
+      }))
+
+      await expect(store.getSlotPreview('preview-slot')).resolves.toEqual(expect.objectContaining({
+        kind: 'bytes',
+        mimeType: 'image/webp',
+        bytes: new Uint8Array([1, 2, 3]),
+      }))
     })
   })
 

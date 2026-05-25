@@ -1,6 +1,6 @@
 import type { QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaStore } from '@quajs/store'
 import type { QuaEngine } from '../core/engine'
-import type { GameStep, GameStepFactory, GameStepScope, GameStepSource, OptionalGameStepFactory, Scene, SceneEnterContext, StepContext } from '../core/types'
+import type { GameStep, GameStepFactory, GameStepScope, GameStepSource, OptionalGameStepFactory, SavePreviewProvidedInput, Scene, SceneEnterContext, StepContext } from '../core/types'
 import type { SceneTransitionOptions } from './scene-manager'
 
 import { getPackageLogger } from '@quajs/logger'
@@ -106,23 +106,31 @@ export class GameManager {
   /**
    * Save game to a specific slot using the store's slot save functionality
    */
-  async saveGame(
-    slotId: string,
-    slotName?: string,
-    screenshot?: string,
-  ): Promise<void> {
+  async saveGame(options: {
+    slotId: string
+    slotName?: string
+    preview?: SavePreviewProvidedInput
+  }): Promise<void> {
+    const { slotId, slotName, preview } = options
     logger.info(`Saving game to slot: ${slotId}`)
 
     try {
       const metadata = {
         name: slotName,
-        screenshot,
         sceneName: this.engine.getCurrentSceneName(),
         stepId: this.engine.getCurrentStepId(),
         playtime: this.calculatePlaytime(),
       }
 
-      await this.engine.saveToSlot(slotId, metadata)
+      await this.engine.saveToSlot(slotId, metadata, preview
+        ? {
+            reason: 'save',
+            preview: {
+              mode: 'provided',
+              image: preview,
+            },
+          }
+        : undefined)
 
       logger.info(`Game saved successfully: ${slotId}`)
     }

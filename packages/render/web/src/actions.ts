@@ -1,5 +1,5 @@
 import type { Pipeline } from '@quajs/pipeline'
-import type { FlowControlMode, RendererInputCommandPayload } from '@quajs/render-core'
+import type { FlowControlMode, RendererInputCommandPayload, SaveRequestPayload } from '@quajs/render-core'
 import { emitRenderToLogic, RenderToLogicEvents } from '@quajs/render-core'
 
 export interface RendererActions {
@@ -16,7 +16,7 @@ export interface RendererActions {
   startFastForward: (source?: string) => Promise<void>
   stopFastForward: (source?: string) => Promise<void>
   selectChoice: (choiceId: string) => Promise<void>
-  requestSave: (slotId?: string) => Promise<void>
+  requestSave: (slotIdOrPayload?: string | SaveRequestPayload, payload?: Omit<SaveRequestPayload, 'slotId'>) => Promise<void>
   requestLoad: (slotId?: string) => Promise<void>
   requestUiOpen: (elementId: string, config?: Record<string, unknown>) => Promise<void>
   requestUiClose: (elementId: string) => Promise<void>
@@ -39,7 +39,12 @@ export function createRendererActions(getPipeline: () => Pipeline): RendererActi
     startFastForward: (source?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.FLOW_CONTROL_START_FAST_FORWARD_REQUEST, { source }),
     stopFastForward: (source?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.FLOW_CONTROL_STOP_FAST_FORWARD_REQUEST, { source }),
     selectChoice: (choiceId: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_CHOICE_SELECT, { choiceId }),
-    requestSave: (slotId?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.GAME_SAVE_REQUEST, { slotId }),
+    requestSave: (slotIdOrPayload?: string | SaveRequestPayload, payload?: Omit<SaveRequestPayload, 'slotId'>) => {
+      const resolved = typeof slotIdOrPayload === 'string'
+        ? { slotId: slotIdOrPayload, ...(payload || {}) }
+        : (slotIdOrPayload || {})
+      return emitRenderToLogic(getPipeline(), RenderToLogicEvents.GAME_SAVE_REQUEST, resolved)
+    },
     requestLoad: (slotId?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.GAME_LOAD_REQUEST, { slotId }),
     requestUiOpen: (elementId: string, config?: Record<string, unknown>) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.UI_REQUEST_OPEN, { elementId, config }),
     requestUiClose: (elementId: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.UI_REQUEST_CLOSE, { elementId }),

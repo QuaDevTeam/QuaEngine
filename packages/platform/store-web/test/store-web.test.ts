@@ -15,9 +15,14 @@ describe('store web IndexedDB backend', () => {
 
     await backend.saveGameSlot({
       slotId: 'slot-1',
-      name: 'Intro',
-      timestamp: new Date(),
-      metadata: { sceneName: 'opening' },
+      index: {
+        slotId: 'slot-1',
+        name: 'Intro',
+        timestamp: new Date(),
+        revision: 1,
+        previewStatus: 'none',
+        metadata: { sceneName: 'opening' },
+      },
       storeData: {
         state: { stepId: 'intro' },
         snapshots: [],

@@ -24,6 +24,8 @@ export enum LogicToRenderEvents {
   EFFECT_SHAKE = 'effect/shake',
   EFFECT_FLASH = 'effect/flash',
   GAME_SAVE = 'game/save',
+  SLOT_UPDATED = 'slot/updated',
+  SAVE_PREVIEW_CAPTURE_REQUEST = 'save_preview/capture_request',
   GAME_LOAD = 'game/load',
   GAME_PAUSE = 'game/pause',
   GAME_RESUME = 'game/resume',
@@ -48,6 +50,8 @@ export enum RenderToLogicEvents {
   FLOW_CONTROL_START_FAST_FORWARD_REQUEST = 'flow_control/start_fast_forward_request',
   FLOW_CONTROL_STOP_FAST_FORWARD_REQUEST = 'flow_control/stop_fast_forward_request',
   GAME_SAVE_REQUEST = 'game/save_request',
+  SAVE_PREVIEW_CAPTURE_RESULT = 'save_preview/capture_result',
+  SAVE_PREVIEW_CAPTURE_ERROR = 'save_preview/capture_error',
   GAME_LOAD_REQUEST = 'game/load_request',
   UI_REQUEST_OPEN = 'ui/request_open',
   UI_REQUEST_CLOSE = 'ui/request_close',
@@ -648,6 +652,92 @@ export interface RendererLifecyclePayload {
   timestamp?: number
 }
 
+export type SavePreviewCaptureReason = 'save' | 'quickSave' | 'autoSave'
+export type SavePreviewCaptureTransaction = 'sync' | 'async-clone'
+export type SavePreviewCaptureUiMode = 'full' | 'hide-overlays' | 'scene-only' | 'custom'
+export type SavePreviewCaptureFormat = 'image/webp' | 'image/png' | 'image/jpeg'
+
+export interface SavePreviewCapturePolicy {
+  uiMode?: SavePreviewCaptureUiMode
+  format?: SavePreviewCaptureFormat
+  quality?: number
+  maxWidth?: number
+  maxHeight?: number
+  pixelRatio?: number
+  background?: string | null
+  timeoutMs?: number
+  rendererHints?: Readonly<Record<string, unknown>>
+}
+
+export interface SavePreviewCaptureRequestPayload extends RendererLifecyclePayload {
+  requestId: string
+  saveOpId: string
+  slotId: string
+  reason: SavePreviewCaptureReason
+  transaction: SavePreviewCaptureTransaction
+  policy: SavePreviewCapturePolicy
+}
+
+export interface SavePreviewCaptureResultPayload extends RendererLifecyclePayload {
+  requestId: string
+  saveOpId: string
+  slotId: string
+  mimeType: string
+  image:
+    | {
+      kind: 'bytes'
+      bytes: Uint8Array
+    }
+    | {
+      kind: 'data-url'
+      dataUrl: string
+    }
+  width?: number
+  height?: number
+  capturedAt: number
+}
+
+export interface SavePreviewCaptureErrorPayload extends RendererLifecyclePayload {
+  requestId: string
+  saveOpId: string
+  slotId: string
+  message: string
+  recoverable?: boolean
+}
+
+export interface SlotUpdatedPayload {
+  slotId: string
+  revision: number
+  previewStatus?: 'none' | 'pending' | 'ready' | 'error'
+  source?: SavePreviewCaptureReason | 'save-patch' | 'delete'
+}
+
+export interface SaveRequestPayload {
+  slotId?: string
+  preview?: {
+    mode?: 'disabled' | 'provided' | 'renderer-capture'
+    transaction?: SavePreviewCaptureTransaction
+    policy?: SavePreviewCapturePolicy
+    image?:
+      | {
+        kind: 'bytes'
+        bytes: Uint8Array
+        mimeType: string
+        width?: number
+        height?: number
+        capturedAt?: number
+      }
+      | {
+        kind: 'data-url'
+        dataUrl: string
+        mimeType?: string
+        width?: number
+        height?: number
+        capturedAt?: number
+      }
+  }
+}
+
 export interface AssetLoadedPayload {
   assetId: string
   type?: string
@@ -722,6 +812,8 @@ export interface LogicToRenderEventPayloadMap {
   [LogicToRenderEvents.EFFECT_SHAKE]: EffectPayload
   [LogicToRenderEvents.EFFECT_FLASH]: EffectPayload
   [LogicToRenderEvents.GAME_SAVE]: { slotId?: string }
+  [LogicToRenderEvents.SLOT_UPDATED]: SlotUpdatedPayload
+  [LogicToRenderEvents.SAVE_PREVIEW_CAPTURE_REQUEST]: SavePreviewCaptureRequestPayload
   [LogicToRenderEvents.GAME_LOAD]: { slotId?: string }
   [LogicToRenderEvents.GAME_PAUSE]: Record<string, never>
   [LogicToRenderEvents.GAME_RESUME]: Record<string, never>
@@ -745,7 +837,9 @@ export interface RenderToLogicEventPayloadMap {
   [RenderToLogicEvents.FLOW_CONTROL_STOP_SKIP_REQUEST]: { source?: string }
   [RenderToLogicEvents.FLOW_CONTROL_START_FAST_FORWARD_REQUEST]: { source?: string }
   [RenderToLogicEvents.FLOW_CONTROL_STOP_FAST_FORWARD_REQUEST]: { source?: string }
-  [RenderToLogicEvents.GAME_SAVE_REQUEST]: { slotId?: string }
+  [RenderToLogicEvents.GAME_SAVE_REQUEST]: SaveRequestPayload
+  [RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_RESULT]: SavePreviewCaptureResultPayload
+  [RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_ERROR]: SavePreviewCaptureErrorPayload
   [RenderToLogicEvents.GAME_LOAD_REQUEST]: { slotId?: string }
   [RenderToLogicEvents.UI_REQUEST_OPEN]: { elementId: string, config?: Record<string, unknown> }
   [RenderToLogicEvents.UI_REQUEST_CLOSE]: { elementId: string }
@@ -784,6 +878,115 @@ export interface RendererPlugin {
   readonly name: string
   setup: (context: RendererPluginContext) => void | Promise<void>
   destroy?: () => void | Promise<void>
+}
+
+export interface NoopSavePreviewCaptureResponderOptions {
+  name?: string
+  message?: string
+  recoverable?: boolean
+  rendererId?: string
+}
+
+export interface TestSavePreviewCaptureResponderOptions {
+  name?: string
+  rendererId?: string
+  delayMs?: number
+  error?: string | {
+    message: string
+    recoverable?: boolean
+  }
+  result?: {
+    mimeType?: string
+    image?:
+      | {
+        kind: 'bytes'
+        bytes: Uint8Array
+      }
+      | {
+        kind: 'data-url'
+        dataUrl: string
+      }
+    width?: number
+    height?: number
+    capturedAt?: number
+  }
+}
+
+export function createNoopSavePreviewCaptureResponder(
+  options: NoopSavePreviewCaptureResponderOptions = {},
+): RendererPlugin {
+  const message = options.message || 'No save preview capture responder is available for this renderer.'
+  return {
+    name: options.name || '@quajs/render-core/save-preview-noop',
+    setup(context) {
+      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.SAVE_PREVIEW_CAPTURE_REQUEST, async (payload) => {
+        await context.emitRenderToLogic(RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_ERROR, {
+          requestId: payload.requestId,
+          saveOpId: payload.saveOpId,
+          slotId: payload.slotId,
+          rendererId: options.rendererId,
+          timestamp: Date.now(),
+          message,
+          recoverable: options.recoverable ?? true,
+        })
+      }))
+    },
+  }
+}
+
+export function createTestSavePreviewCaptureResponder(
+  options: TestSavePreviewCaptureResponderOptions = {},
+): RendererPlugin {
+  return {
+    name: options.name || '@quajs/render-core/save-preview-test',
+    setup(context) {
+      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.SAVE_PREVIEW_CAPTURE_REQUEST, async (payload) => {
+        if (options.delayMs && options.delayMs > 0) {
+          await new Promise((resolve) => {
+            const scheduleTimeout = (globalThis as typeof globalThis & {
+              setTimeout?: (handler: () => void, timeout?: number) => unknown
+            }).setTimeout
+            if (scheduleTimeout) {
+              scheduleTimeout(() => resolve(undefined), options.delayMs)
+              return
+            }
+            resolve(undefined)
+          })
+        }
+
+        const error = options.error
+        if (error) {
+          await context.emitRenderToLogic(RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_ERROR, {
+            requestId: payload.requestId,
+            saveOpId: payload.saveOpId,
+            slotId: payload.slotId,
+            rendererId: options.rendererId,
+            timestamp: Date.now(),
+            message: typeof error === 'string' ? error : error.message,
+            recoverable: typeof error === 'string' ? true : error.recoverable ?? true,
+          })
+          return
+        }
+
+        const result = options.result || {}
+        await context.emitRenderToLogic(RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_RESULT, {
+          requestId: payload.requestId,
+          saveOpId: payload.saveOpId,
+          slotId: payload.slotId,
+          rendererId: options.rendererId,
+          timestamp: Date.now(),
+          mimeType: result.mimeType || 'image/webp',
+          image: result.image || {
+            kind: 'data-url',
+            dataUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=',
+          },
+          width: result.width,
+          height: result.height,
+          capturedAt: result.capturedAt || Date.now(),
+        })
+      }))
+    },
+  }
 }
 
 export class RendererPluginHost {

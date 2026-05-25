@@ -32,6 +32,7 @@ import {
   resolveStageLayout,
   stageContentStyle,
   stageLogicalToClientPoint,
+  WebSaveSlotPreviewCache,
 } from '../src'
 import { WebAudioRendererController } from '../src/audio'
 import { createVisualNovelWebRendererPlugins } from '../src/plugins/preset'
@@ -1667,6 +1668,178 @@ describe('@quajs/renderer-web', () => {
     await assets.cleanup()
   })
 
+  it('caches resolved save slot preview sources and invalidates them explicitly', async () => {
+    const createObjectURL = vi.fn(() => 'blob:preview-1')
+    const revokeObjectURL = vi.fn()
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL,
+      revokeObjectURL,
+    })
+
+    const source = {
+      listSlots: async () => [],
+      getSlotPreview: vi.fn(async (slotId: string) => ({
+        kind: 'bytes' as const,
+        bytes: new Uint8Array(slotId === 'slot-1' ? [1, 2, 3] : [4, 5, 6]),
+        mimeType: 'image/webp',
+      })),
+      getSlotPreviews: vi.fn(async (slotIds: readonly string[]) => Object.fromEntries(slotIds.map(slotId => [slotId, {
+        kind: 'bytes' as const,
+        bytes: new Uint8Array(slotId === 'slot-1' ? [1, 2, 3] : [4, 5, 6]),
+        mimeType: 'image/webp',
+      }]))),
+    }
+
+    const cache = new WebSaveSlotPreviewCache(source, { ttlMs: 30_000 })
+    const first = await cache.resolveMany(['slot-1'])
+    const second = await cache.resolveMany(['slot-1'])
+
+    expect(first['slot-1']).toBe('blob:preview-1')
+    expect(second['slot-1']).toBe('blob:preview-1')
+    expect(source.getSlotPreviews).toHaveBeenCalledTimes(1)
+    expect(source.getSlotPreview).not.toHaveBeenCalled()
+
+    cache.invalidate(['slot-1'])
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:preview-1')
+
+    await cache.resolve('slot-1')
+    expect(source.getSlotPreview).toHaveBeenCalledTimes(1)
+
+    cache.dispose()
+  })
+
+  it('filters overlay and safe-ui capture roles from frozen save preview captures', async () => {
+    const capture = installSavePreviewCaptureStubs()
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 900))
+
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        dialogue: { visible: true, text: 'Dialogue line' },
+        ui: {
+          visible: true,
+          overlays: {
+            menu: {
+              open: true,
+              title: 'Menu',
+            },
+          },
+        },
+      }),
+    })
+
+    const captureResults: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_RESULT, payload => captureResults.push(payload))
+
+    await renderer.mount()
+    await flushDom()
+    await flushDom()
+
+    await emitLogicToRender(pipeline, LogicToRenderEvents.SAVE_PREVIEW_CAPTURE_REQUEST, {
+      requestId: 'capture-hide-overlays',
+      saveOpId: 'save-hide-overlays',
+      slotId: 'slot-1',
+      reason: 'save',
+      transaction: 'async-clone',
+      policy: {
+        uiMode: 'hide-overlays',
+        format: 'image/webp',
+      },
+    })
+    await capture.triggerNextImageLoad()
+    await waitForMicrotasks(() => captureResults.length === 1)
+
+    const hideOverlayMarkup = capture.svgMarkup.at(-1) || ''
+    expect(hideOverlayMarkup).toContain('Dialogue line')
+    expect(hideOverlayMarkup).toContain('data-qua-capture-role="safe-ui"')
+    expect(hideOverlayMarkup).not.toContain('data-qua-capture-role="overlay"')
+
+    await emitLogicToRender(pipeline, LogicToRenderEvents.SAVE_PREVIEW_CAPTURE_REQUEST, {
+      requestId: 'capture-scene-only',
+      saveOpId: 'save-scene-only',
+      slotId: 'slot-1',
+      reason: 'autoSave',
+      transaction: 'async-clone',
+      policy: {
+        uiMode: 'scene-only',
+        format: 'image/webp',
+      },
+    })
+    await capture.triggerNextImageLoad()
+    await waitForMicrotasks(() => captureResults.length === 2)
+
+    const sceneOnlyMarkup = capture.svgMarkup.at(-1) || ''
+    expect(sceneOnlyMarkup).not.toContain('data-qua-capture-role="overlay"')
+    expect(sceneOnlyMarkup).not.toContain('data-qua-capture-role="safe-ui"')
+    expect(captureResults).toHaveLength(2)
+
+    await renderer.unmount()
+    capture.restore()
+  })
+
+  it('freezes async-clone save preview captures before the live DOM changes', async () => {
+    const capture = installSavePreviewCaptureStubs()
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 900))
+
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        dialogue: { visible: true, text: 'Before Clone' },
+      }),
+    })
+
+    const captureResults: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_RESULT, payload => captureResults.push(payload))
+
+    await renderer.mount()
+    await flushDom()
+    await flushDom()
+
+    const asyncCloneRequest = emitLogicToRender(pipeline, LogicToRenderEvents.SAVE_PREVIEW_CAPTURE_REQUEST, {
+      requestId: 'capture-async-clone',
+      saveOpId: 'save-async-clone',
+      slotId: 'slot-1',
+      reason: 'autoSave',
+      transaction: 'async-clone',
+      policy: {
+        uiMode: 'full',
+        format: 'image/webp',
+      },
+    })
+    await flushMicrotasks()
+    await asyncCloneRequest
+
+    await emitLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, {
+      view: view({
+        dialogue: { visible: true, text: 'After Clone' },
+      }),
+    })
+    await flushDom()
+    await flushMicrotasks()
+
+    const frozenMarkup = capture.svgMarkup.at(-1) || ''
+    expect(frozenMarkup).toContain('Before Clone')
+    expect(frozenMarkup).not.toContain('After Clone')
+
+    await capture.triggerNextImageLoad()
+    await flushMicrotasks()
+    expect(captureResults).toHaveLength(1)
+
+    await renderer.unmount()
+    capture.restore()
+  })
+
   it('starts playing audio immediately when the Web Audio context is already running', async () => {
     installFakeAudioContext({ initialState: 'running' })
     const assets = await createAudioAssets()
@@ -1980,6 +2153,68 @@ async function flushMicrotasks(): Promise<void> {
   await Promise.resolve()
   await Promise.resolve()
   await Promise.resolve()
+}
+
+function installSavePreviewCaptureStubs() {
+  const svgMarkup: string[] = []
+  const blobUrls = new Map<string, Blob>()
+  const pendingImageLoads: Array<() => void> = []
+  const urlApi = {
+    ...URL,
+    createObjectURL: vi.fn((blob: Blob) => {
+      const url = `blob:preview-${blobUrls.size + 1}`
+      blobUrls.set(url, blob)
+      void blob.text().then(text => svgMarkup.push(text))
+      return url
+    }),
+    revokeObjectURL: vi.fn((url: string) => {
+      blobUrls.delete(url)
+    }),
+  }
+  vi.stubGlobal('URL', urlApi)
+
+  const originalSrcDescriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src')
+  Object.defineProperty(HTMLImageElement.prototype, 'src', {
+    configurable: true,
+    get() {
+      return this.getAttribute('src') || ''
+    },
+    set(value: string) {
+      this.setAttribute('src', value)
+      pendingImageLoads.push(() => {
+        this.onload?.call(this, new Event('load'))
+      })
+    },
+  })
+
+  const context2d = {
+    fillStyle: '',
+    fillRect: vi.fn(),
+    drawImage: vi.fn(),
+  }
+  const getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context2d as unknown as CanvasRenderingContext2D)
+  const toBlobSpy = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function(callback, type) {
+    callback?.(new Blob([new Uint8Array([4, 5, 6]).buffer], { type: type || 'image/webp' }))
+  })
+
+  return {
+    svgMarkup,
+    async triggerNextImageLoad() {
+      const load = pendingImageLoads.shift()
+      load?.()
+      await flushMicrotasks()
+    },
+    restore() {
+      getContextSpy.mockRestore()
+      toBlobSpy.mockRestore()
+      if (originalSrcDescriptor) {
+        Object.defineProperty(HTMLImageElement.prototype, 'src', originalSrcDescriptor)
+      }
+      else {
+        delete (HTMLImageElement.prototype as Partial<HTMLImageElement>).src
+      }
+    },
+  }
 }
 
 async function waitForMicrotasks(predicate: () => boolean): Promise<void> {

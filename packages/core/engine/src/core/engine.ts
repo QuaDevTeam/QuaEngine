@@ -1,5 +1,5 @@
 import type { EventListener } from '@quajs/pipeline'
-import type { QuaStore } from '@quajs/store'
+import type { QuaGameSavePreviewWriteInput, QuaStore } from '@quajs/store'
 import type {
   ActiveAnimationProjection,
   EventPayload,
@@ -8,6 +8,8 @@ import type {
   LogicToRenderEvents,
   QuaViewProjection,
   RenderToLogicEvents,
+  SavePreviewCapturePolicy,
+  SavePreviewCaptureResultPayload,
   ViewFlowControlProjection,
 } from '../events/events'
 import type { SceneTransitionOptions } from '../managers/scene-manager'
@@ -63,6 +65,7 @@ import type {
   RuntimeScriptModuleRecord,
   RuntimeScriptModuleRunOptions,
   RuntimeScriptModuleRunFromOptions,
+  SaveToSlotOptions,
   Scene,
   SceneEnterContext,
   SceneFactory,
@@ -81,6 +84,7 @@ import { assertValidAppVersion, normalizeLocale, normalizeTranslateOptions, QuaA
 import { getPackageLogger } from '@quajs/logger'
 import { Pipeline } from '@quajs/pipeline'
 import { createStore } from '@quajs/store'
+import { generateId } from '@quajs/utils'
 import {
   createFlowControlProjection,
   createQuaErrorPayload,
@@ -117,6 +121,8 @@ type FlowControlProjectionPatch = FlowControlRuntimeOptions & {
 interface ExecuteStepOptions {
   rollbackReplay?: boolean
 }
+
+type SaveReason = NonNullable<SaveToSlotOptions['reason']>
 
 export class QuaEngine {
   private static instance: QuaEngine | null = null
@@ -1477,8 +1483,9 @@ export class QuaEngine {
     }
   }
 
-  async saveToSlot(slotId: string, metadata: SlotMetadata = {}): Promise<void> {
+  async saveToSlot(slotId: string, metadata: SlotMetadata = {}, options: SaveToSlotOptions = {}): Promise<void> {
     this.assertInitialized()
+    const reason: SaveReason = options.reason || 'save'
     const rollbackConfig = this.rollbackController.getConfig()
     const checkpoint = await this.createCheckpoint({
       id: `save:${slotId}`,
@@ -1496,7 +1503,7 @@ export class QuaEngine {
       ? await this.rollbackController.exportStoreSaveData(this.store.getName())
       : undefined
     const requiredRuntimePackages = this.getRequiredRuntimePackagesForCurrentState(this.getStoryPoint(), metadata)
-    await this.store.saveToSlot(slotId, {
+    const mergedMetadata = {
       ...metadata,
       ...(rollbackJournal ? { rollbackJournal } : {}),
       ...(rollbackStoreData && Object.keys(rollbackStoreData).length > 0 ? { rollbackStoreData } : {}),
@@ -1507,23 +1514,52 @@ export class QuaEngine {
       storyPoint: this.getStoryPoint(),
       requiredRuntimePackages,
       timestamp: Date.now(),
+    }
+    const baseStoreData = await this.store.exportSaveData()
+    const resolvedPreview = await this.resolveSavePreview(slotId, reason, options)
+    const savedSlot = await this.store.saveToSlot({
+      slotId,
+      name: mergedMetadata.name,
+      saveOpId: resolvedPreview.saveOpId,
+      previewStatus: resolvedPreview.previewStatus,
+      preview: resolvedPreview.preview,
+      metadata: mergedMetadata,
+      storeData: baseStoreData,
     })
+    await this.emitLogicToRender(L2R.SLOT_UPDATED, {
+      slotId,
+      revision: savedSlot.index.revision,
+      previewStatus: savedSlot.index.previewStatus,
+      source: reason,
+    })
+    await this.emitLogicToRender(L2R.GAME_SAVE, { slotId })
+    if (resolvedPreview.pending) {
+      void this.finishAsyncSavePreview(slotId, resolvedPreview.pending).catch((error) => {
+        void this.reportErrorOnce(error, {
+          message: `Failed to patch async save preview for slot "${slotId}".`,
+          source: 'engine',
+          phase: 'save-preview:async-patch',
+          metadata: { slotId, saveOpId: resolvedPreview.pending?.saveOpId },
+        })
+      })
+    }
   }
 
   async loadFromSlot(slotId: string, options: LoadSlotOptions = {}): Promise<void> {
     this.assertInitialized()
     const slot = await this.store.getSlot(slotId)
-    const slotPoint = isStoryPoint(slot?.metadata.storyPoint) ? cloneStoryPoint(slot.metadata.storyPoint) : undefined
-    const slotLocale = typeof slot?.metadata.locale === 'string'
-      ? normalizeLocale(slot.metadata.locale)
+    const slotMetadata = slot?.index.metadata
+    const slotPoint = isStoryPoint(slotMetadata?.storyPoint) ? cloneStoryPoint(slotMetadata.storyPoint) : undefined
+    const slotLocale = typeof slotMetadata?.locale === 'string'
+      ? normalizeLocale(slotMetadata.locale)
       : undefined
-    const rollbackJournal = isSerializedRollbackJournal(slot?.metadata.rollbackJournal)
-      ? slot.metadata.rollbackJournal
+    const rollbackJournal = isSerializedRollbackJournal(slotMetadata?.rollbackJournal)
+      ? slotMetadata.rollbackJournal
       : undefined
-    const rollbackStoreData = isRollbackStoreSaveDataRecord(slot?.metadata.rollbackStoreData)
-      ? slot.metadata.rollbackStoreData
+    const rollbackStoreData = isRollbackStoreSaveDataRecord(slotMetadata?.rollbackStoreData)
+      ? slotMetadata.rollbackStoreData
       : undefined
-    await this.ensureRuntimeDependencies(slotPoint, slot?.metadata)
+    await this.ensureRuntimeDependencies(slotPoint, slotMetadata)
     const beforeJump = slotPoint
       ? this.createLoadJumpContext(slotPoint, options)
       : undefined
@@ -1572,16 +1608,16 @@ export class QuaEngine {
     await this.emitViewUpdate()
   }
 
-  async quickSave(metadata: SlotMetadata = {}): Promise<void> {
-    await this.saveToSlot('quicksave', { name: 'Quick Save', ...metadata })
+  async quickSave(metadata: SlotMetadata = {}, options: SaveToSlotOptions = {}): Promise<void> {
+    await this.saveToSlot('quicksave', { name: 'Quick Save', ...metadata }, { ...options, reason: 'quickSave' })
   }
 
   async quickLoad(): Promise<void> {
     await this.loadFromSlot('quicksave', { force: true, reason: 'quick-load' })
   }
 
-  async autoSave(metadata: SlotMetadata = {}): Promise<void> {
-    await this.saveToSlot('autosave', { name: 'Auto Save', ...metadata })
+  async autoSave(metadata: SlotMetadata = {}, options: SaveToSlotOptions = {}): Promise<void> {
+    await this.saveToSlot('autosave', { name: 'Auto Save', ...metadata }, { ...options, reason: 'autoSave' })
   }
 
   async listSaveSlots() {
@@ -1590,6 +1626,12 @@ export class QuaEngine {
 
   async deleteSaveSlot(slotId: string): Promise<void> {
     await this.store.deleteSlot(slotId)
+    await this.emitLogicToRender(L2R.SLOT_UPDATED, {
+      slotId,
+      revision: 0,
+      previewStatus: 'none',
+      source: 'delete',
+    })
   }
 
   getCurrentSceneName(): string | undefined {
@@ -1819,10 +1861,10 @@ export class QuaEngine {
         ? (payload as { slotId: string }).slotId
         : 'quicksave'
       if (slotId === 'quicksave') {
-        await this.quickSave()
+        await this.quickSave({}, { preview: (payload as { preview?: SaveToSlotOptions['preview'] }).preview })
         return
       }
-      await this.saveToSlot(slotId)
+      await this.saveToSlot(slotId, {}, { preview: (payload as { preview?: SaveToSlotOptions['preview'] }).preview })
     }))
     this.flowControlDisposers.push(this.onRenderIntent(R2L.GAME_LOAD_REQUEST, async (payload) => {
       const slotId = typeof (payload as { slotId?: unknown }).slotId === 'string'
@@ -1859,6 +1901,291 @@ export class QuaEngine {
     }
     this.pipeline.on(event, listener as EventListener)
     return () => this.pipeline.off(event, listener as EventListener)
+  }
+
+  private getSavePreviewDefaults(reason: SaveReason): NonNullable<SaveToSlotOptions['preview']> {
+    const previewConfig = this.config.saves?.preview
+    const defaults = previewConfig?.defaults || {}
+    const reasonConfig = reason === 'save'
+      ? previewConfig?.save || {}
+      : reason === 'quickSave'
+        ? previewConfig?.quickSave || {}
+        : previewConfig?.autoSave || {}
+    const fallbackByReason: Record<SaveReason, SaveToSlotOptions['preview']> = {
+      save: {
+        mode: 'renderer-capture',
+        transaction: 'sync',
+        policy: {
+          uiMode: 'hide-overlays',
+          format: 'image/webp',
+          quality: 0.72,
+          maxWidth: 480,
+        },
+      },
+      quickSave: {
+        mode: 'renderer-capture',
+        transaction: 'sync',
+        policy: {
+          uiMode: 'hide-overlays',
+          format: 'image/webp',
+          quality: 0.72,
+          maxWidth: 480,
+        },
+      },
+      autoSave: {
+        mode: 'renderer-capture',
+        transaction: 'async-clone',
+        policy: {
+          uiMode: 'scene-only',
+          format: 'image/webp',
+          quality: 0.58,
+          maxWidth: 320,
+        },
+      },
+    }
+    return {
+      ...(fallbackByReason[reason] || {}),
+      ...defaults,
+      ...reasonConfig,
+      policy: {
+        ...(fallbackByReason[reason]?.policy || {}),
+        ...(defaults.policy || {}),
+        ...(reasonConfig.policy || {}),
+      },
+    }
+  }
+
+  private async resolveSavePreview(
+    slotId: string,
+    reason: SaveReason,
+    options: SaveToSlotOptions,
+  ): Promise<{
+      saveOpId?: string
+      previewStatus: 'none' | 'pending' | 'ready' | 'error'
+      preview?: QuaGameSavePreviewWriteInput
+      pending?: {
+        saveOpId: string
+        requestId: string
+        policy: NonNullable<NonNullable<SaveToSlotOptions['preview']>['policy']>
+        response: Promise<SavePreviewCaptureResultPayload | undefined>
+      }
+    }> {
+    const previewOptions = {
+      ...this.getSavePreviewDefaults(reason),
+      ...(options.preview || {}),
+      policy: {
+        ...(this.getSavePreviewDefaults(reason)?.policy || {}),
+        ...(options.preview?.policy || {}),
+      },
+    }
+
+    if (previewOptions.mode === 'disabled') {
+      return {
+        previewStatus: 'none',
+      }
+    }
+
+    if (previewOptions.mode === 'provided') {
+      return {
+        saveOpId: `save:${slotId}:${generateId()}`,
+        previewStatus: previewOptions.image ? 'ready' : 'none',
+        preview: previewOptions.image
+          ? this.createPreviewWriteInput(previewOptions.image, previewOptions.policy)
+          : undefined,
+      }
+    }
+
+    const saveOpId = `save:${slotId}:${generateId()}`
+    const requestId = `save-preview:${generateId()}`
+    const policy = previewOptions.policy || {}
+    if (previewOptions.transaction === 'async-clone') {
+      const response = this.waitForSavePreviewResponse(requestId, policy.timeoutMs || 5000, false)
+      await this.emitLogicToRender(L2R.SAVE_PREVIEW_CAPTURE_REQUEST, {
+        requestId,
+        saveOpId,
+        slotId,
+        reason,
+        transaction: 'async-clone',
+        policy,
+      })
+      return {
+        saveOpId,
+        previewStatus: 'pending',
+        pending: {
+          saveOpId,
+          requestId,
+          policy,
+          response,
+        },
+      }
+    }
+
+    const result = await this.requestSavePreviewCapture({
+      requestId,
+      saveOpId,
+      slotId,
+      reason,
+      transaction: 'sync',
+      policy,
+    }, previewOptions.strict === true)
+
+    if (!result) {
+      return {
+        saveOpId,
+        previewStatus: previewOptions.strict ? 'error' : 'none',
+      }
+    }
+
+    return {
+      saveOpId,
+      previewStatus: 'ready',
+      preview: this.createCapturedPreviewWriteInput(result, policy),
+    }
+  }
+
+  private async requestSavePreviewCapture(
+    request: {
+      requestId: string
+      saveOpId: string
+      slotId: string
+      reason: SaveReason
+      transaction: 'sync' | 'async-clone'
+      policy: NonNullable<NonNullable<SaveToSlotOptions['preview']>['policy']>
+    },
+    strict: boolean,
+  ) {
+    const timeoutMs = request.policy?.timeoutMs || 5000
+    const response = this.waitForSavePreviewResponse(request.requestId, timeoutMs, strict)
+    await this.emitLogicToRender(L2R.SAVE_PREVIEW_CAPTURE_REQUEST, request)
+    return await response
+  }
+
+  private async waitForSavePreviewResponse(requestId: string, timeoutMs: number, strict: boolean) {
+    const controller = new AbortController()
+    const resultPromise = this.waitFor(R2L.SAVE_PREVIEW_CAPTURE_RESULT, payload => payload.requestId === requestId, {
+      timeout: timeoutMs,
+      signal: controller.signal,
+    }).then(payload => ({ kind: 'result' as const, payload }))
+    const errorPromise = this.waitFor(R2L.SAVE_PREVIEW_CAPTURE_ERROR, payload => payload.requestId === requestId, {
+      timeout: timeoutMs,
+      signal: controller.signal,
+    }).then(payload => ({ kind: 'error' as const, payload }))
+
+    try {
+      const race = await Promise.race([resultPromise, errorPromise])
+      controller.abort()
+      if (race.kind === 'result') {
+        return race.payload
+      }
+      if (strict) {
+        throw new Error(race.payload.message)
+      }
+      return undefined
+    }
+    catch (error) {
+      controller.abort()
+      if (strict) {
+        throw error
+      }
+      return undefined
+    }
+  }
+
+  private async finishAsyncSavePreview(
+    slotId: string,
+    pending: {
+      saveOpId: string
+      requestId: string
+      policy: NonNullable<NonNullable<SaveToSlotOptions['preview']>['policy']>
+      response: Promise<SavePreviewCaptureResultPayload | undefined>
+    },
+  ): Promise<void> {
+    const result = await pending.response
+
+    if (!result) {
+      const patched = await this.store.patchSlotPreview(slotId, {
+        expectedSaveOpId: pending.saveOpId,
+        previewStatus: 'error',
+      })
+      if (patched) {
+        await this.emitLogicToRender(L2R.SLOT_UPDATED, {
+          slotId,
+          revision: patched.revision,
+          previewStatus: patched.previewStatus,
+          source: 'save-patch',
+        })
+      }
+      return
+    }
+
+    const patched = await this.store.patchSlotPreview(slotId, {
+      expectedSaveOpId: pending.saveOpId,
+      previewStatus: 'ready',
+      preview: this.createCapturedPreviewWriteInput(result, pending.policy),
+    })
+    if (patched) {
+      await this.emitLogicToRender(L2R.SLOT_UPDATED, {
+        slotId,
+        revision: patched.revision,
+        previewStatus: patched.previewStatus,
+        source: 'save-patch',
+      })
+    }
+  }
+
+  private createPreviewWriteInput(
+    preview: NonNullable<NonNullable<SaveToSlotOptions['preview']>['image']>,
+    policy?: SavePreviewCapturePolicy,
+  ): QuaGameSavePreviewWriteInput {
+    if (preview.kind === 'bytes') {
+      return {
+        kind: 'bytes',
+        bytes: preview.bytes,
+        mimeType: preview.mimeType,
+        width: preview.width,
+        height: preview.height,
+        capturedAt: preview.capturedAt,
+        policySummary: policy ? { ...policy } : undefined,
+      }
+    }
+
+    return {
+      kind: 'data-url',
+      dataUrl: preview.dataUrl,
+      mimeType: preview.mimeType,
+      width: preview.width,
+      height: preview.height,
+      capturedAt: preview.capturedAt,
+      policySummary: policy ? { ...policy } : undefined,
+    }
+  }
+
+  private createCapturedPreviewWriteInput(
+    result: SavePreviewCaptureResultPayload,
+    policy?: SavePreviewCapturePolicy,
+  ): QuaGameSavePreviewWriteInput {
+    const image = result.image
+    if (image.kind === 'bytes') {
+      return {
+        kind: 'bytes',
+        bytes: image.bytes,
+        mimeType: result.mimeType,
+        width: result.width,
+        height: result.height,
+        capturedAt: result.capturedAt,
+        policySummary: policy ? { ...policy } : undefined,
+      }
+    }
+
+    return {
+      kind: 'data-url',
+      dataUrl: image.dataUrl,
+      mimeType: result.mimeType,
+      width: result.width,
+      height: result.height,
+      capturedAt: result.capturedAt,
+      policySummary: policy ? { ...policy } : undefined,
+    }
   }
 
   private scheduleFlowControlAdvance(): void {

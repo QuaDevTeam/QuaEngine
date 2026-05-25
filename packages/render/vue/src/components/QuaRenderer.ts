@@ -1,11 +1,11 @@
 import type { QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
 import type { QuaViewProjection, RendererPlugin } from '@quajs/render-core'
-import type { RendererActions } from '@quajs/renderer-web'
+import type { RendererActions, SaveSlotDataSource } from '@quajs/renderer-web'
 import type { PropType } from 'vue'
 import type { QuaVueRendererPlugin } from '../plugins/core'
-import { emptyView, QuaWebRendererController, rendererRootStyle } from '@quajs/renderer-web'
-import { computed, defineComponent, h, onBeforeUnmount, onErrorCaptured, onMounted, provide, readonly, shallowRef, watch } from 'vue'
+import { createWebSavePreviewCapturePlugin, emptyView, QuaWebRendererController, rendererRootStyle } from '@quajs/renderer-web'
+import { computed, defineComponent, h, onBeforeUnmount, onErrorCaptured, onMounted, provide, readonly, ref, shallowRef, watch } from 'vue'
 import { QuaRendererContextKey } from '../context'
 import { sortRendererLayers } from '../plugins/core'
 import { QuaStage } from './QuaStage'
@@ -37,12 +37,19 @@ export const QuaRenderer = defineComponent({
       default: () => [],
     },
     runtimePluginLoader: Function as PropType<(pluginManifest: unknown, context: { packageId: string }) => Promise<RendererPlugin | undefined> | RendererPlugin | undefined>,
+    saveSlots: Object as PropType<SaveSlotDataSource>,
     unstyled: Boolean,
   },
   setup(props, { slots }) {
     const pipeline = computed(() => props.pipeline)
     const assets = computed(() => props.assets)
-    const rendererPlugins = computed(() => props.plugins || [])
+    const saveSlots = computed(() => props.saveSlots)
+    const root = ref<HTMLElement>()
+    const capturePlugin = createWebSavePreviewCapturePlugin({
+      getStageElement: () => root.value?.querySelector<HTMLElement>('.qua-stage'),
+    })
+    const rendererPlugins = computed(() => [capturePlugin, ...(props.plugins || [])])
+    const rendererLayerPlugins = computed(() => rendererPlugins.value.filter((plugin): plugin is QuaVueRendererPlugin => 'layers' in plugin))
     const web = new QuaWebRendererController({
       pipeline: props.pipeline,
       assets: props.assets,
@@ -51,7 +58,7 @@ export const QuaRenderer = defineComponent({
       runtimePluginLoader: props.runtimePluginLoader,
     })
     const snapshot = shallowRef(web.getSnapshot())
-    const rendererLayers = computed(() => sortRendererLayers(rendererPlugins.value.flatMap(plugin => plugin.layers || [])))
+    const rendererLayers = computed(() => sortRendererLayers(rendererLayerPlugins.value.flatMap(plugin => plugin.layers || [])))
     const rendererLayerIds = computed(() => rendererLayers.value.map(layer => layer.id))
     let stopPipelineWatch: (() => void) | undefined
     let stopAssetWatch: (() => void) | undefined
@@ -78,6 +85,7 @@ export const QuaRenderer = defineComponent({
       view: readonlyView,
       rendererLayerIds: readonly(rendererLayerIds),
       assetRevision: readonly(assetRevision),
+      saveSlots,
       actions,
     })
 
@@ -105,6 +113,7 @@ export const QuaRenderer = defineComponent({
     const slotProps = computed(() => createSlotProps(readonlyView.value, actions))
 
     return () => h('div', {
+      ref: root,
       class: ['qua-renderer', props.unstyled ? 'qua-renderer--unstyled' : undefined],
       style: rendererRootStyle(),
     }, slots.stage?.(slotProps.value)
