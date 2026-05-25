@@ -32,6 +32,43 @@ Use the module script for imports, exported types, and declarations. Use the set
 - The setup script is the right place for local derived values such as `const displayName = format(scope.playerName)`.
 - The formatter preserves script block contents byte-for-byte, so keep them clean yourself.
 
+## Decorator Resolution And Imports
+
+QuaScript syntax is fixed by `@quajs/script-compiler`. Plugins cannot inject custom compiler passes or extend the DSL grammar.
+
+Decorator names are resolved from:
+
+1. built-in/default mappings
+2. explicit `decoratorMappings`
+3. value imports in the current file
+4. auto-collected plugin metadata, when enabled
+
+When auto-collection is disabled, activate plugin decorators from the current file itself.
+
+Standalone `.qs` example:
+
+```qs
+<script lang="ts">
+import { decorators } from '@quajs/plugin-background'
+</script>
+
+@SetBackground('backgrounds/classroom.png')
+Yuki: Ready.
+```
+
+Host TypeScript example:
+
+```ts
+import { decorators } from '@quajs/plugin-background'
+
+const scene = qs`
+  @SetBackground('backgrounds/classroom.png')
+  Yuki: Ready.
+`
+```
+
+If a decorator is not discovered, imported, or explicitly registered, compilation fails with an unknown decorator error. Do not invent fallback syntax.
+
 ## Dialogue Lines
 
 Basic form:

@@ -1,6 +1,7 @@
 # QuaScript Decorator Discovery
 
 QuaScript decorator support is package-owned. Do not guess decorator names or argument shapes.
+Plugins may declare decorators, but they may not inject custom QuaScript compiler modules or grammar extensions.
 
 The old shared `@Timeline` name has been split at the source:
 
@@ -16,9 +17,14 @@ Check these in order:
 1. Package metadata:
    - `package.json#quajs.decorators`
    - `package.json#quajs.language.decorators`
-2. Owning package compile behavior:
+2. Current compiler resolution rules:
+   - `packages/build/script-compiler/src/core/transformer.ts`
+   - `packages/build/script-compiler/src/decorators/loaders.ts`
+   - `packages/build/script-compiler/src/integrations/plugin-aware-transformer.ts`
+   - `packages/build/script-compiler/src/integrations/hot-reload-transformer.ts`
+3. Owning package compile behavior:
    - `src/script-compiler.ts`
-3. End-to-end examples and expectations:
+4. End-to-end examples and expectations:
    - `packages/build/script-compiler/test/*.test.ts`
 
 The compiler package itself should stay focused on orchestration and discovery. Feature behavior belongs in the feature package that owns the decorator.
@@ -29,6 +35,7 @@ The compiler package itself should stay focused on orchestration and discovery. 
 rg -n '"quajs"|"decorators"|"language"' packages/*/*/package.json
 sed -n '1,220p' packages/core/engine/src/script-compiler.ts
 sed -n '1,240p' packages/core/character/src/script-compiler.ts
+sed -n '1,260p' packages/build/script-compiler/src/core/transformer.ts
 sed -n '1,260p' packages/plugins/audio/src/script-compiler.ts
 sed -n '1,220p' packages/plugins/background/src/script-compiler.ts
 sed -n '1,220p' packages/plugins/animation/src/script-compiler.ts
@@ -124,7 +131,11 @@ Inspect the owning package before use. Animation timeline decorators are context
 
 ## Authoring Rules
 
+- The compiler only accepts decorators that are built in, explicitly registered, imported from the current file, or auto-collected from plugin metadata.
+- In standalone `.qs`, prefer `import { decorators } from '@quajs/plugin-name'` inside `<script lang="ts">` when you need explicit activation.
+- In host TypeScript files, any top-level value import from the owning plugin module is enough to activate that module's decorators for `qs\`...\`` blocks.
+- If the repo or task disables auto-collection, do not assume package metadata alone is enough for the current file.
 - Prefer metadata from `package.json#quajs.language.decorators` when you need names, asset roots, suggested value sets, or argument hints.
 - Prefer `src/script-compiler.ts` when behavior is contextual, implicit, or stateful.
 - If a decorator compiles through plugin state, do not simplify its behavior in prose. Example: `@PlayVoice()` may resolve implicitly from `@AudioChapter`, current line ID, and dialogue sequence.
-- If the package exposes helper imports or runtime helpers automatically, rely on actual compiler support rather than hand-adding imports in `.qs`.
+- If the package exposes helper imports or runtime helpers automatically, rely on actual compiler support rather than inventing additional DSL syntax.
