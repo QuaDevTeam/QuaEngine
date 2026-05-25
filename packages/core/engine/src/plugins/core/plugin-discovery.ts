@@ -130,7 +130,13 @@ export function validatePluginConfig(config: any) {
 export function mergeDecoratorMappings(...mappings: DecoratorMapping[]): DecoratorMapping {
   const result: DecoratorMapping = {}
   for (const mapping of mappings) {
-    Object.assign(result, mapping)
+    for (const [decoratorName, value] of Object.entries(mapping)) {
+      const existing = result[decoratorName]
+      if (existing && (existing.module !== value.module || existing.function !== value.function)) {
+        throw new Error(`Conflicting decorator mapping for @${decoratorName}: "${existing.module}#${existing.function}" vs "${value.module}#${value.function}".`)
+      }
+      result[decoratorName] = value
+    }
   }
   return result
 }

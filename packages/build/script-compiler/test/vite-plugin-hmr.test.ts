@@ -1,4 +1,7 @@
 import type { Plugin } from 'vite'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetHotReloadManager } from '../src/core/hot-reload'
 import { quaScriptPlugin } from '../src/integrations/vite-plugin'
@@ -75,8 +78,8 @@ describe('vite Plugin Hot-Reload Integration', () => {
       plugin = quaScriptPlugin({ hotReload: true })
     })
 
-    it('should configure development server', () => {
-      const configResolved = plugin.configResolved as (config: any) => void
+    it('should configure development server', async () => {
+      const configResolved = plugin.configResolved as (config: any) => Promise<void>
       const configureServer = plugin.configureServer as (server: any) => void
 
       // Mock config
@@ -85,12 +88,14 @@ describe('vite Plugin Hot-Reload Integration', () => {
         root: '/project',
       }
 
-      configResolved(config)
+      await configResolved(config)
       configureServer(mockServer)
 
       // Should set up watchers
       expect(mockServer.watcher.add).toHaveBeenCalledWith([
         '**/qua.plugins.json',
+        '**/quascript.config.json',
+        '**/qua.config.json',
         '**/plugins/**/*.{js,ts}',
         '**/*plugin*.{js,ts}',
         '**/package.json',
@@ -112,12 +117,12 @@ describe('vite Plugin Hot-Reload Integration', () => {
   })
 
   describe('file transformation', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       plugin = quaScriptPlugin({ hotReload: true })
 
       // Configure plugin
-      const configResolved = plugin.configResolved as (config: any) => void
-      configResolved({ command: 'serve', root: '/project' })
+      const configResolved = plugin.configResolved as (config: any) => Promise<void>
+      await configResolved({ command: 'serve', root: '/project' })
     })
 
     it('should transform QuaScript files', async () => {
@@ -181,11 +186,47 @@ describe('vite Plugin Hot-Reload Integration', () => {
       expect(result).toBeNull()
     })
 
+    it('should load decorator compiler settings from QuaScript config', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'quascript-vite-'))
+      writeFileSync(join(root, 'quascript.config.json'), JSON.stringify({
+        decorators: {
+          autoCollect: false,
+        },
+      }), 'utf-8')
+      writeFileSync(join(root, 'qua.plugins.json'), JSON.stringify({
+        plugins: [
+          {
+            name: '@quajs/plugin-background',
+            decorators: {
+              SetBackground: {
+                function: 'setBackgroundWithEngine',
+                module: '@quajs/plugin-background',
+              },
+            },
+          },
+        ],
+      }), 'utf-8')
+
+      plugin = quaScriptPlugin({ hotReload: false })
+      const configResolved = plugin.configResolved as (config: any) => Promise<void>
+      await configResolved({ command: 'build', root })
+
+      const transform = plugin.transform as (this: { error: (message: string) => never }, code: string, id: string) => Promise<any>
+
+      await expect(transform.call({
+        error(message: string): never {
+          throw new Error(message)
+        },
+      }, "@SetBackground('classroom.png')\nYuki: Hello\n", join(root, 'scene.qs'))).rejects.toThrow(
+        'Unknown QuaScript decorator @SetBackground',
+      )
+    })
+
     it('should not add HMR code when hot-reload is disabled', async () => {
       plugin = quaScriptPlugin({ hotReload: false })
 
-      const configResolved = plugin.configResolved as (config: any) => void
-      configResolved({ command: 'build', root: '/project' })
+      const configResolved = plugin.configResolved as (config: any) => Promise<void>
+      await configResolved({ command: 'build', root: '/project' })
 
       const transform = plugin.transform as (code: string, id: string) => any
       const code = `const dialogue = qs\`Yuki: Hello!\``
@@ -198,17 +239,17 @@ describe('vite Plugin Hot-Reload Integration', () => {
   })
 
   describe('hot module replacement', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       plugin = quaScriptPlugin({ hotReload: true })
 
-      const configResolved = plugin.configResolved as (config: any) => void
+      const configResolved = plugin.configResolved as (config: any) => Promise<void>
       const configureServer = plugin.configureServer as (server: any) => void
 
-      configResolved({ command: 'serve', root: '/project' })
+      await configResolved({ command: 'serve', root: '/project' })
       configureServer(mockServer)
     })
 
-    it('should handle QuaScript file updates', () => {
+    it('should handle QuaScript file updates', async () => {
       const handleHotUpdate = plugin.handleHotUpdate as (ctx: any) => any
 
       const ctx = {
@@ -216,12 +257,12 @@ describe('vite Plugin Hot-Reload Integration', () => {
         read: () => Promise.resolve('const dialogue = qs`Yuki: Updated!`'),
       }
 
-      const result = handleHotUpdate(ctx)
+      const result = await handleHotUpdate(ctx)
 
       expect(result).toBeUndefined() // Let Vite handle normally
     })
 
-    it('should handle plugin file updates', () => {
+    it('should handle plugin file updates', async () => {
       const handleHotUpdate = plugin.handleHotUpdate as (ctx: any) => any
 
       const ctx = {
@@ -229,12 +270,12 @@ describe('vite Plugin Hot-Reload Integration', () => {
         read: () => Promise.resolve('plugin content'),
       }
 
-      const result = handleHotUpdate(ctx)
+      const result = await handleHotUpdate(ctx)
 
       expect(result).toEqual([]) // Prevent default HMR
     })
 
-    it('should handle config file updates', () => {
+    it('should handle config file updates', async () => {
       const handleHotUpdate = plugin.handleHotUpdate as (ctx: any) => any
 
       const ctx = {
@@ -242,12 +283,12 @@ describe('vite Plugin Hot-Reload Integration', () => {
         read: () => Promise.resolve('{}'),
       }
 
-      const result = handleHotUpdate(ctx)
+      const result = await handleHotUpdate(ctx)
 
       expect(result).toEqual([]) // Prevent default HMR
     })
 
-    it('should ignore unrelated files', () => {
+    it('should ignore unrelated files', async () => {
       const handleHotUpdate = plugin.handleHotUpdate as (ctx: any) => any
 
       const ctx = {
@@ -255,20 +296,20 @@ describe('vite Plugin Hot-Reload Integration', () => {
         read: () => Promise.resolve('css content'),
       }
 
-      const result = handleHotUpdate(ctx)
+      const result = await handleHotUpdate(ctx)
 
       expect(result).toBeUndefined()
     })
   })
 
   describe('webSocket communication', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       plugin = quaScriptPlugin({ hotReload: true })
 
-      const configResolved = plugin.configResolved as (config: any) => void
+      const configResolved = plugin.configResolved as (config: any) => Promise<void>
       const configureServer = plugin.configureServer as (server: any) => void
 
-      configResolved({ command: 'serve', root: '/project' })
+      await configResolved({ command: 'serve', root: '/project' })
       configureServer(mockServer)
     })
 
@@ -281,7 +322,7 @@ describe('vite Plugin Hot-Reload Integration', () => {
         read: () => Promise.resolve('plugin content'),
       }
 
-      handleHotUpdate(ctx)
+      await handleHotUpdate(ctx)
 
       // Wait for async operations
       await new Promise(resolve => setTimeout(resolve, 10))
@@ -303,11 +344,11 @@ describe('vite Plugin Hot-Reload Integration', () => {
   })
 
   describe('error handling', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       plugin = quaScriptPlugin({ hotReload: true })
 
-      const configResolved = plugin.configResolved as (config: any) => void
-      configResolved({ command: 'serve', root: '/project' })
+      const configResolved = plugin.configResolved as (config: any) => Promise<void>
+      await configResolved({ command: 'serve', root: '/project' })
     })
 
     it('should handle transformation errors', () => {
@@ -330,7 +371,7 @@ describe('vite Plugin Hot-Reload Integration', () => {
   })
 
   describe('file watching', () => {
-    it('should identify plugin files correctly', () => {
+    it('should identify plugin files correctly', async () => {
       const pluginFiles = [
         '/project/qua.plugins.json',
         '/project/package.json',
@@ -351,7 +392,7 @@ describe('vite Plugin Hot-Reload Integration', () => {
 
       // Plugin files should return empty array
       for (const file of pluginFiles) {
-        const result = handleHotUpdate({
+        const result = await handleHotUpdate({
           file,
           read: () => Promise.resolve('content'),
         })
@@ -360,7 +401,7 @@ describe('vite Plugin Hot-Reload Integration', () => {
 
       // Non-plugin files should return undefined
       for (const file of nonPluginFiles) {
-        const result = handleHotUpdate({
+        const result = await handleHotUpdate({
           file,
           read: () => Promise.resolve('content'),
         })

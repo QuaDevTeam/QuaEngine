@@ -252,6 +252,31 @@ describe('plugin discovery', () => {
 
       expect(mappings).toEqual({})
     })
+
+    it('should reject conflicting decorators discovered from different plugins', async () => {
+      mockJsonFiles({
+        '/test/project/qua.plugins.json': {
+          plugins: [
+            {
+              name: 'audio-one',
+              decorators: {
+                PlayVoice: { function: 'playVoice1', module: 'audio1' },
+              },
+            },
+            {
+              name: 'audio-two',
+              decorators: {
+                PlayVoice: { function: 'playVoice2', module: 'audio2' },
+              },
+            },
+          ],
+        },
+      })
+
+      await expect(getDiscoveredDecoratorMappings('/test/project')).rejects.toThrow(
+        'Conflicting decorator mapping for @PlayVoice: "audio1#playVoice1" vs "audio2#playVoice2".',
+      )
+    })
   })
 
   describe('getDiscoveredLanguageContributions', () => {
@@ -397,7 +422,23 @@ describe('plugin discovery', () => {
       })
     })
 
-    it('should handle overlapping keys (later mappings override)', () => {
+    it('should allow overlapping keys when the mapping is identical', () => {
+      const mapping1: DecoratorMapping = {
+        PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' },
+      }
+
+      const mapping2: DecoratorMapping = {
+        PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' },
+      }
+
+      const merged = mergeDecoratorMappings(mapping1, mapping2)
+
+      expect(merged).toEqual({
+        PlayVoice: { function: 'playVoiceWithEngine', module: '@quajs/plugin-audio' },
+      })
+    })
+
+    it('should reject conflicting overlapping keys', () => {
       const mapping1: DecoratorMapping = {
         PlayVoice: { function: 'playVoice1', module: 'audio1' },
       }
@@ -406,11 +447,9 @@ describe('plugin discovery', () => {
         PlayVoice: { function: 'playVoice2', module: 'audio2' },
       }
 
-      const merged = mergeDecoratorMappings(mapping1, mapping2)
-
-      expect(merged).toEqual({
-        PlayVoice: { function: 'playVoice2', module: 'audio2' },
-      })
+      expect(() => mergeDecoratorMappings(mapping1, mapping2)).toThrow(
+        'Conflicting decorator mapping for @PlayVoice: "audio1#playVoice1" vs "audio2#playVoice2".',
+      )
     })
 
     it('should handle empty mappings', () => {

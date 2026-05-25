@@ -112,7 +112,7 @@ import { decorators } from '@quajs/plugin-background'
 Yuki: Ready.
 ```
 
-To disable project-wide automatic decorator collection, set `autoCollectDecorators: false` in the Vite/plugin API or pass `--no-auto-collect-decorators` to the CLI.
+To disable project-wide automatic decorator collection, set `decorators.autoCollect: false` in QuaScript tooling config, set `autoCollectDecorators: false` in the Vite/plugin API, or pass `--no-auto-collect-decorators` to the CLI.
 
 ## Installation
 
@@ -199,7 +199,7 @@ QuaScript tooling reads configuration from `quascript.config.json`, `qua.config.
 }
 ```
 
-`decorators.autoCollect` and `decorators.mappings` are shared by the CLI, language server, and VS Code extension so editor semantics stay aligned with build-time compilation.
+`decorators.autoCollect` and `decorators.mappings` are shared by the CLI, Vite compilation, language server, and VS Code extension so editor semantics stay aligned with build-time compilation.
 
 ### Programmatic Usage
 

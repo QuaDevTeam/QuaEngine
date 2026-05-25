@@ -3,7 +3,10 @@ import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
-import { getDiscoveredDecoratorMappings } from '@quajs/plugin-discovery'
+import {
+  getDiscoveredDecoratorMappingsSync,
+  mergeDecoratorMappings as mergeDiscoveredDecoratorMappings,
+} from '@quajs/plugin-discovery'
 
 const requireFromFile = createRequire(import.meta.url)
 
@@ -15,30 +18,27 @@ export function loadPackageDecoratorMappingsSync(projectRoot?: string): Decorato
   }
 
   const dependencies = collectDependencies(packageJson)
-  const mappings: DecoratorMapping = {}
+  const mappings: DecoratorMapping[] = []
 
   Object.keys(dependencies)
     .forEach((packageName) => {
       const packageDecoratorMappings = readPackageDecoratorMappings(packageName, root)
-      Object.assign(mappings, packageDecoratorMappings)
+      if (Object.keys(packageDecoratorMappings).length > 0) {
+        mappings.push(packageDecoratorMappings)
+      }
     })
 
-  return mappings
+  return mergeDiscoveredDecoratorMappings(...mappings)
 }
 
 export async function loadProjectDecoratorMappings(projectRoot?: string): Promise<DecoratorMapping> {
-  const packageMappings = loadPackageDecoratorMappingsSync(projectRoot)
+  return loadProjectDecoratorMappingsSync(projectRoot)
+}
 
-  try {
-    const discoveredMappings = await getDiscoveredDecoratorMappings(projectRoot)
-    return {
-      ...packageMappings,
-      ...discoveredMappings,
-    }
-  }
-  catch {
-    return packageMappings
-  }
+export function loadProjectDecoratorMappingsSync(projectRoot?: string): DecoratorMapping {
+  const packageMappings = loadPackageDecoratorMappingsSync(projectRoot)
+  const discoveredMappings = getDiscoveredDecoratorMappingsSync(projectRoot)
+  return mergeDiscoveredDecoratorMappings(packageMappings, discoveredMappings)
 }
 
 function collectDependencies(packageJson: any): Record<string, string> {

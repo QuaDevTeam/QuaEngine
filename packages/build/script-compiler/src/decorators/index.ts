@@ -1,4 +1,4 @@
-export { loadPackageDecoratorMappingsSync, loadProjectDecoratorMappings } from './loaders'
+export { loadPackageDecoratorMappingsSync, loadProjectDecoratorMappings, loadProjectDecoratorMappingsSync } from './loaders'
 export { createDefaultDecoratorCompilerRegistry, DecoratorCompilerRegistry } from './registry'
 export type {
   DecoratorCompilationResult,

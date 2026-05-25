@@ -60,6 +60,10 @@ describe('hot-Reload System Integration', () => {
       expect(events).toHaveLength(2)
       expect(events[1].type).toBe('config-change')
 
+      manager.handleFileChange('/test/quascript.config.json')
+      expect(events).toHaveLength(3)
+      expect(events[2].type).toBe('config-change')
+
       manager.disable()
     })
 

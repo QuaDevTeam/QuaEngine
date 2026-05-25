@@ -2,6 +2,7 @@ import type { DecoratorMapping } from './core/types'
 import type { QuaScriptTransformerOptions } from './core/transformer'
 import process from 'node:process'
 import { getHotReloadManager } from './core/hot-reload'
+import { resolveQuaScriptDecoratorCompileOptions } from './core/config'
 import { createHotReloadAwareTransformer } from './integrations/hot-reload-transformer'
 import { createPluginAwareTransformer } from './integrations/plugin-aware-transformer'
 
@@ -37,6 +38,7 @@ export {
   DEFAULT_QUASCRIPT_TOOLING_CONFIG,
   loadQuaScriptToolingConfig,
   mergeQuaScriptToolingConfig,
+  resolveQuaScriptDecoratorCompileOptions,
 } from './core/config'
 export { extractQuaScriptStoryDeclaration } from './core/story-declaration'
 export { createLineStarts, parseQuaScriptDocument, positionAt, rangeFromOffsets } from './core/document'
@@ -110,6 +112,7 @@ export { DEFAULT_DECORATOR_MAPPINGS, mergeDecoratorMappings } from './core/types
 export {
   loadPackageDecoratorMappingsSync,
   loadProjectDecoratorMappings,
+  loadProjectDecoratorMappingsSync,
 } from './decorators'
 // Hot-reload transformers
 export {
@@ -141,21 +144,26 @@ export function compileQuaScript(
   },
 ): string {
   const { hotReload = process.env.NODE_ENV !== 'production', ...restOptions } = options || {}
+  const resolvedDecoratorOptions = resolveQuaScriptDecoratorCompileOptions({
+    autoCollectDecorators: restOptions.autoCollectDecorators,
+    decoratorMappings: restOptions.decoratorMappings,
+    projectRoot: restOptions.projectRoot,
+  })
 
   const transformer = hotReload
     ? createHotReloadAwareTransformer(
-        restOptions.decoratorMappings,
+        resolvedDecoratorOptions.decoratorMappings,
         {
           projectRoot: restOptions.projectRoot,
-          autoCollectDecorators: restOptions.autoCollectDecorators,
+          autoCollectDecorators: resolvedDecoratorOptions.autoCollectDecorators,
           runtimeModule: restOptions.runtimeModule,
         },
       )
     : createPluginAwareTransformer(
-        restOptions.decoratorMappings,
+        resolvedDecoratorOptions.decoratorMappings,
         {
           projectRoot: restOptions.projectRoot,
-          autoCollectDecorators: restOptions.autoCollectDecorators,
+          autoCollectDecorators: resolvedDecoratorOptions.autoCollectDecorators,
           runtimeModule: restOptions.runtimeModule,
         },
       )
@@ -183,21 +191,26 @@ export function compileQuaScriptModuleToTs(
   },
 ): string {
   const { hotReload = process.env.NODE_ENV !== 'production', ...restOptions } = options || {}
+  const resolvedDecoratorOptions = resolveQuaScriptDecoratorCompileOptions({
+    autoCollectDecorators: restOptions.autoCollectDecorators,
+    decoratorMappings: restOptions.decoratorMappings,
+    projectRoot: restOptions.projectRoot,
+  })
 
   const transformer = hotReload
     ? createHotReloadAwareTransformer(
-        restOptions.decoratorMappings,
+        resolvedDecoratorOptions.decoratorMappings,
         {
           projectRoot: restOptions.projectRoot,
-          autoCollectDecorators: restOptions.autoCollectDecorators,
+          autoCollectDecorators: resolvedDecoratorOptions.autoCollectDecorators,
           runtimeModule: restOptions.runtimeModule,
         },
       )
     : createPluginAwareTransformer(
-        restOptions.decoratorMappings,
+        resolvedDecoratorOptions.decoratorMappings,
         {
           projectRoot: restOptions.projectRoot,
-          autoCollectDecorators: restOptions.autoCollectDecorators,
+          autoCollectDecorators: resolvedDecoratorOptions.autoCollectDecorators,
           runtimeModule: restOptions.runtimeModule,
         },
       )

@@ -102,6 +102,10 @@ const DEFAULT_PLUGIN_PATHS = [
  * Discover and load plugin configurations
  */
 export async function discoverPlugins(projectRoot?: string): Promise<PluginConfig[]> {
+  return discoverPluginsSync(projectRoot)
+}
+
+export function discoverPluginsSync(projectRoot?: string): PluginConfig[] {
   const root = projectRoot || process.cwd()
   const discovered = new Map<string, PluginConfig>()
 
@@ -147,23 +151,27 @@ export async function discoverPlugins(projectRoot?: string): Promise<PluginConfi
  * Extract decorator mappings from discovered plugins
  */
 export async function getDiscoveredDecoratorMappings(projectRoot?: string): Promise<DecoratorMapping> {
-  const plugins = await discoverPlugins(projectRoot)
-  const mappings: DecoratorMapping = {}
+  return getDiscoveredDecoratorMappingsSync(projectRoot)
+}
+
+export function getDiscoveredDecoratorMappingsSync(projectRoot?: string): DecoratorMapping {
+  const plugins = discoverPluginsSync(projectRoot)
+  const mappings: DecoratorMapping[] = []
 
   for (const plugin of plugins) {
     if (plugin.decorators) {
-      Object.assign(mappings, plugin.decorators)
+      mappings.push(plugin.decorators)
     }
   }
 
-  return mappings
+  return mergeDecoratorMappings(...mappings)
 }
 
 /**
  * Extract language contributions from discovered plugins.
  */
 export async function getDiscoveredLanguageContributions(projectRoot?: string): Promise<QuaPluginLanguageContribution> {
-  const plugins = await discoverPlugins(projectRoot)
+  const plugins = discoverPluginsSync(projectRoot)
   const language: QuaPluginLanguageContribution = {
     decorators: {},
   }
@@ -183,7 +191,7 @@ export async function getDiscoveredLanguageContributions(projectRoot?: string): 
  * Load a specific plugin by name
  */
 export async function loadPlugin(pluginName: string, projectRoot?: string): Promise<PluginConfig | null> {
-  const plugins = await discoverPlugins(projectRoot)
+  const plugins = discoverPluginsSync(projectRoot)
   return plugins.find(plugin => plugin.name === pluginName) || null
 }
 
@@ -191,7 +199,7 @@ export async function loadPlugin(pluginName: string, projectRoot?: string): Prom
  * Get all available plugin names
  */
 export async function getAvailablePlugins(projectRoot?: string): Promise<string[]> {
-  const plugins = await discoverPlugins(projectRoot)
+  const plugins = discoverPluginsSync(projectRoot)
   return plugins.map(plugin => plugin.name)
 }
 
@@ -426,7 +434,13 @@ export function mergeDecoratorMappings(...mappings: DecoratorMapping[]): Decorat
   const result: DecoratorMapping = {}
 
   for (const mapping of mappings) {
-    Object.assign(result, mapping)
+    for (const [decoratorName, value] of Object.entries(mapping)) {
+      const existing = result[decoratorName]
+      if (existing && (existing.module !== value.module || existing.function !== value.function)) {
+        throw new Error(`Conflicting decorator mapping for @${decoratorName}: "${existing.module}#${existing.function}" vs "${value.module}#${value.function}".`)
+      }
+      result[decoratorName] = value
+    }
   }
 
   return result
