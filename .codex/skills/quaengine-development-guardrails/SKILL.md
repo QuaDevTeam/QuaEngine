@@ -64,6 +64,19 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Keep `@quajs/script-compiler` focused on orchestration, discovery, and import wiring.
 - Keep `@quajs/engine` focused on state ownership and contracts, not concrete feature behavior.
 
+### QuaScript boundary
+- Treat QuaScript as a narrative DSL, not a general-purpose scripting language.
+- Keep QuaScript focused on dialogue, choices, action decorators, story-point metadata decorators, and imported TypeScript helpers used from `<script lang="ts">`, `<script setup lang="ts">`, or `${...}` expressions.
+- Do not add first-class control-flow syntax, custom block syntax, plugin-defined statements, or plugin-defined parser/compiler branches to QuaScript without an explicit language design change.
+- When behavior becomes imperative, stateful, reusable, or algorithmic, move it into imported TypeScript helpers instead of growing QuaScript syntax.
+- Plugins may provide runtime functions and decorators only. They must not inject custom compiler modules, alter QuaScript grammar, or redefine the meaning of core syntax.
+- Decorator availability must stay explicit and deterministic: built-ins, explicit decorator mappings, current-file value imports, and optional auto-collection are allowed; hidden plugin syntax hooks are not.
+- Prefer naming that avoids cross-domain collisions up front. Use domain-qualified decorator names such as `AnimationTimeline` and `StoryTimeline` instead of reusing overloaded generic names.
+
+### QuaScript tooling
+- Keep compiler, CLI, language server, and editor integration on the same decorator-resolution semantics. Do not let completions, hover, or diagnostics advertise decorators that the real compiler would reject.
+- Compiler-semantic validation for decorators belongs to QuaScript tooling, not to ad hoc editor-only heuristics.
+
 ### Package structure
 - Every package should have an intentional `src/` directory layout that matches its responsibility boundaries.
 - Split growing packages by domain or layer, such as `core/`, `runtime/`, `contracts/`, `adapters/`, `plugins/`, `integrations/`, `components/`, `composables/`, `styles/`, or `utils/` when those boundaries exist.
