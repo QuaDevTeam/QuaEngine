@@ -4,6 +4,10 @@ import { join } from 'node:path'
 import process from 'node:process'
 
 export const DEFAULT_QUASCRIPT_TOOLING_CONFIG: Required<QuaScriptToolingConfig> = {
+  decorators: {
+    autoCollect: true,
+    mappings: {},
+  },
   files: {
     exclude: ['node_modules/**', 'dist/**', '.git/**', '.qua/**', 'coverage/**'],
     include: ['**/*.qs'],
@@ -43,6 +47,13 @@ export function mergeQuaScriptToolingConfig(
   override: QuaScriptToolingConfig = {},
 ): QuaScriptToolingConfig {
   return {
+    decorators: {
+      autoCollect: override.decorators?.autoCollect ?? base.decorators?.autoCollect,
+      mappings: {
+        ...(base.decorators?.mappings || {}),
+        ...(override.decorators?.mappings || {}),
+      },
+    },
     files: {
       exclude: override.files?.exclude ?? base.files?.exclude,
       include: override.files?.include ?? base.files?.include,

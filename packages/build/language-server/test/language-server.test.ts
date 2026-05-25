@@ -288,6 +288,127 @@ Yuki: Hello \${displayName}
     expect(transitionCompletions.map(item => item.label)).toContain('fade')
   })
 
+  it('aligns decorator completions and hover with auto-collect and local imports', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
+    mkdirSync(join(projectRoot, 'assets/images'), { recursive: true })
+    writeFileSync(join(projectRoot, 'assets/images/classroom.png'), '')
+    writeFileSync(join(projectRoot, 'qua.plugins.json'), JSON.stringify({
+      plugins: [
+        {
+          name: '@quajs/plugin-background',
+          decorators: {
+            SetBackground: {
+              function: 'setBackgroundWithEngine',
+              module: '@quajs/plugin-background',
+            },
+          },
+          language: {
+            decorators: {
+              SetBackground: {
+                args: [
+                  {
+                    name: 'asset',
+                    assetRoots: ['assets/images'],
+                    assetExtensions: ['.png'],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ],
+    }))
+
+    const toolingConfig = {
+      decorators: {
+        autoCollect: false,
+      },
+    }
+
+    const inactiveSource = '@SetBackground("'
+    const inactiveDecorators = await getQuaScriptCompletions(inactiveSource, { line: 0, character: 1 }, {
+      projectRoot,
+      toolingConfig,
+    })
+    const inactiveArgs = await getQuaScriptCompletions(inactiveSource, { line: 0, character: 16 }, {
+      projectRoot,
+      toolingConfig,
+    })
+    const inactiveHover = await getQuaScriptHover('@SetBackground("classroom.png")\nYuki: Hi', { line: 0, character: 5 }, {
+      projectRoot,
+      toolingConfig,
+    })
+
+    expect(inactiveDecorators.map(item => item.label)).not.toContain('SetBackground')
+    expect(inactiveArgs).toEqual([])
+    expect(inactiveHover).toBeUndefined()
+
+    const activeSource = `<script lang="ts">
+import { decorators } from '@quajs/plugin-background'
+</script>
+
+@SetBackground("`
+    const activeDecorators = await getQuaScriptCompletions(activeSource, { line: 4, character: 1 }, {
+      projectRoot,
+      toolingConfig,
+    })
+    const activeArgs = await getQuaScriptCompletions(activeSource, { line: 4, character: 16 }, {
+      projectRoot,
+      toolingConfig,
+    })
+    const activeHover = await getQuaScriptHover(`<script lang="ts">
+import { decorators } from '@quajs/plugin-background'
+</script>
+
+@SetBackground("classroom.png")
+Yuki: Hi
+`, { line: 4, character: 5 }, {
+      projectRoot,
+      toolingConfig,
+    })
+
+    expect(activeDecorators.map(item => item.label)).toContain('SetBackground')
+    expect(activeArgs.map(item => item.label)).toContain('classroom.png')
+    expect(activeHover?.contents).toContain('@quajs/plugin-background')
+  })
+
+  it('reports compiler decorator semantic diagnostics through language analysis', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
+    writeFileSync(join(projectRoot, 'qua.plugins.json'), JSON.stringify({
+      plugins: [
+        {
+          name: '@quajs/plugin-background',
+          decorators: {
+            SetBackground: {
+              function: 'setBackgroundWithEngine',
+              module: '@quajs/plugin-background',
+            },
+          },
+        },
+      ],
+    }))
+
+    const analysis = await analyzeQuaScript(`
+@SetBackground('classroom.png')
+Yuki: Hello
+`, {
+      projectRoot,
+      toolingConfig: {
+        decorators: {
+          autoCollect: false,
+        },
+      },
+    })
+
+    expect(analysis.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'QS_COMPILER_SEMANTICS',
+        source: 'quascript/compiler',
+      }),
+    ]))
+    expect(analysis.diagnostics.some(item => item.message.includes('Unknown QuaScript decorator @SetBackground'))).toBe(true)
+  })
+
   it('suggests canonical choice decorators and helper targets', async () => {
     const decorators = await getQuaScriptCompletions('@Cho', { line: 0, character: 4 })
     expect(decorators.map(item => item.label)).toContain('Choice')

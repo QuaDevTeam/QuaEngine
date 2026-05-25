@@ -41,6 +41,14 @@ export {
 export { extractQuaScriptStoryDeclaration } from './core/story-declaration'
 export { createLineStarts, parseQuaScriptDocument, positionAt, rangeFromOffsets } from './core/document'
 export {
+  collectDecoratorImportSources,
+  collectImportedDecoratorMappings,
+  resolveBaseDecoratorMappings,
+  resolveDecoratorMappingsForModuleSource,
+  resolveDecoratorMappingsForProgram,
+} from './core/decorator-resolution'
+export type { QuaScriptDecoratorResolutionOptions } from './core/decorator-resolution'
+export {
   applyQuaScriptLocaleOverlay,
   compileLocalizedQuaScriptModuleToTs,
   createQuaScriptLocaleSkeleton,

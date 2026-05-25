@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -28,6 +28,43 @@ describe('quaScript CLI', () => {
 
     await expect(runQuaScriptCli([input])).resolves.toBe(0)
     expect(readFileSync(join(root, 'scene.compiled.ts'), 'utf-8')).toContain('export default')
+  })
+
+  it('uses decorator compiler settings from QuaScript config during compile', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'quascript-cli-'))
+    const input = join(root, 'scene.qs')
+    const cwd = process.cwd()
+    writeFileSync(join(root, 'quascript.config.json'), JSON.stringify({
+      decorators: {
+        autoCollect: false,
+      },
+    }), 'utf-8')
+    writeFileSync(join(root, 'qua.plugins.json'), JSON.stringify({
+      plugins: [
+        {
+          name: '@quajs/plugin-background',
+          decorators: {
+            SetBackground: {
+              function: 'setBackgroundWithEngine',
+              module: '@quajs/plugin-background',
+            },
+          },
+        },
+      ],
+    }), 'utf-8')
+    writeFileSync(input, "@SetBackground('classroom.png')\nYuki: Hello\n", 'utf-8')
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      process.chdir(root)
+      await expect(runQuaScriptCli(['compile', input])).resolves.toBe(1)
+    }
+    finally {
+      process.chdir(cwd)
+    }
+
+    expect(existsSync(join(root, 'scene.compiled.ts'))).toBe(false)
   })
 
   it('checks and writes formatting', async () => {

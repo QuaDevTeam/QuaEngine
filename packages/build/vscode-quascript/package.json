@@ -230,6 +230,31 @@
     "configuration": {
       "title": "QuaScript",
       "properties": {
+        "quascript.decorators.autoCollect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically collect decorators from discovered Qua packages. Disable this to require explicit registration or local imports in each .qs file."
+        },
+        "quascript.decorators.mappings": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "function",
+              "module"
+            ],
+            "properties": {
+              "function": {
+                "type": "string"
+              },
+              "module": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "Explicit QuaScript decorator mappings merged into the compiler and language server."
+        },
         "quascript.lint.enable": {
           "type": "boolean",
           "default": true,

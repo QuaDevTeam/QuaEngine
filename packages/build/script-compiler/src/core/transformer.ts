@@ -15,9 +15,12 @@ import { parse } from '@babel/parser'
 import traverseModule from '@babel/traverse'
 import * as t from '@babel/types'
 import { createDefaultDecoratorCompilerRegistry } from '../decorators'
+import {
+  resolveBaseDecoratorMappings,
+  resolveDecoratorMappingsForProgram,
+} from './decorator-resolution'
 import { parseQuaScriptDocument } from './document'
 import { QuaScriptParser, scanTemplateText } from './parser'
-import { mergeDecoratorMappings } from './types'
 
 const HOST_SOURCE_PARSER_PLUGINS: ParserPlugin[] = ['typescript', 'jsx', 'decorators']
 const generateCode = resolveCallableDefault(generateModule)
@@ -81,18 +84,26 @@ export class QuaScriptTransformer {
     this.explicitDecoratorMappings = decoratorMappings
     this.availableDecoratorMappings = options.availableDecoratorMappings || {}
     this.autoCollectDecorators = options.autoCollectDecorators ?? true
-    this.decoratorMappings = this.resolveBaseDecoratorMappings()
+    this.decoratorMappings = resolveBaseDecoratorMappings({
+      autoCollectDecorators: this.autoCollectDecorators,
+      availableDecoratorMappings: this.availableDecoratorMappings,
+      decoratorMappings: this.explicitDecoratorMappings,
+    })
     this.decoratorCompilerRegistry = createDefaultDecoratorCompilerRegistry()
     this.runtimeModule = options.runtimeModule
   }
 
   protected setAvailableDecoratorMappings(mappings: DecoratorMapping): void {
     this.availableDecoratorMappings = mappings
-    this.decoratorMappings = this.resolveBaseDecoratorMappings()
+    this.decoratorMappings = this.getBaseDecoratorMappings()
   }
 
   protected getBaseDecoratorMappings(): DecoratorMapping {
-    return this.resolveBaseDecoratorMappings()
+    return resolveBaseDecoratorMappings({
+      autoCollectDecorators: this.autoCollectDecorators,
+      availableDecoratorMappings: this.availableDecoratorMappings,
+      decoratorMappings: this.explicitDecoratorMappings,
+    })
   }
 
   /**
@@ -114,7 +125,11 @@ export class QuaScriptTransformer {
     })
 
     const previousMappings = this.decoratorMappings
-    this.decoratorMappings = this.resolveDecoratorMappingsForAst(ast.program)
+    this.decoratorMappings = resolveDecoratorMappingsForProgram(ast.program, {
+      autoCollectDecorators: this.autoCollectDecorators,
+      availableDecoratorMappings: this.availableDecoratorMappings,
+      decoratorMappings: this.explicitDecoratorMappings,
+    })
 
     try {
       let transformed = false
@@ -203,7 +218,11 @@ export class QuaScriptTransformer {
     const setupScript = document.setupScript?.content || ''
     const moduleAst = this.parseModuleScriptForImports(moduleScript, document.moduleScript?.contentRange)
     const previousMappings = this.decoratorMappings
-    this.decoratorMappings = this.resolveDecoratorMappingsForAst(moduleAst)
+    this.decoratorMappings = resolveDecoratorMappingsForProgram(moduleAst, {
+      autoCollectDecorators: this.autoCollectDecorators,
+      availableDecoratorMappings: this.availableDecoratorMappings,
+      decoratorMappings: this.explicitDecoratorMappings,
+    })
 
     try {
       this.collectUsedDecorators(parsed)
@@ -1009,65 +1028,6 @@ export class QuaScriptTransformer {
     if (errors.length > 0) {
       throw new Error(errors.map(error => error.message).join('\n'))
     }
-  }
-
-  private resolveBaseDecoratorMappings(): DecoratorMapping {
-    return mergeDecoratorMappings({
-      ...(this.autoCollectDecorators ? this.availableDecoratorMappings : {}),
-      ...this.explicitDecoratorMappings,
-    })
-  }
-
-  private resolveDecoratorMappingsForAst(ast: t.Program): DecoratorMapping {
-    return mergeDecoratorMappings({
-      ...(this.autoCollectDecorators ? this.availableDecoratorMappings : {}),
-      ...this.collectImportedDecoratorMappings(ast),
-      ...this.explicitDecoratorMappings,
-    })
-  }
-
-  private collectImportedDecoratorMappings(ast: t.Program): DecoratorMapping {
-    const mappings: DecoratorMapping = {}
-
-    for (const source of this.collectDecoratorImportSources(ast)) {
-      for (const [decoratorName, mapping] of Object.entries(this.availableDecoratorMappings)) {
-        if (mapping.module !== source) {
-          continue
-        }
-
-        const existing = mappings[decoratorName]
-        if (existing && (existing.module !== mapping.module || existing.function !== mapping.function)) {
-          throw new Error(`Decorator @${decoratorName} is provided by multiple imported modules: "${existing.module}" and "${mapping.module}".`)
-        }
-
-        mappings[decoratorName] = mapping
-      }
-    }
-
-    return mappings
-  }
-
-  private collectDecoratorImportSources(ast: t.Program): Set<string> {
-    const sources = new Set<string>()
-
-    ast.body.forEach((node) => {
-      if (!t.isImportDeclaration(node) || node.importKind === 'type') {
-        return
-      }
-
-      const hasValueImport = node.specifiers.length === 0 || node.specifiers.some((specifier) => {
-        if (!t.isImportSpecifier(specifier)) {
-          return true
-        }
-        return specifier.importKind !== 'type'
-      })
-
-      if (hasValueImport) {
-        sources.add(node.source.value)
-      }
-    })
-
-    return sources
   }
 
   private parseModuleScriptForImports(moduleScript: string, sourceRange?: SourceRange): t.Program {

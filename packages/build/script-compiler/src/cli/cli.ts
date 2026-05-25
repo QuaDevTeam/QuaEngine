@@ -86,7 +86,6 @@ function parseArgs(argv = process.argv.slice(2)): CLIOptions {
 
 function parseCompileArgs(args: string[]): CompileOptions {
   const options: CompileOptions = {
-    autoCollectDecorators: true,
     command: 'compile',
     input: '',
   }
@@ -263,14 +262,15 @@ async function runCompile(options: CompileOptions): Promise<number> {
 
   const inputPath = resolve(options.input)
   const sourceCode = readFileSync(inputPath, 'utf-8')
+  const config = loadQuaScriptToolingConfig(process.cwd())
   const decoratorMappings = options.decoratorMappings
     ? loadJSONFile(options.decoratorMappings) as DecoratorMapping
-    : undefined
+    : config.decorators?.mappings
 
   const transformer = await createPluginAwareTransformerAsync(
     decoratorMappings,
     {
-      autoCollectDecorators: options.autoCollectDecorators,
+      autoCollectDecorators: options.autoCollectDecorators ?? config.decorators?.autoCollect ?? true,
       projectRoot: process.cwd(),
     },
   )
