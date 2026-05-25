@@ -12,7 +12,7 @@ export const animationDecoratorMappings = {
     function: 'registerAnimationWithEngine',
     module: '@quajs/plugin-animation',
   },
-  Timeline: {
+  AnimationTimeline: {
     function: 'playTimelineWithEngine',
     module: '@quajs/plugin-animation',
   },
@@ -46,10 +46,10 @@ export function createAnimationDecoratorCompiler() {
       const engineArg = t.memberExpression(t.identifier('ctx'), t.identifier('engine'))
 
       if (decorator.name === 'Key') {
-        throw new Error('@Key requires a preceding @DefineAnimation or @Timeline decorator.')
+        throw new Error('@Key requires a preceding @DefineAnimation or @AnimationTimeline decorator.')
       }
 
-      if (decorator.name === 'DefineAnimation' || decorator.name === 'Timeline') {
+      if (decorator.name === 'DefineAnimation' || decorator.name === 'AnimationTimeline') {
         const keys: { name: string, args: unknown[] }[] = []
         let nextIndex = index
 

@@ -60,7 +60,7 @@
         "function": "registerAnimationWithEngine",
         "module": "@quajs/plugin-animation"
       },
-      "Timeline": {
+      "AnimationTimeline": {
         "function": "playTimelineWithEngine",
         "module": "@quajs/plugin-animation"
       },
@@ -84,7 +84,7 @@
             }
           ]
         },
-        "Timeline": {
+        "AnimationTimeline": {
           "description": "Play an inline animation timeline",
           "args": [
             {

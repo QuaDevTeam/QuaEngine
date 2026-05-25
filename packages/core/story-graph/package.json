@@ -82,7 +82,7 @@
         "function": "setStoryMetadataWithEngine",
         "module": "@quajs/story-graph"
       },
-      "Timeline": {
+      "StoryTimeline": {
         "function": "setStoryMetadataWithEngine",
         "module": "@quajs/story-graph"
       },

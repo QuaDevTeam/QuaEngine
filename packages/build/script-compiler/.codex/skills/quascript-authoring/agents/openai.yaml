@@ -1,0 +1,4 @@
+interface:
+  display_name: "QuaScript Authoring"
+  short_description: "Write valid QuaEngine .qs files"
+  default_prompt: "Use $quascript-authoring to write, review, or fix QuaEngine QuaScript .qs files."
