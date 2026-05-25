@@ -1,4 +1,10 @@
-import type { QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaSnapshot, QuaSnapshotMeta } from './base'
+import type {
+  QuaGameSavePreviewRecord,
+  QuaGameSaveSlotIndex,
+  QuaGameSaveSlotPayload,
+  QuaSnapshot,
+  QuaSnapshotMeta,
+} from './base'
 
 /**
  * Middleware function for storage operations
@@ -61,28 +67,25 @@ export interface StorageBackend {
    */
   clearSnapshots: (storeName?: string) => Promise<void>
 
-  /**
-   * Save a game save slot (separate from snapshots)
-   * @param slot - The game save slot to save
-   */
-  saveGameSlot: (slot: QuaGameSaveSlot) => Promise<void>
+  saveGameSlotIndex: (slot: QuaGameSaveSlotIndex) => Promise<void>
 
-  /**
-   * Get a game save slot from storage
-   * @param slotId - The slot ID
-   */
-  getGameSlot: (slotId: string) => Promise<QuaGameSaveSlot | undefined>
+  getGameSlotIndex: (slotId: string) => Promise<QuaGameSaveSlotIndex | undefined>
 
-  /**
-   * Delete a game save slot from storage
-   * @param slotId - The slot ID
-   */
-  deleteGameSlot: (slotId: string) => Promise<void>
+  listGameSlotIndexes: () => Promise<QuaGameSaveSlotIndex[]>
 
-  /**
-   * List game save slots
-   */
-  listGameSlots: () => Promise<QuaGameSaveSlotMeta[]>
+  deleteGameSlotIndex: (slotId: string) => Promise<void>
+
+  saveGameSlotPayload: (slot: QuaGameSaveSlotPayload) => Promise<void>
+
+  getGameSlotPayload: (slotId: string) => Promise<QuaGameSaveSlotPayload | undefined>
+
+  deleteGameSlotPayload: (slotId: string) => Promise<void>
+
+  saveGameSlotPreview: (preview: QuaGameSavePreviewRecord) => Promise<void>
+
+  getGameSlotPreview: (previewId: string) => Promise<QuaGameSavePreviewRecord | undefined>
+
+  deleteGameSlotPreview: (previewId: string) => Promise<void>
 
   /**
    * Clear all game save slots

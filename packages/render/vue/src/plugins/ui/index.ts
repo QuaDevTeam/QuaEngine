@@ -1,6 +1,8 @@
 import type { PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
-import { computed, defineComponent, h } from 'vue'
+import { LogicToRenderEvents, onLogicToRender } from '@quajs/render-core'
+import { SaveSlotDataSource, WebSaveSlotPreviewCache } from '@quajs/renderer-web'
+import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAudio, useFlowControl, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
@@ -29,8 +31,21 @@ type SaveLoadOverlayConfig = UiOverlaySkinConfig & {
 interface SaveSlotProjection {
   slotId: string
   name?: string
-  timestamp?: string | number
-  screenshot?: string
+  timestamp?: Date | string | number
+  revision?: number
+  saveOpId?: string
+  previewStatus?: 'none' | 'pending' | 'ready' | 'error'
+  previewSrc?: string
+  preview?: {
+    previewId: string
+    mimeType: string
+    byteLength: number
+    width?: number
+    height?: number
+    capturedAt: number
+    hash: string
+    policySummary?: Readonly<Record<string, unknown>>
+  }
   metadata?: {
     sceneName?: string
     stepId?: string
@@ -151,6 +166,7 @@ export const QuaUiOverlay = defineComponent({
       ? h('div', {
           'class': 'qua-ui-overlay',
           'data-overlay': props.elementId,
+          'data-qua-capture-role': 'overlay',
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
           'data-skin-state': skin.skinState.value,
@@ -187,6 +203,7 @@ export const QuaMenuOverlay = defineComponent({
       ? h('div', {
           'class': 'qua-menu-overlay',
           'data-overlay': props.elementId,
+          'data-qua-capture-role': 'overlay',
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
           'data-skin-state': skin.skinState.value,
@@ -264,19 +281,88 @@ export const QuaSaveLoadPanel = defineComponent({
     },
   },
   setup(props, { slots }) {
-    const { view } = useQuaRenderer()
+    const { pipeline, saveSlots, view } = useQuaRenderer()
     const actions = useRendererActions()
     const config = computed<SaveLoadOverlayConfig | undefined>(() => view.value.ui.overlays?.[props.elementId] as SaveLoadOverlayConfig | undefined)
     const mode = computed<SaveLoadMode>(() => config.value?.mode === 'load' ? 'load' : 'save')
-    const slotsProjection = computed(() => createSaveSlotGrid(config.value))
+    const slotsProjection = ref<SaveSlotProjection[]>(createSaveSlotGrid(config.value))
+    const previewSources = ref<Record<string, string | undefined>>({})
     const skin = useUiControlSkin({
       kind: 'panel',
       skinId: () => config.value?.skinId,
     })
+    let refreshVersion = 0
+    let previewCache: WebSaveSlotPreviewCache | undefined
+    let stopSlotUpdates: (() => void) | undefined
+
+    const loadSlotGrid = async () => {
+      const currentVersion = ++refreshVersion
+      const listedSlots = saveSlots.value
+        ? await saveSlots.value.listSlots().catch(() => [])
+        : []
+      if (currentVersion !== refreshVersion) {
+        return
+      }
+
+      const nextSlots = createSaveSlotGrid(config.value, listedSlots as SaveSlotProjection[])
+      slotsProjection.value = nextSlots
+      if (!previewCache) {
+        previewSources.value = {}
+        return
+      }
+
+      const readySlotIds = nextSlots
+        .filter(slot => slot.previewStatus === 'ready' && slot.preview)
+        .map(slot => slot.slotId)
+      const resolved = readySlotIds.length > 0
+        ? await previewCache.resolveMany(readySlotIds)
+        : {}
+      if (currentVersion !== refreshVersion) {
+        return
+      }
+
+      previewSources.value = Object.fromEntries(nextSlots.map(slot => [slot.slotId, resolved[slot.slotId]]))
+    }
+
+    const bindSlotUpdates = (source: SaveSlotDataSource | undefined) => {
+      stopSlotUpdates?.()
+      stopSlotUpdates = onLogicToRender(pipeline.value, LogicToRenderEvents.SLOT_UPDATED, (payload) => {
+        previewCache?.invalidate([payload.slotId])
+        if (source) {
+          void loadSlotGrid()
+        }
+      })
+    }
+
+    watch([config, saveSlots], ([, source], _previous, onCleanup) => {
+      previewCache?.dispose()
+      previewCache = source ? new WebSaveSlotPreviewCache(source, { format: 'bytes', ttlMs: 30_000 }) : undefined
+      bindSlotUpdates(source)
+      onCleanup(() => {
+        previewCache?.dispose()
+        previewCache = undefined
+        stopSlotUpdates?.()
+        stopSlotUpdates = undefined
+      })
+      void loadSlotGrid()
+    }, { immediate: true })
+
+    onMounted(() => {
+      void loadSlotGrid()
+    })
+
+    onBeforeUnmount(() => {
+      previewCache?.dispose()
+      previewCache = undefined
+      stopSlotUpdates?.()
+      stopSlotUpdates = undefined
+    })
+
     return () => config.value
       ? h('div', {
           'class': 'qua-save-load-panel',
           'data-overlay': props.elementId,
+          'data-qua-capture-role': 'overlay',
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
           'data-skin-state': skin.skinState.value,
@@ -289,6 +375,7 @@ export const QuaSaveLoadPanel = defineComponent({
           overlay: config.value,
           mode: mode.value,
           slots: slotsProjection.value,
+          previewSources: previewSources.value,
           actions,
         }) || [
           renderPanelHeader({
@@ -312,10 +399,10 @@ export const QuaSaveLoadPanel = defineComponent({
           ]),
           h('ol', { class: 'qua-save-slot-grid' }, slotsProjection.value.map((slot, index) =>
             h(QuaSaveSlotButton, {
-              key: slot.slotId,
+              key: `${slot.slotId}:${slot.revision || 0}:${slot.preview?.previewId || 'none'}`,
               index,
               mode: mode.value,
-              slot,
+              slot: { ...slot, previewSrc: previewSources.value[slot.slotId] },
             }),
           )),
           config.value.showQuickActions === false
@@ -359,6 +446,7 @@ export const QuaSettingsPanel = defineComponent({
       ? h('div', {
           'class': 'qua-settings-panel',
           'data-overlay': props.elementId,
+          'data-qua-capture-role': 'overlay',
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
           'data-skin-state': skin.skinState.value,
@@ -424,6 +512,7 @@ export const QuaOverlayLayer = defineComponent({
     return () => overlayIds.value.length > 0
       ? h('div', {
           class: 'qua-overlay-layer',
+          'data-qua-capture-role': 'overlay',
           onClick: (event: Event) => event.stopPropagation(),
         }, [
           overlays.value.menu ? h(QuaMenuOverlay) : null,
@@ -493,9 +582,9 @@ function renderSaveSlotContent(slot: SaveSlotProjection, index: number): VNode[]
   const metadata = slot.metadata || {}
   return [
     h('span', { class: 'qua-save-slot-index' }, String(index + 1).padStart(2, '0')),
-    h('span', { class: 'qua-save-slot-preview' }, slot.screenshot
-      ? h('img', { class: 'qua-save-slot-screenshot', src: slot.screenshot, alt: '' })
-      : h('span', { class: 'qua-save-slot-empty-mark' }, filled ? 'Saved' : 'Empty')),
+    h('span', { class: 'qua-save-slot-preview' }, slot.previewSrc
+      ? h('img', { class: 'qua-save-slot-screenshot', src: slot.previewSrc, alt: '' })
+      : h('span', { class: 'qua-save-slot-empty-mark' }, previewStatusLabel(slot, filled))),
     h('span', { class: 'qua-save-slot-body' }, [
       h('span', { class: 'qua-save-slot-name' }, slot.name || metadata.sceneName || (filled ? 'Saved Game' : 'Empty Slot')),
       h('span', { class: 'qua-save-slot-meta' }, saveSlotMeta(slot)),
@@ -503,9 +592,9 @@ function renderSaveSlotContent(slot: SaveSlotProjection, index: number): VNode[]
   ]
 }
 
-function createSaveSlotGrid(config: SaveLoadOverlayConfig | undefined): SaveSlotProjection[] {
-  const byId = new Map((config?.slots || []).map(slot => [slot.slotId, slot]))
-  const count = Math.max(config?.slotCount || DEFAULT_SAVE_SLOT_COUNT, byId.size)
+function createSaveSlotGrid(config: SaveLoadOverlayConfig | undefined, listedSlots: readonly SaveSlotProjection[] = []): SaveSlotProjection[] {
+  const byId = new Map([...listedSlots, ...(config?.slots || [])].map(slot => [slot.slotId, slot]))
+  const count = Math.max(config?.slotCount || DEFAULT_SAVE_SLOT_COUNT, config?.slots?.length || 0)
   const prefix = config?.slotPrefix || 'slot'
   const slots: SaveSlotProjection[] = []
   for (let index = 0; index < count; index += 1) {
@@ -530,7 +619,24 @@ function saveSlotMeta(slot: SaveSlotProjection): string {
 }
 
 function isFilledSaveSlot(slot: SaveSlotProjection): boolean {
-  return Boolean(slot.timestamp || slot.name || slot.screenshot || slot.metadata?.sceneName || slot.metadata?.stepId)
+  return Boolean(
+    slot.timestamp
+    || slot.name
+    || slot.preview
+    || (slot.previewStatus && slot.previewStatus !== 'none')
+    || slot.metadata?.sceneName
+    || slot.metadata?.stepId,
+  )
+}
+
+function previewStatusLabel(slot: SaveSlotProjection, filled: boolean): string {
+  if (slot.previewStatus === 'pending') {
+    return 'Pending'
+  }
+  if (slot.previewStatus === 'error') {
+    return 'Retry'
+  }
+  return filled ? 'Saved' : 'Empty'
 }
 
 function formatTimestamp(timestamp: SaveSlotProjection['timestamp']): string | undefined {

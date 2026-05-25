@@ -1,6 +1,7 @@
 import type {
-  QuaGameSaveSlot,
-  QuaGameSaveSlotMeta,
+  QuaGameSavePreviewRecord,
+  QuaGameSaveSlotIndex,
+  QuaGameSaveSlotPayload,
   QuaSnapshot,
   QuaSnapshotMeta,
   StorageBackend,
@@ -46,14 +47,20 @@ export interface NodeStoreStorageOptions extends QuastoreFileBackendOptions {
   middlewares?: StorageMiddleware[]
 }
 
-export interface QuastoreRecordEnvelope<TRecord extends QuaSnapshot | QuaGameSaveSlot = QuaSnapshot | QuaGameSaveSlot> {
+type QuastoreRecord
+  = | QuaSnapshot
+    | QuaGameSaveSlotIndex
+    | QuaGameSaveSlotPayload
+    | QuaGameSavePreviewRecord
+
+export interface QuastoreRecordEnvelope<TRecord extends QuastoreRecord = QuastoreRecord> {
   format: 'quastore'
   version: 1
   kind: QuastoreRecordKind
   record: TRecord
 }
 
-type QuastoreRecordKind = 'snapshot' | 'game-slot'
+type QuastoreRecordKind = 'snapshot' | 'game-slot-index' | 'game-slot-payload' | 'game-slot-preview'
 
 interface ResolvedEncryptionConfig {
   keyMaterial: Buffer
@@ -68,21 +75,27 @@ interface LoadedRecord<T> {
 export class QuastoreFileBackend implements StorageBackend {
   private readonly rootDir: string
   private readonly snapshotsDir: string
-  private readonly gameSlotsDir: string
+  private readonly gameSlotIndexesDir: string
+  private readonly gameSlotPayloadsDir: string
+  private readonly gameSlotPreviewsDir: string
   private readonly encryptionOptions: QuastoreEncryptionOptions | false | undefined
   private encryptionConfig: ResolvedEncryptionConfig | false | undefined
 
   constructor(options: QuastoreFileBackendOptions = {}) {
     this.rootDir = resolve(options.rootDir || join(process.cwd(), '.qua-store'))
     this.snapshotsDir = join(this.rootDir, 'snapshots')
-    this.gameSlotsDir = join(this.rootDir, 'slots')
+    this.gameSlotIndexesDir = join(this.rootDir, 'slot-indexes')
+    this.gameSlotPayloadsDir = join(this.rootDir, 'slot-payloads')
+    this.gameSlotPreviewsDir = join(this.rootDir, 'slot-previews')
     this.encryptionOptions = options.encryption
   }
 
   async init(): Promise<void> {
     this.encryptionConfig = this.resolveEncryptionConfig()
     await mkdir(this.snapshotsDir, { recursive: true })
-    await mkdir(this.gameSlotsDir, { recursive: true })
+    await mkdir(this.gameSlotIndexesDir, { recursive: true })
+    await mkdir(this.gameSlotPayloadsDir, { recursive: true })
+    await mkdir(this.gameSlotPreviewsDir, { recursive: true })
   }
 
   async saveSnapshot(snapshot: QuaSnapshot): Promise<void> {
@@ -131,40 +144,84 @@ export class QuastoreFileBackend implements StorageBackend {
     )
   }
 
-  async saveGameSlot(slot: QuaGameSaveSlot): Promise<void> {
-    await this.writeRecord(this.gameSlotPath(slot.slotId), {
+  async saveGameSlotIndex(slot: QuaGameSaveSlotIndex): Promise<void> {
+    await this.writeRecord(this.gameSlotIndexPath(slot.slotId), {
       format: 'quastore',
       version: VERSION,
-      kind: 'game-slot',
+      kind: 'game-slot-index',
       record: slot,
     })
   }
 
-  async getGameSlot(slotId: string): Promise<QuaGameSaveSlot | undefined> {
-    return await this.readOptionalRecord<QuaGameSaveSlot>(this.gameSlotPath(slotId), 'game-slot')
+  async getGameSlotIndex(slotId: string): Promise<QuaGameSaveSlotIndex | undefined> {
+    return await this.readOptionalRecord<QuaGameSaveSlotIndex>(this.gameSlotIndexPath(slotId), 'game-slot-index')
   }
 
-  async deleteGameSlot(slotId: string): Promise<void> {
-    await rm(this.gameSlotPath(slotId), { force: true })
+  async deleteGameSlotIndex(slotId: string): Promise<void> {
+    await rm(this.gameSlotIndexPath(slotId), { force: true })
   }
 
-  async listGameSlots(): Promise<QuaGameSaveSlotMeta[]> {
-    const slots = await this.readRecords<QuaGameSaveSlot>(this.gameSlotsDir, 'game-slot')
+  async listGameSlotIndexes(): Promise<QuaGameSaveSlotIndex[]> {
+    const slots = await this.readRecords<QuaGameSaveSlotIndex>(this.gameSlotIndexesDir, 'game-slot-index')
     return slots
       .map(({ record }) => record)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .map(slot => ({
-        slotId: slot.slotId,
-        name: slot.name,
-        timestamp: slot.timestamp,
-        screenshot: slot.screenshot,
-        metadata: slot.metadata,
-      }))
+  }
+
+  async saveGameSlotPayload(slot: QuaGameSaveSlotPayload): Promise<void> {
+    await this.writeRecord(this.gameSlotPayloadPath(slot.slotId), {
+      format: 'quastore',
+      version: VERSION,
+      kind: 'game-slot-payload',
+      record: slot,
+    })
+  }
+
+  async getGameSlotPayload(slotId: string): Promise<QuaGameSaveSlotPayload | undefined> {
+    return await this.readOptionalRecord<QuaGameSaveSlotPayload>(this.gameSlotPayloadPath(slotId), 'game-slot-payload')
+  }
+
+  async deleteGameSlotPayload(slotId: string): Promise<void> {
+    await rm(this.gameSlotPayloadPath(slotId), { force: true })
+  }
+
+  async saveGameSlotPreview(preview: QuaGameSavePreviewRecord): Promise<void> {
+    await this.writeRecord(this.gameSlotPreviewPath(preview.previewId), {
+      format: 'quastore',
+      version: VERSION,
+      kind: 'game-slot-preview',
+      record: preview,
+    })
+  }
+
+  async getGameSlotPreview(previewId: string): Promise<QuaGameSavePreviewRecord | undefined> {
+    return await this.readOptionalRecord<QuaGameSavePreviewRecord>(this.gameSlotPreviewPath(previewId), 'game-slot-preview')
+  }
+
+  async deleteGameSlotPreview(previewId: string): Promise<void> {
+    await rm(this.gameSlotPreviewPath(previewId), { force: true })
+  }
+
+  async saveGameSlot(slot: QuaGameSaveSlotPayload): Promise<void> {
+    await this.saveGameSlotPayload(slot)
+    await this.saveGameSlotIndex(slot.index)
+  }
+
+  async getGameSlot(slotId: string): Promise<QuaGameSaveSlotPayload | undefined> {
+    return await this.getGameSlotPayload(slotId)
+  }
+
+  async listGameSlots(): Promise<QuaGameSaveSlotIndex[]> {
+    return await this.listGameSlotIndexes()
   }
 
   async clearGameSlots(): Promise<void> {
-    await rm(this.gameSlotsDir, { recursive: true, force: true })
-    await mkdir(this.gameSlotsDir, { recursive: true })
+    await rm(this.gameSlotIndexesDir, { recursive: true, force: true })
+    await rm(this.gameSlotPayloadsDir, { recursive: true, force: true })
+    await rm(this.gameSlotPreviewsDir, { recursive: true, force: true })
+    await mkdir(this.gameSlotIndexesDir, { recursive: true })
+    await mkdir(this.gameSlotPayloadsDir, { recursive: true })
+    await mkdir(this.gameSlotPreviewsDir, { recursive: true })
   }
 
   async close(): Promise<void> {}
@@ -182,7 +239,7 @@ export class QuastoreFileBackend implements StorageBackend {
     await rename(tempPath, path)
   }
 
-  private async readOptionalRecord<T extends QuaSnapshot | QuaGameSaveSlot>(path: string, expectedKind: QuastoreRecordKind): Promise<T | undefined> {
+  private async readOptionalRecord<T extends QuastoreRecord>(path: string, expectedKind: QuastoreRecordKind): Promise<T | undefined> {
     let bytes: Buffer
     try {
       bytes = await readFile(path)
@@ -197,7 +254,7 @@ export class QuastoreFileBackend implements StorageBackend {
     return this.decodeEnvelope<T>(await this.decode(bytes), expectedKind).record
   }
 
-  private async readRecords<T extends QuaSnapshot | QuaGameSaveSlot>(dir: string, expectedKind: QuastoreRecordKind): Promise<Array<LoadedRecord<T>>> {
+  private async readRecords<T extends QuastoreRecord>(dir: string, expectedKind: QuastoreRecordKind): Promise<Array<LoadedRecord<T>>> {
     let entries: string[]
     try {
       entries = await readdir(dir)
@@ -278,7 +335,7 @@ export class QuastoreFileBackend implements StorageBackend {
     return Buffer.concat([decipher.update(file.payload), decipher.final()])
   }
 
-  private decodeEnvelope<T extends QuaSnapshot | QuaGameSaveSlot>(plaintext: Buffer, expectedKind: QuastoreRecordKind): QuastoreRecordEnvelope<T> {
+  private decodeEnvelope<T extends QuastoreRecord>(plaintext: Buffer, expectedKind: QuastoreRecordKind): QuastoreRecordEnvelope<T> {
     const envelope = deserialize(plaintext) as QuastoreRecordEnvelope
     if (envelope.format !== 'quastore' || envelope.version !== VERSION || envelope.kind !== expectedKind) {
       throw new Error(`Invalid .quastore ${expectedKind} record.`)
@@ -290,8 +347,16 @@ export class QuastoreFileBackend implements StorageBackend {
     return join(this.snapshotsDir, `${hashStorageId(id)}${QUASTORE_FILE_EXTENSION}`)
   }
 
-  private gameSlotPath(slotId: string): string {
-    return join(this.gameSlotsDir, `${hashStorageId(slotId)}${QUASTORE_FILE_EXTENSION}`)
+  private gameSlotIndexPath(slotId: string): string {
+    return join(this.gameSlotIndexesDir, `${hashStorageId(slotId)}${QUASTORE_FILE_EXTENSION}`)
+  }
+
+  private gameSlotPayloadPath(slotId: string): string {
+    return join(this.gameSlotPayloadsDir, `${hashStorageId(slotId)}${QUASTORE_FILE_EXTENSION}`)
+  }
+
+  private gameSlotPreviewPath(previewId: string): string {
+    return join(this.gameSlotPreviewsDir, `${hashStorageId(previewId)}${QUASTORE_FILE_EXTENSION}`)
   }
 
   private resolveEncryptionConfig(): ResolvedEncryptionConfig | false {

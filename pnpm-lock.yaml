@@ -740,6 +740,9 @@ importers:
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../core
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
 
   packages/utils: {}
 

@@ -171,10 +171,16 @@ describe('error Handling and Edge Cases', () => {
         async deleteSnapshot(_id: string): Promise<void> { }
         async listSnapshots(_storeName?: string): Promise<any[]> { return [] }
         async clearSnapshots(_storeName?: string): Promise<void> { }
-        async saveGameSlot(_gameSlot: any): Promise<void> { }
-        async getGameSlot(_slotId: string): Promise<any> { return undefined }
-        async deleteGameSlot(_slotId: string): Promise<void> { }
-        async listGameSlots(): Promise<any[]> { return [] }
+        async saveGameSlotIndex(_slot: any): Promise<void> { }
+        async getGameSlotIndex(_slotId: string): Promise<any> { return undefined }
+        async listGameSlotIndexes(): Promise<any[]> { return [] }
+        async deleteGameSlotIndex(_slotId: string): Promise<void> { }
+        async saveGameSlotPayload(_slot: any): Promise<void> { }
+        async getGameSlotPayload(_slotId: string): Promise<any> { return undefined }
+        async deleteGameSlotPayload(_slotId: string): Promise<void> { }
+        async saveGameSlotPreview(_preview: any): Promise<void> { }
+        async getGameSlotPreview(_previewId: string): Promise<any> { return undefined }
+        async deleteGameSlotPreview(_previewId: string): Promise<void> { }
         async clearGameSlots(): Promise<void> { }
         getBackend() { return this }
       }

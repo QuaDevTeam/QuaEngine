@@ -32,9 +32,14 @@ describe('node .quastore file backend', () => {
     })
     await backend.saveGameSlot({
       slotId: 'slot-1',
-      name: 'Opening',
-      timestamp: new Date('2026-05-24T00:01:00.000Z'),
-      metadata: { sceneName: 'opening' },
+      index: {
+        slotId: 'slot-1',
+        name: 'Opening',
+        timestamp: new Date('2026-05-24T00:01:00.000Z'),
+        revision: 1,
+        previewStatus: 'none',
+        metadata: { sceneName: 'opening' },
+      },
       storeData: {
         state: { playerName: 'Alice' },
         snapshots: [],
@@ -42,10 +47,12 @@ describe('node .quastore file backend', () => {
     })
 
     const snapshotFiles = await readdir(join(root, 'snapshots'))
-    const slotFiles = await readdir(join(root, 'slots'))
+    const slotFiles = await readdir(join(root, 'slot-payloads'))
+    const slotIndexFiles = await readdir(join(root, 'slot-indexes'))
     expect(snapshotFiles).toHaveLength(1)
     expect(snapshotFiles[0].endsWith(QUASTORE_FILE_EXTENSION)).toBe(true)
     expect(slotFiles[0].endsWith(QUASTORE_FILE_EXTENSION)).toBe(true)
+    expect(slotIndexFiles[0].endsWith(QUASTORE_FILE_EXTENSION)).toBe(true)
 
     const bytes = await readFile(join(root, 'snapshots', snapshotFiles[0]))
     expect(bytes.subarray(0, 8).toString('ascii')).toBe('QUASTORE')

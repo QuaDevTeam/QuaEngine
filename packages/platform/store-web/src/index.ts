@@ -1,6 +1,7 @@
 import type {
-  QuaGameSaveSlot,
-  QuaGameSaveSlotMeta,
+  QuaGameSavePreviewRecord,
+  QuaGameSaveSlotIndex,
+  QuaGameSaveSlotPayload,
   QuaSnapshot,
   QuaSnapshotMeta,
   StorageBackend,
@@ -20,13 +21,17 @@ export interface WebStoreStorageOptions extends IndexedDBBackendOptions {
 
 class QuaStoreIndexedDB extends Dexie {
   snapshots!: Table<QuaSnapshot, string>
-  gameSlots!: Table<QuaGameSaveSlot, string>
+  gameSlotIndexes!: Table<QuaGameSaveSlotIndex, string>
+  gameSlotPayloads!: Table<QuaGameSaveSlotPayload, string>
+  gameSlotPreviews!: Table<QuaGameSavePreviewRecord, string>
 
   constructor(dbName = 'QuaStore') {
     super(dbName)
-    this.version(1).stores({
+    this.version(2).stores({
       snapshots: 'id, storeName, createdAt',
-      gameSlots: 'slotId, timestamp, &slotId',
+      gameSlotIndexes: 'slotId, timestamp, &slotId',
+      gameSlotPayloads: 'slotId, &slotId',
+      gameSlotPreviews: 'previewId, slotId, &previewId',
     })
   }
 }
@@ -79,31 +84,65 @@ export class IndexedDBBackend implements StorageBackend {
     await this.db.snapshots.clear()
   }
 
-  async saveGameSlot(slot: QuaGameSaveSlot): Promise<void> {
-    await this.db.gameSlots.put(slot)
+  async saveGameSlotIndex(slot: QuaGameSaveSlotIndex): Promise<void> {
+    await this.db.gameSlotIndexes.put(slot)
   }
 
-  async getGameSlot(slotId: string): Promise<QuaGameSaveSlot | undefined> {
-    return await this.db.gameSlots.get(slotId)
+  async getGameSlotIndex(slotId: string): Promise<QuaGameSaveSlotIndex | undefined> {
+    return await this.db.gameSlotIndexes.get(slotId)
   }
 
-  async deleteGameSlot(slotId: string): Promise<void> {
-    await this.db.gameSlots.delete(slotId)
+  async listGameSlotIndexes(): Promise<QuaGameSaveSlotIndex[]> {
+    return await this.db.gameSlotIndexes.orderBy('timestamp').reverse().toArray()
   }
 
-  async listGameSlots(): Promise<QuaGameSaveSlotMeta[]> {
-    const slots = await this.db.gameSlots.orderBy('timestamp').reverse().toArray()
-    return slots.map(slot => ({
-      slotId: slot.slotId,
-      name: slot.name,
-      timestamp: slot.timestamp,
-      screenshot: slot.screenshot,
-      metadata: slot.metadata,
-    }))
+  async deleteGameSlotIndex(slotId: string): Promise<void> {
+    await this.db.gameSlotIndexes.delete(slotId)
+  }
+
+  async saveGameSlotPayload(slot: QuaGameSaveSlotPayload): Promise<void> {
+    await this.db.gameSlotPayloads.put(slot)
+  }
+
+  async getGameSlotPayload(slotId: string): Promise<QuaGameSaveSlotPayload | undefined> {
+    return await this.db.gameSlotPayloads.get(slotId)
+  }
+
+  async deleteGameSlotPayload(slotId: string): Promise<void> {
+    await this.db.gameSlotPayloads.delete(slotId)
+  }
+
+  async saveGameSlotPreview(preview: QuaGameSavePreviewRecord): Promise<void> {
+    await this.db.gameSlotPreviews.put(preview)
+  }
+
+  async getGameSlotPreview(previewId: string): Promise<QuaGameSavePreviewRecord | undefined> {
+    return await this.db.gameSlotPreviews.get(previewId)
+  }
+
+  async deleteGameSlotPreview(previewId: string): Promise<void> {
+    await this.db.gameSlotPreviews.delete(previewId)
+  }
+
+  async saveGameSlot(slot: QuaGameSaveSlotPayload): Promise<void> {
+    await this.saveGameSlotPayload(slot)
+    await this.saveGameSlotIndex(slot.index)
+  }
+
+  async getGameSlot(slotId: string): Promise<QuaGameSaveSlotPayload | undefined> {
+    return await this.getGameSlotPayload(slotId)
+  }
+
+  async listGameSlots(): Promise<QuaGameSaveSlotIndex[]> {
+    return await this.listGameSlotIndexes()
   }
 
   async clearGameSlots(): Promise<void> {
-    await this.db.gameSlots.clear()
+    await this.db.transaction('rw', this.db.gameSlotIndexes, this.db.gameSlotPayloads, this.db.gameSlotPreviews, async () => {
+      await this.db.gameSlotIndexes.clear()
+      await this.db.gameSlotPayloads.clear()
+      await this.db.gameSlotPreviews.clear()
+    })
   }
 
   async close(): Promise<void> {

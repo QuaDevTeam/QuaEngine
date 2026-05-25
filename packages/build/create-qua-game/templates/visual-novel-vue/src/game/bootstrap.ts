@@ -13,6 +13,7 @@ import {
   createWebRuntimeRendererPluginLoader,
   createWebRuntimeTrustPolicy,
 } from '@quajs/security-web'
+import { createWebStoreStorage } from '@quajs/store-web'
 import { defineComponent, h, ref } from 'vue'
 import opening from './scenes/opening.qs'
 
@@ -58,6 +59,11 @@ export async function createQuaGameApp() {
       provider: assets.getProvider(),
       locale: 'default',
       enableCache: false,
+    },
+    store: {
+      storage: createWebStoreStorage({
+        dbName: '__PROJECT_NAME__-saves',
+      }),
     },
     flowControl: {
       skipMode: 'read',
@@ -124,6 +130,7 @@ export async function createQuaGameApp() {
           initialView: engine.getViewState(),
           plugins: rendererPlugins,
           runtimePluginLoader,
+          saveSlots: engine.getStore(),
         }),
         h('p', { class: 'boot-message', 'data-qua-input-ignore': '' }, bootMessage.value),
       ])

@@ -9,6 +9,7 @@ import { QuaWebRendererController } from './controller'
 import { sortRendererLayers } from './layers'
 import { observeStageViewportEnvironment, readCssSafeAreaInsets, readDevicePixelRatio, rendererRootStyle, resolveStageLayout, stageContentStyle, stageFrameStyle, stagePlaneStyle, stageSafeAreaStyle, stageSceneStyle, stageViewportStyle } from './layout'
 import { projectStageMotion, stageMotionVars } from './projection'
+import { createWebSavePreviewCapturePlugin } from './save-preview'
 
 export interface QuaWebDomLayerContext {
   renderer: QuaWebDomRenderer
@@ -60,14 +61,19 @@ export class QuaWebDomRenderer {
   private mounted = false
 
   constructor(private readonly options: QuaWebDomRendererOptions) {
+    const capturePlugin = createWebSavePreviewCapturePlugin({
+      getStageElement: () => this.root.querySelector<HTMLElement>('.qua-stage'),
+    })
+    const rendererPlugins = [capturePlugin, ...(options.plugins || [])]
+    const domPlugins = rendererPlugins.filter((plugin): plugin is QuaWebDomRendererPlugin => 'layers' in plugin)
     this.controller = new QuaWebRendererController({
       ...options,
-      plugins: options.plugins,
+      plugins: rendererPlugins,
     })
     this.root = this.getDocument().createElement('div')
     this.root.className = options.unstyled ? 'qua-renderer qua-renderer--unstyled' : 'qua-renderer'
     applyStyles(this.root, rendererRootStyle())
-    this.layers = sortRendererLayers((options.plugins || []).flatMap(plugin => 'layers' in plugin ? plugin.layers || [] : []))
+    this.layers = sortRendererLayers(domPlugins.flatMap(plugin => plugin.layers || []))
   }
 
   async mount(): Promise<void> {
@@ -127,6 +133,7 @@ export class QuaWebDomRenderer {
 
     const scenePlane = document.createElement('div')
     scenePlane.className = 'qua-stage-scene'
+    scenePlane.setAttribute('data-qua-capture-role', 'scene')
     applyStyles(scenePlane, {
       ...stageSceneStyle(),
       ...stageMotionVars(projectStageMotion(snapshot.view, Date.now())),
@@ -135,18 +142,22 @@ export class QuaWebDomRenderer {
 
     const sceneContentPlane = document.createElement('div')
     sceneContentPlane.className = 'qua-stage-scene-content'
+    sceneContentPlane.setAttribute('data-qua-capture-role', 'scene')
     applyStyles(sceneContentPlane, stagePlaneStyle())
 
     const subjectPlane = document.createElement('div')
     subjectPlane.className = 'qua-stage-subject'
+    subjectPlane.setAttribute('data-qua-capture-role', 'scene')
     applyStyles(subjectPlane, stagePlaneStyle())
 
     const stagePlane = document.createElement('div')
     stagePlane.className = 'qua-stage-plane'
+    stagePlane.setAttribute('data-qua-capture-role', 'scene')
     applyStyles(stagePlane, stagePlaneStyle())
 
     const safePlane = document.createElement('div')
     safePlane.className = 'qua-stage-safe'
+    safePlane.setAttribute('data-qua-capture-role', 'safe-ui')
     applyStyles(safePlane, stageSafeAreaStyle(layout))
 
     const context: QuaWebDomLayerContext = {

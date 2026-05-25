@@ -1,7 +1,15 @@
 import type { AssetRuntimeAdapter, BundleManifest, RuntimePackageManifest } from '@quajs/assets'
+import type { RendererPlugin } from '@quajs/render-core'
 import type { EngineContext, EnginePlugin, StepContext } from '../src'
 import type { RuntimePackageTrustContext } from '../src'
 import { MemoryAssetStorage } from '@quajs/assets'
+import {
+  createNoopSavePreviewCaptureResponder,
+  createTestSavePreviewCaptureResponder,
+  emitRenderToLogic as emitRenderToLogicEvent,
+  onRenderToLogic,
+  RendererPluginHost,
+} from '@quajs/render-core'
 import { createStore, MemoryBackend } from '@quajs/store'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createViewLayoutProjection, emitRenderToLogic, LogicToRenderEvents, onLogicToRender, QuaEngine, RenderToLogicEvents, Scene, UiOverlayPlugin } from '../src'
@@ -1081,6 +1089,13 @@ describe('quaEngine runtime architecture', () => {
           backend: MemoryBackend,
         },
       },
+      saves: {
+        preview: {
+          defaults: {
+            mode: 'disabled',
+          },
+        },
+      },
       rollback: {
         saves: {
           includeRollbackHistory: false,
@@ -1238,6 +1253,211 @@ describe('quaEngine runtime architecture', () => {
     expect((await engine.listSaveSlots()).map(slot => slot.slotId)).not.toContain('quicksave')
   })
 
+  it('stores provided save previews without renderer capture', async () => {
+    const engine = createEngine()
+    await engine.init()
+    const previewDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+
+    await engine.saveToSlot('slot-provided-preview', { name: 'Provided Preview' }, {
+      preview: {
+        mode: 'provided',
+        image: {
+          kind: 'data-url',
+          dataUrl: previewDataUrl,
+          width: 1,
+          height: 1,
+          capturedAt: 123,
+        },
+      },
+    })
+
+    const slot = await engine.getStore().getSlot('slot-provided-preview')
+    expect(slot?.index.previewStatus).toBe('ready')
+    expect(slot?.index.preview).toEqual(expect.objectContaining({
+      mimeType: 'image/png',
+      width: 1,
+      height: 1,
+    }))
+    await expect(engine.getStore().getSlotPreview('slot-provided-preview', { format: 'data-url' }))
+      .resolves.toEqual(expect.objectContaining({
+        kind: 'data-url',
+        dataUrl: previewDataUrl,
+      }))
+  })
+
+  it('captures sync save previews through the test responder plugin', async () => {
+    const engine = createPreviewEngine()
+    await engine.init()
+    const responder = await mountRendererPlugin(engine, createTestSavePreviewCaptureResponder({
+      result: {
+        mimeType: 'image/webp',
+        image: {
+          kind: 'bytes',
+          bytes: new Uint8Array([1, 2, 3, 4]),
+        },
+        width: 64,
+        height: 36,
+        capturedAt: 456,
+      },
+    }))
+
+    try {
+      await engine.saveToSlot('slot-sync-preview')
+    }
+    finally {
+      await responder.destroy()
+    }
+
+    const slot = await engine.getStore().getSlot('slot-sync-preview')
+    expect(slot?.index.previewStatus).toBe('ready')
+    expect(slot?.index.preview).toEqual(expect.objectContaining({
+      mimeType: 'image/webp',
+      width: 64,
+      height: 36,
+      byteLength: 4,
+    }))
+    await expect(engine.getStore().getSlotPreview('slot-sync-preview'))
+      .resolves.toEqual(expect.objectContaining({
+        kind: 'bytes',
+        bytes: new Uint8Array([1, 2, 3, 4]),
+      }))
+  })
+
+  it('commits sync saves without a preview when the noop responder reports a recoverable capture error', async () => {
+    const engine = createPreviewEngine()
+    await engine.init()
+    const responder = await mountRendererPlugin(engine, createNoopSavePreviewCaptureResponder())
+
+    try {
+      await engine.saveToSlot('slot-noop-preview')
+    }
+    finally {
+      await responder.destroy()
+    }
+
+    const slot = await engine.getStore().getSlot('slot-noop-preview')
+    expect(slot?.index.previewStatus).toBe('none')
+    expect(slot?.index.preview).toBeUndefined()
+  })
+
+  it('patches autosave previews asynchronously and discards stale capture results', async () => {
+    const engine = createPreviewEngine({
+      saves: {
+        preview: {
+          autoSave: {
+            mode: 'renderer-capture',
+            transaction: 'async-clone',
+            policy: {
+              timeoutMs: 100,
+              format: 'image/webp',
+            },
+          },
+        },
+      },
+    })
+    await engine.init()
+    const captureRequests: Array<{
+      requestId: string
+      saveOpId: string
+      slotId: string
+    }> = []
+    const stopCaptureRequests = onLogicToRender(engine.getPipeline(), LogicToRenderEvents.SAVE_PREVIEW_CAPTURE_REQUEST, (payload) => {
+      captureRequests.push({
+        requestId: payload.requestId,
+        saveOpId: payload.saveOpId,
+        slotId: payload.slotId,
+      })
+    })
+
+    try {
+      await engine.autoSave({ name: 'Auto Save A' })
+      expect((await engine.listSaveSlots())[0]).toEqual(expect.objectContaining({
+        slotId: 'autosave',
+        previewStatus: 'pending',
+      }))
+      const firstRequest = captureRequests.shift()
+      expect(firstRequest).toBeDefined()
+
+      await engine.autoSave({ name: 'Auto Save B' })
+      const secondRequest = captureRequests.shift()
+      expect(secondRequest).toBeDefined()
+
+      await emitRenderToLogicEvent(engine.getPipeline(), RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_RESULT, {
+        requestId: firstRequest!.requestId,
+        saveOpId: firstRequest!.saveOpId,
+        slotId: firstRequest!.slotId,
+        mimeType: 'image/webp',
+        image: {
+          kind: 'bytes',
+          bytes: new Uint8Array([7, 7, 7]),
+        },
+        capturedAt: 100,
+      })
+      await flushAsyncPreviewWork()
+      expect((await engine.listSaveSlots())[0]).toEqual(expect.objectContaining({
+        slotId: 'autosave',
+        previewStatus: 'pending',
+      }))
+
+      await emitRenderToLogicEvent(engine.getPipeline(), RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_RESULT, {
+        requestId: secondRequest!.requestId,
+        saveOpId: secondRequest!.saveOpId,
+        slotId: secondRequest!.slotId,
+        mimeType: 'image/webp',
+        image: {
+          kind: 'bytes',
+          bytes: new Uint8Array([9, 9, 9, 9]),
+        },
+        width: 96,
+        height: 54,
+        capturedAt: 200,
+      })
+      await waitForSlotPreviewStatus(engine, 'autosave', 'ready')
+
+      const slot = await engine.getStore().getSlot('autosave')
+      expect(slot?.index.previewStatus).toBe('ready')
+      expect(slot?.index.preview).toEqual(expect.objectContaining({
+        width: 96,
+        height: 54,
+        byteLength: 4,
+      }))
+      await expect(engine.getStore().getSlotPreview('autosave'))
+        .resolves.toEqual(expect.objectContaining({
+          kind: 'bytes',
+          bytes: new Uint8Array([9, 9, 9, 9]),
+        }))
+    }
+    finally {
+      stopCaptureRequests()
+    }
+  })
+
+  it('marks autosave previews as error when async capture times out', async () => {
+    const engine = createPreviewEngine({
+      saves: {
+        preview: {
+          autoSave: {
+            mode: 'renderer-capture',
+            transaction: 'async-clone',
+            policy: {
+              timeoutMs: 10,
+              format: 'image/webp',
+            },
+          },
+        },
+      },
+    })
+    await engine.init()
+
+    await engine.autoSave({ name: 'Timed Auto Save' })
+    await new Promise(resolve => setTimeout(resolve, 30))
+
+    expect((await engine.listSaveSlots())[0]).toEqual(expect.objectContaining({
+      slotId: 'autosave',
+      previewStatus: 'error',
+    }))
+  })
+
   it('executes imported QuaScript factories through dialogue', async () => {
     const engine = new QuaEngine({
       assets: {
@@ -1301,6 +1521,13 @@ describe('quaEngine runtime architecture', () => {
       store: {
         storage: {
           backend: MemoryBackend,
+        },
+      },
+      saves: {
+        preview: {
+          defaults: {
+            mode: 'disabled',
+          },
         },
       },
       runtimePackageRegistry: {
@@ -1757,6 +1984,13 @@ describe('quaEngine runtime architecture', () => {
           backend: MemoryBackend,
         },
       },
+      saves: {
+        preview: {
+          defaults: {
+            mode: 'disabled',
+          },
+        },
+      },
       runtimePackageRegistry: {
         resolvePackage: vi.fn(packageId => packageId === 'runtime.scene.b' ? 'b.qpk' : undefined),
       },
@@ -1841,6 +2075,13 @@ describe('quaEngine runtime architecture', () => {
       store: {
         storage: {
           backend: MemoryBackend,
+        },
+      },
+      saves: {
+        preview: {
+          defaults: {
+            mode: 'disabled',
+          },
         },
       },
       runtimeModuleLoader: {
@@ -1945,6 +2186,13 @@ describe('quaEngine runtime architecture', () => {
       store: {
         storage: {
           backend: MemoryBackend,
+        },
+      },
+      saves: {
+        preview: {
+          defaults: {
+            mode: 'disabled',
+          },
         },
       },
       runtimeModuleLoader: {
@@ -2777,7 +3025,7 @@ describe('quaEngine runtime architecture', () => {
     await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.GAME_SAVE_REQUEST, { slotId: 'slot-1' })
     await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.GAME_LOAD_REQUEST, { slotId: 'slot-1' })
 
-    expect(saveToSlot).toHaveBeenCalledWith('slot-1')
+    expect(saveToSlot).toHaveBeenCalledWith('slot-1', {}, { preview: undefined })
     expect(loadFromSlot).toHaveBeenCalledWith('slot-1', { force: true, reason: 'renderer-load' })
   })
 })
@@ -2792,7 +3040,77 @@ function createEngine(): QuaEngine {
         backend: MemoryBackend,
       },
     },
+    saves: {
+      preview: {
+        defaults: {
+          mode: 'disabled',
+        },
+      },
+    },
   })
+}
+
+function createPreviewEngine(config: ConstructorParameters<typeof QuaEngine>[0] = {}): QuaEngine {
+  return new QuaEngine({
+    assets: {
+      adapter: createMemoryAdapter(),
+      ...(config.assets || {}),
+    },
+    store: {
+      storage: {
+        backend: MemoryBackend,
+      },
+      ...(config.store || {}),
+    },
+    saves: {
+      ...(config.saves || {}),
+      preview: {
+        defaults: {
+          mode: 'renderer-capture',
+          transaction: 'sync',
+          policy: {
+            timeoutMs: 100,
+            format: 'image/webp',
+          },
+        },
+        ...(config.saves?.preview || {}),
+      },
+    },
+  })
+}
+
+async function mountRendererPlugin(engine: QuaEngine, plugin: RendererPlugin): Promise<RendererPluginHost> {
+  const host = new RendererPluginHost([plugin])
+  await host.init({
+    getPipeline: () => engine.getPipeline(),
+    getViewState: () => engine.getViewState(),
+    refresh: () => {},
+    emitRenderToLogic: (type, payload) => emitRenderToLogicEvent(engine.getPipeline(), type as any, payload as any),
+    onLogicToRender: (type, handler) => onLogicToRender(engine.getPipeline(), type as any, handler as any),
+    onRenderToLogic: (type, handler) => onRenderToLogic(engine.getPipeline(), type as any, handler as any),
+    reportError: async () => {},
+  })
+  return host
+}
+
+async function flushAsyncPreviewWork(): Promise<void> {
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
+async function waitForSlotPreviewStatus(
+  engine: QuaEngine,
+  slotId: string,
+  status: 'none' | 'pending' | 'ready' | 'error',
+): Promise<void> {
+  for (let index = 0; index < 20; index += 1) {
+    const slot = await engine.getStore().getSlot(slotId)
+    if (slot?.index.previewStatus === status) {
+      return
+    }
+    await new Promise(resolve => setTimeout(resolve, 0))
+  }
+  throw new Error(`Timed out waiting for slot "${slotId}" preview status "${status}".`)
 }
 
 function createDialogueStep(uuid: string, text: string, point: Partial<StoryPoint> = {}) {

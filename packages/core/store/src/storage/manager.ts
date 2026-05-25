@@ -1,6 +1,13 @@
-import type { QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaSnapshot, QuaSnapshotMeta } from '../types/base'
+import type {
+  QuaGameSavePreviewRecord,
+  QuaGameSaveSlotIndex,
+  QuaGameSaveSlotPayload,
+  QuaSnapshot,
+  QuaSnapshotMeta,
+} from '../types/base'
 import type { BackendConfig, StorageBackend, StorageBackendConstructor, StorageConfig, StorageMiddleware } from '../types/storage'
 import { MemoryBackend } from '../backends/memory'
+import { clonePreviewRecord, cloneSaveSlotIndex, cloneSaveSlotPayload } from '../preview'
 import logger from '../utils'
 
 /**
@@ -116,38 +123,66 @@ export class StorageManager {
     await this.backend.clearSnapshots(storeName)
   }
 
-  /**
-   * Save a game slot to storage (with middleware processing)
-   */
-  async saveGameSlot(gameSlot: QuaGameSaveSlot): Promise<void> {
-    const processedGameSlot = await this.applyBeforeWriteMiddlewares(gameSlot.slotId, gameSlot)
-    await this.backend.saveGameSlot(processedGameSlot)
+  async saveGameSlotIndex(index: QuaGameSaveSlotIndex): Promise<void> {
+    const processedIndex = await this.applyBeforeWriteMiddlewares(index.slotId, cloneSaveSlotIndex(index))
+    await this.backend.saveGameSlotIndex(processedIndex)
   }
 
-  /**
-   * Get a game slot from storage (with middleware processing)
-   */
-  async getGameSlot(slotId: string): Promise<QuaGameSaveSlot | undefined> {
-    const gameSlot = await this.backend.getGameSlot(slotId)
-    if (!gameSlot) {
+  async getGameSlotIndex(slotId: string): Promise<QuaGameSaveSlotIndex | undefined> {
+    const index = await this.backend.getGameSlotIndex(slotId)
+    if (!index) {
       return undefined
     }
 
-    return await this.applyAfterReadMiddlewares(slotId, gameSlot)
+    const processed = await this.applyAfterReadMiddlewares(slotId, index)
+    return cloneSaveSlotIndex(processed)
   }
 
-  /**
-   * Delete a game slot from storage
-   */
-  async deleteGameSlot(slotId: string): Promise<void> {
-    await this.backend.deleteGameSlot(slotId)
+  async listGameSlotIndexes(): Promise<QuaGameSaveSlotIndex[]> {
+    const slots = await this.backend.listGameSlotIndexes()
+    return slots.map(slot => cloneSaveSlotIndex(slot))
   }
 
-  /**
-   * List all game slots
-   */
-  async listGameSlots(): Promise<QuaGameSaveSlotMeta[]> {
-    return await this.backend.listGameSlots()
+  async deleteGameSlotIndex(slotId: string): Promise<void> {
+    await this.backend.deleteGameSlotIndex(slotId)
+  }
+
+  async saveGameSlotPayload(slot: QuaGameSaveSlotPayload): Promise<void> {
+    const processedSlot = await this.applyBeforeWriteMiddlewares(slot.slotId, cloneSaveSlotPayload(slot))
+    await this.backend.saveGameSlotPayload(processedSlot)
+  }
+
+  async getGameSlotPayload(slotId: string): Promise<QuaGameSaveSlotPayload | undefined> {
+    const slot = await this.backend.getGameSlotPayload(slotId)
+    if (!slot) {
+      return undefined
+    }
+
+    const processed = await this.applyAfterReadMiddlewares(slotId, slot)
+    return cloneSaveSlotPayload(processed)
+  }
+
+  async deleteGameSlotPayload(slotId: string): Promise<void> {
+    await this.backend.deleteGameSlotPayload(slotId)
+  }
+
+  async saveGameSlotPreview(preview: QuaGameSavePreviewRecord): Promise<void> {
+    const processedPreview = await this.applyBeforeWriteMiddlewares(preview.previewId, clonePreviewRecord(preview))
+    await this.backend.saveGameSlotPreview(processedPreview)
+  }
+
+  async getGameSlotPreview(previewId: string): Promise<QuaGameSavePreviewRecord | undefined> {
+    const preview = await this.backend.getGameSlotPreview(previewId)
+    if (!preview) {
+      return undefined
+    }
+
+    const processed = await this.applyAfterReadMiddlewares(previewId, preview)
+    return clonePreviewRecord(processed)
+  }
+
+  async deleteGameSlotPreview(previewId: string): Promise<void> {
+    await this.backend.deleteGameSlotPreview(previewId)
   }
 
   /**

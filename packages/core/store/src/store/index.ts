@@ -1,4 +1,29 @@
-import type { QuaActions, QuaConstructorOpts, QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaGetters, QuaMutations, QuaRestoreOptions, QuaSerializedState, QuaSnapshot, QuaState, QuaStateSerializer, QuaStoreSaveData } from '../types/base'
+import type {
+  QuaActions,
+  QuaConstructorOpts,
+  QuaGameSavePreviewPayload,
+  QuaGameSavePreviewReadOptions,
+  QuaGameSaveSlotMetadata,
+  QuaGameSaveSlotIndex,
+  QuaGameSaveSlotPayload,
+  QuaGameSaveSlotPreviewPatchInput,
+  QuaGameSaveSlotWriteInput,
+  QuaGetters,
+  QuaMutations,
+  QuaRestoreOptions,
+  QuaSerializedState,
+  QuaSnapshot,
+  QuaState,
+  QuaStateSerializer,
+  QuaStoreSaveData,
+} from '../types/base'
+import {
+  cloneSaveSlotIndex,
+  cloneSaveSlotPayload,
+  getPreviewDescriptorFromRecord,
+  materializePreviewPayload,
+  normalizePreviewInput,
+} from '../preview'
 import { assertStateSerializer, jsonStateSerializer } from '../serializer'
 import { StorageManager } from '../storage/manager'
 import logger, { generateId } from '../utils'
@@ -24,7 +49,6 @@ class QuaStore {
     this.innerGetters = options.getters || {}
     this.initialState = this.serializeState()
 
-    // Initialize storage manager if storage config is provided
     if (options.storage) {
       this.storageManager = new StorageManager(options.storage)
       this.storageManager.init().catch((error) => {
@@ -69,12 +93,8 @@ class QuaStore {
     )
   }
 
-  /**
-   * Get or create the default storage manager
-   */
   private async getStorageManager(): Promise<StorageManager> {
     if (!this.storageManager) {
-      // Try to use global storage manager if available
       const QuaStoreManager = (await import('../manager/index')).default
       const globalManager = await QuaStoreManager.getGlobalStorageManager()
       if (globalManager) {
@@ -135,83 +155,136 @@ class QuaStore {
     await storageManager.deleteSnapshot(snapshotId)
   }
 
-  /**
-   * Save current store state and all snapshots to a game slot
-   */
+  public async saveToSlot(input: QuaGameSaveSlotWriteInput): Promise<QuaGameSaveSlotPayload>
   public async saveToSlot(
     slotId: string,
-    metadata: {
-      name?: string
-      screenshot?: string
-      sceneName?: string
-      stepId?: string
-      playtime?: number
-      [key: string]: unknown
-    } = {},
-  ): Promise<void> {
-    logger.module(this.name).info(`Saving store to slot: ${slotId}`)
+    metadata?: Omit<QuaGameSaveSlotWriteInput, 'slotId' | 'storeData'> & Record<string, unknown>,
+  ): Promise<QuaGameSaveSlotPayload>
+  public async saveToSlot(
+    slotIdOrInput: string | QuaGameSaveSlotWriteInput,
+    metadata?: Omit<QuaGameSaveSlotWriteInput, 'slotId' | 'storeData'> & Record<string, unknown>,
+  ): Promise<QuaGameSaveSlotPayload> {
+    const input = typeof slotIdOrInput === 'string'
+      ? await this.createLegacySlotWriteInput(slotIdOrInput, metadata)
+      : slotIdOrInput
+    logger.module(this.name).info(`Saving store to slot: ${input.slotId}`)
 
     const storageManager = await this.getStorageManager()
-
-    // Get all snapshots for this store
-    const allSnapshots = await storageManager.listSnapshots(this.name)
-    const snapshotData: QuaSnapshot[] = []
-
-    for (const snapshotMeta of allSnapshots) {
-      const snapshot = await storageManager.getSnapshot(snapshotMeta.id)
-      if (snapshot) {
-        snapshotData.push(snapshot)
-      }
-    }
-
-    const gameSlot: QuaGameSaveSlot = {
-      slotId,
-      name: metadata.name,
-      timestamp: new Date(),
-      screenshot: metadata.screenshot,
+    const existingIndex = await storageManager.getGameSlotIndex(input.slotId)
+    const previewRecord = input.preview
+      ? normalizePreviewInput(input.slotId, input.preview)
+      : undefined
+    const nextIndex: QuaGameSaveSlotIndex = {
+      slotId: input.slotId,
+      name: input.name,
+      timestamp: input.timestamp ? new Date(input.timestamp) : new Date(),
+      revision: input.revision ?? (existingIndex?.revision ?? 0) + 1,
+      saveOpId: input.saveOpId,
+      previewStatus: previewRecord ? 'ready' : input.previewStatus || 'none',
+      preview: previewRecord ? getPreviewDescriptorFromRecord(previewRecord) : undefined,
       metadata: {
-        sceneName: metadata.sceneName,
-        stepId: metadata.stepId,
-        playtime: metadata.playtime,
-        ...metadata,
+        ...input.metadata,
       },
+    }
+    const nextSlot: QuaGameSaveSlotPayload = {
+      slotId: input.slotId,
+      index: nextIndex,
       storeData: {
-        state: this.serializeState(),
-        snapshots: snapshotData,
+        state: input.storeData.state,
+        snapshots: input.storeData.snapshots,
       },
     }
 
-    await storageManager.saveGameSlot(gameSlot)
-    logger.module(this.name).info(`Store saved to slot successfully: ${slotId}`)
+    await storageManager.saveGameSlotPayload(nextSlot)
+    if (previewRecord) {
+      await storageManager.saveGameSlotPreview(previewRecord)
+    }
+    await storageManager.saveGameSlotIndex(nextIndex)
+
+    const previousPreviewId = existingIndex?.preview?.previewId
+    if (previousPreviewId && previousPreviewId !== previewRecord?.previewId) {
+      await storageManager.deleteGameSlotPreview(previousPreviewId)
+    }
+
+    logger.module(this.name).info(`Store saved to slot successfully: ${input.slotId}`)
+    return cloneSaveSlotPayload(nextSlot)
+  }
+
+  public async patchSlotPreview(slotId: string, patch: QuaGameSaveSlotPreviewPatchInput): Promise<QuaGameSaveSlotIndex | undefined> {
+    const storageManager = await this.getStorageManager()
+    const currentIndex = await storageManager.getGameSlotIndex(slotId)
+    if (!currentIndex) {
+      return undefined
+    }
+    const currentPayload = await storageManager.getGameSlotPayload(slotId)
+
+    if (patch.expectedSaveOpId && currentIndex.saveOpId !== patch.expectedSaveOpId) {
+      return undefined
+    }
+    if (patch.expectedRevision !== undefined && currentIndex.revision !== patch.expectedRevision) {
+      return undefined
+    }
+
+    const previewRecord = patch.preview
+      ? normalizePreviewInput(slotId, patch.preview)
+      : undefined
+    const nextIndex: QuaGameSaveSlotIndex = {
+      ...currentIndex,
+      timestamp: patch.timestamp ? new Date(patch.timestamp) : currentIndex.timestamp,
+      revision: currentIndex.revision + 1,
+      saveOpId: patch.saveOpId ?? currentIndex.saveOpId,
+      previewStatus: previewRecord
+        ? 'ready'
+        : patch.clearPreview
+          ? patch.previewStatus || 'none'
+          : patch.previewStatus || currentIndex.previewStatus,
+      preview: previewRecord
+        ? getPreviewDescriptorFromRecord(previewRecord)
+        : patch.clearPreview
+          ? undefined
+          : currentIndex.preview,
+      metadata: {
+        ...currentIndex.metadata,
+      },
+    }
+    const nextPayload = currentPayload
+      ? {
+          ...currentPayload,
+          index: nextIndex,
+        }
+      : undefined
+
+    if (previewRecord) {
+      await storageManager.saveGameSlotPreview(previewRecord)
+    }
+    if (nextPayload) {
+      await storageManager.saveGameSlotPayload(nextPayload)
+    }
+    await storageManager.saveGameSlotIndex(nextIndex)
+
+    const previousPreviewId = currentIndex.preview?.previewId
+    if (patch.clearPreview && previousPreviewId) {
+      await storageManager.deleteGameSlotPreview(previousPreviewId)
+    }
+    else if (previewRecord && previousPreviewId && previousPreviewId !== previewRecord.previewId) {
+      await storageManager.deleteGameSlotPreview(previousPreviewId)
+    }
+
+    return cloneSaveSlotIndex(nextIndex)
   }
 
   public async exportSaveData(): Promise<QuaStoreSaveData> {
-    const storageManager = await this.getStorageManager()
-    const allSnapshots = await storageManager.listSnapshots(this.name)
-    const snapshotData: QuaSnapshot[] = []
-
-    for (const snapshotMeta of allSnapshots) {
-      const snapshot = await storageManager.getSnapshot(snapshotMeta.id)
-      if (snapshot) {
-        snapshotData.push(snapshot)
-      }
-    }
-
     return {
       state: this.serializeState(),
-      snapshots: snapshotData,
+      snapshots: await this.collectSnapshotData(),
     }
   }
 
-  /**
-   * Load store state and snapshots from a game slot
-   * This will completely overwrite the current state and all snapshots
-   */
   public async loadFromSlot(slotId: string, options: { force?: boolean } = {}): Promise<void> {
     logger.module(this.name).info(`Loading store from slot: ${slotId}`)
 
     const storageManager = await this.getStorageManager()
-    const gameSlot = await storageManager.getGameSlot(slotId)
+    const gameSlot = await storageManager.getGameSlotPayload(slotId)
 
     if (!gameSlot) {
       throw new Error(`Game slot "${slotId}" not found.`)
@@ -223,15 +296,12 @@ class QuaStore {
       throw new Error('Cannot load from slot due to some data already exists in store. Use force option to override.')
     }
 
-    // Clear existing snapshots for this store
     await storageManager.clearSnapshots(this.name)
 
-    // Restore all snapshots
     for (const snapshot of gameSlot.storeData.snapshots) {
       await storageManager.saveSnapshot(snapshot)
     }
 
-    // Restore state
     this.restoreSerializedState(gameSlot.storeData.state)
 
     logger.module(this.name).info(`Store loaded from slot successfully: ${slotId}`)
@@ -251,39 +321,61 @@ class QuaStore {
     this.restoreSerializedState(data.state)
   }
 
-  /**
-   * Delete a game slot
-   */
   public async deleteSlot(slotId: string): Promise<void> {
     logger.module(this.name).info(`Deleting slot: ${slotId}`)
 
     const storageManager = await this.getStorageManager()
-    await storageManager.deleteGameSlot(slotId)
+    const index = await storageManager.getGameSlotIndex(slotId)
+    if (index?.preview?.previewId) {
+      await storageManager.deleteGameSlotPreview(index.preview.previewId)
+    }
+    await storageManager.deleteGameSlotPayload(slotId)
+    await storageManager.deleteGameSlotIndex(slotId)
 
     logger.module(this.name).info(`Slot deleted successfully: ${slotId}`)
   }
 
-  /**
-   * List all game slots
-   */
-  public async listSlots(): Promise<QuaGameSaveSlotMeta[]> {
+  public async listSlots(): Promise<QuaGameSaveSlotIndex[]> {
     const storageManager = await this.getStorageManager()
-    return await storageManager.listGameSlots()
+    return await storageManager.listGameSlotIndexes()
   }
 
-  /**
-   * Get a specific game slot
-   */
-  public async getSlot(slotId: string): Promise<QuaGameSaveSlot | undefined> {
+  public async getSlot(slotId: string): Promise<QuaGameSaveSlotPayload | undefined> {
     const storageManager = await this.getStorageManager()
-    return await storageManager.getGameSlot(slotId)
+    return await storageManager.getGameSlotPayload(slotId)
   }
 
-  /**
-   * Check if a slot exists
-   */
+  public async getSlotPreview(
+    slotId: string,
+    options: QuaGameSavePreviewReadOptions = {},
+  ): Promise<QuaGameSavePreviewPayload | undefined> {
+    const storageManager = await this.getStorageManager()
+    const slotIndex = await storageManager.getGameSlotIndex(slotId)
+    const previewId = slotIndex?.preview?.previewId
+    if (!previewId) {
+      return undefined
+    }
+
+    const preview = await storageManager.getGameSlotPreview(previewId)
+    if (!preview) {
+      return undefined
+    }
+    return materializePreviewPayload(preview, options.format)
+  }
+
+  public async getSlotPreviews(
+    slotIds: readonly string[],
+    options: QuaGameSavePreviewReadOptions = {},
+  ): Promise<Record<string, QuaGameSavePreviewPayload | undefined>> {
+    const entries = await Promise.all(slotIds.map(async (slotId) => {
+      return [slotId, await this.getSlotPreview(slotId, options)] as const
+    }))
+    return Object.fromEntries(entries)
+  }
+
   public async hasSlot(slotId: string): Promise<boolean> {
-    const slot = await this.getSlot(slotId)
+    const storageManager = await this.getStorageManager()
+    const slot = await storageManager.getGameSlotIndex(slotId)
     return slot !== undefined
   }
 
@@ -309,6 +401,63 @@ class QuaStore {
 
   public getState(): QuaState {
     return this.state
+  }
+
+  private async collectSnapshotData(): Promise<QuaSnapshot[]> {
+    const storageManager = await this.getStorageManager()
+    const allSnapshots = await storageManager.listSnapshots(this.name)
+    const snapshotData: QuaSnapshot[] = []
+
+    for (const snapshotMeta of allSnapshots) {
+      const snapshot = await storageManager.getSnapshot(snapshotMeta.id)
+      if (snapshot) {
+        snapshotData.push(snapshot)
+      }
+    }
+
+    return snapshotData
+  }
+
+  private async createLegacySlotWriteInput(
+    slotId: string,
+    metadata: (Omit<QuaGameSaveSlotWriteInput, 'slotId' | 'storeData'> & Record<string, unknown>) | undefined,
+  ): Promise<QuaGameSaveSlotWriteInput> {
+    const typedMetadata = metadata as (Omit<QuaGameSaveSlotWriteInput, 'slotId' | 'storeData'> & Record<string, unknown>) | undefined
+    const {
+      name,
+      timestamp,
+      revision,
+      saveOpId,
+      previewStatus,
+      preview,
+      metadata: nestedMetadata,
+      ...restMetadata
+    } = typedMetadata || {}
+    const topLevelSceneName = typeof typedMetadata?.sceneName === 'string' ? typedMetadata.sceneName : undefined
+    const topLevelStepId = typeof typedMetadata?.stepId === 'string' ? typedMetadata.stepId : undefined
+    const topLevelPlaytime = typeof typedMetadata?.playtime === 'number' ? typedMetadata.playtime : undefined
+    const nextMetadata: QuaGameSaveSlotMetadata = {
+      ...restMetadata,
+      ...(nestedMetadata || {}),
+      sceneName: typeof nestedMetadata?.sceneName === 'string' ? nestedMetadata.sceneName : topLevelSceneName,
+      stepId: typeof nestedMetadata?.stepId === 'string' ? nestedMetadata.stepId : topLevelStepId,
+      playtime: typeof nestedMetadata?.playtime === 'number' ? nestedMetadata.playtime : topLevelPlaytime,
+    }
+
+    return {
+      slotId,
+      name,
+      timestamp,
+      revision,
+      saveOpId,
+      previewStatus,
+      preview,
+      metadata: nextMetadata,
+      storeData: {
+        state: this.serializeState(),
+        snapshots: await this.collectSnapshotData(),
+      },
+    }
   }
 }
 
