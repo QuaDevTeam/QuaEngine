@@ -5,6 +5,7 @@ import { createBackgroundWebRendererPlugin } from './background'
 import { createBacklogWebRendererPlugin } from './backlog'
 import { createCharacterWebRendererPlugin } from './character'
 import { createChoicesWebRendererPlugin } from './choices'
+import { createGalleryWebRendererPlugin } from './gallery'
 import { createDialogueWebRendererPlugin } from './dialogue'
 import { createEffectsWebRendererPlugin } from './effects'
 import { createFontsWebRendererPlugin } from './fonts'
@@ -34,5 +35,6 @@ export function createVisualNovelWebRendererPlugins(options: VisualNovelWebRende
     createUiWebRendererPlugin(),
     createSettingsWebRendererPlugin(),
     createBacklogWebRendererPlugin(),
+    createGalleryWebRendererPlugin(),
   ]
 }

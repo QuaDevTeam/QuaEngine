@@ -111,7 +111,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **`@quajs/vite-plugin`** integrates engine wiring, script compilation, asset bundling, and dev VFS.
 
 #### Current Gaps / Next Milestones
-- **Additional feature plugin packages are still pending**. Main menu behavior, save/load UI flows, gallery, achievements, inventory, and similar features should become independent engine/renderer plugin packages or package sub-entries instead of engine-core features.
+- **Additional feature plugin packages are still pending**. Main menu behavior, save/load UI flows, achievements, inventory, and similar features should become independent engine/renderer plugin packages or package sub-entries instead of engine-core features.
 - **Renderer plugin ecosystem is early**. The contracts, Web renderer plugin layer shape, native DOM layer helpers, Web `plugins/*` sub-entries, and Vue UI plugin sub-entry exist, but standalone renderer plugin packages beyond package sub-entries are still pending.
 - **Example app/editor/documentation are still pending**. The engine/runtime foundations exist, but creator-facing examples, visual editor, templates, and full tutorials remain future work.
 - **Native/non-Web renderers and native asset adapters are not implemented**. Current official platform adapters are Web, Node, and Memory; current official Web rendering stack is `@quajs/renderer-web` plus framework adapters such as `@quajs/renderer-vue`.
@@ -298,6 +298,12 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Current scope**: Feature plugin that records engine-owned story/checkpoint context. Runtime content entries carry required package metadata so rewind and voice replay can ensure dependencies before use.
 - **Status**: Implemented.
 
+#### **@quajs/plugin-gallery** (`packages/plugins/gallery`)
+- **Independence**: Standalone workspace package outside `@quajs/engine`.
+- **Purpose**: Provides explicit gallery catalog registration, a reserved gallery scene shell, persistent unlock profiles, and renderer intent contracts.
+- **Current scope**: Feature plugin that keeps catalog definitions and runtime view state in engine-owned projection while storing long-lived unlock progress in an independent QuaStore profile snapshot. Runtime package gallery definitions are package-aware and removable without rolling back unlock records.
+- **Status**: Implemented with optional `@quajs/renderer-web/plugins/gallery` and `@quajs/renderer-vue/plugins/gallery` projection layers.
+
 ### Plugin Systems Inside Existing Packages
 
 #### **Engine Plugin Framework** (`packages/core/engine/src/plugins`)
@@ -324,7 +330,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Scope**: Build-time asset processing only. These do not run as engine/runtime plugins.
 
 ### Independent Feature Plugins Not Yet Present
-- Standalone feature plugin packages still missing include `@quajs/plugin-ui`, `@quajs/plugin-save-load`, `@quajs/plugin-gallery`, and achievement/inventory plugins.
+- Standalone feature plugin packages still missing include `@quajs/plugin-ui`, `@quajs/plugin-save-load`, and achievement/inventory plugins.
 - When added, feature plugins should live under `packages/plugins/*` or another explicit plugin package group and should integrate through engine/render-core/pipeline contracts instead of mutating renderer state or extending engine core with product-specific UI semantics.
 
 ## Development Infrastructure

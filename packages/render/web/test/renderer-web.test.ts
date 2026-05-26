@@ -9,6 +9,8 @@ import {
 } from '@quajs/plugin-audio/contracts'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import { FONTS_PLUGIN_ID } from '@quajs/plugin-fonts/contracts'
+import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
+import type { GalleryProjection } from '@quajs/plugin-gallery/contracts'
 import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
 import {
   createFlowControlProjection,
@@ -35,6 +37,7 @@ import {
 } from '../src'
 import { WebSaveSlotPreviewCache } from '../src/save-preview'
 import { WebAudioRendererController } from '../src/audio'
+import { createGalleryProjectionModel, getGalleryProjectionFromView } from '../src/plugins/gallery'
 import { createVisualNovelWebRendererPlugins } from '../src/plugins/preset'
 
 describe('@quajs/renderer-web', () => {
@@ -640,6 +643,66 @@ describe('@quajs/renderer-web', () => {
 
     expect(choices).toEqual(['yes'])
     expect(advances).toEqual([{ source: 'pointer:dialogue' }, { source: 'pointer:stage' }])
+
+    await renderer.unmount()
+  })
+
+  it('resolves gallery projections from view plugins', () => {
+    const projection = galleryProjection()
+    const current = view({
+      plugins: {
+        [GALLERY_PLUGIN_ID]: projection,
+      },
+    })
+
+    expect(getGalleryProjectionFromView(current)).toBe(projection)
+    const model = createGalleryProjectionModel(projection)
+    expect(model?.selectedCatalog?.id).toBe('cg')
+    expect(model?.selectedEntry?.id).toBe('cg.sunset')
+    expect(model?.selectedContent?.id).toBe('cg.sunset.text')
+    expect(model?.filteredEntries.map(entry => entry.id)).toEqual(['cg.sunset', 'cg.night'])
+  })
+
+  it('renders gallery scene UI and emits gallery plugin intents', async () => {
+    const pipeline = new Pipeline()
+    const received: unknown[] = []
+    pipeline.on(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, context => received.push({
+      type: 'entry',
+      payload: context.event.payload,
+    }))
+    pipeline.on(GalleryRenderToLogicEvents.CLOSE_REQUEST, context => received.push({
+      type: 'close',
+      payload: context.event.payload,
+    }))
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        plugins: {
+          [GALLERY_PLUGIN_ID]: galleryProjection(),
+        },
+      }),
+    })
+
+    await renderer.mount()
+
+    expect(root.querySelector('.qua-gallery-layer')).not.toBeNull()
+    expect(root.querySelector('.qua-gallery-panel')?.textContent).toContain('CG')
+    expect(root.querySelector('.qua-gallery-panel')?.textContent).toContain('Sunset')
+
+    root.querySelector<HTMLButtonElement>('[data-gallery-entry-id="cg.night"]')!.click()
+    root.querySelector<HTMLButtonElement>('.qua-gallery-close')!.click()
+    await flushDom()
+
+    expect(received).toEqual([
+      { type: 'entry', payload: { entryId: 'cg.night' } },
+      { type: 'close', payload: {} },
+    ])
 
     await renderer.unmount()
   })
@@ -2039,6 +2102,53 @@ function view(overrides: Partial<QuaViewProjection> = {}): QuaViewProjection {
     animations: [],
     plugins: {},
     ...overrides,
+  }
+}
+
+function galleryProjection(): GalleryProjection {
+  return {
+    revision: 1,
+    sceneActive: true,
+    profileId: 'default',
+    catalogs: [{
+      id: 'cg',
+      title: 'CG',
+      entryIds: ['cg.sunset', 'cg.night'],
+      totalEntries: 2,
+      unlockedEntries: 1,
+      lockedEntries: 1,
+    }],
+    entries: [
+      {
+        id: 'cg.sunset',
+        catalogId: 'cg',
+        title: 'Sunset',
+        summary: 'Beach',
+        contents: [{
+          id: 'cg.sunset.text',
+          kind: 'text',
+          text: 'Sunset CG',
+        }],
+        unlocked: true,
+      },
+      {
+        id: 'cg.night',
+        catalogId: 'cg',
+        title: 'Night',
+        contents: [{
+          id: 'cg.night.text',
+          kind: 'text',
+          text: 'Night CG',
+        }],
+        unlocked: false,
+      },
+    ],
+    filteredEntryIds: ['cg.sunset', 'cg.night'],
+    selectedCatalogId: 'cg',
+    selectedEntryId: 'cg.sunset',
+    selectedContentId: 'cg.sunset.text',
+    requiredRuntimePackages: [],
+    filter: {},
   }
 }
 

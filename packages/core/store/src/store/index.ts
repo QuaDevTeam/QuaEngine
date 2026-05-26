@@ -49,7 +49,10 @@ class QuaStore {
     this.innerGetters = options.getters || {}
     this.initialState = this.serializeState()
 
-    if (options.storage) {
+    if (options.storageManager) {
+      this.storageManager = options.storageManager
+    }
+    else if (options.storage) {
       this.storageManager = new StorageManager(options.storage)
       this.storageManager.init().catch((error) => {
         logger.module(name).error('Failed to initialize storage manager:', error)
@@ -93,7 +96,7 @@ class QuaStore {
     )
   }
 
-  private async getStorageManager(): Promise<StorageManager> {
+  public async getStorageManager(): Promise<StorageManager> {
     if (!this.storageManager) {
       const QuaStoreManager = (await import('../manager/index')).default
       const globalManager = await QuaStoreManager.getGlobalStorageManager()
@@ -106,6 +109,10 @@ class QuaStore {
       await this.storageManager.init()
     }
     return this.storageManager
+  }
+
+  public getSerializer(): QuaStateSerializer {
+    return this.serializer
   }
 
   public async snapshot(id?: string): Promise<string> {

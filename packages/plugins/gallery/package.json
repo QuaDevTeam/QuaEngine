@@ -1,0 +1,102 @@
+{
+  "name": "@quajs/plugin-gallery",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Gallery catalog scene shell and persistent unlock profiles for QuaEngine",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "plugin",
+    "gallery",
+    "visual-novel"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "import": "./dist/contracts.js"
+    },
+    "./script-compiler": {
+      "types": "./dist/script-compiler.d.ts",
+      "import": "./dist/script-compiler.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@quajs/engine": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/store": "workspace:*"
+  },
+  "dependencies": {
+    "@babel/types": "catalog:"
+  },
+  "devDependencies": {
+    "@quajs/assets": "workspace:*",
+    "@quajs/engine": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/store": "workspace:*",
+    "@quajs/story-graph": "workspace:*"
+  },
+  "quajs": {
+    "type": "plugin",
+    "category": "ui",
+    "description": "Gallery catalog scene shell and persistent unlock profiles",
+    "decorators": {
+      "UnlockGallery": {
+        "function": "unlockGalleryEntryWithEngine",
+        "module": "@quajs/plugin-gallery"
+      },
+      "OpenGalleryScene": {
+        "function": "openGallerySceneWithEngine",
+        "module": "@quajs/plugin-gallery"
+      }
+    },
+    "language": {
+      "decorators": {
+        "UnlockGallery": {
+          "description": "Unlock a gallery entry or entry id list",
+          "args": [
+            {
+              "name": "entryIdOrIds",
+              "detail": "Gallery entry id or string array of ids"
+            },
+            {
+              "name": "options",
+              "detail": "Optional unlock metadata such as profileId or source"
+            }
+          ]
+        },
+        "OpenGalleryScene": {
+          "description": "Open the reserved gallery scene shell",
+          "args": [
+            {
+              "name": "options",
+              "detail": "Initial gallery scene options such as catalogId, entryId, profileId, or filter"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

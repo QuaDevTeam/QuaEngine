@@ -322,6 +322,27 @@ Yuki: Hello \${scope.playerName}
     expect(result).toContain('from "@quajs/plugin-backlog"')
   })
 
+  it('loads gallery decorators from plugin package metadata and lowers them through plugin helpers', async () => {
+    const transformer = await createPluginAwareTransformerAsync()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @UnlockGallery('cg.sunset')
+          @OpenGalleryScene({ catalogId: 'cg', entryId: 'cg.sunset' })
+          Yuki: Gallery unlocked.
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('unlockGalleryEntryWithEngine(ctx.engine, "cg.sunset")')
+    expect(result).toContain('openGallerySceneWithEngine(ctx.engine, {')
+    expect(result).toContain('catalogId: "cg"')
+    expect(result).toContain('entryId: "cg.sunset"')
+    expect(result).toContain('from "@quajs/plugin-gallery"')
+  })
+
   it('compiles entry decorators into step story metadata', async () => {
     const transformer = await createPluginAwareTransformerAsync()
     const result = transformer.transformSource(`

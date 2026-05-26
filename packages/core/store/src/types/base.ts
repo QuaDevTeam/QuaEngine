@@ -47,6 +47,7 @@ export interface QuaConstructorOpts {
   actions?: QuaActions
   serializer?: QuaStateSerializer
   storage?: import('./storage').StorageConfig
+  storageManager?: import('../storage/manager').StorageManager
 }
 
 export interface QuaRestoreOptions {

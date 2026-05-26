@@ -5,6 +5,8 @@ import { createViteDevAssetRuntime } from '@quajs/assets-web'
 import { Pipeline } from '@quajs/pipeline'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import { FONTS_PLUGIN_ID } from '@quajs/plugin-fonts/contracts'
+import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
+import type { GalleryProjection } from '@quajs/plugin-gallery/contracts'
 import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
 import {
   createFlowControlProjection,
@@ -196,6 +198,45 @@ describe('@quajs/renderer-vue', () => {
     await flushVue()
 
     expect(received).toEqual([{ entryId: 'entry-1' }])
+  })
+
+  it('projects gallery scene UI and emits gallery plugin intents', async () => {
+    const pipeline = new Pipeline()
+    const received: unknown[] = []
+    pipeline.on(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, context => received.push(context.event.payload))
+    pipeline.on(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, context => received.push(context.event.payload))
+    pipeline.on(GalleryRenderToLogicEvents.SELECT_CONTENT_REQUEST, context => received.push(context.event.payload))
+    pipeline.on(GalleryRenderToLogicEvents.CLOSE_REQUEST, context => received.push(context.event.payload))
+
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        plugins: {
+          [GALLERY_PLUGIN_ID]: galleryProjection(),
+        },
+      }),
+    })
+
+    await flushVue()
+    expect(host.el.querySelector('.qua-gallery-layer')).not.toBeNull()
+    expect(host.el.textContent).toContain('CG')
+    expect(host.el.textContent).toContain('Sunset')
+
+    const search = host.el.querySelector<HTMLInputElement>('.qua-gallery-search-input')!
+    search.value = 'night'
+    search.dispatchEvent(new Event('input'))
+    host.el.querySelector<HTMLButtonElement>('[data-gallery-entry-id="cg.night"]')!.click()
+    host.el.querySelector<HTMLButtonElement>('[data-gallery-content-id="cg.sunset.text"]')!.click()
+    host.el.querySelector<HTMLButtonElement>('.qua-gallery-close')!.click()
+    await flushVue()
+
+    expect(received).toEqual([
+      { filter: { search: 'night' } },
+      { entryId: 'cg.night' },
+      { contentId: 'cg.sunset.text' },
+      {},
+    ])
   })
 
   it('keeps visual feature layers opt-in through renderer plugins', async () => {
@@ -1445,6 +1486,53 @@ function view(overrides: Partial<QuaViewProjection> = {}): QuaViewProjection {
     animations: [],
     plugins: {},
     ...overrides,
+  }
+}
+
+function galleryProjection(): GalleryProjection {
+  return {
+    revision: 1,
+    sceneActive: true,
+    profileId: 'default',
+    catalogs: [{
+      id: 'cg',
+      title: 'CG',
+      entryIds: ['cg.sunset', 'cg.night'],
+      totalEntries: 2,
+      unlockedEntries: 1,
+      lockedEntries: 1,
+    }],
+    entries: [
+      {
+        id: 'cg.sunset',
+        catalogId: 'cg',
+        title: 'Sunset',
+        summary: 'Beach',
+        contents: [{
+          id: 'cg.sunset.text',
+          kind: 'text',
+          text: 'Sunset CG',
+        }],
+        unlocked: true,
+      },
+      {
+        id: 'cg.night',
+        catalogId: 'cg',
+        title: 'Night',
+        contents: [{
+          id: 'cg.night.text',
+          kind: 'text',
+          text: 'Night CG',
+        }],
+        unlocked: false,
+      },
+    ],
+    filteredEntryIds: ['cg.sunset', 'cg.night'],
+    selectedCatalogId: 'cg',
+    selectedEntryId: 'cg.sunset',
+    selectedContentId: 'cg.sunset.text',
+    requiredRuntimePackages: [],
+    filter: {},
   }
 }
 

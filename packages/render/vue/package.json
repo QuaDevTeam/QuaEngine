@@ -32,6 +32,10 @@
       "types": "./dist/plugins/backlog/index.d.ts",
       "import": "./dist/plugins/backlog/index.js"
     },
+    "./plugins/gallery": {
+      "types": "./dist/plugins/gallery/index.d.ts",
+      "import": "./dist/plugins/gallery/index.js"
+    },
     "./plugins/sprite": {
       "types": "./dist/plugins/sprite/index.d.ts",
       "import": "./dist/plugins/sprite/index.js"
@@ -105,6 +109,7 @@
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
+    "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
@@ -114,6 +119,9 @@
   },
   "peerDependenciesMeta": {
     "@quajs/plugin-backlog": {
+      "optional": true
+    },
+    "@quajs/plugin-gallery": {
       "optional": true
     },
     "@quajs/plugin-fonts": {
@@ -129,6 +137,7 @@
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
+    "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
