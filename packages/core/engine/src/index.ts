@@ -301,5 +301,15 @@ export type {
   PluginConstructor,
   PluginConstructorOptions,
 } from './plugins'
-export { UiOverlayPlugin } from './plugins/ui-overlay-plugin'
-export type { UiOverlayPluginOptions } from './plugins/ui-overlay-plugin'
+export {
+  getUiOverlayHostProjection,
+  releaseUiOverlayHostWithEngine,
+  retainUiOverlayHostWithEngine,
+  UiOverlayPlugin,
+  UI_OVERLAY_HOST_SCENE_ID,
+} from './plugins/ui-overlay-plugin'
+export type {
+  UiOverlayHostReleaseOptions,
+  UiOverlayHostRetainOptions,
+  UiOverlayPluginOptions,
+} from './plugins/ui-overlay-plugin'

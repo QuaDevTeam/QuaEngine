@@ -61,6 +61,7 @@ export type {
   ViewLayoutProjection,
   ViewLayoutScaleMode,
   ViewPluginProjectionMap,
+  ViewUiSceneHostProjection,
 } from '../events/events'
 
 export type {
@@ -330,6 +331,7 @@ export interface QuaEngineInterface {
   getLocale: () => string
   setLocale: (locale: string, options?: SetLocaleOptions) => Promise<void>
   getCurrentRuntimePackageId: () => string | undefined
+  getRuntimePackages: () => RuntimePackageStateRecord[]
   getRuntimeStateSnapshot: () => EngineRuntimeState
   getViewState: () => QuaViewProjection
   getFlowControlState: () => ViewFlowControlProjection
@@ -957,6 +959,7 @@ export function createInitialEngineState(layout?: ViewLayoutInput, flowControl?:
       choices: [],
       ui: {
         visible: true,
+        host: undefined,
         overlays: {},
       },
       flowControl: createFlowControlProjection(flowControl),

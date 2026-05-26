@@ -7,6 +7,8 @@ import {
   createInitialAudioProjection,
   onAudioRenderToLogic,
 } from '@quajs/plugin-audio/contracts'
+import { ACHIEVEMENT_PLUGIN_ID, AchievementRenderToLogicEvents } from '@quajs/plugin-achievement/contracts'
+import type { AchievementProjection } from '@quajs/plugin-achievement/contracts'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import { FONTS_PLUGIN_ID } from '@quajs/plugin-fonts/contracts'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
@@ -703,6 +705,71 @@ describe('@quajs/renderer-web', () => {
       { type: 'entry', payload: { entryId: 'cg.night' } },
       { type: 'close', payload: {} },
     ])
+
+    await renderer.unmount()
+  })
+
+  it('renders achievement board and toast UI and emits achievement plugin intents', async () => {
+    const pipeline = new Pipeline()
+    const received: unknown[] = []
+    pipeline.on(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, context => received.push({
+      type: 'filter',
+      payload: context.event.payload,
+    }))
+    pipeline.on(AchievementRenderToLogicEvents.SELECT_GROUP_REQUEST, context => received.push({
+      type: 'group',
+      payload: context.event.payload,
+    }))
+    pipeline.on(AchievementRenderToLogicEvents.SELECT_ACHIEVEMENT_REQUEST, context => received.push({
+      type: 'achievement',
+      payload: context.event.payload,
+    }))
+    pipeline.on(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, context => received.push({
+      type: 'dismiss',
+      payload: context.event.payload,
+    }))
+    pipeline.on(AchievementRenderToLogicEvents.CLOSE_BOARD_REQUEST, context => received.push({
+      type: 'close',
+      payload: context.event.payload,
+    }))
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        plugins: {
+          [ACHIEVEMENT_PLUGIN_ID]: achievementProjection(),
+        },
+      }),
+    })
+
+    await renderer.mount()
+
+    expect(root.querySelector('.qua-achievement-layer')).not.toBeNull()
+    expect(root.querySelector('.qua-achievement-toast-layer')).not.toBeNull()
+    expect(root.textContent).toContain('Achievements')
+    expect(root.textContent).toContain('First Step')
+
+    const search = root.querySelector<HTMLInputElement>('.qua-achievement-search-input')!
+    search.value = 'cg'
+    search.dispatchEvent(new Event('input'))
+    root.querySelector<HTMLButtonElement>('[data-achievement-group-id="side"]')!.click()
+    root.querySelector<HTMLButtonElement>('[data-achievement-id="cg.master"]')!.click()
+    root.querySelector<HTMLButtonElement>('[data-achievement-notification-id="toast-1"]')!.click()
+    root.querySelector<HTMLButtonElement>('.qua-achievement-close')!.click()
+    await flushDom()
+
+    expect(received).toEqual(expect.arrayContaining([
+      { type: 'filter', payload: { filter: { search: 'cg' } } },
+      { type: 'group', payload: { groupId: 'side' } },
+      { type: 'achievement', payload: { achievementId: 'cg.master' } },
+      { type: 'dismiss', payload: { notificationId: 'toast-1' } },
+      { type: 'close', payload: {} },
+    ]))
 
     await renderer.unmount()
   })
@@ -2149,6 +2216,69 @@ function galleryProjection(): GalleryProjection {
     selectedContentId: 'cg.sunset.text',
     requiredRuntimePackages: [],
     filter: {},
+  }
+}
+
+function achievementProjection(): AchievementProjection {
+  return {
+    revision: 1,
+    sceneActive: true,
+    profileId: 'default',
+    notificationMode: 'toast',
+    groups: [
+      {
+        id: 'main',
+        title: 'Main',
+        totalAchievements: 1,
+        unlockedAchievements: 1,
+        lockedAchievements: 0,
+      },
+      {
+        id: 'side',
+        title: 'Side',
+        totalAchievements: 1,
+        unlockedAchievements: 0,
+        lockedAchievements: 1,
+      },
+    ],
+    achievements: [
+      {
+        id: 'story.first-step',
+        groupId: 'main',
+        title: 'First Step',
+        summary: 'Reach the first milestone',
+        unlocked: true,
+        unlockRecord: {
+          achievementId: 'story.first-step',
+          unlockedAt: Date.now(),
+          notificationMode: 'toast',
+        },
+      },
+      {
+        id: 'cg.master',
+        groupId: 'side',
+        title: 'CG Master',
+        hidden: true,
+        summary: 'Unlock the hidden gallery reward',
+        unlocked: false,
+      },
+    ],
+    filteredAchievementIds: ['story.first-step', 'cg.master'],
+    selectedGroupId: 'main',
+    selectedAchievementId: 'story.first-step',
+    notifications: [{
+      id: 'toast-1',
+      achievementId: 'story.first-step',
+      title: 'Achievement Unlocked',
+      summary: 'First Step',
+      mode: 'toast',
+      durationMs: 1500,
+      createdAt: Date.now(),
+    }],
+    requiredRuntimePackages: [],
+    filter: {
+      includeHidden: true,
+    },
   }
 }
 

@@ -1,0 +1,113 @@
+{
+  "name": "@quajs/plugin-achievement",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Persistent achievements, conditions, rewards, notification host integration, and board scene for QuaEngine",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "plugin",
+    "achievement",
+    "visual-novel"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "import": "./dist/contracts.js"
+    },
+    "./script-compiler": {
+      "types": "./dist/script-compiler.d.ts",
+      "import": "./dist/script-compiler.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@quajs/engine": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/plugin-gallery": "workspace:*",
+    "@quajs/store": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@quajs/plugin-gallery": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@babel/types": "catalog:"
+  },
+  "devDependencies": {
+    "@quajs/assets": "workspace:*",
+    "@quajs/engine": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/plugin-gallery": "workspace:*",
+    "@quajs/store": "workspace:*",
+    "@quajs/story-graph": "workspace:*"
+  },
+  "quajs": {
+    "type": "plugin",
+    "category": "ui",
+    "description": "Achievement definitions, long-lived profile progress, rewards, notifications, and board scene",
+    "renderer": {
+      "web": "@quajs/renderer-web/plugins/achievement",
+      "vue": "@quajs/renderer-vue/plugins/achievement"
+    },
+    "decorators": {
+      "UnlockAchievement": {
+        "function": "unlockAchievementWithEngine",
+        "module": "@quajs/plugin-achievement"
+      },
+      "OpenAchievementBoard": {
+        "function": "openAchievementBoardWithEngine",
+        "module": "@quajs/plugin-achievement"
+      }
+    },
+    "language": {
+      "decorators": {
+        "UnlockAchievement": {
+          "description": "Unlock an achievement id or string array of achievement ids",
+          "args": [
+            {
+              "name": "achievementIdOrIds",
+              "detail": "Achievement id or string array of ids"
+            },
+            {
+              "name": "options",
+              "detail": "Optional unlock metadata such as profileId, source, or notification"
+            }
+          ]
+        },
+        "OpenAchievementBoard": {
+          "description": "Open the reserved achievement board scene",
+          "args": [
+            {
+              "name": "options",
+              "detail": "Initial board options such as profileId, groupId, achievementId, or filter"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

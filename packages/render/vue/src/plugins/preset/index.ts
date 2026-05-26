@@ -1,5 +1,6 @@
 import type { QuaVueRendererPlugin } from '../core'
 import { createAudioRendererPlugin } from '../audio'
+import { createAchievementRendererPlugin } from '../achievement'
 import { createBackgroundRendererPlugin } from '../background'
 import { createBacklogRendererPlugin } from '../backlog'
 import { createCharacterRendererPlugin } from '../character'
@@ -34,5 +35,6 @@ export function createVisualNovelRendererPlugins(options: VisualNovelRendererPre
     createSettingsRendererPlugin(),
     createBacklogRendererPlugin(),
     createGalleryRendererPlugin(),
+    createAchievementRendererPlugin(),
   ]
 }

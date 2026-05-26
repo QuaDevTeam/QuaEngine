@@ -333,6 +333,14 @@ export interface ViewUiPluginProjection {
   defaults?: Readonly<ViewUiSkinDefaultsProjection>
 }
 
+export interface ViewUiSceneHostProjection {
+  sceneId: string
+  sceneActive: boolean
+  sources: readonly string[]
+  returnCheckpointId?: string
+  reason?: string
+}
+
 export interface ViewUiOverlayProjection extends Readonly<Record<string, unknown>> {
   skinId?: string
 }
@@ -370,6 +378,7 @@ export interface ViewChoiceProjection {
 
 export interface ViewUiProjection {
   visible: boolean
+  host?: Readonly<ViewUiSceneHostProjection>
   overlays?: Readonly<Record<string, ViewUiOverlayProjection>>
 }
 

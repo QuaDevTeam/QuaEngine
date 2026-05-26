@@ -343,6 +343,27 @@ Yuki: Hello \${scope.playerName}
     expect(result).toContain('from "@quajs/plugin-gallery"')
   })
 
+  it('loads achievement decorators from plugin package metadata and lowers them through plugin helpers', async () => {
+    const transformer = await createPluginAwareTransformerAsync()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @UnlockAchievement('story.first-step')
+          @OpenAchievementBoard({ groupId: 'main', achievementId: 'story.first-step' })
+          Yuki: Achievement unlocked.
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('unlockAchievementWithEngine(ctx.engine, "story.first-step")')
+    expect(result).toContain('openAchievementBoardWithEngine(ctx.engine, {')
+    expect(result).toContain('groupId: "main"')
+    expect(result).toContain('achievementId: "story.first-step"')
+    expect(result).toContain('from "@quajs/plugin-achievement"')
+  })
+
   it('compiles entry decorators into step story metadata', async () => {
     const transformer = await createPluginAwareTransformerAsync()
     const result = transformer.transformSource(`

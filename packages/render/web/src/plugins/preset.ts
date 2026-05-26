@@ -1,6 +1,7 @@
 import type { RendererPlugin } from '@quajs/render-core'
 import type { QuaWebDomRendererPlugin } from './core'
 import { createAudioWebRendererPlugin } from './audio'
+import { createAchievementWebRendererPlugin } from './achievement'
 import { createBackgroundWebRendererPlugin } from './background'
 import { createBacklogWebRendererPlugin } from './backlog'
 import { createCharacterWebRendererPlugin } from './character'
@@ -36,5 +37,6 @@ export function createVisualNovelWebRendererPlugins(options: VisualNovelWebRende
     createSettingsWebRendererPlugin(),
     createBacklogWebRendererPlugin(),
     createGalleryWebRendererPlugin(),
+    createAchievementWebRendererPlugin(),
   ]
 }
