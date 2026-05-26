@@ -24,9 +24,9 @@ import type {
   AchievementNotificationOptions,
   AchievementNotificationProjection,
   AchievementOpenOptions,
+  AchievementProfileState,
   AchievementProgressOptions,
   AchievementProgressRecord,
-  AchievementProfileState,
   AchievementProjection,
   AchievementProjectionItem,
   AchievementReward,
@@ -38,7 +38,7 @@ import type {
   AchievementUnlockRecord,
   AchievementUpdateFilterRequestPayload,
 } from './contracts'
-import { BaseEnginePlugin, Scene, retainUiOverlayHostWithEngine, releaseUiOverlayHostWithEngine } from '@quajs/engine'
+import { BaseEnginePlugin, releaseUiOverlayHostWithEngine, retainUiOverlayHostWithEngine, Scene } from '@quajs/engine'
 import { QuaStore } from '@quajs/store'
 import {
   ACHIEVEMENT_METADATA_NAMESPACE,
@@ -171,8 +171,8 @@ export type {
 } from './contracts'
 
 export {
-  createAchievementDecoratorCompiler,
   achievementDecoratorMappings,
+  createAchievementDecoratorCompiler,
   scriptCompiler,
 } from './script-compiler'
 
@@ -752,7 +752,7 @@ export async function evaluateAchievementConditionWithEngine(
     case 'runtime-package-active':
       return engine.getRuntimePackages().some(pkg => pkg.id === condition.packageId && pkg.state === 'active')
     case 'story-point':
-      return storyPointSatisfies(engine.getStoryPoint(), condition.point)
+      return storyPointSatisfies(options.point || engine.getStoryPoint(), condition.point)
     case 'story-metadata':
       return storyMetadataConditionMatches(engine, condition, options.point)
     default:
@@ -925,10 +925,6 @@ async function handleAchievementUnlockEffects(
   unlock: AchievementUnlockRecord,
   notificationOverride?: AchievementNotificationOptions,
 ): Promise<void> {
-  for (const listener of runtimeState.unlockListeners) {
-    await listener(engine, definition, unlock, profileId)
-  }
-
   const notificationMode = resolveUnlockNotificationMode(
     notificationOverride,
     definition.notification,
@@ -954,6 +950,12 @@ async function handleAchievementUnlockEffects(
       unlock,
       profileId,
     })
+  }
+
+  await rebuildAchievementProjection(engine, runtimeState, { profileId })
+
+  for (const listener of runtimeState.unlockListeners) {
+    await listener(engine, definition, unlock, profileId)
   }
 }
 
@@ -1000,7 +1002,7 @@ async function applyAchievementReward(
     try {
       const gallery = await import('@quajs/plugin-gallery')
       await gallery.unlockGalleryEntryWithEngine(engine, galleryReward.entryIds, {
-        profileId: galleryReward.profileId,
+        profileId: galleryReward.profileId || context.profileId,
         source: `achievement:${context.achievement.id}`,
         contentPackageId: context.achievement.contentPackageId,
         requiredRuntimePackages: context.unlock.requiredRuntimePackages,
