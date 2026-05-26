@@ -283,6 +283,9 @@ importers:
       '@quajs/plugin-discovery':
         specifier: workspace:*
         version: link:../../core/plugin-discovery
+      '@quajs/plugin-gallery':
+        specifier: workspace:*
+        version: link:../../plugins/gallery
       '@quajs/story-graph':
         specifier: workspace:*
         version: link:../../core/story-graph
@@ -590,6 +593,28 @@ importers:
         specifier: workspace:*
         version: link:../../core/store
 
+  packages/plugins/gallery:
+    dependencies:
+      '@babel/types':
+        specifier: 'catalog:'
+        version: 7.29.0
+    devDependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../../core/assets
+      '@quajs/engine':
+        specifier: workspace:*
+        version: link:../../core/engine
+      '@quajs/pipeline':
+        specifier: workspace:*
+        version: link:../../core/pipeline
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
+      '@quajs/story-graph':
+        specifier: workspace:*
+        version: link:../../core/story-graph
+
   packages/plugins/settings:
     devDependencies:
       '@quajs/assets':
@@ -695,6 +720,9 @@ importers:
       '@quajs/plugin-fonts':
         specifier: workspace:*
         version: link:../../plugins/fonts
+      '@quajs/plugin-gallery':
+        specifier: workspace:*
+        version: link:../../plugins/gallery
       '@quajs/plugin-settings':
         specifier: workspace:*
         version: link:../../plugins/settings
@@ -731,6 +759,9 @@ importers:
       '@quajs/plugin-fonts':
         specifier: workspace:*
         version: link:../../plugins/fonts
+      '@quajs/plugin-gallery':
+        specifier: workspace:*
+        version: link:../../plugins/gallery
       '@quajs/plugin-settings':
         specifier: workspace:*
         version: link:../../plugins/settings

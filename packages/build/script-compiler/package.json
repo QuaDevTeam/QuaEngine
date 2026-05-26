@@ -47,6 +47,7 @@
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-discovery": "workspace:*",
+    "@quajs/plugin-gallery": "workspace:*",
     "@quajs/story-graph": "workspace:*",
     "uuid": "catalog:"
   },
@@ -55,6 +56,7 @@
     "@quajs/engine": "workspace:*",
     "@quajs/plugin-animation": "workspace:*",
     "@quajs/plugin-background": "workspace:*",
+    "@quajs/plugin-gallery": "workspace:*",
     "@types/babel__generator": "catalog:",
     "@types/babel__traverse": "catalog:"
   }

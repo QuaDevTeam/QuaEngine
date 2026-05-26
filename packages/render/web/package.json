@@ -56,6 +56,10 @@
       "types": "./dist/plugins/choices.d.ts",
       "import": "./dist/plugins/choices.js"
     },
+    "./plugins/gallery": {
+      "types": "./dist/plugins/gallery.d.ts",
+      "import": "./dist/plugins/gallery.js"
+    },
     "./plugins/core": {
       "types": "./dist/plugins/core.d.ts",
       "import": "./dist/plugins/core.js"
@@ -129,6 +133,7 @@
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
+    "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
@@ -140,6 +145,9 @@
       "optional": true
     },
     "@quajs/plugin-backlog": {
+      "optional": true
+    },
+    "@quajs/plugin-gallery": {
       "optional": true
     },
     "@quajs/plugin-fonts": {
@@ -158,6 +166,7 @@
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
+    "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",

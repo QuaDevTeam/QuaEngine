@@ -18,7 +18,7 @@ export interface QuaWebDomLayerContext {
   document: Document
   view: Readonly<QuaViewProjection>
   actions: RendererActions
-  bindAssetUrl: (element: HTMLImageElement | HTMLVideoElement, type: AssetType, name: string | undefined, attribute?: 'src' | 'poster', targetPackageId?: string) => void
+  bindAssetUrl: (element: HTMLImageElement | HTMLVideoElement | HTMLAudioElement, type: AssetType, name: string | undefined, attribute?: 'src' | 'poster', targetPackageId?: string) => void
   watchAssetUrl: (
     type: AssetType,
     name: string | undefined,
@@ -231,7 +231,7 @@ export class QuaWebDomRenderer {
   }
 
   private bindAssetUrl(
-    element: HTMLImageElement | HTMLVideoElement,
+    element: HTMLImageElement | HTMLVideoElement | HTMLAudioElement,
     type: AssetType,
     name: string | undefined,
     attribute: 'src' | 'poster',
@@ -372,8 +372,8 @@ export class QuaWebDomRenderer {
       document: this.getDocument(),
       view: snapshot.view,
       actions: snapshot.actions,
-      bindAssetUrl: (element, type, name, attribute = 'src') => this.bindAssetUrl(element, type, name, attribute),
-      watchAssetUrl: (type, name, onChange) => this.watchAssetUrl(type, name, onChange),
+      bindAssetUrl: (element, type, name, attribute = 'src', targetPackageId) => this.bindAssetUrl(element, type, name, attribute, targetPackageId),
+      watchAssetUrl: (type, name, onChange, targetPackageId) => this.watchAssetUrl(type, name, onChange, targetPackageId),
     }
   }
 

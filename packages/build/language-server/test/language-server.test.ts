@@ -372,6 +372,51 @@ Yuki: Hi
     expect(activeHover?.contents).toContain('@quajs/plugin-background')
   })
 
+  it('surfaces gallery decorators from discovered plugin metadata in completions and hover', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
+    writeFileSync(join(projectRoot, 'qua.plugins.json'), JSON.stringify({
+      plugins: [
+        {
+          name: '@quajs/plugin-gallery',
+          decorators: {
+            UnlockGallery: {
+              function: 'unlockGalleryEntryWithEngine',
+              module: '@quajs/plugin-gallery',
+            },
+            OpenGalleryScene: {
+              function: 'openGallerySceneWithEngine',
+              module: '@quajs/plugin-gallery',
+            },
+          },
+          language: {
+            decorators: {
+              UnlockGallery: {
+                description: 'Unlock a gallery entry',
+              },
+              OpenGalleryScene: {
+                description: 'Open the gallery scene shell',
+              },
+            },
+          },
+        },
+      ],
+    }))
+
+    const filePath = join(projectRoot, 'scene.qs')
+    const completions = await getQuaScriptCompletions('@', { line: 0, character: 1 }, {
+      filePath,
+      projectRoot,
+    })
+    const hover = await getQuaScriptHover('@UnlockGallery("cg.sunset")\nYuki: Hi', { line: 0, character: 5 }, {
+      filePath,
+      projectRoot,
+    })
+
+    expect(completions.map(item => item.label)).toEqual(expect.arrayContaining(['UnlockGallery', 'OpenGalleryScene']))
+    expect(hover?.contents).toContain('@UnlockGallery')
+    expect(hover?.contents).toContain('@quajs/plugin-gallery')
+  })
+
   it('reports compiler decorator semantic diagnostics through language analysis', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
     writeFileSync(join(projectRoot, 'qua.plugins.json'), JSON.stringify({

@@ -6,6 +6,7 @@ import { createAnimationDecoratorCompiler } from '@quajs/plugin-animation/script
 import { createAudioDecoratorCompiler } from '@quajs/plugin-audio/script-compiler'
 import { createBackgroundDecoratorCompiler } from '@quajs/plugin-background/script-compiler'
 import { createBacklogDecoratorCompiler } from '@quajs/plugin-backlog/script-compiler'
+import { createGalleryDecoratorCompiler } from '@quajs/plugin-gallery/script-compiler'
 import { createStoryGraphDecoratorCompiler } from '@quajs/story-graph/script-compiler'
 
 export class DecoratorCompilerRegistry {
@@ -88,5 +89,6 @@ export function createDefaultDecoratorCompilerRegistry(): DecoratorCompilerRegis
   registry.register(createAnimationDecoratorCompiler())
   registry.register(createStoryGraphDecoratorCompiler())
   registry.register(createBacklogDecoratorCompiler())
+  registry.register(createGalleryDecoratorCompiler())
   return registry
 }
