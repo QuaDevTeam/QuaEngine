@@ -5,21 +5,24 @@ import {
   QuaEngine,
   UiOverlayPlugin,
 } from '@quajs/engine'
-import { GalleryPlugin, registerGalleryCatalogWithEngine, registerGalleryEntriesWithEngine, getGalleryProfile } from '@quajs/plugin-gallery'
+import { GalleryPlugin, getGalleryProfile, registerGalleryCatalogWithEngine, registerGalleryEntriesWithEngine } from '@quajs/plugin-gallery'
 import { MemoryBackend } from '@quajs/store'
-import { StoryGraphPlugin, setStoryMetadataWithEngine } from '@quajs/story-graph'
+import { setStoryMetadataWithEngine, StoryGraphPlugin } from '@quajs/story-graph'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   ACHIEVEMENT_PLUGIN_ID,
   ACHIEVEMENT_PROFILE_STORE_PREFIX,
   ACHIEVEMENT_SCENE_ID,
   ACHIEVEMENT_TOAST_HOST_SOURCE,
+  achievementCondition,
   AchievementPlugin,
   AchievementRenderToLogicEvents,
   closeAchievementBoardWithEngine,
   emitAchievementRenderToLogic,
+  evaluateAchievementConditionWithEngine,
   getAchievementProfile,
   getAchievementProjection,
+  onAchievementUnlocked,
   openAchievementBoardWithEngine,
   registerAchievementDefinitionsWithEngine,
   resetAchievementProfileWithEngine,
@@ -220,6 +223,58 @@ describe('@quajs/plugin-achievement', () => {
       entryId: 'cg.sunset',
       source: 'achievement:cg.master',
     }))
+  })
+
+  it('evaluates story-point conditions against an explicit point when provided', async () => {
+    const engine = createEngine()
+    engine.use(new AchievementPlugin())
+    await engine.init()
+    await engine.setStoryPoint({ sceneId: 'current', stepId: 'current-step' })
+
+    await expect(evaluateAchievementConditionWithEngine(
+      engine,
+      achievementCondition.storyPoint({ sceneId: 'future', stepId: 'future-step' }),
+      { point: { sceneId: 'future', stepId: 'future-step' } },
+    )).resolves.toBe(true)
+
+    await expect(evaluateAchievementConditionWithEngine(
+      engine,
+      achievementCondition.storyPoint({ sceneId: 'future', stepId: 'future-step' }),
+    )).resolves.toBe(false)
+  })
+
+  it('settles gallery rewards on the current profile before unlock listeners run', async () => {
+    const engine = createEngine()
+    engine.use(new GalleryPlugin())
+    engine.use(new AchievementPlugin())
+    await engine.init()
+    await registerBaseGallery(engine)
+    await registerBaseAchievements(engine)
+
+    const listenerObservations: boolean[] = []
+    const dispose = onAchievementUnlocked(engine, (listenerEngine, achievement, _unlock, profileId) => {
+      if (achievement.id !== 'cg.master') {
+        return
+      }
+      expect(profileId).toBe('player-a')
+      listenerObservations.push(Boolean(
+        getGalleryProfile(listenerEngine, 'player-a').unlockedEntries['cg.sunset'],
+      ))
+    })
+
+    await unlockAchievementWithEngine(engine, 'cg.master', {
+      profileId: 'player-a',
+      source: 'reward',
+      notification: { mode: 'none' },
+    })
+
+    dispose()
+    expect(listenerObservations).toEqual([true])
+    expect(getGalleryProfile(engine, 'player-a').unlockedEntries['cg.sunset']).toEqual(expect.objectContaining({
+      entryId: 'cg.sunset',
+      source: 'achievement:cg.master',
+    }))
+    expect(getGalleryProfile(engine, 'default').unlockedEntries['cg.sunset']).toBeUndefined()
   })
 })
 
