@@ -274,6 +274,9 @@ importers:
       '@babel/types':
         specifier: 'catalog:'
         version: 7.29.0
+      '@quajs/plugin-achievement':
+        specifier: workspace:*
+        version: link:../../plugins/achievement
       '@quajs/plugin-audio':
         specifier: workspace:*
         version: link:../../plugins/audio
@@ -514,6 +517,31 @@ importers:
         specifier: 'catalog:'
         version: 6.2.5
 
+  packages/plugins/achievement:
+    dependencies:
+      '@babel/types':
+        specifier: 'catalog:'
+        version: 7.29.0
+    devDependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../../core/assets
+      '@quajs/engine':
+        specifier: workspace:*
+        version: link:../../core/engine
+      '@quajs/pipeline':
+        specifier: workspace:*
+        version: link:../../core/pipeline
+      '@quajs/plugin-gallery':
+        specifier: workspace:*
+        version: link:../gallery
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
+      '@quajs/story-graph':
+        specifier: workspace:*
+        version: link:../../core/story-graph
+
   packages/plugins/animation:
     dependencies:
       '@babel/types':
@@ -711,6 +739,9 @@ importers:
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../../core/pipeline
+      '@quajs/plugin-achievement':
+        specifier: workspace:*
+        version: link:../../plugins/achievement
       '@quajs/plugin-audio':
         specifier: workspace:*
         version: link:../../plugins/audio
@@ -750,6 +781,9 @@ importers:
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../../core/pipeline
+      '@quajs/plugin-achievement':
+        specifier: workspace:*
+        version: link:../../plugins/achievement
       '@quajs/plugin-audio':
         specifier: workspace:*
         version: link:../../plugins/audio

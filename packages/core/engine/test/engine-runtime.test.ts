@@ -12,7 +12,18 @@ import {
 } from '@quajs/render-core'
 import { createStore, MemoryBackend } from '@quajs/store'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createViewLayoutProjection, emitRenderToLogic, LogicToRenderEvents, onLogicToRender, QuaEngine, RenderToLogicEvents, Scene, UiOverlayPlugin } from '../src'
+import {
+  createViewLayoutProjection,
+  emitRenderToLogic,
+  getUiOverlayHostProjection,
+  LogicToRenderEvents,
+  onLogicToRender,
+  QuaEngine,
+  RenderToLogicEvents,
+  Scene,
+  UiOverlayPlugin,
+  UI_OVERLAY_HOST_SCENE_ID,
+} from '../src'
 
 class TrackingMemoryBackend extends MemoryBackend {
   static latest: TrackingMemoryBackend | undefined
@@ -3133,11 +3144,18 @@ describe('quaEngine runtime architecture', () => {
       menu: { open: true },
       settings: { open: true },
     })
+    expect(engine.getCurrentSceneName()).toBe(UI_OVERLAY_HOST_SCENE_ID)
+    expect(getUiOverlayHostProjection(engine)).toEqual(expect.objectContaining({
+      sceneId: UI_OVERLAY_HOST_SCENE_ID,
+      sceneActive: true,
+      sources: ['ui:menu', 'ui:settings'],
+    }))
 
     await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.UI_REQUEST_CLOSE, { elementId: 'menu' })
     await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.UI_REQUEST_CLOSE, { elementId: 'settings' })
 
     expect(engine.getViewState().ui.overlays).toEqual({})
+    expect(getUiOverlayHostProjection(engine)).toBeUndefined()
   })
 
   it('handles renderer save and load intents through engine-owned slot APIs', async () => {

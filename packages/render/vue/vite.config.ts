@@ -17,6 +17,7 @@ export default defineConfig({
       entry: {
         'index': resolve(import.meta.dirname, 'src/index.ts'),
         'plugins/core/index': resolve(import.meta.dirname, 'src/plugins/core/index.ts'),
+        'plugins/achievement/index': resolve(import.meta.dirname, 'src/plugins/achievement/index.ts'),
         'plugins/background/index': resolve(import.meta.dirname, 'src/plugins/background/index.ts'),
         'plugins/backlog/index': resolve(import.meta.dirname, 'src/plugins/backlog/index.ts'),
         'plugins/gallery/index': resolve(import.meta.dirname, 'src/plugins/gallery/index.ts'),
@@ -38,7 +39,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['vue', '@quajs/assets-web', '@quajs/pipeline', '@quajs/render-core', '@quajs/renderer-web', '@quajs/renderer-web/audio', '@quajs/renderer-web/plugins/fonts', '@quajs/renderer-web/plugins/gallery', '@quajs/renderer-web/plugins/input', '@quajs/renderer-web/plugins/settings', '@quajs/plugin-audio', '@quajs/plugin-backlog/contracts', '@quajs/plugin-fonts/contracts', '@quajs/plugin-gallery/contracts', '@quajs/plugin-settings/contracts', '@quajs/plugin-sprite', '@quajs/plugin-sprite/contracts'],
+      external: ['vue', '@quajs/assets-web', '@quajs/pipeline', '@quajs/render-core', '@quajs/renderer-web', '@quajs/renderer-web/audio', '@quajs/renderer-web/plugins/achievement', '@quajs/renderer-web/plugins/fonts', '@quajs/renderer-web/plugins/gallery', '@quajs/renderer-web/plugins/input', '@quajs/renderer-web/plugins/settings', '@quajs/plugin-audio', '@quajs/plugin-achievement/contracts', '@quajs/plugin-backlog/contracts', '@quajs/plugin-fonts/contracts', '@quajs/plugin-gallery/contracts', '@quajs/plugin-settings/contracts', '@quajs/plugin-sprite', '@quajs/plugin-sprite/contracts'],
       output: {
         globals: {},
       },

@@ -417,6 +417,51 @@ Yuki: Hi
     expect(hover?.contents).toContain('@quajs/plugin-gallery')
   })
 
+  it('surfaces achievement decorators from discovered plugin metadata in completions and hover', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
+    writeFileSync(join(projectRoot, 'qua.plugins.json'), JSON.stringify({
+      plugins: [
+        {
+          name: '@quajs/plugin-achievement',
+          decorators: {
+            UnlockAchievement: {
+              function: 'unlockAchievementWithEngine',
+              module: '@quajs/plugin-achievement',
+            },
+            OpenAchievementBoard: {
+              function: 'openAchievementBoardWithEngine',
+              module: '@quajs/plugin-achievement',
+            },
+          },
+          language: {
+            decorators: {
+              UnlockAchievement: {
+                description: 'Unlock an achievement',
+              },
+              OpenAchievementBoard: {
+                description: 'Open the achievement board scene',
+              },
+            },
+          },
+        },
+      ],
+    }))
+
+    const filePath = join(projectRoot, 'scene.qs')
+    const completions = await getQuaScriptCompletions('@', { line: 0, character: 1 }, {
+      filePath,
+      projectRoot,
+    })
+    const hover = await getQuaScriptHover('@UnlockAchievement("story.first-step")\nYuki: Hi', { line: 0, character: 5 }, {
+      filePath,
+      projectRoot,
+    })
+
+    expect(completions.map(item => item.label)).toEqual(expect.arrayContaining(['UnlockAchievement', 'OpenAchievementBoard']))
+    expect(hover?.contents).toContain('@UnlockAchievement')
+    expect(hover?.contents).toContain('@quajs/plugin-achievement')
+  })
+
   it('reports compiler decorator semantic diagnostics through language analysis', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
     writeFileSync(join(projectRoot, 'qua.plugins.json'), JSON.stringify({

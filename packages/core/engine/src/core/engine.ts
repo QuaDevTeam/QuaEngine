@@ -78,6 +78,7 @@ import type {
   StoryTargetResolver,
   TranslateInput,
   UiIntent,
+  ViewUiSceneHostProjection,
   ViewLayoutInput,
 } from './types'
 import { assertValidAppVersion, normalizeLocale, normalizeTranslateOptions, QuaAssets } from '@quajs/assets'
@@ -1477,6 +1478,7 @@ export class QuaEngine {
       }
       if (jump.options.ui === 'clear-transient') {
         this.store.commit('clearUiOverlays')
+        this.store.commit('setUiSceneHost', undefined)
       }
       this.store.commit('setStoryPoint', point)
       if (checkpoint) {
@@ -2813,6 +2815,12 @@ function createEngineMutations() {
         overlays: {},
       } satisfies UiIntent
     },
+    setUiSceneHost(state: any, host?: ViewUiSceneHostProjection) {
+      state.engine.view.ui = {
+        ...state.engine.view.ui,
+        host: host ? cloneUiSceneHostProjection(host) : undefined,
+      } satisfies UiIntent
+    },
     removeUiOverlaysByRuntimePackage(state: any, packageId: string) {
       const overlays = { ...(state.engine.view.ui.overlays || {}) }
       for (const [elementId, config] of Object.entries(overlays)) {
@@ -3062,6 +3070,9 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
     })),
     ui: {
       ...view.ui,
+      host: view.ui.host
+        ? cloneUiSceneHostProjection(view.ui.host)
+        : undefined,
       overlays: view.ui.overlays
         ? (Object.fromEntries(
             Object.entries(view.ui.overlays).map(([overlayId, overlay]) => [
@@ -3096,6 +3107,16 @@ function cloneFlowControlProjection(flowControl: ViewFlowControlProjection): Vie
     timings: flowControl.timings,
     lastAdvance: flowControl.lastAdvance ? { ...flowControl.lastAdvance } : undefined,
   })
+}
+
+function cloneUiSceneHostProjection(host: ViewUiSceneHostProjection): ViewUiSceneHostProjection {
+  return {
+    sceneId: host.sceneId,
+    sceneActive: host.sceneActive,
+    sources: [...host.sources],
+    returnCheckpointId: host.returnCheckpointId,
+    reason: host.reason,
+  }
 }
 
 function cloneCheckpoint(checkpoint: EngineCheckpoint): EngineCheckpoint {

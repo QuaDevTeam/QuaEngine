@@ -93,6 +93,7 @@ export type {
   ViewLayoutProjection,
   ViewLayoutScaleMode,
   ViewPluginProjectionMap,
+  ViewUiSceneHostProjection,
   ViewUiProjection,
   ViewVideoBackgroundProjection,
 } from '@quajs/render-core'

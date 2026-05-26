@@ -74,6 +74,7 @@ export {
   stageSceneStyle,
   stageViewportStyle,
 } from './layout'
+export { createAchievementWebRendererPlugin } from './plugins/achievement'
 export { createBackgroundWebRendererPlugin } from './plugins/background'
 export { createCharacterWebRendererPlugin } from './plugins/character'
 export { createChoicesWebRendererPlugin } from './plugins/choices'

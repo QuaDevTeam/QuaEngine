@@ -40,6 +40,10 @@
       "types": "./dist/plugins/audio.d.ts",
       "import": "./dist/plugins/audio.js"
     },
+    "./plugins/achievement": {
+      "types": "./dist/plugins/achievement.d.ts",
+      "import": "./dist/plugins/achievement.js"
+    },
     "./plugins/background": {
       "types": "./dist/plugins/background.d.ts",
       "import": "./dist/plugins/background.js"
@@ -132,6 +136,7 @@
     "@quajs/assets-web": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
+    "@quajs/plugin-achievement": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
@@ -142,6 +147,9 @@
   },
   "peerDependenciesMeta": {
     "@quajs/plugin-audio": {
+      "optional": true
+    },
+    "@quajs/plugin-achievement": {
       "optional": true
     },
     "@quajs/plugin-backlog": {
@@ -165,6 +173,7 @@
     "@quajs/assets-web": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
+    "@quajs/plugin-achievement": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
