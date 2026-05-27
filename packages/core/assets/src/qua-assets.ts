@@ -1,3 +1,4 @@
+import type { I18nCatalogOptions, I18nMessages, TranslateInput, TranslateOptions } from './i18n'
 import type {
   AssetData,
   AssetLocale,
@@ -7,12 +8,12 @@ import type {
   AssetType,
   BundleIndex,
   BundleStatus,
-  DynamicBundleRecord,
   DecompressionPlugin,
   DecryptionPlugin,
-  LoadDynamicBundleOptions,
+  DynamicBundleRecord,
   LoadAssetOptions,
   LoadBundleOptions,
+  LoadDynamicBundleOptions,
   MediaMetadata,
   QuaAssetsConfig,
   QuaAssetsEvents,
@@ -31,13 +32,11 @@ import {
   DEFAULT_I18N_NAMESPACE,
   formatI18nMessage,
   i18nCatalogAssetName,
+
   mergeI18nCatalogs,
   normalizeI18nCatalog,
   normalizeTranslateOptions,
-  type I18nCatalogOptions,
-  type I18nMessages,
-  type TranslateInput,
-  type TranslateOptions,
+
 } from './i18n'
 import { PatchManager } from './patch-manager'
 import { normalizeLocale } from './providers'
@@ -190,7 +189,7 @@ export class QuaAssets {
 
       this.updateBundleProgress(baseBundleName, 0.8)
 
-      const storedAssets = assets.map(asset => {
+      const storedAssets = assets.map((asset) => {
         const logicalPath = asset.path || asset.name
         return {
           ...asset,
@@ -594,7 +593,7 @@ export class QuaAssets {
       const loadedAt = this.now()
       const priority = options.priority ?? runtimePackage.priority ?? 0
       const compatibility = runtimePackage.compatibility || loaded.manifest.compatibility
-      const assets = loaded.assets.map(asset => {
+      const assets = loaded.assets.map((asset) => {
         const logicalPath = asset.path || asset.name
         return {
           ...asset,

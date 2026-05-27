@@ -90,7 +90,7 @@ export function formatI18nMessage(message: string, values?: I18nMessageValues): 
     return message
   }
 
-  return message.replace(/\{([A-Za-z_$][\w$]*|\d+)\}/g, (token, key: string) => {
+  return message.replace(/\{([A-Z_$][\w$]*|\d+)\}/gi, (token, key: string) => {
     const value = Array.isArray(values)
       ? values[Number(key)]
       : values[key]

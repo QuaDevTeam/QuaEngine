@@ -17,6 +17,8 @@ export {
   getCompatibilityErrors,
   isCompatibleWithGameVersion,
 } from './compatibility'
+// Core components
+export { MemoryAssetStorage, QuaAssetsDatabase } from './database'
 export {
   DEFAULT_I18N_LOCALE,
   DEFAULT_I18N_NAMESPACE,
@@ -26,6 +28,22 @@ export {
   normalizeI18nCatalog,
   normalizeTranslateOptions,
 } from './i18n'
+export type {
+  I18nCatalog,
+  I18nCatalogOptions,
+  I18nMessages,
+  I18nMessageValue,
+  I18nMessageValues,
+  TranslateInput,
+  TranslateOptions,
+} from './i18n'
+export { PatchManager } from './patch-manager'
+// Built-in plugins
+export {
+  CacheWarmingPlugin,
+  XORDecryptionPlugin,
+} from './plugins/index'
+
 export {
   createLocaleFallbackChain,
   findBestAssetRecord,
@@ -33,20 +51,9 @@ export {
   findBestTargetRankedAssetRecord,
   normalizeLocale,
 } from './providers'
-// Core components
-export { MemoryAssetStorage, QuaAssetsDatabase } from './database'
-export { PatchManager } from './patch-manager'
-// Built-in plugins
-export {
-  CacheWarmingPlugin,
-  CompressionDetectionPlugin,
-  NoopDecompressionPlugin,
-  XORDecryptionPlugin,
-} from './plugins/index'
 
 // Main QuaAssets class
 export { QuaAssets } from './qua-assets'
-
 // Types and interfaces
 export type {
   AssetCacheStats,
@@ -60,8 +67,8 @@ export type {
   AssetFetcher,
   AssetFetchResult,
   AssetFindCriteria,
-  AssetLocale,
   AssetInfo,
+  AssetLocale,
   AssetManifest,
   AssetManifestRecord,
   AssetNotFoundError,
@@ -72,9 +79,9 @@ export type {
   AssetStorage,
   // Core types
   AssetType,
-  AssetVariantInfo,
-
   AssetUpdateInfo,
+
+  AssetVariantInfo,
   BundleFormat,
   BundleIndex,
   BundleInfo,
@@ -88,9 +95,9 @@ export type {
   DynamicBundleRecord,
   IntegrityError,
 
-  LoadDynamicBundleOptions,
   LoadAssetOptions,
   LoadBundleOptions,
+  LoadDynamicBundleOptions,
 
   LoadingState,
   PatchOperation,
@@ -104,9 +111,9 @@ export type {
 
   // Plugin interfaces
   QuaAssetsPlugin,
-  RuntimePackageIntegrityManifest,
   RuntimeLocalePackManifest,
   RuntimeLocalePackTargetManifest,
+  RuntimePackageIntegrityManifest,
   RuntimePackageManifest,
   RuntimePackagePluginKind,
   RuntimePackagePluginManifest,
@@ -116,18 +123,9 @@ export type {
   RuntimePackageSignatureManifest,
   RuntimePackageStoreMigrationManifest,
   RuntimePackageStoryGraphDeltaManifest,
-  VersionCompatibility,
   // Data structures
   StoredAsset,
   StoredBundle,
+  VersionCompatibility,
   WorkspaceBundleIndex,
 } from './types'
-export type {
-  I18nCatalog,
-  I18nCatalogOptions,
-  I18nMessageValue,
-  I18nMessageValues,
-  I18nMessages,
-  TranslateInput,
-  TranslateOptions,
-} from './i18n'

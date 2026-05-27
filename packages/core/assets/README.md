@@ -164,6 +164,6 @@ assets.on('patch:applied', ({ bundleName }) => {})
 
 ## Notes
 
-- No backward compatibility is kept for the old Web-only constructor or Blob methods.
+- The public constructor is platform-adapter based and does not expose Web-only Blob methods.
 - Core code must stay free of `Blob`, `fetch`, `window`, `document`, `URL.createObjectURL`, `crypto.subtle`, `AbortController`, and Dexie.
 - Browser-only helpers belong in `@quajs/assets-web`.
