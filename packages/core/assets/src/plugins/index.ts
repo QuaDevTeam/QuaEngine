@@ -1,8 +1,6 @@
 import type {
   AssetProcessingPlugin,
   AssetType,
-  BundleFormat,
-  DecompressionPlugin,
   DecryptionPlugin,
   StoredAsset,
 } from '../types'
@@ -62,18 +60,4 @@ export class CacheWarmingPlugin implements AssetProcessingPlugin {
       maxSize: this.maxCacheSize,
     }
   }
-}
-
-export class NoopDecompressionPlugin implements DecompressionPlugin {
-  name = 'noop-decompression'
-  version = '1.0.0'
-  supportedFormats: BundleFormat[] = []
-
-  async decompress(): Promise<Map<string, Uint8Array>> {
-    throw new Error('NoopDecompressionPlugin does not implement decompression')
-  }
-}
-
-export class CompressionDetectionPlugin extends NoopDecompressionPlugin {
-  name = 'compression-detection'
 }

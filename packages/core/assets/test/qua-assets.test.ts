@@ -623,7 +623,7 @@ describe('quaAssets core runtime', () => {
     expect(result.errors[0]).toContain('Memory file not found')
   })
 
-  it('clears storage-backed cache without legacy Blob URL state', async () => {
+  it('clears storage-backed cache without Blob URL state', async () => {
     assets = new QuaAssets({ adapter })
     await assets.initialize()
 
