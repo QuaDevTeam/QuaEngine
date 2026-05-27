@@ -18,8 +18,8 @@ import { EventEmitter } from 'node:events'
 import { mkdir, readFile, rename } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
 import { createLogger } from '@quajs/logger'
-import { isValidSemverVersion } from '@quajs/utils'
 import { compileLocalizedQuaScriptModuleToTs, compileQuaScriptModuleToTs, extractQuaScriptStoryDeclaration } from '@quajs/script-compiler'
+import { isValidSemverVersion } from '@quajs/utils'
 import ts from 'typescript'
 import { AssetDetector } from '../assets/asset-detector'
 import { MetadataGenerator } from '../assets/metadata'
@@ -529,6 +529,11 @@ export class QuackBundler extends EventEmitter {
       verbose: config.verbose || false,
       runtimePackage,
       signing: config.signing,
+      quascript: {
+        projectRoot: resolve(config.quascript?.projectRoot || source),
+        autoCollectDecorators: config.quascript?.autoCollectDecorators,
+        decoratorMappings: config.quascript?.decoratorMappings,
+      },
     }
   }
 
@@ -616,14 +621,18 @@ export class QuackBundler extends EventEmitter {
       const compiledTs = locale === 'default'
         ? compileQuaScriptModuleToTs(source, {
             hotReload: false,
-            projectRoot: config.source,
+            projectRoot: config.quascript.projectRoot,
+            autoCollectDecorators: config.quascript.autoCollectDecorators,
+            decoratorMappings: config.quascript.decoratorMappings,
             runtimeModule,
           })
         : compileLocalizedQuaScriptModuleToTs({
             baseSource: await readFile(baseAsset.path, 'utf8'),
             localizedSource: source,
             locale,
-            projectRoot: config.source,
+            projectRoot: config.quascript.projectRoot,
+            autoCollectDecorators: config.quascript.autoCollectDecorators,
+            decoratorMappings: config.quascript.decoratorMappings,
             runtimeModule,
           })
       if (locale === 'default' && config.runtimePackage && moduleId) {
@@ -875,7 +884,7 @@ function mergeRuntimeQuaScriptVariants(
     )
     if (!script) {
       script = {
-        id: `${runtimePackage.id}.${assetName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_.-]+/g, '.')}`,
+        id: `${runtimePackage.id}.${assetName.replace(/\.[^.]+$/, '').replace(/[^\w.-]+/g, '.')}`,
         version: runtimePackage.version,
         assetName,
       }
@@ -960,7 +969,7 @@ function resolveQuaScriptModuleId(
   if (existing) {
     return existing.id
   }
-  return `${runtimePackage.id}.${assetName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_.-]+/g, '.')}`
+  return `${runtimePackage.id}.${assetName.replace(/\.[^.]+$/, '').replace(/[^\w.-]+/g, '.')}`
 }
 
 function stripLocaleFromRelativePath(relativePath: string, locale: string): string {

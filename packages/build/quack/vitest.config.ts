@@ -1,4 +1,5 @@
 /// <reference types="vitest" />
+import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
@@ -29,6 +30,12 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.config.*',
       ],
+    },
+  },
+  resolve: {
+    alias: {
+      '@quajs/script-compiler': resolve(__dirname, '../script-compiler/src/index.ts'),
+      '@quajs/story-graph/script-compiler': resolve(__dirname, '../../core/story-graph/src/script-compiler.ts'),
     },
   },
 })

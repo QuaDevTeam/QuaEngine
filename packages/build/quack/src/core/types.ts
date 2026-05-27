@@ -1,3 +1,5 @@
+import type { DecoratorMapping } from '@quajs/script-compiler'
+
 export type AssetType = 'images' | 'characters' | 'audio' | 'video' | 'fonts' | 'scripts' | 'data'
 export type AssetSubType
   = | 'backgrounds' | 'cg' | 'ui' // Images
@@ -458,6 +460,7 @@ export interface QuackConfig {
   verbose?: boolean
   runtimePackage?: RuntimePackageManifest
   signing?: QuackSigningConfig
+  quascript?: QuackQuaScriptConfig
 
   // Workspace mode (multi-bundle)
   workspace?: WorkspaceConfig
@@ -467,6 +470,12 @@ export interface QuackConfig {
   // Bundle selection for workspace operations
   bundle?: string // Specific bundle name to operate on
   bundles?: string[] // Multiple bundle names to operate on
+}
+
+export interface QuackQuaScriptConfig {
+  projectRoot?: string
+  autoCollectDecorators?: boolean
+  decoratorMappings?: DecoratorMapping
 }
 
 // Multi-bundle patch options
@@ -537,6 +546,13 @@ export interface BundleOptions {
   verbose: boolean
   runtimePackage?: RuntimePackageManifest
   signing?: QuackSigningConfig
+  quascript: QuackQuaScriptBundleOptions
+}
+
+export interface QuackQuaScriptBundleOptions {
+  projectRoot: string
+  autoCollectDecorators?: boolean
+  decoratorMappings?: DecoratorMapping
 }
 
 export interface AssetFilter {

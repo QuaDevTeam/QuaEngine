@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import type { BundleFormat, QuackConfig } from '../core/types'
+import type { BundleFormat, QuackConfig, QuackPlugin } from '../core/types'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import { Command } from 'commander'
+import { pathToFileURL } from 'node:url'
 import { createQuaScriptLocaleSkeleton, syncQuaScriptLocale } from '@quajs/script-compiler'
+import { Command } from 'commander'
 import { QPKBundler } from '../bundlers/qpk-bundler'
 import { ZipBundler } from '../bundlers/zip-bundler'
 import { QuackBundler } from '../core/bundler'
@@ -16,12 +17,8 @@ import { PatchGenerator } from '../workspace/patch-generator'
 import { VersionManager } from '../workspace/versioning'
 import { WorkspaceManager } from '../workspace/workspace'
 
-// Logger available but not used in CLI (would be used for debugging/development)
-// const logger = createLogger('quack:cli')
-
 const program = new Command()
 
-// Package info (would normally come from package.json)
 const VERSION = '0.1.0'
 
 program
@@ -43,7 +40,7 @@ program
   .option('--encryption-key <key>', 'Custom encryption key')
   .option('--sign-key <path>', 'PKCS8 PEM or JWK private key for signing runtime QPK output')
   .option('--sign-key-id <id>', 'Key identifier to write into runtime package signature metadata')
-  .option('--plugin <name...>', 'Load plugins')
+  .option('--plugin <specifier...>', 'Load Quack plugin modules by package name or file path')
   .option('-v, --verbose', 'Verbose output')
   .action(async (source, options) => {
     try {
@@ -1032,14 +1029,78 @@ async function loadConfig(source: string, options: any): Promise<QuackConfig> {
     config.verbose = true
   }
 
-  // Handle plugins (this would need a plugin registry in a real implementation)
   if (options.plugin) {
-    config.plugins = config.plugins || []
-    // For now, just log that plugins were requested
-    console.log(`Plugins requested: ${options.plugin.join(', ')}`)
+    config.plugins = [
+      ...(config.plugins || []),
+      ...await loadCliPlugins(options.plugin),
+    ]
   }
 
   return config
+}
+
+async function loadCliPlugins(specifiers: string[]): Promise<QuackPlugin[]> {
+  const plugins: QuackPlugin[] = []
+  for (const specifier of specifiers) {
+    plugins.push(...await loadCliPlugin(specifier))
+  }
+  return plugins
+}
+
+async function loadCliPlugin(specifier: string): Promise<QuackPlugin[]> {
+  let pluginModule: Record<string, unknown>
+  try {
+    pluginModule = await import(resolvePluginSpecifier(specifier)) as Record<string, unknown>
+  }
+  catch (error) {
+    throw new Error(`Failed to load Quack plugin "${specifier}": ${getErrorMessage(error)}`)
+  }
+
+  const exported = await resolvePluginExport(pluginModule)
+  const candidates = Array.isArray(exported) ? exported : [exported]
+  return candidates.map((candidate, index) => assertQuackPlugin(candidate, `${specifier}${candidates.length > 1 ? `[${index}]` : ''}`))
+}
+
+function resolvePluginSpecifier(specifier: string): string {
+  if (specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('..')) {
+    return pathToFileURL(resolve(specifier)).href
+  }
+  return specifier
+}
+
+async function resolvePluginExport(pluginModule: Record<string, unknown>): Promise<unknown> {
+  if (pluginModule.default !== undefined) {
+    return typeof pluginModule.default === 'function'
+      ? await (pluginModule.default as () => unknown | Promise<unknown>)()
+      : pluginModule.default
+  }
+  if (pluginModule.quackPlugin !== undefined) {
+    return pluginModule.quackPlugin
+  }
+  if (pluginModule.plugin !== undefined) {
+    return pluginModule.plugin
+  }
+  if (typeof pluginModule.createQuackPlugin === 'function') {
+    return await (pluginModule.createQuackPlugin as () => unknown | Promise<unknown>)()
+  }
+  if (typeof pluginModule.createPlugin === 'function') {
+    return await (pluginModule.createPlugin as () => unknown | Promise<unknown>)()
+  }
+  return undefined
+}
+
+function assertQuackPlugin(value: unknown, source: string): QuackPlugin {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`Quack plugin "${source}" did not export a plugin object.`)
+  }
+  const plugin = value as Partial<QuackPlugin>
+  if (typeof plugin.name !== 'string' || plugin.name.length === 0) {
+    throw new Error(`Quack plugin "${source}" is missing a non-empty name.`)
+  }
+  if (typeof plugin.version !== 'string' || plugin.version.length === 0) {
+    throw new Error(`Quack plugin "${source}" is missing a non-empty version.`)
+  }
+  return plugin as QuackPlugin
 }
 
 function parseLocalePackTargets(values: string[]): Array<{ kind: 'bundle' | 'runtimePackage', id: string }> {

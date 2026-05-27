@@ -135,7 +135,7 @@ function parseQpkHeader(buffer: Buffer): QpkHeaderInfo {
 
 function validateQpkBounds(header: QpkHeaderInfo, fileSize: number): void {
   if (!Number.isSafeInteger(header.manifestOffset) || !Number.isSafeInteger(header.manifestSize)) {
-    throw new Error('Invalid QPK manifest bounds: offset or size exceeds safe integer range')
+    throw new TypeError('Invalid QPK manifest bounds: offset or size exceeds safe integer range')
   }
   if (header.manifestOffset < header.headerSize || header.manifestSize < 0) {
     throw new Error('Invalid QPK manifest bounds')
@@ -194,7 +194,7 @@ async function readQpkAssetSummary(file: Awaited<ReturnType<typeof open>>, heade
 }
 
 function isSafeQpkPath(path: string): boolean {
-  if (!path || path.startsWith('/') || path.startsWith('\\') || /^[a-zA-Z]:/.test(path)) {
+  if (!path || path.startsWith('/') || path.startsWith('\\') || /^[a-z]:/i.test(path)) {
     return false
   }
   const normalized = path.replace(/\\/g, '/')

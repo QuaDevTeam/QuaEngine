@@ -6,7 +6,7 @@ import { WorkspaceManager } from '../src/workspace/workspace'
 
 const tempDirs: string[] = []
 
-describe('WorkspaceManager', () => {
+describe('workspaceManager', () => {
   afterEach(async () => {
     while (tempDirs.length > 0) {
       const dir = tempDirs.pop()
