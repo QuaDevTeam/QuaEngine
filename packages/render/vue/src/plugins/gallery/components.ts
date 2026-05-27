@@ -10,10 +10,10 @@ import type {
   GalleryTextContentBlock,
   GalleryVideoContentBlock,
 } from '@quajs/plugin-gallery/contracts'
+import type { QuaViewProjection } from '@quajs/render-core'
 import type { RendererActions } from '@quajs/renderer-web'
 import type { GalleryProjectionModel } from '@quajs/renderer-web/plugins/gallery'
-import type { QuaViewProjection } from '@quajs/render-core'
-import type { PropType } from 'vue'
+import type { PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
 import {
@@ -22,7 +22,6 @@ import {
   resolveGalleryEntryPreviewAsset,
 } from '@quajs/renderer-web/plugins/gallery'
 import { computed, defineComponent, h } from 'vue'
-import type { VNode } from 'vue'
 import { useAssetUrl, usePluginProjection, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
@@ -68,9 +67,9 @@ export const QuaGalleryLayer = defineComponent({
       }
 
       return h('div', {
-        class: 'qua-gallery-layer',
+        'class': 'qua-gallery-layer',
         'data-qua-capture-role': 'overlay',
-        onClick: (event: Event) => event.stopPropagation(),
+        'onClick': (event: Event) => event.stopPropagation(),
       }, slots.default?.({
         view: view.value,
         projection: gallery.value.projection,
@@ -103,22 +102,117 @@ export const QuaGalleryCatalogButton = defineComponent({
       selected: () => props.selected,
     })
     return () => h('button', {
-      class: ['qua-gallery-catalog-button', props.selected ? 'is-selected' : undefined],
-      type: 'button',
+      'class': ['qua-gallery-catalog-button', props.selected ? 'is-selected' : undefined],
+      'type': 'button',
       'data-gallery-catalog-id': props.catalog.id,
       'aria-selected': props.selected ? 'true' : 'false',
-      style: skin.skinStyle.value,
+      'style': skin.skinStyle.value,
       'data-skin-kind': 'tab',
       'data-skin-reference': skin.skinReference.value || undefined,
       'data-skin-state': skin.skinState.value,
       ...createSkinButtonHandlers(skin),
-      onClick: () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_CATALOG_REQUEST, {
+      'onClick': () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_CATALOG_REQUEST, {
         catalogId: props.catalog.id,
       }),
     }, [
       h('span', { class: 'qua-gallery-catalog-title' }, props.catalog.title),
       h('span', { class: 'qua-gallery-catalog-count' }, `${props.catalog.unlockedEntries}/${props.catalog.totalEntries}`),
     ])
+  },
+})
+
+export const GalleryAssetFrame = defineComponent({
+  name: 'GalleryAssetFrame',
+  props: {
+    asset: {
+      type: Object as PropType<{ type: AssetType, name: string, runtimePackageId?: string, alt?: string }>,
+      required: true,
+    },
+    poster: {
+      type: Object as PropType<{ type: AssetType, name: string, runtimePackageId?: string, alt?: string } | undefined>,
+      required: false,
+      default: undefined,
+    },
+    alt: {
+      type: String,
+      default: '',
+    },
+    variant: {
+      type: String as PropType<'card' | 'detail'>,
+      default: 'detail',
+    },
+  },
+  setup(props) {
+    const assetType = computed(() => props.asset.type)
+    const asset = useAssetUrl(assetType, () => props.asset.name, () => props.asset.runtimePackageId)
+    const poster = useAssetUrl('images', () => props.poster?.name, () => props.poster?.runtimePackageId)
+
+    return () => {
+      switch (props.asset.type) {
+        case 'images':
+          return h('img', {
+            'class': [
+              'qua-gallery-asset-preview',
+              'qua-gallery-asset-preview--image',
+              props.variant === 'card' ? 'is-card' : 'is-detail',
+            ],
+            'src': asset.url.value,
+            'alt': props.alt || props.asset.alt || '',
+            'aria-hidden': 'true',
+          })
+        case 'video':
+          return h('video', {
+            'class': [
+              'qua-gallery-asset-preview',
+              'qua-gallery-asset-preview--video',
+              props.variant === 'card' ? 'is-card' : 'is-detail',
+            ],
+            'src': asset.url.value,
+            'poster': poster.url.value,
+            'autoplay': props.variant === 'card',
+            'controls': props.variant !== 'card',
+            'playsinline': true,
+            'muted': props.variant === 'card',
+            'loop': true,
+            'preload': 'metadata',
+            'aria-label': props.alt || props.asset.alt || '',
+          })
+        case 'audio':
+          return props.variant === 'card'
+            ? h('div', {
+                class: [
+                  'qua-gallery-asset-preview',
+                  'qua-gallery-asset-preview--placeholder',
+                  'qua-gallery-asset-preview--audio',
+                  'is-card',
+                ],
+              }, props.alt || props.asset.alt || props.asset.name)
+            : h('div', { class: 'qua-gallery-content-audio' }, [
+                props.poster
+                  ? h('img', {
+                      class: 'qua-gallery-content-audio-poster',
+                      src: poster.url.value,
+                      alt: props.alt || props.poster.alt || props.asset.alt || '',
+                    })
+                  : null,
+                h('audio', {
+                  'class': 'qua-gallery-asset-preview qua-gallery-asset-preview--audio',
+                  'src': asset.url.value,
+                  'controls': true,
+                  'preload': 'metadata',
+                  'aria-label': props.alt || props.asset.alt || '',
+                }),
+              ])
+        default:
+          return h('div', {
+            class: [
+              'qua-gallery-asset-preview',
+              'qua-gallery-asset-preview--placeholder',
+              props.variant === 'card' ? 'is-card' : 'is-detail',
+            ],
+          }, props.alt || props.asset.alt || props.asset.name)
+      }
+    }
   },
 })
 
@@ -140,20 +234,20 @@ export const QuaGalleryEntryCard = defineComponent({
     const preview = computed(() => resolveGalleryEntryPreviewAsset(props.entry))
     return () => h('li', { class: 'qua-gallery-entry-item' }, [
       h('button', {
-        class: [
+        'class': [
           'qua-gallery-entry-card',
           props.entry.unlocked ? 'is-unlocked' : 'is-locked',
           props.selected ? 'is-selected' : undefined,
         ],
-        type: 'button',
+        'type': 'button',
         'data-gallery-entry-id': props.entry.id,
         'aria-selected': props.selected ? 'true' : 'false',
-        style: skin.skinStyle.value,
+        'style': skin.skinStyle.value,
         'data-skin-kind': 'button',
         'data-skin-reference': skin.skinReference.value || undefined,
         'data-skin-state': skin.skinState.value,
         ...createSkinButtonHandlers(skin),
-        onClick: () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, {
+        'onClick': () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, {
           entryId: props.entry.id,
         }),
       }, [
@@ -200,112 +294,19 @@ export const QuaGalleryContentTab = defineComponent({
       selected: () => props.selected,
     })
     return () => h('button', {
-      class: ['qua-gallery-content-tab', props.selected ? 'is-selected' : undefined],
-      type: 'button',
+      'class': ['qua-gallery-content-tab', props.selected ? 'is-selected' : undefined],
+      'type': 'button',
       'data-gallery-content-id': props.content.id,
       'aria-selected': props.selected ? 'true' : 'false',
-      style: skin.skinStyle.value,
+      'style': skin.skinStyle.value,
       'data-skin-kind': 'tab',
       'data-skin-reference': skin.skinReference.value || undefined,
       'data-skin-state': skin.skinState.value,
       ...createSkinButtonHandlers(skin),
-      onClick: () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_CONTENT_REQUEST, {
+      'onClick': () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_CONTENT_REQUEST, {
         contentId: props.content.id,
       }),
     }, props.content.title || props.content.kind)
-  },
-})
-
-export const GalleryAssetFrame = defineComponent({
-  name: 'GalleryAssetFrame',
-  props: {
-    asset: {
-      type: Object as PropType<{ type: AssetType, name: string, runtimePackageId?: string, alt?: string }>,
-      required: true,
-    },
-    poster: {
-      type: Object as PropType<{ type: AssetType, name: string, runtimePackageId?: string, alt?: string } | undefined>,
-      required: false,
-      default: undefined,
-    },
-    alt: {
-      type: String,
-      default: '',
-    },
-    variant: {
-      type: String as PropType<'card' | 'detail'>,
-      default: 'detail',
-    },
-  },
-  setup(props) {
-    const assetType = computed(() => props.asset.type)
-    const asset = useAssetUrl(assetType, () => props.asset.name, () => props.asset.runtimePackageId)
-    const poster = useAssetUrl('images', () => props.poster?.name, () => props.poster?.runtimePackageId)
-
-    return () => {
-      switch (props.asset.type) {
-        case 'images':
-          return h('img', {
-            class: [
-              'qua-gallery-asset-preview',
-              'qua-gallery-asset-preview--image',
-              props.variant === 'card' ? 'is-card' : 'is-detail',
-            ],
-            src: asset.url.value,
-            alt: props.alt || props.asset.alt || '',
-            'aria-hidden': 'true',
-          })
-        case 'video':
-          return h('video', {
-            class: [
-              'qua-gallery-asset-preview',
-              'qua-gallery-asset-preview--video',
-              props.variant === 'card' ? 'is-card' : 'is-detail',
-            ],
-            src: asset.url.value,
-            poster: poster.url.value,
-            autoplay: props.variant === 'card',
-            controls: props.variant !== 'card',
-            playsinline: true,
-            muted: props.variant === 'card',
-            loop: true,
-            preload: 'metadata',
-            'aria-label': props.alt || props.asset.alt || '',
-          })
-        case 'audio':
-          return props.variant === 'card'
-            ? h('div', {
-                class: [
-                  'qua-gallery-asset-preview',
-                  'qua-gallery-asset-preview--placeholder',
-                  'qua-gallery-asset-preview--audio',
-                  'is-card',
-                ],
-              }, props.alt || props.asset.alt || props.asset.name)
-            : h('div', { class: 'qua-gallery-content-audio' }, [
-                props.poster ? h('img', {
-                  class: 'qua-gallery-content-audio-poster',
-                  src: poster.url.value,
-                  alt: props.alt || props.poster.alt || props.asset.alt || '',
-                }) : null,
-                h('audio', {
-                  class: 'qua-gallery-asset-preview qua-gallery-asset-preview--audio',
-                  src: asset.url.value,
-                  controls: true,
-                  preload: 'metadata',
-                  'aria-label': props.alt || props.asset.alt || '',
-                }),
-              ])
-        default:
-          return h('div', {
-            class: [
-              'qua-gallery-asset-preview',
-              'qua-gallery-asset-preview--placeholder',
-              props.variant === 'card' ? 'is-card' : 'is-detail',
-            ],
-          }, props.alt || props.asset.alt || props.asset.name)
-      }
-    }
   },
 })
 
@@ -358,30 +359,30 @@ function renderGalleryDefault(input: {
         h('p', { class: 'qua-gallery-meta' }, `${gallery.entries.filter((entry: GalleryEntryProjectionItem) => entry.unlocked).length}/${gallery.entries.length}`),
       ]),
       h('button', {
-        class: 'qua-gallery-close',
-        type: 'button',
-        style: closeSkin.skinStyle.value,
+        'class': 'qua-gallery-close',
+        'type': 'button',
+        'style': closeSkin.skinStyle.value,
         'data-skin-kind': 'button',
         'data-skin-reference': closeSkin.skinReference.value || undefined,
         'data-skin-state': closeSkin.skinState.value,
         ...createSkinButtonHandlers(closeSkin),
-        onClick: () => actions.requestPluginEvent(GalleryRenderToLogicEvents.CLOSE_REQUEST),
+        'onClick': () => actions.requestPluginEvent(GalleryRenderToLogicEvents.CLOSE_REQUEST),
       }, 'Close'),
     ]),
     h('div', { class: 'qua-gallery-toolbar' }, [
       h('label', { class: 'qua-gallery-search' }, [
         h('span', { class: 'qua-gallery-search-label' }, 'Search'),
         h('input', {
-          class: 'qua-gallery-search-input',
-          type: 'search',
-          value: gallery.projection.filter.search || '',
-          placeholder: 'Search',
-          style: inputSkin.skinStyle.value,
+          'class': 'qua-gallery-search-input',
+          'type': 'search',
+          'value': gallery.projection.filter.search || '',
+          'placeholder': 'Search',
+          'style': inputSkin.skinStyle.value,
           'data-skin-kind': 'input',
           'data-skin-reference': inputSkin.skinReference.value || undefined,
           'data-skin-state': inputSkin.skinState.value,
           ...createSkinButtonHandlers(inputSkin),
-          onInput: (event: Event) => {
+          'onInput': (event: Event) => {
             const target = event.target as HTMLInputElement
             void actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
               filter: {
@@ -392,14 +393,14 @@ function renderGalleryDefault(input: {
         }),
       ]),
       h('button', {
-        class: ['qua-gallery-toolbar-toggle', gallery.projection.filter.unlockedOnly ? 'is-active' : undefined],
-        type: 'button',
-        style: toggleSkin.skinStyle.value,
+        'class': ['qua-gallery-toolbar-toggle', gallery.projection.filter.unlockedOnly ? 'is-active' : undefined],
+        'type': 'button',
+        'style': toggleSkin.skinStyle.value,
         'data-skin-kind': 'toggle',
         'data-skin-reference': toggleSkin.skinReference.value || undefined,
         'data-skin-state': toggleSkin.skinState.value,
         ...createSkinButtonHandlers(toggleSkin),
-        onClick: () => actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+        'onClick': () => actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
           filter: {
             unlockedOnly: !gallery.projection.filter.unlockedOnly,
           },
@@ -494,7 +495,7 @@ function renderGalleryDetailPreview(
   return h('div', { class: 'qua-gallery-detail-preview' }, [
     h(GalleryAssetFrame, {
       asset,
-      poster: content && ('poster' in content ? content.poster : undefined) || undefined,
+      poster: (content && ('poster' in content ? content.poster : undefined)) || undefined,
       alt: entry.title,
       variant: 'detail',
     }),

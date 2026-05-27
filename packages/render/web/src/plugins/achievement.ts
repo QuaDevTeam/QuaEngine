@@ -10,8 +10,8 @@ import {
   ACHIEVEMENT_PLUGIN_ID,
   AchievementRenderToLogicEvents,
 } from '@quajs/plugin-achievement/contracts'
-import { defineWebRendererPlugin } from './core'
 import { bindUiControlSkin } from '../ui-skin'
+import { defineWebRendererPlugin } from './core'
 
 type AchievementAssetRef = NonNullable<AchievementProjectionItem['icon']>
 

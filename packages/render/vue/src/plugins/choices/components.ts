@@ -19,23 +19,23 @@ export const QuaChoiceButton = defineComponent({
       disabled: () => !props.choice.enabled,
     })
     return () => h('button', {
-      class: 'qua-choice-button',
-      style: [motionProjectionVars(props.choice as unknown as Record<string, unknown>, '--qua-choice'), skin.skinStyle.value],
-      disabled: !props.choice.enabled,
+      'class': 'qua-choice-button',
+      'style': [motionProjectionVars(props.choice as unknown as Record<string, unknown>, '--qua-choice'), skin.skinStyle.value],
+      'disabled': !props.choice.enabled,
       'data-skin-kind': 'button',
       'data-skin-reference': skin.skinReference.value || undefined,
       'data-skin-state': skin.skinState.value,
-      onMouseenter: () => skin.setInteractiveState('hover'),
-      onMouseleave: () => skin.setInteractiveState('default'),
-      onMousedown: (event: MouseEvent) => {
+      'onMouseenter': () => skin.setInteractiveState('hover'),
+      'onMouseleave': () => skin.setInteractiveState('default'),
+      'onMousedown': (event: MouseEvent) => {
         if (event.button === 0) {
           skin.setInteractiveState('pressed')
         }
       },
-      onMouseup: () => skin.setInteractiveState('hover'),
-      onFocus: () => skin.setInteractiveState('hover'),
-      onBlur: () => skin.setInteractiveState('default'),
-      onClick: (event: Event) => {
+      'onMouseup': () => skin.setInteractiveState('hover'),
+      'onFocus': () => skin.setInteractiveState('hover'),
+      'onBlur': () => skin.setInteractiveState('default'),
+      'onClick': (event: Event) => {
         event.stopPropagation()
         emit('select')
       },
@@ -56,12 +56,12 @@ export const QuaChoicePanel = defineComponent({
       const projected = projectChoices(choices.value, animations.value, animationNow.value, choicesProjection.value)
       return projected.choices.length
         ? h('div', {
-            class: 'qua-choice-panel',
-            style: [motionProjectionVars(projected.panel, '--qua-choices'), skin.skinStyle.value],
+            'class': 'qua-choice-panel',
+            'style': [motionProjectionVars(projected.panel, '--qua-choices'), skin.skinStyle.value],
             'data-skin-kind': 'panel',
             'data-skin-reference': skin.skinReference.value || undefined,
             'data-skin-state': skin.skinState.value,
-            onClick: (event: Event) => event.stopPropagation(),
+            'onClick': (event: Event) => event.stopPropagation(),
           }, slots.default?.({ ...useProjectionProps(), choices: projected.choices, actions }) || projected.choices.map(choice =>
             slots.choice?.({ ...useProjectionProps(), choice, actions }) || h(QuaChoiceButton, {
               key: choice.id,

@@ -1,14 +1,14 @@
 import type { AssetData } from '@quajs/assets'
+import type { AchievementProjection } from '@quajs/plugin-achievement/contracts'
+import type { GalleryProjection } from '@quajs/plugin-gallery/contracts'
 import type { QuaViewProjection, RendererPlugin } from '@quajs/render-core'
 import { MemoryAssetStorage, QuaAssets } from '@quajs/assets'
 import { createViteDevAssetRuntime } from '@quajs/assets-web'
 import { Pipeline } from '@quajs/pipeline'
 import { ACHIEVEMENT_PLUGIN_ID, AchievementRenderToLogicEvents } from '@quajs/plugin-achievement/contracts'
-import type { AchievementProjection } from '@quajs/plugin-achievement/contracts'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import { FONTS_PLUGIN_ID } from '@quajs/plugin-fonts/contracts'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
-import type { GalleryProjection } from '@quajs/plugin-gallery/contracts'
 import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
 import {
   createFlowControlProjection,

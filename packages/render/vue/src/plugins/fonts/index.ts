@@ -1,5 +1,5 @@
-import type { QuaVueRendererPlugin } from '../core'
 import type { WebFontFaceRegistryOptions } from '@quajs/renderer-web/plugins/fonts'
+import type { QuaVueRendererPlugin } from '../core'
 import { defineVueRendererPlugin } from '../core'
 import { QuaFontsController } from './components'
 

@@ -1,8 +1,8 @@
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { motionProjectionVars, projectChoices } from '../projection'
+import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
 import { applyStyleVars } from './shared'
-import { bindUiControlSkin } from '../ui-skin'
 
 export function createChoicesWebRendererPlugin(): QuaWebDomRendererPlugin {
   return defineWebRendererPlugin({

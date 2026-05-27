@@ -4,10 +4,10 @@ import type {
   AchievementProjection,
   AchievementProjectionItem,
 } from '@quajs/plugin-achievement/contracts'
+import type { QuaViewProjection } from '@quajs/render-core'
 import type { RendererActions } from '@quajs/renderer-web'
 import type { AchievementProjectionModel } from '@quajs/renderer-web/plugins/achievement'
-import type { QuaViewProjection } from '@quajs/render-core'
-import type { PropType, VNode } from 'vue'
+import type { Component, PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import {
   ACHIEVEMENT_PLUGIN_ID,
@@ -22,6 +22,7 @@ import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
 
 type AchievementAssetRef = NonNullable<AchievementProjectionItem['icon']>
+let QuaAchievementCard: Component
 
 export interface AchievementRendererPluginOptions {
   elementId?: string
@@ -71,9 +72,9 @@ export const AchievementImageFrame = defineComponent({
     const asset = useAssetUrl('images', () => props.asset?.name, () => props.asset?.runtimePackageId)
     return () => props.asset
       ? h('img', {
-          class: props.className,
-          src: asset.url.value,
-          alt: props.alt,
+          'class': props.className,
+          'src': asset.url.value,
+          'alt': props.alt,
           'aria-hidden': props.alt ? undefined : 'true',
         })
       : null
@@ -147,9 +148,9 @@ export const QuaAchievementToastLayer = defineComponent({
       }
 
       return h('div', {
-        class: 'qua-achievement-toast-layer',
+        'class': 'qua-achievement-toast-layer',
         'data-qua-capture-role': 'overlay',
-        onClick: (event: Event) => event.stopPropagation(),
+        'onClick': (event: Event) => event.stopPropagation(),
       }, slots.default?.({
         view: view.value,
         projection: projection.value,
@@ -181,16 +182,16 @@ export const QuaAchievementGroupButton = defineComponent({
       selected: () => props.selected,
     })
     return () => h('button', {
-      class: ['qua-achievement-group-button', props.selected ? 'is-selected' : undefined],
-      type: 'button',
+      'class': ['qua-achievement-group-button', props.selected ? 'is-selected' : undefined],
+      'type': 'button',
       'data-achievement-group-id': props.group.id,
       'aria-selected': props.selected ? 'true' : 'false',
-      style: skin.skinStyle.value,
+      'style': skin.skinStyle.value,
       'data-skin-kind': 'tab',
       'data-skin-reference': skin.skinReference.value || undefined,
       'data-skin-state': skin.skinState.value,
       ...createSkinButtonHandlers(skin),
-      onClick: () => actions.requestPluginEvent(AchievementRenderToLogicEvents.SELECT_GROUP_REQUEST, {
+      'onClick': () => actions.requestPluginEvent(AchievementRenderToLogicEvents.SELECT_GROUP_REQUEST, {
         groupId: props.group.id,
       }),
     }, [
@@ -225,9 +226,9 @@ export const QuaAchievementBoardLayer = defineComponent({
       }
 
       return h('div', {
-        class: 'qua-achievement-layer',
+        'class': 'qua-achievement-layer',
         'data-qua-capture-role': 'overlay',
-        onClick: (event: Event) => event.stopPropagation(),
+        'onClick': (event: Event) => event.stopPropagation(),
       }, slots.default?.({
         view: view.value,
         projection: achievement.value.projection,
@@ -275,12 +276,12 @@ function renderAchievementToast(input: {
   const { notification, actions } = input
   const icon = resolveAchievementImageAsset(notification.icon)
   return h('button', {
-    class: 'qua-achievement-toast',
-    type: 'button',
+    'class': 'qua-achievement-toast',
+    'type': 'button',
     'data-achievement-notification-id': notification.id,
     'data-achievement-id': notification.achievementId,
     'data-qua-capture-role': 'overlay',
-    onClick: () => actions.requestPluginEvent(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, {
+    'onClick': () => actions.requestPluginEvent(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, {
       notificationId: notification.id,
     }),
   }, [
@@ -312,8 +313,8 @@ function renderAchievementBoardDefault(input: {
 
   return [
     h('section', {
-      class: 'qua-achievement-panel',
-      role: 'dialog',
+      'class': 'qua-achievement-panel',
+      'role': 'dialog',
       'aria-modal': 'true',
     }, [
       h('header', { class: 'qua-achievement-header' }, [
@@ -322,29 +323,29 @@ function renderAchievementBoardDefault(input: {
           h('p', { class: 'qua-achievement-meta' }, `${achievement.unlockedCount}/${achievement.achievements.length} unlocked`),
         ]),
         h('button', {
-          class: 'qua-achievement-close',
-          type: 'button',
-          style: closeSkin.skinStyle.value,
+          'class': 'qua-achievement-close',
+          'type': 'button',
+          'style': closeSkin.skinStyle.value,
           'data-skin-kind': 'button',
           'data-skin-reference': closeSkin.skinReference.value || undefined,
           'data-skin-state': closeSkin.skinState.value,
           ...createSkinButtonHandlers(closeSkin),
-          onClick: () => actions.requestPluginEvent(AchievementRenderToLogicEvents.CLOSE_BOARD_REQUEST, {}),
+          'onClick': () => actions.requestPluginEvent(AchievementRenderToLogicEvents.CLOSE_BOARD_REQUEST, {}),
         }, 'Close'),
       ]),
       h('div', { class: 'qua-achievement-toolbar' }, [
         h('label', { class: 'qua-achievement-search' }, [
           h('span', { class: 'qua-achievement-search-label' }, 'Search'),
           h('input', {
-            class: 'qua-achievement-search-input',
-            type: 'search',
-            placeholder: 'Search',
-            value: achievement.projection.filter.search || '',
-            style: inputSkin.skinStyle.value,
+            'class': 'qua-achievement-search-input',
+            'type': 'search',
+            'placeholder': 'Search',
+            'value': achievement.projection.filter.search || '',
+            'style': inputSkin.skinStyle.value,
             'data-skin-kind': 'input',
             'data-skin-reference': inputSkin.skinReference.value || undefined,
             'data-skin-state': inputSkin.skinState.value,
-            onInput: (event: Event) => actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+            'onInput': (event: Event) => actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
               filter: {
                 search: (event.target as HTMLInputElement).value,
               },
@@ -352,28 +353,28 @@ function renderAchievementBoardDefault(input: {
           }),
         ]),
         h('button', {
-          class: ['qua-achievement-toolbar-toggle', achievement.projection.filter.unlockedOnly ? 'is-active' : undefined],
-          type: 'button',
-          style: unlockedSkin.skinStyle.value,
+          'class': ['qua-achievement-toolbar-toggle', achievement.projection.filter.unlockedOnly ? 'is-active' : undefined],
+          'type': 'button',
+          'style': unlockedSkin.skinStyle.value,
           'data-skin-kind': 'toggle',
           'data-skin-reference': unlockedSkin.skinReference.value || undefined,
           'data-skin-state': unlockedSkin.skinState.value,
           ...createSkinButtonHandlers(unlockedSkin),
-          onClick: () => actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+          'onClick': () => actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
             filter: {
               unlockedOnly: !achievement.projection.filter.unlockedOnly,
             },
           }),
         }, 'Unlocked'),
         h('button', {
-          class: ['qua-achievement-toolbar-toggle', achievement.projection.filter.includeHidden ? 'is-active' : undefined],
-          type: 'button',
-          style: hiddenSkin.skinStyle.value,
+          'class': ['qua-achievement-toolbar-toggle', achievement.projection.filter.includeHidden ? 'is-active' : undefined],
+          'type': 'button',
+          'style': hiddenSkin.skinStyle.value,
           'data-skin-kind': 'toggle',
           'data-skin-reference': hiddenSkin.skinReference.value || undefined,
           'data-skin-state': hiddenSkin.skinState.value,
           ...createSkinButtonHandlers(hiddenSkin),
-          onClick: () => actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+          'onClick': () => actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
             filter: {
               includeHidden: !achievement.projection.filter.includeHidden,
             },
@@ -418,7 +419,7 @@ function renderAchievementBoardDefault(input: {
   ]
 }
 
-const QuaAchievementCard = defineComponent({
+QuaAchievementCard = defineComponent({
   name: 'QuaAchievementCard',
   props: {
     achievement: {
@@ -435,20 +436,20 @@ const QuaAchievementCard = defineComponent({
     })
     const preview = computed(() => resolveAchievementCardAsset(props.achievement))
     return () => h('button', {
-      class: [
+      'class': [
         'qua-achievement-card',
         props.achievement.unlocked ? 'is-unlocked' : 'is-locked',
         props.selected ? 'is-selected' : undefined,
       ],
-      type: 'button',
+      'type': 'button',
       'data-achievement-id': props.achievement.id,
       'aria-selected': props.selected ? 'true' : 'false',
-      style: skin.skinStyle.value,
+      'style': skin.skinStyle.value,
       'data-skin-kind': 'button',
       'data-skin-reference': skin.skinReference.value || undefined,
       'data-skin-state': skin.skinState.value,
       ...createSkinButtonHandlers(skin),
-      onClick: () => actions.requestPluginEvent(AchievementRenderToLogicEvents.SELECT_ACHIEVEMENT_REQUEST, {
+      'onClick': () => actions.requestPluginEvent(AchievementRenderToLogicEvents.SELECT_ACHIEVEMENT_REQUEST, {
         achievementId: props.achievement.id,
       }),
     }, [

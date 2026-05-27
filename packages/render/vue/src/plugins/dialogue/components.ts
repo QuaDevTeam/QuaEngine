@@ -38,19 +38,19 @@ function renderRichTextContent(content: RichTextContent) {
     return content
   }
   return content.blocks.map(block => h('span', {
-    key: block.id,
-    class: ['qua-rich-text-block', block.type ? `qua-rich-text-block--${block.type}` : undefined],
+    'key': block.id,
+    'class': ['qua-rich-text-block', block.type ? `qua-rich-text-block--${block.type}` : undefined],
     'data-rich-text-block-id': block.id,
-    style: motionProjectionVars(block as unknown as Record<string, unknown>, '--qua-rich-text-block'),
+    'style': motionProjectionVars(block as unknown as Record<string, unknown>, '--qua-rich-text-block'),
   }, block.spans.map(span => renderRichTextSpan(span))))
 }
 
 function renderRichTextSpan(span: Readonly<RichTextSpanProjection>) {
   return h(span.ruby ? 'ruby' : 'span', {
-    key: span.id,
-    class: 'qua-rich-text-span',
+    'key': span.id,
+    'class': 'qua-rich-text-span',
     'data-rich-text-span-id': span.id,
     'aria-label': span.ariaLabel,
-    style: motionProjectionVars(span as unknown as Record<string, unknown>, '--qua-rich-text-span'),
+    'style': motionProjectionVars(span as unknown as Record<string, unknown>, '--qua-rich-text-span'),
   }, span.ruby ? [span.text, h('rt', span.ruby)] : span.text)
 }
