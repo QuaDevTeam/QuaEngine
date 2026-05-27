@@ -1,4 +1,5 @@
 import type { HotReloadEvent } from '../src/core/hot-reload'
+import type { DecoratorMapping } from '../src/core/types'
 import { audioDecoratorMappings } from '@quajs/plugin-audio'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getHotReloadManager, resetHotReloadManager } from '../src/core/hot-reload'
@@ -14,6 +15,14 @@ vi.mock('@quajs/plugin-discovery', () => ({
       module: '@custom/plugin',
     },
   })),
+  getDiscoveredDecoratorMappingsSync: vi.fn(() => ({
+    ...audioDecoratorMappings,
+    CustomDecorator: {
+      function: 'customFunction',
+      module: '@custom/plugin',
+    },
+  })),
+  mergeDecoratorMappings: vi.fn((...mappings: DecoratorMapping[]) => Object.assign({}, ...mappings)),
 }))
 
 describe('hot-Reload Integration', () => {

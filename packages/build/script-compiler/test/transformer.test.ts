@@ -628,7 +628,7 @@ Jack: Hello world!
       hotReload: false,
     })
 
-    expect(result).toContain("import { decorators } from '@quajs/plugin-background';")
+    expect(result).toContain('import { decorators } from \'@quajs/plugin-background\';')
     expect(result).toContain('setBackgroundWithEngine(ctx.engine, "classroom.png")')
   })
 
@@ -812,12 +812,12 @@ const canEnterLibrary = scope.hasKey
 
     expect(result).toContain('import { node, image, scene } from "@quajs/engine"')
     expect(result).toContain('text: "Go library"')
-    expect(result).toContain("target: node('library')")
+    expect(result).toContain('target: node(\'library\')')
     expect(result).toContain('enabled: canEnterLibrary')
     expect(result).toContain('unavailable: {')
-    expect(result).toContain("thumbnail: image('story/library.png')")
-    expect(result).toContain("target: scene('dorm', {")
-    expect(result).toContain("entry: 'nightReturn'")
+    expect(result).toContain('thumbnail: image(\'story/library.png\')')
+    expect(result).toContain('target: scene(\'dorm\', {')
+    expect(result).toContain('entry: \'nightReturn\'')
   })
 
   it('should transform named animation definitions from decorator timelines', () => {

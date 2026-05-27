@@ -92,7 +92,7 @@ function renderFormattedLines(source: string, options: QuaScriptFormatOptions): 
 
 export function splitQuaScriptSourceLines(source: string, scriptRanges: readonly QuaScriptScriptRange[] = collectScriptRanges(source)): QuaScriptSourceLine[] {
   const lines: QuaScriptSourceLine[] = []
-  const linePattern = /(.*?)(\r\n|\n|\r|$)/gu
+  const linePattern = /(.*)(\r\n|\n|\r|$)/gu
   let match = linePattern.exec(source)
   while (match && match[0] !== '') {
     const start = match.index

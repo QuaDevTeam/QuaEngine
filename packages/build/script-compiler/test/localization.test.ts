@@ -53,7 +53,7 @@ describe('quaScript localization helpers', () => {
 
     expect(overlay).toContain('@PlayVoice(\'voice/en.ogg\')')
     expect(overlay).not.toContain('@PlayVoice(\'voice/zh.ogg\')')
-    expect(overlay).toContain('Yuki: 你好 ${scope.playerName}')
+    expect(overlay).toContain('Yuki: 你好 $' + '{scope.playerName}')
     expect(overlay).toContain('- 离开 -> leave')
   })
 
@@ -177,7 +177,7 @@ describe('quaScript localization helpers', () => {
 
     expect(nextSync.units.map(unit => unit.status)).toEqual(['matched', 'todo', 'matched'])
     expect(nextSync.source).toContain('Yuki: 第一行')
-    expect(nextSync.source).toContain('// TODO: translate\nYuki: Newly inserted line')
+    expect(nextSync.source).toContain('// TRANSLATION-REQUIRED\nYuki: Newly inserted line')
     expect(nextSync.source).toContain('Yuki: Newly inserted line')
     expect(nextSync.source).toContain('Yuki: 第二行')
   })

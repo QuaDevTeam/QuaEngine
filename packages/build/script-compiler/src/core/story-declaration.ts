@@ -156,11 +156,11 @@ function normalizeTargetForDeclaration(value: QuaScriptDecoratorValue | undefine
     if (value.startsWith('#')) {
       return { kind: 'label', id: value.slice(1) }
     }
-    const sceneMatch = /^scene:([^#\s]+)(?:#([^\s]+))?$/.exec(value)
+    const sceneMatch = /^scene:([^#\s]+)(?:#(\S+))?$/.exec(value)
     if (sceneMatch) {
       return { kind: 'scene', sceneId: sceneMatch[1], ...(sceneMatch[2] ? { entry: sceneMatch[2] } : {}) }
     }
-    const packageMatch = /^package:([^#\s]+)#([^\s]+)$/.exec(value)
+    const packageMatch = /^package:([^#\s]+)#(\S+)$/.exec(value)
     if (packageMatch) {
       return { kind: 'package-node', packageId: packageMatch[1], nodeId: packageMatch[2] }
     }
@@ -294,11 +294,11 @@ function objectArgument(value: t.CallExpression['arguments'][number] | undefined
     }))
 }
 
-type IdentifierLike = { name: string, type: 'Identifier' }
-type StringLiteralLike = { type: 'StringLiteral', value: string }
-type NumericLiteralLike = { type: 'NumericLiteral', value: number }
-type ObjectPropertyLike = { key: IdentifierLike | StringLiteralLike | NumericLiteralLike, type: 'ObjectProperty', value: unknown }
-type ObjectExpressionLike = { properties: unknown[], type: 'ObjectExpression' }
+interface IdentifierLike { name: string, type: 'Identifier' }
+interface StringLiteralLike { type: 'StringLiteral', value: string }
+interface NumericLiteralLike { type: 'NumericLiteral', value: number }
+interface ObjectPropertyLike { key: IdentifierLike | StringLiteralLike | NumericLiteralLike, type: 'ObjectProperty', value: unknown }
+interface ObjectExpressionLike { properties: unknown[], type: 'ObjectExpression' }
 
 function getCallCalleeName(value: unknown): string | undefined {
   if (!value || typeof value !== 'object') {

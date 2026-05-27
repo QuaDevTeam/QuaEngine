@@ -4,11 +4,11 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 
+import { loadPackageDecoratorMappingsSync, loadProjectDecoratorMappings, loadProjectDecoratorMappingsSync } from '../src/decorators'
+
 vi.mock('@quajs/plugin-discovery', async () => {
   return await import('../../../core/plugin-discovery/src/index.ts')
 })
-
-import { loadPackageDecoratorMappingsSync, loadProjectDecoratorMappings, loadProjectDecoratorMappingsSync } from '../src/decorators'
 
 describe('decorator mapping loader', () => {
   it('loads decorator mappings from package quajs metadata', () => {
@@ -82,7 +82,7 @@ describe('decorator mapping loader', () => {
     }), 'utf-8')
 
     await expect(loadProjectDecoratorMappings(projectRoot)).rejects.toThrow(
-      /Conflicting decorator mapping for @PlayVoice: "(.+#.+)" vs "(.+#.+)"/,
+      /Conflicting decorator mapping for @PlayVoice: "(.[^\n\r#\u2028\u2029]*#.+)" vs "(.[^\n\r#\u2028\u2029]*#.+)"/,
     )
   })
 
@@ -121,7 +121,7 @@ describe('decorator mapping loader', () => {
     }), 'utf-8')
 
     expect(() => loadProjectDecoratorMappingsSync(projectRoot)).toThrow(
-      /Conflicting decorator mapping for @PlayVoice: "(.+#.+)" vs "(.+#.+)"/,
+      /Conflicting decorator mapping for @PlayVoice: "(.[^\n\r#\u2028\u2029]*#.+)" vs "(.[^\n\r#\u2028\u2029]*#.+)"/,
     )
   })
 })

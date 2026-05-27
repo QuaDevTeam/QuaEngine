@@ -2,8 +2,8 @@ import type { Plugin, ViteDevServer } from 'vite'
 import type { QuaScriptTransformResult } from '../core/transformer'
 import type { DecoratorMapping } from '../core/types'
 import process from 'node:process'
-import { getHotReloadManager } from '../core/hot-reload'
 import { loadQuaScriptToolingConfig } from '../core/config'
+import { getHotReloadManager } from '../core/hot-reload'
 import { createHotReloadAwareTransformer } from './hot-reload-transformer'
 
 export interface QuaScriptPluginOptions {

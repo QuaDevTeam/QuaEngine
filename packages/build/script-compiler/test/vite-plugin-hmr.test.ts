@@ -217,7 +217,7 @@ describe('vite Plugin Hot-Reload Integration', () => {
         error(message: string): never {
           throw new Error(message)
         },
-      }, "@SetBackground('classroom.png')\nYuki: Hello\n", join(root, 'scene.qs'))).rejects.toThrow(
+      }, '@SetBackground(\'classroom.png\')\nYuki: Hello\n', join(root, 'scene.qs'))).rejects.toThrow(
         'Unknown QuaScript decorator @SetBackground',
       )
     })
@@ -324,11 +324,15 @@ describe('vite Plugin Hot-Reload Integration', () => {
 
       await handleHotUpdate(ctx)
 
-      // Wait for async operations
       await new Promise(resolve => setTimeout(resolve, 10))
 
-      // Note: This test would need more sophisticated mocking to verify WebSocket messages
-      // The hot-reload manager would need to be triggered, which happens asynchronously
+      expect(mockServer.ws.send).toHaveBeenCalledWith(expect.objectContaining({
+        event: 'qua-script:reload',
+        data: expect.objectContaining({
+          type: 'plugin-change',
+          file: '/project/plugins/test-plugin.ts',
+        }),
+      }))
     })
   })
 

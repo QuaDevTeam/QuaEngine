@@ -7,7 +7,7 @@ import {
   lintQuaScriptSource,
 } from '../src'
 
-describe('QuaScript formatter', () => {
+describe('quaScript formatter', () => {
   it('trims trailing whitespace and ensures final newline', () => {
     expect(formatQuaScript('Yuki: Hello   ')).toBe('Yuki: Hello\n')
   })
@@ -35,13 +35,13 @@ describe('QuaScript formatter', () => {
     const source = [
       '@Choice("Go now",  node("library", { when: scope.ok }))',
       '- Stay here -> stay if scope.a  &&  scope.b',
-      'Yuki: Hello ${ scope.name ?? "Guest" }   ',
+      'Yuki: Hello $' + '{ scope.name ?? "Guest" }   ',
     ].join('\n')
 
     expect(formatQuaScript(source)).toBe([
       '@Choice("Go now",  node("library", { when: scope.ok }))',
       '- Stay here -> stay if scope.a  &&  scope.b',
-      'Yuki: Hello ${ scope.name ?? "Guest" }',
+      'Yuki: Hello $' + '{ scope.name ?? "Guest" }',
       '',
     ].join('\n'))
   })
@@ -68,7 +68,7 @@ describe('QuaScript formatter', () => {
   })
 })
 
-describe('QuaScript style lint', () => {
+describe('quaScript style lint', () => {
   it('reports stable style diagnostics with safe fixes', () => {
     const lint = lintQuaScriptSource('Yuki: Hello  \n\n\n@SetBackground("classroom.png")\n\nYuki: Back')
     const diagnostics = lint.diagnostics.filter(diagnostic => diagnostic.source === 'quascript/style')

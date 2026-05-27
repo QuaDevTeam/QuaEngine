@@ -1,10 +1,11 @@
+import type { QuaScriptTransformerOptions } from './transformer'
 import type { DecoratorMapping, ParsedQuaScript, QuaScriptChoice, QuaScriptDecorator, QuaScriptDialogue, QuaScriptStep, SourceRange } from './types'
 import { parse } from '@babel/parser'
 import { loadProjectDecoratorMappingsSync } from '../decorators'
 import { resolveQuaScriptDecoratorCompileOptions } from './config'
 import { parseQuaScriptDocument } from './document'
 import { QuaScriptParser, scanTemplateText } from './parser'
-import { QuaScriptTransformer, type QuaScriptTransformerOptions } from './transformer'
+import { QuaScriptTransformer } from './transformer'
 import { mergeDecoratorMappings } from './types'
 
 export type QuaScriptLocalizableUnitKind = 'dialogue' | 'choice'
@@ -309,7 +310,7 @@ function renderQuaScriptLocaleUnit(unit: QuaScriptLocalizableUnit, text: string,
 function renderSyncStatusMarker(status?: QuaScriptLocaleSyncStatus): string {
   switch (status) {
     case 'todo':
-      return '// TODO: translate\n'
+      return '// TRANSLATION-REQUIRED\n'
     case 'needs-review':
       return '// NEEDS-REVIEW: base text or matching context changed\n'
     case 'conflict':

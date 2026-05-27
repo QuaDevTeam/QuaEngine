@@ -55,8 +55,8 @@
   "devDependencies": {
     "@quajs/character": "workspace:*",
     "@quajs/engine": "workspace:*",
-    "@quajs/plugin-animation": "workspace:*",
     "@quajs/plugin-achievement": "workspace:*",
+    "@quajs/plugin-animation": "workspace:*",
     "@quajs/plugin-background": "workspace:*",
     "@quajs/plugin-gallery": "workspace:*",
     "@types/babel__generator": "catalog:",
