@@ -1,8 +1,9 @@
 import type { AssetRuntimeAdapter, AssetType } from '@quajs/assets'
 import { MemoryAssetStorage } from '@quajs/assets'
 import { QuaEngine } from '@quajs/engine'
+import { getSettingsDeveloperValues, getSettingsProjection, SettingsPlugin } from '@quajs/plugin-settings'
 import { MemoryBackend } from '@quajs/store'
-import { StoryGraphPlugin, setStoryMetadataWithEngine } from '@quajs/story-graph'
+import { setStoryMetadataWithEngine, StoryGraphPlugin } from '@quajs/story-graph'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   closeGallerySceneWithEngine,
@@ -10,6 +11,7 @@ import {
   GALLERY_PLUGIN_ID,
   GALLERY_PROFILE_STORE_PREFIX,
   GALLERY_SCENE_ID,
+  GALLERY_SETTINGS_SCOPE,
   GalleryPlugin,
   GalleryRenderToLogicEvents,
   getGalleryProfile,
@@ -39,6 +41,19 @@ describe('@quajs/plugin-gallery', () => {
     expect(engine.getPluginProjection(GALLERY_PLUGIN_ID)).toBeUndefined()
   })
 
+  it('exposes profile defaults as developer settings only', async () => {
+    const engine = createEngine()
+    engine.use(new SettingsPlugin({ builtin: false }))
+    engine.use(new GalleryPlugin({ profileId: 'developer-profile' }))
+    await engine.init()
+
+    expect(getSettingsDeveloperValues(engine, GALLERY_SETTINGS_SCOPE)).toEqual({
+      defaultProfileId: 'developer-profile',
+    })
+    expect(getSettingsProjection(engine)?.scopes[GALLERY_SETTINGS_SCOPE]).toBeUndefined()
+    expect(getGalleryProjection(engine).profileId).toBe('developer-profile')
+  })
+
   it('persists gallery profiles through the shared quastore storage manager and keeps unlocks out of save/load rollback', async () => {
     const engine = createEngine()
     engine.use(new GalleryPlugin())
@@ -63,6 +78,15 @@ describe('@quajs/plugin-gallery', () => {
 
     expect(engine.getViewState().dialogue.text).toBe('Saved line')
     expect(Object.keys(getGalleryProfile(engine).unlockedEntries).sort()).toEqual(['cg.night', 'cg.sunset'])
+  })
+
+  it('rejects unknown entry unlocks without writing profile progress', async () => {
+    const engine = createEngine()
+    engine.use(new GalleryPlugin())
+    await engine.init()
+
+    await expect(unlockGalleryEntryWithEngine(engine, 'missing.cg')).rejects.toThrow('Gallery entry "missing.cg" is not registered.')
+    expect(getGalleryProfile(engine).unlockedEntries).toEqual({})
   })
 
   it('creates a return checkpoint when opening the gallery scene and jumps back on close', async () => {

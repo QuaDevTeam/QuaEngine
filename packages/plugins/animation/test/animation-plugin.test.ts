@@ -1,8 +1,10 @@
 import type { QuaEngineInterface } from '@quajs/engine'
 import type { QuaViewProjection } from '@quajs/render-core'
+import { getSettingsDeveloperValues, getSettingsProjection, SettingsPlugin } from '@quajs/plugin-settings'
 import { createFlowControlProjection, createViewLayoutProjection } from '@quajs/render-core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  ANIMATION_SETTINGS_SCOPE,
   animationDecoratorMappings,
   AnimationPlugin,
   characterEnter,
@@ -45,6 +47,22 @@ describe('@quajs/plugin-animation', () => {
       'waitAnimationWithEngine',
     ]))
     expect(registration.decorators).toEqual(animationDecoratorMappings)
+  })
+
+  it('exposes strict adapter mode as developer settings only', async () => {
+    const engine = createEngine()
+    const settings = new SettingsPlugin({ builtin: false })
+    await settings.init(createPluginContext(engine, [settings]))
+    const plugin = new AnimationPlugin({ strictAdapters: true })
+    await plugin.init(createPluginContext(engine, [settings, plugin]))
+
+    expect(getSettingsDeveloperValues(engine, ANIMATION_SETTINGS_SCOPE)).toEqual({
+      strictAdapters: true,
+    })
+    expect(getSettingsProjection(engine)?.scopes[ANIMATION_SETTINGS_SCOPE]).toBeUndefined()
+
+    await plugin.destroy?.()
+    await settings.destroy?.()
   })
 
   it('plays named timelines, projects resolved tracks, waits, and commits final values', async () => {
@@ -573,19 +591,40 @@ describe('@quajs/plugin-animation', () => {
   })
 })
 
-function createPluginContext(engine: QuaEngineInterface) {
+function createPluginContext(engine: QuaEngineInterface, plugins: Array<{ name: string, id?: string }> = []) {
+  const byName = new Map(plugins.map(plugin => [plugin.name, plugin as any]))
+  const byId = new Map(plugins.filter(plugin => plugin.id).map(plugin => [plugin.id!, plugin as any]))
   return {
     engine,
-    store: {},
+    store: engine.getStore(),
     assets: {},
-    pipeline: {},
+    pipeline: createPipelineStub(),
     plugins: {
-      getPlugin: () => undefined,
-      getPluginById: () => undefined,
-      getAllPlugins: () => new Map(),
-      hasPlugin: () => false,
+      getPlugin: (name: string) => byName.get(name),
+      getPluginById: (id: string) => byId.get(id),
+      getAllPlugins: () => byName,
+      hasPlugin: (name: string) => byName.has(name),
     },
   } as any
+}
+
+function createPipelineStub() {
+  const listeners = new Map<string, Set<(context: any) => void | Promise<void>>>()
+  return {
+    on(type: string, listener: (context: any) => void | Promise<void>) {
+      const set = listeners.get(type) || new Set()
+      set.add(listener)
+      listeners.set(type, set)
+    },
+    off(type: string, listener: (context: any) => void | Promise<void>) {
+      listeners.get(type)?.delete(listener)
+    },
+    async emit(type: string, payload: unknown) {
+      for (const listener of listeners.get(type) || []) {
+        await listener({ event: { type, payload } })
+      }
+    },
+  }
 }
 
 function createEngine(viewPatch: Partial<QuaViewProjection> = {}) {
@@ -603,7 +642,16 @@ function createEngine(viewPatch: Partial<QuaViewProjection> = {}) {
     ...viewPatch,
   }
 
-  const store = { commit: vi.fn() }
+  const store = {
+    commit: vi.fn((mutation: string, payload: any) => {
+      if (mutation === 'setPluginProjection') {
+        view.plugins = {
+          ...view.plugins,
+          [payload.pluginId]: payload.projection,
+        }
+      }
+    }),
+  }
   const engine = {
     getStoryPoint: vi.fn(() => undefined),
     getViewState: vi.fn(() => ({

@@ -64,6 +64,15 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Keep `@quajs/script-compiler` focused on orchestration, discovery, and import wiring.
 - Keep `@quajs/engine` focused on state ownership and contracts, not concrete feature behavior.
 
+### Plugin settings
+- Use `@quajs/plugin-settings` as the shared configuration bridge for feature plugins.
+- If a plugin has frontend/user-facing preferences, register a `player` settings scope. Player settings are profile-level persistent preferences, are projected to renderer settings UI, and must not be restored by story save/load.
+- If a plugin has developer-tunable behavior, defaults, or policy, register a `developer` settings scope. Developer settings seed runtime behavior and are available to code through the settings bridge, but must not be exposed as player UI unless the same value is also intentionally modeled as a player preference.
+- Constructor options may seed developer/player defaults, but they must not be the only configurable surface for behavior that should be changed through the project settings system.
+- Do not force content/catalog/asset/decorator definitions into settings. Backgrounds, fonts, sprites, gallery catalogs, achievement definitions, script decorators, build-time import options, and runtime package manifests should stay API-, manifest-, or build-config-driven unless they are true persistent preferences or runtime policy values.
+- Optional settings integration must be additive. A feature plugin may dynamically register its scope when `@quajs/plugin-settings` is present, but it must continue to work without settings installed.
+- Player settings apply hooks must update engine-owned projection/state only. Renderers consume the projection and emit settings intents through the pipeline; they must not own settings authority.
+
 ### QuaScript boundary
 - Treat QuaScript as a narrative DSL, not a general-purpose scripting language.
 - Keep QuaScript focused on dialogue, choices, action decorators, story-point metadata decorators, and imported TypeScript helpers used from `<script lang="ts">`, `<script setup lang="ts">`, or `${...}` expressions.

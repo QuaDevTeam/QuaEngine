@@ -47,10 +47,14 @@
     "@quajs/engine": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-gallery": "workspace:*",
+    "@quajs/plugin-settings": "workspace:*",
     "@quajs/store": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@quajs/plugin-gallery": {
+      "optional": true
+    },
+    "@quajs/plugin-settings": {
       "optional": true
     }
   },
@@ -62,6 +66,7 @@
     "@quajs/engine": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-gallery": "workspace:*",
+    "@quajs/plugin-settings": "workspace:*",
     "@quajs/store": "workspace:*",
     "@quajs/story-graph": "workspace:*"
   },

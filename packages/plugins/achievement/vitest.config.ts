@@ -1,7 +1,14 @@
 /// <reference types="vitest" />
+import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@quajs/plugin-gallery': resolve(__dirname, '../gallery/src/index.ts'),
+      '@quajs/plugin-settings': resolve(__dirname, '../settings/src/index.ts'),
+    },
+  },
   test: {
     globals: true,
     environment: 'node',

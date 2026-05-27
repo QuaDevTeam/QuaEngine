@@ -535,6 +535,9 @@ importers:
       '@quajs/plugin-gallery':
         specifier: workspace:*
         version: link:../gallery
+      '@quajs/plugin-settings':
+        specifier: workspace:*
+        version: link:../settings
       '@quajs/store':
         specifier: workspace:*
         version: link:../../core/store
@@ -551,6 +554,9 @@ importers:
       '@quajs/engine':
         specifier: workspace:*
         version: link:../../core/engine
+      '@quajs/plugin-settings':
+        specifier: workspace:*
+        version: link:../settings
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../../render/core
@@ -567,6 +573,9 @@ importers:
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../../core/pipeline
+      '@quajs/plugin-settings':
+        specifier: workspace:*
+        version: link:../settings
       '@quajs/store':
         specifier: workspace:*
         version: link:../../core/store
@@ -605,6 +614,9 @@ importers:
       '@quajs/plugin-audio':
         specifier: workspace:*
         version: link:../audio
+      '@quajs/plugin-settings':
+        specifier: workspace:*
+        version: link:../settings
       '@quajs/store':
         specifier: workspace:*
         version: link:../../core/store
@@ -636,6 +648,9 @@ importers:
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../../core/pipeline
+      '@quajs/plugin-settings':
+        specifier: workspace:*
+        version: link:../settings
       '@quajs/store':
         specifier: workspace:*
         version: link:../../core/store

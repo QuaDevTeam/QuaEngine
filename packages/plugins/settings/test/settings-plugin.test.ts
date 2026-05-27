@@ -250,7 +250,7 @@ describe('@quajs/plugin-settings', () => {
     await updatePlayerSettingsWithEngine(engine, 'demo', { volume: 0.3 })
     await engine.setStoryPoint({ sceneId: 'scene-1', stepId: 'line-1' })
     await engine.showDialogue({ text: 'Saved line' })
-    await engine.quickSave()
+    await engine.quickSave({}, { preview: { mode: 'disabled' } })
 
     await updatePlayerSettingsWithEngine(engine, 'demo', { volume: 0.9 })
     await engine.showDialogue({ text: 'Changed line' })

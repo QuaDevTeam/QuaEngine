@@ -47,6 +47,7 @@ import {
 
 const DEFAULT_PROFILE_ID = 'default'
 const STORY_GRAPH_PLUGIN_ID = 'storyGraph' as const
+const GALLERY_SETTINGS_SCOPE = '@quajs/plugin-gallery' as const
 
 interface StoryGraphNodeLike {
   id: string
@@ -75,6 +76,10 @@ interface GalleryRuntimeState {
   catalogs: Map<string, GalleryCatalogDefinition>
   entries: Map<string, GalleryEntryDefinition>
   profiles: Map<string, GalleryProfileRuntime>
+}
+
+interface GalleryDeveloperSettings {
+  defaultProfileId: string
 }
 
 interface GalleryProjectionPatch {
@@ -111,6 +116,7 @@ export {
   GALLERY_PLUGIN_ID,
   GALLERY_PROFILE_STORE_PREFIX,
   GALLERY_SCENE_ID,
+  GALLERY_SETTINGS_SCOPE,
   GalleryRenderToLogicEvents,
   onGalleryRenderToLogic,
 }
@@ -212,6 +218,10 @@ export class GalleryPlugin extends BaseEnginePlugin {
     }))
 
     await rebuildGalleryProjection(ctx.engine, runtimeState, {}, ctx.store)
+    const settingsDisposer = await registerGallerySettingsScope(ctx, runtimeState)
+    if (settingsDisposer) {
+      this.disposers.push(settingsDisposer)
+    }
   }
 
   override async onStepComplete(ctx: EngineContext): Promise<void> {
@@ -477,6 +487,9 @@ export async function unlockGalleryEntriesWithEngine(
     }
 
     const definition = runtimeState.entries.get(normalizedEntryId)
+    if (!definition) {
+      throw new Error(`Gallery entry "${normalizedEntryId}" is not registered.`)
+    }
     unlockedEntries[normalizedEntryId] = {
       entryId: normalizedEntryId,
       unlockedAt: Date.now(),
@@ -743,6 +756,53 @@ function getOrCreateGalleryRuntimeState(engine: QuaEngineInterface, defaultProfi
   return created
 }
 
+async function registerGallerySettingsScope(
+  ctx: EngineContext,
+  runtimeState: GalleryRuntimeState,
+): Promise<(() => void) | undefined> {
+  try {
+    const settings = await import('@quajs/plugin-settings')
+    const unregister = settings.registerSettingsScope(ctx.engine, {
+      scope: GALLERY_SETTINGS_SCOPE,
+      version: 1,
+      title: 'Gallery',
+      description: 'Gallery profile defaults.',
+      developer: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            defaultProfileId: {
+              type: 'string',
+              title: 'Default Profile',
+              default: DEFAULT_PROFILE_ID,
+            },
+          },
+        },
+        defaults: {
+          defaultProfileId: DEFAULT_PROFILE_ID,
+        } satisfies GalleryDeveloperSettings,
+        values: {
+          defaultProfileId: runtimeState.defaultProfileId,
+        } satisfies GalleryDeveloperSettings,
+      },
+      apply: async ({ developer }) => {
+        runtimeState.defaultProfileId = trimNonEmpty(developer.defaultProfileId) || DEFAULT_PROFILE_ID
+        await ensureGalleryProfile(ctx.engine, runtimeState, runtimeState.defaultProfileId)
+        await rebuildGalleryProjection(ctx.engine, runtimeState, {})
+      },
+    })
+    await settings.getSettingsBridge(ctx.engine)?.rebuildProjection({ reason: 'rebuild', apply: true, persist: false })
+    return unregister
+  }
+  catch (error) {
+    if (isOptionalPluginUnavailableError(error, '@quajs/plugin-settings')) {
+      return undefined
+    }
+    throw error
+  }
+}
+
 function getGalleryRuntimeState(engine: QuaEngineInterface): GalleryRuntimeState | undefined {
   return galleryRuntimeState.get(getGalleryRuntimeKey(engine))
 }
@@ -908,9 +968,9 @@ function normalizeGalleryProfileState(value: unknown, profileId: string): Galler
 
   const unlockedEntries = isPlainRecord(value.unlockedEntries)
     ? Object.fromEntries(
-          Object.entries(value.unlockedEntries)
-            .filter(([, record]) => isGalleryUnlockRecord(record))
-            .map(([entryId, record]) => [entryId, cloneGalleryUnlockRecord(record as GalleryUnlockRecord)]),
+        Object.entries(value.unlockedEntries)
+          .filter(([, record]) => isGalleryUnlockRecord(record))
+          .map(([entryId, record]) => [entryId, cloneGalleryUnlockRecord(record as GalleryUnlockRecord)]),
       )
     : {}
 
@@ -1190,7 +1250,7 @@ function normalizeGalleryContentBlock(
     }
     case 'text': {
       if (typeof (block as GalleryTextContentBlock).text !== 'string') {
-        throw new Error(`Gallery text content "${id}" requires text.`)
+        throw new TypeError(`Gallery text content "${id}" requires text.`)
       }
       return {
         ...base,
@@ -1589,6 +1649,18 @@ function mergeRequiredRuntimePackages(...groups: Array<readonly string[] | undef
       .map(item => typeof item === 'string' ? item.trim() : '')
       .filter((item): item is string => item.length > 0),
   ))
+}
+
+function isOptionalPluginUnavailableError(error: unknown, packageName: string): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+  return error.message.includes(packageName)
+    && (
+      error.message.includes('Cannot find package')
+      || error.message.includes('Cannot find module')
+      || error.message.includes('Failed to resolve')
+    )
 }
 
 function assertGalleryCatalogExists(runtimeState: GalleryRuntimeState, catalogId: string, entryId: string): void {

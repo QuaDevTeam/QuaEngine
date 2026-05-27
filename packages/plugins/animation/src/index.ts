@@ -6,10 +6,10 @@ import type {
   AnimationFillMode,
   AnimationInterpolation,
   AnimationTime,
+  ResolvedAnimationTrackProjection,
   RichTextBlockProjection,
   RichTextDocumentProjection,
   RichTextSpanProjection,
-  ResolvedAnimationTrackProjection,
   ViewBackgroundLayerProjection,
   ViewBackgroundProjection,
   ViewCharacterProjection,
@@ -19,8 +19,11 @@ import { BaseEnginePlugin } from '@quajs/engine'
 import { isRichTextDocument } from '@quajs/render-core'
 import { animationDecoratorMappings } from './script-compiler'
 
+const ANIMATION_SETTINGS_SCOPE = '@quajs/plugin-animation' as const
+
 export type AnimationTargetBindings = Readonly<Record<string, string>> | readonly string[]
 export type { AnimationCommitMode, AnimationDirection }
+export { ANIMATION_SETTINGS_SCOPE }
 
 export interface AnimationKeyframe {
   at: AnimationTime
@@ -68,6 +71,10 @@ export interface AnimationPluginOptions {
   strictAdapters?: boolean
 }
 
+interface AnimationDeveloperSettings {
+  strictAdapters: boolean
+}
+
 export interface AnimationTargetAdapter {
   kind: string
   exists?: (engine: QuaEngineInterface, selector: string) => boolean
@@ -104,6 +111,7 @@ interface AnimationRuntime {
   strictAdapters: boolean
   warned: Set<string>
   counter: number
+  settingsDisposer?: () => void
 }
 
 const runtimes = new WeakMap<object, AnimationRuntime>()
@@ -117,9 +125,13 @@ export class AnimationPlugin extends BaseEnginePlugin {
   readonly version = '0.1.0'
   readonly description = 'Cross-plugin timeline animation APIs'
 
-  protected setup(): void {
+  protected async setup(ctx: EngineContext): Promise<void> {
     const runtime = getRuntime(this.ctx!.engine)
     runtime.strictAdapters = Boolean((this.options as AnimationPluginOptions).strictAdapters)
+    const settingsDisposer = await registerAnimationSettingsScope(ctx, runtime, this.getOptions())
+    if (settingsDisposer) {
+      runtime.settingsDisposer = settingsDisposer
+    }
     reconcileAnimationRuntime(this.ctx!.engine)
   }
 
@@ -144,6 +156,9 @@ export class AnimationPlugin extends BaseEnginePlugin {
 
   override async destroy(): Promise<void> {
     if (this.ctx) {
+      const runtime = getRuntime(this.ctx.engine)
+      runtime.settingsDisposer?.()
+      runtime.settingsDisposer = undefined
       await clearAnimationRuntime(this.ctx.engine)
     }
     const baseDestroy = BaseEnginePlugin.prototype.destroy
@@ -169,6 +184,10 @@ export class AnimationPlugin extends BaseEnginePlugin {
       ],
       decorators: animationDecoratorMappings,
     }
+  }
+
+  private getOptions(): AnimationPluginOptions {
+    return this.options as AnimationPluginOptions
   }
 }
 
@@ -685,6 +704,53 @@ function getRuntime(engine: QuaEngineInterface): AnimationRuntime {
   return runtime
 }
 
+async function registerAnimationSettingsScope(
+  ctx: EngineContext,
+  runtime: AnimationRuntime,
+  options: AnimationPluginOptions,
+): Promise<(() => void) | undefined> {
+  try {
+    const settings = await import('@quajs/plugin-settings')
+    const unregister = settings.registerSettingsScope(ctx.engine, {
+      scope: ANIMATION_SETTINGS_SCOPE,
+      version: 1,
+      title: 'Animation',
+      description: 'Animation runtime validation behavior.',
+      developer: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            strictAdapters: {
+              type: 'boolean',
+              title: 'Strict Target Adapters',
+              default: false,
+            },
+          },
+        },
+        defaults: {
+          strictAdapters: false,
+        } satisfies AnimationDeveloperSettings,
+        values: {
+          strictAdapters: options.strictAdapters === true,
+        } satisfies AnimationDeveloperSettings,
+      },
+      apply: async ({ developer }) => {
+        runtime.strictAdapters = developer.strictAdapters === true
+        reconcileAnimationRuntime(ctx.engine)
+      },
+    })
+    await settings.getSettingsBridge(ctx.engine)?.rebuildProjection({ reason: 'rebuild', apply: true, persist: false })
+    return unregister
+  }
+  catch (error) {
+    if (isOptionalPluginUnavailableError(error, '@quajs/plugin-settings')) {
+      return undefined
+    }
+    throw error
+  }
+}
+
 function animationRuntimeKey(engine: QuaEngineInterface): object {
   return engine.getStore()
 }
@@ -796,6 +862,18 @@ function withCurrentRuntimeAnimationPackage<TTimeline extends NormalizedAnimatio
 function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined {
   return (engine as Partial<QuaEngineInterface>).getCurrentRuntimePackageId?.()
     || (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
+}
+
+function isOptionalPluginUnavailableError(error: unknown, packageName: string): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+  return error.message.includes(packageName)
+    && (
+      error.message.includes('Cannot find package')
+      || error.message.includes('Cannot find module')
+      || error.message.includes('Failed to resolve')
+    )
 }
 
 function assertAdapter(

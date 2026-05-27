@@ -4,6 +4,7 @@ import type {
   AudioAutomationOptions,
   AudioAutomationProjection,
   AudioBusId,
+  AudioBusProjection,
   AudioChapterDirectiveOptions,
   AudioDefaultsProjection,
   AudioEqBand,
@@ -32,6 +33,9 @@ import {
 } from './contracts'
 import { audioDecoratorMappings } from './script-compiler'
 
+const AUDIO_SETTINGS_SCOPE = '@quajs/plugin-audio' as const
+const DEFAULT_AUDIO_GAIN_DB = 0
+
 export {
   AUDIO_PLUGIN_ID,
   AUDIO_RENDERER_ENTRY,
@@ -44,6 +48,7 @@ export {
   emitAudioRenderToLogic,
   onAudioRenderToLogic,
 } from './contracts'
+export { AUDIO_SETTINGS_SCOPE }
 
 export type {
   AudioAutomationCurve,
@@ -74,6 +79,22 @@ export interface AudioPluginOptions {
   defaultProjection?: Partial<AudioViewProjection>
 }
 
+interface AudioDeveloperSettings {
+  defaultMasterGainDb: number
+  defaultBgmGainDb: number
+  defaultVoiceGainDb: number
+  defaultSfxGainDb: number
+  defaultAmbientGainDb: number
+}
+
+interface AudioPlayerSettings {
+  masterGainDb: number
+  bgmGainDb: number
+  voiceGainDb: number
+  sfxGainDb: number
+  ambientGainDb: number
+}
+
 export class AudioPlugin extends BaseEnginePlugin {
   readonly name = '@quajs/plugin-audio'
   readonly id = AUDIO_PLUGIN_ID
@@ -82,9 +103,10 @@ export class AudioPlugin extends BaseEnginePlugin {
   private disposers: Array<() => void> = []
   private projectionBeforeJump?: AudioViewProjection
 
-  protected setup(): void {
-    const engine = this.ctx!.engine
-    const pipeline = this.ctx!.pipeline
+  protected async setup(ctx: EngineContext): Promise<void> {
+    const engine = ctx.engine
+    const pipeline = ctx.pipeline
+    ensureAudioProjection(engine, this.getOptions())
     this.disposers.push(
       onAudioRenderToLogic(pipeline, AudioEvents.ENDED, (payload) => {
         return handleTrackEnded(engine, payload)
@@ -110,6 +132,10 @@ export class AudioPlugin extends BaseEnginePlugin {
         void payload
       }),
     )
+    const settingsDisposer = await registerAudioSettingsScope(ctx, this.getOptions())
+    if (settingsDisposer) {
+      this.disposers.push(settingsDisposer)
+    }
   }
 
   override async destroy(): Promise<void> {
@@ -178,6 +204,10 @@ export class AudioPlugin extends BaseEnginePlugin {
       ],
       decorators: audioDecoratorMappings,
     }
+  }
+
+  private getOptions(): AudioPluginOptions {
+    return this.options as AudioPluginOptions
   }
 }
 
@@ -436,6 +466,191 @@ export async function stopRuntimePackageAudioWithEngine(
 
 export function getAudioProjection(engine: QuaEngineInterface): AudioViewProjection {
   return engine.getPluginProjection<AudioViewProjection>(AUDIO_PLUGIN_ID) || createInitialAudioProjection()
+}
+
+function ensureAudioProjection(engine: QuaEngineInterface, options: AudioPluginOptions): AudioViewProjection {
+  const existing = engine.getPluginProjection<AudioViewProjection>(AUDIO_PLUGIN_ID)
+  if (existing) {
+    return existing
+  }
+  const projection = mergeAudioProjectionDefaults(createInitialAudioProjection(), options.defaultProjection)
+  engine.getStore().commit('setPluginProjection', {
+    pluginId: AUDIO_PLUGIN_ID,
+    projection,
+  })
+  return projection
+}
+
+async function registerAudioSettingsScope(
+  ctx: EngineContext,
+  options: AudioPluginOptions,
+): Promise<(() => void) | undefined> {
+  try {
+    const settings = await import('@quajs/plugin-settings')
+    const defaultProjection = mergeAudioProjectionDefaults(createInitialAudioProjection(), options.defaultProjection)
+    const developerValues = createAudioDeveloperSettings(defaultProjection.buses)
+    const unregister = settings.registerSettingsScope(ctx.engine, {
+      scope: AUDIO_SETTINGS_SCOPE,
+      version: 1,
+      title: 'Audio',
+      description: 'Audio bus defaults and player volume preferences.',
+      developer: {
+        schema: createAudioDeveloperSettingsSchema(),
+        defaults: createAudioDeveloperSettings(createInitialAudioProjection().buses),
+        values: developerValues,
+      },
+      player: {
+        schema: createAudioPlayerSettingsSchema(),
+        defaults: {
+          masterGainDb: developerValues.defaultMasterGainDb,
+          bgmGainDb: developerValues.defaultBgmGainDb,
+          voiceGainDb: developerValues.defaultVoiceGainDb,
+          sfxGainDb: developerValues.defaultSfxGainDb,
+          ambientGainDb: developerValues.defaultAmbientGainDb,
+        } satisfies AudioPlayerSettings,
+        expose: true,
+        ui: {
+          label: 'Audio',
+          order: 10,
+          groups: {
+            volume: {
+              label: 'Volume',
+              order: 0,
+            },
+          },
+          controls: {
+            masterGainDb: createAudioGainControl('Master', 0),
+            bgmGainDb: createAudioGainControl('BGM', 1),
+            voiceGainDb: createAudioGainControl('Voice', 2),
+            sfxGainDb: createAudioGainControl('SFX', 3),
+            ambientGainDb: createAudioGainControl('Ambient', 4),
+          },
+        },
+      },
+      apply: async ({ player }) => {
+        await applyAudioPlayerSettings(ctx.engine, player)
+      },
+    })
+    await settings.getSettingsBridge(ctx.engine)?.rebuildProjection({ reason: 'rebuild', apply: true, persist: false })
+    return unregister
+  }
+  catch (error) {
+    if (isOptionalPluginUnavailableError(error, '@quajs/plugin-settings')) {
+      return undefined
+    }
+    throw error
+  }
+}
+
+function createAudioDeveloperSettingsSchema() {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      defaultMasterGainDb: createAudioGainSetting('Default Master Gain'),
+      defaultBgmGainDb: createAudioGainSetting('Default BGM Gain'),
+      defaultVoiceGainDb: createAudioGainSetting('Default Voice Gain'),
+      defaultSfxGainDb: createAudioGainSetting('Default SFX Gain'),
+      defaultAmbientGainDb: createAudioGainSetting('Default Ambient Gain'),
+    },
+  } as const
+}
+
+function createAudioPlayerSettingsSchema() {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      masterGainDb: createAudioGainSetting('Master Gain'),
+      bgmGainDb: createAudioGainSetting('BGM Gain'),
+      voiceGainDb: createAudioGainSetting('Voice Gain'),
+      sfxGainDb: createAudioGainSetting('SFX Gain'),
+      ambientGainDb: createAudioGainSetting('Ambient Gain'),
+    },
+  } as const
+}
+
+function createAudioGainSetting(title: string) {
+  return {
+    type: 'number',
+    title,
+    minimum: -80,
+    maximum: 12,
+    multipleOf: 1,
+    default: DEFAULT_AUDIO_GAIN_DB,
+  } as const
+}
+
+function createAudioGainControl(label: string, order: number) {
+  return {
+    control: 'slider',
+    label,
+    group: 'volume',
+    order,
+    min: -80,
+    max: 12,
+    step: 1,
+  } as const
+}
+
+function createAudioDeveloperSettings(buses: AudioViewProjection['buses']): AudioDeveloperSettings {
+  return {
+    defaultMasterGainDb: normalizeGainDb(buses.master.gainDb, DEFAULT_AUDIO_GAIN_DB),
+    defaultBgmGainDb: normalizeGainDb(buses.bgm.gainDb, DEFAULT_AUDIO_GAIN_DB),
+    defaultVoiceGainDb: normalizeGainDb(buses.voice.gainDb, DEFAULT_AUDIO_GAIN_DB),
+    defaultSfxGainDb: normalizeGainDb(buses.sfx.gainDb, DEFAULT_AUDIO_GAIN_DB),
+    defaultAmbientGainDb: normalizeGainDb(buses.ambient.gainDb, DEFAULT_AUDIO_GAIN_DB),
+  }
+}
+
+async function applyAudioPlayerSettings(
+  engine: QuaEngineInterface,
+  player: Readonly<AudioPlayerSettings>,
+): Promise<void> {
+  const projection = getAudioProjection(engine)
+  const next = cloneAudioProjection(projection)
+  next.buses.master.gainDb = normalizeGainDb(player.masterGainDb, DEFAULT_AUDIO_GAIN_DB)
+  next.buses.bgm.gainDb = normalizeGainDb(player.bgmGainDb, DEFAULT_AUDIO_GAIN_DB)
+  next.buses.voice.gainDb = normalizeGainDb(player.voiceGainDb, DEFAULT_AUDIO_GAIN_DB)
+  next.buses.sfx.gainDb = normalizeGainDb(player.sfxGainDb, DEFAULT_AUDIO_GAIN_DB)
+  next.buses.ambient.gainDb = normalizeGainDb(player.ambientGainDb, DEFAULT_AUDIO_GAIN_DB)
+  next.revision += 1
+  await engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
+}
+
+function mergeAudioProjectionDefaults(
+  base: AudioViewProjection,
+  patch?: Partial<AudioViewProjection>,
+): AudioViewProjection {
+  if (!patch) {
+    return base
+  }
+  return {
+    ...base,
+    ...patch,
+    revision: patch.revision ?? base.revision,
+    unlocked: patch.unlocked ?? base.unlocked,
+    buses: {
+      master: mergeAudioBusProjection(base.buses.master, patch.buses?.master),
+      bgm: mergeAudioBusProjection(base.buses.bgm, patch.buses?.bgm),
+      voice: mergeAudioBusProjection(base.buses.voice, patch.buses?.voice),
+      sfx: mergeAudioBusProjection(base.buses.sfx, patch.buses?.sfx),
+      ambient: mergeAudioBusProjection(base.buses.ambient, patch.buses?.ambient),
+    },
+    voices: patch.voices ? patch.voices.map(track => ({ ...track })) : base.voices,
+    sfx: patch.sfx ? patch.sfx.map(track => ({ ...track })) : base.sfx,
+    ambients: patch.ambients ? patch.ambients.map(track => ({ ...track })) : base.ambients,
+  }
+}
+
+function mergeAudioBusProjection(base: AudioBusProjection, patch?: AudioBusProjection): AudioBusProjection {
+  return patch ? cloneAudioBusProjection({ ...base, ...patch }) : cloneAudioBusProjection(base)
+}
+
+function normalizeGainDb(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(12, Math.max(-80, value))
+    : fallback
 }
 
 function mergeChapterProjection(
@@ -866,4 +1081,16 @@ function isAudioBusTarget(target: AudioBusId | string): target is AudioBusId {
 function nextAudioTrackId(kind: AudioTrackProjection['kind']): string {
   audioTrackSequence += 1
   return `${kind}:${Date.now()}:${audioTrackSequence}`
+}
+
+function isOptionalPluginUnavailableError(error: unknown, packageName: string): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+  return error.message.includes(packageName)
+    && (
+      error.message.includes('Cannot find package')
+      || error.message.includes('Cannot find module')
+      || error.message.includes('Failed to resolve')
+    )
 }

@@ -6,6 +6,7 @@ import {
   UiOverlayPlugin,
 } from '@quajs/engine'
 import { GalleryPlugin, getGalleryProfile, registerGalleryCatalogWithEngine, registerGalleryEntriesWithEngine } from '@quajs/plugin-gallery'
+import { getSettingsDeveloperValues, getSettingsPlayerValues, getSettingsProjection, SettingsPlugin, updatePlayerSettingsWithEngine } from '@quajs/plugin-settings'
 import { MemoryBackend } from '@quajs/store'
 import { setStoryMetadataWithEngine, StoryGraphPlugin } from '@quajs/story-graph'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -13,6 +14,7 @@ import {
   ACHIEVEMENT_PLUGIN_ID,
   ACHIEVEMENT_PROFILE_STORE_PREFIX,
   ACHIEVEMENT_SCENE_ID,
+  ACHIEVEMENT_SETTINGS_SCOPE,
   ACHIEVEMENT_TOAST_HOST_SOURCE,
   achievementCondition,
   AchievementPlugin,
@@ -80,6 +82,17 @@ describe('@quajs/plugin-achievement', () => {
     expect(Object.keys(getAchievementProfile(engine).unlockedAchievements).sort()).toEqual(['cg.master', 'story.first-step'])
   })
 
+  it('rejects unknown achievement unlocks without writing profile progress', async () => {
+    const engine = createEngine()
+    engine.use(new AchievementPlugin())
+    await engine.init()
+
+    await expect(unlockAchievementWithEngine(engine, 'missing.achievement', {
+      notification: { mode: 'none' },
+    })).rejects.toThrow('Achievement "missing.achievement" is not registered.')
+    expect(getAchievementProfile(engine).unlockedAchievements).toEqual({})
+  })
+
   it('supports none, toast, and board notification modes', async () => {
     const engine = createEngine()
     engine.use(new UiOverlayPlugin())
@@ -121,6 +134,48 @@ describe('@quajs/plugin-achievement', () => {
     }))
   })
 
+  it('exposes notification configuration through settings when settings is installed', async () => {
+    const engine = createEngine()
+    engine.use(new SettingsPlugin({ builtin: false }))
+    engine.use(new AchievementPlugin({
+      profileId: 'developer-profile',
+      notifications: {
+        mode: 'toast',
+        durationMs: 2400,
+      },
+    }))
+    await engine.init()
+
+    expect(getSettingsDeveloperValues(engine, ACHIEVEMENT_SETTINGS_SCOPE)).toEqual({
+      defaultProfileId: 'developer-profile',
+      defaultNotificationMode: 'toast',
+      defaultToastDurationMs: 2400,
+    })
+    expect(getSettingsPlayerValues(engine, ACHIEVEMENT_SETTINGS_SCOPE)).toEqual({
+      notificationMode: 'toast',
+      toastDurationMs: 2400,
+    })
+    expect(getSettingsProjection(engine)?.scopes[ACHIEVEMENT_SETTINGS_SCOPE]).toEqual(expect.objectContaining({
+      title: 'Achievements',
+      values: {
+        notificationMode: 'toast',
+        toastDurationMs: 2400,
+      },
+    }))
+
+    const result = await updatePlayerSettingsWithEngine(engine, ACHIEVEMENT_SETTINGS_SCOPE, {
+      notificationMode: 'none',
+      toastDurationMs: 1200,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(getAchievementProjection(engine).notificationMode).toBe('none')
+    expect(getSettingsPlayerValues(engine, ACHIEVEMENT_SETTINGS_SCOPE)).toEqual({
+      notificationMode: 'none',
+      toastDurationMs: 1200,
+    })
+  })
+
   it('creates a return checkpoint when opening the board and jumps back on close', async () => {
     const engine = createEngine()
     engine.use(new AchievementPlugin())
@@ -145,6 +200,24 @@ describe('@quajs/plugin-achievement', () => {
     expect(getAchievementProjection(engine).sceneActive).toBe(false)
     expect(engine.getCurrentSceneName()).toBeUndefined()
     expect(engine.getViewState().dialogue.text).toBe('Before board')
+  })
+
+  it('does not expose achievement catalog assets in inactive projection', async () => {
+    const engine = createEngine()
+    engine.use(new AchievementPlugin())
+    await engine.init()
+    await registerBaseAchievements(engine)
+
+    const inactive = getAchievementProjection(engine)
+    expect(inactive.sceneActive).toBe(false)
+    expect(inactive.groups).toEqual([])
+    expect(inactive.achievements).toEqual([])
+    expect(inactive.filteredAchievementIds).toEqual([])
+
+    await openAchievementBoardWithEngine(engine)
+    const active = getAchievementProjection(engine)
+    expect(active.sceneActive).toBe(true)
+    expect(active.achievements.map(achievement => achievement.id)).toEqual(['cg.master', 'story.first-step'])
   })
 
   it('keeps board interaction working after saving and loading back into the achievement scene', async () => {
@@ -275,6 +348,18 @@ describe('@quajs/plugin-achievement', () => {
       source: 'achievement:cg.master',
     }))
     expect(getGalleryProfile(engine, 'default').unlockedEntries['cg.sunset']).toBeUndefined()
+  })
+
+  it('surfaces installed gallery reward failures instead of swallowing them', async () => {
+    const engine = createEngine()
+    engine.use(new GalleryPlugin())
+    engine.use(new AchievementPlugin())
+    await engine.init()
+    await registerBaseAchievements(engine)
+
+    await expect(unlockAchievementWithEngine(engine, 'cg.master', {
+      notification: { mode: 'none' },
+    })).rejects.toThrow('Gallery entry "cg.sunset" is not registered.')
   })
 })
 
