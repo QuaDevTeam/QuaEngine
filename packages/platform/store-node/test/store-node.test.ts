@@ -30,7 +30,7 @@ describe('node .quastore file backend', () => {
       data: { playerName: 'Alice', stepId: 'intro' },
       createdAt: new Date('2026-05-24T00:00:00.000Z'),
     })
-    await backend.saveGameSlot({
+    const slotPayload = {
       slotId: 'slot-1',
       index: {
         slotId: 'slot-1',
@@ -44,6 +44,10 @@ describe('node .quastore file backend', () => {
         state: { playerName: 'Alice' },
         snapshots: [],
       },
+    }
+    await backend.transaction('readwrite', async () => {
+      await backend.saveGameSlotPayload(slotPayload)
+      await backend.saveGameSlotIndex(slotPayload.index)
     })
 
     const snapshotFiles = await readdir(join(root, 'snapshots'))
@@ -59,12 +63,12 @@ describe('node .quastore file backend', () => {
     expect(bytes.includes(Buffer.from('Alice'))).toBe(false)
 
     const snapshot = await backend.getSnapshot('checkpoint-1')
-    const slot = await backend.getGameSlot('slot-1')
+    const slot = await backend.getGameSlotPayload('slot-1')
     expect(snapshot?.data).toEqual({ playerName: 'Alice', stepId: 'intro' })
     expect(snapshot?.createdAt).toBeInstanceOf(Date)
     expect(slot?.storeData.state).toEqual({ playerName: 'Alice' })
     expect(await backend.listSnapshots('engine')).toHaveLength(1)
-    expect(await backend.listGameSlots()).toHaveLength(1)
+    expect(await backend.listGameSlotIndexes()).toHaveLength(1)
   })
 
   it('rolls back partial writes when a transaction fails', async () => {

@@ -3,7 +3,6 @@ import type {
   QuaConstructorOpts,
   QuaGameSavePreviewPayload,
   QuaGameSavePreviewReadOptions,
-  QuaGameSaveSlotMetadata,
   QuaGameSaveSlotIndex,
   QuaGameSaveSlotPayload,
   QuaGameSaveSlotPreviewPatchInput,
@@ -162,18 +161,7 @@ class QuaStore {
     await storageManager.deleteSnapshot(snapshotId)
   }
 
-  public async saveToSlot(input: QuaGameSaveSlotWriteInput): Promise<QuaGameSaveSlotPayload>
-  public async saveToSlot(
-    slotId: string,
-    metadata?: Omit<QuaGameSaveSlotWriteInput, 'slotId' | 'storeData'> & Record<string, unknown>,
-  ): Promise<QuaGameSaveSlotPayload>
-  public async saveToSlot(
-    slotIdOrInput: string | QuaGameSaveSlotWriteInput,
-    metadata?: Omit<QuaGameSaveSlotWriteInput, 'slotId' | 'storeData'> & Record<string, unknown>,
-  ): Promise<QuaGameSaveSlotPayload> {
-    const input = typeof slotIdOrInput === 'string'
-      ? await this.createLegacySlotWriteInput(slotIdOrInput, metadata)
-      : slotIdOrInput
+  public async saveToSlot(input: QuaGameSaveSlotWriteInput): Promise<QuaGameSaveSlotPayload> {
     logger.module(this.name).info(`Saving store to slot: ${input.slotId}`)
 
     const storageManager = await this.getStorageManager()
@@ -437,48 +425,6 @@ class QuaStore {
     }
 
     return snapshotData
-  }
-
-  private async createLegacySlotWriteInput(
-    slotId: string,
-    metadata: (Omit<QuaGameSaveSlotWriteInput, 'slotId' | 'storeData'> & Record<string, unknown>) | undefined,
-  ): Promise<QuaGameSaveSlotWriteInput> {
-    const typedMetadata = metadata as (Omit<QuaGameSaveSlotWriteInput, 'slotId' | 'storeData'> & Record<string, unknown>) | undefined
-    const {
-      name,
-      timestamp,
-      revision,
-      saveOpId,
-      previewStatus,
-      preview,
-      metadata: nestedMetadata,
-      ...restMetadata
-    } = typedMetadata || {}
-    const topLevelSceneName = typeof typedMetadata?.sceneName === 'string' ? typedMetadata.sceneName : undefined
-    const topLevelStepId = typeof typedMetadata?.stepId === 'string' ? typedMetadata.stepId : undefined
-    const topLevelPlaytime = typeof typedMetadata?.playtime === 'number' ? typedMetadata.playtime : undefined
-    const nextMetadata: QuaGameSaveSlotMetadata = {
-      ...restMetadata,
-      ...(nestedMetadata || {}),
-      sceneName: typeof nestedMetadata?.sceneName === 'string' ? nestedMetadata.sceneName : topLevelSceneName,
-      stepId: typeof nestedMetadata?.stepId === 'string' ? nestedMetadata.stepId : topLevelStepId,
-      playtime: typeof nestedMetadata?.playtime === 'number' ? nestedMetadata.playtime : topLevelPlaytime,
-    }
-
-    return {
-      slotId,
-      name,
-      timestamp,
-      revision,
-      saveOpId,
-      previewStatus,
-      preview,
-      metadata: nextMetadata,
-      storeData: {
-        state: this.serializeState(),
-        snapshots: await this.collectSnapshotData(),
-      },
-    }
   }
 }
 

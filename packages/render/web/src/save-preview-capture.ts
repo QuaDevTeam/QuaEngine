@@ -98,12 +98,12 @@ async function encodeFrozenStage(
   frozen: FrozenStageCapture,
   policy: SavePreviewCapturePolicy,
 ): Promise<{
-    bytes: Uint8Array
-    mimeType: string
-    width: number
-    height: number
-    capturedAt: number
-  }> {
+  bytes: Uint8Array
+  mimeType: string
+  width: number
+  height: number
+  capturedAt: number
+}> {
   const mimeType = policy.format || 'image/webp'
   const pixelRatio = typeof policy.pixelRatio === 'number' && Number.isFinite(policy.pixelRatio) && policy.pixelRatio > 0
     ? policy.pixelRatio

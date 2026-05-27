@@ -160,9 +160,6 @@ export interface QuaGameSaveSlotPayload {
   storeData: QuaStoreSaveData
 }
 
-export type QuaGameSaveSlot = QuaGameSaveSlotPayload
-export type QuaGameSaveSlotMeta = QuaGameSaveSlotIndex
-
 export interface QuaGameSaveSlotWriteInput {
   slotId: string
   name?: string

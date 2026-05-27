@@ -13,7 +13,7 @@ describe('store web IndexedDB backend', () => {
       createdAt: new Date(),
     })
 
-    await backend.saveGameSlot({
+    const slotPayload = {
       slotId: 'slot-1',
       index: {
         slotId: 'slot-1',
@@ -27,15 +27,19 @@ describe('store web IndexedDB backend', () => {
         state: { stepId: 'intro' },
         snapshots: [],
       },
+    }
+    await backend.transaction('readwrite', async () => {
+      await backend.saveGameSlotPayload(slotPayload)
+      await backend.saveGameSlotIndex(slotPayload.index)
     })
 
     const snapshot = await backend.getSnapshot('checkpoint-1')
-    const slot = await backend.getGameSlot('slot-1')
+    const slot = await backend.getGameSlotPayload('slot-1')
 
     expect(snapshot?.data).toEqual({ stepId: 'intro' })
     expect(slot?.storeData.state).toEqual({ stepId: 'intro' })
     expect(await backend.listSnapshots('engine')).toHaveLength(1)
-    expect(await backend.listGameSlots()).toHaveLength(1)
+    expect(await backend.listGameSlotIndexes()).toHaveLength(1)
 
     await backend.close()
   })

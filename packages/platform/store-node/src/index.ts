@@ -217,21 +217,6 @@ export class QuastoreFileBackend implements StorageBackend {
     await rm(this.gameSlotPreviewPath(previewId), { force: true })
   }
 
-  async saveGameSlot(slot: QuaGameSaveSlotPayload): Promise<void> {
-    await this.transaction('readwrite', async () => {
-      await this.saveGameSlotPayload(slot)
-      await this.saveGameSlotIndex(slot.index)
-    })
-  }
-
-  async getGameSlot(slotId: string): Promise<QuaGameSaveSlotPayload | undefined> {
-    return await this.getGameSlotPayload(slotId)
-  }
-
-  async listGameSlots(): Promise<QuaGameSaveSlotIndex[]> {
-    return await this.listGameSlotIndexes()
-  }
-
   async clearGameSlots(): Promise<void> {
     await this.transaction('readwrite', async () => {
       await rm(this.gameSlotIndexesDir, { recursive: true, force: true })

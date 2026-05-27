@@ -137,21 +137,6 @@ export class IndexedDBBackend implements StorageBackend {
     await this.db.gameSlotPreviews.delete(previewId)
   }
 
-  async saveGameSlot(slot: QuaGameSaveSlotPayload): Promise<void> {
-    await this.transaction('readwrite', async () => {
-      await this.saveGameSlotPayload(slot)
-      await this.saveGameSlotIndex(slot.index)
-    })
-  }
-
-  async getGameSlot(slotId: string): Promise<QuaGameSaveSlotPayload | undefined> {
-    return await this.getGameSlotPayload(slotId)
-  }
-
-  async listGameSlots(): Promise<QuaGameSaveSlotIndex[]> {
-    return await this.listGameSlotIndexes()
-  }
-
   async clearGameSlots(): Promise<void> {
     await this.db.transaction('rw', this.db.gameSlotIndexes, this.db.gameSlotPayloads, this.db.gameSlotPreviews, async () => {
       await this.db.gameSlotIndexes.clear()

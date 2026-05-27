@@ -5,8 +5,8 @@ import type {
   QuaSnapshot,
   QuaSnapshotMeta,
 } from '../types/base'
-import { clonePreviewRecord, cloneSaveSlotIndex, cloneSaveSlotPayload } from '../preview'
 import type { StorageBackend, StorageTransactionMode } from '../types/storage'
+import { clonePreviewRecord, cloneSaveSlotIndex, cloneSaveSlotPayload } from '../preview'
 
 /**
  * In-memory storage backend for testing and development
