@@ -20,13 +20,16 @@ describe('quaScript CLI', () => {
     expect(() => getDefaultDeclarationOutputPath('scene.ts')).toThrow('only generated for .qs')
   })
 
-  it('keeps legacy compile invocation working', async () => {
+  it('requires the explicit compile command', async () => {
     const root = mkdtempSync(join(tmpdir(), 'quascript-cli-'))
     const input = join(root, 'scene.qs')
     writeFileSync(input, 'Yuki: Hello\n', 'utf-8')
     vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    await expect(runQuaScriptCli([input])).resolves.toBe(0)
+    await expect(runQuaScriptCli([input])).resolves.toBe(1)
+    expect(existsSync(join(root, 'scene.compiled.ts'))).toBe(false)
+    await expect(runQuaScriptCli(['compile', input])).resolves.toBe(0)
     expect(readFileSync(join(root, 'scene.compiled.ts'), 'utf-8')).toContain('export default')
   })
 
@@ -52,7 +55,7 @@ describe('quaScript CLI', () => {
         },
       ],
     }), 'utf-8')
-    writeFileSync(input, "@SetBackground('classroom.png')\nYuki: Hello\n", 'utf-8')
+    writeFileSync(input, '@SetBackground(\'classroom.png\')\nYuki: Hello\n', 'utf-8')
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -170,7 +173,7 @@ export async function lintQuaScript() {
       '}',
       '</script>',
       '',
-      'Yuki: Hello ${scope.missing}',
+      'Yuki: Hello $' + '{scope.missing}',
       '',
     ].join('\n'), 'utf-8')
     vi.spyOn(console, 'log').mockImplementation((value: unknown) => {

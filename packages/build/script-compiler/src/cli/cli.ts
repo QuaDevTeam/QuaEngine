@@ -13,11 +13,11 @@ import { dirname, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { loadQuaScriptToolingConfig } from '../core/config'
+import { generateQuaScriptModuleDeclaration } from '../core/declaration'
 import { applyQuaScriptTextEdits } from '../core/diagnostics'
 import { resolveQuaScriptFiles } from '../core/files'
 import { formatQuaScriptDocument } from '../core/format'
 import { getQuaScriptFixAllEdits, lintQuaScriptSource } from '../core/lint'
-import { generateQuaScriptModuleDeclaration } from '../core/declaration'
 import { createPluginAwareTransformerAsync } from '../integrations/plugin-aware-transformer'
 
 const currentFile = fileURLToPath(import.meta.url)
@@ -72,6 +72,12 @@ let projectLintWarningShown = false
 
 function parseArgs(argv = process.argv.slice(2)): CLIOptions {
   const first = argv[0]
+  if (!first || first === '-h' || first === '--help') {
+    return { command: 'compile', input: '', help: true }
+  }
+  if (first === '-v' || first === '--version') {
+    return { command: 'compile', input: '', version: true }
+  }
   if (first === 'lint') {
     return parseLintArgs(argv.slice(1))
   }
@@ -81,7 +87,7 @@ function parseArgs(argv = process.argv.slice(2)): CLIOptions {
   if (first === 'compile') {
     return parseCompileArgs(argv.slice(1))
   }
-  return parseCompileArgs(argv)
+  throw new Error(`Unknown command ${first}. Use "compile", "lint", or "format".`)
 }
 
 function parseCompileArgs(args: string[]): CompileOptions {
@@ -550,7 +556,6 @@ Options:
 QuaScript CLI
 
 Usage:
-  qua-script <input-file>
   qua-script compile <input-file> [options]
   qua-script lint [files...] [--json] [--fix] [--max-warnings <n>]
   qua-script format <file|glob> [--check|--write]

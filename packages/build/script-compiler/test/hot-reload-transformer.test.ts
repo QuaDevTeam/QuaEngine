@@ -12,6 +12,13 @@ vi.mock('@quajs/plugin-discovery', () => ({
       module: '@mock/plugin',
     },
   })),
+  getDiscoveredDecoratorMappingsSync: vi.fn(() => ({
+    MockDecorator: {
+      function: 'mockFunction',
+      module: '@mock/plugin',
+    },
+  })),
+  mergeDecoratorMappings: vi.fn((...mappings: DecoratorMapping[]) => Object.assign({}, ...mappings)),
 }))
 
 describe('hotReloadAwareTransformer', () => {

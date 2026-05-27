@@ -5,7 +5,7 @@ import { backgroundDecoratorMappings } from '@quajs/plugin-background'
 import { describe, expect, it } from 'vitest'
 import { loadQuaScriptToolingConfig, mergeQuaScriptToolingConfig, resolveQuaScriptFiles } from '../src'
 
-describe('QuaScript tooling config', () => {
+describe('quaScript tooling config', () => {
   it('loads quascript.config.json before other config sources', () => {
     const root = mkdtempSync(join(tmpdir(), 'quascript-config-'))
     writeFileSync(join(root, 'quascript.config.json'), JSON.stringify({
@@ -72,7 +72,7 @@ describe('QuaScript tooling config', () => {
   })
 })
 
-describe('QuaScript file matching', () => {
+describe('quaScript file matching', () => {
   it('resolves files, directories, globs, include patterns, and excludes', () => {
     const root = mkdtempSync(join(tmpdir(), 'quascript-files-'))
     mkdirSync(join(root, 'src/story'), { recursive: true })

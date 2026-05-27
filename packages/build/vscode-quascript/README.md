@@ -52,7 +52,7 @@ qua-script format "src/**/*.qs" --check
 qua-script format "src/**/*.qs" --write
 ```
 
-For compatibility, `qua-script scene.qs` still compiles a single file and is equivalent to `qua-script compile scene.qs`.
+Compile files with the explicit command form: `qua-script compile scene.qs`.
 
 ## Configuration
 

@@ -144,16 +144,15 @@ export default defineConfig({
 
 ```bash
 # Compile a single file
-qua-script scene1.ts
-qua-script scene1.qs # writes scene1.compiled.ts
 qua-script compile scene1.qs
+qua-script compile scene1.ts
 
 # Specify output file
-qua-script -i scene1.ts -o scene1.compiled.ts
+qua-script compile -i scene1.ts -o scene1.compiled.ts
 qua-script compile scene1.qs --no-auto-collect-decorators
 
 # Generate a TypeScript arbitrary-extension declaration
-qua-script scene1.qs --declaration
+qua-script compile scene1.qs --declaration
 
 # Lint and format QuaScript files
 qua-script lint "src/**/*.qs"
