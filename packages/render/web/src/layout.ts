@@ -309,12 +309,12 @@ export function stagePlaneStyle(): Record<string, string | number> {
 
 export function stageSafeAreaStyle(layout: ResolvedStageLayout): Record<string, string | number> {
   return {
-    position: 'absolute',
-    overflow: 'visible',
-    left: `${layout.safeArea.x}px`,
-    top: `${layout.safeArea.y}px`,
-    width: `${layout.safeArea.width}px`,
-    height: `${layout.safeArea.height}px`,
+    'position': 'absolute',
+    'overflow': 'visible',
+    'left': `${layout.safeArea.x}px`,
+    'top': `${layout.safeArea.y}px`,
+    'width': `${layout.safeArea.width}px`,
+    'height': `${layout.safeArea.height}px`,
     '--qua-safe-area-x': layout.safeArea.x,
     '--qua-safe-area-y': layout.safeArea.y,
     '--qua-safe-area-width': layout.safeArea.width,

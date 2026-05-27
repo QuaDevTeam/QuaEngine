@@ -1,8 +1,8 @@
 import type { BacklogEntry, BacklogProjection } from '@quajs/plugin-backlog/contracts'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
-import { defineWebRendererPlugin } from './core'
 import { bindUiControlSkin } from '../ui-skin'
+import { defineWebRendererPlugin } from './core'
 
 export function createBacklogWebRendererPlugin(): QuaWebDomRendererPlugin {
   return defineWebRendererPlugin({

@@ -28,27 +28,27 @@ export const QuaBacklogEntry = defineComponent({
       'data-backlog-entry': entry.value.id,
     }, [
       h('button', {
-        class: 'qua-backlog-entry-main',
-        type: 'button',
-        disabled: !entry.value.rewindable,
-        style: mainSkin.skinStyle.value,
+        'class': 'qua-backlog-entry-main',
+        'type': 'button',
+        'disabled': !entry.value.rewindable,
+        'style': mainSkin.skinStyle.value,
         'data-skin-kind': 'button',
         'data-skin-reference': mainSkin.skinReference.value || undefined,
         'data-skin-state': mainSkin.skinState.value,
         ...createSkinButtonHandlers(mainSkin),
-        onClick: () => actions.requestPluginEvent(BacklogRenderToLogicEvents.JUMP_REQUEST, { entryId: entry.value.id }),
+        'onClick': () => actions.requestPluginEvent(BacklogRenderToLogicEvents.JUMP_REQUEST, { entryId: entry.value.id }),
       }, backlogText(entry.value)),
       entry.value.voice
         ? h('button', {
-            class: 'qua-backlog-entry-voice',
-            type: 'button',
-            disabled: !entry.value.voiceReplay,
-            style: voiceSkin.skinStyle.value,
+            'class': 'qua-backlog-entry-voice',
+            'type': 'button',
+            'disabled': !entry.value.voiceReplay,
+            'style': voiceSkin.skinStyle.value,
             'data-skin-kind': 'button',
             'data-skin-reference': voiceSkin.skinReference.value || undefined,
             'data-skin-state': voiceSkin.skinState.value,
             ...createSkinButtonHandlers(voiceSkin),
-            onClick: () => actions.requestPluginEvent(BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, { entryId: entry.value.id }),
+            'onClick': () => actions.requestPluginEvent(BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, { entryId: entry.value.id }),
           }, 'Voice')
         : null,
     ])
@@ -72,20 +72,20 @@ export const QuaBacklogLayer = defineComponent({
           actions,
         }) || [
           h('section', {
-            class: 'qua-backlog-panel',
-            style: panelSkin.skinStyle.value,
+            'class': 'qua-backlog-panel',
+            'style': panelSkin.skinStyle.value,
             'data-skin-kind': 'panel',
             'data-skin-reference': panelSkin.skinReference.value || undefined,
             'data-skin-state': panelSkin.skinState.value,
           }, [
             h('button', {
-              class: 'qua-backlog-close',
-              type: 'button',
-              style: closeSkin.skinStyle.value,
+              'class': 'qua-backlog-close',
+              'type': 'button',
+              'style': closeSkin.skinStyle.value,
               'data-skin-kind': 'button',
               'data-skin-reference': closeSkin.skinReference.value || undefined,
               'data-skin-state': closeSkin.skinState.value,
-              onClick: () => actions.requestPluginEvent(BacklogRenderToLogicEvents.CLOSE_REQUEST),
+              'onClick': () => actions.requestPluginEvent(BacklogRenderToLogicEvents.CLOSE_REQUEST),
             }, 'Close'),
             h('ol', { class: 'qua-backlog-list' }, projection.value.entries.map(entry =>
               h(QuaBacklogEntry, { key: entry.id, entry }),

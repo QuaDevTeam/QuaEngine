@@ -1,6 +1,6 @@
 import type { AssetChange, QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
-import type { QuaViewProjection, RenderErrorPayload, RendererPlugin, RendererPluginContext } from '@quajs/render-core'
+import type { QuaViewProjection, RendererPlugin, RendererPluginContext, RenderErrorPayload } from '@quajs/render-core'
 import type { RendererActions } from './actions'
 import {
   createQuaErrorPayload,

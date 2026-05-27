@@ -1,17 +1,17 @@
 import type {
+  ResolvedSpriteSkinProjection,
+  SpriteSkinManifest,
+  SpriteSkinStateName,
+} from '@quajs/plugin-sprite/contracts'
+import type {
   QuaViewProjection,
   ViewChoiceProjection,
   ViewUiOverlayProjection,
   ViewUiPluginProjection,
   ViewUiSkinDefaultsProjection,
 } from '@quajs/render-core'
-import type {
-  ResolvedSpriteSkinProjection,
-  SpriteSkinManifest,
-  SpriteSkinStateName,
-} from '@quajs/plugin-sprite/contracts'
-import { resolveSpriteSkinReference } from '@quajs/plugin-sprite/contracts'
 import type { QuaWebDomLayerContext } from './dom'
+import { resolveSpriteSkinReference } from '@quajs/plugin-sprite/contracts'
 import { applySpriteSkinStyle, resolveSpriteSkin } from './plugins/sprite'
 
 export type UiSkinControlKind = 'button' | 'panel' | 'input' | 'tab' | 'toggle'
@@ -128,14 +128,14 @@ export function bindUiControlSkin(
 
   binding.clear = () => clearUiControlSkinStyle(binding, element)
   binding.loadManifest = (ctx, manifestPath, el) => {
-      const request = ++binding.manifestRequest
-      const assets = ctx.controller.getAssets()
-      if (!assets) {
-        binding.clear()
-        return
-      }
+    const request = ++binding.manifestRequest
+    const assets = ctx.controller.getAssets()
+    if (!assets) {
+      binding.clear()
+      return
+    }
 
-      void assets.getJSON<SpriteSkinManifest>('data', manifestPath)
+    void assets.getJSON<SpriteSkinManifest>('data', manifestPath)
       .then((manifest) => {
         if (binding.manifestRequest !== request) {
           return

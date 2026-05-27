@@ -111,11 +111,11 @@
     "@quajs/assets": "workspace:*",
     "@quajs/assets-web": "workspace:*",
     "@quajs/pipeline": "workspace:*",
-    "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-achievement": "workspace:*",
+    "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
-    "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
+    "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",
@@ -123,16 +123,16 @@
     "vue": "catalog:"
   },
   "peerDependenciesMeta": {
-    "@quajs/plugin-backlog": {
-      "optional": true
-    },
     "@quajs/plugin-achievement": {
       "optional": true
     },
-    "@quajs/plugin-gallery": {
+    "@quajs/plugin-backlog": {
       "optional": true
     },
     "@quajs/plugin-fonts": {
+      "optional": true
+    },
+    "@quajs/plugin-gallery": {
       "optional": true
     },
     "@quajs/plugin-settings": {
@@ -143,11 +143,11 @@
     "@quajs/assets": "workspace:*",
     "@quajs/assets-web": "workspace:*",
     "@quajs/pipeline": "workspace:*",
-    "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-achievement": "workspace:*",
+    "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
-    "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
+    "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",

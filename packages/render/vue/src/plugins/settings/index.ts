@@ -55,6 +55,46 @@ export function useSettingsProjection() {
   return usePluginProjection<SettingsProjection>(SETTINGS_PLUGIN_ID)
 }
 
+export const QuaSettingsControl: Component = defineComponent({
+  name: 'QuaSettingsControl',
+  props: {
+    scope: {
+      type: Object as PropType<SettingsScopeFormProjection>,
+      required: true,
+    },
+    field: {
+      type: Object as PropType<SettingsFieldFormProjection>,
+      required: true,
+    },
+    customControls: {
+      type: Object as PropType<SettingsCustomControlRegistry>,
+      required: false,
+    },
+  },
+  setup(props): () => VNode {
+    const actions = useRendererActions()
+    const inputSkin = useUiControlSkin({
+      kind: 'input',
+      disabled: () => props.field.readonly,
+    })
+    const tabSkin = useUiControlSkin({
+      kind: 'tab',
+      disabled: () => props.field.readonly,
+    })
+    const toggleSkin = useUiControlSkin({
+      kind: 'toggle',
+      disabled: () => props.field.readonly,
+      selected: () => Boolean(props.field.value),
+    })
+
+    return () => renderControl(actions, props.scope, props.field, props.customControls, {
+      input: inputSkin,
+      tab: tabSkin,
+      toggle: toggleSkin,
+    })
+  },
+})
+
 export const QuaSettingsField: Component = defineComponent({
   name: 'QuaSettingsField',
   props: {
@@ -103,46 +143,6 @@ export const QuaSettingsField: Component = defineComponent({
             }, error.message)),
           ])
     }
-  },
-})
-
-export const QuaSettingsControl: Component = defineComponent({
-  name: 'QuaSettingsControl',
-  props: {
-    scope: {
-      type: Object as PropType<SettingsScopeFormProjection>,
-      required: true,
-    },
-    field: {
-      type: Object as PropType<SettingsFieldFormProjection>,
-      required: true,
-    },
-    customControls: {
-      type: Object as PropType<SettingsCustomControlRegistry>,
-      required: false,
-    },
-  },
-  setup(props): () => VNode {
-    const actions = useRendererActions()
-    const inputSkin = useUiControlSkin({
-      kind: 'input',
-      disabled: () => props.field.readonly,
-    })
-    const tabSkin = useUiControlSkin({
-      kind: 'tab',
-      disabled: () => props.field.readonly,
-    })
-    const toggleSkin = useUiControlSkin({
-      kind: 'toggle',
-      disabled: () => props.field.readonly,
-      selected: () => Boolean(props.field.value),
-    })
-
-    return () => renderControl(actions, props.scope, props.field, props.customControls, {
-      input: inputSkin,
-      tab: tabSkin,
-      toggle: toggleSkin,
-    })
   },
 })
 
@@ -205,14 +205,14 @@ export const QuaSettingsScope = defineComponent({
       h('header', { class: 'qua-settings-scope-header' }, [
         h('h3', { class: 'qua-settings-scope-title' }, props.scope.title || props.scope.scope),
         h('button', {
-          class: 'qua-settings-scope-reset',
-          type: 'button',
-          style: resetSkin.skinStyle.value,
+          'class': 'qua-settings-scope-reset',
+          'type': 'button',
+          'style': resetSkin.skinStyle.value,
           'data-skin-kind': 'button',
           'data-skin-reference': resetSkin.skinReference.value || undefined,
           'data-skin-state': resetSkin.skinState.value,
           ...createSkinButtonHandlers(resetSkin),
-          onClick: () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST, { scope: props.scope.scope }),
+          'onClick': () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST, { scope: props.scope.scope }),
         }, 'Reset'),
       ]),
       props.scope.description
@@ -251,7 +251,7 @@ export const QuaSettingsForm = defineComponent({
     const resetAllSkin = useUiControlSkin({ kind: 'button' })
     return () => h('section', {
       'class': 'qua-settings-panel',
-      style: panelSkin.skinStyle.value,
+      'style': panelSkin.skinStyle.value,
       'data-skin-kind': 'panel',
       'data-skin-reference': panelSkin.skinReference.value || undefined,
       'data-skin-state': panelSkin.skinState.value,
@@ -260,14 +260,14 @@ export const QuaSettingsForm = defineComponent({
       h('header', { class: 'qua-settings-header' }, [
         h('h2', { class: 'qua-settings-title' }, 'Settings'),
         h('button', {
-          class: 'qua-settings-close',
-          type: 'button',
-          style: closeSkin.skinStyle.value,
+          'class': 'qua-settings-close',
+          'type': 'button',
+          'style': closeSkin.skinStyle.value,
           'data-skin-kind': 'button',
           'data-skin-reference': closeSkin.skinReference.value || undefined,
           'data-skin-state': closeSkin.skinState.value,
           ...createSkinButtonHandlers(closeSkin),
-          onClick: () => actions.requestUiClose(props.elementId),
+          'onClick': () => actions.requestUiClose(props.elementId),
         }, 'Close'),
       ]),
       h('form', {
@@ -279,14 +279,14 @@ export const QuaSettingsForm = defineComponent({
         customControls: props.customControls,
       }))),
       h('button', {
-        class: 'qua-settings-reset-all',
-        type: 'button',
-        style: resetAllSkin.skinStyle.value,
+        'class': 'qua-settings-reset-all',
+        'type': 'button',
+        'style': resetAllSkin.skinStyle.value,
         'data-skin-kind': 'button',
         'data-skin-reference': resetAllSkin.skinReference.value || undefined,
         'data-skin-state': resetAllSkin.skinState.value,
         ...createSkinButtonHandlers(resetAllSkin),
-        onClick: () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_ALL_REQUEST),
+        'onClick': () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_ALL_REQUEST),
       }, 'Reset All'),
     ])
   },

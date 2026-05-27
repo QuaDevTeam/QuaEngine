@@ -1,12 +1,12 @@
 export {
+  createGalleryRendererPlugin,
   GalleryAssetFrame,
+  galleryRendererPlugin,
   QuaGalleryCatalogButton,
   QuaGalleryContentBlockView,
   QuaGalleryContentTab,
   QuaGalleryEntryCard,
   QuaGalleryLayer,
-  createGalleryRendererPlugin,
-  galleryRendererPlugin,
   useGalleryProjection,
   useGalleryProjectionModel,
 } from './components'

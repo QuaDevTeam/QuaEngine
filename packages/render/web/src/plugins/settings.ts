@@ -9,8 +9,8 @@ import type {
 import type { QuaViewProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
-import { defineWebRendererPlugin } from './core'
 import { bindUiControlSkin } from '../ui-skin'
+import { defineWebRendererPlugin } from './core'
 
 export interface SettingsFormProjection {
   revision: number

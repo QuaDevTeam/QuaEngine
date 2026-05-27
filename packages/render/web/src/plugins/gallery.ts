@@ -13,8 +13,8 @@ import type {
 import type { QuaViewProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
-import { defineWebRendererPlugin } from './core'
 import { bindUiControlSkin } from '../ui-skin'
+import { defineWebRendererPlugin } from './core'
 
 type GalleryAssetRef = NonNullable<GalleryEntryProjectionItem['thumbnail']>
 

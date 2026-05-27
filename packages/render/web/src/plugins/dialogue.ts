@@ -1,6 +1,6 @@
 import type { RichTextBlockProjection, RichTextContent, RichTextSpanProjection, ViewDialogueProjection } from '@quajs/render-core'
-import { isRichTextDocument } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
+import { isRichTextDocument } from '@quajs/render-core'
 import { motionProjectionVars, projectDialogue } from '../projection'
 import { defineWebRendererPlugin } from './core'
 import { applyStyleVars } from './shared'
