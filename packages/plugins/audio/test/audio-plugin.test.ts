@@ -1,16 +1,18 @@
 import { QuaEngine } from '@quajs/engine'
+import { getSettingsDeveloperValues, getSettingsPlayerValues, getSettingsProjection, SettingsPlugin, updatePlayerSettingsWithEngine } from '@quajs/plugin-settings'
 import { MemoryBackend } from '@quajs/store'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   AUDIO_PLUGIN_ID,
+  AUDIO_SETTINGS_SCOPE,
   AudioPlugin,
   AudioRenderToLogicEvents,
   configureAudioChapterWithEngine,
   createInitialAudioProjection,
   emitAudioRenderToLogic,
   pauseAudioWithEngine,
-  playBGMWithEngine,
   playAmbientWithEngine,
+  playBGMWithEngine,
   playSFXWithEngine,
   playVoiceWithEngine,
   resumeAudioWithEngine,
@@ -95,6 +97,59 @@ describe('@quajs/plugin-audio', () => {
     expect(projection.buses.ambient.automation).toEqual([expect.objectContaining({
       propertyPath: 'gainDb',
     })])
+  })
+
+  it('exposes player bus gains and developer defaults through settings', async () => {
+    const engine = createEngine()
+    engine.use(new SettingsPlugin({ builtin: false }))
+    engine.use(new AudioPlugin({
+      defaultProjection: {
+        buses: {
+          master: { gainDb: -3 },
+          bgm: { gainDb: -6 },
+          voice: { gainDb: -2 },
+          sfx: { gainDb: -8 },
+          ambient: { gainDb: -12 },
+        },
+      },
+    }))
+    await engine.init()
+
+    expect(getSettingsDeveloperValues(engine, AUDIO_SETTINGS_SCOPE)).toEqual({
+      defaultMasterGainDb: -3,
+      defaultBgmGainDb: -6,
+      defaultVoiceGainDb: -2,
+      defaultSfxGainDb: -8,
+      defaultAmbientGainDb: -12,
+    })
+    expect(getSettingsPlayerValues(engine, AUDIO_SETTINGS_SCOPE)).toEqual({
+      masterGainDb: -3,
+      bgmGainDb: -6,
+      voiceGainDb: -2,
+      sfxGainDb: -8,
+      ambientGainDb: -12,
+    })
+    expect(getSettingsProjection(engine)?.scopes[AUDIO_SETTINGS_SCOPE]).toEqual(expect.objectContaining({
+      title: 'Audio',
+      values: {
+        masterGainDb: -3,
+        bgmGainDb: -6,
+        voiceGainDb: -2,
+        sfxGainDb: -8,
+        ambientGainDb: -12,
+      },
+    }))
+
+    const result = await updatePlayerSettingsWithEngine(engine, AUDIO_SETTINGS_SCOPE, {
+      masterGainDb: -10,
+      voiceGainDb: -4,
+    })
+
+    expect(result.ok).toBe(true)
+    const projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.buses.master.gainDb).toBe(-10)
+    expect(projection.buses.voice.gainDb).toBe(-4)
+    expect(projection.buses.bgm.gainDb).toBe(-6)
   })
 
   it('tracks voice playback and clears it when renderer events arrive', async () => {

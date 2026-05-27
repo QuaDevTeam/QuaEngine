@@ -46,7 +46,13 @@
   "peerDependencies": {
     "@quajs/engine": "workspace:*",
     "@quajs/pipeline": "workspace:*",
+    "@quajs/plugin-settings": "workspace:*",
     "@quajs/store": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@quajs/plugin-settings": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@babel/types": "catalog:"
@@ -55,6 +61,7 @@
     "@quajs/assets": "workspace:*",
     "@quajs/engine": "workspace:*",
     "@quajs/pipeline": "workspace:*",
+    "@quajs/plugin-settings": "workspace:*",
     "@quajs/store": "workspace:*",
     "@quajs/story-graph": "workspace:*"
   },

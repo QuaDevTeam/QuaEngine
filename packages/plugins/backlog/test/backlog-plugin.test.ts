@@ -2,10 +2,12 @@ import type { AssetRuntimeAdapter } from '@quajs/assets'
 import { MemoryAssetStorage } from '@quajs/assets'
 import { emitRenderToLogic, QuaEngine } from '@quajs/engine'
 import { AudioPlugin, playVoiceWithEngine } from '@quajs/plugin-audio'
+import { getSettingsDeveloperValues, getSettingsProjection, SettingsPlugin } from '@quajs/plugin-settings'
 import { MemoryBackend } from '@quajs/store'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   BACKLOG_PLUGIN_ID,
+  BACKLOG_SETTINGS_SCOPE,
   BacklogPlugin,
   BacklogRenderToLogicEvents,
   getBacklogProjection,
@@ -78,6 +80,33 @@ describe('@quajs/plugin-backlog', () => {
     await engine.showDialogue({ text: 'Route B' })
 
     expect(getBacklogProjection(engine).entries.map(entry => entry.text)).toEqual(['Route B'])
+  })
+
+  it('exposes retention and default policy as developer settings only', async () => {
+    const engine = createEngine()
+    engine.use(new SettingsPlugin({ builtin: false }))
+    engine.use(new BacklogPlugin({
+      retention: { scope: 'global', maxEntries: 3 },
+      defaultPolicy: { include: false, rewindable: false, voiceReplay: true },
+    }))
+    await engine.init()
+
+    expect(getSettingsDeveloperValues(engine, BACKLOG_SETTINGS_SCOPE)).toEqual({
+      retentionScope: 'global',
+      maxEntries: 3,
+      includeByDefault: false,
+      rewindableByDefault: false,
+      voiceReplayByDefault: true,
+    })
+    expect(getSettingsProjection(engine)?.scopes[BACKLOG_SETTINGS_SCOPE]).toBeUndefined()
+    expect(getBacklogProjection(engine)).toEqual(expect.objectContaining({
+      retention: { scope: 'global', maxEntries: 3 },
+      defaultPolicy: {
+        include: false,
+        rewindable: false,
+        voiceReplay: true,
+      },
+    }))
   })
 
   it('keeps voice replay disabled when the audio engine plugin is absent', async () => {

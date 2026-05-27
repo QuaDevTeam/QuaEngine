@@ -58,6 +58,7 @@ const DEFAULT_PROFILE_ID = 'default'
 const DEFAULT_NOTIFICATION_MODE: AchievementNotificationMode = 'toast'
 const DEFAULT_TOAST_DURATION_MS = 3200
 const STORY_GRAPH_PLUGIN_ID = 'storyGraph' as const
+const ACHIEVEMENT_SETTINGS_SCOPE = '@quajs/plugin-achievement' as const
 
 interface StoryGraphNodeLike {
   id: string
@@ -94,10 +95,22 @@ type AchievementRewardHandler = (
   context: AchievementRewardContext,
 ) => void | Promise<void>
 
+interface AchievementDeveloperSettings {
+  defaultProfileId: string
+  defaultNotificationMode: AchievementNotificationMode
+  defaultToastDurationMs: number
+}
+
+interface AchievementPlayerSettings {
+  notificationMode: AchievementNotificationMode
+  toastDurationMs: number
+}
+
 interface AchievementRuntimeState {
   defaultProfileId: string
   defaultNotificationMode: AchievementNotificationMode
   defaultToastDurationMs: number
+  toastDurationMs: number
   groups: Map<string, AchievementGroupDefinition>
   achievements: Map<string, AchievementDefinition>
   profiles: Map<string, AchievementProfileRuntime>
@@ -133,6 +146,7 @@ export {
   ACHIEVEMENT_PLUGIN_ID,
   ACHIEVEMENT_PROFILE_STORE_PREFIX,
   ACHIEVEMENT_SCENE_ID,
+  ACHIEVEMENT_SETTINGS_SCOPE,
   ACHIEVEMENT_TOAST_HOST_SOURCE,
   AchievementRenderToLogicEvents,
   emitAchievementRenderToLogic,
@@ -245,6 +259,11 @@ export class AchievementPlugin extends BaseEnginePlugin {
     this.disposers.push(onAchievementRenderToLogic(ctx.pipeline, AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, async (payload) => {
       await dismissAchievementNotificationWithEngine(ctx.engine, payload)
     }))
+
+    const settingsDisposer = await registerAchievementSettingsScope(ctx, runtimeState)
+    if (settingsDisposer) {
+      this.disposers.push(settingsDisposer)
+    }
 
     await rebuildAchievementProjection(ctx.engine, runtimeState, {}, ctx.store)
   }
@@ -583,9 +602,12 @@ export async function unlockAchievementsWithEngine(
     }
 
     const definition = runtimeState.achievements.get(normalizedAchievementId)
+    if (!definition) {
+      throw new Error(`Achievement "${normalizedAchievementId}" is not registered.`)
+    }
     const notificationMode = resolveUnlockNotificationMode(
       options.notification,
-      definition?.notification,
+      definition.notification,
       projection.notificationMode,
       runtimeState.defaultNotificationMode,
     )
@@ -593,17 +615,15 @@ export async function unlockAchievementsWithEngine(
       achievementId: normalizedAchievementId,
       unlockedAt: Date.now(),
       source: trimNonEmpty(options.source),
-      contentPackageId: trimNonEmpty(options.contentPackageId) || definition?.contentPackageId,
+      contentPackageId: trimNonEmpty(options.contentPackageId) || definition.contentPackageId,
       requiredRuntimePackages: mergeRequiredRuntimePackages(
         options.requiredRuntimePackages,
-        definition?.requiredRuntimePackages,
+        definition.requiredRuntimePackages,
       ),
       notificationMode,
     }
     unlockedAchievements[normalizedAchievementId] = unlock
-    if (definition) {
-      unlockedNow.push({ definition, unlock })
-    }
+    unlockedNow.push({ definition, unlock })
   }
 
   if (unlockedNow.length === 0) {
@@ -800,8 +820,27 @@ export async function setAchievementNotificationModeWithEngine(
   mode: AchievementNotificationMode,
 ): Promise<AchievementProjection> {
   const runtimeState = getRequiredAchievementRuntimeState(engine)
+  const normalizedMode = normalizeNotificationMode(mode, runtimeState.defaultNotificationMode)
+  try {
+    const settings = await import('@quajs/plugin-settings')
+    const bridge = settings.getSettingsBridge(engine)
+    if (bridge?.getPlayerValues(ACHIEVEMENT_SETTINGS_SCOPE)) {
+      const result = await bridge.updatePlayerValues(ACHIEVEMENT_SETTINGS_SCOPE, {
+        notificationMode: normalizedMode,
+      })
+      if (!result.ok) {
+        throw new Error(result.errors?.[0]?.message || 'Failed to update achievement notification settings.')
+      }
+      return getAchievementProjection(engine)
+    }
+  }
+  catch (error) {
+    if (!isOptionalPluginUnavailableError(error, '@quajs/plugin-settings')) {
+      throw error
+    }
+  }
   return await rebuildAchievementProjection(engine, runtimeState, {
-    notificationMode: mode,
+    notificationMode: normalizedMode,
   })
 }
 
@@ -968,7 +1007,7 @@ async function enqueueAchievementToast(
   const current = getAchievementProjection(engine)
   const durationMs = normalizeDurationMs(
     definition.notification?.durationMs,
-    runtimeState.defaultToastDurationMs,
+    runtimeState.toastDurationMs,
   )
   const notification: AchievementNotificationProjection = {
     id: `achievement-toast:${definition.id}:${unlock.unlockedAt}`,
@@ -1008,7 +1047,12 @@ async function applyAchievementReward(
         requiredRuntimePackages: context.unlock.requiredRuntimePackages,
       })
     }
-    catch {}
+    catch (error) {
+      if (isOptionalPluginUnavailableError(error, '@quajs/plugin-gallery')) {
+        return
+      }
+      throw error
+    }
     return
   }
 
@@ -1048,8 +1092,11 @@ async function isGalleryEntryUnlocked(
     const gallery = await import('@quajs/plugin-gallery')
     return Boolean(gallery.getGalleryProfile(engine, profileId).unlockedEntries[condition.entryId])
   }
-  catch {
-    return false
+  catch (error) {
+    if (isOptionalPluginUnavailableError(error, '@quajs/plugin-gallery')) {
+      return false
+    }
+    throw error
   }
 }
 
@@ -1254,9 +1301,9 @@ async function rebuildAchievementProjection(
     sceneActive,
     profileId,
     notificationMode: patch.notificationMode || current.notificationMode || runtimeState.defaultNotificationMode,
-    groups: sceneActive ? groups.map(cloneAchievementGroupProjectionItem) : groups.map(cloneAchievementGroupProjectionItem),
-    achievements: sceneActive ? achievements.map(cloneAchievementProjectionItem) : achievements.map(cloneAchievementProjectionItem),
-    filteredAchievementIds: filteredAchievements.map(item => item.id),
+    groups: sceneActive ? groups.map(cloneAchievementGroupProjectionItem) : [],
+    achievements: sceneActive ? achievements.map(cloneAchievementProjectionItem) : [],
+    filteredAchievementIds: sceneActive ? filteredAchievements.map(item => item.id) : [],
     selectedGroupId,
     selectedAchievementId,
     returnCheckpointId: patch.returnCheckpointId === null ? undefined : patch.returnCheckpointId || current.returnCheckpointId,
@@ -1296,8 +1343,9 @@ function getOrCreateAchievementRuntimeState(
   }
   const created: AchievementRuntimeState = {
     defaultProfileId: trimNonEmpty(defaultProfileId) || DEFAULT_PROFILE_ID,
-    defaultNotificationMode: notifications?.mode || DEFAULT_NOTIFICATION_MODE,
+    defaultNotificationMode: normalizeNotificationMode(notifications?.mode, DEFAULT_NOTIFICATION_MODE),
     defaultToastDurationMs: normalizeDurationMs(notifications?.durationMs, DEFAULT_TOAST_DURATION_MS),
+    toastDurationMs: normalizeDurationMs(notifications?.durationMs, DEFAULT_TOAST_DURATION_MS),
     groups: new Map(),
     achievements: new Map(),
     profiles: new Map(),
@@ -1306,6 +1354,132 @@ function getOrCreateAchievementRuntimeState(
   }
   achievementRuntimeState.set(key, created)
   return created
+}
+
+async function registerAchievementSettingsScope(
+  ctx: EngineContext,
+  runtimeState: AchievementRuntimeState,
+): Promise<(() => void) | undefined> {
+  try {
+    const settings = await import('@quajs/plugin-settings')
+    const unregister = settings.registerSettingsScope(ctx.engine, {
+      scope: ACHIEVEMENT_SETTINGS_SCOPE,
+      version: 1,
+      title: 'Achievements',
+      description: 'Achievement notification behavior and profile defaults.',
+      developer: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            defaultProfileId: {
+              type: 'string',
+              title: 'Default Profile',
+              default: runtimeState.defaultProfileId,
+            },
+            defaultNotificationMode: {
+              type: 'string',
+              title: 'Default Notification Mode',
+              enum: ['none', 'toast', 'board'],
+              default: runtimeState.defaultNotificationMode,
+            },
+            defaultToastDurationMs: {
+              type: 'integer',
+              title: 'Default Toast Duration',
+              minimum: 100,
+              maximum: 30000,
+              multipleOf: 100,
+              default: runtimeState.defaultToastDurationMs,
+            },
+          },
+        },
+        defaults: {
+          defaultProfileId: DEFAULT_PROFILE_ID,
+          defaultNotificationMode: DEFAULT_NOTIFICATION_MODE,
+          defaultToastDurationMs: DEFAULT_TOAST_DURATION_MS,
+        } satisfies AchievementDeveloperSettings,
+        values: {
+          defaultProfileId: runtimeState.defaultProfileId,
+          defaultNotificationMode: runtimeState.defaultNotificationMode,
+          defaultToastDurationMs: runtimeState.defaultToastDurationMs,
+        } satisfies AchievementDeveloperSettings,
+      },
+      player: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            notificationMode: {
+              type: 'string',
+              title: 'Achievement Notifications',
+              enum: ['none', 'toast', 'board'],
+              default: runtimeState.defaultNotificationMode,
+            },
+            toastDurationMs: {
+              type: 'integer',
+              title: 'Toast Duration',
+              minimum: 100,
+              maximum: 30000,
+              multipleOf: 100,
+              default: runtimeState.defaultToastDurationMs,
+            },
+          },
+        },
+        defaults: {
+          notificationMode: runtimeState.defaultNotificationMode,
+          toastDurationMs: runtimeState.defaultToastDurationMs,
+        } satisfies AchievementPlayerSettings,
+        expose: true,
+        ui: {
+          label: 'Achievements',
+          order: 40,
+          groups: {
+            notifications: {
+              label: 'Notifications',
+              order: 0,
+            },
+          },
+          controls: {
+            notificationMode: {
+              control: 'select',
+              group: 'notifications',
+              order: 0,
+              options: [
+                { label: 'None', value: 'none' },
+                { label: 'Toast', value: 'toast' },
+                { label: 'Open Board', value: 'board' },
+              ],
+            },
+            toastDurationMs: {
+              control: 'slider',
+              group: 'notifications',
+              order: 1,
+              min: 100,
+              max: 30000,
+              step: 100,
+            },
+          },
+        },
+      },
+      apply: async ({ developer, player }) => {
+        runtimeState.defaultProfileId = trimNonEmpty(developer.defaultProfileId) || DEFAULT_PROFILE_ID
+        runtimeState.defaultNotificationMode = normalizeNotificationMode(developer.defaultNotificationMode, DEFAULT_NOTIFICATION_MODE)
+        runtimeState.defaultToastDurationMs = normalizeDurationMs(developer.defaultToastDurationMs, DEFAULT_TOAST_DURATION_MS)
+        runtimeState.toastDurationMs = normalizeDurationMs(player.toastDurationMs, runtimeState.defaultToastDurationMs)
+        await rebuildAchievementProjection(ctx.engine, runtimeState, {
+          notificationMode: normalizeNotificationMode(player.notificationMode, runtimeState.defaultNotificationMode),
+        })
+      },
+    })
+    await settings.getSettingsBridge(ctx.engine)?.rebuildProjection({ reason: 'rebuild', apply: true, persist: false })
+    return unregister
+  }
+  catch (error) {
+    if (isOptionalPluginUnavailableError(error, '@quajs/plugin-settings')) {
+      return undefined
+    }
+    throw error
+  }
 }
 
 function getAchievementRuntimeState(engine: QuaEngineInterface): AchievementRuntimeState | undefined {
@@ -2062,13 +2236,19 @@ function normalizeNotificationOptions(options?: AchievementNotificationOptions):
     return undefined
   }
   return {
-    mode: options.mode,
+    mode: options.mode ? normalizeNotificationMode(options.mode, DEFAULT_NOTIFICATION_MODE) : undefined,
     durationMs: options.durationMs !== undefined ? normalizeDurationMs(options.durationMs, DEFAULT_TOAST_DURATION_MS) : undefined,
   }
 }
 
 function normalizeDurationMs(value: number | undefined, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback
+}
+
+function normalizeNotificationMode(value: unknown, fallback: AchievementNotificationMode): AchievementNotificationMode {
+  return value === 'none' || value === 'toast' || value === 'board'
+    ? value
+    : fallback
 }
 
 function resolveUnlockNotificationMode(
@@ -2104,6 +2284,19 @@ function mergeRequiredRuntimePackages(...groups: Array<readonly string[] | undef
       .map(item => typeof item === 'string' ? item.trim() : '')
       .filter((item): item is string => item.length > 0),
   ))
+}
+
+function isOptionalPluginUnavailableError(error: unknown, packageName: string): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+  return error.message.includes(packageName)
+    && (
+      error.message.includes('Cannot find package')
+      || error.message.includes('Cannot find module')
+      || error.message.includes('Failed to resolve')
+      || error.message.includes('must be installed')
+    )
 }
 
 function assertAchievementGroupExists(runtimeState: AchievementRuntimeState, groupId: string | undefined, achievementId: string): void {

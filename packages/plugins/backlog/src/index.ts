@@ -17,7 +17,9 @@ import { BaseEnginePlugin, LogicToRenderEvents, richTextToPlainText } from '@qua
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from './contracts'
 import { backlogDecoratorMappings } from './script-compiler'
 
-export { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from './contracts'
+const BACKLOG_SETTINGS_SCOPE = '@quajs/plugin-backlog' as const
+
+export { BACKLOG_PLUGIN_ID, BACKLOG_SETTINGS_SCOPE, BacklogRenderToLogicEvents }
 export type {
   BacklogEntry,
   BacklogEntryKind,
@@ -38,6 +40,14 @@ export interface BacklogPluginOptions {
   filter?: (entry: BacklogEntry, ctx: BacklogFilterContext) => boolean
 }
 
+interface BacklogDeveloperSettings {
+  retentionScope: BacklogRetentionScope
+  maxEntries: number
+  includeByDefault: boolean
+  rewindableByDefault: boolean
+  voiceReplayByDefault: boolean
+}
+
 export class BacklogPlugin extends BaseEnginePlugin {
   readonly name = '@quajs/plugin-backlog'
   readonly id = BACKLOG_PLUGIN_ID
@@ -47,7 +57,7 @@ export class BacklogPlugin extends BaseEnginePlugin {
   private projectionBeforeBacklogJump?: BacklogProjection
   private projectionBeforeRollback?: BacklogProjection
 
-  protected setup(ctx: EngineContext): void {
+  protected async setup(ctx: EngineContext): Promise<void> {
     this.ensureProjection(ctx)
     this.disposers.push(onPipeline(ctx.pipeline, LogicToRenderEvents.DIALOGUE_SHOW, async () => {
       await this.recordDialogue(ctx)
@@ -67,6 +77,10 @@ export class BacklogPlugin extends BaseEnginePlugin {
     this.disposers.push(onPipeline(ctx.pipeline, BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, async (payload) => {
       await this.replayVoice(ctx.engine, payload as { entryId?: string })
     }))
+    const settingsDisposer = await registerBacklogSettingsScope(ctx, this.getOptions())
+    if (settingsDisposer) {
+      this.disposers.push(settingsDisposer)
+    }
   }
 
   override async destroy(): Promise<void> {
@@ -239,20 +253,134 @@ export function getBacklogProjection(engine: QuaEngineInterface): BacklogProject
 }
 
 export function createInitialBacklogProjection(options: BacklogPluginOptions = {}): BacklogProjection {
+  const developerSettings = createBacklogDeveloperSettings(options)
   return {
     revision: 0,
     visible: false,
     entries: [],
     retention: {
-      scope: options.retention?.scope || 'chapter',
-      maxEntries: options.retention?.maxEntries || 200,
+      scope: developerSettings.retentionScope,
+      maxEntries: developerSettings.maxEntries,
     },
     defaultPolicy: {
-      include: options.defaultPolicy?.include !== false,
-      rewindable: options.defaultPolicy?.rewindable !== false,
-      voiceReplay: options.defaultPolicy?.voiceReplay !== false,
+      include: developerSettings.includeByDefault,
+      rewindable: developerSettings.rewindableByDefault,
+      voiceReplay: developerSettings.voiceReplayByDefault,
     },
   }
+}
+
+async function registerBacklogSettingsScope(
+  ctx: EngineContext,
+  options: BacklogPluginOptions,
+): Promise<(() => void) | undefined> {
+  try {
+    const settings = await import('@quajs/plugin-settings')
+    const developerValues = createBacklogDeveloperSettings(options)
+    const unregister = settings.registerSettingsScope(ctx.engine, {
+      scope: BACKLOG_SETTINGS_SCOPE,
+      version: 1,
+      title: 'Backlog',
+      description: 'Backlog retention and default recording policy.',
+      developer: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            retentionScope: {
+              type: 'string',
+              title: 'Retention Scope',
+              enum: ['chapter', 'route', 'timeline', 'global'],
+              default: 'chapter',
+            },
+            maxEntries: {
+              type: 'integer',
+              title: 'Maximum Entries',
+              minimum: 1,
+              maximum: 10000,
+              default: 200,
+            },
+            includeByDefault: {
+              type: 'boolean',
+              title: 'Record By Default',
+              default: true,
+            },
+            rewindableByDefault: {
+              type: 'boolean',
+              title: 'Rewindable By Default',
+              default: true,
+            },
+            voiceReplayByDefault: {
+              type: 'boolean',
+              title: 'Voice Replay By Default',
+              default: true,
+            },
+          },
+        },
+        defaults: createBacklogDeveloperSettings(),
+        values: developerValues,
+      },
+      apply: async ({ developer }) => {
+        const normalized = normalizeBacklogDeveloperSettings(developer)
+        const projection = getBacklogProjection(ctx.engine)
+        await ctx.engine.setPluginProjection(BACKLOG_PLUGIN_ID, {
+          ...projection,
+          revision: projection.revision + 1,
+          entries: retainEntries(
+            projection.entries,
+            {
+              scope: normalized.retentionScope,
+              maxEntries: normalized.maxEntries,
+            },
+            ctx.engine.getStoryPoint(),
+          ),
+          retention: {
+            scope: normalized.retentionScope,
+            maxEntries: normalized.maxEntries,
+          },
+          defaultPolicy: {
+            include: normalized.includeByDefault,
+            rewindable: normalized.rewindableByDefault,
+            voiceReplay: normalized.voiceReplayByDefault,
+          },
+        })
+      },
+    })
+    await settings.getSettingsBridge(ctx.engine)?.rebuildProjection({ reason: 'rebuild', apply: true, persist: false })
+    return unregister
+  }
+  catch (error) {
+    if (isOptionalPluginUnavailableError(error, '@quajs/plugin-settings')) {
+      return undefined
+    }
+    throw error
+  }
+}
+
+function createBacklogDeveloperSettings(options: BacklogPluginOptions = {}): BacklogDeveloperSettings {
+  return normalizeBacklogDeveloperSettings({
+    retentionScope: options.retention?.scope || 'chapter',
+    maxEntries: options.retention?.maxEntries || 200,
+    includeByDefault: options.defaultPolicy?.include !== false,
+    rewindableByDefault: options.defaultPolicy?.rewindable !== false,
+    voiceReplayByDefault: options.defaultPolicy?.voiceReplay !== false,
+  })
+}
+
+function normalizeBacklogDeveloperSettings(input: Partial<BacklogDeveloperSettings>): BacklogDeveloperSettings {
+  return {
+    retentionScope: isBacklogRetentionScope(input.retentionScope) ? input.retentionScope : 'chapter',
+    maxEntries: typeof input.maxEntries === 'number' && Number.isFinite(input.maxEntries)
+      ? Math.max(1, Math.floor(input.maxEntries))
+      : 200,
+    includeByDefault: input.includeByDefault !== false,
+    rewindableByDefault: input.rewindableByDefault !== false,
+    voiceReplayByDefault: input.voiceReplayByDefault !== false,
+  }
+}
+
+function isBacklogRetentionScope(value: unknown): value is BacklogRetentionScope {
+  return value === 'chapter' || value === 'route' || value === 'timeline' || value === 'global'
 }
 
 async function appendBacklogEntry(
@@ -397,6 +525,18 @@ function mergeRequiredPackages(...groups: Array<readonly string[] | undefined>):
 
 function isAudioPluginInstalled(ctx: EngineContext): boolean {
   return ctx.plugins.hasPlugin('@quajs/plugin-audio') || Boolean(ctx.plugins.getPluginById('audio'))
+}
+
+function isOptionalPluginUnavailableError(error: unknown, packageName: string): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+  return error.message.includes(packageName)
+    && (
+      error.message.includes('Cannot find package')
+      || error.message.includes('Cannot find module')
+      || error.message.includes('Failed to resolve')
+    )
 }
 
 function onPipeline<T>(

@@ -46,10 +46,14 @@
   "peerDependencies": {
     "@quajs/engine": "workspace:*",
     "@quajs/pipeline": "workspace:*",
-    "@quajs/plugin-audio": "workspace:*"
+    "@quajs/plugin-audio": "workspace:*",
+    "@quajs/plugin-settings": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@quajs/plugin-audio": {
+      "optional": true
+    },
+    "@quajs/plugin-settings": {
       "optional": true
     }
   },
@@ -61,6 +65,7 @@
     "@quajs/engine": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
+    "@quajs/plugin-settings": "workspace:*",
     "@quajs/store": "workspace:*"
   },
   "quajs": {
