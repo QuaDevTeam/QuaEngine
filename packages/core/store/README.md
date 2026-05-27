@@ -140,7 +140,13 @@ const customStore = createStore({
 Implement the `StorageBackend` interface:
 
 ```typescript
-import { QuaGameSaveSlot, QuaSnapshot, StorageBackend } from '@quajs/store'
+import {
+  QuaGameSavePreviewRecord,
+  QuaGameSaveSlotIndex,
+  QuaGameSaveSlotPayload,
+  QuaSnapshot,
+  StorageBackend,
+} from '@quajs/store'
 
 class FileSystemBackend implements StorageBackend {
   constructor(private basePath: string) {}
@@ -378,10 +384,16 @@ interface StorageBackend {
   deleteSnapshot: (id: string) => Promise<void>
   listSnapshots: (storeName?: string) => Promise<QuaSnapshotMeta[]>
   clearSnapshots: (storeName?: string) => Promise<void>
-  saveGameSlot: (slot: QuaGameSaveSlot) => Promise<void>
-  getGameSlot: (slotId: string) => Promise<QuaGameSaveSlot | undefined>
-  deleteGameSlot: (slotId: string) => Promise<void>
-  listGameSlots: () => Promise<QuaGameSaveSlotMeta[]>
+  saveGameSlotIndex: (slot: QuaGameSaveSlotIndex) => Promise<void>
+  getGameSlotIndex: (slotId: string) => Promise<QuaGameSaveSlotIndex | undefined>
+  listGameSlotIndexes: () => Promise<QuaGameSaveSlotIndex[]>
+  deleteGameSlotIndex: (slotId: string) => Promise<void>
+  saveGameSlotPayload: (slot: QuaGameSaveSlotPayload) => Promise<void>
+  getGameSlotPayload: (slotId: string) => Promise<QuaGameSaveSlotPayload | undefined>
+  deleteGameSlotPayload: (slotId: string) => Promise<void>
+  saveGameSlotPreview: (preview: QuaGameSavePreviewRecord) => Promise<void>
+  getGameSlotPreview: (previewId: string) => Promise<QuaGameSavePreviewRecord | undefined>
+  deleteGameSlotPreview: (previewId: string) => Promise<void>
   clearGameSlots: () => Promise<void>
   close?: () => Promise<void> | void
 }

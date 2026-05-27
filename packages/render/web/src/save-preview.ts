@@ -1,11 +1,11 @@
 import type {
   QuaGameSavePreviewPayload,
   QuaGameSavePreviewReadOptions,
-  QuaGameSaveSlotMeta,
+  QuaGameSaveSlotIndex,
 } from '@quajs/store'
 
 export interface SaveSlotDataSource {
-  listSlots: () => Promise<QuaGameSaveSlotMeta[]>
+  listSlots: () => Promise<QuaGameSaveSlotIndex[]>
   getSlotPreview: (slotId: string, options?: QuaGameSavePreviewReadOptions) => Promise<QuaGameSavePreviewPayload | undefined>
   getSlotPreviews?: (
     slotIds: readonly string[],
@@ -73,7 +73,7 @@ export class WebSaveSlotPreviewCache {
     const previews = this.source.getSlotPreviews
       ? await this.source.getSlotPreviews(missing, { format: this.format })
       : await Promise.all(missing.map(async slotId => [slotId, await this.source.getSlotPreview(slotId, { format: this.format })] as const))
-        .then(entries => Object.fromEntries(entries))
+          .then(entries => Object.fromEntries(entries))
 
     for (const slotId of missing) {
       result[slotId] = this.storeResolvedPreview(slotId, previews[slotId])

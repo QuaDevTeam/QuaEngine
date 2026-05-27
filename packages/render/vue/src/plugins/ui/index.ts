@@ -1,8 +1,8 @@
+import type { SaveSlotDataSource } from '@quajs/renderer-web/save-preview'
 import type { PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import { LogicToRenderEvents, onLogicToRender } from '@quajs/render-core'
 import { WebSaveSlotPreviewCache } from '@quajs/renderer-web/save-preview'
-import type { SaveSlotDataSource } from '@quajs/renderer-web/save-preview'
 import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from 'vue'
 import { useAudio, useFlowControl, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
@@ -352,7 +352,7 @@ export const QuaSaveLoadPanel = defineComponent({
         stopSlotUpdates = undefined
       })
       void loadSlotGrid()
-      }, { immediate: true })
+    }, { immediate: true })
 
     onBeforeUnmount(() => {
       previewCache?.dispose()
@@ -514,9 +514,9 @@ export const QuaOverlayLayer = defineComponent({
     )
     return () => overlayIds.value.length > 0
       ? h('div', {
-          class: 'qua-overlay-layer',
+          'class': 'qua-overlay-layer',
           'data-qua-capture-role': 'overlay',
-          onClick: (event: Event) => event.stopPropagation(),
+          'onClick': (event: Event) => event.stopPropagation(),
         }, [
           overlays.value.menu ? h(QuaMenuOverlay) : null,
           overlays.value.saveLoad ? h(QuaSaveLoadPanel) : null,
@@ -586,7 +586,7 @@ function renderSaveSlotContent(slot: SaveSlotProjection, index: number): VNode[]
   return [
     h('span', { class: 'qua-save-slot-index' }, String(index + 1).padStart(2, '0')),
     h('span', { class: 'qua-save-slot-preview' }, slot.previewSrc
-      ? h('img', { class: 'qua-save-slot-screenshot', src: slot.previewSrc, alt: '' })
+      ? h('img', { class: 'qua-save-slot-preview-image', src: slot.previewSrc, alt: '' })
       : h('span', { class: 'qua-save-slot-empty-mark' }, previewStatusLabel(slot, filled))),
     h('span', { class: 'qua-save-slot-body' }, [
       h('span', { class: 'qua-save-slot-name' }, slot.name || metadata.sceneName || (filled ? 'Saved Game' : 'Empty Slot')),

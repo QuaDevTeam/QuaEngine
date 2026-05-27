@@ -76,7 +76,7 @@ describe('game Slot System', () => {
       await store.snapshot('checkpoint-2')
 
       // Save to slot with metadata
-      await store.saveToSlot('slot-1', {
+      await saveSlot(store, 'slot-1', {
         name: 'Main Quest - Forest',
         sceneName: 'forest_entrance',
         stepId: 'step_42',
@@ -138,7 +138,7 @@ describe('game Slot System', () => {
       })
 
       // Save initial state
-      await store.saveToSlot('slot-1')
+      await saveSlot(store, 'slot-1')
 
       // Modify state
       store.commit('setLevel', 3)
@@ -163,7 +163,7 @@ describe('game Slot System', () => {
       })
 
       // Save initial state
-      await store.saveToSlot('slot-1')
+      await saveSlot(store, 'slot-1')
 
       // Modify state
       store.commit('setLevel', 3)
@@ -188,7 +188,7 @@ describe('game Slot System', () => {
       })
 
       store.commit('setValue', { key: 'courage', value: 6 })
-      await store.saveToSlot('slot-serializer')
+      await saveSlot(store, 'slot-serializer')
 
       store.commit('setValue', { key: 'courage', value: 2 })
       await store.loadFromSlot('slot-serializer', { force: true })
@@ -205,8 +205,8 @@ describe('game Slot System', () => {
       })
 
       // Save multiple slots
-      await store.saveToSlot('slot-1', { name: 'Save 1' })
-      await store.saveToSlot('slot-2', { name: 'Save 2' })
+      await saveSlot(store, 'slot-1', { name: 'Save 1' })
+      await saveSlot(store, 'slot-2', { name: 'Save 2' })
 
       let slots = await store.listSlots()
       expect(slots).toHaveLength(2)
@@ -227,12 +227,12 @@ describe('game Slot System', () => {
       })
 
       // Save multiple slots with different timestamps
-      await store.saveToSlot('slot-1', { name: 'Save 1' })
+      await saveSlot(store, 'slot-1', { name: 'Save 1' })
 
       // Add small delay to ensure different timestamps
       await new Promise(resolve => setTimeout(resolve, 10))
 
-      await store.saveToSlot('slot-2', { name: 'Save 2' })
+      await saveSlot(store, 'slot-2', { name: 'Save 2' })
 
       const slots = await store.listSlots()
       expect(slots).toHaveLength(2)
@@ -252,7 +252,7 @@ describe('game Slot System', () => {
         storage: { backend: MemoryBackend },
       })
 
-      await store.saveToSlot('detailed-slot', {
+      await saveSlot(store, 'detailed-slot', {
         name: 'Boss Fight',
         sceneName: 'dragon_lair',
         stepId: 'boss_intro',
@@ -294,7 +294,7 @@ describe('game Slot System', () => {
 
       expect(await store.hasSlot('slot-1')).toBe(false)
 
-      await store.saveToSlot('slot-1')
+      await saveSlot(store, 'slot-1')
 
       expect(await store.hasSlot('slot-1')).toBe(true)
       expect(await store.hasSlot('non-existent')).toBe(false)
@@ -327,7 +327,7 @@ describe('game Slot System', () => {
       await store.snapshot('level-3')
 
       // Save the entire progression to a slot
-      await store.saveToSlot('progression-slot', {
+      await saveSlot(store, 'progression-slot', {
         name: 'Mid-game Progress',
       })
 
@@ -361,7 +361,7 @@ describe('game Slot System', () => {
       })
 
       // Save slot with minimal metadata
-      await store.saveToSlot('minimal-slot')
+      await saveSlot(store, 'minimal-slot')
 
       const slot = await store.getSlot('minimal-slot')
       expect(slot).toBeDefined()
@@ -386,7 +386,7 @@ describe('game Slot System', () => {
       })
 
       // Save initial slot
-      await store.saveToSlot('reused-slot', { name: 'First Save' })
+      await saveSlot(store, 'reused-slot', { name: 'First Save' })
 
       let slot = await store.getSlot('reused-slot')
       expect(slot!.index.name).toBe('First Save')
@@ -394,7 +394,7 @@ describe('game Slot System', () => {
 
       // Modify state and overwrite slot
       store.commit('setLevel', 5)
-      await store.saveToSlot('reused-slot', { name: 'Updated Save' })
+      await saveSlot(store, 'reused-slot', { name: 'Updated Save' })
 
       slot = await store.getSlot('reused-slot')
       expect(slot!.index.name).toBe('Updated Save')
@@ -416,6 +416,7 @@ describe('game Slot System', () => {
         slotId: 'preview-slot',
         saveOpId: 'save-op-1',
         previewStatus: 'pending',
+        metadata: {},
         storeData: await store.exportSaveData(),
       })
 
@@ -454,7 +455,7 @@ describe('game Slot System', () => {
         storage: { backend: FailingMemoryBackend },
       })
 
-      await expect(store.saveToSlot('slot-rollback', {
+      await expect(saveSlot(store, 'slot-rollback', {
         name: 'Rollback Save',
         preview: {
           kind: 'data-url',
@@ -478,7 +479,7 @@ describe('game Slot System', () => {
         // Don't specify storage - use global
       })
 
-      await store.saveToSlot('global-slot', { name: 'Global Save' })
+      await saveSlot(store, 'global-slot', { name: 'Global Save' })
 
       const slots = await store.listSlots()
       expect(slots).toHaveLength(1)
@@ -494,7 +495,7 @@ describe('game Slot System', () => {
       })
 
       // This should work by creating a default storage manager
-      await store.saveToSlot('default-slot')
+      await saveSlot(store, 'default-slot')
 
       const slots = await store.listSlots()
       expect(slots).toHaveLength(1)
@@ -502,3 +503,38 @@ describe('game Slot System', () => {
     })
   })
 })
+
+async function saveSlot(
+  store: {
+    saveToSlot: (input: any) => Promise<unknown>
+    exportSaveData: () => Promise<any>
+  },
+  slotId: string,
+  input: Record<string, any> = {},
+): Promise<unknown> {
+  const {
+    name,
+    timestamp,
+    revision,
+    saveOpId,
+    previewStatus,
+    preview,
+    metadata,
+    ...metadataFields
+  } = input
+
+  return await store.saveToSlot({
+    slotId,
+    name,
+    timestamp,
+    revision,
+    saveOpId,
+    previewStatus,
+    preview,
+    metadata: {
+      ...metadataFields,
+      ...(metadata || {}),
+    },
+    storeData: await store.exportSaveData(),
+  })
+}

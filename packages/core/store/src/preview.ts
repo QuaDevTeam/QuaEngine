@@ -9,7 +9,7 @@ import type {
 } from './types/base'
 import { generateId } from './utils'
 
-type RuntimeBuffer = {
+interface RuntimeBuffer {
   from: (input: string | Uint8Array, encoding?: string) => {
     readonly buffer: ArrayBufferLike
     readonly byteLength: number
@@ -154,13 +154,13 @@ export function resolvePreviewMimeType(input: QuaGameSavePreviewWriteInput): str
 }
 
 export function dataUrlToBytes(dataUrl: string): Uint8Array {
-  const match = /^data:([^;,]+)?(?:;charset=[^;,]+)?(;base64)?,(.*)$/i.exec(dataUrl)
+  const match = /^data:[^;,]*(?:;charset=[^;,]+)?(;base64)?,(.*)$/i.exec(dataUrl)
   if (!match) {
     throw new Error('Invalid data URL preview payload.')
   }
 
-  const body = match[3] || ''
-  if (match[2]) {
+  const body = match[2] || ''
+  if (match[1]) {
     return base64ToBytes(body)
   }
 
@@ -221,10 +221,10 @@ function utf8ToBytes(input: string): Uint8Array {
 }
 
 function hashBytes(bytes: Uint8Array): string {
-  let hash = 0xcbf29ce484222325n
+  let hash = 0xCBF29CE484222325n
   for (const value of bytes) {
     hash ^= BigInt(value)
-    hash = (hash * 0x100000001b3n) & 0xFFFFFFFFFFFFFFFFn
+    hash = (hash * 0x100000001B3n) & 0xFFFFFFFFFFFFFFFFn
   }
   return hash.toString(16).padStart(16, '0')
 }
