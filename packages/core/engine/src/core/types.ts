@@ -40,6 +40,29 @@ import type { EnginePlugin, PluginConstructorOptions } from '../plugins/core/typ
 import { createFlowControlProjection, createViewLayoutProjection } from '../events/events'
 
 export type {
+  ViewFlowControlProjection,
+  ViewLayoutInput,
+  ViewLayoutOrientation,
+  ViewLayoutPreset,
+  ViewLayoutProjection,
+  ViewLayoutScaleMode,
+  ViewPluginProjectionMap,
+  ViewUiSceneHostProjection,
+} from '../events/events'
+
+export type {
+  FlowControlMode,
+  FlowControlPolicy,
+  FlowControlProjectionInput,
+  FlowControlSkipMode,
+  FlowControlTimingProjection,
+  SavePreviewCapturePolicy,
+  SavePreviewCaptureReason,
+  SavePreviewCaptureTransaction,
+  SaveRequestPayload,
+} from '../events/events'
+
+export type {
   RuntimeLocalePackManifest,
   RuntimeLocalePackTargetManifest,
   RuntimePackageManifest,
@@ -52,29 +75,6 @@ export type {
   TranslateInput,
   TranslateOptions,
 } from '@quajs/assets'
-
-export type {
-  ViewFlowControlProjection,
-  ViewLayoutInput,
-  ViewLayoutOrientation,
-  ViewLayoutPreset,
-  ViewLayoutProjection,
-  ViewLayoutScaleMode,
-  ViewPluginProjectionMap,
-  ViewUiSceneHostProjection,
-} from '../events/events'
-
-export type {
-  SavePreviewCapturePolicy,
-  SavePreviewCaptureReason,
-  SavePreviewCaptureTransaction,
-  SaveRequestPayload,
-  FlowControlMode,
-  FlowControlPolicy,
-  FlowControlProjectionInput,
-  FlowControlSkipMode,
-  FlowControlTimingProjection,
-} from '../events/events'
 
 export interface SlotMetadata {
   name?: string
@@ -333,6 +333,10 @@ export interface QuaEngineInterface {
   getCurrentRuntimePackageId: () => string | undefined
   getRuntimePackages: () => RuntimePackageStateRecord[]
   getRuntimeStateSnapshot: () => EngineRuntimeState
+  getPlaytimeMs: () => number
+  getPlaytimeState: () => EnginePlaytimeState
+  pausePlaytime: (reason?: string) => Promise<void>
+  resumePlaytime: (reason?: string) => Promise<void>
   getViewState: () => QuaViewProjection
   getFlowControlState: () => ViewFlowControlProjection
   unloadRuntimePackage: (packageId: string, options?: RuntimePackageUnloadOptions) => Promise<void>
@@ -371,7 +375,7 @@ export interface QuaEngineInterface {
   quickSave: (metadata?: SlotMetadata, options?: SaveToSlotOptions) => Promise<void>
   quickLoad: () => Promise<void>
   autoSave: (metadata?: SlotMetadata, options?: SaveToSlotOptions) => Promise<void>
-  listSaveSlots: () => Promise<import('@quajs/store').QuaGameSaveSlotMeta[]>
+  listSaveSlots: () => Promise<import('@quajs/store').QuaGameSaveSlotIndex[]>
   deleteSaveSlot: (slotId: string) => Promise<void>
   runScriptModule: <TScope>(moduleId: string, scope?: TScope, options?: RuntimeScriptModuleRunOptions) => Promise<void>
   runScriptModuleFrom: <TScope>(moduleId: string, options?: RuntimeScriptModuleRunFromOptions<TScope>) => Promise<void>
@@ -415,7 +419,7 @@ export interface SceneEnterContext {
 
 export interface SaveSlot {
   slotId: string
-  index: import('@quajs/store').QuaGameSaveSlotMeta
+  index: import('@quajs/store').QuaGameSaveSlotIndex
 }
 
 export interface StoryPoint {
@@ -824,6 +828,10 @@ export interface EngineConfig {
       autoSave?: SavePreviewOptions
     }
   }
+  playtime?: {
+    autoStart?: boolean
+    pauseOnWindowBlur?: boolean
+  }
   runtimeModuleLoader?: RuntimeModuleLoader
   runtimePackageRegistry?: RuntimePackageRegistry
   trustPolicy?: RuntimeTrustPolicy
@@ -897,6 +905,18 @@ export interface EngineRuntimeState {
   checkpointHistory: string[]
   runtimePackages: Record<string, RuntimePackageStateRecord>
   appliedRuntimeMigrations: string[]
+  playtime: EnginePlaytimeState
+}
+
+export interface EnginePlaytimeState {
+  startedAt: number
+  elapsedMs: number
+  runningSince?: number
+  paused: boolean
+  pausedAt?: number
+  pauseReason?: string
+  pauseReasons: string[]
+  updatedAt: number
 }
 
 export interface EngineFlowControlProgressState {
@@ -943,6 +963,14 @@ export function createInitialEngineState(layout?: ViewLayoutInput, flowControl?:
       checkpointHistory: [],
       runtimePackages: {},
       appliedRuntimeMigrations: [],
+      playtime: {
+        startedAt: 0,
+        elapsedMs: 0,
+        paused: true,
+        pauseReason: 'not-started',
+        pauseReasons: [],
+        updatedAt: 0,
+      },
     },
     flowControlProgress: {
       readKeys: [],

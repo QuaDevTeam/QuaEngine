@@ -20,8 +20,8 @@ export {
   getUiOverlayHostProjection,
   releaseUiOverlayHostWithEngine,
   retainUiOverlayHostWithEngine,
-  UiOverlayPlugin,
   UI_OVERLAY_HOST_SCENE_ID,
+  UiOverlayPlugin,
 } from './ui-overlay-plugin'
 
 export type {

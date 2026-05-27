@@ -1,18 +1,18 @@
+import type { AchievementProjection } from '@quajs/plugin-achievement/contracts'
+import type { GalleryProjection } from '@quajs/plugin-gallery/contracts'
 import type { QuaViewProjection, RendererPlugin } from '@quajs/render-core'
 import { MemoryAssetStorage, QuaAssets } from '@quajs/assets'
 import { Pipeline } from '@quajs/pipeline'
+import { ACHIEVEMENT_PLUGIN_ID, AchievementRenderToLogicEvents } from '@quajs/plugin-achievement/contracts'
 import {
   AUDIO_PLUGIN_ID,
   AudioRenderToLogicEvents,
   createInitialAudioProjection,
   onAudioRenderToLogic,
 } from '@quajs/plugin-audio/contracts'
-import { ACHIEVEMENT_PLUGIN_ID, AchievementRenderToLogicEvents } from '@quajs/plugin-achievement/contracts'
-import type { AchievementProjection } from '@quajs/plugin-achievement/contracts'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import { FONTS_PLUGIN_ID } from '@quajs/plugin-fonts/contracts'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
-import type { GalleryProjection } from '@quajs/plugin-gallery/contracts'
 import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
 import {
   createFlowControlProjection,
@@ -28,19 +28,19 @@ import {
   clientPointToStageLogical,
   collectTrackValues,
   createQuaWebDomRenderer,
-  createRendererInputController,
   createQuaWebRendererController,
   createReactRendererStoreAdapter,
+  createRendererInputController,
   projectAudioProjection,
   readCssSafeAreaInsets,
   resolveStageLayout,
   stageContentStyle,
   stageLogicalToClientPoint,
 } from '../src'
-import { WebSaveSlotPreviewCache } from '../src/save-preview'
 import { WebAudioRendererController } from '../src/audio'
 import { createGalleryProjectionModel, getGalleryProjectionFromView } from '../src/plugins/gallery'
 import { createVisualNovelWebRendererPlugins } from '../src/plugins/preset'
+import { WebSaveSlotPreviewCache } from '../src/save-preview'
 
 describe('@quajs/renderer-web', () => {
   afterEach(() => {
@@ -811,6 +811,33 @@ describe('@quajs/renderer-web', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', bubbles: true }))
     await flushDom()
     expect(events).toHaveLength(6)
+  })
+
+  it('emits window focus and blur intents from renderer focus tracking', async () => {
+    const pipeline = new Pipeline()
+    const events: string[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.WINDOW_BLUR, () => events.push('blur'))
+    onRenderToLogic(pipeline, RenderToLogicEvents.WINDOW_FOCUS, () => events.push('focus'))
+
+    const controller = createQuaWebRendererController({ pipeline })
+    const input = createRendererInputController({
+      actions: controller.actions,
+      getViewState: () => controller.getViewState(),
+      target: document,
+      gamepad: false,
+      keyboard: false,
+      pointer: false,
+      wheel: false,
+    })
+    input.start()
+
+    window.dispatchEvent(new Event('blur'))
+    window.dispatchEvent(new Event('focus'))
+    await flushDom()
+
+    expect(events).toEqual(['blur', 'focus'])
+
+    input.dispose()
   })
 
   it('maps pointer input through logical stage coordinates and filters controls', async () => {
@@ -2422,7 +2449,7 @@ function installSavePreviewCaptureStubs() {
     set(value: string) {
       this.setAttribute('src', value)
       pendingImageLoads.push(() => {
-        this.onload?.call(this, new Event('load'))
+        this.onload?.(new Event('load'))
       })
     },
   })
@@ -2433,7 +2460,7 @@ function installSavePreviewCaptureStubs() {
     drawImage: vi.fn(),
   }
   const getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context2d as unknown as CanvasRenderingContext2D)
-  const toBlobSpy = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function(callback, type) {
+  const toBlobSpy = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback, type) => {
     callback?.(new Blob([new Uint8Array([4, 5, 6]).buffer], { type: type || 'image/webp' }))
   })
 

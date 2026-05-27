@@ -332,19 +332,39 @@ class RendererInputControllerImpl implements RendererInputController {
     if (!this.win) {
       return
     }
+    const emitFocus = () => {
+      void this.options.actions.windowFocus().catch(() => {})
+    }
+    const emitBlur = () => {
+      void this.options.actions.windowBlur().catch(() => {})
+    }
     const focus = () => {
+      if (this.win?.document.visibilityState === 'hidden') {
+        return
+      }
       this.focused = true
+      emitFocus()
     }
     const blur = () => {
       this.focused = false
       this.pressedKeys.clear()
       this.gamepadButtons.clear()
+      emitBlur()
+    }
+    const visibilityChange = () => {
+      if (this.win?.document.visibilityState === 'hidden') {
+        blur()
+        return
+      }
+      focus()
     }
     this.win.addEventListener('focus', focus)
     this.win.addEventListener('blur', blur)
+    this.win.document.addEventListener('visibilitychange', visibilityChange)
     this.disposers.push(() => {
       this.win?.removeEventListener('focus', focus)
       this.win?.removeEventListener('blur', blur)
+      this.win?.document.removeEventListener('visibilitychange', visibilityChange)
     })
   }
 

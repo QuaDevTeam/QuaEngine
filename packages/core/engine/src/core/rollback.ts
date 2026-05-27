@@ -1,5 +1,5 @@
-import type { EventPayload, LogicToRenderEvents, RenderToLogicEvents } from '../events/events'
 import type { QuaStore } from '@quajs/store'
+import type { EventPayload, LogicToRenderEvents, RenderToLogicEvents } from '../events/events'
 import type {
   EngineCheckpoint,
   GameStep,
@@ -1009,7 +1009,7 @@ function storyPointMatches(point: StoryPoint, target: StoryPoint): boolean {
 }
 
 function sanitizeSnapshotPart(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_.:-]/g, '_')
+  return value.replace(/[^\w.:-]/g, '_')
 }
 
 function parseCounterSuffix(value: string, prefix: string): number {
@@ -1040,47 +1040,9 @@ async function deleteStoreSnapshot(store: QuaStore, snapshotId: string): Promise
 }
 
 function getStoreSaveDataExporter(store: QuaStore): () => Promise<RollbackStoreSaveData> {
-  const snapshotStore = store as QuaStore & {
-    exportSaveData?: () => Promise<RollbackStoreSaveData>
-  }
-  if (typeof snapshotStore.exportSaveData !== 'function') {
-    return async () => {
-      const slotId = `__rollback-export:${store.getName()}:${Date.now()}:${Math.random().toString(36).slice(2)}`
-      await store.saveToSlot(slotId)
-      const slot = await store.getSlot(slotId)
-      await store.deleteSlot(slotId).catch(() => {})
-      if (!slot) {
-        throw new Error(`Rollback store "${store.getName()}" could not create export data.`)
-      }
-      return slot.storeData as RollbackStoreSaveData
-    }
-  }
-  return snapshotStore.exportSaveData.bind(store)
+  return store.exportSaveData.bind(store) as () => Promise<RollbackStoreSaveData>
 }
 
 function getStoreSaveDataImporter(store: QuaStore): (data: RollbackStoreSaveData, options?: { force?: boolean }) => Promise<void> {
-  const snapshotStore = store as unknown as {
-    importSaveData?: (data: RollbackStoreSaveData, options?: { force?: boolean }) => Promise<void>
-    getStorageManager?: () => Promise<{
-      clearSnapshots: (storeName?: string) => Promise<void>
-      saveSnapshot: (snapshot: unknown) => Promise<void>
-    }>
-  }
-  if (typeof snapshotStore.importSaveData !== 'function') {
-    return async (data, options = {}) => {
-      if (Object.keys(store.state).length && options.force !== true) {
-        throw new Error(`Rollback store "${store.getName()}" has data. Use force option to override.`)
-      }
-      const storageManager = await snapshotStore.getStorageManager?.()
-      if (!storageManager) {
-        throw new Error(`Rollback store "${store.getName()}" cannot import save data.`)
-      }
-      await storageManager.clearSnapshots(store.getName())
-      for (const snapshot of data.snapshots) {
-        await storageManager.saveSnapshot(snapshot)
-      }
-      store.restoreSerializedState(data.state)
-    }
-  }
-  return snapshotStore.importSaveData.bind(store)
+  return store.importSaveData.bind(store) as (data: RollbackStoreSaveData, options?: { force?: boolean }) => Promise<void>
 }

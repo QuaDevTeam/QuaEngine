@@ -21,6 +21,8 @@ export interface RendererActions {
   requestUiOpen: (elementId: string, config?: Record<string, unknown>) => Promise<void>
   requestUiClose: (elementId: string) => Promise<void>
   requestUiUpdate: (elementId: string, config: Record<string, unknown>) => Promise<void>
+  windowBlur: () => Promise<void>
+  windowFocus: () => Promise<void>
   requestPluginEvent: (type: string, payload?: unknown) => Promise<void>
 }
 
@@ -49,6 +51,8 @@ export function createRendererActions(getPipeline: () => Pipeline): RendererActi
     requestUiOpen: (elementId: string, config?: Record<string, unknown>) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.UI_REQUEST_OPEN, { elementId, config }),
     requestUiClose: (elementId: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.UI_REQUEST_CLOSE, { elementId }),
     requestUiUpdate: (elementId: string, config: Record<string, unknown>) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.UI_REQUEST_UPDATE, { elementId, config }),
+    windowBlur: () => emitRenderToLogic(getPipeline(), RenderToLogicEvents.WINDOW_BLUR, {}),
+    windowFocus: () => emitRenderToLogic(getPipeline(), RenderToLogicEvents.WINDOW_FOCUS, {}),
     requestPluginEvent: (type: string, payload: unknown = {}) => getPipeline().emit(type, payload),
   }
 }

@@ -1,14 +1,15 @@
 // Global APIs (main exports)
 export {
-  autoSave,
   activateRuntimePackage,
+  autoSave,
+  canRollback,
+  canRollForward,
   clearChoices,
   createCheckpoint,
   createRollbackAnchor,
   deleteSaveSlot,
   dialogue,
-  canRollback,
-  canRollForward,
+  ensureLocalePacks,
   fixRollback,
   getAssetMetadata,
   getAssets,
@@ -33,22 +34,21 @@ export {
   loadFromSlot,
   loadRuntimePackage,
   loadScene,
-  registerScene,
-  registerStoryTargetResolver,
-  ensureLocalePacks,
-  reportError,
   quickLoad,
   quickSave,
-  registerScriptModule,
   registerRollbackStore,
+  registerScene,
+  registerScriptModule,
+  registerStoryTargetResolver,
+  reportError,
   resetFlowControlPolicy,
   resolveStoryAssetRef,
+  resolveStoryTarget,
   rewind,
   rollback,
   rollForward,
   runScriptModule,
   runScriptModuleFrom,
-  resolveStoryTarget,
   saveToSlot,
   setFlowControlMode,
   setFlowControlOptions,
@@ -76,8 +76,6 @@ export {
 // Core Engine
 export { QuaEngine } from './core/engine'
 
-// Types
-export { Scene } from './core/types'
 export {
   assertSerializableSceneState,
   checkpoint,
@@ -90,6 +88,10 @@ export {
   scene,
   script,
 } from './core/story-targets'
+export { resolveQuaText } from './core/text'
+export type { QuaTextPart, QuaTranslate } from './core/text'
+// Types
+export { Scene } from './core/types'
 export type {
   BackgroundIntent,
   CharacterIntent,
@@ -117,11 +119,11 @@ export type {
   GameStepFactory,
   GameStepScope,
   GameStepSource,
+  JsonSerializable,
+  JsonSerializableRecord,
   JumpContext,
   JumpOptions,
   JumpTarget,
-  JsonSerializable,
-  JsonSerializableRecord,
   LabelChoiceTarget,
   LoadSlotOptions,
   NodeChoiceTarget,
@@ -184,9 +186,9 @@ export type {
   SceneChoiceTarget,
   SceneEnterContext,
   SceneFactory,
+  ScriptChoiceTarget,
   SetLocaleOptions,
   SlotMetadata,
-  ScriptChoiceTarget,
   StepContext,
   StoryAssetRef,
   StoryPoint,
@@ -197,17 +199,15 @@ export type {
   UsePluginOptions,
   ViewPluginProjectionMap,
 } from './core/types'
-export { resolveQuaText } from './core/text'
-export type { QuaTextPart, QuaTranslate } from './core/text'
 // Events
 export {
   emitLogicToRender,
   emitRenderToLogic,
+  isRichTextDocument,
   LogicToRenderEvents,
   onLogicToRender,
   onRenderToLogic,
   RenderToLogicEvents,
-  isRichTextDocument,
   richTextToPlainText,
   waitForPipelineEvent,
 } from './events/events'
@@ -236,24 +236,24 @@ export type {
   FlowControlSetModePayload,
   FlowControlSkipMode,
   FlowControlTimingProjection,
-  RichTextBlockProjection,
-  RichTextContent,
-  RichTextDocumentProjection,
-  RichTextSpanProjection,
-  RichTextStyleProjection,
   RendererInputCommand,
   RendererInputCommandPayload,
   RendererInputDevice,
   ResolvedAnimationTrackProjection,
   ResolvedFlowControlPolicy,
+  RichTextBlockProjection,
+  RichTextContent,
+  RichTextDocumentProjection,
+  RichTextSpanProjection,
+  RichTextStyleProjection,
+  RuntimePackagePluginPayload,
+  RuntimePackageUnloadPayload,
   SceneChangePayload,
   SceneInitPayload,
   SceneTransitionIntent,
   SceneTransitionType,
   UserChoiceSelectPayload,
   UserClickPayload,
-  RuntimePackagePluginPayload,
-  RuntimePackageUnloadPayload,
   ViewBackgroundLayerProjection,
   ViewBackgroundProjection,
   ViewFlowControlProjection,
@@ -305,8 +305,8 @@ export {
   getUiOverlayHostProjection,
   releaseUiOverlayHostWithEngine,
   retainUiOverlayHostWithEngine,
-  UiOverlayPlugin,
   UI_OVERLAY_HOST_SCENE_ID,
+  UiOverlayPlugin,
 } from './plugins/ui-overlay-plugin'
 export type {
   UiOverlayHostReleaseOptions,
