@@ -7,9 +7,10 @@ import type {
   ViewUiSceneHostProjection,
 } from '../core/types'
 import type { SceneTransitionIntent } from '../events/events'
-import { RenderToLogicEvents } from '../events/events'
+import type { EngineContext } from './core/types'
 import { Scene } from '../core/types'
-import { BaseEnginePlugin, type EngineContext } from './core/types'
+import { RenderToLogicEvents } from '../events/events'
+import { BaseEnginePlugin } from './core/types'
 
 export const UI_OVERLAY_HOST_SCENE_ID = '@quajs/engine/ui-overlay-host' as const
 

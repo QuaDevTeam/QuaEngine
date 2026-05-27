@@ -1,41 +1,41 @@
 import type {
   DynamicBundleRecord,
   RuntimePackageManifest,
-  RuntimePackageScriptVariantManifest,
   RuntimePackagePluginManifest,
   RuntimePackageSceneManifest,
+  RuntimePackageScriptVariantManifest,
   RuntimePackageStoreMigrationManifest,
 } from '@quajs/assets'
 import type { QuaSerializedState } from '@quajs/store'
 import type { QuaEngine } from '../core/engine'
 import type {
-  GameStep,
-  QuaEngineInterface,
   ChoiceTarget,
   EnsureLocalePacksOptions,
+  GameStep,
+  QuaEngineInterface,
   RollbackEntry,
   RuntimeLoadedPluginModule,
   RuntimeLoadedSceneModule,
   RuntimeLoadedScriptModule,
   RuntimeModuleLoader,
+  RuntimePackageLoadOptions,
   RuntimePackageRegistry,
   RuntimePackageRegistryEntry,
-  StoryTargetResolveContext,
-  RuntimePackageLoadOptions,
   RuntimePackageStateRecord,
   RuntimePackageUnloadOptions,
   RuntimeScriptModuleRecord,
-  RuntimeScriptModuleRunOptions,
   RuntimeScriptModuleRunFromOptions,
+  RuntimeScriptModuleRunOptions,
   RuntimeStoreMigrationHandler,
   RuntimeTrustPolicy,
   Scene,
   SceneFactory,
+  StoryTargetResolveContext,
 } from '../core/types'
-import { assertCompatibleGameVersion, createLocaleFallbackChain, normalizeLocale } from '@quajs/assets'
 import type { EnginePlugin } from '../plugins/core/types'
-import { getPluginRegistry } from '../plugins'
+import { assertCompatibleGameVersion, createLocaleFallbackChain, normalizeLocale } from '@quajs/assets'
 import { resolveGameSteps } from '../core/script'
+import { getPluginRegistry } from '../plugins'
 
 interface LoadedRuntimePackage {
   bundle: DynamicBundleRecord
@@ -58,13 +58,11 @@ interface ResolvedScriptVariant {
   packageId: string
 }
 
-type RuntimePackageScopedEngine = QuaEngineInterface & Pick<QuaEngine,
-  | 'useRuntimePlugin'
+type RuntimePackageScopedEngine = QuaEngineInterface & Pick<QuaEngine, | 'useRuntimePlugin'
   | 'notifyRuntimePackageActivate'
   | 'notifyRuntimePackageUnload'
   | 'notifyRuntimePackageMigrate'
-  | 'clearRuntimePackageViewState'
->
+  | 'clearRuntimePackageViewState'>
 
 export class RuntimeContentManager {
   private readonly packages = new Map<string, LoadedRuntimePackage>()
@@ -519,7 +517,7 @@ export class RuntimeContentManager {
 
     while (pending.size > 0) {
       const unloadable = Array.from(pending).filter(packageId =>
-        !Array.from(pending).some(otherPackageId => {
+        !Array.from(pending).some((otherPackageId) => {
           if (otherPackageId === packageId) {
             return false
           }
@@ -786,7 +784,7 @@ export class RuntimeContentManager {
     const storyGraphModule = getPluginRegistry().getPluginModule('@quajs/story-graph')
     const applyDelta = storyGraphModule?.registerStoryGraphDeltaWithEngine
     if (typeof applyDelta !== 'function') {
-      throw new Error('Runtime package includes story graph deltas, but @quajs/story-graph is not installed.')
+      throw new TypeError('Runtime package includes story graph deltas, but @quajs/story-graph is not installed.')
     }
 
     for (const delta of deltas) {
@@ -830,7 +828,7 @@ export class RuntimeContentManager {
     })
     const handler = selectExport(loaded, migration.exportName, ['default'])
     if (typeof handler !== 'function') {
-      throw new Error(`Runtime migration "${migration.id}" did not export a migration handler.`)
+      throw new TypeError(`Runtime migration "${migration.id}" did not export a migration handler.`)
     }
     return handler as RuntimeStoreMigrationHandler
   }
@@ -1068,7 +1066,7 @@ function createPackageState(
 function selectScriptFactory(record: RuntimeScriptModuleRecord, loaded: Record<string, unknown>) {
   const factory = selectExport(loaded, record.exportName, ['default'])
   if (typeof factory !== 'function') {
-    throw new Error(`Runtime script module "${record.id}" did not export a GameStep factory.`)
+    throw new TypeError(`Runtime script module "${record.id}" did not export a GameStep factory.`)
   }
   return factory
 }
@@ -1111,7 +1109,7 @@ function isSceneInstance(value: unknown): value is Scene {
     && typeof (value as Scene).run === 'function'
 }
 
-function isClassLike(value: Function): boolean {
+function isClassLike(value: object): boolean {
   return /^class\s/.test(Function.prototype.toString.call(value))
 }
 

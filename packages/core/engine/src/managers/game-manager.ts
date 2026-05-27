@@ -1,4 +1,4 @@
-import type { QuaGameSaveSlot, QuaGameSaveSlotMeta, QuaStore } from '@quajs/store'
+import type { QuaGameSaveSlotIndex, QuaGameSaveSlotPayload, QuaStore } from '@quajs/store'
 import type { QuaEngine } from '../core/engine'
 import type { GameStep, GameStepFactory, GameStepScope, GameStepSource, OptionalGameStepFactory, SavePreviewProvidedInput, Scene, SceneEnterContext, StepContext } from '../core/types'
 import type { SceneTransitionOptions } from './scene-manager'
@@ -183,7 +183,7 @@ export class GameManager {
   /**
    * Get list of all save slots
    */
-  async getSaveSlots(): Promise<QuaGameSaveSlotMeta[]> {
+  async getSaveSlots(): Promise<QuaGameSaveSlotIndex[]> {
     const store = this.engine.getStore() as QuaStore
     return await store.listSlots()
   }
@@ -191,7 +191,7 @@ export class GameManager {
   /**
    * Get a specific save slot
    */
-  async getSaveSlot(slotId: string): Promise<QuaGameSaveSlot | undefined> {
+  async getSaveSlot(slotId: string): Promise<QuaGameSaveSlotPayload | undefined> {
     const store = this.engine.getStore() as QuaStore
     return await store.getSlot(slotId)
   }
@@ -224,8 +224,7 @@ export class GameManager {
    * Calculate total playtime
    */
   private calculatePlaytime(): number {
-    // This would need to be implemented based on game start time tracking
-    return 0 // Placeholder
+    return this.engine.getPlaytimeMs()
   }
 
   /**

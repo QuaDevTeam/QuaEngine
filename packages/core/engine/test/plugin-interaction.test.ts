@@ -138,20 +138,20 @@ describe('plugin Interaction System', () => {
         }
       }
 
-      class DummyPlugin extends BaseEnginePlugin {
-        readonly name = 'dummy-plugin'
+      class SamplePlugin extends BaseEnginePlugin {
+        readonly name = 'sample-plugin'
       }
 
       const pluginCounter = new PluginCounter()
-      const dummyPlugin = new DummyPlugin()
+      const samplePlugin = new SamplePlugin()
 
-      pluginContext.registerPlugin(dummyPlugin)
+      pluginContext.registerPlugin(samplePlugin)
       pluginContext.registerPlugin(pluginCounter)
 
       const mockCtx = createMockContext(pluginContext)
       await pluginCounter.init(mockCtx)
 
-      // Should count itself + dummy plugin
+      // Should count itself and the sample plugin.
       expect(pluginCounter.getPluginCount()).toBe(2)
     })
 

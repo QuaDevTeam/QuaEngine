@@ -1,7 +1,6 @@
 import type { AssetRuntimeAdapter, BundleManifest, RuntimePackageManifest } from '@quajs/assets'
 import type { RendererPlugin } from '@quajs/render-core'
-import type { EngineContext, EnginePlugin, StepContext } from '../src'
-import type { RuntimePackageTrustContext } from '../src'
+import type { EngineContext, EnginePlugin, RuntimePackageTrustContext, StepContext } from '../src'
 import { MemoryAssetStorage } from '@quajs/assets'
 import {
   createNoopSavePreviewCaptureResponder,
@@ -21,8 +20,8 @@ import {
   QuaEngine,
   RenderToLogicEvents,
   Scene,
-  UiOverlayPlugin,
   UI_OVERLAY_HOST_SCENE_ID,
+  UiOverlayPlugin,
 } from '../src'
 
 class TrackingMemoryBackend extends MemoryBackend {
@@ -603,7 +602,8 @@ describe('quaEngine runtime architecture', () => {
     expect(engine.hasScene('dorm')).toBe(false)
     resolveStoryTarget.mockResolvedValue(undefined)
     await expect(engine.resolveStoryTarget({ kind: 'scene', sceneId: 'dorm', entry: 'nightReturn' } as any))
-      .rejects.toThrow('Unable to resolve story target')
+      .rejects
+      .toThrow('Unable to resolve story target')
   })
 
   it('resolves story asset refs through engine-owned assets without creating renderer URLs', async () => {
@@ -775,8 +775,7 @@ describe('quaEngine runtime architecture', () => {
     await engine.init()
 
     await engine.dialogue(Array.from({ length: 220 }, (_, index) =>
-      createDialogueStep(`dense-${index + 1}`, `Line ${index + 1}`),
-    ))
+      createDialogueStep(`dense-${index + 1}`, `Line ${index + 1}`)))
 
     const history = engine.getRuntimeStateSnapshot().checkpointHistory
     expect(history).toEqual(['dense-1', 'dense-51', 'dense-101', 'dense-151', 'dense-201'])
@@ -803,8 +802,7 @@ describe('quaEngine runtime architecture', () => {
     await engine.init()
 
     await engine.dialogue(Array.from({ length: 8 }, (_, index) =>
-      createDialogueStep(`density-required-${index + 1}`, `Line ${index + 1}`),
-    ))
+      createDialogueStep(`density-required-${index + 1}`, `Line ${index + 1}`)))
 
     expect(engine.getRuntimeStateSnapshot().checkpointHistory).toEqual([
       'density-required-1',
@@ -1156,7 +1154,8 @@ describe('quaEngine runtime architecture', () => {
     await engine.rollback('fixed-a')
 
     await expect(engine.dialogue([createDialogueStep('fixed-branch', 'Branch')]))
-      .rejects.toThrow('Cannot diverge inside fixed rollback history')
+      .rejects
+      .toThrow('Cannot diverge inside fixed rollback history')
     await engine.rollForward()
     await engine.dialogue([createDialogueStep('fixed-after', 'After fixed')])
     expect(engine.getViewState().dialogue.text).toBe('After fixed')
@@ -1306,7 +1305,8 @@ describe('quaEngine runtime architecture', () => {
       height: 1,
     }))
     await expect(engine.getStore().getSlotPreview('slot-provided-preview', { format: 'data-url' }))
-      .resolves.toEqual(expect.objectContaining({
+      .resolves
+      .toEqual(expect.objectContaining({
         kind: 'data-url',
         dataUrl: previewDataUrl,
       }))
@@ -1381,7 +1381,8 @@ describe('quaEngine runtime architecture', () => {
       byteLength: 4,
     }))
     await expect(engine.getStore().getSlotPreview('slot-sync-preview'))
-      .resolves.toEqual(expect.objectContaining({
+      .resolves
+      .toEqual(expect.objectContaining({
         kind: 'bytes',
         bytes: new Uint8Array([1, 2, 3, 4]),
       }))
@@ -1486,7 +1487,8 @@ describe('quaEngine runtime architecture', () => {
         byteLength: 4,
       }))
       await expect(engine.getStore().getSlotPreview('autosave'))
-        .resolves.toEqual(expect.objectContaining({
+        .resolves
+        .toEqual(expect.objectContaining({
           kind: 'bytes',
           bytes: new Uint8Array([9, 9, 9, 9]),
         }))
@@ -1859,7 +1861,7 @@ describe('quaEngine runtime architecture', () => {
         version: '1.0.0',
         assetName: 'scene.js',
         variants: {
-          zh: {
+          'zh': {
             assetName: 'scene.zh.js',
             version: '1.0.0-zh',
           },
@@ -2130,7 +2132,7 @@ describe('quaEngine runtime architecture', () => {
         resolvePackage: vi.fn(packageId => packageId === 'runtime.scene.b' ? 'b.qpk' : undefined),
       },
       runtimeModuleLoader: {
-        loadScriptModule: vi.fn(async (record) => ({
+        loadScriptModule: vi.fn(async record => ({
           default: () => [{
             uuid: `qs:${record.id}:line-1`,
             metadata: {
@@ -2220,7 +2222,7 @@ describe('quaEngine runtime architecture', () => {
         },
       },
       runtimeModuleLoader: {
-        loadScriptModule: vi.fn(async (record) => ({
+        loadScriptModule: vi.fn(async record => ({
           default: () => [{
             uuid: `qs:${record.id}:line-1`,
             metadata: {
@@ -3097,6 +3099,104 @@ describe('quaEngine runtime architecture', () => {
 
     expect(loadFromSlot).toHaveBeenCalledWith('slot-1', { force: true })
     expect(listener).toHaveBeenCalled()
+  })
+
+  it('tracks playtime while excluding paused intervals', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    const engine = createEngine()
+    await engine.init()
+
+    vi.advanceTimersByTime(5000)
+    expect(engine.getPlaytimeMs()).toBe(5000)
+
+    await engine.pausePlaytime('menu')
+    vi.advanceTimersByTime(8000)
+    expect(engine.getPlaytimeMs()).toBe(5000)
+    expect(engine.getPlaytimeState()).toEqual(expect.objectContaining({
+      elapsedMs: 5000,
+      paused: true,
+      pauseReason: 'menu',
+    }))
+
+    await engine.resumePlaytime('menu')
+    vi.advanceTimersByTime(2500)
+    expect(engine.getPlaytimeMs()).toBe(7500)
+  })
+
+  it('does not resume manually paused playtime after window focus', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    const engine = createEngine()
+    await engine.init()
+
+    vi.advanceTimersByTime(3000)
+    await engine.pausePlaytime('menu')
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.WINDOW_BLUR, {})
+    vi.advanceTimersByTime(5000)
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.WINDOW_FOCUS, {})
+
+    expect(engine.getPlaytimeState()).toEqual(expect.objectContaining({
+      elapsedMs: 3000,
+      paused: true,
+      pauseReason: 'menu',
+      pauseReasons: ['menu'],
+    }))
+
+    vi.advanceTimersByTime(2000)
+    expect(engine.getPlaytimeMs()).toBe(3000)
+
+    await engine.resumePlaytime('menu')
+    vi.advanceTimersByTime(1000)
+    expect(engine.getPlaytimeMs()).toBe(4000)
+  })
+
+  it('keeps playtime paused until every pause reason is released', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    const engine = createEngine()
+    await engine.init()
+
+    vi.advanceTimersByTime(3000)
+    await engine.pausePlaytime('menu')
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.WINDOW_BLUR, {})
+    await engine.resumePlaytime('menu')
+
+    expect(engine.getPlaytimeState()).toEqual(expect.objectContaining({
+      elapsedMs: 3000,
+      paused: true,
+      pauseReason: 'window-blur',
+      pauseReasons: ['window-blur'],
+    }))
+
+    vi.advanceTimersByTime(2000)
+    expect(engine.getPlaytimeMs()).toBe(3000)
+
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.WINDOW_FOCUS, {})
+    vi.advanceTimersByTime(1000)
+    expect(engine.getPlaytimeMs()).toBe(4000)
+  })
+
+  it('persists playtime in save metadata and restored runtime state', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    const engine = createEngine()
+    await engine.init()
+    vi.advanceTimersByTime(4200)
+
+    await engine.saveToSlot('slot-playtime')
+    const slot = await engine.getStore().getSlot('slot-playtime')
+    expect(slot?.index.metadata.playtime).toBe(4200)
+    expect((slot?.storeData.state as any).engine.runtime.playtime.elapsedMs).toBe(4200)
+
+    vi.advanceTimersByTime(6000)
+    expect(engine.getPlaytimeMs()).toBe(10200)
+
+    await engine.loadFromSlot('slot-playtime', { force: true })
+    expect(engine.getPlaytimeMs()).toBe(4200)
+
+    vi.advanceTimersByTime(800)
+    expect(engine.getPlaytimeMs()).toBe(5000)
   })
 
   it('forwards asset changes from runtime to renderer through pipeline', async () => {

@@ -19,6 +19,7 @@ import type {
   PluginConstructor,
   PluginConstructorOptions,
 } from '../plugins/core/types'
+import type { RollbackStoreSaveData, SerializedRollbackJournal } from './rollback'
 import type {
   BackgroundIntent,
   CharacterIntent,
@@ -31,9 +32,10 @@ import type {
   EffectIntent,
   EngineCheckpoint,
   EngineConfig,
+  EngineFlowControlProgressState,
+  EnginePlaytimeState,
   EngineReportErrorOptions,
   EnsureLocalePacksOptions,
-  EngineFlowControlProgressState,
   FlowControlRuntimeOptions,
   GameStep,
   GameStepFactory,
@@ -44,7 +46,9 @@ import type {
   JumpTarget,
   LoadSlotOptions,
   OptionalGameStepFactory,
-  RuntimePackageLoadOptions,
+  QuaEngineInterface,
+  ResolvedStoryAsset,
+  ResolvedStoryJump,
   RollbackAnchor,
   RollbackAnchorReason,
   RollbackConfig,
@@ -54,17 +58,15 @@ import type {
   RollbackSnapshotSet,
   RollbackTarget,
   RollbackTargetInfo,
+  RuntimePackageLoadOptions,
   RuntimePackageManifest,
   RuntimePackagePluginManifest,
-  QuaEngineInterface,
-  ResolvedStoryJump,
-  ResolvedStoryAsset,
   RuntimePackageStateRecord,
   RuntimePackageStoreMigrationManifest,
   RuntimePackageUnloadOptions,
   RuntimeScriptModuleRecord,
-  RuntimeScriptModuleRunOptions,
   RuntimeScriptModuleRunFromOptions,
+  RuntimeScriptModuleRunOptions,
   SaveToSlotOptions,
   Scene,
   SceneEnterContext,
@@ -72,14 +74,14 @@ import type {
   SetLocaleOptions,
   SlotMetadata,
   StepContext,
-  StoryPoint,
   StoryAssetRef,
+  StoryPoint,
   StoryTargetResolveContext,
   StoryTargetResolver,
   TranslateInput,
   UiIntent,
-  ViewUiSceneHostProjection,
   ViewLayoutInput,
+  ViewUiSceneHostProjection,
 } from './types'
 import { assertValidAppVersion, normalizeLocale, normalizeTranslateOptions, QuaAssets } from '@quajs/assets'
 import { getPackageLogger } from '@quajs/logger'
@@ -101,7 +103,6 @@ import { SceneManager } from '../managers/scene-manager'
 import { PluginContextImpl } from '../plugins/core/context'
 import { RuntimeContentManager } from '../runtime-content/manager'
 import { createRollbackConfig, isSerializedRollbackJournal, RollbackController } from './rollback'
-import type { RollbackStoreSaveData, SerializedRollbackJournal } from './rollback'
 import { resolveGameSteps } from './script'
 import { assertSerializableSceneState, isChoiceTarget } from './story-targets'
 import { createInitialEngineState } from './types'
@@ -242,6 +243,9 @@ export class QuaEngine {
     ])
 
     this.isInitialized = true
+    if (this.config.playtime?.autoStart !== false) {
+      this.store.commit('resumePlaytime', { now: Date.now(), reason: 'engine:init' })
+    }
     await this.emitLogicToRender(L2R.SYSTEM_MESSAGE, {
       type: 'engine_ready',
       message: 'QuaEngine initialized successfully',
@@ -987,6 +991,7 @@ export class QuaEngine {
   }
 
   async createCheckpoint(options: CreateCheckpointOptions = {}): Promise<EngineCheckpoint> {
+    this.syncPlaytime()
     const point = cloneStoryPoint(options.point || this.getStoryPoint() || this.createCurrentStoryPoint())
     const id = options.id || this.createCheckpointId(options.kind || 'manual', point)
     const checkpointState = this.captureCheckpointStateSnapshot()
@@ -1007,6 +1012,9 @@ export class QuaEngine {
 
   private async createCheckpointInternal(options: CreateCheckpointOptions = {}, snapshotSet?: RollbackSnapshotSet): Promise<EngineCheckpoint> {
     this.assertInitialized()
+    if (!snapshotSet) {
+      this.syncPlaytime()
+    }
     const point = cloneStoryPoint(options.point || this.getStoryPoint() || this.createCurrentStoryPoint())
     const id = options.id || this.createCheckpointId(options.kind || 'manual', point)
     const metadata = createCheckpointMetadata(
@@ -1107,6 +1115,7 @@ export class QuaEngine {
     const currentEntryIndex = this.rollbackController.getCurrentEntryIndex()
     const point = this.getStoryPoint() || this.createCurrentStoryPoint()
     const checkpointState = this.captureCheckpointStateSnapshot()
+    this.syncPlaytime()
     const snapshotSet = await this.rollbackController.createSnapshotSet(`rollback-anchor:${String(reason)}:${point.stepId}`)
     try {
       const checkpoint = await this.createCheckpointInternal({
@@ -1507,6 +1516,7 @@ export class QuaEngine {
 
   async saveToSlot(slotId: string, metadata: SlotMetadata = {}, options: SaveToSlotOptions = {}): Promise<void> {
     this.assertInitialized()
+    const playtime = this.syncPlaytime()
     const reason: SaveReason = options.reason || 'save'
     const rollbackConfig = this.rollbackController.getConfig()
     const checkpointState = this.captureCheckpointStateSnapshot()
@@ -1536,6 +1546,7 @@ export class QuaEngine {
         ...(rollbackStoreData && Object.keys(rollbackStoreData).length > 0 ? { rollbackStoreData } : {}),
         sceneName: metadata.sceneName || this.getCurrentSceneName(),
         stepId: metadata.stepId || this.getCurrentStepId(),
+        playtime,
         locale: this.getLocale(),
         checkpointId: checkpoint.id,
         storyPoint: this.getStoryPoint(),
@@ -1626,6 +1637,7 @@ export class QuaEngine {
     }
 
     await this.store.loadFromSlot(slotId, options)
+    this.normalizePlaytimeAfterRestore()
     await this.rollbackController.importStoreSaveData(rollbackStoreData, options)
     const restoredLocale = this.getRuntimeState().locale || slotLocale
     if (restoredLocale) {
@@ -1694,6 +1706,7 @@ export class QuaEngine {
 
   getRuntimeStateSnapshot() {
     const runtime = this.getRuntimeState()
+    const playtime = this.getPlaytimeState()
     return {
       ...runtime,
       locale: runtime.locale || this.assets.getLocale(),
@@ -1703,7 +1716,51 @@ export class QuaEngine {
       checkpointHistory: [...(runtime.checkpointHistory || [])],
       runtimePackages: { ...(runtime.runtimePackages || {}) },
       appliedRuntimeMigrations: [...(runtime.appliedRuntimeMigrations || [])],
+      playtime,
     }
+  }
+
+  getPlaytimeMs(): number {
+    return calculatePlaytimeMs(this.getRuntimeState().playtime, Date.now())
+  }
+
+  getPlaytimeState(): EnginePlaytimeState {
+    return clonePlaytimeState({
+      ...this.getRuntimeState().playtime,
+      elapsedMs: this.getPlaytimeMs(),
+    })
+  }
+
+  async pausePlaytime(reason = 'manual'): Promise<void> {
+    const wasPaused = this.getRuntimeState().playtime.paused
+    this.store.commit('pausePlaytime', { now: Date.now(), reason })
+    if (wasPaused || !this.getRuntimeState().playtime.paused) {
+      return
+    }
+    await this.emitLogicToRender(L2R.GAME_PAUSE, {}).catch((error) => {
+      void this.reportErrorOnce(error, {
+        message: 'Failed to emit game pause event.',
+        source: 'engine',
+        phase: 'playtime:pause',
+        metadata: { reason },
+      })
+    })
+  }
+
+  async resumePlaytime(reason = 'manual'): Promise<void> {
+    const wasPaused = this.getRuntimeState().playtime.paused
+    this.store.commit('resumePlaytime', { now: Date.now(), reason })
+    if (!wasPaused || this.getRuntimeState().playtime.paused) {
+      return
+    }
+    await this.emitLogicToRender(L2R.GAME_RESUME, {}).catch((error) => {
+      void this.reportErrorOnce(error, {
+        message: 'Failed to emit game resume event.',
+        source: 'engine',
+        phase: 'playtime:resume',
+        metadata: { reason },
+      })
+    })
   }
 
   getRuntimeViewRequiredPackageIds(): string[] {
@@ -1726,6 +1783,7 @@ export class QuaEngine {
     if (this.isDestroyed)
       return
 
+    this.store.commit('pausePlaytime', { now: Date.now(), reason: 'engine:destroy' })
     this.currentStepAbortController?.abort()
     this.clearFlowControlAdvance()
     while (this.flowControlDisposers.length > 0) {
@@ -1934,6 +1992,18 @@ export class QuaEngine {
       this.clearFlowControlAdvance()
       this.markCurrentStoryPointRead()
     }))
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.WINDOW_BLUR, async () => {
+      if (this.config.playtime?.pauseOnWindowBlur === false) {
+        return
+      }
+      await this.pausePlaytime('window-blur')
+    }))
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.WINDOW_FOCUS, async () => {
+      if (this.config.playtime?.pauseOnWindowBlur === false) {
+        return
+      }
+      await this.resumePlaytime('window-blur')
+    }))
   }
 
   private setupSaveLoadIntents(): void {
@@ -2041,16 +2111,16 @@ export class QuaEngine {
     reason: SaveReason,
     options: SaveToSlotOptions,
   ): Promise<{
-      saveOpId?: string
-      previewStatus: 'none' | 'pending' | 'ready' | 'error'
-      preview?: QuaGameSavePreviewWriteInput
-      pending?: {
-        saveOpId: string
-        requestId: string
-        policy: NonNullable<NonNullable<SaveToSlotOptions['preview']>['policy']>
-        response: Promise<SavePreviewCaptureResultPayload | undefined>
-      }
-    }> {
+    saveOpId?: string
+    previewStatus: 'none' | 'pending' | 'ready' | 'error'
+    preview?: QuaGameSavePreviewWriteInput
+    pending?: {
+      saveOpId: string
+      requestId: string
+      policy: NonNullable<NonNullable<SaveToSlotOptions['preview']>['policy']>
+      response: Promise<SavePreviewCaptureResultPayload | undefined>
+    }
+  }> {
     const previewOptions = {
       ...this.getSavePreviewDefaults(reason),
       ...(options.preview || {}),
@@ -2478,6 +2548,15 @@ export class QuaEngine {
     return [...(this.getEngineState().flowControlProgress.readKeys || [])]
   }
 
+  private syncPlaytime(now = Date.now()): number {
+    this.store.commit('syncPlaytime', now)
+    return calculatePlaytimeMs(this.getRuntimeState().playtime, now)
+  }
+
+  private normalizePlaytimeAfterRestore(now = Date.now()): void {
+    this.store.commit('hydratePlaytimeAfterRestore', now)
+  }
+
   private getEngineState() {
     return this.store.state.engine as ReturnType<typeof createInitialEngineState>
   }
@@ -2745,6 +2824,81 @@ function createEngineMutations() {
         ...(state.engine.runtime.appliedRuntimeMigrations || []),
         migrationKey,
       ]))
+    },
+    syncPlaytime(state: any, now: number) {
+      const playtime = ensurePlaytimeState(state.engine.runtime.playtime)
+      if (!playtime.paused && playtime.runningSince !== undefined) {
+        playtime.elapsedMs += Math.max(0, now - playtime.runningSince)
+        playtime.runningSince = now
+      }
+      playtime.updatedAt = now
+      state.engine.runtime.playtime = playtime
+    },
+    pausePlaytime(state: any, payload: { now: number, reason?: string }) {
+      const playtime = ensurePlaytimeState(state.engine.runtime.playtime)
+      const now = payload.now
+      const reason = payload.reason || 'manual'
+      const pauseReasons = addPlaytimePauseReason(playtime, reason)
+      if (playtime.paused) {
+        playtime.pauseReasons = pauseReasons
+        playtime.pauseReason = pauseReasons[0] || playtime.pauseReason
+        playtime.pausedAt = playtime.pausedAt || now
+        playtime.updatedAt = now
+        state.engine.runtime.playtime = playtime
+        return
+      }
+      if (playtime.runningSince !== undefined) {
+        playtime.elapsedMs += Math.max(0, now - playtime.runningSince)
+      }
+      playtime.runningSince = undefined
+      playtime.paused = true
+      playtime.pausedAt = now
+      playtime.pauseReasons = pauseReasons
+      playtime.pauseReason = pauseReasons[0] || reason
+      playtime.updatedAt = now
+      state.engine.runtime.playtime = playtime
+    },
+    resumePlaytime(state: any, payload: { now: number, reason?: string }) {
+      const playtime = ensurePlaytimeState(state.engine.runtime.playtime)
+      const now = payload.now
+      const reason = payload.reason || 'manual'
+      if (playtime.startedAt <= 0) {
+        playtime.startedAt = now
+      }
+      if (!playtime.paused && playtime.runningSince !== undefined) {
+        playtime.updatedAt = now
+        state.engine.runtime.playtime = playtime
+        return
+      }
+      const pauseReasons = removePlaytimePauseReason(playtime, reason)
+      if (pauseReasons.length > 0) {
+        playtime.runningSince = undefined
+        playtime.paused = true
+        playtime.pausedAt = playtime.pausedAt || now
+        playtime.pauseReason = pauseReasons[0]
+        playtime.pauseReasons = pauseReasons
+        playtime.updatedAt = now
+        state.engine.runtime.playtime = playtime
+        return
+      }
+      playtime.runningSince = now
+      playtime.paused = false
+      playtime.pausedAt = undefined
+      playtime.pauseReason = undefined
+      playtime.pauseReasons = []
+      playtime.updatedAt = now
+      state.engine.runtime.playtime = playtime
+    },
+    hydratePlaytimeAfterRestore(state: any, now: number) {
+      const playtime = ensurePlaytimeState(state.engine.runtime.playtime)
+      if (playtime.startedAt <= 0) {
+        playtime.startedAt = now
+      }
+      playtime.runningSince = playtime.paused ? undefined : now
+      playtime.pausedAt = playtime.paused ? now : undefined
+      playtime.pauseReasons = playtime.paused ? normalizePlaytimePauseReasons(playtime) : []
+      playtime.updatedAt = now
+      state.engine.runtime.playtime = playtime
     },
     setLayout(state: any, layout: ViewLayoutInput) {
       state.engine.view.layout = createViewLayoutProjection(layout)
@@ -3028,6 +3182,55 @@ function resolveFlowControlAdvancePlan(flowControl: ViewFlowControlProjection): 
 
 function isFlowControlMode(value: unknown): value is FlowControlMode {
   return value === 'normal' || value === 'auto' || value === 'skip' || value === 'fast-forward'
+}
+
+function ensurePlaytimeState(value: Partial<EnginePlaytimeState> | undefined): EnginePlaytimeState {
+  const pauseReasons = normalizePlaytimePauseReasons(value)
+  return {
+    startedAt: typeof value?.startedAt === 'number' ? value.startedAt : 0,
+    elapsedMs: typeof value?.elapsedMs === 'number' ? Math.max(0, value.elapsedMs) : 0,
+    runningSince: typeof value?.runningSince === 'number' ? value.runningSince : undefined,
+    paused: typeof value?.paused === 'boolean' ? value.paused : true,
+    pausedAt: typeof value?.pausedAt === 'number' ? value.pausedAt : undefined,
+    pauseReason: pauseReasons[0] || (typeof value?.pauseReason === 'string' ? value.pauseReason : undefined),
+    pauseReasons,
+    updatedAt: typeof value?.updatedAt === 'number' ? value.updatedAt : 0,
+  }
+}
+
+function normalizePlaytimePauseReasons(value: Partial<EnginePlaytimeState> | undefined): string[] {
+  const reasons = new Set<string>()
+  if (Array.isArray(value?.pauseReasons)) {
+    value.pauseReasons.forEach((reason) => {
+      if (typeof reason === 'string' && reason.length > 0 && reason !== 'not-started') {
+        reasons.add(reason)
+      }
+    })
+  }
+  if (typeof value?.pauseReason === 'string' && value.pauseReason.length > 0 && value.pauseReason !== 'not-started') {
+    reasons.add(value.pauseReason)
+  }
+  return [...reasons]
+}
+
+function addPlaytimePauseReason(playtime: EnginePlaytimeState, reason: string): string[] {
+  return [...new Set([...normalizePlaytimePauseReasons(playtime), reason].filter(Boolean))]
+}
+
+function removePlaytimePauseReason(playtime: EnginePlaytimeState, reason: string): string[] {
+  return normalizePlaytimePauseReasons(playtime).filter(activeReason => activeReason !== reason)
+}
+
+function calculatePlaytimeMs(playtime: EnginePlaytimeState | undefined, now: number): number {
+  const normalized = ensurePlaytimeState(playtime)
+  if (normalized.paused || normalized.runningSince === undefined) {
+    return normalized.elapsedMs
+  }
+  return normalized.elapsedMs + Math.max(0, now - normalized.runningSince)
+}
+
+function clonePlaytimeState(playtime: EnginePlaytimeState): EnginePlaytimeState {
+  return { ...ensurePlaytimeState(playtime) }
 }
 
 function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
