@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto'
 import type {
   BundleDefinition,
   QuackConfig,
   WorkspaceConfig,
 } from '../core/types'
+import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'

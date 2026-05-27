@@ -97,8 +97,20 @@ export class MediaMetadataExtractor {
       metadata.animated = webpData.animated
       metadata.hasAlpha = webpData.hasAlpha
     }
+    else if (ext === '.bmp') {
+      const bmpData = this.parseBMP(buffer)
+      metadata.width = bmpData.width
+      metadata.height = bmpData.height
+      metadata.hasAlpha = bmpData.hasAlpha
+      metadata.colorDepth = bmpData.colorDepth
+    }
+    else if (ext === '.svg') {
+      const svgData = this.parseSVG(buffer)
+      metadata.width = svgData.width
+      metadata.height = svgData.height
+      metadata.hasAlpha = true
+    }
     else {
-      // For formats we can't parse, provide default values
       metadata.width = 0
       metadata.height = 0
     }
@@ -110,9 +122,6 @@ export class MediaMetadataExtractor {
     return metadata
   }
 
-  /**
-   * Extract audio metadata (basic implementation)
-   */
   private async extractAudioMetadata(filePath: string): Promise<AudioMetadata> {
     const buffer = await readFile(filePath)
     const ext = extname(filePath).toLowerCase()
@@ -125,7 +134,6 @@ export class MediaMetadataExtractor {
       channels: undefined,
     }
 
-    // Basic audio metadata extraction (would need libraries like music-metadata for full implementation)
     if (ext === '.mp3') {
       const mp3Data = this.parseMP3(buffer)
       metadata.duration = mp3Data.duration
@@ -142,11 +150,9 @@ export class MediaMetadataExtractor {
     return metadata
   }
 
-  /**
-   * Extract video metadata (basic implementation)
-   */
   private async extractVideoMetadata(filePath: string): Promise<VideoMetadata> {
     const ext = extname(filePath).toLowerCase()
+    const buffer = await readFile(filePath)
 
     const metadata: VideoMetadata = {
       width: 0,
@@ -160,9 +166,29 @@ export class MediaMetadataExtractor {
       codec: undefined,
     }
 
-    // Video metadata extraction would require libraries like ffprobe or node-ffmpeg
-    // For now, we provide a basic structure
-    logger.info(`Video metadata extraction not fully implemented for ${filePath}`)
+    const parsed = ext === '.mp4' || ext === '.mov' || ext === '.m4v'
+      ? this.parseMP4(buffer)
+      : ext === '.webm' || ext === '.mkv'
+        ? this.parseWebM(buffer)
+        : ext === '.avi'
+          ? this.parseAVI(buffer)
+          : undefined
+
+    if (parsed) {
+      metadata.width = parsed.width
+      metadata.height = parsed.height
+      metadata.aspectRatio = parsed.width > 0 && parsed.height > 0
+        ? parsed.width / parsed.height
+        : 0
+      metadata.duration = parsed.duration
+      metadata.frameRate = parsed.frameRate
+      metadata.bitrate = parsed.duration > 0 ? Math.round((buffer.length * 8) / parsed.duration) : undefined
+      metadata.hasAudio = parsed.hasAudio
+      metadata.codec = parsed.codec
+    }
+    else {
+      logger.debug(`Video metadata parser for ${ext || 'unknown'} did not find structured dimensions in ${filePath}`)
+    }
 
     return metadata
   }
@@ -352,19 +378,82 @@ export class MediaMetadataExtractor {
     return { width, height, animated, hasAlpha }
   }
 
-  /**
-   * Parse MP3 file for basic metadata (simplified)
-   */
+  private parseBMP(buffer: Buffer): { width: number, height: number, hasAlpha?: boolean, colorDepth?: number } {
+    if (buffer.length < 30 || !buffer.subarray(0, 2).equals(Buffer.from('BM'))) {
+      return { width: 0, height: 0 }
+    }
+
+    const dibHeaderSize = buffer.readUInt32LE(14)
+    if (dibHeaderSize < 12 || buffer.length < 14 + dibHeaderSize) {
+      return { width: 0, height: 0 }
+    }
+
+    if (dibHeaderSize === 12) {
+      const width = buffer.readUInt16LE(18)
+      const height = buffer.readUInt16LE(20)
+      const colorDepth = buffer.readUInt16LE(24)
+      return { width, height, colorDepth, hasAlpha: false }
+    }
+
+    const width = Math.abs(buffer.readInt32LE(18))
+    const height = Math.abs(buffer.readInt32LE(22))
+    const colorDepth = buffer.readUInt16LE(28)
+    return { width, height, colorDepth, hasAlpha: colorDepth === 32 }
+  }
+
+  private parseSVG(buffer: Buffer): { width: number, height: number } {
+    const source = buffer.toString('utf8')
+    if (!/<svg[\s>]/i.test(source)) {
+      return { width: 0, height: 0 }
+    }
+
+    const width = parseSvgLength(getSvgAttribute(source, 'width'))
+    const height = parseSvgLength(getSvgAttribute(source, 'height'))
+    if (width > 0 && height > 0) {
+      return { width, height }
+    }
+
+    const viewBox = getSvgAttribute(source, 'viewBox')
+    if (!viewBox) {
+      return { width: 0, height: 0 }
+    }
+    const parts = viewBox.trim().split(/[\s,]+/).map(Number)
+    if (parts.length !== 4 || parts.some(part => !Number.isFinite(part))) {
+      return { width: 0, height: 0 }
+    }
+    return { width: Math.abs(parts[2]), height: Math.abs(parts[3]) }
+  }
+
   private parseMP3(buffer: Buffer): { duration: number, bitrate?: number, sampleRate?: number } {
-    // This is a very basic implementation - would need full MP3 parser for accurate results
-    // For now, estimate based on file size and assume average bitrate
-    const estimatedBitrate = 128000 // 128 kbps average
-    const estimatedDuration = (buffer.length * 8) / estimatedBitrate
+    const firstFrameOffset = findMp3FrameOffset(buffer)
+    if (firstFrameOffset === -1) {
+      return { duration: 0 }
+    }
+
+    const firstFrame = parseMp3FrameHeader(buffer, firstFrameOffset)
+    if (!firstFrame) {
+      return { duration: 0 }
+    }
+
+    let offset = firstFrameOffset
+    let frames = 0
+    while (offset + 4 <= buffer.length) {
+      const frame = parseMp3FrameHeader(buffer, offset)
+      if (!frame || offset + frame.frameLength > buffer.length) {
+        break
+      }
+      frames += 1
+      offset += frame.frameLength
+    }
+
+    const duration = frames > 0
+      ? (frames * firstFrame.samplesPerFrame) / firstFrame.sampleRate
+      : ((buffer.length - firstFrameOffset) * 8) / firstFrame.bitrate
 
     return {
-      duration: estimatedDuration,
-      bitrate: estimatedBitrate,
-      sampleRate: 44100, // Common sample rate
+      duration,
+      bitrate: firstFrame.bitrate,
+      sampleRate: firstFrame.sampleRate,
     }
   }
 
@@ -388,4 +477,432 @@ export class MediaMetadataExtractor {
 
     return { duration, sampleRate, channels }
   }
+
+  private parseMP4(buffer: Buffer): ParsedVideoMetadata | undefined {
+    if (!hasMp4Brand(buffer)) {
+      return undefined
+    }
+
+    const metadata: ParsedVideoMetadata = {
+      width: 0,
+      height: 0,
+      duration: 0,
+      hasAudio: false,
+      codec: readMp4MajorBrand(buffer),
+    }
+    walkMp4Boxes(buffer, 0, buffer.length, (box) => {
+      switch (box.type) {
+        case 'mvhd': {
+          const parsed = parseMvhd(buffer, box.dataStart, box.dataEnd)
+          if (parsed.duration > 0) {
+            metadata.duration = parsed.duration
+          }
+          break
+        }
+        case 'tkhd': {
+          const parsed = parseTkhd(buffer, box.dataStart, box.dataEnd)
+          if (parsed.width > 0 && parsed.height > 0) {
+            metadata.width = metadata.width || parsed.width
+            metadata.height = metadata.height || parsed.height
+          }
+          break
+        }
+        case 'hdlr': {
+          const handler = parseHdlr(buffer, box.dataStart, box.dataEnd)
+          if (handler === 'soun') {
+            metadata.hasAudio = true
+          }
+          break
+        }
+        case 'stsd': {
+          const codec = parseStsdCodec(buffer, box.dataStart, box.dataEnd)
+          if (codec) {
+            metadata.codec = codec
+          }
+          break
+        }
+      }
+    })
+
+    return metadata.width > 0 || metadata.height > 0 || metadata.duration > 0
+      ? metadata
+      : undefined
+  }
+
+  private parseWebM(buffer: Buffer): ParsedVideoMetadata | undefined {
+    if (buffer.length < 4 || buffer[0] !== 0x1A || buffer[1] !== 0x45 || buffer[2] !== 0xDF || buffer[3] !== 0xA3) {
+      return undefined
+    }
+
+    const metadata: ParsedVideoMetadata = {
+      width: 0,
+      height: 0,
+      duration: 0,
+      hasAudio: false,
+      codec: undefined,
+    }
+    let timecodeScale = 1000000
+
+    walkEbmlElements(buffer, 0, buffer.length, (element) => {
+      switch (element.id) {
+        case 0x4282:
+          metadata.codec = buffer.subarray(element.dataStart, element.dataEnd).toString('utf8')
+          break
+        case 0x2AD7B1:
+          timecodeScale = readEbmlUnsigned(buffer, element.dataStart, element.dataEnd) || timecodeScale
+          break
+        case 0x4489:
+          metadata.duration = readEbmlFloat(buffer, element.dataStart, element.dataEnd) * timecodeScale / 1_000_000_000
+          break
+        case 0xB0:
+          metadata.width = readEbmlUnsigned(buffer, element.dataStart, element.dataEnd)
+          break
+        case 0xBA:
+          metadata.height = readEbmlUnsigned(buffer, element.dataStart, element.dataEnd)
+          break
+        case 0x83:
+          metadata.hasAudio = metadata.hasAudio || readEbmlUnsigned(buffer, element.dataStart, element.dataEnd) === 2
+          break
+      }
+    })
+
+    return metadata.width > 0 || metadata.height > 0 || metadata.duration > 0
+      ? metadata
+      : undefined
+  }
+
+  private parseAVI(buffer: Buffer): ParsedVideoMetadata | undefined {
+    if (buffer.length < 12
+      || !buffer.subarray(0, 4).equals(Buffer.from('RIFF'))
+      || !buffer.subarray(8, 12).equals(Buffer.from('AVI '))) {
+      return undefined
+    }
+
+    const avihOffset = buffer.indexOf(Buffer.from('avih'))
+    if (avihOffset === -1 || avihOffset + 48 > buffer.length) {
+      return undefined
+    }
+
+    const dataStart = avihOffset + 8
+    const microsecondsPerFrame = buffer.readUInt32LE(dataStart)
+    const totalFrames = buffer.readUInt32LE(dataStart + 16)
+    const width = buffer.readUInt32LE(dataStart + 32)
+    const height = buffer.readUInt32LE(dataStart + 36)
+    return {
+      width,
+      height,
+      duration: microsecondsPerFrame > 0 ? (totalFrames * microsecondsPerFrame) / 1_000_000 : 0,
+      frameRate: microsecondsPerFrame > 0 ? 1_000_000 / microsecondsPerFrame : undefined,
+      hasAudio: buffer.includes(Buffer.from('auds')),
+      codec: 'AVI',
+    }
+  }
+}
+
+interface ParsedVideoMetadata {
+  width: number
+  height: number
+  duration: number
+  frameRate?: number
+  bitrate?: number
+  hasAudio?: boolean
+  codec?: string
+}
+
+interface Mp4Box {
+  type: string
+  dataStart: number
+  dataEnd: number
+}
+
+interface EbmlElement {
+  id: number
+  dataStart: number
+  dataEnd: number
+}
+
+interface Mp3FrameInfo {
+  bitrate: number
+  sampleRate: number
+  samplesPerFrame: number
+  frameLength: number
+}
+
+const MP4_CONTAINER_BOXES = new Set(['moov', 'trak', 'mdia', 'minf', 'stbl', 'edts', 'dinf'])
+const MP3_BITRATES: Record<string, number[]> = {
+  V1L1: [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448],
+  V1L2: [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384],
+  V1L3: [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320],
+  V2L1: [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256],
+  V2L2: [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160],
+  V2L3: [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160],
+}
+const MP3_SAMPLE_RATES: Record<number, number[]> = {
+  0: [11025, 12000, 8000],
+  2: [22050, 24000, 16000],
+  3: [44100, 48000, 32000],
+}
+
+function getSvgAttribute(source: string, name: string): string | undefined {
+  const match = source.match(new RegExp(`\\b${name}\\s*=\\s*["']([^"']+)["']`, 'i'))
+  return match?.[1]
+}
+
+function parseSvgLength(value: string | undefined): number {
+  if (!value || value.trim().endsWith('%')) {
+    return 0
+  }
+  const match = value.trim().match(/^([+-]?\d+(?:\.\d+)?)/)
+  return match ? Number.parseFloat(match[1]) : 0
+}
+
+function findMp3FrameOffset(buffer: Buffer): number {
+  let offset = 0
+  if (buffer.length >= 10 && buffer.subarray(0, 3).equals(Buffer.from('ID3'))) {
+    offset = 10 + readSyncSafeInt(buffer, 6)
+  }
+
+  for (let index = offset; index < buffer.length - 4; index += 1) {
+    if (parseMp3FrameHeader(buffer, index)) {
+      return index
+    }
+  }
+  return -1
+}
+
+function readSyncSafeInt(buffer: Buffer, offset: number): number {
+  return ((buffer[offset] & 0x7F) << 21)
+    | ((buffer[offset + 1] & 0x7F) << 14)
+    | ((buffer[offset + 2] & 0x7F) << 7)
+    | (buffer[offset + 3] & 0x7F)
+}
+
+function parseMp3FrameHeader(buffer: Buffer, offset: number): Mp3FrameInfo | undefined {
+  if (offset + 4 > buffer.length || buffer[offset] !== 0xFF || (buffer[offset + 1] & 0xE0) !== 0xE0) {
+    return undefined
+  }
+
+  const versionBits = (buffer[offset + 1] >> 3) & 0x03
+  const layerBits = (buffer[offset + 1] >> 1) & 0x03
+  const bitrateIndex = (buffer[offset + 2] >> 4) & 0x0F
+  const sampleRateIndex = (buffer[offset + 2] >> 2) & 0x03
+  const padding = (buffer[offset + 2] >> 1) & 0x01
+  if (versionBits === 1 || layerBits === 0 || bitrateIndex === 0 || bitrateIndex === 0x0F || sampleRateIndex === 0x03) {
+    return undefined
+  }
+
+  const version = versionBits === 3 ? 1 : 2
+  const layer = 4 - layerBits
+  const bitrateKey = `${version === 1 ? 'V1' : 'V2'}L${layer}` as keyof typeof MP3_BITRATES
+  const bitrate = (MP3_BITRATES[bitrateKey]?.[bitrateIndex] || 0) * 1000
+  const sampleRate = MP3_SAMPLE_RATES[versionBits]?.[sampleRateIndex] || 0
+  if (bitrate <= 0 || sampleRate <= 0) {
+    return undefined
+  }
+
+  const samplesPerFrame = layer === 1
+    ? 384
+    : version === 1
+      ? 1152
+      : layer === 3
+        ? 576
+        : 1152
+  const frameLength = layer === 1
+    ? Math.floor(((12 * bitrate) / sampleRate + padding) * 4)
+    : Math.floor(((version === 1 ? 144 : 72) * bitrate) / sampleRate + padding)
+
+  return { bitrate, sampleRate, samplesPerFrame, frameLength }
+}
+
+function hasMp4Brand(buffer: Buffer): boolean {
+  if (buffer.length < 12) {
+    return false
+  }
+  return buffer.subarray(4, 8).equals(Buffer.from('ftyp'))
+}
+
+function readMp4MajorBrand(buffer: Buffer): string | undefined {
+  return hasMp4Brand(buffer) && buffer.length >= 12
+    ? buffer.subarray(8, 12).toString('ascii').trim()
+    : undefined
+}
+
+function walkMp4Boxes(buffer: Buffer, start: number, end: number, visitor: (box: Mp4Box) => void): void {
+  let offset = start
+  while (offset + 8 <= end && offset + 8 <= buffer.length) {
+    const size32 = buffer.readUInt32BE(offset)
+    const type = buffer.subarray(offset + 4, offset + 8).toString('ascii')
+    let headerSize = 8
+    let size = size32
+    if (size32 === 1) {
+      if (offset + 16 > end) {
+        return
+      }
+      size = Number(buffer.readBigUInt64BE(offset + 8))
+      headerSize = 16
+    }
+    else if (size32 === 0) {
+      size = end - offset
+    }
+    if (size < headerSize || offset + size > end) {
+      return
+    }
+
+    const box = {
+      type,
+      dataStart: offset + headerSize,
+      dataEnd: offset + size,
+    }
+    visitor(box)
+    if (MP4_CONTAINER_BOXES.has(type)) {
+      walkMp4Boxes(buffer, box.dataStart, box.dataEnd, visitor)
+    }
+    offset += size
+  }
+}
+
+function parseMvhd(buffer: Buffer, start: number, end: number): { duration: number } {
+  if (end - start < 20) {
+    return { duration: 0 }
+  }
+  const version = buffer.readUInt8(start)
+  if (version === 1) {
+    if (end - start < 32) {
+      return { duration: 0 }
+    }
+    const timescale = buffer.readUInt32BE(start + 20)
+    const duration = Number(buffer.readBigUInt64BE(start + 24))
+    return { duration: timescale > 0 ? duration / timescale : 0 }
+  }
+  const timescale = buffer.readUInt32BE(start + 12)
+  const duration = buffer.readUInt32BE(start + 16)
+  return { duration: timescale > 0 ? duration / timescale : 0 }
+}
+
+function parseTkhd(buffer: Buffer, start: number, end: number): { width: number, height: number } {
+  if (end - start < 84) {
+    return { width: 0, height: 0 }
+  }
+  const version = buffer.readUInt8(start)
+  const dimensionOffset = version === 1 ? 88 : 76
+  if (start + dimensionOffset + 8 > end) {
+    return { width: 0, height: 0 }
+  }
+  return {
+    width: buffer.readUInt32BE(start + dimensionOffset) / 65536,
+    height: buffer.readUInt32BE(start + dimensionOffset + 4) / 65536,
+  }
+}
+
+function parseHdlr(buffer: Buffer, start: number, end: number): string | undefined {
+  if (start + 12 > end) {
+    return undefined
+  }
+  return buffer.subarray(start + 8, start + 12).toString('ascii')
+}
+
+function parseStsdCodec(buffer: Buffer, start: number, end: number): string | undefined {
+  if (start + 16 > end) {
+    return undefined
+  }
+  const sampleEntryOffset = start + 16
+  return sampleEntryOffset + 4 <= end
+    ? buffer.subarray(sampleEntryOffset, sampleEntryOffset + 4).toString('ascii').trim()
+    : undefined
+}
+
+function walkEbmlElements(buffer: Buffer, start: number, end: number, visitor: (element: EbmlElement) => void): void {
+  let offset = start
+  while (offset < end) {
+    const id = readEbmlId(buffer, offset)
+    if (!id) {
+      return
+    }
+    const size = readEbmlSize(buffer, offset + id.length)
+    if (!size) {
+      return
+    }
+    const dataStart = offset + id.length + size.length
+    const dataEnd = dataStart + size.value
+    if (dataEnd > end || dataEnd > buffer.length) {
+      return
+    }
+
+    const element = { id: id.value, dataStart, dataEnd }
+    visitor(element)
+    if (isEbmlContainer(id.value)) {
+      walkEbmlElements(buffer, dataStart, dataEnd, visitor)
+    }
+    offset = dataEnd
+  }
+}
+
+function readEbmlId(buffer: Buffer, offset: number): { value: number, length: number } | undefined {
+  const first = buffer[offset]
+  if (first === undefined) {
+    return undefined
+  }
+  let length = 1
+  let marker = 0x80
+  while (length <= 4 && (first & marker) === 0) {
+    marker >>= 1
+    length += 1
+  }
+  if (length > 4 || offset + length > buffer.length) {
+    return undefined
+  }
+  let value = 0
+  for (let index = 0; index < length; index += 1) {
+    value = (value << 8) | buffer[offset + index]
+  }
+  return { value, length }
+}
+
+function readEbmlSize(buffer: Buffer, offset: number): { value: number, length: number } | undefined {
+  const first = buffer[offset]
+  if (first === undefined) {
+    return undefined
+  }
+  let length = 1
+  let marker = 0x80
+  while (length <= 8 && (first & marker) === 0) {
+    marker >>= 1
+    length += 1
+  }
+  if (length > 8 || offset + length > buffer.length) {
+    return undefined
+  }
+  let value = first & (marker - 1)
+  for (let index = 1; index < length; index += 1) {
+    value = (value * 256) + buffer[offset + index]
+  }
+  return { value, length }
+}
+
+function isEbmlContainer(id: number): boolean {
+  return id === 0x1A45DFA3
+    || id === 0x18538067
+    || id === 0x1549A966
+    || id === 0x1654AE6B
+    || id === 0xAE
+    || id === 0xE0
+}
+
+function readEbmlUnsigned(buffer: Buffer, start: number, end: number): number {
+  let value = 0
+  for (let offset = start; offset < end; offset += 1) {
+    value = value * 256 + buffer[offset]
+  }
+  return value
+}
+
+function readEbmlFloat(buffer: Buffer, start: number, end: number): number {
+  const length = end - start
+  if (length === 4) {
+    return buffer.readFloatBE(start)
+  }
+  if (length === 8) {
+    return buffer.readDoubleBE(start)
+  }
+  return 0
 }

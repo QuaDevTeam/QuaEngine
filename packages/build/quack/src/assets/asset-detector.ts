@@ -345,12 +345,21 @@ export class AssetDetector {
   }
 
   /**
-   * Validate asset file integrity (placeholder implementation)
+   * Validate asset file integrity using extension-aware signatures and parsers.
    */
   public async validateAsset(filePath: string): Promise<boolean> {
     try {
       const stats = await stat(filePath)
-      return stats.size > 0
+      if (!stats.isFile() || stats.size <= 0) {
+        return false
+      }
+      const extension = extname(filePath).toLowerCase()
+      const assetType = this.detectAssetType(filePath, extension)
+      if (!assetType) {
+        return false
+      }
+      const buffer = await readFile(filePath)
+      return validateAssetBuffer(buffer, extension, assetType)
     }
     catch {
       return false
@@ -439,4 +448,207 @@ export class AssetDetector {
 
     return grouped
   }
+}
+
+function validateAssetBuffer(buffer: Buffer, extension: string, assetType: AssetType): boolean {
+  if (buffer.length === 0) {
+    return false
+  }
+  switch (assetType) {
+    case 'images':
+    case 'characters':
+      return validateImageBuffer(buffer, extension)
+    case 'audio':
+      return validateAudioBuffer(buffer, extension)
+    case 'video':
+      return validateVideoBuffer(buffer, extension)
+    case 'fonts':
+      return validateFontBuffer(buffer, extension)
+    case 'scripts':
+      return validateScriptBuffer(buffer, extension)
+    case 'data':
+      return validateDataBuffer(buffer, extension)
+  }
+}
+
+function validateImageBuffer(buffer: Buffer, extension: string): boolean {
+  switch (extension) {
+    case '.png':
+      return buffer.length >= 33
+        && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]))
+        && buffer.subarray(12, 16).equals(Buffer.from('IHDR'))
+        && buffer.readUInt32BE(16) > 0
+        && buffer.readUInt32BE(20) > 0
+    case '.jpg':
+    case '.jpeg':
+      return buffer.length >= 4 && buffer[0] === 0xFF && buffer[1] === 0xD8 && findJpegSize(buffer) !== undefined
+    case '.gif':
+      return buffer.length >= 10
+        && (buffer.subarray(0, 6).equals(Buffer.from('GIF87a')) || buffer.subarray(0, 6).equals(Buffer.from('GIF89a')))
+        && buffer.readUInt16LE(6) > 0
+        && buffer.readUInt16LE(8) > 0
+    case '.webp':
+      return buffer.length >= 30
+        && buffer.subarray(0, 4).equals(Buffer.from('RIFF'))
+        && buffer.subarray(8, 12).equals(Buffer.from('WEBP'))
+        && ['VP8 ', 'VP8L', 'VP8X'].includes(buffer.subarray(12, 16).toString('ascii'))
+    case '.bmp':
+      return buffer.length >= 30
+        && buffer.subarray(0, 2).equals(Buffer.from('BM'))
+        && buffer.readUInt32LE(18) > 0
+        && Math.abs(buffer.readInt32LE(22)) > 0
+    case '.svg':
+      return /<svg[\s>]/i.test(buffer.toString('utf8'))
+    default:
+      return false
+  }
+}
+
+function findJpegSize(buffer: Buffer): { width: number, height: number } | undefined {
+  let offset = 2
+  while (offset + 8 < buffer.length) {
+    if (buffer[offset] !== 0xFF) {
+      offset += 1
+      continue
+    }
+    const marker = buffer[offset + 1]
+    if (marker >= 0xC0 && marker <= 0xC3) {
+      const height = buffer.readUInt16BE(offset + 5)
+      const width = buffer.readUInt16BE(offset + 7)
+      return width > 0 && height > 0 ? { width, height } : undefined
+    }
+    const length = buffer.readUInt16BE(offset + 2)
+    if (length <= 0) {
+      return undefined
+    }
+    offset += length + 2
+  }
+  return undefined
+}
+
+function validateAudioBuffer(buffer: Buffer, extension: string): boolean {
+  switch (extension) {
+    case '.wav':
+      return buffer.length >= 44
+        && buffer.subarray(0, 4).equals(Buffer.from('RIFF'))
+        && buffer.subarray(8, 12).equals(Buffer.from('WAVE'))
+    case '.mp3':
+      return hasMp3Frame(buffer)
+    case '.ogg':
+      return buffer.length >= 4 && buffer.subarray(0, 4).equals(Buffer.from('OggS'))
+    case '.flac':
+      return buffer.length >= 4 && buffer.subarray(0, 4).equals(Buffer.from('fLaC'))
+    case '.m4a':
+      return hasMp4Ftyp(buffer)
+    case '.aac':
+      return buffer.length >= 2 && buffer[0] === 0xFF && (buffer[1] & 0xF6) === 0xF0
+    default:
+      return false
+  }
+}
+
+function hasMp3Frame(buffer: Buffer): boolean {
+  for (let index = 0; index + 4 <= buffer.length; index += 1) {
+    if (buffer[index] === 0xFF && (buffer[index + 1] & 0xE0) === 0xE0) {
+      const versionBits = (buffer[index + 1] >> 3) & 0x03
+      const layerBits = (buffer[index + 1] >> 1) & 0x03
+      const bitrateIndex = (buffer[index + 2] >> 4) & 0x0F
+      const sampleRateIndex = (buffer[index + 2] >> 2) & 0x03
+      if (versionBits !== 1 && layerBits !== 0 && bitrateIndex > 0 && bitrateIndex < 0x0F && sampleRateIndex < 0x03) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+function validateVideoBuffer(buffer: Buffer, extension: string): boolean {
+  switch (extension) {
+    case '.mp4':
+    case '.mov':
+      return hasMp4Ftyp(buffer)
+    case '.webm':
+    case '.mkv':
+      return buffer.length >= 4 && buffer[0] === 0x1A && buffer[1] === 0x45 && buffer[2] === 0xDF && buffer[3] === 0xA3
+    case '.avi':
+      return buffer.length >= 12
+        && buffer.subarray(0, 4).equals(Buffer.from('RIFF'))
+        && buffer.subarray(8, 12).equals(Buffer.from('AVI '))
+    case '.wmv':
+      return buffer.length >= 16 && buffer.subarray(0, 16).equals(Buffer.from([
+        0x30,
+        0x26,
+        0xB2,
+        0x75,
+        0x8E,
+        0x66,
+        0xCF,
+        0x11,
+        0xA6,
+        0xD9,
+        0x00,
+        0xAA,
+        0x00,
+        0x62,
+        0xCE,
+        0x6C,
+      ]))
+    case '.flv':
+      return buffer.length >= 9 && buffer.subarray(0, 3).equals(Buffer.from('FLV'))
+    default:
+      return false
+  }
+}
+
+function hasMp4Ftyp(buffer: Buffer): boolean {
+  return buffer.length >= 12 && buffer.subarray(4, 8).equals(Buffer.from('ftyp'))
+}
+
+function validateFontBuffer(buffer: Buffer, extension: string): boolean {
+  if (extension === '.woff') {
+    return buffer.length >= 4 && buffer.subarray(0, 4).equals(Buffer.from('wOFF'))
+  }
+  if (extension === '.woff2') {
+    return buffer.length >= 4 && buffer.subarray(0, 4).equals(Buffer.from('wOF2'))
+  }
+  if (extension === '.otf') {
+    return buffer.length >= 4 && buffer.subarray(0, 4).equals(Buffer.from('OTTO'))
+  }
+  if (extension === '.ttc') {
+    return buffer.length >= 4 && buffer.subarray(0, 4).equals(Buffer.from('ttcf'))
+  }
+  if (extension === '.ttf') {
+    return buffer.length >= 4 && buffer.readUInt32BE(0) === 0x00010000
+  }
+  return false
+}
+
+function validateScriptBuffer(buffer: Buffer, extension: string): boolean {
+  if (extension === '.qs') {
+    return buffer.toString('utf8').trim().length > 0
+  }
+  if (extension === '.js' || extension === '.mjs') {
+    return buffer.toString('utf8').trim().length > 0
+  }
+  return false
+}
+
+function validateDataBuffer(buffer: Buffer, extension: string): boolean {
+  const source = buffer.toString('utf8').trim()
+  if (source.length === 0) {
+    return false
+  }
+  if (extension === '.json') {
+    try {
+      JSON.parse(source)
+      return true
+    }
+    catch {
+      return false
+    }
+  }
+  if (extension === '.xml') {
+    return /^<\?xml[\s?>]|^<[\w:-]+[\s>]/.test(source)
+  }
+  return ['.yaml', '.yml', '.txt', '.csv'].includes(extension)
 }

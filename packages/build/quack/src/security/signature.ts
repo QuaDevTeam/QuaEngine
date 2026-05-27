@@ -370,7 +370,7 @@ function isJwkKey(key: QpkKeyInput): key is Record<string, unknown> {
 }
 
 function isSafeQpkPath(path: string): boolean {
-  if (!path || path.startsWith('/') || path.startsWith('\\') || /^[a-zA-Z]:/.test(path)) {
+  if (!path || path.startsWith('/') || path.startsWith('\\') || /^[a-z]:/i.test(path)) {
     return false
   }
   const segments = path.replace(/\\/g, '/').split('/')

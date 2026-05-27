@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { storyGraphDecoratorMappings } from '@quajs/story-graph/script-compiler'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { QuackBundler } from '../src/core/bundler'
 import { buildLocalePack } from '../src/i18n/locale-pack'
@@ -35,7 +36,7 @@ describe('quackBundler', () => {
       await mkdir(join(tempDir, 'images'), { recursive: true })
       await mkdir(join(tempDir, 'scripts'), { recursive: true })
 
-      await writeFile(join(tempDir, 'images', 'test.png'), 'mock image data')
+      await writeFile(join(tempDir, 'images', 'test.png'), createMinimalPngFixture())
       await writeFile(join(tempDir, 'scripts', 'scene.js'), 'console.log("test");')
 
       bundler = new QuackBundler({
@@ -157,7 +158,7 @@ describe('quackBundler', () => {
         name: 'intro.js',
         locales: expect.arrayContaining(['default', 'zh-cn']),
         variants: expect.objectContaining({
-          default: expect.objectContaining({ relativePath: 'scripts/intro.js' }),
+          'default': expect.objectContaining({ relativePath: 'scripts/intro.js' }),
           'zh-cn': expect.objectContaining({ relativePath: 'scripts/intro.zh-cn.js' }),
         }),
       }))
@@ -195,6 +196,9 @@ Yuki: We arrived.
           compatibility: { minGameVersion: '1.0.0' },
           scripts: [{ id: 'runtime.storytree.story', version: '1.0.0', assetName: 'story.js' }],
           signature: { value: 'runtime-signature' },
+        },
+        quascript: {
+          decoratorMappings: storyGraphDecoratorMappings,
         },
       })
 
@@ -822,6 +826,16 @@ Yuki: We arrived.
 
 function parseQpkManifest(bytes: Uint8Array): { runtimePackage?: any } {
   return parseQpk(bytes).manifest as { runtimePackage?: any }
+}
+
+function createMinimalPngFixture(): Buffer {
+  const buffer = Buffer.alloc(33)
+  Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]).copy(buffer, 0)
+  buffer.writeUInt32BE(13, 8)
+  buffer.write('IHDR', 12, 'ascii')
+  buffer.writeUInt32BE(1, 16)
+  buffer.writeUInt32BE(1, 20)
+  return buffer
 }
 
 function parseQpk(bytes: Uint8Array): { files: Map<string, Uint8Array>, manifest: { runtimePackage?: any, assets: any } } {

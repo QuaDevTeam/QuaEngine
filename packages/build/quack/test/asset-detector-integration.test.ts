@@ -235,8 +235,12 @@ describe('assetDetector with Media Metadata', () => {
       expect(metadata.channels).toBe(2)
     })
 
-    it('should analyze MP3 audio with estimated metadata', async () => {
-      const mp3Data = Buffer.alloc(2048) // 2KB file for better duration estimate
+    it('should analyze MP3 audio with parsed frame metadata', async () => {
+      const mp3Data = Buffer.alloc(2048)
+      mp3Data[0] = 0xFF
+      mp3Data[1] = 0xFB
+      mp3Data[2] = 0x90
+      mp3Data[3] = 0x64
       const testFile = join(testDir, 'audio', 'voice', 'dialogue.mp3')
       mkdirSync(join(testDir, 'audio', 'voice'), { recursive: true })
       writeFileSync(testFile, mp3Data)
@@ -254,7 +258,7 @@ describe('assetDetector with Media Metadata', () => {
 
   describe('video Asset Analysis', () => {
     it('should analyze video file with basic metadata', async () => {
-      const mp4Data = Buffer.alloc(1024)
+      const mp4Data = createMp4Fixture({ width: 1920, height: 1080, durationSeconds: 8 })
       const testFile = join(testDir, 'video', 'cutscenes', 'intro.mp4')
       mkdirSync(join(testDir, 'video', 'cutscenes'), { recursive: true })
       writeFileSync(testFile, mp4Data)
@@ -267,8 +271,9 @@ describe('assetDetector with Media Metadata', () => {
 
       const metadata = asset!.mediaMetadata as VideoMetadata
       expect(metadata.format).toBe('MP4')
-      expect(metadata.width).toBe(0) // Not implemented yet
-      expect(metadata.height).toBe(0) // Not implemented yet
+      expect(metadata.width).toBe(1920)
+      expect(metadata.height).toBe(1080)
+      expect(metadata.duration).toBe(8)
     })
 
     it('should detect video by file extension', async () => {
@@ -545,3 +550,62 @@ describe('assetDetector with Media Metadata', () => {
     })
   })
 })
+
+function createMp4Fixture(options: { width: number, height: number, durationSeconds: number }): Buffer {
+  const timescale = 1000
+  const duration = Math.round(options.durationSeconds * timescale)
+  return Buffer.concat([
+    mp4Box('ftyp', Buffer.concat([
+      Buffer.from('isom'),
+      uint32(0),
+      Buffer.from('isomiso2avc1mp41'),
+    ])),
+    mp4Box('moov', Buffer.concat([
+      mp4Box('mvhd', createMvhd(timescale, duration)),
+      mp4Box('trak', Buffer.concat([
+        mp4Box('tkhd', createTkhd(options.width, options.height, duration)),
+        mp4Box('mdia', mp4Box('hdlr', createHdlr('vide'))),
+      ])),
+      mp4Box('trak', mp4Box('mdia', mp4Box('hdlr', createHdlr('soun')))),
+    ])),
+  ])
+}
+
+function mp4Box(type: string, payload: Buffer): Buffer {
+  return Buffer.concat([uint32(payload.length + 8), Buffer.from(type), payload])
+}
+
+function uint32(value: number): Buffer {
+  const buffer = Buffer.alloc(4)
+  buffer.writeUInt32BE(value)
+  return buffer
+}
+
+function createMvhd(timescale: number, duration: number): Buffer {
+  const payload = Buffer.alloc(100)
+  payload.writeUInt32BE(timescale, 12)
+  payload.writeUInt32BE(duration, 16)
+  payload.writeUInt32BE(0x00010000, 20)
+  payload.writeUInt16BE(0x0100, 24)
+  payload.writeUInt32BE(1, 96)
+  return payload
+}
+
+function createTkhd(width: number, height: number, duration: number): Buffer {
+  const payload = Buffer.alloc(84)
+  payload[3] = 0x07
+  payload.writeUInt32BE(1, 12)
+  payload.writeUInt32BE(duration, 20)
+  payload.writeUInt32BE(0x00010000, 40)
+  payload.writeUInt32BE(0x00010000, 56)
+  payload.writeUInt32BE(0x40000000, 68)
+  payload.writeUInt32BE(width << 16, 76)
+  payload.writeUInt32BE(height << 16, 80)
+  return payload
+}
+
+function createHdlr(handlerType: string): Buffer {
+  const payload = Buffer.alloc(25)
+  payload.write(handlerType, 8, 4, 'ascii')
+  return payload
+}

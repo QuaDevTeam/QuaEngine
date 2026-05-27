@@ -38,7 +38,7 @@ describe('assetDetector', () => {
       for (const file of testFiles) {
         const fullPath = join(tempDir, file)
         await mkdir(join(fullPath, '..'), { recursive: true })
-        await writeFile(fullPath, `mock content for ${file}`)
+        await writeFile(fullPath, `fixture content for ${file}`)
       }
 
       try {
@@ -334,7 +334,7 @@ describe('assetDetector', () => {
   describe('asset Validation', () => {
     it('should validate asset file integrity', async () => {
       const validFiles = [
-        { name: 'valid.png', content: 'PNG data' },
+        { name: 'valid.png', content: createMinimalPng() },
         { name: 'valid.js', content: 'console.log("valid");' },
         { name: 'valid.json', content: '{"valid": true}' },
       ]
@@ -440,3 +440,13 @@ describe('assetDetector', () => {
     })
   })
 })
+
+function createMinimalPng(): Buffer {
+  const buffer = Buffer.alloc(33)
+  Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]).copy(buffer, 0)
+  buffer.writeUInt32BE(13, 8)
+  buffer.write('IHDR', 12, 'ascii')
+  buffer.writeUInt32BE(1, 16)
+  buffer.writeUInt32BE(1, 20)
+  return buffer
+}
