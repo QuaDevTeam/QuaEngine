@@ -296,6 +296,23 @@ describe('assetDetector with Media Metadata', () => {
       }
     })
 
+    it('should analyze legacy cutscene metadata for asset QA', async () => {
+      const testFile = join(testDir, 'video', 'cutscenes', 'legacy.avi')
+      mkdirSync(join(testDir, 'video', 'cutscenes'), { recursive: true })
+      writeFileSync(testFile, createAviFixture({ width: 800, height: 450, frameRate: 25, frames: 125, codec: 'MJPG', hasAudio: true }))
+
+      const asset = await detector.analyzeAsset(testFile, testDir)
+
+      expect(asset!.type).toBe('video')
+      expect(asset!.subType).toBe('cutscenes')
+      const metadata = asset!.mediaMetadata as VideoMetadata
+      expect(metadata.format).toBe('AVI')
+      expect(metadata.width).toBe(800)
+      expect(metadata.height).toBe(450)
+      expect(metadata.duration).toBeCloseTo(5, 5)
+      expect(metadata.hasAudio).toBe(true)
+    })
+
     it('should preserve analyzed media metadata in generated bundle manifests', async () => {
       const audioFile = join(testDir, 'audio', 'bgm', 'opening.mp3')
       const videoFile = join(testDir, 'video', 'cutscenes', 'intro.mp4')
@@ -628,6 +645,47 @@ async function createMp4Fixture(options: { width: number, height: number, durati
   return Buffer.from(target.buffer ?? new ArrayBuffer(0))
 }
 
+function createAviFixture(options: { width: number, height: number, frameRate: number, frames: number, codec: string, hasAudio: boolean }): Buffer {
+  const microsecondsPerFrame = Math.round(1_000_000 / options.frameRate)
+  const avih = Buffer.alloc(56)
+  avih.writeUInt32LE(microsecondsPerFrame, 0)
+  avih.writeUInt32LE(options.frames, 16)
+  avih.writeUInt32LE(options.hasAudio ? 2 : 1, 24)
+  avih.writeUInt32LE(options.width, 32)
+  avih.writeUInt32LE(options.height, 36)
+
+  const videoStrh = Buffer.alloc(56)
+  videoStrh.write('vids', 0, 'ascii')
+  videoStrh.write(options.codec.padEnd(4, '\0').slice(0, 4), 4, 'ascii')
+  videoStrh.writeUInt32LE(1, 20)
+  videoStrh.writeUInt32LE(options.frameRate, 24)
+  videoStrh.writeUInt32LE(options.frames, 32)
+  videoStrh.writeInt16LE(options.width, 52)
+  videoStrh.writeInt16LE(options.height, 54)
+
+  const videoStrf = Buffer.alloc(40)
+  videoStrf.writeUInt32LE(40, 0)
+  videoStrf.writeInt32LE(options.width, 4)
+  videoStrf.writeInt32LE(options.height, 8)
+  videoStrf.writeUInt16LE(1, 12)
+  videoStrf.writeUInt16LE(24, 14)
+  videoStrf.write(options.codec.padEnd(4, '\0').slice(0, 4), 16, 'ascii')
+
+  const lists = [
+    riffChunk('avih', avih),
+    riffList('strl', [riffChunk('strh', videoStrh), riffChunk('strf', videoStrf)]),
+  ]
+
+  if (options.hasAudio) {
+    const audioStrh = Buffer.alloc(56)
+    audioStrh.write('auds', 0, 'ascii')
+    lists.push(riffList('strl', [riffChunk('strh', audioStrh)]))
+  }
+
+  const payload = Buffer.concat([Buffer.from('AVI '), riffList('hdrl', lists)])
+  return Buffer.concat([Buffer.from('RIFF'), uint32le(payload.length), payload])
+}
+
 function createAdtsFrame(): Buffer {
   const payloadSize = 20
   const sampleRateIndex = 4
@@ -653,4 +711,19 @@ function createMp3CbrFixture(frames: number): Buffer {
     frame[3] = 0x64
     return frame
   }))
+}
+
+function uint32le(value: number): Buffer {
+  const buffer = Buffer.alloc(4)
+  buffer.writeUInt32LE(value)
+  return buffer
+}
+
+function riffChunk(id: string, payload: Buffer): Buffer {
+  const padding = payload.length % 2 === 1 ? Buffer.from([0]) : Buffer.alloc(0)
+  return Buffer.concat([Buffer.from(id), uint32le(payload.length), payload, padding])
+}
+
+function riffList(type: string, chunks: Buffer[]): Buffer {
+  return riffChunk('LIST', Buffer.concat([Buffer.from(type), ...chunks]))
 }
