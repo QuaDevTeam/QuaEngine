@@ -3,6 +3,16 @@ import { Buffer } from 'node:buffer'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import {
+  BufferTarget,
+  EncodedAudioPacketSource,
+  EncodedPacket,
+  EncodedVideoPacketSource,
+  Mp4OutputFormat,
+  OggOutputFormat,
+  Output,
+  WebMOutputFormat,
+} from 'mediabunny'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { MediaMetadataExtractor } from '../src/assets/media-extractor'
 
@@ -475,13 +485,8 @@ describe('mediaMetadataExtractor', () => {
   })
 
   describe('mP3 Audio Metadata', () => {
-    it('should extract MP3 metadata (estimated)', async () => {
-      // Create minimal MP3-like data (just for testing format detection)
-      const mp3Data = Buffer.alloc(1024) // 1KB file
-      mp3Data[0] = 0xFF // MP3 frame sync
-      mp3Data[1] = 0xFB
-      mp3Data[2] = 0x90 // 128 kbps, 44.1 kHz
-      mp3Data[3] = 0x64
+    it('should extract MP3 metadata from complete CBR frames', async () => {
+      const mp3Data = createMp3CbrFixture({ frames: 6 })
 
       const testFile = join(testDir, 'test.mp3')
       writeFileSync(testFile, mp3Data)
@@ -489,15 +494,162 @@ describe('mediaMetadataExtractor', () => {
       const metadata = await extractor.extractMetadata(testFile) as AudioMetadata
 
       expect(metadata.format).toBe('MP3')
-      expect(metadata.duration).toBeGreaterThan(0)
-      expect(metadata.bitrate).toBe(128000)
+      expect(metadata.duration).toBeCloseTo((6 * 1152) / 44100, 5)
+      expect(metadata.bitrate).toBeGreaterThan(120000)
+      expect(metadata.bitrate).toBeLessThan(132000)
       expect(metadata.sampleRate).toBe(44100)
+      expect(metadata.channels).toBe(2)
+    })
+
+    it('should return format-only metadata for malformed Xing MP3 data', async () => {
+      const mp3Data = createMp3CbrFixture({ frames: 1, xingFrames: 120, xingBytes: 48000 })
+      const testFile = join(testDir, 'xing.mp3')
+      writeFileSync(testFile, mp3Data)
+
+      const metadata = await extractor.extractMetadata(testFile) as AudioMetadata
+
+      expect(metadata.format).toBe('MP3')
+      expect(metadata.duration).toBe(0)
+      expect(metadata.bitrate).toBeUndefined()
+      expect(metadata.sampleRate).toBeUndefined()
+    })
+
+    it('should return format-only metadata for malformed VBRI MP3 data', async () => {
+      const mp3Data = createMp3CbrFixture({ frames: 1, vbriFrames: 80, vbriBytes: 32000 })
+      const testFile = join(testDir, 'vbri.mp3')
+      writeFileSync(testFile, mp3Data)
+
+      const metadata = await extractor.extractMetadata(testFile) as AudioMetadata
+
+      expect(metadata.format).toBe('MP3')
+      expect(metadata.duration).toBe(0)
+      expect(metadata.bitrate).toBeUndefined()
+    })
+
+    it('should skip ID3 tags when parsing MP3 frames', async () => {
+      const mp3Data = Buffer.concat([
+        createId3v2Tag(Buffer.from('quack!')),
+        createMp3CbrFixture({ frames: 4 }),
+        createId3v1Tag(),
+      ])
+      const testFile = join(testDir, 'tagged.mp3')
+      writeFileSync(testFile, mp3Data)
+
+      const metadata = await extractor.extractMetadata(testFile) as AudioMetadata
+
+      expect(metadata.duration).toBeCloseTo((4 * 1152) / 44100, 5)
+      expect(metadata.sampleRate).toBe(44100)
+    })
+
+    it('should skip large ID3 tags before MP3 frames', async () => {
+      const mp3Data = Buffer.concat([
+        createId3v2Tag(Buffer.alloc(8192)),
+        createMp3CbrFixture({ frames: 4 }),
+      ])
+      const testFile = join(testDir, 'large-tag.mp3')
+      writeFileSync(testFile, mp3Data)
+
+      const metadata = await extractor.extractMetadata(testFile) as AudioMetadata
+
+      expect(metadata.duration).toBeCloseTo((4 * 1152) / 44100, 5)
+      expect(metadata.sampleRate).toBe(44100)
+      expect(metadata.channels).toBe(2)
+    })
+
+    it('should not invent duration from a single fake MP3 frame header', async () => {
+      const mp3Data = Buffer.alloc(1024)
+      mp3Data[0] = 0xFF
+      mp3Data[1] = 0xFB
+      mp3Data[2] = 0x90
+      mp3Data[3] = 0x64
+
+      const testFile = join(testDir, 'fake.mp3')
+      writeFileSync(testFile, mp3Data)
+
+      const metadata = await extractor.extractMetadata(testFile) as AudioMetadata
+
+      expect(metadata.format).toBe('MP3')
+      expect(metadata.duration).toBe(0)
+      expect(metadata.bitrate).toBeUndefined()
+      expect(metadata.sampleRate).toBeUndefined()
+    })
+  })
+
+  describe('additional Audio Container Metadata', () => {
+    it('should extract WAV metadata when chunks are not at fixed offsets', async () => {
+      const wavData = createWavFixture({ durationSeconds: 2, sampleRate: 48000, channels: 1, junkBeforeFmt: true })
+      const testFile = join(testDir, 'chunked.wav')
+      writeFileSync(testFile, wavData)
+
+      const metadata = await extractor.extractMetadata(testFile) as AudioMetadata
+
+      expect(metadata.format).toBe('WAV')
+      expect(metadata.duration).toBe(2)
+      expect(metadata.sampleRate).toBe(48000)
+      expect(metadata.channels).toBe(1)
+    })
+
+    it('should extract M4A metadata from the audio track', async () => {
+      const m4aData = await createMp4Fixture({ durationSeconds: 3, audioOnly: true, sampleRate: 48000, channels: 2 })
+      const testFile = join(testDir, 'voice.m4a')
+      writeFileSync(testFile, m4aData)
+
+      const metadata = await extractor.extractMetadata(testFile) as AudioMetadata
+
+      expect(metadata.format).toBe('M4A')
+      expect(metadata.duration).toBeCloseTo(3, 1)
+      expect(metadata.sampleRate).toBe(48000)
+      expect(metadata.channels).toBe(2)
+    })
+
+    it('should return format-only metadata for malformed FLAC data', async () => {
+      const flacData = Buffer.alloc(64)
+      const testFile = join(testDir, 'theme.flac')
+      writeFileSync(testFile, flacData)
+
+      const metadata = await extractor.extractMetadata(testFile) as AudioMetadata
+
+      expect(metadata.format).toBe('FLAC')
+      expect(metadata.duration).toBe(0)
+      expect(metadata.sampleRate).toBeUndefined()
+      expect(metadata.channels).toBeUndefined()
+    })
+
+    it('should extract AAC ADTS duration from full frames', async () => {
+      const aacData = Buffer.concat([
+        createAdtsFrame(),
+        createAdtsFrame(),
+        createAdtsFrame(),
+        createAdtsFrame(),
+      ])
+      const testFile = join(testDir, 'sfx.aac')
+      writeFileSync(testFile, aacData)
+
+      const metadata = await extractor.extractMetadata(testFile) as AudioMetadata
+
+      expect(metadata.format).toBe('AAC')
+      expect(metadata.duration).toBeCloseTo((4 * 1024) / 44100, 5)
+      expect(metadata.sampleRate).toBe(44100)
+      expect(metadata.channels).toBe(2)
+    })
+
+    it('should extract OGG Opus duration and channel metadata', async () => {
+      const oggData = await createOggOpusFixture({ durationSeconds: 1, sampleRate: 48000, channels: 2 })
+      const testFile = join(testDir, 'loop.ogg')
+      writeFileSync(testFile, oggData)
+
+      const metadata = await extractor.extractMetadata(testFile) as AudioMetadata
+
+      expect(metadata.format).toBe('OGG')
+      expect(metadata.duration).toBeGreaterThan(0)
+      expect(metadata.sampleRate).toBe(48000)
+      expect(metadata.channels).toBe(2)
     })
   })
 
   describe('video File Detection', () => {
     it('should detect video files and return basic metadata', async () => {
-      const mp4Data = createMp4Fixture({ width: 1280, height: 720, durationSeconds: 12 })
+      const mp4Data = await createMp4Fixture({ width: 1280, height: 720, durationSeconds: 12, frameRate: 24 })
       const testFile = join(testDir, 'test.mp4')
       writeFileSync(testFile, mp4Data)
 
@@ -508,8 +660,55 @@ describe('mediaMetadataExtractor', () => {
       expect(metadata.width).toBe(1280)
       expect(metadata.height).toBe(720)
       expect(metadata.aspectRatio).toBeCloseTo(16 / 9)
-      expect(metadata.duration).toBe(12)
+      expect(metadata.duration).toBeCloseTo(12, 5)
       expect(metadata.hasAudio).toBe(true)
+      expect(metadata.codec).toBe('avc1')
+      expect(metadata.frameRate).toBe(24)
+    })
+
+    it('should use the video track when the audio track appears first in MP4', async () => {
+      const mp4Data = await createMp4Fixture({ width: 1024, height: 576, durationSeconds: 4, audioFirst: true })
+      const testFile = join(testDir, 'audio-first.mp4')
+      writeFileSync(testFile, mp4Data)
+
+      const metadata = await extractor.extractMetadata(testFile) as VideoMetadata
+
+      expect(metadata.width).toBe(1024)
+      expect(metadata.height).toBe(576)
+      expect(metadata.duration).toBeCloseTo(4, 5)
+      expect(metadata.hasAudio).toBe(true)
+    })
+
+    it('should extract WebM track dimensions and codec', async () => {
+      const webmData = await createWebMFixture({ width: 1920, height: 1080, durationSeconds: 7.5, frameRate: 30 })
+      const testFile = join(testDir, 'intro.webm')
+      writeFileSync(testFile, webmData)
+
+      const metadata = await extractor.extractMetadata(testFile) as VideoMetadata
+
+      expect(metadata.format).toBe('WEBM')
+      expect(metadata.width).toBe(1920)
+      expect(metadata.height).toBe(1080)
+      expect(metadata.duration).toBeCloseTo(7.5, 1)
+      expect(metadata.codec).toBe('V_VP9')
+      expect(metadata.frameRate).toBeCloseTo(30, 1)
+      expect(metadata.hasAudio).toBe(true)
+    })
+
+    it('should return format-only metadata for AVI', async () => {
+      const aviData = Buffer.alloc(64)
+      const testFile = join(testDir, 'cutscene.avi')
+      writeFileSync(testFile, aviData)
+
+      const metadata = await extractor.extractMetadata(testFile) as VideoMetadata
+
+      expect(metadata.format).toBe('AVI')
+      expect(metadata.width).toBe(0)
+      expect(metadata.height).toBe(0)
+      expect(metadata.duration).toBe(0)
+      expect(metadata.frameRate).toBeUndefined()
+      expect(metadata.codec).toBeUndefined()
+      expect(metadata.hasAudio).toBeUndefined()
     })
   })
 
@@ -567,7 +766,7 @@ describe('mediaMetadataExtractor', () => {
     })
 
     it('should correctly identify video file extensions', async () => {
-      const extensions = ['.mp4', '.webm', '.avi', '.mov', '.mkv', '.wmv', '.flv']
+      const extensions = ['.mp4', '.webm', '.avi', '.mov', '.mkv', '.m4v', '.wmv', '.flv']
 
       for (const ext of extensions) {
         const testFile = join(testDir, `test${ext}`)
@@ -646,61 +845,265 @@ describe('mediaMetadataExtractor', () => {
   })
 })
 
-function createMp4Fixture(options: { width: number, height: number, durationSeconds: number }): Buffer {
-  const timescale = 1000
-  const duration = Math.round(options.durationSeconds * timescale)
-  return Buffer.concat([
-    mp4Box('ftyp', Buffer.concat([
-      Buffer.from('isom'),
-      uint32(0),
-      Buffer.from('isomiso2avc1mp41'),
-    ])),
-    mp4Box('moov', Buffer.concat([
-      mp4Box('mvhd', createMvhd(timescale, duration)),
-      mp4Box('trak', Buffer.concat([
-        mp4Box('tkhd', createTkhd(options.width, options.height, duration)),
-        mp4Box('mdia', mp4Box('hdlr', createHdlr('vide'))),
-      ])),
-      mp4Box('trak', mp4Box('mdia', mp4Box('hdlr', createHdlr('soun')))),
-    ])),
-  ])
+function createMp3CbrFixture(options: { frames: number, xingFrames?: number, xingBytes?: number, vbriFrames?: number, vbriBytes?: number }): Buffer {
+  const frames = Array.from({ length: options.frames }, () => createMp3Frame())
+  const firstFrame = frames[0]
+  if (firstFrame && options.xingFrames) {
+    firstFrame.write('Xing', 36, 'ascii')
+    firstFrame.writeUInt32BE(options.xingBytes ? 0x03 : 0x01, 40)
+    firstFrame.writeUInt32BE(options.xingFrames, 44)
+    if (options.xingBytes) {
+      firstFrame.writeUInt32BE(options.xingBytes, 48)
+    }
+  }
+  if (firstFrame && options.vbriFrames) {
+    firstFrame.write('VBRI', 36, 'ascii')
+    firstFrame.writeUInt32BE(options.vbriBytes || firstFrame.length * options.vbriFrames, 46)
+    firstFrame.writeUInt32BE(options.vbriFrames, 50)
+  }
+  return Buffer.concat(frames)
 }
 
-function mp4Box(type: string, payload: Buffer): Buffer {
-  return Buffer.concat([uint32(payload.length + 8), Buffer.from(type), payload])
+function createMp3Frame(): Buffer {
+  const frame = Buffer.alloc(417)
+  frame[0] = 0xFF
+  frame[1] = 0xFB
+  frame[2] = 0x90
+  frame[3] = 0x64
+  return frame
 }
 
-function uint32(value: number): Buffer {
-  const buffer = Buffer.alloc(4)
-  buffer.writeUInt32BE(value)
+function createId3v2Tag(body: Buffer): Buffer {
+  const header = Buffer.alloc(10)
+  header.write('ID3', 0, 'ascii')
+  header[3] = 4
+  header[6] = (body.length >> 21) & 0x7F
+  header[7] = (body.length >> 14) & 0x7F
+  header[8] = (body.length >> 7) & 0x7F
+  header[9] = body.length & 0x7F
+  return Buffer.concat([header, body])
+}
+
+function createId3v1Tag(): Buffer {
+  const tag = Buffer.alloc(128)
+  tag.write('TAG', 0, 'ascii')
+  return tag
+}
+
+function createWavFixture(options: { durationSeconds: number, sampleRate: number, channels: number, junkBeforeFmt?: boolean }): Buffer {
+  const bitsPerSample = 16
+  const blockAlign = options.channels * (bitsPerSample / 8)
+  const byteRate = options.sampleRate * blockAlign
+  const dataSize = Math.round(options.durationSeconds * byteRate)
+  const fmt = riffChunk('fmt ', Buffer.concat([
+    uint16le(1),
+    uint16le(options.channels),
+    uint32le(options.sampleRate),
+    uint32le(byteRate),
+    uint16le(blockAlign),
+    uint16le(bitsPerSample),
+  ]))
+  const data = riffChunk('data', Buffer.alloc(dataSize))
+  const chunks = options.junkBeforeFmt
+    ? [riffChunk('JUNK', Buffer.alloc(5)), fmt, data]
+    : [fmt, data]
+  const wavePayload = Buffer.concat([Buffer.from('WAVE'), ...chunks])
+  return Buffer.concat([Buffer.from('RIFF'), uint32le(wavePayload.length), wavePayload])
+}
+
+async function createMp4Fixture(options: {
+  width?: number
+  height?: number
+  durationSeconds: number
+  frameRate?: number
+  hasAudio?: boolean
+  audioFirst?: boolean
+  audioOnly?: boolean
+  sampleRate?: number
+  channels?: number
+}): Promise<Buffer> {
+  const target = new BufferTarget()
+  const output = new Output({ format: new Mp4OutputFormat(), target })
+  const videoSource = options.audioOnly ? undefined : new EncodedVideoPacketSource('avc')
+  const audioSource = options.hasAudio === false ? undefined : new EncodedAudioPacketSource('aac')
+
+  const addVideoTrack = (): void => {
+    if (videoSource) {
+      output.addVideoTrack(videoSource, { frameRate: options.frameRate ?? 24 })
+    }
+  }
+  const addAudioTrack = (): void => {
+    if (audioSource) {
+      output.addAudioTrack(audioSource)
+    }
+  }
+
+  if (options.audioFirst) {
+    addAudioTrack()
+    addVideoTrack()
+  }
+  else {
+    addVideoTrack()
+    addAudioTrack()
+  }
+
+  await output.start()
+
+  if (videoSource) {
+    const frameRate = options.frameRate ?? 24
+    const frameDuration = 1 / frameRate
+    const frameCount = Math.max(1, Math.round(options.durationSeconds * frameRate))
+    const videoConfig = {
+      codec: 'avc1.42001e',
+      codedWidth: options.width ?? 1280,
+      codedHeight: options.height ?? 720,
+      description: new Uint8Array([1, 66, 0, 30, 255, 224, 0]),
+    }
+
+    for (let index = 0; index < frameCount; index += 1) {
+      await videoSource.add(
+        new EncodedPacket(new Uint8Array([0, 0, 0, 0]), 'key', index * frameDuration, frameDuration, index),
+        index === 0 ? { decoderConfig: videoConfig } : undefined,
+      )
+    }
+    videoSource.close()
+  }
+
+  if (audioSource) {
+    const sampleRate = options.sampleRate ?? 44100
+    const channels = options.channels ?? 2
+    const frameDuration = 1024 / sampleRate
+    const audioPacketCount = options.audioOnly
+      ? Math.max(1, Math.ceil(options.durationSeconds / frameDuration))
+      : 1
+
+    for (let index = 0; index < audioPacketCount; index += 1) {
+      await audioSource.add(
+        new EncodedPacket(createAdtsFrame({ sampleRate, channels }), 'key', index * frameDuration, frameDuration, index),
+        index === 0
+          ? { decoderConfig: { codec: 'mp4a.40.2', numberOfChannels: channels, sampleRate } }
+          : undefined,
+      )
+    }
+    audioSource.close()
+  }
+
+  await output.finalize()
+  return Buffer.from(target.buffer ?? new ArrayBuffer(0))
+}
+
+async function createWebMFixture(options: { width: number, height: number, durationSeconds: number, frameRate: number }): Promise<Buffer> {
+  const target = new BufferTarget()
+  const output = new Output({ format: new WebMOutputFormat(), target })
+  const videoSource = new EncodedVideoPacketSource('vp9')
+  const audioSource = new EncodedAudioPacketSource('opus')
+
+  output.addVideoTrack(videoSource, { frameRate: options.frameRate })
+  output.addAudioTrack(audioSource)
+  await output.start()
+
+  const frameDuration = 1 / options.frameRate
+  const frameCount = Math.max(1, Math.round(options.durationSeconds * options.frameRate))
+  const videoConfig = {
+    codec: 'vp09.00.10.08',
+    codedWidth: options.width,
+    codedHeight: options.height,
+  }
+
+  for (let index = 0; index < frameCount; index += 1) {
+    await videoSource.add(
+      new EncodedPacket(new Uint8Array([0]), 'key', index * frameDuration, frameDuration, index),
+      index === 0 ? { decoderConfig: videoConfig } : undefined,
+    )
+  }
+
+  await audioSource.add(
+    new EncodedPacket(new Uint8Array([0]), 'key', 0, 0.02, 0),
+    { decoderConfig: { codec: 'opus', numberOfChannels: 2, sampleRate: 48000 } },
+  )
+
+  videoSource.close()
+  audioSource.close()
+  await output.finalize()
+  return Buffer.from(target.buffer ?? new ArrayBuffer(0))
+}
+
+async function createOggOpusFixture(options: { durationSeconds: number, sampleRate: number, channels: number }): Promise<Buffer> {
+  const target = new BufferTarget()
+  const output = new Output({ format: new OggOutputFormat(), target })
+  const audioSource = new EncodedAudioPacketSource('opus')
+
+  output.addAudioTrack(audioSource)
+  await output.start()
+
+  const packetDuration = 0.02
+  const packetCount = Math.max(1, Math.ceil(options.durationSeconds / packetDuration))
+  const decoderConfig = {
+    codec: 'opus',
+    numberOfChannels: options.channels,
+    sampleRate: options.sampleRate,
+    description: createOpusHead(options.sampleRate, options.channels),
+  }
+
+  for (let index = 0; index < packetCount; index += 1) {
+    await audioSource.add(
+      new EncodedPacket(new Uint8Array([0]), 'key', index * packetDuration, packetDuration, index),
+      index === 0 ? { decoderConfig } : undefined,
+    )
+  }
+
+  audioSource.close()
+  await output.finalize()
+  return Buffer.from(target.buffer ?? new ArrayBuffer(0))
+}
+
+function createAdtsFrame(options: { payloadSize?: number, sampleRate?: number, channels?: number } = {}): Buffer {
+  const payloadSize = options.payloadSize ?? 20
+  const sampleRateIndex = getAdtsSampleRateIndex(options.sampleRate ?? 44100)
+  const channels = options.channels ?? 2
+  const frameLength = 7 + payloadSize
+  const frame = Buffer.alloc(frameLength)
+  frame[0] = 0xFF
+  frame[1] = 0xF1
+  frame[2] = (1 << 6) | (sampleRateIndex << 2) | ((channels >> 2) & 0x01)
+  frame[3] = ((channels & 0x03) << 6) | ((frameLength >> 11) & 0x03)
+  frame[4] = (frameLength >> 3) & 0xFF
+  frame[5] = ((frameLength & 0x07) << 5) | 0x1F
+  frame[6] = 0xFC
+  return frame
+}
+
+function getAdtsSampleRateIndex(sampleRate: number): number {
+  const sampleRates = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350]
+  const index = sampleRates.indexOf(sampleRate)
+  return index === -1 ? 4 : index
+}
+
+function createOpusHead(sampleRate: number, channels: number): Uint8Array {
+  const description = Buffer.alloc(19)
+  description.write('OpusHead', 0, 'ascii')
+  description[8] = 1
+  description[9] = channels
+  description.writeUInt16LE(0, 10)
+  description.writeUInt32LE(sampleRate, 12)
+  description.writeUInt16LE(0, 16)
+  description[18] = 0
+  return description
+}
+
+function uint16le(value: number): Buffer {
+  const buffer = Buffer.alloc(2)
+  buffer.writeUInt16LE(value)
   return buffer
 }
 
-function createMvhd(timescale: number, duration: number): Buffer {
-  const payload = Buffer.alloc(100)
-  payload.writeUInt32BE(timescale, 12)
-  payload.writeUInt32BE(duration, 16)
-  payload.writeUInt32BE(0x00010000, 20)
-  payload.writeUInt16BE(0x0100, 24)
-  payload.writeUInt32BE(1, 96)
-  return payload
+function uint32le(value: number): Buffer {
+  const buffer = Buffer.alloc(4)
+  buffer.writeUInt32LE(value)
+  return buffer
 }
 
-function createTkhd(width: number, height: number, duration: number): Buffer {
-  const payload = Buffer.alloc(84)
-  payload[3] = 0x07
-  payload.writeUInt32BE(1, 12)
-  payload.writeUInt32BE(duration, 20)
-  payload.writeUInt32BE(0x00010000, 40)
-  payload.writeUInt32BE(0x00010000, 56)
-  payload.writeUInt32BE(0x40000000, 68)
-  payload.writeUInt32BE(width << 16, 76)
-  payload.writeUInt32BE(height << 16, 80)
-  return payload
-}
-
-function createHdlr(handlerType: string): Buffer {
-  const payload = Buffer.alloc(25)
-  payload.write(handlerType, 8, 4, 'ascii')
-  return payload
+function riffChunk(id: string, payload: Buffer): Buffer {
+  const padding = payload.length % 2 === 1 ? Buffer.from([0]) : Buffer.alloc(0)
+  return Buffer.concat([Buffer.from(id), uint32le(payload.length), payload, padding])
 }

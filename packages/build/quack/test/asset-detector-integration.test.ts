@@ -2,8 +2,17 @@ import type { AudioMetadata, ImageMetadata, VideoMetadata } from '../src/core/ty
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import {
+  BufferTarget,
+  EncodedAudioPacketSource,
+  EncodedPacket,
+  EncodedVideoPacketSource,
+  Mp4OutputFormat,
+  Output,
+} from 'mediabunny'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { AssetDetector } from '../src/assets/asset-detector'
+import { MetadataGenerator } from '../src/assets/metadata'
 
 describe('assetDetector with Media Metadata', () => {
   let detector: AssetDetector
@@ -236,11 +245,7 @@ describe('assetDetector with Media Metadata', () => {
     })
 
     it('should analyze MP3 audio with parsed frame metadata', async () => {
-      const mp3Data = Buffer.alloc(2048)
-      mp3Data[0] = 0xFF
-      mp3Data[1] = 0xFB
-      mp3Data[2] = 0x90
-      mp3Data[3] = 0x64
+      const mp3Data = createMp3CbrFixture(5)
       const testFile = join(testDir, 'audio', 'voice', 'dialogue.mp3')
       mkdirSync(join(testDir, 'audio', 'voice'), { recursive: true })
       writeFileSync(testFile, mp3Data)
@@ -253,12 +258,14 @@ describe('assetDetector with Media Metadata', () => {
       const metadata = asset!.mediaMetadata as AudioMetadata
       expect(metadata.format).toBe('MP3')
       expect(metadata.duration).toBeGreaterThan(0)
+      expect(metadata.sampleRate).toBe(44100)
+      expect(metadata.channels).toBe(2)
     })
   })
 
   describe('video Asset Analysis', () => {
     it('should analyze video file with basic metadata', async () => {
-      const mp4Data = createMp4Fixture({ width: 1920, height: 1080, durationSeconds: 8 })
+      const mp4Data = await createMp4Fixture({ width: 1920, height: 1080, durationSeconds: 8 })
       const testFile = join(testDir, 'video', 'cutscenes', 'intro.mp4')
       mkdirSync(join(testDir, 'video', 'cutscenes'), { recursive: true })
       writeFileSync(testFile, mp4Data)
@@ -273,11 +280,11 @@ describe('assetDetector with Media Metadata', () => {
       expect(metadata.format).toBe('MP4')
       expect(metadata.width).toBe(1920)
       expect(metadata.height).toBe(1080)
-      expect(metadata.duration).toBe(8)
+      expect(metadata.duration).toBeCloseTo(8, 5)
     })
 
     it('should detect video by file extension', async () => {
-      const extensions = ['.mp4', '.webm', '.avi', '.mov']
+      const extensions = ['.mp4', '.webm', '.avi', '.mov', '.m4v']
 
       for (const ext of extensions) {
         const testFile = join(testDir, 'video', `test${ext}`)
@@ -287,6 +294,32 @@ describe('assetDetector with Media Metadata', () => {
         expect(asset!.type).toBe('video')
         expect((asset!.mediaMetadata as VideoMetadata).format).toBe(ext.substring(1).toUpperCase())
       }
+    })
+
+    it('should preserve analyzed media metadata in generated bundle manifests', async () => {
+      const audioFile = join(testDir, 'audio', 'bgm', 'opening.mp3')
+      const videoFile = join(testDir, 'video', 'cutscenes', 'intro.mp4')
+      mkdirSync(join(testDir, 'audio', 'bgm'), { recursive: true })
+      mkdirSync(join(testDir, 'video', 'cutscenes'), { recursive: true })
+      writeFileSync(audioFile, createMp3CbrFixture(6))
+      writeFileSync(videoFile, await createMp4Fixture({ width: 1280, height: 720, durationSeconds: 10 }))
+
+      const audioAsset = await detector.analyzeAsset(audioFile, testDir)
+      const videoAsset = await detector.analyzeAsset(videoFile, testDir)
+      const manifest = new MetadataGenerator().generateManifest([audioAsset!, videoAsset!], 'metadata-media', {
+        format: 'qpk',
+        compression: { algorithm: 'none', level: 0 },
+        encryption: { enabled: false, algorithm: 'none' },
+        version: '1.0.0',
+      })
+
+      const manifestAudio = Object.values(manifest.assets.audio)[0].mediaMetadata as AudioMetadata
+      const manifestVideo = Object.values(manifest.assets.video)[0].mediaMetadata as VideoMetadata
+      expect(manifestAudio.duration).toBeGreaterThan(0)
+      expect(manifestAudio.sampleRate).toBe(44100)
+      expect(manifestVideo.width).toBe(1280)
+      expect(manifestVideo.height).toBe(720)
+      expect(manifestVideo.duration).toBeCloseTo(10, 5)
     })
   })
 
@@ -372,6 +405,12 @@ describe('assetDetector with Media Metadata', () => {
             0x00,
           ])
           writeFileSync(fullPath, pngData)
+        }
+        else if (file.type === 'audio') {
+          writeFileSync(fullPath, createMp3CbrFixture(6))
+        }
+        else if (file.type === 'video') {
+          writeFileSync(fullPath, await createMp4Fixture({ width: 640, height: 360, durationSeconds: 2 }))
         }
         else {
           writeFileSync(fullPath, Buffer.alloc(100))
@@ -551,61 +590,67 @@ describe('assetDetector with Media Metadata', () => {
   })
 })
 
-function createMp4Fixture(options: { width: number, height: number, durationSeconds: number }): Buffer {
-  const timescale = 1000
-  const duration = Math.round(options.durationSeconds * timescale)
-  return Buffer.concat([
-    mp4Box('ftyp', Buffer.concat([
-      Buffer.from('isom'),
-      uint32(0),
-      Buffer.from('isomiso2avc1mp41'),
-    ])),
-    mp4Box('moov', Buffer.concat([
-      mp4Box('mvhd', createMvhd(timescale, duration)),
-      mp4Box('trak', Buffer.concat([
-        mp4Box('tkhd', createTkhd(options.width, options.height, duration)),
-        mp4Box('mdia', mp4Box('hdlr', createHdlr('vide'))),
-      ])),
-      mp4Box('trak', mp4Box('mdia', mp4Box('hdlr', createHdlr('soun')))),
-    ])),
-  ])
+async function createMp4Fixture(options: { width: number, height: number, durationSeconds: number, frameRate?: number }): Promise<Buffer> {
+  const target = new BufferTarget()
+  const output = new Output({ format: new Mp4OutputFormat(), target })
+  const videoSource = new EncodedVideoPacketSource('avc')
+  const audioSource = new EncodedAudioPacketSource('aac')
+  const frameRate = options.frameRate ?? 24
+
+  output.addVideoTrack(videoSource, { frameRate })
+  output.addAudioTrack(audioSource)
+  await output.start()
+
+  const frameDuration = 1 / frameRate
+  const frameCount = Math.max(1, Math.round(options.durationSeconds * frameRate))
+  const videoConfig = {
+    codec: 'avc1.42001e',
+    codedWidth: options.width,
+    codedHeight: options.height,
+    description: new Uint8Array([1, 66, 0, 30, 255, 224, 0]),
+  }
+
+  for (let index = 0; index < frameCount; index += 1) {
+    await videoSource.add(
+      new EncodedPacket(new Uint8Array([0, 0, 0, 0]), 'key', index * frameDuration, frameDuration, index),
+      index === 0 ? { decoderConfig: videoConfig } : undefined,
+    )
+  }
+
+  await audioSource.add(
+    new EncodedPacket(createAdtsFrame(), 'key', 0, 1024 / 44100, 0),
+    { decoderConfig: { codec: 'mp4a.40.2', numberOfChannels: 2, sampleRate: 44100 } },
+  )
+
+  videoSource.close()
+  audioSource.close()
+  await output.finalize()
+  return Buffer.from(target.buffer ?? new ArrayBuffer(0))
 }
 
-function mp4Box(type: string, payload: Buffer): Buffer {
-  return Buffer.concat([uint32(payload.length + 8), Buffer.from(type), payload])
+function createAdtsFrame(): Buffer {
+  const payloadSize = 20
+  const sampleRateIndex = 4
+  const channels = 2
+  const frameLength = 7 + payloadSize
+  const frame = Buffer.alloc(frameLength)
+  frame[0] = 0xFF
+  frame[1] = 0xF1
+  frame[2] = (1 << 6) | (sampleRateIndex << 2) | ((channels >> 2) & 0x01)
+  frame[3] = ((channels & 0x03) << 6) | ((frameLength >> 11) & 0x03)
+  frame[4] = (frameLength >> 3) & 0xFF
+  frame[5] = ((frameLength & 0x07) << 5) | 0x1F
+  frame[6] = 0xFC
+  return frame
 }
 
-function uint32(value: number): Buffer {
-  const buffer = Buffer.alloc(4)
-  buffer.writeUInt32BE(value)
-  return buffer
-}
-
-function createMvhd(timescale: number, duration: number): Buffer {
-  const payload = Buffer.alloc(100)
-  payload.writeUInt32BE(timescale, 12)
-  payload.writeUInt32BE(duration, 16)
-  payload.writeUInt32BE(0x00010000, 20)
-  payload.writeUInt16BE(0x0100, 24)
-  payload.writeUInt32BE(1, 96)
-  return payload
-}
-
-function createTkhd(width: number, height: number, duration: number): Buffer {
-  const payload = Buffer.alloc(84)
-  payload[3] = 0x07
-  payload.writeUInt32BE(1, 12)
-  payload.writeUInt32BE(duration, 20)
-  payload.writeUInt32BE(0x00010000, 40)
-  payload.writeUInt32BE(0x00010000, 56)
-  payload.writeUInt32BE(0x40000000, 68)
-  payload.writeUInt32BE(width << 16, 76)
-  payload.writeUInt32BE(height << 16, 80)
-  return payload
-}
-
-function createHdlr(handlerType: string): Buffer {
-  const payload = Buffer.alloc(25)
-  payload.write(handlerType, 8, 4, 'ascii')
-  return payload
+function createMp3CbrFixture(frames: number): Buffer {
+  return Buffer.concat(Array.from({ length: frames }, () => {
+    const frame = Buffer.alloc(417)
+    frame[0] = 0xFF
+    frame[1] = 0xFB
+    frame[2] = 0x90
+    frame[3] = 0x64
+    return frame
+  }))
 }
