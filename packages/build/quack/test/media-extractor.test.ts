@@ -695,20 +695,53 @@ describe('mediaMetadataExtractor', () => {
       expect(metadata.hasAudio).toBe(true)
     })
 
-    it('should return format-only metadata for AVI', async () => {
-      const aviData = Buffer.alloc(64)
+    it('should extract AVI RIFF stream metadata', async () => {
+      const aviData = createAviFixture({ width: 640, height: 360, frameRate: 24, frames: 120, codec: 'MJPG', hasAudio: true })
       const testFile = join(testDir, 'cutscene.avi')
       writeFileSync(testFile, aviData)
 
       const metadata = await extractor.extractMetadata(testFile) as VideoMetadata
 
       expect(metadata.format).toBe('AVI')
-      expect(metadata.width).toBe(0)
-      expect(metadata.height).toBe(0)
-      expect(metadata.duration).toBe(0)
-      expect(metadata.frameRate).toBeUndefined()
-      expect(metadata.codec).toBeUndefined()
-      expect(metadata.hasAudio).toBeUndefined()
+      expect(metadata.width).toBe(640)
+      expect(metadata.height).toBe(360)
+      expect(metadata.aspectRatio).toBeCloseTo(16 / 9)
+      expect(metadata.duration).toBeCloseTo(5, 4)
+      expect(metadata.frameRate).toBeCloseTo(24, 4)
+      expect(metadata.codec).toBe('MJPG')
+      expect(metadata.hasAudio).toBe(true)
+    })
+
+    it('should extract FLV script metadata and audio presence', async () => {
+      const flvData = createFlvFixture({ width: 640, height: 360, durationSeconds: 4.5, frameRate: 30, codecId: 7, hasAudio: true })
+      const testFile = join(testDir, 'cutscene.flv')
+      writeFileSync(testFile, flvData)
+
+      const metadata = await extractor.extractMetadata(testFile) as VideoMetadata
+
+      expect(metadata.format).toBe('FLV')
+      expect(metadata.width).toBe(640)
+      expect(metadata.height).toBe(360)
+      expect(metadata.duration).toBeCloseTo(4.5, 5)
+      expect(metadata.frameRate).toBe(30)
+      expect(metadata.codec).toBe('AVC')
+      expect(metadata.hasAudio).toBe(true)
+    })
+
+    it('should extract WMV/ASF stream metadata', async () => {
+      const wmvData = createAsfFixture({ width: 1280, height: 720, durationSeconds: 6, frameRate: 24, codec: 'WMV3', hasAudio: true })
+      const testFile = join(testDir, 'cutscene.wmv')
+      writeFileSync(testFile, wmvData)
+
+      const metadata = await extractor.extractMetadata(testFile) as VideoMetadata
+
+      expect(metadata.format).toBe('WMV')
+      expect(metadata.width).toBe(1280)
+      expect(metadata.height).toBe(720)
+      expect(metadata.duration).toBeCloseTo(6, 5)
+      expect(metadata.frameRate).toBeCloseTo(24, 4)
+      expect(metadata.codec).toBe('WMV3')
+      expect(metadata.hasAudio).toBe(true)
     })
   })
 
@@ -1091,9 +1124,200 @@ function createOpusHead(sampleRate: number, channels: number): Uint8Array {
   return description
 }
 
+function createAviFixture(options: { width: number, height: number, frameRate: number, frames: number, codec: string, hasAudio: boolean }): Buffer {
+  const microsecondsPerFrame = Math.round(1_000_000 / options.frameRate)
+  const avih = Buffer.alloc(56)
+  avih.writeUInt32LE(microsecondsPerFrame, 0)
+  avih.writeUInt32LE(options.frames, 16)
+  avih.writeUInt32LE(options.hasAudio ? 2 : 1, 24)
+  avih.writeUInt32LE(options.width, 32)
+  avih.writeUInt32LE(options.height, 36)
+
+  const videoStrh = Buffer.alloc(56)
+  videoStrh.write('vids', 0, 'ascii')
+  videoStrh.write(options.codec.padEnd(4, '\0').slice(0, 4), 4, 'ascii')
+  videoStrh.writeUInt32LE(1, 20)
+  videoStrh.writeUInt32LE(options.frameRate, 24)
+  videoStrh.writeUInt32LE(options.frames, 32)
+  videoStrh.writeInt16LE(options.width, 52)
+  videoStrh.writeInt16LE(options.height, 54)
+
+  const videoStrf = Buffer.alloc(40)
+  videoStrf.writeUInt32LE(40, 0)
+  videoStrf.writeInt32LE(options.width, 4)
+  videoStrf.writeInt32LE(options.height, 8)
+  videoStrf.writeUInt16LE(1, 12)
+  videoStrf.writeUInt16LE(24, 14)
+  videoStrf.write(options.codec.padEnd(4, '\0').slice(0, 4), 16, 'ascii')
+
+  const lists = [
+    riffChunk('avih', avih),
+    riffList('strl', [
+      riffChunk('strh', videoStrh),
+      riffChunk('strf', videoStrf),
+    ]),
+  ]
+
+  if (options.hasAudio) {
+    const audioStrh = Buffer.alloc(56)
+    audioStrh.write('auds', 0, 'ascii')
+    const audioStrf = Buffer.alloc(18)
+    audioStrf.writeUInt16LE(1, 0)
+    audioStrf.writeUInt16LE(2, 2)
+    audioStrf.writeUInt32LE(44100, 4)
+    audioStrf.writeUInt32LE(176400, 8)
+    audioStrf.writeUInt16LE(4, 12)
+    audioStrf.writeUInt16LE(16, 14)
+    lists.push(riffList('strl', [
+      riffChunk('strh', audioStrh),
+      riffChunk('strf', audioStrf),
+    ]))
+  }
+
+  const payload = Buffer.concat([
+    Buffer.from('AVI '),
+    riffList('hdrl', lists),
+  ])
+  return Buffer.concat([Buffer.from('RIFF'), uint32le(payload.length), payload])
+}
+
+function createFlvFixture(options: { width: number, height: number, durationSeconds: number, frameRate: number, codecId: number, hasAudio: boolean }): Buffer {
+  const header = Buffer.from([
+    0x46,
+    0x4C,
+    0x56,
+    0x01,
+    options.hasAudio ? 0x05 : 0x01,
+    0x00,
+    0x00,
+    0x00,
+    0x09,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+  ])
+
+  const script = flvTag(18, 0, Buffer.concat([
+    amfStringValue('onMetaData'),
+    amfEcmaArray({
+      duration: options.durationSeconds,
+      width: options.width,
+      height: options.height,
+      framerate: options.frameRate,
+      videocodecid: options.codecId,
+      audiocodecid: options.hasAudio ? 10 : undefined,
+    }),
+  ]))
+  const video = flvTag(9, Math.round(options.durationSeconds * 1000), Buffer.from([0x10 | options.codecId, 0x01, 0x00, 0x00, 0x00]))
+  return Buffer.concat([header, script, video])
+}
+
+const ASF_HEADER_OBJECT = Buffer.from([0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11, 0xA6, 0xD9, 0x00, 0xAA, 0x00, 0x62, 0xCE, 0x6C])
+const ASF_FILE_PROPERTIES_OBJECT = Buffer.from([0xA1, 0xDC, 0xAB, 0x8C, 0x47, 0xA9, 0xCF, 0x11, 0x8E, 0xE4, 0x00, 0xC0, 0x0C, 0x20, 0x53, 0x65])
+const ASF_STREAM_PROPERTIES_OBJECT = Buffer.from([0x91, 0x07, 0xDC, 0xB7, 0xB7, 0xA9, 0xCF, 0x11, 0x8E, 0xE6, 0x00, 0xC0, 0x0C, 0x20, 0x53, 0x65])
+const ASF_AUDIO_MEDIA = Buffer.from([0x40, 0x9E, 0x69, 0xF8, 0x4D, 0x5B, 0xCF, 0x11, 0xA8, 0xFD, 0x00, 0x80, 0x5F, 0x5C, 0x44, 0x2B])
+const ASF_VIDEO_MEDIA = Buffer.from([0xC0, 0xEF, 0x19, 0xBC, 0x4D, 0x5B, 0xCF, 0x11, 0xA8, 0xFD, 0x00, 0x80, 0x5F, 0x5C, 0x44, 0x2B])
+
+function createAsfFixture(options: { width: number, height: number, durationSeconds: number, frameRate: number, codec: string, hasAudio: boolean }): Buffer {
+  const fileProperties = Buffer.alloc(88)
+  asfGuid().copy(fileProperties, 0)
+  uint64le(0).copy(fileProperties, 16)
+  uint64le(0).copy(fileProperties, 24)
+  uint64le(1).copy(fileProperties, 32)
+  uint64le(Math.round(options.durationSeconds * 10_000_000)).copy(fileProperties, 40)
+  uint64le(Math.round(options.durationSeconds * 10_000_000)).copy(fileProperties, 48)
+  uint64le(0).copy(fileProperties, 56)
+  fileProperties.writeUInt32LE(2, 64)
+  fileProperties.writeUInt32LE(0, 68)
+  fileProperties.writeUInt32LE(0, 72)
+  fileProperties.writeUInt32LE(2_000_000, 80)
+
+  const videoTypeData = Buffer.alloc(88)
+  videoTypeData.writeUInt32LE(2_000_000, 32)
+  uint64le(Math.round(10_000_000 / options.frameRate)).copy(videoTypeData, 40)
+  videoTypeData.writeUInt32LE(40, 48)
+  videoTypeData.writeInt32LE(options.width, 52)
+  videoTypeData.writeInt32LE(options.height, 56)
+  videoTypeData.writeUInt16LE(1, 60)
+  videoTypeData.writeUInt16LE(24, 62)
+  videoTypeData.write(options.codec.padEnd(4, '\0').slice(0, 4), 64, 'ascii')
+
+  const videoStream = Buffer.alloc(54 + videoTypeData.length)
+  ASF_VIDEO_MEDIA.copy(videoStream, 0)
+  videoStream.writeUInt32LE(videoTypeData.length, 40)
+  videoStream.writeUInt16LE(1, 48)
+  videoTypeData.copy(videoStream, 54)
+
+  const objects = [
+    asfObject(ASF_FILE_PROPERTIES_OBJECT, fileProperties),
+    asfObject(ASF_STREAM_PROPERTIES_OBJECT, videoStream),
+  ]
+
+  if (options.hasAudio) {
+    const audioTypeData = Buffer.alloc(18)
+    audioTypeData.writeUInt16LE(1, 0)
+    audioTypeData.writeUInt16LE(2, 2)
+    audioTypeData.writeUInt32LE(44100, 4)
+    const audioStream = Buffer.alloc(54 + audioTypeData.length)
+    ASF_AUDIO_MEDIA.copy(audioStream, 0)
+    audioStream.writeUInt32LE(audioTypeData.length, 40)
+    audioStream.writeUInt16LE(2, 48)
+    audioTypeData.copy(audioStream, 54)
+    objects.push(asfObject(ASF_STREAM_PROPERTIES_OBJECT, audioStream))
+  }
+
+  const headerData = Buffer.concat([
+    uint32le(objects.length),
+    Buffer.from([1, 2]),
+    ...objects,
+  ])
+  return asfObject(ASF_HEADER_OBJECT, headerData)
+}
+
+function flvTag(type: number, timestamp: number, data: Buffer): Buffer {
+  const header = Buffer.alloc(11)
+  header[0] = type
+  writeUInt24BE(header, data.length, 1)
+  writeUInt24BE(header, timestamp & 0xFFFFFF, 4)
+  header[7] = (timestamp >> 24) & 0xFF
+  return Buffer.concat([header, data, uint32be(header.length + data.length)])
+}
+
+function amfStringValue(value: string): Buffer {
+  const text = Buffer.from(value)
+  return Buffer.concat([Buffer.from([2]), uint16be(text.length), text])
+}
+
+function amfEcmaArray(values: Record<string, number | undefined>): Buffer {
+  const entries = Object.entries(values)
+    .filter((entry): entry is [string, number] => entry[1] !== undefined)
+    .map(([key, value]) => {
+      const keyBytes = Buffer.from(key)
+      const number = Buffer.alloc(8)
+      number.writeDoubleBE(value)
+      return Buffer.concat([uint16be(keyBytes.length), keyBytes, Buffer.from([0]), number])
+    })
+  return Buffer.concat([Buffer.from([8]), uint32be(entries.length), ...entries, Buffer.from([0, 0, 9])])
+}
+
+function asfObject(guid: Buffer, data: Buffer): Buffer {
+  return Buffer.concat([guid, uint64le(24 + data.length), data])
+}
+
+function asfGuid(): Buffer {
+  return Buffer.from([0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00])
+}
+
 function uint16le(value: number): Buffer {
   const buffer = Buffer.alloc(2)
   buffer.writeUInt16LE(value)
+  return buffer
+}
+
+function uint16be(value: number): Buffer {
+  const buffer = Buffer.alloc(2)
+  buffer.writeUInt16BE(value)
   return buffer
 }
 
@@ -1103,7 +1327,29 @@ function uint32le(value: number): Buffer {
   return buffer
 }
 
+function uint32be(value: number): Buffer {
+  const buffer = Buffer.alloc(4)
+  buffer.writeUInt32BE(value)
+  return buffer
+}
+
+function uint64le(value: number): Buffer {
+  const buffer = Buffer.alloc(8)
+  buffer.writeBigUInt64LE(BigInt(value))
+  return buffer
+}
+
+function writeUInt24BE(buffer: Buffer, value: number, offset: number): void {
+  buffer[offset] = (value >> 16) & 0xFF
+  buffer[offset + 1] = (value >> 8) & 0xFF
+  buffer[offset + 2] = value & 0xFF
+}
+
 function riffChunk(id: string, payload: Buffer): Buffer {
   const padding = payload.length % 2 === 1 ? Buffer.from([0]) : Buffer.alloc(0)
   return Buffer.concat([Buffer.from(id), uint32le(payload.length), payload, padding])
+}
+
+function riffList(type: string, chunks: Buffer[]): Buffer {
+  return riffChunk('LIST', Buffer.concat([Buffer.from(type), ...chunks]))
 }

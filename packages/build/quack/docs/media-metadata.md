@@ -4,7 +4,7 @@ This document describes the media metadata extraction capabilities of Quack, inc
 
 ## Overview
 
-Quack automatically extracts metadata from media files during asset discovery and bundling. Images use Quack's lightweight header readers; audio and video use Mediabunny through Node `FilePathSource`, with no external `ffprobe`/`mediainfo` binary requirement. Mediabunny is included under MPL-2.0. This metadata includes dimensions, duration, format information, and other technical details that can be useful for optimization and runtime loading decisions.
+Quack automatically extracts metadata from media files during asset discovery and bundling. Images use Quack's lightweight header readers; modern audio/video containers use Mediabunny through Node `FilePathSource`; AVI, WMV/ASF, and FLV use Quack's metadata-only legacy container readers. No external `ffprobe`/`mediainfo` binary is required. Mediabunny is included under MPL-2.0. This metadata includes dimensions, duration, format information, and other technical details that can be useful for optimization and runtime loading decisions.
 
 ## Supported Media Types
 
@@ -139,9 +139,12 @@ interface VideoMetadata {
 
 - MP4/MOV/M4V metadata is read through Mediabunny's ISO BMFF/QuickTime support. Width and height are display dimensions, so rotation and pixel aspect ratio are already reflected when the container exposes them.
 - WebM/MKV metadata is read through Mediabunny's Matroska/WebM support, including track dimensions, codec ID, duration, frame-rate packet stats, and audio-track presence.
-- `frameRate` is Mediabunny's average video packet rate from `computePacketStats(100, { skipLiveWait: true })`.
+- `frameRate` for Mediabunny-backed containers is the average video packet rate from `computePacketStats(100, { skipLiveWait: true })`.
 - `codec` prefers Mediabunny's container-internal codec ID, then codec parameter string, then normalized codec.
-- AVI, WMV, and FLV currently remain format-only fallbacks. Their width, height, duration, frame rate, codec, and audio-track fields may stay `0`/`undefined`.
+- AVI metadata is read from RIFF `avih` and stream `strh`/`strf` chunks, including dimensions, duration, frame rate, codec FourCC, and audio-stream presence.
+- WMV metadata is read from ASF file, stream, and codec-list objects, including dimensions, duration, bitrate, frame rate, codec, and audio-stream presence when present in the header.
+- FLV metadata is read from `onMetaData` script tags, FLV tag headers, and AVC sequence headers when available; duration falls back to the final tag timestamp.
+- If a supported extension cannot be structurally parsed, Quack keeps the format name and leaves numeric fields at `0`/`undefined`; treat that as an asset QA signal.
 
 ```typescript
 const metadata = await extractor.extractMetadata('video.mp4')
@@ -388,7 +391,7 @@ Planned improvements to media metadata extraction:
 ### Video Support
 
 - Subtitle track detection
-- AVI/WMV/FLV structured metadata parsing when a reliable dependency path is chosen
+- Deeper codec-specific dimension probing for legacy containers beyond container metadata
 
 ### Enhanced Audio
 

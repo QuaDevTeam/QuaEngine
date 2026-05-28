@@ -323,14 +323,14 @@ const asset = await detector.analyzeAsset(filePath, basePath)
 
 #### MediaMetadataExtractor
 
-Extracts metadata from media files. Image metadata uses Quack's lightweight header readers; audio/video metadata uses Mediabunny as a Node build-time dependency.
+Extracts metadata from media files. Image metadata uses Quack's lightweight header readers; modern audio/video metadata uses Mediabunny as a Node build-time dependency, with Quack metadata-only readers for AVI, WMV/ASF, and FLV.
 
 ```typescript
 const extractor = new MediaMetadataExtractor()
 const metadata = await extractor.extractMetadata(filePath)
 ```
 
-MP3, WAV, M4A, FLAC, AAC, OGG, MP4/MOV/M4V, and WebM/MKV expose structured duration and track metadata when the container provides it. AVI, WMV, and FLV currently remain format-only QA fallbacks. Mediabunny is included under MPL-2.0.
+MP3, WAV, M4A, FLAC, AAC, OGG, MP4/MOV/M4V, WebM/MKV, AVI, WMV/ASF, and FLV expose structured duration and track metadata when the container provides it. If parsing fails, Quack keeps format-level metadata with zero/undefined fields as an asset QA signal. Mediabunny is included under MPL-2.0.
 
 #### MetadataGenerator
 
