@@ -4,7 +4,7 @@ This document describes the media metadata extraction capabilities of Quack, inc
 
 ## Overview
 
-Quack automatically extracts metadata from media files during asset discovery and bundling. This metadata includes dimensions, duration, format information, and other technical details that can be useful for optimization and runtime loading decisions.
+Quack automatically extracts metadata from media files during asset discovery and bundling. Images use Quack's lightweight header readers; audio and video use Mediabunny through Node `FilePathSource`, with no external `ffprobe`/`mediainfo` binary requirement. Mediabunny is included under MPL-2.0. This metadata includes dimensions, duration, format information, and other technical details that can be useful for optimization and runtime loading decisions.
 
 ## Supported Media Types
 
@@ -91,9 +91,8 @@ interface AudioMetadata {
 
 #### WAV Metadata
 
-- Parsed from RIFF/WAVE headers
-- Extracts sample rate, channels, bit depth
-- Calculates duration from data size and byte rate
+- Read through Mediabunny's WAVE demuxer
+- Extracts sample rate, channels, duration, and bitrate when available
 
 ```typescript
 const metadata = await extractor.extractMetadata('audio.wav')
@@ -104,40 +103,50 @@ console.log(`Channels: ${metadata.channels}`)
 
 #### MP3 Metadata
 
-- Currently provides estimated values
-- Duration estimated from file size and assumed bitrate
-- Future versions will include full MP3 frame parsing
+- Read through Mediabunny's MP3 demuxer
+- Uses Mediabunny duration computation first, then container/tag metadata as fallback
+- Extracts sample rate, channel count, and average bitrate when available
 
 ```typescript
 const metadata = await extractor.extractMetadata('music.mp3')
-console.log(`MP3: ${metadata.duration}s (estimated)`)
-console.log(`Bitrate: ${metadata.bitrate} bps (estimated)`)
+console.log(`MP3: ${metadata.duration}s`)
+console.log(`Bitrate: ${metadata.bitrate} bps`)
 ```
+
+#### Other Audio Metadata
+
+- M4A is read through the ISO BMFF audio track
+- FLAC, AAC, OGG/Vorbis, and OGG/Opus are read through Mediabunny's format demuxers
+- If a supported extension cannot be structurally parsed, Quack keeps the format name and leaves numeric fields at `0`/`undefined`; treat that as an asset QA signal
 
 ### Video Files
 
-**Supported formats:** MP4, WebM, AVI, MOV, MKV, WMV, FLV
+**Supported formats:** MP4, WebM, AVI, MOV, MKV, M4V, WMV, FLV
 
 ```typescript
 interface VideoMetadata {
-  width: number // Video width in pixels
-  height: number // Video height in pixels
+  width: number // Display width in pixels
+  height: number // Display height in pixels
   aspectRatio: number // Width/height ratio
   duration: number // Duration in seconds
   format: string // Format name (MP4, WebM, etc.)
-  frameRate?: number // Frames per second
+  frameRate?: number // Average packet rate in frames per second
   bitrate?: number // Video bitrate in bits per second
   hasAudio?: boolean // True if video contains audio track
   codec?: string // Video codec name
 }
 ```
 
-**Note:** Video metadata extraction is currently limited to format detection. Full metadata extraction requires additional dependencies and will be implemented in future versions.
+- MP4/MOV/M4V metadata is read through Mediabunny's ISO BMFF/QuickTime support. Width and height are display dimensions, so rotation and pixel aspect ratio are already reflected when the container exposes them.
+- WebM/MKV metadata is read through Mediabunny's Matroska/WebM support, including track dimensions, codec ID, duration, frame-rate packet stats, and audio-track presence.
+- `frameRate` is Mediabunny's average video packet rate from `computePacketStats(100, { skipLiveWait: true })`.
+- `codec` prefers Mediabunny's container-internal codec ID, then codec parameter string, then normalized codec.
+- AVI, WMV, and FLV currently remain format-only fallbacks. Their width, height, duration, frame rate, codec, and audio-track fields may stay `0`/`undefined`.
 
 ```typescript
 const metadata = await extractor.extractMetadata('video.mp4')
-console.log(`MP4: ${metadata.format}`)
-// Width, height, duration currently return 0
+console.log(`MP4: ${metadata.width}x${metadata.height}, ${metadata.duration}s`)
+console.log(`Codec: ${metadata.codec}`)
 ```
 
 ## Usage Examples
@@ -378,14 +387,11 @@ Planned improvements to media metadata extraction:
 
 ### Video Support
 
-- Full MP4/MOV container parsing
-- Codec detection (H.264, H.265, VP9, etc.)
-- Audio track analysis
 - Subtitle track detection
+- AVI/WMV/FLV structured metadata parsing when a reliable dependency path is chosen
 
 ### Enhanced Audio
 
-- Full MP3 frame parsing for accurate duration
 - Metadata tags (ID3, Vorbis comments)
 - Audio quality analysis
 - Peak/RMS level detection
@@ -399,7 +405,5 @@ Planned improvements to media metadata extraction:
 
 ### Performance
 
-- Streaming parsers for large files
 - Worker thread support
 - Progressive metadata loading
-- Smart file sampling for estimates

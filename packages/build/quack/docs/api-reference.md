@@ -114,15 +114,15 @@ class MediaMetadataExtractor {
 
 ##### `extractMetadata(filePath: string): Promise<MediaMetadata | null>`
 
-Extracts media-specific metadata from supported file types.
+Extracts media-specific metadata from supported file types. Image metadata is read by Quack's lightweight image header readers; audio/video metadata is read by Mediabunny in Node.
 
 **Supported formats:**
 
 - **Images**: PNG, JPEG, GIF, WebP, BMP, SVG
 - **Audio**: MP3, WAV, OGG, M4A, FLAC, AAC
-- **Video**: MP4, WebM, AVI, MOV, MKV, WMV, FLV
+- **Video**: MP4, WebM, AVI, MOV, MKV, M4V, WMV, FLV
 
-**Returns:** Format-specific metadata or null if unsupported
+**Returns:** Format-specific metadata or null if unsupported. MP3, WAV, M4A, FLAC, AAC, OGG, MP4/MOV/M4V, and WebM/MKV expose structured duration and track metadata when parsable. AVI, WMV, and FLV may return only format-level metadata with zero dimensions/duration. Mediabunny is included under MPL-2.0.
 
 **Example:**
 

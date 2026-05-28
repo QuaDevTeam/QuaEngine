@@ -173,9 +173,9 @@ Quack automatically detects and categorizes assets:
   - Subtypes: `bgm`, `sfx`, `voice`
   - Metadata: duration, format, bitrate, sample rate, channels
 
-- **Video** (`.mp4`, `.webm`, `.avi`, `.mov`, `.mkv`, `.wmv`, `.flv`)
+- **Video** (`.mp4`, `.webm`, `.avi`, `.mov`, `.mkv`, `.m4v`, `.wmv`, `.flv`)
   - Subtypes: `cutscenes`, `effects`, `intro`
-  - Metadata: width, height, aspect ratio, duration, format, frame rate
+  - Metadata: width, height, aspect ratio, duration, format, frame rate, codec, audio-track presence
 
 - **Scripts** (`.js`, `.mjs`)
   - Subtypes: `logic`
@@ -323,12 +323,14 @@ const asset = await detector.analyzeAsset(filePath, basePath)
 
 #### MediaMetadataExtractor
 
-Extracts metadata from media files.
+Extracts metadata from media files. Image metadata uses Quack's lightweight header readers; audio/video metadata uses Mediabunny as a Node build-time dependency.
 
 ```typescript
 const extractor = new MediaMetadataExtractor()
 const metadata = await extractor.extractMetadata(filePath)
 ```
+
+MP3, WAV, M4A, FLAC, AAC, OGG, MP4/MOV/M4V, and WebM/MKV expose structured duration and track metadata when the container provides it. AVI, WMV, and FLV currently remain format-only QA fallbacks. Mediabunny is included under MPL-2.0.
 
 #### MetadataGenerator
 
