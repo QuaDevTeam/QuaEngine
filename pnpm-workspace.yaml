@@ -57,6 +57,7 @@ catalog:
   inquirer: ^13.4.3
   lzma-native: ^8.0.6
   lzma-web: ^3.0.1
+  mediabunny: ^1.45.4
   mime-types: ^3.0.2
   react: ^19.2.6
   react-dom: ^19.2.6

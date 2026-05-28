@@ -57,6 +57,7 @@
     "commander": "catalog:",
     "glob": "catalog:",
     "lzma-native": "catalog:",
+    "mediabunny": "catalog:",
     "mime-types": "catalog:",
     "sharp": "catalog:",
     "typescript": "catalog:",
