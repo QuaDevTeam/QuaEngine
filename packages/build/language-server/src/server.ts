@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import type { QuaScriptTextEdit, QuaScriptToolingConfig, SourceRange } from '@quajs/script-compiler'
-import type { InitializeParams } from 'vscode-languageserver/node'
+import type { InitializeParams, Range, TextEdit } from 'vscode-languageserver/node'
 import { pathToFileURL } from 'node:url'
 import { loadQuaScriptToolingConfig, mergeQuaScriptToolingConfig } from '@quajs/script-compiler'
 import { TextDocument } from 'vscode-languageserver-textdocument'
@@ -13,10 +13,8 @@ import {
   Location,
   MarkupKind,
   ProposedFeatures,
-  Range,
   TextDocuments,
   TextDocumentSyncKind,
-  TextEdit,
 } from 'vscode-languageserver/node'
 import {
   formatQuaScriptDocumentEdits,

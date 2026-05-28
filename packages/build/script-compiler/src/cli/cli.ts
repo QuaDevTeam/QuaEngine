@@ -316,7 +316,7 @@ async function runLint(options: LintOptions): Promise<number> {
 
   const totals = summarizeLintResults(results)
   if (options.json) {
-    console.log(JSON.stringify({ ...totals, files: results }, null, 2))
+    process.stdout.write(`${JSON.stringify({ ...totals, files: results }, null, 2)}\n`)
   }
   else {
     printLintResults(results, projectRoot)
@@ -504,7 +504,7 @@ function printLintResults(results: readonly LintFileResult[], projectRoot: strin
     for (const diagnostic of result.diagnostics) {
       const line = (diagnostic.range?.start.line ?? 0) + 1
       const column = (diagnostic.range?.start.column ?? 0) + 1
-      console.log(`${formatPath(result.filePath, projectRoot)}:${line}:${column} ${diagnostic.severity} ${diagnostic.code} ${diagnostic.message}`)
+      process.stdout.write(`${formatPath(result.filePath, projectRoot)}:${line}:${column} ${diagnostic.severity} ${diagnostic.code} ${diagnostic.message}\n`)
     }
   }
 }

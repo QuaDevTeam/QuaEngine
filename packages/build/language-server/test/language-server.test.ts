@@ -1,8 +1,8 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
 import { applyQuaScriptTextEdits } from '@quajs/script-compiler'
+import { describe, expect, it } from 'vitest'
 import {
   analyzeQuaScript,
   formatQuaScriptDocumentEdits,
@@ -227,6 +227,22 @@ Yuki: Hello \${displayName}
     const definitions = getQuaScriptDefinitions(source, { line: 5, character: 22 })
     expect(definitions[0]?.range.start.line).toBe(2)
     expect(definitions[0]?.range.start.column).toBe(6)
+  })
+
+  it('maps template expression definitions back to the original qs source', () => {
+    const source = `
+<script lang="ts">
+export interface Scope {
+  playerName: string
+}
+</script>
+
+Yuki: Hello \${scope.playerName.toUpperCase()}
+`
+    const definitions = getQuaScriptDefinitions(source, { line: 7, character: 22 })
+
+    expect(definitions[0]?.range.start.line).toBe(3)
+    expect(definitions[0]?.range.start.column).toBe(2)
   })
 
   it('does not treat choice text before an arrow as a condition expression', async () => {
@@ -552,7 +568,7 @@ Yuki: Hello
 
     expect(actions).toHaveLength(1)
     expect(actions[0]?.title).toBe('Expand choice sugar to @Choice')
-    expect(actions[0]?.edit.newText).toBe("@Choice('Go', scene('dorm', { entry: 'night' }), { when: canGo })")
+    expect(actions[0]?.edit.newText).toBe('@Choice(\'Go\', scene(\'dorm\', { entry: \'night\' }), { when: canGo })')
   })
 
   it('expands choice sugar with correct edit offsets in CRLF documents', () => {
@@ -564,7 +580,7 @@ Yuki: Hello
     expect(edit?.range.end.offset).toBe('Yuki: Choose\r\n- Go -> scene:dorm#night if canGo'.length)
     expect(applyQuaScriptTextEdits(source, edit ? [edit] : [])).toBe([
       'Yuki: Choose\r\n',
-      "@Choice('Go', scene('dorm', { entry: 'night' }), { when: canGo })",
+      '@Choice(\'Go\', scene(\'dorm\', { entry: \'night\' }), { when: canGo })',
       '\r\nYuki: Done\r\n',
     ].join(''))
   })
@@ -619,7 +635,7 @@ Yuki: Choose.
 
     const analysis = await analyzeQuaScript(source, {
       extraFiles: {
-        [join(projectRoot, 'dorm.qs')]: "@Scene('dorm')\n@Node('dorm')\nYuki: Dorm.",
+        [join(projectRoot, 'dorm.qs')]: '@Scene(\'dorm\')\n@Node(\'dorm\')\nYuki: Dorm.',
         [join(projectRoot, 'runtime-extra.json')]: JSON.stringify({
           runtimePackage: {
             id: 'runtime.extra',
@@ -701,7 +717,7 @@ Yuki: Choose.
 Yuki: Back.
 `
     const extraPath = join(projectRoot, 'library.qs')
-    const extraSource = "@Scene('dorm')\n@Node('library')\nYuki: Library."
+    const extraSource = '@Scene(\'dorm\')\n@Node(\'library\')\nYuki: Library.'
 
     const libraryDefinition = getQuaScriptDefinitions(source, positionOf(source, 'library'), {
       extraFiles: { [extraPath]: extraSource },

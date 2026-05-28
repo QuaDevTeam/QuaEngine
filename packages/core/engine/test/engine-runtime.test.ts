@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createViewLayoutProjection,
   emitRenderToLogic,
+  getPluginRegistry,
   getUiOverlayHostProjection,
   LogicToRenderEvents,
   onLogicToRender,
@@ -159,6 +160,172 @@ describe('quaEngine runtime architecture', () => {
       source: 'script',
       phase: 'step:run',
     })])
+  })
+
+  it('reports plugin init failures with stack and rolls back plugin registration', async () => {
+    const engine = createEngine()
+    const errors: any[] = []
+    onLogicToRender(engine.getPipeline(), LogicToRenderEvents.SYSTEM_ERROR, payload => errors.push(payload))
+    const cleanup = vi.fn()
+    const setupError = new Error('plugin setup failed')
+    const healthyPlugin: EnginePlugin = {
+      name: 'healthy-plugin',
+      init() {},
+      destroy: cleanup,
+      registerAPIs: () => ({
+        pluginName: 'healthy-plugin',
+        apis: [],
+        decorators: {
+          HealthyDecorator: {
+            function: 'healthy',
+            module: 'healthy-plugin',
+          },
+        },
+      }),
+    }
+    const failingPlugin: EnginePlugin = {
+      name: 'failing-plugin',
+      init() {
+        throw setupError
+      },
+    }
+
+    engine.use(healthyPlugin)
+    engine.use(failingPlugin)
+
+    await expect(engine.init()).rejects.toThrow('plugin setup failed')
+
+    expect(cleanup).toHaveBeenCalledTimes(1)
+    expect(getPluginRegistry().hasDecorator('HealthyDecorator')).toBe(false)
+    await expect(engine.dialogue([])).rejects.toThrow('Engine not initialized')
+    expect(errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: 'Failed to initialize plugin "failing-plugin".',
+        source: 'plugin',
+        phase: 'engine-plugin:init',
+        error: expect.objectContaining({
+          message: 'plugin setup failed',
+          stack: expect.stringContaining('plugin setup failed'),
+        }),
+        metadata: expect.objectContaining({
+          pluginName: 'failing-plugin',
+        }),
+      }),
+    ]))
+  })
+
+  it('reports plugin hook failures with hook context before rejecting the step', async () => {
+    const engine = createEngine()
+    engine.use({
+      name: 'hook-failure-plugin',
+      init() {},
+      onStep() {
+        throw new Error('plugin hook exploded')
+      },
+    })
+    await engine.init()
+    const errors: any[] = []
+    onLogicToRender(engine.getPipeline(), LogicToRenderEvents.SYSTEM_ERROR, payload => errors.push(payload))
+
+    await expect(engine.dialogue([createDialogueStep('plugin-hook-step', 'Hook line', {
+      sceneId: 'plugin-scene',
+    })])).rejects.toThrow('plugin hook exploded')
+
+    expect(errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: 'Plugin "hook-failure-plugin" failed during "onStep".',
+        source: 'plugin',
+        phase: 'engine-plugin:onStep',
+        error: expect.objectContaining({
+          message: 'plugin hook exploded',
+          stack: expect.stringContaining('plugin hook exploded'),
+        }),
+        metadata: expect.objectContaining({
+          pluginName: 'hook-failure-plugin',
+          hook: 'onStep',
+          sceneName: 'plugin-scene',
+          stepId: 'plugin-hook-step',
+        }),
+      }),
+    ]))
+  })
+
+  it('reports plugin destroy failures during unuse and still unregisters the plugin', async () => {
+    const engine = createEngine()
+    const errors: any[] = []
+    onLogicToRender(engine.getPipeline(), LogicToRenderEvents.SYSTEM_ERROR, payload => errors.push(payload))
+    engine.use({
+      name: 'destroy-failure-plugin',
+      init() {},
+      destroy() {
+        throw new Error('plugin destroy failed')
+      },
+      registerAPIs: () => ({
+        pluginName: 'destroy-failure-plugin',
+        apis: [],
+        decorators: {
+          DestroyFailureDecorator: {
+            function: 'destroyFailure',
+            module: 'destroy-failure-plugin',
+          },
+        },
+      }),
+    })
+    await engine.init()
+
+    await engine.unuse('destroy-failure-plugin')
+
+    expect(getPluginRegistry().hasDecorator('DestroyFailureDecorator')).toBe(false)
+    expect(errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: 'Failed to destroy plugin "destroy-failure-plugin" during unuse.',
+        source: 'plugin',
+        phase: 'engine-plugin:destroy',
+        error: expect.objectContaining({
+          message: 'plugin destroy failed',
+          stack: expect.stringContaining('plugin destroy failed'),
+        }),
+        metadata: expect.objectContaining({
+          pluginName: 'destroy-failure-plugin',
+          reason: 'unuse',
+        }),
+      }),
+    ]))
+  })
+
+  it('reports plugin destroy failures during engine destroy and continues cleanup', async () => {
+    const engine = createEngine()
+    const secondDestroy = vi.fn()
+    const errors: any[] = []
+    onLogicToRender(engine.getPipeline(), LogicToRenderEvents.SYSTEM_ERROR, payload => errors.push(payload))
+    engine.use({
+      name: 'destroy-crashes-plugin',
+      init() {},
+      destroy() {
+        throw new Error('destroy crashed')
+      },
+    })
+    engine.use({
+      name: 'destroy-continues-plugin',
+      init() {},
+      destroy: secondDestroy,
+    })
+    await engine.init()
+
+    await engine.destroy()
+
+    expect(secondDestroy).toHaveBeenCalledTimes(1)
+    expect(errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: 'Failed to destroy plugin "destroy-crashes-plugin".',
+        source: 'plugin',
+        phase: 'engine-plugin:destroy',
+        metadata: expect.objectContaining({
+          pluginName: 'destroy-crashes-plugin',
+          reason: 'destroy',
+        }),
+      }),
+    ]))
   })
 
   it('bridges renderer errors into engine-owned system error events', async () => {

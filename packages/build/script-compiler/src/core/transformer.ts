@@ -745,13 +745,17 @@ export class QuaScriptTransformer {
     options: {
       quasi?: t.TemplateLiteral
       scopeIdentifier?: t.Identifier
+      sourceRangeOffset?: SourceRangeOffset
     } = {},
   ): t.ObjectExpression {
-    const textExpression = this.createTextExpression(option.text, option.templateExpressions, options)
+    const textExpression = this.createTextExpression(option.text, option.templateExpressions, {
+      ...options,
+      templateExpressionRanges: option.templateExpressionRanges,
+    })
     const targetExpression = this.createChoiceTargetExpression(option)
     const choiceOptions = this.createChoiceOptionsExpression(option, options)
     const enabledExpression = option.condition
-      ? this.parseExpression(option.condition, options.scopeIdentifier)
+      ? this.parseExpression(option.condition, options.scopeIdentifier, option.conditionRange, options.sourceRangeOffset)
       : getObjectPropertyExpression(choiceOptions, 'when') || t.booleanLiteral(true)
     const idExpression = getObjectPropertyExpression(choiceOptions, 'id') || t.stringLiteral(option.id || this.createStaticChoiceId(option))
     const unavailable = getObjectPropertyExpression(choiceOptions, 'unavailable')
@@ -792,7 +796,7 @@ export class QuaScriptTransformer {
 
   private createChoiceOptionsExpression(
     option: QuaScriptChoice['options'][number],
-    options: { scopeIdentifier?: t.Identifier } = {},
+    options: { scopeIdentifier?: t.Identifier, sourceRangeOffset?: SourceRangeOffset } = {},
   ): t.ObjectExpression {
     const source = option.options
     const properties: t.ObjectProperty[] = []
@@ -805,7 +809,7 @@ export class QuaScriptTransformer {
       return t.objectExpression([t.objectProperty(t.identifier('metadata'), source)])
     }
     if (option.condition && !properties.some(property => getObjectKeyName(property.key) === 'when')) {
-      properties.push(t.objectProperty(t.identifier('when'), this.parseExpression(option.condition, options.scopeIdentifier)))
+      properties.push(t.objectProperty(t.identifier('when'), this.parseExpression(option.condition, options.scopeIdentifier, option.conditionRange, options.sourceRangeOffset)))
     }
     return t.objectExpression(properties)
   }
@@ -1018,7 +1022,12 @@ export class QuaScriptTransformer {
     return t.identifier('undefined')
   }
 
-  private parseExpression(source: string, scopeIdentifier?: t.Identifier): t.Expression {
+  private parseExpression(
+    source: string,
+    scopeIdentifier?: t.Identifier,
+    sourceRange?: SourceRange,
+    sourceRangeOffset?: SourceRangeOffset,
+  ): t.Expression {
     try {
       const parsed = parse(`(${source})`, {
         sourceType: 'module',
@@ -1029,7 +1038,7 @@ export class QuaScriptTransformer {
         t.isExpressionStatement(statement)
         && t.isExpression(statement.expression)
       ) {
-        return statement.expression
+        return inheritSourceRange(statement.expression, sourceRange, sourceRangeOffset)
       }
     }
     catch (error) {
@@ -1101,6 +1110,8 @@ export class QuaScriptTransformer {
     options: {
       quasi?: t.TemplateLiteral
       scopeIdentifier?: t.Identifier
+      sourceRangeOffset?: SourceRangeOffset
+      templateExpressionRanges?: readonly SourceRange[]
     } = {},
   ): t.Expression {
     void options.quasi
@@ -1113,7 +1124,12 @@ export class QuaScriptTransformer {
     parts.forEach((part, index) => {
       values.push(t.stringLiteral(part))
       if (index < templateExpressions.length) {
-        values.push(this.parseExpression(templateExpressions[index], options.scopeIdentifier))
+        values.push(this.parseExpression(
+          templateExpressions[index],
+          options.scopeIdentifier,
+          options.templateExpressionRanges?.[index],
+          options.sourceRangeOffset,
+        ))
       }
     })
 
@@ -1132,9 +1148,13 @@ export class QuaScriptTransformer {
     options: {
       quasi?: t.TemplateLiteral
       scopeIdentifier?: t.Identifier
+      sourceRangeOffset?: SourceRangeOffset
     } = {},
   ): t.CallExpression {
-    const textExpression = this.createTextExpression(dialogue.text, dialogue.templateExpressions, options)
+    const textExpression = this.createTextExpression(dialogue.text, dialogue.templateExpressions, {
+      ...options,
+      templateExpressionRanges: dialogue.templateExpressionRanges,
+    })
 
     this.usedRuntimeHelpers.add('speakWithEngine')
     return t.callExpression(
