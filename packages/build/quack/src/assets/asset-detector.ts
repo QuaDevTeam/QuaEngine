@@ -72,7 +72,7 @@ const ASSET_PATTERNS = {
     },
   },
   video: {
-    extensions: ['.mp4', '.webm', '.avi', '.mov', '.mkv', '.wmv', '.flv'],
+    extensions: ['.mp4', '.webm', '.avi', '.mov', '.mkv', '.m4v', '.wmv', '.flv'],
     subTypes: {
       cutscenes: ['cutscene', 'cutscenes', 'movie', 'cinema'],
       effects: ['effect', 'effects', 'fx', 'particle'],
@@ -566,6 +566,7 @@ function validateVideoBuffer(buffer: Buffer, extension: string): boolean {
   switch (extension) {
     case '.mp4':
     case '.mov':
+    case '.m4v':
       return hasMp4Ftyp(buffer)
     case '.webm':
     case '.mkv':
