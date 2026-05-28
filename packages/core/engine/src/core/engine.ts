@@ -101,6 +101,7 @@ import {
 import { GameManager } from '../managers/game-manager'
 import { SceneManager } from '../managers/scene-manager'
 import { PluginContextImpl } from '../plugins/core/context'
+import { getPluginRegistry } from '../plugins/core/registry'
 import { RuntimeContentManager } from '../runtime-content/manager'
 import { createRollbackConfig, isSerializedRollbackJournal, RollbackController } from './rollback'
 import { resolveGameSteps } from './script'
@@ -236,11 +237,30 @@ export class QuaEngine {
       logger.warn('Engine already initialized')
       return
     }
+    this.assertNotDestroyed()
 
-    await Promise.all([
-      this.assets.initialize(),
-      this.initializePlugins(),
-    ])
+    let pluginsInitializationStarted = false
+    try {
+      await this.assets.initialize()
+      pluginsInitializationStarted = true
+      await this.initializePlugins()
+    }
+    catch (error) {
+      await this.reportErrorOnce(error, {
+        message: pluginsInitializationStarted
+          ? 'QuaEngine initialization failed during plugin setup.'
+          : 'QuaEngine initialization failed during asset setup.',
+        source: 'engine',
+        phase: pluginsInitializationStarted ? 'engine:init:plugins' : 'engine:init:assets',
+        metadata: {
+          pluginsInitializationStarted,
+        },
+      })
+      await this.cleanupFailedInit(error, {
+        pluginsInitializationStarted,
+      })
+      throw error
+    }
 
     this.isInitialized = true
     if (this.config.playtime?.autoStart !== false) {
@@ -311,7 +331,7 @@ export class QuaEngine {
     if (!plugin) {
       return
     }
-    await plugin.destroy?.()
+    await this.destroyPlugin(plugin, 'unuse')
     this.plugins.delete(pluginName)
     this.pluginContext.unregisterPlugin(plugin)
   }
@@ -1787,13 +1807,20 @@ export class QuaEngine {
     this.currentStepAbortController?.abort()
     this.clearFlowControlAdvance()
     while (this.flowControlDisposers.length > 0) {
-      this.flowControlDisposers.pop()?.()
+      try {
+        this.flowControlDisposers.pop()?.()
+      }
+      catch (error) {
+        await this.reportErrorOnce(error, {
+          message: 'Engine flow-control disposer failed during destroy.',
+          source: 'plugin',
+          phase: 'engine:destroy:flow-control-disposer',
+        })
+      }
     }
     await this.runtimeContentManager.destroy()
     await this.sceneManager.destroy()
-    for (const plugin of this.plugins.values()) {
-      await plugin.destroy?.()
-    }
+    await this.destroyRegisteredPlugins('destroy')
     this.gameManager.destroy()
     await this.assets.cleanup()
     this.plugins.clear()
@@ -1816,12 +1843,75 @@ export class QuaEngine {
   }
 
   private async initializePlugins(): Promise<void> {
-    await Promise.all(Array.from(this.plugins.values()).map(plugin => this.initializePlugin(plugin)))
+    const failures: unknown[] = []
+    for (const plugin of this.plugins.values()) {
+      try {
+        await this.initializePlugin(plugin)
+      }
+      catch (error) {
+        await this.reportErrorOnce(error, {
+          message: `Failed to initialize plugin "${plugin.name}".`,
+          source: 'plugin',
+          phase: 'engine-plugin:init',
+          metadata: { pluginName: plugin.name },
+        })
+        failures.push(error)
+      }
+    }
+
+    if (failures.length > 0) {
+      throw failures[0]
+    }
+  }
+
+  private async cleanupFailedInit(
+    cause: unknown,
+    options: {
+      pluginsInitializationStarted: boolean
+    },
+  ): Promise<void> {
+    await this.assets.cleanup().catch((cleanupError) => {
+      void this.reportError(cleanupError, {
+        message: 'Failed to clean up assets after engine initialization failure.',
+        source: 'engine',
+        phase: 'engine:init:cleanup',
+        metadata: { cause: createSerializableErrorSummary(cause) },
+      })
+    })
+    if (options.pluginsInitializationStarted) {
+      await this.destroyRegisteredPlugins('init-rollback')
+      this.plugins.clear()
+      this.pluginContext.clear()
+    }
+    this.isInitialized = false
   }
 
   private async initializePlugin(plugin: EnginePlugin): Promise<void> {
     const context = this.createEngineContext()
     await plugin.init(context)
+  }
+
+  private async destroyRegisteredPlugins(reason: 'destroy' | 'init-rollback'): Promise<void> {
+    for (const plugin of Array.from(this.plugins.values()).reverse()) {
+      await this.destroyPlugin(plugin, reason)
+    }
+  }
+
+  private async destroyPlugin(plugin: EnginePlugin, reason: 'destroy' | 'init-rollback' | 'unuse'): Promise<void> {
+    try {
+      await plugin.destroy?.()
+    }
+    catch (error) {
+      await this.reportErrorOnce(error, {
+        message: `Failed to destroy plugin "${plugin.name}"${reason === 'unuse' ? ' during unuse' : reason === 'init-rollback' ? ' during init rollback' : ''}.`,
+        source: 'plugin',
+        phase: 'engine-plugin:destroy',
+        metadata: { pluginName: plugin.name, reason },
+      })
+    }
+    finally {
+      getPluginRegistry().unregisterPlugin(plugin.name)
+    }
   }
 
   private registerPluginInstance(plugin: EnginePlugin): boolean {
@@ -1836,18 +1926,66 @@ export class QuaEngine {
   }
 
   private async notifyPluginsOnStep(stepContext: StepContext): Promise<void> {
-    await Promise.all(Array.from(this.plugins.values())
-      .filter(plugin => plugin.onStep)
-      .map(plugin => plugin.onStep!(this.createEngineContext(stepContext.stepId, { point: stepContext.point }))))
+    await this.notifyPluginsSequential(
+      'onStep',
+      stepContext.stepId,
+      stepContext.point,
+      plugin => plugin.onStep,
+      (plugin, context) => plugin.onStep!(context),
+    )
   }
 
   private async notifyPlugins(
     hook: 'onStepStart' | 'onStepComplete' | 'onBeforeCheckpoint' | 'onAfterCheckpoint' | 'onBeforeJump' | 'onAfterJump' | 'onBeforeRollback' | 'onAfterRollback' | 'onRuntimePackageActivate' | 'onRuntimePackageUnload' | 'onRuntimePackageMigrate',
     context: EngineContext,
   ): Promise<void> {
-    await Promise.all(Array.from(this.plugins.values())
-      .filter(plugin => plugin[hook])
-      .map(plugin => plugin[hook]!(context)))
+    await this.notifyPluginsSequential(
+      hook,
+      context.stepId,
+      context.point,
+      plugin => plugin[hook],
+      (plugin, nextContext) => plugin[hook]!(nextContext),
+      context,
+    )
+  }
+
+  private async notifyPluginsSequential(
+    hook: string,
+    stepId: string | undefined,
+    point: StoryPoint | undefined,
+    predicate: (plugin: EnginePlugin) => unknown,
+    invoke: (plugin: EnginePlugin, context: EngineContext) => Promise<void> | void,
+    baseContext?: EngineContext,
+  ): Promise<void> {
+    const failures: unknown[] = []
+    for (const plugin of this.plugins.values()) {
+      if (!predicate(plugin)) {
+        continue
+      }
+
+      const context = baseContext || this.createEngineContext(stepId, { point })
+      try {
+        await invoke(plugin, context)
+      }
+      catch (error) {
+        await this.reportErrorOnce(error, {
+          message: `Plugin "${plugin.name}" failed during "${hook}".`,
+          source: 'plugin',
+          phase: `engine-plugin:${hook}`,
+          metadata: {
+            pluginName: plugin.name,
+            hook,
+            stepId,
+            sceneName: point?.sceneId,
+          },
+        })
+        failures.push(error)
+      }
+    }
+
+    if (failures.length > 0) {
+      throw failures[0]
+    }
   }
 
   async notifyRuntimePackageActivate(runtimePackage: RuntimePackageManifest, bundleName?: string): Promise<void> {
@@ -3686,4 +3824,17 @@ function cloneUnknownValue(value: unknown): unknown {
     return cloneUnknownRecord(value as Readonly<Record<string, unknown>>)
   }
   return value
+}
+
+function createSerializableErrorSummary(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    }
+  }
+  return {
+    message: typeof error === 'string' ? error : String(error),
+  }
 }

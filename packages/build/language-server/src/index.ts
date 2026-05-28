@@ -14,20 +14,21 @@ import { getDiscoveredLanguageContributions } from '@quajs/plugin-discovery'
 import {
   applyQuaScriptLintRules,
   collectQuaScriptStyleDiagnostics,
-  createPluginAwareTransformerAsync,
   createLineStarts,
+  createPluginAwareTransformerAsync,
   createQuaScriptLintResult,
   formatQuaScriptWithEdits,
   getQuaScriptFixAllEdits,
+  lintQuaScriptSource,
   loadProjectDecoratorMappings,
   parseQuaScriptDocument,
-  rangeFromOffsets,
   QuaScriptParser,
-  lintQuaScriptSource,
+  rangeFromOffsets,
   resolveBaseDecoratorMappings,
   resolveDecoratorMappingsForModuleSource,
 } from '@quajs/script-compiler'
 import ts from 'typescript'
+import { collectQuaScriptStoryDiagnostics, getQuaScriptStoryDefinitions, getQuaScriptStoryTargetCompletions } from './story-diagnostics'
 import {
   collectQuaScriptTypeScriptDiagnostics,
   createQuaScriptTypeScriptContext,
@@ -35,7 +36,6 @@ import {
   getTypeScriptDefinitionsAtSourcePosition,
   getTypeScriptHoverAtSourcePosition,
 } from './typescript-service'
-import { collectQuaScriptStoryDiagnostics, getQuaScriptStoryDefinitions, getQuaScriptStoryTargetCompletions } from './story-diagnostics'
 import { createQuaScriptVirtualDocument } from './virtual'
 
 export type { QuaScriptDefinition, QuaScriptHover } from './typescript-service'
@@ -375,13 +375,13 @@ function diagnosticTouchesPosition(diagnostic: QuaScriptDiagnostic, position: Qu
 
 function getChoiceHelperCompletions(): QuaScriptCompletionItem[] {
   return [
-    { label: 'node', insertText: 'node("${1:id}")', detail: 'Choice target helper', kind: 'function' },
-    { label: 'label', insertText: 'label("${1:id}")', detail: 'Choice target helper', kind: 'function' },
-    { label: 'scene', insertText: 'scene("${1:sceneId}", { entry: "${2:entry}" })', detail: 'Choice target helper', kind: 'function' },
-    { label: 'script', insertText: 'script("${1:moduleId}", { nodeId: "${2:nodeId}" })', detail: 'Choice target helper', kind: 'function' },
-    { label: 'packageNode', insertText: 'packageNode("${1:packageId}", "${2:nodeId}")', detail: 'Choice target helper', kind: 'function' },
-    { label: 'checkpoint', insertText: 'checkpoint("${1:id}")', detail: 'Choice target helper', kind: 'function' },
-    { label: 'image', insertText: 'image("${1:asset.png}")', detail: 'Story asset reference helper', kind: 'function' },
+    { label: 'node', insertText: ['node("', snippetPlaceholder('1:id'), '")'].join(''), detail: 'Choice target helper', kind: 'function' },
+    { label: 'label', insertText: ['label("', snippetPlaceholder('1:id'), '")'].join(''), detail: 'Choice target helper', kind: 'function' },
+    { label: 'scene', insertText: ['scene("', snippetPlaceholder('1:sceneId'), '", { entry: "', snippetPlaceholder('2:entry'), '" })'].join(''), detail: 'Choice target helper', kind: 'function' },
+    { label: 'script', insertText: ['script("', snippetPlaceholder('1:moduleId'), '", { nodeId: "', snippetPlaceholder('2:nodeId'), '" })'].join(''), detail: 'Choice target helper', kind: 'function' },
+    { label: 'packageNode', insertText: ['packageNode("', snippetPlaceholder('1:packageId'), '", "', snippetPlaceholder('2:nodeId'), '")'].join(''), detail: 'Choice target helper', kind: 'function' },
+    { label: 'checkpoint', insertText: ['checkpoint("', snippetPlaceholder('1:id'), '")'].join(''), detail: 'Choice target helper', kind: 'function' },
+    { label: 'image', insertText: ['image("', snippetPlaceholder('1:asset.png'), '")'].join(''), detail: 'Story asset reference helper', kind: 'function' },
   ]
 }
 
@@ -518,7 +518,7 @@ function findCompilerDiagnosticRange(
   parsed: ReturnType<QuaScriptParser['parse']>,
   message: string,
 ): SourceRange | undefined {
-  const decoratorMatch = message.match(/@([A-Za-z_]\w*)/)
+  const decoratorMatch = message.match(/@([A-Z_]\w*)/i)
   if (!decoratorMatch) {
     return undefined
   }
@@ -688,11 +688,22 @@ function isDecoratorContext(beforeCursor: string): boolean {
 
 function isChoiceHelperContext(beforeCursor: string): boolean {
   return /@Choice\([^)]*$/.test(beforeCursor)
-    && /(?:^|[,\s])([A-Za-z_$][\w$]*)?$/.test(beforeCursor)
+    && /(?:^|[,\s])(?:[A-Z_$][\w$]*)?$/i.test(beforeCursor)
 }
 
 function isChoiceTargetContext(beforeCursor: string): boolean {
-  return /^\s*-\s+.+->\s*[#\w:.-]*$/.test(beforeCursor)
+  const trimmed = beforeCursor.trimStart()
+  if (!trimmed.startsWith('- ')) {
+    return false
+  }
+
+  const arrowIndex = trimmed.indexOf('->')
+  if (arrowIndex < 0) {
+    return false
+  }
+
+  const target = trimmed.slice(arrowIndex + 2).trim()
+  return target.length === 0 || /^[#\w:.-]+$/.test(target)
 }
 
 function isImageAssetContext(beforeCursor: string): boolean {
@@ -700,12 +711,33 @@ function isImageAssetContext(beforeCursor: string): boolean {
 }
 
 function expandChoiceSugarLine(line: string): string | undefined {
-  const match = /^(\s*)-\s+(.+?)(?:\s*->\s*([^\s]+))?(?:\s+if\s+(.+))?\s*$/.exec(line)
-  if (!match) {
+  const indentMatch = /^\s*/.exec(line)
+  const indent = indentMatch?.[0] || ''
+  const body = line.slice(indent.length).trim()
+  if (!body.startsWith('- ')) {
     return undefined
   }
-  const [, indent, rawText, rawTarget, rawCondition] = match
-  const text = rawText.trim()
+
+  let content = body.slice(2).trim()
+  if (!content) {
+    return undefined
+  }
+
+  let rawCondition: string | undefined
+  const conditionIndex = content.lastIndexOf(' if ')
+  if (conditionIndex >= 0) {
+    rawCondition = content.slice(conditionIndex + 4).trim()
+    content = content.slice(0, conditionIndex).trim()
+  }
+
+  let rawTarget: string | undefined
+  const arrowIndex = content.indexOf('->')
+  if (arrowIndex >= 0) {
+    rawTarget = content.slice(arrowIndex + 2).trim()
+    content = content.slice(0, arrowIndex).trim()
+  }
+
+  const text = content.trim()
   if (!text) {
     return undefined
   }
@@ -719,23 +751,49 @@ function targetSugarToHelper(target: string): string {
   if (target.startsWith('#')) {
     return `label('${escapeSingleQuoted(target.slice(1))}')`
   }
-  const sceneMatch = /^scene:([^#\s]+)(?:#([^\s]+))?$/.exec(target)
-  if (sceneMatch) {
-    return sceneMatch[2]
-      ? `scene('${escapeSingleQuoted(sceneMatch[1])}', { entry: '${escapeSingleQuoted(sceneMatch[2])}' })`
-      : `scene('${escapeSingleQuoted(sceneMatch[1])}')`
+
+  const sceneTarget = splitHashTarget(target, 'scene:', false)
+  if (sceneTarget) {
+    return sceneTarget.fragment
+      ? `scene('${escapeSingleQuoted(sceneTarget.id)}', { entry: '${escapeSingleQuoted(sceneTarget.fragment)}' })`
+      : `scene('${escapeSingleQuoted(sceneTarget.id)}')`
   }
-  const packageMatch = /^package:([^#\s]+)#([^\s]+)$/.exec(target)
-  if (packageMatch) {
-    return `packageNode('${escapeSingleQuoted(packageMatch[1])}', '${escapeSingleQuoted(packageMatch[2])}')`
+
+  const packageTarget = splitHashTarget(target, 'package:', true)
+  if (packageTarget) {
+    return `packageNode('${escapeSingleQuoted(packageTarget.id)}', '${escapeSingleQuoted(packageTarget.fragment)}')`
   }
-  const scriptMatch = /^script:([^#\s]+)(?:#([^\s]+))?$/.exec(target)
-  if (scriptMatch) {
-    return scriptMatch[2]
-      ? `script('${escapeSingleQuoted(scriptMatch[1])}', { nodeId: '${escapeSingleQuoted(scriptMatch[2])}' })`
-      : `script('${escapeSingleQuoted(scriptMatch[1])}')`
+
+  const scriptTarget = splitHashTarget(target, 'script:', false)
+  if (scriptTarget) {
+    return scriptTarget.fragment
+      ? `script('${escapeSingleQuoted(scriptTarget.id)}', { nodeId: '${escapeSingleQuoted(scriptTarget.fragment)}' })`
+      : `script('${escapeSingleQuoted(scriptTarget.id)}')`
   }
   return `node('${escapeSingleQuoted(target)}')`
+}
+
+function splitHashTarget(
+  target: string,
+  prefix: string,
+  requireFragment: boolean,
+): { fragment: string, id: string } | undefined {
+  if (!target.startsWith(prefix)) {
+    return undefined
+  }
+
+  const value = target.slice(prefix.length)
+  const hashIndex = value.indexOf('#')
+  const id = hashIndex >= 0 ? value.slice(0, hashIndex) : value
+  const fragment = hashIndex >= 0 ? value.slice(hashIndex + 1) : ''
+  if (!id || /\s/.test(id) || (hashIndex >= 0 && (!fragment || /\s/.test(fragment)))) {
+    return undefined
+  }
+  if (requireFragment && hashIndex < 0) {
+    return undefined
+  }
+
+  return { id, fragment }
 }
 
 function slugChoiceId(text: string): string {
@@ -748,7 +806,11 @@ function slugChoiceId(text: string): string {
 }
 
 function escapeSingleQuoted(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+  return value.replace(/\\/g, '\\\\').replace(/'/g, '\\\'')
+}
+
+function snippetPlaceholder(value: string): string {
+  return ['$', '{', value, '}'].join('')
 }
 
 function sourceLineRangeAt(source: string, line: number, character: number): SourceRange {

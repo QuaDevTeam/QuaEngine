@@ -101,15 +101,16 @@ describe('quaScript CLI', () => {
   it('emits stable lint JSON and enforces max warnings', async () => {
     const root = mkdtempSync(join(tmpdir(), 'quascript-cli-'))
     const input = join(root, 'scene.qs')
-    const logs: string[] = []
+    const output: string[] = []
     writeFileSync(input, 'Yuki: Hello  ', 'utf-8')
-    vi.spyOn(console, 'log').mockImplementation((value: unknown) => {
-      logs.push(String(value))
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      output.push(String(chunk))
+      return true
     })
 
     await expect(runQuaScriptCli(['lint', input, '--json', '--max-warnings', '0'])).resolves.toBe(1)
 
-    const payload = JSON.parse(logs.join('\n')) as {
+    const payload = JSON.parse(output.join('')) as {
       files: Array<{ diagnostics: Array<{ code: string, source: string }> }>
       warningCount: number
     }
@@ -136,7 +137,7 @@ describe('quaScript CLI', () => {
     const root = mkdtempSync(join(tmpdir(), 'quascript-cli-'))
     const input = join(root, 'scene.qs')
     const languageServerPackage = join(root, 'node_modules/@quajs/language-server')
-    const logs: string[] = []
+    const output: string[] = []
     const cwd = process.cwd()
     mkdirSync(languageServerPackage, { recursive: true })
     writeFileSync(join(languageServerPackage, 'package.json'), JSON.stringify({
@@ -176,8 +177,9 @@ export async function lintQuaScript() {
       'Yuki: Hello $' + '{scope.missing}',
       '',
     ].join('\n'), 'utf-8')
-    vi.spyOn(console, 'log').mockImplementation((value: unknown) => {
-      logs.push(String(value))
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      output.push(String(chunk))
+      return true
     })
     vi.spyOn(console, 'warn').mockImplementation(() => {})
 
@@ -189,7 +191,7 @@ export async function lintQuaScript() {
       process.chdir(cwd)
     }
 
-    const payload = JSON.parse(logs.join('\n')) as {
+    const payload = JSON.parse(output.join('')) as {
       files: Array<{ diagnostics: Array<{ code: string, source: string }> }>
     }
     expect(payload.files[0]?.diagnostics).toEqual(expect.arrayContaining([
