@@ -783,7 +783,7 @@ describe('@quajs/renderer-web', () => {
       await flushMicrotasks()
 
       expect(createUrl).toHaveBeenCalled()
-      expect(play).toHaveBeenCalledTimes(1)
+      expect(play).toHaveBeenCalledTimes(2)
     }
     finally {
       await renderer.unmount()

@@ -76,6 +76,7 @@ export class DialogueTypewriterRuntime {
         lastSoundCharacter: 0,
         lastSoundAt: 0,
       }
+      this.prepareTypewriterSound(typewriter.sound)
     }
 
     const active = this.active
@@ -182,6 +183,13 @@ export class DialogueTypewriterRuntime {
     active.lastSoundCharacter = visibleCharacters
     active.lastSoundAt = now
     void audio.play().catch(() => {})
+  }
+
+  private prepareTypewriterSound(sound: Readonly<DialogueTypewriterSoundProjection> | undefined): void {
+    if (!sound?.assetKey) {
+      return
+    }
+    this.resolveSoundUrl(sound)
   }
 
   private resolveSoundUrl(sound: Readonly<DialogueTypewriterSoundProjection>): string | undefined {
