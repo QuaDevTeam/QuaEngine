@@ -15,6 +15,7 @@ import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
+import { runtimePackageCandidatesFromMetadata } from '../assets'
 
 type GalleryAssetRef = NonNullable<GalleryEntryProjectionItem['thumbnail']>
 
@@ -724,7 +725,14 @@ function bindStoryAsset(
   asset: GalleryAssetRef,
   attribute: 'src' | 'poster',
 ): void {
-  context.bindAssetUrl(element, asset.type as AssetType, asset.name, attribute, asset.runtimePackageId)
+  context.bindAssetUrl(element, asset.type as AssetType, asset.name, attribute, runtimePackageCandidatesFromGalleryAsset(asset))
+}
+
+function runtimePackageCandidatesFromGalleryAsset(asset: GalleryAssetRef): readonly string[] | undefined {
+  return runtimePackageCandidatesFromMetadata({
+    ...(asset.metadata || {}),
+    ...(asset.runtimePackageId ? { contentPackageId: asset.runtimePackageId } : {}),
+  })
 }
 
 function gallerySummaryText(model: GalleryProjectionModel): string {

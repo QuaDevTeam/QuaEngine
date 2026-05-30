@@ -5,7 +5,7 @@ import type {
   AchievementProjectionItem,
 } from '@quajs/plugin-achievement/contracts'
 import type { QuaViewProjection } from '@quajs/render-core'
-import type { RendererActions } from '@quajs/renderer-web'
+import type { RendererActions, WebAssetTargetPackageId } from '@quajs/renderer-web'
 import type { AchievementProjectionModel } from '@quajs/renderer-web/plugins/achievement'
 import type { Component, PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
@@ -16,6 +16,7 @@ import {
 import {
   createAchievementProjectionModel,
 } from '@quajs/renderer-web/plugins/achievement'
+import { runtimePackageCandidatesFromMetadata } from '@quajs/renderer-web'
 import { computed, defineComponent, h, onBeforeUnmount, watch } from 'vue'
 import { useAssetUrl, usePluginProjection, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
@@ -23,6 +24,18 @@ import { defineVueRendererPlugin } from '../core'
 
 type AchievementAssetRef = NonNullable<AchievementProjectionItem['icon']>
 let QuaAchievementCard: Component
+
+function runtimePackageCandidatesFromAchievementAsset(
+  asset: { runtimePackageId?: string, metadata?: Readonly<Record<string, unknown>> } | undefined,
+): WebAssetTargetPackageId | undefined {
+  if (!asset) {
+    return undefined
+  }
+  return runtimePackageCandidatesFromMetadata({
+    ...(asset.metadata || {}),
+    ...(asset.runtimePackageId ? { contentPackageId: asset.runtimePackageId } : {}),
+  })
+}
 
 export interface AchievementRendererPluginOptions {
   elementId?: string
@@ -69,7 +82,7 @@ export const AchievementImageFrame = defineComponent({
     },
   },
   setup(props) {
-    const asset = useAssetUrl('images', () => props.asset?.name, () => props.asset?.runtimePackageId)
+    const asset = useAssetUrl('images', () => props.asset?.name, () => runtimePackageCandidatesFromAchievementAsset(props.asset))
     return () => props.asset
       ? h('img', {
           'class': props.className,
@@ -91,7 +104,7 @@ const AchievementToastAudio = defineComponent({
     },
   },
   setup(props) {
-    const asset = useAssetUrl('audio', () => props.asset?.name, () => props.asset?.runtimePackageId)
+    const asset = useAssetUrl('audio', () => props.asset?.name, () => runtimePackageCandidatesFromAchievementAsset(props.asset))
     return () => props.asset?.type === 'audio'
       ? h('audio', {
           class: 'qua-achievement-toast-audio',

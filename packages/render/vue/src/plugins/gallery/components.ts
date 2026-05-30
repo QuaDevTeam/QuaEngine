@@ -11,7 +11,7 @@ import type {
   GalleryVideoContentBlock,
 } from '@quajs/plugin-gallery/contracts'
 import type { QuaViewProjection } from '@quajs/render-core'
-import type { RendererActions } from '@quajs/renderer-web'
+import type { RendererActions, WebAssetTargetPackageId } from '@quajs/renderer-web'
 import type { GalleryProjectionModel } from '@quajs/renderer-web/plugins/gallery'
 import type { PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
@@ -21,6 +21,7 @@ import {
   resolveGalleryContentPreviewAsset,
   resolveGalleryEntryPreviewAsset,
 } from '@quajs/renderer-web/plugins/gallery'
+import { runtimePackageCandidatesFromMetadata } from '@quajs/renderer-web'
 import { computed, defineComponent, h } from 'vue'
 import { useAssetUrl, usePluginProjection, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
@@ -125,11 +126,11 @@ export const GalleryAssetFrame = defineComponent({
   name: 'GalleryAssetFrame',
   props: {
     asset: {
-      type: Object as PropType<{ type: AssetType, name: string, runtimePackageId?: string, alt?: string }>,
+      type: Object as PropType<{ type: AssetType, name: string, runtimePackageId?: string, alt?: string, metadata?: Readonly<Record<string, unknown>> }>,
       required: true,
     },
     poster: {
-      type: Object as PropType<{ type: AssetType, name: string, runtimePackageId?: string, alt?: string } | undefined>,
+      type: Object as PropType<{ type: AssetType, name: string, runtimePackageId?: string, alt?: string, metadata?: Readonly<Record<string, unknown>> } | undefined>,
       required: false,
       default: undefined,
     },
@@ -144,8 +145,8 @@ export const GalleryAssetFrame = defineComponent({
   },
   setup(props) {
     const assetType = computed(() => props.asset.type)
-    const asset = useAssetUrl(assetType, () => props.asset.name, () => props.asset.runtimePackageId)
-    const poster = useAssetUrl('images', () => props.poster?.name, () => props.poster?.runtimePackageId)
+    const asset = useAssetUrl(assetType, () => props.asset.name, () => runtimePackageCandidatesFromGalleryAsset(props.asset))
+    const poster = useAssetUrl('images', () => props.poster?.name, () => runtimePackageCandidatesFromGalleryAsset(props.poster))
 
     return () => {
       switch (props.asset.type) {
@@ -215,6 +216,18 @@ export const GalleryAssetFrame = defineComponent({
     }
   },
 })
+
+function runtimePackageCandidatesFromGalleryAsset(
+  asset: { runtimePackageId?: string, metadata?: Readonly<Record<string, unknown>> } | undefined,
+): WebAssetTargetPackageId | undefined {
+  if (!asset) {
+    return undefined
+  }
+  return runtimePackageCandidatesFromMetadata({
+    ...(asset.metadata || {}),
+    ...(asset.runtimePackageId ? { contentPackageId: asset.runtimePackageId } : {}),
+  })
+}
 
 export const QuaGalleryEntryCard = defineComponent({
   name: 'QuaGalleryEntryCard',
