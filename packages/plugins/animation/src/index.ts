@@ -938,6 +938,46 @@ function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined
     || (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
 }
 
+function withCurrentRuntimeMetadata(
+  engine: QuaEngineInterface,
+  metadata: Readonly<Record<string, unknown>> | undefined,
+): Record<string, unknown> | undefined {
+  const packageId = currentRuntimePackageId(engine)
+  return packageId
+    ? mergeRuntimePackageRecord(metadata || {}, packageId)
+    : metadata ? cloneUnknownRecord(metadata) : undefined
+}
+
+function withCurrentRuntimeProjectionRecord<TRecord extends Record<string, unknown>>(
+  engine: QuaEngineInterface,
+  record: TRecord,
+): TRecord {
+  const packageId = currentRuntimePackageId(engine)
+  return packageId ? mergeRuntimePackageRecord(record, packageId) as TRecord : record
+}
+
+function mergeRuntimePackageRecord(
+  record: Readonly<Record<string, unknown>>,
+  packageId: string,
+): Record<string, unknown> {
+  const next = cloneUnknownRecord(record)
+  const currentPackageId = contentPackageIdFromMetadata(next)
+  const requiredRuntimePackages = requiredRuntimePackagesFromMetadata(next)
+  if (!currentPackageId && requiredRuntimePackages.length === 0) {
+    next.contentPackageId = packageId
+    return next
+  }
+  if (currentPackageId === packageId && requiredRuntimePackages.length === 0) {
+    return next
+  }
+  next.requiredRuntimePackages = mergeRuntimePackageIds(
+    currentPackageId ? [currentPackageId] : undefined,
+    requiredRuntimePackages,
+    [packageId],
+  )
+  return next
+}
+
 function createRuntimePackageEngineFacade(engine: QuaEngineInterface, packageId: string): QuaEngineInterface {
   return new Proxy(engine, {
     get(target, property, receiver) {
@@ -1100,6 +1140,7 @@ function registerBuiltInAdapters(): void {
             return cloneBackgroundLayer(layer)
           const next = cloneBackgroundLayer(layer)
           setPath(next as unknown as Record<string, unknown>, property, value)
+          next.metadata = withCurrentRuntimeMetadata(engine, next.metadata)
           return next
         }),
       })
@@ -1114,7 +1155,7 @@ function registerBuiltInAdapters(): void {
       const current = engine.getPluginProjection<Readonly<Record<string, unknown>>>('stage') || {}
       const next = cloneUnknownRecord(current)
       setPath(next, property, value)
-      await engine.setPluginProjection('stage', next)
+      await engine.setPluginProjection('stage', withCurrentRuntimeProjectionRecord(engine, next))
       return true
     },
   })
@@ -1126,7 +1167,7 @@ function registerBuiltInAdapters(): void {
       const current = engine.getPluginProjection<Readonly<Record<string, unknown>>>('camera') || {}
       const next = cloneUnknownRecord(current)
       setPath(next, property, value)
-      await engine.setPluginProjection('camera', next)
+      await engine.setPluginProjection('camera', withCurrentRuntimeProjectionRecord(engine, next))
       return true
     },
   })
@@ -1139,7 +1180,7 @@ function registerBuiltInAdapters(): void {
         const current = engine.getPluginProjection<Readonly<Record<string, unknown>>>('dialogue') || {}
         const next = cloneUnknownRecord(current)
         setPath(next, property, value)
-        await engine.setPluginProjection('dialogue', next)
+        await engine.setPluginProjection('dialogue', withCurrentRuntimeProjectionRecord(engine, next))
         return true
       }
 
@@ -1228,7 +1269,7 @@ function registerBuiltInAdapters(): void {
       const current = engine.getPluginProjection<Readonly<Record<string, unknown>>>('choices') || {}
       const next = cloneUnknownRecord(current)
       setPath(next, property, value)
-      await engine.setPluginProjection('choices', next)
+      await engine.setPluginProjection('choices', withCurrentRuntimeProjectionRecord(engine, next))
       return true
     },
   })
@@ -1254,7 +1295,7 @@ function registerBuiltInAdapters(): void {
         setPath(nextChoice, property, value)
         choiceMap[choiceId] = nextChoice
         next.choices = choiceMap
-        await engine.setPluginProjection('choices', next)
+        await engine.setPluginProjection('choices', withCurrentRuntimeProjectionRecord(engine, next))
         return true
       }
       await engine.showChoices(choices.map((choice) => {
@@ -1290,7 +1331,7 @@ function registerBuiltInAdapters(): void {
         return false
       const next = cloneUnknownRecord(audio)
       setPath(next, `buses.${targetId(selector)}.${property}`, value)
-      await engine.setPluginProjection('audio', next)
+      await engine.setPluginProjection('audio', withCurrentRuntimeProjectionRecord(engine, next))
       return true
     },
   })
@@ -1305,7 +1346,7 @@ function registerBuiltInAdapters(): void {
       const next = cloneUnknownRecord(audio)
       const trackId = targetId(selector)
       if (setAudioTrackPath(next, trackId, property, value)) {
-        await engine.setPluginProjection('audio', next)
+        await engine.setPluginProjection('audio', withCurrentRuntimeProjectionRecord(engine, next))
         return true
       }
       return false

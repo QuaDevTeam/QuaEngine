@@ -370,6 +370,15 @@ describe('@quajs/plugin-animation', () => {
 
   it('commits final values under the animation runtime package context', async () => {
     const engine = createEngine({
+      background: {
+        mode: 'layered',
+        layers: [{
+          id: 'fog',
+          assetName: 'fog.png',
+          opacity: 0,
+          metadata: { contentPackageId: 'runtime.background-base' },
+        }],
+      },
       characters: [{
         id: 'Alice',
         name: 'Alice',
@@ -377,6 +386,12 @@ describe('@quajs/plugin-animation', () => {
         position: { x: 0 },
         metadata: { contentPackageId: 'runtime.character-base' },
       }],
+      plugins: {
+        stage: {
+          contentPackageId: 'runtime.stage-base',
+          x: 0,
+        },
+      },
     })
 
     const played = playTimelineWithEngine(engine, {
@@ -388,6 +403,20 @@ describe('@quajs/plugin-animation', () => {
         keyframes: [
           { at: 0, value: 0 },
           { at: 100, value: 80 },
+        ],
+      }, {
+        target: 'backgroundLayer:fog',
+        property: 'opacity',
+        keyframes: [
+          { at: 0, value: 0 },
+          { at: 100, value: 0.8 },
+        ],
+      }, {
+        target: 'stage:main',
+        property: 'x',
+        keyframes: [
+          { at: 0, value: 0 },
+          { at: 100, value: 24 },
         ],
       }],
     }, { wait: true })
@@ -402,6 +431,19 @@ describe('@quajs/plugin-animation', () => {
         requiredRuntimePackages: ['runtime.character-base', 'runtime.animation-delta'],
       },
     }))
+    expect(engine.getViewState().background?.layers?.[0]).toEqual(expect.objectContaining({
+      id: 'fog',
+      opacity: 0.8,
+      metadata: {
+        contentPackageId: 'runtime.background-base',
+        requiredRuntimePackages: ['runtime.background-base', 'runtime.animation-delta'],
+      },
+    }))
+    expect(engine.getViewState().plugins.stage).toEqual({
+      contentPackageId: 'runtime.stage-base',
+      requiredRuntimePackages: ['runtime.stage-base', 'runtime.animation-delta'],
+      x: 24,
+    })
   })
 
   it('commits dialogue and choice motion state into plugin projections', async () => {
