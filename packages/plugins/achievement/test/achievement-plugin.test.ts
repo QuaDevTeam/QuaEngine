@@ -83,6 +83,26 @@ describe('@quajs/plugin-achievement', () => {
     expect(Object.keys(getAchievementProfile(engine).unlockedAchievements).sort()).toEqual(['cg.master', 'story.first-step'])
   })
 
+  it('keeps achievement profiles usable when profile snapshots fail', async () => {
+    const engine = createEngine(FailingAchievementProfileBackend)
+    engine.use(new AchievementPlugin())
+
+    await expect(engine.init()).resolves.toBeUndefined()
+    await registerBaseAchievements(engine)
+    await expect(unlockAchievementWithEngine(engine, 'story.first-step', {
+      source: 'test',
+      notification: { mode: 'none' },
+    })).resolves.toEqual(expect.objectContaining({
+      unlockedAchievements: expect.objectContaining({
+        'story.first-step': expect.any(Object),
+      }),
+    }))
+
+    expect(getAchievementProfile(engine).unlockedAchievements['story.first-step']).toEqual(expect.objectContaining({
+      achievementId: 'story.first-step',
+    }))
+  })
+
   it('rejects unknown achievement unlocks without writing profile progress', async () => {
     const engine = createEngine()
     engine.use(new AchievementPlugin())
@@ -541,14 +561,14 @@ function assetRef(name: string): { type: AssetType, name: string } {
   }
 }
 
-function createEngine(): QuaEngine {
+function createEngine(backend: typeof MemoryBackend = MemoryBackend): QuaEngine {
   return new QuaEngine({
     assets: {
       adapter: createMemoryAdapter(),
     },
     store: {
       storage: {
-        backend: MemoryBackend,
+        backend,
       },
     },
     saves: {
@@ -559,6 +579,22 @@ function createEngine(): QuaEngine {
       },
     },
   })
+}
+
+class FailingAchievementProfileBackend extends MemoryBackend {
+  override async getSnapshot(id: string) {
+    if (id.startsWith(ACHIEVEMENT_PROFILE_STORE_PREFIX)) {
+      throw new Error('achievement profile snapshot unavailable')
+    }
+    return await super.getSnapshot(id)
+  }
+
+  override async saveSnapshot(snapshot: Parameters<MemoryBackend['saveSnapshot']>[0]): Promise<void> {
+    if (snapshot.id.startsWith(ACHIEVEMENT_PROFILE_STORE_PREFIX)) {
+      throw new Error('achievement profile snapshot save failed')
+    }
+    await super.saveSnapshot(snapshot)
+  }
 }
 
 function createMemoryAdapter(): AssetRuntimeAdapter {

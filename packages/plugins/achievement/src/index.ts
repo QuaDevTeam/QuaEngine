@@ -1232,10 +1232,8 @@ async function ensureAchievementProfile(
   try {
     await store.restore(snapshotId, { force: true })
   }
-  catch (error) {
-    if (!isSnapshotNotFoundError(error)) {
-      throw error
-    }
+  catch {
+    // Achievement profiles are optional progress persistence. Read failures fall back to in-memory defaults.
   }
 
   const rawProfile = isAchievementProfileStoreState(store.getState())
@@ -1252,7 +1250,12 @@ async function ensureAchievementProfile(
 }
 
 async function persistAchievementProfile(profile: AchievementProfileRuntime): Promise<void> {
-  await profile.store.snapshot(profile.snapshotId)
+  try {
+    await profile.store.snapshot(profile.snapshotId)
+  }
+  catch {
+    // Persistence failures must not prevent unlock/progress state from updating in memory.
+  }
 }
 
 function applyAchievementProfileState(profile: AchievementProfileRuntime, nextProfile: AchievementProfileState): void {
@@ -2365,10 +2368,6 @@ function compareAchievementDefinitions(left: AchievementProjectionItem, right: A
     return (left.order || 0) - (right.order || 0)
   }
   return left.title.localeCompare(right.title)
-}
-
-function isSnapshotNotFoundError(error: unknown): boolean {
-  return error instanceof Error && /^Snapshot with id ".+" not found\.$/.test(error.message)
 }
 
 function isAchievementSceneOpen(engine: QuaEngineInterface, projection: AchievementProjection): boolean {

@@ -851,10 +851,8 @@ async function ensureGalleryProfile(
   try {
     await store.restore(snapshotId, { force: true })
   }
-  catch (error) {
-    if (!isSnapshotNotFoundError(error)) {
-      throw error
-    }
+  catch {
+    // Gallery profiles are long-lived optional progress. Storage read failures fall back to an empty in-memory profile.
   }
 
   const rawProfile = isGalleryProfileStoreState(store.getState())
@@ -871,7 +869,12 @@ async function ensureGalleryProfile(
 }
 
 async function persistGalleryProfile(profile: GalleryProfileRuntime): Promise<void> {
-  await profile.store.snapshot(profile.snapshotId)
+  try {
+    await profile.store.snapshot(profile.snapshotId)
+  }
+  catch {
+    // Profile persistence is best-effort; current in-memory unlock state should keep moving.
+  }
 }
 
 function applyGalleryProfileState(profile: GalleryProfileRuntime, nextProfile: GalleryProfileState): void {
@@ -1692,10 +1695,6 @@ function assertGalleryCatalogExists(runtimeState: GalleryRuntimeState, catalogId
   if (!runtimeState.catalogs.has(catalogId)) {
     throw new Error(`Gallery entry "${entryId}" references unknown catalog "${catalogId}". Register the catalog first.`)
   }
-}
-
-function isSnapshotNotFoundError(error: unknown): boolean {
-  return error instanceof Error && /^Snapshot with id ".+" not found\.$/.test(error.message)
 }
 
 function isGallerySceneOpen(engine: QuaEngineInterface, projection: GalleryProjection): boolean {
