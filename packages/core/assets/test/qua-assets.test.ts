@@ -67,6 +67,32 @@ describe('quaAssets core runtime', () => {
     expect(plugin.cleanup).toHaveBeenCalled()
   })
 
+  it('filters provider records by target runtime package before ranking', async () => {
+    const requestedPackages: Array<string | undefined> = []
+    const provider: AssetProvider = {
+      mode: 'memory',
+      getManifest: async () => ({
+        version: '1',
+        assets: [
+          providerDataRecord('other-shared', 'shared.txt', 'runtime.other', 100),
+          providerDataRecord('base-shared', 'shared.txt', 'runtime.base', 1),
+        ],
+      }),
+      getAsset: async (_id, record) => {
+        requestedPackages.push(record?.runtimePackageId)
+        return utf8(record?.runtimePackageId === 'runtime.base' ? 'base' : 'other')
+      },
+    }
+    assets = new QuaAssets({ adapter, provider })
+
+    await assets.initialize()
+
+    await expect(assets.getText('data', 'shared.txt', { targetPackageId: 'runtime.base' }))
+      .resolves
+      .toBe('base')
+    expect(requestedPackages).toEqual(['runtime.base'])
+  })
+
   it('loads bundles through adapter fetcher and returns AssetData/bytes/text/json', async () => {
     const manifest = createManifest({
       assets: {
@@ -761,6 +787,21 @@ function createDataAsset(path: string, hash = '', version = 1) {
     locales: ['default'],
     mimeType: 'text/plain',
     version,
+  }
+}
+
+function providerDataRecord(id: string, name: string, runtimePackageId: string, bundlePriority: number) {
+  return {
+    id,
+    name,
+    path: `data/${name}`,
+    relativePath: `data/${name}`,
+    type: 'data' as const,
+    locale: 'default',
+    runtimePackageId,
+    bundleName: runtimePackageId,
+    bundlePriority,
+    mimeType: 'text/plain',
   }
 }
 

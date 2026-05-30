@@ -209,8 +209,11 @@ export class AssetManager {
       return null
 
     const manifest = await this.getProviderManifest()
+    const records = options.targetPackageId
+      ? manifest.assets.filter(record => record.runtimePackageId === options.targetPackageId)
+      : manifest.assets
     const record = findBestAssetRecord(
-      manifest.assets,
+      records,
       type,
       name,
       options.locale || this.defaultLocale,
@@ -218,14 +221,7 @@ export class AssetManager {
       options.appVersion || this.appVersion,
     )
 
-    if (!record)
-      return null
-
-    if (options.targetPackageId && record.runtimePackageId !== options.targetPackageId) {
-      return null
-    }
-
-    return record
+    return record || null
   }
 
   private async getProviderAsset(
