@@ -652,6 +652,11 @@ export class WebAudioAudioRuntime {
     })()
 
     this.bufferCache.set(cacheKey, promise)
+    promise.catch(() => {
+      if (this.bufferCache.get(cacheKey) === promise) {
+        this.bufferCache.delete(cacheKey)
+      }
+    })
     return promise
   }
 
