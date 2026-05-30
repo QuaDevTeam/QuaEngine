@@ -1,11 +1,12 @@
 import type { AssetType } from '@quajs/assets'
+import type { PropType } from 'vue'
 import type {
   SpriteManifest,
   SpriteReference,
   SpriteResolvedLayer,
 } from '@quajs/plugin-sprite/contracts'
 import type { ActiveAnimationProjection } from '@quajs/render-core'
-import type { UiSkinControlKind } from '@quajs/renderer-web'
+import type { UiSkinControlKind, WebAssetTargetPackageId } from '@quajs/renderer-web'
 import {
   resolveSpriteProjection,
   resolveSpriteReference,
@@ -13,7 +14,7 @@ import {
 import {
   applyTrackValues,
   collectTrackValues,
-
+  getJSONWithTargetPackages,
 } from '@quajs/renderer-web'
 import { computed, defineComponent, h, ref, watch } from 'vue'
 import { useAnimationClock, useAnimations, useAssetUrl, useUiControlSkin } from '../../composables'
@@ -31,13 +32,13 @@ export const QuaSpriteLayerItem = defineComponent({
       type: String,
       default: '',
     },
-    targetPackageId: String,
+    targetPackageIds: [String, Array] as PropType<WebAssetTargetPackageId>,
   },
   setup(props: any) {
     const activeAsset = ref<string>(props.layer.asset)
-    const targetPackageId = () => props.targetPackageId
-    const asset = useAssetUrl('characters' as AssetType, () => activeAsset.value, targetPackageId)
-    const mask = useAssetUrl('characters' as AssetType, () => props.layer.mask, targetPackageId)
+    const targetPackageIds = () => props.targetPackageIds
+    const asset = useAssetUrl('characters' as AssetType, () => activeAsset.value, targetPackageIds)
+    const mask = useAssetUrl('characters' as AssetType, () => props.layer.mask, targetPackageIds)
 
     watch(
       () => [props.layer.asset, props.layer.fallback, props.layer.frame?.x, props.layer.frame?.y, props.layer.frame?.width, props.layer.frame?.height].join('|'),
@@ -102,7 +103,7 @@ export const QuaSprite = defineComponent({
       default: '',
     },
     animationTargetPrefix: String,
-    targetPackageId: String,
+    targetPackageIds: [String, Array] as PropType<WebAssetTargetPackageId>,
   },
   setup(props) {
     const { assets, assetRevision } = useQuaRenderer()
@@ -114,7 +115,7 @@ export const QuaSprite = defineComponent({
     const resolvedProjection = computed(() => resolveSpriteProjection(manifest.value, props.sprite, props.expression))
 
     watch(
-      [() => props.sprite, () => props.targetPackageId, () => assetRevision.value, () => assets.value],
+      [() => props.sprite, () => props.targetPackageIds, () => assetRevision.value, () => assets.value],
       async () => {
         const currentRequest = ++manifestRequest.value
         const spriteReference = reference.value
@@ -124,9 +125,12 @@ export const QuaSprite = defineComponent({
         }
 
         try {
-          const nextManifest = await assets.value.getJSON<SpriteManifest>('characters', spriteReference.manifestPath, {
-            targetPackageId: props.targetPackageId,
-          })
+          const nextManifest = await getJSONWithTargetPackages<SpriteManifest>(
+            assets.value,
+            'characters',
+            spriteReference.manifestPath,
+            props.targetPackageIds,
+          )
           if (currentRequest === manifestRequest.value) {
             manifest.value = nextManifest
           }
@@ -162,7 +166,7 @@ export const QuaSprite = defineComponent({
           layer: projectSpriteLayerForAnimation(layer, props.animationTargetPrefix, index, animations.value, animationNow.value),
           isBase: index === 0,
           alt: props.alt,
-          targetPackageId: props.targetPackageId,
+          targetPackageIds: props.targetPackageIds,
         }),
       ))
     }

@@ -1,4 +1,4 @@
-import { characterProjectionVars, projectCharacter } from '@quajs/renderer-web'
+import { characterProjectionVars, projectCharacter, runtimePackageCandidatesFromMetadata } from '@quajs/renderer-web'
 import { computed, defineComponent, h } from 'vue'
 import { useProjectionProps } from '../../components/projection'
 import { useAnimationClock, useAnimations, useCharacters, useRendererActions } from '../../composables'
@@ -34,7 +34,7 @@ export const QuaCharacter = defineComponent({
           sprite: props.character.sprite,
           expression: props.character.expression,
           animationTargetPrefix: props.character.id,
-          targetPackageId: contentPackageIdFromMetadata(props.character.metadata),
+          targetPackageIds: runtimePackageCandidatesFromMetadata(props.character.metadata),
         })
       : h('div', sharedAttrs())
   },
@@ -53,7 +53,3 @@ export const QuaCharacterLayer = defineComponent({
     ))
   },
 })
-
-function contentPackageIdFromMetadata(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
-  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
-}

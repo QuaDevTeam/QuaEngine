@@ -5,7 +5,9 @@ import {
   backgroundProjectionVars,
   normalizeBackgroundLayerAssetType,
   projectBackground,
+  runtimePackageCandidatesFromMetadata,
 } from '@quajs/renderer-web'
+import type { WebAssetTargetPackageId } from '@quajs/renderer-web'
 import { computed, defineComponent, h } from 'vue'
 import { useProjectionProps } from '../../components/projection'
 import { useAnimationClock, useAnimations, useAssetUrl, useBackground, useRendererActions } from '../../composables'
@@ -17,10 +19,10 @@ export const QuaBackground = defineComponent({
     background: Object,
   },
   setup(props) {
-    const asset = useAssetUrl('images', () => props.assetName, () => contentPackageIdFromMetadata((props.background as any)?.metadata))
+    const asset = useAssetUrl('images', () => props.assetName, () => runtimePackageCandidatesFromMetadata((props.background as any)?.metadata))
     const maskStyle = useBackgroundMaskStyle(
       () => (props.background as any)?.composition?.mask,
-      () => contentPackageIdFromMetadata((props.background as any)?.metadata),
+      () => runtimePackageCandidatesFromMetadata((props.background as any)?.metadata),
     )
     return () => h('img', {
       'class': 'qua-background',
@@ -42,10 +44,10 @@ export const QuaVideoBackground = defineComponent({
     background: Object,
   },
   setup(props: any) {
-    const targetPackageId = () => contentPackageIdFromMetadata(props.video.metadata || props.background?.metadata)
-    const videoAsset = useAssetUrl('video', () => props.video.assetName, targetPackageId)
-    const posterAsset = useAssetUrl('images', () => props.video.poster, targetPackageId)
-    const maskStyle = useBackgroundMaskStyle(() => props.background?.composition?.mask, targetPackageId)
+    const targetPackageIds = () => runtimePackageCandidatesFromMetadata(props.video.metadata || props.background?.metadata)
+    const videoAsset = useAssetUrl('video', () => props.video.assetName, targetPackageIds)
+    const posterAsset = useAssetUrl('images', () => props.video.poster, targetPackageIds)
+    const maskStyle = useBackgroundMaskStyle(() => props.background?.composition?.mask, targetPackageIds)
     return () => h('video', {
       'class': 'qua-background qua-background--video',
       'src': videoAsset.url.value,
@@ -72,9 +74,9 @@ export const QuaBackgroundLayerItem = defineComponent({
   },
   setup(props: any) {
     const assetType = computed(() => normalizeBackgroundLayerAssetType(props.layer.assetType))
-    const targetPackageId = () => contentPackageIdFromMetadata(props.layer.metadata)
-    const asset = useAssetUrl(assetType, () => props.layer.assetName, targetPackageId)
-    const maskStyle = useBackgroundMaskStyle(() => props.layer.composition?.mask, targetPackageId)
+    const targetPackageIds = () => runtimePackageCandidatesFromMetadata(props.layer.metadata)
+    const asset = useAssetUrl(assetType, () => props.layer.assetName, targetPackageIds)
+    const maskStyle = useBackgroundMaskStyle(() => props.layer.composition?.mask, targetPackageIds)
     return () => props.layer.assetType === 'video'
       ? h('video', {
           'class': ['qua-background-layer-item', 'qua-background-layer-item--video', props.layer.visible === false ? 'is-hidden' : undefined],
@@ -112,7 +114,7 @@ export const QuaLayeredBackground = defineComponent({
   setup(props: any, { slots }) {
     const maskStyle = useBackgroundMaskStyle(
       () => props.background?.composition?.mask,
-      () => contentPackageIdFromMetadata(props.background?.metadata),
+      () => runtimePackageCandidatesFromMetadata(props.background?.metadata),
     )
     return () => h('div', { class: 'qua-layered-background', style: mergeStyles(backgroundProjectionVars(props.background), maskStyle.value) }, props.layers.map((layer: any) =>
       slots.layer?.({ layer }) || h(QuaBackgroundLayerItem, { key: layer.id, layer }),
@@ -146,7 +148,7 @@ export const QuaBackgroundProjection = defineComponent({
 
 function useBackgroundMaskStyle(
   getMask: () => { assetName?: string, assetType?: string } | undefined,
-  targetPackageId?: () => string | undefined,
+  targetPackageId?: () => WebAssetTargetPackageId | undefined,
 ) {
   const assetType = computed(() => normalizeBackgroundLayerAssetType(getMask()?.assetType))
   const asset = useAssetUrl(assetType, () => getMask()?.assetName, targetPackageId)
@@ -154,10 +156,6 @@ function useBackgroundMaskStyle(
     backgroundMaskVars(getMask()),
     backgroundMaskImageVars(asset.url.value),
   ))
-}
-
-function contentPackageIdFromMetadata(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
-  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
 }
 
 function mergeStyles(
