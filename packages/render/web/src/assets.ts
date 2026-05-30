@@ -1,4 +1,4 @@
-import type { AssetData, AssetType, QuaAssets } from '@quajs/assets'
+import type { AssetData, AssetType, LoadAssetOptions, QuaAssets } from '@quajs/assets'
 import { createObjectURL, revokeObjectURL } from '@quajs/assets-web'
 
 export type WebAssetTargetPackageId = string | readonly string[]
@@ -38,16 +38,17 @@ export async function getAssetWithTargetPackages(
   type: AssetType,
   name: string,
   targetPackageId?: WebAssetTargetPackageId,
+  options: Omit<LoadAssetOptions, 'targetPackageId'> = {},
 ): Promise<AssetData> {
   const candidates = normalizeTargetPackageIds(targetPackageId)
   if (candidates.length === 0) {
-    return await assets.getAsset(type, name)
+    return await assets.getAsset(type, name, options)
   }
 
   let lastNotFound: unknown
   for (const candidate of candidates) {
     try {
-      return await assets.getAsset(type, name, { targetPackageId: candidate })
+      return await assets.getAsset(type, name, { ...options, targetPackageId: candidate })
     }
     catch (caught) {
       if (!isAssetNotFoundError(caught)) {
@@ -65,16 +66,17 @@ export async function getJSONWithTargetPackages<T = unknown>(
   type: AssetType,
   name: string,
   targetPackageId?: WebAssetTargetPackageId,
+  options: Omit<LoadAssetOptions, 'targetPackageId'> = {},
 ): Promise<T> {
   const candidates = normalizeTargetPackageIds(targetPackageId)
   if (candidates.length === 0) {
-    return await assets.getJSON<T>(type, name)
+    return await assets.getJSON<T>(type, name, options)
   }
 
   let lastNotFound: unknown
   for (const candidate of candidates) {
     try {
-      return await assets.getJSON<T>(type, name, { targetPackageId: candidate })
+      return await assets.getJSON<T>(type, name, { ...options, targetPackageId: candidate })
     }
     catch (caught) {
       if (!isAssetNotFoundError(caught)) {

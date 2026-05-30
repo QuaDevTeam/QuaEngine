@@ -300,8 +300,8 @@ describe('@quajs/plugin-audio', () => {
 
     projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
     expect(projection.chapter).toBeUndefined()
-    expect(projection.voices).toEqual([expect.objectContaining({ id: 'runtime-voice', state: 'stopping' })])
-    expect(projection.bgm).toEqual(expect.objectContaining({ id: 'runtime-bgm', state: 'stopping' }))
+    expect(projection.voices).toEqual([])
+    expect(projection.bgm).toBeUndefined()
     expect(projection.sfx).toEqual([expect.objectContaining({ id: 'base-sfx', state: 'playing' })])
     expect(projection.requiredRuntimePackages).toEqual([])
   })
@@ -353,7 +353,7 @@ describe('@quajs/plugin-audio', () => {
 
     const projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
     expect(projection.chapter).toBeUndefined()
-    expect(projection.bgm).toEqual(expect.objectContaining({ id: 'dependent-bgm', state: 'stopping' }))
+    expect(projection.bgm).toBeUndefined()
     expect(projection.sfx).toEqual([expect.objectContaining({ id: 'base-sfx', state: 'playing' })])
     expect(projection.requiredRuntimePackages).toEqual(['base.audio'])
   })

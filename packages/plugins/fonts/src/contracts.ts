@@ -85,6 +85,7 @@ export function fontFaceProjectionSignature(face: Readonly<FontFaceProjection>):
     descentOverride: face.descentOverride,
     lineGapOverride: face.lineGapOverride,
     contentPackageId: face.contentPackageId,
+    metadata: face.metadata,
   })
 }
 
