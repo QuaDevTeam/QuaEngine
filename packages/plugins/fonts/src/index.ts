@@ -168,12 +168,13 @@ function normalizeFontFace(
   const contentPackageId = face.contentPackageId
     || contentPackageIdFromMetadata(face.metadata)
     || currentRuntimePackageId(engine)
+  const metadata = withCurrentRuntimeFontMetadata(engine, face.metadata, contentPackageId)
   return {
     ...face,
     family: face.family.trim(),
     assetName: face.assetName.trim(),
     contentPackageId,
-    metadata: face.metadata ? { ...face.metadata } : undefined,
+    metadata,
   }
 }
 
@@ -202,6 +203,40 @@ function requiredRuntimePackagesFromMetadata(metadata?: Readonly<Record<string, 
 function metadataRequiresPackage(metadata: Readonly<Record<string, unknown>> | undefined, packageId: string): boolean {
   return contentPackageIdFromMetadata(metadata) === packageId
     || requiredRuntimePackagesFromMetadata(metadata).includes(packageId)
+}
+
+function withCurrentRuntimeFontMetadata(
+  engine: QuaEngineInterface,
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  inheritedContentPackageId?: string,
+): Readonly<Record<string, unknown>> | undefined {
+  const packageId = currentRuntimePackageId(engine)
+  if (!packageId) {
+    return metadata ? { ...metadata } : undefined
+  }
+  const metadataContentPackageId = contentPackageIdFromMetadata(metadata)
+  if (inheritedContentPackageId && !metadataContentPackageId) {
+    return metadata ? { ...metadata } : undefined
+  }
+  const currentPackageId = metadataContentPackageId
+  if (!currentPackageId) {
+    return {
+      ...(metadata || {}),
+      contentPackageId: packageId,
+    }
+  }
+  const requiredRuntimePackages = uniqueStrings([
+    currentPackageId,
+    ...requiredRuntimePackagesFromMetadata(metadata),
+    packageId,
+  ])
+  if (currentPackageId === packageId && requiredRuntimePackagesFromMetadata(metadata).length === 0) {
+    return metadata ? { ...metadata } : undefined
+  }
+  return {
+    ...(metadata || {}),
+    requiredRuntimePackages,
+  }
 }
 
 function uniqueStrings(values: readonly string[]): string[] {

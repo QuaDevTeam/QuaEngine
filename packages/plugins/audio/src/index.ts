@@ -953,14 +953,17 @@ function withCurrentRuntimeAudioPackage<
   if (!packageId) {
     return options
   }
-  const contentPackageId = options.contentPackageId || contentPackageIdFromMetadata(options.metadata)
-  if (!contentPackageId) {
+  const metadataContentPackageId = contentPackageIdFromMetadata(options.metadata)
+  if (!options.contentPackageId && !metadataContentPackageId) {
     return {
       ...options,
       contentPackageId: packageId,
     }
   }
-  const metadata = mergeRuntimePackageMetadata(options.metadata, packageId, contentPackageId)
+  if (options.contentPackageId && !metadataContentPackageId) {
+    return options
+  }
+  const metadata = mergeRuntimePackageMetadata(options.metadata, packageId, metadataContentPackageId)
   if (metadata === options.metadata) {
     return options
   }
