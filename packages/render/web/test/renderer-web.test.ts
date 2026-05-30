@@ -1668,6 +1668,83 @@ describe('@quajs/renderer-web', () => {
     await assets.cleanup()
   })
 
+  it('resolves character sprite assets from the character runtime package', async () => {
+    const requestedPackages: Array<string | undefined> = []
+    let urlIndex = 0
+    const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:runtime-sprite:${++urlIndex}`)
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const assets = new QuaAssets({
+      adapter: {
+        name: 'renderer-web-runtime-sprite-test',
+        storage: new MemoryAssetStorage(),
+        crypto: { sha256: async () => '' },
+      },
+      provider: {
+        mode: 'memory',
+        getManifest: async () => ({
+          version: '1',
+          assets: [
+            characterManifestRecord('other-manifest', 'alice/sprite.manifest.json', 'runtime.other-sprite', 100),
+            characterManifestRecord('runtime-manifest', 'alice/sprite.manifest.json', 'runtime.sprite', 1),
+            characterManifestRecord('other-base', 'alice/base.png', 'runtime.other-sprite', 100),
+            characterManifestRecord('runtime-base', 'alice/base.png', 'runtime.sprite', 1),
+            characterManifestRecord('other-happy', 'alice/happy.png', 'runtime.other-sprite', 100),
+            characterManifestRecord('runtime-happy', 'alice/happy.png', 'runtime.sprite', 1),
+          ],
+        }),
+        getAsset: async (_id, record) => {
+          requestedPackages.push(record?.runtimePackageId)
+          if (record?.path === 'characters/alice/sprite.manifest.json') {
+            return new TextEncoder().encode(JSON.stringify({
+              version: 1,
+              family: 'alice',
+              base: { asset: 'base.png' },
+              expressions: {
+                happy: {
+                  layers: [{ asset: 'happy.png' }],
+                },
+              },
+            }))
+          }
+          return new Uint8Array([1, 2, 3])
+        },
+      },
+    })
+    await assets.initialize()
+
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      assets,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        characters: [{
+          id: 'Alice',
+          name: 'Alice',
+          visible: true,
+          sprite: 'alice/base.png',
+          expression: 'happy',
+          metadata: { contentPackageId: 'runtime.sprite' },
+        }],
+      }),
+    })
+
+    await renderer.mount()
+    await flushDom()
+    await flushDom()
+
+    expect(requestedPackages.length).toBeGreaterThan(0)
+    expect(requestedPackages.every(packageId => packageId === 'runtime.sprite')).toBe(true)
+    expect(create).toHaveBeenCalled()
+
+    await renderer.unmount()
+    expect(revoke).toHaveBeenCalled()
+    await assets.cleanup()
+  })
+
   it('applies unity-style ui skin borders and transient state changes', async () => {
     let urlIndex = 0
     const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:web-ui-skin:${++urlIndex}`)
@@ -2784,6 +2861,20 @@ function imageAssetRecord(name: string) {
     locale: 'default',
     path: `images/${name}`,
     mimeType: 'image/png',
+  }
+}
+
+function characterManifestRecord(id: string, name: string, runtimePackageId: string, bundlePriority: number) {
+  return {
+    id,
+    bundleName: runtimePackageId,
+    bundlePriority,
+    runtimePackageId,
+    name,
+    type: 'characters' as const,
+    locale: 'default',
+    path: `characters/${name}`,
+    mimeType: name.endsWith('.json') ? 'application/json' : 'image/png',
   }
 }
 

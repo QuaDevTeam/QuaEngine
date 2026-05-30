@@ -31,11 +31,13 @@ export const QuaSpriteLayerItem = defineComponent({
       type: String,
       default: '',
     },
+    targetPackageId: String,
   },
   setup(props: any) {
     const activeAsset = ref<string>(props.layer.asset)
-    const asset = useAssetUrl('characters' as AssetType, () => activeAsset.value)
-    const mask = useAssetUrl('characters' as AssetType, () => props.layer.mask)
+    const targetPackageId = () => props.targetPackageId
+    const asset = useAssetUrl('characters' as AssetType, () => activeAsset.value, targetPackageId)
+    const mask = useAssetUrl('characters' as AssetType, () => props.layer.mask, targetPackageId)
 
     watch(
       () => [props.layer.asset, props.layer.fallback, props.layer.frame?.x, props.layer.frame?.y, props.layer.frame?.width, props.layer.frame?.height].join('|'),
@@ -100,6 +102,7 @@ export const QuaSprite = defineComponent({
       default: '',
     },
     animationTargetPrefix: String,
+    targetPackageId: String,
   },
   setup(props) {
     const { assets, assetRevision } = useQuaRenderer()
@@ -111,7 +114,7 @@ export const QuaSprite = defineComponent({
     const resolvedProjection = computed(() => resolveSpriteProjection(manifest.value, props.sprite, props.expression))
 
     watch(
-      [() => props.sprite, () => assetRevision.value, () => assets.value],
+      [() => props.sprite, () => props.targetPackageId, () => assetRevision.value, () => assets.value],
       async () => {
         const currentRequest = ++manifestRequest.value
         const spriteReference = reference.value
@@ -121,7 +124,9 @@ export const QuaSprite = defineComponent({
         }
 
         try {
-          const nextManifest = await assets.value.getJSON<SpriteManifest>('characters', spriteReference.manifestPath)
+          const nextManifest = await assets.value.getJSON<SpriteManifest>('characters', spriteReference.manifestPath, {
+            targetPackageId: props.targetPackageId,
+          })
           if (currentRequest === manifestRequest.value) {
             manifest.value = nextManifest
           }
@@ -157,6 +162,7 @@ export const QuaSprite = defineComponent({
           layer: projectSpriteLayerForAnimation(layer, props.animationTargetPrefix, index, animations.value, animationNow.value),
           isBase: index === 0,
           alt: props.alt,
+          targetPackageId: props.targetPackageId,
         }),
       ))
     }
