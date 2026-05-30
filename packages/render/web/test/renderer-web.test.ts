@@ -2047,6 +2047,84 @@ describe('@quajs/renderer-web', () => {
     await assets.cleanup()
   })
 
+  it('resolves ui skin image assets through manifest runtime package candidates', async () => {
+    const requestedAssets: Array<{ name: string, packageId?: string }> = []
+    const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:web-ui-skin-runtime')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const assets = new QuaAssets({
+      adapter: {
+        name: 'renderer-web-runtime-ui-skin-test',
+        storage: new MemoryAssetStorage(),
+        crypto: { sha256: async () => '' },
+      },
+      provider: {
+        mode: 'memory',
+        getManifest: async () => ({
+          version: '1',
+          assets: [
+            uiSkinDataManifestRecord('ui/default/ui-skin.manifest.json'),
+            uiSkinImageManifestRecord('base-button', 'ui/default/button/default.png', 'runtime.ui-base', 1),
+            uiSkinImageManifestRecord('delta-button', 'ui/default/button/default.png', 'runtime.ui-delta', 100),
+          ],
+        }),
+        getAsset: async (_id, record) => {
+          requestedAssets.push({ name: record?.name || '', packageId: record?.runtimePackageId })
+          if (record?.path === 'ui/default/ui-skin.manifest.json') {
+            return new TextEncoder().encode(JSON.stringify({
+              version: 1,
+              family: 'ui/default',
+              metadata: {
+                contentPackageId: 'runtime.ui-base',
+                requiredRuntimePackages: ['runtime.ui-base', 'runtime.ui-delta'],
+              },
+              skins: {
+                button: {
+                  base: { asset: 'button/default.png' },
+                  slice: { top: 4, right: 4, bottom: 4, left: 4 },
+                },
+              },
+            }))
+          }
+          return new Uint8Array([1, 2, 3])
+        },
+      },
+    })
+    await assets.initialize()
+
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      assets,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+        plugins: {
+          ui: {
+            themeId: 'default',
+            defaults: { button: 'button' },
+          },
+        },
+      }),
+    })
+
+    await renderer.mount()
+    await flushDom()
+    await flushDom()
+
+    expect(requestedAssets).toContainEqual({
+      name: 'ui/default/button/default.png',
+      packageId: 'runtime.ui-delta',
+    })
+    expect(create).toHaveBeenCalled()
+
+    await renderer.unmount()
+    expect(revoke).toHaveBeenCalled()
+    await assets.cleanup()
+  })
+
   it('caches resolved save slot preview sources and invalidates them explicitly', async () => {
     const createObjectURL = vi.fn(() => 'blob:preview-1')
     const revokeObjectURL = vi.fn()
@@ -3043,6 +3121,32 @@ async function createImageAssets(names: string[]): Promise<QuaAssets> {
   })
   await assets.initialize()
   return assets
+}
+
+function uiSkinDataManifestRecord(name: string) {
+  return {
+    id: `memory:default:data:${name}`,
+    bundleName: 'memory',
+    name,
+    type: 'data' as const,
+    locale: 'default',
+    path: name,
+    mimeType: 'application/json',
+  }
+}
+
+function uiSkinImageManifestRecord(id: string, name: string, runtimePackageId: string, bundlePriority: number) {
+  return {
+    id,
+    bundleName: runtimePackageId,
+    bundlePriority,
+    runtimePackageId,
+    name,
+    type: 'images' as const,
+    locale: 'default',
+    path: name,
+    mimeType: 'image/png',
+  }
 }
 
 function audioAssetRecord(name: string) {
