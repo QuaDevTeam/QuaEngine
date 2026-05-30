@@ -80,6 +80,23 @@ describe('@quajs/plugin-gallery', () => {
     expect(Object.keys(getGalleryProfile(engine).unlockedEntries).sort()).toEqual(['cg.night', 'cg.sunset'])
   })
 
+  it('keeps gallery profiles usable when profile snapshots fail', async () => {
+    const engine = createEngine(FailingGalleryProfileBackend)
+    engine.use(new GalleryPlugin())
+
+    await expect(engine.init()).resolves.toBeUndefined()
+    await registerBaseCatalog(engine)
+    await expect(unlockGalleryEntryWithEngine(engine, 'cg.sunset')).resolves.toEqual(expect.objectContaining({
+      unlockedEntries: expect.objectContaining({
+        'cg.sunset': expect.any(Object),
+      }),
+    }))
+
+    expect(getGalleryProfile(engine).unlockedEntries['cg.sunset']).toEqual(expect.objectContaining({
+      entryId: 'cg.sunset',
+    }))
+  })
+
   it('rejects unknown entry unlocks without writing profile progress', async () => {
     const engine = createEngine()
     engine.use(new GalleryPlugin())
@@ -420,17 +437,33 @@ function assetRef(name: string): { type: AssetType, name: string } {
   }
 }
 
-function createEngine(): QuaEngine {
+function createEngine(backend: typeof MemoryBackend = MemoryBackend): QuaEngine {
   return new QuaEngine({
     assets: {
       adapter: createMemoryAdapter(),
     },
     store: {
       storage: {
-        backend: MemoryBackend,
+        backend,
       },
     },
   })
+}
+
+class FailingGalleryProfileBackend extends MemoryBackend {
+  override async getSnapshot(id: string) {
+    if (id.startsWith(GALLERY_PROFILE_STORE_PREFIX)) {
+      throw new Error('gallery profile snapshot unavailable')
+    }
+    return await super.getSnapshot(id)
+  }
+
+  override async saveSnapshot(snapshot: Parameters<MemoryBackend['saveSnapshot']>[0]): Promise<void> {
+    if (snapshot.id.startsWith(GALLERY_PROFILE_STORE_PREFIX)) {
+      throw new Error('gallery profile snapshot save failed')
+    }
+    await super.saveSnapshot(snapshot)
+  }
 }
 
 function createMemoryAdapter(): AssetRuntimeAdapter {
