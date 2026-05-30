@@ -471,23 +471,23 @@ export async function clearRuntimePackageAudioWithEngine(
 ): Promise<void> {
   const projection = getAudioProjection(engine)
   const next = cloneAudioProjection(projection)
+  let changed = false
   next.voices = next.voices.filter(track => !trackRequiresPackage(track, packageId))
   next.sfx = next.sfx.filter(track => !trackRequiresPackage(track, packageId))
   next.ambients = next.ambients.filter(track => !trackRequiresPackage(track, packageId))
+  changed ||= next.voices.length !== projection.voices.length
+    || next.sfx.length !== projection.sfx.length
+    || next.ambients.length !== projection.ambients.length
   if (next.bgm && trackRequiresPackage(next.bgm, packageId)) {
     next.bgm = undefined
+    changed = true
   }
   if (metadataRequiresPackage(next.chapter?.metadata, packageId)) {
     next.chapter = undefined
     next.currentLineId = undefined
+    changed = true
   }
-  if (
-    next.voices.length === projection.voices.length
-    && next.sfx.length === projection.sfx.length
-    && next.ambients.length === projection.ambients.length
-    && next.bgm === projection.bgm
-    && next.chapter === projection.chapter
-  ) {
+  if (!changed) {
     return
   }
   next.revision += 1
