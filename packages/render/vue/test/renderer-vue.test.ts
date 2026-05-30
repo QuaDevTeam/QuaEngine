@@ -21,13 +21,13 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, isReadonly, nextTick } from 'vue'
 import {
-  createInputRendererPlugin,
   QuaRenderer,
   useAssetUrl,
   useChoices,
   useQuaRenderer,
   useRendererActions,
 } from '../src'
+import { createInputRendererPlugin } from '../src/plugins/input'
 import { createVisualNovelRendererPlugins } from '../src/plugins/preset'
 import { createSettingsRendererPlugin, QuaSettingsLayer } from '../src/plugins/settings'
 import { QuaSpriteSkinBox } from '../src/plugins/sprite'
