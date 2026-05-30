@@ -89,6 +89,7 @@ describe('@quajs/character/animation', () => {
 })
 
 function createEngine(viewPatch: Partial<QuaViewProjection> = {}) {
+  const store = {}
   const view: any = {
     layout: createViewLayoutProjection(),
     background: undefined,
@@ -103,6 +104,7 @@ function createEngine(viewPatch: Partial<QuaViewProjection> = {}) {
   }
 
   return {
+    getStore: vi.fn(() => store),
     getViewState: vi.fn(() => view),
     setAnimationProjection: vi.fn(async (animation) => {
       view.animations = [
