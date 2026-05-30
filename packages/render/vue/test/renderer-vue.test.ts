@@ -353,6 +353,52 @@ describe('@quajs/renderer-vue', () => {
     expect(span?.getAttribute('style')).toContain('--qua-rich-text-span-font-weight: 550')
   })
 
+  it('reveals Vue dialogue with typewriter timing and completes it before advance', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const pipeline = new Pipeline()
+    const advances: Array<{ source?: string }> = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_ADVANCE, payload => advances.push(payload))
+
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        dialogue: {
+          visible: true,
+          revision: 1,
+          text: 'Hello',
+          typewriter: { enabled: true, charactersPerSecond: 10 },
+        },
+      }),
+    })
+
+    try {
+      await nextTick()
+      await vi.advanceTimersByTimeAsync(0)
+      await nextTick()
+      expect(host.el.querySelector('.qua-dialogue-text')?.textContent).toBe('')
+
+      await vi.advanceTimersByTimeAsync(100)
+      await nextTick()
+      expect(host.el.querySelector('.qua-dialogue-text')?.textContent).toBe('H')
+
+      host.el.querySelector('.qua-dialogue-box')!.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }))
+      await flushMicrotasks()
+      await nextTick()
+      expect(host.el.querySelector('.qua-dialogue-text')?.textContent).toBe('Hello')
+      expect(advances).toEqual([])
+
+      host.el.querySelector('.qua-dialogue-box')!.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }))
+      await vi.advanceTimersByTimeAsync(0)
+      await flushMicrotasks()
+      expect(advances).toEqual([{ source: 'pointer:dialogue' }])
+    }
+    finally {
+      host.app.unmount()
+    }
+  })
+
   it('registers font assets through the Vue visual novel preset', async () => {
     const fontRuntime = installFakeFontFace()
     const assets = await createFontAssets()
@@ -1696,6 +1742,12 @@ async function flushVue(): Promise<void> {
   await nextTick()
   await new Promise(resolve => setTimeout(resolve, 0))
   await nextTick()
+}
+
+async function flushMicrotasks(): Promise<void> {
+  await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
 }
 
 async function waitForStyle(

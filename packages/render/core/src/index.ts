@@ -357,11 +357,33 @@ export interface ViewChoicePresentationProjection extends Readonly<object> {
 }
 
 export interface ViewDialogueProjection {
+  revision?: number
   visible: boolean
   characterId?: string
   characterName?: string
   text: RichTextContent
   mode?: 'say' | 'narration'
+  typewriter?: Readonly<DialogueTypewriterProjection>
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface DialogueTypewriterSoundProjection {
+  assetKey: string
+  everyCharacters?: number
+  intervalMs?: number
+  gainDb?: number
+  playbackRate?: number
+  contentPackageId?: string
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface DialogueTypewriterProjection {
+  enabled?: boolean
+  charactersPerSecond?: number
+  durationMs?: number
+  syncWithVoice?: boolean
+  revealOnAdvance?: boolean
+  sound?: Readonly<DialogueTypewriterSoundProjection>
   metadata?: Readonly<Record<string, unknown>>
 }
 
@@ -594,6 +616,9 @@ export interface DialogueShowPayload {
   characterId?: string
   characterName?: string
   text: RichTextContent
+  mode?: ViewDialogueProjection['mode']
+  typewriter?: ViewDialogueProjection['typewriter']
+  metadata?: Readonly<Record<string, unknown>>
   choices?: ViewChoiceProjection[]
 }
 

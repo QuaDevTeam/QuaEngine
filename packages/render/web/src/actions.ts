@@ -26,13 +26,27 @@ export interface RendererActions {
   requestPluginEvent: (type: string, payload?: unknown) => Promise<void>
 }
 
-export function createRendererActions(getPipeline: () => Pipeline): RendererActions {
+export type RendererAdvanceInterceptor = (source?: string) => boolean | Promise<boolean>
+
+export interface RendererActionOptions {
+  handleAdvance?: RendererAdvanceInterceptor
+}
+
+export function createRendererActions(
+  getPipeline: () => Pipeline,
+  options: RendererActionOptions = {},
+): RendererActions {
   return {
     ready: () => emitRenderToLogic(getPipeline(), RenderToLogicEvents.RENDER_READY, { timestamp: Date.now() }),
     sceneReady: (sceneId?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.SCENE_READY, { sceneId, timestamp: Date.now() }),
     click: (payload = {}) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_CLICK, payload),
     inputCommand: (payload: RendererInputCommandPayload) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_INPUT_COMMAND, payload),
-    advance: (source?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_ADVANCE, { source }),
+    advance: async (source?: string) => {
+      if (await options.handleAdvance?.(source)) {
+        return
+      }
+      await emitRenderToLogic(getPipeline(), RenderToLogicEvents.USER_ADVANCE, { source })
+    },
     setFlowControlMode: (mode: FlowControlMode, source?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.FLOW_CONTROL_SET_MODE_REQUEST, { mode, source }),
     startAuto: (source?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.FLOW_CONTROL_START_AUTO_REQUEST, { source }),
     stopAuto: (source?: string) => emitRenderToLogic(getPipeline(), RenderToLogicEvents.FLOW_CONTROL_STOP_AUTO_REQUEST, { source }),

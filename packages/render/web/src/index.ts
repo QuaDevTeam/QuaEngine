@@ -1,4 +1,4 @@
-export type { RendererActions } from './actions'
+export type { RendererActions, RendererAdvanceInterceptor } from './actions'
 export { createRendererActions } from './actions'
 export type { ProjectedTrackValue } from './animation'
 export {
@@ -22,6 +22,8 @@ export type {
 } from './controller'
 export { createQuaWebRendererController, QuaWebRendererController } from './controller'
 export { emptyView } from './defaults'
+export type { DialogueTypewriterProjectResult, DialogueTypewriterRuntimeOptions } from './dialogue-typewriter'
+export { DialogueTypewriterRuntime, sliceRichTextContent } from './dialogue-typewriter'
 export type {
   QuaWebDomLayerContext,
   QuaWebDomRendererLayer,

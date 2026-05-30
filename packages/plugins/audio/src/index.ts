@@ -238,10 +238,10 @@ export async function configureAudioChapterWithEngine(
   next.revision += 1
 
   if (options.bgm) {
-    const bgmOptions = withCurrentRuntimeAudioPackage(engine, mergeBgmOptions(options.defaults?.bgm, {
+    const bgmOptions = await withResolvedAudioDuration(engine, options.bgm, withCurrentRuntimeAudioPackage(engine, mergeBgmOptions(options.defaults?.bgm, {
       id: next.bgm?.id || 'bgm',
       chapterId,
-    }))
+    })))
     next.bgm = createBgmProjection(options.bgm, bgmOptions, next)
   }
 
@@ -254,7 +254,8 @@ export async function playVoiceWithEngine(
   options: AudioPlayVoiceOptions = {},
 ): Promise<void> {
   const projection = getAudioProjection(engine)
-  const nextVoice = createVoiceProjection(assetKey, withCurrentRuntimeAudioPackage(engine, mergeVoiceOptions(projection, options)), projection)
+  const voiceOptions = await withResolvedAudioDuration(engine, assetKey, withCurrentRuntimeAudioPackage(engine, mergeVoiceOptions(projection, options)))
+  const nextVoice = createVoiceProjection(assetKey, voiceOptions, projection)
   await setAudioProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
@@ -270,7 +271,8 @@ export async function playBGMWithEngine(
   options: AudioPlayBgmOptions = {},
 ): Promise<void> {
   const projection = getAudioProjection(engine)
-  const next = createBgmProjection(assetKey, withCurrentRuntimeAudioPackage(engine, mergeBgmOptions(projection.chapter?.defaults?.bgm, options, projection)), projection)
+  const bgmOptions = await withResolvedAudioDuration(engine, assetKey, withCurrentRuntimeAudioPackage(engine, mergeBgmOptions(projection.chapter?.defaults?.bgm, options, projection)))
+  const next = createBgmProjection(assetKey, bgmOptions, projection)
   await setAudioProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
@@ -285,7 +287,8 @@ export async function playSFXWithEngine(
   options: AudioPlaySfxOptions = {},
 ): Promise<void> {
   const projection = getAudioProjection(engine)
-  const next = createSfxProjection(assetKey, withCurrentRuntimeAudioPackage(engine, mergeSfxOptions(projection, options)), projection)
+  const sfxOptions = await withResolvedAudioDuration(engine, assetKey, withCurrentRuntimeAudioPackage(engine, mergeSfxOptions(projection, options)))
+  const next = createSfxProjection(assetKey, sfxOptions, projection)
   await setAudioProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
@@ -300,7 +303,8 @@ export async function playAmbientWithEngine(
   options: AudioPlayAmbientOptions = {},
 ): Promise<void> {
   const projection = getAudioProjection(engine)
-  const next = createAmbientProjection(assetKey, withCurrentRuntimeAudioPackage(engine, mergeAmbientOptions(projection, options)), projection)
+  const ambientOptions = await withResolvedAudioDuration(engine, assetKey, withCurrentRuntimeAudioPackage(engine, mergeAmbientOptions(projection, options)))
+  const next = createAmbientProjection(assetKey, ambientOptions, projection)
   await setAudioProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
@@ -753,6 +757,7 @@ function mergeVoiceOptions(
     chapterId: options.chapterId || projection.chapter?.chapterId,
     loop: options.loop ?? defaults?.loop,
     interruptible: options.interruptible ?? defaults?.interruptible,
+    durationMs: options.durationMs ?? defaults?.durationMs,
     gainDb: options.gainDb ?? defaults?.gainDb,
     fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
@@ -773,6 +778,7 @@ function mergeBgmOptions(
     ...options,
     chapterId: options.chapterId || projection?.chapter?.chapterId,
     loop: options.loop ?? defaults?.loop ?? true,
+    durationMs: options.durationMs ?? defaults?.durationMs,
     gainDb: options.gainDb ?? defaults?.gainDb,
     fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
@@ -795,6 +801,7 @@ function mergeSfxOptions(
     lineId: options.lineId,
     loop: options.loop ?? defaults?.loop ?? false,
     interruptible: options.interruptible ?? defaults?.interruptible ?? true,
+    durationMs: options.durationMs ?? defaults?.durationMs,
     gainDb: options.gainDb ?? defaults?.gainDb,
     fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
@@ -817,6 +824,7 @@ function mergeAmbientOptions(
     lineId: options.lineId,
     loop: options.loop ?? defaults?.loop ?? true,
     interruptible: options.interruptible ?? defaults?.interruptible ?? false,
+    durationMs: options.durationMs ?? defaults?.durationMs,
     gainDb: options.gainDb ?? defaults?.gainDb,
     fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
@@ -843,6 +851,7 @@ function createVoiceProjection(
     state: 'playing',
     loop: options.loop ?? false,
     interruptible: options.interruptible ?? true,
+    durationMs: options.durationMs,
     gainDb: options.gainDb ?? 0,
     eq: options.eq,
     automation: options.automation,
@@ -868,6 +877,7 @@ function createBgmProjection(
     state: 'playing',
     loop: options.loop ?? true,
     interruptible: false,
+    durationMs: options.durationMs,
     gainDb: options.gainDb ?? 0,
     eq: options.eq,
     automation: options.automation,
@@ -894,6 +904,7 @@ function createSfxProjection(
     state: 'playing',
     loop: options.loop ?? false,
     interruptible: options.interruptible ?? true,
+    durationMs: options.durationMs,
     gainDb: options.gainDb ?? 0,
     eq: options.eq,
     automation: options.automation,
@@ -920,6 +931,7 @@ function createAmbientProjection(
     state: 'playing',
     loop: options.loop ?? true,
     interruptible: options.interruptible ?? false,
+    durationMs: options.durationMs,
     gainDb: options.gainDb ?? 0,
     eq: options.eq,
     automation: options.automation,
@@ -973,6 +985,32 @@ function withCurrentRuntimeAudioPackage<
   }
 }
 
+async function withResolvedAudioDuration<
+  TOptions extends { durationMs?: number },
+>(
+  engine: QuaEngineInterface,
+  assetKey: string,
+  options: TOptions,
+): Promise<TOptions> {
+  if (isPositiveFiniteNumber(options.durationMs)) {
+    return options
+  }
+  const metadata = await engine.getAssetMetadata('audio', assetKey).catch(() => null)
+  const metadataRecord = metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+    ? metadata as Record<string, unknown>
+    : undefined
+  const durationSeconds = typeof metadataRecord?.duration === 'number' && Number.isFinite(metadataRecord.duration)
+    ? metadataRecord.duration
+    : undefined
+  if (!durationSeconds || durationSeconds <= 0) {
+    return options
+  }
+  return {
+    ...options,
+    durationMs: Math.ceil(durationSeconds * 1000),
+  }
+}
+
 function withCurrentRuntimeAudioMetadata(
   engine: QuaEngineInterface,
   metadata?: Readonly<Record<string, unknown>>,
@@ -986,6 +1024,10 @@ function withCurrentRuntimeAudioMetadata(
 
 function contentPackageIdFromMetadata(metadata?: Readonly<Record<string, unknown>>): string | undefined {
   return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
+}
+
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
 }
 
 function requiredRuntimePackagesFromMetadata(metadata?: Readonly<Record<string, unknown>>): string[] {

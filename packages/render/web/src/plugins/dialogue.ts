@@ -1,36 +1,59 @@
 import type { RichTextBlockProjection, RichTextContent, RichTextSpanProjection, ViewDialogueProjection } from '@quajs/render-core'
+import type { QuaWebRendererPluginContext } from '../controller'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { isRichTextDocument } from '@quajs/render-core'
+import { DialogueTypewriterRuntime } from '../dialogue-typewriter'
 import { motionProjectionVars, projectDialogue } from '../projection'
 import { defineWebRendererPlugin } from './core'
 import { applyStyleVars } from './shared'
 
 export function createDialogueWebRendererPlugin(): QuaWebDomRendererPlugin {
+  let typewriterRuntime: DialogueTypewriterRuntime | undefined
   return defineWebRendererPlugin({
     name: '@quajs/renderer-web/dialogue',
-    setup() {},
+    setup(context) {
+      const webContext = context as QuaWebRendererPluginContext
+      typewriterRuntime = new DialogueTypewriterRuntime({
+        getAssets: () => webContext.getAssets(),
+        getDocument: () => globalThis.document,
+        refresh: () => context.refresh(),
+      })
+      context.addDisposer(webContext.registerAdvanceInterceptor(() => typewriterRuntime?.revealNow() ?? false))
+      context.addDisposer(() => {
+        typewriterRuntime?.destroy()
+        typewriterRuntime = undefined
+      })
+    },
     layers: [{
       id: 'dialogue',
       order: 50,
       plane: 'safe',
-      render: renderDialogueLayer,
-      update: updateDialogueLayer,
+      render: context => renderDialogueLayer(context, typewriterRuntime),
+      update: (context, node) => updateDialogueLayer(context, node, typewriterRuntime),
     }],
   })
 }
 
 export const dialogueWebRendererPlugin = createDialogueWebRendererPlugin()
 
-function renderDialogueLayer(context: QuaWebDomLayerContext): Node | undefined {
+function renderDialogueLayer(context: QuaWebDomLayerContext, typewriterRuntime?: DialogueTypewriterRuntime): Node | undefined {
   const dialogue = projectDialogue(context.view.dialogue, context.view.animations, Date.now(), context.view.plugins.dialogue as Record<string, unknown> | undefined)
-  if (!dialogue.visible) {
+  const typewriterProjection = typewriterRuntime?.project(dialogue)
+  const projectedDialogue = typewriterProjection?.dialogue || dialogue
+  if (!projectedDialogue.visible) {
     return undefined
   }
 
   const box = context.document.createElement('div')
   box.className = 'qua-dialogue-box'
-  applyStyleVars(box, motionProjectionVars(dialogue as unknown as Record<string, unknown>, '--qua-dialogue'))
-  renderDialogueContent(context, box, dialogue)
+  box.addEventListener('click', (event) => {
+    if (typewriterProjection?.revealing && typewriterRuntime?.revealNow()) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+  })
+  applyStyleVars(box, motionProjectionVars(projectedDialogue as unknown as Record<string, unknown>, '--qua-dialogue'))
+  renderDialogueContent(context, box, projectedDialogue)
   return box
 }
 
@@ -49,12 +72,13 @@ function renderDialogueContent(context: QuaWebDomLayerContext, box: HTMLElement,
   box.append(text)
 }
 
-function updateDialogueLayer(context: QuaWebDomLayerContext, node: Node): void {
+function updateDialogueLayer(context: QuaWebDomLayerContext, node: Node, typewriterRuntime?: DialogueTypewriterRuntime): void {
   if (!(node instanceof HTMLElement))
     return
   const dialogue = projectDialogue(context.view.dialogue, context.view.animations, Date.now(), context.view.plugins.dialogue as Record<string, unknown> | undefined)
-  applyStyleVars(node, motionProjectionVars(dialogue as unknown as Record<string, unknown>, '--qua-dialogue'))
-  renderDialogueContent(context, node, dialogue)
+  const projectedDialogue = typewriterRuntime?.project(dialogue).dialogue || dialogue
+  applyStyleVars(node, motionProjectionVars(projectedDialogue as unknown as Record<string, unknown>, '--qua-dialogue'))
+  renderDialogueContent(context, node, projectedDialogue)
 }
 
 function renderRichTextContent(context: QuaWebDomLayerContext, root: HTMLElement, content: RichTextContent): void {

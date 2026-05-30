@@ -1,7 +1,7 @@
 import type { AssetChange, QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
 import type { QuaViewProjection, RendererPlugin, RendererPluginContext, RenderErrorPayload } from '@quajs/render-core'
-import type { RendererActions } from './actions'
+import type { RendererActions, RendererAdvanceInterceptor } from './actions'
 import {
   createQuaErrorPayload,
   emitRenderToLogic,
@@ -38,6 +38,7 @@ export type QuaWebRendererSnapshotListener = (snapshot: QuaWebRendererSnapshot) 
 export interface QuaWebRendererPluginContext extends RendererPluginContext {
   getAssets: () => QuaAssets | undefined
   getActions: () => RendererActions
+  registerAdvanceInterceptor: (interceptor: RendererAdvanceInterceptor) => () => void
 }
 
 export class QuaWebRendererController {
@@ -54,6 +55,7 @@ export class QuaWebRendererController {
   private readonly autoReady: boolean
   private readonly rendererId?: string
   private readonly listeners = new Set<QuaWebRendererSnapshotListener>()
+  private readonly advanceInterceptors = new Set<RendererAdvanceInterceptor>()
   private readonly pipelineUnsubscribers: Array<() => void> = []
   private pluginHost?: RendererPluginHost
   private readonly runtimePluginHosts = new Map<string, RendererPluginHost[]>()
@@ -74,7 +76,10 @@ export class QuaWebRendererController {
     this.runtimePluginLoader = options.runtimePluginLoader
     this.autoReady = options.autoReady !== false
     this.rendererId = options.rendererId
-    this.actions = createRendererActions(() => this.requirePipeline())
+    this.actions = createRendererActions(
+      () => this.requirePipeline(),
+      { handleAdvance: source => this.handleAdvanceInterceptors(source) },
+    )
     this.snapshot = this.createSnapshot()
   }
 
@@ -92,6 +97,11 @@ export class QuaWebRendererController {
 
   getViewState(): Readonly<QuaViewProjection> {
     return this.projection
+  }
+
+  registerAdvanceInterceptor(interceptor: RendererAdvanceInterceptor): () => void {
+    this.advanceInterceptors.add(interceptor)
+    return () => this.advanceInterceptors.delete(interceptor)
   }
 
   subscribe(listener: QuaWebRendererSnapshotListener): () => void {
@@ -132,6 +142,7 @@ export class QuaWebRendererController {
     await this.destroyRuntimePluginHosts()
     await this.pluginHost?.destroy()
     this.pluginHost = undefined
+    this.advanceInterceptors.clear()
 
     if (wasStarted) {
       await emitRenderToLogic(this.pipeline, RenderToLogicEvents.RENDER_DESTROYED, { timestamp: Date.now() })
@@ -265,12 +276,22 @@ export class QuaWebRendererController {
       getViewState: () => this.projection,
       getAssets: () => this.assets,
       getActions: () => this.actions,
+      registerAdvanceInterceptor: interceptor => this.registerAdvanceInterceptor(interceptor),
       refresh: () => this.refresh(),
       emitRenderToLogic: (type, payload) => emitRenderToLogic(this.requirePipeline(), type as any, payload as any),
       onLogicToRender: (type, handler) => onLogicToRender(this.requirePipeline(), type as any, handler as any),
       onRenderToLogic: (type, handler) => onRenderToLogic(this.requirePipeline(), type as any, handler as any),
       reportError: (error, payload) => this.reportError(error, payload),
     }
+  }
+
+  private async handleAdvanceInterceptors(source?: string): Promise<boolean> {
+    for (const interceptor of Array.from(this.advanceInterceptors)) {
+      if (await interceptor(source)) {
+        return true
+      }
+    }
+    return false
   }
 
   async reportError(error: unknown, payload: Partial<RenderErrorPayload> = {}): Promise<void> {

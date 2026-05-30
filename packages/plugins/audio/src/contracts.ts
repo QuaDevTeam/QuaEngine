@@ -62,6 +62,7 @@ export interface AudioTrackProjection {
   state: AudioTrackState
   loop?: boolean
   interruptible?: boolean
+  durationMs?: number
   gainDb?: number
   eq?: readonly AudioEqBand[]
   automation?: readonly AudioAutomationProjection[]
@@ -123,6 +124,7 @@ export interface AudioPlayVoiceOptions {
   characterId?: string
   interruptible?: boolean
   loop?: boolean
+  durationMs?: number
   gainDb?: number
   fadeInMs?: number
   fadeOutMs?: number
@@ -137,6 +139,7 @@ export interface AudioPlayBgmOptions {
   id?: string
   contentPackageId?: string
   chapterId?: string
+  durationMs?: number
   gainDb?: number
   loop?: boolean
   fadeInMs?: number
@@ -155,6 +158,7 @@ export interface AudioPlaySfxOptions {
   lineId?: string
   interruptible?: boolean
   loop?: boolean
+  durationMs?: number
   gainDb?: number
   fadeInMs?: number
   fadeOutMs?: number
@@ -172,6 +176,7 @@ export interface AudioPlayAmbientOptions {
   lineId?: string
   interruptible?: boolean
   loop?: boolean
+  durationMs?: number
   gainDb?: number
   fadeInMs?: number
   fadeOutMs?: number

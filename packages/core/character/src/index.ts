@@ -1,4 +1,4 @@
-import type { CharacterIntent, QuaEngineInterface } from '@quajs/engine'
+import type { CharacterIntent, DialogueIntent, QuaEngineInterface } from '@quajs/engine'
 import type { RichTextContent } from '@quajs/render-core'
 import { RenderToLogicEvents } from '@quajs/render-core'
 
@@ -23,6 +23,7 @@ export interface CharacterOptions {
 export interface CharacterSpeakOptions {
   wait?: boolean
   mode?: 'say' | 'narration'
+  typewriter?: DialogueIntent['typewriter']
 }
 
 let runtime: CharacterRuntimeOptions | undefined
@@ -76,6 +77,7 @@ export class QuaCharacter {
       characterName: this.name,
       text,
       mode: options.mode || 'say',
+      typewriter: options.typewriter,
     })
     if (options.wait ?? runtime?.waitForAdvance ?? true) {
       await engine.waitFor(RenderToLogicEvents.USER_ADVANCE)

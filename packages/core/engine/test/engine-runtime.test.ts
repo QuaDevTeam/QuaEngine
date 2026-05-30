@@ -384,6 +384,57 @@ describe('quaEngine runtime architecture', () => {
     }))
   })
 
+  it('waits for dialogue reveal and active voice duration before auto advancing', async () => {
+    vi.useFakeTimers()
+    const engine = createEngine()
+    await engine.init()
+    await engine.setFlowControlOptions({ timings: { autoAdvanceDelayMs: 100 } })
+    await engine.setFlowControlMode('auto')
+    await engine.setPluginProjection('audio', audioProjection({
+      currentLineId: 'line-1',
+      voices: [{
+        id: 'line-1',
+        kind: 'voice',
+        assetKey: 'voice/line-1.ogg',
+        lineId: 'line-1',
+        state: 'playing',
+        durationMs: 500,
+      }],
+    }))
+
+    let waitReady!: () => void
+    const ready = new Promise<void>((resolve) => {
+      waitReady = resolve
+    })
+    let completed = false
+    const active = engine.dialogue([{
+      uuid: 'flow-auto-voice-line',
+      run: async (ctx) => {
+        await ctx.engine.showDialogue({
+          text: 'Voice paced line',
+          typewriter: { enabled: true, charactersPerSecond: 100 },
+        })
+        const wait = ctx.engine.waitFor(RenderToLogicEvents.USER_ADVANCE)
+        waitReady()
+        await wait
+        completed = true
+      },
+    }])
+
+    await ready
+    await vi.advanceTimersByTimeAsync(599)
+    expect(completed).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(1)
+    await active
+
+    expect(completed).toBe(true)
+    expect(engine.getFlowControlState()).toEqual(expect.objectContaining({
+      mode: 'auto',
+      lastAdvance: expect.objectContaining({ source: 'flow-control:auto' }),
+    }))
+  })
+
   it('respects non-skippable flow control policy until manual advance', async () => {
     vi.useFakeTimers()
     const engine = createEngine()
