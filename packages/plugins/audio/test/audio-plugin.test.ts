@@ -306,6 +306,54 @@ describe('@quajs/plugin-audio', () => {
     expect(projection.requiredRuntimePackages).toEqual([])
   })
 
+  it('tracks chapter-only runtime package metadata in active view dependencies', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    await engine.init()
+
+    await engine.setStoryPoint({ stepId: 'runtime-audio-chapter-step', contentPackageId: 'runtime.audio.chapter' })
+    await configureAudioChapterWithEngine(engine, 'runtime-audio-chapter')
+
+    const projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.chapter.metadata).toEqual({ contentPackageId: 'runtime.audio.chapter' })
+    expect(projection.requiredRuntimePackages).toEqual(['runtime.audio.chapter'])
+    expect(engine.getRuntimeViewRequiredPackageIds()).toEqual(['runtime.audio.chapter'])
+  })
+
+  it('merges current runtime package dependencies when audio extends existing package content', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    await engine.init()
+
+    await engine.setStoryPoint({ stepId: 'runtime-audio-delta-step', contentPackageId: 'runtime.audio.delta' })
+    await playBGMWithEngine(engine, 'bgm/base-theme', {
+      id: 'base-theme',
+      contentPackageId: 'base.audio',
+    })
+    await configureAudioChapterWithEngine(engine, 'base-chapter-delta', {
+      metadata: { contentPackageId: 'base.audio' },
+    })
+
+    let projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.bgm).toEqual(expect.objectContaining({
+      contentPackageId: 'base.audio',
+      metadata: { requiredRuntimePackages: ['base.audio', 'runtime.audio.delta'] },
+    }))
+    expect(projection.chapter.metadata).toEqual({
+      contentPackageId: 'base.audio',
+      requiredRuntimePackages: ['base.audio', 'runtime.audio.delta'],
+    })
+    expect(projection.requiredRuntimePackages).toEqual(['base.audio', 'runtime.audio.delta'])
+    expect(engine.getRuntimeViewRequiredPackageIds()).toEqual(['base.audio', 'runtime.audio.delta'])
+
+    await engine.notifyRuntimePackageUnload({ id: 'runtime.audio.delta', version: '1.0.0' }, 'runtime.audio.delta')
+
+    projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.bgm).toBeUndefined()
+    expect(projection.chapter).toBeUndefined()
+    expect(projection.requiredRuntimePackages).toEqual([])
+  })
+
   it('preserves mixed-package audio projection when engine clears package view state', async () => {
     const engine = createEngine()
     engine.use(new AudioPlugin())
@@ -347,7 +395,7 @@ describe('@quajs/plugin-audio', () => {
     })
 
     expect((engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any).requiredRuntimePackages)
-      .toEqual(['runtime.audio-assets', 'base.audio'])
+      .toEqual(['base.audio', 'runtime.audio-assets'])
 
     await engine.notifyRuntimePackageUnload({ id: 'runtime.audio-assets', version: '1.0.0' }, 'runtime.audio-assets')
 

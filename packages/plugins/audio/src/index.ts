@@ -525,7 +525,7 @@ function withAudioRequiredRuntimePackages(projection: AudioViewProjection): Audi
 
 function collectActiveAudioRequiredRuntimePackages(projection: AudioViewProjection): string[] {
   return uniqueStrings([
-    ...requiredRuntimePackagesFromMetadata(projection.chapter?.metadata),
+    ...runtimePackagesFromMetadata(projection.chapter?.metadata),
     ...(projection.bgm ? requiredRuntimePackagesFromActiveTrack(projection.bgm) : []),
     ...projection.voices.flatMap(requiredRuntimePackagesFromActiveTrack),
     ...projection.sfx.flatMap(requiredRuntimePackagesFromActiveTrack),
@@ -539,7 +539,7 @@ function requiredRuntimePackagesFromActiveTrack(track: AudioTrackProjection): st
   }
   return uniqueStrings([
     ...(track.contentPackageId ? [track.contentPackageId] : []),
-    ...requiredRuntimePackagesFromMetadata(track.metadata),
+    ...runtimePackagesFromMetadata(track.metadata),
   ])
 }
 
@@ -950,12 +950,23 @@ function withCurrentRuntimeAudioPackage<
   TOptions extends { contentPackageId?: string, metadata?: Readonly<Record<string, unknown>> },
 >(engine: QuaEngineInterface, options: TOptions): TOptions {
   const packageId = currentRuntimePackageId(engine)
-  if (!packageId || options.contentPackageId || contentPackageIdFromMetadata(options.metadata)) {
+  if (!packageId) {
+    return options
+  }
+  const contentPackageId = options.contentPackageId || contentPackageIdFromMetadata(options.metadata)
+  if (!contentPackageId) {
+    return {
+      ...options,
+      contentPackageId: packageId,
+    }
+  }
+  const metadata = mergeRuntimePackageMetadata(options.metadata, packageId, contentPackageId)
+  if (metadata === options.metadata) {
     return options
   }
   return {
     ...options,
-    contentPackageId: packageId,
+    metadata,
   }
 }
 
@@ -964,13 +975,10 @@ function withCurrentRuntimeAudioMetadata(
   metadata?: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> | undefined {
   const packageId = currentRuntimePackageId(engine)
-  if (!packageId || metadata?.contentPackageId) {
+  if (!packageId) {
     return metadata ? { ...metadata } : metadata
   }
-  return {
-    ...(metadata || {}),
-    contentPackageId: packageId,
-  }
+  return mergeRuntimePackageMetadata(metadata, packageId)
 }
 
 function contentPackageIdFromMetadata(metadata?: Readonly<Record<string, unknown>>): string | undefined {
@@ -984,9 +992,43 @@ function requiredRuntimePackagesFromMetadata(metadata?: Readonly<Record<string, 
     : []
 }
 
+function runtimePackagesFromMetadata(metadata?: Readonly<Record<string, unknown>>): string[] {
+  const contentPackageId = contentPackageIdFromMetadata(metadata)
+  return uniqueStrings([
+    ...(contentPackageId ? [contentPackageId] : []),
+    ...requiredRuntimePackagesFromMetadata(metadata),
+  ])
+}
+
 function metadataRequiresPackage(metadata: Readonly<Record<string, unknown>> | undefined, packageId: string): boolean {
   return contentPackageIdFromMetadata(metadata) === packageId
     || requiredRuntimePackagesFromMetadata(metadata).includes(packageId)
+}
+
+function mergeRuntimePackageMetadata(
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  packageId: string,
+  inheritedContentPackageId?: string,
+): Readonly<Record<string, unknown>> | undefined {
+  const currentPackageId = contentPackageIdFromMetadata(metadata) || inheritedContentPackageId
+  if (!currentPackageId) {
+    return {
+      ...(metadata || {}),
+      contentPackageId: packageId,
+    }
+  }
+  const requiredRuntimePackages = uniqueStrings([
+    currentPackageId,
+    ...requiredRuntimePackagesFromMetadata(metadata),
+    packageId,
+  ])
+  if (currentPackageId === packageId && requiredRuntimePackagesFromMetadata(metadata).length === 0) {
+    return metadata ? { ...metadata } : metadata
+  }
+  return {
+    ...(metadata || {}),
+    requiredRuntimePackages,
+  }
 }
 
 function uniqueStrings(values: readonly string[]): string[] {
