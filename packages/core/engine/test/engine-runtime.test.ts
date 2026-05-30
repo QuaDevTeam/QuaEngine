@@ -1912,6 +1912,71 @@ describe('quaEngine runtime architecture', () => {
     expect(enginePluginInit).toHaveBeenCalledTimes(2)
   })
 
+  it('persists step-level runtime package requirements on current story point saves', async () => {
+    const engine = new QuaEngine({
+      assets: {
+        adapter: createMemoryAdapter(),
+      },
+      store: {
+        enableSnapshots: false,
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      saves: {
+        preview: {
+          defaults: {
+            mode: 'disabled',
+          },
+        },
+      },
+    })
+    await engine.init()
+
+    await engine.executeStep({
+      uuid: 'runtime-dependent-step',
+      metadata: {
+        point: {
+          contentPackageId: 'runtime.base',
+          scriptModuleId: 'runtime.base.scene',
+        },
+        requiredRuntimePackages: ['runtime.base', 'runtime.delta'],
+      },
+      run: async () => {},
+    })
+
+    expect(engine.getStoryPoint()).toEqual(expect.objectContaining({
+      stepId: 'runtime-dependent-step',
+      contentPackageId: 'runtime.base',
+      requiredRuntimePackages: ['runtime.base', 'runtime.delta'],
+    }))
+    expect(engine.getCheckpoint('runtime-dependent-step')).toBeUndefined()
+
+    await engine.quickSave({ name: 'Runtime dependent step' })
+    expect((await engine.listSaveSlots())[0].metadata.requiredRuntimePackages).toEqual([
+      'runtime.base',
+      'runtime.delta',
+    ])
+
+    await engine.executeStep({
+      uuid: 'runtime-next-step',
+      metadata: {
+        point: {
+          contentPackageId: 'runtime.next',
+          scriptModuleId: 'runtime.next.scene',
+        },
+        requiredRuntimePackages: ['runtime.next'],
+      },
+      run: async () => {},
+    })
+
+    expect(engine.getStoryPoint()).toEqual(expect.objectContaining({
+      stepId: 'runtime-next-step',
+      contentPackageId: 'runtime.next',
+      requiredRuntimePackages: ['runtime.next'],
+    }))
+  })
+
   it('rejects runtime packages that require a newer game version and leaves no loaded package behind', async () => {
     const manifest = createRuntimeBundleManifest({
       id: 'runtime.future',

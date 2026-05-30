@@ -2701,11 +2701,22 @@ export class QuaEngine {
 
   private resolveStepPoint(step: GameStep): StoryPoint {
     const current = this.getStoryPoint()
+    const point = step.metadata?.point
+    const nextContentPackageId = point?.contentPackageId ?? current?.contentPackageId
+    const carryCurrentRequiredPackages = current?.contentPackageId === nextContentPackageId
+      && !point?.requiredRuntimePackages
+      && !step.metadata?.requiredRuntimePackages
+    const requiredRuntimePackages = mergeRequiredRuntimePackages(
+      carryCurrentRequiredPackages ? current?.requiredRuntimePackages : undefined,
+      point?.requiredRuntimePackages,
+      step.metadata?.requiredRuntimePackages,
+    )
     return {
       ...(current || {}),
-      ...(step.metadata?.point || {}),
-      sceneId: step.metadata?.point?.sceneId || current?.sceneId || this.getCurrentSceneName(),
+      ...(point || {}),
+      sceneId: point?.sceneId || current?.sceneId || this.getCurrentSceneName(),
       stepId: step.uuid,
+      requiredRuntimePackages: requiredRuntimePackages.length > 0 ? requiredRuntimePackages : undefined,
     }
   }
 
@@ -2720,7 +2731,10 @@ export class QuaEngine {
   }
 
   private getRequiredRuntimePackagesForPoint(point?: StoryPoint): string[] {
-    return point?.contentPackageId ? [point.contentPackageId] : []
+    return mergeRequiredRuntimePackages(
+      point?.contentPackageId ? [point.contentPackageId] : [],
+      point?.requiredRuntimePackages,
+    )
   }
 
   getCurrentRuntimePackageId(): string | undefined {
