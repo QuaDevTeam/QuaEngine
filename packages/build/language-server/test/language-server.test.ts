@@ -1,6 +1,7 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { applyQuaScriptTextEdits } from '@quajs/script-compiler'
 import { describe, expect, it } from 'vitest'
 import {
@@ -12,6 +13,11 @@ import {
   getQuaScriptHover,
   lintQuaScript,
 } from '../src'
+
+const WORKSPACE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
+const WORKSPACE_PACKAGE_PATHS: Record<string, string> = {
+  '@quajs/character': 'packages/core/character',
+}
 
 describe('@quajs/language-server helpers', () => {
   it('creates diagnostics-free virtual TypeScript for typed qs files', async () => {
@@ -46,6 +52,7 @@ Yuki: Hello \${displayName}!
   })
 
   it('suggests decorators and scope variables', async () => {
+    const projectRoot = createQuaProjectWithDependencies('@quajs/character')
     const source = `
 <script setup lang="ts">
 const displayName = scope.name
@@ -53,7 +60,7 @@ const displayName = scope.name
 
 @`
 
-    const decorators = await getQuaScriptCompletions(source, { line: 5, character: 1 })
+    const decorators = await getQuaScriptCompletions(source, { line: 5, character: 1 }, { projectRoot })
     expect(decorators.some(item => item.label === 'SetSprite')).toBe(true)
 
     const variables = await getQuaScriptCompletions('Yuki: Hello ${disp', { line: 0, character: 18 })
@@ -256,7 +263,8 @@ Yuki: Hello \${scope.playerName.toUpperCase()}
   })
 
   it('returns decorator hover on decorator names with arguments', async () => {
-    const hover = await getQuaScriptHover('@SetSprite("yuki.png")\nYuki: Hi', { line: 0, character: 5 })
+    const projectRoot = createQuaProjectWithDependencies('@quajs/character')
+    const hover = await getQuaScriptHover('@SetSprite("yuki.png")\nYuki: Hi', { line: 0, character: 5 }, { projectRoot })
 
     expect(hover?.contents).toContain('@SetSprite')
     expect(hover?.contents).toContain('@quajs/character')
@@ -770,4 +778,25 @@ function positionOf(source: string, needle: string) {
     character: lines[lines.length - 1].length,
     line: lines.length - 1,
   }
+}
+
+function createQuaProjectWithDependencies(...dependencies: string[]): string {
+  const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
+  writeFileSync(join(projectRoot, 'package.json'), JSON.stringify({
+    dependencies: Object.fromEntries(dependencies.map(dependency => [dependency, 'workspace:*'])),
+  }), 'utf-8')
+  dependencies.forEach((dependency) => {
+    const packagePath = WORKSPACE_PACKAGE_PATHS[dependency]
+    if (!packagePath) {
+      return
+    }
+
+    const dependencyParts = dependency.split('/')
+    const packageDirectory = dependencyParts.length === 2
+      ? join(projectRoot, 'node_modules', dependencyParts[0])
+      : join(projectRoot, 'node_modules')
+    mkdirSync(packageDirectory, { recursive: true })
+    symlinkSync(resolve(WORKSPACE_ROOT, packagePath), join(packageDirectory, dependencyParts.at(-1)!), 'dir')
+  })
+  return projectRoot
 }
