@@ -328,7 +328,7 @@ describe('@quajs/plugin-audio', () => {
     await engine.setStoryPoint({ stepId: 'runtime-audio-delta-step', contentPackageId: 'runtime.audio.delta' })
     await playBGMWithEngine(engine, 'bgm/base-theme', {
       id: 'base-theme',
-      contentPackageId: 'base.audio',
+      metadata: { contentPackageId: 'base.audio' },
     })
     await configureAudioChapterWithEngine(engine, 'base-chapter-delta', {
       metadata: { contentPackageId: 'base.audio' },
@@ -337,7 +337,10 @@ describe('@quajs/plugin-audio', () => {
     let projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
     expect(projection.bgm).toEqual(expect.objectContaining({
       contentPackageId: 'base.audio',
-      metadata: { requiredRuntimePackages: ['base.audio', 'runtime.audio.delta'] },
+      metadata: {
+        contentPackageId: 'base.audio',
+        requiredRuntimePackages: ['base.audio', 'runtime.audio.delta'],
+      },
     }))
     expect(projection.chapter.metadata).toEqual({
       contentPackageId: 'base.audio',

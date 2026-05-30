@@ -142,6 +142,38 @@ describe('@quajs/plugin-fonts', () => {
     ])
     expect(getFontsProjection(engine).requiredRuntimePackages).toEqual(['base.fonts'])
   })
+
+  it('merges current runtime package dependencies when fonts extend existing package content', async () => {
+    const engine = createEngine()
+    engine.use(new FontsPlugin())
+    await engine.init()
+
+    await engine.withRuntimePackageContext('runtime.font-delta', async (runtimeEngine) => {
+      await registerFontWithEngine(runtimeEngine, 'Base Serif', 'base-serif-delta.woff2', {
+        metadata: { contentPackageId: 'base.fonts' },
+      })
+    })
+
+    let projection = getFontsProjection(engine)
+    expect(projection.faces).toEqual([
+      expect.objectContaining({
+        family: 'Base Serif',
+        contentPackageId: 'base.fonts',
+        metadata: {
+          contentPackageId: 'base.fonts',
+          requiredRuntimePackages: ['base.fonts', 'runtime.font-delta'],
+        },
+      }),
+    ])
+    expect(projection.requiredRuntimePackages).toEqual(['base.fonts', 'runtime.font-delta'])
+    expect(engine.getRuntimeViewRequiredPackageIds()).toEqual(['base.fonts', 'runtime.font-delta'])
+
+    await clearRuntimePackageFontsWithEngine(engine, 'runtime.font-delta')
+
+    projection = getFontsProjection(engine)
+    expect(projection.faces).toEqual([])
+    expect(projection.requiredRuntimePackages).toEqual([])
+  })
 })
 
 function createEngine(): QuaEngine {
