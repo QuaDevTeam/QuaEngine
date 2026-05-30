@@ -213,6 +213,7 @@ describe('@quajs/story-graph', () => {
           stepId: 'library-step',
           scriptModuleId: 'main.school',
           contentPackageId: 'runtime.school',
+          requiredRuntimePackages: ['runtime.school', 'runtime.school-assets'],
         } as any,
         presentation: {
           thumbnail: { type: 'images', name: 'story/library.png' },
@@ -228,7 +229,7 @@ describe('@quajs/story-graph', () => {
 
     expect(resolved?.point).toEqual(expect.objectContaining({ nodeId: 'library', stepId: 'library-step' }))
     expect(resolved?.script).toEqual(expect.objectContaining({ moduleId: 'main.school', nodeId: 'library' }))
-    expect(resolved?.requiredRuntimePackages).toEqual(['runtime.school'])
+    expect(resolved?.requiredRuntimePackages).toEqual(['runtime.school', 'runtime.school-assets'])
   })
 
   it('merges package-scoped dynamic graph deltas with timeline and lane provenance', async () => {

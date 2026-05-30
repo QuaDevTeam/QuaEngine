@@ -651,7 +651,10 @@ async function createGalleryReturnCheckpoint(engine: QuaEngineInterface) {
   )
   const checkpoint = await engine.createCheckpoint({ kind: 'manual' })
   const point = engine.getStoryPoint()
-  const pointPackages = point?.contentPackageId ? [point.contentPackageId] : []
+  const pointPackages = mergeRequiredRuntimePackages(
+    point?.contentPackageId ? [point.contentPackageId] : [],
+    point?.requiredRuntimePackages,
+  )
   const metadata: Record<string, unknown> = checkpoint.metadata
     ? (cloneUnknownRecord(checkpoint.metadata) || {})
     : {}
@@ -902,6 +905,7 @@ function resolveCurrentGalleryMetadataContext(
     contentPackageId: node?.point.contentPackageId || contentPackageIdFromMetadata(node?.metadata),
     requiredRuntimePackages: mergeRequiredRuntimePackages(
       node?.point.contentPackageId ? [node.point.contentPackageId] : [],
+      node?.point.requiredRuntimePackages,
       getRequiredRuntimePackages(node?.metadata),
     ),
   }

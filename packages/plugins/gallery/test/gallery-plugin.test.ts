@@ -153,6 +153,8 @@ describe('@quajs/plugin-gallery', () => {
       storyId: 'default',
       sceneId: 'beach',
       stepId: 'beach.step',
+      contentPackageId: 'runtime.story',
+      requiredRuntimePackages: ['runtime.story', 'runtime.gallery-delta'],
     })
 
     await engine.dialogue([{
@@ -174,6 +176,8 @@ describe('@quajs/plugin-gallery', () => {
     expect(getGalleryProfile(engine).unlockedEntries['cg.sunset']).toEqual(expect.objectContaining({
       entryId: 'cg.sunset',
       source: 'metadata',
+      contentPackageId: 'runtime.story',
+      requiredRuntimePackages: ['runtime.story', 'runtime.gallery-delta'],
     }))
   })
 

@@ -304,6 +304,8 @@ describe('@quajs/plugin-achievement', () => {
       storyId: 'default',
       sceneId: 'beach',
       stepId: 'beach.step',
+      contentPackageId: 'runtime.story',
+      requiredRuntimePackages: ['runtime.story', 'runtime.achievement-delta'],
     })
 
     await engine.dialogue([{
@@ -325,6 +327,8 @@ describe('@quajs/plugin-achievement', () => {
     expect(getAchievementProfile(engine).unlockedAchievements['story.first-step']).toEqual(expect.objectContaining({
       achievementId: 'story.first-step',
       source: 'metadata',
+      contentPackageId: 'runtime.story',
+      requiredRuntimePackages: ['runtime.story', 'runtime.achievement-delta'],
     }))
 
     await unlockAchievementWithEngine(engine, 'cg.master', {

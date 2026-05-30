@@ -563,7 +563,10 @@ function backlogEntryRequiresPackage(entry: BacklogEntry, packageId: string): bo
 }
 
 function requiredPackagesForPoint(point?: StoryPoint): string[] {
-  return point?.contentPackageId ? [point.contentPackageId] : []
+  return mergeRequiredPackages(
+    point?.contentPackageId ? [point.contentPackageId] : undefined,
+    point?.requiredRuntimePackages,
+  )
 }
 
 function requiredPackagesFromMetadata(metadata?: Record<string, unknown>): string[] {
