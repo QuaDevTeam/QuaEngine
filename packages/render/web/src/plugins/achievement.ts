@@ -10,6 +10,7 @@ import {
   ACHIEVEMENT_PLUGIN_ID,
   AchievementRenderToLogicEvents,
 } from '@quajs/plugin-achievement/contracts'
+import { runtimePackageCandidatesFromMetadata } from '../assets'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
 
@@ -149,7 +150,7 @@ function renderAchievementToast(
     iconNode.className = 'qua-achievement-toast-icon'
     iconNode.alt = ''
     iconNode.setAttribute('aria-hidden', 'true')
-    context.bindAssetUrl(iconNode, 'images', icon.name, 'src', icon.runtimePackageId)
+    context.bindAssetUrl(iconNode, 'images', icon.name, 'src', runtimePackageCandidatesFromAchievementAsset(icon))
     toast.append(iconNode)
   }
 
@@ -179,7 +180,7 @@ function renderAchievementToast(
       audio.autoplay = true
       audio.preload = 'auto'
       audio.hidden = true
-      context.bindAssetUrl(audio, 'audio', sound.name, 'src', sound.runtimePackageId)
+      context.bindAssetUrl(audio, 'audio', sound.name, 'src', runtimePackageCandidatesFromAchievementAsset(sound))
       toast.append(audio)
     }
   }
@@ -424,7 +425,7 @@ function renderAchievementCard(
     image.className = 'qua-achievement-card-image'
     image.alt = ''
     image.setAttribute('aria-hidden', 'true')
-    context.bindAssetUrl(image, 'images', preview.name, 'src', preview.runtimePackageId)
+    context.bindAssetUrl(image, 'images', preview.name, 'src', runtimePackageCandidatesFromAchievementAsset(preview))
     button.append(image)
   }
 
@@ -482,7 +483,7 @@ function renderAchievementDetail(context: QuaWebDomLayerContext, achievement: Ac
     image.className = 'qua-achievement-detail-image'
     image.alt = ''
     image.setAttribute('aria-hidden', 'true')
-    context.bindAssetUrl(image, 'images', banner.name, 'src', banner.runtimePackageId)
+    context.bindAssetUrl(image, 'images', banner.name, 'src', runtimePackageCandidatesFromAchievementAsset(banner))
     detail.append(image)
   }
 
@@ -587,6 +588,13 @@ function resolveAchievementDetailAsset(achievement: AchievementProjectionItem): 
 
 function resolveAchievementIconAsset(asset: AchievementAssetRef | undefined): AchievementAssetRef | undefined {
   return asset?.type === 'images' ? asset : undefined
+}
+
+function runtimePackageCandidatesFromAchievementAsset(asset: AchievementAssetRef): readonly string[] | undefined {
+  return runtimePackageCandidatesFromMetadata({
+    ...(asset.metadata || {}),
+    ...(asset.runtimePackageId ? { contentPackageId: asset.runtimePackageId } : {}),
+  })
 }
 
 function syncDismissTimers(
