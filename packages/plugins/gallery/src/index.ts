@@ -724,7 +724,7 @@ async function rebuildGalleryProjection(
       ? cloneGalleryFallbackTarget(current.fallbackTarget)
       : cloneGalleryFallbackTarget(patch.fallbackTarget || undefined),
     requiredRuntimePackages: sceneActive
-      ? collectActiveGalleryRequiredRuntimePackages(catalogs, filteredEntries, selectedCatalogId, selectedEntryId)
+      ? collectActiveGalleryRequiredRuntimePackages(catalogs, entries)
       : [],
     filter: nextFilter,
   }
@@ -1096,22 +1096,12 @@ function selectGalleryContentId(
 
 function collectActiveGalleryRequiredRuntimePackages(
   catalogs: readonly GalleryCatalogProjectionItem[],
-  filteredEntries: readonly GalleryEntryProjectionItem[],
-  selectedCatalogId: string | undefined,
-  selectedEntryId: string | undefined,
+  entries: readonly GalleryEntryProjectionItem[],
 ): string[] {
-  const selectedCatalog = selectedCatalogId
-    ? catalogs.find(catalog => catalog.id === selectedCatalogId)
-    : undefined
-  const selectedEntry = selectedEntryId
-    ? filteredEntries.find(entry => entry.id === selectedEntryId)
-    : undefined
-
   return mergeRequiredRuntimePackages(
-    selectedCatalog?.requiredRuntimePackages,
-    ...filteredEntries.map(entry => entry.requiredRuntimePackages),
-    selectedEntry?.requiredRuntimePackages,
-    ...(selectedEntry?.contents.map(content => content.requiredRuntimePackages) || []),
+    ...catalogs.map(catalog => catalog.requiredRuntimePackages),
+    ...entries.map(entry => entry.requiredRuntimePackages),
+    ...entries.flatMap(entry => entry.contents.map(content => content.requiredRuntimePackages)),
   )
 }
 

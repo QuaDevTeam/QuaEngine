@@ -221,6 +221,49 @@ describe('@quajs/plugin-achievement', () => {
     expect(active.achievements.map(achievement => achievement.id)).toEqual(['cg.master', 'story.first-step'])
   })
 
+  it('declares required packages for every active achievement projection item', async () => {
+    const engine = createEngine()
+    engine.use(new AchievementPlugin())
+    await engine.init()
+
+    await registerAchievementDefinitionsWithEngine(engine, {
+      groups: [{
+        id: 'base',
+        title: 'Base',
+        contentPackageId: 'runtime.achievement-base',
+      }, {
+        id: 'bonus',
+        title: 'Bonus',
+        contentPackageId: 'runtime.achievement-bonus',
+      }],
+      achievements: [{
+        id: 'base.first',
+        groupId: 'base',
+        title: 'Base First',
+        contentPackageId: 'runtime.achievement-base',
+      }, {
+        id: 'bonus.first',
+        groupId: 'bonus',
+        title: 'Bonus First',
+        contentPackageId: 'runtime.achievement-bonus',
+      }],
+    })
+
+    await openAchievementBoardWithEngine(engine, {
+      groupId: 'base',
+      achievementId: 'base.first',
+    })
+
+    const projection = getAchievementProjection(engine)
+    expect(projection.filteredAchievementIds).toEqual(['base.first'])
+    expect(projection.groups.map(group => group.id)).toEqual(['base', 'bonus'])
+    expect(projection.achievements.map(achievement => achievement.id)).toEqual(['base.first', 'bonus.first'])
+    expect(projection.requiredRuntimePackages).toEqual([
+      'runtime.achievement-base',
+      'runtime.achievement-bonus',
+    ])
+  })
+
   it('keeps board interaction working after saving and loading back into the achievement scene', async () => {
     const engine = createEngine()
     engine.use(new AchievementPlugin())
