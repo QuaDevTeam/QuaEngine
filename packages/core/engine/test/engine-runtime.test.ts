@@ -3248,6 +3248,40 @@ describe('quaEngine runtime architecture', () => {
     }))
   })
 
+  it('prevents unloading runtime packages referenced by checkpoint metadata content owners', async () => {
+    const voiceManifest = createRuntimeBundleManifest({
+      id: 'runtime.voice',
+      version: '1.0.0',
+    })
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/voice.qpk': createQpkBundle(voiceManifest, new Map()),
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+    await engine.loadRuntimePackage('voice.qpk')
+    await engine.setStoryPoint({ stepId: 'base-step' })
+    await engine.createCheckpoint({
+      id: 'voice-metadata-owner',
+      kind: 'manual',
+      metadata: { contentPackageId: 'runtime.voice' },
+    })
+    await engine.jumpTo('voice-metadata-owner')
+
+    await expect(engine.unloadRuntimePackage('runtime.voice')).rejects.toThrow('current checkpoint')
+  })
+
   it('prevents unloading runtime packages referenced by nested story asset refs in active view state', async () => {
     const storyManifest = createRuntimeBundleManifest({
       id: 'runtime.story',

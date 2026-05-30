@@ -1219,5 +1219,6 @@ function storyPointRequiresPackage(point: { contentPackageId?: string, requiredR
 
 function metadataRequiresPackage(metadata: Record<string, unknown> | undefined, packageId: string): boolean {
   const required = metadata?.requiredRuntimePackages
-  return Array.isArray(required) && required.includes(packageId)
+  return metadata?.contentPackageId === packageId
+    || (Array.isArray(required) && required.includes(packageId))
 }

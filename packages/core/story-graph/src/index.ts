@@ -541,17 +541,20 @@ export async function resolveStoryTargetFromGraphWithEngine(
   const targetPackageId = getTargetPackageId(target)
   const requiredRuntimePackages = mergeStringLists(
     target.requiredRuntimePackages as string[] | undefined,
-    node.point.contentPackageId ? [node.point.contentPackageId] : [],
-    node.point.requiredRuntimePackages,
+    runtimePackagesForStoryNode(node),
     targetPackageId ? [targetPackageId] : [],
-    getMetadataRequiredRuntimePackages(node.metadata),
   )
   const moduleId = node.point.scriptModuleId || getMetadataString(node.metadata, 'scriptModuleId')
+  const pointRequiredRuntimePackages = storyPointRequiredRuntimePackages(
+    node.point.contentPackageId,
+    mergeStringLists(node.point.requiredRuntimePackages, requiredRuntimePackages),
+  )
   return {
     target,
     point: {
       ...node.point,
       storyId: node.point.storyId || graph.id,
+      ...(pointRequiredRuntimePackages ? { requiredRuntimePackages: pointRequiredRuntimePackages } : {}),
     },
     requiredRuntimePackages,
     script: moduleId
@@ -1041,9 +1044,9 @@ function cleanRuntimePackageProjectionState(
   const graphNodeIds = getGraphNodeIds(graphs)
   return {
     cursors: Object.fromEntries(
-      Object.entries(projection.cursors).filter(([, cursor]) => cursor.point.contentPackageId !== packageId),
+      Object.entries(projection.cursors).filter(([, cursor]) => !storyPointRequiresPackage(cursor.point, packageId)),
     ),
-    events: projection.events.filter(event => event.point?.contentPackageId !== packageId),
+    events: projection.events.filter(event => !storyPointRequiresPackage(event.point, packageId)),
     unlockedNodes: projection.unlockedNodes.filter(nodeId => graphNodeIds.has(nodeId)),
   }
 }
@@ -1117,12 +1120,16 @@ function normalizeDeltaNode(
   if (!id) {
     throw new Error(`Story graph delta for "${graphId}" contains a node without an id.`)
   }
-  const point = {
+  const point: StoryPoint = {
     storyId: graphId,
     ...(node.point || { stepId: id, nodeId: id }),
     stepId: node.point?.stepId || id,
     nodeId: node.point?.nodeId || id,
     contentPackageId: node.point?.contentPackageId || (typeof metadata.contentPackageId === 'string' ? metadata.contentPackageId : undefined),
+  }
+  const requiredRuntimePackages = requiredRuntimePackagesForStoryPoint(point, metadata)
+  if (requiredRuntimePackages) {
+    point.requiredRuntimePackages = requiredRuntimePackages
   }
   return {
     id,
@@ -1179,6 +1186,7 @@ function storyGraphDeltaRequiresPackage(delta: StoryGraphDelta, packageId: strin
   return metadataRequiresPackage(delta.metadata, packageId)
     || [...(delta.nodes || [])].some(node =>
       node.point?.contentPackageId === packageId
+      || node.point?.requiredRuntimePackages?.includes(packageId) === true
       || metadataRequiresPackage(node.metadata, packageId),
     )
     || [...(delta.edges || [])].some(edge => metadataRequiresPackage(edge.metadata, packageId))
@@ -1186,7 +1194,7 @@ function storyGraphDeltaRequiresPackage(delta: StoryGraphDelta, packageId: strin
 }
 
 function storyNodeRequiresPackage(node: StoryNode, packageId: string): boolean {
-  return node.point.contentPackageId === packageId || metadataRequiresPackage(node.metadata, packageId)
+  return storyPointRequiresPackage(node.point, packageId) || metadataRequiresPackage(node.metadata, packageId)
 }
 
 function storyEdgeRequiresPackage(edge: StoryEdge, packageId: string): boolean {
@@ -1225,6 +1233,7 @@ function withCurrentRuntimeStoryGraphPackage(engine: QuaEngineInterface, graph: 
       point: {
         ...node.point,
         contentPackageId: node.point.contentPackageId || packageId,
+        ...storyPointRequiredRuntimePackagePatch(node.point, packageId, inheritedRequiredRuntimePackages),
       },
       metadata: mergeRuntimeMetadata(node.metadata, packageId, inheritedRequiredRuntimePackages),
     })),
@@ -1274,6 +1283,67 @@ function mergeRuntimeMetadata(
 function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined {
   return (engine as Partial<QuaEngineInterface>).getCurrentRuntimePackageId?.()
     || (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
+}
+
+function runtimePackagesForStoryNode(node: StoryNode): string[] {
+  return mergeStringLists(
+    node.point.contentPackageId ? [node.point.contentPackageId] : [],
+    node.point.requiredRuntimePackages,
+    contentPackageIdFromMetadata(node.metadata) ? [contentPackageIdFromMetadata(node.metadata)!] : [],
+    getMetadataRequiredRuntimePackages(node.metadata),
+  )
+}
+
+function storyPointRequiresPackage(point: StoryPoint | undefined, packageId: string): boolean {
+  return point?.contentPackageId === packageId
+    || point?.requiredRuntimePackages?.includes(packageId) === true
+}
+
+function requiredRuntimePackagesForStoryPoint(
+  point: StoryPoint,
+  metadata?: Readonly<Record<string, unknown>>,
+): string[] | undefined {
+  const metadataContentPackageId = contentPackageIdFromMetadata(metadata)
+  const requiredRuntimePackages = mergeStringLists(
+    point.requiredRuntimePackages,
+    point.contentPackageId ? [point.contentPackageId] : [],
+    metadataContentPackageId ? [metadataContentPackageId] : [],
+    getMetadataRequiredRuntimePackages(metadata),
+  )
+  return storyPointRequiredRuntimePackages(point.contentPackageId, requiredRuntimePackages)
+}
+
+function storyPointRequiredRuntimePackagePatch(
+  point: StoryPoint,
+  packageId: string,
+  inheritedRequiredRuntimePackages: readonly string[],
+): Pick<StoryPoint, 'requiredRuntimePackages'> | Record<string, never> {
+  const contentPackageId = point.contentPackageId || packageId
+  const requiredRuntimePackages = mergeStringLists(
+    point.requiredRuntimePackages,
+    contentPackageId ? [contentPackageId] : [],
+    inheritedRequiredRuntimePackages,
+    [packageId],
+  )
+  const dependencies = storyPointRequiredRuntimePackages(contentPackageId, requiredRuntimePackages)
+  return dependencies ? { requiredRuntimePackages: dependencies } : {}
+}
+
+function contentPackageIdFromMetadata(metadata?: Readonly<Record<string, unknown>>): string | undefined {
+  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
+}
+
+function storyPointRequiredRuntimePackages(
+  contentPackageId: string | undefined,
+  packageIds: readonly string[],
+): string[] | undefined {
+  if (packageIds.length === 0) {
+    return undefined
+  }
+  if (contentPackageId && packageIds.length === 1 && packageIds[0] === contentPackageId) {
+    return undefined
+  }
+  return [...packageIds]
 }
 
 function stripRuntimePackageMetadata<TMetadata extends Readonly<Record<string, unknown>> | undefined>(
