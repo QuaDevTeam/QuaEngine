@@ -455,6 +455,37 @@ describe('@quajs/plugin-achievement', () => {
       achievementId: 'dependent.achievement',
     }))
   })
+
+  it('merges current runtime package dependencies for metadata-owned achievement content', async () => {
+    const engine = createEngine()
+    engine.use(new AchievementPlugin())
+    await engine.init()
+
+    await engine.withRuntimePackageContext('runtime.achievement-delta', async (runtimeEngine) => {
+      await registerAchievementDefinitionsWithEngine(runtimeEngine, {
+        groups: [{
+          id: 'base-delta',
+          title: 'Base Delta',
+          metadata: { contentPackageId: 'base.achievement' },
+        }],
+        achievements: [{
+          id: 'base-delta.first',
+          groupId: 'base-delta',
+          title: 'Base Delta First',
+          metadata: { contentPackageId: 'base.achievement' },
+        }],
+      })
+    })
+
+    await openAchievementBoardWithEngine(engine)
+    expect(getAchievementProjection(engine).requiredRuntimePackages).toEqual(['base.achievement', 'runtime.achievement-delta'])
+
+    await removeRuntimePackageAchievementContentWithEngine(engine, 'runtime.achievement-delta')
+
+    expect(getAchievementProjection(engine).groups).toEqual([])
+    expect(getAchievementProjection(engine).achievements).toEqual([])
+    expect(getAchievementProjection(engine).requiredRuntimePackages).toEqual([])
+  })
 })
 
 async function registerBaseAchievements(engine: QuaEngine): Promise<void> {
