@@ -80,22 +80,24 @@ export async function clearRuntimePackageBackgroundWithEngine(
   if (!current) {
     return
   }
-  if (backgroundRequiresPackage(current, packageId)) {
+  if (metadataOwnedByPackage(current.metadata, packageId) || metadataRequiresPackage(current.video?.metadata, packageId)) {
     await engine.setBackgroundProjection(undefined)
     return
   }
-  if (current.mode !== 'layered' || !current.layers?.length) {
-    return
+  if (current.mode === 'layered' && current.layers?.length) {
+    const layers = current.layers.filter(layer => !backgroundLayerRequiresPackage(layer, packageId))
+    if (layers.length !== current.layers.length) {
+      await engine.setBackgroundProjection({
+        ...cloneBackground(current),
+        layers,
+        metadata: removeRuntimePackageFromMetadata(current.metadata, packageId),
+      })
+      return
+    }
   }
-
-  const layers = current.layers.filter(layer => !backgroundLayerRequiresPackage(layer, packageId))
-  if (layers.length === current.layers.length) {
-    return
+  if (metadataRequiresPackage(current.metadata, packageId)) {
+    await engine.setBackgroundProjection(undefined)
   }
-  await engine.setBackgroundProjection({
-    ...cloneBackground(current),
-    layers,
-  })
 }
 
 export async function setVideoBackgroundWithEngine(
@@ -306,18 +308,38 @@ function cloneBackground(background: Readonly<BackgroundIntent>): BackgroundInte
   return normalizeBackground(background)
 }
 
-function backgroundRequiresPackage(background: Readonly<ViewBackgroundProjection>, packageId: string): boolean {
-  return metadataRequiresPackage(background.metadata, packageId)
-    || metadataRequiresPackage(background.video?.metadata, packageId)
-}
-
 function backgroundLayerRequiresPackage(layer: Readonly<ViewBackgroundLayerProjection>, packageId: string): boolean {
   return metadataRequiresPackage(layer.metadata, packageId)
+}
+
+function metadataOwnedByPackage(metadata: Readonly<Record<string, unknown>> | undefined, packageId: string): boolean {
+  return metadata?.contentPackageId === packageId
 }
 
 function metadataRequiresPackage(metadata: Readonly<Record<string, unknown>> | undefined, packageId: string): boolean {
   return metadata?.contentPackageId === packageId
     || getRequiredRuntimePackages(metadata).includes(packageId)
+}
+
+function removeRuntimePackageFromMetadata(
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  packageId: string,
+): Record<string, unknown> | undefined {
+  if (!metadata) {
+    return undefined
+  }
+  if (metadata.contentPackageId === packageId) {
+    return undefined
+  }
+  const next = cloneUnknownRecord(metadata)
+  const requiredRuntimePackages = getRequiredRuntimePackages(next).filter(id => id !== packageId)
+  if (requiredRuntimePackages.length > 0) {
+    next.requiredRuntimePackages = requiredRuntimePackages
+  }
+  else {
+    delete next.requiredRuntimePackages
+  }
+  return Object.keys(next).length > 0 ? next : undefined
 }
 
 function normalizeComposition(composition: NonNullable<ViewBackgroundProjection['composition']>) {

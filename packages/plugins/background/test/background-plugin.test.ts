@@ -235,6 +235,36 @@ describe('@quajs/plugin-background', () => {
       expect.objectContaining({ id: 'base-sky' }),
     ])
 
+    await setLayeredBackgroundWithEngine(engine, [
+      {
+        id: 'base-sky',
+        assetName: 'base-sky.png',
+        metadata: { contentPackageId: 'base.background' },
+      },
+      {
+        id: 'runtime-fog',
+        assetName: 'runtime-fog.png',
+        metadata: { contentPackageId: 'runtime.background' },
+      },
+    ], {
+      metadata: {
+        contentPackageId: 'base.background',
+        requiredRuntimePackages: ['base.background', 'runtime.background'],
+      },
+    })
+
+    await clearRuntimePackageBackgroundWithEngine(engine, 'runtime.background')
+
+    expect(engine.getViewState().background).toEqual(expect.objectContaining({
+      metadata: {
+        contentPackageId: 'base.background',
+        requiredRuntimePackages: ['base.background'],
+      },
+      layers: [
+        expect.objectContaining({ id: 'base-sky' }),
+      ],
+    }))
+
     await setBackgroundWithEngine(engine, 'runtime-room.png', {
       metadata: { contentPackageId: 'runtime.background' },
     })
