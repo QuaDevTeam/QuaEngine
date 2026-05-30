@@ -313,6 +313,30 @@ export class WebAudioAudioRuntime {
       && slot.currentTrack.id === projection.id
       && !slot.source
 
+    if (projection.state === 'stopping') {
+      const previousTrack = slot.currentTrack
+      slot.currentTrack = projection
+      slot.controlSignature = controlSignature
+      if (slot.fxSignature !== fxSignature) {
+        this.applyTrackFx(slot, projection)
+        slot.fxSignature = fxSignature
+      }
+      if (!slot.source) {
+        const shouldEmitEnded = slot.stopReason !== 'stopped' || previousTrack?.id !== projection.id
+        slot.pendingStart = false
+        slot.stopReason = 'stopped'
+        slot.currentTrack = undefined
+        if (shouldEmitEnded) {
+          void this.callbacks.emit(AudioRenderToLogicEvents.ENDED, this.createTrackPayload(projection, 'stopped'))
+        }
+        return
+      }
+      if (slot.stopReason !== 'stopped') {
+        this.stopSlot(slot, projection.fadeOutMs ?? 0, 'stopped')
+      }
+      return
+    }
+
     const needsSource = !slot.source
       || slot.staleBuffer
       || slot.targetPackageKey !== targetPackageKey
@@ -338,9 +362,6 @@ export class WebAudioAudioRuntime {
       else if (slot.source && slot.currentTrack?.state !== 'playing' && this.unlocked) {
         this.startSlot(slot, projection)
       }
-    }
-    else if (projection.state === 'stopping') {
-      this.stopSlot(slot, projection.fadeOutMs ?? 0, 'stopped')
     }
   }
 

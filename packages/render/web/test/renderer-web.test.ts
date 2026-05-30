@@ -1,4 +1,5 @@
 import type { AchievementProjection } from '@quajs/plugin-achievement/contracts'
+import type { AudioViewProjection } from '@quajs/plugin-audio/contracts'
 import type { GalleryProjection } from '@quajs/plugin-gallery/contracts'
 import type { QuaViewProjection, RendererPlugin } from '@quajs/render-core'
 import { MemoryAssetStorage, QuaAssets } from '@quajs/assets'
@@ -2649,6 +2650,60 @@ describe('@quajs/renderer-web', () => {
 
     await controller.destroy()
     await assets.cleanup()
+  })
+
+  it('stops the current WebAudio source when a track projection enters stopping state', async () => {
+    installFakeAudioContext({ initialState: 'running' })
+    const assets = await createAudioAssets()
+    const pipeline = new Pipeline()
+    const ended: Array<{ channel: string, id: string, reason?: string }> = []
+    onAudioRenderToLogic(pipeline, AudioRenderToLogicEvents.ENDED, payload => ended.push({
+      channel: payload.channel,
+      id: payload.id,
+      reason: payload.reason,
+    }))
+    let currentView = audioView()
+    const controller = new WebAudioRendererController({
+      getPipeline: () => pipeline,
+      getAssets: () => assets,
+      getViewState: () => currentView,
+      document,
+    })
+
+    controller.start()
+    try {
+      await controller.sync()
+      const source = FakeAudioContext.sources[0]
+      expect(source?.start).toHaveBeenCalledWith(0, 0)
+
+      const audio = projectAudioProjection<AudioViewProjection>(currentView, Date.now())!
+      currentView = view({
+        plugins: {
+          [AUDIO_PLUGIN_ID]: {
+            ...audio,
+            bgm: audio.bgm && {
+              ...audio.bgm,
+              state: 'stopping',
+              fadeOutMs: 0,
+            },
+          },
+        },
+      })
+
+      await controller.sync()
+
+      expect(FakeAudioContext.sources).toHaveLength(1)
+      expect(source?.stop).toHaveBeenCalledTimes(1)
+
+      source?.onended?.call(source as any, new Event('ended'))
+      await flushDom()
+
+      expect(ended).toEqual([{ channel: 'bgm', id: 'bgm:1', reason: 'stopped' }])
+    }
+    finally {
+      await controller.destroy()
+      await assets.cleanup()
+    }
   })
 
   it('keeps SFX and ambient pending until autoplay unlock succeeds', async () => {
