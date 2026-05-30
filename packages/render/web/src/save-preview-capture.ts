@@ -194,15 +194,24 @@ function loadSvgImage(document: Document, markup: string): Promise<HTMLImageElem
   return new Promise((resolve, reject) => {
     const image = document.createElement('img')
     image.onload = () => {
-      URL.revokeObjectURL(url)
+      safeRevokeObjectUrl(url)
       resolve(image)
     }
     image.onerror = () => {
-      URL.revokeObjectURL(url)
+      safeRevokeObjectUrl(url)
       reject(new Error('Save preview capture could not rasterize the frozen stage.'))
     }
     image.src = url
   })
+}
+
+function safeRevokeObjectUrl(url: string): void {
+  try {
+    URL.revokeObjectURL(url)
+  }
+  catch {
+    // Capture cleanup is best-effort and must not keep save preview requests pending.
+  }
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string, quality?: number): Promise<Blob> {
