@@ -35,8 +35,6 @@
   "peerDependencies": {
     "@quajs/character": "workspace:*",
     "@quajs/engine": "workspace:*",
-    "@quajs/plugin-animation": "workspace:*",
-    "@quajs/plugin-background": "workspace:*",
     "vite": "catalog:"
   },
   "dependencies": {
@@ -44,12 +42,7 @@
     "@babel/parser": "catalog:",
     "@babel/traverse": "catalog:",
     "@babel/types": "catalog:",
-    "@quajs/plugin-achievement": "workspace:*",
-    "@quajs/plugin-audio": "workspace:*",
-    "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-discovery": "workspace:*",
-    "@quajs/plugin-gallery": "workspace:*",
-    "@quajs/story-graph": "workspace:*",
     "uuid": "catalog:"
   },
   "devDependencies": {
@@ -57,8 +50,11 @@
     "@quajs/engine": "workspace:*",
     "@quajs/plugin-achievement": "workspace:*",
     "@quajs/plugin-animation": "workspace:*",
+    "@quajs/plugin-audio": "workspace:*",
+    "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-background": "workspace:*",
     "@quajs/plugin-gallery": "workspace:*",
+    "@quajs/story-graph": "workspace:*",
     "@types/babel__generator": "catalog:",
     "@types/babel__traverse": "catalog:"
   }

@@ -2,7 +2,7 @@ import type {
   ResolvedSpriteSkinProjection,
   SpriteSkinManifest,
   SpriteSkinStateName,
-} from '@quajs/plugin-sprite/contracts'
+} from './skin'
 import type {
   QuaViewProjection,
   ViewChoiceProjection,
@@ -11,8 +11,7 @@ import type {
   ViewUiSkinDefaultsProjection,
 } from '@quajs/render-core'
 import type { QuaWebDomLayerContext } from './dom'
-import { resolveSpriteSkinReference } from '@quajs/plugin-sprite/contracts'
-import { applySpriteSkinStyle, resolveSpriteSkin } from './plugins/sprite'
+import { applySpriteSkinStyle, resolveSpriteSkin, resolveSpriteSkinReference } from './skin'
 
 export type UiSkinControlKind = 'button' | 'panel' | 'input' | 'tab' | 'toggle'
 

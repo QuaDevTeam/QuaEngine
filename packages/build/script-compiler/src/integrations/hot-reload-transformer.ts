@@ -6,7 +6,6 @@ import { getHotReloadManager } from '../core/hot-reload'
 import { QuaScriptTransformer } from '../core/transformer'
 import {
   loadProjectDecoratorCompilers,
-  loadProjectDecoratorCompilersSync,
   loadProjectDecoratorMappings,
   loadProjectDecoratorMappingsSync,
 } from '../decorators'
@@ -31,12 +30,10 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
     options?: QuaScriptTransformerOptions & { projectRoot?: string },
   ) {
     const discoveredMappings = loadProjectDecoratorMappingsSync(options?.projectRoot)
-    const discoveredCompilers = loadProjectDecoratorCompilersSync(options?.projectRoot)
     super(decoratorMappings || {}, {
       ...options,
       availableDecoratorMappings: discoveredMappings,
       decoratorCompilers: [
-        ...discoveredCompilers,
         ...(options?.decoratorCompilers || []),
       ],
     })

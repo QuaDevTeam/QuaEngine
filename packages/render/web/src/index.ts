@@ -74,18 +74,7 @@ export {
   stageSceneStyle,
   stageViewportStyle,
 } from './layout'
-export { createAchievementWebRendererPlugin } from './plugins/achievement'
-export { createBackgroundWebRendererPlugin } from './plugins/background'
-export { createCharacterWebRendererPlugin } from './plugins/character'
-export { createChoicesWebRendererPlugin } from './plugins/choices'
 export { defineWebRendererPlugin } from './plugins/core'
-export { createDialogueWebRendererPlugin } from './plugins/dialogue'
-export { createEffectsWebRendererPlugin } from './plugins/effects'
-export type { InputWebRendererPluginOptions } from './plugins/input'
-export { createInputWebRendererPlugin } from './plugins/input'
-export { createSceneWebRendererPlugin } from './plugins/scene'
-export { applySpriteSkinStyle, createSpriteCharacterRenderer, createSpriteWebRendererPlugin, resolveSpriteSkin, spriteSkinStyle } from './plugins/sprite'
-export { createUiWebRendererPlugin } from './plugins/ui'
 export {
   backgroundCompositionVars,
   backgroundFilterVars,

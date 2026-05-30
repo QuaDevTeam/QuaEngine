@@ -12,7 +12,7 @@ import type {
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { basename, extname, resolve } from 'node:path'
-import { compileLocalizedQuaScriptModuleToTs } from '@quajs/script-compiler'
+import { compileLocalizedQuaScriptModuleToTsAsync } from '@quajs/script-compiler'
 import { isValidSemverVersion } from '@quajs/utils'
 import ts from 'typescript'
 import { AssetDetector } from '../assets/asset-detector'
@@ -151,7 +151,7 @@ async function compileLocaleAssets(
     const moduleId = resolveBaseScriptModuleId(baseManifest.runtimePackage, assetName, stableRelativePath)
     const localizedSource = await readFile(asset.path, 'utf8')
     const baseSource = await readFile(baseAsset.path, 'utf8')
-    const compiledTs = compileLocalizedQuaScriptModuleToTs({
+    const compiledTs = await compileLocalizedQuaScriptModuleToTsAsync({
       baseSource,
       localizedSource,
       locale,

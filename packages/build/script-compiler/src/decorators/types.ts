@@ -39,4 +39,7 @@ export interface DecoratorCompiler {
 
 export interface DecoratorCompilerContribution {
   readonly compilers?: readonly DecoratorCompiler[]
+  readonly scriptCompiler?: {
+    readonly compilers?: readonly DecoratorCompiler[]
+  }
 }

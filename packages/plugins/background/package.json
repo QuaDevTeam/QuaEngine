@@ -65,6 +65,10 @@
     "type": "plugin",
     "category": "visual",
     "description": "Background image, video, layered background, and transition APIs",
+    "renderer": {
+      "web": "@quajs/renderer-web/plugins/background",
+      "vue": "@quajs/renderer-vue/plugins/background"
+    },
     "decorators": {
       "SetBackground": {
         "function": "setBackgroundWithEngine",

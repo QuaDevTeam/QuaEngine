@@ -1,10 +1,11 @@
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parse } from '@babel/parser'
-import { animationDecoratorMappings } from '@quajs/plugin-animation'
-import { audioDecoratorMappings } from '@quajs/plugin-audio'
-import { backgroundDecoratorMappings } from '@quajs/plugin-background'
+import { characterDecoratorMappings, scriptCompiler as characterScriptCompiler } from '@quajs/character/script-compiler'
+import { animationDecoratorMappings, scriptCompiler as animationScriptCompiler } from '@quajs/plugin-animation/script-compiler'
+import { audioDecoratorMappings, scriptCompiler as audioScriptCompiler } from '@quajs/plugin-audio/script-compiler'
+import { backgroundDecoratorMappings, scriptCompiler as backgroundScriptCompiler } from '@quajs/plugin-background/script-compiler'
 import { describe, expect, it } from 'vitest'
 import { compileQuaScriptModuleToTs, createPluginAwareTransformerAsync, extractQuaScriptStoryDeclaration, generateQuaScriptModuleDeclaration } from '../src'
 import { QuaScriptTransformer } from '../src/core/transformer'
@@ -54,7 +55,7 @@ describe('quaScriptTransformer', () => {
   })
 
   it('should transform dialogue with decorators', async () => {
-    const transformer = await createPluginAwareTransformerAsync()
+    const transformer = await createTestPluginAwareTransformer()
     const source = `
       function scene1() {
         dialogue(qs\`
@@ -246,6 +247,7 @@ Yuki: Hello \${scope.playerName}
       Yuki: Hello with mapped voice.
     `, {
       decoratorMappings: audioDecoratorMappings,
+      decoratorCompilers: audioScriptCompiler.compilers,
       hotReload: false,
     })
 
@@ -297,7 +299,7 @@ Yuki: Hello \${scope.playerName}
   })
 
   it('loads story graph and backlog decorators from plugin package metadata', async () => {
-    const transformer = await createPluginAwareTransformerAsync()
+    const transformer = await createTestPluginAwareTransformer()
     const source = `
       function scene1() {
         dialogue(qs\`
@@ -323,7 +325,7 @@ Yuki: Hello \${scope.playerName}
   })
 
   it('loads gallery decorators from plugin package metadata and lowers them through plugin helpers', async () => {
-    const transformer = await createPluginAwareTransformerAsync()
+    const transformer = await createTestPluginAwareTransformer()
     const source = `
       function scene1() {
         dialogue(qs\`
@@ -344,7 +346,7 @@ Yuki: Hello \${scope.playerName}
   })
 
   it('loads achievement decorators from plugin package metadata and lowers them through plugin helpers', async () => {
-    const transformer = await createPluginAwareTransformerAsync()
+    const transformer = await createTestPluginAwareTransformer()
     const source = `
       function scene1() {
         dialogue(qs\`
@@ -365,7 +367,7 @@ Yuki: Hello \${scope.playerName}
   })
 
   it('compiles entry decorators into step story metadata', async () => {
-    const transformer = await createPluginAwareTransformerAsync()
+    const transformer = await createTestPluginAwareTransformer()
     const result = transformer.transformSource(`
       function scene1() {
         dialogue(qs\`
@@ -460,7 +462,7 @@ Yuki: Hello
   })
 
   it('should transform character decorators through character helpers and engine state', () => {
-    const transformer = new QuaScriptTransformer()
+    const transformer = createCharacterTransformer()
     const source = `
       function scene1() {
         dialogue(qs\`
@@ -491,7 +493,7 @@ Yuki: Hello
   })
 
   it('should transform character motion decorators through animation helpers', () => {
-    const transformer = new QuaScriptTransformer()
+    const transformer = createCharacterTransformer()
     const source = `
       function scene1() {
         dialogue(qs\`
@@ -516,7 +518,7 @@ Yuki: Hello
   })
 
   it('should require an explicit character for action-only character decorators', () => {
-    const transformer = new QuaScriptTransformer()
+    const transformer = createCharacterTransformer()
     const source = `
       function scene1() {
         dialogue(qs\`
@@ -531,7 +533,7 @@ Yuki: Hello
   })
 
   it('should require a sprite asset for sprite decorators', () => {
-    const transformer = new QuaScriptTransformer()
+    const transformer = createCharacterTransformer()
     const source = `
       function scene1() {
         dialogue(qs\`
@@ -626,6 +628,7 @@ Jack: Hello world!
     `, {
       autoCollectDecorators: false,
       hotReload: false,
+      projectRoot: createTestProjectRootWithDependencies(['@quajs/plugin-background']),
     })
 
     expect(result).toContain('import { decorators } from \'@quajs/plugin-background\';')
@@ -639,11 +642,12 @@ Jack: Hello world!
     `, {
       autoCollectDecorators: false,
       hotReload: false,
+      projectRoot: createTestProjectRootWithDependencies(['@quajs/plugin-background']),
     })).toThrow('Unknown QuaScript decorator @SetBackground')
   })
 
   it('should add required imports', async () => {
-    const transformer = await createPluginAwareTransformerAsync()
+    const transformer = await createTestPluginAwareTransformer()
     const source = `
       function scene1() {
         dialogue(qs\`
@@ -708,12 +712,16 @@ Jack: Hello world!
 
     expect(() => compileQuaScriptModuleToTs(
       '@SetSprite({ broken: })\nJack: Hello',
-      { hotReload: false },
+      {
+        decoratorMappings: characterDecoratorMappings,
+        decoratorCompilers: characterScriptCompiler.compilers,
+        hotReload: false,
+      },
     )).toThrow(/Invalid TypeScript decorator arguments/)
   })
 
   it('rejects malformed decorator arguments inside qs tagged templates', () => {
-    const transformer = new QuaScriptTransformer()
+    const transformer = createCharacterTransformer()
     const source = `
       function scene1() {
         dialogue(qs\`
@@ -921,9 +929,46 @@ const canEnterLibrary = scope.hasKey
 })
 
 function createBackgroundTransformer(): QuaScriptTransformer {
-  return new QuaScriptTransformer(mergeDecoratorMappings(backgroundDecoratorMappings))
+  return new QuaScriptTransformer(mergeDecoratorMappings(backgroundDecoratorMappings), {
+    decoratorCompilers: backgroundScriptCompiler.compilers,
+  })
 }
 
 function createAnimationTransformer(): QuaScriptTransformer {
-  return new QuaScriptTransformer(mergeDecoratorMappings(animationDecoratorMappings))
+  return new QuaScriptTransformer(mergeDecoratorMappings(animationDecoratorMappings), {
+    decoratorCompilers: animationScriptCompiler.compilers,
+  })
+}
+
+function createCharacterTransformer(): QuaScriptTransformer {
+  return new QuaScriptTransformer(mergeDecoratorMappings(characterDecoratorMappings), {
+    decoratorCompilers: characterScriptCompiler.compilers,
+  })
+}
+
+function createTestPluginAwareTransformer(): Promise<QuaScriptTransformer> {
+  return createPluginAwareTransformerAsync(undefined, {
+    projectRoot: createTestProjectRootWithDependencies([
+      '@quajs/character',
+      '@quajs/story-graph',
+      '@quajs/plugin-achievement',
+      '@quajs/plugin-animation',
+      '@quajs/plugin-audio',
+      '@quajs/plugin-backlog',
+      '@quajs/plugin-background',
+      '@quajs/plugin-gallery',
+    ]),
+  })
+}
+
+function createTestProjectRootWithDependencies(packages: readonly string[]): string {
+  const base = join(process.cwd(), 'node_modules', '.quascript-test-')
+  mkdirSync(base, { recursive: true })
+  const projectRoot = mkdtempSync(join(base, 'project-'))
+  writeFileSync(join(projectRoot, 'package.json'), JSON.stringify({
+    name: 'quascript-test-project',
+    type: 'module',
+    dependencies: Object.fromEntries(packages.map(packageName => [packageName, 'workspace:*'])),
+  }), 'utf-8')
+  return projectRoot
 }

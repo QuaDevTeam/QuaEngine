@@ -2710,6 +2710,54 @@ describe('quaEngine runtime architecture', () => {
     await expect(engine.unloadRuntimePackage('runtime.plugin-view')).rejects.toThrow('current view projection')
   })
 
+  it('clears top-level plugin projections that require a forced runtime package', async () => {
+    const ownerManifest = createRuntimeBundleManifest({
+      id: 'runtime.plugin-owner',
+      version: '1.0.0',
+    })
+    const dependencyManifest = createRuntimeBundleManifest({
+      id: 'runtime.plugin-dependency',
+      version: '1.0.0',
+    })
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/plugin-owner.qpk': createQpkBundle(ownerManifest, new Map()),
+          'https://cdn.example.com/plugin-dependency.qpk': createQpkBundle(dependencyManifest, new Map()),
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+    await engine.loadRuntimePackage('plugin-owner.qpk')
+    await engine.loadRuntimePackage('plugin-dependency.qpk')
+    await engine.setPluginProjection('runtime-dependent-plugin-view', {
+      contentPackageId: 'runtime.plugin-owner',
+      requiredRuntimePackages: ['runtime.plugin-owner', 'runtime.plugin-dependency'],
+      value: true,
+    })
+
+    expect(engine.getRuntimeViewRequiredPackageIds()).toEqual([
+      'runtime.plugin-owner',
+      'runtime.plugin-dependency',
+    ])
+    await expect(engine.unloadRuntimePackage('runtime.plugin-dependency')).rejects.toThrow('current view projection')
+    await engine.unloadRuntimePackage('runtime.plugin-dependency', { force: true })
+
+    expect(engine.getPluginProjection('runtime-dependent-plugin-view')).toBeUndefined()
+    expect(engine.getRuntimePackages().find(pkg => pkg.id === 'runtime.plugin-owner')).toEqual(expect.objectContaining({
+      state: 'active',
+    }))
+  })
+
   it('rejects runtime packages that fail the configured trust policy', async () => {
     const manifest = createRuntimeBundleManifest({
       id: 'runtime.unsigned',

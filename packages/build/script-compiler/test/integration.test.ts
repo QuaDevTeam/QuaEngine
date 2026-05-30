@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { audioDecoratorMappings, scriptCompiler as audioScriptCompiler } from '@quajs/plugin-audio/script-compiler'
 import { createPluginAwareTransformerAsync } from '../src'
 import { QuaScriptParser } from '../src/core/parser'
 
@@ -19,7 +20,10 @@ describe('quaScript Integration Tests', () => {
       }
     `
 
-    const transformer = await createPluginAwareTransformerAsync(undefined, { projectRoot: undefined })
+    const transformer = await createPluginAwareTransformerAsync(audioDecoratorMappings, {
+      decoratorCompilers: audioScriptCompiler.compilers,
+      projectRoot: undefined,
+    })
     const result = transformer.transformSource(source)
 
     // Should contain the transformed dialogue array
@@ -109,7 +113,10 @@ describe('quaScript Integration Tests', () => {
       }
     `
 
-    const transformer = await createPluginAwareTransformerAsync(undefined, { projectRoot: undefined })
+    const transformer = await createPluginAwareTransformerAsync(audioDecoratorMappings, {
+      decoratorCompilers: audioScriptCompiler.compilers,
+      projectRoot: undefined,
+    })
     const result = transformer.transformSource(source)
 
     // Should preserve original imports (note Babel may change quote style)

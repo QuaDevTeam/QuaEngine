@@ -18,7 +18,7 @@ import { EventEmitter } from 'node:events'
 import { mkdir, readFile, rename } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
 import { createLogger } from '@quajs/logger'
-import { compileLocalizedQuaScriptModuleToTs, compileQuaScriptModuleToTs, extractQuaScriptStoryDeclaration } from '@quajs/script-compiler'
+import { compileLocalizedQuaScriptModuleToTsAsync, compileQuaScriptModuleToTsAsync, extractQuaScriptStoryDeclaration } from '@quajs/script-compiler'
 import { isValidSemverVersion } from '@quajs/utils'
 import ts from 'typescript'
 import { AssetDetector } from '../assets/asset-detector'
@@ -619,14 +619,14 @@ export class QuackBundler extends EventEmitter {
           }
         : undefined
       const compiledTs = locale === 'default'
-        ? compileQuaScriptModuleToTs(source, {
+        ? await compileQuaScriptModuleToTsAsync(source, {
             hotReload: false,
             projectRoot: config.quascript.projectRoot,
             autoCollectDecorators: config.quascript.autoCollectDecorators,
             decoratorMappings: config.quascript.decoratorMappings,
             runtimeModule,
           })
-        : compileLocalizedQuaScriptModuleToTs({
+        : await compileLocalizedQuaScriptModuleToTsAsync({
             baseSource: await readFile(baseAsset.path, 'utf8'),
             localizedSource: source,
             locale,

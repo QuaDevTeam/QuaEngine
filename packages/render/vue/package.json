@@ -109,7 +109,6 @@
   },
   "peerDependencies": {
     "@quajs/assets": "workspace:*",
-    "@quajs/assets-web": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-achievement": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
