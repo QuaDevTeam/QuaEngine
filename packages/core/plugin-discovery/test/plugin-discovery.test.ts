@@ -83,6 +83,7 @@ describe('plugin discovery', () => {
       mockJsonFiles({
         '/test/project/package.json': {
           dependencies: {
+            '@quajs/character': '^1.0.0',
             '@quajs/plugin-audio': '^1.0.0',
             '@quajs/story-graph': '^1.0.0',
             'regular-package': '^1.0.0',
@@ -109,6 +110,22 @@ describe('plugin discovery', () => {
             },
           },
         },
+        [dependencyPackageJsonPath('@quajs/character')]: {
+          name: '@quajs/character',
+          version: '0.1.0',
+          main: './dist/index.js',
+          quajs: {
+            type: 'feature',
+            category: 'visual',
+            decorators: {
+              SetSprite: { function: 'sprite', module: '@quajs/character' },
+            },
+            renderer: {
+              web: '@quajs/renderer-web/plugins/character',
+              vue: '@quajs/renderer-vue/plugins/character',
+            },
+          },
+        },
         [dependencyPackageJsonPath('@quajs/plugin-background')]: {
           name: '@quajs/plugin-background',
           version: '0.1.0',
@@ -118,6 +135,10 @@ describe('plugin discovery', () => {
             category: 'visual',
             decorators: {
               SetBackground: { function: 'setBackgroundWithEngine', module: '@quajs/plugin-background' },
+            },
+            renderer: {
+              web: '@quajs/renderer-web/plugins/background',
+              vue: '@quajs/renderer-vue/plugins/background',
             },
           },
         },
@@ -147,17 +168,33 @@ describe('plugin discovery', () => {
 
       const plugins = await discoverPlugins('/test/project')
 
-      expect(plugins).toHaveLength(3)
+      expect(plugins).toHaveLength(4)
+      expect(plugins.some(p => p.name === '@quajs/character')).toBe(true)
       expect(plugins.some(p => p.name === '@quajs/plugin-audio')).toBe(true)
       expect(plugins.some(p => p.name === '@quajs/plugin-background')).toBe(true)
       expect(plugins.some(p => p.name === '@quajs/story-graph')).toBe(true)
       expect(plugins.some(p => p.name === '@quajs/plugin-backlog')).toBe(false)
       expect(plugins.some(p => p.name === 'regular-package')).toBe(false)
 
+      const characterPlugin = plugins.find(plugin => plugin.name === '@quajs/character')
+      expect(characterPlugin?.renderer).toEqual({
+        web: '@quajs/renderer-web/plugins/character',
+        vue: '@quajs/renderer-vue/plugins/character',
+      })
+
       const audioPlugin = plugins.find(plugin => plugin.name === '@quajs/plugin-audio')
       expect(audioPlugin?.version).toBe('0.1.0')
       expect(audioPlugin?.main).toBe('@quajs/plugin-audio/dist/index.js')
       expect(audioPlugin?.entry).toBe('@quajs/plugin-audio/dist/index.js')
+      expect(audioPlugin?.renderer).toEqual({
+        web: '@quajs/renderer-web/plugins/audio',
+      })
+
+      const backgroundPlugin = plugins.find(plugin => plugin.name === '@quajs/plugin-background')
+      expect(backgroundPlugin?.renderer).toEqual({
+        web: '@quajs/renderer-web/plugins/background',
+        vue: '@quajs/renderer-vue/plugins/background',
+      })
     })
 
     it('should not discover convention-named packages without explicit Qua metadata', async () => {

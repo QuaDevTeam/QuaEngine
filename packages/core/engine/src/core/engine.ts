@@ -3087,7 +3087,7 @@ function createEngineMutations() {
     removePluginProjectionsByRuntimePackage(state: any, packageId: string) {
       const plugins = { ...(state.engine.view.plugins || {}) }
       for (const [pluginId, projection] of Object.entries(plugins)) {
-        if (recordOwnedByPackage(projection, packageId)) {
+        if (recordRemovableByRuntimePackage(projection, packageId)) {
           delete plugins[pluginId]
         }
       }
@@ -3689,6 +3689,18 @@ function recordOwnedByPackage(value: unknown, packageId: string): boolean {
       .map(([, item]) => collectRuntimePackagesFromUnknown(item)),
   )
   return nestedPackages.every(nestedPackage => nestedPackage === packageId)
+    && recordHasNoPackageIndependentCollections(record)
+}
+
+function recordRemovableByRuntimePackage(value: unknown, packageId: string): boolean {
+  if (recordOwnedByPackage(value, packageId)) {
+    return true
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  const record = value as Record<string, unknown>
+  return recordRequiresPackage(record, packageId)
     && recordHasNoPackageIndependentCollections(record)
 }
 

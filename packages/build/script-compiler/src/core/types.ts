@@ -3,7 +3,6 @@
  */
 
 import type * as t from '@babel/types'
-import { characterDecoratorMappings } from '@quajs/character/script-compiler'
 import { flowControlDecoratorMappings, rollbackDecoratorMappings } from '@quajs/engine/script-compiler'
 
 export type QuaScriptDecoratorValue
@@ -225,7 +224,6 @@ export const DEFAULT_DECORATOR_MAPPINGS: DecoratorMapping = {
   },
   ...flowControlDecoratorMappings,
   ...rollbackDecoratorMappings,
-  ...characterDecoratorMappings,
 }
 
 /**

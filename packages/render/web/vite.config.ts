@@ -22,6 +22,7 @@ export default defineConfig({
         'input': resolve(import.meta.dirname, 'src/input.ts'),
         'save-preview': resolve(import.meta.dirname, 'src/save-preview.ts'),
         'save-preview-capture': resolve(import.meta.dirname, 'src/save-preview-capture.ts'),
+        'skin': resolve(import.meta.dirname, 'src/skin.ts'),
         'plugins/audio': resolve(import.meta.dirname, 'src/plugins/audio.ts'),
         'plugins/achievement': resolve(import.meta.dirname, 'src/plugins/achievement.ts'),
         'plugins/background': resolve(import.meta.dirname, 'src/plugins/background.ts'),

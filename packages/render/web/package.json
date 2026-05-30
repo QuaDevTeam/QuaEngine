@@ -36,6 +36,10 @@
       "types": "./dist/save-preview-capture.d.ts",
       "import": "./dist/save-preview-capture.js"
     },
+    "./skin": {
+      "types": "./dist/skin.d.ts",
+      "import": "./dist/skin.js"
+    },
     "./plugins/audio": {
       "types": "./dist/plugins/audio.d.ts",
       "import": "./dist/plugins/audio.js"

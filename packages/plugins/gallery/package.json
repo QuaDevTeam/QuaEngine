@@ -69,6 +69,10 @@
     "type": "plugin",
     "category": "ui",
     "description": "Gallery catalog scene shell and persistent unlock profiles",
+    "renderer": {
+      "web": "@quajs/renderer-web/plugins/gallery",
+      "vue": "@quajs/renderer-vue/plugins/gallery"
+    },
     "decorators": {
       "UnlockGallery": {
         "function": "unlockGalleryEntryWithEngine",

@@ -1,9 +1,6 @@
 import type { DecoratorMapping } from '../core/types'
 import type { DecoratorCompilationResult, DecoratorCompileInput, DecoratorCompiler, ImplicitDecoratorCompileInput } from './types'
-import { scriptCompiler as characterScriptCompiler } from '@quajs/character/script-compiler'
 import { createFlowControlDecoratorCompiler, createRollbackDecoratorCompiler } from '@quajs/engine/script-compiler'
-import { scriptCompiler as animationScriptCompiler } from '@quajs/plugin-animation/script-compiler'
-import { scriptCompiler as backgroundScriptCompiler } from '@quajs/plugin-background/script-compiler'
 
 export class DecoratorCompilerRegistry {
   private readonly compilers: DecoratorCompiler[] = []
@@ -80,10 +77,19 @@ export class DecoratorCompilerRegistry {
 
 export function createDefaultDecoratorCompilerRegistry(): DecoratorCompilerRegistry {
   const registry = new DecoratorCompilerRegistry()
+  registry.register(createQuaScriptDialogueRuntimeCompiler())
   registry.register(createFlowControlDecoratorCompiler())
   registry.register(createRollbackDecoratorCompiler())
-  characterScriptCompiler.compilers.forEach(compiler => registry.register(compiler))
-  animationScriptCompiler.compilers.forEach(compiler => registry.register(compiler))
-  backgroundScriptCompiler.compilers.forEach(compiler => registry.register(compiler))
   return registry
+}
+
+function createQuaScriptDialogueRuntimeCompiler(): DecoratorCompiler {
+  return {
+    module: '@quajs/script-compiler/dialogue-runtime',
+    runtimeHelperModules: {
+      speakWithEngine: '@quajs/character',
+    },
+    supports: () => false,
+    compile: () => null,
+  }
 }

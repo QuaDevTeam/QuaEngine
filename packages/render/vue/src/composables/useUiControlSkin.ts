@@ -1,9 +1,11 @@
-import type { SpriteSkinManifest, SpriteSkinStateName } from '@quajs/plugin-sprite/contracts'
+import type { SpriteSkinManifest, SpriteSkinStateName } from '@quajs/renderer-web/skin'
 import type { UiSkinControlKind } from '@quajs/renderer-web'
 import {
+  resolveSpriteSkin,
   resolveSpriteSkinReference,
-} from '@quajs/plugin-sprite/contracts'
-import { resolveSpriteSkin, resolveUiControlSkinReference, spriteSkinStyle, WebAssetUrlHandle } from '@quajs/renderer-web'
+  spriteSkinStyle,
+} from '@quajs/renderer-web/skin'
+import { resolveUiControlSkinReference, WebAssetUrlHandle } from '@quajs/renderer-web'
 import { computed, onBeforeUnmount, readonly, ref, watch } from 'vue'
 import { useQuaRenderer } from '../context'
 

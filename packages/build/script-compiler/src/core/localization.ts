@@ -6,6 +6,7 @@ import { resolveQuaScriptDecoratorCompileOptions } from './config'
 import { parseQuaScriptDocument } from './document'
 import { QuaScriptParser, scanTemplateText } from './parser'
 import { QuaScriptTransformer } from './transformer'
+import { createPluginAwareTransformerAsync } from '../integrations/plugin-aware-transformer'
 import { mergeDecoratorMappings } from './types'
 
 export type QuaScriptLocalizableUnitKind = 'dialogue' | 'choice'
@@ -101,6 +102,29 @@ export function compileLocalizedQuaScriptModuleToTs(options: CompileLocalizedQua
     autoCollectDecorators: resolvedDecoratorOptions.autoCollectDecorators,
     availableDecoratorMappings: loadProjectDecoratorMappingsSync(projectRoot),
   }).transformParsedModuleSource(document, parsed)
+}
+
+export async function compileLocalizedQuaScriptModuleToTsAsync(options: CompileLocalizedQuaScriptModuleOptions): Promise<string> {
+  const { baseSource, localizedSource, strict, decoratorMappings, locale: _locale, sourceId: _sourceId, projectRoot, ...transformerOptions } = options
+  void _locale
+  void _sourceId
+  const resolvedDecoratorOptions = resolveQuaScriptDecoratorCompileOptions({
+    autoCollectDecorators: transformerOptions.autoCollectDecorators,
+    decoratorMappings,
+    projectRoot,
+  })
+  const document = parseQuaScriptDocument(baseSource)
+  const parser = new QuaScriptParser()
+  const parsed = parser.parse(document.dslBody)
+  applyLocalizedTextToParsedQuaScript(parsed, localizedSource, { strict })
+
+  const transformer = await createPluginAwareTransformerAsync(resolvedDecoratorOptions.decoratorMappings, {
+    ...transformerOptions,
+    autoCollectDecorators: resolvedDecoratorOptions.autoCollectDecorators,
+    projectRoot,
+  })
+
+  return transformer.transformParsedModuleSource(document, parsed)
 }
 
 export function applyQuaScriptLocaleOverlay(

@@ -1,21 +1,29 @@
 import type { AssetType } from '@quajs/assets'
 import type {
-  ResolvedSpriteSkinProjection,
-  SpriteInsets,
   SpriteManifest,
   SpriteReference,
   SpriteResolvedLayer,
-  SpriteSkinManifest,
-  SpriteSkinStateName,
 } from '@quajs/plugin-sprite/contracts'
 import type { ActiveAnimationProjection, RendererPlugin, ViewCharacterProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext } from './core'
 import {
   resolveSpriteProjection,
   resolveSpriteReference,
-  resolveSpriteSkinProjection,
 } from '@quajs/plugin-sprite/contracts'
 import { applyTrackValues, collectTrackValues } from '../animation'
+export type {
+  ResolvedSpriteSkinProjection,
+  SpriteInsets,
+  SpriteSkinManifest,
+  SpriteSkinStateName,
+  SpriteSkinStyleOptions,
+} from '../skin'
+export {
+  applySpriteSkinStyle,
+  resolveSpriteSkin,
+  resolveSpriteSkinReference,
+  spriteSkinStyle,
+} from '../skin'
 
 export function createSpriteWebRendererPlugin(): RendererPlugin {
   return {
@@ -25,125 +33,6 @@ export function createSpriteWebRendererPlugin(): RendererPlugin {
 }
 
 export const spriteWebRendererPlugin = createSpriteWebRendererPlugin()
-
-export interface SpriteSkinStyleOptions {
-  assetUrl?: string
-  assetUrls?: Partial<Record<SpriteSkinStateName, string>>
-  state?: SpriteSkinStateName
-}
-
-export function resolveSpriteSkin(
-  manifest: SpriteSkinManifest | undefined,
-  skin?: string,
-  state: SpriteSkinStateName = 'default',
-): ResolvedSpriteSkinProjection | undefined {
-  return resolveSpriteSkinProjection(manifest, skin, state)
-}
-
-export function spriteSkinStyle(
-  projection: ResolvedSpriteSkinProjection | undefined,
-  options: SpriteSkinStyleOptions = {},
-): Record<string, string | number | undefined> {
-  if (!projection) {
-    return {}
-  }
-
-  const slice = projection.definition.slice
-  const padding = projection.definition.contentInsets || zeroInsets()
-  const assetUrls = createSpriteSkinAssetUrls(projection, options)
-  const currentState = options.state || projection.state
-  const currentAssetUrl = resolveSpriteSkinAssetUrl(assetUrls, currentState)
-    || resolveSpriteSkinAssetUrl(assetUrls, 'default')
-  if (!currentAssetUrl) {
-    return {}
-  }
-
-  return {
-    'position': 'relative',
-    'boxSizing': 'border-box',
-    'borderStyle': 'solid',
-    'borderWidth': insetsToCss(slice),
-    'borderImageSource': 'var(--qua-skin-source-current, var(--qua-skin-source-default))',
-    'borderImageSlice': `${slice.top} ${slice.right} ${slice.bottom} ${slice.left}${projection.definition.fill ? ' fill' : ''}`,
-    'borderImageWidth': insetsToCss(slice),
-    'borderImageRepeat': projection.definition.mode === 'tiled' ? 'repeat' : 'stretch',
-    'padding': insetsToCss(padding),
-    'backgroundClip': 'padding-box',
-    '--qua-skin-source-current': `url(${JSON.stringify(currentAssetUrl)})`,
-    '--qua-skin-source-default': assetUrls.default ? `url(${JSON.stringify(assetUrls.default)})` : undefined,
-    '--qua-skin-source-hover': assetUrls.hover ? `url(${JSON.stringify(assetUrls.hover)})` : undefined,
-    '--qua-skin-source-pressed': assetUrls.pressed ? `url(${JSON.stringify(assetUrls.pressed)})` : undefined,
-    '--qua-skin-source-disabled': assetUrls.disabled ? `url(${JSON.stringify(assetUrls.disabled)})` : undefined,
-    '--qua-skin-source-selected': assetUrls.selected ? `url(${JSON.stringify(assetUrls.selected)})` : undefined,
-  }
-}
-
-export function applySpriteSkinStyle(
-  element: HTMLElement,
-  projection: ResolvedSpriteSkinProjection | undefined,
-  options: SpriteSkinStyleOptions = {},
-): void {
-  if (!projection || (!options.assetUrl && !options.assetUrls)) {
-    applyElementStyle(element, {
-      'position': undefined,
-      'boxSizing': undefined,
-      'borderStyle': undefined,
-      'borderWidth': undefined,
-      'borderImageSource': undefined,
-      'borderImageSlice': undefined,
-      'borderImageWidth': undefined,
-      'borderImageRepeat': undefined,
-      'padding': undefined,
-      'backgroundClip': undefined,
-      '--qua-skin-source-current': undefined,
-      '--qua-skin-source-default': undefined,
-      '--qua-skin-source-hover': undefined,
-      '--qua-skin-source-pressed': undefined,
-      '--qua-skin-source-disabled': undefined,
-      '--qua-skin-source-selected': undefined,
-    })
-    delete element.dataset.skinFamily
-    delete element.dataset.skinId
-    delete element.dataset.skinState
-    delete element.dataset.skinFallbackUsed
-    return
-  }
-
-  applyElementStyle(element, spriteSkinStyle(projection, options))
-  element.dataset.skinFamily = projection.family
-  element.dataset.skinId = projection.skin
-  element.dataset.skinState = projection.state
-  element.dataset.skinFallbackUsed = projection.fallbackUsed ? 'true' : 'false'
-}
-
-function createSpriteSkinAssetUrls(
-  projection: ResolvedSpriteSkinProjection,
-  options: SpriteSkinStyleOptions,
-): Partial<Record<SpriteSkinStateName, string>> {
-  const assetUrls: Partial<Record<SpriteSkinStateName, string>> = {}
-  if (options.assetUrls) {
-    for (const state of ['default', 'hover', 'pressed', 'disabled', 'selected'] as const) {
-      const assetUrl = options.assetUrls[state]
-      if (assetUrl) {
-        assetUrls[state] = assetUrl
-      }
-    }
-    return assetUrls
-  }
-
-  if (options.assetUrl) {
-    assetUrls[projection.state] = options.assetUrl
-    assetUrls.default = options.assetUrl
-  }
-  return assetUrls
-}
-
-function resolveSpriteSkinAssetUrl(
-  assetUrls: Partial<Record<SpriteSkinStateName, string>>,
-  state: SpriteSkinStateName,
-): string | undefined {
-  return assetUrls[state] || assetUrls.default
-}
 
 export interface SpriteWebRenderOptions {
   sprite: string
@@ -399,10 +288,6 @@ function createSpriteLayerAnimationBase(layer: SpriteResolvedLayer): SpriteResol
   }
 }
 
-function zeroInsets(): SpriteInsets {
-  return { top: 0, right: 0, bottom: 0, left: 0 }
-}
-
 function projectSpriteLayerForAnimation(
   layer: SpriteResolvedLayer,
   animationTargetPrefix: string,
@@ -449,8 +334,4 @@ function createSpriteTransform(layer: SpriteResolvedLayer): string | undefined {
 
 function toCssProperty(property: string): string {
   return property.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`)
-}
-
-function insetsToCss(insets: SpriteInsets): string {
-  return `${insets.top}px ${insets.right}px ${insets.bottom}px ${insets.left}px`
 }
