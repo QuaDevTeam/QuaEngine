@@ -111,6 +111,8 @@ export type {
 export { DEFAULT_DECORATOR_MAPPINGS, mergeDecoratorMappings } from './core/types'
 export {
   loadPackageDecoratorMappingsSync,
+  loadProjectDecoratorCompilers,
+  loadProjectDecoratorCompilersSync,
   loadProjectDecoratorMappings,
   loadProjectDecoratorMappingsSync,
 } from './decorators'

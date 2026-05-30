@@ -142,6 +142,13 @@ describe('@quajs/plugin-backlog', () => {
     const entry = getBacklogProjection(engine).entries[0]
     expect(entry.requiredRuntimePackages).toEqual(['runtime.story'])
     expect(engine.getCheckpoint(entry.checkpointId!)?.metadata?.requiredRuntimePackages).toEqual(['runtime.story'])
+    expect(getBacklogProjection(engine).requiredRuntimePackages).toEqual(['runtime.story'])
+    expect(engine.getRuntimeViewRequiredPackageIds()).toEqual(['runtime.story'])
+
+    await engine.notifyRuntimePackageUnload({ id: 'runtime.story', version: '1.0.0' }, 'runtime.story')
+
+    expect(getBacklogProjection(engine).entries).toEqual([])
+    expect(getBacklogProjection(engine).requiredRuntimePackages).toEqual([])
   })
 
   it('loads required runtime packages before replaying package-scoped voices', async () => {

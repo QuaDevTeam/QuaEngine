@@ -103,16 +103,21 @@ describe('@quajs/plugin-fonts', () => {
       await registerFontWithEngine(runtimeEngine, 'Runtime Sans', 'runtime.woff2')
     })
 
-    expect(getFontsProjection(engine).faces).toEqual([
+    let projection = getFontsProjection(engine)
+    expect(projection.faces).toEqual([
       expect.objectContaining({
         family: 'Runtime Sans',
         contentPackageId: 'runtime.fonts',
       }),
     ])
+    expect(projection.requiredRuntimePackages).toEqual(['runtime.fonts'])
+    expect(engine.getRuntimeViewRequiredPackageIds()).toEqual(['runtime.fonts'])
 
     await clearRuntimePackageFontsWithEngine(engine, 'runtime.fonts')
 
-    expect(getFontsProjection(engine).faces).toEqual([])
+    projection = getFontsProjection(engine)
+    expect(projection.faces).toEqual([])
+    expect(projection.requiredRuntimePackages).toEqual([])
   })
 })
 

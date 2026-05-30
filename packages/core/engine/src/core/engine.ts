@@ -2823,7 +2823,11 @@ export class QuaEngine {
 
   private withCurrentRuntimeContentConfig<T extends Readonly<Record<string, unknown>>>(value: T): Record<string, unknown> {
     const packageId = this.getCurrentRuntimePackageId()
-    if (!packageId || value.contentPackageId) {
+    if (
+      !packageId
+      || value.contentPackageId
+      || getMetadataRequiredRuntimePackages(value as Record<string, unknown>).length > 0
+    ) {
       return cloneUnknownRecord(value)
     }
     return {
@@ -2957,6 +2961,13 @@ function createEngineMutations() {
         },
       }
     },
+    removeRuntimePackage(state: any, packageId: string) {
+      const runtimePackages = {
+        ...(state.engine.runtime.runtimePackages || {}),
+      }
+      delete runtimePackages[packageId]
+      state.engine.runtime.runtimePackages = runtimePackages
+    },
     markRuntimeMigrationApplied(state: any, migrationKey: string) {
       state.engine.runtime.appliedRuntimeMigrations = Array.from(new Set([
         ...(state.engine.runtime.appliedRuntimeMigrations || []),
@@ -3076,7 +3087,7 @@ function createEngineMutations() {
     removePluginProjectionsByRuntimePackage(state: any, packageId: string) {
       const plugins = { ...(state.engine.view.plugins || {}) }
       for (const [pluginId, projection] of Object.entries(plugins)) {
-        if (recordRequiresPackage(projection, packageId)) {
+        if (recordOwnedByPackage(projection, packageId)) {
           delete plugins[pluginId]
         }
       }
@@ -3662,6 +3673,58 @@ function getAssetRuntimePackageId(asset: { runtimePackageId?: string, bundleName
 
 function recordRequiresPackage(value: unknown, packageId: string): boolean {
   return getRecordRuntimePackages(value).includes(packageId)
+}
+
+function recordOwnedByPackage(value: unknown, packageId: string): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  const record = value as Record<string, unknown>
+  if (record.contentPackageId !== packageId) {
+    return false
+  }
+  const nestedPackages = mergeRequiredRuntimePackages(
+    ...Object.entries(record)
+      .filter(([key]) => key !== 'contentPackageId' && key !== 'requiredRuntimePackages' && key !== 'revision')
+      .map(([, item]) => collectRuntimePackagesFromUnknown(item)),
+  )
+  return nestedPackages.every(nestedPackage => nestedPackage === packageId)
+    && recordHasNoPackageIndependentCollections(record)
+}
+
+function recordHasNoPackageIndependentCollections(record: Record<string, unknown>): boolean {
+  return Object.entries(record)
+    .filter(([key]) => key !== 'contentPackageId' && key !== 'requiredRuntimePackages')
+    .every(([, value]) => !containsRecordWithoutRuntimePackage(value))
+}
+
+function containsRecordWithoutRuntimePackage(value: unknown, seen = new Set<object>()): boolean {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+  if (seen.has(value)) {
+    return false
+  }
+  seen.add(value)
+
+  if (Array.isArray(value)) {
+    return value.some(item => containsRecordWithoutRuntimePackage(item, seen))
+  }
+
+  const record = value as Record<string, unknown>
+  if (isProjectionRecord(record) && getRecordRuntimePackages(record).length === 0) {
+    return true
+  }
+  return Object.values(record).some(item => containsRecordWithoutRuntimePackage(item, seen))
+}
+
+function isProjectionRecord(record: Record<string, unknown>): boolean {
+  return 'id' in record
+    || 'assetKey' in record
+    || 'assetName' in record
+    || 'metadata' in record
+    || 'contentPackageId' in record
+    || 'requiredRuntimePackages' in record
 }
 
 function shouldTagPluginProjectionWithRuntimePackage(value: unknown): value is Readonly<Record<string, unknown>> {

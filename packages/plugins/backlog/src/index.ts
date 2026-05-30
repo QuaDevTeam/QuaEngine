@@ -104,7 +104,7 @@ export class BacklogPlugin extends BaseEnginePlugin {
       return
     }
 
-    await ctx.engine.setPluginProjection(BACKLOG_PLUGIN_ID, {
+    await setBacklogProjection(ctx.engine, {
       ...this.projectionBeforeBacklogJump,
       revision: this.projectionBeforeBacklogJump.revision + 1,
       visible: false,
@@ -121,11 +121,19 @@ export class BacklogPlugin extends BaseEnginePlugin {
       this.ensureProjection(ctx)
       return
     }
-    await ctx.engine.setPluginProjection(BACKLOG_PLUGIN_ID, {
+    await setBacklogProjection(ctx.engine, {
       ...this.projectionBeforeRollback,
       revision: this.projectionBeforeRollback.revision + 1,
     })
     this.projectionBeforeRollback = undefined
+  }
+
+  override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
+    const packageId = ctx.runtimePackage?.package.id
+    if (!packageId) {
+      return
+    }
+    await removeRuntimePackageBacklogEntriesWithEngine(ctx.engine, packageId)
   }
 
   private ensureProjection(ctx: EngineContext): void {
@@ -134,7 +142,7 @@ export class BacklogPlugin extends BaseEnginePlugin {
     }
     ctx.store.commit('setPluginProjection', {
       pluginId: BACKLOG_PLUGIN_ID,
-      projection: createInitialBacklogProjection(this.getOptions()),
+      projection: withBacklogRequiredRuntimePackages(createInitialBacklogProjection(this.getOptions())),
     })
   }
 
@@ -229,7 +237,7 @@ export async function setBacklogPolicyWithEngine(
   policy: BacklogPolicy,
 ): Promise<void> {
   const projection = getBacklogProjection(engine)
-  await engine.setPluginProjection(BACKLOG_PLUGIN_ID, {
+  await setBacklogProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     pendingPolicy: { ...policy },
@@ -241,10 +249,26 @@ export async function setBacklogVisibleWithEngine(
   visible: boolean,
 ): Promise<void> {
   const projection = getBacklogProjection(engine)
-  await engine.setPluginProjection(BACKLOG_PLUGIN_ID, {
+  await setBacklogProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     visible,
+  })
+}
+
+async function removeRuntimePackageBacklogEntriesWithEngine(
+  engine: QuaEngineInterface,
+  packageId: string,
+): Promise<void> {
+  const projection = getBacklogProjection(engine)
+  const entries = projection.entries.filter(entry => !backlogEntryRequiresPackage(entry, packageId))
+  if (entries.length === projection.entries.length) {
+    return
+  }
+  await setBacklogProjection(engine, {
+    ...projection,
+    revision: projection.revision + 1,
+    entries,
   })
 }
 
@@ -252,11 +276,23 @@ export function getBacklogProjection(engine: QuaEngineInterface): BacklogProject
   return engine.getPluginProjection<BacklogProjection>(BACKLOG_PLUGIN_ID) || createInitialBacklogProjection()
 }
 
+function setBacklogProjection(engine: QuaEngineInterface, projection: BacklogProjection): Promise<void> {
+  return engine.setPluginProjection(BACKLOG_PLUGIN_ID, withBacklogRequiredRuntimePackages(projection))
+}
+
+function withBacklogRequiredRuntimePackages(projection: BacklogProjection): BacklogProjection {
+  return {
+    ...projection,
+    requiredRuntimePackages: collectBacklogRequiredRuntimePackages(projection.entries),
+  }
+}
+
 export function createInitialBacklogProjection(options: BacklogPluginOptions = {}): BacklogProjection {
   const developerSettings = createBacklogDeveloperSettings(options)
   return {
     revision: 0,
     visible: false,
+    requiredRuntimePackages: [],
     entries: [],
     retention: {
       scope: developerSettings.retentionScope,
@@ -323,7 +359,7 @@ async function registerBacklogSettingsScope(
       apply: async ({ developer }) => {
         const normalized = normalizeBacklogDeveloperSettings(developer)
         const projection = getBacklogProjection(ctx.engine)
-        await ctx.engine.setPluginProjection(BACKLOG_PLUGIN_ID, {
+        await setBacklogProjection(ctx.engine, {
           ...projection,
           revision: projection.revision + 1,
           entries: retainEntries(
@@ -403,7 +439,7 @@ async function appendBacklogEntry(
   }
 
   if (policy.include === false || options.filter?.(nextEntry, { engine, checkpoint }) === false) {
-    await engine.setPluginProjection(BACKLOG_PLUGIN_ID, {
+    await setBacklogProjection(engine, {
       ...projection,
       revision: projection.revision + 1,
       pendingPolicy: undefined,
@@ -416,7 +452,7 @@ async function appendBacklogEntry(
     projection.retention,
     engine.getStoryPoint(),
   )
-  await engine.setPluginProjection(BACKLOG_PLUGIN_ID, {
+  await setBacklogProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     entries: retained,
@@ -505,7 +541,25 @@ function findCurrentVoice(engine: QuaEngineInterface): BacklogVoiceReference | u
         contentPackageId,
         requiredRuntimePackages,
       }
-    : undefined
+	    : undefined
+}
+
+function collectBacklogRequiredRuntimePackages(entries: readonly BacklogEntry[]): string[] {
+  return mergeRequiredPackages(
+    ...entries.map(entry => mergeRequiredPackages(
+      entry.requiredRuntimePackages,
+      entry.voice?.requiredRuntimePackages,
+      entry.voice?.contentPackageId ? [entry.voice.contentPackageId] : undefined,
+    )),
+  )
+}
+
+function backlogEntryRequiresPackage(entry: BacklogEntry, packageId: string): boolean {
+  return mergeRequiredPackages(
+    entry.requiredRuntimePackages,
+    entry.voice?.requiredRuntimePackages,
+    entry.voice?.contentPackageId ? [entry.voice.contentPackageId] : undefined,
+  ).includes(packageId)
 }
 
 function requiredPackagesForPoint(point?: StoryPoint): string[] {

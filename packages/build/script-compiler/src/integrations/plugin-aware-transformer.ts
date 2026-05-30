@@ -1,7 +1,12 @@
 import type { QuaScriptTransformerOptions } from '../core/transformer'
 import type { DecoratorMapping } from '../core/types'
 import { QuaScriptTransformer } from '../core/transformer'
-import { loadProjectDecoratorMappings, loadProjectDecoratorMappingsSync } from '../decorators'
+import {
+  loadProjectDecoratorCompilers,
+  loadProjectDecoratorCompilersSync,
+  loadProjectDecoratorMappings,
+  loadProjectDecoratorMappingsSync,
+} from '../decorators'
 
 /**
  * Get project decorators using package metadata and engine discovery.
@@ -23,9 +28,14 @@ export class PluginAwareQuaScriptTransformer extends QuaScriptTransformer {
     options?: QuaScriptTransformerOptions & { projectRoot?: string },
   ) {
     const discoveredMappings = loadProjectDecoratorMappingsSync(options?.projectRoot)
+    const discoveredCompilers = loadProjectDecoratorCompilersSync(options?.projectRoot)
     super(decoratorMappings || {}, {
       ...options,
       availableDecoratorMappings: discoveredMappings,
+      decoratorCompilers: [
+        ...discoveredCompilers,
+        ...(options?.decoratorCompilers || []),
+      ],
     })
   }
 
@@ -56,9 +66,14 @@ export async function createPluginAwareTransformerAsync(
   options?: QuaScriptTransformerOptions & { projectRoot?: string },
 ): Promise<QuaScriptTransformer> {
   const pluginDecorators = await getPluginDecorators(options?.projectRoot)
+  const pluginCompilers = await loadProjectDecoratorCompilers(options?.projectRoot)
 
   return new QuaScriptTransformer(decoratorMappings || {}, {
     ...options,
     availableDecoratorMappings: pluginDecorators,
+    decoratorCompilers: [
+      ...pluginCompilers,
+      ...(options?.decoratorCompilers || []),
+    ],
   })
 }

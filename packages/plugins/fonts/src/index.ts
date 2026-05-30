@@ -100,7 +100,7 @@ export async function registerFontsWithEngine(
     revision: projection.revision + 1,
     faces: [...nextFaces.values()],
   }
-  await engine.setPluginProjection(FONTS_PLUGIN_ID, next)
+  await setFontsProjection(engine, next)
   return next
 }
 
@@ -115,13 +115,13 @@ export async function unregisterFontWithEngine(
       .filter(face => face.id !== idOrFamily && face.family !== idOrFamily)
       .map(face => cloneFontFaceProjection(face)),
   }
-  await engine.setPluginProjection(FONTS_PLUGIN_ID, next)
+  await setFontsProjection(engine, next)
   return next
 }
 
 export async function clearFontsWithEngine(engine: QuaEngineInterface): Promise<void> {
   const projection = getFontsProjection(engine)
-  await engine.setPluginProjection(FONTS_PLUGIN_ID, {
+  await setFontsProjection(engine, {
     revision: projection.revision + 1,
     faces: [],
   })
@@ -140,8 +140,19 @@ export async function clearRuntimePackageFontsWithEngine(
     revision: projection.revision + 1,
     faces: faces.map(face => cloneFontFaceProjection(face)),
   }
-  await engine.setPluginProjection(FONTS_PLUGIN_ID, next)
+  await setFontsProjection(engine, next)
   return next
+}
+
+function setFontsProjection(engine: QuaEngineInterface, projection: FontsProjection): Promise<void> {
+  return engine.setPluginProjection(FONTS_PLUGIN_ID, withFontsRequiredRuntimePackages(projection))
+}
+
+function withFontsRequiredRuntimePackages(projection: FontsProjection): FontsProjection {
+  return {
+    ...projection,
+    requiredRuntimePackages: collectFontsRequiredRuntimePackages(projection.faces),
+  }
 }
 
 function normalizeFontFace(
@@ -170,8 +181,26 @@ function fontFaceBelongsToPackage(face: Readonly<FontFaceProjection>, packageId:
   return face.contentPackageId === packageId || contentPackageIdFromMetadata(face.metadata) === packageId
 }
 
+function collectFontsRequiredRuntimePackages(faces: readonly Readonly<FontFaceProjection>[]): string[] {
+  return uniqueStrings(faces.flatMap(face => [
+    ...(face.contentPackageId ? [face.contentPackageId] : []),
+    ...requiredRuntimePackagesFromMetadata(face.metadata),
+  ]))
+}
+
 function contentPackageIdFromMetadata(metadata?: Readonly<Record<string, unknown>>): string | undefined {
   return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
+}
+
+function requiredRuntimePackagesFromMetadata(metadata?: Readonly<Record<string, unknown>>): string[] {
+  const value = metadata?.requiredRuntimePackages
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : []
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)))
 }
 
 function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined {

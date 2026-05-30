@@ -47,6 +47,7 @@ export interface BacklogPolicy {
 export interface BacklogProjection {
   revision: number
   visible: boolean
+  requiredRuntimePackages?: readonly string[]
   entries: readonly BacklogEntry[]
   retention: {
     scope: BacklogRetentionScope

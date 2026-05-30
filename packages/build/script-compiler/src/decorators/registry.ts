@@ -1,14 +1,9 @@
 import type { DecoratorMapping } from '../core/types'
 import type { DecoratorCompilationResult, DecoratorCompileInput, DecoratorCompiler, ImplicitDecoratorCompileInput } from './types'
-import { createCharacterDecoratorCompiler } from '@quajs/character/script-compiler'
+import { scriptCompiler as characterScriptCompiler } from '@quajs/character/script-compiler'
 import { createFlowControlDecoratorCompiler, createRollbackDecoratorCompiler } from '@quajs/engine/script-compiler'
-import { createAchievementDecoratorCompiler } from '@quajs/plugin-achievement/script-compiler'
-import { createAnimationDecoratorCompiler } from '@quajs/plugin-animation/script-compiler'
-import { createAudioDecoratorCompiler } from '@quajs/plugin-audio/script-compiler'
-import { createBackgroundDecoratorCompiler } from '@quajs/plugin-background/script-compiler'
-import { createBacklogDecoratorCompiler } from '@quajs/plugin-backlog/script-compiler'
-import { createGalleryDecoratorCompiler } from '@quajs/plugin-gallery/script-compiler'
-import { createStoryGraphDecoratorCompiler } from '@quajs/story-graph/script-compiler'
+import { scriptCompiler as animationScriptCompiler } from '@quajs/plugin-animation/script-compiler'
+import { scriptCompiler as backgroundScriptCompiler } from '@quajs/plugin-background/script-compiler'
 
 export class DecoratorCompilerRegistry {
   private readonly compilers: DecoratorCompiler[] = []
@@ -16,6 +11,9 @@ export class DecoratorCompilerRegistry {
   private readonly runtimeHelperOrder: string[] = []
 
   register(compiler: DecoratorCompiler): void {
+    if (this.compilers.includes(compiler)) {
+      return
+    }
     this.compilers.push(compiler)
 
     if (compiler.runtimeHelperModules) {
@@ -84,13 +82,8 @@ export function createDefaultDecoratorCompilerRegistry(): DecoratorCompilerRegis
   const registry = new DecoratorCompilerRegistry()
   registry.register(createFlowControlDecoratorCompiler())
   registry.register(createRollbackDecoratorCompiler())
-  registry.register(createCharacterDecoratorCompiler())
-  registry.register(createBackgroundDecoratorCompiler())
-  registry.register(createAudioDecoratorCompiler())
-  registry.register(createAnimationDecoratorCompiler())
-  registry.register(createAchievementDecoratorCompiler())
-  registry.register(createStoryGraphDecoratorCompiler())
-  registry.register(createBacklogDecoratorCompiler())
-  registry.register(createGalleryDecoratorCompiler())
+  characterScriptCompiler.compilers.forEach(compiler => registry.register(compiler))
+  animationScriptCompiler.compilers.forEach(compiler => registry.register(compiler))
+  backgroundScriptCompiler.compilers.forEach(compiler => registry.register(compiler))
   return registry
 }
