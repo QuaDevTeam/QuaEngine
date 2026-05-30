@@ -542,6 +542,7 @@ export async function resolveStoryTargetFromGraphWithEngine(
   const requiredRuntimePackages = mergeStringLists(
     target.requiredRuntimePackages as string[] | undefined,
     node.point.contentPackageId ? [node.point.contentPackageId] : [],
+    node.point.requiredRuntimePackages,
     targetPackageId ? [targetPackageId] : [],
     getMetadataRequiredRuntimePackages(node.metadata),
   )

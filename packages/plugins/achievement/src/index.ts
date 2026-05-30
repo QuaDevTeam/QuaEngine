@@ -1524,6 +1524,7 @@ function resolveCurrentAchievementMetadataContext(
     contentPackageId: node?.point.contentPackageId || contentPackageIdFromMetadata(node?.metadata),
     requiredRuntimePackages: mergeRequiredRuntimePackages(
       node?.point.contentPackageId ? [node.point.contentPackageId] : [],
+      node?.point.requiredRuntimePackages,
       getRequiredRuntimePackages(node?.metadata),
     ),
   }

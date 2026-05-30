@@ -135,17 +135,18 @@ describe('@quajs/plugin-backlog', () => {
       chapterId: 'chapter-1',
       stepId: 'runtime-line',
       contentPackageId: 'runtime.story',
+      requiredRuntimePackages: ['runtime.story', 'runtime.delta'],
     })
 
     await engine.showDialogue({ text: 'Runtime line' })
 
     const entry = getBacklogProjection(engine).entries[0]
-    expect(entry.requiredRuntimePackages).toEqual(['runtime.story'])
-    expect(engine.getCheckpoint(entry.checkpointId!)?.metadata?.requiredRuntimePackages).toEqual(['runtime.story'])
-    expect(getBacklogProjection(engine).requiredRuntimePackages).toEqual(['runtime.story'])
-    expect(engine.getRuntimeViewRequiredPackageIds()).toEqual(['runtime.story'])
+    expect(entry.requiredRuntimePackages).toEqual(['runtime.story', 'runtime.delta'])
+    expect(engine.getCheckpoint(entry.checkpointId!)?.metadata?.requiredRuntimePackages).toEqual(['runtime.story', 'runtime.delta'])
+    expect(getBacklogProjection(engine).requiredRuntimePackages).toEqual(['runtime.story', 'runtime.delta'])
+    expect(engine.getRuntimeViewRequiredPackageIds()).toEqual(['runtime.story', 'runtime.delta'])
 
-    await engine.notifyRuntimePackageUnload({ id: 'runtime.story', version: '1.0.0' }, 'runtime.story')
+    await engine.notifyRuntimePackageUnload({ id: 'runtime.delta', version: '1.0.0' }, 'runtime.delta')
 
     expect(getBacklogProjection(engine).entries).toEqual([])
     expect(getBacklogProjection(engine).requiredRuntimePackages).toEqual([])

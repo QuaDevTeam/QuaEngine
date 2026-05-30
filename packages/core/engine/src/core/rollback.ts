@@ -975,7 +975,10 @@ function asStringArray(value: unknown): string[] {
 }
 
 function runtimePackagesFromPoint(point: StoryPoint): string[] {
-  return point.contentPackageId ? [point.contentPackageId] : []
+  return mergeStrings(
+    point.contentPackageId ? [point.contentPackageId] : [],
+    point.requiredRuntimePackages,
+  )
 }
 
 function mergeStrings(...values: unknown[]): string[] {
