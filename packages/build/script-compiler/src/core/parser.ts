@@ -88,15 +88,6 @@ export class QuaScriptParser {
         if (step.type === 'dialogue') {
           const dialogue = step.content as QuaScriptDialogue
           characters.add(dialogue.character)
-          dialogue.decorators.forEach((decorator) => {
-            this.addRequiredImports(decorator, imports)
-          })
-        }
-        else if (step.type === 'action') {
-          const action = step.content as any
-          action.decorators?.forEach((decorator: QuaScriptDecorator) => {
-            this.addRequiredImports(decorator, imports)
-          })
         }
       }
     }
@@ -660,18 +651,6 @@ export class QuaScriptParser {
       character,
       text,
       textOffset: line.offset + colon + 1 + textLeading,
-    }
-  }
-
-  private addRequiredImports(decorator: QuaScriptDecorator, imports: Set<string>) {
-    switch (decorator.name) {
-      case 'SetSprite':
-      case 'ShowCharacter':
-      case 'HideCharacter':
-      case 'MoveCharacter':
-      case 'SetExpression':
-        imports.add('@quajs/character')
-        break
     }
   }
 
