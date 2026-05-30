@@ -908,12 +908,24 @@ function withCurrentRuntimeAnimationPackage<TTimeline extends NormalizedAnimatio
   engine: QuaEngineInterface,
   timeline: TTimeline,
 ): TTimeline {
-  if (timeline.contentPackageId || contentPackageIdFromMetadata(timeline.metadata)) {
-    return timeline
-  }
   const packageId = currentRuntimePackageId(engine)
   if (!packageId) {
     return timeline
+  }
+  if (timeline.contentPackageId) {
+    return timeline
+  }
+  const metadataPackageId = contentPackageIdFromMetadata(timeline.metadata)
+  if (metadataPackageId) {
+    return {
+      ...timeline,
+      requiredRuntimePackages: mergeRuntimePackageIds(
+        timeline.requiredRuntimePackages,
+        [metadataPackageId],
+        requiredRuntimePackagesFromMetadata(timeline.metadata),
+        metadataPackageId !== packageId ? [packageId] : undefined,
+      ),
+    }
   }
   return {
     ...timeline,
