@@ -228,8 +228,49 @@ describe('@quajs/story-graph', () => {
     })
 
     expect(resolved?.point).toEqual(expect.objectContaining({ nodeId: 'library', stepId: 'library-step' }))
+    expect(resolved?.point?.requiredRuntimePackages).toEqual(['runtime.school', 'runtime.school-assets'])
     expect(resolved?.script).toEqual(expect.objectContaining({ moduleId: 'main.school', nodeId: 'library' }))
     expect(resolved?.requiredRuntimePackages).toEqual(['runtime.school', 'runtime.school-assets'])
+  })
+
+  it('merges graph node metadata provenance into resolved story points', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+    await registerStoryGraphWithEngine(engine, {
+      id: 'main',
+      nodes: [{
+        id: 'shared-node',
+        point: {
+          storyId: 'main',
+          sceneId: 'same-scene',
+          nodeId: 'shared-node',
+          stepId: 'shared-step',
+          contentPackageId: 'runtime.base-story',
+        },
+        metadata: {
+          contentPackageId: 'runtime.delta-story',
+          requiredRuntimePackages: ['runtime.shared-assets'],
+        },
+      }],
+    })
+
+    const resolved = await resolveStoryTargetFromGraphWithEngine({ kind: 'node', id: 'shared-node' }, {
+      engine,
+      target: { kind: 'node', id: 'shared-node' },
+      currentPoint: { storyId: 'main', sceneId: 'same-scene', stepId: 'start' },
+    })
+
+    expect(resolved?.requiredRuntimePackages).toEqual([
+      'runtime.base-story',
+      'runtime.delta-story',
+      'runtime.shared-assets',
+    ])
+    expect(resolved?.point?.requiredRuntimePackages).toEqual([
+      'runtime.base-story',
+      'runtime.delta-story',
+      'runtime.shared-assets',
+    ])
   })
 
   it('merges package-scoped dynamic graph deltas with timeline and lane provenance', async () => {
