@@ -1179,6 +1179,71 @@ describe('@quajs/renderer-web', () => {
     }
   })
 
+  it('resolves font assets through required runtime package candidates', async () => {
+    const fontRuntime = installFakeFontFace()
+    const requestedPackages: Array<string | undefined> = []
+    const assets = new QuaAssets({
+      adapter: {
+        name: 'renderer-web-runtime-font-test',
+        storage: new MemoryAssetStorage(),
+        crypto: { sha256: async () => '' },
+      },
+      provider: {
+        mode: 'memory',
+        getManifest: async () => ({
+          version: '1',
+          assets: [
+            fontManifestRecord('base-display', 'display.woff2', 'runtime.font-base', 1),
+            fontManifestRecord('delta-display', 'display.woff2', 'runtime.font-delta', 100),
+          ],
+        }),
+        getAsset: async (_id, record) => {
+          requestedPackages.push(record?.runtimePackageId)
+          return new Uint8Array([1, 2, 3, 4])
+        },
+      },
+    })
+    await assets.initialize()
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      assets,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        plugins: {
+          [FONTS_PLUGIN_ID]: {
+            revision: 1,
+            faces: [{
+              family: 'Qua Serif',
+              assetName: 'display.woff2',
+              contentPackageId: 'runtime.font-base',
+              metadata: {
+                requiredRuntimePackages: ['runtime.font-base', 'runtime.font-delta'],
+              },
+            }],
+          },
+        },
+      }),
+    })
+
+    try {
+      await renderer.mount()
+      await flushDom()
+
+      expect(requestedPackages).toEqual(['runtime.font-delta'])
+      expect(fontRuntime.created).toHaveLength(1)
+
+      await renderer.unmount()
+    }
+    finally {
+      fontRuntime.restore()
+      await assets.cleanup()
+    }
+  })
+
   it('renders default scene transition overlays and emits scene readiness', async () => {
     vi.useFakeTimers({ now: 1000 })
     vi.stubGlobal('requestAnimationFrame', undefined)
@@ -2178,6 +2243,66 @@ describe('@quajs/renderer-web', () => {
     await assets.cleanup()
   })
 
+  it('resolves audio buffers through required runtime package candidates', async () => {
+    installFakeAudioContext({ initialState: 'running' })
+    const requestedPackages: Array<string | undefined> = []
+    const assets = new QuaAssets({
+      adapter: {
+        name: 'renderer-web-runtime-audio-test',
+        storage: new MemoryAssetStorage(),
+        crypto: { sha256: async () => '' },
+      },
+      provider: {
+        mode: 'memory',
+        getManifest: async () => ({
+          version: '1',
+          assets: [
+            audioManifestRecord('base-bgm', 'bgm.ogg', 'runtime.audio-base', 1),
+            audioManifestRecord('delta-bgm', 'bgm.ogg', 'runtime.audio-delta', 100),
+          ],
+        }),
+        getAsset: async (_id, record) => {
+          requestedPackages.push(record?.runtimePackageId)
+          return new Uint8Array([1, 2, 3, 4])
+        },
+      },
+    })
+    await assets.initialize()
+    const pipeline = new Pipeline()
+    const audio = createInitialAudioProjection()
+    const controller = new WebAudioRendererController({
+      getPipeline: () => pipeline,
+      getAssets: () => assets,
+      getViewState: () => view({
+        plugins: {
+          [AUDIO_PLUGIN_ID]: {
+            ...audio,
+            bgm: {
+              id: 'bgm:runtime',
+              kind: 'bgm',
+              assetKey: 'bgm.ogg',
+              state: 'playing',
+              contentPackageId: 'runtime.audio-base',
+              metadata: {
+                requiredRuntimePackages: ['runtime.audio-base', 'runtime.audio-delta'],
+              },
+            },
+          },
+        },
+      }),
+      document,
+    })
+
+    controller.start()
+    await controller.sync()
+
+    expect(requestedPackages).toEqual(['runtime.audio-delta'])
+    expect(FakeAudioContext.sources[0]?.start).toHaveBeenCalledWith(0, 0)
+
+    await controller.destroy()
+    await assets.cleanup()
+  })
+
   it('starts pending audio when automatic Web Audio resume is allowed', async () => {
     installFakeAudioContext({
       initialState: 'suspended',
@@ -2967,6 +3092,34 @@ function fontAssetRecord(name: string) {
     locale: 'default',
     path: `fonts/${name}`,
     mimeType: 'font/woff2',
+  }
+}
+
+function fontManifestRecord(id: string, name: string, runtimePackageId: string, bundlePriority: number) {
+  return {
+    id,
+    bundleName: runtimePackageId,
+    bundlePriority,
+    runtimePackageId,
+    name,
+    type: 'fonts' as const,
+    locale: 'default',
+    path: `fonts/${name}`,
+    mimeType: 'font/woff2',
+  }
+}
+
+function audioManifestRecord(id: string, name: string, runtimePackageId: string, bundlePriority: number) {
+  return {
+    id,
+    bundleName: runtimePackageId,
+    bundlePriority,
+    runtimePackageId,
+    name,
+    type: 'audio' as const,
+    locale: 'default',
+    path: `audio/${name}`,
+    mimeType: 'audio/ogg',
   }
 }
 

@@ -1,6 +1,7 @@
 import type { QuaAssets } from '@quajs/assets'
 import type { FontFaceProjection, FontsProjection } from '@quajs/plugin-fonts/contracts'
 import { fontFaceProjectionIdentity, fontFaceProjectionSignature } from '@quajs/plugin-fonts/contracts'
+import { getAssetWithTargetPackages, runtimePackageCandidatesFromMetadata } from './assets'
 
 export type WebFontFaceLoadState = 'loading' | 'loaded' | 'error'
 
@@ -96,10 +97,9 @@ export class WebFontFaceRegistry {
         return
       }
 
-      const asset = await assets.getAsset('fonts', record.face.assetName, {
+      const asset = await getAssetWithTargetPackages(assets, 'fonts', record.face.assetName, runtimePackageCandidatesFromFontFace(record.face), {
         bundleName: record.face.bundleName,
         locale: record.face.locale,
-        targetPackageId: record.face.contentPackageId || contentPackageIdFromMetadata(record.face.metadata),
       })
       if (!this.isCurrentRecord(record)) {
         return
@@ -189,6 +189,9 @@ function cloneFontFace(face: Readonly<FontFaceProjection>): FontFaceProjection {
   }
 }
 
-function contentPackageIdFromMetadata(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
-  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
+function runtimePackageCandidatesFromFontFace(face: Readonly<FontFaceProjection>): readonly string[] | undefined {
+  return runtimePackageCandidatesFromMetadata({
+    ...(face.metadata || {}),
+    ...(face.contentPackageId ? { contentPackageId: face.contentPackageId } : {}),
+  })
 }

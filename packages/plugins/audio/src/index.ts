@@ -176,7 +176,7 @@ export class AudioPlugin extends BaseEnginePlugin {
   override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
     const packageId = ctx.runtimePackage?.package.id
     if (packageId) {
-      await stopRuntimePackageAudioWithEngine(ctx.engine, packageId)
+      await clearRuntimePackageAudioWithEngine(ctx.engine, packageId)
     }
   }
 
@@ -201,6 +201,7 @@ export class AudioPlugin extends BaseEnginePlugin {
         { name: 'stopSFXWithEngine', fn: stopSFXWithEngine, module: this.name },
         { name: 'stopAmbientWithEngine', fn: stopAmbientWithEngine, module: this.name },
         { name: 'stopRuntimePackageAudioWithEngine', fn: stopRuntimePackageAudioWithEngine, module: this.name },
+        { name: 'clearRuntimePackageAudioWithEngine', fn: clearRuntimePackageAudioWithEngine, module: this.name },
       ],
       decorators: audioDecoratorMappings,
     }
@@ -458,6 +459,35 @@ export async function stopRuntimePackageAudioWithEngine(
     changed = true
   }
   if (!changed) {
+    return
+  }
+  next.revision += 1
+  await setAudioProjection(engine, next)
+}
+
+export async function clearRuntimePackageAudioWithEngine(
+  engine: QuaEngineInterface,
+  packageId: string,
+): Promise<void> {
+  const projection = getAudioProjection(engine)
+  const next = cloneAudioProjection(projection)
+  next.voices = next.voices.filter(track => !trackRequiresPackage(track, packageId))
+  next.sfx = next.sfx.filter(track => !trackRequiresPackage(track, packageId))
+  next.ambients = next.ambients.filter(track => !trackRequiresPackage(track, packageId))
+  if (next.bgm && trackRequiresPackage(next.bgm, packageId)) {
+    next.bgm = undefined
+  }
+  if (metadataRequiresPackage(next.chapter?.metadata, packageId)) {
+    next.chapter = undefined
+    next.currentLineId = undefined
+  }
+  if (
+    next.voices.length === projection.voices.length
+    && next.sfx.length === projection.sfx.length
+    && next.ambients.length === projection.ambients.length
+    && next.bgm === projection.bgm
+    && next.chapter === projection.chapter
+  ) {
     return
   }
   next.revision += 1

@@ -15,6 +15,7 @@ import {
   createInitialAudioProjection,
   dbToGain,
 } from '@quajs/plugin-audio/contracts'
+import { getAssetWithTargetPackages, runtimePackageCandidatesFromMetadata, type WebAssetTargetPackageId } from './assets'
 
 interface AudioRuntimeCallbacks {
   emit: <T extends AudioRenderToLogicEvent>(
@@ -37,7 +38,7 @@ interface SlotRuntime {
   pendingStart?: boolean
   staleBuffer?: boolean
   assetKey?: string
-  targetPackageId?: string
+  targetPackageKey?: string
   generation: number
 }
 
@@ -291,7 +292,8 @@ export class WebAudioAudioRuntime {
     bus: BusRuntime,
     context: AudioContext,
   ): Promise<void> {
-    const targetPackageId = this.resolveTrackTargetPackageId(projection)
+    const targetPackageIds = this.resolveTrackTargetPackageIds(projection)
+    const targetPackageKey = createTargetPackageKey(targetPackageIds)
     slot.assetKey = projection.assetKey
     const controlSignature = this.createControlSignature(projection)
     const fxSignature = this.createFxSignature(projection)
@@ -313,13 +315,13 @@ export class WebAudioAudioRuntime {
 
     const needsSource = !slot.source
       || slot.staleBuffer
-      || slot.targetPackageId !== targetPackageId
+      || slot.targetPackageKey !== targetPackageKey
       || slot.controlSignature !== controlSignature
       || resumingPausedTrack
 
     if (needsSource) {
       this.stopSlot(slot, 0, 'replaced', true)
-      await this.startTrackSource(kind, projection, slot, bus, context, resumingPausedTrack ? slot.offsetSeconds : undefined, targetPackageId)
+      await this.startTrackSource(kind, projection, slot, bus, context, resumingPausedTrack ? slot.offsetSeconds : undefined, targetPackageIds)
       slot.controlSignature = controlSignature
       slot.staleBuffer = false
     }
@@ -349,10 +351,11 @@ export class WebAudioAudioRuntime {
     bus: BusRuntime,
     context: AudioContext,
     resumeOffsetSeconds?: number,
-    targetPackageId = this.resolveTrackTargetPackageId(projection),
+    targetPackageIds = this.resolveTrackTargetPackageIds(projection),
   ): Promise<void> {
     const generation = ++slot.generation
-    const buffer = await this.loadBuffer(projection.assetKey, targetPackageId)
+    const targetPackageKey = createTargetPackageKey(targetPackageIds)
+    const buffer = await this.loadBuffer(projection.assetKey, targetPackageIds)
     if (this.destroyed || generation !== slot.generation || !buffer) {
       return
     }
@@ -374,7 +377,7 @@ export class WebAudioAudioRuntime {
     slot.startedAt = undefined
     slot.stopReason = undefined
     slot.assetKey = projection.assetKey
-    slot.targetPackageId = targetPackageId
+    slot.targetPackageKey = targetPackageKey
 
     source.onended = () => {
       const current = slot.currentTrack
@@ -605,8 +608,8 @@ export class WebAudioAudioRuntime {
     }
   }
 
-  private async loadBuffer(assetKey: string, targetPackageId?: string): Promise<AudioBuffer> {
-    const cacheKey = `${assetKey}::${targetPackageId || ''}`
+  private async loadBuffer(assetKey: string, targetPackageIds?: WebAssetTargetPackageId): Promise<AudioBuffer> {
+    const cacheKey = `${assetKey}::${createTargetPackageKey(targetPackageIds)}`
     const cached = this.bufferCache.get(cacheKey)
     if (cached) {
       return cached
@@ -618,7 +621,7 @@ export class WebAudioAudioRuntime {
         throw new Error('Audio runtime requires assets access.')
       }
 
-      const asset = await assets.getAsset('audio', assetKey, { targetPackageId })
+      const asset = await getAssetWithTargetPackages(assets, 'audio', assetKey, targetPackageIds)
       const context = this.ensureContext()
       const bytes = asset.data.buffer.slice(
         asset.data.byteOffset,
@@ -724,8 +727,11 @@ export class WebAudioAudioRuntime {
     return change.record?.name || change.path || change.assetId.split(':').pop()
   }
 
-  private resolveTrackTargetPackageId(projection: AudioTrackProjection): string | undefined {
-    return projection.contentPackageId || contentPackageIdFromMetadata(projection.metadata)
+  private resolveTrackTargetPackageIds(projection: AudioTrackProjection): WebAssetTargetPackageId | undefined {
+    return runtimePackageCandidatesFromMetadata({
+      ...(projection.metadata || {}),
+      ...(projection.contentPackageId ? { contentPackageId: projection.contentPackageId } : {}),
+    })
   }
 
   private async startPendingSources(): Promise<void> {
@@ -779,6 +785,9 @@ function ensureFilterCount(filters: BiquadFilterNode[], count: number, create: (
   }
 }
 
-function contentPackageIdFromMetadata(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
-  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
+function createTargetPackageKey(targetPackageIds: WebAssetTargetPackageId | undefined): string {
+  if (typeof targetPackageIds === 'string') {
+    return targetPackageIds
+  }
+  return targetPackageIds ? targetPackageIds.join('|') : ''
 }
