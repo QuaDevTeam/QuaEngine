@@ -219,8 +219,11 @@ export class RuntimeContentManager {
         && (candidate.manifest.dependencies || []).includes(packageId),
       )
       .map(candidate => candidate.manifest.id)
-    if (dependents.length > 0) {
+    if (dependents.length > 0 && !options.force) {
       throw new Error(`Cannot unload runtime package "${packageId}" because active packages depend on it: ${dependents.join(', ')}`)
+    }
+    for (const dependentPackageId of dependents) {
+      await this.unloadRuntimePackage(dependentPackageId, { force: true })
     }
     if (!options.force) {
       this.assertPackageNotReferencedByCurrentRuntimeState(packageId)

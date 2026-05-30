@@ -3041,7 +3041,7 @@ describe('quaEngine runtime architecture', () => {
     })
   })
 
-  it('prevents unloading active runtime package dependencies', async () => {
+  it('guards active runtime package dependencies by default and cascades forced unload', async () => {
     const baseManifest = createRuntimeBundleManifest({
       id: 'runtime.base',
       version: '1.0.0',
@@ -3074,9 +3074,8 @@ describe('quaEngine runtime architecture', () => {
     await engine.loadRuntimePackage('child.qpk')
 
     await expect(engine.unloadRuntimePackage('runtime.base')).rejects.toThrow('active packages depend on it: runtime.child')
+    await engine.unloadRuntimePackage('runtime.base', { force: true })
 
-    await engine.unloadRuntimePackage('runtime.child')
-    await engine.unloadRuntimePackage('runtime.base')
     await engine.unloadRuntimePackage('runtime.base')
     expect(engine.getRuntimePackages()).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'runtime.base', state: 'unloaded' }),
