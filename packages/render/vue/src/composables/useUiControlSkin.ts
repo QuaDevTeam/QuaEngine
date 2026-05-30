@@ -5,7 +5,7 @@ import {
   resolveSpriteSkinReference,
   spriteSkinStyle,
 } from '@quajs/renderer-web/skin'
-import { resolveUiControlSkinReference, runtimePackageCandidatesFromMetadata, WebAssetUrlHandle } from '@quajs/renderer-web'
+import { getJSONWithTargetPackages, resolveUiControlSkinReference, runtimePackageCandidatesFromMetadata, WebAssetUrlHandle } from '@quajs/renderer-web'
 import { computed, onBeforeUnmount, readonly, ref, watch } from 'vue'
 import { useQuaRenderer } from '../context'
 
@@ -24,6 +24,7 @@ export function useUiControlSkin(options: UseUiControlSkinOptions) {
   const skinReference = computed(() => resolveUiControlSkinReference(view.value, options.kind, options.skinId?.()))
   const skinReferenceDetails = computed(() => skinReference.value ? resolveSpriteSkinReference(skinReference.value) : undefined)
   const skinProjection = computed(() => resolveSpriteSkin(skinManifest.value, skinReference.value, skinState.value))
+  const skinManifestTargetPackageId = computed(() => runtimePackageCandidatesFromMetadata(view.value.plugins.ui as Readonly<Record<string, unknown>> | undefined))
   const skinTargetPackageId = computed(() => runtimePackageCandidatesFromMetadata(skinProjection.value?.manifest?.metadata))
   const skinAssetUrl = ref<string>()
   const skinAssetLoading = ref(false)
@@ -45,6 +46,7 @@ export function useUiControlSkin(options: UseUiControlSkinOptions) {
     skinReferenceDetails,
     () => assetRevision.value,
     () => assets.value,
+    () => skinManifestTargetPackageId.value,
   ], async () => {
     const currentRequest = ++skinManifestRequest.value
     const reference = skinReferenceDetails.value
@@ -55,7 +57,12 @@ export function useUiControlSkin(options: UseUiControlSkinOptions) {
     }
 
     try {
-      const nextManifest = await assets.value.getJSON<SpriteSkinManifest>('data', reference.manifestPath)
+      const nextManifest = await getJSONWithTargetPackages<SpriteSkinManifest>(
+        assets.value,
+        'data',
+        reference.manifestPath,
+        skinManifestTargetPackageId.value,
+      )
       if (currentRequest === skinManifestRequest.value) {
         skinManifest.value = nextManifest
       }

@@ -2062,14 +2062,15 @@ describe('@quajs/renderer-web', () => {
         getManifest: async () => ({
           version: '1',
           assets: [
-            uiSkinDataManifestRecord('ui/default/ui-skin.manifest.json'),
+            uiSkinDataManifestRecord('ui/default/ui-skin.manifest.json', undefined, 100),
+            uiSkinDataManifestRecord('ui/default/ui-skin.manifest.json', 'runtime.ui-theme', 1),
             uiSkinImageManifestRecord('base-button', 'ui/default/button/default.png', 'runtime.ui-base', 1),
             uiSkinImageManifestRecord('delta-button', 'ui/default/button/default.png', 'runtime.ui-delta', 100),
           ],
         }),
         getAsset: async (_id, record) => {
           requestedAssets.push({ name: record?.name || '', packageId: record?.runtimePackageId })
-          if (record?.path === 'ui/default/ui-skin.manifest.json') {
+          if (record?.path === 'ui/default/ui-skin.manifest.json' && record.runtimePackageId === 'runtime.ui-theme') {
             return new TextEncoder().encode(JSON.stringify({
               version: 1,
               family: 'ui/default',
@@ -2083,6 +2084,13 @@ describe('@quajs/renderer-web', () => {
                   slice: { top: 4, right: 4, bottom: 4, left: 4 },
                 },
               },
+            }))
+          }
+          if (record?.path === 'ui/default/ui-skin.manifest.json') {
+            return new TextEncoder().encode(JSON.stringify({
+              version: 1,
+              family: 'ui/default',
+              skins: {},
             }))
           }
           return new Uint8Array([1, 2, 3])
@@ -2105,6 +2113,7 @@ describe('@quajs/renderer-web', () => {
           ui: {
             themeId: 'default',
             defaults: { button: 'button' },
+            contentPackageId: 'runtime.ui-theme',
           },
         },
       }),
@@ -2114,6 +2123,10 @@ describe('@quajs/renderer-web', () => {
     await flushDom()
     await flushDom()
 
+    expect(requestedAssets).toContainEqual({
+      name: 'ui/default/ui-skin.manifest.json',
+      packageId: 'runtime.ui-theme',
+    })
     expect(requestedAssets).toContainEqual({
       name: 'ui/default/button/default.png',
       packageId: 'runtime.ui-delta',
@@ -3123,10 +3136,12 @@ async function createImageAssets(names: string[]): Promise<QuaAssets> {
   return assets
 }
 
-function uiSkinDataManifestRecord(name: string) {
+function uiSkinDataManifestRecord(name: string, runtimePackageId?: string, bundlePriority?: number) {
   return {
-    id: `memory:default:data:${name}`,
-    bundleName: 'memory',
+    id: runtimePackageId ? `${runtimePackageId}:data:${name}` : `memory:default:data:${name}`,
+    bundleName: runtimePackageId || 'memory',
+    bundlePriority,
+    runtimePackageId,
     name,
     type: 'data' as const,
     locale: 'default',

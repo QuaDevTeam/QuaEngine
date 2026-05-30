@@ -13,7 +13,7 @@ import type {
 } from '@quajs/render-core'
 import type { QuaWebDomLayerContext } from './dom'
 import { applySpriteSkinStyle, resolveSpriteSkin, resolveSpriteSkinReference } from './skin'
-import { runtimePackageCandidatesFromMetadata } from './assets'
+import { getJSONWithTargetPackages, runtimePackageCandidatesFromMetadata } from './assets'
 
 export type UiSkinControlKind = 'button' | 'panel' | 'input' | 'tab' | 'toggle'
 
@@ -136,7 +136,8 @@ export function bindUiControlSkin(
       return
     }
 
-    void assets.getJSON<SpriteSkinManifest>('data', manifestPath)
+    const targetPackageIds = runtimePackageCandidatesFromMetadata(getUiSkinProjection(ctx.view) as Readonly<Record<string, unknown>> | undefined)
+    void getJSONWithTargetPackages<SpriteSkinManifest>(assets, 'data', manifestPath, targetPackageIds)
       .then((manifest) => {
         if (binding.manifestRequest !== request) {
           return
