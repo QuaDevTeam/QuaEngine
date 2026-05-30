@@ -2758,6 +2758,55 @@ describe('quaEngine runtime architecture', () => {
     }))
   })
 
+  it('clears animation projections that require a forced runtime package', async () => {
+    const ownerManifest = createRuntimeBundleManifest({
+      id: 'runtime.animation-owner',
+      version: '1.0.0',
+    })
+    const dependencyManifest = createRuntimeBundleManifest({
+      id: 'runtime.animation-dependency',
+      version: '1.0.0',
+    })
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/animation-owner.qpk': createQpkBundle(ownerManifest, new Map()),
+          'https://cdn.example.com/animation-dependency.qpk': createQpkBundle(dependencyManifest, new Map()),
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+    await engine.loadRuntimePackage('animation-owner.qpk')
+    await engine.loadRuntimePackage('animation-dependency.qpk')
+    await engine.setAnimationProjection({
+      id: 'runtime-dependent-animation',
+      contentPackageId: 'runtime.animation-owner',
+      requiredRuntimePackages: ['runtime.animation-owner', 'runtime.animation-dependency'],
+      state: 'running',
+      startedAt: Date.now(),
+      duration: 1000,
+      playbackRate: 1,
+      resolvedTracks: [],
+    })
+
+    await expect(engine.unloadRuntimePackage('runtime.animation-dependency')).rejects.toThrow('current view projection')
+    await engine.unloadRuntimePackage('runtime.animation-dependency', { force: true })
+
+    expect(engine.getViewState().animations).toEqual([])
+    expect(engine.getRuntimePackages().find(pkg => pkg.id === 'runtime.animation-owner')).toEqual(expect.objectContaining({
+      state: 'active',
+    }))
+  })
+
   it('rejects runtime packages that fail the configured trust policy', async () => {
     const manifest = createRuntimeBundleManifest({
       id: 'runtime.unsigned',

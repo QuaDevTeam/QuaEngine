@@ -41,6 +41,7 @@ export interface AnimationTrack {
 export interface AnimationTimeline {
   id?: string
   contentPackageId?: string
+  requiredRuntimePackages?: readonly string[]
   duration: number
   tracks: readonly AnimationTrack[]
   delay?: number
@@ -55,6 +56,7 @@ export interface AnimationTimeline {
 export interface PlayAnimationOptions {
   id?: string
   contentPackageId?: string
+  requiredRuntimePackages?: readonly string[]
   bindings?: AnimationTargetBindings
   wait?: boolean
   defaultTarget?: string
@@ -378,10 +380,20 @@ async function playNormalizedTimeline(
   const direction = options.direction ?? definition.direction
   const commit = options.commit ?? definition.commit
   const bindings = normalizeBindings(options.bindings)
+  const contentPackageId = options.contentPackageId || definition.contentPackageId || contentPackageIdFromMetadata(definition.metadata) || currentRuntimePackageId(engine)
+  const declaredRequiredRuntimePackages = mergeRuntimePackageIds(
+    options.requiredRuntimePackages,
+    definition.requiredRuntimePackages,
+    requiredRuntimePackagesFromMetadata(definition.metadata),
+  )
+  const requiredRuntimePackages = declaredRequiredRuntimePackages.length > 0
+    ? mergeRuntimePackageIds(contentPackageId ? [contentPackageId] : undefined, declaredRequiredRuntimePackages)
+    : undefined
   const projection: ActiveAnimationProjection = {
     id,
     definitionId: definitionId || definition.id,
-    contentPackageId: options.contentPackageId || definition.contentPackageId || contentPackageIdFromMetadata(definition.metadata) || currentRuntimePackageId(engine),
+    contentPackageId,
+    requiredRuntimePackages,
     bindings: Object.keys(bindings).length ? bindings : undefined,
     state: 'running',
     startedAt: Date.now(),
@@ -767,19 +779,18 @@ async function removeRuntimePackageAnimations(engine: QuaEngineInterface, packag
   const runtime = getRuntime(engine)
   const playbacks = [...runtime.playbacks.values()]
     .filter(playback =>
-      playback.projection.contentPackageId === packageId
-      || playback.definition.contentPackageId === packageId
-      || contentPackageIdFromMetadata(playback.definition.metadata) === packageId,
+      animationProjectionRequiresPackage(playback.projection, packageId)
+      || timelineRequiresPackage(playback.definition, packageId),
     )
   await Promise.all(playbacks.map(playback => finishPlayback(engine, runtime, playback, false)))
 
   const packageProjectionIds = (engine.getViewState().animations || [])
-    .filter(projection => projection.contentPackageId === packageId)
+    .filter(projection => animationProjectionRequiresPackage(projection, packageId))
     .map(projection => projection.id)
   await Promise.all(packageProjectionIds.map(id => engine.removeAnimationProjection(id)))
 
   for (const [id, definition] of runtime.definitions.entries()) {
-    if (definition.contentPackageId === packageId || contentPackageIdFromMetadata(definition.metadata) === packageId) {
+    if (timelineRequiresPackage(definition, packageId)) {
       runtime.definitions.delete(id)
     }
   }
@@ -822,6 +833,7 @@ function timelineFromProjection(projection: Readonly<ActiveAnimationProjection>)
   return {
     id: projection.definitionId || projection.id,
     contentPackageId: projection.contentPackageId,
+    requiredRuntimePackages: projection.requiredRuntimePackages,
     duration: projection.duration,
     delay: Math.max(0, projection.delay ?? 0),
     playbackRate: projection.playbackRate,
@@ -840,6 +852,28 @@ function timelineFromProjection(projection: Readonly<ActiveAnimationProjection>)
 
 function contentPackageIdFromMetadata(metadata?: Readonly<Record<string, unknown>>): string | undefined {
   return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
+}
+
+function requiredRuntimePackagesFromMetadata(metadata?: Readonly<Record<string, unknown>>): string[] {
+  return Array.isArray(metadata?.requiredRuntimePackages)
+    ? metadata.requiredRuntimePackages.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : []
+}
+
+function animationProjectionRequiresPackage(projection: Readonly<ActiveAnimationProjection>, packageId: string): boolean {
+  return projection.contentPackageId === packageId
+    || projection.requiredRuntimePackages?.includes(packageId) === true
+}
+
+function timelineRequiresPackage(timeline: Readonly<AnimationTimeline>, packageId: string): boolean {
+  return timeline.contentPackageId === packageId
+    || timeline.requiredRuntimePackages?.includes(packageId) === true
+    || contentPackageIdFromMetadata(timeline.metadata) === packageId
+    || requiredRuntimePackagesFromMetadata(timeline.metadata).includes(packageId)
+}
+
+function mergeRuntimePackageIds(...groups: Array<readonly string[] | undefined>): string[] {
+  return Array.from(new Set(groups.flatMap(group => group || []).filter(Boolean)))
 }
 
 function withCurrentRuntimeAnimationPackage<TTimeline extends NormalizedAnimationTimeline>(
