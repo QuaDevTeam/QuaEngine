@@ -240,6 +240,62 @@ describe('@quajs/plugin-settings', () => {
     await expect(storage.loadProfile('player-apply')).resolves.toBeUndefined()
   })
 
+  it('keeps settings available when profile storage load fails', async () => {
+    const engine = createEngine()
+    const onError = vi.fn(() => {
+      throw new Error('settings observer failed')
+    })
+    registerDemoScope(engine)
+    engine.use(new SettingsPlugin({
+      builtin: false,
+      storage: {
+        loadProfile: vi.fn(async () => {
+          throw new Error('settings profile unavailable')
+        }),
+        saveProfile: vi.fn(),
+      },
+      onError,
+    }))
+
+    await expect(engine.init()).resolves.toBeUndefined()
+
+    expect(onError).toHaveBeenCalledWith(expect.any(Error), { reason: 'init' })
+    expect(getSettingsPlayerValues(engine, 'demo')).toEqual({
+      volume: 0.8,
+      internalToken: 'runtime-only',
+    })
+    expect(getSettingsProjection(engine)?.scopes.demo.values).toEqual({ volume: 0.8 })
+  })
+
+  it('keeps in-memory player settings when profile persistence fails', async () => {
+    const engine = createEngine()
+    const onError = vi.fn()
+    registerDemoScope(engine)
+    engine.use(new SettingsPlugin({
+      builtin: false,
+      storage: {
+        loadProfile: vi.fn(async () => undefined),
+        saveProfile: vi.fn(async () => {
+          throw new Error('settings profile save failed')
+        }),
+      },
+      onError,
+    }))
+    await engine.init()
+
+    const result = await updatePlayerSettingsWithEngine(engine, 'demo', {
+      volume: 0.25,
+    })
+
+    expect(result).toEqual(expect.objectContaining({ ok: true }))
+    expect(onError).toHaveBeenCalledWith(expect.any(Error), { reason: 'update' })
+    expect(getSettingsPlayerValues(engine, 'demo')).toEqual({
+      volume: 0.25,
+      internalToken: 'runtime-only',
+    })
+    expect(getSettingsProjection(engine)?.scopes.demo.values).toEqual({ volume: 0.25 })
+  })
+
   it('keeps player settings from being restored by game save/load flow', async () => {
     const engine = createEngine()
     const storage = createMemorySettingsStorage()
