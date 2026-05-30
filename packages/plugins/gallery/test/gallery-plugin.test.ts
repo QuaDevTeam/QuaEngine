@@ -234,6 +234,58 @@ describe('@quajs/plugin-gallery', () => {
     }))
   })
 
+  it('declares required packages for every active gallery projection item', async () => {
+    const engine = createEngine()
+    engine.use(new GalleryPlugin())
+    await engine.init()
+
+    await registerGalleryCatalogWithEngine(engine, {
+      id: 'base-cg',
+      title: 'Base CG',
+      contentPackageId: 'runtime.gallery-base',
+    })
+    await registerGalleryCatalogWithEngine(engine, {
+      id: 'bonus-cg',
+      title: 'Bonus CG',
+      contentPackageId: 'runtime.gallery-bonus',
+    })
+    await registerGalleryEntriesWithEngine(engine, [{
+      id: 'base-cg.sunrise',
+      catalogId: 'base-cg',
+      title: 'Base Sunrise',
+      contentPackageId: 'runtime.gallery-base',
+      contents: [{
+        id: 'base-cg.sunrise.image',
+        kind: 'image',
+        asset: assetRef('cg/base-sunrise.png'),
+      }],
+    }, {
+      id: 'bonus-cg.moon',
+      catalogId: 'bonus-cg',
+      title: 'Bonus Moon',
+      contentPackageId: 'runtime.gallery-bonus',
+      contents: [{
+        id: 'bonus-cg.moon.image',
+        kind: 'image',
+        asset: assetRef('cg/bonus-moon.png'),
+      }],
+    }])
+
+    await openGallerySceneWithEngine(engine, {
+      catalogId: 'base-cg',
+      entryId: 'base-cg.sunrise',
+    })
+
+    const projection = getGalleryProjection(engine)
+    expect(projection.filteredEntryIds).toEqual(['base-cg.sunrise'])
+    expect(projection.catalogs.map(catalog => catalog.id)).toEqual(['base-cg', 'bonus-cg'])
+    expect(projection.entries.map(entry => entry.id)).toEqual(['base-cg.sunrise', 'bonus-cg.moon'])
+    expect(projection.requiredRuntimePackages).toEqual([
+      'runtime.gallery-base',
+      'runtime.gallery-bonus',
+    ])
+  })
+
   it('removes gallery content that requires an unloaded runtime package', async () => {
     const engine = createEngine()
     engine.use(new GalleryPlugin())

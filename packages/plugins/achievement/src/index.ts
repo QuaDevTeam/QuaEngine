@@ -1316,9 +1316,7 @@ async function rebuildAchievementProjection(
     requiredRuntimePackages: collectActiveAchievementRequiredRuntimePackages(
       sceneActive,
       groups,
-      filteredAchievements,
-      selectedGroupId,
-      selectedAchievementId,
+      achievements,
       notifications,
     ),
     filter: cloneAchievementFilterState(filter),
@@ -1722,23 +1720,20 @@ function selectAchievementId(
 function collectActiveAchievementRequiredRuntimePackages(
   sceneActive: boolean,
   groups: readonly AchievementGroupProjectionItem[],
-  filteredAchievements: readonly AchievementProjectionItem[],
-  selectedGroupId: string | undefined,
-  selectedAchievementId: string | undefined,
+  achievements: readonly AchievementProjectionItem[],
   notifications: readonly AchievementNotificationProjection[],
 ): string[] {
-  const selectedGroup = selectedGroupId
-    ? groups.find(group => group.id === selectedGroupId)
-    : undefined
-  const selectedAchievement = selectedAchievementId
-    ? filteredAchievements.find(achievement => achievement.id === selectedAchievementId)
-    : undefined
-
   return mergeRequiredRuntimePackages(
-    ...notifications.map(notification => notification.requiredRuntimePackages),
-    sceneActive ? selectedGroup?.requiredRuntimePackages : [],
-    sceneActive ? selectedAchievement?.requiredRuntimePackages : [],
-    ...(sceneActive ? filteredAchievements.map(achievement => achievement.requiredRuntimePackages) : []),
+    ...notifications.map(notification => mergeRequiredRuntimePackages(
+      notification.contentPackageId ? [notification.contentPackageId] : [],
+      notification.requiredRuntimePackages,
+    )),
+    ...(sceneActive ? groups.map(group => group.requiredRuntimePackages) : []),
+    ...(sceneActive ? achievements.map(achievement => mergeRequiredRuntimePackages(
+      achievement.requiredRuntimePackages,
+      achievement.unlockRecord?.contentPackageId ? [achievement.unlockRecord.contentPackageId] : [],
+      achievement.unlockRecord?.requiredRuntimePackages,
+    )) : []),
   )
 }
 
