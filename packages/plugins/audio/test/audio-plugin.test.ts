@@ -7,6 +7,7 @@ import {
   AUDIO_SETTINGS_SCOPE,
   AudioPlugin,
   AudioRenderToLogicEvents,
+  clearRuntimePackageAudioWithEngine,
   configureAudioChapterWithEngine,
   createInitialAudioProjection,
   emitAudioRenderToLogic,
@@ -304,6 +305,25 @@ describe('@quajs/plugin-audio', () => {
     expect(projection.bgm).toBeUndefined()
     expect(projection.sfx).toEqual([expect.objectContaining({ id: 'base-sfx', state: 'playing' })])
     expect(projection.requiredRuntimePackages).toEqual([])
+  })
+
+  it('does not rewrite audio projection when clearing an unrelated runtime package', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    await engine.init()
+
+    await configureAudioChapterWithEngine(engine, 'base-audio', {
+      bgm: 'bgm/base-chapter',
+    })
+    await playBGMWithEngine(engine, 'bgm/base', { id: 'base-bgm' })
+
+    const revision = (engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any).revision
+    await clearRuntimePackageAudioWithEngine(engine, 'runtime.unrelated')
+
+    const projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.revision).toBe(revision)
+    expect(projection.chapter).toEqual(expect.objectContaining({ chapterId: 'base-audio' }))
+    expect(projection.bgm).toEqual(expect.objectContaining({ id: 'base-bgm' }))
   })
 
   it('tracks chapter-only runtime package metadata in active view dependencies', async () => {
