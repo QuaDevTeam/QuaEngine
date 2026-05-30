@@ -27,12 +27,14 @@ export interface FontFaceProjection {
 
 export interface FontsProjection {
   revision: number
+  requiredRuntimePackages?: readonly string[]
   faces: readonly Readonly<FontFaceProjection>[]
 }
 
 export function createInitialFontsProjection(): FontsProjection {
   return {
     revision: 0,
+    requiredRuntimePackages: [],
     faces: [],
   }
 }
@@ -43,6 +45,7 @@ export function cloneFontsProjection(projection: Readonly<FontsProjection> | und
   }
   return {
     revision: projection.revision,
+    requiredRuntimePackages: projection.requiredRuntimePackages ? [...projection.requiredRuntimePackages] : undefined,
     faces: projection.faces.map(face => cloneFontFaceProjection(face)),
   }
 }

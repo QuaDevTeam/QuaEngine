@@ -125,7 +125,7 @@ export class AudioPlugin extends BaseEnginePlugin {
     this.disposers.push(
       onAudioRenderToLogic(pipeline, AudioEvents.ERROR, async (payload) => {
         const current = getAudioProjection(engine)
-        await engine.setPluginProjection(AUDIO_PLUGIN_ID, {
+        await setAudioProjection(engine, {
           ...current,
           revision: current.revision + 1,
         })
@@ -154,7 +154,7 @@ export class AudioPlugin extends BaseEnginePlugin {
 
   override async onAfterJump(ctx: EngineContext): Promise<void> {
     if (ctx.jump?.options.audio === 'keep' && this.projectionBeforeJump) {
-      await ctx.engine.setPluginProjection(AUDIO_PLUGIN_ID, {
+      await setAudioProjection(ctx.engine, {
         ...this.projectionBeforeJump,
         revision: this.projectionBeforeJump.revision + 1,
       })
@@ -244,7 +244,7 @@ export async function configureAudioChapterWithEngine(
     next.bgm = createBgmProjection(options.bgm, bgmOptions, next)
   }
 
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
+  await setAudioProjection(engine, next)
 }
 
 export async function playVoiceWithEngine(
@@ -254,7 +254,7 @@ export async function playVoiceWithEngine(
 ): Promise<void> {
   const projection = getAudioProjection(engine)
   const nextVoice = createVoiceProjection(assetKey, withCurrentRuntimeAudioPackage(engine, mergeVoiceOptions(projection, options)), projection)
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, {
+  await setAudioProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     chapter: mergeChapterProjection(projection.chapter, options.chapterId),
@@ -270,7 +270,7 @@ export async function playBGMWithEngine(
 ): Promise<void> {
   const projection = getAudioProjection(engine)
   const next = createBgmProjection(assetKey, withCurrentRuntimeAudioPackage(engine, mergeBgmOptions(projection.chapter?.defaults?.bgm, options, projection)), projection)
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, {
+  await setAudioProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     chapter: mergeChapterProjection(projection.chapter, options.chapterId),
@@ -285,7 +285,7 @@ export async function playSFXWithEngine(
 ): Promise<void> {
   const projection = getAudioProjection(engine)
   const next = createSfxProjection(assetKey, withCurrentRuntimeAudioPackage(engine, mergeSfxOptions(projection, options)), projection)
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, {
+  await setAudioProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     chapter: mergeChapterProjection(projection.chapter, options.chapterId),
@@ -300,7 +300,7 @@ export async function playAmbientWithEngine(
 ): Promise<void> {
   const projection = getAudioProjection(engine)
   const next = createAmbientProjection(assetKey, withCurrentRuntimeAudioPackage(engine, mergeAmbientOptions(projection, options)), projection)
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, {
+  await setAudioProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     chapter: mergeChapterProjection(projection.chapter, options.chapterId),
@@ -317,7 +317,7 @@ export async function setAudioGainWithEngine(
   const projection = getAudioProjection(engine)
   const next = cloneAudioProjection(projection)
   applyGain(next, target, gainDbOrCurve, options)
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
+  await setAudioProjection(engine, next)
 }
 
 export async function setAudioEqWithEngine(
@@ -329,7 +329,7 @@ export async function setAudioEqWithEngine(
   const projection = getAudioProjection(engine)
   const next = cloneAudioProjection(projection)
   applyEq(next, target, bands, options)
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
+  await setAudioProjection(engine, next)
 }
 
 export async function setAudioAutomationWithEngine(
@@ -342,7 +342,7 @@ export async function setAudioAutomationWithEngine(
   const projection = getAudioProjection(engine)
   const next = cloneAudioProjection(projection)
   applyAutomation(next, target, propertyPath, curve, options)
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
+  await setAudioProjection(engine, next)
 }
 
 export async function stopAudioWithEngine(
@@ -354,7 +354,7 @@ export async function stopAudioWithEngine(
   const next = cloneAudioProjection(projection)
   mutateTracks(next, target, track => ({ ...track, state: 'stopping', fadeOutMs: options.fadeOutMs ?? track.fadeOutMs }))
   next.revision += 1
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
+  await setAudioProjection(engine, next)
 }
 
 export async function pauseAudioWithEngine(
@@ -366,7 +366,7 @@ export async function pauseAudioWithEngine(
   const next = cloneAudioProjection(projection)
   mutateTracks(next, target, track => ({ ...track, state: 'paused' }))
   next.revision += 1
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
+  await setAudioProjection(engine, next)
 }
 
 export async function resumeAudioWithEngine(
@@ -378,7 +378,7 @@ export async function resumeAudioWithEngine(
   const next = cloneAudioProjection(projection)
   mutateTracks(next, target, track => ({ ...track, state: 'playing' }))
   next.revision += 1
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
+  await setAudioProjection(engine, next)
 }
 
 export async function seekAudioWithEngine(
@@ -391,7 +391,7 @@ export async function seekAudioWithEngine(
   const next = cloneAudioProjection(projection)
   mutateTracks(next, target, track => ({ ...track, seekMs: positionMs, state: 'playing' }))
   next.revision += 1
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
+  await setAudioProjection(engine, next)
 }
 
 export async function stopVoiceWithEngine(
@@ -461,7 +461,7 @@ export async function stopRuntimePackageAudioWithEngine(
     return
   }
   next.revision += 1
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
+  await setAudioProjection(engine, next)
 }
 
 export function getAudioProjection(engine: QuaEngineInterface): AudioViewProjection {
@@ -473,12 +473,44 @@ function ensureAudioProjection(engine: QuaEngineInterface, options: AudioPluginO
   if (existing) {
     return existing
   }
-  const projection = mergeAudioProjectionDefaults(createInitialAudioProjection(), options.defaultProjection)
+  const projection = withAudioRequiredRuntimePackages(mergeAudioProjectionDefaults(createInitialAudioProjection(), options.defaultProjection))
   engine.getStore().commit('setPluginProjection', {
     pluginId: AUDIO_PLUGIN_ID,
     projection,
   })
   return projection
+}
+
+function setAudioProjection(engine: QuaEngineInterface, projection: AudioViewProjection): Promise<void> {
+  return engine.setPluginProjection(AUDIO_PLUGIN_ID, withAudioRequiredRuntimePackages(projection))
+}
+
+function withAudioRequiredRuntimePackages(projection: AudioViewProjection): AudioViewProjection {
+  const requiredRuntimePackages = collectActiveAudioRequiredRuntimePackages(projection)
+  return {
+    ...projection,
+    requiredRuntimePackages,
+  }
+}
+
+function collectActiveAudioRequiredRuntimePackages(projection: AudioViewProjection): string[] {
+  return uniqueStrings([
+    ...requiredRuntimePackagesFromMetadata(projection.chapter?.metadata),
+    ...(projection.bgm ? requiredRuntimePackagesFromActiveTrack(projection.bgm) : []),
+    ...projection.voices.flatMap(requiredRuntimePackagesFromActiveTrack),
+    ...projection.sfx.flatMap(requiredRuntimePackagesFromActiveTrack),
+    ...projection.ambients.flatMap(requiredRuntimePackagesFromActiveTrack),
+  ])
+}
+
+function requiredRuntimePackagesFromActiveTrack(track: AudioTrackProjection): string[] {
+  if (track.state === 'stopping' || track.state === 'stopped') {
+    return []
+  }
+  return uniqueStrings([
+    ...(track.contentPackageId ? [track.contentPackageId] : []),
+    ...requiredRuntimePackagesFromMetadata(track.metadata),
+  ])
 }
 
 async function registerAudioSettingsScope(
@@ -615,7 +647,7 @@ async function applyAudioPlayerSettings(
   next.buses.sfx.gainDb = normalizeGainDb(player.sfxGainDb, DEFAULT_AUDIO_GAIN_DB)
   next.buses.ambient.gainDb = normalizeGainDb(player.ambientGainDb, DEFAULT_AUDIO_GAIN_DB)
   next.revision += 1
-  await engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
+  await setAudioProjection(engine, next)
 }
 
 function mergeAudioProjectionDefaults(
@@ -915,6 +947,17 @@ function contentPackageIdFromMetadata(metadata?: Readonly<Record<string, unknown
   return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
 }
 
+function requiredRuntimePackagesFromMetadata(metadata?: Readonly<Record<string, unknown>>): string[] {
+  const value = metadata?.requiredRuntimePackages
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : []
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)))
+}
+
 function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined {
   return (engine as Partial<QuaEngineInterface>).getCurrentRuntimePackageId?.()
     || (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
@@ -1050,7 +1093,7 @@ function handleTrackEnded(engine: QuaEngineInterface, payload: AudioTrackEventPa
     next.ambients = next.ambients.filter(track => track.id !== payload.id)
   }
   next.revision += 1
-  return engine.setPluginProjection(AUDIO_PLUGIN_ID, next)
+  return setAudioProjection(engine, next)
 }
 
 function handleTrackInterrupted(engine: QuaEngineInterface, payload: AudioTrackEventPayload): Promise<void> {
@@ -1059,7 +1102,7 @@ function handleTrackInterrupted(engine: QuaEngineInterface, payload: AudioTrackE
 
 function markAudioUnlocked(engine: QuaEngineInterface): Promise<void> {
   const projection = getAudioProjection(engine)
-  return engine.setPluginProjection(AUDIO_PLUGIN_ID, {
+  return setAudioProjection(engine, {
     ...projection,
     unlocked: true,
     revision: projection.revision + 1,

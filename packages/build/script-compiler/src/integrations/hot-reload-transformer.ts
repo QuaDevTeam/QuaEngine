@@ -4,7 +4,12 @@ import type { DecoratorMapping } from '../core/types'
 import process from 'node:process'
 import { getHotReloadManager } from '../core/hot-reload'
 import { QuaScriptTransformer } from '../core/transformer'
-import { loadProjectDecoratorMappings, loadProjectDecoratorMappingsSync } from '../decorators'
+import {
+  loadProjectDecoratorCompilers,
+  loadProjectDecoratorCompilersSync,
+  loadProjectDecoratorMappings,
+  loadProjectDecoratorMappingsSync,
+} from '../decorators'
 
 /**
  * Get plugin decorators using the discovery system
@@ -26,9 +31,14 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
     options?: QuaScriptTransformerOptions & { projectRoot?: string },
   ) {
     const discoveredMappings = loadProjectDecoratorMappingsSync(options?.projectRoot)
+    const discoveredCompilers = loadProjectDecoratorCompilersSync(options?.projectRoot)
     super(decoratorMappings || {}, {
       ...options,
       availableDecoratorMappings: discoveredMappings,
+      decoratorCompilers: [
+        ...discoveredCompilers,
+        ...(options?.decoratorCompilers || []),
+      ],
     })
     this.projectRoot = options?.projectRoot
 
@@ -108,11 +118,13 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
     decoratorMappings?: DecoratorMapping
   } = {}): Promise<void> {
     const pluginDecorators = await getPluginDecorators(this.projectRoot)
+    const pluginCompilers = await loadProjectDecoratorCompilers(this.projectRoot)
     this.configureDecoratorResolution({
       autoCollectDecorators: options.autoCollectDecorators,
       availableDecoratorMappings: pluginDecorators,
       decoratorMappings: options.decoratorMappings,
     })
+    this.registerDecoratorCompilers(pluginCompilers)
 
     // Notify hot-reload manager
     this.hotReloadManager.updateDecoratorMappings(this.getBaseDecoratorMappings())

@@ -123,16 +123,26 @@ export class RuntimeContentManager {
       throw error
     }
 
-    const state = createPackageState(bundle, manifest, 'loaded')
-    this.packages.set(manifest.id, {
-      bundle,
-      manifest,
-      state,
-      activatedEnginePluginNames: [],
-      sceneDisposers: [],
-    })
-    this.engine.getStore().commit('upsertRuntimePackage', state)
-    this.registerPackageScripts(bundle, manifest)
+    let record: LoadedRuntimePackage | undefined
+    try {
+      this.validatePackageScriptsCanRegister(manifest)
+      const state = createPackageState(bundle, manifest, 'loaded')
+      record = {
+        bundle,
+        manifest,
+        state,
+        activatedEnginePluginNames: [],
+        sceneDisposers: [],
+      }
+      this.registerPackageScripts(bundle, manifest)
+      this.packages.set(manifest.id, record)
+      this.engine.getStore().commit('upsertRuntimePackage', state)
+    }
+    catch (error) {
+      this.rollbackLoadedPackageRegistration(manifest.id, record, bundle)
+      await this.engine.getAssets().unloadDynamicBundle(bundle.bundleVersionKey || bundle.bundleName).catch(() => {})
+      throw error
+    }
 
     if (options.activate !== false) {
       try {
@@ -143,7 +153,7 @@ export class RuntimeContentManager {
         throw error
       }
     }
-    return { ...state }
+    return { ...record.state }
   }
 
   async activateRuntimePackage(packageId: string): Promise<RuntimePackageStateRecord> {
@@ -224,29 +234,7 @@ export class RuntimeContentManager {
     }
     record.activatedEnginePluginNames = []
     this.disposeSceneFactories(record)
-    for (const [moduleId, moduleRecord] of this.scripts.entries()) {
-      if (moduleRecord.packageId === packageId) {
-        this.scripts.delete(moduleId)
-        for (const cacheKey of this.loadedScriptModules.keys()) {
-          if (cacheKey === moduleId || cacheKey.startsWith(`${moduleId}::`)) {
-            this.loadedScriptModules.delete(cacheKey)
-          }
-        }
-        continue
-      }
-      const nextVariants = removeScriptVariantsOwnedByPackage(moduleRecord.variants, packageId)
-      if (nextVariants !== moduleRecord.variants) {
-        this.scripts.set(moduleId, {
-          ...moduleRecord,
-          variants: nextVariants,
-        })
-        for (const cacheKey of this.loadedScriptModules.keys()) {
-          if (cacheKey.startsWith(`${moduleId}::`) && cacheKey.includes(`::${packageId}::`)) {
-            this.loadedScriptModules.delete(cacheKey)
-          }
-        }
-      }
-    }
+    this.removeRegisteredPackageScripts(packageId, record.bundle.bundleName)
 
     await this.engine.emitRuntimePackageUnload(packageId, record.bundle.bundleName)
 
@@ -473,32 +461,45 @@ export class RuntimeContentManager {
     })
     const entries = resolved || []
     const loaded: RuntimePackageStateRecord[] = []
-    for (const entryValue of entries) {
-      const entry = normalizeRegistryEntry(entryValue)
-      const state = await this.loadRuntimePackage(entry.source, {
-        ...entry.options,
-        activate: true,
-      })
-      const record = this.requirePackage(state.id)
-      if (!record.manifest.localePack) {
-        await this.unloadRuntimePackage(state.id, { force: true }).catch(() => {})
-        throw new Error(`Runtime package registry resolved locale "${normalizedLocale}" to non-locale package "${state.id}".`)
+    const loadedThisCall: string[] = []
+    try {
+      for (const entryValue of entries) {
+        const entry = normalizeRegistryEntry(entryValue)
+        const state = await this.loadRuntimePackage(entry.source, {
+          ...entry.options,
+          activate: true,
+        })
+        loadedThisCall.push(state.id)
+        const record = this.requirePackage(state.id)
+        if (!record.manifest.localePack) {
+          await this.unloadRuntimePackage(state.id, { force: true }).catch(() => {})
+          loadedThisCall.pop()
+          throw new Error(`Runtime package registry resolved locale "${normalizedLocale}" to non-locale package "${state.id}".`)
+        }
+        if (!fallbackChain.includes(normalizeLocale(record.manifest.localePack.locale))) {
+          await this.unloadRuntimePackage(state.id, { force: true }).catch(() => {})
+          loadedThisCall.pop()
+          throw new Error(`Runtime package registry resolved locale "${normalizedLocale}" to locale "${record.manifest.localePack.locale}".`)
+        }
+        if (
+          targetPackageIds.size > 0
+          && !record.manifest.localePack.targets.some(target =>
+            target.kind === 'runtimePackage'
+            && targetPackageIds.has(target.id),
+          )
+        ) {
+          await this.unloadRuntimePackage(state.id, { force: true }).catch(() => {})
+          loadedThisCall.pop()
+          throw new Error(`Runtime package registry resolved locale "${normalizedLocale}" to package "${state.id}" that does not target the requested runtime package.`)
+        }
+        loaded.push(state)
       }
-      if (!fallbackChain.includes(normalizeLocale(record.manifest.localePack.locale))) {
-        await this.unloadRuntimePackage(state.id, { force: true }).catch(() => {})
-        throw new Error(`Runtime package registry resolved locale "${normalizedLocale}" to locale "${record.manifest.localePack.locale}".`)
+    }
+    catch (error) {
+      for (const packageId of loadedThisCall.reverse()) {
+        await this.unloadRuntimePackage(packageId, { force: true }).catch(() => {})
       }
-      if (
-        targetPackageIds.size > 0
-        && !record.manifest.localePack.targets.some(target =>
-          target.kind === 'runtimePackage'
-          && targetPackageIds.has(target.id),
-        )
-      ) {
-        await this.unloadRuntimePackage(state.id, { force: true }).catch(() => {})
-        throw new Error(`Runtime package registry resolved locale "${normalizedLocale}" to package "${state.id}" that does not target the requested runtime package.`)
-      }
-      loaded.push(state)
+      throw error
     }
     return uniqueRecords([
       ...this.getActiveLocalePackRecords(normalizedLocale, options).map(record => record.state),
@@ -593,6 +594,59 @@ export class RuntimeContentManager {
         packageId: manifest.id,
         bundleName: bundle.bundleName,
       })
+    }
+  }
+
+  private validatePackageScriptsCanRegister(manifest: RuntimePackageManifest): void {
+    if (!manifest.localePack) {
+      return
+    }
+    for (const script of manifest.scripts || []) {
+      const existing = this.scripts.get(script.id)
+      if (!existing) {
+        throw new Error(`Locale pack "${manifest.id}" declares script variant "${script.id}", but the base script is not registered.`)
+      }
+    }
+  }
+
+  private rollbackLoadedPackageRegistration(
+    packageId: string,
+    record: LoadedRuntimePackage | undefined,
+    bundle: DynamicBundleRecord,
+  ): void {
+    if (record) {
+      this.disposeSceneFactories(record)
+    }
+    this.packages.delete(packageId)
+    this.engine.getStore().commit('removeRuntimePackage', packageId)
+    this.removeRegisteredPackageScripts(packageId, bundle.bundleName)
+  }
+
+  private removeRegisteredPackageScripts(packageId: string, bundleName?: string): void {
+    for (const [moduleId, moduleRecord] of this.scripts.entries()) {
+      if (moduleRecord.packageId === packageId) {
+        this.scripts.delete(moduleId)
+        this.deleteLoadedScriptModuleCache(moduleId)
+        continue
+      }
+      const nextVariants = removeScriptVariantsOwnedByPackage(moduleRecord.variants, packageId)
+      if (nextVariants !== moduleRecord.variants) {
+        this.scripts.set(moduleId, {
+          ...moduleRecord,
+          variants: nextVariants,
+        })
+        this.deleteLoadedScriptModuleCache(moduleId, packageId, bundleName)
+      }
+    }
+  }
+
+  private deleteLoadedScriptModuleCache(moduleId: string, packageId?: string, bundleName?: string): void {
+    for (const cacheKey of this.loadedScriptModules.keys()) {
+      if (cacheKey === moduleId || cacheKey.startsWith(`${moduleId}::`)) {
+        if (!packageId || cacheKey.includes(`::${packageId}::`) || (bundleName && cacheKey.includes(`::${bundleName}::`))) {
+          this.loadedScriptModules.delete(cacheKey)
+        }
+      }
     }
   }
 

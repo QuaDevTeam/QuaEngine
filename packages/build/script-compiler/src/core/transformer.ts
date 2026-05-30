@@ -1,6 +1,6 @@
 import type { ParserPlugin } from '@babel/parser'
 import type { NodePath } from '@babel/traverse'
-import type { DecoratorCompilerRegistry } from '../decorators'
+import type { DecoratorCompiler, DecoratorCompilerRegistry } from '../decorators'
 import type {
   DecoratorMapping,
   ParsedQuaScript,
@@ -52,6 +52,7 @@ function resolveCallableDefault<T extends (...args: any[]) => unknown>(module: T
 export interface QuaScriptTransformerOptions {
   autoCollectDecorators?: boolean
   availableDecoratorMappings?: DecoratorMapping
+  decoratorCompilers?: readonly DecoratorCompiler[]
   runtimeModule?: {
     moduleId: string
     version?: string
@@ -90,7 +91,12 @@ export class QuaScriptTransformer {
       decoratorMappings: this.explicitDecoratorMappings,
     })
     this.decoratorCompilerRegistry = createDefaultDecoratorCompilerRegistry()
+    this.registerDecoratorCompilers(options.decoratorCompilers || [])
     this.runtimeModule = options.runtimeModule
+  }
+
+  registerDecoratorCompilers(compilers: readonly DecoratorCompiler[]): void {
+    compilers.forEach(compiler => this.decoratorCompilerRegistry.register(compiler))
   }
 
   protected setAvailableDecoratorMappings(mappings: DecoratorMapping): void {

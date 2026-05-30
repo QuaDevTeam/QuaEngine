@@ -293,6 +293,8 @@ describe('@quajs/plugin-audio', () => {
     expect(projection.chapter.metadata).toEqual({ contentPackageId: 'runtime.audio' })
     expect(projection.voices[0]).toEqual(expect.objectContaining({ contentPackageId: 'runtime.audio' }))
     expect(projection.bgm).toEqual(expect.objectContaining({ contentPackageId: 'runtime.audio' }))
+    expect(projection.requiredRuntimePackages).toEqual(['runtime.audio'])
+    expect(engine.getRuntimeViewRequiredPackageIds()).toEqual(['runtime.audio'])
 
     await engine.notifyRuntimePackageUnload({ id: 'runtime.audio', version: '1.0.0' }, 'runtime.audio')
 
@@ -301,6 +303,7 @@ describe('@quajs/plugin-audio', () => {
     expect(projection.voices).toEqual([expect.objectContaining({ id: 'runtime-voice', state: 'stopping' })])
     expect(projection.bgm).toEqual(expect.objectContaining({ id: 'runtime-bgm', state: 'stopping' }))
     expect(projection.sfx).toEqual([expect.objectContaining({ id: 'base-sfx', state: 'playing' })])
+    expect(projection.requiredRuntimePackages).toEqual([])
   })
 
   it('preserves mixed-package audio projection when engine clears package view state', async () => {
@@ -313,7 +316,9 @@ describe('@quajs/plugin-audio', () => {
     await engine.setStoryPoint({ stepId: 'base-audio-step' })
     await playSFXWithEngine(engine, 'sfx/base', { id: 'base-sfx' })
 
+    console.log('before clear', JSON.stringify(engine.getViewState().plugins[AUDIO_PLUGIN_ID], null, 2))
     await engine.clearRuntimePackageViewState('runtime.audio')
+    console.log('after clear', JSON.stringify(engine.getViewState().plugins, null, 2))
 
     const projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
     expect(projection).toBeDefined()

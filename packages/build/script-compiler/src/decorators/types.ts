@@ -36,3 +36,7 @@ export interface DecoratorCompiler {
   compile: (input: DecoratorCompileInput) => DecoratorCompilationResult | null
   compileImplicit?: (input: ImplicitDecoratorCompileInput) => DecoratorCompilationResult[] | null
 }
+
+export interface DecoratorCompilerContribution {
+  readonly compilers?: readonly DecoratorCompiler[]
+}

@@ -2216,6 +2216,94 @@ describe('quaEngine runtime architecture', () => {
     expect(engine.getRuntimeStateSnapshot().activeLocalePackIds).toEqual([])
   })
 
+  it('rolls back locale packs loaded during a failed registry ensure pass', async () => {
+    const baseManifest = createRuntimeBundleManifest({
+      id: 'runtime.locale-base',
+      version: '1.0.0',
+      scripts: [{
+        id: 'runtime.locale-base.scene',
+        version: '1.0.0',
+        assetName: 'scene.js',
+      }],
+    })
+    const validLocaleManifest = createRuntimeBundleManifest({
+      id: 'runtime.locale-base.locale.zh-cn',
+      version: '1.0.0',
+      dependencies: ['runtime.locale-base'],
+      localePack: {
+        locale: 'zh-cn',
+        targets: [{ kind: 'runtimePackage', id: 'runtime.locale-base' }],
+        resourceTypes: ['scripts'],
+      },
+      scripts: [{
+        id: 'runtime.locale-base.scene',
+        version: '1.0.0-zh',
+        assetName: 'scene.zh-cn.js',
+      }],
+    })
+    const invalidLocaleManifest = createRuntimeBundleManifest({
+      id: 'runtime.locale-base.locale.ja',
+      version: '1.0.0',
+      dependencies: ['runtime.locale-base'],
+      localePack: {
+        locale: 'ja',
+        targets: [{ kind: 'runtimePackage', id: 'runtime.locale-base' }],
+        resourceTypes: ['scripts'],
+      },
+      scripts: [{
+        id: 'runtime.locale-base.scene',
+        version: '1.0.0-ja',
+        assetName: 'scene.ja.js',
+      }],
+    })
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/base-locale-rollback.qpk': createQpkBundle(baseManifest, new Map([
+            ['assets/scripts/scene.js', utf8('export default function createQuaScript() {}')],
+          ])),
+          'https://cdn.example.com/valid-locale.qpk': createQpkBundle(validLocaleManifest, new Map([
+            ['assets/scripts/scene.zh-cn.js', utf8('export default function createQuaScript() {}')],
+          ])),
+          'https://cdn.example.com/invalid-locale.qpk': createQpkBundle(invalidLocaleManifest, new Map([
+            ['assets/scripts/scene.ja.js', utf8('export default function createQuaScript() {}')],
+          ])),
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      runtimePackageRegistry: {
+        resolvePackage: vi.fn(async () => undefined),
+        resolveLocalePacks: vi.fn(async locale => locale === 'zh-cn'
+          ? [{ source: 'valid-locale.qpk' }, { source: 'invalid-locale.qpk' }]
+          : []),
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+    await engine.loadRuntimePackage('base-locale-rollback.qpk')
+
+    await expect(engine.setLocale('zh-CN', { ensurePacks: true, targetPackageIds: ['runtime.locale-base'] }))
+      .rejects
+      .toThrow('resolved locale "zh-cn" to locale "ja"')
+
+    expect(engine.getLocale()).toBe('default')
+    expect(engine.getRuntimeStateSnapshot().activeLocalePackIds).toEqual([])
+    expect(engine.getRuntimePackages()).toEqual([
+      expect.objectContaining({ id: 'runtime.locale-base', state: 'active' }),
+      expect.objectContaining({ id: 'runtime.locale-base.locale.zh-cn', state: 'unloaded' }),
+      expect.objectContaining({ id: 'runtime.locale-base.locale.ja', state: 'unloaded' }),
+    ])
+    expect(await engine.getAssets().getBundleManifest('runtime.locale-base.locale.zh-cn')).toBeUndefined()
+    expect(await engine.getAssets().getBundleManifest('runtime.locale-base.locale.ja')).toBeUndefined()
+  })
+
   it('notifies renderer runtime unload before removing dynamic bundle assets', async () => {
     const manifest = createRuntimeBundleManifest({
       id: 'runtime.unload-order',
@@ -3103,6 +3191,50 @@ describe('quaEngine runtime architecture', () => {
     await engine.loadRuntimePackage('first.qpk', { activate: false })
     await expect(engine.loadRuntimePackage('second.qpk', { activate: false })).rejects.toThrow('already registered by package "runtime.first"')
     expect(await engine.getAssets().getBundleManifest('runtime.second')).toBeUndefined()
+  })
+
+  it('rolls back locale pack load when script variants cannot attach to base modules', async () => {
+    const localeManifest = createRuntimeBundleManifest({
+      id: 'runtime.missing-base.locale.zh-cn',
+      version: '1.0.0',
+      dependencies: [],
+      localePack: {
+        locale: 'zh-cn',
+        targets: [{ kind: 'runtimePackage', id: 'runtime.missing-base' }],
+        resourceTypes: ['scripts'],
+      },
+      scripts: [{
+        id: 'runtime.missing-base.scene',
+        version: '1.0.0-zh',
+        assetName: 'scene.zh-cn.js',
+      }],
+    })
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/missing-base-locale.qpk': createQpkBundle(localeManifest, new Map([
+            ['assets/scripts/scene.zh-cn.js', utf8('export default function createQuaScript() {}')],
+          ])),
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+
+    await expect(engine.loadRuntimePackage('missing-base-locale.qpk', { activate: false }))
+      .rejects
+      .toThrow('base script is not registered')
+    expect(engine.getRuntimePackages()).toEqual([])
+    expect(engine.getRuntimeStateSnapshot().runtimePackages).toEqual({})
+    expect(await engine.getAssets().getBundleManifest('runtime.missing-base.locale.zh-cn')).toBeUndefined()
   })
 
   it('unloads packages that a registry resolves to the wrong id', async () => {

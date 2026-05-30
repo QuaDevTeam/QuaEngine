@@ -92,6 +92,7 @@ export interface AudioChapterProjection {
 export interface AudioViewProjection {
   revision: number
   unlocked: boolean
+  requiredRuntimePackages?: readonly string[]
   chapter?: AudioChapterProjection
   currentLineId?: string
   buses: {
@@ -255,6 +256,7 @@ export function createInitialAudioProjection(): AudioViewProjection {
   return {
     revision: 0,
     unlocked: false,
+    requiredRuntimePackages: [],
     buses: {
       master: { gainDb: 0 },
       bgm: { gainDb: 0 },
@@ -272,6 +274,7 @@ export function cloneAudioProjection(projection: AudioViewProjection): AudioView
   return {
     revision: projection.revision,
     unlocked: projection.unlocked,
+    requiredRuntimePackages: projection.requiredRuntimePackages ? [...projection.requiredRuntimePackages] : undefined,
     chapter: projection.chapter
       ? {
           ...projection.chapter,
