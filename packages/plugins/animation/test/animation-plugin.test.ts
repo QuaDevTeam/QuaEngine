@@ -227,6 +227,47 @@ describe('@quajs/plugin-animation', () => {
     await expect(playAnimationWithEngine(engine, 'runtime.flash')).rejects.toThrow('Animation definition "runtime.flash" is not registered.')
   })
 
+  it('merges current runtime package dependencies for metadata-owned animation definitions', async () => {
+    const engine = createEngine()
+    const plugin = new AnimationPlugin()
+    await plugin.init(createPluginContext(engine))
+
+    await withRuntimePackageContext(engine, 'runtime.animation-delta', async (runtimeEngine) => {
+      await registerAnimationWithEngine(runtimeEngine, {
+        id: 'base.flash-delta',
+        metadata: { contentPackageId: 'base.animation' },
+        duration: 1000,
+        tracks: [{
+          target: 'stage:main',
+          property: 'opacity',
+          keyframes: [
+            { at: 0, value: 0 },
+            { at: 1000, value: 1 },
+          ],
+        }],
+      })
+    })
+
+    await playAnimationWithEngine(engine, 'base.flash-delta')
+
+    expect(engine.getViewState().animations[0]).toEqual(expect.objectContaining({
+      definitionId: 'base.flash-delta',
+      contentPackageId: 'base.animation',
+      requiredRuntimePackages: ['base.animation', 'runtime.animation-delta'],
+    }))
+
+    await plugin.onRuntimePackageUnload?.({
+      ...createPluginContext(engine),
+      runtimePackage: {
+        package: { id: 'runtime.animation-delta', version: '1.0.0' },
+        bundleName: 'runtime.animation-delta',
+      },
+    })
+
+    expect(engine.getViewState().animations).toEqual([])
+    await expect(playAnimationWithEngine(engine, 'base.flash-delta')).rejects.toThrow('Animation definition "base.flash-delta" is not registered.')
+  })
+
   it('projects delay, direction, fill, and commit metadata and keeps filled projections when requested', async () => {
     const engine = createEngine()
     const played = playTimelineWithEngine(engine, {
