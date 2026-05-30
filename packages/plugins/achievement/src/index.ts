@@ -1763,6 +1763,7 @@ function normalizeAchievementGroupDefinition(
       icon?.runtimePackageId ? [icon.runtimePackageId] : [],
       banner?.runtimePackageId ? [banner.runtimePackageId] : [],
       getRequiredRuntimePackages(group.metadata),
+      currentMetadataRuntimePackageDependencies(engine, group.metadata),
     ),
   }
 }
@@ -1809,6 +1810,7 @@ function normalizeAchievementDefinition(
       background?.runtimePackageId ? [background.runtimePackageId] : [],
       sound?.runtimePackageId ? [sound.runtimePackageId] : [],
       getRequiredRuntimePackages(achievement.metadata),
+      currentMetadataRuntimePackageDependencies(engine, achievement.metadata),
       ...rewards.map(reward => rewardRequiredRuntimePackages(reward)),
     ),
   }
@@ -1916,6 +1918,17 @@ function resolveAchievementContentPackageId(
   return trimNonEmpty(explicitPackageId)
     || contentPackageIdFromMetadata(metadata)
     || currentRuntimePackageId(engine)
+}
+
+function currentMetadataRuntimePackageDependencies(
+  engine: QuaEngineInterface,
+  metadata?: Readonly<Record<string, unknown>>,
+): string[] {
+  const metadataPackageId = contentPackageIdFromMetadata(metadata)
+  const currentPackageId = currentRuntimePackageId(engine)
+  return metadataPackageId && currentPackageId && metadataPackageId !== currentPackageId
+    ? [currentPackageId]
+    : []
 }
 
 function achievementGroupRequiresRuntimePackage(group: AchievementGroupDefinition, packageId: string): boolean {

@@ -345,6 +345,40 @@ describe('@quajs/plugin-gallery', () => {
     ])
     expect(getGalleryProjection(engine).requiredRuntimePackages).toEqual(['base.gallery'])
   })
+
+  it('merges current runtime package dependencies for metadata-owned gallery content', async () => {
+    const engine = createEngine()
+    engine.use(new GalleryPlugin())
+    await engine.init()
+
+    await engine.withRuntimePackageContext('runtime.gallery-delta', async (runtimeEngine) => {
+      await registerGalleryCatalogWithEngine(runtimeEngine, {
+        id: 'base-delta',
+        title: 'Base Delta',
+        metadata: { contentPackageId: 'base.gallery' },
+      })
+      await registerGalleryEntriesWithEngine(runtimeEngine, [{
+        id: 'base-delta.sunset',
+        catalogId: 'base-delta',
+        title: 'Base Delta Sunset',
+        metadata: { contentPackageId: 'base.gallery' },
+        contents: [{
+          id: 'base-delta.sunset.image',
+          kind: 'image',
+          asset: assetRef('cg/base-delta-sunset.png'),
+        }],
+      }])
+    })
+
+    await openGallerySceneWithEngine(engine)
+    expect(getGalleryProjection(engine).requiredRuntimePackages).toEqual(['base.gallery', 'runtime.gallery-delta'])
+
+    await removeRuntimePackageGalleryContentWithEngine(engine, 'runtime.gallery-delta')
+
+    expect(getGalleryProjection(engine).catalogs).toEqual([])
+    expect(getGalleryProjection(engine).entries).toEqual([])
+    expect(getGalleryProjection(engine).requiredRuntimePackages).toEqual([])
+  })
 })
 
 async function registerBaseCatalog(engine: QuaEngine): Promise<void> {

@@ -1131,6 +1131,7 @@ function normalizeGalleryCatalogDefinition(
       packageId ? [packageId] : [],
       thumbnail?.runtimePackageId ? [thumbnail.runtimePackageId] : [],
       getRequiredRuntimePackages(catalog.metadata),
+      currentMetadataRuntimePackageDependencies(engine, catalog.metadata),
     ),
   }
 }
@@ -1168,6 +1169,7 @@ function normalizeGalleryEntryDefinition(
       thumbnail?.runtimePackageId ? [thumbnail.runtimePackageId] : [],
       poster?.runtimePackageId ? [poster.runtimePackageId] : [],
       getRequiredRuntimePackages(entry.metadata),
+      currentMetadataRuntimePackageDependencies(engine, entry.metadata),
       ...contents.map(content => content.requiredRuntimePackages),
     ),
   }
@@ -1299,6 +1301,17 @@ function resolveGalleryContentPackageId(
   return trimNonEmpty(explicitPackageId)
     || contentPackageIdFromMetadata(metadata)
     || currentRuntimePackageId(engine)
+}
+
+function currentMetadataRuntimePackageDependencies(
+  engine: QuaEngineInterface,
+  metadata?: Readonly<Record<string, unknown>>,
+): string[] {
+  const metadataPackageId = contentPackageIdFromMetadata(metadata)
+  const currentPackageId = currentRuntimePackageId(engine)
+  return metadataPackageId && currentPackageId && metadataPackageId !== currentPackageId
+    ? [currentPackageId]
+    : []
 }
 
 function galleryCatalogRequiresRuntimePackage(catalog: GalleryCatalogDefinition, packageId: string): boolean {
