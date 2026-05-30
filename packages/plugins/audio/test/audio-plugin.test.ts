@@ -191,6 +191,25 @@ describe('@quajs/plugin-audio', () => {
     expect((engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any).voices).toEqual([])
   })
 
+  it('ignores stale renderer audio completion events', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    await engine.init()
+
+    await playBGMWithEngine(engine, 'bgm/base', { id: 'base-bgm' })
+    const revision = (engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any).revision
+
+    await emitAudioRenderToLogic(engine.getPipeline(), AudioRenderToLogicEvents.ENDED, {
+      channel: 'bgm',
+      id: 'stale-bgm',
+      assetKey: 'bgm/old',
+    })
+
+    const projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.revision).toBe(revision)
+    expect(projection.bgm).toEqual(expect.objectContaining({ id: 'base-bgm' }))
+  })
+
   it('tracks concurrent SFX and looping ambient playback', async () => {
     const engine = createEngine()
     engine.use(new AudioPlugin())

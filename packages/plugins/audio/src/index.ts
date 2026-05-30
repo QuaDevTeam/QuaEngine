@@ -1158,19 +1158,27 @@ function applyAutomation(
 function handleTrackEnded(engine: QuaEngineInterface, payload: AudioTrackEventPayload): Promise<void> {
   const projection = getAudioProjection(engine)
   const next = cloneAudioProjection(projection)
+  let changed = false
   if (payload.channel === 'bgm') {
     if (next.bgm && next.bgm.id === payload.id) {
       next.bgm = undefined
+      changed = true
     }
   }
   else if (payload.channel === 'voice') {
     next.voices = next.voices.filter(track => track.id !== payload.id)
+    changed = next.voices.length !== projection.voices.length
   }
   else if (payload.channel === 'sfx') {
     next.sfx = next.sfx.filter(track => track.id !== payload.id)
+    changed = next.sfx.length !== projection.sfx.length
   }
   else if (payload.channel === 'ambient') {
     next.ambients = next.ambients.filter(track => track.id !== payload.id)
+    changed = next.ambients.length !== projection.ambients.length
+  }
+  if (!changed) {
+    return Promise.resolve()
   }
   next.revision += 1
   return setAudioProjection(engine, next)
