@@ -132,7 +132,7 @@ export async function clearRuntimePackageFontsWithEngine(
   packageId: string,
 ): Promise<FontsProjection> {
   const projection = getFontsProjection(engine)
-  const faces = projection.faces.filter(face => !fontFaceBelongsToPackage(face, packageId))
+  const faces = projection.faces.filter(face => !fontFaceRequiresPackage(face, packageId))
   if (faces.length === projection.faces.length) {
     return projection
   }
@@ -177,8 +177,8 @@ function normalizeFontFace(
   }
 }
 
-function fontFaceBelongsToPackage(face: Readonly<FontFaceProjection>, packageId: string): boolean {
-  return face.contentPackageId === packageId || contentPackageIdFromMetadata(face.metadata) === packageId
+function fontFaceRequiresPackage(face: Readonly<FontFaceProjection>, packageId: string): boolean {
+  return face.contentPackageId === packageId || metadataRequiresPackage(face.metadata, packageId)
 }
 
 function collectFontsRequiredRuntimePackages(faces: readonly Readonly<FontFaceProjection>[]): string[] {
@@ -197,6 +197,11 @@ function requiredRuntimePackagesFromMetadata(metadata?: Readonly<Record<string, 
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
     : []
+}
+
+function metadataRequiresPackage(metadata: Readonly<Record<string, unknown>> | undefined, packageId: string): boolean {
+  return contentPackageIdFromMetadata(metadata) === packageId
+    || requiredRuntimePackagesFromMetadata(metadata).includes(packageId)
 }
 
 function uniqueStrings(values: readonly string[]): string[] {

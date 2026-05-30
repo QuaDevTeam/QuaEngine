@@ -119,6 +119,29 @@ describe('@quajs/plugin-fonts', () => {
     expect(projection.faces).toEqual([])
     expect(projection.requiredRuntimePackages).toEqual([])
   })
+
+  it('clears fonts that require an unloaded runtime package', async () => {
+    const engine = createEngine()
+    engine.use(new FontsPlugin())
+    await engine.init()
+
+    await registerFontWithEngine(engine, 'Dependent Serif', 'dependent.woff2', {
+      contentPackageId: 'base.fonts',
+      metadata: { requiredRuntimePackages: ['runtime.font-assets'] },
+    })
+    await registerFontWithEngine(engine, 'Base Serif', 'base.woff2', {
+      contentPackageId: 'base.fonts',
+    })
+
+    expect(getFontsProjection(engine).requiredRuntimePackages).toEqual(['base.fonts', 'runtime.font-assets'])
+
+    await clearRuntimePackageFontsWithEngine(engine, 'runtime.font-assets')
+
+    expect(getFontsProjection(engine).faces).toEqual([
+      expect.objectContaining({ family: 'Base Serif', contentPackageId: 'base.fonts' }),
+    ])
+    expect(getFontsProjection(engine).requiredRuntimePackages).toEqual(['base.fonts'])
+  })
 })
 
 function createEngine(): QuaEngine {

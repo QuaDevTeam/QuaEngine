@@ -250,6 +250,42 @@ describe('@quajs/plugin-background', () => {
     expect(engine.getViewState().background).toBeUndefined()
   })
 
+  it('removes background projections that require an unloaded runtime package', async () => {
+    const engine = createEngine()
+
+    await setLayeredBackgroundWithEngine(engine, [
+      {
+        id: 'dependent-fog',
+        assetName: 'dependent-fog.png',
+        metadata: {
+          contentPackageId: 'base.background',
+          requiredRuntimePackages: ['runtime.background-assets'],
+        },
+      },
+      {
+        id: 'base-sky',
+        assetName: 'base-sky.png',
+        metadata: { contentPackageId: 'base.background' },
+      },
+    ])
+
+    await clearRuntimePackageBackgroundWithEngine(engine, 'runtime.background-assets')
+
+    expect(engine.getViewState().background?.layers).toEqual([
+      expect.objectContaining({ id: 'base-sky' }),
+    ])
+
+    await setBackgroundWithEngine(engine, 'dependent-room.png', {
+      metadata: {
+        contentPackageId: 'base.background',
+        requiredRuntimePackages: ['runtime.background-assets'],
+      },
+    })
+    await clearRuntimePackageBackgroundWithEngine(engine, 'runtime.background-assets')
+
+    expect(engine.getViewState().background).toBeUndefined()
+  })
+
   it('plays current background visibility transitions through animation', async () => {
     vi.useFakeTimers()
     const engine = createEngine()
@@ -321,7 +357,9 @@ describe('@quajs/plugin-background', () => {
 function createEngine(): QuaEngineInterface {
   let background: ReturnType<QuaEngineInterface['getViewState']>['background']
   let animations: ReturnType<QuaEngineInterface['getViewState']>['animations'] = []
+  const store = {}
   return {
+    getStore: vi.fn(() => store),
     setBackgroundProjection: vi.fn(async (next) => {
       background = next
     }),
