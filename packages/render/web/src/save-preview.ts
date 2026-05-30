@@ -114,7 +114,12 @@ export class WebSaveSlotPreviewCache {
       return
     }
     if (cached.kind === 'object-url') {
-      URL.revokeObjectURL(cached.src)
+      try {
+        URL.revokeObjectURL(cached.src)
+      }
+      catch {
+        // Preview cache cleanup is best-effort and must not block UI teardown.
+      }
     }
     this.cache.delete(slotId)
   }

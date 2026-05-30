@@ -40,6 +40,7 @@ import {
   WebAssetUrlHandle,
 } from '../src'
 import { WebAudioRendererController } from '../src/audio'
+import { WebFontFaceRegistry } from '../src/plugins/fonts'
 import { createGalleryProjectionModel, getGalleryProjectionFromView } from '../src/plugins/gallery'
 import { createVisualNovelWebRendererPlugins } from '../src/plugins/preset'
 import { WebSaveSlotPreviewCache } from '../src/save-preview'
@@ -794,7 +795,9 @@ describe('@quajs/renderer-web', () => {
 
   it('keeps asset URL handles resilient when projection callbacks fail', async () => {
     vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:resilient-asset')
-    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {
+      throw new Error('object URL revoke failed')
+    })
     const assets = await createImageAssets(['background.png'])
     const handle = new WebAssetUrlHandle({
       getAssets: () => assets,
@@ -1405,6 +1408,79 @@ describe('@quajs/renderer-web', () => {
       await renderer.unmount()
     }
     finally {
+      fontRuntime.restore()
+      await assets.cleanup()
+    }
+  })
+
+  it('retries failed font asset loads when resources change', async () => {
+    const fontRuntime = installFakeFontFace()
+    let shouldFail = true
+    let loadAttempts = 0
+    const assets = new QuaAssets({
+      adapter: {
+        name: 'renderer-web-font-retry-test',
+        storage: new MemoryAssetStorage(),
+        crypto: { sha256: async () => '' },
+      },
+      provider: {
+        mode: 'memory',
+        getManifest: async () => ({
+          version: '1',
+          assets: [
+            fontAssetRecord('display.woff2'),
+          ],
+        }),
+        getAsset: async () => {
+          loadAttempts += 1
+          if (shouldFail) {
+            throw new Error('font asset temporarily missing')
+          }
+          return new Uint8Array([1, 2, 3, 4])
+        },
+      },
+    })
+    await assets.initialize()
+    const registry = new WebFontFaceRegistry({
+      getAssets: () => assets,
+      getProjection: () => ({
+        revision: 1,
+        faces: [{
+          family: 'Qua Serif',
+          assetName: 'display.woff2',
+        }],
+      }),
+      document,
+      onError: () => {
+        throw new Error('font observer failed')
+      },
+    })
+
+    try {
+      await registry.sync()
+      await flushDom()
+
+      expect(loadAttempts).toBe(1)
+      expect(registry.getRecords()[0]).toEqual(expect.objectContaining({
+        state: 'error',
+      }))
+
+      await registry.sync()
+      await flushDom()
+      expect(loadAttempts).toBe(1)
+
+      shouldFail = false
+      await registry.sync({ retryFailed: true })
+      await flushDom()
+
+      expect(loadAttempts).toBe(2)
+      expect(registry.getRecords()[0]).toEqual(expect.objectContaining({
+        state: 'loaded',
+      }))
+      expect(fontRuntime.add).toHaveBeenCalledWith(fontRuntime.created[0])
+    }
+    finally {
+      await registry.destroy()
       fontRuntime.restore()
       await assets.cleanup()
     }
@@ -2343,6 +2419,28 @@ describe('@quajs/renderer-web', () => {
     expect(source.getSlotPreview).toHaveBeenCalledTimes(1)
 
     cache.dispose()
+  })
+
+  it('keeps save preview cache cleanup best-effort when object URL revocation fails', async () => {
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: vi.fn(() => 'blob:preview-cleanup'),
+      revokeObjectURL: vi.fn(() => {
+        throw new Error('preview revoke failed')
+      }),
+    })
+    const source = {
+      getSlotPreview: vi.fn(async () => ({
+        kind: 'bytes' as const,
+        bytes: new Uint8Array([1, 2, 3]),
+        mimeType: 'image/webp',
+      })),
+    }
+    const cache = new WebSaveSlotPreviewCache(source, { ttlMs: 30_000 })
+
+    await cache.resolve('slot-1')
+
+    expect(() => cache.dispose()).not.toThrow()
   })
 
   it('filters overlay and safe-ui capture roles from frozen save preview captures', async () => {

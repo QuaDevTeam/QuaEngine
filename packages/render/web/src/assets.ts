@@ -138,7 +138,12 @@ export class WebAssetUrlHandle {
 
   revoke(): void {
     if (this.state.url) {
-      revokeObjectURL(this.state.url)
+      try {
+        revokeObjectURL(this.state.url)
+      }
+      catch {
+        // Object URL cleanup is best-effort and must not break renderer teardown.
+      }
       this.state = {
         ...this.state,
         url: undefined,

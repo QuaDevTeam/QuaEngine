@@ -30,7 +30,7 @@ export const QuaFontsController = defineComponent({
     const stopSyncWatch = watch(
       [() => projection()?.revision, () => assets.value, () => assetRevision.value],
       () => {
-        void registry.sync()
+        void registry.sync({ retryFailed: true })
       },
       { immediate: true },
     )
