@@ -3,6 +3,7 @@ import type {
   SpriteSkinManifest,
   SpriteSkinStateName,
 } from './skin'
+import type { WebAssetTargetPackageId } from './assets'
 import type {
   QuaViewProjection,
   ViewChoiceProjection,
@@ -12,6 +13,7 @@ import type {
 } from '@quajs/render-core'
 import type { QuaWebDomLayerContext } from './dom'
 import { applySpriteSkinStyle, resolveSpriteSkin, resolveSpriteSkinReference } from './skin'
+import { runtimePackageCandidatesFromMetadata } from './assets'
 
 export type UiSkinControlKind = 'button' | 'panel' | 'input' | 'tab' | 'toggle'
 
@@ -169,11 +171,12 @@ export function bindUiControlSkin(
     }
 
     const assetPath = projection.active.asset
-    const targetPackageId = hasContentPackageId(projection.manifest?.metadata)
-    if (binding.assetPath !== assetPath || binding.assetTargetPackageId !== targetPackageId) {
+    const targetPackageIds = runtimePackageCandidatesFromMetadata(projection.manifest?.metadata)
+    const targetPackageKey = createTargetPackageKey(targetPackageIds)
+    if (binding.assetPath !== assetPath || binding.assetTargetPackageKey !== targetPackageKey) {
       binding.assetDisposer?.()
       binding.assetPath = assetPath
-      binding.assetTargetPackageId = targetPackageId
+      binding.assetTargetPackageKey = targetPackageKey
       binding.assetUrl = undefined
       binding.assetDisposer = ctx.watchAssetUrl('images', assetPath, (state) => {
         if (binding.assetPath !== assetPath) {
@@ -181,7 +184,7 @@ export function bindUiControlSkin(
         }
         binding.assetUrl = state.url
         updateUiControlSkinStyle(binding, el, binding.projection)
-      }, targetPackageId)
+      }, targetPackageIds)
     }
 
     updateUiControlSkinStyle(binding, el, projection)
@@ -261,7 +264,7 @@ interface UiControlSkinBindingState {
   projection?: ResolvedSpriteSkinProjection
   assetUrl?: string
   assetPath?: string
-  assetTargetPackageId?: string
+  assetTargetPackageKey?: string
   assetDisposer?: () => void
   listenersBound: boolean
   listenerDisposers: Array<() => void>
@@ -385,7 +388,7 @@ function clearUiControlSkinStyle(binding: UiControlSkinBindingState, element: HT
   binding.assetDisposer?.()
   binding.assetDisposer = undefined
   binding.assetPath = undefined
-  binding.assetTargetPackageId = undefined
+  binding.assetTargetPackageKey = undefined
   binding.projection = undefined
   binding.assetUrl = undefined
   binding.reference = undefined
@@ -396,8 +399,11 @@ function clearUiControlSkinStyle(binding: UiControlSkinBindingState, element: HT
   delete element.dataset.skinFallbackUsed
 }
 
-function hasContentPackageId(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
-  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
+function createTargetPackageKey(targetPackageIds: WebAssetTargetPackageId | undefined): string {
+  if (typeof targetPackageIds === 'string') {
+    return targetPackageIds
+  }
+  return targetPackageIds ? targetPackageIds.join('|') : ''
 }
 
 function normalizeSkinReference(value: string | undefined): string | undefined {

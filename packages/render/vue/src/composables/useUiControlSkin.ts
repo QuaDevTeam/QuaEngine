@@ -5,7 +5,7 @@ import {
   resolveSpriteSkinReference,
   spriteSkinStyle,
 } from '@quajs/renderer-web/skin'
-import { resolveUiControlSkinReference, WebAssetUrlHandle } from '@quajs/renderer-web'
+import { resolveUiControlSkinReference, runtimePackageCandidatesFromMetadata, WebAssetUrlHandle } from '@quajs/renderer-web'
 import { computed, onBeforeUnmount, readonly, ref, watch } from 'vue'
 import { useQuaRenderer } from '../context'
 
@@ -24,7 +24,7 @@ export function useUiControlSkin(options: UseUiControlSkinOptions) {
   const skinReference = computed(() => resolveUiControlSkinReference(view.value, options.kind, options.skinId?.()))
   const skinReferenceDetails = computed(() => skinReference.value ? resolveSpriteSkinReference(skinReference.value) : undefined)
   const skinProjection = computed(() => resolveSpriteSkin(skinManifest.value, skinReference.value, skinState.value))
-  const skinTargetPackageId = computed(() => hasContentPackageId(skinProjection.value?.manifest?.metadata))
+  const skinTargetPackageId = computed(() => runtimePackageCandidatesFromMetadata(skinProjection.value?.manifest?.metadata))
   const skinAssetUrl = ref<string>()
   const skinAssetLoading = ref(false)
   const skinAssetError = ref<Error>()
@@ -118,8 +118,4 @@ export function useUiControlSkin(options: UseUiControlSkinOptions) {
     })),
     setInteractiveState,
   }
-}
-
-function hasContentPackageId(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
-  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
 }
