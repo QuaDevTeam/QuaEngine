@@ -48,7 +48,7 @@ export class SettingsBridgeController implements SettingsBridge {
   }
 
   async start(): Promise<void> {
-    const stored = await this.options.storage.loadProfile(this.options.profileId)
+    const stored = await this.loadStoredProfile()
     if (stored) {
       for (const [scope, values] of Object.entries(stored.scopes)) {
         this.playerOverrides.set(scope, cloneSettingsValue(values))
@@ -117,7 +117,7 @@ export class SettingsBridgeController implements SettingsBridge {
     }
 
     if (options.persist !== false) {
-      await this.persistProfile()
+      await this.persistProfile(options.reason || 'update')
     }
     await this.publishProjection()
 
@@ -155,7 +155,7 @@ export class SettingsBridgeController implements SettingsBridge {
     }
 
     if (options.persist !== false) {
-      await this.persistProfile()
+      await this.persistProfile(options.reason || 'reset')
     }
     await this.publishProjection()
 
@@ -205,7 +205,7 @@ export class SettingsBridgeController implements SettingsBridge {
     }
 
     if (options.persist !== false) {
-      await this.persistProfile()
+      await this.persistProfile(options.reason || 'reset')
     }
 
     await this.publishProjection()
@@ -225,7 +225,7 @@ export class SettingsBridgeController implements SettingsBridge {
     }
 
     if (options.persist && !hasApplyErrors) {
-      await this.persistProfile()
+      await this.persistProfile(options.reason || 'rebuild')
     }
 
     await this.publishProjection()
@@ -275,7 +275,7 @@ export class SettingsBridgeController implements SettingsBridge {
         keyword: 'apply',
       }
       this.validationErrors.set(contribution.scope, [issue])
-      this.options.onError?.(error, { scope: contribution.scope, reason })
+      this.reportError(error, { scope: contribution.scope, reason })
       return [issue]
     }
   }
@@ -289,7 +289,17 @@ export class SettingsBridgeController implements SettingsBridge {
     }
   }
 
-  private async persistProfile(): Promise<void> {
+  private async loadStoredProfile(): Promise<Awaited<ReturnType<SettingsStorageAdapter['loadProfile']>>> {
+    try {
+      return await this.options.storage.loadProfile(this.options.profileId)
+    }
+    catch (error) {
+      this.reportError(error, { reason: 'init' })
+      return undefined
+    }
+  }
+
+  private async persistProfile(reason: SettingsApplyReason): Promise<void> {
     this.revision += 1
     const scopes: Record<string, SettingsValues> = {}
     for (const [scope, values] of this.playerOverrides.entries()) {
@@ -300,12 +310,26 @@ export class SettingsBridgeController implements SettingsBridge {
         scopes[contribution.scope] = cloneSettingsValue(this.playerOverrides.get(contribution.scope) || {})
       }
     }
-    await this.options.storage.saveProfile({
-      profileId: this.options.profileId,
-      revision: this.revision,
-      updatedAt: Date.now(),
-      scopes,
-    })
+    try {
+      await this.options.storage.saveProfile({
+        profileId: this.options.profileId,
+        revision: this.revision,
+        updatedAt: Date.now(),
+        scopes,
+      })
+    }
+    catch (error) {
+      this.reportError(error, { reason })
+    }
+  }
+
+  private reportError(error: unknown, context: SettingsBridgeErrorContext): void {
+    try {
+      this.options.onError?.(error, context)
+    }
+    catch {
+      // Settings error observers must not block in-memory settings updates.
+    }
   }
 
   private async publishProjection(): Promise<void> {
