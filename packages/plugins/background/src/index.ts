@@ -80,7 +80,7 @@ export async function clearRuntimePackageBackgroundWithEngine(
   if (!current) {
     return
   }
-  if (backgroundBelongsToPackage(current, packageId)) {
+  if (backgroundRequiresPackage(current, packageId)) {
     await engine.setBackgroundProjection(undefined)
     return
   }
@@ -88,7 +88,7 @@ export async function clearRuntimePackageBackgroundWithEngine(
     return
   }
 
-  const layers = current.layers.filter(layer => !backgroundLayerBelongsToPackage(layer, packageId))
+  const layers = current.layers.filter(layer => !backgroundLayerRequiresPackage(layer, packageId))
   if (layers.length === current.layers.length) {
     return
   }
@@ -306,17 +306,18 @@ function cloneBackground(background: Readonly<BackgroundIntent>): BackgroundInte
   return normalizeBackground(background)
 }
 
-function backgroundBelongsToPackage(background: Readonly<ViewBackgroundProjection>, packageId: string): boolean {
-  return metadataBelongsToPackage(background.metadata, packageId)
-    || metadataBelongsToPackage(background.video?.metadata, packageId)
+function backgroundRequiresPackage(background: Readonly<ViewBackgroundProjection>, packageId: string): boolean {
+  return metadataRequiresPackage(background.metadata, packageId)
+    || metadataRequiresPackage(background.video?.metadata, packageId)
 }
 
-function backgroundLayerBelongsToPackage(layer: Readonly<ViewBackgroundLayerProjection>, packageId: string): boolean {
-  return metadataBelongsToPackage(layer.metadata, packageId)
+function backgroundLayerRequiresPackage(layer: Readonly<ViewBackgroundLayerProjection>, packageId: string): boolean {
+  return metadataRequiresPackage(layer.metadata, packageId)
 }
 
-function metadataBelongsToPackage(metadata: Readonly<Record<string, unknown>> | undefined, packageId: string): boolean {
+function metadataRequiresPackage(metadata: Readonly<Record<string, unknown>> | undefined, packageId: string): boolean {
   return metadata?.contentPackageId === packageId
+    || getRequiredRuntimePackages(metadata).includes(packageId)
 }
 
 function normalizeComposition(composition: NonNullable<ViewBackgroundProjection['composition']>) {

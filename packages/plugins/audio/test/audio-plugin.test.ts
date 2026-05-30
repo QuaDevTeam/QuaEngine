@@ -316,14 +316,46 @@ describe('@quajs/plugin-audio', () => {
     await engine.setStoryPoint({ stepId: 'base-audio-step' })
     await playSFXWithEngine(engine, 'sfx/base', { id: 'base-sfx' })
 
-    console.log('before clear', JSON.stringify(engine.getViewState().plugins[AUDIO_PLUGIN_ID], null, 2))
     await engine.clearRuntimePackageViewState('runtime.audio')
-    console.log('after clear', JSON.stringify(engine.getViewState().plugins, null, 2))
 
     const projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
     expect(projection).toBeDefined()
     expect(projection.voices).toEqual([expect.objectContaining({ id: 'runtime-voice', contentPackageId: 'runtime.audio' })])
     expect(projection.sfx).toEqual([expect.objectContaining({ id: 'base-sfx', state: 'playing' })])
+  })
+
+  it('stops audio projections that require an unloaded runtime package', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    await engine.init()
+
+    await configureAudioChapterWithEngine(engine, 'dependent-audio', {
+      bgm: 'bgm/dependent-chapter',
+      metadata: {
+        contentPackageId: 'base.audio',
+        requiredRuntimePackages: ['runtime.audio-assets'],
+      },
+    })
+    await playBGMWithEngine(engine, 'bgm/dependent', {
+      id: 'dependent-bgm',
+      contentPackageId: 'base.audio',
+      metadata: { requiredRuntimePackages: ['runtime.audio-assets'] },
+    })
+    await playSFXWithEngine(engine, 'sfx/base', {
+      id: 'base-sfx',
+      contentPackageId: 'base.audio',
+    })
+
+    expect((engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any).requiredRuntimePackages)
+      .toEqual(['runtime.audio-assets', 'base.audio'])
+
+    await engine.notifyRuntimePackageUnload({ id: 'runtime.audio-assets', version: '1.0.0' }, 'runtime.audio-assets')
+
+    const projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.chapter).toBeUndefined()
+    expect(projection.bgm).toEqual(expect.objectContaining({ id: 'dependent-bgm', state: 'stopping' }))
+    expect(projection.sfx).toEqual([expect.objectContaining({ id: 'base-sfx', state: 'playing' })])
+    expect(projection.requiredRuntimePackages).toEqual(['base.audio'])
   })
 })
 

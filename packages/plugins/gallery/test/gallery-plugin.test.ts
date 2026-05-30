@@ -233,6 +233,62 @@ describe('@quajs/plugin-gallery', () => {
       entryId: 'runtime-cg.sunset',
     }))
   })
+
+  it('removes gallery content that requires an unloaded runtime package', async () => {
+    const engine = createEngine()
+    engine.use(new GalleryPlugin())
+    await engine.init()
+
+    await registerGalleryCatalogWithEngine(engine, {
+      id: 'dependent-cg',
+      title: 'Dependent CG',
+      contentPackageId: 'base.gallery',
+      requiredRuntimePackages: ['runtime.gallery-assets'],
+    })
+    await registerGalleryCatalogWithEngine(engine, {
+      id: 'base-cg',
+      title: 'Base CG',
+      contentPackageId: 'base.gallery',
+    })
+    await registerGalleryEntriesWithEngine(engine, [{
+      id: 'dependent-cg.sunset',
+      catalogId: 'dependent-cg',
+      title: 'Dependent Sunset',
+      contentPackageId: 'base.gallery',
+      requiredRuntimePackages: ['runtime.gallery-assets'],
+      contents: [{
+        id: 'dependent-cg.sunset.image',
+        kind: 'image',
+        contentPackageId: 'base.gallery',
+        requiredRuntimePackages: ['runtime.gallery-assets'],
+        asset: assetRef('cg/dependent-sunset.png'),
+      }],
+    }, {
+      id: 'base-cg.sunrise',
+      catalogId: 'base-cg',
+      title: 'Base Sunrise',
+      contentPackageId: 'base.gallery',
+      contents: [{
+        id: 'base-cg.sunrise.image',
+        kind: 'image',
+        asset: assetRef('cg/base-sunrise.png'),
+      }],
+    }])
+
+    await openGallerySceneWithEngine(engine)
+    expect(getGalleryProjection(engine).requiredRuntimePackages).toEqual(expect.arrayContaining(['base.gallery', 'runtime.gallery-assets']))
+    expect(getGalleryProjection(engine).requiredRuntimePackages).toHaveLength(2)
+
+    await removeRuntimePackageGalleryContentWithEngine(engine, 'runtime.gallery-assets')
+
+    expect(getGalleryProjection(engine).catalogs).toEqual([
+      expect.objectContaining({ id: 'base-cg' }),
+    ])
+    expect(getGalleryProjection(engine).entries).toEqual([
+      expect.objectContaining({ id: 'base-cg.sunrise' }),
+    ])
+    expect(getGalleryProjection(engine).requiredRuntimePackages).toEqual(['base.gallery'])
+  })
 })
 
 async function registerBaseCatalog(engine: QuaEngine): Promise<void> {

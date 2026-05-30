@@ -435,7 +435,7 @@ export async function stopRuntimePackageAudioWithEngine(
   const next = cloneAudioProjection(projection)
   let changed = false
   const stopTrack = (track: AudioTrackProjection): AudioTrackProjection => {
-    if (!trackBelongsToPackage(track, packageId)) {
+    if (!trackRequiresPackage(track, packageId)) {
       return track
     }
     changed = true
@@ -452,7 +452,7 @@ export async function stopRuntimePackageAudioWithEngine(
   if (next.bgm) {
     next.bgm = stopTrack(next.bgm)
   }
-  if (contentPackageIdFromMetadata(next.chapter?.metadata) === packageId) {
+  if (metadataRequiresPackage(next.chapter?.metadata, packageId)) {
     next.chapter = undefined
     next.currentLineId = undefined
     changed = true
@@ -912,8 +912,8 @@ function updateTrackList(tracks: readonly AudioTrackProjection[], nextTrack: Aud
   ]
 }
 
-function trackBelongsToPackage(track: AudioTrackProjection, packageId: string): boolean {
-  return track.contentPackageId === packageId || contentPackageIdFromMetadata(track.metadata) === packageId
+function trackRequiresPackage(track: AudioTrackProjection, packageId: string): boolean {
+  return track.contentPackageId === packageId || metadataRequiresPackage(track.metadata, packageId)
 }
 
 function withCurrentRuntimeAudioPackage<
@@ -952,6 +952,11 @@ function requiredRuntimePackagesFromMetadata(metadata?: Readonly<Record<string, 
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
     : []
+}
+
+function metadataRequiresPackage(metadata: Readonly<Record<string, unknown>> | undefined, packageId: string): boolean {
+  return contentPackageIdFromMetadata(metadata) === packageId
+    || requiredRuntimePackagesFromMetadata(metadata).includes(packageId)
 }
 
 function uniqueStrings(values: readonly string[]): string[] {

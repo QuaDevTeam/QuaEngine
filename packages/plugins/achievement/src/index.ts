@@ -471,7 +471,7 @@ export async function removeRuntimePackageAchievementContentWithEngine(
   let changed = false
 
   for (const [groupId, group] of runtimeState.groups.entries()) {
-    if (group.contentPackageId === packageId) {
+    if (achievementGroupRequiresRuntimePackage(group, packageId)) {
       runtimeState.groups.delete(groupId)
       removedGroupIds.add(groupId)
       changed = true
@@ -479,14 +479,18 @@ export async function removeRuntimePackageAchievementContentWithEngine(
   }
 
   for (const [achievementId, achievement] of runtimeState.achievements.entries()) {
-    if (removedGroupIds.has(achievement.groupId || '') || achievementBelongsToRuntimePackage(achievement, packageId)) {
+    if (removedGroupIds.has(achievement.groupId || '') || achievementRequiresRuntimePackage(achievement, packageId)) {
       runtimeState.achievements.delete(achievementId)
       changed = true
     }
   }
 
-  if (changed) {
-    await rebuildAchievementProjection(engine, runtimeState, {})
+  const current = getAchievementProjection(engine)
+  const notifications = current.notifications.filter(notification => !achievementNotificationRequiresRuntimePackage(notification, packageId))
+  const notificationsChanged = notifications.length !== current.notifications.length
+
+  if (changed || notificationsChanged) {
+    await rebuildAchievementProjection(engine, runtimeState, notificationsChanged ? { notifications } : {})
   }
 }
 
@@ -1918,8 +1922,27 @@ function resolveAchievementContentPackageId(
     || currentRuntimePackageId(engine)
 }
 
-function achievementBelongsToRuntimePackage(achievement: AchievementDefinition, packageId: string): boolean {
-  return achievement.contentPackageId === packageId
+function achievementGroupRequiresRuntimePackage(group: AchievementGroupDefinition, packageId: string): boolean {
+  return achievementDefinitionRequiresRuntimePackage(group, packageId)
+}
+
+function achievementRequiresRuntimePackage(achievement: AchievementDefinition, packageId: string): boolean {
+  return achievementDefinitionRequiresRuntimePackage(achievement, packageId)
+}
+
+function achievementDefinitionRequiresRuntimePackage(
+  definition: Pick<AchievementDefinition, 'contentPackageId' | 'requiredRuntimePackages' | 'metadata'>,
+  packageId: string,
+): boolean {
+  return definition.contentPackageId === packageId
+    || definition.requiredRuntimePackages?.includes(packageId) === true
+    || contentPackageIdFromMetadata(definition.metadata) === packageId
+    || getRequiredRuntimePackages(definition.metadata).includes(packageId)
+}
+
+function achievementNotificationRequiresRuntimePackage(notification: AchievementNotificationProjection, packageId: string): boolean {
+  return notification.contentPackageId === packageId
+    || notification.requiredRuntimePackages?.includes(packageId) === true
 }
 
 function createAchievementSceneState(projection: AchievementProjection): AchievementSceneState {

@@ -352,7 +352,7 @@ export async function removeRuntimePackageGalleryContentWithEngine(
   let changed = false
 
   for (const [catalogId, catalog] of runtimeState.catalogs.entries()) {
-    if (catalog.contentPackageId === packageId) {
+    if (galleryCatalogRequiresRuntimePackage(catalog, packageId)) {
       runtimeState.catalogs.delete(catalogId)
       removedCatalogIds.add(catalogId)
       changed = true
@@ -360,7 +360,7 @@ export async function removeRuntimePackageGalleryContentWithEngine(
   }
 
   for (const [entryId, entry] of runtimeState.entries.entries()) {
-    if (removedCatalogIds.has(entry.catalogId) || entryBelongsToRuntimePackage(entry, packageId)) {
+    if (removedCatalogIds.has(entry.catalogId) || galleryEntryRequiresRuntimePackage(entry, packageId)) {
       runtimeState.entries.delete(entryId)
       changed = true
     }
@@ -1307,9 +1307,27 @@ function resolveGalleryContentPackageId(
     || currentRuntimePackageId(engine)
 }
 
-function entryBelongsToRuntimePackage(entry: GalleryEntryDefinition, packageId: string): boolean {
-  return entry.contentPackageId === packageId
-    || entry.contents.some(content => content.contentPackageId === packageId)
+function galleryCatalogRequiresRuntimePackage(catalog: GalleryCatalogDefinition, packageId: string): boolean {
+  return galleryDefinitionRequiresRuntimePackage(catalog, packageId)
+}
+
+function galleryEntryRequiresRuntimePackage(entry: GalleryEntryDefinition, packageId: string): boolean {
+  return galleryDefinitionRequiresRuntimePackage(entry, packageId)
+    || entry.contents.some(content => galleryDefinitionRequiresRuntimePackage(content, packageId))
+}
+
+function galleryDefinitionRequiresRuntimePackage(
+  definition: {
+    contentPackageId?: string
+    requiredRuntimePackages?: readonly string[]
+    metadata?: Readonly<Record<string, unknown>>
+  },
+  packageId: string,
+): boolean {
+  return definition.contentPackageId === packageId
+    || definition.requiredRuntimePackages?.includes(packageId) === true
+    || contentPackageIdFromMetadata(definition.metadata) === packageId
+    || getRequiredRuntimePackages(definition.metadata).includes(packageId)
 }
 
 function createGallerySceneState(projection: GalleryProjection): GallerySceneState {

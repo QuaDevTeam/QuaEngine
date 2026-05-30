@@ -27,6 +27,7 @@ import {
   onAchievementUnlocked,
   openAchievementBoardWithEngine,
   registerAchievementDefinitionsWithEngine,
+  removeRuntimePackageAchievementContentWithEngine,
   resetAchievementProfileWithEngine,
   setAchievementNotificationModeWithEngine,
   unlockAchievementWithEngine,
@@ -360,6 +361,52 @@ describe('@quajs/plugin-achievement', () => {
     await expect(unlockAchievementWithEngine(engine, 'cg.master', {
       notification: { mode: 'none' },
     })).rejects.toThrow('Gallery entry "cg.sunset" is not registered.')
+  })
+
+  it('removes achievement content and notifications that require an unloaded runtime package', async () => {
+    const engine = createEngine()
+    engine.use(new AchievementPlugin())
+    await engine.init()
+
+    await registerAchievementDefinitionsWithEngine(engine, {
+      groups: [{
+        id: 'base',
+        title: 'Base',
+        contentPackageId: 'base.achievement',
+      }],
+      achievements: [{
+        id: 'dependent.achievement',
+        groupId: 'base',
+        title: 'Dependent Achievement',
+        contentPackageId: 'base.achievement',
+        requiredRuntimePackages: ['runtime.achievement-assets'],
+      }, {
+        id: 'base.achievement',
+        groupId: 'base',
+        title: 'Base Achievement',
+        contentPackageId: 'base.achievement',
+      }],
+    })
+    await setAchievementNotificationModeWithEngine(engine, 'toast')
+    await unlockAchievementWithEngine(engine, 'dependent.achievement')
+    await openAchievementBoardWithEngine(engine)
+
+    expect(getAchievementProjection(engine).requiredRuntimePackages).toEqual(expect.arrayContaining(['base.achievement', 'runtime.achievement-assets']))
+    expect(getAchievementProjection(engine).requiredRuntimePackages).toHaveLength(2)
+    expect(getAchievementProjection(engine).notifications).toEqual([
+      expect.objectContaining({ achievementId: 'dependent.achievement' }),
+    ])
+
+    await removeRuntimePackageAchievementContentWithEngine(engine, 'runtime.achievement-assets')
+
+    expect(getAchievementProjection(engine).achievements).toEqual([
+      expect.objectContaining({ id: 'base.achievement' }),
+    ])
+    expect(getAchievementProjection(engine).notifications).toEqual([])
+    expect(getAchievementProjection(engine).requiredRuntimePackages).toEqual(['base.achievement'])
+    expect(getAchievementProfile(engine).unlockedAchievements['dependent.achievement']).toEqual(expect.objectContaining({
+      achievementId: 'dependent.achievement',
+    }))
   })
 })
 
