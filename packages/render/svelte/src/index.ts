@@ -69,15 +69,6 @@ export type {
   QuaSvelteRendererLayer,
   QuaSvelteRendererPlugin,
 } from './plugins/core'
-export {
-  createInputRendererPlugin,
-  inputRendererPlugin,
-} from './plugins/input'
-export type { InputSvelteRendererPluginOptions } from './plugins/input'
-export {
-  createVisualNovelRendererPlugins,
-} from './plugins/preset'
-export type { VisualNovelSvelteRendererPresetOptions } from './plugins/preset'
 
 function createHostOptions(
   container: Element,
