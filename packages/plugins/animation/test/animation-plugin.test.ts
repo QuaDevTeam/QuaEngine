@@ -327,6 +327,42 @@ describe('@quajs/plugin-animation', () => {
     expect(engine.getViewState().characters[0].position?.x).toBe(10)
   })
 
+  it('commits final values under the animation runtime package context', async () => {
+    const engine = createEngine({
+      characters: [{
+        id: 'Alice',
+        name: 'Alice',
+        visible: true,
+        position: { x: 0 },
+        metadata: { contentPackageId: 'runtime.character-base' },
+      }],
+    })
+
+    const played = playTimelineWithEngine(engine, {
+      contentPackageId: 'runtime.animation-delta',
+      duration: 100,
+      tracks: [{
+        target: 'character:Alice',
+        property: 'position.x',
+        keyframes: [
+          { at: 0, value: 0 },
+          { at: 100, value: 80 },
+        ],
+      }],
+    }, { wait: true })
+
+    await vi.advanceTimersByTimeAsync(100)
+    await played
+
+    expect(engine.getViewState().characters[0]).toEqual(expect.objectContaining({
+      position: { x: 80 },
+      metadata: {
+        contentPackageId: 'runtime.character-base',
+        requiredRuntimePackages: ['runtime.character-base', 'runtime.animation-delta'],
+      },
+    }))
+  })
+
   it('commits dialogue and choice motion state into plugin projections', async () => {
     const engine = createEngine({
       dialogue: { visible: true, text: 'Line' },
@@ -628,6 +664,7 @@ function createPipelineStub() {
 }
 
 function createEngine(viewPatch: Partial<QuaViewProjection> = {}) {
+  let currentRuntimePackageId: string | undefined
   const view: QuaViewProjection = {
     layout: createViewLayoutProjection(),
     background: undefined,
@@ -654,6 +691,17 @@ function createEngine(viewPatch: Partial<QuaViewProjection> = {}) {
   }
   const engine = {
     getStoryPoint: vi.fn(() => undefined),
+    getCurrentRuntimePackageId: vi.fn(() => currentRuntimePackageId),
+    withRuntimePackageContext: vi.fn(async (packageId: string | undefined, operation: (engine: QuaEngineInterface) => unknown) => {
+      const previousPackageId = currentRuntimePackageId
+      currentRuntimePackageId = packageId
+      try {
+        return await operation(engine as unknown as QuaEngineInterface)
+      }
+      finally {
+        currentRuntimePackageId = previousPackageId
+      }
+    }),
     getViewState: vi.fn(() => ({
       ...view,
       plugins: { ...view.plugins },
@@ -683,7 +731,15 @@ function createEngine(viewPatch: Partial<QuaViewProjection> = {}) {
     }),
     moveCharacter: vi.fn(async (id: string, position: any) => {
       view.characters = view.characters.map(character =>
-        character.id === id ? { ...character, position } : character,
+        character.id === id
+          ? {
+              ...character,
+              position,
+              metadata: currentRuntimePackageId
+                ? mergeRuntimePackageMetadata(character.metadata, currentRuntimePackageId)
+                : character.metadata,
+            }
+          : character,
       )
     }),
     setCharacterSprite: vi.fn(async (id: string, sprite: string | undefined) => {
@@ -770,4 +826,27 @@ async function withRuntimePackageContext<T>(
     },
   })
   return await operation(facade)
+}
+
+function mergeRuntimePackageMetadata(
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  packageId: string,
+): Record<string, unknown> {
+  const next = metadata ? { ...metadata } : {}
+  const contentPackageId = typeof next.contentPackageId === 'string' ? next.contentPackageId : undefined
+  const requiredRuntimePackages = Array.from(new Set([
+    ...(contentPackageId ? [contentPackageId] : []),
+    ...(Array.isArray(next.requiredRuntimePackages)
+      ? next.requiredRuntimePackages.filter((item): item is string => typeof item === 'string')
+      : []),
+    packageId,
+  ]))
+
+  if (!contentPackageId) {
+    next.contentPackageId = packageId
+  }
+  else if (contentPackageId !== packageId) {
+    next.requiredRuntimePackages = requiredRuntimePackages
+  }
+  return next
 }

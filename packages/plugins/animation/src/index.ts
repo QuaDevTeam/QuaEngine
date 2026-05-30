@@ -106,6 +106,8 @@ interface RuntimePlayback {
   waiters: Set<() => void>
 }
 
+type AnimationCommitFinalMode = Exclude<NonNullable<AnimationTimeline['commit']>, 'none'>
+
 interface AnimationRuntime {
   definitions: Map<string, NormalizedAnimationTimeline>
   playbacks: Map<string, RuntimePlayback>
@@ -539,6 +541,17 @@ async function commitFinalValues(
   if (commit === 'none')
     return
 
+  await withPlaybackRuntimePackageContext(engine, playback, async (commitEngine) => {
+    await commitFinalValuesInContext(commitEngine, runtime, playback, commit)
+  })
+}
+
+async function commitFinalValuesInContext(
+  engine: QuaEngineInterface,
+  runtime: AnimationRuntime,
+  playback: RuntimePlayback,
+  commit: AnimationCommitFinalMode,
+): Promise<void> {
   const properties = commit === 'final' ? undefined : new Set(commit.properties)
   for (const track of playback.projection.resolvedTracks) {
     if (properties && !properties.has(track.property))
@@ -559,6 +572,21 @@ async function commitFinalValues(
       warn(runtime, `Animation adapter "${targetKind(track.target)}" could not commit ${track.target}.${track.property}.`, false)
     }
   }
+}
+
+async function withPlaybackRuntimePackageContext<T>(
+  engine: QuaEngineInterface,
+  playback: RuntimePlayback,
+  operation: (engine: QuaEngineInterface) => T | Promise<T>,
+): Promise<T> {
+  const packageId = playback.projection.contentPackageId
+  if (!packageId) {
+    return await operation(engine)
+  }
+  if (engine.withRuntimePackageContext) {
+    return await engine.withRuntimePackageContext(packageId, operation)
+  }
+  return await operation(createRuntimePackageEngineFacade(engine, packageId))
 }
 
 function getCommittedTrackValue(
@@ -896,6 +924,18 @@ function withCurrentRuntimeAnimationPackage<TTimeline extends NormalizedAnimatio
 function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined {
   return (engine as Partial<QuaEngineInterface>).getCurrentRuntimePackageId?.()
     || (engine as Partial<QuaEngineInterface>).getStoryPoint?.()?.contentPackageId
+}
+
+function createRuntimePackageEngineFacade(engine: QuaEngineInterface, packageId: string): QuaEngineInterface {
+  return new Proxy(engine, {
+    get(target, property, receiver) {
+      if (property === 'getCurrentRuntimePackageId') {
+        return () => packageId
+      }
+      const value = Reflect.get(target, property, receiver)
+      return typeof value === 'function' ? value.bind(receiver) : value
+    },
+  })
 }
 
 function isOptionalPluginUnavailableError(error: unknown, packageName: string): boolean {
