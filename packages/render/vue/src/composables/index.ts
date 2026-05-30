@@ -1,5 +1,4 @@
 import type { AssetType } from '@quajs/assets'
-import type { AudioViewProjection } from '@quajs/plugin-audio/contracts'
 import type { ComputedRef } from 'vue'
 import { WebAssetUrlHandle } from '@quajs/renderer-web'
 import { computed, onBeforeUnmount, readonly, ref, watch } from 'vue'
@@ -50,8 +49,8 @@ export function usePluginProjection<T = unknown>(pluginId: string) {
   return computed(() => view.value.plugins[pluginId] as T | undefined)
 }
 
-export function useAudio() {
-  return usePluginProjection<AudioViewProjection>('audio')
+export function useAudio<T = unknown>() {
+  return usePluginProjection<T>('audio')
 }
 
 export function useEffects() {

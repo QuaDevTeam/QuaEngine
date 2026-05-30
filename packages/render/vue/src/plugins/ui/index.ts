@@ -55,6 +55,16 @@ interface SaveSlotProjection {
   }
 }
 
+interface SettingsAudioProjection {
+  unlocked?: boolean
+  bgm?: {
+    state?: string
+  }
+  voices?: readonly unknown[]
+  sfx?: readonly unknown[]
+  ambients?: readonly unknown[]
+}
+
 export interface QuaUiOverlayProps {
   elementId?: string
 }
@@ -437,7 +447,7 @@ export const QuaSettingsPanel = defineComponent({
   },
   setup(props, { slots }) {
     const { view } = useQuaRenderer()
-    const audio = useAudio()
+    const audio = useAudio<SettingsAudioProjection>()
     const actions = useRendererActions()
     const flowControl = useFlowControl()
     const config = computed<UiOverlaySkinConfig | undefined>(() => view.value.ui.overlays?.[props.elementId] as UiOverlaySkinConfig | undefined)
@@ -663,22 +673,22 @@ function formatPlaytime(playtime: number | undefined): string | undefined {
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
 }
 
-function audioStatus(audio: ReturnType<typeof useAudio>['value'] | undefined): string {
+function audioStatus(audio: SettingsAudioProjection | undefined): string {
   if (!audio) {
     return 'No audio projection'
   }
   return audio.unlocked ? 'Unlocked' : 'Locked'
 }
 
-function audioDetail(audio: ReturnType<typeof useAudio>['value'] | undefined): string {
+function audioDetail(audio: SettingsAudioProjection | undefined): string {
   if (!audio) {
     return 'Audio plugin is inactive'
   }
   const tracks = [
     audio.bgm ? `BGM ${audio.bgm.state}` : undefined,
-    audio.voices.length > 0 ? `${audio.voices.length} voice` : undefined,
-    audio.sfx.length > 0 ? `${audio.sfx.length} SFX` : undefined,
-    audio.ambients.length > 0 ? `${audio.ambients.length} ambient` : undefined,
+    audio.voices && audio.voices.length > 0 ? `${audio.voices.length} voice` : undefined,
+    audio.sfx && audio.sfx.length > 0 ? `${audio.sfx.length} SFX` : undefined,
+    audio.ambients && audio.ambients.length > 0 ? `${audio.ambients.length} ambient` : undefined,
   ].filter(Boolean)
   return tracks.join(' / ') || 'No active tracks'
 }
