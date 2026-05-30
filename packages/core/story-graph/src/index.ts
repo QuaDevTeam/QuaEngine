@@ -285,14 +285,34 @@ export async function removeRuntimePackageStoryGraphContentWithEngine(
   const runtimeStateKey = runtimeStoryGraphDeltaKey(engine)
   const runtimeState = runtimeStoryGraphDeltas.get(runtimeStateKey)
   if (runtimeState) {
-    const removedDeltaNodeIds = collectDeltaNodeIds(runtimeState.packageDeltas.get(packageId) || [])
+    const removedDeltaNodeIds = new Set<string>()
+    let packageDeltasChanged = false
+    for (const [ownerPackageId, deltas] of [...runtimeState.packageDeltas.entries()]) {
+      const keptDeltas: StoryGraphDelta[] = []
+      for (const delta of deltas) {
+        if (ownerPackageId === packageId || storyGraphDeltaRequiresPackage(delta, packageId)) {
+          for (const nodeId of collectDeltaNodeIds([delta])) {
+            removedDeltaNodeIds.add(nodeId)
+          }
+          packageDeltasChanged = true
+        }
+        else {
+          keptDeltas.push(delta)
+        }
+      }
+      if (ownerPackageId === packageId || keptDeltas.length === 0) {
+        runtimeState.packageDeltas.delete(ownerPackageId)
+      }
+      else if (keptDeltas.length !== deltas.length) {
+        runtimeState.packageDeltas.set(ownerPackageId, keptDeltas)
+      }
+    }
     const baseCleanup = removeRuntimePackageContentFromGraphs(runtimeState.baseGraphs, packageId)
     if (baseCleanup.changed) {
       runtimeState.baseGraphs = baseCleanup.graphs
     }
-    if (runtimeState.packageDeltas.has(packageId) || baseCleanup.changed) {
+    if (packageDeltasChanged || baseCleanup.changed) {
       const removedNodeIds = unionSets(removedDeltaNodeIds, baseCleanup.removedNodeIds)
-      runtimeState.packageDeltas.delete(packageId)
       await rebuildRuntimeStoryGraphDeltas(engine, runtimeState, packageId, removedNodeIds)
       if (runtimeState.packageDeltas.size === 0) {
         runtimeStoryGraphDeltas.delete(runtimeStateKey)
@@ -334,7 +354,7 @@ function removeRuntimePackageContentFromGraphs(
   for (const [graphId, graph] of Object.entries(currentGraphs)) {
     const removedGraphNodeIds = new Set<string>()
     const nodes = graph.nodes.filter((node) => {
-      const remove = storyNodeBelongsToPackage(node, packageId)
+      const remove = storyNodeRequiresPackage(node, packageId)
       if (remove) {
         removedGraphNodeIds.add(node.id)
         removedNodeIds.add(node.id)
@@ -342,13 +362,13 @@ function removeRuntimePackageContentFromGraphs(
       return !remove
     })
     const edges = (graph.edges || []).filter(edge =>
-      !storyEdgeBelongsToPackage(edge, packageId)
+      !storyEdgeRequiresPackage(edge, packageId)
       && !removedGraphNodeIds.has(edge.from)
       && !removedGraphNodeIds.has(edge.to),
     )
-    const lanes = (graph.lanes || []).filter(lane => !metadataBelongsToPackage(lane.metadata, packageId))
-    const metadata = metadataBelongsToPackage(graph.metadata, packageId)
-      ? stripRuntimePackageMetadata(graph.metadata)
+    const lanes = (graph.lanes || []).filter(lane => !metadataRequiresPackage(lane.metadata, packageId))
+    const metadata = metadataRequiresPackage(graph.metadata, packageId)
+      ? stripRuntimePackageMetadata(graph.metadata, packageId)
       : graph.metadata
 
     const nextGraph: StoryGraph = {
@@ -364,7 +384,7 @@ function removeRuntimePackageContentFromGraphs(
       || metadata !== graph.metadata
     changed = changed || graphChanged
 
-    if (nodes.length === 0 && edges.length === 0 && lanes.length === 0 && metadataBelongsToPackage(graph.metadata, packageId)) {
+    if (nodes.length === 0 && edges.length === 0 && lanes.length === 0 && metadataRequiresPackage(graph.metadata, packageId)) {
       changed = true
       continue
     }
@@ -987,7 +1007,7 @@ function applyStoryGraphDeltaToGraphMap(
     return next
   }
 
-  const packageMetadata = packageId ? { contentPackageId: packageId } : {}
+  const packageMetadata = runtimeMetadataForDelta(delta.metadata, packageId)
   const existingGraph = graphs[graphId] || (fallbackPoint
     ? createImplicitGraph(graphId, fallbackPoint)
     : createEmptyGraph(graphId))
@@ -1154,16 +1174,39 @@ function normalizeDeltaLane(lane: Partial<StoryLane>, metadata: Record<string, u
   }
 }
 
-function storyNodeBelongsToPackage(node: StoryNode, packageId: string): boolean {
-  return node.point.contentPackageId === packageId || metadataBelongsToPackage(node.metadata, packageId)
+function storyGraphDeltaRequiresPackage(delta: StoryGraphDelta, packageId: string): boolean {
+  return metadataRequiresPackage(delta.metadata, packageId)
+    || [...(delta.nodes || [])].some(node =>
+      node.point?.contentPackageId === packageId
+      || metadataRequiresPackage(node.metadata, packageId),
+    )
+    || [...(delta.edges || [])].some(edge => metadataRequiresPackage(edge.metadata, packageId))
+    || [...(delta.lanes || []), ...(delta.timelines || [])].some(lane => metadataRequiresPackage(lane.metadata, packageId))
 }
 
-function storyEdgeBelongsToPackage(edge: StoryEdge, packageId: string): boolean {
-  return metadataBelongsToPackage(edge.metadata, packageId)
+function storyNodeRequiresPackage(node: StoryNode, packageId: string): boolean {
+  return node.point.contentPackageId === packageId || metadataRequiresPackage(node.metadata, packageId)
 }
 
-function metadataBelongsToPackage(metadata: Readonly<Record<string, unknown>> | undefined, packageId: string): boolean {
+function storyEdgeRequiresPackage(edge: StoryEdge, packageId: string): boolean {
+  return metadataRequiresPackage(edge.metadata, packageId)
+}
+
+function metadataRequiresPackage(metadata: Readonly<Record<string, unknown>> | undefined, packageId: string): boolean {
   return metadata?.contentPackageId === packageId
+    || getMetadataRequiredRuntimePackages(metadata).includes(packageId)
+}
+
+function runtimeMetadataForDelta(
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  packageId?: string,
+): Record<string, unknown> {
+  const contentPackageId = packageId || (typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined)
+  const requiredRuntimePackages = getMetadataRequiredRuntimePackages(metadata)
+  return {
+    ...(contentPackageId ? { contentPackageId } : {}),
+    ...(requiredRuntimePackages.length > 0 ? { requiredRuntimePackages } : {}),
+  }
 }
 
 function withCurrentRuntimeStoryGraphPackage(engine: QuaEngineInterface, graph: StoryGraph): StoryGraph {
@@ -1171,24 +1214,26 @@ function withCurrentRuntimeStoryGraphPackage(engine: QuaEngineInterface, graph: 
   if (!packageId) {
     return graph
   }
+  const metadata = mergeRuntimeMetadata(graph.metadata, packageId)
+  const inheritedRequiredRuntimePackages = getMetadataRequiredRuntimePackages(metadata)
   return {
     ...graph,
-    metadata: mergeRuntimeMetadata(graph.metadata, packageId),
+    metadata,
     nodes: graph.nodes.map(node => ({
       ...node,
       point: {
         ...node.point,
         contentPackageId: node.point.contentPackageId || packageId,
       },
-      metadata: mergeRuntimeMetadata(node.metadata, packageId),
+      metadata: mergeRuntimeMetadata(node.metadata, packageId, inheritedRequiredRuntimePackages),
     })),
     edges: graph.edges?.map(edge => ({
       ...edge,
-      metadata: mergeRuntimeMetadata(edge.metadata, packageId),
+      metadata: mergeRuntimeMetadata(edge.metadata, packageId, inheritedRequiredRuntimePackages),
     })),
     lanes: graph.lanes?.map(lane => ({
       ...lane,
-      metadata: mergeRuntimeMetadata(lane.metadata, packageId),
+      metadata: mergeRuntimeMetadata(lane.metadata, packageId, inheritedRequiredRuntimePackages),
     })),
   }
 }
@@ -1196,14 +1241,33 @@ function withCurrentRuntimeStoryGraphPackage(engine: QuaEngineInterface, graph: 
 function mergeRuntimeMetadata(
   metadata: Readonly<Record<string, unknown>> | undefined,
   packageId: string,
+  inheritedRequiredRuntimePackages: readonly string[] = [],
 ): Record<string, unknown> {
-  if (metadata?.contentPackageId) {
-    return { ...metadata }
+  const next = metadata ? { ...metadata } : {}
+  const currentPackageId = typeof next.contentPackageId === 'string' ? next.contentPackageId : undefined
+  const requiredRuntimePackages = mergeStringLists(
+    currentPackageId ? [currentPackageId] : [],
+    getMetadataRequiredRuntimePackages(next),
+    inheritedRequiredRuntimePackages,
+    [packageId],
+  )
+  const dependencyPackages = mergeStringLists(
+    getMetadataRequiredRuntimePackages(next),
+    inheritedRequiredRuntimePackages,
+  )
+  if (!currentPackageId) {
+    next.contentPackageId = packageId
+    if (dependencyPackages.length > 0) {
+      next.requiredRuntimePackages = dependencyPackages
+    }
   }
-  return {
-    ...(metadata || {}),
-    contentPackageId: packageId,
+  else if (currentPackageId !== packageId) {
+    next.requiredRuntimePackages = requiredRuntimePackages
   }
+  else if (dependencyPackages.length > 0) {
+    next.requiredRuntimePackages = requiredRuntimePackages
+  }
+  return next
 }
 
 function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined {
@@ -1213,13 +1277,24 @@ function currentRuntimePackageId(engine: QuaEngineInterface): string | undefined
 
 function stripRuntimePackageMetadata<TMetadata extends Readonly<Record<string, unknown>> | undefined>(
   metadata: TMetadata,
+  packageId: string,
 ): TMetadata {
   if (!metadata) {
     return metadata
   }
-  const { contentPackageId, ...rest } = metadata
-  void contentPackageId
-  return (Object.keys(rest).length > 0 ? rest : undefined) as TMetadata
+  const next = { ...metadata } as Record<string, unknown>
+  if (next.contentPackageId === packageId) {
+    delete next.contentPackageId
+  }
+  const requiredRuntimePackages = getMetadataRequiredRuntimePackages(next)
+    .filter(requiredPackageId => requiredPackageId !== packageId)
+  if (requiredRuntimePackages.length > 0) {
+    next.requiredRuntimePackages = requiredRuntimePackages
+  }
+  else {
+    delete next.requiredRuntimePackages
+  }
+  return (Object.keys(next).length > 0 ? next : undefined) as TMetadata
 }
 
 function mergeById<T extends { id: string }>(base: readonly T[], patches: readonly T[]): T[] {

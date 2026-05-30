@@ -538,6 +538,44 @@ describe('@quajs/story-graph', () => {
     expect(graph.edges).toEqual([])
   })
 
+  it('removes graph deltas that require an unloaded runtime package without resurrecting them', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+    await registerStoryGraphWithEngine(engine, {
+      id: 'main',
+      nodes: [{ id: 'base', point: { storyId: 'main', stepId: 'base' } }],
+      edges: [],
+    })
+
+    await registerStoryGraphDeltaWithEngine(engine, {
+      id: 'delta:runtime-a',
+      graphId: 'main',
+      metadata: { requiredRuntimePackages: ['runtime.scene.b'] },
+      nodes: [{ id: 'a-node', point: { storyId: 'main', stepId: 'a-step' } }],
+      edges: [{ from: 'base', to: 'a-node', kind: 'event' }],
+      lanes: [{ id: 'a-lane', kind: 'route' }],
+    }, { packageId: 'runtime.scene.a' })
+
+    expect(getStoryGraphProjection(engine).graphs.main.nodes.find(node => node.id === 'a-node')?.metadata)
+      .toEqual(expect.objectContaining({
+        contentPackageId: 'runtime.scene.a',
+        requiredRuntimePackages: ['runtime.scene.b'],
+      }))
+
+    await removeRuntimePackageStoryGraphContentWithEngine(engine, 'runtime.scene.b')
+    await registerStoryGraphDeltaWithEngine(engine, {
+      id: 'delta:runtime-c',
+      graphId: 'main',
+      nodes: [{ id: 'c-node', point: { storyId: 'main', stepId: 'c-step' } }],
+    }, { packageId: 'runtime.scene.c' })
+
+    const graph = getStoryGraphProjection(engine).graphs.main
+    expect(graph.nodes.map(node => node.id).sort()).toEqual(['base', 'c-node'])
+    expect(graph.edges).toEqual([])
+    expect(graph.lanes).toEqual([])
+  })
+
   it('tags full graphs registered through package-scoped engine facades', async () => {
     const engine = createEngine()
     engine.use(new StoryGraphPlugin())
@@ -546,6 +584,7 @@ describe('@quajs/story-graph', () => {
     await engine.withRuntimePackageContext('runtime.graph', async (runtimeEngine) => {
       await registerStoryGraphWithEngine(runtimeEngine, {
         id: 'runtime-main',
+        metadata: { requiredRuntimePackages: ['runtime.graph-assets'] },
         lanes: [{ id: 'lane-a', kind: 'timeline' }],
         nodes: [{ id: 'runtime-node', point: { storyId: 'runtime-main', stepId: 'runtime-step' } }],
         edges: [{ id: 'runtime-edge', from: 'runtime-node', to: 'future-node', kind: 'event' }],
@@ -555,9 +594,18 @@ describe('@quajs/story-graph', () => {
     const graph = getStoryGraphProjection(engine).graphs['runtime-main']
     expect(graph.metadata).toEqual(expect.objectContaining({ contentPackageId: 'runtime.graph' }))
     expect(graph.nodes[0].point.contentPackageId).toBe('runtime.graph')
-    expect(graph.nodes[0].metadata).toEqual(expect.objectContaining({ contentPackageId: 'runtime.graph' }))
-    expect(graph.edges?.[0].metadata).toEqual(expect.objectContaining({ contentPackageId: 'runtime.graph' }))
-    expect(graph.lanes?.[0].metadata).toEqual(expect.objectContaining({ contentPackageId: 'runtime.graph' }))
+    expect(graph.nodes[0].metadata).toEqual(expect.objectContaining({
+      contentPackageId: 'runtime.graph',
+      requiredRuntimePackages: ['runtime.graph-assets'],
+    }))
+    expect(graph.edges?.[0].metadata).toEqual(expect.objectContaining({
+      contentPackageId: 'runtime.graph',
+      requiredRuntimePackages: ['runtime.graph-assets'],
+    }))
+    expect(graph.lanes?.[0].metadata).toEqual(expect.objectContaining({
+      contentPackageId: 'runtime.graph',
+      requiredRuntimePackages: ['runtime.graph-assets'],
+    }))
 
     await removeRuntimePackageStoryGraphContentWithEngine(engine, 'runtime.graph')
 
