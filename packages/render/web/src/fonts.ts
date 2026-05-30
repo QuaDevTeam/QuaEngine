@@ -20,6 +20,10 @@ export interface WebFontFaceRecord {
   error?: Error
 }
 
+export interface WebFontFaceSyncOptions {
+  retryFailed?: boolean
+}
+
 interface RuntimeFontFaceRecord extends WebFontFaceRecord {
   fontFace?: FontFace
 }
@@ -39,7 +43,7 @@ export class WebFontFaceRegistry {
     }))
   }
 
-  async sync(): Promise<void> {
+  async sync(options: WebFontFaceSyncOptions = {}): Promise<void> {
     const projection = this.options.getProjection()
     const desiredFaces = projection?.faces || []
     const desiredKeys = new Set<string>()
@@ -51,7 +55,7 @@ export class WebFontFaceRegistry {
       desiredKeys.add(key)
 
       const current = this.records.get(key)
-      if (current?.signature === signature) {
+      if (current?.signature === signature && (!options.retryFailed || current.state !== 'error')) {
         continue
       }
 
@@ -122,7 +126,12 @@ export class WebFontFaceRegistry {
       }
       record.state = 'error'
       record.error = error instanceof Error ? error : new Error(String(error))
-      this.options.onError?.(error, record.face)
+      try {
+        this.options.onError?.(error, record.face)
+      }
+      catch {
+        // Font error observers must not turn recoverable resource failures into unhandled rejections.
+      }
     }
   }
 

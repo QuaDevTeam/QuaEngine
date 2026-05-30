@@ -34,7 +34,7 @@ export function createFontsWebRendererPlugin(options: FontsWebRendererPluginOpti
         void registry?.sync()
       }))
       context.addDisposer(context.onLogicToRender(LogicToRenderEvents.ASSET_CHANGED, () => {
-        void registry?.sync()
+        void registry?.sync({ retryFailed: true })
       }))
       void registry.sync()
     },
