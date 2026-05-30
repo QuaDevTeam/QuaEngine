@@ -155,7 +155,12 @@ export class WebAssetUrlHandle {
   }
 
   private notify(): void {
-    this.options.onChange?.(this.state)
+    try {
+      this.options.onChange?.(this.state)
+    }
+    catch {
+      // Resource projection callbacks must not break renderer progress.
+    }
   }
 }
 

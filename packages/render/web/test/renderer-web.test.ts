@@ -37,6 +37,7 @@ import {
   resolveStageLayout,
   stageContentStyle,
   stageLogicalToClientPoint,
+  WebAssetUrlHandle,
 } from '../src'
 import { WebAudioRendererController } from '../src/audio'
 import { createGalleryProjectionModel, getGalleryProjectionFromView } from '../src/plugins/gallery'
@@ -787,6 +788,29 @@ describe('@quajs/renderer-web', () => {
     }
     finally {
       await renderer.unmount()
+      await assets.cleanup()
+    }
+  })
+
+  it('keeps asset URL handles resilient when projection callbacks fail', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:resilient-asset')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const assets = await createImageAssets(['background.png'])
+    const handle = new WebAssetUrlHandle({
+      getAssets: () => assets,
+      getType: () => 'images',
+      getName: () => 'background.png',
+      onChange: () => {
+        throw new Error('projection callback failed')
+      },
+    })
+
+    try {
+      await expect(handle.load()).resolves.toBeUndefined()
+      expect(() => handle.dispose()).not.toThrow()
+    }
+    finally {
+      handle.dispose()
       await assets.cleanup()
     }
   })
@@ -2534,6 +2558,58 @@ describe('@quajs/renderer-web', () => {
 
     await controller.destroy()
     await assets.cleanup()
+  })
+
+  it('retries WebAudio buffer loading after a transient asset failure', async () => {
+    installFakeAudioContext({ initialState: 'running' })
+    let shouldFail = true
+    const assets = new QuaAssets({
+      adapter: {
+        name: 'renderer-web-audio-retry-test',
+        storage: new MemoryAssetStorage(),
+        crypto: { sha256: async () => '' },
+      },
+      provider: {
+        mode: 'memory',
+        getManifest: async () => ({
+          version: '1',
+          assets: [audioAssetRecord('bgm.ogg')],
+        }),
+        getAsset: async () => {
+          if (shouldFail) {
+            throw new Error('audio asset temporarily missing')
+          }
+          return new Uint8Array([1, 2, 3, 4])
+        },
+      },
+    })
+    await assets.initialize()
+    const pipeline = new Pipeline()
+    const errors: unknown[] = []
+    onAudioRenderToLogic(pipeline, AudioRenderToLogicEvents.ERROR, payload => errors.push(payload))
+    const controller = new WebAudioRendererController({
+      getPipeline: () => pipeline,
+      getAssets: () => assets,
+      getViewState: () => audioView(),
+      document,
+    })
+
+    controller.start()
+    try {
+      await controller.sync()
+      expect(errors).toHaveLength(1)
+      expect(FakeAudioContext.sources).toHaveLength(0)
+
+      shouldFail = false
+      await controller.sync()
+
+      expect(FakeAudioContext.sources).toHaveLength(1)
+      expect(FakeAudioContext.sources[0]?.start).toHaveBeenCalledWith(0, 0)
+    }
+    finally {
+      await controller.destroy()
+      await assets.cleanup()
+    }
   })
 
   it('starts pending audio when automatic Web Audio resume is allowed', async () => {
