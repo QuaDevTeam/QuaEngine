@@ -2819,13 +2819,13 @@ export class QuaEngine {
     if (projected.video) {
       next.video = {
         ...projected.video,
-        metadata: mergeRuntimePackageMetadata(projected.video.metadata, packageId),
+        metadata: tagUnscopedRuntimeMetadata(projected.video.metadata, packageId),
       }
     }
     if (projected.layers) {
       next.layers = projected.layers.map(layer => ({
         ...layer,
-        metadata: mergeRuntimePackageMetadata(layer.metadata, packageId),
+        metadata: tagUnscopedRuntimeMetadata(layer.metadata, packageId),
       }))
     }
     return next as T
@@ -3171,19 +3171,23 @@ function createEngineMutations() {
       if (!background) {
         return
       }
-      if (recordRequiresPackage(background.metadata, packageId) || recordRequiresPackage(background.video?.metadata, packageId)) {
+      if (recordOwnedByPackage(background.metadata, packageId) || recordRequiresPackage(background.video?.metadata, packageId)) {
         state.engine.view.background = undefined
         return
       }
-      if (background.mode !== 'layered' || !background.layers?.length) {
-        return
-      }
-      const layers = background.layers.filter(layer => !recordRequiresPackage(layer.metadata, packageId))
-      if (layers.length !== background.layers.length) {
-        state.engine.view.background = {
-          ...background,
-          layers,
+      if (background.mode === 'layered' && background.layers?.length) {
+        const layers = background.layers.filter(layer => !recordRequiresPackage(layer.metadata, packageId))
+        if (layers.length !== background.layers.length) {
+          state.engine.view.background = {
+            ...background,
+            layers,
+            metadata: removeRuntimePackageFromMetadata(background.metadata, packageId),
+          }
+          return
         }
+      }
+      if (recordRequiresPackage(background.metadata, packageId)) {
+        state.engine.view.background = undefined
       }
     },
     upsertAnimation(state: any, payload: ActiveAnimationProjection) {
@@ -3793,6 +3797,37 @@ function mergeRuntimePackageMetadata(
   }
 
   return next
+}
+
+function tagUnscopedRuntimeMetadata(
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  packageId: string,
+): Record<string, unknown> {
+  if (metadata && getRecordRuntimePackages(metadata).length > 0) {
+    return cloneUnknownRecord(metadata)
+  }
+  return mergeRuntimePackageMetadata(metadata, packageId)
+}
+
+function removeRuntimePackageFromMetadata(
+  metadata: Readonly<Record<string, unknown>> | undefined,
+  packageId: string,
+): Record<string, unknown> | undefined {
+  if (!metadata) {
+    return undefined
+  }
+  if (metadata.contentPackageId === packageId) {
+    return undefined
+  }
+  const next = cloneUnknownRecord(metadata)
+  const requiredRuntimePackages = getMetadataRequiredRuntimePackages(next).filter(id => id !== packageId)
+  if (requiredRuntimePackages.length > 0) {
+    next.requiredRuntimePackages = requiredRuntimePackages
+  }
+  else {
+    delete next.requiredRuntimePackages
+  }
+  return Object.keys(next).length > 0 ? next : undefined
 }
 
 function collectRuntimePackagesFromUnknown(value: unknown, seen = new Set<object>()): string[] {

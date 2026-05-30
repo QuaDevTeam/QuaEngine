@@ -2606,10 +2606,7 @@ describe('quaEngine runtime architecture', () => {
       layers: [
         expect.objectContaining({
           id: 'base',
-          metadata: expect.objectContaining({
-            contentPackageId: 'runtime.scene.visual.a',
-            requiredRuntimePackages: ['runtime.scene.visual.a', 'runtime.scene.visual.b'],
-          }),
+          metadata: { contentPackageId: 'runtime.scene.visual.a' },
         }),
         expect.objectContaining({
           id: 'lighting',
@@ -2626,6 +2623,23 @@ describe('quaEngine runtime architecture', () => {
       'runtime.scene.visual.a',
     ])
     await expect(engine.unloadRuntimePackage('runtime.scene.visual.a')).rejects.toThrow('current view projection')
+
+    await engine.setStoryPoint({ sceneId: 'base-scene', stepId: 'base-step' })
+    await engine.unloadRuntimePackage('runtime.scene.visual.b', { force: true })
+
+    expect(engine.getViewState().background).toEqual(expect.objectContaining({
+      mode: 'layered',
+      metadata: {
+        contentPackageId: 'runtime.scene.visual.a',
+        requiredRuntimePackages: ['runtime.scene.visual.a'],
+      },
+      layers: [
+        expect.objectContaining({
+          id: 'base',
+          metadata: { contentPackageId: 'runtime.scene.visual.a' },
+        }),
+      ],
+    }))
   })
 
   it('tags and clears core view projections produced by runtime package scripts', async () => {
