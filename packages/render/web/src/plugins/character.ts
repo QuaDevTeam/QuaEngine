@@ -1,5 +1,6 @@
 import type { ViewCharacterProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
+import { runtimePackageCandidatesFromMetadata } from '../assets'
 import { characterProjectionVars, projectCharacters } from '../projection'
 import { defineWebRendererPlugin } from './core'
 import { applyStyleVars, assignData } from './shared'
@@ -51,7 +52,7 @@ function renderCharacterLayer(context: QuaWebDomLayerContext, options: Character
         const image = context.document.createElement('img')
         image.className = 'qua-character-sprite'
         image.alt = character.name
-        context.bindAssetUrl(image, 'characters', character.sprite, 'src', contentPackageIdFromMetadata(character.metadata))
+        context.bindAssetUrl(image, 'characters', character.sprite, 'src', runtimePackageCandidatesFromMetadata(character.metadata))
         root.append(image)
       }
     }
@@ -90,8 +91,4 @@ function findCharacterElement(root: HTMLElement, characterId: string): HTMLEleme
     }
   }
   return undefined
-}
-
-function contentPackageIdFromMetadata(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
-  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
 }

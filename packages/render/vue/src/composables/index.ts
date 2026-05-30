@@ -1,4 +1,5 @@
 import type { AssetType } from '@quajs/assets'
+import type { WebAssetTargetPackageId } from '@quajs/renderer-web'
 import type { ComputedRef } from 'vue'
 import { WebAssetUrlHandle } from '@quajs/renderer-web'
 import { computed, onBeforeUnmount, readonly, ref, watch } from 'vue'
@@ -129,7 +130,7 @@ export function useRendererActions() {
 export function useAssetUrl(
   type: AssetType | ComputedRef<AssetType>,
   name: () => string | undefined,
-  targetPackageId?: () => string | undefined,
+  targetPackageId?: () => WebAssetTargetPackageId | undefined,
 ) {
   const { assets, assetRevision } = useQuaRenderer()
   const assetType = computed(() => typeof type === 'string' ? type : type.value)

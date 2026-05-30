@@ -1342,6 +1342,82 @@ describe('@quajs/renderer-vue', () => {
     await assets.cleanup()
   })
 
+  it('resolves sprite deltas through required runtime package candidates', async () => {
+    const pipeline = new Pipeline()
+    const requestedAssets: Array<{ name: string, packageId?: string }> = []
+    let urlIndex = 0
+    const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:runtime-sprite-delta:${++urlIndex}`)
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const assets = new QuaAssets({
+      adapter: {
+        name: 'renderer-runtime-sprite-delta-test',
+        storage: new MemoryAssetStorage(),
+        crypto: { sha256: async () => '' },
+      },
+      provider: {
+        mode: 'memory',
+        getManifest: async () => ({
+          version: '1',
+          assets: [
+            characterManifestRecord('base-manifest', 'alice/sprite.manifest.json', 'runtime.base-sprite', 1),
+            characterManifestRecord('delta-manifest', 'alice/sprite.manifest.json', 'runtime.delta-sprite', 100),
+            characterManifestRecord('base-image', 'alice/base.png', 'runtime.base-sprite', 1),
+            characterManifestRecord('delta-happy', 'alice/happy.png', 'runtime.delta-sprite', 100),
+          ],
+        }),
+        getAsset: async (_id, record) => {
+          requestedAssets.push({ name: record?.name || '', packageId: record?.runtimePackageId })
+          if (record?.path === 'characters/alice/sprite.manifest.json') {
+            return new TextEncoder().encode(JSON.stringify({
+              version: 1,
+              family: 'alice',
+              base: { asset: 'base.png' },
+              expressions: {
+                happy: {
+                  layers: [{ asset: 'happy.png' }],
+                },
+              },
+            }))
+          }
+          return new Uint8Array([1, 2, 3])
+        },
+      },
+    })
+    await assets.initialize()
+
+    const host = mount(QuaRenderer, {
+      pipeline,
+      assets,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        characters: [{
+          id: 'Alice',
+          name: 'Alice',
+          visible: true,
+          sprite: 'alice/base.png',
+          expression: 'happy',
+          metadata: {
+            contentPackageId: 'runtime.base-sprite',
+            requiredRuntimePackages: ['runtime.base-sprite', 'runtime.delta-sprite'],
+          },
+        }],
+      }),
+    })
+
+    await flushVue()
+    await flushVue()
+
+    expect(requestedAssets).toContainEqual({ name: 'alice/sprite.manifest.json', packageId: 'runtime.delta-sprite' })
+    expect(requestedAssets).toContainEqual({ name: 'alice/base.png', packageId: 'runtime.base-sprite' })
+    expect(requestedAssets).toContainEqual({ name: 'alice/happy.png', packageId: 'runtime.delta-sprite' })
+    expect(create.mock.calls.length).toBeGreaterThanOrEqual(2)
+
+    host.app.unmount()
+    await flushVue()
+    expect(revoke).toHaveBeenCalled()
+    await assets.cleanup()
+  })
+
   it('does not mount an empty default overlay layer over stage interactions', async () => {
     const pipeline = new Pipeline()
     const received: Array<{ source?: string }> = []

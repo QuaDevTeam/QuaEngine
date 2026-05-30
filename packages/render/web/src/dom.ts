@@ -1,7 +1,7 @@
 import type { AssetType } from '@quajs/assets'
 import type { QuaViewProjection, RendererPlugin } from '@quajs/render-core'
 import type { RendererActions } from './actions'
-import type { WebAssetUrlState } from './assets'
+import type { WebAssetTargetPackageId, WebAssetUrlState } from './assets'
 import type { QuaWebRendererOptions, QuaWebRendererSnapshot } from './controller'
 import type { StageContainerSize, StageRenderPlane } from './layout'
 import { WebAssetUrlHandle } from './assets'
@@ -18,12 +18,12 @@ export interface QuaWebDomLayerContext {
   document: Document
   view: Readonly<QuaViewProjection>
   actions: RendererActions
-  bindAssetUrl: (element: HTMLImageElement | HTMLVideoElement | HTMLAudioElement, type: AssetType, name: string | undefined, attribute?: 'src' | 'poster', targetPackageId?: string) => void
+  bindAssetUrl: (element: HTMLImageElement | HTMLVideoElement | HTMLAudioElement, type: AssetType, name: string | undefined, attribute?: 'src' | 'poster', targetPackageId?: WebAssetTargetPackageId) => void
   watchAssetUrl: (
     type: AssetType,
     name: string | undefined,
     onChange: (state: Readonly<WebAssetUrlState>) => void,
-    targetPackageId?: string,
+    targetPackageId?: WebAssetTargetPackageId,
   ) => () => void
 }
 
@@ -235,7 +235,7 @@ export class QuaWebDomRenderer {
     type: AssetType,
     name: string | undefined,
     attribute: 'src' | 'poster',
-    targetPackageId?: string,
+    targetPackageId?: WebAssetTargetPackageId,
   ): void {
     this.watchAssetUrl(type, name, (state) => {
       if (state.url) {
@@ -251,7 +251,7 @@ export class QuaWebDomRenderer {
     type: AssetType,
     name: string | undefined,
     onChange: (state: Readonly<WebAssetUrlState>) => void,
-    targetPackageId?: string,
+    targetPackageId?: WebAssetTargetPackageId,
   ): () => void {
     const handle = new WebAssetUrlHandle({
       getAssets: () => this.controller.getAssets(),

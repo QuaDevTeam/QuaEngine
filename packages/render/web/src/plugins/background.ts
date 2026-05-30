@@ -1,5 +1,7 @@
 import type { BackgroundMaskProjection, ViewBackgroundProjection } from '@quajs/render-core'
+import type { WebAssetTargetPackageId } from '../assets'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
+import { runtimePackageCandidatesFromMetadata } from '../assets'
 import {
   backgroundLayerProjectionVars,
   backgroundMaskImageVars,
@@ -55,10 +57,10 @@ function renderBackgroundProjection(context: QuaWebDomLayerContext, background: 
     }
     video.setAttribute('aria-hidden', 'true')
     applyStyleVars(video, backgroundProjectionVars(background))
-    const targetPackageId = contentPackageIdFromMetadata(background.video.metadata || background.metadata)
-    syncBackgroundMask(context, video, background.composition?.mask, targetPackageId)
-    context.bindAssetUrl(video, 'video', background.video.assetName, 'src', targetPackageId)
-    context.bindAssetUrl(video, 'images', background.video.poster, 'poster', targetPackageId)
+    const targetPackageIds = runtimePackageCandidatesFromMetadata(background.video.metadata || background.metadata)
+    syncBackgroundMask(context, video, background.composition?.mask, targetPackageIds)
+    context.bindAssetUrl(video, 'video', background.video.assetName, 'src', targetPackageIds)
+    context.bindAssetUrl(video, 'images', background.video.poster, 'poster', targetPackageIds)
     return video
   }
 
@@ -66,7 +68,7 @@ function renderBackgroundProjection(context: QuaWebDomLayerContext, background: 
     const root = context.document.createElement('div')
     root.className = 'qua-layered-background'
     applyStyleVars(root, backgroundProjectionVars(background))
-    syncBackgroundMask(context, root, background.composition?.mask, contentPackageIdFromMetadata(background.metadata))
+    syncBackgroundMask(context, root, background.composition?.mask, runtimePackageCandidatesFromMetadata(background.metadata))
     for (const item of background.layers || []) {
       const assetType = normalizeBackgroundLayerAssetType(item.assetType)
       const element = item.assetType === 'video'
@@ -90,8 +92,9 @@ function renderBackgroundProjection(context: QuaWebDomLayerContext, background: 
         element.muted = true
       }
       applyStyleVars(element, backgroundLayerProjectionVars(item))
-      syncBackgroundMask(context, element, item.composition?.mask, contentPackageIdFromMetadata(item.metadata))
-      context.bindAssetUrl(element, assetType, item.assetName, 'src', contentPackageIdFromMetadata(item.metadata))
+      const targetPackageIds = runtimePackageCandidatesFromMetadata(item.metadata)
+      syncBackgroundMask(context, element, item.composition?.mask, targetPackageIds)
+      context.bindAssetUrl(element, assetType, item.assetName, 'src', targetPackageIds)
       root.append(element)
     }
     return root
@@ -106,8 +109,9 @@ function renderBackgroundProjection(context: QuaWebDomLayerContext, background: 
   image.alt = ''
   image.setAttribute('aria-hidden', 'true')
   applyStyleVars(image, backgroundProjectionVars(background))
-  syncBackgroundMask(context, image, background.composition?.mask, contentPackageIdFromMetadata(background.metadata))
-  context.bindAssetUrl(image, 'images', background.assetName, 'src', contentPackageIdFromMetadata(background.metadata))
+  const targetPackageIds = runtimePackageCandidatesFromMetadata(background.metadata)
+  syncBackgroundMask(context, image, background.composition?.mask, targetPackageIds)
+  context.bindAssetUrl(image, 'images', background.assetName, 'src', targetPackageIds)
   return image
 }
 
@@ -122,26 +126,26 @@ function updateBackgroundLayer(context: QuaWebDomLayerContext, node: Node): void
   }
   if (background.mode === 'layered') {
     applyStyleVars(projection, backgroundProjectionVars(background))
-    syncBackgroundMask(context, projection, background.composition?.mask, contentPackageIdFromMetadata(background.metadata))
+    syncBackgroundMask(context, projection, background.composition?.mask, runtimePackageCandidatesFromMetadata(background.metadata))
     for (const item of background.layers || []) {
       const element = findBackgroundLayerElement(projection, item.id)
       if (element instanceof HTMLElement) {
         element.classList.toggle('is-hidden', item.visible === false)
         applyStyleVars(element, backgroundLayerProjectionVars(item))
-        syncBackgroundMask(context, element, item.composition?.mask, contentPackageIdFromMetadata(item.metadata))
+        syncBackgroundMask(context, element, item.composition?.mask, runtimePackageCandidatesFromMetadata(item.metadata))
       }
     }
     return
   }
   applyStyleVars(projection, backgroundProjectionVars(background))
-  syncBackgroundMask(context, projection, background.composition?.mask, contentPackageIdFromMetadata(background.metadata))
+  syncBackgroundMask(context, projection, background.composition?.mask, runtimePackageCandidatesFromMetadata(background.metadata))
 }
 
 function syncBackgroundMask(
   context: QuaWebDomLayerContext,
   element: HTMLElement,
   mask: Readonly<BackgroundMaskProjection> | undefined,
-  targetPackageId?: string,
+  targetPackageId?: WebAssetTargetPackageId,
 ): void {
   const key = mask?.assetName
     ? `${normalizeBackgroundLayerAssetType(mask.assetType)}:${mask.assetName}`
@@ -167,10 +171,6 @@ function syncBackgroundMask(
     applyStyleVars(element, backgroundMaskImageVars(state.url))
   }, targetPackageId)
   backgroundMaskDisposers.set(element, dispose)
-}
-
-function contentPackageIdFromMetadata(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
-  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
 }
 
 function findBackgroundLayerElement(root: HTMLElement, layerId: string): HTMLElement | undefined {

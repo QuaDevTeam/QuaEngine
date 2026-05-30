@@ -8,8 +8,13 @@ export {
   cloneCharacter,
   collectTrackValues,
 } from './animation'
-export type { WebAssetUrlHandleOptions, WebAssetUrlState } from './assets'
-export { WebAssetUrlHandle } from './assets'
+export type { WebAssetTargetPackageId, WebAssetUrlHandleOptions, WebAssetUrlState } from './assets'
+export {
+  getAssetWithTargetPackages,
+  getJSONWithTargetPackages,
+  runtimePackageCandidatesFromMetadata,
+  WebAssetUrlHandle,
+} from './assets'
 export type {
   QuaWebRendererOptions,
   QuaWebRendererSnapshot,

@@ -1,5 +1,7 @@
-import type { AssetType, QuaAssets } from '@quajs/assets'
+import type { AssetData, AssetType, QuaAssets } from '@quajs/assets'
 import { createObjectURL, revokeObjectURL } from '@quajs/assets-web'
+
+export type WebAssetTargetPackageId = string | readonly string[]
 
 export interface WebAssetUrlState {
   url?: string
@@ -11,8 +13,78 @@ export interface WebAssetUrlHandleOptions {
   getAssets: () => QuaAssets | undefined
   getType: () => AssetType
   getName: () => string | undefined
-  getTargetPackageId?: () => string | undefined
+  getTargetPackageId?: () => WebAssetTargetPackageId | undefined
   onChange?: (state: Readonly<WebAssetUrlState>) => void
+}
+
+export function runtimePackageCandidatesFromMetadata(
+  metadata: Readonly<Record<string, unknown>> | undefined,
+): readonly string[] | undefined {
+  const contentPackageId = typeof metadata?.contentPackageId === 'string' && metadata.contentPackageId.length > 0
+    ? metadata.contentPackageId
+    : undefined
+  const requiredRuntimePackages = Array.isArray(metadata?.requiredRuntimePackages)
+    ? metadata.requiredRuntimePackages.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : []
+  const candidates = [...requiredRuntimePackages].reverse()
+  if (contentPackageId && !candidates.includes(contentPackageId)) {
+    candidates.push(contentPackageId)
+  }
+  return candidates.length > 0 ? candidates : undefined
+}
+
+export async function getAssetWithTargetPackages(
+  assets: QuaAssets,
+  type: AssetType,
+  name: string,
+  targetPackageId?: WebAssetTargetPackageId,
+): Promise<AssetData> {
+  const candidates = normalizeTargetPackageIds(targetPackageId)
+  if (candidates.length === 0) {
+    return await assets.getAsset(type, name)
+  }
+
+  let lastNotFound: unknown
+  for (const candidate of candidates) {
+    try {
+      return await assets.getAsset(type, name, { targetPackageId: candidate })
+    }
+    catch (caught) {
+      if (!isAssetNotFoundError(caught)) {
+        throw caught
+      }
+      lastNotFound = caught
+    }
+  }
+
+  throw lastNotFound || new Error(`Asset not found: ${type}/${name}`)
+}
+
+export async function getJSONWithTargetPackages<T = unknown>(
+  assets: QuaAssets,
+  type: AssetType,
+  name: string,
+  targetPackageId?: WebAssetTargetPackageId,
+): Promise<T> {
+  const candidates = normalizeTargetPackageIds(targetPackageId)
+  if (candidates.length === 0) {
+    return await assets.getJSON<T>(type, name)
+  }
+
+  let lastNotFound: unknown
+  for (const candidate of candidates) {
+    try {
+      return await assets.getJSON<T>(type, name, { targetPackageId: candidate })
+    }
+    catch (caught) {
+      if (!isAssetNotFoundError(caught)) {
+        throw caught
+      }
+      lastNotFound = caught
+    }
+  }
+
+  throw lastNotFound || new Error(`Asset not found: ${type}/${name}`)
 }
 
 export class WebAssetUrlHandle {
@@ -41,9 +113,7 @@ export class WebAssetUrlHandle {
     this.notify()
 
     try {
-      const asset = await assets.getAsset(this.options.getType(), assetName, {
-        targetPackageId: this.options.getTargetPackageId?.(),
-      })
+      const asset = await getAssetWithTargetPackages(assets, this.options.getType(), assetName, this.options.getTargetPackageId?.())
       const nextUrl = createObjectURL(asset)
       if (currentRequestId === this.requestId) {
         this.state = { url: nextUrl, loading: false }
@@ -85,4 +155,23 @@ export class WebAssetUrlHandle {
   private notify(): void {
     this.options.onChange?.(this.state)
   }
+}
+
+function normalizeTargetPackageIds(targetPackageId: WebAssetTargetPackageId | undefined): string[] {
+  if (typeof targetPackageId === 'string') {
+    return targetPackageId.length > 0 ? [targetPackageId] : []
+  }
+  if (!targetPackageId) {
+    return []
+  }
+  return Array.from(new Set(targetPackageId.filter(packageId => packageId.length > 0)))
+}
+
+function isAssetNotFoundError(error: unknown): boolean {
+  return Boolean(
+    error
+    && typeof error === 'object'
+    && 'code' in error
+    && (error as { code?: unknown }).code === 'ASSET_NOT_FOUND',
+  )
 }
