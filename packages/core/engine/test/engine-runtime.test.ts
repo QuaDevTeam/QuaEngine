@@ -2606,7 +2606,10 @@ describe('quaEngine runtime architecture', () => {
       layers: [
         expect.objectContaining({
           id: 'base',
-          metadata: { contentPackageId: 'runtime.scene.visual.a' },
+          metadata: expect.objectContaining({
+            contentPackageId: 'runtime.scene.visual.a',
+            requiredRuntimePackages: ['runtime.scene.visual.a', 'runtime.scene.visual.b'],
+          }),
         }),
         expect.objectContaining({
           id: 'lighting',
