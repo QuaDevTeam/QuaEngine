@@ -3191,7 +3191,7 @@ function createEngineMutations() {
     },
     removeAnimationsByRuntimePackage(state: any, packageId: string) {
       state.engine.view.animations = (state.engine.view.animations || []).filter((animation: ActiveAnimationProjection) =>
-        animation.contentPackageId !== packageId,
+        !recordRequiresPackage(animation, packageId),
       )
     },
     setDialogue(state: any, payload: DialogueIntent) {

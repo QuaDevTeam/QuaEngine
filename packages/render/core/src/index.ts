@@ -507,6 +507,7 @@ export interface ActiveAnimationProjection {
   id: string
   definitionId?: string
   contentPackageId?: string
+  requiredRuntimePackages?: readonly string[]
   bindings?: Readonly<Record<string, string>>
   state: AnimationPlaybackState
   startedAt: number
