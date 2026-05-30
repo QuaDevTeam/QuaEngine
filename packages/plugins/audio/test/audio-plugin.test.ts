@@ -1,7 +1,7 @@
 import { QuaEngine } from '@quajs/engine'
 import { getSettingsDeveloperValues, getSettingsPlayerValues, getSettingsProjection, SettingsPlugin, updatePlayerSettingsWithEngine } from '@quajs/plugin-settings'
 import { MemoryBackend } from '@quajs/store'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   AUDIO_PLUGIN_ID,
   AUDIO_SETTINGS_SCOPE,
@@ -27,6 +27,7 @@ const engines: QuaEngine[] = []
 
 describe('@quajs/plugin-audio', () => {
   afterEach(async () => {
+    vi.restoreAllMocks()
     await Promise.all(engines.splice(0).map(engine => engine.destroy().catch(() => {})))
     QuaEngine.resetInstance()
   })
@@ -189,6 +190,26 @@ describe('@quajs/plugin-audio', () => {
     })
 
     expect((engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any).voices).toEqual([])
+  })
+
+  it('projects audio asset duration for voice timing consumers', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    await engine.init()
+    vi.spyOn(engine, 'getAssetMetadata').mockResolvedValue({
+      format: 'OGG',
+      duration: 2.4,
+    })
+
+    await playVoiceWithEngine(engine, 'voice/timed', {
+      lineId: 'line-1',
+    })
+
+    const projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.voices[0]).toEqual(expect.objectContaining({
+      assetKey: 'voice/timed',
+      durationMs: 2400,
+    }))
   })
 
   it('ignores stale renderer audio completion events', async () => {

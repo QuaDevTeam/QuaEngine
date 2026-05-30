@@ -30,6 +30,8 @@ export type {
   CharacterPayload,
   CharacterPosition,
   ChoiceShowPayload,
+  DialogueTypewriterProjection,
+  DialogueTypewriterSoundProjection,
   DialogueShowPayload,
   EffectPayload,
   EngineEvents,

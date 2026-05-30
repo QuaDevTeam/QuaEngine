@@ -17,6 +17,7 @@ import type { Pipeline } from '@quajs/pipeline'
 import type { QuaGameSavePreviewPayload, QuaStateSerializer, QuaStore, StorageConfig } from '@quajs/store'
 import type {
   ActiveAnimationProjection,
+  DialogueTypewriterProjection,
   FlowControlMode,
   FlowControlPolicy,
   FlowControlProjectionInput,
@@ -323,6 +324,7 @@ export interface QuaEngineInterface {
   unregisterRollbackStore: (name: string) => void
   getStore: () => QuaStore
   getAssets: () => QuaAssets
+  getAssetMetadata: (type: AssetType, assetName: string) => Promise<unknown>
   resolveStoryAssetRef: (ref: StoryAssetRef) => Promise<ResolvedStoryAsset>
   getPipeline: () => Pipeline
   translate: (key: string, options?: TranslateInput) => Promise<string>
@@ -841,9 +843,14 @@ export interface EngineConfig {
     logLevel?: 'debug' | 'info' | 'warn' | 'error'
   }
   flowControl?: FlowControlOptions
+  dialogue?: DialogueOptions
 }
 
 export interface FlowControlOptions extends FlowControlProjectionInput {}
+
+export interface DialogueOptions {
+  typewriter?: DialogueTypewriterInput
+}
 
 export type FlowControlRuntimeOptions = Partial<Pick<
   FlowControlProjectionInput,
@@ -859,12 +866,16 @@ export interface UiIntent extends ViewUiProjection {}
 export interface EffectIntent extends ViewEffectProjection {}
 
 export interface DialogueIntent {
+  revision?: number
   characterId?: string
   characterName?: string
   text: RichTextContent
   mode?: 'say' | 'narration'
+  typewriter?: DialogueTypewriterInput
   metadata?: Record<string, unknown>
 }
+
+export type DialogueTypewriterInput = boolean | DialogueTypewriterProjection
 
 export interface ChoiceIntent {
   id: string

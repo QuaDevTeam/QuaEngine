@@ -2,6 +2,7 @@ import type { EventListener } from '@quajs/pipeline'
 import type { QuaGameSavePreviewWriteInput, QuaStore } from '@quajs/store'
 import type {
   ActiveAnimationProjection,
+  DialogueTypewriterProjection,
   EventPayload,
   FlowControlMode,
   FlowControlPolicy,
@@ -96,6 +97,7 @@ import {
   emitRenderToLogic,
   LogicToRenderEvents as L2R,
   RenderToLogicEvents as R2L,
+  richTextToPlainText,
   waitForPipelineEvent,
 } from '../events/events'
 import { GameManager } from '../managers/game-manager'
@@ -678,12 +680,16 @@ export class QuaEngine {
 
   async showDialogue(payload: DialogueIntent): Promise<void> {
     this.assertInitialized()
-    const dialogue = this.withCurrentRuntimeContentMetadata(payload)
+    const dialogue = this.withCurrentRuntimeDialogueMetadata(this.withDialogueDefaults(payload))
     this.store.commit('setDialogue', dialogue)
+    const projectedDialogue = this.getEngineState().view.dialogue
     await this.emitLogicToRender(L2R.DIALOGUE_SHOW, {
-      characterId: dialogue.characterId,
-      characterName: dialogue.characterName,
-      text: dialogue.text,
+      characterId: projectedDialogue.characterId,
+      characterName: projectedDialogue.characterName,
+      text: projectedDialogue.text,
+      mode: projectedDialogue.mode,
+      typewriter: projectedDialogue.typewriter,
+      metadata: projectedDialogue.metadata,
     })
     await this.emitViewUpdate()
     this.scheduleFlowControlAdvance()
@@ -2539,18 +2545,24 @@ export class QuaEngine {
     if (!plan) {
       return
     }
+    const resolvedPlan = plan.mode === 'auto'
+      ? {
+          ...plan,
+          delayMs: plan.delayMs + resolveDialogueReadinessDelayMs(view),
+        }
+      : plan
 
     this.flowControlAdvanceTimer = setTimeout(() => {
       this.flowControlAdvanceTimer = undefined
-      this.emitFlowControlAdvance(plan).catch((error) => {
+      this.emitFlowControlAdvance(resolvedPlan).catch((error) => {
         void this.reportErrorOnce(error, {
           message: 'Failed to advance flow control.',
           source: 'engine',
           phase: 'flow-control:advance',
-          metadata: { mode: plan.mode, source: plan.source },
+          metadata: { mode: resolvedPlan.mode, source: resolvedPlan.source },
         })
       })
-    }, plan.delayMs)
+    }, resolvedPlan.delayMs)
   }
 
   private clearFlowControlAdvance(): void {
@@ -2806,6 +2818,40 @@ export class QuaEngine {
     return {
       ...value,
       metadata: mergeRuntimePackageMetadata(value.metadata, packageId),
+    }
+  }
+
+  private withDialogueDefaults(payload: DialogueIntent): DialogueIntent {
+    const typewriter = normalizeDialogueTypewriter(
+      payload.typewriter,
+      this.config.dialogue?.typewriter,
+      this.resolveActiveDialogueVoiceDurationMs(),
+    )
+    return {
+      ...payload,
+      ...(typewriter ? { typewriter } : {}),
+    }
+  }
+
+  private resolveActiveDialogueVoiceDurationMs(): number | undefined {
+    return resolveActiveDialogueVoiceDurationMs(this.getEngineState().view.plugins.audio)
+  }
+
+  private withCurrentRuntimeDialogueMetadata<T extends DialogueIntent>(payload: T): T {
+    const packageId = this.getCurrentRuntimePackageId()
+    const projected = this.withCurrentRuntimeContentMetadata(payload)
+    const typewriter = projected.typewriter && typeof projected.typewriter === 'object'
+      ? projected.typewriter
+      : undefined
+    if (!packageId || !typewriter?.sound) {
+      return projected
+    }
+    return {
+      ...projected,
+      typewriter: {
+        ...typewriter,
+        sound: tagDialogueTypewriterSoundWithRuntimePackage(typewriter.sound, packageId),
+      },
     }
   }
 
@@ -3209,12 +3255,17 @@ function createEngineMutations() {
       )
     },
     setDialogue(state: any, payload: DialogueIntent) {
+      const currentRevision = typeof state.engine.view.dialogue?.revision === 'number'
+        ? state.engine.view.dialogue.revision
+        : 0
       state.engine.view.dialogue = {
+        revision: payload.revision ?? currentRevision + 1,
         visible: true,
         characterId: payload.characterId,
         characterName: payload.characterName,
         text: cloneUnknownValue(payload.text) as DialogueIntent['text'],
         mode: payload.mode || (payload.characterId || payload.characterName ? 'say' : 'narration'),
+        typewriter: payload.typewriter ? cloneUnknownValue(payload.typewriter) as DialogueTypewriterProjection : undefined,
         metadata: payload.metadata,
       }
     },
@@ -3223,7 +3274,7 @@ function createEngineMutations() {
     },
     clearDialogueByRuntimePackage(state: any, packageId: string) {
       const dialogue = state.engine.view.dialogue as DialogueIntent | undefined
-      if (recordRequiresPackage(dialogue?.metadata, packageId)) {
+      if (recordRequiresPackage(dialogue, packageId)) {
         state.engine.view.dialogue = { visible: false, text: '' }
       }
     },
@@ -3343,6 +3394,115 @@ function resolveFlowControlAdvancePlan(flowControl: ViewFlowControlProjection): 
   }
 }
 
+const DEFAULT_DIALOGUE_TYPEWRITER_CHARACTERS_PER_SECOND = 36
+
+function normalizeDialogueTypewriter(
+  input: DialogueIntent['typewriter'] | undefined,
+  defaults: DialogueIntent['typewriter'] | undefined,
+  voiceDurationMs?: number,
+): DialogueTypewriterProjection | undefined {
+  const source = input !== undefined ? input : defaults
+  if (source === undefined || source === false) {
+    return undefined
+  }
+
+  const projection: DialogueTypewriterProjection = source === true
+    ? { enabled: true }
+    : {
+        ...source,
+        metadata: source.metadata ? cloneUnknownRecord(source.metadata) : undefined,
+        sound: source.sound
+          ? {
+              ...source.sound,
+              metadata: source.sound.metadata ? cloneUnknownRecord(source.sound.metadata) : undefined,
+            }
+          : undefined,
+      }
+
+  if (projection.enabled === false) {
+    return undefined
+  }
+
+  projection.enabled = true
+  if (
+    voiceDurationMs !== undefined
+    && projection.syncWithVoice !== false
+    && !isPositiveFiniteNumber(projection.durationMs)
+  ) {
+    projection.durationMs = voiceDurationMs
+  }
+  return projection
+}
+
+function resolveDialogueReadinessDelayMs(view: QuaViewProjection): number {
+  if (!view.dialogue.visible) {
+    return 0
+  }
+
+  return Math.max(
+    resolveDialogueTypewriterDurationMs(view.dialogue),
+    resolveActiveDialogueVoiceDurationMs(view.plugins.audio) ?? 0,
+  )
+}
+
+function resolveDialogueTypewriterDurationMs(dialogue: QuaViewProjection['dialogue']): number {
+  const typewriter = dialogue.typewriter
+  if (!typewriter?.enabled) {
+    return 0
+  }
+  if (isPositiveFiniteNumber(typewriter.durationMs)) {
+    return typewriter.durationMs
+  }
+  const textLength = countTextCharacters(richTextToPlainText(dialogue.text))
+  if (textLength <= 0) {
+    return 0
+  }
+  const charactersPerSecond = isPositiveFiniteNumber(typewriter.charactersPerSecond)
+    ? typewriter.charactersPerSecond
+    : DEFAULT_DIALOGUE_TYPEWRITER_CHARACTERS_PER_SECOND
+  return Math.ceil((textLength / charactersPerSecond) * 1000)
+}
+
+function resolveActiveDialogueVoiceDurationMs(audioProjection: unknown): number | undefined {
+  if (!audioProjection || typeof audioProjection !== 'object' || Array.isArray(audioProjection)) {
+    return undefined
+  }
+  const audio = audioProjection as Record<string, unknown>
+  const voices = Array.isArray(audio.voices) ? audio.voices : []
+  const currentLineId = typeof audio.currentLineId === 'string' ? audio.currentLineId : undefined
+  const activeVoices = voices.filter(isActiveVoiceTrackRecord)
+  const voice = currentLineId
+    ? [...activeVoices].reverse().find(track => track.lineId === currentLineId) || activeVoices[activeVoices.length - 1]
+    : activeVoices[activeVoices.length - 1]
+  if (!voice || !isPositiveFiniteNumber(voice.durationMs)) {
+    return undefined
+  }
+  const offsetMs = isPositiveFiniteNumber(voice.seekMs)
+    ? voice.seekMs
+    : isPositiveFiniteNumber(voice.offsetMs)
+      ? voice.offsetMs
+      : 0
+  return Math.max(0, voice.durationMs - offsetMs)
+}
+
+function isActiveVoiceTrackRecord(value: unknown): value is Record<string, any> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  const record = value as Record<string, unknown>
+  return record.kind === 'voice'
+    && record.state !== 'stopped'
+    && record.state !== 'stopping'
+}
+
+function countTextCharacters(text: string): number {
+  return Array.from(text).length
+}
+
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
 function isFlowControlMode(value: unknown): value is FlowControlMode {
   return value === 'normal' || value === 'auto' || value === 'skip' || value === 'fast-forward'
 }
@@ -3396,6 +3556,19 @@ function clonePlaytimeState(playtime: EnginePlaytimeState): EnginePlaytimeState 
   return { ...ensurePlaytimeState(playtime) }
 }
 
+function cloneDialogueProjection(dialogue: QuaViewProjection['dialogue']): QuaViewProjection['dialogue'] {
+  return {
+    ...(dialogue.revision !== undefined ? { revision: dialogue.revision } : {}),
+    visible: dialogue.visible,
+    text: cloneUnknownValue(dialogue.text) as DialogueIntent['text'],
+    ...(dialogue.characterId !== undefined ? { characterId: dialogue.characterId } : {}),
+    ...(dialogue.characterName !== undefined ? { characterName: dialogue.characterName } : {}),
+    ...(dialogue.mode !== undefined ? { mode: dialogue.mode } : {}),
+    ...(dialogue.typewriter ? { typewriter: cloneUnknownValue(dialogue.typewriter) as DialogueTypewriterProjection } : {}),
+    ...(dialogue.metadata ? { metadata: cloneUnknownRecord(dialogue.metadata) } : {}),
+  }
+}
+
 function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
   return {
     layout: createViewLayoutProjection(view.layout),
@@ -3425,11 +3598,7 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
       position: character.position ? { ...character.position } : undefined,
       metadata: character.metadata ? { ...character.metadata } : undefined,
     })),
-    dialogue: {
-      ...view.dialogue,
-      text: cloneUnknownValue(view.dialogue.text) as DialogueIntent['text'],
-      metadata: view.dialogue.metadata ? cloneUnknownRecord(view.dialogue.metadata) : undefined,
-    },
+    dialogue: cloneDialogueProjection(view.dialogue),
     choices: view.choices.map(choice => ({
       ...choice,
       metadata: choice.metadata ? { ...choice.metadata } : undefined,
@@ -3653,6 +3822,23 @@ function tagChoicePresentationWithRuntimePackage(presentation: ChoicePresentatio
     thumbnail: presentation.thumbnail ? tagStoryAssetRefWithRuntimePackage(presentation.thumbnail, packageId) : undefined,
     background: presentation.background ? tagStoryAssetRefWithRuntimePackage(presentation.background, packageId) : undefined,
     image: presentation.image ? tagStoryAssetRefWithRuntimePackage(presentation.image, packageId) : undefined,
+  }
+}
+
+function tagDialogueTypewriterSoundWithRuntimePackage(
+  sound: NonNullable<DialogueTypewriterProjection['sound']>,
+  packageId: string,
+): NonNullable<DialogueTypewriterProjection['sound']> {
+  if (sound.contentPackageId || getRecordRuntimePackages(sound.metadata).length > 0) {
+    return {
+      ...sound,
+      metadata: sound.metadata ? cloneUnknownRecord(sound.metadata) : undefined,
+    }
+  }
+  return {
+    ...sound,
+    contentPackageId: packageId,
+    metadata: sound.metadata ? cloneUnknownRecord(sound.metadata) : undefined,
   }
 }
 

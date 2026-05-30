@@ -639,7 +639,7 @@ describe('@quajs/renderer-web', () => {
     expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('Line')
 
     root.querySelector('.qua-choice-button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    root.querySelector('.qua-dialogue-box')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    root.querySelector('.qua-dialogue-box')!.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }))
     root.querySelector('.qua-stage')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await flushDom()
 
@@ -647,6 +647,147 @@ describe('@quajs/renderer-web', () => {
     expect(advances).toEqual([{ source: 'pointer:dialogue' }, { source: 'pointer:stage' }])
 
     await renderer.unmount()
+  })
+
+  it('reveals dialogue with a transient typewriter and consumes the first advance to complete it', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const pipeline = new Pipeline()
+    const advances: Array<{ source?: string }> = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_ADVANCE, payload => advances.push(payload))
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        dialogue: {
+          visible: true,
+          revision: 1,
+          characterName: 'Alice',
+          text: 'Hello',
+          typewriter: { enabled: true, charactersPerSecond: 10 },
+        },
+      }),
+    })
+
+    await renderer.mount()
+    try {
+      expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('')
+
+      await vi.advanceTimersByTimeAsync(100)
+      expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('H')
+
+      root.querySelector('.qua-dialogue-box')!.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }))
+      await flushMicrotasks()
+      expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('Hello')
+      expect(advances).toEqual([])
+
+      root.querySelector('.qua-dialogue-box')!.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }))
+      await vi.advanceTimersByTimeAsync(0)
+      await flushMicrotasks()
+      expect(advances).toEqual([{ source: 'pointer:dialogue' }])
+    }
+    finally {
+      await renderer.unmount()
+    }
+  })
+
+  it('lets advance pass through when dialogue typewriter disables reveal-on-advance', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const pipeline = new Pipeline()
+    const advances: Array<{ source?: string }> = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_ADVANCE, payload => advances.push(payload))
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        dialogue: {
+          visible: true,
+          revision: 1,
+          text: 'Hello',
+          typewriter: { enabled: true, charactersPerSecond: 10, revealOnAdvance: false },
+        },
+      }),
+    })
+
+    await renderer.mount()
+    try {
+      await vi.advanceTimersByTimeAsync(100)
+      expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('H')
+
+      root.querySelector('.qua-dialogue-box')!.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }))
+      await vi.advanceTimersByTimeAsync(0)
+      await flushMicrotasks()
+
+      expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('H')
+      expect(advances).toEqual([{ source: 'pointer:dialogue' }])
+    }
+    finally {
+      await renderer.unmount()
+    }
+  })
+
+  it('plays transient typewriter sounds while revealing dialogue text', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const createUrl = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:typewriter-click')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const play = vi.fn(() => Promise.resolve())
+    const createElement = document.createElement.bind(document)
+    vi.spyOn(document, 'createElement').mockImplementation((tagName, options) => {
+      const element = createElement(tagName, options)
+      if (tagName.toLowerCase() === 'audio') {
+        Object.defineProperty(element, 'play', { value: play })
+      }
+      return element
+    })
+    const assets = await createAudioAssets()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      assets,
+      pipeline: new Pipeline(),
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        dialogue: {
+          visible: true,
+          revision: 1,
+          text: 'Hi',
+          typewriter: {
+            enabled: true,
+            charactersPerSecond: 10,
+            sound: { assetKey: 'sfx/click.ogg', everyCharacters: 1, intervalMs: 0 },
+          },
+        },
+      }),
+    })
+
+    await renderer.mount()
+    try {
+      await vi.advanceTimersByTimeAsync(100)
+      await flushMicrotasks()
+      await vi.advanceTimersByTimeAsync(100)
+      await flushMicrotasks()
+
+      expect(createUrl).toHaveBeenCalled()
+      expect(play).toHaveBeenCalledTimes(1)
+    }
+    finally {
+      await renderer.unmount()
+      await assets.cleanup()
+    }
   })
 
   it('resolves gallery projections from view plugins', () => {
