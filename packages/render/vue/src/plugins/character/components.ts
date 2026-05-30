@@ -34,6 +34,7 @@ export const QuaCharacter = defineComponent({
           sprite: props.character.sprite,
           expression: props.character.expression,
           animationTargetPrefix: props.character.id,
+          targetPackageId: contentPackageIdFromMetadata(props.character.metadata),
         })
       : h('div', sharedAttrs())
   },
@@ -52,3 +53,7 @@ export const QuaCharacterLayer = defineComponent({
     ))
   },
 })
+
+function contentPackageIdFromMetadata(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
+  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
+}

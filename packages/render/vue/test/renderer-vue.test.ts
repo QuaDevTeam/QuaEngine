@@ -1269,6 +1269,79 @@ describe('@quajs/renderer-vue', () => {
     await assets.cleanup()
   })
 
+  it('resolves character sprite assets from the character runtime package', async () => {
+    const pipeline = new Pipeline()
+    const requestedPackages: Array<string | undefined> = []
+    const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:runtime-sprite')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const assets = new QuaAssets({
+      adapter: {
+        name: 'renderer-runtime-sprite-test',
+        storage: new MemoryAssetStorage(),
+        crypto: { sha256: async () => '' },
+      },
+      provider: {
+        mode: 'memory',
+        getManifest: async () => ({
+          version: '1',
+          assets: [
+            characterManifestRecord('other-manifest', 'alice/sprite.manifest.json', 'runtime.other-sprite', 100),
+            characterManifestRecord('runtime-manifest', 'alice/sprite.manifest.json', 'runtime.sprite', 1),
+            characterManifestRecord('other-base', 'alice/base.png', 'runtime.other-sprite', 100),
+            characterManifestRecord('runtime-base', 'alice/base.png', 'runtime.sprite', 1),
+            characterManifestRecord('other-happy', 'alice/happy.png', 'runtime.other-sprite', 100),
+            characterManifestRecord('runtime-happy', 'alice/happy.png', 'runtime.sprite', 1),
+          ],
+        }),
+        getAsset: async (_id, record) => {
+          requestedPackages.push(record?.runtimePackageId)
+          if (record?.path === 'characters/alice/sprite.manifest.json') {
+            return new TextEncoder().encode(JSON.stringify({
+              version: 1,
+              family: 'alice',
+              base: { asset: 'base.png' },
+              expressions: {
+                happy: {
+                  layers: [{ asset: 'happy.png' }],
+                },
+              },
+            }))
+          }
+          return new Uint8Array([1, 2, 3])
+        },
+      },
+    })
+    await assets.initialize()
+
+    const host = mount(QuaRenderer, {
+      pipeline,
+      assets,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        characters: [{
+          id: 'Alice',
+          name: 'Alice',
+          visible: true,
+          sprite: 'alice/base.png',
+          expression: 'happy',
+          metadata: { contentPackageId: 'runtime.sprite' },
+        }],
+      }),
+    })
+
+    await flushVue()
+    await flushVue()
+
+    expect(requestedPackages.length).toBeGreaterThan(0)
+    expect(requestedPackages.every(packageId => packageId === 'runtime.sprite')).toBe(true)
+    expect(create).toHaveBeenCalled()
+
+    host.app.unmount()
+    await flushVue()
+    expect(revoke).toHaveBeenCalled()
+    await assets.cleanup()
+  })
+
   it('does not mount an empty default overlay layer over stage interactions', async () => {
     const pipeline = new Pipeline()
     const received: Array<{ source?: string }> = []
@@ -1832,6 +1905,20 @@ function imageManifestRecord(id: string, name: string, runtimePackageId: string,
     locale: 'default',
     path: `images/${name}`,
     mimeType: 'image/png',
+  }
+}
+
+function characterManifestRecord(id: string, name: string, runtimePackageId: string, bundlePriority: number) {
+  return {
+    id,
+    bundleName: runtimePackageId,
+    bundlePriority,
+    runtimePackageId,
+    name,
+    type: 'characters' as const,
+    locale: 'default',
+    path: `characters/${name}`,
+    mimeType: name.endsWith('.json') ? 'application/json' : 'image/png',
   }
 }
 

@@ -39,6 +39,7 @@ export interface SpriteWebRenderOptions {
   expression?: string
   alt?: string
   animationTargetPrefix?: string
+  targetPackageId?: string
 }
 
 export function renderSprite(context: QuaWebDomLayerContext, options: SpriteWebRenderOptions): HTMLElement | undefined {
@@ -68,13 +69,14 @@ export function renderSprite(context: QuaWebDomLayerContext, options: SpriteWebR
       root.append(renderSpriteLayerItem(context, layer, index === 0, options.alt || '', {
         animationTargetPrefix: options.animationTargetPrefix,
         layerIndex: index,
+        targetPackageId: options.targetPackageId,
       }))
     })
     updateSpriteLayerAnimations(root, context.view.animations, Date.now())
   }
 
   renderResolved()
-  void loadSpriteManifest(context, reference).then((manifest) => {
+  void loadSpriteManifest(context, reference, options.targetPackageId).then((manifest) => {
     if (!root.isConnected) {
       return
     }
@@ -95,6 +97,7 @@ export function createSpriteCharacterRenderer() {
       expression: character.expression,
       alt: character.name,
       animationTargetPrefix: character.id,
+      targetPackageId: contentPackageIdFromMetadata(character.metadata),
     })
   }
 }
@@ -102,9 +105,10 @@ export function createSpriteCharacterRenderer() {
 async function loadSpriteManifest(
   context: QuaWebDomLayerContext,
   reference: SpriteReference,
+  targetPackageId?: string,
 ): Promise<SpriteManifest | undefined> {
   try {
-    return await context.snapshot.assets?.getJSON<SpriteManifest>('characters', reference.manifestPath)
+    return await context.snapshot.assets?.getJSON<SpriteManifest>('characters', reference.manifestPath, { targetPackageId })
   }
   catch {
     return undefined
@@ -119,6 +123,7 @@ function renderSpriteLayerItem(
   options: {
     animationTargetPrefix?: string
     layerIndex: number
+    targetPackageId?: string
   },
 ): HTMLElement {
   const activeAsset = { value: layer.asset }
@@ -144,14 +149,14 @@ function renderSpriteLayerItem(
     image.className = 'qua-sprite-layer__atlas'
     image.alt = alt
     applyElementStyle(image, atlasImageStyle(layer.frame))
-    image.addEventListener('error', () => bindFallbackAsset(context, image, layer, activeAsset))
-    context.bindAssetUrl(image, 'characters' as AssetType, activeAsset.value)
+    image.addEventListener('error', () => bindFallbackAsset(context, image, layer, activeAsset, options.targetPackageId))
+    context.bindAssetUrl(image, 'characters' as AssetType, activeAsset.value, 'src', options.targetPackageId)
     frame.append(image)
 
     context.watchAssetUrl('characters' as AssetType, layer.mask, (state) => {
       mask.url = state.url
       syncMask(frame)
-    })
+    }, options.targetPackageId)
     syncMask(frame)
     return frame
   }
@@ -166,13 +171,13 @@ function renderSpriteLayerItem(
   image.setAttribute('data-sprite-layer-kind', layer.kind)
   bindSpriteLayerAnimationData(image, layer, isBase, options)
   image.setAttribute('aria-hidden', 'true')
-  image.addEventListener('error', () => bindFallbackAsset(context, image, layer, activeAsset))
-  context.bindAssetUrl(image, 'characters' as AssetType, activeAsset.value)
+  image.addEventListener('error', () => bindFallbackAsset(context, image, layer, activeAsset, options.targetPackageId))
+  context.bindAssetUrl(image, 'characters' as AssetType, activeAsset.value, 'src', options.targetPackageId)
 
   context.watchAssetUrl('characters' as AssetType, layer.mask, (state) => {
     mask.url = state.url
     syncMask(image)
-  })
+  }, options.targetPackageId)
   syncMask(image)
   return image
 }
@@ -230,10 +235,11 @@ function bindFallbackAsset(
   image: HTMLImageElement,
   layer: SpriteResolvedLayer,
   activeAsset: { value: string },
+  targetPackageId?: string,
 ): void {
   if (layer.fallback && activeAsset.value !== layer.fallback) {
     activeAsset.value = layer.fallback
-    context.bindAssetUrl(image, 'characters' as AssetType, activeAsset.value)
+    context.bindAssetUrl(image, 'characters' as AssetType, activeAsset.value, 'src', targetPackageId)
   }
 }
 
@@ -334,4 +340,8 @@ function createSpriteTransform(layer: SpriteResolvedLayer): string | undefined {
 
 function toCssProperty(property: string): string {
   return property.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`)
+}
+
+function contentPackageIdFromMetadata(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {
+  return typeof metadata?.contentPackageId === 'string' ? metadata.contentPackageId : undefined
 }
