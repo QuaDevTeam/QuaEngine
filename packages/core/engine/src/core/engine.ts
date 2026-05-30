@@ -2819,17 +2819,13 @@ export class QuaEngine {
     if (projected.video) {
       next.video = {
         ...projected.video,
-        metadata: projected.video.metadata?.contentPackageId
-          ? cloneUnknownRecord(projected.video.metadata)
-          : mergeRuntimePackageMetadata(projected.video.metadata, packageId),
+        metadata: mergeRuntimePackageMetadata(projected.video.metadata, packageId),
       }
     }
     if (projected.layers) {
       next.layers = projected.layers.map(layer => ({
         ...layer,
-        metadata: layer.metadata?.contentPackageId
-          ? cloneUnknownRecord(layer.metadata)
-          : mergeRuntimePackageMetadata(layer.metadata, packageId),
+        metadata: mergeRuntimePackageMetadata(layer.metadata, packageId),
       }))
     }
     return next as T
