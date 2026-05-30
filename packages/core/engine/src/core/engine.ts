@@ -3663,6 +3663,7 @@ function getRecordRuntimePackages(value: unknown): string[] {
   const record = value as Record<string, unknown>
   return mergeRequiredRuntimePackages(
     typeof record.contentPackageId === 'string' ? [record.contentPackageId] : [],
+    typeof record.runtimePackageId === 'string' ? [record.runtimePackageId] : [],
     getMetadataRequiredRuntimePackages(record),
   )
 }
@@ -3672,7 +3673,7 @@ function getAssetRuntimePackageId(asset: { runtimePackageId?: string, bundleName
 }
 
 function recordRequiresPackage(value: unknown, packageId: string): boolean {
-  return getRecordRuntimePackages(value).includes(packageId)
+  return collectRuntimePackagesFromUnknown(value).includes(packageId)
 }
 
 function recordOwnedByPackage(value: unknown, packageId: string): boolean {

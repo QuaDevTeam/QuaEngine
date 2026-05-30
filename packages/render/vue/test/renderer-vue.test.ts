@@ -1145,6 +1145,62 @@ describe('@quajs/renderer-vue', () => {
     expect(clouds.getAttribute('style')).toContain('filter: blur(3px)')
   })
 
+  it('resolves layered background masks from the background runtime package', async () => {
+    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:vue-background-mask')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const requestedPackages: Array<string | undefined> = []
+    const assets = new QuaAssets({
+      adapter: {
+        name: 'renderer-vue-background-mask-test',
+        storage: new MemoryAssetStorage(),
+        crypto: { sha256: async () => '' },
+      },
+      provider: {
+        mode: 'memory',
+        getManifest: async () => ({
+          version: '1',
+          assets: [
+            imageManifestRecord('other-mask', 'shared-mask.png', 'runtime.other', 100),
+            imageManifestRecord('runtime-mask', 'shared-mask.png', 'runtime.mask', 1),
+          ],
+        }),
+        getAsset: async (_id, record) => {
+          requestedPackages.push(record?.runtimePackageId)
+          return asset(record?.name || 'shared-mask.png', 'images', 'image/png')
+        },
+      },
+    })
+    await assets.initialize()
+
+    const host = mount(QuaRenderer, {
+      pipeline: new Pipeline(),
+      assets,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        background: {
+          mode: 'layered',
+          metadata: { contentPackageId: 'runtime.mask' },
+          composition: {
+            mask: { assetName: 'shared-mask.png', position: 'center' },
+          },
+          layers: [],
+        },
+      }),
+    })
+
+    for (let index = 0; index < 20 && requestedPackages.length === 0; index += 1) {
+      await flushVue()
+    }
+
+    expect(requestedPackages).toEqual(['runtime.mask'])
+    expect(create).toHaveBeenCalled()
+
+    host.app.unmount()
+    await assets.cleanup()
+    create.mockRestore()
+    revoke.mockRestore()
+  })
+
   it('renders sprite expressions through the dedicated sprite capability', async () => {
     const pipeline = new Pipeline()
     let urlIndex = 0
@@ -1762,6 +1818,20 @@ function asset(name: string, type: AssetData['type'], mimeType: string): AssetDa
     version: 1,
     mtime: 1,
     fromCache: false,
+  }
+}
+
+function imageManifestRecord(id: string, name: string, runtimePackageId: string, bundlePriority: number) {
+  return {
+    id,
+    bundleName: runtimePackageId,
+    bundlePriority,
+    runtimePackageId,
+    name,
+    type: 'images' as const,
+    locale: 'default',
+    path: `images/${name}`,
+    mimeType: 'image/png',
   }
 }
 

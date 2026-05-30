@@ -1,6 +1,7 @@
 import {
   backgroundLayerProjectionVars,
   backgroundMaskImageVars,
+  backgroundMaskVars,
   backgroundProjectionVars,
   normalizeBackgroundLayerAssetType,
   projectBackground,
@@ -109,7 +110,10 @@ export const QuaLayeredBackground = defineComponent({
     background: Object,
   },
   setup(props: any, { slots }) {
-    const maskStyle = useBackgroundMaskStyle(() => props.background?.composition?.mask)
+    const maskStyle = useBackgroundMaskStyle(
+      () => props.background?.composition?.mask,
+      () => contentPackageIdFromMetadata(props.background?.metadata),
+    )
     return () => h('div', { class: 'qua-layered-background', style: mergeStyles(backgroundProjectionVars(props.background), maskStyle.value) }, props.layers.map((layer: any) =>
       slots.layer?.({ layer }) || h(QuaBackgroundLayerItem, { key: layer.id, layer }),
     ))
@@ -146,7 +150,10 @@ function useBackgroundMaskStyle(
 ) {
   const assetType = computed(() => normalizeBackgroundLayerAssetType(getMask()?.assetType))
   const asset = useAssetUrl(assetType, () => getMask()?.assetName, targetPackageId)
-  return computed(() => backgroundMaskImageVars(asset.url.value))
+  return computed(() => mergeStyles(
+    backgroundMaskVars(getMask()),
+    backgroundMaskImageVars(asset.url.value),
+  ))
 }
 
 function contentPackageIdFromMetadata(metadata: Readonly<Record<string, unknown>> | undefined): string | undefined {

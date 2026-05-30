@@ -3183,6 +3183,55 @@ describe('quaEngine runtime architecture', () => {
     }))
   })
 
+  it('prevents unloading runtime packages referenced by nested story asset refs in active view state', async () => {
+    const storyManifest = createRuntimeBundleManifest({
+      id: 'runtime.story',
+      version: '1.0.0',
+    })
+    const choiceAssetManifest = createRuntimeBundleManifest({
+      id: 'runtime.choice-assets',
+      version: '1.0.0',
+    })
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/story.qpk': createQpkBundle(storyManifest, new Map()),
+          'https://cdn.example.com/choice-assets.qpk': createQpkBundle(choiceAssetManifest, new Map()),
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+    await engine.loadRuntimePackage('story.qpk')
+    await engine.loadRuntimePackage('choice-assets.qpk')
+
+    await engine.showChoices([{
+      id: 'inspect-cg',
+      text: 'Inspect CG',
+      presentation: {
+        thumbnail: {
+          type: 'images',
+          name: 'cg/extra.png',
+          runtimePackageId: 'runtime.choice-assets',
+        },
+      },
+    }])
+
+    expect(engine.getRuntimeViewRequiredPackageIds()).toContain('runtime.choice-assets')
+    await expect(engine.unloadRuntimePackage('runtime.choice-assets')).rejects.toThrow('current view projection')
+
+    await engine.unloadRuntimePackage('runtime.choice-assets', { force: true })
+    expect(engine.getViewState().choices).toEqual([])
+  })
+
   it('destroys runtime packages in dependency order even when load order differs from activation order', async () => {
     const baseManifest = createRuntimeBundleManifest({
       id: 'runtime.base',
