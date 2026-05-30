@@ -436,6 +436,7 @@ export interface StoryPoint {
   stepId: string
   lineId?: string
   contentPackageId?: string
+  requiredRuntimePackages?: readonly string[]
   scriptModuleId?: string
   scriptModuleVersion?: string
   scriptModuleLocale?: string

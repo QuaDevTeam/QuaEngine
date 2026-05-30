@@ -1212,8 +1212,9 @@ function unique(values: readonly string[]): string[] {
   return [...new Set(values.filter(Boolean))]
 }
 
-function storyPointRequiresPackage(point: { contentPackageId?: string } | undefined, packageId: string): boolean {
+function storyPointRequiresPackage(point: { contentPackageId?: string, requiredRuntimePackages?: readonly string[] } | undefined, packageId: string): boolean {
   return point?.contentPackageId === packageId
+    || point?.requiredRuntimePackages?.includes(packageId) === true
 }
 
 function metadataRequiresPackage(metadata: Record<string, unknown> | undefined, packageId: string): boolean {
