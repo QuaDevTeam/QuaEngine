@@ -2574,6 +2574,49 @@ describe('@quajs/renderer-web', () => {
     capture.restore()
   })
 
+  it('keeps save preview capture moving when SVG object URL cleanup fails', async () => {
+    const capture = installSavePreviewCaptureStubs({ revokeThrows: true })
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 900))
+
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        dialogue: { visible: true, text: 'Cleanup still captures' },
+      }),
+    })
+
+    const captureResults: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_RESULT, payload => captureResults.push(payload))
+
+    await renderer.mount()
+    await flushDom()
+
+    await emitLogicToRender(pipeline, LogicToRenderEvents.SAVE_PREVIEW_CAPTURE_REQUEST, {
+      requestId: 'capture-cleanup',
+      saveOpId: 'save-cleanup',
+      slotId: 'slot-1',
+      reason: 'save',
+      transaction: 'async-clone',
+      policy: {
+        uiMode: 'full',
+        format: 'image/webp',
+      },
+    })
+
+    await expect(capture.triggerNextImageLoad()).resolves.toBeUndefined()
+    await waitForMicrotasks(() => captureResults.length === 1)
+
+    expect(captureResults).toHaveLength(1)
+
+    await renderer.unmount()
+    capture.restore()
+  })
+
   it('starts playing audio immediately when the Web Audio context is already running', async () => {
     installFakeAudioContext({ initialState: 'running' })
     const assets = await createAudioAssets()
@@ -3165,7 +3208,7 @@ async function flushMicrotasks(): Promise<void> {
   await Promise.resolve()
 }
 
-function installSavePreviewCaptureStubs() {
+function installSavePreviewCaptureStubs(options: { revokeThrows?: boolean } = {}) {
   const svgMarkup: string[] = []
   const blobUrls = new Map<string, Blob>()
   const pendingImageLoads: Array<() => void> = []
@@ -3178,6 +3221,9 @@ function installSavePreviewCaptureStubs() {
       return url
     }),
     revokeObjectURL: vi.fn((url: string) => {
+      if (options.revokeThrows) {
+        throw new Error('capture object URL revoke failed')
+      }
       blobUrls.delete(url)
     }),
   }
