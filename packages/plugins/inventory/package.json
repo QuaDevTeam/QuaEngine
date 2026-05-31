@@ -1,0 +1,133 @@
+{
+  "name": "@quajs/plugin-inventory",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Persistent profile inventory items and QuaScript decorators for QuaEngine",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "plugin",
+    "inventory",
+    "visual-novel"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "import": "./dist/contracts.js"
+    },
+    "./script-compiler": {
+      "types": "./dist/script-compiler.d.ts",
+      "import": "./dist/script-compiler.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@quajs/engine": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/plugin-settings": "workspace:*",
+    "@quajs/store": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@quajs/plugin-settings": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@babel/types": "catalog:"
+  },
+  "devDependencies": {
+    "@quajs/assets": "workspace:*",
+    "@quajs/engine": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/plugin-settings": "workspace:*",
+    "@quajs/store": "workspace:*"
+  },
+  "quajs": {
+    "type": "plugin",
+    "category": "data",
+    "description": "Persistent profile inventory item catalog and quantities",
+    "decorators": {
+      "GrantInventoryItem": {
+        "function": "grantInventoryItemWithEngine",
+        "module": "@quajs/plugin-inventory"
+      },
+      "ConsumeInventoryItem": {
+        "function": "consumeInventoryItemWithEngine",
+        "module": "@quajs/plugin-inventory"
+      },
+      "SetInventoryItemQuantity": {
+        "function": "setInventoryItemQuantityWithEngine",
+        "module": "@quajs/plugin-inventory"
+      }
+    },
+    "language": {
+      "decorators": {
+        "GrantInventoryItem": {
+          "description": "Grant an inventory item quantity to the active profile",
+          "args": [
+            {
+              "name": "itemId",
+              "detail": "Inventory item id"
+            },
+            {
+              "name": "options",
+              "detail": "Optional quantity, profileId, source, or metadata"
+            }
+          ]
+        },
+        "ConsumeInventoryItem": {
+          "description": "Consume an inventory item quantity from the active profile",
+          "args": [
+            {
+              "name": "itemId",
+              "detail": "Inventory item id"
+            },
+            {
+              "name": "options",
+              "detail": "Optional quantity, profileId, source, or metadata"
+            }
+          ]
+        },
+        "SetInventoryItemQuantity": {
+          "description": "Set an inventory item quantity for the active profile",
+          "args": [
+            {
+              "name": "itemId",
+              "detail": "Inventory item id"
+            },
+            {
+              "name": "quantity",
+              "detail": "Non-negative item quantity"
+            },
+            {
+              "name": "options",
+              "detail": "Optional profileId, source, or metadata"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
