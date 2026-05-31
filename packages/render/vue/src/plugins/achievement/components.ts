@@ -21,6 +21,7 @@ import { computed, defineComponent, h, onBeforeUnmount, watch } from 'vue'
 import { useAssetUrl, usePluginProjection, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
+import { dispatchVueRendererIntent } from '../shared/intent'
 
 type AchievementAssetRef = NonNullable<AchievementProjectionItem['icon']>
 let QuaAchievementCard: Component
@@ -121,7 +122,8 @@ export const QuaAchievementToastLayer = defineComponent({
   name: 'QuaAchievementToastLayer',
   inheritAttrs: false,
   setup(_, { slots }) {
-    const { view } = useQuaRenderer()
+    const renderer = useQuaRenderer()
+    const { view } = renderer
     const actions = useRendererActions()
     const projection = useAchievementProjection()
     const notifications = computed(() => projection.value?.notifications || [])
@@ -141,8 +143,11 @@ export const QuaAchievementToastLayer = defineComponent({
         }
         dismissTimers.set(notification.id, setTimeout(() => {
           dismissTimers.delete(notification.id)
-          void actions.requestPluginEvent(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, {
+          dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, {
             notificationId: notification.id,
+          }), {
+            phase: 'achievement:dismiss-notification',
+            metadata: { notificationId: notification.id },
           })
         }, Math.max(16, notification.durationMs)))
       }
@@ -172,6 +177,7 @@ export const QuaAchievementToastLayer = defineComponent({
       }) || notifications.value.map(notification =>
         renderAchievementToast({
           notification,
+          renderer,
           actions,
         }),
       ))
@@ -189,7 +195,8 @@ export const QuaAchievementGroupButton = defineComponent({
     selected: Boolean,
   },
   setup(props) {
-    const actions = useRendererActions()
+    const renderer = useQuaRenderer()
+    const actions = renderer.actions
     const skin = useUiControlSkin({
       kind: 'tab',
       selected: () => props.selected,
@@ -204,8 +211,11 @@ export const QuaAchievementGroupButton = defineComponent({
       'data-skin-reference': skin.skinReference.value || undefined,
       'data-skin-state': skin.skinState.value,
       ...createSkinButtonHandlers(skin),
-      'onClick': () => actions.requestPluginEvent(AchievementRenderToLogicEvents.SELECT_GROUP_REQUEST, {
+      'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(AchievementRenderToLogicEvents.SELECT_GROUP_REQUEST, {
         groupId: props.group.id,
+      }), {
+        phase: 'achievement:select-group',
+        metadata: { groupId: props.group.id },
       }),
     }, [
       h('span', { class: 'qua-achievement-group-title' }, props.group.title),
@@ -218,7 +228,8 @@ export const QuaAchievementBoardLayer = defineComponent({
   name: 'QuaAchievementBoardLayer',
   inheritAttrs: false,
   setup(_, { slots }) {
-    const { view } = useQuaRenderer()
+    const renderer = useQuaRenderer()
+    const { view } = renderer
     const actions = useRendererActions()
     const projection = useAchievementProjection()
     const achievement = computed(() => createAchievementProjectionModel(projection.value))
@@ -249,6 +260,7 @@ export const QuaAchievementBoardLayer = defineComponent({
         actions,
       }) || renderAchievementBoardDefault({
         achievement: achievement.value,
+        renderer,
         actions,
         closeSkin,
         inputSkin,
@@ -284,9 +296,10 @@ export const achievementRendererPlugin = createAchievementRendererPlugin()
 
 function renderAchievementToast(input: {
   notification: AchievementNotificationProjection
+  renderer: Pick<ReturnType<typeof useQuaRenderer>, 'web'>
   actions: RendererActions
 }): VNode {
-  const { notification, actions } = input
+  const { notification, renderer, actions } = input
   const icon = resolveAchievementImageAsset(notification.icon)
   return h('button', {
     'class': 'qua-achievement-toast',
@@ -294,8 +307,11 @@ function renderAchievementToast(input: {
     'data-achievement-notification-id': notification.id,
     'data-achievement-id': notification.achievementId,
     'data-qua-capture-role': 'overlay',
-    'onClick': () => actions.requestPluginEvent(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, {
+    'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, {
       notificationId: notification.id,
+    }), {
+      phase: 'achievement:dismiss-notification',
+      metadata: { notificationId: notification.id },
     }),
   }, [
     icon
@@ -316,13 +332,14 @@ function renderAchievementToast(input: {
 
 function renderAchievementBoardDefault(input: {
   achievement: AchievementProjectionModel
+  renderer: Pick<ReturnType<typeof useQuaRenderer>, 'web'>
   actions: RendererActions
   closeSkin: ReturnType<typeof useUiControlSkin>
   inputSkin: ReturnType<typeof useUiControlSkin>
   unlockedSkin: ReturnType<typeof useUiControlSkin>
   hiddenSkin: ReturnType<typeof useUiControlSkin>
 }): VNode[] {
-  const { achievement, actions, closeSkin, inputSkin, unlockedSkin, hiddenSkin } = input
+  const { achievement, renderer, actions, closeSkin, inputSkin, unlockedSkin, hiddenSkin } = input
 
   return [
     h('section', {
@@ -343,7 +360,9 @@ function renderAchievementBoardDefault(input: {
           'data-skin-reference': closeSkin.skinReference.value || undefined,
           'data-skin-state': closeSkin.skinState.value,
           ...createSkinButtonHandlers(closeSkin),
-          'onClick': () => actions.requestPluginEvent(AchievementRenderToLogicEvents.CLOSE_BOARD_REQUEST, {}),
+          'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(AchievementRenderToLogicEvents.CLOSE_BOARD_REQUEST, {}), {
+            phase: 'achievement:close-board',
+          }),
         }, 'Close'),
       ]),
       h('div', { class: 'qua-achievement-toolbar' }, [
@@ -358,10 +377,13 @@ function renderAchievementBoardDefault(input: {
             'data-skin-kind': 'input',
             'data-skin-reference': inputSkin.skinReference.value || undefined,
             'data-skin-state': inputSkin.skinState.value,
-            'onInput': (event: Event) => actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+            'onInput': (event: Event) => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
               filter: {
                 search: (event.target as HTMLInputElement).value,
               },
+            }), {
+              phase: 'achievement:update-filter',
+              metadata: { field: 'search' },
             }),
           }),
         ]),
@@ -373,10 +395,13 @@ function renderAchievementBoardDefault(input: {
           'data-skin-reference': unlockedSkin.skinReference.value || undefined,
           'data-skin-state': unlockedSkin.skinState.value,
           ...createSkinButtonHandlers(unlockedSkin),
-          'onClick': () => actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+          'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
             filter: {
               unlockedOnly: !achievement.projection.filter.unlockedOnly,
             },
+          }), {
+            phase: 'achievement:update-filter',
+            metadata: { field: 'unlockedOnly' },
           }),
         }, 'Unlocked'),
         h('button', {
@@ -387,10 +412,13 @@ function renderAchievementBoardDefault(input: {
           'data-skin-reference': hiddenSkin.skinReference.value || undefined,
           'data-skin-state': hiddenSkin.skinState.value,
           ...createSkinButtonHandlers(hiddenSkin),
-          'onClick': () => actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+          'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
             filter: {
               includeHidden: !achievement.projection.filter.includeHidden,
             },
+          }), {
+            phase: 'achievement:update-filter',
+            metadata: { field: 'includeHidden' },
           }),
         }, 'Hidden'),
         h('div', { class: 'qua-achievement-toolbar-counter' }, `${achievement.filteredAchievements.length}/${achievement.achievements.length}`),
@@ -442,7 +470,8 @@ QuaAchievementCard = defineComponent({
     selected: Boolean,
   },
   setup(props) {
-    const actions = useRendererActions()
+    const renderer = useQuaRenderer()
+    const actions = renderer.actions
     const skin = useUiControlSkin({
       kind: 'button',
       selected: () => props.selected,
@@ -462,8 +491,11 @@ QuaAchievementCard = defineComponent({
       'data-skin-reference': skin.skinReference.value || undefined,
       'data-skin-state': skin.skinState.value,
       ...createSkinButtonHandlers(skin),
-      'onClick': () => actions.requestPluginEvent(AchievementRenderToLogicEvents.SELECT_ACHIEVEMENT_REQUEST, {
+      'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(AchievementRenderToLogicEvents.SELECT_ACHIEVEMENT_REQUEST, {
         achievementId: props.achievement.id,
+      }), {
+        phase: 'achievement:select-achievement',
+        metadata: { achievementId: props.achievement.id },
       }),
     }, [
       preview.value

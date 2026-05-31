@@ -13,6 +13,7 @@ import {
 import { runtimePackageCandidatesFromMetadata } from '../assets'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
+import { dispatchRendererIntent } from './shared'
 
 type AchievementAssetRef = NonNullable<AchievementProjectionItem['icon']>
 
@@ -139,8 +140,11 @@ function renderAchievementToast(
     kind: 'panel',
   })
   toast.addEventListener('click', () => {
-    void context.actions.requestPluginEvent(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, {
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, {
       notificationId: notification.id,
+    }), {
+      phase: 'achievement:dismiss-notification',
+      metadata: { notificationId: notification.id },
     })
   })
 
@@ -239,7 +243,9 @@ function renderAchievementHeader(context: QuaWebDomLayerContext, model: Achievem
     kind: 'button',
   })
   close.addEventListener('click', () => {
-    void context.actions.requestPluginEvent(AchievementRenderToLogicEvents.CLOSE_BOARD_REQUEST, {})
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(AchievementRenderToLogicEvents.CLOSE_BOARD_REQUEST, {}), {
+      phase: 'achievement:close-board',
+    })
   })
 
   header.append(heading, close)
@@ -266,10 +272,13 @@ function renderAchievementToolbar(context: QuaWebDomLayerContext, model: Achieve
     kind: 'input',
   })
   search.addEventListener('input', () => {
-    void context.actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
       filter: {
         search: search.value,
       },
+    }), {
+      phase: 'achievement:update-filter',
+      metadata: { field: 'search' },
     })
   })
 
@@ -280,10 +289,13 @@ function renderAchievementToolbar(context: QuaWebDomLayerContext, model: Achieve
     'Unlocked',
     Boolean(model.projection.filter.unlockedOnly),
     () => {
-      void context.actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+      dispatchRendererIntent(context, () => context.actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
         filter: {
           unlockedOnly: !model.projection.filter.unlockedOnly,
         },
+      }), {
+        phase: 'achievement:update-filter',
+        metadata: { field: 'unlockedOnly' },
       })
     },
   )
@@ -293,10 +305,13 @@ function renderAchievementToolbar(context: QuaWebDomLayerContext, model: Achieve
     'Hidden',
     Boolean(model.projection.filter.includeHidden),
     () => {
-      void context.actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+      dispatchRendererIntent(context, () => context.actions.requestPluginEvent(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
         filter: {
           includeHidden: !model.projection.filter.includeHidden,
         },
+      }), {
+        phase: 'achievement:update-filter',
+        metadata: { field: 'includeHidden' },
       })
     },
   )
@@ -375,8 +390,11 @@ function renderAchievementGroupButton(
     selected,
   })
   button.addEventListener('click', () => {
-    void context.actions.requestPluginEvent(AchievementRenderToLogicEvents.SELECT_GROUP_REQUEST, {
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(AchievementRenderToLogicEvents.SELECT_GROUP_REQUEST, {
       groupId: group.id,
+    }), {
+      phase: 'achievement:select-group',
+      metadata: { groupId: group.id },
     })
   })
 
@@ -414,8 +432,11 @@ function renderAchievementCard(
     selected,
   })
   button.addEventListener('click', () => {
-    void context.actions.requestPluginEvent(AchievementRenderToLogicEvents.SELECT_ACHIEVEMENT_REQUEST, {
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(AchievementRenderToLogicEvents.SELECT_ACHIEVEMENT_REQUEST, {
       achievementId: achievement.id,
+    }), {
+      phase: 'achievement:select-achievement',
+      metadata: { achievementId: achievement.id },
     })
   })
 
@@ -617,8 +638,11 @@ function syncDismissTimers(
     }
     dismissTimers.set(notification.id, setTimeout(() => {
       dismissTimers.delete(notification.id)
-      void context.actions.requestPluginEvent(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, {
+      dispatchRendererIntent(context, () => context.actions.requestPluginEvent(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, {
         notificationId: notification.id,
+      }), {
+        phase: 'achievement:dismiss-notification',
+        metadata: { notificationId: notification.id },
       })
     }, Math.max(16, notification.durationMs)))
   }

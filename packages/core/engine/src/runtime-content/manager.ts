@@ -229,19 +229,25 @@ export class RuntimeContentManager {
       this.assertPackageNotReferencedByCurrentRuntimeState(packageId)
     }
 
-    await this.engine.notifyRuntimePackageUnload(record.manifest, record.bundle.bundleName)
-    await this.engine.clearRuntimePackageViewState(packageId)
+    await this.runRuntimePackageCleanup(packageId, 'runtime-package:unload:notify', () =>
+      this.engine.notifyRuntimePackageUnload(record.manifest, record.bundle.bundleName))
+    await this.runRuntimePackageCleanup(packageId, 'runtime-package:unload:clear-view', () =>
+      this.engine.clearRuntimePackageViewState(packageId))
 
     for (const pluginName of record.activatedEnginePluginNames.reverse()) {
-      await this.engine.unuse(pluginName)
+      await this.runRuntimePackageCleanup(packageId, 'runtime-package:unload:engine-plugin', () =>
+        this.engine.unuse(pluginName), { pluginName })
     }
     record.activatedEnginePluginNames = []
-    this.disposeSceneFactories(record)
+    await this.runRuntimePackageCleanup(packageId, 'runtime-package:unload:scene-factories', () =>
+      this.disposeSceneFactories(record))
     this.removeRegisteredPackageScripts(packageId, record.bundle.bundleName)
 
-    await this.engine.emitRuntimePackageUnload(packageId, record.bundle.bundleName)
+    await this.runRuntimePackageCleanup(packageId, 'runtime-package:unload:renderer-plugins', () =>
+      this.engine.emitRuntimePackageUnload(packageId, record.bundle.bundleName))
 
-    await this.engine.getAssets().unloadDynamicBundle(record.bundle.bundleName)
+    await this.runRuntimePackageCleanup(packageId, 'runtime-package:unload:assets', () =>
+      this.engine.getAssets().unloadDynamicBundle(record.bundle.bundleVersionKey || record.bundle.bundleName))
     record.state = {
       ...record.state,
       state: 'unloaded',
@@ -763,8 +769,17 @@ export class RuntimeContentManager {
 
   private disposeSceneFactories(record: LoadedRuntimePackage, fromIndex = 0): void {
     const disposers = record.sceneDisposers.splice(fromIndex).reverse()
+    const failures: unknown[] = []
     for (const dispose of disposers) {
-      dispose()
+      try {
+        dispose()
+      }
+      catch (error) {
+        failures.push(error)
+      }
+    }
+    if (failures.length > 0) {
+      throw failures[0]
     }
   }
 
@@ -801,6 +816,29 @@ export class RuntimeContentManager {
     const removePackageContent = storyGraphModule?.removeRuntimePackageStoryGraphContentWithEngine
     if (typeof removePackageContent === 'function') {
       await removePackageContent(this.engine, record.manifest.id)
+    }
+  }
+
+  private async runRuntimePackageCleanup(
+    packageId: string,
+    phase: string,
+    action: () => Promise<void> | void,
+    metadata: Readonly<Record<string, unknown>> = {},
+  ): Promise<void> {
+    try {
+      await action()
+    }
+    catch (error) {
+      await this.engine.reportError(error, {
+        message: `Runtime package "${packageId}" cleanup failed during unload.`,
+        source: 'runtime-package',
+        phase,
+        recoverable: true,
+        metadata: {
+          packageId,
+          ...metadata,
+        },
+      })
     }
   }
 

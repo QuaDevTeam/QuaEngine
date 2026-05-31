@@ -11,6 +11,7 @@ import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
+import { dispatchRendererIntent } from './shared'
 
 export interface SettingsFormProjection {
   revision: number
@@ -331,7 +332,10 @@ function renderSettingsLayer(context: QuaWebDomLayerContext, options: SettingsRe
     kind: 'button',
   })
   close.addEventListener('click', () => {
-    void context.actions.requestUiClose(elementId)
+    dispatchRendererIntent(context, () => context.actions.requestUiClose(elementId), {
+      phase: 'settings:close',
+      metadata: { elementId },
+    })
   })
   header.append(close)
   panel.append(header)
@@ -352,7 +356,9 @@ function renderSettingsLayer(context: QuaWebDomLayerContext, options: SettingsRe
     kind: 'button',
   })
   resetAll.addEventListener('click', () => {
-    void context.actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_ALL_REQUEST)
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_ALL_REQUEST), {
+      phase: 'settings:reset-all',
+    })
   })
   panel.append(resetAll)
 
@@ -381,7 +387,10 @@ function renderSettingsScope(
   reset.type = 'button'
   reset.textContent = 'Reset'
   reset.addEventListener('click', () => {
-    void context.actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST, { scope: scope.scope })
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST, { scope: scope.scope }), {
+      phase: 'settings:reset-scope',
+      metadata: { scope: scope.scope },
+    })
   })
   header.append(reset)
   section.append(header)
@@ -653,9 +662,15 @@ function updateSettingsField(
   if (!parsed.ok) {
     return
   }
-  void context.actions.requestPluginEvent(SettingsRenderToLogicEvents.UPDATE_REQUEST, {
+  dispatchRendererIntent(context, () => context.actions.requestPluginEvent(SettingsRenderToLogicEvents.UPDATE_REQUEST, {
     scope: scope.scope,
     patch: createSettingsValuePatch(scope.source, field.path, parsed.value),
+  }), {
+    phase: 'settings:update',
+    metadata: {
+      scope: scope.scope,
+      path: field.path,
+    },
   })
 }
 
@@ -665,9 +680,15 @@ function updateSettingsFieldValue(
   field: SettingsFieldFormProjection,
   value: unknown,
 ): void {
-  void context.actions.requestPluginEvent(SettingsRenderToLogicEvents.UPDATE_REQUEST, {
+  dispatchRendererIntent(context, () => context.actions.requestPluginEvent(SettingsRenderToLogicEvents.UPDATE_REQUEST, {
     scope: scope.scope,
     patch: createSettingsValuePatch(scope.source, field.path, value),
+  }), {
+    phase: 'settings:update',
+    metadata: {
+      scope: scope.scope,
+      path: field.path,
+    },
   })
 }
 

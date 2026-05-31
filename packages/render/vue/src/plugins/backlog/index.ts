@@ -5,6 +5,7 @@ import { computed, defineComponent, h } from 'vue'
 import { useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
+import { dispatchVueRendererIntent } from '../shared/intent'
 
 export const QuaBacklogEntry = defineComponent({
   name: 'QuaBacklogEntry',
@@ -15,7 +16,8 @@ export const QuaBacklogEntry = defineComponent({
     },
   },
   setup(props) {
-    const actions = useRendererActions()
+    const renderer = useQuaRenderer()
+    const actions = renderer.actions
     const entry = computed(() => props.entry as BacklogEntry)
     const mainSkin = useUiControlSkin({
       kind: 'button',
@@ -36,7 +38,10 @@ export const QuaBacklogEntry = defineComponent({
         'data-skin-reference': mainSkin.skinReference.value || undefined,
         'data-skin-state': mainSkin.skinState.value,
         ...createSkinButtonHandlers(mainSkin),
-        'onClick': () => actions.requestPluginEvent(BacklogRenderToLogicEvents.JUMP_REQUEST, { entryId: entry.value.id }),
+        'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(BacklogRenderToLogicEvents.JUMP_REQUEST, { entryId: entry.value.id }), {
+          phase: 'backlog:jump',
+          metadata: { entryId: entry.value.id },
+        }),
       }, backlogText(entry.value)),
       entry.value.voice
         ? h('button', {
@@ -48,7 +53,10 @@ export const QuaBacklogEntry = defineComponent({
             'data-skin-reference': voiceSkin.skinReference.value || undefined,
             'data-skin-state': voiceSkin.skinState.value,
             ...createSkinButtonHandlers(voiceSkin),
-            'onClick': () => actions.requestPluginEvent(BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, { entryId: entry.value.id }),
+            'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, { entryId: entry.value.id }), {
+              phase: 'backlog:replay-voice',
+              metadata: { entryId: entry.value.id },
+            }),
           }, 'Voice')
         : null,
     ])
@@ -58,7 +66,8 @@ export const QuaBacklogEntry = defineComponent({
 export const QuaBacklogLayer = defineComponent({
   name: 'QuaBacklogLayer',
   setup(_, { slots }) {
-    const { view } = useQuaRenderer()
+    const renderer = useQuaRenderer()
+    const { view } = renderer
     const actions = useRendererActions()
     const projection = computed(() => view.value.plugins[BACKLOG_PLUGIN_ID] as BacklogProjection | undefined)
     const panelSkin = useUiControlSkin({ kind: 'panel' })
@@ -85,7 +94,9 @@ export const QuaBacklogLayer = defineComponent({
               'data-skin-kind': 'button',
               'data-skin-reference': closeSkin.skinReference.value || undefined,
               'data-skin-state': closeSkin.skinState.value,
-              'onClick': () => actions.requestPluginEvent(BacklogRenderToLogicEvents.CLOSE_REQUEST),
+              'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(BacklogRenderToLogicEvents.CLOSE_REQUEST), {
+                phase: 'backlog:close',
+              }),
             }, 'Close'),
             h('ol', { class: 'qua-backlog-list' }, projection.value.entries.map(entry =>
               h(QuaBacklogEntry, { key: entry.id, entry }),

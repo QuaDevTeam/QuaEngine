@@ -1,7 +1,9 @@
 import { motionProjectionVars, projectChoices } from '@quajs/renderer-web'
 import { defineComponent, h } from 'vue'
 import { useProjectionProps } from '../../components/projection'
-import { useAnimationClock, useAnimations, useChoices, usePluginProjection, useRendererActions, useUiControlSkin } from '../../composables'
+import { useAnimationClock, useAnimations, useChoices, usePluginProjection, useUiControlSkin } from '../../composables'
+import { useQuaRenderer } from '../../context'
+import { dispatchVueRendererIntent } from '../shared/intent'
 
 export const QuaChoiceButton = defineComponent({
   name: 'QuaChoiceButton',
@@ -50,7 +52,8 @@ export const QuaChoicePanel = defineComponent({
     const choicesProjection = usePluginProjection<Record<string, unknown>>('choices')
     const animations = useAnimations()
     const animationNow = useAnimationClock()
-    const actions = useRendererActions()
+    const renderer = useQuaRenderer()
+    const actions = renderer.actions
     const skin = useUiControlSkin({ kind: 'panel' })
     return () => {
       const projected = projectChoices(choices.value, animations.value, animationNow.value, choicesProjection.value)
@@ -66,7 +69,10 @@ export const QuaChoicePanel = defineComponent({
             slots.choice?.({ ...useProjectionProps(), choice, actions }) || h(QuaChoiceButton, {
               key: choice.id,
               choice,
-              onSelect: () => actions.selectChoice(choice.id),
+              onSelect: () => dispatchVueRendererIntent(renderer, () => actions.selectChoice(choice.id), {
+                phase: 'choices:select',
+                metadata: { choiceId: choice.id },
+              }),
             }),
           ))
         : null

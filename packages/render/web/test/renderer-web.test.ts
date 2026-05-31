@@ -652,6 +652,51 @@ describe('@quajs/renderer-web', () => {
     await renderer.unmount()
   })
 
+  it('reports rejected DOM plugin intents without unhandled rejections', async () => {
+    const pipeline = new Pipeline({
+      middlewares: [
+        async (context, next) => {
+          if (context.event.type === RenderToLogicEvents.USER_CHOICE_SELECT) {
+            throw new Error('choice action failed')
+          }
+          await next()
+        },
+      ],
+    })
+    const errors: any[] = []
+    const choices: string[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, payload => errors.push(payload))
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_CHOICE_SELECT, payload => choices.push(payload.choiceId))
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+      }),
+    })
+
+    await renderer.mount()
+    root.querySelector('.qua-choice-button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushDom()
+
+    expect(choices).toEqual([])
+    expect(errors).toEqual([
+      expect.objectContaining({
+        phase: 'choices:select',
+        source: 'renderer',
+        metadata: expect.objectContaining({ choiceId: 'yes' }),
+        error: expect.objectContaining({ message: 'choice action failed' }),
+      }),
+    ])
+
+    await renderer.unmount()
+  })
+
   it('reveals dialogue with a transient typewriter and consumes the first advance to complete it', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(0)

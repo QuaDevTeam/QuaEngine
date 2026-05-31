@@ -3223,6 +3223,60 @@ describe('quaEngine runtime architecture', () => {
     })
   })
 
+  it('continues runtime package unload cleanup when unload hooks fail', async () => {
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.unload-fails',
+      version: '1.0.0',
+      plugins: [
+        { id: 'runtime.unload-fails.engine', kind: 'engine', module: 'runtime-engine-plugin' },
+      ],
+    })
+    const runtimeDestroy = vi.fn()
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/unload-fails.qpk': createQpkBundle(manifest, new Map()),
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      runtimeModuleLoader: {
+        loadEnginePluginModule: vi.fn(async () => ({
+          default: {
+            name: 'unload-fails-plugin',
+            init: vi.fn(),
+            destroy: runtimeDestroy,
+            onRuntimePackageUnload: () => {
+              throw new Error('unload hook failed')
+            },
+          },
+        })),
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+    await engine.loadRuntimePackage('unload-fails.qpk')
+    await engine.setPluginProjection('runtimeUnloadFails', {
+      contentPackageId: 'runtime.unload-fails',
+      active: true,
+    })
+
+    await expect(engine.unloadRuntimePackage('runtime.unload-fails', { force: true })).resolves.toBeUndefined()
+
+    expect(runtimeDestroy).toHaveBeenCalledTimes(1)
+    expect(engine.getPluginProjection('runtimeUnloadFails')).toBeUndefined()
+    expect(engine.getRuntimePackages().find(pkg => pkg.id === 'runtime.unload-fails')).toEqual(expect.objectContaining({
+      state: 'unloaded',
+    }))
+    expect(await engine.getAssets().getBundleManifest('runtime.unload-fails')).toBeUndefined()
+  })
+
   it('guards active runtime package dependencies by default and cascades forced unload', async () => {
     const baseManifest = createRuntimeBundleManifest({
       id: 'runtime.base',
