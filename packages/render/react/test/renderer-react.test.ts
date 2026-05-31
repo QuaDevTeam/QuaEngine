@@ -174,6 +174,46 @@ describe('@quajs/renderer-react', () => {
       'second:unset',
     ])
   })
+
+  it('exports DOM feature plugin subentries and composes the Vue-aligned preset order', async () => {
+    const modules = await Promise.all([
+      import('../src/plugins/achievement'),
+      import('../src/plugins/audio'),
+      import('../src/plugins/background'),
+      import('../src/plugins/backlog'),
+      import('../src/plugins/character'),
+      import('../src/plugins/choices'),
+      import('../src/plugins/dialogue'),
+      import('../src/plugins/effects'),
+      import('../src/plugins/fonts'),
+      import('../src/plugins/gallery'),
+      import('../src/plugins/scene'),
+      import('../src/plugins/settings'),
+      import('../src/plugins/sprite'),
+      import('../src/plugins/ui'),
+    ])
+
+    for (const module of modules) {
+      expect(Object.keys(module).some(key => /^create.*RendererPlugin$/.test(key))).toBe(true)
+    }
+
+    expect(createVisualNovelRendererPlugins({ input: false }).map(plugin => plugin.name)).toEqual([
+      '@quajs/renderer-react/fonts',
+      '@quajs/renderer-react/background',
+      '@quajs/renderer-react/sprite',
+      '@quajs/renderer-react/character',
+      '@quajs/renderer-react/effects',
+      '@quajs/renderer-react/dialogue',
+      '@quajs/renderer-react/choices',
+      '@quajs/renderer-react/audio',
+      '@quajs/renderer-react/scene',
+      '@quajs/renderer-react/ui',
+      '@quajs/renderer-react/settings',
+      '@quajs/renderer-react/backlog',
+      '@quajs/renderer-react/gallery',
+      '@quajs/renderer-react/achievement',
+    ])
+  })
 })
 
 async function flushReact(): Promise<void> {

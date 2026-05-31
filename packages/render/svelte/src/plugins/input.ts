@@ -8,9 +8,8 @@ export type InputSvelteRendererPluginOptions = InputWebRendererPluginOptions
 export function createInputRendererPlugin(options: InputSvelteRendererPluginOptions = {}): QuaSvelteRendererPlugin {
   const plugin = createInputWebRendererPlugin(options)
   return defineSvelteRendererPlugin({
+    ...plugin,
     name: '@quajs/renderer-svelte/input',
-    setup: plugin.setup,
-    destroy: plugin.destroy,
   })
 }
 

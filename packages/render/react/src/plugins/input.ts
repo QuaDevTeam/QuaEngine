@@ -8,9 +8,8 @@ export type InputReactRendererPluginOptions = InputWebRendererPluginOptions
 export function createInputRendererPlugin(options: InputReactRendererPluginOptions = {}): QuaReactRendererPlugin {
   const plugin = createInputWebRendererPlugin(options)
   return defineReactRendererPlugin({
+    ...plugin,
     name: '@quajs/renderer-react/input',
-    setup: plugin.setup,
-    destroy: plugin.destroy,
   })
 }
 
