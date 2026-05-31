@@ -141,6 +141,46 @@ describe('@quajs/renderer-svelte', () => {
       'second:unset',
     ])
   })
+
+  it('exports DOM feature plugin subentries and composes the Vue-aligned preset order', async () => {
+    const modules = await Promise.all([
+      import('../src/plugins/achievement'),
+      import('../src/plugins/audio'),
+      import('../src/plugins/background'),
+      import('../src/plugins/backlog'),
+      import('../src/plugins/character'),
+      import('../src/plugins/choices'),
+      import('../src/plugins/dialogue'),
+      import('../src/plugins/effects'),
+      import('../src/plugins/fonts'),
+      import('../src/plugins/gallery'),
+      import('../src/plugins/scene'),
+      import('../src/plugins/settings'),
+      import('../src/plugins/sprite'),
+      import('../src/plugins/ui'),
+    ])
+
+    for (const module of modules) {
+      expect(Object.keys(module).some(key => /^create.*RendererPlugin$/.test(key))).toBe(true)
+    }
+
+    expect(createVisualNovelRendererPlugins({ input: false }).map(plugin => plugin.name)).toEqual([
+      '@quajs/renderer-svelte/fonts',
+      '@quajs/renderer-svelte/background',
+      '@quajs/renderer-svelte/sprite',
+      '@quajs/renderer-svelte/character',
+      '@quajs/renderer-svelte/effects',
+      '@quajs/renderer-svelte/dialogue',
+      '@quajs/renderer-svelte/choices',
+      '@quajs/renderer-svelte/audio',
+      '@quajs/renderer-svelte/scene',
+      '@quajs/renderer-svelte/ui',
+      '@quajs/renderer-svelte/settings',
+      '@quajs/renderer-svelte/backlog',
+      '@quajs/renderer-svelte/gallery',
+      '@quajs/renderer-svelte/achievement',
+    ])
+  })
 })
 
 async function flushDom(): Promise<void> {
