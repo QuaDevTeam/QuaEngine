@@ -53,6 +53,25 @@ function createStoryDeclaration(
         ? (step.content as { decorators?: QuaScriptDialogue['decorators'] }).decorators || []
         : []
     for (const decorator of decorators) {
+      if (decorator.name === 'ChapterSelect') {
+        const nodeId = currentNodeId || currentLabelId || step.uuid
+        const chapterSelect = toRecord(decorator.args[0], options) || {}
+        const existing = nodes.find(node => node.id === nodeId)
+        if (existing) {
+          existing.chapterSelect = {
+            ...(existing.chapterSelect || {}),
+            ...chapterSelect,
+          }
+        }
+        else {
+          nodes.push({
+            id: nodeId,
+            point: createPoint(step.uuid, options, { sceneId: currentSceneId, entryId: currentEntryId, nodeId, labelId: currentLabelId }),
+            chapterSelect,
+          })
+        }
+        continue
+      }
       const value = stringifyDecoratorValue(decorator.args[0])
       if (!value) {
         continue
