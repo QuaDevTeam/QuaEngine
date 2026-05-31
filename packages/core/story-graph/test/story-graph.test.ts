@@ -6,12 +6,17 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   emitStoryEventWithEngine,
   enterStoryPointWithEngine,
+  getStoryChapterSelectProjection,
   getStoryGraphProjection,
+  isStoryNodeUnlockedWithEngine,
+  jumpToChapterSelectNodeWithEngine,
   jumpToStoryPointWithEngine,
+  lockStoryNodeWithEngine,
   registerStoryGraphDeltaWithEngine,
   registerStoryGraphWithEngine,
   removeRuntimePackageStoryGraphContentWithEngine,
   resolveStoryTargetFromGraphWithEngine,
+  setStoryChapterSelectWithEngine,
   setStoryMetadataWithEngine,
   StoryGraphPlugin,
   unlockStoryNodeWithEngine,
@@ -112,6 +117,119 @@ describe('@quajs/story-graph', () => {
       point: { storyId: 'main', nodeId: 'node-1', chapterId: 'chapter-1', stepId: 'step-1' },
       metadata: { title: 'Opening', locked: false },
     })
+  })
+
+  it('projects chapter-selectable nodes, auto-unlocks visited nodes, and supports locked jumps', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+    await registerStoryGraphWithEngine(engine, {
+      id: 'main',
+      nodes: [
+        {
+          id: 'a',
+          point: { storyId: 'main', nodeId: 'a', stepId: 'step-a' },
+          title: 'A',
+          chapterSelect: { order: 2 },
+        },
+        {
+          id: 'b',
+          point: { storyId: 'main', nodeId: 'b', stepId: 'step-b' },
+          title: 'B',
+          chapterSelect: { title: 'Chapter B', order: 1, unlockOnVisit: false },
+        },
+      ],
+    })
+
+    expect(getStoryChapterSelectProjection(engine).nodes.map(node => node.nodeId)).toEqual(['b', 'a'])
+    expect(getStoryChapterSelectProjection(engine).nodes.map(node => node.unlocked)).toEqual([false, false])
+
+    await engine.dialogue([{
+      uuid: 'step-a',
+      metadata: {
+        point: { storyId: 'main', nodeId: 'a' },
+      },
+      run() {},
+    }])
+
+    expect(isStoryNodeUnlockedWithEngine(engine, 'a')).toBe(true)
+    expect(getStoryChapterSelectProjection(engine).nodes.find(node => node.nodeId === 'a')).toEqual(expect.objectContaining({
+      current: true,
+      unlocked: true,
+    }))
+    await expect(jumpToChapterSelectNodeWithEngine(engine, 'b')).rejects.toThrow('Chapter select node "b" is locked.')
+
+    await engine.setStoryPoint({ storyId: 'main', nodeId: 'b', stepId: 'step-b' })
+    await engine.createCheckpoint({ id: 'step-b', kind: 'manual' })
+    await engine.setStoryPoint({ storyId: 'main', nodeId: 'start', stepId: 'start' })
+    await unlockStoryNodeWithEngine(engine, 'b')
+    await jumpToChapterSelectNodeWithEngine(engine, 'b')
+    expect(engine.getStoryPoint()).toEqual(expect.objectContaining({ nodeId: 'b', stepId: 'step-b' }))
+
+    await lockStoryNodeWithEngine(engine, 'b')
+    expect(isStoryNodeUnlockedWithEngine(engine, 'b')).toBe(false)
+  })
+
+  it('keeps chapter select tie ordering in graph and node registration order', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+    await registerStoryGraphWithEngine(engine, {
+      id: 'zeta',
+      nodes: [
+        {
+          id: 'z-first',
+          point: { storyId: 'zeta', nodeId: 'z-first', stepId: 'z-first' },
+          chapterSelect: { order: 1 },
+        },
+        {
+          id: 'z-second',
+          point: { storyId: 'zeta', nodeId: 'z-second', stepId: 'z-second' },
+          chapterSelect: { order: 1 },
+        },
+      ],
+    })
+    await registerStoryGraphWithEngine(engine, {
+      id: 'alpha',
+      nodes: [
+        {
+          id: 'a-first',
+          point: { storyId: 'alpha', nodeId: 'a-first', stepId: 'a-first' },
+          chapterSelect: { order: 1 },
+        },
+      ],
+    })
+
+    expect(getStoryChapterSelectProjection(engine).nodes.map(node => `${node.graphId}:${node.nodeId}`)).toEqual([
+      'zeta:z-first',
+      'zeta:z-second',
+      'alpha:a-first',
+    ])
+  })
+
+  it('marks the current node as chapter-selectable through the runtime helper', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+    await engine.setStoryPoint({ storyId: 'main', nodeId: 'decorated', stepId: 'decorated-step' })
+
+    await setStoryChapterSelectWithEngine(engine, {
+      title: 'Decorated Chapter',
+      order: 3,
+    })
+
+    expect(getStoryGraphProjection(engine).graphs.main.nodes[0]).toEqual(expect.objectContaining({
+      id: 'decorated',
+      chapterSelect: expect.objectContaining({
+        title: 'Decorated Chapter',
+        order: 3,
+      }),
+    }))
+    expect(getStoryChapterSelectProjection(engine).nodes[0]).toEqual(expect.objectContaining({
+      nodeId: 'decorated',
+      title: 'Decorated Chapter',
+      unlocked: true,
+    }))
   })
 
   it('resets lower-level story metadata when scene and entry markers change', async () => {
@@ -616,6 +734,36 @@ describe('@quajs/story-graph', () => {
     expect(graph.nodes.map(node => node.id).sort()).toEqual(['base', 'c-node'])
     expect(graph.edges).toEqual([])
     expect(graph.lanes).toEqual([])
+  })
+
+  it('removes runtime chapter select nodes and prunes their unlock state on package cleanup', async () => {
+    const engine = createEngine()
+    engine.use(new StoryGraphPlugin())
+    await engine.init()
+
+    await registerStoryGraphDeltaWithEngine(engine, {
+      id: 'delta:runtime-chapter',
+      graphId: 'main',
+      nodes: [{
+        id: 'runtime-chapter',
+        point: { storyId: 'main', nodeId: 'runtime-chapter', stepId: 'runtime-step' },
+        chapterSelect: {
+          title: 'Runtime Chapter',
+          thumbnail: { type: 'images', name: 'runtime/chapter.png' },
+        },
+      }],
+    }, { packageId: 'runtime.chapter' })
+    await unlockStoryNodeWithEngine(engine, 'runtime-chapter')
+
+    expect(getStoryChapterSelectProjection(engine).nodes[0]).toEqual(expect.objectContaining({
+      nodeId: 'runtime-chapter',
+      contentPackageId: 'runtime.chapter',
+    }))
+
+    await removeRuntimePackageStoryGraphContentWithEngine(engine, 'runtime.chapter')
+
+    expect(getStoryChapterSelectProjection(engine).nodes).toEqual([])
+    expect(getStoryGraphProjection(engine).unlockedNodes).not.toContain('runtime-chapter')
   })
 
   it('tags full graphs registered through package-scoped engine facades', async () => {

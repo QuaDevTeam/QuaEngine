@@ -94,9 +94,26 @@
         "function": "emitStoryEventWithEngine",
         "module": "@quajs/story-graph"
       },
+      "ChapterSelect": {
+        "function": "setStoryChapterSelectWithEngine",
+        "module": "@quajs/story-graph"
+      },
       "Interaction": {
         "function": "setStoryMetadataWithEngine",
         "module": "@quajs/story-graph"
+      }
+    },
+    "language": {
+      "decorators": {
+        "ChapterSelect": {
+          "description": "Mark the current story node as selectable in chapter select",
+          "args": [
+            {
+              "name": "options",
+              "detail": "Optional title, summary, order, thumbnail, or unlockOnVisit"
+            }
+          ]
+        }
       }
     }
   }
