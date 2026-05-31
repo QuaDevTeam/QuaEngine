@@ -243,6 +243,10 @@ class RendererInputControllerImpl implements RendererInputController {
     return task
   }
 
+  private dispatchCommandFromEvent(dispatch: RendererInputCommandDispatch): void {
+    void this.dispatchCommand(dispatch).catch(() => {})
+  }
+
   private async dispatchCommandNow(dispatch: RendererInputCommandDispatch): Promise<void> {
     const payload: RendererInputCommandPayload = {
       command: dispatch.command,
@@ -394,7 +398,7 @@ class RendererInputControllerImpl implements RendererInputController {
       if (binding.preventDefault || this.options.preventDefault) {
         event.preventDefault()
       }
-      void this.dispatchCommand({
+      this.dispatchCommandFromEvent({
         command: binding.command,
         device: 'keyboard',
         source: `keyboard:${code}`,
@@ -444,7 +448,7 @@ class RendererInputControllerImpl implements RendererInputController {
       if (binding.preventDefault || this.options.preventDefault) {
         event.preventDefault()
       }
-      void this.dispatchCommand({
+      this.dispatchCommandFromEvent({
         command: binding.command,
         device: 'pointer',
         source: `pointer:${dispatchSource}`,
@@ -487,7 +491,7 @@ class RendererInputControllerImpl implements RendererInputController {
         event.preventDefault()
       }
       this.lastWheelDispatch.set(binding.command, Date.now())
-      void this.dispatchCommand({
+      this.dispatchCommandFromEvent({
         command: binding.command,
         device: 'wheel',
         source: `wheel:${direction}`,
@@ -527,7 +531,7 @@ class RendererInputControllerImpl implements RendererInputController {
           if ((binding.phase || 'press') !== phase) {
             continue
           }
-          void this.dispatchCommand({
+          this.dispatchCommandFromEvent({
             command: binding.command,
             device: 'gamepad',
             source: `gamepad:${gamepad.index}:button:${buttonIndex}`,

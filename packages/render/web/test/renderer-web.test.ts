@@ -982,6 +982,36 @@ describe('@quajs/renderer-web', () => {
     expect(events).toHaveLength(6)
   })
 
+  it('isolates rejected renderer input actions dispatched from DOM events', async () => {
+    const controller = createQuaWebRendererController({ pipeline: new Pipeline() })
+    const actions = {
+      ...controller.actions,
+      inputCommand: vi.fn(async () => {
+        throw new Error('input action failed')
+      }),
+    }
+    const input = createRendererInputController({
+      actions,
+      getViewState: () => controller.getViewState(),
+      target: document,
+      includeDefaultBindings: false,
+      bindings: [{ source: 'keyboard', code: 'KeyX', command: 'advance' }],
+      gamepad: false,
+      pointer: false,
+      wheel: false,
+    })
+    input.start()
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyX', key: 'x', bubbles: true }))
+    await flushDom()
+
+    expect(actions.inputCommand).toHaveBeenCalledTimes(1)
+    await expect(input.dispatchCommand({ command: 'advance', device: 'keyboard', source: 'direct' }))
+      .rejects.toThrow('input action failed')
+
+    input.dispose()
+  })
+
   it('emits window focus and blur intents from renderer focus tracking', async () => {
     const pipeline = new Pipeline()
     const events: string[] = []
