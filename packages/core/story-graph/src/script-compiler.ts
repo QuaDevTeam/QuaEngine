@@ -58,6 +58,10 @@ export const storyGraphDecoratorMappings = {
     function: 'emitStoryEventWithEngine',
     module: '@quajs/story-graph',
   },
+  ChapterSelect: {
+    function: 'setStoryChapterSelectWithEngine',
+    module: '@quajs/story-graph',
+  },
 } as const
 
 export function createStoryGraphDecoratorCompiler() {
@@ -66,10 +70,11 @@ export function createStoryGraphDecoratorCompiler() {
     runtimeHelperModules: {
       setStoryMetadataWithEngine: '@quajs/story-graph',
       emitStoryEventWithEngine: '@quajs/story-graph',
+      setStoryChapterSelectWithEngine: '@quajs/story-graph',
     },
     supports(decoratorName: string, mapping: { function: string, module: string }) {
       return mapping.module === '@quajs/story-graph'
-        && (STORY_METADATA_DECORATORS.has(decoratorName) || decoratorName === 'EmitStoryEvent')
+        && (STORY_METADATA_DECORATORS.has(decoratorName) || decoratorName === 'EmitStoryEvent' || decoratorName === 'ChapterSelect')
     },
     compile({ decorator }: {
       decorator: { name: string, args: unknown[] }
@@ -85,6 +90,16 @@ export function createStoryGraphDecoratorCompiler() {
             args[1] || t.objectExpression([]),
           ]),
           runtimeHelpers: ['emitStoryEventWithEngine'],
+        }
+      }
+
+      if (decorator.name === 'ChapterSelect') {
+        return {
+          call: t.callExpression(t.identifier('setStoryChapterSelectWithEngine'), [
+            engineArg,
+            args[0] || t.objectExpression([]),
+          ]),
+          runtimeHelpers: ['setStoryChapterSelectWithEngine'],
         }
       }
 

@@ -70,12 +70,41 @@ export interface StoryNode {
   title?: string
   summary?: string
   presentation?: StoryNodePresentation
+  chapterSelect?: StoryNodeChapterSelectOptions
   laneId?: string
   routeId?: string
   timelineId?: string
   protagonistId?: string
   chapterId?: string
   metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface StoryNodeChapterSelectOptions {
+  title?: string
+  summary?: string
+  order?: number
+  thumbnail?: StoryAssetRef
+  unlockOnVisit?: boolean
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface StoryChapterSelectNodeProjection {
+  graphId: string
+  nodeId: string
+  point: StoryPoint
+  title?: string
+  summary?: string
+  order?: number
+  thumbnail?: StoryAssetRef
+  unlocked: boolean
+  current: boolean
+  contentPackageId?: string
+  requiredRuntimePackages?: readonly string[]
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface StoryChapterSelectProjection {
+  nodes: readonly StoryChapterSelectNodeProjection[]
 }
 
 export interface StoryNodePresentation {
@@ -115,6 +144,7 @@ export interface StoryGraphProjection {
   cursors: Readonly<Record<string, StoryCursor>>
   unlockedNodes: readonly string[]
   events: readonly StoryEventRecord[]
+  chapterSelect: StoryChapterSelectProjection
 }
 
 export interface StoryEventRecord {
@@ -187,6 +217,7 @@ export class StoryGraphPlugin extends BaseEnginePlugin {
       return
     }
     await setCursor(ctx.engine, this.getDefaultCursorId(), ctx.point)
+    await unlockVisitedChapterSelectNodeWithEngine(ctx.engine, ctx.point)
   }
 
   override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
@@ -212,6 +243,11 @@ export class StoryGraphPlugin extends BaseEnginePlugin {
         { name: 'jumpToStoryPointWithEngine', fn: jumpToStoryPointWithEngine, module: this.name },
         { name: 'emitStoryEventWithEngine', fn: emitStoryEventWithEngine, module: this.name },
         { name: 'unlockStoryNodeWithEngine', fn: unlockStoryNodeWithEngine, module: this.name },
+        { name: 'lockStoryNodeWithEngine', fn: lockStoryNodeWithEngine, module: this.name },
+        { name: 'isStoryNodeUnlockedWithEngine', fn: isStoryNodeUnlockedWithEngine, module: this.name },
+        { name: 'setStoryChapterSelectWithEngine', fn: setStoryChapterSelectWithEngine, module: this.name },
+        { name: 'getStoryChapterSelectProjection', fn: getStoryChapterSelectProjection, module: this.name },
+        { name: 'jumpToChapterSelectNodeWithEngine', fn: jumpToChapterSelectNodeWithEngine, module: this.name },
         { name: 'setStoryMetadataWithEngine', fn: setStoryMetadataWithEngine, module: this.name },
         { name: 'recordChoiceEdgeWithEngine', fn: recordChoiceEdgeWithEngine, module: this.name },
         { name: 'recordChoiceEdgesWithEngine', fn: recordChoiceEdgesWithEngine, module: this.name },
@@ -245,7 +281,7 @@ export async function registerStoryGraphWithEngine(
   }
 
   const projection = getStoryGraphProjection(engine)
-  await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, {
+  await setStoryGraphProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     graphs: {
@@ -271,7 +307,7 @@ export async function registerStoryGraphDeltaWithEngine(
   const point = engine.getStoryPoint()
   const projection = getStoryGraphProjection(engine)
   const graphs = applyStoryGraphDeltaToGraphMap(projection.graphs, delta, point)
-  await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, {
+  await setStoryGraphProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     graphs,
@@ -333,7 +369,7 @@ export async function removeRuntimePackageStoryGraphContentWithEngine(
     return
   }
 
-  await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, {
+  await setStoryGraphProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     graphs: cleanup.graphs,
@@ -425,7 +461,7 @@ export async function emitStoryEventWithEngine(
     point: engine.getStoryPoint(),
     timestamp: Date.now(),
   }
-  await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, {
+  await setStoryGraphProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     events: [...projection.events, event],
@@ -440,11 +476,81 @@ export async function unlockStoryNodeWithEngine(
   if (projection.unlockedNodes.includes(nodeId)) {
     return
   }
-  await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, {
+  await setStoryGraphProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     unlockedNodes: [...projection.unlockedNodes, nodeId],
   })
+}
+
+export async function lockStoryNodeWithEngine(
+  engine: QuaEngineInterface,
+  nodeId: string,
+): Promise<void> {
+  const projection = getStoryGraphProjection(engine)
+  if (!projection.unlockedNodes.includes(nodeId)) {
+    return
+  }
+  await setStoryGraphProjection(engine, {
+    ...projection,
+    revision: projection.revision + 1,
+    unlockedNodes: projection.unlockedNodes.filter(id => id !== nodeId),
+  })
+}
+
+export function isStoryNodeUnlockedWithEngine(engine: QuaEngineInterface, nodeId: string): boolean {
+  return getStoryGraphProjection(engine).unlockedNodes.includes(nodeId)
+}
+
+export async function setStoryChapterSelectWithEngine(
+  engine: QuaEngineInterface,
+  options: StoryNodeChapterSelectOptions = {},
+): Promise<void> {
+  const current = engine.getStoryPoint()
+  const stepId = current?.stepId || engine.getCurrentStepId()
+  if (!stepId) {
+    return
+  }
+  const nodeId = current?.nodeId || current?.labelId || current?.entryId || stepId
+  const point: StoryPoint = {
+    ...(current || { stepId }),
+    stepId,
+    nodeId: current?.nodeId || nodeId,
+  }
+  await upsertStoryNodeWithEngine(engine, point, undefined, normalizeChapterSelectOptions(options))
+  if (options.unlockOnVisit !== false) {
+    await unlockStoryNodeWithEngine(engine, nodeId)
+  }
+}
+
+export function getStoryChapterSelectProjection(engine: QuaEngineInterface): StoryChapterSelectProjection {
+  return getStoryGraphProjection(engine).chapterSelect
+}
+
+export async function jumpToChapterSelectNodeWithEngine(
+  engine: QuaEngineInterface,
+  nodeId: string,
+  options: JumpOptions & { graphId?: string, cursorId?: string, force?: boolean } = {},
+): Promise<void> {
+  const normalizedNodeId = requireNonEmptyString(nodeId, 'Chapter select node id must not be empty.')
+  const projection = getStoryGraphProjection(engine)
+  const candidates = projection.chapterSelect.nodes.filter(node =>
+    node.nodeId === normalizedNodeId && (!options.graphId || node.graphId === options.graphId),
+  )
+  if (candidates.length === 0) {
+    throw new Error(`Chapter select node "${normalizedNodeId}" is not selectable.`)
+  }
+  if (candidates.length > 1) {
+    throw new Error(`Chapter select node "${normalizedNodeId}" is ambiguous across ${candidates.length} graphs.`)
+  }
+  const target = candidates[0]
+  if (!target.unlocked && !options.force) {
+    throw new Error(`Chapter select node "${normalizedNodeId}" is locked.`)
+  }
+  if (target.requiredRuntimePackages?.length) {
+    await engine.ensureRuntimePackages(target.requiredRuntimePackages)
+  }
+  await jumpToStoryPointWithEngine(engine, target.point, options)
 }
 
 export async function recordChoiceEdgeWithEngine(
@@ -514,7 +620,7 @@ export async function recordChoiceEdgesWithEngine(
     edges: nextEdges,
   }
 
-  await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, {
+  await setStoryGraphProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     graphs: {
@@ -623,7 +729,10 @@ function resetStoryPointByPatch(current: StoryPoint, patch: Partial<StoryPoint>)
 }
 
 export function getStoryGraphProjection(engine: QuaEngineInterface): StoryGraphProjection {
-  return engine.getPluginProjection<StoryGraphProjection>(STORY_GRAPH_PLUGIN_ID) || createInitialStoryGraphProjection()
+  return deriveStoryGraphProjection(
+    engine.getPluginProjection<StoryGraphProjection>(STORY_GRAPH_PLUGIN_ID) || createInitialStoryGraphProjection(),
+    engine.getStoryPoint(),
+  )
 }
 
 export function createInitialStoryGraphProjection(): StoryGraphProjection {
@@ -633,12 +742,102 @@ export function createInitialStoryGraphProjection(): StoryGraphProjection {
     cursors: {},
     unlockedNodes: [],
     events: [],
+    chapterSelect: { nodes: [] },
   }
+}
+
+async function setStoryGraphProjection(
+  engine: QuaEngineInterface,
+  projection: StoryGraphProjection,
+): Promise<void> {
+  await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, deriveStoryGraphProjection(projection, engine.getStoryPoint()))
+}
+
+function deriveStoryGraphProjection(
+  projection: StoryGraphProjection,
+  currentPoint?: StoryPoint,
+): StoryGraphProjection {
+  const base = {
+    ...projection,
+    chapterSelect: projection.chapterSelect || { nodes: [] },
+  }
+  return {
+    ...base,
+    chapterSelect: createStoryChapterSelectProjection(base.graphs, base.unlockedNodes, currentPoint),
+  }
+}
+
+function createStoryChapterSelectProjection(
+  graphs: Readonly<Record<string, StoryGraph>>,
+  unlockedNodes: readonly string[],
+  currentPoint?: StoryPoint,
+): StoryChapterSelectProjection {
+  const unlocked = new Set(unlockedNodes)
+  const nodes: Array<StoryChapterSelectNodeProjection & { sourceIndex: number }> = []
+  let sourceIndex = 0
+
+  for (const [graphId, graph] of Object.entries(graphs)) {
+    for (const node of graph.nodes) {
+      const chapterSelect = node.chapterSelect
+      if (!chapterSelect) {
+        sourceIndex += 1
+        continue
+      }
+      const thumbnail = chapterSelect.thumbnail || node.presentation?.thumbnail
+      const contentPackageId = node.point.contentPackageId || contentPackageIdFromMetadata(node.metadata)
+      const requiredRuntimePackages = mergeStringLists(
+        runtimePackagesForStoryNode(node),
+        runtimePackagesForStoryAsset(thumbnail),
+        getMetadataRequiredRuntimePackages(chapterSelect.metadata),
+      )
+      nodes.push({
+        graphId,
+        nodeId: node.id,
+        point: {
+          ...node.point,
+          storyId: node.point.storyId || graphId,
+        },
+        title: chapterSelect.title || node.title,
+        summary: chapterSelect.summary || node.summary,
+        order: chapterSelect.order,
+        thumbnail: thumbnail ? cloneUnknownValue(thumbnail) as StoryAssetRef : undefined,
+        unlocked: unlocked.has(node.id),
+        current: storyPointMatchesNode(currentPoint, graphId, node),
+        contentPackageId,
+        requiredRuntimePackages: storyPointRequiredRuntimePackages(contentPackageId, requiredRuntimePackages),
+        metadata: chapterSelect.metadata ? { ...chapterSelect.metadata } : undefined,
+        sourceIndex,
+      })
+      sourceIndex += 1
+    }
+  }
+
+  return {
+    nodes: nodes
+      .sort((left, right) =>
+        (left.order ?? Number.MAX_SAFE_INTEGER) - (right.order ?? Number.MAX_SAFE_INTEGER)
+        || left.sourceIndex - right.sourceIndex,
+      )
+      .map(({ sourceIndex: _sourceIndex, ...node }) => node),
+  }
+}
+
+async function unlockVisitedChapterSelectNodeWithEngine(
+  engine: QuaEngineInterface,
+  point: StoryPoint,
+): Promise<void> {
+  const projection = getStoryGraphProjection(engine)
+  const graph = projection.graphs[point.storyId || 'default']
+  const node = findStoryNodeForPoint(graph?.nodes || [], point)
+  if (!node?.chapterSelect || node.chapterSelect.unlockOnVisit === false || projection.unlockedNodes.includes(node.id)) {
+    return
+  }
+  await unlockStoryNodeWithEngine(engine, node.id)
 }
 
 async function setCursor(engine: QuaEngineInterface, cursorId: string, point: StoryPoint): Promise<void> {
   const projection = getStoryGraphProjection(engine)
-  await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, {
+  await setStoryGraphProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     cursors: {
@@ -656,6 +855,7 @@ async function upsertStoryNodeWithEngine(
   engine: QuaEngineInterface,
   point: StoryPoint,
   metadata?: Record<string, unknown>,
+  chapterSelect?: StoryNodeChapterSelectOptions,
 ): Promise<void> {
   const graphId = point.storyId || 'default'
   const nodeId = point.nodeId || point.stepId
@@ -673,11 +873,14 @@ async function upsertStoryNodeWithEngine(
     timelineId: point.timelineId || existingNode?.timelineId,
     protagonistId: point.protagonistId || existingNode?.protagonistId,
     chapterId: point.chapterId || existingNode?.chapterId,
+    chapterSelect: chapterSelect
+      ? normalizeChapterSelectOptions(chapterSelect, currentRuntimePackageId(engine))
+      : existingNode?.chapterSelect,
     metadata: metadata
       ? { ...(existingNode?.metadata || {}), ...metadata }
       : existingNode?.metadata,
   }
-  await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, {
+  await setStoryGraphProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     graphs: {
@@ -699,6 +902,7 @@ function cloneStoryGraph(graph: StoryGraph): StoryGraph {
       ...node,
       point: { ...node.point },
       presentation: node.presentation ? cloneUnknownValue(node.presentation) as StoryNodePresentation : undefined,
+      chapterSelect: node.chapterSelect ? cloneUnknownValue(node.chapterSelect) as StoryNodeChapterSelectOptions : undefined,
       metadata: node.metadata ? { ...node.metadata } : undefined,
     })),
     edges: graph.edges?.map(edge => ({
@@ -813,6 +1017,33 @@ function getStoryPointField(point: StoryPoint, field: string): string | undefine
   return typeof value === 'string' ? value : undefined
 }
 
+function findStoryNodeForPoint(nodes: readonly StoryNode[], point: StoryPoint): StoryNode | undefined {
+  const candidateIds = [
+    point.nodeId,
+    getStoryPointField(point, 'labelId'),
+    getStoryPointField(point, 'entryId'),
+    point.stepId,
+  ].filter((value): value is string => typeof value === 'string' && value.length > 0)
+
+  for (const id of candidateIds) {
+    const match = nodes.find(node => node.id === id)
+    if (match) {
+      return match
+    }
+  }
+  return nodes.find(node => node.point.stepId === point.stepId)
+}
+
+function storyPointMatchesNode(point: StoryPoint | undefined, graphId: string, node: StoryNode): boolean {
+  if (!point) {
+    return false
+  }
+  if (point.storyId && point.storyId !== graphId) {
+    return false
+  }
+  return findStoryNodeForPoint([node], point)?.id === node.id
+}
+
 function getTargetNodeId(target: ChoiceTarget): string | undefined {
   switch (target.kind) {
     case 'node':
@@ -868,8 +1099,25 @@ function getMetadataRequiredRuntimePackages(metadata?: Readonly<Record<string, u
     : []
 }
 
+function runtimePackagesForStoryAsset(asset: StoryAssetRef | undefined): string[] {
+  if (!asset) {
+    return []
+  }
+  return mergeStringLists(
+    asset.runtimePackageId ? [asset.runtimePackageId] : undefined,
+    getMetadataRequiredRuntimePackages(asset.metadata),
+  )
+}
+
 function mergeStringLists(...groups: Array<readonly string[] | undefined>): string[] {
   return Array.from(new Set(groups.flatMap(group => group || []).filter(Boolean)))
+}
+
+function requireNonEmptyString(value: string | undefined, message: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(message)
+  }
+  return value.trim()
 }
 
 function cloneUnknownRecord<T extends Readonly<Record<string, unknown>>>(value: T): Record<string, unknown> {
@@ -988,7 +1236,7 @@ async function rebuildRuntimeStoryGraphDeltas(
     ? cleanRuntimePackageProjectionState({ ...projection, graphs }, removedPackageId, graphs)
     : { cursors: projection.cursors, events: projection.events, unlockedNodes: projection.unlockedNodes }
 
-  await engine.setPluginProjection(STORY_GRAPH_PLUGIN_ID, {
+  await setStoryGraphProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     graphs,
@@ -1137,6 +1385,7 @@ function normalizeDeltaNode(
     title: node.title,
     summary: node.summary,
     presentation: node.presentation ? cloneUnknownValue(node.presentation) as StoryNodePresentation : undefined,
+    chapterSelect: node.chapterSelect ? normalizeChapterSelectOptions(node.chapterSelect, contentPackageIdFromMetadata(metadata)) : undefined,
     laneId: node.laneId || point.laneId,
     routeId: node.routeId || point.routeId,
     timelineId: node.timelineId || point.timelineId,
@@ -1147,6 +1396,38 @@ function normalizeDeltaNode(
       ...metadata,
     },
   }
+}
+
+function normalizeChapterSelectOptions(
+  options: StoryNodeChapterSelectOptions,
+  packageId?: string,
+): StoryNodeChapterSelectOptions {
+  return {
+    title: trimOptionalString(options.title),
+    summary: trimOptionalString(options.summary),
+    order: options.order === undefined ? undefined : requireSafeInteger(options.order, 'Chapter select order must be a safe integer.'),
+    thumbnail: options.thumbnail ? normalizeStoryAssetRef(options.thumbnail, packageId) : undefined,
+    unlockOnVisit: options.unlockOnVisit,
+    metadata: options.metadata ? { ...options.metadata } : undefined,
+  }
+}
+
+function normalizeStoryAssetRef(ref: StoryAssetRef, packageId?: string): StoryAssetRef {
+  return {
+    ...cloneUnknownValue(ref) as StoryAssetRef,
+    ...(packageId && !ref.runtimePackageId ? { runtimePackageId: packageId } : {}),
+  }
+}
+
+function trimOptionalString(value: string | undefined): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined
+}
+
+function requireSafeInteger(value: number, message: string): number {
+  if (!Number.isSafeInteger(value)) {
+    throw new Error(message)
+  }
+  return value
 }
 
 function normalizeDeltaEdge(edge: Partial<StoryEdge>, metadata: Record<string, unknown>): StoryEdge {
@@ -1187,14 +1468,17 @@ function storyGraphDeltaRequiresPackage(delta: StoryGraphDelta, packageId: strin
     || [...(delta.nodes || [])].some(node =>
       node.point?.contentPackageId === packageId
       || node.point?.requiredRuntimePackages?.includes(packageId) === true
-      || metadataRequiresPackage(node.metadata, packageId),
+      || metadataRequiresPackage(node.metadata, packageId)
+      || chapterSelectRequiresPackage(node.chapterSelect, packageId),
     )
     || [...(delta.edges || [])].some(edge => metadataRequiresPackage(edge.metadata, packageId))
     || [...(delta.lanes || []), ...(delta.timelines || [])].some(lane => metadataRequiresPackage(lane.metadata, packageId))
 }
 
 function storyNodeRequiresPackage(node: StoryNode, packageId: string): boolean {
-  return storyPointRequiresPackage(node.point, packageId) || metadataRequiresPackage(node.metadata, packageId)
+  return storyPointRequiresPackage(node.point, packageId)
+    || metadataRequiresPackage(node.metadata, packageId)
+    || chapterSelectRequiresPackage(node.chapterSelect, packageId)
 }
 
 function storyEdgeRequiresPackage(edge: StoryEdge, packageId: string): boolean {
@@ -1204,6 +1488,11 @@ function storyEdgeRequiresPackage(edge: StoryEdge, packageId: string): boolean {
 function metadataRequiresPackage(metadata: Readonly<Record<string, unknown>> | undefined, packageId: string): boolean {
   return metadata?.contentPackageId === packageId
     || getMetadataRequiredRuntimePackages(metadata).includes(packageId)
+}
+
+function chapterSelectRequiresPackage(chapterSelect: StoryNodeChapterSelectOptions | undefined, packageId: string): boolean {
+  return chapterSelect?.thumbnail?.runtimePackageId === packageId
+    || metadataRequiresPackage(chapterSelect?.metadata, packageId)
 }
 
 function runtimeMetadataForDelta(
@@ -1235,6 +1524,7 @@ function withCurrentRuntimeStoryGraphPackage(engine: QuaEngineInterface, graph: 
         contentPackageId: node.point.contentPackageId || packageId,
         ...storyPointRequiredRuntimePackagePatch(node.point, packageId, inheritedRequiredRuntimePackages),
       },
+      chapterSelect: node.chapterSelect ? normalizeChapterSelectOptions(node.chapterSelect, packageId) : undefined,
       metadata: mergeRuntimeMetadata(node.metadata, packageId, inheritedRequiredRuntimePackages),
     })),
     edges: graph.edges?.map(edge => ({
@@ -1291,6 +1581,8 @@ function runtimePackagesForStoryNode(node: StoryNode): string[] {
     node.point.requiredRuntimePackages,
     contentPackageIdFromMetadata(node.metadata) ? [contentPackageIdFromMetadata(node.metadata)!] : [],
     getMetadataRequiredRuntimePackages(node.metadata),
+    runtimePackagesForStoryAsset(node.chapterSelect?.thumbnail),
+    getMetadataRequiredRuntimePackages(node.chapterSelect?.metadata),
   )
 }
 
