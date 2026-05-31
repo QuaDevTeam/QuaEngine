@@ -1603,6 +1603,49 @@ describe('@quajs/renderer-web', () => {
     }
   })
 
+  it('reports rejected scene readiness intents from scene transitions', async () => {
+    const pipeline = new Pipeline({
+      middlewares: [
+        async (context, next) => {
+          if (context.event.type === RenderToLogicEvents.SCENE_READY) {
+            throw new Error('scene ready dispatch failed')
+          }
+          await next()
+        },
+      ],
+    })
+    const errors: any[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, payload => errors.push(payload))
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 900))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view(),
+    })
+
+    await renderer.mount()
+    await emitLogicToRender(pipeline, LogicToRenderEvents.SCENE_CHANGE, {
+      toScene: 'intro',
+      transition: { type: 'instant', duration: 0 },
+    })
+    await flushDom()
+
+    expect(errors).toEqual([
+      expect.objectContaining({
+        phase: 'scene-transition:ready',
+        source: 'renderer',
+        metadata: expect.objectContaining({ sceneId: 'intro' }),
+        error: expect.objectContaining({ message: 'scene ready dispatch failed' }),
+      }),
+    ])
+
+    await renderer.unmount()
+  })
+
   it('renders layered background composition inside the adaptive stage', async () => {
     const pipeline = new Pipeline()
     const root = document.createElement('div')
@@ -2942,6 +2985,52 @@ describe('@quajs/renderer-web', () => {
 
     await controller.destroy()
     await assets.cleanup()
+  })
+
+  it('reports rejected WebAudio lifecycle event dispatches', async () => {
+    installFakeAudioContext({ initialState: 'running' })
+    const assets = await createAudioAssets()
+    const pipeline = new Pipeline({
+      middlewares: [
+        async (context, next) => {
+          if (context.event.type === AudioRenderToLogicEvents.ENDED) {
+            throw new Error('audio ended dispatch failed')
+          }
+          await next()
+        },
+      ],
+    })
+    const reportError = vi.fn(async () => {})
+    const controller = new WebAudioRendererController({
+      getPipeline: () => pipeline,
+      getAssets: () => assets,
+      getViewState: () => audioEffectsView(),
+      reportError,
+      document,
+    })
+
+    try {
+      controller.start()
+      await controller.sync()
+      FakeAudioContext.sources[0]?.onended?.call(FakeAudioContext.sources[0] as any, new Event('ended'))
+      await flushDom()
+
+      expect(reportError).toHaveBeenCalledWith(expect.objectContaining({
+        message: 'audio ended dispatch failed',
+      }), expect.objectContaining({
+        message: 'WebAudio event dispatch failed.',
+        phase: 'audio:event',
+        metadata: expect.objectContaining({
+          event: AudioRenderToLogicEvents.ENDED,
+          channel: 'sfx',
+          id: 'click',
+        }),
+      }))
+    }
+    finally {
+      await controller.destroy()
+      await assets.cleanup()
+    }
   })
 
   it('stops the current WebAudio source when a track projection enters stopping state', async () => {

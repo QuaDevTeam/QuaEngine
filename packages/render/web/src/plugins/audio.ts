@@ -24,6 +24,7 @@ export function createAudioWebRendererPlugin(options: AudioWebRendererPluginOpti
         autoUnlock: options.autoUnlock,
         document: options.document,
         unlockEvents: options.unlockEvents,
+        reportError: context.reportError,
       })
       controller.start()
       context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, () => {

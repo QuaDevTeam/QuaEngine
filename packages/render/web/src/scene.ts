@@ -93,10 +93,7 @@ export class SceneTransitionStore {
     if (transition.type === 'instant' || transition.duration <= 0) {
       this.active = undefined
       this.notify()
-      void this.context?.emitRenderToLogic(RenderToLogicEvents.SCENE_READY, {
-        sceneId: payload.toScene,
-        timestamp: Date.now(),
-      })
+      this.emitSceneReady(payload.toScene)
       return
     }
 
@@ -114,11 +111,25 @@ export class SceneTransitionStore {
     this.active = undefined
     this.notify()
     if (targetSceneId) {
-      void this.context?.emitRenderToLogic(RenderToLogicEvents.SCENE_READY, {
-        sceneId: targetSceneId,
-        timestamp: Date.now(),
-      })
+      this.emitSceneReady(targetSceneId)
     }
+  }
+
+  private emitSceneReady(sceneId?: string): void {
+    const context = this.context
+    if (!context) {
+      return
+    }
+    void context.emitRenderToLogic(RenderToLogicEvents.SCENE_READY, {
+      sceneId,
+      timestamp: Date.now(),
+    }).catch((error) => {
+      void context.reportError(error, {
+        message: 'Scene readiness intent dispatch failed.',
+        phase: 'scene-transition:ready',
+        metadata: { sceneId },
+      })
+    })
   }
 
   private scheduleTick(): void {
