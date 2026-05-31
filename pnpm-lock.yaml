@@ -664,6 +664,28 @@ importers:
         specifier: workspace:*
         version: link:../../core/story-graph
 
+  packages/plugins/inventory:
+    dependencies:
+      '@babel/types':
+        specifier: 'catalog:'
+        version: 7.29.0
+    devDependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../../core/assets
+      '@quajs/engine':
+        specifier: workspace:*
+        version: link:../../core/engine
+      '@quajs/pipeline':
+        specifier: workspace:*
+        version: link:../../core/pipeline
+      '@quajs/plugin-settings':
+        specifier: workspace:*
+        version: link:../settings
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
+
   packages/plugins/settings:
     devDependencies:
       '@quajs/assets':
@@ -712,6 +734,27 @@ importers:
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../../core/pipeline
+      '@quajs/plugin-achievement':
+        specifier: workspace:*
+        version: link:../../plugins/achievement
+      '@quajs/plugin-audio':
+        specifier: workspace:*
+        version: link:../../plugins/audio
+      '@quajs/plugin-backlog':
+        specifier: workspace:*
+        version: link:../../plugins/backlog
+      '@quajs/plugin-fonts':
+        specifier: workspace:*
+        version: link:../../plugins/fonts
+      '@quajs/plugin-gallery':
+        specifier: workspace:*
+        version: link:../../plugins/gallery
+      '@quajs/plugin-settings':
+        specifier: workspace:*
+        version: link:../../plugins/settings
+      '@quajs/plugin-sprite':
+        specifier: workspace:*
+        version: link:../../plugins/sprite
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../core
@@ -739,6 +782,27 @@ importers:
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../../core/pipeline
+      '@quajs/plugin-achievement':
+        specifier: workspace:*
+        version: link:../../plugins/achievement
+      '@quajs/plugin-audio':
+        specifier: workspace:*
+        version: link:../../plugins/audio
+      '@quajs/plugin-backlog':
+        specifier: workspace:*
+        version: link:../../plugins/backlog
+      '@quajs/plugin-fonts':
+        specifier: workspace:*
+        version: link:../../plugins/fonts
+      '@quajs/plugin-gallery':
+        specifier: workspace:*
+        version: link:../../plugins/gallery
+      '@quajs/plugin-settings':
+        specifier: workspace:*
+        version: link:../../plugins/settings
+      '@quajs/plugin-sprite':
+        specifier: workspace:*
+        version: link:../../plugins/sprite
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../core
