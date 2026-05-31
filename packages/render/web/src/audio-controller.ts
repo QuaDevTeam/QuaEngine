@@ -1,7 +1,7 @@
 import type { AssetChange, QuaAssets } from '@quajs/assets'
 import type { Pipeline } from '@quajs/pipeline'
-import type { AudioViewProjection } from '@quajs/plugin-audio/contracts'
-import type { QuaViewProjection } from '@quajs/render-core'
+import type { AudioRenderToLogicEvent, AudioViewProjection } from '@quajs/plugin-audio/contracts'
+import type { QuaViewProjection, RenderErrorPayload } from '@quajs/render-core'
 import {
   AudioRenderToLogicEvents,
   emitAudioRenderToLogic,
@@ -14,6 +14,7 @@ export interface WebAudioRendererControllerOptions {
   getPipeline: () => Pipeline
   getAssets: () => QuaAssets | undefined
   getViewState: () => Readonly<QuaViewProjection>
+  reportError?: (error: unknown, payload?: Partial<RenderErrorPayload>) => Promise<void>
   autoUnlock?: boolean
   document?: Document
   unlockEvents?: readonly (keyof DocumentEventMap)[]
@@ -45,11 +46,18 @@ export class WebAudioRendererController {
     this.runtime = new WebAudioAudioRuntime(
       () => this.options.getAssets(),
       {
-        emit: (type, payload) => emitAudioRenderToLogic(
-          this.options.getPipeline(),
-          type as any,
-          payload as any,
-        ),
+        emit: async (type, payload) => {
+          try {
+            await emitAudioRenderToLogic(
+              this.options.getPipeline(),
+              type as any,
+              payload as any,
+            )
+          }
+          catch (error) {
+            await this.reportAudioEventError(error, type, payload)
+          }
+        },
       },
     )
   }
@@ -173,6 +181,40 @@ export class WebAudioRendererController {
     this.subscribedAssets?.off('asset:changed', this.handleAssetChange)
     this.subscribedAssets = undefined
   }
+
+  private async reportAudioEventError(
+    error: unknown,
+    type: AudioRenderToLogicEvent,
+    payload: unknown,
+  ): Promise<void> {
+    try {
+      await this.options.reportError?.(error, {
+        message: 'WebAudio event dispatch failed.',
+        phase: 'audio:event',
+        metadata: {
+          event: type,
+          ...(isAudioTrackPayload(payload)
+            ? {
+                channel: payload.channel,
+                id: payload.id,
+              }
+            : {}),
+        },
+      })
+    }
+    catch {
+      // Audio lifecycle events are best-effort renderer intents.
+    }
+  }
+}
+
+function isAudioTrackPayload(value: unknown): value is { channel: string, id: string } {
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && typeof (value as { channel?: unknown }).channel === 'string'
+    && typeof (value as { id?: unknown }).id === 'string',
+  )
 }
 
 function hasPlayingAudioIntent(projection: AudioViewProjection): boolean {
