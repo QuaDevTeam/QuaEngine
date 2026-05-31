@@ -3,6 +3,7 @@ import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
+import { dispatchRendererIntent } from './shared'
 
 export function createBacklogWebRendererPlugin(): QuaWebDomRendererPlugin {
   return defineWebRendererPlugin({
@@ -43,7 +44,9 @@ function renderBacklogLayer(context: QuaWebDomLayerContext): Node | undefined {
     kind: 'button',
   })
   close.addEventListener('click', () => {
-    void context.actions.requestPluginEvent(BacklogRenderToLogicEvents.CLOSE_REQUEST)
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(BacklogRenderToLogicEvents.CLOSE_REQUEST), {
+      phase: 'backlog:close',
+    })
   })
   panel.append(close)
 
@@ -73,7 +76,10 @@ function renderBacklogEntry(context: QuaWebDomLayerContext, entry: BacklogEntry)
     kind: 'button',
   })
   text.addEventListener('click', () => {
-    void context.actions.requestPluginEvent(BacklogRenderToLogicEvents.JUMP_REQUEST, { entryId: entry.id })
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(BacklogRenderToLogicEvents.JUMP_REQUEST, { entryId: entry.id }), {
+      phase: 'backlog:jump',
+      metadata: { entryId: entry.id },
+    })
   })
   item.append(text)
 
@@ -87,7 +93,10 @@ function renderBacklogEntry(context: QuaWebDomLayerContext, entry: BacklogEntry)
       kind: 'button',
     })
     voice.addEventListener('click', () => {
-      void context.actions.requestPluginEvent(BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, { entryId: entry.id })
+      dispatchRendererIntent(context, () => context.actions.requestPluginEvent(BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, { entryId: entry.id }), {
+        phase: 'backlog:replay-voice',
+        metadata: { entryId: entry.id },
+      })
     })
     item.append(voice)
   }

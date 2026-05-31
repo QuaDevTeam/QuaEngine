@@ -15,6 +15,7 @@ import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
+import { dispatchRendererIntent } from './shared'
 import { runtimePackageCandidatesFromMetadata } from '../assets'
 
 type GalleryAssetRef = NonNullable<GalleryEntryProjectionItem['thumbnail']>
@@ -212,7 +213,9 @@ function renderGalleryHeader(context: QuaWebDomLayerContext, model: GalleryProje
     kind: 'button',
   })
   close.addEventListener('click', () => {
-    void context.actions.requestPluginEvent(GalleryRenderToLogicEvents.CLOSE_REQUEST)
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(GalleryRenderToLogicEvents.CLOSE_REQUEST), {
+      phase: 'gallery:close',
+    })
   })
 
   header.append(heading, close)
@@ -235,10 +238,13 @@ function renderGalleryToolbar(context: QuaWebDomLayerContext, model: GalleryProj
     kind: 'input',
   })
   search.addEventListener('input', () => {
-    void context.actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
       filter: {
         search: search.value,
       },
+    }), {
+      phase: 'gallery:update-filter',
+      metadata: { field: 'search' },
     })
   })
 
@@ -260,10 +266,13 @@ function renderGalleryToolbar(context: QuaWebDomLayerContext, model: GalleryProj
     selected: Boolean(model.projection.filter.unlockedOnly),
   })
   unlocked.addEventListener('click', () => {
-    void context.actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
       filter: {
         unlockedOnly: !model.projection.filter.unlockedOnly,
       },
+    }), {
+      phase: 'gallery:update-filter',
+      metadata: { field: 'unlockedOnly' },
     })
   })
 
@@ -338,8 +347,11 @@ function renderGalleryCatalogButton(
 
   button.append(heading, meta)
   button.addEventListener('click', () => {
-    void context.actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_CATALOG_REQUEST, {
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_CATALOG_REQUEST, {
       catalogId: catalog.id,
+    }), {
+      phase: 'gallery:select-catalog',
+      metadata: { catalogId: catalog.id },
     })
   })
 
@@ -440,8 +452,11 @@ function renderGalleryEntryCard(
 
   button.append(preview, body)
   button.addEventListener('click', () => {
-    void context.actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, {
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, {
       entryId: entry.id,
+    }), {
+      phase: 'gallery:select-entry',
+      metadata: { entryId: entry.id },
     })
   })
 
@@ -544,8 +559,11 @@ function renderGalleryContentTab(
   })
   button.textContent = content.title || content.kind
   button.addEventListener('click', () => {
-    void context.actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_CONTENT_REQUEST, {
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_CONTENT_REQUEST, {
       contentId: content.id,
+    }), {
+      phase: 'gallery:select-content',
+      metadata: { contentId: content.id },
     })
   })
   return button

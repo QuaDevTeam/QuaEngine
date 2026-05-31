@@ -23,6 +23,7 @@ import { computed, defineComponent, h } from 'vue'
 import { usePluginProjection, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
+import { dispatchVueRendererIntent } from '../shared/intent'
 
 export interface SettingsRendererPluginOptions {
   elementId?: string
@@ -72,7 +73,8 @@ export const QuaSettingsControl: Component = defineComponent({
     },
   },
   setup(props): () => VNode {
-    const actions = useRendererActions()
+    const renderer = useQuaRenderer()
+    const actions = renderer.actions
     const inputSkin = useUiControlSkin({
       kind: 'input',
       disabled: () => props.field.readonly,
@@ -87,7 +89,7 @@ export const QuaSettingsControl: Component = defineComponent({
       selected: () => Boolean(props.field.value),
     })
 
-    return () => renderControl(actions, props.scope, props.field, props.customControls, {
+    return () => renderControl(renderer, actions, props.scope, props.field, props.customControls, {
       input: inputSkin,
       tab: tabSkin,
       toggle: toggleSkin,
@@ -196,7 +198,8 @@ export const QuaSettingsScope = defineComponent({
     },
   },
   setup(props) {
-    const actions = useRendererActions()
+    const renderer = useQuaRenderer()
+    const actions = renderer.actions
     const resetSkin = useUiControlSkin({ kind: 'button' })
     return () => h('section', {
       'class': 'qua-settings-scope',
@@ -212,7 +215,10 @@ export const QuaSettingsScope = defineComponent({
           'data-skin-reference': resetSkin.skinReference.value || undefined,
           'data-skin-state': resetSkin.skinState.value,
           ...createSkinButtonHandlers(resetSkin),
-          'onClick': () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST, { scope: props.scope.scope }),
+          'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST, { scope: props.scope.scope }), {
+            phase: 'settings:reset-scope',
+            metadata: { scope: props.scope.scope },
+          }),
         }, 'Reset'),
       ]),
       props.scope.description
@@ -245,7 +251,8 @@ export const QuaSettingsForm = defineComponent({
     },
   },
   setup(props) {
-    const actions = useRendererActions()
+    const renderer = useQuaRenderer()
+    const actions = renderer.actions
     const panelSkin = useUiControlSkin({ kind: 'panel' })
     const closeSkin = useUiControlSkin({ kind: 'button' })
     const resetAllSkin = useUiControlSkin({ kind: 'button' })
@@ -267,7 +274,10 @@ export const QuaSettingsForm = defineComponent({
           'data-skin-reference': closeSkin.skinReference.value || undefined,
           'data-skin-state': closeSkin.skinState.value,
           ...createSkinButtonHandlers(closeSkin),
-          'onClick': () => actions.requestUiClose(props.elementId),
+          'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestUiClose(props.elementId), {
+            phase: 'settings:close',
+            metadata: { elementId: props.elementId },
+          }),
         }, 'Close'),
       ]),
       h('form', {
@@ -286,7 +296,9 @@ export const QuaSettingsForm = defineComponent({
         'data-skin-reference': resetAllSkin.skinReference.value || undefined,
         'data-skin-state': resetAllSkin.skinState.value,
         ...createSkinButtonHandlers(resetAllSkin),
-        'onClick': () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_ALL_REQUEST),
+        'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_ALL_REQUEST), {
+          phase: 'settings:reset-all',
+        }),
       }, 'Reset All'),
     ])
   },
@@ -365,6 +377,7 @@ function renderNestedGroup(
 }
 
 function renderControl(
+  renderer: Pick<ReturnType<typeof useQuaRenderer>, 'web'>,
   actions: RendererActions,
   scope: SettingsScopeFormProjection,
   field: SettingsFieldFormProjection,
@@ -373,7 +386,7 @@ function renderControl(
 ) {
   const control = field.control.control || 'text'
   if (control === 'custom') {
-    return renderCustomControl(actions, scope, field, customControls, skins.input)
+    return renderCustomControl(renderer, actions, scope, field, customControls, skins.input)
   }
 
   if (control === 'textarea' || fieldSchemaHasType(field, 'array') || fieldSchemaHasType(field, 'object')) {
@@ -384,7 +397,7 @@ function renderControl(
       disabled: field.readonly,
       value: stringifySettingsInputValue(field),
       ...createSkinAttrs('input', skin),
-      onChange: (event: Event) => updateField(actions, scope, field, parseEventValue(field, event)),
+      onChange: (event: Event) => updateField(renderer, actions, scope, field, parseEventValue(field, event)),
     })
   }
   if (control === 'select') {
@@ -395,7 +408,7 @@ function renderControl(
       disabled: field.readonly,
       value: encodeSettingsOptionValue(field.value),
       ...createSkinAttrs('tab', skin),
-      onChange: (event: Event) => updateField(actions, scope, field, parseEventValue(field, event)),
+      onChange: (event: Event) => updateField(renderer, actions, scope, field, parseEventValue(field, event)),
     }, settingsOptions(field).map(option => h('option', {
       key: encodeSettingsOptionValue(option.value),
       value: encodeSettingsOptionValue(option.value),
@@ -419,7 +432,7 @@ function renderControl(
         onChange: (event: Event) => {
           const target = event.target as HTMLInputElement
           if (target.checked) {
-            updateField(actions, scope, field, parseEventValue(field, event))
+            updateField(renderer, actions, scope, field, parseEventValue(field, event))
           }
         },
       }),
@@ -451,11 +464,12 @@ function renderControl(
     step: field.control.step,
     placeholder: field.control.placeholder,
     ...createSkinAttrs(skinKind, skin),
-    onChange: (event: Event) => updateField(actions, scope, field, parseEventValue(field, event)),
+    onChange: (event: Event) => updateField(renderer, actions, scope, field, parseEventValue(field, event)),
   })
 }
 
 function renderCustomControl(
+  renderer: Pick<ReturnType<typeof useQuaRenderer>, 'web'>,
   actions: RendererActions,
   scope: SettingsScopeFormProjection,
   field: SettingsFieldFormProjection,
@@ -463,7 +477,7 @@ function renderCustomControl(
   skin: UiControlSkinBinding,
 ) {
   const component = field.control.component ? customControls?.[field.control.component] : undefined
-  const update = (value: unknown) => updateFieldValue(actions, scope, field, value)
+  const update = (value: unknown) => updateFieldValue(renderer, actions, scope, field, value)
   if (component) {
     return h(component, {
       ...(field.control.props || {}),
@@ -489,6 +503,7 @@ function renderCustomControl(
 }
 
 function updateField(
+  renderer: Pick<ReturnType<typeof useQuaRenderer>, 'web'>,
   actions: RendererActions,
   scope: SettingsScopeFormProjection,
   field: SettingsFieldFormProjection,
@@ -497,21 +512,34 @@ function updateField(
   if (!parsed.ok) {
     return
   }
-  void actions.requestPluginEvent(SettingsRenderToLogicEvents.UPDATE_REQUEST, {
+  dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(SettingsRenderToLogicEvents.UPDATE_REQUEST, {
     scope: scope.scope,
     patch: createSettingsValuePatch(scope.source, field.path, parsed.value),
+  }), {
+    phase: 'settings:update',
+    metadata: {
+      scope: scope.scope,
+      path: field.path,
+    },
   })
 }
 
 function updateFieldValue(
+  renderer: Pick<ReturnType<typeof useQuaRenderer>, 'web'>,
   actions: RendererActions,
   scope: SettingsScopeFormProjection,
   field: SettingsFieldFormProjection,
   value: unknown,
 ): void {
-  void actions.requestPluginEvent(SettingsRenderToLogicEvents.UPDATE_REQUEST, {
+  dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(SettingsRenderToLogicEvents.UPDATE_REQUEST, {
     scope: scope.scope,
     patch: createSettingsValuePatch(scope.source, field.path, value),
+  }), {
+    phase: 'settings:update',
+    metadata: {
+      scope: scope.scope,
+      path: field.path,
+    },
   })
 }
 

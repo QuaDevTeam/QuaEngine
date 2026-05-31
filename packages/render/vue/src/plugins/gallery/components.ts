@@ -26,6 +26,7 @@ import { computed, defineComponent, h } from 'vue'
 import { useAssetUrl, usePluginProjection, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
+import { dispatchVueRendererIntent } from '../shared/intent'
 
 export interface GalleryRendererPluginOptions {
   elementId?: string
@@ -51,7 +52,8 @@ export const QuaGalleryLayer = defineComponent({
   name: 'QuaGalleryLayer',
   inheritAttrs: false,
   setup(_, { slots }) {
-    const { view } = useQuaRenderer()
+    const renderer = useQuaRenderer()
+    const { view } = renderer
     const actions = useRendererActions()
     const projection = useGalleryProjection()
     const gallery = computed(() => createGalleryProjectionModel(projection.value))
@@ -75,12 +77,13 @@ export const QuaGalleryLayer = defineComponent({
         view: view.value,
         projection: gallery.value.projection,
         gallery: gallery.value,
-        actions,
-      }) || renderGalleryDefault({
-        gallery: gallery.value,
-        actions,
-        closeSkin,
-        inputSkin,
+          actions,
+        }) || renderGalleryDefault({
+          gallery: gallery.value,
+          renderer,
+          actions,
+          closeSkin,
+          inputSkin,
         toggleSkin,
       }))
     }
@@ -97,7 +100,8 @@ export const QuaGalleryCatalogButton = defineComponent({
     selected: Boolean,
   },
   setup(props) {
-    const actions = useRendererActions()
+    const renderer = useQuaRenderer()
+    const actions = renderer.actions
     const skin = useUiControlSkin({
       kind: 'tab',
       selected: () => props.selected,
@@ -112,8 +116,11 @@ export const QuaGalleryCatalogButton = defineComponent({
       'data-skin-reference': skin.skinReference.value || undefined,
       'data-skin-state': skin.skinState.value,
       ...createSkinButtonHandlers(skin),
-      'onClick': () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_CATALOG_REQUEST, {
+      'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_CATALOG_REQUEST, {
         catalogId: props.catalog.id,
+      }), {
+        phase: 'gallery:select-catalog',
+        metadata: { catalogId: props.catalog.id },
       }),
     }, [
       h('span', { class: 'qua-gallery-catalog-title' }, props.catalog.title),
@@ -239,7 +246,8 @@ export const QuaGalleryEntryCard = defineComponent({
     selected: Boolean,
   },
   setup(props) {
-    const actions = useRendererActions()
+    const renderer = useQuaRenderer()
+    const actions = renderer.actions
     const skin = useUiControlSkin({
       kind: 'button',
       selected: () => props.selected,
@@ -260,8 +268,11 @@ export const QuaGalleryEntryCard = defineComponent({
         'data-skin-reference': skin.skinReference.value || undefined,
         'data-skin-state': skin.skinState.value,
         ...createSkinButtonHandlers(skin),
-        'onClick': () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, {
+        'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, {
           entryId: props.entry.id,
+        }), {
+          phase: 'gallery:select-entry',
+          metadata: { entryId: props.entry.id },
         }),
       }, [
         h('div', { class: 'qua-gallery-entry-preview' }, [
@@ -301,7 +312,8 @@ export const QuaGalleryContentTab = defineComponent({
     selected: Boolean,
   },
   setup(props) {
-    const actions = useRendererActions()
+    const renderer = useQuaRenderer()
+    const actions = renderer.actions
     const skin = useUiControlSkin({
       kind: 'tab',
       selected: () => props.selected,
@@ -316,8 +328,11 @@ export const QuaGalleryContentTab = defineComponent({
       'data-skin-reference': skin.skinReference.value || undefined,
       'data-skin-state': skin.skinState.value,
       ...createSkinButtonHandlers(skin),
-      'onClick': () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_CONTENT_REQUEST, {
+      'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_CONTENT_REQUEST, {
         contentId: props.content.id,
+      }), {
+        phase: 'gallery:select-content',
+        metadata: { contentId: props.content.id },
       }),
     }, props.content.title || props.content.kind)
   },
@@ -359,12 +374,13 @@ export const galleryRendererPlugin = createGalleryRendererPlugin()
 
 function renderGalleryDefault(input: {
   gallery: GalleryProjectionModel
+  renderer: Pick<ReturnType<typeof useQuaRenderer>, 'web'>
   actions: RendererActions
   closeSkin: ReturnType<typeof useUiControlSkin>
   inputSkin: ReturnType<typeof useUiControlSkin>
   toggleSkin: ReturnType<typeof useUiControlSkin>
 }) {
-  const { gallery, actions, closeSkin, inputSkin, toggleSkin } = input
+  const { gallery, renderer, actions, closeSkin, inputSkin, toggleSkin } = input
   return [
     h('header', { class: 'qua-gallery-header' }, [
       h('div', { class: 'qua-gallery-heading' }, [
@@ -379,7 +395,9 @@ function renderGalleryDefault(input: {
         'data-skin-reference': closeSkin.skinReference.value || undefined,
         'data-skin-state': closeSkin.skinState.value,
         ...createSkinButtonHandlers(closeSkin),
-        'onClick': () => actions.requestPluginEvent(GalleryRenderToLogicEvents.CLOSE_REQUEST),
+        'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(GalleryRenderToLogicEvents.CLOSE_REQUEST), {
+          phase: 'gallery:close',
+        }),
       }, 'Close'),
     ]),
     h('div', { class: 'qua-gallery-toolbar' }, [
@@ -397,10 +415,13 @@ function renderGalleryDefault(input: {
           ...createSkinButtonHandlers(inputSkin),
           'onInput': (event: Event) => {
             const target = event.target as HTMLInputElement
-            void actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+            dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
               filter: {
                 search: target.value,
               },
+            }), {
+              phase: 'gallery:update-filter',
+              metadata: { field: 'search' },
             })
           },
         }),
@@ -413,10 +434,13 @@ function renderGalleryDefault(input: {
         'data-skin-reference': toggleSkin.skinReference.value || undefined,
         'data-skin-state': toggleSkin.skinState.value,
         ...createSkinButtonHandlers(toggleSkin),
-        'onClick': () => actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+        'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
           filter: {
             unlockedOnly: !gallery.projection.filter.unlockedOnly,
           },
+        }), {
+          phase: 'gallery:update-filter',
+          metadata: { field: 'unlockedOnly' },
         }),
       }, 'Unlocked'),
       h('div', { class: 'qua-gallery-toolbar-counter' }, `${gallery.filteredEntries.length}/${gallery.entries.length}`),

@@ -2,7 +2,7 @@ import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { motionProjectionVars, projectChoices } from '../projection'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
-import { applyStyleVars } from './shared'
+import { applyStyleVars, dispatchRendererIntent } from './shared'
 
 export function createChoicesWebRendererPlugin(): QuaWebDomRendererPlugin {
   return defineWebRendererPlugin({
@@ -47,7 +47,10 @@ function renderChoicesLayer(context: QuaWebDomLayerContext): Node | undefined {
     })
     button.addEventListener('click', (event) => {
       event.stopPropagation()
-      void context.actions.selectChoice(choice.id)
+      dispatchRendererIntent(context, () => context.actions.selectChoice(choice.id), {
+        phase: 'choices:select',
+        metadata: { choiceId: choice.id },
+      })
     })
     panel.append(button)
   }

@@ -7,6 +7,7 @@ import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from 'vue'
 import { useAudio, useFlowControl, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
+import { dispatchVueRendererIntent } from '../shared/intent'
 
 const BACKLOG_OPEN_REQUEST = 'backlog/open_request'
 const DEFAULT_SAVE_SLOT_COUNT = 12
@@ -85,6 +86,7 @@ const QuaUiActionButton = defineComponent({
     onAction: Function as PropType<() => void | Promise<void>>,
   },
   setup(props) {
+    const renderer = useQuaRenderer()
     const skin = useUiControlSkin({
       kind: 'button',
       disabled: () => props.disabled,
@@ -102,7 +104,11 @@ const QuaUiActionButton = defineComponent({
       'onClick': (event: Event) => {
         event.stopPropagation()
         if (!props.disabled) {
-          void props.onAction?.()
+          dispatchVueRendererIntent(renderer, async () => {
+            await props.onAction?.()
+          }, {
+            phase: 'ui:action',
+          })
         }
       },
     }, props.label)
@@ -126,7 +132,8 @@ const QuaSaveSlotButton = defineComponent({
     },
   },
   setup(props) {
-    const actions = useRendererActions()
+    const renderer = useQuaRenderer()
+    const actions = renderer.actions
     const disabled = computed(() => props.mode === 'load' && !isFilledSaveSlot(props.slot))
     const skin = useUiControlSkin({
       kind: 'button',
@@ -148,9 +155,12 @@ const QuaSaveSlotButton = defineComponent({
           if (disabled.value) {
             return
           }
-          void (props.mode === 'save'
+          dispatchVueRendererIntent(renderer, () => props.mode === 'save'
             ? actions.requestSave(props.slot.slotId)
-            : actions.requestLoad(props.slot.slotId))
+            : actions.requestLoad(props.slot.slotId), {
+            phase: `save-load:${props.mode}`,
+            metadata: { slotId: props.slot.slotId },
+          })
         },
       }, renderSaveSlotContent(props.slot, props.index)),
     ])
