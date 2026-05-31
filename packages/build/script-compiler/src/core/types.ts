@@ -191,7 +191,7 @@ export interface StoryDeclaration {
   runtimePackageId?: string
   scenes: Array<{ id: string, metadata?: Record<string, unknown> }>
   entries?: Array<{ id: string, point: Record<string, unknown>, metadata?: Record<string, unknown> }>
-  nodes: Array<{ id: string, point: Record<string, unknown>, title?: string, summary?: string, presentation?: Record<string, unknown>, metadata?: Record<string, unknown> }>
+  nodes: Array<{ id: string, point: Record<string, unknown>, title?: string, summary?: string, presentation?: Record<string, unknown>, chapterSelect?: Record<string, unknown>, metadata?: Record<string, unknown> }>
   labels: Array<{ id: string, point: Record<string, unknown>, metadata?: Record<string, unknown> }>
   choices: Array<{ id: string, text: string, target?: Record<string, unknown>, condition?: string, source: 'decorator' | 'sugar', point: Record<string, unknown> }>
   edges: Array<{ id: string, from: string, to: string, kind: 'choice' | string, condition?: string, metadata?: Record<string, unknown> }>

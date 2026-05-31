@@ -25,6 +25,7 @@ import {
   findLast,
   listProjectFiles,
   moduleIdFromFilePath,
+  numberValue,
   rangeForLineSubstring,
   runtimePackageFromJson,
   safeParseJson,
@@ -283,7 +284,10 @@ function addStoryDeclaration(index: StoryIndex, declaration: StoryDeclarationWit
     })
   }
   for (const node of declaration.nodes) {
+    const chapterSelect = asRecord((node as typeof node & { chapterSelect?: unknown }).chapterSelect)
     index.nodes.push({
+      chapterSelectable: Boolean(chapterSelect),
+      chapterSelectOrder: numberValue(chapterSelect?.order),
       graphId: stringValue(node.point.storyId),
       id: node.id,
       labelId: stringValue(node.point.labelId),
@@ -344,7 +348,10 @@ function addStoryGraphDelta(index: StoryIndex, delta: Record<string, unknown>, p
     if (!nodeId) {
       continue
     }
+    const chapterSelect = asRecord(node.chapterSelect)
     index.nodes.push({
+      chapterSelectable: Boolean(chapterSelect),
+      chapterSelectOrder: numberValue(chapterSelect?.order),
       graphId,
       id: nodeId,
       labelId: stringValue(point.labelId),
@@ -577,6 +584,7 @@ function storyDeclarationFromUnknown(value: unknown, runtimePackageId?: string, 
     nodes: arrayOfRecords(record.nodes).map(node => ({
       id: String(node.id || ''),
       point: asRecord(node.point) || {},
+      chapterSelect: asRecord(node.chapterSelect),
     })).filter(node => node.id.length > 0),
     labels: arrayOfRecords(record.labels).map(label => ({
       id: String(label.id || ''),

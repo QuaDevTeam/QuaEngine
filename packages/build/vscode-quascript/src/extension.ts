@@ -382,10 +382,11 @@ class StoryTreeProvider implements vscode.TreeDataProvider<InspectorTreeItem> {
   }
 
   private nodeItem(snapshot: QuaProjectInspectorSnapshot, node: QuaStoryNodeRef): InspectorTreeItem {
+    const chapterSelectable = Boolean((node as QuaStoryNodeRef & { chapterSelectable?: boolean }).chapterSelectable)
     const riskCount = snapshot.risks.filter(risk => risk.targetId === node.id || risk.packageId === node.packageId).length
     return new InspectorTreeItem(node.id, 'node', vscode.TreeItemCollapsibleState.Collapsed, {
-      description: [node.packageId, riskCount > 0 ? `${riskCount} risk` : undefined].filter(Boolean).join(' '),
-      icon: riskCount > 0 ? 'warning' : 'circle-large-outline',
+      description: [node.packageId, chapterSelectable ? 'chapter' : undefined, riskCount > 0 ? `${riskCount} risk` : undefined].filter(Boolean).join(' '),
+      icon: riskCount > 0 ? 'warning' : chapterSelectable ? 'bookmark' : 'circle-large-outline',
       packageId: node.packageId,
       refText: node.packageId ? `${node.packageId}#${node.id}` : node.id,
       source: sourceFrom(node),
@@ -897,10 +898,13 @@ function renderGraphHtml(webview: Webview, extensionUri: vscode.Uri, snapshot?: 
       <text x="${x}" y="${y + 4}" text-anchor="middle">${escapeHtml(id)}</text>
     </g>`
   }).join('')
-  const nodeSvg = positions.map(node => `<g class="node ${node.packageId ? 'runtime' : 'base'} ${node.hasRisk ? 'risk-node' : ''}" tabindex="0" data-node="${escapeHtml(node.id)}" data-package="${escapeHtml(node.packageId || '')}" data-scene="${escapeHtml(node.sceneId || '')}" data-risk="${node.hasRisk ? 'true' : 'false'}">
+  const nodeSvg = positions.map((node) => {
+    const chapterSelectable = Boolean((node as typeof node & { chapterSelectable?: boolean }).chapterSelectable)
+    return `<g class="node ${node.packageId ? 'runtime' : 'base'} ${node.hasRisk ? 'risk-node' : ''} ${chapterSelectable ? 'chapter-selectable' : ''}" tabindex="0" data-node="${escapeHtml(node.id)}" data-package="${escapeHtml(node.packageId || '')}" data-scene="${escapeHtml(node.sceneId || '')}" data-risk="${node.hasRisk ? 'true' : 'false'}">
     <rect x="${node.x - 70}" y="${node.y - 28}" width="140" height="56" rx="6"></rect>
     <text x="${node.x}" y="${node.y + 4}" text-anchor="middle">${escapeHtml(node.id)}</text>
-  </g>`).join('')
+  </g>`
+  }).join('')
   return htmlDocument(webview, extensionUri, nonce, `${style}
     <main>
       <header><span class="eyebrow">QuaScript</span><h1>Story Graph</h1><p>${nodes.length} nodes / ${edges.length} edges</p></header>

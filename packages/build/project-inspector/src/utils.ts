@@ -109,3 +109,7 @@ export function storyAssetExists(options: { filePath?: string, projectRoot?: str
 export function stringValue(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined
 }
+
+export function numberValue(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}

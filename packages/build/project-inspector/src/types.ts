@@ -91,6 +91,8 @@ export interface QuaStoryLabelRef {
 }
 
 export interface QuaStoryNodeRef {
+  chapterSelectable?: boolean
+  chapterSelectOrder?: number
   graphId?: string
   id: string
   labelId?: string
