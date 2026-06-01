@@ -1,112 +1,112 @@
-# QuaJS Plugin System
+# QuaEngine Plugin System
 
-A complete package-based plugin discovery system for QuaJS Engine.
+QuaEngine uses package-local feature plugins plus metadata-driven discovery. Feature behavior lives in the package that owns it; the engine provides lifecycle, state access, API registration, and runtime package hooks.
 
-## 🚀 **Architecture Overview**
+## Layers
 
-### **Plugin Discovery Flow**
+| layer | owner | purpose |
+| --- | --- | --- |
+| Engine plugins | `@quajs/engine` contracts and `packages/plugins/*` implementations | Authoritative feature state, APIs, decorators, runtime package cleanup |
+| Plugin discovery | `@quajs/plugin-discovery` | Reads `package.json#quajs`, `qua.plugins.json`, and custom registries |
+| QuaScript compiler | `@quajs/script-compiler` | Resolves decorator metadata and calls package-local compiler lowering |
+| Renderer plugins | `@quajs/render-core`, `@quajs/renderer-web`, framework adapters | Stateless projection layers and renderer-local resources |
+| Pipeline plugins | `@quajs/pipeline` | Transport/interception of events without becoming a second renderer bus |
 
-```
-Build Time (Node.js)          →     Runtime (Browser)
-┌─────────────────────┐       →     ┌─────────────────────┐
-│ package.json scan   │       →     │ Plugin instances    │
-│ qua.plugins.json    │       →     │ loaded & running    │
-│ PluginDiscovery     │       →     │ PluginAPIRegistry   │
-│ script-compiler     │       →     │ Engine integration  │
-└─────────────────────┘       →     └─────────────────────┘
-```
+## Package Metadata
 
-### **Key Components**
-
-1. **PluginDiscovery** (Node.js only) - Scans packages with explicit `quajs` metadata and custom registries
-2. **PluginAPIRegistry** (Universal) - Runtime plugin management
-3. **PluginAwareTransformer** (Build time) - QuaScript compilation with discovered decorator metadata
-4. **Package-based Plugins** - Each plugin is a separate npm package
-
-## 📦 **Plugin Package Specification**
-
-### **Package Structure**
-
-```
-@quajs/plugin-achievement/
-├── package.json          # Plugin metadata
-├── src/
-│   ├── index.ts          # Plugin exports
-│   └── plugin.ts         # Plugin implementation
-└── README.md
-```
-
-### **Package.json Requirements**
-
-Package discovery is metadata-driven: a dependency is considered a Qua plugin only when its `package.json` contains an explicit `quajs` object. Naming a package `@quajs/plugin-*` or `quajs-plugin-*` is a convention, not enough on its own for discovery.
+A package is discoverable only when it declares explicit `quajs` metadata. The package name is a convention, not the discovery source of truth.
 
 ```json
 {
-  "name": "@quajs/plugin-achievement",
-  "version": "1.0.0",
-  "description": "Achievement system plugin for QuaJS",
-  "main": "dist/index.js",
+  "name": "@quajs/plugin-inventory",
   "quajs": {
     "type": "plugin",
-    "category": "system",
-    "description": "Provides achievement tracking and unlocking",
-    "engineVersion": "^1.0.0",
+    "category": "data",
+    "description": "Persistent profile inventory item catalog and quantities",
     "decorators": {
-      "UnlockAchievement": {
-        "function": "unlock",
-        "module": "achievement",
-        "description": "Unlock an achievement"
+      "GrantInventoryItem": {
+        "function": "grantInventoryItemWithEngine",
+        "module": "@quajs/plugin-inventory"
       }
     },
-    "apis": ["unlock", "isUnlocked", "getProgress"]
+    "language": {
+      "decorators": {
+        "GrantInventoryItem": {
+          "description": "Grant an inventory item quantity to the active profile",
+          "args": [
+            { "name": "itemId", "detail": "Inventory item id" },
+            { "name": "options", "detail": "Optional quantity, profileId, source, or metadata" }
+          ]
+        }
+      }
+    }
   }
 }
 ```
 
-### **Plugin Implementation**
+Renderer-capable packages can also declare renderer entries:
 
-```typescript
-// src/index.ts
-import { PluginInstance } from '@quajs/engine'
-
-export const metadata = {
-  name: '@quajs/plugin-achievement',
-  version: '1.0.0',
-  description: 'Achievement system plugin',
-  category: 'system'
-}
-
-export const decorators = {
-  UnlockAchievement: {
-    function: 'unlock',
-    module: 'achievement'
-  }
-}
-
-export const apis = {
-  unlock: {
-    name: 'unlock',
-    fn: (achievementId: string) => { /* implementation */ },
-    module: 'achievement'
-  }
-}
-
-export class Plugin implements PluginInstance {
-  readonly name = '@quajs/plugin-achievement'
-
-  async init(context: any) {
-    // Initialize plugin
-  }
-
-  async onStep(context: any) {
-    // Handle step events
+```json
+{
+  "quajs": {
+    "renderer": {
+      "web": "@quajs/renderer-web/plugins/gallery",
+      "vue": "@quajs/renderer-vue/plugins/gallery"
+    }
   }
 }
 ```
 
-## 🔧 **Custom Plugin Registry**
+React and Svelte renderer packages expose matching framework subentries for the Web feature plugin set. Shared DOM behavior should still live in `@quajs/renderer-web`.
 
-For non-package plugins, create `qua.plugins.json`:
+## Engine Plugin Implementation
+
+```ts
+import { BaseEnginePlugin } from '@quajs/engine'
+
+export class MyFeaturePlugin extends BaseEnginePlugin {
+  readonly name = '@quajs/plugin-my-feature'
+
+  protected override async setup(ctx) {
+    // Initialize engine-owned feature state.
+  }
+
+  override async onRuntimePackageUnload(ctx) {
+    const packageId = ctx.runtimePackage?.package.id
+    if (!packageId) {
+      return
+    }
+    // Remove definitions/projections owned by or dependent on this package.
+  }
+
+  registerAPIs() {
+    return {
+      pluginName: this.name,
+      apis: [
+        { name: 'myFeatureWithEngine', fn: myFeatureWithEngine, module: this.name },
+      ],
+      decorators: {
+        MyFeature: {
+          function: 'myFeatureWithEngine',
+          module: this.name,
+        },
+      },
+    }
+  }
+}
+```
+
+Rules:
+
+- Store authoritative state through engine/store APIs.
+- Keep player/profile state out of story save/load when the feature is profile-level, such as gallery, achievements, settings, or inventory.
+- Runtime package definitions/projections must carry provenance and clean up on unload.
+- Decorators and compiler lowering belong in the feature package, commonly under `./script-compiler`.
+- Renderers may project feature state but must not mutate authoritative game state.
+
+## Custom Plugin Registry
+
+Projects can define non-package plugin metadata in `qua.plugins.json`:
 
 ```json
 {
@@ -115,14 +115,11 @@ For non-package plugins, create `qua.plugins.json`:
     {
       "name": "custom-plugin",
       "entry": "./plugins/custom-plugin.js",
-      "version": "1.0.0",
-      "description": "My custom plugin",
-      "category": "custom",
       "enabled": true,
       "decorators": {
         "CustomDecorator": {
           "function": "customFunction",
-          "module": "custom"
+          "module": "custom-plugin"
         }
       }
     }
@@ -130,112 +127,54 @@ For non-package plugins, create `qua.plugins.json`:
 }
 ```
 
-## 🛠️ **Build-Time Usage**
+This is for discovery metadata. Runtime plugin instances still need to be installed into the engine explicitly or provided by the runtime package lifecycle.
 
-### **Script Compilation**
+## QuaScript Integration
 
-```typescript
+Plugin discovery contributes decorator metadata only. Plugins do not extend the QuaScript grammar or inject custom compiler modules into the core compiler.
+
+```ts
 import { createPluginAwareTransformerAsync } from '@quajs/script-compiler'
 
-// Build time - async plugin loading
 const transformer = await createPluginAwareTransformerAsync(
-  customDecorators,
-  { projectRoot: process.cwd() }
+  {},
+  { projectRoot: process.cwd() },
 )
 
-const compiled = transformer.transformSource(quaScriptCode)
+const compiled = transformer.transformSource(source)
 ```
 
-Plugin discovery contributes decorator metadata only. Plugins do not inject custom QuaScript compiler modules or extend the QuaScript grammar.
+Decorator resolution is shared by CLI, Vite, language server, and VS Code extension:
 
-### **Vite Plugin**
+1. built-in decorators
+2. explicit mappings
+3. value imports in the current file
+4. auto-collected package metadata
 
-```typescript
-import { quaScriptPlugin } from '@quajs/script-compiler'
+## Runtime Packages
 
-export default defineConfig({
-  plugins: [
-    quaScriptPlugin({
-      projectRoot: __dirname
-    })
-  ]
-})
-```
+Runtime packages may activate engine plugins, story graph deltas, renderer plugin manifests, script modules, scene modules, and store migrations through `RuntimeContentManager`.
 
-## 🎮 **Runtime Usage**
+Feature plugins that own package-scoped definitions or projections should implement runtime lifecycle hooks:
 
-### **Engine Integration**
+- `onRuntimePackageActivate`
+- `onRuntimePackageUnload`
+- `onRuntimePackageMigrate`
 
-```typescript
-import { PluginAPIRegistry, QuaEngine } from '@quajs/engine'
+Unload must remove only state that belongs to or depends on the package. Long-lived profile records, such as gallery unlocks or inventory quantities, should remain and become unavailable in derived projections if their active definitions are removed.
 
-// Runtime - plugins discovered at build time
-const engine = QuaEngine.getInstance()
-const registry = PluginAPIRegistry.getInstance()
+## Current Workspace Plugins
 
-// Access plugin APIs
-const achievementModule = registry.getPluginModule('achievement')
-await achievementModule?.unlock('first_level')
-```
+- `@quajs/plugin-achievement`
+- `@quajs/plugin-animation`
+- `@quajs/plugin-audio`
+- `@quajs/plugin-background`
+- `@quajs/plugin-backlog`
+- `@quajs/plugin-fonts`
+- `@quajs/plugin-gallery`
+- `@quajs/plugin-inventory`
+- `@quajs/plugin-settings`
+- `@quajs/plugin-sprite`
+- `@quajs/story-graph`
 
-### **Plugin Development**
-
-```typescript
-import { BaseEnginePlugin, defineAPIFunction } from '@quajs/engine'
-
-export class MyPlugin extends BaseEnginePlugin {
-  name = 'my-plugin'
-
-  async registerAPIs() {
-    return {
-      pluginName: this.name,
-      apis: [
-        defineAPIFunction('myFunction', this.myFunction.bind(this), {
-          module: this.name
-        })
-      ],
-      decorators: {
-        MyDecorator: {
-          function: 'myFunction',
-          module: this.name
-        }
-      }
-    }
-  }
-
-  async myFunction(param: string) {
-    // Plugin logic
-    return `Processed: ${param}`
-  }
-}
-```
-
-## 📝 **Plugin Naming Convention**
-
-- **Scoped packages**: `@quajs/plugin-{name}`
-- **Unscoped packages**: `quajs-plugin-{name}`
-- **Or any package with `quajs.type: "plugin"` in package.json**
-
-## 🔍 **Discovery Process**
-
-1. **Package Scan**: Scan `package.json` dependencies for plugin packages
-2. **Custom Registry**: Load plugins from `qua.plugins.json`
-3. **Metadata Extraction**: Extract decorators and APIs from plugin packages
-4. **Build Integration**: Plugin decorators available during script compilation
-5. **Runtime Registration**: Plugins register themselves with the engine
-
-## 🎯 **Benefits**
-
-- ✅ **No Internal Plugins**: All plugins follow the same specification
-- ✅ **Automatic Discovery**: No manual plugin registration needed
-- ✅ **Build-Time Integration**: QuaScript decorators work seamlessly
-- ✅ **Flexible Distribution**: npm packages or custom files
-- ✅ **Type Safety**: Full TypeScript support
-- ✅ **Developer Freedom**: Direct access to engine context
-
-## 🚧 **Migration from Old System**
-
-1. Remove internal plugin examples
-2. Convert plugins to separate packages
-3. Update build configuration to use plugin discovery
-4. Use package-based or custom registry for plugin definition
+Engine core still includes only generic infrastructure such as `BaseEnginePlugin`, `PluginFramework`, API registration, and the generic `UiOverlayPlugin`. Product-level UI behavior should remain in feature packages or renderer plugin subentries.

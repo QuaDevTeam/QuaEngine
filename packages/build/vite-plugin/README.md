@@ -8,7 +8,7 @@ Comprehensive Vite plugin for QuaEngine projects that provides a complete build 
 - **🔧 Plugin Discovery**: Automatically discover and bundle QuaJS plugins
 - **📦 Asset Bundling**: Process game assets using Quack bundler
 - **🔥 Development Server**: Enhanced HMR for scripts and assets
-- **🧩 Feature Plugin Slots**: Compose external Vite plugins for animation, sprite, character, or other feature-specific HMR
+- **🧩 Feature Plugin Slots**: Compose external Vite plugins for animation, sprite, character, story graph, inventory, or other feature-specific HMR
 - **🚀 Zero Configuration**: Works out of the box with sensible defaults
 
 ## Installation
@@ -169,7 +169,7 @@ if (import.meta.hot) {
 }
 ```
 
-Feature-specific modules such as animation, sprite, and character should keep their HMR logic inside separate Vite plugins and pass them through `vitePlugins`, so the host stays a composer instead of a monolith.
+Feature-specific modules such as animation, sprite, character, story graph, inventory, gallery, or achievement should keep their HMR/build logic inside separate Vite plugins or package metadata and pass host-level Vite behavior through `vitePlugins`, so the host stays a composer instead of a monolith.
 
 ## Build Pipeline
 
@@ -199,7 +199,7 @@ const config: QuaEngineVitePluginOptions = {
 
 When `scriptCompiler.autoCollectDecorators` or `scriptCompiler.decoratorMappings` are omitted, the Vite integration falls back to QuaScript tooling config from `quascript.config.json`, `qua.config.json#quascript`, or `package.json#quascript`. Set `scriptCompiler.autoCollectDecorators: false` when you want the Vite config to override that and force decorators to come only from explicit `decoratorMappings` or from imports inside the current `.qs` / host module.
 
-Standalone `.qs` files compile through the core QuaScript compiler as TypeScript, then the Vite adapter passes that output through Vite's Oxc transform for browser-ready JavaScript. Inside `.qs`, use `<script lang="ts">` for imports/types and `<script setup lang="ts">` for factory-local bindings:
+Standalone `.qs` files compile through the core QuaScript compiler as TypeScript, then the Vite adapter passes that output through Vite's Oxc transform for browser-ready JavaScript. Package-local decorators such as `@ChapterSelect`, `@GrantInventoryItem`, `@SetBackground`, and `@PlayBGM` are resolved through the shared QuaScript decorator discovery path. Inside `.qs`, use `<script lang="ts">` for imports/types and `<script setup lang="ts">` for factory-local bindings:
 
 ```qs
 <script lang="ts">

@@ -14,6 +14,9 @@ quack bundle ./assets
 # Bundle assets (production - creates QPK with encryption)
 NODE_ENV=production quack bundle ./assets -o game.qpk
 
+# Sign runtime package output
+quack bundle ./runtime/chapter-2 -o runtime.chapter-2.qpk --sign-key ./keys/runtime-private.pem --sign-key-id release-2026-01
+
 # Extract bundle
 quack extract game.qpk ./extracted
 
@@ -148,6 +151,32 @@ export default defineConfig({
   ignore: ['**/*.tmp', '**/node_modules/**'],
 })
 ```
+
+### Runtime Package Configuration
+
+```javascript
+// quack.config.js
+import { defineConfig } from '@quajs/quack'
+
+export default defineConfig({
+  source: './runtime/chapter-2',
+  output: './dist/runtime.chapter-2.qpk',
+  format: 'qpk',
+  runtimePackage: {
+    id: 'runtime.chapter-2',
+    version: '1.0.0',
+    compatibility: { minGameVersion: '0.1.0' },
+    scripts: [
+      { id: 'runtime.chapter-2.opening', version: '1.0.0', assetName: 'scripts/opening.js' },
+    ],
+    storyGraphDeltas: [
+      { id: 'runtime.chapter-2.graph', graphId: 'main', nodes: [] },
+    ],
+  },
+})
+```
+
+Compiled QuaScript declarations can populate story metadata and graph deltas. `@ChapterSelect` metadata is preserved for project inspection and runtime story graph activation.
 
 ## Environment Setup
 

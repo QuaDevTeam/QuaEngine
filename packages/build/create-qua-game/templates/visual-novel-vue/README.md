@@ -19,6 +19,8 @@ pnpm run assets:build
 - `src/game/styles.css` contains project styling on top of the optional renderer base/default styles.
 - `vite.config.ts` enables hash CSP and SRI output under `dist/qua-security/`.
 
+The Vue renderer preset uses the current feature order: input, fonts, background, sprite, character, effects, dialogue, choices, audio, scene, UI, settings, backlog, gallery, and achievement. Logic-only features such as `@quajs/story-graph` chapter select and `@quajs/plugin-inventory` can be added independently when the project needs them.
+
 ## Web Security
 
 Runtime QPKs are wired through `@quajs/security-web`. Add your production public keys to `TRUSTED_RUNTIME_KEYS` in `src/game/bootstrap.ts`, sign runtime QPKs with `quack bundle --sign-key ... --sign-key-id ...`, and deploy the generated `dist/qua-security/csp.txt` as a `Content-Security-Policy` response header.

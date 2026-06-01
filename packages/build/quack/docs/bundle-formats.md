@@ -129,6 +129,34 @@ The `manifest.json` file contains complete bundle metadata:
 }
 ```
 
+Runtime QPKs add a `runtimePackage` object to the manifest. It describes dynamic content activation for `RuntimeContentManager`:
+
+```json
+{
+  "runtimePackage": {
+    "id": "runtime.chapter-2",
+    "version": "1.0.0",
+    "compatibility": { "minGameVersion": "0.1.0" },
+    "dependencies": ["base"],
+    "scripts": [
+      { "id": "runtime.chapter-2.opening", "version": "1.0.0", "assetName": "scripts/opening.js" }
+    ],
+    "scenes": [],
+    "plugins": [],
+    "storyGraphDeltas": [],
+    "storeMigrations": [],
+    "integrity": { "algorithm": "sha256", "hash": "sha256:root123..." },
+    "signature": {
+      "algorithm": "ecdsa-p256-sha256",
+      "keyId": "release-2026-01",
+      "value": "base64url-signature"
+    }
+  }
+}
+```
+
+Runtime package integrity is tied to the manifest `merkleRoot`. QuaScript story declarations can be emitted into script metadata and graph deltas, including chapter-selectable nodes.
+
 ### Compression
 
 ZIP bundles use the standard deflate compression algorithm with configurable levels:

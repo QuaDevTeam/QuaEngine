@@ -138,7 +138,7 @@ Use `clientPointToStageLogical()` and `stageLogicalToClientPoint()` from `@quajs
 - `@quajs/plugin-*` packages must treat numeric position/size/animation values as logical stage pixels unless their API explicitly names another unit.
 - `@quajs/script-compiler` should lower script coordinates into the same logical units and should not infer CSS/device pixels.
 - `@quajs/renderer-web` owns shared Web layout resolving, safe-area math, coordinate conversion, DOM projection, and CSS variable output.
-- `@quajs/renderer-vue` and future framework renderers reuse `@quajs/renderer-web` helpers and expose readonly projections plus intent actions only.
+- `@quajs/renderer-vue`, `@quajs/renderer-react`, and `@quajs/renderer-svelte` reuse `@quajs/renderer-web` helpers and expose readonly projections plus intent actions only.
 
 ## Test Requirements
 

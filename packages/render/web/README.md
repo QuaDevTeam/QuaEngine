@@ -13,27 +13,32 @@ This package owns browser-side implementation details that are shared by Web ren
 - WebAudio runtime primitives and renderer controller under `@quajs/renderer-web/audio`
 - a React-compatible external-store adapter for `useSyncExternalStore`
 
-Framework renderers such as `@quajs/renderer-vue` should build on this package instead of duplicating Web runtime behavior. The controller remains stateless with respect to game state: it consumes engine-owned view projections and emits user intent events only.
+Framework renderers such as `@quajs/renderer-vue`, `@quajs/renderer-react`, and `@quajs/renderer-svelte` should build on this package instead of duplicating Web runtime behavior. The controller remains stateless with respect to game state: it consumes engine-owned view projections and emits user intent events only.
 
 ## Sub-entries
 
-- `@quajs/renderer-web`: framework-neutral controller, actions, projection helpers, asset URL handles, DOM renderer shell, and non-audio DOM plugin factories.
+- `@quajs/renderer-web`: framework-neutral controller, actions, projection helpers, asset URL handles, DOM renderer shell, and shared Web runtime helpers.
 - `@quajs/renderer-web/dom`: native DOM renderer shell.
 - `@quajs/renderer-web/input`: framework-neutral input controller and default keyboard/pointer/gamepad bindings.
 - `@quajs/renderer-web/react`: React-compatible store adapter without a React dependency.
 - `@quajs/renderer-web/audio`: `WebAudioAudioRuntime` and `WebAudioRendererController`.
 - `@quajs/renderer-web/plugins/core`: DOM renderer plugin layer contracts/helpers.
+- `@quajs/renderer-web/plugins/achievement`
+- `@quajs/renderer-web/plugins/audio`: WebAudio renderer plugin for framework-neutral Web renderer hosts.
 - `@quajs/renderer-web/plugins/background`
+- `@quajs/renderer-web/plugins/backlog`
 - `@quajs/renderer-web/plugins/sprite`: sprite manifest/expression/atlas/mask/fallback DOM helpers for character projection.
 - `@quajs/renderer-web/plugins/character`
 - `@quajs/renderer-web/plugins/dialogue`
 - `@quajs/renderer-web/plugins/choices`
 - `@quajs/renderer-web/plugins/effects`
+- `@quajs/renderer-web/plugins/fonts`
+- `@quajs/renderer-web/plugins/gallery`
 - `@quajs/renderer-web/plugins/ui`
 - `@quajs/renderer-web/plugins/input`: optional input plugin that maps physical inputs to semantic renderer commands and existing render-to-logic intents.
+- `@quajs/renderer-web/plugins/scene`
 - `@quajs/renderer-web/plugins/settings`: schema-driven settings panel projection for `@quajs/plugin-settings`.
-- `@quajs/renderer-web/plugins/audio`: WebAudio renderer plugin for framework-neutral Web renderer hosts.
-- `@quajs/renderer-web/plugins/preset`: visual novel DOM preset, including input, background, sprite, character, effects, dialogue, choices, audio, settings, and UI overlay projection.
+- `@quajs/renderer-web/plugins/preset`: visual novel DOM preset, including input, fonts, background, sprite, character, effects, dialogue, choices, audio, scene, UI, settings, backlog, gallery, and achievement projection.
 
 ## Renderer Input
 

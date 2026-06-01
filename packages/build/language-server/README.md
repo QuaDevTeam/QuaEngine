@@ -11,6 +11,7 @@ The server reuses `@quajs/script-compiler` document parsing so editor diagnostic
 - decorator completions and hover from the same active decorator set used by the compiler
 - decorator argument completions from package-local `quajs.language` metadata
 - character completions from current-file speakers and `assets/characters/*`
+- project/story diagnostics and completions from story declarations, including `@ChapterSelect` metadata used by the story tree
 
 Feature-specific completions should be contributed by the owning feature package instead of being hardcoded in the core compiler.
 
@@ -43,6 +44,8 @@ Feature packages can contribute editor behavior through package metadata:
 ```
 
 The language server owns only the generic schema and completion plumbing. Asset directories, static argument values, and character-name hints stay in the package that owns the decorator.
+
+Current feature packages use this path for background assets, story graph/chapter select metadata, inventory item ids/options, audio arguments, gallery/achievement entries, and other package-owned decorator hints.
 
 ## Tooling Config
 

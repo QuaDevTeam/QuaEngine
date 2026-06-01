@@ -111,6 +111,8 @@ Runtime graph deltas must be package-scoped:
 - choice targets may point into dynamic nodes or dynamic script modules
 - unloading one package must remove only that package's graph delta and leave other same-scene packages intact
 
+Chapter select is part of the story graph model. A selectable chapter is a story node with `chapterSelect` metadata, and the public chapter select list is derived from graph nodes plus `unlockedNodes`. It must not create a second authoritative chapter progression store. Runtime package unload removes removed nodes from chapter select projection and prunes stale unlock entries for package-owned nodes.
+
 ## Store Migration Policy
 
 Runtime packages may migrate state only through declared, idempotent migrations.
@@ -139,7 +141,9 @@ Plugin-specific expectations:
 - **audio**: tracks and chapter voice defaults carry package ID; unload stops tracks and clears package-owned chapter/current-line references.
 - **background**: background and layers carry package metadata; layer updates during runtime content merge package dependencies.
 - **character/sprite**: character projection owns runtime provenance; sprite renderer remains a stateless asset projection.
-- **renderer plugins**: engine only emits renderer plugin manifests through the pipeline; Web renderer loads/destroys transient plugin resources.
+- **inventory**: item/category definitions may be package-owned and are removed on unload when they belong to or depend on the package. Profile item records are long-lived `QuaStore` profile data and are preserved; projections mark records without active definitions as unavailable.
+- **story graph**: graph deltas, chapter select thumbnails, and chapter select metadata preserve package dependencies; jump helpers ensure required packages before entering dynamic targets.
+- **renderer plugins**: engine only emits renderer plugin manifests through the pipeline; Web renderer loads/destroys transient plugin resources. Vue/React/Svelte adapters wrap Web renderer plugin factories rather than duplicating DOM runtime behavior.
 
 ## Sprite Deltas
 
@@ -171,7 +175,7 @@ Any runtime package feature should include targeted coverage for:
 - story graph/timeline deltas from multiple packages in the same scene
 - store migration idempotency
 - unload protection for story point, checkpoint metadata, and view projection
-- plugin state cleanup for backlog, settings, animation, audio, background, sprite/character, and renderer plugins
+- plugin state cleanup for backlog, settings, animation, audio, background, inventory, sprite/character, story graph/chapter select, and renderer plugins
 
 ## Review Checklist
 

@@ -4,6 +4,8 @@ Engine-owned background projection APIs and QuaScript decorators.
 
 See the cross-package design: `docs/design/background-composition-animation.md`.
 
+Renderer projection is handled by `@quajs/renderer-web/plugins/background` and thin framework adapter subentries for Vue, React, and Svelte. This package does not own renderer state.
+
 ## Runtime API
 
 ```ts

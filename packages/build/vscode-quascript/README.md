@@ -10,10 +10,14 @@ It contributes:
 - TextMate grammar for dialogue, choices, decorators, TypeScript script blocks, and `${...}` TypeScript expressions
 - QuaScript snippets
 - a bundled LSP client/server for lint diagnostics, formatting, completions, hover, go-to-definition, and quick fixes
+- story tree and graph inspection, including chapter-selectable nodes marked from `@ChapterSelect`
+- QPK/runtime package exploration
 
 Standalone `.qs` files are TypeScript-first: use `<script lang="ts">` for imports/types and `<script setup lang="ts">` for factory-local bindings.
 
 Decorator argument completions are contributed by installed Qua packages through `package.json#quajs.language`, so feature packages own their own asset/value suggestions.
+
+Current package-owned decorator metadata includes story graph, chapter select, background, animation, audio, backlog, gallery, achievement, inventory, character, and character animation decorators when those packages are installed or explicitly mapped.
 
 ## Lint And Format
 

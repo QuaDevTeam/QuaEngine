@@ -454,6 +454,19 @@ interface QuackConfig {
   }
 
   versioning?: VersionConfig
+  compatibility?: {
+    minGameVersion?: string
+  }
+  runtimePackage?: RuntimePackageManifest
+  signing?: {
+    key?: string
+    keyId?: string
+  }
+  quascript?: {
+    projectRoot?: string
+    autoCollectDecorators?: boolean
+    decoratorMappings?: DecoratorMapping
+  }
   plugins?: QuackPlugin[]
   ignore?: string[]
   verbose?: boolean
@@ -494,6 +507,7 @@ interface BundleManifest {
   assets: Record<AssetType, Record<string, AssetInfo>>
   totalSize: number
   totalFiles: number
+  runtimePackage?: RuntimePackageManifest
 
   performanceMetrics?: {
     estimatedLoadTime: number
@@ -502,6 +516,8 @@ interface BundleManifest {
   }
 }
 ```
+
+`runtimePackage` marks a QPK as dynamic runtime content. Runtime packages must declare `compatibility.minGameVersion`; Quack mirrors runtime package integrity to the bundle `merkleRoot` and can sign the runtime package manifest for Web trust policies.
 
 ### Workspace Configuration
 
