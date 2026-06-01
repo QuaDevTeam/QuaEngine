@@ -17,7 +17,7 @@ Initializes the global QuaEngine instance with optional configuration.
 **Example:**
 
 ```typescript
-import { initEngine } from '@qua-engine/engine'
+import { initEngine } from '@quajs/engine'
 
 await initEngine({
   // engine configuration
@@ -40,7 +40,7 @@ Loads and activates a new scene in the game.
 **Example:**
 
 ```typescript
-import { loadScene } from '@qua-engine/engine'
+import { loadScene } from '@quajs/engine'
 
 await loadScene({
   id: 'scene1',
@@ -70,7 +70,7 @@ Executes a sequence of dialogue steps.
 **Example:**
 
 ```typescript
-import { dialogue } from '@qua-engine/engine'
+import { dialogue } from '@quajs/engine'
 
 await dialogue([
   {
@@ -137,7 +137,7 @@ Alice: Flow control policy resets here.
 
 ## Audio Plugin
 
-Audio playback is no longer an engine-core API. Engine state only carries the plugin projection lane under `view.plugins.audio`, while real Web decoding and playback live in `@quajs/renderer-web/audio` and framework adapters such as `@quajs/renderer-vue/plugins/audio`.
+Audio playback is no longer an engine-core API. Engine state only carries the plugin projection lane under `view.plugins.audio`, while real Web decoding and playback live in `@quajs/renderer-web/audio` and framework adapters such as `@quajs/renderer-vue/plugins/audio`, `@quajs/renderer-react/plugins/audio`, and `@quajs/renderer-svelte/plugins/audio`.
 
 For chapter-aware BGM, voice playback, SFX, and ambient audio, use `@quajs/plugin-audio` decorators and helpers such as `@AudioChapter`, `@PlayVoice`, `@PlayBGM`, `@PlaySFX`, `@PlayAmbient`, `@SetAudioGain`, and `@SetAudioAutomation`.
 
@@ -160,6 +160,42 @@ await setPluginProjection('audio', {
   sfx: [],
   ambients: [],
 })
+```
+
+## Story Graph And Chapter Select
+
+Story graph behavior is provided by `@quajs/story-graph`, not engine core. Use it for route/lane/timeline metadata, story events, jump resolution, node unlock state, and chapter select projection.
+
+```typescript
+import {
+  StoryGraphPlugin,
+  getStoryChapterSelectProjection,
+  jumpToChapterSelectNodeWithEngine,
+} from '@quajs/story-graph'
+
+engine.use(new StoryGraphPlugin())
+
+const chapterSelect = getStoryChapterSelectProjection(engine)
+await jumpToChapterSelectNodeWithEngine(engine, 'opening')
+```
+
+Chapter select is derived from graph nodes marked with `chapterSelect` plus `unlockedNodes`; it is not an engine-core UI.
+
+## Inventory Plugin
+
+Inventory behavior is provided by `@quajs/plugin-inventory`, not engine core. It stores item definitions in plugin runtime state and profile quantities in `QuaStore` profile snapshots that do not roll back with story saves.
+
+```typescript
+import {
+  InventoryPlugin,
+  grantInventoryItemWithEngine,
+  registerInventoryItemWithEngine,
+} from '@quajs/plugin-inventory'
+
+engine.use(new InventoryPlugin())
+
+await registerInventoryItemWithEngine(engine, { id: 'old-key', title: 'Old Key' })
+await grantInventoryItemWithEngine(engine, 'old-key')
 ```
 
 ## Save System
@@ -186,7 +222,7 @@ Saves the current game state to a specific save slot.
 **Example:**
 
 ```typescript
-import { saveToSlot } from '@qua-engine/engine'
+import { saveToSlot } from '@quajs/engine'
 
 await saveToSlot('slot1', {
   name: 'Chapter 1 Complete',
@@ -220,7 +256,7 @@ Loads a game state from a save slot.
 **Example:**
 
 ```typescript
-import { loadFromSlot } from '@qua-engine/engine'
+import { loadFromSlot } from '@quajs/engine'
 
 await loadFromSlot('slot1', { force: false })
 ```
@@ -241,7 +277,7 @@ Retrieves metadata for a specific asset.
 **Example:**
 
 ```typescript
-import { getAssetMetadata } from '@qua-engine/engine'
+import { getAssetMetadata } from '@quajs/engine'
 
 const audioMeta = await getAssetMetadata('audio', 'bgm_theme')
 const imageMeta = await getAssetMetadata('images', 'character_portrait')
@@ -258,7 +294,7 @@ Gets the engine's store instance for direct state access.
 **Example:**
 
 ```typescript
-import { getStore } from '@qua-engine/engine'
+import { getStore } from '@quajs/engine'
 
 const store = getStore()
 const currentState = store.getState()
@@ -269,7 +305,7 @@ const currentState = store.getState()
 All global API functions will throw an error if the engine has not been initialized. Always call `initEngine()` before using any other global API functions.
 
 ```typescript
-import { initEngine, loadScene } from '@qua-engine/engine'
+import { initEngine, loadScene } from '@quajs/engine'
 
 try {
   await initEngine()
@@ -288,5 +324,7 @@ The global API uses several TypeScript interfaces:
 - `GameStep`: Individual dialogue/game step
 - `ViewPluginProjectionMap`: Plugin-owned view projection map
 - `Audio` behavior: use `@quajs/plugin-audio` and `setPluginProjection('audio', ...)`
+- `Story graph` behavior: use `@quajs/story-graph`
+- `Inventory` behavior: use `@quajs/plugin-inventory`
 
 These types are exported from the core engine types module.

@@ -273,28 +273,69 @@ function part1() {
 
 ## Available Decorators
 
-| Decorator                                                         | Function                          | Module                |
-| ----------------------------------------------------------------- | --------------------------------- | --------------------- |
-| `@AudioChapter(chapterId, options?)`                              | `configureAudioChapterWithEngine` | `@quajs/plugin-audio` |
-| `@LineId(id)`                                                     | `lineIdDirective`                 | `@quajs/plugin-audio` |
-| `@PlayVoice(asset?, options?)`                                    | `playVoiceWithEngine`             | `@quajs/plugin-audio` |
-| `@PlayBGM(asset, options?)`                                       | `playBGMWithEngine`               | `@quajs/plugin-audio` |
-| `@PlaySFX(asset, options?)`                                       | `playSFXWithEngine`               | `@quajs/plugin-audio` |
-| `@PlayAmbient(asset, options?)`                                   | `playAmbientWithEngine`           | `@quajs/plugin-audio` |
-| `@SetAudioGain(target, gainDbOrCurve, options?)`                  | `setAudioGainWithEngine`          | `@quajs/plugin-audio` |
-| `@SetAudioEq(target, bands, options?)`                            | `setAudioEqWithEngine`            | `@quajs/plugin-audio` |
-| `@SetAudioAutomation(target, propertyPath, curve, options?)`      | `setAudioAutomationWithEngine`    | `@quajs/plugin-audio` |
-| `@StopAudio(target?, options?)`                                   | `stopAudioWithEngine`             | `@quajs/plugin-audio` |
-| `@StopSFX(options?)`                                              | `stopSFXWithEngine`               | `@quajs/plugin-audio` |
-| `@StopAmbient(options?)`                                          | `stopAmbientWithEngine`           | `@quajs/plugin-audio` |
-| `@PauseAudio(target?, options?)`                                  | `pauseAudioWithEngine`            | `@quajs/plugin-audio` |
-| `@ResumeAudio(target?, options?)`                                 | `resumeAudioWithEngine`           | `@quajs/plugin-audio` |
-| `@SeekAudio(target?, positionMs, options?)`                       | `seekAudioWithEngine`             | `@quajs/plugin-audio` |
-| `@SetSprite(asset, character?)`                                   | `spriteWithEngine`                | `@quajs/character`    |
-| `@ShowCharacter(character, sprite?, expression?, x?, y?, layer?)` | `showWithEngine`                  | `@quajs/character`    |
-| `@HideCharacter(character?)`                                      | `hideWithEngine`                  | `@quajs/character`    |
-| `@MoveCharacter(character, x?, y?, scale?, rotation?, anchor?)`   | `moveWithEngine`                  | `@quajs/character`    |
-| `@SetExpression(expression, character?)`                          | `expressionWithEngine`            | `@quajs/character`    |
+Decorators are discovered from package metadata and package-local compiler subentries. The current workspace provides these core feature decorators:
+
+| Decorator | Function | Module |
+| --- | --- | --- |
+| `@Chapter(value, options?)` | `setStoryMetadataWithEngine` | `@quajs/story-graph` |
+| `@Scene(value, options?)` | `setStoryMetadataWithEngine` | `@quajs/story-graph` |
+| `@Entry(value, options?)` | `setStoryMetadataWithEngine` | `@quajs/story-graph` |
+| `@Node(value, options?)` | `setStoryMetadataWithEngine` | `@quajs/story-graph` |
+| `@Label(value, options?)` | `setStoryMetadataWithEngine` | `@quajs/story-graph` |
+| `@Lane(value, options?)` | `setStoryMetadataWithEngine` | `@quajs/story-graph` |
+| `@Route(value, options?)` | `setStoryMetadataWithEngine` | `@quajs/story-graph` |
+| `@StoryTimeline(value, options?)` | `setStoryMetadataWithEngine` | `@quajs/story-graph` |
+| `@Protagonist(value, options?)` | `setStoryMetadataWithEngine` | `@quajs/story-graph` |
+| `@Interaction(value, options?)` | `setStoryMetadataWithEngine` | `@quajs/story-graph` |
+| `@EmitStoryEvent(type, payload?)` | `emitStoryEventWithEngine` | `@quajs/story-graph` |
+| `@ChapterSelect(options?)` | `setStoryChapterSelectWithEngine` | `@quajs/story-graph` |
+| `@SetBackground(asset, options?)` | `setBackgroundWithEngine` | `@quajs/plugin-background` |
+| `@ClearBackground(options?)` | `clearBackgroundWithEngine` | `@quajs/plugin-background` |
+| `@VideoBackground(asset, options?)` | `setVideoBackgroundWithEngine` | `@quajs/plugin-background` |
+| `@SetLayeredBackground(options?)` | `setLayeredBackgroundWithEngine` | `@quajs/plugin-background` |
+| `@BackgroundLayer(id, asset, options?)` | `addBackgroundLayerWithEngine` | `@quajs/plugin-background` |
+| `@RemoveBackgroundLayer(id, options?)` | `removeBackgroundLayerWithEngine` | `@quajs/plugin-background` |
+| `@ClearBackgroundLayers(options?)` | `clearBackgroundLayersWithEngine` | `@quajs/plugin-background` |
+| `@BackgroundTransition(type?, duration?, easing?)` | `transitionBackgroundWithEngine` | `@quajs/plugin-background` |
+| `@BackgroundLayerTransition(layerId, type?, duration?, easing?)` | `transitionBackgroundLayerWithEngine` | `@quajs/plugin-background` |
+| `@AudioChapter(chapterId, options?)` | `configureAudioChapterWithEngine` | `@quajs/plugin-audio` |
+| `@LineId(id)` | `lineIdDirective` | `@quajs/plugin-audio` |
+| `@PlayVoice(asset?, options?)` | `playVoiceWithEngine` | `@quajs/plugin-audio` |
+| `@PlayBGM(asset, options?)` | `playBGMWithEngine` | `@quajs/plugin-audio` |
+| `@PlaySFX(asset, options?)` | `playSFXWithEngine` | `@quajs/plugin-audio` |
+| `@PlayAmbient(asset, options?)` | `playAmbientWithEngine` | `@quajs/plugin-audio` |
+| `@SetAudioGain(target, gainDbOrCurve, options?)` | `setAudioGainWithEngine` | `@quajs/plugin-audio` |
+| `@SetAudioEq(target, bands, options?)` | `setAudioEqWithEngine` | `@quajs/plugin-audio` |
+| `@SetAudioAutomation(target, propertyPath, curve, options?)` | `setAudioAutomationWithEngine` | `@quajs/plugin-audio` |
+| `@StopAudio(target?, options?)` | `stopAudioWithEngine` | `@quajs/plugin-audio` |
+| `@StopVoice(options?)` | `stopVoiceWithEngine` | `@quajs/plugin-audio` |
+| `@StopBGM(options?)` | `stopBGMWithEngine` | `@quajs/plugin-audio` |
+| `@StopSFX(options?)` | `stopSFXWithEngine` | `@quajs/plugin-audio` |
+| `@StopAmbient(options?)` | `stopAmbientWithEngine` | `@quajs/plugin-audio` |
+| `@PauseAudio(target?, options?)` | `pauseAudioWithEngine` | `@quajs/plugin-audio` |
+| `@ResumeAudio(target?, options?)` | `resumeAudioWithEngine` | `@quajs/plugin-audio` |
+| `@SeekAudio(target?, positionMs, options?)` | `seekAudioWithEngine` | `@quajs/plugin-audio` |
+| `@SetSprite(asset, character?)` | `spriteWithEngine` | `@quajs/character` |
+| `@ShowCharacter(character, sprite?, expression?, x?, y?, layer?)` | `showWithEngine` | `@quajs/character` |
+| `@HideCharacter(character?)` | `hideWithEngine` | `@quajs/character` |
+| `@MoveCharacter(character, x?, y?, scale?, rotation?, anchor?)` | `moveWithEngine` | `@quajs/character` |
+| `@SetExpression(expression, character?)` | `expressionWithEngine` | `@quajs/character` |
+| `@CharacterFade(character, options?)` | `playCharacterFadeWithEngine` | `@quajs/character/animation` |
+| `@CharacterEnter(character, options?)` | `playCharacterEnterWithEngine` | `@quajs/character/animation` |
+| `@CharacterExit(character, options?)` | `playCharacterExitWithEngine` | `@quajs/character/animation` |
+| `@DefineAnimation(animationId, definition?)` | `registerAnimationWithEngine` | `@quajs/plugin-animation` |
+| `@AnimationTimeline(durationOrOptions, tracks?)` | `playTimelineWithEngine` | `@quajs/plugin-animation` |
+| `@Key(targetOrProperty, property?, value?)` | `defineAnimationKeyframe` | `@quajs/plugin-animation` |
+| `@PlayAnimation(animationId, options?)` | `playAnimationWithEngine` | `@quajs/plugin-animation` |
+| `@Backlog(options)` | `setBacklogPolicyWithEngine` | `@quajs/plugin-backlog` |
+| `@NoBacklog()` | `setBacklogPolicyWithEngine` | `@quajs/plugin-backlog` |
+| `@UnlockGalleryEntry(entryId, options?)` | `unlockGalleryEntryWithEngine` | `@quajs/plugin-gallery` |
+| `@OpenGalleryScene(entryId, options?)` | `openGallerySceneWithEngine` | `@quajs/plugin-gallery` |
+| `@UnlockAchievement(achievementId, options?)` | `unlockAchievementWithEngine` | `@quajs/plugin-achievement` |
+| `@OpenAchievementBoard(options?)` | `openAchievementBoardWithEngine` | `@quajs/plugin-achievement` |
+| `@GrantInventoryItem(itemId, options?)` | `grantInventoryItemWithEngine` | `@quajs/plugin-inventory` |
+| `@ConsumeInventoryItem(itemId, options?)` | `consumeInventoryItemWithEngine` | `@quajs/plugin-inventory` |
+| `@SetInventoryItemQuantity(itemId, quantity, options?)` | `setInventoryItemQuantityWithEngine` | `@quajs/plugin-inventory` |
 
 ## Configuration
 

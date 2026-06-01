@@ -12,6 +12,8 @@
 - 🔐 **Asset Encryption** - XOR and custom encryption plugin support
 - 🌍 **Localization Support** - Multi-language asset detection and organization
 - 📊 **Patch Generation** - Incremental updates and version management
+- 🧩 **Runtime QPK Metadata** - Dynamic runtime package manifests for scripts, scenes, plugins, story graph deltas, and store migrations
+- 🔏 **Runtime Signing** - ECDSA runtime QPK signing and verification for production trust policies
 - 🔧 **Plugin System** - Extensible architecture with custom processing plugins
 - 🏢 **Workspace Mode** - Multi-bundle project management
 - 🚀 **Node.js Optimized** - Built for server-side asset processing workflows
@@ -156,6 +158,39 @@ export default {
 }
 ```
 
+### Runtime QPK Configuration
+
+Runtime packages are dynamic QPKs consumed by `RuntimeContentManager`. They must declare compatibility and package metadata:
+
+```typescript
+import { defineConfig } from '@quajs/quack'
+
+export default defineConfig({
+  source: './runtime/chapter-2',
+  output: './dist/runtime.chapter-2.qpk',
+  format: 'qpk',
+  compatibility: {
+    minGameVersion: '0.1.0',
+  },
+  runtimePackage: {
+    id: 'runtime.chapter-2',
+    version: '1.0.0',
+    compatibility: {
+      minGameVersion: '0.1.0',
+    },
+    dependencies: ['base'],
+    scripts: [
+      { id: 'runtime.chapter-2.opening', version: '1.0.0', assetName: 'scripts/opening.js' },
+    ],
+    storyGraphDeltas: [
+      { id: 'chapter-2-graph', graphId: 'main', nodes: [] },
+    ],
+  },
+})
+```
+
+QuaScript story declarations, including `@Node`, thumbnails, and `@ChapterSelect`, are written into runtime script metadata and can generate story graph deltas for tooling/runtime activation.
+
 ## Asset Types and Organization
 
 Quack automatically detects and categorizes assets:
@@ -239,6 +274,12 @@ quack bundle ./assets --output ./dist/game.zip
 
 # Create QPK bundle with compression
 quack bundle ./assets -o ./dist/game.qpk -f qpk -c lzma
+
+# Sign runtime QPK output
+quack bundle ./runtime/chapter-2 -o ./dist/runtime.chapter-2.qpk -f qpk --sign-key ./keys/runtime-private.pem --sign-key-id release-2026-01
+
+# Verify runtime QPK signature
+quack verify ./dist/runtime.chapter-2.qpk --public-key ./keys/runtime-public.pem --require-signature --key-id release-2026-01
 
 # Workspace mode
 quack workspace build
@@ -567,8 +608,8 @@ See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ## Related Packages
 
-- [`@quajs/engine`](../engine) - QuaEngine core runtime
-- [`@quajs/assets`](../assets) - Runtime asset management
-- [`@quajs/store`](../store) - State management
-- [`@quajs/logger`](../logger) - Logging utilities
-- [`@quajs/utils`](../utils) - Common utilities
+- [`@quajs/engine`](../../core/engine) - QuaEngine core runtime
+- [`@quajs/assets`](../../core/assets) - Runtime asset management
+- [`@quajs/store`](../../core/store) - State management
+- [`@quajs/logger`](../../utils) - Logging utilities
+- [`@quajs/utils`](../../utils) - Common utilities

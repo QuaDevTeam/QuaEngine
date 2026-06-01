@@ -9,7 +9,7 @@ Stateless Vue renderer for QuaEngine. The renderer projects view state received 
 - `pipeline`: the only logic/render communication channel.
 - `assets`: the browser-side asset runtime used to resolve projected asset names into object URLs.
 - `initialView`: optional first-frame projection. Later projection updates should arrive through `LogicToRenderEvents.VIEW_UPDATE`.
-- `plugins`: optional renderer feature plugins such as input, background, character, dialogue, choices, audio, effects, settings, and UI.
+- `plugins`: optional renderer feature plugins such as input, fonts, background, sprite, character, effects, dialogue, choices, audio, scene, UI, settings, backlog, gallery, and achievement.
 
 ```vue
 <template>
@@ -106,6 +106,34 @@ const projectedView = {
 ```
 
 The Vue renderer asks `assets.getAsset('images', 'classroom.png')` or `assets.getAsset('characters', 'alice.png')`, creates browser object URLs, and revokes them on cleanup.
+
+## Feature Plugin Subentries
+
+Vue feature subentries adapt the shared `@quajs/renderer-web/plugins/*` projection layers and add Vue component/composable ergonomics where needed.
+
+Available entries:
+
+- `@quajs/renderer-vue/plugins/achievement`
+- `@quajs/renderer-vue/plugins/audio`
+- `@quajs/renderer-vue/plugins/background`
+- `@quajs/renderer-vue/plugins/backlog`
+- `@quajs/renderer-vue/plugins/character`
+- `@quajs/renderer-vue/plugins/choices`
+- `@quajs/renderer-vue/plugins/core`
+- `@quajs/renderer-vue/plugins/dialogue`
+- `@quajs/renderer-vue/plugins/effects`
+- `@quajs/renderer-vue/plugins/fonts`
+- `@quajs/renderer-vue/plugins/gallery`
+- `@quajs/renderer-vue/plugins/input`
+- `@quajs/renderer-vue/plugins/preset`
+- `@quajs/renderer-vue/plugins/scene`
+- `@quajs/renderer-vue/plugins/settings`
+- `@quajs/renderer-vue/plugins/sprite`
+- `@quajs/renderer-vue/plugins/ui`
+
+The visual novel preset order is:
+
+`input`, `fonts`, `background`, `sprite`, `character`, `effects`, `dialogue`, `choices`, `audio`, `scene`, `ui`, `settings`, `backlog`, `gallery`, `achievement`.
 
 ## Input
 
