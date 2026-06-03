@@ -35,6 +35,7 @@ export function useUiControlSkin(options: UseUiControlSkinOptions) {
     getType: () => 'images',
     getName: () => skinProjection.value?.active.asset,
     getTargetPackageId: () => skinTargetPackageId.value,
+    getRevision: () => assetRevision.value,
     onChange: (state) => {
       skinAssetUrl.value = state.url
       skinAssetLoading.value = state.loading
@@ -109,7 +110,7 @@ export function useUiControlSkin(options: UseUiControlSkinOptions) {
   }
 
   onBeforeUnmount(() => {
-    skinAssetHandle.dispose()
+    skinAssetHandle.dispose({ defer: true })
   })
 
   return {

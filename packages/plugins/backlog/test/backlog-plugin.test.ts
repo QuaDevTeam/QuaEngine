@@ -19,7 +19,7 @@ describe('@quajs/plugin-backlog', () => {
     QuaEngine.resetInstance()
   })
 
-  it('records dialogue and choice projection entries with checkpoints', async () => {
+  it('records dialogue and choice projection entries as view-only by default', async () => {
     const engine = createEngine()
     engine.use(new BacklogPlugin())
     await engine.init()
@@ -29,19 +29,56 @@ describe('@quajs/plugin-backlog', () => {
     await engine.showChoices([{ id: 'yes', text: 'Yes' }])
 
     const projection = getBacklogProjection(engine)
+    expect(projection.defaultPolicy.rewindable).toBe(false)
     expect(projection.entries).toHaveLength(2)
     expect(projection.entries[0]).toMatchObject({
       kind: 'dialogue',
       speaker: 'Alice',
       text: 'Hello',
-      rewindable: true,
+      rewindable: false,
     })
-    expect(projection.entries[0].checkpointId).toBeTruthy()
+    expect(projection.entries[0].checkpointId).toBeUndefined()
     expect(projection.entries[1]).toMatchObject({
       kind: 'choice',
       text: 'Yes',
+      rewindable: false,
     })
+    expect(projection.entries[1].checkpointId).toBeUndefined()
     expect(engine.getViewState().plugins[BACKLOG_PLUGIN_ID]).toEqual(expect.objectContaining({ revision: projection.revision }))
+  })
+
+  it('creates rewind checkpoints when a backlog point is explicitly rewindable', async () => {
+    const engine = createEngine()
+    engine.use(new BacklogPlugin())
+    await engine.init()
+    await engine.setStoryPoint({ chapterId: 'chapter-1', stepId: 'line-1' })
+    await setBacklogPolicyWithEngine(engine, { rewindable: true })
+
+    await engine.showDialogue({ text: 'Return point' })
+
+    const entry = getBacklogProjection(engine).entries[0]
+    expect(entry).toMatchObject({
+      text: 'Return point',
+      rewindable: true,
+    })
+    expect(entry.checkpointId).toBeTruthy()
+    expect(engine.getCheckpoint(entry.checkpointId!)).toBeTruthy()
+  })
+
+  it('supports project-wide rewindable backlog defaults', async () => {
+    const engine = createEngine()
+    engine.use(new BacklogPlugin({ defaultPolicy: { rewindable: true } }))
+    await engine.init()
+    await engine.setStoryPoint({ chapterId: 'chapter-1', stepId: 'line-1' })
+
+    await engine.showDialogue({ text: 'Default rewindable' })
+
+    const entry = getBacklogProjection(engine).entries[0]
+    expect(entry).toMatchObject({
+      text: 'Default rewindable',
+      rewindable: true,
+    })
+    expect(entry.checkpointId).toBeTruthy()
   })
 
   it('respects NoBacklog-style policy and current-chapter retention', async () => {
@@ -137,6 +174,7 @@ describe('@quajs/plugin-backlog', () => {
       contentPackageId: 'runtime.story',
       requiredRuntimePackages: ['runtime.story', 'runtime.delta'],
     })
+    await setBacklogPolicyWithEngine(engine, { rewindable: true })
 
     await engine.showDialogue({ text: 'Runtime line' })
 
@@ -192,6 +230,7 @@ describe('@quajs/plugin-backlog', () => {
     engine.use(new BacklogPlugin())
     await engine.init()
     await engine.setStoryPoint({ chapterId: 'chapter-1', stepId: 'line-1' })
+    await setBacklogPolicyWithEngine(engine, { rewindable: true })
     await engine.showDialogue({ text: 'Return here' })
     const entry = getBacklogProjection(engine).entries[0]
     await engine.showDialogue({ text: 'Elsewhere' })
@@ -211,11 +250,62 @@ describe('@quajs/plugin-backlog', () => {
     engine.use(new BacklogPlugin())
     await engine.init()
 
-    await emitRenderToLogic(engine.getPipeline(), BacklogRenderToLogicEvents.OPEN_REQUEST as any, {})
-    expect(getBacklogProjection(engine).visible).toBe(true)
+    await emitRenderToLogic(engine.getPipeline(), BacklogRenderToLogicEvents.OPEN_REQUEST as any, {
+      source: 'test',
+      scene: {
+        id: 'test:backlog',
+        presentation: 'scene',
+        overlay: {
+          variant: 'test-panel',
+          hideHud: true,
+          hideDialogue: true,
+        },
+      },
+    })
+    expect(getBacklogProjection(engine)).toEqual(expect.objectContaining({
+      visible: true,
+      ui: {
+        source: 'test',
+        scene: {
+          id: 'test:backlog',
+          presentation: 'scene',
+          overlay: {
+            variant: 'test-panel',
+            hideHud: true,
+            hideDialogue: true,
+          },
+        },
+      },
+    }))
 
     await emitRenderToLogic(engine.getPipeline(), BacklogRenderToLogicEvents.CLOSE_REQUEST as any, {})
-    expect(getBacklogProjection(engine).visible).toBe(false)
+    expect(getBacklogProjection(engine)).toEqual(expect.objectContaining({
+      visible: false,
+      ui: undefined,
+    }))
+  })
+
+  it('creates default UI scene metadata for bare backlog open requests', async () => {
+    const engine = createEngine()
+    engine.use(new BacklogPlugin())
+    await engine.init()
+
+    await emitRenderToLogic(engine.getPipeline(), BacklogRenderToLogicEvents.OPEN_REQUEST as any, {})
+
+    expect(getBacklogProjection(engine)).toEqual(expect.objectContaining({
+      visible: true,
+      ui: {
+        scene: {
+          id: 'plugin:backlog',
+          presentation: 'overlay',
+          overlay: {
+            variant: 'backlog',
+            hideHud: true,
+            hideDialogue: true,
+          },
+        },
+      },
+    }))
   })
 })
 

@@ -35,6 +35,9 @@ export {
 
 export type {
   BaseDeveloperSettings,
+  BaseDeveloperSettingsInput,
+  BaseLocaleInput,
+  BaseLocaleOption,
   BasePlayerSettings,
   BaseSettingsScopeOptions,
 } from './builtin'

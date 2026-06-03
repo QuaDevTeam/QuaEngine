@@ -50,6 +50,7 @@ export {
   runScriptModule,
   runScriptModuleFrom,
   saveToSlot,
+  setDialogueOptions,
   setFlowControlMode,
   setFlowControlOptions,
   setFlowControlPolicy,

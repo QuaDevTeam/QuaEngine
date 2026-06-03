@@ -30,6 +30,7 @@ import type {
   ChoiceTarget,
   CreateCheckpointOptions,
   DialogueIntent,
+  DialogueOptions,
   EffectIntent,
   EngineCheckpoint,
   EngineConfig,
@@ -480,15 +481,18 @@ export class QuaEngine {
   }
 
   async setLocale(locale: string, options: SetLocaleOptions = {}): Promise<void> {
-    this.assertInitialized()
+    this.assertNotDestroyed()
     const normalizedLocale = normalizeLocale(locale)
     if (options.ensurePacks) {
+      this.assertInitialized()
       await this.ensureLocalePacks(normalizedLocale, options)
     }
     else {
       this.store.commit('setActiveLocalePacks', {
         locale: normalizedLocale,
-        packageIds: this.runtimeContentManager.getActiveLocalePackIds(normalizedLocale, options),
+        packageIds: this.isInitialized
+          ? this.runtimeContentManager.getActiveLocalePackIds(normalizedLocale, options)
+          : [],
       })
     }
     this.assets.setLocale(normalizedLocale)
@@ -937,6 +941,17 @@ export class QuaEngine {
     if (this.isInitialized) {
       await this.emitViewUpdate()
       this.scheduleFlowControlAdvance()
+    }
+  }
+
+  async setDialogueOptions(options: DialogueOptions): Promise<void> {
+    this.assertNotDestroyed()
+    this.config = {
+      ...this.config,
+      dialogue: {
+        ...(this.config.dialogue || {}),
+        ...options,
+      },
     }
   }
 
@@ -1694,6 +1709,14 @@ export class QuaEngine {
       }))
     }
     await this.emitViewUpdate()
+    await this.emitLogicToRender(L2R.GAME_LOAD, { slotId }).catch((error) => {
+      void this.reportErrorOnce(error, {
+        message: `Failed to emit game load event for slot "${slotId}".`,
+        source: 'engine',
+        phase: 'load:complete',
+        metadata: { slotId, reason: options.reason },
+      })
+    })
   }
 
   async quickSave(metadata: SlotMetadata = {}, options: SaveToSlotOptions = {}): Promise<void> {

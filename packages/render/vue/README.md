@@ -160,6 +160,8 @@ Pointer advance is filtered for buttons, form controls, choices, overlays, setti
 
 `@quajs/renderer-vue/plugins/settings` renders the `@quajs/plugin-settings` projection as a schema-driven settings panel. It consumes `view.plugins.settings`, uses the projected JSON Schema plus UI hints to create controls, and emits `settings/update_request`, `settings/reset_scope_request`, and `settings/reset_all_request` through the shared pipeline. The default visual novel preset includes this plugin; open the generic `settings` overlay through the UI overlay flow to show it.
 
+The default form uses native browser controls with stable semantic hooks: `.qua-settings-field-main`, `.qua-settings-field-copy`, `.qua-settings-field-control`, `.qua-settings-control`, and `data-settings-control/type/readonly/invalid` attributes on fields. Vue apps can replace individual pieces with slots on `QuaSettingsLayer` or `QuaSettingsForm`: `form-header`, `form-actions`, `scope`, `scope-header`, `group`, `group-header`, `field`, `field-label`, `field-description`, `field-control`, `field-errors`, and `control`. Slot payloads expose projections and intent helpers such as `update`, `resetScope`, `resetAll`, and `close`; renderers still emit intents only and do not own settings state. Framework component libraries such as Reka UI, Radix Vue, or project-local design-system controls should be mounted through these slots or `customControls` instead of becoming hard dependencies of the renderer package.
+
 ## Stage And Background Projection
 
 `QuaRenderer` and `QuaStage` include the functional adaptive aspect-interval stage structure. Optional SCSS entrypoints remain visual styling only; they are not required for positioning, scaling, or clipping the stage.

@@ -6,7 +6,7 @@ import type {
   SettingsUiOption,
   SettingsValidationIssue,
 } from '@quajs/plugin-settings/contracts'
-import type { QuaViewProjection } from '@quajs/render-core'
+import type { QuaViewProjection, ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
 import { bindUiControlSkin } from '../ui-skin'
@@ -84,7 +84,7 @@ export function createSettingsWebRendererPlugin(options: SettingsRendererPluginO
     layers: [{
       id: 'settings',
       order: 96,
-      plane: 'safe',
+      plane: 'screen',
       render: context => renderSettingsLayer(context, options),
     }],
   })
@@ -140,7 +140,7 @@ export function parseSettingsControlValue(
   raw: string,
   checked = false,
 ): SettingsInputParseResult {
-  const control = field.control.control || inferSettingsControlKind(field.schema)
+  const control = settingsFieldControlKind(field)
   if (control === 'switch' || control === 'checkbox') {
     return { ok: true, value: checked }
   }
@@ -306,8 +306,17 @@ function renderSettingsLayer(context: QuaWebDomLayerContext, options: SettingsRe
   }
 
   const form = createSettingsFormProjection(projection)
+  const overlay = context.view.ui.overlays?.[elementId] as ViewUiOverlayProjection | undefined
+  const scene = overlay?.scene as ViewUiSceneProjection | undefined
   const layer = context.document.createElement('div')
-  layer.className = 'qua-settings-layer'
+  layer.className = [
+    'qua-settings-layer',
+    scene ? 'qua-settings-layer--ui-scene' : '',
+    scene?.presentation === 'scene' ? 'qua-settings-layer--scene' : '',
+    scene?.presentation === 'overlay' ? 'qua-settings-layer--overlay' : '',
+  ].filter(Boolean).join(' ')
+  layer.style.pointerEvents = 'auto'
+  applyUiSceneDataset(layer, scene)
   layer.addEventListener('click', event => event.stopPropagation())
 
   const panel = context.document.createElement('section')
@@ -324,6 +333,23 @@ function renderSettingsLayer(context: QuaWebDomLayerContext, options: SettingsRe
   title.textContent = 'Settings'
   header.append(title)
 
+  const headerActions = context.document.createElement('div')
+  headerActions.className = 'qua-settings-header-actions'
+
+  const resetAll = context.document.createElement('button')
+  resetAll.className = 'qua-settings-reset-all'
+  resetAll.type = 'button'
+  resetAll.textContent = 'Reset'
+  bindUiControlSkin(context, resetAll, {
+    kind: 'button',
+  })
+  resetAll.addEventListener('click', () => {
+    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_ALL_REQUEST), {
+      phase: 'settings:reset-all',
+    })
+  })
+  headerActions.append(resetAll)
+
   const close = context.document.createElement('button')
   close.className = 'qua-settings-close'
   close.type = 'button'
@@ -337,7 +363,8 @@ function renderSettingsLayer(context: QuaWebDomLayerContext, options: SettingsRe
       metadata: { elementId },
     })
   })
-  header.append(close)
+  headerActions.append(close)
+  header.append(headerActions)
   panel.append(header)
 
   const formNode = context.document.createElement('form')
@@ -348,22 +375,49 @@ function renderSettingsLayer(context: QuaWebDomLayerContext, options: SettingsRe
   }
   panel.append(formNode)
 
-  const resetAll = context.document.createElement('button')
-  resetAll.className = 'qua-settings-reset-all'
-  resetAll.type = 'button'
-  resetAll.textContent = 'Reset All'
-  bindUiControlSkin(context, resetAll, {
-    kind: 'button',
-  })
-  resetAll.addEventListener('click', () => {
-    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_ALL_REQUEST), {
-      phase: 'settings:reset-all',
-    })
-  })
-  panel.append(resetAll)
-
   layer.append(panel)
   return layer
+}
+
+function applyUiSceneDataset(element: HTMLElement, scene: ViewUiSceneProjection | undefined): void {
+  setOptionalAttribute(element, 'data-ui-scene-id', scene?.id)
+  setOptionalAttribute(element, 'data-ui-scene-presentation', scene?.presentation)
+  setOptionalAttribute(element, 'data-ui-scene-overlay-variant', scene?.overlay?.variant)
+  setOptionalAttribute(element, 'data-ui-scene-hide-hud', scene?.overlay?.hideHud ? 'true' : undefined)
+  setOptionalAttribute(element, 'data-ui-scene-hide-dialogue', scene?.overlay?.hideDialogue ? 'true' : undefined)
+}
+
+function setOptionalAttribute(element: HTMLElement, name: string, value: string | undefined): void {
+  if (value === undefined) {
+    element.removeAttribute(name)
+    return
+  }
+  element.setAttribute(name, value)
+}
+
+function setOptionalBooleanAttribute(element: HTMLElement, name: string, value: boolean): void {
+  if (!value) {
+    element.removeAttribute(name)
+    return
+  }
+  element.setAttribute(name, 'true')
+}
+
+function applySettingsFieldAttrs(
+  element: HTMLElement,
+  field: SettingsFieldFormProjection,
+  control: string,
+): void {
+  element.className = `qua-settings-field qua-settings-field--${control}`
+  element.setAttribute('data-settings-field', field.pathKey)
+  element.setAttribute('data-settings-control', control)
+  const schemaType = settingsSchemaType(field)
+  if (schemaType) {
+    element.setAttribute('data-settings-type', schemaType)
+  }
+  setOptionalBooleanAttribute(element, 'data-settings-required', field.required)
+  setOptionalBooleanAttribute(element, 'data-settings-readonly', field.readonly)
+  setOptionalBooleanAttribute(element, 'data-settings-invalid', field.errors.length > 0)
 }
 
 function renderSettingsScope(
@@ -381,18 +435,6 @@ function renderSettingsScope(
   title.className = 'qua-settings-scope-title'
   title.textContent = scope.title || scope.scope
   header.append(title)
-
-  const reset = context.document.createElement('button')
-  reset.className = 'qua-settings-scope-reset'
-  reset.type = 'button'
-  reset.textContent = 'Reset'
-  reset.addEventListener('click', () => {
-    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST, { scope: scope.scope }), {
-      phase: 'settings:reset-scope',
-      metadata: { scope: scope.scope },
-    })
-  })
-  header.append(reset)
   section.append(header)
 
   if (scope.description) {
@@ -445,9 +487,9 @@ function renderSettingsField(
     return context.document.createTextNode('')
   }
 
+  const control = settingsFieldControlKind(field)
   const wrapper = context.document.createElement('div')
-  wrapper.className = `qua-settings-field qua-settings-field--${field.control.control || inferSettingsControlKind(field.schema)}`
-  wrapper.setAttribute('data-settings-field', field.pathKey)
+  applySettingsFieldAttrs(wrapper, field, control)
 
   if (isSettingsGroupField(field)) {
     const fieldset = context.document.createElement('fieldset')
@@ -463,20 +505,30 @@ function renderSettingsField(
     return wrapper
   }
 
+  const main = context.document.createElement('div')
+  main.className = 'qua-settings-field-main'
+
+  const copy = context.document.createElement('div')
+  copy.className = 'qua-settings-field-copy'
+
   const label = context.document.createElement('label')
   label.className = 'qua-settings-field-label'
   label.setAttribute('for', settingsFieldInputId(scope.scope, field.pathKey))
   label.textContent = field.control.label || field.name
-  wrapper.append(label)
+  copy.append(label)
 
   if (field.control.description || field.schema.description) {
     const description = context.document.createElement('p')
     description.className = 'qua-settings-field-description'
     description.textContent = field.control.description || field.schema.description || ''
-    wrapper.append(description)
+    copy.append(description)
   }
 
-  wrapper.append(renderSettingsFieldControl(context, scope, field, options))
+  const controlNode = context.document.createElement('div')
+  controlNode.className = 'qua-settings-field-control'
+  controlNode.append(renderSettingsFieldControl(context, scope, field, options))
+  main.append(copy, controlNode)
+  wrapper.append(main)
 
   for (const error of field.errors) {
     const errorNode = context.document.createElement('p')
@@ -494,7 +546,7 @@ function renderSettingsFieldControl(
   field: SettingsFieldFormProjection,
   options: SettingsRendererPluginOptions,
 ): Node {
-  const control = field.control.control || inferSettingsControlKind(field.schema)
+  const control = settingsFieldControlKind(field)
   const skinKind = control === 'switch' || control === 'checkbox'
     ? 'toggle'
     : control === 'select' || control === 'radio'
@@ -506,7 +558,8 @@ function renderSettingsFieldControl(
 
   if (control === 'textarea' || fieldSchemaHasType(field.schema, 'array') || fieldSchemaHasType(field.schema, 'object')) {
     const textarea = context.document.createElement('textarea')
-    textarea.className = 'qua-settings-field-control'
+    textarea.className = 'qua-settings-control qua-settings-control--textarea'
+    textarea.setAttribute('data-settings-control', control)
     textarea.id = settingsFieldInputId(scope.scope, field.pathKey)
     textarea.disabled = field.readonly
     textarea.value = stringifySettingsInputValue(field)
@@ -520,7 +573,8 @@ function renderSettingsFieldControl(
 
   if (control === 'select') {
     const select = context.document.createElement('select')
-    select.className = 'qua-settings-field-control'
+    select.className = 'qua-settings-control qua-settings-control--select'
+    select.setAttribute('data-settings-control', control)
     select.id = settingsFieldInputId(scope.scope, field.pathKey)
     select.disabled = field.readonly
     for (const option of createSettingsOptions(field)) {
@@ -540,7 +594,8 @@ function renderSettingsFieldControl(
 
   if (control === 'radio') {
     const group = context.document.createElement('div')
-    group.className = 'qua-settings-radio-group'
+    group.className = 'qua-settings-control qua-settings-control--radio qua-settings-radio-group'
+    group.setAttribute('data-settings-control', control)
     bindUiControlSkin(context, group, {
       kind: skinKind,
       disabled: field.readonly,
@@ -571,11 +626,12 @@ function renderSettingsFieldControl(
   }
 
   const input = context.document.createElement('input')
-  input.className = 'qua-settings-field-control'
   input.id = settingsFieldInputId(scope.scope, field.pathKey)
   input.disabled = field.readonly
 
   if (control === 'switch' || control === 'checkbox') {
+    input.className = 'qua-settings-control qua-settings-control--checkbox'
+    input.setAttribute('data-settings-control', control)
     input.type = 'checkbox'
     input.checked = Boolean(field.value)
     bindUiControlSkin(context, input, {
@@ -594,6 +650,8 @@ function renderSettingsFieldControl(
       : control === 'slider' || control === 'range'
         ? 'range'
         : 'text'
+  input.className = `qua-settings-control qua-settings-control--${input.type}`
+  input.setAttribute('data-settings-control', control)
   if (field.control.min !== undefined) {
     input.min = String(field.control.min)
   }
@@ -634,7 +692,7 @@ function renderSettingsCustomControl(
   }
 
   const custom = context.document.createElement('div')
-  custom.className = 'qua-settings-custom-control qua-settings-field-control'
+  custom.className = 'qua-settings-custom-control qua-settings-control qua-settings-control--custom'
   custom.id = settingsFieldInputId(scope.scope, field.pathKey)
   custom.setAttribute('role', 'group')
   custom.setAttribute('aria-disabled', field.readonly ? 'true' : 'false')
@@ -694,6 +752,27 @@ function updateSettingsFieldValue(
 
 function isSettingsGroupField(field: SettingsFieldFormProjection): boolean {
   return Boolean((field.control.control || inferSettingsControlKind(field.schema)) === 'group' && field.children?.length)
+}
+
+function settingsFieldControlKind(field: SettingsFieldFormProjection): string {
+  return field.control.control || inferSettingsControlKind(field.schema) || 'text'
+}
+
+function settingsSchemaType(field: SettingsFieldFormProjection): string | undefined {
+  const schemaType = field.schema.type
+  if (Array.isArray(schemaType)) {
+    return [...schemaType].join(' ')
+  }
+  if (typeof schemaType === 'string') {
+    return schemaType
+  }
+  if (field.schema.properties) {
+    return 'object'
+  }
+  if (field.schema.items) {
+    return 'array'
+  }
+  return undefined
 }
 
 function inferSettingsControl(schema: SettingsJsonSchema, field: string): SettingsUiControlHint {

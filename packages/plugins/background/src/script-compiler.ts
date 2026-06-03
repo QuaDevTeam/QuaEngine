@@ -1,4 +1,5 @@
 import * as t from '@babel/types'
+import { backgroundDecoratorMappings } from './decorators'
 
 const SUPPORTED_FUNCTIONS = new Set([
   'setBackgroundWithEngine',
@@ -10,46 +11,9 @@ const SUPPORTED_FUNCTIONS = new Set([
   'clearBackgroundLayersWithEngine',
   'transitionBackgroundWithEngine',
   'transitionBackgroundLayerWithEngine',
+  'showCgOverlayWithEngine',
+  'hideCgOverlayWithEngine',
 ])
-
-export const backgroundDecoratorMappings = {
-  SetBackground: {
-    function: 'setBackgroundWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  ClearBackground: {
-    function: 'clearBackgroundWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  VideoBackground: {
-    function: 'setVideoBackgroundWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  SetLayeredBackground: {
-    function: 'setLayeredBackgroundWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  BackgroundLayer: {
-    function: 'addBackgroundLayerWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  RemoveBackgroundLayer: {
-    function: 'removeBackgroundLayerWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  ClearBackgroundLayers: {
-    function: 'clearBackgroundLayersWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  BackgroundTransition: {
-    function: 'transitionBackgroundWithEngine',
-    module: '@quajs/plugin-background',
-  },
-  BackgroundLayerTransition: {
-    function: 'transitionBackgroundLayerWithEngine',
-    module: '@quajs/plugin-background',
-  },
-} as const
 
 export function createBackgroundDecoratorCompiler() {
   return {
@@ -64,6 +28,8 @@ export function createBackgroundDecoratorCompiler() {
       clearBackgroundLayersWithEngine: '@quajs/plugin-background',
       transitionBackgroundWithEngine: '@quajs/plugin-background',
       transitionBackgroundLayerWithEngine: '@quajs/plugin-background',
+      showCgOverlayWithEngine: '@quajs/plugin-background',
+      hideCgOverlayWithEngine: '@quajs/plugin-background',
     },
     supports(_decoratorName: string, mapping: { function: string, module: string }) {
       return mapping.module === '@quajs/plugin-background' && SUPPORTED_FUNCTIONS.has(mapping.function)
@@ -155,6 +121,25 @@ export function createBackgroundDecoratorCompiler() {
             runtimeHelpers: [mapping.function],
           }
         }
+        case 'showCgOverlayWithEngine': {
+          const asset = requireDecoratorArg(decorator, args[0], 'asset')
+          return {
+            call: t.callExpression(helper, [
+              engineArg,
+              asset,
+              args[1],
+            ].filter(Boolean) as t.Expression[]),
+            runtimeHelpers: [mapping.function],
+          }
+        }
+        case 'hideCgOverlayWithEngine':
+          return {
+            call: t.callExpression(helper, [
+              engineArg,
+              args[0],
+            ].filter(Boolean) as t.Expression[]),
+            runtimeHelpers: [mapping.function],
+          }
         default:
           return null
       }

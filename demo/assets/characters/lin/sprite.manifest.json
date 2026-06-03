@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "family": "lin",
+  "base": {
+    "asset": "base.png"
+  },
+  "expressions": {
+    "focus": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "focus.png"
+        }
+      ]
+    },
+    "shaken": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "shaken.png"
+        }
+      ]
+    },
+    "resolve": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "resolve.png"
+        }
+      ]
+    }
+  }
+}

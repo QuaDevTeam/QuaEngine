@@ -85,7 +85,8 @@
       "import": "./dist/plugins/settings/index.js"
     },
     "./styles/base.scss": "./src/styles/base.scss",
-    "./styles/default.scss": "./src/styles/default.scss"
+    "./styles/default.scss": "./src/styles/default.scss",
+    "./styles/story-tree.scss": "./src/styles/story-tree.scss"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",

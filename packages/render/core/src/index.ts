@@ -341,8 +341,35 @@ export interface ViewUiSceneHostProjection {
   reason?: string
 }
 
+export type ViewUiScenePresentation = 'overlay' | 'scene'
+
+/**
+ * Renderer-facing chrome for a UI scene. This is engine-owned presentation
+ * metadata; renderers project it and may not use it as authoritative state.
+ */
+export interface ViewUiSceneOverlayProjection extends Readonly<Record<string, unknown>> {
+  variant?: string
+  skinId?: string
+  background?: Readonly<Record<string, unknown>>
+  hideHud?: boolean
+  hideDialogue?: boolean
+}
+
+/**
+ * UI pages such as menu, save/load, settings, gallery, and backlog are modeled
+ * as UI scenes even when they are rendered as overlays. `presentation` decides
+ * whether the page behaves as an overlay over the current story or as an
+ * independent system scene with its own chrome.
+ */
+export interface ViewUiSceneProjection extends Readonly<Record<string, unknown>> {
+  id: string
+  presentation?: ViewUiScenePresentation
+  overlay?: Readonly<ViewUiSceneOverlayProjection>
+}
+
 export interface ViewUiOverlayProjection extends Readonly<Record<string, unknown>> {
   skinId?: string
+  scene?: Readonly<ViewUiSceneProjection>
 }
 
 export interface ViewChoicePresentationProjection extends Readonly<object> {
@@ -482,7 +509,7 @@ export const QUA_DEFAULT_FLOW_CONTROL_POLICY: ResolvedFlowControlPolicy = {
 export const QUA_DEFAULT_FLOW_CONTROL_TIMINGS: FlowControlTimingProjection = {
   skipAdvanceDelayMs: 0,
   fastForwardAdvanceDelayMs: 80,
-  autoAdvanceDelayMs: 1200,
+  autoAdvanceDelayMs: 2000,
 }
 
 export function createFlowControlProjection(input: FlowControlProjectionInput = {}): ViewFlowControlProjection {

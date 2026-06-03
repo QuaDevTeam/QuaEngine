@@ -1,4 +1,5 @@
 import * as t from '@babel/types'
+import { characterDecoratorMappings } from './decorators'
 
 const SUPPORTED_FUNCTIONS = new Set([
   'sprite',
@@ -10,41 +11,6 @@ const SUPPORTED_FUNCTIONS = new Set([
   'playCharacterEnterWithEngine',
   'playCharacterExitWithEngine',
 ])
-
-export const characterDecoratorMappings = {
-  SetSprite: {
-    function: 'sprite',
-    module: '@quajs/character',
-  },
-  ShowCharacter: {
-    function: 'show',
-    module: '@quajs/character',
-  },
-  HideCharacter: {
-    function: 'hide',
-    module: '@quajs/character',
-  },
-  MoveCharacter: {
-    function: 'move',
-    module: '@quajs/character',
-  },
-  SetExpression: {
-    function: 'expression',
-    module: '@quajs/character',
-  },
-  CharacterFade: {
-    function: 'playCharacterFadeWithEngine',
-    module: '@quajs/character/animation',
-  },
-  CharacterEnter: {
-    function: 'playCharacterEnterWithEngine',
-    module: '@quajs/character/animation',
-  },
-  CharacterExit: {
-    function: 'playCharacterExitWithEngine',
-    module: '@quajs/character/animation',
-  },
-} as const
 
 export function createCharacterDecoratorCompiler() {
   return {

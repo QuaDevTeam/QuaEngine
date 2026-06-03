@@ -142,6 +142,7 @@ export function useAssetUrl(
     getType: () => assetType.value,
     getName: name,
     getTargetPackageId: targetPackageId,
+    getRevision: () => assetRevision.value,
     onChange: (state) => {
       url.value = state.url
       loading.value = state.loading
@@ -158,7 +159,7 @@ export function useAssetUrl(
   }, { immediate: true })
 
   onBeforeUnmount(() => {
-    handle.dispose()
+    handle.dispose({ defer: true })
   })
 
   return {

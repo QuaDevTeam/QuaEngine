@@ -8,24 +8,32 @@ import type {
 import type { EventListener, Pipeline } from '@quajs/pipeline'
 import type {
   BacklogEntry,
+  BacklogOpenRequestPayload,
   BacklogPolicy,
   BacklogProjection,
   BacklogRetentionScope,
+  BacklogUiProjection,
   BacklogVoiceReference,
 } from './contracts'
 import { BaseEnginePlugin, LogicToRenderEvents, richTextToPlainText } from '@quajs/engine'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from './contracts'
-import { backlogDecoratorMappings } from './script-compiler'
+import { backlogDecoratorMappings } from './decorators'
 
 const BACKLOG_SETTINGS_SCOPE = '@quajs/plugin-backlog' as const
+let backlogEntryIdSeed = 0
 
 export { BACKLOG_PLUGIN_ID, BACKLOG_SETTINGS_SCOPE, BacklogRenderToLogicEvents }
 export type {
   BacklogEntry,
   BacklogEntryKind,
+  BacklogOpenRequestPayload,
   BacklogPolicy,
   BacklogProjection,
   BacklogRetentionScope,
+  BacklogUiProjection,
+  BacklogUiSceneOverlayProjection,
+  BacklogUiScenePresentation,
+  BacklogUiSceneProjection,
   BacklogVoiceReference,
 } from './contracts'
 
@@ -65,8 +73,8 @@ export class BacklogPlugin extends BaseEnginePlugin {
     this.disposers.push(onPipeline(ctx.pipeline, LogicToRenderEvents.DIALOGUE_CHOICE, async (payload) => {
       await this.recordChoice(ctx, payload as { choices: ChoiceIntent[] })
     }))
-    this.disposers.push(onPipeline(ctx.pipeline, BacklogRenderToLogicEvents.OPEN_REQUEST, async () => {
-      await setBacklogVisibleWithEngine(ctx.engine, true)
+    this.disposers.push(onPipeline<BacklogOpenRequestPayload>(ctx.pipeline, BacklogRenderToLogicEvents.OPEN_REQUEST, async (payload = {}) => {
+      await setBacklogVisibleWithEngine(ctx.engine, true, payload)
     }))
     this.disposers.push(onPipeline(ctx.pipeline, BacklogRenderToLogicEvents.CLOSE_REQUEST, async () => {
       await setBacklogVisibleWithEngine(ctx.engine, false)
@@ -163,12 +171,15 @@ export class BacklogPlugin extends BaseEnginePlugin {
     if (!view.dialogue.visible || !view.dialogue.text) {
       return
     }
-    const checkpoint = await engine.createCheckpoint({
-      kind: 'line',
-      metadata: {
-        requiredRuntimePackages: requiredPackagesForPoint(engine.getStoryPoint()),
-      },
-    })
+    const policy = resolveCurrentBacklogPolicy(getBacklogProjection(engine))
+    const checkpoint = policy.include !== false && policy.rewindable === true
+      ? await engine.createCheckpoint({
+          kind: 'line',
+          metadata: {
+            requiredRuntimePackages: requiredPackagesForPoint(engine.getStoryPoint()),
+          },
+        })
+      : undefined
     const entry = createBacklogEntry(engine, checkpoint, {
       kind: 'dialogue',
       speaker: view.dialogue.characterName || view.dialogue.characterId,
@@ -183,12 +194,15 @@ export class BacklogPlugin extends BaseEnginePlugin {
     if (payload.choices.length === 0) {
       return
     }
-    const checkpoint = await engine.createCheckpoint({
-      kind: 'choice',
-      metadata: {
-        requiredRuntimePackages: requiredPackagesForPoint(engine.getStoryPoint()),
-      },
-    })
+    const policy = resolveCurrentBacklogPolicy(getBacklogProjection(engine))
+    const checkpoint = policy.include !== false && policy.rewindable === true
+      ? await engine.createCheckpoint({
+          kind: 'choice',
+          metadata: {
+            requiredRuntimePackages: requiredPackagesForPoint(engine.getStoryPoint()),
+          },
+        })
+      : undefined
     const entry = createBacklogEntry(engine, checkpoint, {
       kind: 'choice',
       text: payload.choices.map(choice => choice.text).join(' / '),
@@ -247,12 +261,14 @@ export async function setBacklogPolicyWithEngine(
 export async function setBacklogVisibleWithEngine(
   engine: QuaEngineInterface,
   visible: boolean,
+  ui?: BacklogUiProjection,
 ): Promise<void> {
   const projection = getBacklogProjection(engine)
   await setBacklogProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     visible,
+    ui: visible ? createBacklogUiProjection(ui, projection.ui) : undefined,
   })
 }
 
@@ -292,6 +308,7 @@ export function createInitialBacklogProjection(options: BacklogPluginOptions = {
   return {
     revision: 0,
     visible: false,
+    ui: undefined,
     requiredRuntimePackages: [],
     entries: [],
     retention: {
@@ -302,6 +319,29 @@ export function createInitialBacklogProjection(options: BacklogPluginOptions = {
       include: developerSettings.includeByDefault,
       rewindable: developerSettings.rewindableByDefault,
       voiceReplay: developerSettings.voiceReplayByDefault,
+    },
+  }
+}
+
+function createBacklogUiProjection(
+  next?: BacklogUiProjection,
+  current?: Readonly<BacklogUiProjection>,
+): BacklogUiProjection {
+  const source = next?.source || current?.source
+  return {
+    ...(source ? { source } : {}),
+    scene: next?.scene || current?.scene || createDefaultBacklogScene(),
+  }
+}
+
+function createDefaultBacklogScene() {
+  return {
+    id: 'plugin:backlog',
+    presentation: 'overlay' as const,
+    overlay: {
+      variant: 'backlog',
+      hideHud: true,
+      hideDialogue: true,
     },
   }
 }
@@ -344,7 +384,7 @@ async function registerBacklogSettingsScope(
             rewindableByDefault: {
               type: 'boolean',
               title: 'Rewindable By Default',
-              default: true,
+              default: false,
             },
             voiceReplayByDefault: {
               type: 'boolean',
@@ -398,7 +438,7 @@ function createBacklogDeveloperSettings(options: BacklogPluginOptions = {}): Bac
     retentionScope: options.retention?.scope || 'chapter',
     maxEntries: options.retention?.maxEntries || 200,
     includeByDefault: options.defaultPolicy?.include !== false,
-    rewindableByDefault: options.defaultPolicy?.rewindable !== false,
+    rewindableByDefault: options.defaultPolicy?.rewindable === true,
     voiceReplayByDefault: options.defaultPolicy?.voiceReplay !== false,
   })
 }
@@ -410,7 +450,7 @@ function normalizeBacklogDeveloperSettings(input: Partial<BacklogDeveloperSettin
       ? Math.max(1, Math.floor(input.maxEntries))
       : 200,
     includeByDefault: input.includeByDefault !== false,
-    rewindableByDefault: input.rewindableByDefault !== false,
+    rewindableByDefault: input.rewindableByDefault === true,
     voiceReplayByDefault: input.voiceReplayByDefault !== false,
   }
 }
@@ -427,13 +467,10 @@ async function appendBacklogEntry(
   audioAvailable = true,
 ): Promise<void> {
   const projection = getBacklogProjection(engine)
-  const policy = {
-    ...projection.defaultPolicy,
-    ...(projection.pendingPolicy || {}),
-  }
+  const policy = resolveCurrentBacklogPolicy(projection)
   const nextEntry = {
     ...entry,
-    rewindable: policy.rewindable !== false && Boolean(entry.checkpointId),
+    rewindable: policy.rewindable === true && Boolean(entry.checkpointId),
     voiceReplay: policy.voiceReplay !== false && Boolean(entry.voice) && audioAvailable,
     tags: policy.tags ? [...policy.tags] : entry.tags,
   }
@@ -462,25 +499,37 @@ async function appendBacklogEntry(
 
 function createBacklogEntry(
   engine: QuaEngineInterface,
-  checkpoint: EngineCheckpoint,
+  checkpoint: EngineCheckpoint | undefined,
   entry: Omit<BacklogEntry, 'id' | 'point' | 'checkpointId' | 'rewindable' | 'voiceReplay' | 'timestamp'>,
 ): BacklogEntry {
   const point = engine.getStoryPoint()
+  const timestamp = Date.now()
+  const idSource = checkpoint?.id || `${point?.stepId || point?.lineId || entry.kind}:${timestamp}:${++backlogEntryIdSeed}`
   const requiredRuntimePackages = mergeRequiredPackages(
     requiredPackagesForPoint(point),
-    requiredPackagesFromMetadata(checkpoint.metadata),
+    requiredPackagesFromMetadata(checkpoint?.metadata),
     entry.voice?.requiredRuntimePackages,
     entry.voice?.contentPackageId ? [entry.voice.contentPackageId] : undefined,
   )
   return {
     ...entry,
-    id: `${entry.kind}:${checkpoint.id}:${Date.now()}`,
+    id: `${entry.kind}:${idSource}`,
     point,
-    checkpointId: checkpoint.id,
+    checkpointId: checkpoint?.id,
     requiredRuntimePackages,
-    rewindable: true,
+    rewindable: Boolean(checkpoint?.id),
     voiceReplay: Boolean(entry.voice),
-    timestamp: Date.now(),
+    timestamp,
+  }
+}
+
+function resolveCurrentBacklogPolicy(projection: BacklogProjection): Required<Pick<BacklogPolicy, 'include' | 'rewindable' | 'voiceReplay'>> & Pick<BacklogPolicy, 'tags'> {
+  const pending = projection.pendingPolicy || {}
+  return {
+    include: pending.include ?? projection.defaultPolicy.include,
+    rewindable: pending.rewindable ?? projection.defaultPolicy.rewindable,
+    voiceReplay: pending.voiceReplay ?? projection.defaultPolicy.voiceReplay,
+    tags: pending.tags,
   }
 }
 
@@ -608,4 +657,4 @@ function onPipeline<T>(
   return () => pipeline.off(type, listener)
 }
 
-export { backlogDecoratorMappings, decorators, scriptCompiler } from './script-compiler'
+export { backlogDecoratorMappings, decorators } from './decorators'

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "family": "unit7",
+  "base": {
+    "asset": "base.png"
+  },
+  "expressions": {
+    "doubt": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "doubt.png"
+        }
+      ]
+    },
+    "resolve": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "resolve.png"
+        }
+      ]
+    },
+    "damaged": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "damaged.png"
+        }
+      ]
+    },
+    "memory": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "memory.png"
+        }
+      ]
+    }
+  }
+}

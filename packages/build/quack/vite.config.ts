@@ -1,6 +1,33 @@
+import { builtinModules } from 'node:module'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
+
+const nodeBuiltins = [...builtinModules, ...builtinModules.map(module => `node:${module}`)]
+const externalPackages = [
+  // External dependencies
+  'commander',
+  'glob',
+  'lzma-native',
+  'mediabunny',
+  'mime-types',
+  'sharp',
+  'typescript',
+  'yauzl',
+  'yazl',
+  // Build-time parser/compiler dependencies pulled through Quack APIs.
+  '@babel/generator',
+  '@babel/parser',
+  '@babel/traverse',
+  '@babel/types',
+  // QuaJS packages
+  '@quajs/logger',
+  '@quajs/quack',
+  '@quajs/quack/plugins',
+  '@quajs/script-compiler',
+  '@quajs/utils',
+]
+const external = [...nodeBuiltins, ...externalPackages]
 
 export default defineConfig({
   plugins: [
@@ -22,34 +49,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: [
-        // Node.js built-in modules
-        'node:fs',
-        'node:fs/promises',
-        'node:path',
-        'node:process',
-        'node:url',
-        'node:util',
-        'node:crypto',
-        'node:stream',
-        'node:os',
-        'node:buffer',
-        'node:child_process',
-        'node:events',
-        'node:zlib',
-        // External dependencies
-        'commander',
-        'lzma-native',
-        'glob',
-        'mediabunny',
-        'mime-types',
-        'sharp',
-        'yauzl',
-        'yazl',
-        // QuaJS packages
-        '@quajs/logger',
-        '@quajs/utils',
-      ],
+      external,
       output: {
         preserveModules: true,
         entryFileNames: '[name].js',
@@ -60,6 +60,10 @@ export default defineConfig({
     // Optimize for Node.js environment
     minify: false, // Keep readable for debugging
     sourcemap: true, // Enable source maps for debugging
+    ssr: true,
+  },
+  ssr: {
+    external,
   },
   resolve: {
     alias: {

@@ -1,15 +1,5 @@
 import * as t from '@babel/types'
-
-export const backlogDecoratorMappings = {
-  Backlog: {
-    function: 'setBacklogPolicyWithEngine',
-    module: '@quajs/plugin-backlog',
-  },
-  NoBacklog: {
-    function: 'setBacklogPolicyWithEngine',
-    module: '@quajs/plugin-backlog',
-  },
-} as const
+import { backlogDecoratorMappings } from './decorators'
 
 export function createBacklogDecoratorCompiler() {
   return {

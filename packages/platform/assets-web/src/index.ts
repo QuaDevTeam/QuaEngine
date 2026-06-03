@@ -25,7 +25,10 @@ import {
   selectBestStoredBundle,
 } from '@quajs/assets'
 import Dexie from 'dexie'
-import LZMA from 'lzma-web'
+
+type LzmaConstructor = new () => {
+  decompress: (data: Uint8Array | ArrayBuffer) => Promise<string | Uint8Array>
+}
 
 export interface WebAssetsAdapterOptions {
   databaseName?: string
@@ -41,7 +44,7 @@ export interface WebAssetObjectUrlHandle {
 }
 
 export function createWebAssetsAdapter(options: WebAssetsAdapterOptions = {}): AssetRuntimeAdapter {
-  const fetcher = options.fetcher || fetch
+  const fetcher = options.fetcher || globalThis.fetch.bind(globalThis)
   return {
     name: 'web',
     storage: options.storage || (new IndexedDBAssetStorage(options.databaseName, options.databaseVersion) as unknown as AssetStorage),
@@ -103,6 +106,7 @@ export function createWebAssetsAdapter(options: WebAssetsAdapterOptions = {}): A
     },
     codec: {
       async lzmaDecompress(data) {
+        const { default: LZMA } = await import('lzma-web') as { default: LzmaConstructor }
         const lzma = new LZMA()
         const result = await lzma.decompress(data)
         if (typeof result === 'string')
@@ -245,7 +249,7 @@ export class DevVfsAssetProvider implements AssetProvider {
     this.manifestUrl = options.manifestUrl || '/@qua-assets/manifest.json'
     this.assetBaseUrl = options.assetBaseUrl || '/@qua-assets/'
     this.hmr = options.hmr
-    this.fetcher = options.fetcher || fetch
+    this.fetcher = options.fetcher || globalThis.fetch.bind(globalThis)
   }
 
   async init(): Promise<void> {

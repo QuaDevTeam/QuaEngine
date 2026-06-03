@@ -12,6 +12,33 @@ export const BacklogRenderToLogicEvents = {
 export type BacklogEntryKind = 'dialogue' | 'choice'
 export type BacklogRetentionScope = 'chapter' | 'route' | 'timeline' | 'global'
 
+export type BacklogUiScenePresentation = 'overlay' | 'scene'
+
+export interface BacklogUiSceneOverlayProjection extends Readonly<Record<string, unknown>> {
+  variant?: string
+  skinId?: string
+  background?: Readonly<Record<string, unknown>>
+  hideHud?: boolean
+  hideDialogue?: boolean
+}
+
+export interface BacklogUiSceneProjection extends Readonly<Record<string, unknown>> {
+  id: string
+  presentation?: BacklogUiScenePresentation
+  overlay?: Readonly<BacklogUiSceneOverlayProjection>
+}
+
+export interface BacklogUiProjection extends Readonly<Record<string, unknown>> {
+  source?: string
+  scene?: Readonly<BacklogUiSceneProjection>
+}
+
+export interface BacklogOpenRequestPayload extends BacklogUiProjection {}
+
+export interface BacklogCloseRequestPayload extends Readonly<Record<string, unknown>> {
+  source?: string
+}
+
 export interface BacklogEntry {
   id: string
   kind: BacklogEntryKind
@@ -47,6 +74,7 @@ export interface BacklogPolicy {
 export interface BacklogProjection {
   revision: number
   visible: boolean
+  ui?: Readonly<BacklogUiProjection>
   requiredRuntimePackages?: readonly string[]
   entries: readonly BacklogEntry[]
   retention: {

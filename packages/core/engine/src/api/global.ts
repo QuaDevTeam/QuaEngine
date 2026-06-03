@@ -1,5 +1,5 @@
 import type { QuaStore } from '@quajs/store'
-import type { ChoiceIntent, ChoiceJumpOptions, ChoiceTarget, CreateCheckpointOptions, DialogueIntent, EngineReportErrorOptions, EnsureLocalePacksOptions, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, ResolvedStoryAsset, ResolvedStoryJump, RollbackAnchorReason, RollbackConfigPatch, RollbackNavigationOptions, RollbackTarget, RuntimePackageLoadOptions, RuntimePackageStateRecord, RuntimePackageUnloadOptions, RuntimeScriptModuleRecord, RuntimeScriptModuleRunFromOptions, RuntimeScriptModuleRunOptions, SaveToSlotOptions, Scene, SceneEnterContext, SceneFactory, SetLocaleOptions, SlotMetadata, StoryAssetRef, StoryPoint, StoryTargetResolver, TranslateInput, ViewLayoutInput } from '../core/types'
+import type { ChoiceIntent, ChoiceJumpOptions, ChoiceTarget, CreateCheckpointOptions, DialogueIntent, DialogueOptions, EngineReportErrorOptions, EnsureLocalePacksOptions, FlowControlMode, FlowControlPolicy, FlowControlRuntimeOptions, GameStep, GameStepFactory, GameStepScope, GameStepSource, JumpOptions, JumpTarget, LoadSlotOptions, OptionalGameStepFactory, ResolvedStoryAsset, ResolvedStoryJump, RollbackAnchorReason, RollbackConfigPatch, RollbackNavigationOptions, RollbackTarget, RuntimePackageLoadOptions, RuntimePackageStateRecord, RuntimePackageUnloadOptions, RuntimeScriptModuleRecord, RuntimeScriptModuleRunFromOptions, RuntimeScriptModuleRunOptions, SaveToSlotOptions, Scene, SceneEnterContext, SceneFactory, SetLocaleOptions, SlotMetadata, StoryAssetRef, StoryPoint, StoryTargetResolver, TranslateInput, ViewLayoutInput } from '../core/types'
 import type { SceneTransitionOptions } from '../managers/scene-manager'
 import { QuaEngine } from '../core/engine'
 
@@ -267,6 +267,10 @@ export function getFlowControlState() {
 
 export async function setFlowControlOptions(options: FlowControlRuntimeOptions): Promise<void> {
   return getEngine().setFlowControlOptions(options)
+}
+
+export async function setDialogueOptions(options: DialogueOptions): Promise<void> {
+  return getEngine().setDialogueOptions(options)
 }
 
 export async function setFlowControlMode(mode: FlowControlMode): Promise<void> {
