@@ -1,6 +1,19 @@
+import { builtinModules } from 'node:module'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
+
+const external = [
+  ...builtinModules,
+  ...builtinModules.map(module => `node:${module}`),
+  '@quajs/assets-web',
+  '@quajs/assets-web/vite',
+  '@quajs/logger',
+  '@quajs/quack',
+  'ag-psd',
+  'sharp',
+  'vite',
+]
 
 export default defineConfig({
   plugins: [
@@ -23,26 +36,20 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: [
-        'node:crypto',
-        'node:fs',
-        'node:fs/promises',
-        'node:path',
-        '@quajs/assets-web',
-        '@quajs/assets-web/vite',
-        '@quajs/logger',
-        '@quajs/quack',
-        'vite',
-      ],
+      external,
       output: {
         preserveModules: true,
         entryFileNames: '[name].js',
         chunkFileNames: '[name].js',
       },
     },
-    target: 'es2020',
+    target: 'node20',
     minify: false,
     sourcemap: true,
+    ssr: true,
+  },
+  ssr: {
+    external,
   },
   resolve: {
     alias: {

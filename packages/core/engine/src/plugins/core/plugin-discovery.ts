@@ -1,24 +1,46 @@
 // Import types only to avoid bundling Node.js code in browser builds
 import type { DecoratorMapping } from './registry'
 
-// Import plugin-discovery dynamically to handle Node.js vs Browser environments
 let pluginDiscoveryModule: any = null
 
+function createUnavailablePluginDiscoveryModule() {
+  return {
+    discoverPlugins: async () => [],
+    getDiscoveredDecoratorMappings: async () => ({}),
+    loadPlugin: async () => null,
+    getAvailablePlugins: async () => [],
+    validatePluginConfig: () => false,
+    mergeDecoratorMappings: (...mappings: any[]) => Object.assign({}, ...mappings),
+  }
+}
+
+function isNodeLikeRuntime(): boolean {
+  const maybeProcess = globalThis as typeof globalThis & {
+    process?: { versions?: { node?: string } }
+  }
+  return typeof maybeProcess.process?.versions?.node === 'string'
+}
+
+async function importPluginDiscoveryModule(): Promise<any> {
+  const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>
+  return await dynamicImport('@quajs/plugin-discovery')
+}
+
+// Load plugin-discovery only in Node-like tooling runtimes. The package reads the
+// filesystem, so browser builds must not statically bundle it.
 async function getPluginDiscoveryModule() {
   if (pluginDiscoveryModule === null) {
+    if (!isNodeLikeRuntime()) {
+      pluginDiscoveryModule = createUnavailablePluginDiscoveryModule()
+      return pluginDiscoveryModule
+    }
+
     try {
-      pluginDiscoveryModule = await import('@quajs/plugin-discovery')
+      pluginDiscoveryModule = await importPluginDiscoveryModule()
     }
     catch (error) {
       console.warn('Plugin discovery not available (likely browser environment):', error)
-      pluginDiscoveryModule = {
-        discoverPlugins: async () => [],
-        getDiscoveredDecoratorMappings: async () => ({}),
-        loadPlugin: async () => null,
-        getAvailablePlugins: async () => [],
-        validatePluginConfig: () => false,
-        mergeDecoratorMappings: (...mappings: any[]) => Object.assign({}, ...mappings),
-      }
+      pluginDiscoveryModule = createUnavailablePluginDiscoveryModule()
     }
   }
   return pluginDiscoveryModule

@@ -7,7 +7,7 @@ import type {
   ViewVideoBackgroundProjection,
 } from '@quajs/render-core'
 import { BaseEnginePlugin } from '@quajs/engine'
-import { backgroundDecoratorMappings } from './script-compiler'
+import { backgroundDecoratorMappings } from './decorators'
 
 export type BackgroundLayerInput = Omit<ViewBackgroundLayerProjection, 'id' | 'assetName'> & {
   id: string
@@ -21,6 +21,13 @@ export interface VideoBackgroundOptions extends Omit<ViewVideoBackgroundProjecti
 export interface LayeredBackgroundOptions extends Omit<ViewBackgroundProjection, 'mode' | 'assetName' | 'video' | 'layers'> {}
 
 export type BackgroundLayerPatch = Partial<Omit<ViewBackgroundLayerProjection, 'id'>>
+
+export interface CgOverlayOptions extends Omit<BackgroundLayerInput, 'id' | 'assetName' | 'assetType' | 'opacity' | 'zIndex'> {
+  id?: string
+  duration?: number
+  easing?: string
+  zIndex?: number
+}
 
 export class BackgroundPlugin extends BaseEnginePlugin {
   readonly name = '@quajs/plugin-background'
@@ -49,6 +56,8 @@ export class BackgroundPlugin extends BaseEnginePlugin {
         { name: 'clearBackgroundLayersWithEngine', fn: clearBackgroundLayersWithEngine, module: this.name },
         { name: 'transitionBackgroundWithEngine', fn: transitionBackgroundWithEngine, module: this.name },
         { name: 'transitionBackgroundLayerWithEngine', fn: transitionBackgroundLayerWithEngine, module: this.name },
+        { name: 'showCgOverlayWithEngine', fn: showCgOverlayWithEngine, module: this.name },
+        { name: 'hideCgOverlayWithEngine', fn: hideCgOverlayWithEngine, module: this.name },
         { name: 'clearRuntimePackageBackgroundWithEngine', fn: clearRuntimePackageBackgroundWithEngine, module: this.name },
       ],
       decorators: backgroundDecoratorMappings,
@@ -213,6 +222,51 @@ export async function clearBackgroundLayersWithEngine(engine: QuaEngineInterface
   })
 }
 
+export async function showCgOverlayWithEngine(
+  engine: QuaEngineInterface,
+  assetName: string,
+  options: CgOverlayOptions = {},
+): Promise<void> {
+  const layerId = options.id || 'cg-overlay'
+  const { duration = 420, easing = 'ease-out', zIndex = 900, ...layerOptions } = options
+  await addBackgroundLayerWithEngine(engine, {
+    ...layerOptions,
+    id: layerId,
+    assetName,
+    assetType: 'images',
+    fit: layerOptions.fit || 'cover',
+    opacity: 0,
+    zIndex,
+    metadata: {
+      ...layerOptions.metadata,
+      role: 'cg-overlay',
+    },
+  })
+  await transitionBackgroundLayerWithEngine(engine, layerId, {
+    type: 'fade-in',
+    duration,
+    easing,
+  })
+}
+
+export async function hideCgOverlayWithEngine(
+  engine: QuaEngineInterface,
+  options: { id?: string, duration?: number, easing?: string } = {},
+): Promise<void> {
+  const layerId = options.id || 'cg-overlay'
+  const current = engine.getViewState().background
+  const layer = current?.layers?.find(item => item.id === layerId)
+  if (!layer) {
+    return
+  }
+  await transitionBackgroundLayerWithEngine(engine, layerId, {
+    type: 'fade-out',
+    duration: options.duration ?? 360,
+    easing: options.easing ?? 'ease-in',
+  })
+  await removeBackgroundLayerWithEngine(engine, layerId)
+}
+
 export async function transitionBackgroundWithEngine(
   engine: QuaEngineInterface,
   transition: TransitionIntent,
@@ -253,7 +307,7 @@ export async function transitionBackgroundLayerWithEngine(
   await playTransitionTimeline(engine, createLayerVisibilityTimeline(layer, transition))
 }
 
-export { backgroundDecoratorMappings, createBackgroundDecoratorCompiler, scriptCompiler } from './script-compiler'
+export { backgroundDecoratorMappings } from './decorators'
 
 function getLayeredBackground(engine: QuaEngineInterface): BackgroundIntent & { mode: 'layered', layers: ViewBackgroundLayerProjection[] } {
   const current = engine.getViewState().background
@@ -736,5 +790,5 @@ export const metadata = {
   category: 'visual',
 } as const
 
-export const decorators = backgroundDecoratorMappings
+export { decorators } from './decorators'
 export const Plugin = BackgroundPlugin

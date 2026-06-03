@@ -40,6 +40,10 @@ export const QuaRenderer = defineComponent({
     runtimePluginLoader: Function as PropType<(pluginManifest: unknown, context: { packageId: string }) => Promise<RendererPlugin | undefined> | RendererPlugin | undefined>,
     saveSlots: Object as PropType<SaveSlotDataSource>,
     unstyled: Boolean,
+    className: {
+      type: String,
+      default: '',
+    },
   },
   setup(props, { slots }) {
     const pipeline = computed(() => props.pipeline)
@@ -115,7 +119,7 @@ export const QuaRenderer = defineComponent({
 
     return () => h('div', {
       ref: root,
-      class: ['qua-renderer', props.unstyled ? 'qua-renderer--unstyled' : undefined],
+      class: ['qua-renderer', props.unstyled ? 'qua-renderer--unstyled' : undefined, props.className],
       style: rendererRootStyle(),
     }, slots.stage?.(slotProps.value)
     || h(QuaStage as any, { ...slotProps.value, layers: rendererLayers.value } as any, slots))

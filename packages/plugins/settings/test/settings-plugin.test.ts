@@ -353,15 +353,21 @@ describe('@quajs/plugin-settings', () => {
 
     const projection = getSettingsProjection(engine)
     expect(projection?.scopes[BASE_SETTINGS_SCOPE]).toEqual(expect.objectContaining({
+      title: 'Config',
       values: expect.objectContaining({
-        textSpeedCps: 45,
-        autoAdvanceDelayMs: 1200,
+        locale: 'default',
+        textSpeedCps: 36,
+        autoAdvanceDelayMs: 2000,
         skipMode: 'read',
       }),
     }))
+    expect(projection?.scopes[BASE_SETTINGS_SCOPE].schema.properties?.locale).toEqual(expect.objectContaining({
+      enum: ['default'],
+      default: 'default',
+    }))
     expect(engine.getFlowControlState()).toEqual(expect.objectContaining({
       skipMode: 'read',
-      timings: expect.objectContaining({ autoAdvanceDelayMs: 1200 }),
+      timings: expect.objectContaining({ autoAdvanceDelayMs: 2000 }),
     }))
 
     await updatePlayerSettingsWithEngine(engine, BASE_SETTINGS_SCOPE, {
@@ -373,6 +379,46 @@ describe('@quajs/plugin-settings', () => {
       skipMode: 'all',
       timings: expect.objectContaining({ autoAdvanceDelayMs: 2400 }),
     }))
+  })
+
+  it('resolves builtin language from supported locales and system locale', async () => {
+    const engine = createEngine()
+    engine.use(new SettingsPlugin({
+      builtin: {
+        developer: {
+          defaultLocale: 'en-us',
+          systemLocale: 'zh_CN',
+          supportedLocales: [
+            { locale: 'en-us', label: 'English' },
+            { locale: 'zh-cn', label: '简体中文' },
+            { locale: 'ja-jp', label: '日本語' },
+          ],
+        },
+      },
+    }))
+    await engine.init()
+
+    const scope = getSettingsProjection(engine)?.scopes[BASE_SETTINGS_SCOPE]
+    expect(scope?.values.locale).toBe('zh-cn')
+    expect(scope?.defaults.locale).toBe('zh-cn')
+    expect(scope?.schema.properties?.locale).toEqual(expect.objectContaining({
+      enum: ['en-us', 'zh-cn', 'ja-jp'],
+      default: 'zh-cn',
+    }))
+    expect(scope?.ui?.controls?.locale).toEqual(expect.objectContaining({
+      control: 'select',
+      options: [
+        { label: 'English', value: 'en-us' },
+        { label: '简体中文', value: 'zh-cn' },
+        { label: '日本語', value: 'ja-jp' },
+      ],
+    }))
+    expect(engine.getLocale()).toBe('zh-cn')
+
+    await updatePlayerSettingsWithEngine(engine, BASE_SETTINGS_SCOPE, { locale: 'ja-jp' })
+
+    expect(getSettingsProjection(engine)?.scopes[BASE_SETTINGS_SCOPE].values.locale).toBe('ja-jp')
+    expect(engine.getLocale()).toBe('ja-jp')
   })
 })
 

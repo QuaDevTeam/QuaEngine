@@ -633,6 +633,7 @@ describe('@quajs/renderer-web', () => {
 
     expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('width: 1600px')
     expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1728')
+    expect(root.querySelector('.qua-screen-plane')?.getAttribute('style')).toContain('pointer-events: none')
     expect(root.querySelector('.qua-stage-scene-content .qua-background')).not.toBeNull()
     expect(root.querySelector('.qua-stage-subject .qua-character')).not.toBeNull()
     expect(root.querySelector('.qua-stage-safe .qua-dialogue-box')).not.toBeNull()
@@ -863,6 +864,97 @@ describe('@quajs/renderer-web', () => {
     }
   })
 
+  it('reuses cached asset URLs across deferred renderer remounts', async () => {
+    vi.useFakeTimers()
+    const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:cached-background')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const assets = await createImageAssets(['background.png'])
+    const firstStates: unknown[] = []
+    const secondStates: unknown[] = []
+
+    const first = new WebAssetUrlHandle({
+      getAssets: () => assets,
+      getType: () => 'images',
+      getName: () => 'background.png',
+      onChange: state => firstStates.push({ ...state }),
+    })
+    const second = new WebAssetUrlHandle({
+      getAssets: () => assets,
+      getType: () => 'images',
+      getName: () => 'background.png',
+      onChange: state => secondStates.push({ ...state }),
+    })
+
+    try {
+      await first.load()
+      expect(firstStates.at(-1)).toEqual({ url: 'blob:cached-background', loading: false })
+      first.dispose({ defer: true })
+      expect(revoke).not.toHaveBeenCalled()
+
+      await second.load()
+      expect(create).toHaveBeenCalledTimes(1)
+      expect(secondStates.at(-1)).toEqual({ url: 'blob:cached-background', loading: false })
+
+      await vi.advanceTimersByTimeAsync(250)
+      expect(revoke).not.toHaveBeenCalled()
+      second.dispose()
+      expect(revoke).toHaveBeenCalledWith('blob:cached-background')
+    }
+    finally {
+      first.dispose()
+      second.dispose()
+      await assets.cleanup()
+    }
+  })
+
+  it('keeps the previous asset URL visible until a replacement URL is ready', async () => {
+    vi.useFakeTimers()
+    const createdUrls = ['blob:first-background', 'blob:second-background']
+    const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => createdUrls.shift() || 'blob:extra-background')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    let activeName = 'first.png'
+    let resolveSecond!: (value: AssetData) => void
+    const assets = await createImageAssets(['first.png', 'second.png'])
+    vi.spyOn(assets, 'getAsset').mockImplementation(async () => {
+      if (activeName === 'second.png') {
+        return await new Promise<AssetData>((resolve) => {
+          resolveSecond = resolve
+        })
+      }
+      return assetData('first.png', 'images', 'image/png')
+    })
+    const states: unknown[] = []
+    const handle = new WebAssetUrlHandle({
+      getAssets: () => assets,
+      getType: () => 'images',
+      getName: () => activeName,
+      onChange: state => states.push({ ...state }),
+    })
+
+    try {
+      await handle.load()
+      expect(states.at(-1)).toEqual({ url: 'blob:first-background', loading: false })
+
+      activeName = 'second.png'
+      const pending = handle.load()
+      expect(states.at(-1)).toEqual({ url: 'blob:first-background', loading: true })
+
+      resolveSecond(assetData('second.png', 'images', 'image/png'))
+      await pending
+
+      expect(create).toHaveBeenCalledTimes(2)
+      expect(states.at(-1)).toEqual({ url: 'blob:second-background', loading: false })
+      expect(revoke).not.toHaveBeenCalledWith('blob:first-background')
+
+      await vi.advanceTimersByTimeAsync(250)
+      expect(revoke).toHaveBeenCalledWith('blob:first-background')
+    }
+    finally {
+      handle.dispose()
+      await assets.cleanup()
+    }
+  })
+
   it('resolves gallery projections from view plugins', () => {
     const projection = galleryProjection()
     const current = view({
@@ -1008,6 +1100,8 @@ describe('@quajs/renderer-web', () => {
 
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', bubbles: true }))
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', repeat: true, bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft', key: 'ArrowLeft', bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight', key: 'ArrowRight', bubbles: true }))
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ControlLeft', key: 'Control', bubbles: true }))
     document.dispatchEvent(new KeyboardEvent('keyup', { code: 'ControlLeft', key: 'Control', bubbles: true }))
     await flushDom()
@@ -1015,6 +1109,10 @@ describe('@quajs/renderer-web', () => {
     expect(events).toEqual([
       'command:advance:keyboard:Enter',
       'advance:keyboard:Enter',
+      'command:advance:keyboard:ArrowLeft',
+      'advance:keyboard:ArrowLeft',
+      'command:advance:keyboard:ArrowRight',
+      'advance:keyboard:ArrowRight',
       'command:skip:start:keyboard:ControlLeft',
       'skip:start:keyboard:ControlLeft',
       'command:skip:stop:keyboard:ControlLeft',
@@ -1024,7 +1122,7 @@ describe('@quajs/renderer-web', () => {
     input.dispose()
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', bubbles: true }))
     await flushDom()
-    expect(events).toHaveLength(6)
+    expect(events).toHaveLength(10)
   })
 
   it('isolates rejected renderer input actions dispatched from DOM events', async () => {
@@ -1266,7 +1364,18 @@ describe('@quajs/renderer-web', () => {
         ui: {
           visible: true,
           overlays: {
-            settings: { open: true },
+            settings: {
+              open: true,
+              scene: {
+                id: 'system:settings',
+                presentation: 'scene',
+                overlay: {
+                  variant: 'main-menu',
+                  hideHud: true,
+                  hideDialogue: true,
+                },
+              },
+            },
           },
         },
         plugins: {
@@ -1278,10 +1387,19 @@ describe('@quajs/renderer-web', () => {
     await renderer.mount()
 
     expect(root.querySelector('.qua-settings-panel')).not.toBeNull()
+    expect(root.querySelector('.qua-overlay-layer')).toBeNull()
+    const layer = root.querySelector<HTMLElement>('.qua-settings-layer')!
+    expect(layer.getAttribute('style')).toContain('pointer-events: auto')
+    expect(layer.dataset.uiSceneId).toBe('system:settings')
+    expect(layer.dataset.uiScenePresentation).toBe('scene')
+    expect(layer.dataset.uiSceneOverlayVariant).toBe('main-menu')
     expect(root.textContent).toContain('System')
     expect(root.textContent).toContain('Text Speed')
+    expect(root.querySelector('[data-settings-field="textSpeedCps"]')?.getAttribute('data-settings-control')).toBe('slider')
+    expect(root.querySelector('[data-settings-field="textSpeedCps"] .qua-settings-field-main')).not.toBeNull()
 
     const textSpeed = root.querySelector<HTMLInputElement>('[data-settings-field="textSpeedCps"] input')
+    expect(textSpeed?.classList.contains('qua-settings-control')).toBe(true)
     textSpeed!.value = '72'
     textSpeed!.dispatchEvent(new Event('input'))
     await flushDom()
@@ -1687,7 +1805,9 @@ describe('@quajs/renderer-web', () => {
   it('renders backlog projection and emits backlog plugin intents', async () => {
     const pipeline = new Pipeline()
     const received: unknown[] = []
-    pipeline.on(BacklogRenderToLogicEvents.JUMP_REQUEST, context => received.push(context.event.payload))
+    pipeline.on(BacklogRenderToLogicEvents.JUMP_REQUEST, context => received.push({ type: 'jump', payload: context.event.payload }))
+    pipeline.on(BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, context => received.push({ type: 'voice', payload: context.event.payload }))
+    pipeline.on(BacklogRenderToLogicEvents.CLOSE_REQUEST, context => received.push({ type: 'close', payload: context.event.payload }))
 
     const root = document.createElement('div')
     document.body.append(root)
@@ -1700,6 +1820,17 @@ describe('@quajs/renderer-web', () => {
           [BACKLOG_PLUGIN_ID]: {
             revision: 1,
             visible: true,
+            ui: {
+              scene: {
+                id: 'game:backlog',
+                presentation: 'overlay',
+                overlay: {
+                  variant: 'game-modal',
+                  hideHud: true,
+                  hideDialogue: true,
+                },
+              },
+            },
             retention: { scope: 'chapter', maxEntries: 200 },
             defaultPolicy: { include: true, rewindable: true, voiceReplay: true },
             entries: [{
@@ -1708,7 +1839,16 @@ describe('@quajs/renderer-web', () => {
               speaker: 'Alice',
               text: 'Backlog line',
               checkpointId: 'checkpoint-1',
+              voice: { assetKey: 'voice.ogg' },
               rewindable: true,
+              voiceReplay: true,
+              timestamp: Date.now(),
+            }, {
+              id: 'entry-2',
+              kind: 'dialogue',
+              speaker: 'Bob',
+              text: 'Read only line',
+              rewindable: false,
               voiceReplay: false,
               timestamp: Date.now(),
             }],
@@ -1718,10 +1858,24 @@ describe('@quajs/renderer-web', () => {
     })
 
     await renderer.mount()
+    expect(root.querySelector('.qua-screen-plane .qua-backlog-layer')).not.toBeNull()
+    expect(root.querySelector('.qua-stage-safe .qua-backlog-layer')).toBeNull()
+    expect(root.querySelector('.qua-backlog-layer')?.getAttribute('data-ui-scene-id')).toBe('game:backlog')
+    expect(root.querySelector('.qua-backlog-title')?.textContent).toBe('Backlog')
+    expect(root.querySelector('.qua-backlog-entry-speaker')?.textContent).toBe('Alice')
     expect(root.querySelector('.qua-backlog-entry-main')?.textContent).toContain('Backlog line')
+    const readOnlyEntry = root.querySelector<HTMLElement>('[data-backlog-entry="entry-2"] .qua-backlog-entry-main')!
+    expect(readOnlyEntry.tagName).toBe('ARTICLE')
+    readOnlyEntry.click()
     root.querySelector<HTMLButtonElement>('.qua-backlog-entry-main')!.click()
+    root.querySelector<HTMLButtonElement>('.qua-backlog-entry-voice')!.click()
+    root.querySelector<HTMLButtonElement>('.qua-backlog-close')!.click()
     await flushDom()
-    expect(received).toEqual([{ entryId: 'entry-1' }])
+    expect(received).toEqual([
+      { type: 'jump', payload: { entryId: 'entry-1' } },
+      { type: 'voice', payload: { entryId: 'entry-1' } },
+      { type: 'close', payload: {} },
+    ])
 
     await renderer.unmount()
   })
@@ -2004,6 +2158,7 @@ describe('@quajs/renderer-web', () => {
     expect(item?.getAttribute('style')).toContain('mask-image: url("blob:background-mask:3")')
 
     await renderer.unmount()
+    await flushDeferredAssetUrlRevokes()
     expect(revoke).toHaveBeenCalled()
     await assets.cleanup()
   })
@@ -2089,6 +2244,7 @@ describe('@quajs/renderer-web', () => {
     expect(create).toHaveBeenCalled()
 
     await renderer.unmount()
+    await flushDeferredAssetUrlRevokes()
     expect(revoke).toHaveBeenCalled()
     await assets.cleanup()
   })
@@ -2166,6 +2322,7 @@ describe('@quajs/renderer-web', () => {
     expect(create).toHaveBeenCalled()
 
     await renderer.unmount()
+    await flushDeferredAssetUrlRevokes()
     expect(revoke).toHaveBeenCalled()
     await assets.cleanup()
   })
@@ -2246,6 +2403,7 @@ describe('@quajs/renderer-web', () => {
     expect(create.mock.calls.length).toBeGreaterThanOrEqual(2)
 
     await renderer.unmount()
+    await flushDeferredAssetUrlRevokes()
     expect(revoke).toHaveBeenCalled()
     await assets.cleanup()
   })
@@ -2402,6 +2560,7 @@ describe('@quajs/renderer-web', () => {
     expect(toggle?.dataset.skinState).toBe('selected')
 
     await renderer.unmount()
+    await flushDeferredAssetUrlRevokes()
     expect(revoke).toHaveBeenCalled()
     expect(create).toHaveBeenCalled()
     await assets.cleanup()
@@ -2494,6 +2653,7 @@ describe('@quajs/renderer-web', () => {
     expect(create).toHaveBeenCalled()
 
     await renderer.unmount()
+    await flushDeferredAssetUrlRevokes()
     expect(revoke).toHaveBeenCalled()
     await assets.cleanup()
   })
@@ -3366,6 +3526,10 @@ async function flushDom(): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 0))
 }
 
+async function flushDeferredAssetUrlRevokes(): Promise<void> {
+  await new Promise(resolve => setTimeout(resolve, 260))
+}
+
 async function flushMicrotasks(): Promise<void> {
   await Promise.resolve()
   await Promise.resolve()
@@ -3765,6 +3929,23 @@ function imageAssetRecord(name: string) {
     locale: 'default',
     path: `images/${name}`,
     mimeType: 'image/png',
+  }
+}
+
+function assetData(name: string, type: AssetData['type'], mimeType: string): AssetData {
+  const data = new Uint8Array([1, 2, 3, 4])
+  return {
+    id: `memory:default:${type}:${name}`,
+    bundleName: 'memory',
+    type,
+    name,
+    locale: 'default',
+    data,
+    mimeType,
+    size: data.byteLength,
+    version: 1,
+    mtime: 1,
+    fromCache: false,
   }
 }
 

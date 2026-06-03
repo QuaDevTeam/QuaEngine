@@ -160,6 +160,14 @@ export class QuaWebDomRenderer {
     safePlane.setAttribute('data-qua-capture-role', 'safe-ui')
     applyStyles(safePlane, stageSafeAreaStyle(layout))
 
+    const screenPlane = document.createElement('div')
+    screenPlane.className = 'qua-screen-plane'
+    screenPlane.setAttribute('data-qua-capture-role', 'screen-ui')
+    applyStyles(screenPlane, {
+      ...stagePlaneStyle(),
+    })
+    screenPlane.style.pointerEvents = 'none'
+
     const context: QuaWebDomLayerContext = {
       renderer: this,
       controller: this.controller,
@@ -176,12 +184,17 @@ export class QuaWebDomRenderer {
         const node = layer.render(context)
         if (node) {
           this.layerNodes.set(layer.id, node)
-          this.resolveLayerPlane(layer, {
+          const targetPlane = this.resolveLayerPlane(layer, {
             scene: sceneContentPlane,
             subject: subjectPlane,
             stage: stagePlane,
             safe: safePlane,
-          }).append(node)
+            screen: screenPlane,
+          })
+          if (targetPlane === screenPlane && node instanceof HTMLElement && !node.style.pointerEvents) {
+            node.style.pointerEvents = 'auto'
+          }
+          targetPlane.append(node)
         }
       }
       catch (error) {
@@ -196,7 +209,7 @@ export class QuaWebDomRenderer {
     scenePlane.append(sceneContentPlane, subjectPlane)
     stage.append(scenePlane, stagePlane, safePlane)
     viewport.append(stage)
-    frame.append(viewport)
+    frame.append(viewport, screenPlane)
     this.root.append(frame)
     this.scheduleAnimationTick(snapshot)
   }
@@ -258,12 +271,13 @@ export class QuaWebDomRenderer {
       getType: () => type,
       getName: () => name,
       getTargetPackageId: () => targetPackageId,
+      getRevision: () => this.controller.getSnapshot().assetRevision,
       onChange,
     })
     this.assetHandles.push(handle)
     void handle.load()
     return () => {
-      handle.dispose()
+      handle.dispose({ defer: true })
       const index = this.assetHandles.indexOf(handle)
       if (index >= 0) {
         this.assetHandles.splice(index, 1)
@@ -273,7 +287,7 @@ export class QuaWebDomRenderer {
 
   private disposeAssetHandles(): void {
     while (this.assetHandles.length > 0) {
-      this.assetHandles.pop()?.dispose()
+      this.assetHandles.pop()?.dispose({ defer: true })
     }
   }
 
@@ -312,8 +326,11 @@ export class QuaWebDomRenderer {
     subject: HTMLElement
     stage: HTMLElement
     safe: HTMLElement
+    screen: HTMLElement
   }): HTMLElement {
     switch (layer.plane || 'scene') {
+      case 'screen':
+        return planes.screen
       case 'safe':
         return planes.safe
       case 'stage':

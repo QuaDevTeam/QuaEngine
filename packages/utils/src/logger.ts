@@ -23,14 +23,21 @@ export class Logger implements LoggerInstance {
   }
 
   private detectColorSupport(): boolean {
-    if (typeof process === 'undefined')
+    const maybeProcess = globalThis as typeof globalThis & {
+      process?: {
+        env?: Record<string, string | undefined>
+        stdout?: { isTTY?: boolean }
+      }
+    }
+    const env = maybeProcess.process?.env
+    if (!env)
       return false
-    if (process.env.NO_COLOR || process.env.FORCE_NO_COLOR)
+    if (env.NO_COLOR || env.FORCE_NO_COLOR)
       return false
-    if (process.env.FORCE_COLOR)
+    if (env.FORCE_COLOR)
       return true
 
-    return process.stdout?.isTTY ?? false
+    return maybeProcess.process?.stdout?.isTTY ?? false
   }
 
   private log(level: LogLevel, ...args: any[]): void {

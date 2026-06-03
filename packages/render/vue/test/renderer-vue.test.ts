@@ -31,7 +31,7 @@ import { createInputRendererPlugin } from '../src/plugins/input'
 import { createVisualNovelRendererPlugins } from '../src/plugins/preset'
 import { createSettingsRendererPlugin, QuaSettingsLayer } from '../src/plugins/settings'
 import { QuaSpriteSkinBox } from '../src/plugins/sprite'
-import { QuaMenuOverlay, QuaSaveLoadPanel, QuaSettingsPanel, QuaUiOverlay } from '../src/plugins/ui'
+import { QuaConfirmOverlay, QuaMenuOverlay, QuaSaveLoadPanel, QuaSettingsPanel, QuaStoryTree, QuaUiOverlay, UI_TITLE_REQUEST_EVENT } from '../src/plugins/ui'
 
 describe('@quajs/renderer-vue', () => {
   afterEach(() => {
@@ -169,7 +169,9 @@ describe('@quajs/renderer-vue', () => {
   it('projects backlog UI and emits backlog plugin intents', async () => {
     const pipeline = new Pipeline()
     const received: unknown[] = []
-    pipeline.on(BacklogRenderToLogicEvents.JUMP_REQUEST, context => received.push(context.event.payload))
+    pipeline.on(BacklogRenderToLogicEvents.JUMP_REQUEST, context => received.push({ type: 'jump', payload: context.event.payload }))
+    pipeline.on(BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, context => received.push({ type: 'voice', payload: context.event.payload }))
+    pipeline.on(BacklogRenderToLogicEvents.CLOSE_REQUEST, context => received.push({ type: 'close', payload: context.event.payload }))
     const host = mount(QuaRenderer, {
       pipeline,
       plugins: createVisualNovelRendererPlugins(),
@@ -178,6 +180,17 @@ describe('@quajs/renderer-vue', () => {
           [BACKLOG_PLUGIN_ID]: {
             revision: 1,
             visible: true,
+            ui: {
+              scene: {
+                id: 'game:backlog',
+                presentation: 'overlay',
+                overlay: {
+                  variant: 'game-modal',
+                  hideHud: true,
+                  hideDialogue: true,
+                },
+              },
+            },
             retention: { scope: 'chapter', maxEntries: 200 },
             defaultPolicy: { include: true, rewindable: true, voiceReplay: true },
             entries: [{
@@ -186,7 +199,16 @@ describe('@quajs/renderer-vue', () => {
               speaker: 'Alice',
               text: 'Backlog line',
               checkpointId: 'checkpoint-1',
+              voice: { assetKey: 'voice.ogg' },
               rewindable: true,
+              voiceReplay: true,
+              timestamp: Date.now(),
+            }, {
+              id: 'entry-2',
+              kind: 'dialogue',
+              speaker: 'Bob',
+              text: 'Read only line',
+              rewindable: false,
               voiceReplay: false,
               timestamp: Date.now(),
             }],
@@ -196,11 +218,25 @@ describe('@quajs/renderer-vue', () => {
     })
 
     await flushVue()
+    expect(host.el.querySelector('.qua-screen-plane .qua-backlog-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-safe .qua-backlog-layer')).toBeNull()
+    expect(host.el.querySelector('.qua-backlog-layer')?.getAttribute('data-ui-scene-id')).toBe('game:backlog')
+    expect(host.el.querySelector('.qua-backlog-title')?.textContent).toBe('Backlog')
+    expect(host.el.querySelector('.qua-backlog-entry-speaker')?.textContent).toBe('Alice')
     expect(host.el.textContent).toContain('Backlog line')
+    const readOnlyEntry = host.el.querySelector<HTMLElement>('[data-backlog-entry="entry-2"] .qua-backlog-entry-main')!
+    expect(readOnlyEntry.tagName).toBe('ARTICLE')
+    readOnlyEntry.click()
     host.el.querySelector<HTMLButtonElement>('.qua-backlog-entry-main')!.click()
+    host.el.querySelector<HTMLButtonElement>('.qua-backlog-entry-voice')!.click()
+    host.el.querySelector<HTMLButtonElement>('.qua-backlog-close')!.click()
     await flushVue()
 
-    expect(received).toEqual([{ entryId: 'entry-1' }])
+    expect(received).toEqual([
+      { type: 'jump', payload: { entryId: 'entry-1' } },
+      { type: 'voice', payload: { entryId: 'entry-1' } },
+      { type: 'close', payload: {} },
+    ])
   })
 
   it('projects gallery scene UI and emits gallery plugin intents', async () => {
@@ -469,6 +505,7 @@ describe('@quajs/renderer-vue', () => {
 
     const viewportStyle = host.el.querySelector('.qua-stage-viewport')?.getAttribute('style') || ''
     const stageStyle = host.el.querySelector('.qua-stage')?.getAttribute('style') || ''
+    const screenPlaneStyle = host.el.querySelector('.qua-screen-plane')?.getAttribute('style') || ''
 
     expect(viewportStyle).toContain('width: 360px')
     expect(viewportStyle).toContain('height: 780px')
@@ -482,6 +519,33 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.querySelector('.qua-stage-subject')).not.toBeNull()
     expect(host.el.querySelector('.qua-stage-plane')).not.toBeNull()
     expect(host.el.querySelector('.qua-stage-safe')).not.toBeNull()
+    expect(host.el.querySelector('.qua-screen-plane')).not.toBeNull()
+    expect(screenPlaneStyle).toContain('pointer-events: none')
+  })
+
+  it('remeasures the Vue stage after delayed container layout', async () => {
+    const pipeline = new Pipeline()
+    let measureCount = 0
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => {
+      measureCount += 1
+      return measureCount === 1 ? rect(0, 0) : rect(360, 780)
+    })
+    const host = mount(QuaRenderer, {
+      pipeline,
+      initialView: view({
+        layout: createViewLayoutProjection('portrait'),
+      }),
+    })
+
+    await flushVue()
+    await flushVue()
+
+    const viewportStyle = host.el.querySelector('.qua-stage-viewport')?.getAttribute('style') || ''
+    const stageStyle = host.el.querySelector('.qua-stage')?.getAttribute('style') || ''
+
+    expect(viewportStyle).toContain('width: 360px')
+    expect(viewportStyle).toContain('height: 780px')
+    expect(stageStyle).toContain('width: 1080px')
   })
 
   it('mounts default UI content inside the shared safe-area plane', async () => {
@@ -577,11 +641,17 @@ describe('@quajs/renderer-vue', () => {
     await flushVue()
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', bubbles: true }))
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', repeat: true, bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft', key: 'ArrowLeft', bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight', key: 'ArrowRight', bubbles: true }))
     await flushVue()
 
     expect(received).toEqual([
       'command:advance:keyboard:Enter',
       'advance:keyboard:Enter',
+      'command:advance:keyboard:ArrowLeft',
+      'advance:keyboard:ArrowLeft',
+      'command:advance:keyboard:ArrowRight',
+      'advance:keyboard:ArrowRight',
     ])
 
     host.app.unmount()
@@ -589,7 +659,7 @@ describe('@quajs/renderer-vue', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', bubbles: true }))
     await flushVue()
 
-    expect(received).toHaveLength(2)
+    expect(received).toHaveLength(6)
   })
 
   it('exposes a standalone input Vue plugin without duplicating renderer-web runtime', async () => {
@@ -644,6 +714,41 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.textContent).toContain('Custom')
   })
 
+  it('renders story tree UI with custom classes and emits user intents', async () => {
+    const selected: string[] = []
+    const closed: string[] = []
+    const host = mount(QuaStoryTree, {
+      class: 'native-story-class',
+      className: 'custom-story-class',
+      panelClassName: 'custom-story-panel',
+      nodesClassName: 'custom-story-nodes',
+      nodeClassName: 'custom-story-node',
+      closeButtonClassName: 'custom-story-close',
+      selectable: true,
+      nodes: [
+        { id: 'start', chapter: '00', title: 'Start', description: 'Opening', state: 'current' },
+        { id: 'locked', chapter: '01', title: 'Locked', state: 'locked' },
+      ],
+      onClose: () => closed.push('close'),
+      onSelect: (node: { id: string }) => selected.push(node.id),
+    })
+
+    await flushVue()
+
+    const root = host.el.querySelector<HTMLElement>('.qua-story-tree')!
+    expect(root.classList.contains('native-story-class')).toBe(true)
+    expect(root.classList.contains('custom-story-class')).toBe(true)
+    expect(host.el.querySelector('.custom-story-panel')).not.toBeNull()
+    expect(host.el.querySelector('.custom-story-nodes')).not.toBeNull()
+    expect(host.el.querySelectorAll('.custom-story-node')).toHaveLength(2)
+    host.el.querySelector<HTMLButtonElement>('.qua-story-tree__node-button')!.click()
+    host.el.querySelector<HTMLButtonElement>('.custom-story-close')!.click()
+    await flushVue()
+
+    expect(selected).toEqual(['start'])
+    expect(closed).toEqual(['close'])
+  })
+
   it('renders default menu overlay content and emits shell intents', async () => {
     const pipeline = new Pipeline()
     const received: string[] = []
@@ -665,13 +770,17 @@ describe('@quajs/renderer-vue', () => {
 
     await flushVue()
     expect(host.el.querySelector('.qua-overlay-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-screen-plane .qua-overlay-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-overlay-layer')?.getAttribute('style')).toContain('pointer-events: auto')
     expect(host.el.querySelector('.qua-menu-overlay')?.textContent).toContain('Pause')
+    expect(host.el.querySelector('.qua-menu-footer')).not.toBeNull()
 
     host.el.querySelector<HTMLButtonElement>('.qua-menu-action--continue')!.click()
     host.el.querySelector<HTMLButtonElement>('.qua-menu-action--save')!.click()
     host.el.querySelector<HTMLButtonElement>('.qua-menu-action--load')!.click()
     host.el.querySelector<HTMLButtonElement>('.qua-menu-action--settings')!.click()
     host.el.querySelector<HTMLButtonElement>('.qua-menu-action--backlog')!.click()
+    host.el.querySelector<HTMLButtonElement>('.qua-menu-action--title')!.click()
     await flushVue()
 
     expect(received).toEqual([
@@ -680,6 +789,164 @@ describe('@quajs/renderer-vue', () => {
       'open:saveLoad:load',
       'open:settings:',
       'backlog:open',
+      'open:titleConfirm:',
+    ])
+  })
+
+  it('can replace the menu when opening a child UI scene target', async () => {
+    const pipeline = new Pipeline()
+    const received: Array<Record<string, unknown>> = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.UI_REQUEST_CLOSE, payload => received.push({
+      type: 'close',
+      elementId: payload.elementId,
+    }))
+    onRenderToLogic(pipeline, RenderToLogicEvents.UI_REQUEST_OPEN, payload => received.push({
+      type: 'open',
+      elementId: payload.elementId,
+      mode: (payload.config as any)?.mode,
+      sceneId: (payload.config as any)?.scene?.id,
+      scenePresentation: (payload.config as any)?.scene?.presentation,
+      sceneOverlayVariant: (payload.config as any)?.scene?.overlay?.variant,
+    }))
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            menu: {
+              open: true,
+              replaceOnOpen: true,
+              scene: {
+                id: 'game:menu',
+                presentation: 'overlay',
+                overlay: {
+                  variant: 'game-modal',
+                  hideHud: true,
+                  hideDialogue: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    })
+
+    await flushVue()
+    host.el.querySelector<HTMLButtonElement>('.qua-menu-action--save')!.click()
+    await flushVue()
+
+    expect(received).toEqual([
+      {
+        type: 'open',
+        elementId: 'saveLoad',
+        mode: 'save',
+        sceneId: 'game:menu/saveLoad:save',
+        scenePresentation: 'overlay',
+        sceneOverlayVariant: 'game-modal',
+      },
+      {
+        type: 'close',
+        elementId: 'menu',
+      },
+    ])
+  })
+
+  it('can hide menu flow controls when the menu is opened from a quick HUD', async () => {
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            menu: { open: true, showFlowControls: false },
+          },
+        },
+      }),
+    })
+
+    await flushVue()
+
+    expect(host.el.querySelector('.qua-menu-footer')).toBeNull()
+    expect(host.el.querySelector('.qua-menu-action--save')).not.toBeNull()
+    expect(host.el.querySelector('.qua-menu-action--load')).not.toBeNull()
+  })
+
+  it('projects UI scene metadata onto the overlay host layer', async () => {
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            saveLoad: {
+              open: true,
+              mode: 'load',
+              scene: {
+                id: 'system:load',
+                presentation: 'scene',
+                overlay: {
+                  variant: 'main-menu',
+                  hideHud: true,
+                  hideDialogue: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    })
+
+    await flushVue()
+
+    const layer = host.el.querySelector<HTMLElement>('.qua-overlay-layer')!
+    expect(layer.dataset.uiSceneId).toBe('system:load')
+    expect(layer.dataset.uiScenePresentation).toBe('scene')
+    expect(layer.dataset.uiSceneOverlayVariant).toBe('main-menu')
+    expect(layer.dataset.uiSceneHideHud).toBe('true')
+    expect(layer.dataset.uiSceneHideDialogue).toBe('true')
+  })
+
+  it('renders confirm overlays and emits configured confirm events', async () => {
+    const pipeline = new Pipeline()
+    const received: string[] = []
+    pipeline.on(UI_TITLE_REQUEST_EVENT, () => received.push('title:request'))
+    onRenderToLogic(pipeline, RenderToLogicEvents.UI_REQUEST_CLOSE, payload => received.push(`close:${payload.elementId}`))
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            titleConfirm: {
+              open: true,
+              title: 'Return?',
+              description: 'Confirm navigation.',
+              confirmLabel: 'Title',
+              confirmEvent: UI_TITLE_REQUEST_EVENT,
+            },
+          },
+        },
+      }),
+    }, {
+      overlay: () => h(QuaConfirmOverlay, { elementId: 'titleConfirm' }),
+    })
+
+    await flushVue()
+    expect(host.el.querySelector('.qua-confirm-overlay')?.textContent).toContain('Return?')
+
+    host.el.querySelector<HTMLButtonElement>('.qua-confirm-action--confirm')!.click()
+    await flushVue()
+
+    expect(received).toEqual([
+      'title:request',
+      'close:titleConfirm',
     ])
   })
 
@@ -788,6 +1055,50 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.textContent).toContain('Playback')
     expect(host.el.textContent).toContain('No audio projection')
     expect(host.el.textContent).not.toContain('Text Speed')
+  })
+
+  it('does not render a generic settings overlay when the dedicated settings layer is mounted', async () => {
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            settings: {
+              open: true,
+              title: 'Config',
+              scene: {
+                id: 'system:settings',
+                presentation: 'scene',
+                overlay: {
+                  variant: 'main-menu',
+                  hideHud: true,
+                  hideDialogue: true,
+                },
+              },
+            },
+          },
+        },
+        plugins: {
+          [SETTINGS_PLUGIN_ID]: settingsProjection(),
+        },
+      }),
+    })
+
+    await flushVue()
+
+    expect(host.el.querySelector('.qua-settings-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-screen-plane .qua-settings-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-settings-layer')?.getAttribute('style')).toContain('pointer-events: auto')
+    expect(host.el.querySelector('.qua-overlay-layer')).toBeNull()
+    expect(host.el.querySelector('.qua-ui-overlay[data-overlay="settings"]')).toBeNull()
+    const layer = host.el.querySelector<HTMLElement>('.qua-settings-layer')!
+    expect(layer.dataset.uiSceneId).toBe('system:settings')
+    expect(layer.dataset.uiScenePresentation).toBe('scene')
+    expect(layer.dataset.uiSceneOverlayVariant).toBe('main-menu')
+    expect(host.el.textContent).toContain('Text Speed')
   })
 
   it('applies ui skins to vue settings toggles and sprite skin boxes', async () => {
@@ -976,8 +1287,11 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.querySelector('.qua-settings-panel')).not.toBeNull()
     expect(host.el.textContent).toContain('System')
     expect(host.el.textContent).toContain('Text Speed')
+    expect(host.el.querySelector('[data-settings-field="textSpeedCps"]')?.getAttribute('data-settings-control')).toBe('slider')
+    expect(host.el.querySelector('[data-settings-field="textSpeedCps"] .qua-settings-field-main')).not.toBeNull()
 
     const textSpeed = host.el.querySelector<HTMLInputElement>('[data-settings-field="textSpeedCps"] input')
+    expect(textSpeed?.classList.contains('qua-settings-control')).toBe(true)
     textSpeed!.value = '72'
     textSpeed!.dispatchEvent(new Event('input'))
     await flushVue()
@@ -1006,6 +1320,72 @@ describe('@quajs/renderer-vue', () => {
       { scope: 'system', patch: { skipMode: 'all' } },
       { scope: 'system', patch: { layout: { gap: 16 } } },
       { scope: 'system', patch: { shader: 'crisp' } },
+    ])
+  })
+
+  it('lets apps replace schema settings pieces through slots', async () => {
+    const pipeline = new Pipeline()
+    const updates: unknown[] = []
+    const resets: unknown[] = []
+    pipeline.on(SettingsRenderToLogicEvents.UPDATE_REQUEST, context => updates.push(context.event.payload))
+    pipeline.on(SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST, context => resets.push(context.event.payload))
+
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins().filter(plugin => plugin.name !== '@quajs/renderer-vue/settings'),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            settings: { open: true },
+          },
+        },
+        plugins: {
+          [SETTINGS_PLUGIN_ID]: settingsProjection(),
+        },
+      }),
+    }, {
+      stage: () => h(QuaSettingsLayer, undefined, {
+        'form-header': ({ form }: any) => h('header', { class: 'custom-settings-header' }, form.profileId),
+        'scope-header': ({ scope, resetScope }: any) => h('button', {
+          class: 'custom-scope-reset',
+          type: 'button',
+          onClick: resetScope,
+        }, scope.title),
+        'group-header': ({ group }: any) => h('div', { class: 'custom-settings-group' }, group.id),
+        'field-label': ({ field }: any) => h('span', { class: 'custom-settings-label' }, field.name),
+        'field-control': (payload: any) => {
+          if (payload.field.pathKey !== 'textSpeedCps') {
+            return undefined
+          }
+          return h('button', {
+            class: 'custom-text-speed',
+            type: 'button',
+            onClick: () => payload.update(88),
+          }, `${payload.inputId}:${payload.value}`)
+        },
+      }),
+    })
+
+    await flushVue()
+
+    expect(host.el.querySelector('.custom-settings-header')?.textContent).toBe('default')
+    expect(host.el.querySelector('.custom-scope-reset')?.textContent).toBe('System')
+    expect(host.el.querySelector('.custom-settings-group')?.textContent).toBe('default')
+    expect(host.el.querySelector('.custom-settings-label')?.textContent).toBe('textSpeedCps')
+    expect(host.el.querySelector('.custom-text-speed')?.textContent).toContain('qua-settings-system-textSpeedCps')
+    expect(host.el.querySelector('[data-settings-field="textSpeedCps"] input')).toBeNull()
+
+    host.el.querySelector<HTMLButtonElement>('.custom-text-speed')!.click()
+    await flushVue()
+    host.el.querySelector<HTMLButtonElement>('.custom-scope-reset')!.click()
+    await flushVue()
+
+    expect(updates).toEqual([
+      { scope: 'system', patch: { textSpeedCps: 88 } },
+    ])
+    expect(resets).toEqual([
+      { scope: 'system' },
     ])
   })
 

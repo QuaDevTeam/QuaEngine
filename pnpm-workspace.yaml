@@ -1,4 +1,5 @@
 packages:
+  - demo
   - packages/build/*
   - packages/core/*
   - packages/platform/*
@@ -8,6 +9,7 @@ packages:
   - packages/utils/*
 
 allowBuilds:
+  '@parcel/watcher': set this to true or false
   '@vscode/vsce-sign': true
   keytar: true
   lzma-native: true

@@ -61,9 +61,19 @@
 .qua-effect-layer,
 .qua-scene-transition-layer,
 .qua-overlay-layer,
-.qua-settings-layer {
+.qua-settings-layer,
+.qua-backlog-layer,
+.qua-screen-plane {
   position: absolute;
   inset: 0;
+}
+
+.qua-screen-plane {
+  pointer-events: none;
+}
+
+.qua-screen-plane > * {
+  pointer-events: auto;
 }
 
 .qua-scene-transition-layer {
@@ -141,7 +151,9 @@
 .qua-ui-overlay,
 .qua-menu-overlay,
 .qua-save-load-panel,
-.qua-settings-panel {
+.qua-confirm-overlay,
+.qua-settings-panel,
+.qua-backlog-panel {
   position: absolute;
 }
 
@@ -171,6 +183,29 @@
 
 .qua-settings-field {
   display: grid;
+}
+
+.qua-settings-field-main,
+.qua-settings-field-copy,
+.qua-settings-field-control,
+.qua-settings-header-actions,
+.qua-settings-actions {
+  display: grid;
+}
+
+.qua-settings-control {
+  min-width: 0;
+  font: inherit;
+}
+
+.qua-backlog-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qua-settings-control--textarea {
+  resize: vertical;
 }
 
 .qua-audio-controller {

@@ -34,7 +34,7 @@ export function createVisualNovelWebRendererPlugins(options: VisualNovelWebRende
     createChoicesWebRendererPlugin(),
     createAudioWebRendererPlugin(),
     createSceneWebRendererPlugin(),
-    createUiWebRendererPlugin(),
+    createUiWebRendererPlugin({ handledElementIds: ['settings'] }),
     createSettingsWebRendererPlugin(),
     createBacklogWebRendererPlugin(),
     createGalleryWebRendererPlugin(),

@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "family": "mara",
+  "base": {
+    "asset": "base.png"
+  },
+  "expressions": {
+    "alert": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "alert.png"
+        }
+      ]
+    },
+    "soften": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "soften.png"
+        }
+      ]
+    },
+    "wounded": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "wounded.png"
+        }
+      ]
+    }
+  }
+}

@@ -17,7 +17,7 @@ import type {
 } from '@quajs/render-core'
 import { BaseEnginePlugin } from '@quajs/engine'
 import { isRichTextDocument } from '@quajs/render-core'
-import { animationDecoratorMappings } from './script-compiler'
+import { animationDecoratorMappings } from './decorators'
 
 const ANIMATION_SETTINGS_SCOPE = '@quajs/plugin-animation' as const
 
@@ -1580,7 +1580,7 @@ export const metadata = {
   category: 'visual',
 } as const
 
-export const decorators = animationDecoratorMappings
+export { decorators } from './decorators'
 export {
   backgroundCrossfade,
   characterBlink,
@@ -1600,5 +1600,5 @@ export type {
   ChoicesStaggerOptions,
   VisualNovelMotionOptions,
 } from './presets'
-export { animationDecoratorMappings, createAnimationDecoratorCompiler, scriptCompiler } from './script-compiler'
+export { animationDecoratorMappings } from './decorators'
 export const Plugin = AnimationPlugin

@@ -343,6 +343,7 @@ export interface QuaEngineInterface {
   getFlowControlState: () => ViewFlowControlProjection
   unloadRuntimePackage: (packageId: string, options?: RuntimePackageUnloadOptions) => Promise<void>
   setFlowControlOptions: (options: FlowControlRuntimeOptions) => Promise<void>
+  setDialogueOptions: (options: DialogueOptions) => Promise<void>
   setFlowControlMode: (mode: FlowControlMode) => Promise<void>
   setFlowControlPolicy: (policy: FlowControlPolicy) => Promise<void>
   resetFlowControlPolicy: () => Promise<void>

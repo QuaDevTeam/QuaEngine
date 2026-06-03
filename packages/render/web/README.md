@@ -40,13 +40,15 @@ Framework renderers such as `@quajs/renderer-vue`, `@quajs/renderer-react`, and 
 - `@quajs/renderer-web/plugins/settings`: schema-driven settings panel projection for `@quajs/plugin-settings`.
 - `@quajs/renderer-web/plugins/preset`: visual novel DOM preset, including input, fonts, background, sprite, character, effects, dialogue, choices, audio, scene, UI, settings, backlog, gallery, and achievement projection.
 
+The settings DOM plugin renders native browser form controls by default and publishes stable styling hooks: `.qua-settings-field-main`, `.qua-settings-field-copy`, `.qua-settings-field-control`, `.qua-settings-control`, plus field-level `data-settings-control/type/readonly/invalid` attributes. Use `renderCustomControl` for custom controls in framework-neutral DOM hosts; framework adapters can layer slots over the same projection without making the renderer authoritative for settings state. Component-library integrations such as Radix, Reka UI, or project-local design-system controls should live in app code or adapter packages, not as hard dependencies of `@quajs/renderer-web`.
+
 ## Renderer Input
 
 `createInputWebRendererPlugin()` and `createRendererInputController()` map transient Web input into semantic renderer commands. The input layer does not own game state or decide narrative progression. It emits `RenderToLogicEvents.USER_INPUT_COMMAND` first for audit/plugin observation, then calls the existing renderer action for built-in commands such as `USER_ADVANCE`, `FLOW_CONTROL_START_SKIP_REQUEST`, or `FLOW_CONTROL_START_FAST_FORWARD_REQUEST`.
 
 Default keyboard bindings:
 
-- `Enter`, `Space`, `ArrowRight`, `PageDown`: advance
+- `Enter`, `Space`, `ArrowLeft`, `ArrowRight`, `PageDown`: advance
 - `ControlLeft` / `ControlRight` hold: skip start/stop
 - `KeyF` hold: fast-forward start/stop
 - `KeyA`: auto toggle

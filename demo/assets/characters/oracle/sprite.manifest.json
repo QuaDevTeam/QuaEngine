@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "family": "oracle",
+  "base": {
+    "asset": "base.png"
+  },
+  "expressions": {
+    "glitch": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "glitch.png"
+        }
+      ]
+    },
+    "severe": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "severe.png"
+        }
+      ]
+    },
+    "fractured": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "fractured.png"
+        }
+      ]
+    }
+  }
+}

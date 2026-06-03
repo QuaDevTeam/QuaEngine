@@ -117,6 +117,7 @@ const DEFAULT_INTERACTIVE_SELECTOR = [
 const DEFAULT_KEYBOARD_BINDINGS: readonly RendererInputKeyboardBinding[] = [
   { source: 'keyboard', code: 'Enter', command: 'advance', preventDefault: true },
   { source: 'keyboard', code: 'Space', command: 'advance', preventDefault: true },
+  { source: 'keyboard', code: 'ArrowLeft', command: 'advance', preventDefault: true },
   { source: 'keyboard', code: 'ArrowRight', command: 'advance', preventDefault: true },
   { source: 'keyboard', code: 'PageDown', command: 'advance', preventDefault: true },
   { source: 'keyboard', code: 'ControlLeft', command: 'skip:start', phase: 'press', preventDefault: true },

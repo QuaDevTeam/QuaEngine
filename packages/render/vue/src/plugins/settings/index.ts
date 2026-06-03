@@ -7,6 +7,7 @@ import type {
   SettingsInputParseResult,
   SettingsScopeFormProjection,
 } from '@quajs/renderer-web/plugins/settings'
+import type { ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { Component, PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
@@ -20,7 +21,7 @@ import {
   stringifySettingsInputValue,
 } from '@quajs/renderer-web/plugins/settings'
 import { computed, defineComponent, h } from 'vue'
-import { usePluginProjection, useRendererActions, useUiControlSkin } from '../../composables'
+import { usePluginProjection, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
 import { dispatchVueRendererIntent } from '../shared/intent'
@@ -41,10 +42,49 @@ export interface SettingsCustomControlComponentProps {
   update: (value: unknown) => void
 }
 
+export interface SettingsLayerSlotPayload {
+  settings: SettingsProjection
+  form: SettingsFormProjection
+  actions: RendererActions
+  elementId: string
+  close: () => void
+  resetAll: () => void
+}
+
+export interface SettingsFormSlotPayload {
+  form: SettingsFormProjection
+  actions: RendererActions
+  elementId: string
+  close: () => void
+  resetAll: () => void
+}
+
+export interface SettingsScopeSlotPayload {
+  scope: SettingsScopeFormProjection
+  actions: RendererActions
+  resetScope: () => void
+}
+
+export interface SettingsGroupSlotPayload {
+  scope: SettingsScopeFormProjection
+  group: SettingsFieldGroupProjection
+  actions: RendererActions
+}
+
+export interface SettingsFieldSlotPayload extends SettingsCustomControlComponentProps {
+  inputId: string
+  control: string
+  description?: string
+  errors: SettingsFieldFormProjection['errors']
+}
+
+export type SettingsControlSlotPayload = SettingsFieldSlotPayload
+
 const DEFAULT_SETTINGS_ELEMENT_ID = 'settings'
 const DEFAULT_GROUP_ID = 'default'
 
 type UiControlSkinBinding = ReturnType<typeof useUiControlSkin>
+type SettingsRendererIntentTarget = Pick<ReturnType<typeof useQuaRenderer>, 'web'>
 
 interface SettingsControlSkins {
   input: UiControlSkinBinding
@@ -72,7 +112,7 @@ export const QuaSettingsControl: Component = defineComponent({
       required: false,
     },
   },
-  setup(props): () => VNode {
+  setup(props, { slots }): () => VNode | VNode[] {
     const renderer = useQuaRenderer()
     const actions = renderer.actions
     const inputSkin = useUiControlSkin({
@@ -89,11 +129,12 @@ export const QuaSettingsControl: Component = defineComponent({
       selected: () => Boolean(props.field.value),
     })
 
-    return () => renderControl(renderer, actions, props.scope, props.field, props.customControls, {
-      input: inputSkin,
-      tab: tabSkin,
-      toggle: toggleSkin,
-    })
+    return () => slots.control?.(createSettingsFieldSlotPayload(renderer, actions, props.scope, props.field))
+      || renderControl(renderer, actions, props.scope, props.field, props.customControls, {
+        input: inputSkin,
+        tab: tabSkin,
+        toggle: toggleSkin,
+      })
   },
 })
 
@@ -113,36 +154,43 @@ export const QuaSettingsField: Component = defineComponent({
       required: false,
     },
   },
-  setup(props): () => VNode | null {
+  setup(props, { slots }): () => VNode | VNode[] | null {
+    const renderer = useQuaRenderer()
+    const actions = renderer.actions
     return () => {
       const field = props.field
       if (field.control.hidden) {
         return null
       }
 
-      const control = field.control.control || 'text'
-      return h('div', {
-        'class': ['qua-settings-field', `qua-settings-field--${control}`],
-        'data-settings-field': field.pathKey,
-      }, isSettingsGroupField(field)
-        ? [renderNestedGroup(props.scope, field, props.customControls)]
+      const payload = createSettingsFieldSlotPayload(renderer, actions, props.scope, field)
+      const replacement = slots.field?.(payload)
+      if (replacement) {
+        return replacement
+      }
+
+      return h('div', createSettingsFieldAttrs(field), isSettingsGroupField(field)
+        ? [renderNestedGroup(props.scope, field, props.customControls, slots)]
         : [
-            h('label', {
-              class: 'qua-settings-field-label',
-              for: settingsFieldInputId(props.scope.scope, field.pathKey),
-            }, field.control.label || field.name),
-            field.control.description || field.schema.description
-              ? h('p', { class: 'qua-settings-field-description' }, field.control.description || field.schema.description)
-              : null,
-            h(QuaSettingsControl, {
-              scope: props.scope,
-              field,
-              customControls: props.customControls,
-            }),
-            field.errors.map(error => h('p', {
-              key: `${field.pathKey}:${error.keyword || error.message}`,
-              class: 'qua-settings-field-error',
-            }, error.message)),
+            h('div', { class: 'qua-settings-field-main' }, [
+              h('div', { class: 'qua-settings-field-copy' }, [
+                slots['field-label']?.(payload) || h('label', {
+                  class: 'qua-settings-field-label',
+                  for: payload.inputId,
+                }, field.control.label || field.name),
+                slots['field-description']?.(payload) || (payload.description
+                  ? h('p', { class: 'qua-settings-field-description' }, payload.description)
+                  : null),
+              ]),
+              slots['field-control']?.(payload) || h('div', { class: 'qua-settings-field-control' }, [
+                h(QuaSettingsControl, {
+                  scope: props.scope,
+                  field,
+                  customControls: props.customControls,
+                }, slots),
+              ]),
+            ]),
+            slots['field-errors']?.(payload) || renderSettingsFieldErrors(field),
           ])
     }
   },
@@ -164,24 +212,36 @@ export const QuaSettingsGroup = defineComponent({
       required: false,
     },
   },
-  setup(props) {
-    return () => h('fieldset', {
-      'class': 'qua-settings-group',
-      'data-settings-group': props.group.id,
-    }, [
-      props.group.label || props.group.id !== DEFAULT_GROUP_ID
-        ? h('legend', { class: 'qua-settings-group-title' }, props.group.label || props.group.id)
-        : null,
-      props.group.description
-        ? h('p', { class: 'qua-settings-group-description' }, props.group.description)
-        : null,
-      props.group.fields.map(field => h(QuaSettingsField, {
-        key: field.pathKey,
-        field,
-        scope: props.scope,
-        customControls: props.customControls,
-      })),
-    ])
+  setup(props, { slots }) {
+    const renderer = useQuaRenderer()
+    const actions = renderer.actions
+    return () => {
+      const payload = createSettingsGroupSlotPayload(actions, props.scope, props.group)
+      const replacement = slots.group?.(payload)
+      if (replacement) {
+        return replacement
+      }
+
+      return h('fieldset', {
+        'class': 'qua-settings-group',
+        'data-settings-group': props.group.id,
+      }, [
+        slots['group-header']?.(payload) || [
+          props.group.label || props.group.id !== DEFAULT_GROUP_ID
+            ? h('legend', { class: 'qua-settings-group-title' }, props.group.label || props.group.id)
+            : null,
+          props.group.description
+            ? h('p', { class: 'qua-settings-group-description' }, props.group.description)
+            : null,
+        ],
+        props.group.fields.map(field => h(QuaSettingsField, {
+          key: field.pathKey,
+          field,
+          scope: props.scope,
+          customControls: props.customControls,
+        }, slots)),
+      ])
+    }
   },
 })
 
@@ -197,40 +257,34 @@ export const QuaSettingsScope = defineComponent({
       required: false,
     },
   },
-  setup(props) {
+  setup(props, { slots }) {
     const renderer = useQuaRenderer()
     const actions = renderer.actions
-    const resetSkin = useUiControlSkin({ kind: 'button' })
-    return () => h('section', {
-      'class': 'qua-settings-scope',
-      'data-settings-scope': props.scope.scope,
-    }, [
-      h('header', { class: 'qua-settings-scope-header' }, [
-        h('h3', { class: 'qua-settings-scope-title' }, props.scope.title || props.scope.scope),
-        h('button', {
-          'class': 'qua-settings-scope-reset',
-          'type': 'button',
-          'style': resetSkin.skinStyle.value,
-          'data-skin-kind': 'button',
-          'data-skin-reference': resetSkin.skinReference.value || undefined,
-          'data-skin-state': resetSkin.skinState.value,
-          ...createSkinButtonHandlers(resetSkin),
-          'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST, { scope: props.scope.scope }), {
-            phase: 'settings:reset-scope',
-            metadata: { scope: props.scope.scope },
-          }),
-        }, 'Reset'),
-      ]),
-      props.scope.description
-        ? h('p', { class: 'qua-settings-scope-description' }, props.scope.description)
-        : null,
-      props.scope.groups.map(group => h(QuaSettingsGroup, {
-        key: group.id,
-        group,
-        scope: props.scope,
-        customControls: props.customControls,
-      })),
-    ])
+    return () => {
+      const payload = createSettingsScopeSlotPayload(renderer, actions, props.scope)
+      const replacement = slots.scope?.(payload)
+      if (replacement) {
+        return replacement
+      }
+
+      return h('section', {
+        'class': 'qua-settings-scope',
+        'data-settings-scope': props.scope.scope,
+      }, [
+        slots['scope-header']?.(payload) || h('header', { class: 'qua-settings-scope-header' }, [
+          h('h3', { class: 'qua-settings-scope-title' }, props.scope.title || props.scope.scope),
+        ]),
+        props.scope.description
+          ? h('p', { class: 'qua-settings-scope-description' }, props.scope.description)
+          : null,
+        props.scope.groups.map(group => h(QuaSettingsGroup, {
+          key: group.id,
+          group,
+          scope: props.scope,
+          customControls: props.customControls,
+        }, slots)),
+      ])
+    }
   },
 })
 
@@ -250,57 +304,58 @@ export const QuaSettingsForm = defineComponent({
       required: false,
     },
   },
-  setup(props) {
+  setup(props, { slots }) {
     const renderer = useQuaRenderer()
     const actions = renderer.actions
     const panelSkin = useUiControlSkin({ kind: 'panel' })
     const closeSkin = useUiControlSkin({ kind: 'button' })
     const resetAllSkin = useUiControlSkin({ kind: 'button' })
-    return () => h('section', {
-      'class': 'qua-settings-panel',
-      'style': panelSkin.skinStyle.value,
-      'data-skin-kind': 'panel',
-      'data-skin-reference': panelSkin.skinReference.value || undefined,
-      'data-skin-state': panelSkin.skinState.value,
-      'data-settings-overlay': props.elementId,
-    }, [
-      h('header', { class: 'qua-settings-header' }, [
-        h('h2', { class: 'qua-settings-title' }, 'Settings'),
-        h('button', {
-          'class': 'qua-settings-close',
-          'type': 'button',
-          'style': closeSkin.skinStyle.value,
-          'data-skin-kind': 'button',
-          'data-skin-reference': closeSkin.skinReference.value || undefined,
-          'data-skin-state': closeSkin.skinState.value,
-          ...createSkinButtonHandlers(closeSkin),
-          'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestUiClose(props.elementId), {
-            phase: 'settings:close',
-            metadata: { elementId: props.elementId },
-          }),
-        }, 'Close'),
-      ]),
-      h('form', {
-        class: 'qua-settings-form',
-        onSubmit: (event: Event) => event.preventDefault(),
-      }, props.form.scopes.map(scope => h(QuaSettingsScope, {
-        key: scope.scope,
-        scope,
-        customControls: props.customControls,
-      }))),
-      h('button', {
-        'class': 'qua-settings-reset-all',
-        'type': 'button',
-        'style': resetAllSkin.skinStyle.value,
-        'data-skin-kind': 'button',
-        'data-skin-reference': resetAllSkin.skinReference.value || undefined,
-        'data-skin-state': resetAllSkin.skinState.value,
-        ...createSkinButtonHandlers(resetAllSkin),
-        'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_ALL_REQUEST), {
-          phase: 'settings:reset-all',
-        }),
-      }, 'Reset All'),
-    ])
+    return () => {
+      const payload = createSettingsFormSlotPayload(renderer, actions, props.form, props.elementId)
+      return h('section', {
+        'class': 'qua-settings-panel',
+        'style': panelSkin.skinStyle.value,
+        'data-skin-kind': 'panel',
+        'data-skin-reference': panelSkin.skinReference.value || undefined,
+        'data-skin-state': panelSkin.skinState.value,
+        'data-settings-overlay': props.elementId,
+      }, [
+        slots['form-header']?.(payload) || h('header', { class: 'qua-settings-header' }, [
+          h('h2', { class: 'qua-settings-title' }, 'Settings'),
+          h('div', { class: 'qua-settings-header-actions' }, [
+            h('button', {
+              'class': 'qua-settings-reset-all',
+              'type': 'button',
+              'style': resetAllSkin.skinStyle.value,
+              'data-skin-kind': 'button',
+              'data-skin-reference': resetAllSkin.skinReference.value || undefined,
+              'data-skin-state': resetAllSkin.skinState.value,
+              ...createSkinButtonHandlers(resetAllSkin),
+              'onClick': payload.resetAll,
+            }, 'Reset'),
+            h('button', {
+              'class': 'qua-settings-close',
+              'type': 'button',
+              'style': closeSkin.skinStyle.value,
+              'data-skin-kind': 'button',
+              'data-skin-reference': closeSkin.skinReference.value || undefined,
+              'data-skin-state': closeSkin.skinState.value,
+              ...createSkinButtonHandlers(closeSkin),
+              'onClick': payload.close,
+            }, 'Close'),
+          ]),
+        ]),
+        h('form', {
+          class: 'qua-settings-form',
+          onSubmit: (event: Event) => event.preventDefault(),
+        }, props.form.scopes.map(scope => h(QuaSettingsScope, {
+          key: scope.scope,
+          scope,
+          customControls: props.customControls,
+        }, slots))),
+        slots['form-actions']?.(payload),
+      ])
+    }
   },
 })
 
@@ -317,25 +372,37 @@ export const QuaSettingsLayer = defineComponent({
     },
   },
   setup(props, { slots }) {
-    const { view } = useQuaRenderer()
-    const actions = useRendererActions()
+    const renderer = useQuaRenderer()
+    const { view } = renderer
+    const actions = renderer.actions
     const settings = computed(() => getSettingsProjectionFromView(view.value))
     const form = computed(() => settings.value ? createSettingsFormProjection(settings.value) : undefined)
     const visible = computed(() => Boolean(form.value && isSettingsOverlayVisible(view.value, props.elementId)))
+    const scene = computed(() => {
+      const overlay = view.value.ui.overlays?.[props.elementId] as ViewUiOverlayProjection | undefined
+      return overlay?.scene as ViewUiSceneProjection | undefined
+    })
 
     return () => visible.value && settings.value && form.value
       ? h('div', {
-          class: 'qua-settings-layer',
+          'class': [
+            'qua-settings-layer',
+            scene.value ? 'qua-settings-layer--ui-scene' : undefined,
+            scene.value?.presentation === 'scene' ? 'qua-settings-layer--scene' : undefined,
+            scene.value?.presentation === 'overlay' ? 'qua-settings-layer--overlay' : undefined,
+          ],
+          'data-ui-scene-id': scene.value?.id,
+          'data-ui-scene-presentation': scene.value?.presentation,
+          'data-ui-scene-overlay-variant': scene.value?.overlay?.variant,
+          'data-ui-scene-hide-hud': scene.value?.overlay?.hideHud ? 'true' : undefined,
+          'data-ui-scene-hide-dialogue': scene.value?.overlay?.hideDialogue ? 'true' : undefined,
+          style: { pointerEvents: 'auto' },
           onClick: (event: Event) => event.stopPropagation(),
-        }, slots.default?.({
-          settings: settings.value,
-          form: form.value,
-          actions,
-        }) || h(QuaSettingsForm, {
+        }, slots.default?.(createSettingsLayerSlotPayload(renderer, actions, settings.value, form.value, props.elementId)) || h(QuaSettingsForm, {
           form: form.value,
           elementId: props.elementId,
           customControls: props.customControls,
-        }))
+        }, slots))
       : null
   },
 })
@@ -349,7 +416,7 @@ export function createSettingsRendererPlugin(options: SettingsRendererPluginOpti
       slot: 'settings',
       component: QuaSettingsLayer,
       order: 96,
-      plane: 'safe',
+      plane: 'screen',
       props: {
         elementId: options.elementId || DEFAULT_SETTINGS_ELEMENT_ID,
         customControls: options.customControls,
@@ -364,6 +431,7 @@ function renderNestedGroup(
   scope: SettingsScopeFormProjection,
   field: SettingsFieldFormProjection,
   customControls: SettingsCustomControlRegistry | undefined,
+  slots: Readonly<Record<string, any>>,
 ): VNode {
   return h('fieldset', { class: 'qua-settings-nested-group' }, [
     h('legend', { class: 'qua-settings-field-label' }, field.control.label || field.name),
@@ -372,7 +440,7 @@ function renderNestedGroup(
       scope,
       field: child,
       customControls,
-    })),
+    }, slots)),
   ])
 }
 
@@ -392,7 +460,8 @@ function renderControl(
   if (control === 'textarea' || fieldSchemaHasType(field, 'array') || fieldSchemaHasType(field, 'object')) {
     const skin = skins.input
     return h('textarea', {
-      class: 'qua-settings-field-control',
+      'class': ['qua-settings-control', 'qua-settings-control--textarea'],
+      'data-settings-control': control,
       id: settingsFieldInputId(scope.scope, field.pathKey),
       disabled: field.readonly,
       value: stringifySettingsInputValue(field),
@@ -403,7 +472,8 @@ function renderControl(
   if (control === 'select') {
     const skin = skins.tab
     return h('select', {
-      class: 'qua-settings-field-control',
+      'class': ['qua-settings-control', 'qua-settings-control--select'],
+      'data-settings-control': control,
       id: settingsFieldInputId(scope.scope, field.pathKey),
       disabled: field.readonly,
       value: encodeSettingsOptionValue(field.value),
@@ -453,7 +523,8 @@ function renderControl(
   const skin = inputType === 'checkbox' ? skins.toggle : skins.input
 
   return h('input', {
-    class: 'qua-settings-field-control',
+    'class': ['qua-settings-control', `qua-settings-control--${inputType}`],
+    'data-settings-control': control,
     id: settingsFieldInputId(scope.scope, field.pathKey),
     type: inputType,
     disabled: field.readonly,
@@ -492,13 +563,140 @@ function renderCustomControl(
   }
 
   return h('div', {
-    'class': 'qua-settings-custom-control qua-settings-field-control',
+    'class': ['qua-settings-custom-control', 'qua-settings-control', 'qua-settings-control--custom'],
     'id': settingsFieldInputId(scope.scope, field.pathKey),
     'role': 'group',
     'aria-disabled': field.readonly ? 'true' : 'false',
     'data-settings-component': field.control.component,
     'data-settings-props': field.control.props ? JSON.stringify(field.control.props) : undefined,
     ...createSkinAttrs('input', skin),
+  })
+}
+
+function createSettingsLayerSlotPayload(
+  renderer: SettingsRendererIntentTarget,
+  actions: RendererActions,
+  settings: SettingsProjection,
+  form: SettingsFormProjection,
+  elementId: string,
+): SettingsLayerSlotPayload {
+  return {
+    settings,
+    form,
+    actions,
+    elementId,
+    close: () => requestSettingsClose(renderer, actions, elementId),
+    resetAll: () => requestSettingsResetAll(renderer, actions),
+  }
+}
+
+function createSettingsFormSlotPayload(
+  renderer: SettingsRendererIntentTarget,
+  actions: RendererActions,
+  form: SettingsFormProjection,
+  elementId: string,
+): SettingsFormSlotPayload {
+  return {
+    form,
+    actions,
+    elementId,
+    close: () => requestSettingsClose(renderer, actions, elementId),
+    resetAll: () => requestSettingsResetAll(renderer, actions),
+  }
+}
+
+function createSettingsScopeSlotPayload(
+  renderer: SettingsRendererIntentTarget,
+  actions: RendererActions,
+  scope: SettingsScopeFormProjection,
+): SettingsScopeSlotPayload {
+  return {
+    scope,
+    actions,
+    resetScope: () => requestSettingsResetScope(renderer, actions, scope.scope),
+  }
+}
+
+function createSettingsGroupSlotPayload(
+  actions: RendererActions,
+  scope: SettingsScopeFormProjection,
+  group: SettingsFieldGroupProjection,
+): SettingsGroupSlotPayload {
+  return {
+    scope,
+    group,
+    actions,
+  }
+}
+
+function createSettingsFieldSlotPayload(
+  renderer: SettingsRendererIntentTarget,
+  actions: RendererActions,
+  scope: SettingsScopeFormProjection,
+  field: SettingsFieldFormProjection,
+): SettingsFieldSlotPayload {
+  return {
+    scope,
+    field,
+    value: field.value,
+    readonly: field.readonly,
+    disabled: field.readonly,
+    inputId: settingsFieldInputId(scope.scope, field.pathKey),
+    control: field.control.control || 'text',
+    description: field.control.description || field.schema.description,
+    errors: field.errors,
+    update: (value: unknown) => updateFieldValue(renderer, actions, scope, field, value),
+  }
+}
+
+function createSettingsFieldAttrs(field: SettingsFieldFormProjection): Record<string, unknown> {
+  const control = field.control.control || 'text'
+  return {
+    'class': ['qua-settings-field', `qua-settings-field--${control}`],
+    'data-settings-field': field.pathKey,
+    'data-settings-control': control,
+    'data-settings-type': settingsSchemaType(field),
+    'data-settings-required': field.required ? 'true' : undefined,
+    'data-settings-readonly': field.readonly ? 'true' : undefined,
+    'data-settings-invalid': field.errors.length ? 'true' : undefined,
+  }
+}
+
+function renderSettingsFieldErrors(field: SettingsFieldFormProjection): VNode[] {
+  return field.errors.map(error => h('p', {
+    key: `${field.pathKey}:${error.keyword || error.message}`,
+    class: 'qua-settings-field-error',
+  }, error.message))
+}
+
+function requestSettingsClose(
+  renderer: SettingsRendererIntentTarget,
+  actions: RendererActions,
+  elementId: string,
+): void {
+  dispatchVueRendererIntent(renderer, () => actions.requestUiClose(elementId), {
+    phase: 'settings:close',
+    metadata: { elementId },
+  })
+}
+
+function requestSettingsResetAll(
+  renderer: SettingsRendererIntentTarget,
+  actions: RendererActions,
+): void {
+  dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_ALL_REQUEST), {
+    phase: 'settings:reset-all',
+  })
+}
+
+function requestSettingsResetScope(
+  renderer: SettingsRendererIntentTarget,
+  actions: RendererActions,
+  scope: string,
+): void {
+  dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST, { scope }), {
+    phase: 'settings:reset-scope',
+    metadata: { scope },
   })
 }
 
@@ -571,6 +769,23 @@ function fieldSchemaHasType(field: SettingsFieldFormProjection, type: string): b
   return schemaType.includes(type as any)
     || (type === 'object' && Boolean(field.schema.properties))
     || (type === 'array' && Boolean(field.schema.items))
+}
+
+function settingsSchemaType(field: SettingsFieldFormProjection): string | undefined {
+  const schemaType = field.schema.type
+  if (Array.isArray(schemaType)) {
+    return [...schemaType].join(' ')
+  }
+  if (typeof schemaType === 'string') {
+    return schemaType
+  }
+  if (field.schema.properties) {
+    return 'object'
+  }
+  if (field.schema.items) {
+    return 'array'
+  }
+  return undefined
 }
 
 function settingsValuesEqual(left: unknown, right: unknown): boolean {

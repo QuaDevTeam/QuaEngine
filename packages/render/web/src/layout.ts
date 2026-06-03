@@ -42,7 +42,7 @@ export interface StageHitTestPoint extends StageLogicalPoint {
   insideStage: boolean
 }
 
-export type StageRenderPlane = 'scene' | 'subject' | 'stage' | 'safe'
+export type StageRenderPlane = 'scene' | 'subject' | 'stage' | 'safe' | 'screen'
 
 export interface ResolvedStageLayout {
   layout: ViewLayoutProjection
@@ -195,8 +195,11 @@ export function observeStageViewportEnvironment(
 
   addListener(win, 'resize')
   addListener(win, 'orientationchange')
+  addListener(win, 'pageshow')
+  addListener(win, 'focus')
   addListener(win.visualViewport || undefined, 'resize')
   addListener(win.visualViewport || undefined, 'scroll')
+  addListener(element?.ownerDocument, 'visibilitychange')
 
   return () => {
     while (disposers.length > 0) {

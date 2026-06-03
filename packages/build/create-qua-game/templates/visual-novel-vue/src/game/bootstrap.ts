@@ -66,9 +66,9 @@ export async function createQuaGameApp() {
       }),
     },
     flowControl: {
-      skipMode: 'read',
+      skipMode: 'all',
       timings: {
-        autoAdvanceDelayMs: 1400,
+        autoAdvanceDelayMs: 2000,
       },
     },
     runtimeModuleLoader,
@@ -79,7 +79,15 @@ export async function createQuaGameApp() {
     .use(new BackgroundPlugin())
     .use(new AudioPlugin())
     .use(new BacklogPlugin())
-    .use(new SettingsPlugin())
+    .use(new SettingsPlugin({
+      builtin: {
+        player: {
+          textSpeedCps: 36,
+          autoAdvanceDelayMs: 2000,
+          skipMode: 'all',
+        },
+      },
+    }))
     .use(new FontsPlugin())
     .use(new UiOverlayPlugin())
 

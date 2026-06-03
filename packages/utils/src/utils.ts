@@ -27,7 +27,10 @@ export function formatTimestamp(date: Date): string {
 }
 
 export function parseLogLevelFromEnv(envVar: string = 'LOG_LEVEL'): LogLevel {
-  const level = process.env[envVar]?.toUpperCase()
+  const maybeProcess = globalThis as typeof globalThis & {
+    process?: { env?: Record<string, string | undefined> }
+  }
+  const level = maybeProcess.process?.env?.[envVar]?.toUpperCase()
 
   switch (level) {
     case 'TRACE': return LogLevel.TRACE

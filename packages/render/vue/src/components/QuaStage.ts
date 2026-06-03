@@ -15,6 +15,10 @@ export const QuaStage = defineComponent({
       type: Array as PropType<readonly QuaVueRendererLayer[]>,
       default: () => [],
     },
+    className: {
+      type: String,
+      default: '',
+    },
   },
   setup(props, { slots }) {
     const animationNow = useAnimationClock()
@@ -26,10 +30,13 @@ export const QuaStage = defineComponent({
     const subjectLayers = computed(() => layers.value.filter(layer => layer.plane === 'subject'))
     const stageLayers = computed(() => layers.value.filter(layer => layer.plane === 'stage'))
     const safeLayers = computed(() => layers.value.filter(layer => layer.plane === 'safe'))
+    const screenLayers = computed(() => layers.value.filter(layer => layer.plane === 'screen'))
     const frame = ref<HTMLElement>()
     const frameSize = ref<Partial<StageContainerSize>>({ width: 0, height: 0 })
     let resizeObserver: ResizeObserver | undefined
     let viewportEnvironmentDisposer: (() => void) | undefined
+    let deferredMeasureFrame: number | undefined
+    let deferredMeasureTimeout: ReturnType<typeof setTimeout> | undefined
 
     const measure = () => {
       const rect = frame.value?.getBoundingClientRect()
@@ -41,17 +48,53 @@ export const QuaStage = defineComponent({
       }
     }
 
+    const cancelDeferredMeasure = () => {
+      const win = frame.value?.ownerDocument.defaultView
+      if (deferredMeasureFrame !== undefined && typeof win?.cancelAnimationFrame === 'function') {
+        win.cancelAnimationFrame(deferredMeasureFrame)
+      }
+      if (deferredMeasureTimeout !== undefined) {
+        clearTimeout(deferredMeasureTimeout)
+      }
+      deferredMeasureFrame = undefined
+      deferredMeasureTimeout = undefined
+    }
+
+    const scheduleDeferredMeasure = (remaining = 3) => {
+      cancelDeferredMeasure()
+      const win = frame.value?.ownerDocument.defaultView
+      const tick = () => {
+        deferredMeasureFrame = undefined
+        deferredMeasureTimeout = undefined
+        measure()
+        if (remaining > 1) {
+          scheduleDeferredMeasure(remaining - 1)
+        }
+      }
+      if (typeof win?.requestAnimationFrame === 'function') {
+        deferredMeasureFrame = win.requestAnimationFrame(tick)
+      }
+      else {
+        deferredMeasureTimeout = setTimeout(tick, 0)
+      }
+    }
+
     onMounted(() => {
       measure()
+      scheduleDeferredMeasure()
       const ResizeObserverCtor = frame.value?.ownerDocument.defaultView?.ResizeObserver
       if (ResizeObserverCtor && frame.value) {
         resizeObserver = new ResizeObserverCtor(measure)
         resizeObserver.observe(frame.value)
       }
-      viewportEnvironmentDisposer = observeStageViewportEnvironment(frame.value, measure)
+      viewportEnvironmentDisposer = observeStageViewportEnvironment(frame.value, () => {
+        measure()
+        scheduleDeferredMeasure(2)
+      })
     })
 
     onBeforeUnmount(() => {
+      cancelDeferredMeasure()
       resizeObserver?.disconnect()
       resizeObserver = undefined
       viewportEnvironmentDisposer?.()
@@ -61,6 +104,7 @@ export const QuaStage = defineComponent({
     watch(() => props.view?.layout, async () => {
       await nextTick()
       measure()
+      scheduleDeferredMeasure(2)
     }, { deep: true })
 
     const stageLayout = computed(() => resolveStageLayout(props.view?.layout as any, frameSize.value))
@@ -71,7 +115,7 @@ export const QuaStage = defineComponent({
 
     return () => h('div', {
       ref: frame,
-      class: 'qua-stage-frame',
+      class: ['qua-stage-frame', props.className],
       style: stageFrameStyle(),
     }, [
       h('div', {
@@ -110,6 +154,14 @@ export const QuaStage = defineComponent({
           }, renderLayers(safeLayers.value, slots, slotProps, renderer.web.reportError.bind(renderer.web))),
         ]),
       ]),
+      h('div', {
+        'class': 'qua-screen-plane',
+        'data-qua-capture-role': 'screen-ui',
+        'style': {
+          ...stagePlaneStyle(),
+          pointerEvents: 'none',
+        },
+      }, renderLayers(screenLayers.value, slots, slotProps, renderer.web.reportError.bind(renderer.web))),
     ])
   },
 })
