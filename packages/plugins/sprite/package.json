@@ -53,11 +53,6 @@
     "@quajs/logger": "workspace:*",
     "@quajs/quack": "workspace:*"
   },
-  "devDependencies": {
-    "@quajs/assets-web": "workspace:*",
-    "@quajs/logger": "workspace:*",
-    "@quajs/quack": "workspace:*"
-  },
   "quajs": {
     "type": "feature",
     "category": "visual",
@@ -68,7 +63,12 @@
     }
   },
   "dependencies": {
-    "ag-psd": "^30.1.1",
+    "ag-psd": "catalog:",
     "sharp": "catalog:"
+  },
+  "devDependencies": {
+    "@quajs/assets-web": "workspace:*",
+    "@quajs/logger": "workspace:*",
+    "@quajs/quack": "workspace:*"
   }
 }

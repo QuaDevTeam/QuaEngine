@@ -271,7 +271,8 @@ function injectSriAttributes(html: string, hashes: Map<string, SecurityAssetHash
 }
 
 function createNonceMiddlewareTemplate(cspHeader: string): string {
-  const templateHeader = cspHeader.split(NONCE_PLACEHOLDER).join('${nonce}')
+  const nonceInterpolation = '$' + '{nonce}'
+  const templateHeader = cspHeader.split(NONCE_PLACEHOLDER).join(nonceInterpolation)
   const previewNonce = randomBytes(16).toString('base64url')
   return `import { randomBytes } from 'node:crypto'
 
@@ -280,7 +281,7 @@ const headerTemplate = ${JSON.stringify(templateHeader)}
 export function quaCspNonceMiddleware(_request, response, next) {
   const nonce = randomBytes(16).toString('base64url')
   response.locals = { ...(response.locals || {}), quaCspNonce: nonce }
-  response.setHeader('Content-Security-Policy', headerTemplate.replaceAll('\${nonce}', nonce))
+  response.setHeader('Content-Security-Policy', headerTemplate.replaceAll(${JSON.stringify(nonceInterpolation)}, nonce))
   next()
 }
 

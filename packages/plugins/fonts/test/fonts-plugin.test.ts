@@ -8,8 +8,8 @@ import {
   FONTS_PLUGIN_ID,
   FontsPlugin,
   getFontsProjection,
-  registerFontWithEngine,
   registerFontsWithEngine,
+  registerFontWithEngine,
   unregisterFontWithEngine,
 } from '../src'
 
@@ -77,7 +77,6 @@ describe('@quajs/plugin-fonts', () => {
       expect.objectContaining({ assetName: 'cjk.woff2', unicodeRange: 'U+4E00-9FFF' }),
     ])
   })
-
 
   it('clears runtime package fonts on package unload', async () => {
     const engine = createEngine()

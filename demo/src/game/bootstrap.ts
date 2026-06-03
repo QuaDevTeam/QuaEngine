@@ -15,6 +15,13 @@ import {
   createWebRuntimeRendererPluginLoader,
   createWebRuntimeTrustPolicy,
 } from '@quajs/security-web'
+import {
+  getStoryChapterSelectProjection,
+  registerStoryGraphWithEngine,
+  StoryGraphPlugin,
+  unlockStoryNodeWithEngine,
+  type StoryChapterSelectProjection,
+} from '@quajs/story-graph'
 import { createWebStoreStorage } from '@quajs/store-web'
 import { computed, defineComponent, h, onBeforeUnmount, ref } from 'vue'
 import menuRouteBackgroundUrl from '../../assets/images/ui/menu-route.jpg?url'
@@ -47,13 +54,13 @@ const DEMO_SUPPORTED_LOCALES = [
   { locale: 'zh-cn', label: '简体中文' },
 ] as const
 const STORY_TREE_NODES: Array<Omit<QuaStoryTreeNode, 'disabled' | 'state'>> = [
-  { id: 'cold-open', chapter: '00', title: 'Cold Open', description: 'District Seven blackout' },
-  { id: 'trace', chapter: '01', title: 'Trace', description: 'Stealth route / Direct core access' },
-  { id: 'human-cache', chapter: '02', title: 'Human Cache', description: 'Broadcast archive / Lure ORACLE' },
-  { id: 'machine-witness', chapter: '03', title: 'Machine Witness', description: 'Trust Unit-7 / Lock witness' },
-  { id: 'oracle-link', chapter: '04', title: 'ORACLE Link', description: 'Noise / Charter / Submission' },
-  { id: 'breach-night', chapter: '05', title: 'Breach Night', description: 'Human cut / Machine breach / Hybrid charter' },
-  { id: 'endings', chapter: '06', title: 'Endings', description: 'Blackout / Bounded / Symbiosis / Quiet' },
+  { id: 'chapter-00', chapter: '00', title: 'Cold Open', description: 'District Seven blackout' },
+  { id: 'chapter-01', chapter: '01', title: 'Trace', description: 'Stealth route / Direct core access' },
+  { id: 'chapter-02', chapter: '02', title: 'Human Cache', description: 'Broadcast archive / Lure ORACLE' },
+  { id: 'chapter-03', chapter: '03', title: 'Machine Witness', description: 'Trust Unit-7 / Lock witness' },
+  { id: 'chapter-04', chapter: '04', title: 'ORACLE Link', description: 'Noise / Charter / Submission' },
+  { id: 'chapter-05', chapter: '05', title: 'Breach Night', description: 'Human cut / Machine breach / Hybrid charter' },
+  { id: 'chapter-06', chapter: '06', title: 'Endings', description: 'Blackout / Bounded / Symbiosis / Quiet' },
 ]
 const TRUSTED_RUNTIME_KEYS: Array<{ id: string, key: JsonWebKey }> = [
   // Production runtime QPKs should be signed with a private key whose public key is registered here.
@@ -95,32 +102,43 @@ export async function createQuaGameApp() {
   const returnToMainMenuOverlay = ref<string>()
   const toast = ref<DemoToast>()
   const currentChapterIndex = ref(-1)
-  const highestUnlockedChapterIndex = ref(0)
+  const storyChapterSelect = ref<StoryChapterSelectProjection>({ nodes: [] })
   const hud = ref<DemoHud>({
     chapter: 'BOOT',
     route: 'UNDECIDED',
     signal: '0',
   })
   let toastTimer: ReturnType<typeof setTimeout> | undefined
+  let unlockStoryTreeChapter: (chapterIndex: number) => void = () => {}
 
   const storyTreeNodes = computed<QuaStoryTreeNode[]>(() =>
-    STORY_TREE_NODES.map((node, index) => {
-      const unlocked = index <= highestUnlockedChapterIndex.value
-      const state = !unlocked
+    storyChapterSelect.value.nodes.map((node, index) => {
+      const chapter = typeof node.point.chapterId === 'string'
+        ? node.point.chapterId
+        : String(index).padStart(2, '0')
+      const chapterIndex = parseChapterIndex(chapter)
+      const state = node.entryLocked
         ? 'locked'
-        : index === currentChapterIndex.value
+        : node.current || chapterIndex === currentChapterIndex.value
           ? 'current'
-          : index < currentChapterIndex.value
+          : chapterIndex >= 0 && chapterIndex < currentChapterIndex.value
             ? 'complete'
             : 'available'
       return {
-        ...node,
+        id: node.nodeId,
+        chapter,
+        title: node.title || 'Locked',
+        description: node.summary,
         state,
-        disabled: !unlocked,
+        disabled: node.entryLocked,
+        entryLocked: node.entryLocked,
+        spoilerHidden: node.spoilerHidden,
+        lockedLabel: node.spoilerHidden ? 'LOCKED' : undefined,
         className: `vn-story-tree-node--${state}`,
       }
     }),
   )
+  const unlockedStoryTreeCount = computed(() => storyChapterSelect.value.nodes.filter(node => node.unlocked).length)
 
   const showToast = (message: string, tone: DemoToast['tone'] = 'info') => {
     if (toastTimer) {
@@ -143,7 +161,7 @@ export async function createQuaGameApp() {
     const chapterIndex = parseChapterIndex(next.chapter)
     if (chapterIndex >= 0) {
       currentChapterIndex.value = chapterIndex
-      highestUnlockedChapterIndex.value = Math.max(highestUnlockedChapterIndex.value, chapterIndex)
+      unlockStoryTreeChapter(chapterIndex)
     }
   }
 
@@ -207,6 +225,7 @@ export async function createQuaGameApp() {
     .use(new BackgroundPlugin())
     .use(new AnimationPlugin())
     .use(new BacklogPlugin())
+    .use(new StoryGraphPlugin())
     .use(new SettingsPlugin({
       builtin: {
         developer: {
@@ -225,6 +244,44 @@ export async function createQuaGameApp() {
     .use(new UiOverlayPlugin())
 
   await engine.init()
+  await registerStoryGraphWithEngine(engine, {
+    id: 'demo-main',
+    nodes: STORY_TREE_NODES.map((node, index) => ({
+      id: node.id,
+      point: {
+        storyId: 'demo-main',
+        chapterId: node.chapter,
+        nodeId: node.id,
+        stepId: node.id,
+      },
+      title: node.title,
+      summary: node.description,
+      chapterSelect: {
+        title: node.title,
+        summary: node.description,
+        order: index,
+        unlockOnVisit: false,
+        lockedVisibility: 'placeholder',
+        lockedTitle: node.chapter ? `CH ${node.chapter}` : 'LOCKED',
+        lockedSummary: '继续主线后解锁该路线节点。',
+        lockEntryUntilUnlocked: true,
+      },
+    })),
+  })
+  const syncStoryTreeProjection = () => {
+    storyChapterSelect.value = getStoryChapterSelectProjection(engine)
+  }
+  unlockStoryTreeChapter = (chapterIndex: number) => {
+    const node = STORY_TREE_NODES[chapterIndex]
+    if (!node) {
+      return
+    }
+    void unlockStoryNodeWithEngine(engine, node.id)
+      .then(syncStoryTreeProjection)
+      .catch(error => console.error(error))
+  }
+  await unlockStoryNodeWithEngine(engine, STORY_TREE_NODES[0]!.id)
+  syncStoryTreeProjection()
   const activeView = ref(engine.getViewState())
   const activeBacklog = computed(() => activeView.value.plugins[BACKLOG_PLUGIN_ID] as BacklogProjection | undefined)
   const activeUiScene = computed(() => {
@@ -250,7 +307,13 @@ export async function createQuaGameApp() {
     await engine.hideUI('confirm')
     await emit(BacklogRenderToLogicEvents.CLOSE_REQUEST, {})
   }
+  const stopAutoForHudInteraction = async () => {
+    if (engine.getFlowControlState().mode === 'auto') {
+      await engine.stopAuto()
+    }
+  }
   const openGameMenu = async () => {
+    await stopAutoForHudInteraction()
     showStoryTree.value = false
     await closePanels()
     await engine.showUI('menu', {
@@ -270,6 +333,7 @@ export async function createQuaGameApp() {
     })
   }
   const openBacklog = async () => {
+    await stopAutoForHudInteraction()
     await closePanels()
     await emit(BacklogRenderToLogicEvents.OPEN_REQUEST, {
       source: 'quick-menu',
@@ -325,6 +389,7 @@ export async function createQuaGameApp() {
   const uiDisposers = [
     onLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, (payload) => {
       activeView.value = payload.view
+      syncStoryTreeProjection()
     }),
     onLogicToRender(pipeline, LogicToRenderEvents.GAME_SAVE, (payload) => {
       showToast(`${slotLabel(payload.slotId)} 保存成功`, 'success')
@@ -400,6 +465,7 @@ export async function createQuaGameApp() {
             title: activeView.value.flowControl.mode === 'skip' ? 'Stop skip mode' : 'Skip read text',
             class: activeView.value.flowControl.mode === 'skip' ? 'is-active' : undefined,
             onClick: async () => {
+              await stopAutoForHudInteraction()
               if (activeView.value.flowControl.mode === 'skip') {
                 await engine.stopSkip()
               }
@@ -452,6 +518,7 @@ export async function createQuaGameApp() {
                   h('button', {
                     type: 'button',
                     onClick: () => {
+                      syncStoryTreeProjection()
                       showStoryTree.value = true
                     },
                   }, 'STORY TREE'),
@@ -473,7 +540,7 @@ export async function createQuaGameApp() {
               nodes: storyTreeNodes.value,
               eyebrow: 'ROUTE MAP',
               title: 'Story Tree',
-              subtitle: `${Math.max(0, highestUnlockedChapterIndex.value + 1)} / ${STORY_TREE_NODES.length} nodes unlocked`,
+              subtitle: `${unlockedStoryTreeCount.value} / ${STORY_TREE_NODES.length} nodes unlocked`,
               closeLabel: 'CLOSE',
               onClose: () => {
                 showStoryTree.value = false

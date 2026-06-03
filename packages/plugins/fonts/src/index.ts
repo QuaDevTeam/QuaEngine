@@ -4,20 +4,20 @@ import { BaseEnginePlugin } from '@quajs/engine'
 import {
   cloneFontFaceProjection,
   cloneFontsProjection,
-  FONTS_PLUGIN_ID,
   fontFaceProjectionIdentity,
+  FONTS_PLUGIN_ID,
 } from './contracts'
 
 export {
   cloneFontFaceProjection,
   cloneFontsProjection,
   createInitialFontsProjection,
+  fontFaceProjectionIdentity,
+  fontFaceProjectionSignature,
   FONTS_PLUGIN_ID,
   FONTS_RENDERER_ENTRY,
   FONTS_VUE_RENDERER_ENTRY,
   FONTS_WEB_RENDERER_ENTRY,
-  fontFaceProjectionIdentity,
-  fontFaceProjectionSignature,
 } from './contracts'
 
 export type {

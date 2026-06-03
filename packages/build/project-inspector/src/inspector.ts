@@ -13,16 +13,16 @@ import type {
   StoryIndex,
 } from './types'
 import { buildProjectIndex } from './indexer'
-import { asRecord, arrayOfStrings } from './utils'
+import { arrayOfStrings, asRecord } from './utils'
 
 export interface QuaProjectInspector {
-  getAssetLineage(ref?: { name?: string, packageId?: string, type?: string }): QuaAssetLineageSnapshot
-  getPackageHealthReport(): QuaPackageHealthReportSnapshot
-  getRuntimePackageGraph(): QuaRuntimePackageGraphSnapshot
-  getSnapshot(): QuaProjectInspectorSnapshot
-  getStoryTree(): QuaStoryTreeSnapshot
-  inspectStoryPoint(ref: QuaStoryPointRef): QuaStoryPointInspection
-  refresh(options?: Partial<QuaProjectInspectorOptions>): Promise<QuaProjectInspectorSnapshot>
+  getAssetLineage: (ref?: { name?: string, packageId?: string, type?: string }) => QuaAssetLineageSnapshot
+  getPackageHealthReport: () => QuaPackageHealthReportSnapshot
+  getRuntimePackageGraph: () => QuaRuntimePackageGraphSnapshot
+  getSnapshot: () => QuaProjectInspectorSnapshot
+  getStoryTree: () => QuaStoryTreeSnapshot
+  inspectStoryPoint: (ref: QuaStoryPointRef) => QuaStoryPointInspection
+  refresh: (options?: Partial<QuaProjectInspectorOptions>) => Promise<QuaProjectInspectorSnapshot>
 }
 
 export function createQuaProjectInspector(options: QuaProjectInspectorOptions = {}): QuaProjectInspector {

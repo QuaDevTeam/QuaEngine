@@ -9,13 +9,14 @@ import type {
   AudioTrackProjection,
   AudioViewProjection,
 } from '@quajs/plugin-audio/contracts'
+import type { WebAssetTargetPackageId } from './assets'
 import {
   AudioRenderToLogicEvents,
   cloneAudioProjection,
   createInitialAudioProjection,
   dbToGain,
 } from '@quajs/plugin-audio/contracts'
-import { getAssetWithTargetPackages, runtimePackageCandidatesFromMetadata, type WebAssetTargetPackageId } from './assets'
+import { getAssetWithTargetPackages, runtimePackageCandidatesFromMetadata } from './assets'
 
 interface AudioRuntimeCallbacks {
   emit: <T extends AudioRenderToLogicEvent>(

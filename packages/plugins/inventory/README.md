@@ -1,16 +1,8 @@
 # @quajs/plugin-inventory
 
-Programmatic inventory plugin for QuaEngine. It provides item/category definitions, profile-persistent item quantities, QuaScript decorators, and pipeline events. It intentionally ships no renderer UI and no renderer plugin entry.
+Programmatic inventory plugin for QuaEngine. It provides item/category definitions, profile-persistent item quantities, QuaScript decorators, and pipeline events.
 
-## State Model
-
-- Item and category definitions live in plugin runtime state.
-- Player item quantities live in `QuaStore` profile snapshots using `@quajs/plugin-inventory:profile:<profileId>`.
-- Profile inventory is independent from story save/load/rollback, matching gallery and achievement profile semantics.
-- Runtime package unload removes definitions/categories owned by or dependent on the package, but keeps profile records.
-- Missing definitions are kept in profile data and appear in projections as `available: false`.
-
-The active view plugin projection is intentionally lightweight. It only tracks enough metadata for revision/profile observation and does not keep item definitions, icon asset refs, or profile records in `QuaViewProjection.plugins`; a UI-less inventory must not block runtime package unload through passive view references.
+The plugin intentionally ships no renderer UI and no renderer plugin entry. A future inventory UI should be built as a separate renderer/plugin layer over the projection.
 
 ## Installation
 
@@ -26,6 +18,16 @@ engine.use(new InventoryPlugin({
 ```
 
 If `@quajs/plugin-settings` is installed, the inventory plugin registers a developer settings scope for `defaultProfileId`. It does not register player UI settings.
+
+## State Model
+
+- Item and category definitions live in plugin runtime state.
+- Player item quantities live in `QuaStore` profile snapshots using `@quajs/plugin-inventory:profile:<profileId>`.
+- Profile inventory is independent from story save/load/rollback, matching gallery and achievement profile semantics.
+- Runtime package unload removes definitions/categories owned by or dependent on the package but keeps profile records.
+- Missing definitions are kept in profile data and appear in projections as `available: false`.
+
+The active view plugin projection is intentionally lightweight. It only tracks enough metadata for revision/profile observation and does not keep item definitions, icon asset refs, or profile records in `QuaViewProjection.plugins`.
 
 ## Register Definitions
 
@@ -112,10 +114,10 @@ Narrator: Your purse is empty.
 
 Decorator mappings:
 
-| Decorator | Runtime helper |
-| --- | --- |
-| `@GrantInventoryItem(itemId, options?)` | `grantInventoryItemWithEngine` |
-| `@ConsumeInventoryItem(itemId, options?)` | `consumeInventoryItemWithEngine` |
+| Decorator                                               | Runtime helper                       |
+| ------------------------------------------------------- | ------------------------------------ |
+| `@GrantInventoryItem(itemId, options?)`                 | `grantInventoryItemWithEngine`       |
+| `@ConsumeInventoryItem(itemId, options?)`               | `consumeInventoryItemWithEngine`     |
 | `@SetInventoryItemQuantity(itemId, quantity, options?)` | `setInventoryItemQuantityWithEngine` |
 
 ## Pipeline Events
@@ -128,11 +130,18 @@ Inventory emits logic-side pipeline events only:
 Use the contract helpers when subscribing:
 
 ```ts
-import { InventoryLogicEvents, onInventoryLogic } from '@quajs/plugin-inventory/contracts'
+import {
+  InventoryLogicEvents,
+  onInventoryLogic,
+} from '@quajs/plugin-inventory/contracts'
 
-const dispose = onInventoryLogic(engine.getPipeline(), InventoryLogicEvents.ITEM_CHANGED, async (payload) => {
-  console.log(payload.itemId, payload.previousQuantity, payload.quantity)
-})
+const dispose = onInventoryLogic(
+  engine.getPipeline(),
+  InventoryLogicEvents.ITEM_CHANGED,
+  async (payload) => {
+    console.log(payload.itemId, payload.previousQuantity, payload.quantity)
+  },
+)
 ```
 
-There are no render-to-logic inventory events in this package. A future inventory UI should live in a separate renderer/plugin layer.
+There are no render-to-logic inventory events in this package.

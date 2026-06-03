@@ -27,7 +27,7 @@ import {
   SPRITE_UI_SKINS_DIR,
 } from './contracts'
 
-type SpriteSourceFile = {
+interface SpriteSourceFile {
   absPath: string
   relativePath: string
 }
@@ -50,9 +50,8 @@ export async function createDerivedSpriteAssets(sourceRoot: string, assets: read
   initializePsdShim()
 
   const generated: AssetInfo[] = []
-  const psdFiles = await findSourceFiles(sourceRoot, (relativePath) =>
-    isCharacterSpritePsdSource(relativePath),
-  )
+  const psdFiles = await findSourceFiles(sourceRoot, relativePath =>
+    isCharacterSpritePsdSource(relativePath))
 
   for (const file of psdFiles) {
     const family = resolveCharacterPsdFamily(file.relativePath)
@@ -352,7 +351,7 @@ function inferUiSkinStateAssets(
   states?: Partial<Record<SpriteSkinStateName, SpriteSkinStateDefinition>>
 } {
   const skinRoot = `${SPRITE_UI_SKINS_DIR}/${family}/${skinName}/`
-  const baseCandidates = assets.filter(asset => {
+  const baseCandidates = assets.filter((asset) => {
     const relativePath = normalizeSpritePath(asset.relativePath) || asset.relativePath
     if (!relativePath.startsWith(skinRoot)) {
       return false
@@ -641,7 +640,7 @@ function safeLayerName(name: string | undefined): string | undefined {
     return undefined
   }
   const normalized = normalizeSpritePath(name) || name
-  return normalized.replace(/[^a-zA-Z0-9/_-]/g, '-').trim().replace(/\/+/g, '/')
+  return normalized.replace(/[^\w/-]/g, '-').trim().replace(/\/+/g, '/')
 }
 
 function isCharacterSpriteOutputName(name: string): boolean {

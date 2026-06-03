@@ -1,6 +1,6 @@
 import type { ChoiceIntent, EngineContext, JumpOptions, QuaEngineInterface, StoryPoint } from '@quajs/engine'
 import { BaseEnginePlugin, LogicToRenderEvents, RenderToLogicEvents } from '@quajs/engine'
-import { storyGraphDecoratorMappings } from './script-compiler'
+import { storyGraphDecoratorMappings } from './decorators'
 
 export const STORY_GRAPH_PLUGIN_ID = 'storyGraph' as const
 
@@ -85,8 +85,15 @@ export interface StoryNodeChapterSelectOptions {
   order?: number
   thumbnail?: StoryAssetRef
   unlockOnVisit?: boolean
+  lockedVisibility?: StoryChapterSelectLockedVisibility
+  lockedTitle?: string
+  lockedSummary?: string
+  lockedThumbnail?: StoryAssetRef
+  lockEntryUntilUnlocked?: boolean
   metadata?: Readonly<Record<string, unknown>>
 }
+
+export type StoryChapterSelectLockedVisibility = 'placeholder' | 'hidden' | 'revealed'
 
 export interface StoryChapterSelectNodeProjection {
   graphId: string
@@ -97,6 +104,9 @@ export interface StoryChapterSelectNodeProjection {
   order?: number
   thumbnail?: StoryAssetRef
   unlocked: boolean
+  entryLocked: boolean
+  spoilerHidden: boolean
+  lockedVisibility: StoryChapterSelectLockedVisibility
   current: boolean
   contentPackageId?: string
   requiredRuntimePackages?: readonly string[]
@@ -544,7 +554,7 @@ export async function jumpToChapterSelectNodeWithEngine(
     throw new Error(`Chapter select node "${normalizedNodeId}" is ambiguous across ${candidates.length} graphs.`)
   }
   const target = candidates[0]
-  if (!target.unlocked && !options.force) {
+  if (target.entryLocked && !options.force) {
     throw new Error(`Chapter select node "${normalizedNodeId}" is locked.`)
   }
   if (target.requiredRuntimePackages?.length) {
@@ -705,25 +715,25 @@ function stripStoryMetadata(patch: Partial<StoryPoint> & { metadata?: Record<str
 function resetStoryPointByPatch(current: StoryPoint, patch: Partial<StoryPoint>): StoryPoint {
   const point = { ...current } as StoryPoint & Record<string, unknown>
   if (patch.chapterId !== undefined) {
-    delete point['sceneId']
-    delete point['entryId']
-    delete point['nodeId']
-    delete point['labelId']
+    delete point.sceneId
+    delete point.entryId
+    delete point.nodeId
+    delete point.labelId
   }
   if (patch.sceneId !== undefined) {
-    delete point['entryId']
-    delete point['nodeId']
-    delete point['labelId']
+    delete point.entryId
+    delete point.nodeId
+    delete point.labelId
   }
   if (patch.entryId !== undefined) {
-    delete point['nodeId']
-    delete point['labelId']
+    delete point.nodeId
+    delete point.labelId
   }
   if (patch.nodeId !== undefined) {
-    delete point['labelId']
+    delete point.labelId
   }
   if (patch.labelId !== undefined) {
-    delete point['nodeId']
+    delete point.nodeId
   }
   return point
 }
@@ -783,13 +793,23 @@ function createStoryChapterSelectProjection(
         sourceIndex += 1
         continue
       }
-      const thumbnail = chapterSelect.thumbnail || node.presentation?.thumbnail
+      const nodeUnlocked = unlocked.has(node.id)
+      const lockedVisibility = chapterSelect.lockedVisibility || 'placeholder'
+      if (!nodeUnlocked && lockedVisibility === 'hidden') {
+        sourceIndex += 1
+        continue
+      }
+      const spoilerHidden = !nodeUnlocked && lockedVisibility !== 'revealed'
+      const thumbnail = spoilerHidden
+        ? chapterSelect.lockedThumbnail
+        : chapterSelect.thumbnail || node.presentation?.thumbnail
       const contentPackageId = node.point.contentPackageId || contentPackageIdFromMetadata(node.metadata)
       const requiredRuntimePackages = mergeStringLists(
         runtimePackagesForStoryNode(node),
         runtimePackagesForStoryAsset(thumbnail),
         getMetadataRequiredRuntimePackages(chapterSelect.metadata),
       )
+      const entryLocked = !nodeUnlocked && chapterSelect.lockEntryUntilUnlocked !== false
       nodes.push({
         graphId,
         nodeId: node.id,
@@ -797,15 +817,18 @@ function createStoryChapterSelectProjection(
           ...node.point,
           storyId: node.point.storyId || graphId,
         },
-        title: chapterSelect.title || node.title,
-        summary: chapterSelect.summary || node.summary,
+        title: spoilerHidden ? chapterSelect.lockedTitle || 'Locked' : chapterSelect.title || node.title,
+        summary: spoilerHidden ? chapterSelect.lockedSummary || 'Reach this point to reveal it.' : chapterSelect.summary || node.summary,
         order: chapterSelect.order,
         thumbnail: thumbnail ? cloneUnknownValue(thumbnail) as StoryAssetRef : undefined,
-        unlocked: unlocked.has(node.id),
+        unlocked: nodeUnlocked,
+        entryLocked,
+        spoilerHidden,
+        lockedVisibility,
         current: storyPointMatchesNode(currentPoint, graphId, node),
         contentPackageId,
         requiredRuntimePackages: storyPointRequiredRuntimePackages(contentPackageId, requiredRuntimePackages),
-        metadata: chapterSelect.metadata ? { ...chapterSelect.metadata } : undefined,
+        metadata: spoilerHidden ? undefined : chapterSelect.metadata ? { ...chapterSelect.metadata } : undefined,
         sourceIndex,
       })
       sourceIndex += 1
@@ -1000,7 +1023,12 @@ function storyNodeMatchesTarget(node: StoryNode, target: ChoiceTarget, id: strin
     return Boolean(
       node.point.scriptModuleId === target.moduleId
       && (
-        target.nodeId === undefined && target.labelId === undefined && target.entryId === undefined && target.stepId === undefined
+        (
+          target.nodeId === undefined
+          && target.labelId === undefined
+          && target.entryId === undefined
+          && target.stepId === undefined
+        )
         || node.point.nodeId === target.nodeId
         || getStoryPointField(node.point, 'labelId') === target.labelId
         || getStoryPointField(node.point, 'entryId') === target.entryId
@@ -1190,7 +1218,7 @@ function getChoiceEdgeIntent(metadata: Readonly<Record<string, unknown>> | undef
     condition: typeof value.condition === 'string' ? value.condition : undefined,
     metadata: value.metadata && typeof value.metadata === 'object'
       ? { ...(value.metadata as Record<string, unknown>) }
-    : undefined,
+      : undefined,
   }
 }
 
@@ -1408,8 +1436,25 @@ function normalizeChapterSelectOptions(
     order: options.order === undefined ? undefined : requireSafeInteger(options.order, 'Chapter select order must be a safe integer.'),
     thumbnail: options.thumbnail ? normalizeStoryAssetRef(options.thumbnail, packageId) : undefined,
     unlockOnVisit: options.unlockOnVisit,
+    lockedVisibility: normalizeChapterSelectLockedVisibility(options.lockedVisibility),
+    lockedTitle: trimOptionalString(options.lockedTitle),
+    lockedSummary: trimOptionalString(options.lockedSummary),
+    lockedThumbnail: options.lockedThumbnail ? normalizeStoryAssetRef(options.lockedThumbnail, packageId) : undefined,
+    lockEntryUntilUnlocked: options.lockEntryUntilUnlocked,
     metadata: options.metadata ? { ...options.metadata } : undefined,
   }
+}
+
+function normalizeChapterSelectLockedVisibility(
+  value: StoryChapterSelectLockedVisibility | undefined,
+): StoryChapterSelectLockedVisibility | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+  if (value === 'placeholder' || value === 'hidden' || value === 'revealed') {
+    return value
+  }
+  throw new Error(`Chapter select lockedVisibility must be "placeholder", "hidden", or "revealed".`)
 }
 
 function normalizeStoryAssetRef(ref: StoryAssetRef, packageId?: string): StoryAssetRef {
@@ -1425,7 +1470,7 @@ function trimOptionalString(value: string | undefined): string | undefined {
 
 function requireSafeInteger(value: number, message: string): number {
   if (!Number.isSafeInteger(value)) {
-    throw new Error(message)
+    throw new TypeError(message)
   }
   return value
 }
@@ -1492,6 +1537,7 @@ function metadataRequiresPackage(metadata: Readonly<Record<string, unknown>> | u
 
 function chapterSelectRequiresPackage(chapterSelect: StoryNodeChapterSelectOptions | undefined, packageId: string): boolean {
   return chapterSelect?.thumbnail?.runtimePackageId === packageId
+    || chapterSelect?.lockedThumbnail?.runtimePackageId === packageId
     || metadataRequiresPackage(chapterSelect?.metadata, packageId)
 }
 
@@ -1582,6 +1628,7 @@ function runtimePackagesForStoryNode(node: StoryNode): string[] {
     contentPackageIdFromMetadata(node.metadata) ? [contentPackageIdFromMetadata(node.metadata)!] : [],
     getMetadataRequiredRuntimePackages(node.metadata),
     runtimePackagesForStoryAsset(node.chapterSelect?.thumbnail),
+    runtimePackagesForStoryAsset(node.chapterSelect?.lockedThumbnail),
     getMetadataRequiredRuntimePackages(node.chapterSelect?.metadata),
   )
 }
@@ -1687,4 +1734,4 @@ function onPipeline<T>(
   return () => pipeline.off(type, listener as Parameters<EngineContext['pipeline']['off']>[1])
 }
 
-export { decorators, scriptCompiler, storyGraphDecoratorMappings } from './script-compiler'
+export { decorators, storyGraphDecoratorMappings } from './decorators'

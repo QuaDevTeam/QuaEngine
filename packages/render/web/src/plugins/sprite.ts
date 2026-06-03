@@ -1,11 +1,11 @@
 import type { AssetType } from '@quajs/assets'
-import type { WebAssetTargetPackageId } from '../assets'
 import type {
   SpriteManifest,
   SpriteReference,
   SpriteResolvedLayer,
 } from '@quajs/plugin-sprite/contracts'
 import type { ActiveAnimationProjection, RendererPlugin, ViewCharacterProjection } from '@quajs/render-core'
+import type { WebAssetTargetPackageId } from '../assets'
 import type { QuaWebDomLayerContext } from './core'
 import {
   resolveSpriteProjection,
@@ -13,6 +13,7 @@ import {
 } from '@quajs/plugin-sprite/contracts'
 import { applyTrackValues, collectTrackValues } from '../animation'
 import { getJSONWithTargetPackages, runtimePackageCandidatesFromMetadata } from '../assets'
+
 export type {
   ResolvedSpriteSkinProjection,
   SpriteInsets,

@@ -13,7 +13,6 @@ import {
   getInventoryProjection,
   grantInventoryItemWithEngine,
   hasInventoryItemWithEngine,
-  INVENTORY_PLUGIN_ID,
   INVENTORY_PROFILE_STORE_PREFIX,
   INVENTORY_SETTINGS_SCOPE,
   InventoryLogicEvents,

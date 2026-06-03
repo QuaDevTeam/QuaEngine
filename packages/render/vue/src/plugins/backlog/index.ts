@@ -1,6 +1,6 @@
 import type { BacklogEntry, BacklogProjection, BacklogUiSceneProjection } from '@quajs/plugin-backlog/contracts'
-import type { QuaVueRendererPlugin } from '../core'
 import type { PropType, VNode } from 'vue'
+import type { QuaVueRendererPlugin } from '../core'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import { computed, defineComponent, h } from 'vue'
 import { useRendererActions, useUiControlSkin } from '../../composables'
@@ -113,7 +113,7 @@ export const QuaBacklogLayer = defineComponent({
           'data-qua-capture-role': 'overlay',
           ...createBacklogSceneDataset(projection.value.ui?.scene),
           'style': { pointerEvents: 'auto' },
-          onClick: (event: Event) => event.stopPropagation(),
+          'onClick': (event: Event) => event.stopPropagation(),
         }, slots.default?.(createBacklogLayerSlotPayload(projection.value, actions, close)) || [
           h('section', {
             'class': 'qua-backlog-panel',
@@ -220,8 +220,8 @@ function renderBacklogEntryContent(entry: BacklogEntry): VNode {
     entry.kind === 'choice' && entry.choices?.length
       ? h('span', { class: 'qua-backlog-choice-list' }, entry.choices.map(choice =>
           h('span', {
-            key: choice.id,
-            class: 'qua-backlog-choice-item',
+            'key': choice.id,
+            'class': 'qua-backlog-choice-item',
             'data-backlog-choice-id': choice.id,
           }, choice.text),
         ))

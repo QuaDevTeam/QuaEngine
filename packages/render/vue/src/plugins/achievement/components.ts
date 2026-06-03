@@ -13,10 +13,10 @@ import {
   ACHIEVEMENT_PLUGIN_ID,
   AchievementRenderToLogicEvents,
 } from '@quajs/plugin-achievement/contracts'
+import { runtimePackageCandidatesFromMetadata } from '@quajs/renderer-web'
 import {
   createAchievementProjectionModel,
 } from '@quajs/renderer-web/plugins/achievement'
-import { runtimePackageCandidatesFromMetadata } from '@quajs/renderer-web'
 import { computed, defineComponent, h, onBeforeUnmount, watch } from 'vue'
 import { useAssetUrl, usePluginProjection, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'

@@ -1,4 +1,5 @@
 import type { SettingsProjection } from '@quajs/plugin-settings/contracts'
+import type { ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { RendererActions, UiSkinControlKind } from '@quajs/renderer-web'
 import type {
   SettingsFieldFormProjection,
@@ -7,7 +8,6 @@ import type {
   SettingsInputParseResult,
   SettingsScopeFormProjection,
 } from '@quajs/renderer-web/plugins/settings'
-import type { ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { Component, PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
@@ -396,8 +396,8 @@ export const QuaSettingsLayer = defineComponent({
           'data-ui-scene-overlay-variant': scene.value?.overlay?.variant,
           'data-ui-scene-hide-hud': scene.value?.overlay?.hideHud ? 'true' : undefined,
           'data-ui-scene-hide-dialogue': scene.value?.overlay?.hideDialogue ? 'true' : undefined,
-          style: { pointerEvents: 'auto' },
-          onClick: (event: Event) => event.stopPropagation(),
+          'style': { pointerEvents: 'auto' },
+          'onClick': (event: Event) => event.stopPropagation(),
         }, slots.default?.(createSettingsLayerSlotPayload(renderer, actions, settings.value, form.value, props.elementId)) || h(QuaSettingsForm, {
           form: form.value,
           elementId: props.elementId,
@@ -462,11 +462,11 @@ function renderControl(
     return h('textarea', {
       'class': ['qua-settings-control', 'qua-settings-control--textarea'],
       'data-settings-control': control,
-      id: settingsFieldInputId(scope.scope, field.pathKey),
-      disabled: field.readonly,
-      value: stringifySettingsInputValue(field),
+      'id': settingsFieldInputId(scope.scope, field.pathKey),
+      'disabled': field.readonly,
+      'value': stringifySettingsInputValue(field),
       ...createSkinAttrs('input', skin),
-      onChange: (event: Event) => updateField(renderer, actions, scope, field, parseEventValue(field, event)),
+      'onChange': (event: Event) => updateField(renderer, actions, scope, field, parseEventValue(field, event)),
     })
   }
   if (control === 'select') {
@@ -474,11 +474,11 @@ function renderControl(
     return h('select', {
       'class': ['qua-settings-control', 'qua-settings-control--select'],
       'data-settings-control': control,
-      id: settingsFieldInputId(scope.scope, field.pathKey),
-      disabled: field.readonly,
-      value: encodeSettingsOptionValue(field.value),
+      'id': settingsFieldInputId(scope.scope, field.pathKey),
+      'disabled': field.readonly,
+      'value': encodeSettingsOptionValue(field.value),
       ...createSkinAttrs('tab', skin),
-      onChange: (event: Event) => updateField(renderer, actions, scope, field, parseEventValue(field, event)),
+      'onChange': (event: Event) => updateField(renderer, actions, scope, field, parseEventValue(field, event)),
     }, settingsOptions(field).map(option => h('option', {
       key: encodeSettingsOptionValue(option.value),
       value: encodeSettingsOptionValue(option.value),
@@ -525,17 +525,17 @@ function renderControl(
   return h('input', {
     'class': ['qua-settings-control', `qua-settings-control--${inputType}`],
     'data-settings-control': control,
-    id: settingsFieldInputId(scope.scope, field.pathKey),
-    type: inputType,
-    disabled: field.readonly,
-    checked: inputType === 'checkbox' ? Boolean(field.value) : undefined,
-    value: inputType === 'checkbox' ? undefined : stringifySettingsInputValue(field),
-    min: field.control.min,
-    max: field.control.max,
-    step: field.control.step,
-    placeholder: field.control.placeholder,
+    'id': settingsFieldInputId(scope.scope, field.pathKey),
+    'type': inputType,
+    'disabled': field.readonly,
+    'checked': inputType === 'checkbox' ? Boolean(field.value) : undefined,
+    'value': inputType === 'checkbox' ? undefined : stringifySettingsInputValue(field),
+    'min': field.control.min,
+    'max': field.control.max,
+    'step': field.control.step,
+    'placeholder': field.control.placeholder,
     ...createSkinAttrs(skinKind, skin),
-    onChange: (event: Event) => updateField(renderer, actions, scope, field, parseEventValue(field, event)),
+    'onChange': (event: Event) => updateField(renderer, actions, scope, field, parseEventValue(field, event)),
   })
 }
 

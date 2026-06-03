@@ -1581,28 +1581,37 @@ export class QuaEngine {
         ? await this.rollbackController.exportStoreSaveData(this.store.getName())
         : undefined
       const requiredRuntimePackages = this.getRequiredRuntimePackagesForCurrentState(this.getStoryPoint(), metadata)
+      const storyPoint = this.getStoryPoint()
       const mergedMetadata = {
         ...metadata,
         ...(rollbackJournal ? { rollbackJournal } : {}),
         ...(rollbackStoreData && Object.keys(rollbackStoreData).length > 0 ? { rollbackStoreData } : {}),
-        sceneName: metadata.sceneName || this.getCurrentSceneName(),
+        sceneName: metadata.sceneName || this.getCurrentSceneName() || storyPoint?.sceneId,
         stepId: metadata.stepId || this.getCurrentStepId(),
+        chapterId: metadata.chapterId || storyPoint?.chapterId,
+        routeId: metadata.routeId || storyPoint?.routeId,
+        nodeId: metadata.nodeId || storyPoint?.nodeId,
+        lineId: metadata.lineId || storyPoint?.lineId,
         playtime,
         locale: this.getLocale(),
         checkpointId: checkpoint.id,
-        storyPoint: this.getStoryPoint(),
+        storyPoint,
         requiredRuntimePackages,
         timestamp: Date.now(),
       }
+      const slotName = metadata.name || this.createDefaultSaveSlotName(slotId, reason, mergedMetadata)
       const baseStoreData = await this.store.exportSaveData()
       resolvedPreview = await this.resolveSavePreview(slotId, reason, options)
       savedSlot = await this.store.saveToSlot({
         slotId,
-        name: mergedMetadata.name,
+        name: slotName,
         saveOpId: resolvedPreview.saveOpId,
         previewStatus: resolvedPreview.previewStatus,
         preview: resolvedPreview.preview,
-        metadata: mergedMetadata,
+        metadata: {
+          ...mergedMetadata,
+          name: slotName,
+        },
         storeData: baseStoreData,
       })
     }
@@ -1729,6 +1738,35 @@ export class QuaEngine {
 
   async autoSave(metadata: SlotMetadata = {}, options: SaveToSlotOptions = {}): Promise<void> {
     await this.saveToSlot('autosave', { name: 'Auto Save', ...metadata }, { ...options, reason: 'autoSave' })
+  }
+
+  private createDefaultSaveSlotName(
+    slotId: string,
+    reason: SaveReason,
+    metadata: SlotMetadata,
+  ): string {
+    if (reason === 'quickSave' || slotId === 'quicksave') {
+      return 'Quick Save'
+    }
+    if (reason === 'autoSave' || slotId === 'autosave') {
+      return 'Auto Save'
+    }
+
+    const storyPoint = isStoryPoint(metadata.storyPoint) ? metadata.storyPoint : this.getStoryPoint()
+    const chapter = readableSaveNamePart(storyPoint?.chapterId)
+    const scene = readableSaveNamePart(metadata.sceneName || storyPoint?.sceneId)
+    const route = readableSaveNamePart(storyPoint?.routeId || storyPoint?.laneId)
+    const titleParts = [
+      chapter ? `Chapter ${chapter}` : undefined,
+      scene,
+      route && route !== scene ? route : undefined,
+    ].filter(Boolean)
+
+    if (titleParts.length > 0) {
+      return titleParts.join(' · ')
+    }
+
+    return `Save ${readableSaveNamePart(slotId) || 'Slot'}`
   }
 
   async listSaveSlots() {
@@ -2143,6 +2181,12 @@ export class QuaEngine {
   }
 
   private setupFlowControlIntents(): void {
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.USER_INPUT_COMMAND, async (payload) => {
+      await this.stopAutoForUserInteraction((payload as { command?: unknown }).command)
+    }))
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.USER_CLICK, () => this.stopAutoForUserInteraction()))
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.USER_KEY_PRESS, () => this.stopAutoForUserInteraction()))
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.USER_CHOICE_SELECT, () => this.stopAutoForUserInteraction()))
     this.flowControlDisposers.push(this.onRenderIntent(R2L.FLOW_CONTROL_SET_MODE_REQUEST, async (payload) => {
       const mode = isFlowControlMode((payload as { mode?: unknown }).mode)
         ? (payload as { mode: FlowControlMode }).mode
@@ -2155,7 +2199,8 @@ export class QuaEngine {
     this.flowControlDisposers.push(this.onRenderIntent(R2L.FLOW_CONTROL_STOP_SKIP_REQUEST, () => this.stopSkip()))
     this.flowControlDisposers.push(this.onRenderIntent(R2L.FLOW_CONTROL_START_FAST_FORWARD_REQUEST, () => this.startFastForward()))
     this.flowControlDisposers.push(this.onRenderIntent(R2L.FLOW_CONTROL_STOP_FAST_FORWARD_REQUEST, () => this.stopFastForward()))
-    this.flowControlDisposers.push(this.onRenderIntent(R2L.USER_ADVANCE, () => {
+    this.flowControlDisposers.push(this.onRenderIntent(R2L.USER_ADVANCE, async (payload) => {
+      await this.stopAutoForUserInteraction(undefined, (payload as { source?: unknown }).source)
       this.clearFlowControlAdvance()
       this.markCurrentStoryPointRead()
     }))
@@ -2175,6 +2220,7 @@ export class QuaEngine {
 
   private setupSaveLoadIntents(): void {
     this.flowControlDisposers.push(this.onRenderIntent(R2L.GAME_SAVE_REQUEST, async (payload) => {
+      await this.stopAutoForUserInteraction()
       const slotId = typeof (payload as { slotId?: unknown }).slotId === 'string'
         ? (payload as { slotId: string }).slotId
         : 'quicksave'
@@ -2185,6 +2231,7 @@ export class QuaEngine {
       await this.saveToSlot(slotId, {}, { preview: (payload as { preview?: SaveToSlotOptions['preview'] }).preview })
     }))
     this.flowControlDisposers.push(this.onRenderIntent(R2L.GAME_LOAD_REQUEST, async (payload) => {
+      await this.stopAutoForUserInteraction()
       const slotId = typeof (payload as { slotId?: unknown }).slotId === 'string'
         ? (payload as { slotId: string }).slotId
         : 'quicksave'
@@ -2594,6 +2641,19 @@ export class QuaEngine {
     }
     clearTimeout(this.flowControlAdvanceTimer)
     this.flowControlAdvanceTimer = undefined
+  }
+
+  private async stopAutoForUserInteraction(command?: unknown, source?: unknown): Promise<void> {
+    if (this.getEngineState().view.flowControl.mode !== 'auto') {
+      return
+    }
+    if (source === 'flow-control:auto') {
+      return
+    }
+    if (command === 'auto:start' || command === 'auto:toggle') {
+      return
+    }
+    await this.stopAuto()
   }
 
   private async emitFlowControlAdvance(plan: FlowControlAdvancePlan): Promise<void> {
@@ -3781,6 +3841,30 @@ function createStoryPointReadKey(point: StoryPoint | undefined): string | undefi
   return fields
     .map(field => `${field}:${String(point[field] ?? '')}`)
     .join('|')
+}
+
+function readableSaveNamePart(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+  const normalized = value.trim()
+  if (!normalized || isInternalSaveNamePart(normalized)) {
+    return undefined
+  }
+  return normalized
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(/[-_:/\\]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase())
+}
+
+function isInternalSaveNamePart(value: string): boolean {
+  return value.startsWith('@quajs/')
+    || value.includes('/ui-overlay-host')
+    || value.includes(':ui-overlay-host')
+    || /^slot-\d+$/i.test(value)
+    || value === 'quicksave'
+    || value === 'autosave'
 }
 
 function storyPointsHaveSameReadIdentity(left: StoryPoint, right: StoryPoint): boolean {

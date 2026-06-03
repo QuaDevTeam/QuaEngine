@@ -727,7 +727,8 @@ describe('@quajs/renderer-vue', () => {
       selectable: true,
       nodes: [
         { id: 'start', chapter: '00', title: 'Start', description: 'Opening', state: 'current' },
-        { id: 'locked', chapter: '01', title: 'Locked', state: 'locked' },
+        { id: 'locked', chapter: '01', title: 'Locked', state: 'locked', entryLocked: true, spoilerHidden: true },
+        { id: 'hidden', chapter: '02', title: 'Hidden', state: 'locked', hidden: true },
       ],
       onClose: () => closed.push('close'),
       onSelect: (node: { id: string }) => selected.push(node.id),
@@ -741,6 +742,10 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.querySelector('.custom-story-panel')).not.toBeNull()
     expect(host.el.querySelector('.custom-story-nodes')).not.toBeNull()
     expect(host.el.querySelectorAll('.custom-story-node')).toHaveLength(2)
+    expect(host.el.querySelector('[data-story-tree-node-id="hidden"]')).toBeNull()
+    expect(host.el.querySelectorAll('.qua-story-tree__node-button')).toHaveLength(1)
+    expect(host.el.querySelector('[data-story-tree-node-id="locked"]')?.getAttribute('data-story-tree-node-entry-locked')).toBe('true')
+    expect(host.el.querySelector('[data-story-tree-node-id="locked"]')?.textContent).toContain('LOCKED')
     host.el.querySelector<HTMLButtonElement>('.qua-story-tree__node-button')!.click()
     host.el.querySelector<HTMLButtonElement>('.custom-story-close')!.click()
     await flushVue()
@@ -1228,7 +1233,7 @@ describe('@quajs/renderer-vue', () => {
     expect(toggle?.dataset.skinState).toBe('selected')
 
     await host.app.unmount()
-    await flushVue()
+    await flushAssetUrlRevokeGrace()
     expect(revoke).toHaveBeenCalled()
     expect(create).toHaveBeenCalled()
     await assets.cleanup()
@@ -1485,6 +1490,49 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.querySelector('.qua-background')?.getAttribute('style')).toContain('--qua-background-x: 10')
   })
 
+  it('keeps hidden Vue characters mounted for their exit transition', async () => {
+    vi.useFakeTimers()
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins({
+        character: {
+          transitions: {
+            enterDurationMs: 40,
+            exitDurationMs: 30,
+          },
+        },
+      }),
+      initialView: view({
+        characters: [{ id: 'Alice', name: 'Alice', visible: true, position: { x: 960, y: 540 } }],
+      }),
+    })
+
+    await nextTick()
+
+    const layer = host.el.querySelector<HTMLElement>('.qua-character-layer')
+    expect(layer?.dataset.characterTransitions).toBe('enabled')
+    expect(layer?.getAttribute('style')).toContain('--qua-character-enter-duration: 40ms')
+    expect(layer?.getAttribute('style')).toContain('--qua-character-exit-duration: 30ms')
+    expect(host.el.querySelector('.qua-character')?.getAttribute('data-character-presence')).toBe('enter')
+
+    await emitLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, {
+      view: view({
+        characters: [{ id: 'Alice', name: 'Alice', visible: false, position: { x: 960, y: 540 } }],
+      }),
+    })
+    await nextTick()
+
+    expect(host.el.querySelector('.qua-character')?.getAttribute('data-character-presence')).toBe('exit')
+
+    vi.advanceTimersByTime(30)
+    await nextTick()
+
+    expect(host.el.querySelector('.qua-character')).toBeNull()
+
+    host.app.unmount()
+  })
+
   it('does not inject default visual styles and supports renderer plugins', async () => {
     const pipeline = new Pipeline()
     const plugin: RendererPlugin = {
@@ -1690,7 +1738,7 @@ describe('@quajs/renderer-vue', () => {
     expect(create).toHaveBeenCalled()
 
     host.app.unmount()
-    await flushVue()
+    await flushAssetUrlRevokeGrace()
     expect(revoke).toHaveBeenCalled()
     await assets.cleanup()
   })
@@ -1763,7 +1811,7 @@ describe('@quajs/renderer-vue', () => {
     expect(create).toHaveBeenCalled()
 
     host.app.unmount()
-    await flushVue()
+    await flushAssetUrlRevokeGrace()
     expect(revoke).toHaveBeenCalled()
     await assets.cleanup()
   })
@@ -1839,7 +1887,7 @@ describe('@quajs/renderer-vue', () => {
     expect(create.mock.calls.length).toBeGreaterThanOrEqual(2)
 
     host.app.unmount()
-    await flushVue()
+    await flushAssetUrlRevokeGrace()
     expect(revoke).toHaveBeenCalled()
     await assets.cleanup()
   })
@@ -1908,6 +1956,7 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.querySelector('img')!.getAttribute('src')).toBe('blob:asset')
 
     host.app.unmount()
+    await flushAssetUrlRevokeGrace()
     expect(revoke).toHaveBeenCalledWith('blob:asset')
     await assets.cleanup()
   })
@@ -1977,10 +2026,12 @@ describe('@quajs/renderer-vue', () => {
     await flushVue()
 
     expect(host.el.querySelector('img')!.getAttribute('src')).toBe('blob:first')
-    expect(create).toHaveBeenCalledTimes(2)
-    expect(revoke).toHaveBeenCalledWith('blob:second')
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(revoke).not.toHaveBeenCalled()
 
     host.app.unmount()
+    await flushAssetUrlRevokeGrace()
+    expect(revoke).toHaveBeenCalledWith('blob:first')
     await assets.cleanup()
   })
 
@@ -2042,6 +2093,7 @@ describe('@quajs/renderer-vue', () => {
 
     expect(host.el.querySelector('img')!.getAttribute('src')).toBe('blob:changed')
     expect(create).toHaveBeenCalledTimes(2)
+    await flushAssetUrlRevokeGrace()
     expect(revoke).toHaveBeenCalledWith('blob:first')
 
     host.app.unmount()
@@ -2101,6 +2153,7 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.querySelector('.qua-background')?.getAttribute('src')).toBe('blob:bg:changed')
     expect(backgroundFetches).toBe(2)
     expect(create).toHaveBeenCalledTimes(2)
+    await flushAssetUrlRevokeGrace()
     expect(revoke).toHaveBeenCalledWith('blob:bg:first')
 
     host.app.unmount()
@@ -2122,6 +2175,11 @@ async function flushVue(): Promise<void> {
   await nextTick()
   await new Promise(resolve => setTimeout(resolve, 0))
   await nextTick()
+}
+
+async function flushAssetUrlRevokeGrace(): Promise<void> {
+  await new Promise(resolve => setTimeout(resolve, 300))
+  await flushVue()
 }
 
 async function flushMicrotasks(): Promise<void> {

@@ -22,17 +22,12 @@
 }
 
 .qua-character {
-  left: var(--qua-character-left, 50%);
-  top: var(--qua-character-top, 50%);
-  transform: translate(-50%, -50%) scale(var(--qua-character-scale, 1))
-    rotate(calc(var(--qua-character-rotation, 0) * 1deg));
-  z-index: var(--qua-character-layer, 1);
-  max-width: min(34%, 460px);
-  max-height: 86%;
-  opacity: var(--qua-character-opacity, 1);
+  width: var(--qua-character-width, min(34%, 460px));
+  max-width: var(--qua-character-max-width, min(100%, 520px));
+  max-height: var(--qua-character-max-height, 86%);
   transition:
-    opacity 180ms ease,
-    transform 220ms ease;
+    opacity var(--qua-character-exit-duration, 180ms) ease,
+    transform var(--qua-character-enter-duration, 220ms) ease;
 }
 
 .qua-character.is-hidden {

@@ -16,12 +16,12 @@ import type { GalleryProjectionModel } from '@quajs/renderer-web/plugins/gallery
 import type { PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
+import { runtimePackageCandidatesFromMetadata } from '@quajs/renderer-web'
 import {
   createGalleryProjectionModel,
   resolveGalleryContentPreviewAsset,
   resolveGalleryEntryPreviewAsset,
 } from '@quajs/renderer-web/plugins/gallery'
-import { runtimePackageCandidatesFromMetadata } from '@quajs/renderer-web'
 import { computed, defineComponent, h } from 'vue'
 import { useAssetUrl, usePluginProjection, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
@@ -77,13 +77,13 @@ export const QuaGalleryLayer = defineComponent({
         view: view.value,
         projection: gallery.value.projection,
         gallery: gallery.value,
-          actions,
-        }) || renderGalleryDefault({
-          gallery: gallery.value,
-          renderer,
-          actions,
-          closeSkin,
-          inputSkin,
+        actions,
+      }) || renderGalleryDefault({
+        gallery: gallery.value,
+        renderer,
+        actions,
+        closeSkin,
+        inputSkin,
         toggleSkin,
       }))
     }

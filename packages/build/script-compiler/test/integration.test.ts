@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
 import { audioDecoratorMappings, scriptCompiler as audioScriptCompiler } from '@quajs/plugin-audio/script-compiler'
+import { describe, expect, it } from 'vitest'
 import { createPluginAwareTransformerAsync } from '../src'
 import { QuaScriptParser } from '../src/core/parser'
 

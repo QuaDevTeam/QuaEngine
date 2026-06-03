@@ -168,9 +168,9 @@ Story graph behavior is provided by `@quajs/story-graph`, not engine core. Use i
 
 ```typescript
 import {
-  StoryGraphPlugin,
   getStoryChapterSelectProjection,
   jumpToChapterSelectNodeWithEngine,
+  StoryGraphPlugin,
 } from '@quajs/story-graph'
 
 engine.use(new StoryGraphPlugin())
@@ -179,7 +179,7 @@ const chapterSelect = getStoryChapterSelectProjection(engine)
 await jumpToChapterSelectNodeWithEngine(engine, 'opening')
 ```
 
-Chapter select is derived from graph nodes marked with `chapterSelect` plus `unlockedNodes`; it is not an engine-core UI.
+Chapter select is derived from graph nodes marked with `chapterSelect` plus `unlockedNodes`; it is not an engine-core UI. The story graph package owns spoiler-safe locked projections and entry locking, while renderers only display the projected chapter select nodes.
 
 ## Inventory Plugin
 
@@ -187,8 +187,8 @@ Inventory behavior is provided by `@quajs/plugin-inventory`, not engine core. It
 
 ```typescript
 import {
-  InventoryPlugin,
   grantInventoryItemWithEngine,
+  InventoryPlugin,
   registerInventoryItemWithEngine,
 } from '@quajs/plugin-inventory'
 
