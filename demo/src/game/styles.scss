@@ -425,7 +425,7 @@ button.is-active {
 
 .vn-story-tree {
   z-index: 60;
-  --qua-story-tree-background-image: var(--vn-menu-background);
+  --qua-story-tree-background-image: var(--vn-story-tree-background);
   --qua-story-tree-panel-bg: rgba(7, 8, 12, 0.9);
   --qua-story-tree-panel-border: rgba(245, 226, 190, 0.3);
 }
@@ -483,6 +483,12 @@ button.is-active {
 .qua-renderer {
   width: 100%;
   height: 100%;
+}
+
+.vn-renderer .qua-character {
+  --qua-character-width: 500px;
+  --qua-character-max-width: 520px;
+  --qua-character-max-height: 88%;
 }
 
 .qua-dialogue-box {

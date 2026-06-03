@@ -296,8 +296,8 @@ describe('assetDetector with Media Metadata', () => {
       }
     })
 
-    it('should analyze legacy cutscene metadata for asset QA', async () => {
-      const testFile = join(testDir, 'video', 'cutscenes', 'legacy.avi')
+    it('should analyze AVI cutscene metadata for asset QA', async () => {
+      const testFile = join(testDir, 'video', 'cutscenes', 'archive.avi')
       mkdirSync(join(testDir, 'video', 'cutscenes'), { recursive: true })
       writeFileSync(testFile, createAviFixture({ width: 800, height: 450, frameRate: 25, frames: 125, codec: 'MJPG', hasAudio: true }))
 

@@ -36,6 +36,62 @@
           "asset": "memory.png"
         }
       ]
+    },
+    "curious": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "curious.png"
+        }
+      ]
+    },
+    "afraid": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "afraid.png"
+        }
+      ]
+    },
+    "protect": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "protect.png"
+        }
+      ]
+    },
+    "listening": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "listening.png"
+        }
+      ]
+    },
+    "smile": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "smile.png"
+        }
+      ]
+    },
+    "wonder": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "wonder.png"
+        }
+      ]
+    },
+    "promise": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "promise.png"
+        }
+      ]
     }
   }
 }

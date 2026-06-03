@@ -12,3 +12,4 @@ coverage
 CLAUDE.md
 *.timestamp*.mjs
 output
+.playwright-cli/

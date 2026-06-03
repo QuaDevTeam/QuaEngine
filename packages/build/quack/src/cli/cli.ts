@@ -243,12 +243,39 @@ program
       }
 
       const sampleConfig = `import { defineConfig } from '@quajs/quack'
-import { ImageOptimizationPlugin, BundleAnalyzerPlugin, AESEncryptionPlugin } from '@quajs/quack/plugins'
+import { AssetPipelinePlugin, ImageOptimizationPlugin, BundleAnalyzerPlugin, AESEncryptionPlugin } from '@quajs/quack/plugins'
 
 export default defineConfig({
   source: './assets',
   output: './dist',
   format: 'auto', // 'zip' in development, 'qpk' in production
+  assetTargets: [
+    {
+      name: 'default-webp-aac-webm',
+      suffix: 'default-webp-aac-webm',
+      browserCondition: 'image/webp',
+      pipeline: {
+        // Defaults: images/characters -> webp, audio -> aac, video -> webm.
+        images: { quality: 84 },
+        characters: { quality: 84 },
+        audio: { bitrate: '128k' },
+        video: { crf: 32 },
+        fonts: { format: 'woff2' }
+      }
+    },
+    {
+      name: 'safari-jxl',
+      suffix: 'safari-jxl',
+      browserCondition: 'image/jxl',
+      pipeline: {
+        images: { format: 'jxl', quality: 90 },
+        characters: { format: 'jxl', quality: 90 },
+        audio: { bitrate: '128k' },
+        video: { crf: 32 },
+        fonts: { format: 'woff2' }
+      }
+    }
+  ],
   compression: {
     level: 6,
     algorithm: 'lzma'
@@ -262,6 +289,17 @@ export default defineConfig({
     // plugin: new AESEncryptionPlugin(process.env.QUACK_ENCRYPTION_KEY)
   },
   plugins: [
+    new AssetPipelinePlugin({
+      tools: {
+        // JPEG XL needs an external encoder such as cjxl.
+        jxl: { binary: 'cjxl' },
+        // Audio/video defaults are ffmpeg; set explicit paths in CI if needed.
+        audio: { binary: 'ffmpeg' },
+        video: { binary: 'ffmpeg' },
+        // Font subsetting defaults to pyftsubset from fonttools.
+        fonts: { binary: 'pyftsubset' }
+      }
+    }),
     new ImageOptimizationPlugin({
       quality: 85,
       progressive: true,
@@ -435,9 +473,10 @@ program
       }
 
       const limit = Number.parseInt(options.limit)
-      const allBuilds = [index.latestBundle, ...index.previousBuilds]
-        .filter(Boolean)
-        .slice(0, limit)
+      const allBuilds = [
+        ...(index.latestBundle ? [index.latestBundle] : []),
+        ...index.previousBuilds,
+      ].slice(0, limit)
 
       console.log(`📜 Build History (showing ${allBuilds.length} builds)`)
       console.log('')

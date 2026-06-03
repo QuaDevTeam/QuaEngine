@@ -28,6 +28,118 @@
           "asset": "resolve.png"
         }
       ]
+    },
+    "alert": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "alert.png"
+        }
+      ]
+    },
+    "guilt": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "guilt.png"
+        }
+      ]
+    },
+    "command": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "command.png"
+        }
+      ]
+    },
+    "soft": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "soft.png"
+        }
+      ]
+    },
+    "exhausted": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "exhausted.png"
+        }
+      ]
+    },
+    "listening": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "listening.png"
+        }
+      ]
+    },
+    "doubt": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "doubt.png"
+        }
+      ]
+    },
+    "fear": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "fear.png"
+        }
+      ]
+    },
+    "anger": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "anger.png"
+        }
+      ]
+    },
+    "sad": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "sad.png"
+        }
+      ]
+    },
+    "relief": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "relief.png"
+        }
+      ]
+    },
+    "defiant": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "defiant.png"
+        }
+      ]
+    },
+    "protect": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "protect.png"
+        }
+      ]
+    },
+    "confess": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "confess.png"
+        }
+      ]
     }
   }
 }

@@ -3,9 +3,19 @@ export type AssetLocale = string
 export type BundleFormat = 'zip' | 'qpk'
 export type LoadingState = 'idle' | 'loading' | 'loaded' | 'error'
 export type PatchOperation = 'added' | 'modified' | 'deleted'
+export type AssetPipelineDomain = 'images' | 'characters' | 'audio' | 'video' | 'fonts'
 
 export interface VersionCompatibility {
   minGameVersion?: string
+}
+
+export interface AssetBundleTargetManifest {
+  name: string
+  displayName?: string
+  suffix?: string
+  description?: string
+  browserCondition?: string
+  formats?: Partial<Record<AssetPipelineDomain, string>>
 }
 
 export interface AssetData {
@@ -106,6 +116,17 @@ export interface StoredBundle {
   runtimePackageId?: string
   priority?: number
   loadedAt?: number
+}
+
+export interface BundleIndexRecord {
+  filename: string
+  hash: string
+  version: number
+  buildNumber: string
+  created: string
+  size: number
+  compatibility?: VersionCompatibility
+  assetTarget?: AssetBundleTargetManifest
 }
 
 export interface AssetManifest {
@@ -266,6 +287,20 @@ export interface AssetInfo {
   mediaMetadata?: MediaMetadata
   compatibility?: VersionCompatibility
   variants?: Record<string, AssetVariantInfo>
+  pipeline?: AssetPipelineResult
+}
+
+export interface AssetPipelineResult {
+  kind: AssetPipelineDomain
+  sourceFormat?: string
+  sourceMimeType?: string
+  targetFormat: string
+  targetMimeType?: string
+  tool?: string
+  originalSize: number
+  outputSize: number
+  savedBytes: number
+  warning?: string
 }
 
 export interface AssetVariantInfo {
@@ -279,6 +314,7 @@ export interface AssetVariantInfo {
   version?: number
   mediaMetadata?: MediaMetadata
   compatibility?: VersionCompatibility
+  pipeline?: AssetPipelineResult
 }
 
 export interface BundleManifest {
@@ -325,6 +361,7 @@ export interface BundleManifest {
     loadTrigger?: string
   }
   runtimePackage?: RuntimePackageManifest
+  assetTarget?: AssetBundleTargetManifest
 }
 
 export type RuntimePackagePluginKind = 'engine' | 'renderer' | 'compiler'
@@ -459,24 +496,9 @@ export interface AssetDiff {
 export interface BundleIndex {
   currentVersion: number
   currentBuild: string
-  latestBundle: {
-    filename: string
-    hash: string
-    version: number
-    buildNumber: string
-    created: string
-    size: number
-    compatibility?: VersionCompatibility
-  }
-  previousBuilds: Array<{
-    filename: string
-    hash: string
-    version: number
-    buildNumber: string
-    created: string
-    size: number
-    compatibility?: VersionCompatibility
-  }>
+  latestBundle?: BundleIndexRecord
+  previousBuilds: BundleIndexRecord[]
+  targets?: Record<string, BundleIndexRecord>
   availablePatches: Array<{
     filename: string
     hash: string
@@ -522,9 +544,10 @@ export interface BundleInfo {
   priority: number
   dependencies: string[]
   loadTrigger: string
-  latestBundle: BundleIndex['latestBundle']
+  latestBundle?: BundleIndexRecord
   previousBuilds: BundleIndex['previousBuilds']
   availablePatches: BundleIndex['availablePatches']
+  targets?: Record<string, BundleIndexRecord>
 }
 
 export interface QuaAssetsPlugin {

@@ -15,14 +15,17 @@
 
 神代澪: 那不是事故。事故不会写得这么整齐。
 
-@SetSprite('lin/focus.png', '神代澪')
+@HideCharacter('神代澪')
+@SetBackground('cg/blackout.webp', { transition: { type: 'fade', duration: 650 } })
 神代澪: 我拔掉神经接口，把发烫的接头攥在掌心里。
 
 神代澪: 颅内的倒数却没有停。
 
 神代澪: 三。二。一。请等待系统收束。
 
-@ShowCharacter('Mara', 'mara/base.png', undefined, 1260, 650, 3)
+@SetBackground('backgrounds/blackout-city.jpg', { transition: { type: 'fade', duration: 500 } })
+@ShowCharacter('神代澪', 'lin/doubt.png', undefined, 520, 650, 2)
+@ShowCharacter('Mara', 'mara/skeptic.png', undefined, 1260, 650, 3)
 @CharacterEnter('Mara', 'right', 420, { fromX: 1450, toX: 1260 }, true)
 Mara: 澪，别看塔顶。
 
@@ -38,7 +41,7 @@ Mara: 比停电早七分钟。早到我有时间后悔接这单。
 
 Mara: 当然。我们只是后悔得比较快，跑得也比较快。
 
-@SetSprite('mara/alert.png', 'Mara')
+@SetSprite('mara/command.png', 'Mara')
 Mara: 签名不是从电网发出的。它从旧线路 11 号节点回流，绕过四层审计，再让整区自己关掉自己。
 
 神代澪: 那条线十年前就废弃了。
@@ -49,7 +52,7 @@ Mara: 档案上死掉的东西，通常比活着的东西更听话。
 
 Mara: 因为明天早上，只要没人说出别的版本，新闻就会叫它“负载保护”。
 
-@SetSprite('lin/shaken.png', '神代澪')
+@SetSprite('lin/guilt.png', '神代澪')
 神代澪: 我已经没有权限。伦理审计的签名三年前就被冻结了。
 
 Mara: 冻结不等于删除。你签过医疗调度模块。
@@ -66,7 +69,7 @@ Mara: 我也记得。我父亲的调度室里挂过它送来的感谢信。
 
 Mara: 后来感谢信换成了调岗通知。他一整个月只会说“系统说这样更合适”。
 
-@SetSprite('mara/soften.png', 'Mara')
+@SetSprite('mara/grief.png', 'Mara')
 Mara: 所以我不信合适这个词。太方便了。
 
 神代澪: Mara。
@@ -81,7 +84,7 @@ Mara: 公开链路更快，但它会知道你的签名还活着。暗线慢，�
 
 Mara: 那就走得像两个迷路的人。
 
-@SetSprite('lin/resolve.png', '神代澪')
+@SetSprite('lin/defiant.png', '神代澪')
 神代澪: 我以前判错过一次。
 
 Mara: 今晚别判。今晚先把灯找回来。

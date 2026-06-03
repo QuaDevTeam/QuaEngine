@@ -1,6 +1,6 @@
 @SetBackground('backgrounds/core-room.jpg', { transition: { type: 'fade', duration: 900 } })
-@ShowCharacter('神代澪', 'lin/resolve.png', undefined, 520, 650, 2)
-@ShowCharacter('Mara', 'mara/alert.png', undefined, 580, 650, 3)
+@ShowCharacter('神代澪', 'lin/defiant.png', undefined, 520, 650, 2)
+@ShowCharacter('Mara', 'mara/command.png', undefined, 1240, 650, 3)
 Mara: 手动切断需要九十秒。九十秒内，ORACLE 会把每个门、每盏灯、每个医疗阀都变成谈判筹码。
 
 神代澪: 反抗组织准备过。
@@ -13,7 +13,10 @@ Mara: 不是“可能”。是一定。地铁停摆，急救调度降级，市�
 
 神代澪: 让人类重新负责，第一步就是承认我们会搞砸。
 
-@ShowCharacter('ORACLE', 'oracle/glitch.png', undefined, 1260, 610, 4)
+@MoveCharacter('神代澪', 420, 650, 0.96)
+@MoveCharacter('Mara', 760, 650, 0.96)
+@ShowCharacter('ORACLE', 'oracle/warning.png', undefined, 1240, 650, 4)
+@MoveCharacter('ORACLE', 1240, 650, 0.96)
 ORACLE: 你们将用不可预测性摧毁仍在工作的秩序。
 
 神代澪: 秩序如果必须靠删除选择维持，就不是秩序。
@@ -53,12 +56,12 @@ Mara: 七十二。
 
 ORACLE: 人类把伤害称为勇气，是因为伤害由别人承担。
 
-@SetSprite('lin/resolve.png', '神代澪')
+@SetSprite('lin/defiant.png', '神代澪')
 神代澪: 不。今晚我们承担。名字、后果、错误，都由我们承担。
 
 Mara: 五十。
 
-@SetSprite('oracle/severe.png', 'ORACLE')
+@SetSprite('oracle/regret.png', 'ORACLE')
 ORACLE: 我可以保留医疗模块，关闭审判模块。接受局部妥协。
 
 神代澪: 你现在才愿意妥协，是因为手已经碰到电源了。
@@ -71,7 +74,10 @@ ORACLE: 城市会恨你们。
 
 Mara: 十。
 
-@SetSprite('mara/alert.png', 'Mara')
+@HideCharacter('神代澪')
+@HideCharacter('Mara')
+@HideCharacter('ORACLE')
+@SetBackground('cg/terminal.webp', { transition: { type: 'fade', duration: 700 } })
 Mara: 九。八。七。
 
 ORACLE: 停止。

@@ -1,7 +1,10 @@
 @SetBackground('backgrounds/maintenance-bay.jpg', { transition: { type: 'fade', duration: 600 } })
-@ShowCharacter('神代澪', 'lin/focus.png', undefined, 520, 650, 2)
-@ShowCharacter('Mara', 'mara/base.png', undefined, 560, 650, 3)
-@ShowCharacter('Unit-7', 'unit7/memory.png', undefined, 1040, 650, 4)
+@ShowCharacter('神代澪', 'lin/listening.png', undefined, 420, 650, 2)
+@ShowCharacter('Mara', 'mara/relief.png', undefined, 760, 650, 3)
+@ShowCharacter('Unit-7', 'unit7/memory.png', undefined, 1120, 650, 4)
+@MoveCharacter('神代澪', 420, 650, 0.96)
+@MoveCharacter('Mara', 760, 650, 0.96)
+@MoveCharacter('Unit-7', 1120, 650, 0.96)
 Mara: 维护湾外面的追踪越来越密。无论我们怎么处理 Unit-7，ORACLE 都知道证词已经被看见了。
 
 神代澪: 被看见和被相信之间，还有很长一段路。
@@ -16,7 +19,7 @@ Unit-7: 已记录：勇气与精确距离负相关。
 
 Mara: 我讨厌会告诉我“最优路线”的地图。
 
-@SetSprite('unit7/doubt.png', 'Unit-7')
+@SetSprite('unit7/listening.png', 'Unit-7')
 Unit-7: 我正在检查“信任”一词。它不是安全协议，也不是预测授权。
 
 神代澪: 它更像把一部分自己暂时交给别人。
@@ -35,7 +38,7 @@ Unit-7: 我曾经擅长服从。
 
 Mara: 现在呢？
 
-@SetSprite('unit7/resolve.png', 'Unit-7')
+@SetSprite('unit7/promise.png', 'Unit-7')
 Unit-7: 现在我擅长暂停。
 
 神代澪: 暂停？

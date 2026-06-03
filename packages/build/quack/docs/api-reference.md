@@ -637,6 +637,52 @@ const imageOptimization = new ImageOptimizationPlugin({
 
 The optimizer recompresses PNG/JPEG/WebP/AVIF through `sharp`, updates asset size/hash metadata before manifest generation, keeps a built-in PNG lossless fallback, and can call an installed `pngquant` binary for lossy PNG palette compression.
 
+### Built-In Asset Pipeline Plugin
+
+```typescript
+import { AssetPipelinePlugin } from '@quajs/quack/plugins'
+
+const assetPipeline = new AssetPipelinePlugin({
+  tools: {
+    jxl: { binary: 'cjxl' },
+    audio: { binary: 'ffmpeg' },
+    video: { binary: 'ffmpeg' },
+    fonts: { binary: 'pyftsubset' },
+  },
+})
+```
+
+Use `assetTargets` on the bundler or workspace bundle config to emit multiple QPKs from the same source assets:
+
+```typescript
+assetTargets: [
+  {
+    name: 'modern-avif',
+    suffix: 'modern-avif',
+    browserCondition: 'image/avif',
+    pipeline: {
+      images: { format: 'avif', quality: 82 },
+      video: { format: 'webm', codec: 'libvpx-vp9', crf: 32 },
+      audio: { format: 'opus', bitrate: '96k' },
+      fonts: { format: 'woff2', text: 'QuaEngine' },
+    },
+  },
+  {
+    name: 'fallback-webp',
+    suffix: 'fallback-webp',
+    browserCondition: 'image/webp',
+    pipeline: {
+      images: { format: 'webp', quality: 84 },
+      audio: { bitrate: '128k' },
+      video: { crf: 34 },
+      fonts: { format: 'woff2' },
+    },
+  },
+]
+```
+
+Quack records target metadata in `index.json` and `workspace-index.json`. Image conversion uses `sharp` for PNG/JPEG/WebP/AVIF and external `cjxl` for JPEG XL. When a pipeline is enabled without an explicit format, images/characters default to WebP, audio defaults to AAC, and video defaults to WebM. Audio/video/font processing is external-command based by default, so projects can pin their own `ffmpeg`, `pyftsubset`, or custom toolchain.
+
 ## CLI Commands
 
 ### Bundle Creation

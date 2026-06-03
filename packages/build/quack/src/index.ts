@@ -13,14 +13,22 @@ export { defineConfig, QuackBundler } from './core/bundler'
 
 // Core types
 export type {
+  AssetBundleTarget,
+  AssetBundleTargetManifest,
   AssetCollectionContext,
   AssetContext,
   AssetDiff,
   AssetInfo,
+  AssetPipelineDomain,
+  AssetPipelineExternalTool,
+  AssetPipelineOptions,
+  AssetPipelineResult,
   AssetSubType,
   AssetType,
   AssetVariantInfo,
   AudioMetadata,
+  AudioPipelineFormat,
+  AudioPipelineOptions,
   BuildLog,
   BundleDefinition,
   BundleFormat,
@@ -32,7 +40,11 @@ export type {
   CompressionAlgorithm,
   EncryptionAlgorithm,
   EncryptionContext,
+  FontPipelineFormat,
+  FontPipelineOptions,
   ImageMetadata,
+  ImagePipelineFormat,
+  ImagePipelineOptions,
   LocaleInfo,
   MediaMetadata,
   MerkleNode,
@@ -55,6 +67,8 @@ export type {
   RuntimePackageStoryGraphDeltaManifest,
   VersionConfig,
   VideoMetadata,
+  VideoPipelineFormat,
+  VideoPipelineOptions,
   WorkspaceBundleIndex,
   WorkspaceConfig,
 } from './core/types'
@@ -66,6 +80,8 @@ export { buildLocalePack } from './i18n/locale-pack'
 export type { LocalePackBuildOptions, LocalePackBuildResult } from './i18n/locale-pack'
 export { PluginManager } from './managers/plugin-manager'
 export {
+  AssetPipelinePlugin,
+  type AssetPipelinePluginOptions,
   BundleAnalyzerPlugin,
   type ImageOptimizationFormat,
   ImageOptimizationPlugin,

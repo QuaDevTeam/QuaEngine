@@ -13,6 +13,11 @@ export type AssetSubType
 export type BundleFormat = 'zip' | 'qpk'
 export type CompressionAlgorithm = 'none' | 'deflate' | 'lzma'
 export type EncryptionAlgorithm = 'none' | 'xor' | 'custom'
+export type AssetPipelineDomain = 'images' | 'characters' | 'audio' | 'video' | 'fonts'
+export type ImagePipelineFormat = 'source' | 'png' | 'jpeg' | 'webp' | 'avif' | 'jxl'
+export type AudioPipelineFormat = 'source' | 'mp3' | 'ogg' | 'opus' | 'aac' | 'm4a' | 'flac' | 'wav'
+export type VideoPipelineFormat = 'source' | 'mp4' | 'webm' | 'mov' | 'mkv'
+export type FontPipelineFormat = 'source' | 'woff2' | 'woff' | 'ttf' | 'otf'
 
 export type PatchOperation = 'added' | 'modified' | 'deleted'
 
@@ -28,6 +33,7 @@ export interface VersionedBundleRecord {
   created: string
   size: number
   compatibility?: VersionCompatibility
+  assetTarget?: AssetBundleTargetManifest
 }
 
 export interface VersionedPatchRecord {
@@ -90,6 +96,20 @@ export interface AssetInfo {
   mediaMetadata?: MediaMetadata // Extracted media information
   content?: Uint8Array
   variants?: Record<string, AssetVariantInfo>
+  pipeline?: AssetPipelineResult
+}
+
+export interface AssetPipelineResult {
+  kind: AssetPipelineDomain
+  sourceFormat?: string
+  sourceMimeType?: string
+  targetFormat: string
+  targetMimeType?: string
+  tool?: string
+  originalSize: number
+  outputSize: number
+  savedBytes: number
+  warning?: string
 }
 
 export interface AssetVariantInfo {
@@ -102,6 +122,7 @@ export interface AssetVariantInfo {
   mtime?: number
   version?: number
   mediaMetadata?: MediaMetadata
+  pipeline?: AssetPipelineResult
 }
 
 export interface LocaleInfo {
@@ -296,6 +317,109 @@ export interface BundleManifest {
     memoryUsageEstimate: number
   }
   runtimePackage?: RuntimePackageManifest
+  assetTarget?: AssetBundleTargetManifest
+}
+
+export interface AssetPipelineExternalTool {
+  binary?: string
+  args?: string[]
+  timeoutMs?: number
+}
+
+export interface ImagePipelineOptions {
+  format?: ImagePipelineFormat
+  quality?: number
+  effort?: number
+  progressive?: boolean
+  stripMetadata?: boolean
+  optimize?: boolean
+  pngquant?: boolean | {
+    enabled?: boolean
+    binary?: string
+    quality?: [number, number]
+    speed?: number
+    strip?: boolean
+    timeoutMs?: number
+  }
+  skipAnimated?: boolean
+  rewriteExtension?: boolean
+  externalTool?: AssetPipelineExternalTool
+}
+
+export interface AudioPipelineOptions {
+  format?: AudioPipelineFormat
+  codec?: string
+  bitrate?: string
+  sampleRate?: number
+  channels?: number
+  loudnessNormalization?: boolean | 'ebu-r128'
+  extraArgs?: string[]
+  rewriteExtension?: boolean
+  externalTool?: AssetPipelineExternalTool
+}
+
+export interface VideoPipelineOptions {
+  format?: VideoPipelineFormat
+  codec?: string
+  audioCodec?: string
+  crf?: number
+  videoBitrate?: string
+  audioBitrate?: string
+  preset?: string
+  width?: number
+  height?: number
+  fps?: number
+  pixelFormat?: string
+  fastStart?: boolean
+  extraArgs?: string[]
+  rewriteExtension?: boolean
+  externalTool?: AssetPipelineExternalTool
+}
+
+export interface FontPipelineOptions {
+  format?: FontPipelineFormat
+  text?: string
+  unicodes?: string[]
+  glyphs?: string[]
+  rewriteExtension?: boolean
+  externalTool?: AssetPipelineExternalTool
+}
+
+export interface AssetPipelineOptions {
+  images?: ImagePipelineOptions
+  characters?: ImagePipelineOptions
+  audio?: AudioPipelineOptions
+  video?: VideoPipelineOptions
+  fonts?: FontPipelineOptions
+}
+
+export interface AssetBundleTargetManifest {
+  name: string
+  displayName?: string
+  suffix?: string
+  description?: string
+  browserCondition?: string
+  formats?: Partial<Record<AssetPipelineDomain, string>>
+}
+
+export interface AssetBundleTarget {
+  name: string
+  displayName?: string
+  suffix?: string
+  description?: string
+  browserCondition?: string
+  optional?: boolean
+  pipeline?: AssetPipelineOptions
+  compression?: {
+    level?: number
+    algorithm?: CompressionAlgorithm
+  }
+  compatibility?: VersionCompatibility
+  encryption?: {
+    enabled?: boolean
+    algorithm?: EncryptionAlgorithm
+    key?: string
+  }
 }
 
 export interface MerkleNode {
@@ -313,6 +437,7 @@ export interface BuildLog {
   bundlePath: string
   bundleHash: string
   compatibility?: VersionCompatibility
+  assetTarget?: AssetBundleTargetManifest
   totalFiles: number
   totalSize: number
   assets: Record<string, {
@@ -372,6 +497,8 @@ export interface BundleDefinition {
     algorithm?: EncryptionAlgorithm
     key?: string
   }
+  assetTargets?: AssetBundleTarget[]
+  assetTarget?: AssetBundleTarget
 }
 
 // Multi-bundle index for workspace
@@ -398,17 +525,19 @@ export interface BundleInfo {
   priority: number
   dependencies: string[]
   loadTrigger: string
-  latestBundle: VersionedBundleRecord
+  latestBundle?: VersionedBundleRecord
   previousBuilds: VersionedBundleRecord[]
   availablePatches: VersionedPatchRecord[]
+  targets?: Record<string, VersionedBundleRecord>
 }
 
 export interface BundleIndex {
   currentVersion: number
   currentBuild: string
-  latestBundle: VersionedBundleRecord
+  latestBundle?: VersionedBundleRecord
   previousBuilds: VersionedBundleRecord[]
   availablePatches: VersionedPatchRecord[]
+  targets?: Record<string, VersionedBundleRecord>
 }
 
 export interface VersionConfig {
@@ -461,6 +590,8 @@ export interface QuackConfig {
   runtimePackage?: RuntimePackageManifest
   signing?: QuackSigningConfig
   quascript?: QuackQuaScriptConfig
+  assetTargets?: AssetBundleTarget[]
+  assetTarget?: AssetBundleTarget
 
   // Workspace mode (multi-bundle)
   workspace?: WorkspaceConfig
@@ -547,6 +678,8 @@ export interface BundleOptions {
   runtimePackage?: RuntimePackageManifest
   signing?: QuackSigningConfig
   quascript: QuackQuaScriptBundleOptions
+  assetTargets: AssetBundleTarget[]
+  assetTarget?: AssetBundleTarget
 }
 
 export interface QuackQuaScriptBundleOptions {
@@ -572,6 +705,8 @@ export interface BundleStats {
   assetsByType: Record<AssetType, number>
   bundleVersion: number
   buildNumber: string
+  assetTarget?: AssetBundleTargetManifest
+  targets?: Record<string, BundleStats>
 }
 
 export interface PatchOptions {

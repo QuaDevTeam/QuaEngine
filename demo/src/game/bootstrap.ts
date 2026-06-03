@@ -24,6 +24,7 @@ import {
 } from '@quajs/story-graph'
 import { createWebStoreStorage } from '@quajs/store-web'
 import { computed, defineComponent, h, onBeforeUnmount, ref } from 'vue'
+import titleBackgroundUrl from '../../assets/images/cg/title.webp?url'
 import menuRouteBackgroundUrl from '../../assets/images/ui/menu-route.jpg?url'
 import archiveBroadcast from './scenes/archive-broadcast.qs'
 import archiveThreshold from './scenes/archive-threshold.qs'
@@ -432,7 +433,8 @@ export async function createQuaGameApp() {
       return () => h('main', {
         class: 'game-root',
         style: {
-          '--vn-menu-background': `url("${menuRouteBackgroundUrl}")`,
+          '--vn-menu-background': `url("${titleBackgroundUrl}")`,
+          '--vn-story-tree-background': `url("${menuRouteBackgroundUrl}")`,
           '--qua-story-tree-background-image': `url("${menuRouteBackgroundUrl}")`,
         },
         'data-chapter': hud.value.chapter,

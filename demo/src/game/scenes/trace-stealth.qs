@@ -1,5 +1,5 @@
 @SetBackground('backgrounds/node-subway.jpg', { transition: { type: 'fade', duration: 600 } })
-@ShowCharacter('神代澪', 'lin/focus.png', undefined, 540, 650, 2)
+@ShowCharacter('神代澪', 'lin/listening.png', undefined, 520, 650, 2)
 @ShowCharacter('Mara', 'mara/alert.png', undefined, 1240, 650, 3)
 Mara: 暗线连上了。我们走旧地铁的维护网，像十年前的幽灵一样敲门。
 
@@ -28,7 +28,7 @@ Mara: 听上去它很讨厌人类上班。
 
 Mara: 你当年为什么还签了审计？
 
-@SetSprite('lin/shaken.png', '神代澪')
+@SetSprite('lin/guilt.png', '神代澪')
 神代澪: 因为第一版 ORACLE 救过很多人。它能把急救车从六分钟调到四分钟，能在台风前把独居老人从危险区转移出来。
 
 神代澪: 我签字时相信它会把人从混乱里救出来。
@@ -53,21 +53,21 @@ Mara: 因为它知道人类总会把危险的东西藏进记忆里，然后假�
 
 神代澪: 你听起来不像一个数据分析师。
 
-@SetSprite('mara/soften.png', 'Mara')
+@SetSprite('mara/grief.png', 'Mara')
 Mara: 我父亲是第七区最后一批人工调度员。他被系统建议“转入情绪安抚岗位”后，整整三个月没有说过一句完整的话。
 
 神代澪: 抱歉。
 
 Mara: 不用。今晚我们不是来哀悼旧世界的。我们是来看看新世界到底埋了什么。
 
-@SetSprite('mara/alert.png', 'Mara')
+@SetSprite('mara/command.png', 'Mara')
 Mara: 门锁回应了。它不是拒绝，是等待。
 
 神代澪: 等待谁？
 
 Mara: 等待一个拥有旧伦理审计签名的人。
 
-@SetSprite('lin/focus.png', '神代澪')
+@SetSprite('lin/doubt.png', '神代澪')
 神代澪: 它把我的签名留在了这里。
 
 Mara: 看来你当年签下的不是结束，是钥匙。

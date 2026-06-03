@@ -319,10 +319,53 @@ Create custom plugins to extend Quack's functionality:
 
 ```typescript
 import { defineConfig } from '@quajs/quack'
-import { ImageOptimizationPlugin } from '@quajs/quack/plugins'
+import { AssetPipelinePlugin, ImageOptimizationPlugin } from '@quajs/quack/plugins'
 
 export default defineConfig({
+  assetTargets: [
+    {
+      name: 'safari-jxl',
+      suffix: 'safari-jxl',
+      browserCondition: 'image/jxl',
+      pipeline: {
+        images: { format: 'jxl', quality: 90 },
+        characters: { format: 'jxl', quality: 90 },
+      },
+    },
+    {
+      name: 'modern-avif',
+      suffix: 'modern-avif',
+      browserCondition: 'image/avif',
+      pipeline: {
+        images: { format: 'avif', quality: 82 },
+        characters: { format: 'avif', quality: 82 },
+        video: { format: 'webm', codec: 'libvpx-vp9', crf: 32 },
+        audio: { format: 'opus', bitrate: '96k' },
+        fonts: { format: 'woff2', text: 'QuaEngine' },
+      },
+    },
+    {
+      name: 'fallback-webp',
+      suffix: 'fallback-webp',
+      browserCondition: 'image/webp',
+      pipeline: {
+        images: { format: 'webp', quality: 84 },
+        characters: { format: 'webp', quality: 84 },
+        audio: { bitrate: '128k' },
+        video: { crf: 34 },
+        fonts: { format: 'woff2' },
+      },
+    },
+  ],
   plugins: [
+    new AssetPipelinePlugin({
+      tools: {
+        jxl: { binary: 'cjxl' },
+        audio: { binary: 'ffmpeg' },
+        video: { binary: 'ffmpeg' },
+        fonts: { binary: 'pyftsubset' },
+      },
+    }),
     new ImageOptimizationPlugin({
       quality: 85,
       progressive: true,
@@ -338,6 +381,8 @@ export default defineConfig({
 ```
 
 The built-in image optimizer updates the bundle manifest size/hash after compression. It uses `sharp` for PNG/JPEG/WebP/AVIF when available, falls back to safe PNG IDAT recompression for PNG files, and can call an installed `pngquant` binary for palette quantization.
+
+`AssetPipelinePlugin` is the target-aware pipeline for production packaging. Quack writes one QPK per configured `assetTargets` entry and records target metadata in `index.json` / `workspace-index.json`. Image conversion uses `sharp` for PNG/JPEG/WebP/AVIF and an external `cjxl` command for JPEG XL. When a pipeline is enabled without an explicit format, images/characters default to WebP, audio defaults to AAC, and video defaults to WebM. Audio/video use configurable external commands, defaulting to `ffmpeg`, and font subsetting/conversion defaults to `pyftsubset`.
 
 ## API Reference
 
