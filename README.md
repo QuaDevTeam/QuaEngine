@@ -1,99 +1,145 @@
 # QuaEngine
 
-QuaEngine is a TypeScript visual novel engine with a strict split between the logic runtime and renderer implementations. The engine owns narrative state, saves, runtime packages, plugin state, and view projections. Renderers consume projections and emit user intents through `@quajs/pipeline`; they do not own game state.
+QuaEngine is a TypeScript visual novel engine for Galgame-style projects. It is built around a strict split between an authoritative logic runtime and renderer projections:
 
-## Current Scope
+- `@quajs/engine` owns narrative state, scenes, checkpoints, save/load, runtime package lifecycle, UI overlay state, plugin projections, and story flow.
+- `@quajs/pipeline` is the only communication channel between logic, scripts, plugins, and renderers.
+- Renderers consume view projections and emit user intents. They do not own game state.
+- Feature behavior lives in package-local plugins instead of being hardwired into engine core.
+- Dynamic content is delivered as Quack-built QPK Runtime Packages and activated through the engine runtime package manager.
 
-The current workspace includes:
+## Workspace Map
 
-- platform-neutral engine, store, pipeline, asset, character, render contract, and story graph packages;
-- Web, Node, Memory, and browser storage/runtime adapters;
-- Quack QPK/ZIP bundling, QuaScript compilation, Vite integration, project inspection, language server, and VS Code tooling;
-- engine feature plugins for achievement, animation, audio, background, backlog, fonts, gallery, inventory, settings, and sprite;
-- framework-neutral Web renderer runtime plus Vue, React, and Svelte Web renderer adapters.
-
-## Architecture Rules
-
-- `@quajs/engine` owns authoritative game state and runtime package lifecycle.
-- `@quajs/pipeline` is the only logic/render communication channel.
-- `@quajs/render-core` owns universal renderer contracts.
-- `@quajs/renderer-web` owns shared browser implementation details such as DOM projection, object URLs, WebAudio, stage layout math, and renderer plugin factories.
-- `@quajs/renderer-vue`, `@quajs/renderer-react`, and `@quajs/renderer-svelte` are framework adapters over `@quajs/renderer-web`.
-- Feature behavior belongs in package-local plugins and explicit subentries, not in engine core or renderer state.
-- Runtime content must be delivered as Quack-built QPK Runtime Packages and activated through `RuntimeContentManager`.
-
-## Key Packages
-
-| area | packages |
+| Area | Packages |
 | --- | --- |
 | Core runtime | `@quajs/engine`, `@quajs/store`, `@quajs/pipeline`, `@quajs/assets`, `@quajs/character`, `@quajs/story-graph`, `@quajs/render-core` |
 | Platform adapters | `@quajs/assets-web`, `@quajs/assets-node`, `@quajs/assets-memory`, `@quajs/store-web`, `@quajs/store-node`, `@quajs/security-web` |
 | Feature plugins | `@quajs/plugin-achievement`, `@quajs/plugin-animation`, `@quajs/plugin-audio`, `@quajs/plugin-background`, `@quajs/plugin-backlog`, `@quajs/plugin-fonts`, `@quajs/plugin-gallery`, `@quajs/plugin-inventory`, `@quajs/plugin-settings`, `@quajs/plugin-sprite` |
 | Renderers | `@quajs/renderer-web`, `@quajs/renderer-vue`, `@quajs/renderer-react`, `@quajs/renderer-svelte` |
-| Build/tooling | `@quajs/quack`, `@quajs/script-compiler`, `@quajs/vite-plugin`, `@quajs/language-server`, `@quajs/vscode-quascript`, `create-qua-game` |
+| Build and tooling | `@quajs/quack`, `@quajs/script-compiler`, `@quajs/vite-plugin`, `@quajs/project-inspector`, `@quajs/language-server`, `@quajs/vscode-quascript`, `create-qua-game` |
+
+## Architecture
+
+QuaEngine treats the renderer as a projection canvas. Engine plugins update engine-owned state or plugin projections; renderer packages turn those projections into DOM, audio, layout, and framework-specific components.
+
+Important boundaries:
+
+- `@quajs/render-core` defines universal renderer contracts only.
+- `@quajs/renderer-web` owns shared Web implementation details such as DOM projection helpers, object URLs, WebAudio runtime, stage layout math, and Web renderer plugin factories.
+- Vue, React, and Svelte renderers are adapters over `@quajs/renderer-web`.
+- Optional renderer features are exposed through explicit subentries such as `@quajs/renderer-web/plugins/backlog` and `@quajs/renderer-vue/plugins/settings`.
+- Official renderers provide semantic DOM, stable classes/data attributes, and optional style entrypoints. They do not auto-import visual CSS.
 
 ## Runtime Packages
 
-Dynamic content is package-based:
+Dynamic and AI-generated content must be package-based:
 
-1. Quack builds a signed `.qpk` with `manifest.runtimePackage`.
-2. QuaAssets mounts the QPK as a side-by-side dynamic bundle.
-3. `RuntimeContentManager` verifies trust, activates engine plugins, scene modules, script modules, story graph deltas, store migrations, and renderer plugin manifests.
-4. Save/load, jump, backlog, voice replay, story graph, and active projections track required runtime packages before restore or unload.
+1. Quack builds a `.qpk` bundle with runtime package manifest metadata.
+2. QuaAssets mounts the QPK as a side-by-side dynamic asset bundle.
+3. `RuntimeContentManager` verifies trust policy, activates engine plugins, script modules, story graph deltas, store migrations, and renderer plugin manifests.
+4. Save/load, jumps, backlog entries, voice replay, chapter select, and active projections preserve required runtime package dependencies before restore or unload.
 
-See [docs/design/dynamic-runtime-qpk.md](docs/design/dynamic-runtime-qpk.md).
+See `docs/design/dynamic-runtime-qpk.md` for the full contract.
 
-## Story Graph And Chapter Select
+## Feature Plugins
 
-`@quajs/story-graph` owns route, lane, protagonist, timeline, node, edge, and story event metadata. Chapter select is modeled as a derived projection of story graph nodes marked with `chapterSelect`; it is not a second source of truth. Unlock state uses the story graph unlocked node set, and runtime package unload removes affected graph deltas and stale unlock entries.
+Feature plugins are independent packages. They own their feature-specific engine APIs, state/projection contracts, QuaScript decorators, and optional settings integration.
 
-QuaScript supports `@ChapterSelect({ title?, summary?, order?, thumbnail?, unlockOnVisit? })`.
+| Plugin | Responsibility |
+| --- | --- |
+| `@quajs/plugin-achievement` | Profile-persistent achievements, conditions, rewards, notifications, and an achievement board scene |
+| `@quajs/plugin-animation` | Engine-owned timeline animation projections for characters, backgrounds, UI, and effects |
+| `@quajs/plugin-audio` | Audio intent projection for voice, BGM, SFX, ambient tracks, buses, gain, EQ, and automation |
+| `@quajs/plugin-background` | Image/video/layered background projection, transitions, and CG overlays |
+| `@quajs/plugin-backlog` | Dialogue/choice backlog recording, compact projection, optional rewind, and voice replay references |
+| `@quajs/plugin-fonts` | Engine-owned font face projection for renderer font registration |
+| `@quajs/plugin-gallery` | Profile-persistent gallery catalogs, unlocks, and a gallery scene shell |
+| `@quajs/plugin-inventory` | Profile-persistent inventory definitions and quantities, intentionally UI-less |
+| `@quajs/plugin-settings` | Developer/player settings registry, validation, persistence bridge, and renderer projection |
+| `@quajs/plugin-sprite` | Sprite manifests, expression diff resolution, UI skins, Quack integration, and dev HMR helpers |
 
-## Inventory
+Each plugin package has its own README under `packages/plugins/*/README.md`.
 
-`@quajs/plugin-inventory` provides programmatic item catalog and quantity APIs. It has no renderer UI. Definitions live in plugin runtime state; player quantities are persisted by profile in `QuaStore` using `@quajs/plugin-inventory:profile:<profileId>` snapshots. Profile data is intentionally independent from story save/load/rollback.
+## Story Graph
 
-QuaScript supports `@GrantInventoryItem`, `@ConsumeInventoryItem`, and `@SetInventoryItemQuantity`.
+`@quajs/story-graph` owns story metadata, route/lane/timeline/protagonist graph records, story events, jump resolution, unlock state, and chapter select projection.
 
-## Renderer Presets
+Chapter select is derived from graph nodes marked with `chapterSelect`. It is not a second source of truth. Locked chapter-select entries can be spoiler-safe:
 
-The Web, Vue, React, and Svelte visual novel presets expose the same feature order:
+- `lockedVisibility: 'placeholder'` shows redacted title/summary/thumbnail.
+- `lockedVisibility: 'hidden'` omits the locked entry from projection.
+- `lockedVisibility: 'revealed'` shows the real entry before unlock.
+- `lockEntryUntilUnlocked` controls whether a locked entry can be entered.
 
-`input`, `fonts`, `background`, `sprite`, `character`, `effects`, `dialogue`, `choices`, `audio`, `scene`, `ui`, `settings`, `backlog`, `gallery`, `achievement`.
+See `packages/core/story-graph/README.md`.
 
-React and Svelte feature subentries are thin wrappers around `@quajs/renderer-web/plugins/*`; they do not duplicate DOM runtime behavior.
+## QuaScript
+
+QuaScript is the narrative DSL for dialogue, choices, story-point metadata, and plugin decorators. Feature packages publish their own decorators through package-local `./script-compiler` subentries, while `@quajs/script-compiler` handles orchestration and import wiring.
+
+Example:
+
+```qs
+@SetBackground('images/bg/station-night.png', { transition: { type: 'fade', duration: 400 } })
+@PlayBGM('audio/bgm/night-grid.ogg', { loop: true, fadeInMs: 600 })
+Narrator: The station lights come back one row at a time.
+```
+
+## Demo
+
+The demo project lives in `demo/` and showcases the current visual novel stack:
+
+- Vue renderer preset with custom UI skinning.
+- Main menu, settings, save/load, backlog, and story tree panels.
+- Typewriter text, auto/skip controls, input handling, and overlay animation.
+- Story graph based spoiler-safe story tree locking.
+- Character sprites, background transitions, CG overlays, and generated demo assets.
+
+The demo story, characters, artwork, and generated assets are proprietary demo content and are not covered by the open-source package license. See `demo/README.md`.
 
 ## Development
 
+Requirements:
+
+- Node.js `>=20`
+- pnpm `11.0.9`
+
+Common commands:
+
 ```bash
 pnpm install
-pnpm build
-pnpm test
-pnpm -s turbo typecheck --summarize
+pnpm run build
+pnpm run test
+pnpm run lint
+pnpm run typecheck
+pnpm run ci
 ```
 
-Useful package-scoped commands:
+Useful focused commands:
 
 ```bash
-pnpm --filter @quajs/plugin-inventory test -- --run
+pnpm --filter demo dev
+pnpm --filter demo build
 pnpm --filter @quajs/story-graph test -- --run
-pnpm --filter @quajs/renderer-react test -- --run
-pnpm --filter @quajs/renderer-svelte test -- --run
+pnpm --filter @quajs/renderer-vue test -- --run
+pnpm --filter @quajs/plugin-backlog test -- --run
 ```
 
 ## Documentation
 
-- [docs/design/dynamic-runtime-qpk.md](docs/design/dynamic-runtime-qpk.md)
-- [docs/design/mobile-rendering-adaptation.md](docs/design/mobile-rendering-adaptation.md)
-- [docs/design/background-composition-animation.md](docs/design/background-composition-animation.md)
-- [docs/security/web-security.md](docs/security/web-security.md)
-- [packages/render/web/README.md](packages/render/web/README.md)
-- [packages/render/vue/README.md](packages/render/vue/README.md)
-- [packages/render/react/README.md](packages/render/react/README.md)
-- [packages/render/svelte/README.md](packages/render/svelte/README.md)
-- [packages/plugins/inventory/README.md](packages/plugins/inventory/README.md)
-- [packages/core/story-graph/README.md](packages/core/story-graph/README.md)
+- `docs/design/dynamic-runtime-qpk.md`
+- `docs/design/mobile-rendering-adaptation.md`
+- `docs/design/background-composition-animation.md`
+- `docs/security/web-security.md`
+- `packages/core/engine/docs/global-api.md`
+- `packages/core/engine/docs/plugin-system.md`
+- `packages/core/story-graph/README.md`
+- `packages/render/web/README.md`
+- `packages/render/vue/README.md`
+- `packages/render/react/README.md`
+- `packages/render/svelte/README.md`
+- `demo/README.md`
 
 ## License
 
-Apache-2.0 © QuaDevTeam
+QuaEngine packages are licensed under Apache-2.0 unless a package or asset declares otherwise. Demo game content in `demo/` is proprietary and fully copyrighted.

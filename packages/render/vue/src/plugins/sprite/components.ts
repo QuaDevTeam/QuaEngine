@@ -1,5 +1,4 @@
 import type { AssetType } from '@quajs/assets'
-import type { PropType } from 'vue'
 import type {
   SpriteManifest,
   SpriteReference,
@@ -7,6 +6,7 @@ import type {
 } from '@quajs/plugin-sprite/contracts'
 import type { ActiveAnimationProjection } from '@quajs/render-core'
 import type { UiSkinControlKind, WebAssetTargetPackageId } from '@quajs/renderer-web'
+import type { PropType } from 'vue'
 import {
   resolveSpriteProjection,
   resolveSpriteReference,

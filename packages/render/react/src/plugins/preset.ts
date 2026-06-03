@@ -1,5 +1,6 @@
 import type { RendererPlugin } from '@quajs/render-core'
 import type { QuaWebDomRendererPlugin } from '@quajs/renderer-web/plugins/core'
+import type { CharacterReactRendererPluginOptions } from './character'
 import type { InputReactRendererPluginOptions } from './input'
 import { createAchievementRendererPlugin } from './achievement'
 import { createAudioRendererPlugin } from './audio'
@@ -18,6 +19,7 @@ import { createSpriteCharacterRenderer, createSpriteRendererPlugin } from './spr
 import { createUiRendererPlugin } from './ui'
 
 export interface VisualNovelReactRendererPresetOptions {
+  character?: false | Omit<CharacterReactRendererPluginOptions, 'renderSprite'>
   input?: false | InputReactRendererPluginOptions
 }
 
@@ -30,7 +32,7 @@ export function createVisualNovelRendererPlugins(
     createFontsRendererPlugin(),
     createBackgroundRendererPlugin(),
     createSpriteRendererPlugin(),
-    createCharacterRendererPlugin({ renderSprite }),
+    ...(options.character === false ? [] : [createCharacterRendererPlugin({ renderSprite, ...(options.character || {}) })]),
     createEffectsRendererPlugin(),
     createDialogueRendererPlugin(),
     createChoicesRendererPlugin(),

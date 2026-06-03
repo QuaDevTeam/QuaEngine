@@ -605,6 +605,56 @@ describe('quaEngine runtime architecture', () => {
     expect(engine.getFlowControlState().mode).toBe('normal')
   })
 
+  it('stops auto mode when the renderer reports valid user interaction', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.startAuto()
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_INPUT_COMMAND, {
+      command: 'ui:menu',
+      device: 'keyboard',
+      source: 'keyboard:Escape',
+      pressed: true,
+      timestamp: 1,
+    })
+
+    expect(engine.getFlowControlState().mode).toBe('normal')
+
+    await engine.startAuto()
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_ADVANCE, { source: 'pointer:stage' })
+
+    expect(engine.getFlowControlState().mode).toBe('normal')
+
+    await engine.startAuto()
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_CHOICE_SELECT, { choiceId: 'choice-a' })
+
+    expect(engine.getFlowControlState().mode).toBe('normal')
+  })
+
+  it('keeps auto mode running for engine-owned auto advances and auto toggle commands', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.startAuto()
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_ADVANCE, { source: 'flow-control:auto' })
+
+    expect(engine.getFlowControlState().mode).toBe('auto')
+
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_INPUT_COMMAND, {
+      command: 'auto:toggle',
+      device: 'keyboard',
+      source: 'keyboard:KeyA',
+      pressed: true,
+      timestamp: 1,
+    })
+
+    expect(engine.getFlowControlState().mode).toBe('auto')
+
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.FLOW_CONTROL_STOP_AUTO_REQUEST, { source: 'keyboard:KeyA' })
+
+    expect(engine.getFlowControlState().mode).toBe('normal')
+  })
+
   it('creates checkpoints, restores story points through jump, and cancels pending waits', async () => {
     const engine = createEngine()
     await engine.init()
@@ -1495,6 +1545,31 @@ describe('quaEngine runtime architecture', () => {
 
     await engine.deleteSaveSlot('quicksave')
     expect((await engine.listSaveSlots()).map(slot => slot.slotId)).not.toContain('quicksave')
+  })
+
+  it('uses readable default names for manual save slots', async () => {
+    const engine = createEngine()
+    await engine.init()
+    await engine.setStoryPoint({
+      chapterId: '02',
+      sceneId: 'night-archive',
+      routeId: 'trust-route',
+      nodeId: 'archive-node',
+      stepId: 'step-7',
+    })
+
+    await engine.saveToSlot('slot-1')
+
+    const slot = await engine.getStore().getSlot('slot-1')
+    expect(slot?.index.name).toBe('Chapter 02 · Night Archive · Trust Route')
+    expect(slot?.index.metadata.name).toBe('Chapter 02 · Night Archive · Trust Route')
+    expect(slot?.index.metadata).toEqual(expect.objectContaining({
+      chapterId: '02',
+      routeId: 'trust-route',
+      nodeId: 'archive-node',
+      sceneName: 'night-archive',
+      stepId: 'step-7',
+    }))
   })
 
   it('stores provided save previews without renderer capture', async () => {

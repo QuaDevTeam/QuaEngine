@@ -20,20 +20,60 @@
   --qua-css-safe-area-left: env(safe-area-inset-left, 0px);
 }
 
+.qua-no-select,
+.qua-choice-panel,
+.qua-choice-button,
+.qua-ui-overlay,
+.qua-menu-overlay,
+.qua-save-load-panel,
+.qua-confirm-overlay,
+.qua-settings-panel,
+.qua-backlog-header,
+.qua-backlog-entry-meta,
+.qua-backlog-entry-voice,
+.qua-backlog-close,
+.qua-story-tree,
+.qua-ui-panel-header,
+.qua-ui-action-button,
+.qua-save-load-mode-tabs,
+.qua-save-slot-grid,
+.qua-settings-header,
+.qua-settings-scope-header,
+.qua-settings-field-label {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.qua-select-text,
+.qua-dialogue-text,
+.qua-backlog-entry-content,
+.qua-backlog-entry-text,
+.qua-confirm-description,
+.qua-settings-field-description,
+.qua-settings-scope-description,
+.qua-settings-group-description,
+.qua-settings-field-error,
+.qua-ui-overlay-description {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 .qua-stage-frame {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  overflow: clip;
+  overscroll-behavior: none;
 }
 
 .qua-stage-viewport {
   position: absolute;
-  overflow: hidden;
+  overflow: clip;
+  overscroll-behavior: none;
 }
 
 .qua-stage {
   position: relative;
-  overflow: hidden;
+  overflow: clip;
   transform-origin: top left;
 }
 
@@ -43,7 +83,7 @@
 .qua-stage-plane {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .qua-stage-scene {
@@ -77,7 +117,7 @@
 }
 
 .qua-scene-transition-layer {
-  overflow: hidden;
+  overflow: clip;
   pointer-events: none;
   z-index: var(--qua-scene-transition-z-index, 80);
 }
@@ -135,15 +175,66 @@
 .qua-character {
   position: absolute;
   display: block;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  left: var(--qua-character-left, var(--qua-layout-safe-center-x-px, 50%));
+  top: var(--qua-character-top, var(--qua-layout-safe-center-y-px, 50%));
+  width: var(--qua-character-width, min(34%, 460px));
+  max-width: var(--qua-character-max-width, min(100%, 520px));
+  max-height: var(--qua-character-max-height, 86%);
+  transform: translate(var(--qua-character-anchor-x, -50%), var(--qua-character-anchor-y, -50%))
+    scale(var(--qua-character-scale, 1)) rotate(calc(var(--qua-character-rotation, 0) * 1deg));
+  transform-origin: center bottom;
   opacity: var(--qua-character-opacity, 1);
+  z-index: var(--qua-character-layer, 1);
+  pointer-events: none;
+  will-change: transform, opacity;
+  transition:
+    opacity var(--qua-character-exit-duration, 180ms) ease,
+    transform var(--qua-character-enter-duration, 220ms) ease;
 }
 
 .qua-character.is-hidden {
-  visibility: hidden;
+  visibility: visible;
+  opacity: 0;
   pointer-events: none;
+}
+
+.qua-character > .qua-sprite,
+.qua-character > .qua-character-sprite {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.qua-character > .qua-character-sprite,
+.qua-character .qua-sprite-layer--base:not(.qua-sprite-layer--atlas) {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.qua-character .qua-sprite-layer {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.qua-character .qua-sprite-layer--expression:not(.qua-sprite-layer--atlas) {
+  height: auto;
+}
+
+.qua-character[data-character-presence='enter'][data-character-visible='true'] {
+  animation: qua-character-fade-in var(--qua-character-enter-duration, 220ms) ease both;
+}
+
+.qua-character[data-character-presence='exit'] {
+  opacity: 0;
+  pointer-events: none;
+  animation: qua-character-fade-out var(--qua-character-exit-duration, 180ms) ease both;
+}
+
+.qua-character-layer[data-character-transitions='disabled'] .qua-character {
+  animation: none !important;
+  transition: none !important;
 }
 
 .qua-dialogue-box,
@@ -210,4 +301,100 @@
 
 .qua-audio-controller {
   display: none;
+}
+
+@keyframes qua-character-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: var(--qua-character-opacity, 1);
+  }
+}
+
+@keyframes qua-character-fade-out {
+  from {
+    opacity: var(--qua-character-opacity, 1);
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes qua-ui-layer-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes qua-ui-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes qua-ui-panel-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+}
+
+.qua-overlay-layer {
+  animation: qua-ui-layer-in 160ms ease both;
+}
+
+.qua-ui-overlay,
+.qua-menu-overlay,
+.qua-save-load-panel,
+.qua-confirm-overlay,
+.qua-settings-panel {
+  transform-origin: center center;
+}
+
+.qua-ui-overlay[data-overlay-presence='enter'],
+.qua-menu-overlay[data-overlay-presence='enter'],
+.qua-save-load-panel[data-overlay-presence='enter'],
+.qua-confirm-overlay[data-overlay-presence='enter'],
+.qua-settings-panel[data-overlay-presence='enter'] {
+  animation: qua-ui-panel-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.qua-ui-overlay[data-overlay-presence='exit'],
+.qua-menu-overlay[data-overlay-presence='exit'],
+.qua-save-load-panel[data-overlay-presence='exit'],
+.qua-confirm-overlay[data-overlay-presence='exit'],
+.qua-settings-panel[data-overlay-presence='exit'] {
+  pointer-events: none;
+  animation: qua-ui-panel-out 160ms ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qua-overlay-layer,
+  .qua-ui-overlay,
+  .qua-menu-overlay,
+  .qua-save-load-panel,
+  .qua-confirm-overlay,
+  .qua-settings-panel,
+  .qua-character {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
 }

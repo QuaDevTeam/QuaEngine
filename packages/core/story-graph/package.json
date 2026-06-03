@@ -110,7 +110,7 @@
           "args": [
             {
               "name": "options",
-              "detail": "Optional title, summary, order, thumbnail, or unlockOnVisit"
+              "detail": "Optional title, summary, order, thumbnail, unlockOnVisit, lockedVisibility, lockedTitle, lockedSummary, lockedThumbnail, or lockEntryUntilUnlocked"
             }
           ]
         }

@@ -224,27 +224,29 @@ export function rendererRootStyle(): Record<string, string> {
 
 export function stageFrameStyle(): Record<string, string> {
   return {
-    position: 'absolute',
-    inset: '0',
-    overflow: 'hidden',
+    'position': 'absolute',
+    'inset': '0',
+    'overflow': 'clip',
+    'overscroll-behavior': 'none',
   }
 }
 
 export function stageViewportStyle(layout: ResolvedStageLayout): Record<string, string> {
   return {
-    position: 'absolute',
-    overflow: 'hidden',
-    width: `${layout.viewportWidth}px`,
-    height: `${layout.viewportHeight}px`,
-    left: `${layout.viewportX}px`,
-    top: `${layout.viewportY}px`,
+    'position': 'absolute',
+    'overflow': 'clip',
+    'overscroll-behavior': 'none',
+    'width': `${layout.viewportWidth}px`,
+    'height': `${layout.viewportHeight}px`,
+    'left': `${layout.viewportX}px`,
+    'top': `${layout.viewportY}px`,
   }
 }
 
 export function stageContentStyle(layout: ResolvedStageLayout): Record<string, string | number> {
   return {
     'position': 'relative',
-    'overflow': 'hidden',
+    'overflow': 'clip',
     'width': `${layout.logicalWidth}px`,
     'height': `${layout.logicalHeight}px`,
     'transform': `scale(${layout.scale})`,
@@ -295,7 +297,7 @@ export function stageSceneStyle(): Record<string, string | number> {
   return {
     'position': 'absolute',
     'inset': '0',
-    'overflow': 'hidden',
+    'overflow': 'clip',
     'transform': 'translate(calc(var(--qua-stage-x, 0) * 1px), calc(var(--qua-stage-y, 0) * 1px)) scale(var(--qua-stage-scale, 1)) rotate(calc(var(--qua-stage-rotation, 0) * 1deg)) translate(calc(var(--qua-camera-x, 0) * -1px), calc(var(--qua-camera-y, 0) * -1px)) scale(var(--qua-camera-scale, 1)) rotate(calc(var(--qua-camera-rotation, 0) * -1deg))',
     'transform-origin': 'top left',
     'opacity': 'var(--qua-stage-opacity, 1)',
@@ -306,7 +308,7 @@ export function stagePlaneStyle(): Record<string, string | number> {
   return {
     position: 'absolute',
     inset: '0',
-    overflow: 'hidden',
+    overflow: 'clip',
   }
 }
 

@@ -1,3 +1,4 @@
+import type { CharacterVueRendererPluginOptions } from '../character'
 import type { QuaVueRendererPlugin } from '../core'
 import type { InputVueRendererPluginOptions } from '../input'
 import { createAchievementRendererPlugin } from '../achievement'
@@ -17,6 +18,7 @@ import { createSpriteRendererPlugin } from '../sprite'
 import { createUiRendererPlugin } from '../ui'
 
 export interface VisualNovelRendererPresetOptions {
+  character?: false | CharacterVueRendererPluginOptions
   input?: false | InputVueRendererPluginOptions
 }
 
@@ -26,7 +28,7 @@ export function createVisualNovelRendererPlugins(options: VisualNovelRendererPre
     createFontsRendererPlugin(),
     createBackgroundRendererPlugin(),
     createSpriteRendererPlugin(),
-    createCharacterRendererPlugin(),
+    ...(options.character === false ? [] : [createCharacterRendererPlugin(options.character || {})]),
     createEffectsRendererPlugin(),
     createDialogueRendererPlugin(),
     createChoicesRendererPlugin(),

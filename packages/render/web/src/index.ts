@@ -102,6 +102,7 @@ export {
   projectRichText,
   projectStageMotion,
   projectUiOverlay,
+  resolveCharacterPositionAnchor,
   stageMotionVars,
 } from './projection'
 export type { MotionProjection } from './projection'

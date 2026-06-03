@@ -22,8 +22,8 @@ function isNodeLikeRuntime(): boolean {
 }
 
 async function importPluginDiscoveryModule(): Promise<any> {
-  const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>
-  return await dynamicImport('@quajs/plugin-discovery')
+  const specifier = '@quajs/plugin-discovery'
+  return await import(/* @vite-ignore */ specifier)
 }
 
 // Load plugin-discovery only in Node-like tooling runtimes. The package reads the

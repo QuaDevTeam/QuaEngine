@@ -1,8 +1,8 @@
 import type { AssetInfo } from '@quajs/quack'
-import { initializeCanvas, writePsdBuffer } from 'ag-psd'
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { initializeCanvas, writePsdBuffer } from 'ag-psd'
 import { describe, expect, it, vi } from 'vitest'
 import { createSpriteQuackPlugin } from '../src/build'
 import {
@@ -246,16 +246,16 @@ describe('@quajs/plugin-sprite', () => {
     const generated = await createSpriteQuackPlugin().collectAssets({
       source: root,
       assets: [{
-      name: 'ui/default/ui-skin.manifest.json',
-      path: '/project/assets/ui/default/ui-skin.manifest.json',
-      relativePath: 'ui/default/ui-skin.manifest.json',
-      size: 1,
-      hash: 'physical-ui-manifest',
-      type: 'data',
-      locales: ['default'],
-      mimeType: 'application/json',
-      mtime: 1,
-    }],
+        name: 'ui/default/ui-skin.manifest.json',
+        path: '/project/assets/ui/default/ui-skin.manifest.json',
+        relativePath: 'ui/default/ui-skin.manifest.json',
+        size: 1,
+        hash: 'physical-ui-manifest',
+        type: 'data',
+        locales: ['default'],
+        mimeType: 'application/json',
+        mtime: 1,
+      }],
     })
     expect(generated.some(asset => asset.relativePath === 'ui/default/ui-skin.manifest.json')).toBe(false)
     expect(generated.map(asset => asset.relativePath)).toContain('ui/default/button/default.png')
@@ -327,8 +327,22 @@ function createPsdBuffer(layerNames: string[]): Uint8Array {
         width: 2,
         height: 2,
         data: new Uint8ClampedArray([
-          index * 64, 0, 255 - index * 64, 255, 0, index * 64, 0, 255,
-          0, 0, index * 64, 255, 255, 255, 255, 255,
+          index * 64,
+          0,
+          255 - index * 64,
+          255,
+          0,
+          index * 64,
+          0,
+          255,
+          0,
+          0,
+          index * 64,
+          255,
+          255,
+          255,
+          255,
+          255,
         ]),
       },
     })),

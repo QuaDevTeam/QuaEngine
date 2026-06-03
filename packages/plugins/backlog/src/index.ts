@@ -590,7 +590,7 @@ function findCurrentVoice(engine: QuaEngineInterface): BacklogVoiceReference | u
         contentPackageId,
         requiredRuntimePackages,
       }
-	    : undefined
+    : undefined
 }
 
 function collectBacklogRequiredRuntimePackages(entries: readonly BacklogEntry[]): string[] {

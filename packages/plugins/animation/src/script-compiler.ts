@@ -1,6 +1,8 @@
 import * as t from '@babel/types'
 import { animationDecoratorMappings } from './decorators'
 
+export { animationDecoratorMappings } from './decorators'
+
 const SUPPORTED_FUNCTIONS = new Set([
   'registerAnimationWithEngine',
   'playTimelineWithEngine',

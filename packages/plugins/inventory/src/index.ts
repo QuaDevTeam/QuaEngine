@@ -25,8 +25,8 @@ import {
   onInventoryLogic,
 } from './contracts'
 import {
-  decorators as inventoryDecorators,
   inventoryDecoratorMappings,
+  decorators as inventoryDecorators,
 } from './script-compiler'
 
 const DEFAULT_PROFILE_ID = 'default'
@@ -66,8 +66,8 @@ export {
   INVENTORY_METADATA_NAMESPACE,
   INVENTORY_PLUGIN_ID,
   INVENTORY_PROFILE_STORE_PREFIX,
-  InventoryLogicEvents,
   inventoryDecoratorMappings,
+  InventoryLogicEvents,
   onInventoryLogic,
 }
 
@@ -511,15 +511,17 @@ function createInventoryProjection(
   profile: InventoryProfileState,
 ): InventoryProjection {
   const definitions = runtimeState ? Array.from(runtimeState.items.values()).map(cloneInventoryItemDefinition) : []
-  const categories = runtimeState ? Array.from(runtimeState.categories.values()).map((category) => {
-    const itemIds = definitions
-      .filter(item => item.categoryId === category.id)
-      .map(item => item.id)
-    return {
-      ...cloneInventoryCategoryDefinition(category),
-      itemIds,
-    }
-  }) : []
+  const categories = runtimeState
+    ? Array.from(runtimeState.categories.values()).map((category) => {
+        const itemIds = definitions
+          .filter(item => item.categoryId === category.id)
+          .map(item => item.id)
+        return {
+          ...cloneInventoryCategoryDefinition(category),
+          itemIds,
+        }
+      })
+    : []
   const itemIds = new Set<string>([
     ...definitions.map(item => item.id),
     ...Object.keys(profile.items),
@@ -955,7 +957,7 @@ function normalizeOptionalInteger(value: number | undefined, label: string): num
     return undefined
   }
   if (!Number.isSafeInteger(value)) {
-    throw new Error(`${label} must be a safe integer.`)
+    throw new TypeError(`${label} must be a safe integer.`)
   }
   return value
 }

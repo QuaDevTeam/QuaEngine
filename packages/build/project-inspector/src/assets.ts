@@ -123,14 +123,14 @@ function stringArgument(value: unknown): string | undefined {
   return isStringLiteralNode(value) ? value.value : undefined
 }
 
-type CallExpressionLike = { arguments: unknown[], callee?: unknown, type: 'CallExpression' }
-type IdentifierLike = { name: string, type: 'Identifier' }
-type StringLiteralLike = { type: 'StringLiteral', value: string }
-type NumericLiteralLike = { type: 'NumericLiteral', value: number }
-type ObjectPropertyLike = { computed?: boolean, key: IdentifierLike | StringLiteralLike | NumericLiteralLike, type: 'ObjectProperty', value: unknown }
-type ObjectExpressionLike = { properties: unknown[], type: 'ObjectExpression' }
-type BooleanLiteralLike = { type: 'BooleanLiteral', value: boolean }
-type NullLiteralLike = { type: 'NullLiteral' }
+interface CallExpressionLike { arguments: unknown[], callee?: unknown, type: 'CallExpression' }
+interface IdentifierLike { name: string, type: 'Identifier' }
+interface StringLiteralLike { type: 'StringLiteral', value: string }
+interface NumericLiteralLike { type: 'NumericLiteral', value: number }
+interface ObjectPropertyLike { computed?: boolean, key: IdentifierLike | StringLiteralLike | NumericLiteralLike, type: 'ObjectProperty', value: unknown }
+interface ObjectExpressionLike { properties: unknown[], type: 'ObjectExpression' }
+interface BooleanLiteralLike { type: 'BooleanLiteral', value: boolean }
+interface NullLiteralLike { type: 'NullLiteral' }
 
 function isIdentifierNode(value: unknown): value is IdentifierLike {
   return Boolean(value)

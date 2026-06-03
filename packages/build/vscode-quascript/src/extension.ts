@@ -12,8 +12,8 @@ import type {
   StoryTargetData,
 } from '@quajs/project-inspector'
 import type { ExtensionContext, Webview } from 'vscode'
-import * as vscode from 'vscode'
 import { createQuaProjectInspector } from '@quajs/project-inspector'
+import * as vscode from 'vscode'
 import { LanguageClient, TransportKind } from 'vscode-languageclient/node'
 
 type LzmaNative = typeof import('lzma-native')
@@ -303,18 +303,18 @@ class StoryTreeProvider implements vscode.TreeDataProvider<InspectorTreeItem> {
     const packageItems = snapshot.storyTree.packages
       .filter(packageRef => !this.packageFilter || packageRef.id === this.packageFilter)
       .map(packageRef => new InspectorTreeItem(
-      packageRef.id,
-      'package',
-      vscode.TreeItemCollapsibleState.Collapsed,
-      {
-        description: packageRef.version,
-        icon: packageRef.locked ? 'lock' : 'package',
-        packageId: packageRef.id,
-        refText: packageRef.id,
-        source: packageRef.sourcePath ? { filePath: packageRef.sourcePath } : undefined,
-      },
-      this.sceneItems(snapshot, packageRef.id),
-    ))
+        packageRef.id,
+        'package',
+        vscode.TreeItemCollapsibleState.Collapsed,
+        {
+          description: packageRef.version,
+          icon: packageRef.locked ? 'lock' : 'package',
+          packageId: packageRef.id,
+          refText: packageRef.id,
+          source: packageRef.sourcePath ? { filePath: packageRef.sourcePath } : undefined,
+        },
+        this.sceneItems(snapshot, packageRef.id),
+      ))
     const baseScenes = this.packageFilter ? [] : this.sceneItems(snapshot, undefined)
     if (packageItems.length === 0 && baseScenes.length === 0) {
       return [new InspectorTreeItem('No story declarations found', 'empty', vscode.TreeItemCollapsibleState.None, { icon: 'info' })]

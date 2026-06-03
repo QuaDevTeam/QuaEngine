@@ -37,6 +37,7 @@ import {
   resolveStageLayout,
   stageContentStyle,
   stageLogicalToClientPoint,
+  stageViewportStyle,
   WebAssetUrlHandle,
 } from '../src'
 import { WebAudioRendererController } from '../src/audio'
@@ -187,11 +188,20 @@ describe('@quajs/renderer-web', () => {
     expect(style['--qua-layout-safe-y']).toBe(90)
     expect(style['--qua-layout-safe-center-x-px']).toBe('540px')
     expect(style['--qua-layout-safe-center-y-px']).toBe('1192.5px')
+    expect(stageViewportStyle(phone).overflow).toBe('clip')
 
     expect(characterProjectionVars({ id: 'Alice', name: 'Alice', visible: true })?.['--qua-character-left'])
       .toBe('var(--qua-layout-safe-center-x-px, 50%)')
     expect(characterProjectionVars({ id: 'Alice', name: 'Alice', visible: true, position: { x: 100, y: 200 } })?.['--qua-character-left'])
       .toBe('100px')
+    expect(characterProjectionVars({ id: 'Alice', name: 'Alice', visible: true, position: { x: 1240 } })?.['--qua-character-anchor'])
+      .toBe('center')
+    expect(characterProjectionVars({ id: 'Alice', name: 'Alice', visible: true, position: { x: 1680 } })?.['--qua-character-anchor'])
+      .toBe('right')
+    expect(characterProjectionVars({ id: 'Alice', name: 'Alice', visible: true, position: { xPercent: 8 } })?.['--qua-character-anchor-x'])
+      .toBe('0%')
+    expect(characterProjectionVars({ id: 'Alice', name: 'Alice', visible: true, position: { anchor: 'right', x: 960 } })?.['--qua-character-anchor-x'])
+      .toBe('-100%')
   })
 
   it('reads CSS safe-area insets relative to the renderer container', () => {
@@ -649,6 +659,52 @@ describe('@quajs/renderer-web', () => {
 
     expect(choices).toEqual(['yes'])
     expect(advances).toEqual([{ source: 'pointer:dialogue' }, { source: 'pointer:stage' }])
+
+    await renderer.unmount()
+  })
+
+  it('keeps hidden native DOM characters mounted for their exit transition', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins({
+        character: {
+          transitions: {
+            enterDurationMs: 20,
+            exitDurationMs: 25,
+          },
+        },
+      }),
+      initialView: view({
+        characters: [{ id: 'Alice', name: 'Alice', visible: true, position: { x: 960, y: 540 } }],
+      }),
+    })
+
+    await renderer.mount()
+
+    const layer = root.querySelector<HTMLElement>('.qua-character-layer')
+    expect(layer?.dataset.characterTransitions).toBe('enabled')
+    expect(layer?.style.getPropertyValue('--qua-character-enter-duration')).toBe('20ms')
+    expect(layer?.style.getPropertyValue('--qua-character-exit-duration')).toBe('25ms')
+    expect(root.querySelector('.qua-character')?.getAttribute('data-character-presence')).toBe('enter')
+
+    await emitLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, {
+      view: view({
+        characters: [{ id: 'Alice', name: 'Alice', visible: false, position: { x: 960, y: 540 } }],
+      }),
+    })
+    await flushDom()
+
+    expect(root.querySelector('.qua-character')?.getAttribute('data-character-presence')).toBe('exit')
+
+    await new Promise(resolve => setTimeout(resolve, 30))
+    await flushDom()
+
+    expect(root.querySelector('.qua-character')).toBeNull()
 
     await renderer.unmount()
   })
@@ -1150,7 +1206,8 @@ describe('@quajs/renderer-web', () => {
 
     expect(actions.inputCommand).toHaveBeenCalledTimes(1)
     await expect(input.dispatchCommand({ command: 'advance', device: 'keyboard', source: 'direct' }))
-      .rejects.toThrow('input action failed')
+      .rejects
+      .toThrow('input action failed')
 
     input.dispose()
   })

@@ -1727,17 +1727,22 @@ function collectActiveAchievementRequiredRuntimePackages(
   achievements: readonly AchievementProjectionItem[],
   notifications: readonly AchievementNotificationProjection[],
 ): string[] {
+  const activeGroupPackages = sceneActive ? groups.map(group => group.requiredRuntimePackages) : []
+  const activeAchievementPackages = sceneActive
+    ? achievements.map(achievement => mergeRequiredRuntimePackages(
+        achievement.requiredRuntimePackages,
+        achievement.unlockRecord?.contentPackageId ? [achievement.unlockRecord.contentPackageId] : [],
+        achievement.unlockRecord?.requiredRuntimePackages,
+      ))
+    : []
+
   return mergeRequiredRuntimePackages(
     ...notifications.map(notification => mergeRequiredRuntimePackages(
       notification.contentPackageId ? [notification.contentPackageId] : [],
       notification.requiredRuntimePackages,
     )),
-    ...(sceneActive ? groups.map(group => group.requiredRuntimePackages) : []),
-    ...(sceneActive ? achievements.map(achievement => mergeRequiredRuntimePackages(
-      achievement.requiredRuntimePackages,
-      achievement.unlockRecord?.contentPackageId ? [achievement.unlockRecord.contentPackageId] : [],
-      achievement.unlockRecord?.requiredRuntimePackages,
-    )) : []),
+    ...activeGroupPackages,
+    ...activeAchievementPackages,
   )
 }
 

@@ -4,13 +4,13 @@ QuaEngine uses package-local feature plugins plus metadata-driven discovery. Fea
 
 ## Layers
 
-| layer | owner | purpose |
-| --- | --- | --- |
-| Engine plugins | `@quajs/engine` contracts and `packages/plugins/*` implementations | Authoritative feature state, APIs, decorators, runtime package cleanup |
-| Plugin discovery | `@quajs/plugin-discovery` | Reads `package.json#quajs`, `qua.plugins.json`, and custom registries |
-| QuaScript compiler | `@quajs/script-compiler` | Resolves decorator metadata and calls package-local compiler lowering |
-| Renderer plugins | `@quajs/render-core`, `@quajs/renderer-web`, framework adapters | Stateless projection layers and renderer-local resources |
-| Pipeline plugins | `@quajs/pipeline` | Transport/interception of events without becoming a second renderer bus |
+| layer              | owner                                                              | purpose                                                                 |
+| ------------------ | ------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| Engine plugins     | `@quajs/engine` contracts and `packages/plugins/*` implementations | Authoritative feature state, APIs, decorators, runtime package cleanup  |
+| Plugin discovery   | `@quajs/plugin-discovery`                                          | Reads `package.json#quajs`, `qua.plugins.json`, and custom registries   |
+| QuaScript compiler | `@quajs/script-compiler`                                           | Resolves decorator metadata and calls package-local compiler lowering   |
+| Renderer plugins   | `@quajs/render-core`, `@quajs/renderer-web`, framework adapters    | Stateless projection layers and renderer-local resources                |
+| Pipeline plugins   | `@quajs/pipeline`                                                  | Transport/interception of events without becoming a second renderer bus |
 
 ## Package Metadata
 
@@ -73,10 +73,9 @@ export class MyFeaturePlugin extends BaseEnginePlugin {
 
   override async onRuntimePackageUnload(ctx) {
     const packageId = ctx.runtimePackage?.package.id
-    if (!packageId) {
-      return
+    if (packageId) {
+      // Remove definitions/projections owned by or dependent on this package.
     }
-    // Remove definitions/projections owned by or dependent on this package.
   }
 
   registerAPIs() {

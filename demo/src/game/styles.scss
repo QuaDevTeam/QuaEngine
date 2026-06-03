@@ -38,6 +38,7 @@ button {
   letter-spacing: 0.08em;
   padding: 5px 7px 4px;
   text-transform: uppercase;
+  user-select: none;
   transition:
     border-color 140ms ease,
     color 140ms ease,
@@ -64,6 +65,45 @@ button.is-active {
   background:
     radial-gradient(circle at 50% 45%, rgba(37, 54, 76, 0.24), transparent 54%),
     #050507;
+}
+
+.game-root,
+.vn-title-plate,
+.vn-quick-menu,
+.vn-main-menu,
+.vn-story-tree,
+.vn-toast,
+.boot-message,
+.qua-choice-panel,
+.qua-choice-button,
+.qua-ui-panel-header,
+.qua-menu-overlay,
+.qua-confirm-overlay,
+.qua-save-load-panel,
+.qua-settings-panel,
+.qua-backlog-header,
+.qua-backlog-entry-meta,
+.qua-backlog-entry-voice,
+.qua-backlog-close,
+.qua-save-load-mode-tabs,
+.qua-save-slot-grid,
+.qua-settings-header,
+.vn-settings-header,
+.vn-settings-scope-header {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.qua-dialogue-text,
+.qua-backlog-entry-content,
+.qua-backlog-entry-text,
+.qua-confirm-description,
+.qua-settings-field-description,
+.qua-settings-scope-description,
+.qua-settings-group-description,
+.qua-settings-field-error {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .game-root::before,
@@ -137,6 +177,10 @@ button.is-active {
   backdrop-filter: blur(10px);
 }
 
+.game-root[data-system-overlay] .qua-overlay-layer::before {
+  animation: vn-overlay-scrim-in 180ms ease both;
+}
+
 .game-root[data-system-overlay="main"] .qua-overlay-layer::before,
 .game-root[data-system-overlay="main"] .qua-settings-layer::before,
 .game-root[data-system-overlay="main"] .qua-backlog-layer::before {
@@ -156,6 +200,28 @@ button.is-active {
   width: min(980px, 92vw);
   max-height: min(660px, 84vh);
   margin: 0;
+}
+
+.game-root[data-system-overlay] .qua-menu-overlay,
+.game-root[data-system-overlay] .qua-save-load-panel,
+.game-root[data-system-overlay] .qua-settings-panel,
+.game-root[data-system-overlay] .qua-confirm-overlay {
+  transform-origin: center center;
+}
+
+.game-root[data-system-overlay] .qua-menu-overlay[data-overlay-presence="enter"],
+.game-root[data-system-overlay] .qua-save-load-panel[data-overlay-presence="enter"],
+.game-root[data-system-overlay] .qua-settings-panel[data-overlay-presence="enter"],
+.game-root[data-system-overlay] .qua-confirm-overlay[data-overlay-presence="enter"] {
+  animation: vn-panel-enter 220ms cubic-bezier(0.19, 1, 0.22, 1) both;
+}
+
+.game-root[data-system-overlay] .qua-menu-overlay[data-overlay-presence="exit"],
+.game-root[data-system-overlay] .qua-save-load-panel[data-overlay-presence="exit"],
+.game-root[data-system-overlay] .qua-settings-panel[data-overlay-presence="exit"],
+.game-root[data-system-overlay] .qua-confirm-overlay[data-overlay-presence="exit"] {
+  pointer-events: none;
+  animation: vn-panel-exit 170ms ease both;
 }
 
 .vn-title-plate {
@@ -278,8 +344,7 @@ button.is-active {
   align-items: center;
   overflow: hidden;
   padding: 0 18px 0 20px;
-  border: 1px solid rgba(245, 226, 190, 0.28);
-  border-left-color: rgba(129, 229, 255, 0.42);
+  border: 1px solid rgba(245, 226, 190, 0.24);
   background:
     linear-gradient(90deg, rgba(9, 12, 18, 0.94), rgba(22, 26, 36, 0.74)),
     rgba(9, 12, 18, 0.88);
@@ -293,7 +358,6 @@ button.is-active {
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.52);
   transition:
     background 160ms ease,
-    border-color 160ms ease,
     box-shadow 160ms ease,
     color 160ms ease,
     transform 160ms ease;
@@ -306,8 +370,8 @@ button.is-active {
   left: -1px;
   width: 3px;
   content: "";
-  background: linear-gradient(180deg, rgba(129, 229, 255, 0.88), rgba(255, 226, 166, 0.72));
-  opacity: 0.72;
+  background: rgba(245, 226, 190, 0.48);
+  opacity: 0.64;
   transition:
     opacity 160ms ease,
     transform 160ms ease;
@@ -331,17 +395,15 @@ button.is-active {
 
 .vn-main-menu__actions button:hover,
 .vn-main-menu__actions button:focus-visible {
-  border-color: rgba(255, 226, 166, 0.92);
-  border-left-color: rgba(255, 226, 166, 0.92);
+  border-color: rgba(245, 226, 190, 0.24);
   background:
-    linear-gradient(90deg, rgba(255, 238, 198, 0.96), rgba(236, 198, 116, 0.82)),
-    rgba(255, 238, 198, 0.92);
+    linear-gradient(90deg, rgba(34, 29, 22, 0.96), rgba(27, 29, 36, 0.78)),
+    rgba(18, 18, 23, 0.92);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 16px 46px rgba(0, 0, 0, 0.34),
-    0 0 0 1px rgba(255, 226, 166, 0.18);
-  color: #080a0f;
-  text-shadow: none;
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 16px 46px rgba(0, 0, 0, 0.34);
+  color: #ffe8b3;
+  text-shadow: 0 0 14px rgba(255, 194, 86, 0.38);
   transform: translateX(3px);
 }
 
@@ -358,8 +420,7 @@ button.is-active {
 }
 
 .vn-main-menu__actions button:focus-visible {
-  outline: 1px solid rgba(129, 229, 255, 0.78);
-  outline-offset: 3px;
+  outline: 0;
 }
 
 .vn-story-tree {
@@ -380,13 +441,6 @@ button.is-active {
 
 .vn-story-tree-node--locked {
   filter: grayscale(0.86);
-}
-
-.vn-story-tree-node--locked .qua-story-tree__node-title::after {
-  content: " / LOCKED";
-  color: rgba(247, 242, 234, 0.42);
-  font-family: "SFMono-Regular", "Menlo", monospace;
-  font-size: 10px;
 }
 
 .vn-toast {
@@ -931,6 +985,34 @@ button.is-active {
   text-align: left;
 }
 
+.game-root[data-system-overlay] .qua-save-slot-item {
+  animation: vn-save-slot-enter 220ms cubic-bezier(0.19, 1, 0.22, 1) both;
+}
+
+.game-root[data-system-overlay] .qua-save-slot-item:nth-child(2) {
+  animation-delay: 18ms;
+}
+
+.game-root[data-system-overlay] .qua-save-slot-item:nth-child(3) {
+  animation-delay: 36ms;
+}
+
+.game-root[data-system-overlay] .qua-save-slot-item:nth-child(4) {
+  animation-delay: 54ms;
+}
+
+.game-root[data-system-overlay] .qua-save-slot-item:nth-child(5) {
+  animation-delay: 72ms;
+}
+
+.game-root[data-system-overlay] .qua-save-slot-item:nth-child(6) {
+  animation-delay: 90ms;
+}
+
+.game-root[data-system-overlay] .qua-save-slot-item:nth-child(n + 7) {
+  animation-delay: 108ms;
+}
+
 .game-root[data-system-overlay] .qua-save-slot-button:hover:not(:disabled) {
   border-color: rgba(255, 226, 166, 0.7);
   background:
@@ -1315,6 +1397,64 @@ button.is-active {
 .qua-confirm-action--confirm {
   border-color: rgba(255, 191, 96, 0.64);
   color: #ffe3a0;
+}
+
+@keyframes vn-overlay-scrim-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes vn-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.982);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes vn-panel-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+}
+
+@keyframes vn-save-slot-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-root[data-system-overlay] .qua-overlay-layer::before,
+  .game-root[data-system-overlay] .qua-menu-overlay,
+  .game-root[data-system-overlay] .qua-save-load-panel,
+  .game-root[data-system-overlay] .qua-settings-panel,
+  .game-root[data-system-overlay] .qua-confirm-overlay,
+  .game-root[data-system-overlay] .qua-save-slot-item {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+  }
 }
 
 @media (max-width: 760px) {

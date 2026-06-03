@@ -138,11 +138,36 @@ describe('@quajs/story-graph', () => {
           title: 'B',
           chapterSelect: { title: 'Chapter B', order: 1, unlockOnVisit: false },
         },
+        {
+          id: 'c',
+          point: { storyId: 'main', nodeId: 'c', stepId: 'step-c' },
+          title: 'Hidden C',
+          chapterSelect: { title: 'Hidden Chapter C', order: 3, lockedVisibility: 'hidden', unlockOnVisit: false },
+        },
+        {
+          id: 'd',
+          point: { storyId: 'main', nodeId: 'd', stepId: 'step-d' },
+          title: 'Open D',
+          chapterSelect: { title: 'Preview Chapter D', order: 4, lockEntryUntilUnlocked: false, unlockOnVisit: false },
+        },
       ],
     })
 
-    expect(getStoryChapterSelectProjection(engine).nodes.map(node => node.nodeId)).toEqual(['b', 'a'])
-    expect(getStoryChapterSelectProjection(engine).nodes.map(node => node.unlocked)).toEqual([false, false])
+    expect(getStoryChapterSelectProjection(engine).nodes.map(node => node.nodeId)).toEqual(['b', 'a', 'd'])
+    expect(getStoryChapterSelectProjection(engine).nodes.map(node => node.unlocked)).toEqual([false, false, false])
+    expect(getStoryChapterSelectProjection(engine).nodes.find(node => node.nodeId === 'b')).toEqual(expect.objectContaining({
+      title: 'Locked',
+      summary: 'Reach this point to reveal it.',
+      entryLocked: true,
+      spoilerHidden: true,
+      lockedVisibility: 'placeholder',
+    }))
+    expect(getStoryChapterSelectProjection(engine).nodes.find(node => node.nodeId === 'c')).toBeUndefined()
+    expect(getStoryChapterSelectProjection(engine).nodes.find(node => node.nodeId === 'd')).toEqual(expect.objectContaining({
+      title: 'Locked',
+      entryLocked: false,
+      spoilerHidden: true,
+    }))
 
     await engine.dialogue([{
       uuid: 'step-a',
@@ -161,6 +186,11 @@ describe('@quajs/story-graph', () => {
 
     await engine.setStoryPoint({ storyId: 'main', nodeId: 'b', stepId: 'step-b' })
     await engine.createCheckpoint({ id: 'step-b', kind: 'manual' })
+    await engine.setStoryPoint({ storyId: 'main', nodeId: 'd', stepId: 'step-d' })
+    await engine.createCheckpoint({ id: 'step-d', kind: 'manual' })
+    await engine.setStoryPoint({ storyId: 'main', nodeId: 'start', stepId: 'start' })
+    await jumpToChapterSelectNodeWithEngine(engine, 'd')
+    expect(engine.getStoryPoint()).toEqual(expect.objectContaining({ nodeId: 'd', stepId: 'step-d' }))
     await engine.setStoryPoint({ storyId: 'main', nodeId: 'start', stepId: 'start' })
     await unlockStoryNodeWithEngine(engine, 'b')
     await jumpToChapterSelectNodeWithEngine(engine, 'b')

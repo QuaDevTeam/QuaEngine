@@ -15,8 +15,8 @@ export default defineConfig({
   build: {
     lib: {
       entry: {
-        'index': resolve(import.meta.dirname, 'src/index.ts'),
-        'contracts': resolve(import.meta.dirname, 'src/contracts.ts'),
+        index: resolve(import.meta.dirname, 'src/index.ts'),
+        contracts: resolve(import.meta.dirname, 'src/contracts.ts'),
       },
       name: 'pluginFonts',
       fileName: (_format, entryName) => `${entryName}.js`,

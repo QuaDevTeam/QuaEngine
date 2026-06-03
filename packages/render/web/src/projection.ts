@@ -4,6 +4,7 @@ import type {
   BackgroundCompositionProjection,
   BackgroundFilterProjection,
   BackgroundMaskProjection,
+  CharacterPosition,
   QuaViewProjection,
   RichTextBlockProjection,
   RichTextContent,
@@ -417,11 +418,15 @@ export function backgroundMaskImageVars(url: string | undefined): Record<string,
 
 export function characterProjectionVars(character: Readonly<ViewCharacterProjection>): Record<string, string | number> | undefined {
   const position = character.position || {}
+  const anchor = resolveCharacterPositionAnchor(position)
   const vars: Record<string, string | number> = {}
   assignVar(vars, '--qua-character-x', position.x)
   assignVar(vars, '--qua-character-y', position.y)
   assignVar(vars, '--qua-character-x-percent', position.xPercent)
   assignVar(vars, '--qua-character-y-percent', position.yPercent)
+  vars['--qua-character-anchor'] = anchor
+  vars['--qua-character-anchor-x'] = characterAnchorTranslateX(anchor)
+  vars['--qua-character-anchor-y'] = '-50%'
   vars['--qua-character-left'] = position.xPercent !== undefined
     ? `${position.xPercent}%`
     : position.x !== undefined
@@ -437,6 +442,37 @@ export function characterProjectionVars(character: Readonly<ViewCharacterProject
   assignVar(vars, '--qua-character-layer', character.layer)
   assignVar(vars, '--qua-character-opacity', character.opacity)
   return Object.keys(vars).length ? vars : undefined
+}
+
+export function resolveCharacterPositionAnchor(position: Readonly<CharacterPosition> | undefined): string {
+  if (typeof position?.anchor === 'string' && position.anchor.trim()) {
+    return position.anchor
+  }
+  if (typeof position?.xPercent === 'number' && Number.isFinite(position.xPercent) && position.xPercent <= 12) {
+    return 'left'
+  }
+  if (typeof position?.xPercent === 'number' && Number.isFinite(position.xPercent) && position.xPercent >= 88) {
+    return 'right'
+  }
+  if (typeof position?.x === 'number' && Number.isFinite(position.x) && position.x <= 240) {
+    return 'left'
+  }
+  if (typeof position?.x === 'number' && Number.isFinite(position.x) && position.x >= 1680) {
+    return 'right'
+  }
+  return 'center'
+}
+
+function characterAnchorTranslateX(anchor: string): string {
+  switch (anchor) {
+    case 'left':
+      return '0%'
+    case 'right':
+      return '-100%'
+    case 'center':
+    default:
+      return '-50%'
+  }
 }
 
 export function normalizeBackgroundLayerAssetType(assetType: string | undefined): AssetType {

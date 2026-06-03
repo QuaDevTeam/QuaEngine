@@ -71,10 +71,10 @@
       "begin": "\\$\\{",
       "end": "\\}",
       "name": "meta.embedded.inline.typescript",
-          "patterns": [
-            { "include": "#target-helper" },
-            { "include": "source.ts#expression" },
-            { "include": "source.ts" }
+      "patterns": [
+        { "include": "#target-helper" },
+        { "include": "source.ts#expression" },
+        { "include": "source.ts" }
       ]
     }
   }

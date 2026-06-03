@@ -1,5 +1,5 @@
-import type { SaveSlotDataSource } from '@quajs/renderer-web/save-preview'
 import type { ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/render-core'
+import type { SaveSlotDataSource } from '@quajs/renderer-web/save-preview'
 import type { PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import { LogicToRenderEvents, onLogicToRender } from '@quajs/render-core'
@@ -13,6 +13,7 @@ import { dispatchVueRendererIntent } from '../shared/intent'
 const BACKLOG_OPEN_REQUEST = 'backlog/open_request'
 const DEFAULT_SAVE_SLOT_COUNT = 12
 const SETTINGS_RENDERER_LAYER_ID = 'settings'
+const UI_OVERLAY_EXIT_MS = 180
 export const UI_TITLE_REQUEST_EVENT = 'ui/title_request'
 
 type SaveLoadMode = 'save' | 'load'
@@ -79,9 +80,20 @@ interface SaveSlotProjection {
   metadata?: {
     sceneName?: string
     stepId?: string
+    chapterId?: string
+    routeId?: string
+    nodeId?: string
+    lineId?: string
     playtime?: number
     [key: string]: unknown
   }
+}
+
+interface RenderedOverlayPresence {
+  elementId: string
+  overlay: ViewUiOverlayProjection
+  phase: 'enter' | 'exit'
+  removeTimer?: ReturnType<typeof setTimeout>
 }
 
 interface SettingsAudioProjection {
@@ -97,6 +109,7 @@ interface SettingsAudioProjection {
 export interface QuaUiOverlayProps {
   elementId?: string
   className?: string
+  overlay?: ViewUiOverlayProjection
 }
 
 export interface QuaStoryTreeNode {
@@ -106,6 +119,10 @@ export interface QuaStoryTreeNode {
   description?: string
   state?: 'locked' | 'available' | 'current' | 'complete'
   disabled?: boolean
+  entryLocked?: boolean
+  spoilerHidden?: boolean
+  hidden?: boolean
+  lockedLabel?: string
   className?: string
 }
 
@@ -278,17 +295,19 @@ export const QuaStoryTree = defineComponent({
           ]),
           props.showClose
             ? h('button', {
-                'class': ['qua-story-tree__close', props.closeButtonClassName],
-                'type': 'button',
-                'onClick': (event: Event) => {
+                class: ['qua-story-tree__close', props.closeButtonClassName],
+                type: 'button',
+                onClick: (event: Event) => {
                   event.stopPropagation()
                   emit('close')
                 },
               }, props.closeLabel)
             : null,
         ]),
-        h('ol', { class: ['qua-story-tree__nodes', props.nodesClassName] }, props.nodes.map((node, index) => {
-          const selectable = props.selectable && !node.disabled && node.state !== 'locked'
+        h('ol', { class: ['qua-story-tree__nodes', props.nodesClassName] }, props.nodes.filter(node => !node.hidden).map((node, index) => {
+          const entryLocked = node.entryLocked ?? Boolean(node.disabled || node.state === 'locked')
+          const spoilerHidden = node.spoilerHidden ?? Boolean(node.state === 'locked')
+          const selectable = props.selectable && !node.disabled && !entryLocked
           const select = () => emit('select', node)
           const content = slots.node?.({ node, index, selectable, select }) || renderStoryTreeNode(node, index)
           return h('li', {
@@ -296,21 +315,28 @@ export const QuaStoryTree = defineComponent({
             'class': [
               'qua-story-tree__node',
               node.state ? `is-${node.state}` : undefined,
+              entryLocked ? 'is-entry-locked' : undefined,
+              spoilerHidden ? 'is-spoiler-hidden' : undefined,
               props.nodeClassName,
               node.className,
             ],
             'data-story-tree-node-id': node.id,
             'data-story-tree-node-state': node.state,
+            'data-story-tree-node-entry-locked': entryLocked ? 'true' : 'false',
+            'data-story-tree-node-spoiler-hidden': spoilerHidden ? 'true' : 'false',
           }, selectable
             ? h('button', {
-                'class': 'qua-story-tree__node-button',
-                'type': 'button',
-                'onClick': (event: Event) => {
+                class: 'qua-story-tree__node-button',
+                type: 'button',
+                onClick: (event: Event) => {
                   event.stopPropagation()
                   select()
                 },
               }, content)
-            : h('span', { class: 'qua-story-tree__node-content' }, content))
+            : h('span', {
+                'class': 'qua-story-tree__node-content',
+                'aria-disabled': entryLocked ? 'true' : undefined,
+              }, content))
         })),
       ]),
     ])
@@ -328,11 +354,14 @@ export const QuaUiOverlay = defineComponent({
       type: String,
       default: '',
     },
+    overlay: Object as PropType<ViewUiOverlayProjection>,
   },
   setup(props, { slots }) {
     const { view } = useQuaRenderer()
     const actions = useRendererActions()
-    const config = computed<MenuOverlayConfig | undefined>(() => view.value.ui.overlays?.[props.elementId] as MenuOverlayConfig | undefined)
+    const config = computed<MenuOverlayConfig | undefined>(() =>
+      (props.overlay || view.value.ui.overlays?.[props.elementId]) as MenuOverlayConfig | undefined,
+    )
     const skin = useUiControlSkin({
       kind: 'panel',
       skinId: () => config.value?.skinId,
@@ -341,6 +370,7 @@ export const QuaUiOverlay = defineComponent({
       ? h('div', {
           'class': ['qua-ui-overlay', props.className],
           'data-overlay': props.elementId,
+          'data-overlay-presence': props.overlay && !view.value.ui.overlays?.[props.elementId] ? 'exit' : 'enter',
           'data-qua-capture-role': 'overlay',
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
@@ -368,12 +398,15 @@ export const QuaMenuOverlay = defineComponent({
       type: String,
       default: '',
     },
+    overlay: Object as PropType<ViewUiOverlayProjection>,
   },
   setup(props, { slots }) {
     const { view } = useQuaRenderer()
     const actions = useRendererActions()
     const flowControl = useFlowControl()
-    const config = computed<MenuOverlayConfig | undefined>(() => view.value.ui.overlays?.[props.elementId] as MenuOverlayConfig | undefined)
+    const config = computed<MenuOverlayConfig | undefined>(() =>
+      (props.overlay || view.value.ui.overlays?.[props.elementId]) as MenuOverlayConfig | undefined,
+    )
     const skin = useUiControlSkin({
       kind: 'panel',
       skinId: () => config.value?.skinId,
@@ -388,6 +421,7 @@ export const QuaMenuOverlay = defineComponent({
       ? h('div', {
           'class': ['qua-menu-overlay', props.className],
           'data-overlay': props.elementId,
+          'data-overlay-presence': props.overlay && !view.value.ui.overlays?.[props.elementId] ? 'exit' : 'enter',
           'data-qua-capture-role': 'overlay',
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
@@ -485,11 +519,14 @@ export const QuaConfirmOverlay = defineComponent({
       type: String,
       default: '',
     },
+    overlay: Object as PropType<ViewUiOverlayProjection>,
   },
   setup(props, { slots }) {
     const { view } = useQuaRenderer()
     const actions = useRendererActions()
-    const config = computed<ConfirmOverlayConfig | undefined>(() => view.value.ui.overlays?.[props.elementId] as ConfirmOverlayConfig | undefined)
+    const config = computed<ConfirmOverlayConfig | undefined>(() =>
+      (props.overlay || view.value.ui.overlays?.[props.elementId]) as ConfirmOverlayConfig | undefined,
+    )
     const skin = useUiControlSkin({
       kind: 'panel',
       skinId: () => config.value?.skinId,
@@ -506,6 +543,7 @@ export const QuaConfirmOverlay = defineComponent({
       ? h('div', {
           'class': ['qua-confirm-overlay', props.className],
           'data-overlay': props.elementId,
+          'data-overlay-presence': props.overlay && !view.value.ui.overlays?.[props.elementId] ? 'exit' : 'enter',
           'data-qua-capture-role': 'overlay',
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
@@ -554,11 +592,14 @@ export const QuaSaveLoadPanel = defineComponent({
       type: String,
       default: '',
     },
+    overlay: Object as PropType<ViewUiOverlayProjection>,
   },
   setup(props, { slots }) {
     const { pipeline, saveSlots, view } = useQuaRenderer()
     const actions = useRendererActions()
-    const config = computed<SaveLoadOverlayConfig | undefined>(() => view.value.ui.overlays?.[props.elementId] as SaveLoadOverlayConfig | undefined)
+    const config = computed<SaveLoadOverlayConfig | undefined>(() =>
+      (props.overlay || view.value.ui.overlays?.[props.elementId]) as SaveLoadOverlayConfig | undefined,
+    )
     const mode = computed<SaveLoadMode>(() => config.value?.mode === 'load' ? 'load' : 'save')
     const slotsProjection = ref<SaveSlotProjection[]>(createSaveSlotGrid(config.value))
     const previewSources = ref<Record<string, string | undefined>>({})
@@ -639,6 +680,7 @@ export const QuaSaveLoadPanel = defineComponent({
       ? h('div', {
           'class': ['qua-save-load-panel', props.className],
           'data-overlay': props.elementId,
+          'data-overlay-presence': props.overlay && !view.value.ui.overlays?.[props.elementId] ? 'exit' : 'enter',
           'data-qua-capture-role': 'overlay',
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
@@ -712,13 +754,16 @@ export const QuaSettingsPanel = defineComponent({
       type: String,
       default: '',
     },
+    overlay: Object as PropType<ViewUiOverlayProjection>,
   },
   setup(props, { slots }) {
     const { view } = useQuaRenderer()
     const audio = useAudio<SettingsAudioProjection>()
     const actions = useRendererActions()
     const flowControl = useFlowControl()
-    const config = computed<UiOverlaySkinConfig | undefined>(() => view.value.ui.overlays?.[props.elementId] as UiOverlaySkinConfig | undefined)
+    const config = computed<UiOverlaySkinConfig | undefined>(() =>
+      (props.overlay || view.value.ui.overlays?.[props.elementId]) as UiOverlaySkinConfig | undefined,
+    )
     const skin = useUiControlSkin({
       kind: 'panel',
       skinId: () => config.value?.skinId,
@@ -727,6 +772,7 @@ export const QuaSettingsPanel = defineComponent({
       ? h('div', {
           'class': ['qua-settings-panel', props.className],
           'data-overlay': props.elementId,
+          'data-overlay-presence': props.overlay && !view.value.ui.overlays?.[props.elementId] ? 'exit' : 'enter',
           'data-qua-capture-role': 'overlay',
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
@@ -792,15 +838,59 @@ export const QuaOverlayLayer = defineComponent({
   setup(props) {
     const { view, rendererLayerIds } = useQuaRenderer()
     const overlays = computed(() => view.value.ui.overlays || {})
-    const overlayIds = computed(() => Object.keys(overlays.value))
+    const renderedOverlays = ref<RenderedOverlayPresence[]>([])
     const activeScene = computed(() => resolveActiveUiScene(overlays.value))
     const hasDedicatedSettingsRenderer = computed(() =>
       rendererLayerIds.value.includes(SETTINGS_RENDERER_LAYER_ID),
     )
-    const renderedOverlayIds = computed(() => overlayIds.value.filter(elementId =>
-      shouldRenderOverlayInGenericLayer(elementId, hasDedicatedSettingsRenderer.value),
-    ))
-    return () => renderedOverlayIds.value.length > 0
+
+    watch([overlays, hasDedicatedSettingsRenderer], ([nextOverlays, dedicatedSettings]) => {
+      const nextIds = Object.keys(nextOverlays)
+        .filter(elementId => shouldRenderOverlayInGenericLayer(elementId, dedicatedSettings))
+      const nextIdSet = new Set(nextIds)
+      const byId = new Map(renderedOverlays.value.map(item => [item.elementId, item]))
+
+      for (const elementId of nextIds) {
+        const existing = byId.get(elementId)
+        if (existing) {
+          if (existing.removeTimer) {
+            clearTimeout(existing.removeTimer)
+          }
+          existing.overlay = nextOverlays[elementId]
+          existing.phase = 'enter'
+          existing.removeTimer = undefined
+        }
+        else {
+          renderedOverlays.value.push({
+            elementId,
+            overlay: nextOverlays[elementId],
+            phase: 'enter',
+          })
+        }
+      }
+
+      for (const item of renderedOverlays.value) {
+        if (nextIdSet.has(item.elementId) || item.phase === 'exit') {
+          continue
+        }
+        item.phase = 'exit'
+        item.removeTimer = setTimeout(() => {
+          renderedOverlays.value = renderedOverlays.value.filter(current => current !== item)
+        }, UI_OVERLAY_EXIT_MS)
+      }
+
+      renderedOverlays.value = [...renderedOverlays.value]
+    }, { immediate: true })
+
+    onBeforeUnmount(() => {
+      for (const item of renderedOverlays.value) {
+        if (item.removeTimer) {
+          clearTimeout(item.removeTimer)
+        }
+      }
+    })
+
+    return () => renderedOverlays.value.length > 0
       ? h('div', {
           'class': [
             'qua-overlay-layer',
@@ -818,14 +908,7 @@ export const QuaOverlayLayer = defineComponent({
           'style': { pointerEvents: 'auto' },
           'onClick': (event: Event) => event.stopPropagation(),
         }, [
-          renderedOverlayIds.value.includes('menu') ? h(QuaMenuOverlay) : null,
-          renderedOverlayIds.value.includes('saveLoad') ? h(QuaSaveLoadPanel) : null,
-          renderedOverlayIds.value.includes('confirm') ? h(QuaConfirmOverlay) : null,
-          renderedOverlayIds.value.includes('titleConfirm') ? h(QuaConfirmOverlay, { elementId: 'titleConfirm' }) : null,
-          renderedOverlayIds.value.includes('settings') ? h(QuaSettingsPanel) : null,
-          ...renderedOverlayIds.value
-            .filter(elementId => !isBuiltInOverlay(elementId))
-            .map(elementId => h(QuaUiOverlay, { key: elementId, elementId })),
+          ...renderedOverlays.value.map(item => renderOverlayPresence(item)),
         ])
       : null
   },
@@ -852,6 +935,9 @@ function renderStoryTreeNode(node: QuaStoryTreeNode, index: number): VNode[] {
     h('span', { class: 'qua-story-tree__chapter' }, node.chapter || String(index + 1).padStart(2, '0')),
     h('span', { class: 'qua-story-tree__body' }, [
       h('strong', { class: 'qua-story-tree__node-title' }, node.title),
+      node.spoilerHidden
+        ? h('span', { class: 'qua-story-tree__node-lock' }, node.lockedLabel || 'LOCKED')
+        : null,
       node.description ? h('small', { class: 'qua-story-tree__node-description' }, node.description) : null,
     ]),
   ]
@@ -894,17 +980,40 @@ function renderPanelHeader(options: {
 
 function renderSaveSlotContent(slot: SaveSlotProjection, index: number): VNode[] {
   const filled = isFilledSaveSlot(slot)
-  const metadata = slot.metadata || {}
   return [
     h('span', { class: 'qua-save-slot-index' }, String(index + 1).padStart(2, '0')),
     h('span', { class: 'qua-save-slot-preview' }, slot.previewSrc
       ? h('img', { class: 'qua-save-slot-preview-image', src: slot.previewSrc, alt: '' })
       : h('span', { class: 'qua-save-slot-empty-mark' }, previewStatusLabel(slot, filled))),
     h('span', { class: 'qua-save-slot-body' }, [
-      h('span', { class: 'qua-save-slot-name' }, slot.name || metadata.sceneName || (filled ? 'Saved Game' : 'Empty Slot')),
+      h('span', { class: 'qua-save-slot-name' }, saveSlotDisplayName(slot, index)),
       h('span', { class: 'qua-save-slot-meta' }, saveSlotMeta(slot)),
     ]),
   ]
+}
+
+function renderOverlayPresence(item: RenderedOverlayPresence): VNode {
+  const props = {
+    key: `${item.elementId}:${item.phase}`,
+    elementId: item.elementId,
+    overlay: item.overlay,
+  }
+  if (item.elementId === 'menu') {
+    return h(QuaMenuOverlay, props)
+  }
+  if (item.elementId === 'saveLoad') {
+    return h(QuaSaveLoadPanel, props)
+  }
+  if (item.elementId === 'confirm') {
+    return h(QuaConfirmOverlay, props)
+  }
+  if (item.elementId === 'titleConfirm') {
+    return h(QuaConfirmOverlay, props)
+  }
+  if (item.elementId === 'settings') {
+    return h(QuaSettingsPanel, props)
+  }
+  return h(QuaUiOverlay, props)
 }
 
 function createSaveLoadMenuConfig(config: MenuOverlayConfig | undefined, source: string, mode: SaveLoadMode): Record<string, unknown> {
@@ -971,9 +1080,37 @@ function saveSlotMeta(slot: SaveSlotProjection): string {
   const pieces = [
     formatTimestamp(slot.timestamp),
     formatPlaytime(slot.metadata?.playtime),
-    slot.metadata?.stepId,
+    saveSlotProgressLabel(slot),
   ].filter(Boolean)
   return pieces.join(' / ') || 'Saved'
+}
+
+function saveSlotDisplayName(slot: SaveSlotProjection, index: number): string {
+  if (!isFilledSaveSlot(slot)) {
+    return `Empty Slot ${String(index + 1).padStart(2, '0')}`
+  }
+  const storedName = readableStoredSlotName(slot.name)
+  if (storedName) {
+    return storedName
+  }
+  const metadata = slot.metadata || {}
+  const chapter = readableSlotLabel(metadata.chapterId)
+  const scene = readableSlotLabel(metadata.sceneName)
+  const route = readableSlotLabel(metadata.routeId)
+  const pieces = [
+    chapter ? `Chapter ${chapter}` : undefined,
+    scene,
+    route && route !== scene ? route : undefined,
+  ].filter(Boolean)
+  return pieces.join(' · ') || `Save ${String(index + 1).padStart(2, '0')}`
+}
+
+function saveSlotProgressLabel(slot: SaveSlotProjection): string | undefined {
+  const metadata = slot.metadata || {}
+  const line = readableSlotLabel(metadata.lineId)
+  const node = readableSlotLabel(metadata.nodeId)
+  const step = readableSlotLabel(metadata.stepId)
+  return line || node || step
 }
 
 function isFilledSaveSlot(slot: SaveSlotProjection): boolean {
@@ -1018,6 +1155,41 @@ function formatPlaytime(playtime: number | undefined): string | undefined {
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
 }
 
+function readableSlotLabel(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+  const normalized = value.trim()
+  if (!normalized || isInternalSlotLabel(normalized)) {
+    return undefined
+  }
+  return normalized
+    .replace(/\.[a-z0-9]+$/i, '')
+    .replace(/[-_:/\\]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase())
+}
+
+function readableStoredSlotName(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+  const normalized = value.trim()
+  if (!normalized || isInternalSlotLabel(normalized)) {
+    return undefined
+  }
+  return normalized
+}
+
+function isInternalSlotLabel(value: string): boolean {
+  return value.startsWith('@quajs/')
+    || value.includes('/ui-overlay-host')
+    || value.includes(':ui-overlay-host')
+    || /^slot-\d+$/i.test(value)
+    || value === 'quicksave'
+    || value === 'autosave'
+}
+
 function audioStatus(audio: SettingsAudioProjection | undefined): string {
   if (!audio) {
     return 'No audio projection'
@@ -1053,14 +1225,6 @@ function createSkinButtonHandlers(
     onFocus: () => skin.setInteractiveState('hover'),
     onBlur: () => skin.setInteractiveState('default'),
   }
-}
-
-function isBuiltInOverlay(elementId: string): boolean {
-  return elementId === 'menu'
-    || elementId === 'saveLoad'
-    || elementId === 'confirm'
-    || elementId === 'titleConfirm'
-    || elementId === 'settings'
 }
 
 function shouldRenderOverlayInGenericLayer(elementId: string, hasDedicatedSettingsRenderer: boolean): boolean {

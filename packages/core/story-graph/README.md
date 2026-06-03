@@ -41,6 +41,9 @@ Chapter select is modeled as a derived projection:
 - nodes appear only when a story node has `chapterSelect`;
 - unlock state comes from `storyGraph.unlockedNodes`;
 - first visit unlocks the node unless `unlockOnVisit: false`;
+- locked nodes default to spoiler-safe placeholders, so title, summary, thumbnail, and metadata are not projected until unlocked;
+- `lockedVisibility: 'hidden'` omits locked nodes from the projection, while `lockedVisibility: 'revealed'` shows their real chapter-select presentation before unlock;
+- locked nodes also set `entryLocked: true` by default, and `jumpToChapterSelectNodeWithEngine()` refuses those entries unless `force: true` is used;
 - sorting is stable by `order`, then graph/node registration order;
 - no second profile store or renderer state is created.
 
@@ -59,7 +62,9 @@ await jumpToChapterSelectNodeWithEngine(engine, 'opening')
 await lockStoryNodeWithEngine(engine, 'opening')
 ```
 
-`jumpToChapterSelectNodeWithEngine()` only jumps to selectable, unlocked nodes. `force: true` bypasses the locked check, but does not bypass runtime package dependency checks.
+`jumpToChapterSelectNodeWithEngine()` only jumps to selectable entries whose `entryLocked` flag is false. `force: true` bypasses the locked check, but does not bypass runtime package dependency checks.
+
+Use `lockEntryUntilUnlocked: false` when a locked-looking chapter select entry should still be enterable, such as a non-spoiler preview route. Use `lockedTitle`, `lockedSummary`, and `lockedThumbnail` to customize the placeholder shown before unlock.
 
 ## QuaScript Decorators
 
@@ -72,26 +77,28 @@ The package publishes package-local decorator metadata and lowering through `@qu
   title: 'Opening',
   summary: 'The first morning.',
   order: 0,
-  unlockOnVisit: true
+  unlockOnVisit: true,
+  lockedTitle: '???',
+  lockedSummary: 'Continue the story to reveal this entry.'
 })
 Narrator: Morning arrives.
 ```
 
 Common decorators:
 
-| Decorator | Purpose |
-| --- | --- |
-| `@Chapter` | Set chapter metadata on the current story point |
-| `@Scene` | Set scene metadata |
-| `@Entry` | Mark entry metadata |
-| `@Node` | Set story node metadata |
-| `@Label` | Set label metadata |
-| `@Lane` | Set lane metadata |
-| `@Route` | Set route metadata |
-| `@StoryTimeline` | Set timeline metadata |
-| `@Protagonist` | Set protagonist metadata |
-| `@EmitStoryEvent` | Append a story event record |
-| `@ChapterSelect` | Mark the current node for chapter select projection |
+| Decorator         | Purpose                                             |
+| ----------------- | --------------------------------------------------- |
+| `@Chapter`        | Set chapter metadata on the current story point     |
+| `@Scene`          | Set scene metadata                                  |
+| `@Entry`          | Mark entry metadata                                 |
+| `@Node`           | Set story node metadata                             |
+| `@Label`          | Set label metadata                                  |
+| `@Lane`           | Set lane metadata                                   |
+| `@Route`          | Set route metadata                                  |
+| `@StoryTimeline`  | Set timeline metadata                               |
+| `@Protagonist`    | Set protagonist metadata                            |
+| `@EmitStoryEvent` | Append a story event record                         |
+| `@ChapterSelect`  | Mark the current node for chapter select projection |
 
 ## Tooling
 

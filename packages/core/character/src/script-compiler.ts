@@ -1,6 +1,8 @@
 import * as t from '@babel/types'
 import { characterDecoratorMappings } from './decorators'
 
+export { characterDecoratorMappings } from './decorators'
+
 const SUPPORTED_FUNCTIONS = new Set([
   'sprite',
   'show',

@@ -1,11 +1,11 @@
+import type { BundleManifest } from '@quajs/quack'
+import type { QpkReaderOptions } from '@quajs/quack/qpk-reader'
 import type {
   ParsedQuaScript,
   QuaScriptDiagnostic,
   SourceRange,
   StoryDeclaration,
 } from '@quajs/script-compiler'
-import type { BundleManifest } from '@quajs/quack'
-import type { QpkReaderOptions } from '@quajs/quack/qpk-reader'
 
 export type { SourceRange }
 

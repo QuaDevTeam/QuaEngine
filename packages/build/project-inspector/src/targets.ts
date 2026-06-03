@@ -38,7 +38,7 @@ export function findTargetCandidates(target: StoryTargetData, index: StoryIndex)
     const matchingLabels = index.labels.filter(label =>
       label.id === target.id
       && (!target.sceneId || label.sceneId === target.sceneId)
-      && (!target.packageId || label.packageId === target.packageId)
+      && (!target.packageId || label.packageId === target.packageId),
     )
     return matchingLabels.map(labelToNodeRef)
   }
@@ -92,15 +92,15 @@ export function normalizeTargetSugar(source: string): StoryTargetData {
   if (target.startsWith('#')) {
     return { kind: 'label', id: target.slice(1) }
   }
-  const sceneMatch = /^scene:([^#\s]+)(?:#([^\s]+))?$/.exec(target)
+  const sceneMatch = /^scene:([^#\s]+)(?:#(\S+))?$/.exec(target)
   if (sceneMatch) {
     return { kind: 'scene', sceneId: sceneMatch[1], ...(sceneMatch[2] ? { entry: sceneMatch[2] } : {}) }
   }
-  const packageMatch = /^package:([^#\s]+)#([^\s]+)$/.exec(target)
+  const packageMatch = /^package:([^#\s]+)#(\S+)$/.exec(target)
   if (packageMatch) {
     return { kind: 'package-node', packageId: packageMatch[1], nodeId: packageMatch[2] }
   }
-  const scriptMatch = /^script:([^#\s]+)(?:#([^\s]+))?$/.exec(target)
+  const scriptMatch = /^script:([^#\s]+)(?:#(\S+))?$/.exec(target)
   if (scriptMatch) {
     return { kind: 'script', moduleId: scriptMatch[1], ...(scriptMatch[2] ? { nodeId: scriptMatch[2] } : {}) }
   }
@@ -115,7 +115,7 @@ export function targetAtPosition(source: string, position: { character: number, 
 }
 
 function collectLineTargetCandidates(line: string, candidates: Array<{ end: number, start: number, target: StoryTargetData }>): void {
-  const sugar = /^\s*-\s+.+?->\s*([#\w:.-]+)/.exec(line)
+  const sugar = /^\s*-\s+(?:\S.*?|[\t\v\f \xA0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF])->\s*([#\w:.-]+)/.exec(line)
   if (sugar?.[1]) {
     const start = line.indexOf(sugar[1])
     candidates.push({ start, end: start + sugar[1].length, target: normalizeTargetSugar(sugar[1]) })
@@ -277,14 +277,14 @@ function isTargetHelperCall(value: unknown): value is CallExpressionLike {
   return Boolean(calleeName && ['node', 'label', 'scene', 'script', 'checkpoint', 'packageNode'].includes(calleeName))
 }
 
-type CallExpressionLike = { arguments: unknown[], callee?: unknown, type: 'CallExpression' }
-type IdentifierLike = { name: string, type: 'Identifier' }
-type StringLiteralLike = { type: 'StringLiteral', value: string }
-type NumericLiteralLike = { type: 'NumericLiteral', value: number }
-type ObjectPropertyLike = { computed?: boolean, key: IdentifierLike | StringLiteralLike | NumericLiteralLike, type: 'ObjectProperty', value: unknown }
-type ObjectExpressionLike = { properties: unknown[], type: 'ObjectExpression' }
-type BooleanLiteralLike = { type: 'BooleanLiteral', value: boolean }
-type NullLiteralLike = { type: 'NullLiteral' }
+interface CallExpressionLike { arguments: unknown[], callee?: unknown, type: 'CallExpression' }
+interface IdentifierLike { name: string, type: 'Identifier' }
+interface StringLiteralLike { type: 'StringLiteral', value: string }
+interface NumericLiteralLike { type: 'NumericLiteral', value: number }
+interface ObjectPropertyLike { computed?: boolean, key: IdentifierLike | StringLiteralLike | NumericLiteralLike, type: 'ObjectProperty', value: unknown }
+interface ObjectExpressionLike { properties: unknown[], type: 'ObjectExpression' }
+interface BooleanLiteralLike { type: 'BooleanLiteral', value: boolean }
+interface NullLiteralLike { type: 'NullLiteral' }
 
 function isIdentifierNode(value: unknown): value is IdentifierLike {
   return Boolean(value)

@@ -1,3 +1,4 @@
+import type { WebAssetTargetPackageId } from '@quajs/renderer-web'
 import {
   backgroundLayerProjectionVars,
   backgroundMaskImageVars,
@@ -7,7 +8,6 @@ import {
   projectBackground,
   runtimePackageCandidatesFromMetadata,
 } from '@quajs/renderer-web'
-import type { WebAssetTargetPackageId } from '@quajs/renderer-web'
 import { computed, defineComponent, h } from 'vue'
 import { useProjectionProps } from '../../components/projection'
 import { useAnimationClock, useAnimations, useAssetUrl, useBackground, useRendererActions } from '../../composables'

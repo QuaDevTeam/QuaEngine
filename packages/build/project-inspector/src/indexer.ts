@@ -569,7 +569,12 @@ function safeExtractStoryDeclaration(source: string, options: { moduleId?: strin
 
 function storyDeclarationFromUnknown(value: unknown, runtimePackageId?: string, moduleId?: string): StoryDeclarationWithEntries | undefined {
   const record = asRecord(value)
-  if (!record || !Array.isArray(record.nodes) && !Array.isArray(record.labels) && !Array.isArray(record.scenes) && !Array.isArray(record.entries)) {
+  if (!record || (
+    !Array.isArray(record.nodes)
+    && !Array.isArray(record.labels)
+    && !Array.isArray(record.scenes)
+    && !Array.isArray(record.entries)
+  )) {
     return undefined
   }
   return {

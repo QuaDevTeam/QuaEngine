@@ -6,8 +6,8 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative, resolve } from 'node:path'
 import { createDevAssetRecord } from '@quajs/assets-web/vite'
 import { createLogger } from '@quajs/logger'
-import { createDerivedSpriteAssets } from './importers'
 import { normalizeSpritePath, SPRITE_UI_SKIN_SOURCE_FILE } from './contracts'
+import { createDerivedSpriteAssets } from './importers'
 
 const logger = createLogger('plugin-sprite:vite')
 

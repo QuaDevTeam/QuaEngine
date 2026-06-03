@@ -1,6 +1,8 @@
 import * as t from '@babel/types'
 import { backgroundDecoratorMappings } from './decorators'
 
+export { backgroundDecoratorMappings } from './decorators'
+
 const SUPPORTED_FUNCTIONS = new Set([
   'setBackgroundWithEngine',
   'clearBackgroundWithEngine',

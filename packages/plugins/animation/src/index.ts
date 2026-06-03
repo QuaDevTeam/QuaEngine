@@ -1580,7 +1580,7 @@ export const metadata = {
   category: 'visual',
 } as const
 
-export { decorators } from './decorators'
+export { animationDecoratorMappings, decorators } from './decorators'
 export {
   backgroundCrossfade,
   characterBlink,
@@ -1600,5 +1600,4 @@ export type {
   ChoicesStaggerOptions,
   VisualNovelMotionOptions,
 } from './presets'
-export { animationDecoratorMappings } from './decorators'
 export const Plugin = AnimationPlugin

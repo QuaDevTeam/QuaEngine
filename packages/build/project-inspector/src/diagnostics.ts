@@ -327,7 +327,7 @@ function isComplexSugarCondition(condition: string): boolean {
   return condition.length > 60
     || operators.length > 1
     || /\b(?:await|new)\b/.test(condition)
-    || /\([^)]*\([^)]*\)/.test(condition)
+    || /\([^()]*\([^)]*\)/.test(condition)
 }
 
 function isSerializableLiteral(value: unknown, seen = new Set<object>()): boolean {
@@ -379,10 +379,10 @@ function uniqueStoryTargetCompletions(items: StoryTargetCompletion[]): StoryTarg
   })
 }
 
-type StringLiteralLike = { type: 'StringLiteral', value: string }
-type NumericLiteralLike = { type: 'NumericLiteral', value: number }
-type BooleanLiteralLike = { type: 'BooleanLiteral', value: boolean }
-type NullLiteralLike = { type: 'NullLiteral' }
+interface StringLiteralLike { type: 'StringLiteral', value: string }
+interface NumericLiteralLike { type: 'NumericLiteral', value: number }
+interface BooleanLiteralLike { type: 'BooleanLiteral', value: boolean }
+interface NullLiteralLike { type: 'NullLiteral' }
 
 function isExpressionLike(value: unknown): boolean {
   return Boolean(asRecord(value)?.type)
