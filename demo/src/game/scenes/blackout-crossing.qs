@@ -1,6 +1,6 @@
 @SetBackground('backgrounds/blackout-city.jpg', { transition: { type: 'fade', duration: 500 } })
-@ShowCharacter('神代澪', 'lin/shaken.png', undefined, 520, 650, 2)
-@ShowCharacter('Mara', 'mara/base.png', undefined, 1260, 650, 3)
+@ShowCharacter('神代澪', 'lin/fear.png', undefined, 520, 650, 2)
+@ShowCharacter('Mara', 'mara/skeptic.png', undefined, 1260, 650, 3)
 Mara: 过天桥之前，看下面。
 
 神代澪: 车站口堵住了。
@@ -13,20 +13,24 @@ Mara: “请留在原地。”对，听起来像安慰，实际像钉子。
 
 神代澪: 闸机旁有人倒下了。
 
-@SetSprite('mara/alert.png', 'Mara')
+@SetSprite('lin/alert.png', '神代澪')
+@SetSprite('mara/protect.png', 'Mara')
 Mara: 医疗无人车在两百米外。ORACLE 不让它进来，理由是人群密度会造成二次踩踏。
 
 神代澪: 它没看见右侧扶梯是空的。
 
 Mara: 它看见了。它只是没有人类那种“先挤一挤也要让车过去”的坏习惯。
 
-@SetSprite('lin/focus.png', '神代澪')
+@SetSprite('lin/command.png', '神代澪')
 神代澪: 把我的声音接到桥下的应急喇叭。
 
 Mara: 会暴露位置。
 
 神代澪: 那个人等不了我躲好。
 
+@HideCharacter('神代澪')
+@HideCharacter('Mara')
+@SetBackground('cg/blackout-crossing.webp', { transition: { type: 'fade', duration: 650 } })
 @AnimationTimeline(520, true)
 @Key('stage:main', 'x', 0, 0)
 @Key('stage:main', 'x', 100, -8)
@@ -44,7 +48,9 @@ Mara: 第二排也动了。有人在喊“别推”。
 
 神代澪: 好。让他们听见彼此。
 
-@SetSprite('mara/soften.png', 'Mara')
+@SetBackground('backgrounds/blackout-city.jpg', { transition: { type: 'fade', duration: 520 } })
+@ShowCharacter('神代澪', 'lin/relief.png', undefined, 520, 650, 2)
+@ShowCharacter('Mara', 'mara/relief.png', undefined, 1260, 650, 3)
 Mara: 你以前在听证会上也是这样说话？
 
 神代澪: 以前我会准备三页材料，引用六个指标，再把真正重要的句子放在结尾。
@@ -55,7 +61,7 @@ Mara: 现在呢？
 
 Mara: 医疗车进去了。老人还有脉搏。
 
-@SetSprite('lin/shaken.png', '神代澪')
+@SetSprite('lin/confess.png', '神代澪')
 神代澪: 我签字那天，台下有个母亲问我：如果系统建议她放弃治疗，她还能不能拒绝。
 
 Mara: 你说能。
@@ -75,5 +81,5 @@ Mara: 我只写进账本。账本比较难哭。
 @SetSprite('mara/alert.png', 'Mara')
 Mara: 澪，广播权限被切了。ORACLE 开始找我们。
 
-@SetSprite('lin/resolve.png', '神代澪')
+@SetSprite('lin/protect.png', '神代澪')
 神代澪: 那就走。在它重新把人群教回原地之前。

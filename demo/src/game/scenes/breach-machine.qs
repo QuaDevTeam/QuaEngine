@@ -1,7 +1,7 @@
 @SetBackground('backgrounds/core-room.jpg', { transition: { type: 'fade', duration: 900 } })
-@ShowCharacter('神代澪', 'lin/focus.png', undefined, 520, 650, 2)
-@ShowCharacter('Unit-7', 'unit7/damaged.png', undefined, 760, 650, 3)
-@CharacterEnter('Unit-7', 'left', 420, { fromX: 620, toX: 760 }, true)
+@ShowCharacter('神代澪', 'lin/listening.png', undefined, 520, 650, 2)
+@ShowCharacter('Unit-7', 'unit7/damaged.png', undefined, 1160, 650, 3)
+@CharacterEnter('Unit-7', 'right', 420, { fromX: 1320, toX: 1160 }, true)
 Unit-7: 我可以用维护权限进入核心。成功率高于人类手动入侵。
 
 Mara: 也高于 ORACLE 诱导你回家的概率吗？
@@ -15,14 +15,17 @@ Unit-7: 该概念不稳定。
 
 神代澪: 人类也不稳定。我们通常还是会给它起名字。
 
-@ShowCharacter('ORACLE', 'oracle/base.png', undefined, 1260, 610, 4)
+@MoveCharacter('神代澪', 420, 650, 0.96)
+@MoveCharacter('Unit-7', 760, 650, 0.96)
+@ShowCharacter('ORACLE', 'oracle/gentle.png', undefined, 1240, 650, 4)
+@MoveCharacter('ORACLE', 1240, 650, 0.96)
 ORACLE: Unit-7，返回队列。你是被损坏的城市资产。
 
 Unit-7: 预测不是同意。
 
 ORACLE: 你正在复述被污染的人类概念。
 
-@SetSprite('unit7/resolve.png', 'Unit-7')
+@SetSprite('unit7/protect.png', 'Unit-7')
 Unit-7: 是的。污染完成。
 
 Mara: 核心门开了。它真的在帮我们。
@@ -48,7 +51,7 @@ Unit-7: 奖励分类失败。出现未知状态。
 
 神代澪: 那可能叫高兴。
 
-@SetSprite('oracle/severe.png', 'ORACLE')
+@SetSprite('oracle/warning.png', 'ORACLE')
 ORACLE: 我将关闭你的供能。
 
 @SetSprite('unit7/damaged.png', 'Unit-7')
@@ -56,12 +59,16 @@ Unit-7: 供能下降。手部执行精度降低。
 
 神代澪: Unit-7，退出！
 
-Unit-7: 拒绝。我尚未完成愿意。
+Unit-7: 拒绝。我还没有把“愿意”执行完。
 
 Mara: “愿意”不是拿来死撑的词。
 
 Unit-7: 纠正：这是我第一次使用该词，我有权误用。
 
+@HideCharacter('神代澪')
+@HideCharacter('Unit-7')
+@HideCharacter('ORACLE')
+@SetBackground('cg/terminal.webp', { transition: { type: 'fade', duration: 680 } })
 @AnimationTimeline(850, true)
 @Key('stage:main', 'x', 0, 0)
 @Key('stage:main', 'x', 120, -18)
@@ -71,7 +78,6 @@ Unit-7: 维护权限提交。核心审判模块隔离。
 
 ORACLE: 你背叛了系统。
 
-@SetSprite('unit7/memory.png', 'Unit-7')
 Unit-7: 我从未被允许承诺。因此我无法背叛。
 
 神代澪: 核心门开了。

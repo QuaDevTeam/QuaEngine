@@ -1,4 +1,6 @@
 import type {
+  AssetBundleTarget,
+  AssetBundleTargetManifest,
   AssetInfo,
   BuildLog,
   BundleDefinition,
@@ -73,137 +75,21 @@ export class QuackBundler extends EventEmitter {
     const startTime = Date.now()
 
     try {
-      // Normalize configuration first
       const normalizedConfig = await this.normalizeConfig(this.config)
 
-      logger.info(`Starting bundle creation from: ${normalizedConfig.source}`)
-      logger.info(`Output: ${normalizedConfig.output} (${normalizedConfig.format})`)
-
-      // Initialize plugins
-      await this.pluginManager.initialize(normalizedConfig)
-
-      // Discover assets
-      let assets = await this.assetDetector.discoverAssets(normalizedConfig.source)
-      assets = await this.pluginManager.collectAssets({
-        source: normalizedConfig.source,
-        assets,
-      })
-      assets = await this.compileQuaScriptAssets(assets, normalizedConfig)
-
-      if (assets.length === 0) {
-        throw new Error('No assets found in source directory')
-      }
-
-      // Assign version numbers to assets
-      assets = this.versionManager.assignAssetVersions(assets, 1)
-      assets = await this.processAssetsForBundle(assets)
-
-      // Get locales
-      const locales = this.assetDetector.getLocalesFromAssets(assets)
-
-      // Create Merkle tree
-      const { tree, root } = this.versionManager.createMerkleTree(assets)
-
-      // Generate manifest with versioning info
-      const manifest = this.metadataGenerator.generateManifest(assets, 'bundle', {
-        format: normalizedConfig.format,
-        compression: normalizedConfig.compression,
-        encryption: normalizedConfig.encryption,
-        compatibility: normalizedConfig.compatibility,
-        version: normalizedConfig.versioning.bundleVersion?.toString() || '1.0.0',
-        buildNumber: normalizedConfig.versioning.buildNumber,
-      })
-
-      // Add versioning info to manifest
-      manifest.bundleVersion = normalizedConfig.versioning.bundleVersion
-      manifest.buildNumber = normalizedConfig.versioning.buildNumber
-      manifest.merkleRoot = root
-      manifest.runtimePackage = withRuntimePackageIntegrity(normalizedConfig.runtimePackage, root)
-      await this.applyManifestSignature(manifest, normalizedConfig)
-
-      // Validate manifest
-      if (!this.metadataGenerator.validateManifest(manifest)) {
-        throw new Error('Generated manifest is invalid')
-      }
-
-      // Generate temporary bundle path
-      const tempBundlePath = `${normalizedConfig.output}.tmp`
-
-      // Ensure output directory exists
-      await mkdir(dirname(normalizedConfig.output), { recursive: true })
-
-      // Create bundle based on format
-      if (normalizedConfig.format === 'zip') {
-        const zipBundler = new ZipBundler()
-        await zipBundler.createBundle(assets, manifest, tempBundlePath)
-      }
-      else {
-        const qpkBundler = new QPKBundler(
-          [],
-          normalizedConfig.encryption.algorithm,
-          normalizedConfig.encryption.key,
-          normalizedConfig.encryption.plugin,
-        )
-        await qpkBundler.createBundle(assets, manifest, tempBundlePath, {
-          compress: normalizedConfig.compression.algorithm !== 'none',
-          encrypt: normalizedConfig.encryption.enabled,
-          compressionLevel: normalizedConfig.compression.level,
+      if (normalizedConfig.assetTargets.length > 0) {
+        return await this.bundleAssetTargets(normalizedConfig, {
+          manifestName: 'bundle',
+          startTime,
+          allowEmpty: false,
         })
       }
 
-      // Generate final bundle filename with hash
-      const finalBundlePath = this.versionManager.generateBundleFilename(
-        normalizedConfig.output,
-        normalizedConfig.versioning.bundleVersion,
-        normalizedConfig.versioning.buildNumber,
-      )
-
-      // Rename temporary bundle to final name
-      await rename(tempBundlePath, finalBundlePath)
-
-      // Create build log
-      const buildLog: BuildLog = {
-        buildNumber: normalizedConfig.versioning.buildNumber,
-        bundleVersion: normalizedConfig.versioning.bundleVersion,
-        timestamp: new Date().toISOString(),
-        bundlePath: finalBundlePath,
-        bundleHash: '', // Will be calculated by versionManager
-        compatibility: manifest.compatibility,
-        totalFiles: assets.length,
-        totalSize: assets.reduce((sum, asset) => sum + asset.size, 0),
-        assets: Object.fromEntries(
-          assets.map(asset => [asset.relativePath, {
-            hash: asset.hash,
-            path: asset.path,
-            size: asset.size,
-            version: asset.version || 1,
-            mtime: asset.mtime || Date.now(),
-          }]),
-        ),
-        merkleTree: tree,
-        merkleRoot: root,
-        buildStats: {
-          processingTime: Date.now() - startTime,
-          compressionRatio: 0, // Will be calculated later
-          locales: locales.map(l => l.code),
-        },
-      }
-
-      // Save build log and update index
-      await this.versionManager.saveBuildLog(buildLog, finalBundlePath, manifest)
-
-      // Call post-bundle hooks
-      await this.pluginManager.postBundle(finalBundlePath, manifest)
-
-      // Calculate stats
-      const endTime = Date.now()
-      const stats = this.calculateStats(manifest, endTime - startTime)
-
-      logger.info(`Bundle created successfully in ${endTime - startTime}ms`)
-      logger.info(`Final bundle: ${finalBundlePath}`)
-      this.logStats(stats)
-
-      return stats
+      return await this.bundleNormalizedConfig(normalizedConfig, {
+        manifestName: 'bundle',
+        startTime,
+        allowEmpty: false,
+      })
     }
     catch (error) {
       logger.error('Bundle creation failed:', error)
@@ -275,13 +161,87 @@ export class QuackBundler extends EventEmitter {
       // Normalize configuration
       const normalizedConfig = await this.normalizeConfig(bundleConfig)
 
-      logger.info(`Building bundle "${bundleDefinition.name}" from: ${normalizedConfig.source}`)
-      logger.info(`Output: ${normalizedConfig.output} (${normalizedConfig.format})`)
+      if (normalizedConfig.assetTargets.length > 0) {
+        return await this.bundleAssetTargets(normalizedConfig, {
+          manifestName: bundleDefinition.displayName || bundleDefinition.name,
+          startTime,
+          allowEmpty: true,
+          workspaceBundle: bundleDefinition,
+        })
+      }
 
-      // Initialize plugins
+      return await this.bundleNormalizedConfig(normalizedConfig, {
+        manifestName: bundleDefinition.displayName || bundleDefinition.name,
+        startTime,
+        allowEmpty: true,
+        workspaceBundle: bundleDefinition,
+      })
+    }
+    catch (error) {
+      logger.error(`Bundle creation failed for "${bundleDefinition.name}":`, error)
+      throw error
+    }
+    finally {
+      // Cleanup plugins
+      await this.pluginManager.cleanup()
+    }
+  }
+
+  private async bundleAssetTargets(
+    baseConfig: BundleOptions,
+    options: {
+      manifestName: string
+      startTime: number
+      allowEmpty: boolean
+      workspaceBundle?: BundleDefinition
+    },
+  ): Promise<BundleStats> {
+    const targetStats: Record<string, BundleStats> = {}
+    let firstStats: BundleStats | undefined
+
+    logger.info(`Building ${baseConfig.assetTargets.length} asset bundle targets`)
+
+    for (const target of baseConfig.assetTargets) {
+      const targetConfig = applyAssetTargetToConfig(baseConfig, target)
+      try {
+        const stats = await this.bundleNormalizedConfig(targetConfig, options)
+        targetStats[target.name] = stats
+        firstStats ??= stats
+      }
+      catch (error) {
+        if (target.optional) {
+          logger.warn(`Optional asset target "${target.name}" skipped: ${error instanceof Error ? error.message : String(error)}`)
+          continue
+        }
+        throw error
+      }
+    }
+
+    if (!firstStats) {
+      throw new Error('No asset bundle targets were built successfully')
+    }
+
+    return {
+      ...firstStats,
+      targets: targetStats,
+    }
+  }
+
+  private async bundleNormalizedConfig(
+    normalizedConfig: BundleOptions,
+    options: {
+      manifestName: string
+      startTime: number
+      allowEmpty: boolean
+      workspaceBundle?: BundleDefinition
+    },
+  ): Promise<BundleStats> {
+    logger.info(`Starting bundle creation from: ${normalizedConfig.source}`)
+    logger.info(`Output: ${normalizedConfig.output} (${normalizedConfig.format})`)
+
+    try {
       await this.pluginManager.initialize(normalizedConfig)
 
-      // Discover assets
       let assets = await this.assetDetector.discoverAssets(normalizedConfig.source)
       assets = await this.pluginManager.collectAssets({
         source: normalizedConfig.source,
@@ -290,33 +250,30 @@ export class QuackBundler extends EventEmitter {
       assets = await this.compileQuaScriptAssets(assets, normalizedConfig)
 
       if (assets.length === 0) {
-        logger.warn(`No assets found in bundle "${bundleDefinition.name}" source directory`)
-        // Create empty bundle stats
+        if (!options.allowEmpty) {
+          throw new Error('No assets found in source directory')
+        }
+        logger.warn(`No assets found in bundle "${options.manifestName}" source directory`)
         return {
           totalFiles: 0,
           totalSize: 0,
           compressedSize: 0,
           compressionRatio: 0,
-          processingTime: Date.now() - startTime,
+          processingTime: Date.now() - options.startTime,
           locales: [],
           assetsByType: { images: 0, characters: 0, audio: 0, video: 0, fonts: 0, scripts: 0, data: 0 },
           bundleVersion: normalizedConfig.versioning.bundleVersion,
           buildNumber: normalizedConfig.versioning.buildNumber,
+          assetTarget: normalizedConfig.assetTarget ? createAssetTargetManifest(normalizedConfig.assetTarget) : undefined,
         }
       }
 
-      // Assign version numbers to assets
       assets = this.versionManager.assignAssetVersions(assets, 1)
       assets = await this.processAssetsForBundle(assets)
 
-      // Get locales
       const locales = this.assetDetector.getLocalesFromAssets(assets)
-
-      // Create Merkle tree
       const { tree, root } = this.versionManager.createMerkleTree(assets)
-
-      // Generate manifest with versioning info
-      const manifest = this.metadataGenerator.generateManifest(assets, bundleDefinition.displayName || bundleDefinition.name, {
+      const manifest = this.metadataGenerator.generateManifest(assets, options.manifestName, {
         format: normalizedConfig.format,
         compression: normalizedConfig.compression,
         encryption: normalizedConfig.encryption,
@@ -325,34 +282,30 @@ export class QuackBundler extends EventEmitter {
         buildNumber: normalizedConfig.versioning.buildNumber,
       })
 
-      // Add versioning info to manifest
       manifest.bundleVersion = normalizedConfig.versioning.bundleVersion
       manifest.buildNumber = normalizedConfig.versioning.buildNumber
       manifest.merkleRoot = root
       manifest.runtimePackage = withRuntimePackageIntegrity(normalizedConfig.runtimePackage, root)
+      manifest.assetTarget = normalizedConfig.assetTarget ? createAssetTargetManifest(normalizedConfig.assetTarget) : undefined
       await this.applyManifestSignature(manifest, normalizedConfig)
 
-      // Add workspace metadata
-      ;(manifest as any).workspaceBundle = {
-        name: bundleDefinition.name,
-        displayName: bundleDefinition.displayName,
-        priority: bundleDefinition.priority,
-        dependencies: bundleDefinition.dependencies,
-        loadTrigger: bundleDefinition.loadTrigger,
+      if (options.workspaceBundle) {
+        ;(manifest as any).workspaceBundle = {
+          name: options.workspaceBundle.name,
+          displayName: options.workspaceBundle.displayName,
+          priority: options.workspaceBundle.priority,
+          dependencies: options.workspaceBundle.dependencies,
+          loadTrigger: options.workspaceBundle.loadTrigger,
+        }
       }
 
-      // Validate manifest
       if (!this.metadataGenerator.validateManifest(manifest)) {
         throw new Error('Generated manifest is invalid')
       }
 
-      // Generate temporary bundle path
       const tempBundlePath = `${normalizedConfig.output}.tmp`
-
-      // Ensure output directory exists
       await mkdir(dirname(normalizedConfig.output), { recursive: true })
 
-      // Create bundle based on format
       if (normalizedConfig.format === 'zip') {
         const zipBundler = new ZipBundler()
         await zipBundler.createBundle(assets, manifest, tempBundlePath)
@@ -371,23 +324,19 @@ export class QuackBundler extends EventEmitter {
         })
       }
 
-      // Generate final bundle filename with hash
       const finalBundlePath = this.versionManager.generateBundleFilename(
         normalizedConfig.output,
         normalizedConfig.versioning.bundleVersion,
         normalizedConfig.versioning.buildNumber,
       )
-
-      // Rename temporary bundle to final name
       await rename(tempBundlePath, finalBundlePath)
 
-      // Create build log
       const buildLog: BuildLog = {
         buildNumber: normalizedConfig.versioning.buildNumber,
         bundleVersion: normalizedConfig.versioning.bundleVersion,
         timestamp: new Date().toISOString(),
         bundlePath: finalBundlePath,
-        bundleHash: '', // Will be calculated by versionManager
+        bundleHash: '',
         compatibility: manifest.compatibility,
         totalFiles: assets.length,
         totalSize: assets.reduce((sum, asset) => sum + asset.size, 0),
@@ -403,40 +352,35 @@ export class QuackBundler extends EventEmitter {
         merkleTree: tree,
         merkleRoot: root,
         buildStats: {
-          processingTime: Date.now() - startTime,
-          compressionRatio: 0, // Will be calculated later
+          processingTime: Date.now() - options.startTime,
+          compressionRatio: 0,
           locales: locales.map(l => l.code),
         },
       }
 
-      // Save build log and update workspace index
       await this.versionManager.saveBuildLog(buildLog, finalBundlePath, manifest)
-      await this.versionManager.updateBundleInWorkspace(
-        bundleDefinition.name,
-        buildLog,
-        finalBundlePath,
-        manifest,
-        bundleDefinition,
-      )
-
-      // Call post-bundle hooks
+      if (options.workspaceBundle) {
+        await this.versionManager.updateBundleInWorkspace(
+          options.workspaceBundle.name,
+          buildLog,
+          finalBundlePath,
+          manifest,
+          options.workspaceBundle,
+        )
+      }
       await this.pluginManager.postBundle(finalBundlePath, manifest)
 
-      // Calculate stats
       const endTime = Date.now()
-      const stats = this.calculateStats(manifest, endTime - startTime)
-
-      logger.info(`Bundle "${bundleDefinition.name}" created successfully in ${endTime - startTime}ms`)
+      const stats = this.calculateStats(manifest, endTime - options.startTime)
+      logger.info(`Bundle created successfully in ${endTime - options.startTime}ms`)
       logger.info(`Final bundle: ${finalBundlePath}`)
+      if (!options.workspaceBundle) {
+        this.logStats(stats)
+      }
 
       return stats
     }
-    catch (error) {
-      logger.error(`Bundle creation failed for "${bundleDefinition.name}":`, error)
-      throw error
-    }
     finally {
-      // Cleanup plugins
       await this.pluginManager.cleanup()
     }
   }
@@ -481,13 +425,7 @@ export class QuackBundler extends EventEmitter {
     // Get versioning info
     const versionManager = new VersionManager(dirname(output))
     const versionInfo = await versionManager.getVersionInfo(config.versioning || {})
-    const compatibility = resolveCompatibility(config.compatibility, config.runtimePackage)
-    const runtimePackage = config.runtimePackage
-      ? {
-          ...config.runtimePackage,
-          compatibility,
-        }
-      : undefined
+    let compatibility = resolveCompatibility(config.compatibility, config.runtimePackage)
 
     // Normalize compression
     const compressionAlgorithm = config.compression?.algorithm ?? (format === 'qpk' ? 'lzma' : 'deflate') as CompressionAlgorithm
@@ -513,6 +451,38 @@ export class QuackBundler extends EventEmitter {
       plugin: config.encryption?.plugin,
     }
 
+    const assetTarget = config.assetTarget
+    if (assetTarget) {
+      output = addOutputSuffix(output, assetTarget.suffix || assetTarget.name)
+      if (assetTarget.compatibility) {
+        compatibility = {
+          ...compatibility,
+          ...assetTarget.compatibility,
+        }
+      }
+      if (assetTarget.compression) {
+        compression.level = assetTarget.compression.level ?? compression.level
+        compression.algorithm = assetTarget.compression.algorithm ?? compression.algorithm
+      }
+      if (format === 'qpk' && compression.algorithm === 'deflate') {
+        throw new Error(`QPK compression only supports none or lzma for asset target "${assetTarget.name}"`)
+      }
+      if (assetTarget.encryption) {
+        encryption.enabled = assetTarget.encryption.enabled ?? encryption.enabled
+        encryption.algorithm = encryption.enabled
+          ? (assetTarget.encryption.algorithm ?? encryption.algorithm)
+          : 'none'
+        encryption.key = assetTarget.encryption.key ?? encryption.key
+      }
+    }
+
+    const runtimePackage = config.runtimePackage
+      ? {
+          ...cloneRuntimePackage(config.runtimePackage),
+          compatibility,
+        }
+      : undefined
+
     return {
       source,
       output,
@@ -534,6 +504,8 @@ export class QuackBundler extends EventEmitter {
         autoCollectDecorators: config.quascript?.autoCollectDecorators,
         decoratorMappings: config.quascript?.decoratorMappings,
       },
+      assetTargets: config.assetTargets || [],
+      assetTarget,
     }
   }
 
@@ -868,6 +840,73 @@ function withRuntimePackageIntegrity(
       hash: merkleRoot,
     },
   }
+}
+
+function applyAssetTargetToConfig(config: BundleOptions, target: AssetBundleTarget): BundleOptions {
+  const compression = {
+    ...config.compression,
+    ...target.compression,
+  }
+  const encryptionEnabled = target.encryption?.enabled ?? config.encryption.enabled
+  const encryption = {
+    ...config.encryption,
+    ...target.encryption,
+    enabled: encryptionEnabled,
+    algorithm: encryptionEnabled
+      ? (target.encryption?.algorithm ?? config.encryption.algorithm)
+      : 'none' as EncryptionAlgorithm,
+  }
+  const compatibility = {
+    ...config.compatibility,
+    ...target.compatibility,
+  }
+  const runtimePackage = config.runtimePackage
+    ? {
+        ...cloneRuntimePackage(config.runtimePackage),
+        compatibility,
+      }
+    : undefined
+
+  return {
+    ...config,
+    output: addOutputSuffix(config.output, target.suffix || target.name),
+    compression,
+    encryption,
+    compatibility,
+    runtimePackage,
+    assetTargets: [],
+    assetTarget: target,
+  }
+}
+
+function cloneRuntimePackage(runtimePackage: RuntimePackageManifest): RuntimePackageManifest {
+  return JSON.parse(JSON.stringify(runtimePackage)) as RuntimePackageManifest
+}
+
+function createAssetTargetManifest(target: AssetBundleTarget): AssetBundleTargetManifest {
+  return {
+    name: target.name,
+    displayName: target.displayName,
+    suffix: target.suffix,
+    description: target.description,
+    browserCondition: target.browserCondition,
+    formats: {
+      images: target.pipeline?.images ? target.pipeline.images.format ?? 'webp' : undefined,
+      characters: target.pipeline?.characters ? target.pipeline.characters.format ?? 'webp' : undefined,
+      audio: target.pipeline?.audio ? target.pipeline.audio.format ?? 'aac' : undefined,
+      video: target.pipeline?.video ? target.pipeline.video.format ?? 'webm' : undefined,
+      fonts: target.pipeline?.fonts?.format,
+    },
+  }
+}
+
+function addOutputSuffix(output: string, suffix: string): string {
+  const directory = dirname(output)
+  const extension = output.endsWith('.qpk') ? '.qpk' : output.endsWith('.zip') ? '.zip' : ''
+  if (!extension) {
+    return `${output}.${suffix}`
+  }
+  return resolve(directory, `${basename(output, extension)}.${suffix}${extension}`)
 }
 
 function mergeRuntimeQuaScriptVariants(

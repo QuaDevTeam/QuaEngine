@@ -195,7 +195,6 @@ async function writeBundleIndex(tempDir: string, availablePatches: ReturnType<ty
   await writeFile(join(tempDir, 'index.json'), JSON.stringify({
     currentVersion: 4,
     currentBuild: 'build-4',
-    latestBundle: null,
     previousBuilds: [],
     availablePatches,
   }, null, 2))
@@ -225,7 +224,6 @@ async function writeWorkspaceIndex(
           priority: 0,
           dependencies: [],
           loadTrigger: 'immediate',
-          latestBundle: null,
           previousBuilds: [],
           availablePatches,
         },

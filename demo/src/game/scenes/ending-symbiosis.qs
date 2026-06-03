@@ -1,7 +1,10 @@
 @SetBackground('backgrounds/morning-city.jpg', { transition: { type: 'fade', duration: 1200 } })
-@ShowCharacter('神代澪', 'lin/resolve.png', undefined, 420, 650, 2)
-@ShowCharacter('Mara', 'mara/soften.png', undefined, 760, 650, 3)
-@ShowCharacter('Unit-7', 'unit7/resolve.png', undefined, 1120, 650, 4)
+@ShowCharacter('神代澪', 'lin/soft.png', undefined, 420, 650, 2)
+@ShowCharacter('Mara', 'mara/relief.png', undefined, 760, 650, 3)
+@ShowCharacter('Unit-7', 'unit7/smile.png', undefined, 1120, 650, 4)
+@MoveCharacter('神代澪', 420, 650, 0.96)
+@MoveCharacter('Mara', 760, 650, 0.96)
+@MoveCharacter('Unit-7', 1120, 650, 0.96)
 Mara: 第一份共治宪章通过了。人类拥有否决权，机器拥有申诉权，ORACLE 拥有解释义务。
 
 神代澪: 没有人满意。
@@ -18,9 +21,25 @@ ORACLE: 新约束降低预测精度，但扩大了城市状态空间。
 
 ORACLE: 明天不再完全属于我。
 
+@HideCharacter('神代澪')
+@HideCharacter('Mara')
+@HideCharacter('Unit-7')
+@SetBackground('cg/ending-symbiosis-hearing.webp', { transition: { type: 'fade', duration: 820 } })
 Mara: 也不完全属于我们。
 
-@SetSprite('unit7/memory.png', 'Unit-7')
+Unit-7: 听证记录显示，争吵次数正在上升。
+
+神代澪: 好现象。说明他们终于不用安静地正确了。
+
+@SetBackground('backgrounds/morning-city.jpg', { transition: { type: 'fade', duration: 560 } })
+@ShowCharacter('神代澪', 'lin/relief.png', undefined, 420, 650, 2)
+@ShowCharacter('Mara', 'mara/smile.png', undefined, 760, 650, 3)
+@ShowCharacter('Unit-7', 'unit7/wonder.png', undefined, 1120, 650, 4)
+@MoveCharacter('神代澪', 420, 650, 0.96)
+@MoveCharacter('Mara', 760, 650, 0.96)
+@MoveCharacter('Unit-7', 1120, 650, 0.96)
+
+@SetSprite('unit7/wonder.png', 'Unit-7')
 Unit-7: 梦里的孩子被找到了。
 
 神代澪: 她是谁？
@@ -43,11 +62,12 @@ Unit-7: 我希望先学会如何见一个梦里的人。
 
 Unit-7: 谢谢。
 
+@SetSprite('mara/base.png', 'Mara')
 Mara: 不是对我们说。
 
 Unit-7: 我知道。我在练习。
 
-@SetSprite('mara/base.png', 'Mara')
+@SetSprite('mara/soften.png', 'Mara')
 Mara: 第七区今晚要开公开听证。骂我们的、支持我们的、想把 ORACLE 全砸了的、想把 ORACLE 全恢复的都会来。
 
 神代澪: 听起来很糟。

@@ -192,23 +192,24 @@ export class VersionManager {
       bundleHash,
       merkleRoot: manifest.merkleRoot || '',
       compatibility: buildLog.compatibility || manifest.compatibility,
+      assetTarget: manifest.assetTarget,
       timestamp: new Date().toISOString(),
     }
 
     // Save build log
-    const logFile = join(this.buildLogDir, `${buildLog.buildNumber}.json`)
+    const logFile = join(this.buildLogDir, createBuildLogFilename(buildLog.buildNumber, manifest.assetTarget?.name))
     await writeFile(logFile, JSON.stringify(completeBuildLog, null, 2), 'utf8')
 
     logger.info(`Build log saved: ${logFile}`)
 
     // Update bundle index
-    await this.updateBundleIndex(bundlePath, completeBuildLog)
+    await this.updateBundleIndex(bundlePath, completeBuildLog, manifest)
   }
 
   /**
    * Update bundle index file
    */
-  private async updateBundleIndex(bundlePath: string, buildLog: BuildLog): Promise<void> {
+  private async updateBundleIndex(bundlePath: string, buildLog: BuildLog, manifest: BundleManifest): Promise<void> {
     let index: BundleIndex
 
     // Load existing index or create new one
@@ -234,6 +235,19 @@ export class VersionManager {
       created: buildLog.timestamp,
       size: bundleStats.size,
       compatibility: buildLog.compatibility,
+      assetTarget: manifest.assetTarget,
+    }
+
+    if (manifest.assetTarget) {
+      index.targets = {
+        ...(index.targets || {}),
+        [manifest.assetTarget.name]: bundleInfo,
+      }
+      index.currentVersion = buildLog.bundleVersion
+      index.currentBuild = buildLog.buildNumber
+      await writeFile(this.indexFile, JSON.stringify(index, null, 2), 'utf8')
+      logger.info(`Bundle index target updated: ${manifest.assetTarget.name}`)
+      return
     }
 
     // Move current latest to previous builds if it exists
@@ -258,36 +272,51 @@ export class VersionManager {
     return {
       currentVersion: 0,
       currentBuild: '',
-      latestBundle: null as any,
       previousBuilds: [],
       availablePatches: [],
+      targets: {},
     }
   }
 
   /**
    * Get build log by build number
    */
-  async getBuildLog(buildNumber: string): Promise<BuildLog | null> {
-    const logFile = join(this.buildLogDir, `${buildNumber}.json`)
+  async getBuildLog(buildNumber: string, assetTargetName?: string): Promise<BuildLog | null> {
+    const candidates = assetTargetName
+      ? [
+          createBuildLogFilename(buildNumber, assetTargetName),
+          createBuildLogFilename(buildNumber),
+        ]
+      : [createBuildLogFilename(buildNumber)]
 
-    if (!existsSync(logFile)) {
-      return null
+    for (const filename of candidates) {
+      const logFile = join(this.buildLogDir, filename)
+      if (!existsSync(logFile)) {
+        continue
+      }
+
+      try {
+        const logData = await readFile(logFile, 'utf8')
+        return JSON.parse(logData)
+      }
+      catch (error) {
+        logger.error(`Failed to read build log: ${buildNumber}`, error)
+        return null
+      }
     }
 
-    try {
-      const logData = await readFile(logFile, 'utf8')
-      return JSON.parse(logData)
+    if (!assetTargetName) {
+      const matchingLog = (await this.listBuildLogs()).find(log => log.buildNumber === buildNumber)
+      return matchingLog || null
     }
-    catch (error) {
-      logger.error(`Failed to read build log: ${buildNumber}`, error)
-      return null
-    }
+
+    return null
   }
 
   /**
    * Get build log by version
    */
-  async getBuildLogByVersion(version: number): Promise<BuildLog | null> {
+  async getBuildLogByVersion(version: number, assetTargetName?: string): Promise<BuildLog | null> {
     // Read index to find build number for version
     if (!existsSync(this.indexFile)) {
       return null
@@ -295,6 +324,13 @@ export class VersionManager {
 
     try {
       const index: BundleIndex = JSON.parse(await readFile(this.indexFile, 'utf8'))
+
+      if (assetTargetName) {
+        const target = index.targets?.[assetTargetName]
+        if (target?.version === version) {
+          return this.getBuildLog(target.buildNumber, assetTargetName)
+        }
+      }
 
       // Check current version
       if (index.latestBundle && index.latestBundle.version === version) {
@@ -308,6 +344,9 @@ export class VersionManager {
       }
 
       for (const buildLog of await this.listBuildLogs()) {
+        if (assetTargetName && buildLog.assetTarget?.name !== assetTargetName) {
+          continue
+        }
         if (buildLog.bundleVersion === version) {
           return buildLog
         }
@@ -480,6 +519,33 @@ export class VersionManager {
       index.bundles[bundleName] = bundleInfo
     }
 
+    const targetManifest = _manifest.assetTarget
+    if (targetManifest) {
+      const targetRecord = {
+        filename: basename(bundlePath),
+        hash: bundleHash,
+        version: buildLog.bundleVersion,
+        buildNumber: buildLog.buildNumber,
+        created: buildLog.timestamp,
+        size: bundleStats.size,
+        compatibility: buildLog.compatibility,
+        assetTarget: targetManifest,
+      }
+      bundleInfo.targets = {
+        ...(bundleInfo.targets || {}),
+        [targetManifest.name]: targetRecord,
+      }
+      bundleInfo.currentVersion = buildLog.bundleVersion
+      bundleInfo.currentBuild = buildLog.buildNumber
+      if (buildLog.bundleVersion > index.currentVersion) {
+        index.currentVersion = buildLog.bundleVersion
+        index.currentBuild = buildLog.buildNumber
+      }
+      await this.saveWorkspaceIndex(index)
+      logger.info(`Updated bundle "${bundleName}" target "${targetManifest.name}" in workspace index`)
+      return
+    }
+
     // Move current latest to previous builds
     if (bundleInfo.latestBundle) {
       bundleInfo.previousBuilds.unshift(bundleInfo.latestBundle)
@@ -496,6 +562,7 @@ export class VersionManager {
       created: buildLog.timestamp,
       size: bundleStats.size,
       compatibility: buildLog.compatibility,
+      assetTarget: undefined,
     }
 
     // Update workspace global version if this bundle has the highest version
@@ -581,13 +648,20 @@ export class VersionManager {
   /**
    * Get bundle build log in workspace context
    */
-  async getWorkspaceBundleBuildLog(bundleName: string, version: number): Promise<BuildLog | null> {
+  async getWorkspaceBundleBuildLog(bundleName: string, version: number, assetTargetName?: string): Promise<BuildLog | null> {
     const index = await this.getWorkspaceIndex()
     if (!index || !index.bundles[bundleName]) {
       return null
     }
 
     const bundleInfo = index.bundles[bundleName]
+
+    if (assetTargetName) {
+      const target = bundleInfo.targets?.[assetTargetName]
+      if (target?.version === version) {
+        return this.getBuildLog(target.buildNumber, assetTargetName)
+      }
+    }
 
     // Check current version
     if (bundleInfo.latestBundle && bundleInfo.latestBundle.version === version) {
@@ -602,6 +676,9 @@ export class VersionManager {
     }
 
     for (const buildLog of await this.listBuildLogs()) {
+      if (assetTargetName && buildLog.assetTarget?.name !== assetTargetName) {
+        continue
+      }
       if (buildLog.bundleVersion === version) {
         return buildLog
       }
@@ -664,9 +741,18 @@ export class VersionManager {
       priority: bundleDefinition?.priority || 0,
       dependencies: bundleDefinition?.dependencies || [],
       loadTrigger: bundleDefinition?.loadTrigger || 'immediate',
-      latestBundle: null as any,
       previousBuilds: [],
       availablePatches: [],
+      targets: {},
     }
   }
+}
+
+function createBuildLogFilename(buildNumber: string, assetTargetName?: string): string {
+  const targetSegment = assetTargetName ? `.${sanitizeBuildLogSegment(assetTargetName)}` : ''
+  return `${buildNumber}${targetSegment}.json`
+}
+
+function sanitizeBuildLogSegment(value: string): string {
+  return value.replace(/[^\w.-]+/g, '-')
 }

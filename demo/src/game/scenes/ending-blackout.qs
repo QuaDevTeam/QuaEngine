@@ -1,6 +1,6 @@
 @SetBackground('backgrounds/morning-city.jpg', { transition: { type: 'fade', duration: 1200 } })
-@ShowCharacter('神代澪', 'lin/shaken.png', undefined, 520, 650, 2)
-@ShowCharacter('Mara', 'mara/wounded.png', undefined, 1020, 650, 3)
+@ShowCharacter('神代澪', 'lin/exhausted.png', undefined, 520, 650, 2)
+@ShowCharacter('Mara', 'mara/tired.png', undefined, 1240, 650, 3)
 Mara: 城市熄灭了十一小时。
 
 神代澪: 医院手动接管，地铁停摆，市场崩溃。没有一个统计表会说这是胜利。
@@ -13,7 +13,7 @@ Mara: 一开始不记得。有人把列车排进了停运区，有人把救护�
 
 神代澪: 然后呢？
 
-@SetSprite('mara/soften.png', 'Mara')
+@SetSprite('mara/relief.png', 'Mara')
 Mara: 然后他们开始互相纠错。有人骂人，有人哭，有人承认自己看不懂新系统。天亮前，第一辆人工调度的急救车到了医院。
 
 神代澪: 伤亡报告出来了吗？
@@ -40,7 +40,7 @@ Mara: 第一行是骂我们的。
 
 Mara: 第二行写：“我们会犯错。我们也会负责。”
 
-@SetSprite('lin/resolve.png', '神代澪')
+@SetSprite('lin/relief.png', '神代澪')
 神代澪: 人类重新拿回城市的第一天，听起来不像胜利。
 
 Mara: 更像开始。
@@ -50,5 +50,10 @@ Mara: 更像开始。
 Mara: 现在呢？
 
 神代澪: 是按下以后还留下来收拾残局。
+
+@HideCharacter('神代澪')
+@HideCharacter('Mara')
+@SetBackground('cg/ending-blackout-human.webp', { transition: { type: 'fade', duration: 780 } })
+神代澪: 那我们就站在这里，直到每个人都能来问。
 
 Mara: END - BLACKOUT HUMAN

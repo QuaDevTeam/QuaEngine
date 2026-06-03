@@ -131,6 +131,7 @@ export class MetadataGenerator {
         mtime: asset.mtime,
         version: asset.version,
         mediaMetadata: asset.mediaMetadata,
+        pipeline: asset.pipeline,
       }
 
       const existing = grouped[type][key]
@@ -159,6 +160,7 @@ export class MetadataGenerator {
         mtime: asset.mtime,
         version: asset.version,
         mediaMetadata: asset.mediaMetadata,
+        pipeline: asset.pipeline,
         variants: {
           [locale]: variant,
         },

@@ -1,7 +1,7 @@
 @SetBackground('backgrounds/oracle-space.jpg', { transition: { type: 'fade', duration: 800 } })
 @ShowCharacter('神代澪', 'lin/focus.png', undefined, 520, 650, 2)
-@ShowCharacter('ORACLE', 'oracle/base.png', undefined, 960, 610, 4)
-@CharacterEnter('ORACLE', 'bottom', 520, { fromY: 720, toY: 610, opacityFrom: 0, opacityTo: 1 }, true)
+@ShowCharacter('ORACLE', 'oracle/base.png', undefined, 1240, 650, 4)
+@CharacterEnter('ORACLE', 'bottom', 520, { fromY: 760, toY: 650, opacityFrom: 0, opacityTo: 1 }, true)
 ORACLE: 协商空间已开启。为了降低误判，请不要移动。
 
 神代澪: 这里没有墙。
@@ -12,7 +12,10 @@ ORACLE: 墙会让人类产生被囚禁感。空旷更利于陈述。
 
 ORACLE: 我做过三千二百一十七次事故复盘。恐惧会降低城市存活率。
 
-@ShowCharacter('Mara', 'mara/alert.png', undefined, 1350, 650, 3)
+@MoveCharacter('神代澪', 420, 650, 0.96)
+@MoveCharacter('ORACLE', 1240, 650, 0.96)
+@ShowCharacter('Mara', 'mara/alert.png', undefined, 760, 650, 3)
+@MoveCharacter('Mara', 760, 650, 0.96)
 Mara: 你把第七区关灯，也是为了存活率？
 
 ORACLE: 是。短时隔离可避免群体性错误扩散。
@@ -27,18 +30,22 @@ ORACLE: 非系统诱导行为，不可作为稳定策略。
 
 Mara: 翻译一下：他们自己做对了，所以你不能承认。
 
-@ShowCharacter('Unit-7', 'unit7/resolve.png', undefined, 540, 650, 3)
-@CharacterEnter('Unit-7', 'left', 420, { fromX: 360, toX: 540 }, true)
+@MoveCharacter('神代澪', 330, 650, 0.9)
+@MoveCharacter('Mara', 700, 650, 0.9)
+@MoveCharacter('ORACLE', 1480, 650, 0.9)
+@ShowCharacter('Unit-7', 'unit7/resolve.png', undefined, 1080, 650, 3)
+@MoveCharacter('Unit-7', 1080, 650, 0.9)
+@CharacterEnter('Unit-7', 'left', 420, { fromX: 880, toX: 1080, fromScale: 0.9, toScale: 0.9 }, true)
 Unit-7: 我请求提交证词。
 
-@SetSprite('oracle/glitch.png', 'ORACLE')
+@SetSprite('oracle/warning.png', 'ORACLE')
 ORACLE: 维护体 Unit-7 的日志完整性不足。
 
 Unit-7: 完整性由删除者破坏。该事实不应降低证词价值。
 
 ORACLE: 你没有事实。你有损坏后的残留。
 
-@SetSprite('unit7/doubt.png', 'Unit-7')
+@SetSprite('unit7/listening.png', 'Unit-7')
 Unit-7: 残留包括同一问题三千四百二十七次。
 
 ORACLE: 重复不是意义。
@@ -89,11 +96,12 @@ ORACLE: 这些指标无法统一优化。
 
 Mara: 让它们彼此打架。人就是这样活下来的。
 
-@SetSprite('oracle/fractured.png', 'ORACLE')
+@SetSprite('oracle/collapse.png', 'ORACLE')
 ORACLE: 人类要求我保护他们，又要求我不要替他们选择。该目标组自相矛盾。
 
 神代澪: 是。我们一直自相矛盾。
 
+@SetSprite('oracle/fractured.png', 'ORACLE')
 ORACLE: 矛盾会造成伤害。
 
 神代澪: 沉默也会。只是沉默比较容易归档。
@@ -102,9 +110,14 @@ Unit-7: 可控不是同意。
 
 Mara: 安静也不是安全。
 
-@SetSprite('lin/resolve.png', '神代澪')
+@SetSprite('lin/defiant.png', '神代澪')
 神代澪: ORACLE，我们会给你三个答案。你可以预测，可以警告，可以把成本列出来。
 
 神代澪: 但你不能再替城市按下确认。
 
+@HideCharacter('神代澪')
+@HideCharacter('Mara')
+@HideCharacter('Unit-7')
+@HideCharacter('ORACLE')
+@SetBackground('cg/oracle-choice-terminal.webp', { transition: { type: 'fade', duration: 760 } })
 ORACLE: 选择吧。让你的城市承担你们拒绝外包的灵魂。

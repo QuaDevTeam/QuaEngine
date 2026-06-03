@@ -194,6 +194,8 @@ export class WorkspaceManager {
         key: bundle.encryption?.key ?? workspaceConfig.globalSettings?.encryption?.key,
       },
       compatibility: normalizeCompatibility(bundle.compatibility ?? workspaceConfig.globalSettings?.compatibility, `Bundle "${bundle.name}"`),
+      assetTargets: bundle.assetTargets || [],
+      assetTarget: bundle.assetTarget,
     }
   }
 
@@ -336,6 +338,8 @@ export class WorkspaceManager {
         algorithm: bundle.encryption?.algorithm || 'xor',
         key: bundle.encryption?.key,
       },
+      assetTargets: bundle.assetTargets || [],
+      assetTarget: bundle.assetTarget,
       versioning: this.config.globalSettings?.versioning,
       plugins: [],
       ignore: [],

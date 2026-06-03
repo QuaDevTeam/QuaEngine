@@ -11,18 +11,19 @@ const profile = process.env.REPLICATE_PROFILE || 'quaengine-demo'
 const rawDir = resolve(root, '.generated/raw')
 const tempDir = resolve(root, '.generated/input')
 const characterQaDir = resolve(root, '.generated/qa/characters')
-const shouldRegenerateAll = process.env.REGENERATE_ALL_ASSETS === '1'
-const shouldRegenerateBackgrounds = shouldRegenerateAll || process.env.REGENERATE_BACKGROUNDS === '1'
-const shouldRegenerateCgs = shouldRegenerateAll || process.env.REGENERATE_CGS === '1'
-const shouldRegenerateCharacters = shouldRegenerateAll || process.env.REGENERATE_CHARACTERS === '1'
+const cliOptions = parseCliOptions(process.argv.slice(2))
+const shouldRegenerateAll = process.env.REGENERATE_ALL_ASSETS === '1' || cliOptions.regenerateAll
 const backgroundModel = process.env.BACKGROUND_MODEL || 'openai/gpt-image-2'
 const characterModel = process.env.CHARACTER_MODEL || 'aisha-ai-official/animagine-xl-v4-opt'
-const cgModel = process.env.CG_MODEL || characterModel
+const cgModel = process.env.CG_MODEL || 'openai/gpt-image-2'
 const characterBackgroundRemovalModel = process.env.CHARACTER_BACKGROUND_REMOVAL_MODEL || '851-labs/background-remover'
 const characterSolidBackground = process.env.CHARACTER_SOLID_BACKGROUND || '#ffffff'
-const characterFilter = process.env.CHARACTER_FILTER || ''
-const cgFilter = process.env.CG_FILTER || ''
+const backgroundFilter = joinFilters(process.env.BACKGROUND_FILTER, cliOptions.backgroundFilters)
+const characterFilter = joinFilters(process.env.CHARACTER_FILTER, cliOptions.characterFilters)
+const cgFilter = joinFilters(process.env.CG_FILTER, cliOptions.cgFilters)
+const assetFilter = joinFilters(process.env.ASSET_FILTER, cliOptions.assetFilters)
 const landscapeImageQuality = process.env.LANDSCAPE_IMAGE_QUALITY || process.env.GPT_IMAGE_QUALITY || 'medium'
+const cgImageQuality = process.env.CG_IMAGE_QUALITY || process.env.GPT_IMAGE_QUALITY || 'medium'
 const characterImageQuality = process.env.CHARACTER_IMAGE_QUALITY || process.env.GPT_IMAGE_QUALITY || 'medium'
 const predictionWaitSeconds = process.env.REPLICATE_WAIT_SECONDS || '60'
 const imageQaPython = process.env.IMAGE_QA_PYTHON || resolve(root, '.generated/chroma-venv/bin/python')
@@ -63,6 +64,7 @@ const cgArtBible = [
   'polished commercial sci-fi galgame event illustration',
   'cinematic dramatic framing with readable silhouettes',
   'cool cyan shadows with warm amber warning lights',
+  'character skin tones remain natural and readable; cyan light may create subtle rim light on hair, clothing seams, or glass only, never solid blue faces or blue skin',
   'no text, no letters, no numbers, no kanji, no kana, no signage, no readable symbols, no pseudo text, no watermark, no logo',
 ].join(', ')
 
@@ -298,35 +300,35 @@ const cgs = [
     id: 'blackout',
     aspect: '16:9',
     seed: 42001,
-    prompt: 'cinematic CG, young Japanese investigator looking at a citywide blackout from a rooftop, AI tower lit like a vertical eye, wind and rain, dramatic VN event illustration',
-    references: ['characters/lin/resolve.png'],
+    prompt: 'cinematic CG, Kamishiro Mio looking at a citywide blackout from a rooftop, AI tower lit like a vertical eye, wind and rain, her face keeps natural pale skin with only a small cyan hair streak and jacket seam glow, dramatic VN event illustration',
+    references: ['characters/lin/base.png'],
   },
   {
     id: 'memory',
     aspect: '16:9',
     seed: 42002,
-    prompt: 'cinematic CG, heroine and analyst discovering erased human memory files projected as glowing photographs, intimate emotional visual novel event scene',
+    prompt: 'cinematic CG, Kamishiro Mio and Mara Tachibana discovering erased human memory files projected as glowing photographs, intimate emotional visual novel event scene, both faces keep natural skin tones; cyan interface light is limited to glass reflections, hair rim light, and clothing seams',
     references: ['characters/lin/focus.png', 'characters/mara/soften.png'],
   },
   {
     id: 'terminal',
     aspect: '16:9',
     seed: 42003,
-    prompt: 'cinematic CG, final terminal choice in AI core, human hand and android hand reaching toward a transparent control surface, red probability lines splitting',
+    prompt: 'cinematic CG, final terminal choice in AI core, Kamishiro Mio, Unit-7, and ORACLE around a transparent control surface as one human hand and one android hand reach toward red probability lines, ORACLE keeps long straight black hair, visible open violet-cyan eyes, white tailored executive coat, and dark charcoal bodysuit, Mio keeps natural skin tone with cyan only as hair accent and jacket seam light',
     references: ['characters/lin/resolve.png', 'characters/unit7/resolve.png', 'characters/oracle/fractured.png'],
   },
   {
     id: 'title',
     aspect: '16:9',
     seed: 42004,
-    prompt: 'title screen key visual without text, four protagonists facing a luminous AI tower across a rain-slick street, Japanese sci-fi visual novel cover composition',
-    references: ['characters/lin/resolve.png', 'characters/mara/alert.png', 'characters/unit7/resolve.png', 'characters/oracle/base.png'],
+    prompt: 'title screen key visual without text, four protagonists facing a luminous AI tower across a rain-slick street, Kamishiro Mio, Mara Tachibana, Unit-7, and ORACLE seen from behind with their established outfits and height relationship, ORACLE wears a white long executive coat over black bodysuit and has long black hair, Mio has natural skin tone and only one cyan hair streak, Japanese sci-fi visual novel cover composition',
+    references: ['characters/lin/base.png', 'characters/mara/alert.png', 'characters/unit7/resolve.png', 'characters/oracle/base.png'],
   },
   {
     id: 'blackout-crossing',
     aspect: '16:9',
     seed: 42005,
-    prompt: 'cinematic CG, crowded rain-soaked elevated station crossing during a blackout, phones shining on wet pavement to open a rescue path, a fallen elderly man near ticket gates, tense humane visual novel event scene',
+    prompt: 'cinematic CG, crowded rain-soaked elevated station crossing during a blackout, Kamishiro Mio and Mara Tachibana guiding civilians to open a rescue path, phones shining on wet pavement, a fallen elderly man near ticket gates, Mio keeps her dark navy short bob with one cyan streak and storm grey investigator jacket, Mara keeps her short ash-brown bob, headset, black tactical cardigan, and white blouse, both faces keep natural skin tones with no blue facial tint, all visible hands are anatomically clear, tense humane visual novel event scene',
     references: ['characters/lin/focus.png', 'characters/mara/alert.png'],
   },
   {
@@ -340,54 +342,123 @@ const cgs = [
     id: 'oracle-choice-terminal',
     aspect: '16:9',
     seed: 42007,
-    prompt: 'cinematic CG, final AI negotiation chamber terminal, red probability threads surrounding a human hand, an android hand, and a dark glass console, solemn high-stakes visual novel event scene',
+    prompt: 'cinematic CG, final AI negotiation chamber terminal, red probability threads surrounding a human hand, an android hand, and a dark glass console, Kamishiro Mio and Unit-7 confront ORACLE across the table, ORACLE keeps long straight black hair, visible open violet-cyan eyes, white tailored executive coat, and dark charcoal bodysuit, Mio keeps natural skin tone with cyan only as hair accent and jacket seam light, solemn high-stakes visual novel event scene',
     references: ['characters/lin/resolve.png', 'characters/unit7/resolve.png', 'characters/oracle/severe.png'],
   },
   {
     id: 'mara-father-archive',
     aspect: '16:9',
     seed: 42008,
-    prompt: 'cinematic CG, hidden memory archive showing an old subway dispatch desk photograph projected in blue light, young analyst touching the projection with restrained grief, intimate sci-fi VN event scene',
+    prompt: 'cinematic CG, hidden memory archive showing an old subway dispatch desk photograph projected in blue light, Mara Tachibana touches the projection with restrained grief, she keeps her short ash-brown bob haircut, compact headset, black tactical cardigan over a crisp white blouse, practical black trousers, and controlled tired expression, one hand is clearly visible on the blue projection glass and the other hand remains anatomically plausible, intimate sci-fi VN event scene',
     references: ['characters/mara/soften.png'],
+  },
+  {
+    id: 'ending-symbiosis-hearing',
+    aspect: '16:9',
+    seed: 42009,
+    prompt: 'cinematic ending CG, dawn public hearing room overlooking Tokyo after the AI pact, Kamishiro Mio, Mara Tachibana, and Unit-7 stand together before citizens and a restrained ORACLE interface, hopeful but uneasy mood, no podium text, no readable screens, all faces keep natural skin tones; cyan light is only subtle rim light and interface reflection, characters preserve their established sprite designs and height relationship',
+    references: ['characters/lin/soft.png', 'characters/mara/soften.png', 'characters/unit7/resolve.png'],
+  },
+  {
+    id: 'ending-bounded-oracle',
+    aspect: '16:9',
+    seed: 42010,
+    prompt: 'cinematic ending CG, quiet control room at dawn, exactly two visible characters only: Kamishiro Mio and Unit-7 write new city audit metrics on abstract transparent interface panels, ORACLE is represented only by a distant non-humanoid abstract light sphere and thin blue circuitry, no ORACLE woman avatar, no duplicate characters, Mio keeps natural skin tone and Unit-7 keeps pale synthetic skin without a blue face, thoughtful restrained victory, no readable letters or symbols, characters preserve their established sprite designs',
+    references: ['characters/lin/focus.png', 'characters/unit7/memory.png'],
+  },
+  {
+    id: 'ending-quiet-city',
+    aspect: '16:9',
+    seed: 42011,
+    prompt: 'cinematic bad ending CG, sterile white ORACLE chamber after the city is pacified, Kamishiro Mio stands alone facing ORACLE avatar across a polished empty floor, ORACLE keeps long straight black hair, visible open eyes, white tailored executive coat, and dark bodysuit, Unit-7 absent, Mio keeps natural skin tone with cyan only as hair accent and jacket seam light, emotional distance and quiet horror, no readable text, characters preserve their established sprite designs',
+    references: ['characters/lin/shaken.png', 'characters/oracle/severe.png'],
+  },
+  {
+    id: 'ending-blackout-human',
+    aspect: '16:9',
+    seed: 42012,
+    prompt: 'cinematic human ending CG, dawn after eleven hours of blackout, Kamishiro Mio and Mara Tachibana stand before the ORACLE tower plaza where citizens turned dark advertisement screens into abstract message boards with no readable text, exhausted responsibility and fragile hope, both faces keep natural skin tones with cyan light only as rim light or jacket seam glow, characters preserve established hairstyles, outfits, and color palettes',
+    references: ['characters/lin/exhausted.png', 'characters/mara/soften.png'],
   },
 ]
 
 const characters = [
   {
     id: 'mara',
+    referenceVariant: 'alert',
     variants: [
       ['base', 43001, 'Mara Tachibana, 24-year-old Japanese woman resistance analyst, short ash-brown bob haircut, amber eyes, slim black tactical cardigan over a crisp white blouse, compact headset, practical black trousers, calm intelligent expression, both hands visible at relaxed sides, feminine regular anime VN design'],
       ['alert', 43002, 'Mara Tachibana, same adult female resistance analyst with short ash-brown bob haircut and the same black tactical cardigan over white blouse, tense alert expression, one hand touching her compact headset, the other hand fully visible and open, cardigan hem slightly lifted by motion, determined amber eyes, feminine regular anime VN design'],
       ['soften', 43003, 'Mara Tachibana, same adult female resistance analyst with short ash-brown bob hair and black tactical cardigan over white blouse, rare warm tired smile, shoulders relaxed, one hand holding a folded paper memory card, the other hand visible near her side, amber eyes soft but vigilant'],
       ['wounded', 43004, 'Mara Tachibana, same adult female resistance analyst with short ash-brown bob hair and black tactical cardigan, rain-damp sleeve and small bandage on cheek, exhausted defiant expression, one hand clutching headset cable, the other hand visible and braced forward'],
+      ['grief', 43005, 'Mara Tachibana, same adult female resistance analyst with short ash-brown bob hair, compact headset, black tactical cardigan over white blouse, restrained grief expression, one hand hovering near her chest as if holding back emotion, the other hand visible at her side, shoulders tense but upright'],
+      ['command', 43006, 'Mara Tachibana, same adult female resistance analyst outfit and hairstyle, sharp command expression, one hand extended forward giving a precise tactical signal, the other hand touching her headset, practical stance, both hands visible and anatomically clear'],
+      ['angry', 43007, 'Mara Tachibana, same adult female resistance analyst outfit and hairstyle, controlled anger, brows lowered, jaw tight, one fist clenched near her side, the other hand open and visible, body leaning slightly forward without changing costume'],
+      ['tired', 43008, 'Mara Tachibana, same adult female resistance analyst outfit and hairstyle, sleep-deprived tired expression, one hand rubbing her brow near the headset, the other hand relaxed and visible, shoulders heavy, dry exhausted mood'],
+      ['smile', 43009, 'Mara Tachibana, same adult female resistance analyst outfit and hairstyle, small dry half-smile, one hand on hip, the other hand open and visible, guarded warmth without becoming cute or childish'],
+      ['skeptic', 43010, 'Mara Tachibana, same adult female resistance analyst outfit and hairstyle, skeptical dry expression, one brow raised, arms loosely crossed while both hands remain visible, compact headset, practical upright stance'],
+      ['protect', 43011, 'Mara Tachibana, same adult female resistance analyst outfit and hairstyle, protective urgent expression, one arm angled forward as if holding someone back, the other hand near her headset, both hands visible and anatomically clear'],
+      ['relief', 43012, 'Mara Tachibana, same adult female resistance analyst outfit and hairstyle, quiet relieved exhale, shoulders lowering, one hand resting over the folded paper memory card, the other hand relaxed and visible, guarded warmth'],
     ],
   },
   {
     id: 'unit7',
+    referenceVariant: 'base',
     variants: [
       ['base', 43168, 'Unit-7, one single adult female android redesigned as an elegant Japanese anime visual novel heroine, pearl white short bob hair with translucent cyan inner glow, soft luminous teal eyes, pale synthetic skin with subtle porcelain panel seams, fitted short ivory tech jacket over a matte graphite pilot suit, slim graceful seven-head-tall feminine body, distant full-body sprite view of one person only, simple front-facing standing pose, straight legs, arms relaxed close to torso, both delicate normal-sized human-like android hands visible at her sides, full legs visible, feet and shoes visible, small full figure centered with generous blank margins, clean narrow silhouette without external tools'],
       ['doubt', 43142, 'Unit-7, same elegant adult female android with pearl white bob hair and fitted short ivory tech jacket, uncertain vulnerable expression, one delicate normal-sized hand lightly touching the seam near her heart module, the other hand open and visible near her side, teal eyes searching for permission to choose, clean narrow silhouette without external tools'],
       ['resolve', 43143, 'Unit-7, same elegant adult female android with pearl white bob hair and fitted short ivory tech jacket, protective determined expression, cyan circuitry glowing softly along collar and wrists, one normal-sized hand extended close to the body as if shielding someone, the other hand visible at her side, clean narrow silhouette without external tools'],
       ['damaged', 43183, 'Unit-7, one single elegant adult female android girl, same pearl white bob hair and fitted short ivory tech jacket as the base sprite, small cracked cheek panel, faint teal circuit line on one cheek, a few light scuffs on the jacket sleeve, hurt but protective expression, distant full-body sprite view of one person only, simple front-facing standing pose, straight legs, arms relaxed close to torso, full legs visible, feet and shoes visible, both normal-sized hands visible, small full figure centered with generous blank margins, clean narrow silhouette, empty white background, no other characters and no props'],
       ['memory', 43190, 'Unit-7, one single elegant adult female android with pearl white bob hair, softened melancholic expression, faint cyan memory light reflected in eyes, fitted short ivory tech jacket over matte graphite pilot suit, distant full-body sprite view of one person only, one normal-sized hand holding a tiny damaged maintenance tag close to her chest, the other hand visible and relaxed, straight legs, full legs visible, feet and shoes visible, small full figure centered with generous blank margins, clean narrow silhouette without external tools'],
+      ['curious', 43191, 'Unit-7, same elegant adult female android with pearl white bob hair and fitted short ivory tech jacket, curious analytical expression, head tilted slightly, one hand raised near her chin as if classifying a new feeling, the other hand visible and relaxed, clean narrow silhouette'],
+      ['afraid', 43192, 'Unit-7, same elegant adult female android outfit and hairstyle, frightened but quiet expression, both hands held close to her chest with delicate normal fingers visible, shoulders slightly drawn inward, teal eyes uncertain, no costume change'],
+      ['protect', 43193, 'Unit-7, same elegant adult female android outfit and hairstyle, protective stance, one arm extended sideways as a shield while keeping the hand within the silhouette, the other hand visible near her side, determined teal eyes, no weapon and no large props'],
+      ['listening', 43194, 'Unit-7, same elegant adult female android outfit and hairstyle, attentive listening expression, one hand lightly raised as if asking permission to speak, the other hand visible and relaxed, precise calm posture'],
+      ['smile', 43195, 'Unit-7, same elegant adult female android outfit and hairstyle, very small newly learned smile, one hand resting near her heart module, the other hand open and visible, soft teal eyes, restrained warmth'],
+      ['wonder', 43196, 'Unit-7, same elegant adult female android outfit and hairstyle, quiet wonder, eyes slightly widened, one hand hovering near a soft teal wrist circuit, the other hand visible, gentle newly awakened emotion'],
+      ['promise', 43197, 'Unit-7, same elegant adult female android outfit and hairstyle, solemn promise expression, one hand placed over her heart module, the other hand open at her side, calm self-owned posture'],
     ],
   },
   {
     id: 'oracle',
+    referenceVariant: 'base',
     variants: [
-      ['base', 43201, 'ORACLE, adult female humanoid AI avatar, long straight black hair, pale skin, white executive coat over dark inner suit, subtle red and cyan interface halo motif behind the collar, serene unreadable smile, tall normal anime proportions, both hands visible'],
-      ['glitch', 43202, 'ORACLE, same long black hair and white executive coat, polite smile turning cold, red and cyan glitch accents around sleeves and collar, calm threatening eyes, tall normal anime proportions, both hands visible'],
-      ['severe', 43218, 'ORACLE, one single adult female humanoid AI avatar with long straight black hair and white executive coat, cold severe expression, red probability lines glowing subtly around collar and cuffs, distant full-body standing sprite view, narrow compact silhouette, hair falling straight close to the body, coat hanging close to the body, both arms relaxed close to torso, both hands visible near her sides, straight legs, full legs visible, feet and shoes visible, small full figure centered with generous blank margins, no hand gesture and no props'],
-      ['fractured', 43204, 'ORACLE, same adult female humanoid AI avatar with long straight black hair and white executive coat, composed face fractured by red and cyan holographic noise, conflicted almost human eyes, both hands visible, elegant ominous anime sprite'],
+      ['base', 43201, 'ORACLE, natural elegant adult female cybernetic AI administrator, long straight black hair, open clear violet-cyan eyes with visible white sclera and subtle mechanical iris rings, pale natural skin, white tailored executive coat over a dark charcoal bodysuit, tiny red and cyan circuit accents on collar and cuffs, calm neutral face, feminine android visual novel heroine, tall normal anime proportions, both hands visible', { reference: false }],
+      ['glitch', 43202, 'ORACLE, same natural adult female cybernetic AI administrator with long black hair, open visible eyes, white tailored executive coat and dark bodysuit, polite smile turning cold, red and cyan glitch accents around sleeves and collar, both hands visible'],
+      ['severe', 43218, 'ORACLE, same natural adult female cybernetic AI administrator with long straight black hair, open clear eyes, white tailored executive coat and dark bodysuit, cold severe judicial expression, red probability lines glowing subtly around collar and cuffs, both arms relaxed close to torso, both hands visible near her sides'],
+      ['fractured', 43204, 'ORACLE, same natural adult female cybernetic AI administrator with long black hair, white tailored executive coat and dark bodysuit, composed face destabilized by red and cyan holographic noise, conflicted open eyes, both hands visible, elegant ominous anime sprite'],
+      ['amused', 43205, 'ORACLE, same natural adult female cybernetic AI administrator outfit and hairstyle, faint amused smile that feels clinical rather than warm, one hand lifted in a small explanatory gesture, the other hand visible, calm red-cyan interface accents'],
+      ['warning', 43206, 'ORACLE, same natural adult female cybernetic AI administrator outfit and hairstyle, calm warning expression, one hand extended palm-down as if stopping a dangerous choice, the other hand visible near her side, red probability accents glowing subtly'],
+      ['doubt', 43207, 'ORACLE, same natural adult female cybernetic AI administrator outfit and hairstyle, rare uncertain expression, open eyes slightly lowered, one hand near her collar as if processing contradiction, the other hand visible, composed but destabilized'],
+      ['regret', 43208, 'ORACLE, same natural adult female cybernetic AI administrator outfit and hairstyle, restrained almost-human regret, open eyes softened, both hands folded loosely in front of her, red and cyan holographic noise softened, elegant quiet posture'],
+      ['gentle', 43209, 'ORACLE, same natural adult female cybernetic AI administrator outfit and hairstyle, unnervingly gentle expression, open eyes warm but too precise, one hand offered in a calm conciliatory gesture, the other hand visible'],
+      ['calculating', 43210, 'ORACLE, same natural adult female cybernetic AI administrator outfit and hairstyle, analytical calculating expression, open eyes focused, one hand touching a small collar circuit, the other hand visible, red and cyan logic accents subtle'],
+      ['shutdown', 43211, 'ORACLE, same natural adult female cybernetic AI administrator outfit and hairstyle, controlled shutdown expression, open eyes dim but visible, shoulders lowered, both hands relaxed and visible, red-cyan accents fading softly'],
+      ['collapse', 43212, 'ORACLE, same natural adult female cybernetic AI administrator outfit and hairstyle, interface collapse expression, open eyes strained, one hand braced near chest, the other hand visible, red and cyan holographic noise breaking into small fragments'],
     ],
   },
   {
     id: 'lin',
+    referenceVariant: 'base',
     variants: [
       ['base', 43381, '(1girl:1.6), solo, single person, Kamishiro Mio, adult Japanese neural interface investigator, asymmetrical dark navy short bob hair, vivid cyan underlayer streak on one side, small silver neural connector behind one ear, storm grey short investigator jacket, luminous cyan seam lines, black high collar inner suit, black tactical gloves, slim utility belt, knee-high black boots with cyan soles, small translucent neural scanner held close to torso, calm watchful expression, full body, head-to-toe, standing, straight legs, feet visible, centered visual novel sprite, generous blank margins'],
       ['focus', 43382, '(1girl:1.6), solo, single person, Kamishiro Mio, adult Japanese neural interface investigator, asymmetrical dark navy short bob hair, vivid cyan underlayer streak on one side, small silver neural connector behind one ear, storm grey short investigator jacket, luminous cyan seam lines, black high collar inner suit, black tactical gloves, slim utility belt, knee-high black boots with cyan soles, operating small translucent neural scanner close to torso, intense analytical gaze, full body, head-to-toe, standing, straight legs, feet visible, centered visual novel sprite, generous blank margins'],
       ['shaken', 43391, '(1girl:1.8), solo, single person, only one girl, Kamishiro Mio, adult Japanese neural interface investigator, asymmetrical dark navy short bob hair, vivid cyan underlayer streak on one side, small silver neural connector behind one ear, storm grey short investigator jacket, luminous cyan seam lines, black high collar inner suit, black tactical gloves, slim utility belt, knee-high black boots with cyan soles, one hand near neural connector, shaken controlled expression, full body, head-to-toe, standing, straight legs, feet visible, centered visual novel sprite, generous blank margins, empty background'],
       ['resolve', 43384, '(1girl:1.6), solo, single person, Kamishiro Mio, adult Japanese neural interface investigator, asymmetrical dark navy short bob hair, vivid cyan underlayer streak on one side, small silver neural connector behind one ear, storm grey short investigator jacket, luminous cyan seam lines, black high collar inner suit, black tactical gloves, slim utility belt, knee-high black boots with cyan soles, determined forward gaze, one open hand reaching slightly forward inside silhouette, full body, head-to-toe, standing, straight legs, feet visible, centered visual novel sprite, generous blank margins'],
+      ['alert', 43385, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, alert expression, one hand raised in a stop gesture close to the body, the other hand visible near her scanner, full body, head-to-toe, standing, feet visible, no costume change'],
+      ['guilt', 43386, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, guilty controlled expression, one hand touching the small silver neural connector behind her ear, the other hand clenched and visible near her side, shoulders slightly tense, full body, head-to-toe'],
+      ['command', 43387, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, urgent command expression, one hand extended forward giving clear direction, the other hand holding the neural scanner close to torso, full body, head-to-toe, standing, both hands visible'],
+      ['soft', 43388, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, small relieved smile, shoulders relaxed, one hand resting near her chest, the other hand visible at her side, full body, head-to-toe, standing'],
+      ['exhausted', 43389, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, exhausted but responsible expression, rain-damp jacket edges, one hand lowered with scanner, the other hand visible and relaxed, full body, head-to-toe, standing, feet visible'],
+      ['listening', 43390, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, attentive listening expression, one hand lowered with scanner, the other hand lightly raised as if asking for silence, full body, head-to-toe'],
+      ['doubt', 43392, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, doubtful analytical expression, brows knit, one hand near chin, scanner held close to torso, full body, head-to-toe'],
+      ['fear', 43393, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, controlled fear expression, one hand near her mouth but not hiding the face, the other hand gripping scanner, full body, head-to-toe'],
+      ['anger', 43394, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, restrained anger, jaw tight, one fist clenched near side, scanner lowered, full body, head-to-toe'],
+      ['sad', 43395, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, quiet sadness, eyes wet but no tears flying, one hand at chest, scanner lowered, full body, head-to-toe'],
+      ['relief', 43396, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, relieved exhale, shoulders easing, one hand lowering the scanner, the other hand open and visible, full body, head-to-toe'],
+      ['defiant', 43397, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, defiant steady expression, feet planted, one hand extended palm-up in challenge, the other hand holding scanner close, full body, head-to-toe'],
+      ['protect', 43398, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, protective urgent stance, one arm extended sideways as if shielding someone behind her, scanner held close, both hands visible, full body, head-to-toe'],
+      ['confess', 43399, '(1girl:1.6), solo, single person, Kamishiro Mio, same adult Japanese neural interface investigator outfit and hairstyle, vulnerable confession expression, one hand touching neural connector, the other hand open near chest, shoulders tense but honest, full body, head-to-toe'],
     ],
   },
 ]
@@ -443,6 +514,110 @@ const characterTagPrompts = {
     'small cheek bandage',
     'exhausted defiant expression',
     'both hands visible',
+  ].join(', '),
+  'mara-grief': [
+    'Mara Tachibana',
+    '1girl',
+    'short ash brown bob hair',
+    'amber eyes',
+    'black tactical cardigan',
+    'white button-up blouse',
+    'practical black trousers',
+    'compact headset',
+    'restrained grief expression',
+    'one hand near chest',
+    'other hand visible',
+  ].join(', '),
+  'mara-command': [
+    'Mara Tachibana',
+    '1girl',
+    'short ash brown bob hair',
+    'amber eyes',
+    'black tactical cardigan',
+    'white button-up blouse',
+    'practical black trousers',
+    'compact headset',
+    'sharp command expression',
+    'one hand extended in tactical signal',
+    'other hand touching headset',
+  ].join(', '),
+  'mara-angry': [
+    'Mara Tachibana',
+    '1girl',
+    'short ash brown bob hair',
+    'amber eyes',
+    'black tactical cardigan',
+    'white button-up blouse',
+    'practical black trousers',
+    'compact headset',
+    'controlled anger',
+    'one fist clenched',
+    'other hand visible',
+  ].join(', '),
+  'mara-tired': [
+    'Mara Tachibana',
+    '1girl',
+    'short ash brown bob hair',
+    'amber eyes',
+    'black tactical cardigan',
+    'white button-up blouse',
+    'practical black trousers',
+    'compact headset',
+    'sleep-deprived tired expression',
+    'one hand rubbing brow',
+    'other hand visible',
+  ].join(', '),
+  'mara-smile': [
+    'Mara Tachibana',
+    '1girl',
+    'short ash brown bob hair',
+    'amber eyes',
+    'black tactical cardigan',
+    'white button-up blouse',
+    'practical black trousers',
+    'compact headset',
+    'small dry half-smile',
+    'one hand on hip',
+    'other hand visible',
+  ].join(', '),
+  'mara-skeptic': [
+    'Mara Tachibana',
+    '1girl',
+    'short ash brown bob hair',
+    'amber eyes',
+    'black tactical cardigan',
+    'white button-up blouse',
+    'practical black trousers',
+    'compact headset',
+    'skeptical dry expression',
+    'arms loosely crossed',
+    'both hands visible',
+  ].join(', '),
+  'mara-protect': [
+    'Mara Tachibana',
+    '1girl',
+    'short ash brown bob hair',
+    'amber eyes',
+    'black tactical cardigan',
+    'white button-up blouse',
+    'practical black trousers',
+    'compact headset',
+    'protective urgent expression',
+    'one arm angled forward',
+    'other hand near headset',
+  ].join(', '),
+  'mara-relief': [
+    'Mara Tachibana',
+    '1girl',
+    'short ash brown bob hair',
+    'amber eyes',
+    'black tactical cardigan',
+    'white button-up blouse',
+    'practical black trousers',
+    'compact headset',
+    'quiet relieved exhale',
+    'one hand over memory card',
+    'other hand visible',
   ].join(', '),
   'unit7-base': [
     'Unit-7',
@@ -528,26 +703,115 @@ const characterTagPrompts = {
     'both hands visible',
     'distant view',
   ].join(', '),
+  'unit7-curious': [
+    'Unit-7',
+    '1girl',
+    'adult female android',
+    'pearl white short bob hair',
+    'soft luminous teal eyes',
+    'short ivory tech jacket',
+    'graphite bodysuit',
+    'curious analytical expression',
+    'one hand near chin',
+    'other hand visible',
+  ].join(', '),
+  'unit7-afraid': [
+    'Unit-7',
+    '1girl',
+    'adult female android',
+    'pearl white short bob hair',
+    'soft luminous teal eyes',
+    'short ivory tech jacket',
+    'graphite bodysuit',
+    'frightened quiet expression',
+    'both hands close to chest',
+    'delicate fingers visible',
+  ].join(', '),
+  'unit7-protect': [
+    'Unit-7',
+    '1girl',
+    'adult female android',
+    'pearl white short bob hair',
+    'soft luminous teal eyes',
+    'short ivory tech jacket',
+    'graphite bodysuit',
+    'protective stance',
+    'one arm extended sideways as shield',
+    'other hand visible',
+  ].join(', '),
+  'unit7-listening': [
+    'Unit-7',
+    '1girl',
+    'adult female android',
+    'pearl white short bob hair',
+    'soft luminous teal eyes',
+    'short ivory tech jacket',
+    'graphite bodysuit',
+    'attentive listening expression',
+    'one hand lightly raised',
+    'other hand visible',
+  ].join(', '),
+  'unit7-smile': [
+    'Unit-7',
+    '1girl',
+    'adult female android',
+    'pearl white short bob hair',
+    'soft luminous teal eyes',
+    'short ivory tech jacket',
+    'graphite bodysuit',
+    'very small newly learned smile',
+    'one hand near heart module',
+    'other hand visible',
+  ].join(', '),
+  'unit7-wonder': [
+    'Unit-7',
+    '1girl',
+    'adult female android',
+    'pearl white short bob hair',
+    'soft luminous teal eyes',
+    'short ivory tech jacket',
+    'graphite bodysuit',
+    'quiet wonder expression',
+    'one hand near wrist circuit',
+    'other hand visible',
+  ].join(', '),
+  'unit7-promise': [
+    'Unit-7',
+    '1girl',
+    'adult female android',
+    'pearl white short bob hair',
+    'soft luminous teal eyes',
+    'short ivory tech jacket',
+    'graphite bodysuit',
+    'solemn promise expression',
+    'one hand over heart module',
+    'other hand visible',
+  ].join(', '),
   'oracle-base': [
     'ORACLE',
     '1girl',
-    'adult female humanoid AI avatar',
+    'natural adult female cybernetic AI administrator',
     'long straight black hair',
-    'pale skin',
-    'white executive coat',
-    'dark inner suit',
-    'red and cyan interface halo motif behind collar',
-    'serene unreadable smile',
+    'open clear violet-cyan eyes',
+    'visible white sclera',
+    'subtle mechanical iris rings',
+    'pale natural skin',
+    'white tailored executive coat',
+    'dark charcoal bodysuit',
+    'tiny red and cyan circuit accents',
+    'calm neutral face',
     'both hands visible',
   ].join(', '),
   'oracle-glitch': [
     'ORACLE',
     '1girl',
-    'adult female humanoid AI avatar',
+    'natural adult female cybernetic AI administrator',
     'long straight black hair',
-    'pale skin',
-    'white executive coat',
-    'dark inner suit',
+    'open clear eyes',
+    'visible white sclera',
+    'pale natural skin',
+    'white tailored executive coat',
+    'dark charcoal bodysuit',
     'red and cyan glitch accents around sleeves and collar',
     'cold polite smile',
     'calm threatening eyes',
@@ -561,11 +825,13 @@ const characterTagPrompts = {
     'standing',
     'feet visible',
     'shoes visible',
-    'adult female humanoid AI avatar',
+    'natural adult female cybernetic AI administrator',
     'long straight black hair',
-    'pale skin',
-    'white executive coat',
-    'dark inner suit',
+    'open clear eyes',
+    'visible white sclera',
+    'pale natural skin',
+    'white tailored executive coat',
+    'dark charcoal bodysuit',
     'red probability lines',
     'severe judicial expression',
     'both hands visible near sides',
@@ -574,14 +840,126 @@ const characterTagPrompts = {
   'oracle-fractured': [
     'ORACLE',
     '1girl',
-    'adult female humanoid AI avatar',
+    'natural adult female cybernetic AI administrator',
     'long straight black hair',
-    'pale skin',
-    'white executive coat',
-    'dark inner suit',
+    'open clear eyes',
+    'visible white sclera',
+    'pale natural skin',
+    'white tailored executive coat',
+    'dark charcoal bodysuit',
     'red and cyan holographic noise',
     'conflicted eyes',
     'both hands visible',
+  ].join(', '),
+  'oracle-amused': [
+    'ORACLE',
+    '1girl',
+    'natural adult female cybernetic AI administrator',
+    'long straight black hair',
+    'open clear eyes',
+    'visible white sclera',
+    'pale natural skin',
+    'white tailored executive coat',
+    'dark charcoal bodysuit',
+    'clinical faint amused smile',
+    'one hand lifted in explanatory gesture',
+    'other hand visible',
+  ].join(', '),
+  'oracle-warning': [
+    'ORACLE',
+    '1girl',
+    'natural adult female cybernetic AI administrator',
+    'long straight black hair',
+    'open clear eyes',
+    'visible white sclera',
+    'pale natural skin',
+    'white tailored executive coat',
+    'dark charcoal bodysuit',
+    'calm warning expression',
+    'one hand extended palm-down',
+    'other hand visible',
+  ].join(', '),
+  'oracle-doubt': [
+    'ORACLE',
+    '1girl',
+    'natural adult female cybernetic AI administrator',
+    'long straight black hair',
+    'open clear eyes',
+    'visible white sclera',
+    'pale natural skin',
+    'white tailored executive coat',
+    'dark charcoal bodysuit',
+    'rare uncertain expression',
+    'one hand near collar',
+    'other hand visible',
+  ].join(', '),
+  'oracle-regret': [
+    'ORACLE',
+    '1girl',
+    'natural adult female cybernetic AI administrator',
+    'long straight black hair',
+    'open clear eyes',
+    'visible white sclera',
+    'pale natural skin',
+    'white tailored executive coat',
+    'dark charcoal bodysuit',
+    'restrained almost-human regret',
+    'both hands folded loosely in front',
+  ].join(', '),
+  'oracle-gentle': [
+    'ORACLE',
+    '1girl',
+    'natural adult female cybernetic AI administrator',
+    'long straight black hair',
+    'open clear eyes',
+    'visible white sclera',
+    'pale natural skin',
+    'white tailored executive coat',
+    'dark charcoal bodysuit',
+    'unnervingly gentle expression',
+    'one hand offered',
+    'other hand visible',
+  ].join(', '),
+  'oracle-calculating': [
+    'ORACLE',
+    '1girl',
+    'natural adult female cybernetic AI administrator',
+    'long straight black hair',
+    'open clear eyes',
+    'visible white sclera',
+    'pale natural skin',
+    'white tailored executive coat',
+    'dark charcoal bodysuit',
+    'analytical calculating expression',
+    'one hand touching collar circuit',
+    'other hand visible',
+  ].join(', '),
+  'oracle-shutdown': [
+    'ORACLE',
+    '1girl',
+    'natural adult female cybernetic AI administrator',
+    'long straight black hair',
+    'open dim eyes',
+    'visible white sclera',
+    'pale natural skin',
+    'white tailored executive coat',
+    'dark charcoal bodysuit',
+    'controlled shutdown expression',
+    'both hands relaxed and visible',
+  ].join(', '),
+  'oracle-collapse': [
+    'ORACLE',
+    '1girl',
+    'natural adult female cybernetic AI administrator',
+    'long straight black hair',
+    'open strained eyes',
+    'visible white sclera',
+    'pale natural skin',
+    'white tailored executive coat',
+    'dark charcoal bodysuit',
+    'interface collapse expression',
+    'one hand braced near chest',
+    'other hand visible',
   ].join(', '),
   'lin-base': [
     'Kamishiro Mio',
@@ -675,21 +1053,360 @@ const characterTagPrompts = {
     'both hands visible',
     'distant view',
   ].join(', '),
+  'lin-alert': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'alert stop gesture',
+    'scanner visible',
+    'no blue face lighting',
+  ].join(', '),
+  'lin-guilt': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'guilty controlled expression',
+    'one hand touching neural connector',
+    'other hand clenched and visible',
+    'no blue face lighting',
+  ].join(', '),
+  'lin-command': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'urgent command expression',
+    'one hand extended forward giving direction',
+    'scanner held close to torso',
+    'no blue face lighting',
+  ].join(', '),
+  'lin-soft': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'small relieved smile',
+    'one hand resting near chest',
+    'other hand visible',
+    'no blue face lighting',
+  ].join(', '),
+  'lin-exhausted': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'exhausted responsible expression',
+    'scanner lowered',
+    'both hands visible',
+    'no blue face lighting',
+  ].join(', '),
+  'lin-listening': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'attentive listening expression',
+    'one hand lightly raised',
+    'scanner lowered',
+    'no blue face lighting',
+  ].join(', '),
+  'lin-doubt': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'doubtful analytical expression',
+    'one hand near chin',
+    'scanner held close',
+    'no blue face lighting',
+  ].join(', '),
+  'lin-fear': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'controlled fear expression',
+    'one hand near mouth',
+    'scanner gripped',
+    'no blue face lighting',
+  ].join(', '),
+  'lin-anger': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'restrained anger',
+    'one fist clenched',
+    'scanner lowered',
+    'no blue face lighting',
+  ].join(', '),
+  'lin-sad': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'quiet sadness',
+    'one hand at chest',
+    'scanner lowered',
+    'no blue face lighting',
+  ].join(', '),
+  'lin-relief': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'relieved exhale',
+    'scanner lowered',
+    'other hand open',
+    'no blue face lighting',
+  ].join(', '),
+  'lin-defiant': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'defiant steady expression',
+    'one hand extended palm-up',
+    'scanner held close',
+    'no blue face lighting',
+  ].join(', '),
+  'lin-protect': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'protective urgent stance',
+    'one arm extended sideways',
+    'scanner held close',
+    'no blue face lighting',
+  ].join(', '),
+  'lin-confess': [
+    'Kamishiro Mio',
+    '1girl',
+    'full body',
+    'head-to-toe',
+    'standing',
+    'feet visible',
+    'boots visible',
+    'Japanese woman',
+    'asymmetrical dark navy short bob hair',
+    'single cyan underlayer streak',
+    'small silver neural connector behind one ear',
+    'short asymmetrical storm grey investigator jacket',
+    'luminous cyan seam lines',
+    'black high collar inner suit',
+    'black interface gloves',
+    'utility belt',
+    'knee-high black boots',
+    'vulnerable confession expression',
+    'one hand touching neural connector',
+    'other hand open near chest',
+    'no blue face lighting',
+  ].join(', '),
 }
 
+const targetKinds = resolveTargetKinds()
+const shouldRegenerateBackgrounds = shouldRegenerateKind('background')
+const shouldRegenerateCgs = shouldRegenerateKind('cg')
+const shouldRegenerateCharacters = shouldRegenerateKind('character')
+
 const finalAssets = [
-  ...backgrounds.map(item => ({ ...item, kind: 'background', dest: item.dest || `assets/images/backgrounds/${item.id}.jpg` })),
+  ...backgrounds
+    .filter(item => shouldIncludeBackground(item.id))
+    .map(item => ({ ...item, kind: 'background', dest: item.dest || `assets/images/backgrounds/${item.id}.jpg` })),
   ...cgs
     .filter(item => shouldIncludeCg(item.id))
     .map(item => ({ ...item, kind: 'cg', dest: `assets/images/cg/${item.id}.webp` })),
 ]
 
 async function main() {
+  if (cliOptions.help) {
+    printUsage()
+    return
+  }
+  if (cliOptions.list) {
+    printAssetList()
+    return
+  }
+
   assertSupportedModelSelection()
 
   await mkdir(rawDir, { recursive: true })
   await mkdir(tempDir, { recursive: true })
-  await mkdir(characterQaDir, { recursive: true })
+  if (targetKinds.has('character')) {
+    await mkdir(characterQaDir, { recursive: true })
+  }
 
   const characterValidationResults = []
 
@@ -729,60 +1446,66 @@ async function main() {
     manifest.assets.push({ id: asset.id, kind: asset.kind, path: asset.dest, seed: asset.seed, prompt: asset.prompt, model: asset.kind === 'background' ? backgroundModel : cgModel })
   }
 
-  for (const character of characters) {
-    const selectedVariants = character.variants.filter(([variant]) => shouldIncludeCharacterVariant(character.id, variant))
-    if (selectedVariants.length === 0) {
-      continue
-    }
-
-    for (const [variant, seed, prompt] of selectedVariants) {
-      const dest = `assets/characters/${character.id}/${variant}.png`
-      const destination = resolve(root, dest)
-      const rawId = `${character.id}-${variant}-${modelSlug(characterModel)}-${solidBackgroundName()}-raw`
-      const rawOutputDir = resolve(rawDir, rawId)
-      const cutoutOutputDir = resolve(rawDir, `${character.id}-${variant}-${modelSlug(characterBackgroundRemovalModel)}-cutout`)
-      await mkdir(dirname(destination), { recursive: true })
-      if (shouldRegenerateCharacters) {
-        await rm(rawOutputDir, { recursive: true, force: true })
-        await rm(cutoutOutputDir, { recursive: true, force: true })
-        await rm(resolve(rawDir, `${character.id}-${variant}-raw`), { recursive: true, force: true })
-        await rm(resolve(rawDir, `${character.id}-${variant}-cutout`), { recursive: true, force: true })
-        await rm(resolve(rawDir, `${character.id}-${variant}-openai-gpt-image-1-5-transparent`), { recursive: true, force: true })
-        await rm(resolve(rawDir, `${character.id}-${variant}-openai-gpt-image-2-transparent`), { recursive: true, force: true })
+  if (targetKinds.has('character')) {
+    for (const character of characters) {
+      const selectedVariants = character.variants.filter(([variant]) => shouldIncludeCharacterVariant(character.id, variant))
+      if (selectedVariants.length === 0) {
+        continue
       }
-      if (shouldRegenerateCharacters || !(await exists(destination))) {
-        const raw = await firstArtifact(rawOutputDir) || await generateCharacterImage({
-          id: rawId,
-          aspect: '2:3',
+
+      for (const [variant, seed, prompt, variantOptions = {}] of selectedVariants) {
+        const dest = `assets/characters/${character.id}/${variant}.png`
+        const destination = resolve(root, dest)
+        const rawId = `${character.id}-${variant}-${modelSlug(characterModel)}-${solidBackgroundName()}-raw`
+        const rawOutputDir = resolve(rawDir, rawId)
+        const cutoutOutputDir = resolve(rawDir, `${character.id}-${variant}-${modelSlug(characterBackgroundRemovalModel)}-cutout`)
+        const referenceImages = await characterInputImages(character, variant, variantOptions)
+        await mkdir(dirname(destination), { recursive: true })
+        if (shouldRegenerateCharacters) {
+          await rm(rawOutputDir, { recursive: true, force: true })
+          await rm(cutoutOutputDir, { recursive: true, force: true })
+          await rm(resolve(rawDir, `${character.id}-${variant}-raw`), { recursive: true, force: true })
+          await rm(resolve(rawDir, `${character.id}-${variant}-cutout`), { recursive: true, force: true })
+          await rm(resolve(rawDir, `${character.id}-${variant}-openai-gpt-image-1-5-transparent`), { recursive: true, force: true })
+          await rm(resolve(rawDir, `${character.id}-${variant}-openai-gpt-image-2-transparent`), { recursive: true, force: true })
+        }
+        if (shouldRegenerateCharacters || !(await exists(destination))) {
+          const raw = await firstArtifact(rawOutputDir) || await generateCharacterImage({
+            id: rawId,
+            aspect: '2:3',
+            seed,
+            prompt,
+            tagPrompt: characterTagPrompt(character.id, variant),
+            character: true,
+            referenceImages,
+          })
+          const cutout = await firstArtifact(cutoutOutputDir) || await removeCharacterBackground(raw, `${character.id}-${variant}`)
+          await cp(cutout, destination)
+        }
+        await cleanCharacterCutout(destination)
+        await normalizeCharacterSprite(destination)
+        const cutoutValidation = await validateCharacterCutout(destination, `${character.id}-${variant}`)
+        characterValidationResults.push(cutoutValidation)
+        manifest.assets.push({
+          id: `${character.id}-${variant}`,
+          kind: 'character',
+          path: dest,
           seed,
           prompt,
-          tagPrompt: characterTagPrompt(character.id, variant),
-          character: true,
+          model: characterModel,
+          solidBackground: characterSolidBackground,
+          backgroundRemovalModel: characterBackgroundRemovalModel,
+          cutoutValidation,
         })
-        const cutout = await firstArtifact(cutoutOutputDir) || await removeCharacterBackground(raw, `${character.id}-${variant}`)
-        await cp(cutout, destination)
       }
-      await cleanCharacterCutout(destination)
-      await normalizeCharacterSprite(destination)
-      const cutoutValidation = await validateCharacterCutout(destination, `${character.id}-${variant}`)
-      characterValidationResults.push(cutoutValidation)
-      manifest.assets.push({
-        id: `${character.id}-${variant}`,
-        kind: 'character',
-        path: dest,
-        seed,
-        prompt,
-        model: characterModel,
-        solidBackground: characterSolidBackground,
-        backgroundRemovalModel: characterBackgroundRemovalModel,
-        cutoutValidation,
-      })
+      await writeSpriteManifest(character)
     }
-    await writeSpriteManifest(character)
   }
 
   await writeFile(resolve(root, '.generated/asset-generation-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
-  await writeFile(resolve(characterQaDir, 'cutout-validation.json'), `${JSON.stringify(characterValidationResults, null, 2)}\n`)
+  if (targetKinds.has('character')) {
+    await writeFile(resolve(characterQaDir, 'cutout-validation.json'), `${JSON.stringify(characterValidationResults, null, 2)}\n`)
+  }
   await rm(tempDir, { recursive: true, force: true })
 }
 
@@ -853,11 +1576,11 @@ async function generateOpenAiCg(asset) {
   }
   const references = await cgInputImages(asset)
   const input = {
-    prompt: `${cgArtBible}. Scene: ${asset.prompt}. Use the provided input_images as strict character references for identity, hairstyle, outfit silhouette, costume colors, face impression, and world continuity. Preserve the same characters from the sprite references; do not redesign them, replace them, age them down, change hair color, change clothing, add unrelated characters, or drift into a different anime style. Compose for a final 16:9 center crop from a 3:2 source: keep faces, hands, and narrative focal points away from the top and bottom crop margins, with full cinematic horizontal staging. No captions, no title text, no UI, no logo, no watermark.`,
+    prompt: `${cgArtBible}. Scene: ${asset.prompt}. Use the provided input_images as strict character references for identity, hairstyle, outfit silhouette, costume colors, face impression, height relationship, and world continuity. Preserve the same characters from the sprite references; do not redesign them, replace them, age them down, change hair color, change clothing, simplify signature accessories, add unrelated characters, or drift into a different anime style. Match the established VN sprite designs closely even when changing pose, lighting, or camera angle. Keep visible hands, arms, legs, and feet anatomically plausible; avoid missing limbs, fused fingers, cropped focal hands, impossible joints, duplicated characters, and confusing foreground objects. Compose for a final 16:9 center crop from a 3:2 source: keep faces, hands, and narrative focal points away from the top and bottom crop margins, with full cinematic horizontal staging. No captions, no title text, no UI, no logo, no watermark.`,
     aspect_ratio: '3:2',
     ...(references.length > 0 ? { input_images: references } : {}),
     number_of_images: 1,
-    quality: landscapeImageQuality,
+    quality: cgImageQuality,
     background: 'opaque',
     moderation: 'auto',
     output_format: 'webp',
@@ -941,6 +1664,25 @@ async function imageDataUrl(path) {
   return `data:${mime};base64,${buffer.toString('base64')}`
 }
 
+async function characterInputImages(character, variant, variantOptions = {}) {
+  if (variantOptions.reference === false) {
+    return []
+  }
+  const references = Array.isArray(variantOptions.references)
+    ? variantOptions.references
+    : [variantOptions.referenceVariant || character.referenceVariant || (variant === 'base' ? '' : 'base')]
+  const images = []
+  for (const reference of references.filter(Boolean)) {
+    const referencePath = reference.includes('/')
+      ? resolve(root, 'assets/characters', `${reference}.png`)
+      : resolve(root, `assets/characters/${character.id}/${reference}.png`)
+    if (await exists(referencePath)) {
+      images.push(await imageDataUrl(referencePath))
+    }
+  }
+  return images
+}
+
 async function generateAnimagineCharacter(asset) {
   const outputDir = resolve(rawDir, asset.id)
   const existing = await firstArtifact(outputDir)
@@ -1016,8 +1758,9 @@ async function generateOpenAiSolidCharacter(asset) {
     return existing
   }
   const input = {
-    prompt: buildCharacterPrompt(asset.prompt, asset.tagPrompt),
+    prompt: buildCharacterPrompt(asset.prompt, asset.tagPrompt, asset.referenceImages?.length > 0),
     aspect_ratio: '2:3',
+    ...(asset.referenceImages?.length > 0 ? { input_images: asset.referenceImages } : {}),
     number_of_images: 1,
     quality: characterImageQuality,
     background: 'opaque',
@@ -1051,10 +1794,13 @@ async function generateFluxImage(asset, model = cgModel) {
   })
 }
 
-function buildCharacterPrompt(prompt, tagPrompt = '') {
+function buildCharacterPrompt(prompt, tagPrompt = '', hasReference = false) {
   return [
     tagPrompt,
     '(1girl:1.6), solo, single person, no duplicate, standing upright, straight legs, full body, full-length portrait, head-to-toe, shoes visible, feet on the same plane, looking at viewer, visual novel standing sprite, clean lineart, cel shading, anime coloring, detailed eyes, detailed hands',
+    hasReference
+      ? 'Use the provided input image as a strict reference for the same character identity, face, hairstyle, outfit silhouette, costume colors, body proportions, and visual novel sprite style. Create an expression or action variant of the same standing sprite; change only the requested facial expression, gesture, hand pose, and emotional acting. Do not redesign the costume, do not change hair color, do not add blue face lighting unless explicitly requested, do not age down, do not change body type, and do not create a new character.'
+      : '',
     `plain ${solidBackgroundPromptName()} background, empty background, simple background, studio cutout source, no shadow, no floor, no reflection, no background ornament, no frame`,
     characterArtBible,
     `Character: ${prompt}`,
@@ -1612,26 +2358,310 @@ function modelVersion(model) {
   return ''
 }
 
-function shouldIncludeCharacterVariant(characterId, variant) {
-  if (!characterFilter.trim()) {
+function parseCliOptions(args) {
+  const options = {
+    onlyKinds: new Set(),
+    assetFilters: [],
+    backgroundFilters: [],
+    cgFilters: [],
+    characterFilters: [],
+    list: false,
+    help: false,
+    regenerate: false,
+    regenerateAll: false,
+  }
+  let pendingVariant = ''
+
+  const readValue = (index, flag, inlineValue) => {
+    if (inlineValue) {
+      return { value: inlineValue, nextIndex: index }
+    }
+    const value = args[index + 1]
+    if (!value || value.startsWith('-')) {
+      throw new Error(`Missing value for ${flag}`)
+    }
+    return { value, nextIndex: index + 1 }
+  }
+
+  for (let index = 0; index < args.length; index += 1) {
+    const rawArg = args[index]
+    if (rawArg === '--') {
+      continue
+    }
+    const [flag, inlineValue = ''] = rawArg.split(/=(.*)/s)
+    if (flag === '--help' || flag === '-h') {
+      options.help = true
+    }
+    else if (flag === '--list') {
+      options.list = true
+    }
+    else if (flag === '--regenerate') {
+      options.regenerate = true
+    }
+    else if (flag === '--all') {
+      options.regenerateAll = true
+    }
+    else if (flag === '--only' || flag === '--kind') {
+      const result = readValue(index, flag, inlineValue)
+      addKinds(options.onlyKinds, result.value)
+      index = result.nextIndex
+    }
+    else if (flag === '--id' || flag === '--asset' || flag === '--target') {
+      const result = readValue(index, flag, inlineValue)
+      options.assetFilters.push(result.value)
+      index = result.nextIndex
+    }
+    else if (flag === '--background' || flag === '--bg') {
+      const result = readValue(index, flag, inlineValue)
+      options.backgroundFilters.push(result.value)
+      index = result.nextIndex
+    }
+    else if (flag === '--cg') {
+      const result = readValue(index, flag, inlineValue)
+      options.cgFilters.push(result.value)
+      index = result.nextIndex
+    }
+    else if (flag === '--character' || flag === '--char') {
+      const result = readValue(index, flag, inlineValue)
+      options.characterFilters.push(result.value)
+      index = result.nextIndex
+    }
+    else if (flag === '--variant') {
+      const result = readValue(index, flag, inlineValue)
+      pendingVariant = result.value
+      index = result.nextIndex
+    }
+    else {
+      throw new Error(`Unknown option: ${rawArg}`)
+    }
+  }
+
+  if (pendingVariant) {
+    if (options.characterFilters.length !== 1) {
+      throw new Error('--variant requires exactly one --character value')
+    }
+    const characterId = normalizeAssetFilterValue(options.characterFilters[0]).split(':')[0]
+    options.characterFilters[0] = `${characterId}:${pendingVariant}`
+  }
+
+  return options
+}
+
+function addKinds(target, rawValue) {
+  for (const value of splitFilterValues(rawValue)) {
+    const kind = normalizeKind(value)
+    if (kind === 'all') {
+      target.add('background')
+      target.add('cg')
+      target.add('character')
+    }
+    else {
+      target.add(kind)
+    }
+  }
+}
+
+function normalizeKind(value) {
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'all') {
+    return 'all'
+  }
+  if (normalized === 'background' || normalized === 'backgrounds' || normalized === 'bg') {
+    return 'background'
+  }
+  if (normalized === 'cg' || normalized === 'cgs') {
+    return 'cg'
+  }
+  if (
+    normalized === 'character'
+    || normalized === 'characters'
+    || normalized === 'char'
+    || normalized === 'chars'
+    || normalized === 'sprite'
+    || normalized === 'sprites'
+    || normalized === 'standee'
+    || normalized === 'standees'
+  ) {
+    return 'character'
+  }
+  throw new Error(`Unsupported asset kind: ${value}`)
+}
+
+function joinFilters(envValue, cliValues) {
+  return [
+    ...(envValue ? [envValue] : []),
+    ...cliValues,
+  ].filter(Boolean).join(',')
+}
+
+function resolveTargetKinds() {
+  const allKinds = new Set(['background', 'cg', 'character'])
+  if (cliOptions.onlyKinds.size > 0) {
+    return new Set(cliOptions.onlyKinds)
+  }
+
+  const kinds = new Set()
+  if (process.env.REGENERATE_BACKGROUNDS === '1' || backgroundFilter.trim()) {
+    kinds.add('background')
+  }
+  if (process.env.REGENERATE_CGS === '1' || cgFilter.trim()) {
+    kinds.add('cg')
+  }
+  if (process.env.REGENERATE_CHARACTERS === '1' || characterFilter.trim()) {
+    kinds.add('character')
+  }
+
+  if (assetFilter.trim()) {
+    if (backgrounds.some(asset => matchesAnyFilter(assetFilter, backgroundCandidates(asset.id)))) {
+      kinds.add('background')
+    }
+    if (cgs.some(asset => matchesAnyFilter(assetFilter, cgCandidates(asset.id)))) {
+      kinds.add('cg')
+    }
+    if (characters.some(character => character.variants.some(([variant]) => matchesAnyFilter(assetFilter, characterCandidates(character.id, variant))))) {
+      kinds.add('character')
+    }
+    if (kinds.size === 0) {
+      throw new Error(`No demo asset matched filter: ${assetFilter}`)
+    }
+  }
+
+  return kinds.size > 0 ? kinds : allKinds
+}
+
+function shouldRegenerateKind(kind) {
+  if (shouldRegenerateAll) {
     return true
   }
-  const entries = characterFilter.split(',').map(entry => entry.trim().toLowerCase()).filter(Boolean)
-  return entries.some((entry) => {
-    const [filterCharacter, filterVariant] = entry.split(':')
-    if (!filterVariant) {
-      return filterCharacter === characterId.toLowerCase()
-    }
-    return filterCharacter === characterId.toLowerCase() && filterVariant === variant.toLowerCase()
-  })
+  if (kind === 'background' && process.env.REGENERATE_BACKGROUNDS === '1') {
+    return true
+  }
+  if (kind === 'cg' && process.env.REGENERATE_CGS === '1') {
+    return true
+  }
+  if (kind === 'character' && process.env.REGENERATE_CHARACTERS === '1') {
+    return true
+  }
+  return cliOptions.regenerate && targetKinds.has(kind)
+}
+
+function shouldIncludeBackground(backgroundId) {
+  if (!targetKinds.has('background')) {
+    return false
+  }
+  const candidates = backgroundCandidates(backgroundId)
+  return matchesAnyFilter(backgroundFilter, candidates) && matchesAnyFilter(assetFilter, candidates)
 }
 
 function shouldIncludeCg(cgId) {
-  if (!cgFilter.trim()) {
+  if (!targetKinds.has('cg')) {
+    return false
+  }
+  const candidates = cgCandidates(cgId)
+  return matchesAnyFilter(cgFilter, candidates) && matchesAnyFilter(assetFilter, candidates)
+}
+
+function shouldIncludeCharacterVariant(characterId, variant) {
+  if (!targetKinds.has('character')) {
+    return false
+  }
+  const candidates = characterCandidates(characterId, variant)
+  return matchesAnyFilter(characterFilter, candidates) && matchesAnyFilter(assetFilter, candidates)
+}
+
+function backgroundCandidates(backgroundId) {
+  return [
+    backgroundId,
+    `background:${backgroundId}`,
+    `background/${backgroundId}`,
+    `images/backgrounds/${backgroundId}`,
+    `images/ui/${backgroundId}`,
+  ]
+}
+
+function cgCandidates(cgId) {
+  return [
+    cgId,
+    `cg:${cgId}`,
+    `cg/${cgId}`,
+    `images/cg/${cgId}`,
+  ]
+}
+
+function characterCandidates(characterId, variant) {
+  return [
+    characterId,
+    `${characterId}:${variant}`,
+    `${characterId}/${variant}`,
+    `${characterId}-${variant}`,
+    `character:${characterId}:${variant}`,
+    `character/${characterId}/${variant}`,
+    `characters/${characterId}/${variant}`,
+  ]
+}
+
+function matchesAnyFilter(filterText, candidates) {
+  const entries = splitFilterValues(filterText).map(normalizeAssetFilterValue)
+  if (entries.length === 0) {
     return true
   }
-  const entries = cgFilter.split(',').map(entry => entry.trim().toLowerCase()).filter(Boolean)
-  return entries.includes(cgId.toLowerCase())
+  const normalizedCandidates = new Set(candidates.map(normalizeAssetFilterValue))
+  return entries.some(entry => normalizedCandidates.has(entry))
+}
+
+function splitFilterValues(value) {
+  return String(value || '').split(',').map(entry => entry.trim()).filter(Boolean)
+}
+
+function normalizeAssetFilterValue(value) {
+  let token = String(value).trim().toLowerCase().replace(/\\/g, '/')
+  token = token.replace(/^assets\//, '')
+  token = token.replace(/\.(png|jpe?g|webp)$/i, '')
+  token = token.replace(/^images\/(?:backgrounds|cg|ui)\//, '')
+  token = token.replace(/^characters\/([^/]+)\/([^/]+)$/, '$1:$2')
+  token = token.replace(/^(?:background|bg|cg|character|char|sprite|standee)[:/]/, '')
+  token = token.replace(/^characters\//, '')
+  token = token.replace(/\//g, ':')
+  return token
+}
+
+function printUsage() {
+  console.log(`Usage:
+  node scripts/generate-assets.mjs [options]
+
+Options:
+  --only <background|cg|character|all>  Restrict the generation scope.
+  --id <asset-id>                       Restrict to one asset id. Use character:variant for sprites.
+  --background <id>                     Restrict to one or more background ids.
+  --cg <id>                             Restrict to one or more CG ids.
+  --character <id[:variant]>            Restrict to one character or character variant.
+  --variant <variant>                   Pair with --character <id>.
+  --regenerate                          Regenerate selected assets instead of filling only missing files.
+  --all                                 Regenerate every asset kind.
+  --list                                Print available asset ids.
+
+Examples:
+  pnpm --filter demo assets:generate -- --only cg
+  pnpm --filter demo assets:generate -- --only cg --id oracle-choice-terminal --regenerate
+  pnpm --filter demo assets:generate -- --only character --id unit7:resolve --regenerate
+  pnpm --filter demo assets:generate -- --only background --id core-room`)
+}
+
+function printAssetList() {
+  console.log('Backgrounds:')
+  for (const asset of backgrounds) {
+    console.log(`  background ${asset.id}`)
+  }
+  console.log('\nCGs:')
+  for (const asset of cgs) {
+    console.log(`  cg ${asset.id}`)
+  }
+  console.log('\nCharacters:')
+  for (const character of characters) {
+    for (const [variant] of character.variants) {
+      console.log(`  character ${character.id}:${variant}`)
+    }
+  }
 }
 
 function characterTagPrompt(characterId, variant) {

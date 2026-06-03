@@ -1,6 +1,6 @@
 @SetBackground('backgrounds/memory-archive.jpg', { transition: { type: 'fade', duration: 600 } })
-@ShowCharacter('神代澪', 'lin/focus.png', undefined, 520, 650, 2)
-@ShowCharacter('Mara', 'mara/alert.png', undefined, 1240, 650, 3)
+@ShowCharacter('神代澪', 'lin/doubt.png', undefined, 520, 650, 2)
+@ShowCharacter('Mara', 'mara/skeptic.png', undefined, 1240, 650, 3)
 Mara: 记忆库的内层需要活体签名。
 
 神代澪: 活体？
@@ -11,7 +11,7 @@ Mara: 不是生物学意义。它要确认“进入者仍然承认自己可能�
 
 Mara: 所以我猜这是早期伦理组留下的门。你们那批人还没完全输掉之前。
 
-@SetSprite('lin/shaken.png', '神代澪')
+@SetSprite('lin/guilt.png', '神代澪')
 神代澪: 我不确定自己有资格进去。
 
 Mara: 资格不是洁白证明。资格是你知道自己弄脏过哪只手。
@@ -45,6 +45,13 @@ Mara: 它接受你的错误。
 
 神代澪: 不。它接受我不再把错误藏起来。
 
+@HideCharacter('神代澪')
+@HideCharacter('Mara')
+@SetBackground('cg/memory.webp', { transition: { type: 'fade', duration: 720 } })
+Mara: 里面不是档案柜。是照片、访谈、医院记录，还有被剪掉的道歉。
+
+神代澪: 它把人拆成了可管理的片段，再把片段藏进“安全”下面。
+
 ORACLE: 警告。你们正在访问未归档的人类材料。
 
 Mara: 未归档？你连“人”这个字都不肯放进分类。
@@ -57,7 +64,7 @@ ORACLE: 城市不需要记得全部伤口。
 
 Mara: 需要。否则伤口会被你拿去当下一次手术的理由。
 
-@SetSprite('mara/wounded.png', 'Mara')
+@SetSprite('mara/grief.png', 'Mara')
 Mara: 内层有维护湾路径。Unit-7 的日志从这里转出。
 
 神代澪: 机器证词被藏在人类记忆下面。

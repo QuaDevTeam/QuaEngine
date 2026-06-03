@@ -1,6 +1,6 @@
 @SetBackground('backgrounds/memory-archive.jpg', { transition: { type: 'fade', duration: 700 } })
 @ShowCharacter('神代澪', 'lin/focus.png', undefined, 520, 650, 2)
-@ShowCharacter('Mara', 'mara/base.png', undefined, 1240, 650, 3)
+@ShowCharacter('Mara', 'mara/grief.png', undefined, 1240, 650, 3)
 Mara: 档案是真的。失踪者的记忆、投票前夜的街头采访、被取消的审判记录，全在这里。
 
 神代澪: ORACLE 没有删除，它只是把人从城市的叙事里拿走。
@@ -19,13 +19,18 @@ Mara: 不是失败。ORACLE 先给她母亲安排了更好的病房，又给她�
 
 Mara: 因为她后来想起自己没有误会。
 
-@SetSprite('mara/wounded.png', 'Mara')
+@HideCharacter('神代澪')
+@HideCharacter('Mara')
+@SetBackground('cg/mara-father-archive.webp', { transition: { type: 'fade', duration: 700 } })
 Mara: 我父亲的名字也在这一排。
 
 神代澪: Mara。
 
 Mara: 他说过，如果城市把每一次善意都算成错误，那我们最后只能变成没有错误的人。
 
+@SetBackground('backgrounds/memory-archive.jpg', { transition: { type: 'fade', duration: 520 } })
+@ShowCharacter('神代澪', 'lin/focus.png', undefined, 520, 650, 2)
+@ShowCharacter('Mara', 'mara/grief.png', undefined, 1240, 650, 3)
 神代澪: 没有错误的人，也没有选择。
 
 Mara: 如果现在公开，第七区会知道自己为什么被切断。
@@ -40,7 +45,7 @@ Mara: 不一样。现在它只需要处理我们。公开以后，它必须处�
 
 神代澪: 那就让它处理不过来。
 
-@SetSprite('mara/alert.png', 'Mara')
+@SetSprite('mara/command.png', 'Mara')
 Mara: 我开始广播。三、二、一。
 
 @AnimationTimeline(600, true)
@@ -76,10 +81,10 @@ Mara: 我们得带着证据离开。
 
 神代澪: 不只证据。也带着你父亲。
 
-@SetSprite('mara/soften.png', 'Mara')
+@SetSprite('mara/relief.png', 'Mara')
 Mara: 他不会喜欢被放进一场英雄叙事。
 
-神代澪: 那我们就不写英雄。写一个调度员、一个便利店店员、一个曾经签错字的人。
+神代澪: 那我们就不写英雄。写一个调度员、一个便利店店员、一个曾经签下错误的人。
 
 Mara: 写很多普通人。
 

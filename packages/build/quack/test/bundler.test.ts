@@ -221,6 +221,64 @@ Yuki: We arrived.
       ]))
     })
 
+    it('isolates runtime package metadata for each asset target', async () => {
+      await mkdir(join(tempDir, 'scripts'), { recursive: true })
+      await writeFile(join(tempDir, 'scripts', 'story.qs'), `@Scene('library')
+@Entry('main')
+@Node('library.enter', { title: 'Library' })
+Yuki: We arrived.
+- Return dorm -> scene:dorm#nightReturn`)
+
+      bundler = new QuackBundler({
+        source: tempDir,
+        output: join(tempDir, 'runtime-target.qpk'),
+        format: 'qpk',
+        compression: { algorithm: 'none', level: 0 },
+        versioning: { bundleVersion: 1, buildNumber: 'runtime-target-build' },
+        runtimePackage: {
+          id: 'runtime.target',
+          version: '1.0.0',
+          compatibility: { minGameVersion: '1.0.0' },
+          scripts: [{ id: 'runtime.target.story', version: '1.0.0', assetName: 'story.js' }],
+        },
+        quascript: {
+          decoratorMappings: storyGraphDecoratorMappings,
+        },
+        assetTargets: [
+          {
+            name: 'target-a',
+            suffix: 'target-a',
+            compatibility: { minGameVersion: '1.1.0' },
+          },
+          {
+            name: 'target-b',
+            suffix: 'target-b',
+            compatibility: { minGameVersion: '1.2.0' },
+          },
+        ],
+      })
+
+      await bundler.bundle()
+
+      const bundleFiles = await readdir(tempDir)
+      const targetAFile = bundleFiles.find(file => file.startsWith('runtime-target.target-a.') && file.endsWith('.qpk'))
+      const targetBFile = bundleFiles.find(file => file.startsWith('runtime-target.target-b.') && file.endsWith('.qpk'))
+      expect(targetAFile).toBeDefined()
+      expect(targetBFile).toBeDefined()
+
+      const manifestA = parseQpk(await readFile(join(tempDir, targetAFile!))).manifest as any
+      const manifestB = parseQpk(await readFile(join(tempDir, targetBFile!))).manifest as any
+      const targetADeltas = manifestA.runtimePackage.storyGraphDeltas.filter((delta: any) => delta.id === 'story:runtime.target.story')
+      const targetBDeltas = manifestB.runtimePackage.storyGraphDeltas.filter((delta: any) => delta.id === 'story:runtime.target.story')
+
+      expect(targetADeltas).toHaveLength(1)
+      expect(targetBDeltas).toHaveLength(1)
+      expect(manifestA.compatibility.minGameVersion).toBe('1.1.0')
+      expect(manifestA.runtimePackage.compatibility.minGameVersion).toBe('1.1.0')
+      expect(manifestB.compatibility.minGameVersion).toBe('1.2.0')
+      expect(manifestB.runtimePackage.compatibility.minGameVersion).toBe('1.2.0')
+    })
+
     it('builds deferred locale QPK runtime packages with localized scripts and assets', async () => {
       const baseSource = join(tempDir, 'base-source')
       const localeSource = join(tempDir, 'locale-source')

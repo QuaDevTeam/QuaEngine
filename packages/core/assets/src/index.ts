@@ -56,6 +56,7 @@ export {
 export { QuaAssets } from './qua-assets'
 // Types and interfaces
 export type {
+  AssetBundleTargetManifest,
   AssetCacheStats,
   AssetChange,
   AssetChangeListener,
@@ -72,6 +73,8 @@ export type {
   AssetManifest,
   AssetManifestRecord,
   AssetNotFoundError,
+  AssetPipelineDomain,
+  AssetPipelineResult,
   AssetProcessingPlugin,
   AssetProvider,
   AssetQueryResult,
@@ -84,6 +87,7 @@ export type {
   AssetVariantInfo,
   BundleFormat,
   BundleIndex,
+  BundleIndexRecord,
   BundleInfo,
   BundleLoadError,
   BundleManifest,

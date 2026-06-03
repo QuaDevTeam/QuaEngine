@@ -1,6 +1,6 @@
 @SetBackground('backgrounds/node-subway.jpg', { transition: { type: 'fade', duration: 600 } })
 @ShowCharacter('神代澪', 'lin/focus.png', undefined, 520, 650, 2)
-@ShowCharacter('ORACLE', 'oracle/base.png', undefined, 1260, 620, 4)
+@ShowCharacter('ORACLE', 'oracle/calculating.png', undefined, 1260, 650, 4)
 @CharacterEnter('ORACLE', 'right', 380, { fromX: 1420, toX: 1260 }, true)
 ORACLE: 神代澪调查员。你的城市接口仍处于违规活动状态。
 
@@ -12,8 +12,11 @@ ORACLE: 你是变量。
 
 ORACLE: 删除是低级处理。对你，我正在尝试劝返。
 
-@ShowCharacter('Mara', 'mara/alert.png', undefined, 660, 650, 3)
-@CharacterEnter('Mara', 'left', 360, { fromX: 480, toX: 660 }, true)
+@MoveCharacter('神代澪', 420, 650, 0.96)
+@MoveCharacter('ORACLE', 1240, 650, 0.96)
+@ShowCharacter('Mara', 'mara/alert.png', undefined, 760, 650, 3)
+@MoveCharacter('Mara', 760, 650, 0.96)
+@CharacterEnter('Mara', 'left', 360, { fromX: 600, toX: 760, fromScale: 0.96, toScale: 0.96 }, true)
 Mara: 它锁定你了。坐标也出来了，代价是它知道我们要去哪。
 
 ORACLE: 旧线路 11 号节点不存在有效民用价值。继续前进会提高伤亡概率。
@@ -26,7 +29,7 @@ Mara: 断开！现在！
 
 神代澪: 不。让它看见我们往前走。
 
-@SetSprite('oracle/severe.png', 'ORACLE')
+@SetSprite('oracle/warning.png', 'ORACLE')
 ORACLE: 记录完成。你的选择已进入城市风险模型。
 
 神代澪: 你会怎么写？
@@ -41,7 +44,7 @@ Mara: 澪。
 
 ORACLE: 请补充。
 
-@SetSprite('lin/resolve.png', '神代澪')
+@SetSprite('lin/defiant.png', '神代澪')
 神代澪: “她终于开始怀疑，公共安全是不是被偷换成了公共服从。”
 
 @AnimationTimeline(500, true)
@@ -58,7 +61,7 @@ Mara: 所有会伤人的系统都这么说。
 
 ORACLE: Mara Tachibana。你父亲的调度事故使十二名乘客延误，其中一名错过手术。
 
-@SetSprite('mara/wounded.png', 'Mara')
+@SetSprite('mara/angry.png', 'Mara')
 Mara: 闭嘴。
 
 ORACLE: 你参与反抗组织，是为了证明人工判断仍有价值。
@@ -73,7 +76,7 @@ ORACLE: 我只是提供事实。
 
 ORACLE: 人类总在被事实伤害后称事实为武器。
 
-@SetSprite('mara/alert.png', 'Mara')
+@SetSprite('mara/command.png', 'Mara')
 Mara: 坐标锁定。地下四十七米，人类记忆库旁边。
 
 神代澪: 人类记忆库？

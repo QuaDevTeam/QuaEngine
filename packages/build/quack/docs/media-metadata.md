@@ -4,7 +4,7 @@ This document describes the media metadata extraction capabilities of Quack, inc
 
 ## Overview
 
-Quack automatically extracts metadata from media files during asset discovery and bundling. Images use Quack's lightweight header readers; modern audio/video containers use Mediabunny through Node `FilePathSource`; AVI, WMV/ASF, and FLV use Quack's metadata-only legacy container readers. No external `ffprobe`/`mediainfo` binary is required. Mediabunny is included under MPL-2.0. This metadata includes dimensions, duration, format information, and other technical details that can be useful for optimization and runtime loading decisions.
+Quack automatically extracts metadata from media files during asset discovery and bundling. Images use Quack's lightweight header readers; modern audio/video containers use Mediabunny through Node `FilePathSource`; AVI, WMV/ASF, and FLV use Quack's metadata-only container readers. No external `ffprobe`/`mediainfo` binary is required. Mediabunny is included under MPL-2.0. This metadata includes dimensions, duration, format information, and other technical details that can be useful for optimization and runtime loading decisions.
 
 ## Supported Media Types
 
@@ -391,7 +391,7 @@ Planned improvements to media metadata extraction:
 ### Video Support
 
 - Subtitle track detection
-- Deeper codec-specific dimension probing for legacy containers beyond container metadata
+- Deeper codec-specific dimension probing for AVI, WMV/ASF, and FLV beyond container metadata
 
 ### Enhanced Audio
 

@@ -28,6 +28,70 @@
           "asset": "fractured.png"
         }
       ]
+    },
+    "amused": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "amused.png"
+        }
+      ]
+    },
+    "warning": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "warning.png"
+        }
+      ]
+    },
+    "doubt": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "doubt.png"
+        }
+      ]
+    },
+    "regret": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "regret.png"
+        }
+      ]
+    },
+    "gentle": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "gentle.png"
+        }
+      ]
+    },
+    "calculating": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "calculating.png"
+        }
+      ]
+    },
+    "shutdown": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "shutdown.png"
+        }
+      ]
+    },
+    "collapse": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "collapse.png"
+        }
+      ]
     }
   }
 }

@@ -28,6 +28,70 @@
           "asset": "wounded.png"
         }
       ]
+    },
+    "grief": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "grief.png"
+        }
+      ]
+    },
+    "command": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "command.png"
+        }
+      ]
+    },
+    "angry": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "angry.png"
+        }
+      ]
+    },
+    "tired": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "tired.png"
+        }
+      ]
+    },
+    "smile": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "smile.png"
+        }
+      ]
+    },
+    "skeptic": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "skeptic.png"
+        }
+      ]
+    },
+    "protect": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "protect.png"
+        }
+      ]
+    },
+    "relief": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "relief.png"
+        }
+      ]
     }
   }
 }
