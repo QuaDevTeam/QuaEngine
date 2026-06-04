@@ -16,13 +16,26 @@ import type {
   BacklogVoiceReference,
 } from './contracts'
 import { BaseEnginePlugin, LogicToRenderEvents, richTextToPlainText } from '@quajs/engine'
-import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from './contracts'
+import {
+  BACKLOG_COCOS_RENDERER_ENTRY,
+  BACKLOG_PLUGIN_ID,
+  BACKLOG_VUE_RENDERER_ENTRY,
+  BACKLOG_WEB_RENDERER_ENTRY,
+  BacklogRenderToLogicEvents,
+} from './contracts'
 import { backlogDecoratorMappings } from './decorators'
 
 const BACKLOG_SETTINGS_SCOPE = '@quajs/plugin-backlog' as const
 let backlogEntryIdSeed = 0
 
-export { BACKLOG_PLUGIN_ID, BACKLOG_SETTINGS_SCOPE, BacklogRenderToLogicEvents }
+export {
+  BACKLOG_COCOS_RENDERER_ENTRY,
+  BACKLOG_PLUGIN_ID,
+  BACKLOG_VUE_RENDERER_ENTRY,
+  BACKLOG_WEB_RENDERER_ENTRY,
+  BacklogRenderToLogicEvents,
+}
+export { BACKLOG_SETTINGS_SCOPE }
 export type {
   BacklogEntry,
   BacklogEntryKind,

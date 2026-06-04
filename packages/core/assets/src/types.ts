@@ -11,11 +11,20 @@ export interface VersionCompatibility {
 
 export interface AssetBundleTargetManifest {
   name: string
+  platform?: 'web' | 'cocos' | (string & {})
   displayName?: string
   suffix?: string
   description?: string
   browserCondition?: string
   formats?: Partial<Record<AssetPipelineDomain, string>>
+  staticOnly?: boolean
+  cocos?: {
+    creatorVersion?: string
+    resourceRoot?: string
+    cacheRoot?: string
+    materialization?: Partial<Record<AssetPipelineDomain, string>>
+    staticOnly?: boolean
+  }
 }
 
 export interface AssetData {

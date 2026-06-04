@@ -42,10 +42,13 @@ import { BaseEnginePlugin, releaseUiOverlayHostWithEngine, retainUiOverlayHostWi
 import { QuaStore } from '@quajs/store'
 import {
   ACHIEVEMENT_METADATA_NAMESPACE,
+  ACHIEVEMENT_COCOS_RENDERER_ENTRY,
   ACHIEVEMENT_PLUGIN_ID,
   ACHIEVEMENT_PROFILE_STORE_PREFIX,
   ACHIEVEMENT_SCENE_ID,
   ACHIEVEMENT_TOAST_HOST_SOURCE,
+  ACHIEVEMENT_VUE_RENDERER_ENTRY,
+  ACHIEVEMENT_WEB_RENDERER_ENTRY,
   AchievementRenderToLogicEvents,
   emitAchievementRenderToLogic,
   onAchievementRenderToLogic,
@@ -143,11 +146,14 @@ const achievementRuntimeState = new WeakMap<object, AchievementRuntimeState>()
 
 export {
   ACHIEVEMENT_METADATA_NAMESPACE,
+  ACHIEVEMENT_COCOS_RENDERER_ENTRY,
   ACHIEVEMENT_PLUGIN_ID,
   ACHIEVEMENT_PROFILE_STORE_PREFIX,
   ACHIEVEMENT_SCENE_ID,
   ACHIEVEMENT_SETTINGS_SCOPE,
   ACHIEVEMENT_TOAST_HOST_SOURCE,
+  ACHIEVEMENT_VUE_RENDERER_ENTRY,
+  ACHIEVEMENT_WEB_RENDERER_ENTRY,
   AchievementRenderToLogicEvents,
   emitAchievementRenderToLogic,
   onAchievementRenderToLogic,

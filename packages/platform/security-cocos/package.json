@@ -1,0 +1,47 @@
+{
+  "name": "@quajs/security-cocos",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Cocos static-only security helpers for QuaEngine runtime packages and bundle integrity",
+  "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/platform/security-cocos"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "security",
+    "cocos",
+    "runtime-package"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@quajs/engine": "workspace:*",
+    "vitest": "^4.1.8"
+  }
+}

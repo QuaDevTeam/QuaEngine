@@ -2,6 +2,9 @@ import type { JsonSerializable, SceneTransitionIntent, StoryAssetRef, StoryPoint
 import type { Pipeline, PipelineContext } from '@quajs/pipeline'
 
 export const GALLERY_PLUGIN_ID = 'gallery' as const
+export const GALLERY_WEB_RENDERER_ENTRY = '@quajs/renderer-web/plugins/gallery' as const
+export const GALLERY_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/gallery' as const
+export const GALLERY_COCOS_RENDERER_ENTRY = '@quajs/renderer-cocos/plugins/gallery' as const
 export const GALLERY_SCENE_ID = '@quajs/plugin-gallery/scene' as const
 export const GALLERY_PROFILE_STORE_PREFIX = '@quajs/plugin-gallery:profile:' as const
 export const GALLERY_METADATA_NAMESPACE = 'gallery' as const

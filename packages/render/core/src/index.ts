@@ -1,5 +1,61 @@
 import type { EventListener, Pipeline, PipelineContext } from '@quajs/pipeline'
 
+export type {
+  RendererActionOptions,
+  RendererActions,
+  RendererAdvanceInterceptor,
+} from './actions'
+export { createRendererActions } from './actions'
+export type {
+  ProjectedTrackValue,
+} from './animation'
+export {
+  applyTrackValues,
+  cloneBackground,
+  cloneBackgroundLayer,
+  cloneCharacter,
+  cloneUnknownRecord,
+  collectTrackValues,
+} from './animation'
+export type {
+  RendererAssetSource,
+  RendererController,
+  RendererControllerSnapshot,
+  RendererControllerSnapshotListener,
+} from './controller'
+export type {
+  ResolvedStageLayout,
+  StageClientPoint,
+  StageClientRectOrigin,
+  StageContainerSize,
+  StageHitTestPoint,
+  StageLogicalPoint,
+  StageRenderPlane,
+  StageSafeArea,
+  StageSafeAreaInsets,
+} from './layout'
+export {
+  clientPointToStageLogical,
+  resolveStageLayout,
+  stageLogicalToClientPoint,
+} from './layout'
+export type {
+  MotionProjection,
+} from './projection'
+export {
+  projectAudioProjection,
+  projectBackground,
+  projectCharacter,
+  projectCharacters,
+  projectChoices,
+  projectDialogue,
+  projectEffect,
+  projectMotionTarget,
+  projectRichText,
+  projectStageMotion,
+  projectUiOverlay,
+} from './projection'
+
 export enum LogicToRenderEvents {
   SCENE_INIT = 'scene/init',
   SCENE_CHANGE = 'scene/change',
@@ -1252,7 +1308,7 @@ export function onLogicToRender<T extends LogicToRenderEvents>(
   type: T,
   handler: (payload: LogicToRenderEventPayloadMap[T], context: PipelineContext<LogicToRenderEventPayloadMap[T]>) => void | Promise<void>,
 ): () => void {
-  const listener: EventListener<LogicToRenderEventPayloadMap[T]> = async (context) => {
+  const listener: EventListener<LogicToRenderEventPayloadMap[T]> = async (context: PipelineContext<LogicToRenderEventPayloadMap[T]>) => {
     await handler(context.event.payload, context)
   }
   pipeline.on(type, listener)
@@ -1272,7 +1328,7 @@ export function onRenderToLogic<T extends RenderToLogicEvents>(
   type: T,
   handler: (payload: RenderToLogicEventPayloadMap[T], context: PipelineContext<RenderToLogicEventPayloadMap[T]>) => void | Promise<void>,
 ): () => void {
-  const listener: EventListener<RenderToLogicEventPayloadMap[T]> = async (context) => {
+  const listener: EventListener<RenderToLogicEventPayloadMap[T]> = async (context: PipelineContext<RenderToLogicEventPayloadMap[T]>) => {
     await handler(context.event.payload, context)
   }
   pipeline.on(type, listener)
@@ -1310,7 +1366,7 @@ export function waitForPipelineEvent<
     }
 
     abort = () => finish(() => reject(new Error(`Waiting for ${type} was cancelled`)))
-    listener = (context) => {
+    listener = (context: PipelineContext<EventPayload<T>>) => {
       const payload = context.event.payload
       if (!matcher || matcher(payload)) {
         finish(() => resolve(payload))

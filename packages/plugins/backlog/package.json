@@ -79,7 +79,8 @@
     "description": "Backlog recording, retention, rewind, and voice replay projection",
     "renderer": {
       "web": "@quajs/renderer-web/plugins/backlog",
-      "vue": "@quajs/renderer-vue/plugins/backlog"
+      "vue": "@quajs/renderer-vue/plugins/backlog",
+      "cocos": "@quajs/renderer-cocos/plugins/backlog"
     },
     "decorators": {
       "Backlog": {

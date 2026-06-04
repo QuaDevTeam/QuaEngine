@@ -64,7 +64,8 @@
     "description": "Sprite manifest, expression diff resolution, atlas-aware rendering, and hot-update helpers",
     "renderer": {
       "web": "@quajs/renderer-web/plugins/sprite",
-      "vue": "@quajs/renderer-vue/plugins/sprite"
+      "vue": "@quajs/renderer-vue/plugins/sprite",
+      "cocos": "@quajs/renderer-cocos/plugins/sprite"
     }
   },
   "dependencies": {

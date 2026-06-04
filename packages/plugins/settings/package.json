@@ -72,7 +72,8 @@
     "description": "Settings scope collection, renderer projection, player preference storage, and apply bridge",
     "renderer": {
       "web": "@quajs/renderer-web/plugins/settings",
-      "vue": "@quajs/renderer-vue/plugins/settings"
+      "vue": "@quajs/renderer-vue/plugins/settings",
+      "cocos": "@quajs/renderer-cocos/plugins/settings"
     }
   }
 }

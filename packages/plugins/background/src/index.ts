@@ -9,6 +9,11 @@ import type {
 import { BaseEnginePlugin } from '@quajs/engine'
 import { backgroundDecoratorMappings } from './decorators'
 
+export const BACKGROUND_WEB_RENDERER_ENTRY = '@quajs/renderer-web/plugins/background' as const
+export const BACKGROUND_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/background' as const
+export const BACKGROUND_COCOS_RENDERER_ENTRY = '@quajs/renderer-cocos/plugins/background' as const
+export const BACKGROUND_RENDERER_ENTRY = BACKGROUND_WEB_RENDERER_ENTRY
+
 export type BackgroundLayerInput = Omit<ViewBackgroundLayerProjection, 'id' | 'assetName'> & {
   id: string
   assetName: string

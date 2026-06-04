@@ -2,6 +2,9 @@ import type { JsonSerializable, SceneTransitionIntent, StoryAssetRef, StoryPoint
 import type { Pipeline, PipelineContext } from '@quajs/pipeline'
 
 export const ACHIEVEMENT_PLUGIN_ID = 'achievement' as const
+export const ACHIEVEMENT_WEB_RENDERER_ENTRY = '@quajs/renderer-web/plugins/achievement' as const
+export const ACHIEVEMENT_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/achievement' as const
+export const ACHIEVEMENT_COCOS_RENDERER_ENTRY = '@quajs/renderer-cocos/plugins/achievement' as const
 export const ACHIEVEMENT_SCENE_ID = '@quajs/plugin-achievement/scene' as const
 export const ACHIEVEMENT_PROFILE_STORE_PREFIX = '@quajs/plugin-achievement:profile:' as const
 export const ACHIEVEMENT_METADATA_NAMESPACE = 'achievement' as const

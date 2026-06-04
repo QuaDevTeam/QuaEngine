@@ -1,6 +1,7 @@
 export const FONTS_PLUGIN_ID = 'fonts' as const
 export const FONTS_WEB_RENDERER_ENTRY = '@quajs/renderer-web/plugins/fonts' as const
 export const FONTS_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/fonts' as const
+export const FONTS_COCOS_RENDERER_ENTRY = '@quajs/renderer-cocos/plugins/fonts' as const
 export const FONTS_RENDERER_ENTRY = FONTS_WEB_RENDERER_ENTRY
 
 export type FontFaceDisplay = 'auto' | 'block' | 'swap' | 'fallback' | 'optional' | string

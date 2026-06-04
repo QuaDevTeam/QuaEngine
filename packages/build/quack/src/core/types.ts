@@ -395,19 +395,33 @@ export interface AssetPipelineOptions {
 
 export interface AssetBundleTargetManifest {
   name: string
+  platform?: 'web' | 'cocos' | (string & {})
   displayName?: string
   suffix?: string
   description?: string
   browserCondition?: string
   formats?: Partial<Record<AssetPipelineDomain, string>>
+  staticOnly?: boolean
+  cocos?: CocosAssetTargetMetadata
+}
+
+export interface CocosAssetTargetMetadata {
+  creatorVersion?: string
+  resourceRoot?: string
+  cacheRoot?: string
+  materialization?: Partial<Record<AssetPipelineDomain, string>>
+  staticOnly?: boolean
 }
 
 export interface AssetBundleTarget {
   name: string
+  platform?: 'web' | 'cocos' | (string & {})
   displayName?: string
   suffix?: string
   description?: string
   browserCondition?: string
+  staticOnly?: boolean
+  cocos?: CocosAssetTargetMetadata
   optional?: boolean
   pipeline?: AssetPipelineOptions
   compression?: {

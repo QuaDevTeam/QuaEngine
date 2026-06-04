@@ -35,9 +35,12 @@ import { QuaStore } from '@quajs/store'
 import {
   emitGalleryRenderToLogic,
   GALLERY_METADATA_NAMESPACE,
+  GALLERY_COCOS_RENDERER_ENTRY,
   GALLERY_PLUGIN_ID,
   GALLERY_PROFILE_STORE_PREFIX,
   GALLERY_SCENE_ID,
+  GALLERY_VUE_RENDERER_ENTRY,
+  GALLERY_WEB_RENDERER_ENTRY,
   GalleryRenderToLogicEvents,
   onGalleryRenderToLogic,
 } from './contracts'
@@ -113,10 +116,13 @@ const galleryRuntimeState = new WeakMap<object, GalleryRuntimeState>()
 export {
   emitGalleryRenderToLogic,
   GALLERY_METADATA_NAMESPACE,
+  GALLERY_COCOS_RENDERER_ENTRY,
   GALLERY_PLUGIN_ID,
   GALLERY_PROFILE_STORE_PREFIX,
   GALLERY_SCENE_ID,
   GALLERY_SETTINGS_SCOPE,
+  GALLERY_VUE_RENDERER_ENTRY,
+  GALLERY_WEB_RENDERER_ENTRY,
   GalleryRenderToLogicEvents,
   onGalleryRenderToLogic,
 }

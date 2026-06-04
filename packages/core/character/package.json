@@ -70,7 +70,8 @@
     "description": "Character sprite, expression, and dialogue helpers for QuaEngine",
     "renderer": {
       "web": "@quajs/renderer-web/plugins/character",
-      "vue": "@quajs/renderer-vue/plugins/character"
+      "vue": "@quajs/renderer-vue/plugins/character",
+      "cocos": "@quajs/renderer-cocos/plugins/character"
     },
     "decorators": {
       "SetSprite": {
