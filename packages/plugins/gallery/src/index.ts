@@ -20,6 +20,7 @@ import type {
   GalleryFallbackTarget,
   GalleryFilterState,
   GalleryImageContentBlock,
+  GalleryLockedPresentation,
   GalleryOpenOptions,
   GalleryProfileState,
   GalleryProjection,
@@ -38,7 +39,9 @@ import {
   GALLERY_METADATA_NAMESPACE,
   GALLERY_PLUGIN_ID,
   GALLERY_PROFILE_STORE_PREFIX,
+  GALLERY_REACT_RENDERER_ENTRY,
   GALLERY_SCENE_ID,
+  GALLERY_SVELTE_RENDERER_ENTRY,
   GALLERY_VUE_RENDERER_ENTRY,
   GALLERY_WEB_RENDERER_ENTRY,
   GalleryRenderToLogicEvents,
@@ -119,7 +122,9 @@ export {
   GALLERY_METADATA_NAMESPACE,
   GALLERY_PLUGIN_ID,
   GALLERY_PROFILE_STORE_PREFIX,
+  GALLERY_REACT_RENDERER_ENTRY,
   GALLERY_SCENE_ID,
+  GALLERY_SVELTE_RENDERER_ENTRY,
   GALLERY_SETTINGS_SCOPE,
   GALLERY_VUE_RENDERER_ENTRY,
   GALLERY_WEB_RENDERER_ENTRY,
@@ -138,6 +143,7 @@ export type {
   GalleryFallbackTarget,
   GalleryFilterState,
   GalleryImageContentBlock,
+  GalleryLockedPresentation,
   GalleryMetadataEnvelope,
   GalleryOpenOptions,
   GalleryProfileState,
@@ -1057,9 +1063,46 @@ function createGalleryEntryProjectionItem(
   entry: GalleryEntryDefinition,
   profile: GalleryProfileState,
 ): GalleryEntryProjectionItem {
+  const unlocked = Boolean(profile.unlockedEntries[entry.id])
+  const projectedEntry = unlocked ? cloneGalleryEntryDefinition(entry) : createLockedGalleryEntryProjection(entry)
   return {
-    ...cloneGalleryEntryDefinition(entry),
-    unlocked: Boolean(profile.unlockedEntries[entry.id]),
+    ...projectedEntry,
+    unlocked,
+  }
+}
+
+function createLockedGalleryEntryProjection(entry: GalleryEntryDefinition): GalleryEntryDefinition {
+  const presentation = entry.lockedPresentation
+  return {
+    id: entry.id,
+    catalogId: entry.catalogId,
+    title: presentation?.revealTitle === true
+      ? entry.title
+      : trimNonEmpty(presentation?.title) || 'Locked',
+    summary: presentation?.revealSummary === true
+      ? entry.summary
+      : trimNonEmpty(presentation?.summary),
+    description: presentation?.revealDescription === true
+      ? entry.description
+      : trimNonEmpty(presentation?.description),
+    thumbnail: presentation?.revealThumbnail === true
+      ? cloneStoryAssetRef(entry.thumbnail)
+      : cloneStoryAssetRef(presentation?.thumbnail),
+    poster: presentation?.revealPoster === true
+      ? cloneStoryAssetRef(entry.poster)
+      : cloneStoryAssetRef(presentation?.poster),
+    tags: presentation?.revealTags === true
+      ? (entry.tags ? [...entry.tags] : undefined)
+      : (presentation?.tags ? [...presentation.tags] : undefined),
+    contents: presentation?.revealContents === true
+      ? entry.contents.map(cloneGalleryContentBlock)
+      : (presentation?.contents ? presentation.contents.map(cloneGalleryContentBlock) : []),
+    lockedPresentation: cloneGalleryLockedPresentation(presentation),
+    metadata: presentation?.revealMetadata === true
+      ? cloneUnknownRecord(entry.metadata)
+      : cloneUnknownRecord(presentation?.metadata),
+    contentPackageId: entry.contentPackageId,
+    requiredRuntimePackages: entry.requiredRuntimePackages ? [...entry.requiredRuntimePackages] : undefined,
   }
 }
 
@@ -1202,6 +1245,7 @@ function normalizeGalleryEntryDefinition(
   const thumbnail = normalizeStoryAssetRef(entry.thumbnail, packageId)
   const poster = normalizeStoryAssetRef(entry.poster, packageId)
   const contents = entry.contents.map(content => normalizeGalleryContentBlock(content, packageId))
+  const lockedPresentation = normalizeGalleryLockedPresentation(entry.lockedPresentation, packageId)
   return {
     id,
     catalogId,
@@ -1212,6 +1256,7 @@ function normalizeGalleryEntryDefinition(
     poster,
     tags: dedupeStrings(entry.tags),
     contents,
+    lockedPresentation,
     metadata: cloneUnknownRecord(entry.metadata),
     contentPackageId: packageId,
     requiredRuntimePackages: mergeRequiredRuntimePackages(
@@ -1222,7 +1267,37 @@ function normalizeGalleryEntryDefinition(
       getRequiredRuntimePackages(entry.metadata),
       currentMetadataRuntimePackageDependencies(engine, entry.metadata),
       ...contents.map(content => content.requiredRuntimePackages),
+      lockedPresentation?.thumbnail?.runtimePackageId ? [lockedPresentation.thumbnail.runtimePackageId] : [],
+      lockedPresentation?.poster?.runtimePackageId ? [lockedPresentation.poster.runtimePackageId] : [],
+      ...((lockedPresentation?.contents || []).map(content => content.requiredRuntimePackages)),
     ),
+  }
+}
+
+function normalizeGalleryLockedPresentation(
+  presentation: GalleryLockedPresentation | undefined,
+  ownerPackageId?: string,
+): GalleryLockedPresentation | undefined {
+  if (!presentation) {
+    return undefined
+  }
+  return {
+    title: trimNonEmpty(presentation.title),
+    summary: trimNonEmpty(presentation.summary),
+    description: trimNonEmpty(presentation.description),
+    thumbnail: normalizeStoryAssetRef(presentation.thumbnail, ownerPackageId),
+    poster: normalizeStoryAssetRef(presentation.poster, ownerPackageId),
+    tags: dedupeStrings(presentation.tags),
+    contents: presentation.contents?.map(content => normalizeGalleryContentBlock(content, ownerPackageId)),
+    metadata: cloneUnknownRecord(presentation.metadata),
+    revealTitle: presentation.revealTitle === true ? true : undefined,
+    revealSummary: presentation.revealSummary === true ? true : undefined,
+    revealDescription: presentation.revealDescription === true ? true : undefined,
+    revealThumbnail: presentation.revealThumbnail === true ? true : undefined,
+    revealPoster: presentation.revealPoster === true ? true : undefined,
+    revealTags: presentation.revealTags === true ? true : undefined,
+    revealContents: presentation.revealContents === true ? true : undefined,
+    revealMetadata: presentation.revealMetadata === true ? true : undefined,
   }
 }
 
@@ -1467,6 +1542,7 @@ function cloneGalleryEntryDefinition(entry: GalleryEntryDefinition): GalleryEntr
     poster: cloneStoryAssetRef(entry.poster),
     tags: entry.tags ? [...entry.tags] : undefined,
     contents: entry.contents.map(cloneGalleryContentBlock),
+    lockedPresentation: cloneGalleryLockedPresentation(entry.lockedPresentation),
     metadata: cloneUnknownRecord(entry.metadata),
     contentPackageId: entry.contentPackageId,
     requiredRuntimePackages: entry.requiredRuntimePackages ? [...entry.requiredRuntimePackages] : undefined,
@@ -1487,6 +1563,32 @@ function cloneGalleryEntryProjectionItem(item: GalleryEntryProjectionItem): Gall
   return {
     ...cloneGalleryEntryDefinition(item),
     unlocked: item.unlocked,
+  }
+}
+
+function cloneGalleryLockedPresentation(
+  presentation: GalleryLockedPresentation | undefined,
+): GalleryLockedPresentation | undefined {
+  if (!presentation) {
+    return undefined
+  }
+  return {
+    title: presentation.title,
+    summary: presentation.summary,
+    description: presentation.description,
+    thumbnail: cloneStoryAssetRef(presentation.thumbnail),
+    poster: cloneStoryAssetRef(presentation.poster),
+    tags: presentation.tags ? [...presentation.tags] : undefined,
+    contents: presentation.contents?.map(cloneGalleryContentBlock),
+    metadata: cloneUnknownRecord(presentation.metadata),
+    revealTitle: presentation.revealTitle,
+    revealSummary: presentation.revealSummary,
+    revealDescription: presentation.revealDescription,
+    revealThumbnail: presentation.revealThumbnail,
+    revealPoster: presentation.revealPoster,
+    revealTags: presentation.revealTags,
+    revealContents: presentation.revealContents,
+    revealMetadata: presentation.revealMetadata,
   }
 }
 

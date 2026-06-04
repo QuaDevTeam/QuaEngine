@@ -4,6 +4,8 @@ import type { Pipeline, PipelineContext } from '@quajs/pipeline'
 export const GALLERY_PLUGIN_ID = 'gallery' as const
 export const GALLERY_WEB_RENDERER_ENTRY = '@quajs/renderer-web/plugins/gallery' as const
 export const GALLERY_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/gallery' as const
+export const GALLERY_REACT_RENDERER_ENTRY = '@quajs/renderer-react/plugins/gallery' as const
+export const GALLERY_SVELTE_RENDERER_ENTRY = '@quajs/renderer-svelte/plugins/gallery' as const
 export const GALLERY_COCOS_RENDERER_ENTRY = '@quajs/renderer-cocos/plugins/gallery' as const
 export const GALLERY_SCENE_ID = '@quajs/plugin-gallery/scene' as const
 export const GALLERY_PROFILE_STORE_PREFIX = '@quajs/plugin-gallery:profile:' as const
@@ -85,6 +87,25 @@ export interface GalleryCatalogDefinition {
   requiredRuntimePackages?: readonly string[]
 }
 
+export interface GalleryLockedPresentation {
+  title?: string
+  summary?: string
+  description?: string
+  thumbnail?: StoryAssetRef
+  poster?: StoryAssetRef
+  tags?: readonly string[]
+  contents?: readonly GalleryContentBlock[]
+  metadata?: Readonly<Record<string, unknown>>
+  revealTitle?: boolean
+  revealSummary?: boolean
+  revealDescription?: boolean
+  revealThumbnail?: boolean
+  revealPoster?: boolean
+  revealTags?: boolean
+  revealContents?: boolean
+  revealMetadata?: boolean
+}
+
 export interface GalleryEntryDefinition {
   id: string
   catalogId: string
@@ -95,6 +116,7 @@ export interface GalleryEntryDefinition {
   poster?: StoryAssetRef
   tags?: readonly string[]
   contents: readonly GalleryContentBlock[]
+  lockedPresentation?: GalleryLockedPresentation
   metadata?: Readonly<Record<string, unknown>>
   contentPackageId?: string
   requiredRuntimePackages?: readonly string[]

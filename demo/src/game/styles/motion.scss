@@ -1,0 +1,58 @@
+@keyframes vn-overlay-scrim-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes vn-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.982);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes vn-panel-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+}
+
+@keyframes vn-save-slot-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-root[data-system-overlay] .qua-overlay-layer::before,
+  .game-root[data-system-overlay] .qua-menu-overlay,
+  .game-root[data-system-overlay] .qua-save-load-panel,
+  .game-root[data-system-overlay] .qua-settings-panel,
+  .game-root[data-system-overlay] .qua-confirm-overlay,
+  .game-root[data-system-overlay] .qua-gallery-layer,
+  .game-root[data-system-overlay] .qua-save-slot-item {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+  }
+}

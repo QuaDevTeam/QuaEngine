@@ -97,6 +97,84 @@ describe('@quajs/plugin-gallery', () => {
     }))
   })
 
+  it('hides locked entry details by default and allows explicit locked presentation details', async () => {
+    const engine = createEngine()
+    engine.use(new GalleryPlugin())
+    await engine.init()
+    await registerGalleryCatalogWithEngine(engine, {
+      id: 'spoiler-cg',
+      title: 'Spoiler CG',
+      entryIds: ['cg.hidden', 'cg.teaser'],
+    })
+    await registerGalleryEntriesWithEngine(engine, [
+      {
+        id: 'cg.hidden',
+        catalogId: 'spoiler-cg',
+        title: 'Final Decision',
+        summary: 'The ending branch reveal.',
+        description: 'A hidden ending spoiler.',
+        thumbnail: assetRef('cg/final-decision.png'),
+        tags: ['ending'],
+        contents: [{
+          id: 'cg.hidden.image',
+          kind: 'image',
+          asset: assetRef('cg/final-decision.png'),
+        }],
+      },
+      {
+        id: 'cg.teaser',
+        catalogId: 'spoiler-cg',
+        title: 'Route Betrayal',
+        summary: 'The hidden route betrays the team.',
+        thumbnail: assetRef('cg/route-betrayal.png'),
+        tags: ['route'],
+        contents: [{
+          id: 'cg.teaser.image',
+          kind: 'image',
+          asset: assetRef('cg/route-betrayal.png'),
+        }],
+        lockedPresentation: {
+          title: 'Unknown Record',
+          summary: 'Classified material',
+          tags: ['locked'],
+        },
+      },
+    ])
+
+    await openGallerySceneWithEngine(engine, { catalogId: 'spoiler-cg' })
+
+    const hidden = getGalleryProjection(engine).entries.find(entry => entry.id === 'cg.hidden')
+    expect(hidden).toEqual(expect.objectContaining({
+      unlocked: false,
+      title: 'Locked',
+      summary: undefined,
+      description: undefined,
+      thumbnail: undefined,
+      tags: undefined,
+      contents: [],
+    }))
+
+    const teaser = getGalleryProjection(engine).entries.find(entry => entry.id === 'cg.teaser')
+    expect(teaser).toEqual(expect.objectContaining({
+      unlocked: false,
+      title: 'Unknown Record',
+      summary: 'Classified material',
+      tags: ['locked'],
+      contents: [],
+    }))
+
+    await unlockGalleryEntryWithEngine(engine, 'cg.hidden')
+    const unlocked = getGalleryProjection(engine).entries.find(entry => entry.id === 'cg.hidden')
+    expect(unlocked).toEqual(expect.objectContaining({
+      unlocked: true,
+      title: 'Final Decision',
+      summary: 'The ending branch reveal.',
+      thumbnail: assetRef('cg/final-decision.png'),
+      tags: ['ending'],
+      contents: [expect.objectContaining({ id: 'cg.hidden.image' })],
+    }))
+  })
+
   it('rejects unknown entry unlocks without writing profile progress', async () => {
     const engine = createEngine()
     engine.use(new GalleryPlugin())
@@ -227,6 +305,7 @@ describe('@quajs/plugin-gallery', () => {
       catalogId: 'runtime-cg',
       entryId: 'runtime-cg.sunset',
     })
+    await unlockGalleryEntryWithEngine(engine, 'runtime-cg.sunset')
     const registered = getGalleryProjection(engine).entries.find(entry => entry.id === 'runtime-cg.sunset')
     expect(registered).toEqual(expect.objectContaining({
       contentPackageId: 'runtime.gallery',

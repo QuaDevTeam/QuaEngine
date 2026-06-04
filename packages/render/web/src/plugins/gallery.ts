@@ -32,6 +32,11 @@ export interface GalleryProjectionModel {
   selectedContentCount: number
 }
 
+interface GalleryLightboxState {
+  entryId?: string
+  contentId?: string
+}
+
 export function getGalleryProjectionFromView(view: Readonly<QuaViewProjection>): GalleryProjection | undefined {
   return view.plugins[GALLERY_PLUGIN_ID] as GalleryProjection | undefined
 }
@@ -143,6 +148,7 @@ export function resolveGalleryContentAsset(
 }
 
 export function createGalleryWebRendererPlugin(): QuaWebDomRendererPlugin {
+  const lightbox: GalleryLightboxState = {}
   return defineWebRendererPlugin({
     name: '@quajs/renderer-web/gallery',
     setup() {},
@@ -150,16 +156,18 @@ export function createGalleryWebRendererPlugin(): QuaWebDomRendererPlugin {
       id: 'gallery',
       order: 97,
       plane: 'safe',
-      render: renderGalleryLayer,
+      render: context => renderGalleryLayer(context, lightbox),
     }],
   })
 }
 
 export const galleryWebRendererPlugin = createGalleryWebRendererPlugin()
 
-function renderGalleryLayer(context: QuaWebDomLayerContext): Node | undefined {
+function renderGalleryLayer(context: QuaWebDomLayerContext, lightbox: GalleryLightboxState): Node | undefined {
   const projection = getGalleryProjectionFromView(context.view)
   if (!projection?.sceneActive) {
+    lightbox.entryId = undefined
+    lightbox.contentId = undefined
     return undefined
   }
 
@@ -183,8 +191,12 @@ function renderGalleryLayer(context: QuaWebDomLayerContext): Node | undefined {
 
   panel.append(renderGalleryHeader(context, model))
   panel.append(renderGalleryToolbar(context, model))
-  panel.append(renderGalleryBody(context, model))
+  panel.append(renderGalleryBody(context, model, lightbox))
   layer.append(panel)
+  const lightboxNode = renderGalleryLightbox(context, model, lightbox)
+  if (lightboxNode) {
+    layer.append(lightboxNode)
+  }
   return layer
 }
 
@@ -284,12 +296,16 @@ function renderGalleryToolbar(context: QuaWebDomLayerContext, model: GalleryProj
   return toolbar
 }
 
-function renderGalleryBody(context: QuaWebDomLayerContext, model: GalleryProjectionModel): Node {
+function renderGalleryBody(
+  context: QuaWebDomLayerContext,
+  model: GalleryProjectionModel,
+  lightbox: GalleryLightboxState,
+): Node {
   const body = context.document.createElement('div')
   body.className = 'qua-gallery-body'
 
   const catalogs = renderGalleryCatalogPane(context, model)
-  const entries = renderGalleryEntryPane(context, model)
+  const entries = renderGalleryEntryPane(context, model, lightbox)
   const detail = renderGalleryDetailPane(context, model)
 
   body.append(catalogs, entries, detail)
@@ -358,7 +374,11 @@ function renderGalleryCatalogButton(
   return button
 }
 
-function renderGalleryEntryPane(context: QuaWebDomLayerContext, model: GalleryProjectionModel): Node {
+function renderGalleryEntryPane(
+  context: QuaWebDomLayerContext,
+  model: GalleryProjectionModel,
+  lightbox: GalleryLightboxState,
+): Node {
   const pane = context.document.createElement('section')
   pane.className = 'qua-gallery-entry-pane'
 
@@ -375,7 +395,7 @@ function renderGalleryEntryPane(context: QuaWebDomLayerContext, model: GalleryPr
   const list = context.document.createElement('ol')
   list.className = 'qua-gallery-entry-grid'
   for (const entry of model.filteredEntries) {
-    list.append(renderGalleryEntryCard(context, model, entry))
+    list.append(renderGalleryEntryCard(context, model, entry, lightbox))
   }
   pane.append(list)
   return pane
@@ -385,6 +405,7 @@ function renderGalleryEntryCard(
   context: QuaWebDomLayerContext,
   model: GalleryProjectionModel,
   entry: GalleryEntryProjectionItem,
+  lightbox: GalleryLightboxState,
 ): Node {
   const item = context.document.createElement('li')
   item.className = 'qua-gallery-entry-item'
@@ -458,10 +479,87 @@ function renderGalleryEntryCard(
       phase: 'gallery:select-entry',
       metadata: { entryId: entry.id },
     })
+    if (entry.unlocked && entry.contents.length > 0) {
+      lightbox.entryId = entry.id
+      lightbox.contentId = entry.contents[0]?.id
+      context.renderer.render()
+    }
   })
 
   item.append(button)
   return item
+}
+
+function renderGalleryLightbox(
+  context: QuaWebDomLayerContext,
+  model: GalleryProjectionModel,
+  lightbox: GalleryLightboxState,
+): Node | undefined {
+  const entry = lightbox.entryId
+    ? model.entries.find(item => item.id === lightbox.entryId)
+    : undefined
+  if (!entry?.unlocked) {
+    lightbox.entryId = undefined
+    lightbox.contentId = undefined
+    return undefined
+  }
+
+  const content = lightbox.contentId
+    ? entry.contents.find(item => item.id === lightbox.contentId) || entry.contents[0]
+    : entry.contents[0]
+  const asset = resolveGalleryContentAsset(content) || resolveGalleryEntryPreviewAsset(entry)
+  if (!asset) {
+    return undefined
+  }
+
+  const closeLightbox = () => {
+    lightbox.entryId = undefined
+    lightbox.contentId = undefined
+    context.renderer.render()
+  }
+
+  const overlay = context.document.createElement('div')
+  overlay.className = 'qua-gallery-lightbox'
+  overlay.setAttribute('role', 'dialog')
+  overlay.setAttribute('aria-modal', 'true')
+  overlay.setAttribute('aria-label', entry.title)
+  overlay.addEventListener('click', closeLightbox)
+
+  const frame = context.document.createElement('figure')
+  frame.className = 'qua-gallery-lightbox-frame'
+  frame.addEventListener('click', event => event.stopPropagation())
+
+  const close = context.document.createElement('button')
+  close.className = 'qua-gallery-lightbox-close'
+  close.type = 'button'
+  close.textContent = 'Close'
+  bindUiControlSkin(context, close, {
+    kind: 'button',
+  })
+  close.addEventListener('click', closeLightbox)
+
+  const media = context.document.createElement('div')
+  media.className = 'qua-gallery-lightbox-media'
+  media.append(renderGalleryMediaElement(context, mediaElementTagForAsset(asset), {
+    className: [
+      'qua-gallery-lightbox-asset',
+      `qua-gallery-lightbox-asset--${asset.type}`,
+    ].join(' '),
+    asset,
+    poster: content && 'poster' in content ? content.poster : undefined,
+    controls: true,
+    playsInline: true,
+    muted: false,
+    alt: content?.title || entry.title,
+  }))
+
+  const caption = context.document.createElement('figcaption')
+  caption.className = 'qua-gallery-lightbox-caption'
+  caption.textContent = entry.title
+
+  frame.append(close, media, caption)
+  overlay.append(frame)
+  return overlay
 }
 
 function renderGalleryDetailPane(context: QuaWebDomLayerContext, model: GalleryProjectionModel): Node {
@@ -658,6 +756,13 @@ function renderGalleryMediaElement(
   audio.setAttribute('aria-label', options.alt || '')
   bindStoryAsset(context, audio, options.asset, 'src')
   return audio
+}
+
+function mediaElementTagForAsset(asset: GalleryAssetRef): 'img' | 'video' | 'audio' {
+  if (asset.type === 'video' || asset.type === 'audio') {
+    return asset.type
+  }
+  return 'img'
 }
 
 function renderGalleryAudioNode(

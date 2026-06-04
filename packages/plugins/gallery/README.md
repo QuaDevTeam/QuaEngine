@@ -23,6 +23,9 @@ Renderer entries:
 
 - `@quajs/renderer-web/plugins/gallery`
 - `@quajs/renderer-vue/plugins/gallery`
+- `@quajs/renderer-react/plugins/gallery`
+- `@quajs/renderer-svelte/plugins/gallery`
+- `@quajs/renderer-cocos/plugins/gallery`
 
 ## Register Catalogs And Entries
 
@@ -47,6 +50,8 @@ await gallery.registerEntry({
 ```
 
 Content blocks can be `image`, `video`, `audio`, `text`, or custom kinds with serializable data.
+
+Locked entries hide title, summary, description, thumbnail, tags, metadata, and contents by default in projection to avoid spoilers. Use `lockedPresentation` only for deliberate non-spoiler placeholders or explicit reveal flags.
 
 ## Unlock And Open
 
@@ -89,4 +94,4 @@ When `@quajs/plugin-settings` is installed, gallery contributes developer/player
 
 ## Renderer Boundary
 
-Renderer components do not decide unlock state. They receive `GalleryProjection`, render locked/unlocked entries, and emit selection or filter intents.
+Renderer components do not decide unlock state. They receive `GalleryProjection`, render locked/unlocked entries, and emit selection or filter intents. Lightbox/detail browsing is renderer-local and transient across Web/Vue/React/Svelte/Cocos.

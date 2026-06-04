@@ -13,8 +13,9 @@ export function createGalleryCocosRendererPlugin() {
     setup(context) {
       const pages = new Map<string, number>()
       const audioPreviews = new Map<string, GalleryAudioPreviewHandle>()
+      const lightbox: GalleryLightboxState = {}
       const sync = () => {
-        void renderGalleryLayer(context, pages, audioPreviews).catch(error => context.reportError(error, {
+        void renderGalleryLayer(context, pages, audioPreviews, lightbox).catch(error => context.reportError(error, {
           message: 'Cocos gallery projection failed.',
           phase: 'renderer-cocos:gallery',
           pluginName: '@quajs/renderer-cocos/gallery',
@@ -55,6 +56,23 @@ export function createGalleryCocosRendererPlugin() {
             updatePage(pages, stringValue(metadata.galleryPageKey) || 'entries', Number(metadata.galleryPageDelta) || 0)
             sync()
             break
+          case 'openLightbox': {
+            const entryId = stringValue(metadata.galleryEntryId)
+            const contentId = stringValue(metadata.galleryContentId)
+            if (entryId) {
+              await context.getPipeline().emit(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, { entryId })
+            }
+            if (resolveGalleryLightboxTarget(getGalleryProjection(context), entryId, contentId)) {
+              lightbox.entryId = entryId
+              lightbox.contentId = contentId
+              sync()
+            }
+            break
+          }
+          case 'closeLightbox':
+            clearGalleryLightbox(lightbox)
+            sync()
+            break
           default:
             if (typeof metadata.galleryEntryId === 'string') {
               await context.getPipeline().emit(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, { entryId: metadata.galleryEntryId })
@@ -77,12 +95,20 @@ interface GalleryAudioPreviewHandle {
   resourceKey: string
 }
 
+interface GalleryLightboxState {
+  entryId?: string
+  contentId?: string
+}
+
+type GalleryAssetRef = NonNullable<GalleryEntryProjectionItem['thumbnail']>
+
 async function renderGalleryLayer(
   context: CocosRendererPluginContext,
   pages: Map<string, number>,
   audioPreviews: Map<string, GalleryAudioPreviewHandle>,
+  lightbox: GalleryLightboxState,
 ): Promise<void> {
-  const projection = context.getViewState().plugins[GALLERY_PLUGIN_ID] as GalleryProjection | undefined
+  const projection = getGalleryProjection(context)
   const layer = context.cocos.getLayerNode('gallery', 'gallery-layer', 120)
   context.cocos.host.nodes.clearChildren(layer)
   context.cocos.releaseLayerResources('gallery')
@@ -92,6 +118,7 @@ async function renderGalleryLayer(
     projection,
   })
   if (!projection?.sceneActive) {
+    clearGalleryLightbox(lightbox)
     cleanupGalleryAudioPreviews(context, audioPreviews)
     return
   }
@@ -172,6 +199,7 @@ async function renderGalleryLayer(
     renderEmptyState(context, panel, 'No entry selected', safeArea.x + 390, safeArea.y + 144, safeArea.width - 420)
   }
   cleanupInactiveGalleryAudioPreviews(context, audioPreviews, selectedContent?.kind === 'audio' ? selectedContent.id : undefined)
+  await renderGalleryLightbox(context, layer, projection, lightbox)
 }
 
 async function renderGalleryEntry(
@@ -186,7 +214,9 @@ async function renderGalleryEntry(
 ): Promise<void> {
   const node = renderButton(context, parent, `gallery:entry:${entry.id}`, entry.unlocked ? entry.title : 'Locked', x, startY + index * 58, width, 50, {
     plugin: 'gallery',
+    galleryAction: 'openLightbox',
     galleryEntryId: entry.id,
+    galleryContentId: entry.contents[0]?.id,
     unlocked: entry.unlocked,
     selected,
   }, selected)
@@ -210,7 +240,7 @@ async function renderGalleryEntry(
   const previewName = stringValue(preview?.name)
   if (preview?.type === 'images' && previewName) {
     const previewNode = context.cocos.host.nodes.createNode('gallery-entry-preview', { parent: node, name: `gallery:entry:${entry.id}:preview` })
-    const resource = await resolveAssetWithTargetPackages(context.cocos, 'images', previewName, runtimePackageCandidatesFromAssetRef(preview))
+    const resource = await resolveAssetWithTargetPackages(context.cocos, 'images', previewName, runtimePackageCandidatesFromGalleryAsset(preview))
     context.cocos.setLayerResource('gallery', `entry:${entry.id}:preview`, resource)
     context.cocos.host.nodes.setNodeSprite(previewNode, resource)
     context.cocos.host.nodes.setNodeTransform(previewNode, { x: x + 6, y: startY + index * 58 + 6, width: 42, height: 38, zIndex: 13 })
@@ -251,12 +281,13 @@ async function renderSelectedGalleryEntry(
       selected: item.id === content?.id,
     }, item.id === content?.id)
   })
-  await renderGalleryContentPreview(context, parent, content, x, y + 190, width, audioPreviews)
+  await renderGalleryContentPreview(context, parent, entry.id, content, x, y + 190, width, audioPreviews)
 }
 
 async function renderGalleryContentPreview(
   context: CocosRendererPluginContext,
   parent: CocosHostNode,
+  entryId: string,
   content: GalleryContentBlock | undefined,
   x: number,
   y: number,
@@ -267,7 +298,13 @@ async function renderGalleryContentPreview(
     return
   const node = context.cocos.host.nodes.createNode('gallery-content-preview', { parent, name: `gallery:preview:${content.id}` })
   context.cocos.host.nodes.setNodeTransform(node, { x, y, width, height: 360, zIndex: 5 })
-  context.cocos.host.nodes.setNodeMetadata?.(node, { plugin: 'gallery', content })
+  context.cocos.host.nodes.setNodeMetadata?.(node, {
+    plugin: 'gallery',
+    galleryAction: 'openLightbox',
+    galleryEntryId: entryId,
+    galleryContentId: content.id,
+    content,
+  })
   if (content.kind === 'text' && 'text' in content) {
     context.cocos.host.nodes.setNodeText(node, content.text, { fontSize: 24, color: '#ffffff' })
     return
@@ -301,6 +338,8 @@ async function renderGalleryContentPreview(
       label: content.title || ref?.name || content.kind,
       metadata: {
         plugin: 'gallery',
+        galleryAction: 'openLightbox',
+        galleryEntryId: entryId,
         galleryContentId: content.id,
         mediaKind: content.kind,
       },
@@ -356,13 +395,146 @@ function updatePage(pages: Map<string, number>, key: string, delta: number): voi
   pages.set(key, Math.max(0, (pages.get(key) || 0) + delta))
 }
 
-function resolveGalleryEntryPreviewAsset(entry: GalleryEntryProjectionItem | undefined): Record<string, unknown> | undefined {
+function getGalleryProjection(context: CocosRendererPluginContext): GalleryProjection | undefined {
+  return context.getViewState().plugins[GALLERY_PLUGIN_ID] as GalleryProjection | undefined
+}
+
+function clearGalleryLightbox(lightbox: GalleryLightboxState): void {
+  lightbox.entryId = undefined
+  lightbox.contentId = undefined
+}
+
+function resolveGalleryLightboxTarget(
+  projection: GalleryProjection | undefined,
+  entryId: string | undefined,
+  contentId: string | undefined,
+): { entry: GalleryEntryProjectionItem, content?: GalleryContentBlock, asset?: GalleryAssetRef } | undefined {
+  const entry = entryId ? projection?.entries.find(item => item.id === entryId) : undefined
+  if (!entry?.unlocked)
+    return undefined
+
+  const content = contentId
+    ? entry.contents.find(item => item.id === contentId) || entry.contents[0]
+    : entry.contents[0]
+  const asset = resolveGalleryContentAsset(content) || resolveGalleryEntryPreviewAsset(entry)
+  if (!content && !asset)
+    return undefined
+  return { entry, content, asset }
+}
+
+async function renderGalleryLightbox(
+  context: CocosRendererPluginContext,
+  parent: CocosHostNode,
+  projection: GalleryProjection,
+  lightbox: GalleryLightboxState,
+): Promise<void> {
+  const target = resolveGalleryLightboxTarget(projection, lightbox.entryId, lightbox.contentId)
+  if (!target) {
+    clearGalleryLightbox(lightbox)
+    return
+  }
+
+  const safeArea = context.cocos.getStageLayout().safeArea
+  const overlay = context.cocos.host.nodes.createNode('gallery-lightbox', { parent, name: 'gallery:lightbox' })
+  context.cocos.host.nodes.setNodeTransform(overlay, { x: safeArea.x, y: safeArea.y, width: safeArea.width, height: safeArea.height, zIndex: 100 })
+  context.cocos.host.nodes.setNodeControl?.(overlay, { kind: 'panel', label: target.entry.title })
+  context.cocos.host.nodes.setNodeMetadata?.(overlay, {
+    plugin: 'gallery',
+    galleryAction: 'closeLightbox',
+    galleryEntryId: target.entry.id,
+    galleryContentId: target.content?.id,
+  })
+
+  const frameInsetX = Math.max(48, safeArea.width * 0.06)
+  const frameInsetY = Math.max(56, safeArea.height * 0.08)
+  const frame = context.cocos.host.nodes.createNode('gallery-lightbox-frame', { parent: overlay, name: 'gallery:lightbox:frame' })
+  context.cocos.host.nodes.setNodeTransform(frame, {
+    x: safeArea.x + frameInsetX,
+    y: safeArea.y + frameInsetY,
+    width: Math.max(0, safeArea.width - frameInsetX * 2),
+    height: Math.max(0, safeArea.height - frameInsetY * 2),
+    zIndex: 101,
+  })
+  context.cocos.host.nodes.setNodeControl?.(frame, { kind: 'panel', label: target.entry.title })
+  context.cocos.host.nodes.setNodeMetadata?.(frame, {
+    plugin: 'gallery',
+    galleryAction: 'panel',
+    galleryEntryId: target.entry.id,
+    galleryContentId: target.content?.id,
+  })
+
+  renderButton(context, frame, 'gallery:lightbox:close', 'Close', safeArea.x + safeArea.width - frameInsetX - 132, safeArea.y + frameInsetY + 18, 112, 44, {
+    plugin: 'gallery',
+    galleryAction: 'closeLightbox',
+    galleryEntryId: target.entry.id,
+    galleryContentId: target.content?.id,
+  })
+
+  const mediaX = safeArea.x + frameInsetX + 32
+  const mediaY = safeArea.y + frameInsetY + 78
+  const mediaWidth = Math.max(0, safeArea.width - frameInsetX * 2 - 64)
+  const mediaHeight = Math.max(0, safeArea.height - frameInsetY * 2 - 150)
+  await renderGalleryLightboxMedia(context, frame, target, mediaX, mediaY, mediaWidth, mediaHeight)
+
+  const caption = context.cocos.host.nodes.createNode('gallery-lightbox-caption', { parent: frame, name: 'gallery:lightbox:caption' })
+  context.cocos.host.nodes.setNodeText(caption, target.content?.title || target.entry.title, { fontSize: 24, color: '#ffffff' })
+  context.cocos.host.nodes.setNodeTransform(caption, { x: mediaX, y: mediaY + mediaHeight + 20, width: mediaWidth, height: 42, zIndex: 102 })
+}
+
+async function renderGalleryLightboxMedia(
+  context: CocosRendererPluginContext,
+  parent: CocosHostNode,
+  target: { entry: GalleryEntryProjectionItem, content?: GalleryContentBlock, asset?: GalleryAssetRef },
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): Promise<void> {
+  const media = context.cocos.host.nodes.createNode('gallery-lightbox-media', { parent, name: 'gallery:lightbox:media' })
+  context.cocos.host.nodes.setNodeTransform(media, { x, y, width, height, zIndex: 102 })
+  context.cocos.host.nodes.setNodeMetadata?.(media, {
+    plugin: 'gallery',
+    galleryAction: 'panel',
+    galleryEntryId: target.entry.id,
+    galleryContentId: target.content?.id,
+    mediaKind: target.content?.kind,
+  })
+
+  if (target.asset) {
+    const resource = await resolveAssetWithTargetPackages(
+      context.cocos,
+      target.asset.type,
+      target.asset.name,
+      runtimePackageCandidatesFromGalleryAsset(target.asset),
+    )
+    context.cocos.setLayerResource('gallery', `lightbox:${target.entry.id}:${target.content?.id || 'preview'}`, resource)
+    if (target.asset.type === 'audio') {
+      context.cocos.host.nodes.setNodeText(media, target.content?.title || target.asset.name || target.entry.title, { fontSize: 28, color: '#ffffff' })
+      context.cocos.host.nodes.setNodeControl?.(media, { kind: 'panel', label: target.content?.title || target.asset.name || target.entry.title })
+      return
+    }
+    context.cocos.host.nodes.setNodeSprite(media, resource, { mode: target.asset.type === 'video' ? 'video' : 'sprite' })
+    context.cocos.host.nodes.setNodeControl?.(media, { kind: 'panel', label: target.content?.title || target.asset.name || target.entry.title })
+    return
+  }
+
+  if (target.content?.kind === 'text' && 'text' in target.content) {
+    context.cocos.host.nodes.setNodeText(media, target.content.text, { fontSize: 28, color: '#ffffff' })
+    return
+  }
+
+  if (target.content) {
+    context.cocos.host.nodes.setNodeText(media, JSON.stringify(target.content, null, 2), { fontSize: 20, color: '#ffffff' })
+  }
+}
+
+function resolveGalleryEntryPreviewAsset(entry: GalleryEntryProjectionItem | undefined): GalleryAssetRef | undefined {
   if (!entry)
     return undefined
   if (entry.thumbnail)
-    return entry.thumbnail as unknown as Record<string, unknown>
+    return entry.thumbnail
   if (entry.poster)
-    return entry.poster as unknown as Record<string, unknown>
+    return entry.poster
   for (const content of entry.contents) {
     const asset = resolveGalleryContentPreviewAsset(content)
     if (asset)
@@ -371,16 +543,28 @@ function resolveGalleryEntryPreviewAsset(entry: GalleryEntryProjectionItem | und
   return undefined
 }
 
-function resolveGalleryContentPreviewAsset(content: GalleryContentBlock | undefined): Record<string, unknown> | undefined {
+function resolveGalleryContentPreviewAsset(content: GalleryContentBlock | undefined): GalleryAssetRef | undefined {
   if (!content || !('asset' in content))
     return undefined
   if (content.kind === 'video' && 'poster' in content && content.poster)
-    return content.poster as unknown as Record<string, unknown>
+    return content.poster
   if (content.kind === 'audio' && 'poster' in content && content.poster)
-    return content.poster as unknown as Record<string, unknown>
+    return content.poster
   if (content.kind === 'image' || content.kind === 'video' || content.kind === 'audio')
-    return content.asset as unknown as Record<string, unknown>
+    return content.asset
   return undefined
+}
+
+function resolveGalleryContentAsset(content: GalleryContentBlock | undefined): GalleryAssetRef | undefined {
+  if (!content || !('asset' in content))
+    return undefined
+  if (content.kind === 'image' || content.kind === 'video' || content.kind === 'audio')
+    return content.asset
+  return undefined
+}
+
+function runtimePackageCandidatesFromGalleryAsset(asset: GalleryAssetRef): readonly string[] | undefined {
+  return runtimePackageCandidatesFromAssetRef(asset as unknown as Record<string, unknown>)
 }
 
 function previewBodyX(entry: GalleryEntryProjectionItem): number {

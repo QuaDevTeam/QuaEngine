@@ -19,10 +19,11 @@ import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gal
 import { runtimePackageCandidatesFromMetadata } from '@quajs/renderer-web'
 import {
   createGalleryProjectionModel,
+  resolveGalleryContentAsset,
   resolveGalleryContentPreviewAsset,
   resolveGalleryEntryPreviewAsset,
 } from '@quajs/renderer-web/plugins/gallery'
-import { computed, defineComponent, h } from 'vue'
+import { computed, defineComponent, h, ref } from 'vue'
 import { useAssetUrl, usePluginProjection, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
@@ -63,9 +64,23 @@ export const QuaGalleryLayer = defineComponent({
       kind: 'toggle',
       selected: () => Boolean(gallery.value?.projection.filter.unlockedOnly),
     })
+    const lightboxEntryId = ref<string>()
+    const lightboxContentId = ref<string>()
+    const openLightbox = (entry: GalleryEntryProjectionItem, contentId?: string) => {
+      if (!entry.unlocked || entry.contents.length === 0) {
+        return
+      }
+      lightboxEntryId.value = entry.id
+      lightboxContentId.value = contentId || entry.contents[0]?.id
+    }
+    const closeLightbox = () => {
+      lightboxEntryId.value = undefined
+      lightboxContentId.value = undefined
+    }
 
     return () => {
       if (!gallery.value?.projection.sceneActive) {
+        closeLightbox()
         return null
       }
 
@@ -85,6 +100,10 @@ export const QuaGalleryLayer = defineComponent({
         closeSkin,
         inputSkin,
         toggleSkin,
+        lightboxEntryId: lightboxEntryId.value,
+        lightboxContentId: lightboxContentId.value,
+        onOpenLightbox: openLightbox,
+        onCloseLightbox: closeLightbox,
       }))
     }
   },
@@ -244,6 +263,11 @@ export const QuaGalleryEntryCard = defineComponent({
       required: true,
     },
     selected: Boolean,
+    onOpenLightbox: {
+      type: Function as PropType<(entry: GalleryEntryProjectionItem) => void>,
+      required: false,
+      default: undefined,
+    },
   },
   setup(props) {
     const renderer = useQuaRenderer()
@@ -268,12 +292,15 @@ export const QuaGalleryEntryCard = defineComponent({
         'data-skin-reference': skin.skinReference.value || undefined,
         'data-skin-state': skin.skinState.value,
         ...createSkinButtonHandlers(skin),
-        'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, {
-          entryId: props.entry.id,
-        }), {
-          phase: 'gallery:select-entry',
-          metadata: { entryId: props.entry.id },
-        }),
+        'onClick': () => {
+          dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, {
+            entryId: props.entry.id,
+          }), {
+            phase: 'gallery:select-entry',
+            metadata: { entryId: props.entry.id },
+          })
+          props.onOpenLightbox?.(props.entry)
+        },
       }, [
         h('div', { class: 'qua-gallery-entry-preview' }, [
           preview.value
@@ -379,6 +406,10 @@ function renderGalleryDefault(input: {
   closeSkin: ReturnType<typeof useUiControlSkin>
   inputSkin: ReturnType<typeof useUiControlSkin>
   toggleSkin: ReturnType<typeof useUiControlSkin>
+  lightboxEntryId?: string
+  lightboxContentId?: string
+  onOpenLightbox: (entry: GalleryEntryProjectionItem, contentId?: string) => void
+  onCloseLightbox: () => void
 }) {
   const { gallery, renderer, actions, closeSkin, inputSkin, toggleSkin } = input
   return [
@@ -466,6 +497,7 @@ function renderGalleryDefault(input: {
                 key: entry.id,
                 entry,
                 selected: gallery.projection.selectedEntryId === entry.id,
+                onOpenLightbox: input.onOpenLightbox,
               }),
             ))
           : h('p', { class: 'qua-gallery-empty' }, 'No entries'),
@@ -480,7 +512,61 @@ function renderGalleryDefault(input: {
           : h('p', { class: 'qua-gallery-empty' }, 'No entry selected'),
       ]),
     ]),
+    renderGalleryLightbox({
+      gallery,
+      entryId: input.lightboxEntryId,
+      contentId: input.lightboxContentId,
+      onClose: input.onCloseLightbox,
+    }),
   ]
+}
+
+function renderGalleryLightbox(input: {
+  gallery: GalleryProjectionModel
+  entryId?: string
+  contentId?: string
+  onClose: () => void
+}) {
+  const entry = input.entryId
+    ? input.gallery.entries.find(item => item.id === input.entryId)
+    : undefined
+  if (!entry?.unlocked) {
+    return null
+  }
+  const content = input.contentId
+    ? entry.contents.find(item => item.id === input.contentId) || entry.contents[0]
+    : entry.contents[0]
+  const asset = resolveGalleryContentAsset(content) || resolveGalleryEntryPreviewAsset(entry)
+  if (!asset) {
+    return null
+  }
+  return h('div', {
+    'class': 'qua-gallery-lightbox',
+    'role': 'dialog',
+    'aria-modal': 'true',
+    'aria-label': entry.title,
+    'onClick': input.onClose,
+  }, [
+    h('figure', {
+      class: 'qua-gallery-lightbox-frame',
+      onClick: (event: Event) => event.stopPropagation(),
+    }, [
+      h('button', {
+        class: 'qua-gallery-lightbox-close',
+        type: 'button',
+        onClick: input.onClose,
+      }, 'Close'),
+      h('div', { class: 'qua-gallery-lightbox-media' }, [
+        h(GalleryAssetFrame, {
+          asset,
+          poster: (content && 'poster' in content ? content.poster : undefined) || undefined,
+          alt: content?.title || entry.title,
+          variant: 'detail',
+        }),
+      ]),
+      h('figcaption', { class: 'qua-gallery-lightbox-caption' }, entry.title),
+    ]),
+  ])
 }
 
 function renderGalleryDetail(input: {
