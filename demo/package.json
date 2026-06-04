@@ -32,6 +32,7 @@
     "@quajs/engine": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-animation": "workspace:*",
+    "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-background": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
