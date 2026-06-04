@@ -466,7 +466,7 @@ Yuki: Hello
     const source = `
       function scene1() {
         dialogue(qs\`
-          @ShowCharacter('Jack', 'jack_idle.png', 'neutral', 40, 80, 2)
+          @ShowCharacter('Jack', { sprite: 'jack_idle.png', expression: 'neutral', position: { x: 40, y: 80 }, layer: 2 })
           @MoveCharacter('Jack', 55, 80, 1.1)
           @SetExpression('happy', 'Jack')
           @HideCharacter('Jack')
@@ -490,6 +490,78 @@ Yuki: Hello
     expect(result).toContain('hideWithEngine(ctx.engine, "Jack")')
     expect(result).toMatch(/import.*speakWithEngine.*showWithEngine.*hideWithEngine.*moveWithEngine.*expressionWithEngine.*from.*@quajs\/character/s)
     expect(result).not.toMatch(/import.*show,.*from.*@quajs\/character/s)
+  })
+
+  it('should show the current speaker with object options', () => {
+    const transformer = createCharacterTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @ShowCharacter({ sprite: 'sad' })
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('showWithEngine(ctx.engine, "Jack", {')
+    expect(result).toContain('sprite: "sad"')
+    expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello world!")')
+  })
+
+  it('should reject undefined placeholders for ShowCharacter', () => {
+    const transformer = createCharacterTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @ShowCharacter(undefined, 'sad')
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    expect(() => transformer.transformSource(source)).toThrow('@ShowCharacter does not accept undefined placeholders')
+  })
+
+  it('should require an explicit character for action-only ShowCharacter options', () => {
+    const transformer = createCharacterTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @ShowCharacter({ sprite: 'sad' })
+
+          Jack: Hello world!
+        \`)
+      }
+    `
+
+    expect(() => transformer.transformSource(source)).toThrow('@ShowCharacter requires an explicit character')
+  })
+
+  it('should transform speaker decorators into resolved speaker and one-line display overrides', () => {
+    const transformer = createCharacterTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @Speaker('lin.child')
+          @ShowCharacter({ sprite: 'sad' })
+          @SpeakerName({ kind: 'rich-text', blocks: [{ spans: [{ text: 'Lin' }] }] })
+          @SpeakerStyle({ color: '#7cc7ff', fontSize: 28, fontFamily: 'Qua Serif' })
+          Lin: I'm fine.
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('showWithEngine(ctx.engine, "lin.child", {')
+    expect(result).toContain('sprite: "sad"')
+    expect(result).toContain('speakWithEngine(ctx.engine, "lin.child", "I\'m fine.", {')
+    expect(result).toContain('speaker: {')
+    expect(result).toContain('kind: "rich-text"')
+    expect(result).toContain('speakerStyle: {')
+    expect(result).toContain('fontSize: 28')
   })
 
   it('should transform character motion decorators through animation helpers', () => {
@@ -874,6 +946,26 @@ const canEnterLibrary = scope.hasKey
     expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello world!")')
   })
 
+  it('should use resolved speaker ids for omitted animation self targets', () => {
+    const transformer = createCharacterAnimationTransformer()
+    const source = `
+      function scene1() {
+        dialogue(qs\`
+          @Speaker('lin.child')
+          @AnimationTimeline(360, true)
+          @Key('position.x', 0, -180)
+          @Key('position.x', 360, 0)
+          Lin: Hello world!
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('defaultTarget: "character:lin.child"')
+    expect(result).toContain('speakWithEngine(ctx.engine, "lin.child", "Hello world!")')
+  })
+
   it('should transform play animation decorators with binding strings and wait flag', () => {
     const transformer = createAnimationTransformer()
     const source = `
@@ -943,6 +1035,18 @@ function createAnimationTransformer(): QuaScriptTransformer {
 function createCharacterTransformer(): QuaScriptTransformer {
   return new QuaScriptTransformer(mergeDecoratorMappings(characterDecoratorMappings), {
     decoratorCompilers: characterScriptCompiler.compilers,
+  })
+}
+
+function createCharacterAnimationTransformer(): QuaScriptTransformer {
+  return new QuaScriptTransformer(mergeDecoratorMappings({
+    ...characterDecoratorMappings,
+    ...animationDecoratorMappings,
+  }), {
+    decoratorCompilers: [
+      ...characterScriptCompiler.compilers,
+      ...animationScriptCompiler.compilers,
+    ],
   })
 }
 

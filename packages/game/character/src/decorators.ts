@@ -1,4 +1,16 @@
 export const characterDecoratorMappings = {
+  Speaker: {
+    function: 'speaker',
+    module: '@quajs/character',
+  },
+  SpeakerName: {
+    function: 'speakerName',
+    module: '@quajs/character',
+  },
+  SpeakerStyle: {
+    function: 'speakerStyle',
+    module: '@quajs/character',
+  },
   SetSprite: {
     function: 'sprite',
     module: '@quajs/character',

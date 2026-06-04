@@ -579,6 +579,8 @@ export class QuaScriptTransformer {
     const statements: t.Statement[] = []
     const context = {
       characterName: dialogue.character,
+      characterRef: t.stringLiteral(dialogue.character) as t.Expression,
+      speakOptions: [] as t.ObjectProperty[],
       stepType: 'dialogue' as const,
       stepIndex,
       stepUuid,
@@ -591,7 +593,7 @@ export class QuaScriptTransformer {
     statements.push(...this.createDecoratorStatements(dialogue.decorators, context, options.scopeIdentifier))
     statements.push(...this.createImplicitDecoratorStatements(dialogue.decorators, context, options.scopeIdentifier))
 
-    statements.push(t.expressionStatement(t.awaitExpression(this.createSpeakCall(dialogue, options))))
+    statements.push(t.expressionStatement(t.awaitExpression(this.createSpeakCall(dialogue, context, options))))
 
     return t.arrowFunctionExpression(
       [t.identifier('ctx')],
@@ -900,7 +902,7 @@ export class QuaScriptTransformer {
 
   private createDecoratorStatements(
     decorators: QuaScriptDecorator[],
-    context: { characterName?: string, stepType: 'dialogue' | 'action', stepIndex: number, stepUuid: string, state: Record<string, unknown> },
+    context: { characterName?: string, characterRef?: t.Expression, speakOptions?: t.ObjectProperty[], stepType: 'dialogue' | 'action', stepIndex: number, stepUuid: string, state: Record<string, unknown> },
     scopeIdentifier?: t.Identifier,
   ): t.Statement[] {
     void scopeIdentifier
@@ -925,6 +927,18 @@ export class QuaScriptTransformer {
         this.handledDecoratorModules.add(compiled.compiler.module)
         this.handledDecoratorModules.add(mapping.module)
         compiled.result.runtimeHelpers?.forEach(helper => this.usedRuntimeHelpers.add(helper))
+        if (compiled.result.characterName !== undefined) {
+          context.characterName = compiled.result.characterName
+        }
+        if (compiled.result.characterRef) {
+          context.characterRef = compiled.result.characterRef
+        }
+        if (compiled.result.speakOptions?.length) {
+          context.speakOptions = [
+            ...(context.speakOptions || []),
+            ...compiled.result.speakOptions,
+          ]
+        }
         if (compiled.result.skip) {
           index = compiled.result.nextIndex ?? index
           continue
@@ -949,7 +963,7 @@ export class QuaScriptTransformer {
 
   private createImplicitDecoratorStatements(
     decorators: QuaScriptDecorator[],
-    context: { characterName?: string, stepType: 'dialogue' | 'action', stepIndex: number, stepUuid: string, state: Record<string, unknown> },
+    context: { characterName?: string, characterRef?: t.Expression, speakOptions?: t.ObjectProperty[], stepType: 'dialogue' | 'action', stepIndex: number, stepUuid: string, state: Record<string, unknown> },
     scopeIdentifier?: t.Identifier,
   ): t.Statement[] {
     void scopeIdentifier
@@ -961,6 +975,18 @@ export class QuaScriptTransformer {
     return implicit.flatMap((compiled) => {
       this.handledDecoratorModules.add(compiled.compiler.module)
       compiled.result.runtimeHelpers?.forEach(helper => this.usedRuntimeHelpers.add(helper))
+      if (compiled.result.characterName !== undefined) {
+        context.characterName = compiled.result.characterName
+      }
+      if (compiled.result.characterRef) {
+        context.characterRef = compiled.result.characterRef
+      }
+      if (compiled.result.speakOptions?.length) {
+        context.speakOptions = [
+          ...(context.speakOptions || []),
+          ...compiled.result.speakOptions,
+        ]
+      }
       if (compiled.result.skip || !compiled.result.call) {
         return []
       }
@@ -1151,6 +1177,7 @@ export class QuaScriptTransformer {
 
   private createSpeakCall(
     dialogue: QuaScriptDialogue,
+    context: { characterRef?: t.Expression, speakOptions?: t.ObjectProperty[] },
     options: {
       quasi?: t.TemplateLiteral
       scopeIdentifier?: t.Identifier
@@ -1167,8 +1194,11 @@ export class QuaScriptTransformer {
       t.identifier('speakWithEngine'),
       [
         t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
-        t.stringLiteral(dialogue.character),
+        context.characterRef || t.stringLiteral(dialogue.character),
         textExpression,
+        ...(context.speakOptions?.length
+          ? [t.objectExpression(context.speakOptions)]
+          : []),
       ],
     )
   }

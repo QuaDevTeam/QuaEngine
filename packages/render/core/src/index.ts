@@ -472,6 +472,8 @@ export interface ViewDialogueProjection {
   visible: boolean
   characterId?: string
   characterName?: string
+  speaker?: RichTextContent
+  speakerStyle?: RichTextStyleProjection
   text: RichTextContent
   mode?: 'say' | 'narration'
   typewriter?: Readonly<DialogueTypewriterProjection>
@@ -726,6 +728,8 @@ export interface CharacterPayload {
 export interface DialogueShowPayload {
   characterId?: string
   characterName?: string
+  speaker?: RichTextContent
+  speakerStyle?: RichTextStyleProjection
   text: RichTextContent
   mode?: ViewDialogueProjection['mode']
   typewriter?: ViewDialogueProjection['typewriter']

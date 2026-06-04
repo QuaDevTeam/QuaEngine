@@ -25,7 +25,7 @@ export function createAnimationDecoratorCompiler() {
       decorator: { name: string, args: unknown[] }
       decorators: { name: string, args: unknown[] }[]
       index: number
-      context: { characterName?: string }
+      context: { characterName?: string, characterRef?: t.Expression }
     }) {
       const engineArg = t.memberExpression(t.identifier('ctx'), t.identifier('engine'))
 
@@ -69,7 +69,7 @@ export function createAnimationDecoratorCompiler() {
             createAnimationTimelineObject({
               duration,
               keys,
-              allowOmittedTarget: Boolean(context.characterName),
+              allowOmittedTarget: Boolean(context.characterRef || context.characterName),
             }),
             createAnimationPlayOptionsObject({
               defaultTarget: createDefaultSelfTarget(context),
@@ -187,8 +187,24 @@ function createAnimationPlayOptionsObject(options: {
   return t.objectExpression(properties)
 }
 
-function createDefaultSelfTarget(context: { characterName?: string }): t.StringLiteral | undefined {
+function createDefaultSelfTarget(context: { characterName?: string, characterRef?: t.Expression }): t.Expression | undefined {
+  if (context.characterRef) {
+    return createCharacterTargetExpression(context.characterRef)
+  }
   return context.characterName ? t.stringLiteral(`character:${context.characterName}`) : undefined
+}
+
+function createCharacterTargetExpression(character: t.Expression): t.Expression {
+  if (t.isStringLiteral(character)) {
+    return t.stringLiteral(`character:${character.value}`)
+  }
+  return t.templateLiteral(
+    [
+      t.templateElement({ raw: 'character:', cooked: 'character:' }),
+      t.templateElement({ raw: '', cooked: '' }, true),
+    ],
+    [character],
+  )
 }
 
 function requireDecoratorArg(decorator: { name: string }, arg: t.Expression | undefined, name: string): t.Expression {

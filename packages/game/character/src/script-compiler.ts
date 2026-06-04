@@ -4,6 +4,9 @@ import { characterDecoratorMappings } from './decorators'
 export { characterDecoratorMappings } from './decorators'
 
 const SUPPORTED_FUNCTIONS = new Set([
+  'speaker',
+  'speakerName',
+  'speakerStyle',
   'sprite',
   'show',
   'hide',
@@ -36,16 +39,44 @@ export function createCharacterDecoratorCompiler() {
     },
     compile({ decorator, context, mapping }: {
       decorator: { name: string, args: unknown[] }
-      context: { characterName?: string }
+      context: { characterName?: string, characterRef?: t.Expression, stepType: 'dialogue' | 'action' }
       mapping: { function: string }
     }) {
       const args = createDecoratorArgs(decorator)
       const engineArg = t.memberExpression(t.identifier('ctx'), t.identifier('engine'))
 
       switch (mapping.function) {
+        case 'speaker': {
+          requireDialogueContext(decorator, context)
+          const character = requireDecoratorArg(decorator, args[0], 'character')
+          return {
+            characterRef: character,
+            skip: true,
+          }
+        }
+        case 'speakerName': {
+          requireDialogueContext(decorator, context)
+          const speaker = requireDecoratorArg(decorator, args[0], 'speaker name')
+          return {
+            speakOptions: [
+              t.objectProperty(t.identifier('speaker'), speaker),
+            ],
+            skip: true,
+          }
+        }
+        case 'speakerStyle': {
+          requireDialogueContext(decorator, context)
+          const speakerStyle = requireDecoratorArg(decorator, args[0], 'speaker style')
+          return {
+            speakOptions: [
+              t.objectProperty(t.identifier('speakerStyle'), speakerStyle),
+            ],
+            skip: true,
+          }
+        }
         case 'sprite': {
           const sprite = requireDecoratorArg(decorator, args[0], 'asset')
-          const character = args[1] || requireDecoratorCharacter(decorator, context.characterName)
+          const character = args[1] || requireDecoratorCharacter(decorator, context)
           return {
             call: t.callExpression(t.identifier('spriteWithEngine'), [
               engineArg,
@@ -56,18 +87,18 @@ export function createCharacterDecoratorCompiler() {
           }
         }
         case 'show': {
-          const character = args[0] || requireDecoratorCharacter(decorator, context.characterName)
+          const { character, options } = createShowCharacterCallArgs(decorator, args, context)
           return {
             call: t.callExpression(t.identifier('showWithEngine'), [
               engineArg,
               character,
-              createCharacterOptionsObject(args.slice(1)),
+              options,
             ]),
             runtimeHelpers: ['showWithEngine'],
           }
         }
         case 'hide': {
-          const character = args[0] || requireDecoratorCharacter(decorator, context.characterName)
+          const character = args[0] || requireDecoratorCharacter(decorator, context)
           return {
             call: t.callExpression(t.identifier('hideWithEngine'), [
               engineArg,
@@ -77,7 +108,7 @@ export function createCharacterDecoratorCompiler() {
           }
         }
         case 'move': {
-          const character = args[0] || requireDecoratorCharacter(decorator, context.characterName)
+          const character = args[0] || requireDecoratorCharacter(decorator, context)
           return {
             call: t.callExpression(t.identifier('moveWithEngine'), [
               engineArg,
@@ -88,7 +119,7 @@ export function createCharacterDecoratorCompiler() {
           }
         }
         case 'expression': {
-          const character = args[1] || requireDecoratorCharacter(decorator, context.characterName)
+          const character = args[1] || requireDecoratorCharacter(decorator, context)
           return {
             call: t.callExpression(t.identifier('expressionWithEngine'), [
               engineArg,
@@ -99,7 +130,7 @@ export function createCharacterDecoratorCompiler() {
           }
         }
         case 'playCharacterFadeWithEngine': {
-          const character = args[0] || requireDecoratorCharacter(decorator, context.characterName)
+          const character = args[0] || requireDecoratorCharacter(decorator, context)
           const from = requireDecoratorArg(decorator, args[1], 'from opacity')
           const to = requireDecoratorArg(decorator, args[2], 'to opacity')
           const duration = args[3]
@@ -117,7 +148,7 @@ export function createCharacterDecoratorCompiler() {
           }
         }
         case 'playCharacterEnterWithEngine': {
-          const character = args[0] || requireDecoratorCharacter(decorator, context.characterName)
+          const character = args[0] || requireDecoratorCharacter(decorator, context)
           const direction = requireDecoratorArg(decorator, args[1], 'direction')
           return {
             call: t.callExpression(t.identifier('playCharacterEnterWithEngine'), [
@@ -130,7 +161,7 @@ export function createCharacterDecoratorCompiler() {
           }
         }
         case 'playCharacterExitWithEngine': {
-          const character = args[0] || requireDecoratorCharacter(decorator, context.characterName)
+          const character = args[0] || requireDecoratorCharacter(decorator, context)
           const direction = requireDecoratorArg(decorator, args[1], 'direction')
           return {
             call: t.callExpression(t.identifier('playCharacterExitWithEngine'), [
@@ -157,29 +188,6 @@ export const decorators = characterDecoratorMappings
 
 function createDecoratorArgs(decorator: { args: unknown[] }): t.Expression[] {
   return decorator.args.map(arg => toExpression(arg))
-}
-
-function createCharacterOptionsObject(args: t.Expression[]): t.ObjectExpression {
-  const properties: t.ObjectProperty[] = []
-  const [sprite, expression, x, y, layer] = args
-
-  if (sprite) {
-    properties.push(t.objectProperty(t.identifier('sprite'), sprite))
-  }
-  if (expression) {
-    properties.push(t.objectProperty(t.identifier('expression'), expression))
-  }
-  if (x || y) {
-    properties.push(t.objectProperty(
-      t.identifier('position'),
-      createCharacterPositionObject([x, y]),
-    ))
-  }
-  if (layer) {
-    properties.push(t.objectProperty(t.identifier('layer'), layer))
-  }
-
-  return t.objectExpression(properties)
 }
 
 function createCharacterPositionObject(args: Array<t.Expression | undefined>): t.ObjectExpression {
@@ -257,11 +265,58 @@ function isBooleanishExpression(value: t.Expression): boolean {
   return t.isBooleanLiteral(value)
 }
 
-function requireDecoratorCharacter(decorator: { name: string }, characterName?: string): t.StringLiteral {
-  if (!characterName) {
+function createShowCharacterCallArgs(
+  decorator: { name: string },
+  args: t.Expression[],
+  context: { characterName?: string, characterRef?: t.Expression, stepType: 'dialogue' | 'action' },
+): { character: t.Expression, options: t.Expression } {
+  if (args.some(isUndefinedExpression)) {
+    throw new Error(`@${decorator.name} does not accept undefined placeholders. Use @ShowCharacter({ sprite, position, layer }) for the current dialogue speaker or @ShowCharacter(character, options) for an explicit character.`)
+  }
+  if (args.length === 0) {
+    return {
+      character: requireDecoratorCharacter(decorator, context),
+      options: t.objectExpression([]),
+    }
+  }
+  if (args.length === 1) {
+    if (t.isObjectExpression(args[0])) {
+      return {
+        character: requireDecoratorCharacter(decorator, context),
+        options: args[0],
+      }
+    }
+    return {
+      character: args[0],
+      options: t.objectExpression([]),
+    }
+  }
+  if (args.length === 2 && !t.isObjectExpression(args[0]) && isOptionsExpression(args[1])) {
+    return {
+      character: args[0],
+      options: args[1],
+    }
+  }
+  throw new Error(`@${decorator.name} expects (), (options), (character), or (character, options). Positional sprite/x/y arguments are no longer supported.`)
+}
+
+function requireDecoratorCharacter(
+  decorator: { name: string },
+  context: { characterName?: string, characterRef?: t.Expression, stepType: 'dialogue' | 'action' },
+): t.Expression {
+  if (!context.characterRef && !context.characterName) {
     throw new Error(`@${decorator.name} requires an explicit character when used outside a dialogue line.`)
   }
-  return t.stringLiteral(characterName)
+  return context.characterRef || t.stringLiteral(context.characterName!)
+}
+
+function requireDialogueContext(
+  decorator: { name: string },
+  context: { stepType: 'dialogue' | 'action' },
+): void {
+  if (context.stepType !== 'dialogue') {
+    throw new Error(`@${decorator.name} can only be used on a dialogue line.`)
+  }
 }
 
 function requireDecoratorArg(decorator: { name: string }, arg: t.Expression | undefined, name: string): t.Expression {
@@ -269,6 +324,10 @@ function requireDecoratorArg(decorator: { name: string }, arg: t.Expression | un
     throw new Error(`@${decorator.name} requires ${name}.`)
   }
   return arg
+}
+
+function isUndefinedExpression(value: t.Expression): boolean {
+  return t.isIdentifier(value) && value.name === 'undefined'
 }
 
 function toExpression(value: unknown): t.Expression {

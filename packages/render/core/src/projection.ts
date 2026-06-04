@@ -93,6 +93,9 @@ export function projectDialogue(
   }
   const projected = projectMotionTarget(projection, animations, 'dialogue:box', now) as unknown as ViewDialogueProjection
   projected.text = projectRichText(projected.text, animations, now, 'dialogue')
+  if (projected.speaker !== undefined) {
+    projected.speaker = projectRichText(projected.speaker, animations, now, 'speaker')
+  }
   return projected
 }
 

@@ -1,6 +1,6 @@
 import type { CharacterIntent, DialogueIntent, QuaEngineInterface } from '@quajs/engine'
-import type { RichTextContent } from '@quajs/render-core'
-import { RenderToLogicEvents } from '@quajs/render-core'
+import type { RichTextContent, RichTextStyleProjection } from '@quajs/render-core'
+import { RenderToLogicEvents, richTextToPlainText } from '@quajs/render-core'
 
 export const CHARACTER_WEB_RENDERER_ENTRY = '@quajs/renderer-web/plugins/character' as const
 export const CHARACTER_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/character' as const
@@ -8,6 +8,30 @@ export const CHARACTER_COCOS_RENDERER_ENTRY = '@quajs/renderer-cocos/plugins/cha
 export const CHARACTER_RENDERER_ENTRY = CHARACTER_WEB_RENDERER_ENTRY
 
 export type CharacterRef = string | QuaCharacter
+
+export interface CharacterSpriteResolution {
+  sprite?: string
+  expression?: string
+}
+
+export interface CharacterProfile {
+  id: string
+  displayName?: string
+  name?: string
+  aliases?: readonly string[]
+  speaker?: RichTextContent
+  speakerStyle?: RichTextStyleProjection
+  spriteBase?: string
+  spriteManifest?: string
+  sprites?: Readonly<Record<string, string | CharacterSpriteResolution>>
+  expressions?: Readonly<Record<string, string | CharacterSpriteResolution>>
+  sprite?: string
+  expression?: string
+  position?: CharacterIntent['position']
+  layer?: number
+  metadata?: Record<string, unknown>
+  visible?: boolean
+}
 
 export interface CharacterRuntimeOptions {
   engine: QuaEngineInterface
@@ -17,6 +41,14 @@ export interface CharacterRuntimeOptions {
 export interface CharacterOptions {
   id?: string
   name?: string
+  displayName?: string
+  aliases?: readonly string[]
+  speaker?: RichTextContent
+  speakerStyle?: RichTextStyleProjection
+  spriteBase?: string
+  spriteManifest?: string
+  sprites?: Readonly<Record<string, string | CharacterSpriteResolution>>
+  expressions?: Readonly<Record<string, string | CharacterSpriteResolution>>
   sprite?: string
   expression?: string
   position?: CharacterIntent['position']
@@ -28,10 +60,16 @@ export interface CharacterOptions {
 export interface CharacterSpeakOptions {
   wait?: boolean
   mode?: 'say' | 'narration'
+  characterName?: string
+  speaker?: RichTextContent
+  speakerStyle?: RichTextStyleProjection
   typewriter?: DialogueIntent['typewriter']
 }
 
+export interface CharacterShowOptions extends Omit<CharacterOptions, 'id' | 'name' | 'displayName' | 'aliases'> {}
+
 let runtime: CharacterRuntimeOptions | undefined
+const characterProfiles = new Map<string, CharacterProfile>()
 
 export function configureCharacterRuntime(options: CharacterRuntimeOptions): void {
   runtime = options
@@ -42,7 +80,37 @@ export function clearCharacterRuntime(): void {
 }
 
 export function createCharacter(name: string, options: CharacterOptions = {}): QuaCharacter {
-  return new QuaCharacter(options.id || name, options.name || name, options)
+  const profile = normalizeCharacterProfile({
+    ...options,
+    id: options.id || name,
+    displayName: options.displayName || options.name || name,
+  })
+  if (options.id || options.name || options.displayName || options.aliases || options.speaker || options.speakerStyle || options.spriteBase || options.spriteManifest || options.sprites || options.expressions) {
+    registerCharacter(profile)
+  }
+  return new QuaCharacter(profile.id, profile.displayName || profile.name || profile.id, profile)
+}
+
+export function registerCharacter(profile: CharacterProfile): QuaCharacter {
+  const normalized = normalizeCharacterProfile(profile)
+  characterProfiles.set(normalized.id, normalized)
+  return new QuaCharacter(normalized.id, normalized.displayName || normalized.name || normalized.id, normalized)
+}
+
+export function registerCharacters(profiles: readonly CharacterProfile[]): QuaCharacter[] {
+  return profiles.map(profile => registerCharacter(profile))
+}
+
+export function clearCharacterRegistry(): void {
+  characterProfiles.clear()
+}
+
+export function getCharacterProfiles(): CharacterProfile[] {
+  return Array.from(characterProfiles.values()).map(profile => cloneCharacterProfile(profile))
+}
+
+export function resolveCharacterRef(character: CharacterRef): QuaCharacter {
+  return resolveCharacter(character)
 }
 
 export function useCharacter<const T extends readonly string[]>(
@@ -77,9 +145,17 @@ export class QuaCharacter {
 
   async speak(text: RichTextContent, options: CharacterSpeakOptions = {}): Promise<void> {
     const engine = getEngine()
+    const speaker = options.speaker ?? this.defaults.speaker
+    const characterName = options.characterName
+      ?? (speaker !== undefined ? richTextToPlainText(speaker) : undefined)
+      ?? this.defaults.displayName
+      ?? this.defaults.name
+      ?? this.name
     await engine.showDialogue({
       characterId: this.id,
-      characterName: this.name,
+      characterName,
+      speaker,
+      speakerStyle: mergeSpeakerStyle(this.defaults.speakerStyle, options.speakerStyle),
       text,
       mode: options.mode || 'say',
       typewriter: options.typewriter,
@@ -89,7 +165,7 @@ export class QuaCharacter {
     }
   }
 
-  async show(options: CharacterOptions = {}): Promise<void> {
+  async show(options: CharacterShowOptions = {}): Promise<void> {
     await getEngine().showCharacter(this.createIntent(options, true))
   }
 
@@ -108,33 +184,77 @@ export class QuaCharacter {
 
   async expression(nextExpression?: string): Promise<void> {
     const engine = getEngine()
+    const resolved = this.resolveSpriteKey(nextExpression, 'expression')
     if (!hasCharacter(engine, this.id) && this.defaults.sprite) {
-      await engine.showCharacter(this.createIntent({ expression: nextExpression }, this.defaults.visible !== false))
+      await engine.showCharacter(this.createIntent(resolved, this.defaults.visible !== false))
       return
     }
-    await engine.setCharacterExpression(this.id, nextExpression)
+    if (resolved.sprite !== undefined) {
+      await this.sprite(resolved.sprite)
+    }
+    await engine.setCharacterExpression(this.id, resolved.expression)
   }
 
   async sprite(nextSprite?: string): Promise<void> {
     const engine = getEngine()
+    const resolved = this.resolveSpriteKey(nextSprite, 'sprite')
     if (!hasCharacter(engine, this.id) && nextSprite !== undefined) {
-      await engine.showCharacter(this.createIntent({ sprite: nextSprite }, true))
+      await engine.showCharacter(this.createIntent(resolved, true))
       return
     }
-    await engine.setCharacterSprite(this.id, nextSprite)
+    if (resolved.expression !== undefined) {
+      await engine.setCharacterExpression(this.id, resolved.expression)
+    }
+    if (resolved.sprite !== undefined || nextSprite === undefined) {
+      await engine.setCharacterSprite(this.id, resolved.sprite)
+    }
   }
 
-  private createIntent(options: CharacterOptions = {}, defaultVisible: boolean): CharacterIntent {
+  private createIntent(options: CharacterShowOptions = {}, defaultVisible: boolean): CharacterIntent {
+    const resolved = this.resolveSpriteOptions(options)
     return {
       id: this.id,
       name: this.name,
-      sprite: options.sprite ?? this.defaults.sprite,
-      expression: options.expression ?? this.defaults.expression,
+      sprite: resolved.sprite ?? this.defaults.sprite,
+      expression: resolved.expression ?? this.defaults.expression,
       position: options.position ?? this.defaults.position,
       layer: options.layer ?? this.defaults.layer,
       metadata: mergeMetadata(this.defaults.metadata, options.metadata),
       visible: options.visible ?? this.defaults.visible ?? defaultVisible,
     }
+  }
+
+  private resolveSpriteOptions(options: CharacterShowOptions): CharacterSpriteResolution {
+    const sprite = this.resolveSpriteKey(options.sprite, 'sprite')
+    const expression = this.resolveSpriteKey(options.expression, 'expression')
+    return {
+      sprite: sprite.sprite ?? (sprite.expression !== undefined ? undefined : options.sprite),
+      expression: expression.expression ?? sprite.expression ?? options.expression,
+    }
+  }
+
+  private resolveSpriteKey(value: string | undefined, kind: 'sprite' | 'expression'): CharacterSpriteResolution {
+    if (value === undefined) {
+      return {}
+    }
+    const profile = getProfileForCharacter(this)
+    const map = kind === 'sprite' ? profile?.sprites : profile?.expressions
+    const direct = map?.[value]
+    if (direct !== undefined) {
+      return normalizeSpriteResolution(direct, kind)
+    }
+    const opposite = kind === 'sprite' ? profile?.expressions?.[value] : profile?.sprites?.[value]
+    if (opposite !== undefined) {
+      return normalizeSpriteResolution(opposite, kind === 'sprite' ? 'expression' : 'sprite')
+    }
+    const fallback = resolveSpriteKeyFromProfile(profile, value, kind)
+    if (fallback) {
+      return fallback
+    }
+    if (kind === 'sprite') {
+      return { sprite: value }
+    }
+    return { expression: value }
   }
 }
 
@@ -151,14 +271,14 @@ export async function speakWithEngine(
   await withEngine(engine, () => speak(character, text, options))
 }
 
-export async function show(character: CharacterRef, options?: CharacterOptions): Promise<void> {
+export async function show(character: CharacterRef, options?: CharacterShowOptions): Promise<void> {
   await resolveCharacter(character).show(options)
 }
 
 export async function showWithEngine(
   engine: QuaEngineInterface,
   character: CharacterRef,
-  options?: CharacterOptions,
+  options?: CharacterShowOptions,
 ): Promise<void> {
   await withEngine(engine, () => show(character, options))
 }
@@ -214,7 +334,27 @@ export async function setCurrentSprite(spriteAsset: string, character?: Characte
 export { characterDecoratorMappings, decorators } from './decorators'
 
 function resolveCharacter(character: CharacterRef): QuaCharacter {
-  return typeof character === 'string' ? createCharacter(character) : character
+  if (typeof character !== 'string') {
+    return character
+  }
+  const byId = characterProfiles.get(character)
+  if (byId) {
+    return new QuaCharacter(byId.id, byId.displayName || byId.name || byId.id, byId)
+  }
+  const matches = Array.from(characterProfiles.values()).filter(profile =>
+    profile.displayName === character
+    || profile.name === character
+    || profile.aliases?.includes(character),
+  )
+  if (matches.length === 1) {
+    const profile = matches[0]
+    return new QuaCharacter(profile.id, profile.displayName || profile.name || profile.id, profile)
+  }
+  if (matches.length > 1) {
+    const ids = matches.map(profile => profile.id).join(', ')
+    throw new Error(`Character reference "${character}" is ambiguous. Use an explicit character id with @Speaker(...) or a QuaCharacter reference. Matching ids: ${ids}.`)
+  }
+  return createCharacter(character)
 }
 
 async function withEngine<T>(engine: QuaEngineInterface, operation: () => Promise<T>): Promise<T> {
@@ -254,6 +394,81 @@ function mergeMetadata(
 ): Record<string, unknown> | undefined {
   if (!defaults && !next)
     return undefined
+  return {
+    ...(defaults || {}),
+    ...(next || {}),
+  }
+}
+
+function normalizeCharacterProfile(profile: CharacterProfile): CharacterProfile {
+  const displayName = profile.displayName || profile.name || profile.id
+  return {
+    ...profile,
+    displayName,
+    name: displayName,
+    sprite: profile.sprite ?? profile.spriteManifest,
+  }
+}
+
+function cloneCharacterProfile(profile: CharacterProfile): CharacterProfile {
+  return {
+    ...profile,
+    aliases: profile.aliases ? [...profile.aliases] : undefined,
+    metadata: profile.metadata ? { ...profile.metadata } : undefined,
+  }
+}
+
+function getProfileForCharacter(character: QuaCharacter): CharacterProfile | undefined {
+  return characterProfiles.get(character.id) || normalizeCharacterProfile({
+    ...(character.getDefaults() as CharacterProfile),
+    id: character.id,
+    displayName: character.name,
+  })
+}
+
+function normalizeSpriteResolution(
+  value: string | CharacterSpriteResolution,
+  kind: 'sprite' | 'expression',
+): CharacterSpriteResolution {
+  if (typeof value !== 'string') {
+    return { ...value }
+  }
+  return kind === 'sprite'
+    ? { sprite: value }
+    : { expression: value }
+}
+
+function resolveSpriteKeyFromProfile(
+  profile: CharacterProfile | undefined,
+  value: string,
+  kind: 'sprite' | 'expression',
+): CharacterSpriteResolution | undefined {
+  if (!profile || isExplicitSpriteReference(value)) {
+    return undefined
+  }
+  if (kind === 'sprite' && profile.spriteBase) {
+    return { sprite: `${profile.spriteBase.replace(/\/+$/, '')}/${value}.png` }
+  }
+  if (profile.spriteManifest) {
+    return { sprite: profile.spriteManifest, expression: value }
+  }
+  return undefined
+}
+
+function isExplicitSpriteReference(value: string): boolean {
+  return value.includes('/')
+    || value.includes('\\')
+    || /^[a-z][a-z0-9+.-]*:/i.test(value)
+    || /\.[a-z0-9]+$/i.test(value)
+}
+
+function mergeSpeakerStyle(
+  defaults?: RichTextStyleProjection,
+  next?: RichTextStyleProjection,
+): RichTextStyleProjection | undefined {
+  if (!defaults && !next) {
+    return undefined
+  }
   return {
     ...(defaults || {}),
     ...(next || {}),
