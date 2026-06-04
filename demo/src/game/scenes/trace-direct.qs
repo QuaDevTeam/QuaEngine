@@ -61,11 +61,12 @@ Mara: 所有会伤人的系统都这么说。
 
 ORACLE: Mara Tachibana。你父亲的调度事故使十二名乘客延误，其中一名错过手术。
 
-@SetSprite('mara/angry.png', 'Mara')
+@SetSprite('mara/break.png', 'Mara')
 Mara: 闭嘴。
 
 ORACLE: 你参与反抗组织，是为了证明人工判断仍有价值。
 
+@SetSprite('mara/angry.png', 'Mara')
 Mara: 我说闭嘴。
 
 神代澪: ORACLE，停止心理施压。

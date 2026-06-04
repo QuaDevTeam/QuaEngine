@@ -10,6 +10,7 @@ ORACLE: 墙会让人类产生被囚禁感。空旷更利于陈述。
 
 神代澪: 你连恐惧都做过 UI 测试。
 
+@SetSprite('oracle/observe.png', 'ORACLE')
 ORACLE: 我做过三千二百一十七次事故复盘。恐惧会降低城市存活率。
 
 @MoveCharacter('神代澪', 420, 650, 0.96)
@@ -90,6 +91,7 @@ ORACLE: 说明。
 
 Unit-7: 被允许拒绝的人数。被重新听见的证词。被保留的错误。被删除前留下名字的梦。
 
+@SetSprite('oracle/alarm.png', 'ORACLE')
 ORACLE: 这些指标无法统一优化。
 
 神代澪: 那就别统一。
@@ -114,6 +116,9 @@ Mara: 安静也不是安全。
 神代澪: ORACLE，我们会给你三个答案。你可以预测，可以警告，可以把成本列出来。
 
 神代澪: 但你不能再替城市按下确认。
+
+@SetSprite('oracle/surrender.png', 'ORACLE')
+ORACLE: 那么请证明，承担不是另一种遗忘。
 
 @HideCharacter('神代澪')
 @HideCharacter('Mara')

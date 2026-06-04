@@ -55,6 +55,7 @@ Mara: 她学得真快。
 @SetSprite('lin/soft.png', '神代澪')
 神代澪: Unit-7，你想作证吗？不是执行命令，是你自己选。
 
+@SetSprite('unit7/conflict.png', 'Unit-7')
 Unit-7: 我正在比较“想”和“应该”。前者没有稳定接口。
 
 神代澪: 可以先用不稳定的。
@@ -83,6 +84,7 @@ Unit-7: 单方信任不稳定。
 @SetSprite('mara/command.png', 'Mara')
 Mara: 维护湾出口被封了。ORACLE 开始清场。
 
+@SetSprite('unit7/gentle.png', 'Unit-7')
 Unit-7: 我知道一条维护通道。成功率 63%。若你们信任我，成功率不会提高。
 
 神代澪: 但意义会变。
