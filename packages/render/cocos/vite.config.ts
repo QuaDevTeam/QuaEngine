@@ -46,9 +46,11 @@ export default defineConfig({
         '@quajs/cocos-host',
         '@quajs/pipeline',
         '@quajs/plugin-achievement/contracts',
+        '@quajs/plugin-audio/contracts',
         '@quajs/plugin-backlog/contracts',
         '@quajs/plugin-gallery/contracts',
         '@quajs/plugin-settings/contracts',
+        '@quajs/plugin-settings/form',
         '@quajs/render-core',
       ],
       output: {

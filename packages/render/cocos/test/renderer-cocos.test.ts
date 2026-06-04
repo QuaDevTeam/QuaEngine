@@ -2,6 +2,8 @@ import type { AssetData } from '@quajs/assets'
 import type { QuaViewProjection } from '@quajs/render-core'
 import { createFakeCocosHost } from '@quajs/cocos-host/testing'
 import { Pipeline } from '@quajs/pipeline'
+import { AudioRenderToLogicEvents } from '@quajs/plugin-audio/contracts'
+import { SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
 import { createFlowControlProjection, createViewLayoutProjection, LogicToRenderEvents, RenderToLogicEvents } from '@quajs/render-core'
 import { describe, expect, it } from 'vitest'
 import { QuaCocosRendererController } from '../src'
@@ -122,6 +124,163 @@ describe('@quajs/renderer-cocos', () => {
     expect(results[0]).toMatchObject({ requestId: 'request', mimeType: 'image/png' })
   })
 
+  it('renders Cocos UI overlay content and dispatches overlay actions', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const closes: unknown[] = []
+    const pluginEvents: unknown[] = []
+    pipeline.on(RenderToLogicEvents.UI_REQUEST_CLOSE, context => closes.push(context.event.payload))
+    pipeline.on('ui/custom_action', context => pluginEvents.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView({
+        uiOverlays: {
+          menu: {
+            visible: true,
+            title: 'Menu',
+            subtitle: 'System',
+            description: 'Manage the current session.',
+            actions: [{
+              label: 'Custom',
+              event: 'ui/custom_action',
+              payload: { ok: true },
+            }],
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    expect([...host.nodesById.values()].find(node => node.name === 'menu:title')?.text).toBe('Menu')
+    expect([...host.nodesById.values()].find(node => node.name === 'menu:description')?.text).toBe('Manage the current session.')
+
+    const close = [...host.nodesById.values()].find(node => node.name === 'menu:close')
+    const action = [...host.nodesById.values()].find(node => node.name === 'menu:action:0')
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: close })
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: action })
+
+    expect(closes).toEqual([{ elementId: 'menu' }])
+    expect(pluginEvents).toEqual([{ ok: true }])
+  })
+
+  it('renders settings form controls and dispatches settings intents', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const updates: unknown[] = []
+    const resetScopes: unknown[] = []
+    const resetAll: unknown[] = []
+    const closes: unknown[] = []
+    pipeline.on(SettingsRenderToLogicEvents.UPDATE_REQUEST, context => updates.push(context.event.payload))
+    pipeline.on(SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST, context => resetScopes.push(context.event.payload))
+    pipeline.on(SettingsRenderToLogicEvents.RESET_ALL_REQUEST, context => resetAll.push(context.event.payload))
+    pipeline.on(RenderToLogicEvents.UI_REQUEST_CLOSE, context => closes.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView({
+        settings: createSettingsProjection(),
+        uiOverlays: {
+          settings: { open: true },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    const muted = [...host.nodesById.values()].find(node => node.metadata.settingsPathKey === 'muted')
+    const quality = [...host.nodesById.values()].find(node => node.metadata.settingsPathKey === 'quality')
+    const speed = [...host.nodesById.values()].find(node => node.metadata.settingsPathKey === 'speed')
+    expect(muted?.control).toMatchObject({ kind: 'toggle', checked: false })
+    expect(quality?.control).toMatchObject({ kind: 'select' })
+    expect(speed?.control).toMatchObject({ kind: 'slider', min: 0, max: 2, step: 0.5 })
+
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: muted })
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: quality })
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: speed, metadata: { value: '1.5' } })
+
+    expect(updates).toEqual([
+      { scope: 'player', patch: { muted: true } },
+      { scope: 'player', patch: { quality: 'high' } },
+      { scope: 'player', patch: { speed: 1.5 } },
+    ])
+
+    const resetScope = [...host.nodesById.values()].find(node => node.metadata.settingsAction === 'resetScope')
+    const resetAllNode = [...host.nodesById.values()].find(node => node.metadata.settingsAction === 'resetAll')
+    const close = [...host.nodesById.values()].find(node => node.name === 'settings:close')
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: resetScope })
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: resetAllNode })
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: close })
+    expect(resetScopes).toEqual([{ scope: 'player' }])
+    expect(resetAll).toEqual([{}])
+    expect(closes).toEqual([{ elementId: 'settings' }])
+  })
+
+  it('applies UI skin manifests as sliced Cocos sprites', async () => {
+    const host = createFakeCocosHost()
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      assets: createFakeAssets({
+        json: {
+          'data:ui/dark/ui-skin.manifest.json': {
+            version: 1,
+            family: 'ui/dark',
+            skins: {
+              panel: {
+                base: { asset: 'panel.png' },
+                slice: { top: 12, right: 12, bottom: 12, left: 12 },
+                contentInsets: { top: 6, right: 7, bottom: 8, left: 9 },
+              },
+              button: {
+                base: { asset: 'button.png' },
+                slice: { top: 4, right: 5, bottom: 6, left: 7 },
+              },
+            },
+          },
+        },
+        assets: {
+          'images:ui/dark/panel.png': imageAsset('ui/dark/panel.png'),
+          'images:ui/dark/button.png': imageAsset('ui/dark/button.png'),
+        },
+      }),
+      initialView: createView({
+        uiOverlays: {
+          menu: {
+            visible: true,
+            title: 'Skinned',
+          },
+        },
+        plugins: {
+          ui: {
+            themeId: 'dark',
+            defaults: {
+              panel: 'panel',
+              button: 'button',
+            },
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    const close = [...host.nodesById.values()].find(node => node.name === 'menu:close')
+    expect(close?.spriteOptions).toMatchObject({
+      mode: 'sliced',
+      slice: { top: 4, right: 5, bottom: 6, left: 7 },
+    })
+    const panel = [...host.nodesById.values()].find(node => node.name === 'menu')
+    expect(panel?.spriteOptions).toMatchObject({
+      mode: 'sliced',
+      contentInsets: { top: 6, right: 7, bottom: 8, left: 9 },
+    })
+  })
+
   it('reuses audio handles and disposes inactive audio resources', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()
@@ -148,6 +307,38 @@ describe('@quajs/renderer-cocos', () => {
     await flushAsync()
     expect(first?.disposed).toBe(true)
     expect(host.resourcesById.size).toBe(0)
+  })
+
+  it('forwards Cocos audio ended events and applies bus EQ', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const ended: unknown[] = []
+    pipeline.on(AudioRenderToLogicEvents.ENDED, context => ended.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      assets: createFakeAssets(),
+      initialView: createView({
+        audioAsset: 'voice.ogg',
+        audioKind: 'voice',
+        audioEq: [{ frequency: 1000, gainDb: -3 }],
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    expect(host.audioBusEq.get('voice')).toEqual([{ frequency: 1000, gainDb: -3 }])
+    const handle = await waitForAudioHandle(host, 'voice:main')
+    expect(handle.endedListenerCount).toBe(1)
+    handle.emitEnded()
+    await waitFor(() => ended.length > 0)
+    expect(ended).toHaveLength(1)
+    expect(ended[0]).toMatchObject({
+      channel: 'voice',
+      id: 'main',
+      assetKey: 'voice.ogg',
+    })
   })
 
   it('projects animation targets from feature plugins into transient Cocos nodes', async () => {
@@ -280,12 +471,30 @@ describe('@quajs/renderer-cocos', () => {
 function createView(options: {
   dialogueText?: string
   audioAsset?: string
+  audioKind?: 'bgm' | 'voice' | 'sfx' | 'ambient'
+  audioEq?: readonly unknown[]
   gallery?: Record<string, unknown>
+  settings?: Record<string, unknown>
   plugins?: Record<string, unknown>
   animations?: QuaViewProjection['animations']
   uiOverlay?: Record<string, unknown>
+  uiOverlays?: Record<string, Record<string, unknown>>
   effects?: QuaViewProjection['effects']
 } = {}): QuaViewProjection {
+  const uiOverlays = {
+    ...(options.uiOverlays || {}),
+    ...(options.uiOverlay ? { menu: options.uiOverlay } : {}),
+  }
+  const audioKind = options.audioKind || 'bgm'
+  const audioTrack = options.audioAsset
+    ? {
+        id: 'main',
+        kind: audioKind,
+        assetKey: options.audioAsset,
+        state: 'playing',
+        loop: audioKind === 'bgm' || audioKind === 'ambient',
+      }
+    : undefined
   return {
     layout: createViewLayoutProjection(),
     characters: [{
@@ -306,11 +515,9 @@ function createView(options: {
     }],
     ui: {
       visible: true,
-      ...(options.uiOverlay
+      ...(Object.keys(uiOverlays).length > 0
         ? {
-            overlays: {
-              menu: options.uiOverlay,
-            },
+            overlays: uiOverlays,
           }
         : {}),
     },
@@ -325,25 +532,20 @@ function createView(options: {
               unlocked: true,
               buses: {
                 master: {},
-                bgm: {},
-                voice: {},
-                sfx: {},
-                ambient: {},
+                bgm: audioKind === 'bgm' && options.audioEq ? { eq: options.audioEq } : {},
+                voice: audioKind === 'voice' && options.audioEq ? { eq: options.audioEq } : {},
+                sfx: audioKind === 'sfx' && options.audioEq ? { eq: options.audioEq } : {},
+                ambient: audioKind === 'ambient' && options.audioEq ? { eq: options.audioEq } : {},
               },
-              bgm: {
-                id: 'main',
-                kind: 'bgm',
-                assetKey: options.audioAsset,
-                state: 'playing',
-                loop: true,
-              },
-              voices: [],
-              sfx: [],
-              ambients: [],
+              ...(audioKind === 'bgm' ? { bgm: audioTrack } : {}),
+              voices: audioKind === 'voice' ? [audioTrack] : [],
+              sfx: audioKind === 'sfx' ? [audioTrack] : [],
+              ambients: audioKind === 'ambient' ? [audioTrack] : [],
             },
           }
         : {}),
       ...(options.gallery ? { gallery: options.gallery } : {}),
+      ...(options.settings ? { settings: options.settings } : {}),
       ...(options.plugins || {}),
     },
   }
@@ -353,11 +555,70 @@ function structuredCloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
-function createFakeAssets() {
-  const asset: AssetData = {
-    id: 'bundle:audio:bgm.ogg',
-    type: 'audio',
-    name: 'bgm.ogg',
+function createSettingsProjection() {
+  return {
+    revision: 1,
+    profileId: 'default',
+    updatedAt: 1,
+    scopes: {
+      player: {
+        title: 'Player',
+        schema: {
+          type: 'object',
+          properties: {
+            muted: { type: 'boolean', title: 'Muted' },
+            quality: { type: 'string', enum: ['low', 'high'], title: 'Quality' },
+            speed: { type: 'number', minimum: 0, maximum: 2, multipleOf: 0.5, title: 'Speed' },
+          },
+        },
+        defaults: { muted: false, quality: 'low', speed: 1 },
+        values: { muted: false, quality: 'low', speed: 1 },
+      },
+    },
+  }
+}
+
+function createFakeAssets(options: {
+  assets?: Record<string, AssetData>
+  json?: Record<string, unknown>
+} = {}) {
+  const assets = new Map<string, AssetData>(Object.entries(options.assets || {}))
+  for (const [key, value] of Object.entries(options.json || {})) {
+    assets.set(key, {
+      id: `bundle:${key}`,
+      type: 'data',
+      name: key.split(':').slice(1).join(':'),
+      bundleName: 'bundle',
+      locale: 'default',
+      data: new TextEncoder().encode(JSON.stringify(value)),
+      size: JSON.stringify(value).length,
+      version: 1,
+      mtime: 1,
+      fromCache: true,
+      mimeType: 'application/json',
+    })
+  }
+  return {
+    getAsset: async (type: string, name: string) => {
+      const key = `${type}:${name}`
+      return assets.get(key) || defaultAsset(type, name)
+    },
+    getJSON: async <T>(type: string, name: string): Promise<T> => {
+      const asset = assets.get(`${type}:${name}`)
+      if (!asset)
+        throw new Error(`Missing fake JSON asset: ${type}:${name}`)
+      return JSON.parse(new TextDecoder().decode(asset.data)) as T
+    },
+    on: () => {},
+    off: () => {},
+  } as never
+}
+
+function defaultAsset(type: string, name: string): AssetData {
+  return {
+    id: `bundle:${type}:${name}`,
+    type: type as AssetData['type'],
+    name,
     bundleName: 'bundle',
     locale: 'default',
     data: new Uint8Array([1, 2, 3]),
@@ -366,14 +627,34 @@ function createFakeAssets() {
     mtime: 1,
     fromCache: true,
   }
+}
+
+function imageAsset(name: string): AssetData {
   return {
-    getAsset: async () => asset,
-    on: () => {},
-    off: () => {},
-  } as never
+    ...defaultAsset('images', name),
+    mimeType: 'image/png',
+  }
 }
 
 async function flushAsync(): Promise<void> {
   await Promise.resolve()
   await Promise.resolve()
+}
+
+async function waitForAudioHandle(host: ReturnType<typeof createFakeCocosHost>, id: string) {
+  for (let index = 0; index < 10; index += 1) {
+    const handle = host.audioHandlesById.get(id)
+    if (handle)
+      return handle
+    await flushAsync()
+  }
+  throw new Error(`Missing fake Cocos audio handle: ${id}`)
+}
+
+async function waitFor(predicate: () => boolean): Promise<void> {
+  for (let index = 0; index < 10; index += 1) {
+    if (predicate())
+      return
+    await flushAsync()
+  }
 }
