@@ -4,6 +4,7 @@ import dts from 'vite-plugin-dts'
 
 const entries = {
   'index': resolve(import.meta.dirname, 'src/index.ts'),
+  'plugins/core': resolve(import.meta.dirname, 'src/plugins/core.ts'),
   'plugins/input': resolve(import.meta.dirname, 'src/plugins/input.ts'),
   'plugins/background': resolve(import.meta.dirname, 'src/plugins/background.ts'),
   'plugins/sprite': resolve(import.meta.dirname, 'src/plugins/sprite.ts'),
