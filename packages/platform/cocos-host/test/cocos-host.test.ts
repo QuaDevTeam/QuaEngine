@@ -43,6 +43,46 @@ describe('createFakeCocosHost', () => {
 
     expect(host.nodes.hitTest?.(host.root, { x: 10, y: 10 }, { metadataKey: 'choiceId' })?.metadata?.choiceId).toBe('high')
   })
+
+  it('records sliced sprite, control, and audio ended projection state', async () => {
+    const host = createFakeCocosHost()
+    const node = host.nodes.createNode('button', { parent: host.root })
+    const resource = await host.assets.createResource('spriteFrame', new Uint8Array([1]), { id: 'panel' })
+    host.nodes.setNodeSprite(node, resource, {
+      mode: 'sliced',
+      slice: { top: 4, right: 5, bottom: 6, left: 7 },
+      contentInsets: { top: 1, right: 2, bottom: 3, left: 4 },
+      tint: '#ffffff',
+      opacity: 0.8,
+    })
+    host.nodes.setNodeControl?.(node, {
+      kind: 'toggle',
+      checked: true,
+      label: 'Enabled',
+      metadata: { source: 'test' },
+    })
+
+    const fakeNode = node as any
+    expect(fakeNode.sprite).toBe(resource)
+    expect(fakeNode.spriteOptions).toMatchObject({
+      mode: 'sliced',
+      slice: { top: 4, right: 5, bottom: 6, left: 7 },
+      contentInsets: { top: 1, right: 2, bottom: 3, left: 4 },
+    })
+    expect(fakeNode.control).toMatchObject({ kind: 'toggle', checked: true, label: 'Enabled' })
+
+    const handle = await host.audio.createAudioHandle(resource, { id: 'audio:test', playbackRate: 1.25 })
+    let ended = 0
+    const dispose = handle.onEnded?.(() => {
+      ended += 1
+    })
+    const fakeHandle = handle as any
+    fakeHandle.emitEnded()
+    dispose?.()
+    fakeHandle.emitEnded()
+    expect(ended).toBe(1)
+    expect(fakeHandle.playbackRate).toBe(1.25)
+  })
 })
 
 describe('createCocosCreatorHost', () => {
@@ -108,6 +148,81 @@ describe('createCocosCreatorHost', () => {
     expect(events).toHaveLength(1)
     expect(await host.capture?.captureNode(host.nodes.getRootNode())).toMatchObject({ mimeType: 'image/png', width: 1280 })
   })
+
+  it('re-enables Creator control components from updated projection state', () => {
+    class Node {
+      name: string
+      children: unknown[] = []
+      private components = new Map<unknown, unknown>()
+
+      constructor(name: string) {
+        this.name = name
+      }
+
+      addChild(child: unknown) {
+        this.children.push(child)
+      }
+
+      removeChild(child: unknown) {
+        this.children = this.children.filter(item => item !== child)
+      }
+
+      getComponent(component: unknown) {
+        return this.components.get(component)
+      }
+
+      addComponent(Component: new () => unknown) {
+        const instance = new Component()
+        this.components.set(Component, instance)
+        return instance
+      }
+    }
+    class Button {
+      interactable = true
+    }
+    class EditBox {
+      string = ''
+      placeholder = ''
+      enabled = true
+      readOnly = false
+    }
+    class Toggle {
+      isChecked = false
+      interactable = true
+    }
+    class Slider {
+      progress = 0
+      enabled = true
+    }
+    const host = createCocosCreatorHost({
+      rootNode: new Node('root'),
+      cc: { Node, Button, EditBox, Toggle, Slider },
+    })
+
+    const buttonNode = host.nodes.createNode('button', { parent: host.nodes.getRootNode() })
+    host.nodes.setNodeControl?.(buttonNode, { kind: 'button', disabled: true })
+    expect(getComponent<Button>(buttonNode, Button).interactable).toBe(false)
+    host.nodes.setNodeControl?.(buttonNode, { kind: 'button', disabled: false })
+    expect(getComponent<Button>(buttonNode, Button).interactable).toBe(true)
+
+    const inputNode = host.nodes.createNode('input', { parent: host.nodes.getRootNode() })
+    host.nodes.setNodeControl?.(inputNode, { kind: 'input', value: 'old', readonly: true })
+    expect(getComponent<EditBox>(inputNode, EditBox).enabled).toBe(false)
+    host.nodes.setNodeControl?.(inputNode, { kind: 'input', value: 'new', readonly: false })
+    expect(getComponent<EditBox>(inputNode, EditBox)).toMatchObject({ enabled: true, readOnly: false, string: 'new' })
+
+    const toggleNode = host.nodes.createNode('toggle', { parent: host.nodes.getRootNode() })
+    host.nodes.setNodeControl?.(toggleNode, { kind: 'toggle', checked: true, disabled: true })
+    expect(getComponent<Toggle>(toggleNode, Toggle).interactable).toBe(false)
+    host.nodes.setNodeControl?.(toggleNode, { kind: 'toggle', checked: false, disabled: false })
+    expect(getComponent<Toggle>(toggleNode, Toggle)).toMatchObject({ interactable: true, isChecked: false })
+
+    const sliderNode = host.nodes.createNode('slider', { parent: host.nodes.getRootNode() })
+    host.nodes.setNodeControl?.(sliderNode, { kind: 'slider', value: '5', min: 0, max: 10, disabled: true })
+    expect(getComponent<Slider>(sliderNode, Slider).enabled).toBe(false)
+    host.nodes.setNodeControl?.(sliderNode, { kind: 'slider', value: '7', min: 0, max: 10, disabled: false })
+    expect(getComponent<Slider>(sliderNode, Slider)).toMatchObject({ enabled: true, progress: 0.7 })
+  })
 })
 
 function createNativeNode(name: string) {
@@ -130,4 +245,8 @@ function createNativeNode(name: string) {
       Object.assign(this, { scaleX, scaleY })
     },
   }
+}
+
+function getComponent<T>(node: unknown, component: new () => T): T {
+  return ((node as any).native as { getComponent: (component: unknown) => T }).getComponent(component)
 }
