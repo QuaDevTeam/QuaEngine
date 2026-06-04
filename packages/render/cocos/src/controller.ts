@@ -1,5 +1,13 @@
-import type { AssetChange, AssetData, AssetType, QuaAssets } from '@quajs/assets'
-import type { CocosHost, CocosHostAudioHandle, CocosHostNode, CocosHostResource } from '@quajs/cocos-host'
+import type {
+  AssetChange,
+  AssetData,
+  AssetPipelineDomain,
+  AssetType,
+  BundleManifest,
+  LoadAssetOptions,
+  QuaAssets,
+} from '@quajs/assets'
+import type { CocosHost, CocosHostAudioHandle, CocosHostNode, CocosHostResource, CocosHostResourceKind } from '@quajs/cocos-host'
 import type { Pipeline } from '@quajs/pipeline'
 import type { AudioTrackEventPayload } from '@quajs/plugin-audio/contracts'
 import type {
@@ -26,6 +34,8 @@ import {
   resolveStageLayout,
 } from '@quajs/render-core'
 import { emptyCocosView } from './defaults'
+
+const COCOS_NATIVE_ASSET_DOMAINS = new Set<AssetPipelineDomain>(['images', 'characters', 'audio', 'video', 'fonts'])
 
 export interface QuaCocosRendererOptions {
   host: CocosHost
@@ -297,6 +307,7 @@ export class QuaCocosRendererController {
       rendererId: this.rendererId,
       getViewState: () => this.projection,
       getActions: () => this.actions,
+      registerAdvanceInterceptor: interceptor => this.registerAdvanceInterceptor(interceptor),
       getStageLayout: () => this.resolveStageLayout(),
       getRootNode: () => this.getRootNode(),
       getLayerNode: (id, kind, order) => this.getLayerNode(id, kind, order),
@@ -446,6 +457,10 @@ export class QuaCocosRendererController {
   ): Promise<CocosHostResource | undefined> {
     if (!name || !this.assets)
       return undefined
+    const nativeResource = await this.resolveNativeAsset(type, name, options)
+    if (nativeResource)
+      return nativeResource
+
     const asset = await this.assets.getAsset(type, name, options)
     const cacheKey = `${asset.id}:${resourceKindForAsset(asset)}`
     const cached = this.materializedResources.get(cacheKey)
@@ -460,6 +475,69 @@ export class QuaCocosRendererController {
       mimeType: asset.mimeType,
       metadata: asset.mediaMetadata,
     })
+    this.materializedResources.set(cacheKey, { resource, refs: 1 })
+    return resource
+  }
+
+  private async resolveNativeAsset(
+    type: AssetType,
+    name: string,
+    options: LoadAssetOptions = {},
+  ): Promise<CocosHostResource | undefined> {
+    const assets = this.assets
+    if (!assets?.getAssetManifestRecord || !assets.getBundleManifest)
+      return undefined
+    const record = await assets.getAssetManifestRecord(type, name, options)
+    if (!record)
+      return undefined
+    const manifest = await assets.getBundleManifest(record.bundleVersionKey || record.bundleName || record.logicalBundleName || '')
+    if (!manifest || !usesCocosNativeAsset(manifest, type))
+      return undefined
+
+    if (!this.host.assets.loadResource) {
+      this.host.runtime.warn?.('Cocos hybrid native asset requested but the host does not expose assets.loadResource; falling back to QPK bytes.', {
+        type,
+        name,
+        source: record.path,
+      })
+      return undefined
+    }
+
+    const kind = resourceKindForAssetType(type)
+    const cacheKey = `${record.id}:${kind}:native`
+    const cached = this.materializedResources.get(cacheKey)
+    if (cached) {
+      cached.refs += 1
+      this.host.assets.retainResource?.(cached.resource)
+      return cached.resource
+    }
+
+    let resource: CocosHostResource | undefined
+    try {
+      resource = await this.host.assets.loadResource(kind, record.path, {
+        id: cacheKey,
+        mimeType: record.mimeType,
+        metadata: record.mediaMetadata,
+      })
+    }
+    catch (error) {
+      this.host.runtime.warn?.('Cocos hybrid native asset load failed; falling back to QPK bytes.', {
+        type,
+        name,
+        source: record.path,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return undefined
+    }
+    if (!resource) {
+      this.host.runtime.warn?.('Cocos hybrid native asset could not be loaded by the host; falling back to QPK bytes.', {
+        type,
+        name,
+        source: record.path,
+      })
+      return undefined
+    }
+
     this.materializedResources.set(cacheKey, { resource, refs: 1 })
     return resource
   }
@@ -517,6 +595,7 @@ export class QuaCocosRendererController {
       playbackRate?: number
       bus?: string
       playing?: boolean
+      playAt?: number
       endedPayload?: AudioTrackEventPayload
     },
   ): Promise<CocosHostAudioHandle> {
@@ -528,16 +607,14 @@ export class QuaCocosRendererController {
       existing.handle.setVolume(volume)
       existing.handle.setLoop(loop)
       this.applyAudioPlaybackRate(existing.handle, options.playbackRate ?? 1, key)
-      if (options.playing === false)
-        await existing.handle.pause()
-      else
-        await existing.handle.play()
       existing.options = { ...options, volume, loop }
       existing.endedPayload = options.endedPayload
+      await this.applyAudioPlayback(existing, key)
       return existing.handle
     }
     if (existing) {
       existing.endedDisposer?.()
+      this.clearAudioStartTimer(existing)
       await existing.handle.stop()
       await existing.handle.dispose()
     }
@@ -570,10 +647,7 @@ export class QuaCocosRendererController {
     handles.set(key, record)
     this.audioHandles.set(layerId, handles)
     this.applyAudioPlaybackRate(handle, options.playbackRate ?? 1, key)
-    if (options.playing === false)
-      await handle.pause()
-    else
-      await handle.play()
+    await this.applyAudioPlayback(record, key)
     return handle
   }
 
@@ -586,6 +660,7 @@ export class QuaCocosRendererController {
       if (active?.has(key))
         continue
       record.endedDisposer?.()
+      this.clearAudioStartTimer(record)
       void record.handle.stop()
       void record.handle.dispose()
       this.setLayerResource(layerId, key, undefined)
@@ -615,6 +690,40 @@ export class QuaCocosRendererController {
     })
   }
 
+  private async applyAudioPlayback(record: CocosAudioRuntimeHandle, key: string): Promise<void> {
+    this.clearAudioStartTimer(record)
+    if (record.options.playing === false) {
+      await record.handle.pause()
+      return
+    }
+    const playAt = record.options.playAt
+    const now = this.host.runtime.now()
+    if (typeof playAt === 'number' && Number.isFinite(playAt) && playAt > now) {
+      await record.handle.pause()
+      record.startTimer = this.host.scheduler.setTimeout(() => {
+        record.startTimer = undefined
+        void Promise.resolve(record.handle.play()).catch((error: unknown) => {
+          void this.reportError(error, {
+            message: 'Cocos delayed audio playback failed.',
+            phase: 'renderer-cocos:audio-play-at',
+            metadata: { key, playAt },
+          })
+        })
+      }, playAt - now)
+      record.pendingPlayAt = playAt
+      return
+    }
+    await record.handle.play()
+  }
+
+  private clearAudioStartTimer(record: CocosAudioRuntimeHandle): void {
+    if (record.startTimer !== undefined) {
+      this.host.scheduler.clearTimeout(record.startTimer)
+      record.startTimer = undefined
+    }
+    record.pendingPlayAt = undefined
+  }
+
   private async captureStage(options?: { mimeType?: string, quality?: number, maxWidth?: number, maxHeight?: number }) {
     if (!this.host.capture) {
       throw new Error('Cocos host does not provide capture support.')
@@ -639,8 +748,19 @@ export function clientInputToStagePoint(controller: QuaCocosRendererController, 
   })
 }
 
-function resourceKindForAsset(asset: AssetData) {
-  switch (asset.type) {
+function usesCocosNativeAsset(manifest: BundleManifest, type: AssetType): boolean {
+  if (!COCOS_NATIVE_ASSET_DOMAINS.has(type as AssetPipelineDomain))
+    return false
+  const hybrid = manifest.assetTarget?.cocos?.hybrid
+  return Boolean(hybrid?.enabled && hybrid.domains[type as AssetPipelineDomain] === 'cocos-bundle')
+}
+
+function resourceKindForAsset(asset: AssetData): CocosHostResourceKind {
+  return resourceKindForAssetType(asset.type)
+}
+
+function resourceKindForAssetType(type: AssetType): CocosHostResourceKind {
+  switch (type) {
     case 'images':
     case 'characters':
       return 'spriteFrame'
@@ -687,8 +807,11 @@ interface CocosAudioRuntimeHandle {
     playbackRate?: number
     bus?: string
     playing?: boolean
+    playAt?: number
     endedPayload?: AudioTrackEventPayload
   }
   endedPayload?: AudioTrackEventPayload
   endedDisposer?: () => void
+  startTimer?: number
+  pendingPlayAt?: number
 }

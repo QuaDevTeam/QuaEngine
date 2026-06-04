@@ -1,8 +1,10 @@
-import type { AssetData } from '@quajs/assets'
+import type { AssetData, AssetManifestRecord, BundleManifest } from '@quajs/assets'
 import type { QuaViewProjection } from '@quajs/render-core'
 import { createFakeCocosHost } from '@quajs/cocos-host/testing'
 import { Pipeline } from '@quajs/pipeline'
+import { AchievementRenderToLogicEvents } from '@quajs/plugin-achievement/contracts'
 import { AudioRenderToLogicEvents } from '@quajs/plugin-audio/contracts'
+import { BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import { SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
 import { createFlowControlProjection, createViewLayoutProjection, LogicToRenderEvents, RenderToLogicEvents } from '@quajs/render-core'
 import { describe, expect, it } from 'vitest'
@@ -60,6 +62,70 @@ describe('@quajs/renderer-cocos', () => {
     expect(advances).toEqual([{ source: 'cocos:pointer' }])
   })
 
+  it('maps Cocos keyboard and gamepad input to renderer commands', async () => {
+    const host = createFakeCocosHost({ now: () => 123 })
+    const pipeline = new Pipeline()
+    const commands: unknown[] = []
+    const autoStarts: unknown[] = []
+    const choices: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_INPUT_COMMAND, context => commands.push(context.event.payload))
+    pipeline.on(RenderToLogicEvents.FLOW_CONTROL_START_AUTO_REQUEST, context => autoStarts.push(context.event.payload))
+    pipeline.on(RenderToLogicEvents.USER_CHOICE_SELECT, context => choices.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView(),
+      plugins: createVisualNovelCocosRendererPlugins(),
+    })
+    await renderer.start()
+
+    await host.emitInput({ kind: 'keyboard', phase: 'down', code: 'KeyA', key: 'a' })
+    await host.emitInput({ kind: 'gamepad', phase: 'down', metadata: { button: 0 } })
+
+    expect(commands).toMatchObject([
+      {
+        command: 'auto:toggle',
+        device: 'keyboard',
+        source: 'cocos:keyboard:KeyA',
+        pressed: true,
+        timestamp: 123,
+      },
+      {
+        command: 'choice:confirm',
+        device: 'gamepad',
+        source: 'cocos:gamepad:button:0',
+        pressed: true,
+        timestamp: 123,
+      },
+    ])
+    expect(autoStarts).toEqual([{ source: 'cocos:keyboard:KeyA' }])
+    expect(choices).toEqual([{ choiceId: 'a' }])
+  })
+
+  it('focuses the first enabled choice on the first next command', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const choices: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_CHOICE_SELECT, context => choices.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView({
+        choices: [
+          { id: 'a', text: 'A', enabled: true },
+          { id: 'b', text: 'B', enabled: true },
+        ],
+      }),
+      plugins: createVisualNovelCocosRendererPlugins(),
+    })
+    await renderer.start()
+
+    await host.emitInput({ kind: 'keyboard', phase: 'down', code: 'ArrowDown', key: 'ArrowDown' })
+    await host.emitInput({ kind: 'gamepad', phase: 'down', metadata: { button: 0 } })
+
+    expect(choices).toEqual([{ choiceId: 'a' }])
+  })
+
   it('does not advance pointer input captured by UI overlays', async () => {
     const host = createFakeCocosHost({ containerSize: { width: 1920, height: 1080 } })
     const pipeline = new Pipeline()
@@ -97,6 +163,46 @@ describe('@quajs/renderer-cocos', () => {
 
     const dialogueLayer = [...host.nodesById.values()].find(node => node.name === 'qua-dialogue')
     expect(dialogueLayer?.children[0]?.text).toContain('next')
+  })
+
+  it('renders rich text dialogue through the Cocos typewriter runtime', async () => {
+    let now = 0
+    const host = createFakeCocosHost({ now: () => now })
+    const pipeline = new Pipeline()
+    const advances: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_ADVANCE, context => advances.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView({
+        dialogueText: {
+          kind: 'rich-text',
+          blocks: [{
+            spans: [{
+              text: 'Hello',
+              color: '#ff0000',
+              fontWeight: 'bold',
+            }],
+          }],
+        },
+        dialogueTypewriter: {
+          enabled: true,
+          durationMs: 1000,
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+
+    expect(findNodeByKind(host, 'dialogue-box')?.richText).not.toContain('Hello')
+    await renderer.actions.advance('test')
+    expect(findNodeByKind(host, 'dialogue-box')?.richText).toContain('<color=#ff0000><b>Hello</b></color>')
+    expect(advances).toEqual([])
+
+    now = 1000
+    await renderer.actions.advance('test')
+    expect(advances).toEqual([{ source: 'test' }])
+    await renderer.destroy()
   })
 
   it('captures save previews through host capture only', async () => {
@@ -281,6 +387,87 @@ describe('@quajs/renderer-cocos', () => {
     })
   })
 
+  it('loads Cocos hybrid native assets from bundle manifests without reading QPK bytes', async () => {
+    const host = createFakeCocosHost()
+    const nativeLoads: Array<{ kind: string, source: string }> = []
+    const loadResource = host.assets.loadResource!
+    host.assets.loadResource = async (kind, source, options) => {
+      nativeLoads.push({ kind, source })
+      return loadResource(kind, source, options)
+    }
+    let qpkReads = 0
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      assets: createHybridNativeAssets({
+        onQpkRead: () => {
+          qpkReads += 1
+        },
+      }),
+      initialView: createView({ backgroundAsset: 'hero.png' }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    expect(qpkReads).toBe(0)
+    expect(nativeLoads).toEqual([{
+      kind: 'spriteFrame',
+      source: 'assets/resources/qua-hybrid/images/hero.png',
+    }])
+    const background = [...host.nodesById.values()].find(node => node.kind === 'background')
+    expect(background?.sprite?.native).toEqual({
+      kind: 'spriteFrame',
+      source: 'assets/resources/qua-hybrid/images/hero.png',
+    })
+  })
+
+  it('resolves character sprite manifests into Cocos sprite layers', async () => {
+    const host = createFakeCocosHost()
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      assets: createFakeAssets({
+        json: {
+          'characters:hero/sprite.manifest.json': {
+            version: 1,
+            family: 'hero',
+            base: { asset: 'hero/base.png' },
+            expressions: {
+              smile: {
+                layers: [{
+                  asset: 'hero/smile.png',
+                  offsetY: -4,
+                  zIndex: 4,
+                  opacity: 0.9,
+                }],
+              },
+            },
+          },
+        },
+        assets: {
+          'characters:hero/base.png': imageAsset('hero/base.png'),
+          'characters:hero/smile.png': imageAsset('hero/smile.png'),
+        },
+      }),
+      initialView: createView({
+        characterSprite: 'hero/base.png',
+        characterExpression: 'smile',
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    const baseLayer = findNode(host, 'hero:sprite:base:0')
+    const expressionLayer = findNode(host, 'hero:sprite:expression:1')
+    expect(baseLayer?.sprite?.source).toBe('hero/base.png')
+    expect(baseLayer?.metadata).toMatchObject({ spriteLayerKind: 'base', asset: 'hero/base.png' })
+    expect(expressionLayer?.sprite?.source).toBe('hero/smile.png')
+    expect(expressionLayer?.transform).toMatchObject({ y: -4, opacity: 0.9, zIndex: 4 })
+    expect(expressionLayer?.metadata).toMatchObject({ spriteLayerKind: 'expression', asset: 'hero/smile.png' })
+  })
+
   it('reuses audio handles and disposes inactive audio resources', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()
@@ -307,6 +494,28 @@ describe('@quajs/renderer-cocos', () => {
     await flushAsync()
     expect(first?.disposed).toBe(true)
     expect(host.resourcesById.size).toBe(0)
+  })
+
+  it('schedules Cocos audio playback from projected playAt timestamps', async () => {
+    const host = createFakeCocosHost({ now: () => 0 })
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      assets: createFakeAssets(),
+      initialView: createView({
+        audioAsset: 'future.ogg',
+        audioPlayAt: 5,
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    const handle = await waitForAudioHandle(host, 'bgm:main')
+    expect(handle.playing).toBe(false)
+    await waitForEventually(() => handle.playing)
+    expect(handle.playing).toBe(true)
+    await renderer.destroy()
   })
 
   it('forwards Cocos audio ended events and applies bus EQ', async () => {
@@ -398,6 +607,170 @@ describe('@quajs/renderer-cocos', () => {
     expect(host.audioHandlesById.get('bgm:main')?.volume).toBeCloseTo(10 ** (-6 / 20), 6)
   })
 
+  it('projects Cocos scene transitions and emits scene readiness', async () => {
+    let now = 0
+    const host = createFakeCocosHost({ now: () => now })
+    const pipeline = new Pipeline()
+    const ready: unknown[] = []
+    pipeline.on(RenderToLogicEvents.SCENE_READY, context => ready.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView(),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+
+    await pipeline.emit(LogicToRenderEvents.SCENE_CHANGE, {
+      fromScene: 'old',
+      toScene: 'new',
+      transition: {
+        type: 'fade',
+        duration: 1000,
+      },
+    })
+
+    const transition = findNode(host, 'scene-transition')
+    expect(transition?.metadata).toMatchObject({
+      fromScene: 'old',
+      toScene: 'new',
+      progress: 0,
+    })
+    expect(ready).toEqual([])
+
+    now = 1000
+    await waitForEventually(() => ready.length > 0)
+    expect(ready[0]).toMatchObject({ sceneId: 'new', timestamp: 1000 })
+    expect(findNode(host, 'scene-transition')).toBeUndefined()
+  })
+
+  it('renders the Cocos backlog panel and dispatches backlog intents', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const closes: unknown[] = []
+    const jumps: unknown[] = []
+    const voiceReplays: unknown[] = []
+    pipeline.on(BacklogRenderToLogicEvents.CLOSE_REQUEST, context => closes.push(context.event.payload))
+    pipeline.on(BacklogRenderToLogicEvents.JUMP_REQUEST, context => jumps.push(context.event.payload))
+    pipeline.on(BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, context => voiceReplays.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView({
+        plugins: {
+          backlog: {
+            revision: 1,
+            visible: true,
+            entries: [{
+              id: 'entry-1',
+              kind: 'dialogue',
+              speaker: 'Hero',
+              text: 'Remember this line.',
+              voice: { assetKey: 'voice.ogg' },
+              rewindable: true,
+              voiceReplay: true,
+              timestamp: 1,
+            }],
+            retention: { scope: 'global', maxEntries: 50 },
+            defaultPolicy: { include: true, rewindable: true, voiceReplay: true },
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+
+    const entry = findNode(host, 'backlog:entry-1')
+    const voice = findNode(host, 'backlog:entry-1:voice')
+    const close = findNode(host, 'backlog:close')
+    expect(findNode(host, 'backlog:title')?.text).toBe('Backlog - 1 entries')
+    expect(entry?.text).toContain('Remember this line.')
+    expect(voice?.control).toMatchObject({ kind: 'button', disabled: false })
+
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: entry })
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: voice })
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: close })
+
+    expect(jumps).toEqual([{ entryId: 'entry-1' }])
+    expect(voiceReplays).toEqual([{ entryId: 'entry-1' }])
+    expect(closes).toEqual([{}])
+  })
+
+  it('renders the Cocos achievement board and dispatches achievement intents', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const dismisses: unknown[] = []
+    const selections: unknown[] = []
+    const groups: unknown[] = []
+    const filters: unknown[] = []
+    const closes: unknown[] = []
+    pipeline.on(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, context => dismisses.push(context.event.payload))
+    pipeline.on(AchievementRenderToLogicEvents.SELECT_ACHIEVEMENT_REQUEST, context => selections.push(context.event.payload))
+    pipeline.on(AchievementRenderToLogicEvents.SELECT_GROUP_REQUEST, context => groups.push(context.event.payload))
+    pipeline.on(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, context => filters.push(context.event.payload))
+    pipeline.on(AchievementRenderToLogicEvents.CLOSE_BOARD_REQUEST, context => closes.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      assets: createFakeAssets(),
+      initialView: createView({
+        plugins: {
+          achievement: {
+            revision: 1,
+            sceneActive: true,
+            profileId: 'default',
+            notificationMode: 'toast',
+            groups: [{
+              id: 'main',
+              title: 'Main',
+              totalAchievements: 1,
+              unlockedAchievements: 0,
+              lockedAchievements: 1,
+            }],
+            achievements: [{
+              id: 'first',
+              title: 'First Step',
+              summary: 'Start the route.',
+              groupId: 'main',
+              unlocked: false,
+            }],
+            filteredAchievementIds: ['first'],
+            selectedGroupId: 'main',
+            notifications: [{
+              id: 'toast-1',
+              achievementId: 'first',
+              title: 'Achievement unlocked',
+              mode: 'toast',
+              durationMs: 3000,
+              createdAt: 1,
+              sound: { type: 'audio', name: 'achievement.ogg' },
+            }],
+            requiredRuntimePackages: [],
+            filter: { unlockedOnly: false },
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    expect(findNode(host, 'achievement:title')?.text).toBe('Achievements 0/1')
+    expect(host.audioHandlesById.get('achievement:toast-1:sound')?.playing).toBe(true)
+
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'achievement:toast:toast-1') })
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'achievement:item:first') })
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'achievement:group:main') })
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'achievement:filter:unlocked') })
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'achievement:close') })
+
+    expect(dismisses).toEqual([{ notificationId: 'toast-1', achievementId: 'first' }])
+    expect(selections).toEqual([{ achievementId: 'first' }])
+    expect(groups).toEqual([{ groupId: 'main' }])
+    expect(filters).toEqual([{ filter: { unlockedOnly: true } }])
+    expect(closes).toEqual([{}])
+  })
+
   it('projects optional feature plugins and emits plugin intents', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()
@@ -469,10 +842,12 @@ describe('@quajs/renderer-cocos', () => {
 })
 
 function createView(options: {
-  dialogueText?: string
+  dialogueText?: QuaViewProjection['dialogue']['text']
+  dialogueTypewriter?: QuaViewProjection['dialogue']['typewriter']
   audioAsset?: string
   audioKind?: 'bgm' | 'voice' | 'sfx' | 'ambient'
   audioEq?: readonly unknown[]
+  audioPlayAt?: number
   gallery?: Record<string, unknown>
   settings?: Record<string, unknown>
   plugins?: Record<string, unknown>
@@ -480,6 +855,10 @@ function createView(options: {
   uiOverlay?: Record<string, unknown>
   uiOverlays?: Record<string, Record<string, unknown>>
   effects?: QuaViewProjection['effects']
+  backgroundAsset?: string
+  characterSprite?: string
+  characterExpression?: string
+  choices?: QuaViewProjection['choices']
 } = {}): QuaViewProjection {
   const uiOverlays = {
     ...(options.uiOverlays || {}),
@@ -493,22 +872,27 @@ function createView(options: {
         assetKey: options.audioAsset,
         state: 'playing',
         loop: audioKind === 'bgm' || audioKind === 'ambient',
+        playAt: options.audioPlayAt,
       }
     : undefined
   return {
     layout: createViewLayoutProjection(),
+    background: options.backgroundAsset ? { mode: 'image', assetName: options.backgroundAsset } : undefined,
     characters: [{
       id: 'hero',
       name: 'Hero',
       visible: true,
+      sprite: options.characterSprite,
+      expression: options.characterExpression,
       position: { x: 960, y: 760, anchor: 'center' },
     }],
     dialogue: {
       visible: true,
       characterName: 'Hero',
       text: options.dialogueText || 'hello',
+      typewriter: options.dialogueTypewriter,
     },
-    choices: [{
+    choices: options.choices || [{
       id: 'a',
       text: 'A',
       enabled: true,
@@ -636,6 +1020,99 @@ function imageAsset(name: string): AssetData {
   }
 }
 
+function createHybridNativeAssets(options: { onQpkRead?: () => void } = {}) {
+  const source = 'assets/resources/qua-hybrid/images/hero.png'
+  const manifest: BundleManifest = {
+    name: 'bundle',
+    version: '1.0.0',
+    bundler: 'test',
+    created: '2026-06-04T00:00:00.000Z',
+    format: 'qpk',
+    compression: { algorithm: 'none' },
+    encryption: { enabled: false, algorithm: 'none' },
+    locales: ['default'],
+    defaultLocale: 'default',
+    assets: {
+      images: {
+        'hero.png': {
+          name: 'hero.png',
+          path: source,
+          relativePath: source,
+          size: 3,
+          hash: '0'.repeat(64),
+          type: 'images',
+          locales: ['default'],
+          mimeType: 'image/png',
+          mediaMetadata: { format: 'png', width: 320, height: 180 },
+          variants: {
+            default: {
+              locale: 'default',
+              path: source,
+              relativePath: source,
+              size: 3,
+              hash: '0'.repeat(64),
+              mimeType: 'image/png',
+              mediaMetadata: { format: 'png', width: 320, height: 180 },
+            },
+          },
+        },
+      },
+    },
+    assetTarget: {
+      name: 'cocos-mobile',
+      platform: 'cocos',
+      staticOnly: true,
+      cocos: {
+        staticOnly: true,
+        hybrid: {
+          enabled: true,
+          resourceRoot: 'assets/resources',
+          assetBundle: 'qua-hybrid',
+          domains: {
+            images: 'cocos-bundle',
+            characters: 'cocos-bundle',
+            audio: 'qpk',
+            video: 'qpk',
+            fonts: 'qpk',
+          },
+        },
+      },
+    },
+  }
+  const record: AssetManifestRecord = {
+    id: `bundle-v1:default:images:${source}`,
+    bundleName: 'bundle',
+    logicalBundleName: 'bundle',
+    bundleVersionKey: 'bundle-v1',
+    name: 'hero.png',
+    type: 'images',
+    locale: 'default',
+    path: source,
+    mimeType: 'image/png',
+    mediaMetadata: { format: 'png', width: 320, height: 180 },
+    bundlePriority: 0,
+    loadedAt: 1,
+  }
+  return {
+    getAsset: async () => {
+      options.onQpkRead?.()
+      throw new Error('QPK bytes should not be read for Cocos hybrid native assets.')
+    },
+    getAssetManifestRecord: async (type: string, name: string) => type === 'images' && name === 'hero.png' ? record : undefined,
+    getBundleManifest: async (bundleName: string) => bundleName === 'bundle-v1' || bundleName === 'bundle' ? manifest : undefined,
+    on: () => {},
+    off: () => {},
+  } as never
+}
+
+function findNode(host: ReturnType<typeof createFakeCocosHost>, name: string) {
+  return [...host.nodesById.values()].find(node => node.name === name)
+}
+
+function findNodeByKind(host: ReturnType<typeof createFakeCocosHost>, kind: string) {
+  return [...host.nodesById.values()].find(node => node.kind === kind)
+}
+
 async function flushAsync(): Promise<void> {
   await Promise.resolve()
   await Promise.resolve()
@@ -657,4 +1134,14 @@ async function waitFor(predicate: () => boolean): Promise<void> {
       return
     await flushAsync()
   }
+}
+
+async function waitForEventually(predicate: () => boolean): Promise<void> {
+  const deadline = Date.now() + 100
+  while (Date.now() < deadline) {
+    if (predicate())
+      return
+    await new Promise(resolve => setTimeout(resolve, 1))
+  }
+  throw new Error('Timed out waiting for condition.')
 }

@@ -1,13 +1,21 @@
 import type { CocosHostNode, CocosHostTransform } from '@quajs/cocos-host'
+import type { SpriteManifest, SpriteResolvedLayer } from '@quajs/plugin-sprite/contracts'
 import type {
   QuaViewProjection,
+  RichTextBlockProjection,
+  RichTextContent,
+  RichTextSpanProjection,
   ViewBackgroundLayerProjection,
   ViewBackgroundProjection,
   ViewCharacterProjection,
+  ViewDialogueProjection,
   ViewEffectProjection,
 } from '@quajs/render-core'
 import type { CocosRendererHostContext } from './types'
+import type { CocosDialogueTypewriterProjectResult } from './dialogue-typewriter'
+import { resolveSpriteProjection, resolveSpriteReference } from '@quajs/plugin-sprite/contracts'
 import {
+  isRichTextDocument,
   projectBackground,
   projectCharacters,
   projectChoices,
@@ -27,6 +35,10 @@ import {
   positionTransform,
   richTextToPlainText,
 } from './utils'
+
+export interface RenderCocosDialogueOptions {
+  typewriter?: CocosDialogueTypewriterProjectResult
+}
 
 export async function renderCocosBackground(context: CocosRendererHostContext): Promise<void> {
   const layer = context.getLayerNode('background', 'background-layer', 10)
@@ -73,10 +85,10 @@ export async function renderCocosCharacters(context: CocosRendererHostContext): 
   }
 }
 
-export function renderCocosDialogue(context: CocosRendererHostContext): void {
+export function renderCocosDialogue(context: CocosRendererHostContext, options: RenderCocosDialogueOptions = {}): void {
   const layer = context.getLayerNode('dialogue', 'dialogue-layer', 50)
   context.host.nodes.clearChildren(layer)
-  const dialogue = projectDialogue(
+  const dialogue = options.typewriter?.dialogue || projectDialogue(
     context.getViewState().dialogue,
     context.getViewState().animations,
     context.host.runtime.now(),
@@ -85,14 +97,16 @@ export function renderCocosDialogue(context: CocosRendererHostContext): void {
   if (!dialogue.visible)
     return
   const box = context.host.nodes.createNode('dialogue-box', { parent: layer })
-  const text = [dialogue.characterName, richTextToPlainText(dialogue.text)].filter(Boolean).join('\n')
-  context.host.nodes.setNodeText(box, text, {
-    fontSize: numberValue((dialogue as unknown as Record<string, unknown>).fontSize, 32),
-    color: stringValue((dialogue as unknown as Record<string, unknown>).color, '#ffffff'),
-  })
+  setDialogueNodeText(context, box, dialogue)
   context.host.nodes.setNodeMetadata?.(box, {
     characterId: dialogue.characterId,
     mode: dialogue.mode,
+    typewriter: options.typewriter
+      ? {
+          revealing: options.typewriter.revealing,
+          visibleCharacters: options.typewriter.visibleCharacters,
+        }
+      : undefined,
   })
   context.host.nodes.setNodeTransform(box, motionTransform(dialogue as unknown as Record<string, unknown>))
 }
@@ -191,6 +205,7 @@ export async function renderCocosAudio(context: CocosRendererHostContext): Promi
       playbackRate: numberValue(track.playbackRate, 1),
       bus: stringValue(track.bus, kind),
       playing: stringValue(track.state, 'playing') !== 'paused' && stringValue(track.state, 'playing') !== 'stopped',
+      playAt: numberValue(track.playAt, undefined),
       endedPayload: audioTrackEndedPayload(track, kind, id, assetName),
     })
   }
@@ -265,6 +280,74 @@ export async function captureCocosSavePreview(context: CocosRendererHostContext,
   })
 }
 
+function setDialogueNodeText(
+  context: CocosRendererHostContext,
+  node: CocosHostNode,
+  dialogue: ViewDialogueProjection,
+): void {
+  const style = {
+    fontSize: numberValue((dialogue as unknown as Record<string, unknown>).fontSize, 32),
+    color: stringValue((dialogue as unknown as Record<string, unknown>).color, '#ffffff'),
+  }
+  if (isRichTextDocument(dialogue.text)) {
+    context.host.nodes.setNodeRichText(node, dialogueMarkup(dialogue), style)
+    return
+  }
+  const text = [dialogue.characterName, richTextToPlainText(dialogue.text)].filter(Boolean).join('\n')
+  context.host.nodes.setNodeText(node, text, style)
+}
+
+function dialogueMarkup(dialogue: ViewDialogueProjection): string {
+  const parts: string[] = []
+  if (dialogue.characterName) {
+    parts.push(`<b>${escapeRichTextMarkup(dialogue.characterName)}</b>`)
+  }
+  parts.push(richTextContentToCocosMarkup(dialogue.text))
+  return parts.filter(Boolean).join('\n')
+}
+
+function richTextContentToCocosMarkup(content: RichTextContent): string {
+  if (!isRichTextDocument(content))
+    return escapeRichTextMarkup(content)
+  return content.blocks.map(block => richTextBlockToCocosMarkup(block)).join('\n')
+}
+
+function richTextBlockToCocosMarkup(block: Readonly<RichTextBlockProjection>): string {
+  return wrapRichTextStyle(
+    block.spans.map(span => richTextSpanToCocosMarkup(span)).join(''),
+    block,
+  )
+}
+
+function richTextSpanToCocosMarkup(span: Readonly<RichTextSpanProjection>): string {
+  const text = span.ruby
+    ? `${span.text}(${span.ruby})`
+    : span.text
+  return wrapRichTextStyle(escapeRichTextMarkup(text), span)
+}
+
+function wrapRichTextStyle(markup: string, style: Readonly<Record<string, unknown>>): string {
+  let next = markup
+  const color = stringValue(style.color)
+  const fontSize = numericDimension(style.fontSize as number | string | undefined)
+  if (style.fontWeight === 'bold' || Number(style.fontWeight) >= 600)
+    next = `<b>${next}</b>`
+  if (style.fontStyle === 'italic' || style.fontStyle === 'oblique')
+    next = `<i>${next}</i>`
+  if (fontSize !== undefined)
+    next = `<size=${Math.round(fontSize)}>${next}</size>`
+  if (color)
+    next = `<color=${color}>${next}</color>`
+  return next
+}
+
+function escapeRichTextMarkup(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
 async function renderLayeredBackground(
   context: CocosRendererHostContext,
   layer: CocosHostNode,
@@ -311,11 +394,140 @@ async function renderCharacter(
     characterId: character.id,
     expression: character.expression,
   })
-  const resource = await context.resolveAsset('characters', character.sprite, {
-    targetPackageId: metadataTargetPackageId(character.metadata),
+  if (!character.sprite)
+    return
+  await renderCharacterSprite(context, node, character)
+}
+
+async function renderCharacterSprite(
+  context: CocosRendererHostContext,
+  root: CocosHostNode,
+  character: ViewCharacterProjection,
+): Promise<void> {
+  const targetPackageId = metadataTargetPackageId(character.metadata)
+  const manifest = await loadSpriteManifest(context, character.sprite, targetPackageId)
+  const projection = resolveSpriteProjection(manifest, character.sprite, character.expression)
+  if (!projection) {
+    await renderFallbackCharacterSprite(context, root, character, targetPackageId)
+    return
+  }
+
+  context.host.nodes.setNodeMetadata?.(root, {
+    characterId: character.id,
+    expression: character.expression,
+    spriteFamily: projection.family,
+    sprite: projection.sprite,
+    spriteExpression: projection.expression,
+    spriteFallbackUsed: projection.fallbackUsed,
   })
-  context.host.nodes.setNodeSprite(node, resource)
+
+  for (const [index, layer] of projection.layers.entries()) {
+    await renderSpriteLayer(context, root, {
+      character,
+      layer,
+      index,
+      targetPackageId,
+    })
+  }
+}
+
+async function renderFallbackCharacterSprite(
+  context: CocosRendererHostContext,
+  root: CocosHostNode,
+  character: ViewCharacterProjection,
+  targetPackageId?: string,
+): Promise<void> {
+  const resource = await context.resolveAsset('characters', character.sprite, { targetPackageId })
+  context.host.nodes.setNodeSprite(root, resource)
   context.setLayerResource('characters', `character:${character.id}`, resource)
+}
+
+async function renderSpriteLayer(
+  context: CocosRendererHostContext,
+  root: CocosHostNode,
+  options: {
+    character: ViewCharacterProjection
+    layer: SpriteResolvedLayer
+    index: number
+    targetPackageId?: string
+  },
+): Promise<void> {
+  const { character, layer, index, targetPackageId } = options
+  if (layer.visible === false)
+    return
+
+  const node = context.host.nodes.createNode('character-sprite-layer', {
+    parent: root,
+    name: `${character.id}:sprite:${layer.kind}:${index}`,
+  })
+  const resource = await resolveSpriteLayerResource(context, layer, targetPackageId)
+  const maskResource = layer.mask
+    ? await context.resolveAsset('characters', layer.mask, { targetPackageId })
+    : undefined
+  context.host.nodes.setNodeSprite(node, resource, {
+    mode: 'sprite',
+    opacity: layer.opacity,
+    metadata: {
+      spriteLayerKind: layer.kind,
+      frame: layer.frame ? { ...layer.frame } : undefined,
+      mask: layer.mask,
+      maskResourceId: maskResource?.id,
+      blendMode: layer.blendMode,
+    },
+  })
+  context.setLayerResource('characters', `character:${character.id}:sprite:${index}`, resource)
+  if (maskResource) {
+    context.setLayerResource('characters', `character:${character.id}:sprite:${index}:mask`, maskResource)
+  }
+  context.host.nodes.setNodeTransform(node, {
+    x: layer.offsetX,
+    y: layer.offsetY,
+    width: layer.frame?.width,
+    height: layer.frame?.height,
+    scaleX: layer.scale,
+    scaleY: layer.scale,
+    rotation: layer.rotation,
+    opacity: layer.opacity,
+    zIndex: layer.zIndex ?? index,
+    anchorX: layer.anchor === 'left' ? 0 : layer.anchor === 'right' ? 1 : 0.5,
+    anchorY: 0,
+  })
+  context.host.nodes.setNodeMetadata?.(node, {
+    characterId: character.id,
+    spriteLayerKind: layer.kind,
+    spriteLayerIndex: index,
+    asset: layer.asset,
+    frame: layer.frame ? { ...layer.frame } : undefined,
+    mask: layer.mask,
+    blendMode: layer.blendMode,
+  })
+}
+
+async function resolveSpriteLayerResource(
+  context: CocosRendererHostContext,
+  layer: SpriteResolvedLayer,
+  targetPackageId?: string,
+) {
+  const resource = await context.resolveAsset('characters', layer.asset, { targetPackageId })
+  if (resource || !layer.fallback)
+    return resource
+  return await context.resolveAsset('characters', layer.fallback, { targetPackageId })
+}
+
+async function loadSpriteManifest(
+  context: CocosRendererHostContext,
+  sprite: string | undefined,
+  targetPackageId?: string,
+): Promise<SpriteManifest | undefined> {
+  const reference = resolveSpriteReference(sprite)
+  if (!reference || !context.assets)
+    return undefined
+  try {
+    return await context.assets.getJSON<SpriteManifest>('characters', reference.manifestPath, { targetPackageId })
+  }
+  catch {
+    return undefined
+  }
 }
 
 function renderEffect(context: CocosRendererHostContext, layer: CocosHostNode, effect: ViewEffectProjection): void {
