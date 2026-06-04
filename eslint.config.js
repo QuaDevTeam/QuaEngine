@@ -21,4 +21,15 @@ export default antfu(
       'no-console': 'warn',
     },
   },
+  {
+    files: [
+      '**/*.md',
+      '**/*.md/**',
+      'packages/build/quack/src/cli/cli.ts',
+      'packages/utils/src/logger.ts',
+    ],
+    rules: {
+      'no-console': 'off',
+    },
+  },
 )

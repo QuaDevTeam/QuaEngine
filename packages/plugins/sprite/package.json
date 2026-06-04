@@ -4,12 +4,12 @@
   "version": "0.1.0",
   "description": "Sprite manifest, expression diff resolution, and hot-update helpers for QuaEngine",
   "author": "QuaDevTeam",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/QuaDevTeam/QuaEngine.git",
     "directory": "packages/plugins/sprite"
   },
-  "license": "Apache-2.0",
   "keywords": [
     "quaengine",
     "plugin",

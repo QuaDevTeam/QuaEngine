@@ -4,12 +4,12 @@
   "version": "0.1.0",
   "description": "Scoped developer and player settings bridge for QuaEngine plugins",
   "author": "QuaDevTeam",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/QuaDevTeam/QuaEngine.git",
     "directory": "packages/plugins/settings"
   },
-  "license": "Apache-2.0",
   "keywords": [
     "quaengine",
     "plugin",
