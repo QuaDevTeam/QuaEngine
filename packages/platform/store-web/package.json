@@ -4,12 +4,12 @@
   "version": "0.1.0",
   "description": "Web QuaStore storage adapter with IndexedDB persistence",
   "author": "QuaDevTeam",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/QuaDevTeam/QuaEngine.git",
     "directory": "packages/platform/store-web"
   },
-  "license": "Apache-2.0",
   "keywords": [
     "quaengine",
     "store",
