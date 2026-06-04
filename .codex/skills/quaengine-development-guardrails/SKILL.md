@@ -34,6 +34,18 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Keep renderer state non-authoritative and transient only.
 - Do not add renderer-side APIs that mutate game or progression state.
 
+### Cocos renderer and host
+- Treat `@quajs/renderer-cocos` as a native projection runtime only. It may keep Cocos nodes, resources, audio handles, frame handles, timers, page cursors, presence phases, and preview handles as transient implementation details, but it must not own scene progress, save/load, branching, backlog, settings, gallery unlocks, achievement unlocks, or audio intent authority.
+- Extend `@quajs/cocos-host` through optional projection fields and optional host APIs. Existing hosts must keep working through best-effort no-op, fallback, or one-time warnings when a capability such as seek, playbackRate, EQ, fonts, mask, filter, blend, clip, or capture is not available.
+- Keep Web-only behavior out of Cocos. Do not port DOM APIs, framework component APIs, object URLs, Blob URL lifecycle, WebAudio autoplay unlock policy, browser event normalization, React/Vue/Svelte host behavior, or browser-only asset mechanisms into Cocos.
+- Do not implement dynamic QPK renderer plugin loading or dynamic JS import for Cocos unless that work is explicitly requested. Cocos can consume package-aware projections and assets; runtime package activation and plugin manifest lifecycle remain engine-owned.
+- Resolve Cocos assets with runtime package provenance. Preserve `contentPackageId` and reversed `requiredRuntimePackages` candidates from projection metadata, sprite manifests, UI skin metadata, audio tracks, backlog voice refs, gallery refs, and achievement refs. Do not introduce loose renderer-side resource push paths.
+- Keep all Cocos transform, hit-test, scene transition clip, camera/stage motion, and animation projection values in logical stage coordinates until the host maps them to native pixels.
+- Project audio intent only. Cocos can run transient playback, seek, fade, crossfade release, gain/EQ automation, and voice interruption from engine-owned projection, but unsupported host features should warn or no-op and Cocos must not mutate engine audio state.
+- Product UI browsing state in Cocos must stay renderer-local. Gallery/backlog/achievement/settings/save-preview panels may keep local page cursors, search input metadata, timers, selected preview handles, and cleanup disposers only; user actions must emit pipeline/plugin intents.
+- When changing `CocosHost` contracts, update fake host, Creator host best-effort bridge, and tests together. Prefer recordable projection metadata over hard dependencies on concrete Creator components.
+- For Cocos code changes, validate with `pnpm --filter @quajs/cocos-host test -- --run`, `pnpm --filter @quajs/cocos-host typecheck`, `pnpm --filter @quajs/cocos-host build`, `pnpm --filter @quajs/renderer-cocos test -- --run`, `pnpm --filter @quajs/renderer-cocos typecheck`, and `pnpm --filter @quajs/renderer-cocos build` unless the change is documentation-only.
+
 ### Stage layout and coordinates
 - Treat `QuaViewProjection.layout` as the engine-owned source of truth for orientation, base logical dimensions, aspect ratio, supported aspect interval, and scale mode.
 - QuaEngine renders into a logical stage first, then renderers scale that stage into their actual container. Renderer measurements, resolved stage layouts, CSS transforms, CSS env safe-area insets, DPR, physical pixel dimensions, and `ResizeObserver` handles are transient projection details only.
@@ -112,6 +124,9 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Ask whether pointer/hit-test code converts client/screen coordinates into logical stage coordinates with shared renderer-web helpers.
 - Ask whether the change belongs in the package that defines the feature.
 - Ask whether Web runtime behavior belongs in `@quajs/renderer-web` before adding it to a framework renderer.
+- Ask whether Cocos work is projection-only and whether any local node/resource/audio/page/timer state is transient.
+- Ask whether new CocosHost capabilities are optional and covered by fake and Creator hosts.
+- Ask whether Cocos asset lookup preserves runtime package candidates instead of requiring renderer-owned resource state.
 - Ask whether the change can flow through pipeline metadata instead of a direct engine dependency.
 - Ask whether Runtime Package changes are package-based QPK flow, not loose resource push flow.
 - Ask whether runtime-created state has provenance and whether multi-package projections merge `requiredRuntimePackages`.
@@ -123,5 +138,6 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Reject any renderer logic that becomes authoritative.
 - Reject WebAudio autoplay handling that treats browser policy blocking as a game-state error or blocks renderer synchronization while waiting for permission.
 - Reject framework renderer changes that duplicate object URL, lifecycle, animation projection, or WebAudio runtime code already owned by `@quajs/renderer-web`.
+- Reject Cocos changes that import DOM/Web APIs, implement WebAudio autoplay policy, or add dynamic renderer plugin loading without an explicit dynamic QPK task.
 - Reject Runtime Package implementations that require a renderer cache or transient Web resource for save/load, replay, branching, or progression correctness.
 - Reject any commit message that does not match `<type>(<component>): <description>`.
