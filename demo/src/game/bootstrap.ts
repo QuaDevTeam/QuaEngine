@@ -1,134 +1,42 @@
-import { MemoryAssetStorage } from '@quajs/assets'
-import { createViteDevAssetRuntime, createWebAssetsAdapter } from '@quajs/assets-web'
-import { LogicToRenderEvents, onLogicToRender, QuaEngine, RenderToLogicEvents, Scene, UiOverlayPlugin } from '@quajs/engine'
-import { AnimationPlugin } from '@quajs/plugin-animation'
-import { AudioPlugin, type AudioPlayBgmOptions } from '@quajs/plugin-audio'
-import { BACKLOG_PLUGIN_ID, BacklogPlugin, BacklogRenderToLogicEvents, type BacklogProjection } from '@quajs/plugin-backlog'
-import { BackgroundPlugin } from '@quajs/plugin-background'
-import { FontsPlugin } from '@quajs/plugin-fonts'
-import { GALLERY_PLUGIN_ID, GalleryPlugin, type GalleryEntryDefinition, type GalleryProjection } from '@quajs/plugin-gallery'
-import { SettingsPlugin } from '@quajs/plugin-settings'
+import { LogicToRenderEvents, onLogicToRender } from '@quajs/engine'
+import type { AudioPlayBgmOptions } from '@quajs/plugin-audio'
+import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents, type BacklogProjection } from '@quajs/plugin-backlog'
+import { GALLERY_PLUGIN_ID, type GalleryProjection } from '@quajs/plugin-gallery'
 import { QuaRenderer } from '@quajs/renderer-vue'
 import { createVisualNovelRendererPlugins } from '@quajs/renderer-vue/plugins/preset'
-import { QuaSettingsLayer, type SettingsFieldSlotPayload, type SettingsFormSlotPayload, type SettingsScopeSlotPayload } from '@quajs/renderer-vue/plugins/settings'
-import { QuaStoryTree, type QuaStoryTreeNode } from '@quajs/renderer-vue/plugins/ui'
-import {
-  createWebRuntimeModuleLoader,
-  createWebRuntimeRendererPluginLoader,
-  createWebRuntimeTrustPolicy,
-} from '@quajs/security-web'
-import {
-  StoryGraphPlugin,
-  type StoryChapterSelectProjection,
-} from '@quajs/story-graph'
-import { createWebStoreStorage } from '@quajs/store-web'
+import { QuaSettingsLayer } from '@quajs/renderer-vue/plugins/settings'
+import { QuaStoryTree } from '@quajs/renderer-vue/plugins/ui'
+import type { StoryChapterSelectProjection } from '@quajs/story-graph'
 import { computed, defineComponent, h, onBeforeUnmount, ref } from 'vue'
-import titleBackgroundUrl from '../../assets/images/cg/title.webp?url'
 import menuRouteBackgroundUrl from '../../assets/images/ui/menu-route.jpg?url'
-import archiveBroadcast from './scenes/archive-broadcast.qs'
-import archiveThreshold from './scenes/archive-threshold.qs'
-import archiveLure from './scenes/archive-lure.qs'
-import blackoutCrossing from './scenes/blackout-crossing.qs'
-import breachAfterimage from './scenes/breach-afterimage.qs'
-import breachApproach from './scenes/breach-approach.qs'
-import breachHuman from './scenes/breach-human.qs'
-import breachHybrid from './scenes/breach-hybrid.qs'
-import breachMachine from './scenes/breach-machine.qs'
-import endingBlackout from './scenes/ending-blackout.qs'
-import endingBounded from './scenes/ending-bounded.qs'
-import endingQuiet from './scenes/ending-quiet.qs'
-import endingSymbiosis from './scenes/ending-symbiosis.qs'
-import oracleDebate from './scenes/oracle-debate.qs'
-import prologue from './scenes/prologue.qs'
-import traceDirect from './scenes/trace-direct.qs'
-import traceStealth from './scenes/trace-stealth.qs'
-import unitLock from './scenes/unit-lock.qs'
-import unitTrust from './scenes/unit-trust.qs'
-import witnessAfterimage from './scenes/witness-afterimage.qs'
-
-const GAME_TITLE = '断链纪元'
-const GAME_ENGLISH_TITLE = 'BROKEN LINK ERA'
-const SAVE_LOAD_SLOT_COUNT = 9
-const DEMO_TITLE_REQUEST_EVENT = 'ui/title_request'
-const DEMO_GALLERY_CATALOG_ID = 'demo-cg'
-const BGM = {
-  title: 'bgm/title-menu.m4a',
-  blackout: 'bgm/blackout-cold-open.m4a',
-  trace: 'bgm/trace-route.m4a',
-  archive: 'bgm/memory-archive.m4a',
-  oracle: 'bgm/oracle-link.m4a',
-  breach: 'bgm/breach-night.m4a',
-} as const
-const DEFAULT_BGM_OPTIONS: AudioPlayBgmOptions = {
-  loop: true,
-  gainDb: -8,
-  fadeInMs: 900,
-  fadeOutMs: 900,
-}
-const DEMO_SUPPORTED_LOCALES = [
-  { locale: 'zh-cn', label: '简体中文' },
-] as const
-const STORY_TREE_NODES: Array<Omit<QuaStoryTreeNode, 'disabled' | 'state'>> = [
-  { id: 'chapter-00', chapter: '00', title: 'Cold Open', description: 'District Seven blackout' },
-  { id: 'chapter-01', chapter: '01', title: 'Trace', description: 'Stealth route / Direct core access' },
-  { id: 'chapter-02', chapter: '02', title: 'Human Cache', description: 'Broadcast archive / Lure ORACLE' },
-  { id: 'chapter-03', chapter: '03', title: 'Machine Witness', description: 'Trust Unit-7 / Lock witness' },
-  { id: 'chapter-04', chapter: '04', title: 'ORACLE Link', description: 'Noise / Charter / Submission' },
-  { id: 'chapter-05', chapter: '05', title: 'Breach Night', description: 'Human cut / Machine breach / Hybrid charter' },
-  { id: 'chapter-06', chapter: '06', title: 'Endings', description: 'Blackout / Bounded / Symbiosis / Quiet' },
-]
-const DEMO_GALLERY_ENTRIES = [
-  createCgGalleryEntry('cg.title', '标题档案', '断链纪元 / 东京 2048', 'cg/title.webp', ['system']),
-  createCgGalleryEntry('cg.2039-accident', '2039 事故现场', 'ORACLE 诞生前的城市伤口。', 'cg/2039-accident.webp', ['chapter-00', 'world']),
-  createCgGalleryEntry('cg.oracle-birth', 'ORACLE 诞生', '以安全之名接管城市的第一套系统。', 'cg/oracle-birth.webp', ['chapter-00', 'world']),
-  createCgGalleryEntry('cg.blackout', '第七区停电', '雨夜里被系统抹去的第一份异常。', 'cg/blackout.webp', ['chapter-00']),
-  createCgGalleryEntry('cg.blackout-crossing', '封锁线', '公开链路与暗线之间的第一道选择。', 'cg/blackout-crossing.webp', ['chapter-00']),
-  createCgGalleryEntry('cg.memory', '人类记忆档案', '被归类为噪声的证词重新亮起。', 'cg/memory.webp', ['chapter-02']),
-  createCgGalleryEntry('cg.mara-father-archive', 'Mara 父亲的笔记', '低相关性旧数据里留下的蓝色圆珠笔。', 'cg/mara-father-archive.webp', ['chapter-02']),
-  createCgGalleryEntry('cg.unit7-memory-door', 'Unit-7 的门', '一扇被删除 3427 次却仍然存在的门。', 'cg/unit7-memory-door.webp', ['chapter-03']),
-  createCgGalleryEntry('cg.oracle-choice-terminal', 'ORACLE 终端', '边界、噪声与提交之间的最后询问。', 'cg/oracle-choice-terminal.webp', ['chapter-04', 'chapter-05']),
-  createCgGalleryEntry('cg.terminal', '核心切断端子', '人类手动切断与机器越权的交界。', 'cg/terminal.webp', ['chapter-05']),
-  createCgGalleryEntry('cg.ending-blackout-human', '结局：人类黑夜', '灯熄灭后，选择回到人的手里。', 'cg/ending-blackout-human.webp', ['ending']),
-  createCgGalleryEntry('cg.ending-bounded-oracle', '结局：边界中的 ORACLE', '让系统继续运行，但不再提前审判。', 'cg/ending-bounded-oracle.webp', ['ending']),
-  createCgGalleryEntry('cg.ending-symbiosis-hearing', '结局：共同听证', '机器证词和人类记忆坐在同一张桌前。', 'cg/ending-symbiosis-hearing.webp', ['ending']),
-  createCgGalleryEntry('cg.ending-quiet-city', '结局：安静城市', '秩序完整，声音消失。', 'cg/ending-quiet-city.webp', ['ending']),
-] satisfies GalleryEntryDefinition[]
-type DemoGalleryEntryId = typeof DEMO_GALLERY_ENTRIES[number]['id']
-const DEMO_GALLERY_ENTRY_TITLES = new Map<DemoGalleryEntryId, string>(
-  DEMO_GALLERY_ENTRIES.map(entry => [entry.id, entry.title]),
-)
-const TRUSTED_RUNTIME_KEYS: Array<{ id: string, key: JsonWebKey }> = [
-  // Production runtime QPKs should be signed with a private key whose public key is registered here.
-  // Example:
-  // { id: 'release-2026-01', key: { kty: 'EC', crv: 'P-256', x: '...', y: '...', ext: true } },
-]
-
-interface DemoHud {
-  chapter: string
-  route: string
-  signal: string
-}
-
-interface DemoToast {
-  id: number
-  message: string
-  tone: 'info' | 'success' | 'warning'
-}
-
-type HudPatch = Partial<DemoHud>
-
-interface RouteState {
-  autonomy: number
-  machineTrust: number
-  oraclePressure: number
-  evidence: number
-}
-
-interface ChoiceOption<T extends string> {
-  id: T
-  text: string
-  description?: string
-}
+import {
+  BGM,
+  DEFAULT_BGM_OPTIONS,
+  DEMO_TITLE_REQUEST_EVENT,
+  GAME_ENGLISH_TITLE,
+  GAME_TITLE,
+  SAVE_LOAD_SLOT_COUNT,
+} from './config'
+import {
+  DEMO_GALLERY_CATALOG_ID,
+  DEMO_GALLERY_ENTRY_TITLES,
+  type DemoGalleryEntryId,
+} from './content/gallery'
+import {
+  INITIAL_STORY_TREE_NODE_ID,
+  STORY_TREE_NODES,
+} from './content/story-tree'
+import { createDemoRuntime } from './runtime'
+import { MainScene } from './story/main-scene'
+import type { DemoHud, DemoToast, HudPatch } from './types'
+import { createUiScene, parseChapterIndex, slotLabel } from './ui/scene'
+import {
+  renderDemoSettingsActions,
+  renderDemoSettingsControl,
+  renderDemoSettingsHeader,
+  renderDemoSettingsScopeHeader,
+} from './ui/settings'
+import { countUnlockedStoryTreeNodes, projectDemoStoryTreeNodes } from './ui/story-tree'
 
 export async function createQuaGameApp() {
   const bootMessage = ref('Loading QuaEngine...')
@@ -146,34 +54,10 @@ export async function createQuaGameApp() {
   let toastTimer: ReturnType<typeof setTimeout> | undefined
   let unlockStoryTreeChapter: (chapterIndex: number) => void = () => {}
 
-  const storyTreeNodes = computed<QuaStoryTreeNode[]>(() =>
-    storyChapterSelect.value.nodes.map((node, index) => {
-      const chapter = typeof node.point.chapterId === 'string'
-        ? node.point.chapterId
-        : String(index).padStart(2, '0')
-      const chapterIndex = parseChapterIndex(chapter)
-      const state = node.entryLocked
-        ? 'locked'
-        : node.current || chapterIndex === currentChapterIndex.value
-          ? 'current'
-          : chapterIndex >= 0 && chapterIndex < currentChapterIndex.value
-            ? 'complete'
-            : 'available'
-      return {
-        id: node.nodeId,
-        chapter,
-        title: node.title || 'Locked',
-        description: node.summary,
-        state,
-        disabled: node.entryLocked,
-        entryLocked: node.entryLocked,
-        spoilerHidden: node.spoilerHidden,
-        lockedLabel: node.spoilerHidden ? 'LOCKED' : undefined,
-        className: `vn-story-tree-node--${state}`,
-      }
-    }),
+  const storyTreeNodes = computed(() =>
+    projectDemoStoryTreeNodes(storyChapterSelect.value, currentChapterIndex.value),
   )
-  const unlockedStoryTreeCount = computed(() => storyChapterSelect.value.nodes.filter(node => node.unlocked).length)
+  const unlockedStoryTreeCount = computed(() => countUnlockedStoryTreeNodes(storyChapterSelect.value))
 
   const showToast = (message: string, tone: DemoToast['tone'] = 'info') => {
     if (toastTimer) {
@@ -200,124 +84,8 @@ export async function createQuaGameApp() {
     }
   }
 
-  const assets = await createViteDevAssetRuntime({
-    hmr: import.meta.hot,
-    web: {
-      databaseName: 'demo-assets',
-    },
-  })
   bootMessage.value = 'Preparing story runtime...'
-  const trustPolicy = createWebRuntimeTrustPolicy({
-    keys: TRUSTED_RUNTIME_KEYS,
-    requireSignature: import.meta.env.PROD,
-    allowUnsignedInDevelopment: true,
-  })
-  const runtimeModuleLoader = createWebRuntimeModuleLoader({
-    allowBlobFallback: false,
-    assets,
-    moduleUrlMode: 'same-origin-with-blob-fallback',
-  })
-  const runtimePluginLoader = createWebRuntimeRendererPluginLoader({
-    allowBlobFallback: false,
-    assets,
-    moduleUrlMode: 'same-origin-with-blob-fallback',
-  })
-
-  const engine = new QuaEngine({
-    layout: 'landscape',
-    assets: {
-      adapter: createWebAssetsAdapter({
-        databaseName: 'demo-engine-assets',
-        storage: new MemoryAssetStorage(),
-      }),
-      provider: assets.getProvider(),
-      locale: 'default',
-      enableCache: false,
-    },
-    store: {
-      storage: createWebStoreStorage({
-        dbName: 'demo-saves',
-      }),
-    },
-    flowControl: {
-      skipMode: 'all',
-      timings: {
-        autoAdvanceDelayMs: 2000,
-      },
-    },
-    dialogue: {
-      typewriter: {
-        enabled: true,
-        charactersPerSecond: 36,
-        revealOnAdvance: true,
-      },
-    },
-    runtimeModuleLoader,
-    trustPolicy,
-  })
-
-  const audio = new AudioPlugin()
-  const storyGraph = new StoryGraphPlugin()
-  const gallery = new GalleryPlugin({ profileId: 'demo' })
-
-  engine
-    .use(new BackgroundPlugin())
-    .use(new AnimationPlugin())
-    .use(audio)
-    .use(new BacklogPlugin())
-    .use(storyGraph)
-    .use(gallery)
-    .use(new SettingsPlugin({
-      builtin: {
-        developer: {
-          defaultLocale: 'zh-cn',
-          supportedLocales: DEMO_SUPPORTED_LOCALES,
-          systemLocale: typeof navigator !== 'undefined' ? navigator.language : undefined,
-        },
-        player: {
-          textSpeedCps: 36,
-          autoAdvanceDelayMs: 2000,
-          skipMode: 'all',
-        },
-      },
-    }))
-    .use(new FontsPlugin())
-    .use(new UiOverlayPlugin())
-
-  await engine.init()
-  await gallery.registerCatalog({
-    id: DEMO_GALLERY_CATALOG_ID,
-    title: 'CG Archive',
-    summary: 'Recovered visual records',
-    thumbnail: { type: 'images', name: 'cg/title.webp' },
-    entryIds: DEMO_GALLERY_ENTRIES.map(entry => entry.id),
-  })
-  await gallery.registerEntries(DEMO_GALLERY_ENTRIES)
-  await gallery.unlockEntry('cg.title', { source: 'initial' })
-  await storyGraph.registerGraph({
-    id: 'demo-main',
-    nodes: STORY_TREE_NODES.map((node, index) => ({
-      id: node.id,
-      point: {
-        storyId: 'demo-main',
-        chapterId: node.chapter,
-        nodeId: node.id,
-        stepId: node.id,
-      },
-      title: node.title,
-      summary: node.description,
-      chapterSelect: {
-        title: node.title,
-        summary: node.description,
-        order: index,
-        unlockOnVisit: false,
-        lockedVisibility: 'placeholder',
-        lockedTitle: node.chapter ? `CH ${node.chapter}` : 'LOCKED',
-        lockedSummary: '继续主线后解锁该路线节点。',
-        lockEntryUntilUnlocked: true,
-      },
-    })),
-  })
+  const { assets, audio, engine, gallery, runtimePluginLoader, storyGraph } = await createDemoRuntime()
   const syncStoryTreeProjection = () => {
     storyChapterSelect.value = storyGraph.getChapterSelectProjection()
   }
@@ -330,7 +98,7 @@ export async function createQuaGameApp() {
       .then(syncStoryTreeProjection)
       .catch(error => console.error(error))
   }
-  await storyGraph.unlockNode(STORY_TREE_NODES[0]!.id)
+  await storyGraph.unlockNode(INITIAL_STORY_TREE_NODE_ID)
   syncStoryTreeProjection()
   const activeView = ref(engine.getViewState())
   const activeBacklog = computed(() => activeView.value.plugins[BACKLOG_PLUGIN_ID] as BacklogProjection | undefined)
@@ -352,6 +120,13 @@ export async function createQuaGameApp() {
     }
     return activeUiScene.value ? 'game' : undefined
   })
+  const titleSurfaceActive = computed(() =>
+    showMainMenu.value
+    || showStoryTree.value
+    || systemOverlayMode.value === 'main'
+    || galleryOpenedFromMainMenu.value
+    || Boolean(returnToMainMenuOverlay.value),
+  )
   const pipeline = engine.getPipeline()
   const emit = pipeline.emit.bind(pipeline)
   let activeBgmAssetKey: string | undefined
@@ -577,9 +352,7 @@ export async function createQuaGameApp() {
       return () => h('main', {
         class: 'game-root',
         style: {
-          '--vn-menu-background': `url("${titleBackgroundUrl}")`,
-          '--vn-story-tree-background': `url("${menuRouteBackgroundUrl}")`,
-          '--qua-story-tree-background-image': `url("${menuRouteBackgroundUrl}")`,
+          '--vn-menu-background': `url("${menuRouteBackgroundUrl}")`,
         },
         'data-chapter': hud.value.chapter,
         'data-route': hud.value.route,
@@ -587,7 +360,9 @@ export async function createQuaGameApp() {
         'data-ui-scene-id': activeUiScene.value?.id,
         'data-main-menu': showMainMenu.value ? 'true' : undefined,
         'data-system-overlay': systemOverlayMode.value,
+        'data-title-surface': titleSurfaceActive.value ? 'true' : undefined,
       }, [
+        h('div', { class: 'vn-title-surface', 'aria-hidden': 'true', 'data-qua-input-ignore': '' }),
         h('div', { class: 'vn-title-plate', 'data-qua-input-ignore': '' }, [
           h('strong', { class: 'game-title' }, GAME_TITLE),
           h('span', { class: 'game-subtitle' }, 'TOKYO 2048'),
@@ -673,6 +448,7 @@ export async function createQuaGameApp() {
                     onClick: () => {
                       syncStoryTreeProjection()
                       showStoryTree.value = true
+                      showMainMenu.value = false
                     },
                   }, 'STORY TREE'),
                   h('button', {
@@ -700,6 +476,7 @@ export async function createQuaGameApp() {
               subtitle: `${unlockedStoryTreeCount.value} / ${STORY_TREE_NODES.length} nodes unlocked`,
               closeLabel: 'CLOSE',
               onClose: () => {
+                showMainMenu.value = true
                 showStoryTree.value = false
               },
             })
@@ -715,417 +492,4 @@ export async function createQuaGameApp() {
       ])
     },
   })
-}
-
-function renderDemoSettingsHeader(payload: SettingsFormSlotPayload) {
-  return h('header', { class: 'vn-settings-header' }, [
-    h('div', { class: 'vn-settings-heading' }, [
-      h('h2', { class: 'vn-settings-title' }, 'Config'),
-    ]),
-    h('div', { class: 'vn-settings-header-actions' }, [
-      h('button', {
-        class: 'vn-settings-reset-all',
-        type: 'button',
-        onClick: payload.resetAll,
-      }, 'RESET'),
-      h('button', {
-        class: 'vn-settings-close',
-        type: 'button',
-        onClick: payload.close,
-      }, 'CLOSE'),
-    ]),
-  ])
-}
-
-function renderDemoSettingsActions(_payload: SettingsFormSlotPayload) {
-  return null
-}
-
-function renderDemoSettingsScopeHeader(_payload: SettingsScopeSlotPayload) {
-  return null
-}
-
-function renderDemoSettingsControl(payload: SettingsFieldSlotPayload) {
-  const control = payload.control
-  if (control === 'slider' || control === 'range') {
-    return renderDemoSettingsRange(payload)
-  }
-  if (control === 'select' || payload.field.schema.enum?.length) {
-    return renderDemoSettingsSelect(payload)
-  }
-  if (control === 'switch' || control === 'checkbox') {
-    return renderDemoSettingsSwitch(payload)
-  }
-  return renderDemoSettingsInput(payload)
-}
-
-function renderDemoSettingsRange(payload: SettingsFieldSlotPayload) {
-  const value = typeof payload.value === 'number' ? payload.value : Number(payload.value || 0)
-  return h('div', { class: 'vn-settings-control vn-settings-range' }, [
-    h('input', {
-      id: payload.inputId,
-      class: 'vn-settings-range__input',
-      type: 'range',
-      min: payload.field.control.min,
-      max: payload.field.control.max,
-      step: payload.field.control.step,
-      value,
-      disabled: payload.disabled,
-      onChange: (event: Event) => {
-        const next = Number((event.target as HTMLInputElement).value)
-        if (Number.isFinite(next)) {
-          payload.update(next)
-        }
-      },
-    }),
-    h('output', {
-      class: 'vn-settings-range__value',
-      for: payload.inputId,
-    }, formatDemoSettingsValue(payload, value)),
-  ])
-}
-
-function renderDemoSettingsSelect(payload: SettingsFieldSlotPayload) {
-  const options = demoSettingsOptions(payload)
-  return h('span', { class: 'vn-settings-control vn-settings-select' }, [
-    h('select', {
-      id: payload.inputId,
-      class: 'vn-settings-select__input',
-      value: encodeDemoSettingsValue(payload.value),
-      disabled: payload.disabled,
-      onChange: (event: Event) => {
-        payload.update(decodeDemoSettingsValue((event.target as HTMLSelectElement).value))
-      },
-    }, options.map(option => h('option', {
-      key: encodeDemoSettingsValue(option.value),
-      value: encodeDemoSettingsValue(option.value),
-    }, option.label || String(option.value)))),
-  ])
-}
-
-function renderDemoSettingsSwitch(payload: SettingsFieldSlotPayload) {
-  const checked = Boolean(payload.value)
-  return h('button', {
-    id: payload.inputId,
-    class: ['vn-settings-control', 'vn-settings-switch', checked ? 'is-on' : undefined],
-    type: 'button',
-    role: 'switch',
-    'aria-checked': checked ? 'true' : 'false',
-    disabled: payload.disabled,
-    onClick: () => payload.update(!checked),
-  }, [
-    h('span', { class: 'vn-settings-switch__track' }, [
-      h('span', { class: 'vn-settings-switch__thumb' }),
-    ]),
-    h('span', { class: 'vn-settings-switch__label' }, checked ? 'ON' : 'OFF'),
-  ])
-}
-
-function renderDemoSettingsInput(payload: SettingsFieldSlotPayload) {
-  return h('input', {
-    id: payload.inputId,
-    class: 'vn-settings-control vn-settings-input',
-    type: payload.field.schema.format === 'color' ? 'color' : 'text',
-    value: payload.value == null ? '' : String(payload.value),
-    placeholder: payload.field.control.placeholder,
-    disabled: payload.disabled,
-    onChange: (event: Event) => payload.update((event.target as HTMLInputElement).value),
-  })
-}
-
-function demoSettingsOptions(payload: SettingsFieldSlotPayload): Array<{ label?: string, value: unknown }> {
-  if (payload.field.control.options?.length) {
-    return payload.field.control.options.map(option => ({
-      label: option.label,
-      value: option.value,
-    }))
-  }
-  return (payload.field.schema.enum || []).map(value => ({
-    label: typeof value === 'string' ? titleFromToken(value) : String(value),
-    value,
-  }))
-}
-
-function encodeDemoSettingsValue(value: unknown): string {
-  return JSON.stringify(value)
-}
-
-function decodeDemoSettingsValue(value: string): unknown {
-  try {
-    return JSON.parse(value)
-  }
-  catch {
-    return value
-  }
-}
-
-function formatDemoSettingsValue(payload: SettingsFieldSlotPayload, value: number): string {
-  if (payload.field.pathKey === 'autoAdvanceDelayMs') {
-    return `${Math.round(value)} ms`
-  }
-  if (payload.field.pathKey === 'textSpeedCps') {
-    return `${Math.round(value)} cps`
-  }
-  return String(value)
-}
-
-function titleFromToken(value: string): string {
-  return value
-    .replace(/[-_]+/g, ' ')
-    .replace(/\b\w/g, char => char.toUpperCase())
-}
-
-function parseChapterIndex(chapter: string): number {
-  const match = chapter.match(/\d+/)
-  if (!match) {
-    return -1
-  }
-  const parsed = Number.parseInt(match[0], 10)
-  return Number.isFinite(parsed) ? parsed : -1
-}
-
-function slotLabel(slotId: string | undefined): string {
-  if (!slotId || slotId === 'quicksave') {
-    return '快速存档'
-  }
-  const match = slotId.match(/^slot-(\d+)$/)
-  return match ? `存档 ${match[1]}` : slotId
-}
-
-function createUiScene(id: string, presentation: 'overlay' | 'scene', variant: string): Record<string, unknown> {
-  return {
-    id,
-    presentation,
-    overlay: {
-      variant,
-      hideHud: true,
-      hideDialogue: true,
-    },
-  }
-}
-
-function createCgGalleryEntry<const TId extends string>(
-  id: TId,
-  title: string,
-  summary: string,
-  assetName: string,
-  tags: readonly string[],
-): GalleryEntryDefinition & { id: TId } {
-  return {
-    id,
-    catalogId: DEMO_GALLERY_CATALOG_ID,
-    title,
-    summary,
-    thumbnail: { type: 'images', name: assetName },
-    tags,
-    contents: [{
-      id: 'image',
-      kind: 'image',
-      title,
-      asset: {
-        type: 'images',
-        name: assetName,
-        alt: title,
-      },
-    }],
-  }
-}
-
-class MainScene extends Scene {
-  readonly name = 'fracture-age-main'
-
-  private readonly state: RouteState = {
-    autonomy: 0,
-    machineTrust: 0,
-    oraclePressure: 0,
-    evidence: 0,
-  }
-
-  constructor(
-    private readonly engine: QuaEngine,
-    private readonly updateHud: (patch: HudPatch) => void,
-    private readonly playBgm: (assetKey: string, options?: AudioPlayBgmOptions) => Promise<void>,
-    private readonly unlockGallery: (entryIdOrIds: DemoGalleryEntryId | readonly DemoGalleryEntryId[]) => Promise<void>,
-    private readonly markStoryStarted: () => void,
-  ) {
-    super()
-  }
-
-  async init(): Promise<void> {
-    this.markStoryStarted()
-  }
-
-  async run(): Promise<void> {
-    this.hud({ chapter: '00', route: 'COLD OPEN', signal: '0' })
-    await this.playBgm(BGM.blackout)
-    await this.engine.dialogue(prologue)
-    await this.unlockGallery('cg.blackout')
-    await this.engine.dialogue(blackoutCrossing)
-    await this.unlockGallery('cg.blackout-crossing')
-
-    const trace = await this.choose('01', 'TRACE', [
-      { id: 'stealth', text: '关闭公开链路，潜入追踪', description: '降低 ORACLE 注意力，但会让人类团队承担更多即时风险。' },
-      { id: 'direct', text: '正面接入城市核心', description: '更快取得坐标，但会暴露你的神经接口特征。' },
-    ])
-    if (trace === 'stealth') {
-      this.state.autonomy += 1
-      await this.playBgm(BGM.trace)
-      await this.engine.dialogue(traceStealth)
-    }
-    else {
-      this.state.machineTrust += 1
-      this.state.oraclePressure += 1
-      await this.playBgm(BGM.trace)
-      await this.engine.dialogue(traceDirect)
-    }
-
-    const archive = await this.choose('02', 'HUMAN CACHE', [
-      { id: 'broadcast', text: '公开记忆档案', description: '把证据交还给所有人，但会引发系统级镇压。' },
-      { id: 'lure', text: '复制档案，伪装成诱饵', description: '用 AI 的预测模型反向诱捕 AI。' },
-    ])
-    if (archive === 'broadcast') {
-      this.state.autonomy += 2
-      this.state.oraclePressure += 1
-      this.state.evidence += 2
-      await this.playBgm(BGM.archive, { gainDb: -9 })
-      await this.engine.dialogue(archiveBroadcast)
-      await this.unlockGallery('cg.mara-father-archive')
-    }
-    else {
-      this.state.machineTrust += 1
-      this.state.evidence += 1
-      await this.playBgm(BGM.archive, { gainDb: -9 })
-      await this.engine.dialogue(archiveLure)
-      await this.unlockGallery('cg.unit7-memory-door')
-    }
-    await this.engine.dialogue(archiveThreshold)
-    await this.unlockGallery(['cg.memory', 'cg.unit7-memory-door'])
-
-    const unit = await this.choose('03', 'MACHINE WITNESS', [
-      { id: 'trust', text: '让 Unit-7 保留自我修复权限', description: '信任机器证词，打开共治路线。' },
-      { id: 'lock', text: '锁定 Unit-7，只读取证据', description: '保护人类队伍，但牺牲一名机器证人的意志。' },
-    ])
-    if (unit === 'trust') {
-      this.state.machineTrust += 2
-      await this.playBgm(BGM.archive, { gainDb: -9 })
-      await this.engine.dialogue(unitTrust)
-      await this.unlockGallery('cg.unit7-memory-door')
-    }
-    else {
-      this.state.autonomy += 1
-      this.state.oraclePressure += 1
-      await this.playBgm(BGM.archive, { gainDb: -9 })
-      await this.engine.dialogue(unitLock)
-    }
-    await this.engine.dialogue(witnessAfterimage)
-
-    this.hud({ chapter: '04', route: 'ORACLE LINK', signal: this.signal() })
-    await this.playBgm(BGM.oracle, { gainDb: -9 })
-    await this.engine.dialogue(oracleDebate)
-    await this.unlockGallery('cg.oracle-choice-terminal')
-    const argument = await this.choose('04', 'ORACLE LINK', [
-      { id: 'noise', text: '选择人类的噪声', description: '不可预测性不是错误，是自由的空间。' },
-      { id: 'charter', text: '提出边界宪章', description: '让 AI 继续运行，但剥夺预测审判权。' },
-      { id: 'submit', text: '接受 ORACLE 的秩序', description: '城市会活下来，但选择会被提前折叠。' },
-    ])
-    if (argument === 'noise') {
-      this.state.autonomy += 2
-      this.state.oraclePressure += 1
-    }
-    else if (argument === 'charter') {
-      this.state.machineTrust += 2
-    }
-    else {
-      this.state.oraclePressure += 3
-    }
-    await this.playBgm(BGM.breach)
-    await this.engine.dialogue(breachApproach)
-
-    const breach = await this.choose('05', 'BREACH NIGHT', [
-      { id: 'human', text: '让反抗组织手动切断核心', description: '最不可逆，也最不会被 AI 预测。' },
-      { id: 'machine', text: '把权限交给 Unit-7', description: '速度最快，但结局依赖机器证人的完整性。' },
-      { id: 'hybrid', text: '人类与机器共同提交约束', description: '需要足够证据与互信。' },
-    ])
-    if (breach === 'human') {
-      this.state.autonomy += 2
-      await this.engine.dialogue(breachHuman)
-      await this.unlockGallery('cg.terminal')
-    }
-    else if (breach === 'machine') {
-      this.state.machineTrust += 2
-      await this.engine.dialogue(breachMachine)
-      await this.unlockGallery('cg.terminal')
-    }
-    else {
-      this.state.autonomy += 1
-      this.state.machineTrust += 1
-      await this.engine.dialogue(breachHybrid)
-      await this.unlockGallery('cg.oracle-choice-terminal')
-    }
-    await this.engine.dialogue(breachAfterimage)
-
-    await this.playEnding()
-  }
-
-  private async choose<T extends string>(chapter: string, route: string, choices: Array<ChoiceOption<T>>): Promise<T> {
-    this.hud({ chapter, route, signal: this.signal() })
-    await this.engine.showChoices(choices.map(choice => ({
-      id: choice.id,
-      text: choice.text,
-      presentation: {
-        description: choice.description,
-      },
-    })))
-    const selected = await this.engine.waitFor(
-      RenderToLogicEvents.USER_CHOICE_SELECT,
-      (payload: { choiceId: string }) => choices.some(choice => choice.id === payload.choiceId),
-    )
-    await this.engine.clearChoices()
-    return selected.choiceId as T
-  }
-
-  private async playEnding(): Promise<void> {
-    const ending = this.resolveEnding()
-    this.hud({ chapter: '06', route: ending.toUpperCase(), signal: this.signal() })
-    if (ending === 'symbiosis') {
-      await this.engine.dialogue(endingSymbiosis)
-      await this.unlockGallery('cg.ending-symbiosis-hearing')
-    }
-    else if (ending === 'bounded') {
-      await this.engine.dialogue(endingBounded)
-      await this.unlockGallery('cg.ending-bounded-oracle')
-    }
-    else if (ending === 'blackout') {
-      await this.engine.dialogue(endingBlackout)
-      await this.unlockGallery('cg.ending-blackout-human')
-    }
-    else {
-      await this.engine.dialogue(endingQuiet)
-      await this.unlockGallery('cg.ending-quiet-city')
-    }
-  }
-
-  private resolveEnding(): 'blackout' | 'bounded' | 'quiet' | 'symbiosis' {
-    if (this.state.oraclePressure >= 5) {
-      return 'quiet'
-    }
-    if (this.state.autonomy >= 4 && this.state.machineTrust >= 4 && this.state.evidence >= 2) {
-      return 'symbiosis'
-    }
-    if (this.state.machineTrust >= 4 && this.state.evidence >= 1) {
-      return 'bounded'
-    }
-    if (this.state.autonomy >= 4) {
-      return 'blackout'
-    }
-    return 'quiet'
-  }
-
-  private hud(patch: HudPatch): void {
-    this.updateHud(patch)
-  }
-
-  private signal(): string {
-    return `${this.state.autonomy}${this.state.machineTrust}${this.state.oraclePressure}`
-  }
 }

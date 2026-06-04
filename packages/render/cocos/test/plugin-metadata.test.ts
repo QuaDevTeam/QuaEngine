@@ -17,6 +17,14 @@ describe('cocos renderer plugin metadata', () => {
     expectRendererEntry('packages/plugins/sprite/package.json', 'cocos', '@quajs/renderer-cocos/plugins/sprite')
   })
 
+  it('publishes gallery entries for every official renderer', () => {
+    expectRendererEntry('packages/plugins/gallery/package.json', 'web', '@quajs/renderer-web/plugins/gallery')
+    expectRendererEntry('packages/plugins/gallery/package.json', 'vue', '@quajs/renderer-vue/plugins/gallery')
+    expectRendererEntry('packages/plugins/gallery/package.json', 'react', '@quajs/renderer-react/plugins/gallery')
+    expectRendererEntry('packages/plugins/gallery/package.json', 'svelte', '@quajs/renderer-svelte/plugins/gallery')
+    expectRendererEntry('packages/plugins/gallery/package.json', 'cocos', '@quajs/renderer-cocos/plugins/gallery')
+  })
+
   it('keeps logic-only plugins out of renderer discovery', () => {
     expect(readPackage('packages/plugins/animation/package.json').quajs.renderer).toBeUndefined()
     expect(readPackage('packages/plugins/inventory/package.json').quajs.renderer).toBeUndefined()

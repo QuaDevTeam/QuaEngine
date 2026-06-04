@@ -1514,6 +1514,74 @@ describe('@quajs/renderer-cocos', () => {
     expect(events[0]).toEqual({ entryId: 'cg-1' })
   })
 
+  it('opens Cocos gallery lightbox for unlocked entries without exposing locked entries', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const events: unknown[] = []
+    pipeline.on('gallery/select_entry_request', context => events.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      assets: createFakeAssets(),
+      initialView: createView({
+        gallery: {
+          revision: 1,
+          sceneActive: true,
+          profileId: 'default',
+          catalogs: [{ id: 'main', title: 'Main', entryIds: ['cg-1', 'cg-locked'], totalEntries: 2, unlockedEntries: 1, lockedEntries: 1 }],
+          entries: [
+            {
+              id: 'cg-1',
+              title: 'CG 1',
+              unlocked: true,
+              contents: [{
+                id: 'image',
+                kind: 'image',
+                title: 'Full CG',
+                asset: { type: 'images', name: 'cg-1.png' },
+              }],
+              catalogId: 'main',
+            },
+            {
+              id: 'cg-locked',
+              title: 'Locked',
+              unlocked: false,
+              contents: [{
+                id: 'spoiler',
+                kind: 'image',
+                title: 'Spoiler CG',
+                asset: { type: 'images', name: 'spoiler.png' },
+              }],
+              catalogId: 'main',
+            },
+          ],
+          filteredEntryIds: ['cg-1', 'cg-locked'],
+          selectedCatalogId: 'main',
+          requiredRuntimePackages: [],
+          filter: {},
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'gallery:entry:cg-1') })
+    await waitForEventually(() => findNode(host, 'gallery:lightbox') !== undefined)
+    expect(events[0]).toEqual({ entryId: 'cg-1' })
+    expect(findNode(host, 'gallery:lightbox:media')?.sprite?.source).toBe('cg-1.png')
+    expect(findNode(host, 'gallery:lightbox:caption')?.text).toBe('Full CG')
+
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'gallery:lightbox:close') })
+    await waitForEventually(() => findNode(host, 'gallery:lightbox') === undefined)
+    await waitForEventually(() => findNode(host, 'gallery:entry:cg-locked') !== undefined)
+
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'gallery:entry:cg-locked') })
+    await flushAsync()
+    expect(events[1]).toEqual({ entryId: 'cg-locked' })
+    expect(findNode(host, 'gallery:lightbox')).toBeUndefined()
+  })
+
   it('paginates Cocos gallery entries and cleans audio previews', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()

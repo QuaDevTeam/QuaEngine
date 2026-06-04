@@ -30,6 +30,7 @@ for reuse. See `../TRADEMARKS.md`.
 - Typewriter dialogue, auto/skip flow, input-driven auto cancellation, and keyboard/click advance.
 - Backlog entries that are view-only by default. Rewind is exposed only when the backlog policy marks an entry rewindable.
 - Story graph driven story tree projection with spoiler-safe locked entries.
+- CG gallery catalog registration, profile-level unlock state, and story-driven unlock toasts.
 - Background fade/crossfade transitions without renderer-owned game state.
 - Character enter/exit fade defaults, sprite sizing normalization, expression changes, and CG overlay support.
 - Runtime package aware asset and projection handling.
@@ -38,8 +39,14 @@ for reuse. See `../TRADEMARKS.md`.
 
 | Path | Purpose |
 | --- | --- |
-| `src/game/bootstrap.ts` | Engine setup, plugin registration, Vue app shell, menu/settings/save/load/backlog/story tree wiring |
-| `src/game/styles.scss` | Demo-specific visual styling over renderer semantic classes |
+| `src/game/bootstrap.ts` | Vue app shell, menu/settings/save/load/backlog/gallery/story tree wiring, and pipeline listeners |
+| `src/game/runtime.ts` | Web asset runtime, QuaEngine setup, runtime loaders, trust policy, and plugin registration |
+| `src/game/config.ts` | Demo constants such as title copy, BGM keys, locale defaults, and runtime trust keys |
+| `src/game/content/*.ts` | Gallery catalog entries and story graph/chapter-select definitions |
+| `src/game/story/main-scene.ts` | Main scene route state, choices, BGM cues, and story-driven gallery unlocks |
+| `src/game/ui/*.ts` | UI projection helpers, overlay scene metadata, slot labels, and settings slot renderers |
+| `src/game/styles.scss` | Demo theme entrypoint that imports feature-specific style modules |
+| `src/game/styles/*.scss` | Demo visual skin split by base, shell, dialogue, system panels, gallery, motion, and responsive rules |
 | `src/game/scenes/*.qs` | QuaScript scenario files |
 | `assets/images` | Backgrounds, CGs, and UI imagery |
 | `assets/characters` | Character sprite assets and expression families |
@@ -80,7 +87,7 @@ Committed demo assets should be final assets used by the demo. Unused raw materi
 
 ## Story Tree Locking
 
-The demo story tree is registered through `@quajs/story-graph` in `src/game/bootstrap.ts`. Locked nodes are projected through chapter-select options instead of being hidden by renderer-only logic.
+The demo story tree is registered through `@quajs/story-graph` in `src/game/content/story-tree.ts`. Locked nodes are projected through chapter-select options instead of being hidden by renderer-only logic. The Vue-facing node projection lives in `src/game/ui/story-tree.ts`.
 
 Before unlock, route nodes show only a neutral chapter label, `LOCKED`, and placeholder copy. Real route titles, summaries, thumbnails, and metadata are not projected to the renderer until the node is unlocked.
 
@@ -105,6 +112,7 @@ The demo uses:
 - `@quajs/plugin-background`
 - `@quajs/plugin-backlog`
 - `@quajs/plugin-fonts`
+- `@quajs/plugin-gallery`
 - `@quajs/plugin-settings`
 - `@quajs/plugin-sprite`
 - `@quajs/story-graph`

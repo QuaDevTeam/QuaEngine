@@ -1,0 +1,106 @@
+@media (max-width: 760px) {
+  .vn-title-plate {
+    top: 16px;
+    left: 18px;
+  }
+
+  .game-title {
+    font-size: 20px;
+  }
+
+  .game-subtitle {
+    display: none;
+  }
+
+  .vn-quick-menu {
+    right: 12px;
+    left: 12px;
+    bottom: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .vn-quick-menu button {
+    font-size: 10px;
+    padding-right: 5px;
+    padding-left: 5px;
+  }
+
+  .qua-dialogue-text {
+    font-size: 15px;
+    line-height: 1.62;
+  }
+
+  .vn-main-menu__inner {
+    margin: 0;
+    justify-self: center;
+  }
+
+  .game-root[data-system-overlay] .qua-save-load-panel,
+  .game-root[data-system-overlay] .qua-settings-panel,
+  .game-root[data-system-overlay] .qua-backlog-panel,
+  .game-root[data-system-overlay] .qua-gallery-layer {
+    width: min(560px, 92vw);
+    max-height: 82vh;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-layer {
+    grid-template-rows: auto auto minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-header,
+  .game-root[data-system-overlay] .qua-gallery-detail-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-close {
+    align-self: flex-start;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-toolbar {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-toolbar-toggle,
+  .game-root[data-system-overlay] .qua-gallery-toolbar-counter {
+    align-self: stretch;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-body {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-entry-pane {
+    overflow: visible;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-entry-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-entry-card {
+    min-height: 0;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-detail-preview {
+    max-height: 240px;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-lightbox-frame {
+    width: min(520px, 94vw);
+    max-height: 74vh;
+  }
+
+  .game-root[data-system-overlay] .qua-save-slot-grid,
+  .game-root[data-system-overlay] .qua-settings-field-main,
+  .game-root[data-system-overlay] .qua-backlog-entry,
+  .game-root[data-system-overlay] .qua-backlog-entry-main {
+    grid-template-columns: 1fr;
+  }
+
+}

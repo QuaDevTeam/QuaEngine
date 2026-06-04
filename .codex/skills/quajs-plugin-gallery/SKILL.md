@@ -30,7 +30,11 @@ Renderer entries:
 
 - `@quajs/renderer-web/plugins/gallery`
 - `@quajs/renderer-vue/plugins/gallery`
+- `@quajs/renderer-react/plugins/gallery`
+- `@quajs/renderer-svelte/plugins/gallery`
 - `@quajs/renderer-cocos/plugins/gallery`
+
+Web, React, and Svelte use the shared `@quajs/renderer-web/plugins/gallery` DOM implementation through thin framework adapters. Vue provides framework components over the same projection helpers. Cocos projects the same gallery intents and transient browsing affordances, including lightbox preview, through native host nodes.
 
 Compiler lowering exports such as `scriptCompiler` and `createGalleryDecoratorCompiler` belong only to `@quajs/plugin-gallery/script-compiler`. Do not re-export or import them from the runtime root, because apps that only need `GalleryPlugin` must not load Babel/compiler dependencies.
 
@@ -57,6 +61,23 @@ await gallery.registerEntry({
 ```
 
 Content blocks can be `image`, `video`, `audio`, `text`, or custom kinds with serializable data.
+
+Locked entries hide title, summary, description, thumbnail, tags, metadata, and contents by default in projection to avoid spoilers. Use `lockedPresentation` only for deliberate non-spoiler placeholders or opt-in reveals:
+
+```ts
+await gallery.registerEntry({
+  id: 'cg/ending',
+  catalogId: 'main-cg',
+  title: 'True Ending',
+  thumbnail: { type: 'images', name: 'cg/true-ending.jpg' },
+  contents: [{ id: 'image', kind: 'image', asset: { type: 'images', name: 'cg/true-ending.jpg' } }],
+  lockedPresentation: {
+    title: 'Locked Record',
+    summary: 'Clear the route to unlock.',
+    tags: ['locked'],
+  },
+})
+```
 
 ## Runtime API
 
@@ -89,7 +110,7 @@ Decorators:
 
 ## Renderer Boundary
 
-Renderer components receive `GalleryProjection`, render locked/unlocked entries, and emit selection/filter/close intents. They must not decide unlock state.
+Renderer components receive `GalleryProjection`, render locked/unlocked entries, and emit selection/filter/close intents. They must not decide unlock state. Lightbox/detail browsing state is renderer-local and transient only across Web/Vue/React/Svelte/Cocos; locked entries should render the projection they receive and must not reconstruct hidden definition details.
 
 ## Settings
 
@@ -108,6 +129,7 @@ Run achievement tests when gallery reward/condition integration changes.
 ## Review Checklist
 
 - Are definitions separate from profile unlock records?
+- Do locked entries avoid projecting spoiler details unless `lockedPresentation` explicitly reveals them?
 - Does save/load avoid restoring profile unlock state?
 - Are gallery asset refs package-aware?
 - Does renderer emit intents rather than owning unlock/filter authority?

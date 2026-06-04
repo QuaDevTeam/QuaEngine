@@ -1,0 +1,477 @@
+.game-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(37, 54, 76, 0.24), transparent 54%),
+    #050507;
+}
+
+.game-root,
+.vn-title-plate,
+.vn-quick-menu,
+.vn-main-menu,
+.vn-story-tree,
+.vn-toast,
+.boot-message,
+.qua-choice-panel,
+.qua-choice-button,
+.qua-ui-panel-header,
+.qua-menu-overlay,
+.qua-confirm-overlay,
+.qua-save-load-panel,
+.qua-settings-panel,
+.qua-backlog-header,
+.qua-backlog-entry-meta,
+.qua-backlog-entry-voice,
+.qua-backlog-close,
+.qua-gallery-layer,
+.qua-gallery-header,
+.qua-gallery-toolbar,
+.qua-gallery-entry-badges,
+.qua-gallery-content-tabs,
+.qua-save-load-mode-tabs,
+.qua-save-slot-grid,
+.qua-settings-header,
+.vn-settings-header,
+.vn-settings-scope-header {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.qua-dialogue-text,
+.qua-backlog-entry-content,
+.qua-backlog-entry-text,
+.qua-gallery-entry-summary,
+.qua-gallery-detail-summary,
+.qua-gallery-detail-description,
+.qua-gallery-content-text,
+.qua-confirm-description,
+.qua-settings-field-description,
+.qua-settings-scope-description,
+.qua-settings-group-description,
+.qua-settings-field-error {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.game-root::before,
+.game-root::after {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  content: "";
+}
+
+.game-root::before {
+  background:
+    linear-gradient(180deg, rgba(5, 5, 7, 0.24), transparent 18%, transparent 72%, rgba(5, 5, 7, 0.34)),
+    radial-gradient(ellipse at center, transparent 46%, rgba(0, 0, 0, 0.34) 100%);
+}
+
+.game-root::after {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mix-blend-mode: soft-light;
+  opacity: 0.32;
+}
+
+.vn-title-surface {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  overflow: hidden;
+  pointer-events: none;
+  background: #030407;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.vn-title-surface::before,
+.vn-title-surface::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+}
+
+.vn-title-surface::before {
+  background-image: var(--vn-menu-background);
+  background-position: center;
+  background-size: cover;
+  filter: brightness(0.46) saturate(0.88);
+  transform: scale(1.03);
+}
+
+.vn-title-surface::after {
+  background:
+    radial-gradient(circle at 52% 40%, rgba(11, 19, 30, 0.24), rgba(3, 4, 7, 0.78) 64%),
+    linear-gradient(90deg, rgba(4, 5, 8, 0.94), rgba(4, 5, 8, 0.34), rgba(4, 5, 8, 0.84));
+}
+
+.game-root[data-title-surface="true"] .vn-title-surface {
+  opacity: 1;
+}
+
+.game-root[data-system-overlay] .vn-title-plate,
+.game-root[data-system-overlay] .vn-quick-menu {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.game-root[data-system-overlay] .qua-dialogue-box,
+.game-root[data-system-overlay] .qua-choice-panel {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.game-root[data-system-overlay] .qua-renderer {
+  background: transparent;
+}
+
+.game-root[data-system-overlay] .vn-renderer {
+  z-index: 40;
+}
+
+.game-root[data-system-overlay="main"] .qua-stage-scene,
+.game-root[data-system-overlay="main"] .qua-stage-plane {
+  visibility: hidden;
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+.game-root[data-system-overlay] .qua-screen-plane {
+  z-index: 2;
+}
+
+.game-root[data-system-overlay] .qua-overlay-layer,
+.game-root[data-system-overlay] .qua-settings-layer,
+.game-root[data-system-overlay] .qua-backlog-layer {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: clamp(18px, 4vw, 42px);
+}
+
+.game-root[data-system-overlay] .qua-overlay-layer::before,
+.game-root[data-system-overlay] .qua-settings-layer::before,
+.game-root[data-system-overlay] .qua-backlog-layer::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  content: "";
+  background:
+    radial-gradient(circle at 50% 42%, rgba(39, 59, 82, 0.18), transparent 52%),
+    rgba(3, 4, 7, 0.62);
+  backdrop-filter: blur(10px);
+}
+
+.game-root[data-system-overlay] .qua-overlay-layer::before {
+  animation: vn-overlay-scrim-in 180ms ease both;
+}
+
+.game-root[data-system-overlay="main"] .qua-overlay-layer::before,
+.game-root[data-system-overlay="main"] .qua-settings-layer::before,
+.game-root[data-system-overlay="main"] .qua-backlog-layer::before {
+  background:
+    linear-gradient(90deg, rgba(3, 4, 7, 0.92), rgba(3, 4, 7, 0.38), rgba(3, 4, 7, 0.86)),
+    radial-gradient(circle at 50% 44%, rgba(17, 31, 46, 0.2), rgba(3, 4, 7, 0.66) 72%);
+  backdrop-filter: blur(4px);
+}
+
+.game-root[data-system-overlay] .qua-menu-overlay,
+.game-root[data-system-overlay] .qua-save-load-panel,
+.game-root[data-system-overlay] .qua-settings-panel,
+.game-root[data-system-overlay] .qua-backlog-panel {
+  position: relative;
+  inset: auto;
+  z-index: 1;
+  width: min(980px, 92vw);
+  max-height: min(660px, 84vh);
+  margin: 0;
+}
+
+.game-root[data-system-overlay] .qua-menu-overlay,
+.game-root[data-system-overlay] .qua-save-load-panel,
+.game-root[data-system-overlay] .qua-settings-panel,
+.game-root[data-system-overlay] .qua-confirm-overlay {
+  transform-origin: center center;
+}
+
+.game-root[data-system-overlay] .qua-menu-overlay[data-overlay-presence="enter"],
+.game-root[data-system-overlay] .qua-save-load-panel[data-overlay-presence="enter"],
+.game-root[data-system-overlay] .qua-settings-panel[data-overlay-presence="enter"],
+.game-root[data-system-overlay] .qua-confirm-overlay[data-overlay-presence="enter"] {
+  animation: vn-panel-enter 220ms cubic-bezier(0.19, 1, 0.22, 1) both;
+}
+
+.game-root[data-system-overlay] .qua-menu-overlay[data-overlay-presence="exit"],
+.game-root[data-system-overlay] .qua-save-load-panel[data-overlay-presence="exit"],
+.game-root[data-system-overlay] .qua-settings-panel[data-overlay-presence="exit"],
+.game-root[data-system-overlay] .qua-confirm-overlay[data-overlay-presence="exit"] {
+  pointer-events: none;
+  animation: vn-panel-exit 170ms ease both;
+}
+
+.game-root[data-system-overlay="main"] .qua-menu-overlay[data-overlay-presence="enter"],
+.game-root[data-system-overlay="main"] .qua-save-load-panel[data-overlay-presence="enter"],
+.game-root[data-system-overlay="main"] .qua-settings-panel[data-overlay-presence="enter"],
+.game-root[data-system-overlay="main"] .qua-confirm-overlay[data-overlay-presence="enter"],
+.game-root[data-system-overlay="main"] .qua-gallery-layer {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.vn-title-plate {
+  position: absolute;
+  top: 20px;
+  left: 28px;
+  z-index: 32;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  pointer-events: none;
+  text-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.76),
+    0 0 24px rgba(77, 160, 190, 0.42);
+}
+
+.game-root[data-main-menu="true"] .vn-title-plate {
+  display: none;
+}
+
+.game-title {
+  color: #fff8ea;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.game-subtitle {
+  color: rgba(235, 204, 144, 0.78);
+  font-family: "SFMono-Regular", "Menlo", monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+
+.vn-quick-menu {
+  position: absolute;
+  right: clamp(24px, 5vw, 72px);
+  bottom: clamp(148px, 17vh, 190px);
+  z-index: 36;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border: 1px solid rgba(245, 226, 190, 0.22);
+  background: linear-gradient(180deg, rgba(12, 15, 22, 0.58), rgba(5, 6, 10, 0.42));
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(8px);
+}
+
+.vn-main-menu {
+  position: absolute;
+  inset: 0;
+  z-index: 52;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: transparent;
+  isolation: isolate;
+}
+
+.vn-main-menu::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  content: "";
+}
+
+.vn-main-menu::after {
+  background: linear-gradient(90deg, rgba(4, 5, 8, 0.08), transparent 42%, rgba(4, 5, 8, 0.06));
+}
+
+.vn-main-menu__inner {
+  width: min(660px, 86vw);
+  margin-left: min(9vw, 130px);
+  justify-self: start;
+  padding: 34px 0;
+  color: #fff8ea;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.7);
+}
+
+.vn-main-menu__title {
+  margin: 0;
+  color: #fffaf0;
+  font-size: clamp(56px, 7vw, 104px);
+  font-weight: 700;
+  line-height: 0.96;
+  letter-spacing: 0;
+}
+
+.vn-main-menu__english-title {
+  width: min(520px, 86vw);
+  margin: 14px 0 34px;
+  color: rgba(235, 204, 144, 0.78);
+  font-family: "SFMono-Regular", "Menlo", monospace;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+}
+
+.vn-main-menu__actions {
+  display: grid;
+  width: min(360px, 82vw);
+  gap: 9px;
+}
+
+.vn-main-menu__actions button {
+  position: relative;
+  display: grid;
+  min-height: 48px;
+  align-items: center;
+  overflow: hidden;
+  padding: 0 18px 0 20px;
+  border: 1px solid rgba(245, 226, 190, 0.24);
+  background:
+    linear-gradient(90deg, rgba(9, 12, 18, 0.94), rgba(22, 26, 36, 0.74)),
+    rgba(9, 12, 18, 0.88);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 14px 38px rgba(0, 0, 0, 0.26);
+  color: rgba(255, 250, 242, 0.92);
+  font-size: 12px;
+  letter-spacing: 0.13em;
+  text-align: left;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.52);
+  transition:
+    background 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.vn-main-menu__actions button::before {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: -1px;
+  width: 3px;
+  content: "";
+  background: rgba(245, 226, 190, 0.48);
+  opacity: 0.64;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.vn-main-menu__actions button::after {
+  position: absolute;
+  top: 50%;
+  right: 17px;
+  width: 6px;
+  height: 6px;
+  border-top: 1px solid currentColor;
+  border-right: 1px solid currentColor;
+  content: "";
+  opacity: 0.34;
+  transform: translateY(-50%) rotate(45deg);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.vn-main-menu__actions button:hover,
+.vn-main-menu__actions button:focus-visible {
+  border-color: rgba(245, 226, 190, 0.24);
+  background:
+    linear-gradient(90deg, rgba(34, 29, 22, 0.96), rgba(27, 29, 36, 0.78)),
+    rgba(18, 18, 23, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 16px 46px rgba(0, 0, 0, 0.34);
+  color: #ffe8b3;
+  text-shadow: 0 0 14px rgba(255, 194, 86, 0.38);
+  transform: translateX(3px);
+}
+
+.vn-main-menu__actions button:hover::before,
+.vn-main-menu__actions button:focus-visible::before {
+  opacity: 1;
+  transform: scaleY(1.08);
+}
+
+.vn-main-menu__actions button:hover::after,
+.vn-main-menu__actions button:focus-visible::after {
+  opacity: 0.72;
+  transform: translate(3px, -50%) rotate(45deg);
+}
+
+.vn-main-menu__actions button:focus-visible {
+  outline: 0;
+}
+
+.vn-story-tree {
+  z-index: 60;
+  --qua-story-tree-background-image: none;
+  --qua-story-tree-panel-bg: rgba(7, 8, 12, 0.9);
+  --qua-story-tree-panel-border: rgba(245, 226, 190, 0.3);
+}
+
+.vn-story-tree::before {
+  content: none;
+}
+
+.vn-story-tree-node--complete {
+  border-color: rgba(129, 229, 255, 0.34);
+  background: linear-gradient(180deg, rgba(15, 39, 50, 0.72), rgba(7, 8, 12, 0.86));
+}
+
+.vn-story-tree-node--available {
+  border-color: rgba(245, 226, 190, 0.26);
+}
+
+.vn-story-tree-node--locked {
+  filter: grayscale(0.86);
+}
+
+.vn-toast {
+  position: absolute;
+  top: 78px;
+  right: clamp(20px, 5vw, 72px);
+  z-index: 74;
+  max-width: min(380px, 82vw);
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(245, 226, 190, 0.32);
+  background:
+    linear-gradient(180deg, rgba(16, 18, 24, 0.94), rgba(6, 7, 10, 0.9));
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.52);
+  color: #fff8ea;
+  font-family:
+    "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Noto Sans CJK SC",
+    system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  pointer-events: none;
+}
+
+.vn-toast--success {
+  border-color: rgba(129, 229, 255, 0.52);
+  color: #dffaff;
+}
+
+.boot-message {
+  position: absolute;
+  right: 18px;
+  bottom: 12px;
+  z-index: 30;
+  margin: 0;
+  color: rgba(247, 242, 234, 0.5);
+  font-family: "SFMono-Regular", "Menlo", monospace;
+  font-size: 11px;
+}

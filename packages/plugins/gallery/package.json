@@ -77,6 +77,8 @@
     "renderer": {
       "web": "@quajs/renderer-web/plugins/gallery",
       "vue": "@quajs/renderer-vue/plugins/gallery",
+      "react": "@quajs/renderer-react/plugins/gallery",
+      "svelte": "@quajs/renderer-svelte/plugins/gallery",
       "cocos": "@quajs/renderer-cocos/plugins/gallery"
     },
     "decorators": {
