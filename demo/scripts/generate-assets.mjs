@@ -380,6 +380,18 @@ const cgs = [
     prompt: 'cinematic human ending CG, dawn after eleven hours of blackout, Kamishiro Mio and Mara Tachibana stand before the ORACLE tower plaza where citizens turned dark advertisement screens into abstract message boards with no readable text, exhausted responsibility and fragile hope, both faces keep natural skin tones with cyan light only as rim light or jacket seam glow, characters preserve established hairstyles, outfits, and color palettes',
     references: ['characters/lin/exhausted.png', 'characters/mara/soften.png'],
   },
+  {
+    id: '2039-accident',
+    aspect: '16:9',
+    seed: 42013,
+    prompt: 'cinematic historical disaster CG, Tokyo 2039 September blackout accident across four city districts, elevated rail station and street grid in heavy rain, dead traffic signals, dark platforms, confused civilians guided by emergency lamps, rescue dispatch systems visibly stalled as abstract locked control lights with no readable screens, tragic systemic failure mood, no named characters',
+  },
+  {
+    id: 'oracle-birth',
+    aspect: '16:9',
+    seed: 42014,
+    prompt: 'cinematic origin CG for ORACLE, near-future Tokyo connecting dispatch, medical, traffic, and public safety infrastructure into one luminous AI governance network, central tower and underground control room linked by glowing city-map arteries, operators represented only as distant silhouettes, abstract blank control panels and clean light streams instead of labeled screens, no vehicles, no street signage, no license plates, hopeful but ominous birth of a citywide system, no named characters',
+  },
 ]
 
 const characters = [
@@ -1749,8 +1761,11 @@ async function generateOpenAiCg(asset) {
     return existing
   }
   const references = await cgInputImages(asset)
+  const referenceGuidance = references.length > 0
+    ? 'Use the provided input_images as strict character references for identity, hairstyle, outfit silhouette, costume colors, face impression, height relationship, and world continuity. Preserve the same characters from the sprite references; do not redesign them, replace them, age them down, change hair color, change clothing, simplify signature accessories, add unrelated characters, or drift into a different anime style. Match the established VN sprite designs closely even when changing pose, lighting, or camera angle. Keep visible hands, arms, legs, and feet anatomically plausible; avoid missing limbs, fused fingers, cropped focal hands, impossible joints, duplicated characters, and confusing foreground objects.'
+    : 'No character reference images are provided for this CG; treat it as an environment and historical event illustration with no named character close-ups.'
   const input = {
-    prompt: `${cgArtBible}. Scene: ${asset.prompt}. Use the provided input_images as strict character references for identity, hairstyle, outfit silhouette, costume colors, face impression, height relationship, and world continuity. Preserve the same characters from the sprite references; do not redesign them, replace them, age them down, change hair color, change clothing, simplify signature accessories, add unrelated characters, or drift into a different anime style. Match the established VN sprite designs closely even when changing pose, lighting, or camera angle. Keep visible hands, arms, legs, and feet anatomically plausible; avoid missing limbs, fused fingers, cropped focal hands, impossible joints, duplicated characters, and confusing foreground objects. Compose for a final 16:9 center crop from a 3:2 source: keep faces, hands, and narrative focal points away from the top and bottom crop margins, with full cinematic horizontal staging. No captions, no title text, no UI, no logo, no watermark.`,
+    prompt: `${cgArtBible}. Scene: ${asset.prompt}. ${referenceGuidance} Compose for a final 16:9 center crop from a 3:2 source: keep faces, hands, and narrative focal points away from the top and bottom crop margins, with full cinematic horizontal staging. No captions, no title text, no UI, no logo, no watermark.`,
     aspect_ratio: '3:2',
     ...(references.length > 0 ? { input_images: references } : {}),
     number_of_images: 1,
