@@ -116,6 +116,7 @@
   },
   "peerDependencies": {
     "@quajs/plugin-achievement": "workspace:*",
+    "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
@@ -123,6 +124,9 @@
   },
   "peerDependenciesMeta": {
     "@quajs/plugin-achievement": {
+      "optional": true
+    },
+    "@quajs/plugin-audio": {
       "optional": true
     },
     "@quajs/plugin-backlog": {
@@ -140,6 +144,7 @@
   },
   "devDependencies": {
     "@quajs/plugin-achievement": "workspace:*",
+    "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",

@@ -1,6 +1,7 @@
 import type { AssetChange, AssetData, AssetType, QuaAssets } from '@quajs/assets'
 import type { CocosHost, CocosHostAudioHandle, CocosHostNode, CocosHostResource } from '@quajs/cocos-host'
 import type { Pipeline } from '@quajs/pipeline'
+import type { AudioTrackEventPayload } from '@quajs/plugin-audio/contracts'
 import type {
   LogicToRenderPayload,
   QuaViewProjection,
@@ -9,6 +10,7 @@ import type {
   RendererPlugin,
   RendererPluginContext,
 } from '@quajs/render-core'
+import { AudioRenderToLogicEvents, emitAudioRenderToLogic } from '@quajs/plugin-audio/contracts'
 import type { CocosRendererHostContext, CocosRendererPlugin, CocosRendererSnapshot, CocosRendererSnapshotListener } from './types'
 import {
   clientPointToStageLogical,
@@ -61,6 +63,7 @@ export class QuaCocosRendererController {
   private readonly layerResources = new Map<string, Map<string, CocosHostResource>>()
   private readonly materializedResources = new Map<string, { resource: CocosHostResource, refs: number }>()
   private readonly audioHandles = new Map<string, Map<string, CocosAudioRuntimeHandle>>()
+  private readonly warnedAudioCapabilities = new Set<string>()
 
   private readonly refreshAssets = (_change?: AssetChange) => {
     this.assetRevision += 1
@@ -514,6 +517,7 @@ export class QuaCocosRendererController {
       playbackRate?: number
       bus?: string
       playing?: boolean
+      endedPayload?: AudioTrackEventPayload
     },
   ): Promise<CocosHostAudioHandle> {
     const handles = this.audioHandles.get(layerId) || new Map<string, CocosAudioRuntimeHandle>()
@@ -523,15 +527,17 @@ export class QuaCocosRendererController {
     if (existing && existing.resource.id === resource.id) {
       existing.handle.setVolume(volume)
       existing.handle.setLoop(loop)
-      existing.handle.setPlaybackRate?.(options.playbackRate ?? 1)
+      this.applyAudioPlaybackRate(existing.handle, options.playbackRate ?? 1, key)
       if (options.playing === false)
         await existing.handle.pause()
       else
         await existing.handle.play()
       existing.options = { ...options, volume, loop }
+      existing.endedPayload = options.endedPayload
       return existing.handle
     }
     if (existing) {
+      existing.endedDisposer?.()
       await existing.handle.stop()
       await existing.handle.dispose()
     }
@@ -542,12 +548,28 @@ export class QuaCocosRendererController {
       playbackRate: options.playbackRate,
       bus: options.bus,
     })
-    handles.set(key, {
+    const record: CocosAudioRuntimeHandle = {
       handle,
       resource,
       options: { ...options, volume, loop },
+      endedPayload: options.endedPayload,
+    }
+    record.endedDisposer = handle.onEnded?.(() => {
+      const payload = record.endedPayload
+      if (!payload)
+        return
+      void emitAudioRenderToLogic(this.requirePipeline(), AudioRenderToLogicEvents.ENDED, payload).catch(error => this.reportError(error, {
+        message: 'Cocos audio ended event dispatch failed.',
+        phase: 'renderer-cocos:audio-ended',
+        metadata: {
+          channel: payload.channel,
+          id: payload.id,
+        },
+      }))
     })
+    handles.set(key, record)
     this.audioHandles.set(layerId, handles)
+    this.applyAudioPlaybackRate(handle, options.playbackRate ?? 1, key)
     if (options.playing === false)
       await handle.pause()
     else
@@ -563,6 +585,7 @@ export class QuaCocosRendererController {
     for (const [key, record] of [...handles.entries()]) {
       if (active?.has(key))
         continue
+      record.endedDisposer?.()
       void record.handle.stop()
       void record.handle.dispose()
       this.setLayerResource(layerId, key, undefined)
@@ -571,6 +594,25 @@ export class QuaCocosRendererController {
     if (handles.size === 0) {
       this.audioHandles.delete(layerId)
     }
+  }
+
+  private applyAudioPlaybackRate(handle: CocosHostAudioHandle, playbackRate: number, key: string): void {
+    if (playbackRate === 1 || playbackRate === undefined) {
+      handle.setPlaybackRate?.(1)
+      return
+    }
+    if (this.host.capabilities?.audioPlaybackRate && handle.setPlaybackRate) {
+      handle.setPlaybackRate(playbackRate)
+      return
+    }
+    const warningKey = `playbackRate:${key}`
+    if (this.warnedAudioCapabilities.has(warningKey))
+      return
+    this.warnedAudioCapabilities.add(warningKey)
+    this.host.runtime.warn?.('Cocos host does not expose audio playbackRate capability; playback rate intent was ignored.', {
+      key,
+      playbackRate,
+    })
   }
 
   private async captureStage(options?: { mimeType?: string, quality?: number, maxWidth?: number, maxHeight?: number }) {
@@ -645,5 +687,8 @@ interface CocosAudioRuntimeHandle {
     playbackRate?: number
     bus?: string
     playing?: boolean
+    endedPayload?: AudioTrackEventPayload
   }
+  endedPayload?: AudioTrackEventPayload
+  endedDisposer?: () => void
 }

@@ -1,6 +1,7 @@
 import type { AssetData, AssetType, QuaAssets } from '@quajs/assets'
 import type { CocosHost, CocosHostAudioHandle, CocosHostNode, CocosHostResource } from '@quajs/cocos-host'
 import type { Pipeline } from '@quajs/pipeline'
+import type { AudioTrackEventPayload } from '@quajs/plugin-audio/contracts'
 import type {
   RendererActions,
   RendererPlugin,
@@ -39,6 +40,7 @@ export interface CocosRendererHostContext {
     playbackRate?: number
     bus?: string
     playing?: boolean
+    endedPayload?: AudioTrackEventPayload
   }) => Promise<CocosHostAudioHandle>
   releaseAudioHandles: (layerId: string, activeKeys?: readonly string[]) => void
   captureStage: (options?: { mimeType?: string, quality?: number, maxWidth?: number, maxHeight?: number }) => Promise<{

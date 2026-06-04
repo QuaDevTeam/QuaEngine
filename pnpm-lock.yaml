@@ -865,6 +865,9 @@ importers:
       '@quajs/plugin-achievement':
         specifier: workspace:*
         version: link:../../plugins/achievement
+      '@quajs/plugin-audio':
+        specifier: workspace:*
+        version: link:../../plugins/audio
       '@quajs/plugin-backlog':
         specifier: workspace:*
         version: link:../../plugins/backlog

@@ -16,7 +16,10 @@ import {
   projectAudioProjection,
   projectUiOverlay,
   RenderToLogicEvents,
+  resolveUiChoiceSkinReference,
+  resolveUiOverlaySkinReference,
 } from '@quajs/render-core'
+import { applyCocosUiControlSkin } from './ui-skin'
 import {
   choiceText,
   metadataTargetPackageId,
@@ -94,9 +97,10 @@ export function renderCocosDialogue(context: CocosRendererHostContext): void {
   context.host.nodes.setNodeTransform(box, motionTransform(dialogue as unknown as Record<string, unknown>))
 }
 
-export function renderCocosChoices(context: CocosRendererHostContext): void {
+export async function renderCocosChoices(context: CocosRendererHostContext): Promise<void> {
   const layer = context.getLayerNode('choices', 'choice-layer', 60)
   context.host.nodes.clearChildren(layer)
+  context.releaseLayerResources('choices')
   const projection = projectChoices(
     context.getViewState().choices,
     context.getViewState().animations,
@@ -110,12 +114,23 @@ export function renderCocosChoices(context: CocosRendererHostContext): void {
   context.host.nodes.setNodeMetadata?.(layer, {
     panel: projection.panel,
   })
+  await applyCocosUiControlSkin(context, layer, {
+    layerId: 'choices',
+    resourceKey: 'panel',
+    kind: 'panel',
+  })
   const safeArea = context.getStageLayout().safeArea
   let index = 0
   for (const choice of projection.choices) {
     const node = context.host.nodes.createNode('choice', { parent: layer, name: `choice:${choice.id}` })
     const choiceMotion = motionTransform(choice as unknown as Record<string, unknown>)
     context.host.nodes.setNodeText(node, choiceText(choice), { fontSize: 28 })
+    context.host.nodes.setNodeControl?.(node, {
+      kind: 'button',
+      value: choice.id,
+      disabled: choice.enabled === false,
+      label: choiceText(choice),
+    })
     context.host.nodes.setNodeTransform(node, {
       x: safeArea.x + (choiceMotion.x ?? 0),
       y: safeArea.y + index * 72 + (choiceMotion.y ?? 0),
@@ -131,6 +146,13 @@ export function renderCocosChoices(context: CocosRendererHostContext): void {
       choiceId: choice.id,
       enabled: choice.enabled,
       target: choice.target,
+    })
+    await applyCocosUiControlSkin(context, node, {
+      layerId: 'choices',
+      resourceKey: `choice:${choice.id}`,
+      kind: 'button',
+      skinId: resolveUiChoiceSkinReference(context.getViewState(), choice),
+      disabled: choice.enabled === false,
     })
     index += 1
   }
@@ -169,14 +191,16 @@ export async function renderCocosAudio(context: CocosRendererHostContext): Promi
       playbackRate: numberValue(track.playbackRate, 1),
       bus: stringValue(track.bus, kind),
       playing: stringValue(track.state, 'playing') !== 'paused' && stringValue(track.state, 'playing') !== 'stopped',
+      endedPayload: audioTrackEndedPayload(track, kind, id, assetName),
     })
   }
   context.releaseAudioHandles('audio', activeKeys)
 }
 
-export function renderCocosUi(context: CocosRendererHostContext): void {
+export async function renderCocosUi(context: CocosRendererHostContext): Promise<void> {
   const layer = context.getLayerNode('ui', 'ui-layer', 90)
   context.host.nodes.clearChildren(layer)
+  context.releaseLayerResources('ui')
   const overlays = context.getViewState().ui.overlays || {}
   for (const [elementId, overlay] of Object.entries(overlays)) {
     const projected = projectUiOverlay(
@@ -187,8 +211,19 @@ export function renderCocosUi(context: CocosRendererHostContext): void {
     )
     const node = context.host.nodes.createNode('ui-overlay', { parent: layer, name: elementId })
     context.host.nodes.setNodeVisible(node, projected.visible !== false)
-    context.host.nodes.setNodeTransform(node, motionTransform(projected))
-    context.host.nodes.setNodeMetadata?.(node, { elementId, overlay: projected })
+    context.host.nodes.setNodeTransform(node, overlayTransform(context, projected))
+    context.host.nodes.setNodeControl?.(node, {
+      kind: 'panel',
+      label: stringValue(projected.title, titleFromField(elementId)),
+    })
+    context.host.nodes.setNodeMetadata?.(node, { elementId, overlay: projected, uiAction: 'panel' })
+    await applyCocosUiControlSkin(context, node, {
+      layerId: 'ui',
+      resourceKey: `overlay:${elementId}`,
+      kind: 'panel',
+      skinId: resolveUiOverlaySkinReference(context.getViewState(), overlay),
+    })
+    await renderUiOverlayContent(context, node, elementId, projected, overlay)
   }
 }
 
@@ -318,12 +353,266 @@ function applyBackgroundTransform(
   })
 }
 
+async function renderUiOverlayContent(
+  context: CocosRendererHostContext,
+  parent: CocosHostNode,
+  elementId: string,
+  projected: Record<string, unknown>,
+  overlay: Readonly<Record<string, unknown>>,
+): Promise<void> {
+  const transform = overlayTransform(context, projected)
+  const x = transform.x ?? 0
+  const y = transform.y ?? 0
+  const width = transform.width ?? context.getStageLayout().safeArea.width
+  const height = transform.height ?? 480
+  const padding = 32
+
+  const title = stringValue(projected.title, titleFromField(elementId))
+  const titleNode = context.host.nodes.createNode('ui-title', { parent, name: `${elementId}:title` })
+  context.host.nodes.setNodeText(titleNode, title, { fontSize: 32, color: '#ffffff' })
+  context.host.nodes.setNodeTransform(titleNode, {
+    x: x + padding,
+    y: y + 24,
+    width: Math.max(0, width - padding * 2 - 160),
+    height: 48,
+    zIndex: 1,
+  })
+
+  const subtitle = stringValue(projected.subtitle)
+  if (subtitle) {
+    const subtitleNode = context.host.nodes.createNode('ui-subtitle', { parent, name: `${elementId}:subtitle` })
+    context.host.nodes.setNodeText(subtitleNode, subtitle, { fontSize: 22, color: '#d8d8d8' })
+    context.host.nodes.setNodeTransform(subtitleNode, {
+      x: x + padding,
+      y: y + 74,
+      width: Math.max(0, width - padding * 2),
+      height: 36,
+      zIndex: 1,
+    })
+  }
+
+  const description = stringValue(projected.description)
+  if (description) {
+    const descriptionNode = context.host.nodes.createNode('ui-description', { parent, name: `${elementId}:description` })
+    context.host.nodes.setNodeText(descriptionNode, description, { fontSize: 24, color: '#ffffff' })
+    context.host.nodes.setNodeTransform(descriptionNode, {
+      x: x + padding,
+      y: y + (subtitle ? 118 : 84),
+      width: Math.max(0, width - padding * 2),
+      height: 96,
+      zIndex: 1,
+    })
+  }
+
+  await renderUiButton(context, parent, {
+    elementId,
+    index: -1,
+    label: 'Close',
+    x: x + Math.max(0, width - 144),
+    y: y + 24,
+    width: 112,
+    height: 48,
+    skinId: resolveUiOverlaySkinReference(context.getViewState(), overlay, 'button'),
+    metadata: {
+      uiAction: 'close',
+      elementId,
+    },
+  })
+
+  const actions = readUiActions(projected)
+  let index = 0
+  for (const action of actions) {
+    const metadata = uiActionMetadata(elementId, action)
+    if (!metadata)
+      continue
+    await renderUiButton(context, parent, {
+      elementId,
+      index,
+      label: uiActionLabel(action, index),
+      x: x + padding,
+      y: y + height - padding - (actions.length - index) * 58,
+      width: Math.min(360, Math.max(160, width - padding * 2)),
+      height: 48,
+      skinId: stringValue(recordValue(action, 'skinId')) || resolveUiOverlaySkinReference(context.getViewState(), overlay, 'button'),
+      metadata,
+    })
+    index += 1
+  }
+}
+
+async function renderUiButton(
+  context: CocosRendererHostContext,
+  parent: CocosHostNode,
+  options: {
+    elementId: string
+    index: number
+    label: string
+    x: number
+    y: number
+    width: number
+    height: number
+    skinId?: string
+    metadata: Record<string, unknown>
+  },
+): Promise<void> {
+  const node = context.host.nodes.createNode('ui-button', {
+    parent,
+    name: options.index < 0 ? `${options.elementId}:close` : `${options.elementId}:action:${options.index}`,
+  })
+  context.host.nodes.setNodeText(node, options.label, { fontSize: 24, color: '#ffffff' })
+  context.host.nodes.setNodeControl?.(node, {
+    kind: 'button',
+    label: options.label,
+    value: options.index < 0 ? 'close' : String(options.index),
+  })
+  context.host.nodes.setNodeTransform(node, {
+    x: options.x,
+    y: options.y,
+    width: options.width,
+    height: options.height,
+    zIndex: 2 + Math.max(0, options.index),
+  })
+  context.host.nodes.setNodeMetadata?.(node, options.metadata)
+  await applyCocosUiControlSkin(context, node, {
+    layerId: 'ui',
+    resourceKey: `overlay:${options.elementId}:button:${options.index}`,
+    kind: 'button',
+    skinId: options.skinId,
+  })
+}
+
+function overlayTransform(context: CocosRendererHostContext, projected: Record<string, unknown>): CocosHostTransform {
+  const safeArea = context.getStageLayout().safeArea
+  const width = numericDimension(projected.width as number | string | undefined) ?? Math.min(960, safeArea.width)
+  const height = numericDimension(projected.height as number | string | undefined) ?? 480
+  return {
+    x: numberValue(projected.x, safeArea.x + Math.max(0, (safeArea.width - width) / 2)),
+    y: numberValue(projected.y, safeArea.y + 80),
+    width,
+    height,
+    scaleX: numberValue(projected.scaleX, numberValue(projected.scale, undefined)),
+    scaleY: numberValue(projected.scaleY, numberValue(projected.scale, undefined)),
+    rotation: numberValue(projected.rotation, undefined),
+    opacity: numberValue(projected.opacity, 1),
+    zIndex: numberValue(projected.zIndex, 0),
+  }
+}
+
+function readUiActions(projected: Record<string, unknown>): readonly unknown[] {
+  if (Array.isArray(projected.actions))
+    return projected.actions
+  if (Array.isArray(projected.buttons))
+    return projected.buttons
+  return []
+}
+
+function uiActionLabel(action: unknown, index: number): string {
+  if (typeof action === 'string')
+    return action
+  const label = stringValue(recordValue(action, 'label'))
+    || stringValue(recordValue(action, 'text'))
+    || stringValue(recordValue(action, 'title'))
+  return label || `Action ${index + 1}`
+}
+
+function uiActionMetadata(elementId: string, action: unknown): Record<string, unknown> | undefined {
+  if (typeof action === 'string') {
+    return {
+      uiAction: 'pluginEvent',
+      eventType: action,
+      eventPayload: { source: elementId },
+      elementId,
+    }
+  }
+  if (!isRecord(action))
+    return undefined
+
+  const actionName = stringValue(action.action)
+    || stringValue(action.type)
+    || stringValue(action.kind)
+  const normalized = actionName.replace(/[_-]/g, '').toLowerCase()
+  const targetElementId = stringValue(action.targetElementId)
+    || stringValue(action.elementId)
+    || stringValue(action.target)
+    || elementId
+
+  if (normalized === 'close' || normalized === 'uiclose') {
+    return {
+      uiAction: 'close',
+      elementId: targetElementId,
+    }
+  }
+  if (normalized === 'open' || normalized === 'uiopen') {
+    return {
+      uiAction: 'open',
+      elementId: targetElementId,
+      config: isRecord(action.config) ? action.config : undefined,
+      closeCurrent: action.closeCurrent,
+      currentElementId: elementId,
+    }
+  }
+  if (normalized === 'update' || normalized === 'uiupdate') {
+    return {
+      uiAction: 'update',
+      elementId: targetElementId,
+      config: isRecord(action.config) ? action.config : {},
+    }
+  }
+  if (normalized === 'save') {
+    return {
+      uiAction: 'save',
+      slotId: stringValue(action.slotId) || undefined,
+    }
+  }
+  if (normalized === 'load') {
+    return {
+      uiAction: 'load',
+      slotId: stringValue(action.slotId) || undefined,
+    }
+  }
+  if (normalized === 'flow' || normalized === 'flowcontrol') {
+    return {
+      uiAction: 'flow',
+      flowAction: stringValue(action.flowAction) || stringValue(action.mode),
+      source: stringValue(action.source, elementId),
+    }
+  }
+
+  const eventType = stringValue(action.eventType)
+    || stringValue(action.event)
+    || (normalized === 'pluginevent' || normalized === 'event' ? stringValue(action.name) : '')
+  if (eventType) {
+    return {
+      uiAction: 'pluginEvent',
+      eventType,
+      eventPayload: action.payload ?? { source: elementId },
+      elementId,
+    }
+  }
+  return undefined
+}
+
 function numericDimension(value: number | string | undefined): number | undefined {
   return typeof value === 'number' ? value : undefined
 }
 
+function recordValue(value: unknown, key: string): unknown {
+  return isRecord(value) ? value[key] : undefined
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 function stringValue(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback
+}
+
+function titleFromField(field: string): string {
+  return field
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase())
 }
 
 function numberValue(value: unknown, fallback: number | undefined): number | undefined {
@@ -418,4 +707,37 @@ function audioVolume(track: Record<string, unknown>): number {
   if (gainDb !== undefined)
     return 10 ** (gainDb / 20)
   return 1
+}
+
+function audioTrackEndedPayload(
+  track: Record<string, unknown>,
+  kind: string,
+  id: string,
+  assetKey: string,
+) {
+  const payload: {
+    channel: 'bgm' | 'voice' | 'sfx' | 'ambient'
+    id: string
+    assetKey: string
+    chapterId?: string
+    lineId?: string
+    metadata?: Readonly<Record<string, unknown>>
+  } = {
+    channel: isAudioChannel(kind) ? kind : 'sfx',
+    id,
+    assetKey,
+  }
+  const chapterId = stringValue(track.chapterId)
+  const lineId = stringValue(track.lineId)
+  if (chapterId)
+    payload.chapterId = chapterId
+  if (lineId)
+    payload.lineId = lineId
+  if (isRecord(track.metadata))
+    payload.metadata = track.metadata
+  return payload
+}
+
+function isAudioChannel(kind: string): kind is 'bgm' | 'voice' | 'sfx' | 'ambient' {
+  return kind === 'bgm' || kind === 'voice' || kind === 'sfx' || kind === 'ambient'
 }

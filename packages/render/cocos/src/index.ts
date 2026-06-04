@@ -32,3 +32,10 @@ export {
   renderCocosEffects,
   renderCocosUi,
 } from './projection'
+export type {
+  CocosUiControlSkinOptions,
+} from './ui-skin'
+export {
+  applyCocosUiControlSkin,
+  runtimePackageCandidatesFromMetadata,
+} from './ui-skin'

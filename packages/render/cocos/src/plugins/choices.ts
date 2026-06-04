@@ -7,7 +7,13 @@ export function createChoicesCocosRendererPlugin() {
   return defineCocosRendererPlugin({
     name: '@quajs/renderer-cocos/choices',
     setup(context) {
-      const sync = () => renderCocosChoices(context.cocos)
+      const sync = () => {
+        void renderCocosChoices(context.cocos).catch(error => context.reportError(error, {
+          message: 'Cocos choices projection failed.',
+          phase: 'renderer-cocos:choices',
+          pluginName: '@quajs/renderer-cocos/choices',
+        }))
+      }
       context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
       context.addDisposer(context.cocos.host.input.onInput(async (event) => {
         if (event.kind !== 'pointer' || event.phase !== 'down')
