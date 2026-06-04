@@ -108,6 +108,9 @@ catalogs:
     vite-plugin-dts:
       specifier: ^5.0.0
       version: 5.0.0
+    vitest:
+      specifier: ^4.1.8
+      version: 4.1.8
     vscode-languageclient:
       specifier: ^9.0.1
       version: 9.0.1
@@ -597,7 +600,7 @@ importers:
         specifier: workspace:*
         version: link:../../core/engine
       vitest:
-        specifier: ^4.1.8
+        specifier: 'catalog:'
         version: 4.1.8(@types/node@25.6.2)(@vitest/coverage-v8@4.1.8)(@vitest/ui@4.1.8)(happy-dom@20.9.0)(vite@8.0.12(@types/node@25.6.2)(sass-embedded@1.100.0)(sass@1.100.0)(yaml@2.8.4))
 
   packages/platform/security-web:
@@ -881,7 +884,7 @@ importers:
         specifier: workspace:*
         version: link:../../plugins/sprite
       vitest:
-        specifier: ^4.1.8
+        specifier: 'catalog:'
         version: 4.1.8(@types/node@25.6.2)(@vitest/coverage-v8@4.1.8)(@vitest/ui@4.1.8)(happy-dom@20.9.0)(vite@8.0.12(@types/node@25.6.2)(sass-embedded@1.100.0)(sass@1.100.0)(yaml@2.8.4))
 
   packages/render/core:

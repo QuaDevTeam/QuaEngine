@@ -4,12 +4,12 @@
   "version": "0.1.0",
   "description": "Cocos renderer controller and projection plugins for QuaEngine",
   "author": "QuaDevTeam",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/QuaDevTeam/QuaEngine.git",
     "directory": "packages/render/cocos"
   },
-  "license": "Apache-2.0",
   "keywords": [
     "quaengine",
     "renderer",
@@ -108,12 +108,6 @@
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@quajs/assets": "workspace:*",
-    "@quajs/cocos-host": "workspace:*",
-    "@quajs/pipeline": "workspace:*",
-    "@quajs/render-core": "workspace:*"
-  },
   "peerDependencies": {
     "@quajs/plugin-achievement": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
@@ -142,6 +136,12 @@
       "optional": true
     }
   },
+  "dependencies": {
+    "@quajs/assets": "workspace:*",
+    "@quajs/cocos-host": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/render-core": "workspace:*"
+  },
   "devDependencies": {
     "@quajs/plugin-achievement": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
@@ -149,6 +149,6 @@
     "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
-    "vitest": "^4.1.8"
+    "vitest": "catalog:"
   }
 }

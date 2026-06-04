@@ -11,8 +11,8 @@ import type {
   ViewDialogueProjection,
   ViewEffectProjection,
 } from './index'
-import { isRichTextDocument } from './index'
 import { applyTrackValues, cloneBackground, cloneCharacter, cloneUnknownRecord, collectTrackValues } from './animation'
+import { isRichTextDocument } from './index'
 
 export type MotionProjection = Readonly<Record<string, unknown>>
 
@@ -252,4 +252,3 @@ function cloneRichTextSpan(span: Readonly<RichTextSpanProjection>): RichTextSpan
 function richTextItemId(id: string | undefined, index: number): string {
   return id || String(index)
 }
-

@@ -1,9 +1,9 @@
+import type { CocosHostNode } from '@quajs/cocos-host'
 import type {
   AchievementNotificationProjection,
   AchievementProjection,
   AchievementProjectionItem,
 } from '@quajs/plugin-achievement/contracts'
-import type { CocosHostNode } from '@quajs/cocos-host'
 import type { CocosRendererPluginContext } from '../types'
 import { ACHIEVEMENT_PLUGIN_ID, AchievementRenderToLogicEvents } from '@quajs/plugin-achievement/contracts'
 import { LogicToRenderEvents } from '@quajs/render-core'

@@ -15,9 +15,9 @@ export default defineConfig({
   build: {
     lib: {
       entry: {
-        'index': resolve(import.meta.dirname, 'src/index.ts'),
-        'creator': resolve(import.meta.dirname, 'src/creator.ts'),
-        'testing': resolve(import.meta.dirname, 'src/testing.ts'),
+        index: resolve(import.meta.dirname, 'src/index.ts'),
+        creator: resolve(import.meta.dirname, 'src/creator.ts'),
+        testing: resolve(import.meta.dirname, 'src/testing.ts'),
       },
       name: 'cocosHost',
       fileName: (_format, entryName) => `${entryName}.js`,

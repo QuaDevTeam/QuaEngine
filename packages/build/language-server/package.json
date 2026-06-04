@@ -30,9 +30,10 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "qua-language-server": "./dist/server.js"
+    "qua-language-server": "./bin/qua-language-server.cjs"
   },
   "files": [
+    "bin",
     "dist"
   ],
   "engines": {

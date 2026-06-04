@@ -1,4 +1,7 @@
 import type {
+  CocosHost,
+} from '@quajs/cocos-host'
+import type {
   QuaGameSavePreviewRecord,
   QuaGameSaveSlotIndex,
   QuaGameSaveSlotPayload,
@@ -9,7 +12,8 @@ import type {
   StorageMiddleware,
   StorageTransactionMode,
 } from '@quajs/store'
-import type { CocosHost } from '@quajs/cocos-host'
+
+const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
 export interface CocosStoreBackendOptions {
   host: CocosHost
@@ -328,8 +332,6 @@ function base64ToBytes(value: string): Uint8Array {
   return bytes
 }
 
-const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-
 function base64Value(char: string): number {
   const value = BASE64_ALPHABET.indexOf(char)
   if (value < 0)
@@ -338,21 +340,26 @@ function base64Value(char: string): number {
 }
 
 function stringifyTypedJson(value: unknown): string {
-  const dateToJson = Date.prototype.toJSON
-  try {
-    Date.prototype.toJSON = function toQuaCocosStoreJson() {
-      return { __quaType: 'Date', value: this.toISOString() } as unknown as string
-    }
-    return JSON.stringify(value, (_key, item) => {
-      if (item instanceof Uint8Array) {
-        return { __quaType: 'Uint8Array', value: bytesToBase64(item) }
-      }
-      return item
-    })
+  return JSON.stringify(toTypedJsonValue(value))
+}
+
+function toTypedJsonValue(value: unknown): unknown {
+  if (value instanceof Date) {
+    return { __quaType: 'Date', value: value.toISOString() }
   }
-  finally {
-    Date.prototype.toJSON = dateToJson
+  if (value instanceof Uint8Array) {
+    return { __quaType: 'Uint8Array', value: bytesToBase64(value) }
   }
+  if (Array.isArray(value)) {
+    return value.map(item => toTypedJsonValue(item))
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .map(([key, item]) => [key, toTypedJsonValue(item)]),
+    )
+  }
+  return value
 }
 
 function cloneSaveSlotIndex(index: QuaGameSaveSlotIndex): QuaGameSaveSlotIndex {

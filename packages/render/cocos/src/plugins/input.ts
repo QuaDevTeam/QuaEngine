@@ -1,9 +1,9 @@
 import type { CocosHostInputEvent } from '@quajs/cocos-host'
-import type { CocosRendererPluginContext } from '../types'
 import type {
   RendererInputCommand,
   RendererInputDevice,
 } from '@quajs/render-core'
+import type { CocosRendererPluginContext } from '../types'
 import { clientPointToStageLogical, RenderToLogicEvents } from '@quajs/render-core'
 import { defineCocosRendererPlugin } from './core'
 

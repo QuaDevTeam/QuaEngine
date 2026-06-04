@@ -10,7 +10,7 @@ packages:
   - packages/utils/*
 
 allowBuilds:
-  '@parcel/watcher': set this to true or false
+  '@parcel/watcher': true
   '@vscode/vsce-sign': true
   keytar: true
   lzma-native: true

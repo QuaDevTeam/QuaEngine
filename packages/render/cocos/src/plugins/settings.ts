@@ -1,6 +1,6 @@
+import type { CocosHostNode } from '@quajs/cocos-host'
 import type { SettingsProjection } from '@quajs/plugin-settings/contracts'
 import type { SettingsFieldFormProjection, SettingsScopeFormProjection } from '@quajs/plugin-settings/form'
-import type { CocosHostNode } from '@quajs/cocos-host'
 import type { CocosRendererPluginContext } from '../types'
 import {
   SETTINGS_PLUGIN_ID,
@@ -460,7 +460,7 @@ function nextSettingsFieldValue(
   }
 
   if (control === 'switch' || control === 'checkbox')
-    return { ok: true, value: !Boolean(field.value) }
+    return { ok: true, value: !field.value }
 
   if (control === 'select' || control === 'radio') {
     const options = createSettingsOptions(field)

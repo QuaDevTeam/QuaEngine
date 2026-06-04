@@ -41,8 +41,8 @@ import type {
 import { BaseEnginePlugin, releaseUiOverlayHostWithEngine, retainUiOverlayHostWithEngine, Scene } from '@quajs/engine'
 import { QuaStore } from '@quajs/store'
 import {
-  ACHIEVEMENT_METADATA_NAMESPACE,
   ACHIEVEMENT_COCOS_RENDERER_ENTRY,
+  ACHIEVEMENT_METADATA_NAMESPACE,
   ACHIEVEMENT_PLUGIN_ID,
   ACHIEVEMENT_PROFILE_STORE_PREFIX,
   ACHIEVEMENT_SCENE_ID,
@@ -145,8 +145,8 @@ interface AchievementSceneState {
 const achievementRuntimeState = new WeakMap<object, AchievementRuntimeState>()
 
 export {
-  ACHIEVEMENT_METADATA_NAMESPACE,
   ACHIEVEMENT_COCOS_RENDERER_ENTRY,
+  ACHIEVEMENT_METADATA_NAMESPACE,
   ACHIEVEMENT_PLUGIN_ID,
   ACHIEVEMENT_PROFILE_STORE_PREFIX,
   ACHIEVEMENT_SCENE_ID,

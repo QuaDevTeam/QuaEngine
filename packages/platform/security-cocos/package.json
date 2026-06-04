@@ -4,12 +4,12 @@
   "version": "0.1.0",
   "description": "Cocos static-only security helpers for QuaEngine runtime packages and bundle integrity",
   "author": "QuaDevTeam",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/QuaDevTeam/QuaEngine.git",
     "directory": "packages/platform/security-cocos"
   },
-  "license": "Apache-2.0",
   "keywords": [
     "quaengine",
     "security",
@@ -42,6 +42,6 @@
   },
   "devDependencies": {
     "@quajs/engine": "workspace:*",
-    "vitest": "^4.1.8"
+    "vitest": "catalog:"
   }
 }

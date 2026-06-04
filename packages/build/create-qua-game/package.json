@@ -28,9 +28,10 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "create-qua-game": "./dist/cli.js"
+    "create-qua-game": "./bin/create-qua-game.cjs"
   },
   "files": [
+    "bin",
     "dist",
     "templates"
   ],

@@ -1,5 +1,5 @@
-import type { CocosBundleManifest, CocosDynamicBundleRecord, CocosRuntimePackageManifest } from '../src'
 import type { RuntimeModuleLoader, RuntimeTrustPolicy } from '@quajs/engine'
+import type { CocosBundleManifest, CocosDynamicBundleRecord, CocosRuntimePackageManifest } from '../src'
 import { describe, expect, it } from 'vitest'
 import {
   createCocosStaticOnlyTrustPolicy,

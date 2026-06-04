@@ -1,9 +1,9 @@
 import type { QuaGameSavePreviewRecord, QuaGameSaveSlotPayload, QuaSnapshot } from '@quajs/store'
-import { describe, expect, it } from 'vitest'
 import { createFakeCocosHost } from '@quajs/cocos-host/testing'
+import { describe, expect, it } from 'vitest'
 import { CocosFileStoreBackend } from '../src'
 
-describe('CocosFileStoreBackend', () => {
+describe('cocos file store backend', () => {
   it('round-trips snapshots, slots, and preview bytes', async () => {
     const host = createFakeCocosHost()
     const backend = new CocosFileStoreBackend({ host })

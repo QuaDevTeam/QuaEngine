@@ -11,17 +11,17 @@ import type {
   ViewDialogueProjection,
   ViewEffectProjection,
 } from '@quajs/render-core'
-import type { CocosRendererHostContext } from './types'
 import type { CocosDialogueTypewriterProjectResult } from './dialogue-typewriter'
+import type { CocosRendererHostContext } from './types'
 import { resolveSpriteProjection, resolveSpriteReference } from '@quajs/plugin-sprite/contracts'
 import {
   isRichTextDocument,
+  projectAudioProjection,
   projectBackground,
   projectCharacters,
   projectChoices,
   projectDialogue,
   projectEffect,
-  projectAudioProjection,
   projectUiOverlay,
   RenderToLogicEvents,
   resolveUiChoiceSkinReference,
