@@ -222,6 +222,9 @@ importers:
       '@quajs/plugin-animation':
         specifier: workspace:*
         version: link:../packages/plugins/animation
+      '@quajs/plugin-audio':
+        specifier: workspace:*
+        version: link:../packages/plugins/audio
       '@quajs/plugin-background':
         specifier: workspace:*
         version: link:../packages/plugins/background

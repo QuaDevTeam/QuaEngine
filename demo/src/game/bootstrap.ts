@@ -2,6 +2,7 @@ import { MemoryAssetStorage } from '@quajs/assets'
 import { createViteDevAssetRuntime, createWebAssetsAdapter } from '@quajs/assets-web'
 import { LogicToRenderEvents, onLogicToRender, QuaEngine, RenderToLogicEvents, Scene, UiOverlayPlugin } from '@quajs/engine'
 import { AnimationPlugin } from '@quajs/plugin-animation'
+import { AudioPlugin, type AudioPlayBgmOptions } from '@quajs/plugin-audio'
 import { BACKLOG_PLUGIN_ID, BacklogPlugin, BacklogRenderToLogicEvents, type BacklogProjection } from '@quajs/plugin-backlog'
 import { BackgroundPlugin } from '@quajs/plugin-background'
 import { FontsPlugin } from '@quajs/plugin-fonts'
@@ -16,10 +17,7 @@ import {
   createWebRuntimeTrustPolicy,
 } from '@quajs/security-web'
 import {
-  getStoryChapterSelectProjection,
-  registerStoryGraphWithEngine,
   StoryGraphPlugin,
-  unlockStoryNodeWithEngine,
   type StoryChapterSelectProjection,
 } from '@quajs/story-graph'
 import { createWebStoreStorage } from '@quajs/store-web'
@@ -51,6 +49,20 @@ const GAME_TITLE = '断链纪元'
 const GAME_ENGLISH_TITLE = 'BROKEN LINK ERA'
 const SAVE_LOAD_SLOT_COUNT = 9
 const DEMO_TITLE_REQUEST_EVENT = 'ui/title_request'
+const BGM = {
+  title: 'bgm/title-menu.m4a',
+  blackout: 'bgm/blackout-cold-open.m4a',
+  trace: 'bgm/trace-route.m4a',
+  archive: 'bgm/memory-archive.m4a',
+  oracle: 'bgm/oracle-link.m4a',
+  breach: 'bgm/breach-night.m4a',
+} as const
+const DEFAULT_BGM_OPTIONS: AudioPlayBgmOptions = {
+  loop: true,
+  gainDb: -8,
+  fadeInMs: 900,
+  fadeOutMs: 900,
+}
 const DEMO_SUPPORTED_LOCALES = [
   { locale: 'zh-cn', label: '简体中文' },
 ] as const
@@ -222,11 +234,15 @@ export async function createQuaGameApp() {
     trustPolicy,
   })
 
+  const audio = new AudioPlugin()
+  const storyGraph = new StoryGraphPlugin()
+
   engine
     .use(new BackgroundPlugin())
     .use(new AnimationPlugin())
+    .use(audio)
     .use(new BacklogPlugin())
-    .use(new StoryGraphPlugin())
+    .use(storyGraph)
     .use(new SettingsPlugin({
       builtin: {
         developer: {
@@ -245,7 +261,7 @@ export async function createQuaGameApp() {
     .use(new UiOverlayPlugin())
 
   await engine.init()
-  await registerStoryGraphWithEngine(engine, {
+  await storyGraph.registerGraph({
     id: 'demo-main',
     nodes: STORY_TREE_NODES.map((node, index) => ({
       id: node.id,
@@ -270,18 +286,18 @@ export async function createQuaGameApp() {
     })),
   })
   const syncStoryTreeProjection = () => {
-    storyChapterSelect.value = getStoryChapterSelectProjection(engine)
+    storyChapterSelect.value = storyGraph.getChapterSelectProjection()
   }
   unlockStoryTreeChapter = (chapterIndex: number) => {
     const node = STORY_TREE_NODES[chapterIndex]
     if (!node) {
       return
     }
-    void unlockStoryNodeWithEngine(engine, node.id)
+    void storyGraph.unlockNode(node.id)
       .then(syncStoryTreeProjection)
       .catch(error => console.error(error))
   }
-  await unlockStoryNodeWithEngine(engine, STORY_TREE_NODES[0]!.id)
+  await storyGraph.unlockNode(STORY_TREE_NODES[0]!.id)
   syncStoryTreeProjection()
   const activeView = ref(engine.getViewState())
   const activeBacklog = computed(() => activeView.value.plugins[BACKLOG_PLUGIN_ID] as BacklogProjection | undefined)
@@ -300,6 +316,36 @@ export async function createQuaGameApp() {
   })
   const pipeline = engine.getPipeline()
   const emit = pipeline.emit.bind(pipeline)
+  let activeBgmAssetKey: string | undefined
+  const playDemoBgm = async (assetKey: string, options: AudioPlayBgmOptions = {}) => {
+    if (activeBgmAssetKey === assetKey) {
+      return
+    }
+    activeBgmAssetKey = assetKey
+    await audio.playBGM(assetKey, {
+      ...DEFAULT_BGM_OPTIONS,
+      ...options,
+      id: 'demo-bgm',
+    })
+  }
+  const playCurrentStoryBgm = async () => {
+    const chapterIndex = parseChapterIndex(hud.value.chapter)
+    if (chapterIndex >= 5) {
+      await playDemoBgm(BGM.breach)
+    }
+    else if (chapterIndex === 4) {
+      await playDemoBgm(BGM.oracle, { gainDb: -9 })
+    }
+    else if (chapterIndex >= 2) {
+      await playDemoBgm(BGM.archive, { gainDb: -9 })
+    }
+    else if (chapterIndex === 1) {
+      await playDemoBgm(BGM.trace)
+    }
+    else {
+      await playDemoBgm(BGM.blackout)
+    }
+  }
   const closePanels = async () => {
     await engine.hideUI('menu')
     await engine.hideUI('saveLoad')
@@ -367,6 +413,7 @@ export async function createQuaGameApp() {
     await engine.stopSkip()
     showStoryTree.value = false
     showMainMenu.value = true
+    await playDemoBgm(BGM.title, { gainDb: -10 })
     showToast('已回到标题菜单', 'info')
   }
   let storyLoadPromise: Promise<void> | undefined
@@ -376,10 +423,11 @@ export async function createQuaGameApp() {
       storyLoadPromise = engine.loadScene(new MainScene(
         engine,
         updateHud,
+        playDemoBgm,
         () => {
           bootMessage.value = ''
         },
-      )).catch((error) => {
+      )).catch((error: unknown) => {
         storyLoadPromise = undefined
         console.error(error)
         bootMessage.value = 'The demo failed to start. Check the browser console.'
@@ -416,6 +464,7 @@ export async function createQuaGameApp() {
   pipeline.on(DEMO_TITLE_REQUEST_EVENT, titleRequestListener)
   uiDisposers.push(() => pipeline.off(DEMO_TITLE_REQUEST_EVENT, titleRequestListener))
 
+  await playDemoBgm(BGM.title, { gainDb: -10 })
   bootMessage.value = ''
 
   return defineComponent({
@@ -514,7 +563,9 @@ export async function createQuaGameApp() {
                     onClick: () => {
                       showMainMenu.value = false
                       showStoryTree.value = false
-                      void startStory()
+                      void playCurrentStoryBgm()
+                        .catch(error => console.error(error))
+                        .then(startStory)
                     },
                   }, 'START'),
                   h('button', {
@@ -762,6 +813,7 @@ class MainScene extends Scene {
   constructor(
     private readonly engine: QuaEngine,
     private readonly updateHud: (patch: HudPatch) => void,
+    private readonly playBgm: (assetKey: string, options?: AudioPlayBgmOptions) => Promise<void>,
     private readonly markStoryStarted: () => void,
   ) {
     super()
@@ -773,6 +825,7 @@ class MainScene extends Scene {
 
   async run(): Promise<void> {
     this.hud({ chapter: '00', route: 'COLD OPEN', signal: '0' })
+    await this.playBgm(BGM.blackout)
     await this.engine.dialogue(prologue)
     await this.engine.dialogue(blackoutCrossing)
 
@@ -782,11 +835,13 @@ class MainScene extends Scene {
     ])
     if (trace === 'stealth') {
       this.state.autonomy += 1
+      await this.playBgm(BGM.trace)
       await this.engine.dialogue(traceStealth)
     }
     else {
       this.state.machineTrust += 1
       this.state.oraclePressure += 1
+      await this.playBgm(BGM.trace)
       await this.engine.dialogue(traceDirect)
     }
 
@@ -798,11 +853,13 @@ class MainScene extends Scene {
       this.state.autonomy += 2
       this.state.oraclePressure += 1
       this.state.evidence += 2
+      await this.playBgm(BGM.archive, { gainDb: -9 })
       await this.engine.dialogue(archiveBroadcast)
     }
     else {
       this.state.machineTrust += 1
       this.state.evidence += 1
+      await this.playBgm(BGM.archive, { gainDb: -9 })
       await this.engine.dialogue(archiveLure)
     }
     await this.engine.dialogue(archiveThreshold)
@@ -813,16 +870,19 @@ class MainScene extends Scene {
     ])
     if (unit === 'trust') {
       this.state.machineTrust += 2
+      await this.playBgm(BGM.archive, { gainDb: -9 })
       await this.engine.dialogue(unitTrust)
     }
     else {
       this.state.autonomy += 1
       this.state.oraclePressure += 1
+      await this.playBgm(BGM.archive, { gainDb: -9 })
       await this.engine.dialogue(unitLock)
     }
     await this.engine.dialogue(witnessAfterimage)
 
     this.hud({ chapter: '04', route: 'ORACLE LINK', signal: this.signal() })
+    await this.playBgm(BGM.oracle, { gainDb: -9 })
     await this.engine.dialogue(oracleDebate)
     const argument = await this.choose('04', 'ORACLE LINK', [
       { id: 'noise', text: '选择人类的噪声', description: '不可预测性不是错误，是自由的空间。' },
@@ -839,6 +899,7 @@ class MainScene extends Scene {
     else {
       this.state.oraclePressure += 3
     }
+    await this.playBgm(BGM.breach)
     await this.engine.dialogue(breachApproach)
 
     const breach = await this.choose('05', 'BREACH NIGHT', [
@@ -875,7 +936,7 @@ class MainScene extends Scene {
     })))
     const selected = await this.engine.waitFor(
       RenderToLogicEvents.USER_CHOICE_SELECT,
-      payload => choices.some(choice => choice.id === payload.choiceId),
+      (payload: { choiceId: string }) => choices.some(choice => choice.id === payload.choiceId),
     )
     await this.engine.clearChoices()
     return selected.choiceId as T
