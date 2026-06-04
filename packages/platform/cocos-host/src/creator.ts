@@ -1,5 +1,6 @@
 import type {
   CocosCaptureHost,
+  CocosFontHost,
   CocosHost,
   CocosHostAudioHandle,
   CocosHostControlOptions,
@@ -23,6 +24,7 @@ export interface CocosCreatorHostOptions {
   files?: CocosCreatorFileBridge
   resources?: CocosCreatorResourceBridge
   audio?: CocosCreatorAudioBridge
+  fonts?: CocosCreatorFontBridge
   input?: CocosCreatorInputBridge
   capture?: CocosCaptureHost
   layout?: CocosCreatorLayoutBridge
@@ -76,6 +78,8 @@ export interface CocosCreatorAudioBridge {
   setBusVolume?: (bus: string, volume: number) => void
   setBusEq?: (bus: string, bands: readonly unknown[]) => void
 }
+
+export interface CocosCreatorFontBridge extends CocosFontHost {}
 
 export interface CocosCreatorInputBridge {
   onInput?: (listener: CocosHostInputListener) => CocosHostDisposer
@@ -239,6 +243,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
         else
           sprite.spriteFrame = resource?.native
         applySpriteMode(options.cc, sprite, resource, spriteOptions)
+        applySpriteVisualOptions(sprite, spriteOptions)
       }
       else {
         native.sprite = resource?.native
@@ -386,6 +391,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       setBusVolume: audioBridge?.setBusVolume,
       setBusEq: audioBridge?.setBusEq,
     },
+    fonts: options.fonts,
     storage: {
       async writeText(path, value) {
         const bytes = new TextEncoder().encode(value)
@@ -468,7 +474,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       audioPlaybackRate: Boolean(audioBridge?.createAudioHandle),
       video: true,
       capture: Boolean(options.capture),
-      fonts: Boolean(resourceBridge?.createResource),
+      fonts: Boolean(options.fonts?.registerFontFace),
       nativeAssets: Boolean(resourceBridge?.loadResource),
     },
   }
@@ -595,6 +601,23 @@ function applySpriteMode(
   if (options.fill !== undefined)
     sprite.fill = options.fill
   sprite.spriteOptions = clonePlain(options)
+}
+
+function applySpriteVisualOptions(sprite: any, options: CocosHostSpriteOptions): void {
+  if (options.blendMode !== undefined)
+    sprite.blendMode = options.blendMode
+  if (options.composition?.blendMode !== undefined)
+    sprite.compositionBlendMode = options.composition.blendMode
+  if (options.composition?.isolation !== undefined)
+    sprite.compositionIsolation = options.composition.isolation
+  if (options.frame)
+    sprite.spriteFrameRect = clonePlain(options.frame)
+  if (options.mask)
+    sprite.spriteMask = clonePlain(options.mask)
+  if (options.filter)
+    sprite.spriteFilter = clonePlain(options.filter)
+  if (options.composition)
+    sprite.spriteComposition = clonePlain(options.composition)
 }
 
 function applyControlComponent(cc: CocosCreatorModule | undefined, native: any, control: CocosHostControlOptions): void {

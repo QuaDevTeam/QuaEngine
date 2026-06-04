@@ -418,6 +418,64 @@ describe('@quajs/renderer-cocos', () => {
     })
   })
 
+  it('registers and unregisters Cocos font faces through the host', async () => {
+    const host = createFakeCocosHost()
+    const registeredFonts = new Map<string, unknown>()
+    ;(host as any).fonts = {
+      registerFontFace: (_resource: unknown, options: { id: string }) => {
+        registeredFonts.set(options.id, options)
+      },
+      unregisterFontFace: (id: string) => {
+        registeredFonts.delete(id)
+      },
+    }
+    const pipeline = new Pipeline()
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      assets: createFakeAssets({
+        assets: {
+          'fonts:main.ttf': defaultAsset('fonts', 'main.ttf'),
+        },
+      }),
+      initialView: createView({
+        plugins: {
+          fonts: {
+            revision: 1,
+            faces: [{
+              id: 'main',
+              family: 'Main',
+              assetName: 'main.ttf',
+              weight: 700,
+              style: 'normal',
+            }],
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await waitForEventually(() => registeredFonts.has('main'))
+
+    expect(registeredFonts.get('main')).toMatchObject({
+      family: 'Main',
+      assetName: 'main.ttf',
+      weight: 700,
+    })
+
+    await pipeline.emit(LogicToRenderEvents.VIEW_UPDATE, {
+      view: createView({
+        plugins: {
+          fonts: {
+            revision: 2,
+            faces: [],
+          },
+        },
+      }),
+    })
+    await waitForEventually(() => registeredFonts.size === 0)
+  })
+
   it('loads Cocos hybrid native assets from bundle manifests without reading QPK bytes', async () => {
     const host = createFakeCocosHost()
     const nativeLoads: Array<{ kind: string, source: string }> = []
@@ -497,6 +555,130 @@ describe('@quajs/renderer-cocos', () => {
     expect(expressionLayer?.sprite?.source).toBe('hero/smile.png')
     expect(expressionLayer?.transform).toMatchObject({ y: -4, opacity: 0.9, zIndex: 4 })
     expect(expressionLayer?.metadata).toMatchObject({ spriteLayerKind: 'expression', asset: 'hero/smile.png' })
+  })
+
+  it('projects atlas sprite layer options and spriteLayer animations', async () => {
+    const host = createFakeCocosHost({ now: () => 500 })
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      assets: createFakeAssets({
+        json: {
+          'characters:hero/sprite.manifest.json': {
+            version: 1,
+            family: 'hero',
+            base: { asset: 'atlas.png', frame: 'base' },
+            expressions: {
+              smile: {
+                layers: [{
+                  asset: 'atlas.png',
+                  frame: 'smile',
+                  mask: 'mask.png',
+                  blendMode: 'multiply',
+                  opacity: 0.6,
+                }],
+              },
+            },
+            atlas: {
+              asset: 'atlas.png',
+              frames: {
+                base: { x: 0, y: 0, width: 320, height: 640 },
+                smile: { x: 320, y: 0, width: 320, height: 640, offsetY: -4 },
+              },
+            },
+          },
+        },
+        assets: {
+          'characters:hero/atlas.png': imageAsset('hero/atlas.png'),
+          'characters:mask.png': imageAsset('mask.png'),
+        },
+      }),
+      initialView: createView({
+        characterSprite: 'hero/base.png',
+        characterExpression: 'smile',
+        animations: [{
+          id: 'sprite-motion',
+          state: 'running',
+          startedAt: 0,
+          duration: 1000,
+          playbackRate: 1,
+          resolvedTracks: [
+            { target: 'spriteLayer:hero:expression', property: 'opacity', keyframes: [{ at: 0, value: 0.2 }, { at: 1000, value: 1 }] },
+            { target: 'spriteLayer:hero:expression:1', property: 'offsetX', keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 20 }] },
+          ],
+        }],
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    const expressionLayer = findNode(host, 'hero:sprite:expression:1')
+    expect(expressionLayer?.sprite?.source).toBe('hero/atlas.png')
+    expect(expressionLayer?.spriteOptions).toMatchObject({
+      frame: { x: 320, y: 0, width: 320, height: 640 },
+      mask: {
+        assetName: 'mask.png',
+        assetType: 'characters',
+      },
+      blendMode: 'multiply',
+    })
+    expect(expressionLayer?.spriteOptions?.mask?.resource?.source).toBe('mask.png')
+    expect(expressionLayer?.transform).toMatchObject({
+      x: 10,
+      y: -4,
+    })
+    expect(expressionLayer?.transform.opacity).toBeCloseTo(0.6, 6)
+  })
+
+  it('passes background composition options to Cocos sprites', async () => {
+    const host = createFakeCocosHost()
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      assets: createFakeAssets({
+        assets: {
+          'images:bg.png': imageAsset('bg.png'),
+          'images:mask.png': imageAsset('mask.png'),
+        },
+      }),
+      initialView: createView({
+        background: {
+          mode: 'image',
+          assetName: 'bg.png',
+          composition: {
+            blendMode: 'screen',
+            isolation: true,
+            filter: { brightness: 1.1, blur: 2 },
+            mask: {
+              assetName: 'mask.png',
+              assetType: 'images',
+              mode: 'alpha',
+              repeat: 'no-repeat',
+            },
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    const background = [...host.nodesById.values()].find(node => node.kind === 'background')
+    expect(background?.spriteOptions).toMatchObject({
+      blendMode: 'screen',
+      filter: { brightness: 1.1, blur: 2 },
+      mask: {
+        assetName: 'mask.png',
+        assetType: 'images',
+        resourceId: 'bundle:images:mask.png:spriteFrame',
+      },
+      composition: {
+        blendMode: 'screen',
+        isolation: true,
+      },
+    })
+    expect(background?.spriteOptions?.mask?.resource?.source).toBe('mask.png')
   })
 
   it('keeps single-file character sprites on the root Cocos character node without a manifest', async () => {
@@ -972,6 +1154,7 @@ function createView(options: {
   uiOverlay?: Record<string, unknown>
   uiOverlays?: Record<string, Record<string, unknown>>
   effects?: QuaViewProjection['effects']
+  background?: QuaViewProjection['background']
   backgroundAsset?: string
   characterSprite?: string
   characterExpression?: string
@@ -994,7 +1177,7 @@ function createView(options: {
     : undefined
   return {
     layout: createViewLayoutProjection(),
-    background: options.backgroundAsset ? { mode: 'image', assetName: options.backgroundAsset } : undefined,
+    background: options.background ?? (options.backgroundAsset ? { mode: 'image', assetName: options.backgroundAsset } : undefined),
     characters: [{
       id: 'hero',
       name: 'Hero',

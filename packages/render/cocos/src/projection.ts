@@ -1,6 +1,8 @@
-import type { CocosHostNode, CocosHostTransform } from '@quajs/cocos-host'
+import type { CocosHostNode, CocosHostSpriteMask, CocosHostSpriteOptions, CocosHostTransform } from '@quajs/cocos-host'
 import type { SpriteManifest, SpriteResolvedLayer } from '@quajs/plugin-sprite/contracts'
 import type {
+  ActiveAnimationProjection,
+  BackgroundMaskProjection,
   QuaViewProjection,
   RichTextBlockProjection,
   RichTextContent,
@@ -15,6 +17,8 @@ import type { CocosDialogueTypewriterProjectResult } from './dialogue-typewriter
 import type { CocosRendererHostContext } from './types'
 import { resolveSpriteProjection, resolveSpriteReference } from '@quajs/plugin-sprite/contracts'
 import {
+  applyTrackValues,
+  collectTrackValues,
   isRichTextDocument,
   projectAudioProjection,
   projectBackground,
@@ -57,7 +61,7 @@ export async function renderCocosBackground(context: CocosRendererHostContext): 
     const resource = await context.resolveAsset('video', background.video.assetName, {
       targetPackageId: metadataTargetPackageId(background.video.metadata || background.metadata),
     })
-    context.host.nodes.setNodeSprite(node, resource, { mode: 'video' })
+    context.host.nodes.setNodeSprite(node, resource, await backgroundSpriteOptions(context, background, 'main', { mode: 'video' }))
     context.setLayerResource('background', 'video:main', resource)
     applyBackgroundTransform(context, node, background)
     return
@@ -70,7 +74,7 @@ export async function renderCocosBackground(context: CocosRendererHostContext): 
   const resource = await context.resolveAsset('images', background.assetName, {
     targetPackageId: metadataTargetPackageId(background.metadata),
   })
-  context.host.nodes.setNodeSprite(node, resource)
+  context.host.nodes.setNodeSprite(node, resource, await backgroundSpriteOptions(context, background, 'main'))
   context.setLayerResource('background', 'image:main', resource)
   applyBackgroundTransform(context, node, background)
 }
@@ -362,7 +366,7 @@ async function renderLayeredBackground(
     const resource = await context.resolveAsset(assetType, item.assetName, {
       targetPackageId: metadataTargetPackageId(item.metadata),
     })
-    context.host.nodes.setNodeSprite(node, resource)
+    context.host.nodes.setNodeSprite(node, resource, await backgroundSpriteOptions(context, item, `layer:${item.id}`))
     context.setLayerResource('background', `layer:${item.id}`, resource)
     context.host.nodes.setNodeTransform(node, {
       x: item.x,
@@ -457,26 +461,44 @@ async function renderSpriteLayer(
   },
 ): Promise<void> {
   const { character, layer, index, targetPackageId } = options
-  if (layer.visible === false)
+  const projectedLayer = projectSpriteLayerForAnimation(
+    layer,
+    character.id,
+    layer.kind,
+    index,
+    context.getViewState().animations,
+    context.host.runtime.now(),
+  )
+  if (projectedLayer.visible === false)
     return
 
   const node = context.host.nodes.createNode('character-sprite-layer', {
     parent: root,
-    name: `${character.id}:sprite:${layer.kind}:${index}`,
+    name: `${character.id}:sprite:${projectedLayer.kind}:${index}`,
   })
-  const resource = await resolveSpriteLayerResource(context, layer, targetPackageId)
-  const maskResource = layer.mask
-    ? await context.resolveAsset('characters', layer.mask, { targetPackageId })
+  const resource = await resolveSpriteLayerResource(context, projectedLayer, targetPackageId)
+  const maskResource = projectedLayer.mask
+    ? await context.resolveAsset('characters', projectedLayer.mask, { targetPackageId })
     : undefined
   context.host.nodes.setNodeSprite(node, resource, {
     mode: 'sprite',
-    opacity: layer.opacity,
+    opacity: projectedLayer.opacity,
+    frame: projectedLayer.frame ? { ...projectedLayer.frame } : undefined,
+    mask: projectedLayer.mask
+      ? {
+          assetName: projectedLayer.mask,
+          assetType: 'characters',
+          resource: maskResource,
+          resourceId: maskResource?.id,
+        }
+      : undefined,
+    blendMode: projectedLayer.blendMode,
     metadata: {
-      spriteLayerKind: layer.kind,
-      frame: layer.frame ? { ...layer.frame } : undefined,
-      mask: layer.mask,
+      spriteLayerKind: projectedLayer.kind,
+      frame: projectedLayer.frame ? { ...projectedLayer.frame } : undefined,
+      mask: projectedLayer.mask,
       maskResourceId: maskResource?.id,
-      blendMode: layer.blendMode,
+      blendMode: projectedLayer.blendMode,
     },
   })
   context.setLayerResource('characters', `character:${character.id}:sprite:${index}`, resource)
@@ -484,26 +506,26 @@ async function renderSpriteLayer(
     context.setLayerResource('characters', `character:${character.id}:sprite:${index}:mask`, maskResource)
   }
   context.host.nodes.setNodeTransform(node, {
-    x: layer.offsetX,
-    y: layer.offsetY,
-    width: layer.frame?.width,
-    height: layer.frame?.height,
-    scaleX: layer.scale,
-    scaleY: layer.scale,
-    rotation: layer.rotation,
-    opacity: layer.opacity,
-    zIndex: layer.zIndex ?? index,
-    anchorX: layer.anchor === 'left' ? 0 : layer.anchor === 'right' ? 1 : 0.5,
+    x: projectedLayer.offsetX,
+    y: projectedLayer.offsetY,
+    width: projectedLayer.frame?.width,
+    height: projectedLayer.frame?.height,
+    scaleX: projectedLayer.scale,
+    scaleY: projectedLayer.scale,
+    rotation: projectedLayer.rotation,
+    opacity: projectedLayer.opacity,
+    zIndex: projectedLayer.zIndex ?? index,
+    anchorX: projectedLayer.anchor === 'left' ? 0 : projectedLayer.anchor === 'right' ? 1 : 0.5,
     anchorY: 0,
   })
   context.host.nodes.setNodeMetadata?.(node, {
     characterId: character.id,
-    spriteLayerKind: layer.kind,
+    spriteLayerKind: projectedLayer.kind,
     spriteLayerIndex: index,
-    asset: layer.asset,
-    frame: layer.frame ? { ...layer.frame } : undefined,
-    mask: layer.mask,
-    blendMode: layer.blendMode,
+    asset: projectedLayer.asset,
+    frame: projectedLayer.frame ? { ...projectedLayer.frame } : undefined,
+    mask: projectedLayer.mask,
+    blendMode: projectedLayer.blendMode,
   })
 }
 
@@ -573,6 +595,80 @@ function applyBackgroundTransform(
     rotation: background.rotation,
     opacity: background.opacity,
   })
+}
+
+async function backgroundSpriteOptions(
+  context: CocosRendererHostContext,
+  projection: Pick<ViewBackgroundProjection | ViewBackgroundLayerProjection, 'composition' | 'metadata'>,
+  resourceKey: string,
+  base: CocosHostSpriteOptions = {},
+): Promise<CocosHostSpriteOptions> {
+  const composition = projection.composition
+  if (!composition) {
+    context.setLayerResource('background', `${resourceKey}:mask`, undefined)
+    return base
+  }
+  const mask = await resolveBackgroundSpriteMask(context, composition.mask, `${resourceKey}:mask`, metadataTargetPackageId(projection.metadata))
+  return {
+    ...base,
+    blendMode: composition.blendMode,
+    filter: composition.filter ? { ...composition.filter } : undefined,
+    mask,
+    composition: {
+      blendMode: composition.blendMode,
+      isolation: composition.isolation,
+      filter: composition.filter ? { ...composition.filter } : undefined,
+      mask,
+    },
+  }
+}
+
+async function resolveBackgroundSpriteMask(
+  context: CocosRendererHostContext,
+  mask: Readonly<BackgroundMaskProjection> | undefined,
+  resourceKey: string,
+  targetPackageId?: string,
+): Promise<CocosHostSpriteMask | undefined> {
+  if (!mask) {
+    context.setLayerResource('background', resourceKey, undefined)
+    return undefined
+  }
+  if (!mask.assetName) {
+    context.setLayerResource('background', resourceKey, undefined)
+    return { ...mask }
+  }
+  const assetType = normalizeBackgroundAssetType(mask.assetType)
+  const resource = await context.resolveAsset(assetType, mask.assetName, { targetPackageId })
+  context.setLayerResource('background', resourceKey, resource)
+  return {
+    ...mask,
+    assetType,
+    resource,
+    resourceId: resource?.id,
+  }
+}
+
+function projectSpriteLayerForAnimation(
+  layer: SpriteResolvedLayer,
+  animationTargetPrefix: string,
+  layerKind: string,
+  layerIndex: number,
+  animations: readonly Readonly<ActiveAnimationProjection>[],
+  now: number,
+): SpriteResolvedLayer {
+  const tracks = [
+    ...collectTrackValues(animations, `spriteLayer:${animationTargetPrefix}:${layerKind}:${layerIndex}`, now),
+    ...collectTrackValues(animations, `spriteLayer:${animationTargetPrefix}:${layerKind}`, now),
+    ...collectTrackValues(animations, `spriteLayer:${animationTargetPrefix}:${layerIndex}`, now),
+  ]
+  if (tracks.length === 0)
+    return layer
+  const projected: SpriteResolvedLayer = {
+    ...layer,
+    frame: layer.frame ? { ...layer.frame } : undefined,
+  }
+  applyTrackValues(projected as unknown as Record<string, unknown>, tracks)
+  return projected
 }
 
 async function renderUiOverlayContent(

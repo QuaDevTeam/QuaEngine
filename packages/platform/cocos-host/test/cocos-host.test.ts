@@ -70,6 +70,16 @@ describe('createFakeCocosHost', () => {
       contentInsets: { top: 1, right: 2, bottom: 3, left: 4 },
       tint: '#ffffff',
       opacity: 0.8,
+      frame: { x: 2, y: 3, width: 64, height: 72 },
+      mask: { assetName: 'mask.png', assetType: 'characters', resourceId: 'mask' },
+      blendMode: 'multiply',
+      filter: { brightness: 1.2, blur: 2 },
+      composition: {
+        blendMode: 'screen',
+        isolation: true,
+        filter: { saturate: 0.8 },
+        mask: { assetName: 'layer-mask.png', resourceId: 'layer-mask' },
+      },
     })
     host.nodes.setNodeControl?.(node, {
       kind: 'toggle',
@@ -84,6 +94,14 @@ describe('createFakeCocosHost', () => {
       mode: 'sliced',
       slice: { top: 4, right: 5, bottom: 6, left: 7 },
       contentInsets: { top: 1, right: 2, bottom: 3, left: 4 },
+      frame: { x: 2, y: 3, width: 64, height: 72 },
+      mask: { assetName: 'mask.png', assetType: 'characters', resourceId: 'mask' },
+      blendMode: 'multiply',
+      filter: { brightness: 1.2, blur: 2 },
+      composition: {
+        blendMode: 'screen',
+        isolation: true,
+      },
     })
     expect(fakeNode.control).toMatchObject({ kind: 'toggle', checked: true, label: 'Enabled' })
 
@@ -98,6 +116,24 @@ describe('createFakeCocosHost', () => {
     fakeHandle.emitEnded()
     expect(ended).toBe(1)
     expect(fakeHandle.playbackRate).toBe(1.25)
+
+    await host.fonts?.registerFontFace(resource, {
+      id: 'font:main',
+      family: 'Main',
+      assetName: 'main.ttf',
+      weight: 700,
+      style: 'normal',
+    })
+    expect(host.fontFacesById.get('font:main')).toMatchObject({
+      resource,
+      options: {
+        family: 'Main',
+        assetName: 'main.ttf',
+        weight: 700,
+      },
+    })
+    await host.fonts?.unregisterFontFace('font:main')
+    expect(host.fontFacesById.has('font:main')).toBe(false)
   })
 })
 
@@ -105,6 +141,8 @@ describe('createCocosCreatorHost', () => {
   it('uses injected file, resource, input, and capture bridges', async () => {
     const files = new Map<string, Uint8Array>()
     const inputListeners = new Set<(event: { kind: 'pointer', phase: 'down', x: number, y: number }) => void>()
+    const registeredFonts: unknown[] = []
+    const unregisteredFonts: unknown[] = []
     const host = createCocosCreatorHost({
       rootNode: createNativeNode('root'),
       layout: {
@@ -141,6 +179,14 @@ describe('createCocosCreatorHost', () => {
           return () => inputListeners.delete(listener as never)
         },
       },
+      fonts: {
+        registerFontFace: async (resource, options) => {
+          registeredFonts.push({ resource, options })
+        },
+        unregisterFontFace: async (id) => {
+          unregisteredFonts.push(id)
+        },
+      },
       capture: {
         async captureNode() {
           return {
@@ -167,6 +213,11 @@ describe('createCocosCreatorHost', () => {
       native: { kind: 'spriteFrame', source: 'assets/resources/sprite.png' },
     })
     expect(host.capabilities.nativeAssets).toBe(true)
+    expect(host.capabilities.fonts).toBe(true)
+    await host.fonts?.registerFontFace(resource, { id: 'font', family: 'Main', assetName: 'main.ttf' })
+    await host.fonts?.unregisterFontFace('font')
+    expect(registeredFonts).toMatchObject([{ options: { family: 'Main', assetName: 'main.ttf' } }])
+    expect(unregisteredFonts).toEqual(['font'])
 
     const events: unknown[] = []
     host.input.onInput(event => events.push(event))
