@@ -92,6 +92,38 @@
           "asset": "promise.png"
         }
       ]
+    },
+    "conflict": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "conflict.png"
+        }
+      ]
+    },
+    "gentle": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "gentle.png"
+        }
+      ]
+    },
+    "defy": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "defy.png"
+        }
+      ]
+    },
+    "overload": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "overload.png"
+        }
+      ]
     }
   }
 }
