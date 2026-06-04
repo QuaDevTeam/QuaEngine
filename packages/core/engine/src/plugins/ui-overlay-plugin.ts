@@ -160,13 +160,28 @@ export class UiOverlayPlugin extends BaseEnginePlugin {
     await super.destroy?.()
   }
 
+  getProjection(): ViewUiSceneHostProjection | undefined {
+    return getUiOverlayHostProjection(this.getEngine())
+  }
+
+  retainHost(source: string, options?: UiOverlayHostRetainOptions): Promise<ViewUiSceneHostProjection> {
+    return retainUiOverlayHostWithEngine(this.getEngine(), source, options)
+  }
+
+  releaseHost(
+    source: string,
+    options?: UiOverlayHostReleaseOptions,
+  ): Promise<ViewUiSceneHostProjection | undefined> {
+    return releaseUiOverlayHostWithEngine(this.getEngine(), source, options)
+  }
+
   registerAPIs() {
     return {
       pluginName: this.name,
       apis: [
-        { name: 'retainUiOverlayHostWithEngine', fn: retainUiOverlayHostWithEngine, module: '@quajs/engine' },
-        { name: 'releaseUiOverlayHostWithEngine', fn: releaseUiOverlayHostWithEngine, module: '@quajs/engine' },
-        { name: 'getUiOverlayHostProjection', fn: getUiOverlayHostProjection, module: '@quajs/engine' },
+        { name: 'getProjection', fn: this.getProjection.bind(this), module: '@quajs/engine' },
+        { name: 'retainHost', fn: this.retainHost.bind(this), module: '@quajs/engine' },
+        { name: 'releaseHost', fn: this.releaseHost.bind(this), module: '@quajs/engine' },
       ],
       decorators: {},
     }

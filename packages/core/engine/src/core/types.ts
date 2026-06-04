@@ -335,6 +335,10 @@ export interface QuaEngineInterface {
   getCurrentRuntimePackageId: () => string | undefined
   getRuntimePackages: () => RuntimePackageStateRecord[]
   getRuntimeStateSnapshot: () => EngineRuntimeState
+  getPlugin: <T extends EnginePlugin = EnginePlugin>(name: string) => T | undefined
+  getPluginById: <T extends EnginePlugin = EnginePlugin>(id: string) => T | undefined
+  getAllPlugins: () => Map<string, EnginePlugin>
+  hasPlugin: (name: string) => boolean
   getPlaytimeMs: () => number
   getPlaytimeState: () => EnginePlaytimeState
   pausePlaytime: (reason?: string) => Promise<void>

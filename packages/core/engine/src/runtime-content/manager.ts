@@ -35,7 +35,6 @@ import type {
 import type { EnginePlugin } from '../plugins/core/types'
 import { assertCompatibleGameVersion, createLocaleFallbackChain, normalizeLocale } from '@quajs/assets'
 import { resolveGameSteps } from '../core/script'
-import { getPluginRegistry } from '../plugins'
 
 interface LoadedRuntimePackage {
   bundle: DynamicBundleRecord
@@ -56,6 +55,13 @@ interface ResolvedScriptVariant {
   locale: string
   record: RuntimeScriptModuleRecord
   packageId: string
+}
+
+type RuntimeStoryGraphDelta = NonNullable<RuntimePackageManifest['storyGraphDeltas']>[number]
+
+interface StoryGraphRuntimePlugin extends EnginePlugin {
+  registerDelta: (delta: RuntimeStoryGraphDelta, options?: { packageId?: string }) => Promise<void>
+  clearRuntimePackage: (packageId: string) => Promise<void>
 }
 
 type RuntimePackageScopedEngine = QuaEngineInterface & Pick<QuaEngine, | 'useRuntimePlugin'
@@ -812,10 +818,9 @@ export class RuntimeContentManager {
   }
 
   private async rollbackStoryGraphDeltas(record: LoadedRuntimePackage): Promise<void> {
-    const storyGraphModule = getPluginRegistry().getPluginModule('@quajs/story-graph')
-    const removePackageContent = storyGraphModule?.removeRuntimePackageStoryGraphContentWithEngine
-    if (typeof removePackageContent === 'function') {
-      await removePackageContent(this.engine, record.manifest.id)
+    const storyGraph = this.engine.getPluginById<StoryGraphRuntimePlugin>('storyGraph')
+    if (storyGraph) {
+      await storyGraph.clearRuntimePackage(record.manifest.id)
     }
   }
 
@@ -876,14 +881,13 @@ export class RuntimeContentManager {
       return
     }
 
-    const storyGraphModule = getPluginRegistry().getPluginModule('@quajs/story-graph')
-    const applyDelta = storyGraphModule?.registerStoryGraphDeltaWithEngine
-    if (typeof applyDelta !== 'function') {
+    const storyGraph = engine.getPluginById<StoryGraphRuntimePlugin>('storyGraph')
+    if (!storyGraph) {
       throw new TypeError('Runtime package includes story graph deltas, but @quajs/story-graph is not installed.')
     }
 
     for (const delta of deltas) {
-      await applyDelta(engine, delta, { packageId: record.manifest.id })
+      await storyGraph.registerDelta(delta, { packageId: record.manifest.id })
     }
   }
 
