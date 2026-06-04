@@ -90,6 +90,7 @@ export function createDialogueCocosRendererPlugin() {
         return revealed
       }))
       context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
+      context.addDisposer(context.cocos.registerAnimationSync(sync))
       context.addDisposer(() => {
         if (frame !== undefined) {
           context.cocos.host.scheduler.cancelFrame(frame)

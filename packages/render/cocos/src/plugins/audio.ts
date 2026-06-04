@@ -20,6 +20,7 @@ export function createAudioCocosRendererPlugin() {
       }
       context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
       context.addDisposer(context.onLogicToRender(LogicToRenderEvents.ASSET_CHANGED, sync))
+      context.addDisposer(context.cocos.registerAnimationSync(sync))
       sync()
     },
   })

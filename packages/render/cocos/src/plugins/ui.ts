@@ -15,6 +15,7 @@ export function createUiCocosRendererPlugin() {
         }))
       }
       context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
+      context.addDisposer(context.cocos.registerAnimationSync(sync))
       context.addDisposer(context.cocos.host.input.onInput(async (event) => {
         if (event.kind !== 'pointer' || event.phase !== 'down')
           return
