@@ -27,6 +27,7 @@ const engines: QuaEngine[] = []
 
 describe('@quajs/plugin-audio', () => {
   afterEach(async () => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
     await Promise.all(engines.splice(0).map(engine => engine.destroy().catch(() => {})))
     QuaEngine.resetInstance()
@@ -154,6 +155,44 @@ describe('@quajs/plugin-audio', () => {
     expect(projection.buses.bgm.gainDb).toBe(-6)
   })
 
+  it('exposes engine-bound plugin instance audio APIs', async () => {
+    const engine = createEngine()
+    const audio = new AudioPlugin()
+    engine.use(audio)
+    await engine.init()
+    vi.useFakeTimers({ now: 1_000 })
+
+    expect(engine.getPluginById<AudioPlugin>(AUDIO_PLUGIN_ID)).toBe(audio)
+
+    await audio.configureChapter('chapter-js', { bgm: 'bgm/js' })
+    await audio.setGain('bgm', -8)
+    await audio.playBGM('bgm/js', {
+      id: 'js-bgm',
+      delayMs: 250,
+    })
+
+    let projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.chapter).toEqual(expect.objectContaining({
+      chapterId: 'chapter-js',
+      bgm: 'bgm/js',
+    }))
+    expect(projection.buses.bgm.gainDb).toBe(-8)
+    expect(projection.bgm).toEqual(expect.objectContaining({
+      id: 'js-bgm',
+      assetKey: 'bgm/js',
+      playAt: 1_250,
+    }))
+
+    await audio.stopBGM({ fadeOutMs: 300 })
+
+    projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.bgm).toEqual(expect.objectContaining({
+      id: 'js-bgm',
+      state: 'stopping',
+      fadeOutMs: 300,
+    }))
+  })
+
   it('tracks voice playback and clears it when renderer events arrive', async () => {
     const engine = createEngine()
     engine.use(new AudioPlugin())
@@ -210,6 +249,40 @@ describe('@quajs/plugin-audio', () => {
       assetKey: 'voice/timed',
       durationMs: 2400,
     }))
+  })
+
+  it('normalizes delayed BGM playback onto the audio projection', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    await engine.init()
+    vi.useFakeTimers({ now: 1_700_000_000_000 })
+
+    await playBGMWithEngine(engine, 'bgm/delayed', {
+      id: 'delayed-bgm',
+      delayMs: 750,
+    })
+
+    const projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.bgm).toEqual(expect.objectContaining({
+      id: 'delayed-bgm',
+      assetKey: 'bgm/delayed',
+      state: 'playing',
+      delayMs: 750,
+      playAt: 1_700_000_000_750,
+    }))
+  })
+
+  it('rejects invalid delayed audio playback options', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    await engine.init()
+
+    await expect(playBGMWithEngine(engine, 'bgm/invalid', { delayMs: -1 }))
+      .rejects
+      .toThrow('Audio delayMs must be a non-negative number.')
+    await expect(playBGMWithEngine(engine, 'bgm/invalid', { playAt: Number.NaN }))
+      .rejects
+      .toThrow('Audio playAt must be a finite timestamp in milliseconds.')
   })
 
   it('ignores stale renderer audio completion events', async () => {

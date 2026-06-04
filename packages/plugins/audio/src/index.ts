@@ -103,6 +103,91 @@ export class AudioPlugin extends BaseEnginePlugin {
   private disposers: Array<() => void> = []
   private projectionBeforeJump?: AudioViewProjection
 
+  getProjection(): AudioViewProjection {
+    return getAudioProjection(this.getEngine())
+  }
+
+  configureChapter(chapterId: string, options?: AudioChapterDirectiveOptions): Promise<void> {
+    return configureAudioChapterWithEngine(this.getEngine(), chapterId, options)
+  }
+
+  playVoice(assetKey: string, options?: AudioPlayVoiceOptions): Promise<void> {
+    return playVoiceWithEngine(this.getEngine(), assetKey, options)
+  }
+
+  playBGM(assetKey: string, options?: AudioPlayBgmOptions): Promise<void> {
+    return playBGMWithEngine(this.getEngine(), assetKey, options)
+  }
+
+  playSFX(assetKey: string, options?: AudioPlaySfxOptions): Promise<void> {
+    return playSFXWithEngine(this.getEngine(), assetKey, options)
+  }
+
+  playAmbient(assetKey: string, options?: AudioPlayAmbientOptions): Promise<void> {
+    return playAmbientWithEngine(this.getEngine(), assetKey, options)
+  }
+
+  setGain(
+    target: AudioBusId | string,
+    gainDbOrCurve: number | AudioAutomationCurve,
+    options?: AudioGainOptions,
+  ): Promise<void> {
+    return setAudioGainWithEngine(this.getEngine(), target, gainDbOrCurve, options)
+  }
+
+  setEq(target: AudioBusId | string, bands: readonly AudioEqBand[], options?: AudioEqOptions): Promise<void> {
+    return setAudioEqWithEngine(this.getEngine(), target, bands, options)
+  }
+
+  setAutomation(
+    target: AudioBusId | string,
+    propertyPath: string,
+    curve: AudioAutomationCurve,
+    options?: AudioAutomationOptions,
+  ): Promise<void> {
+    return setAudioAutomationWithEngine(this.getEngine(), target, propertyPath, curve, options)
+  }
+
+  stop(target: AudioBusId | string = 'voice', options?: AudioStopOptions): Promise<void> {
+    return stopAudioWithEngine(this.getEngine(), target, options)
+  }
+
+  pause(target: AudioBusId | string = 'voice', options?: AudioPauseOptions): Promise<void> {
+    return pauseAudioWithEngine(this.getEngine(), target, options)
+  }
+
+  resume(target: AudioBusId | string = 'voice', options?: AudioResumeOptions): Promise<void> {
+    return resumeAudioWithEngine(this.getEngine(), target, options)
+  }
+
+  seek(target: AudioBusId | string, positionMs: number, options?: AudioSeekOptions): Promise<void> {
+    return seekAudioWithEngine(this.getEngine(), target, positionMs, options)
+  }
+
+  stopVoice(options?: AudioStopOptions): Promise<void> {
+    return stopVoiceWithEngine(this.getEngine(), 'voice', options)
+  }
+
+  stopBGM(options?: AudioStopOptions): Promise<void> {
+    return stopBGMWithEngine(this.getEngine(), 'bgm', options)
+  }
+
+  stopSFX(options?: AudioStopOptions): Promise<void> {
+    return stopSFXWithEngine(this.getEngine(), 'sfx', options)
+  }
+
+  stopAmbient(options?: AudioStopOptions): Promise<void> {
+    return stopAmbientWithEngine(this.getEngine(), 'ambient', options)
+  }
+
+  stopRuntimePackage(packageId: string, options?: AudioStopOptions): Promise<void> {
+    return stopRuntimePackageAudioWithEngine(this.getEngine(), packageId, options)
+  }
+
+  clearRuntimePackage(packageId: string): Promise<void> {
+    return clearRuntimePackageAudioWithEngine(this.getEngine(), packageId)
+  }
+
   protected async setup(ctx: EngineContext): Promise<void> {
     const engine = ctx.engine
     const pipeline = ctx.pipeline
@@ -184,24 +269,25 @@ export class AudioPlugin extends BaseEnginePlugin {
     return {
       pluginName: this.name,
       apis: [
-        { name: 'configureAudioChapterWithEngine', fn: configureAudioChapterWithEngine, module: this.name },
-        { name: 'playVoiceWithEngine', fn: playVoiceWithEngine, module: this.name },
-        { name: 'playBGMWithEngine', fn: playBGMWithEngine, module: this.name },
-        { name: 'playSFXWithEngine', fn: playSFXWithEngine, module: this.name },
-        { name: 'playAmbientWithEngine', fn: playAmbientWithEngine, module: this.name },
-        { name: 'setAudioGainWithEngine', fn: setAudioGainWithEngine, module: this.name },
-        { name: 'setAudioEqWithEngine', fn: setAudioEqWithEngine, module: this.name },
-        { name: 'setAudioAutomationWithEngine', fn: setAudioAutomationWithEngine, module: this.name },
-        { name: 'stopAudioWithEngine', fn: stopAudioWithEngine, module: this.name },
-        { name: 'pauseAudioWithEngine', fn: pauseAudioWithEngine, module: this.name },
-        { name: 'resumeAudioWithEngine', fn: resumeAudioWithEngine, module: this.name },
-        { name: 'seekAudioWithEngine', fn: seekAudioWithEngine, module: this.name },
-        { name: 'stopVoiceWithEngine', fn: stopVoiceWithEngine, module: this.name },
-        { name: 'stopBGMWithEngine', fn: stopBGMWithEngine, module: this.name },
-        { name: 'stopSFXWithEngine', fn: stopSFXWithEngine, module: this.name },
-        { name: 'stopAmbientWithEngine', fn: stopAmbientWithEngine, module: this.name },
-        { name: 'stopRuntimePackageAudioWithEngine', fn: stopRuntimePackageAudioWithEngine, module: this.name },
-        { name: 'clearRuntimePackageAudioWithEngine', fn: clearRuntimePackageAudioWithEngine, module: this.name },
+        { name: 'getProjection', fn: this.getProjection.bind(this), module: this.name },
+        { name: 'configureChapter', fn: this.configureChapter.bind(this), module: this.name },
+        { name: 'playVoice', fn: this.playVoice.bind(this), module: this.name },
+        { name: 'playBGM', fn: this.playBGM.bind(this), module: this.name },
+        { name: 'playSFX', fn: this.playSFX.bind(this), module: this.name },
+        { name: 'playAmbient', fn: this.playAmbient.bind(this), module: this.name },
+        { name: 'setGain', fn: this.setGain.bind(this), module: this.name },
+        { name: 'setEq', fn: this.setEq.bind(this), module: this.name },
+        { name: 'setAutomation', fn: this.setAutomation.bind(this), module: this.name },
+        { name: 'stop', fn: this.stop.bind(this), module: this.name },
+        { name: 'pause', fn: this.pause.bind(this), module: this.name },
+        { name: 'resume', fn: this.resume.bind(this), module: this.name },
+        { name: 'seek', fn: this.seek.bind(this), module: this.name },
+        { name: 'stopVoice', fn: this.stopVoice.bind(this), module: this.name },
+        { name: 'stopBGM', fn: this.stopBGM.bind(this), module: this.name },
+        { name: 'stopSFX', fn: this.stopSFX.bind(this), module: this.name },
+        { name: 'stopAmbient', fn: this.stopAmbient.bind(this), module: this.name },
+        { name: 'stopRuntimePackage', fn: this.stopRuntimePackage.bind(this), module: this.name },
+        { name: 'clearRuntimePackage', fn: this.clearRuntimePackage.bind(this), module: this.name },
       ],
       decorators: audioDecoratorMappings,
     }
@@ -762,6 +848,8 @@ function mergeVoiceOptions(
     fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
     crossfadeMs: options.crossfadeMs ?? defaults?.crossfadeMs,
+    playAt: resolveAudioPlayAt(options.playAt, options.delayMs ?? defaults?.delayMs),
+    delayMs: options.delayMs ?? defaults?.delayMs,
     seekMs: options.seekMs ?? defaults?.seekMs,
     eq: options.eq ?? defaults?.eq,
     automation: options.automation ?? defaults?.automation,
@@ -783,6 +871,8 @@ function mergeBgmOptions(
     fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
     crossfadeMs: options.crossfadeMs ?? defaults?.crossfadeMs,
+    playAt: resolveAudioPlayAt(options.playAt, options.delayMs ?? defaults?.delayMs),
+    delayMs: options.delayMs ?? defaults?.delayMs,
     seekMs: options.seekMs ?? defaults?.seekMs,
     eq: options.eq ?? defaults?.eq,
     automation: options.automation ?? defaults?.automation,
@@ -806,6 +896,8 @@ function mergeSfxOptions(
     fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
     crossfadeMs: options.crossfadeMs ?? defaults?.crossfadeMs,
+    playAt: resolveAudioPlayAt(options.playAt, options.delayMs ?? defaults?.delayMs),
+    delayMs: options.delayMs ?? defaults?.delayMs,
     seekMs: options.seekMs ?? defaults?.seekMs,
     eq: options.eq ?? defaults?.eq,
     automation: options.automation ?? defaults?.automation,
@@ -829,6 +921,8 @@ function mergeAmbientOptions(
     fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
     crossfadeMs: options.crossfadeMs ?? defaults?.crossfadeMs,
+    playAt: resolveAudioPlayAt(options.playAt, options.delayMs ?? defaults?.delayMs),
+    delayMs: options.delayMs ?? defaults?.delayMs,
     seekMs: options.seekMs ?? defaults?.seekMs,
     eq: options.eq ?? defaults?.eq,
     automation: options.automation ?? defaults?.automation,
@@ -858,6 +952,8 @@ function createVoiceProjection(
     fadeInMs: options.fadeInMs,
     fadeOutMs: options.fadeOutMs,
     crossfadeMs: options.crossfadeMs,
+    playAt: options.playAt,
+    delayMs: options.delayMs,
     seekMs: options.seekMs,
     metadata: options.metadata,
   }
@@ -884,6 +980,8 @@ function createBgmProjection(
     fadeInMs: options.fadeInMs,
     fadeOutMs: options.fadeOutMs,
     crossfadeMs: options.crossfadeMs,
+    playAt: options.playAt,
+    delayMs: options.delayMs,
     seekMs: options.seekMs,
     metadata: options.metadata,
   }
@@ -911,6 +1009,8 @@ function createSfxProjection(
     fadeInMs: options.fadeInMs,
     fadeOutMs: options.fadeOutMs,
     crossfadeMs: options.crossfadeMs,
+    playAt: options.playAt,
+    delayMs: options.delayMs,
     seekMs: options.seekMs,
     metadata: options.metadata,
   }
@@ -938,9 +1038,27 @@ function createAmbientProjection(
     fadeInMs: options.fadeInMs,
     fadeOutMs: options.fadeOutMs,
     crossfadeMs: options.crossfadeMs,
+    playAt: options.playAt,
+    delayMs: options.delayMs,
     seekMs: options.seekMs,
     metadata: options.metadata,
   }
+}
+
+function resolveAudioPlayAt(playAt?: number, delayMs?: number): number | undefined {
+  if (playAt !== undefined) {
+    if (!Number.isFinite(playAt)) {
+      throw new TypeError('Audio playAt must be a finite timestamp in milliseconds.')
+    }
+    return Math.max(0, playAt)
+  }
+  if (delayMs === undefined) {
+    return undefined
+  }
+  if (!Number.isFinite(delayMs) || delayMs < 0) {
+    throw new TypeError('Audio delayMs must be a non-negative number.')
+  }
+  return Date.now() + delayMs
 }
 
 function updateTrackList(tracks: readonly AudioTrackProjection[], nextTrack: AudioTrackProjection): AudioTrackProjection[] {

@@ -16,6 +16,7 @@ export default defineConfig({
     lib: {
       entry: {
         'index': resolve(import.meta.dirname, 'src/index.ts'),
+        'animation': resolve(import.meta.dirname, 'src/animation.ts'),
         'contracts': resolve(import.meta.dirname, 'src/contracts.ts'),
         'script-compiler': resolve(import.meta.dirname, 'src/script-compiler.ts'),
       },
@@ -24,7 +25,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['@babel/types', '@quajs/engine', '@quajs/pipeline'],
+      external: ['@babel/types', '@quajs/engine', '@quajs/pipeline', '@quajs/plugin-animation', '@quajs/render-core'],
       output: {
         globals: {},
       },

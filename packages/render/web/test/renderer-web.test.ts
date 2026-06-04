@@ -2976,6 +2976,44 @@ describe('@quajs/renderer-web', () => {
     await assets.cleanup()
   })
 
+  it('schedules delayed audio playback from the projected playAt timestamp', async () => {
+    installFakeAudioContext({ initialState: 'running' })
+    const assets = await createAudioAssets()
+    const pipeline = new Pipeline()
+    vi.useFakeTimers({ now: 2_000 })
+    const controller = new WebAudioRendererController({
+      getPipeline: () => pipeline,
+      getAssets: () => assets,
+      getViewState: () => {
+        const audio = createInitialAudioProjection()
+        return view({
+          plugins: {
+            [AUDIO_PLUGIN_ID]: {
+              ...audio,
+              bgm: {
+                id: 'bgm:delayed',
+                kind: 'bgm',
+                assetKey: 'bgm.ogg',
+                state: 'playing',
+                loop: true,
+                playAt: 2_750,
+              },
+            },
+          },
+        })
+      },
+      document,
+    })
+
+    controller.start()
+    await controller.sync()
+
+    expect(FakeAudioContext.sources[0]?.start).toHaveBeenCalledWith(0.75, 0)
+
+    await controller.destroy()
+    await assets.cleanup()
+  })
+
   it('resolves audio buffers through required runtime package candidates', async () => {
     installFakeAudioContext({ initialState: 'running' })
     const requestedPackages: Array<string | undefined> = []

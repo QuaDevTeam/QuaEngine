@@ -439,22 +439,24 @@ export class WebAudioAudioRuntime {
     }
 
     const now = this.ensureContext().currentTime
+    const startDelaySeconds = Math.max(0, (projection.playAt ?? Date.now()) - Date.now()) / 1000
+    const startAt = now + startDelaySeconds
     const gainNode = slot.gainNode.gain
     const targetGain = dbToGain(projection.gainDb ?? 0)
 
     gainNode.cancelScheduledValues(now)
-    gainNode.setValueAtTime(0, now)
+    gainNode.setValueAtTime(0, startAt)
     if ((projection.fadeInMs ?? 0) > 0) {
-      gainNode.linearRampToValueAtTime(targetGain, now + (projection.fadeInMs || 0) / 1000)
+      gainNode.linearRampToValueAtTime(targetGain, startAt + (projection.fadeInMs || 0) / 1000)
     }
     else {
-      gainNode.setValueAtTime(targetGain, now)
+      gainNode.setValueAtTime(targetGain, startAt)
     }
 
     try {
-      slot.source.start(0, slot.offsetSeconds)
+      slot.source.start(startAt, slot.offsetSeconds)
       slot.pendingStart = false
-      slot.startedAt = now - slot.offsetSeconds
+      slot.startedAt = startAt - slot.offsetSeconds
     }
     catch {
       // Ignore races with rapid restarts.
@@ -722,6 +724,7 @@ export class WebAudioAudioRuntime {
       loop: track.loop ?? false,
       seekMs: track.seekMs ?? 0,
       offsetMs: track.offsetMs ?? 0,
+      playAt: track.playAt ?? 0,
       chapterId: track.chapterId,
       lineId: track.lineId,
     })
