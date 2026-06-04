@@ -58,6 +58,8 @@ await audio.setAutomation('master', 'gainDb', {
 
 Compiler/runtime helper exports ending in `WithEngine` are for generated QuaScript and integrations; prefer plugin instance methods in game code.
 
+Compiler lowering exports such as `scriptCompiler` and `createAudioDecoratorCompiler` belong only to `@quajs/plugin-audio/script-compiler`. Do not re-export or import them from the runtime root, because browser apps that only need `AudioPlugin` must not load Babel/compiler dependencies.
+
 ## QuaScript Decorators
 
 The package exports mappings and compiler lowering from `@quajs/plugin-audio/script-compiler`.

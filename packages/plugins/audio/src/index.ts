@@ -31,7 +31,7 @@ import {
   createInitialAudioProjection,
   onAudioRenderToLogic,
 } from './contracts'
-import { audioDecoratorMappings } from './script-compiler'
+import { audioDecoratorMappings } from './decorators'
 
 const AUDIO_SETTINGS_SCOPE = '@quajs/plugin-audio' as const
 const DEFAULT_AUDIO_GAIN_DB = 0
@@ -74,7 +74,7 @@ export type {
   AudioViewProjection,
 } from './contracts'
 
-export { audioDecoratorMappings, createAudioDecoratorCompiler, scriptCompiler } from './script-compiler'
+export { audioDecoratorMappings, decorators } from './decorators'
 
 export interface AudioPluginOptions {
   defaultProjection?: Partial<AudioViewProjection>

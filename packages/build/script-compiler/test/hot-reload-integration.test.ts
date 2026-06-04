@@ -1,6 +1,6 @@
 import type { HotReloadEvent } from '../src/core/hot-reload'
 import type { DecoratorMapping } from '../src/core/types'
-import { audioDecoratorMappings } from '@quajs/plugin-audio'
+import { audioDecoratorMappings } from '@quajs/plugin-audio/script-compiler'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getHotReloadManager, resetHotReloadManager } from '../src/core/hot-reload'
 import { compileQuaScript } from '../src/index'
