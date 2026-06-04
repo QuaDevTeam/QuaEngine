@@ -1,6 +1,7 @@
 import { RenderToLogicEvents } from '@quajs/render-core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  clearCharacterRegistry,
   clearCharacterRuntime,
   configureCharacterRuntime,
   createCharacter,
@@ -9,6 +10,8 @@ import {
   hideWithEngine,
   move,
   moveWithEngine,
+  registerCharacter,
+  registerCharacters,
   setCurrentSprite,
   showWithEngine,
   speakWithEngine,
@@ -19,18 +22,19 @@ import {
 describe('@quajs/character', () => {
   afterEach(() => {
     clearCharacterRuntime()
+    clearCharacterRegistry()
   })
 
   it('updates engine-owned dialogue state and waits for user advance', async () => {
     const engine = createEngine()
     await speakWithEngine(engine as any, 'Alice', 'Hello')
 
-    expect(engine.showDialogue).toHaveBeenCalledWith({
+    expect(engine.showDialogue).toHaveBeenCalledWith(expect.objectContaining({
       characterId: 'Alice',
       characterName: 'Alice',
       text: 'Hello',
       mode: 'say',
-    })
+    }))
     expect(engine.waitFor).toHaveBeenCalledWith(RenderToLogicEvents.USER_ADVANCE)
   })
 
@@ -130,6 +134,97 @@ describe('@quajs/character', () => {
     configureCharacterRuntime({ engine: engine as any, waitForAdvance: false })
 
     await expect(setCurrentSprite('alice.png')).rejects.toThrow('setCurrentSprite requires an explicit character')
+  })
+
+  it('requires explicit ids when display names are ambiguous', async () => {
+    const engine = createEngine()
+    registerCharacters([
+      { id: 'lin.child', displayName: '林', aliases: ['lin'] },
+      { id: 'lin.adult', displayName: '林' },
+    ])
+
+    await expect(speakWithEngine(engine as any, '林', 'Hello')).rejects.toThrow('ambiguous')
+    await speakWithEngine(engine as any, 'lin.child', 'Hello')
+
+    expect(engine.showDialogue).toHaveBeenCalledWith(expect.objectContaining({
+      characterId: 'lin.child',
+      characterName: '林',
+      text: 'Hello',
+    }))
+  })
+
+  it('applies speaker rich text and style overrides to one dialogue line', async () => {
+    const engine = createEngine()
+    registerCharacter({ id: 'lin.child', displayName: '林' })
+    const speaker = {
+      kind: 'rich-text' as const,
+      blocks: [{
+        id: 'name',
+        type: 'line',
+        spans: [{ text: '小林', color: '#7cc7ff' }],
+      }],
+    }
+
+    await speakWithEngine(engine as any, 'lin.child', 'One', {
+      speaker,
+      speakerStyle: { color: '#7cc7ff', fontSize: 28, fontFamily: 'Qua Serif' },
+    })
+    await speakWithEngine(engine as any, 'lin.child', 'Two')
+
+    expect(engine.showDialogue).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      characterId: 'lin.child',
+      characterName: '小林',
+      speaker,
+      speakerStyle: { color: '#7cc7ff', fontSize: 28, fontFamily: 'Qua Serif' },
+      text: 'One',
+    }))
+    expect(engine.showDialogue).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      characterId: 'lin.child',
+      characterName: '林',
+      speaker: undefined,
+      speakerStyle: undefined,
+      text: 'Two',
+    }))
+  })
+
+  it('resolves sprite short keys through registered character metadata', async () => {
+    const engine = createEngine()
+    registerCharacter({
+      id: 'lin.child',
+      displayName: '林',
+      spriteBase: 'lin',
+      sprites: {
+        idle: 'lin/base.png',
+      },
+    })
+    registerCharacter({
+      id: 'mio',
+      displayName: '澪',
+      spriteManifest: 'mio/base.png',
+    })
+
+    await showWithEngine(engine as any, 'lin.child', { sprite: 'sad' })
+    await showWithEngine(engine as any, 'lin.child', { sprite: 'lin/custom.webp' })
+    await showWithEngine(engine as any, 'lin.child', { sprite: 'idle' })
+    await showWithEngine(engine as any, 'mio', { sprite: 'sad' })
+
+    expect(engine.showCharacter).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      id: 'lin.child',
+      sprite: 'lin/sad.png',
+    }))
+    expect(engine.showCharacter).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      id: 'lin.child',
+      sprite: 'lin/custom.webp',
+    }))
+    expect(engine.showCharacter).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      id: 'lin.child',
+      sprite: 'lin/base.png',
+    }))
+    expect(engine.showCharacter).toHaveBeenNthCalledWith(4, expect.objectContaining({
+      id: 'mio',
+      sprite: 'mio/base.png',
+      expression: 'sad',
+    }))
   })
 })
 

@@ -85,6 +85,20 @@ describe('quaEngine runtime architecture', () => {
     expect(view.effects).toEqual([expect.objectContaining({ type: 'shake', target: 'stage' })])
   })
 
+  it('treats explicit speaker projections as dialogue speech even when the display string is empty', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.showDialogue({ speaker: '', text: 'Quiet name' })
+
+    expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
+      visible: true,
+      mode: 'say',
+      speaker: '',
+      text: 'Quiet name',
+    }))
+  })
+
   it('owns project layout settings in the view projection', async () => {
     const engine = new QuaEngine({
       layout: 'portrait',

@@ -27,6 +27,7 @@ import type {
   QuaErrorSource,
   QuaViewProjection,
   RichTextContent,
+  RichTextStyleProjection,
   SavePreviewCapturePolicy,
   SavePreviewCaptureReason,
   SavePreviewCaptureTransaction,
@@ -874,6 +875,8 @@ export interface DialogueIntent {
   revision?: number
   characterId?: string
   characterName?: string
+  speaker?: RichTextContent
+  speakerStyle?: RichTextStyleProjection
   text: RichTextContent
   mode?: 'say' | 'narration'
   typewriter?: DialogueTypewriterInput

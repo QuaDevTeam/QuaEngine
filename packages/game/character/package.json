@@ -74,6 +74,18 @@
       "cocos": "@quajs/renderer-cocos/plugins/character"
     },
     "decorators": {
+      "Speaker": {
+        "function": "speaker",
+        "module": "@quajs/character"
+      },
+      "SpeakerName": {
+        "function": "speakerName",
+        "module": "@quajs/character"
+      },
+      "SpeakerStyle": {
+        "function": "speakerStyle",
+        "module": "@quajs/character"
+      },
       "SetSprite": {
         "function": "sprite",
         "module": "@quajs/character"
@@ -109,6 +121,34 @@
     },
     "language": {
       "decorators": {
+        "Speaker": {
+          "description": "Resolve the current dialogue speaker by character id or alias",
+          "args": [
+            {
+              "name": "character",
+              "characterNames": true,
+              "detail": "Character id or alias"
+            }
+          ]
+        },
+        "SpeakerName": {
+          "description": "Override the displayed speaker name for one dialogue line",
+          "args": [
+            {
+              "name": "speaker",
+              "detail": "Speaker rich text or display string"
+            }
+          ]
+        },
+        "SpeakerStyle": {
+          "description": "Override the displayed speaker style for one dialogue line",
+          "args": [
+            {
+              "name": "style",
+              "detail": "Speaker rich text style"
+            }
+          ]
+        },
         "SetSprite": {
           "description": "Set the current dialogue character sprite",
           "args": [
@@ -126,18 +166,16 @@
           ]
         },
         "ShowCharacter": {
-          "description": "Show a character projection",
+          "description": "Show a character projection. Use no args or options on dialogue lines, or character plus options explicitly.",
           "args": [
             {
               "name": "character",
               "characterNames": true,
-              "detail": "Character name"
+              "detail": "Character id, alias, or display name"
             },
             {
-              "name": "sprite",
-              "assetRoots": ["assets/characters"],
-              "assetExtensions": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".json"],
-              "detail": "Character asset"
+              "name": "options",
+              "detail": "Character show options"
             }
           ]
         },

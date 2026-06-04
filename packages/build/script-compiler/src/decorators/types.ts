@@ -3,6 +3,8 @@ import type { DecoratorMapping, QuaScriptDecorator } from '../core/types'
 
 export interface DecoratorCompileContext {
   characterName?: string
+  characterRef?: t.Expression
+  speakOptions?: t.ObjectProperty[]
   stepType: 'dialogue' | 'action'
   stepIndex: number
   stepUuid: string
@@ -19,9 +21,12 @@ export interface DecoratorCompileInput {
 
 export interface DecoratorCompilationResult {
   call?: t.CallExpression
+  characterName?: string
+  characterRef?: t.Expression
   nextIndex?: number
   runtimeHelpers?: string[]
   skip?: boolean
+  speakOptions?: t.ObjectProperty[]
 }
 
 export interface ImplicitDecoratorCompileInput {
