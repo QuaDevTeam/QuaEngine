@@ -9,8 +9,10 @@ import { QuaEngine } from '@quajs/engine'
 import { FontsPlugin } from '@quajs/plugin-fonts'
 
 const engine = new QuaEngine()
+const fonts = new FontsPlugin()
 
-engine.use(new FontsPlugin())
+engine.use(fonts)
+await engine.init()
 ```
 
 Renderer entries:
@@ -21,21 +23,14 @@ Renderer entries:
 ## Register Fonts
 
 ```ts
-import {
-  getFontsProjection,
-  registerFontsWithEngine,
-  registerFontWithEngine,
-  unregisterFontWithEngine,
-} from '@quajs/plugin-fonts'
-
-await registerFontWithEngine(engine, 'Inter', 'fonts/inter.woff2', {
+await fonts.registerFont('Inter', 'fonts/inter.woff2', {
   id: 'inter-regular',
   weight: 400,
   style: 'normal',
   display: 'swap',
 })
 
-await registerFontsWithEngine(engine, [
+await fonts.registerFonts([
   {
     family: 'Noto Serif JP',
     assetName: 'fonts/noto-serif-jp.woff2',
@@ -44,8 +39,8 @@ await registerFontsWithEngine(engine, [
   },
 ])
 
-const fonts = getFontsProjection(engine)
-await unregisterFontWithEngine(engine, 'inter-regular')
+const projection = fonts.getProjection()
+await fonts.unregisterFont('inter-regular')
 ```
 
 ## Projection Model

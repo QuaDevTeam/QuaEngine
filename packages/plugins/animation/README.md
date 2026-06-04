@@ -11,10 +11,10 @@ import { QuaEngine } from '@quajs/engine'
 import { AnimationPlugin } from '@quajs/plugin-animation'
 
 const engine = new QuaEngine()
+const animation = new AnimationPlugin()
 
-engine.use(new AnimationPlugin({
-  defaultDuration: 400,
-}))
+engine.use(animation)
+await engine.init()
 ```
 
 If `@quajs/plugin-settings` is installed, animation developer settings can tune default duration/easing behavior.
@@ -22,9 +22,7 @@ If `@quajs/plugin-settings` is installed, animation developer settings can tune 
 ## Timeline Model
 
 ```ts
-import { playTimelineWithEngine } from '@quajs/plugin-animation'
-
-await playTimelineWithEngine(engine, {
+await animation.playTimeline({
   id: 'bg-push',
   duration: 1200,
   tracks: [
@@ -63,11 +61,9 @@ Discrete fields such as `fit`, `origin`, and `composition.blendMode` should use 
 ```ts
 import {
   defineAnimation,
-  playAnimationWithEngine,
-  registerAnimationWithEngine,
 } from '@quajs/plugin-animation'
 
-await registerAnimationWithEngine(engine, defineAnimation({
+await animation.registerAnimation(defineAnimation({
   id: 'fade-in',
   duration: 300,
   tracks: [{
@@ -77,7 +73,7 @@ await registerAnimationWithEngine(engine, defineAnimation({
   }],
 }))
 
-await playAnimationWithEngine(engine, 'fade-in', {
+await animation.playAnimation('fade-in', {
   bindings: { self: 'character:heroine' },
 })
 ```
@@ -85,19 +81,11 @@ await playAnimationWithEngine(engine, 'fade-in', {
 ## Playback API
 
 ```ts
-import {
-  pauseAnimationWithEngine,
-  resumeAnimationWithEngine,
-  seekAnimationWithEngine,
-  stopAnimationWithEngine,
-  waitAnimationWithEngine,
-} from '@quajs/plugin-animation'
-
-await pauseAnimationWithEngine(engine, 'fade-in')
-await resumeAnimationWithEngine(engine, 'fade-in')
-await seekAnimationWithEngine(engine, 'fade-in', 180)
-await waitAnimationWithEngine(engine, 'fade-in')
-await stopAnimationWithEngine(engine, 'fade-in')
+await animation.pause('fade-in')
+await animation.resume('fade-in')
+await animation.seek('fade-in', 180)
+await animation.wait('fade-in')
+await animation.stop('fade-in')
 ```
 
 ## QuaScript Decorators

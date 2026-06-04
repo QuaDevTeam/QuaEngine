@@ -11,15 +11,17 @@ import { QuaEngine } from '@quajs/engine'
 import { BacklogPlugin } from '@quajs/plugin-backlog'
 
 const engine = new QuaEngine()
-
-engine.use(new BacklogPlugin({
+const backlog = new BacklogPlugin({
   retention: { scope: 'global', maxEntries: 120 },
   defaultPolicy: {
     include: true,
     rewindable: false,
     voiceReplay: true,
   },
-}))
+})
+
+engine.use(backlog)
+await engine.init()
 ```
 
 Renderer entries:
@@ -38,9 +40,7 @@ Renderer entries:
 ## Policy
 
 ```ts
-import { setBacklogPolicyWithEngine } from '@quajs/plugin-backlog'
-
-await setBacklogPolicyWithEngine(engine, {
+await backlog.setPolicy({
   include: true,
   rewindable: true,
   voiceReplay: true,
@@ -53,12 +53,7 @@ Policy applies to the next backloggable item. Keep `rewindable: false` for spoil
 ## Visibility
 
 ```ts
-import {
-  getBacklogProjection,
-  setBacklogVisibleWithEngine,
-} from '@quajs/plugin-backlog'
-
-await setBacklogVisibleWithEngine(engine, true, {
+await backlog.setVisible(true, {
   source: 'menu',
   scene: {
     id: 'backlog',
@@ -67,7 +62,7 @@ await setBacklogVisibleWithEngine(engine, true, {
   },
 })
 
-const backlog = getBacklogProjection(engine)
+const projection = backlog.getProjection()
 ```
 
 Renderer UI sends open, close, jump, and voice replay requests through `BacklogRenderToLogicEvents`.

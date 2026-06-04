@@ -11,11 +11,13 @@ import { QuaEngine } from '@quajs/engine'
 import { SettingsPlugin } from '@quajs/plugin-settings'
 
 const engine = new QuaEngine()
-
-engine.use(new SettingsPlugin({
+const settings = new SettingsPlugin({
   profileId: 'default',
   builtin: true,
-}))
+})
+
+engine.use(settings)
+await engine.init()
 ```
 
 Renderer entries:
@@ -33,9 +35,7 @@ Renderer entries:
 ## Register A Scope
 
 ```ts
-import { registerSettingsScope } from '@quajs/plugin-settings'
-
-const unregister = registerSettingsScope(engine, {
+const unregister = settings.registerScope({
   scope: '@example/plugin-camera',
   version: 1,
   title: 'Camera',
@@ -75,23 +75,15 @@ const unregister = registerSettingsScope(engine, {
 ## Read And Update Values
 
 ```ts
-import {
-  getSettingsDeveloperValues,
-  getSettingsPlayerValues,
-  getSettingsProjection,
-  resetPlayerSettingsWithEngine,
-  updatePlayerSettingsWithEngine,
-} from '@quajs/plugin-settings'
+const developer = settings.getDeveloperValues('@example/plugin-camera')
+const player = settings.getPlayerValues('@example/plugin-camera')
+const projection = settings.getProjection()
 
-const developer = getSettingsDeveloperValues(engine, '@example/plugin-camera')
-const player = getSettingsPlayerValues(engine, '@example/plugin-camera')
-const projection = getSettingsProjection(engine)
-
-await updatePlayerSettingsWithEngine(engine, '@example/plugin-camera', {
+await settings.updatePlayerSettings('@example/plugin-camera', {
   motionScale: 0.6,
 })
 
-await resetPlayerSettingsWithEngine(engine, '@example/plugin-camera')
+await settings.resetPlayerSettings('@example/plugin-camera')
 ```
 
 ## Schema And UI Hints

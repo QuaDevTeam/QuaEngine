@@ -11,15 +11,16 @@ import { QuaEngine } from '@quajs/engine'
 import { StoryGraphPlugin } from '@quajs/story-graph'
 
 const engine = new QuaEngine()
-engine.use(new StoryGraphPlugin())
+const storyGraph = new StoryGraphPlugin()
+
+engine.use(storyGraph)
+await engine.init()
 ```
 
 ## Graph Registration
 
 ```ts
-import { registerStoryGraphWithEngine } from '@quajs/story-graph'
-
-await registerStoryGraphWithEngine(engine, {
+await storyGraph.registerGraph({
   id: 'main',
   title: 'Main Route',
   nodes: [{
@@ -32,7 +33,7 @@ await registerStoryGraphWithEngine(engine, {
 })
 ```
 
-Runtime graph deltas are registered through `registerStoryGraphDeltaWithEngine()` and are package-scoped. Unloading a runtime package removes package-owned nodes, edges, lanes, routes, timelines, chapter select metadata, and stale unlock entries without deleting unrelated same-scene graph content.
+Runtime graph deltas can be registered through `storyGraph.registerDelta()`. Runtime package activation calls the installed `StoryGraphPlugin` instance instead of looking up global helper APIs. Unloading a runtime package removes package-owned nodes, edges, lanes, routes, timelines, chapter select metadata, and stale unlock entries without deleting unrelated same-scene graph content.
 
 ## Chapter Select
 
@@ -43,26 +44,19 @@ Chapter select is modeled as a derived projection:
 - first visit unlocks the node unless `unlockOnVisit: false`;
 - locked nodes default to spoiler-safe placeholders, so title, summary, thumbnail, and metadata are not projected until unlocked;
 - `lockedVisibility: 'hidden'` omits locked nodes from the projection, while `lockedVisibility: 'revealed'` shows their real chapter-select presentation before unlock;
-- locked nodes also set `entryLocked: true` by default, and `jumpToChapterSelectNodeWithEngine()` refuses those entries unless `force: true` is used;
+- locked nodes also set `entryLocked: true` by default, and `storyGraph.jumpToChapterSelectNode()` refuses those entries unless `force: true` is used;
 - sorting is stable by `order`, then graph/node registration order;
 - no second profile store or renderer state is created.
 
 ```ts
-import {
-  getStoryChapterSelectProjection,
-  jumpToChapterSelectNodeWithEngine,
-  lockStoryNodeWithEngine,
-  unlockStoryNodeWithEngine,
-} from '@quajs/story-graph'
+const projection = storyGraph.getChapterSelectProjection()
 
-const projection = getStoryChapterSelectProjection(engine)
-
-await unlockStoryNodeWithEngine(engine, 'opening')
-await jumpToChapterSelectNodeWithEngine(engine, 'opening')
-await lockStoryNodeWithEngine(engine, 'opening')
+await storyGraph.unlockNode('opening')
+await storyGraph.jumpToChapterSelectNode('opening')
+await storyGraph.lockNode('opening')
 ```
 
-`jumpToChapterSelectNodeWithEngine()` only jumps to selectable entries whose `entryLocked` flag is false. `force: true` bypasses the locked check, but does not bypass runtime package dependency checks.
+`storyGraph.jumpToChapterSelectNode()` only jumps to selectable entries whose `entryLocked` flag is false. `force: true` bypasses the locked check, but does not bypass runtime package dependency checks.
 
 Use `lockEntryUntilUnlocked: false` when a locked-looking chapter select entry should still be enterable, such as a non-spoiler preview route. Use `lockedTitle`, `lockedSummary`, and `lockedThumbnail` to customize the placeholder shown before unlock.
 

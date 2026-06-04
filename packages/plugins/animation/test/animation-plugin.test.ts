@@ -37,14 +37,14 @@ describe('@quajs/plugin-animation', () => {
 
     expect(registration.pluginName).toBe('@quajs/plugin-animation')
     expect(registration.apis.map(api => api.name)).toEqual(expect.arrayContaining([
-      'registerAnimationWithEngine',
-      'playAnimationWithEngine',
-      'playTimelineWithEngine',
-      'pauseAnimationWithEngine',
-      'resumeAnimationWithEngine',
-      'stopAnimationWithEngine',
-      'seekAnimationWithEngine',
-      'waitAnimationWithEngine',
+      'registerAnimation',
+      'playAnimation',
+      'playTimeline',
+      'pause',
+      'resume',
+      'stop',
+      'seek',
+      'wait',
     ]))
     expect(registration.decorators).toEqual(animationDecoratorMappings)
   })

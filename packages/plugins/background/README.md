@@ -13,8 +13,10 @@ import { QuaEngine } from '@quajs/engine'
 import { BackgroundPlugin } from '@quajs/plugin-background'
 
 const engine = new QuaEngine()
+const background = new BackgroundPlugin()
 
-engine.use(new BackgroundPlugin())
+engine.use(background)
+await engine.init()
 ```
 
 Renderer entries:
@@ -26,42 +28,32 @@ Renderer entries:
 ## Image And Video Backgrounds
 
 ```ts
-import {
-  clearBackgroundWithEngine,
-  setBackgroundWithEngine,
-  setVideoBackgroundWithEngine,
-} from '@quajs/plugin-background'
-
-await setBackgroundWithEngine(engine, 'images/bg/station-night.jpg', {
+await background.setBackground('images/bg/station-night.jpg', {
   fit: 'cover',
   origin: 'center center',
   transition: { type: 'fade', duration: 400 },
 })
 
-await setVideoBackgroundWithEngine(engine, 'video/rain-loop.webm', {
+await background.setVideoBackground('video/rain-loop.webm', {
   loop: true,
   muted: true,
   fit: 'cover',
 })
 
-await clearBackgroundWithEngine(engine)
+await background.clearBackground()
 ```
 
 ## Layered Backgrounds
 
 ```ts
-import {
-  addBackgroundLayerWithEngine,
-  setLayeredBackgroundWithEngine,
-  transitionBackgroundLayerWithEngine,
-} from '@quajs/plugin-background'
-
-await setLayeredBackgroundWithEngine(engine, {
+await background.setLayeredBackground([], {
   fit: 'cover',
   transition: { type: 'crossfade', duration: 500 },
 })
 
-await addBackgroundLayerWithEngine(engine, 'fog', 'images/fog.png', {
+await background.addLayer({
+  id: 'fog',
+  assetName: 'images/fog.png',
   opacity: 0.55,
   zIndex: 20,
   composition: {
@@ -71,9 +63,9 @@ await addBackgroundLayerWithEngine(engine, 'fog', 'images/fog.png', {
   },
 })
 
-await transitionBackgroundLayerWithEngine(engine, 'fog', {
-  opacity: 0,
-  transition: { type: 'fade', duration: 300 },
+await background.transitionLayer('fog', {
+  type: 'fade-out',
+  duration: 300,
 })
 ```
 
@@ -82,17 +74,12 @@ Layer coordinates and animation values use logical stage units unless an option 
 ## CG Overlays
 
 ```ts
-import {
-  hideCgOverlayWithEngine,
-  showCgOverlayWithEngine,
-} from '@quajs/plugin-background'
-
-await showCgOverlayWithEngine(engine, 'images/cg/unit7-memory.jpg', {
-  transition: { type: 'fade', duration: 500 },
+await background.showCgOverlay('images/cg/unit7-memory.jpg', {
+  duration: 500,
   zIndex: 80,
 })
 
-await hideCgOverlayWithEngine(engine, { duration: 350 })
+await background.hideCgOverlay({ duration: 350 })
 ```
 
 CG overlays are modeled as projection layers. They can cover character layers or coexist with them depending on z-order.
@@ -102,12 +89,16 @@ CG overlays are modeled as projection layers. They can cover character layers or
 `@quajs/plugin-background/animation` provides background motion presets that return `@quajs/plugin-animation` timelines.
 
 ```ts
+import { AnimationPlugin } from '@quajs/plugin-animation'
 import {
   kenBurns,
-  playBackgroundMotionWithEngine,
 } from '@quajs/plugin-background/animation'
 
-await playBackgroundMotionWithEngine(engine, kenBurns({
+const animation = new AnimationPlugin()
+engine.use(animation)
+await engine.init()
+
+await animation.playTimeline(kenBurns({
   target: 'background:main',
   duration: 4000,
   to: 1.12,

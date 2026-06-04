@@ -65,6 +65,22 @@ export class BacklogPlugin extends BaseEnginePlugin {
   private projectionBeforeBacklogJump?: BacklogProjection
   private projectionBeforeRollback?: BacklogProjection
 
+  getProjection(): BacklogProjection {
+    return getBacklogProjection(this.getEngine())
+  }
+
+  setPolicy(policy: BacklogPolicy): Promise<void> {
+    return setBacklogPolicyWithEngine(this.getEngine(), policy)
+  }
+
+  setVisible(visible: boolean, ui?: BacklogUiProjection): Promise<void> {
+    return setBacklogVisibleWithEngine(this.getEngine(), visible, ui)
+  }
+
+  clearRuntimePackage(packageId: string): Promise<void> {
+    return removeRuntimePackageBacklogEntriesWithEngine(this.getEngine(), packageId)
+  }
+
   protected async setup(ctx: EngineContext): Promise<void> {
     this.ensureProjection(ctx)
     this.disposers.push(onPipeline(ctx.pipeline, LogicToRenderEvents.DIALOGUE_SHOW, async () => {
@@ -158,8 +174,10 @@ export class BacklogPlugin extends BaseEnginePlugin {
     return {
       pluginName: this.name,
       apis: [
-        { name: 'setBacklogPolicyWithEngine', fn: setBacklogPolicyWithEngine, module: this.name },
-        { name: 'setBacklogVisibleWithEngine', fn: setBacklogVisibleWithEngine, module: this.name },
+        { name: 'getProjection', fn: this.getProjection.bind(this), module: this.name },
+        { name: 'setPolicy', fn: this.setPolicy.bind(this), module: this.name },
+        { name: 'setVisible', fn: this.setVisible.bind(this), module: this.name },
+        { name: 'clearRuntimePackage', fn: this.clearRuntimePackage.bind(this), module: this.name },
       ],
       decorators: backlogDecoratorMappings,
     }

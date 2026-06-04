@@ -11,10 +11,12 @@ import { QuaEngine } from '@quajs/engine'
 import { GalleryPlugin } from '@quajs/plugin-gallery'
 
 const engine = new QuaEngine()
-
-engine.use(new GalleryPlugin({
+const gallery = new GalleryPlugin({
   profileId: 'default',
-}))
+})
+
+engine.use(gallery)
+await engine.init()
 ```
 
 Renderer entries:
@@ -25,18 +27,13 @@ Renderer entries:
 ## Register Catalogs And Entries
 
 ```ts
-import {
-  registerGalleryCatalogWithEngine,
-  registerGalleryEntryWithEngine,
-} from '@quajs/plugin-gallery'
-
-await registerGalleryCatalogWithEngine(engine, {
+await gallery.registerCatalog({
   id: 'main-cg',
   title: 'Main CG',
   summary: 'Story illustrations',
 })
 
-await registerGalleryEntryWithEngine(engine, {
+await gallery.registerEntry({
   id: 'cg/unit7-arrival',
   catalogId: 'main-cg',
   title: 'Unit-7 Arrival',
@@ -54,24 +51,17 @@ Content blocks can be `image`, `video`, `audio`, `text`, or custom kinds with se
 ## Unlock And Open
 
 ```ts
-import {
-  getGalleryProfile,
-  getGalleryProjection,
-  openGallerySceneWithEngine,
-  unlockGalleryEntryWithEngine,
-} from '@quajs/plugin-gallery'
-
-await unlockGalleryEntryWithEngine(engine, 'cg/unit7-arrival', {
+await gallery.unlockEntry('cg/unit7-arrival', {
   source: 'story',
 })
 
-await openGallerySceneWithEngine(engine, {
+await gallery.openScene({
   catalogId: 'main-cg',
   entryId: 'cg/unit7-arrival',
 })
 
-const profile = getGalleryProfile(engine)
-const projection = getGalleryProjection(engine)
+const profile = gallery.getProfile()
+const projection = gallery.getProjection()
 ```
 
 ## State Model

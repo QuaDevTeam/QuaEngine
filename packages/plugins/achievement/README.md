@@ -11,11 +11,13 @@ import { QuaEngine } from '@quajs/engine'
 import { AchievementPlugin } from '@quajs/plugin-achievement'
 
 const engine = new QuaEngine()
-
-engine.use(new AchievementPlugin({
+const achievement = new AchievementPlugin({
   profileId: 'default',
   notifications: { mode: 'toast', durationMs: 3200 },
-}))
+})
+
+engine.use(achievement)
+await engine.init()
 ```
 
 Optional renderer entries:
@@ -39,10 +41,9 @@ import {
   achievementReward,
   defineAchievement,
   defineAchievementGroup,
-  registerAchievementDefinitionsWithEngine,
 } from '@quajs/plugin-achievement'
 
-await registerAchievementDefinitionsWithEngine(engine, {
+await achievement.registerDefinitions({
   groups: [
     defineAchievementGroup({
       id: 'main',
@@ -69,25 +70,15 @@ await registerAchievementDefinitionsWithEngine(engine, {
 ## Runtime API
 
 ```ts
-import {
-  getAchievementProfile,
-  getAchievementProjection,
-  hasAchievementWithEngine,
-  incrementAchievementCounterWithEngine,
-  incrementAchievementProgressWithEngine,
-  openAchievementBoardWithEngine,
-  unlockAchievementWithEngine,
-} from '@quajs/plugin-achievement'
+await achievement.unlockAchievement('first-contact', { source: 'story' })
+await achievement.incrementProgress('route-reader', 1)
+await achievement.incrementCounter('choices-made', 1)
 
-await unlockAchievementWithEngine(engine, 'first-contact', { source: 'story' })
-await incrementAchievementProgressWithEngine(engine, 'route-reader', 1)
-await incrementAchievementCounterWithEngine(engine, 'choices-made', 1)
+const unlocked = achievement.hasAchievement('first-contact')
+const profile = achievement.getProfile()
+const projection = achievement.getProjection()
 
-const unlocked = hasAchievementWithEngine(engine, 'first-contact')
-const profile = getAchievementProfile(engine)
-const projection = getAchievementProjection(engine)
-
-await openAchievementBoardWithEngine(engine, { groupId: 'main' })
+await achievement.openBoard({ groupId: 'main' })
 ```
 
 ## Conditions And Rewards
@@ -103,7 +94,7 @@ Built-in conditions cover:
 - story point matching
 - story metadata matching
 
-Built-in rewards can unlock gallery entries, unlock other achievements, or open the achievement board. Custom reward handlers can be registered with `registerAchievementRewardHandlerWithEngine()`.
+Built-in rewards can unlock gallery entries, unlock other achievements, or open the achievement board. Custom reward handlers can be registered with `achievement.registerRewardHandler()`.
 
 ## QuaScript Decorators
 

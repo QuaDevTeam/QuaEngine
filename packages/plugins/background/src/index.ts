@@ -35,6 +35,61 @@ export class BackgroundPlugin extends BaseEnginePlugin {
   readonly version = '0.1.0'
   readonly description = 'Background image, video, layered background, and transition APIs'
 
+  setBackground(assetName: string, options?: BackgroundOptions): Promise<void> {
+    return setBackgroundWithEngine(this.getEngine(), assetName, options)
+  }
+
+  clearBackground(): Promise<void> {
+    return clearBackgroundWithEngine(this.getEngine())
+  }
+
+  clearRuntimePackage(packageId: string): Promise<void> {
+    return clearRuntimePackageBackgroundWithEngine(this.getEngine(), packageId)
+  }
+
+  setVideoBackground(assetName: string, options?: VideoBackgroundOptions): Promise<void> {
+    return setVideoBackgroundWithEngine(this.getEngine(), assetName, options)
+  }
+
+  setLayeredBackground(
+    layers: readonly BackgroundLayerInput[] = [],
+    options?: LayeredBackgroundOptions,
+  ): Promise<void> {
+    return setLayeredBackgroundWithEngine(this.getEngine(), layers, options)
+  }
+
+  addLayer(layer: BackgroundLayerInput): Promise<void> {
+    return addBackgroundLayerWithEngine(this.getEngine(), layer)
+  }
+
+  updateLayer(layerId: string, patch: BackgroundLayerPatch): Promise<void> {
+    return updateBackgroundLayerWithEngine(this.getEngine(), layerId, patch)
+  }
+
+  removeLayer(layerId: string): Promise<void> {
+    return removeBackgroundLayerWithEngine(this.getEngine(), layerId)
+  }
+
+  clearLayers(): Promise<void> {
+    return clearBackgroundLayersWithEngine(this.getEngine())
+  }
+
+  showCgOverlay(assetName: string, options?: CgOverlayOptions): Promise<void> {
+    return showCgOverlayWithEngine(this.getEngine(), assetName, options)
+  }
+
+  hideCgOverlay(options?: { id?: string, duration?: number, easing?: string }): Promise<void> {
+    return hideCgOverlayWithEngine(this.getEngine(), options)
+  }
+
+  transitionBackground(transition: TransitionIntent): Promise<void> {
+    return transitionBackgroundWithEngine(this.getEngine(), transition)
+  }
+
+  transitionLayer(layerId: string, transition: TransitionIntent): Promise<void> {
+    return transitionBackgroundLayerWithEngine(this.getEngine(), layerId, transition)
+  }
+
   override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
     const packageId = ctx.runtimePackage?.package.id
     if (packageId) {
@@ -46,19 +101,19 @@ export class BackgroundPlugin extends BaseEnginePlugin {
     return {
       pluginName: this.name,
       apis: [
-        { name: 'setBackgroundWithEngine', fn: setBackgroundWithEngine, module: this.name },
-        { name: 'clearBackgroundWithEngine', fn: clearBackgroundWithEngine, module: this.name },
-        { name: 'setVideoBackgroundWithEngine', fn: setVideoBackgroundWithEngine, module: this.name },
-        { name: 'setLayeredBackgroundWithEngine', fn: setLayeredBackgroundWithEngine, module: this.name },
-        { name: 'addBackgroundLayerWithEngine', fn: addBackgroundLayerWithEngine, module: this.name },
-        { name: 'removeBackgroundLayerWithEngine', fn: removeBackgroundLayerWithEngine, module: this.name },
-        { name: 'updateBackgroundLayerWithEngine', fn: updateBackgroundLayerWithEngine, module: this.name },
-        { name: 'clearBackgroundLayersWithEngine', fn: clearBackgroundLayersWithEngine, module: this.name },
-        { name: 'transitionBackgroundWithEngine', fn: transitionBackgroundWithEngine, module: this.name },
-        { name: 'transitionBackgroundLayerWithEngine', fn: transitionBackgroundLayerWithEngine, module: this.name },
-        { name: 'showCgOverlayWithEngine', fn: showCgOverlayWithEngine, module: this.name },
-        { name: 'hideCgOverlayWithEngine', fn: hideCgOverlayWithEngine, module: this.name },
-        { name: 'clearRuntimePackageBackgroundWithEngine', fn: clearRuntimePackageBackgroundWithEngine, module: this.name },
+        { name: 'setBackground', fn: this.setBackground.bind(this), module: this.name },
+        { name: 'clearBackground', fn: this.clearBackground.bind(this), module: this.name },
+        { name: 'clearRuntimePackage', fn: this.clearRuntimePackage.bind(this), module: this.name },
+        { name: 'setVideoBackground', fn: this.setVideoBackground.bind(this), module: this.name },
+        { name: 'setLayeredBackground', fn: this.setLayeredBackground.bind(this), module: this.name },
+        { name: 'addLayer', fn: this.addLayer.bind(this), module: this.name },
+        { name: 'updateLayer', fn: this.updateLayer.bind(this), module: this.name },
+        { name: 'removeLayer', fn: this.removeLayer.bind(this), module: this.name },
+        { name: 'clearLayers', fn: this.clearLayers.bind(this), module: this.name },
+        { name: 'showCgOverlay', fn: this.showCgOverlay.bind(this), module: this.name },
+        { name: 'hideCgOverlay', fn: this.hideCgOverlay.bind(this), module: this.name },
+        { name: 'transitionBackground', fn: this.transitionBackground.bind(this), module: this.name },
+        { name: 'transitionLayer', fn: this.transitionLayer.bind(this), module: this.name },
       ],
       decorators: backgroundDecoratorMappings,
     }

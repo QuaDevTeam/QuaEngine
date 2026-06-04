@@ -220,6 +220,111 @@ export class AchievementPlugin extends BaseEnginePlugin {
   private disposers: Array<() => void> = []
   private unregisterScene?: () => void
 
+  getProjection(): AchievementProjection {
+    return getAchievementProjection(this.getEngine())
+  }
+
+  getProfile(profileId?: string): AchievementProfileState {
+    return getAchievementProfile(this.getEngine(), profileId)
+  }
+
+  registerGroup(group: AchievementGroupDefinition): Promise<AchievementGroupDefinition> {
+    return registerAchievementGroupWithEngine(this.getEngine(), group)
+  }
+
+  registerAchievement(achievement: AchievementDefinition): Promise<AchievementDefinition> {
+    return registerAchievementWithEngine(this.getEngine(), achievement)
+  }
+
+  registerDefinitions(definitions: AchievementDefinitionsInput): Promise<void> {
+    return registerAchievementDefinitionsWithEngine(this.getEngine(), definitions)
+  }
+
+  clearRuntimePackage(packageId: string): Promise<void> {
+    return removeRuntimePackageAchievementContentWithEngine(this.getEngine(), packageId)
+  }
+
+  openBoard(options?: AchievementOpenOptions): Promise<void> {
+    return openAchievementBoardWithEngine(this.getEngine(), options)
+  }
+
+  closeBoard(): Promise<void> {
+    return closeAchievementBoardWithEngine(this.getEngine())
+  }
+
+  unlockAchievement(
+    achievementId: string | readonly string[],
+    options?: AchievementUnlockOptions,
+  ): Promise<AchievementProfileState> {
+    return unlockAchievementWithEngine(this.getEngine(), achievementId, options)
+  }
+
+  unlockAchievements(
+    achievementIds: readonly string[],
+    options?: AchievementUnlockOptions,
+  ): Promise<AchievementProfileState> {
+    return unlockAchievementsWithEngine(this.getEngine(), achievementIds, options)
+  }
+
+  setProgress(
+    achievementId: string,
+    value: number,
+    options?: AchievementProgressOptions,
+  ): Promise<AchievementProfileState> {
+    return setAchievementProgressWithEngine(this.getEngine(), achievementId, value, options)
+  }
+
+  incrementProgress(
+    achievementId: string,
+    amount?: number,
+    options?: AchievementProgressOptions,
+  ): Promise<AchievementProfileState> {
+    return incrementAchievementProgressWithEngine(this.getEngine(), achievementId, amount, options)
+  }
+
+  setCounter(
+    counterId: string,
+    value: number,
+    options?: AchievementProgressOptions,
+  ): Promise<AchievementProfileState> {
+    return setAchievementCounterWithEngine(this.getEngine(), counterId, value, options)
+  }
+
+  incrementCounter(
+    counterId: string,
+    amount?: number,
+    options?: AchievementProgressOptions,
+  ): Promise<AchievementProfileState> {
+    return incrementAchievementCounterWithEngine(this.getEngine(), counterId, amount, options)
+  }
+
+  hasAchievement(achievementId: string, profileId?: string): boolean {
+    return hasAchievementWithEngine(this.getEngine(), achievementId, profileId)
+  }
+
+  evaluateCondition(
+    condition: AchievementCondition,
+    options?: { profileId?: string, point?: StoryPoint },
+  ): Promise<boolean> {
+    return evaluateAchievementConditionWithEngine(this.getEngine(), condition, options)
+  }
+
+  evaluateDefinitions(options?: { profileId?: string }): Promise<void> {
+    return evaluateAchievementDefinitionsWithEngine(this.getEngine(), options)
+  }
+
+  setNotificationMode(mode: AchievementNotificationMode): Promise<AchievementProjection> {
+    return setAchievementNotificationModeWithEngine(this.getEngine(), mode)
+  }
+
+  registerRewardHandler(kind: string, handler: AchievementRewardHandler): () => void {
+    return registerAchievementRewardHandlerWithEngine(this.getEngine(), kind, handler)
+  }
+
+  resetProfile(options?: { profileId?: string }): Promise<AchievementProfileState> {
+    return resetAchievementProfileWithEngine(this.getEngine(), options)
+  }
+
   protected override async setup(ctx: EngineContext): Promise<void> {
     const runtimeState = getOrCreateAchievementRuntimeState(
       ctx.engine,
@@ -321,26 +426,26 @@ export class AchievementPlugin extends BaseEnginePlugin {
     return {
       pluginName: this.name,
       apis: [
-        { name: 'registerAchievementGroupWithEngine', fn: registerAchievementGroupWithEngine, module: this.name },
-        { name: 'registerAchievementWithEngine', fn: registerAchievementWithEngine, module: this.name },
-        { name: 'registerAchievementDefinitionsWithEngine', fn: registerAchievementDefinitionsWithEngine, module: this.name },
-        { name: 'removeRuntimePackageAchievementContentWithEngine', fn: removeRuntimePackageAchievementContentWithEngine, module: this.name },
-        { name: 'openAchievementBoardWithEngine', fn: openAchievementBoardWithEngine, module: this.name },
-        { name: 'closeAchievementBoardWithEngine', fn: closeAchievementBoardWithEngine, module: this.name },
-        { name: 'unlockAchievementWithEngine', fn: unlockAchievementWithEngine, module: this.name },
-        { name: 'unlockAchievementsWithEngine', fn: unlockAchievementsWithEngine, module: this.name },
-        { name: 'setAchievementProgressWithEngine', fn: setAchievementProgressWithEngine, module: this.name },
-        { name: 'incrementAchievementProgressWithEngine', fn: incrementAchievementProgressWithEngine, module: this.name },
-        { name: 'setAchievementCounterWithEngine', fn: setAchievementCounterWithEngine, module: this.name },
-        { name: 'incrementAchievementCounterWithEngine', fn: incrementAchievementCounterWithEngine, module: this.name },
-        { name: 'hasAchievementWithEngine', fn: hasAchievementWithEngine, module: this.name },
-        { name: 'evaluateAchievementConditionWithEngine', fn: evaluateAchievementConditionWithEngine, module: this.name },
-        { name: 'evaluateAchievementDefinitionsWithEngine', fn: evaluateAchievementDefinitionsWithEngine, module: this.name },
-        { name: 'getAchievementProjection', fn: getAchievementProjection, module: this.name },
-        { name: 'getAchievementProfile', fn: getAchievementProfile, module: this.name },
-        { name: 'setAchievementNotificationModeWithEngine', fn: setAchievementNotificationModeWithEngine, module: this.name },
-        { name: 'registerAchievementRewardHandlerWithEngine', fn: registerAchievementRewardHandlerWithEngine, module: this.name },
-        { name: 'resetAchievementProfileWithEngine', fn: resetAchievementProfileWithEngine, module: this.name },
+        { name: 'getProjection', fn: this.getProjection.bind(this), module: this.name },
+        { name: 'getProfile', fn: this.getProfile.bind(this), module: this.name },
+        { name: 'registerGroup', fn: this.registerGroup.bind(this), module: this.name },
+        { name: 'registerAchievement', fn: this.registerAchievement.bind(this), module: this.name },
+        { name: 'registerDefinitions', fn: this.registerDefinitions.bind(this), module: this.name },
+        { name: 'clearRuntimePackage', fn: this.clearRuntimePackage.bind(this), module: this.name },
+        { name: 'openBoard', fn: this.openBoard.bind(this), module: this.name },
+        { name: 'closeBoard', fn: this.closeBoard.bind(this), module: this.name },
+        { name: 'unlockAchievement', fn: this.unlockAchievement.bind(this), module: this.name },
+        { name: 'unlockAchievements', fn: this.unlockAchievements.bind(this), module: this.name },
+        { name: 'setProgress', fn: this.setProgress.bind(this), module: this.name },
+        { name: 'incrementProgress', fn: this.incrementProgress.bind(this), module: this.name },
+        { name: 'setCounter', fn: this.setCounter.bind(this), module: this.name },
+        { name: 'incrementCounter', fn: this.incrementCounter.bind(this), module: this.name },
+        { name: 'hasAchievement', fn: this.hasAchievement.bind(this), module: this.name },
+        { name: 'evaluateCondition', fn: this.evaluateCondition.bind(this), module: this.name },
+        { name: 'evaluateDefinitions', fn: this.evaluateDefinitions.bind(this), module: this.name },
+        { name: 'setNotificationMode', fn: this.setNotificationMode.bind(this), module: this.name },
+        { name: 'registerRewardHandler', fn: this.registerRewardHandler.bind(this), module: this.name },
+        { name: 'resetProfile', fn: this.resetProfile.bind(this), module: this.name },
       ],
       decorators,
     }

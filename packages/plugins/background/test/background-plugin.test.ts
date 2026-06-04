@@ -29,12 +29,12 @@ describe('@quajs/plugin-background', () => {
 
     expect(registration.pluginName).toBe('@quajs/plugin-background')
     expect(registration.apis.map(api => api.name)).toEqual(expect.arrayContaining([
-      'setBackgroundWithEngine',
-      'setVideoBackgroundWithEngine',
-      'setLayeredBackgroundWithEngine',
-      'addBackgroundLayerWithEngine',
-      'transitionBackgroundWithEngine',
-      'transitionBackgroundLayerWithEngine',
+      'setBackground',
+      'setVideoBackground',
+      'setLayeredBackground',
+      'addLayer',
+      'transitionBackground',
+      'transitionLayer',
     ]))
     expect(registration.decorators).toEqual(backgroundDecoratorMappings)
   })
