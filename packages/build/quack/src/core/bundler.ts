@@ -10,6 +10,7 @@ import type {
   BundleStats,
   CompressionAlgorithm,
   EncryptionAlgorithm,
+  EncryptionPlugin,
   QuackConfig,
   QuackPlugin,
   RuntimePackageManifest,
@@ -460,6 +461,7 @@ export class QuackBundler extends EventEmitter {
           ...assetTarget.compatibility,
         }
       }
+      applyCocosStaticQpkCompressionDefaults(format, compression, assetTarget)
       if (assetTarget.compression) {
         compression.level = assetTarget.compression.level ?? compression.level
         compression.algorithm = assetTarget.compression.algorithm ?? compression.algorithm
@@ -467,6 +469,7 @@ export class QuackBundler extends EventEmitter {
       if (format === 'qpk' && compression.algorithm === 'deflate') {
         throw new Error(`QPK compression only supports none or lzma for asset target "${assetTarget.name}"`)
       }
+      applyCocosStaticQpkEncryptionDefaults(format, encryption, assetTarget)
       if (assetTarget.encryption) {
         encryption.enabled = assetTarget.encryption.enabled ?? encryption.enabled
         encryption.algorithm = encryption.enabled
@@ -847,6 +850,7 @@ function applyAssetTargetToConfig(config: BundleOptions, target: AssetBundleTarg
     ...config.compression,
     ...target.compression,
   }
+  applyCocosStaticQpkCompressionDefaults(config.format, compression, target)
   const encryptionEnabled = target.encryption?.enabled ?? config.encryption.enabled
   const encryption = {
     ...config.encryption,
@@ -856,6 +860,7 @@ function applyAssetTargetToConfig(config: BundleOptions, target: AssetBundleTarg
       ? (target.encryption?.algorithm ?? config.encryption.algorithm)
       : 'none' as EncryptionAlgorithm,
   }
+  applyCocosStaticQpkEncryptionDefaults(config.format, encryption, target)
   const compatibility = {
     ...config.compatibility,
     ...target.compatibility,
@@ -876,6 +881,34 @@ function applyAssetTargetToConfig(config: BundleOptions, target: AssetBundleTarg
     runtimePackage,
     assetTargets: [],
     assetTarget: target,
+  }
+}
+
+function isCocosAssetTarget(target: AssetBundleTarget): boolean {
+  return target.platform === 'cocos' || Boolean(target.cocos)
+}
+
+function applyCocosStaticQpkCompressionDefaults(
+  format: BundleFormat,
+  compression: { level?: number, algorithm?: CompressionAlgorithm },
+  target: AssetBundleTarget,
+): void {
+  if (isCocosAssetTarget(target) && format === 'qpk' && !target.compression) {
+    compression.algorithm = 'none'
+    compression.level = 0
+  }
+}
+
+function applyCocosStaticQpkEncryptionDefaults(
+  format: BundleFormat,
+  encryption: { enabled: boolean, algorithm: EncryptionAlgorithm, key?: string, plugin?: EncryptionPlugin },
+  target: AssetBundleTarget,
+): void {
+  if (isCocosAssetTarget(target) && format === 'qpk' && !target.encryption) {
+    encryption.enabled = false
+    encryption.algorithm = 'none'
+    encryption.key = undefined
+    encryption.plugin = undefined
   }
 }
 
