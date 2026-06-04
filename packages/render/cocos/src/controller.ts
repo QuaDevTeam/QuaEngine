@@ -332,7 +332,7 @@ export class QuaCocosRendererController {
       syncAudioHandle: (layerId, key, resource, options) => this.syncAudioHandle(layerId, key, resource, options),
       releaseAudioHandles: (layerId, activeKeys) => this.releaseAudioHandles(layerId, activeKeys),
       interruptAudioTracks: (kind, source) => this.interruptAudioTracks(kind, source),
-      captureStage: options => this.captureStage(options),
+      captureStage: (options, policy) => this.captureStage(options, policy),
       emitRenderToLogic: (type, payload) => emitRenderToLogic(this.requirePipeline(), type as never, payload as never),
       refresh: () => this.refresh(),
       reportWarning: (message, metadata) => this.host.runtime.warn?.(message, metadata),
@@ -505,7 +505,7 @@ export class QuaCocosRendererController {
       parent: this.getCameraRoot(),
     })
     this.host.nodes.setNodeTransform(node, { zIndex: order })
-    this.host.nodes.setNodeMetadata?.(node, { layerId: id, order })
+    this.host.nodes.setNodeMetadata?.(node, { layerId: id, order, captureRole: captureRoleForLayer(id) })
     this.layers.set(id, node)
     return node
   }
@@ -964,11 +964,36 @@ export class QuaCocosRendererController {
     this.scheduleAudioFrameLoop()
   }
 
-  private async captureStage(options?: { mimeType?: string, quality?: number, maxWidth?: number, maxHeight?: number }) {
+  private async captureStage(
+    options?: { mimeType?: string, quality?: number, maxWidth?: number, maxHeight?: number },
+    policy?: { uiMode?: string },
+  ) {
     if (!this.host.capture) {
       throw new Error('Cocos host does not provide capture support.')
     }
-    return this.host.capture.captureNode(this.getRootNode(), options)
+    const hiddenLayers = this.hideLayersForCapture(policy)
+    try {
+      return await this.host.capture.captureNode(this.getRootNode(), options)
+    }
+    finally {
+      for (const node of hiddenLayers) {
+        this.host.nodes.setNodeVisible(node, true)
+      }
+    }
+  }
+
+  private hideLayersForCapture(policy?: { uiMode?: string }): CocosHostNode[] {
+    const hiddenRoles = hiddenCaptureRoles(policy?.uiMode)
+    if (hiddenRoles.size === 0)
+      return []
+    const hidden: CocosHostNode[] = []
+    for (const [layerId, node] of this.layers) {
+      if (!hiddenRoles.has(captureRoleForLayer(layerId)))
+        continue
+      this.host.nodes.setNodeVisible(node, false)
+      hidden.push(node)
+    }
+    return hidden
   }
 }
 
@@ -1034,6 +1059,31 @@ function numberValue(value: unknown, fallback: number | undefined): number | und
 
 function numberOrDefault(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+type CocosCaptureRole = 'scene' | 'safe-ui' | 'overlay'
+
+function captureRoleForLayer(layerId: string): CocosCaptureRole {
+  if (layerId === 'dialogue' || layerId === 'choices')
+    return 'safe-ui'
+  if (
+    layerId === 'ui'
+    || layerId === 'settings'
+    || layerId === 'backlog'
+    || layerId === 'gallery'
+    || layerId === 'achievement'
+  ) {
+    return 'overlay'
+  }
+  return 'scene'
+}
+
+function hiddenCaptureRoles(uiMode: string | undefined): Set<CocosCaptureRole> {
+  if (uiMode === 'hide-overlays')
+    return new Set(['overlay'])
+  if (uiMode === 'scene-only')
+    return new Set(['overlay', 'safe-ui'])
+  return new Set()
 }
 
 function finiteNumber(value: unknown): number | undefined {

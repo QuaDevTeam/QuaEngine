@@ -264,6 +264,7 @@ export async function captureCocosSavePreview(context: CocosRendererHostContext,
   saveOpId: string
   slotId: string
   policy: {
+    uiMode?: string
     format?: string
     quality?: number
     maxWidth?: number
@@ -275,7 +276,7 @@ export async function captureCocosSavePreview(context: CocosRendererHostContext,
     quality: payload.policy.quality,
     maxWidth: payload.policy.maxWidth,
     maxHeight: payload.policy.maxHeight,
-  })
+  }, payload.policy)
   await context.getActions().requestPluginEvent('save-preview:cocos-captured', {
     requestId: payload.requestId,
     slotId: payload.slotId,

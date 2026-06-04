@@ -258,6 +258,48 @@ describe('@quajs/renderer-cocos', () => {
     expect(results[0]).toMatchObject({ requestId: 'request', mimeType: 'image/png' })
   })
 
+  it('applies Cocos save preview uiMode layer visibility policy', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const duringCapture: Record<string, boolean | undefined> = {}
+    host.capture!.captureNode = async (_node, captureOptions = {}) => {
+      duringCapture.background = findNode(host, 'qua-background')?.visible
+      duringCapture.dialogue = findNode(host, 'qua-dialogue')?.visible
+      duringCapture.choices = findNode(host, 'qua-choices')?.visible
+      duringCapture.ui = findNode(host, 'qua-ui')?.visible
+      return {
+        bytes: new Uint8Array([1]),
+        mimeType: captureOptions.mimeType || 'image/png',
+        capturedAt: 1,
+      }
+    }
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView({ uiOverlay: { visible: true } }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+
+    await pipeline.emit(LogicToRenderEvents.SAVE_PREVIEW_CAPTURE_REQUEST, {
+      requestId: 'request',
+      saveOpId: 'save',
+      slotId: 'slot',
+      reason: 'save',
+      transaction: 'sync',
+      policy: { format: 'image/png', uiMode: 'scene-only' },
+    })
+
+    expect(duringCapture).toMatchObject({
+      dialogue: false,
+      choices: false,
+      ui: false,
+    })
+    expect(findNode(host, 'qua-dialogue')?.visible).toBe(true)
+    expect(findNode(host, 'qua-choices')?.visible).toBe(true)
+    expect(findNode(host, 'qua-ui')?.visible).toBe(true)
+  })
+
   it('renders Cocos UI overlay content and dispatches overlay actions', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()
@@ -354,6 +396,65 @@ describe('@quajs/renderer-cocos', () => {
     expect(resetAll).toEqual([{}])
     expect(closes).toEqual([{ elementId: 'settings' }])
     expect(advances).toEqual([])
+  })
+
+  it('renders Cocos settings field errors and custom control metadata', async () => {
+    const host = createFakeCocosHost()
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      initialView: createView({
+        settings: {
+          revision: 1,
+          profileId: 'default',
+          updatedAt: 1,
+          scopes: {
+            player: {
+              title: 'Player',
+              schema: {
+                type: 'object',
+                properties: {
+                  nickname: { type: 'string', title: 'Nickname' },
+                  theme: {
+                    type: 'string',
+                    title: 'Theme',
+                    'x-qua-ui': {
+                      control: 'custom',
+                      component: 'ThemePicker',
+                      props: { dense: true },
+                    },
+                  },
+                },
+              },
+              defaults: { nickname: '', theme: 'dark' },
+              values: { nickname: '', theme: 'dark' },
+              errors: [{ path: 'nickname', message: 'Nickname is required.' }],
+            },
+          },
+        },
+        uiOverlays: {
+          settings: { open: true },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    const error = findNode(host, 'settings:field:player:nickname:error')
+    const theme = findNode(host, 'settings:field:player:theme')
+    expect(error?.text).toBe('Nickname is required.')
+    expect(theme?.metadata).toMatchObject({
+      settingsCustomComponent: 'ThemePicker',
+      settingsCustomProps: { dense: true },
+    })
+    expect(theme?.control).toMatchObject({
+      kind: 'panel',
+      metadata: {
+        component: 'ThemePicker',
+        props: { dense: true },
+      },
+    })
   })
 
   it('applies UI skin manifests as sliced Cocos sprites', async () => {
@@ -1129,6 +1230,39 @@ describe('@quajs/renderer-cocos', () => {
     expect(advances).toEqual([])
   })
 
+  it('paginates Cocos backlog entries locally', async () => {
+    const host = createFakeCocosHost()
+    const entries = Array.from({ length: 9 }, (_, index) => ({
+      id: `entry-${index + 1}`,
+      kind: 'dialogue' as const,
+      text: `Line ${index + 1}`,
+      rewindable: true,
+      voiceReplay: false,
+      timestamp: index + 1,
+    }))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      initialView: createView({
+        plugins: {
+          backlog: {
+            revision: 1,
+            visible: true,
+            entries,
+            retention: { scope: 'global', maxEntries: 50 },
+            defaultPolicy: { include: true, rewindable: true, voiceReplay: true },
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+
+    expect(findNode(host, 'backlog:entry-9')).toBeUndefined()
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'backlog:page:next') })
+    expect(findNode(host, 'backlog:entry-9')?.text).toContain('Line 9')
+  })
+
   it('renders the Cocos achievement board and dispatches achievement intents', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()
@@ -1211,6 +1345,48 @@ describe('@quajs/renderer-cocos', () => {
     expect(sound?.disposed).toBe(true)
   })
 
+  it('auto-dismisses Cocos achievement notifications', async () => {
+    let now = 0
+    const host = createFakeCocosHost({ now: () => now })
+    const pipeline = new Pipeline()
+    const dismisses: unknown[] = []
+    pipeline.on(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, context => dismisses.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView({
+        plugins: {
+          achievement: {
+            revision: 1,
+            sceneActive: false,
+            profileId: 'default',
+            notificationMode: 'toast',
+            groups: [],
+            achievements: [],
+            filteredAchievementIds: [],
+            notifications: [{
+              id: 'toast-auto',
+              achievementId: 'first',
+              title: 'Auto dismiss',
+              mode: 'toast',
+              durationMs: 10,
+              createdAt: 0,
+            }],
+            requiredRuntimePackages: [],
+            filter: {},
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+
+    now = 10
+    await waitForEventually(() => dismisses.length > 0)
+    expect(dismisses[0]).toEqual({ notificationId: 'toast-auto', achievementId: 'first' })
+    await renderer.destroy()
+  })
+
   it('projects optional feature plugins and emits plugin intents', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()
@@ -1239,6 +1415,63 @@ describe('@quajs/renderer-cocos', () => {
     expect(galleryEntry?.text).toBe('CG 1')
     await host.emitInput({ kind: 'pointer', phase: 'down', x: 960, y: 540, targetNode: galleryEntry })
     expect(events[0]).toEqual({ entryId: 'cg-1' })
+  })
+
+  it('paginates Cocos gallery entries and cleans audio previews', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const entries = Array.from({ length: 11 }, (_, index) => ({
+      id: `cg-${index + 1}`,
+      title: `CG ${index + 1}`,
+      unlocked: true,
+      contents: [],
+      catalogId: 'main',
+    }))
+    entries[10] = {
+      ...entries[10]!,
+      contents: [{
+        id: 'audio-preview',
+        kind: 'audio',
+        title: 'Preview',
+        asset: { type: 'audio', name: 'preview.ogg' },
+      }],
+    }
+    const gallery = {
+      revision: 1,
+      sceneActive: true,
+      profileId: 'default',
+      catalogs: [{ id: 'main', title: 'Main', entryIds: entries.map(entry => entry.id), totalEntries: 11, unlockedEntries: 11, lockedEntries: 0 }],
+      entries,
+      filteredEntryIds: entries.map(entry => entry.id),
+      selectedEntryId: 'cg-11',
+      selectedContentId: 'audio-preview',
+      requiredRuntimePackages: [],
+      filter: {},
+    }
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      assets: createFakeAssets(),
+      initialView: createView({ gallery }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    expect(findNode(host, 'gallery:entry:cg-11')).toBeUndefined()
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'gallery:entries:next') })
+    await waitForEventually(() => findNode(host, 'gallery:entry:cg-11') !== undefined)
+    expect(host.audioHandlesById.get('gallery:audio-preview:audio')?.playing).toBe(true)
+
+    await pipeline.emit(LogicToRenderEvents.VIEW_UPDATE, {
+      view: createView({
+        gallery: {
+          ...gallery,
+          sceneActive: false,
+        },
+      }),
+    })
+    await waitForEventually(() => host.audioHandlesById.get('gallery:audio-preview:audio')?.disposed === true)
   })
 
   it('keeps preset plugin order stable', () => {

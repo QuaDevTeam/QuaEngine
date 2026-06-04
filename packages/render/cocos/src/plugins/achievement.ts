@@ -16,8 +16,12 @@ export function createAchievementCocosRendererPlugin() {
     setup(context) {
       const playedNotifications = new Set<string>()
       const soundHandles = new Map<string, AchievementSoundHandle>()
+      const pages = new Map<string, number>()
+      const notificationTimers = new Map<string, number>()
       const sync = () => {
-        void renderAchievementLayer(context, playedNotifications, soundHandles).catch(error => context.reportError(error, {
+        void renderAchievementLayer(context, playedNotifications, soundHandles, pages).then(() => {
+          syncNotificationTimers(context, notificationTimers)
+        }).catch(error => context.reportError(error, {
           message: 'Cocos achievement projection failed.',
           phase: 'renderer-cocos:achievement',
           pluginName: '@quajs/renderer-cocos/achievement',
@@ -52,13 +56,30 @@ export function createAchievementCocosRendererPlugin() {
               filter: { unlockedOnly: metadata.nextUnlockedOnly === true },
             })
             break
+          case 'toggleIncludeHidden':
+            await context.getPipeline().emit(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+              filter: { includeHidden: metadata.nextIncludeHidden === true },
+            })
+            break
+          case 'search':
+            await context.getPipeline().emit(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+              filter: { search: stringValue(metadata.value) || '' },
+            })
+            break
+          case 'page':
+            updatePage(pages, stringValue(metadata.achievementPageKey) || 'items', Number(metadata.achievementPageDelta) || 0)
+            sync()
+            break
           default:
             if (typeof metadata.achievementId === 'string') {
               await context.getPipeline().emit(AchievementRenderToLogicEvents.SELECT_ACHIEVEMENT_REQUEST, { achievementId: metadata.achievementId })
             }
         }
       }))
-      context.addDisposer(() => cleanupAchievementSounds(context, soundHandles, playedNotifications))
+      context.addDisposer(() => {
+        cleanupAchievementSounds(context, soundHandles, playedNotifications)
+        clearNotificationTimers(context, notificationTimers)
+      })
       sync()
     },
   })
@@ -78,6 +99,7 @@ async function renderAchievementLayer(
   context: CocosRendererPluginContext,
   playedNotifications: Set<string>,
   soundHandles: Map<string, AchievementSoundHandle>,
+  pages: Map<string, number>,
 ): Promise<void> {
   const projection = context.getViewState().plugins[ACHIEVEMENT_PLUGIN_ID] as AchievementProjection | undefined
   const layer = context.cocos.getLayerNode('achievement', 'achievement-layer', 130)
@@ -95,7 +117,7 @@ async function renderAchievementLayer(
     await renderAchievementToast(context, layer, notification, index, playedNotifications, soundHandles)
   }
   if (projection.sceneActive) {
-    await renderAchievementBoard(context, layer, projection)
+    await renderAchievementBoard(context, layer, projection, pages)
   }
 }
 
@@ -168,6 +190,7 @@ async function renderAchievementBoard(
   context: CocosRendererPluginContext,
   parent: CocosHostNode,
   projection: AchievementProjection,
+  pages: Map<string, number>,
 ): Promise<void> {
   const safeArea = context.cocos.getStageLayout().safeArea
   const panel = context.cocos.host.nodes.createNode('achievement-panel', { parent, name: 'achievement:panel' })
@@ -187,7 +210,30 @@ async function renderAchievementBoard(
     achievementAction: 'toggleUnlockedOnly',
     nextUnlockedOnly: !projection.filter.unlockedOnly,
   }, projection.filter.unlockedOnly === true)
-  projection.groups.slice(0, 6).forEach((group, index) => {
+  renderButton(context, panel, 'achievement:filter:hidden', 'Hidden', safeArea.x + safeArea.width - 380, safeArea.y + 84, 104, 42, {
+    plugin: 'achievement',
+    achievementAction: 'toggleIncludeHidden',
+    nextIncludeHidden: !projection.filter.includeHidden,
+  }, projection.filter.includeHidden === true)
+  const search = context.cocos.host.nodes.createNode('achievement-search', { parent: panel, name: 'achievement:search' })
+  context.cocos.host.nodes.setNodeText(search, `Search: ${projection.filter.search || ''}`, { fontSize: 20, color: '#d8d8d8' })
+  context.cocos.host.nodes.setNodeControl?.(search, {
+    kind: 'input',
+    value: projection.filter.search || '',
+    placeholder: 'Search',
+    label: 'Search',
+    metadata: {
+      plugin: 'achievement',
+      achievementAction: 'search',
+    },
+  })
+  context.cocos.host.nodes.setNodeTransform(search, { x: safeArea.x + safeArea.width - 620, y: safeArea.y + 84, width: 220, height: 42, zIndex: 10 })
+  context.cocos.host.nodes.setNodeMetadata?.(search, {
+    plugin: 'achievement',
+    achievementAction: 'search',
+  })
+  const groupPage = pageItems(projection.groups, pages.get('groups') || 0, 6)
+  groupPage.items.forEach((group, index) => {
     renderButton(context, panel, `achievement:group:${group.id}`, group.title, safeArea.x + 28 + index * 150, safeArea.y + 84, 136, 42, {
       plugin: 'achievement',
       achievementAction: 'selectGroup',
@@ -195,8 +241,16 @@ async function renderAchievementBoard(
       selected: group.id === projection.selectedGroupId,
     }, group.id === projection.selectedGroupId)
   })
+  renderPager(context, panel, 'achievement:groups', 'groups', groupPage, safeArea.x + 28 + 6 * 150, safeArea.y + 84)
   const items = projection.achievements.filter(item => projection.filteredAchievementIds.includes(item.id))
-  items.slice(0, 12).forEach((achievement, index) => renderAchievementItem(context, panel, achievement, index, safeArea.x + 28, safeArea.y + 144, safeArea.width - 56, projection.selectedAchievementId === achievement.id))
+  const itemPage = pageItems(items, pages.get('items') || 0, 10)
+  itemPage.items.forEach((achievement, index) => renderAchievementItem(context, panel, achievement, index, safeArea.x + 28, safeArea.y + 144, Math.min(560, safeArea.width - 56), projection.selectedAchievementId === achievement.id))
+  renderPager(context, panel, 'achievement:items', 'items', itemPage, safeArea.x + 28, safeArea.y + 144 + 10 * 64)
+  const selected = projection.achievements.find(item => item.id === projection.selectedAchievementId)
+    || items[0]
+  if (selected) {
+    renderAchievementDetail(context, panel, selected, safeArea.x + 620, safeArea.y + 144, Math.max(320, safeArea.width - 650))
+  }
 }
 
 function renderAchievementItem(
@@ -226,6 +280,74 @@ function renderAchievementItem(
     ...(context.cocos.host.nodes.getNodeMetadata?.(node) || {}),
     achievement,
   })
+}
+
+function renderAchievementDetail(
+  context: CocosRendererPluginContext,
+  parent: CocosHostNode,
+  achievement: AchievementProjectionItem,
+  x: number,
+  y: number,
+  width: number,
+): void {
+  const node = context.cocos.host.nodes.createNode('achievement-detail', { parent, name: `achievement:detail:${achievement.id}` })
+  const title = achievement.hidden && !achievement.unlocked ? 'Hidden achievement' : achievement.title
+  const lines = [
+    title,
+    achievement.summary,
+    achievement.description,
+    achievement.unlocked ? 'Unlocked' : 'Locked',
+  ].filter(Boolean).join('\n')
+  context.cocos.host.nodes.setNodeText(node, lines, { fontSize: 22, color: '#ffffff' })
+  context.cocos.host.nodes.setNodeControl?.(node, { kind: 'panel', label: title })
+  context.cocos.host.nodes.setNodeTransform(node, { x, y, width, height: 260, zIndex: 14 })
+  context.cocos.host.nodes.setNodeMetadata?.(node, { plugin: 'achievement', achievementId: achievement.id, achievement })
+}
+
+function renderPager(
+  context: CocosRendererPluginContext,
+  parent: CocosHostNode,
+  prefix: string,
+  pageKey: string,
+  page: PageResult<unknown>,
+  x: number,
+  y: number,
+): void {
+  renderButton(context, parent, `${prefix}:prev`, 'Prev', x, y, 72, 42, {
+    plugin: 'achievement',
+    achievementAction: 'page',
+    achievementPageKey: pageKey,
+    achievementPageDelta: -1,
+  })
+  renderButton(context, parent, `${prefix}:next`, 'Next', x + 82, y, 72, 42, {
+    plugin: 'achievement',
+    achievementAction: 'page',
+    achievementPageKey: pageKey,
+    achievementPageDelta: 1,
+  })
+  const label = context.cocos.host.nodes.createNode('achievement-page-label', { parent, name: `${prefix}:label` })
+  context.cocos.host.nodes.setNodeText(label, `${page.page + 1}/${page.pageCount}`, { fontSize: 18, color: '#d8d8d8' })
+  context.cocos.host.nodes.setNodeTransform(label, { x: x + 164, y, width: 72, height: 42, zIndex: 10 })
+}
+
+interface PageResult<T> {
+  items: readonly T[]
+  page: number
+  pageCount: number
+}
+
+function pageItems<T>(items: readonly T[], requestedPage: number, pageSize: number): PageResult<T> {
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize))
+  const page = Math.min(pageCount - 1, Math.max(0, requestedPage))
+  return {
+    items: items.slice(page * pageSize, page * pageSize + pageSize),
+    page,
+    pageCount,
+  }
+}
+
+function updatePage(pages: Map<string, number>, key: string, delta: number): void {
+  pages.set(key, Math.max(0, (pages.get(key) || 0) + delta))
 }
 
 function renderButton(
@@ -289,4 +411,38 @@ function cleanupAchievementSound(
   void record.handle.dispose()
   context.cocos.setLayerResource('achievement-sound', record.resourceKey, undefined)
   soundHandles.delete(notificationId)
+}
+
+function syncNotificationTimers(
+  context: CocosRendererPluginContext,
+  timers: Map<string, number>,
+): void {
+  const projection = context.getViewState().plugins[ACHIEVEMENT_PLUGIN_ID] as AchievementProjection | undefined
+  const activeIds = new Set(projection?.notifications.map(notification => notification.id) || [])
+  for (const [notificationId, timer] of [...timers]) {
+    if (activeIds.has(notificationId))
+      continue
+    context.cocos.host.scheduler.clearTimeout(timer)
+    timers.delete(notificationId)
+  }
+  for (const notification of projection?.notifications || []) {
+    if (timers.has(notification.id))
+      continue
+    const delay = Math.max(16, notification.createdAt + notification.durationMs - context.cocos.host.runtime.now())
+    const timer = context.cocos.host.scheduler.setTimeout(() => {
+      timers.delete(notification.id)
+      void context.getPipeline().emit(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, {
+        notificationId: notification.id,
+        achievementId: notification.achievementId,
+      })
+    }, delay)
+    timers.set(notification.id, timer)
+  }
+}
+
+function clearNotificationTimers(context: CocosRendererPluginContext, timers: Map<string, number>): void {
+  for (const timer of timers.values()) {
+    context.cocos.host.scheduler.clearTimeout(timer)
+  }
+  timers.clear()
 }

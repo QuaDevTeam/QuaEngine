@@ -10,8 +10,10 @@ export function createGalleryCocosRendererPlugin() {
   return defineCocosRendererPlugin({
     name: '@quajs/renderer-cocos/gallery',
     setup(context) {
+      const pages = new Map<string, number>()
+      const audioPreviews = new Map<string, GalleryAudioPreviewHandle>()
       const sync = () => {
-        void renderGalleryLayer(context).catch(error => context.reportError(error, {
+        void renderGalleryLayer(context, pages, audioPreviews).catch(error => context.reportError(error, {
           message: 'Cocos gallery projection failed.',
           phase: 'renderer-cocos:gallery',
           pluginName: '@quajs/renderer-cocos/gallery',
@@ -43,12 +45,17 @@ export function createGalleryCocosRendererPlugin() {
               filter: { unlockedOnly: metadata.nextUnlockedOnly === true },
             })
             break
+          case 'page':
+            updatePage(pages, stringValue(metadata.galleryPageKey) || 'entries', Number(metadata.galleryPageDelta) || 0)
+            sync()
+            break
           default:
             if (typeof metadata.galleryEntryId === 'string') {
               await context.getPipeline().emit(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, { entryId: metadata.galleryEntryId })
             }
         }
       }))
+      context.addDisposer(() => cleanupGalleryAudioPreviews(context, audioPreviews))
       sync()
     },
   })
@@ -56,7 +63,19 @@ export function createGalleryCocosRendererPlugin() {
 
 export const galleryCocosRendererPlugin = createGalleryCocosRendererPlugin()
 
-async function renderGalleryLayer(context: CocosRendererPluginContext): Promise<void> {
+interface GalleryAudioPreviewHandle {
+  handle: {
+    stop: () => void | Promise<void>
+    dispose: () => void | Promise<void>
+  }
+  resourceKey: string
+}
+
+async function renderGalleryLayer(
+  context: CocosRendererPluginContext,
+  pages: Map<string, number>,
+  audioPreviews: Map<string, GalleryAudioPreviewHandle>,
+): Promise<void> {
   const projection = context.getViewState().plugins[GALLERY_PLUGIN_ID] as GalleryProjection | undefined
   const layer = context.cocos.getLayerNode('gallery', 'gallery-layer', 120)
   context.cocos.host.nodes.clearChildren(layer)
@@ -66,8 +85,10 @@ async function renderGalleryLayer(context: CocosRendererPluginContext): Promise<
     visible: projection?.sceneActive === true,
     projection,
   })
-  if (!projection?.sceneActive)
+  if (!projection?.sceneActive) {
+    cleanupGalleryAudioPreviews(context, audioPreviews)
     return
+  }
 
   const safeArea = context.cocos.getStageLayout().safeArea
   const panel = context.cocos.host.nodes.createNode('gallery-panel', { parent: layer, name: 'gallery:panel' })
@@ -90,7 +111,8 @@ async function renderGalleryLayer(context: CocosRendererPluginContext): Promise<
   context.cocos.host.nodes.setNodeText(title, selectedCatalog?.title || 'Gallery', { fontSize: 32, color: '#ffffff' })
   context.cocos.host.nodes.setNodeTransform(title, { x: safeArea.x + 28, y: safeArea.y + 24, width: safeArea.width - 180, height: 48, zIndex: 1 })
 
-  projection.catalogs.slice(0, 6).forEach((catalog, index) => {
+  const catalogPage = pageItems(projection.catalogs, pages.get('catalogs') || 0, 6)
+  catalogPage.items.forEach((catalog, index) => {
     renderButton(context, panel, `gallery:catalog:${catalog.id}`, catalog.title, safeArea.x + 28 + index * 150, safeArea.y + 84, 136, 42, {
       plugin: 'gallery',
       galleryAction: 'selectCatalog',
@@ -98,6 +120,7 @@ async function renderGalleryLayer(context: CocosRendererPluginContext): Promise<
       selected: catalog.id === selectedCatalog?.id,
     }, catalog.id === selectedCatalog?.id)
   })
+  renderPager(context, panel, 'gallery:catalogs', 'catalogs', catalogPage, safeArea.x + 28 + 6 * 150, safeArea.y + 84)
   renderButton(context, panel, 'gallery:filter:unlocked', 'Unlocked', safeArea.x + safeArea.width - 250, safeArea.y + 84, 110, 42, {
     plugin: 'gallery',
     galleryAction: 'toggleUnlockedOnly',
@@ -105,13 +128,16 @@ async function renderGalleryLayer(context: CocosRendererPluginContext): Promise<
   }, projection.filter.unlockedOnly === true)
 
   const entries = projection.entries.filter(entry => projection.filteredEntryIds.includes(entry.id))
-  entries.slice(0, 10).forEach((entry, index) => {
+  const entryPage = pageItems(entries, pages.get('entries') || 0, 10)
+  entryPage.items.forEach((entry, index) => {
     renderGalleryEntry(context, panel, entry, index, safeArea.x + 28, safeArea.y + 144, 330, entry.id === selectedEntry?.id)
   })
+  renderPager(context, panel, 'gallery:entries', 'entries', entryPage, safeArea.x + 28, safeArea.y + 144 + 10 * 58)
 
   if (selectedEntry) {
-    await renderSelectedGalleryEntry(context, panel, selectedEntry, selectedContent, safeArea.x + 390, safeArea.y + 144, safeArea.width - 420)
+    await renderSelectedGalleryEntry(context, panel, selectedEntry, selectedContent, safeArea.x + 390, safeArea.y + 144, safeArea.width - 420, audioPreviews)
   }
+  cleanupInactiveGalleryAudioPreviews(context, audioPreviews, selectedContent?.kind === 'audio' ? selectedContent.id : undefined)
 }
 
 function renderGalleryEntry(
@@ -145,6 +171,7 @@ async function renderSelectedGalleryEntry(
   x: number,
   y: number,
   width: number,
+  audioPreviews: Map<string, GalleryAudioPreviewHandle>,
 ): Promise<void> {
   const title = context.cocos.host.nodes.createNode('gallery-entry-title', { parent, name: `gallery:selected:${entry.id}:title` })
   context.cocos.host.nodes.setNodeText(title, entry.title, { fontSize: 30, color: '#ffffff' })
@@ -162,7 +189,7 @@ async function renderSelectedGalleryEntry(
       selected: item.id === content?.id,
     }, item.id === content?.id)
   })
-  await renderGalleryContentPreview(context, parent, content, x, y + 190, width)
+  await renderGalleryContentPreview(context, parent, content, x, y + 190, width, audioPreviews)
 }
 
 async function renderGalleryContentPreview(
@@ -172,6 +199,7 @@ async function renderGalleryContentPreview(
   x: number,
   y: number,
   width: number,
+  audioPreviews: Map<string, GalleryAudioPreviewHandle>,
 ): Promise<void> {
   if (!content)
     return
@@ -191,10 +219,87 @@ async function renderGalleryContentPreview(
     if (content.kind === 'audio') {
       context.cocos.host.nodes.setNodeText(node, content.title || ref?.name || 'Audio', { fontSize: 24, color: '#ffffff' })
       context.cocos.host.nodes.setNodeControl?.(node, { kind: 'button', label: content.title || ref?.name || 'Audio' })
+      if (resource && !audioPreviews.has(content.id)) {
+        const handle = await context.cocos.host.audio.createAudioHandle(resource, {
+          id: `gallery:${content.id}:audio`,
+          loop: false,
+          volume: 1,
+          bus: 'sfx',
+        })
+        const resourceKey = `content:${content.id}:audio`
+        context.cocos.setLayerResource('gallery-audio', resourceKey, resource)
+        audioPreviews.set(content.id, { handle, resourceKey })
+        await handle.play()
+      }
       return
     }
     context.cocos.host.nodes.setNodeSprite(node, resource, { mode: content.kind === 'video' ? 'video' : 'sprite' })
   }
+}
+
+function renderPager(
+  context: CocosRendererPluginContext,
+  parent: CocosHostNode,
+  prefix: string,
+  pageKey: string,
+  page: PageResult<unknown>,
+  x: number,
+  y: number,
+): void {
+  renderButton(context, parent, `${prefix}:prev`, 'Prev', x, y, 72, 42, {
+    plugin: 'gallery',
+    galleryAction: 'page',
+    galleryPageKey: pageKey,
+    galleryPageDelta: -1,
+  }, false)
+  renderButton(context, parent, `${prefix}:next`, 'Next', x + 82, y, 72, 42, {
+    plugin: 'gallery',
+    galleryAction: 'page',
+    galleryPageKey: pageKey,
+    galleryPageDelta: 1,
+  }, false)
+  const label = context.cocos.host.nodes.createNode('gallery-page-label', { parent, name: `${prefix}:label` })
+  context.cocos.host.nodes.setNodeText(label, `${page.page + 1}/${page.pageCount}`, { fontSize: 18, color: '#d8d8d8' })
+  context.cocos.host.nodes.setNodeTransform(label, { x: x + 164, y, width: 72, height: 42, zIndex: 10 })
+}
+
+interface PageResult<T> {
+  items: readonly T[]
+  page: number
+  pageCount: number
+}
+
+function pageItems<T>(items: readonly T[], requestedPage: number, pageSize: number): PageResult<T> {
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize))
+  const page = Math.min(pageCount - 1, Math.max(0, requestedPage))
+  return {
+    items: items.slice(page * pageSize, page * pageSize + pageSize),
+    page,
+    pageCount,
+  }
+}
+
+function updatePage(pages: Map<string, number>, key: string, delta: number): void {
+  pages.set(key, Math.max(0, (pages.get(key) || 0) + delta))
+}
+
+function cleanupInactiveGalleryAudioPreviews(
+  context: CocosRendererPluginContext,
+  handles: Map<string, GalleryAudioPreviewHandle>,
+  activeContentId?: string,
+): void {
+  for (const [contentId, record] of [...handles]) {
+    if (contentId === activeContentId)
+      continue
+    void record.handle.stop()
+    void record.handle.dispose()
+    context.cocos.setLayerResource('gallery-audio', record.resourceKey, undefined)
+    handles.delete(contentId)
+  }
+}
+
+function cleanupGalleryAudioPreviews(context: CocosRendererPluginContext, handles: Map<string, GalleryAudioPreviewHandle>): void {
+  cleanupInactiveGalleryAudioPreviews(context, handles, undefined)
 }
 
 function renderButton(
