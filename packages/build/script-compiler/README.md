@@ -315,8 +315,11 @@ Decorators are discovered from package metadata and package-local compiler suben
 | `@PauseAudio(target?, options?)`                                  | `pauseAudioWithEngine`                | `@quajs/plugin-audio`        |
 | `@ResumeAudio(target?, options?)`                                 | `resumeAudioWithEngine`               | `@quajs/plugin-audio`        |
 | `@SeekAudio(target?, positionMs, options?)`                       | `seekAudioWithEngine`                 | `@quajs/plugin-audio`        |
+| `@Speaker(idOrAlias)`                                             | speaker context                       | `@quajs/character`           |
+| `@SpeakerName(value)`                                             | `speakWithEngine` options             | `@quajs/character`           |
+| `@SpeakerStyle(style)`                                            | `speakWithEngine` options             | `@quajs/character`           |
 | `@SetSprite(asset, character?)`                                   | `spriteWithEngine`                    | `@quajs/character`           |
-| `@ShowCharacter(character, sprite?, expression?, x?, y?, layer?)` | `showWithEngine`                      | `@quajs/character`           |
+| `@ShowCharacter()` / `@ShowCharacter(options)` / `@ShowCharacter(character, options?)` | `showWithEngine` | `@quajs/character`           |
 | `@HideCharacter(character?)`                                      | `hideWithEngine`                      | `@quajs/character`           |
 | `@MoveCharacter(character, x?, y?, scale?, rotation?, anchor?)`   | `moveWithEngine`                      | `@quajs/character`           |
 | `@SetExpression(expression, character?)`                          | `expressionWithEngine`                | `@quajs/character`           |

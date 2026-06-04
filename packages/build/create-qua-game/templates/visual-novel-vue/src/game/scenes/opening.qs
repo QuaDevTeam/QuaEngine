@@ -9,7 +9,7 @@ const playerName = scope.playerName
 </script>
 
 @SetBackground('backgrounds/classroom.svg', { transition: { type: 'fade', duration: 500 } })
-@ShowCharacter('Alice', 'alice/base.svg', undefined, 960, 640, 1)
+@ShowCharacter('Alice', { sprite: 'alice/base.svg', position: { x: 960, y: 640 }, layer: 1 })
 Alice: Welcome to __PROJECT_TITLE__, ${playerName}.
 
 Alice: This scene is a real QuaScript module. The renderer is only projecting engine-owned state.
