@@ -982,7 +982,7 @@ function resolveCocosHybridAssetManifest(target: AssetBundleTarget): CocosHybrid
   const config = target.cocos?.hybrid
   const mobile = isCocosMobileAssetTarget(target)
   const domainOverrides = config?.domains || {}
-  const hasNativeDomainOverride = Object.values(domainOverrides).some(placement => placement === 'cocos-bundle')
+  const hasNativeDomainOverride = Object.values(domainOverrides).includes('cocos-bundle')
   const enabled = config?.enabled ?? (mobile || hasNativeDomainOverride)
   const domains = Object.fromEntries(ASSET_PIPELINE_DOMAINS.map(domain => [domain, 'qpk'])) as CocosHybridAssetManifest['domains']
 
@@ -1100,7 +1100,7 @@ function stripAssetTypePrefix(relativePath: string, type: string): string {
 function normalizeRelativeOutputPath(path: string): string {
   const normalized = path.replace(/\\/g, '/').replace(/^\/+/, '')
   const parts = normalized.split('/').filter(part => part && part !== '.')
-  if (parts.some(part => part === '..')) {
+  if (parts.includes('..')) {
     throw new Error(`Unsafe Cocos hybrid asset path: ${path}`)
   }
   return parts.join('/')

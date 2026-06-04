@@ -1,6 +1,6 @@
 import type { BundleManifest, StoredAsset } from '@quajs/assets'
-import { describe, expect, it } from 'vitest'
 import { createFakeCocosHost } from '@quajs/cocos-host/testing'
+import { describe, expect, it } from 'vitest'
 import {
   CocosAssetMaterializer,
   CocosAssetStorage,

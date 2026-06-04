@@ -13,13 +13,13 @@ import type { AudioTrackEventPayload } from '@quajs/plugin-audio/contracts'
 import type {
   LogicToRenderPayload,
   QuaViewProjection,
-  RenderErrorPayload,
   RendererAdvanceInterceptor,
   RendererPlugin,
   RendererPluginContext,
+  RenderErrorPayload,
 } from '@quajs/render-core'
-import { AudioRenderToLogicEvents, emitAudioRenderToLogic } from '@quajs/plugin-audio/contracts'
 import type { CocosRendererHostContext, CocosRendererPlugin, CocosRendererSnapshot, CocosRendererSnapshotListener } from './types'
+import { AudioRenderToLogicEvents, emitAudioRenderToLogic } from '@quajs/plugin-audio/contracts'
 import {
   clientPointToStageLogical,
   createQuaErrorPayload,
@@ -28,9 +28,9 @@ import {
   LogicToRenderEvents,
   onLogicToRender,
   onRenderToLogic,
+  projectStageMotion,
   RendererPluginHost,
   RenderToLogicEvents,
-  projectStageMotion,
   resolveStageLayout,
 } from '@quajs/render-core'
 import { emptyCocosView } from './defaults'

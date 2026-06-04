@@ -233,13 +233,15 @@ export interface CocosCaptureHost {
     quality?: number
     maxWidth?: number
     maxHeight?: number
-  }) => Promise<{
-    bytes: Uint8Array
-    mimeType: string
-    width?: number
-    height?: number
-    capturedAt: number
-  }>
+  }) => Promise<CocosHostCaptureResult>
+}
+
+export interface CocosHostCaptureResult {
+  bytes: Uint8Array
+  mimeType: string
+  width?: number
+  height?: number
+  capturedAt: number
 }
 
 export interface CocosSchedulerHost {

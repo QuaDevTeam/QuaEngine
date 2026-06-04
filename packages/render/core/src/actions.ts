@@ -70,4 +70,3 @@ export function createRendererActions(
     requestPluginEvent: (type: string, payload: unknown = {}) => getPipeline().emit(type, payload),
   }
 }
-

@@ -242,4 +242,3 @@ function intersectSafeArea(left: StageSafeArea, right: StageSafeArea): StageSafe
 function nonNegativeNumber(value: number | undefined): number {
   return Number.isFinite(value) && value !== undefined && value > 0 ? value : 0
 }
-

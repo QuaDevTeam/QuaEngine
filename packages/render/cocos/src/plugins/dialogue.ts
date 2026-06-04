@@ -10,38 +10,6 @@ export function createDialogueCocosRendererPlugin() {
     setup(context) {
       let frame: number | undefined
       const soundHandles = new Map<string, { handle: { stop: () => void | Promise<void>, dispose: () => void | Promise<void> } }>()
-      const typewriterRuntime = new CocosDialogueTypewriterRuntime({
-        now: () => context.cocos.host.runtime.now(),
-        onSound: (sound, visibleCharacters) => {
-          void playTypewriterSound(sound, visibleCharacters).catch(error => context.reportError(error, {
-            message: 'Cocos typewriter sound playback failed.',
-            phase: 'renderer-cocos:dialogue-typewriter-sound',
-            pluginName: '@quajs/renderer-cocos/dialogue',
-          }))
-        },
-      })
-      const schedule = () => {
-        if (frame !== undefined)
-          return
-        frame = context.cocos.host.scheduler.requestFrame(() => {
-          frame = undefined
-          sync()
-        })
-      }
-      const sync = () => {
-        const projectedDialogue = projectDialogue(
-          context.getViewState().dialogue,
-          context.getViewState().animations,
-          context.cocos.host.runtime.now(),
-          context.getViewState().plugins.dialogue as Record<string, unknown> | undefined,
-        )
-        const typewriter = typewriterRuntime.project(projectedDialogue)
-        renderCocosDialogue(context.cocos, { typewriter })
-        if (typewriter.revealing) {
-          schedule()
-        }
-      }
-
       const playTypewriterSound = async (
         sound: NonNullable<DialogueTypewriterProjection['sound']>,
         visibleCharacters: number,
@@ -79,6 +47,38 @@ export function createDialogueCocosRendererPlugin() {
           }
           context.cocos.setLayerResource('dialogue-typewriter', key, undefined)
           throw error
+        }
+      }
+      const typewriterRuntime = new CocosDialogueTypewriterRuntime({
+        now: () => context.cocos.host.runtime.now(),
+        onSound: (sound, visibleCharacters) => {
+          void playTypewriterSound(sound, visibleCharacters).catch(error => context.reportError(error, {
+            message: 'Cocos typewriter sound playback failed.',
+            phase: 'renderer-cocos:dialogue-typewriter-sound',
+            pluginName: '@quajs/renderer-cocos/dialogue',
+          }))
+        },
+      })
+      let sync: () => void
+      const schedule = () => {
+        if (frame !== undefined)
+          return
+        frame = context.cocos.host.scheduler.requestFrame(() => {
+          frame = undefined
+          sync()
+        })
+      }
+      sync = () => {
+        const projectedDialogue = projectDialogue(
+          context.getViewState().dialogue,
+          context.getViewState().animations,
+          context.cocos.host.runtime.now(),
+          context.getViewState().plugins.dialogue as Record<string, unknown> | undefined,
+        )
+        const typewriter = typewriterRuntime.project(projectedDialogue)
+        renderCocosDialogue(context.cocos, { typewriter })
+        if (typewriter.revealing) {
+          schedule()
         }
       }
 

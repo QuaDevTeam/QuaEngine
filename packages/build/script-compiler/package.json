@@ -21,9 +21,10 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "qua-script": "./dist/cli.js"
+    "qua-script": "./bin/qua-script.cjs"
   },
   "files": [
+    "bin",
     "dist"
   ],
   "engines": {

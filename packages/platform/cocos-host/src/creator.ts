@@ -428,14 +428,14 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       move: fileBridge?.move
         ? (from, to) => fileBridge.move!(normalizePath(from, options.writableRoot), normalizePath(to, options.writableRoot))
         : async (from, to) => {
-            const source = normalizePath(from, options.writableRoot)
-            const target = normalizePath(to, options.writableRoot)
-            const bytes = files.get(source)
-            if (bytes) {
-              files.set(target, bytes)
-              files.delete(source)
-            }
-          },
+          const source = normalizePath(from, options.writableRoot)
+          const target = normalizePath(to, options.writableRoot)
+          const bytes = files.get(source)
+          if (bytes) {
+            files.set(target, bytes)
+            files.delete(source)
+          }
+        },
     },
     input: {
       onInput(listener) {

@@ -252,9 +252,9 @@ function normalizeSpriteSkinDefinition(definition: SpriteSkinDefinition, family:
     base: normalizeSpriteSkinAssetDefinition(definition.base, family),
     states: definition.states
       ? Object.fromEntries(Object.entries(definition.states).map(([name, state]) => [
-          name,
-          normalizeSpriteSkinAssetDefinition(state, family),
-        ])) as Partial<Record<SpriteSkinStateName, SpriteSkinStateDefinition>>
+        name,
+        normalizeSpriteSkinAssetDefinition(state, family),
+      ])) as Partial<Record<SpriteSkinStateName, SpriteSkinStateDefinition>>
       : undefined,
   }
 }

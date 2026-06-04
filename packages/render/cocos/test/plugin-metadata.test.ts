@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 const repoRoot = resolve(import.meta.dirname, '../../../..')
 
-describe('Cocos renderer plugin metadata', () => {
+describe('cocos renderer plugin metadata', () => {
   it('publishes Cocos renderer entries for renderer-facing feature plugins', () => {
     expectRendererEntry('packages/game/character/package.json', 'cocos', '@quajs/renderer-cocos/plugins/character')
     expectRendererEntry('packages/plugins/achievement/package.json', 'cocos', '@quajs/renderer-cocos/plugins/achievement')

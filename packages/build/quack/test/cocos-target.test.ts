@@ -8,7 +8,7 @@ import { readQpkSummary } from '../src/qpk-reader'
 
 const tempDirs: string[] = []
 
-describe('Cocos asset target metadata', () => {
+describe('cocos asset target metadata', () => {
   afterEach(async () => {
     await Promise.all(tempDirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })))
   })

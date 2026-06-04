@@ -34,8 +34,8 @@ import { BaseEnginePlugin, Scene } from '@quajs/engine'
 import { QuaStore } from '@quajs/store'
 import {
   emitGalleryRenderToLogic,
-  GALLERY_METADATA_NAMESPACE,
   GALLERY_COCOS_RENDERER_ENTRY,
+  GALLERY_METADATA_NAMESPACE,
   GALLERY_PLUGIN_ID,
   GALLERY_PROFILE_STORE_PREFIX,
   GALLERY_SCENE_ID,
@@ -115,8 +115,8 @@ const galleryRuntimeState = new WeakMap<object, GalleryRuntimeState>()
 
 export {
   emitGalleryRenderToLogic,
-  GALLERY_METADATA_NAMESPACE,
   GALLERY_COCOS_RENDERER_ENTRY,
+  GALLERY_METADATA_NAMESPACE,
   GALLERY_PLUGIN_ID,
   GALLERY_PROFILE_STORE_PREFIX,
   GALLERY_SCENE_ID,
