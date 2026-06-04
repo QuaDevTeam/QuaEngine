@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Runtime global state management for QuaEngine",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/core/store"
+  },
   "license": "Apache-2.0",
   "keywords": [],
   "exports": {

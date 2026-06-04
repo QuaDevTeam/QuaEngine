@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Framework-neutral Web renderer runtime and DOM projection for QuaEngine",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/render/web"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "quaengine",

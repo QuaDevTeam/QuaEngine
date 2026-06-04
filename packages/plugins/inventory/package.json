@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Persistent profile inventory items and QuaScript decorators for QuaEngine",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/plugins/inventory"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "quaengine",

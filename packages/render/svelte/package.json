@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Stateless Svelte renderer adapter for QuaEngine",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/render/svelte"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "quaengine",

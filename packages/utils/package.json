@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Configurable logger with package and module prefixes for QuaEngine",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/utils"
+  },
   "license": "Apache-2.0",
   "keywords": ["logger", "logging", "debug", "console"],
   "exports": {
