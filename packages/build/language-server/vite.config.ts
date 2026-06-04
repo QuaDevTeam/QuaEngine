@@ -15,6 +15,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: {
+        editor: resolve(import.meta.dirname, 'src/editor.ts'),
         index: resolve(import.meta.dirname, 'src/index.ts'),
         server: resolve(import.meta.dirname, 'src/server.ts'),
       },

@@ -13,6 +13,16 @@ import {
   getQuaScriptHover,
   lintQuaScript,
 } from '../src'
+import {
+  createQuaScriptMonacoSnippetCompletionItems,
+  QUASCRIPT_LANGUAGE_ID,
+  quascriptMonacoLanguageConfiguration,
+  quascriptMonarchLanguage,
+  quascriptShikiLanguage,
+  quascriptSnippetCompletions,
+  quascriptTextMateGrammar,
+  registerQuaScriptMonacoLanguage,
+} from '../src/editor'
 
 const WORKSPACE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 const WORKSPACE_PACKAGE_PATHS: Record<string, string> = {
@@ -579,6 +589,22 @@ Yuki: Hello
     expect(actions[0]?.edit.newText).toBe('@Choice(\'Go\', scene(\'dorm\', { entry: \'night\' }), { when: canGo })')
   })
 
+  it('does not treat label text before an arrow as a choice condition', () => {
+    const source = '- What if we wait -> wait'
+    const actions = getQuaScriptCodeActions(source, { line: 0, character: 4 })
+
+    expect(actions).toHaveLength(1)
+    expect(actions[0]?.edit.newText).toBe('@Choice(\'What if we wait\', node(\'wait\'))')
+  })
+
+  it('keeps choice sugar conditions after the target only', () => {
+    const source = '- What if we wait -> wait if canWait'
+    const actions = getQuaScriptCodeActions(source, { line: 0, character: 4 })
+
+    expect(actions).toHaveLength(1)
+    expect(actions[0]?.edit.newText).toBe('@Choice(\'What if we wait\', node(\'wait\'), { when: canWait })')
+  })
+
   it('expands choice sugar with correct edit offsets in CRLF documents', () => {
     const source = 'Yuki: Choose\r\n- Go -> scene:dorm#night if canGo\r\nYuki: Done\r\n'
     const actions = getQuaScriptCodeActions(source, { line: 1, character: 4 })
@@ -765,6 +791,119 @@ Yuki: Back.
 
     expect(definitions[0]?.filePath).toBeUndefined()
     expect(definitions[0]?.range.start.line).toBe(2)
+  })
+})
+
+describe('@quajs/language-server editor integrations', () => {
+  it('exports a Shiki/TextMate grammar aligned to the QuaScript language id', () => {
+    expect(QUASCRIPT_LANGUAGE_ID).toBe('quascript')
+    expect(quascriptTextMateGrammar.scopeName).toBe('source.quascript')
+    expect(quascriptTextMateGrammar.fileTypes).toContain('qs')
+    expect(quascriptShikiLanguage.name).toBe('quascript')
+    expect(quascriptShikiLanguage.aliases).toEqual(expect.arrayContaining(['QuaScript', 'quascript', 'qs']))
+    expect(quascriptShikiLanguage.embeddedLangs).toContain('typescript')
+    expect(quascriptTextMateGrammar.repository.script.contentName).toBe('meta.embedded.block.typescript')
+    expect(quascriptTextMateGrammar.repository.interpolation.contentName).toBe('meta.embedded.inline.typescript')
+    expect(quascriptTextMateGrammar.repository['decorator-arguments'].contentName).toBe('meta.embedded.inline.typescript')
+    expect(quascriptTextMateGrammar.repository.script.patterns).toContainEqual({ include: 'source.ts' })
+    expect(quascriptTextMateGrammar.repository.choice.patterns).toEqual(expect.arrayContaining([
+      expect.objectContaining({ include: '#choice-target' }),
+    ]))
+    expect(quascriptTextMateGrammar.repository['choice-target'].patterns).toEqual(expect.arrayContaining([
+      expect.objectContaining({ begin: '\\s+(if)\\s+' }),
+    ]))
+  })
+
+  it('exports Monaco language configuration and Monarch token rules', () => {
+    expect(quascriptMonacoLanguageConfiguration.comments.lineComment).toBe('//')
+    expect(quascriptMonacoLanguageConfiguration.autoClosingPairs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ close: '}', open: '${' }),
+    ]))
+    expect(quascriptMonarchLanguage.tokenizer.root).toEqual(expect.arrayContaining([
+      expect.arrayContaining([expect.any(String), expect.objectContaining({ nextEmbedded: 'typescript' })]),
+    ]))
+    expect(quascriptMonarchLanguage.tokenizer.root).not.toEqual(expect.arrayContaining([
+      expect.arrayContaining(['\\b(if)\\b', 'keyword']),
+    ]))
+    expect(quascriptMonarchLanguage.tokenizer.choice).toEqual(expect.arrayContaining([
+      expect.arrayContaining(['.+', 'string']),
+    ]))
+    expect(quascriptMonarchLanguage.tokenizer.choiceTarget).toEqual(expect.arrayContaining([
+      expect.arrayContaining(['\\s+(if)\\s+', expect.objectContaining({ next: '@choiceCondition', nextEmbedded: 'typescript' })]),
+    ]))
+    expect(quascriptMonarchLanguage.tokenizer.typescriptInterpolation).toEqual(expect.arrayContaining([
+      expect.arrayContaining(['\\{', expect.objectContaining({ next: '@typescriptInterpolationBrace' })]),
+    ]))
+    expect(quascriptMonarchLanguage.tokenizer.typescriptInterpolationBrace).toEqual(expect.arrayContaining([
+      expect.arrayContaining(['\\{', expect.objectContaining({ next: '@push' })]),
+    ]))
+  })
+
+  it('registers QuaScript with Monaco-compatible editors', () => {
+    const calls: Array<[string, unknown]> = []
+    const disposed: string[] = []
+    const monaco = {
+      Range: class Range {
+        constructor(
+          public startLineNumber: number,
+          public startColumn: number,
+          public endLineNumber: number,
+          public endColumn: number,
+        ) {}
+      },
+      languages: {
+        CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
+        CompletionItemKind: { Snippet: 27 },
+        register(value: unknown) {
+          calls.push(['register', value])
+          return { dispose: () => disposed.push('register') }
+        },
+        registerCompletionItemProvider(languageId: string, provider: unknown) {
+          calls.push(['completion', { languageId, provider }])
+          return { dispose: () => disposed.push('completion') }
+        },
+        setLanguageConfiguration(languageId: string, configuration: unknown) {
+          calls.push(['configuration', { languageId, configuration }])
+          return { dispose: () => disposed.push('configuration') }
+        },
+        setMonarchTokensProvider(languageId: string, language: unknown) {
+          calls.push(['monarch', { languageId, language }])
+          return { dispose: () => disposed.push('monarch') }
+        },
+      },
+    }
+
+    const disposable = registerQuaScriptMonacoLanguage(monaco)
+    disposable.dispose()
+
+    expect(calls.map(call => call[0])).toEqual(['register', 'configuration', 'monarch', 'completion'])
+    expect(calls[0]?.[1]).toEqual(expect.objectContaining({
+      extensions: ['.qs'],
+      id: 'quascript',
+    }))
+    expect(disposed).toEqual(['register', 'configuration', 'monarch', 'completion'])
+  })
+
+  it('creates Monaco snippet completion items without rewriting QuaScript interpolation', () => {
+    const monaco = {
+      languages: {
+        CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
+        CompletionItemKind: { Snippet: 27 },
+        register: () => undefined,
+        setLanguageConfiguration: () => undefined,
+        setMonarchTokensProvider: () => undefined,
+      },
+    }
+    const snippets = createQuaScriptMonacoSnippetCompletionItems(monaco)
+
+    expect(quascriptSnippetCompletions.map(snippet => snippet.label)).toEqual(['script-scope', 'say', 'choice', 'choice-line'])
+    expect(snippets).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        insertText: expect.stringContaining('\\' + '$' + '{scope.playerName}'),
+        kind: 27,
+        label: 'script-scope',
+      }),
+    ]))
   })
 })
 

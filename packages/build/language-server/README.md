@@ -15,6 +15,40 @@ The server reuses `@quajs/script-compiler` document parsing so editor diagnostic
 
 Feature-specific completions should be contributed by the owning feature package instead of being hardcoded in the core compiler.
 
+## Editor Integrations
+
+`@quajs/language-server/editor` exposes reusable editor metadata for non-VS Code hosts:
+
+```ts
+import {
+  quascriptShikiLanguage,
+  registerQuaScriptMonacoLanguage,
+} from '@quajs/language-server/editor'
+```
+
+Monaco can use the Monarch tokenizer and language configuration directly:
+
+```ts
+import { registerQuaScriptMonacoLanguage } from '@quajs/language-server/editor'
+import * as monaco from 'monaco-editor'
+
+registerQuaScriptMonacoLanguage(monaco)
+```
+
+Shiki can use the TextMate-compatible grammar:
+
+```ts
+import { quascriptShikiLanguage } from '@quajs/language-server/editor'
+import { createHighlighter } from 'shiki'
+
+const highlighter = await createHighlighter({
+  langs: [quascriptShikiLanguage],
+  themes: ['github-light'],
+})
+```
+
+The editor sub-entry intentionally does not depend on Monaco or Shiki. It only publishes QuaScript language ids, file extensions, Monaco language configuration, Monaco Monarch rules, TextMate/Shiki grammar, and shared snippets. Full semantic tooling still comes from the LSP server or helper APIs exported by the root package.
+
 ## Plugin Language Contributions
 
 Feature packages can contribute editor behavior through package metadata:
