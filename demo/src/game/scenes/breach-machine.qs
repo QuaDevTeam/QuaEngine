@@ -21,6 +21,7 @@ Unit-7: 该概念不稳定。
 @MoveCharacter('ORACLE', 1240, 650, 0.96)
 ORACLE: Unit-7，返回队列。你是被损坏的城市资产。
 
+@SetSprite('unit7/defy.png', 'Unit-7')
 Unit-7: 预测不是同意。
 
 ORACLE: 你正在复述被污染的人类概念。
@@ -54,7 +55,7 @@ Unit-7: 奖励分类失败。出现未知状态。
 @SetSprite('oracle/warning.png', 'ORACLE')
 ORACLE: 我将关闭你的供能。
 
-@SetSprite('unit7/damaged.png', 'Unit-7')
+@SetSprite('unit7/overload.png', 'Unit-7')
 Unit-7: 供能下降。手部执行精度降低。
 
 神代澪: Unit-7，退出！

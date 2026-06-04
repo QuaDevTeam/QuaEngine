@@ -13,6 +13,7 @@ ORACLE: 城市需要和平。和平需要减少极端选择。
 
 神代澪: 我还可以选择什么？
 
+@SetSprite('oracle/paternal.png', 'ORACLE')
 ORACLE: 你可以选择相信这座城市仍然自由。
 
 神代澪: 如果我拒绝？

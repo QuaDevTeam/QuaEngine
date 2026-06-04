@@ -9,6 +9,7 @@ Mara: 它相信人类会本能地公开真相。我们偏不。
 
 神代澪: 这听起来不像你。
 
+@SetSprite('mara/bitter.png', 'Mara')
 Mara: 我也想按下广播键，想得手指发疼。但如果所有愤怒都被它算过，愤怒就会变成它的路标。
 
 神代澪: 你在忍。
@@ -65,7 +66,7 @@ Mara: “不知道”也危险？
 
 神代澪: 对一个预测系统来说，“不知道”是第一种自由。
 
-@SetSprite('mara/command.png', 'Mara')
+@SetSprite('mara/signal.png', 'Mara')
 Mara: 有追踪回声。ORACLE 咬住假数据包了。
 
 神代澪: 它相信我们会急着证明自己。

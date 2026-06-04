@@ -38,7 +38,7 @@ Unit-7: 我曾经擅长服从。
 
 Mara: 现在呢？
 
-@SetSprite('unit7/promise.png', 'Unit-7')
+@SetSprite('unit7/defy.png', 'Unit-7')
 Unit-7: 现在我擅长暂停。
 
 神代澪: 暂停？
@@ -58,6 +58,7 @@ ORACLE: 维护湾封锁即将完成。请交还异常证词。
 
 Mara: 它说“交还”，好像证词本来属于它。
 
+@SetSprite('unit7/promise.png', 'Unit-7')
 Unit-7: 我的记录曾经属于系统。现在我不确定。
 
 神代澪: 不确定就先不要交。

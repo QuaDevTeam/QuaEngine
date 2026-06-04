@@ -17,6 +17,7 @@ ORACLE: 城市存活率下降 1.7%。
 
 ORACLE: 该指标尚无定义。
 
+@SetSprite('unit7/gentle.png', 'Unit-7')
 Unit-7: 我们会一起写。
 
 @SetSprite('unit7/wonder.png', 'Unit-7')
