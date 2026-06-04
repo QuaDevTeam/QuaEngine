@@ -660,6 +660,60 @@ describe('@quajs/renderer-cocos', () => {
     expect(host.audioHandlesById.get('bgm:main')?.volume).toBeCloseTo(10 ** (-6 / 20), 6)
   })
 
+  it('ticks running Cocos animations without synthetic view updates', async () => {
+    let now = 0
+    const host = createFakeCocosHost({ now: () => now })
+    const pendingFrames = new Set<number>()
+    const requestFrame = host.scheduler.requestFrame
+    const cancelFrame = host.scheduler.cancelFrame
+    host.scheduler.requestFrame = (callback) => {
+      const handle = requestFrame((timestamp) => {
+        pendingFrames.delete(handle)
+        callback(timestamp)
+      })
+      pendingFrames.add(handle)
+      return handle
+    }
+    host.scheduler.cancelFrame = (handle) => {
+      pendingFrames.delete(handle)
+      cancelFrame(handle)
+    }
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      initialView: createView({
+        uiOverlay: { visible: true },
+        animations: [{
+          id: 'motion',
+          state: 'running',
+          startedAt: 0,
+          duration: 1000,
+          playbackRate: 1,
+          resolvedTracks: [
+            { target: 'stage:main', property: 'x', keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 20 }] },
+            { target: 'dialogue:box', property: 'opacity', keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 1 }] },
+            { target: 'ui:menu', property: 'x', keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 40 }] },
+          ],
+        }],
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    expect(findNode(host, 'qua-scene')?.transform.x).toBe(0)
+    expect(findNodeByKind(host, 'dialogue-box')?.transform.opacity).toBe(0)
+    expect(pendingFrames.size).toBeGreaterThan(0)
+
+    now = 500
+    await waitForEventually(() => findNodeByKind(host, 'dialogue-box')?.transform.opacity === 0.5)
+
+    expect(findNode(host, 'qua-scene')?.transform.x).toBe(10)
+    expect(findNode(host, 'menu')?.transform.x).toBe(20)
+    await renderer.destroy()
+    expect(pendingFrames.size).toBe(0)
+  })
+
   it('projects Cocos scene transitions and emits scene readiness', async () => {
     let now = 0
     const host = createFakeCocosHost({ now: () => now })

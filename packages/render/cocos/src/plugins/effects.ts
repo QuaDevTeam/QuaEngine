@@ -8,6 +8,7 @@ export function createEffectsCocosRendererPlugin() {
     setup(context) {
       const sync = () => renderCocosEffects(context.cocos)
       context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
+      context.addDisposer(context.cocos.registerAnimationSync(sync))
       sync()
     },
   })

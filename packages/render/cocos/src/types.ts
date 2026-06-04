@@ -20,6 +20,7 @@ export interface CocosRendererSnapshot {
 }
 
 export type CocosRendererSnapshotListener = (snapshot: CocosRendererSnapshot) => void
+export type CocosRendererAnimationSync = () => void | Promise<void>
 
 export interface CocosRendererHostContext {
   host: CocosHost
@@ -28,6 +29,7 @@ export interface CocosRendererHostContext {
   getViewState: () => RendererPluginContext['getViewState'] extends () => infer T ? T : never
   getActions: () => RendererActions
   registerAdvanceInterceptor: (interceptor: (source?: string) => boolean | Promise<boolean>) => () => void
+  registerAnimationSync: (sync: CocosRendererAnimationSync) => () => void
   getStageLayout: () => ResolvedStageLayout
   getRootNode: () => CocosHostNode
   getLayerNode: (id: string, kind?: string, order?: number) => CocosHostNode

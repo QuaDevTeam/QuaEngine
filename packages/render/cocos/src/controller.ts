@@ -18,7 +18,13 @@ import type {
   RendererPluginContext,
   RenderErrorPayload,
 } from '@quajs/render-core'
-import type { CocosRendererHostContext, CocosRendererPlugin, CocosRendererSnapshot, CocosRendererSnapshotListener } from './types'
+import type {
+  CocosRendererAnimationSync,
+  CocosRendererHostContext,
+  CocosRendererPlugin,
+  CocosRendererSnapshot,
+  CocosRendererSnapshotListener,
+} from './types'
 import { AudioRenderToLogicEvents, emitAudioRenderToLogic } from '@quajs/plugin-audio/contracts'
 import {
   clientPointToStageLogical,
@@ -62,6 +68,7 @@ export class QuaCocosRendererController {
   private readonly rendererId?: string
   private readonly listeners = new Set<CocosRendererSnapshotListener>()
   private readonly advanceInterceptors = new Set<RendererAdvanceInterceptor>()
+  private readonly animationSyncs = new Set<CocosRendererAnimationSync>()
   private readonly pipelineUnsubscribers: Array<() => void> = []
   private pluginHost?: RendererPluginHost
   private subscribedAssets?: QuaAssets
@@ -74,6 +81,7 @@ export class QuaCocosRendererController {
   private readonly materializedResources = new Map<string, { resource: CocosHostResource, refs: number }>()
   private readonly audioHandles = new Map<string, Map<string, CocosAudioRuntimeHandle>>()
   private readonly warnedAudioCapabilities = new Set<string>()
+  private animationFrame: number | undefined
 
   private readonly refreshAssets = (_change?: AssetChange) => {
     this.assetRevision += 1
@@ -152,9 +160,11 @@ export class QuaCocosRendererController {
     this.started = false
     this.cleanupPipelineSubscriptions()
     this.cleanupAssetSubscription()
+    this.cancelAnimationFrameLoop()
     await this.pluginHost?.destroy()
     this.pluginHost = undefined
     this.advanceInterceptors.clear()
+    this.animationSyncs.clear()
     for (const layerId of [...this.layers.keys()]) {
       this.clearLayer(layerId)
     }
@@ -197,6 +207,7 @@ export class QuaCocosRendererController {
     this.revision += 1
     this.applyStageLayout()
     this.publish()
+    this.scheduleAnimationFrameLoop()
   }
 
   async reportError(error: unknown, payload: Partial<RenderErrorPayload> = {}): Promise<void> {
@@ -308,6 +319,7 @@ export class QuaCocosRendererController {
       getViewState: () => this.projection,
       getActions: () => this.actions,
       registerAdvanceInterceptor: interceptor => this.registerAdvanceInterceptor(interceptor),
+      registerAnimationSync: sync => this.registerAnimationSync(sync),
       getStageLayout: () => this.resolveStageLayout(),
       getRootNode: () => this.getRootNode(),
       getLayerNode: (id, kind, order) => this.getLayerNode(id, kind, order),
@@ -335,6 +347,60 @@ export class QuaCocosRendererController {
         return true
     }
     return false
+  }
+
+  private registerAnimationSync(sync: CocosRendererAnimationSync): () => void {
+    this.animationSyncs.add(sync)
+    this.scheduleAnimationFrameLoop()
+    return () => {
+      this.animationSyncs.delete(sync)
+      if (this.animationSyncs.size === 0 && !this.hasRunningAnimations()) {
+        this.cancelAnimationFrameLoop()
+      }
+    }
+  }
+
+  private scheduleAnimationFrameLoop(): void {
+    this.cancelAnimationFrameLoop()
+    if (!this.started || !this.hasRunningAnimations())
+      return
+
+    this.animationFrame = this.host.scheduler.requestFrame(() => {
+      this.animationFrame = undefined
+      if (!this.started)
+        return
+      this.applyStageLayout()
+      this.runAnimationSyncs()
+      this.scheduleAnimationFrameLoop()
+    })
+  }
+
+  private cancelAnimationFrameLoop(): void {
+    if (this.animationFrame !== undefined) {
+      this.host.scheduler.cancelFrame(this.animationFrame)
+      this.animationFrame = undefined
+    }
+  }
+
+  private runAnimationSyncs(): void {
+    for (const sync of Array.from(this.animationSyncs)) {
+      try {
+        void Promise.resolve(sync()).catch(error => this.reportError(error, {
+          message: 'Cocos renderer animation sync failed.',
+          phase: 'renderer-cocos:animation-sync',
+        }))
+      }
+      catch (error) {
+        void this.reportError(error, {
+          message: 'Cocos renderer animation sync failed.',
+          phase: 'renderer-cocos:animation-sync',
+        })
+      }
+    }
+  }
+
+  private hasRunningAnimations(): boolean {
+    return this.projection.animations.some(animation => animation.state === 'running')
   }
 
   private resolveStageLayout() {
