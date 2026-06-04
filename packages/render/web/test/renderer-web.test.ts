@@ -663,6 +663,46 @@ describe('@quajs/renderer-web', () => {
     await renderer.unmount()
   })
 
+  it('renders rich speaker content and speaker style in the dialogue layer', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        dialogue: {
+          visible: true,
+          characterName: 'Alice',
+          speaker: {
+            kind: 'rich-text',
+            backgroundColor: '#001122',
+            blocks: [{
+              spans: [{ id: 'name', text: 'Alice', color: '#ff6699' }],
+            }],
+          },
+          speakerStyle: { color: '#7cc7ff', fontSize: 28, fontFamily: 'Qua Serif', opacity: 0.75 },
+          text: 'Line',
+        },
+      }),
+    })
+
+    await renderer.mount()
+
+    const speaker = root.querySelector<HTMLElement>('.qua-dialogue-speaker')
+    const span = root.querySelector<HTMLElement>('.qua-dialogue-speaker .qua-rich-text-span')
+    expect(speaker?.textContent).toBe('Alice')
+    expect(speaker?.getAttribute('style')).toContain('--qua-dialogue-speaker-color: #7cc7ff')
+    expect(speaker?.getAttribute('style')).toContain('--qua-dialogue-speaker-font-size: 28px')
+    expect(speaker?.getAttribute('style')).toContain('--qua-dialogue-speaker-font-family: Qua Serif')
+    expect(speaker?.getAttribute('style')).toContain('opacity: var(--qua-dialogue-speaker-opacity, 1)')
+    expect(speaker?.getAttribute('style')).toContain('--qua-rich-text-background-color: #001122')
+    expect(span?.getAttribute('style')).toContain('--qua-rich-text-span-color: #ff6699')
+
+    await renderer.unmount()
+  })
+
   it('keeps hidden native DOM characters mounted for their exit transition', async () => {
     const pipeline = new Pipeline()
     const root = document.createElement('div')

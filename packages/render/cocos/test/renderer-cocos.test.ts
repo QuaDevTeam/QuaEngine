@@ -205,6 +205,41 @@ describe('@quajs/renderer-cocos', () => {
     await renderer.destroy()
   })
 
+  it('renders rich speaker markup and falls back to plain speaker text', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const richSpeakerView = createView({ dialogueText: 'Line' })
+    richSpeakerView.dialogue = {
+      ...richSpeakerView.dialogue,
+      speaker: {
+        kind: 'rich-text',
+        blocks: [{
+          spans: [{ text: 'Hero', color: '#ff6699' }],
+        }],
+      },
+      speakerStyle: { color: '#7cc7ff', fontSize: 28 },
+    }
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: richSpeakerView,
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+
+    const dialogue = findNodeByKind(host, 'dialogue-box')
+    expect(dialogue?.richText).toContain('<color=#7cc7ff><size=28><color=#ff6699>Hero</color></size></color>')
+    expect(dialogue?.richText).toContain('Line')
+
+    await pipeline.emit(LogicToRenderEvents.VIEW_UPDATE, {
+      view: createView({ dialogueText: 'Plain speaker' }),
+    })
+    expect(findNodeByKind(host, 'dialogue-box')?.text).toContain('Hero')
+    expect(findNodeByKind(host, 'dialogue-box')?.text).toContain('Plain speaker')
+
+    await renderer.destroy()
+  })
+
   it('lets advance pass after the Cocos typewriter completes naturally', async () => {
     let now = 0
     const host = createFakeCocosHost({ now: () => now })

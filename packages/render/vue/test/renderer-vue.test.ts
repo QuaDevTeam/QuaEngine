@@ -61,6 +61,43 @@ describe('@quajs/renderer-vue', () => {
     expect(received).toContain('destroyed')
   })
 
+  it('renders rich speaker content and speaker style', async () => {
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        dialogue: {
+          visible: true,
+          characterName: 'Alice',
+          speaker: {
+            kind: 'rich-text',
+            backgroundColor: '#001122',
+            blocks: [{
+              spans: [{ id: 'name', text: 'Alice', color: '#ff6699' }],
+            }],
+          },
+          speakerStyle: { color: '#7cc7ff', fontSize: 28, fontFamily: 'Qua Serif', opacity: 0.75 },
+          text: 'Line',
+        },
+      }),
+    })
+
+    await flushVue()
+
+    const speaker = host.el.querySelector<HTMLElement>('.qua-dialogue-speaker')
+    const span = host.el.querySelector<HTMLElement>('.qua-dialogue-speaker .qua-rich-text-span')
+    expect(speaker?.textContent).toBe('Alice')
+    expect(speaker?.getAttribute('style')).toContain('--qua-dialogue-speaker-color: #7cc7ff')
+    expect(speaker?.getAttribute('style')).toContain('--qua-dialogue-speaker-font-size: 28px')
+    expect(speaker?.getAttribute('style')).toContain('--qua-dialogue-speaker-font-family: Qua Serif')
+    expect(speaker?.getAttribute('style')).toContain('opacity: var(--qua-dialogue-speaker-opacity, 1)')
+    expect(speaker?.getAttribute('style')).toContain('--qua-rich-text-background-color: #001122')
+    expect(span?.getAttribute('style')).toContain('--qua-rich-text-span-color: #ff6699')
+
+    host.app.unmount()
+  })
+
   it('wires scene transitions through the default Vue preset', async () => {
     const pipeline = new Pipeline()
     const readyScenes: string[] = []

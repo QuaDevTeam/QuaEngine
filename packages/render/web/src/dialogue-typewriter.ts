@@ -326,6 +326,8 @@ function createDialogueRevealKey(dialogue: Readonly<ViewDialogueProjection>, tot
     revision: dialogue.revision,
     characterId: dialogue.characterId,
     characterName: dialogue.characterName,
+    speaker: getContentSignature(dialogue.speaker),
+    speakerStyle: dialogue.speakerStyle,
     mode: dialogue.mode,
     totalCharacters,
     text: getContentSignature(dialogue.text),
@@ -339,7 +341,10 @@ function createDialogueRevealKey(dialogue: Readonly<ViewDialogueProjection>, tot
   })
 }
 
-function getContentSignature(content: RichTextContent): string {
+function getContentSignature(content: RichTextContent | undefined): string | undefined {
+  if (content === undefined) {
+    return undefined
+  }
   if (!isRichTextDocument(content)) {
     return content
   }
