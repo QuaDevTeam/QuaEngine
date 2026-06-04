@@ -89,6 +89,30 @@ export type {
 } from './contracts'
 
 export {
+  createSettingsFormProjection,
+  createSettingsOptions,
+  createSettingsValuePatch,
+  encodeSettingsOptionValue,
+  fieldSchemaHasType,
+  isSettingsGroupField,
+  parseSettingsControlValue,
+  settingsFieldControlKind,
+  settingsFieldInputId,
+  settingsSchemaType,
+  settingsValuesEqual,
+  stringifySettingsInputValue,
+  titleFromField,
+} from './form'
+
+export type {
+  SettingsFieldFormProjection,
+  SettingsFieldGroupProjection,
+  SettingsFormProjection,
+  SettingsInputParseResult,
+  SettingsScopeFormProjection,
+} from './form'
+
+export {
   getSettingsBridge,
   getSettingsScopeRegistry,
   registerSettingsScope,

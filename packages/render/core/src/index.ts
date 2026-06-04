@@ -55,6 +55,34 @@ export {
   projectStageMotion,
   projectUiOverlay,
 } from './projection'
+export type {
+  ResolvedSpriteSkinProjection,
+  ResolvedSpriteSkinState,
+  SpriteInsets,
+  SpriteSkinAssetDefinition,
+  SpriteSkinDefinition,
+  SpriteSkinManifest,
+  SpriteSkinReference,
+  SpriteSkinStateDefinition,
+  SpriteSkinStateName,
+  UiSkinControlKind,
+} from './skin'
+export {
+  getSpriteSkinManifestPath,
+  getUiSkinDefaults,
+  getUiSkinProjection,
+  normalizeSpritePath,
+  resolveSpriteAssetPath,
+  resolveSpriteSkin,
+  resolveSpriteSkinReference,
+  resolveUiChoiceSkinReference,
+  resolveUiControlSkinReference,
+  resolveUiOverlaySkinReference,
+  resolveUiSkinReference,
+  resolveUiSkinState,
+  resolveUiThemeId,
+  stripCharactersRoot,
+} from './skin'
 
 export enum LogicToRenderEvents {
   SCENE_INIT = 'scene/init',
