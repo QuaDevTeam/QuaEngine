@@ -124,6 +124,32 @@ describe('plugin Interaction System', () => {
       expect(testPlugin.getHasOtherPlugin()).toBe(false)
     })
 
+    it('should expose the initialized engine to plugin instance methods', async () => {
+      const engine = {
+        getCurrentSceneName: () => 'opening',
+      }
+
+      class EngineAwarePlugin extends BaseEnginePlugin {
+        readonly name = 'engine-aware-plugin'
+
+        getSceneName(): string | undefined {
+          return this.getEngine().getCurrentSceneName()
+        }
+      }
+
+      const plugin = new EngineAwarePlugin()
+      await plugin.init({
+        ...createMockContext(pluginContext),
+        engine: engine as any,
+      })
+
+      expect(plugin.getSceneName()).toBe('opening')
+
+      await plugin.destroy?.()
+
+      expect(() => plugin.getSceneName()).toThrow('Plugin engine-aware-plugin not initialized')
+    })
+
     it('should get all registered plugins', async () => {
       class PluginCounter extends BaseEnginePlugin {
         readonly name = 'plugin-counter'

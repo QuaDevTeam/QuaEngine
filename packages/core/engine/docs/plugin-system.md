@@ -67,6 +67,10 @@ import { BaseEnginePlugin } from '@quajs/engine'
 export class MyFeaturePlugin extends BaseEnginePlugin {
   readonly name = '@quajs/plugin-my-feature'
 
+  myFeature(payload) {
+    return myFeatureWithEngine(this.getEngine(), payload)
+  }
+
   protected override async setup(ctx) {
     // Initialize engine-owned feature state.
   }
@@ -82,7 +86,7 @@ export class MyFeaturePlugin extends BaseEnginePlugin {
     return {
       pluginName: this.name,
       apis: [
-        { name: 'myFeatureWithEngine', fn: myFeatureWithEngine, module: this.name },
+        { name: 'myFeature', fn: this.myFeature.bind(this), module: this.name },
       ],
       decorators: {
         MyFeature: {
@@ -98,6 +102,7 @@ export class MyFeaturePlugin extends BaseEnginePlugin {
 Rules:
 
 - Store authoritative state through engine/store APIs.
+- Register developer-facing JS APIs as initialized plugin instance methods. QuaScript decorators may still lower to explicit `*WithEngine` runtime helpers imported from the owning package.
 - Keep player/profile state out of story save/load when the feature is profile-level, such as gallery, achievements, settings, or inventory.
 - Runtime package definitions/projections must carry provenance and clean up on unload.
 - Decorators and compiler lowering belong in the feature package, commonly under `./script-compiler`.

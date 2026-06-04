@@ -7,7 +7,7 @@ export interface DecoratorMapping {
 }
 
 /**
- * Global API function registry for type-safe plugin extensions
+ * API function metadata registry for plugin extensions.
  */
 export interface PluginAPIFunction {
   name: string
@@ -21,7 +21,7 @@ export interface PluginAPIFunction {
 export interface PluginAPIRegistration {
   /** Plugin name for namespacing */
   pluginName: string
-  /** Global APIs to register */
+  /** Developer-facing plugin instance APIs to register for tooling/discovery */
   apis: PluginAPIFunction[]
   /** QuaScript decorators to register */
   decorators: Record<string, {
@@ -31,14 +31,13 @@ export interface PluginAPIRegistration {
 }
 
 /**
- * Registry for managing plugin-extended APIs
+ * Registry for managing plugin API metadata and decorators.
  */
 export class PluginAPIRegistry {
   private static instance: PluginAPIRegistry | null = null
   private registeredAPIs = new Map<string, PluginAPIFunction>()
   private registeredDecorators = new Map<string, DecoratorMapping[string]>()
   private decoratorOwners = new Map<string, string>()
-  private pluginModules = new Map<string, Record<string, any>>()
 
   static getInstance(): PluginAPIRegistry {
     if (!this.instance) {
@@ -65,19 +64,12 @@ export class PluginAPIRegistry {
 
     this.unregisterPlugin(pluginName)
 
-    // Create plugin module object
-    const pluginModule: Record<string, any> = {}
-
     // Register each API function
     for (const api of apis) {
       const fullName = `${pluginName}.${api.name}`
 
       this.registeredAPIs.set(fullName, api)
-      pluginModule[api.name] = api.fn
     }
-
-    // Store plugin module
-    this.pluginModules.set(pluginName, pluginModule)
 
     // Register decorators
     for (const [decoratorName, mapping] of Object.entries(decorators)) {
@@ -105,9 +97,6 @@ export class PluginAPIRegistry {
         this.decoratorOwners.delete(decoratorName)
       }
     }
-
-    // Remove plugin module
-    this.pluginModules.delete(pluginName)
   }
 
   /**
@@ -128,13 +117,6 @@ export class PluginAPIRegistry {
     }
 
     return extended
-  }
-
-  /**
-   * Get plugin module by name
-   */
-  getPluginModule(pluginName: string): Record<string, any> | undefined {
-    return this.pluginModules.get(pluginName)
   }
 
   /**
@@ -159,13 +141,12 @@ export class PluginAPIRegistry {
   }
 
   /**
-   * Clear all registered plugin APIs and decorators.
+   * Clear all registered plugin API metadata and decorators.
    */
   clear(): void {
     this.registeredAPIs.clear()
     this.registeredDecorators.clear()
     this.decoratorOwners.clear()
-    this.pluginModules.clear()
   }
 }
 

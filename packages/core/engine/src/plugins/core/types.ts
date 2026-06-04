@@ -97,8 +97,8 @@ export interface EnginePlugin {
 
   /**
    * Register plugin APIs and decorators (optional)
-   * Called during plugin registration to extend global APIs
-   * These APIs will be accessible to other plugins through the global API registry
+   * Called during plugin registration to publish API metadata and decorators.
+   * JS code should call initialized plugin instance methods through engine/plugin context.
    */
   registerAPIs?: () => PluginAPIRegistration | Promise<PluginAPIRegistration>
 }
@@ -183,7 +183,7 @@ export abstract class BaseEnginePlugin implements EnginePlugin {
   /**
    * Register plugin APIs and decorators (optional)
    * Override this method to provide custom APIs and QuaScript decorators
-   * These APIs will be accessible to other plugins through the global API registry
+   * JS code should call initialized plugin instance methods through engine/plugin context.
    */
   registerAPIs?(): PluginAPIRegistration | Promise<PluginAPIRegistration>
 
@@ -196,6 +196,17 @@ export abstract class BaseEnginePlugin implements EnginePlugin {
       getPluginRegistry().unregisterPlugin(this.name)
       this._apiRegistered = false
     }
+    this.ctx = undefined
+  }
+
+  /**
+   * Get the initialized engine instance for developer-facing plugin methods.
+   */
+  protected getEngine(): QuaEngineInterface {
+    if (!this.ctx) {
+      throw new Error(`Plugin ${this.name} not initialized`)
+    }
+    return this.ctx.engine
   }
 
   // No predefined state management or communication helpers

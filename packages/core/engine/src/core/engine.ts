@@ -339,6 +339,22 @@ export class QuaEngine {
     this.pluginContext.unregisterPlugin(plugin)
   }
 
+  getPlugin<T extends EnginePlugin = EnginePlugin>(name: string): T | undefined {
+    return this.pluginContext.getPlugin<T>(name)
+  }
+
+  getPluginById<T extends EnginePlugin = EnginePlugin>(id: string): T | undefined {
+    return this.pluginContext.getPluginById<T>(id)
+  }
+
+  getAllPlugins(): Map<string, EnginePlugin> {
+    return this.pluginContext.getAllPlugins()
+  }
+
+  hasPlugin(name: string): boolean {
+    return this.pluginContext.hasPlugin(name)
+  }
+
   async loadRuntimePackage(source: string, options: RuntimePackageLoadOptions = {}): Promise<RuntimePackageStateRecord> {
     this.assertInitialized()
     if (options.activate === false) {

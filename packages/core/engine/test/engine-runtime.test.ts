@@ -2038,6 +2038,93 @@ describe('quaEngine runtime architecture', () => {
     expect(enginePluginInit).toHaveBeenCalledTimes(2)
   })
 
+  it('applies runtime story graph deltas through the installed story graph plugin instance', async () => {
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.story-delta',
+      version: '1.0.0',
+      storyGraphDeltas: [{
+        id: 'runtime.story-delta.main',
+        graphId: 'main',
+        nodes: [{ id: 'runtime-start', point: { stepId: 'runtime-start' } }],
+      }],
+    })
+    const registerDelta = vi.fn(async () => {})
+    const clearRuntimePackage = vi.fn(async () => {})
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/story-delta.qpk': createQpkBundle(manifest, new Map()),
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    engine.use({
+      name: '@quajs/story-graph',
+      id: 'storyGraph',
+      init() {},
+      registerDelta,
+      clearRuntimePackage,
+    } as EnginePlugin & {
+      registerDelta: typeof registerDelta
+      clearRuntimePackage: typeof clearRuntimePackage
+    })
+    await engine.init()
+
+    await engine.loadRuntimePackage('story-delta.qpk')
+
+    expect(registerDelta).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'runtime.story-delta.main', graphId: 'main' }),
+      { packageId: 'runtime.story-delta' },
+    )
+    expect(engine.getRuntimePackages()).toEqual([
+      expect.objectContaining({ id: 'runtime.story-delta', state: 'active' }),
+    ])
+  })
+
+  it('rejects runtime story graph deltas when the story graph plugin is not installed', async () => {
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.missing-story-graph',
+      version: '1.0.0',
+      storyGraphDeltas: [{
+        id: 'runtime.missing-story-graph.main',
+        graphId: 'main',
+      }],
+    })
+    const engine = new QuaEngine({
+      assets: {
+        endpoint: 'https://cdn.example.com',
+        adapter: createMemoryAdapter({
+          'https://cdn.example.com/missing-story-graph.qpk': createQpkBundle(manifest, new Map()),
+        }),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+      trustPolicy: {
+        allowUnsignedInDevelopment: true,
+      },
+    })
+    await engine.init()
+
+    await expect(engine.loadRuntimePackage('missing-story-graph.qpk'))
+      .rejects
+      .toThrow('Runtime package includes story graph deltas, but @quajs/story-graph is not installed.')
+    expect(engine.getRuntimePackages().find(pkg => pkg.id === 'runtime.missing-story-graph')).toEqual(
+      expect.objectContaining({ state: 'unloaded' }),
+    )
+    expect(await engine.getAssets().getBundleManifest('runtime.missing-story-graph')).toBeUndefined()
+  })
+
   it('persists step-level runtime package requirements on current story point saves', async () => {
     const engine = new QuaEngine({
       assets: {
