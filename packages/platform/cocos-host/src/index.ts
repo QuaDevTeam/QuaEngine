@@ -14,6 +14,13 @@ export interface CocosHostSize {
 
 export interface CocosHostRect extends CocosHostVec2, CocosHostSize {}
 
+export interface CocosHostInsets {
+  top: number
+  right: number
+  bottom: number
+  left: number
+}
+
 export interface CocosHostTransform {
   x?: number
   y?: number
@@ -36,6 +43,54 @@ export interface CocosHostTextStyle {
   lineHeight?: number
   color?: string
   align?: string
+}
+
+export type CocosHostSpriteMode = 'sprite' | 'video' | 'sliced' | 'tiled'
+
+export interface CocosHostSpriteOptions {
+  mode?: CocosHostSpriteMode
+  slice?: Partial<CocosHostInsets>
+  fill?: boolean
+  contentInsets?: Partial<CocosHostInsets>
+  tint?: string
+  opacity?: number
+  metadata?: Record<string, unknown>
+}
+
+export type CocosHostControlKind
+  = | 'button'
+    | 'input'
+    | 'textarea'
+    | 'select'
+    | 'toggle'
+    | 'slider'
+    | 'panel'
+    | 'tab'
+    | 'label'
+
+export interface CocosHostControlOption {
+  label: string
+  value: string
+  selected?: boolean
+  disabled?: boolean
+  metadata?: Record<string, unknown>
+}
+
+export interface CocosHostControlOptions {
+  kind: CocosHostControlKind
+  value?: string
+  checked?: boolean
+  options?: readonly CocosHostControlOption[]
+  min?: number
+  max?: number
+  step?: number
+  placeholder?: string
+  disabled?: boolean
+  readonly?: boolean
+  selected?: boolean
+  label?: string
+  description?: string
+  metadata?: Record<string, unknown>
 }
 
 export interface CocosHostNode {
@@ -68,6 +123,7 @@ export interface CocosHostAudioHandle {
   setVolume: (volume: number) => void
   setLoop: (loop: boolean) => void
   setPlaybackRate?: (rate: number) => void
+  onEnded?: (listener: () => void) => CocosHostDisposer
   dispose: () => Promise<void> | void
 }
 
@@ -109,7 +165,8 @@ export interface CocosNodeHost {
   setNodeTransform: (node: CocosHostNode, transform: CocosHostTransform) => void
   setNodeText: (node: CocosHostNode, text: string, style?: CocosHostTextStyle) => void
   setNodeRichText: (node: CocosHostNode, markup: string, style?: CocosHostTextStyle) => void
-  setNodeSprite: (node: CocosHostNode, resource?: CocosHostResource, options?: Record<string, unknown>) => void
+  setNodeSprite: (node: CocosHostNode, resource?: CocosHostResource, options?: CocosHostSpriteOptions) => void
+  setNodeControl?: (node: CocosHostNode, control: CocosHostControlOptions) => void
   setNodeColor?: (node: CocosHostNode, color?: string) => void
   setNodeMetadata?: (node: CocosHostNode, metadata: Record<string, unknown>) => void
   getNodeMetadata?: (node: CocosHostNode) => Record<string, unknown> | undefined

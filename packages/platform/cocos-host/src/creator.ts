@@ -2,6 +2,7 @@ import type {
   CocosCaptureHost,
   CocosHost,
   CocosHostAudioHandle,
+  CocosHostControlOptions,
   CocosHostDisposer,
   CocosHostFileInfo,
   CocosHostInputEvent,
@@ -11,6 +12,7 @@ import type {
   CocosHostResource,
   CocosHostResourceKind,
   CocosHostSize,
+  CocosHostSpriteOptions,
   CocosHostTransform,
 } from './index'
 
@@ -80,6 +82,10 @@ export interface CocosCreatorModule {
   Sprite?: unknown
   Label?: unknown
   RichText?: unknown
+  Button?: unknown
+  EditBox?: unknown
+  Toggle?: unknown
+  Slider?: unknown
   UITransform?: unknown
   UIOpacity?: unknown
   AudioSource?: unknown
@@ -214,7 +220,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
         native.richText = markup
       }
     },
-    setNodeSprite(node: CocosHostNode, resource?: CocosHostResource, spriteOptions: Record<string, unknown> = {}) {
+    setNodeSprite(node: CocosHostNode, resource?: CocosHostResource, spriteOptions: CocosHostSpriteOptions = {}) {
       const native = asCreatorNode(node).native as any
       const sprite = ensureComponent(native, options.cc?.Sprite, 'cc.Sprite')
       if (sprite) {
@@ -222,10 +228,21 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
           sprite.videoClip = resource?.native
         else
           sprite.spriteFrame = resource?.native
+        applySpriteMode(options.cc, sprite, resource, spriteOptions)
       }
       else {
         native.sprite = resource?.native
       }
+      if (spriteOptions.tint)
+        native.color = parseCocosColor(options.cc, spriteOptions.tint)
+      if (spriteOptions.opacity !== undefined)
+        applyNodeOpacity(options.cc, native, spriteOptions.opacity)
+      native.spriteOptions = clonePlain(spriteOptions)
+    },
+    setNodeControl(node: CocosHostNode, control: CocosHostControlOptions) {
+      const native = asCreatorNode(node).native as any
+      applyControlComponent(options.cc, native, control)
+      native.control = clonePlain(control)
     },
     setNodeColor(node: CocosHostNode, color?: string) {
       const native = asCreatorNode(node).native as any
@@ -422,7 +439,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       writableStorage: Boolean(fileBridge?.writeBytes || options.writableRoot),
       input: Boolean(options.input?.onInput || options.cc?.input || (root.native as any)?.on),
       audioEq: Boolean(audioBridge?.setBusEq),
-      audioPlaybackRate: true,
+      audioPlaybackRate: Boolean(audioBridge?.createAudioHandle),
       video: true,
       capture: Boolean(options.capture),
       fonts: Boolean(resourceBridge?.createResource),
@@ -514,13 +531,89 @@ function applyTransform(cc: CocosCreatorModule | undefined, node: CocosCreatorNo
     }
   }
   if (transform.opacity !== undefined) {
-    const opacity = ensureComponent(native, cc?.UIOpacity, 'cc.UIOpacity')
-    if (opacity) {
-      opacity.opacity = Math.round(clamp(transform.opacity, 0, 1) * 255)
+    applyNodeOpacity(cc, native, transform.opacity)
+  }
+}
+
+function applySpriteMode(
+  cc: CocosCreatorModule | undefined,
+  sprite: any,
+  resource: CocosHostResource | undefined,
+  options: CocosHostSpriteOptions,
+): void {
+  const spriteType = (cc?.Sprite as any)?.Type || (cc?.Sprite as any)?.type || {}
+  if (options.mode === 'sliced') {
+    sprite.type = spriteType.SLICED ?? spriteType.sliced ?? sprite.type
+  }
+  else if (options.mode === 'tiled') {
+    sprite.type = spriteType.TILED ?? spriteType.tiled ?? sprite.type
+  }
+  else if (options.mode === 'sprite' || !options.mode) {
+    sprite.type = spriteType.SIMPLE ?? spriteType.simple ?? sprite.type
+  }
+
+  const sizeMode = (cc?.Sprite as any)?.SizeMode || {}
+  if (options.mode === 'sliced' || options.mode === 'tiled') {
+    sprite.sizeMode = sizeMode.CUSTOM ?? sprite.sizeMode
+  }
+
+  const frame = resource?.native as any
+  const slice = options.slice
+  if (frame && slice) {
+    frame.insetTop = finiteNumber(slice.top, frame.insetTop)
+    frame.insetRight = finiteNumber(slice.right, frame.insetRight)
+    frame.insetBottom = finiteNumber(slice.bottom, frame.insetBottom)
+    frame.insetLeft = finiteNumber(slice.left, frame.insetLeft)
+  }
+  if (options.fill !== undefined)
+    sprite.fill = options.fill
+  sprite.spriteOptions = clonePlain(options)
+}
+
+function applyControlComponent(cc: CocosCreatorModule | undefined, native: any, control: CocosHostControlOptions): void {
+  if (control.kind === 'button') {
+    const button = ensureComponent(native, cc?.Button, 'cc.Button')
+    if (button)
+      button.interactable = !control.disabled
+    return
+  }
+  if (control.kind === 'input' || control.kind === 'textarea' || control.kind === 'select') {
+    const editBox = ensureComponent(native, cc?.EditBox, 'cc.EditBox')
+    if (editBox) {
+      editBox.string = control.value ?? ''
+      editBox.placeholder = control.placeholder ?? editBox.placeholder
+      editBox.enabled = !(control.disabled || control.readonly)
+      editBox.readOnly = Boolean(control.readonly)
     }
-    else {
-      native.opacity = transform.opacity
+    return
+  }
+  if (control.kind === 'toggle') {
+    const toggle = ensureComponent(native, cc?.Toggle, 'cc.Toggle')
+    if (toggle) {
+      toggle.isChecked = Boolean(control.checked)
+      toggle.interactable = !(control.disabled || control.readonly)
     }
+    return
+  }
+  if (control.kind === 'slider') {
+    const slider = ensureComponent(native, cc?.Slider, 'cc.Slider')
+    if (slider) {
+      const min = finiteNumber(control.min, 0) ?? 0
+      const max = finiteNumber(control.max, 1) ?? 1
+      const value = finiteNumber(Number(control.value), min) ?? min
+      slider.progress = max > min ? clamp((value - min) / (max - min), 0, 1) : 0
+      slider.enabled = !(control.disabled || control.readonly)
+    }
+  }
+}
+
+function applyNodeOpacity(cc: CocosCreatorModule | undefined, native: any, opacityValue: number): void {
+  const opacity = ensureComponent(native, cc?.UIOpacity, 'cc.UIOpacity')
+  if (opacity) {
+    opacity.opacity = Math.round(clamp(opacityValue, 0, 1) * 255)
+  }
+  else {
+    native.opacity = opacityValue
   }
 }
 
@@ -683,6 +776,7 @@ function createFallbackAudioHandle(resource: CocosHostResource, options: { id?: 
   let playing = false
   let volume = options.volume ?? 1
   let loop = options.loop ?? false
+  const endedListeners = new Set<() => void>()
   const handle = {
     id: options.id || resource.id,
     play: () => {
@@ -700,10 +794,15 @@ function createFallbackAudioHandle(resource: CocosHostResource, options: { id?: 
     setLoop: (next: boolean) => {
       loop = next
     },
+    onEnded: (listener: () => void) => {
+      endedListeners.add(listener)
+      return () => endedListeners.delete(listener)
+    },
     dispose: () => {
       volume = 0
       loop = false
       playing = false
+      endedListeners.clear()
     },
   }
   Object.defineProperties(handle, {
@@ -735,4 +834,12 @@ function isRemoteUrl(source: string): boolean {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
+}
+
+function finiteNumber(value: unknown, fallback: number | undefined): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function clonePlain<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
 }

@@ -4,12 +4,14 @@ import type {
   CocosCaptureHost,
   CocosHost,
   CocosHostAudioHandle,
+  CocosHostControlOptions,
   CocosHostFileInfo,
   CocosHostInputEvent,
   CocosHostInputListener,
   CocosHostNode,
   CocosHostResource,
   CocosHostResourceKind,
+  CocosHostSpriteOptions,
   CocosHostTransform,
 } from './index'
 
@@ -21,6 +23,8 @@ export interface FakeCocosNode extends CocosHostNode {
   text?: string
   richText?: string
   sprite?: CocosHostResource
+  spriteOptions?: CocosHostSpriteOptions
+  control?: CocosHostControlOptions
   metadata: Record<string, unknown>
   destroyed: boolean
 }
@@ -50,8 +54,11 @@ export interface FakeCocosAudioHandle extends CocosHostAudioHandle {
   readonly playing: boolean
   readonly volume: number
   readonly loop: boolean
+  readonly playbackRate: number
+  readonly endedListenerCount: number
   readonly disposed: boolean
   readonly resource: CocosHostResource
+  emitEnded: () => void
 }
 
 let idCounter = 0
@@ -128,8 +135,16 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
     setNodeRichText(node: CocosHostNode, markup: string) {
       asFakeNode(node).richText = markup
     },
-    setNodeSprite(node: CocosHostNode, resource?: CocosHostResource) {
+    setNodeSprite(node: CocosHostNode, resource?: CocosHostResource, spriteOptions: CocosHostSpriteOptions = {}) {
       asFakeNode(node).sprite = resource
+      asFakeNode(node).spriteOptions = { ...spriteOptions }
+    },
+    setNodeControl(node: CocosHostNode, control: CocosHostControlOptions) {
+      asFakeNode(node).control = {
+        ...control,
+        options: control.options ? control.options.map(option => ({ ...option })) : undefined,
+        metadata: control.metadata ? { ...control.metadata } : undefined,
+      }
     },
     setNodeMetadata(node: CocosHostNode, metadata: Record<string, unknown>) {
       asFakeNode(node).metadata = { ...metadata }
@@ -226,7 +241,9 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
       let playing = false
       let volume = handleOptions.volume ?? 1
       let loop = handleOptions.loop ?? false
+      let playbackRate = handleOptions.playbackRate ?? 1
       let disposed = false
+      const endedListeners = new Set<() => void>()
       const handle = {
         id: handleOptions.id || nextId('audio'),
         play: () => {
@@ -245,16 +262,31 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
         setLoop: (next: boolean) => {
           loop = next
         },
-        setPlaybackRate: () => {},
+        setPlaybackRate: (next: number) => {
+          playbackRate = next
+        },
+        onEnded: (listener: () => void) => {
+          endedListeners.add(listener)
+          return () => endedListeners.delete(listener)
+        },
+        emitEnded: () => {
+          playing = false
+          for (const listener of endedListeners) {
+            listener()
+          }
+        },
         dispose: () => {
           playing = false
           disposed = true
+          endedListeners.clear()
         },
       } as unknown as FakeCocosAudioHandle
       Object.defineProperties(handle, {
         playing: { get: () => playing },
         volume: { get: () => volume },
         loop: { get: () => loop },
+        playbackRate: { get: () => playbackRate },
+        endedListenerCount: { get: () => endedListeners.size },
         disposed: { get: () => disposed },
         resource: { get: () => resource },
       })
@@ -342,6 +374,7 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
       localFiles: true,
       writableStorage: true,
       input: true,
+      audioEq: true,
       audioPlaybackRate: true,
       capture: true,
       fonts: true,
