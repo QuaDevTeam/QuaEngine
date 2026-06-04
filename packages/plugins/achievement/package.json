@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Persistent achievements, conditions, rewards, notification host integration, and board scene for QuaEngine",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/plugins/achievement"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "quaengine",

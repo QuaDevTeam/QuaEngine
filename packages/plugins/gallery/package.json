@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Gallery catalog scene shell and persistent unlock profiles for QuaEngine",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/plugins/gallery"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "quaengine",

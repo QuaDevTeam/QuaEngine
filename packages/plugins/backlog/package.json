@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Backlog projection and rewind intents for QuaEngine",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/plugins/backlog"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "quaengine",

@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Comprehensive Vite plugin for QuaEngine projects - handles script compilation, plugin discovery, and asset bundling",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/build/vite-plugin"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "vite",

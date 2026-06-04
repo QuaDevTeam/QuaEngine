@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Project scaffolding CLI for QuaEngine visual novel games.",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/build/create-qua-game"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "create",

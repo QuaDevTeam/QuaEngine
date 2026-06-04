@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Reusable utility functions organized by category for QuaEngine",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/utils/common"
+  },
   "license": "Apache-2.0",
   "keywords": ["utils", "utilities", "helpers", "common"],
   "exports": {

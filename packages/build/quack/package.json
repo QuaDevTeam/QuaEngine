@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Assets bundler for QuaEngine",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/build/quack"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "bundler",

@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Character and dialogue APIs that update QuaEngine-owned state",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/core/character"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "quaengine",

@@ -6,6 +6,10 @@
   "packageManager": "pnpm@11.0.9",
   "description": "QuaEngine monorepo with Turborepo, TypeScript, and Vite",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "monorepo",

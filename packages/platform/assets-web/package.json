@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Web QuaAssets runtime adapter with Fetch, IndexedDB, and object URL helpers",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/platform/assets-web"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "quaengine",

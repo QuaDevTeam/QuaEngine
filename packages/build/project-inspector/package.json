@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Read-only project, story tree, QPK, and asset lineage inspector for QuaEngine.",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/build/project-inspector"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "quaengine",

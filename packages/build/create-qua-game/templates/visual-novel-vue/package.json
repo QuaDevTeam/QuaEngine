@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/build/create-qua-game/templates/visual-novel-vue"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

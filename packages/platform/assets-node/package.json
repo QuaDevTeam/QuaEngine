@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Node.js QuaAssets runtime adapter with fs/http fetcher and filesystem cache",
   "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/platform/assets-node"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "quaengine",
