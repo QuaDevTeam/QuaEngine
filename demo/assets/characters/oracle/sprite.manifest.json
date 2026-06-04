@@ -92,6 +92,38 @@
           "asset": "collapse.png"
         }
       ]
+    },
+    "observe": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "observe.png"
+        }
+      ]
+    },
+    "paternal": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "paternal.png"
+        }
+      ]
+    },
+    "alarm": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "alarm.png"
+        }
+      ]
+    },
+    "surrender": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "surrender.png"
+        }
+      ]
     }
   }
 }

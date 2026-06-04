@@ -92,6 +92,38 @@
           "asset": "relief.png"
         }
       ]
+    },
+    "hesitate": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "hesitate.png"
+        }
+      ]
+    },
+    "bitter": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "bitter.png"
+        }
+      ]
+    },
+    "signal": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "signal.png"
+        }
+      ]
+    },
+    "break": {
+      "fallback": "base.png",
+      "layers": [
+        {
+          "asset": "break.png"
+        }
+      ]
     }
   }
 }
