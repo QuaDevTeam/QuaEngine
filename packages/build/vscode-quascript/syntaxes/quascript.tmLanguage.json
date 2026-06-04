@@ -1,81 +1,245 @@
 {
-  "scopeName": "source.quascript",
+  "fileTypes": [
+    "qs"
+  ],
+  "name": "QuaScript",
   "patterns": [
-    { "include": "#script" },
-    { "include": "#decorator" },
-    { "include": "#choice" },
-    { "include": "#dialogue" },
-    { "include": "#interpolation" }
+    {
+      "include": "#line-comment"
+    },
+    {
+      "include": "#script"
+    },
+    {
+      "include": "#decorator"
+    },
+    {
+      "include": "#choice"
+    },
+    {
+      "include": "#dialogue"
+    },
+    {
+      "include": "#interpolation"
+    }
   ],
   "repository": {
-    "script": {
-      "begin": "(<script\\b[^>]*lang=[\"']ts[\"'][^>]*>)",
+    "choice": {
+      "begin": "^(\\s*)(-)(\\s+)",
       "beginCaptures": {
-        "1": { "name": "punctuation.definition.tag.quascript" }
+        "2": {
+          "name": "punctuation.definition.choice.quascript"
+        },
+        "3": {
+          "name": "punctuation.whitespace.choice.quascript"
+        }
       },
-      "end": "(</script>)",
-      "endCaptures": {
-        "1": { "name": "punctuation.definition.tag.quascript" }
-      },
-      "name": "meta.embedded.block.typescript",
+      "end": "$",
       "patterns": [
-        { "include": "source.ts" }
+        {
+          "include": "#interpolation"
+        },
+        {
+          "include": "#choice-target"
+        },
+        {
+          "match": "(?:(?!\\s->\\s|\\$\\{).)+",
+          "name": "string.unquoted.choice.quascript"
+        }
+      ]
+    },
+    "choice-target": {
+      "begin": "(->)\\s*((?:scene:[^\\s#]+(?:#[^\\s]+)?)|(?:package:[^\\s#]+#[^\\s]+)|(?:script:[^\\s#]+(?:#[^\\s]+)?)|(?:#[^\\s]+)|[^\\s]+)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.operator.choice-target.quascript"
+        },
+        "2": {
+          "name": "entity.name.label.choice-target.quascript"
+        }
+      },
+      "end": "$",
+      "patterns": [
+        {
+          "begin": "\\s+(if)\\s+",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.conditional.quascript"
+            }
+          },
+          "contentName": "meta.embedded.inline.typescript",
+          "end": "$",
+          "patterns": [
+            {
+              "include": "source.ts#expression"
+            },
+            {
+              "include": "source.ts"
+            }
+          ]
+        }
       ]
     },
     "decorator": {
       "begin": "^\\s*(@)([A-Za-z_$][\\w$]*)",
       "beginCaptures": {
-        "1": { "name": "punctuation.definition.decorator.quascript" },
-        "2": { "name": "entity.name.function.decorator.quascript" }
+        "1": {
+          "name": "punctuation.definition.decorator.quascript"
+        },
+        "2": {
+          "name": "entity.name.function.decorator.quascript"
+        }
       },
       "end": "$",
       "patterns": [
         {
-          "begin": "\\(",
-          "end": "\\)",
-          "name": "meta.embedded.inline.typescript",
-          "patterns": [
-            { "include": "source.ts#expression" },
-            { "include": "source.ts" }
-          ]
+          "include": "#decorator-arguments"
         }
       ]
     },
-    "choice": {
-      "match": "^\\s*(-)\\s+(.+?)(?:\\s*(->)\\s*((?:scene:[^\\s#]+(?:#[^\\s]+)?)|(?:#[^\\s]+)|(?:package:[^\\s#]+#[^\\s]+)|(?:script:[^\\s#]+(?:#[^\\s]+)?)|[^\\s]+))?(?:\\s+(if)\\s+(.+))?$",
-      "captures": {
-        "1": { "name": "punctuation.definition.choice.quascript" },
-        "2": { "name": "string.unquoted.choice.quascript" },
-        "3": { "name": "keyword.operator.choice-target.quascript" },
-        "4": { "name": "entity.name.label.choice-target.quascript" },
-        "5": { "name": "keyword.control.conditional.quascript" },
-        "6": { "name": "meta.embedded.inline.typescript" }
-      }
-    },
-    "target-helper": {
-      "match": "\\b(node|label|scene|script|packageNode|checkpoint|image|Entry)\\s*(\\()",
-      "captures": {
-        "1": { "name": "support.function.choice-target.quascript" },
-        "2": { "name": "punctuation.section.arguments.begin.quascript" }
-      }
+    "decorator-arguments": {
+      "begin": "\\(",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.arguments.begin.quascript"
+        }
+      },
+      "contentName": "meta.embedded.inline.typescript",
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.arguments.end.quascript"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#decorator-arguments"
+        },
+        {
+          "include": "#target-helper"
+        },
+        {
+          "include": "source.ts#expression"
+        },
+        {
+          "include": "source.ts"
+        }
+      ]
     },
     "dialogue": {
-      "match": "^\\s*([^:@\\-][^:]*)(:)\\s*(.*)$",
-      "captures": {
-        "1": { "name": "entity.name.character.quascript" },
-        "2": { "name": "punctuation.separator.dialogue.quascript" },
-        "3": { "name": "string.unquoted.dialogue.quascript" }
-      }
+      "begin": "^\\s*([^:@\\-][^:]*)(:)\\s*",
+      "beginCaptures": {
+        "1": {
+          "name": "entity.name.character.quascript"
+        },
+        "2": {
+          "name": "punctuation.separator.dialogue.quascript"
+        }
+      },
+      "contentName": "string.unquoted.dialogue.quascript",
+      "end": "$",
+      "patterns": [
+        {
+          "include": "#interpolation"
+        }
+      ]
     },
     "interpolation": {
-      "begin": "\\$\\{",
-      "end": "\\}",
-      "name": "meta.embedded.inline.typescript",
+      "begin": "(\\$\\{)",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.section.embedded.begin.quascript"
+        }
+      },
+      "contentName": "meta.embedded.inline.typescript",
+      "end": "(\\})",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.section.embedded.end.quascript"
+        }
+      },
       "patterns": [
-        { "include": "#target-helper" },
-        { "include": "source.ts#expression" },
-        { "include": "source.ts" }
+        {
+          "include": "#typescript-braces"
+        },
+        {
+          "include": "#target-helper"
+        },
+        {
+          "include": "source.ts#expression"
+        },
+        {
+          "include": "source.ts"
+        }
+      ]
+    },
+    "line-comment": {
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.comment.quascript"
+        }
+      },
+      "match": "^\\s*(//).*$",
+      "name": "comment.line.double-slash.quascript"
+    },
+    "script": {
+      "begin": "(<script)(?=[^>]*\\blang\\s*=\\s*(?:[\"']ts[\"']|ts\\b))([^>]*)(>)",
+      "beginCaptures": {
+        "1": {
+          "name": "entity.name.tag.script.quascript"
+        },
+        "2": {
+          "name": "meta.tag.attributes.script.quascript"
+        },
+        "3": {
+          "name": "punctuation.definition.tag.end.quascript"
+        }
+      },
+      "contentName": "meta.embedded.block.typescript",
+      "end": "(</script>)",
+      "endCaptures": {
+        "1": {
+          "name": "entity.name.tag.script.quascript"
+        }
+      },
+      "patterns": [
+        {
+          "include": "source.ts"
+        }
+      ]
+    },
+    "target-helper": {
+      "match": "\\b(node|label|scene|script|packageNode|checkpoint|image|Entry)\\s*(?=\\()",
+      "name": "support.function.choice-target.quascript"
+    },
+    "typescript-braces": {
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.block.begin.ts"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.block.end.ts"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#typescript-braces"
+        },
+        {
+          "include": "#target-helper"
+        },
+        {
+          "include": "source.ts#expression"
+        },
+        {
+          "include": "source.ts"
+        }
       ]
     }
-  }
+  },
+  "scopeName": "source.quascript"
 }

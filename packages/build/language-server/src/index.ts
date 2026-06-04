@@ -724,17 +724,26 @@ function expandChoiceSugarLine(line: string): string | undefined {
   }
 
   let rawCondition: string | undefined
-  const conditionIndex = content.lastIndexOf(' if ')
-  if (conditionIndex >= 0) {
-    rawCondition = content.slice(conditionIndex + 4).trim()
-    content = content.slice(0, conditionIndex).trim()
-  }
-
   let rawTarget: string | undefined
   const arrowIndex = content.indexOf('->')
   if (arrowIndex >= 0) {
-    rawTarget = content.slice(arrowIndex + 2).trim()
+    const targetAndCondition = content.slice(arrowIndex + 2).trim()
+    const conditionIndex = targetAndCondition.indexOf(' if ')
+    if (conditionIndex >= 0) {
+      rawCondition = targetAndCondition.slice(conditionIndex + 4).trim()
+      rawTarget = targetAndCondition.slice(0, conditionIndex).trim()
+    }
+    else {
+      rawTarget = targetAndCondition
+    }
     content = content.slice(0, arrowIndex).trim()
+  }
+  else {
+    const conditionIndex = content.lastIndexOf(' if ')
+    if (conditionIndex >= 0) {
+      rawCondition = content.slice(conditionIndex + 4).trim()
+      content = content.slice(0, conditionIndex).trim()
+    }
   }
 
   const text = content.trim()
