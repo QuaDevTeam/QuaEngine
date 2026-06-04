@@ -549,6 +549,15 @@ importers:
         specifier: workspace:*
         version: link:../store
 
+  packages/platform/assets-cocos:
+    dependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../../core/assets
+      '@quajs/cocos-host':
+        specifier: workspace:*
+        version: link:../cocos-host
+
   packages/platform/assets-memory:
     dependencies:
       '@quajs/assets':
@@ -580,6 +589,17 @@ importers:
         specifier: 'catalog:'
         version: 3.0.1
 
+  packages/platform/cocos-host: {}
+
+  packages/platform/security-cocos:
+    devDependencies:
+      '@quajs/engine':
+        specifier: workspace:*
+        version: link:../../core/engine
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.8(@types/node@25.6.2)(@vitest/coverage-v8@4.1.8)(@vitest/ui@4.1.8)(happy-dom@20.9.0)(vite@8.0.12(@types/node@25.6.2)(sass-embedded@1.100.0)(sass@1.100.0)(yaml@2.8.4))
+
   packages/platform/security-web:
     dependencies:
       '@quajs/assets':
@@ -591,6 +611,15 @@ importers:
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../../render/core
+
+  packages/platform/store-cocos:
+    dependencies:
+      '@quajs/cocos-host':
+        specifier: workspace:*
+        version: link:../cocos-host
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
 
   packages/platform/store-node:
     dependencies:
@@ -817,6 +846,40 @@ importers:
       '@quajs/quack':
         specifier: workspace:*
         version: link:../../build/quack
+
+  packages/render/cocos:
+    dependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../../core/assets
+      '@quajs/cocos-host':
+        specifier: workspace:*
+        version: link:../../platform/cocos-host
+      '@quajs/pipeline':
+        specifier: workspace:*
+        version: link:../../core/pipeline
+      '@quajs/render-core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@quajs/plugin-achievement':
+        specifier: workspace:*
+        version: link:../../plugins/achievement
+      '@quajs/plugin-backlog':
+        specifier: workspace:*
+        version: link:../../plugins/backlog
+      '@quajs/plugin-gallery':
+        specifier: workspace:*
+        version: link:../../plugins/gallery
+      '@quajs/plugin-settings':
+        specifier: workspace:*
+        version: link:../../plugins/settings
+      '@quajs/plugin-sprite':
+        specifier: workspace:*
+        version: link:../../plugins/sprite
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.8(@types/node@25.6.2)(@vitest/coverage-v8@4.1.8)(@vitest/ui@4.1.8)(happy-dom@20.9.0)(vite@8.0.12(@types/node@25.6.2)(sass-embedded@1.100.0)(sass@1.100.0)(yaml@2.8.4))
 
   packages/render/core:
     dependencies:

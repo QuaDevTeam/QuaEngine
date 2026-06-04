@@ -81,7 +81,8 @@
     "description": "Achievement definitions, long-lived profile progress, rewards, notifications, and board scene",
     "renderer": {
       "web": "@quajs/renderer-web/plugins/achievement",
-      "vue": "@quajs/renderer-vue/plugins/achievement"
+      "vue": "@quajs/renderer-vue/plugins/achievement",
+      "cocos": "@quajs/renderer-cocos/plugins/achievement"
     },
     "decorators": {
       "UnlockAchievement": {

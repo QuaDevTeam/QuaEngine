@@ -1,6 +1,9 @@
 import type { ChoiceIntent, StoryPoint } from '@quajs/engine'
 
 export const BACKLOG_PLUGIN_ID = 'backlog' as const
+export const BACKLOG_WEB_RENDERER_ENTRY = '@quajs/renderer-web/plugins/backlog' as const
+export const BACKLOG_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/backlog' as const
+export const BACKLOG_COCOS_RENDERER_ENTRY = '@quajs/renderer-cocos/plugins/backlog' as const
 
 export const BacklogRenderToLogicEvents = {
   OPEN_REQUEST: 'backlog/open_request',

@@ -107,6 +107,7 @@ describe('plugin discovery', () => {
             },
             renderer: {
               web: '@quajs/renderer-web/plugins/audio',
+              cocos: '@quajs/renderer-cocos/plugins/audio',
             },
           },
         },
@@ -123,6 +124,7 @@ describe('plugin discovery', () => {
             renderer: {
               web: '@quajs/renderer-web/plugins/character',
               vue: '@quajs/renderer-vue/plugins/character',
+              cocos: '@quajs/renderer-cocos/plugins/character',
             },
           },
         },
@@ -139,6 +141,7 @@ describe('plugin discovery', () => {
             renderer: {
               web: '@quajs/renderer-web/plugins/background',
               vue: '@quajs/renderer-vue/plugins/background',
+              cocos: '@quajs/renderer-cocos/plugins/background',
             },
           },
         },
@@ -180,6 +183,7 @@ describe('plugin discovery', () => {
       expect(characterPlugin?.renderer).toEqual({
         web: '@quajs/renderer-web/plugins/character',
         vue: '@quajs/renderer-vue/plugins/character',
+        cocos: '@quajs/renderer-cocos/plugins/character',
       })
 
       const audioPlugin = plugins.find(plugin => plugin.name === '@quajs/plugin-audio')
@@ -188,12 +192,14 @@ describe('plugin discovery', () => {
       expect(audioPlugin?.entry).toBe('@quajs/plugin-audio/dist/index.js')
       expect(audioPlugin?.renderer).toEqual({
         web: '@quajs/renderer-web/plugins/audio',
+        cocos: '@quajs/renderer-cocos/plugins/audio',
       })
 
       const backgroundPlugin = plugins.find(plugin => plugin.name === '@quajs/plugin-background')
       expect(backgroundPlugin?.renderer).toEqual({
         web: '@quajs/renderer-web/plugins/background',
         vue: '@quajs/renderer-vue/plugins/background',
+        cocos: '@quajs/renderer-cocos/plugins/background',
       })
     })
 

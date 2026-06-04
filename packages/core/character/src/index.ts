@@ -2,6 +2,11 @@ import type { CharacterIntent, DialogueIntent, QuaEngineInterface } from '@quajs
 import type { RichTextContent } from '@quajs/render-core'
 import { RenderToLogicEvents } from '@quajs/render-core'
 
+export const CHARACTER_WEB_RENDERER_ENTRY = '@quajs/renderer-web/plugins/character' as const
+export const CHARACTER_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/character' as const
+export const CHARACTER_COCOS_RENDERER_ENTRY = '@quajs/renderer-cocos/plugins/character' as const
+export const CHARACTER_RENDERER_ENTRY = CHARACTER_WEB_RENDERER_ENTRY
+
 export type CharacterRef = string | QuaCharacter
 
 export interface CharacterRuntimeOptions {

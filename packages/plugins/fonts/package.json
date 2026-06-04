@@ -59,7 +59,8 @@
     "description": "Font face projection for rich text, cutscenes, and renderer typography",
     "renderer": {
       "web": "@quajs/renderer-web/plugins/fonts",
-      "vue": "@quajs/renderer-vue/plugins/fonts"
+      "vue": "@quajs/renderer-vue/plugins/fonts",
+      "cocos": "@quajs/renderer-cocos/plugins/fonts"
     }
   }
 }

@@ -1,0 +1,149 @@
+{
+  "name": "@quajs/renderer-cocos",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Cocos renderer controller and projection plugins for QuaEngine",
+  "author": "QuaDevTeam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/render/cocos"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "quaengine",
+    "renderer",
+    "cocos",
+    "visual-novel"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./plugins/input": {
+      "types": "./dist/plugins/input.d.ts",
+      "import": "./dist/plugins/input.js"
+    },
+    "./plugins/background": {
+      "types": "./dist/plugins/background.d.ts",
+      "import": "./dist/plugins/background.js"
+    },
+    "./plugins/sprite": {
+      "types": "./dist/plugins/sprite.d.ts",
+      "import": "./dist/plugins/sprite.js"
+    },
+    "./plugins/character": {
+      "types": "./dist/plugins/character.d.ts",
+      "import": "./dist/plugins/character.js"
+    },
+    "./plugins/effects": {
+      "types": "./dist/plugins/effects.d.ts",
+      "import": "./dist/plugins/effects.js"
+    },
+    "./plugins/fonts": {
+      "types": "./dist/plugins/fonts.d.ts",
+      "import": "./dist/plugins/fonts.js"
+    },
+    "./plugins/dialogue": {
+      "types": "./dist/plugins/dialogue.d.ts",
+      "import": "./dist/plugins/dialogue.js"
+    },
+    "./plugins/choices": {
+      "types": "./dist/plugins/choices.d.ts",
+      "import": "./dist/plugins/choices.js"
+    },
+    "./plugins/audio": {
+      "types": "./dist/plugins/audio.d.ts",
+      "import": "./dist/plugins/audio.js"
+    },
+    "./plugins/scene": {
+      "types": "./dist/plugins/scene.d.ts",
+      "import": "./dist/plugins/scene.js"
+    },
+    "./plugins/ui": {
+      "types": "./dist/plugins/ui.d.ts",
+      "import": "./dist/plugins/ui.js"
+    },
+    "./plugins/settings": {
+      "types": "./dist/plugins/settings.d.ts",
+      "import": "./dist/plugins/settings.js"
+    },
+    "./plugins/backlog": {
+      "types": "./dist/plugins/backlog.d.ts",
+      "import": "./dist/plugins/backlog.js"
+    },
+    "./plugins/gallery": {
+      "types": "./dist/plugins/gallery.d.ts",
+      "import": "./dist/plugins/gallery.js"
+    },
+    "./plugins/achievement": {
+      "types": "./dist/plugins/achievement.d.ts",
+      "import": "./dist/plugins/achievement.js"
+    },
+    "./plugins/save-preview": {
+      "types": "./dist/plugins/save-preview.d.ts",
+      "import": "./dist/plugins/save-preview.js"
+    },
+    "./plugins/preset": {
+      "types": "./dist/plugins/preset.d.ts",
+      "import": "./dist/plugins/preset.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@quajs/assets": "workspace:*",
+    "@quajs/cocos-host": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/render-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@quajs/plugin-achievement": "workspace:*",
+    "@quajs/plugin-backlog": "workspace:*",
+    "@quajs/plugin-gallery": "workspace:*",
+    "@quajs/plugin-settings": "workspace:*",
+    "@quajs/plugin-sprite": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@quajs/plugin-achievement": {
+      "optional": true
+    },
+    "@quajs/plugin-backlog": {
+      "optional": true
+    },
+    "@quajs/plugin-gallery": {
+      "optional": true
+    },
+    "@quajs/plugin-settings": {
+      "optional": true
+    },
+    "@quajs/plugin-sprite": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@quajs/plugin-achievement": "workspace:*",
+    "@quajs/plugin-backlog": "workspace:*",
+    "@quajs/plugin-gallery": "workspace:*",
+    "@quajs/plugin-settings": "workspace:*",
+    "@quajs/plugin-sprite": "workspace:*",
+    "vitest": "^4.1.8"
+  }
+}

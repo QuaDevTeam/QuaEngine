@@ -76,7 +76,8 @@
     "description": "Gallery catalog scene shell and persistent unlock profiles",
     "renderer": {
       "web": "@quajs/renderer-web/plugins/gallery",
-      "vue": "@quajs/renderer-vue/plugins/gallery"
+      "vue": "@quajs/renderer-vue/plugins/gallery",
+      "cocos": "@quajs/renderer-cocos/plugins/gallery"
     },
     "decorators": {
       "UnlockGallery": {

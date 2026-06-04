@@ -14,6 +14,7 @@ export {
   createInitialFontsProjection,
   fontFaceProjectionIdentity,
   fontFaceProjectionSignature,
+  FONTS_COCOS_RENDERER_ENTRY,
   FONTS_PLUGIN_ID,
   FONTS_RENDERER_ENTRY,
   FONTS_VUE_RENDERER_ENTRY,

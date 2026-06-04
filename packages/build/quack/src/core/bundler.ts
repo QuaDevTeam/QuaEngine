@@ -884,8 +884,10 @@ function cloneRuntimePackage(runtimePackage: RuntimePackageManifest): RuntimePac
 }
 
 function createAssetTargetManifest(target: AssetBundleTarget): AssetBundleTargetManifest {
+  const staticOnly = target.staticOnly ?? target.cocos?.staticOnly ?? target.platform === 'cocos'
   return {
     name: target.name,
+    platform: target.platform,
     displayName: target.displayName,
     suffix: target.suffix,
     description: target.description,
@@ -897,6 +899,21 @@ function createAssetTargetManifest(target: AssetBundleTarget): AssetBundleTarget
       video: target.pipeline?.video ? target.pipeline.video.format ?? 'webm' : undefined,
       fonts: target.pipeline?.fonts?.format,
     },
+    staticOnly,
+    cocos: target.platform === 'cocos' || target.cocos
+      ? {
+          ...target.cocos,
+          staticOnly,
+          materialization: {
+            images: 'spriteFrame',
+            characters: 'spriteFrame',
+            audio: 'audioClip',
+            video: 'videoClip',
+            fonts: 'font',
+            ...(target.cocos?.materialization || {}),
+          },
+        }
+      : undefined,
   }
 }
 
