@@ -52,6 +52,7 @@
   "workspaces": [
     "packages/build/*",
     "packages/core/*",
+    "packages/game/*",
     "packages/platform/*",
     "packages/render/*",
     "packages/utils/*",

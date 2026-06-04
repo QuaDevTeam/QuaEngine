@@ -1,8 +1,18 @@
 Copyright (c) 2026 QuaDevTeam. All rights reserved.
 
-The demo game content in this directory is proprietary and fully copyrighted,
-including story text, characters, artwork, generated assets, UI presentation
-content, and other creative materials.
+The demo project contains proprietary demo game content. This includes story
+text, scenario scripts, characters, artwork, generated images, CGs, UI
+presentation assets, icons, audio, prompts, masks, and other creative
+materials.
 
-This demo content is not licensed under the Apache-2.0 license that applies to the
-QuaEngine source code unless a separate written license explicitly says so.
+You may download and run the demo only to evaluate or demonstrate QuaEngine.
+No license is granted to copy, redistribute, modify, extract, reuse, train on,
+sell, publish, or include the demo content in another game, engine, dataset,
+product, template, asset pack, or public distribution.
+
+The open-source software licenses that apply to QuaEngine source packages do
+not apply to this demo content unless a separate written license explicitly
+says so.
+
+QuaEngine names, logos, icons, badges, and related brand assets are also not
+licensed for reuse. See ../TRADEMARKS.md.

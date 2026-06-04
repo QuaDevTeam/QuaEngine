@@ -1,0 +1,18 @@
+QuaEngine
+Copyright (c) 2026 QuaDevTeam
+
+QuaEngine source code is licensed under the Apache License, Version 2.0,
+unless a file, package, or directory states otherwise.
+
+QuaEngine, QuaScript, Quack, @quajs, the QuaEngine name, logos, icons,
+badges, and related brand assets are trademarks, service marks, or trade
+dress of QuaDevTeam. Open-source software licenses for QuaEngine source code do
+not grant permission to use these marks except for reasonable and customary
+descriptive reference to the origin of the project.
+
+Demo game content under demo/ is proprietary content and is not licensed under
+QuaEngine's open-source software licenses unless a separate written license
+explicitly says so.
+This includes story text, scenario scripts, characters, artwork, generated
+images, CGs, UI presentation assets, icons, audio, prompts, masks, and other
+creative materials.

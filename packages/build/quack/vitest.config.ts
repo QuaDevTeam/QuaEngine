@@ -35,7 +35,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@quajs/script-compiler': resolve(__dirname, '../script-compiler/src/index.ts'),
-      '@quajs/story-graph/script-compiler': resolve(__dirname, '../../core/story-graph/src/script-compiler.ts'),
+      '@quajs/story-graph/script-compiler': resolve(__dirname, '../../game/story-graph/src/script-compiler.ts'),
     },
   },
 })

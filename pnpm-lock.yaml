@@ -212,7 +212,7 @@ importers:
         version: link:../packages/platform/assets-web
       '@quajs/character':
         specifier: workspace:*
-        version: link:../packages/core/character
+        version: link:../packages/game/character
       '@quajs/engine':
         specifier: workspace:*
         version: link:../packages/core/engine
@@ -257,7 +257,7 @@ importers:
         version: link:../packages/platform/store-web
       '@quajs/story-graph':
         specifier: workspace:*
-        version: link:../packages/core/story-graph
+        version: link:../packages/game/story-graph
       vue:
         specifier: ^3.5.34
         version: 3.5.34(typescript@6.0.3)
@@ -384,7 +384,7 @@ importers:
     devDependencies:
       '@quajs/character':
         specifier: workspace:*
-        version: link:../../core/character
+        version: link:../../game/character
       '@quajs/engine':
         specifier: workspace:*
         version: link:../../core/engine
@@ -408,7 +408,7 @@ importers:
         version: link:../../plugins/gallery
       '@quajs/story-graph':
         specifier: workspace:*
-        version: link:../../core/story-graph
+        version: link:../../game/story-graph
       '@types/babel__generator':
         specifier: 'catalog:'
         version: 7.27.0
@@ -473,22 +473,6 @@ importers:
         specifier: 'catalog:'
         version: 0.8.2
 
-  packages/core/character:
-    dependencies:
-      '@babel/types':
-        specifier: 'catalog:'
-        version: 7.29.0
-    devDependencies:
-      '@quajs/engine':
-        specifier: workspace:*
-        version: link:../engine
-      '@quajs/plugin-animation':
-        specifier: workspace:*
-        version: link:../../plugins/animation
-      '@quajs/render-core':
-        specifier: workspace:*
-        version: link:../../render/core
-
   packages/core/engine:
     dependencies:
       '@babel/types':
@@ -533,7 +517,23 @@ importers:
         specifier: workspace:*
         version: link:../../utils/common
 
-  packages/core/story-graph:
+  packages/game/character:
+    dependencies:
+      '@babel/types':
+        specifier: 'catalog:'
+        version: 7.29.0
+    devDependencies:
+      '@quajs/engine':
+        specifier: workspace:*
+        version: link:../../core/engine
+      '@quajs/plugin-animation':
+        specifier: workspace:*
+        version: link:../../plugins/animation
+      '@quajs/render-core':
+        specifier: workspace:*
+        version: link:../../render/core
+
+  packages/game/story-graph:
     dependencies:
       '@babel/types':
         specifier: 'catalog:'
@@ -541,13 +541,13 @@ importers:
     devDependencies:
       '@quajs/assets':
         specifier: workspace:*
-        version: link:../assets
+        version: link:../../core/assets
       '@quajs/engine':
         specifier: workspace:*
-        version: link:../engine
+        version: link:../../core/engine
       '@quajs/store':
         specifier: workspace:*
-        version: link:../store
+        version: link:../../core/store
 
   packages/platform/assets-cocos:
     dependencies:
@@ -670,7 +670,7 @@ importers:
         version: link:../../core/store
       '@quajs/story-graph':
         specifier: workspace:*
-        version: link:../../core/story-graph
+        version: link:../../game/story-graph
 
   packages/plugins/animation:
     dependencies:
@@ -789,7 +789,7 @@ importers:
         version: link:../../core/store
       '@quajs/story-graph':
         specifier: workspace:*
-        version: link:../../core/story-graph
+        version: link:../../game/story-graph
 
   packages/plugins/inventory:
     dependencies:

@@ -2,6 +2,7 @@ packages:
   - demo
   - packages/build/*
   - packages/core/*
+  - packages/game/*
   - packages/platform/*
   - packages/plugins/*
   - packages/render/*
