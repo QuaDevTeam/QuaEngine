@@ -32,6 +32,8 @@ Renderer entries:
 - `@quajs/renderer-vue/plugins/gallery`
 - `@quajs/renderer-cocos/plugins/gallery`
 
+Compiler lowering exports such as `scriptCompiler` and `createGalleryDecoratorCompiler` belong only to `@quajs/plugin-gallery/script-compiler`. Do not re-export or import them from the runtime root, because apps that only need `GalleryPlugin` must not load Babel/compiler dependencies.
+
 ## Register Content
 
 ```ts

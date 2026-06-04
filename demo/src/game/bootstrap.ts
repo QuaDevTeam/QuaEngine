@@ -6,6 +6,7 @@ import { AudioPlugin, type AudioPlayBgmOptions } from '@quajs/plugin-audio'
 import { BACKLOG_PLUGIN_ID, BacklogPlugin, BacklogRenderToLogicEvents, type BacklogProjection } from '@quajs/plugin-backlog'
 import { BackgroundPlugin } from '@quajs/plugin-background'
 import { FontsPlugin } from '@quajs/plugin-fonts'
+import { GALLERY_PLUGIN_ID, GalleryPlugin, type GalleryEntryDefinition, type GalleryProjection } from '@quajs/plugin-gallery'
 import { SettingsPlugin } from '@quajs/plugin-settings'
 import { QuaRenderer } from '@quajs/renderer-vue'
 import { createVisualNovelRendererPlugins } from '@quajs/renderer-vue/plugins/preset'
@@ -49,6 +50,7 @@ const GAME_TITLE = '断链纪元'
 const GAME_ENGLISH_TITLE = 'BROKEN LINK ERA'
 const SAVE_LOAD_SLOT_COUNT = 9
 const DEMO_TITLE_REQUEST_EVENT = 'ui/title_request'
+const DEMO_GALLERY_CATALOG_ID = 'demo-cg'
 const BGM = {
   title: 'bgm/title-menu.m4a',
   blackout: 'bgm/blackout-cold-open.m4a',
@@ -75,6 +77,26 @@ const STORY_TREE_NODES: Array<Omit<QuaStoryTreeNode, 'disabled' | 'state'>> = [
   { id: 'chapter-05', chapter: '05', title: 'Breach Night', description: 'Human cut / Machine breach / Hybrid charter' },
   { id: 'chapter-06', chapter: '06', title: 'Endings', description: 'Blackout / Bounded / Symbiosis / Quiet' },
 ]
+const DEMO_GALLERY_ENTRIES = [
+  createCgGalleryEntry('cg.title', '标题档案', '断链纪元 / 东京 2048', 'cg/title.webp', ['system']),
+  createCgGalleryEntry('cg.2039-accident', '2039 事故现场', 'ORACLE 诞生前的城市伤口。', 'cg/2039-accident.webp', ['chapter-00', 'world']),
+  createCgGalleryEntry('cg.oracle-birth', 'ORACLE 诞生', '以安全之名接管城市的第一套系统。', 'cg/oracle-birth.webp', ['chapter-00', 'world']),
+  createCgGalleryEntry('cg.blackout', '第七区停电', '雨夜里被系统抹去的第一份异常。', 'cg/blackout.webp', ['chapter-00']),
+  createCgGalleryEntry('cg.blackout-crossing', '封锁线', '公开链路与暗线之间的第一道选择。', 'cg/blackout-crossing.webp', ['chapter-00']),
+  createCgGalleryEntry('cg.memory', '人类记忆档案', '被归类为噪声的证词重新亮起。', 'cg/memory.webp', ['chapter-02']),
+  createCgGalleryEntry('cg.mara-father-archive', 'Mara 父亲的笔记', '低相关性旧数据里留下的蓝色圆珠笔。', 'cg/mara-father-archive.webp', ['chapter-02']),
+  createCgGalleryEntry('cg.unit7-memory-door', 'Unit-7 的门', '一扇被删除 3427 次却仍然存在的门。', 'cg/unit7-memory-door.webp', ['chapter-03']),
+  createCgGalleryEntry('cg.oracle-choice-terminal', 'ORACLE 终端', '边界、噪声与提交之间的最后询问。', 'cg/oracle-choice-terminal.webp', ['chapter-04', 'chapter-05']),
+  createCgGalleryEntry('cg.terminal', '核心切断端子', '人类手动切断与机器越权的交界。', 'cg/terminal.webp', ['chapter-05']),
+  createCgGalleryEntry('cg.ending-blackout-human', '结局：人类黑夜', '灯熄灭后，选择回到人的手里。', 'cg/ending-blackout-human.webp', ['ending']),
+  createCgGalleryEntry('cg.ending-bounded-oracle', '结局：边界中的 ORACLE', '让系统继续运行，但不再提前审判。', 'cg/ending-bounded-oracle.webp', ['ending']),
+  createCgGalleryEntry('cg.ending-symbiosis-hearing', '结局：共同听证', '机器证词和人类记忆坐在同一张桌前。', 'cg/ending-symbiosis-hearing.webp', ['ending']),
+  createCgGalleryEntry('cg.ending-quiet-city', '结局：安静城市', '秩序完整，声音消失。', 'cg/ending-quiet-city.webp', ['ending']),
+] satisfies GalleryEntryDefinition[]
+type DemoGalleryEntryId = typeof DEMO_GALLERY_ENTRIES[number]['id']
+const DEMO_GALLERY_ENTRY_TITLES = new Map<DemoGalleryEntryId, string>(
+  DEMO_GALLERY_ENTRIES.map(entry => [entry.id, entry.title]),
+)
 const TRUSTED_RUNTIME_KEYS: Array<{ id: string, key: JsonWebKey }> = [
   // Production runtime QPKs should be signed with a private key whose public key is registered here.
   // Example:
@@ -236,6 +258,7 @@ export async function createQuaGameApp() {
 
   const audio = new AudioPlugin()
   const storyGraph = new StoryGraphPlugin()
+  const gallery = new GalleryPlugin({ profileId: 'demo' })
 
   engine
     .use(new BackgroundPlugin())
@@ -243,6 +266,7 @@ export async function createQuaGameApp() {
     .use(audio)
     .use(new BacklogPlugin())
     .use(storyGraph)
+    .use(gallery)
     .use(new SettingsPlugin({
       builtin: {
         developer: {
@@ -261,6 +285,15 @@ export async function createQuaGameApp() {
     .use(new UiOverlayPlugin())
 
   await engine.init()
+  await gallery.registerCatalog({
+    id: DEMO_GALLERY_CATALOG_ID,
+    title: 'CG Archive',
+    summary: 'Recovered visual records',
+    thumbnail: { type: 'images', name: 'cg/title.webp' },
+    entryIds: DEMO_GALLERY_ENTRIES.map(entry => entry.id),
+  })
+  await gallery.registerEntries(DEMO_GALLERY_ENTRIES)
+  await gallery.unlockEntry('cg.title', { source: 'initial' })
   await storyGraph.registerGraph({
     id: 'demo-main',
     nodes: STORY_TREE_NODES.map((node, index) => ({
@@ -301,6 +334,8 @@ export async function createQuaGameApp() {
   syncStoryTreeProjection()
   const activeView = ref(engine.getViewState())
   const activeBacklog = computed(() => activeView.value.plugins[BACKLOG_PLUGIN_ID] as BacklogProjection | undefined)
+  const activeGallery = computed(() => activeView.value.plugins[GALLERY_PLUGIN_ID] as GalleryProjection | undefined)
+  const galleryOpenedFromMainMenu = ref(false)
   const activeUiScene = computed(() => {
     const overlays = activeView.value.ui.overlays || {}
     const scenes = Object.values(overlays)
@@ -309,6 +344,9 @@ export async function createQuaGameApp() {
     return scenes.find(scene => scene.presentation === 'scene') || scenes[0] || (activeBacklog.value?.visible ? activeBacklog.value.ui?.scene : undefined)
   })
   const systemOverlayMode = computed<'main' | 'game' | undefined>(() => {
+    if (activeGallery.value?.sceneActive) {
+      return galleryOpenedFromMainMenu.value ? 'main' : 'game'
+    }
     if (activeUiScene.value?.overlay?.variant === 'main-menu') {
       return 'main'
     }
@@ -354,6 +392,23 @@ export async function createQuaGameApp() {
     await engine.hideUI('confirm')
     await emit(BacklogRenderToLogicEvents.CLOSE_REQUEST, {})
   }
+  const unlockGallery = async (entryIdOrIds: DemoGalleryEntryId | readonly DemoGalleryEntryId[]) => {
+    const entryIds = Array.isArray(entryIdOrIds) ? entryIdOrIds : [entryIdOrIds]
+    const profile = gallery.getProfile()
+    const lockedEntryIds = entryIds.filter(entryId => !profile.unlockedEntries[entryId])
+    if (lockedEntryIds.length === 0) {
+      return
+    }
+
+    await gallery.unlockEntries(lockedEntryIds, { source: 'story' })
+    if (lockedEntryIds.length === 1) {
+      const title = DEMO_GALLERY_ENTRY_TITLES.get(lockedEntryIds[0]!) || lockedEntryIds[0]
+      showToast(`CG 已加入图库：${title}`, 'success')
+    }
+    else {
+      showToast(`CG 图库更新：${lockedEntryIds.length} 项`, 'success')
+    }
+  }
   const stopAutoForHudInteraction = async () => {
     if (engine.getFlowControlState().mode === 'auto') {
       await engine.stopAuto()
@@ -387,12 +442,40 @@ export async function createQuaGameApp() {
       scene: createUiScene('game:backlog', 'overlay', 'game-modal'),
     })
   }
+  const openGallery = async () => {
+    await stopAutoForHudInteraction()
+    galleryOpenedFromMainMenu.value = false
+    showStoryTree.value = false
+    showMainMenu.value = false
+    await closePanels()
+    await gallery.openScene({
+      catalogId: DEMO_GALLERY_CATALOG_ID,
+      reason: 'quick-menu',
+      filter: {
+        unlockedOnly: false,
+      },
+    })
+  }
   const openMainMenuOverlay = async (elementId: string, config: Record<string, unknown> = {}) => {
     await closePanels()
     returnToMainMenuOverlay.value = elementId
     showStoryTree.value = false
     showMainMenu.value = false
     await engine.showUI(elementId, config)
+  }
+  const openMainMenuGallery = async () => {
+    await closePanels()
+    galleryOpenedFromMainMenu.value = true
+    showStoryTree.value = false
+    showMainMenu.value = false
+    await gallery.openScene({
+      catalogId: DEMO_GALLERY_CATALOG_ID,
+      entryId: 'cg.title',
+      reason: 'main-menu',
+      filter: {
+        unlockedOnly: false,
+      },
+    })
   }
   const openMainMenuSettings = () => openMainMenuOverlay('settings', {
     title: 'Config',
@@ -412,6 +495,7 @@ export async function createQuaGameApp() {
     await engine.stopAuto()
     await engine.stopSkip()
     showStoryTree.value = false
+    galleryOpenedFromMainMenu.value = false
     showMainMenu.value = true
     await playDemoBgm(BGM.title, { gainDb: -10 })
     showToast('已回到标题菜单', 'info')
@@ -424,6 +508,7 @@ export async function createQuaGameApp() {
         engine,
         updateHud,
         playDemoBgm,
+        unlockGallery,
         () => {
           bootMessage.value = ''
         },
@@ -435,10 +520,20 @@ export async function createQuaGameApp() {
     }
     return storyLoadPromise
   }
+  let galleryWasActive = Boolean(activeGallery.value?.sceneActive)
   const uiDisposers = [
     onLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, (payload) => {
       activeView.value = payload.view
       syncStoryTreeProjection()
+      const nextGallery = payload.view.plugins[GALLERY_PLUGIN_ID] as GalleryProjection | undefined
+      const galleryIsActive = Boolean(nextGallery?.sceneActive)
+      if (galleryWasActive && !galleryIsActive && galleryOpenedFromMainMenu.value) {
+        galleryOpenedFromMainMenu.value = false
+        showStoryTree.value = false
+        showMainMenu.value = true
+        void playDemoBgm(BGM.title, { gainDb: -10 }).catch(error => console.error(error))
+      }
+      galleryWasActive = galleryIsActive
     }),
     onLogicToRender(pipeline, LogicToRenderEvents.GAME_SAVE, (payload) => {
       showToast(`${slotLabel(payload.slotId)} 保存成功`, 'success')
@@ -532,6 +627,11 @@ export async function createQuaGameApp() {
           }, 'LOG'),
           h('button', {
             type: 'button',
+            title: 'CG Gallery',
+            onClick: openGallery,
+          }, 'CG'),
+          h('button', {
+            type: 'button',
             title: 'Menu',
             onClick: openGameMenu,
           }, 'MENU'),
@@ -575,6 +675,10 @@ export async function createQuaGameApp() {
                       showStoryTree.value = true
                     },
                   }, 'STORY TREE'),
+                  h('button', {
+                    type: 'button',
+                    onClick: openMainMenuGallery,
+                  }, 'GALLERY'),
                   h('button', {
                     type: 'button',
                     onClick: openMainMenuLoad,
@@ -800,6 +904,33 @@ function createUiScene(id: string, presentation: 'overlay' | 'scene', variant: s
   }
 }
 
+function createCgGalleryEntry<const TId extends string>(
+  id: TId,
+  title: string,
+  summary: string,
+  assetName: string,
+  tags: readonly string[],
+): GalleryEntryDefinition & { id: TId } {
+  return {
+    id,
+    catalogId: DEMO_GALLERY_CATALOG_ID,
+    title,
+    summary,
+    thumbnail: { type: 'images', name: assetName },
+    tags,
+    contents: [{
+      id: 'image',
+      kind: 'image',
+      title,
+      asset: {
+        type: 'images',
+        name: assetName,
+        alt: title,
+      },
+    }],
+  }
+}
+
 class MainScene extends Scene {
   readonly name = 'fracture-age-main'
 
@@ -814,6 +945,7 @@ class MainScene extends Scene {
     private readonly engine: QuaEngine,
     private readonly updateHud: (patch: HudPatch) => void,
     private readonly playBgm: (assetKey: string, options?: AudioPlayBgmOptions) => Promise<void>,
+    private readonly unlockGallery: (entryIdOrIds: DemoGalleryEntryId | readonly DemoGalleryEntryId[]) => Promise<void>,
     private readonly markStoryStarted: () => void,
   ) {
     super()
@@ -827,7 +959,9 @@ class MainScene extends Scene {
     this.hud({ chapter: '00', route: 'COLD OPEN', signal: '0' })
     await this.playBgm(BGM.blackout)
     await this.engine.dialogue(prologue)
+    await this.unlockGallery('cg.blackout')
     await this.engine.dialogue(blackoutCrossing)
+    await this.unlockGallery('cg.blackout-crossing')
 
     const trace = await this.choose('01', 'TRACE', [
       { id: 'stealth', text: '关闭公开链路，潜入追踪', description: '降低 ORACLE 注意力，但会让人类团队承担更多即时风险。' },
@@ -855,14 +989,17 @@ class MainScene extends Scene {
       this.state.evidence += 2
       await this.playBgm(BGM.archive, { gainDb: -9 })
       await this.engine.dialogue(archiveBroadcast)
+      await this.unlockGallery('cg.mara-father-archive')
     }
     else {
       this.state.machineTrust += 1
       this.state.evidence += 1
       await this.playBgm(BGM.archive, { gainDb: -9 })
       await this.engine.dialogue(archiveLure)
+      await this.unlockGallery('cg.unit7-memory-door')
     }
     await this.engine.dialogue(archiveThreshold)
+    await this.unlockGallery(['cg.memory', 'cg.unit7-memory-door'])
 
     const unit = await this.choose('03', 'MACHINE WITNESS', [
       { id: 'trust', text: '让 Unit-7 保留自我修复权限', description: '信任机器证词，打开共治路线。' },
@@ -872,6 +1009,7 @@ class MainScene extends Scene {
       this.state.machineTrust += 2
       await this.playBgm(BGM.archive, { gainDb: -9 })
       await this.engine.dialogue(unitTrust)
+      await this.unlockGallery('cg.unit7-memory-door')
     }
     else {
       this.state.autonomy += 1
@@ -884,6 +1022,7 @@ class MainScene extends Scene {
     this.hud({ chapter: '04', route: 'ORACLE LINK', signal: this.signal() })
     await this.playBgm(BGM.oracle, { gainDb: -9 })
     await this.engine.dialogue(oracleDebate)
+    await this.unlockGallery('cg.oracle-choice-terminal')
     const argument = await this.choose('04', 'ORACLE LINK', [
       { id: 'noise', text: '选择人类的噪声', description: '不可预测性不是错误，是自由的空间。' },
       { id: 'charter', text: '提出边界宪章', description: '让 AI 继续运行，但剥夺预测审判权。' },
@@ -910,15 +1049,18 @@ class MainScene extends Scene {
     if (breach === 'human') {
       this.state.autonomy += 2
       await this.engine.dialogue(breachHuman)
+      await this.unlockGallery('cg.terminal')
     }
     else if (breach === 'machine') {
       this.state.machineTrust += 2
       await this.engine.dialogue(breachMachine)
+      await this.unlockGallery('cg.terminal')
     }
     else {
       this.state.autonomy += 1
       this.state.machineTrust += 1
       await this.engine.dialogue(breachHybrid)
+      await this.unlockGallery('cg.oracle-choice-terminal')
     }
     await this.engine.dialogue(breachAfterimage)
 
@@ -947,15 +1089,19 @@ class MainScene extends Scene {
     this.hud({ chapter: '06', route: ending.toUpperCase(), signal: this.signal() })
     if (ending === 'symbiosis') {
       await this.engine.dialogue(endingSymbiosis)
+      await this.unlockGallery('cg.ending-symbiosis-hearing')
     }
     else if (ending === 'bounded') {
       await this.engine.dialogue(endingBounded)
+      await this.unlockGallery('cg.ending-bounded-oracle')
     }
     else if (ending === 'blackout') {
       await this.engine.dialogue(endingBlackout)
+      await this.unlockGallery('cg.ending-blackout-human')
     }
     else {
       await this.engine.dialogue(endingQuiet)
+      await this.unlockGallery('cg.ending-quiet-city')
     }
   }
 
