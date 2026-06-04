@@ -1449,13 +1449,17 @@ function getRichTextDocument(
   engine: QuaEngineInterface,
   prefix: string | undefined,
 ): Readonly<RichTextDocumentProjection> | undefined {
-  if (prefix !== 'dialogue')
+  const dialogue = engine.getViewState().dialogue
+  if (!dialogue.visible)
     return undefined
 
-  const dialogue = engine.getViewState().dialogue
-  return dialogue.visible && isRichTextDocument(dialogue.text)
-    ? dialogue.text
-    : undefined
+  if (prefix === 'dialogue') {
+    return isRichTextDocument(dialogue.text) ? dialogue.text : undefined
+  }
+  if (prefix === 'speaker') {
+    return isRichTextDocument(dialogue.speaker) ? dialogue.speaker : undefined
+  }
+  return undefined
 }
 
 async function commitRichTextDocument(
@@ -1463,18 +1467,25 @@ async function commitRichTextDocument(
   prefix: string | undefined,
   document: RichTextDocumentProjection,
 ): Promise<boolean> {
-  if (prefix !== 'dialogue')
-    return false
-
   const dialogue = engine.getViewState().dialogue
   if (!dialogue.visible)
     return false
 
-  await engine.showDialogue({
-    ...dialogue,
-    text: document,
-  } as any)
-  return true
+  if (prefix === 'dialogue') {
+    await engine.showDialogue({
+      ...dialogue,
+      text: document,
+    } as any)
+    return true
+  }
+  if (prefix === 'speaker') {
+    await engine.showDialogue({
+      ...dialogue,
+      speaker: document,
+    } as any)
+    return true
+  }
+  return false
 }
 
 function parseRichTextSelector(selector: string): { prefix?: string, itemId?: string } {
@@ -1568,6 +1579,10 @@ function isDialogueStateProperty(property: string): boolean {
   return property === 'visible'
     || property === 'text'
     || property.startsWith('text.')
+    || property === 'speaker'
+    || property.startsWith('speaker.')
+    || property === 'speakerStyle'
+    || property.startsWith('speakerStyle.')
     || property === 'characterId'
     || property === 'characterName'
     || property === 'mode'

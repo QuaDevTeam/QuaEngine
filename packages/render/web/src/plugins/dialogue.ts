@@ -59,10 +59,12 @@ function renderDialogueLayer(context: QuaWebDomLayerContext, typewriterRuntime?:
 
 function renderDialogueContent(context: QuaWebDomLayerContext, box: HTMLElement, dialogue: ViewDialogueProjection): void {
   box.textContent = ''
-  if (dialogue.characterName) {
+  const speakerContent = dialogue.speaker ?? dialogue.characterName
+  if (speakerContent) {
     const speaker = context.document.createElement('div')
     speaker.className = 'qua-dialogue-speaker'
-    speaker.textContent = dialogue.characterName
+    renderRichTextContent(context, speaker, speakerContent)
+    applyStyleVars(speaker, motionProjectionVars(dialogue.speakerStyle as Record<string, unknown> | undefined, '--qua-dialogue-speaker'))
     box.append(speaker)
   }
 

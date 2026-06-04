@@ -37,6 +37,7 @@ export const QuaDialogueBox = defineComponent({
         now,
       )
       const projectedDialogue = typewriterProjection.dialogue
+      const speakerContent = projectedDialogue.speaker ?? projectedDialogue.characterName
       return projectedDialogue.visible
         ? h('div', {
             class: 'qua-dialogue-box',
@@ -48,7 +49,17 @@ export const QuaDialogueBox = defineComponent({
               }
             },
           }, slots.default?.({ ...useProjectionProps(), dialogue: projectedDialogue, actions }) || [
-            projectedDialogue.characterName ? h('div', { class: 'qua-dialogue-speaker' }, projectedDialogue.characterName) : null,
+            speakerContent
+              ? h('div', {
+                  class: 'qua-dialogue-speaker',
+                  style: [
+                    isRichTextDocument(speakerContent)
+                      ? motionProjectionVars(speakerContent as unknown as Record<string, unknown>, '--qua-rich-text')
+                      : undefined,
+                    motionProjectionVars(projectedDialogue.speakerStyle as Record<string, unknown> | undefined, '--qua-dialogue-speaker'),
+                  ],
+                }, renderRichTextContent(speakerContent))
+              : null,
             h('p', {
               class: 'qua-dialogue-text',
               style: isRichTextDocument(projectedDialogue.text)

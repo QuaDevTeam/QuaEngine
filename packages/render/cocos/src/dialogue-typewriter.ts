@@ -208,6 +208,8 @@ function getDialogueSignature(dialogue: Readonly<ViewDialogueProjection>): strin
     revision: dialogue.revision,
     characterId: dialogue.characterId,
     characterName: dialogue.characterName,
+    speaker: dialogue.speaker,
+    speakerStyle: dialogue.speakerStyle,
     mode: dialogue.mode,
     text: dialogue.text,
     typewriter: dialogue.typewriter,

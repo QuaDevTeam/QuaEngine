@@ -327,17 +327,26 @@ function setDialogueNodeText(
     fontSize: numberValue((dialogue as unknown as Record<string, unknown>).fontSize, 32),
     color: stringValue((dialogue as unknown as Record<string, unknown>).color, '#ffffff'),
   }
-  if (isRichTextDocument(dialogue.text)) {
+  if (isRichTextDocument(dialogue.text) || isRichTextDocument(dialogue.speaker)) {
     context.host.nodes.setNodeRichText(node, dialogueMarkup(dialogue), style)
     return
   }
-  const text = [dialogue.characterName, richTextToPlainText(dialogue.text)].filter(Boolean).join('\n')
+  const speaker = dialogue.speaker !== undefined
+    ? richTextToPlainText(dialogue.speaker)
+    : dialogue.characterName
+  const text = [speaker, richTextToPlainText(dialogue.text)].filter(Boolean).join('\n')
   context.host.nodes.setNodeText(node, text, style)
 }
 
 function dialogueMarkup(dialogue: ViewDialogueProjection): string {
   const parts: string[] = []
-  if (dialogue.characterName) {
+  if (dialogue.speaker !== undefined) {
+    parts.push(wrapRichTextStyle(
+      richTextContentToCocosMarkup(dialogue.speaker),
+      (dialogue.speakerStyle as Readonly<Record<string, unknown>> | undefined) || {},
+    ))
+  }
+  else if (dialogue.characterName) {
     parts.push(`<b>${escapeRichTextMarkup(dialogue.characterName)}</b>`)
   }
   parts.push(richTextContentToCocosMarkup(dialogue.text))
