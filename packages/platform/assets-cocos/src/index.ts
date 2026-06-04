@@ -3,9 +3,12 @@ import type {
   AssetData,
   AssetFetchResult,
   AssetFindCriteria,
+  AssetPipelineDomain,
   AssetRuntimeAdapter,
   AssetStorage,
   AssetType,
+  BundleManifest,
+  CocosHybridAssetManifest,
   QuaAssetsConfig,
   StoredAsset,
   StoredBundle,
@@ -88,6 +91,19 @@ export function createCocosStaticAssets(assets: QuaAssets): QuaAssets {
       throw new Error('Cocos static-only assets do not support dynamic Runtime Package bundle loading.')
     },
   })
+}
+
+const HYBRID_ASSET_DOMAINS = new Set<AssetPipelineDomain>(['images', 'characters', 'audio', 'video', 'fonts'])
+
+export function getCocosHybridAssetManifest(manifest: BundleManifest): CocosHybridAssetManifest | undefined {
+  return manifest.assetTarget?.cocos?.hybrid
+}
+
+export function shouldUseCocosNativeAsset(manifest: BundleManifest, type: AssetType): boolean {
+  if (!HYBRID_ASSET_DOMAINS.has(type as AssetPipelineDomain))
+    return false
+  const hybrid = getCocosHybridAssetManifest(manifest)
+  return Boolean(hybrid?.enabled && hybrid.domains[type as AssetPipelineDomain] === 'cocos-bundle')
 }
 
 export class CocosAssetStorage implements AssetStorage {

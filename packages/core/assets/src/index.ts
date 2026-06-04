@@ -93,6 +93,11 @@ export type {
   BundleManifest,
   // Results and status
   BundleStatus,
+  CocosAssetTargetManifestMetadata,
+  CocosBuildPlatform,
+  CocosHybridAssetConfig,
+  CocosHybridAssetManifest,
+  CocosHybridAssetPlacement,
 
   DecompressionPlugin,
   DecryptionPlugin,

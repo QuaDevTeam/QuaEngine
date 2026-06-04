@@ -402,15 +402,55 @@ export interface AssetBundleTargetManifest {
   browserCondition?: string
   formats?: Partial<Record<AssetPipelineDomain, string>>
   staticOnly?: boolean
-  cocos?: CocosAssetTargetMetadata
+  cocos?: CocosAssetTargetManifestMetadata
 }
 
-export interface CocosAssetTargetMetadata {
+export type CocosBuildPlatform
+  = | 'android'
+    | 'ios'
+    | 'harmonyos'
+    | 'wechat-minigame'
+    | 'bytedance-minigame'
+    | 'alipay-minigame'
+    | 'taobao-minigame'
+    | 'oppo-minigame'
+    | 'vivo-minigame'
+    | 'huawei-quick-game'
+    | 'web-mobile'
+    | 'web-desktop'
+    | 'windows'
+    | 'mac'
+    | (string & {})
+
+export type CocosHybridAssetPlacement = 'qpk' | 'cocos-bundle'
+
+export interface CocosHybridAssetConfig {
+  enabled?: boolean
+  resourceRoot?: string
+  assetBundle?: string
+  domains?: Partial<Record<AssetPipelineDomain, CocosHybridAssetPlacement>>
+}
+
+export interface CocosHybridAssetManifest {
+  enabled: boolean
+  resourceRoot: string
+  assetBundle: string
+  domains: Record<AssetPipelineDomain, CocosHybridAssetPlacement>
+}
+
+export interface CocosAssetTargetManifestMetadata {
   creatorVersion?: string
   resourceRoot?: string
   cacheRoot?: string
+  mobile?: boolean
+  buildPlatforms?: CocosBuildPlatform[]
   materialization?: Partial<Record<AssetPipelineDomain, string>>
+  hybrid?: CocosHybridAssetManifest
   staticOnly?: boolean
+}
+
+export interface CocosAssetTargetMetadata extends Omit<CocosAssetTargetManifestMetadata, 'hybrid'> {
+  hybrid?: CocosHybridAssetConfig | CocosHybridAssetManifest
 }
 
 export interface AssetBundleTarget {

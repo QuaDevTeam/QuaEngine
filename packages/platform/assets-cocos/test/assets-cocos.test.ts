@@ -1,7 +1,15 @@
 import type { BundleManifest, StoredAsset } from '@quajs/assets'
 import { describe, expect, it } from 'vitest'
 import { createFakeCocosHost } from '@quajs/cocos-host/testing'
-import { CocosAssetMaterializer, CocosAssetStorage, createCocosAssets, createCocosAssetsAdapter, createCocosStaticAssets } from '../src'
+import {
+  CocosAssetMaterializer,
+  CocosAssetStorage,
+  createCocosAssets,
+  createCocosAssetsAdapter,
+  createCocosStaticAssets,
+  getCocosHybridAssetManifest,
+  shouldUseCocosNativeAsset,
+} from '../src'
 
 describe('assets-cocos', () => {
   it('fetches bytes through the host and hashes data', async () => {
@@ -86,6 +94,37 @@ describe('assets-cocos', () => {
       },
     } as never)
     await expect(assets.loadDynamicBundle('runtime.qpk')).rejects.toThrow('Cocos static-only assets do not support dynamic Runtime Package bundle loading.')
+  })
+
+  it('resolves Cocos hybrid asset routing from bundle target metadata', () => {
+    const manifest = createManifest({
+      assetTarget: {
+        name: 'cocos-mobile',
+        platform: 'cocos',
+        staticOnly: true,
+        cocos: {
+          staticOnly: true,
+          hybrid: {
+            enabled: true,
+            resourceRoot: 'assets/resources',
+            assetBundle: 'qua-hybrid',
+            domains: {
+              images: 'cocos-bundle',
+              characters: 'cocos-bundle',
+              audio: 'qpk',
+              video: 'qpk',
+              fonts: 'qpk',
+            },
+          },
+        },
+      },
+    })
+
+    expect(getCocosHybridAssetManifest(manifest)?.assetBundle).toBe('qua-hybrid')
+    expect(shouldUseCocosNativeAsset(manifest, 'images')).toBe(true)
+    expect(shouldUseCocosNativeAsset(manifest, 'characters')).toBe(true)
+    expect(shouldUseCocosNativeAsset(manifest, 'audio')).toBe(false)
+    expect(shouldUseCocosNativeAsset(manifest, 'data')).toBe(false)
   })
 })
 
