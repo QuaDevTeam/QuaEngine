@@ -566,6 +566,9 @@ function applyTransform(cc: CocosCreatorModule | undefined, node: CocosCreatorNo
   if (transform.opacity !== undefined) {
     applyNodeOpacity(cc, native, transform.opacity)
   }
+  if (transform.clip !== undefined) {
+    native.quaClip = { ...transform.clip }
+  }
 }
 
 function applySpriteMode(
@@ -618,6 +621,8 @@ function applySpriteVisualOptions(sprite: any, options: CocosHostSpriteOptions):
     sprite.spriteFilter = clonePlain(options.filter)
   if (options.composition)
     sprite.spriteComposition = clonePlain(options.composition)
+  if (options.states)
+    sprite.spriteStates = clonePlain(options.states)
 }
 
 function applyControlComponent(cc: CocosCreatorModule | undefined, native: any, control: CocosHostControlOptions): void {
@@ -827,6 +832,7 @@ function createFallbackAudioHandle(resource: CocosHostResource, options: { id?: 
   let volume = options.volume ?? 1
   let loop = options.loop ?? false
   let positionMs = 0
+  let eqBands: readonly unknown[] = []
   const endedListeners = new Set<() => void>()
   const handle = {
     id: options.id || resource.id,
@@ -844,6 +850,9 @@ function createFallbackAudioHandle(resource: CocosHostResource, options: { id?: 
     },
     setLoop: (next: boolean) => {
       loop = next
+    },
+    setEq: (bands: readonly unknown[]) => {
+      eqBands = [...bands]
     },
     seek: (next: number) => {
       positionMs = next
@@ -865,6 +874,7 @@ function createFallbackAudioHandle(resource: CocosHostResource, options: { id?: 
     volume: { get: () => volume },
     loop: { get: () => loop },
     positionMs: { get: () => positionMs },
+    eqBands: { get: () => eqBands },
     resource: { get: () => resource },
   })
   return handle

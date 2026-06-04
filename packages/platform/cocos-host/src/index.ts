@@ -33,6 +33,7 @@ export interface CocosHostTransform {
   zIndex?: number
   anchorX?: number
   anchorY?: number
+  clip?: Partial<CocosHostRect>
 }
 
 export interface CocosHostTextStyle {
@@ -82,6 +83,14 @@ export interface CocosHostSpriteComposition {
   mask?: Readonly<CocosHostSpriteMask>
 }
 
+export interface CocosHostSpriteStateOptions {
+  resource?: CocosHostResource
+  resourceId?: string
+  tint?: string
+  opacity?: number
+  metadata?: Record<string, unknown>
+}
+
 export interface CocosHostSpriteOptions {
   mode?: CocosHostSpriteMode
   slice?: Partial<CocosHostInsets>
@@ -94,6 +103,7 @@ export interface CocosHostSpriteOptions {
   blendMode?: CocosHostBlendMode
   filter?: Readonly<CocosHostSpriteFilter>
   composition?: Readonly<CocosHostSpriteComposition>
+  states?: Partial<Record<string, CocosHostSpriteStateOptions>>
   metadata?: Record<string, unknown>
 }
 
@@ -163,6 +173,7 @@ export interface CocosHostAudioHandle {
   setVolume: (volume: number) => void
   setLoop: (loop: boolean) => void
   setPlaybackRate?: (rate: number) => void
+  setEq?: (bands: readonly unknown[]) => void
   seek?: (positionMs: number) => Promise<void> | void
   getPosition?: () => number | undefined
   onEnded?: (listener: () => void) => CocosHostDisposer

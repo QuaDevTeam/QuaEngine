@@ -7,11 +7,11 @@ describe('createFakeCocosHost', () => {
     const host = createFakeCocosHost()
     const parent = host.nodes.createNode('layer', { parent: host.root })
     const child = host.nodes.createNode('sprite', { parent })
-    host.nodes.setNodeTransform(child, { x: 10, y: 20, opacity: 0.5 })
+    host.nodes.setNodeTransform(child, { x: 10, y: 20, opacity: 0.5, clip: { x: 0, y: 0, width: 50, height: 60 } })
 
     expect(host.root.children).toContain(parent)
     expect(parent.children).toContain(child)
-    expect(child.transform).toMatchObject({ x: 10, y: 20, opacity: 0.5 })
+    expect(child.transform).toMatchObject({ x: 10, y: 20, opacity: 0.5, clip: { x: 0, y: 0, width: 50, height: 60 } })
 
     const received: unknown[] = []
     const dispose = host.input.onInput(event => received.push(event))
@@ -80,6 +80,9 @@ describe('createFakeCocosHost', () => {
         filter: { saturate: 0.8 },
         mask: { assetName: 'layer-mask.png', resourceId: 'layer-mask' },
       },
+      states: {
+        pressed: { resourceId: 'pressed', tint: '#ff0000' },
+      },
     })
     host.nodes.setNodeControl?.(node, {
       kind: 'toggle',
@@ -102,6 +105,9 @@ describe('createFakeCocosHost', () => {
         blendMode: 'screen',
         isolation: true,
       },
+      states: {
+        pressed: { resourceId: 'pressed', tint: '#ff0000' },
+      },
     })
     expect(fakeNode.control).toMatchObject({ kind: 'toggle', checked: true, label: 'Enabled' })
 
@@ -116,6 +122,8 @@ describe('createFakeCocosHost', () => {
     fakeHandle.emitEnded()
     expect(ended).toBe(1)
     expect(fakeHandle.playbackRate).toBe(1.25)
+    handle.setEq?.([{ frequency: 1000, gainDb: -3 }])
+    expect(fakeHandle.eqBands).toEqual([{ frequency: 1000, gainDb: -3 }])
     await handle.seek?.(1234)
     expect(fakeHandle.positionMs).toBe(1234)
     expect(fakeHandle.seekCalls).toEqual([1234])
@@ -215,6 +223,17 @@ describe('createCocosCreatorHost', () => {
     expect(await host.assets.loadResource?.('spriteFrame', 'assets/resources/sprite.png', { id: 'native:sprite' })).toMatchObject({
       id: 'native:sprite',
       native: { kind: 'spriteFrame', source: 'assets/resources/sprite.png' },
+    })
+    const spriteNode = host.nodes.createNode('sprite', { parent: host.nodes.getRootNode() })
+    host.nodes.setNodeTransform(spriteNode, { clip: { x: 1, y: 2, width: 3, height: 4 } })
+    host.nodes.setNodeSprite(spriteNode, resource, {
+      states: {
+        selected: { resourceId: 'selected' },
+      },
+    })
+    expect((spriteNode as { native?: { quaClip?: unknown, quaSprite?: { spriteStates?: unknown } } }).native?.quaClip).toEqual({ x: 1, y: 2, width: 3, height: 4 })
+    expect((spriteNode as { native?: { spriteOptions?: { states?: unknown } } }).native?.spriteOptions?.states).toEqual({
+      selected: { resourceId: 'selected' },
     })
     expect(host.capabilities.nativeAssets).toBe(true)
     expect(host.capabilities.fonts).toBe(true)
