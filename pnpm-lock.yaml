@@ -874,6 +874,9 @@ importers:
       '@quajs/plugin-backlog':
         specifier: workspace:*
         version: link:../../plugins/backlog
+      '@quajs/plugin-fonts':
+        specifier: workspace:*
+        version: link:../../plugins/fonts
       '@quajs/plugin-gallery':
         specifier: workspace:*
         version: link:../../plugins/gallery
