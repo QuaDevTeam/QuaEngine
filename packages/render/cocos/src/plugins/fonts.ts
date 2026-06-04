@@ -1,4 +1,5 @@
 import { LogicToRenderEvents } from '@quajs/render-core'
+import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromMetadata } from '../utils'
 import { defineCocosRendererPlugin } from './core'
 
 export function createFontsCocosRendererPlugin() {
@@ -61,9 +62,10 @@ export function createFontsCocosRendererPlugin() {
             await unregisterRecord(key, current)
           }
 
-          const resource = await context.cocos.resolveAsset('fonts', assetName, {
-            targetPackageId: stringValue(face.contentPackageId),
-          })
+          const resource = await resolveAssetWithTargetPackages(context.cocos, 'fonts', assetName, runtimePackageCandidatesFromMetadata({
+            ...(isRecord(face.metadata) ? face.metadata : {}),
+            ...(stringValue(face.contentPackageId) ? { contentPackageId: stringValue(face.contentPackageId) } : {}),
+          }))
           if (!resource)
             continue
 

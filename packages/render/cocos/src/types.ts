@@ -47,8 +47,10 @@ export interface CocosRendererHostContext {
     state?: string
     fadeInMs?: number
     fadeOutMs?: number
+    crossfadeMs?: number
     seekMs?: number
     offsetMs?: number
+    eq?: readonly unknown[]
     automation?: readonly Record<string, unknown>[]
     interruptible?: boolean
     endedPayload?: AudioTrackEventPayload

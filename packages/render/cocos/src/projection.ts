@@ -34,10 +34,12 @@ import {
 import { applyCocosUiControlSkin } from './ui-skin'
 import {
   choiceText,
-  metadataTargetPackageId,
   normalizeBackgroundAssetType,
   positionTransform,
   richTextToPlainText,
+  getJSONWithTargetPackages,
+  resolveAssetWithTargetPackages,
+  runtimePackageCandidatesFromMetadata,
 } from './utils'
 
 export interface RenderCocosDialogueOptions {
@@ -46,6 +48,15 @@ export interface RenderCocosDialogueOptions {
 
 export interface RenderCocosAudioOptions {
   busAutomationStarts?: Map<string, { signature?: string, startedAt: number }>
+}
+
+export interface RenderCocosCharactersOptions {
+  characters?: readonly ViewCharacterProjection[]
+  presencePhases?: ReadonlyMap<string, string>
+}
+
+export interface RenderCocosUiOptions {
+  handledElementIds?: readonly string[]
 }
 
 export async function renderCocosBackground(context: CocosRendererHostContext): Promise<void> {
@@ -62,9 +73,12 @@ export async function renderCocosBackground(context: CocosRendererHostContext): 
   }
   if (background.mode === 'video' && background.video) {
     const node = context.host.nodes.createNode('video-background', { parent: layer })
-    const resource = await context.resolveAsset('video', background.video.assetName, {
-      targetPackageId: metadataTargetPackageId(background.video.metadata || background.metadata),
-    })
+    const resource = await resolveAssetWithTargetPackages(
+      context,
+      'video',
+      background.video.assetName,
+      runtimePackageCandidatesFromMetadata(background.video.metadata || background.metadata),
+    )
     context.host.nodes.setNodeSprite(node, resource, await backgroundSpriteOptions(context, background, 'main', { mode: 'video' }))
     context.setLayerResource('background', 'video:main', resource)
     applyBackgroundTransform(context, node, background)
@@ -75,21 +89,24 @@ export async function renderCocosBackground(context: CocosRendererHostContext): 
     return
   }
   const node = context.host.nodes.createNode('background', { parent: layer })
-  const resource = await context.resolveAsset('images', background.assetName, {
-    targetPackageId: metadataTargetPackageId(background.metadata),
-  })
+  const resource = await resolveAssetWithTargetPackages(
+    context,
+    'images',
+    background.assetName,
+    runtimePackageCandidatesFromMetadata(background.metadata),
+  )
   context.host.nodes.setNodeSprite(node, resource, await backgroundSpriteOptions(context, background, 'main'))
   context.setLayerResource('background', 'image:main', resource)
   applyBackgroundTransform(context, node, background)
 }
 
-export async function renderCocosCharacters(context: CocosRendererHostContext): Promise<void> {
+export async function renderCocosCharacters(context: CocosRendererHostContext, options: RenderCocosCharactersOptions = {}): Promise<void> {
   const layer = context.getLayerNode('characters', 'character-layer', 30)
   context.host.nodes.clearChildren(layer)
   context.releaseLayerResources('characters')
-  const characters = projectCharacters(context.getViewState().characters, context.getViewState().animations, context.host.runtime.now())
+  const characters = options.characters || projectCharacters(context.getViewState().characters, context.getViewState().animations, context.host.runtime.now())
   for (const character of characters) {
-    await renderCharacter(context, layer, character)
+    await renderCharacter(context, layer, character, options.presencePhases?.get(character.id))
   }
 }
 
@@ -201,9 +218,7 @@ export async function renderCocosAudio(context: CocosRendererHostContext, option
     const kind = stringValue(track.kind, 'audio')
     const id = stringValue(track.id, assetName)
     const key = `${kind}:${id}`
-    const resource = await context.resolveAsset('audio', assetName, {
-      targetPackageId: audioTrackPackageId(track),
-    })
+    const resource = await resolveAssetWithTargetPackages(context, 'audio', assetName, audioTrackPackageIds(track))
     if (!resource)
       continue
     activeKeys.push(key)
@@ -219,8 +234,10 @@ export async function renderCocosAudio(context: CocosRendererHostContext, option
       state,
       fadeInMs: numberValue(track.fadeInMs, undefined),
       fadeOutMs: numberValue(track.fadeOutMs, undefined),
+      crossfadeMs: numberValue(track.crossfadeMs, undefined),
       seekMs: numberValue(track.seekMs, undefined),
       offsetMs: numberValue(track.offsetMs, undefined),
+      eq: arrayRecords(track.eq),
       automation: arrayRecords(track.automation),
       interruptible: booleanValue(track.interruptible, kind === 'voice' || kind === 'sfx'),
       endedPayload: audioTrackEndedPayload(track, kind, id, assetName),
@@ -229,12 +246,15 @@ export async function renderCocosAudio(context: CocosRendererHostContext, option
   context.releaseAudioHandles('audio', activeKeys)
 }
 
-export async function renderCocosUi(context: CocosRendererHostContext): Promise<void> {
+export async function renderCocosUi(context: CocosRendererHostContext, options: RenderCocosUiOptions = {}): Promise<void> {
   const layer = context.getLayerNode('ui', 'ui-layer', 90)
   context.host.nodes.clearChildren(layer)
   context.releaseLayerResources('ui')
   const overlays = context.getViewState().ui.overlays || {}
+  const handled = new Set(options.handledElementIds || [])
   for (const [elementId, overlay] of Object.entries(overlays)) {
+    if (handled.has(elementId))
+      continue
     const projected = projectUiOverlay(
       overlay as unknown as Record<string, unknown>,
       elementId,
@@ -377,9 +397,7 @@ async function renderLayeredBackground(
       continue
     const node = context.host.nodes.createNode('background-layer-item', { parent: layer, name: item.id })
     const assetType = normalizeBackgroundAssetType(item.assetType)
-    const resource = await context.resolveAsset(assetType, item.assetName, {
-      targetPackageId: metadataTargetPackageId(item.metadata),
-    })
+    const resource = await resolveAssetWithTargetPackages(context, assetType, item.assetName, runtimePackageCandidatesFromMetadata(item.metadata))
     context.host.nodes.setNodeSprite(node, resource, await backgroundSpriteOptions(context, item, `layer:${item.id}`))
     context.setLayerResource('background', `layer:${item.id}`, resource)
     context.host.nodes.setNodeTransform(node, {
@@ -400,6 +418,7 @@ async function renderCharacter(
   context: CocosRendererHostContext,
   layer: CocosHostNode,
   character: ViewCharacterProjection,
+  presencePhase?: string,
 ): Promise<void> {
   const node = context.host.nodes.createNode('character', { parent: layer, name: character.id })
   context.host.nodes.setNodeVisible(node, character.visible !== false)
@@ -411,6 +430,7 @@ async function renderCharacter(
   context.host.nodes.setNodeMetadata?.(node, {
     characterId: character.id,
     expression: character.expression,
+    presencePhase,
   })
   if (!character.sprite)
     return
@@ -422,15 +442,15 @@ async function renderCharacterSprite(
   root: CocosHostNode,
   character: ViewCharacterProjection,
 ): Promise<void> {
-  const targetPackageId = metadataTargetPackageId(character.metadata)
-  const manifest = await loadSpriteManifest(context, character.sprite, targetPackageId)
+  const targetPackageIds = runtimePackageCandidatesFromMetadata(character.metadata)
+  const manifest = await loadSpriteManifest(context, character.sprite, targetPackageIds)
   if (!manifest) {
-    await renderFallbackCharacterSprite(context, root, character, targetPackageId)
+    await renderFallbackCharacterSprite(context, root, character, targetPackageIds)
     return
   }
   const projection = resolveSpriteProjection(manifest, character.sprite, character.expression)
   if (!projection) {
-    await renderFallbackCharacterSprite(context, root, character, targetPackageId)
+    await renderFallbackCharacterSprite(context, root, character, targetPackageIds)
     return
   }
 
@@ -448,7 +468,7 @@ async function renderCharacterSprite(
       character,
       layer,
       index,
-      targetPackageId,
+      targetPackageIds,
     })
   }
 }
@@ -457,9 +477,9 @@ async function renderFallbackCharacterSprite(
   context: CocosRendererHostContext,
   root: CocosHostNode,
   character: ViewCharacterProjection,
-  targetPackageId?: string,
+  targetPackageIds?: readonly string[],
 ): Promise<void> {
-  const resource = await context.resolveAsset('characters', character.sprite, { targetPackageId })
+  const resource = await resolveAssetWithTargetPackages(context, 'characters', character.sprite, targetPackageIds)
   context.host.nodes.setNodeSprite(root, resource)
   context.setLayerResource('characters', `character:${character.id}`, resource)
 }
@@ -471,10 +491,10 @@ async function renderSpriteLayer(
     character: ViewCharacterProjection
     layer: SpriteResolvedLayer
     index: number
-    targetPackageId?: string
+    targetPackageIds?: readonly string[]
   },
 ): Promise<void> {
-  const { character, layer, index, targetPackageId } = options
+  const { character, layer, index, targetPackageIds } = options
   const projectedLayer = projectSpriteLayerForAnimation(
     layer,
     character.id,
@@ -490,9 +510,9 @@ async function renderSpriteLayer(
     parent: root,
     name: `${character.id}:sprite:${projectedLayer.kind}:${index}`,
   })
-  const resource = await resolveSpriteLayerResource(context, projectedLayer, targetPackageId)
+  const resource = await resolveSpriteLayerResource(context, projectedLayer, targetPackageIds)
   const maskResource = projectedLayer.mask
-    ? await context.resolveAsset('characters', projectedLayer.mask, { targetPackageId })
+    ? await resolveAssetWithTargetPackages(context, 'characters', projectedLayer.mask, targetPackageIds)
     : undefined
   context.host.nodes.setNodeSprite(node, resource, {
     mode: 'sprite',
@@ -546,10 +566,10 @@ async function renderSpriteLayer(
 async function resolveSpriteLayerResource(
   context: CocosRendererHostContext,
   layer: SpriteResolvedLayer,
-  targetPackageId?: string,
+  targetPackageIds?: readonly string[],
 ) {
   try {
-    const resource = await context.resolveAsset('characters', layer.asset, { targetPackageId })
+    const resource = await resolveAssetWithTargetPackages(context, 'characters', layer.asset, targetPackageIds)
     if (resource || !layer.fallback)
       return resource
   }
@@ -557,19 +577,19 @@ async function resolveSpriteLayerResource(
     if (!layer.fallback)
       throw error
   }
-  return await context.resolveAsset('characters', layer.fallback, { targetPackageId })
+  return await resolveAssetWithTargetPackages(context, 'characters', layer.fallback, targetPackageIds)
 }
 
 async function loadSpriteManifest(
   context: CocosRendererHostContext,
   sprite: string | undefined,
-  targetPackageId?: string,
+  targetPackageIds?: readonly string[],
 ): Promise<SpriteManifest | undefined> {
   const reference = resolveSpriteReference(sprite)
-  if (!reference || !context.assets)
+  if (!reference)
     return undefined
   try {
-    return await context.assets.getJSON<SpriteManifest>('characters', reference.manifestPath, { targetPackageId })
+    return await getJSONWithTargetPackages<SpriteManifest>(context, 'characters', reference.manifestPath, targetPackageIds)
   }
   catch {
     return undefined
@@ -622,7 +642,12 @@ async function backgroundSpriteOptions(
     context.setLayerResource('background', `${resourceKey}:mask`, undefined)
     return base
   }
-  const mask = await resolveBackgroundSpriteMask(context, composition.mask, `${resourceKey}:mask`, metadataTargetPackageId(projection.metadata))
+  const mask = await resolveBackgroundSpriteMask(
+    context,
+    composition.mask,
+    `${resourceKey}:mask`,
+    runtimePackageCandidatesFromMetadata(projection.metadata),
+  )
   return {
     ...base,
     blendMode: composition.blendMode,
@@ -641,7 +666,7 @@ async function resolveBackgroundSpriteMask(
   context: CocosRendererHostContext,
   mask: Readonly<BackgroundMaskProjection> | undefined,
   resourceKey: string,
-  targetPackageId?: string,
+  targetPackageIds?: readonly string[],
 ): Promise<CocosHostSpriteMask | undefined> {
   if (!mask) {
     context.setLayerResource('background', resourceKey, undefined)
@@ -652,7 +677,7 @@ async function resolveBackgroundSpriteMask(
     return { ...mask }
   }
   const assetType = normalizeBackgroundAssetType(mask.assetType)
-  const resource = await context.resolveAsset(assetType, mask.assetName, { targetPackageId })
+  const resource = await resolveAssetWithTargetPackages(context, assetType, mask.assetName, targetPackageIds)
   context.setLayerResource('background', resourceKey, resource)
   return {
     ...mask,
@@ -999,11 +1024,13 @@ function syncAudioBuses(
     if (!value || typeof value !== 'object' || Array.isArray(value))
       continue
     const projection = value as Record<string, unknown>
-    const volume = audioBusVolume(projection, bus, automationStarts, now)
+    const automation = arrayRecords(projection.automation)
+    const automationStartedAt = syncAudioAutomationStart(projection, `audioBus:${bus}`, automationStarts, now)
+    const volume = audioBusVolume(projection, automation, automationStartedAt, now)
     context.host.audio.setBusVolume?.(bus, volume)
     if (Array.isArray(projection.eq)) {
       if (context.host.capabilities?.audioEq) {
-        context.host.audio.setBusEq?.(bus, projection.eq)
+        context.host.audio.setBusEq?.(bus, projectEqBands(arrayRecords(projection.eq), automation, now, automationStartedAt))
       }
     }
   }
@@ -1011,20 +1038,27 @@ function syncAudioBuses(
 
 function audioBusVolume(
   projection: Record<string, unknown>,
-  bus: string,
+  automation: readonly Record<string, unknown>[],
+  automationStartedAt: number,
+  now: number,
+): number {
+  const automatedGainDb = projectGainAutomation(automation, now, automationStartedAt)
+  return automatedGainDb === undefined ? audioVolume(projection) : 10 ** (automatedGainDb / 20)
+}
+
+function syncAudioAutomationStart(
+  projection: Record<string, unknown>,
+  key: string,
   automationStarts: Map<string, { signature?: string, startedAt: number }> | undefined,
   now: number,
 ): number {
   const automation = arrayRecords(projection.automation)
   const signature = automation.length > 0 ? JSON.stringify(automation) : undefined
-  const key = `audioBus:${bus}`
   const current = automationStarts?.get(key)
   if (automationStarts && current?.signature !== signature) {
     automationStarts.set(key, { signature, startedAt: now })
   }
-  const startedAt = automationStarts?.get(key)?.startedAt ?? now
-  const automatedGainDb = projectGainAutomation(automation, now, startedAt)
-  return automatedGainDb === undefined ? audioVolume(projection) : 10 ** (automatedGainDb / 20)
+  return automationStarts?.get(key)?.startedAt ?? now
 }
 
 function collectAudioTracks(audio: Record<string, unknown> | undefined): Array<Record<string, unknown>> {
@@ -1050,11 +1084,12 @@ function collectAudioTracks(audio: Record<string, unknown> | undefined): Array<R
   return tracks
 }
 
-function audioTrackPackageId(track: Record<string, unknown>): string | undefined {
+function audioTrackPackageIds(track: Record<string, unknown>): readonly string[] | undefined {
   const contentPackageId = stringValue(track.contentPackageId)
-  if (contentPackageId)
-    return contentPackageId
-  return metadataTargetPackageId(track.metadata as Record<string, unknown> | undefined)
+  return runtimePackageCandidatesFromMetadata({
+    ...(isRecord(track.metadata) ? track.metadata : {}),
+    ...(contentPackageId ? { contentPackageId } : {}),
+  })
 }
 
 function audioVolume(track: Record<string, unknown>): number {
@@ -1075,7 +1110,33 @@ function projectGainAutomation(
   now: number,
   startedAt: number,
 ): number | undefined {
-  const item = automation.find(entry => entry.propertyPath === 'gainDb')
+  return projectAutomationProperty(automation, 'gainDb', now, startedAt)
+}
+
+function projectEqBands(
+  eq: readonly Record<string, unknown>[],
+  automation: readonly Record<string, unknown>[],
+  now: number,
+  startedAt: number,
+): readonly Record<string, unknown>[] {
+  return eq.map((band, index) => {
+    const next = { ...band }
+    for (const property of ['gainDb', 'frequency', 'q', 'detune']) {
+      const value = projectAutomationProperty(automation, `eq[${index}].${property}`, now, startedAt)
+      if (value !== undefined)
+        next[property] = value
+    }
+    return next
+  })
+}
+
+function projectAutomationProperty(
+  automation: readonly Record<string, unknown>[],
+  propertyPath: string,
+  now: number,
+  startedAt: number,
+): number | undefined {
+  const item = automation.find(entry => entry.propertyPath === propertyPath)
   if (!item || !isRecord(item.curve))
     return undefined
   const pointsValue = item.curve.points

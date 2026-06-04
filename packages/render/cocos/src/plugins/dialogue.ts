@@ -2,6 +2,7 @@ import type { DialogueTypewriterProjection } from '@quajs/render-core'
 import { LogicToRenderEvents, projectDialogue } from '@quajs/render-core'
 import { CocosDialogueTypewriterRuntime } from '../dialogue-typewriter'
 import { renderCocosDialogue } from '../projection'
+import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromMetadata } from '../utils'
 import { defineCocosRendererPlugin } from './core'
 
 export function createDialogueCocosRendererPlugin() {
@@ -14,9 +15,10 @@ export function createDialogueCocosRendererPlugin() {
         sound: NonNullable<DialogueTypewriterProjection['sound']>,
         visibleCharacters: number,
       ) => {
-        const resource = await context.cocos.resolveAsset('audio', sound.assetKey, {
-          targetPackageId: sound.contentPackageId,
-        })
+        const resource = await resolveAssetWithTargetPackages(context.cocos, 'audio', sound.assetKey, runtimePackageCandidatesFromMetadata({
+          ...(sound.metadata || {}),
+          ...(sound.contentPackageId ? { contentPackageId: sound.contentPackageId } : {}),
+        }))
         if (!resource)
           return
         const key = `typewriter:${visibleCharacters}:${context.cocos.host.runtime.now()}`

@@ -1,5 +1,4 @@
-import type { AssetType } from '@quajs/assets'
-import type { CocosHostNode, CocosHostResource } from '@quajs/cocos-host'
+import type { CocosHostNode, CocosHostSpriteStateOptions } from '@quajs/cocos-host'
 import type {
   SpriteSkinManifest,
   SpriteSkinStateName,
@@ -13,6 +12,13 @@ import {
   resolveUiControlSkinReference,
   resolveUiSkinState,
 } from '@quajs/render-core'
+import {
+  getJSONWithTargetPackages,
+  resolveAssetWithTargetPackages,
+  runtimePackageCandidatesFromMetadata,
+} from './utils'
+
+const UI_SKIN_STATES: readonly SpriteSkinStateName[] = ['default', 'hover', 'pressed', 'disabled', 'selected']
 
 export interface CocosUiControlSkinOptions {
   layerId: string
@@ -37,7 +43,7 @@ export async function applyCocosUiControlSkin(
   if (!details)
     return
 
-  const manifest = await getJSONWithTargetPackageCandidates<SpriteSkinManifest>(
+  const manifest = await getJSONWithTargetPackages<SpriteSkinManifest>(
     context,
     'data',
     details.manifestPath,
@@ -52,7 +58,8 @@ export async function applyCocosUiControlSkin(
   if (!projection)
     return
 
-  const resource = await resolveAssetWithTargetPackageCandidates(
+  const states = await resolveCocosUiSkinStates(context, manifest, reference, options.layerId, options.resourceKey)
+  const resource = await resolveAssetWithTargetPackages(
     context,
     'images',
     projection.active.asset,
@@ -65,6 +72,7 @@ export async function applyCocosUiControlSkin(
     contentInsets: projection.definition.contentInsets,
     tint: projection.active.tint,
     opacity: projection.active.opacity,
+    states,
     metadata: projection.definition.metadata ? { ...projection.definition.metadata } : undefined,
   })
   if (projection.active.tint)
@@ -84,58 +92,36 @@ export async function applyCocosUiControlSkin(
   })
 }
 
-async function getJSONWithTargetPackageCandidates<T>(
+async function resolveCocosUiSkinStates(
   context: CocosRendererHostContext,
-  type: AssetType,
-  name: string,
-  targetPackageIds: readonly string[],
-): Promise<T | undefined> {
-  if (!context.assets)
-    return undefined
-  const candidates = [undefined, ...targetPackageIds] as Array<string | undefined>
-  for (const targetPackageId of candidates) {
-    try {
-      return await context.assets.getJSON<T>(type, name, targetPackageId ? { targetPackageId } : undefined)
+  manifest: SpriteSkinManifest | undefined,
+  reference: string,
+  layerId: string,
+  resourceKey: string,
+) {
+  const states: Record<string, CocosHostSpriteStateOptions> = {}
+  for (const state of UI_SKIN_STATES) {
+    const projection = resolveSpriteSkin(manifest, reference, state)
+    if (!projection)
+      continue
+    const resource = await resolveAssetWithTargetPackages(
+      context,
+      'images',
+      projection.active.asset,
+      runtimePackageCandidatesFromMetadata(projection.manifest?.metadata),
+    )
+    if (resource) {
+      context.setLayerResource(layerId, `${resourceKey}:state:${state}`, resource)
     }
-    catch {}
-  }
-  return undefined
-}
-
-async function resolveAssetWithTargetPackageCandidates(
-  context: CocosRendererHostContext,
-  type: AssetType,
-  name: string,
-  targetPackageIds: readonly string[],
-): Promise<CocosHostResource | undefined> {
-  const candidates = [undefined, ...targetPackageIds] as Array<string | undefined>
-  for (const targetPackageId of candidates) {
-    try {
-      const resource = await context.resolveAsset(type, name, targetPackageId ? { targetPackageId } : undefined)
-      if (resource)
-        return resource
+    states[state] = {
+      resource,
+      resourceId: resource?.id,
+      tint: projection.active.tint,
+      opacity: projection.active.opacity,
+      metadata: projection.definition.metadata ? { ...projection.definition.metadata } : undefined,
     }
-    catch {}
   }
-  return undefined
+  return states
 }
 
-export function runtimePackageCandidatesFromMetadata(metadata: Readonly<Record<string, unknown>> | undefined): readonly string[] {
-  if (!metadata)
-    return []
-  const candidates = new Set<string>()
-  addCandidate(candidates, metadata.contentPackageId)
-  addCandidate(candidates, metadata.runtimePackageId)
-  addCandidate(candidates, metadata.packageId)
-  const required = metadata.requiredRuntimePackages
-  if (Array.isArray(required)) {
-    for (const packageId of required)
-      addCandidate(candidates, packageId)
-  }
-  return [...candidates]
-}
-
-function addCandidate(candidates: Set<string>, value: unknown): void {
-  if (typeof value === 'string' && value.length > 0)
-    candidates.add(value)
-}
+export { runtimePackageCandidatesFromMetadata } from './utils'
