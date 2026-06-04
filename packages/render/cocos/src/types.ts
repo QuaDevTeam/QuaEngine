@@ -55,7 +55,10 @@ export interface CocosRendererHostContext {
   }) => Promise<CocosHostAudioHandle>
   releaseAudioHandles: (layerId: string, activeKeys?: readonly string[]) => void
   interruptAudioTracks: (kind: string, source?: string) => Promise<void>
-  captureStage: (options?: { mimeType?: string, quality?: number, maxWidth?: number, maxHeight?: number }) => Promise<{
+  captureStage: (
+    options?: { mimeType?: string, quality?: number, maxWidth?: number, maxHeight?: number },
+    policy?: { uiMode?: string },
+  ) => Promise<{
     bytes: Uint8Array
     mimeType: string
     width?: number

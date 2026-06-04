@@ -10,7 +10,8 @@ export function createBacklogCocosRendererPlugin() {
   return defineCocosRendererPlugin({
     name: '@quajs/renderer-cocos/backlog',
     setup(context) {
-      const sync = () => renderBacklogLayer(context)
+      let page = 0
+      const sync = () => renderBacklogLayer(context, page)
       context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
       context.addDisposer(context.cocos.host.input.onInput(async (event) => {
         const metadata = resolveInputMetadataAny(context, event, [
@@ -23,6 +24,10 @@ export function createBacklogCocosRendererPlugin() {
         const entryId = stringValue(metadata.backlogEntryId)
         if (action === 'close') {
           await context.getPipeline().emit(BacklogRenderToLogicEvents.CLOSE_REQUEST, {})
+        }
+        else if (action === 'page') {
+          page = Math.max(0, page + (Number(metadata.backlogPageDelta) || 0))
+          sync()
         }
         else if (action === 'replayVoice' && entryId && metadata.voiceReplay !== false) {
           await context.getPipeline().emit(BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, { entryId })
@@ -38,7 +43,7 @@ export function createBacklogCocosRendererPlugin() {
 
 export const backlogCocosRendererPlugin = createBacklogCocosRendererPlugin()
 
-function renderBacklogLayer(context: CocosRendererPluginContext): void {
+function renderBacklogLayer(context: CocosRendererPluginContext, requestedPage: number): void {
   const projection = context.getViewState().plugins[BACKLOG_PLUGIN_ID] as BacklogProjection | undefined
   const layer = context.cocos.getLayerNode('backlog', 'backlog-layer', 110)
   context.cocos.host.nodes.clearChildren(layer)
@@ -73,13 +78,32 @@ function renderBacklogLayer(context: CocosRendererPluginContext): void {
     metadata: { plugin: 'backlog', backlogAction: 'close' },
   })
 
-  projection.entries.forEach((entry, index) => renderBacklogEntry(context, panel, entry, index, safeArea.x + 28, safeArea.y + 92, safeArea.width - 56))
+  const page = pageItems(projection.entries, requestedPage, 8)
+  page.items.forEach((entry, index) => renderBacklogEntry(context, panel, entry, page.page * 8 + index, index, safeArea.x + 28, safeArea.y + 92, safeArea.width - 56))
+  renderBacklogButton(context, panel, 'backlog:page:prev', 'Prev', {
+    x: safeArea.x + 28,
+    y: safeArea.y + 92 + 8 * 84,
+    width: 96,
+    height: 44,
+    metadata: { plugin: 'backlog', backlogAction: 'page', backlogPageDelta: -1 },
+  })
+  renderBacklogButton(context, panel, 'backlog:page:next', 'Next', {
+    x: safeArea.x + 136,
+    y: safeArea.y + 92 + 8 * 84,
+    width: 96,
+    height: 44,
+    metadata: { plugin: 'backlog', backlogAction: 'page', backlogPageDelta: 1 },
+  })
+  const pageLabel = context.cocos.host.nodes.createNode('backlog-page-label', { parent: panel, name: 'backlog:page:label' })
+  context.cocos.host.nodes.setNodeText(pageLabel, `${page.page + 1}/${page.pageCount}`, { fontSize: 20, color: '#d8d8d8' })
+  context.cocos.host.nodes.setNodeTransform(pageLabel, { x: safeArea.x + 244, y: safeArea.y + 92 + 8 * 84, width: 96, height: 44, zIndex: 20 })
 }
 
 function renderBacklogEntry(
   context: CocosRendererPluginContext,
   parent: CocosHostNode,
   entry: BacklogEntry,
+  absoluteIndex: number,
   index: number,
   x: number,
   startY: number,
@@ -88,7 +112,7 @@ function renderBacklogEntry(
   const y = startY + index * 84
   const node = context.cocos.host.nodes.createNode('backlog-entry', { parent, name: `backlog:${entry.id}` })
   const label = [
-    String(index + 1).padStart(2, '0'),
+    String(absoluteIndex + 1).padStart(2, '0'),
     entry.speaker,
     entry.kind === 'choice' ? entry.choices?.map(choice => choice.text).join(' / ') : entry.text,
   ].filter(Boolean).join('  ')
@@ -119,6 +143,22 @@ function renderBacklogEntry(
         voiceReplay: entry.voiceReplay,
       },
     })
+  }
+}
+
+interface PageResult<T> {
+  items: readonly T[]
+  page: number
+  pageCount: number
+}
+
+function pageItems<T>(items: readonly T[], requestedPage: number, pageSize: number): PageResult<T> {
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize))
+  const page = Math.min(pageCount - 1, Math.max(0, requestedPage))
+  return {
+    items: items.slice(page * pageSize, page * pageSize + pageSize),
+    page,
+    pageCount,
   }
 }
 

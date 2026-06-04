@@ -237,10 +237,11 @@ async function renderSettingsField(
   }
 
   const label = field.control.label || field.name
+  const errors = field.errors || []
   const row = context.cocos.host.nodes.createNode('settings-field', { parent, name: `settings:field:${scope.scope}:${field.pathKey}` })
   context.cocos.host.nodes.setNodeText(row, `${label}: ${stringifySettingsInputValue(field)}`, {
     fontSize: 22,
-    color: field.readonly ? '#aaaaaa' : '#ffffff',
+    color: errors.length > 0 ? '#ffb4b4' : field.readonly ? '#aaaaaa' : '#ffffff',
   })
   context.cocos.host.nodes.setNodeTransform(row, {
     x,
@@ -259,7 +260,7 @@ async function renderSettingsField(
     disabled: field.readonly,
     selected: control === 'switch' || control === 'checkbox' ? Boolean(field.value) : undefined,
   })
-  layout.cursor.y += field.control.description || field.schema.description ? 76 : 58
+  layout.cursor.y += field.control.description || field.schema.description || errors.length > 0 ? 76 : 58
 
   const description = field.control.description || field.schema.description
   if (description) {
@@ -271,6 +272,22 @@ async function renderSettingsField(
       width,
       height: 26,
       zIndex: 2,
+    })
+  }
+  if (errors.length > 0) {
+    const errorNode = context.cocos.host.nodes.createNode('settings-field-error', { parent, name: `settings:field:${scope.scope}:${field.pathKey}:error` })
+    context.cocos.host.nodes.setNodeText(errorNode, errors.map(error => error.message).join('\n'), { fontSize: 18, color: '#ffb4b4' })
+    context.cocos.host.nodes.setNodeTransform(errorNode, {
+      x,
+      y: layout.cursor.y - (description ? 4 : 28),
+      width,
+      height: 26,
+      zIndex: 2,
+    })
+    context.cocos.host.nodes.setNodeMetadata?.(errorNode, {
+      plugin: 'settings',
+      settingsPathKey: field.pathKey,
+      settingsErrors: errors,
     })
   }
 }
@@ -323,11 +340,27 @@ function settingsFieldMetadata(
     settingsReadonly: field.readonly,
     settingsValue: field.value,
     settingsEncodedValue: encodeSettingsOptionValue(field.value),
+    settingsErrors: field.errors,
+    settingsCustomComponent: field.control.component,
+    settingsCustomProps: field.control.props,
   }
 }
 
 function settingsNodeControl(field: SettingsFieldFormProjection, control: string) {
   const value = stringifySettingsInputValue(field)
+  if (control === 'custom') {
+    return {
+      kind: 'panel' as const,
+      value,
+      disabled: field.readonly,
+      readonly: field.readonly,
+      label: field.control.label || field.name,
+      metadata: {
+        component: field.control.component,
+        props: field.control.props,
+      },
+    }
+  }
   if (control === 'switch' || control === 'checkbox') {
     return {
       kind: 'toggle' as const,
