@@ -10,9 +10,15 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 ### Active development
 - Treat all QuaEngine packages, APIs, schemas, examples, and docs as active pre-release work.
 - Do not preserve deprecated APIs, legacy aliases, migration adapters, compatibility branches, fallback paths, or old/new dual implementations.
-- When changing a contract, update in-repo callers, tests, examples, and docs directly to the new shape.
+- When changing a contract, update in-repo callers, tests, examples, docs, and relevant `.codex/skills/*/SKILL.md` files directly to the new shape.
 - Remove obsolete code in the same change that makes it obsolete.
 - Keep code simple and explicit; add abstraction only when it serves the current architecture, not compatibility with old behavior.
+
+### Skill documentation
+- Every user-facing feature change must update the relevant project skill in the same change. This includes new APIs, removed APIs, decorator changes, QuaScript syntax/tooling behavior, Quack config fields, renderer plugin entries, runtime package manifest fields, settings scopes, examples, and validation commands.
+- Package-owned features must keep package-owned skills current. For example, audio changes update `quajs-plugin-audio`, background changes update `quajs-plugin-background`, Quack config changes update `quack-configuration`, and QuaScript language changes update `quascript-authoring`.
+- Adding a new plugin/feature package should add a matching `.codex/skills/<package-or-domain>/SKILL.md` with package responsibility, setup, runtime API, QuaScript decorators if any, renderer/state boundary, runtime package notes if any, validation, and a review checklist.
+- Skills should stay concise and operational. Do not duplicate entire READMEs; summarize stable usage and point Codex toward the exact package behavior it needs to modify or review.
 
 ### Dynamic runtime QPK packages
 - Treat AI generated incremental content as Quack-built Runtime Packages. Do not add a loose single-resource push path for generated assets, scripts, story graph, store, audio, sprite, animation, or plugin updates.
@@ -135,6 +141,7 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Ask whether same-scene continuation across multiple QPKs preserves read progress, sprite/background diffs, animation fill state, and audio state.
 - Ask whether store migrations are declared, idempotent, and non-destructive.
 - Ask whether dynamic JS/plugin loading is verified through trust policy and implemented through injected/platform loaders.
+- Ask whether user-facing feature, decorator, config, or manifest changes update the relevant project skill in `.codex/skills`.
 - Reject any renderer logic that becomes authoritative.
 - Reject WebAudio autoplay handling that treats browser policy blocking as a game-state error or blocks renderer synchronization while waiting for permission.
 - Reject framework renderer changes that duplicate object URL, lifecycle, animation projection, or WebAudio runtime code already owned by `@quajs/renderer-web`.

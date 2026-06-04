@@ -79,6 +79,7 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 
 #### Completed Foundations
 - **Workspace structure**: The repo is organized around `build`, `core`, `platform`, `plugins`, `render`, and `utils` package groups.
+- **Skill documentation is part of feature work**: Any user-facing feature change must update the relevant `.codex/skills/*/SKILL.md` file in the same change. New plugin/feature packages should add a matching skill covering responsibility, setup, runtime API, QuaScript decorators if any, renderer/state boundary, runtime package notes if any, validation, and review checklist.
 - **Single eventbus contract**: `@quajs/pipeline` remains the only eventbus. Renderer communication uses `@quajs/render-core` typed contracts and thin helpers over pipeline.
 - **Engine-owned state**: `@quajs/engine` owns runtime, view, UI overlay, character/dialogue/choice, and audio intent state. Renderers project this state and send user intent events only.
 - **Background feature boundary**: Background is a feature plugin, not engine/global script API. Engine core only exposes the low-level `setBackgroundProjection` state write path used by plugins.
