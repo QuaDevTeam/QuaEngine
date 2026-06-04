@@ -77,6 +77,25 @@ const displayName = scope.name
     expect(variables.map(item => item.label)).toContain('scope')
   })
 
+  it('suggests registered character profile ids and aliases for speakers', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'quajs-lsp-'))
+    mkdirSync(join(projectRoot, 'assets', 'characters'), { recursive: true })
+    writeFileSync(join(projectRoot, 'assets', 'characters', 'character-profiles.json'), JSON.stringify({
+      characters: [{
+        id: 'lin.child',
+        displayName: 'Lin',
+        aliases: ['lin'],
+      }],
+    }), 'utf-8')
+
+    const completions = await getQuaScriptCompletions('Li', { line: 0, character: 2 }, { projectRoot })
+    const labels = completions.map(item => item.label)
+
+    expect(labels).toContain('lin.child')
+    expect(labels).toContain('Lin')
+    expect(labels).toContain('lin')
+  })
+
   it('reports semantic diagnostics from mapped TypeScript expressions', async () => {
     const analysis = await analyzeQuaScript(`
 <script lang="ts">

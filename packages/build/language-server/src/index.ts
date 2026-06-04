@@ -7,7 +7,7 @@ import type {
   QuaScriptToolingConfig,
   SourceRange,
 } from '@quajs/script-compiler'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { extname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getDiscoveredLanguageContributions } from '@quajs/plugin-discovery'
@@ -203,13 +203,7 @@ export async function getQuaScriptCompletions(
   }
 
   if (isSpeakerContext(beforeCursor)) {
-    const analysis = await analyzeQuaScript(source, options)
-    return [
-      ...new Set([
-        ...analysis.characters,
-        ...readCharacterNamesFromAssets(options.projectRoot),
-      ]),
-    ].map(label => ({
+    return readCharacterNames(source, options.projectRoot).map(label => ({
       label,
       kind: 'character' as const,
       detail: 'QuaScript character',
@@ -658,12 +652,61 @@ function readCharacterNamesFromAssets(projectRoot?: string): string[] {
     .map(entry => entry.name)
 }
 
+function readCharacterNamesFromProfiles(projectRoot?: string): string[] {
+  if (!projectRoot) {
+    return []
+  }
+
+  const candidates = [
+    join(projectRoot, 'assets', 'characters', 'characters.json'),
+    join(projectRoot, 'assets', 'characters', 'character-profiles.json'),
+    join(projectRoot, 'src', 'game', 'characters.json'),
+  ]
+  return candidates.flatMap((filePath) => {
+    if (!existsSync(filePath)) {
+      return []
+    }
+    try {
+      return extractCharacterNamesFromProfileJson(JSON.parse(readFileSync(filePath, 'utf-8')))
+    }
+    catch {
+      return []
+    }
+  })
+}
+
+function extractCharacterNamesFromProfileJson(value: unknown): string[] {
+  const records = Array.isArray(value)
+    ? value
+    : value && typeof value === 'object'
+      ? Array.isArray((value as { characters?: unknown }).characters)
+          ? (value as { characters: unknown[] }).characters
+          : Object.values(value as Record<string, unknown>)
+      : []
+  return records.flatMap((record) => {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) {
+      return []
+    }
+    const profile = record as Record<string, unknown>
+    const aliases = Array.isArray(profile.aliases)
+      ? profile.aliases.filter((alias): alias is string => typeof alias === 'string' && alias.length > 0)
+      : []
+    return [
+      typeof profile.id === 'string' ? profile.id : undefined,
+      typeof profile.displayName === 'string' ? profile.displayName : undefined,
+      typeof profile.name === 'string' ? profile.name : undefined,
+      ...aliases,
+    ].filter((name): name is string => Boolean(name))
+  })
+}
+
 function readCharacterNames(source: string, projectRoot?: string): string[] {
   const parsed = new QuaScriptParser().parse(parseQuaScriptDocument(source).dslBody)
   return [
     ...new Set([
       ...parsed.characters,
       ...readCharacterNamesFromAssets(projectRoot),
+      ...readCharacterNamesFromProfiles(projectRoot),
     ]),
   ]
 }

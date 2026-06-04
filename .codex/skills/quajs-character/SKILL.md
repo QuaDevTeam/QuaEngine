@@ -35,15 +35,19 @@ await hideWithEngine(engine, 'Yuki')
 
 Character positions and motion values are logical stage units.
 
+Character identity can be registered with `registerCharacter(s)` profiles. String refs resolve by `id` first, then by a unique `displayName`/`name`/`alias`; ambiguous display names must use an explicit id, typically through `@Speaker(id)` in QuaScript. Profiles may provide `speaker`, `speakerStyle`, `spriteBase`, `spriteManifest`, `sprites`, and `expressions` so sprite short keys such as `sad` can resolve before renderer projection.
+
 ## QuaScript Decorators
 
 The package exports mappings and compiler lowering from `@quajs/character/script-compiler`.
 
 ```qs
-@ShowCharacter('Yuki', 'characters/yuki/base.png', 'smile', 960, 640)
+@Speaker('yuki.main')
+@ShowCharacter({ sprite: 'smile', position: { x: 960, y: 640 } })
+@SpeakerStyle({ color: '#7cc7ff', fontSize: 28, fontFamily: 'Qua Serif' })
 Yuki: I'm here.
 
-@SetSprite('characters/yuki/happy.png')
+@SetSprite('happy')
 @SetExpression('happy')
 Yuki: That worked.
 
@@ -53,8 +57,11 @@ Narrator: Yuki steps closer.
 
 Decorators:
 
+- `@Speaker(idOrAlias)`: dialogue-line only; resolves current speaker by character id or unique alias/display name.
+- `@SpeakerName(value)`: dialogue-line only; overrides displayed speaker rich text/string for one line.
+- `@SpeakerStyle(style)`: dialogue-line only; overrides displayed speaker style for one line.
 - `@SetSprite(asset, character?)`: sets sprite for explicit character or current dialogue speaker.
-- `@ShowCharacter(character?, sprite?, expression?, x?, y?, layer?)`: shows a character projection.
+- `@ShowCharacter()`, `@ShowCharacter(options)`, `@ShowCharacter(character)`, `@ShowCharacter(character, options)`: shows a character projection. The zero-arg/options forms require dialogue context and use the resolved current speaker. Do not use `undefined` placeholders.
 - `@HideCharacter(character?)`: hides explicit character or current speaker.
 - `@MoveCharacter(character?, x?, y?, scale?, rotation?, anchor?)`: moves explicit character or current speaker.
 - `@SetExpression(expression, character?)`: sets expression for explicit character or current speaker.
