@@ -46,7 +46,7 @@ import {
 } from './contracts'
 import {
   decorators,
-} from './script-compiler'
+} from './decorators'
 
 const DEFAULT_PROFILE_ID = 'default'
 const STORY_GRAPH_PLUGIN_ID = 'storyGraph' as const
@@ -156,10 +156,9 @@ export type {
 } from './contracts'
 
 export {
-  createGalleryDecoratorCompiler,
   galleryDecoratorMappings,
-  scriptCompiler,
-} from './script-compiler'
+  decorators,
+} from './decorators'
 
 export interface GalleryPluginOptions {
   profileId?: string
@@ -592,7 +591,6 @@ export const metadata = {
 } as const
 
 export const Plugin = GalleryPlugin
-export { decorators }
 
 async function selectGalleryCatalogWithEngine(engine: QuaEngineInterface, catalogId?: string): Promise<void> {
   const runtimeState = getRequiredGalleryRuntimeState(engine)

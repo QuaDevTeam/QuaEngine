@@ -37,6 +37,7 @@
     "@quajs/plugin-background": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
+    "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",

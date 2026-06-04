@@ -1,15 +1,7 @@
 import * as t from '@babel/types'
+import { galleryDecoratorMappings } from './decorators'
 
-export const galleryDecoratorMappings = {
-  UnlockGallery: {
-    function: 'unlockGalleryEntryWithEngine',
-    module: '@quajs/plugin-gallery',
-  },
-  OpenGalleryScene: {
-    function: 'openGallerySceneWithEngine',
-    module: '@quajs/plugin-gallery',
-  },
-} as const
+export { galleryDecoratorMappings } from './decorators'
 
 export function createGalleryDecoratorCompiler() {
   return {

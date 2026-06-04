@@ -85,6 +85,11 @@ button.is-active {
 .qua-backlog-entry-meta,
 .qua-backlog-entry-voice,
 .qua-backlog-close,
+.qua-gallery-layer,
+.qua-gallery-header,
+.qua-gallery-toolbar,
+.qua-gallery-entry-badges,
+.qua-gallery-content-tabs,
 .qua-save-load-mode-tabs,
 .qua-save-slot-grid,
 .qua-settings-header,
@@ -97,6 +102,10 @@ button.is-active {
 .qua-dialogue-text,
 .qua-backlog-entry-content,
 .qua-backlog-entry-text,
+.qua-gallery-entry-summary,
+.qua-gallery-detail-summary,
+.qua-gallery-detail-description,
+.qua-gallery-content-text,
 .qua-confirm-description,
 .qua-settings-field-description,
 .qua-settings-scope-description,
@@ -1388,11 +1397,499 @@ button.is-active {
   letter-spacing: 0.08em;
 }
 
+.game-root[data-system-overlay] .qua-gallery-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  width: min(1180px, 92vw);
+  height: min(760px, 86vh);
+  margin: auto;
+  padding: clamp(18px, 3vw, 28px);
+  overflow: hidden;
+  border: 1px solid rgba(245, 226, 190, 0.32);
+  border-radius: 2px;
+  background:
+    linear-gradient(180deg, rgba(18, 20, 28, 0.96), rgba(5, 6, 10, 0.97)),
+    rgba(6, 7, 11, 0.96);
+  box-shadow:
+    0 32px 120px rgba(0, 0, 0, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: vn-panel-enter 220ms cubic-bezier(0.19, 1, 0.22, 1) both;
+}
+
+.game-root[data-system-overlay] .qua-gallery-layer::before {
+  position: absolute;
+  top: 0;
+  right: 22px;
+  left: 22px;
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(255, 226, 166, 0.72), transparent);
+}
+
+.game-root[data-system-overlay] .qua-gallery-header,
+.game-root[data-system-overlay] .qua-gallery-toolbar {
+  position: relative;
+  z-index: 1;
+}
+
+.game-root[data-system-overlay] .qua-gallery-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(245, 226, 190, 0.16);
+}
+
+.game-root[data-system-overlay] .qua-gallery-heading {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.game-root[data-system-overlay] .qua-gallery-title {
+  margin: 0;
+  color: #fff8ea;
+  font-size: clamp(25px, 3.2vw, 38px);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.game-root[data-system-overlay] .qua-gallery-meta,
+.game-root[data-system-overlay] .qua-gallery-section-title,
+.game-root[data-system-overlay] .qua-gallery-toolbar-counter,
+.game-root[data-system-overlay] .qua-gallery-search-label,
+.game-root[data-system-overlay] .qua-gallery-catalog-count,
+.game-root[data-system-overlay] .qua-gallery-entry-state,
+.game-root[data-system-overlay] .qua-gallery-entry-tag,
+.game-root[data-system-overlay] .qua-gallery-detail-state {
+  margin: 0;
+  font-family: "SFMono-Regular", "Menlo", monospace;
+  font-size: 10px;
+  line-height: 1.1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.game-root[data-system-overlay] .qua-gallery-meta,
+.game-root[data-system-overlay] .qua-gallery-section-title,
+.game-root[data-system-overlay] .qua-gallery-search-label {
+  color: rgba(255, 226, 166, 0.82);
+}
+
+.game-root[data-system-overlay] .qua-gallery-close {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(245, 226, 190, 0.24);
+  border-radius: 4px;
+  background: rgba(255, 248, 234, 0.9);
+  color: #0d0d12;
+  font-family: "SFMono-Regular", "Menlo", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-shadow: none;
+}
+
+.game-root[data-system-overlay] .qua-gallery-close:hover,
+.game-root[data-system-overlay] .qua-gallery-close:focus-visible {
+  border-color: rgba(129, 229, 255, 0.72);
+  background: #fff1c2;
+  color: #080a0f;
+  text-shadow: none;
+}
+
+.game-root[data-system-overlay] .qua-gallery-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+  gap: 10px;
+  align-items: end;
+  padding: 14px 0 16px;
+}
+
+.game-root[data-system-overlay] .qua-gallery-search {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.game-root[data-system-overlay] .qua-gallery-search-input {
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(245, 226, 190, 0.22);
+  border-radius: 3px;
+  background: rgba(5, 7, 11, 0.66);
+  color: #fff8ea;
+  color-scheme: dark;
+  font-family:
+    "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Noto Sans CJK SC",
+    system-ui, sans-serif;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.game-root[data-system-overlay] .qua-gallery-search-input:focus {
+  outline: 1px solid rgba(129, 229, 255, 0.72);
+  outline-offset: 2px;
+}
+
+.game-root[data-system-overlay] .qua-gallery-toolbar-toggle,
+.game-root[data-system-overlay] .qua-gallery-toolbar-counter {
+  min-height: 38px;
+  align-self: end;
+  border: 1px solid rgba(245, 226, 190, 0.22);
+  border-radius: 3px;
+}
+
+.game-root[data-system-overlay] .qua-gallery-toolbar-toggle {
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(247, 242, 234, 0.72);
+}
+
+.game-root[data-system-overlay] .qua-gallery-toolbar-toggle.is-active {
+  border-color: rgba(129, 229, 255, 0.66);
+  background: rgba(129, 229, 255, 0.14);
+  color: #d8f8ff;
+}
+
+.game-root[data-system-overlay] .qua-gallery-toolbar-counter {
+  display: inline-grid;
+  min-width: 64px;
+  padding: 0 12px;
+  color: rgba(247, 242, 234, 0.58);
+  place-items: center;
+}
+
+.game-root[data-system-overlay] .qua-gallery-body {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(132px, 0.42fr) minmax(310px, 1.18fr) minmax(260px, 0.9fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.game-root[data-system-overlay] .qua-gallery-catalog-pane,
+.game-root[data-system-overlay] .qua-gallery-entry-pane,
+.game-root[data-system-overlay] .qua-gallery-detail-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(245, 226, 190, 0.16);
+  background:
+    linear-gradient(180deg, rgba(18, 22, 31, 0.74), rgba(6, 7, 11, 0.8));
+}
+
+.game-root[data-system-overlay] .qua-gallery-catalog-list,
+.game-root[data-system-overlay] .qua-gallery-entry-grid,
+.game-root[data-system-overlay] .qua-gallery-detail-pane {
+  scrollbar-color: rgba(245, 226, 190, 0.36) rgba(255, 255, 255, 0.04);
+}
+
+.game-root[data-system-overlay] .qua-gallery-catalog-list {
+  display: grid;
+  align-content: start;
+  min-height: 0;
+  gap: 8px;
+  overflow: auto;
+}
+
+.game-root[data-system-overlay] .qua-gallery-catalog-button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid rgba(245, 226, 190, 0.2);
+  background:
+    linear-gradient(90deg, rgba(9, 12, 18, 0.9), rgba(23, 27, 37, 0.62));
+  color: rgba(255, 250, 242, 0.84);
+  text-align: left;
+}
+
+.game-root[data-system-overlay] .qua-gallery-catalog-button.is-selected {
+  border-color: rgba(129, 229, 255, 0.5);
+  background:
+    linear-gradient(90deg, rgba(17, 48, 62, 0.76), rgba(10, 12, 18, 0.84));
+  color: #d8f8ff;
+}
+
+.game-root[data-system-overlay] .qua-gallery-catalog-title {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-family: "SFMono-Regular", "Menlo", monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.game-root[data-system-overlay] .qua-gallery-catalog-count {
+  color: rgba(255, 226, 166, 0.7);
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-height: 0;
+  margin: 0;
+  padding: 0 4px 0 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-item {
+  min-width: 0;
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-card {
+  display: grid;
+  grid-template-rows: auto minmax(90px, 1fr);
+  width: 100%;
+  min-height: 228px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(245, 226, 190, 0.2);
+  border-radius: 2px;
+  background:
+    linear-gradient(180deg, rgba(20, 24, 33, 0.9), rgba(7, 8, 12, 0.94));
+  color: #fff8ea;
+  text-align: left;
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-card:hover,
+.game-root[data-system-overlay] .qua-gallery-entry-card:focus-visible,
+.game-root[data-system-overlay] .qua-gallery-entry-card.is-selected {
+  border-color: rgba(255, 226, 166, 0.64);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 44px rgba(0, 0, 0, 0.34);
+  transform: none;
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-card.is-selected {
+  border-color: rgba(129, 229, 255, 0.62);
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-preview,
+.game-root[data-system-overlay] .qua-gallery-detail-preview,
+.game-root[data-system-overlay] .qua-gallery-content-panel {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(129, 229, 255, 0.08), transparent 42%),
+    rgba(0, 0, 0, 0.24);
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-preview {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-preview::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent 52%, rgba(0, 0, 0, 0.28)),
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: auto, 100% 6px;
+  opacity: 0.54;
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-card.is-locked .qua-gallery-entry-preview::before {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  content: "LOCKED";
+  background: rgba(3, 4, 7, 0.58);
+  color: rgba(255, 226, 166, 0.86);
+  font-family: "SFMono-Regular", "Menlo", monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  place-items: center;
+  text-shadow: 0 0 16px rgba(255, 194, 86, 0.38);
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-card.is-locked .qua-gallery-asset-preview {
+  filter: blur(8px) grayscale(0.9) brightness(0.46);
+  transform: scale(1.06);
+}
+
+.game-root[data-system-overlay] .qua-gallery-asset-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.game-root[data-system-overlay] .qua-gallery-asset-preview.is-detail,
+.game-root[data-system-overlay] .qua-gallery-detail-preview .qua-gallery-asset-preview {
+  max-height: 260px;
+  object-fit: contain;
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-body {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 7px;
+  padding: 11px;
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-title,
+.game-root[data-system-overlay] .qua-gallery-detail-title {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #fff8ea;
+  font-family:
+    "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Noto Sans CJK SC",
+    system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-summary,
+.game-root[data-system-overlay] .qua-gallery-detail-summary,
+.game-root[data-system-overlay] .qua-gallery-detail-description,
+.game-root[data-system-overlay] .qua-gallery-empty {
+  margin: 0;
+  color: rgba(247, 242, 234, 0.56);
+  font-family:
+    "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Noto Sans CJK SC",
+    system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-badges,
+.game-root[data-system-overlay] .qua-gallery-content-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-state,
+.game-root[data-system-overlay] .qua-gallery-entry-tag,
+.game-root[data-system-overlay] .qua-gallery-detail-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 6px;
+  border: 1px solid rgba(245, 226, 190, 0.18);
+  color: rgba(247, 242, 234, 0.56);
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-state.is-unlocked,
+.game-root[data-system-overlay] .qua-gallery-detail-state.is-unlocked {
+  border-color: rgba(129, 229, 255, 0.28);
+  color: #d8f8ff;
+}
+
+.game-root[data-system-overlay] .qua-gallery-entry-state.is-locked,
+.game-root[data-system-overlay] .qua-gallery-detail-state.is-locked {
+  border-color: rgba(255, 191, 96, 0.24);
+  color: rgba(255, 226, 166, 0.72);
+}
+
+.game-root[data-system-overlay] .qua-gallery-detail-pane {
+  display: block;
+  overflow: auto;
+}
+
+.game-root[data-system-overlay] .qua-gallery-detail-pane > .qua-gallery-section-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+  background: rgba(10, 12, 18, 0.92);
+}
+
+.game-root[data-system-overlay] .qua-gallery-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.game-root[data-system-overlay] .qua-gallery-detail-heading {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.game-root[data-system-overlay] .qua-gallery-detail-title {
+  font-size: 18px;
+}
+
+.game-root[data-system-overlay] .qua-gallery-detail-preview {
+  aspect-ratio: 16 / 9;
+  margin: 12px 0;
+  border: 1px solid rgba(245, 226, 190, 0.14);
+}
+
+.game-root[data-system-overlay] .qua-gallery-content-tab {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(245, 226, 190, 0.18);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(247, 242, 234, 0.68);
+}
+
+.game-root[data-system-overlay] .qua-gallery-content-tab.is-selected {
+  border-color: rgba(129, 229, 255, 0.52);
+  color: #d8f8ff;
+}
+
+.game-root[data-system-overlay] .qua-gallery-content-panel {
+  margin-top: 10px;
+  border: 1px solid rgba(245, 226, 190, 0.14);
+}
+
+.game-root[data-system-overlay] .qua-gallery-content-text,
+.game-root[data-system-overlay] .qua-gallery-content-custom {
+  margin: 0;
+  padding: 12px;
+  color: rgba(255, 250, 242, 0.88);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .qua-settings-panel button,
 .qua-backlog-panel button,
 .qua-menu-overlay button,
 .qua-confirm-overlay button,
-.qua-save-load-panel button {
+.qua-save-load-panel button,
+.qua-gallery-layer button {
   border-radius: 0;
 }
 
@@ -1457,6 +1954,7 @@ button.is-active {
   .game-root[data-system-overlay] .qua-save-load-panel,
   .game-root[data-system-overlay] .qua-settings-panel,
   .game-root[data-system-overlay] .qua-confirm-overlay,
+  .game-root[data-system-overlay] .qua-gallery-layer,
   .game-root[data-system-overlay] .qua-save-slot-item {
     animation-duration: 1ms !important;
     animation-delay: 0ms !important;
@@ -1503,9 +2001,69 @@ button.is-active {
 
   .game-root[data-system-overlay] .qua-save-load-panel,
   .game-root[data-system-overlay] .qua-settings-panel,
-  .game-root[data-system-overlay] .qua-backlog-panel {
+  .game-root[data-system-overlay] .qua-backlog-panel,
+  .game-root[data-system-overlay] .qua-gallery-layer {
     width: min(560px, 92vw);
     max-height: 82vh;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-layer {
+    grid-template-rows: auto auto minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-header,
+  .game-root[data-system-overlay] .qua-gallery-detail-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-close {
+    align-self: flex-start;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-toolbar {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-toolbar-toggle,
+  .game-root[data-system-overlay] .qua-gallery-toolbar-counter {
+    align-self: stretch;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-body {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-catalog-pane,
+  .game-root[data-system-overlay] .qua-gallery-entry-pane,
+  .game-root[data-system-overlay] .qua-gallery-detail-pane {
+    overflow: visible;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-catalog-list {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-catalog-button {
+    flex: 0 0 min(220px, 72vw);
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-entry-grid {
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-entry-card {
+    min-height: 0;
+  }
+
+  .game-root[data-system-overlay] .qua-gallery-detail-preview {
+    max-height: 240px;
   }
 
   .game-root[data-system-overlay] .qua-save-slot-grid,
