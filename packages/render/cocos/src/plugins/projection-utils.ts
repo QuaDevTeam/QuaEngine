@@ -110,6 +110,36 @@ export function resolveInputMetadata(
   return context.cocos.host.nodes.hitTest?.(context.cocos.getRootNode(), point, { metadataKey })?.metadata
 }
 
+export function resolveInputMetadataAny(
+  context: CocosRendererPluginContext,
+  event: CocosHostInputEvent,
+  metadataKeys: readonly string[],
+): Record<string, unknown> | undefined {
+  if (event.kind !== 'pointer' || event.phase !== 'down')
+    return undefined
+  if (hasAnyMetadataKey(event.metadata, metadataKeys))
+    return event.metadata
+  if (event.targetNode) {
+    const metadata = context.cocos.host.nodes.getNodeMetadata?.(event.targetNode)
+    if (hasAnyMetadataKey(metadata, metadataKeys))
+      return metadata
+  }
+  const point = clientPointToStageLogical(context.cocos.getStageLayout(), {
+    clientX: event.x ?? 0,
+    clientY: event.y ?? 0,
+  })
+  for (const metadataKey of metadataKeys) {
+    const metadata = context.cocos.host.nodes.hitTest?.(context.cocos.getRootNode(), point, { metadataKey })?.metadata
+    if (metadata)
+      return metadata
+  }
+  return undefined
+}
+
+function hasAnyMetadataKey(metadata: Record<string, unknown> | undefined, keys: readonly string[]): metadata is Record<string, unknown> {
+  return Boolean(metadata && keys.some(key => metadata[key] !== undefined))
+}
+
 function defaultItemLabel(item: Record<string, unknown>, index: number): string {
   return stringValue(item.title)
     || stringValue(item.label)

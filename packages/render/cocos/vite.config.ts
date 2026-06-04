@@ -51,6 +51,7 @@ export default defineConfig({
         '@quajs/plugin-gallery/contracts',
         '@quajs/plugin-settings/contracts',
         '@quajs/plugin-settings/form',
+        '@quajs/plugin-sprite/contracts',
         '@quajs/render-core',
       ],
       output: {

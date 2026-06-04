@@ -27,6 +27,7 @@ export interface CocosRendererHostContext {
   rendererId?: string
   getViewState: () => RendererPluginContext['getViewState'] extends () => infer T ? T : never
   getActions: () => RendererActions
+  registerAdvanceInterceptor: (interceptor: (source?: string) => boolean | Promise<boolean>) => () => void
   getStageLayout: () => ResolvedStageLayout
   getRootNode: () => CocosHostNode
   getLayerNode: (id: string, kind?: string, order?: number) => CocosHostNode
@@ -40,6 +41,7 @@ export interface CocosRendererHostContext {
     playbackRate?: number
     bus?: string
     playing?: boolean
+    playAt?: number
     endedPayload?: AudioTrackEventPayload
   }) => Promise<CocosHostAudioHandle>
   releaseAudioHandles: (layerId: string, activeKeys?: readonly string[]) => void
