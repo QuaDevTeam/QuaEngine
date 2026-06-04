@@ -21,7 +21,9 @@ describe('Cocos asset target metadata', () => {
     const outputDir = join(dir, 'dist')
     const output = join(outputDir, 'bundle.qpk')
     await mkdir(source, { recursive: true })
+    await mkdir(join(source, 'images'), { recursive: true })
     await writeFile(join(source, 'story.json'), JSON.stringify({ ok: true }))
+    await writeFile(join(source, 'images', 'hero.png'), new Uint8Array([1, 2, 3]))
 
     const bundler = new QuackBundler({
       source,
@@ -73,7 +75,9 @@ describe('Cocos asset target metadata', () => {
     const outputDir = join(dir, 'dist')
     const output = join(outputDir, 'bundle.qpk')
     await mkdir(source, { recursive: true })
+    await mkdir(join(source, 'images'), { recursive: true })
     await writeFile(join(source, 'story.json'), JSON.stringify({ ok: true }))
+    await writeFile(join(source, 'images', 'hero.png'), new Uint8Array([1, 2, 3]))
 
     const bundler = new QuackBundler({
       source,
@@ -144,6 +148,9 @@ describe('Cocos asset target metadata', () => {
         fonts: 'qpk',
       },
     })
+    expect(mobile.assets.has('assets/images/hero.png')).toBe(false)
+    expect(mobile.manifest.assets.images?.['hero.png'].path).toBe('assets/resources/qua-hybrid/images/hero.png')
+    expect(await readFile(join(outputDir, 'assets/resources/qua-hybrid/images/hero.png'))).toEqual(Buffer.from([1, 2, 3]))
     expect(disabled.manifest.assetTarget?.cocos?.hybrid).toEqual({
       enabled: false,
       resourceRoot: 'assets/qua-native',
@@ -156,6 +163,7 @@ describe('Cocos asset target metadata', () => {
         fonts: 'qpk',
       },
     })
+    expect(disabled.assets.has('assets/images/hero.png')).toBe(true)
     expect(custom.manifest.assetTarget?.cocos?.hybrid).toEqual({
       enabled: true,
       resourceRoot: 'assets/native',

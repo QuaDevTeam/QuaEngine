@@ -20,8 +20,8 @@ import type {
 } from './types'
 import { createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
-import { mkdir, readFile, rename } from 'node:fs/promises'
-import { basename, dirname, resolve } from 'node:path'
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { basename, dirname, isAbsolute, relative, resolve } from 'node:path'
 import { createLogger } from '@quajs/logger'
 import { compileLocalizedQuaScriptModuleToTsAsync, compileQuaScriptModuleToTsAsync, extractQuaScriptStoryDeclaration } from '@quajs/script-compiler'
 import { isValidSemverVersion } from '@quajs/utils'
@@ -306,6 +306,7 @@ export class QuackBundler extends EventEmitter {
       manifest.merkleRoot = root
       manifest.runtimePackage = withRuntimePackageIntegrity(normalizedConfig.runtimePackage, root)
       manifest.assetTarget = normalizedConfig.assetTarget ? createAssetTargetManifest(normalizedConfig.assetTarget) : undefined
+      const { bundleAssets, nativeAssets } = await applyCocosHybridAssetSplit(assets, manifest, normalizedConfig.output)
       await this.applyManifestSignature(manifest, normalizedConfig)
 
       if (options.workspaceBundle) {
@@ -327,7 +328,7 @@ export class QuackBundler extends EventEmitter {
 
       if (normalizedConfig.format === 'zip') {
         const zipBundler = new ZipBundler()
-        await zipBundler.createBundle(assets, manifest, tempBundlePath)
+        await zipBundler.createBundle(bundleAssets, manifest, tempBundlePath)
       }
       else {
         const qpkBundler = new QPKBundler(
@@ -336,11 +337,14 @@ export class QuackBundler extends EventEmitter {
           normalizedConfig.encryption.key,
           normalizedConfig.encryption.plugin,
         )
-        await qpkBundler.createBundle(assets, manifest, tempBundlePath, {
+        await qpkBundler.createBundle(bundleAssets, manifest, tempBundlePath, {
           compress: normalizedConfig.compression.algorithm !== 'none',
           encrypt: normalizedConfig.encryption.enabled,
           compressionLevel: normalizedConfig.compression.level,
         })
+      }
+      if (nativeAssets.length > 0) {
+        logger.info(`Wrote ${nativeAssets.length} Cocos hybrid native assets outside the ${normalizedConfig.format.toUpperCase()} payload`)
       }
 
       const finalBundlePath = this.versionManager.generateBundleFilename(
@@ -1008,6 +1012,105 @@ function isCocosMobileAssetTarget(target: AssetBundleTarget): boolean {
 
 function normalizeCocosBuildPlatform(platform: string): string {
   return platform.trim().toLowerCase().replace(/_/g, '-')
+}
+
+async function applyCocosHybridAssetSplit(
+  assets: AssetInfo[],
+  manifest: BundleManifest,
+  output: string,
+): Promise<{ bundleAssets: AssetInfo[], nativeAssets: AssetInfo[] }> {
+  const hybrid = manifest.assetTarget?.cocos?.hybrid
+  if (!hybrid?.enabled) {
+    return { bundleAssets: assets, nativeAssets: [] }
+  }
+
+  const nativeAssets = assets.filter(asset => isCocosHybridNativeAsset(asset, hybrid))
+  if (nativeAssets.length === 0) {
+    return { bundleAssets: assets, nativeAssets }
+  }
+
+  const nativeSources = new Map<string, string>()
+  for (const asset of nativeAssets) {
+    const source = createCocosHybridNativeSource(asset, hybrid)
+    nativeSources.set(asset.path, source)
+    nativeSources.set(asset.relativePath, source)
+    await writeCocosHybridNativeAsset(asset, output, source)
+  }
+  rewriteCocosHybridManifestAssetPaths(manifest, hybrid, nativeSources)
+
+  const nativeAssetKeys = new Set(nativeAssets.map(asset => `${asset.type}:${asset.relativePath}`))
+  return {
+    bundleAssets: assets.filter(asset => !nativeAssetKeys.has(`${asset.type}:${asset.relativePath}`)),
+    nativeAssets,
+  }
+}
+
+function isCocosHybridNativeAsset(asset: AssetInfo, hybrid: CocosHybridAssetManifest): boolean {
+  return ASSET_PIPELINE_DOMAINS.includes(asset.type as AssetPipelineDomain)
+    && hybrid.domains[asset.type as AssetPipelineDomain] === 'cocos-bundle'
+}
+
+async function writeCocosHybridNativeAsset(asset: AssetInfo, output: string, nativeSource: string): Promise<void> {
+  const outputRoot = dirname(output)
+  const outputPath = resolve(outputRoot, nativeSource)
+  if (!isPathInside(outputPath, outputRoot)) {
+    throw new Error(`Cocos hybrid asset path escapes output directory: ${nativeSource}`)
+  }
+  await mkdir(dirname(outputPath), { recursive: true })
+  await writeFile(outputPath, await readAssetBuffer(asset))
+}
+
+function rewriteCocosHybridManifestAssetPaths(
+  manifest: BundleManifest,
+  hybrid: CocosHybridAssetManifest,
+  nativeSources: Map<string, string>,
+): void {
+  for (const domain of ASSET_PIPELINE_DOMAINS) {
+    if (hybrid.domains[domain] !== 'cocos-bundle')
+      continue
+    const records = manifest.assets[domain]
+    if (!records)
+      continue
+    for (const asset of Object.values(records)) {
+      const nativeSource = nativeSources.get(asset.path) || nativeSources.get(asset.relativePath)
+      if (nativeSource) {
+        asset.path = nativeSource
+        asset.relativePath = nativeSource
+      }
+      for (const variant of Object.values(asset.variants || {})) {
+        const variantSource = nativeSources.get(variant.path) || nativeSources.get(variant.relativePath)
+        if (variantSource) {
+          variant.path = variantSource
+          variant.relativePath = variantSource
+        }
+      }
+    }
+  }
+}
+
+function createCocosHybridNativeSource(asset: AssetInfo, hybrid: CocosHybridAssetManifest): string {
+  const relativePath = stripAssetTypePrefix(asset.relativePath, asset.type)
+  return normalizeRelativeOutputPath(`${hybrid.resourceRoot}/${hybrid.assetBundle}/${asset.type}/${relativePath}`)
+}
+
+function stripAssetTypePrefix(relativePath: string, type: string): string {
+  return relativePath.replace(/\\/g, '/').replace(new RegExp(`^${escapeRegExp(type)}/`, 'i'), '')
+}
+
+function normalizeRelativeOutputPath(path: string): string {
+  const normalized = path.replace(/\\/g, '/').replace(/^\/+/, '')
+  const parts = normalized.split('/').filter(part => part && part !== '.')
+  if (parts.some(part => part === '..')) {
+    throw new Error(`Unsafe Cocos hybrid asset path: ${path}`)
+  }
+  return parts.join('/')
+}
+
+function isPathInside(path: string, root: string): boolean {
+  const normalizedRoot = resolve(root)
+  const normalizedPath = resolve(path)
+  const relativePath = relative(normalizedRoot, normalizedPath)
+  return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath))
 }
 
 function addOutputSuffix(output: string, suffix: string): string {

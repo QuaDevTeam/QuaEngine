@@ -30,6 +30,22 @@ describe('createFakeCocosHost', () => {
     expect(host.resourcesById.has('tex')).toBe(true)
     host.assets.releaseResource(resource)
     expect(host.resourcesById.has('tex')).toBe(false)
+
+    const native = await host.assets.loadResource?.('spriteFrame', 'assets/resources/hero.png', {
+      id: 'native:hero',
+      mimeType: 'image/png',
+      metadata: { width: 320, height: 180 },
+    })
+    expect(native).toMatchObject({
+      id: 'native:hero',
+      kind: 'spriteFrame',
+      source: 'assets/resources/hero.png',
+      mimeType: 'image/png',
+      width: 320,
+      height: 180,
+      native: { source: 'assets/resources/hero.png', kind: 'spriteFrame' },
+    })
+    expect(host.capabilities.nativeAssets).toBe(true)
   })
 
   it('hit-tests nodes by metadata in z order', () => {
@@ -105,6 +121,13 @@ describe('createCocosCreatorHost', () => {
         list: async root => Array.from(files).filter(([path]) => path.startsWith(root)).map(([path, bytes]) => ({ path, size: bytes.byteLength })),
       },
       resources: {
+        loadResource: async (kind, source, options) => ({
+          id: options.id,
+          kind,
+          source,
+          mimeType: options.mimeType,
+          native: { kind, source },
+        }),
         createResource: async (kind, data, options) => ({
           id: options.id,
           kind,
@@ -139,6 +162,11 @@ describe('createCocosCreatorHost', () => {
 
     const resource = await host.assets.createResource('spriteFrame', new Uint8Array([4, 5]), { id: 'sprite' })
     expect(resource.native).toEqual({ kind: 'spriteFrame', byteLength: 2 })
+    expect(await host.assets.loadResource?.('spriteFrame', 'assets/resources/sprite.png', { id: 'native:sprite' })).toMatchObject({
+      id: 'native:sprite',
+      native: { kind: 'spriteFrame', source: 'assets/resources/sprite.png' },
+    })
+    expect(host.capabilities.nativeAssets).toBe(true)
 
     const events: unknown[] = []
     host.input.onInput(event => events.push(event))

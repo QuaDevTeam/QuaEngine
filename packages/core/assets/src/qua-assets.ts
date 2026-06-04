@@ -1,7 +1,9 @@
 import type { I18nCatalogOptions, I18nMessages, TranslateInput, TranslateOptions } from './i18n'
 import type {
   AssetData,
+  AssetInfo,
   AssetLocale,
+  AssetManifestRecord,
   AssetProcessingPlugin,
   AssetProvider,
   AssetRuntimeAdapter,
@@ -39,7 +41,7 @@ import {
 
 } from './i18n'
 import { PatchManager } from './patch-manager'
-import { normalizeLocale } from './providers'
+import { createLocaleFallbackChain, findBestRankedAssetRecord, normalizeLocale } from './providers'
 import { AssetNotFoundError, BundleLoadError } from './types'
 
 const logger = createLogger('quaassets')
@@ -727,6 +729,31 @@ export class QuaAssets {
     return (await this.adapter.storage.getBundle(bundleName))?.manifest
   }
 
+  async getAssetManifestRecord(
+    type: AssetType,
+    name: string,
+    options: LoadAssetOptions = {},
+  ): Promise<AssetManifestRecord | undefined> {
+    this.ensureInitialized()
+    const records: AssetManifestRecord[] = []
+    const locale = options.locale || this.currentLocale
+    const appVersion = options.appVersion || this.config.appVersion
+    const bundles = filterAssetManifestBundles(await this.adapter.storage.getAllBundles(), options, locale)
+
+    for (const bundle of bundles) {
+      const assets = bundle.manifest.assets[type]
+      if (!assets)
+        continue
+      for (const [key, asset] of Object.entries(assets)) {
+        if (!matchesManifestAssetName(asset, key, name))
+          continue
+        records.push(...createAssetManifestRecords(bundle, type, key, asset))
+      }
+    }
+
+    return findBestRankedAssetRecord(records, locale, appVersion)
+  }
+
   private async removeBundleAssets(bundle: StoredBundle): Promise<void> {
     const lookupKey = bundle.versionKey || bundle.name
     const assets = await this.adapter.storage.findAssets({ bundleName: bundle.name, bundleVersionKey: lookupKey })
@@ -917,6 +944,121 @@ function resolveMissingTranslation(key: string, options: TranslateOptions): stri
     return key
   }
   return ''
+}
+
+function filterAssetManifestBundles(
+  bundles: StoredBundle[],
+  options: LoadAssetOptions,
+  locale: AssetLocale,
+): StoredBundle[] {
+  const matches = bundles.filter(bundle => matchesAssetManifestBundle(bundle, options, locale))
+  if (options.bundleVersionKey) {
+    return matches
+  }
+  const active = matches.filter(bundle => bundle.active !== false)
+  return active.length > 0 ? active : matches
+}
+
+function matchesAssetManifestBundle(bundle: StoredBundle, options: LoadAssetOptions, locale: AssetLocale): boolean {
+  if (options.bundleVersionKey && bundle.versionKey !== options.bundleVersionKey && bundle.name !== options.bundleVersionKey)
+    return false
+  if (options.targetPackageId) {
+    const packageId = bundle.runtimePackageId || bundle.manifest.runtimePackage?.id
+    if (packageId !== options.targetPackageId && !localePackTargetsRuntimePackage(bundle, options.targetPackageId, locale))
+      return false
+  }
+  if (options.bundleName) {
+    const logicalName = bundle.logicalName || bundle.manifest.name
+    if (bundle.name !== options.bundleName && logicalName !== options.bundleName && bundle.manifest.name !== options.bundleName)
+      return false
+  }
+  return true
+}
+
+function localePackTargetsRuntimePackage(bundle: StoredBundle, targetPackageId: string, locale: AssetLocale): boolean {
+  const localePack = bundle.manifest.runtimePackage?.localePack
+  if (!localePack)
+    return false
+  if (!createLocaleFallbackChain(locale).includes(normalizeLocale(localePack.locale)))
+    return false
+  return localePack.targets.some(target =>
+    target.kind === 'runtimePackage'
+    && target.id === targetPackageId,
+  )
+}
+
+function matchesManifestAssetName(asset: AssetInfo, key: string, name: string): boolean {
+  return key === name
+    || asset.name === name
+    || asset.path === name
+    || asset.relativePath === name
+    || asset.path?.endsWith(`/${name}`) === true
+    || asset.relativePath?.endsWith(`/${name}`) === true
+}
+
+function createAssetManifestRecords(
+  bundle: StoredBundle,
+  type: AssetType,
+  key: string,
+  asset: AssetInfo,
+): AssetManifestRecord[] {
+  const records: AssetManifestRecord[] = []
+  const variants = Object.entries(asset.variants || {})
+  const variantLocales = new Set<AssetLocale>()
+  for (const [locale, variant] of variants) {
+    const variantLocale = variant.locale || locale
+    variantLocales.add(variantLocale)
+    records.push(createAssetManifestRecord(bundle, type, key, {
+      ...asset,
+      ...variant,
+      name: asset.name,
+      type,
+      locales: [variantLocale],
+      compatibility: variant.compatibility || asset.compatibility,
+      mediaMetadata: variant.mediaMetadata || asset.mediaMetadata,
+      mimeType: variant.mimeType || asset.mimeType,
+    }, variantLocale))
+  }
+
+  const baseLocales = (asset.locales?.length ? asset.locales : [bundle.manifest.defaultLocale || 'default'])
+    .filter(locale => !variantLocales.has(locale))
+  for (const locale of baseLocales) {
+    records.push(createAssetManifestRecord(bundle, type, key, asset, locale))
+  }
+
+  return records
+}
+
+function createAssetManifestRecord(
+  bundle: StoredBundle,
+  type: AssetType,
+  key: string,
+  asset: AssetInfo,
+  locale: AssetLocale,
+): AssetManifestRecord {
+  const name = asset.name || key
+  const path = asset.path || asset.relativePath || name
+  return {
+    id: `${bundle.versionKey || bundle.name}:${locale}:${type}:${path}`,
+    bundleName: bundle.name,
+    logicalBundleName: bundle.logicalName || bundle.manifest.name || bundle.name,
+    bundleVersionKey: bundle.versionKey,
+    name,
+    type,
+    locale,
+    path,
+    hash: asset.hash,
+    size: asset.size,
+    version: asset.version,
+    bundleVersion: bundle.version,
+    mtime: asset.mtime,
+    mimeType: asset.mimeType,
+    mediaMetadata: asset.mediaMetadata,
+    compatibility: asset.compatibility || bundle.compatibility || bundle.manifest.compatibility,
+    runtimePackageId: bundle.runtimePackageId || bundle.manifest.runtimePackage?.id,
+    bundlePriority: bundle.priority,
+    loadedAt: bundle.loadedAt,
+  }
 }
 
 function isDecompressionPlugin(plugin: QuaAssetsPlugin): plugin is DecompressionPlugin {
