@@ -6,7 +6,7 @@ const repoRoot = resolve(import.meta.dirname, '../../../..')
 
 describe('Cocos renderer plugin metadata', () => {
   it('publishes Cocos renderer entries for renderer-facing feature plugins', () => {
-    expectRendererEntry('packages/core/character/package.json', 'cocos', '@quajs/renderer-cocos/plugins/character')
+    expectRendererEntry('packages/game/character/package.json', 'cocos', '@quajs/renderer-cocos/plugins/character')
     expectRendererEntry('packages/plugins/achievement/package.json', 'cocos', '@quajs/renderer-cocos/plugins/achievement')
     expectRendererEntry('packages/plugins/audio/package.json', 'cocos', '@quajs/renderer-cocos/plugins/audio')
     expectRendererEntry('packages/plugins/background/package.json', 'cocos', '@quajs/renderer-cocos/plugins/background')
@@ -20,7 +20,7 @@ describe('Cocos renderer plugin metadata', () => {
   it('keeps logic-only plugins out of renderer discovery', () => {
     expect(readPackage('packages/plugins/animation/package.json').quajs.renderer).toBeUndefined()
     expect(readPackage('packages/plugins/inventory/package.json').quajs.renderer).toBeUndefined()
-    expect(readPackage('packages/core/story-graph/package.json').quajs.renderer).toBeUndefined()
+    expect(readPackage('packages/game/story-graph/package.json').quajs.renderer).toBeUndefined()
   })
 })
 

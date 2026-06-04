@@ -16,7 +16,7 @@ import {
 
 const WORKSPACE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 const WORKSPACE_PACKAGE_PATHS: Record<string, string> = {
-  '@quajs/character': 'packages/core/character',
+  '@quajs/character': 'packages/game/character',
 }
 
 describe('@quajs/language-server helpers', () => {

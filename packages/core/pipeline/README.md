@@ -363,4 +363,5 @@ Please see the main [QuaEngine Contributing Guide](../../CONTRIBUTING.md).
 
 ## License
 
-Apache-2.0 - see [LICENSE](../../LICENSE) file for details.
+Apache-2.0 - see the repository [LICENSE](../../../LICENSE) and
+[LEGAL.md](../../../LEGAL.md) files for details.

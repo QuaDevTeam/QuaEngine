@@ -12,7 +12,8 @@ QuaEngine is a TypeScript visual novel engine for Galgame-style projects. It is 
 
 | Area | Packages |
 | --- | --- |
-| Core runtime | `@quajs/engine`, `@quajs/store`, `@quajs/pipeline`, `@quajs/assets`, `@quajs/character`, `@quajs/story-graph`, `@quajs/render-core` |
+| Core runtime | `@quajs/engine`, `@quajs/store`, `@quajs/pipeline`, `@quajs/assets` |
+| Game features | `@quajs/character`, `@quajs/story-graph` |
 | Platform adapters | `@quajs/assets-web`, `@quajs/assets-node`, `@quajs/assets-memory`, `@quajs/store-web`, `@quajs/store-node`, `@quajs/security-web` |
 | Feature plugins | `@quajs/plugin-achievement`, `@quajs/plugin-animation`, `@quajs/plugin-audio`, `@quajs/plugin-background`, `@quajs/plugin-backlog`, `@quajs/plugin-fonts`, `@quajs/plugin-gallery`, `@quajs/plugin-inventory`, `@quajs/plugin-settings`, `@quajs/plugin-sprite` |
 | Renderers | `@quajs/renderer-web`, `@quajs/renderer-vue`, `@quajs/renderer-react`, `@quajs/renderer-svelte` |
@@ -71,7 +72,7 @@ Chapter select is derived from graph nodes marked with `chapterSelect`. It is no
 - `lockedVisibility: 'revealed'` shows the real entry before unlock.
 - `lockEntryUntilUnlocked` controls whether a locked entry can be entered.
 
-See `packages/core/story-graph/README.md`.
+See `packages/game/story-graph/README.md`.
 
 ## QuaScript
 
@@ -133,7 +134,7 @@ pnpm --filter @quajs/plugin-backlog test -- --run
 - `docs/security/web-security.md`
 - `packages/core/engine/docs/global-api.md`
 - `packages/core/engine/docs/plugin-system.md`
-- `packages/core/story-graph/README.md`
+- `packages/game/story-graph/README.md`
 - `packages/render/web/README.md`
 - `packages/render/vue/README.md`
 - `packages/render/react/README.md`
@@ -142,4 +143,13 @@ pnpm --filter @quajs/plugin-backlog test -- --run
 
 ## License
 
-QuaEngine packages are licensed under Apache-2.0 unless a package or asset declares otherwise. Demo game content in `demo/` is proprietary and fully copyrighted.
+QuaEngine source packages are licensed under Apache-2.0 unless a file, package,
+or directory states otherwise.
+
+QuaEngine names, logos, icons, badges, and related brand assets are not licensed
+under open-source software licenses. See `TRADEMARKS.md` and `NOTICE`.
+
+Demo game content under `demo/` is proprietary and fully copyrighted. See
+`demo/LICENSE`.
+
+For a plain-language summary of these boundaries, see `LEGAL.md`.

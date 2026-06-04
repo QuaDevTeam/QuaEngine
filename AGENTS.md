@@ -139,33 +139,6 @@ The current milestone implements the logic layer, stateless renderer contracts, 
   - Core must not depend on Web globals or storage APIs such as `Blob`, `fetch`, `window`, `document`, `URL.createObjectURL`, `crypto.subtle`, `AbortController`, or `Dexie`
   - Web-only helpers belong in `@quajs/assets-web`
 
-#### **@quajs/character** (`packages/core/character`)
-- **Environment**: Platform-neutral logic helper
-- **Purpose**: Character, sprite, expression, movement, and dialogue APIs that update engine-owned state and emit pipeline events
-- **Status**: Implemented
-- **Rules**:
-  - Must not keep renderer state
-  - Must route game-facing changes through engine/store APIs
-
-#### **@quajs/story-graph** (`packages/core/story-graph`)
-- **Environment**: Platform-neutral engine feature plugin/helper
-- **Purpose**: Story metadata, graph/lane/route/timeline records, story event logs, jump resolution, node unlock state, and chapter select projection
-- **Status**: Implemented
-- **Rules**:
-  - Chapter select is a derived projection from graph nodes marked with `chapterSelect` plus `unlockedNodes`
-  - Runtime graph deltas and chapter select assets/metadata must carry runtime package provenance
-  - Jump helpers must ensure required runtime packages before entering dynamic targets
-
-#### **@quajs/plugin-background** (`packages/plugins/background`)
-- **Environment**: Platform-neutral engine feature plugin
-- **Purpose**: Background image, video background, layered background, and transition APIs/decorators
-- **Status**: Implemented
-- **Decorators**: `@SetBackground`, `@ClearBackground`, `@VideoBackground`, `@SetLayeredBackground`, `@BackgroundLayer`, `@RemoveBackgroundLayer`, `@ClearBackgroundLayers`, `@BackgroundTransition`, and `@BackgroundLayerTransition`
-- **Rules**:
-  - Owns no renderer state
-  - Writes only engine-owned background projection state through `setBackgroundProjection`
-  - Renderer remains a DOM projection of `view.background`
-
 #### **@quajs/store** (`packages/core/store`)
 - **Environment**: Browser-compatible state package with pluggable persistence
 - **Purpose**: Global state management, persistence backends, and snapshot system
@@ -175,6 +148,25 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Environment**: Universal
 - **Purpose**: The only eventbus used between engine, scripts, plugins, and renderers
 - **Status**: Implemented
+
+### Game Packages
+
+#### **@quajs/character** (`packages/game/character`)
+- **Environment**: Platform-neutral logic helper
+- **Purpose**: Game-facing character, sprite, expression, movement, and dialogue APIs that update engine-owned state and emit pipeline events
+- **Status**: Implemented
+- **Rules**:
+  - Must not keep renderer state
+  - Must route game-facing changes through engine/store APIs
+
+#### **@quajs/story-graph** (`packages/game/story-graph`)
+- **Environment**: Platform-neutral game feature plugin/helper
+- **Purpose**: Story metadata, graph/lane/route/timeline records, story event logs, jump resolution, node unlock state, and chapter select projection
+- **Status**: Implemented
+- **Rules**:
+  - Chapter select is a derived projection from graph nodes marked with `chapterSelect` plus `unlockedNodes`
+  - Runtime graph deltas and chapter select assets/metadata must carry runtime package provenance
+  - Jump helpers must ensure required runtime packages before entering dynamic targets
 
 ### Platform Packages
 
@@ -532,11 +524,12 @@ packages/
 │   └── vscode-quascript/   # QuaScript VS Code extension
 ├── core/
 │   ├── assets/             # @quajs/assets platform-agnostic core
-│   ├── character/          # @quajs/character engine-owned character APIs
 │   ├── engine/             # @quajs/engine authoritative logic runtime
 │   ├── pipeline/           # @quajs/pipeline eventbus
 │   ├── plugin-discovery/   # @quajs/plugin-discovery core discovery infrastructure
-│   ├── store/              # @quajs/store state and snapshots
+│   └── store/              # @quajs/store state and snapshots
+├── game/
+│   ├── character/          # @quajs/character game-facing character APIs
 │   └── story-graph/        # @quajs/story-graph story metadata helpers
 ├── platform/
 │   ├── assets-memory/      # @quajs/assets-memory adapter

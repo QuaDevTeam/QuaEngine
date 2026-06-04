@@ -6,9 +6,21 @@ The demo is also the reference application for the current Web/Vue visual novel 
 
 ## Copyright
 
-The demo game is proprietary demo content. Its story, characters, artwork, generated images, CGs, UI presentation, and scenario text are fully copyrighted and are not distributed under the repository's open-source package license unless a separate written license says otherwise.
+The demo game is proprietary demo content. Its story, scenario scripts,
+characters, artwork, generated images, CGs, UI presentation assets, icons,
+audio, prompts, masks, and other creative materials are fully copyrighted and
+are not distributed under the repository's open-source package license unless a
+separate written license says otherwise.
+
+You may download and run the demo only to evaluate or demonstrate QuaEngine. Do
+not copy, redistribute, modify, extract, reuse, train on, sell, publish, or
+include the demo content in another game, engine, dataset, product, template,
+asset pack, or public distribution.
 
 Engine source packages outside `demo/` keep their own package licenses.
+
+QuaEngine names, logos, icons, badges, and related brand assets are not licensed
+for reuse. See `../TRADEMARKS.md`.
 
 ## What This Demo Shows
 
