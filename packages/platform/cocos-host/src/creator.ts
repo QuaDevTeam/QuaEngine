@@ -826,6 +826,7 @@ function createFallbackAudioHandle(resource: CocosHostResource, options: { id?: 
   let playing = false
   let volume = options.volume ?? 1
   let loop = options.loop ?? false
+  let positionMs = 0
   const endedListeners = new Set<() => void>()
   const handle = {
     id: options.id || resource.id,
@@ -844,6 +845,10 @@ function createFallbackAudioHandle(resource: CocosHostResource, options: { id?: 
     setLoop: (next: boolean) => {
       loop = next
     },
+    seek: (next: number) => {
+      positionMs = next
+    },
+    getPosition: () => positionMs,
     onEnded: (listener: () => void) => {
       endedListeners.add(listener)
       return () => endedListeners.delete(listener)
@@ -859,6 +864,7 @@ function createFallbackAudioHandle(resource: CocosHostResource, options: { id?: 
     playing: { get: () => playing },
     volume: { get: () => volume },
     loop: { get: () => loop },
+    positionMs: { get: () => positionMs },
     resource: { get: () => resource },
   })
   return handle

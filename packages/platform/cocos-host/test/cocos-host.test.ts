@@ -116,6 +116,10 @@ describe('createFakeCocosHost', () => {
     fakeHandle.emitEnded()
     expect(ended).toBe(1)
     expect(fakeHandle.playbackRate).toBe(1.25)
+    await handle.seek?.(1234)
+    expect(fakeHandle.positionMs).toBe(1234)
+    expect(fakeHandle.seekCalls).toEqual([1234])
+    expect(handle.getPosition?.()).toBe(1234)
 
     await host.fonts?.registerFontFace(resource, {
       id: 'font:main',

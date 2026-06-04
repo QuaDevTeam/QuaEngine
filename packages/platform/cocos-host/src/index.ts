@@ -163,6 +163,8 @@ export interface CocosHostAudioHandle {
   setVolume: (volume: number) => void
   setLoop: (loop: boolean) => void
   setPlaybackRate?: (rate: number) => void
+  seek?: (positionMs: number) => Promise<void> | void
+  getPosition?: () => number | undefined
   onEnded?: (listener: () => void) => CocosHostDisposer
   dispose: () => Promise<void> | void
 }

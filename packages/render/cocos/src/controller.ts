@@ -82,6 +82,7 @@ export class QuaCocosRendererController {
   private readonly audioHandles = new Map<string, Map<string, CocosAudioRuntimeHandle>>()
   private readonly warnedAudioCapabilities = new Set<string>()
   private animationFrame: number | undefined
+  private audioFrame: number | undefined
 
   private readonly refreshAssets = (_change?: AssetChange) => {
     this.assetRevision += 1
@@ -161,6 +162,7 @@ export class QuaCocosRendererController {
     this.cleanupPipelineSubscriptions()
     this.cleanupAssetSubscription()
     this.cancelAnimationFrameLoop()
+    this.cancelAudioFrameLoop()
     await this.pluginHost?.destroy()
     this.pluginHost = undefined
     this.advanceInterceptors.clear()
@@ -329,6 +331,7 @@ export class QuaCocosRendererController {
       setLayerResource: (layerId, key, resource) => this.setLayerResource(layerId, key, resource),
       syncAudioHandle: (layerId, key, resource, options) => this.syncAudioHandle(layerId, key, resource, options),
       releaseAudioHandles: (layerId, activeKeys) => this.releaseAudioHandles(layerId, activeKeys),
+      interruptAudioTracks: (kind, source) => this.interruptAudioTracks(kind, source),
       captureStage: options => this.captureStage(options),
       emitRenderToLogic: (type, payload) => emitRenderToLogic(this.requirePipeline(), type as never, payload as never),
       refresh: () => this.refresh(),
@@ -662,6 +665,13 @@ export class QuaCocosRendererController {
       bus?: string
       playing?: boolean
       playAt?: number
+      state?: string
+      fadeInMs?: number
+      fadeOutMs?: number
+      seekMs?: number
+      offsetMs?: number
+      automation?: readonly Record<string, unknown>[]
+      interruptible?: boolean
       endedPayload?: AudioTrackEventPayload
     },
   ): Promise<CocosHostAudioHandle> {
@@ -670,12 +680,19 @@ export class QuaCocosRendererController {
     const volume = options.volume ?? 1
     const loop = options.loop ?? false
     if (existing && existing.resource.id === resource.id) {
-      existing.handle.setVolume(volume)
+      const nextSignature = audioRuntimeSignature(resource, options)
+      if (existing.signature !== nextSignature) {
+        existing.interrupted = false
+        existing.signature = nextSignature
+      }
+      this.updateAudioRuntimeState(existing, options, volume, loop)
       existing.handle.setLoop(loop)
       this.applyAudioPlaybackRate(existing.handle, options.playbackRate ?? 1, key)
-      existing.options = { ...options, volume, loop }
       existing.endedPayload = options.endedPayload
+      await this.applyAudioSeek(existing, key)
+      this.applyAudioRuntimeVolume(existing)
       await this.applyAudioPlayback(existing, key)
+      this.scheduleAudioFrameLoop()
       return existing.handle
     }
     if (existing) {
@@ -695,8 +712,11 @@ export class QuaCocosRendererController {
       handle,
       resource,
       options: { ...options, volume, loop },
+      signature: audioRuntimeSignature(resource, options),
+      createdAt: this.host.runtime.now(),
       endedPayload: options.endedPayload,
     }
+    this.updateAudioRuntimeState(record, options, volume, loop, { created: true })
     record.endedDisposer = handle.onEnded?.(() => {
       const payload = record.endedPayload
       if (!payload)
@@ -713,7 +733,10 @@ export class QuaCocosRendererController {
     handles.set(key, record)
     this.audioHandles.set(layerId, handles)
     this.applyAudioPlaybackRate(handle, options.playbackRate ?? 1, key)
+    await this.applyAudioSeek(record, key)
+    this.applyAudioRuntimeVolume(record)
     await this.applyAudioPlayback(record, key)
+    this.scheduleAudioFrameLoop()
     return handle
   }
 
@@ -735,6 +758,7 @@ export class QuaCocosRendererController {
     if (handles.size === 0) {
       this.audioHandles.delete(layerId)
     }
+    this.scheduleAudioFrameLoop()
   }
 
   private applyAudioPlaybackRate(handle: CocosHostAudioHandle, playbackRate: number, key: string): void {
@@ -758,7 +782,12 @@ export class QuaCocosRendererController {
 
   private async applyAudioPlayback(record: CocosAudioRuntimeHandle, key: string): Promise<void> {
     this.clearAudioStartTimer(record)
+    if (record.interrupted) {
+      await record.handle.stop()
+      return
+    }
     if (record.options.playing === false) {
+      record.pausedPositionMs = record.handle.getPosition?.()
       await record.handle.pause()
       return
     }
@@ -779,6 +808,11 @@ export class QuaCocosRendererController {
       record.pendingPlayAt = playAt
       return
     }
+    if (record.pausedPositionMs !== undefined && record.handle.seek && record.options.seekMs === undefined && record.options.offsetMs === undefined) {
+      await record.handle.seek(record.pausedPositionMs)
+      record.lastSeekMs = record.pausedPositionMs
+      record.pausedPositionMs = undefined
+    }
     await record.handle.play()
   }
 
@@ -788,6 +822,146 @@ export class QuaCocosRendererController {
       record.startTimer = undefined
     }
     record.pendingPlayAt = undefined
+  }
+
+  private updateAudioRuntimeState(
+    record: CocosAudioRuntimeHandle,
+    options: CocosAudioRuntimeHandle['options'],
+    volume: number,
+    loop: boolean,
+    lifecycle: { created?: boolean } = {},
+  ): void {
+    const now = this.host.runtime.now()
+    const previousState = record.options.state
+    const automationSignature = audioAutomationSignature(options.automation)
+    record.options = { ...options, volume, loop }
+    if (lifecycle.created && (options.fadeInMs ?? 0) > 0) {
+      record.fadeInStartedAt = now
+    }
+    if (automationSignature !== record.automationSignature) {
+      record.automationSignature = automationSignature
+      record.automationStartedAt = now
+    }
+    const state = options.state
+    if (state === 'stopping' && (options.fadeOutMs ?? 0) > 0) {
+      if (previousState !== 'stopping' || record.fadeOutStartedAt === undefined) {
+        record.fadeOutStartedAt = now
+        record.fadeOutStopped = false
+      }
+    }
+    else {
+      record.fadeOutStartedAt = undefined
+      record.fadeOutStopped = false
+    }
+  }
+
+  private async applyAudioSeek(record: CocosAudioRuntimeHandle, key: string): Promise<void> {
+    const desired = finiteNumber(record.options.seekMs)
+      ?? finiteNumber(record.options.offsetMs)
+    if (desired === undefined || desired === record.lastSeekMs)
+      return
+    if (!record.handle.seek) {
+      const warningKey = `seek:${key}`
+      if (!this.warnedAudioCapabilities.has(warningKey)) {
+        this.warnedAudioCapabilities.add(warningKey)
+        this.host.runtime.warn?.('Cocos host audio handle does not expose seek capability; seek/offset intent was ignored.', {
+          key,
+          positionMs: desired,
+        })
+      }
+      return
+    }
+    await record.handle.seek(Math.max(0, desired))
+    record.lastSeekMs = desired
+    record.pausedPositionMs = undefined
+  }
+
+  private applyAudioRuntimeVolume(record: CocosAudioRuntimeHandle): void {
+    const now = this.host.runtime.now()
+    const automationGainDb = projectGainAutomation(record.options.automation, now, record.automationStartedAt ?? record.createdAt)
+    let volume = automationGainDb === undefined
+      ? record.options.volume ?? 1
+      : 10 ** (automationGainDb / 20)
+    const fadeInMs = record.options.fadeInMs ?? 0
+    if (fadeInMs > 0 && record.fadeInStartedAt !== undefined) {
+      volume *= clamp((now - record.fadeInStartedAt) / fadeInMs, 0, 1)
+    }
+    const fadeOutMs = record.options.fadeOutMs ?? 0
+    if (fadeOutMs > 0 && record.fadeOutStartedAt !== undefined) {
+      const progress = clamp((now - record.fadeOutStartedAt) / fadeOutMs, 0, 1)
+      volume *= 1 - progress
+      if (progress >= 1 && record.options.state === 'stopping' && !record.fadeOutStopped) {
+        record.fadeOutStopped = true
+        void Promise.resolve(record.handle.stop()).catch(error => this.reportError(error, {
+          message: 'Cocos audio fade-out stop failed.',
+          phase: 'renderer-cocos:audio-fade-out',
+        }))
+      }
+    }
+    const nextVolume = clamp(volume, 0, 1)
+    record.appliedVolume = nextVolume
+    record.handle.setVolume(nextVolume)
+  }
+
+  private scheduleAudioFrameLoop(): void {
+    this.cancelAudioFrameLoop()
+    if (!this.started || !this.hasActiveAudioRuntimeUpdates())
+      return
+    this.audioFrame = this.host.scheduler.requestFrame(() => {
+      this.audioFrame = undefined
+      if (!this.started)
+        return
+      for (const handles of this.audioHandles.values()) {
+        for (const record of handles.values()) {
+          this.applyAudioRuntimeVolume(record)
+        }
+      }
+      this.scheduleAudioFrameLoop()
+    })
+  }
+
+  private cancelAudioFrameLoop(): void {
+    if (this.audioFrame !== undefined) {
+      this.host.scheduler.cancelFrame(this.audioFrame)
+      this.audioFrame = undefined
+    }
+  }
+
+  private hasActiveAudioRuntimeUpdates(): boolean {
+    const now = this.host.runtime.now()
+    for (const handles of this.audioHandles.values()) {
+      for (const record of handles.values()) {
+        if (hasGainAutomation(record.options.automation))
+          return true
+        if ((record.options.fadeInMs ?? 0) > 0 && record.fadeInStartedAt !== undefined && now - record.fadeInStartedAt < record.options.fadeInMs!)
+          return true
+        if ((record.options.fadeOutMs ?? 0) > 0 && record.fadeOutStartedAt !== undefined && !record.fadeOutStopped)
+          return true
+      }
+    }
+    return false
+  }
+
+  private async interruptAudioTracks(kind: string, source?: string): Promise<void> {
+    for (const handles of this.audioHandles.values()) {
+      for (const [key, record] of handles) {
+        if (!key.startsWith(`${kind}:`) || record.options.interruptible === false || record.interrupted)
+          continue
+        record.interrupted = true
+        this.clearAudioStartTimer(record)
+        await record.handle.stop()
+        if (record.endedPayload) {
+          await emitAudioRenderToLogic(this.requirePipeline(), AudioRenderToLogicEvents.INTERRUPTED, {
+            ...record.endedPayload,
+            metadata: {
+              ...(record.endedPayload.metadata || {}),
+              source,
+            },
+          })
+        }
+      }
+    }
+    this.scheduleAudioFrameLoop()
   }
 
   private async captureStage(options?: { mimeType?: string, quality?: number, maxWidth?: number, maxHeight?: number }) {
@@ -862,11 +1036,88 @@ function numberOrDefault(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
+function finiteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function audioRuntimeSignature(resource: CocosHostResource, options: CocosAudioRuntimeHandle['options']): string {
+  return JSON.stringify({
+    resourceId: resource.id,
+    state: options.state,
+    playAt: options.playAt,
+    seekMs: options.seekMs,
+    offsetMs: options.offsetMs,
+    assetKey: options.endedPayload?.assetKey,
+    chapterId: options.endedPayload?.chapterId,
+    lineId: options.endedPayload?.lineId,
+  })
+}
+
+function audioAutomationSignature(automation: readonly Record<string, unknown>[] | undefined): string | undefined {
+  return automation && automation.length > 0 ? JSON.stringify(automation) : undefined
+}
+
+function hasGainAutomation(automation: readonly Record<string, unknown>[] | undefined): boolean {
+  return Boolean(automation?.some(item => item.propertyPath === 'gainDb'))
+}
+
+function projectGainAutomation(
+  automation: readonly Record<string, unknown>[] | undefined,
+  now: number,
+  startedAt: number,
+): number | undefined {
+  const item = automation?.find(entry => entry.propertyPath === 'gainDb')
+  const curve = item?.curve
+  if (!curve || typeof curve !== 'object' || Array.isArray(curve))
+    return undefined
+  const pointsValue = (curve as Record<string, unknown>).points
+  if (!Array.isArray(pointsValue))
+    return undefined
+  const points = pointsValue
+    .map(point => readAutomationPoint(point))
+    .filter((point): point is { at: number, value: number } => Boolean(point))
+    .sort((left, right) => left.at - right.at)
+  if (points.length === 0)
+    return undefined
+  const duration = finiteNumber((curve as Record<string, unknown>).duration) ?? points[points.length - 1]!.at
+  const loop = (curve as Record<string, unknown>).loop === true
+  let elapsed = Math.max(0, now - startedAt)
+  if (loop && duration > 0) {
+    elapsed %= duration
+  }
+  if (elapsed <= points[0]!.at)
+    return points[0]!.value
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1]!
+    const next = points[index]!
+    if (elapsed <= next.at) {
+      const progress = next.at === previous.at ? 1 : (elapsed - previous.at) / (next.at - previous.at)
+      return previous.value + (next.value - previous.value) * clamp(progress, 0, 1)
+    }
+  }
+  return points[points.length - 1]!.value
+}
+
+function readAutomationPoint(value: unknown): { at: number, value: number } | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return undefined
+  const record = value as Record<string, unknown>
+  const at = finiteNumber(record.at)
+  const pointValue = finiteNumber(record.value)
+  return at === undefined || pointValue === undefined ? undefined : { at, value: pointValue }
+}
+
 export type CocosRuntimePluginPayload = LogicToRenderPayload<LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN>
 
 interface CocosAudioRuntimeHandle {
   handle: CocosHostAudioHandle
   resource: CocosHostResource
+  signature: string
+  createdAt: number
   options: {
     loop?: boolean
     volume?: number
@@ -874,10 +1125,26 @@ interface CocosAudioRuntimeHandle {
     bus?: string
     playing?: boolean
     playAt?: number
+    state?: string
+    fadeInMs?: number
+    fadeOutMs?: number
+    seekMs?: number
+    offsetMs?: number
+    automation?: readonly Record<string, unknown>[]
+    interruptible?: boolean
     endedPayload?: AudioTrackEventPayload
   }
   endedPayload?: AudioTrackEventPayload
   endedDisposer?: () => void
   startTimer?: number
   pendingPlayAt?: number
+  lastSeekMs?: number
+  pausedPositionMs?: number
+  appliedVolume?: number
+  fadeInStartedAt?: number
+  fadeOutStartedAt?: number
+  fadeOutStopped?: boolean
+  automationSignature?: string
+  automationStartedAt?: number
+  interrupted?: boolean
 }

@@ -57,6 +57,8 @@ export interface FakeCocosAudioHandle extends CocosHostAudioHandle {
   readonly volume: number
   readonly loop: boolean
   readonly playbackRate: number
+  readonly positionMs: number
+  readonly seekCalls: readonly number[]
   readonly endedListenerCount: number
   readonly disposed: boolean
   readonly resource: CocosHostResource
@@ -263,7 +265,9 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
       let volume = handleOptions.volume ?? 1
       let loop = handleOptions.loop ?? false
       let playbackRate = handleOptions.playbackRate ?? 1
+      let positionMs = 0
       let disposed = false
+      const seekCalls: number[] = []
       const endedListeners = new Set<() => void>()
       const handle = {
         id: handleOptions.id || nextId('audio'),
@@ -286,6 +290,11 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
         setPlaybackRate: (next: number) => {
           playbackRate = next
         },
+        seek: (next: number) => {
+          positionMs = next
+          seekCalls.push(next)
+        },
+        getPosition: () => positionMs,
         onEnded: (listener: () => void) => {
           endedListeners.add(listener)
           return () => endedListeners.delete(listener)
@@ -307,6 +316,8 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
         volume: { get: () => volume },
         loop: { get: () => loop },
         playbackRate: { get: () => playbackRate },
+        positionMs: { get: () => positionMs },
+        seekCalls: { get: () => [...seekCalls] },
         endedListenerCount: { get: () => endedListeners.size },
         disposed: { get: () => disposed },
         resource: { get: () => resource },
