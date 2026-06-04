@@ -11,8 +11,7 @@ import { QuaEngine } from '@quajs/engine'
 import { AudioPlugin } from '@quajs/plugin-audio'
 
 const engine = new QuaEngine()
-
-engine.use(new AudioPlugin({
+const audio = new AudioPlugin({
   defaultProjection: {
     buses: {
       master: { gainDb: -3 },
@@ -22,7 +21,10 @@ engine.use(new AudioPlugin({
       ambient: { gainDb: -10 },
     },
   },
-}))
+})
+
+engine.use(audio)
+await engine.init()
 ```
 
 Renderer entries:
@@ -34,47 +36,67 @@ Renderer entries:
 ## Playback API
 
 ```ts
-import {
-  playAmbientWithEngine,
-  playBGMWithEngine,
-  playSFXWithEngine,
-  playVoiceWithEngine,
-  stopBGMWithEngine,
-} from '@quajs/plugin-audio'
-
-await playBGMWithEngine(engine, 'audio/bgm/night-grid.ogg', {
+await audio.playBGM('audio/bgm/night-grid.ogg', {
   loop: true,
   fadeInMs: 800,
+  delayMs: 500,
 })
 
-await playVoiceWithEngine(engine, 'voice/ch01/unit7-001.ogg', {
+await audio.playVoice('voice/ch01/unit7-001.ogg', {
   characterId: 'unit7',
   lineId: 'unit7-001',
 })
 
-await playSFXWithEngine(engine, 'audio/sfx/access-granted.ogg')
-await playAmbientWithEngine(engine, 'audio/ambient/rain.ogg', { loop: true })
-await stopBGMWithEngine(engine, { fadeOutMs: 500 })
+await audio.playSFX('audio/sfx/access-granted.ogg')
+await audio.playAmbient('audio/ambient/rain.ogg', { loop: true })
+await audio.stopBGM({ fadeOutMs: 500 })
+```
+
+QuaScript compiler output and runtime integrations import the `*WithEngine` helpers directly. Those helpers are not registered as developer-facing JS plugin APIs; game code should keep the initialized `AudioPlugin` instance and call methods on it instead of threading `engine` through every audio call.
+
+`delayMs` is normalized to a `playAt` timestamp in the engine-owned audio projection. Web renderers decode the track and schedule the WebAudio source against that timestamp; if browser autoplay unlock happens later, the pending track starts as soon as the context is running.
+
+For audio changes that need to line up with visual timelines, use the animation sub-entry. It returns normal `@quajs/plugin-animation` timelines targeting the existing `audioBus:*` and `audioTrack:*` adapters:
+
+```ts
+import { AnimationPlugin } from '@quajs/plugin-animation'
+import { AudioPlugin } from '@quajs/plugin-audio'
+import { fadeBgmIn, fadeBgmOut } from '@quajs/plugin-audio/animation'
+
+const animation = new AnimationPlugin()
+const audio = new AudioPlugin()
+
+engine.use(animation).use(audio)
+await engine.init()
+
+await audio.playBGM('audio/bgm/night-grid.ogg', {
+  id: 'scene-bgm',
+  gainDb: -48,
+  loop: true,
+})
+await animation.playTimeline(fadeBgmIn({
+  target: 'audioTrack:scene-bgm',
+  duration: 1200,
+  toGainDb: -8,
+}))
+await animation.playTimeline(fadeBgmOut({
+  target: 'audioTrack:scene-bgm',
+  duration: 700,
+}), { wait: true })
 ```
 
 ## Buses, EQ, And Automation
 
 ```ts
-import {
-  setAudioAutomationWithEngine,
-  setAudioEqWithEngine,
-  setAudioGainWithEngine,
-} from '@quajs/plugin-audio'
+await audio.setGain('bgm', -12, { fadeOutMs: 300 })
 
-await setAudioGainWithEngine(engine, 'bgm', -12, { fadeOutMs: 300 })
-
-await setAudioEqWithEngine(engine, 'voice', [{
+await audio.setEq('voice', [{
   type: 'highpass',
   frequency: 120,
   q: 0.8,
 }])
 
-await setAudioAutomationWithEngine(engine, 'master', 'gainDb', {
+await audio.setAutomation('master', 'gainDb', {
   points: [
     { at: 0, value: -6 },
     { at: 1000, value: 0 },
@@ -87,7 +109,7 @@ await setAudioAutomationWithEngine(engine, 'master', 'gainDb', {
 Chapter directives can provide voice maps and defaults:
 
 ```ts
-await configureAudioChapterWithEngine(engine, 'ch01', {
+await audio.configureChapter('ch01', {
   voiceMap: {
     'unit7-001': 'voice/ch01/unit7-001.ogg',
   },

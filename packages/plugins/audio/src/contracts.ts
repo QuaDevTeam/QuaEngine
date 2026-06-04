@@ -69,6 +69,8 @@ export interface AudioTrackProjection {
   fadeInMs?: number
   fadeOutMs?: number
   crossfadeMs?: number
+  playAt?: number
+  delayMs?: number
   seekMs?: number
   offsetMs?: number
   metadata?: Readonly<Record<string, unknown>>
@@ -129,6 +131,8 @@ export interface AudioPlayVoiceOptions {
   fadeInMs?: number
   fadeOutMs?: number
   crossfadeMs?: number
+  playAt?: number
+  delayMs?: number
   seekMs?: number
   eq?: readonly AudioEqBand[]
   automation?: readonly AudioAutomationProjection[]
@@ -145,6 +149,8 @@ export interface AudioPlayBgmOptions {
   fadeInMs?: number
   fadeOutMs?: number
   crossfadeMs?: number
+  playAt?: number
+  delayMs?: number
   seekMs?: number
   eq?: readonly AudioEqBand[]
   automation?: readonly AudioAutomationProjection[]
@@ -163,6 +169,8 @@ export interface AudioPlaySfxOptions {
   fadeInMs?: number
   fadeOutMs?: number
   crossfadeMs?: number
+  playAt?: number
+  delayMs?: number
   seekMs?: number
   eq?: readonly AudioEqBand[]
   automation?: readonly AudioAutomationProjection[]
@@ -181,6 +189,8 @@ export interface AudioPlayAmbientOptions {
   fadeInMs?: number
   fadeOutMs?: number
   crossfadeMs?: number
+  playAt?: number
+  delayMs?: number
   seekMs?: number
   eq?: readonly AudioEqBand[]
   automation?: readonly AudioAutomationProjection[]

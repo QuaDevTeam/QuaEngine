@@ -668,9 +668,15 @@ importers:
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../../core/pipeline
+      '@quajs/plugin-animation':
+        specifier: workspace:*
+        version: link:../animation
       '@quajs/plugin-settings':
         specifier: workspace:*
         version: link:../settings
+      '@quajs/render-core':
+        specifier: workspace:*
+        version: link:../../render/core
       '@quajs/store':
         specifier: workspace:*
         version: link:../../core/store
