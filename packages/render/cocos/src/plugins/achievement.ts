@@ -8,7 +8,10 @@ import type { CocosRendererPluginContext } from '../types'
 import { ACHIEVEMENT_PLUGIN_ID, AchievementRenderToLogicEvents } from '@quajs/plugin-achievement/contracts'
 import { LogicToRenderEvents } from '@quajs/render-core'
 import { defineCocosRendererPlugin } from './core'
+import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromAssetRef } from '../utils'
 import { resolveInputMetadataAny, stringValue } from './projection-utils'
+
+type AchievementAssetRef = NonNullable<AchievementProjectionItem['icon']>
 
 export function createAchievementCocosRendererPlugin() {
   return defineCocosRendererPlugin({
@@ -144,13 +147,18 @@ async function renderAchievementToast(
   const icon = notification.icon
   if (icon?.type === 'images') {
     const iconNode = context.cocos.host.nodes.createNode('achievement-toast-icon', { parent: node, name: `achievement:toast:${notification.id}:icon` })
-    const resource = await context.cocos.resolveAsset('images', icon.name, { targetPackageId: icon.runtimePackageId })
+    const resource = await resolveAssetWithTargetPackages(context.cocos, 'images', icon.name, runtimePackageCandidatesFromAssetRef(icon as unknown as Record<string, unknown>))
     context.cocos.setLayerResource('achievement', `notification:${notification.id}:icon`, resource)
     context.cocos.host.nodes.setNodeSprite(iconNode, resource)
     context.cocos.host.nodes.setNodeTransform(iconNode, { x: safeArea.x + safeArea.width - 408, y: safeArea.y + 38 + index * 86, width: 56, height: 56, zIndex: 2 })
   }
   if (!playedNotifications.has(notification.id) && notification.sound?.type === 'audio') {
-    const resource = await context.cocos.resolveAsset('audio', notification.sound.name, { targetPackageId: notification.sound.runtimePackageId })
+    const resource = await resolveAssetWithTargetPackages(
+      context.cocos,
+      'audio',
+      notification.sound.name,
+      runtimePackageCandidatesFromAssetRef(notification.sound as unknown as Record<string, unknown>),
+    )
     if (resource) {
       playedNotifications.add(notification.id)
       const resourceKey = `notification:${notification.id}:sound`
@@ -244,16 +252,24 @@ async function renderAchievementBoard(
   renderPager(context, panel, 'achievement:groups', 'groups', groupPage, safeArea.x + 28 + 6 * 150, safeArea.y + 84)
   const items = projection.achievements.filter(item => projection.filteredAchievementIds.includes(item.id))
   const itemPage = pageItems(items, pages.get('items') || 0, 10)
-  itemPage.items.forEach((achievement, index) => renderAchievementItem(context, panel, achievement, index, safeArea.x + 28, safeArea.y + 144, Math.min(560, safeArea.width - 56), projection.selectedAchievementId === achievement.id))
+  if (items.length === 0) {
+    renderEmptyState(context, panel, 'No achievements', safeArea.x + 28, safeArea.y + 144, Math.min(560, safeArea.width - 56))
+  }
+  for (const [index, achievement] of itemPage.items.entries()) {
+    await renderAchievementItem(context, panel, achievement, index, safeArea.x + 28, safeArea.y + 144, Math.min(560, safeArea.width - 56), projection.selectedAchievementId === achievement.id)
+  }
   renderPager(context, panel, 'achievement:items', 'items', itemPage, safeArea.x + 28, safeArea.y + 144 + 10 * 64)
   const selected = projection.achievements.find(item => item.id === projection.selectedAchievementId)
     || items[0]
   if (selected) {
-    renderAchievementDetail(context, panel, selected, safeArea.x + 620, safeArea.y + 144, Math.max(320, safeArea.width - 650))
+    await renderAchievementDetail(context, panel, selected, safeArea.x + 620, safeArea.y + 144, Math.max(320, safeArea.width - 650))
+  }
+  else {
+    renderEmptyState(context, panel, 'No achievement selected', safeArea.x + 620, safeArea.y + 144, Math.max(320, safeArea.width - 650))
   }
 }
 
-function renderAchievementItem(
+async function renderAchievementItem(
   context: CocosRendererPluginContext,
   parent: CocosHostNode,
   achievement: AchievementProjectionItem,
@@ -262,9 +278,9 @@ function renderAchievementItem(
   startY: number,
   width: number,
   selected: boolean,
-): void {
+): Promise<void> {
   const y = startY + index * 64
-  const title = achievement.hidden && !achievement.unlocked ? 'Hidden achievement' : achievement.title
+  const title = achievementDisplayTitle(achievement)
   const suffix = achievement.unlocked
     ? 'Unlocked'
     : achievement.progress && achievement.maxProgress
@@ -280,28 +296,131 @@ function renderAchievementItem(
     ...(context.cocos.host.nodes.getNodeMetadata?.(node) || {}),
     achievement,
   })
+  const preview = resolveAchievementCardAsset(achievement)
+  if (preview) {
+    const image = context.cocos.host.nodes.createNode('achievement-card-image', { parent: node, name: `achievement:item:${achievement.id}:image` })
+    const resource = await resolveAchievementAsset(context, preview, `achievement:item:${achievement.id}:image`)
+    context.cocos.host.nodes.setNodeSprite(image, resource)
+    context.cocos.host.nodes.setNodeTransform(image, { x: x + 8, y: y + 8, width: 40, height: 40, zIndex: 13 })
+  }
+  const summaryText = achievementDisplaySummary(achievement)
+  if (summaryText) {
+    const summary = context.cocos.host.nodes.createNode('achievement-card-summary', { parent: node, name: `achievement:item:${achievement.id}:summary` })
+    context.cocos.host.nodes.setNodeText(summary, summaryText, { fontSize: 16, color: '#d8d8d8' })
+    context.cocos.host.nodes.setNodeTransform(summary, { x: x + (preview ? 58 : 12), y: y + 30, width: Math.max(0, width - (preview ? 70 : 24)), height: 20, zIndex: 13 })
+  }
+  const badges = [
+    achievement.unlocked ? 'Unlocked' : 'Locked',
+    achievement.progress && achievement.maxProgress ? `${achievement.progress.value}/${achievement.maxProgress}` : undefined,
+    ...(achievement.tags || []),
+  ].filter(Boolean)
+  if (badges.length) {
+    const badgeNode = context.cocos.host.nodes.createNode('achievement-card-badges', { parent: node, name: `achievement:item:${achievement.id}:badges` })
+    context.cocos.host.nodes.setNodeText(badgeNode, badges.join('  '), { fontSize: 14, color: '#d8d8d8' })
+    context.cocos.host.nodes.setNodeTransform(badgeNode, { x: x + (preview ? 58 : 12), y: y + 8, width: Math.max(0, width - (preview ? 70 : 24)), height: 18, zIndex: 13 })
+  }
 }
 
-function renderAchievementDetail(
+async function renderAchievementDetail(
   context: CocosRendererPluginContext,
   parent: CocosHostNode,
   achievement: AchievementProjectionItem,
   x: number,
   y: number,
   width: number,
-): void {
+): Promise<void> {
   const node = context.cocos.host.nodes.createNode('achievement-detail', { parent, name: `achievement:detail:${achievement.id}` })
-  const title = achievement.hidden && !achievement.unlocked ? 'Hidden achievement' : achievement.title
+  const title = achievementDisplayTitle(achievement)
+  const summaryText = achievementDisplaySummary(achievement)
+  const descriptionText = achievementDisplayDescription(achievement)
   const lines = [
     title,
-    achievement.summary,
-    achievement.description,
+    summaryText,
+    descriptionText,
     achievement.unlocked ? 'Unlocked' : 'Locked',
+    achievement.progress?.value !== undefined || achievement.maxProgress !== undefined
+      ? `${achievement.progress?.value || 0}/${achievement.maxProgress || achievement.progress?.maxValue || 0}`
+      : undefined,
+    achievement.unlockRecord ? `Unlocked ${formatAchievementTime(achievement.unlockRecord.unlockedAt)}` : undefined,
+    achievement.tags?.length ? achievement.tags.join(', ') : undefined,
   ].filter(Boolean).join('\n')
   context.cocos.host.nodes.setNodeText(node, lines, { fontSize: 22, color: '#ffffff' })
   context.cocos.host.nodes.setNodeControl?.(node, { kind: 'panel', label: title })
   context.cocos.host.nodes.setNodeTransform(node, { x, y, width, height: 260, zIndex: 14 })
   context.cocos.host.nodes.setNodeMetadata?.(node, { plugin: 'achievement', achievementId: achievement.id, achievement })
+  const banner = resolveAchievementDetailAsset(achievement)
+  if (banner) {
+    const image = context.cocos.host.nodes.createNode('achievement-detail-image', { parent: node, name: `achievement:detail:${achievement.id}:image` })
+    const resource = await resolveAchievementAsset(context, banner, `achievement:detail:${achievement.id}:image`)
+    context.cocos.host.nodes.setNodeSprite(image, resource)
+    context.cocos.host.nodes.setNodeTransform(image, { x: x + 12, y: y + 12, width: Math.min(220, width - 24), height: 96, zIndex: 15 })
+  }
+}
+
+function renderEmptyState(
+  context: CocosRendererPluginContext,
+  parent: CocosHostNode,
+  label: string,
+  x: number,
+  y: number,
+  width: number,
+): void {
+  const node = context.cocos.host.nodes.createNode('achievement-empty', { parent, name: `achievement:empty:${label}` })
+  context.cocos.host.nodes.setNodeText(node, label, { fontSize: 22, color: '#d8d8d8' })
+  context.cocos.host.nodes.setNodeTransform(node, { x, y, width, height: 48, zIndex: 10 })
+  context.cocos.host.nodes.setNodeMetadata?.(node, { plugin: 'achievement', empty: true })
+}
+
+async function resolveAchievementAsset(
+  context: CocosRendererPluginContext,
+  asset: AchievementAssetRef,
+  resourceKey: string,
+) {
+  const resource = await resolveAssetWithTargetPackages(
+    context.cocos,
+    asset.type,
+    asset.name,
+    runtimePackageCandidatesFromAssetRef(asset as unknown as Record<string, unknown>),
+  )
+  context.cocos.setLayerResource('achievement', resourceKey, resource)
+  return resource
+}
+
+function resolveAchievementCardAsset(achievement: AchievementProjectionItem): AchievementAssetRef | undefined {
+  return resolveAchievementIconAsset(achievement.icon)
+    || resolveAchievementIconAsset(achievement.banner)
+    || resolveAchievementIconAsset(achievement.background)
+}
+
+function resolveAchievementDetailAsset(achievement: AchievementProjectionItem): AchievementAssetRef | undefined {
+  return resolveAchievementIconAsset(achievement.banner)
+    || resolveAchievementIconAsset(achievement.background)
+    || resolveAchievementIconAsset(achievement.icon)
+}
+
+function resolveAchievementIconAsset(asset: AchievementAssetRef | undefined): AchievementAssetRef | undefined {
+  return asset?.type === 'images' ? asset : undefined
+}
+
+function achievementDisplayTitle(achievement: AchievementProjectionItem): string {
+  return achievement.hidden && !achievement.unlocked ? 'Hidden Achievement' : achievement.title
+}
+
+function achievementDisplaySummary(achievement: AchievementProjectionItem): string | undefined {
+  if (achievement.hidden && !achievement.unlocked)
+    return achievement.summary ? 'Unlock to reveal details.' : undefined
+  return achievement.summary
+}
+
+function achievementDisplayDescription(achievement: AchievementProjectionItem): string | undefined {
+  if (achievement.hidden && !achievement.unlocked)
+    return undefined
+  return achievement.description
+}
+
+function formatAchievementTime(timestamp: number): string {
+  const date = new Date(timestamp)
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString()
 }
 
 function renderPager(
