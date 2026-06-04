@@ -6,6 +6,7 @@ import type {
   CocosHostAudioHandle,
   CocosHostControlOptions,
   CocosHostFileInfo,
+  CocosHostFontFaceOptions,
   CocosHostInputEvent,
   CocosHostInputListener,
   CocosHostNode,
@@ -45,6 +46,7 @@ export interface FakeCocosHost extends CocosHost {
   audioHandlesById: Map<string, FakeCocosAudioHandle>
   audioBusVolumes: Map<string, number>
   audioBusEq: Map<string, readonly unknown[]>
+  fontFacesById: Map<string, { resource: CocosHostResource, options: CocosHostFontFaceOptions }>
   files: Map<string, Uint8Array>
   inputEvents: CocosHostInputEvent[]
   emitInput: (event: CocosHostInputEvent) => Promise<void>
@@ -74,6 +76,7 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
   const audioHandlesById = new Map<string, FakeCocosAudioHandle>()
   const audioBusVolumes = new Map<string, number>()
   const audioBusEq = new Map<string, readonly unknown[]>()
+  const fontFacesById = new Map<string, { resource: CocosHostResource, options: CocosHostFontFaceOptions }>()
   const inputListeners = new Set<CocosHostInputListener>()
   const inputEvents: CocosHostInputEvent[] = []
   const now = options.now || Date.now
@@ -342,6 +345,7 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
     audioHandlesById,
     audioBusVolumes,
     audioBusEq,
+    fontFacesById,
     files,
     inputEvents,
     async emitInput(event) {
@@ -357,6 +361,20 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
     assets: assetHost,
     storage: storageHost,
     audio: audioHost,
+    fonts: {
+      registerFontFace(resource, fontOptions) {
+        fontFacesById.set(fontOptions.id, {
+          resource,
+          options: {
+            ...fontOptions,
+            metadata: fontOptions.metadata ? { ...fontOptions.metadata } : undefined,
+          },
+        })
+      },
+      unregisterFontFace(id) {
+        fontFacesById.delete(id)
+      },
+    },
     input: {
       onInput(listener) {
         inputListeners.add(listener)

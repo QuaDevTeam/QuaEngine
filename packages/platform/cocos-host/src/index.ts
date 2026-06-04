@@ -46,6 +46,41 @@ export interface CocosHostTextStyle {
 }
 
 export type CocosHostSpriteMode = 'sprite' | 'video' | 'sliced' | 'tiled'
+export type CocosHostBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'add' | string
+
+export interface CocosHostSpriteFrame extends CocosHostRect {
+  offsetX?: number
+  offsetY?: number
+}
+
+export interface CocosHostSpriteFilter {
+  blur?: number
+  brightness?: number
+  contrast?: number
+  saturate?: number
+  hueRotate?: number
+  grayscale?: number
+  sepia?: number
+  dropShadow?: string
+}
+
+export interface CocosHostSpriteMask {
+  assetName?: string
+  assetType?: string
+  resource?: CocosHostResource
+  resourceId?: string
+  mode?: string
+  position?: string
+  size?: string
+  repeat?: string
+}
+
+export interface CocosHostSpriteComposition {
+  blendMode?: CocosHostBlendMode
+  isolation?: boolean
+  filter?: Readonly<CocosHostSpriteFilter>
+  mask?: Readonly<CocosHostSpriteMask>
+}
 
 export interface CocosHostSpriteOptions {
   mode?: CocosHostSpriteMode
@@ -54,6 +89,11 @@ export interface CocosHostSpriteOptions {
   contentInsets?: Partial<CocosHostInsets>
   tint?: string
   opacity?: number
+  frame?: Readonly<CocosHostSpriteFrame>
+  mask?: Readonly<CocosHostSpriteMask>
+  blendMode?: CocosHostBlendMode
+  filter?: Readonly<CocosHostSpriteFilter>
+  composition?: Readonly<CocosHostSpriteComposition>
   metadata?: Record<string, unknown>
 }
 
@@ -212,6 +252,31 @@ export interface CocosAudioHost {
   setBusEq?: (bus: string, bands: readonly unknown[]) => void
 }
 
+export interface CocosHostFontFaceOptions {
+  id: string
+  family: string
+  assetName: string
+  bundleName?: string
+  locale?: string
+  style?: string
+  weight?: string | number
+  stretch?: string
+  display?: string
+  unicodeRange?: string
+  featureSettings?: string
+  variationSettings?: string
+  ascentOverride?: string
+  descentOverride?: string
+  lineGapOverride?: string
+  contentPackageId?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface CocosFontHost {
+  registerFontFace: (resource: CocosHostResource, options: CocosHostFontFaceOptions) => Promise<void> | void
+  unregisterFontFace: (id: string) => Promise<void> | void
+}
+
 export interface CocosStorageHost {
   writeText: (path: string, value: string) => Promise<void>
   readText: (path: string) => Promise<string | undefined>
@@ -269,6 +334,7 @@ export interface CocosRuntimeHostBundle {
   nodes: CocosNodeHost
   assets: CocosAssetHost
   audio: CocosAudioHost
+  fonts?: CocosFontHost
   storage: CocosStorageHost
   input: CocosInputHost
   capture?: CocosCaptureHost
