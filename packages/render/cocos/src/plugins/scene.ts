@@ -100,6 +100,14 @@ function renderSceneTransition(
     opacity: transition.type.startsWith('slide_') ? 1 : hidden,
     scaleX: transition.type === 'zoom_in' ? 1 + hidden * 0.12 : transition.type === 'zoom_out' ? 0.92 + eased * 0.08 : 1,
     scaleY: transition.type === 'zoom_in' ? 1 + hidden * 0.12 : transition.type === 'zoom_out' ? 0.92 + eased * 0.08 : 1,
+    clip: transition.type === 'wipe'
+      ? {
+          x: 0,
+          y: 0,
+          width: layout.logicalWidth * hidden,
+          height: layout.logicalHeight,
+        }
+      : undefined,
     zIndex: 0,
   })
   context.cocos.host.nodes.setNodeMetadata?.(overlay, {

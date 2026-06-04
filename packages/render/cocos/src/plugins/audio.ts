@@ -79,7 +79,10 @@ function hasDynamicAudioProjection(value: unknown): boolean {
 
 function hasAutomation(value: unknown): boolean {
   if (Array.isArray(value)) {
-    return value.some(item => isRecord(item) && item.propertyPath === 'gainDb')
+    return value.some(item => isRecord(item) && typeof item.propertyPath === 'string' && (
+      item.propertyPath === 'gainDb'
+      || /^eq\[\d+\]\.(gainDb|frequency|q|detune)$/.test(item.propertyPath)
+    ))
   }
   if (isRecord(value)) {
     return Object.values(value).some(item => isRecord(item) && hasAutomation(item.automation))

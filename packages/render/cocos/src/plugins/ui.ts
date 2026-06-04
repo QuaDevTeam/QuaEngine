@@ -3,12 +3,16 @@ import { clientPointToStageLogical, LogicToRenderEvents } from '@quajs/render-co
 import { renderCocosUi } from '../projection'
 import { defineCocosRendererPlugin } from './core'
 
-export function createUiCocosRendererPlugin() {
+export interface UiCocosRendererPluginOptions {
+  handledElementIds?: readonly string[]
+}
+
+export function createUiCocosRendererPlugin(options: UiCocosRendererPluginOptions = {}) {
   return defineCocosRendererPlugin({
     name: '@quajs/renderer-cocos/ui',
     setup(context) {
       const sync = () => {
-        void renderCocosUi(context.cocos).catch(error => context.reportError(error, {
+        void renderCocosUi(context.cocos, options).catch(error => context.reportError(error, {
           message: 'Cocos UI projection failed.',
           phase: 'renderer-cocos:ui',
           pluginName: '@quajs/renderer-cocos/ui',

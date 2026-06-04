@@ -668,8 +668,10 @@ export class QuaCocosRendererController {
       state?: string
       fadeInMs?: number
       fadeOutMs?: number
+      crossfadeMs?: number
       seekMs?: number
       offsetMs?: number
+      eq?: readonly unknown[]
       automation?: readonly Record<string, unknown>[]
       interruptible?: boolean
       endedPayload?: AudioTrackEventPayload
@@ -680,6 +682,10 @@ export class QuaCocosRendererController {
     const volume = options.volume ?? 1
     const loop = options.loop ?? false
     if (existing && existing.resource.id === resource.id) {
+      if (existing.releasing) {
+        existing.releasing = false
+        this.clearAudioReleaseTimer(existing)
+      }
       const nextSignature = audioRuntimeSignature(resource, options)
       if (existing.signature !== nextSignature) {
         existing.interrupted = false
@@ -688,6 +694,7 @@ export class QuaCocosRendererController {
       this.updateAudioRuntimeState(existing, options, volume, loop)
       existing.handle.setLoop(loop)
       this.applyAudioPlaybackRate(existing.handle, options.playbackRate ?? 1, key)
+      this.applyAudioTrackEq(existing, key)
       existing.endedPayload = options.endedPayload
       await this.applyAudioSeek(existing, key)
       this.applyAudioRuntimeVolume(existing)
@@ -698,6 +705,7 @@ export class QuaCocosRendererController {
     if (existing) {
       existing.endedDisposer?.()
       this.clearAudioStartTimer(existing)
+      this.clearAudioReleaseTimer(existing)
       await existing.handle.stop()
       await existing.handle.dispose()
     }
@@ -733,6 +741,7 @@ export class QuaCocosRendererController {
     handles.set(key, record)
     this.audioHandles.set(layerId, handles)
     this.applyAudioPlaybackRate(handle, options.playbackRate ?? 1, key)
+    this.applyAudioTrackEq(record, key)
     await this.applyAudioSeek(record, key)
     this.applyAudioRuntimeVolume(record)
     await this.applyAudioPlayback(record, key)
@@ -748,8 +757,11 @@ export class QuaCocosRendererController {
     for (const [key, record] of [...handles.entries()]) {
       if (active?.has(key))
         continue
+      if (active && this.releaseAudioHandleWithFade(layerId, key, record, handles))
+        continue
       record.endedDisposer?.()
       this.clearAudioStartTimer(record)
+      this.clearAudioReleaseTimer(record)
       void record.handle.stop()
       void record.handle.dispose()
       this.setLayerResource(layerId, key, undefined)
@@ -759,6 +771,45 @@ export class QuaCocosRendererController {
       this.audioHandles.delete(layerId)
     }
     this.scheduleAudioFrameLoop()
+  }
+
+  private releaseAudioHandleWithFade(
+    layerId: string,
+    key: string,
+    record: CocosAudioRuntimeHandle,
+    handles: Map<string, CocosAudioRuntimeHandle>,
+  ): boolean {
+    if (record.releasing)
+      return true
+    const duration = finiteNumber(record.options.crossfadeMs)
+      ?? finiteNumber(record.options.fadeOutMs)
+    if (!duration || duration <= 0)
+      return false
+    record.releasing = true
+    record.options = {
+      ...record.options,
+      state: 'stopping',
+      playing: false,
+      fadeOutMs: duration,
+    }
+    record.fadeOutStartedAt = this.host.runtime.now()
+    record.fadeOutStopped = false
+    this.applyAudioRuntimeVolume(record)
+    record.releaseTimer = this.host.scheduler.setTimeout(() => {
+      record.endedDisposer?.()
+      this.clearAudioStartTimer(record)
+      void Promise.resolve(record.handle.stop()).finally(() => {
+        void record.handle.dispose()
+      })
+      this.setLayerResource(layerId, key, undefined)
+      handles.delete(key)
+      if (handles.size === 0) {
+        this.audioHandles.delete(layerId)
+      }
+      this.scheduleAudioFrameLoop()
+    }, duration)
+    this.scheduleAudioFrameLoop()
+    return true
   }
 
   private applyAudioPlaybackRate(handle: CocosHostAudioHandle, playbackRate: number, key: string): void {
@@ -777,6 +828,31 @@ export class QuaCocosRendererController {
     this.host.runtime.warn?.('Cocos host does not expose audio playbackRate capability; playback rate intent was ignored.', {
       key,
       playbackRate,
+    })
+  }
+
+  private applyAudioTrackEq(record: CocosAudioRuntimeHandle, key: string): void {
+    const bands = projectEqBands(
+      record.options.eq,
+      record.options.automation,
+      this.host.runtime.now(),
+      record.automationStartedAt ?? record.createdAt,
+    )
+    if (bands.length === 0) {
+      record.handle.setEq?.([])
+      return
+    }
+    if (record.handle.setEq) {
+      record.handle.setEq(bands)
+      return
+    }
+    const warningKey = `trackEq:${key}`
+    if (this.warnedAudioCapabilities.has(warningKey))
+      return
+    this.warnedAudioCapabilities.add(warningKey)
+    this.host.runtime.warn?.('Cocos host audio handle does not expose track EQ capability; track EQ intent was ignored.', {
+      key,
+      bands,
     })
   }
 
@@ -822,6 +898,13 @@ export class QuaCocosRendererController {
       record.startTimer = undefined
     }
     record.pendingPlayAt = undefined
+  }
+
+  private clearAudioReleaseTimer(record: CocosAudioRuntimeHandle): void {
+    if (record.releaseTimer !== undefined) {
+      this.host.scheduler.clearTimeout(record.releaseTimer)
+      record.releaseTimer = undefined
+    }
   }
 
   private updateAudioRuntimeState(
@@ -912,8 +995,9 @@ export class QuaCocosRendererController {
       if (!this.started)
         return
       for (const handles of this.audioHandles.values()) {
-        for (const record of handles.values()) {
+        for (const [key, record] of handles) {
           this.applyAudioRuntimeVolume(record)
+          this.applyAudioTrackEq(record, key)
         }
       }
       this.scheduleAudioFrameLoop()
@@ -933,9 +1017,13 @@ export class QuaCocosRendererController {
       for (const record of handles.values()) {
         if (hasGainAutomation(record.options.automation))
           return true
+        if (hasEqAutomation(record.options.automation))
+          return true
         if ((record.options.fadeInMs ?? 0) > 0 && record.fadeInStartedAt !== undefined && now - record.fadeInStartedAt < record.options.fadeInMs!)
           return true
         if ((record.options.fadeOutMs ?? 0) > 0 && record.fadeOutStartedAt !== undefined && !record.fadeOutStopped)
+          return true
+        if (record.releasing)
           return true
       }
     }
@@ -1115,12 +1203,45 @@ function hasGainAutomation(automation: readonly Record<string, unknown>[] | unde
   return Boolean(automation?.some(item => item.propertyPath === 'gainDb'))
 }
 
+function hasEqAutomation(automation: readonly Record<string, unknown>[] | undefined): boolean {
+  return Boolean(automation?.some(item => typeof item.propertyPath === 'string' && /^eq\[\d+\]\.(gainDb|frequency|q|detune)$/.test(item.propertyPath)))
+}
+
 function projectGainAutomation(
   automation: readonly Record<string, unknown>[] | undefined,
   now: number,
   startedAt: number,
 ): number | undefined {
-  const item = automation?.find(entry => entry.propertyPath === 'gainDb')
+  return projectAutomationProperty(automation, 'gainDb', now, startedAt)
+}
+
+function projectEqBands(
+  eq: readonly unknown[] | undefined,
+  automation: readonly Record<string, unknown>[] | undefined,
+  now: number,
+  startedAt: number,
+): readonly unknown[] {
+  const bands = eq || []
+  return bands.map((band, index) => {
+    const next = isRecord(band) ? { ...band } : band
+    if (!isRecord(next))
+      return next
+    for (const property of ['gainDb', 'frequency', 'q', 'detune']) {
+      const value = projectAutomationProperty(automation, `eq[${index}].${property}`, now, startedAt)
+      if (value !== undefined)
+        next[property] = value
+    }
+    return next
+  })
+}
+
+function projectAutomationProperty(
+  automation: readonly Record<string, unknown>[] | undefined,
+  propertyPath: string,
+  now: number,
+  startedAt: number,
+): number | undefined {
+  const item = automation?.find(entry => entry.propertyPath === propertyPath)
   const curve = item?.curve
   if (!curve || typeof curve !== 'object' || Array.isArray(curve))
     return undefined
@@ -1153,12 +1274,15 @@ function projectGainAutomation(
 }
 
 function readAutomationPoint(value: unknown): { at: number, value: number } | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value))
+  if (!isRecord(value))
     return undefined
-  const record = value as Record<string, unknown>
-  const at = finiteNumber(record.at)
-  const pointValue = finiteNumber(record.value)
+  const at = finiteNumber(value.at)
+  const pointValue = finiteNumber(value.value)
   return at === undefined || pointValue === undefined ? undefined : { at, value: pointValue }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 export type CocosRuntimePluginPayload = LogicToRenderPayload<LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN>
@@ -1178,15 +1302,18 @@ interface CocosAudioRuntimeHandle {
     state?: string
     fadeInMs?: number
     fadeOutMs?: number
+    crossfadeMs?: number
     seekMs?: number
     offsetMs?: number
     automation?: readonly Record<string, unknown>[]
+    eq?: readonly unknown[]
     interruptible?: boolean
     endedPayload?: AudioTrackEventPayload
   }
   endedPayload?: AudioTrackEventPayload
   endedDisposer?: () => void
   startTimer?: number
+  releaseTimer?: number
   pendingPlayAt?: number
   lastSeekMs?: number
   pausedPositionMs?: number
@@ -1197,4 +1324,5 @@ interface CocosAudioRuntimeHandle {
   automationSignature?: string
   automationStartedAt?: number
   interrupted?: boolean
+  releasing?: boolean
 }

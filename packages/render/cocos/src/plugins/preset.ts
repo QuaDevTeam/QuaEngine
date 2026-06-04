@@ -36,7 +36,7 @@ export function createVisualNovelCocosRendererPlugins(
     createChoicesCocosRendererPlugin(),
     createAudioCocosRendererPlugin(),
     createSceneCocosRendererPlugin(),
-    createUiCocosRendererPlugin(),
+    createUiCocosRendererPlugin({ handledElementIds: ['settings'] }),
     createSettingsCocosRendererPlugin(),
     createBacklogCocosRendererPlugin(),
     createGalleryCocosRendererPlugin(),
