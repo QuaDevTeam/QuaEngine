@@ -191,6 +191,11 @@ export interface CocosAssetHost {
     mimeType?: string
     metadata?: Record<string, unknown>
   }) => Promise<CocosHostResource>
+  loadResource?: (kind: CocosHostResourceKind, source: string, options?: {
+    id?: string
+    mimeType?: string
+    metadata?: Record<string, unknown>
+  }) => Promise<CocosHostResource | undefined>
   retainResource?: (resource: CocosHostResource) => void
   releaseResource: (resource: CocosHostResource) => void
 }
@@ -254,6 +259,7 @@ export interface CocosHostCapabilities {
   video?: boolean
   capture?: boolean
   fonts?: boolean
+  nativeAssets?: boolean
 }
 
 export interface CocosRuntimeHostBundle {

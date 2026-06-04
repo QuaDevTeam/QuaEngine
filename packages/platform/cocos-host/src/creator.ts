@@ -39,6 +39,16 @@ export interface CocosCreatorFileBridge {
 }
 
 export interface CocosCreatorResourceBridge {
+  loadResource?: (
+    kind: CocosHostResourceKind,
+    source: string,
+    options: {
+      id: string
+      mimeType?: string
+      metadata?: Record<string, unknown>
+      cc?: CocosCreatorModule
+    },
+  ) => Promise<CocosHostResource | undefined>
   createResource?: (
     kind: CocosHostResourceKind,
     data: Uint8Array,
@@ -335,6 +345,22 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
         resources.set(id, resource)
         return resource
       },
+      async loadResource(kind: CocosHostResourceKind, source, resourceOptions = {}) {
+        const id = resourceOptions.id || `${kind}:${source}`
+        const existing = resources.get(id)
+        if (existing)
+          return existing
+        const resource = await resourceBridge?.loadResource?.(kind, source, {
+          id,
+          mimeType: resourceOptions.mimeType,
+          metadata: resourceOptions.metadata,
+          cc: options.cc,
+        })
+        if (!resource)
+          return undefined
+        resources.set(id, resource)
+        return resource
+      },
       retainResource(resource) {
         resourceBridge?.retainResource?.(resource)
       },
@@ -443,6 +469,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       video: true,
       capture: Boolean(options.capture),
       fonts: Boolean(resourceBridge?.createResource),
+      nativeAssets: Boolean(resourceBridge?.loadResource),
     },
   }
 

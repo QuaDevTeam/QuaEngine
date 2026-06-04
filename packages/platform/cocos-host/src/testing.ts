@@ -199,6 +199,24 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
       resourcesById.set(id, resource)
       return resource
     },
+    async loadResource(kind: CocosHostResourceKind, source, resourceOptions = {}) {
+      const id = resourceOptions.id || `${kind}:${source}`
+      const existing = resourcesById.get(id)
+      if (existing)
+        return existing
+      const resource: CocosHostResource = {
+        id,
+        kind,
+        source,
+        mimeType: resourceOptions.mimeType,
+        width: Number(resourceOptions.metadata?.width) || undefined,
+        height: Number(resourceOptions.metadata?.height) || undefined,
+        duration: Number(resourceOptions.metadata?.duration) || undefined,
+        native: { source, kind },
+      }
+      resourcesById.set(id, resource)
+      return resource
+    },
     retainResource(resource) {
       if (!resourcesById.has(resource.id)) {
         resourcesById.set(resource.id, resource)
@@ -378,6 +396,7 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
       audioPlaybackRate: true,
       capture: true,
       fonts: true,
+      nativeAssets: true,
     },
   }
 

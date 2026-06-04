@@ -132,6 +132,70 @@ describe('quaAssets core runtime', () => {
     expect((await assets.getAsset('data', 'config.json')).data).toBeInstanceOf(Uint8Array)
   })
 
+  it('returns manifest records for Cocos hybrid native assets by path', async () => {
+    const nativePath = 'assets/resources/qua-hybrid/images/hero.png'
+    const manifest = createManifest({
+      assets: {
+        images: {
+          'hero.png': {
+            name: 'hero.png',
+            path: nativePath,
+            relativePath: nativePath,
+            size: 3,
+            hash: '',
+            type: 'images',
+            locales: ['default'],
+            mimeType: 'image/png',
+            mediaMetadata: { format: 'png', width: 320, height: 180 },
+          },
+        },
+      },
+      assetTarget: {
+        name: 'cocos-mobile',
+        platform: 'cocos',
+        staticOnly: true,
+        cocos: {
+          staticOnly: true,
+          hybrid: {
+            enabled: true,
+            resourceRoot: 'assets/resources',
+            assetBundle: 'qua-hybrid',
+            domains: {
+              images: 'cocos-bundle',
+              characters: 'cocos-bundle',
+              audio: 'qpk',
+              video: 'qpk',
+              fonts: 'qpk',
+            },
+          },
+        },
+      },
+      totalFiles: 1,
+      totalSize: 3,
+    })
+    const adapterWithBundle = createAdapter({
+      files: {
+        'https://cdn.example.com/cocos-mobile.qpk': createQpkBundle(manifest, new Map()),
+      },
+    })
+    assets = new QuaAssets({ endpoint: 'https://cdn.example.com', adapter: adapterWithBundle })
+    await assets.initialize()
+    await assets.loadBundle('cocos-mobile.qpk')
+
+    await expect(assets.getAsset('images', 'hero.png')).rejects.toThrow('Asset not found')
+    await expect(assets.getAssetManifestRecord('images', nativePath))
+      .resolves
+      .toEqual(expect.objectContaining({
+        name: 'hero.png',
+        path: nativePath,
+        type: 'images',
+        mimeType: 'image/png',
+      }))
+    await expect(assets.getAssetManifestRecord('images', 'hero.png'))
+      .resolves
+      .toEqual(expect.objectContaining({ path: nativePath }))
+  })
+
   it('loads and formats i18n catalogs with locale fallback', async () => {
     const manifest = createManifest({
       locales: ['default', 'zh'],
