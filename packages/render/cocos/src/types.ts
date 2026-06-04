@@ -44,9 +44,17 @@ export interface CocosRendererHostContext {
     bus?: string
     playing?: boolean
     playAt?: number
+    state?: string
+    fadeInMs?: number
+    fadeOutMs?: number
+    seekMs?: number
+    offsetMs?: number
+    automation?: readonly Record<string, unknown>[]
+    interruptible?: boolean
     endedPayload?: AudioTrackEventPayload
   }) => Promise<CocosHostAudioHandle>
   releaseAudioHandles: (layerId: string, activeKeys?: readonly string[]) => void
+  interruptAudioTracks: (kind: string, source?: string) => Promise<void>
   captureStage: (options?: { mimeType?: string, quality?: number, maxWidth?: number, maxHeight?: number }) => Promise<{
     bytes: Uint8Array
     mimeType: string

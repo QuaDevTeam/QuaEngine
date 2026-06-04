@@ -785,6 +785,147 @@ describe('@quajs/renderer-cocos', () => {
     })
   })
 
+  it('interrupts active Cocos voice tracks on user advance', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const interrupted: unknown[] = []
+    pipeline.on(AudioRenderToLogicEvents.INTERRUPTED, context => interrupted.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      assets: createFakeAssets(),
+      initialView: createView({
+        audioAsset: 'voice.ogg',
+        audioKind: 'voice',
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    const handle = await waitForAudioHandle(host, 'voice:main')
+    expect(handle.playing).toBe(true)
+    await renderer.actions.advance('test')
+    await waitForEventually(() => interrupted.length > 0)
+
+    expect(handle.playing).toBe(false)
+    expect(interrupted[0]).toMatchObject({
+      channel: 'voice',
+      id: 'main',
+      assetKey: 'voice.ogg',
+      metadata: { source: 'test' },
+    })
+  })
+
+  it('applies Cocos audio seek, fade, and gain automation', async () => {
+    let now = 0
+    const host = createFakeCocosHost({ now: () => now })
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      assets: createFakeAssets(),
+      initialView: createView({
+        plugins: {
+          audio: {
+            revision: 1,
+            unlocked: true,
+            buses: {
+              master: {
+                automation: [{
+                  target: 'master',
+                  propertyPath: 'gainDb',
+                  curve: { points: [{ at: 0, value: -6 }, { at: 1000, value: 0 }] },
+                }],
+              },
+              bgm: {},
+              voice: {},
+              sfx: {},
+              ambient: {},
+            },
+            bgm: {
+              id: 'main',
+              kind: 'bgm',
+              assetKey: 'bgm.ogg',
+              state: 'playing',
+              loop: true,
+              fadeInMs: 1000,
+              seekMs: 250,
+              automation: [{
+                target: 'main',
+                propertyPath: 'gainDb',
+                curve: { points: [{ at: 0, value: -12 }, { at: 1000, value: 0 }] },
+              }],
+            },
+            voices: [],
+            sfx: [],
+            ambients: [],
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    const handle = await waitForAudioHandle(host, 'bgm:main')
+    expect(handle.seekCalls).toEqual([250])
+    expect(handle.volume).toBe(0)
+    expect(host.audioBusVolumes.get('master')).toBeCloseTo(10 ** (-6 / 20), 6)
+
+    now = 500
+    await waitForEventually(() => handle.volume > 0.2)
+
+    expect(handle.volume).toBeCloseTo((10 ** (-6 / 20)) * 0.5, 6)
+    expect(host.audioBusVolumes.get('master')).toBeCloseTo(10 ** (-3 / 20), 6)
+    await renderer.destroy()
+  })
+
+  it('warns when Cocos audio seek is projected without host support', async () => {
+    const host = createFakeCocosHost()
+    const warnings: unknown[] = []
+    host.runtime.warn = (message, metadata) => warnings.push({ message, metadata })
+    const createAudioHandle = host.audio.createAudioHandle
+    host.audio.createAudioHandle = async (...args) => {
+      const handle = await createAudioHandle(...args)
+      ;(handle as any).seek = undefined
+      return handle
+    }
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      assets: createFakeAssets(),
+      initialView: createView({
+        plugins: {
+          audio: {
+            revision: 1,
+            unlocked: true,
+            buses: { master: {}, bgm: {}, voice: {}, sfx: {}, ambient: {} },
+            bgm: {
+              id: 'main',
+              kind: 'bgm',
+              assetKey: 'bgm.ogg',
+              state: 'playing',
+              seekMs: 1000,
+            },
+            voices: [],
+            sfx: [],
+            ambients: [],
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await waitForEventually(() => warnings.length > 0)
+
+    expect(warnings[0]).toMatchObject({
+      metadata: {
+        key: 'bgm:main',
+        positionMs: 1000,
+      },
+    })
+  })
+
   it('projects animation targets from feature plugins into transient Cocos nodes', async () => {
     const host = createFakeCocosHost({ now: () => 500 })
     const pipeline = new Pipeline()

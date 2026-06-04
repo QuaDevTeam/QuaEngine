@@ -44,6 +44,10 @@ export interface RenderCocosDialogueOptions {
   typewriter?: CocosDialogueTypewriterProjectResult
 }
 
+export interface RenderCocosAudioOptions {
+  busAutomationStarts?: Map<string, { signature?: string, startedAt: number }>
+}
+
 export async function renderCocosBackground(context: CocosRendererHostContext): Promise<void> {
   const layer = context.getLayerNode('background', 'background-layer', 10)
   context.host.nodes.clearChildren(layer)
@@ -184,10 +188,11 @@ export function renderCocosEffects(context: CocosRendererHostContext): void {
   }
 }
 
-export async function renderCocosAudio(context: CocosRendererHostContext): Promise<void> {
-  const projection = projectAudioProjection<Record<string, unknown>>(context.getViewState(), context.host.runtime.now())
+export async function renderCocosAudio(context: CocosRendererHostContext, options: RenderCocosAudioOptions = {}): Promise<void> {
+  const now = context.host.runtime.now()
+  const projection = projectAudioProjection<Record<string, unknown>>(context.getViewState(), now)
   const tracks = collectAudioTracks(projection)
-  syncAudioBuses(context, projection)
+  syncAudioBuses(context, projection, options.busAutomationStarts, now)
   const activeKeys: string[] = []
   for (const track of tracks) {
     const assetName = stringValue(track.assetName || track.assetKey)
@@ -203,13 +208,21 @@ export async function renderCocosAudio(context: CocosRendererHostContext): Promi
       continue
     activeKeys.push(key)
     context.setLayerResource('audio', key, resource)
+    const state = stringValue(track.state, 'playing')
     await context.syncAudioHandle('audio', key, resource, {
       loop: booleanValue(track.loop, kind === 'bgm' || kind === 'ambient'),
       volume: audioVolume(track),
       playbackRate: numberValue(track.playbackRate, 1),
       bus: stringValue(track.bus, kind),
-      playing: stringValue(track.state, 'playing') !== 'paused' && stringValue(track.state, 'playing') !== 'stopped',
+      playing: state !== 'paused' && state !== 'stopped',
       playAt: numberValue(track.playAt, undefined),
+      state,
+      fadeInMs: numberValue(track.fadeInMs, undefined),
+      fadeOutMs: numberValue(track.fadeOutMs, undefined),
+      seekMs: numberValue(track.seekMs, undefined),
+      offsetMs: numberValue(track.offsetMs, undefined),
+      automation: arrayRecords(track.automation),
+      interruptible: booleanValue(track.interruptible, kind === 'voice' || kind === 'sfx'),
       endedPayload: audioTrackEndedPayload(track, kind, id, assetName),
     })
   }
@@ -922,6 +935,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+function arrayRecords(value: unknown): Array<Record<string, unknown>> {
+  return Array.isArray(value)
+    ? value.filter((item): item is Record<string, unknown> => isRecord(item))
+    : []
+}
+
 function stringValue(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback
 }
@@ -966,7 +985,12 @@ function assignNumber(
   }
 }
 
-function syncAudioBuses(context: CocosRendererHostContext, audio: Record<string, unknown> | undefined): void {
+function syncAudioBuses(
+  context: CocosRendererHostContext,
+  audio: Record<string, unknown> | undefined,
+  automationStarts: Map<string, { signature?: string, startedAt: number }> | undefined,
+  now: number,
+): void {
   const buses = audio?.buses
   if (!buses || typeof buses !== 'object' || Array.isArray(buses))
     return
@@ -974,7 +998,7 @@ function syncAudioBuses(context: CocosRendererHostContext, audio: Record<string,
     if (!value || typeof value !== 'object' || Array.isArray(value))
       continue
     const projection = value as Record<string, unknown>
-    const volume = audioVolume(projection)
+    const volume = audioBusVolume(projection, bus, automationStarts, now)
     context.host.audio.setBusVolume?.(bus, volume)
     if (Array.isArray(projection.eq)) {
       if (context.host.capabilities?.audioEq) {
@@ -982,6 +1006,24 @@ function syncAudioBuses(context: CocosRendererHostContext, audio: Record<string,
       }
     }
   }
+}
+
+function audioBusVolume(
+  projection: Record<string, unknown>,
+  bus: string,
+  automationStarts: Map<string, { signature?: string, startedAt: number }> | undefined,
+  now: number,
+): number {
+  const automation = arrayRecords(projection.automation)
+  const signature = automation.length > 0 ? JSON.stringify(automation) : undefined
+  const key = `audioBus:${bus}`
+  const current = automationStarts?.get(key)
+  if (automationStarts && current?.signature !== signature) {
+    automationStarts.set(key, { signature, startedAt: now })
+  }
+  const startedAt = automationStarts?.get(key)?.startedAt ?? now
+  const automatedGainDb = projectGainAutomation(automation, now, startedAt)
+  return automatedGainDb === undefined ? audioVolume(projection) : 10 ** (automatedGainDb / 20)
 }
 
 function collectAudioTracks(audio: Record<string, unknown> | undefined): Array<Record<string, unknown>> {
@@ -1025,6 +1067,50 @@ function audioVolume(track: Record<string, unknown>): number {
   if (gainDb !== undefined)
     return 10 ** (gainDb / 20)
   return 1
+}
+
+function projectGainAutomation(
+  automation: readonly Record<string, unknown>[],
+  now: number,
+  startedAt: number,
+): number | undefined {
+  const item = automation.find(entry => entry.propertyPath === 'gainDb')
+  if (!item || !isRecord(item.curve))
+    return undefined
+  const pointsValue = item.curve.points
+  if (!Array.isArray(pointsValue))
+    return undefined
+  const points = pointsValue
+    .map(point => readAutomationPoint(point))
+    .filter((point): point is { at: number, value: number } => Boolean(point))
+    .sort((left, right) => left.at - right.at)
+  if (points.length === 0)
+    return undefined
+  const duration = numberValue(item.curve.duration, undefined) ?? points[points.length - 1]!.at
+  const loop = item.curve.loop === true
+  let elapsed = Math.max(0, now - startedAt)
+  if (loop && duration > 0) {
+    elapsed %= duration
+  }
+  if (elapsed <= points[0]!.at)
+    return points[0]!.value
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1]!
+    const next = points[index]!
+    if (elapsed <= next.at) {
+      const progress = next.at === previous.at ? 1 : (elapsed - previous.at) / (next.at - previous.at)
+      return previous.value + (next.value - previous.value) * Math.min(1, Math.max(0, progress))
+    }
+  }
+  return points[points.length - 1]!.value
+}
+
+function readAutomationPoint(value: unknown): { at: number, value: number } | undefined {
+  if (!isRecord(value))
+    return undefined
+  const at = numberValue(value.at, undefined)
+  const pointValue = numberValue(value.value, undefined)
+  return at === undefined || pointValue === undefined ? undefined : { at, value: pointValue }
 }
 
 function audioTrackEndedPayload(
