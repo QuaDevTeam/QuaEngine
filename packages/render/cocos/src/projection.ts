@@ -406,6 +406,10 @@ async function renderCharacterSprite(
 ): Promise<void> {
   const targetPackageId = metadataTargetPackageId(character.metadata)
   const manifest = await loadSpriteManifest(context, character.sprite, targetPackageId)
+  if (!manifest) {
+    await renderFallbackCharacterSprite(context, root, character, targetPackageId)
+    return
+  }
   const projection = resolveSpriteProjection(manifest, character.sprite, character.expression)
   if (!projection) {
     await renderFallbackCharacterSprite(context, root, character, targetPackageId)
@@ -508,9 +512,15 @@ async function resolveSpriteLayerResource(
   layer: SpriteResolvedLayer,
   targetPackageId?: string,
 ) {
-  const resource = await context.resolveAsset('characters', layer.asset, { targetPackageId })
-  if (resource || !layer.fallback)
-    return resource
+  try {
+    const resource = await context.resolveAsset('characters', layer.asset, { targetPackageId })
+    if (resource || !layer.fallback)
+      return resource
+  }
+  catch (error) {
+    if (!layer.fallback)
+      throw error
+  }
   return await context.resolveAsset('characters', layer.fallback, { targetPackageId })
 }
 

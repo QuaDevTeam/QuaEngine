@@ -15,8 +15,9 @@ export function createAchievementCocosRendererPlugin() {
     name: '@quajs/renderer-cocos/achievement',
     setup(context) {
       const playedNotifications = new Set<string>()
+      const soundHandles = new Map<string, AchievementSoundHandle>()
       const sync = () => {
-        void renderAchievementLayer(context, playedNotifications).catch(error => context.reportError(error, {
+        void renderAchievementLayer(context, playedNotifications, soundHandles).catch(error => context.reportError(error, {
           message: 'Cocos achievement projection failed.',
           phase: 'renderer-cocos:achievement',
           pluginName: '@quajs/renderer-cocos/achievement',
@@ -57,6 +58,7 @@ export function createAchievementCocosRendererPlugin() {
             }
         }
       }))
+      context.addDisposer(() => cleanupAchievementSounds(context, soundHandles, playedNotifications))
       sync()
     },
   })
@@ -64,14 +66,24 @@ export function createAchievementCocosRendererPlugin() {
 
 export const achievementCocosRendererPlugin = createAchievementCocosRendererPlugin()
 
+interface AchievementSoundHandle {
+  handle: {
+    stop: () => void | Promise<void>
+    dispose: () => void | Promise<void>
+  }
+  resourceKey: string
+}
+
 async function renderAchievementLayer(
   context: CocosRendererPluginContext,
   playedNotifications: Set<string>,
+  soundHandles: Map<string, AchievementSoundHandle>,
 ): Promise<void> {
   const projection = context.getViewState().plugins[ACHIEVEMENT_PLUGIN_ID] as AchievementProjection | undefined
   const layer = context.cocos.getLayerNode('achievement', 'achievement-layer', 130)
   context.cocos.host.nodes.clearChildren(layer)
   context.cocos.releaseLayerResources('achievement')
+  cleanupInactiveAchievementSounds(context, soundHandles, playedNotifications, new Set(projection?.notifications.map(notification => notification.id) || []))
   context.cocos.host.nodes.setNodeMetadata?.(layer, {
     plugin: 'achievement',
     visible: projection?.sceneActive === true || Boolean(projection?.notifications.length),
@@ -80,7 +92,7 @@ async function renderAchievementLayer(
   if (!projection)
     return
   for (const [index, notification] of projection.notifications.entries()) {
-    await renderAchievementToast(context, layer, notification, index, playedNotifications)
+    await renderAchievementToast(context, layer, notification, index, playedNotifications, soundHandles)
   }
   if (projection.sceneActive) {
     await renderAchievementBoard(context, layer, projection)
@@ -93,6 +105,7 @@ async function renderAchievementToast(
   notification: AchievementNotificationProjection,
   index: number,
   playedNotifications: Set<string>,
+  soundHandles: Map<string, AchievementSoundHandle>,
 ): Promise<void> {
   const safeArea = context.cocos.getStageLayout().safeArea
   const node = renderButton(context, parent, `achievement:toast:${notification.id}`, notification.title, safeArea.x + safeArea.width - 420, safeArea.y + 28 + index * 86, 392, 76, {
@@ -115,21 +128,38 @@ async function renderAchievementToast(
     context.cocos.host.nodes.setNodeTransform(iconNode, { x: safeArea.x + safeArea.width - 408, y: safeArea.y + 38 + index * 86, width: 56, height: 56, zIndex: 2 })
   }
   if (!playedNotifications.has(notification.id) && notification.sound?.type === 'audio') {
-    playedNotifications.add(notification.id)
     const resource = await context.cocos.resolveAsset('audio', notification.sound.name, { targetPackageId: notification.sound.runtimePackageId })
     if (resource) {
-      context.cocos.setLayerResource('achievement', `notification:${notification.id}:sound`, resource)
-      const handle = await context.cocos.host.audio.createAudioHandle(resource, {
-        id: `achievement:${notification.id}:sound`,
-        loop: false,
-        volume: 1,
-        bus: 'sfx',
-      })
-      handle.onEnded?.(() => {
-        void handle.dispose()
-        context.cocos.setLayerResource('achievement', `notification:${notification.id}:sound`, undefined)
-      })
-      await handle.play()
+      playedNotifications.add(notification.id)
+      const resourceKey = `notification:${notification.id}:sound`
+      context.cocos.setLayerResource('achievement-sound', resourceKey, resource)
+      let handle: AchievementSoundHandle['handle'] | undefined
+      try {
+        const audioHandle = await context.cocos.host.audio.createAudioHandle(resource, {
+          id: `achievement:${notification.id}:sound`,
+          loop: false,
+          volume: 1,
+          bus: 'sfx',
+        })
+        handle = audioHandle
+        soundHandles.set(notification.id, { handle: audioHandle, resourceKey })
+        audioHandle.onEnded?.(() => {
+          void audioHandle.dispose()
+          soundHandles.delete(notification.id)
+          context.cocos.setLayerResource('achievement-sound', resourceKey, undefined)
+        })
+        await audioHandle.play()
+      }
+      catch (error) {
+        if (handle) {
+          void handle.stop()
+          void handle.dispose()
+          soundHandles.delete(notification.id)
+        }
+        playedNotifications.delete(notification.id)
+        context.cocos.setLayerResource('achievement-sound', resourceKey, undefined)
+        throw error
+      }
     }
   }
 }
@@ -216,4 +246,47 @@ function renderButton(
   context.cocos.host.nodes.setNodeTransform(node, { x, y, width, height, zIndex: selected ? 12 : 10 })
   context.cocos.host.nodes.setNodeMetadata?.(node, metadata)
   return node
+}
+
+function cleanupInactiveAchievementSounds(
+  context: CocosRendererPluginContext,
+  soundHandles: Map<string, AchievementSoundHandle>,
+  playedNotifications: Set<string>,
+  activeNotificationIds: Set<string>,
+): void {
+  for (const notificationId of [...soundHandles.keys()]) {
+    if (activeNotificationIds.has(notificationId))
+      continue
+    cleanupAchievementSound(context, soundHandles, notificationId)
+  }
+  for (const notificationId of [...playedNotifications]) {
+    if (!activeNotificationIds.has(notificationId)) {
+      playedNotifications.delete(notificationId)
+    }
+  }
+}
+
+function cleanupAchievementSounds(
+  context: CocosRendererPluginContext,
+  soundHandles: Map<string, AchievementSoundHandle>,
+  playedNotifications: Set<string>,
+): void {
+  for (const notificationId of [...soundHandles.keys()]) {
+    cleanupAchievementSound(context, soundHandles, notificationId)
+  }
+  playedNotifications.clear()
+}
+
+function cleanupAchievementSound(
+  context: CocosRendererPluginContext,
+  soundHandles: Map<string, AchievementSoundHandle>,
+  notificationId: string,
+): void {
+  const record = soundHandles.get(notificationId)
+  if (!record)
+    return
+  void record.handle.stop()
+  void record.handle.dispose()
+  context.cocos.setLayerResource('achievement-sound', record.resourceKey, undefined)
+  soundHandles.delete(notificationId)
 }

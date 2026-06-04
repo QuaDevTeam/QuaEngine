@@ -13,7 +13,11 @@ export function createDialogueCocosRendererPlugin() {
       const typewriterRuntime = new CocosDialogueTypewriterRuntime({
         now: () => context.cocos.host.runtime.now(),
         onSound: (sound, visibleCharacters) => {
-          void playTypewriterSound(sound, visibleCharacters)
+          void playTypewriterSound(sound, visibleCharacters).catch(error => context.reportError(error, {
+            message: 'Cocos typewriter sound playback failed.',
+            phase: 'renderer-cocos:dialogue-typewriter-sound',
+            pluginName: '@quajs/renderer-cocos/dialogue',
+          }))
         },
       })
       const schedule = () => {
@@ -49,20 +53,33 @@ export function createDialogueCocosRendererPlugin() {
           return
         const key = `typewriter:${visibleCharacters}:${context.cocos.host.runtime.now()}`
         context.cocos.setLayerResource('dialogue-typewriter', key, resource)
-        const handle = await context.cocos.host.audio.createAudioHandle(resource, {
-          id: key,
-          loop: false,
-          volume: sound.gainDb === undefined ? 1 : 10 ** (sound.gainDb / 20),
-          playbackRate: sound.playbackRate,
-          bus: 'sfx',
-        })
-        soundHandles.set(key, { handle })
-        handle.onEnded?.(() => {
-          void handle.dispose()
-          soundHandles.delete(key)
+        let handle: { stop: () => void | Promise<void>, dispose: () => void | Promise<void> } | undefined
+        try {
+          const audioHandle = await context.cocos.host.audio.createAudioHandle(resource, {
+            id: key,
+            loop: false,
+            volume: sound.gainDb === undefined ? 1 : 10 ** (sound.gainDb / 20),
+            playbackRate: sound.playbackRate,
+            bus: 'sfx',
+          })
+          handle = audioHandle
+          soundHandles.set(key, { handle: audioHandle })
+          audioHandle.onEnded?.(() => {
+            void audioHandle.dispose()
+            soundHandles.delete(key)
+            context.cocos.setLayerResource('dialogue-typewriter', key, undefined)
+          })
+          await audioHandle.play()
+        }
+        catch (error) {
+          if (handle) {
+            void handle.stop()
+            void handle.dispose()
+            soundHandles.delete(key)
+          }
           context.cocos.setLayerResource('dialogue-typewriter', key, undefined)
-        })
-        await handle.play()
+          throw error
+        }
       }
 
       context.addDisposer(context.cocos.registerAdvanceInterceptor(() => {

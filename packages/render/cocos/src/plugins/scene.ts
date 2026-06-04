@@ -33,6 +33,12 @@ export function createSceneCocosRendererPlugin() {
           })
         }
       }
+      const completeSafely = () => {
+        void complete().catch(error => context.reportError(error, {
+          message: 'Cocos scene readiness intent dispatch failed.',
+          phase: 'renderer-cocos:scene-ready',
+        }))
+      }
       const tick = () => {
         frame = undefined
         if (!active)
@@ -40,10 +46,7 @@ export function createSceneCocosRendererPlugin() {
         const progress = transitionProgress(active.transition, active.startedAt, context.cocos.host.runtime.now())
         renderSceneTransition(context, active.payload, active.transition, progress)
         if (progress >= 1) {
-          void complete().catch(error => context.reportError(error, {
-            message: 'Cocos scene readiness intent dispatch failed.',
-            phase: 'renderer-cocos:scene-ready',
-          }))
+          completeSafely()
           return
         }
         frame = context.cocos.host.scheduler.requestFrame(tick)
@@ -57,7 +60,7 @@ export function createSceneCocosRendererPlugin() {
           startedAt: context.cocos.host.runtime.now(),
         }
         if (transition.type === 'instant' || transition.duration <= 0) {
-          void complete()
+          completeSafely()
           return
         }
         tick()
