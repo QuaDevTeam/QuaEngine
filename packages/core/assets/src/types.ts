@@ -5,6 +5,50 @@ export type LoadingState = 'idle' | 'loading' | 'loaded' | 'error'
 export type PatchOperation = 'added' | 'modified' | 'deleted'
 export type AssetPipelineDomain = 'images' | 'characters' | 'audio' | 'video' | 'fonts'
 
+export type CocosBuildPlatform
+  = | 'android'
+    | 'ios'
+    | 'harmonyos'
+    | 'wechat-minigame'
+    | 'bytedance-minigame'
+    | 'alipay-minigame'
+    | 'taobao-minigame'
+    | 'oppo-minigame'
+    | 'vivo-minigame'
+    | 'huawei-quick-game'
+    | 'web-mobile'
+    | 'web-desktop'
+    | 'windows'
+    | 'mac'
+    | (string & {})
+
+export type CocosHybridAssetPlacement = 'qpk' | 'cocos-bundle'
+
+export interface CocosHybridAssetConfig {
+  enabled?: boolean
+  resourceRoot?: string
+  assetBundle?: string
+  domains?: Partial<Record<AssetPipelineDomain, CocosHybridAssetPlacement>>
+}
+
+export interface CocosHybridAssetManifest {
+  enabled: boolean
+  resourceRoot: string
+  assetBundle: string
+  domains: Record<AssetPipelineDomain, CocosHybridAssetPlacement>
+}
+
+export interface CocosAssetTargetManifestMetadata {
+  creatorVersion?: string
+  resourceRoot?: string
+  cacheRoot?: string
+  mobile?: boolean
+  buildPlatforms?: CocosBuildPlatform[]
+  materialization?: Partial<Record<AssetPipelineDomain, string>>
+  hybrid?: CocosHybridAssetManifest
+  staticOnly?: boolean
+}
+
 export interface VersionCompatibility {
   minGameVersion?: string
 }
@@ -18,13 +62,7 @@ export interface AssetBundleTargetManifest {
   browserCondition?: string
   formats?: Partial<Record<AssetPipelineDomain, string>>
   staticOnly?: boolean
-  cocos?: {
-    creatorVersion?: string
-    resourceRoot?: string
-    cacheRoot?: string
-    materialization?: Partial<Record<AssetPipelineDomain, string>>
-    staticOnly?: boolean
-  }
+  cocos?: CocosAssetTargetManifestMetadata
 }
 
 export interface AssetData {

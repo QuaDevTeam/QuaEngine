@@ -2,12 +2,14 @@ import type {
   AssetBundleTarget,
   AssetBundleTargetManifest,
   AssetInfo,
+  AssetPipelineDomain,
   BuildLog,
   BundleDefinition,
   BundleFormat,
   BundleManifest,
   BundleOptions,
   BundleStats,
+  CocosHybridAssetManifest,
   CompressionAlgorithm,
   EncryptionAlgorithm,
   EncryptionPlugin,
@@ -35,6 +37,22 @@ import { VersionManager } from '../workspace/versioning'
 import { WorkspaceManager } from '../workspace/workspace'
 
 const logger = createLogger('quack:bundler')
+const ASSET_PIPELINE_DOMAINS: AssetPipelineDomain[] = ['images', 'characters', 'audio', 'video', 'fonts']
+const COCOS_MOBILE_BUILD_PLATFORMS = new Set([
+  'android',
+  'ios',
+  'harmonyos',
+  'wechat-minigame',
+  'bytedance-minigame',
+  'alipay-minigame',
+  'taobao-minigame',
+  'oppo-minigame',
+  'vivo-minigame',
+  'huawei-quick-game',
+  'web-mobile',
+])
+const DEFAULT_COCOS_HYBRID_ASSET_BUNDLE = 'qua-hybrid'
+const DEFAULT_COCOS_HYBRID_RESOURCE_ROOT = 'assets/qua-native'
 
 export class QuackBundler extends EventEmitter {
   private config: QuackConfig
@@ -933,21 +951,63 @@ function createAssetTargetManifest(target: AssetBundleTarget): AssetBundleTarget
       fonts: target.pipeline?.fonts?.format,
     },
     staticOnly,
-    cocos: target.platform === 'cocos' || target.cocos
-      ? {
-          ...target.cocos,
-          staticOnly,
-          materialization: {
-            images: 'spriteFrame',
-            characters: 'spriteFrame',
-            audio: 'audioClip',
-            video: 'videoClip',
-            fonts: 'font',
-            ...(target.cocos?.materialization || {}),
-          },
-        }
-      : undefined,
+    cocos: isCocosAssetTarget(target) ? createCocosAssetTargetManifest(target, staticOnly) : undefined,
   }
+}
+
+function createCocosAssetTargetManifest(
+  target: AssetBundleTarget,
+  staticOnly: boolean,
+): NonNullable<AssetBundleTargetManifest['cocos']> {
+  return {
+    ...target.cocos,
+    staticOnly,
+    materialization: {
+      images: 'spriteFrame',
+      characters: 'spriteFrame',
+      audio: 'audioClip',
+      video: 'videoClip',
+      fonts: 'font',
+      ...(target.cocos?.materialization || {}),
+    },
+    hybrid: resolveCocosHybridAssetManifest(target),
+  }
+}
+
+function resolveCocosHybridAssetManifest(target: AssetBundleTarget): CocosHybridAssetManifest {
+  const config = target.cocos?.hybrid
+  const mobile = isCocosMobileAssetTarget(target)
+  const domainOverrides = config?.domains || {}
+  const hasNativeDomainOverride = Object.values(domainOverrides).some(placement => placement === 'cocos-bundle')
+  const enabled = config?.enabled ?? (mobile || hasNativeDomainOverride)
+  const domains = Object.fromEntries(ASSET_PIPELINE_DOMAINS.map(domain => [domain, 'qpk'])) as CocosHybridAssetManifest['domains']
+
+  if (enabled && (mobile || config?.enabled === true)) {
+    domains.images = 'cocos-bundle'
+    domains.characters = 'cocos-bundle'
+  }
+  if (enabled) {
+    for (const [domain, placement] of Object.entries(domainOverrides) as [AssetPipelineDomain, CocosHybridAssetManifest['domains'][AssetPipelineDomain]][]) {
+      domains[domain] = placement
+    }
+  }
+
+  return {
+    enabled,
+    resourceRoot: config?.resourceRoot || target.cocos?.resourceRoot || DEFAULT_COCOS_HYBRID_RESOURCE_ROOT,
+    assetBundle: config?.assetBundle || DEFAULT_COCOS_HYBRID_ASSET_BUNDLE,
+    domains,
+  }
+}
+
+function isCocosMobileAssetTarget(target: AssetBundleTarget): boolean {
+  if (target.cocos?.mobile !== undefined)
+    return target.cocos.mobile
+  return (target.cocos?.buildPlatforms || []).some(platform => COCOS_MOBILE_BUILD_PLATFORMS.has(normalizeCocosBuildPlatform(platform)))
+}
+
+function normalizeCocosBuildPlatform(platform: string): string {
+  return platform.trim().toLowerCase().replace(/_/g, '-')
 }
 
 function addOutputSuffix(output: string, suffix: string): string {
