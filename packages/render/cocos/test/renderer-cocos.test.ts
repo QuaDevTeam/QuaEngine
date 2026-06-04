@@ -505,14 +505,14 @@ describe('@quajs/renderer-cocos', () => {
       plugins: createVisualNovelCocosRendererPlugins({ input: false }),
     })
     await renderer.start()
-    await flushAsync()
+    await waitFor(() => Boolean(findNode(host, 'menu:close')?.spriteOptions))
 
-    const close = [...host.nodesById.values()].find(node => node.name === 'menu:close')
+    const close = findNode(host, 'menu:close')
     expect(close?.spriteOptions).toMatchObject({
       mode: 'sliced',
       slice: { top: 4, right: 5, bottom: 6, left: 7 },
     })
-    const panel = [...host.nodesById.values()].find(node => node.name === 'menu')
+    const panel = findNode(host, 'menu')
     expect(panel?.spriteOptions).toMatchObject({
       mode: 'sliced',
       contentInsets: { top: 6, right: 7, bottom: 8, left: 9 },
@@ -951,10 +951,15 @@ describe('@quajs/renderer-cocos', () => {
               loop: true,
               fadeInMs: 1000,
               seekMs: 250,
+              eq: [{ frequency: 1000, gainDb: -6 }],
               automation: [{
                 target: 'main',
                 propertyPath: 'gainDb',
                 curve: { points: [{ at: 0, value: -12 }, { at: 1000, value: 0 }] },
+              }, {
+                target: 'main',
+                propertyPath: 'eq[0].gainDb',
+                curve: { points: [{ at: 0, value: -6 }, { at: 1000, value: 0 }] },
               }],
             },
             voices: [],
@@ -971,12 +976,14 @@ describe('@quajs/renderer-cocos', () => {
     const handle = await waitForAudioHandle(host, 'bgm:main')
     expect(handle.seekCalls).toEqual([250])
     expect(handle.volume).toBe(0)
+    expect(handle.eqBands).toEqual([{ frequency: 1000, gainDb: -6 }])
     expect(host.audioBusVolumes.get('master')).toBeCloseTo(10 ** (-6 / 20), 6)
 
     now = 500
     await waitForEventually(() => handle.volume > 0.2)
 
     expect(handle.volume).toBeCloseTo((10 ** (-6 / 20)) * 0.5, 6)
+    expect(handle.eqBands).toEqual([{ frequency: 1000, gainDb: -3 }])
     expect(host.audioBusVolumes.get('master')).toBeCloseTo(10 ** (-3 / 20), 6)
     await renderer.destroy()
   })
@@ -1175,6 +1182,34 @@ describe('@quajs/renderer-cocos', () => {
     expect(findNode(host, 'scene-transition')).toBeUndefined()
   })
 
+  it('projects Cocos wipe scene transitions as clip transforms', async () => {
+    let now = 0
+    const host = createFakeCocosHost({ now: () => now })
+    const pipeline = new Pipeline()
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView(),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+
+    await pipeline.emit(LogicToRenderEvents.SCENE_CHANGE, {
+      fromScene: 'old',
+      toScene: 'new',
+      transition: {
+        type: 'wipe',
+        duration: 1000,
+      },
+    })
+
+    expect(findNode(host, 'scene-transition')?.transform.clip).toMatchObject({ width: 1920, height: 1080 })
+    now = 500
+    await waitForEventually(() => findNode(host, 'scene-transition')?.metadata.progress === 0.5)
+    expect(findNode(host, 'scene-transition')?.transform.clip).toMatchObject({ width: 960, height: 1080 })
+    await renderer.destroy()
+  })
+
   it('renders the Cocos backlog panel and dispatches backlog intents', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()
@@ -1202,6 +1237,7 @@ describe('@quajs/renderer-cocos', () => {
               voice: { assetKey: 'voice.ogg' },
               rewindable: true,
               voiceReplay: true,
+              tags: ['important'],
               timestamp: 1,
             }],
             retention: { scope: 'global', maxEntries: 50 },
@@ -1216,8 +1252,11 @@ describe('@quajs/renderer-cocos', () => {
     const entry = findNode(host, 'backlog:entry-1')
     const voice = findNode(host, 'backlog:entry-1:voice')
     const close = findNode(host, 'backlog:close')
-    expect(findNode(host, 'backlog:title')?.text).toBe('Backlog - 1 entries')
+    expect(findNode(host, 'backlog:title')?.text).toBe('Backlog')
+    expect(findNode(host, 'backlog:subtitle')?.text).toBe('1 entries / global')
     expect(entry?.text).toContain('Remember this line.')
+    expect(entry?.metadata).toMatchObject({ backlogKind: 'dialogue', tags: ['important'] })
+    expect(findNode(host, 'backlog:entry-1:tags')?.text).toBe('important')
     expect(voice?.control).toMatchObject({ kind: 'button', disabled: false })
 
     await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: entry })
@@ -1300,8 +1339,15 @@ describe('@quajs/renderer-cocos', () => {
               id: 'first',
               title: 'First Step',
               summary: 'Start the route.',
+              description: 'Unlocked after entering the first route.',
               groupId: 'main',
-              unlocked: false,
+              tags: ['route'],
+              icon: { type: 'images', name: 'first-icon.png' },
+              banner: { type: 'images', name: 'first-banner.png' },
+              maxProgress: 3,
+              progress: { achievementId: 'first', value: 2, updatedAt: 2 },
+              unlockRecord: { achievementId: 'first', unlockedAt: 1 },
+              unlocked: true,
             }],
             filteredAchievementIds: ['first'],
             selectedGroupId: 'main',
@@ -1324,7 +1370,12 @@ describe('@quajs/renderer-cocos', () => {
     await renderer.start()
     await flushAsync()
 
-    expect(findNode(host, 'achievement:title')?.text).toBe('Achievements 0/1')
+    expect(findNode(host, 'achievement:title')?.text).toBe('Achievements 1/1')
+    expect(findNode(host, 'achievement:item:first:image')?.sprite?.source).toBe('first-icon.png')
+    expect(findNode(host, 'achievement:item:first:badges')?.text).toContain('2/3')
+    expect(findNode(host, 'achievement:item:first:badges')?.text).toContain('route')
+    expect(findNode(host, 'achievement:detail:first:image')?.sprite?.source).toBe('first-banner.png')
+    expect(findNode(host, 'achievement:detail:first')?.text).toContain('Unlocked 1970-01-01T00:00:00.001Z')
     const sound = host.audioHandlesById.get('achievement:toast-1:sound')
     expect(sound?.playing).toBe(true)
 
@@ -1401,7 +1452,15 @@ describe('@quajs/renderer-cocos', () => {
           sceneActive: true,
           profileId: 'default',
           catalogs: [],
-          entries: [{ id: 'cg-1', title: 'CG 1', unlocked: true, contents: [], catalogId: 'main' }],
+          entries: [{
+            id: 'cg-1',
+            title: 'CG 1',
+            summary: 'First gallery item.',
+            tags: ['cg'],
+            unlocked: true,
+            contents: [],
+            catalogId: 'main',
+          }],
           filteredEntryIds: ['cg-1'],
           requiredRuntimePackages: [],
           filter: {},
@@ -1413,6 +1472,9 @@ describe('@quajs/renderer-cocos', () => {
 
     const galleryEntry = [...host.nodesById.values()].find(node => node.metadata.galleryEntryId === 'cg-1')
     expect(galleryEntry?.text).toBe('CG 1')
+    expect(findNode(host, 'gallery:entry:cg-1:status')?.text).toContain('cg')
+    expect(findNode(host, 'gallery:entry:cg-1:summary')?.text).toBe('First gallery item.')
+    expect(findNode(host, 'gallery:entry:cg-1:placeholder')?.text).toBe('Open')
     await host.emitInput({ kind: 'pointer', phase: 'down', x: 960, y: 540, targetNode: galleryEntry })
     expect(events[0]).toEqual({ entryId: 'cg-1' })
   })
@@ -1788,8 +1850,9 @@ function findNodeByKind(host: ReturnType<typeof createFakeCocosHost>, kind: stri
 }
 
 async function flushAsync(): Promise<void> {
-  await Promise.resolve()
-  await Promise.resolve()
+  for (let index = 0; index < 32; index += 1) {
+    await Promise.resolve()
+  }
 }
 
 async function waitForAudioHandle(host: ReturnType<typeof createFakeCocosHost>, id: string) {

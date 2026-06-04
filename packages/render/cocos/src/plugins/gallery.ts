@@ -4,6 +4,7 @@ import type { CocosRendererPluginContext } from '../types'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
 import { LogicToRenderEvents } from '@quajs/render-core'
 import { defineCocosRendererPlugin } from './core'
+import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromAssetRef } from '../utils'
 import { resolveInputMetadataAny, stringValue } from './projection-utils'
 
 export function createGalleryCocosRendererPlugin() {
@@ -43,6 +44,11 @@ export function createGalleryCocosRendererPlugin() {
           case 'toggleUnlockedOnly':
             await context.getPipeline().emit(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
               filter: { unlockedOnly: metadata.nextUnlockedOnly === true },
+            })
+            break
+          case 'search':
+            await context.getPipeline().emit(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
+              filter: { search: stringValue(metadata.value) || '' },
             })
             break
           case 'page':
@@ -110,13 +116,18 @@ async function renderGalleryLayer(
   const title = context.cocos.host.nodes.createNode('gallery-title', { parent: panel, name: 'gallery:title' })
   context.cocos.host.nodes.setNodeText(title, selectedCatalog?.title || 'Gallery', { fontSize: 32, color: '#ffffff' })
   context.cocos.host.nodes.setNodeTransform(title, { x: safeArea.x + 28, y: safeArea.y + 24, width: safeArea.width - 180, height: 48, zIndex: 1 })
+  const meta = context.cocos.host.nodes.createNode('gallery-meta', { parent: panel, name: 'gallery:meta' })
+  context.cocos.host.nodes.setNodeText(meta, `${projection.filteredEntryIds.length}/${projection.entries.length} entries`, { fontSize: 18, color: '#d8d8d8' })
+  context.cocos.host.nodes.setNodeTransform(meta, { x: safeArea.x + 28, y: safeArea.y + 62, width: safeArea.width - 180, height: 28, zIndex: 1 })
 
   const catalogPage = pageItems(projection.catalogs, pages.get('catalogs') || 0, 6)
   catalogPage.items.forEach((catalog, index) => {
-    renderButton(context, panel, `gallery:catalog:${catalog.id}`, catalog.title, safeArea.x + 28 + index * 150, safeArea.y + 84, 136, 42, {
+    renderButton(context, panel, `gallery:catalog:${catalog.id}`, `${catalog.title} ${catalog.unlockedEntries}/${catalog.totalEntries}`, safeArea.x + 28 + index * 150, safeArea.y + 84, 136, 42, {
       plugin: 'gallery',
       galleryAction: 'selectCatalog',
       galleryCatalogId: catalog.id,
+      unlockedEntries: catalog.unlockedEntries,
+      totalEntries: catalog.totalEntries,
       selected: catalog.id === selectedCatalog?.id,
     }, catalog.id === selectedCatalog?.id)
   })
@@ -126,21 +137,44 @@ async function renderGalleryLayer(
     galleryAction: 'toggleUnlockedOnly',
     nextUnlockedOnly: !projection.filter.unlockedOnly,
   }, projection.filter.unlockedOnly === true)
+  const search = context.cocos.host.nodes.createNode('gallery-search', { parent: panel, name: 'gallery:search' })
+  context.cocos.host.nodes.setNodeText(search, `Search: ${projection.filter.search || ''}`, { fontSize: 20, color: '#d8d8d8' })
+  context.cocos.host.nodes.setNodeControl?.(search, {
+    kind: 'input',
+    value: projection.filter.search || '',
+    placeholder: 'Search',
+    label: 'Search',
+    metadata: {
+      plugin: 'gallery',
+      galleryAction: 'search',
+    },
+  })
+  context.cocos.host.nodes.setNodeTransform(search, { x: safeArea.x + safeArea.width - 500, y: safeArea.y + 84, width: 220, height: 42, zIndex: 10 })
+  context.cocos.host.nodes.setNodeMetadata?.(search, {
+    plugin: 'gallery',
+    galleryAction: 'search',
+  })
 
   const entries = projection.entries.filter(entry => projection.filteredEntryIds.includes(entry.id))
   const entryPage = pageItems(entries, pages.get('entries') || 0, 10)
-  entryPage.items.forEach((entry, index) => {
-    renderGalleryEntry(context, panel, entry, index, safeArea.x + 28, safeArea.y + 144, 330, entry.id === selectedEntry?.id)
-  })
+  if (entries.length === 0) {
+    renderEmptyState(context, panel, 'No entries', safeArea.x + 28, safeArea.y + 144, 330)
+  }
+  for (const [index, entry] of entryPage.items.entries()) {
+    await renderGalleryEntry(context, panel, entry, index, safeArea.x + 28, safeArea.y + 144, 330, entry.id === selectedEntry?.id)
+  }
   renderPager(context, panel, 'gallery:entries', 'entries', entryPage, safeArea.x + 28, safeArea.y + 144 + 10 * 58)
 
   if (selectedEntry) {
     await renderSelectedGalleryEntry(context, panel, selectedEntry, selectedContent, safeArea.x + 390, safeArea.y + 144, safeArea.width - 420, audioPreviews)
   }
+  else {
+    renderEmptyState(context, panel, 'No entry selected', safeArea.x + 390, safeArea.y + 144, safeArea.width - 420)
+  }
   cleanupInactiveGalleryAudioPreviews(context, audioPreviews, selectedContent?.kind === 'audio' ? selectedContent.id : undefined)
 }
 
-function renderGalleryEntry(
+async function renderGalleryEntry(
   context: CocosRendererPluginContext,
   parent: CocosHostNode,
   entry: GalleryEntryProjectionItem,
@@ -149,7 +183,7 @@ function renderGalleryEntry(
   startY: number,
   width: number,
   selected: boolean,
-): void {
+): Promise<void> {
   const node = renderButton(context, parent, `gallery:entry:${entry.id}`, entry.unlocked ? entry.title : 'Locked', x, startY + index * 58, width, 50, {
     plugin: 'gallery',
     galleryEntryId: entry.id,
@@ -160,7 +194,32 @@ function renderGalleryEntry(
     ...(context.cocos.host.nodes.getNodeMetadata?.(node) || {}),
     summary: entry.summary,
     tags: entry.tags,
+    unlocked: entry.unlocked,
   })
+  const bodyX = previewBodyX(entry)
+  const status = context.cocos.host.nodes.createNode('gallery-entry-status', { parent: node, name: `gallery:entry:${entry.id}:status` })
+  const badges = [entry.unlocked ? 'Unlocked' : 'Locked', ...(entry.tags || [])]
+  context.cocos.host.nodes.setNodeText(status, badges.join('  '), { fontSize: 14, color: '#d8d8d8' })
+  context.cocos.host.nodes.setNodeTransform(status, { x: x + bodyX, y: startY + index * 58 + 6, width: Math.max(0, width - bodyX - 8), height: 18, zIndex: 13 })
+  if (entry.summary) {
+    const summary = context.cocos.host.nodes.createNode('gallery-entry-summary', { parent: node, name: `gallery:entry:${entry.id}:summary` })
+    context.cocos.host.nodes.setNodeText(summary, entry.summary, { fontSize: 15, color: '#d8d8d8' })
+    context.cocos.host.nodes.setNodeTransform(summary, { x: x + bodyX, y: startY + index * 58 + 28, width: Math.max(0, width - bodyX - 8), height: 18, zIndex: 13 })
+  }
+  const preview = resolveGalleryEntryPreviewAsset(entry)
+  const previewName = stringValue(preview?.name)
+  if (preview?.type === 'images' && previewName) {
+    const previewNode = context.cocos.host.nodes.createNode('gallery-entry-preview', { parent: node, name: `gallery:entry:${entry.id}:preview` })
+    const resource = await resolveAssetWithTargetPackages(context.cocos, 'images', previewName, runtimePackageCandidatesFromAssetRef(preview))
+    context.cocos.setLayerResource('gallery', `entry:${entry.id}:preview`, resource)
+    context.cocos.host.nodes.setNodeSprite(previewNode, resource)
+    context.cocos.host.nodes.setNodeTransform(previewNode, { x: x + 6, y: startY + index * 58 + 6, width: 42, height: 38, zIndex: 13 })
+  }
+  else {
+    const placeholder = context.cocos.host.nodes.createNode('gallery-entry-placeholder', { parent: node, name: `gallery:entry:${entry.id}:placeholder` })
+    context.cocos.host.nodes.setNodeText(placeholder, entry.unlocked ? 'Open' : 'Locked', { fontSize: 14, color: '#d8d8d8' })
+    context.cocos.host.nodes.setNodeTransform(placeholder, { x: x + 6, y: startY + index * 58 + 6, width: 42, height: 38, zIndex: 13 })
+  }
 }
 
 async function renderSelectedGalleryEntry(
@@ -181,6 +240,9 @@ async function renderSelectedGalleryEntry(
     context.cocos.host.nodes.setNodeText(description, entry.description || entry.summary || '', { fontSize: 22, color: '#d8d8d8' })
     context.cocos.host.nodes.setNodeTransform(description, { x, y: y + 48, width, height: 84, zIndex: 4 })
   }
+  const state = context.cocos.host.nodes.createNode('gallery-entry-state', { parent, name: `gallery:selected:${entry.id}:state` })
+  context.cocos.host.nodes.setNodeText(state, [entry.unlocked ? 'Unlocked' : 'Locked', ...(entry.tags || [])].join('  '), { fontSize: 18, color: '#d8d8d8' })
+  context.cocos.host.nodes.setNodeTransform(state, { x, y: y + 112, width, height: 28, zIndex: 4 })
   entry.contents.forEach((item, index) => {
     renderButton(context, parent, `gallery:content:${item.id}`, item.title || item.kind, x + index * 126, y + 136, 116, 40, {
       plugin: 'gallery',
@@ -213,7 +275,7 @@ async function renderGalleryContentPreview(
   if ((content.kind === 'image' || content.kind === 'video' || content.kind === 'audio') && 'asset' in content) {
     const ref = content.asset
     const resource = ref
-      ? await context.cocos.resolveAsset(ref.type, ref.name, { targetPackageId: ref.runtimePackageId })
+      ? await resolveAssetWithTargetPackages(context.cocos, ref.type, ref.name, runtimePackageCandidatesFromAssetRef(ref as unknown as Record<string, unknown>))
       : undefined
     context.cocos.setLayerResource('gallery', `content:${content.id}`, resource)
     if (content.kind === 'audio') {
@@ -234,7 +296,18 @@ async function renderGalleryContentPreview(
       return
     }
     context.cocos.host.nodes.setNodeSprite(node, resource, { mode: content.kind === 'video' ? 'video' : 'sprite' })
+    context.cocos.host.nodes.setNodeControl?.(node, {
+      kind: content.kind === 'video' ? 'panel' : 'button',
+      label: content.title || ref?.name || content.kind,
+      metadata: {
+        plugin: 'gallery',
+        galleryContentId: content.id,
+        mediaKind: content.kind,
+      },
+    })
+    return
   }
+  context.cocos.host.nodes.setNodeText(node, JSON.stringify(content, null, 2), { fontSize: 20, color: '#ffffff' })
 }
 
 function renderPager(
@@ -281,6 +354,50 @@ function pageItems<T>(items: readonly T[], requestedPage: number, pageSize: numb
 
 function updatePage(pages: Map<string, number>, key: string, delta: number): void {
   pages.set(key, Math.max(0, (pages.get(key) || 0) + delta))
+}
+
+function resolveGalleryEntryPreviewAsset(entry: GalleryEntryProjectionItem | undefined): Record<string, unknown> | undefined {
+  if (!entry)
+    return undefined
+  if (entry.thumbnail)
+    return entry.thumbnail as unknown as Record<string, unknown>
+  if (entry.poster)
+    return entry.poster as unknown as Record<string, unknown>
+  for (const content of entry.contents) {
+    const asset = resolveGalleryContentPreviewAsset(content)
+    if (asset)
+      return asset
+  }
+  return undefined
+}
+
+function resolveGalleryContentPreviewAsset(content: GalleryContentBlock | undefined): Record<string, unknown> | undefined {
+  if (!content || !('asset' in content))
+    return undefined
+  if (content.kind === 'video' && 'poster' in content && content.poster)
+    return content.poster as unknown as Record<string, unknown>
+  if (content.kind === 'audio' && 'poster' in content && content.poster)
+    return content.poster as unknown as Record<string, unknown>
+  if (content.kind === 'image' || content.kind === 'video' || content.kind === 'audio')
+    return content.asset as unknown as Record<string, unknown>
+  return undefined
+}
+
+function previewBodyX(entry: GalleryEntryProjectionItem): number {
+  return resolveGalleryEntryPreviewAsset(entry) ? 58 : 12
+}
+
+function renderEmptyState(
+  context: CocosRendererPluginContext,
+  parent: CocosHostNode,
+  label: string,
+  x: number,
+  y: number,
+  width: number,
+): void {
+  const node = context.cocos.host.nodes.createNode('gallery-empty', { parent, name: `gallery:empty:${label}` })
+  context.cocos.host.nodes.setNodeText(node, label, { fontSize: 22, color: '#d8d8d8' })
+  context.cocos.host.nodes.setNodeTransform(node, { x, y, width, height: 48, zIndex: 10 })
 }
 
 function cleanupInactiveGalleryAudioPreviews(
