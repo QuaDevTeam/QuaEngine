@@ -24,9 +24,14 @@ interface ActiveTypewriter {
   durationMs: number
   revealOnAdvance: boolean
   revealed: boolean
+  totalCharacters: number
+  visibleCharacters: number
   lastSoundAt: number
   lastSoundCharacters: number
 }
+
+const DEFAULT_CHARACTERS_PER_SECOND = 36
+const DEFAULT_SOUND_INTERVAL_MS = 24
 
 export class CocosDialogueTypewriterRuntime {
   private active?: ActiveTypewriter
@@ -46,6 +51,7 @@ export class CocosDialogueTypewriterRuntime {
 
     const now = this.options.now()
     const signature = getDialogueSignature(dialogue)
+    const totalCharacters = getTextLength(dialogue.text)
     const durationMs = resolveDurationMs(dialogue.text, typewriter)
     if (!this.active || this.active.signature !== signature) {
       this.active = {
@@ -54,6 +60,8 @@ export class CocosDialogueTypewriterRuntime {
         durationMs,
         revealOnAdvance: typewriter.revealOnAdvance !== false,
         revealed: false,
+        totalCharacters,
+        visibleCharacters: 0,
         lastSoundAt: 0,
         lastSoundCharacters: 0,
       }
@@ -61,17 +69,18 @@ export class CocosDialogueTypewriterRuntime {
 
     this.active.durationMs = durationMs
     this.active.revealOnAdvance = typewriter.revealOnAdvance !== false
+    this.active.totalCharacters = totalCharacters
 
-    const totalCharacters = getTextLength(dialogue.text)
     const elapsed = Math.max(0, now - this.active.startedAt)
     const visibleCharacters = this.active.revealed || durationMs <= 0
       ? totalCharacters
       : Math.min(totalCharacters, Math.floor((elapsed / durationMs) * totalCharacters))
     const revealing = visibleCharacters < totalCharacters
 
-    if (revealing && typewriter.sound) {
+    if (visibleCharacters > this.active.visibleCharacters && typewriter.sound) {
       this.playTypewriterSound(typewriter.sound, visibleCharacters, now)
     }
+    this.active.visibleCharacters = visibleCharacters
 
     return {
       dialogue: {
@@ -84,9 +93,10 @@ export class CocosDialogueTypewriterRuntime {
   }
 
   revealNow(): boolean {
-    if (!this.active || this.active.revealed || !this.active.revealOnAdvance)
+    if (!this.active || this.active.revealed || !this.active.revealOnAdvance || this.active.visibleCharacters >= this.active.totalCharacters)
       return false
     this.active.revealed = true
+    this.active.visibleCharacters = this.active.totalCharacters
     return true
   }
 
@@ -102,10 +112,10 @@ export class CocosDialogueTypewriterRuntime {
     if (!this.active || visibleCharacters <= this.active.lastSoundCharacters)
       return
     const everyCharacters = positiveInteger(sound.everyCharacters, 1)
-    if (visibleCharacters % everyCharacters !== 0)
+    if (Math.floor(visibleCharacters / everyCharacters) <= Math.floor(this.active.lastSoundCharacters / everyCharacters))
       return
-    const intervalMs = positiveNumber(sound.intervalMs, 32)
-    if (now - this.active.lastSoundAt < intervalMs)
+    const intervalMs = positiveNumber(sound.intervalMs, DEFAULT_SOUND_INTERVAL_MS)
+    if (this.active.lastSoundAt > 0 && now - this.active.lastSoundAt < intervalMs)
       return
     this.active.lastSoundAt = now
     this.active.lastSoundCharacters = visibleCharacters
@@ -115,17 +125,28 @@ export class CocosDialogueTypewriterRuntime {
 
 export function sliceRichTextContent(content: RichTextContent, visibleCharacters: number): RichTextContent {
   const count = Math.max(0, Math.floor(visibleCharacters))
+  if (count <= 0) {
+    return isRichTextDocument(content)
+      ? {
+          ...content,
+          blocks: content.blocks.map(block => ({
+            ...block,
+            spans: [],
+          })),
+        }
+      : ''
+  }
   if (!isRichTextDocument(content))
-    return content.slice(0, count)
+    return Array.from(content).slice(0, count).join('')
 
   let remaining = count
   const blocks: RichTextBlockProjection[] = []
   for (const block of content.blocks) {
+    const next = sliceRichTextBlock(block, remaining)
+    blocks.push(next)
+    remaining -= getBlockTextLength(block)
     if (remaining <= 0)
       break
-    const next = sliceRichTextBlock(block, remaining)
-    remaining -= getBlockTextLength(next)
-    blocks.push(next)
   }
   return {
     ...content,
@@ -142,12 +163,15 @@ function sliceRichTextBlock(
   for (const span of block.spans) {
     if (remaining <= 0)
       break
-    const text = span.text.slice(0, remaining)
-    remaining -= text.length
-    spans.push({
-      ...span,
-      text,
-    })
+    const chars = Array.from(span.text)
+    const text = chars.slice(0, remaining).join('')
+    if (text.length > 0) {
+      spans.push({
+        ...span,
+        text,
+      })
+    }
+    remaining -= chars.length
   }
   return {
     ...block,
@@ -167,12 +191,16 @@ function resolveDurationMs(content: RichTextContent, typewriter: Readonly<Dialog
   if (typewriter.durationMs && Number.isFinite(typewriter.durationMs) && typewriter.durationMs > 0)
     return typewriter.durationMs
 
+  const totalCharacters = getTextLength(content)
+  if (totalCharacters <= 0)
+    return 0
+
   const charactersPerSecond = typewriter.charactersPerSecond
     && Number.isFinite(typewriter.charactersPerSecond)
     && typewriter.charactersPerSecond > 0
     ? typewriter.charactersPerSecond
-    : 36
-  return Math.max(0, (getTextLength(content) / charactersPerSecond) * 1000)
+    : DEFAULT_CHARACTERS_PER_SECOND
+  return Math.ceil((totalCharacters / charactersPerSecond) * 1000)
 }
 
 function getDialogueSignature(dialogue: Readonly<ViewDialogueProjection>): string {
@@ -188,12 +216,12 @@ function getDialogueSignature(dialogue: Readonly<ViewDialogueProjection>): strin
 
 function getTextLength(content: RichTextContent): number {
   if (!isRichTextDocument(content))
-    return content.length
+    return Array.from(content).length
   return content.blocks.reduce((total, block) => total + getBlockTextLength(block), 0)
 }
 
 function getBlockTextLength(block: Readonly<RichTextBlockProjection>): number {
-  return block.spans.reduce((total, span) => total + span.text.length, 0)
+  return block.spans.reduce((total, span) => total + Array.from(span.text).length, 0)
 }
 
 function positiveNumber(value: unknown, fallback: number): number {

@@ -76,6 +76,12 @@ const INTERACTIVE_CONTROL_METADATA_KEYS = [
   'galleryEntryId',
   'achievementId',
   'elementId',
+  'uiAction',
+  'settingsAction',
+  'settingsPathKey',
+  'backlogAction',
+  'galleryAction',
+  'achievementAction',
 ] as const
 
 const DEFAULT_KEYBOARD_BINDINGS: readonly CocosRendererInputKeyboardBinding[] = [

@@ -205,6 +205,34 @@ describe('@quajs/renderer-cocos', () => {
     await renderer.destroy()
   })
 
+  it('lets advance pass after the Cocos typewriter completes naturally', async () => {
+    let now = 0
+    const host = createFakeCocosHost({ now: () => now })
+    const pipeline = new Pipeline()
+    const advances: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_ADVANCE, context => advances.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView({
+        dialogueText: 'done',
+        dialogueTypewriter: {
+          enabled: true,
+          durationMs: 10,
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+
+    now = 10
+    await waitForEventually(() => findNodeByKind(host, 'dialogue-box')?.text?.includes('done') === true)
+    await renderer.actions.advance('test')
+
+    expect(advances).toEqual([{ source: 'test' }])
+    await renderer.destroy()
+  })
+
   it('captures save previews through host capture only', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()
@@ -279,10 +307,12 @@ describe('@quajs/renderer-cocos', () => {
     const resetScopes: unknown[] = []
     const resetAll: unknown[] = []
     const closes: unknown[] = []
+    const advances: unknown[] = []
     pipeline.on(SettingsRenderToLogicEvents.UPDATE_REQUEST, context => updates.push(context.event.payload))
     pipeline.on(SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST, context => resetScopes.push(context.event.payload))
     pipeline.on(SettingsRenderToLogicEvents.RESET_ALL_REQUEST, context => resetAll.push(context.event.payload))
     pipeline.on(RenderToLogicEvents.UI_REQUEST_CLOSE, context => closes.push(context.event.payload))
+    pipeline.on(RenderToLogicEvents.USER_ADVANCE, context => advances.push(context.event.payload))
     const renderer = new QuaCocosRendererController({
       host,
       pipeline,
@@ -323,6 +353,7 @@ describe('@quajs/renderer-cocos', () => {
     expect(resetScopes).toEqual([{ scope: 'player' }])
     expect(resetAll).toEqual([{}])
     expect(closes).toEqual([{ elementId: 'settings' }])
+    expect(advances).toEqual([])
   })
 
   it('applies UI skin manifests as sliced Cocos sprites', async () => {
@@ -466,6 +497,28 @@ describe('@quajs/renderer-cocos', () => {
     expect(expressionLayer?.sprite?.source).toBe('hero/smile.png')
     expect(expressionLayer?.transform).toMatchObject({ y: -4, opacity: 0.9, zIndex: 4 })
     expect(expressionLayer?.metadata).toMatchObject({ spriteLayerKind: 'expression', asset: 'hero/smile.png' })
+  })
+
+  it('keeps single-file character sprites on the root Cocos character node without a manifest', async () => {
+    const host = createFakeCocosHost()
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      assets: createFakeAssets({
+        assets: {
+          'characters:alice.png': imageAsset('alice.png'),
+        },
+      }),
+      initialView: createView({
+        characterSprite: 'alice.png',
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    expect(findNode(host, 'hero')?.sprite?.source).toBe('alice.png')
+    expect(findNode(host, 'hero:sprite:base:0')).toBeUndefined()
   })
 
   it('reuses audio handles and disposes inactive audio resources', async () => {
@@ -650,9 +703,11 @@ describe('@quajs/renderer-cocos', () => {
     const closes: unknown[] = []
     const jumps: unknown[] = []
     const voiceReplays: unknown[] = []
+    const advances: unknown[] = []
     pipeline.on(BacklogRenderToLogicEvents.CLOSE_REQUEST, context => closes.push(context.event.payload))
     pipeline.on(BacklogRenderToLogicEvents.JUMP_REQUEST, context => jumps.push(context.event.payload))
     pipeline.on(BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST, context => voiceReplays.push(context.event.payload))
+    pipeline.on(RenderToLogicEvents.USER_ADVANCE, context => advances.push(context.event.payload))
     const renderer = new QuaCocosRendererController({
       host,
       pipeline,
@@ -694,6 +749,7 @@ describe('@quajs/renderer-cocos', () => {
     expect(jumps).toEqual([{ entryId: 'entry-1' }])
     expect(voiceReplays).toEqual([{ entryId: 'entry-1' }])
     expect(closes).toEqual([{}])
+    expect(advances).toEqual([])
   })
 
   it('renders the Cocos achievement board and dispatches achievement intents', async () => {
@@ -704,11 +760,13 @@ describe('@quajs/renderer-cocos', () => {
     const groups: unknown[] = []
     const filters: unknown[] = []
     const closes: unknown[] = []
+    const advances: unknown[] = []
     pipeline.on(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, context => dismisses.push(context.event.payload))
     pipeline.on(AchievementRenderToLogicEvents.SELECT_ACHIEVEMENT_REQUEST, context => selections.push(context.event.payload))
     pipeline.on(AchievementRenderToLogicEvents.SELECT_GROUP_REQUEST, context => groups.push(context.event.payload))
     pipeline.on(AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST, context => filters.push(context.event.payload))
     pipeline.on(AchievementRenderToLogicEvents.CLOSE_BOARD_REQUEST, context => closes.push(context.event.payload))
+    pipeline.on(RenderToLogicEvents.USER_ADVANCE, context => advances.push(context.event.payload))
     const renderer = new QuaCocosRendererController({
       host,
       pipeline,
@@ -756,7 +814,8 @@ describe('@quajs/renderer-cocos', () => {
     await flushAsync()
 
     expect(findNode(host, 'achievement:title')?.text).toBe('Achievements 0/1')
-    expect(host.audioHandlesById.get('achievement:toast-1:sound')?.playing).toBe(true)
+    const sound = host.audioHandlesById.get('achievement:toast-1:sound')
+    expect(sound?.playing).toBe(true)
 
     await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'achievement:toast:toast-1') })
     await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'achievement:item:first') })
@@ -769,6 +828,10 @@ describe('@quajs/renderer-cocos', () => {
     expect(groups).toEqual([{ groupId: 'main' }])
     expect(filters).toEqual([{ filter: { unlockedOnly: true } }])
     expect(closes).toEqual([{}])
+    expect(advances).toEqual([])
+
+    await renderer.destroy()
+    expect(sound?.disposed).toBe(true)
   })
 
   it('projects optional feature plugins and emits plugin intents', async () => {
