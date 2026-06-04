@@ -18,6 +18,7 @@ export default defineConfig({
         index: resolve(import.meta.dirname, 'src/index.ts'),
         builtin: resolve(import.meta.dirname, 'src/builtin.ts'),
         contracts: resolve(import.meta.dirname, 'src/contracts.ts'),
+        form: resolve(import.meta.dirname, 'src/form.ts'),
         schema: resolve(import.meta.dirname, 'src/schema.ts'),
         storage: resolve(import.meta.dirname, 'src/storage.ts'),
       },
