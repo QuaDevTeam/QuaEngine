@@ -201,6 +201,87 @@ export class StoryGraphPlugin extends BaseEnginePlugin {
   private disposers: Array<() => void> = []
   private unregisterStoryTargetResolver?: () => void
 
+  getProjection(): StoryGraphProjection {
+    return getStoryGraphProjection(this.getEngine())
+  }
+
+  registerGraph(graph: StoryGraph): Promise<void> {
+    return registerStoryGraphWithEngine(this.getEngine(), graph)
+  }
+
+  registerDelta(delta: StoryGraphDelta, options?: { packageId?: string }): Promise<void> {
+    return registerStoryGraphDeltaWithEngine(this.getEngine(), delta, options)
+  }
+
+  clearRuntimePackage(packageId: string): Promise<void> {
+    return removeRuntimePackageStoryGraphContentWithEngine(this.getEngine(), packageId)
+  }
+
+  enterPoint(point: StoryPoint, options?: { cursorId?: string }): Promise<void> {
+    return enterStoryPointWithEngine(this.getEngine(), point, options)
+  }
+
+  jumpToPoint(point: StoryPoint, options?: JumpOptions & { cursorId?: string }): Promise<void> {
+    return jumpToStoryPointWithEngine(this.getEngine(), point, options)
+  }
+
+  emitEvent(type: string, payload?: Record<string, unknown>): Promise<void> {
+    return emitStoryEventWithEngine(this.getEngine(), type, payload)
+  }
+
+  unlockNode(nodeId: string): Promise<void> {
+    return unlockStoryNodeWithEngine(this.getEngine(), nodeId)
+  }
+
+  lockNode(nodeId: string): Promise<void> {
+    return lockStoryNodeWithEngine(this.getEngine(), nodeId)
+  }
+
+  isNodeUnlocked(nodeId: string): boolean {
+    return isStoryNodeUnlockedWithEngine(this.getEngine(), nodeId)
+  }
+
+  setChapterSelect(options?: StoryNodeChapterSelectOptions): Promise<void> {
+    return setStoryChapterSelectWithEngine(this.getEngine(), options)
+  }
+
+  getChapterSelectProjection(): StoryChapterSelectProjection {
+    return getStoryChapterSelectProjection(this.getEngine())
+  }
+
+  jumpToChapterSelectNode(
+    nodeId: string,
+    options?: JumpOptions & { graphId?: string, cursorId?: string, force?: boolean },
+  ): Promise<void> {
+    return jumpToChapterSelectNodeWithEngine(this.getEngine(), nodeId, options)
+  }
+
+  recordChoiceEdge(payload: { choiceId?: string }): Promise<void> {
+    return recordChoiceEdgeWithEngine(this.getEngine(), payload)
+  }
+
+  recordChoiceEdges(choices: ReadonlyArray<Pick<ChoiceIntent, 'id' | 'text' | 'metadata'>>): Promise<void> {
+    return recordChoiceEdgesWithEngine(this.getEngine(), choices)
+  }
+
+  resolveTarget(
+    target: ChoiceTarget,
+    context: Omit<StoryTargetResolveContext, 'engine' | 'target'> = {},
+  ): Promise<ResolvedStoryJump | undefined> {
+    return resolveStoryTargetFromGraphWithEngine(target, {
+      ...context,
+      engine: this.getEngine(),
+      target,
+    })
+  }
+
+  setMetadata(
+    patch: Partial<StoryPoint> & { metadata?: Record<string, unknown> },
+    options?: { cursorId?: string },
+  ): Promise<void> {
+    return setStoryMetadataWithEngine(this.getEngine(), patch, options)
+  }
+
   protected setup(ctx: EngineContext): void {
     this.unregisterStoryTargetResolver = (ctx.engine as QuaEngineInterface & {
       registerStoryTargetResolver?: (resolver: typeof resolveStoryTargetFromGraphWithEngine) => () => void
@@ -248,22 +329,23 @@ export class StoryGraphPlugin extends BaseEnginePlugin {
     return {
       pluginName: this.name,
       apis: [
-        { name: 'registerStoryGraphWithEngine', fn: registerStoryGraphWithEngine, module: this.name },
-        { name: 'enterStoryPointWithEngine', fn: enterStoryPointWithEngine, module: this.name },
-        { name: 'jumpToStoryPointWithEngine', fn: jumpToStoryPointWithEngine, module: this.name },
-        { name: 'emitStoryEventWithEngine', fn: emitStoryEventWithEngine, module: this.name },
-        { name: 'unlockStoryNodeWithEngine', fn: unlockStoryNodeWithEngine, module: this.name },
-        { name: 'lockStoryNodeWithEngine', fn: lockStoryNodeWithEngine, module: this.name },
-        { name: 'isStoryNodeUnlockedWithEngine', fn: isStoryNodeUnlockedWithEngine, module: this.name },
-        { name: 'setStoryChapterSelectWithEngine', fn: setStoryChapterSelectWithEngine, module: this.name },
-        { name: 'getStoryChapterSelectProjection', fn: getStoryChapterSelectProjection, module: this.name },
-        { name: 'jumpToChapterSelectNodeWithEngine', fn: jumpToChapterSelectNodeWithEngine, module: this.name },
-        { name: 'setStoryMetadataWithEngine', fn: setStoryMetadataWithEngine, module: this.name },
-        { name: 'recordChoiceEdgeWithEngine', fn: recordChoiceEdgeWithEngine, module: this.name },
-        { name: 'recordChoiceEdgesWithEngine', fn: recordChoiceEdgesWithEngine, module: this.name },
-        { name: 'resolveStoryTargetFromGraphWithEngine', fn: resolveStoryTargetFromGraphWithEngine, module: this.name },
-        { name: 'registerStoryGraphDeltaWithEngine', fn: registerStoryGraphDeltaWithEngine, module: this.name },
-        { name: 'removeRuntimePackageStoryGraphContentWithEngine', fn: removeRuntimePackageStoryGraphContentWithEngine, module: this.name },
+        { name: 'getProjection', fn: this.getProjection.bind(this), module: this.name },
+        { name: 'registerGraph', fn: this.registerGraph.bind(this), module: this.name },
+        { name: 'registerDelta', fn: this.registerDelta.bind(this), module: this.name },
+        { name: 'clearRuntimePackage', fn: this.clearRuntimePackage.bind(this), module: this.name },
+        { name: 'enterPoint', fn: this.enterPoint.bind(this), module: this.name },
+        { name: 'jumpToPoint', fn: this.jumpToPoint.bind(this), module: this.name },
+        { name: 'emitEvent', fn: this.emitEvent.bind(this), module: this.name },
+        { name: 'unlockNode', fn: this.unlockNode.bind(this), module: this.name },
+        { name: 'lockNode', fn: this.lockNode.bind(this), module: this.name },
+        { name: 'isNodeUnlocked', fn: this.isNodeUnlocked.bind(this), module: this.name },
+        { name: 'setChapterSelect', fn: this.setChapterSelect.bind(this), module: this.name },
+        { name: 'getChapterSelectProjection', fn: this.getChapterSelectProjection.bind(this), module: this.name },
+        { name: 'jumpToChapterSelectNode', fn: this.jumpToChapterSelectNode.bind(this), module: this.name },
+        { name: 'recordChoiceEdge', fn: this.recordChoiceEdge.bind(this), module: this.name },
+        { name: 'recordChoiceEdges', fn: this.recordChoiceEdges.bind(this), module: this.name },
+        { name: 'resolveTarget', fn: this.resolveTarget.bind(this), module: this.name },
+        { name: 'setMetadata', fn: this.setMetadata.bind(this), module: this.name },
       ],
       decorators: storyGraphDecoratorMappings,
     }

@@ -11,10 +11,12 @@ import { QuaEngine } from '@quajs/engine'
 import { InventoryPlugin } from '@quajs/plugin-inventory'
 
 const engine = new QuaEngine()
-
-engine.use(new InventoryPlugin({
+const inventory = new InventoryPlugin({
   profileId: 'default',
-}))
+})
+
+engine.use(inventory)
+await engine.init()
 ```
 
 If `@quajs/plugin-settings` is installed, the inventory plugin registers a developer settings scope for `defaultProfileId`. It does not register player UI settings.
@@ -35,17 +37,15 @@ The active view plugin projection is intentionally lightweight. It only tracks e
 import {
   defineInventoryCategory,
   defineInventoryItem,
-  registerInventoryCategoryWithEngine,
-  registerInventoryItemWithEngine,
 } from '@quajs/plugin-inventory'
 
-await registerInventoryCategoryWithEngine(engine, defineInventoryCategory({
+await inventory.registerCategory(defineInventoryCategory({
   id: 'keys',
   title: 'Keys',
   order: 10,
 }))
 
-await registerInventoryItemWithEngine(engine, defineInventoryItem({
+await inventory.registerItem(defineInventoryItem({
   id: 'old-key',
   title: 'Old Key',
   summary: 'A small brass key.',
@@ -61,21 +61,13 @@ Runtime package provenance is inherited when definitions are registered during p
 ## Mutate Profile Items
 
 ```ts
-import {
-  consumeInventoryItemWithEngine,
-  getInventoryItemQuantityWithEngine,
-  grantInventoryItemWithEngine,
-  hasInventoryItemWithEngine,
-  setInventoryItemQuantityWithEngine,
-} from '@quajs/plugin-inventory'
+await inventory.grantItem('old-key')
+await inventory.grantItem('coin', 3, { source: 'quest:opening' })
+await inventory.consumeItem('coin', 1)
+await inventory.setItemQuantity('potion', 2)
 
-await grantInventoryItemWithEngine(engine, 'old-key')
-await grantInventoryItemWithEngine(engine, 'coin', 3, { source: 'quest:opening' })
-await consumeInventoryItemWithEngine(engine, 'coin', 1)
-await setInventoryItemQuantityWithEngine(engine, 'potion', 2)
-
-const hasKey = hasInventoryItemWithEngine(engine, 'old-key')
-const coins = getInventoryItemQuantityWithEngine(engine, 'coin')
+const hasKey = inventory.hasItem('old-key')
+const coins = inventory.getItemQuantity('coin')
 ```
 
 Mutation rules:
@@ -84,15 +76,13 @@ Mutation rules:
 - grant/consume/set require a registered item definition;
 - `maxQuantity` overflow throws;
 - consuming more than the current quantity throws;
-- `clearInventoryItemWithEngine()` and `resetInventoryProfileWithEngine()` may remove records whose definitions are no longer present.
+- `inventory.clearItem()` and `inventory.resetProfile()` may remove records whose definitions are no longer present.
 
 ## Read Projections
 
 ```ts
-import { getInventoryProfile, getInventoryProjection } from '@quajs/plugin-inventory'
-
-const profile = getInventoryProfile(engine)
-const projection = getInventoryProjection(engine)
+const profile = inventory.getProfile()
+const projection = inventory.getProjection()
 ```
 
 `InventoryProjection` contains category projections, registered definitions, available item records, and missing item records. It is derived from runtime definitions plus the selected profile snapshot.

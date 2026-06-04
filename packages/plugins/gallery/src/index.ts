@@ -184,6 +184,50 @@ export class GalleryPlugin extends BaseEnginePlugin {
   private disposers: Array<() => void> = []
   private unregisterScene?: () => void
 
+  getProjection(): GalleryProjection {
+    return getGalleryProjection(this.getEngine())
+  }
+
+  getProfile(profileId?: string): GalleryProfileState {
+    return getGalleryProfile(this.getEngine(), profileId)
+  }
+
+  registerCatalog(catalog: GalleryCatalogDefinition): Promise<GalleryCatalogDefinition> {
+    return registerGalleryCatalogWithEngine(this.getEngine(), catalog)
+  }
+
+  registerEntry(entry: GalleryEntryDefinition): Promise<GalleryEntryDefinition> {
+    return registerGalleryEntryWithEngine(this.getEngine(), entry)
+  }
+
+  registerEntries(entries: readonly GalleryEntryDefinition[]): Promise<GalleryEntryDefinition[]> {
+    return registerGalleryEntriesWithEngine(this.getEngine(), entries)
+  }
+
+  clearRuntimePackage(packageId: string): Promise<void> {
+    return removeRuntimePackageGalleryContentWithEngine(this.getEngine(), packageId)
+  }
+
+  openScene(options?: GalleryOpenOptions): Promise<void> {
+    return openGallerySceneWithEngine(this.getEngine(), options)
+  }
+
+  closeScene(): Promise<void> {
+    return closeGallerySceneWithEngine(this.getEngine())
+  }
+
+  unlockEntry(entryId: string | readonly string[], options?: GalleryUnlockOptions): Promise<GalleryProfileState> {
+    return unlockGalleryEntryWithEngine(this.getEngine(), entryId, options)
+  }
+
+  unlockEntries(entryIds: readonly string[], options?: GalleryUnlockOptions): Promise<GalleryProfileState> {
+    return unlockGalleryEntriesWithEngine(this.getEngine(), entryIds, options)
+  }
+
+  resetProfile(options?: { profileId?: string }): Promise<GalleryProfileState> {
+    return resetGalleryProfileWithEngine(this.getEngine(), options)
+  }
+
   protected override async setup(ctx: EngineContext): Promise<void> {
     const runtimeState = getOrCreateGalleryRuntimeState(ctx.engine, this.getOptions().profileId || DEFAULT_PROFILE_ID)
     if (ctx.engine.hasScene(GALLERY_SCENE_ID)) {
@@ -267,17 +311,17 @@ export class GalleryPlugin extends BaseEnginePlugin {
     return {
       pluginName: this.name,
       apis: [
-        { name: 'registerGalleryCatalogWithEngine', fn: registerGalleryCatalogWithEngine, module: this.name },
-        { name: 'registerGalleryEntryWithEngine', fn: registerGalleryEntryWithEngine, module: this.name },
-        { name: 'registerGalleryEntriesWithEngine', fn: registerGalleryEntriesWithEngine, module: this.name },
-        { name: 'removeRuntimePackageGalleryContentWithEngine', fn: removeRuntimePackageGalleryContentWithEngine, module: this.name },
-        { name: 'openGallerySceneWithEngine', fn: openGallerySceneWithEngine, module: this.name },
-        { name: 'closeGallerySceneWithEngine', fn: closeGallerySceneWithEngine, module: this.name },
-        { name: 'unlockGalleryEntryWithEngine', fn: unlockGalleryEntryWithEngine, module: this.name },
-        { name: 'unlockGalleryEntriesWithEngine', fn: unlockGalleryEntriesWithEngine, module: this.name },
-        { name: 'getGalleryProjection', fn: getGalleryProjection, module: this.name },
-        { name: 'getGalleryProfile', fn: getGalleryProfile, module: this.name },
-        { name: 'resetGalleryProfileWithEngine', fn: resetGalleryProfileWithEngine, module: this.name },
+        { name: 'getProjection', fn: this.getProjection.bind(this), module: this.name },
+        { name: 'getProfile', fn: this.getProfile.bind(this), module: this.name },
+        { name: 'registerCatalog', fn: this.registerCatalog.bind(this), module: this.name },
+        { name: 'registerEntry', fn: this.registerEntry.bind(this), module: this.name },
+        { name: 'registerEntries', fn: this.registerEntries.bind(this), module: this.name },
+        { name: 'clearRuntimePackage', fn: this.clearRuntimePackage.bind(this), module: this.name },
+        { name: 'openScene', fn: this.openScene.bind(this), module: this.name },
+        { name: 'closeScene', fn: this.closeScene.bind(this), module: this.name },
+        { name: 'unlockEntry', fn: this.unlockEntry.bind(this), module: this.name },
+        { name: 'unlockEntries', fn: this.unlockEntries.bind(this), module: this.name },
+        { name: 'resetProfile', fn: this.resetProfile.bind(this), module: this.name },
       ],
       decorators,
     }

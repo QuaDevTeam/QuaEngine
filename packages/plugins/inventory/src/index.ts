@@ -103,6 +103,66 @@ export class InventoryPlugin extends BaseEnginePlugin {
   readonly description = 'Persistent profile inventory items for QuaEngine'
   private disposers: Array<() => void> = []
 
+  getProjection(options?: { profileId?: string }): InventoryProjection {
+    return getInventoryProjection(this.getEngine(), options)
+  }
+
+  getProfile(profileId?: string): InventoryProfileState {
+    return getInventoryProfile(this.getEngine(), profileId)
+  }
+
+  registerCategory(category: InventoryCategoryDefinition): Promise<InventoryCategoryDefinition> {
+    return registerInventoryCategoryWithEngine(this.getEngine(), category)
+  }
+
+  registerItem(item: InventoryItemDefinition): Promise<InventoryItemDefinition> {
+    return registerInventoryItemWithEngine(this.getEngine(), item)
+  }
+
+  registerItems(items: readonly InventoryItemDefinition[]): Promise<InventoryItemDefinition[]> {
+    return registerInventoryItemsWithEngine(this.getEngine(), items)
+  }
+
+  clearRuntimePackage(packageId: string): Promise<void> {
+    return removeRuntimePackageInventoryContentWithEngine(this.getEngine(), packageId)
+  }
+
+  grantItem(
+    itemId: string,
+    quantityOrOptions: number | InventoryChangeOptions = 1,
+    options: InventoryChangeOptions = {},
+  ): Promise<InventoryProfileState> {
+    return grantInventoryItemWithEngine(this.getEngine(), itemId, quantityOrOptions, options)
+  }
+
+  consumeItem(
+    itemId: string,
+    quantityOrOptions: number | InventoryChangeOptions = 1,
+    options: InventoryChangeOptions = {},
+  ): Promise<InventoryProfileState> {
+    return consumeInventoryItemWithEngine(this.getEngine(), itemId, quantityOrOptions, options)
+  }
+
+  setItemQuantity(itemId: string, quantity: number, options?: InventoryChangeOptions): Promise<InventoryProfileState> {
+    return setInventoryItemQuantityWithEngine(this.getEngine(), itemId, quantity, options)
+  }
+
+  clearItem(itemId: string, options?: InventoryChangeOptions): Promise<InventoryProfileState> {
+    return clearInventoryItemWithEngine(this.getEngine(), itemId, options)
+  }
+
+  hasItem(itemId: string, options?: { profileId?: string }): boolean {
+    return hasInventoryItemWithEngine(this.getEngine(), itemId, options)
+  }
+
+  getItemQuantity(itemId: string, options?: { profileId?: string }): number {
+    return getInventoryItemQuantityWithEngine(this.getEngine(), itemId, options)
+  }
+
+  resetProfile(options?: { profileId?: string }): Promise<InventoryProfileState> {
+    return resetInventoryProfileWithEngine(this.getEngine(), options)
+  }
+
   protected override async setup(ctx: EngineContext): Promise<void> {
     const runtimeState = getOrCreateInventoryRuntimeState(ctx.engine, this.getOptions().profileId || DEFAULT_PROFILE_ID)
     await ensureInventoryProfile(ctx.engine, runtimeState, runtimeState.defaultProfileId)
@@ -137,19 +197,19 @@ export class InventoryPlugin extends BaseEnginePlugin {
       apis: [
         { name: 'defineInventoryCategory', fn: defineInventoryCategory, module: this.name },
         { name: 'defineInventoryItem', fn: defineInventoryItem, module: this.name },
-        { name: 'registerInventoryCategoryWithEngine', fn: registerInventoryCategoryWithEngine, module: this.name },
-        { name: 'registerInventoryItemWithEngine', fn: registerInventoryItemWithEngine, module: this.name },
-        { name: 'registerInventoryItemsWithEngine', fn: registerInventoryItemsWithEngine, module: this.name },
-        { name: 'grantInventoryItemWithEngine', fn: grantInventoryItemWithEngine, module: this.name },
-        { name: 'consumeInventoryItemWithEngine', fn: consumeInventoryItemWithEngine, module: this.name },
-        { name: 'setInventoryItemQuantityWithEngine', fn: setInventoryItemQuantityWithEngine, module: this.name },
-        { name: 'clearInventoryItemWithEngine', fn: clearInventoryItemWithEngine, module: this.name },
-        { name: 'hasInventoryItemWithEngine', fn: hasInventoryItemWithEngine, module: this.name },
-        { name: 'getInventoryItemQuantityWithEngine', fn: getInventoryItemQuantityWithEngine, module: this.name },
-        { name: 'getInventoryProfile', fn: getInventoryProfile, module: this.name },
-        { name: 'getInventoryProjection', fn: getInventoryProjection, module: this.name },
-        { name: 'resetInventoryProfileWithEngine', fn: resetInventoryProfileWithEngine, module: this.name },
-        { name: 'removeRuntimePackageInventoryContentWithEngine', fn: removeRuntimePackageInventoryContentWithEngine, module: this.name },
+        { name: 'getProjection', fn: this.getProjection.bind(this), module: this.name },
+        { name: 'getProfile', fn: this.getProfile.bind(this), module: this.name },
+        { name: 'registerCategory', fn: this.registerCategory.bind(this), module: this.name },
+        { name: 'registerItem', fn: this.registerItem.bind(this), module: this.name },
+        { name: 'registerItems', fn: this.registerItems.bind(this), module: this.name },
+        { name: 'clearRuntimePackage', fn: this.clearRuntimePackage.bind(this), module: this.name },
+        { name: 'grantItem', fn: this.grantItem.bind(this), module: this.name },
+        { name: 'consumeItem', fn: this.consumeItem.bind(this), module: this.name },
+        { name: 'setItemQuantity', fn: this.setItemQuantity.bind(this), module: this.name },
+        { name: 'clearItem', fn: this.clearItem.bind(this), module: this.name },
+        { name: 'hasItem', fn: this.hasItem.bind(this), module: this.name },
+        { name: 'getItemQuantity', fn: this.getItemQuantity.bind(this), module: this.name },
+        { name: 'resetProfile', fn: this.resetProfile.bind(this), module: this.name },
       ],
       decorators: inventoryDecorators,
     }

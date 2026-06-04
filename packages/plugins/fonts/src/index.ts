@@ -34,6 +34,30 @@ export class FontsPlugin extends BaseEnginePlugin {
   readonly version = '0.1.0'
   readonly description = 'Font face projection for rich text and cutscene typography'
 
+  getProjection(): FontsProjection {
+    return getFontsProjection(this.getEngine())
+  }
+
+  registerFont(family: string, assetName: string, options?: RegisterFontOptions): Promise<FontFaceProjection> {
+    return registerFontWithEngine(this.getEngine(), family, assetName, options)
+  }
+
+  registerFonts(faces: readonly FontFaceProjection[]): Promise<FontsProjection> {
+    return registerFontsWithEngine(this.getEngine(), faces)
+  }
+
+  unregisterFont(idOrFamily: string): Promise<FontsProjection> {
+    return unregisterFontWithEngine(this.getEngine(), idOrFamily)
+  }
+
+  clearFonts(): Promise<void> {
+    return clearFontsWithEngine(this.getEngine())
+  }
+
+  clearRuntimePackage(packageId: string): Promise<FontsProjection> {
+    return clearRuntimePackageFontsWithEngine(this.getEngine(), packageId)
+  }
+
   override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
     const packageId = ctx.runtimePackage?.package.id
     if (packageId) {
@@ -52,12 +76,12 @@ export class FontsPlugin extends BaseEnginePlugin {
     return {
       pluginName: this.name,
       apis: [
-        { name: 'registerFontWithEngine', fn: registerFontWithEngine, module: this.name },
-        { name: 'registerFontsWithEngine', fn: registerFontsWithEngine, module: this.name },
-        { name: 'unregisterFontWithEngine', fn: unregisterFontWithEngine, module: this.name },
-        { name: 'clearFontsWithEngine', fn: clearFontsWithEngine, module: this.name },
-        { name: 'clearRuntimePackageFontsWithEngine', fn: clearRuntimePackageFontsWithEngine, module: this.name },
-        { name: 'getFontsProjection', fn: getFontsProjection, module: this.name },
+        { name: 'getProjection', fn: this.getProjection.bind(this), module: this.name },
+        { name: 'registerFont', fn: this.registerFont.bind(this), module: this.name },
+        { name: 'registerFonts', fn: this.registerFonts.bind(this), module: this.name },
+        { name: 'unregisterFont', fn: this.unregisterFont.bind(this), module: this.name },
+        { name: 'clearFonts', fn: this.clearFonts.bind(this), module: this.name },
+        { name: 'clearRuntimePackage', fn: this.clearRuntimePackage.bind(this), module: this.name },
       ],
       decorators: {},
     }

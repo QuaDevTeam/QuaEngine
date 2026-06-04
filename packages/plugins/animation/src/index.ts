@@ -129,6 +129,38 @@ export class AnimationPlugin extends BaseEnginePlugin {
   readonly version = '0.1.0'
   readonly description = 'Cross-plugin timeline animation APIs'
 
+  registerAnimation(timeline: AnimationTimeline): Promise<AnimationTimeline> {
+    return registerAnimationWithEngine(this.getEngine(), timeline)
+  }
+
+  playAnimation(definitionId: string, options?: PlayAnimationOptions): Promise<ActiveAnimationProjection> {
+    return playAnimationWithEngine(this.getEngine(), definitionId, options)
+  }
+
+  playTimeline(timeline: AnimationTimeline, options?: PlayAnimationOptions): Promise<ActiveAnimationProjection> {
+    return playTimelineWithEngine(this.getEngine(), timeline, options)
+  }
+
+  pause(playbackId: string): Promise<void> {
+    return pauseAnimationWithEngine(this.getEngine(), playbackId)
+  }
+
+  resume(playbackId: string): Promise<void> {
+    return resumeAnimationWithEngine(this.getEngine(), playbackId)
+  }
+
+  stop(playbackIdOrTarget?: string, definitionId?: string): Promise<number> {
+    return stopAnimationWithEngine(this.getEngine(), playbackIdOrTarget, definitionId)
+  }
+
+  seek(playbackId: string, time: number): Promise<void> {
+    return seekAnimationWithEngine(this.getEngine(), playbackId, time)
+  }
+
+  wait(playbackIdOrTarget?: string, definitionId?: string): Promise<void> {
+    return waitAnimationWithEngine(this.getEngine(), playbackIdOrTarget, definitionId)
+  }
+
   protected async setup(ctx: EngineContext): Promise<void> {
     const runtime = getRuntime(this.ctx!.engine)
     runtime.strictAdapters = Boolean((this.options as AnimationPluginOptions).strictAdapters)
@@ -176,14 +208,14 @@ export class AnimationPlugin extends BaseEnginePlugin {
       pluginName: this.name,
       apis: [
         { name: 'defineAnimation', fn: defineAnimation, module: this.name },
-        { name: 'registerAnimationWithEngine', fn: registerAnimationWithEngine, module: this.name },
-        { name: 'playAnimationWithEngine', fn: playAnimationWithEngine, module: this.name },
-        { name: 'playTimelineWithEngine', fn: playTimelineWithEngine, module: this.name },
-        { name: 'pauseAnimationWithEngine', fn: pauseAnimationWithEngine, module: this.name },
-        { name: 'resumeAnimationWithEngine', fn: resumeAnimationWithEngine, module: this.name },
-        { name: 'stopAnimationWithEngine', fn: stopAnimationWithEngine, module: this.name },
-        { name: 'seekAnimationWithEngine', fn: seekAnimationWithEngine, module: this.name },
-        { name: 'waitAnimationWithEngine', fn: waitAnimationWithEngine, module: this.name },
+        { name: 'registerAnimation', fn: this.registerAnimation.bind(this), module: this.name },
+        { name: 'playAnimation', fn: this.playAnimation.bind(this), module: this.name },
+        { name: 'playTimeline', fn: this.playTimeline.bind(this), module: this.name },
+        { name: 'pause', fn: this.pause.bind(this), module: this.name },
+        { name: 'resume', fn: this.resume.bind(this), module: this.name },
+        { name: 'stop', fn: this.stop.bind(this), module: this.name },
+        { name: 'seek', fn: this.seek.bind(this), module: this.name },
+        { name: 'wait', fn: this.wait.bind(this), module: this.name },
         { name: 'registerAnimationTargetAdapter', fn: registerAnimationTargetAdapter, module: this.name },
       ],
       decorators: animationDecoratorMappings,

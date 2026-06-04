@@ -3,6 +3,7 @@ import type {
   BaseSettingsScopeOptions,
 } from './builtin'
 import type {
+  AnySettingsScopeContribution,
   SettingsBridge,
   SettingsProjection,
   SettingsStorageAdapter,
@@ -120,6 +121,38 @@ export class SettingsPlugin extends BaseEnginePlugin {
   private bridge?: SettingsBridgeController
   private disposers: Array<() => void> = []
 
+  registerScope(contribution: AnySettingsScopeContribution): () => void {
+    return registerSettingsScope(this.getEngine(), contribution)
+  }
+
+  getProjection(): SettingsProjection | undefined {
+    return getSettingsProjection(this.getEngine())
+  }
+
+  getDeveloperValues<TValues extends SettingsValues = SettingsValues>(scope: string): TValues | undefined {
+    return getSettingsDeveloperValues<TValues>(this.getEngine(), scope)
+  }
+
+  getPlayerValues<TValues extends SettingsValues = SettingsValues>(scope: string): TValues | undefined {
+    return getSettingsPlayerValues<TValues>(this.getEngine(), scope)
+  }
+
+  updatePlayerSettings(
+    scope: string,
+    patch: SettingsValues,
+    options?: SettingsUpdateOptions,
+  ): Promise<SettingsUpdateResult> {
+    return updatePlayerSettingsWithEngine(this.getEngine(), scope, patch, options)
+  }
+
+  resetPlayerSettings(scope: string, options?: SettingsUpdateOptions): Promise<SettingsUpdateResult> {
+    return resetPlayerSettingsWithEngine(this.getEngine(), scope, options)
+  }
+
+  resetAllPlayerSettings(options?: SettingsUpdateOptions): Promise<SettingsUpdateResult> {
+    return resetAllPlayerSettingsWithEngine(this.getEngine(), options)
+  }
+
   protected override async setup(ctx: EngineContext): Promise<void> {
     const options = this.getOptions()
     const registry = getSettingsScopeRegistry(ctx)
@@ -198,12 +231,13 @@ export class SettingsPlugin extends BaseEnginePlugin {
     return {
       pluginName: this.name,
       apis: [
-        { name: 'registerSettingsScope', fn: registerSettingsScope, module: this.name },
-        { name: 'getSettingsBridge', fn: getSettingsBridge, module: this.name },
-        { name: 'getSettingsProjection', fn: getSettingsProjection, module: this.name },
-        { name: 'updatePlayerSettingsWithEngine', fn: updatePlayerSettingsWithEngine, module: this.name },
-        { name: 'resetPlayerSettingsWithEngine', fn: resetPlayerSettingsWithEngine, module: this.name },
-        { name: 'resetAllPlayerSettingsWithEngine', fn: resetAllPlayerSettingsWithEngine, module: this.name },
+        { name: 'registerScope', fn: this.registerScope.bind(this), module: this.name },
+        { name: 'getProjection', fn: this.getProjection.bind(this), module: this.name },
+        { name: 'getDeveloperValues', fn: this.getDeveloperValues.bind(this), module: this.name },
+        { name: 'getPlayerValues', fn: this.getPlayerValues.bind(this), module: this.name },
+        { name: 'updatePlayerSettings', fn: this.updatePlayerSettings.bind(this), module: this.name },
+        { name: 'resetPlayerSettings', fn: this.resetPlayerSettings.bind(this), module: this.name },
+        { name: 'resetAllPlayerSettings', fn: this.resetAllPlayerSettings.bind(this), module: this.name },
       ],
       decorators: {},
     }
