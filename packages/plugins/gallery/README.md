@@ -51,7 +51,7 @@ await gallery.registerEntry({
 
 Content blocks can be `image`, `video`, `audio`, `text`, or custom kinds with serializable data.
 
-Locked entries hide title, summary, description, thumbnail, tags, metadata, and contents by default in projection to avoid spoilers. Use `lockedPresentation` only for deliberate non-spoiler placeholders or explicit reveal flags.
+Locked entries hide title, summary, description, thumbnail, tags, metadata, and contents by default in projection to avoid spoilers. Use `lockedPresentation` only for deliberate non-spoiler placeholders or explicit reveal flags. Renderer projections expose only the resolved entry fields; `lockedPresentation` remains definition-only.
 
 ## Unlock And Open
 
