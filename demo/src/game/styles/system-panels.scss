@@ -52,6 +52,46 @@
   min-width: 128px;
 }
 
+.game-root[data-system-overlay] .qua-confirm-action--confirm {
+  min-height: 38px;
+  border: 1px solid rgba(255, 226, 166, 0.9);
+  background:
+    linear-gradient(180deg, #fff1c2, #d8aa54),
+    #ffe3a0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.56),
+    0 14px 34px rgba(0, 0, 0, 0.3);
+  color: #080a0f;
+  font-weight: 700;
+  text-shadow: none;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.game-root[data-system-overlay] .qua-confirm-action--confirm:hover,
+.game-root[data-system-overlay] .qua-confirm-action--confirm:focus-visible {
+  border-color: rgba(129, 229, 255, 0.86);
+  background:
+    linear-gradient(180deg, #fff8df, #f0c76e),
+    #fff1c2;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.68),
+    0 18px 42px rgba(0, 0, 0, 0.36),
+    0 0 0 1px rgba(129, 229, 255, 0.18);
+  color: #040609;
+  text-shadow: none;
+  transform: translateY(-1px);
+}
+
+.game-root[data-system-overlay] .qua-confirm-action--confirm:focus-visible {
+  outline: 1px solid rgba(129, 229, 255, 0.78);
+  outline-offset: 3px;
+}
+
 .game-root[data-system-overlay="game"] .qua-menu-overlay .qua-ui-panel-header {
   padding-bottom: 14px;
   border-bottom: 1px solid rgba(245, 226, 190, 0.16);
