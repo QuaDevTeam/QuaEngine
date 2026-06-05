@@ -39,6 +39,7 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Draw UI, animations, audio, and other effects from those inputs only.
 - Keep renderer state non-authoritative and transient only.
 - Do not add renderer-side APIs that mutate game or progression state.
+- UI scenes may declare `overlay.defaultChrome: false` to suppress default visual-novel chrome such as dialogue, choices, HUD buttons, or quick menus. Renderer implementations must consume this projection metadata consistently instead of mounting the chrome and hiding it with app CSS.
 
 ### Cocos renderer and host
 - Treat `@quajs/renderer-cocos` as a native projection runtime only. It may keep Cocos nodes, resources, audio handles, frame handles, timers, page cursors, presence phases, and preview handles as transient implementation details, but it must not own scene progress, save/load, branching, backlog, settings, gallery unlocks, achievement unlocks, or audio intent authority.

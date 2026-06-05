@@ -116,6 +116,10 @@
   gap: 20px;
 }
 
+.qua-ui-panel-header.is-heading-hidden {
+  justify-content: flex-end;
+}
+
 .qua-backlog-header {
   display: flex;
   align-items: flex-start;

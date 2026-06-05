@@ -303,6 +303,50 @@ describe('@quajs/renderer-web', () => {
     await renderer.unmount()
   })
 
+  it('does not mount default dialogue or choices when a UI scene disables default chrome', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        dialogue: { visible: true, text: 'Hidden line' },
+        choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+        ui: {
+          visible: true,
+          overlays: {
+            menu: {
+              open: true,
+              scene: {
+                id: 'system:menu',
+                presentation: 'scene',
+                overlay: {
+                  variant: 'main-menu',
+                  defaultChrome: false,
+                },
+              },
+            },
+          },
+        },
+      }),
+    })
+
+    await renderer.mount()
+
+    const layer = root.querySelector<HTMLElement>('.qua-overlay-layer')!
+    expect(layer).not.toBeNull()
+    expect(layer.dataset.uiSceneDefaultChrome).toBe('false')
+    expect(root.querySelector('.qua-dialogue-box')).toBeNull()
+    expect(root.querySelector('.qua-choice-panel')).toBeNull()
+    expect(root.textContent).not.toContain('Hidden line')
+    expect(root.textContent).not.toContain('Yes')
+
+    await renderer.unmount()
+  })
+
   it('rerenders native DOM layout when the mobile visual viewport changes', async () => {
     const visualViewport = new EventTarget()
     Object.defineProperty(window, 'visualViewport', {
@@ -1098,6 +1142,13 @@ describe('@quajs/renderer-web', () => {
     expect(root.querySelector('.qua-gallery-layer')).not.toBeNull()
     expect(root.querySelector('.qua-gallery-panel')?.textContent).toContain('CG')
     expect(root.querySelector('.qua-gallery-panel')?.textContent).toContain('Sunset')
+    expect(root.querySelector('.qua-gallery-header-actions .qua-gallery-meta')?.textContent).toBe('1/2')
+    expect(root.querySelector('.qua-gallery-close')?.textContent).toBe('×')
+    expect(root.querySelector('.qua-gallery-close')?.getAttribute('aria-label')).toBe('Close gallery')
+    expect(root.querySelector('.qua-gallery-toolbar')).toBeNull()
+    expect(root.querySelector('.qua-gallery-search-input')).toBeNull()
+    expect(root.querySelector('[data-gallery-entry-id="cg.sunset"] .qua-gallery-entry-state')).toBeNull()
+    expect(root.querySelector('[data-gallery-entry-id="cg.night"] .qua-gallery-entry-placeholder')?.textContent).toBe('')
 
     root.querySelector<HTMLButtonElement>('[data-gallery-entry-id="cg.night"]')!.click()
     root.querySelector<HTMLButtonElement>('.qua-gallery-close')!.click()
@@ -1131,9 +1182,55 @@ describe('@quajs/renderer-web', () => {
     root.querySelector<HTMLButtonElement>('[data-gallery-entry-id="cg.sunset"]')!.click()
     await flushDom()
 
-    expect(root.querySelector('.qua-gallery-lightbox')).not.toBeNull()
+    const lightbox = root.querySelector('.qua-gallery-lightbox')
+    expect(lightbox).not.toBeNull()
+    expect(lightbox?.parentElement).toBe(root.querySelector('.qua-gallery-layer'))
+    expect(root.querySelector('.qua-gallery-panel .qua-gallery-lightbox')).toBeNull()
+    expect(lightbox?.classList.contains('qua-gallery-lightbox--overlay-scene')).toBe(true)
+    expect(lightbox?.getAttribute('data-gallery-lightbox-mode')).toBe('overlay-scene')
+    expect(root.querySelector('.qua-gallery-lightbox-close')?.parentElement).toBe(root.querySelector('.qua-gallery-lightbox-media'))
+    expect(root.querySelector('.qua-gallery-lightbox-close')?.textContent).toBe('×')
+    expect(root.querySelector('.qua-gallery-lightbox-close')?.getAttribute('aria-label')).toBe('Close lightbox')
+    expect(root.querySelector('.qua-gallery-lightbox-caption')?.parentElement).toBe(root.querySelector('.qua-gallery-lightbox-media'))
     expect(root.querySelector('.qua-gallery-lightbox-media')?.textContent).toContain('Sunset CG')
     expect(root.querySelector('.qua-gallery-lightbox-caption')?.textContent).toBe('Sunset Note')
+
+    await renderer.unmount()
+  })
+
+  it('toggles image gallery lightbox chrome from image clicks and hides it from blank media clicks', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        plugins: {
+          [GALLERY_PLUGIN_ID]: galleryProjectionWithImage(),
+        },
+      }),
+    })
+
+    await renderer.mount()
+    root.querySelector<HTMLButtonElement>('[data-gallery-entry-id="cg.sunset"]')!.click()
+    await flushDom()
+
+    expect(root.querySelector('.qua-gallery-lightbox')?.classList.contains('is-chrome-hidden')).toBe(false)
+    root.querySelector<HTMLElement>('.qua-gallery-lightbox-asset--images')!.click()
+    await flushDom()
+
+    expect(root.querySelector('.qua-gallery-lightbox')?.classList.contains('is-chrome-hidden')).toBe(true)
+    root.querySelector<HTMLElement>('.qua-gallery-lightbox-asset--images')!.click()
+    await flushDom()
+
+    expect(root.querySelector('.qua-gallery-lightbox')?.classList.contains('is-chrome-hidden')).toBe(false)
+    root.querySelector<HTMLElement>('.qua-gallery-lightbox-media')!.click()
+    await flushDom()
+
+    expect(root.querySelector('.qua-gallery-lightbox')?.classList.contains('is-chrome-hidden')).toBe(true)
 
     await renderer.unmount()
   })
@@ -1273,6 +1370,57 @@ describe('@quajs/renderer-web', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', bubbles: true }))
     await flushDom()
     expect(events).toHaveLength(10)
+  })
+
+  it('does not dispatch default narrative input through a no-default-chrome UI scene', async () => {
+    const pipeline = new Pipeline()
+    const events: string[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_INPUT_COMMAND, payload => events.push(`command:${payload.command}:${payload.source}`))
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_ADVANCE, payload => events.push(`advance:${payload.source}`))
+    onRenderToLogic(pipeline, RenderToLogicEvents.FLOW_CONTROL_START_SKIP_REQUEST, payload => events.push(`skip:start:${payload.source}`))
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_CHOICE_SELECT, payload => events.push(`choice:${payload.choiceId}`))
+    const controller = createQuaWebRendererController({
+      pipeline,
+      initialView: view({
+        choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+        ui: {
+          visible: true,
+          overlays: {
+            menu: {
+              open: true,
+              scene: {
+                id: 'system:menu',
+                presentation: 'scene',
+                overlay: { defaultChrome: false },
+              },
+            },
+          },
+        },
+      }),
+    })
+    const input = createRendererInputController({
+      actions: controller.actions,
+      getViewState: () => controller.getViewState(),
+      target: document,
+      gamepad: false,
+      pointer: false,
+    })
+    input.start()
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ControlLeft', key: 'Control', bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowDown', key: 'ArrowDown', bubbles: true }))
+    await input.dispatchCommand({ command: 'choice:confirm', device: 'gamepad', source: 'gamepad:0:button:0' })
+    await flushDom()
+
+    expect(events).toEqual([
+      'command:advance:keyboard:Enter',
+      'command:skip:start:keyboard:ControlLeft',
+      'command:choice:next:keyboard:ArrowDown',
+      'command:choice:confirm:gamepad:0:button:0',
+    ])
+
+    input.dispose()
   })
 
   it('isolates rejected renderer input actions dispatched from DOM events', async () => {
@@ -3543,6 +3691,25 @@ function galleryProjection(): GalleryProjection {
     selectedContentId: 'cg.sunset.text',
     requiredRuntimePackages: [],
     filter: {},
+  }
+}
+
+function galleryProjectionWithImage(): GalleryProjection {
+  const projection = galleryProjection()
+  return {
+    ...projection,
+    entries: projection.entries.map(entry => entry.id === 'cg.sunset'
+      ? {
+          ...entry,
+          contents: [{
+            id: 'cg.sunset.image',
+            kind: 'image',
+            title: 'Sunset Image',
+            asset: { type: 'images', name: 'sunset.png' },
+          }],
+        }
+      : entry),
+    selectedContentId: 'cg.sunset.image',
   }
 }
 

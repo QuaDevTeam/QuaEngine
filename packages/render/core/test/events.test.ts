@@ -10,6 +10,10 @@ import {
   onRenderToLogic,
   RendererPluginHost,
   RenderToLogicEvents,
+  resolveActiveUiSceneProjection,
+  uiSceneAllowsDefaultChrome,
+  uiSceneAllowsDialogueChrome,
+  uiSceneAllowsHudChrome,
   waitForPipelineEvent,
 } from '../src'
 
@@ -73,6 +77,40 @@ describe('render-core event contracts', () => {
     }
 
     expect(background.layers[0].composition.mask.assetName).toBe('fog-mask.png')
+  })
+
+  it('resolves active UI scene chrome policy from projection metadata', () => {
+    const active = resolveActiveUiSceneProjection({
+      gameMenu: {
+        scene: {
+          id: 'game:menu',
+          presentation: 'overlay',
+          overlay: {
+            defaultChrome: false,
+          },
+        },
+      },
+      settings: {
+        scene: {
+          id: 'system:settings',
+          presentation: 'scene',
+          overlay: {
+            hideHud: true,
+            hideDialogue: true,
+          },
+        },
+      },
+    })
+
+    expect(active?.id).toBe('system:settings')
+    expect(uiSceneAllowsDefaultChrome(active)).toBe(true)
+    expect(uiSceneAllowsHudChrome(active)).toBe(false)
+    expect(uiSceneAllowsDialogueChrome(active)).toBe(false)
+    expect(uiSceneAllowsDefaultChrome({ id: 'bare' })).toBe(true)
+    expect(uiSceneAllowsDefaultChrome({
+      id: 'chrome-free',
+      overlay: { defaultChrome: false },
+    })).toBe(false)
   })
 
   it('dispatches typed logic-to-render events through @quajs/pipeline', async () => {

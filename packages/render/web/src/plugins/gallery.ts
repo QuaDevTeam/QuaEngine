@@ -35,6 +35,7 @@ export interface GalleryProjectionModel {
 interface GalleryLightboxState {
   entryId?: string
   contentId?: string
+  chromeVisible?: boolean
 }
 
 export function getGalleryProjectionFromView(view: Readonly<QuaViewProjection>): GalleryProjection | undefined {
@@ -190,7 +191,6 @@ function renderGalleryLayer(context: QuaWebDomLayerContext, lightbox: GalleryLig
   })
 
   panel.append(renderGalleryHeader(context, model))
-  panel.append(renderGalleryToolbar(context, model))
   panel.append(renderGalleryBody(context, model, lightbox))
   layer.append(panel)
   const lightboxNode = renderGalleryLightbox(context, model, lightbox)
@@ -212,15 +212,20 @@ function renderGalleryHeader(context: QuaWebDomLayerContext, model: GalleryProje
   title.textContent = model.selectedCatalog?.title || 'Gallery'
   heading.append(title)
 
+  const actions = context.document.createElement('div')
+  actions.className = 'qua-gallery-header-actions'
+
   const meta = context.document.createElement('p')
   meta.className = 'qua-gallery-meta'
   meta.textContent = gallerySummaryText(model)
-  heading.append(meta)
+  actions.append(meta)
 
   const close = context.document.createElement('button')
   close.className = 'qua-gallery-close'
   close.type = 'button'
-  close.textContent = 'Close'
+  close.textContent = '×'
+  close.setAttribute('aria-label', 'Close gallery')
+  close.title = 'Close'
   bindUiControlSkin(context, close, {
     kind: 'button',
   })
@@ -230,70 +235,9 @@ function renderGalleryHeader(context: QuaWebDomLayerContext, model: GalleryProje
     })
   })
 
-  header.append(heading, close)
+  actions.append(close)
+  header.append(heading, actions)
   return header
-}
-
-function renderGalleryToolbar(context: QuaWebDomLayerContext, model: GalleryProjectionModel): Node {
-  const toolbar = context.document.createElement('div')
-  toolbar.className = 'qua-gallery-toolbar'
-
-  const searchLabel = context.document.createElement('label')
-  searchLabel.className = 'qua-gallery-search'
-
-  const search = context.document.createElement('input')
-  search.type = 'search'
-  search.className = 'qua-gallery-search-input'
-  search.placeholder = 'Search'
-  search.value = model.projection.filter.search || ''
-  bindUiControlSkin(context, search, {
-    kind: 'input',
-  })
-  search.addEventListener('input', () => {
-    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
-      filter: {
-        search: search.value,
-      },
-    }), {
-      phase: 'gallery:update-filter',
-      metadata: { field: 'search' },
-    })
-  })
-
-  const searchText = context.document.createElement('span')
-  searchText.className = 'qua-gallery-search-label'
-  searchText.textContent = 'Search'
-
-  searchLabel.append(searchText, search)
-
-  const unlocked = context.document.createElement('button')
-  unlocked.type = 'button'
-  unlocked.className = [
-    'qua-gallery-toolbar-toggle',
-    model.projection.filter.unlockedOnly ? 'is-active' : '',
-  ].filter(Boolean).join(' ')
-  unlocked.textContent = 'Unlocked'
-  bindUiControlSkin(context, unlocked, {
-    kind: 'toggle',
-    selected: Boolean(model.projection.filter.unlockedOnly),
-  })
-  unlocked.addEventListener('click', () => {
-    dispatchRendererIntent(context, () => context.actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
-      filter: {
-        unlockedOnly: !model.projection.filter.unlockedOnly,
-      },
-    }), {
-      phase: 'gallery:update-filter',
-      metadata: { field: 'unlockedOnly' },
-    })
-  })
-
-  const counter = context.document.createElement('div')
-  counter.className = 'qua-gallery-toolbar-counter'
-  counter.textContent = `${model.filteredEntries.length}/${model.entries.length}`
-
-  toolbar.append(searchLabel, unlocked, counter)
-  return toolbar
 }
 
 function renderGalleryBody(
@@ -433,7 +377,7 @@ function renderGalleryEntryCard(
   else {
     const placeholder = context.document.createElement('span')
     placeholder.className = 'qua-gallery-entry-placeholder'
-    placeholder.textContent = entry.unlocked ? 'Open' : 'Locked'
+    placeholder.textContent = entry.unlocked ? 'Open' : ''
     preview.append(placeholder)
   }
 
@@ -455,13 +399,12 @@ function renderGalleryEntryCard(
   const badges = context.document.createElement('div')
   badges.className = 'qua-gallery-entry-badges'
 
-  const state = context.document.createElement('span')
-  state.className = [
-    'qua-gallery-entry-state',
-    entry.unlocked ? 'is-unlocked' : 'is-locked',
-  ].join(' ')
-  state.textContent = entry.unlocked ? 'Unlocked' : 'Locked'
-  badges.append(state)
+  if (!entry.unlocked) {
+    const state = context.document.createElement('span')
+    state.className = 'qua-gallery-entry-state is-locked'
+    state.textContent = 'Locked'
+    badges.append(state)
+  }
 
   for (const tag of entry.tags || []) {
     const tagNode = context.document.createElement('span')
@@ -469,7 +412,9 @@ function renderGalleryEntryCard(
     tagNode.textContent = tag
     badges.append(tagNode)
   }
-  body.append(badges)
+  if (badges.childNodes.length > 0) {
+    body.append(badges)
+  }
 
   button.append(preview, body)
   button.addEventListener('click', () => {
@@ -482,6 +427,7 @@ function renderGalleryEntryCard(
     if (canOpenGalleryLightbox(entry)) {
       lightbox.entryId = entry.id
       lightbox.contentId = entry.contents[0]?.id
+      lightbox.chromeVisible = true
       context.renderer.render()
     }
   })
@@ -517,15 +463,33 @@ function renderGalleryLightbox(
   const closeLightbox = () => {
     lightbox.entryId = undefined
     lightbox.contentId = undefined
+    lightbox.chromeVisible = undefined
     context.renderer.render()
   }
+  const setChromeVisible = (visible: boolean) => {
+    if (lightbox.chromeVisible === visible) {
+      return
+    }
+    lightbox.chromeVisible = visible
+    context.renderer.render()
+  }
+  const toggleChromeVisible = () => {
+    lightbox.chromeVisible = !lightbox.chromeVisible
+    context.renderer.render()
+  }
+  const chromeVisible = lightbox.chromeVisible !== false
 
   const overlay = context.document.createElement('div')
-  overlay.className = 'qua-gallery-lightbox'
+  overlay.className = [
+    'qua-gallery-lightbox',
+    'qua-gallery-lightbox--overlay-scene',
+    chromeVisible ? '' : 'is-chrome-hidden',
+  ].filter(Boolean).join(' ')
   overlay.setAttribute('role', 'dialog')
   overlay.setAttribute('aria-modal', 'true')
   overlay.setAttribute('aria-label', entry.title)
-  overlay.addEventListener('click', closeLightbox)
+  overlay.setAttribute('data-gallery-lightbox-mode', 'overlay-scene')
+  overlay.addEventListener('click', () => setChromeVisible(false))
 
   const frame = context.document.createElement('figure')
   frame.className = 'qua-gallery-lightbox-frame'
@@ -534,23 +498,45 @@ function renderGalleryLightbox(
   const close = context.document.createElement('button')
   close.className = 'qua-gallery-lightbox-close'
   close.type = 'button'
-  close.textContent = 'Close'
+  close.textContent = '×'
+  close.setAttribute('aria-label', 'Close lightbox')
+  close.title = 'Close'
   bindUiControlSkin(context, close, {
     kind: 'button',
   })
-  close.addEventListener('click', closeLightbox)
+  close.addEventListener('click', (event) => {
+    event.stopPropagation()
+    closeLightbox()
+  })
 
   const media = context.document.createElement('div')
   media.className = 'qua-gallery-lightbox-media'
-  media.append(renderGalleryLightboxContent(context, entry, content, asset))
-
+  media.addEventListener('click', (event) => {
+    event.stopPropagation()
+    if (event.target === media) {
+      setChromeVisible(false)
+      return
+    }
+    if (isGalleryLightboxChromeToggleTarget(event.target)) {
+      toggleChromeVisible()
+    }
+  })
   const caption = context.document.createElement('figcaption')
   caption.className = 'qua-gallery-lightbox-caption'
   caption.textContent = content?.title || entry.title
 
-  frame.append(close, media, caption)
+  media.append(renderGalleryLightboxContent(context, entry, content, asset), close, caption)
+
+  frame.append(media)
   overlay.append(frame)
   return overlay
+}
+
+function isGalleryLightboxChromeToggleTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return false
+  }
+  return Boolean(target.closest('.qua-gallery-asset-preview--image, .qua-gallery-lightbox-asset--images'))
 }
 
 function canOpenGalleryLightbox(entry: GalleryEntryProjectionItem): boolean {

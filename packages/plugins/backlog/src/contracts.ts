@@ -21,6 +21,7 @@ export interface BacklogUiSceneOverlayProjection extends Readonly<Record<string,
   variant?: string
   skinId?: string
   background?: Readonly<Record<string, unknown>>
+  defaultChrome?: boolean
   hideHud?: boolean
   hideDialogue?: boolean
 }

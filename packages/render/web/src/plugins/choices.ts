@@ -1,4 +1,5 @@
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
+import { viewAllowsDialogueChrome } from '@quajs/render-core'
 import { motionProjectionVars, projectChoices } from '../projection'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
@@ -21,6 +22,9 @@ export function createChoicesWebRendererPlugin(): QuaWebDomRendererPlugin {
 export const choicesWebRendererPlugin = createChoicesWebRendererPlugin()
 
 function renderChoicesLayer(context: QuaWebDomLayerContext): Node | undefined {
+  if (!viewAllowsDialogueChrome(context.view)) {
+    return undefined
+  }
   const projection = projectChoices(context.view.choices, context.view.animations, Date.now(), context.view.plugins.choices as Record<string, unknown> | undefined)
   if (projection.choices.length === 0) {
     return undefined
@@ -60,6 +64,10 @@ function renderChoicesLayer(context: QuaWebDomLayerContext): Node | undefined {
 function updateChoicesLayer(context: QuaWebDomLayerContext, node: Node): void {
   if (!(node instanceof HTMLElement))
     return
+  if (!viewAllowsDialogueChrome(context.view)) {
+    node.textContent = ''
+    return
+  }
   const projection = projectChoices(context.view.choices, context.view.animations, Date.now(), context.view.plugins.choices as Record<string, unknown> | undefined)
   applyStyleVars(node, motionProjectionVars(projection.panel, '--qua-choices'))
   for (const choice of projection.choices) {

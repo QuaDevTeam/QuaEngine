@@ -6,6 +6,7 @@ import type {
 } from '@quajs/render-core'
 import type { RendererActions } from './actions'
 import type { StageContainerSize } from './layout'
+import { viewAllowsDialogueChrome, viewAllowsHudChrome } from '@quajs/render-core'
 import {
   clientPointToStageLogical,
   readCssSafeAreaInsets,
@@ -585,15 +586,27 @@ class RendererInputControllerImpl implements RendererInputController {
   ): Promise<void> {
     switch (command) {
       case 'advance':
+        if (!viewAllowsDialogueChrome(this.options.getViewState())) {
+          return
+        }
         await this.options.actions.advance(source)
         break
       case 'auto:start':
+        if (!viewAllowsHudChrome(this.options.getViewState())) {
+          return
+        }
         await this.options.actions.startAuto(source)
         break
       case 'auto:stop':
+        if (!viewAllowsHudChrome(this.options.getViewState())) {
+          return
+        }
         await this.options.actions.stopAuto(source)
         break
       case 'auto:toggle':
+        if (!viewAllowsHudChrome(this.options.getViewState())) {
+          return
+        }
         if (this.options.getViewState().flowControl.mode === 'auto') {
           await this.options.actions.stopAuto(source)
         }
@@ -602,12 +615,21 @@ class RendererInputControllerImpl implements RendererInputController {
         }
         break
       case 'skip:start':
+        if (!viewAllowsHudChrome(this.options.getViewState())) {
+          return
+        }
         await this.options.actions.startSkip(source)
         break
       case 'skip:stop':
+        if (!viewAllowsHudChrome(this.options.getViewState())) {
+          return
+        }
         await this.options.actions.stopSkip(source)
         break
       case 'skip:toggle':
+        if (!viewAllowsHudChrome(this.options.getViewState())) {
+          return
+        }
         if (this.options.getViewState().flowControl.mode === 'skip') {
           await this.options.actions.stopSkip(source)
         }
@@ -616,12 +638,21 @@ class RendererInputControllerImpl implements RendererInputController {
         }
         break
       case 'fastForward:start':
+        if (!viewAllowsHudChrome(this.options.getViewState())) {
+          return
+        }
         await this.options.actions.startFastForward(source)
         break
       case 'fastForward:stop':
+        if (!viewAllowsHudChrome(this.options.getViewState())) {
+          return
+        }
         await this.options.actions.stopFastForward(source)
         break
       case 'fastForward:toggle':
+        if (!viewAllowsHudChrome(this.options.getViewState())) {
+          return
+        }
         if (this.options.getViewState().flowControl.mode === 'fast-forward') {
           await this.options.actions.stopFastForward(source)
         }
@@ -630,6 +661,9 @@ class RendererInputControllerImpl implements RendererInputController {
         }
         break
       case 'choice:confirm':
+        if (!viewAllowsDialogueChrome(this.options.getViewState())) {
+          return
+        }
         await this.selectFocusedChoice(source)
         break
       case 'ui:save':
@@ -639,9 +673,15 @@ class RendererInputControllerImpl implements RendererInputController {
         await this.options.actions.requestLoad(typeof metadata?.slotId === 'string' ? metadata.slotId : undefined)
         break
       case 'choice:previous':
+        if (!viewAllowsDialogueChrome(this.options.getViewState())) {
+          return
+        }
         this.focusChoice(-1)
         break
       case 'choice:next':
+        if (!viewAllowsDialogueChrome(this.options.getViewState())) {
+          return
+        }
         this.focusChoice(1)
         break
       case 'ui:cancel':

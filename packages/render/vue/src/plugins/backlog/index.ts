@@ -243,6 +243,7 @@ function createBacklogSceneDataset(scene?: Readonly<BacklogUiSceneProjection>): 
     'data-ui-scene-id': scene?.id,
     'data-ui-scene-presentation': scene?.presentation,
     'data-ui-scene-overlay-variant': scene?.overlay?.variant,
+    'data-ui-scene-default-chrome': scene?.overlay?.defaultChrome === false ? 'false' : undefined,
     'data-ui-scene-hide-hud': scene?.overlay?.hideHud ? 'true' : undefined,
     'data-ui-scene-hide-dialogue': scene?.overlay?.hideDialogue ? 'true' : undefined,
   }

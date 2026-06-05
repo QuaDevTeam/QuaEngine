@@ -2,7 +2,7 @@ import type { ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/rend
 import type { SaveSlotDataSource } from '@quajs/renderer-web/save-preview'
 import type { PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
-import { LogicToRenderEvents, onLogicToRender } from '@quajs/render-core'
+import { LogicToRenderEvents, onLogicToRender, resolveActiveUiSceneProjection } from '@quajs/render-core'
 import { WebSaveSlotPreviewCache } from '@quajs/renderer-web/save-preview'
 import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from 'vue'
 import { useAudio, useFlowControl, useRendererActions, useUiControlSkin } from '../../composables'
@@ -23,6 +23,7 @@ type UiOverlaySkinConfig = Readonly<Record<string, unknown>> & {
   title?: string
   subtitle?: string
   description?: string
+  showHeaderTitle?: boolean
   scene?: ViewUiSceneProjection
 }
 
@@ -437,6 +438,7 @@ export const QuaMenuOverlay = defineComponent({
           renderPanelHeader({
             title: config.value.title || 'Menu',
             subtitle: config.value.subtitle || view.value.dialogue.characterName || undefined,
+            showHeading: config.value.showHeaderTitle !== false,
             close: () => actions.requestUiClose(props.elementId),
           }),
           h('div', { class: 'qua-menu-actions' }, [
@@ -561,6 +563,7 @@ export const QuaConfirmOverlay = defineComponent({
           renderPanelHeader({
             title: config.value.title || 'Confirm',
             subtitle: config.value.subtitle,
+            showHeading: config.value.showHeaderTitle !== false,
             close: () => actions.requestUiClose(props.elementId),
           }),
           config.value.description ? h('p', { class: 'qua-confirm-description' }, config.value.description) : null,
@@ -700,6 +703,7 @@ export const QuaSaveLoadPanel = defineComponent({
           renderPanelHeader({
             title: config.value.title || (mode.value === 'save' ? 'Save' : 'Load'),
             subtitle: config.value.subtitle || 'Select a slot',
+            showHeading: config.value.showHeaderTitle !== false,
             close: () => actions.requestUiClose(props.elementId),
           }),
           h('div', { class: 'qua-save-load-mode-tabs' }, [
@@ -789,6 +793,7 @@ export const QuaSettingsPanel = defineComponent({
           renderPanelHeader({
             title: config.value.title || 'Settings',
             subtitle: config.value.subtitle || 'Playback',
+            showHeading: config.value.showHeaderTitle !== false,
             close: () => actions.requestUiClose(props.elementId),
           }),
           h('div', { class: 'qua-settings-summary-grid' }, [
@@ -839,7 +844,7 @@ export const QuaOverlayLayer = defineComponent({
     const { view, rendererLayerIds } = useQuaRenderer()
     const overlays = computed(() => view.value.ui.overlays || {})
     const renderedOverlays = ref<RenderedOverlayPresence[]>([])
-    const activeScene = computed(() => resolveActiveUiScene(overlays.value))
+    const activeScene = computed(() => resolveActiveUiSceneProjection(overlays.value))
     const hasDedicatedSettingsRenderer = computed(() =>
       rendererLayerIds.value.includes(SETTINGS_RENDERER_LAYER_ID),
     )
@@ -903,6 +908,7 @@ export const QuaOverlayLayer = defineComponent({
           'data-ui-scene-id': activeScene.value?.id,
           'data-ui-scene-presentation': activeScene.value?.presentation,
           'data-ui-scene-overlay-variant': activeScene.value?.overlay?.variant,
+          'data-ui-scene-default-chrome': activeScene.value?.overlay?.defaultChrome === false ? 'false' : undefined,
           'data-ui-scene-hide-hud': activeScene.value?.overlay?.hideHud ? 'true' : undefined,
           'data-ui-scene-hide-dialogue': activeScene.value?.overlay?.hideDialogue ? 'true' : undefined,
           'style': { pointerEvents: 'auto' },
@@ -952,6 +958,7 @@ function renderGenericOverlayContent(
     renderPanelHeader({
       title: config.title || titleFromField(elementId),
       subtitle: config.subtitle,
+      showHeading: config.showHeaderTitle !== false,
       close: () => actions.requestUiClose(elementId),
     }),
     config.description
@@ -963,13 +970,19 @@ function renderGenericOverlayContent(
 function renderPanelHeader(options: {
   title: string
   subtitle?: string
+  showHeading?: boolean
   close: () => void | Promise<void>
 }): VNode {
-  return h('header', { class: 'qua-ui-panel-header' }, [
-    h('div', { class: 'qua-ui-panel-heading' }, [
-      h('h2', { class: 'qua-ui-panel-title' }, options.title),
-      options.subtitle ? h('p', { class: 'qua-ui-panel-subtitle' }, options.subtitle) : null,
-    ]),
+  const showHeading = options.showHeading !== false
+  return h('header', {
+    class: ['qua-ui-panel-header', showHeading ? undefined : 'is-heading-hidden'],
+  }, [
+    showHeading
+      ? h('div', { class: 'qua-ui-panel-heading' }, [
+          h('h2', { class: 'qua-ui-panel-title' }, options.title),
+          options.subtitle ? h('p', { class: 'qua-ui-panel-subtitle' }, options.subtitle) : null,
+        ])
+      : null,
     h(QuaUiActionButton, {
       className: 'qua-ui-panel-close',
       label: 'Close',
@@ -1023,6 +1036,7 @@ function createSaveLoadMenuConfig(config: MenuOverlayConfig | undefined, source:
     ...(typeof config?.saveLoadSlotCount === 'number' ? { slotCount: config.saveLoadSlotCount } : {}),
     ...(typeof config?.saveLoadSlotPrefix === 'string' ? { slotPrefix: config.saveLoadSlotPrefix } : {}),
     ...(config?.saveLoadShowQuickActions !== undefined ? { showQuickActions: config.saveLoadShowQuickActions } : {}),
+    ...(config?.showHeaderTitle === false ? { showHeaderTitle: false } : {}),
     ...(config?.scene ? { scene: createChildUiScene(config.scene, `saveLoad:${mode}`) } : {}),
   }
 }
@@ -1050,13 +1064,6 @@ function createTitleConfirmMenuConfig(config: MenuOverlayConfig | undefined, sou
     confirmEvent: config?.titleConfirmEvent || UI_TITLE_REQUEST_EVENT,
     confirmPayload: config?.titleConfirmPayload || { source },
   }
-}
-
-function resolveActiveUiScene(overlays: Readonly<Record<string, ViewUiOverlayProjection>>): ViewUiSceneProjection | undefined {
-  const scenes = Object.values(overlays)
-    .map(overlay => overlay.scene)
-    .filter((scene): scene is ViewUiSceneProjection => Boolean(scene?.id))
-  return scenes.find(scene => scene.presentation === 'scene') || scenes[0]
 }
 
 function createSaveSlotGrid(config: SaveLoadOverlayConfig | undefined, listedSlots: readonly SaveSlotProjection[] = []): SaveSlotProjection[] {

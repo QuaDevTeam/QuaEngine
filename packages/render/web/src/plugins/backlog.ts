@@ -219,6 +219,7 @@ function applyBacklogSceneDataset(element: HTMLElement, scene: Readonly<BacklogU
   setOptionalAttribute(element, 'data-ui-scene-id', scene?.id)
   setOptionalAttribute(element, 'data-ui-scene-presentation', scene?.presentation)
   setOptionalAttribute(element, 'data-ui-scene-overlay-variant', scene?.overlay?.variant)
+  setOptionalAttribute(element, 'data-ui-scene-default-chrome', scene?.overlay?.defaultChrome === false ? 'false' : undefined)
   setOptionalAttribute(element, 'data-ui-scene-hide-hud', scene?.overlay?.hideHud ? 'true' : undefined)
   setOptionalAttribute(element, 'data-ui-scene-hide-dialogue', scene?.overlay?.hideDialogue ? 'true' : undefined)
 }

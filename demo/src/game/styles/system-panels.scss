@@ -205,6 +205,12 @@
   border-bottom: 1px solid rgba(245, 226, 190, 0.18);
 }
 
+.game-root[data-system-overlay] .qua-ui-panel-header.is-heading-hidden {
+  justify-content: flex-end;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
 .game-root[data-system-overlay] .qua-ui-panel-title,
 .game-root[data-system-overlay] .qua-settings-title,
 .game-root[data-system-overlay] .qua-backlog-title {

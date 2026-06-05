@@ -39,13 +39,13 @@
   .game-root[data-system-overlay] .qua-save-load-panel,
   .game-root[data-system-overlay] .qua-settings-panel,
   .game-root[data-system-overlay] .qua-backlog-panel,
-  .game-root[data-system-overlay] .qua-gallery-layer {
+  .game-root[data-system-overlay] .qua-gallery-panel {
     width: min(560px, 92vw);
     max-height: 82vh;
   }
 
-  .game-root[data-system-overlay] .qua-gallery-layer {
-    grid-template-rows: auto auto minmax(0, 1fr);
+  .game-root[data-system-overlay] .qua-gallery-panel {
+    grid-template-rows: auto minmax(0, 1fr);
     padding: 16px;
   }
 
@@ -55,18 +55,8 @@
     flex-direction: column;
   }
 
-  .game-root[data-system-overlay] .qua-gallery-close {
+  .game-root[data-system-overlay] .qua-gallery-header-actions {
     align-self: flex-start;
-  }
-
-  .game-root[data-system-overlay] .qua-gallery-toolbar {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  .game-root[data-system-overlay] .qua-gallery-toolbar-toggle,
-  .game-root[data-system-overlay] .qua-gallery-toolbar-counter {
-    align-self: stretch;
   }
 
   .game-root[data-system-overlay] .qua-gallery-body {
@@ -92,8 +82,12 @@
   }
 
   .game-root[data-system-overlay] .qua-gallery-lightbox-frame {
-    width: min(520px, 94vw);
-    max-height: 74vh;
+    --qua-gallery-lightbox-edge-space: clamp(42px, 10%, 76px);
+
+    width: fit-content;
+    height: fit-content;
+    max-width: calc(100% - var(--qua-gallery-lightbox-edge-space));
+    max-height: calc(100% - var(--qua-gallery-lightbox-edge-space));
   }
 
   .game-root[data-system-overlay] .qua-save-slot-grid,

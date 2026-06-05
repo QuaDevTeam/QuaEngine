@@ -394,6 +394,7 @@ export const QuaSettingsLayer = defineComponent({
           'data-ui-scene-id': scene.value?.id,
           'data-ui-scene-presentation': scene.value?.presentation,
           'data-ui-scene-overlay-variant': scene.value?.overlay?.variant,
+          'data-ui-scene-default-chrome': scene.value?.overlay?.defaultChrome === false ? 'false' : undefined,
           'data-ui-scene-hide-hud': scene.value?.overlay?.hideHud ? 'true' : undefined,
           'data-ui-scene-hide-dialogue': scene.value?.overlay?.hideDialogue ? 'true' : undefined,
           'style': { pointerEvents: 'auto' },

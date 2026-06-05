@@ -54,7 +54,7 @@ await backlog.setVisible(true, {
   scene: {
     id: 'backlog',
     presentation: 'overlay',
-    overlay: { skinId: 'demo-menu', hideHud: true },
+    overlay: { skinId: 'demo-menu', defaultChrome: false, hideHud: true, hideDialogue: true },
   },
 })
 
@@ -91,6 +91,8 @@ Decorators:
 ## Renderer Boundary
 
 Renderer UI emits open, close, jump, and voice replay requests through backlog render-to-logic events. It does not decide whether an entry is rewindable; it reads `entry.rewindable` from projection.
+
+Backlog UI scenes can use `overlay.defaultChrome: false` when the scene should not mount the renderer's default dialogue, choices, HUD, or quick-menu chrome behind the backlog surface.
 
 ## Settings
 

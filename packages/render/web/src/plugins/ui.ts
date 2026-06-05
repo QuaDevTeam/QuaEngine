@@ -1,5 +1,6 @@
 import type { ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
+import { resolveActiveUiSceneProjection } from '@quajs/render-core'
 import { motionProjectionVars, projectUiOverlay } from '../projection'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
@@ -32,7 +33,7 @@ function renderUiLayer(context: QuaWebDomLayerContext, options: UiWebRendererPlu
     return undefined
   }
 
-  const activeScene = resolveActiveUiScene(overlays)
+  const activeScene = resolveActiveUiSceneProjection(overlays)
   const layer = context.document.createElement('div')
   layer.className = [
     'qua-overlay-layer',
@@ -67,7 +68,7 @@ function updateUiLayer(context: QuaWebDomLayerContext, node: Node, options: UiWe
   const overlays = context.view.ui.overlays
   if (!overlays)
     return
-  applyUiSceneDataset(node, resolveActiveUiScene(overlays))
+  applyUiSceneDataset(node, resolveActiveUiSceneProjection(overlays))
   for (const elementId of visibleOverlayElementIds(overlays, options)) {
     const overlay = node.querySelector(`[data-overlay="${cssEscape(elementId)}"]`)
     if (overlay instanceof HTMLElement) {
@@ -88,17 +89,11 @@ function visibleOverlayElementIds(
   return Object.keys(overlays).filter(elementId => !handled.has(elementId))
 }
 
-function resolveActiveUiScene(overlays: Readonly<Record<string, ViewUiOverlayProjection>>): ViewUiSceneProjection | undefined {
-  const scenes = Object.values(overlays)
-    .map(overlay => overlay.scene)
-    .filter((scene): scene is ViewUiSceneProjection => Boolean(scene?.id))
-  return scenes.find(scene => scene.presentation === 'scene') || scenes[0]
-}
-
 function applyUiSceneDataset(element: HTMLElement, scene: ViewUiSceneProjection | undefined): void {
   setOptionalAttribute(element, 'data-ui-scene-id', scene?.id)
   setOptionalAttribute(element, 'data-ui-scene-presentation', scene?.presentation)
   setOptionalAttribute(element, 'data-ui-scene-overlay-variant', scene?.overlay?.variant)
+  setOptionalAttribute(element, 'data-ui-scene-default-chrome', scene?.overlay?.defaultChrome === false ? 'false' : undefined)
   setOptionalAttribute(element, 'data-ui-scene-hide-hud', scene?.overlay?.hideHud ? 'true' : undefined)
   setOptionalAttribute(element, 'data-ui-scene-hide-dialogue', scene?.overlay?.hideDialogue ? 'true' : undefined)
 }

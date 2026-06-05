@@ -279,7 +279,6 @@ describe('@quajs/renderer-vue', () => {
   it('projects gallery scene UI and emits gallery plugin intents', async () => {
     const pipeline = new Pipeline()
     const received: unknown[] = []
-    pipeline.on(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, context => received.push(context.event.payload))
     pipeline.on(GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, context => received.push(context.event.payload))
     pipeline.on(GalleryRenderToLogicEvents.SELECT_CONTENT_REQUEST, context => received.push(context.event.payload))
     pipeline.on(GalleryRenderToLogicEvents.CLOSE_REQUEST, context => received.push(context.event.payload))
@@ -296,19 +295,23 @@ describe('@quajs/renderer-vue', () => {
 
     await flushVue()
     expect(host.el.querySelector('.qua-gallery-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-gallery-panel')).not.toBeNull()
     expect(host.el.textContent).toContain('CG')
     expect(host.el.textContent).toContain('Sunset')
+    expect(host.el.querySelector('.qua-gallery-header-actions .qua-gallery-meta')?.textContent).toBe('1/2')
+    expect(host.el.querySelector('.qua-gallery-close')?.textContent).toBe('×')
+    expect(host.el.querySelector('.qua-gallery-close')?.getAttribute('aria-label')).toBe('Close gallery')
+    expect(host.el.querySelector('.qua-gallery-toolbar')).toBeNull()
+    expect(host.el.querySelector('.qua-gallery-search-input')).toBeNull()
+    expect(host.el.querySelector('[data-gallery-entry-id="cg.sunset"] .qua-gallery-entry-state')).toBeNull()
+    expect(host.el.querySelector('[data-gallery-entry-id="cg.night"] .qua-gallery-entry-placeholder')?.textContent).toBe('')
 
-    const search = host.el.querySelector<HTMLInputElement>('.qua-gallery-search-input')!
-    search.value = 'night'
-    search.dispatchEvent(new Event('input'))
     host.el.querySelector<HTMLButtonElement>('[data-gallery-entry-id="cg.night"]')!.click()
     host.el.querySelector<HTMLButtonElement>('[data-gallery-content-id="cg.sunset.text"]')!.click()
     host.el.querySelector<HTMLButtonElement>('.qua-gallery-close')!.click()
     await flushVue()
 
     expect(received).toEqual([
-      { filter: { search: 'night' } },
       { entryId: 'cg.night' },
       { contentId: 'cg.sunset.text' },
       {},
@@ -331,9 +334,49 @@ describe('@quajs/renderer-vue', () => {
     host.el.querySelector<HTMLButtonElement>('[data-gallery-entry-id="cg.sunset"]')!.click()
     await flushVue()
 
-    expect(host.el.querySelector('.qua-gallery-lightbox')).not.toBeNull()
+    const lightbox = host.el.querySelector('.qua-gallery-lightbox')
+    expect(lightbox).not.toBeNull()
+    expect(lightbox?.parentElement).toBe(host.el.querySelector('.qua-gallery-layer'))
+    expect(host.el.querySelector('.qua-gallery-panel .qua-gallery-lightbox')).toBeNull()
+    expect(lightbox?.classList.contains('qua-gallery-lightbox--overlay-scene')).toBe(true)
+    expect(lightbox?.getAttribute('data-gallery-lightbox-mode')).toBe('overlay-scene')
+    expect(host.el.querySelector('.qua-gallery-lightbox-close')?.parentElement).toBe(host.el.querySelector('.qua-gallery-lightbox-media'))
+    expect(host.el.querySelector('.qua-gallery-lightbox-close')?.textContent).toBe('×')
+    expect(host.el.querySelector('.qua-gallery-lightbox-close')?.getAttribute('aria-label')).toBe('Close lightbox')
+    expect(host.el.querySelector('.qua-gallery-lightbox-caption')?.parentElement).toBe(host.el.querySelector('.qua-gallery-lightbox-media'))
     expect(host.el.querySelector('.qua-gallery-lightbox-media')?.textContent).toContain('Sunset CG')
     expect(host.el.querySelector('.qua-gallery-lightbox-caption')?.textContent).toBe('Sunset Note')
+  })
+
+  it('toggles image gallery lightbox chrome from image clicks and hides it from blank media clicks', async () => {
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        plugins: {
+          [GALLERY_PLUGIN_ID]: galleryProjectionWithImage(),
+        },
+      }),
+    })
+
+    await flushVue()
+    host.el.querySelector<HTMLButtonElement>('[data-gallery-entry-id="cg.sunset"]')!.click()
+    await flushVue()
+
+    expect(host.el.querySelector('.qua-gallery-lightbox')?.classList.contains('is-chrome-hidden')).toBe(false)
+    host.el.querySelector<HTMLElement>('.qua-gallery-lightbox .qua-gallery-asset-preview--image')!.click()
+    await flushVue()
+
+    expect(host.el.querySelector('.qua-gallery-lightbox')?.classList.contains('is-chrome-hidden')).toBe(true)
+    host.el.querySelector<HTMLElement>('.qua-gallery-lightbox .qua-gallery-asset-preview--image')!.click()
+    await flushVue()
+
+    expect(host.el.querySelector('.qua-gallery-lightbox')?.classList.contains('is-chrome-hidden')).toBe(false)
+    host.el.querySelector<HTMLElement>('.qua-gallery-lightbox-media')!.click()
+    await flushVue()
+
+    expect(host.el.querySelector('.qua-gallery-lightbox')?.classList.contains('is-chrome-hidden')).toBe(true)
   })
 
   it('renders projected locked gallery content in the lightbox', async () => {
@@ -657,6 +700,45 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.querySelector('.qua-stage-safe .qua-choice-panel')).not.toBeNull()
     expect(safeStyle).toContain('top: 90px')
     expect(safeStyle).toContain('height: 2205px')
+  })
+
+  it('does not mount default dialogue or choices when a UI scene disables default chrome', async () => {
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        dialogue: { visible: true, text: 'Hidden line' },
+        choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+        ui: {
+          visible: true,
+          overlays: {
+            menu: {
+              open: true,
+              title: 'Menu',
+              scene: {
+                id: 'system:menu',
+                presentation: 'scene',
+                overlay: {
+                  variant: 'main-menu',
+                  defaultChrome: false,
+                },
+              },
+            },
+          },
+        },
+      }),
+    })
+
+    await flushVue()
+
+    const layer = host.el.querySelector<HTMLElement>('.qua-overlay-layer')!
+    expect(layer).not.toBeNull()
+    expect(layer.dataset.uiSceneDefaultChrome).toBe('false')
+    expect(host.el.querySelector('.qua-dialogue-box')).toBeNull()
+    expect(host.el.querySelector('.qua-choice-panel')).toBeNull()
+    expect(host.el.textContent).not.toContain('Hidden line')
+    expect(host.el.textContent).not.toContain('Yes')
   })
 
   it('does not turn nested renderer or plugin UI clicks into duplicate advance intents', async () => {
@@ -1083,6 +1165,34 @@ describe('@quajs/renderer-vue', () => {
       'update:saveLoad:save',
       'save:quick',
     ])
+  })
+
+  it('can hide generic panel headings while keeping the close action', async () => {
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            saveLoad: {
+              open: true,
+              mode: 'load',
+              showHeaderTitle: false,
+              slotCount: 1,
+            },
+          },
+        },
+      }),
+    })
+
+    await flushVue()
+
+    expect(host.el.querySelector('.qua-ui-panel-header')?.classList.contains('is-heading-hidden')).toBe(true)
+    expect(host.el.querySelector('.qua-ui-panel-title')).toBeNull()
+    expect(host.el.querySelector('.qua-ui-panel-subtitle')).toBeNull()
+    expect(host.el.querySelector('.qua-ui-panel-close')).not.toBeNull()
   })
 
   it('keeps save/load wrapper slot overrides available', async () => {
@@ -2354,6 +2464,25 @@ function galleryProjection(): GalleryProjection {
     selectedContentId: 'cg.sunset.text',
     requiredRuntimePackages: [],
     filter: {},
+  }
+}
+
+function galleryProjectionWithImage(): GalleryProjection {
+  const projection = galleryProjection()
+  return {
+    ...projection,
+    entries: projection.entries.map(entry => entry.id === 'cg.sunset'
+      ? {
+          ...entry,
+          contents: [{
+            id: 'cg.sunset.image',
+            kind: 'image',
+            title: 'Sunset Image',
+            asset: { type: 'images', name: 'sunset.png' },
+          }],
+        }
+      : entry),
+    selectedContentId: 'cg.sunset.image',
   }
 }
 
