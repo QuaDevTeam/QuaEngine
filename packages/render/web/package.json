@@ -117,6 +117,10 @@
       "types": "./dist/plugins/settings.d.ts",
       "import": "./dist/plugins/settings.js"
     },
+    "./plugins/shared": {
+      "types": "./dist/plugins/shared.d.ts",
+      "import": "./dist/plugins/shared.js"
+    },
     "./plugins/sprite": {
       "types": "./dist/plugins/sprite.d.ts",
       "import": "./dist/plugins/sprite.js"

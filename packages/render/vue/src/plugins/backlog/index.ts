@@ -4,6 +4,7 @@ import type { PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import { DEFAULT_UI_OVERLAY_Z_INDEXES } from '@quajs/render-core'
+import { uiSceneDataAttributes } from '@quajs/renderer-web/plugins/shared'
 import { computed, defineComponent, h } from 'vue'
 import { useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
@@ -118,7 +119,7 @@ export const QuaBacklogLayer = defineComponent({
       ? h('div', {
           'class': createBacklogLayerClasses(projection.value.ui?.scene),
           'data-qua-capture-role': 'overlay',
-          ...createBacklogSceneDataset(projection.value.ui?.scene),
+          ...uiSceneDataAttributes(projection.value.ui?.scene),
           ...overlayStack.value.attrs,
           'style': { pointerEvents: 'auto', ...overlayStack.value.style },
           'onClick': (event: Event) => event.stopPropagation(),
@@ -242,17 +243,6 @@ function createBacklogLayerClasses(scene?: Readonly<BacklogUiSceneProjection>): 
     scene?.presentation === 'scene' ? 'qua-backlog-layer--scene' : '',
     scene?.presentation === 'overlay' ? 'qua-backlog-layer--overlay' : '',
   ].filter(Boolean)
-}
-
-function createBacklogSceneDataset(scene?: Readonly<BacklogUiSceneProjection>): Record<string, string | undefined> {
-  return {
-    'data-ui-scene-id': scene?.id,
-    'data-ui-scene-presentation': scene?.presentation,
-    'data-ui-scene-overlay-variant': scene?.overlay?.variant,
-    'data-ui-scene-default-chrome': scene?.overlay?.defaultChrome === false ? 'false' : undefined,
-    'data-ui-scene-hide-hud': scene?.overlay?.hideHud ? 'true' : undefined,
-    'data-ui-scene-hide-dialogue': scene?.overlay?.hideDialogue ? 'true' : undefined,
-  }
 }
 
 function backlogUiPlacement(ui: Readonly<BacklogUiProjection> | undefined): ViewOverlayStackPlacement {

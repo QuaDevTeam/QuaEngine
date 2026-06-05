@@ -1,4 +1,4 @@
-import type { RenderErrorPayload, ResolveOverlayStackPlacementOptions, ViewOverlayStackPlacement, ViewUiOverlayProjection } from '@quajs/render-core'
+import type { RenderErrorPayload, ResolveOverlayStackPlacementOptions, ViewOverlayStackPlacement, ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext } from './core'
 import { resolveOverlayStackPlacement, resolveUiOverlayStackPlacement } from '@quajs/render-core'
 
@@ -16,6 +16,28 @@ export function applyStyleVars(element: HTMLElement, vars: Record<string, string
 export function assignData(element: HTMLElement, name: string, value: unknown): void {
   if (value !== undefined && value !== null) {
     element.setAttribute(name, String(value))
+  }
+}
+
+export function uiSceneDataAttributes(scene: Readonly<ViewUiSceneProjection> | undefined): Record<string, string | undefined> {
+  return {
+    'data-ui-scene-id': scene?.id,
+    'data-ui-scene-presentation': scene?.presentation,
+    'data-ui-scene-overlay-variant': scene?.overlay?.variant,
+    'data-ui-scene-default-chrome': scene?.overlay?.defaultChrome === false ? 'false' : undefined,
+    'data-ui-scene-hide-hud': scene?.overlay?.hideHud ? 'true' : undefined,
+    'data-ui-scene-hide-dialogue': scene?.overlay?.hideDialogue ? 'true' : undefined,
+  }
+}
+
+export function applyUiSceneDataAttributes(element: HTMLElement, scene: Readonly<ViewUiSceneProjection> | undefined): void {
+  for (const [name, value] of Object.entries(uiSceneDataAttributes(scene))) {
+    if (value === undefined) {
+      element.removeAttribute(name)
+    }
+    else {
+      element.setAttribute(name, value)
+    }
   }
 }
 

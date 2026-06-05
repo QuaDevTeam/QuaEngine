@@ -3,6 +3,7 @@ import type { SaveSlotDataSource } from '@quajs/renderer-web/save-preview'
 import type { PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import { compareResolvedOverlayStackPlacement, DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents, onLogicToRender, resolveActiveUiSceneProjection, resolveUiOverlayStackPlacement } from '@quajs/render-core'
+import { uiSceneDataAttributes } from '@quajs/renderer-web/plugins/shared'
 import { WebSaveSlotPreviewCache } from '@quajs/renderer-web/save-preview'
 import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from 'vue'
 import { useAudio, useFlowControl, useRendererActions, useUiControlSkin } from '../../composables'
@@ -939,12 +940,7 @@ export const QuaOverlayLayer = defineComponent({
           ],
           'data-qua-capture-role': 'overlay',
           ...overlayStack.value.attrs,
-          'data-ui-scene-id': activeScene.value?.id,
-          'data-ui-scene-presentation': activeScene.value?.presentation,
-          'data-ui-scene-overlay-variant': activeScene.value?.overlay?.variant,
-          'data-ui-scene-default-chrome': activeScene.value?.overlay?.defaultChrome === false ? 'false' : undefined,
-          'data-ui-scene-hide-hud': activeScene.value?.overlay?.hideHud ? 'true' : undefined,
-          'data-ui-scene-hide-dialogue': activeScene.value?.overlay?.hideDialogue ? 'true' : undefined,
+          ...uiSceneDataAttributes(activeScene.value),
           'style': { pointerEvents: 'auto', ...overlayStack.value.style },
           'onClick': (event: Event) => event.stopPropagation(),
         }, [

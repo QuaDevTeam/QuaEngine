@@ -5,7 +5,7 @@ import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-bac
 import { DEFAULT_UI_OVERLAY_Z_INDEXES } from '@quajs/render-core'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
-import { applyOverlayStackPlacement, dispatchRendererIntent } from './shared'
+import { applyOverlayStackPlacement, applyUiSceneDataAttributes, dispatchRendererIntent } from './shared'
 
 export function createBacklogWebRendererPlugin(): QuaWebDomRendererPlugin {
   return defineWebRendererPlugin({
@@ -36,7 +36,7 @@ function renderBacklogLayer(context: QuaWebDomLayerContext): Node | undefined {
     overlayStack: 'overlay',
     zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.backlog,
   })
-  applyBacklogSceneDataset(layer, projection.ui?.scene)
+  applyUiSceneDataAttributes(layer, projection.ui?.scene)
   layer.addEventListener('click', event => event.stopPropagation())
 
   const panel = context.document.createElement('section')
@@ -212,29 +212,12 @@ function createBacklogLayerClassName(scene?: Readonly<BacklogUiSceneProjection>)
   ].filter(Boolean).join(' ')
 }
 
-function applyBacklogSceneDataset(element: HTMLElement, scene: Readonly<BacklogUiSceneProjection> | undefined): void {
-  setOptionalAttribute(element, 'data-ui-scene-id', scene?.id)
-  setOptionalAttribute(element, 'data-ui-scene-presentation', scene?.presentation)
-  setOptionalAttribute(element, 'data-ui-scene-overlay-variant', scene?.overlay?.variant)
-  setOptionalAttribute(element, 'data-ui-scene-default-chrome', scene?.overlay?.defaultChrome === false ? 'false' : undefined)
-  setOptionalAttribute(element, 'data-ui-scene-hide-hud', scene?.overlay?.hideHud ? 'true' : undefined)
-  setOptionalAttribute(element, 'data-ui-scene-hide-dialogue', scene?.overlay?.hideDialogue ? 'true' : undefined)
-}
-
 function backlogUiPlacement(ui: Readonly<BacklogUiProjection> | undefined): ViewOverlayStackPlacement {
   return {
     overlayStack: ui?.overlayStack ?? ui?.scene?.overlay?.overlayStack,
     stackPriority: ui?.stackPriority ?? ui?.scene?.overlay?.stackPriority,
     zIndex: ui?.zIndex ?? ui?.scene?.overlay?.zIndex,
   }
-}
-
-function setOptionalAttribute(element: HTMLElement, name: string, value: string | undefined): void {
-  if (value === undefined) {
-    element.removeAttribute(name)
-    return
-  }
-  element.setAttribute(name, value)
 }
 
 function choiceText(entry: BacklogEntry): string {
