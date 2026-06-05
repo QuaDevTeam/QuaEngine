@@ -28,7 +28,6 @@
 .qua-backlog-close,
 .qua-gallery-layer,
 .qua-gallery-header,
-.qua-gallery-toolbar,
 .qua-gallery-entry-badges,
 .qua-gallery-content-tabs,
 .qua-save-load-mode-tabs,
@@ -114,12 +113,6 @@
 
 .game-root[data-title-surface="true"] .vn-title-surface {
   opacity: 1;
-}
-
-.game-root[data-system-overlay] .vn-title-plate,
-.game-root[data-system-overlay] .vn-quick-menu {
-  opacity: 0;
-  pointer-events: none;
 }
 
 .game-root[data-system-overlay] .qua-dialogue-box,

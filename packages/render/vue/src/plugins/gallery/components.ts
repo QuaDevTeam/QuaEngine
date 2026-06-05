@@ -58,24 +58,29 @@ export const QuaGalleryLayer = defineComponent({
     const actions = useRendererActions()
     const projection = useGalleryProjection()
     const gallery = computed(() => createGalleryProjectionModel(projection.value))
+    const panelSkin = useUiControlSkin({ kind: 'panel' })
     const closeSkin = useUiControlSkin({ kind: 'button' })
-    const inputSkin = useUiControlSkin({ kind: 'input' })
-    const toggleSkin = useUiControlSkin({
-      kind: 'toggle',
-      selected: () => Boolean(gallery.value?.projection.filter.unlockedOnly),
-    })
     const lightboxEntryId = ref<string>()
     const lightboxContentId = ref<string>()
+    const lightboxChromeVisible = ref(true)
     const openLightbox = (entry: GalleryEntryProjectionItem, contentId?: string) => {
       if (!canOpenGalleryLightbox(entry)) {
         return
       }
       lightboxEntryId.value = entry.id
       lightboxContentId.value = contentId || entry.contents[0]?.id
+      lightboxChromeVisible.value = true
     }
     const closeLightbox = () => {
       lightboxEntryId.value = undefined
       lightboxContentId.value = undefined
+      lightboxChromeVisible.value = true
+    }
+    const hideLightboxChrome = () => {
+      lightboxChromeVisible.value = false
+    }
+    const toggleLightboxChrome = () => {
+      lightboxChromeVisible.value = !lightboxChromeVisible.value
     }
 
     return () => {
@@ -97,13 +102,15 @@ export const QuaGalleryLayer = defineComponent({
         gallery: gallery.value,
         renderer,
         actions,
+        panelSkin,
         closeSkin,
-        inputSkin,
-        toggleSkin,
         lightboxEntryId: lightboxEntryId.value,
         lightboxContentId: lightboxContentId.value,
+        lightboxChromeVisible: lightboxChromeVisible.value,
         onOpenLightbox: openLightbox,
         onCloseLightbox: closeLightbox,
+        onHideLightboxChrome: hideLightboxChrome,
+        onToggleLightboxChrome: toggleLightboxChrome,
       }))
     }
   },
@@ -309,25 +316,31 @@ export const QuaGalleryEntryCard = defineComponent({
                 alt: props.entry.title,
                 variant: 'card',
               })
-            : h('span', { class: 'qua-gallery-entry-placeholder' }, props.entry.unlocked ? 'Open' : 'Locked'),
+            : h('span', { class: 'qua-gallery-entry-placeholder' }, props.entry.unlocked ? 'Open' : ''),
         ]),
         h('div', { class: 'qua-gallery-entry-body' }, [
           h('strong', { class: 'qua-gallery-entry-title' }, props.entry.title),
           props.entry.summary ? h('p', { class: 'qua-gallery-entry-summary' }, props.entry.summary) : null,
-          h('div', { class: 'qua-gallery-entry-badges' }, [
-            h('span', {
-              class: ['qua-gallery-entry-state', props.entry.unlocked ? 'is-unlocked' : 'is-locked'],
-            }, props.entry.unlocked ? 'Unlocked' : 'Locked'),
-            ...(props.entry.tags || []).map(tag => h('span', {
-              key: tag,
-              class: 'qua-gallery-entry-tag',
-            }, tag)),
-          ]),
+          renderGalleryEntryBadges(props.entry),
         ]),
       ]),
     ])
   },
 })
+
+function renderGalleryEntryBadges(entry: GalleryEntryProjectionItem): VNode | null {
+  const children: VNode[] = []
+  if (!entry.unlocked) {
+    children.push(h('span', { class: 'qua-gallery-entry-state is-locked' }, 'Locked'))
+  }
+  children.push(...(entry.tags || []).map(tag => h('span', {
+    key: tag,
+    class: 'qua-gallery-entry-tag',
+  }, tag)))
+  return children.length > 0
+    ? h('div', { class: 'qua-gallery-entry-badges' }, children)
+    : null
+}
 
 export const QuaGalleryContentTab = defineComponent({
   name: 'QuaGalleryContentTab',
@@ -403,120 +416,94 @@ function renderGalleryDefault(input: {
   gallery: GalleryProjectionModel
   renderer: Pick<ReturnType<typeof useQuaRenderer>, 'web'>
   actions: RendererActions
+  panelSkin: ReturnType<typeof useUiControlSkin>
   closeSkin: ReturnType<typeof useUiControlSkin>
-  inputSkin: ReturnType<typeof useUiControlSkin>
-  toggleSkin: ReturnType<typeof useUiControlSkin>
   lightboxEntryId?: string
   lightboxContentId?: string
+  lightboxChromeVisible: boolean
   onOpenLightbox: (entry: GalleryEntryProjectionItem, contentId?: string) => void
   onCloseLightbox: () => void
+  onHideLightboxChrome: () => void
+  onToggleLightboxChrome: () => void
 }) {
-  const { gallery, renderer, actions, closeSkin, inputSkin, toggleSkin } = input
+  const { gallery, renderer, actions, panelSkin, closeSkin } = input
   return [
-    h('header', { class: 'qua-gallery-header' }, [
-      h('div', { class: 'qua-gallery-heading' }, [
-        h('h2', { class: 'qua-gallery-title' }, gallery.selectedCatalog?.title || 'Gallery'),
-        h('p', { class: 'qua-gallery-meta' }, `${gallery.entries.filter((entry: GalleryEntryProjectionItem) => entry.unlocked).length}/${gallery.entries.length}`),
+    h('section', {
+      'class': 'qua-gallery-panel',
+      'role': 'dialog',
+      'aria-modal': 'true',
+      'style': panelSkin.skinStyle.value,
+      'data-skin-kind': 'panel',
+      'data-skin-reference': panelSkin.skinReference.value || undefined,
+      'data-skin-state': panelSkin.skinState.value,
+    }, [
+      h('header', { class: 'qua-gallery-header' }, [
+        h('div', { class: 'qua-gallery-heading' }, [
+          h('h2', { class: 'qua-gallery-title' }, gallery.selectedCatalog?.title || 'Gallery'),
+        ]),
+        h('div', { class: 'qua-gallery-header-actions' }, [
+          h('p', { class: 'qua-gallery-meta' }, `${gallery.entries.filter((entry: GalleryEntryProjectionItem) => entry.unlocked).length}/${gallery.entries.length}`),
+          h('button', {
+            'class': 'qua-gallery-close',
+            'type': 'button',
+            'aria-label': 'Close gallery',
+            'title': 'Close',
+            'style': closeSkin.skinStyle.value,
+            'data-skin-kind': 'button',
+            'data-skin-reference': closeSkin.skinReference.value || undefined,
+            'data-skin-state': closeSkin.skinState.value,
+            ...createSkinButtonHandlers(closeSkin),
+            'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(GalleryRenderToLogicEvents.CLOSE_REQUEST), {
+              phase: 'gallery:close',
+            }),
+          }, '×'),
+        ]),
       ]),
-      h('button', {
-        'class': 'qua-gallery-close',
-        'type': 'button',
-        'style': closeSkin.skinStyle.value,
-        'data-skin-kind': 'button',
-        'data-skin-reference': closeSkin.skinReference.value || undefined,
-        'data-skin-state': closeSkin.skinState.value,
-        ...createSkinButtonHandlers(closeSkin),
-        'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(GalleryRenderToLogicEvents.CLOSE_REQUEST), {
-          phase: 'gallery:close',
-        }),
-      }, 'Close'),
-    ]),
-    h('div', { class: 'qua-gallery-toolbar' }, [
-      h('label', { class: 'qua-gallery-search' }, [
-        h('span', { class: 'qua-gallery-search-label' }, 'Search'),
-        h('input', {
-          'class': 'qua-gallery-search-input',
-          'type': 'search',
-          'value': gallery.projection.filter.search || '',
-          'placeholder': 'Search',
-          'style': inputSkin.skinStyle.value,
-          'data-skin-kind': 'input',
-          'data-skin-reference': inputSkin.skinReference.value || undefined,
-          'data-skin-state': inputSkin.skinState.value,
-          ...createSkinButtonHandlers(inputSkin),
-          'onInput': (event: Event) => {
-            const target = event.target as HTMLInputElement
-            dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
-              filter: {
-                search: target.value,
-              },
-            }), {
-              phase: 'gallery:update-filter',
-              metadata: { field: 'search' },
-            })
-          },
-        }),
-      ]),
-      h('button', {
-        'class': ['qua-gallery-toolbar-toggle', gallery.projection.filter.unlockedOnly ? 'is-active' : undefined],
-        'type': 'button',
-        'style': toggleSkin.skinStyle.value,
-        'data-skin-kind': 'toggle',
-        'data-skin-reference': toggleSkin.skinReference.value || undefined,
-        'data-skin-state': toggleSkin.skinState.value,
-        ...createSkinButtonHandlers(toggleSkin),
-        'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST, {
-          filter: {
-            unlockedOnly: !gallery.projection.filter.unlockedOnly,
-          },
-        }), {
-          phase: 'gallery:update-filter',
-          metadata: { field: 'unlockedOnly' },
-        }),
-      }, 'Unlocked'),
-      h('div', { class: 'qua-gallery-toolbar-counter' }, `${gallery.filteredEntries.length}/${gallery.entries.length}`),
-    ]),
-    h('div', { class: 'qua-gallery-body' }, [
-      h('aside', { class: 'qua-gallery-catalog-pane' }, [
-        h('h3', { class: 'qua-gallery-section-title' }, 'Catalogs'),
-        gallery.catalogs.length > 0
-          ? h('div', { class: 'qua-gallery-catalog-list' }, gallery.catalogs.map((catalog: GalleryCatalogProjectionItem) =>
-              h(QuaGalleryCatalogButton, {
-                key: catalog.id,
-                catalog,
-                selected: gallery.projection.selectedCatalogId === catalog.id,
-              }),
-            ))
-          : h('p', { class: 'qua-gallery-empty' }, 'No catalogs'),
-      ]),
-      h('section', { class: 'qua-gallery-entry-pane' }, [
-        h('h3', { class: 'qua-gallery-section-title' }, 'Entries'),
-        gallery.filteredEntries.length > 0
-          ? h('ol', { class: 'qua-gallery-entry-grid' }, gallery.filteredEntries.map((entry: GalleryEntryProjectionItem) =>
-              h(QuaGalleryEntryCard, {
-                key: entry.id,
-                entry,
-                selected: gallery.projection.selectedEntryId === entry.id,
-                onOpenLightbox: input.onOpenLightbox,
-              }),
-            ))
-          : h('p', { class: 'qua-gallery-empty' }, 'No entries'),
-      ]),
-      h('section', { class: 'qua-gallery-detail-pane' }, [
-        h('h3', { class: 'qua-gallery-section-title' }, 'Detail'),
-        gallery.selectedEntry
-          ? renderGalleryDetail({
-              gallery,
-              entry: gallery.selectedEntry,
-            })
-          : h('p', { class: 'qua-gallery-empty' }, 'No entry selected'),
+      h('div', { class: 'qua-gallery-body' }, [
+        h('aside', { class: 'qua-gallery-catalog-pane' }, [
+          h('h3', { class: 'qua-gallery-section-title' }, 'Catalogs'),
+          gallery.catalogs.length > 0
+            ? h('div', { class: 'qua-gallery-catalog-list' }, gallery.catalogs.map((catalog: GalleryCatalogProjectionItem) =>
+                h(QuaGalleryCatalogButton, {
+                  key: catalog.id,
+                  catalog,
+                  selected: gallery.projection.selectedCatalogId === catalog.id,
+                }),
+              ))
+            : h('p', { class: 'qua-gallery-empty' }, 'No catalogs'),
+        ]),
+        h('section', { class: 'qua-gallery-entry-pane' }, [
+          h('h3', { class: 'qua-gallery-section-title' }, 'Entries'),
+          gallery.filteredEntries.length > 0
+            ? h('ol', { class: 'qua-gallery-entry-grid' }, gallery.filteredEntries.map((entry: GalleryEntryProjectionItem) =>
+                h(QuaGalleryEntryCard, {
+                  key: entry.id,
+                  entry,
+                  selected: gallery.projection.selectedEntryId === entry.id,
+                  onOpenLightbox: input.onOpenLightbox,
+                }),
+              ))
+            : h('p', { class: 'qua-gallery-empty' }, 'No entries'),
+        ]),
+        h('section', { class: 'qua-gallery-detail-pane' }, [
+          h('h3', { class: 'qua-gallery-section-title' }, 'Detail'),
+          gallery.selectedEntry
+            ? renderGalleryDetail({
+                gallery,
+                entry: gallery.selectedEntry,
+              })
+            : h('p', { class: 'qua-gallery-empty' }, 'No entry selected'),
+        ]),
       ]),
     ]),
     renderGalleryLightbox({
       gallery,
       entryId: input.lightboxEntryId,
       contentId: input.lightboxContentId,
+      chromeVisible: input.lightboxChromeVisible,
       onClose: input.onCloseLightbox,
+      onHideChrome: input.onHideLightboxChrome,
+      onToggleChrome: input.onToggleLightboxChrome,
     }),
   ]
 }
@@ -525,7 +512,10 @@ function renderGalleryLightbox(input: {
   gallery: GalleryProjectionModel
   entryId?: string
   contentId?: string
+  chromeVisible: boolean
   onClose: () => void
+  onHideChrome: () => void
+  onToggleChrome: () => void
 }) {
   const entry = input.entryId
     ? input.gallery.entries.find(item => item.id === input.entryId)
@@ -541,27 +531,56 @@ function renderGalleryLightbox(input: {
     return null
   }
   return h('div', {
-    'class': 'qua-gallery-lightbox',
+    'class': [
+      'qua-gallery-lightbox',
+      'qua-gallery-lightbox--overlay-scene',
+      input.chromeVisible ? undefined : 'is-chrome-hidden',
+    ],
     'role': 'dialog',
     'aria-modal': 'true',
     'aria-label': entry.title,
-    'onClick': input.onClose,
+    'data-gallery-lightbox-mode': 'overlay-scene',
+    'onClick': input.onHideChrome,
   }, [
     h('figure', {
       class: 'qua-gallery-lightbox-frame',
       onClick: (event: Event) => event.stopPropagation(),
     }, [
-      h('button', {
-        class: 'qua-gallery-lightbox-close',
-        type: 'button',
-        onClick: input.onClose,
-      }, 'Close'),
-      h('div', { class: 'qua-gallery-lightbox-media' }, [
+      h('div', {
+        class: 'qua-gallery-lightbox-media',
+        onClick: (event: MouseEvent) => {
+          event.stopPropagation()
+          if (event.target === event.currentTarget) {
+            input.onHideChrome()
+            return
+          }
+          if (isGalleryLightboxChromeToggleTarget(event.target)) {
+            input.onToggleChrome()
+          }
+        },
+      }, [
         renderGalleryLightboxContent(entry, content, asset),
+        h('button', {
+          'class': 'qua-gallery-lightbox-close',
+          'type': 'button',
+          'aria-label': 'Close lightbox',
+          'title': 'Close',
+          'onClick': (event: MouseEvent) => {
+            event.stopPropagation()
+            input.onClose()
+          },
+        }, '×'),
+        h('figcaption', { class: 'qua-gallery-lightbox-caption' }, content?.title || entry.title),
       ]),
-      h('figcaption', { class: 'qua-gallery-lightbox-caption' }, content?.title || entry.title),
     ]),
   ])
+}
+
+function isGalleryLightboxChromeToggleTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return false
+  }
+  return Boolean(target.closest('.qua-gallery-asset-preview--image, .qua-gallery-lightbox-asset--images'))
 }
 
 function renderGalleryLightboxContent(

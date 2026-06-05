@@ -1,11 +1,25 @@
-export function createUiScene(id: string, presentation: 'overlay' | 'scene', variant: string): Record<string, unknown> {
+import type { ViewUiSceneProjection } from '@quajs/render-core'
+
+export interface DemoUiSceneOptions {
+  defaultChrome?: boolean
+  hideHud?: boolean
+  hideDialogue?: boolean
+}
+
+export function createUiScene(
+  id: string,
+  presentation: 'overlay' | 'scene',
+  variant: string,
+  options: DemoUiSceneOptions = {},
+): ViewUiSceneProjection {
   return {
     id,
     presentation,
     overlay: {
       variant,
-      hideHud: true,
-      hideDialogue: true,
+      defaultChrome: options.defaultChrome ?? false,
+      hideHud: options.hideHud ?? true,
+      hideDialogue: options.hideDialogue ?? true,
     },
   }
 }

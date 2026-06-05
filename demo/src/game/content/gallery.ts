@@ -3,8 +3,7 @@ import type { GalleryEntryDefinition, GalleryPlugin } from '@quajs/plugin-galler
 export const DEMO_GALLERY_CATALOG_ID = 'demo-cg'
 const LOCKED_GALLERY_PRESENTATION = {
   title: 'LOCKED RECORD',
-  summary: '通关后解锁',
-  tags: ['locked'],
+  summary: '收集后解锁',
 } as const
 
 export const DEMO_GALLERY_ENTRIES = [

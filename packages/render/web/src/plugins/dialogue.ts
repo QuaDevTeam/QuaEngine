@@ -1,7 +1,7 @@
 import type { RichTextBlockProjection, RichTextContent, RichTextSpanProjection, ViewDialogueProjection } from '@quajs/render-core'
 import type { QuaWebRendererPluginContext } from '../controller'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
-import { isRichTextDocument } from '@quajs/render-core'
+import { isRichTextDocument, viewAllowsDialogueChrome } from '@quajs/render-core'
 import { DialogueTypewriterRuntime } from '../dialogue-typewriter'
 import { motionProjectionVars, projectDialogue } from '../projection'
 import { defineWebRendererPlugin } from './core'
@@ -18,7 +18,9 @@ export function createDialogueWebRendererPlugin(): QuaWebDomRendererPlugin {
         getDocument: () => globalThis.document,
         refresh: () => context.refresh(),
       })
-      context.addDisposer(webContext.registerAdvanceInterceptor(() => typewriterRuntime?.revealNow() ?? false))
+      context.addDisposer(webContext.registerAdvanceInterceptor(() =>
+        viewAllowsDialogueChrome(webContext.getViewState()) && (typewriterRuntime?.revealNow() ?? false),
+      ))
       context.addDisposer(() => {
         typewriterRuntime?.destroy()
         typewriterRuntime = undefined
@@ -37,6 +39,10 @@ export function createDialogueWebRendererPlugin(): QuaWebDomRendererPlugin {
 export const dialogueWebRendererPlugin = createDialogueWebRendererPlugin()
 
 function renderDialogueLayer(context: QuaWebDomLayerContext, typewriterRuntime?: DialogueTypewriterRuntime): Node | undefined {
+  if (!viewAllowsDialogueChrome(context.view)) {
+    typewriterRuntime?.destroy()
+    return undefined
+  }
   const dialogue = projectDialogue(context.view.dialogue, context.view.animations, Date.now(), context.view.plugins.dialogue as Record<string, unknown> | undefined)
   const typewriterProjection = typewriterRuntime?.project(dialogue)
   const projectedDialogue = typewriterProjection?.dialogue || dialogue
@@ -77,6 +83,11 @@ function renderDialogueContent(context: QuaWebDomLayerContext, box: HTMLElement,
 function updateDialogueLayer(context: QuaWebDomLayerContext, node: Node, typewriterRuntime?: DialogueTypewriterRuntime): void {
   if (!(node instanceof HTMLElement))
     return
+  if (!viewAllowsDialogueChrome(context.view)) {
+    typewriterRuntime?.destroy()
+    node.textContent = ''
+    return
+  }
   const dialogue = projectDialogue(context.view.dialogue, context.view.animations, Date.now(), context.view.plugins.dialogue as Record<string, unknown> | undefined)
   const projectedDialogue = typewriterRuntime?.project(dialogue).dialogue || dialogue
   applyStyleVars(node, motionProjectionVars(projectedDialogue as unknown as Record<string, unknown>, '--qua-dialogue'))

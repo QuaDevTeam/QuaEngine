@@ -435,6 +435,11 @@ export interface ViewUiSceneOverlayProjection extends Readonly<Record<string, un
   variant?: string
   skinId?: string
   background?: Readonly<Record<string, unknown>>
+  /**
+   * Set to false when a UI scene must render without default visual-novel
+   * chrome such as dialogue, choices, HUD buttons, or quick menus.
+   */
+  defaultChrome?: boolean
   hideHud?: boolean
   hideDialogue?: boolean
 }
@@ -515,6 +520,42 @@ export interface ViewUiProjection {
   visible: boolean
   host?: Readonly<ViewUiSceneHostProjection>
   overlays?: Readonly<Record<string, ViewUiOverlayProjection>>
+}
+
+export function resolveActiveUiSceneProjection(
+  overlays: Readonly<Record<string, ViewUiOverlayProjection>> | undefined,
+): ViewUiSceneProjection | undefined {
+  if (!overlays) {
+    return undefined
+  }
+  const scenes = Object.values(overlays)
+    .map(overlay => overlay.scene)
+    .filter((scene): scene is ViewUiSceneProjection => Boolean(scene?.id))
+  return scenes.find(scene => scene.presentation === 'scene') || scenes[0]
+}
+
+export function uiSceneAllowsDefaultChrome(scene: Readonly<ViewUiSceneProjection> | undefined): boolean {
+  return scene?.overlay?.defaultChrome !== false
+}
+
+export function uiSceneAllowsDialogueChrome(scene: Readonly<ViewUiSceneProjection> | undefined): boolean {
+  return uiSceneAllowsDefaultChrome(scene) && scene?.overlay?.hideDialogue !== true
+}
+
+export function uiSceneAllowsHudChrome(scene: Readonly<ViewUiSceneProjection> | undefined): boolean {
+  return uiSceneAllowsDefaultChrome(scene) && scene?.overlay?.hideHud !== true
+}
+
+export function viewAllowsDefaultChrome(view: Readonly<{ ui?: Readonly<ViewUiProjection> }>): boolean {
+  return uiSceneAllowsDefaultChrome(resolveActiveUiSceneProjection(view.ui?.overlays))
+}
+
+export function viewAllowsDialogueChrome(view: Readonly<{ ui?: Readonly<ViewUiProjection> }>): boolean {
+  return uiSceneAllowsDialogueChrome(resolveActiveUiSceneProjection(view.ui?.overlays))
+}
+
+export function viewAllowsHudChrome(view: Readonly<{ ui?: Readonly<ViewUiProjection> }>): boolean {
+  return uiSceneAllowsHudChrome(resolveActiveUiSceneProjection(view.ui?.overlays))
 }
 
 export interface ViewEffectProjection {

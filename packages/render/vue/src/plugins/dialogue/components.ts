@@ -1,5 +1,5 @@
 import type { RichTextContent, RichTextSpanProjection } from '@quajs/render-core'
-import { isRichTextDocument } from '@quajs/render-core'
+import { isRichTextDocument, viewAllowsDialogueChrome } from '@quajs/render-core'
 import { DialogueTypewriterRuntime, motionProjectionVars, projectDialogue } from '@quajs/renderer-web'
 import { defineComponent, h, onBeforeUnmount, ref } from 'vue'
 import { useProjectionProps } from '../../components/projection'
@@ -24,13 +24,19 @@ export const QuaDialogueBox = defineComponent({
         typewriterRefresh.value += 1
       },
     })
-    const unregisterAdvanceInterceptor = renderer.web.registerAdvanceInterceptor(() => typewriterRuntime.revealNow())
+    const unregisterAdvanceInterceptor = renderer.web.registerAdvanceInterceptor(() =>
+      viewAllowsDialogueChrome(renderer.view.value) && typewriterRuntime.revealNow(),
+    )
     onBeforeUnmount(() => {
       unregisterAdvanceInterceptor()
       typewriterRuntime.destroy()
     })
     return () => {
       void typewriterRefresh.value
+      if (!viewAllowsDialogueChrome(renderer.view.value)) {
+        typewriterRuntime.destroy()
+        return null
+      }
       const now = Math.max(animationNow.value, typewriterNow.value)
       const typewriterProjection = typewriterRuntime.project(
         projectDialogue(dialogue.value, animations.value, now, dialogueProjection.value),

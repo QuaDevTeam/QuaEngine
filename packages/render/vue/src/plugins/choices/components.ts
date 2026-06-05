@@ -1,3 +1,4 @@
+import { viewAllowsDialogueChrome } from '@quajs/render-core'
 import { motionProjectionVars, projectChoices } from '@quajs/renderer-web'
 import { defineComponent, h } from 'vue'
 import { useProjectionProps } from '../../components/projection'
@@ -56,6 +57,9 @@ export const QuaChoicePanel = defineComponent({
     const actions = renderer.actions
     const skin = useUiControlSkin({ kind: 'panel' })
     return () => {
+      if (!viewAllowsDialogueChrome(renderer.view.value)) {
+        return null
+      }
       const projected = projectChoices(choices.value, animations.value, animationNow.value, choicesProjection.value)
       return projected.choices.length
         ? h('div', {

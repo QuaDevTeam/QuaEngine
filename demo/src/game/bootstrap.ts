@@ -2,6 +2,7 @@ import { LogicToRenderEvents, onLogicToRender } from '@quajs/engine'
 import type { AudioPlayBgmOptions } from '@quajs/plugin-audio'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents, type BacklogProjection } from '@quajs/plugin-backlog'
 import { GALLERY_PLUGIN_ID, type GalleryProjection } from '@quajs/plugin-gallery'
+import { resolveActiveUiSceneProjection, uiSceneAllowsHudChrome, type ViewUiSceneProjection } from '@quajs/render-core'
 import { QuaRenderer } from '@quajs/renderer-vue'
 import { createVisualNovelRendererPlugins } from '@quajs/renderer-vue/plugins/preset'
 import { QuaSettingsLayer } from '@quajs/renderer-vue/plugins/settings'
@@ -104,12 +105,9 @@ export async function createQuaGameApp() {
   const activeBacklog = computed(() => activeView.value.plugins[BACKLOG_PLUGIN_ID] as BacklogProjection | undefined)
   const activeGallery = computed(() => activeView.value.plugins[GALLERY_PLUGIN_ID] as GalleryProjection | undefined)
   const galleryOpenedFromMainMenu = ref(false)
-  const activeUiScene = computed(() => {
-    const overlays = activeView.value.ui.overlays || {}
-    const scenes = Object.values(overlays)
-      .map(overlay => (overlay as { scene?: { id?: string, presentation?: string, overlay?: { variant?: string } } }).scene)
-      .filter((scene): scene is { id: string, presentation?: string, overlay?: { variant?: string } } => Boolean(scene?.id))
-    return scenes.find(scene => scene.presentation === 'scene') || scenes[0] || (activeBacklog.value?.visible ? activeBacklog.value.ui?.scene : undefined)
+  const activeUiScene = computed<ViewUiSceneProjection | undefined>(() => {
+    return resolveActiveUiSceneProjection(activeView.value.ui.overlays)
+      || (activeBacklog.value?.visible ? (activeBacklog.value.ui?.scene as ViewUiSceneProjection | undefined) : undefined)
   })
   const systemOverlayMode = computed<'main' | 'game' | undefined>(() => {
     if (activeGallery.value?.sceneActive) {
@@ -126,6 +124,11 @@ export async function createQuaGameApp() {
     || systemOverlayMode.value === 'main'
     || galleryOpenedFromMainMenu.value
     || Boolean(returnToMainMenuOverlay.value),
+  )
+  const defaultChromeVisible = computed(() =>
+    !titleSurfaceActive.value
+    && !activeGallery.value?.sceneActive
+    && uiSceneAllowsHudChrome(activeUiScene.value),
   )
   const pipeline = engine.getPipeline()
   const emit = pipeline.emit.bind(pipeline)
@@ -196,6 +199,7 @@ export async function createQuaGameApp() {
     await engine.showUI('menu', {
       title: 'MENU',
       subtitle: `${GAME_TITLE} / CH ${hud.value.chapter} / ${hud.value.route}`,
+      showHeaderTitle: false,
       scene: createUiScene('game:menu', 'overlay', 'game-modal'),
       replaceOnOpen: true,
       showBacklog: false,
@@ -262,6 +266,7 @@ export async function createQuaGameApp() {
     source: 'main-menu',
     slotCount: SAVE_LOAD_SLOT_COUNT,
     showQuickActions: false,
+    showHeaderTitle: false,
     scene: createUiScene('system:load', 'scene', 'main-menu'),
   })
   const returnToTitleMenu = async () => {
@@ -361,56 +366,61 @@ export async function createQuaGameApp() {
         'data-main-menu': showMainMenu.value ? 'true' : undefined,
         'data-system-overlay': systemOverlayMode.value,
         'data-title-surface': titleSurfaceActive.value ? 'true' : undefined,
+        'data-default-chrome': defaultChromeVisible.value ? 'true' : 'false',
       }, [
         h('div', { class: 'vn-title-surface', 'aria-hidden': 'true', 'data-qua-input-ignore': '' }),
-        h('div', { class: 'vn-title-plate', 'data-qua-input-ignore': '' }, [
-          h('strong', { class: 'game-title' }, GAME_TITLE),
-          h('span', { class: 'game-subtitle' }, 'TOKYO 2048'),
-        ]),
-        h('nav', { class: 'vn-quick-menu', 'aria-label': 'quick menu', 'data-qua-input-ignore': '' }, [
-          h('button', {
-            type: 'button',
-            title: activeView.value.flowControl.mode === 'auto' ? 'Stop auto mode' : 'Auto mode',
-            class: activeView.value.flowControl.mode === 'auto' ? 'is-active' : undefined,
-            onClick: async () => {
-              if (activeView.value.flowControl.mode === 'auto') {
-                await engine.stopAuto()
-              }
-              else {
-                await engine.startAuto()
-              }
-            },
-          }, 'AUTO'),
-          h('button', {
-            type: 'button',
-            title: activeView.value.flowControl.mode === 'skip' ? 'Stop skip mode' : 'Skip read text',
-            class: activeView.value.flowControl.mode === 'skip' ? 'is-active' : undefined,
-            onClick: async () => {
-              await stopAutoForHudInteraction()
-              if (activeView.value.flowControl.mode === 'skip') {
-                await engine.stopSkip()
-              }
-              else {
-                await engine.startSkip()
-              }
-            },
-          }, 'SKIP'),
-          h('button', {
-            type: 'button',
-            title: 'Backlog',
-            onClick: openBacklog,
-          }, 'LOG'),
-          h('button', {
-            type: 'button',
-            title: 'CG Gallery',
-            onClick: openGallery,
-          }, 'CG'),
-          h('button', {
-            type: 'button',
-            title: 'Menu',
-            onClick: openGameMenu,
-          }, 'MENU'),
-        ]),
+        defaultChromeVisible.value
+          ? h('div', { class: 'vn-title-plate', 'data-qua-input-ignore': '' }, [
+              h('strong', { class: 'game-title' }, GAME_TITLE),
+              h('span', { class: 'game-subtitle' }, 'TOKYO 2048'),
+            ])
+          : null,
+        defaultChromeVisible.value
+          ? h('nav', { class: 'vn-quick-menu', 'aria-label': 'quick menu', 'data-qua-input-ignore': '' }, [
+              h('button', {
+                type: 'button',
+                title: activeView.value.flowControl.mode === 'auto' ? 'Stop auto mode' : 'Auto mode',
+                class: activeView.value.flowControl.mode === 'auto' ? 'is-active' : undefined,
+                onClick: async () => {
+                  if (activeView.value.flowControl.mode === 'auto') {
+                    await engine.stopAuto()
+                  }
+                  else {
+                    await engine.startAuto()
+                  }
+                },
+              }, 'AUTO'),
+              h('button', {
+                type: 'button',
+                title: activeView.value.flowControl.mode === 'skip' ? 'Stop skip mode' : 'Skip read text',
+                class: activeView.value.flowControl.mode === 'skip' ? 'is-active' : undefined,
+                onClick: async () => {
+                  await stopAutoForHudInteraction()
+                  if (activeView.value.flowControl.mode === 'skip') {
+                    await engine.stopSkip()
+                  }
+                  else {
+                    await engine.startSkip()
+                  }
+                },
+              }, 'SKIP'),
+              h('button', {
+                type: 'button',
+                title: 'Backlog',
+                onClick: openBacklog,
+              }, 'LOG'),
+              h('button', {
+                type: 'button',
+                title: 'CG Gallery',
+                onClick: openGallery,
+              }, 'CG'),
+              h('button', {
+                type: 'button',
+                title: 'Menu',
+                onClick: openGameMenu,
+              }, 'MENU'),
+            ])
+          : null,
         h(QuaRenderer, {
           pipeline: engine.getPipeline(),
           assets,
