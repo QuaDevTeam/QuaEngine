@@ -50,19 +50,23 @@
 
 .game-root[data-system-overlay] .qua-confirm-action {
   min-width: 128px;
+  min-height: 40px;
+  font-family: "SFMono-Regular", "Menlo", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .game-root[data-system-overlay] .qua-confirm-action--confirm {
-  min-height: 38px;
-  border: 1px solid rgba(255, 226, 166, 0.9);
+  border: 1px solid rgba(255, 226, 166, 0.88);
   background:
-    linear-gradient(180deg, #fff1c2, #d8aa54),
-    #ffe3a0;
+    linear-gradient(90deg, rgba(255, 238, 198, 0.95), rgba(236, 198, 116, 0.82)),
+    rgba(255, 238, 198, 0.9);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.56),
-    0 14px 34px rgba(0, 0, 0, 0.3);
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 14px 36px rgba(0, 0, 0, 0.3);
   color: #080a0f;
-  font-weight: 700;
   text-shadow: none;
   transition:
     background 160ms ease,
@@ -76,8 +80,8 @@
 .game-root[data-system-overlay] .qua-confirm-action--confirm:focus-visible {
   border-color: rgba(129, 229, 255, 0.86);
   background:
-    linear-gradient(180deg, #fff8df, #f0c76e),
-    #fff1c2;
+    linear-gradient(90deg, rgba(255, 248, 223, 0.98), rgba(240, 199, 110, 0.88)),
+    rgba(255, 241, 194, 0.94);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.68),
     0 18px 42px rgba(0, 0, 0, 0.36),
@@ -87,8 +91,43 @@
   transform: translateY(-1px);
 }
 
+.game-root[data-system-overlay] .qua-confirm-action--cancel {
+  border: 1px solid rgba(245, 226, 190, 0.28);
+  background:
+    linear-gradient(90deg, rgba(9, 12, 18, 0.9), rgba(23, 27, 37, 0.66)),
+    rgba(9, 12, 18, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: rgba(255, 250, 242, 0.9);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.48);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.game-root[data-system-overlay] .qua-confirm-action--cancel:hover,
+.game-root[data-system-overlay] .qua-confirm-action--cancel:focus-visible {
+  border-color: rgba(129, 229, 255, 0.72);
+  background:
+    linear-gradient(90deg, rgba(20, 54, 66, 0.82), rgba(13, 16, 24, 0.84)),
+    rgba(13, 16, 24, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 12px 30px rgba(0, 0, 0, 0.28);
+  color: #d8f8ff;
+  text-shadow: 0 0 18px rgba(80, 206, 255, 0.42);
+  transform: translateY(-1px);
+}
+
 .game-root[data-system-overlay] .qua-confirm-action--confirm:focus-visible {
   outline: 1px solid rgba(129, 229, 255, 0.78);
+  outline-offset: 3px;
+}
+
+.game-root[data-system-overlay] .qua-confirm-action--cancel:focus-visible {
+  outline: 1px solid rgba(129, 229, 255, 0.72);
   outline-offset: 3px;
 }
 
