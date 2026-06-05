@@ -4,7 +4,7 @@ import type {
   RendererInputDevice,
 } from '@quajs/render-core'
 import type { CocosRendererPluginContext } from '../types'
-import { clientPointToStageLogical, RenderToLogicEvents } from '@quajs/render-core'
+import { clientPointToStageLogical, RenderToLogicEvents, viewAllowsDialogueChrome, viewAllowsHudChrome } from '@quajs/render-core'
 import { defineCocosRendererPlugin } from './core'
 
 export type CocosRendererInputBindingPhase = 'press' | 'release'
@@ -341,51 +341,77 @@ class CocosInputController {
     const actions = this.context.cocos.getActions()
     switch (command) {
       case 'advance':
+        if (!viewAllowsDialogueChrome(this.context.getViewState()))
+          return
         await actions.advance(source)
         break
       case 'auto:start':
+        if (!viewAllowsHudChrome(this.context.getViewState()))
+          return
         await actions.startAuto(source)
         break
       case 'auto:stop':
+        if (!viewAllowsHudChrome(this.context.getViewState()))
+          return
         await actions.stopAuto(source)
         break
       case 'auto:toggle':
+        if (!viewAllowsHudChrome(this.context.getViewState()))
+          return
         if (this.context.getViewState().flowControl.mode === 'auto')
           await actions.stopAuto(source)
         else
           await actions.startAuto(source)
         break
       case 'skip:start':
+        if (!viewAllowsHudChrome(this.context.getViewState()))
+          return
         await actions.startSkip(source)
         break
       case 'skip:stop':
+        if (!viewAllowsHudChrome(this.context.getViewState()))
+          return
         await actions.stopSkip(source)
         break
       case 'skip:toggle':
+        if (!viewAllowsHudChrome(this.context.getViewState()))
+          return
         if (this.context.getViewState().flowControl.mode === 'skip')
           await actions.stopSkip(source)
         else
           await actions.startSkip(source)
         break
       case 'fastForward:start':
+        if (!viewAllowsHudChrome(this.context.getViewState()))
+          return
         await actions.startFastForward(source)
         break
       case 'fastForward:stop':
+        if (!viewAllowsHudChrome(this.context.getViewState()))
+          return
         await actions.stopFastForward(source)
         break
       case 'fastForward:toggle':
+        if (!viewAllowsHudChrome(this.context.getViewState()))
+          return
         if (this.context.getViewState().flowControl.mode === 'fast-forward')
           await actions.stopFastForward(source)
         else
           await actions.startFastForward(source)
         break
       case 'choice:previous':
+        if (!viewAllowsDialogueChrome(this.context.getViewState()))
+          return
         this.focusChoice(-1)
         break
       case 'choice:next':
+        if (!viewAllowsDialogueChrome(this.context.getViewState()))
+          return
         this.focusChoice(1)
         break
       case 'choice:confirm':
+        if (!viewAllowsDialogueChrome(this.context.getViewState()))
+          return
         await this.selectFocusedChoice(source)
         break
       case 'ui:save':

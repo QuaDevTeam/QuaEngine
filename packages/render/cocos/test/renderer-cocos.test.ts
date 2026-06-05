@@ -32,6 +32,24 @@ describe('@quajs/renderer-cocos', () => {
     expect(host.root.children).toHaveLength(0)
   })
 
+  it('emits Cocos destroy timestamps from the host runtime clock', async () => {
+    const host = createFakeCocosHost({ now: () => 321 })
+    const pipeline = new Pipeline()
+    const destroyed: unknown[] = []
+    pipeline.on(RenderToLogicEvents.RENDER_DESTROYED, context => destroyed.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView(),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+
+    await renderer.start()
+    await renderer.destroy()
+
+    expect(destroyed).toEqual([{ timestamp: 321 }])
+  })
+
   it('emits logical pointer clicks and choice intents through pipeline', async () => {
     const host = createFakeCocosHost({ containerSize: { width: 1920, height: 1080 } })
     const pipeline = new Pipeline()
@@ -100,6 +118,56 @@ describe('@quajs/renderer-cocos', () => {
     ])
     expect(autoStarts).toEqual([{ source: 'cocos:keyboard:KeyA' }])
     expect(choices).toEqual([{ choiceId: 'a' }])
+  })
+
+  it('does not render or activate default dialogue and choices for no-default-chrome UI scenes', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const commands: unknown[] = []
+    const autoStarts: unknown[] = []
+    const choices: unknown[] = []
+    const advances: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_INPUT_COMMAND, context => commands.push(context.event.payload))
+    pipeline.on(RenderToLogicEvents.FLOW_CONTROL_START_AUTO_REQUEST, context => autoStarts.push(context.event.payload))
+    pipeline.on(RenderToLogicEvents.USER_CHOICE_SELECT, context => choices.push(context.event.payload))
+    pipeline.on(RenderToLogicEvents.USER_ADVANCE, context => advances.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView({
+        uiOverlays: {
+          menu: {
+            open: true,
+            scene: {
+              id: 'system:menu',
+              presentation: 'scene',
+              overlay: {
+                defaultChrome: false,
+              },
+            },
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins(),
+    })
+    await renderer.start()
+
+    expect(findNodeByKind(host, 'dialogue-box')).toBeUndefined()
+    expect([...host.nodesById.values()].some(node => node.metadata.choiceId === 'a')).toBe(false)
+    expect(findNode(host, 'qua-ui')?.metadata.defaultChrome).toBe(false)
+
+    await host.emitInput({ kind: 'keyboard', phase: 'down', code: 'KeyA', key: 'a' })
+    await host.emitInput({ kind: 'gamepad', phase: 'down', metadata: { button: 0 } })
+    await host.emitInput({ kind: 'pointer', phase: 'down', x: 960, y: 540, metadata: { choiceId: 'a' } })
+    await host.emitInput({ kind: 'pointer', phase: 'down', x: 960, y: 540 })
+
+    expect(commands).toMatchObject([
+      { command: 'auto:toggle' },
+      { command: 'choice:confirm' },
+    ])
+    expect(autoStarts).toEqual([])
+    expect(choices).toEqual([])
+    expect(advances).toEqual([])
   })
 
   it('focuses the first enabled choice on the first next command', async () => {
@@ -921,6 +989,34 @@ describe('@quajs/renderer-cocos', () => {
     })
   })
 
+  it('uses optional Cocos audio methods even when capabilities are not declared', async () => {
+    const host = createFakeCocosHost()
+    host.capabilities = {
+      ...host.capabilities,
+      audioEq: false,
+      audioPlaybackRate: false,
+    }
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      assets: createFakeAssets(),
+      initialView: createView({
+        audioAsset: 'bgm.ogg',
+        audioPlaybackRate: 1.25,
+        audioEq: [{ frequency: 2000, gainDb: -4 }],
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+
+    await renderer.start()
+    await flushAsync()
+
+    const handle = await waitForAudioHandle(host, 'bgm:main')
+    expect(handle.playbackRate).toBe(1.25)
+    expect(host.audioBusEq.get('bgm')).toEqual([{ frequency: 2000, gainDb: -4 }])
+    await renderer.destroy()
+  })
+
   it('interrupts active Cocos voice tracks on user advance', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()
@@ -1699,6 +1795,7 @@ function createView(options: {
   audioAsset?: string
   audioKind?: 'bgm' | 'voice' | 'sfx' | 'ambient'
   audioEq?: readonly unknown[]
+  audioPlaybackRate?: number
   audioPlayAt?: number
   gallery?: Record<string, unknown>
   settings?: Record<string, unknown>
@@ -1726,6 +1823,7 @@ function createView(options: {
         state: 'playing',
         loop: audioKind === 'bgm' || audioKind === 'ambient',
         playAt: options.audioPlayAt,
+        playbackRate: options.audioPlaybackRate,
       }
     : undefined
   return {

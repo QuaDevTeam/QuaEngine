@@ -1,5 +1,5 @@
 import type { DialogueTypewriterProjection } from '@quajs/render-core'
-import { LogicToRenderEvents, projectDialogue } from '@quajs/render-core'
+import { LogicToRenderEvents, projectDialogue, viewAllowsDialogueChrome } from '@quajs/render-core'
 import { CocosDialogueTypewriterRuntime } from '../dialogue-typewriter'
 import { renderCocosDialogue } from '../projection'
 import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromMetadata } from '../utils'
@@ -71,6 +71,11 @@ export function createDialogueCocosRendererPlugin() {
         })
       }
       sync = () => {
+        if (!viewAllowsDialogueChrome(context.getViewState())) {
+          typewriterRuntime.destroy()
+          renderCocosDialogue(context.cocos)
+          return
+        }
         const projectedDialogue = projectDialogue(
           context.getViewState().dialogue,
           context.getViewState().animations,
@@ -85,6 +90,9 @@ export function createDialogueCocosRendererPlugin() {
       }
 
       context.addDisposer(context.cocos.registerAdvanceInterceptor(() => {
+        if (!viewAllowsDialogueChrome(context.getViewState())) {
+          return false
+        }
         const revealed = typewriterRuntime.revealNow()
         if (revealed) {
           sync()

@@ -184,7 +184,7 @@ export class QuaCocosRendererController {
     this.cameraRoot = undefined
 
     if (wasStarted) {
-      await emitRenderToLogic(this.pipeline, RenderToLogicEvents.RENDER_DESTROYED, { timestamp: Date.now() })
+      await emitRenderToLogic(this.pipeline, RenderToLogicEvents.RENDER_DESTROYED, { timestamp: this.host.runtime.now() })
     }
   }
 
@@ -817,7 +817,7 @@ export class QuaCocosRendererController {
       handle.setPlaybackRate?.(1)
       return
     }
-    if (this.host.capabilities?.audioPlaybackRate && handle.setPlaybackRate) {
+    if (handle.setPlaybackRate) {
       handle.setPlaybackRate(playbackRate)
       return
     }
