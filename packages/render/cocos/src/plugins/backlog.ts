@@ -89,9 +89,6 @@ function renderBacklogLayer(context: CocosRendererPluginContext, requestedPage: 
   const title = context.cocos.host.nodes.createNode('backlog-title', { parent: panel, name: 'backlog:title' })
   context.cocos.host.nodes.setNodeText(title, 'Backlog', { fontSize: 32, color: '#ffffff' })
   context.cocos.host.nodes.setNodeTransform(title, { x: 28, y: 24, width: safeArea.width - 180, height: 48, zIndex: 1 })
-  const subtitle = context.cocos.host.nodes.createNode('backlog-subtitle', { parent: panel, name: 'backlog:subtitle' })
-  context.cocos.host.nodes.setNodeText(subtitle, `${projection.entries.length} entries / ${projection.retention.scope}`, { fontSize: 20, color: '#d8d8d8' })
-  context.cocos.host.nodes.setNodeTransform(subtitle, { x: 28, y: 62, width: safeArea.width - 180, height: 32, zIndex: 1 })
   renderBacklogButton(context, panel, 'backlog:close', 'Close', {
     x: safeArea.width - 140,
     y: 24,
@@ -140,10 +137,9 @@ function renderBacklogEntry(
   const y = startY + index * 84
   const node = context.cocos.host.nodes.createNode('backlog-entry', { parent, name: `backlog:${entry.id}` })
   const indexText = String(absoluteIndex + 1).padStart(2, '0')
-  const kindText = entry.kind === 'choice' ? 'Choice' : 'Line'
-  const timeText = formatBacklogTime(entry.timestamp)
+  const timeText = formatBacklogGameTime(entry.gameTimeMs)
   const contentText = entry.kind === 'choice' ? choiceText(entry) : entry.text || ''
-  const label = [indexText, kindText, timeText, entry.speaker, contentText].filter(Boolean).join('  ')
+  const label = [indexText, timeText, entry.speaker, contentText].filter(Boolean).join('  ')
   context.cocos.host.nodes.setNodeText(node, label, { fontSize: 22, color: entry.rewindable ? '#ffffff' : '#b8b8b8' })
   context.cocos.host.nodes.setNodeControl?.(node, {
     kind: 'button',
@@ -156,13 +152,14 @@ function renderBacklogEntry(
     backlogEntryId: entry.id,
     backlogKind: entry.kind,
     backlogIndex: absoluteIndex,
-    timestamp: entry.timestamp,
+    gameTimeMs: entry.gameTimeMs,
+    recordedAt: entry.recordedAt,
     tags: entry.tags,
     rewindable: entry.rewindable,
     voiceReplay: entry.voiceReplay,
   })
   const meta = context.cocos.host.nodes.createNode('backlog-entry-meta', { parent: node, name: `backlog:${entry.id}:meta` })
-  context.cocos.host.nodes.setNodeText(meta, [indexText, kindText, timeText].filter(Boolean).join(' / '), { fontSize: 16, color: '#d8d8d8' })
+  context.cocos.host.nodes.setNodeText(meta, [indexText, timeText].filter(Boolean).join(' / '), { fontSize: 16, color: '#d8d8d8' })
   context.cocos.host.nodes.setNodeTransform(meta, { x: 12, y: 6, width: 220, height: 20, zIndex: index + 3 })
   const content = context.cocos.host.nodes.createNode('backlog-entry-content', { parent: node, name: `backlog:${entry.id}:content` })
   context.cocos.host.nodes.setNodeText(content, [entry.speaker, contentText].filter(Boolean).join(': '), { fontSize: 20, color: entry.rewindable ? '#ffffff' : '#b8b8b8' })
@@ -201,11 +198,12 @@ function choiceText(entry: BacklogEntry): string {
   return entry.text || entry.choices?.map(choice => choice.text).join(' / ') || ''
 }
 
-function formatBacklogTime(timestamp: number): string {
-  const date = new Date(timestamp)
-  if (Number.isNaN(date.getTime()))
-    return ''
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+function formatBacklogGameTime(gameTimeMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(gameTimeMs / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
 interface PageResult<T> {

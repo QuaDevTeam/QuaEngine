@@ -557,11 +557,11 @@ async function appendBacklogEntry(
 function createBacklogEntry(
   engine: QuaEngineInterface,
   checkpoint: EngineCheckpoint | undefined,
-  entry: Omit<BacklogEntry, 'id' | 'point' | 'checkpointId' | 'rewindable' | 'voiceReplay' | 'timestamp'>,
+  entry: Omit<BacklogEntry, 'id' | 'point' | 'checkpointId' | 'rewindable' | 'voiceReplay' | 'gameTimeMs' | 'recordedAt'>,
 ): BacklogEntry {
   const point = engine.getStoryPoint()
-  const timestamp = Date.now()
-  const idSource = checkpoint?.id || `${point?.stepId || point?.lineId || entry.kind}:${timestamp}:${++backlogEntryIdSeed}`
+  const recordedAt = Date.now()
+  const idSource = checkpoint?.id || `${point?.stepId || point?.lineId || entry.kind}:${recordedAt}:${++backlogEntryIdSeed}`
   const requiredRuntimePackages = mergeRequiredPackages(
     requiredPackagesForPoint(point),
     requiredPackagesFromMetadata(checkpoint?.metadata),
@@ -576,7 +576,8 @@ function createBacklogEntry(
     requiredRuntimePackages,
     rewindable: Boolean(checkpoint?.id),
     voiceReplay: Boolean(entry.voice),
-    timestamp,
+    gameTimeMs: engine.getPlaytimeMs(),
+    recordedAt,
   }
 }
 

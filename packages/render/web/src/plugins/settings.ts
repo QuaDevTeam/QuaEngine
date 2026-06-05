@@ -85,7 +85,7 @@ export function createSettingsWebRendererPlugin(options: SettingsRendererPluginO
     layers: [{
       id: 'settings',
       order: 96,
-      plane: 'overlay',
+      plane: 'screen',
       render: context => renderSettingsLayer(context, options),
     }],
   })

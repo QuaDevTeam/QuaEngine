@@ -422,7 +422,7 @@ export function createSettingsRendererPlugin(options: SettingsRendererPluginOpti
       slot: 'settings',
       component: QuaSettingsLayer,
       order: 96,
-      plane: 'overlay',
+      plane: 'screen',
       props: {
         elementId: options.elementId || DEFAULT_SETTINGS_ELEMENT_ID,
         customControls: options.customControls,

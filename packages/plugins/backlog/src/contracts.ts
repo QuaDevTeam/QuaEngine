@@ -56,7 +56,8 @@ export interface BacklogEntry {
   rewindable: boolean
   voiceReplay: boolean
   tags?: readonly string[]
-  timestamp: number
+  gameTimeMs: number
+  recordedAt: number
 }
 
 export interface BacklogVoiceReference {

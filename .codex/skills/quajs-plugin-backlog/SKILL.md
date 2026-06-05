@@ -92,6 +92,7 @@ Decorators:
 ## State Model
 
 - Entries live in engine-owned plugin projection.
+- Entries record both `gameTimeMs` from `engine.getPlaytimeMs()` and `recordedAt` as the real-world timestamp.
 - Rewindable entries store checkpoint ids.
 - View-only entries do not.
 - Voice replay entries store audio references and required runtime packages.
@@ -100,6 +101,8 @@ Decorators:
 ## Renderer Boundary
 
 Renderer UI emits open, close, jump, and voice replay requests through backlog render-to-logic events. It does not decide whether an entry is rewindable; it reads `entry.rewindable` from projection.
+
+Default Web/Vue/Cocos backlog renderers show entry `gameTimeMs` in the item metadata. Themes may expose `recordedAt` as secondary detail, but real-world time should not replace game time by default.
 
 Backlog UI scenes can use `overlay.defaultChrome: false` when the scene should not mount the renderer's default dialogue, choices, HUD, or quick-menu chrome behind the backlog surface.
 

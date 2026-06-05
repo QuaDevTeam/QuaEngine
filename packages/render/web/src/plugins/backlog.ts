@@ -14,7 +14,7 @@ export function createBacklogWebRendererPlugin(): QuaWebDomRendererPlugin {
     layers: [{
       id: 'backlog',
       order: 95,
-      plane: 'overlay',
+      plane: 'screen',
       render: renderBacklogLayer,
     }],
   })
@@ -67,22 +67,16 @@ function renderBacklogLayer(context: QuaWebDomLayerContext): Node | undefined {
   return layer
 }
 
-function renderBacklogHeader(context: QuaWebDomLayerContext, projection: BacklogProjection): Node {
+function renderBacklogHeader(context: QuaWebDomLayerContext, _projection: BacklogProjection): Node {
   const header = context.document.createElement('header')
   header.className = 'qua-backlog-header'
 
   const heading = context.document.createElement('div')
   heading.className = 'qua-backlog-heading'
-  const kicker = context.document.createElement('p')
-  kicker.className = 'qua-backlog-kicker'
-  kicker.textContent = 'LOG'
   const title = context.document.createElement('h2')
   title.className = 'qua-backlog-title'
   title.textContent = 'Backlog'
-  const subtitle = context.document.createElement('p')
-  subtitle.className = 'qua-backlog-subtitle'
-  subtitle.textContent = `${projection.entries.length} entries / ${projection.retention.scope}`
-  heading.append(kicker, title, subtitle)
+  heading.append(title)
 
   const close = context.document.createElement('button')
   close.className = 'qua-backlog-close'
@@ -164,19 +158,16 @@ function renderBacklogEntryMeta(context: QuaWebDomLayerContext, entry: BacklogEn
   number.className = 'qua-backlog-entry-index'
   number.textContent = String(index + 1).padStart(2, '0')
 
-  const kind = context.document.createElement('span')
-  kind.className = 'qua-backlog-entry-kind'
-  kind.textContent = entry.kind === 'choice' ? 'Choice' : 'Line'
-
   const time = context.document.createElement('time')
   time.className = 'qua-backlog-entry-time'
-  const date = new Date(entry.timestamp)
-  if (!Number.isNaN(date.getTime())) {
-    time.dateTime = date.toISOString()
-    time.textContent = formatBacklogTime(entry.timestamp)
+  time.dateTime = formatBacklogGameTimeDateTime(entry.gameTimeMs)
+  time.textContent = formatBacklogGameTime(entry.gameTimeMs)
+  const recordedAt = formatBacklogRecordedAt(entry.recordedAt)
+  if (recordedAt) {
+    time.title = recordedAt
   }
 
-  meta.append(number, kind, time)
+  meta.append(number, time)
   return meta
 }
 
@@ -250,10 +241,23 @@ function choiceText(entry: BacklogEntry): string {
   return entry.text || entry.choices?.map(choice => choice.text).join(' / ') || ''
 }
 
-function formatBacklogTime(timestamp: number): string {
-  const date = new Date(timestamp)
-  if (Number.isNaN(date.getTime())) {
-    return ''
-  }
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+function formatBacklogGameTime(gameTimeMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(gameTimeMs / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function formatBacklogGameTimeDateTime(gameTimeMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(gameTimeMs / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return `PT${hours}H${minutes}M${seconds}S`
+}
+
+function formatBacklogRecordedAt(recordedAt: number): string | undefined {
+  const date = new Date(recordedAt)
+  return Number.isNaN(date.getTime()) ? undefined : date.toLocaleString()
 }

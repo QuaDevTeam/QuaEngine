@@ -16,6 +16,7 @@ import {
 
 describe('@quajs/plugin-backlog', () => {
   afterEach(async () => {
+    vi.useRealTimers()
     QuaEngine.resetInstance()
   })
 
@@ -63,6 +64,24 @@ describe('@quajs/plugin-backlog', () => {
     })
     expect(entry.checkpointId).toBeTruthy()
     expect(engine.getCheckpoint(entry.checkpointId!)).toBeTruthy()
+  })
+
+  it('records game playtime and real-world time on entries', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    const engine = createEngine()
+    engine.use(new BacklogPlugin())
+    await engine.init()
+    vi.spyOn(engine, 'getPlaytimeMs').mockReturnValue(123456)
+
+    await engine.showDialogue({ text: 'Timed line' })
+
+    const entry = getBacklogProjection(engine).entries[0]
+    expect(entry).toMatchObject({
+      text: 'Timed line',
+      gameTimeMs: 123456,
+      recordedAt: Date.parse('2026-01-01T00:00:00.000Z'),
+    })
   })
 
   it('supports project-wide rewindable backlog defaults', async () => {
