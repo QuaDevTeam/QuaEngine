@@ -537,7 +537,7 @@ function renderGalleryLightbox(input: {
     ? entry.contents.find(item => item.id === input.contentId) || entry.contents[0]
     : entry.contents[0]
   const asset = resolveGalleryContentAsset(content) || resolveGalleryEntryPreviewAsset(entry)
-  if (!asset) {
+  if (!content && !asset) {
     return null
   }
   return h('div', {
@@ -557,16 +557,34 @@ function renderGalleryLightbox(input: {
         onClick: input.onClose,
       }, 'Close'),
       h('div', { class: 'qua-gallery-lightbox-media' }, [
-        h(GalleryAssetFrame, {
-          asset,
-          poster: (content && 'poster' in content ? content.poster : undefined) || undefined,
-          alt: content?.title || entry.title,
-          variant: 'detail',
-        }),
+        renderGalleryLightboxContent(entry, content, asset),
       ]),
-      h('figcaption', { class: 'qua-gallery-lightbox-caption' }, entry.title),
+      h('figcaption', { class: 'qua-gallery-lightbox-caption' }, content?.title || entry.title),
     ]),
   ])
+}
+
+function renderGalleryLightboxContent(
+  entry: GalleryEntryProjectionItem,
+  content: GalleryContentBlock | undefined,
+  asset: ReturnType<typeof resolveGalleryContentAsset> | undefined,
+): VNode | VNode[] | null {
+  if (asset) {
+    return h(GalleryAssetFrame, {
+      asset,
+      poster: (content && 'poster' in content ? content.poster : undefined) || undefined,
+      alt: content?.title || entry.title,
+      variant: 'detail',
+    })
+  }
+  if (content?.kind === 'text') {
+    return h('p', { class: 'qua-gallery-lightbox-text qua-gallery-content-text' }, (content as GalleryTextContentBlock).text)
+  }
+  if (content) {
+    const payload = 'data' in content ? (content as GalleryCustomContentBlock).data : content
+    return h('pre', { class: 'qua-gallery-lightbox-custom qua-gallery-content-custom' }, JSON.stringify(payload, null, 2))
+  }
+  return null
 }
 
 function renderGalleryDetail(input: {

@@ -1111,6 +1111,33 @@ describe('@quajs/renderer-web', () => {
     await renderer.unmount()
   })
 
+  it('renders text gallery content in the lightbox', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        plugins: {
+          [GALLERY_PLUGIN_ID]: galleryProjection(),
+        },
+      }),
+    })
+
+    await renderer.mount()
+    root.querySelector<HTMLButtonElement>('[data-gallery-entry-id="cg.sunset"]')!.click()
+    await flushDom()
+
+    expect(root.querySelector('.qua-gallery-lightbox')).not.toBeNull()
+    expect(root.querySelector('.qua-gallery-lightbox-media')?.textContent).toContain('Sunset CG')
+    expect(root.querySelector('.qua-gallery-lightbox-caption')?.textContent).toBe('Sunset Note')
+
+    await renderer.unmount()
+  })
+
   it('renders achievement board and toast UI and emits achievement plugin intents', async () => {
     const pipeline = new Pipeline()
     const received: unknown[] = []
@@ -3466,6 +3493,7 @@ function galleryProjection(): GalleryProjection {
         contents: [{
           id: 'cg.sunset.text',
           kind: 'text',
+          title: 'Sunset Note',
           text: 'Sunset CG',
         }],
         unlocked: true,

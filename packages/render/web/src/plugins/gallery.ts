@@ -508,7 +508,7 @@ function renderGalleryLightbox(
     ? entry.contents.find(item => item.id === lightbox.contentId) || entry.contents[0]
     : entry.contents[0]
   const asset = resolveGalleryContentAsset(content) || resolveGalleryEntryPreviewAsset(entry)
-  if (!asset) {
+  if (!content && !asset) {
     return undefined
   }
 
@@ -540,26 +540,53 @@ function renderGalleryLightbox(
 
   const media = context.document.createElement('div')
   media.className = 'qua-gallery-lightbox-media'
-  media.append(renderGalleryMediaElement(context, mediaElementTagForAsset(asset), {
-    className: [
-      'qua-gallery-lightbox-asset',
-      `qua-gallery-lightbox-asset--${asset.type}`,
-    ].join(' '),
-    asset,
-    poster: content && 'poster' in content ? content.poster : undefined,
-    controls: true,
-    playsInline: true,
-    muted: false,
-    alt: content?.title || entry.title,
-  }))
+  media.append(renderGalleryLightboxContent(context, entry, content, asset))
 
   const caption = context.document.createElement('figcaption')
   caption.className = 'qua-gallery-lightbox-caption'
-  caption.textContent = entry.title
+  caption.textContent = content?.title || entry.title
 
   frame.append(close, media, caption)
   overlay.append(frame)
   return overlay
+}
+
+function renderGalleryLightboxContent(
+  context: QuaWebDomLayerContext,
+  entry: GalleryEntryProjectionItem,
+  content: GalleryContentBlock | undefined,
+  asset: GalleryAssetRef | undefined,
+): Node {
+  if (asset) {
+    return renderGalleryMediaElement(context, mediaElementTagForAsset(asset), {
+      className: [
+        'qua-gallery-lightbox-asset',
+        `qua-gallery-lightbox-asset--${asset.type}`,
+      ].join(' '),
+      asset,
+      poster: content && 'poster' in content ? content.poster : undefined,
+      controls: true,
+      playsInline: true,
+      muted: false,
+      alt: content?.title || entry.title,
+    })
+  }
+
+  if (content?.kind === 'text') {
+    const text = context.document.createElement('p')
+    text.className = 'qua-gallery-lightbox-text qua-gallery-content-text'
+    text.textContent = (content as GalleryTextContentBlock).text
+    return text
+  }
+
+  if (content) {
+    const custom = context.document.createElement('pre')
+    custom.className = 'qua-gallery-lightbox-custom qua-gallery-content-custom'
+    custom.textContent = JSON.stringify('data' in content ? (content as GalleryCustomContentBlock).data : content, null, 2)
+    return custom
+  }
+
+  return renderGalleryEmptyState(context, 'No content')
 }
 
 function renderGalleryDetailPane(context: QuaWebDomLayerContext, model: GalleryProjectionModel): Node {

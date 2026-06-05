@@ -315,6 +315,27 @@ describe('@quajs/renderer-vue', () => {
     ])
   })
 
+  it('renders text gallery content in the lightbox', async () => {
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        plugins: {
+          [GALLERY_PLUGIN_ID]: galleryProjection(),
+        },
+      }),
+    })
+
+    await flushVue()
+    host.el.querySelector<HTMLButtonElement>('[data-gallery-entry-id="cg.sunset"]')!.click()
+    await flushVue()
+
+    expect(host.el.querySelector('.qua-gallery-lightbox')).not.toBeNull()
+    expect(host.el.querySelector('.qua-gallery-lightbox-media')?.textContent).toContain('Sunset CG')
+    expect(host.el.querySelector('.qua-gallery-lightbox-caption')?.textContent).toBe('Sunset Note')
+  })
+
   it('projects achievement board and toast UI and emits achievement plugin intents', async () => {
     const pipeline = new Pipeline()
     const received: unknown[] = []
@@ -2289,6 +2310,7 @@ function galleryProjection(): GalleryProjection {
         contents: [{
           id: 'cg.sunset.text',
           kind: 'text',
+          title: 'Sunset Note',
           text: 'Sunset CG',
         }],
         unlocked: true,
