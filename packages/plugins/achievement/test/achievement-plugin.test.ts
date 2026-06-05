@@ -129,12 +129,23 @@ describe('@quajs/plugin-achievement', () => {
 
     await resetAchievementProfileWithEngine(engine)
     await setAchievementNotificationModeWithEngine(engine, 'toast')
-    await unlockAchievementWithEngine(engine, 'story.first-step', { source: 'toast' })
+    await unlockAchievementWithEngine(engine, 'story.first-step', {
+      source: 'toast',
+      notification: {
+        mode: 'toast',
+        overlayStack: 'achievement-toast',
+        stackPriority: 350,
+        zIndex: 9,
+      },
+    })
 
     expect(getAchievementProjection(engine).notifications).toEqual([
       expect.objectContaining({
         achievementId: 'story.first-step',
         mode: 'toast',
+        overlayStack: 'achievement-toast',
+        stackPriority: 350,
+        zIndex: 9,
       }),
     ])
     expect(getUiOverlayHostProjection(engine)).toEqual(expect.objectContaining({
@@ -208,11 +219,17 @@ describe('@quajs/plugin-achievement', () => {
     await openAchievementBoardWithEngine(engine, {
       groupId: 'main',
       achievementId: 'story.first-step',
+      overlayStack: 'collection',
+      stackPriority: 185,
+      zIndex: 11,
     })
 
     const projection = getAchievementProjection(engine)
     expect(engine.getCurrentSceneName()).toBe(ACHIEVEMENT_SCENE_ID)
     expect(projection.sceneActive).toBe(true)
+    expect(projection.overlayStack).toBe('collection')
+    expect(projection.stackPriority).toBe(185)
+    expect(projection.zIndex).toBe(11)
     expect(projection.returnCheckpointId).toBeTruthy()
     expect(engine.getCheckpoint(projection.returnCheckpointId!)).toBeTruthy()
 
@@ -295,12 +312,20 @@ describe('@quajs/plugin-achievement', () => {
     await openAchievementBoardWithEngine(engine, {
       groupId: 'main',
       achievementId: 'story.first-step',
+      overlayStack: 'collection',
+      stackPriority: 185,
+      zIndex: 11,
     })
     await engine.quickSave({}, { preview: { mode: 'disabled' } })
     await engine.quickLoad()
 
     expect(engine.getCurrentSceneName()).toBe(ACHIEVEMENT_SCENE_ID)
-    expect(getAchievementProjection(engine).sceneActive).toBe(true)
+    expect(getAchievementProjection(engine)).toMatchObject({
+      sceneActive: true,
+      overlayStack: 'collection',
+      stackPriority: 185,
+      zIndex: 11,
+    })
 
     await emitAchievementRenderToLogic(engine.getPipeline(), AchievementRenderToLogicEvents.SELECT_ACHIEVEMENT_REQUEST, {
       achievementId: 'cg.master',

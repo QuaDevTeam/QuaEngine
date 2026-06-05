@@ -88,8 +88,8 @@ const DEFAULT_KEYBOARD_BINDINGS: readonly CocosRendererInputKeyboardBinding[] = 
   { source: 'keyboard', code: 'Enter', command: 'advance' },
   { source: 'keyboard', code: 'Space', command: 'advance' },
   { source: 'keyboard', code: ' ', command: 'advance' },
-  { source: 'keyboard', code: 'ArrowLeft', command: 'advance' },
   { source: 'keyboard', code: 'ArrowRight', command: 'advance' },
+  { source: 'keyboard', code: 'ArrowDown', command: 'advance' },
   { source: 'keyboard', code: 'PageDown', command: 'advance' },
   { source: 'keyboard', code: 'ControlLeft', command: 'skip:start', phase: 'press' },
   { source: 'keyboard', code: 'ControlLeft', command: 'skip:stop', phase: 'release' },
@@ -99,7 +99,6 @@ const DEFAULT_KEYBOARD_BINDINGS: readonly CocosRendererInputKeyboardBinding[] = 
   { source: 'keyboard', code: 'KeyF', command: 'fastForward:stop', phase: 'release' },
   { source: 'keyboard', code: 'KeyA', command: 'auto:toggle' },
   { source: 'keyboard', code: 'ArrowUp', command: 'choice:previous' },
-  { source: 'keyboard', code: 'ArrowDown', command: 'choice:next' },
   { source: 'keyboard', code: 'Escape', command: 'ui:cancel' },
 ]
 
@@ -343,6 +342,10 @@ class CocosInputController {
       case 'advance':
         if (!viewAllowsDialogueChrome(this.context.getViewState()))
           return
+        if (source === 'cocos:keyboard:ArrowDown' && this.context.getViewState().choices.some(choice => choice.enabled)) {
+          this.focusChoice(1)
+          return
+        }
         await actions.advance(source)
         break
       case 'auto:start':

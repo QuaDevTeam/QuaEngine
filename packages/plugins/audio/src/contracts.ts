@@ -1,4 +1,5 @@
 import type { Pipeline, PipelineContext } from '@quajs/pipeline'
+import type { AnimationTimingFunction } from '@quajs/render-core'
 
 export const AUDIO_PLUGIN_ID = 'audio' as const
 
@@ -23,7 +24,7 @@ export type AudioEqBandType
 export interface AudioAutomationPoint {
   at: number
   value: number
-  easing?: string
+  easing?: AnimationTimingFunction
 }
 
 export interface AudioAutomationCurve {

@@ -80,7 +80,8 @@
 .qua-stage-scene,
 .qua-stage-scene-content,
 .qua-stage-subject,
-.qua-stage-plane {
+.qua-stage-plane,
+.qua-stage-overlay {
   position: absolute;
   inset: 0;
   overflow: clip;
@@ -103,15 +104,20 @@
 .qua-overlay-layer,
 .qua-settings-layer,
 .qua-backlog-layer,
+.qua-gallery-layer,
+.qua-achievement-layer,
+.qua-achievement-toast-layer,
 .qua-screen-plane {
   position: absolute;
   inset: 0;
 }
 
+.qua-stage-overlay,
 .qua-screen-plane {
   pointer-events: none;
 }
 
+.qua-stage-overlay > *,
 .qua-screen-plane > * {
   pointer-events: auto;
 }
@@ -188,8 +194,8 @@
   pointer-events: none;
   will-change: transform, opacity;
   transition:
-    opacity var(--qua-character-exit-duration, 180ms) ease,
-    transform var(--qua-character-enter-duration, 220ms) ease;
+    opacity var(--qua-character-exit-duration, 180ms) var(--qua-character-exit-easing, ease),
+    transform var(--qua-character-move-duration, 220ms) var(--qua-character-move-easing, ease);
 }
 
 .qua-character.is-hidden {
@@ -223,13 +229,13 @@
 }
 
 .qua-character[data-character-presence='enter'][data-character-visible='true'] {
-  animation: qua-character-fade-in var(--qua-character-enter-duration, 220ms) ease both;
+  animation: qua-character-fade-in var(--qua-character-enter-duration, 220ms) var(--qua-character-enter-easing, ease) both;
 }
 
 .qua-character[data-character-presence='exit'] {
   opacity: 0;
   pointer-events: none;
-  animation: qua-character-fade-out var(--qua-character-exit-duration, 180ms) ease both;
+  animation: qua-character-fade-out var(--qua-character-exit-duration, 180ms) var(--qua-character-exit-easing, ease) both;
 }
 
 .qua-character-layer[data-character-transitions='disabled'] .qua-character {
@@ -248,6 +254,18 @@
   position: absolute;
 }
 
+.qua-dialogue-box {
+  left: 5%;
+  right: 5%;
+  bottom: 5%;
+  min-height: 132px;
+  padding: 16px 20px;
+  border: 1px solid rgb(0 0 0 / 28%);
+  border-radius: 4px;
+  background: rgb(255 255 255 / 92%);
+  color: #111;
+}
+
 .qua-dialogue-text {
   margin: 0;
   white-space: pre-wrap;
@@ -262,7 +280,136 @@
 }
 
 .qua-choice-button {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid rgb(0 0 0 / 28%);
+  border-radius: 4px;
+  background: #fff;
+  color: #111;
   font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.qua-choice-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.qua-choice-panel {
+  left: 50%;
+  bottom: calc(5% + 164px);
+  display: grid;
+  width: min(640px, calc(100% - 32px));
+  max-height: calc(90% - 196px);
+  gap: 8px;
+  transform: translateX(-50%);
+}
+
+.qua-choice-list {
+  display: grid;
+  gap: 8px;
+}
+
+.qua-ui-overlay,
+.qua-menu-overlay,
+.qua-save-load-panel,
+.qua-confirm-overlay,
+.qua-settings-panel,
+.qua-backlog-panel {
+  inset: 5%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 16px;
+  padding: 20px;
+  overflow: auto;
+  border: 1px solid rgb(0 0 0 / 28%);
+  border-radius: 4px;
+  background: rgb(255 255 255 / 94%);
+  color: #111;
+}
+
+.qua-ui-panel-header,
+.qua-backlog-header,
+.qua-settings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.qua-ui-panel-header.is-heading-hidden {
+  justify-content: flex-end;
+}
+
+.qua-ui-panel-heading {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.qua-ui-panel-title,
+.qua-ui-panel-subtitle,
+.qua-ui-overlay-description,
+.qua-confirm-description {
+  margin: 0;
+}
+
+.qua-ui-panel-title {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.qua-ui-action-button,
+.qua-save-slot-button,
+.qua-backlog-entry-main,
+.qua-backlog-entry-voice,
+.qua-backlog-close,
+.qua-settings-close {
+  font: inherit;
+}
+
+.qua-ui-action-button {
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid rgb(0 0 0 / 28%);
+  border-radius: 4px;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+}
+
+.qua-ui-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.qua-ui-panel-close {
+  flex: 0 0 auto;
+}
+
+.qua-menu-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.qua-menu-action--continue {
+  grid-column: 1 / -1;
+}
+
+.qua-confirm-actions,
+.qua-menu-footer,
+.qua-save-load-footer,
+.qua-settings-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.qua-confirm-actions {
+  justify-content: flex-end;
 }
 
 .qua-settings-form,

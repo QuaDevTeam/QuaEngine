@@ -1,6 +1,7 @@
 import type { CocosHostNode } from '@quajs/cocos-host'
 import type { SettingsProjection } from '@quajs/plugin-settings/contracts'
 import type { SettingsFieldFormProjection, SettingsScopeFormProjection } from '@quajs/plugin-settings/form'
+import type { ViewUiOverlayProjection } from '@quajs/render-core'
 import type { CocosRendererPluginContext } from '../types'
 import {
   SETTINGS_PLUGIN_ID,
@@ -17,7 +18,8 @@ import {
   settingsValuesEqual,
   stringifySettingsInputValue,
 } from '@quajs/plugin-settings/form'
-import { clientPointToStageLogical, LogicToRenderEvents } from '@quajs/render-core'
+import { clientPointToStageLogical, DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents } from '@quajs/render-core'
+import { resolveCocosUiOverlayPlacement, resolveCocosUiOverlayZIndex } from '../overlay-placement'
 import { applyCocosUiControlSkin } from '../ui-skin'
 import { defineCocosRendererPlugin } from './core'
 
@@ -56,18 +58,32 @@ export function createSettingsCocosRendererPlugin(options: SettingsCocosRenderer
 export const settingsCocosRendererPlugin = createSettingsCocosRendererPlugin()
 
 async function renderSettingsLayer(context: CocosRendererPluginContext, elementId: string): Promise<void> {
-  const layer = context.cocos.getLayerNode('settings', 'settings-layer', 100)
+  const overlay = context.getViewState().ui.overlays?.[elementId] as ViewUiOverlayProjection | undefined
+  const layer = context.cocos.getLayerNode('settings', 'settings-layer', resolveCocosUiOverlayZIndex(overlay, {
+    overlayStack: 'overlay',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.settings,
+  }))
   context.cocos.host.nodes.clearChildren(layer)
   context.cocos.releaseLayerResources('settings')
+  const overlayPlacement = resolveCocosUiOverlayPlacement(overlay, {
+    overlayStack: 'overlay',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.settings,
+  })
 
   const projection = getSettingsProjectionFromView(context)
   if (!projection || !isSettingsOverlayVisible(context, elementId)) {
     context.cocos.host.nodes.setNodeMetadata?.(layer, {
       plugin: 'settings',
       visible: false,
+      overlayPlacement,
     })
     return
   }
+  context.cocos.host.nodes.setNodeMetadata?.(layer, {
+    plugin: 'settings',
+    visible: true,
+    overlayPlacement,
+  })
 
   const form = createSettingsFormProjection(projection)
   const safeArea = context.cocos.getStageLayout().safeArea
@@ -89,6 +105,7 @@ async function renderSettingsLayer(context: CocosRendererPluginContext, elementI
   })
   context.cocos.host.nodes.setNodeMetadata?.(panel, {
     plugin: 'settings',
+    overlayPlacement,
     settingsAction: 'panel',
     elementId,
     revision: form.revision,

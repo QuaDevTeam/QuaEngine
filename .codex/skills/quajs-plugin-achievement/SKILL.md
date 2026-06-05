@@ -84,7 +84,11 @@ const unlocked = achievement.hasAchievement('first-contact')
 const profile = achievement.getProfile()
 const projection = achievement.getProjection()
 
-await achievement.openBoard({ groupId: 'main' })
+await achievement.openBoard({
+  groupId: 'main',
+  overlayStack: 'overlay',
+  zIndex: 80,
+})
 ```
 
 Runtime package unload removes definitions owned by the package but preserves profile records.
@@ -109,6 +113,8 @@ Decorators:
 ## Renderer Boundary
 
 Achievement board selection, filter updates, close requests, and notification dismissal are render-to-logic intents. The plugin updates engine-owned projection; renderer components do not decide unlock/progress state.
+
+Achievement overlay placement is plugin projection metadata. `AchievementOpenOptions` and `AchievementProjection` accept `overlayStack`, `stackPriority`, and `zIndex`; the board defaults to `overlay` stack with achievement board zIndex `80`. `AchievementNotificationOptions` and `AchievementNotificationProjection` also accept placement fields; toast notifications default to `toast` stack with zIndex `0`. Web-family renderers should render board and toast as separate official overlay roots, and Cocos should keep board/toast in separate layers so the two stacks do not mix.
 
 ## Settings
 

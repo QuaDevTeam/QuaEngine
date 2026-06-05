@@ -51,10 +51,19 @@ await backlog.setPolicy({
 
 await backlog.setVisible(true, {
   source: 'menu',
+  overlayStack: 'overlay',
+  zIndex: 50,
   scene: {
     id: 'backlog',
     presentation: 'overlay',
-    overlay: { skinId: 'demo-menu', defaultChrome: false, hideHud: true, hideDialogue: true },
+    overlay: {
+      skinId: 'demo-menu',
+      defaultChrome: false,
+      hideHud: true,
+      hideDialogue: true,
+      overlayStack: 'overlay',
+      zIndex: 50,
+    },
   },
 })
 
@@ -93,6 +102,8 @@ Decorators:
 Renderer UI emits open, close, jump, and voice replay requests through backlog render-to-logic events. It does not decide whether an entry is rewindable; it reads `entry.rewindable` from projection.
 
 Backlog UI scenes can use `overlay.defaultChrome: false` when the scene should not mount the renderer's default dialogue, choices, HUD, or quick-menu chrome behind the backlog surface.
+
+Backlog UI placement is engine/plugin projection metadata. `BacklogUiProjection` and backlog scene `overlay` accept `overlayStack`, `stackPriority`, and `zIndex`; the default placement is `overlay` stack with backlog zIndex `50`. Renderers must project these fields to their official overlay root instead of choosing backlog layer order locally.
 
 ## Settings
 

@@ -35,6 +35,12 @@ import {
 } from '@quajs/render-core'
 import { applyCocosUiControlSkin } from './ui-skin'
 import {
+  compareCocosUiOverlayEntries,
+  defaultCocosUiOverlayPlacement,
+  resolveCocosUiOverlayPlacement,
+  resolveCocosUiOverlayZIndex,
+} from './overlay-placement'
+import {
   choiceText,
   normalizeBackgroundAssetType,
   positionTransform,
@@ -253,21 +259,29 @@ export async function renderCocosAudio(context: CocosRendererHostContext, option
 }
 
 export async function renderCocosUi(context: CocosRendererHostContext, options: RenderCocosUiOptions = {}): Promise<void> {
-  const layer = context.getLayerNode('ui', 'ui-layer', 90)
+  const allOverlays = context.getViewState().ui.overlays || {}
+  const handled = new Set(options.handledElementIds || [])
+  const overlayEntries = Object.entries(allOverlays)
+    .filter(([elementId]) => !handled.has(elementId))
+    .sort(compareCocosUiOverlayEntries)
+  const topEntry = overlayEntries[overlayEntries.length - 1]
+  const layer = context.getLayerNode(
+    'ui',
+    'ui-layer',
+    resolveCocosUiOverlayZIndex(topEntry?.[1], defaultCocosUiOverlayPlacement(topEntry?.[0])),
+  )
   context.host.nodes.clearChildren(layer)
   context.releaseLayerResources('ui')
-  const overlays = context.getViewState().ui.overlays || {}
-  const activeScene = resolveActiveUiSceneProjection(overlays)
+  const activeScene = resolveActiveUiSceneProjection(Object.fromEntries(overlayEntries), defaultCocosUiOverlayPlacement)
+  const layerPlacement = resolveCocosUiOverlayPlacement(topEntry?.[1], defaultCocosUiOverlayPlacement(topEntry?.[0]))
   context.host.nodes.setNodeMetadata?.(layer, {
+    overlayPlacement: layerPlacement,
     uiScene: activeScene,
     defaultChrome: activeScene?.overlay?.defaultChrome,
     hideHud: activeScene?.overlay?.hideHud,
     hideDialogue: activeScene?.overlay?.hideDialogue,
   })
-  const handled = new Set(options.handledElementIds || [])
-  for (const [elementId, overlay] of Object.entries(overlays)) {
-    if (handled.has(elementId))
-      continue
+  for (const [elementId, overlay] of overlayEntries) {
     const projected = projectUiOverlay(
       overlay as unknown as Record<string, unknown>,
       elementId,
@@ -276,12 +290,20 @@ export async function renderCocosUi(context: CocosRendererHostContext, options: 
     )
     const node = context.host.nodes.createNode('ui-overlay', { parent: layer, name: elementId })
     context.host.nodes.setNodeVisible(node, projected.visible !== false)
-    context.host.nodes.setNodeTransform(node, overlayTransform(context, projected))
+    context.host.nodes.setNodeTransform(node, {
+      ...overlayTransform(context, projected),
+      zIndex: resolveCocosUiOverlayZIndex(overlay, defaultCocosUiOverlayPlacement(elementId)),
+    })
     context.host.nodes.setNodeControl?.(node, {
       kind: 'panel',
       label: stringValue(projected.title, titleFromField(elementId)),
     })
-    context.host.nodes.setNodeMetadata?.(node, { elementId, overlay: projected, uiAction: 'panel' })
+    context.host.nodes.setNodeMetadata?.(node, {
+      elementId,
+      overlay: projected,
+      overlayPlacement: resolveCocosUiOverlayPlacement(overlay, defaultCocosUiOverlayPlacement(elementId)),
+      uiAction: 'panel',
+    })
     await applyCocosUiControlSkin(context, node, {
       layerId: 'ui',
       resourceKey: `overlay:${elementId}`,

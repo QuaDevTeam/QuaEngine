@@ -31,9 +31,17 @@ await showWithEngine(engine, 'Yuki', {
 await expressionWithEngine(engine, 'Yuki', 'surprised')
 await moveWithEngine(engine, 'Yuki', { x: 1100, y: 640, scale: 1.05 })
 await hideWithEngine(engine, 'Yuki')
+
+await stageCharactersWithEngine(engine, ['Yuki', 'Mara', 'Unit-7'], {
+  y: 650,
+  spacing: 340,
+  autoScale: false,
+})
 ```
 
 Character positions and motion values are logical stage units.
+
+Use `stageCharactersWithEngine` when changing the visible cast and you want engine-owned standing positions. It defaults to position-only staging and does not write scale. Set `autoScale: true` only when the story intentionally wants count-based scale, or pass explicit `positions`/`scaleByCount` values.
 
 Character identity can be registered with `registerCharacter(s)` profiles. String refs resolve by `id` first, then by a unique `displayName`/`name`/`alias`; ambiguous display names must use an explicit id, typically through `@Speaker(id)` in QuaScript. Profiles may provide `speaker`, `speakerStyle`, `spriteBase`, `spriteManifest`, `sprites`, and `expressions` so sprite short keys such as `sad` can resolve before renderer projection.
 
@@ -69,7 +77,9 @@ Decorators:
 - `@CharacterEnter(character?, direction, duration?, options?, wait?)`
 - `@CharacterExit(character?, direction, duration?, options?, wait?)`
 
-`CharacterEnter` and `CharacterExit` directions are commonly `left`, `right`, `top`, and `bottom`. Character animation decorators use `@quajs/plugin-animation`.
+`CharacterEnter` and `CharacterExit` directions are commonly `left`, `right`, `top`, and `bottom`. Character animation decorators use `@quajs/plugin-animation`, and motion options may include `easing` timing functions such as `easeOutCubic`, `cubic-out`, `ease-in-out`, or `cubic-bezier(...)`.
+
+Renderer character presence transitions are fade-in/fade-out by default. Web/Vue transition options support `enterDurationMs`, `exitDurationMs`, `moveDurationMs`, `enterEasing`, `exitEasing`, and `moveEasing`; keep these as projection parameters, not renderer-owned game state.
 
 ## Sprite Manifests
 

@@ -1,6 +1,6 @@
 import type { SceneChangePayload, SceneTransitionIntent } from '@quajs/render-core'
 import type { CocosRendererPluginContext } from '../types'
-import { LogicToRenderEvents, RenderToLogicEvents } from '@quajs/render-core'
+import { easeProgress, LogicToRenderEvents, RenderToLogicEvents } from '@quajs/render-core'
 import { defineCocosRendererPlugin } from './core'
 
 const DEFAULT_SCENE_TRANSITION_DURATION = 320
@@ -135,20 +135,6 @@ function transitionProgress(transition: SceneTransitionIntent & { duration: numb
   if (transition.duration <= 0)
     return 1
   return Math.min(1, Math.max(0, (now - startedAt) / transition.duration))
-}
-
-function easeProgress(progress: number, easing: string | undefined): number {
-  switch (easing) {
-    case 'ease-in':
-      return progress * progress
-    case 'ease-out':
-      return 1 - (1 - progress) * (1 - progress)
-    case 'ease-in-out':
-      return progress < 0.5 ? 2 * progress * progress : 1 - (-2 * progress + 2) ** 2 / 2
-    case 'linear':
-    default:
-      return progress
-  }
 }
 
 function positiveNumber(value: number | undefined, fallback: number): number {

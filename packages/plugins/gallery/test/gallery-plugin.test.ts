@@ -247,11 +247,17 @@ describe('@quajs/plugin-gallery', () => {
     await openGallerySceneWithEngine(engine, {
       catalogId: 'cg',
       entryId: 'cg.sunset',
+      overlayStack: 'archive',
+      stackPriority: 180,
+      zIndex: 7,
     })
 
     const projection = getGalleryProjection(engine)
     expect(engine.getCurrentSceneName()).toBe(GALLERY_SCENE_ID)
     expect(projection.sceneActive).toBe(true)
+    expect(projection.overlayStack).toBe('archive')
+    expect(projection.stackPriority).toBe(180)
+    expect(projection.zIndex).toBe(7)
     expect(projection.returnCheckpointId).toBeTruthy()
     expect(engine.getCheckpoint(projection.returnCheckpointId!)).toBeTruthy()
 
@@ -273,12 +279,20 @@ describe('@quajs/plugin-gallery', () => {
     await openGallerySceneWithEngine(engine, {
       catalogId: 'cg',
       entryId: 'cg.sunset',
+      overlayStack: 'archive',
+      stackPriority: 180,
+      zIndex: 7,
     })
     await engine.quickSave({}, { preview: { mode: 'disabled' } })
 
     await engine.quickLoad()
     expect(engine.getCurrentSceneName()).toBe(GALLERY_SCENE_ID)
-    expect(getGalleryProjection(engine).sceneActive).toBe(true)
+    expect(getGalleryProjection(engine)).toMatchObject({
+      sceneActive: true,
+      overlayStack: 'archive',
+      stackPriority: 180,
+      zIndex: 7,
+    })
 
     await emitGalleryRenderToLogic(engine.getPipeline(), GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST, {
       entryId: 'cg.night',

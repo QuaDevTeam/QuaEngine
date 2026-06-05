@@ -223,7 +223,7 @@ function isNumericRecord(value: unknown): value is Readonly<Record<string, numbe
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
-function easeProgress(progress: number, easing: string | undefined): number {
+export function easeProgress(progress: number, easing: string | undefined): number {
   const clamped = Math.max(0, Math.min(1, progress))
   switch (easing) {
     case 'linear':
@@ -231,24 +231,36 @@ function easeProgress(progress: number, easing: string | undefined): number {
     case 'ease':
       return cubicBezier(clamped, 0.25, 0.1, 0.25, 1)
     case 'ease-in':
+    case 'easeIn':
       return clamped * clamped
     case 'ease-out':
+    case 'easeOut':
       return 1 - (1 - clamped) * (1 - clamped)
     case 'ease-in-out':
+    case 'easeInOut':
       return clamped < 0.5
         ? 2 * clamped * clamped
         : 1 - ((-2 * clamped + 2) ** 2) / 2
     case 'quad-in':
+    case 'quadIn':
       return clamped * clamped
     case 'quad-out':
+    case 'quadOut':
       return 1 - (1 - clamped) * (1 - clamped)
     case 'quad-in-out':
+    case 'quadInOut':
       return clamped < 0.5 ? 2 * clamped * clamped : 1 - ((-2 * clamped + 2) ** 2) / 2
     case 'cubic-in':
+    case 'cubicIn':
+    case 'easeInCubic':
       return clamped ** 3
     case 'cubic-out':
+    case 'cubicOut':
+    case 'easeOutCubic':
       return 1 - (1 - clamped) ** 3
     case 'cubic-in-out':
+    case 'cubicInOut':
+    case 'easeInOutCubic':
       return clamped < 0.5 ? 4 * clamped ** 3 : 1 - ((-2 * clamped + 2) ** 3) / 2
     default:
       return parseCubicBezier(easing, clamped) ?? clamped

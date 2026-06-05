@@ -1,4 +1,4 @@
-import type { AnimationInterpolation, AnimationTime } from '@quajs/render-core'
+import type { AnimationInterpolation, AnimationTime, AnimationTimingFunction } from '@quajs/render-core'
 import type { AnimationKeyframe, AnimationTimeline } from './index'
 
 export interface VisualNovelMotionOptions {
@@ -15,7 +15,7 @@ export interface VisualNovelMotionOptions {
   intensity?: number
   opacityFrom?: number
   opacityTo?: number
-  easing?: string
+  easing?: AnimationTimingFunction
 }
 
 export interface ChoicesStaggerOptions extends VisualNovelMotionOptions {
@@ -241,6 +241,6 @@ function track(
   }
 }
 
-function key(at: AnimationTime, value: unknown, easing?: string): AnimationKeyframe {
+function key(at: AnimationTime, value: unknown, easing?: AnimationTimingFunction): AnimationKeyframe {
   return { at, value, easing }
 }

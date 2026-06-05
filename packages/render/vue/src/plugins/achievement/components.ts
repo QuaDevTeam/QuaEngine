@@ -13,6 +13,7 @@ import {
   ACHIEVEMENT_PLUGIN_ID,
   AchievementRenderToLogicEvents,
 } from '@quajs/plugin-achievement/contracts'
+import { compareResolvedOverlayStackPlacement, DEFAULT_UI_OVERLAY_Z_INDEXES, resolveOverlayStackPlacement } from '@quajs/render-core'
 import { runtimePackageCandidatesFromMetadata } from '@quajs/renderer-web'
 import {
   createAchievementProjectionModel,
@@ -22,6 +23,7 @@ import { useAssetUrl, usePluginProjection, useRendererActions, useUiControlSkin 
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
 import { dispatchVueRendererIntent } from '../shared/intent'
+import { createOverlayStackBinding } from '../shared/overlay'
 
 type AchievementAssetRef = NonNullable<AchievementProjectionItem['icon']>
 let QuaAchievementCard: Component
@@ -127,6 +129,7 @@ export const QuaAchievementToastLayer = defineComponent({
     const actions = useRendererActions()
     const projection = useAchievementProjection()
     const notifications = computed(() => projection.value?.notifications || [])
+    const sortedNotifications = computed(() => sortAchievementNotifications(notifications.value))
     const dismissTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
     watch(notifications, (next) => {
@@ -164,17 +167,24 @@ export const QuaAchievementToastLayer = defineComponent({
       if (!projection.value || notifications.value.length === 0) {
         return null
       }
+      const topNotification = sortedNotifications.value[sortedNotifications.value.length - 1]
+      const overlayStack = createOverlayStackBinding(topNotification, {
+        overlayStack: 'toast',
+        zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
+      })
 
       return h('div', {
         'class': 'qua-achievement-toast-layer',
         'data-qua-capture-role': 'overlay',
+        ...overlayStack.attrs,
+        'style': { pointerEvents: 'auto', ...overlayStack.style },
         'onClick': (event: Event) => event.stopPropagation(),
       }, slots.default?.({
         view: view.value,
         projection: projection.value,
-        notifications: notifications.value,
+        notifications: sortedNotifications.value,
         actions,
-      }) || notifications.value.map(notification =>
+      }) || sortedNotifications.value.map(notification =>
         renderAchievementToast({
           notification,
           renderer,
@@ -248,10 +258,16 @@ export const QuaAchievementBoardLayer = defineComponent({
       if (!achievement.value?.projection.sceneActive) {
         return null
       }
+      const overlayStack = createOverlayStackBinding(achievement.value.projection, {
+        overlayStack: 'overlay',
+        zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementBoard,
+      })
 
       return h('div', {
         'class': 'qua-achievement-layer',
         'data-qua-capture-role': 'overlay',
+        ...overlayStack.attrs,
+        'style': { pointerEvents: 'auto', ...overlayStack.style },
         'onClick': (event: Event) => event.stopPropagation(),
       }, slots.default?.({
         view: view.value,
@@ -279,13 +295,13 @@ export function createAchievementRendererPlugin(_options: AchievementRendererPlu
       {
         id: 'achievement-toast',
         order: 96,
-        plane: 'safe',
+        plane: 'overlay',
         component: QuaAchievementToastLayer,
       },
       {
         id: 'achievement-board',
         order: 98,
-        plane: 'safe',
+        plane: 'overlay',
         component: QuaAchievementBoardLayer,
       },
     ],
@@ -301,12 +317,18 @@ function renderAchievementToast(input: {
 }): VNode {
   const { notification, renderer, actions } = input
   const icon = resolveAchievementImageAsset(notification.icon)
+  const overlayStack = createOverlayStackBinding(notification, {
+    overlayStack: 'toast',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
+  })
   return h('button', {
     'class': 'qua-achievement-toast',
     'type': 'button',
     'data-achievement-notification-id': notification.id,
     'data-achievement-id': notification.achievementId,
     'data-qua-capture-role': 'overlay',
+    ...overlayStack.attrs,
+    'style': overlayStack.style,
     'onClick': () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST, {
       notificationId: notification.id,
     }), {
@@ -328,6 +350,23 @@ function renderAchievementToast(input: {
       ? h(AchievementToastAudio, { asset: notification.sound })
       : null,
   ])
+}
+
+function sortAchievementNotifications(
+  notifications: readonly AchievementNotificationProjection[],
+): AchievementNotificationProjection[] {
+  return [...notifications].sort((left, right) => compareResolvedOverlayStackPlacement(
+    resolveOverlayStackPlacement(left, {
+      overlayStack: 'toast',
+      zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
+    }),
+    resolveOverlayStackPlacement(right, {
+      overlayStack: 'toast',
+      zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
+    }),
+    left.id,
+    right.id,
+  ))
 }
 
 function renderAchievementBoardDefault(input: {

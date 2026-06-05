@@ -1,5 +1,5 @@
-import type { ViewCharacterProjection } from '@quajs/render-core'
-import { LogicToRenderEvents, projectCharacters } from '@quajs/render-core'
+import type { AnimationTimingFunction, ViewCharacterProjection } from '@quajs/render-core'
+import { easeProgress, LogicToRenderEvents, projectCharacters } from '@quajs/render-core'
 import { renderCocosCharacters } from '../projection'
 import { defineCocosRendererPlugin } from './core'
 
@@ -8,6 +8,8 @@ export interface CharacterCocosRendererPluginOptions {
     enabled?: boolean
     enterDurationMs?: number
     exitDurationMs?: number
+    enterEasing?: AnimationTimingFunction
+    exitEasing?: AnimationTimingFunction
   }
 }
 
@@ -69,6 +71,8 @@ interface ResolvedCharacterTransitionOptions {
   enabled: boolean
   enterDurationMs: number
   exitDurationMs: number
+  enterEasing: AnimationTimingFunction
+  exitEasing: AnimationTimingFunction
 }
 
 interface CharacterPresenceRecord {
@@ -137,18 +141,22 @@ function resolvePresenceCharacters(
       continue
     }
     phases.set(characterId, record.phase)
-    rendered.push(projectPresenceCharacter(record, progress))
+    rendered.push(projectPresenceCharacter(record, progress, transition))
   }
   return { characters: rendered, phases }
 }
 
-function projectPresenceCharacter(record: CharacterPresenceRecord, progress: number): ViewCharacterProjection {
+function projectPresenceCharacter(
+  record: CharacterPresenceRecord,
+  progress: number,
+  transition: ResolvedCharacterTransitionOptions,
+): ViewCharacterProjection {
   const baseOpacity = record.character.opacity ?? 1
   if (record.phase === 'enter') {
-    return { ...record.character, visible: true, opacity: baseOpacity * progress }
+    return { ...record.character, visible: true, opacity: baseOpacity * easeProgress(progress, transition.enterEasing) }
   }
   if (record.phase === 'exit') {
-    return { ...record.character, visible: true, opacity: baseOpacity * (1 - progress) }
+    return { ...record.character, visible: true, opacity: baseOpacity * (1 - easeProgress(progress, transition.exitEasing)) }
   }
   return record.character
 }
@@ -169,6 +177,8 @@ function resolveCharacterTransitionOptions(options: CharacterCocosRendererPlugin
       enabled: false,
       enterDurationMs: 0,
       exitDurationMs: 0,
+      enterEasing: 'linear',
+      exitEasing: 'linear',
     }
   }
   const config = typeof options === 'object' && options !== null ? options : undefined
@@ -176,9 +186,15 @@ function resolveCharacterTransitionOptions(options: CharacterCocosRendererPlugin
     enabled: config?.enabled !== false,
     enterDurationMs: positiveDuration(config?.enterDurationMs, 220),
     exitDurationMs: positiveDuration(config?.exitDurationMs, 180),
+    enterEasing: normalizeEasing(config?.enterEasing, 'linear'),
+    exitEasing: normalizeEasing(config?.exitEasing, 'linear'),
   }
 }
 
 function positiveDuration(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback
+}
+
+function normalizeEasing(value: unknown, fallback: AnimationTimingFunction): AnimationTimingFunction {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback
 }

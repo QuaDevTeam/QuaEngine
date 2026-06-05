@@ -68,6 +68,16 @@ export interface CharacterSpeakOptions {
 
 export interface CharacterShowOptions extends Omit<CharacterOptions, 'id' | 'name' | 'displayName' | 'aliases'> {}
 
+export interface CharacterStageOptions {
+  autoScale?: boolean
+  centerX?: number
+  y?: number
+  spacing?: number
+  scale?: number
+  scaleByCount?: Readonly<Record<number, number>>
+  positions?: readonly CharacterIntent['position'][]
+}
+
 let runtime: CharacterRuntimeOptions | undefined
 const characterProfiles = new Map<string, CharacterProfile>()
 
@@ -303,6 +313,25 @@ export async function moveWithEngine(
   await withEngine(engine, () => move(character, position))
 }
 
+export async function stageCharacters(
+  characters: readonly CharacterRef[],
+  options: CharacterStageOptions = {},
+): Promise<void> {
+  const engine = getEngine()
+  const positions = resolveStageCharacterPositions(engine, characters.length, options)
+  await Promise.all(characters.map((character, index) =>
+    move(character, positions[index]),
+  ))
+}
+
+export async function stageCharactersWithEngine(
+  engine: QuaEngineInterface,
+  characters: readonly CharacterRef[],
+  options?: CharacterStageOptions,
+): Promise<void> {
+  await withEngine(engine, () => stageCharacters(characters, options))
+}
+
 export async function expression(character: CharacterRef, nextExpression?: string): Promise<void> {
   await resolveCharacter(character).expression(nextExpression)
 }
@@ -398,6 +427,49 @@ function mergeMetadata(
     ...(defaults || {}),
     ...(next || {}),
   }
+}
+
+function resolveStageCharacterPositions(
+  engine: QuaEngineInterface,
+  count: number,
+  options: CharacterStageOptions,
+): CharacterIntent['position'][] {
+  if (count <= 0) {
+    return []
+  }
+  const layout = engine.getViewState().layout || { width: 1920, height: 1080 }
+  const centerX = finiteNumber(options.centerX, layout.width / 2)
+  const y = finiteNumber(options.y, Math.round(layout.height * 0.6))
+  const spacing = finiteNumber(options.spacing, Math.min(360, layout.width / Math.max(2, count + 1)))
+  const startX = centerX - spacing * (count - 1) / 2
+  const scale = options.scale ?? (options.autoScale ? resolveStageAutoScale(count, options.scaleByCount) : undefined)
+  return Array.from({ length: count }, (_, index) => ({
+    x: Math.round(startX + spacing * index),
+    y,
+    ...(scale === undefined ? {} : { scale }),
+    ...(options.positions?.[index] || {}),
+  }))
+}
+
+function resolveStageAutoScale(count: number, scaleByCount: Readonly<Record<number, number>> | undefined): number {
+  const explicit = scaleByCount?.[count]
+  if (typeof explicit === 'number' && Number.isFinite(explicit) && explicit > 0) {
+    return explicit
+  }
+  if (count <= 2) {
+    return 1
+  }
+  if (count === 3) {
+    return 0.96
+  }
+  if (count === 4) {
+    return 0.9
+  }
+  return 0.86
+}
+
+function finiteNumber(value: number | undefined, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
 function normalizeCharacterProfile(profile: CharacterProfile): CharacterProfile {

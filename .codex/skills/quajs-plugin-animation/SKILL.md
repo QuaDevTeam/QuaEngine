@@ -67,6 +67,8 @@ Common targets:
 
 Use `step` or discrete interpolation for non-continuous fields such as `fit`, `origin`, and `composition.blendMode`.
 
+Developer-facing animation timing functions accept common CSS-style names and QuaEngine aliases, including `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `quad-in/out/in-out`, `cubic-in/out/in-out`, camelCase aliases such as `easeOutCubic`, and `cubic-bezier(...)`. Use the same timing function strings in timeline keyframes, scene/background/audio/character motion helpers, and renderer character transition options.
+
 ## Reusable Animations
 
 ```ts

@@ -16,6 +16,7 @@ import type { GalleryProjectionModel } from '@quajs/renderer-web/plugins/gallery
 import type { PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
+import { DEFAULT_UI_OVERLAY_Z_INDEXES } from '@quajs/render-core'
 import { runtimePackageCandidatesFromMetadata } from '@quajs/renderer-web'
 import {
   createGalleryProjectionModel,
@@ -28,6 +29,7 @@ import { useAssetUrl, usePluginProjection, useRendererActions, useUiControlSkin 
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
 import { dispatchVueRendererIntent } from '../shared/intent'
+import { createOverlayStackBinding } from '../shared/overlay'
 
 export interface GalleryRendererPluginOptions {
   elementId?: string
@@ -88,10 +90,16 @@ export const QuaGalleryLayer = defineComponent({
         closeLightbox()
         return null
       }
+      const overlayStack = createOverlayStackBinding(gallery.value.projection, {
+        overlayStack: 'overlay',
+        zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.gallery,
+      })
 
       return h('div', {
         'class': 'qua-gallery-layer',
         'data-qua-capture-role': 'overlay',
+        ...overlayStack.attrs,
+        'style': { pointerEvents: 'auto', ...overlayStack.style },
         'onClick': (event: Event) => event.stopPropagation(),
       }, slots.default?.({
         view: view.value,
@@ -404,7 +412,7 @@ export function createGalleryRendererPlugin(options: GalleryRendererPluginOption
       slot: 'overlay',
       component: QuaGalleryLayer,
       order: 97,
-      plane: 'safe',
+      plane: 'overlay',
       props: { ...options },
     }],
   })

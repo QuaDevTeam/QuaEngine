@@ -237,19 +237,15 @@ export function sliceRichTextContent(content: RichTextContent, visibleCharacters
       : ''
   }
   if (!isRichTextDocument(content)) {
-    return Array.from(content).slice(0, visibleCharacters).join('')
+    return graphemes(content).slice(0, visibleCharacters).join('')
   }
 
   let remaining = visibleCharacters
-  const blocks: RichTextBlockProjection[] = []
-  for (const block of content.blocks) {
+  const blocks = content.blocks.map((block) => {
     const nextBlock = sliceRichTextBlock(block, remaining)
-    blocks.push(nextBlock)
     remaining -= getBlockTextLength(block)
-    if (remaining <= 0) {
-      break
-    }
-  }
+    return nextBlock
+  })
   return {
     ...content,
     blocks,
@@ -266,7 +262,7 @@ function sliceRichTextBlock(
     if (remaining <= 0) {
       break
     }
-    const chars = Array.from(span.text)
+    const chars = graphemes(span.text)
     const text = chars.slice(0, remaining).join('')
     if (text.length > 0) {
       spans.push({
@@ -311,7 +307,8 @@ function resolveVisibleCharacters(totalCharacters: number, durationMs: number, e
   if (totalCharacters <= 0 || durationMs <= 0) {
     return totalCharacters
   }
-  return clamp(Math.floor((Math.max(0, elapsedMs) / durationMs) * totalCharacters), 0, totalCharacters)
+  const raw = (Math.max(0, elapsedMs) / durationMs) * totalCharacters
+  return clamp(raw <= 0 ? 0 : Math.ceil(raw), 0, totalCharacters)
 }
 
 function resolveNextRefreshDelayMs(totalCharacters: number, durationMs: number): number {
@@ -355,13 +352,25 @@ function getContentSignature(content: RichTextContent | undefined): string | und
 
 function getTextLength(content: RichTextContent): number {
   if (!isRichTextDocument(content)) {
-    return Array.from(content).length
+    return graphemes(content).length
   }
   return content.blocks.reduce((sum, block) => sum + getBlockTextLength(block), 0)
 }
 
 function getBlockTextLength(block: Readonly<RichTextBlockProjection>): number {
-  return block.spans.reduce((sum, span) => sum + Array.from(span.text).length, 0)
+  return block.spans.reduce((sum, span) => sum + graphemes(span.text).length, 0)
+}
+
+function graphemes(text: string): string[] {
+  const Segmenter = (globalThis.Intl as unknown as {
+    Segmenter?: new (locale?: string, options?: { granularity?: 'grapheme' }) => {
+      segment: (value: string) => Iterable<{ segment: string }>
+    }
+  } | undefined)?.Segmenter
+  if (!Segmenter) {
+    return Array.from(text)
+  }
+  return Array.from(new Segmenter(undefined, { granularity: 'grapheme' }).segment(text), part => part.segment)
 }
 
 function dbToGain(db: number): number {

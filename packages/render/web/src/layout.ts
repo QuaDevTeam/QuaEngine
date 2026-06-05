@@ -42,7 +42,7 @@ export interface StageHitTestPoint extends StageLogicalPoint {
   insideStage: boolean
 }
 
-export type StageRenderPlane = 'scene' | 'subject' | 'stage' | 'safe' | 'screen'
+export type StageRenderPlane = 'scene' | 'subject' | 'stage' | 'safe' | 'overlay' | 'screen'
 
 export interface ResolvedStageLayout {
   layout: ViewLayoutProjection

@@ -6,9 +6,18 @@ import { AchievementRenderToLogicEvents } from '@quajs/plugin-achievement/contra
 import { AudioRenderToLogicEvents } from '@quajs/plugin-audio/contracts'
 import { BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
 import { SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
-import { createFlowControlProjection, createViewLayoutProjection, LogicToRenderEvents, RenderToLogicEvents } from '@quajs/render-core'
+import {
+  createFlowControlProjection,
+  createViewLayoutProjection,
+  DEFAULT_OVERLAY_STACK_PRIORITIES,
+  DEFAULT_UI_OVERLAY_Z_INDEXES,
+  isRichTextDocument,
+  LogicToRenderEvents,
+  RenderToLogicEvents,
+} from '@quajs/render-core'
 import { describe, expect, it } from 'vitest'
 import { QuaCocosRendererController } from '../src'
+import { CocosDialogueTypewriterRuntime } from '../src/dialogue-typewriter'
 import { createVisualNovelCocosRendererPlugins } from '../src/plugins/preset'
 import { createSavePreviewCocosRendererPlugin } from '../src/plugins/save-preview'
 
@@ -271,6 +280,43 @@ describe('@quajs/renderer-cocos', () => {
     await renderer.actions.advance('test')
     expect(advances).toEqual([{ source: 'test' }])
     await renderer.destroy()
+  })
+
+  it('reveals Cocos rich dialogue by grapheme without cutting combined characters', () => {
+    let now = 0
+    const runtime = new CocosDialogueTypewriterRuntime({ now: () => now })
+    const dialogue = createView({
+      dialogueText: {
+        kind: 'rich-text',
+        blocks: [{
+          id: 'line',
+          spans: [
+            { id: 'emoji', text: '👩‍💻' },
+            { id: 'copy', text: '测试' },
+          ],
+        }],
+      },
+      dialogueTypewriter: { enabled: true, durationMs: 300 },
+    }).dialogue
+
+    expect(firstRichTextBlockSpans(runtime.project(dialogue).dialogue.text)).toEqual([])
+
+    now = 100
+    expect(firstRichTextBlockSpans(runtime.project(dialogue).dialogue.text)).toEqual([
+      { id: 'emoji', text: '👩‍💻' },
+    ])
+
+    now = 200
+    expect(firstRichTextBlockSpans(runtime.project(dialogue).dialogue.text)).toEqual([
+      { id: 'emoji', text: '👩‍💻' },
+      { id: 'copy', text: '测' },
+    ])
+
+    now = 300
+    expect(firstRichTextBlockSpans(runtime.project(dialogue).dialogue.text)).toEqual([
+      { id: 'emoji', text: '👩‍💻' },
+      { id: 'copy', text: '测试' },
+    ])
   })
 
   it('renders rich speaker markup and falls back to plain speaker text', async () => {
@@ -556,6 +602,81 @@ describe('@quajs/renderer-cocos', () => {
       metadata: {
         component: 'ThemePicker',
         props: { dense: true },
+      },
+    })
+  })
+
+  it('applies overlay placement zIndex to Cocos official overlay layers', async () => {
+    const host = createFakeCocosHost()
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      initialView: createView({
+        uiOverlays: {
+          settings: { open: true },
+        },
+        plugins: {
+          settings: createSettingsProjection(),
+          backlog: {
+            revision: 1,
+            visible: true,
+            entries: [],
+            retention: { scope: 'global', maxEntries: 50 },
+            defaultPolicy: { include: true, rewindable: false, voiceReplay: true },
+          },
+          gallery: {
+            revision: 1,
+            sceneActive: true,
+            profileId: 'default',
+            catalogs: [],
+            entries: [],
+            filteredEntryIds: [],
+            requiredRuntimePackages: [],
+            filter: {},
+          },
+          achievement: {
+            revision: 1,
+            sceneActive: true,
+            profileId: 'default',
+            notificationMode: 'toast',
+            groups: [],
+            achievements: [],
+            filteredAchievementIds: [],
+            notifications: [{
+              id: 'toast-1',
+              achievementId: 'first',
+              title: 'Unlocked',
+              mode: 'toast',
+              durationMs: 1000,
+              createdAt: 1,
+            }],
+            requiredRuntimePackages: [],
+            filter: {},
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    expect(findNode(host, 'qua-backlog')?.transform.zIndex).toBe(overlayZIndex(DEFAULT_UI_OVERLAY_Z_INDEXES.backlog))
+    expect(findNode(host, 'qua-settings')?.transform.zIndex).toBe(overlayZIndex(DEFAULT_UI_OVERLAY_Z_INDEXES.settings))
+    expect(findNode(host, 'qua-gallery')?.transform.zIndex).toBe(overlayZIndex(DEFAULT_UI_OVERLAY_Z_INDEXES.gallery))
+    expect(findNode(host, 'qua-achievement-board')?.transform.zIndex).toBe(overlayZIndex(DEFAULT_UI_OVERLAY_Z_INDEXES.achievementBoard))
+    expect(findNode(host, 'qua-achievement-toast')?.transform.zIndex).toBe(toastZIndex(DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast))
+    expect(findNode(host, 'qua-achievement-board')?.metadata).toMatchObject({
+      kind: 'board',
+      overlayPlacement: {
+        overlayStack: 'overlay',
+        zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementBoard,
+      },
+    })
+    expect(findNode(host, 'qua-achievement-toast')?.metadata).toMatchObject({
+      kind: 'toast',
+      overlayPlacement: {
+        overlayStack: 'toast',
+        zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
       },
     })
   })
@@ -1890,6 +2011,14 @@ function structuredCloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
+function overlayZIndex(zIndex: number): number {
+  return DEFAULT_OVERLAY_STACK_PRIORITIES.overlay * 1_000_000 + zIndex
+}
+
+function toastZIndex(zIndex: number): number {
+  return DEFAULT_OVERLAY_STACK_PRIORITIES.toast * 1_000_000 + zIndex
+}
+
 function createSettingsProjection() {
   return {
     revision: 1,
@@ -2062,6 +2191,12 @@ function findNode(host: ReturnType<typeof createFakeCocosHost>, name: string) {
 
 function findNodeByKind(host: ReturnType<typeof createFakeCocosHost>, kind: string) {
   return [...host.nodesById.values()].find(node => node.kind === kind)
+}
+
+function firstRichTextBlockSpans(content: QuaViewProjection['dialogue']['text']) {
+  if (!isRichTextDocument(content))
+    return []
+  return content.blocks[0]?.spans || []
 }
 
 async function flushAsync(): Promise<void> {

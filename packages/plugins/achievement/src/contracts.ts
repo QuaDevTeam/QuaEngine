@@ -1,4 +1,5 @@
 import type { JsonSerializable, SceneTransitionIntent, StoryAssetRef, StoryPoint } from '@quajs/engine'
+import type { ViewOverlayStackPlacement } from '@quajs/engine'
 import type { Pipeline, PipelineContext } from '@quajs/pipeline'
 
 export const ACHIEVEMENT_PLUGIN_ID = 'achievement' as const
@@ -33,7 +34,7 @@ export interface AchievementMetadataEnvelope {
   achievement?: AchievementStoryMetadata
 }
 
-export interface AchievementNotificationOptions {
+export interface AchievementNotificationOptions extends ViewOverlayStackPlacement {
   mode?: AchievementNotificationMode
   durationMs?: number
 }
@@ -209,7 +210,7 @@ export interface AchievementFilterState {
   includeHidden?: boolean
 }
 
-export interface AchievementNotificationProjection {
+export interface AchievementNotificationProjection extends ViewOverlayStackPlacement {
   id: string
   achievementId: string
   title: string
@@ -235,7 +236,7 @@ export interface AchievementProjectionItem extends AchievementDefinition {
   progress?: AchievementProgressRecord
 }
 
-export interface AchievementProjection {
+export interface AchievementProjection extends ViewOverlayStackPlacement {
   revision: number
   sceneActive: boolean
   profileId: string
@@ -252,7 +253,7 @@ export interface AchievementProjection {
   filter: AchievementFilterState
 }
 
-export interface AchievementOpenOptions {
+export interface AchievementOpenOptions extends ViewOverlayStackPlacement {
   profileId?: string
   groupId?: string
   achievementId?: string

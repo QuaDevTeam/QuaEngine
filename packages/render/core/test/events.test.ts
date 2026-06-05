@@ -3,6 +3,11 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createFlowControlProjection,
   createViewLayoutProjection,
+  compareOverlayStackPlacement,
+  compareUiOverlayStackPlacement,
+  DEFAULT_OVERLAY_STACK_PRIORITIES,
+  DEFAULT_UI_OVERLAY_Z_INDEXES,
+  easeProgress,
   emitLogicToRender,
   emitRenderToLogic,
   LogicToRenderEvents,
@@ -11,6 +16,7 @@ import {
   RendererPluginHost,
   RenderToLogicEvents,
   resolveActiveUiSceneProjection,
+  resolveOverlayStackPlacement,
   uiSceneAllowsDefaultChrome,
   uiSceneAllowsDialogueChrome,
   uiSceneAllowsHudChrome,
@@ -111,6 +117,112 @@ describe('render-core event contracts', () => {
       id: 'chrome-free',
       overlay: { defaultChrome: false },
     })).toBe(false)
+  })
+
+  it('resolves built-in, custom, and invalid overlay stack placement', () => {
+    expect(resolveOverlayStackPlacement({ overlayStack: 'toast', zIndex: 2 })).toEqual({
+      overlayStack: 'toast',
+      stackPriority: DEFAULT_OVERLAY_STACK_PRIORITIES.toast,
+      zIndex: 2,
+      effectiveZIndex: DEFAULT_OVERLAY_STACK_PRIORITIES.toast * 1_000_000 + 2,
+    })
+
+    expect(resolveOverlayStackPlacement({ overlayStack: 'system', stackPriority: 250, zIndex: 4 })).toMatchObject({
+      overlayStack: 'system',
+      stackPriority: 250,
+      zIndex: 4,
+    })
+
+    expect(resolveOverlayStackPlacement({ overlayStack: 'custom' })).toMatchObject({
+      overlayStack: 'custom',
+      stackPriority: DEFAULT_OVERLAY_STACK_PRIORITIES.overlay,
+      zIndex: 0,
+    })
+
+    expect(resolveOverlayStackPlacement({ overlayStack: '  ', stackPriority: Number.NaN, zIndex: Number.POSITIVE_INFINITY })).toMatchObject({
+      overlayStack: 'overlay',
+      stackPriority: DEFAULT_OVERLAY_STACK_PRIORITIES.overlay,
+      zIndex: 0,
+    })
+  })
+
+  it('sorts overlay placement by stack priority, stack-local zIndex, and stable id', () => {
+    const entries = [
+      ['settings', { zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.settings }],
+      ['toast', { overlayStack: 'toast', zIndex: 0 }],
+      ['custom', { overlayStack: 'custom', stackPriority: 150, zIndex: 1 }],
+      ['menu', { overlayStack: 'overlay', zIndex: 10 }],
+      ['backlog', { overlayStack: 'overlay', zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.backlog }],
+      ['hud', { overlayStack: 'hud', zIndex: 999 }],
+    ] as const
+
+    expect([...entries].sort(compareUiOverlayStackPlacement).map(([id]) => id)).toEqual([
+      'hud',
+      'menu',
+      'backlog',
+      'settings',
+      'custom',
+      'toast',
+    ])
+
+    expect(compareOverlayStackPlacement(
+      { overlayStack: 'overlay', zIndex: 999 },
+      { overlayStack: 'modal', zIndex: -999 },
+    )).toBeLessThan(0)
+    expect(compareOverlayStackPlacement(
+      { overlayStack: 'overlay', zIndex: 1 },
+      { overlayStack: 'overlay', zIndex: 1 },
+      'a',
+      'b',
+    )).toBeLessThan(0)
+  })
+
+  it('normalizes common animation timing function aliases', () => {
+    expect(easeProgress(0.5, 'easeOutCubic')).toBeCloseTo(easeProgress(0.5, 'cubic-out'))
+    expect(easeProgress(0.5, 'easeInOutCubic')).toBeCloseTo(easeProgress(0.5, 'cubic-in-out'))
+    expect(easeProgress(0.5, 'cubic-bezier(0.2, 0, 0, 1)')).toBeGreaterThan(0)
+  })
+
+  it('resolves active UI scenes from the topmost overlay placement', () => {
+    const topScene = resolveActiveUiSceneProjection({
+      menu: {
+        zIndex: 10,
+        scene: { id: 'game:menu', presentation: 'overlay' },
+      },
+      settings: {
+        zIndex: 60,
+        scene: { id: 'system:settings', presentation: 'scene' },
+      },
+      confirm: {
+        overlayStack: 'modal',
+        zIndex: 0,
+        scene: { id: 'system:confirm', presentation: 'overlay' },
+      },
+    })
+    expect(topScene?.id).toBe('system:confirm')
+
+    const samePlacementScene = resolveActiveUiSceneProjection({
+      a: {
+        zIndex: 1,
+        scene: { id: 'overlay:a', presentation: 'overlay' },
+      },
+      b: {
+        zIndex: 1,
+        scene: { id: 'scene:b', presentation: 'scene' },
+      },
+    })
+    expect(samePlacementScene?.id).toBe('scene:b')
+
+    const defaultedScene = resolveActiveUiSceneProjection({
+      menu: {
+        zIndex: 10,
+        scene: { id: 'game:menu', presentation: 'overlay' },
+      },
+      confirm: {
+        scene: { id: 'system:confirm', presentation: 'overlay' },
+      },
+    }, elementId => elementId === 'confirm' ? { overlayStack: 'modal' } : {})
+    expect(defaultedScene?.id).toBe('system:confirm')
   })
 
   it('dispatches typed logic-to-render events through @quajs/pipeline', async () => {

@@ -109,6 +109,8 @@ await animation.playTimeline(fadeBgmIn({
 }))
 ```
 
+Audio automation and animation keyframe `easing` values use QuaEngine timing function strings such as `easeOutCubic`, `cubic-out`, `ease-in-out`, or `cubic-bezier(...)`.
+
 ## Renderer Boundary
 
 Browser autoplay policy is handled by the Web renderer runtime. Autoplay blocks are not engine audio errors; pending tracks should start after a valid user activation unlocks WebAudio.

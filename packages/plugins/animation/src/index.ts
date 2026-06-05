@@ -5,6 +5,7 @@ import type {
   AnimationDirection,
   AnimationFillMode,
   AnimationInterpolation,
+  AnimationTimingFunction,
   AnimationTime,
   ResolvedAnimationTrackProjection,
   RichTextBlockProjection,
@@ -28,7 +29,7 @@ export { ANIMATION_SETTINGS_SCOPE }
 export interface AnimationKeyframe {
   at: AnimationTime
   value: unknown
-  easing?: string
+  easing?: AnimationTimingFunction
 }
 
 export interface AnimationTrack {
@@ -248,7 +249,7 @@ export function defineAnimationKeyframe(
   propertyOrAt: string | AnimationTime,
   atOrValue: AnimationTime | unknown,
   valueOrEasing?: unknown,
-  easing?: string,
+  easing?: AnimationTimingFunction,
 ): AnimationTrack {
   const hasExplicitTarget = typeof propertyOrAt === 'string'
   return {

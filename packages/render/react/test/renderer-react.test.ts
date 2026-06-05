@@ -2,9 +2,11 @@ import type { QuaViewProjection } from '@quajs/render-core'
 import type { QuaWebDomRendererHost } from '@quajs/renderer-web'
 import type { Root } from 'react-dom/client'
 import { Pipeline } from '@quajs/pipeline'
+import { SETTINGS_PLUGIN_ID } from '@quajs/plugin-settings/contracts'
 import {
   createFlowControlProjection,
   createViewLayoutProjection,
+  DEFAULT_UI_OVERLAY_Z_INDEXES,
   emitLogicToRender,
   LogicToRenderEvents,
   onRenderToLogic,
@@ -175,6 +177,40 @@ describe('@quajs/renderer-react', () => {
     ])
   })
 
+  it('projects official overlay roots through the shared Web overlay plane', async () => {
+    const pipeline = new Pipeline()
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
+    roots.push(root)
+
+    await act(async () => {
+      root.render(createElement(QuaRenderer, {
+        pipeline,
+        plugins: createVisualNovelRendererPlugins(),
+        initialView: view({
+          ui: {
+            visible: true,
+            overlays: {
+              settings: { open: true },
+            },
+          },
+          plugins: {
+            [SETTINGS_PLUGIN_ID]: settingsProjection(),
+          },
+        }),
+      }))
+      await flushReact()
+    })
+
+    const settingsLayer = host.querySelector<HTMLElement>('.qua-settings-layer')!
+    expect(host.querySelector('.qua-stage-overlay .qua-settings-layer')).not.toBeNull()
+    expect(settingsLayer.dataset.overlayStack).toBe('overlay')
+    expect(settingsLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.settings))
+  })
+
   it('exports DOM feature plugin subentries and composes the Vue-aligned preset order', async () => {
     const modules = await Promise.all([
       import('../src/plugins/achievement'),
@@ -248,5 +284,27 @@ function view(overrides: Partial<QuaViewProjection> = {}): QuaViewProjection {
     animations: [],
     plugins: {},
     ...overrides,
+  }
+}
+
+function settingsProjection() {
+  return {
+    revision: 1,
+    profileId: 'default',
+    updatedAt: 1,
+    scopes: {
+      player: {
+        title: 'Player',
+        schema: {
+          type: 'object',
+          properties: {
+            muted: { type: 'boolean', title: 'Muted' },
+          },
+        },
+        defaults: { muted: false },
+        values: { muted: false },
+        errors: [],
+      },
+    },
   }
 }

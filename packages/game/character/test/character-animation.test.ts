@@ -21,8 +21,15 @@ describe('@quajs/character/animation', () => {
       fromX: -240,
       toX: 480,
       y: 720,
+      easing: 'easeOutCubic',
     }).tracks).toEqual([
-      expect.objectContaining({ target: 'character:Alice', property: 'position.x' }),
+      expect.objectContaining({
+        target: 'character:Alice',
+        property: 'position.x',
+        keyframes: expect.arrayContaining([
+          expect.objectContaining({ easing: 'easeOutCubic' }),
+        ]),
+      }),
       expect.objectContaining({ target: 'character:Alice', property: 'position.y' }),
       expect.objectContaining({ target: 'character:Alice', property: 'opacity' }),
       expect.objectContaining({ target: 'character:Alice', property: 'visible', interpolation: 'discrete' }),

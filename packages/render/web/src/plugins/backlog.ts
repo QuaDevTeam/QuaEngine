@@ -1,9 +1,11 @@
-import type { BacklogEntry, BacklogProjection, BacklogUiSceneProjection } from '@quajs/plugin-backlog/contracts'
+import type { BacklogEntry, BacklogProjection, BacklogUiProjection, BacklogUiSceneProjection } from '@quajs/plugin-backlog/contracts'
+import type { ViewOverlayStackPlacement } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
+import { DEFAULT_UI_OVERLAY_Z_INDEXES } from '@quajs/render-core'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
-import { dispatchRendererIntent } from './shared'
+import { applyOverlayStackPlacement, dispatchRendererIntent } from './shared'
 
 export function createBacklogWebRendererPlugin(): QuaWebDomRendererPlugin {
   return defineWebRendererPlugin({
@@ -12,7 +14,7 @@ export function createBacklogWebRendererPlugin(): QuaWebDomRendererPlugin {
     layers: [{
       id: 'backlog',
       order: 95,
-      plane: 'screen',
+      plane: 'overlay',
       render: renderBacklogLayer,
     }],
   })
@@ -30,6 +32,10 @@ function renderBacklogLayer(context: QuaWebDomLayerContext): Node | undefined {
   layer.className = createBacklogLayerClassName(projection.ui?.scene)
   layer.style.pointerEvents = 'auto'
   layer.setAttribute('data-qua-capture-role', 'overlay')
+  applyOverlayStackPlacement(layer, backlogUiPlacement(projection.ui), {
+    overlayStack: 'overlay',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.backlog,
+  })
   applyBacklogSceneDataset(layer, projection.ui?.scene)
   layer.addEventListener('click', event => event.stopPropagation())
 
@@ -222,6 +228,14 @@ function applyBacklogSceneDataset(element: HTMLElement, scene: Readonly<BacklogU
   setOptionalAttribute(element, 'data-ui-scene-default-chrome', scene?.overlay?.defaultChrome === false ? 'false' : undefined)
   setOptionalAttribute(element, 'data-ui-scene-hide-hud', scene?.overlay?.hideHud ? 'true' : undefined)
   setOptionalAttribute(element, 'data-ui-scene-hide-dialogue', scene?.overlay?.hideDialogue ? 'true' : undefined)
+}
+
+function backlogUiPlacement(ui: Readonly<BacklogUiProjection> | undefined): ViewOverlayStackPlacement {
+  return {
+    overlayStack: ui?.overlayStack ?? ui?.scene?.overlay?.overlayStack,
+    stackPriority: ui?.stackPriority ?? ui?.scene?.overlay?.stackPriority,
+    zIndex: ui?.zIndex ?? ui?.scene?.overlay?.zIndex,
+  }
 }
 
 function setOptionalAttribute(element: HTMLElement, name: string, value: string | undefined): void {

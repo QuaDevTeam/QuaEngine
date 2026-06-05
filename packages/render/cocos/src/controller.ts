@@ -498,8 +498,11 @@ export class QuaCocosRendererController {
 
   private getLayerNode(id: string, kind = 'layer', order = 0): CocosHostNode {
     const existing = this.layers.get(id)
-    if (existing)
+    if (existing) {
+      this.host.nodes.setNodeTransform(existing, { zIndex: order })
+      this.host.nodes.setNodeMetadata?.(existing, { layerId: id, order, captureRole: captureRoleForLayer(id) })
       return existing
+    }
     const node = this.host.nodes.createNode(kind, {
       name: `qua-${id}`,
       parent: this.getCameraRoot(),

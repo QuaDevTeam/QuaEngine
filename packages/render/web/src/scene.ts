@@ -1,9 +1,10 @@
 import type {
+  AnimationTimingFunction,
   RendererPluginContext,
   SceneChangePayload,
   SceneTransitionIntent,
 } from '@quajs/render-core'
-import { LogicToRenderEvents, RenderToLogicEvents } from '@quajs/render-core'
+import { easeProgress, LogicToRenderEvents, RenderToLogicEvents } from '@quajs/render-core'
 
 export const DEFAULT_SCENE_TRANSITION_DURATION = 320
 
@@ -11,7 +12,7 @@ export interface SceneTransitionRenderState {
   active: boolean
   type: SceneTransitionIntent['type']
   duration: number
-  easing?: string
+  easing?: AnimationTimingFunction
   startedAt?: number
   progress: number
   easedProgress: number
@@ -276,20 +277,4 @@ function positiveNumber(value: number | undefined, fallback: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
-}
-
-function easeProgress(progress: number, easing: string | undefined): number {
-  switch (easing) {
-    case 'ease-in':
-      return progress * progress
-    case 'ease-out':
-      return 1 - (1 - progress) * (1 - progress)
-    case 'ease-in-out':
-      return progress < 0.5
-        ? 2 * progress * progress
-        : 1 - (-2 * progress + 2) ** 2 / 2
-    case 'linear':
-    default:
-      return progress
-  }
 }

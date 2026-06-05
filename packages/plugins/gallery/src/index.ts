@@ -31,7 +31,7 @@ import type {
   GalleryUpdateFilterRequestPayload,
   GalleryVideoContentBlock,
 } from './contracts'
-import { BaseEnginePlugin, Scene } from '@quajs/engine'
+import { BaseEnginePlugin, DEFAULT_UI_OVERLAY_Z_INDEXES, Scene } from '@quajs/engine'
 import { QuaStore } from '@quajs/store'
 import {
   emitGalleryRenderToLogic,
@@ -97,6 +97,9 @@ interface GalleryProjectionPatch {
   returnCheckpointId?: string | null
   fallbackTarget?: GalleryFallbackTarget | null
   filter?: GalleryFilterState
+  overlayStack?: string
+  stackPriority?: number
+  zIndex?: number
 }
 
 interface GallerySceneState {
@@ -106,6 +109,9 @@ interface GallerySceneState {
   selectedContentId?: string
   returnCheckpointId?: string
   fallbackTarget?: string | StoryPoint
+  overlayStack?: string
+  stackPriority?: number
+  zIndex?: number
   filter?: {
     search?: string
     tags?: string[]
@@ -447,6 +453,9 @@ export async function openGallerySceneWithEngine(
       selectedEntryId: options.entryId ?? undefined,
       selectedContentId: options.contentId ?? undefined,
       fallbackTarget: options.fallbackTarget === undefined ? undefined : normalizeGalleryFallbackTarget(options.fallbackTarget) || null,
+      overlayStack: options.overlayStack,
+      stackPriority: options.stackPriority,
+      zIndex: options.zIndex,
       filter: options.filter ? normalizeGalleryFilterState(options.filter) : current.filter,
     })
     return
@@ -461,6 +470,9 @@ export async function openGallerySceneWithEngine(
     selectedContentId: options.contentId ?? undefined,
     returnCheckpointId: checkpoint.id,
     fallbackTarget: options.fallbackTarget === undefined ? undefined : normalizeGalleryFallbackTarget(options.fallbackTarget) || null,
+    overlayStack: options.overlayStack,
+    stackPriority: options.stackPriority,
+    zIndex: options.zIndex,
     filter: options.filter ? normalizeGalleryFilterState(options.filter) : current.filter,
   })
 
@@ -674,6 +686,9 @@ async function applyGallerySceneEnterState(
     fallbackTarget: initialState.fallbackTarget === undefined
       ? undefined
       : normalizeGalleryFallbackTarget(initialState.fallbackTarget) || null,
+    overlayStack: initialState.overlayStack,
+    stackPriority: initialState.stackPriority,
+    zIndex: initialState.zIndex,
     filter: initialState.filter ? normalizeGalleryFilterState(initialState.filter) : undefined,
   })
 }
@@ -771,6 +786,9 @@ async function rebuildGalleryProjection(
     revision: current.revision + 1,
     sceneActive,
     profileId,
+    overlayStack: patch.overlayStack ?? current.overlayStack ?? 'overlay',
+    stackPriority: patch.stackPriority ?? current.stackPriority,
+    zIndex: patch.zIndex ?? current.zIndex ?? DEFAULT_UI_OVERLAY_Z_INDEXES.gallery,
     catalogs: sceneActive ? catalogs.map(cloneGalleryCatalogProjectionItem) : [],
     entries: sceneActive ? entries.map(cloneGalleryEntryProjectionItem) : [],
     filteredEntryIds: sceneActive ? filteredEntryIds : [],
@@ -1009,6 +1027,8 @@ function createInitialGalleryProjection(profileId: string): GalleryProjection {
     revision: 0,
     sceneActive: false,
     profileId,
+    overlayStack: 'overlay',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.gallery,
     catalogs: [],
     entries: [],
     filteredEntryIds: [],
@@ -1501,6 +1521,9 @@ function createGallerySceneState(projection: GalleryProjection): GallerySceneSta
     selectedContentId: projection.selectedContentId,
     returnCheckpointId: projection.returnCheckpointId,
     fallbackTarget: cloneGalleryFallbackTarget(projection.fallbackTarget),
+    overlayStack: projection.overlayStack,
+    stackPriority: projection.stackPriority,
+    zIndex: projection.zIndex,
     filter: {
       search: projection.filter.search,
       tags: projection.filter.tags ? [...projection.filter.tags] : undefined,
@@ -1542,6 +1565,9 @@ function cloneGalleryProjection(projection: GalleryProjection): GalleryProjectio
     selectedContentId: projection.selectedContentId,
     returnCheckpointId: projection.returnCheckpointId,
     fallbackTarget: cloneGalleryFallbackTarget(projection.fallbackTarget),
+    overlayStack: projection.overlayStack,
+    stackPriority: projection.stackPriority,
+    zIndex: projection.zIndex,
     requiredRuntimePackages: [...projection.requiredRuntimePackages],
     filter: cloneGalleryFilterState(projection.filter),
   }

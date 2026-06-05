@@ -1,6 +1,7 @@
 import type { BackgroundIntent, EngineContext, QuaEngineInterface } from '@quajs/engine'
 import type { AnimationTimeline } from '@quajs/plugin-animation'
 import type {
+  AnimationTimingFunction,
   TransitionIntent,
   ViewBackgroundLayerProjection,
   ViewBackgroundProjection,
@@ -30,7 +31,7 @@ export type BackgroundLayerPatch = Partial<Omit<ViewBackgroundLayerProjection, '
 export interface CgOverlayOptions extends Omit<BackgroundLayerInput, 'id' | 'assetName' | 'assetType' | 'opacity' | 'zIndex'> {
   id?: string
   duration?: number
-  easing?: string
+  easing?: AnimationTimingFunction
   zIndex?: number
 }
 
@@ -83,7 +84,7 @@ export class BackgroundPlugin extends BaseEnginePlugin {
     return showCgOverlayWithEngine(this.getEngine(), assetName, options)
   }
 
-  hideCgOverlay(options?: { id?: string, duration?: number, easing?: string }): Promise<void> {
+  hideCgOverlay(options?: { id?: string, duration?: number, easing?: AnimationTimingFunction }): Promise<void> {
     return hideCgOverlayWithEngine(this.getEngine(), options)
   }
 
@@ -311,7 +312,7 @@ export async function showCgOverlayWithEngine(
 
 export async function hideCgOverlayWithEngine(
   engine: QuaEngineInterface,
-  options: { id?: string, duration?: number, easing?: string } = {},
+  options: { id?: string, duration?: number, easing?: AnimationTimingFunction } = {},
 ): Promise<void> {
   const layerId = options.id || 'cg-overlay'
   const current = engine.getViewState().background
@@ -712,7 +713,7 @@ function createNumberTrack(
   from: number,
   to: number,
   duration: number,
-  easing?: string,
+  easing?: AnimationTimingFunction,
 ): AnimationTimeline['tracks'][number] {
   return {
     target,

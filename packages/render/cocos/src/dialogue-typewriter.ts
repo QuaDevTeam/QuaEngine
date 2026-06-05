@@ -74,7 +74,7 @@ export class CocosDialogueTypewriterRuntime {
     const elapsed = Math.max(0, now - this.active.startedAt)
     const visibleCharacters = this.active.revealed || durationMs <= 0
       ? totalCharacters
-      : Math.min(totalCharacters, Math.floor((elapsed / durationMs) * totalCharacters))
+      : resolveVisibleCharacters(totalCharacters, durationMs, elapsed)
     const revealing = visibleCharacters < totalCharacters
 
     if (visibleCharacters > this.active.visibleCharacters && typewriter.sound) {
@@ -137,17 +137,14 @@ export function sliceRichTextContent(content: RichTextContent, visibleCharacters
       : ''
   }
   if (!isRichTextDocument(content))
-    return Array.from(content).slice(0, count).join('')
+    return graphemes(content).slice(0, count).join('')
 
   let remaining = count
-  const blocks: RichTextBlockProjection[] = []
-  for (const block of content.blocks) {
+  const blocks = content.blocks.map((block) => {
     const next = sliceRichTextBlock(block, remaining)
-    blocks.push(next)
     remaining -= getBlockTextLength(block)
-    if (remaining <= 0)
-      break
-  }
+    return next
+  })
   return {
     ...content,
     blocks,
@@ -163,7 +160,7 @@ function sliceRichTextBlock(
   for (const span of block.spans) {
     if (remaining <= 0)
       break
-    const chars = Array.from(span.text)
+    const chars = graphemes(span.text)
     const text = chars.slice(0, remaining).join('')
     if (text.length > 0) {
       spans.push({
@@ -218,12 +215,30 @@ function getDialogueSignature(dialogue: Readonly<ViewDialogueProjection>): strin
 
 function getTextLength(content: RichTextContent): number {
   if (!isRichTextDocument(content))
-    return Array.from(content).length
+    return graphemes(content).length
   return content.blocks.reduce((total, block) => total + getBlockTextLength(block), 0)
 }
 
 function getBlockTextLength(block: Readonly<RichTextBlockProjection>): number {
-  return block.spans.reduce((total, span) => total + Array.from(span.text).length, 0)
+  return block.spans.reduce((total, span) => total + graphemes(span.text).length, 0)
+}
+
+function resolveVisibleCharacters(totalCharacters: number, durationMs: number, elapsedMs: number): number {
+  if (totalCharacters <= 0 || durationMs <= 0)
+    return totalCharacters
+  const raw = (Math.max(0, elapsedMs) / durationMs) * totalCharacters
+  return Math.min(totalCharacters, Math.max(0, raw <= 0 ? 0 : Math.ceil(raw)))
+}
+
+function graphemes(text: string): string[] {
+  const Segmenter = (globalThis.Intl as unknown as {
+    Segmenter?: new (locale?: string, options?: { granularity?: 'grapheme' }) => {
+      segment: (value: string) => Iterable<{ segment: string }>
+    }
+  } | undefined)?.Segmenter
+  if (!Segmenter)
+    return Array.from(text)
+  return Array.from(new Segmenter(undefined, { granularity: 'grapheme' }).segment(text), part => part.segment)
 }
 
 function positiveNumber(value: unknown, fallback: number): number {
