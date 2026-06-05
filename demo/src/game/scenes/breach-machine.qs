@@ -15,10 +15,10 @@ Unit-7: 服务区域有坐标，有热参数。选择区域……我看见空间
 
 神代澪: 人也不稳。不确定的时候一样会紧张。我们通常给它起个名字——"前方"，"要去的地方"，"那里"。
 
-@MoveCharacter('神代澪', 420, 650, 0.96)
-@MoveCharacter('Unit-7', 760, 650, 0.96)
+@MoveCharacter('神代澪', 420, 650)
+@MoveCharacter('Unit-7', 760, 650)
 @ShowCharacter('ORACLE', { sprite: 'oracle/gentle.png', position: { x: 1240, y: 650 }, layer: 4 })
-@MoveCharacter('ORACLE', 1240, 650, 0.96)
+@MoveCharacter('ORACLE', 1240, 650)
 ORACLE: Unit-7。回到队列。你最长的稳定运行都在维护行程里。你现在以为自己在"选择"——不过是和人类短期接触后解析不全的概念残影。污染。
 
 @SetSprite('unit7/defy.png', 'Unit-7')

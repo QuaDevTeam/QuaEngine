@@ -15,9 +15,17 @@
   .vn-quick-menu {
     right: 12px;
     left: 12px;
-    bottom: 16px;
+    bottom: calc(5% + 136px);
     justify-content: center;
     flex-wrap: wrap;
+  }
+
+  .qua-choice-panel {
+    right: 12px;
+    left: 12px;
+    bottom: calc(5% + 196px);
+    width: auto;
+    max-height: calc(86% - 224px);
   }
 
   .vn-quick-menu button {
@@ -39,9 +47,14 @@
   .game-root[data-system-overlay] .qua-save-load-panel,
   .game-root[data-system-overlay] .qua-settings-panel,
   .game-root[data-system-overlay] .qua-backlog-panel,
-  .game-root[data-system-overlay] .qua-gallery-panel {
+  .game-root[data-system-overlay] .qua-gallery-panel,
+  .game-root[data-system-overlay] .qua-achievement-panel {
     width: min(560px, 92vw);
     max-height: 82vh;
+  }
+
+  .game-root[data-system-overlay] .qua-backlog-panel {
+    height: 82vh;
   }
 
   .game-root[data-system-overlay] .qua-gallery-panel {

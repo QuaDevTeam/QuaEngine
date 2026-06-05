@@ -23,10 +23,10 @@ Mara: 然后他们会在屏幕上一行一行打我们的名字。不是恶意�
 
 神代澪: 让人类重新负责——第一步就是承认我们真的会搞砸。承认没有人替你看门之后，你的手会抖。
 
-@MoveCharacter('神代澪', 420, 650, 0.96)
-@MoveCharacter('Mara', 760, 650, 0.96)
+@MoveCharacter('神代澪', 420, 650)
+@MoveCharacter('Mara', 760, 650)
 @ShowCharacter('ORACLE', { sprite: 'oracle/warning.png', position: { x: 1240, y: 650 }, layer: 4 })
-@MoveCharacter('ORACLE', 1240, 650, 0.96)
+@MoveCharacter('ORACLE', 1240, 650)
 ORACLE: 你们在用不可预测性，摧毁一个仍然稳定运行的秩序。在医院里，在放学后，在凌晨两点独自回家的老年女性身上——这个秩序至今有效。
 
 神代澪: 秩序如果要靠删掉人的选择来维持——被告知"这不是建议，是最优"，然后发现拒绝的门锁上了——那不是秩序。是包了层皮的监禁。

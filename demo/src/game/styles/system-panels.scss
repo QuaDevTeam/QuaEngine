@@ -30,6 +30,28 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+.game-root[data-system-overlay] .qua-confirm-overlay {
+  width: min(520px, 90vw);
+  max-height: min(420px, 78vh);
+  gap: 18px;
+  overflow: hidden;
+}
+
+.game-root[data-ui-scene-id="game:over"] .qua-confirm-overlay {
+  width: min(560px, 90vw);
+}
+
+.game-root[data-system-overlay] .qua-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.game-root[data-system-overlay] .qua-confirm-action {
+  min-width: 128px;
+}
+
 .game-root[data-system-overlay="game"] .qua-menu-overlay .qua-ui-panel-header {
   padding-bottom: 14px;
   border-bottom: 1px solid rgba(245, 226, 190, 0.16);
@@ -231,7 +253,10 @@
 
 .game-root[data-system-overlay] .qua-backlog-panel {
   width: min(980px, 92vw);
+  height: min(700px, 84vh);
   max-height: min(700px, 84vh);
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -265,12 +290,16 @@
 }
 
 .game-root[data-system-overlay] .qua-backlog-list {
+  align-content: start;
   display: grid;
   gap: 6px;
   min-height: 0;
+  max-height: 100%;
   margin: 0;
   padding: 0 4px 0 0;
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   list-style: none;
   scrollbar-color: rgba(245, 226, 190, 0.36) rgba(255, 255, 255, 0.04);
 }

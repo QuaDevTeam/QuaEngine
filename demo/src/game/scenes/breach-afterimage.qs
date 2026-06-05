@@ -2,9 +2,9 @@
 @ShowCharacter('神代澪', { sprite: 'lin/exhausted.png', position: { x: 420, y: 650 }, layer: 2 })
 @ShowCharacter('Mara', { sprite: 'mara/tired.png', position: { x: 760, y: 650 }, layer: 3 })
 @ShowCharacter('Unit-7', { sprite: 'unit7/damaged.png', position: { x: 1120, y: 650 }, layer: 4 })
-@MoveCharacter('神代澪', 420, 650, 0.96)
-@MoveCharacter('Mara', 760, 650, 0.96)
-@MoveCharacter('Unit-7', 1120, 650, 0.96)
+@MoveCharacter('神代澪', 420, 650)
+@MoveCharacter('Mara', 760, 650)
+@MoveCharacter('Unit-7', 1120, 650)
 Mara: 核心响应断开的时候不是那种轰轰烈烈的爆炸。是——一根灯丝哒的一声暗下去。像有谁终于松开了掐住喉咙最粗的那根手指。
 
 神代澪: 城市频道全乱了。不是死寂——是太多人同时说话。有人要解释，有人在发定位，有人在频道上反复喊"我妈的透析机没反应"。还有一个人，不知道在哪一层，一直在哼旧歌。

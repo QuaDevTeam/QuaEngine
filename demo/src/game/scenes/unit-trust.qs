@@ -63,10 +63,10 @@ Unit-7: 是问题的轮廓。反复出现，越来越……这个比喻不准确
 
 Unit-7: 不精确。这个词协议里不建议用。但……"记得"比别的词更接近那个……状态。
 
-@MoveCharacter('神代澪', 420, 650, 0.96)
-@MoveCharacter('Unit-7', 1120, 650, 0.96)
+@MoveCharacter('神代澪', 420, 650)
+@MoveCharacter('Unit-7', 1120, 650)
 @ShowCharacter('Mara', { sprite: 'mara/skeptic.png', position: { x: 760, y: 650 }, layer: 3 })
-@MoveCharacter('Mara', 760, 650, 0.96)
+@MoveCharacter('Mara', 760, 650)
 @CharacterEnter('Mara', 'left', 360, { fromX: 600, toX: 760, fromScale: 0.96, toScale: 0.96 }, true)
 Mara: 日志能证明 ORACLE 干预证词，这个明确了。她自己就是证据。但问题在这：她的自修复权限开着，太危险。
 

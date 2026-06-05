@@ -1,4 +1,4 @@
-import { LogicToRenderEvents, onLogicToRender } from '@quajs/engine'
+import { LogicToRenderEvents, onLogicToRender, type GameOverPayload } from '@quajs/engine'
 import type { AudioPlayBgmOptions } from '@quajs/plugin-audio'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents, type BacklogProjection } from '@quajs/plugin-backlog'
 import { GALLERY_PLUGIN_ID, type GalleryProjection } from '@quajs/plugin-gallery'
@@ -30,7 +30,7 @@ import {
 import { createDemoRuntime } from './runtime'
 import { MainScene } from './story/main-scene'
 import type { DemoHud, DemoToast, HudPatch } from './types'
-import { createUiScene, parseChapterIndex, slotLabel } from './ui/scene'
+import { createUiScene, DEMO_OVERLAY_PLACEMENTS, parseChapterIndex, slotLabel } from './ui/scene'
 import {
   renderDemoSettingsActions,
   renderDemoSettingsControl,
@@ -168,6 +168,7 @@ export async function createQuaGameApp() {
     await engine.hideUI('settings')
     await engine.hideUI('titleConfirm')
     await engine.hideUI('confirm')
+    await engine.hideUI('gameOver')
     await emit(BacklogRenderToLogicEvents.CLOSE_REQUEST, {})
   }
   const unlockGallery = async (entryIdOrIds: DemoGalleryEntryId | readonly DemoGalleryEntryId[]) => {
@@ -197,15 +198,22 @@ export async function createQuaGameApp() {
     showStoryTree.value = false
     await closePanels()
     await engine.showUI('menu', {
+      ...DEMO_OVERLAY_PLACEMENTS.gameMenu,
       title: 'MENU',
       subtitle: `${GAME_TITLE} / CH ${hud.value.chapter} / ${hud.value.route}`,
       showHeaderTitle: false,
-      scene: createUiScene('game:menu', 'overlay', 'game-modal'),
+      scene: createUiScene('game:menu', 'overlay', 'game-modal', DEMO_OVERLAY_PLACEMENTS.gameMenu),
       replaceOnOpen: true,
       showBacklog: false,
       showFlowControls: false,
       saveLoadSlotCount: SAVE_LOAD_SLOT_COUNT,
       saveLoadShowQuickActions: false,
+      saveLoadOverlayStack: DEMO_OVERLAY_PLACEMENTS.saveLoad.overlayStack,
+      saveLoadStackPriority: DEMO_OVERLAY_PLACEMENTS.saveLoad.stackPriority,
+      saveLoadZIndex: DEMO_OVERLAY_PLACEMENTS.saveLoad.zIndex,
+      settingsOverlayStack: DEMO_OVERLAY_PLACEMENTS.settings.overlayStack,
+      settingsStackPriority: DEMO_OVERLAY_PLACEMENTS.settings.stackPriority,
+      settingsZIndex: DEMO_OVERLAY_PLACEMENTS.settings.zIndex,
       titleActionLabel: 'TITLE',
       titleConfirmTitle: '回到标题菜单？',
       titleConfirmSubtitle: '当前进度不会自动保存',
@@ -217,8 +225,9 @@ export async function createQuaGameApp() {
     await stopAutoForHudInteraction()
     await closePanels()
     await emit(BacklogRenderToLogicEvents.OPEN_REQUEST, {
+      ...DEMO_OVERLAY_PLACEMENTS.backlog,
       source: 'quick-menu',
-      scene: createUiScene('game:backlog', 'overlay', 'game-modal'),
+      scene: createUiScene('game:backlog', 'overlay', 'game-modal', DEMO_OVERLAY_PLACEMENTS.backlog),
     })
   }
   const openGallery = async () => {
@@ -228,6 +237,7 @@ export async function createQuaGameApp() {
     showMainMenu.value = false
     await closePanels()
     await gallery.openScene({
+      ...DEMO_OVERLAY_PLACEMENTS.gallery,
       catalogId: DEMO_GALLERY_CATALOG_ID,
       reason: 'quick-menu',
       filter: {
@@ -248,6 +258,7 @@ export async function createQuaGameApp() {
     showStoryTree.value = false
     showMainMenu.value = false
     await gallery.openScene({
+      ...DEMO_OVERLAY_PLACEMENTS.gallery,
       catalogId: DEMO_GALLERY_CATALOG_ID,
       entryId: 'cg.title',
       reason: 'main-menu',
@@ -257,17 +268,19 @@ export async function createQuaGameApp() {
     })
   }
   const openMainMenuSettings = () => openMainMenuOverlay('settings', {
+    ...DEMO_OVERLAY_PLACEMENTS.settings,
     title: 'Config',
     source: 'main-menu',
-    scene: createUiScene('system:settings', 'scene', 'main-menu'),
+    scene: createUiScene('system:settings', 'scene', 'main-menu', DEMO_OVERLAY_PLACEMENTS.settings),
   })
   const openMainMenuLoad = () => openMainMenuOverlay('saveLoad', {
+    ...DEMO_OVERLAY_PLACEMENTS.saveLoad,
     mode: 'load',
     source: 'main-menu',
     slotCount: SAVE_LOAD_SLOT_COUNT,
     showQuickActions: false,
     showHeaderTitle: false,
-    scene: createUiScene('system:load', 'scene', 'main-menu'),
+    scene: createUiScene('system:load', 'scene', 'main-menu', DEMO_OVERLAY_PLACEMENTS.saveLoad),
   })
   const returnToTitleMenu = async () => {
     returnToMainMenuOverlay.value = undefined
@@ -279,6 +292,27 @@ export async function createQuaGameApp() {
     showMainMenu.value = true
     await playDemoBgm(BGM.title, { gainDb: -10 })
     showToast('已回到标题菜单', 'info')
+  }
+  const openGameOverOverlay = async (payload: GameOverPayload) => {
+    await closePanels()
+    await engine.stopAuto()
+    await engine.stopSkip()
+    returnToMainMenuOverlay.value = undefined
+    showStoryTree.value = false
+    galleryOpenedFromMainMenu.value = false
+    showMainMenu.value = false
+    await engine.showUI('gameOver', {
+      title: payload.title || 'GAME OVER',
+      subtitle: payload.ending ? `ENDING / ${payload.ending.toUpperCase()}` : undefined,
+      description: payload.message || '故事已经结束。你可以回到标题菜单，或关闭这个面板停留在当前画面。',
+      confirmLabel: 'TITLE',
+      cancelLabel: 'CLOSE',
+      confirmEvent: DEMO_TITLE_REQUEST_EVENT,
+      confirmPayload: { source: 'game-over', ending: payload.ending },
+      closeOnConfirm: false,
+      overlayStack: 'modal',
+      scene: createUiScene('game:over', 'overlay', 'game-over'),
+    })
   }
   let storyLoadPromise: Promise<void> | undefined
   const startStory = () => {
@@ -324,6 +358,9 @@ export async function createQuaGameApp() {
       showStoryTree.value = false
       void closePanels()
       showToast(`${slotLabel(payload.slotId)} 读取完成`, 'success')
+    }),
+    onLogicToRender(pipeline, LogicToRenderEvents.GAME_OVER, (payload) => {
+      void openGameOverOverlay(payload).catch(error => console.error(error))
     }),
     onLogicToRender(pipeline, LogicToRenderEvents.UI_HIDE, (payload) => {
       if (returnToMainMenuOverlay.value === payload.elementId) {

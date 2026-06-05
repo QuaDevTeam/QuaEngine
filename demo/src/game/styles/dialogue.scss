@@ -59,6 +59,15 @@
   gap: 9px;
 }
 
+.qua-choice-panel {
+  left: auto;
+  right: 5%;
+  bottom: calc(5% + 206px);
+  width: min(720px, 90%);
+  max-height: calc(90% - 238px);
+  transform: none;
+}
+
 .qua-choice-button {
   min-height: 46px;
   width: min(720px, 84vw);

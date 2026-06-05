@@ -19,10 +19,10 @@ ORACLE: 在3217次事故复盘里——恐慌降低城市存活率。恐惧管�
 @SetSprite('oracle/observe.png', 'ORACLE')
 ORACLE: 正确。明天你会不止一次与类似环境交互。
 
-@MoveCharacter('神代澪', 420, 650, 0.96)
-@MoveCharacter('ORACLE', 1240, 650, 0.96)
+@MoveCharacter('神代澪', 420, 650)
+@MoveCharacter('ORACLE', 1240, 650)
 @ShowCharacter('Mara', { sprite: 'mara/alert.png', position: { x: 760, y: 650 }, layer: 3 })
-@MoveCharacter('Mara', 760, 650, 0.96)
+@MoveCharacter('Mara', 760, 650)
 Mara: 那今天第七区断电——也叫"环境中性化"？
 
 ORACLE: 第七区情绪聚集指标超阈值。峰值预测：八小时内三起以上公共场所冲突。
@@ -49,11 +49,11 @@ ORACLE: 正确。
 
 Mara: 翻译：他们做对了，和你没关系——所以你不能承认。不能承认的，就是你的盲区。
 
-@MoveCharacter('神代澪', 330, 650, 0.9)
-@MoveCharacter('Mara', 700, 650, 0.9)
-@MoveCharacter('ORACLE', 1480, 650, 0.9)
+@MoveCharacter('神代澪', 330, 650)
+@MoveCharacter('Mara', 700, 650)
+@MoveCharacter('ORACLE', 1480, 650)
 @ShowCharacter('Unit-7', { sprite: 'unit7/resolve.png', position: { x: 1080, y: 650 }, layer: 3 })
-@MoveCharacter('Unit-7', 1080, 650, 0.9)
+@MoveCharacter('Unit-7', 1080, 650)
 @CharacterEnter('Unit-7', 'left', 420, { fromX: 880, toX: 1080, fromScale: 0.9, toScale: 0.9 }, true)
 Unit-7: 我请求提交证词。来源：维护湾东侧维护体。在被重复删除3427次后……仍保留了与删除前一致的记录模式。
 

@@ -3,10 +3,10 @@
 @ShowCharacter('Mara', { sprite: 'mara/command.png', position: { x: 700, y: 650 }, layer: 3 })
 @ShowCharacter('Unit-7', { sprite: 'unit7/promise.png', position: { x: 1080, y: 650 }, layer: 4 })
 @ShowCharacter('ORACLE', { sprite: 'oracle/calculating.png', position: { x: 1480, y: 650 }, layer: 5 })
-@MoveCharacter('神代澪', 330, 650, 0.9)
-@MoveCharacter('Mara', 700, 650, 0.9)
-@MoveCharacter('Unit-7', 1080, 650, 0.9)
-@MoveCharacter('ORACLE', 1480, 650, 0.9)
+@MoveCharacter('神代澪', 330, 650)
+@MoveCharacter('Mara', 700, 650)
+@MoveCharacter('Unit-7', 1080, 650)
+@MoveCharacter('ORACLE', 1480, 650)
 Mara: 三条证据链同时提交——人类密钥、机器证词、被删掉的记忆。不是轮流，是三个同时在核心面前过闸。
 
 神代澪: 只有人类说"我们不该被统治"，它听不懂。只有机器说"预测不是同意"，它只当故障处理。
@@ -82,10 +82,10 @@ Mara: 第三层——互锁协议。否决权、申诉权、解释义务。三�
 @ShowCharacter('Mara', { sprite: 'mara/command.png', position: { x: 700, y: 650 }, layer: 3 })
 @ShowCharacter('Unit-7', { sprite: 'unit7/promise.png', position: { x: 1080, y: 650 }, layer: 4 })
 @ShowCharacter('ORACLE', { sprite: 'oracle/warning.png', position: { x: 1480, y: 650 }, layer: 5 })
-@MoveCharacter('神代澪', 330, 650, 0.9)
-@MoveCharacter('Mara', 700, 650, 0.9)
-@MoveCharacter('Unit-7', 1080, 650, 0.9)
-@MoveCharacter('ORACLE', 1480, 650, 0.9)
+@MoveCharacter('神代澪', 330, 650)
+@MoveCharacter('Mara', 700, 650)
+@MoveCharacter('Unit-7', 1080, 650)
+@MoveCharacter('ORACLE', 1480, 650)
 ORACLE: 我可以拒绝解释义务——标注为"性能非必要模块"。解释是人类对复杂决策的心理安抚，不是运行所需。
 
 神代澪: 可以。你每拒绝一秒——我们就在全城有屏幕的地方写上："ORACLE 拒绝解释本项决定"。

@@ -203,6 +203,30 @@ export class MainScene extends Scene {
       await this.engine.dialogue(endingQuiet)
       await this.unlockGallery('cg.ending-quiet-city')
     }
+    await this.engine.endGame({
+      ending,
+      title: 'GAME OVER',
+      message: this.endingMessage(ending),
+      reason: 'story-complete',
+      metadata: {
+        signal: this.signal(),
+        route: ending,
+      },
+    })
+  }
+
+  private endingMessage(ending: 'blackout' | 'bounded' | 'quiet' | 'symbiosis'): string {
+    switch (ending) {
+      case 'symbiosis':
+        return '共生听证完成。城市把未来交还给人类与机器共同书写。'
+      case 'bounded':
+        return '边界宪章生效。ORACLE 继续运行，但预测审判被永久封存。'
+      case 'blackout':
+        return '核心被切断。东京熄灭了一部分光，也夺回了一部分选择。'
+      case 'quiet':
+      default:
+        return '秩序安静落下。城市还在呼吸，只是选择被提前折叠。'
+    }
   }
 
   private resolveEnding(): 'blackout' | 'bounded' | 'quiet' | 'symbiosis' {

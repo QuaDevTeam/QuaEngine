@@ -2,9 +2,9 @@
 @ShowCharacter('神代澪', { sprite: 'lin/listening.png', position: { x: 420, y: 650 }, layer: 2 })
 @ShowCharacter('Mara', { sprite: 'mara/relief.png', position: { x: 760, y: 650 }, layer: 3 })
 @ShowCharacter('Unit-7', { sprite: 'unit7/memory.png', position: { x: 1120, y: 650 }, layer: 4 })
-@MoveCharacter('神代澪', 420, 650, 0.96)
-@MoveCharacter('Mara', 760, 650, 0.96)
-@MoveCharacter('Unit-7', 1120, 650, 0.96)
+@MoveCharacter('神代澪', 420, 650)
+@MoveCharacter('Mara', 760, 650)
+@MoveCharacter('Unit-7', 1120, 650)
 Mara: 不管我们解锁了她还是锁住了她，外面追踪信号密度一直在涨。ORACLE 知道证词被看见了。
 
 Mara: 它不知道我们看见了多少。它只知道维护湾里有东西被激活——一个它以为死掉的记录点，突然发了一个呼吸。
