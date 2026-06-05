@@ -1,10 +1,19 @@
 .game-root {
   --vn-dialogue-bottom: 5%;
+  --vn-dialogue-bottom-reserve: 5dvh;
   --vn-dialogue-inset-x: 5%;
   --vn-dialogue-min-height: 132px;
   --vn-dialogue-padding-x: 28px;
   --vn-dialogue-padding-y: 22px;
   --vn-dialogue-toolbar-offset: calc(12.25dvh + 8px);
+  --vn-dialogue-toolbar-height: 40px;
+  --vn-dialogue-chrome-gap: 14px;
+  --vn-dialogue-chrome-reserve: calc(
+    var(--vn-dialogue-bottom-reserve) +
+    var(--vn-dialogue-toolbar-offset) +
+    var(--vn-dialogue-toolbar-height) +
+    var(--vn-dialogue-chrome-gap)
+  );
   --vn-dialogue-chrome-enter-duration: 220ms;
   --vn-dialogue-chrome-exit-duration: 170ms;
   --vn-dialogue-chrome-enter-easing: cubic-bezier(0.19, 1, 0.22, 1);
@@ -197,6 +206,14 @@
   padding: clamp(18px, 4vw, 42px);
 }
 
+.game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-overlay-layer,
+.game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-settings-layer,
+.game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-backlog-layer,
+.game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-gallery-layer,
+.game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-achievement-layer {
+  padding-bottom: max(clamp(18px, 4vw, 42px), var(--vn-dialogue-chrome-reserve));
+}
+
 .game-root[data-system-overlay] .qua-overlay-layer::before,
 .game-root[data-system-overlay] .qua-settings-layer::before,
 .game-root[data-system-overlay] .qua-backlog-layer::before,
@@ -254,6 +271,15 @@
   width: min(980px, 92vw);
   max-height: min(660px, 84vh);
   margin: 0;
+}
+
+.game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-menu-overlay,
+.game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-save-load-panel,
+.game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-settings-panel,
+.game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-confirm-overlay,
+.game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-backlog-panel,
+.game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-achievement-panel {
+  max-height: min(660px, calc(100dvh - clamp(18px, 4vw, 42px) - var(--vn-dialogue-chrome-reserve)));
 }
 
 .game-root[data-system-overlay] .qua-menu-overlay,
@@ -326,11 +352,17 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  min-height: var(--vn-dialogue-toolbar-height);
   padding: 5px 9px;
   border: 1px solid rgba(245, 226, 190, 0.22);
   background: linear-gradient(180deg, rgba(12, 15, 22, 0.58), rgba(5, 6, 10, 0.42));
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(8px);
+}
+
+.game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .vn-quick-menu {
+  z-index: 76;
+  pointer-events: none;
 }
 
 .vn-main-menu {
