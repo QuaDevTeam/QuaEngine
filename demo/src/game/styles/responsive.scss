@@ -5,6 +5,8 @@
     --vn-dialogue-padding-x: 18px;
     --vn-dialogue-padding-y: 18px;
     --vn-dialogue-toolbar-offset: calc(11.5dvh + 6px);
+    --vn-choice-max-width: 100%;
+    --vn-choice-dialogue-gap: 72px;
   }
 
   .vn-title-plate {
@@ -29,11 +31,11 @@
   }
 
   .qua-choice-panel {
-    right: 12px;
-    left: 12px;
-    bottom: calc(5% + 196px);
+    right: var(--vn-ui-inset-x);
+    left: var(--vn-ui-inset-x);
+    bottom: calc(var(--vn-ui-inset-bottom) + var(--vn-dialogue-min-height) + var(--vn-choice-dialogue-gap));
     width: auto;
-    max-height: calc(86% - 224px);
+    max-height: calc(100% - var(--vn-ui-inset-bottom) - var(--vn-dialogue-min-height) - var(--vn-choice-dialogue-gap) - 32px);
   }
 
   .vn-quick-menu button {

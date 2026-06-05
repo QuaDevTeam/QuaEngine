@@ -57,20 +57,28 @@
 
 .qua-choice-list {
   gap: 9px;
+  justify-self: end;
+  width: min(var(--vn-choice-max-width), 100%);
+  max-width: 100%;
 }
 
 .qua-choice-panel {
-  left: auto;
-  right: 5%;
-  bottom: calc(5% + 206px);
-  width: min(720px, 90%);
-  max-height: calc(90% - 238px);
+  left: var(--vn-ui-inset-x);
+  right: var(--vn-ui-inset-x);
+  bottom: calc(var(--vn-ui-inset-bottom) + var(--vn-dialogue-min-height) + var(--vn-choice-dialogue-gap));
+  justify-items: end;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  max-height: calc(100% - var(--vn-ui-inset-bottom) - var(--vn-dialogue-min-height) - var(--vn-choice-dialogue-gap) - 48px);
   transform: none;
 }
 
 .qua-choice-button {
   min-height: 46px;
-  width: min(720px, 84vw);
+  justify-self: end;
+  width: min(var(--vn-choice-max-width), 100%);
+  max-width: 100%;
   border: 1px solid rgba(245, 226, 190, 0.28);
   background: linear-gradient(90deg, rgba(8, 10, 15, 0.84), rgba(28, 32, 42, 0.7));
   color: #fff8ea;
@@ -79,12 +87,18 @@
     system-ui, sans-serif;
   font-size: 16px;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
   text-align: left;
   text-transform: none;
+  white-space: normal;
 }
 
 .qua-choice-button:hover {
   border-color: rgba(255, 226, 166, 0.76);
   color: #ffe8b3;
   background: linear-gradient(90deg, rgba(77, 63, 35, 0.74), rgba(22, 24, 32, 0.76));
+}
+
+.qua-choice-list .qua-choice-button {
+  width: 100%;
 }
