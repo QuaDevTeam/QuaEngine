@@ -749,9 +749,10 @@ async function rebuildGalleryProjection(
   const catalogs = Array.from(runtimeState.catalogs.values()).map(catalog =>
     createGalleryCatalogProjectionItem(catalog, runtimeState.entries, profile.state),
   )
-  const entries = Array.from(runtimeState.entries.values())
+  const unorderedEntries = Array.from(runtimeState.entries.values())
     .filter(entry => runtimeState.catalogs.has(entry.catalogId))
     .map(entry => createGalleryEntryProjectionItem(entry, profile.state))
+  const entries = orderGalleryProjectionEntries(catalogs, unorderedEntries)
 
   const nextFilter = patch.filter ? normalizeGalleryFilterState(patch.filter) : normalizeGalleryFilterState(current.filter)
   const requestedCatalogId = patch.selectedCatalogId === undefined ? current.selectedCatalogId : patch.selectedCatalogId || undefined
@@ -1071,6 +1072,34 @@ function createGalleryEntryProjectionItem(
     ...projectedEntry,
     unlocked,
   }
+}
+
+function orderGalleryProjectionEntries(
+  catalogs: readonly GalleryCatalogProjectionItem[],
+  entries: readonly GalleryEntryProjectionItem[],
+): GalleryEntryProjectionItem[] {
+  const entryById = new Map(entries.map(entry => [entry.id, entry]))
+  const seen = new Set<string>()
+  const ordered: GalleryEntryProjectionItem[] = []
+
+  for (const catalog of catalogs) {
+    for (const entryId of catalog.entryIds) {
+      const entry = entryById.get(entryId)
+      if (!entry || seen.has(entry.id)) {
+        continue
+      }
+      ordered.push(entry)
+      seen.add(entry.id)
+    }
+  }
+
+  for (const entry of entries) {
+    if (!seen.has(entry.id)) {
+      ordered.push(entry)
+    }
+  }
+
+  return ordered
 }
 
 function createLockedGalleryEntryProjection(entry: GalleryEntryDefinition): GalleryEntryProjectionDefinition {
