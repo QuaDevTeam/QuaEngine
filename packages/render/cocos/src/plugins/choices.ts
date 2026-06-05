@@ -1,5 +1,5 @@
 import type { CocosRendererPluginContext } from '../types'
-import { clientPointToStageLogical, LogicToRenderEvents, RenderToLogicEvents } from '@quajs/render-core'
+import { clientPointToStageLogical, LogicToRenderEvents, RenderToLogicEvents, viewAllowsDialogueChrome } from '@quajs/render-core'
 import { renderCocosChoices } from '../projection'
 import { defineCocosRendererPlugin } from './core'
 
@@ -18,6 +18,8 @@ export function createChoicesCocosRendererPlugin() {
       context.addDisposer(context.cocos.registerAnimationSync(sync))
       context.addDisposer(context.cocos.host.input.onInput(async (event) => {
         if (event.kind !== 'pointer' || event.phase !== 'down')
+          return
+        if (!viewAllowsDialogueChrome(context.getViewState()))
           return
         const choiceId = typeof event.metadata?.choiceId === 'string'
           ? event.metadata.choiceId

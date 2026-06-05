@@ -102,8 +102,8 @@ async function renderSettingsLayer(context: CocosRendererPluginContext, elementI
   const title = context.cocos.host.nodes.createNode('settings-title', { parent: panel, name: 'settings:title' })
   context.cocos.host.nodes.setNodeText(title, 'Settings', { fontSize: 34, color: '#ffffff' })
   context.cocos.host.nodes.setNodeTransform(title, {
-    x: panelX + 32,
-    y: panelY + 24,
+    x: 32,
+    y: 24,
     width: panelWidth - 260,
     height: 48,
     zIndex: 1,
@@ -112,8 +112,8 @@ async function renderSettingsLayer(context: CocosRendererPluginContext, elementI
   await renderSettingsButton(context, panel, {
     name: 'settings:reset-all',
     label: 'Reset',
-    x: panelX + panelWidth - 260,
-    y: panelY + 24,
+    x: panelWidth - 260,
+    y: 24,
     width: 104,
     height: 46,
     metadata: { settingsAction: 'resetAll' },
@@ -121,17 +121,17 @@ async function renderSettingsLayer(context: CocosRendererPluginContext, elementI
   await renderSettingsButton(context, panel, {
     name: 'settings:close',
     label: 'Close',
-    x: panelX + panelWidth - 144,
-    y: panelY + 24,
+    x: panelWidth - 144,
+    y: 24,
     width: 112,
     height: 46,
     metadata: { settingsAction: 'close', elementId },
   })
 
-  const cursor = { y: panelY + 92 }
+  const cursor = { y: 92 }
   for (const scope of form.scopes) {
     await renderSettingsScope(context, panel, scope, {
-      x: panelX + 32,
+      x: 32,
       width: panelWidth - 64,
       cursor,
     })

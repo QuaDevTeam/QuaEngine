@@ -30,6 +30,8 @@ import {
   RenderToLogicEvents,
   resolveUiChoiceSkinReference,
   resolveUiOverlaySkinReference,
+  resolveActiveUiSceneProjection,
+  viewAllowsDialogueChrome,
 } from '@quajs/render-core'
 import { applyCocosUiControlSkin } from './ui-skin'
 import {
@@ -113,6 +115,8 @@ export async function renderCocosCharacters(context: CocosRendererHostContext, o
 export function renderCocosDialogue(context: CocosRendererHostContext, options: RenderCocosDialogueOptions = {}): void {
   const layer = context.getLayerNode('dialogue', 'dialogue-layer', 50)
   context.host.nodes.clearChildren(layer)
+  if (!viewAllowsDialogueChrome(context.getViewState()))
+    return
   const dialogue = options.typewriter?.dialogue || projectDialogue(
     context.getViewState().dialogue,
     context.getViewState().animations,
@@ -140,6 +144,8 @@ export async function renderCocosChoices(context: CocosRendererHostContext): Pro
   const layer = context.getLayerNode('choices', 'choice-layer', 60)
   context.host.nodes.clearChildren(layer)
   context.releaseLayerResources('choices')
+  if (!viewAllowsDialogueChrome(context.getViewState()))
+    return
   const projection = projectChoices(
     context.getViewState().choices,
     context.getViewState().animations,
@@ -251,6 +257,13 @@ export async function renderCocosUi(context: CocosRendererHostContext, options: 
   context.host.nodes.clearChildren(layer)
   context.releaseLayerResources('ui')
   const overlays = context.getViewState().ui.overlays || {}
+  const activeScene = resolveActiveUiSceneProjection(overlays)
+  context.host.nodes.setNodeMetadata?.(layer, {
+    uiScene: activeScene,
+    defaultChrome: activeScene?.overlay?.defaultChrome,
+    hideHud: activeScene?.overlay?.hideHud,
+    hideDialogue: activeScene?.overlay?.hideDialogue,
+  })
   const handled = new Set(options.handledElementIds || [])
   for (const [elementId, overlay] of Object.entries(overlays)) {
     if (handled.has(elementId))
@@ -727,8 +740,6 @@ async function renderUiOverlayContent(
   overlay: Readonly<Record<string, unknown>>,
 ): Promise<void> {
   const transform = overlayTransform(context, projected)
-  const x = transform.x ?? 0
-  const y = transform.y ?? 0
   const width = transform.width ?? context.getStageLayout().safeArea.width
   const height = transform.height ?? 480
   const padding = 32
@@ -737,8 +748,8 @@ async function renderUiOverlayContent(
   const titleNode = context.host.nodes.createNode('ui-title', { parent, name: `${elementId}:title` })
   context.host.nodes.setNodeText(titleNode, title, { fontSize: 32, color: '#ffffff' })
   context.host.nodes.setNodeTransform(titleNode, {
-    x: x + padding,
-    y: y + 24,
+    x: padding,
+    y: 24,
     width: Math.max(0, width - padding * 2 - 160),
     height: 48,
     zIndex: 1,
@@ -749,8 +760,8 @@ async function renderUiOverlayContent(
     const subtitleNode = context.host.nodes.createNode('ui-subtitle', { parent, name: `${elementId}:subtitle` })
     context.host.nodes.setNodeText(subtitleNode, subtitle, { fontSize: 22, color: '#d8d8d8' })
     context.host.nodes.setNodeTransform(subtitleNode, {
-      x: x + padding,
-      y: y + 74,
+      x: padding,
+      y: 74,
       width: Math.max(0, width - padding * 2),
       height: 36,
       zIndex: 1,
@@ -762,8 +773,8 @@ async function renderUiOverlayContent(
     const descriptionNode = context.host.nodes.createNode('ui-description', { parent, name: `${elementId}:description` })
     context.host.nodes.setNodeText(descriptionNode, description, { fontSize: 24, color: '#ffffff' })
     context.host.nodes.setNodeTransform(descriptionNode, {
-      x: x + padding,
-      y: y + (subtitle ? 118 : 84),
+      x: padding,
+      y: subtitle ? 118 : 84,
       width: Math.max(0, width - padding * 2),
       height: 96,
       zIndex: 1,
@@ -774,8 +785,8 @@ async function renderUiOverlayContent(
     elementId,
     index: -1,
     label: 'Close',
-    x: x + Math.max(0, width - 144),
-    y: y + 24,
+    x: Math.max(0, width - 144),
+    y: 24,
     width: 112,
     height: 48,
     skinId: resolveUiOverlaySkinReference(context.getViewState(), overlay, 'button'),
@@ -795,8 +806,8 @@ async function renderUiOverlayContent(
       elementId,
       index,
       label: uiActionLabel(action, index),
-      x: x + padding,
-      y: y + height - padding - (actions.length - index) * 58,
+      x: padding,
+      y: height - padding - (actions.length - index) * 58,
       width: Math.min(360, Math.max(160, width - padding * 2)),
       height: 48,
       skinId: stringValue(recordValue(action, 'skinId')) || resolveUiOverlaySkinReference(context.getViewState(), overlay, 'button'),
@@ -1038,7 +1049,7 @@ function syncAudioBuses(
     const volume = audioBusVolume(projection, automation, automationStartedAt, now)
     context.host.audio.setBusVolume?.(bus, volume)
     if (Array.isArray(projection.eq)) {
-      if (context.host.capabilities?.audioEq) {
+      if (context.host.audio.setBusEq) {
         context.host.audio.setBusEq?.(bus, projectEqBands(arrayRecords(projection.eq), automation, now, automationStartedAt))
       }
     }

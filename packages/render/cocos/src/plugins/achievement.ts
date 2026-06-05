@@ -150,7 +150,7 @@ async function renderAchievementToast(
     const resource = await resolveAssetWithTargetPackages(context.cocos, 'images', icon.name, runtimePackageCandidatesFromAssetRef(icon as unknown as Record<string, unknown>))
     context.cocos.setLayerResource('achievement', `notification:${notification.id}:icon`, resource)
     context.cocos.host.nodes.setNodeSprite(iconNode, resource)
-    context.cocos.host.nodes.setNodeTransform(iconNode, { x: safeArea.x + safeArea.width - 408, y: safeArea.y + 38 + index * 86, width: 56, height: 56, zIndex: 2 })
+    context.cocos.host.nodes.setNodeTransform(iconNode, { x: 12, y: 10, width: 56, height: 56, zIndex: 2 })
   }
   if (!playedNotifications.has(notification.id) && notification.sound?.type === 'audio') {
     const resource = await resolveAssetWithTargetPackages(
@@ -208,17 +208,17 @@ async function renderAchievementBoard(
   const unlockedCount = projection.achievements.filter(item => item.unlocked).length
   const title = context.cocos.host.nodes.createNode('achievement-title', { parent: panel, name: 'achievement:title' })
   context.cocos.host.nodes.setNodeText(title, `Achievements ${unlockedCount}/${projection.achievements.length}`, { fontSize: 32, color: '#ffffff' })
-  context.cocos.host.nodes.setNodeTransform(title, { x: safeArea.x + 28, y: safeArea.y + 24, width: safeArea.width - 180, height: 48, zIndex: 1 })
-  renderButton(context, panel, 'achievement:close', 'Close', safeArea.x + safeArea.width - 140, safeArea.y + 24, 112, 44, {
+  context.cocos.host.nodes.setNodeTransform(title, { x: 28, y: 24, width: safeArea.width - 180, height: 48, zIndex: 1 })
+  renderButton(context, panel, 'achievement:close', 'Close', safeArea.width - 140, 24, 112, 44, {
     plugin: 'achievement',
     achievementAction: 'close',
   })
-  renderButton(context, panel, 'achievement:filter:unlocked', 'Unlocked', safeArea.x + safeArea.width - 260, safeArea.y + 84, 110, 42, {
+  renderButton(context, panel, 'achievement:filter:unlocked', 'Unlocked', safeArea.width - 260, 84, 110, 42, {
     plugin: 'achievement',
     achievementAction: 'toggleUnlockedOnly',
     nextUnlockedOnly: !projection.filter.unlockedOnly,
   }, projection.filter.unlockedOnly === true)
-  renderButton(context, panel, 'achievement:filter:hidden', 'Hidden', safeArea.x + safeArea.width - 380, safeArea.y + 84, 104, 42, {
+  renderButton(context, panel, 'achievement:filter:hidden', 'Hidden', safeArea.width - 380, 84, 104, 42, {
     plugin: 'achievement',
     achievementAction: 'toggleIncludeHidden',
     nextIncludeHidden: !projection.filter.includeHidden,
@@ -235,37 +235,37 @@ async function renderAchievementBoard(
       achievementAction: 'search',
     },
   })
-  context.cocos.host.nodes.setNodeTransform(search, { x: safeArea.x + safeArea.width - 620, y: safeArea.y + 84, width: 220, height: 42, zIndex: 10 })
+  context.cocos.host.nodes.setNodeTransform(search, { x: safeArea.width - 620, y: 84, width: 220, height: 42, zIndex: 10 })
   context.cocos.host.nodes.setNodeMetadata?.(search, {
     plugin: 'achievement',
     achievementAction: 'search',
   })
   const groupPage = pageItems(projection.groups, pages.get('groups') || 0, 6)
   groupPage.items.forEach((group, index) => {
-    renderButton(context, panel, `achievement:group:${group.id}`, group.title, safeArea.x + 28 + index * 150, safeArea.y + 84, 136, 42, {
+    renderButton(context, panel, `achievement:group:${group.id}`, group.title, 28 + index * 150, 84, 136, 42, {
       plugin: 'achievement',
       achievementAction: 'selectGroup',
       achievementGroupId: group.id,
       selected: group.id === projection.selectedGroupId,
     }, group.id === projection.selectedGroupId)
   })
-  renderPager(context, panel, 'achievement:groups', 'groups', groupPage, safeArea.x + 28 + 6 * 150, safeArea.y + 84)
+  renderPager(context, panel, 'achievement:groups', 'groups', groupPage, 28 + 6 * 150, 84)
   const items = projection.achievements.filter(item => projection.filteredAchievementIds.includes(item.id))
   const itemPage = pageItems(items, pages.get('items') || 0, 10)
   if (items.length === 0) {
-    renderEmptyState(context, panel, 'No achievements', safeArea.x + 28, safeArea.y + 144, Math.min(560, safeArea.width - 56))
+    renderEmptyState(context, panel, 'No achievements', 28, 144, Math.min(560, safeArea.width - 56))
   }
   for (const [index, achievement] of itemPage.items.entries()) {
-    await renderAchievementItem(context, panel, achievement, index, safeArea.x + 28, safeArea.y + 144, Math.min(560, safeArea.width - 56), projection.selectedAchievementId === achievement.id)
+    await renderAchievementItem(context, panel, achievement, index, 28, 144, Math.min(560, safeArea.width - 56), projection.selectedAchievementId === achievement.id)
   }
-  renderPager(context, panel, 'achievement:items', 'items', itemPage, safeArea.x + 28, safeArea.y + 144 + 10 * 64)
+  renderPager(context, panel, 'achievement:items', 'items', itemPage, 28, 144 + 10 * 64)
   const selected = projection.achievements.find(item => item.id === projection.selectedAchievementId)
     || items[0]
   if (selected) {
-    await renderAchievementDetail(context, panel, selected, safeArea.x + 620, safeArea.y + 144, Math.max(320, safeArea.width - 650))
+    await renderAchievementDetail(context, panel, selected, 620, 144, Math.max(320, safeArea.width - 650))
   }
   else {
-    renderEmptyState(context, panel, 'No achievement selected', safeArea.x + 620, safeArea.y + 144, Math.max(320, safeArea.width - 650))
+    renderEmptyState(context, panel, 'No achievement selected', 620, 144, Math.max(320, safeArea.width - 650))
   }
 }
 
@@ -301,13 +301,13 @@ async function renderAchievementItem(
     const image = context.cocos.host.nodes.createNode('achievement-card-image', { parent: node, name: `achievement:item:${achievement.id}:image` })
     const resource = await resolveAchievementAsset(context, preview, `achievement:item:${achievement.id}:image`)
     context.cocos.host.nodes.setNodeSprite(image, resource)
-    context.cocos.host.nodes.setNodeTransform(image, { x: x + 8, y: y + 8, width: 40, height: 40, zIndex: 13 })
+    context.cocos.host.nodes.setNodeTransform(image, { x: 8, y: 8, width: 40, height: 40, zIndex: 13 })
   }
   const summaryText = achievementDisplaySummary(achievement)
   if (summaryText) {
     const summary = context.cocos.host.nodes.createNode('achievement-card-summary', { parent: node, name: `achievement:item:${achievement.id}:summary` })
     context.cocos.host.nodes.setNodeText(summary, summaryText, { fontSize: 16, color: '#d8d8d8' })
-    context.cocos.host.nodes.setNodeTransform(summary, { x: x + (preview ? 58 : 12), y: y + 30, width: Math.max(0, width - (preview ? 70 : 24)), height: 20, zIndex: 13 })
+    context.cocos.host.nodes.setNodeTransform(summary, { x: preview ? 58 : 12, y: 30, width: Math.max(0, width - (preview ? 70 : 24)), height: 20, zIndex: 13 })
   }
   const badges = [
     achievement.unlocked ? 'Unlocked' : 'Locked',
@@ -317,7 +317,7 @@ async function renderAchievementItem(
   if (badges.length) {
     const badgeNode = context.cocos.host.nodes.createNode('achievement-card-badges', { parent: node, name: `achievement:item:${achievement.id}:badges` })
     context.cocos.host.nodes.setNodeText(badgeNode, badges.join('  '), { fontSize: 14, color: '#d8d8d8' })
-    context.cocos.host.nodes.setNodeTransform(badgeNode, { x: x + (preview ? 58 : 12), y: y + 8, width: Math.max(0, width - (preview ? 70 : 24)), height: 18, zIndex: 13 })
+    context.cocos.host.nodes.setNodeTransform(badgeNode, { x: preview ? 58 : 12, y: 8, width: Math.max(0, width - (preview ? 70 : 24)), height: 18, zIndex: 13 })
   }
 }
 
@@ -353,7 +353,7 @@ async function renderAchievementDetail(
     const image = context.cocos.host.nodes.createNode('achievement-detail-image', { parent: node, name: `achievement:detail:${achievement.id}:image` })
     const resource = await resolveAchievementAsset(context, banner, `achievement:detail:${achievement.id}:image`)
     context.cocos.host.nodes.setNodeSprite(image, resource)
-    context.cocos.host.nodes.setNodeTransform(image, { x: x + 12, y: y + 12, width: Math.min(220, width - 24), height: 96, zIndex: 15 })
+    context.cocos.host.nodes.setNodeTransform(image, { x: 12, y: 12, width: Math.min(220, width - 24), height: 96, zIndex: 15 })
   }
 }
 
