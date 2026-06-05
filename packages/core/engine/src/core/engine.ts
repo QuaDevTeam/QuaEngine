@@ -32,10 +32,13 @@ import type {
   DialogueIntent,
   DialogueOptions,
   EffectIntent,
+  EndGameOptions,
   EngineCheckpoint,
   EngineConfig,
   EngineFlowControlProgressState,
+  EngineGameOverState,
   EnginePlaytimeState,
+  EngineProjectInfo,
   EngineReportErrorOptions,
   EnsureLocalePacksOptions,
   FlowControlRuntimeOptions,
@@ -169,9 +172,10 @@ export class QuaEngine {
     }
     this.config = {
       ...config,
+      appVersion: config.appVersion || config.project?.version,
       rollback: createRollbackConfig(config.rollback),
     }
-    assertValidAppVersion(config.appVersion)
+    assertValidAppVersion(this.config.appVersion)
 
     this.store = createStore({
       name: 'quaengine-main',
@@ -184,7 +188,7 @@ export class QuaEngine {
     })
     this.assets = new QuaAssets({
       ...config.assets,
-      appVersion: config.assets.appVersion || config.appVersion,
+      appVersion: config.assets.appVersion || this.config.appVersion,
     })
     this.pipeline = new Pipeline()
     this.sceneManager = new SceneManager(this)
@@ -930,6 +934,42 @@ export class QuaEngine {
 
   getAppVersion(): string | undefined {
     return this.config.appVersion || this.config.assets?.appVersion
+  }
+
+  getProjectInfo(): EngineProjectInfo | undefined {
+    return this.config.project ? { ...this.config.project } : undefined
+  }
+
+  getGameOverState(): EngineGameOverState | undefined {
+    return cloneGameOverState(this.getRuntimeState().gameOver)
+  }
+
+  async endGame(options: EndGameOptions = {}): Promise<EngineGameOverState> {
+    this.assertInitialized()
+    this.clearFlowControlAdvance()
+    this.currentStepAbortController?.abort()
+
+    const point = this.getStoryPoint()
+    const gameOver = createGameOverState({
+      options,
+      endedAt: Date.now(),
+      currentScene: this.getCurrentSceneName(),
+      currentStepId: this.getCurrentStepId(),
+      storyPoint: point,
+      requiredRuntimePackages: this.getRequiredRuntimePackagesForCurrentState(point),
+    })
+    const shouldEmitViewUpdate = this.getEngineState().view.flowControl.mode !== 'normal'
+    if (shouldEmitViewUpdate) {
+      this.updateFlowControl({ mode: 'normal' })
+    }
+    this.store.commit('setGameOver', gameOver)
+    await this.pausePlaytime('game-over')
+    if (shouldEmitViewUpdate) {
+      await this.emitViewUpdate()
+    }
+    const payload = createGameOverPayload(gameOver)
+    await this.emitLogicToRender(L2R.GAME_OVER, payload)
+    return cloneGameOverState(gameOver)!
   }
 
   getPipeline(): Pipeline {
@@ -1816,6 +1856,8 @@ export class QuaEngine {
       ...runtime,
       locale: runtime.locale || this.assets.getLocale(),
       activeLocalePackIds: [...(runtime.activeLocalePackIds || [])],
+      currentStoryPoint: runtime.currentStoryPoint ? cloneStoryPoint(runtime.currentStoryPoint) : undefined,
+      gameOver: cloneGameOverState(runtime.gameOver),
       sceneHistory: [...(runtime.sceneHistory || [])],
       stepHistory: [...(runtime.stepHistory || [])],
       checkpointHistory: [...(runtime.checkpointHistory || [])],
@@ -3076,10 +3118,15 @@ function createEngineMutations() {
     setCurrentStep(state: any, payload: { stepId: string, stepHistory: string[] }) {
       state.engine.runtime.currentStepId = payload.stepId
       state.engine.runtime.stepHistory = [...payload.stepHistory]
+      state.engine.runtime.gameOver = undefined
     },
     setStoryPoint(state: any, payload: StoryPoint) {
       state.engine.runtime.currentStoryPoint = cloneStoryPoint(payload)
       state.engine.runtime.currentStepId = payload.stepId
+      state.engine.runtime.gameOver = undefined
+    },
+    setGameOver(state: any, payload: EngineGameOverState) {
+      state.engine.runtime.gameOver = cloneGameOverState(payload)
     },
     setActiveLocalePacks(state: any, payload: { locale: string, packageIds: string[] }) {
       state.engine.runtime.locale = payload.locale
@@ -3599,7 +3646,19 @@ function isActiveVoiceTrackRecord(value: unknown): value is Record<string, any> 
 }
 
 function countTextCharacters(text: string): number {
-  return Array.from(text).length
+  return graphemes(text).length
+}
+
+function graphemes(text: string): string[] {
+  const Segmenter = (globalThis.Intl as unknown as {
+    Segmenter?: new (locale?: string, options?: { granularity?: 'grapheme' }) => {
+      segment: (value: string) => Iterable<{ segment: string }>
+    }
+  } | undefined)?.Segmenter
+  if (!Segmenter) {
+    return Array.from(text)
+  }
+  return Array.from(new Segmenter(undefined, { granularity: 'grapheme' }).segment(text), part => part.segment)
 }
 
 function isPositiveFiniteNumber(value: unknown): value is number {
@@ -3802,6 +3861,50 @@ function getRollbackSnapshotSet(value: unknown): RollbackSnapshotSet | undefined
 
 function cloneStoryPoint(point: StoryPoint): StoryPoint {
   return { ...point }
+}
+
+function createGameOverState(input: {
+  options: EndGameOptions
+  endedAt: number
+  currentScene?: string
+  currentStepId?: string
+  storyPoint?: StoryPoint
+  requiredRuntimePackages: string[]
+}): EngineGameOverState {
+  const metadata = input.options.metadata ? cloneUnknownRecord(input.options.metadata) : undefined
+  return {
+    endedAt: input.endedAt,
+    ending: input.options.ending,
+    title: input.options.title,
+    message: input.options.message,
+    reason: input.options.reason || 'completed',
+    currentScene: input.currentScene,
+    currentStepId: input.currentStepId,
+    storyPoint: input.storyPoint ? cloneStoryPoint(input.storyPoint) : undefined,
+    requiredRuntimePackages: input.requiredRuntimePackages.length > 0 ? [...input.requiredRuntimePackages] : undefined,
+    metadata,
+  }
+}
+
+function createGameOverPayload(state: EngineGameOverState): import('../events/events').GameOverPayload {
+  return {
+    ...state,
+    storyPoint: state.storyPoint ? cloneUnknownRecord(state.storyPoint as unknown as Record<string, unknown>) : undefined,
+    requiredRuntimePackages: state.requiredRuntimePackages ? [...state.requiredRuntimePackages] : undefined,
+    metadata: state.metadata ? cloneUnknownRecord(state.metadata) : undefined,
+  }
+}
+
+function cloneGameOverState(state: EngineGameOverState | undefined): EngineGameOverState | undefined {
+  if (!state) {
+    return undefined
+  }
+  return {
+    ...state,
+    storyPoint: state.storyPoint ? cloneStoryPoint(state.storyPoint) : undefined,
+    requiredRuntimePackages: state.requiredRuntimePackages ? [...state.requiredRuntimePackages] : undefined,
+    metadata: state.metadata ? cloneUnknownRecord(state.metadata) : undefined,
+  }
 }
 
 function cloneStoryAssetRef(ref: StoryAssetRef): StoryAssetRef {

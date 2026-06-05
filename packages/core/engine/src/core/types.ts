@@ -22,6 +22,7 @@ import type {
   FlowControlPolicy,
   FlowControlProjectionInput,
   FlowControlTimingProjection,
+  GameOverPayload,
   QuaErrorPayload,
   QuaErrorSeverity,
   QuaErrorSource,
@@ -342,6 +343,9 @@ export interface QuaEngineInterface {
   hasPlugin: (name: string) => boolean
   getPlaytimeMs: () => number
   getPlaytimeState: () => EnginePlaytimeState
+  getProjectInfo: () => EngineProjectInfo | undefined
+  getGameOverState: () => EngineGameOverState | undefined
+  endGame: (options?: EndGameOptions) => Promise<EngineGameOverState>
   pausePlaytime: (reason?: string) => Promise<void>
   resumePlaytime: (reason?: string) => Promise<void>
   getViewState: () => QuaViewProjection
@@ -816,6 +820,7 @@ export interface GameSaveData {
 
 export interface EngineConfig {
   appVersion?: string
+  project?: EngineProjectInfo
   layout?: ViewLayoutInput
   assets?: QuaAssetsConfig
   store?: {
@@ -852,10 +857,24 @@ export interface EngineConfig {
   dialogue?: DialogueOptions
 }
 
+export interface EngineProjectInfo {
+  name: string
+  bundleId: string
+  version?: string
+}
+
 export interface FlowControlOptions extends FlowControlProjectionInput {}
 
 export interface DialogueOptions {
   typewriter?: DialogueTypewriterInput
+}
+
+export interface EndGameOptions {
+  ending?: string
+  title?: string
+  message?: string
+  reason?: string
+  metadata?: Record<string, unknown>
 }
 
 export type FlowControlRuntimeOptions = Partial<Pick<
@@ -920,12 +939,18 @@ export interface EngineRuntimeState {
   currentStepId: string | null
   currentStoryPoint?: StoryPoint
   currentCheckpointId?: string
+  gameOver?: EngineGameOverState
   sceneHistory: string[]
   stepHistory: string[]
   checkpointHistory: string[]
   runtimePackages: Record<string, RuntimePackageStateRecord>
   appliedRuntimeMigrations: string[]
   playtime: EnginePlaytimeState
+}
+
+export interface EngineGameOverState extends Omit<GameOverPayload, 'storyPoint' | 'metadata'> {
+  storyPoint?: StoryPoint
+  metadata?: Record<string, unknown>
 }
 
 export interface EnginePlaytimeState {
@@ -978,6 +1003,7 @@ export function createInitialEngineState(layout?: ViewLayoutInput, flowControl?:
       currentStepId: null,
       currentStoryPoint: undefined,
       currentCheckpointId: undefined,
+      gameOver: undefined,
       sceneHistory: [],
       stepHistory: [],
       checkpointHistory: [],

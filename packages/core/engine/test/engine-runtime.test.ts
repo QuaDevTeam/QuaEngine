@@ -51,6 +51,36 @@ describe('quaEngine runtime architecture', () => {
     expect(() => new QuaEngine()).toThrow('QuaEngine requires assets config with an adapter')
   })
 
+  it('exposes project identity metadata as a read-only copy', () => {
+    const engine = new QuaEngine({
+      project: {
+        name: 'Project Game',
+        bundleId: 'com.example.projectgame',
+        version: '1.2.3',
+      },
+      assets: {
+        adapter: createMemoryAdapter(),
+      },
+      store: {
+        storage: {
+          backend: MemoryBackend,
+        },
+      },
+    })
+
+    const info = engine.getProjectInfo()
+    expect(info).toEqual({
+      name: 'Project Game',
+      bundleId: 'com.example.projectgame',
+      version: '1.2.3',
+    })
+    if (info) {
+      info.name = 'Mutated'
+    }
+    expect(engine.getProjectInfo()?.name).toBe('Project Game')
+    expect(engine.getAppVersion()).toBe('1.2.3')
+  })
+
   it('stores render-relevant state as the authoritative view projection', async () => {
     const engine = createEngine()
     await engine.init()
@@ -667,6 +697,60 @@ describe('quaEngine runtime architecture', () => {
     await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.FLOW_CONTROL_STOP_AUTO_REQUEST, { source: 'keyboard:KeyA' })
 
     expect(engine.getFlowControlState().mode).toBe('normal')
+  })
+
+  it('emits engine-owned game over state and stops flow control', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
+    const engine = createEngine()
+    await engine.init()
+    const gameOvers: unknown[] = []
+    onLogicToRender(engine.getPipeline(), LogicToRenderEvents.GAME_OVER, payload => gameOvers.push(payload))
+
+    await engine.setStoryPoint({
+      sceneId: 'main',
+      stepId: 'ending-line',
+      requiredRuntimePackages: ['runtime.ending'],
+    })
+    await engine.startFastForward()
+    const state = await engine.endGame({
+      ending: 'quiet',
+      title: 'GAME OVER',
+      message: 'Quiet ending',
+      reason: 'story-complete',
+      metadata: { route: 'quiet' },
+    })
+
+    expect(engine.getFlowControlState().mode).toBe('normal')
+    expect(engine.getPlaytimeState()).toEqual(expect.objectContaining({
+      paused: true,
+      pauseReason: 'game-over',
+    }))
+    expect(state).toEqual(expect.objectContaining({
+      endedAt: Date.parse('2026-01-01T00:00:00.000Z'),
+      ending: 'quiet',
+      currentScene: undefined,
+      currentStepId: 'ending-line',
+      storyPoint: expect.objectContaining({ stepId: 'ending-line' }),
+      requiredRuntimePackages: ['runtime.ending'],
+      metadata: { route: 'quiet' },
+    }))
+    expect(engine.getGameOverState()).toEqual(state)
+    expect(engine.getRuntimeStateSnapshot().gameOver).toEqual(state)
+    expect(gameOvers).toEqual([
+      expect.objectContaining({
+        ending: 'quiet',
+        title: 'GAME OVER',
+        message: 'Quiet ending',
+        reason: 'story-complete',
+        currentStepId: 'ending-line',
+        requiredRuntimePackages: ['runtime.ending'],
+        metadata: { route: 'quiet' },
+      }),
+    ])
+
+    await engine.setStoryPoint({ sceneId: 'main', stepId: 'restart' })
+    expect(engine.getGameOverState()).toBeUndefined()
   })
 
   it('creates checkpoints, restores story points through jump, and cancels pending waits', async () => {
