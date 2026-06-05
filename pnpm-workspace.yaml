@@ -96,6 +96,7 @@ catalog:
   vscode-languageserver: ^9.0.1
   vscode-languageserver-textdocument: ^1.0.12
   vue: ^3.5.34
+  yaml: ^2.8.4
   yauzl: ^3.3.0
   yazl: ^3.3.1
 catalogs:

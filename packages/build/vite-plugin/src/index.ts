@@ -6,6 +6,7 @@ import type { QuaEngineVitePluginOptions } from './core/types'
 import process from 'node:process'
 import { flattenPluginOptions, logPluginMessage } from './core/utils'
 import { quaEnginePlugin } from './plugins/engine'
+import { projectConfigPlugin } from './plugins/project-config'
 import { quackPlugin } from './plugins/quack'
 import { quaScriptCompilerPlugin } from './plugins/script-compiler'
 import { webSecurityPlugin } from './plugins/web-security'
@@ -23,6 +24,7 @@ import { webSecurityPlugin } from './plugins/web-security'
  */
 export function quaEngine(options: QuaEngineVitePluginOptions = {}): PluginOption[] {
   const {
+    projectConfig = { enabled: true },
     scriptCompiler = { enabled: true },
     pluginDiscovery = { enabled: true },
     assetBundling = { enabled: true },
@@ -34,6 +36,10 @@ export function quaEngine(options: QuaEngineVitePluginOptions = {}): PluginOptio
   logPluginMessage('Initializing QuaEngine build pipeline', 'info')
 
   const plugins: PluginOption[] = []
+
+  if (projectConfig !== false && (typeof projectConfig === 'boolean' || projectConfig.enabled !== false)) {
+    plugins.push(projectConfigPlugin(projectConfig))
+  }
 
   // Script compiler plugin (always first to transform qs`` literals)
   if (scriptCompiler.enabled !== false) {
@@ -99,7 +105,7 @@ function createDevServerPlugin(devOptions: NonNullable<QuaEngineVitePluginOption
 }
 
 // Re-export individual plugins for advanced users
-export { quackPlugin, quaEnginePlugin, quaScriptCompilerPlugin, webSecurityPlugin }
+export { projectConfigPlugin, quackPlugin, quaEnginePlugin, quaScriptCompilerPlugin, webSecurityPlugin }
 
 // Re-export types
 export type { AssetBundleManifest, QuaEngineVitePluginOptions, VirtualPluginRegistryEntry } from './core/types'

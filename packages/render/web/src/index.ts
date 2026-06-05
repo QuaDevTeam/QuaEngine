@@ -83,6 +83,21 @@ export {
 } from './layout'
 export { defineWebRendererPlugin } from './plugins/core'
 export {
+  classifyWebDevice,
+  createPlatformGuardWebRendererPlugin,
+  evaluateWebPlatformSupport,
+  mountUnsupportedPlatformUi,
+} from './plugins/platform-guard'
+export type {
+  PlatformGuardWebRendererPluginOptions,
+  WebDeviceEnvironment,
+  WebPlatformDeviceClass,
+  WebPlatformGuardRuntimeConfig,
+  WebPlatformSupportResult,
+} from './plugins/platform-guard'
+export { createPwaWebRendererPlugin, pwaWebRendererPlugin } from './plugins/pwa'
+export type { PwaWebRendererPluginOptions } from './plugins/pwa'
+export {
   backgroundCompositionVars,
   backgroundFilterVars,
   backgroundLayerProjectionVars,

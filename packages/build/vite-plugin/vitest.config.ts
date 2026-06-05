@@ -32,6 +32,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
+      '@quajs/quack/project': resolve(__dirname, '../quack/src/project.ts'),
     },
   },
 })

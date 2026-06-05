@@ -1,0 +1,30 @@
+schemaVersion: 1
+name: __PROJECT_TITLE__
+bundleId: __PROJECT_BUNDLE_ID__
+version: 0.1.0
+home:
+  title: __PROJECT_TITLE__
+  shortName: __PROJECT_TITLE__
+  description: A QuaEngine visual novel.
+  lang: en-US
+  themeColor: '#111111'
+  backgroundColor: '#000000'
+  startUrl: /
+  scope: /
+icons:
+  source: assets/app/icon.svg
+  favicon: assets/app/favicon.svg
+targets:
+  web:
+    enabled: true
+    layout: landscape
+    devices:
+      desktop: true
+      pad: true
+      phone: true
+    pwa:
+      enabled: false
+      serviceWorker: generated
+    blockUi:
+      title: Unsupported device
+      message: Please open this game on a supported device.

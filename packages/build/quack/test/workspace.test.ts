@@ -67,6 +67,52 @@ describe('workspaceManager', () => {
     expect(bundleConfig.compatibility).toEqual({ minGameVersion: '1.2.3' })
   })
 
+  it('merges Qua project asset targets into workspace bundles', async () => {
+    const root = await createWorkspaceRoot()
+    await mkdir(join(root, 'assets/app'), { recursive: true })
+    await writeFile(join(root, 'assets/app/icon.png'), new Uint8Array([1, 2, 3]))
+    await writeFile(join(root, 'quack.workspace.json'), JSON.stringify(createWorkspaceConfig('project-workspace'), null, 2), 'utf8')
+    await writeFile(join(root, 'qua.project.yaml'), [
+      'schemaVersion: 1',
+      'name: Project Workspace',
+      'bundleId: com.example.projectworkspace',
+      'icons:',
+      '  source: assets/app/icon.png',
+      'targets:',
+      '  web:',
+      '    assetTarget:',
+      '      name: web-modern',
+      '      pipeline:',
+      '        images:',
+      '          format: webp',
+      '  cocos:',
+      '    platforms: [android]',
+      '    assetTarget:',
+      '      resourceRoot: assets/resources',
+      '      hybrid:',
+      '        enabled: true',
+      '',
+    ].join('\n'), 'utf8')
+
+    const loaded = await new WorkspaceManager(root).loadConfig()
+
+    expect(loaded.bundles[0].assetTargets).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        name: 'web-modern',
+        platform: 'web',
+        pipeline: { images: { format: 'webp' } },
+      }),
+      expect.objectContaining({
+        name: 'cocos-android',
+        platform: 'cocos',
+        cocos: expect.objectContaining({
+          buildPlatforms: ['android'],
+          resourceRoot: 'assets/resources',
+        }),
+      }),
+    ]))
+  })
+
   it('rejects invalid bundle compatibility versions', async () => {
     const root = await createWorkspaceRoot()
     const config = {

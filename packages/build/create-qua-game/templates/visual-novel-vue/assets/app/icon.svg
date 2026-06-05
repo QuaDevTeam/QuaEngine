@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="__PROJECT_TITLE__ icon">
+  <rect width="512" height="512" rx="88" fill="#111111"/>
+  <path d="M128 148h256v216H128z" fill="#f2f2f2"/>
+  <path d="M160 188h192v24H160zm0 56h160v24H160zm0 56h112v24H160z" fill="#111111"/>
+  <path d="M88 392h336v32H88z" fill="#6dd6ff"/>
+</svg>

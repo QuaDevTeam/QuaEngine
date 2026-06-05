@@ -27,6 +27,10 @@
       "types": "./dist/plugins/index.d.ts",
       "import": "./dist/plugins/index.js"
     },
+    "./project": {
+      "types": "./dist/project.d.ts",
+      "import": "./dist/project.js"
+    },
     "./qpk-reader": {
       "types": "./dist/qpk-reader.d.ts",
       "import": "./dist/qpk-reader.js"
@@ -67,6 +71,7 @@
     "mime-types": "catalog:",
     "sharp": "catalog:",
     "typescript": "catalog:",
+    "yaml": "catalog:",
     "yauzl": "catalog:",
     "yazl": "catalog:"
   },

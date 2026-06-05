@@ -11,6 +11,7 @@ import { pathToFileURL } from 'node:url'
 import { createLogger } from '@quajs/logger'
 import { isValidSemverVersion } from '@quajs/utils'
 import ts from 'typescript'
+import { createQuaProjectAssetTargets, mergeQuaProjectAssetTargets, tryLoadQuaProjectConfig } from '../project'
 import { getErrorMessage } from '../utils/error'
 
 const logger = createLogger('quack:workspace')
@@ -34,7 +35,7 @@ export class WorkspaceManager {
   /**
    * Load workspace configuration from file
    */
-  async loadConfig(configPath?: string): Promise<WorkspaceConfig> {
+  async loadConfig(configPath?: string, options: { projectConfig?: string | false } = {}): Promise<WorkspaceConfig> {
     const configFile = configPath || this.findConfigFile()
 
     if (!configFile) {
@@ -62,6 +63,7 @@ export class WorkspaceManager {
 
       // Validate and normalize configuration
       config = await this.validateAndNormalizeConfig(config)
+      config = await this.applyProjectConfig(config, options.projectConfig)
       this.config = config
 
       logger.info(`Loaded workspace "${config.name}" with ${config.bundles.length} bundles`)
@@ -168,6 +170,34 @@ export class WorkspaceManager {
     config.output = config.output || resolve(this.workspaceRoot, 'dist')
 
     return config
+  }
+
+  private async applyProjectConfig(config: WorkspaceConfig, projectConfigOverride?: string | false): Promise<WorkspaceConfig> {
+    const projectConfig = projectConfigOverride ?? config.projectConfig
+    if (projectConfig === false) {
+      return config
+    }
+
+    const project = await tryLoadQuaProjectConfig({
+      cwd: this.workspaceRoot,
+      configPath: typeof projectConfig === 'string' ? projectConfig : undefined,
+    })
+    if (!project) {
+      return config
+    }
+
+    const projectTargets = createQuaProjectAssetTargets(project)
+    if (projectTargets.length === 0) {
+      return config
+    }
+
+    return {
+      ...config,
+      bundles: config.bundles.map(bundle => ({
+        ...bundle,
+        assetTargets: mergeQuaProjectAssetTargets(bundle.assetTargets, projectTargets),
+      })),
+    }
   }
 
   /**

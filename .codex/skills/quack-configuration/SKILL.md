@@ -100,6 +100,37 @@ export default defineConfig({
 
 Bundle definitions support `name`, `displayName`, `source`, `priority`, `compatibility`, `dependencies`, `loadTrigger`, `description`, `format`, `compression`, `encryption`, `assetTargets`, and `assetTarget`.
 
+## Qua Project Manifest
+
+Qua projects may define one shared project manifest in `qua.project.yaml`, `qua.project.yml`, or `qua.project.json`. If more than one exists and no explicit path is provided, validation must fail instead of merging split truth.
+
+Use `@quajs/quack/project` for manifest work:
+
+```ts
+import {
+  loadQuaProjectConfig,
+  normalizeQuaProjectConfig,
+  validateQuaProjectConfig,
+} from '@quajs/quack/project'
+```
+
+The manifest owns project identity (`name`, `bundleId`, `version`), home metadata, icons, Web/Cocos targets, Web device support, PWA settings, and Cocos sync/build options. `version` falls back to `package.json`, Web defaults to enabled with desktop/pad/phone enabled, PWA defaults to disabled, and Cocos is enabled only when `targets.cocos` exists and is not disabled.
+
+Quack workspace loading automatically merges manifest-derived `assetTargets` into each workspace bundle unless `projectConfig: false` is set. CLI helpers are:
+
+```bash
+quack project validate
+quack project doctor
+quack project sync --target web|cocos|all
+quack project build --target cocos --platform android --all
+```
+
+`quack project doctor` loads the manifest and reports Web device support, favicon/PWA icon readiness, PWA service worker caveats, Cocos platform configuration, Cocos project directory presence, icon sources, and hybrid asset output hints. Treat `error` results as blockers and `warning` results as things to resolve or explicitly accept before packaging.
+
+`quack project sync --target cocos` writes importable Creator build config JSON under `<projectDir>/qua-build/<platform>.build.json` and copies configured Cocos icon assets into `<projectDir>/assets/qua-app-icons/`. Use Creator command-line `configPath` with these files; do not edit Creator last-build cache.
+
+The Vite plugin exposes `virtual:qua-project`, injects Web home meta, emits favicon assets when PWA is disabled, and emits `manifest.webmanifest`, PWA icons, and generated service worker assets when PWA is enabled.
+
 ## Runtime QPK Packages
 
 Runtime packages must declare a `runtimePackage` manifest and use `format: 'qpk'`:

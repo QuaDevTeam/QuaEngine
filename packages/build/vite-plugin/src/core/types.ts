@@ -2,6 +2,12 @@ import type { CompressionAlgorithm, EncryptionAlgorithm, QuackPlugin } from '@qu
 import type { PluginOption } from 'vite'
 
 export interface QuaEngineVitePluginOptions {
+  /** Shared Qua project manifest integration for project metadata, target packaging, icons, and virtual runtime config. */
+  projectConfig?: boolean | {
+    enabled?: boolean
+    configPath?: string
+  }
+
   /** Enable QuaScript compilation */
   scriptCompiler?: {
     /** Automatically collect decorators from discovered plugin metadata. */

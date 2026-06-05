@@ -515,6 +515,7 @@ export interface WorkspaceConfig {
   name: string
   version?: string
   bundles: BundleDefinition[]
+  projectConfig?: string | false
   globalSettings?: {
     compression?: {
       level?: number
@@ -646,6 +647,7 @@ export interface QuackConfig {
   quascript?: QuackQuaScriptConfig
   assetTargets?: AssetBundleTarget[]
   assetTarget?: AssetBundleTarget
+  projectConfig?: string | false
 
   // Workspace mode (multi-bundle)
   workspace?: WorkspaceConfig

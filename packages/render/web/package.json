@@ -97,9 +97,17 @@
       "types": "./dist/plugins/input.d.ts",
       "import": "./dist/plugins/input.js"
     },
+    "./plugins/platform-guard": {
+      "types": "./dist/plugins/platform-guard.d.ts",
+      "import": "./dist/plugins/platform-guard.js"
+    },
     "./plugins/preset": {
       "types": "./dist/plugins/preset.d.ts",
       "import": "./dist/plugins/preset.js"
+    },
+    "./plugins/pwa": {
+      "types": "./dist/plugins/pwa.d.ts",
+      "import": "./dist/plugins/pwa.js"
     },
     "./plugins/scene": {
       "types": "./dist/plugins/scene.d.ts",

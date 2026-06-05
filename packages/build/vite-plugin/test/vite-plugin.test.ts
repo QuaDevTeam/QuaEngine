@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Writable } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { quackPlugin, quaEngine, quaEnginePlugin, quaScriptCompilerPlugin, webSecurityPlugin } from '../src/index'
+import { projectConfigPlugin, quackPlugin, quaEngine, quaEnginePlugin, quaScriptCompilerPlugin, webSecurityPlugin } from '../src/index'
 
 const quackMocks = vi.hoisted(() => ({
   bundle: vi.fn().mockResolvedValue({
@@ -287,6 +287,121 @@ describe('@quajs/vite-plugin', () => {
     })
   })
 
+  describe('Qua project config', () => {
+    it('exposes the virtual project module and disabled-device runtime payload', async () => {
+      tempDir = join(tmpdir(), `qua-project-vite-${Date.now()}`)
+      await createProjectFixture(tempDir, {
+        pwa: false,
+        phone: false,
+      })
+
+      const plugin = projectConfigPlugin()
+      await plugin.configResolved?.({ root: tempDir, base: '/', command: 'build' } as any)
+
+      expect(plugin.resolveId?.('virtual:qua-project', undefined, {} as any)).toBe('\0virtual:qua-project')
+      const code = await (plugin.load as any)?.('\0virtual:qua-project')
+      expect(code).toContain('export const quaProject')
+      expect(code).toContain('"bundleId": "com.example.vitetest"')
+      expect(code).toContain('"phone": false')
+    })
+
+    it('injects Web home metadata and emits favicon assets when PWA is disabled', async () => {
+      tempDir = join(tmpdir(), `qua-project-vite-${Date.now()}`)
+      await createProjectFixture(tempDir, { pwa: false })
+
+      const plugin = projectConfigPlugin()
+      const emitted: any[] = []
+      await plugin.configResolved?.({ root: tempDir, base: '/game/', command: 'build' } as any)
+
+      const tags = (plugin.transformIndexHtml as any).handler()
+      await (plugin.generateBundle as any).call({ emitFile: (file: any) => emitted.push(file) })
+
+      expect(tags).toEqual(expect.arrayContaining([
+        expect.objectContaining({ tag: 'title', children: 'Vite Test' }),
+        expect.objectContaining({ tag: 'meta', attrs: { name: 'description', content: 'Project config fixture' } }),
+        expect.objectContaining({ tag: 'link', attrs: { rel: 'icon', href: '/game/favicon.svg' } }),
+      ]))
+      expect(emitted).toEqual(expect.arrayContaining([
+        expect.objectContaining({ type: 'asset', fileName: 'favicon.svg' }),
+      ]))
+    })
+
+    it('links external favicon sources without emitting local assets', async () => {
+      tempDir = join(tmpdir(), `qua-project-vite-${Date.now()}`)
+      await createProjectFixture(tempDir, { pwa: false, favicon: 'https://cdn.example.test/favicon.svg' })
+
+      const plugin = projectConfigPlugin()
+      const emitted: any[] = []
+      await plugin.configResolved?.({ root: tempDir, base: '/game/', command: 'build' } as any)
+
+      const tags = (plugin.transformIndexHtml as any).handler()
+      await (plugin.generateBundle as any).call({ emitFile: (file: any) => emitted.push(file) })
+
+      expect(tags).toEqual(expect.arrayContaining([
+        expect.objectContaining({ tag: 'link', attrs: { rel: 'icon', href: 'https://cdn.example.test/favicon.svg' } }),
+      ]))
+      expect(emitted).toEqual([])
+    })
+
+    it('emits Web manifest, PWA icons, and generated service worker when PWA is enabled', async () => {
+      tempDir = join(tmpdir(), `qua-project-vite-${Date.now()}`)
+      await createProjectFixture(tempDir, { pwa: true })
+
+      const plugin = projectConfigPlugin()
+      const emitted: any[] = []
+      await plugin.configResolved?.({ root: tempDir, base: '/novel/', command: 'build' } as any)
+
+      const tags = (plugin.transformIndexHtml as any).handler()
+      await (plugin.generateBundle as any).call({ emitFile: (file: any) => emitted.push(file) })
+      const manifest = JSON.parse(emitted.find(file => file.fileName === 'manifest.webmanifest')?.source)
+
+      expect(tags).toEqual(expect.arrayContaining([
+        expect.objectContaining({ tag: 'link', attrs: { rel: 'manifest', href: '/novel/manifest.webmanifest' } }),
+      ]))
+      expect(emitted.map(file => file.fileName)).toEqual(expect.arrayContaining([
+        'icons/icon-192x192-any.png',
+        'icons/icon-512x512-any.png',
+        'icons/icon-192x192-maskable.png',
+        'icons/icon-512x512-maskable.png',
+        'manifest.webmanifest',
+        'qua-service-worker.js',
+      ]))
+      expect(manifest).toMatchObject({
+        name: 'Vite Test',
+        short_name: 'ViteTest',
+        start_url: '/',
+        icons: expect.arrayContaining([
+          expect.objectContaining({ src: '/novel/icons/icon-192x192-any.png', sizes: '192x192' }),
+        ]),
+      })
+    })
+
+    it('keeps data URL PWA icons unprefixed in the Web manifest', async () => {
+      tempDir = join(tmpdir(), `qua-project-vite-${Date.now()}`)
+      const icon = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E'
+      await createProjectFixture(tempDir, {
+        pwa: true,
+        pwaIcons: [
+          { src: icon, sizes: '192x192', purpose: 'any' },
+          { src: icon, sizes: '512x512', purpose: 'maskable' },
+        ],
+      })
+
+      const plugin = projectConfigPlugin()
+      const emitted: any[] = []
+      await plugin.configResolved?.({ root: tempDir, base: '/novel/', command: 'build' } as any)
+
+      await (plugin.generateBundle as any).call({ emitFile: (file: any) => emitted.push(file) })
+      const manifest = JSON.parse(emitted.find(file => file.fileName === 'manifest.webmanifest')?.source)
+
+      expect(emitted.map(file => file.fileName)).not.toContain('icons/icon-192x192-any.svg')
+      expect(manifest.icons).toEqual(expect.arrayContaining([
+        expect.objectContaining({ src: icon, sizes: '192x192', purpose: 'any', type: 'image/svg+xml' }),
+        expect.objectContaining({ src: icon, sizes: '512x512', purpose: 'maskable', type: 'image/svg+xml' }),
+      ]))
+    })
+  })
+
   describe('development asset VFS', () => {
     it('should skip bundling in serve mode when dev VFS is enabled', async () => {
       tempDir = join(tmpdir(), `qua-vfs-${Date.now()}`)
@@ -524,6 +639,49 @@ describe('@quajs/vite-plugin', () => {
     })
   })
 })
+
+async function createProjectFixture(
+  root: string,
+  options: {
+    pwa: boolean
+    phone?: boolean
+    favicon?: string
+    pwaIcons?: Array<{ purpose: string, sizes: string, src: string }>
+  },
+): Promise<void> {
+  const pwaIconLines = (options.pwaIcons || []).flatMap(icon => [
+    '        - src: "' + icon.src + '"',
+    `          sizes: ${icon.sizes}`,
+    `          purpose: ${icon.purpose}`,
+  ])
+  await mkdir(join(root, 'assets/app'), { recursive: true })
+  await writeFile(join(root, 'assets/app/icon.png'), new Uint8Array([1, 2, 3]))
+  await writeFile(join(root, 'assets/app/favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>', 'utf8')
+  await writeFile(join(root, 'qua.project.yaml'), [
+    'schemaVersion: 1',
+    'name: Vite Test',
+    'bundleId: com.example.vitetest',
+    'version: 1.0.0',
+    'home:',
+    '  title: Vite Test',
+    '  shortName: ViteTest',
+    '  description: Project config fixture',
+    'icons:',
+    '  source: assets/app/icon.png',
+    `  favicon: ${options.favicon || 'assets/app/favicon.svg'}`,
+    'targets:',
+    '  web:',
+    '    devices:',
+    '      desktop: true',
+    '      pad: true',
+    `      phone: ${options.phone ?? true}`,
+    '    pwa:',
+    `      enabled: ${options.pwa}`,
+    '      serviceWorker: generated',
+    ...(pwaIconLines.length > 0 ? ['      icons:', ...pwaIconLines] : []),
+    '',
+  ].join('\n'), 'utf8')
+}
 
 function createMockResponse() {
   const response = new Writable({

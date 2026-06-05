@@ -6,6 +6,8 @@ A QuaEngine visual novel starter generated with `create-qua-game`.
 
 ```bash
 pnpm install
+pnpm run project:validate
+pnpm run project:doctor
 pnpm dev
 pnpm typecheck
 pnpm run assets:build
@@ -15,6 +17,7 @@ pnpm run assets:build
 
 - `src/game/scenes/opening.qs` is the first QuaScript scene.
 - `src/game/bootstrap.ts` owns engine and renderer wiring.
+- `qua.project.yaml` is the source of truth for the game name, bundle ID, version, Web layout, device support, icons, and optional PWA/Cocos target settings.
 - `assets/` is served through the QuaEngine Vite dev VFS and can be bundled with Quack.
 - `src/game/styles.css` contains project styling on top of the optional renderer base/default styles.
 - `vite.config.ts` enables hash CSP and SRI output under `dist/qua-security/`.
