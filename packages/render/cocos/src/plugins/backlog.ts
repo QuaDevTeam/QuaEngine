@@ -1,8 +1,10 @@
 import type { CocosHostNode } from '@quajs/cocos-host'
-import type { BacklogEntry, BacklogProjection } from '@quajs/plugin-backlog/contracts'
+import type { BacklogEntry, BacklogProjection, BacklogUiProjection } from '@quajs/plugin-backlog/contracts'
+import type { ViewOverlayStackPlacement } from '@quajs/render-core'
 import type { CocosRendererPluginContext } from '../types'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
-import { LogicToRenderEvents } from '@quajs/render-core'
+import { DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents } from '@quajs/render-core'
+import { resolveCocosOverlayPlacement, resolveCocosOverlayZIndex } from '../overlay-placement'
 import { defineCocosRendererPlugin } from './core'
 import { resolveInputMetadataAny, stringValue } from './projection-utils'
 
@@ -45,10 +47,19 @@ export const backlogCocosRendererPlugin = createBacklogCocosRendererPlugin()
 
 function renderBacklogLayer(context: CocosRendererPluginContext, requestedPage: number): void {
   const projection = context.getViewState().plugins[BACKLOG_PLUGIN_ID] as BacklogProjection | undefined
-  const layer = context.cocos.getLayerNode('backlog', 'backlog-layer', 110)
+  const placement = backlogUiPlacement(projection?.ui)
+  const layer = context.cocos.getLayerNode('backlog', 'backlog-layer', resolveCocosOverlayZIndex(placement, {
+    overlayStack: 'overlay',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.backlog,
+  }))
   context.cocos.host.nodes.clearChildren(layer)
+  const overlayPlacement = resolveCocosOverlayPlacement(placement, {
+    overlayStack: 'overlay',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.backlog,
+  })
   context.cocos.host.nodes.setNodeMetadata?.(layer, {
     plugin: 'backlog',
+    overlayPlacement,
     visible: projection?.visible === true,
     projection,
     uiScene: projection?.ui?.scene,
@@ -175,6 +186,14 @@ function renderBacklogEntry(
         voiceReplay: entry.voiceReplay,
       },
     })
+  }
+}
+
+function backlogUiPlacement(ui: Readonly<BacklogUiProjection> | undefined): ViewOverlayStackPlacement {
+  return {
+    overlayStack: ui?.overlayStack ?? ui?.scene?.overlay?.overlayStack,
+    stackPriority: ui?.stackPriority ?? ui?.scene?.overlay?.stackPriority,
+    zIndex: ui?.zIndex ?? ui?.scene?.overlay?.zIndex,
   }
 }
 

@@ -110,6 +110,10 @@ export const QuaCharacterLayer = defineComponent({
       'style': {
         '--qua-character-enter-duration': `${transition.value.enterDurationMs}ms`,
         '--qua-character-exit-duration': `${transition.value.exitDurationMs}ms`,
+        '--qua-character-move-duration': `${transition.value.moveDurationMs}ms`,
+        '--qua-character-enter-easing': transition.value.enterEasing,
+        '--qua-character-exit-easing': transition.value.exitEasing,
+        '--qua-character-move-easing': transition.value.moveEasing,
       },
     }, slots.default?.({ ...useProjectionProps(), characters: renderedCharacters.value.map(item => item.character), actions }) || renderedCharacters.value.map(item =>
       slots.character?.({ ...useProjectionProps(), character: item.character, presence: item.phase, actions }) || h(QuaCharacter, { key: item.id, character: item.character, presence: item.phase }),

@@ -6,7 +6,8 @@ import type {
 } from '@quajs/plugin-achievement/contracts'
 import type { CocosRendererPluginContext } from '../types'
 import { ACHIEVEMENT_PLUGIN_ID, AchievementRenderToLogicEvents } from '@quajs/plugin-achievement/contracts'
-import { LogicToRenderEvents } from '@quajs/render-core'
+import { compareResolvedOverlayStackPlacement, DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents } from '@quajs/render-core'
+import { resolveCocosOverlayPlacement, resolveCocosOverlayZIndex } from '../overlay-placement'
 import { defineCocosRendererPlugin } from './core'
 import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromAssetRef } from '../utils'
 import { resolveInputMetadataAny, stringValue } from './projection-utils'
@@ -105,22 +106,48 @@ async function renderAchievementLayer(
   pages: Map<string, number>,
 ): Promise<void> {
   const projection = context.getViewState().plugins[ACHIEVEMENT_PLUGIN_ID] as AchievementProjection | undefined
-  const layer = context.cocos.getLayerNode('achievement', 'achievement-layer', 130)
-  context.cocos.host.nodes.clearChildren(layer)
-  context.cocos.releaseLayerResources('achievement')
+  const sortedNotifications = sortAchievementNotifications(projection?.notifications || [])
+  const topNotification = sortedNotifications[sortedNotifications.length - 1]
+  const toastLayer = context.cocos.getLayerNode('achievement-toast', 'achievement-toast-layer', resolveCocosOverlayZIndex(topNotification, {
+    overlayStack: 'toast',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
+  }))
+  const boardLayer = context.cocos.getLayerNode('achievement-board', 'achievement-board-layer', resolveCocosOverlayZIndex(projection, {
+    overlayStack: 'overlay',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementBoard,
+  }))
+  context.cocos.host.nodes.clearChildren(toastLayer)
+  context.cocos.host.nodes.clearChildren(boardLayer)
+  context.cocos.releaseLayerResources('achievement-toast')
+  context.cocos.releaseLayerResources('achievement-board')
   cleanupInactiveAchievementSounds(context, soundHandles, playedNotifications, new Set(projection?.notifications.map(notification => notification.id) || []))
-  context.cocos.host.nodes.setNodeMetadata?.(layer, {
+  context.cocos.host.nodes.setNodeMetadata?.(toastLayer, {
     plugin: 'achievement',
-    visible: projection?.sceneActive === true || Boolean(projection?.notifications.length),
+    kind: 'toast',
+    overlayPlacement: resolveCocosOverlayPlacement(topNotification, {
+      overlayStack: 'toast',
+      zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
+    }),
+    visible: sortedNotifications.length > 0,
+    projection,
+  })
+  context.cocos.host.nodes.setNodeMetadata?.(boardLayer, {
+    plugin: 'achievement',
+    kind: 'board',
+    overlayPlacement: resolveCocosOverlayPlacement(projection, {
+      overlayStack: 'overlay',
+      zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementBoard,
+    }),
+    visible: projection?.sceneActive === true,
     projection,
   })
   if (!projection)
     return
-  for (const [index, notification] of projection.notifications.entries()) {
-    await renderAchievementToast(context, layer, notification, index, playedNotifications, soundHandles)
+  for (const [index, notification] of sortedNotifications.entries()) {
+    await renderAchievementToast(context, toastLayer, notification, index, playedNotifications, soundHandles)
   }
   if (projection.sceneActive) {
-    await renderAchievementBoard(context, layer, projection, pages)
+    await renderAchievementBoard(context, boardLayer, projection, pages)
   }
 }
 
@@ -148,7 +175,7 @@ async function renderAchievementToast(
   if (icon?.type === 'images') {
     const iconNode = context.cocos.host.nodes.createNode('achievement-toast-icon', { parent: node, name: `achievement:toast:${notification.id}:icon` })
     const resource = await resolveAssetWithTargetPackages(context.cocos, 'images', icon.name, runtimePackageCandidatesFromAssetRef(icon as unknown as Record<string, unknown>))
-    context.cocos.setLayerResource('achievement', `notification:${notification.id}:icon`, resource)
+    context.cocos.setLayerResource('achievement-toast', `notification:${notification.id}:icon`, resource)
     context.cocos.host.nodes.setNodeSprite(iconNode, resource)
     context.cocos.host.nodes.setNodeTransform(iconNode, { x: 12, y: 10, width: 56, height: 56, zIndex: 2 })
   }
@@ -371,6 +398,23 @@ function renderEmptyState(
   context.cocos.host.nodes.setNodeMetadata?.(node, { plugin: 'achievement', empty: true })
 }
 
+function sortAchievementNotifications(
+  notifications: readonly AchievementNotificationProjection[],
+): AchievementNotificationProjection[] {
+  return [...notifications].sort((left, right) => compareResolvedOverlayStackPlacement(
+    resolveCocosOverlayPlacement(left, {
+      overlayStack: 'toast',
+      zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
+    }),
+    resolveCocosOverlayPlacement(right, {
+      overlayStack: 'toast',
+      zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
+    }),
+    left.id,
+    right.id,
+  ))
+}
+
 async function resolveAchievementAsset(
   context: CocosRendererPluginContext,
   asset: AchievementAssetRef,
@@ -382,7 +426,7 @@ async function resolveAchievementAsset(
     asset.name,
     runtimePackageCandidatesFromAssetRef(asset as unknown as Record<string, unknown>),
   )
-  context.cocos.setLayerResource('achievement', resourceKey, resource)
+  context.cocos.setLayerResource('achievement-board', resourceKey, resource)
   return resource
 }
 

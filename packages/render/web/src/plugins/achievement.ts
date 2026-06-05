@@ -10,10 +10,11 @@ import {
   ACHIEVEMENT_PLUGIN_ID,
   AchievementRenderToLogicEvents,
 } from '@quajs/plugin-achievement/contracts'
+import { compareResolvedOverlayStackPlacement, DEFAULT_UI_OVERLAY_Z_INDEXES, resolveOverlayStackPlacement } from '@quajs/render-core'
 import { runtimePackageCandidatesFromMetadata } from '../assets'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
-import { dispatchRendererIntent } from './shared'
+import { applyOverlayStackPlacement, dispatchRendererIntent } from './shared'
 
 type AchievementAssetRef = NonNullable<AchievementProjectionItem['icon']>
 
@@ -84,13 +85,13 @@ export function createAchievementWebRendererPlugin(): QuaWebDomRendererPlugin {
       {
         id: 'achievement-toast',
         order: 96,
-        plane: 'safe',
+        plane: 'overlay',
         render: context => renderAchievementToastLayer(context, playedNotificationIds, dismissTimers),
       },
       {
         id: 'achievement-board',
         order: 98,
-        plane: 'safe',
+        plane: 'overlay',
         render: renderAchievementBoardLayer,
       },
     ],
@@ -113,12 +114,18 @@ function renderAchievementToastLayer(
 
   syncDismissTimers(context, notifications, dismissTimers)
 
+  const sortedNotifications = sortAchievementNotifications(notifications)
+  const topNotification = sortedNotifications[sortedNotifications.length - 1]
   const layer = context.document.createElement('div')
   layer.className = 'qua-achievement-toast-layer'
   layer.setAttribute('data-qua-capture-role', 'overlay')
+  applyOverlayStackPlacement(layer, topNotification, {
+    overlayStack: 'toast',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
+  })
   layer.addEventListener('click', event => event.stopPropagation())
 
-  for (const notification of notifications) {
+  for (const notification of sortedNotifications) {
     layer.append(renderAchievementToast(context, notification, playedNotificationIds))
   }
 
@@ -136,6 +143,10 @@ function renderAchievementToast(
   toast.setAttribute('data-achievement-notification-id', notification.id)
   toast.setAttribute('data-achievement-id', notification.achievementId)
   toast.setAttribute('data-qua-capture-role', 'overlay')
+  applyOverlayStackPlacement(toast, notification, {
+    overlayStack: 'toast',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
+  })
   bindUiControlSkin(context, toast, {
     kind: 'panel',
   })
@@ -201,6 +212,10 @@ function renderAchievementBoardLayer(context: QuaWebDomLayerContext): Node | und
   const layer = context.document.createElement('div')
   layer.className = 'qua-achievement-layer'
   layer.setAttribute('data-qua-capture-role', 'overlay')
+  applyOverlayStackPlacement(layer, model.projection, {
+    overlayStack: 'overlay',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementBoard,
+  })
   layer.addEventListener('click', event => event.stopPropagation())
 
   const panel = context.document.createElement('section')
@@ -216,6 +231,23 @@ function renderAchievementBoardLayer(context: QuaWebDomLayerContext): Node | und
   panel.append(renderAchievementBody(context, model))
   layer.append(panel)
   return layer
+}
+
+function sortAchievementNotifications(
+  notifications: readonly AchievementNotificationProjection[],
+): AchievementNotificationProjection[] {
+  return [...notifications].sort((left, right) => compareResolvedOverlayStackPlacement(
+    resolveOverlayStackPlacement(left, {
+      overlayStack: 'toast',
+      zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
+    }),
+    resolveOverlayStackPlacement(right, {
+      overlayStack: 'toast',
+      zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
+    }),
+    left.id,
+    right.id,
+  ))
 }
 
 function renderAchievementHeader(context: QuaWebDomLayerContext, model: AchievementProjectionModel): Node {

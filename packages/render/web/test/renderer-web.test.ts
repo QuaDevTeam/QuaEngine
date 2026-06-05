@@ -18,6 +18,7 @@ import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-s
 import {
   createFlowControlProjection,
   createViewLayoutProjection,
+  DEFAULT_UI_OVERLAY_Z_INDEXES,
   emitLogicToRender,
   LogicToRenderEvents,
   onRenderToLogic,
@@ -26,12 +27,15 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   characterProjectionVars,
+  classifyWebDevice,
   clientPointToStageLogical,
   collectTrackValues,
   createQuaWebDomRenderer,
   createQuaWebRendererController,
   createReactRendererStoreAdapter,
   createRendererInputController,
+  evaluateWebPlatformSupport,
+  mountUnsupportedPlatformUi,
   projectAudioProjection,
   readCssSafeAreaInsets,
   resolveStageLayout,
@@ -52,6 +56,57 @@ describe('@quajs/renderer-web', () => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     document.body.innerHTML = ''
+  })
+
+  it('classifies Web device classes from browser environment fixtures', () => {
+    expect(classifyWebDevice({
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      viewportWidth: 1440,
+      viewportHeight: 900,
+    })).toBe('desktop')
+
+    expect(classifyWebDevice({
+      maxTouchPoints: 5,
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      viewportWidth: 1024,
+      viewportHeight: 1366,
+    })).toBe('pad')
+
+    expect(classifyWebDevice({
+      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile',
+      viewportWidth: 390,
+      viewportHeight: 844,
+    })).toBe('phone')
+  })
+
+  it('evaluates disabled devices and mounts the blocking UI', () => {
+    const result = evaluateWebPlatformSupport({
+      enabled: true,
+      devices: { desktop: true, pad: true, phone: false },
+      blockUi: {
+        title: 'Desktop only',
+        message: 'Please open this game on desktop.',
+      },
+    }, {
+      userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile',
+      viewportWidth: 390,
+      viewportHeight: 844,
+    })
+
+    expect(result).toMatchObject({
+      allowed: false,
+      detectedDevice: 'phone',
+      reason: 'device-disabled',
+    })
+
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = mountUnsupportedPlatformUi(container, result)
+
+    expect(root.className).toBe('qua-platform-guard')
+    expect(root.getAttribute('role')).toBe('alert')
+    expect(container.textContent).toContain('Desktop only')
+    expect(container.textContent).toContain('Please open this game on desktop.')
   })
 
   it('resolves adaptive aspect-interval scaled stage layouts', () => {
@@ -687,6 +742,7 @@ describe('@quajs/renderer-web', () => {
 
     expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('width: 1600px')
     expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1728')
+    expect(root.querySelector('.qua-stage-overlay')?.getAttribute('style')).toContain('pointer-events: none')
     expect(root.querySelector('.qua-screen-plane')?.getAttribute('style')).toContain('pointer-events: none')
     expect(root.querySelector('.qua-stage-scene-content .qua-background')).not.toBeNull()
     expect(root.querySelector('.qua-stage-subject .qua-character')).not.toBeNull()
@@ -760,6 +816,10 @@ describe('@quajs/renderer-web', () => {
           transitions: {
             enterDurationMs: 20,
             exitDurationMs: 25,
+            moveDurationMs: 30,
+            enterEasing: 'easeOutCubic',
+            exitEasing: 'easeInCubic',
+            moveEasing: 'cubic-bezier(0.2, 0, 0, 1)',
           },
         },
       }),
@@ -774,6 +834,10 @@ describe('@quajs/renderer-web', () => {
     expect(layer?.dataset.characterTransitions).toBe('enabled')
     expect(layer?.style.getPropertyValue('--qua-character-enter-duration')).toBe('20ms')
     expect(layer?.style.getPropertyValue('--qua-character-exit-duration')).toBe('25ms')
+    expect(layer?.style.getPropertyValue('--qua-character-move-duration')).toBe('30ms')
+    expect(layer?.style.getPropertyValue('--qua-character-enter-easing')).toBe('easeOutCubic')
+    expect(layer?.style.getPropertyValue('--qua-character-exit-easing')).toBe('easeInCubic')
+    expect(layer?.style.getPropertyValue('--qua-character-move-easing')).toBe('cubic-bezier(0.2, 0, 0, 1)')
     expect(root.querySelector('.qua-character')?.getAttribute('data-character-presence')).toBe('enter')
 
     await emitLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, {
@@ -920,6 +984,53 @@ describe('@quajs/renderer-web', () => {
 
       expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('H')
       expect(advances).toEqual([{ source: 'pointer:dialogue' }])
+    }
+    finally {
+      await renderer.unmount()
+    }
+  })
+
+  it('reveals rich dialogue text by grapheme without cutting combined characters', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline: new Pipeline(),
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        dialogue: {
+          visible: true,
+          revision: 1,
+          text: {
+            kind: 'rich-text',
+            blocks: [{
+              id: 'line',
+              spans: [
+                { id: 'emoji', text: '👩‍💻' },
+                { id: 'copy', text: '测试' },
+              ],
+            }],
+          },
+          typewriter: { enabled: true, durationMs: 300 },
+        },
+      }),
+    })
+
+    await renderer.mount()
+    try {
+      expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('')
+
+      await vi.advanceTimersByTimeAsync(100)
+      expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('👩‍💻')
+
+      await vi.advanceTimersByTimeAsync(100)
+      expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('👩‍💻测')
+
+      await vi.advanceTimersByTimeAsync(100)
+      expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('👩‍💻测试')
     }
     finally {
       await renderer.unmount()
@@ -1139,7 +1250,11 @@ describe('@quajs/renderer-web', () => {
 
     await renderer.mount()
 
-    expect(root.querySelector('.qua-gallery-layer')).not.toBeNull()
+    const galleryLayer = root.querySelector<HTMLElement>('.qua-gallery-layer')!
+    expect(root.querySelector('.qua-stage-overlay .qua-gallery-layer')).not.toBeNull()
+    expect(galleryLayer).not.toBeNull()
+    expect(galleryLayer.dataset.overlayStack).toBe('overlay')
+    expect(galleryLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.gallery))
     expect(root.querySelector('.qua-gallery-panel')?.textContent).toContain('CG')
     expect(root.querySelector('.qua-gallery-panel')?.textContent).toContain('Sunset')
     expect(root.querySelector('.qua-gallery-header-actions .qua-gallery-meta')?.textContent).toBe('1/2')
@@ -1302,8 +1417,14 @@ describe('@quajs/renderer-web', () => {
 
     await renderer.mount()
 
-    expect(root.querySelector('.qua-achievement-layer')).not.toBeNull()
-    expect(root.querySelector('.qua-achievement-toast-layer')).not.toBeNull()
+    const achievementLayer = root.querySelector<HTMLElement>('.qua-achievement-layer')!
+    const toastLayer = root.querySelector<HTMLElement>('.qua-achievement-toast-layer')!
+    expect(root.querySelector('.qua-stage-overlay .qua-achievement-layer')).not.toBeNull()
+    expect(root.querySelector('.qua-stage-overlay .qua-achievement-toast-layer')).not.toBeNull()
+    expect(achievementLayer.dataset.overlayStack).toBe('overlay')
+    expect(achievementLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.achievementBoard))
+    expect(toastLayer.dataset.overlayStack).toBe('toast')
+    expect(toastLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast))
     expect(root.textContent).toContain('Achievements')
     expect(root.textContent).toContain('First Step')
 
@@ -1323,6 +1444,72 @@ describe('@quajs/renderer-web', () => {
       { type: 'dismiss', payload: { notificationId: 'toast-1' } },
       { type: 'close', payload: {} },
     ]))
+
+    await renderer.unmount()
+  })
+
+  it('projects official overlay roots with default multi-stack zIndex ordering', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            menu: { title: 'Menu' },
+            confirm: { title: 'Confirm' },
+            settings: { open: true },
+          },
+        },
+        plugins: {
+          [SETTINGS_PLUGIN_ID]: settingsProjection(),
+          [BACKLOG_PLUGIN_ID]: {
+            revision: 1,
+            visible: true,
+            entries: [],
+            retention: { scope: 'global', maxEntries: 50 },
+            defaultPolicy: { include: true, rewindable: false, voiceReplay: true },
+          },
+          [GALLERY_PLUGIN_ID]: galleryProjection(),
+          [ACHIEVEMENT_PLUGIN_ID]: achievementProjection(),
+        },
+      }),
+    })
+
+    await renderer.mount()
+
+    const menuOverlay = root.querySelector<HTMLElement>('[data-overlay="menu"]')!
+    const confirmOverlay = root.querySelector<HTMLElement>('[data-overlay="confirm"]')!
+    expect(menuOverlay.dataset.overlayStack).toBe('overlay')
+    expect(menuOverlay.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.ui))
+    expect(confirmOverlay.dataset.overlayStack).toBe('modal')
+    expect(confirmOverlay.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.ui))
+    expect(root.querySelector<HTMLElement>('.qua-overlay-layer')?.dataset.overlayStack).toBe('modal')
+
+    const order = [
+      ['menu', menuOverlay],
+      ['backlog', root.querySelector<HTMLElement>('.qua-backlog-layer')!],
+      ['settings', root.querySelector<HTMLElement>('.qua-settings-layer')!],
+      ['gallery', root.querySelector<HTMLElement>('.qua-gallery-layer')!],
+      ['achievementBoard', root.querySelector<HTMLElement>('.qua-achievement-layer')!],
+      ['modal', root.querySelector<HTMLElement>('.qua-overlay-layer')!],
+      ['toast', root.querySelector<HTMLElement>('.qua-achievement-toast-layer')!],
+    ].map(([id, element]) => [id, Number((element as HTMLElement).dataset.overlayEffectiveZIndex)] as const)
+
+    expect([...order].sort((left, right) => left[1] - right[1]).map(([id]) => id)).toEqual([
+      'menu',
+      'backlog',
+      'settings',
+      'gallery',
+      'achievementBoard',
+      'modal',
+      'toast',
+    ])
 
     await renderer.unmount()
   })
@@ -1349,6 +1536,7 @@ describe('@quajs/renderer-web', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', repeat: true, bubbles: true }))
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft', key: 'ArrowLeft', bubbles: true }))
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight', key: 'ArrowRight', bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowDown', key: 'ArrowDown', bubbles: true }))
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ControlLeft', key: 'Control', bubbles: true }))
     document.dispatchEvent(new KeyboardEvent('keyup', { code: 'ControlLeft', key: 'Control', bubbles: true }))
     await flushDom()
@@ -1356,10 +1544,10 @@ describe('@quajs/renderer-web', () => {
     expect(events).toEqual([
       'command:advance:keyboard:Enter',
       'advance:keyboard:Enter',
-      'command:advance:keyboard:ArrowLeft',
-      'advance:keyboard:ArrowLeft',
       'command:advance:keyboard:ArrowRight',
       'advance:keyboard:ArrowRight',
+      'command:advance:keyboard:ArrowDown',
+      'advance:keyboard:ArrowDown',
       'command:skip:start:keyboard:ControlLeft',
       'skip:start:keyboard:ControlLeft',
       'command:skip:stop:keyboard:ControlLeft',
@@ -1416,7 +1604,7 @@ describe('@quajs/renderer-web', () => {
     expect(events).toEqual([
       'command:advance:keyboard:Enter',
       'command:skip:start:keyboard:ControlLeft',
-      'command:choice:next:keyboard:ArrowDown',
+      'command:advance:keyboard:ArrowDown',
       'command:choice:confirm:gamepad:0:button:0',
     ])
 
@@ -1516,6 +1704,79 @@ describe('@quajs/renderer-web', () => {
         insideStage: true,
       }),
     })])
+
+    await renderer.unmount()
+  })
+
+  it('does not turn overlay keyboard activation into narrative advance', async () => {
+    const pipeline = new Pipeline()
+    const commands: unknown[] = []
+    const advances: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_INPUT_COMMAND, payload => commands.push(payload))
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_ADVANCE, payload => advances.push(payload))
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins({ input: { pointer: false, gamepad: false } }),
+      initialView: view({
+        dialogue: { visible: true, text: 'Line' },
+        ui: {
+          visible: true,
+          overlays: {
+            menu: { title: 'Menu' },
+          },
+        },
+      }),
+    })
+
+    await renderer.mount()
+    const overlay = root.querySelector<HTMLElement>('.qua-ui-overlay[data-overlay="menu"]')!
+    overlay.tabIndex = -1
+    overlay.focus()
+    overlay.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', bubbles: true }))
+    overlay.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true }))
+    await flushDom()
+
+    expect(commands).toEqual([])
+    expect(advances).toEqual([])
+
+    await renderer.unmount()
+  })
+
+  it('does not turn overlay pointer interaction into narrative advance', async () => {
+    const pipeline = new Pipeline()
+    const commands: unknown[] = []
+    const advances: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_INPUT_COMMAND, payload => commands.push(payload))
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_ADVANCE, payload => advances.push(payload))
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins({ input: { keyboard: false, gamepad: false } }),
+      initialView: view({
+        dialogue: { visible: true, text: 'Line' },
+        ui: {
+          visible: true,
+          overlays: {
+            menu: { title: 'Menu' },
+          },
+        },
+      }),
+    })
+
+    await renderer.mount()
+    const overlay = root.querySelector<HTMLElement>('.qua-ui-overlay[data-overlay="menu"]')!
+    overlay.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0, clientX: 800, clientY: 500 }))
+    await flushDom()
+
+    expect(commands).toEqual([])
+    expect(advances).toEqual([])
 
     await renderer.unmount()
   })
@@ -1688,7 +1949,10 @@ describe('@quajs/renderer-web', () => {
     expect(root.querySelector('.qua-settings-panel')).not.toBeNull()
     expect(root.querySelector('.qua-overlay-layer')).toBeNull()
     const layer = root.querySelector<HTMLElement>('.qua-settings-layer')!
+    expect(root.querySelector('.qua-stage-overlay .qua-settings-layer')).not.toBeNull()
     expect(layer.getAttribute('style')).toContain('pointer-events: auto')
+    expect(layer.dataset.overlayStack).toBe('overlay')
+    expect(layer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.settings))
     expect(layer.dataset.uiSceneId).toBe('system:settings')
     expect(layer.dataset.uiScenePresentation).toBe('scene')
     expect(layer.dataset.uiSceneOverlayVariant).toBe('main-menu')
@@ -1726,6 +1990,41 @@ describe('@quajs/renderer-web', () => {
       { scope: 'system', patch: { skipMode: 'all' } },
       { scope: 'system', patch: { layout: { gap: 16 } } },
     ])
+
+    await renderer.unmount()
+  })
+
+  it('applies modal stack overrides to the dedicated settings overlay layer', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            settings: {
+              open: true,
+              overlayStack: 'modal',
+              zIndex: 10,
+            },
+          },
+        },
+        plugins: {
+          [SETTINGS_PLUGIN_ID]: settingsProjection(),
+        },
+      }),
+    })
+
+    await renderer.mount()
+
+    const layer = root.querySelector<HTMLElement>('.qua-settings-layer')!
+    expect(layer.dataset.overlayStack).toBe('modal')
+    expect(layer.dataset.overlayZIndex).toBe('10')
+    expect(Number(layer.dataset.overlayEffectiveZIndex)).toBeGreaterThan(200_000_000)
 
     await renderer.unmount()
   })
@@ -2157,9 +2456,13 @@ describe('@quajs/renderer-web', () => {
     })
 
     await renderer.mount()
-    expect(root.querySelector('.qua-screen-plane .qua-backlog-layer')).not.toBeNull()
+    expect(root.querySelector('.qua-stage-overlay .qua-backlog-layer')).not.toBeNull()
+    expect(root.querySelector('.qua-screen-plane .qua-backlog-layer')).toBeNull()
     expect(root.querySelector('.qua-stage-safe .qua-backlog-layer')).toBeNull()
-    expect(root.querySelector('.qua-backlog-layer')?.getAttribute('data-ui-scene-id')).toBe('game:backlog')
+    const backlogLayer = root.querySelector<HTMLElement>('.qua-backlog-layer')!
+    expect(backlogLayer.getAttribute('data-ui-scene-id')).toBe('game:backlog')
+    expect(backlogLayer.dataset.overlayStack).toBe('overlay')
+    expect(backlogLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.backlog))
     expect(root.querySelector('.qua-backlog-title')?.textContent).toBe('Backlog')
     expect(root.querySelector('.qua-backlog-entry-speaker')?.textContent).toBe('Alice')
     expect(root.querySelector('.qua-backlog-entry-main')?.textContent).toContain('Backlog line')

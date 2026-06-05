@@ -1,12 +1,15 @@
-import type { BacklogEntry, BacklogProjection, BacklogUiSceneProjection } from '@quajs/plugin-backlog/contracts'
+import type { BacklogEntry, BacklogProjection, BacklogUiProjection, BacklogUiSceneProjection } from '@quajs/plugin-backlog/contracts'
+import type { ViewOverlayStackPlacement } from '@quajs/render-core'
 import type { PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
+import { DEFAULT_UI_OVERLAY_Z_INDEXES } from '@quajs/render-core'
 import { computed, defineComponent, h } from 'vue'
 import { useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
 import { dispatchVueRendererIntent } from '../shared/intent'
+import { createOverlayStackBinding } from '../shared/overlay'
 
 export const QuaBacklogEntry = defineComponent({
   name: 'QuaBacklogEntry',
@@ -102,6 +105,10 @@ export const QuaBacklogLayer = defineComponent({
     const { view } = renderer
     const actions = useRendererActions()
     const projection = computed(() => view.value.plugins[BACKLOG_PLUGIN_ID] as BacklogProjection | undefined)
+    const overlayStack = computed(() => createOverlayStackBinding(backlogUiPlacement(projection.value?.ui), {
+      overlayStack: 'overlay',
+      zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.backlog,
+    }))
     const panelSkin = useUiControlSkin({ kind: 'panel' })
     const closeSkin = useUiControlSkin({ kind: 'button' })
     const close = () => dispatchVueRendererIntent(renderer, () => actions.requestPluginEvent(BacklogRenderToLogicEvents.CLOSE_REQUEST), {
@@ -112,7 +119,8 @@ export const QuaBacklogLayer = defineComponent({
           'class': createBacklogLayerClasses(projection.value.ui?.scene),
           'data-qua-capture-role': 'overlay',
           ...createBacklogSceneDataset(projection.value.ui?.scene),
-          'style': { pointerEvents: 'auto' },
+          ...overlayStack.value.attrs,
+          'style': { pointerEvents: 'auto', ...overlayStack.value.style },
           'onClick': (event: Event) => event.stopPropagation(),
         }, slots.default?.(createBacklogLayerSlotPayload(projection.value, actions, close)) || [
           h('section', {
@@ -145,7 +153,7 @@ export function createBacklogRendererPlugin(): QuaVueRendererPlugin {
       slot: 'backlog',
       component: QuaBacklogLayer,
       order: 95,
-      plane: 'screen',
+      plane: 'overlay',
     }],
   })
 }
@@ -246,6 +254,14 @@ function createBacklogSceneDataset(scene?: Readonly<BacklogUiSceneProjection>): 
     'data-ui-scene-default-chrome': scene?.overlay?.defaultChrome === false ? 'false' : undefined,
     'data-ui-scene-hide-hud': scene?.overlay?.hideHud ? 'true' : undefined,
     'data-ui-scene-hide-dialogue': scene?.overlay?.hideDialogue ? 'true' : undefined,
+  }
+}
+
+function backlogUiPlacement(ui: Readonly<BacklogUiProjection> | undefined): ViewOverlayStackPlacement {
+  return {
+    overlayStack: ui?.overlayStack ?? ui?.scene?.overlay?.overlayStack,
+    stackPriority: ui?.stackPriority ?? ui?.scene?.overlay?.stackPriority,
+    zIndex: ui?.zIndex ?? ui?.scene?.overlay?.zIndex,
   }
 }
 

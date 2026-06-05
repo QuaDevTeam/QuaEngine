@@ -83,7 +83,12 @@ await gallery.registerEntry({
 
 ```ts
 await gallery.unlockEntry('cg/unit7-arrival', { source: 'story' })
-await gallery.openScene({ catalogId: 'main-cg', entryId: 'cg/unit7-arrival' })
+await gallery.openScene({
+  catalogId: 'main-cg',
+  entryId: 'cg/unit7-arrival',
+  overlayStack: 'overlay',
+  zIndex: 70,
+})
 
 const profile = gallery.getProfile()
 const projection = gallery.getProjection()
@@ -111,6 +116,8 @@ Decorators:
 ## Renderer Boundary
 
 Renderer components receive `GalleryProjection`, render locked/unlocked entries, and emit selection/filter/close intents. They must not decide unlock state. Lightbox/detail browsing state is renderer-local and transient only across Web/Vue/React/Svelte/Cocos; locked entries should render the projection they receive, including projected safe locked content, and must not reconstruct hidden definition details. Web-family renderers should expose lightbox as an overlay scene (`qua-gallery-lightbox--overlay-scene`, `data-gallery-lightbox-mode="overlay-scene"`) outside the gallery panel so app themes can size it near fullscreen without making renderer state authoritative. Gallery header counts should sit with the close action rather than under the title; product/demo themes may omit search/filter toolbars when the header count is the intended progress marker. Avoid duplicating locked state in both preview placeholders and entry badges. Lightbox captions and icon-only close controls should live inside the media region as renderer-local chrome, image clicks may toggle caption/control visibility, and blank lightbox/media clicks may hide that chrome.
+
+Gallery scene placement is plugin projection metadata. `GalleryOpenOptions` and `GalleryProjection` accept `overlayStack`, `stackPriority`, and `zIndex`; the default placement is `overlay` stack with gallery zIndex `70`. Save/load back into the gallery scene must preserve those placement fields, and renderers must project them on the official gallery overlay root.
 
 ## Settings
 

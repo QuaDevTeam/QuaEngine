@@ -1,14 +1,15 @@
-import type { ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/render-core'
+import type { ResolveOverlayStackPlacementOptions, ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { SaveSlotDataSource } from '@quajs/renderer-web/save-preview'
 import type { PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
-import { LogicToRenderEvents, onLogicToRender, resolveActiveUiSceneProjection } from '@quajs/render-core'
+import { compareResolvedOverlayStackPlacement, DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents, onLogicToRender, resolveActiveUiSceneProjection, resolveUiOverlayStackPlacement } from '@quajs/render-core'
 import { WebSaveSlotPreviewCache } from '@quajs/renderer-web/save-preview'
 import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from 'vue'
 import { useAudio, useFlowControl, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
 import { dispatchVueRendererIntent } from '../shared/intent'
+import { createUiOverlayStackBinding } from '../shared/overlay'
 
 const BACKLOG_OPEN_REQUEST = 'backlog/open_request'
 const DEFAULT_SAVE_SLOT_COUNT = 12
@@ -35,6 +36,12 @@ type MenuOverlayConfig = UiOverlaySkinConfig & {
   saveLoadSlotCount?: number
   saveLoadSlotPrefix?: string
   saveLoadShowQuickActions?: boolean
+  saveLoadOverlayStack?: string
+  saveLoadStackPriority?: number
+  saveLoadZIndex?: number
+  settingsOverlayStack?: string
+  settingsStackPriority?: number
+  settingsZIndex?: number
   titleActionLabel?: string
   titleConfirmElementId?: string
   titleConfirmTitle?: string
@@ -147,6 +154,8 @@ const QuaUiActionButton = defineComponent({
     },
     disabled: Boolean,
     active: Boolean,
+    ariaLabel: String,
+    title: String,
     onAction: Function as PropType<() => void | Promise<void>>,
   },
   setup(props) {
@@ -160,6 +169,8 @@ const QuaUiActionButton = defineComponent({
       'class': ['qua-ui-action-button', props.className, props.active ? 'is-active' : undefined],
       'type': 'button',
       'disabled': props.disabled,
+      'aria-label': props.ariaLabel || props.label,
+      'title': props.title || props.ariaLabel || props.label,
       'style': skin.skinStyle.value,
       'data-skin-kind': 'button',
       'data-skin-reference': skin.skinReference.value || undefined,
@@ -175,7 +186,7 @@ const QuaUiActionButton = defineComponent({
           })
         }
       },
-    }, props.label)
+    }, h('span', { class: 'qua-ui-action-label' }, props.label))
   },
 })
 
@@ -367,17 +378,19 @@ export const QuaUiOverlay = defineComponent({
       kind: 'panel',
       skinId: () => config.value?.skinId,
     })
+    const overlayStack = computed(() => createUiOverlayStackBinding(config.value, defaultUiOverlayPlacement(props.elementId)))
     return () => config.value
       ? h('div', {
           'class': ['qua-ui-overlay', props.className],
           'data-overlay': props.elementId,
           'data-overlay-presence': props.overlay && !view.value.ui.overlays?.[props.elementId] ? 'exit' : 'enter',
           'data-qua-capture-role': 'overlay',
+          ...overlayStack.value.attrs,
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
           'data-skin-state': skin.skinState.value,
           'onClick': (event: Event) => event.stopPropagation(),
-          'style': skin.skinStyle.value,
+          'style': { ...skin.skinStyle.value, ...overlayStack.value.style },
         }, slots.default?.({
           view: view.value,
           ui: view.value.ui,
@@ -412,6 +425,7 @@ export const QuaMenuOverlay = defineComponent({
       kind: 'panel',
       skinId: () => config.value?.skinId,
     })
+    const overlayStack = computed(() => createUiOverlayStackBinding(config.value, defaultUiOverlayPlacement(props.elementId)))
     const openMenuTarget = async (elementId: string, targetConfig: Record<string, unknown>) => {
       await actions.requestUiOpen(elementId, targetConfig)
       if (config.value?.replaceOnOpen) {
@@ -424,11 +438,12 @@ export const QuaMenuOverlay = defineComponent({
           'data-overlay': props.elementId,
           'data-overlay-presence': props.overlay && !view.value.ui.overlays?.[props.elementId] ? 'exit' : 'enter',
           'data-qua-capture-role': 'overlay',
+          ...overlayStack.value.attrs,
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
           'data-skin-state': skin.skinState.value,
           'onClick': (event: Event) => event.stopPropagation(),
-          'style': skin.skinStyle.value,
+          'style': { ...skin.skinStyle.value, ...overlayStack.value.style },
         }, slots.default?.({
           view: view.value,
           ui: view.value.ui,
@@ -460,10 +475,14 @@ export const QuaMenuOverlay = defineComponent({
             h(QuaUiActionButton, {
               className: 'qua-menu-action qua-menu-action--settings',
               label: 'Settings',
-              onAction: () => openMenuTarget('settings', {
-                source: props.elementId,
-                ...(config.value?.scene ? { scene: createChildUiScene(config.value.scene, 'settings') } : {}),
-              }),
+              onAction: () => {
+                const placement = createSettingsMenuPlacement(config.value)
+                return openMenuTarget('settings', {
+                  source: props.elementId,
+                  ...placement,
+                  ...(config.value?.scene ? { scene: createChildUiScene(config.value.scene, 'settings', placement) } : {}),
+                })
+              },
             }),
             config.value.showBacklog === false
               ? null
@@ -533,6 +552,7 @@ export const QuaConfirmOverlay = defineComponent({
       kind: 'panel',
       skinId: () => config.value?.skinId,
     })
+    const overlayStack = computed(() => createUiOverlayStackBinding(config.value, defaultUiOverlayPlacement(props.elementId)))
     const confirm = async () => {
       if (config.value?.confirmEvent) {
         await actions.requestPluginEvent(config.value.confirmEvent, config.value.confirmPayload || { source: props.elementId })
@@ -547,11 +567,12 @@ export const QuaConfirmOverlay = defineComponent({
           'data-overlay': props.elementId,
           'data-overlay-presence': props.overlay && !view.value.ui.overlays?.[props.elementId] ? 'exit' : 'enter',
           'data-qua-capture-role': 'overlay',
+          ...overlayStack.value.attrs,
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
           'data-skin-state': skin.skinState.value,
           'onClick': (event: Event) => event.stopPropagation(),
-          'style': skin.skinStyle.value,
+          'style': { ...skin.skinStyle.value, ...overlayStack.value.style },
         }, slots.default?.({
           view: view.value,
           ui: view.value.ui,
@@ -610,6 +631,7 @@ export const QuaSaveLoadPanel = defineComponent({
       kind: 'panel',
       skinId: () => config.value?.skinId,
     })
+    const overlayStack = computed(() => createUiOverlayStackBinding(config.value, defaultUiOverlayPlacement(props.elementId)))
     let refreshVersion = 0
     let previewCache: WebSaveSlotPreviewCache | undefined
     let stopSlotUpdates: (() => void) | undefined
@@ -685,12 +707,13 @@ export const QuaSaveLoadPanel = defineComponent({
           'data-overlay': props.elementId,
           'data-overlay-presence': props.overlay && !view.value.ui.overlays?.[props.elementId] ? 'exit' : 'enter',
           'data-qua-capture-role': 'overlay',
+          ...overlayStack.value.attrs,
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
           'data-skin-state': skin.skinState.value,
           'data-save-load-mode': mode.value,
           'onClick': (event: Event) => event.stopPropagation(),
-          'style': skin.skinStyle.value,
+          'style': { ...skin.skinStyle.value, ...overlayStack.value.style },
         }, slots.default?.({
           view: view.value,
           ui: view.value.ui,
@@ -772,17 +795,19 @@ export const QuaSettingsPanel = defineComponent({
       kind: 'panel',
       skinId: () => config.value?.skinId,
     })
+    const overlayStack = computed(() => createUiOverlayStackBinding(config.value, defaultUiOverlayPlacement(props.elementId)))
     return () => config.value
       ? h('div', {
           'class': ['qua-settings-panel', props.className],
           'data-overlay': props.elementId,
           'data-overlay-presence': props.overlay && !view.value.ui.overlays?.[props.elementId] ? 'exit' : 'enter',
           'data-qua-capture-role': 'overlay',
+          ...overlayStack.value.attrs,
           'data-skin-kind': 'panel',
           'data-skin-reference': skin.skinReference.value || undefined,
           'data-skin-state': skin.skinState.value,
           'onClick': (event: Event) => event.stopPropagation(),
-          'style': skin.skinStyle.value,
+          'style': { ...skin.skinStyle.value, ...overlayStack.value.style },
         }, slots.default?.({
           view: view.value,
           ui: view.value.ui,
@@ -844,7 +869,15 @@ export const QuaOverlayLayer = defineComponent({
     const { view, rendererLayerIds } = useQuaRenderer()
     const overlays = computed(() => view.value.ui.overlays || {})
     const renderedOverlays = ref<RenderedOverlayPresence[]>([])
-    const activeScene = computed(() => resolveActiveUiSceneProjection(overlays.value))
+    const sortedRenderedOverlays = computed(() => [...renderedOverlays.value].sort(compareOverlayPresence))
+    const activeScene = computed(() => resolveActiveUiSceneProjection(Object.fromEntries(
+      sortedRenderedOverlays.value.map(item => [item.elementId, item.overlay]),
+    ), defaultUiOverlayPlacement))
+    const topOverlay = computed(() => sortedRenderedOverlays.value[sortedRenderedOverlays.value.length - 1])
+    const overlayStack = computed(() => createUiOverlayStackBinding(
+      topOverlay.value?.overlay,
+      defaultUiOverlayPlacement(topOverlay.value?.elementId),
+    ))
     const hasDedicatedSettingsRenderer = computed(() =>
       rendererLayerIds.value.includes(SETTINGS_RENDERER_LAYER_ID),
     )
@@ -905,16 +938,17 @@ export const QuaOverlayLayer = defineComponent({
             props.className,
           ],
           'data-qua-capture-role': 'overlay',
+          ...overlayStack.value.attrs,
           'data-ui-scene-id': activeScene.value?.id,
           'data-ui-scene-presentation': activeScene.value?.presentation,
           'data-ui-scene-overlay-variant': activeScene.value?.overlay?.variant,
           'data-ui-scene-default-chrome': activeScene.value?.overlay?.defaultChrome === false ? 'false' : undefined,
           'data-ui-scene-hide-hud': activeScene.value?.overlay?.hideHud ? 'true' : undefined,
           'data-ui-scene-hide-dialogue': activeScene.value?.overlay?.hideDialogue ? 'true' : undefined,
-          'style': { pointerEvents: 'auto' },
+          'style': { pointerEvents: 'auto', ...overlayStack.value.style },
           'onClick': (event: Event) => event.stopPropagation(),
         }, [
-          ...renderedOverlays.value.map(item => renderOverlayPresence(item)),
+          ...sortedRenderedOverlays.value.map(item => renderOverlayPresence(item)),
         ])
       : null
   },
@@ -929,7 +963,7 @@ export function createUiRendererPlugin(): QuaVueRendererPlugin {
       slot: 'overlay',
       component: QuaOverlayLayer,
       order: 90,
-      plane: 'screen',
+      plane: 'overlay',
     }],
   })
 }
@@ -986,6 +1020,7 @@ function renderPanelHeader(options: {
     h(QuaUiActionButton, {
       className: 'qua-ui-panel-close',
       label: 'Close',
+      ariaLabel: 'Close panel',
       onAction: options.close,
     }),
   ])
@@ -1023,6 +1058,9 @@ function renderOverlayPresence(item: RenderedOverlayPresence): VNode {
   if (item.elementId === 'titleConfirm') {
     return h(QuaConfirmOverlay, props)
   }
+  if (item.elementId === 'gameOver') {
+    return h(QuaConfirmOverlay, props)
+  }
   if (item.elementId === 'settings') {
     return h(QuaSettingsPanel, props)
   }
@@ -1030,23 +1068,59 @@ function renderOverlayPresence(item: RenderedOverlayPresence): VNode {
 }
 
 function createSaveLoadMenuConfig(config: MenuOverlayConfig | undefined, source: string, mode: SaveLoadMode): Record<string, unknown> {
+  const placement = createSaveLoadMenuPlacement(config)
   return {
     mode,
     source,
+    ...placement,
     ...(typeof config?.saveLoadSlotCount === 'number' ? { slotCount: config.saveLoadSlotCount } : {}),
     ...(typeof config?.saveLoadSlotPrefix === 'string' ? { slotPrefix: config.saveLoadSlotPrefix } : {}),
     ...(config?.saveLoadShowQuickActions !== undefined ? { showQuickActions: config.saveLoadShowQuickActions } : {}),
     ...(config?.showHeaderTitle === false ? { showHeaderTitle: false } : {}),
-    ...(config?.scene ? { scene: createChildUiScene(config.scene, `saveLoad:${mode}`) } : {}),
+    ...(config?.scene ? { scene: createChildUiScene(config.scene, `saveLoad:${mode}`, placement) } : {}),
   }
 }
 
-function createChildUiScene(parent: ViewUiSceneProjection, childId: string): ViewUiSceneProjection {
+function createChildUiScene(parent: ViewUiSceneProjection, childId: string, placement: OverlayPlacementPatch = {}): ViewUiSceneProjection {
+  const overlay = parent.overlay || hasOverlayPlacement(placement)
+    ? {
+        ...(parent.overlay || {}),
+        ...placement,
+      }
+    : undefined
   return {
     ...parent,
     id: `${parent.id}/${childId}`,
-    overlay: parent.overlay ? { ...parent.overlay } : undefined,
+    overlay,
   }
+}
+
+type OverlayPlacementPatch = Pick<ViewUiOverlayProjection, 'overlayStack' | 'stackPriority' | 'zIndex'>
+
+function createSaveLoadMenuPlacement(config: MenuOverlayConfig | undefined): OverlayPlacementPatch {
+  return compactOverlayPlacement({
+    overlayStack: config?.saveLoadOverlayStack,
+    stackPriority: config?.saveLoadStackPriority,
+    zIndex: config?.saveLoadZIndex,
+  })
+}
+
+function createSettingsMenuPlacement(config: MenuOverlayConfig | undefined): OverlayPlacementPatch {
+  return compactOverlayPlacement({
+    overlayStack: config?.settingsOverlayStack,
+    stackPriority: config?.settingsStackPriority,
+    zIndex: config?.settingsZIndex,
+  })
+}
+
+function compactOverlayPlacement(placement: OverlayPlacementPatch): OverlayPlacementPatch {
+  return Object.fromEntries(
+    Object.entries(placement).filter((entry): entry is [keyof OverlayPlacementPatch, string | number] => entry[1] !== undefined),
+  ) as OverlayPlacementPatch
+}
+
+function hasOverlayPlacement(placement: OverlayPlacementPatch): boolean {
+  return placement.overlayStack !== undefined || placement.stackPriority !== undefined || placement.zIndex !== undefined
 }
 
 function titleConfirmElementId(config: MenuOverlayConfig | undefined): string {
@@ -1054,8 +1128,10 @@ function titleConfirmElementId(config: MenuOverlayConfig | undefined): string {
 }
 
 function createTitleConfirmMenuConfig(config: MenuOverlayConfig | undefined, source: string): Record<string, unknown> {
+  const placement: OverlayPlacementPatch = { overlayStack: 'modal' }
   return {
     source,
+    ...placement,
     title: config?.titleConfirmTitle || 'Return to Title',
     subtitle: config?.titleConfirmSubtitle || 'Current progress may be lost.',
     description: config?.titleConfirmDescription || 'Save before returning to the title menu.',
@@ -1063,6 +1139,7 @@ function createTitleConfirmMenuConfig(config: MenuOverlayConfig | undefined, sou
     cancelLabel: 'Cancel',
     confirmEvent: config?.titleConfirmEvent || UI_TITLE_REQUEST_EVENT,
     confirmPayload: config?.titleConfirmPayload || { source },
+    ...(config?.scene ? { scene: createChildUiScene(config.scene, 'titleConfirm', placement) } : {}),
   }
 }
 
@@ -1236,6 +1313,22 @@ function createSkinButtonHandlers(
 
 function shouldRenderOverlayInGenericLayer(elementId: string, hasDedicatedSettingsRenderer: boolean): boolean {
   return elementId !== 'settings' || !hasDedicatedSettingsRenderer
+}
+
+function compareOverlayPresence(left: RenderedOverlayPresence, right: RenderedOverlayPresence): number {
+  return compareResolvedOverlayStackPlacement(
+    resolveUiOverlayStackPlacement(left.overlay, defaultUiOverlayPlacement(left.elementId)),
+    resolveUiOverlayStackPlacement(right.overlay, defaultUiOverlayPlacement(right.elementId)),
+    left.elementId,
+    right.elementId,
+  )
+}
+
+function defaultUiOverlayPlacement(elementId?: string): ResolveOverlayStackPlacementOptions {
+  if (elementId === 'confirm' || elementId === 'titleConfirm') {
+    return { overlayStack: 'modal', zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.ui }
+  }
+  return { overlayStack: 'overlay', zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.ui }
 }
 
 function titleFromField(field: string): string {

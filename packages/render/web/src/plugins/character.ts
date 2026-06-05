@@ -1,4 +1,4 @@
-import type { ViewCharacterProjection } from '@quajs/render-core'
+import type { AnimationTimingFunction, ViewCharacterProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { runtimePackageCandidatesFromMetadata } from '../assets'
 import { characterProjectionVars, projectCharacters, resolveCharacterPositionAnchor } from '../projection'
@@ -10,6 +10,10 @@ export interface CharacterTransitionOptions {
   enabled?: boolean
   enterDurationMs?: number
   exitDurationMs?: number
+  moveDurationMs?: number
+  enterEasing?: AnimationTimingFunction
+  exitEasing?: AnimationTimingFunction
+  moveEasing?: AnimationTimingFunction
 }
 
 export type CharacterTransitionConfig = boolean | CharacterTransitionOptions
@@ -18,6 +22,10 @@ export interface ResolvedCharacterTransitionOptions {
   enabled: boolean
   enterDurationMs: number
   exitDurationMs: number
+  moveDurationMs: number
+  enterEasing: AnimationTimingFunction
+  exitEasing: AnimationTimingFunction
+  moveEasing: AnimationTimingFunction
 }
 
 export type CharacterPresencePhase = 'enter' | 'idle' | 'exit'
@@ -67,6 +75,10 @@ function renderCharacterLayer(
   layer.setAttribute('data-character-transitions', transition.enabled ? 'enabled' : 'disabled')
   layer.style.setProperty('--qua-character-enter-duration', `${transition.enterDurationMs}ms`)
   layer.style.setProperty('--qua-character-exit-duration', `${transition.exitDurationMs}ms`)
+  layer.style.setProperty('--qua-character-move-duration', `${transition.moveDurationMs}ms`)
+  layer.style.setProperty('--qua-character-enter-easing', transition.enterEasing)
+  layer.style.setProperty('--qua-character-exit-easing', transition.exitEasing)
+  layer.style.setProperty('--qua-character-move-easing', transition.moveEasing)
   const characters = projectCharacters(context.view.characters, context.view.animations, Date.now())
   const rendered = transition.enabled
     ? resolveRenderedCharacters(context, state, characters, transition.exitDurationMs)
@@ -183,6 +195,10 @@ export function resolveCharacterTransitionOptions(options: CharacterTransitionCo
       enabled: false,
       enterDurationMs: 0,
       exitDurationMs: 0,
+      moveDurationMs: 0,
+      enterEasing: 'linear',
+      exitEasing: 'linear',
+      moveEasing: 'linear',
     }
   }
   const config = typeof options === 'object' && options !== null ? options : undefined
@@ -190,6 +206,10 @@ export function resolveCharacterTransitionOptions(options: CharacterTransitionCo
     enabled: config?.enabled !== false,
     enterDurationMs: positiveDuration(config?.enterDurationMs, 220),
     exitDurationMs: positiveDuration(config?.exitDurationMs, 180),
+    moveDurationMs: positiveDuration(config?.moveDurationMs, 220),
+    enterEasing: normalizeEasing(config?.enterEasing, 'ease'),
+    exitEasing: normalizeEasing(config?.exitEasing, 'ease'),
+    moveEasing: normalizeEasing(config?.moveEasing, 'ease'),
   }
 }
 
@@ -197,6 +217,10 @@ function positiveDuration(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0
     ? value
     : fallback
+}
+
+function normalizeEasing(value: unknown, fallback: AnimationTimingFunction): AnimationTimingFunction {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback
 }
 
 function findCharacterElement(root: HTMLElement, characterId: string): HTMLElement | undefined {

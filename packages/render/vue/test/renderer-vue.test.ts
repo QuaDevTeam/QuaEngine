@@ -13,6 +13,7 @@ import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-s
 import {
   createFlowControlProjection,
   createViewLayoutProjection,
+  DEFAULT_UI_OVERLAY_Z_INDEXES,
   emitLogicToRender,
   LogicToRenderEvents,
   onRenderToLogic,
@@ -255,9 +256,13 @@ describe('@quajs/renderer-vue', () => {
     })
 
     await flushVue()
-    expect(host.el.querySelector('.qua-screen-plane .qua-backlog-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-overlay .qua-backlog-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-screen-plane .qua-backlog-layer')).toBeNull()
     expect(host.el.querySelector('.qua-stage-safe .qua-backlog-layer')).toBeNull()
-    expect(host.el.querySelector('.qua-backlog-layer')?.getAttribute('data-ui-scene-id')).toBe('game:backlog')
+    const backlogLayer = host.el.querySelector<HTMLElement>('.qua-backlog-layer')!
+    expect(backlogLayer.getAttribute('data-ui-scene-id')).toBe('game:backlog')
+    expect(backlogLayer.dataset.overlayStack).toBe('overlay')
+    expect(backlogLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.backlog))
     expect(host.el.querySelector('.qua-backlog-title')?.textContent).toBe('Backlog')
     expect(host.el.querySelector('.qua-backlog-entry-speaker')?.textContent).toBe('Alice')
     expect(host.el.textContent).toContain('Backlog line')
@@ -294,7 +299,12 @@ describe('@quajs/renderer-vue', () => {
     })
 
     await flushVue()
-    expect(host.el.querySelector('.qua-gallery-layer')).not.toBeNull()
+    const galleryLayer = host.el.querySelector<HTMLElement>('.qua-gallery-layer')!
+    expect(host.el.querySelector('.qua-stage-overlay .qua-gallery-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-screen-plane .qua-gallery-layer')).toBeNull()
+    expect(galleryLayer).not.toBeNull()
+    expect(galleryLayer.dataset.overlayStack).toBe('overlay')
+    expect(galleryLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.gallery))
     expect(host.el.querySelector('.qua-gallery-panel')).not.toBeNull()
     expect(host.el.textContent).toContain('CG')
     expect(host.el.textContent).toContain('Sunset')
@@ -420,8 +430,14 @@ describe('@quajs/renderer-vue', () => {
     })
 
     await flushVue()
-    expect(host.el.querySelector('.qua-achievement-layer')).not.toBeNull()
-    expect(host.el.querySelector('.qua-achievement-toast-layer')).not.toBeNull()
+    const achievementLayer = host.el.querySelector<HTMLElement>('.qua-achievement-layer')!
+    const toastLayer = host.el.querySelector<HTMLElement>('.qua-achievement-toast-layer')!
+    expect(host.el.querySelector('.qua-stage-overlay .qua-achievement-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-overlay .qua-achievement-toast-layer')).not.toBeNull()
+    expect(achievementLayer.dataset.overlayStack).toBe('overlay')
+    expect(achievementLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.achievementBoard))
+    expect(toastLayer.dataset.overlayStack).toBe('toast')
+    expect(toastLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast))
     expect(host.el.textContent).toContain('Achievements')
     expect(host.el.textContent).toContain('First Step')
 
@@ -628,6 +644,7 @@ describe('@quajs/renderer-vue', () => {
     const viewportStyle = host.el.querySelector('.qua-stage-viewport')?.getAttribute('style') || ''
     const stageStyle = host.el.querySelector('.qua-stage')?.getAttribute('style') || ''
     const screenPlaneStyle = host.el.querySelector('.qua-screen-plane')?.getAttribute('style') || ''
+    const overlayPlaneStyle = host.el.querySelector('.qua-stage-overlay')?.getAttribute('style') || ''
 
     expect(viewportStyle).toContain('width: 360px')
     expect(viewportStyle).toContain('height: 780px')
@@ -641,7 +658,9 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.querySelector('.qua-stage-subject')).not.toBeNull()
     expect(host.el.querySelector('.qua-stage-plane')).not.toBeNull()
     expect(host.el.querySelector('.qua-stage-safe')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-overlay')).not.toBeNull()
     expect(host.el.querySelector('.qua-screen-plane')).not.toBeNull()
+    expect(overlayPlaneStyle).toContain('pointer-events: none')
     expect(screenPlaneStyle).toContain('pointer-events: none')
   })
 
@@ -804,15 +823,16 @@ describe('@quajs/renderer-vue', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', repeat: true, bubbles: true }))
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft', key: 'ArrowLeft', bubbles: true }))
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight', key: 'ArrowRight', bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowDown', key: 'ArrowDown', bubbles: true }))
     await flushVue()
 
     expect(received).toEqual([
       'command:advance:keyboard:Enter',
       'advance:keyboard:Enter',
-      'command:advance:keyboard:ArrowLeft',
-      'advance:keyboard:ArrowLeft',
       'command:advance:keyboard:ArrowRight',
       'advance:keyboard:ArrowRight',
+      'command:advance:keyboard:ArrowDown',
+      'advance:keyboard:ArrowDown',
     ])
 
     host.app.unmount()
@@ -936,8 +956,12 @@ describe('@quajs/renderer-vue', () => {
 
     await flushVue()
     expect(host.el.querySelector('.qua-overlay-layer')).not.toBeNull()
-    expect(host.el.querySelector('.qua-screen-plane .qua-overlay-layer')).not.toBeNull()
-    expect(host.el.querySelector('.qua-overlay-layer')?.getAttribute('style')).toContain('pointer-events: auto')
+    expect(host.el.querySelector('.qua-stage-overlay .qua-overlay-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-screen-plane .qua-overlay-layer')).toBeNull()
+    const overlayLayer = host.el.querySelector<HTMLElement>('.qua-overlay-layer')!
+    expect(overlayLayer.getAttribute('style')).toContain('pointer-events: auto')
+    expect(overlayLayer.dataset.overlayStack).toBe('overlay')
+    expect(overlayLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.ui))
     expect(host.el.querySelector('.qua-menu-overlay')?.textContent).toContain('Pause')
     expect(host.el.querySelector('.qua-menu-footer')).not.toBeNull()
 
@@ -1284,11 +1308,14 @@ describe('@quajs/renderer-vue', () => {
     await flushVue()
 
     expect(host.el.querySelector('.qua-settings-layer')).not.toBeNull()
-    expect(host.el.querySelector('.qua-screen-plane .qua-settings-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-overlay .qua-settings-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-screen-plane .qua-settings-layer')).toBeNull()
     expect(host.el.querySelector('.qua-settings-layer')?.getAttribute('style')).toContain('pointer-events: auto')
     expect(host.el.querySelector('.qua-overlay-layer')).toBeNull()
     expect(host.el.querySelector('.qua-ui-overlay[data-overlay="settings"]')).toBeNull()
     const layer = host.el.querySelector<HTMLElement>('.qua-settings-layer')!
+    expect(layer.dataset.overlayStack).toBe('overlay')
+    expect(layer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.settings))
     expect(layer.dataset.uiSceneId).toBe('system:settings')
     expect(layer.dataset.uiScenePresentation).toBe('scene')
     expect(layer.dataset.uiSceneOverlayVariant).toBe('main-menu')

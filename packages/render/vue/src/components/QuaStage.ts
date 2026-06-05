@@ -30,6 +30,7 @@ export const QuaStage = defineComponent({
     const subjectLayers = computed(() => layers.value.filter(layer => layer.plane === 'subject'))
     const stageLayers = computed(() => layers.value.filter(layer => layer.plane === 'stage'))
     const safeLayers = computed(() => layers.value.filter(layer => layer.plane === 'safe'))
+    const overlayLayers = computed(() => layers.value.filter(layer => layer.plane === 'overlay'))
     const screenLayers = computed(() => layers.value.filter(layer => layer.plane === 'screen'))
     const frame = ref<HTMLElement>()
     const frameSize = ref<Partial<StageContainerSize>>({ width: 0, height: 0 })
@@ -152,6 +153,14 @@ export const QuaStage = defineComponent({
             'data-qua-capture-role': 'safe-ui',
             'style': stageSafeAreaStyle(stageLayout.value),
           }, renderLayers(safeLayers.value, slots, slotProps, renderer.web.reportError.bind(renderer.web))),
+          h('div', {
+            'class': 'qua-stage-overlay',
+            'data-qua-capture-role': 'overlay-ui',
+            'style': {
+              ...stagePlaneStyle(),
+              pointerEvents: 'none',
+            },
+          }, renderLayers(overlayLayers.value, slots, slotProps, renderer.web.reportError.bind(renderer.web))),
         ]),
       ]),
       h('div', {

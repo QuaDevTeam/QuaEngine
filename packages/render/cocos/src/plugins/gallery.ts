@@ -2,7 +2,8 @@ import type { CocosHostNode } from '@quajs/cocos-host'
 import type { GalleryContentBlock, GalleryEntryProjectionItem, GalleryProjection } from '@quajs/plugin-gallery/contracts'
 import type { CocosRendererPluginContext } from '../types'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
-import { LogicToRenderEvents } from '@quajs/render-core'
+import { DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents } from '@quajs/render-core'
+import { resolveCocosOverlayPlacement, resolveCocosOverlayZIndex } from '../overlay-placement'
 import { defineCocosRendererPlugin } from './core'
 import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromAssetRef } from '../utils'
 import { resolveInputMetadataAny, stringValue } from './projection-utils'
@@ -109,11 +110,18 @@ async function renderGalleryLayer(
   lightbox: GalleryLightboxState,
 ): Promise<void> {
   const projection = getGalleryProjection(context)
-  const layer = context.cocos.getLayerNode('gallery', 'gallery-layer', 120)
+  const layer = context.cocos.getLayerNode('gallery', 'gallery-layer', resolveCocosOverlayZIndex(projection, {
+    overlayStack: 'overlay',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.gallery,
+  }))
   context.cocos.host.nodes.clearChildren(layer)
   context.cocos.releaseLayerResources('gallery')
   context.cocos.host.nodes.setNodeMetadata?.(layer, {
     plugin: 'gallery',
+    overlayPlacement: resolveCocosOverlayPlacement(projection, {
+      overlayStack: 'overlay',
+      zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.gallery,
+    }),
     visible: projection?.sceneActive === true,
     projection,
   })

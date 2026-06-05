@@ -6,6 +6,7 @@ import type {
 import type {
   AnimationFillMode,
   AnimationInterpolation,
+  AnimationTimingFunction,
   AnimationTime,
 } from '@quajs/render-core'
 import { playTimelineWithEngine } from '@quajs/plugin-animation'
@@ -26,7 +27,7 @@ export interface BackgroundMotionKeyframe {
   hueRotate?: number
   grayscale?: number
   sepia?: number
-  easing?: string
+  easing?: AnimationTimingFunction
 }
 
 export interface BackgroundMotionTimelineOptions {

@@ -15,7 +15,7 @@ import type {
   BacklogUiProjection,
   BacklogVoiceReference,
 } from './contracts'
-import { BaseEnginePlugin, LogicToRenderEvents, richTextToPlainText } from '@quajs/engine'
+import { BaseEnginePlugin, DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents, richTextToPlainText } from '@quajs/engine'
 import {
   BACKLOG_COCOS_RENDERER_ENTRY,
   BACKLOG_PLUGIN_ID,
@@ -359,8 +359,10 @@ function createBacklogUiProjection(
   current?: Readonly<BacklogUiProjection>,
 ): BacklogUiProjection {
   const source = next?.source || current?.source
+  const placement = createBacklogUiPlacement(next, current)
   return {
     ...(source ? { source } : {}),
+    ...placement,
     scene: next?.scene || current?.scene || createDefaultBacklogScene(),
   }
 }
@@ -373,7 +375,31 @@ function createDefaultBacklogScene() {
       variant: 'backlog',
       hideHud: true,
       hideDialogue: true,
+      overlayStack: 'overlay',
+      zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.backlog,
     },
+  }
+}
+
+function createBacklogUiPlacement(
+  next?: BacklogUiProjection,
+  current?: Readonly<BacklogUiProjection>,
+): Pick<BacklogUiProjection, 'overlayStack' | 'stackPriority' | 'zIndex'> {
+  return {
+    overlayStack: next?.overlayStack
+      ?? next?.scene?.overlay?.overlayStack
+      ?? current?.overlayStack
+      ?? current?.scene?.overlay?.overlayStack
+      ?? 'overlay',
+    stackPriority: next?.stackPriority
+      ?? next?.scene?.overlay?.stackPriority
+      ?? current?.stackPriority
+      ?? current?.scene?.overlay?.stackPriority,
+    zIndex: next?.zIndex
+      ?? next?.scene?.overlay?.zIndex
+      ?? current?.zIndex
+      ?? current?.scene?.overlay?.zIndex
+      ?? DEFAULT_UI_OVERLAY_Z_INDEXES.backlog,
   }
 }
 

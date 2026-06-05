@@ -9,9 +9,10 @@ import type {
 import type { QuaViewProjection, ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
+import { DEFAULT_UI_OVERLAY_Z_INDEXES } from '@quajs/render-core'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
-import { dispatchRendererIntent } from './shared'
+import { applyUiOverlayStackPlacement, dispatchRendererIntent } from './shared'
 
 export interface SettingsFormProjection {
   revision: number
@@ -84,7 +85,7 @@ export function createSettingsWebRendererPlugin(options: SettingsRendererPluginO
     layers: [{
       id: 'settings',
       order: 96,
-      plane: 'screen',
+      plane: 'overlay',
       render: context => renderSettingsLayer(context, options),
     }],
   })
@@ -316,6 +317,10 @@ function renderSettingsLayer(context: QuaWebDomLayerContext, options: SettingsRe
     scene?.presentation === 'overlay' ? 'qua-settings-layer--overlay' : '',
   ].filter(Boolean).join(' ')
   layer.style.pointerEvents = 'auto'
+  applyUiOverlayStackPlacement(layer, overlay, {
+    overlayStack: 'overlay',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.settings,
+  })
   applyUiSceneDataset(layer, scene)
   layer.addEventListener('click', event => event.stopPropagation())
 

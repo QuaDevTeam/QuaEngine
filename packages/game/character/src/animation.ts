@@ -6,6 +6,7 @@ import type {
 import type {
   AnimationFillMode,
   AnimationInterpolation,
+  AnimationTimingFunction,
   AnimationTime,
 } from '@quajs/render-core'
 import { playTimelineWithEngine } from '@quajs/plugin-animation'
@@ -22,7 +23,7 @@ export interface CharacterMotionKeyframe {
   rotation?: number
   opacity?: number
   visible?: boolean
-  easing?: string
+  easing?: AnimationTimingFunction
 }
 
 export interface CharacterMotionTimelineOptions {
@@ -50,11 +51,13 @@ export interface CharacterMotionPresetOptions extends Partial<Omit<CharacterMoti
   toRotation?: number
   opacityFrom?: number
   opacityTo?: number
+  easing?: AnimationTimingFunction
   offset?: number
 }
 
 export interface CharacterMotionPlayOptions extends Omit<PlayAnimationOptions, 'defaultTarget'> {
   wait?: boolean
+  easing?: AnimationTimingFunction
 }
 
 export function createCharacterMotionTimeline(
@@ -86,7 +89,7 @@ export function fadeInCharacter(options: CharacterMotionPresetOptions = {}): Ani
   const duration = options.duration ?? 300
   return createCharacterMotionTimeline(requireTarget(options), [
     { at: 0, opacity: options.opacityFrom ?? 0, visible: true },
-    { at: duration, opacity: options.opacityTo ?? 1, visible: true },
+    { at: duration, opacity: options.opacityTo ?? 1, visible: true, easing: options.easing },
   ], normalizePresetOptions(options, duration))
 }
 
@@ -94,7 +97,7 @@ export function fadeOutCharacter(options: CharacterMotionPresetOptions = {}): An
   const duration = options.duration ?? 300
   return createCharacterMotionTimeline(requireTarget(options), [
     { at: 0, opacity: options.opacityFrom ?? 1, visible: true },
-    { at: duration, opacity: options.opacityTo ?? 0, visible: false },
+    { at: duration, opacity: options.opacityTo ?? 0, visible: false, easing: options.easing },
   ], normalizePresetOptions(options, duration))
 }
 
@@ -120,6 +123,7 @@ export function enterCharacter(direction: CharacterMotionDirection, options: Cha
       rotation: options.toRotation,
       opacity: options.opacityTo ?? 1,
       visible: true,
+      easing: options.easing,
     },
   ], normalizePresetOptions(options, duration))
 }
@@ -146,6 +150,7 @@ export function exitCharacter(direction: CharacterMotionDirection, options: Char
       rotation: options.toRotation,
       opacity: options.opacityTo ?? 0,
       visible: false,
+      easing: options.easing,
     },
   ], normalizePresetOptions(options, duration))
 }
@@ -192,7 +197,7 @@ export async function playCharacterFadeWithEngine(
 ) {
   const motion = createCharacterMotionTimeline(characterTarget(character), [
     { at: 0, opacity: from, visible: true },
-    { at: duration, opacity: to, visible: to > 0 },
+    { at: duration, opacity: to, visible: to > 0, easing: options.easing },
   ], {
     duration,
     commit: options.commit,

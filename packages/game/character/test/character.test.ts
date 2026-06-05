@@ -15,6 +15,7 @@ import {
   setCurrentSprite,
   showWithEngine,
   speakWithEngine,
+  stageCharactersWithEngine,
   spriteWithEngine,
   useCharacter,
 } from '../src'
@@ -82,6 +83,26 @@ describe('@quajs/character', () => {
     expect(engine.moveCharacter).toHaveBeenCalledWith('Alice', { x: 60, y: 20 })
     expect(engine.setCharacterExpression).toHaveBeenCalledWith('Alice', 'happy')
     expect(engine.hideCharacter).toHaveBeenCalledWith('Alice')
+  })
+
+  it('stages multiple characters by position without auto-scaling by default', async () => {
+    const engine = createEngine({
+      characters: [
+        { id: 'Alice', name: 'Alice', visible: true },
+        { id: 'Mara', name: 'Mara', visible: true },
+        { id: 'Unit-7', name: 'Unit-7', visible: true },
+      ],
+    })
+
+    await stageCharactersWithEngine(engine as any, ['Alice', 'Mara', 'Unit-7'], { y: 650, spacing: 340 })
+
+    expect(engine.moveCharacter).toHaveBeenNthCalledWith(1, 'Alice', { x: 620, y: 650 })
+    expect(engine.moveCharacter).toHaveBeenNthCalledWith(2, 'Mara', { x: 960, y: 650 })
+    expect(engine.moveCharacter).toHaveBeenNthCalledWith(3, 'Unit-7', { x: 1300, y: 650 })
+
+    await stageCharactersWithEngine(engine as any, ['Alice', 'Mara', 'Unit-7'], { y: 650, spacing: 340, autoScale: true })
+
+    expect(engine.moveCharacter).toHaveBeenLastCalledWith('Unit-7', { x: 1300, y: 650, scale: 0.96 })
   })
 
   it('creates characters from sprite calls when no character projection exists yet', async () => {

@@ -38,7 +38,7 @@ import type {
   AchievementUnlockRecord,
   AchievementUpdateFilterRequestPayload,
 } from './contracts'
-import { BaseEnginePlugin, releaseUiOverlayHostWithEngine, retainUiOverlayHostWithEngine, Scene } from '@quajs/engine'
+import { BaseEnginePlugin, DEFAULT_UI_OVERLAY_Z_INDEXES, releaseUiOverlayHostWithEngine, retainUiOverlayHostWithEngine, Scene } from '@quajs/engine'
 import { QuaStore } from '@quajs/store'
 import {
   ACHIEVEMENT_COCOS_RENDERER_ENTRY,
@@ -131,6 +131,9 @@ interface AchievementProjectionPatch {
   filter?: AchievementFilterState
   notifications?: readonly AchievementNotificationProjection[]
   notificationMode?: AchievementNotificationMode
+  overlayStack?: string
+  stackPriority?: number
+  zIndex?: number
 }
 
 interface AchievementSceneState {
@@ -139,6 +142,9 @@ interface AchievementSceneState {
   selectedAchievementId?: string
   returnCheckpointId?: string
   fallbackTarget?: string | StoryPoint
+  overlayStack?: string
+  stackPriority?: number
+  zIndex?: number
   filter?: AchievementFilterState
 }
 
@@ -621,6 +627,9 @@ export async function openAchievementBoardWithEngine(
       selectedGroupId: options.groupId ?? undefined,
       selectedAchievementId: options.achievementId ?? undefined,
       fallbackTarget: options.fallbackTarget === undefined ? undefined : normalizeAchievementFallbackTarget(options.fallbackTarget) || null,
+      overlayStack: options.overlayStack,
+      stackPriority: options.stackPriority,
+      zIndex: options.zIndex,
       filter: options.filter ? normalizeAchievementFilterState(options.filter) : current.filter,
     })
     return
@@ -634,6 +643,9 @@ export async function openAchievementBoardWithEngine(
     selectedAchievementId: options.achievementId ?? undefined,
     returnCheckpointId: checkpoint.id,
     fallbackTarget: options.fallbackTarget === undefined ? undefined : normalizeAchievementFallbackTarget(options.fallbackTarget) || null,
+    overlayStack: options.overlayStack,
+    stackPriority: options.stackPriority,
+    zIndex: options.zIndex,
     filter: options.filter ? normalizeAchievementFilterState(options.filter) : current.filter,
   })
 
@@ -1087,7 +1099,7 @@ async function handleAchievementUnlockEffects(
   )
 
   if (notificationMode === 'toast') {
-    await enqueueAchievementToast(engine, runtimeState, definition, unlock)
+    await enqueueAchievementToast(engine, runtimeState, definition, unlock, notificationOverride)
   }
   else if (notificationMode === 'board') {
     await openAchievementBoardWithEngine(engine, {
@@ -1118,10 +1130,11 @@ async function enqueueAchievementToast(
   runtimeState: AchievementRuntimeState,
   definition: AchievementDefinition,
   unlock: AchievementUnlockRecord,
+  notificationOverride?: AchievementNotificationOptions,
 ): Promise<void> {
   const current = getAchievementProjection(engine)
   const durationMs = normalizeDurationMs(
-    definition.notification?.durationMs,
+    notificationOverride?.durationMs ?? definition.notification?.durationMs,
     runtimeState.toastDurationMs,
   )
   const notification: AchievementNotificationProjection = {
@@ -1132,6 +1145,9 @@ async function enqueueAchievementToast(
     mode: 'toast',
     durationMs,
     createdAt: Date.now(),
+    overlayStack: notificationOverride?.overlayStack ?? definition.notification?.overlayStack ?? 'toast',
+    stackPriority: notificationOverride?.stackPriority ?? definition.notification?.stackPriority,
+    zIndex: notificationOverride?.zIndex ?? definition.notification?.zIndex ?? DEFAULT_UI_OVERLAY_Z_INDEXES.achievementToast,
     icon: definition.icon ? cloneStoryAssetRef(definition.icon) : undefined,
     sound: definition.sound ? cloneStoryAssetRef(definition.sound) : undefined,
     contentPackageId: definition.contentPackageId,
@@ -1306,6 +1322,9 @@ async function applyAchievementSceneEnterState(
     fallbackTarget: initialState.fallbackTarget === undefined
       ? undefined
       : normalizeAchievementFallbackTarget(initialState.fallbackTarget) || null,
+    overlayStack: initialState.overlayStack,
+    stackPriority: initialState.stackPriority,
+    zIndex: initialState.zIndex,
     filter: initialState.filter ? normalizeAchievementFilterState(initialState.filter) : undefined,
   })
 }
@@ -1418,6 +1437,9 @@ async function rebuildAchievementProjection(
     revision: current.revision + 1,
     sceneActive,
     profileId,
+    overlayStack: patch.overlayStack ?? current.overlayStack ?? 'overlay',
+    stackPriority: patch.stackPriority ?? current.stackPriority,
+    zIndex: patch.zIndex ?? current.zIndex ?? DEFAULT_UI_OVERLAY_Z_INDEXES.achievementBoard,
     notificationMode: patch.notificationMode || current.notificationMode || runtimeState.defaultNotificationMode,
     groups: sceneActive ? groups.map(cloneAchievementGroupProjectionItem) : [],
     achievements: sceneActive ? achievements.map(cloneAchievementProjectionItem) : [],
@@ -1682,6 +1704,8 @@ function createInitialAchievementProjection(profileId: string, notificationMode:
     revision: 0,
     sceneActive: false,
     profileId,
+    overlayStack: 'overlay',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.achievementBoard,
     notificationMode,
     groups: [],
     achievements: [],
@@ -2080,6 +2104,9 @@ function createAchievementSceneState(projection: AchievementProjection): Achieve
     selectedAchievementId: projection.selectedAchievementId,
     returnCheckpointId: projection.returnCheckpointId,
     fallbackTarget: cloneAchievementFallbackTarget(projection.fallbackTarget),
+    overlayStack: projection.overlayStack,
+    stackPriority: projection.stackPriority,
+    zIndex: projection.zIndex,
     filter: cloneAchievementFilterState(projection.filter),
   }
 }
@@ -2108,6 +2135,9 @@ function cloneAchievementProjection(projection: AchievementProjection): Achievem
     revision: projection.revision,
     sceneActive: projection.sceneActive,
     profileId: projection.profileId,
+    overlayStack: projection.overlayStack,
+    stackPriority: projection.stackPriority,
+    zIndex: projection.zIndex,
     notificationMode: projection.notificationMode,
     groups: projection.groups.map(cloneAchievementGroupProjectionItem),
     achievements: projection.achievements.map(cloneAchievementProjectionItem),

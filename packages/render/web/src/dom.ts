@@ -160,6 +160,14 @@ export class QuaWebDomRenderer {
     safePlane.setAttribute('data-qua-capture-role', 'safe-ui')
     applyStyles(safePlane, stageSafeAreaStyle(layout))
 
+    const overlayPlane = document.createElement('div')
+    overlayPlane.className = 'qua-stage-overlay'
+    overlayPlane.setAttribute('data-qua-capture-role', 'overlay-ui')
+    applyStyles(overlayPlane, {
+      ...stagePlaneStyle(),
+    })
+    overlayPlane.style.pointerEvents = 'none'
+
     const screenPlane = document.createElement('div')
     screenPlane.className = 'qua-screen-plane'
     screenPlane.setAttribute('data-qua-capture-role', 'screen-ui')
@@ -189,9 +197,10 @@ export class QuaWebDomRenderer {
             subject: subjectPlane,
             stage: stagePlane,
             safe: safePlane,
+            overlay: overlayPlane,
             screen: screenPlane,
           })
-          if (targetPlane === screenPlane && node instanceof HTMLElement && !node.style.pointerEvents) {
+          if ((targetPlane === overlayPlane || targetPlane === screenPlane) && node instanceof HTMLElement && !node.style.pointerEvents) {
             node.style.pointerEvents = 'auto'
           }
           targetPlane.append(node)
@@ -207,7 +216,7 @@ export class QuaWebDomRenderer {
     }
 
     scenePlane.append(sceneContentPlane, subjectPlane)
-    stage.append(scenePlane, stagePlane, safePlane)
+    stage.append(scenePlane, stagePlane, safePlane, overlayPlane)
     viewport.append(stage)
     frame.append(viewport, screenPlane)
     this.root.append(frame)
@@ -326,11 +335,14 @@ export class QuaWebDomRenderer {
     subject: HTMLElement
     stage: HTMLElement
     safe: HTMLElement
+    overlay: HTMLElement
     screen: HTMLElement
   }): HTMLElement {
     switch (layer.plane || 'scene') {
       case 'screen':
         return planes.screen
+      case 'overlay':
+        return planes.overlay
       case 'safe':
         return planes.safe
       case 'stage':

@@ -110,16 +110,26 @@ const DEFAULT_INTERACTIVE_SELECTOR = [
   '[data-qua-input-ignore]',
   '.qua-choice-panel',
   '.qua-overlay-layer',
+  '.qua-ui-overlay',
+  '.qua-menu-overlay',
+  '.qua-save-load-panel',
+  '.qua-confirm-overlay',
   '.qua-backlog-layer',
+  '.qua-backlog-panel',
   '.qua-settings-layer',
   '.qua-settings-panel',
+  '.qua-gallery-layer',
+  '.qua-gallery-panel',
+  '.qua-achievement-layer',
+  '.qua-achievement-toast-layer',
+  '.qua-achievement-panel',
 ].join(',')
 
 const DEFAULT_KEYBOARD_BINDINGS: readonly RendererInputKeyboardBinding[] = [
   { source: 'keyboard', code: 'Enter', command: 'advance', preventDefault: true },
   { source: 'keyboard', code: 'Space', command: 'advance', preventDefault: true },
-  { source: 'keyboard', code: 'ArrowLeft', command: 'advance', preventDefault: true },
   { source: 'keyboard', code: 'ArrowRight', command: 'advance', preventDefault: true },
+  { source: 'keyboard', code: 'ArrowDown', command: 'advance', preventDefault: true },
   { source: 'keyboard', code: 'PageDown', command: 'advance', preventDefault: true },
   { source: 'keyboard', code: 'ControlLeft', command: 'skip:start', phase: 'press', preventDefault: true },
   { source: 'keyboard', code: 'ControlLeft', command: 'skip:stop', phase: 'release', preventDefault: true },
@@ -129,7 +139,6 @@ const DEFAULT_KEYBOARD_BINDINGS: readonly RendererInputKeyboardBinding[] = [
   { source: 'keyboard', code: 'KeyF', command: 'fastForward:stop', phase: 'release', preventDefault: true },
   { source: 'keyboard', code: 'KeyA', command: 'auto:toggle', preventDefault: true },
   { source: 'keyboard', code: 'ArrowUp', command: 'choice:previous', preventDefault: true },
-  { source: 'keyboard', code: 'ArrowDown', command: 'choice:next', preventDefault: true },
   { source: 'keyboard', code: 'Escape', command: 'ui:cancel', preventDefault: true },
 ]
 
@@ -378,6 +387,10 @@ class RendererInputControllerImpl implements RendererInputController {
     if (!this.isEnabled() || isEditableInputTarget(event.target)) {
       return
     }
+    const target = isElement(event.target) ? event.target : undefined
+    const interactiveTarget = this.options.filterInteractiveTargets !== false
+      ? findInteractiveKeyboardTarget(target)
+      : undefined
     const phase: RendererInputBindingPhase = eventType === 'keyup' ? 'release' : 'press'
     const code = event.code || event.key
     const wasPressed = this.pressedKeys.has(code)
@@ -391,6 +404,9 @@ class RendererInputControllerImpl implements RendererInputController {
 
     for (const binding of this.bindings) {
       if (binding.source !== 'keyboard' || binding.code !== code || (binding.phase || 'press') !== phase) {
+        continue
+      }
+      if (interactiveTarget && !shouldDispatchKeyboardBindingFromInteractiveTarget(binding, interactiveTarget)) {
         continue
       }
       const repeat = event.repeat || (eventType === 'keydown' && wasPressed)
@@ -589,6 +605,10 @@ class RendererInputControllerImpl implements RendererInputController {
         if (!viewAllowsDialogueChrome(this.options.getViewState())) {
           return
         }
+        if (source === 'keyboard:ArrowDown' && this.hasEnabledChoices()) {
+          this.focusChoice(1)
+          return
+        }
         await this.options.actions.advance(source)
         break
       case 'auto:start':
@@ -760,6 +780,10 @@ class RendererInputControllerImpl implements RendererInputController {
     return Array.from(doc.querySelectorAll('.qua-choice-button[data-choice-id]'))
       .filter((button): button is HTMLElement => button instanceof HTMLElement && !isDisabledButton(button))
   }
+
+  private hasEnabledChoices(): boolean {
+    return this.options.getViewState().choices.some(choice => choice.enabled)
+  }
 }
 
 function readStageContainerSize(container: Element, rect: DOMRect): StageContainerSize {
@@ -816,6 +840,23 @@ function isEditableInputTarget(target: EventTarget | null): boolean {
 
 function isInteractivePointerTarget(target: Element | undefined): boolean {
   return Boolean(target?.closest(DEFAULT_INTERACTIVE_SELECTOR))
+}
+
+function findInteractiveKeyboardTarget(target: Element | undefined): Element | undefined {
+  return target?.closest(DEFAULT_INTERACTIVE_SELECTOR) || undefined
+}
+
+function shouldDispatchKeyboardBindingFromInteractiveTarget(
+  binding: RendererInputKeyboardBinding,
+  target: Element,
+): boolean {
+  if (!target.closest('.qua-choice-panel')) {
+    return false
+  }
+  return binding.command === 'choice:previous'
+    || binding.command === 'choice:next'
+    || binding.command === 'choice:confirm'
+    || (binding.command === 'advance' && binding.code === 'ArrowDown')
 }
 
 function resolvePointerLayoutContainer(target: Element | undefined): Element | undefined {

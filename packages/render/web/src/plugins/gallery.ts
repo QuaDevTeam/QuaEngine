@@ -13,10 +13,11 @@ import type {
 import type { QuaViewProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
+import { DEFAULT_UI_OVERLAY_Z_INDEXES } from '@quajs/render-core'
 import { runtimePackageCandidatesFromMetadata } from '../assets'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
-import { dispatchRendererIntent } from './shared'
+import { applyOverlayStackPlacement, dispatchRendererIntent } from './shared'
 
 type GalleryAssetRef = NonNullable<GalleryEntryProjectionItem['thumbnail']>
 
@@ -156,7 +157,7 @@ export function createGalleryWebRendererPlugin(): QuaWebDomRendererPlugin {
     layers: [{
       id: 'gallery',
       order: 97,
-      plane: 'safe',
+      plane: 'overlay',
       render: context => renderGalleryLayer(context, lightbox),
     }],
   })
@@ -180,6 +181,10 @@ function renderGalleryLayer(context: QuaWebDomLayerContext, lightbox: GalleryLig
   const layer = context.document.createElement('div')
   layer.className = 'qua-gallery-layer'
   layer.setAttribute('data-qua-capture-role', 'overlay')
+  applyOverlayStackPlacement(layer, projection, {
+    overlayStack: 'overlay',
+    zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.gallery,
+  })
   layer.addEventListener('click', event => event.stopPropagation())
 
   const panel = context.document.createElement('section')

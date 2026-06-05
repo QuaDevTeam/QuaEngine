@@ -252,6 +252,9 @@ describe('@quajs/plugin-backlog', () => {
 
     await emitRenderToLogic(engine.getPipeline(), BacklogRenderToLogicEvents.OPEN_REQUEST as any, {
       source: 'test',
+      overlayStack: 'custom-backlog',
+      stackPriority: 175,
+      zIndex: 88,
       scene: {
         id: 'test:backlog',
         presentation: 'scene',
@@ -259,6 +262,9 @@ describe('@quajs/plugin-backlog', () => {
           variant: 'test-panel',
           hideHud: true,
           hideDialogue: true,
+          overlayStack: 'custom-backlog',
+          stackPriority: 175,
+          zIndex: 88,
         },
       },
     })
@@ -266,6 +272,9 @@ describe('@quajs/plugin-backlog', () => {
       visible: true,
       ui: {
         source: 'test',
+        overlayStack: 'custom-backlog',
+        stackPriority: 175,
+        zIndex: 88,
         scene: {
           id: 'test:backlog',
           presentation: 'scene',
@@ -273,6 +282,9 @@ describe('@quajs/plugin-backlog', () => {
             variant: 'test-panel',
             hideHud: true,
             hideDialogue: true,
+            overlayStack: 'custom-backlog',
+            stackPriority: 175,
+            zIndex: 88,
           },
         },
       },
@@ -295,6 +307,8 @@ describe('@quajs/plugin-backlog', () => {
     expect(getBacklogProjection(engine)).toEqual(expect.objectContaining({
       visible: true,
       ui: {
+        overlayStack: 'overlay',
+        zIndex: 50,
         scene: {
           id: 'plugin:backlog',
           presentation: 'overlay',
@@ -302,6 +316,8 @@ describe('@quajs/plugin-backlog', () => {
             variant: 'backlog',
             hideHud: true,
             hideDialogue: true,
+            overlayStack: 'overlay',
+            zIndex: 50,
           },
         },
       },

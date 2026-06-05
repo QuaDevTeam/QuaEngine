@@ -101,6 +101,8 @@ Decorators:
 
 Transition types commonly include `instant`, `fade`, `crossfade`, and `wipe`; runtime APIs may support additional transition records.
 
+Transition and animation `easing` values use QuaEngine timing function strings such as `easeOutCubic`, `cubic-out`, `ease-in-out`, or `cubic-bezier(...)`.
+
 ## Animation Integration
 
 `@quajs/plugin-background/animation` returns normal `@quajs/plugin-animation` timelines:

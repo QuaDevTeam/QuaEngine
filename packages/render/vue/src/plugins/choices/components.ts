@@ -25,6 +25,7 @@ export const QuaChoiceButton = defineComponent({
       'class': 'qua-choice-button',
       'style': [motionProjectionVars(props.choice as unknown as Record<string, unknown>, '--qua-choice'), skin.skinStyle.value],
       'disabled': !props.choice.enabled,
+      'data-choice-id': props.choice.id,
       'data-skin-kind': 'button',
       'data-skin-reference': skin.skinReference.value || undefined,
       'data-skin-state': skin.skinState.value,

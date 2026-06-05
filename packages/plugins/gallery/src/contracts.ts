@@ -1,4 +1,5 @@
 import type { JsonSerializable, SceneTransitionIntent, StoryAssetRef, StoryPoint } from '@quajs/engine'
+import type { ViewOverlayStackPlacement } from '@quajs/engine'
 import type { Pipeline, PipelineContext } from '@quajs/pipeline'
 
 export const GALLERY_PLUGIN_ID = 'gallery' as const
@@ -154,7 +155,7 @@ export interface GalleryFilterState {
   unlockedOnly?: boolean
 }
 
-export interface GalleryProjection {
+export interface GalleryProjection extends ViewOverlayStackPlacement {
   revision: number
   sceneActive: boolean
   profileId: string
@@ -170,7 +171,7 @@ export interface GalleryProjection {
   filter: GalleryFilterState
 }
 
-export interface GalleryOpenOptions {
+export interface GalleryOpenOptions extends ViewOverlayStackPlacement {
   profileId?: string
   catalogId?: string
   entryId?: string

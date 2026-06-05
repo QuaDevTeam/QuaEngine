@@ -114,6 +114,8 @@ Runtime packages may register settings scopes. Package unload unregisters packag
 
 Renderer settings UI emits update/reset intents. Validation, persistence, apply hooks, and final projection rebuilds happen in the settings bridge.
 
+Settings panel placement comes from the engine-owned generic UI overlay projection, not renderer-local state. `engine.showUI('settings', config)` and `config.scene.overlay` may include `overlayStack`, `stackPriority`, and `zIndex`; official renderers use `overlay` stack with settings zIndex `60` by default when no placement is projected.
+
 ## Plugin Integration Rules
 
 - Register `player` scope only for real user-facing persistent preferences.

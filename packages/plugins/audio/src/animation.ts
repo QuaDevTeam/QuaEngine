@@ -6,6 +6,7 @@ import type {
 import type {
   AnimationFillMode,
   AnimationInterpolation,
+  AnimationTimingFunction,
   AnimationTime,
 } from '@quajs/render-core'
 import { playTimelineWithEngine } from '@quajs/plugin-animation'
@@ -17,7 +18,7 @@ export type AudioAnimationTarget
 export interface AudioGainKeyframe {
   at: AnimationTime
   gainDb: number
-  easing?: string
+  easing?: AnimationTimingFunction
 }
 
 export interface AudioGainTimelineOptions {

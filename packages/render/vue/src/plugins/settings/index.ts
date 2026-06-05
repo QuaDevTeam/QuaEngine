@@ -11,6 +11,7 @@ import type {
 import type { Component, PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
+import { DEFAULT_UI_OVERLAY_Z_INDEXES } from '@quajs/render-core'
 import {
   createSettingsFormProjection,
   createSettingsValuePatch,
@@ -25,6 +26,7 @@ import { usePluginProjection, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
 import { dispatchVueRendererIntent } from '../shared/intent'
+import { createUiOverlayStackBinding } from '../shared/overlay'
 
 export interface SettingsRendererPluginOptions {
   elementId?: string
@@ -378,10 +380,12 @@ export const QuaSettingsLayer = defineComponent({
     const settings = computed(() => getSettingsProjectionFromView(view.value))
     const form = computed(() => settings.value ? createSettingsFormProjection(settings.value) : undefined)
     const visible = computed(() => Boolean(form.value && isSettingsOverlayVisible(view.value, props.elementId)))
-    const scene = computed(() => {
-      const overlay = view.value.ui.overlays?.[props.elementId] as ViewUiOverlayProjection | undefined
-      return overlay?.scene as ViewUiSceneProjection | undefined
-    })
+    const overlay = computed(() => view.value.ui.overlays?.[props.elementId] as ViewUiOverlayProjection | undefined)
+    const scene = computed(() => overlay.value?.scene as ViewUiSceneProjection | undefined)
+    const overlayStack = computed(() => createUiOverlayStackBinding(overlay.value, {
+      overlayStack: 'overlay',
+      zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.settings,
+    }))
 
     return () => visible.value && settings.value && form.value
       ? h('div', {
@@ -397,7 +401,8 @@ export const QuaSettingsLayer = defineComponent({
           'data-ui-scene-default-chrome': scene.value?.overlay?.defaultChrome === false ? 'false' : undefined,
           'data-ui-scene-hide-hud': scene.value?.overlay?.hideHud ? 'true' : undefined,
           'data-ui-scene-hide-dialogue': scene.value?.overlay?.hideDialogue ? 'true' : undefined,
-          'style': { pointerEvents: 'auto' },
+          ...overlayStack.value.attrs,
+          'style': { pointerEvents: 'auto', ...overlayStack.value.style },
           'onClick': (event: Event) => event.stopPropagation(),
         }, slots.default?.(createSettingsLayerSlotPayload(renderer, actions, settings.value, form.value, props.elementId)) || h(QuaSettingsForm, {
           form: form.value,
@@ -417,7 +422,7 @@ export function createSettingsRendererPlugin(options: SettingsRendererPluginOpti
       slot: 'settings',
       component: QuaSettingsLayer,
       order: 96,
-      plane: 'screen',
+      plane: 'overlay',
       props: {
         elementId: options.elementId || DEFAULT_SETTINGS_ELEMENT_ID,
         customControls: options.customControls,

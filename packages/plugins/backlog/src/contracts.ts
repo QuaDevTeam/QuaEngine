@@ -1,4 +1,4 @@
-import type { ChoiceIntent, StoryPoint } from '@quajs/engine'
+import type { ChoiceIntent, StoryPoint, ViewOverlayStackPlacement } from '@quajs/engine'
 
 export const BACKLOG_PLUGIN_ID = 'backlog' as const
 export const BACKLOG_WEB_RENDERER_ENTRY = '@quajs/renderer-web/plugins/backlog' as const
@@ -17,7 +17,7 @@ export type BacklogRetentionScope = 'chapter' | 'route' | 'timeline' | 'global'
 
 export type BacklogUiScenePresentation = 'overlay' | 'scene'
 
-export interface BacklogUiSceneOverlayProjection extends Readonly<Record<string, unknown>> {
+export interface BacklogUiSceneOverlayProjection extends Readonly<Record<string, unknown>>, ViewOverlayStackPlacement {
   variant?: string
   skinId?: string
   background?: Readonly<Record<string, unknown>>
@@ -32,7 +32,7 @@ export interface BacklogUiSceneProjection extends Readonly<Record<string, unknow
   overlay?: Readonly<BacklogUiSceneOverlayProjection>
 }
 
-export interface BacklogUiProjection extends Readonly<Record<string, unknown>> {
+export interface BacklogUiProjection extends Readonly<Record<string, unknown>>, ViewOverlayStackPlacement {
   source?: string
   scene?: Readonly<BacklogUiSceneProjection>
 }

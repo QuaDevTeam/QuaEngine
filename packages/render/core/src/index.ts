@@ -16,6 +16,7 @@ export {
   cloneCharacter,
   cloneUnknownRecord,
   collectTrackValues,
+  easeProgress,
 } from './animation'
 export type {
   RendererAssetSource,
@@ -88,6 +89,7 @@ export enum LogicToRenderEvents {
   SCENE_INIT = 'scene/init',
   SCENE_CHANGE = 'scene/change',
   SCENE_DESTROY = 'scene/destroy',
+  GAME_OVER = 'game/over',
   VIEW_UPDATE = 'view/update',
   BACKGROUND_SET = 'background/set',
   BACKGROUND_CLEAR = 'background/clear',
@@ -427,11 +429,54 @@ export interface ViewUiSceneHostProjection {
 
 export type ViewUiScenePresentation = 'overlay' | 'scene'
 
+export type BuiltinOverlayStack = 'hud' | 'overlay' | 'modal' | 'toast'
+
+export interface ViewOverlayStackPlacement {
+  overlayStack?: string
+  stackPriority?: number
+  zIndex?: number
+}
+
+export interface ResolvedOverlayStackPlacement {
+  overlayStack: string
+  stackPriority: number
+  zIndex: number
+  effectiveZIndex: number
+}
+
+export interface ResolveOverlayStackPlacementOptions {
+  overlayStack?: string
+  stackPriority?: number
+  zIndex?: number
+}
+
+export type ResolveUiOverlayStackPlacementDefaults
+  = | ResolveOverlayStackPlacementOptions
+    | ((elementId: string, overlay: Readonly<ViewUiOverlayProjection>) => ResolveOverlayStackPlacementOptions)
+
+export const DEFAULT_OVERLAY_STACK_PRIORITIES: Readonly<Record<BuiltinOverlayStack, number>> = {
+  hud: 0,
+  overlay: 100,
+  modal: 200,
+  toast: 300,
+}
+
+export const DEFAULT_UI_OVERLAY_Z_INDEXES = {
+  ui: 0,
+  backlog: 50,
+  settings: 60,
+  gallery: 70,
+  achievementBoard: 80,
+  achievementToast: 0,
+} as const
+
+export const OVERLAY_STACK_Z_INDEX_STRIDE = 1_000_000
+
 /**
  * Renderer-facing chrome for a UI scene. This is engine-owned presentation
  * metadata; renderers project it and may not use it as authoritative state.
  */
-export interface ViewUiSceneOverlayProjection extends Readonly<Record<string, unknown>> {
+export interface ViewUiSceneOverlayProjection extends Readonly<Record<string, unknown>>, ViewOverlayStackPlacement {
   variant?: string
   skinId?: string
   background?: Readonly<Record<string, unknown>>
@@ -456,7 +501,7 @@ export interface ViewUiSceneProjection extends Readonly<Record<string, unknown>>
   overlay?: Readonly<ViewUiSceneOverlayProjection>
 }
 
-export interface ViewUiOverlayProjection extends Readonly<Record<string, unknown>> {
+export interface ViewUiOverlayProjection extends Readonly<Record<string, unknown>>, ViewOverlayStackPlacement {
   skinId?: string
   scene?: Readonly<ViewUiSceneProjection>
 }
@@ -524,14 +569,99 @@ export interface ViewUiProjection {
 
 export function resolveActiveUiSceneProjection(
   overlays: Readonly<Record<string, ViewUiOverlayProjection>> | undefined,
+  placementDefaults: ResolveUiOverlayStackPlacementDefaults = {},
 ): ViewUiSceneProjection | undefined {
   if (!overlays) {
     return undefined
   }
-  const scenes = Object.values(overlays)
-    .map(overlay => overlay.scene)
-    .filter((scene): scene is ViewUiSceneProjection => Boolean(scene?.id))
-  return scenes.find(scene => scene.presentation === 'scene') || scenes[0]
+  const scenes = Object.entries(overlays)
+    .filter((entry): entry is [string, ViewUiOverlayProjection & { scene: ViewUiSceneProjection }] => Boolean(entry[1].scene?.id))
+    .sort((left, right) => {
+      const placement = compareResolvedOverlayStackPlacement(
+        resolveUiOverlayStackPlacement(left[1], resolveUiOverlayPlacementDefaults(placementDefaults, left[0], left[1])),
+        resolveUiOverlayStackPlacement(right[1], resolveUiOverlayPlacementDefaults(placementDefaults, right[0], right[1])),
+        left[0],
+        right[0],
+      )
+      if (placement !== 0) {
+        return placement
+      }
+      const presentation = uiScenePresentationRank(left[1].scene) - uiScenePresentationRank(right[1].scene)
+      return presentation === 0 ? left[0].localeCompare(right[0]) : presentation
+    })
+  return scenes[scenes.length - 1]?.[1].scene
+}
+
+export function resolveOverlayStackPlacement(
+  placement: Readonly<ViewOverlayStackPlacement> | undefined,
+  defaults: ResolveOverlayStackPlacementOptions = {},
+): ResolvedOverlayStackPlacement {
+  const overlayStack = normalizeOverlayStack(placement?.overlayStack, defaults.overlayStack || 'overlay')
+  const stackPriority = resolveOverlayStackPriority(overlayStack, placement?.stackPriority, defaults.stackPriority)
+  const zIndex = finiteNumber(placement?.zIndex, finiteNumber(defaults.zIndex, 0))
+  return {
+    overlayStack,
+    stackPriority,
+    zIndex,
+    effectiveZIndex: stackPriority * OVERLAY_STACK_Z_INDEX_STRIDE + zIndex,
+  }
+}
+
+export function resolveUiOverlayStackPlacement(
+  overlay: Readonly<ViewUiOverlayProjection> | undefined,
+  defaults: ResolveOverlayStackPlacementOptions = {},
+): ResolvedOverlayStackPlacement {
+  const sceneOverlay = overlay?.scene?.overlay
+  return resolveOverlayStackPlacement({
+    overlayStack: overlay?.overlayStack ?? sceneOverlay?.overlayStack,
+    stackPriority: overlay?.stackPriority ?? sceneOverlay?.stackPriority,
+    zIndex: overlay?.zIndex ?? sceneOverlay?.zIndex,
+  }, defaults)
+}
+
+export function compareOverlayStackPlacement(
+  left: Readonly<ViewOverlayStackPlacement> | undefined,
+  right: Readonly<ViewOverlayStackPlacement> | undefined,
+  leftId = '',
+  rightId = '',
+  defaults: ResolveOverlayStackPlacementOptions = {},
+): number {
+  return compareResolvedOverlayStackPlacement(
+    resolveOverlayStackPlacement(left, defaults),
+    resolveOverlayStackPlacement(right, defaults),
+    leftId,
+    rightId,
+  )
+}
+
+export function compareUiOverlayStackPlacement(
+  left: readonly [string, Readonly<ViewUiOverlayProjection>],
+  right: readonly [string, Readonly<ViewUiOverlayProjection>],
+  defaults: ResolveOverlayStackPlacementOptions = {},
+): number {
+  return compareResolvedOverlayStackPlacement(
+    resolveUiOverlayStackPlacement(left[1], defaults),
+    resolveUiOverlayStackPlacement(right[1], defaults),
+    left[0],
+    right[0],
+  )
+}
+
+export function compareResolvedOverlayStackPlacement(
+  left: Readonly<ResolvedOverlayStackPlacement>,
+  right: Readonly<ResolvedOverlayStackPlacement>,
+  leftId = '',
+  rightId = '',
+): number {
+  const stack = left.stackPriority - right.stackPriority
+  if (stack !== 0) {
+    return stack
+  }
+  const zIndex = left.zIndex - right.zIndex
+  if (zIndex !== 0) {
+    return zIndex
+  }
+  return leftId.localeCompare(rightId)
 }
 
 export function uiSceneAllowsDefaultChrome(scene: Readonly<ViewUiSceneProjection> | undefined): boolean {
@@ -660,6 +790,7 @@ export function createFlowControlProjection(input: FlowControlProjectionInput = 
 }
 
 export type AnimationTime = number | `${number}%`
+export type AnimationTimingFunction = string
 export type AnimationInterpolation = 'number' | 'step' | 'discrete' | 'color' | 'array' | 'vector'
 export type AnimationPlaybackState = 'running' | 'paused' | 'stopped'
 export type AnimationFillMode = 'none' | 'forwards' | 'backwards' | 'both'
@@ -669,7 +800,7 @@ export type AnimationCommitMode = 'none' | 'final' | { properties: readonly stri
 export interface AnimationKeyframeProjection {
   at: AnimationTime
   value: unknown
-  easing?: string
+  easing?: AnimationTimingFunction
 }
 
 export interface ResolvedAnimationTrackProjection {
@@ -720,7 +851,7 @@ export interface ViewPluginProjectionMap {
 export interface TransitionIntent {
   type: 'fade' | 'slide' | 'instant' | string
   duration?: number
-  easing?: string
+  easing?: AnimationTimingFunction
 }
 
 export type SceneTransitionType
@@ -752,6 +883,19 @@ export interface SceneChangePayload {
   fromScene?: string
   toScene: string
   transition?: SceneTransitionIntent
+}
+
+export interface GameOverPayload {
+  endedAt: number
+  ending?: string
+  title?: string
+  message?: string
+  reason?: string
+  currentScene?: string
+  currentStepId?: string
+  storyPoint?: Readonly<Record<string, unknown>>
+  requiredRuntimePackages?: readonly string[]
+  metadata?: Readonly<Record<string, unknown>>
 }
 
 export interface BackgroundSetPayload extends ViewBackgroundProjection {}
@@ -983,6 +1127,7 @@ export interface LogicToRenderEventPayloadMap {
   [LogicToRenderEvents.SCENE_INIT]: SceneInitPayload
   [LogicToRenderEvents.SCENE_CHANGE]: SceneChangePayload
   [LogicToRenderEvents.SCENE_DESTROY]: { sceneId: string }
+  [LogicToRenderEvents.GAME_OVER]: GameOverPayload
   [LogicToRenderEvents.VIEW_UPDATE]: { view: QuaViewProjection }
   [LogicToRenderEvents.BACKGROUND_SET]: BackgroundSetPayload
   [LogicToRenderEvents.BACKGROUND_CLEAR]: Record<string, never>
@@ -1486,6 +1631,42 @@ function getTimers(): {
 
 function getViewLayoutPreset(preset: ViewLayoutPreset): ViewLayoutProjection {
   return preset === 'portrait' ? QUA_PORTRAIT_LAYOUT : QUA_LANDSCAPE_LAYOUT
+}
+
+function normalizeOverlayStack(value: string | undefined, fallback: string): string {
+  const normalized = typeof value === 'string' ? value.trim() : ''
+  if (normalized) {
+    return normalized
+  }
+  const normalizedFallback = fallback.trim()
+  return normalizedFallback || 'overlay'
+}
+
+function resolveOverlayStackPriority(stack: string, explicit: number | undefined, fallback: number | undefined): number {
+  if (isBuiltinOverlayStack(stack)) {
+    return DEFAULT_OVERLAY_STACK_PRIORITIES[stack]
+  }
+  return finiteNumber(explicit, finiteNumber(fallback, DEFAULT_OVERLAY_STACK_PRIORITIES.overlay))
+}
+
+function resolveUiOverlayPlacementDefaults(
+  defaults: ResolveUiOverlayStackPlacementDefaults,
+  elementId: string,
+  overlay: Readonly<ViewUiOverlayProjection>,
+): ResolveOverlayStackPlacementOptions {
+  return typeof defaults === 'function' ? defaults(elementId, overlay) : defaults
+}
+
+function isBuiltinOverlayStack(value: string): value is BuiltinOverlayStack {
+  return value === 'hud' || value === 'overlay' || value === 'modal' || value === 'toast'
+}
+
+function uiScenePresentationRank(scene: Readonly<ViewUiSceneProjection> | undefined): number {
+  return scene?.presentation === 'scene' ? 1 : 0
+}
+
+function finiteNumber(value: number | undefined, fallback: number): number {
+  return Number.isFinite(value) && value !== undefined ? value : fallback
 }
 
 function positiveNumber(value: number | undefined, fallback: number): number {

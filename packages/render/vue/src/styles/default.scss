@@ -26,8 +26,8 @@
   max-width: var(--qua-character-max-width, min(100%, 520px));
   max-height: var(--qua-character-max-height, 86%);
   transition:
-    opacity var(--qua-character-exit-duration, 180ms) ease,
-    transform var(--qua-character-enter-duration, 220ms) ease;
+    opacity var(--qua-character-exit-duration, 180ms) var(--qua-character-exit-easing, ease),
+    transform var(--qua-character-move-duration, 220ms) var(--qua-character-move-easing, ease);
 }
 
 .qua-character.is-hidden {
@@ -62,11 +62,16 @@
 }
 
 .qua-choice-panel {
+  left: auto;
   right: 5%;
-  bottom: 24%;
+  bottom: calc(5% + 164px);
   display: grid;
+  width: auto;
   gap: 10px;
   min-width: min(360px, calc(100% - 32px));
+  max-width: min(640px, calc(100% - 32px));
+  max-height: calc(90% - 196px);
+  transform: none;
 }
 
 .qua-choice-button {

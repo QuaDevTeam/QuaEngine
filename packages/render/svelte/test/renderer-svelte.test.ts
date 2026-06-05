@@ -1,9 +1,11 @@
 import type { QuaViewProjection } from '@quajs/render-core'
 import type { QuaWebDomRendererHost } from '@quajs/renderer-web/framework-host'
 import { Pipeline } from '@quajs/pipeline'
+import { SETTINGS_PLUGIN_ID } from '@quajs/plugin-settings/contracts'
 import {
   createFlowControlProjection,
   createViewLayoutProjection,
+  DEFAULT_UI_OVERLAY_Z_INDEXES,
   emitLogicToRender,
   LogicToRenderEvents,
   onRenderToLogic,
@@ -142,6 +144,37 @@ describe('@quajs/renderer-svelte', () => {
     ])
   })
 
+  it('projects official overlay roots through the shared Web overlay plane', async () => {
+    const pipeline = new Pipeline()
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    const action = quaRenderer(root, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            settings: { open: true },
+          },
+        },
+        plugins: {
+          [SETTINGS_PLUGIN_ID]: settingsProjection(),
+        },
+      }),
+    })
+    await flushDom()
+
+    const settingsLayer = root.querySelector<HTMLElement>('.qua-settings-layer')!
+    expect(root.querySelector('.qua-stage-overlay .qua-settings-layer')).not.toBeNull()
+    expect(settingsLayer.dataset.overlayStack).toBe('overlay')
+    expect(settingsLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.settings))
+
+    action.destroy?.()
+  })
+
   it('exports DOM feature plugin subentries and composes the Vue-aligned preset order', async () => {
     const modules = await Promise.all([
       import('../src/plugins/achievement'),
@@ -215,5 +248,27 @@ function view(overrides: Partial<QuaViewProjection> = {}): QuaViewProjection {
     animations: [],
     plugins: {},
     ...overrides,
+  }
+}
+
+function settingsProjection() {
+  return {
+    revision: 1,
+    profileId: 'default',
+    updatedAt: 1,
+    scopes: {
+      player: {
+        title: 'Player',
+        schema: {
+          type: 'object',
+          properties: {
+            muted: { type: 'boolean', title: 'Muted' },
+          },
+        },
+        defaults: { muted: false },
+        values: { muted: false },
+        errors: [],
+      },
+    },
   }
 }
