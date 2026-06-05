@@ -1949,7 +1949,8 @@ describe('@quajs/renderer-web', () => {
     expect(root.querySelector('.qua-settings-panel')).not.toBeNull()
     expect(root.querySelector('.qua-overlay-layer')).toBeNull()
     const layer = root.querySelector<HTMLElement>('.qua-settings-layer')!
-    expect(root.querySelector('.qua-stage-overlay .qua-settings-layer')).not.toBeNull()
+    expect(root.querySelector('.qua-screen-plane .qua-settings-layer')).not.toBeNull()
+    expect(root.querySelector('.qua-stage-overlay .qua-settings-layer')).toBeNull()
     expect(layer.getAttribute('style')).toContain('pointer-events: auto')
     expect(layer.dataset.overlayStack).toBe('overlay')
     expect(layer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.settings))
@@ -2440,7 +2441,8 @@ describe('@quajs/renderer-web', () => {
               voice: { assetKey: 'voice.ogg' },
               rewindable: true,
               voiceReplay: true,
-              timestamp: Date.now(),
+              gameTimeMs: 123000,
+              recordedAt: Date.now(),
             }, {
               id: 'entry-2',
               kind: 'dialogue',
@@ -2448,7 +2450,8 @@ describe('@quajs/renderer-web', () => {
               text: 'Read only line',
               rewindable: false,
               voiceReplay: false,
-              timestamp: Date.now(),
+              gameTimeMs: 124000,
+              recordedAt: Date.now(),
             }],
           },
         },
@@ -2456,14 +2459,18 @@ describe('@quajs/renderer-web', () => {
     })
 
     await renderer.mount()
-    expect(root.querySelector('.qua-stage-overlay .qua-backlog-layer')).not.toBeNull()
-    expect(root.querySelector('.qua-screen-plane .qua-backlog-layer')).toBeNull()
+    expect(root.querySelector('.qua-screen-plane .qua-backlog-layer')).not.toBeNull()
+    expect(root.querySelector('.qua-stage-overlay .qua-backlog-layer')).toBeNull()
     expect(root.querySelector('.qua-stage-safe .qua-backlog-layer')).toBeNull()
     const backlogLayer = root.querySelector<HTMLElement>('.qua-backlog-layer')!
     expect(backlogLayer.getAttribute('data-ui-scene-id')).toBe('game:backlog')
     expect(backlogLayer.dataset.overlayStack).toBe('overlay')
     expect(backlogLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.backlog))
     expect(root.querySelector('.qua-backlog-title')?.textContent).toBe('Backlog')
+    expect(root.querySelector('.qua-backlog-kicker')).toBeNull()
+    expect(root.querySelector('.qua-backlog-subtitle')).toBeNull()
+    expect(root.querySelector('.qua-backlog-entry-kind')).toBeNull()
+    expect(root.querySelector('.qua-backlog-entry-time')?.textContent).toBe('00:02:03')
     expect(root.querySelector('.qua-backlog-entry-speaker')?.textContent).toBe('Alice')
     expect(root.querySelector('.qua-backlog-entry-main')?.textContent).toContain('Backlog line')
     const readOnlyEntry = root.querySelector<HTMLElement>('[data-backlog-entry="entry-2"] .qua-backlog-entry-main')!

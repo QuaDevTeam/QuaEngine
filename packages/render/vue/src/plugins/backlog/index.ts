@@ -153,7 +153,7 @@ export function createBacklogRendererPlugin(): QuaVueRendererPlugin {
       slot: 'backlog',
       component: QuaBacklogLayer,
       order: 95,
-      plane: 'overlay',
+      plane: 'screen',
     }],
   })
 }
@@ -187,15 +187,13 @@ function createBacklogEntrySlotPayload(
 }
 
 function renderBacklogHeader(
-  backlog: BacklogProjection,
+  _backlog: BacklogProjection,
   close: () => void | Promise<void>,
   closeSkin: ReturnType<typeof useUiControlSkin>,
 ): VNode {
   return h('header', { class: 'qua-backlog-header' }, [
     h('div', { class: 'qua-backlog-heading' }, [
-      h('p', { class: 'qua-backlog-kicker' }, 'LOG'),
       h('h2', { class: 'qua-backlog-title' }, 'Backlog'),
-      h('p', { class: 'qua-backlog-subtitle' }, `${backlog.entries.length} entries / ${backlog.retention.scope}`),
     ]),
     h('button', {
       'class': 'qua-backlog-close',
@@ -213,11 +211,11 @@ function renderBacklogHeader(
 function renderBacklogEntryMeta(entry: BacklogEntry, index: number): VNode {
   return h('span', { class: 'qua-backlog-entry-meta' }, [
     h('span', { class: 'qua-backlog-entry-index' }, String(index + 1).padStart(2, '0')),
-    h('span', { class: 'qua-backlog-entry-kind' }, entry.kind === 'choice' ? 'Choice' : 'Line'),
     h('time', {
       class: 'qua-backlog-entry-time',
-      datetime: new Date(entry.timestamp).toISOString(),
-    }, formatBacklogTime(entry.timestamp)),
+      datetime: formatBacklogGameTimeDateTime(entry.gameTimeMs),
+      title: formatBacklogRecordedAt(entry.recordedAt),
+    }, formatBacklogGameTime(entry.gameTimeMs)),
   ])
 }
 
@@ -269,12 +267,25 @@ function choiceText(entry: BacklogEntry): string {
   return entry.text || entry.choices?.map(choice => choice.text).join(' / ') || ''
 }
 
-function formatBacklogTime(timestamp: number): string {
-  const date = new Date(timestamp)
-  if (Number.isNaN(date.getTime())) {
-    return ''
-  }
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+function formatBacklogGameTime(gameTimeMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(gameTimeMs / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function formatBacklogGameTimeDateTime(gameTimeMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(gameTimeMs / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return `PT${hours}H${minutes}M${seconds}S`
+}
+
+function formatBacklogRecordedAt(recordedAt: number): string | undefined {
+  const date = new Date(recordedAt)
+  return Number.isNaN(date.getTime()) ? undefined : date.toLocaleString()
 }
 
 function backlogText(entry: BacklogEntry): string {

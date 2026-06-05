@@ -1490,7 +1490,8 @@ describe('@quajs/renderer-cocos', () => {
               rewindable: true,
               voiceReplay: true,
               tags: ['important'],
-              timestamp: 1,
+              gameTimeMs: 123000,
+              recordedAt: 1,
             }],
             retention: { scope: 'global', maxEntries: 50 },
             defaultPolicy: { include: true, rewindable: true, voiceReplay: true },
@@ -1505,9 +1506,11 @@ describe('@quajs/renderer-cocos', () => {
     const voice = findNode(host, 'backlog:entry-1:voice')
     const close = findNode(host, 'backlog:close')
     expect(findNode(host, 'backlog:title')?.text).toBe('Backlog')
-    expect(findNode(host, 'backlog:subtitle')?.text).toBe('1 entries / global')
+    expect(findNode(host, 'backlog:subtitle')).toBeUndefined()
     expect(entry?.text).toContain('Remember this line.')
-    expect(entry?.metadata).toMatchObject({ backlogKind: 'dialogue', tags: ['important'] })
+    expect(entry?.text).not.toContain('Line')
+    expect(entry?.text).toContain('00:02:03')
+    expect(entry?.metadata).toMatchObject({ backlogKind: 'dialogue', gameTimeMs: 123000, recordedAt: 1, tags: ['important'] })
     expect(findNode(host, 'backlog:entry-1:tags')?.text).toBe('important')
     expect(voice?.control).toMatchObject({ kind: 'button', disabled: false })
 
@@ -1529,7 +1532,8 @@ describe('@quajs/renderer-cocos', () => {
       text: `Line ${index + 1}`,
       rewindable: true,
       voiceReplay: false,
-      timestamp: index + 1,
+      gameTimeMs: index * 1000,
+      recordedAt: index + 1,
     }))
     const renderer = new QuaCocosRendererController({
       host,

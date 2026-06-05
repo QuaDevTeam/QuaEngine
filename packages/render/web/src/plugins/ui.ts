@@ -17,7 +17,7 @@ export function createUiWebRendererPlugin(options: UiWebRendererPluginOptions = 
     layers: [{
       id: 'overlay',
       order: 90,
-      plane: 'overlay',
+      plane: 'screen',
       render: context => renderUiLayer(context, options),
       update: (context, node) => updateUiLayer(context, node, options),
     }],

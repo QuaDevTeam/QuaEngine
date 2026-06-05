@@ -240,7 +240,8 @@ describe('@quajs/renderer-vue', () => {
               voice: { assetKey: 'voice.ogg' },
               rewindable: true,
               voiceReplay: true,
-              timestamp: Date.now(),
+              gameTimeMs: 123000,
+              recordedAt: Date.now(),
             }, {
               id: 'entry-2',
               kind: 'dialogue',
@@ -248,7 +249,8 @@ describe('@quajs/renderer-vue', () => {
               text: 'Read only line',
               rewindable: false,
               voiceReplay: false,
-              timestamp: Date.now(),
+              gameTimeMs: 124000,
+              recordedAt: Date.now(),
             }],
           },
         },
@@ -256,14 +258,18 @@ describe('@quajs/renderer-vue', () => {
     })
 
     await flushVue()
-    expect(host.el.querySelector('.qua-stage-overlay .qua-backlog-layer')).not.toBeNull()
-    expect(host.el.querySelector('.qua-screen-plane .qua-backlog-layer')).toBeNull()
+    expect(host.el.querySelector('.qua-screen-plane .qua-backlog-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-overlay .qua-backlog-layer')).toBeNull()
     expect(host.el.querySelector('.qua-stage-safe .qua-backlog-layer')).toBeNull()
     const backlogLayer = host.el.querySelector<HTMLElement>('.qua-backlog-layer')!
     expect(backlogLayer.getAttribute('data-ui-scene-id')).toBe('game:backlog')
     expect(backlogLayer.dataset.overlayStack).toBe('overlay')
     expect(backlogLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.backlog))
     expect(host.el.querySelector('.qua-backlog-title')?.textContent).toBe('Backlog')
+    expect(host.el.querySelector('.qua-backlog-kicker')).toBeNull()
+    expect(host.el.querySelector('.qua-backlog-subtitle')).toBeNull()
+    expect(host.el.querySelector('.qua-backlog-entry-kind')).toBeNull()
+    expect(host.el.querySelector('.qua-backlog-entry-time')?.textContent).toBe('00:02:03')
     expect(host.el.querySelector('.qua-backlog-entry-speaker')?.textContent).toBe('Alice')
     expect(host.el.textContent).toContain('Backlog line')
     const readOnlyEntry = host.el.querySelector<HTMLElement>('[data-backlog-entry="entry-2"] .qua-backlog-entry-main')!
@@ -956,8 +962,8 @@ describe('@quajs/renderer-vue', () => {
 
     await flushVue()
     expect(host.el.querySelector('.qua-overlay-layer')).not.toBeNull()
-    expect(host.el.querySelector('.qua-stage-overlay .qua-overlay-layer')).not.toBeNull()
-    expect(host.el.querySelector('.qua-screen-plane .qua-overlay-layer')).toBeNull()
+    expect(host.el.querySelector('.qua-screen-plane .qua-overlay-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-overlay .qua-overlay-layer')).toBeNull()
     const overlayLayer = host.el.querySelector<HTMLElement>('.qua-overlay-layer')!
     expect(overlayLayer.getAttribute('style')).toContain('pointer-events: auto')
     expect(overlayLayer.dataset.overlayStack).toBe('overlay')
@@ -1308,8 +1314,8 @@ describe('@quajs/renderer-vue', () => {
     await flushVue()
 
     expect(host.el.querySelector('.qua-settings-layer')).not.toBeNull()
-    expect(host.el.querySelector('.qua-stage-overlay .qua-settings-layer')).not.toBeNull()
-    expect(host.el.querySelector('.qua-screen-plane .qua-settings-layer')).toBeNull()
+    expect(host.el.querySelector('.qua-screen-plane .qua-settings-layer')).not.toBeNull()
+    expect(host.el.querySelector('.qua-stage-overlay .qua-settings-layer')).toBeNull()
     expect(host.el.querySelector('.qua-settings-layer')?.getAttribute('style')).toContain('pointer-events: auto')
     expect(host.el.querySelector('.qua-overlay-layer')).toBeNull()
     expect(host.el.querySelector('.qua-ui-overlay[data-overlay="settings"]')).toBeNull()
