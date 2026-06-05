@@ -271,7 +271,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       return metadata ? { ...metadata } : undefined
     },
     hitTest(rootNode: CocosHostNode, point: { x: number, y: number }, hitOptions: { metadataKey?: string, includeInvisible?: boolean } = {}) {
-      return hitTestNode(asCreatorNode(rootNode), point, childNodes, metadataByNode, hitOptions)
+      return hitTestNode(asCreatorNode(rootNode), point, childNodes, metadataByNode, hitOptions, { x: 0, y: 0 })
     },
     getContainerSize: () => options.layout?.getContainerSize?.() || readNodeSize(options.cc, root) || options.cc?.view?.getVisibleSize?.() || { width: 1920, height: 1080 },
     getDevicePixelRatio: () => options.layout?.getDevicePixelRatio?.() || options.cc?.view?.getDevicePixelRatio?.() || globalThis.devicePixelRatio || 1,
@@ -280,7 +280,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
 
   return {
     runtime: {
-      now: () => options.cc?.sys?.now?.() || Date.now(),
+      now: () => creatorNow(options.cc),
     },
     nodes: nodeHost,
     assets: {
@@ -296,6 +296,12 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
           if (!response.ok)
             throw new Error(`Failed to fetch Cocos asset bytes: ${source}`)
           return new Uint8Array(await response.arrayBuffer())
+        }
+        if (isRemoteUrl(source) && options.cc?.assetManager?.loadRemote) {
+          const remoteBytes = await loadRemoteBytes(options.cc, source)
+          if (remoteBytes)
+            return remoteBytes
+          throw new Error(`Cocos Creator assetManager.loadRemote did not return byte data: ${source}`)
         }
         throw new Error(`Cocos Creator host cannot load raw bytes without a file bridge: ${source}`)
       },
@@ -453,7 +459,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
     capture: options.capture,
     scheduler: {
       requestFrame(callback) {
-        return setTimeout(() => callback(Date.now()), 16) as unknown as number
+        return setTimeout(() => callback(creatorNow(options.cc)), 16) as unknown as number
       },
       cancelFrame(handle) {
         clearTimeout(handle as unknown as ReturnType<typeof setTimeout>)
@@ -533,14 +539,24 @@ function ensureComponent(native: any, component: unknown, componentName: string)
 function applyTransform(cc: CocosCreatorModule | undefined, node: CocosCreatorNode, transform: CocosHostTransform): void {
   const native = node.native as any
   if (transform.x !== undefined || transform.y !== undefined) {
-    native?.setPosition?.(transform.x ?? 0, transform.y ?? 0)
+    const current = readNativePosition(native)
+    const nextX = transform.x ?? current.x
+    const nextY = transform.y ?? current.y
+    native?.setPosition?.(nextX, nextY)
     if (!native?.setPosition) {
-      native.x = transform.x ?? native.x
-      native.y = transform.y ?? native.y
+      native.x = nextX
+      native.y = nextY
     }
   }
   if (transform.scaleX !== undefined || transform.scaleY !== undefined) {
-    native?.setScale?.(transform.scaleX ?? 1, transform.scaleY ?? transform.scaleX ?? 1)
+    const current = readNativeScale(native)
+    const nextScaleX = transform.scaleX ?? current.x
+    const nextScaleY = transform.scaleY ?? current.y
+    native?.setScale?.(nextScaleX, nextScaleY)
+    if (!native?.setScale) {
+      native.scaleX = nextScaleX
+      native.scaleY = nextScaleY
+    }
   }
   if (transform.rotation !== undefined) {
     native.angle = transform.rotation
@@ -556,6 +572,8 @@ function applyTransform(cc: CocosCreatorModule | undefined, node: CocosCreatorNo
       uiTransform.setContentSize?.(transform.width ?? uiTransform.width ?? 0, transform.height ?? uiTransform.height ?? 0)
       uiTransform.width = transform.width ?? uiTransform.width
       uiTransform.height = transform.height ?? uiTransform.height
+      native.width = uiTransform.width
+      native.height = uiTransform.height
     }
     if (transform.anchorX !== undefined || transform.anchorY !== undefined) {
       uiTransform.setAnchorPoint?.(transform.anchorX ?? uiTransform.anchorX ?? 0.5, transform.anchorY ?? uiTransform.anchorY ?? 0.5)
@@ -563,11 +581,37 @@ function applyTransform(cc: CocosCreatorModule | undefined, node: CocosCreatorNo
       uiTransform.anchorY = transform.anchorY ?? uiTransform.anchorY
     }
   }
+  else {
+    if (transform.width !== undefined || transform.height !== undefined) {
+      native.width = transform.width ?? native.width
+      native.height = transform.height ?? native.height
+    }
+    if (transform.anchorX !== undefined || transform.anchorY !== undefined) {
+      native.anchorX = transform.anchorX ?? native.anchorX
+      native.anchorY = transform.anchorY ?? native.anchorY
+    }
+  }
   if (transform.opacity !== undefined) {
     applyNodeOpacity(cc, native, transform.opacity)
   }
   if (transform.clip !== undefined) {
     native.quaClip = { ...transform.clip }
+  }
+}
+
+function readNativePosition(native: any): { x: number, y: number } {
+  const position = native?.getPosition?.()
+  return {
+    x: finiteNumber(native?.x, finiteNumber(position?.x, 0) ?? 0) ?? 0,
+    y: finiteNumber(native?.y, finiteNumber(position?.y, 0) ?? 0) ?? 0,
+  }
+}
+
+function readNativeScale(native: any): { x: number, y: number } {
+  const scale = native?.getScale?.()
+  return {
+    x: finiteNumber(native?.scaleX, finiteNumber(scale?.x, 1) ?? 1) ?? 1,
+    y: finiteNumber(native?.scaleY, finiteNumber(scale?.y, 1) ?? 1) ?? 1,
   }
 }
 
@@ -733,14 +777,16 @@ function hitTestNode(
   childNodes: Map<string, Set<CocosCreatorNode>>,
   metadataByNode: Map<string, Record<string, unknown>>,
   options: { metadataKey?: string, includeInvisible?: boolean },
+  origin: { x: number, y: number },
 ): { node: CocosHostNode, metadata?: Record<string, unknown> } | undefined {
+  const nodeOrigin = creatorHitTestOrigin(root, origin)
   const children = [...(childNodes.get(root.id) || [])].sort((left, right) => {
     const lz = Number((left.native as any)?.priority || (left.native as any)?.zIndex || 0)
     const rz = Number((right.native as any)?.priority || (right.native as any)?.zIndex || 0)
     return rz - lz
   })
   for (const child of children) {
-    const hit = hitTestNode(child, point, childNodes, metadataByNode, options)
+    const hit = hitTestNode(child, point, childNodes, metadataByNode, options, nodeOrigin)
     if (hit)
       return hit
   }
@@ -750,19 +796,28 @@ function hitTestNode(
   const metadata = metadataByNode.get(root.id)
   if (options.metadataKey && metadata?.[options.metadataKey] === undefined)
     return undefined
-  if (!containsPoint(root, point))
+  if (!containsPoint(root, point, nodeOrigin))
     return undefined
   return { node: root, metadata: metadata ? { ...metadata } : undefined }
 }
 
-function containsPoint(node: CocosCreatorNode, point: { x: number, y: number }): boolean {
-  const native = node.native as any
-  const width = Number(native?.width || native?.getComponent?.('cc.UITransform')?.width || 0)
-  const height = Number(native?.height || native?.getComponent?.('cc.UITransform')?.height || 0)
-  if (!(width > 0 && height > 0))
+function creatorHitTestOrigin(node: CocosCreatorNode, origin: { x: number, y: number }): { x: number, y: number } {
+  if (node.kind === 'stage')
+    return origin
+  const position = readNativePosition(node.native as any)
+  return {
+    x: origin.x + position.x,
+    y: origin.y + position.y,
+  }
+}
+
+function containsPoint(node: CocosCreatorNode, point: { x: number, y: number }, origin: { x: number, y: number }): boolean {
+  const size = readNodeSize(undefined, node)
+  if (!size)
     return true
-  const x = Number(native?.x || 0)
-  const y = Number(native?.y || 0)
+  const { width, height } = size
+  const x = origin.x
+  const y = origin.y
   return point.x >= x && point.x <= x + width && point.y >= y && point.y <= y + height
 }
 
@@ -886,6 +941,55 @@ function normalizePath(path: string, root?: string): string {
     return normalized
   const normalizedRoot = root.replace(/\/+$/, '').replace(/^\/+/, '')
   return normalized.startsWith(`${normalizedRoot}/`) ? normalized : `${normalizedRoot}/${normalized}`
+}
+
+function creatorNow(cc: CocosCreatorModule | undefined): number {
+  const now = cc?.sys?.now?.()
+  return typeof now === 'number' && Number.isFinite(now) ? now : Date.now()
+}
+
+async function loadRemoteBytes(cc: CocosCreatorModule, source: string): Promise<Uint8Array | undefined> {
+  const asset = await new Promise<unknown>((resolve, reject) => {
+    cc.assetManager?.loadRemote?.(source, {}, (error, remoteAsset) => {
+      if (error) {
+        reject(error)
+        return
+      }
+      resolve(remoteAsset)
+    })
+  })
+  return remoteAssetBytes(asset)
+}
+
+async function remoteAssetBytes(value: unknown): Promise<Uint8Array | undefined> {
+  const direct = await bytesFromValue(value)
+  if (direct)
+    return direct
+  if (!value || typeof value !== 'object')
+    return undefined
+  const record = value as Record<string, unknown>
+  for (const key of ['bytes', 'data', 'native', '_nativeAsset']) {
+    const bytes = await bytesFromValue(record[key])
+    if (bytes)
+      return bytes
+  }
+  if (typeof record.text === 'string')
+    return new TextEncoder().encode(record.text)
+  return undefined
+}
+
+async function bytesFromValue(value: unknown): Promise<Uint8Array | undefined> {
+  if (value instanceof Uint8Array)
+    return new Uint8Array(value)
+  if (value instanceof ArrayBuffer)
+    return new Uint8Array(value)
+  if (ArrayBuffer.isView(value))
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength)
+  if (value && typeof value === 'object' && typeof (value as { arrayBuffer?: unknown }).arrayBuffer === 'function')
+    return new Uint8Array(await (value as { arrayBuffer: () => Promise<ArrayBuffer> }).arrayBuffer())
+  if (typeof value === 'string')
+    return new TextEncoder().encode(value)
+  return undefined
 }
 
 function listMemoryFiles(files: Map<string, Uint8Array>, rootPath: string): CocosHostFileInfo[] {

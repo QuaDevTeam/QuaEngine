@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createCocosCreatorHost } from '../src/creator'
 import { createFakeCocosHost } from '../src/testing'
 
@@ -58,6 +58,21 @@ describe('createFakeCocosHost', () => {
     host.nodes.setNodeMetadata?.(high, { choiceId: 'high' })
 
     expect(host.nodes.hitTest?.(host.root, { x: 10, y: 10 }, { metadataKey: 'choiceId' })?.metadata?.choiceId).toBe('high')
+  })
+
+  it('hit-tests nested nodes using local transforms in logical stage coordinates', () => {
+    const host = createFakeCocosHost()
+    const stage = host.nodes.createNode('stage', { parent: host.root, name: 'stage' })
+    const panel = host.nodes.createNode('panel', { parent: stage, name: 'panel' })
+    const button = host.nodes.createNode('button', { parent: panel, name: 'button' })
+    host.nodes.setNodeTransform(stage, { x: 100, y: 50, width: 1920, height: 1080 })
+    host.nodes.setNodeTransform(panel, { x: 100, y: 200, width: 300, height: 220 })
+    host.nodes.setNodeTransform(button, { x: 10, y: 20, width: 80, height: 40 })
+    host.nodes.setNodeMetadata?.(button, { action: 'nested' })
+
+    expect(host.nodes.hitTest?.(stage, { x: 111, y: 221 }, { metadataKey: 'action' })?.metadata?.action).toBe('nested')
+    expect(host.nodes.hitTest?.(stage, { x: 11, y: 21 }, { metadataKey: 'action' })).toBeUndefined()
+    expect(host.nodes.hitTest?.(stage, { x: 211, y: 271 }, { metadataKey: 'action' })).toBeUndefined()
   })
 
   it('records sliced sprite, control, and audio ended projection state', async () => {
@@ -249,6 +264,68 @@ describe('createCocosCreatorHost', () => {
     }
     expect(events).toHaveLength(1)
     expect(await host.capture?.captureNode(host.nodes.getRootNode())).toMatchObject({ mimeType: 'image/png', width: 1280 })
+  })
+
+  it('loads remote bytes through Creator assetManager when fetch is unavailable', async () => {
+    const originalFetch = globalThis.fetch
+    vi.stubGlobal('fetch', undefined)
+    try {
+      let requestedUrl = ''
+      const host = createCocosCreatorHost({
+        rootNode: createNativeNode('root'),
+        cc: {
+          assetManager: {
+            loadRemote(url, _options, callback) {
+              requestedUrl = url
+              callback(undefined, { native: new Uint8Array([7, 8, 9]) })
+            },
+          },
+        },
+      })
+
+      expect(host.capabilities?.remoteFiles).toBe(true)
+      await expect(host.assets.loadBytes('https://cdn.example.test/bundle.qpk')).resolves.toEqual(new Uint8Array([7, 8, 9]))
+      expect(requestedUrl).toBe('https://cdn.example.test/bundle.qpk')
+    }
+    finally {
+      vi.stubGlobal('fetch', originalFetch)
+    }
+  })
+
+  it('preserves Creator zero timestamps and partial transform axes', () => {
+    const host = createCocosCreatorHost({
+      rootNode: createNativeNode('root'),
+      cc: { sys: { now: () => 0 } },
+    })
+    const node = host.nodes.createNode('sprite', { parent: host.nodes.getRootNode() })
+
+    host.nodes.setNodeTransform(node, { x: 10, y: 20, scaleX: 2, scaleY: 3, width: 100, height: 50 })
+    host.nodes.setNodeTransform(node, { x: 30, scaleX: 4 })
+
+    expect(host.runtime.now()).toBe(0)
+    expect((node as any).native).toMatchObject({
+      x: 30,
+      y: 20,
+      scaleX: 4,
+      scaleY: 3,
+      width: 100,
+      height: 50,
+    })
+  })
+
+  it('hit-tests Creator child nodes using accumulated local transforms', () => {
+    const host = createCocosCreatorHost({ rootNode: createNativeNode('root') })
+    const stage = host.nodes.createNode('stage', { parent: host.nodes.getRootNode(), name: 'stage' })
+    const panel = host.nodes.createNode('panel', { parent: stage, name: 'panel' })
+    const button = host.nodes.createNode('button', { parent: panel, name: 'button' })
+    host.nodes.setNodeTransform(stage, { x: 100, y: 50, width: 1920, height: 1080 })
+    host.nodes.setNodeTransform(panel, { x: 100, y: 200, width: 300, height: 220 })
+    host.nodes.setNodeTransform(button, { x: 10, y: 20, width: 80, height: 40 })
+    host.nodes.setNodeMetadata?.(button, { action: 'nested' })
+
+    expect(host.nodes.hitTest?.(stage, { x: 111, y: 221 }, { metadataKey: 'action' })?.metadata?.action).toBe('nested')
+    expect(host.nodes.hitTest?.(stage, { x: 11, y: 21 }, { metadataKey: 'action' })).toBeUndefined()
+    expect(host.nodes.hitTest?.(stage, { x: 211, y: 271 }, { metadataKey: 'action' })).toBeUndefined()
   })
 
   it('re-enables Creator control components from updated projection state', () => {

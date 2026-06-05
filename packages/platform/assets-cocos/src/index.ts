@@ -501,7 +501,7 @@ function sha256Bytes(message: Uint8Array): Uint8Array {
     0xE9B5DBA5,
     0x3956C25B,
     0x59F111F1,
-    0x923F82A,
+    0x923F82A4,
     0xAB1C5ED5,
     0xD807AA98,
     0x12835B01,
