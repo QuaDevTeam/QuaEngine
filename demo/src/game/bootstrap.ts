@@ -130,6 +130,11 @@ export async function createQuaGameApp() {
     && !activeGallery.value?.sceneActive
     && uiSceneAllowsHudChrome(activeUiScene.value),
   )
+  const dialogueChromeVisible = computed(() =>
+    !titleSurfaceActive.value
+    && activeUiScene.value?.overlay?.defaultChrome !== false
+    && activeUiScene.value?.overlay?.hideDialogue !== true,
+  )
   const pipeline = engine.getPipeline()
   const emit = pipeline.emit.bind(pipeline)
   let activeBgmAssetKey: string | undefined
@@ -393,6 +398,7 @@ export async function createQuaGameApp() {
         'data-system-overlay': systemOverlayMode.value,
         'data-title-surface': titleSurfaceActive.value ? 'true' : undefined,
         'data-default-chrome': defaultChromeVisible.value ? 'true' : 'false',
+        'data-dialogue-chrome': dialogueChromeVisible.value ? 'true' : 'false',
       }, [
         h('div', { class: 'vn-title-surface', 'aria-hidden': 'true', 'data-qua-input-ignore': '' }),
         defaultChromeVisible.value
@@ -401,47 +407,50 @@ export async function createQuaGameApp() {
               h('span', { class: 'game-subtitle' }, 'TOKYO 2048'),
             ])
           : null,
-        defaultChromeVisible.value
-          ? h('nav', { class: 'vn-quick-menu', 'aria-label': 'quick menu', 'data-qua-input-ignore': '' }, [
-              h('button', {
-                type: 'button',
-                title: activeView.value.flowControl.mode === 'auto' ? 'Stop auto mode' : 'Auto mode',
-                class: activeView.value.flowControl.mode === 'auto' ? 'is-active' : undefined,
-                onClick: async () => {
-                  if (activeView.value.flowControl.mode === 'auto') {
-                    await engine.stopAuto()
-                  }
-                  else {
-                    await engine.startAuto()
-                  }
-                },
-              }, 'AUTO'),
-              h('button', {
-                type: 'button',
-                title: activeView.value.flowControl.mode === 'skip' ? 'Stop skip mode' : 'Skip read text',
-                class: activeView.value.flowControl.mode === 'skip' ? 'is-active' : undefined,
-                onClick: async () => {
-                  await stopAutoForHudInteraction()
-                  if (activeView.value.flowControl.mode === 'skip') {
-                    await engine.stopSkip()
-                  }
-                  else {
-                    await engine.startSkip()
-                  }
-                },
-              }, 'SKIP'),
-              h('button', {
-                type: 'button',
-                title: 'Backlog',
-                onClick: openBacklog,
-              }, 'LOG'),
-              h('button', {
-                type: 'button',
-                title: 'Menu',
-                onClick: openGameMenu,
-              }, 'MENU'),
-            ])
-          : null,
+        h('nav', {
+          class: 'vn-quick-menu',
+          'aria-label': 'quick menu',
+          'aria-hidden': dialogueChromeVisible.value ? undefined : 'true',
+          'data-qua-input-ignore': '',
+        }, [
+          h('button', {
+            type: 'button',
+            title: activeView.value.flowControl.mode === 'auto' ? 'Stop auto mode' : 'Auto mode',
+            class: activeView.value.flowControl.mode === 'auto' ? 'is-active' : undefined,
+            onClick: async () => {
+              if (activeView.value.flowControl.mode === 'auto') {
+                await engine.stopAuto()
+              }
+              else {
+                await engine.startAuto()
+              }
+            },
+          }, 'AUTO'),
+          h('button', {
+            type: 'button',
+            title: activeView.value.flowControl.mode === 'skip' ? 'Stop skip mode' : 'Skip read text',
+            class: activeView.value.flowControl.mode === 'skip' ? 'is-active' : undefined,
+            onClick: async () => {
+              await stopAutoForHudInteraction()
+              if (activeView.value.flowControl.mode === 'skip') {
+                await engine.stopSkip()
+              }
+              else {
+                await engine.startSkip()
+              }
+            },
+          }, 'SKIP'),
+          h('button', {
+            type: 'button',
+            title: 'Backlog',
+            onClick: openBacklog,
+          }, 'LOG'),
+          h('button', {
+            type: 'button',
+            title: 'Menu',
+            onClick: openGameMenu,
+          }, 'MENU'),
+        ]),
         h(QuaRenderer, {
           pipeline: engine.getPipeline(),
           assets,

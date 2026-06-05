@@ -58,4 +58,10 @@
     animation-duration: 1ms !important;
     animation-delay: 0ms !important;
   }
+
+  .game-root .qua-dialogue-box,
+  .game-root .vn-quick-menu {
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+  }
 }

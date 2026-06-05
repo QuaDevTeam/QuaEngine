@@ -5,6 +5,10 @@
   --vn-dialogue-padding-x: 28px;
   --vn-dialogue-padding-y: 22px;
   --vn-dialogue-toolbar-offset: calc(12.25dvh + 8px);
+  --vn-dialogue-chrome-enter-duration: 220ms;
+  --vn-dialogue-chrome-exit-duration: 170ms;
+  --vn-dialogue-chrome-enter-easing: cubic-bezier(0.19, 1, 0.22, 1);
+  --vn-dialogue-chrome-exit-easing: ease;
 
   position: relative;
   width: 100%;
@@ -21,6 +25,15 @@
   bottom: var(--vn-dialogue-bottom);
   min-height: var(--vn-dialogue-min-height);
   padding: var(--vn-dialogue-padding-y) var(--vn-dialogue-padding-x);
+}
+
+.game-root .qua-dialogue-box,
+.vn-quick-menu {
+  visibility: visible;
+  opacity: 1;
+  transition:
+    opacity var(--vn-dialogue-chrome-enter-duration) var(--vn-dialogue-chrome-enter-easing),
+    visibility 0s linear 0s;
 }
 
 .game-root,
@@ -130,17 +143,27 @@
   opacity: 1;
 }
 
-.game-root[data-system-overlay] .qua-choice-panel,
-.game-root[data-system-overlay="main"] .qua-dialogue-box,
-.game-root[data-ui-scene-hide-dialogue="true"] .qua-dialogue-box {
+.game-root[data-system-overlay] .qua-choice-panel {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
 }
 
-.game-root[data-system-overlay="game"]:not([data-ui-scene-hide-dialogue="true"]) .qua-dialogue-box {
-  visibility: visible;
-  opacity: 1;
+.game-root[data-dialogue-chrome="false"] .qua-dialogue-box,
+.game-root[data-dialogue-chrome="false"] .vn-quick-menu {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--vn-dialogue-chrome-exit-duration) var(--vn-dialogue-chrome-exit-easing),
+    visibility 0s linear var(--vn-dialogue-chrome-exit-duration);
+}
+
+.game-root[data-dialogue-chrome="false"] .qua-dialogue-box {
+  --qua-dialogue-opacity: 0 !important;
+}
+
+.game-root[data-system-overlay="game"] .qua-dialogue-box {
   pointer-events: none;
 }
 
