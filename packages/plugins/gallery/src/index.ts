@@ -114,6 +114,8 @@ interface GallerySceneState {
   }
 }
 
+type GalleryEntryProjectionDefinition = Omit<GalleryEntryDefinition, 'lockedPresentation'>
+
 const galleryRuntimeState = new WeakMap<object, GalleryRuntimeState>()
 
 export {
@@ -1064,14 +1066,14 @@ function createGalleryEntryProjectionItem(
   profile: GalleryProfileState,
 ): GalleryEntryProjectionItem {
   const unlocked = Boolean(profile.unlockedEntries[entry.id])
-  const projectedEntry = unlocked ? cloneGalleryEntryDefinition(entry) : createLockedGalleryEntryProjection(entry)
+  const projectedEntry = unlocked ? cloneGalleryEntryProjectionDefinition(entry) : createLockedGalleryEntryProjection(entry)
   return {
     ...projectedEntry,
     unlocked,
   }
 }
 
-function createLockedGalleryEntryProjection(entry: GalleryEntryDefinition): GalleryEntryDefinition {
+function createLockedGalleryEntryProjection(entry: GalleryEntryDefinition): GalleryEntryProjectionDefinition {
   const presentation = entry.lockedPresentation
   return {
     id: entry.id,
@@ -1097,7 +1099,6 @@ function createLockedGalleryEntryProjection(entry: GalleryEntryDefinition): Gall
     contents: presentation?.revealContents === true
       ? entry.contents.map(cloneGalleryContentBlock)
       : (presentation?.contents ? presentation.contents.map(cloneGalleryContentBlock) : []),
-    lockedPresentation: cloneGalleryLockedPresentation(presentation),
     metadata: presentation?.revealMetadata === true
       ? cloneUnknownRecord(entry.metadata)
       : cloneUnknownRecord(presentation?.metadata),
@@ -1549,6 +1550,25 @@ function cloneGalleryEntryDefinition(entry: GalleryEntryDefinition): GalleryEntr
   }
 }
 
+function cloneGalleryEntryProjectionDefinition(
+  entry: GalleryEntryProjectionDefinition,
+): GalleryEntryProjectionDefinition {
+  return {
+    id: entry.id,
+    catalogId: entry.catalogId,
+    title: entry.title,
+    summary: entry.summary,
+    description: entry.description,
+    thumbnail: cloneStoryAssetRef(entry.thumbnail),
+    poster: cloneStoryAssetRef(entry.poster),
+    tags: entry.tags ? [...entry.tags] : undefined,
+    contents: entry.contents.map(cloneGalleryContentBlock),
+    metadata: cloneUnknownRecord(entry.metadata),
+    contentPackageId: entry.contentPackageId,
+    requiredRuntimePackages: entry.requiredRuntimePackages ? [...entry.requiredRuntimePackages] : undefined,
+  }
+}
+
 function cloneGalleryCatalogProjectionItem(item: GalleryCatalogProjectionItem): GalleryCatalogProjectionItem {
   return {
     ...cloneGalleryCatalogDefinition(item),
@@ -1561,7 +1581,7 @@ function cloneGalleryCatalogProjectionItem(item: GalleryCatalogProjectionItem): 
 
 function cloneGalleryEntryProjectionItem(item: GalleryEntryProjectionItem): GalleryEntryProjectionItem {
   return {
-    ...cloneGalleryEntryDefinition(item),
+    ...cloneGalleryEntryProjectionDefinition(item),
     unlocked: item.unlocked,
   }
 }

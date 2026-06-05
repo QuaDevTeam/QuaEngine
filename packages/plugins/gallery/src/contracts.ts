@@ -129,7 +129,7 @@ export interface GalleryCatalogProjectionItem extends Omit<GalleryCatalogDefinit
   lockedEntries: number
 }
 
-export interface GalleryEntryProjectionItem extends GalleryEntryDefinition {
+export type GalleryEntryProjectionItem = Omit<GalleryEntryDefinition, 'lockedPresentation'> & {
   unlocked: boolean
 }
 

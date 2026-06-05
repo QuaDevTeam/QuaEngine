@@ -153,6 +153,7 @@ describe('@quajs/plugin-gallery', () => {
       tags: undefined,
       contents: [],
     }))
+    expect(hidden).not.toHaveProperty('lockedPresentation')
 
     const teaser = getGalleryProjection(engine).entries.find(entry => entry.id === 'cg.teaser')
     expect(teaser).toEqual(expect.objectContaining({
@@ -162,6 +163,7 @@ describe('@quajs/plugin-gallery', () => {
       tags: ['locked'],
       contents: [],
     }))
+    expect(teaser).not.toHaveProperty('lockedPresentation')
 
     await unlockGalleryEntryWithEngine(engine, 'cg.hidden')
     const unlocked = getGalleryProjection(engine).entries.find(entry => entry.id === 'cg.hidden')
