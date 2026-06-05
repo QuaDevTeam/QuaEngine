@@ -17,6 +17,13 @@ Renderer entries project character state:
 - `@quajs/renderer-vue/plugins/character`
 - `@quajs/renderer-cocos/plugins/character`
 
+Dialogue renderer entries project dialogue state and must keep default chrome presence semantics aligned:
+
+- `@quajs/renderer-web/plugins/dialogue`
+- `@quajs/renderer-vue/plugins/dialogue`
+- `@quajs/renderer-react/plugins/dialogue`
+- `@quajs/renderer-svelte/plugins/dialogue`
+
 ## Runtime API
 
 Prefer package helpers or plugin-facing APIs that update engine-owned projections:
@@ -80,6 +87,8 @@ Decorators:
 `CharacterEnter` and `CharacterExit` directions are commonly `left`, `right`, `top`, and `bottom`. Character animation decorators use `@quajs/plugin-animation`, and motion options may include `easing` timing functions such as `easeOutCubic`, `cubic-out`, `ease-in-out`, or `cubic-bezier(...)`.
 
 Renderer character presence transitions are fade-in/fade-out by default. Web/Vue transition options support `enterDurationMs`, `exitDurationMs`, `moveDurationMs`, `enterEasing`, `exitEasing`, and `moveEasing`; keep these as projection parameters, not renderer-owned game state.
+
+Renderer dialogue boxes also keep a transient enter/exit presence so default dialogue chrome can fade in/out without becoming authoritative state. Web DOM, Vue, React, and Svelte dialogue renderers should expose `data-dialogue-presence="enter|exit"` and keep project-level quick toolbar chrome synchronized with that projection instead of duplicating framework-local behavior.
 
 ## Sprite Manifests
 

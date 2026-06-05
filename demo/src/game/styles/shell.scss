@@ -22,6 +22,10 @@
   --vn-dialogue-chrome-exit-duration: 170ms;
   --vn-dialogue-chrome-enter-easing: cubic-bezier(0.19, 1, 0.22, 1);
   --vn-dialogue-chrome-exit-easing: ease;
+  --qua-dialogue-enter-duration: var(--vn-dialogue-chrome-enter-duration);
+  --qua-dialogue-exit-duration: var(--vn-dialogue-chrome-exit-duration);
+  --qua-dialogue-enter-easing: var(--vn-dialogue-chrome-enter-easing);
+  --qua-dialogue-exit-easing: var(--vn-dialogue-chrome-exit-easing);
 
   position: relative;
   width: 100%;
@@ -47,6 +51,10 @@
   transition:
     opacity var(--vn-dialogue-chrome-enter-duration) var(--vn-dialogue-chrome-enter-easing),
     visibility 0s linear 0s;
+}
+
+.vn-quick-menu[data-dialogue-presence="enter"] {
+  animation: qua-dialogue-fade-in var(--qua-dialogue-enter-duration) var(--qua-dialogue-enter-easing) both;
 }
 
 .game-root,
@@ -172,8 +180,9 @@
     visibility 0s linear var(--vn-dialogue-chrome-exit-duration);
 }
 
-.game-root[data-dialogue-chrome="false"] .qua-dialogue-box {
-  --qua-dialogue-opacity: 0 !important;
+.game-root[data-dialogue-chrome="false"] .qua-dialogue-box[data-dialogue-presence],
+.game-root[data-dialogue-chrome="false"] .vn-quick-menu[data-dialogue-presence] {
+  animation: qua-dialogue-fade-out var(--qua-dialogue-exit-duration) var(--qua-dialogue-exit-easing) both;
 }
 
 .game-root[data-system-overlay="game"] .qua-dialogue-box {
@@ -367,6 +376,11 @@
 .game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .vn-quick-menu {
   z-index: 76;
   pointer-events: none;
+}
+
+.vn-quick-menu[data-dialogue-presence="exit"] {
+  pointer-events: none;
+  animation: qua-dialogue-fade-out var(--qua-dialogue-exit-duration) var(--qua-dialogue-exit-easing) both;
 }
 
 .vn-main-menu {

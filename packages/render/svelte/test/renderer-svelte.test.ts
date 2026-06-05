@@ -168,7 +168,8 @@ describe('@quajs/renderer-svelte', () => {
     await flushDom()
 
     const settingsLayer = root.querySelector<HTMLElement>('.qua-settings-layer')!
-    expect(root.querySelector('.qua-stage-overlay .qua-settings-layer')).not.toBeNull()
+    expect(root.querySelector('.qua-screen-plane .qua-settings-layer')).not.toBeNull()
+    expect(root.querySelector('.qua-stage-overlay .qua-settings-layer')).toBeNull()
     expect(settingsLayer.dataset.overlayStack).toBe('overlay')
     expect(settingsLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.settings))
 

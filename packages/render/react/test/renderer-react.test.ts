@@ -206,7 +206,8 @@ describe('@quajs/renderer-react', () => {
     })
 
     const settingsLayer = host.querySelector<HTMLElement>('.qua-settings-layer')!
-    expect(host.querySelector('.qua-stage-overlay .qua-settings-layer')).not.toBeNull()
+    expect(host.querySelector('.qua-screen-plane .qua-settings-layer')).not.toBeNull()
+    expect(host.querySelector('.qua-stage-overlay .qua-settings-layer')).toBeNull()
     expect(settingsLayer.dataset.overlayStack).toBe('overlay')
     expect(settingsLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.settings))
   })

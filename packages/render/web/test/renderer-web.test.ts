@@ -32,6 +32,7 @@ import {
   collectTrackValues,
   createQuaWebDomRenderer,
   createQuaWebRendererController,
+  DEFAULT_DIALOGUE_PRESENCE_EXIT_MS,
   createReactRendererStoreAdapter,
   createRendererInputController,
   evaluateWebPlatformSupport,
@@ -943,6 +944,41 @@ describe('@quajs/renderer-web', () => {
       await vi.advanceTimersByTimeAsync(0)
       await flushMicrotasks()
       expect(advances).toEqual([{ source: 'pointer:dialogue' }])
+    }
+    finally {
+      await renderer.unmount()
+    }
+  })
+
+  it('keeps native DOM dialogue mounted during exit presence', async () => {
+    vi.useFakeTimers()
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        dialogue: { visible: true, text: 'Line' },
+      }),
+    })
+
+    await renderer.mount()
+    try {
+      expect(root.querySelector('.qua-dialogue-box')?.getAttribute('data-dialogue-presence')).toBe('enter')
+
+      renderer.controller.setView(view({
+        dialogue: { visible: false, text: '' },
+      }))
+
+      expect(root.querySelector('.qua-dialogue-box')?.getAttribute('data-dialogue-presence')).toBe('exit')
+      expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('Line')
+
+      await vi.advanceTimersByTimeAsync(DEFAULT_DIALOGUE_PRESENCE_EXIT_MS)
+
+      expect(root.querySelector('.qua-dialogue-box')).toBeNull()
     }
     finally {
       await renderer.unmount()

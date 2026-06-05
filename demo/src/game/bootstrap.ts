@@ -3,6 +3,7 @@ import type { AudioPlayBgmOptions } from '@quajs/plugin-audio'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents, type BacklogProjection } from '@quajs/plugin-backlog'
 import { GALLERY_PLUGIN_ID, type GalleryProjection } from '@quajs/plugin-gallery'
 import { resolveActiveUiSceneProjection, uiSceneAllowsDialogueChrome, uiSceneAllowsHudChrome, type ViewUiSceneProjection } from '@quajs/render-core'
+import { DialoguePresenceRuntime } from '@quajs/renderer-web'
 import { QuaRenderer } from '@quajs/renderer-vue'
 import { createVisualNovelRendererPlugins } from '@quajs/renderer-vue/plugins/preset'
 import { QuaSettingsLayer } from '@quajs/renderer-vue/plugins/settings'
@@ -158,10 +159,22 @@ export async function createQuaGameApp() {
     && !activeGallery.value?.sceneActive
     && uiSceneAllowsHudChrome(renderedActiveUiScene.value),
   )
-  const dialogueChromeVisible = computed(() =>
+  const dialogueChromeAllowed = computed(() =>
     !titleSurfaceActive.value
     && uiSceneAllowsDialogueChrome(renderedActiveUiScene.value),
   )
+  const dialogueChromeRefresh = ref(0)
+  const dialogueChromePresenceRuntime = new DialoguePresenceRuntime({
+    refresh: () => {
+      dialogueChromeRefresh.value += 1
+    },
+  })
+  const dialogueChromePresence = computed(() => {
+    void dialogueChromeRefresh.value
+    return dialogueChromePresenceRuntime.project(activeView.value.dialogue, dialogueChromeAllowed.value)
+  })
+  const dialogueChromeVisible = computed(() => Boolean(dialogueChromePresence.value.dialogue))
+  const dialogueChromePhase = computed(() => dialogueChromeVisible.value ? dialogueChromePresence.value.phase : undefined)
   const pipeline = engine.getPipeline()
   const emit = pipeline.emit.bind(pipeline)
   let activeBgmAssetKey: string | undefined
@@ -358,6 +371,7 @@ export async function createQuaGameApp() {
   const uiDisposers = [
     stopActiveUiSceneWatch,
     clearActiveUiSceneExitTimer,
+    () => dialogueChromePresenceRuntime.destroy(),
     onLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, (payload) => {
       activeView.value = payload.view
       syncStoryTreeProjection()
@@ -440,6 +454,8 @@ export async function createQuaGameApp() {
           class: 'vn-quick-menu',
           'aria-label': 'quick menu',
           'aria-hidden': dialogueChromeVisible.value ? undefined : 'true',
+          'data-dialogue-presence': dialogueChromePhase.value,
+          'data-dialogue-visible': dialogueChromePhase.value === 'enter' ? 'true' : 'false',
           'data-qua-input-ignore': '',
         }, [
           h('button', {

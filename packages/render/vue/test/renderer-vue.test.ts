@@ -19,6 +19,7 @@ import {
   onRenderToLogic,
   RenderToLogicEvents,
 } from '@quajs/render-core'
+import { DEFAULT_DIALOGUE_PRESENCE_EXIT_MS } from '@quajs/renderer-web'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, isReadonly, nextTick } from 'vue'
 import {
@@ -573,6 +574,41 @@ describe('@quajs/renderer-vue', () => {
       await vi.advanceTimersByTimeAsync(0)
       await flushMicrotasks()
       expect(advances).toEqual([{ source: 'pointer:dialogue' }])
+    }
+    finally {
+      host.app.unmount()
+    }
+  })
+
+  it('keeps Vue dialogue mounted during exit presence', async () => {
+    vi.useFakeTimers()
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        dialogue: { visible: true, text: 'Line' },
+      }),
+    })
+
+    try {
+      await nextTick()
+      expect(host.el.querySelector('.qua-dialogue-box')?.getAttribute('data-dialogue-presence')).toBe('enter')
+
+      await emitLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, {
+        view: view({
+          dialogue: { visible: false, text: '' },
+        }),
+      })
+      await nextTick()
+
+      expect(host.el.querySelector('.qua-dialogue-box')?.getAttribute('data-dialogue-presence')).toBe('exit')
+      expect(host.el.querySelector('.qua-dialogue-text')?.textContent).toBe('Line')
+
+      await vi.advanceTimersByTimeAsync(DEFAULT_DIALOGUE_PRESENCE_EXIT_MS)
+      await nextTick()
+
+      expect(host.el.querySelector('.qua-dialogue-box')).toBeNull()
     }
     finally {
       host.app.unmount()

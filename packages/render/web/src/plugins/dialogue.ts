@@ -2,6 +2,7 @@ import type { RichTextBlockProjection, RichTextContent, RichTextSpanProjection, 
 import type { QuaWebRendererPluginContext } from '../controller'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { isRichTextDocument, viewAllowsDialogueChrome } from '@quajs/render-core'
+import { DialoguePresenceRuntime } from '../dialogue-presence'
 import { DialogueTypewriterRuntime } from '../dialogue-typewriter'
 import { motionProjectionVars, projectDialogue } from '../projection'
 import { defineWebRendererPlugin } from './core'
@@ -9,6 +10,7 @@ import { applyStyleVars } from './shared'
 
 export function createDialogueWebRendererPlugin(): QuaWebDomRendererPlugin {
   let typewriterRuntime: DialogueTypewriterRuntime | undefined
+  let presenceRuntime: DialoguePresenceRuntime | undefined
   return defineWebRendererPlugin({
     name: '@quajs/renderer-web/dialogue',
     setup(context) {
@@ -18,42 +20,60 @@ export function createDialogueWebRendererPlugin(): QuaWebDomRendererPlugin {
         getDocument: () => globalThis.document,
         refresh: () => context.refresh(),
       })
+      presenceRuntime = new DialoguePresenceRuntime({
+        refresh: () => context.refresh(),
+      })
       context.addDisposer(webContext.registerAdvanceInterceptor(() =>
         viewAllowsDialogueChrome(webContext.getViewState()) && (typewriterRuntime?.revealNow() ?? false),
       ))
       context.addDisposer(() => {
         typewriterRuntime?.destroy()
         typewriterRuntime = undefined
+        presenceRuntime?.destroy()
+        presenceRuntime = undefined
       })
     },
     layers: [{
       id: 'dialogue',
       order: 50,
       plane: 'safe',
-      render: context => renderDialogueLayer(context, typewriterRuntime),
-      update: (context, node) => updateDialogueLayer(context, node, typewriterRuntime),
+      render: context => renderDialogueLayer(context, typewriterRuntime, presenceRuntime),
+      update: (context, node) => updateDialogueLayer(context, node, typewriterRuntime, presenceRuntime),
     }],
   })
 }
 
 export const dialogueWebRendererPlugin = createDialogueWebRendererPlugin()
 
-function renderDialogueLayer(context: QuaWebDomLayerContext, typewriterRuntime?: DialogueTypewriterRuntime): Node | undefined {
-  if (!viewAllowsDialogueChrome(context.view)) {
+function renderDialogueLayer(
+  context: QuaWebDomLayerContext,
+  typewriterRuntime?: DialogueTypewriterRuntime,
+  presenceRuntime?: DialoguePresenceRuntime,
+): Node | undefined {
+  const chromeAllowed = viewAllowsDialogueChrome(context.view)
+  const currentDialogue = chromeAllowed
+    ? projectDialogue(context.view.dialogue, context.view.animations, Date.now(), context.view.plugins.dialogue as Record<string, unknown> | undefined)
+    : undefined
+  const typewriterProjection = currentDialogue ? typewriterRuntime?.project(currentDialogue) : undefined
+  const presenceProjection = presenceRuntime?.project(typewriterProjection?.dialogue || currentDialogue, chromeAllowed)
+  if (!chromeAllowed && !presenceProjection?.dialogue) {
     typewriterRuntime?.destroy()
-    return undefined
   }
-  const dialogue = projectDialogue(context.view.dialogue, context.view.animations, Date.now(), context.view.plugins.dialogue as Record<string, unknown> | undefined)
-  const typewriterProjection = typewriterRuntime?.project(dialogue)
-  const projectedDialogue = typewriterProjection?.dialogue || dialogue
-  if (!projectedDialogue.visible) {
+
+  const projectedDialogue = presenceProjection?.dialogue
+  if (!projectedDialogue) {
     return undefined
   }
 
   const box = context.document.createElement('div')
   box.className = 'qua-dialogue-box'
+  box.setAttribute('data-dialogue-presence', presenceProjection.phase)
+  box.setAttribute('data-dialogue-visible', presenceProjection.phase === 'enter' ? 'true' : 'false')
+  if (presenceProjection.phase === 'exit') {
+    box.setAttribute('aria-hidden', 'true')
+  }
   box.addEventListener('click', (event) => {
-    if (typewriterProjection?.revealing && typewriterRuntime?.revealNow()) {
+    if (presenceProjection.phase === 'enter' && typewriterProjection?.revealing && typewriterRuntime?.revealNow()) {
       event.preventDefault()
       event.stopPropagation()
     }
@@ -80,16 +100,38 @@ function renderDialogueContent(context: QuaWebDomLayerContext, box: HTMLElement,
   box.append(text)
 }
 
-function updateDialogueLayer(context: QuaWebDomLayerContext, node: Node, typewriterRuntime?: DialogueTypewriterRuntime): void {
+function updateDialogueLayer(
+  context: QuaWebDomLayerContext,
+  node: Node,
+  typewriterRuntime?: DialogueTypewriterRuntime,
+  presenceRuntime?: DialoguePresenceRuntime,
+): void {
   if (!(node instanceof HTMLElement))
     return
-  if (!viewAllowsDialogueChrome(context.view)) {
+  const chromeAllowed = viewAllowsDialogueChrome(context.view)
+  const currentDialogue = chromeAllowed
+    ? projectDialogue(context.view.dialogue, context.view.animations, Date.now(), context.view.plugins.dialogue as Record<string, unknown> | undefined)
+    : undefined
+  const typewriterProjection = currentDialogue ? typewriterRuntime?.project(currentDialogue) : undefined
+  const presenceProjection = presenceRuntime?.project(typewriterProjection?.dialogue || currentDialogue, chromeAllowed)
+  if (!chromeAllowed && !presenceProjection?.dialogue) {
     typewriterRuntime?.destroy()
     node.textContent = ''
     return
   }
-  const dialogue = projectDialogue(context.view.dialogue, context.view.animations, Date.now(), context.view.plugins.dialogue as Record<string, unknown> | undefined)
-  const projectedDialogue = typewriterRuntime?.project(dialogue).dialogue || dialogue
+  const projectedDialogue = presenceProjection?.dialogue
+  if (!projectedDialogue) {
+    node.textContent = ''
+    return
+  }
+  node.setAttribute('data-dialogue-presence', presenceProjection.phase)
+  node.setAttribute('data-dialogue-visible', presenceProjection.phase === 'enter' ? 'true' : 'false')
+  if (presenceProjection.phase === 'exit') {
+    node.setAttribute('aria-hidden', 'true')
+  }
+  else {
+    node.removeAttribute('aria-hidden')
+  }
   applyStyleVars(node, motionProjectionVars(projectedDialogue as unknown as Record<string, unknown>, '--qua-dialogue'))
   renderDialogueContent(context, node, projectedDialogue)
 }
