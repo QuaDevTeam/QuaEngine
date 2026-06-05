@@ -8,7 +8,7 @@ import { createVisualNovelRendererPlugins } from '@quajs/renderer-vue/plugins/pr
 import { QuaSettingsLayer } from '@quajs/renderer-vue/plugins/settings'
 import { QuaStoryTree } from '@quajs/renderer-vue/plugins/ui'
 import type { StoryChapterSelectProjection } from '@quajs/story-graph'
-import { computed, defineComponent, h, onBeforeUnmount, ref } from 'vue'
+import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from 'vue'
 import menuRouteBackgroundUrl from '../../assets/images/ui/menu-route.jpg?url'
 import {
   BGM,
@@ -38,6 +38,8 @@ import {
   renderDemoSettingsScopeHeader,
 } from './ui/settings'
 import { countUnlockedStoryTreeNodes, projectDemoStoryTreeNodes } from './ui/story-tree'
+
+const UI_SCENE_EXIT_HOLD_MS = 190
 
 export async function createQuaGameApp() {
   const bootMessage = ref('Loading QuaEngine...')
@@ -109,14 +111,40 @@ export async function createQuaGameApp() {
     return resolveActiveUiSceneProjection(activeView.value.ui.overlays)
       || (activeBacklog.value?.visible ? (activeBacklog.value.ui?.scene as ViewUiSceneProjection | undefined) : undefined)
   })
+  const renderedActiveUiScene = ref<ViewUiSceneProjection | undefined>(activeUiScene.value)
+  let activeUiSceneExitTimer: ReturnType<typeof setTimeout> | undefined
+  const clearActiveUiSceneExitTimer = () => {
+    if (activeUiSceneExitTimer) {
+      clearTimeout(activeUiSceneExitTimer)
+      activeUiSceneExitTimer = undefined
+    }
+  }
+  const stopActiveUiSceneWatch = watch(activeUiScene, (nextScene, previousScene) => {
+    clearActiveUiSceneExitTimer()
+    if (nextScene) {
+      renderedActiveUiScene.value = nextScene
+      return
+    }
+    if (previousScene) {
+      renderedActiveUiScene.value = previousScene
+      activeUiSceneExitTimer = setTimeout(() => {
+        activeUiSceneExitTimer = undefined
+        if (!activeUiScene.value) {
+          renderedActiveUiScene.value = undefined
+        }
+      }, UI_SCENE_EXIT_HOLD_MS)
+      return
+    }
+    renderedActiveUiScene.value = undefined
+  }, { immediate: true })
   const systemOverlayMode = computed<'main' | 'game' | undefined>(() => {
     if (activeGallery.value?.sceneActive) {
       return galleryOpenedFromMainMenu.value ? 'main' : 'game'
     }
-    if (activeUiScene.value?.overlay?.variant === 'main-menu') {
+    if (renderedActiveUiScene.value?.overlay?.variant === 'main-menu') {
       return 'main'
     }
-    return activeUiScene.value ? 'game' : undefined
+    return renderedActiveUiScene.value ? 'game' : undefined
   })
   const titleSurfaceActive = computed(() =>
     showMainMenu.value
@@ -128,12 +156,12 @@ export async function createQuaGameApp() {
   const defaultChromeVisible = computed(() =>
     !titleSurfaceActive.value
     && !activeGallery.value?.sceneActive
-    && uiSceneAllowsHudChrome(activeUiScene.value),
+    && uiSceneAllowsHudChrome(renderedActiveUiScene.value),
   )
   const dialogueChromeVisible = computed(() =>
     !titleSurfaceActive.value
-    && activeUiScene.value?.overlay?.defaultChrome !== false
-    && activeUiScene.value?.overlay?.hideDialogue !== true,
+    && renderedActiveUiScene.value?.overlay?.defaultChrome !== false
+    && renderedActiveUiScene.value?.overlay?.hideDialogue !== true,
   )
   const pipeline = engine.getPipeline()
   const emit = pipeline.emit.bind(pipeline)
@@ -329,6 +357,8 @@ export async function createQuaGameApp() {
   }
   let galleryWasActive = Boolean(activeGallery.value?.sceneActive)
   const uiDisposers = [
+    stopActiveUiSceneWatch,
+    clearActiveUiSceneExitTimer,
     onLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, (payload) => {
       activeView.value = payload.view
       syncStoryTreeProjection()
@@ -392,8 +422,8 @@ export async function createQuaGameApp() {
         'data-chapter': hud.value.chapter,
         'data-route': hud.value.route,
         'data-signal': hud.value.signal,
-        'data-ui-scene-id': activeUiScene.value?.id,
-        'data-ui-scene-hide-dialogue': activeUiScene.value?.overlay?.hideDialogue ? 'true' : undefined,
+        'data-ui-scene-id': renderedActiveUiScene.value?.id,
+        'data-ui-scene-hide-dialogue': renderedActiveUiScene.value?.overlay?.hideDialogue ? 'true' : undefined,
         'data-main-menu': showMainMenu.value ? 'true' : undefined,
         'data-system-overlay': systemOverlayMode.value,
         'data-title-surface': titleSurfaceActive.value ? 'true' : undefined,

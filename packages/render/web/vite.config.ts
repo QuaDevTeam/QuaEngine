@@ -40,6 +40,7 @@ export default defineConfig({
         'plugins/pwa': resolve(import.meta.dirname, 'src/plugins/pwa.ts'),
         'plugins/scene': resolve(import.meta.dirname, 'src/plugins/scene.ts'),
         'plugins/settings': resolve(import.meta.dirname, 'src/plugins/settings.ts'),
+        'plugins/shared': resolve(import.meta.dirname, 'src/plugins/shared.ts'),
         'plugins/sprite': resolve(import.meta.dirname, 'src/plugins/sprite.ts'),
         'plugins/ui': resolve(import.meta.dirname, 'src/plugins/ui.ts'),
         'react': resolve(import.meta.dirname, 'src/react.ts'),

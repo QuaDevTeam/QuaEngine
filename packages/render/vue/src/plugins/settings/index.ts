@@ -21,6 +21,7 @@ import {
   parseSettingsControlValue,
   stringifySettingsInputValue,
 } from '@quajs/renderer-web/plugins/settings'
+import { uiSceneDataAttributes } from '@quajs/renderer-web/plugins/shared'
 import { computed, defineComponent, h } from 'vue'
 import { usePluginProjection, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
@@ -395,12 +396,7 @@ export const QuaSettingsLayer = defineComponent({
             scene.value?.presentation === 'scene' ? 'qua-settings-layer--scene' : undefined,
             scene.value?.presentation === 'overlay' ? 'qua-settings-layer--overlay' : undefined,
           ],
-          'data-ui-scene-id': scene.value?.id,
-          'data-ui-scene-presentation': scene.value?.presentation,
-          'data-ui-scene-overlay-variant': scene.value?.overlay?.variant,
-          'data-ui-scene-default-chrome': scene.value?.overlay?.defaultChrome === false ? 'false' : undefined,
-          'data-ui-scene-hide-hud': scene.value?.overlay?.hideHud ? 'true' : undefined,
-          'data-ui-scene-hide-dialogue': scene.value?.overlay?.hideDialogue ? 'true' : undefined,
+          ...uiSceneDataAttributes(scene.value),
           ...overlayStack.value.attrs,
           'style': { pointerEvents: 'auto', ...overlayStack.value.style },
           'onClick': (event: Event) => event.stopPropagation(),

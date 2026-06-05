@@ -1,10 +1,10 @@
-import type { ResolveOverlayStackPlacementOptions, ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/render-core'
+import type { ResolveOverlayStackPlacementOptions, ViewUiOverlayProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { compareResolvedOverlayStackPlacement, DEFAULT_UI_OVERLAY_Z_INDEXES, resolveActiveUiSceneProjection, resolveUiOverlayStackPlacement } from '@quajs/render-core'
 import { motionProjectionVars, projectUiOverlay } from '../projection'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
-import { applyStyleVars, applyUiOverlayStackPlacement } from './shared'
+import { applyStyleVars, applyUiOverlayStackPlacement, applyUiSceneDataAttributes } from './shared'
 
 export interface UiWebRendererPluginOptions {
   handledElementIds?: readonly string[]
@@ -45,7 +45,7 @@ function renderUiLayer(context: QuaWebDomLayerContext, options: UiWebRendererPlu
   layer.style.pointerEvents = 'auto'
   layer.setAttribute('data-qua-capture-role', 'overlay')
   applyUiOverlayStackPlacement(layer, topEntry?.[1], defaultUiOverlayPlacement(topEntry?.[0]))
-  applyUiSceneDataset(layer, activeScene)
+  applyUiSceneDataAttributes(layer, activeScene)
   layer.addEventListener('click', event => event.stopPropagation())
   for (const [elementId, overlayConfig] of entries) {
     const config = overlayConfig as Readonly<Record<string, unknown>> & { skinId?: string }
@@ -74,7 +74,7 @@ function updateUiLayer(context: QuaWebDomLayerContext, node: Node, options: UiWe
   const entries = visibleOverlayEntries(overlays, options)
   const topEntry = entries[entries.length - 1]
   applyUiOverlayStackPlacement(node, topEntry?.[1], defaultUiOverlayPlacement(topEntry?.[0]))
-  applyUiSceneDataset(node, resolveActiveUiSceneProjection(overlays, defaultUiOverlayPlacement))
+  applyUiSceneDataAttributes(node, resolveActiveUiSceneProjection(overlays, defaultUiOverlayPlacement))
   for (const [elementId, overlayConfig] of entries) {
     const overlay = node.querySelector(`[data-overlay="${cssEscape(elementId)}"]`)
     if (overlay instanceof HTMLElement) {
@@ -112,23 +112,6 @@ function defaultUiOverlayPlacement(elementId?: string): ResolveOverlayStackPlace
     return { overlayStack: 'modal', zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.ui }
   }
   return { overlayStack: 'overlay', zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.ui }
-}
-
-function applyUiSceneDataset(element: HTMLElement, scene: ViewUiSceneProjection | undefined): void {
-  setOptionalAttribute(element, 'data-ui-scene-id', scene?.id)
-  setOptionalAttribute(element, 'data-ui-scene-presentation', scene?.presentation)
-  setOptionalAttribute(element, 'data-ui-scene-overlay-variant', scene?.overlay?.variant)
-  setOptionalAttribute(element, 'data-ui-scene-default-chrome', scene?.overlay?.defaultChrome === false ? 'false' : undefined)
-  setOptionalAttribute(element, 'data-ui-scene-hide-hud', scene?.overlay?.hideHud ? 'true' : undefined)
-  setOptionalAttribute(element, 'data-ui-scene-hide-dialogue', scene?.overlay?.hideDialogue ? 'true' : undefined)
-}
-
-function setOptionalAttribute(element: HTMLElement, name: string, value: string | undefined): void {
-  if (value === undefined) {
-    element.removeAttribute(name)
-    return
-  }
-  element.setAttribute(name, value)
 }
 
 function cssEscape(value: string): string {

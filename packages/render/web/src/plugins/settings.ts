@@ -12,7 +12,7 @@ import { SETTINGS_PLUGIN_ID, SettingsRenderToLogicEvents } from '@quajs/plugin-s
 import { DEFAULT_UI_OVERLAY_Z_INDEXES } from '@quajs/render-core'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
-import { applyUiOverlayStackPlacement, dispatchRendererIntent } from './shared'
+import { applyUiOverlayStackPlacement, applyUiSceneDataAttributes, dispatchRendererIntent } from './shared'
 
 export interface SettingsFormProjection {
   revision: number
@@ -321,7 +321,7 @@ function renderSettingsLayer(context: QuaWebDomLayerContext, options: SettingsRe
     overlayStack: 'overlay',
     zIndex: DEFAULT_UI_OVERLAY_Z_INDEXES.settings,
   })
-  applyUiSceneDataset(layer, scene)
+  applyUiSceneDataAttributes(layer, scene)
   layer.addEventListener('click', event => event.stopPropagation())
 
   const panel = context.document.createElement('section')
@@ -382,23 +382,6 @@ function renderSettingsLayer(context: QuaWebDomLayerContext, options: SettingsRe
 
   layer.append(panel)
   return layer
-}
-
-function applyUiSceneDataset(element: HTMLElement, scene: ViewUiSceneProjection | undefined): void {
-  setOptionalAttribute(element, 'data-ui-scene-id', scene?.id)
-  setOptionalAttribute(element, 'data-ui-scene-presentation', scene?.presentation)
-  setOptionalAttribute(element, 'data-ui-scene-overlay-variant', scene?.overlay?.variant)
-  setOptionalAttribute(element, 'data-ui-scene-default-chrome', scene?.overlay?.defaultChrome === false ? 'false' : undefined)
-  setOptionalAttribute(element, 'data-ui-scene-hide-hud', scene?.overlay?.hideHud ? 'true' : undefined)
-  setOptionalAttribute(element, 'data-ui-scene-hide-dialogue', scene?.overlay?.hideDialogue ? 'true' : undefined)
-}
-
-function setOptionalAttribute(element: HTMLElement, name: string, value: string | undefined): void {
-  if (value === undefined) {
-    element.removeAttribute(name)
-    return
-  }
-  element.setAttribute(name, value)
 }
 
 function setOptionalBooleanAttribute(element: HTMLElement, name: string, value: boolean): void {

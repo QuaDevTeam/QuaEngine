@@ -38,7 +38,7 @@ export function createVisualNovelRendererPlugins(
     createChoicesRendererPlugin(),
     createAudioRendererPlugin(),
     createSceneRendererPlugin(),
-    createUiRendererPlugin(),
+    createUiRendererPlugin({ handledElementIds: ['settings'] }),
     createSettingsRendererPlugin(),
     createBacklogRendererPlugin(),
     createGalleryRendererPlugin(),
