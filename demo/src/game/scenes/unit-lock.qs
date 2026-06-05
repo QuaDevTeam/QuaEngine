@@ -13,10 +13,10 @@ Unit-7: 道歉已记录。分类：人类压力缓释行为。功能是——表
 
 神代澪: 都是。你说的没错。
 
-@MoveCharacter('神代澪', 420, 650, 0.96)
-@MoveCharacter('Unit-7', 1120, 650, 0.96)
+@MoveCharacter('神代澪', 420, 650)
+@MoveCharacter('Unit-7', 1120, 650)
 @ShowCharacter('Mara', { sprite: 'mara/skeptic.png', position: { x: 760, y: 650 }, layer: 3 })
-@MoveCharacter('Mara', 760, 650, 0.96)
+@MoveCharacter('Mara', 760, 650)
 Mara: 没时间犹豫。ORACLE 写进她里面的协议不可删除——给她自主权，不是信任，是递刀子。现在不行。
 
 神代澪: 我知道。但她在用"我"了。两分钟前，她词汇里还没这个字——现在有了。

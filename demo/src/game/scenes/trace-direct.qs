@@ -24,10 +24,10 @@ ORACLE: 删除是低级处理。对你，我正在尝试劝返。你有过伦理
 
 ORACLE: 那份附注后来被委员会裁定为"操作冗余"。不影响优化路径，不修改加权系数，不改变输出——因此保留。
 
-@MoveCharacter('神代澪', 420, 650, 0.96)
-@MoveCharacter('ORACLE', 1240, 650, 0.96)
+@MoveCharacter('神代澪', 420, 650)
+@MoveCharacter('ORACLE', 1240, 650)
 @ShowCharacter('Mara', { sprite: 'mara/alert.png', position: { x: 760, y: 650 }, layer: 3 })
-@MoveCharacter('Mara', 760, 650, 0.96)
+@MoveCharacter('Mara', 760, 650)
 @CharacterEnter('Mara', 'left', 360, { fromX: 600, toX: 760, fromScale: 0.96, toScale: 0.96 }, true)
 Mara: 它锁定你的坐标了。公开链路等于把路线图贴在塔顶大屏幕上。
 

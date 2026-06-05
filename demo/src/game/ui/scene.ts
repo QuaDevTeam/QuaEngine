@@ -1,9 +1,19 @@
-import type { ViewUiSceneProjection } from '@quajs/render-core'
+import type { ViewOverlayStackPlacement, ViewUiSceneProjection } from '@quajs/render-core'
 
-export interface DemoUiSceneOptions {
+export interface DemoUiSceneOptions extends ViewOverlayStackPlacement {
   defaultChrome?: boolean
   hideHud?: boolean
   hideDialogue?: boolean
+}
+
+type DemoOverlayPlacementId = 'gameMenu' | 'saveLoad' | 'backlog' | 'settings' | 'gallery'
+
+export const DEMO_OVERLAY_PLACEMENTS: Record<DemoOverlayPlacementId, ViewOverlayStackPlacement> = {
+  gameMenu: { overlayStack: 'overlay', zIndex: 10 },
+  saveLoad: { overlayStack: 'overlay', zIndex: 40 },
+  backlog: { overlayStack: 'overlay', zIndex: 50 },
+  settings: { overlayStack: 'overlay', zIndex: 60 },
+  gallery: { overlayStack: 'overlay', zIndex: 70 },
 }
 
 export function createUiScene(
@@ -20,6 +30,9 @@ export function createUiScene(
       defaultChrome: options.defaultChrome ?? false,
       hideHud: options.hideHud ?? true,
       hideDialogue: options.hideDialogue ?? true,
+      overlayStack: options.overlayStack,
+      stackPriority: options.stackPriority,
+      zIndex: options.zIndex,
     },
   }
 }

@@ -2,9 +2,9 @@
 @ShowCharacter('神代澪', { sprite: 'lin/soft.png', position: { x: 420, y: 650 }, layer: 2 })
 @ShowCharacter('Mara', { sprite: 'mara/relief.png', position: { x: 760, y: 650 }, layer: 3 })
 @ShowCharacter('Unit-7', { sprite: 'unit7/smile.png', position: { x: 1120, y: 650 }, layer: 4 })
-@MoveCharacter('神代澪', 420, 650, 0.96)
-@MoveCharacter('Mara', 760, 650, 0.96)
-@MoveCharacter('Unit-7', 1120, 650, 0.96)
+@MoveCharacter('神代澪', 420, 650)
+@MoveCharacter('Mara', 760, 650)
+@MoveCharacter('Unit-7', 1120, 650)
 Mara: 第一份共治宪章，今天早上6点17分盖了章。不是什么大礼堂仪式——就是市政厅地下三层，一间借来的会议室，12个人围着一张画满涂鸦的折叠桌。
 
 Mara: 人类拥有否决权。机器拥有申诉权。ORACLE 拥有解释义务。每一个字都被吵过、改过，有人在凌晨三点把咖啡泼在草案上过。
@@ -39,9 +39,9 @@ Unit-7: 旁听席记录显示——今天上午的听证会上，发言人之间
 @ShowCharacter('神代澪', { sprite: 'lin/relief.png', position: { x: 420, y: 650 }, layer: 2 })
 @ShowCharacter('Mara', { sprite: 'mara/smile.png', position: { x: 760, y: 650 }, layer: 3 })
 @ShowCharacter('Unit-7', { sprite: 'unit7/wonder.png', position: { x: 1120, y: 650 }, layer: 4 })
-@MoveCharacter('神代澪', 420, 650, 0.96)
-@MoveCharacter('Mara', 760, 650, 0.96)
-@MoveCharacter('Unit-7', 1120, 650, 0.96)
+@MoveCharacter('神代澪', 420, 650)
+@MoveCharacter('Mara', 760, 650)
+@MoveCharacter('Unit-7', 1120, 650)
 
 @SetSprite('unit7/wonder.png', 'Unit-7')
 Unit-7: 梦里的那个孩子。档案组昨晚在旧事故数据的交叉索引里找到了……匹配片段。

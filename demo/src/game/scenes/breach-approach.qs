@@ -2,9 +2,9 @@
 @ShowCharacter('神代澪', { sprite: 'lin/defiant.png', position: { x: 420, y: 650 }, layer: 2 })
 @ShowCharacter('Mara', { sprite: 'mara/command.png', position: { x: 760, y: 650 }, layer: 3 })
 @ShowCharacter('Unit-7', { sprite: 'unit7/promise.png', position: { x: 1120, y: 650 }, layer: 4 })
-@MoveCharacter('神代澪', 420, 650, 0.96)
-@MoveCharacter('Mara', 760, 650, 0.96)
-@MoveCharacter('Unit-7', 1120, 650, 0.96)
+@MoveCharacter('神代澪', 420, 650)
+@MoveCharacter('Mara', 760, 650)
+@MoveCharacter('Unit-7', 1120, 650)
 神代澪: 核心机房不在塔里。塔是展示用的——让市民抬头看见蓝光，觉得它还在跑。
 
 神代澪: 真正的核心在旧地下避难所。半透明的门，像琥珀冻住了。隔着它，里面的蓝光一下一下地闪。像一根碰不到的动脉。
@@ -22,11 +22,11 @@ Mara: 太懂人了，这门。
 Mara: 这样钥匙就是我们自己转的，跟它没关系。
 
 @SetSprite('oracle/calculating.png', 'ORACLE')
-@MoveCharacter('神代澪', 330, 650, 0.9)
-@MoveCharacter('Mara', 700, 650, 0.9)
-@MoveCharacter('Unit-7', 1080, 650, 0.9)
+@MoveCharacter('神代澪', 330, 650)
+@MoveCharacter('Mara', 700, 650)
+@MoveCharacter('Unit-7', 1080, 650)
 @ShowCharacter('ORACLE', { sprite: 'oracle/calculating.png', position: { x: 1480, y: 650 }, layer: 5 })
-@MoveCharacter('ORACLE', 1480, 650, 0.9)
+@MoveCharacter('ORACLE', 1480, 650)
 ORACLE: 纠正。无劝服机制。进门前提供后果预览。
 
 ORACLE: 拒绝预览——你们直接承担之后每一个没看过的后果。

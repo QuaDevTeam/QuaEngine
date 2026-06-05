@@ -127,7 +127,7 @@
 }
 
 .game-root[data-system-overlay] .vn-renderer {
-  z-index: 40;
+  z-index: 72;
 }
 
 .game-root[data-system-overlay="main"] .qua-stage-scene,
@@ -137,13 +137,15 @@
   pointer-events: none;
 }
 
-.game-root[data-system-overlay] .qua-screen-plane {
-  z-index: 2;
+.game-root[data-system-overlay] .qua-stage-overlay {
+  pointer-events: none;
 }
 
 .game-root[data-system-overlay] .qua-overlay-layer,
 .game-root[data-system-overlay] .qua-settings-layer,
-.game-root[data-system-overlay] .qua-backlog-layer {
+.game-root[data-system-overlay] .qua-backlog-layer,
+.game-root[data-system-overlay] .qua-gallery-layer,
+.game-root[data-system-overlay] .qua-achievement-layer {
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -152,7 +154,9 @@
 
 .game-root[data-system-overlay] .qua-overlay-layer::before,
 .game-root[data-system-overlay] .qua-settings-layer::before,
-.game-root[data-system-overlay] .qua-backlog-layer::before {
+.game-root[data-system-overlay] .qua-backlog-layer::before,
+.game-root[data-system-overlay] .qua-gallery-layer::before,
+.game-root[data-system-overlay] .qua-achievement-layer::before {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -163,23 +167,42 @@
   backdrop-filter: blur(10px);
 }
 
-.game-root[data-system-overlay] .qua-overlay-layer::before {
+.game-root[data-system-overlay] .qua-overlay-layer::before,
+.game-root[data-system-overlay] .qua-settings-layer::before,
+.game-root[data-system-overlay] .qua-backlog-layer::before,
+.game-root[data-system-overlay] .qua-gallery-layer::before,
+.game-root[data-system-overlay] .qua-achievement-layer::before {
   animation: vn-overlay-scrim-in 180ms ease both;
 }
 
 .game-root[data-system-overlay="main"] .qua-overlay-layer::before,
 .game-root[data-system-overlay="main"] .qua-settings-layer::before,
-.game-root[data-system-overlay="main"] .qua-backlog-layer::before {
+.game-root[data-system-overlay="main"] .qua-backlog-layer::before,
+.game-root[data-system-overlay="main"] .qua-gallery-layer::before,
+.game-root[data-system-overlay="main"] .qua-achievement-layer::before {
   background:
     linear-gradient(90deg, rgba(3, 4, 7, 0.92), rgba(3, 4, 7, 0.38), rgba(3, 4, 7, 0.86)),
     radial-gradient(circle at 50% 44%, rgba(17, 31, 46, 0.2), rgba(3, 4, 7, 0.66) 72%);
   backdrop-filter: blur(4px);
 }
 
+.game-root[data-system-overlay] .qua-overlay-layer[data-overlay-stack="modal"]::before,
+.game-root[data-system-overlay] .qua-settings-layer[data-overlay-stack="modal"]::before,
+.game-root[data-system-overlay] .qua-backlog-layer[data-overlay-stack="modal"]::before,
+.game-root[data-system-overlay] .qua-gallery-layer[data-overlay-stack="modal"]::before,
+.game-root[data-system-overlay] .qua-achievement-layer[data-overlay-stack="modal"]::before {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(39, 59, 82, 0.22), transparent 52%),
+    rgba(1, 2, 5, 0.78);
+  backdrop-filter: blur(14px);
+}
+
 .game-root[data-system-overlay] .qua-menu-overlay,
 .game-root[data-system-overlay] .qua-save-load-panel,
 .game-root[data-system-overlay] .qua-settings-panel,
-.game-root[data-system-overlay] .qua-backlog-panel {
+.game-root[data-system-overlay] .qua-confirm-overlay,
+.game-root[data-system-overlay] .qua-backlog-panel,
+.game-root[data-system-overlay] .qua-achievement-panel {
   position: relative;
   inset: auto;
   z-index: 1;
@@ -214,7 +237,8 @@
 .game-root[data-system-overlay="main"] .qua-save-load-panel[data-overlay-presence="enter"],
 .game-root[data-system-overlay="main"] .qua-settings-panel[data-overlay-presence="enter"],
 .game-root[data-system-overlay="main"] .qua-confirm-overlay[data-overlay-presence="enter"],
-.game-root[data-system-overlay="main"] .qua-gallery-layer {
+.game-root[data-system-overlay="main"] .qua-gallery-layer,
+.game-root[data-system-overlay="main"] .qua-achievement-layer {
   animation: none !important;
   opacity: 1 !important;
   transform: none !important;
@@ -254,8 +278,8 @@
 
 .vn-quick-menu {
   position: absolute;
-  right: clamp(24px, 5vw, 72px);
-  bottom: clamp(148px, 17vh, 190px);
+  right: 5%;
+  bottom: calc(5% + 148px);
   z-index: 36;
   display: flex;
   align-items: center;
@@ -451,6 +475,10 @@
   font-size: 14px;
   line-height: 1.45;
   pointer-events: none;
+}
+
+.game-root[data-system-overlay] .vn-toast {
+  z-index: 34;
 }
 
 .vn-toast--success {

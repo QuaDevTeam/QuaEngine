@@ -27,6 +27,7 @@ for reuse. See `../TRADEMARKS.md`.
 - Vue renderer preset with a custom visual novel UI skin.
 - Main menu, in-game menu, settings, save/load, backlog, and story tree panels.
 - Settings and save/load UI as scene-like surfaces with their own overlay presentation.
+- Multi-stack overlay placement with engine-owned `overlayStack` and `zIndex` ordering for menu, save/load, backlog, settings, gallery, modal confirms, and toasts.
 - Typewriter dialogue, auto/skip flow, input-driven auto cancellation, and keyboard/click advance.
 - Backlog entries that are view-only by default. Rewind is exposed only when the backlog policy marks an entry rewindable.
 - Story graph driven story tree projection with spoiler-safe locked entries.

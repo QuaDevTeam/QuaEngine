@@ -51,6 +51,9 @@
   .game-root[data-system-overlay] .qua-settings-panel,
   .game-root[data-system-overlay] .qua-confirm-overlay,
   .game-root[data-system-overlay] .qua-gallery-layer,
+  .game-root[data-system-overlay] .qua-achievement-layer,
+  .game-root[data-system-overlay] .qua-achievement-toast-layer,
+  .game-root[data-system-overlay] .qua-stage-overlay > *,
   .game-root[data-system-overlay] .qua-save-slot-item {
     animation-duration: 1ms !important;
     animation-delay: 0ms !important;
