@@ -7,6 +7,9 @@ export default defineConfig({
   plugins: [
     vue(),
     ...quaEngine({
+      projectConfig: {
+        enabled: true,
+      },
       assetBundling: {
         source: 'assets',
         devVfs: true,

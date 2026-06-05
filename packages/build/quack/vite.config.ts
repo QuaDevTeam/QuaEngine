@@ -44,6 +44,7 @@ export default defineConfig({
       entry: {
         'index': resolve(import.meta.dirname, 'src/index.ts'),
         'cli/index': resolve(import.meta.dirname, 'src/cli/index.ts'),
+        'project': resolve(import.meta.dirname, 'src/project.ts'),
         'qpk-reader': resolve(import.meta.dirname, 'src/qpk-reader.ts'),
       },
       formats: ['es'],

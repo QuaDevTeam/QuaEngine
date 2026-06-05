@@ -41,6 +41,7 @@ export default defineConfig({
         '@quajs/engine',
         '@quajs/plugin-discovery',
         '@quajs/quack',
+        '@quajs/quack/project',
         '@quajs/script-compiler',
         '@quajs/logger',
         '@quajs/utils',

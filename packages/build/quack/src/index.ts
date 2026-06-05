@@ -85,6 +85,40 @@ export { buildLocalePack } from './i18n/locale-pack'
 export type { LocalePackBuildOptions, LocalePackBuildResult } from './i18n/locale-pack'
 export { PluginManager } from './managers/plugin-manager'
 export {
+  createQuaProjectAssetTargets,
+  createQuaProjectWebAssets,
+  createQuaProjectWebManifest,
+  createQuaProjectWebRuntimeConfig,
+  findQuaProjectConfigFile,
+  loadQuaProjectConfig,
+  mergeQuaProjectAssetTargets,
+  normalizeQuaProjectConfig,
+  QUA_PROJECT_CONFIG_CANDIDATES,
+  syncQuaProjectCocos,
+  tryLoadQuaProjectConfig,
+  validateQuaProjectConfig,
+} from './project'
+export type {
+  LoadQuaProjectConfigOptions,
+  NormalizedQuaProjectCocosTarget,
+  NormalizedQuaProjectConfig,
+  NormalizedQuaProjectWebTarget,
+  QuaProjectConfigFileName,
+  QuaProjectConfigV1,
+  QuaProjectDeviceClass,
+  QuaProjectHomeConfig,
+  QuaProjectIconConfig,
+  QuaProjectLayoutInput,
+  QuaProjectManifestIconInput,
+  QuaProjectTargetsConfig,
+  QuaProjectWebAsset,
+  QuaProjectWebRuntimeConfig,
+  QuaProjectWebServiceWorkerMode,
+  SyncQuaProjectCocosOptions,
+  SyncQuaProjectCocosResult,
+  SyncedQuaProjectCocosBuildConfig,
+} from './project'
+export {
   AssetPipelinePlugin,
   type AssetPipelinePluginOptions,
   BundleAnalyzerPlugin,

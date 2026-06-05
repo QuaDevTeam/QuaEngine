@@ -13,8 +13,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:web": "vite build",
     "preview": "vite preview",
     "assets:build": "quack workspace build",
+    "project:validate": "quack project validate",
+    "project:doctor": "quack project doctor",
+    "project:sync": "quack project sync --target all",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

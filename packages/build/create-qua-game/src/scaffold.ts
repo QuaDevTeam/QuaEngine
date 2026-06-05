@@ -8,6 +8,7 @@ import { detectPackageManager, getInstallCommand, getRunScriptCommand } from './
 import { DEFAULT_TEMPLATE_NAME, getTemplate } from './templates'
 
 export interface TemplateVariables {
+  projectBundleId: string
   projectName: string
   projectTitle: string
 }
@@ -171,6 +172,7 @@ export function inferProjectName(input: string): string {
 
 export function createTemplateVariables(projectName: string, projectTitle = createProjectTitle(projectName)): TemplateVariables {
   return {
+    projectBundleId: createProjectBundleId(projectName),
     projectName,
     projectTitle,
   }
@@ -239,6 +241,7 @@ async function copyTemplateFiles(files: readonly TemplateFile[], variables: Temp
 
 function renderTemplate(content: string, variables: TemplateVariables): string {
   return content
+    .replaceAll('__PROJECT_BUNDLE_ID__', variables.projectBundleId)
     .replaceAll('__PROJECT_NAME__', variables.projectName)
     .replaceAll('__PROJECT_TITLE__', variables.projectTitle)
 }
@@ -255,6 +258,17 @@ function createProjectTitle(input: string): string {
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/\b\w/g, value => value.toUpperCase())
+}
+
+function createProjectBundleId(input: string): string {
+  const packageName = input.includes('/') ? input.split('/').at(-1) || input : input
+  const segments = packageName
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .map(segment => /^[a-z]/.test(segment) ? segment : `game${segment}`)
+
+  return `com.example.${segments.length > 0 ? segments.join('.') : 'game'}`
 }
 
 function runCommand(command: string, args: readonly string[], options: { cwd: string }): Promise<void> {

@@ -30,9 +30,13 @@ describe('create-qua-game scaffold', () => {
     expect(result.targetDirectory).toBe(projectRoot)
     await expectFile(projectRoot, 'package.json')
     await expectFile(projectRoot, 'vite.config.ts')
+    await expectFile(projectRoot, 'qua.project.yaml')
     await expectFile(projectRoot, 'src/main.ts')
+    await expectFile(projectRoot, 'src/env.d.ts')
     await expectFile(projectRoot, 'src/game/bootstrap.ts')
     await expectFile(projectRoot, 'src/game/scenes/opening.qs')
+    await expectFile(projectRoot, 'assets/app/icon.svg')
+    await expectFile(projectRoot, 'assets/app/favicon.svg')
     await expectFile(projectRoot, 'assets/images/backgrounds/classroom.svg')
     await expectFile(projectRoot, 'assets/characters/alice/base.svg')
     await expectFile(projectRoot, 'assets/audio/.gitkeep')
@@ -44,9 +48,18 @@ describe('create-qua-game scaffold', () => {
     const packageJson = JSON.parse(await readFile(join(projectRoot, 'package.json'), 'utf8')) as {
       devDependencies: Record<string, string>
       name: string
+      scripts: Record<string, string>
     }
     expect(packageJson.name).toBe('my-game')
+    expect(packageJson.scripts['project:validate']).toBe('quack project validate')
+    expect(packageJson.scripts['project:doctor']).toBe('quack project doctor')
+    expect(packageJson.scripts['build:web']).toBe('vite build')
     expect(packageJson.devDependencies['sass-embedded']).toBe('^1.70.0')
+    expect(await readFile(join(projectRoot, 'qua.project.yaml'), 'utf8')).toContain('bundleId: com.example.my.game')
+    expect(await readFile(join(projectRoot, 'src/env.d.ts'), 'utf8')).toContain("declare module 'virtual:qua-project'")
+    expect(await readFile(join(projectRoot, 'src/main.ts'), 'utf8')).toContain('evaluateWebPlatformSupport(quaWebRuntime)')
+    expect(await readFile(join(projectRoot, 'src/game/bootstrap.ts'), 'utf8')).toContain('project: {')
+    expect(await readFile(join(projectRoot, 'vite.config.ts'), 'utf8')).toContain('projectConfig')
     expect(await readFile(join(projectRoot, 'README.md'), 'utf8')).toContain('# My Game')
     expect(logs.lines.join('\n')).toContain('pnpm dev')
     expect(logs.lines.join('\n')).toContain('pnpm run assets:build')

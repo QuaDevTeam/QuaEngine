@@ -8,6 +8,7 @@ import { FontsPlugin } from '@quajs/plugin-fonts'
 import { SettingsPlugin } from '@quajs/plugin-settings'
 import { QuaRenderer } from '@quajs/renderer-vue'
 import { createVisualNovelRendererPlugins } from '@quajs/renderer-vue/plugins/preset'
+import { createPwaWebRendererPlugin } from '@quajs/renderer-web/plugins/pwa'
 import {
   createWebRuntimeModuleLoader,
   createWebRuntimeRendererPluginLoader,
@@ -15,9 +16,11 @@ import {
 } from '@quajs/security-web'
 import { createWebStoreStorage } from '@quajs/store-web'
 import { defineComponent, h, ref } from 'vue'
+import { quaProject, quaWebRuntime } from 'virtual:qua-project'
 import opening from './scenes/opening.qs'
 
-const GAME_TITLE = '__PROJECT_TITLE__'
+const GAME_TITLE = quaProject.home.title
+const STORAGE_PREFIX = quaProject.bundleId
 const TRUSTED_RUNTIME_KEYS = [
   // Production runtime QPKs should be signed with a private key whose public key is registered here.
   // Example:
@@ -29,7 +32,7 @@ export async function createQuaGameApp() {
   const assets = await createViteDevAssetRuntime({
     hmr: import.meta.hot,
     web: {
-      databaseName: '__PROJECT_NAME__-assets',
+      databaseName: `${STORAGE_PREFIX}.assets`,
     },
   })
   bootMessage.value = 'Preparing story runtime...'
@@ -50,10 +53,16 @@ export async function createQuaGameApp() {
   })
 
   const engine = new QuaEngine({
-    layout: 'landscape',
+    appVersion: quaProject.version,
+    project: {
+      name: quaProject.name,
+      bundleId: quaProject.bundleId,
+      version: quaProject.version,
+    },
+    layout: quaWebRuntime.layout,
     assets: {
       adapter: createWebAssetsAdapter({
-        databaseName: '__PROJECT_NAME__-engine-assets',
+        databaseName: `${STORAGE_PREFIX}.engine-assets`,
         storage: new MemoryAssetStorage(),
       }),
       provider: assets.getProvider(),
@@ -62,7 +71,7 @@ export async function createQuaGameApp() {
     },
     store: {
       storage: createWebStoreStorage({
-        dbName: '__PROJECT_NAME__-saves',
+        dbName: `${STORAGE_PREFIX}.saves`,
       }),
     },
     flowControl: {
@@ -122,6 +131,13 @@ export async function createQuaGameApp() {
     name: 'QuaGameRoot',
     setup() {
       const rendererPlugins = createVisualNovelRendererPlugins()
+      if (quaWebRuntime.pwa.enabled && quaWebRuntime.pwa.serviceWorkerUrl) {
+        rendererPlugins.unshift(createPwaWebRendererPlugin({
+          enabled: true,
+          scope: quaProject.home.scope,
+          serviceWorkerUrl: quaWebRuntime.pwa.serviceWorkerUrl,
+        }))
+      }
       return () => h('main', { class: 'game-root' }, [
         h('div', { class: 'game-toolbar', 'data-qua-input-ignore': '' }, [
           h('strong', { class: 'game-title' }, GAME_TITLE),

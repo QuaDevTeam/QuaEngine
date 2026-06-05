@@ -133,7 +133,9 @@ export class QuackBundler extends EventEmitter {
 
     try {
       // Load workspace configuration
-      const workspaceConfig = await this.workspaceManager.loadConfig(this.config.workspaceConfig)
+      const workspaceConfig = await this.workspaceManager.loadConfig(this.config.workspaceConfig, {
+        projectConfig: this.config.projectConfig,
+      })
 
       // Initialize or update workspace index
       await this.versionManager.initializeWorkspaceIndex(workspaceConfig.name, workspaceConfig.version || '1.0.0')
