@@ -14,6 +14,10 @@
     var(--vn-dialogue-toolbar-height) +
     var(--vn-dialogue-chrome-gap)
   );
+  --vn-ui-inset-x: var(--vn-dialogue-inset-x);
+  --vn-ui-inset-bottom: var(--vn-dialogue-bottom);
+  --vn-choice-max-width: 620px;
+  --vn-choice-dialogue-gap: 74px;
   --vn-dialogue-chrome-enter-duration: 220ms;
   --vn-dialogue-chrome-exit-duration: 170ms;
   --vn-dialogue-chrome-enter-easing: cubic-bezier(0.19, 1, 0.22, 1);
@@ -29,9 +33,9 @@
 }
 
 .game-root .qua-dialogue-box {
-  left: var(--vn-dialogue-inset-x);
-  right: var(--vn-dialogue-inset-x);
-  bottom: var(--vn-dialogue-bottom);
+  left: var(--vn-ui-inset-x);
+  right: var(--vn-ui-inset-x);
+  bottom: var(--vn-ui-inset-bottom);
   min-height: var(--vn-dialogue-min-height);
   padding: var(--vn-dialogue-padding-y) var(--vn-dialogue-padding-x);
 }
