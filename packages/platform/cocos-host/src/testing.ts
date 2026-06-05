@@ -159,7 +159,7 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
       return { ...asFakeNode(node).metadata }
     },
     hitTest(rootNode: CocosHostNode, point: { x: number, y: number }, hitOptions: { metadataKey?: string, includeInvisible?: boolean } = {}) {
-      return hitTestNode(asFakeNode(rootNode), point, hitOptions)
+      return hitTestNode(asFakeNode(rootNode), point, hitOptions, { x: 0, y: 0 })
     },
     getContainerSize: () => options.containerSize || { width: 1920, height: 1080 },
     getDevicePixelRatio: () => options.devicePixelRatio || 1,
@@ -459,10 +459,12 @@ function hitTestNode(
   root: FakeCocosNode,
   point: { x: number, y: number },
   options: { metadataKey?: string, includeInvisible?: boolean },
+  origin: { x: number, y: number },
 ): { node: FakeCocosNode, metadata?: Record<string, unknown> } | undefined {
+  const nodeOrigin = localHitTestOrigin(root, origin)
   const children = [...root.children].sort((left, right) => (right.transform.zIndex || 0) - (left.transform.zIndex || 0))
   for (const child of children) {
-    const hit = hitTestNode(child, point, options)
+    const hit = hitTestNode(child, point, options, nodeOrigin)
     if (hit)
       return hit
   }
@@ -470,18 +472,27 @@ function hitTestNode(
     return undefined
   if (options.metadataKey && root.metadata[options.metadataKey] === undefined)
     return undefined
-  if (!containsPoint(root, point))
+  if (!containsPoint(root, point, nodeOrigin))
     return undefined
   return { node: root, metadata: { ...root.metadata } }
 }
 
-function containsPoint(node: FakeCocosNode, point: { x: number, y: number }): boolean {
+function localHitTestOrigin(node: FakeCocosNode, origin: { x: number, y: number }): { x: number, y: number } {
+  if (node.kind === 'stage')
+    return origin
+  return {
+    x: origin.x + (node.transform.x || 0),
+    y: origin.y + (node.transform.y || 0),
+  }
+}
+
+function containsPoint(node: FakeCocosNode, point: { x: number, y: number }, origin: { x: number, y: number }): boolean {
   const width = typeof node.transform.width === 'number' ? node.transform.width : undefined
   const height = typeof node.transform.height === 'number' ? node.transform.height : undefined
   if (width === undefined || height === undefined)
     return true
-  const x = node.transform.x || 0
-  const y = node.transform.y || 0
+  const x = origin.x
+  const y = origin.y
   return point.x >= x && point.x <= x + width && point.y >= y && point.y <= y + height
 }
 

@@ -18,7 +18,24 @@ describe('assets-cocos', () => {
     const fetched = await adapter.fetcher!.fetchBytes('bundle.qpk')
     const bytes = fetched instanceof Uint8Array ? fetched : fetched.data
     expect(bytes).toEqual(new Uint8Array([1, 2, 3]))
-    expect(await adapter.crypto.sha256(new Uint8Array([1, 2, 3]))).toHaveLength(64)
+    expect(await adapter.crypto.sha256(new Uint8Array([1, 2, 3]))).toBe('039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81')
+  })
+
+  it('hashes with the pure JS SHA-256 fallback when WebCrypto is unavailable', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto')
+    Object.defineProperty(globalThis, 'crypto', { value: undefined, configurable: true })
+    try {
+      const adapter = createCocosAssetsAdapter({ host: createFakeCocosHost() })
+      expect(await adapter.crypto.sha256(utf8('abc'))).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
+    }
+    finally {
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'crypto', descriptor)
+      }
+      else {
+        delete (globalThis as { crypto?: unknown }).crypto
+      }
+    }
   })
 
   it('loads an uncompressed static QPK bundle through the Cocos adapter', async () => {
