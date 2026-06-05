@@ -137,6 +137,12 @@ describe('@quajs/plugin-gallery', () => {
           title: 'Unknown Record',
           summary: 'Classified material',
           tags: ['locked'],
+          contents: [{
+            id: 'cg.teaser.preview',
+            kind: 'text',
+            title: 'Preview',
+            text: 'Unlock to view the full record.',
+          }],
         },
       },
     ])
@@ -161,7 +167,11 @@ describe('@quajs/plugin-gallery', () => {
       title: 'Unknown Record',
       summary: 'Classified material',
       tags: ['locked'],
-      contents: [],
+      contents: [expect.objectContaining({
+        id: 'cg.teaser.preview',
+        kind: 'text',
+        text: 'Unlock to view the full record.',
+      })],
     }))
     expect(teaser).not.toHaveProperty('lockedPresentation')
 
@@ -175,6 +185,46 @@ describe('@quajs/plugin-gallery', () => {
       tags: ['ending'],
       contents: [expect.objectContaining({ id: 'cg.hidden.image' })],
     }))
+  })
+
+  it('orders projected entries by catalog entryIds before registration order', async () => {
+    const engine = createEngine()
+    engine.use(new GalleryPlugin())
+    await engine.init()
+    await registerGalleryCatalogWithEngine(engine, {
+      id: 'ordered-cg',
+      title: 'Ordered CG',
+      entryIds: ['cg.second', 'cg.first'],
+    })
+    await registerGalleryEntriesWithEngine(engine, [
+      {
+        id: 'cg.first',
+        catalogId: 'ordered-cg',
+        title: 'First',
+        contents: [{
+          id: 'cg.first.image',
+          kind: 'image',
+          asset: assetRef('cg/first.png'),
+        }],
+      },
+      {
+        id: 'cg.second',
+        catalogId: 'ordered-cg',
+        title: 'Second',
+        contents: [{
+          id: 'cg.second.image',
+          kind: 'image',
+          asset: assetRef('cg/second.png'),
+        }],
+      },
+    ])
+
+    await openGallerySceneWithEngine(engine, { catalogId: 'ordered-cg' })
+
+    const projection = getGalleryProjection(engine)
+    expect(projection.catalogs[0]?.entryIds).toEqual(['cg.second', 'cg.first'])
+    expect(projection.entries.map(entry => entry.id)).toEqual(['cg.second', 'cg.first'])
+    expect(projection.filteredEntryIds).toEqual(['cg.second', 'cg.first'])
   })
 
   it('rejects unknown entry unlocks without writing profile progress', async () => {

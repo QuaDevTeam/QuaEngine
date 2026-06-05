@@ -62,7 +62,7 @@ await gallery.registerEntry({
 
 Content blocks can be `image`, `video`, `audio`, `text`, or custom kinds with serializable data.
 
-Locked entries hide title, summary, description, thumbnail, tags, metadata, and contents by default in projection to avoid spoilers. Use `lockedPresentation` only for deliberate non-spoiler placeholders or opt-in reveals. Renderer projections expose only the resolved entry fields; `lockedPresentation` remains definition-only and must not be projected:
+Locked entries hide title, summary, description, thumbnail, tags, metadata, and contents by default in projection to avoid spoilers. Use `lockedPresentation` only for deliberate non-spoiler placeholders or opt-in reveals. Renderer projections expose only the resolved entry fields; `lockedPresentation` remains definition-only and must not be projected. If `lockedPresentation` projects safe thumbnails or contents, renderers may show detail/lightbox from those projected fields even while `unlocked` is false:
 
 ```ts
 await gallery.registerEntry({
@@ -110,7 +110,7 @@ Decorators:
 
 ## Renderer Boundary
 
-Renderer components receive `GalleryProjection`, render locked/unlocked entries, and emit selection/filter/close intents. They must not decide unlock state. Lightbox/detail browsing state is renderer-local and transient only across Web/Vue/React/Svelte/Cocos; locked entries should render the projection they receive and must not reconstruct hidden definition details.
+Renderer components receive `GalleryProjection`, render locked/unlocked entries, and emit selection/filter/close intents. They must not decide unlock state. Lightbox/detail browsing state is renderer-local and transient only across Web/Vue/React/Svelte/Cocos; locked entries should render the projection they receive, including projected safe locked content, and must not reconstruct hidden definition details.
 
 ## Settings
 
