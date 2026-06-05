@@ -2,7 +2,7 @@ import { LogicToRenderEvents, onLogicToRender, type GameOverPayload } from '@qua
 import type { AudioPlayBgmOptions } from '@quajs/plugin-audio'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents, type BacklogProjection } from '@quajs/plugin-backlog'
 import { GALLERY_PLUGIN_ID, type GalleryProjection } from '@quajs/plugin-gallery'
-import { resolveActiveUiSceneProjection, uiSceneAllowsHudChrome, type ViewUiSceneProjection } from '@quajs/render-core'
+import { resolveActiveUiSceneProjection, uiSceneAllowsDialogueChrome, uiSceneAllowsHudChrome, type ViewUiSceneProjection } from '@quajs/render-core'
 import { QuaRenderer } from '@quajs/renderer-vue'
 import { createVisualNovelRendererPlugins } from '@quajs/renderer-vue/plugins/preset'
 import { QuaSettingsLayer } from '@quajs/renderer-vue/plugins/settings'
@@ -153,15 +153,14 @@ export async function createQuaGameApp() {
     || galleryOpenedFromMainMenu.value
     || Boolean(returnToMainMenuOverlay.value),
   )
-  const defaultChromeVisible = computed(() =>
+  const hudChromeVisible = computed(() =>
     !titleSurfaceActive.value
     && !activeGallery.value?.sceneActive
     && uiSceneAllowsHudChrome(renderedActiveUiScene.value),
   )
   const dialogueChromeVisible = computed(() =>
     !titleSurfaceActive.value
-    && renderedActiveUiScene.value?.overlay?.defaultChrome !== false
-    && renderedActiveUiScene.value?.overlay?.hideDialogue !== true,
+    && uiSceneAllowsDialogueChrome(renderedActiveUiScene.value),
   )
   const pipeline = engine.getPipeline()
   const emit = pipeline.emit.bind(pipeline)
@@ -427,11 +426,11 @@ export async function createQuaGameApp() {
         'data-main-menu': showMainMenu.value ? 'true' : undefined,
         'data-system-overlay': systemOverlayMode.value,
         'data-title-surface': titleSurfaceActive.value ? 'true' : undefined,
-        'data-default-chrome': defaultChromeVisible.value ? 'true' : 'false',
+        'data-hud-chrome': hudChromeVisible.value ? 'true' : 'false',
         'data-dialogue-chrome': dialogueChromeVisible.value ? 'true' : 'false',
       }, [
         h('div', { class: 'vn-title-surface', 'aria-hidden': 'true', 'data-qua-input-ignore': '' }),
-        defaultChromeVisible.value
+        hudChromeVisible.value
           ? h('div', { class: 'vn-title-plate', 'data-qua-input-ignore': '' }, [
               h('strong', { class: 'game-title' }, GAME_TITLE),
               h('span', { class: 'game-subtitle' }, 'TOKYO 2048'),
