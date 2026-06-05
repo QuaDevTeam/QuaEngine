@@ -212,7 +212,7 @@ async function renderGalleryEntry(
   width: number,
   selected: boolean,
 ): Promise<void> {
-  const node = renderButton(context, parent, `gallery:entry:${entry.id}`, entry.unlocked ? entry.title : 'Locked', x, startY + index * 58, width, 50, {
+  const node = renderButton(context, parent, `gallery:entry:${entry.id}`, entry.title || 'Locked', x, startY + index * 58, width, 50, {
     plugin: 'gallery',
     galleryAction: 'openLightbox',
     galleryEntryId: entry.id,
@@ -328,7 +328,6 @@ async function renderGalleryContentPreview(
         const resourceKey = `content:${content.id}:audio`
         context.cocos.setLayerResource('gallery-audio', resourceKey, resource)
         audioPreviews.set(content.id, { handle, resourceKey })
-        await handle.play()
       }
       return
     }

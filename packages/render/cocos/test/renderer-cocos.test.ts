@@ -1544,7 +1544,7 @@ describe('@quajs/renderer-cocos', () => {
             },
             {
               id: 'cg-locked',
-              title: 'Locked',
+              title: 'Unknown Record',
               unlocked: false,
               contents: [{
                 id: 'spoiler',
@@ -1575,6 +1575,7 @@ describe('@quajs/renderer-cocos', () => {
     await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'gallery:lightbox:close') })
     await waitForEventually(() => findNode(host, 'gallery:lightbox') === undefined)
     await waitForEventually(() => findNode(host, 'gallery:entry:cg-locked') !== undefined)
+    expect(findNode(host, 'gallery:entry:cg-locked')?.text).toBe('Unknown Record')
 
     await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'gallery:entry:cg-locked') })
     await flushAsync()
@@ -1626,7 +1627,7 @@ describe('@quajs/renderer-cocos', () => {
     expect(findNode(host, 'gallery:entry:cg-11')).toBeUndefined()
     await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'gallery:entries:next') })
     await waitForEventually(() => findNode(host, 'gallery:entry:cg-11') !== undefined)
-    expect(host.audioHandlesById.get('gallery:audio-preview:audio')?.playing).toBe(true)
+    expect(host.audioHandlesById.get('gallery:audio-preview:audio')?.playing).toBe(false)
 
     await pipeline.emit(LogicToRenderEvents.VIEW_UPDATE, {
       view: createView({
