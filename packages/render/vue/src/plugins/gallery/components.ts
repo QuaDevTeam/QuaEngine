@@ -67,7 +67,7 @@ export const QuaGalleryLayer = defineComponent({
     const lightboxEntryId = ref<string>()
     const lightboxContentId = ref<string>()
     const openLightbox = (entry: GalleryEntryProjectionItem, contentId?: string) => {
-      if (!entry.unlocked || entry.contents.length === 0) {
+      if (!canOpenGalleryLightbox(entry)) {
         return
       }
       lightboxEntryId.value = entry.id
@@ -530,13 +530,13 @@ function renderGalleryLightbox(input: {
   const entry = input.entryId
     ? input.gallery.entries.find(item => item.id === input.entryId)
     : undefined
-  if (!entry?.unlocked) {
+  if (!entry) {
     return null
   }
   const content = input.contentId
     ? entry.contents.find(item => item.id === input.contentId) || entry.contents[0]
     : entry.contents[0]
-  const asset = resolveGalleryContentAsset(content) || resolveGalleryEntryPreviewAsset(entry)
+  const asset = content ? resolveGalleryContentAsset(content) : resolveGalleryEntryPreviewAsset(entry)
   if (!content && !asset) {
     return null
   }
@@ -585,6 +585,10 @@ function renderGalleryLightboxContent(
     return h('pre', { class: 'qua-gallery-lightbox-custom qua-gallery-content-custom' }, JSON.stringify(payload, null, 2))
   }
   return null
+}
+
+function canOpenGalleryLightbox(entry: GalleryEntryProjectionItem): boolean {
+  return entry.contents.length > 0 || Boolean(resolveGalleryEntryPreviewAsset(entry))
 }
 
 function renderGalleryDetail(input: {

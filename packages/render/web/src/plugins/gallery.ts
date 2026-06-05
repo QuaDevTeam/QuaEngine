@@ -479,7 +479,7 @@ function renderGalleryEntryCard(
       phase: 'gallery:select-entry',
       metadata: { entryId: entry.id },
     })
-    if (entry.unlocked && entry.contents.length > 0) {
+    if (canOpenGalleryLightbox(entry)) {
       lightbox.entryId = entry.id
       lightbox.contentId = entry.contents[0]?.id
       context.renderer.render()
@@ -498,7 +498,7 @@ function renderGalleryLightbox(
   const entry = lightbox.entryId
     ? model.entries.find(item => item.id === lightbox.entryId)
     : undefined
-  if (!entry?.unlocked) {
+  if (!entry) {
     lightbox.entryId = undefined
     lightbox.contentId = undefined
     return undefined
@@ -507,8 +507,10 @@ function renderGalleryLightbox(
   const content = lightbox.contentId
     ? entry.contents.find(item => item.id === lightbox.contentId) || entry.contents[0]
     : entry.contents[0]
-  const asset = resolveGalleryContentAsset(content) || resolveGalleryEntryPreviewAsset(entry)
+  const asset = content ? resolveGalleryContentAsset(content) : resolveGalleryEntryPreviewAsset(entry)
   if (!content && !asset) {
+    lightbox.entryId = undefined
+    lightbox.contentId = undefined
     return undefined
   }
 
@@ -549,6 +551,10 @@ function renderGalleryLightbox(
   frame.append(close, media, caption)
   overlay.append(frame)
   return overlay
+}
+
+function canOpenGalleryLightbox(entry: GalleryEntryProjectionItem): boolean {
+  return entry.contents.length > 0 || Boolean(resolveGalleryEntryPreviewAsset(entry))
 }
 
 function renderGalleryLightboxContent(

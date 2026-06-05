@@ -409,13 +409,13 @@ function resolveGalleryLightboxTarget(
   contentId: string | undefined,
 ): { entry: GalleryEntryProjectionItem, content?: GalleryContentBlock, asset?: GalleryAssetRef } | undefined {
   const entry = entryId ? projection?.entries.find(item => item.id === entryId) : undefined
-  if (!entry?.unlocked)
+  if (!entry)
     return undefined
 
   const content = contentId
     ? entry.contents.find(item => item.id === contentId) || entry.contents[0]
     : entry.contents[0]
-  const asset = resolveGalleryContentAsset(content) || resolveGalleryEntryPreviewAsset(entry)
+  const asset = content ? resolveGalleryContentAsset(content) : resolveGalleryEntryPreviewAsset(entry)
   if (!content && !asset)
     return undefined
   return { entry, content, asset }

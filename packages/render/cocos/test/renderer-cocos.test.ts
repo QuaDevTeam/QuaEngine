@@ -1514,7 +1514,7 @@ describe('@quajs/renderer-cocos', () => {
     expect(events[0]).toEqual({ entryId: 'cg-1' })
   })
 
-  it('opens Cocos gallery lightbox for unlocked entries without exposing locked entries', async () => {
+  it('opens Cocos gallery lightbox for projected entries without exposing hidden locked entries', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()
     const events: unknown[] = []
@@ -1528,7 +1528,7 @@ describe('@quajs/renderer-cocos', () => {
           revision: 1,
           sceneActive: true,
           profileId: 'default',
-          catalogs: [{ id: 'main', title: 'Main', entryIds: ['cg-1', 'cg-locked'], totalEntries: 2, unlockedEntries: 1, lockedEntries: 1 }],
+          catalogs: [{ id: 'main', title: 'Main', entryIds: ['cg-1', 'cg-locked', 'cg-teaser'], totalEntries: 3, unlockedEntries: 1, lockedEntries: 2 }],
           entries: [
             {
               id: 'cg-1',
@@ -1546,16 +1546,23 @@ describe('@quajs/renderer-cocos', () => {
               id: 'cg-locked',
               title: 'Unknown Record',
               unlocked: false,
+              contents: [],
+              catalogId: 'main',
+            },
+            {
+              id: 'cg-teaser',
+              title: 'Classified Preview',
+              unlocked: false,
               contents: [{
-                id: 'spoiler',
+                id: 'teaser',
                 kind: 'image',
-                title: 'Spoiler CG',
-                asset: { type: 'images', name: 'spoiler.png' },
+                title: 'Safe Teaser',
+                asset: { type: 'images', name: 'teaser.png' },
               }],
               catalogId: 'main',
             },
           ],
-          filteredEntryIds: ['cg-1', 'cg-locked'],
+          filteredEntryIds: ['cg-1', 'cg-locked', 'cg-teaser'],
           selectedCatalogId: 'main',
           requiredRuntimePackages: [],
           filter: {},
@@ -1581,6 +1588,12 @@ describe('@quajs/renderer-cocos', () => {
     await flushAsync()
     expect(events[1]).toEqual({ entryId: 'cg-locked' })
     expect(findNode(host, 'gallery:lightbox')).toBeUndefined()
+
+    await host.emitInput({ kind: 'pointer', phase: 'down', targetNode: findNode(host, 'gallery:entry:cg-teaser') })
+    await waitForEventually(() => findNode(host, 'gallery:lightbox') !== undefined)
+    expect(events[2]).toEqual({ entryId: 'cg-teaser' })
+    expect(findNode(host, 'gallery:lightbox:media')?.sprite?.source).toBe('teaser.png')
+    expect(findNode(host, 'gallery:lightbox:caption')?.text).toBe('Safe Teaser')
   })
 
   it('paginates Cocos gallery entries and cleans audio previews', async () => {
