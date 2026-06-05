@@ -266,6 +266,15 @@
   color: #111;
 }
 
+.qua-dialogue-box[data-dialogue-presence='enter'] {
+  animation: qua-dialogue-fade-in var(--qua-dialogue-enter-duration, 220ms) var(--qua-dialogue-enter-easing, ease) both;
+}
+
+.qua-dialogue-box[data-dialogue-presence='exit'] {
+  pointer-events: none;
+  animation: qua-dialogue-fade-out var(--qua-dialogue-exit-duration, 170ms) var(--qua-dialogue-exit-easing, ease) both;
+}
+
 .qua-dialogue-text {
   margin: 0;
   white-space: pre-wrap;
@@ -470,6 +479,26 @@
   }
 }
 
+@keyframes qua-dialogue-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: var(--qua-dialogue-opacity, 1);
+  }
+}
+
+@keyframes qua-dialogue-fade-out {
+  from {
+    opacity: var(--qua-dialogue-opacity, 1);
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
 @keyframes qua-ui-layer-in {
   from {
     opacity: 0;
@@ -536,6 +565,7 @@
   .qua-save-load-panel,
   .qua-confirm-overlay,
   .qua-settings-panel,
+  .qua-dialogue-box,
   .qua-character {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
