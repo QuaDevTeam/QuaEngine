@@ -22,14 +22,15 @@ export function createUiScene(
   variant: string,
   options: DemoUiSceneOptions = {},
 ): ViewUiSceneProjection {
+  const mainMenuScene = variant === 'main-menu'
   return {
     id,
     presentation,
     overlay: {
       variant,
-      defaultChrome: options.defaultChrome ?? false,
+      defaultChrome: options.defaultChrome ?? !mainMenuScene,
       hideHud: options.hideHud ?? true,
-      hideDialogue: options.hideDialogue ?? true,
+      hideDialogue: options.hideDialogue ?? mainMenuScene,
       overlayStack: options.overlayStack,
       stackPriority: options.stackPriority,
       zIndex: options.zIndex,

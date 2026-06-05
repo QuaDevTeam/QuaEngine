@@ -127,6 +127,7 @@
 .game-root[data-system-overlay] .vn-settings-close,
 .game-root[data-system-overlay] .qua-achievement-close,
 .game-root[data-system-overlay] .qua-ui-panel-close {
+  position: relative;
   display: inline-grid;
   flex: 0 0 auto;
   width: 42px;
@@ -142,8 +143,13 @@
   font-size: 0;
   line-height: 1;
   letter-spacing: 0;
+  overflow: hidden;
   place-items: center;
   text-shadow: none;
+}
+
+.game-root[data-system-overlay] .qua-ui-panel-close .qua-ui-action-label {
+  display: none;
 }
 
 .game-root[data-system-overlay] .qua-gallery-close::before,
@@ -153,10 +159,18 @@
 .game-root[data-system-overlay] .vn-settings-close::before,
 .game-root[data-system-overlay] .qua-achievement-close::before,
 .game-root[data-system-overlay] .qua-ui-panel-close::before {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  align-items: center;
   content: "×";
+  justify-items: center;
   font-size: 30px;
   font-weight: 500;
   line-height: 1;
+  transform: translateY(-1px);
 }
 
 .game-root[data-system-overlay] .qua-gallery-close:hover,

@@ -201,8 +201,12 @@ export async function createQuaGameApp() {
       ...DEMO_OVERLAY_PLACEMENTS.gameMenu,
       title: 'MENU',
       subtitle: `${GAME_TITLE} / CH ${hud.value.chapter} / ${hud.value.route}`,
-      showHeaderTitle: false,
-      scene: createUiScene('game:menu', 'overlay', 'game-modal', DEMO_OVERLAY_PLACEMENTS.gameMenu),
+      scene: createUiScene('game:menu', 'overlay', 'game-modal', {
+        ...DEMO_OVERLAY_PLACEMENTS.gameMenu,
+        defaultChrome: true,
+        hideDialogue: false,
+        hideHud: true,
+      }),
       replaceOnOpen: true,
       showBacklog: false,
       showFlowControls: false,
@@ -228,21 +232,6 @@ export async function createQuaGameApp() {
       ...DEMO_OVERLAY_PLACEMENTS.backlog,
       source: 'quick-menu',
       scene: createUiScene('game:backlog', 'overlay', 'game-modal', DEMO_OVERLAY_PLACEMENTS.backlog),
-    })
-  }
-  const openGallery = async () => {
-    await stopAutoForHudInteraction()
-    galleryOpenedFromMainMenu.value = false
-    showStoryTree.value = false
-    showMainMenu.value = false
-    await closePanels()
-    await gallery.openScene({
-      ...DEMO_OVERLAY_PLACEMENTS.gallery,
-      catalogId: DEMO_GALLERY_CATALOG_ID,
-      reason: 'quick-menu',
-      filter: {
-        unlockedOnly: false,
-      },
     })
   }
   const openMainMenuOverlay = async (elementId: string, config: Record<string, unknown> = {}) => {
@@ -279,7 +268,6 @@ export async function createQuaGameApp() {
     source: 'main-menu',
     slotCount: SAVE_LOAD_SLOT_COUNT,
     showQuickActions: false,
-    showHeaderTitle: false,
     scene: createUiScene('system:load', 'scene', 'main-menu', DEMO_OVERLAY_PLACEMENTS.saveLoad),
   })
   const returnToTitleMenu = async () => {
@@ -400,6 +388,7 @@ export async function createQuaGameApp() {
         'data-route': hud.value.route,
         'data-signal': hud.value.signal,
         'data-ui-scene-id': activeUiScene.value?.id,
+        'data-ui-scene-hide-dialogue': activeUiScene.value?.overlay?.hideDialogue ? 'true' : undefined,
         'data-main-menu': showMainMenu.value ? 'true' : undefined,
         'data-system-overlay': systemOverlayMode.value,
         'data-title-surface': titleSurfaceActive.value ? 'true' : undefined,
@@ -448,11 +437,6 @@ export async function createQuaGameApp() {
               }, 'LOG'),
               h('button', {
                 type: 'button',
-                title: 'CG Gallery',
-                onClick: openGallery,
-              }, 'CG'),
-              h('button', {
-                type: 'button',
                 title: 'Menu',
                 onClick: openGameMenu,
               }, 'MENU'),
@@ -492,6 +476,10 @@ export async function createQuaGameApp() {
                   }, 'START'),
                   h('button', {
                     type: 'button',
+                    onClick: openMainMenuLoad,
+                  }, 'LOAD'),
+                  h('button', {
+                    type: 'button',
                     onClick: () => {
                       syncStoryTreeProjection()
                       showStoryTree.value = true
@@ -502,10 +490,6 @@ export async function createQuaGameApp() {
                     type: 'button',
                     onClick: openMainMenuGallery,
                   }, 'GALLERY'),
-                  h('button', {
-                    type: 'button',
-                    onClick: openMainMenuLoad,
-                  }, 'LOAD'),
                   h('button', {
                     type: 'button',
                     onClick: openMainMenuSettings,

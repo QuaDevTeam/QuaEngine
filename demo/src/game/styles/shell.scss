@@ -1,4 +1,11 @@
 .game-root {
+  --vn-dialogue-bottom: 5%;
+  --vn-dialogue-inset-x: 5%;
+  --vn-dialogue-min-height: 132px;
+  --vn-dialogue-padding-x: 28px;
+  --vn-dialogue-padding-y: 22px;
+  --vn-dialogue-toolbar-offset: calc(12.25dvh + 8px);
+
   position: relative;
   width: 100%;
   height: 100%;
@@ -6,6 +13,14 @@
   background:
     radial-gradient(circle at 50% 45%, rgba(37, 54, 76, 0.24), transparent 54%),
     #050507;
+}
+
+.game-root .qua-dialogue-box {
+  left: var(--vn-dialogue-inset-x);
+  right: var(--vn-dialogue-inset-x);
+  bottom: var(--vn-dialogue-bottom);
+  min-height: var(--vn-dialogue-min-height);
+  padding: var(--vn-dialogue-padding-y) var(--vn-dialogue-padding-x);
 }
 
 .game-root,
@@ -115,10 +130,17 @@
   opacity: 1;
 }
 
-.game-root[data-system-overlay] .qua-dialogue-box,
-.game-root[data-system-overlay] .qua-choice-panel {
+.game-root[data-system-overlay] .qua-choice-panel,
+.game-root[data-system-overlay="main"] .qua-dialogue-box,
+.game-root[data-ui-scene-hide-dialogue="true"] .qua-dialogue-box {
   visibility: hidden;
   opacity: 0;
+  pointer-events: none;
+}
+
+.game-root[data-system-overlay="game"]:not([data-ui-scene-hide-dialogue="true"]) .qua-dialogue-box {
+  visibility: visible;
+  opacity: 1;
   pointer-events: none;
 }
 
@@ -278,8 +300,8 @@
 
 .vn-quick-menu {
   position: absolute;
-  right: 5%;
-  bottom: calc(5% + 148px);
+  right: var(--vn-dialogue-inset-x);
+  bottom: calc(var(--vn-dialogue-bottom) + var(--vn-dialogue-toolbar-offset));
   z-index: 36;
   display: flex;
   align-items: center;

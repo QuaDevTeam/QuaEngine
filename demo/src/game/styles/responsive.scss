@@ -1,4 +1,12 @@
 @media (max-width: 760px) {
+  .game-root {
+    --vn-dialogue-inset-x: 12px;
+    --vn-dialogue-min-height: 124px;
+    --vn-dialogue-padding-x: 18px;
+    --vn-dialogue-padding-y: 18px;
+    --vn-dialogue-toolbar-offset: calc(11.5dvh + 6px);
+  }
+
   .vn-title-plate {
     top: 16px;
     left: 18px;
@@ -13,9 +21,9 @@
   }
 
   .vn-quick-menu {
-    right: 12px;
-    left: 12px;
-    bottom: calc(5% + 136px);
+    right: var(--vn-dialogue-inset-x);
+    left: var(--vn-dialogue-inset-x);
+    bottom: calc(var(--vn-dialogue-bottom) + var(--vn-dialogue-toolbar-offset));
     justify-content: center;
     flex-wrap: wrap;
   }
