@@ -4183,6 +4183,33 @@ describe('quaEngine runtime architecture', () => {
     expect(getUiOverlayHostProjection(engine)).toBeUndefined()
   })
 
+  it('preserves render-only overlay projection data through the generic UI path', async () => {
+    const engine = createEngine()
+    engine.use(new UiOverlayPlugin())
+    await engine.init()
+
+    await engine.showUI('rain', {
+      renderMode: 'render-only',
+      interactive: false,
+      surface: {
+        key: 'fx/rain-canvas',
+        props: { density: 0.7 },
+      },
+      zIndex: 120,
+    })
+
+    expect(engine.getViewState().ui.overlays?.rain).toEqual({
+      renderMode: 'render-only',
+      interactive: false,
+      surface: {
+        key: 'fx/rain-canvas',
+        props: { density: 0.7 },
+      },
+      zIndex: 120,
+    })
+    expect(getUiOverlayHostProjection(engine)?.sources).toEqual(['ui:rain'])
+  })
+
   it('handles renderer save and load intents through engine-owned slot APIs', async () => {
     const engine = createEngine()
     await engine.init()

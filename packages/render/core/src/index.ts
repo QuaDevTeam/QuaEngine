@@ -428,6 +428,7 @@ export interface ViewUiSceneHostProjection {
 }
 
 export type ViewUiScenePresentation = 'overlay' | 'scene'
+export type ViewUiOverlayRenderMode = 'ui' | 'render-only'
 
 export type BuiltinOverlayStack = 'hud' | 'overlay' | 'modal' | 'toast'
 
@@ -501,8 +502,16 @@ export interface ViewUiSceneProjection extends Readonly<Record<string, unknown>>
   overlay?: Readonly<ViewUiSceneOverlayProjection>
 }
 
+export interface ViewUiOverlaySurfaceProjection extends Readonly<Record<string, unknown>> {
+  key: string
+  props?: Readonly<Record<string, unknown>>
+}
+
 export interface ViewUiOverlayProjection extends Readonly<Record<string, unknown>>, ViewOverlayStackPlacement {
   skinId?: string
+  renderMode?: ViewUiOverlayRenderMode
+  interactive?: boolean
+  surface?: Readonly<ViewUiOverlaySurfaceProjection>
   scene?: Readonly<ViewUiSceneProjection>
 }
 
@@ -662,6 +671,32 @@ export function compareResolvedOverlayStackPlacement(
     return zIndex
   }
   return leftId.localeCompare(rightId)
+}
+
+export function uiOverlayRenderMode(overlay: Readonly<ViewUiOverlayProjection> | undefined): ViewUiOverlayRenderMode {
+  return overlay?.renderMode === 'render-only' ? 'render-only' : 'ui'
+}
+
+export function uiOverlayIsRenderOnly(overlay: Readonly<ViewUiOverlayProjection> | undefined): boolean {
+  return uiOverlayRenderMode(overlay) === 'render-only'
+}
+
+export function uiOverlayIsInteractive(overlay: Readonly<ViewUiOverlayProjection> | undefined): boolean {
+  if (typeof overlay?.interactive === 'boolean') {
+    return overlay.interactive
+  }
+  return !uiOverlayIsRenderOnly(overlay)
+}
+
+export function getUiOverlaySurfaceProjection(
+  overlay: Readonly<ViewUiOverlayProjection> | undefined,
+): Readonly<ViewUiOverlaySurfaceProjection> | undefined {
+  const surface = overlay?.surface
+  if (!surface || typeof surface !== 'object' || Array.isArray(surface)) {
+    return undefined
+  }
+  const key = typeof surface.key === 'string' ? surface.key.trim() : ''
+  return key ? surface : undefined
 }
 
 export function uiSceneAllowsDefaultChrome(scene: Readonly<ViewUiSceneProjection> | undefined): boolean {
