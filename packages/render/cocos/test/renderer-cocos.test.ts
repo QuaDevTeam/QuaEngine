@@ -518,6 +518,54 @@ describe('@quajs/renderer-cocos', () => {
     expect(pluginEvents).toEqual([{ ok: true }])
   })
 
+  it('renders registered native render-only overlay surfaces without UI controls', async () => {
+    const host = createFakeCocosHost()
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      initialView: createView({
+        uiOverlays: {
+          rain: {
+            renderMode: 'render-only',
+            interactive: false,
+            surface: {
+              key: 'fx/rain-canvas',
+              props: { density: 0.7 },
+            },
+            zIndex: 120,
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({
+        input: false,
+        ui: {
+          renderOnlySurfaces: {
+            'fx/rain-canvas': ({ context, parentNode, surface }) => {
+              const canvas = context.host.nodes.createNode('rain-canvas', { parent: parentNode, name: 'rain:canvas' })
+              context.host.nodes.setNodeMetadata?.(canvas, {
+                density: surface.props?.density,
+              })
+            },
+          },
+        },
+      }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    const overlay = findNode(host, 'rain')
+    const canvas = findNode(host, 'rain:canvas')
+    expect(overlay?.kind).toBe('ui-render-only-overlay')
+    expect(overlay?.control).toBeUndefined()
+    expect(overlay?.metadata.renderMode).toBe('render-only')
+    expect(overlay?.metadata.interactive).toBe(false)
+    expect(overlay?.transform.width).toBe(renderer.getSnapshot().stageLayout.logicalWidth)
+    expect(overlay?.transform.height).toBe(renderer.getSnapshot().stageLayout.logicalHeight)
+    expect(canvas?.metadata.density).toBe(0.7)
+    expect(findNode(host, 'rain:title')).toBeUndefined()
+    expect(findNode(host, 'rain:close')).toBeUndefined()
+  })
+
   it('renders settings form controls and dispatches settings intents', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()

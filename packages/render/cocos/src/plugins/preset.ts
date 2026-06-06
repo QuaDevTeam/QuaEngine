@@ -1,6 +1,7 @@
 import type { RendererPlugin } from '@quajs/render-core'
 import type { CocosRendererPlugin } from '../types'
 import type { InputCocosRendererPluginOptions } from './input'
+import type { UiCocosRendererPluginOptions } from './ui'
 import { createAchievementCocosRendererPlugin } from './achievement'
 import { createAudioCocosRendererPlugin } from './audio'
 import { createBackgroundCocosRendererPlugin } from './background'
@@ -20,6 +21,7 @@ import { createUiCocosRendererPlugin } from './ui'
 
 export interface VisualNovelCocosRendererPresetOptions {
   input?: false | InputCocosRendererPluginOptions
+  ui?: false | UiCocosRendererPluginOptions
 }
 
 export function createVisualNovelCocosRendererPlugins(
@@ -36,11 +38,25 @@ export function createVisualNovelCocosRendererPlugins(
     createChoicesCocosRendererPlugin(),
     createAudioCocosRendererPlugin(),
     createSceneCocosRendererPlugin(),
-    createUiCocosRendererPlugin({ handledElementIds: ['settings'] }),
+    ...(options.ui === false ? [] : [createUiCocosRendererPlugin(createPresetUiOptions(options.ui))]),
     createSettingsCocosRendererPlugin(),
     createBacklogCocosRendererPlugin(),
     createGalleryCocosRendererPlugin(),
     createAchievementCocosRendererPlugin(),
     createSavePreviewCocosRendererPlugin(),
   ]
+}
+
+function createPresetUiOptions(options: UiCocosRendererPluginOptions | undefined): UiCocosRendererPluginOptions {
+  return {
+    ...(options || {}),
+    handledElementIds: mergeHandledElementIds(['settings'], options?.handledElementIds),
+  }
+}
+
+function mergeHandledElementIds(
+  defaults: readonly string[],
+  configured: readonly string[] | undefined,
+): string[] {
+  return [...new Set([...defaults, ...(configured || [])])]
 }

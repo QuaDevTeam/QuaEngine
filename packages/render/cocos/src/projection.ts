@@ -12,6 +12,8 @@ import type {
   ViewCharacterProjection,
   ViewDialogueProjection,
   ViewEffectProjection,
+  ViewUiOverlayProjection,
+  ViewUiOverlaySurfaceProjection,
 } from '@quajs/render-core'
 import type { CocosDialogueTypewriterProjectResult } from './dialogue-typewriter'
 import type { CocosRendererHostContext } from './types'
@@ -19,6 +21,7 @@ import { resolveSpriteProjection, resolveSpriteReference } from '@quajs/plugin-s
 import {
   applyTrackValues,
   collectTrackValues,
+  getUiOverlaySurfaceProjection,
   isRichTextDocument,
   projectAudioProjection,
   projectBackground,
@@ -31,6 +34,8 @@ import {
   resolveUiChoiceSkinReference,
   resolveUiOverlaySkinReference,
   resolveActiveUiSceneProjection,
+  uiOverlayIsInteractive,
+  uiOverlayIsRenderOnly,
   viewAllowsDialogueChrome,
 } from '@quajs/render-core'
 import { applyCocosUiControlSkin } from './ui-skin'
@@ -65,7 +70,21 @@ export interface RenderCocosCharactersOptions {
 
 export interface RenderCocosUiOptions {
   handledElementIds?: readonly string[]
+  renderOnlySurfaces?: Readonly<Record<string, CocosRenderOnlyOverlaySurfaceFactory>>
 }
+
+export interface CocosRenderOnlyOverlaySurfaceContext {
+  elementId: string
+  overlay: Readonly<ViewUiOverlayProjection>
+  surface: Readonly<ViewUiOverlaySurfaceProjection>
+  projected: Readonly<Record<string, unknown>>
+  context: CocosRendererHostContext
+  parentNode: CocosHostNode
+}
+
+export type CocosRenderOnlyOverlaySurfaceFactory = (
+  context: CocosRenderOnlyOverlaySurfaceContext,
+) => void | Promise<void>
 
 export async function renderCocosBackground(context: CocosRendererHostContext): Promise<void> {
   const layer = context.getLayerNode('background', 'background-layer', 10)
@@ -288,6 +307,10 @@ export async function renderCocosUi(context: CocosRendererHostContext, options: 
       context.getViewState().animations,
       context.host.runtime.now(),
     )
+    if (uiOverlayIsRenderOnly(overlay)) {
+      await renderCocosRenderOnlyOverlay(context, options, layer, elementId, overlay, projected)
+      continue
+    }
     const node = context.host.nodes.createNode('ui-overlay', { parent: layer, name: elementId })
     context.host.nodes.setNodeVisible(node, projected.visible !== false)
     context.host.nodes.setNodeTransform(node, {
@@ -311,6 +334,67 @@ export async function renderCocosUi(context: CocosRendererHostContext, options: 
       skinId: resolveUiOverlaySkinReference(context.getViewState(), overlay),
     })
     await renderUiOverlayContent(context, node, elementId, projected, overlay)
+  }
+}
+
+async function renderCocosRenderOnlyOverlay(
+  context: CocosRendererHostContext,
+  options: RenderCocosUiOptions,
+  parent: CocosHostNode,
+  elementId: string,
+  overlay: ViewUiOverlayProjection,
+  projected: Record<string, unknown>,
+): Promise<void> {
+  const node = context.host.nodes.createNode('ui-render-only-overlay', { parent, name: elementId })
+  context.host.nodes.setNodeVisible(node, projected.visible !== false)
+  context.host.nodes.setNodeTransform(node, {
+    ...renderOnlyOverlayTransform(context, projected),
+    zIndex: resolveCocosUiOverlayZIndex(overlay, defaultCocosUiOverlayPlacement(elementId)),
+  })
+  const surface = getUiOverlaySurfaceProjection(overlay)
+  const surfaceKey = surface?.key.trim()
+  context.host.nodes.setNodeMetadata?.(node, {
+    elementId,
+    overlay: projected,
+    overlayPlacement: resolveCocosUiOverlayPlacement(overlay, defaultCocosUiOverlayPlacement(elementId)),
+    renderMode: 'render-only',
+    interactive: uiOverlayIsInteractive(overlay),
+    surface,
+  })
+
+  const renderSurface = surfaceKey ? options.renderOnlySurfaces?.[surfaceKey] : undefined
+  if (!surface || !surfaceKey || !renderSurface) {
+    context.reportWarning(surfaceKey
+      ? `Render-only overlay surface "${surfaceKey}" is not registered for Cocos.`
+      : `Render-only overlay "${elementId}" is missing surface.key.`, {
+      elementId,
+      surfaceKey,
+    })
+    return
+  }
+
+  await renderSurface({
+    elementId,
+    overlay,
+    surface,
+    projected,
+    context,
+    parentNode: node,
+  })
+}
+
+function renderOnlyOverlayTransform(context: CocosRendererHostContext, projected: Record<string, unknown>): CocosHostTransform {
+  const layout = context.getStageLayout()
+  return {
+    x: numberValue(projected.x, 0),
+    y: numberValue(projected.y, 0),
+    width: numericDimension(projected.width as number | string | undefined) ?? layout.logicalWidth,
+    height: numericDimension(projected.height as number | string | undefined) ?? layout.logicalHeight,
+    scaleX: numberValue(projected.scaleX, numberValue(projected.scale, undefined)),
+    scaleY: numberValue(projected.scaleY, numberValue(projected.scale, undefined)),
+    rotation: numberValue(projected.rotation, undefined),
+    opacity: numberValue(projected.opacity, 1),
+    zIndex: numberValue(projected.zIndex, 0),
   }
 }
 
