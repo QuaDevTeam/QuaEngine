@@ -802,6 +802,62 @@ describe('@quajs/renderer-vue', () => {
     expect(host.el.textContent).not.toContain('Yes')
   })
 
+  it('renders registered render-only overlay components without default UI chrome', async () => {
+    const pipeline = new Pipeline()
+    const RainCanvasOverlay = defineComponent({
+      name: 'RainCanvasOverlay',
+      props: {
+        elementId: String,
+        surface: Object as any,
+      },
+      setup(props) {
+        return () => h('canvas', {
+          class: 'rain-canvas',
+          'data-overlay': props.elementId,
+          'data-density': String((props.surface as any)?.props?.density),
+        })
+      },
+    })
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins({
+        ui: {
+          renderOnlySurfaces: {
+            'fx/rain-canvas': RainCanvasOverlay,
+          },
+        },
+      }),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            rain: {
+              renderMode: 'render-only',
+              interactive: false,
+              surface: {
+                key: 'fx/rain-canvas',
+                props: { density: 0.7 },
+              },
+              zIndex: 120,
+            },
+          },
+        },
+      }),
+    })
+
+    await flushVue()
+
+    const layer = host.el.querySelector<HTMLElement>('.qua-overlay-layer')!
+    const overlay = host.el.querySelector<HTMLElement>('.qua-ui-overlay--render-only')!
+    expect(host.el.querySelector<HTMLCanvasElement>('.rain-canvas')?.dataset.density).toBe('0.7')
+    expect(host.el.querySelector('.qua-ui-panel-header')).toBeNull()
+    expect(overlay.dataset.overlay).toBe('rain')
+    expect(overlay.dataset.overlayRenderMode).toBe('render-only')
+    expect(overlay.dataset.overlaySurfaceKey).toBe('fx/rain-canvas')
+    expect(layer.getAttribute('style')).toContain('pointer-events: none')
+    expect(overlay.getAttribute('style')).toContain('pointer-events: none')
+  })
+
   it('does not turn nested renderer or plugin UI clicks into duplicate advance intents', async () => {
     const pipeline = new Pipeline()
     const advances: Array<{ source?: string }> = []

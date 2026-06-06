@@ -1,12 +1,23 @@
-import type { ResolveOverlayStackPlacementOptions, ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/render-core'
+import type { ResolveOverlayStackPlacementOptions, ViewUiOverlayProjection, ViewUiOverlaySurfaceProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { SaveSlotDataSource } from '@quajs/renderer-web/save-preview'
-import type { PropType, VNode } from 'vue'
+import type { Component, PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
-import { compareResolvedOverlayStackPlacement, DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents, onLogicToRender, resolveActiveUiSceneProjection, resolveUiOverlayStackPlacement } from '@quajs/render-core'
+import {
+  compareResolvedOverlayStackPlacement,
+  DEFAULT_UI_OVERLAY_Z_INDEXES,
+  getUiOverlaySurfaceProjection,
+  LogicToRenderEvents,
+  onLogicToRender,
+  resolveActiveUiSceneProjection,
+  resolveUiOverlayStackPlacement,
+  uiOverlayIsInteractive,
+  uiOverlayIsRenderOnly,
+} from '@quajs/render-core'
+import { motionProjectionVars, projectUiOverlay } from '@quajs/renderer-web'
 import { uiSceneDataAttributes } from '@quajs/renderer-web/plugins/shared'
 import { WebSaveSlotPreviewCache } from '@quajs/renderer-web/save-preview'
 import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from 'vue'
-import { useAudio, useFlowControl, useRendererActions, useUiControlSkin } from '../../composables'
+import { useAnimationClock, useAudio, useFlowControl, useRendererActions, useUiControlSkin } from '../../composables'
 import { useQuaRenderer } from '../../context'
 import { defineVueRendererPlugin } from '../core'
 import { dispatchVueRendererIntent } from '../shared/intent'
@@ -119,6 +130,18 @@ export interface QuaUiOverlayProps {
   elementId?: string
   className?: string
   overlay?: ViewUiOverlayProjection
+}
+
+export interface QuaRenderOnlyOverlayProps extends QuaUiOverlayProps {
+  renderOnlySurfaces?: UiVueRenderOnlySurfaceRegistry
+}
+
+export type UiVueRenderOnlySurfaceComponent = Component
+export type UiVueRenderOnlySurfaceRegistry = Readonly<Record<string, UiVueRenderOnlySurfaceComponent>>
+
+export interface UiVueRendererPluginOptions {
+  handledElementIds?: readonly string[]
+  renderOnlySurfaces?: UiVueRenderOnlySurfaceRegistry
 }
 
 export interface QuaStoryTreeNode {
@@ -399,6 +422,94 @@ export const QuaUiOverlay = defineComponent({
           actions,
         }) || renderGenericOverlayContent(props.elementId, config.value, actions))
       : null
+  },
+})
+
+export const QuaRenderOnlyOverlay = defineComponent({
+  name: 'QuaRenderOnlyOverlay',
+  props: {
+    elementId: {
+      type: String,
+      default: 'overlay',
+    },
+    className: {
+      type: String,
+      default: '',
+    },
+    overlay: Object as PropType<ViewUiOverlayProjection>,
+    renderOnlySurfaces: Object as PropType<UiVueRenderOnlySurfaceRegistry>,
+  },
+  setup(props) {
+    const renderer = useQuaRenderer()
+    const { view } = renderer
+    const actions = useRendererActions()
+    const animationNow = useAnimationClock()
+    const warnedMissingSurfaces = new Set<string>()
+    const config = computed<ViewUiOverlayProjection | undefined>(() =>
+      (props.overlay || view.value.ui.overlays?.[props.elementId]) as ViewUiOverlayProjection | undefined,
+    )
+    const projected = computed(() => config.value
+      ? projectUiOverlay(config.value, props.elementId, view.value.animations, animationNow.value)
+      : undefined)
+    const surface = computed(() => getUiOverlaySurfaceProjection(config.value))
+    const surfaceKey = computed(() => surface.value?.key.trim())
+    const surfaceComponent = computed(() => surfaceKey.value
+      ? props.renderOnlySurfaces?.[surfaceKey.value]
+      : undefined)
+    const overlayStack = computed(() => createUiOverlayStackBinding(config.value, defaultUiOverlayPlacement(props.elementId)))
+
+    watch([config, surfaceKey, surfaceComponent], () => {
+      if (!config.value || surfaceComponent.value) {
+        return
+      }
+      const warningKey = `${props.elementId}:${surfaceKey.value || '<missing>'}`
+      if (warnedMissingSurfaces.has(warningKey)) {
+        return
+      }
+      warnedMissingSurfaces.add(warningKey)
+      void renderer.web.reportError(new Error('Render-only overlay surface renderer is not registered.'), {
+        message: surfaceKey.value
+          ? `Render-only overlay surface "${surfaceKey.value}" is not registered.`
+          : `Render-only overlay "${props.elementId}" is missing surface.key.`,
+        phase: 'ui-render-only-surface:resolve',
+        pluginName: '@quajs/renderer-vue/ui',
+        severity: 'warning',
+        recoverable: true,
+        metadata: { elementId: props.elementId, surfaceKey: surfaceKey.value },
+      })
+    }, { immediate: true })
+
+    return () => {
+      if (!config.value || !projected.value) {
+        return null
+      }
+      const component = surfaceComponent.value
+      const rootProps = {
+        'class': ['qua-ui-overlay', 'qua-ui-overlay--render-only', props.className],
+        'data-overlay': props.elementId,
+        'data-overlay-render-mode': 'render-only',
+        'data-overlay-surface-key': surfaceKey.value,
+        'data-qua-capture-role': 'overlay',
+        ...overlayStack.value.attrs,
+        'style': {
+          position: 'absolute',
+          inset: '0',
+          ...overlayStack.value.style,
+          ...motionProjectionVars(projected.value, '--qua-ui'),
+          pointerEvents: uiOverlayIsInteractive(config.value) ? 'auto' : 'none',
+        },
+      }
+      return h('div', rootProps, component
+        ? h(component, {
+            elementId: props.elementId,
+            overlay: config.value,
+            surface: surface.value as Readonly<ViewUiOverlaySurfaceProjection>,
+            projected: projected.value,
+            view: view.value,
+            actions,
+          })
+        : undefined)
+    }
   },
 })
 
@@ -865,6 +976,11 @@ export const QuaOverlayLayer = defineComponent({
       type: String,
       default: '',
     },
+    handledElementIds: {
+      type: Array as PropType<readonly string[]>,
+      default: () => [],
+    },
+    renderOnlySurfaces: Object as PropType<UiVueRenderOnlySurfaceRegistry>,
   },
   setup(props) {
     const { view, rendererLayerIds } = useQuaRenderer()
@@ -882,10 +998,11 @@ export const QuaOverlayLayer = defineComponent({
     const hasDedicatedSettingsRenderer = computed(() =>
       rendererLayerIds.value.includes(SETTINGS_RENDERER_LAYER_ID),
     )
+    const handledElementIds = computed(() => new Set(props.handledElementIds || []))
 
-    watch([overlays, hasDedicatedSettingsRenderer], ([nextOverlays, dedicatedSettings]) => {
+    watch([overlays, hasDedicatedSettingsRenderer, handledElementIds], ([nextOverlays, dedicatedSettings, handled]) => {
       const nextIds = Object.keys(nextOverlays)
-        .filter(elementId => shouldRenderOverlayInGenericLayer(elementId, dedicatedSettings))
+        .filter(elementId => shouldRenderOverlayInGenericLayer(elementId, dedicatedSettings, handled))
       const nextIdSet = new Set(nextIds)
       const byId = new Map(renderedOverlays.value.map(item => [item.elementId, item]))
 
@@ -941,16 +1058,19 @@ export const QuaOverlayLayer = defineComponent({
           'data-qua-capture-role': 'overlay',
           ...overlayStack.value.attrs,
           ...uiSceneDataAttributes(activeScene.value),
-          'style': { pointerEvents: 'auto', ...overlayStack.value.style },
+          'style': {
+            pointerEvents: sortedRenderedOverlays.value.some(item => uiOverlayIsInteractive(item.overlay)) ? 'auto' : 'none',
+            ...overlayStack.value.style,
+          },
           'onClick': (event: Event) => event.stopPropagation(),
         }, [
-          ...sortedRenderedOverlays.value.map(item => renderOverlayPresence(item)),
+          ...sortedRenderedOverlays.value.map(item => renderOverlayPresence(item, props.renderOnlySurfaces)),
         ])
       : null
   },
 })
 
-export function createUiRendererPlugin(): QuaVueRendererPlugin {
+export function createUiRendererPlugin(options: UiVueRendererPluginOptions = {}): QuaVueRendererPlugin {
   return defineVueRendererPlugin({
     name: '@quajs/renderer-vue/ui',
     setup() {},
@@ -960,6 +1080,10 @@ export function createUiRendererPlugin(): QuaVueRendererPlugin {
       component: QuaOverlayLayer,
       order: 90,
       plane: 'screen',
+      props: {
+        handledElementIds: options.handledElementIds || [],
+        renderOnlySurfaces: options.renderOnlySurfaces,
+      },
     }],
   })
 }
@@ -1036,11 +1160,20 @@ function renderSaveSlotContent(slot: SaveSlotProjection, index: number): VNode[]
   ]
 }
 
-function renderOverlayPresence(item: RenderedOverlayPresence): VNode {
+function renderOverlayPresence(
+  item: RenderedOverlayPresence,
+  renderOnlySurfaces: UiVueRenderOnlySurfaceRegistry | undefined,
+): VNode {
   const props = {
     key: `${item.elementId}:${item.phase}`,
     elementId: item.elementId,
     overlay: item.overlay,
+  }
+  if (uiOverlayIsRenderOnly(item.overlay)) {
+    return h(QuaRenderOnlyOverlay, {
+      ...props,
+      renderOnlySurfaces,
+    })
   }
   if (item.elementId === 'menu') {
     return h(QuaMenuOverlay, props)
@@ -1307,8 +1440,12 @@ function createSkinButtonHandlers(
   }
 }
 
-function shouldRenderOverlayInGenericLayer(elementId: string, hasDedicatedSettingsRenderer: boolean): boolean {
-  return elementId !== 'settings' || !hasDedicatedSettingsRenderer
+function shouldRenderOverlayInGenericLayer(
+  elementId: string,
+  hasDedicatedSettingsRenderer: boolean,
+  handledElementIds: ReadonlySet<string>,
+): boolean {
+  return !handledElementIds.has(elementId) && (elementId !== 'settings' || !hasDedicatedSettingsRenderer)
 }
 
 function compareOverlayPresence(left: RenderedOverlayPresence, right: RenderedOverlayPresence): number {

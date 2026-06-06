@@ -160,6 +160,32 @@ const pluginsWithoutInput = createVisualNovelRendererPlugins({ input: false })
 
 Pointer advance is filtered for buttons, form controls, choices, overlays, settings, backlog, and elements marked with `data-qua-input-ignore`. Pointer payload metadata is converted into logical stage coordinates by the shared Web renderer helpers.
 
+## Render-Only UI Overlays
+
+Vue apps can register render-only overlay components through the UI preset option. The engine projection stays serializable; the component is host-renderer code:
+
+```ts
+const RainCanvasOverlay = defineComponent({
+  props: ['elementId', 'overlay', 'surface', 'view'],
+  setup(props) {
+    return () => h('canvas', {
+      class: 'rain-canvas',
+      'data-overlay': props.elementId,
+    })
+  },
+})
+
+const plugins = createVisualNovelRendererPlugins({
+  ui: {
+    renderOnlySurfaces: {
+      'fx/rain-canvas': RainCanvasOverlay,
+    },
+  },
+})
+```
+
+Open the layer with `engine.showUI('rain', { renderMode: 'render-only', interactive: false, surface: { key: 'fx/rain-canvas' } })`. Unregistered keys warn and render an empty root rather than default panel chrome.
+
 ## Settings Forms
 
 `@quajs/renderer-vue/plugins/settings` renders the `@quajs/plugin-settings` projection as a schema-driven settings panel. It consumes `view.plugins.settings`, uses the projected JSON Schema plus UI hints to create controls, and emits `settings/update_request`, `settings/reset_scope_request`, and `settings/reset_all_request` through the shared pipeline. The default visual novel preset includes this plugin; open the generic `settings` overlay through the UI overlay flow to show it.
