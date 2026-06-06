@@ -461,8 +461,8 @@ class CocosInputController {
 
   private isWheelThrottled(binding: CocosRendererInputWheelBinding): boolean {
     const throttleMs = binding.throttleMs ?? 200
-    const last = this.lastWheelDispatch.get(binding.command) || 0
-    return this.context.cocos.host.runtime.now() - last < throttleMs
+    const last = this.lastWheelDispatch.get(binding.command)
+    return last !== undefined && this.context.cocos.host.runtime.now() - last < throttleMs
   }
 }
 
