@@ -117,6 +117,8 @@ const plugins = createVisualNovelRendererPlugins({
 })
 ```
 
+Render-only UI overlays can register React components through the `ui.renderOnlySurfaces` preset option. The engine opens them with `showUI()` using `renderMode: 'render-only'` and a serializable `surface.key`; the React component receives `elementId`, `overlay`, `surface`, `view`, and `actions`.
+
 ## Runtime Boundaries
 
 - Shared DOM layout, object URL handling, animation projection, and WebAudio behavior stay in `@quajs/renderer-web`.

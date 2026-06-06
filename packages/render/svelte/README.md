@@ -99,6 +99,8 @@ const plugins = createVisualNovelRendererPlugins({
 })
 ```
 
+Render-only UI overlays can register Svelte-style factories through the `ui.renderOnlySurfaces` preset option. The engine opens them with `showUI()` using `renderMode: 'render-only'` and a serializable `surface.key`; the factory receives the root `HTMLElement` plus projection context and can return a `destroy` cleanup.
+
 ## Runtime Boundaries
 
 - Shared DOM layout, object URL handling, animation projection, and WebAudio behavior stay in `@quajs/renderer-web`.

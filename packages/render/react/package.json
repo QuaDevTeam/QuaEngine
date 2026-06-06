@@ -128,7 +128,8 @@
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",
     "@quajs/renderer-web": "workspace:*",
-    "react": "catalog:"
+    "react": "catalog:",
+    "react-dom": "catalog:"
   },
   "peerDependenciesMeta": {
     "@quajs/plugin-achievement": {

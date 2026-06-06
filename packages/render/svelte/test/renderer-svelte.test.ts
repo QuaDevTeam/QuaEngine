@@ -176,6 +176,58 @@ describe('@quajs/renderer-svelte', () => {
     action.destroy?.()
   })
 
+  it('renders registered render-only overlay factories through the shared Web layer', async () => {
+    const pipeline = new Pipeline()
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    const action = quaRenderer(root, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins({
+        ui: {
+          renderOnlySurfaces: {
+            'fx/rain-canvas': (node, context) => {
+              const canvas = node.ownerDocument.createElement('canvas')
+              canvas.className = 'rain-canvas'
+              canvas.dataset.overlay = context.elementId
+              canvas.dataset.density = String(context.surface.props?.density)
+              node.append(canvas)
+            },
+          },
+        },
+      }),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            rain: {
+              renderMode: 'render-only',
+              interactive: false,
+              surface: {
+                key: 'fx/rain-canvas',
+                props: { density: 0.7 },
+              },
+              zIndex: 120,
+            },
+          },
+        },
+      }),
+    })
+    await flushDom()
+
+    const overlayLayer = root.querySelector<HTMLElement>('.qua-overlay-layer')!
+    const overlay = root.querySelector<HTMLElement>('.qua-ui-overlay--render-only')!
+    expect(root.querySelector<HTMLCanvasElement>('.rain-canvas')?.dataset.density).toBe('0.7')
+    expect(root.querySelector('.qua-ui-panel-header')).toBeNull()
+    expect(overlay.dataset.overlay).toBe('rain')
+    expect(overlay.dataset.overlayRenderMode).toBe('render-only')
+    expect(overlayLayer.style.pointerEvents).toBe('none')
+    expect(overlay.style.pointerEvents).toBe('none')
+
+    action.destroy?.()
+  })
+
   it('exports DOM feature plugin subentries and composes the Vue-aligned preset order', async () => {
     const modules = await Promise.all([
       import('../src/plugins/achievement'),
