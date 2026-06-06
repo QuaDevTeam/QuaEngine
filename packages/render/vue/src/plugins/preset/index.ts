@@ -1,6 +1,7 @@
 import type { CharacterVueRendererPluginOptions } from '../character'
 import type { QuaVueRendererPlugin } from '../core'
 import type { InputVueRendererPluginOptions } from '../input'
+import type { UiVueRendererPluginOptions } from '../ui'
 import { createAchievementRendererPlugin } from '../achievement'
 import { createAudioRendererPlugin } from '../audio'
 import { createBackgroundRendererPlugin } from '../background'
@@ -20,6 +21,7 @@ import { createUiRendererPlugin } from '../ui'
 export interface VisualNovelRendererPresetOptions {
   character?: false | CharacterVueRendererPluginOptions
   input?: false | InputVueRendererPluginOptions
+  ui?: false | UiVueRendererPluginOptions
 }
 
 export function createVisualNovelRendererPlugins(options: VisualNovelRendererPresetOptions = {}): QuaVueRendererPlugin[] {
@@ -34,7 +36,7 @@ export function createVisualNovelRendererPlugins(options: VisualNovelRendererPre
     createChoicesRendererPlugin(),
     createAudioRendererPlugin(),
     createSceneRendererPlugin(),
-    createUiRendererPlugin(),
+    ...(options.ui === false ? [] : [createUiRendererPlugin(options.ui || {})]),
     createSettingsRendererPlugin(),
     createBacklogRendererPlugin(),
     createGalleryRendererPlugin(),
