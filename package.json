@@ -50,6 +50,7 @@
     "clean": "turbo clean && rm -rf node_modules/.cache/turbo"
   },
   "workspaces": [
+    "ai/*",
     "packages/build/*",
     "packages/core/*",
     "packages/game/*",
