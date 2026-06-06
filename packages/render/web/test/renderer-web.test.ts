@@ -403,6 +403,59 @@ describe('@quajs/renderer-web', () => {
     await renderer.unmount()
   })
 
+  it('renders registered render-only overlay surfaces without default UI chrome', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins({
+        ui: {
+          renderOnlySurfaces: {
+            'fx/rain-canvas': ({ document, surface }) => {
+              const canvas = document.createElement('canvas')
+              canvas.className = 'rain-canvas'
+              canvas.dataset.density = String(surface.props?.density)
+              return canvas
+            },
+          },
+        },
+      }),
+      initialView: view({
+        ui: {
+          visible: true,
+          overlays: {
+            rain: {
+              renderMode: 'render-only',
+              interactive: false,
+              surface: {
+                key: 'fx/rain-canvas',
+                props: { density: 0.7 },
+              },
+              zIndex: 120,
+            },
+          },
+        },
+      }),
+    })
+
+    await renderer.mount()
+
+    const overlayLayer = root.querySelector<HTMLElement>('.qua-overlay-layer')!
+    const overlay = root.querySelector<HTMLElement>('.qua-ui-overlay--render-only')!
+    expect(root.querySelector<HTMLCanvasElement>('.rain-canvas')?.dataset.density).toBe('0.7')
+    expect(root.querySelector('.qua-ui-panel-header')).toBeNull()
+    expect(overlay.dataset.overlay).toBe('rain')
+    expect(overlay.dataset.overlayRenderMode).toBe('render-only')
+    expect(overlay.dataset.overlaySurfaceKey).toBe('fx/rain-canvas')
+    expect(overlayLayer.style.pointerEvents).toBe('none')
+    expect(overlay.style.pointerEvents).toBe('none')
+
+    await renderer.unmount()
+  })
+
   it('rerenders native DOM layout when the mobile visual viewport changes', async () => {
     const visualViewport = new EventTarget()
     Object.defineProperty(window, 'visualViewport', {
