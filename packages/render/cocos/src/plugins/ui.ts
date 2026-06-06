@@ -1,11 +1,10 @@
 import type { CocosRendererPluginContext } from '../types'
+import type { RenderCocosUiOptions } from '../projection'
 import { clientPointToStageLogical, LogicToRenderEvents } from '@quajs/render-core'
 import { renderCocosUi } from '../projection'
 import { defineCocosRendererPlugin } from './core'
 
-export interface UiCocosRendererPluginOptions {
-  handledElementIds?: readonly string[]
-}
+export interface UiCocosRendererPluginOptions extends RenderCocosUiOptions {}
 
 export function createUiCocosRendererPlugin(options: UiCocosRendererPluginOptions = {}) {
   return defineCocosRendererPlugin({

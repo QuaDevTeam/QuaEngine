@@ -24,6 +24,11 @@ export {
   renderCocosUi,
 } from './projection'
 export type {
+  CocosRenderOnlyOverlaySurfaceContext,
+  CocosRenderOnlyOverlaySurfaceFactory,
+  RenderCocosUiOptions,
+} from './projection'
+export type {
   CocosRendererHostContext,
   CocosRendererPlugin,
   CocosRendererPluginContext,
