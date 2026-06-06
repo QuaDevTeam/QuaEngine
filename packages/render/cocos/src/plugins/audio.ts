@@ -32,8 +32,8 @@ export function createAudioCocosRendererPlugin() {
           sync()
         })
       }
-      if (!context.cocos.host.capabilities?.audioEq) {
-        context.cocos.reportWarning('Cocos host does not expose audio EQ/DSP capability; audio projection will skip EQ controls.', {
+      if (!context.cocos.host.audio.setBusEq) {
+        context.cocos.reportWarning('Cocos host does not expose audio bus EQ capability; bus EQ projection will skip EQ controls.', {
           pluginName: '@quajs/renderer-cocos/audio',
         })
       }

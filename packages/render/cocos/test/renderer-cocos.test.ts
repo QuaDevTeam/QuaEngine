@@ -18,6 +18,7 @@ import {
 import { describe, expect, it } from 'vitest'
 import { QuaCocosRendererController } from '../src'
 import { CocosDialogueTypewriterRuntime } from '../src/dialogue-typewriter'
+import { createInputCocosRendererPlugin } from '../src/plugins/input'
 import { createVisualNovelCocosRendererPlugins } from '../src/plugins/preset'
 import { createSavePreviewCocosRendererPlugin } from '../src/plugins/save-preview'
 
@@ -127,6 +128,32 @@ describe('@quajs/renderer-cocos', () => {
     ])
     expect(autoStarts).toEqual([{ source: 'cocos:keyboard:KeyA' }])
     expect(choices).toEqual([{ choiceId: 'a' }])
+  })
+
+  it('dispatches the first Cocos wheel command when runtime time starts at zero', async () => {
+    const host = createFakeCocosHost({ now: () => 0 })
+    const pipeline = new Pipeline()
+    const commands: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_INPUT_COMMAND, context => commands.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: createView(),
+      plugins: [createInputCocosRendererPlugin({
+        includeDefaultBindings: false,
+        bindings: [{ source: 'wheel', command: 'advance' }],
+      })],
+    })
+    await renderer.start()
+
+    await host.emitInput({ kind: 'pointer', phase: 'wheel', metadata: { deltaY: 1 } })
+
+    expect(commands).toMatchObject([{
+      command: 'advance',
+      device: 'wheel',
+      source: 'cocos:wheel:down',
+      timestamp: 0,
+    }])
   })
 
   it('does not render or activate default dialogue and choices for no-default-chrome UI scenes', async () => {
@@ -1112,6 +1139,8 @@ describe('@quajs/renderer-cocos', () => {
 
   it('uses optional Cocos audio methods even when capabilities are not declared', async () => {
     const host = createFakeCocosHost()
+    const warnings: unknown[] = []
+    host.runtime.warn = (message, metadata) => warnings.push({ message, metadata })
     host.capabilities = {
       ...host.capabilities,
       audioEq: false,
@@ -1135,6 +1164,7 @@ describe('@quajs/renderer-cocos', () => {
     const handle = await waitForAudioHandle(host, 'bgm:main')
     expect(handle.playbackRate).toBe(1.25)
     expect(host.audioBusEq.get('bgm')).toEqual([{ frequency: 2000, gainDb: -4 }])
+    expect(warnings).toEqual([])
     await renderer.destroy()
   })
 
