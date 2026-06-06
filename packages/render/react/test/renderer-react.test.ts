@@ -212,6 +212,63 @@ describe('@quajs/renderer-react', () => {
     expect(settingsLayer.dataset.overlayZIndex).toBe(String(DEFAULT_UI_OVERLAY_Z_INDEXES.settings))
   })
 
+  it('renders registered render-only overlay components through the shared Web layer', async () => {
+    const pipeline = new Pipeline()
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
+    roots.push(root)
+
+    function RainCanvasOverlay(props: any) {
+      return createElement('canvas', {
+        className: 'rain-canvas',
+        'data-overlay': props.elementId,
+        'data-density': String(props.surface?.props?.density),
+      })
+    }
+
+    await act(async () => {
+      root.render(createElement(QuaRenderer, {
+        pipeline,
+        plugins: createVisualNovelRendererPlugins({
+          ui: {
+            renderOnlySurfaces: {
+              'fx/rain-canvas': RainCanvasOverlay,
+            },
+          },
+        }),
+        initialView: view({
+          ui: {
+            visible: true,
+            overlays: {
+              rain: {
+                renderMode: 'render-only',
+                interactive: false,
+                surface: {
+                  key: 'fx/rain-canvas',
+                  props: { density: 0.7 },
+                },
+                zIndex: 120,
+              },
+            },
+          },
+        }),
+      }))
+      await flushReact()
+    })
+
+    const overlayLayer = host.querySelector<HTMLElement>('.qua-overlay-layer')!
+    const overlay = host.querySelector<HTMLElement>('.qua-ui-overlay--render-only')!
+    expect(host.querySelector<HTMLCanvasElement>('.rain-canvas')?.dataset.density).toBe('0.7')
+    expect(host.querySelector('.qua-ui-panel-header')).toBeNull()
+    expect(overlay.dataset.overlay).toBe('rain')
+    expect(overlay.dataset.overlayRenderMode).toBe('render-only')
+    expect(overlayLayer.style.pointerEvents).toBe('none')
+    expect(overlay.style.pointerEvents).toBe('none')
+  })
+
   it('exports DOM feature plugin subentries and composes the Vue-aligned preset order', async () => {
     const modules = await Promise.all([
       import('../src/plugins/achievement'),

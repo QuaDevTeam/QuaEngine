@@ -67,6 +67,8 @@ export default defineConfig({
         '@quajs/renderer-web/plugins/ui',
         '@quajs/renderer-web/save-preview',
         'react',
+        'react-dom',
+        'react-dom/client',
       ],
       output: {
         globals: {},

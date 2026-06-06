@@ -2,6 +2,7 @@ import type { RendererPlugin } from '@quajs/render-core'
 import type { QuaWebDomRendererPlugin } from '@quajs/renderer-web/plugins/core'
 import type { CharacterReactRendererPluginOptions } from './character'
 import type { InputReactRendererPluginOptions } from './input'
+import type { UiReactRendererPluginOptions } from './ui'
 import { createAchievementRendererPlugin } from './achievement'
 import { createAudioRendererPlugin } from './audio'
 import { createBackgroundRendererPlugin } from './background'
@@ -21,6 +22,7 @@ import { createUiRendererPlugin } from './ui'
 export interface VisualNovelReactRendererPresetOptions {
   character?: false | Omit<CharacterReactRendererPluginOptions, 'renderSprite'>
   input?: false | InputReactRendererPluginOptions
+  ui?: false | UiReactRendererPluginOptions
 }
 
 export function createVisualNovelRendererPlugins(
@@ -38,10 +40,24 @@ export function createVisualNovelRendererPlugins(
     createChoicesRendererPlugin(),
     createAudioRendererPlugin(),
     createSceneRendererPlugin(),
-    createUiRendererPlugin({ handledElementIds: ['settings'] }),
+    ...(options.ui === false ? [] : [createUiRendererPlugin(createPresetUiOptions(options.ui))]),
     createSettingsRendererPlugin(),
     createBacklogRendererPlugin(),
     createGalleryRendererPlugin(),
     createAchievementRendererPlugin(),
   ]
+}
+
+function createPresetUiOptions(options: UiReactRendererPluginOptions | undefined): UiReactRendererPluginOptions {
+  return {
+    ...(options || {}),
+    handledElementIds: mergeHandledElementIds(['settings'], options?.handledElementIds),
+  }
+}
+
+function mergeHandledElementIds(
+  defaults: readonly string[],
+  configured: readonly string[] | undefined,
+): string[] {
+  return [...new Set([...defaults, ...(configured || [])])]
 }
