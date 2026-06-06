@@ -4,6 +4,7 @@ import type { QuaWebDomRendererPlugin } from './core'
 import type { InputWebRendererPluginOptions } from './input'
 import type { PlatformGuardWebRendererPluginOptions } from './platform-guard'
 import type { PwaWebRendererPluginOptions } from './pwa'
+import type { UiWebRendererPluginOptions } from './ui'
 import { createAchievementWebRendererPlugin } from './achievement'
 import { createAudioWebRendererPlugin } from './audio'
 import { createBackgroundWebRendererPlugin } from './background'
@@ -27,6 +28,7 @@ export interface VisualNovelWebRendererPresetOptions {
   input?: false | InputWebRendererPluginOptions
   platformGuard?: false | PlatformGuardWebRendererPluginOptions
   pwa?: false | PwaWebRendererPluginOptions
+  ui?: false | UiWebRendererPluginOptions
 }
 
 export function createVisualNovelWebRendererPlugins(options: VisualNovelWebRendererPresetOptions = {}): Array<QuaWebDomRendererPlugin | RendererPlugin> {
@@ -44,10 +46,24 @@ export function createVisualNovelWebRendererPlugins(options: VisualNovelWebRende
     createChoicesWebRendererPlugin(),
     createAudioWebRendererPlugin(),
     createSceneWebRendererPlugin(),
-    createUiWebRendererPlugin({ handledElementIds: ['settings'] }),
+    ...(options.ui === false ? [] : [createUiWebRendererPlugin(createPresetUiOptions(options.ui))]),
     createSettingsWebRendererPlugin(),
     createBacklogWebRendererPlugin(),
     createGalleryWebRendererPlugin(),
     createAchievementWebRendererPlugin(),
   ]
+}
+
+function createPresetUiOptions(options: UiWebRendererPluginOptions | undefined): UiWebRendererPluginOptions {
+  return {
+    ...(options || {}),
+    handledElementIds: mergeHandledElementIds(['settings'], options?.handledElementIds),
+  }
+}
+
+function mergeHandledElementIds(
+  defaults: readonly string[],
+  configured: readonly string[] | undefined,
+): string[] {
+  return [...new Set([...defaults, ...(configured || [])])]
 }

@@ -79,6 +79,32 @@ const plugins = createVisualNovelWebRendererPlugins({
 const pluginsWithoutInput = createVisualNovelWebRendererPlugins({ input: false })
 ```
 
+## Render-Only UI Overlays
+
+Render-only overlays use the engine-owned generic UI overlay projection without default panel chrome. Open them with `engine.showUI()` and register a host renderer for `surface.key`:
+
+```ts
+const plugins = createVisualNovelWebRendererPlugins({
+  ui: {
+    renderOnlySurfaces: {
+      'fx/rain-canvas': ({ document, surface }) => {
+        const canvas = document.createElement('canvas')
+        canvas.dataset.density = String(surface.props?.density)
+        return canvas
+      },
+    },
+  },
+})
+
+await engine.showUI('rain', {
+  renderMode: 'render-only',
+  interactive: false,
+  surface: { key: 'fx/rain-canvas', props: { density: 0.7 } },
+})
+```
+
+The renderer receives only serializable projection data. Missing surface registrations warn and render an empty root instead of falling back to menu/settings panel UI.
+
 ## Stage And Background Projection
 
 The native DOM renderer builds the adaptive aspect-interval stage structure internally. Functional positioning for `.qua-renderer`, `.qua-stage-frame`, `.qua-stage-viewport`, and `.qua-stage` does not depend on optional theme CSS.
