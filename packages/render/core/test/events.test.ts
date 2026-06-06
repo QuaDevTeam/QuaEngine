@@ -10,6 +10,7 @@ import {
   easeProgress,
   emitLogicToRender,
   emitRenderToLogic,
+  getUiOverlaySurfaceProjection,
   LogicToRenderEvents,
   onLogicToRender,
   onRenderToLogic,
@@ -17,6 +18,9 @@ import {
   RenderToLogicEvents,
   resolveActiveUiSceneProjection,
   resolveOverlayStackPlacement,
+  uiOverlayIsInteractive,
+  uiOverlayIsRenderOnly,
+  uiOverlayRenderMode,
   uiSceneAllowsDefaultChrome,
   uiSceneAllowsDialogueChrome,
   uiSceneAllowsHudChrome,
@@ -117,6 +121,25 @@ describe('render-core event contracts', () => {
       id: 'chrome-free',
       overlay: { defaultChrome: false },
     })).toBe(false)
+  })
+
+  it('resolves render-only UI overlay surface metadata', () => {
+    const renderOnly = {
+      renderMode: 'render-only' as const,
+      surface: {
+        key: 'fx/rain-canvas',
+        props: { density: 0.7 },
+      },
+    }
+
+    expect(uiOverlayRenderMode(renderOnly)).toBe('render-only')
+    expect(uiOverlayIsRenderOnly(renderOnly)).toBe(true)
+    expect(uiOverlayIsInteractive(renderOnly)).toBe(false)
+    expect(uiOverlayIsInteractive({ ...renderOnly, interactive: true })).toBe(true)
+    expect(getUiOverlaySurfaceProjection(renderOnly)?.key).toBe('fx/rain-canvas')
+    expect(uiOverlayRenderMode({})).toBe('ui')
+    expect(uiOverlayIsInteractive({})).toBe(true)
+    expect(getUiOverlaySurfaceProjection({ surface: { key: '   ' } } as any)).toBeUndefined()
   })
 
   it('resolves built-in, custom, and invalid overlay stack placement', () => {
