@@ -188,6 +188,7 @@ describe('@quajs/renderer-svelte', () => {
       import('../src/plugins/effects'),
       import('../src/plugins/fonts'),
       import('../src/plugins/gallery'),
+      import('../src/plugins/input'),
       import('../src/plugins/scene'),
       import('../src/plugins/settings'),
       import('../src/plugins/sprite'),
@@ -197,6 +198,13 @@ describe('@quajs/renderer-svelte', () => {
     for (const module of modules) {
       expect(Object.keys(module).some(key => /^create.*RendererPlugin$/.test(key))).toBe(true)
     }
+
+    const input = await import('../src/plugins/input')
+    expect(typeof input.createInputWebRendererPlugin).toBe('function')
+    const shared = await import('../src/plugins/shared')
+    expect(typeof shared.dispatchRendererIntent).toBe('function')
+    const savePreview = await import('../src/save-preview')
+    expect(typeof savePreview.WebSaveSlotPreviewCache).toBe('function')
 
     expect(createVisualNovelRendererPlugins({ input: false }).map(plugin => plugin.name)).toEqual([
       '@quajs/renderer-svelte/fonts',

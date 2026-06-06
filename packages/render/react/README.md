@@ -82,11 +82,15 @@ Available entries:
 - `@quajs/renderer-react/plugins/fonts`
 - `@quajs/renderer-react/plugins/gallery`
 - `@quajs/renderer-react/plugins/input`
+- `@quajs/renderer-react/plugins/shared`
 - `@quajs/renderer-react/plugins/preset`
 - `@quajs/renderer-react/plugins/scene`
 - `@quajs/renderer-react/plugins/settings`
 - `@quajs/renderer-react/plugins/sprite`
 - `@quajs/renderer-react/plugins/ui`
+- `@quajs/renderer-react/save-preview`
+
+`plugins/shared` and `save-preview` re-export the shared Web helper APIs under the React package name. The DOM host already installs Web save-preview capture automatically.
 
 ## Preset Order
 

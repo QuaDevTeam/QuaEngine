@@ -901,6 +901,12 @@ describe('@quajs/renderer-vue', () => {
 
     expect(received).toEqual(['keyboard:Space'])
     expect(createInputRendererPlugin().name).toBe('@quajs/renderer-vue/input')
+    const input = await import('../src/plugins/input')
+    expect(typeof input.createInputWebRendererPlugin).toBe('function')
+    const shared = await import('../src/plugins/shared')
+    expect(typeof shared.createUiOverlayStackBinding).toBe('function')
+    const savePreview = await import('../src/save-preview')
+    expect(typeof savePreview.WebSaveSlotPreviewCache).toBe('function')
 
     host.app.unmount()
   })

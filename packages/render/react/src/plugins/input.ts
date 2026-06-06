@@ -3,6 +3,8 @@ import type { QuaReactRendererPlugin } from './core'
 import { createInputWebRendererPlugin } from '@quajs/renderer-web/plugins/input'
 import { defineReactRendererPlugin } from './core'
 
+export * from '@quajs/renderer-web/plugins/input'
+
 export type InputReactRendererPluginOptions = InputWebRendererPluginOptions
 
 export function createInputRendererPlugin(options: InputReactRendererPluginOptions = {}): QuaReactRendererPlugin {

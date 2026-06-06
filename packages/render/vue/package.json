@@ -77,6 +77,10 @@
       "types": "./dist/plugins/input/index.d.ts",
       "import": "./dist/plugins/input/index.js"
     },
+    "./plugins/shared": {
+      "types": "./dist/plugins/shared/index.d.ts",
+      "import": "./dist/plugins/shared/index.js"
+    },
     "./plugins/preset": {
       "types": "./dist/plugins/preset/index.d.ts",
       "import": "./dist/plugins/preset/index.js"
@@ -88,6 +92,10 @@
     "./plugins/settings": {
       "types": "./dist/plugins/settings/index.d.ts",
       "import": "./dist/plugins/settings/index.js"
+    },
+    "./save-preview": {
+      "types": "./dist/save-preview.d.ts",
+      "import": "./dist/save-preview.js"
     },
     "./styles/base.scss": "./src/styles/base.scss",
     "./styles/default.scss": "./src/styles/default.scss",
