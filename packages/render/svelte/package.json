@@ -69,6 +69,10 @@
       "types": "./dist/plugins/input.d.ts",
       "import": "./dist/plugins/input.js"
     },
+    "./plugins/shared": {
+      "types": "./dist/plugins/shared.d.ts",
+      "import": "./dist/plugins/shared.js"
+    },
     "./plugins/preset": {
       "types": "./dist/plugins/preset.d.ts",
       "import": "./dist/plugins/preset.js"
@@ -88,6 +92,10 @@
     "./plugins/ui": {
       "types": "./dist/plugins/ui.d.ts",
       "import": "./dist/plugins/ui.js"
+    },
+    "./save-preview": {
+      "types": "./dist/save-preview.d.ts",
+      "import": "./dist/save-preview.js"
     }
   },
   "main": "./dist/index.js",

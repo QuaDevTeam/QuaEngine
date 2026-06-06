@@ -64,11 +64,15 @@ Available entries:
 - `@quajs/renderer-svelte/plugins/fonts`
 - `@quajs/renderer-svelte/plugins/gallery`
 - `@quajs/renderer-svelte/plugins/input`
+- `@quajs/renderer-svelte/plugins/shared`
 - `@quajs/renderer-svelte/plugins/preset`
 - `@quajs/renderer-svelte/plugins/scene`
 - `@quajs/renderer-svelte/plugins/settings`
 - `@quajs/renderer-svelte/plugins/sprite`
 - `@quajs/renderer-svelte/plugins/ui`
+- `@quajs/renderer-svelte/save-preview`
+
+`plugins/shared` and `save-preview` re-export the shared Web helper APIs under the Svelte package name. The DOM host already installs Web save-preview capture automatically.
 
 ## Preset Order
 

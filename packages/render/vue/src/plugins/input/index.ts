@@ -3,6 +3,8 @@ import type { QuaVueRendererPlugin } from '../core'
 import { createInputWebRendererPlugin } from '@quajs/renderer-web/plugins/input'
 import { defineVueRendererPlugin } from '../core'
 
+export * from '@quajs/renderer-web/plugins/input'
+
 export type InputVueRendererPluginOptions = InputWebRendererPluginOptions
 
 export function createInputRendererPlugin(options: InputVueRendererPluginOptions = {}): QuaVueRendererPlugin {

@@ -36,9 +36,12 @@ Framework renderers such as `@quajs/renderer-vue`, `@quajs/renderer-react`, and 
 - `@quajs/renderer-web/plugins/gallery`
 - `@quajs/renderer-web/plugins/ui`
 - `@quajs/renderer-web/plugins/input`: optional input plugin that maps physical inputs to semantic renderer commands and existing render-to-logic intents.
+- `@quajs/renderer-web/plugins/shared`: DOM helper utilities for styling, UI-scene data attributes, overlay placement, and renderer intent dispatch.
 - `@quajs/renderer-web/plugins/scene`
 - `@quajs/renderer-web/plugins/settings`: schema-driven settings panel projection for `@quajs/plugin-settings`.
 - `@quajs/renderer-web/plugins/preset`: visual novel DOM preset, including input, fonts, background, sprite, character, effects, dialogue, choices, audio, scene, UI, settings, backlog, gallery, and achievement projection.
+- `@quajs/renderer-web/save-preview`: save slot preview data-source/cache helpers.
+- `@quajs/renderer-web/save-preview-capture`: Web DOM save-preview capture responder installed automatically by the DOM renderer host.
 
 The settings DOM plugin renders native browser form controls by default and publishes stable styling hooks: `.qua-settings-field-main`, `.qua-settings-field-copy`, `.qua-settings-field-control`, `.qua-settings-control`, plus field-level `data-settings-control/type/readonly/invalid` attributes. Use `renderCustomControl` for custom controls in framework-neutral DOM hosts; framework adapters can layer slots over the same projection without making the renderer authoritative for settings state. Component-library integrations such as Radix, Reka UI, or project-local design-system controls should live in app code or adapter packages, not as hard dependencies of `@quajs/renderer-web`.
 

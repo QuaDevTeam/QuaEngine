@@ -125,11 +125,15 @@ Available entries:
 - `@quajs/renderer-vue/plugins/fonts`
 - `@quajs/renderer-vue/plugins/gallery`
 - `@quajs/renderer-vue/plugins/input`
+- `@quajs/renderer-vue/plugins/shared`
 - `@quajs/renderer-vue/plugins/preset`
 - `@quajs/renderer-vue/plugins/scene`
 - `@quajs/renderer-vue/plugins/settings`
 - `@quajs/renderer-vue/plugins/sprite`
 - `@quajs/renderer-vue/plugins/ui`
+- `@quajs/renderer-vue/save-preview`
+
+`plugins/shared` exposes Vue renderer intent/overlay/animation helper functions, while `save-preview` re-exports the shared Web save slot preview cache/data-source types under the Vue package name. `QuaRenderer` installs Web save-preview capture automatically.
 
 The visual novel preset order is:
 
