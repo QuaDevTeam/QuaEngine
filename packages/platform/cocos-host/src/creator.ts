@@ -271,7 +271,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       return metadata ? { ...metadata } : undefined
     },
     hitTest(rootNode: CocosHostNode, point: { x: number, y: number }, hitOptions: { metadataKey?: string, includeInvisible?: boolean } = {}) {
-      return hitTestNode(asCreatorNode(rootNode), point, childNodes, metadataByNode, hitOptions, { x: 0, y: 0 })
+      return hitTestNode(asCreatorNode(rootNode), point, childNodes, metadataByNode, hitOptions, identityMatrix())
     },
     getContainerSize: () => options.layout?.getContainerSize?.() || readNodeSize(options.cc, root) || options.cc?.view?.getVisibleSize?.() || { width: 1920, height: 1080 },
     getDevicePixelRatio: () => options.layout?.getDevicePixelRatio?.() || options.cc?.view?.getDevicePixelRatio?.() || globalThis.devicePixelRatio || 1,
@@ -579,6 +579,8 @@ function applyTransform(cc: CocosCreatorModule | undefined, node: CocosCreatorNo
       uiTransform.setAnchorPoint?.(transform.anchorX ?? uiTransform.anchorX ?? 0.5, transform.anchorY ?? uiTransform.anchorY ?? 0.5)
       uiTransform.anchorX = transform.anchorX ?? uiTransform.anchorX
       uiTransform.anchorY = transform.anchorY ?? uiTransform.anchorY
+      native.anchorX = uiTransform.anchorX
+      native.anchorY = uiTransform.anchorY
     }
   }
   else {
@@ -612,6 +614,20 @@ function readNativeScale(native: any): { x: number, y: number } {
   return {
     x: finiteNumber(native?.scaleX, finiteNumber(scale?.x, 1) ?? 1) ?? 1,
     y: finiteNumber(native?.scaleY, finiteNumber(scale?.y, 1) ?? 1) ?? 1,
+  }
+}
+
+function readNativeRotation(native: any): number {
+  return finiteNumber(native?.angle, finiteNumber(native?.rotation, 0) ?? 0) ?? 0
+}
+
+function readNativeAnchor(native: any, size: CocosHostSize): { x: number, y: number } {
+  const uiTransform = native?.getComponent?.('cc.UITransform')
+  const anchorX = finiteNumber(native?.anchorX, finiteNumber(uiTransform?.anchorX, 0) ?? 0) ?? 0
+  const anchorY = finiteNumber(native?.anchorY, finiteNumber(uiTransform?.anchorY, 0) ?? 0) ?? 0
+  return {
+    x: anchorX * size.width,
+    y: anchorY * size.height,
   }
 }
 
@@ -777,16 +793,16 @@ function hitTestNode(
   childNodes: Map<string, Set<CocosCreatorNode>>,
   metadataByNode: Map<string, Record<string, unknown>>,
   options: { metadataKey?: string, includeInvisible?: boolean },
-  origin: { x: number, y: number },
+  parentMatrix: HitTestMatrix,
 ): { node: CocosHostNode, metadata?: Record<string, unknown> } | undefined {
-  const nodeOrigin = creatorHitTestOrigin(root, origin)
+  const nodeMatrix = root.kind === 'stage' ? parentMatrix : multiplyMatrix(parentMatrix, creatorNodeMatrix(root))
   const children = [...(childNodes.get(root.id) || [])].sort((left, right) => {
     const lz = Number((left.native as any)?.priority || (left.native as any)?.zIndex || 0)
     const rz = Number((right.native as any)?.priority || (right.native as any)?.zIndex || 0)
     return rz - lz
   })
   for (const child of children) {
-    const hit = hitTestNode(child, point, childNodes, metadataByNode, options, nodeOrigin)
+    const hit = hitTestNode(child, point, childNodes, metadataByNode, options, nodeMatrix)
     if (hit)
       return hit
   }
@@ -796,29 +812,95 @@ function hitTestNode(
   const metadata = metadataByNode.get(root.id)
   if (options.metadataKey && metadata?.[options.metadataKey] === undefined)
     return undefined
-  if (!containsPoint(root, point, nodeOrigin))
+  if (!containsPoint(root, point, nodeMatrix))
     return undefined
   return { node: root, metadata: metadata ? { ...metadata } : undefined }
 }
 
-function creatorHitTestOrigin(node: CocosCreatorNode, origin: { x: number, y: number }): { x: number, y: number } {
-  if (node.kind === 'stage')
-    return origin
-  const position = readNativePosition(node.native as any)
-  return {
-    x: origin.x + position.x,
-    y: origin.y + position.y,
-  }
+interface HitTestMatrix {
+  a: number
+  b: number
+  c: number
+  d: number
+  e: number
+  f: number
 }
 
-function containsPoint(node: CocosCreatorNode, point: { x: number, y: number }, origin: { x: number, y: number }): boolean {
+function creatorNodeMatrix(node: CocosCreatorNode): HitTestMatrix {
+  const native = node.native as any
+  const size = readNodeSize(undefined, node) || { width: 0, height: 0 }
+  const position = readNativePosition(native)
+  const scale = readNativeScale(native)
+  const anchor = readNativeAnchor(native, size)
+  let matrix = translateMatrix(position.x, position.y)
+  matrix = multiplyMatrix(matrix, translateMatrix(anchor.x, anchor.y))
+  matrix = multiplyMatrix(matrix, rotateMatrix(readNativeRotation(native)))
+  matrix = multiplyMatrix(matrix, scaleMatrix(scale.x, scale.y))
+  matrix = multiplyMatrix(matrix, translateMatrix(-anchor.x, -anchor.y))
+  return matrix
+}
+
+function containsPoint(node: CocosCreatorNode, point: { x: number, y: number }, matrix: HitTestMatrix): boolean {
   const size = readNodeSize(undefined, node)
   if (!size)
     return true
   const { width, height } = size
-  const x = origin.x
-  const y = origin.y
-  return point.x >= x && point.x <= x + width && point.y >= y && point.y <= y + height
+  const inverse = invertMatrix(matrix)
+  if (!inverse)
+    return false
+  const local = transformPoint(inverse, point)
+  return local.x >= -1e-6 && local.x <= width + 1e-6 && local.y >= -1e-6 && local.y <= height + 1e-6
+}
+
+function identityMatrix(): HitTestMatrix {
+  return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }
+}
+
+function translateMatrix(x: number, y: number): HitTestMatrix {
+  return { a: 1, b: 0, c: 0, d: 1, e: x, f: y }
+}
+
+function scaleMatrix(scaleX: number, scaleY: number): HitTestMatrix {
+  return { a: scaleX, b: 0, c: 0, d: scaleY, e: 0, f: 0 }
+}
+
+function rotateMatrix(rotation: number): HitTestMatrix {
+  const radians = rotation * Math.PI / 180
+  const cos = Math.cos(radians)
+  const sin = Math.sin(radians)
+  return { a: cos, b: sin, c: -sin, d: cos, e: 0, f: 0 }
+}
+
+function multiplyMatrix(left: HitTestMatrix, right: HitTestMatrix): HitTestMatrix {
+  return {
+    a: left.a * right.a + left.c * right.b,
+    b: left.b * right.a + left.d * right.b,
+    c: left.a * right.c + left.c * right.d,
+    d: left.b * right.c + left.d * right.d,
+    e: left.a * right.e + left.c * right.f + left.e,
+    f: left.b * right.e + left.d * right.f + left.f,
+  }
+}
+
+function invertMatrix(matrix: HitTestMatrix): HitTestMatrix | undefined {
+  const determinant = matrix.a * matrix.d - matrix.b * matrix.c
+  if (Math.abs(determinant) < 1e-8)
+    return undefined
+  return {
+    a: matrix.d / determinant,
+    b: -matrix.b / determinant,
+    c: -matrix.c / determinant,
+    d: matrix.a / determinant,
+    e: (matrix.c * matrix.f - matrix.d * matrix.e) / determinant,
+    f: (matrix.b * matrix.e - matrix.a * matrix.f) / determinant,
+  }
+}
+
+function transformPoint(matrix: HitTestMatrix, point: { x: number, y: number }): { x: number, y: number } {
+  return {
+    x: matrix.a * point.x + matrix.c * point.y + matrix.e,
+    y: matrix.b * point.x + matrix.d * point.y + matrix.f,
+  }
 }
 
 function bindCreatorInput(
@@ -987,8 +1069,6 @@ async function bytesFromValue(value: unknown): Promise<Uint8Array | undefined> {
     return new Uint8Array(value.buffer, value.byteOffset, value.byteLength)
   if (value && typeof value === 'object' && typeof (value as { arrayBuffer?: unknown }).arrayBuffer === 'function')
     return new Uint8Array(await (value as { arrayBuffer: () => Promise<ArrayBuffer> }).arrayBuffer())
-  if (typeof value === 'string')
-    return new TextEncoder().encode(value)
   return undefined
 }
 

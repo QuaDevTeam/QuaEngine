@@ -159,7 +159,7 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
       return { ...asFakeNode(node).metadata }
     },
     hitTest(rootNode: CocosHostNode, point: { x: number, y: number }, hitOptions: { metadataKey?: string, includeInvisible?: boolean } = {}) {
-      return hitTestNode(asFakeNode(rootNode), point, hitOptions, { x: 0, y: 0 })
+      return hitTestNode(asFakeNode(rootNode), point, hitOptions, identityMatrix())
     },
     getContainerSize: () => options.containerSize || { width: 1920, height: 1080 },
     getDevicePixelRatio: () => options.devicePixelRatio || 1,
@@ -459,12 +459,12 @@ function hitTestNode(
   root: FakeCocosNode,
   point: { x: number, y: number },
   options: { metadataKey?: string, includeInvisible?: boolean },
-  origin: { x: number, y: number },
+  parentMatrix: HitTestMatrix,
 ): { node: FakeCocosNode, metadata?: Record<string, unknown> } | undefined {
-  const nodeOrigin = localHitTestOrigin(root, origin)
+  const nodeMatrix = root.kind === 'stage' ? parentMatrix : multiplyMatrix(parentMatrix, fakeNodeMatrix(root))
   const children = [...root.children].sort((left, right) => (right.transform.zIndex || 0) - (left.transform.zIndex || 0))
   for (const child of children) {
-    const hit = hitTestNode(child, point, options, nodeOrigin)
+    const hit = hitTestNode(child, point, options, nodeMatrix)
     if (hit)
       return hit
   }
@@ -472,28 +472,99 @@ function hitTestNode(
     return undefined
   if (options.metadataKey && root.metadata[options.metadataKey] === undefined)
     return undefined
-  if (!containsPoint(root, point, nodeOrigin))
+  if (!containsPoint(root, point, nodeMatrix))
     return undefined
   return { node: root, metadata: { ...root.metadata } }
 }
 
-function localHitTestOrigin(node: FakeCocosNode, origin: { x: number, y: number }): { x: number, y: number } {
-  if (node.kind === 'stage')
-    return origin
-  return {
-    x: origin.x + (node.transform.x || 0),
-    y: origin.y + (node.transform.y || 0),
-  }
+interface HitTestMatrix {
+  a: number
+  b: number
+  c: number
+  d: number
+  e: number
+  f: number
 }
 
-function containsPoint(node: FakeCocosNode, point: { x: number, y: number }, origin: { x: number, y: number }): boolean {
+function fakeNodeMatrix(node: FakeCocosNode): HitTestMatrix {
+  const transform = node.transform
+  const width = numberValue(transform.width, 0)
+  const height = numberValue(transform.height, 0)
+  const anchorX = numberValue(transform.anchorX, 0) * width
+  const anchorY = numberValue(transform.anchorY, 0) * height
+  let matrix = translateMatrix(numberValue(transform.x, 0), numberValue(transform.y, 0))
+  matrix = multiplyMatrix(matrix, translateMatrix(anchorX, anchorY))
+  matrix = multiplyMatrix(matrix, rotateMatrix(numberValue(transform.rotation, 0)))
+  matrix = multiplyMatrix(matrix, scaleMatrix(numberValue(transform.scaleX, 1), numberValue(transform.scaleY, 1)))
+  matrix = multiplyMatrix(matrix, translateMatrix(-anchorX, -anchorY))
+  return matrix
+}
+
+function containsPoint(node: FakeCocosNode, point: { x: number, y: number }, matrix: HitTestMatrix): boolean {
   const width = typeof node.transform.width === 'number' ? node.transform.width : undefined
   const height = typeof node.transform.height === 'number' ? node.transform.height : undefined
   if (width === undefined || height === undefined)
     return true
-  const x = origin.x
-  const y = origin.y
-  return point.x >= x && point.x <= x + width && point.y >= y && point.y <= y + height
+  const inverse = invertMatrix(matrix)
+  if (!inverse)
+    return false
+  const local = transformPoint(inverse, point)
+  return local.x >= -1e-6 && local.x <= width + 1e-6 && local.y >= -1e-6 && local.y <= height + 1e-6
+}
+
+function identityMatrix(): HitTestMatrix {
+  return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }
+}
+
+function translateMatrix(x: number, y: number): HitTestMatrix {
+  return { a: 1, b: 0, c: 0, d: 1, e: x, f: y }
+}
+
+function scaleMatrix(scaleX: number, scaleY: number): HitTestMatrix {
+  return { a: scaleX, b: 0, c: 0, d: scaleY, e: 0, f: 0 }
+}
+
+function rotateMatrix(rotation: number): HitTestMatrix {
+  const radians = rotation * Math.PI / 180
+  const cos = Math.cos(radians)
+  const sin = Math.sin(radians)
+  return { a: cos, b: sin, c: -sin, d: cos, e: 0, f: 0 }
+}
+
+function multiplyMatrix(left: HitTestMatrix, right: HitTestMatrix): HitTestMatrix {
+  return {
+    a: left.a * right.a + left.c * right.b,
+    b: left.b * right.a + left.d * right.b,
+    c: left.a * right.c + left.c * right.d,
+    d: left.b * right.c + left.d * right.d,
+    e: left.a * right.e + left.c * right.f + left.e,
+    f: left.b * right.e + left.d * right.f + left.f,
+  }
+}
+
+function invertMatrix(matrix: HitTestMatrix): HitTestMatrix | undefined {
+  const determinant = matrix.a * matrix.d - matrix.b * matrix.c
+  if (Math.abs(determinant) < 1e-8)
+    return undefined
+  return {
+    a: matrix.d / determinant,
+    b: -matrix.b / determinant,
+    c: -matrix.c / determinant,
+    d: matrix.a / determinant,
+    e: (matrix.c * matrix.f - matrix.d * matrix.e) / determinant,
+    f: (matrix.b * matrix.e - matrix.a * matrix.f) / determinant,
+  }
+}
+
+function transformPoint(matrix: HitTestMatrix, point: { x: number, y: number }): { x: number, y: number } {
+  return {
+    x: matrix.a * point.x + matrix.c * point.y + matrix.e,
+    y: matrix.b * point.x + matrix.d * point.y + matrix.f,
+  }
+}
+
+function numberValue(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
 function listFiles(files: Map<string, Uint8Array>, rootPath: string): CocosHostFileInfo[] {

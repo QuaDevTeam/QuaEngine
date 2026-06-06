@@ -75,6 +75,23 @@ describe('createFakeCocosHost', () => {
     expect(host.nodes.hitTest?.(stage, { x: 211, y: 271 }, { metadataKey: 'action' })).toBeUndefined()
   })
 
+  it('hit-tests scaled and rotated fake nodes in transformed local space', () => {
+    const host = createFakeCocosHost()
+    const stage = host.nodes.createNode('stage', { parent: host.root, name: 'stage' })
+    const scaled = host.nodes.createNode('button', { parent: stage, name: 'scaled' })
+    host.nodes.setNodeTransform(scaled, { x: 0, y: 0, width: 100, height: 40, scaleX: 2, scaleY: 2 })
+    host.nodes.setNodeMetadata?.(scaled, { action: 'scaled' })
+
+    const rotated = host.nodes.createNode('button', { parent: stage, name: 'rotated' })
+    host.nodes.setNodeTransform(rotated, { x: 200, y: 100, width: 100, height: 40, rotation: 90 })
+    host.nodes.setNodeMetadata?.(rotated, { action: 'rotated' })
+
+    expect(host.nodes.hitTest?.(stage, { x: 150, y: 20 }, { metadataKey: 'action' })?.metadata?.action).toBe('scaled')
+    expect(host.nodes.hitTest?.(stage, { x: 210, y: 20 }, { metadataKey: 'action' })).toBeUndefined()
+    expect(host.nodes.hitTest?.(stage, { x: 190, y: 110 }, { metadataKey: 'action' })?.metadata?.action).toBe('rotated')
+    expect(host.nodes.hitTest?.(stage, { x: 210, y: 110 }, { metadataKey: 'action' })).toBeUndefined()
+  })
+
   it('records sliced sprite, control, and audio ended projection state', async () => {
     const host = createFakeCocosHost()
     const node = host.nodes.createNode('button', { parent: host.root })
@@ -292,6 +309,28 @@ describe('createCocosCreatorHost', () => {
     }
   })
 
+  it('rejects Creator remote native path strings as raw bytes', async () => {
+    const originalFetch = globalThis.fetch
+    vi.stubGlobal('fetch', undefined)
+    try {
+      const host = createCocosCreatorHost({
+        rootNode: createNativeNode('root'),
+        cc: {
+          assetManager: {
+            loadRemote(_url, _options, callback) {
+              callback(undefined, { _nativeAsset: 'native-cache/file.qpk' })
+            },
+          },
+        },
+      })
+
+      await expect(host.assets.loadBytes('https://cdn.example.test/bundle.qpk')).rejects.toThrow('did not return byte data')
+    }
+    finally {
+      vi.stubGlobal('fetch', originalFetch)
+    }
+  })
+
   it('preserves Creator zero timestamps and partial transform axes', () => {
     const host = createCocosCreatorHost({
       rootNode: createNativeNode('root'),
@@ -326,6 +365,23 @@ describe('createCocosCreatorHost', () => {
     expect(host.nodes.hitTest?.(stage, { x: 111, y: 221 }, { metadataKey: 'action' })?.metadata?.action).toBe('nested')
     expect(host.nodes.hitTest?.(stage, { x: 11, y: 21 }, { metadataKey: 'action' })).toBeUndefined()
     expect(host.nodes.hitTest?.(stage, { x: 211, y: 271 }, { metadataKey: 'action' })).toBeUndefined()
+  })
+
+  it('hit-tests transformed Creator child nodes with scale and rotation', () => {
+    const host = createCocosCreatorHost({ rootNode: createNativeNode('root') })
+    const stage = host.nodes.createNode('stage', { parent: host.nodes.getRootNode(), name: 'stage' })
+    const scaled = host.nodes.createNode('button', { parent: stage, name: 'scaled' })
+    host.nodes.setNodeTransform(scaled, { x: 0, y: 0, width: 100, height: 40, scaleX: 2, scaleY: 2 })
+    host.nodes.setNodeMetadata?.(scaled, { action: 'scaled' })
+
+    const rotated = host.nodes.createNode('button', { parent: stage, name: 'rotated' })
+    host.nodes.setNodeTransform(rotated, { x: 200, y: 100, width: 100, height: 40, rotation: 90 })
+    host.nodes.setNodeMetadata?.(rotated, { action: 'rotated' })
+
+    expect(host.nodes.hitTest?.(stage, { x: 150, y: 20 }, { metadataKey: 'action' })?.metadata?.action).toBe('scaled')
+    expect(host.nodes.hitTest?.(stage, { x: 210, y: 20 }, { metadataKey: 'action' })).toBeUndefined()
+    expect(host.nodes.hitTest?.(stage, { x: 190, y: 110 }, { metadataKey: 'action' })?.metadata?.action).toBe('rotated')
+    expect(host.nodes.hitTest?.(stage, { x: 210, y: 110 }, { metadataKey: 'action' })).toBeUndefined()
   })
 
   it('re-enables Creator control components from updated projection state', () => {
