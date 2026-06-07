@@ -1,0 +1,39 @@
+{
+  "name": "novel-writer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local multi-agent visual novel writing workspace.",
+  "author": "QuaDevTeam",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "vite dev --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "vitest",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "dependencies": {
+    "@internationalized/date": "catalog:",
+    "bits-ui": "catalog:",
+    "clsx": "catalog:",
+    "lucide-svelte": "catalog:",
+    "svelte-sonner": "^1.1.1",
+    "tailwind-merge": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-node": "catalog:",
+    "@sveltejs/kit": "catalog:",
+    "@sveltejs/vite-plugin-svelte": "catalog:",
+    "@tailwindcss/vite": "^4.3.0",
+    "shadcn-svelte": "catalog:",
+    "svelte": "catalog:",
+    "svelte-check": "catalog:",
+    "tailwind-variants": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
