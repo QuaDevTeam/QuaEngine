@@ -3,6 +3,7 @@ import {
   createProject as createProjectRequest,
   deleteProject as deleteProjectRequest,
   emptyTrash as emptyTrashRequest,
+  exportProject as exportProjectRequest,
   listProjects as listProjectsRequest,
   listTrashedProjects as listTrashedProjectsRequest,
   permanentlyDeleteProject as permanentlyDeleteProjectRequest,
@@ -107,6 +108,7 @@ export class WorkspaceController {
   deletingTrashedProjectId = $state('')
   restoringProjectId = $state('')
   emptyingTrash = $state(false)
+  exportingProjectId = $state('')
 
   configDialog = $state<HTMLDialogElement | undefined>(undefined)
   projectDialog = $state<HTMLDialogElement | undefined>(undefined)
@@ -471,6 +473,26 @@ export class WorkspaceController {
     }
   }
 
+  exportSelectedProject = async () => {
+    if (!this.selectedProjectId || this.exportingProjectId) {
+      return
+    }
+
+    const projectId = this.selectedProjectId
+    this.exportingProjectId = projectId
+    try {
+      const download = await exportProjectRequest(projectId)
+      triggerDownload(download.blob, download.filename)
+      toast.success('导出包已生成。')
+    }
+    catch (error) {
+      toast.error('导出失败', { description: readableError(error) })
+    }
+    finally {
+      this.exportingProjectId = ''
+    }
+  }
+
   sendPlannerMessage = async () => {
     if (!this.selectedProjectId || !this.plannerInput.trim()) {
       return
@@ -832,6 +854,18 @@ function readableError(error: unknown): string {
     return error.message
   }
   return String(error || '创建项目失败。')
+}
+
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.rel = 'noopener'
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 function approvalToastMessage(action: ApprovalAction): string {

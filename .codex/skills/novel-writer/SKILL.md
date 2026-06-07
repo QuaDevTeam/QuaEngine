@@ -24,6 +24,7 @@ description: Use, review, or modify the standalone SvelteKit multi-agent visual 
 - Tavily adapter: `tavily_search` tool with normalized references.
 - Tavily search is agent-initiated only. Do not add automatic pre-stage searches; agent prompts should tell experts to search only when external factual grounding is materially needed.
 - Storage: append-only JSONL plus JSON/Markdown artifacts.
+- Export: completed project content can be downloaded as a ZIP package. Include only finished artifacts (`approved` and `draft`) in Markdown and JSON forms plus a manifest/combined Markdown; exclude `needs_review`, `rejected`, raw conversations, tool transcripts, and secrets.
 - Deletion: normal project deletion must move the full project directory from `projects/` to `trash/`; disk files are removed only when the user empties trash or permanently deletes an item from trash.
 - Sandbox: route command execution through `SandboxProvider`.
 - UI: SvelteKit plus shadcn-svelte registry components, with local compatibility wrappers only when they delegate to registry roots.
@@ -60,3 +61,4 @@ description: Use, review, or modify the standalone SvelteKit multi-agent visual 
 - Are project seeds preserved through workflow runs, resume, and context compaction?
 - If seed changes are not allowed, do review/supervision agents treat seed immutability violations as blockers?
 - Does regenerate actually rerun the selected stage and update the checkpoint to the new artifact?
+- Does project export include all completed artifacts in JSON and Markdown without pending/rejected drafts or private transcripts?
