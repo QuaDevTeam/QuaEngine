@@ -76,7 +76,7 @@ export class QuaScriptParser {
     const imports = new Set<string>()
 
     while (this.position < this.lines.length) {
-      this.skipBlankLines()
+      this.skipNonContentLines()
       if (this.position >= this.lines.length) {
         break
       }
@@ -87,7 +87,9 @@ export class QuaScriptParser {
 
         if (step.type === 'dialogue') {
           const dialogue = step.content as QuaScriptDialogue
-          characters.add(dialogue.character)
+          if (dialogue.character) {
+            characters.add(dialogue.character)
+          }
         }
       }
     }
@@ -129,8 +131,9 @@ export class QuaScriptParser {
     if (decorators.length > 0) {
       const nextLine = this.peekNextNonBlankLine()
       const hasDialogueNext = Boolean(nextLine && this.parseDialogueLine(nextLine))
+      const hasNarrationNext = Boolean(nextLine && this.parseNarrationLine(nextLine))
 
-      if (hasDialogueNext) {
+      if (hasDialogueNext || hasNarrationNext) {
         shouldCreateSeparateAction = this.hasGapBeforeLine(decoratorStartPos, nextLine!.index)
       }
       else {
@@ -154,7 +157,7 @@ export class QuaScriptParser {
 
   private parseStep(): QuaScriptStep | null {
     const { decorators, shouldCreateSeparateAction } = this.parseDecorators()
-    this.skipBlankLines()
+    this.skipNonContentLines()
 
     const decoratorChoice = this.createChoiceBlockFromDecorators(decorators)
     if (decoratorChoice) {
@@ -177,7 +180,7 @@ export class QuaScriptParser {
     }
 
     const line = this.getCurrentLine()
-    const dialogue = line ? this.parseDialogueLine(line) : null
+    const dialogue = line ? this.parseDialogueLine(line) || this.parseNarrationLine(line) : null
     if (dialogue) {
       this.advance()
 
@@ -218,6 +221,7 @@ export class QuaScriptParser {
           type: 'dialogue',
           character: dialogue.character,
           text: dialogue.text,
+          mode: dialogue.character ? 'say' : 'narration',
           textRange: rangeFromOffsets(
             this.lineStarts,
             dialogue.textOffset,
@@ -251,7 +255,7 @@ export class QuaScriptParser {
       }
     }
 
-    if (line?.text) {
+    if (line?.text && !isCommentLine(line.text)) {
       this.diagnostics.push({
         code: 'QS_PARSE_UNRECOGNIZED_LINE',
         message: `Unrecognized QuaScript line: ${line.text}`,
@@ -634,6 +638,9 @@ export class QuaScriptParser {
   }
 
   private parseDialogueLine(line: ParsedLine): { character: string, text: string, textOffset: number } | null {
+    if (isStructuralLine(line.text)) {
+      return null
+    }
     const colon = findTopLevelColon(line.text)
     if (colon <= 0) {
       return null
@@ -654,6 +661,19 @@ export class QuaScriptParser {
     }
   }
 
+  private parseNarrationLine(line: ParsedLine): { character?: string, text: string, textOffset: number } | null {
+    if (!line.text || isStructuralLine(line.text)) {
+      return null
+    }
+    if (findTopLevelColon(line.text) > 0) {
+      return null
+    }
+    return {
+      text: line.text,
+      textOffset: line.offset,
+    }
+  }
+
   private getCurrentLine(): ParsedLine | null {
     return this.position < this.lines.length ? this.lines[this.position] : null
   }
@@ -661,15 +681,21 @@ export class QuaScriptParser {
   private peekNextNonBlankLine(): ParsedLine | null {
     for (let index = this.position; index < this.lines.length; index++) {
       const line = this.lines[index]
-      if (line.text.length > 0) {
+      if (line.text.length > 0 && !isCommentLine(line.text)) {
         return line
       }
     }
     return null
   }
 
-  private skipBlankLines(): void {
-    while (this.position < this.lines.length && this.lines[this.position].text.length === 0) {
+  private skipNonContentLines(): void {
+    while (
+      this.position < this.lines.length
+      && (
+        this.lines[this.position].text.length === 0
+        || isCommentLine(this.lines[this.position].text)
+      )
+    ) {
       this.position++
     }
   }
@@ -677,6 +703,17 @@ export class QuaScriptParser {
   private advance(): void {
     this.position++
   }
+}
+
+function isStructuralLine(text: string): boolean {
+  return isCommentLine(text)
+    || text.startsWith('- ')
+    || text.startsWith('@')
+    || /^<\/?script\b/i.test(text)
+}
+
+function isCommentLine(text: string): boolean {
+  return text.startsWith('//')
 }
 
 export function scanTemplateText(text: string): TemplateScanResult {

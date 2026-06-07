@@ -129,6 +129,49 @@ describe('quaEngine runtime architecture', () => {
     }))
   })
 
+  it('preserves optional dialogue avatar projections in state and render events', async () => {
+    const engine = createEngine()
+    await engine.init()
+    const emitted: unknown[] = []
+    onLogicToRender(engine.getPipeline(), LogicToRenderEvents.DIALOGUE_SHOW, payload => emitted.push(payload))
+
+    await engine.showDialogue({
+      characterId: 'Alice',
+      characterName: 'Alice',
+      avatar: {
+        type: 'characters',
+        name: 'alice/avatar.png',
+        runtimePackageId: 'runtime.alice',
+        alt: 'Alice',
+      },
+      text: 'Hello',
+    })
+
+    expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
+      avatar: {
+        type: 'characters',
+        name: 'alice/avatar.png',
+        runtimePackageId: 'runtime.alice',
+        alt: 'Alice',
+      },
+      mode: 'say',
+      text: 'Hello',
+    }))
+    expect(emitted[0]).toEqual(expect.objectContaining({
+      avatar: {
+        type: 'characters',
+        name: 'alice/avatar.png',
+        runtimePackageId: 'runtime.alice',
+        alt: 'Alice',
+      },
+      text: 'Hello',
+    }))
+
+    const projected = engine.getViewState()
+    ;(projected.dialogue.avatar as any).name = 'mutated.png'
+    expect(engine.getViewState().dialogue.avatar?.name).toBe('alice/avatar.png')
+  })
+
   it('owns project layout settings in the view projection', async () => {
     const engine = new QuaEngine({
       layout: 'portrait',
@@ -2986,7 +3029,10 @@ describe('quaEngine runtime architecture', () => {
             uuid: 'runtime-view-step',
             run: async (ctx: any) => {
               await ctx.engine.showCharacter({ id: 'RuntimeHero', sprite: 'hero/base.png' })
-              await ctx.engine.showDialogue({ text: 'Runtime dialogue' })
+              await ctx.engine.showDialogue({
+                text: 'Runtime dialogue',
+                avatar: { name: 'runtime-avatar.png' },
+              })
               await ctx.engine.setBackgroundProjection({ mode: 'image', assetName: 'runtime-bg.png' })
               await ctx.engine.showChoices([{ id: 'runtime-choice', text: 'Runtime Choice' }])
               await ctx.engine.applyEffect({ id: 'runtime-flash', type: 'flash' })
@@ -3011,6 +3057,7 @@ describe('quaEngine runtime architecture', () => {
     expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
       visible: true,
       text: 'Runtime dialogue',
+      avatar: { name: 'runtime-avatar.png', runtimePackageId: 'runtime.view' },
       metadata: { contentPackageId: 'runtime.view' },
     }))
     expect(engine.getViewState().background?.metadata).toEqual({ contentPackageId: 'runtime.view' })

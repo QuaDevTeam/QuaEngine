@@ -33,6 +33,38 @@ describe('quaScript localization helpers', () => {
     }))
   })
 
+  it('keeps bare narration localizable units speakerless', () => {
+    const source = `
+      @LineId('intro.rain')
+      Rain folds over the station roof.
+    `
+
+    const units = extractQuaScriptLocalizableUnits(source)
+
+    expect(units).toHaveLength(1)
+    expect(units[0]).toEqual(expect.objectContaining({
+      kind: 'dialogue',
+      character: undefined,
+      text: 'Rain folds over the station roof.',
+    }))
+    expect(createQuaScriptLocaleSkeleton(source, 'zh-cn')).toContain('@LineId(\'intro.rain\')\nRain folds over the station roof.')
+  })
+
+  it('ignores locale comments when extracting bare narration units', () => {
+    const units = extractQuaScriptLocalizableUnits(`
+      // locale: zh-cn
+      // TRANSLATION-REQUIRED
+      Rain folds over the station roof.
+    `)
+
+    expect(units).toHaveLength(1)
+    expect(units[0]).toEqual(expect.objectContaining({
+      kind: 'dialogue',
+      character: undefined,
+      text: 'Rain folds over the station roof.',
+    }))
+  })
+
   it('applies locale overlays without taking locale decorators as runtime structure', () => {
     const base = `
       @LineId('intro.opening')

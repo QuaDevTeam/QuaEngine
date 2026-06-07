@@ -857,6 +857,70 @@ describe('@quajs/renderer-web', () => {
     await renderer.unmount()
   })
 
+  it('renders narration without speaker chrome or a default avatar in the dialogue layer', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        dialogue: {
+          visible: true,
+          mode: 'narration',
+          text: 'Rain fills the empty platform.',
+        },
+      }),
+    })
+
+    await renderer.mount()
+
+    expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('Rain fills the empty platform.')
+    expect(root.querySelector('.qua-dialogue-speaker')).toBeNull()
+    expect(root.querySelector('.qua-dialogue-avatar')).toBeNull()
+
+    await renderer.unmount()
+  })
+
+  it('renders optional native DOM dialogue avatars from projected assets', async () => {
+    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:dialogue-avatar')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const assets = await createImageAssets(['alice-avatar.png'])
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      assets,
+      plugins: createVisualNovelWebRendererPlugins(),
+      initialView: view({
+        dialogue: {
+          visible: true,
+          characterName: 'Alice',
+          avatar: { name: 'alice-avatar.png', alt: 'Alice avatar' },
+          text: 'Line',
+        },
+      }),
+    })
+
+    await renderer.mount()
+    await flushDom()
+
+    const avatar = root.querySelector<HTMLImageElement>('.qua-dialogue-avatar')
+    expect(avatar?.getAttribute('src')).toBe('blob:dialogue-avatar')
+    expect(avatar?.getAttribute('alt')).toBe('Alice avatar')
+    expect(avatar?.dataset.dialogueAvatarType).toBe('images')
+    expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('Line')
+
+    await renderer.unmount()
+    await assets.cleanup()
+    expect(create).toHaveBeenCalled()
+    revoke.mockRestore()
+  })
+
   it('keeps hidden native DOM characters mounted for their exit transition', async () => {
     const pipeline = new Pipeline()
     const root = document.createElement('div')

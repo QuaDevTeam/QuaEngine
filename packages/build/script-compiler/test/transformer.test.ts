@@ -35,6 +35,39 @@ describe('quaScriptTransformer', () => {
     expect(result).toContain('run:')
   })
 
+  it('transforms bare narration lines with the narration helper', () => {
+    const transformer = new QuaScriptTransformer()
+    const source = `
+      function scene1() {
+        const weather = 'rain'
+        dialogue(qs\`
+          Rain folds over the station roof.
+          The \${weather} does not stop.
+        \`)
+      }
+    `
+
+    const result = transformer.transformSource(source)
+
+    expect(result).toContain('narrateWithEngine(ctx.engine, "Rain folds over the station roof.")')
+    expect(result).toContain('narrateWithEngine(ctx.engine, await resolveQuaText')
+    expect(result).toContain('weather')
+    expect(result).not.toContain('speakWithEngine(ctx.engine, "Rain folds')
+  })
+
+  it('rejects speaker decorators attached to bare narration', () => {
+    const transformer = createCharacterTransformer()
+
+    expect(() => transformer.transformSource(`
+      function scene1() {
+        dialogue(qs\`
+          @Speaker('Yuki')
+          The room goes quiet.
+        \`)
+      }
+    `)).toThrow('Speaker decorators require a character dialogue line')
+  })
+
   it('should parse qs templates in files with TypeScript decorators', () => {
     const transformer = new QuaScriptTransformer()
     const source = `

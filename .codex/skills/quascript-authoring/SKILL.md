@@ -59,7 +59,7 @@ Heroine: The door is open.
 
 ### Dialogue
 
-Dialogue is one line with a top-level colon:
+Character dialogue is one line with a top-level colon:
 
 ```qs
 Character: Text
@@ -69,12 +69,22 @@ Narrator: A colon inside ${format({ label: 'x:y' })} is safe.
 
 The speaker name is everything before the top-level `:` after trimming. Speaker names may be non-ASCII. Dialogue text is everything after the colon after leading whitespace is removed.
 
+Bare non-structural text lines are narration with no speaker:
+
+```qs
+Rain folds over the station roof.
+${scope.playerName} hears footsteps in the hall.
+```
+
+Narration lines compile to engine-owned `mode: 'narration'` dialogue and do not add a character to the file speaker set. `Narrator: Text` is still normal character dialogue for a speaker named `Narrator`.
+
 ### Interpolation
 
-Use `${...}` inside dialogue text and choice text for normal TypeScript expressions:
+Use `${...}` inside character dialogue, narration, and choice text for normal TypeScript expressions:
 
 ```qs
 Narrator: ${scope.playerName} has ${scope.coins} coins.
+The pouch holds ${scope.coins} coins.
 - Buy ${itemName} -> shop-buy if scope.coins >= price
 ```
 
@@ -95,6 +105,7 @@ Supported argument values include strings, numbers, booleans, `null`, arrays, ob
 Decorator placement:
 
 - Consecutive decorators immediately before a dialogue line attach to that dialogue and run before `speakWithEngine`.
+- Consecutive decorators immediately before a narration line attach to that narration and run before `narrateWithEngine`; decorators that require a current speaker must use `Character: Text` or an explicit character argument.
 - A blank line between decorators and the next dialogue makes the decorators an action-only step.
 - Decorators without a following dialogue are action-only steps.
 - Multi-line decorator calls are allowed as long as parentheses are balanced.

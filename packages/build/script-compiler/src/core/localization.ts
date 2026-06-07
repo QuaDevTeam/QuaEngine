@@ -171,7 +171,7 @@ export function createQuaScriptLocaleSkeleton(source: string, locale: string): s
         const condition = unit.condition ? ` if ${unit.condition}` : ''
         return `${anchor}- ${unit.text}${target}${condition}`
       }
-      return `${anchor}${unit.character}: ${unit.text}`
+      return unit.character ? `${anchor}${unit.character}: ${unit.text}` : `${anchor}${unit.text}`
     }),
   ].join('\n\n')
 }
@@ -328,7 +328,7 @@ function renderQuaScriptLocaleUnit(unit: QuaScriptLocalizableUnit, text: string,
     const condition = unit.condition ? ` if ${unit.condition}` : ''
     return `${marker}${anchor}- ${text}${target}${condition}`
   }
-  return `${marker}${anchor}${unit.character}: ${text}`
+  return unit.character ? `${marker}${anchor}${unit.character}: ${text}` : `${marker}${anchor}${text}`
 }
 
 function renderSyncStatusMarker(status?: QuaScriptLocaleSyncStatus): string {

@@ -1,10 +1,12 @@
-import type { RichTextBlockProjection, RichTextContent, RichTextSpanProjection, ViewDialogueProjection } from '@quajs/render-core'
+import type { AssetType } from '@quajs/assets'
+import type { DialogueAvatarProjection, RichTextBlockProjection, RichTextContent, RichTextSpanProjection, ViewDialogueProjection } from '@quajs/render-core'
 import type { QuaWebRendererPluginContext } from '../controller'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { isRichTextDocument, viewAllowsDialogueChrome } from '@quajs/render-core'
 import { DialoguePresenceRuntime } from '../dialogue-presence'
 import { DialogueTypewriterRuntime } from '../dialogue-typewriter'
 import { motionProjectionVars, projectDialogue } from '../projection'
+import { runtimePackageCandidatesFromMetadata } from '../assets'
 import { defineWebRendererPlugin } from './core'
 import { applyStyleVars } from './shared'
 
@@ -85,6 +87,22 @@ function renderDialogueLayer(
 
 function renderDialogueContent(context: QuaWebDomLayerContext, box: HTMLElement, dialogue: ViewDialogueProjection): void {
   box.textContent = ''
+  if (dialogue.avatar) {
+    const avatar = context.document.createElement('img')
+    avatar.className = 'qua-dialogue-avatar'
+    avatar.alt = dialogue.avatar.alt || dialogue.characterName || ''
+    avatar.setAttribute('data-dialogue-avatar-type', dialogue.avatar.type || 'images')
+    avatar.setAttribute('data-dialogue-avatar-name', dialogue.avatar.name)
+    context.bindAssetUrl(
+      avatar,
+      (dialogue.avatar.type || 'images') as AssetType,
+      dialogue.avatar.name,
+      'src',
+      runtimePackageCandidatesFromDialogueAvatar(dialogue.avatar),
+    )
+    box.append(avatar)
+  }
+
   const speakerContent = dialogue.speaker ?? dialogue.characterName
   if (speakerContent) {
     const speaker = context.document.createElement('div')
@@ -98,6 +116,13 @@ function renderDialogueContent(context: QuaWebDomLayerContext, box: HTMLElement,
   text.className = 'qua-dialogue-text'
   renderRichTextContent(context, text, dialogue.text)
   box.append(text)
+}
+
+function runtimePackageCandidatesFromDialogueAvatar(avatar: DialogueAvatarProjection): readonly string[] | undefined {
+  return runtimePackageCandidatesFromMetadata({
+    ...(avatar.metadata || {}),
+    ...(avatar.runtimePackageId ? { contentPackageId: avatar.runtimePackageId } : {}),
+  })
 }
 
 function updateDialogueLayer(

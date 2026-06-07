@@ -87,6 +87,7 @@ function createQuaScriptDialogueRuntimeCompiler(): DecoratorCompiler {
   return {
     module: '@quajs/script-compiler/dialogue-runtime',
     runtimeHelperModules: {
+      narrateWithEngine: '@quajs/character',
       speakWithEngine: '@quajs/character',
     },
     supports: () => false,

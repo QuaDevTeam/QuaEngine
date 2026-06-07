@@ -2,7 +2,7 @@ import type { QuaVueRendererPlugin } from '../core'
 import { defineVueRendererPlugin } from '../core'
 import { QuaDialogueBox } from './components'
 
-export { QuaDialogueBox } from './components'
+export { QuaDialogueAvatar, QuaDialogueBox } from './components'
 
 export function createDialogueRendererPlugin(): QuaVueRendererPlugin {
   return defineVueRendererPlugin({

@@ -1,4 +1,4 @@
-import type { CharacterIntent, DialogueIntent, QuaEngineInterface } from '@quajs/engine'
+import type { CharacterIntent, DialogueAvatarProjection, DialogueIntent, QuaEngineInterface } from '@quajs/engine'
 import type { RichTextContent, RichTextStyleProjection } from '@quajs/render-core'
 import { RenderToLogicEvents, richTextToPlainText } from '@quajs/render-core'
 
@@ -19,6 +19,7 @@ export interface CharacterProfile {
   displayName?: string
   name?: string
   aliases?: readonly string[]
+  avatar?: DialogueAvatarInput
   speaker?: RichTextContent
   speakerStyle?: RichTextStyleProjection
   spriteBase?: string
@@ -43,6 +44,7 @@ export interface CharacterOptions {
   name?: string
   displayName?: string
   aliases?: readonly string[]
+  avatar?: DialogueAvatarInput
   speaker?: RichTextContent
   speakerStyle?: RichTextStyleProjection
   spriteBase?: string
@@ -61,12 +63,21 @@ export interface CharacterSpeakOptions {
   wait?: boolean
   mode?: 'say' | 'narration'
   characterName?: string
+  avatar?: DialogueAvatarInput
   speaker?: RichTextContent
   speakerStyle?: RichTextStyleProjection
   typewriter?: DialogueIntent['typewriter']
 }
 
-export interface CharacterShowOptions extends Omit<CharacterOptions, 'id' | 'name' | 'displayName' | 'aliases'> {}
+export interface CharacterNarrationOptions {
+  wait?: boolean
+  typewriter?: DialogueIntent['typewriter']
+  metadata?: Record<string, unknown>
+}
+
+export type DialogueAvatarInput = string | DialogueAvatarProjection
+
+export interface CharacterShowOptions extends Omit<CharacterOptions, 'id' | 'name' | 'displayName' | 'aliases' | 'avatar'> {}
 
 export interface CharacterStageOptions {
   autoScale?: boolean
@@ -95,7 +106,7 @@ export function createCharacter(name: string, options: CharacterOptions = {}): Q
     id: options.id || name,
     displayName: options.displayName || options.name || name,
   })
-  if (options.id || options.name || options.displayName || options.aliases || options.speaker || options.speakerStyle || options.spriteBase || options.spriteManifest || options.sprites || options.expressions) {
+  if (options.id || options.name || options.displayName || options.aliases || options.avatar || options.speaker || options.speakerStyle || options.spriteBase || options.spriteManifest || options.sprites || options.expressions) {
     registerCharacter(profile)
   }
   return new QuaCharacter(profile.id, profile.displayName || profile.name || profile.id, profile)
@@ -161,9 +172,11 @@ export class QuaCharacter {
       ?? this.defaults.displayName
       ?? this.defaults.name
       ?? this.name
+    const avatar = normalizeDialogueAvatar(options.avatar ?? this.defaults.avatar)
     await engine.showDialogue({
       characterId: this.id,
       characterName,
+      ...(avatar ? { avatar } : {}),
       speaker,
       speakerStyle: mergeSpeakerStyle(this.defaults.speakerStyle, options.speakerStyle),
       text,
@@ -279,6 +292,27 @@ export async function speakWithEngine(
   options?: CharacterSpeakOptions,
 ): Promise<void> {
   await withEngine(engine, () => speak(character, text, options))
+}
+
+export async function narrate(text: RichTextContent, options: CharacterNarrationOptions = {}): Promise<void> {
+  const engine = getEngine()
+  await engine.showDialogue({
+    text,
+    mode: 'narration',
+    typewriter: options.typewriter,
+    metadata: options.metadata,
+  })
+  if (options.wait ?? runtime?.waitForAdvance ?? true) {
+    await engine.waitFor(RenderToLogicEvents.USER_ADVANCE)
+  }
+}
+
+export async function narrateWithEngine(
+  engine: QuaEngineInterface,
+  text: RichTextContent,
+  options?: CharacterNarrationOptions,
+): Promise<void> {
+  await withEngine(engine, () => narrate(text, options))
 }
 
 export async function show(character: CharacterRef, options?: CharacterShowOptions): Promise<void> {
@@ -476,6 +510,7 @@ function normalizeCharacterProfile(profile: CharacterProfile): CharacterProfile 
   const displayName = profile.displayName || profile.name || profile.id
   return {
     ...profile,
+    ...(profile.avatar !== undefined ? { avatar: normalizeDialogueAvatar(profile.avatar) } : {}),
     displayName,
     name: displayName,
     sprite: profile.sprite ?? profile.spriteManifest,
@@ -486,6 +521,7 @@ function cloneCharacterProfile(profile: CharacterProfile): CharacterProfile {
   return {
     ...profile,
     aliases: profile.aliases ? [...profile.aliases] : undefined,
+    avatar: profile.avatar ? { ...normalizeDialogueAvatar(profile.avatar)! } : undefined,
     metadata: profile.metadata ? { ...profile.metadata } : undefined,
   }
 }
@@ -532,6 +568,20 @@ function isExplicitSpriteReference(value: string): boolean {
     || value.includes('\\')
     || /^[a-z][a-z0-9+.-]*:/i.test(value)
     || /\.[a-z0-9]+$/i.test(value)
+}
+
+function normalizeDialogueAvatar(avatar: DialogueAvatarInput | undefined): DialogueAvatarProjection | undefined {
+  if (avatar === undefined) {
+    return undefined
+  }
+  if (typeof avatar === 'string') {
+    return { type: 'images', name: avatar }
+  }
+  return {
+    ...avatar,
+    type: avatar.type || 'images',
+    metadata: avatar.metadata ? { ...avatar.metadata } : undefined,
+  }
 }
 
 function mergeSpeakerStyle(

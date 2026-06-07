@@ -59,6 +59,9 @@ export interface RenderCocosDialogueOptions {
   typewriter?: CocosDialogueTypewriterProjectResult
 }
 
+const activeDialogueRenderKeys = new WeakMap<CocosRendererHostContext, string>()
+let dialogueRenderSerial = 0
+
 export interface RenderCocosAudioOptions {
   busAutomationStarts?: Map<string, { signature?: string, startedAt: number }>
 }
@@ -137,9 +140,11 @@ export async function renderCocosCharacters(context: CocosRendererHostContext, o
   }
 }
 
-export function renderCocosDialogue(context: CocosRendererHostContext, options: RenderCocosDialogueOptions = {}): void {
+export async function renderCocosDialogue(context: CocosRendererHostContext, options: RenderCocosDialogueOptions = {}): Promise<void> {
   const layer = context.getLayerNode('dialogue', 'dialogue-layer', 50)
   context.host.nodes.clearChildren(layer)
+  context.setLayerResource('dialogue', 'avatar', undefined)
+  const renderKey = nextDialogueRenderKey(context)
   if (!viewAllowsDialogueChrome(context.getViewState()))
     return
   const dialogue = options.typewriter?.dialogue || projectDialogue(
@@ -154,6 +159,8 @@ export function renderCocosDialogue(context: CocosRendererHostContext, options: 
   setDialogueNodeText(context, box, dialogue)
   context.host.nodes.setNodeMetadata?.(box, {
     characterId: dialogue.characterId,
+    avatar: dialogue.avatar,
+    renderKey,
     mode: dialogue.mode,
     typewriter: options.typewriter
       ? {
@@ -163,6 +170,13 @@ export function renderCocosDialogue(context: CocosRendererHostContext, options: 
       : undefined,
   })
   context.host.nodes.setNodeTransform(box, motionTransform(dialogue as unknown as Record<string, unknown>))
+  void setDialogueAvatarNode(context, box, dialogue, renderKey)
+}
+
+function nextDialogueRenderKey(context: CocosRendererHostContext): string {
+  const key = `dialogue:${++dialogueRenderSerial}`
+  activeDialogueRenderKeys.set(context, key)
+  return key
 }
 
 export async function renderCocosChoices(context: CocosRendererHostContext): Promise<void> {
@@ -470,6 +484,50 @@ function dialogueMarkup(dialogue: ViewDialogueProjection): string {
   }
   parts.push(richTextContentToCocosMarkup(dialogue.text))
   return parts.filter(Boolean).join('\n')
+}
+
+function setDialogueAvatarNode(
+  context: CocosRendererHostContext,
+  box: CocosHostNode,
+  dialogue: ViewDialogueProjection,
+  renderKey: string,
+): void {
+  if (!dialogue.avatar) {
+    return
+  }
+  const avatar = context.host.nodes.createNode('dialogue-avatar', { parent: box })
+  context.host.nodes.setNodeMetadata?.(avatar, {
+    avatar: dialogue.avatar,
+    characterId: dialogue.characterId,
+    renderKey,
+  })
+  void resolveAssetWithTargetPackages(
+    context,
+    dialogue.avatar.type || 'images',
+    dialogue.avatar.name,
+    runtimePackageCandidatesFromMetadata({
+      ...(dialogue.avatar.metadata || {}),
+      ...(dialogue.avatar.runtimePackageId ? { contentPackageId: dialogue.avatar.runtimePackageId } : {}),
+    }),
+  ).then((resource) => {
+    if (activeDialogueRenderKeys.get(context) !== renderKey) {
+      return
+    }
+    context.host.nodes.setNodeSprite(avatar, resource)
+    context.setLayerResource('dialogue', 'avatar', resource)
+  }).catch((error) => {
+    if (activeDialogueRenderKeys.get(context) !== renderKey) {
+      return
+    }
+    return context.reportError(error, {
+      message: 'Cocos dialogue avatar projection failed.',
+      phase: 'renderer-cocos:dialogue-avatar',
+      metadata: {
+        name: dialogue.avatar?.name,
+        type: dialogue.avatar?.type || 'images',
+      },
+    })
+  })
 }
 
 function richTextContentToCocosMarkup(content: RichTextContent): string {

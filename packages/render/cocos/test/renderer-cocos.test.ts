@@ -269,6 +269,33 @@ describe('@quajs/renderer-cocos', () => {
     expect(dialogueLayer?.children[0]?.text).toContain('next')
   })
 
+  it('renders narration without speaker text or a default avatar', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const narrationView = createView({ dialogueText: 'Rain fills the empty platform.' })
+    narrationView.dialogue = {
+      ...narrationView.dialogue,
+      characterId: undefined,
+      characterName: undefined,
+      avatar: undefined,
+      mode: 'narration',
+    }
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      initialView: narrationView,
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+
+    await renderer.start()
+
+    expect(findNodeByKind(host, 'dialogue-box')?.text).toBe('Rain fills the empty platform.')
+    expect(findNodeByKind(host, 'dialogue-box')?.text).not.toContain('Hero')
+    expect(findNodeByKind(host, 'dialogue-avatar')).toBeUndefined()
+
+    await renderer.destroy()
+  })
+
   it('renders rich text dialogue through the Cocos typewriter runtime', async () => {
     let now = 0
     const host = createFakeCocosHost({ now: () => now })
@@ -377,6 +404,165 @@ describe('@quajs/renderer-cocos', () => {
     })
     expect(findNodeByKind(host, 'dialogue-box')?.text).toContain('Hero')
     expect(findNodeByKind(host, 'dialogue-box')?.text).toContain('Plain speaker')
+
+    await renderer.destroy()
+  })
+
+  it('renders optional dialogue avatars as Cocos projection resources', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      assets: {
+        getAsset: async (_type: string, name: string) => imageAsset(name),
+        on: () => {},
+        off: () => {},
+      } as never,
+      initialView: createView({
+        dialogueAvatar: {
+          type: 'images',
+          name: 'alice-avatar.png',
+          alt: 'Alice avatar',
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+
+    await renderer.start()
+    await waitForEventually(() => Boolean(findNodeByKind(host, 'dialogue-avatar')?.sprite))
+
+    const avatar = findNodeByKind(host, 'dialogue-avatar')
+    expect(avatar?.sprite?.source).toBe('alice-avatar.png')
+    expect(avatar?.metadata.avatar).toEqual({
+      type: 'images',
+      name: 'alice-avatar.png',
+      alt: 'Alice avatar',
+    })
+    expect(findNodeByKind(host, 'dialogue-box')?.text).toContain('hello')
+
+    await renderer.destroy()
+  })
+
+  it('keeps Cocos dialogue text available while avatar resources resolve asynchronously', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    let resolveAvatar!: (asset: AssetData) => void
+    const avatarAsset = new Promise<AssetData>((resolve) => {
+      resolveAvatar = resolve
+    })
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      assets: {
+        getAsset: async (_type: string, name: string) => {
+          if (name === 'slow-avatar.png') {
+            return await avatarAsset
+          }
+          return imageAsset(name)
+        },
+        on: () => {},
+        off: () => {},
+      } as never,
+      initialView: createView({
+        dialogueText: 'Line before avatar',
+        dialogueAvatar: {
+          type: 'images',
+          name: 'slow-avatar.png',
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+
+    await renderer.start()
+
+    expect(findNodeByKind(host, 'dialogue-box')?.text).toContain('Line before avatar')
+    expect(findNodeByKind(host, 'dialogue-avatar')?.sprite).toBeUndefined()
+
+    await pipeline.emit(LogicToRenderEvents.VIEW_UPDATE, {
+      view: createView({ dialogueText: 'Narration after avatar' }),
+    })
+    const narrationView = renderer.getSnapshot().view
+    await pipeline.emit(LogicToRenderEvents.VIEW_UPDATE, {
+      view: {
+        ...narrationView,
+        dialogue: {
+          ...narrationView.dialogue,
+          characterId: undefined,
+          characterName: undefined,
+          avatar: undefined,
+          mode: 'narration',
+        },
+      },
+    })
+
+    resolveAvatar(imageAsset('slow-avatar.png'))
+    await waitForEventually(() => findNodeByKind(host, 'dialogue-box')?.text?.includes('Narration after avatar') === true)
+
+    expect(findNodeByKind(host, 'dialogue-box')?.text).toBe('Narration after avatar')
+    expect(findNodeByKind(host, 'dialogue-avatar')).toBeUndefined()
+
+    await renderer.destroy()
+  })
+
+  it('ignores stale Cocos dialogue avatar failures after dialogue changes', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const renderErrors: unknown[] = []
+    let rejectAvatar!: (error: unknown) => void
+    const avatarAsset = new Promise<AssetData>((_resolve, reject) => {
+      rejectAvatar = reject
+    })
+    pipeline.on(RenderToLogicEvents.RENDER_ERROR, context => renderErrors.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline,
+      assets: {
+        getAsset: async (_type: string, name: string) => {
+          if (name === 'stale-avatar.png') {
+            return await avatarAsset
+          }
+          return imageAsset(name)
+        },
+        on: () => {},
+        off: () => {},
+      } as never,
+      initialView: createView({
+        dialogueText: 'Line before failed avatar',
+        dialogueAvatar: {
+          type: 'images',
+          name: 'stale-avatar.png',
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({ input: false }),
+    })
+
+    await renderer.start()
+    expect(findNodeByKind(host, 'dialogue-box')?.text).toContain('Line before failed avatar')
+
+    await pipeline.emit(LogicToRenderEvents.VIEW_UPDATE, {
+      view: createView({ dialogueText: 'Narration after failed avatar' }),
+    })
+    const narrationView = renderer.getSnapshot().view
+    await pipeline.emit(LogicToRenderEvents.VIEW_UPDATE, {
+      view: {
+        ...narrationView,
+        dialogue: {
+          ...narrationView.dialogue,
+          characterId: undefined,
+          characterName: undefined,
+          avatar: undefined,
+          mode: 'narration',
+        },
+      },
+    })
+
+    rejectAvatar(new Error('stale avatar failed'))
+    await flushAsync()
+
+    expect(findNodeByKind(host, 'dialogue-box')?.text).toBe('Narration after failed avatar')
+    expect(findNodeByKind(host, 'dialogue-avatar')).toBeUndefined()
+    expect(renderErrors).toHaveLength(0)
 
     await renderer.destroy()
   })
@@ -1993,6 +2179,7 @@ describe('@quajs/renderer-cocos', () => {
 })
 
 function createView(options: {
+  dialogueAvatar?: QuaViewProjection['dialogue']['avatar']
   dialogueText?: QuaViewProjection['dialogue']['text']
   dialogueTypewriter?: QuaViewProjection['dialogue']['typewriter']
   audioAsset?: string
@@ -2043,6 +2230,7 @@ function createView(options: {
     dialogue: {
       visible: true,
       characterName: 'Hero',
+      avatar: options.dialogueAvatar,
       text: options.dialogueText || 'hello',
       typewriter: options.dialogueTypewriter,
     },
