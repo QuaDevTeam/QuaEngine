@@ -17,6 +17,7 @@ import type { Pipeline } from '@quajs/pipeline'
 import type { QuaGameSavePreviewPayload, QuaStateSerializer, QuaStore, StorageConfig } from '@quajs/store'
 import type {
   ActiveAnimationProjection,
+  DialogueAvatarProjection,
   DialogueTypewriterProjection,
   FlowControlMode,
   FlowControlPolicy,
@@ -894,6 +895,7 @@ export interface DialogueIntent {
   revision?: number
   characterId?: string
   characterName?: string
+  avatar?: DialogueAvatarProjection
   speaker?: RichTextContent
   speakerStyle?: RichTextStyleProjection
   text: RichTextContent

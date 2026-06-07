@@ -92,6 +92,35 @@ describe('@quajs/renderer-react', () => {
     expect(lifecycle).toContain('destroyed')
   })
 
+  it('renders narration through the shared Web dialogue plugin without speaker chrome', async () => {
+    const pipeline = new Pipeline()
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
+    roots.push(root)
+
+    await act(async () => {
+      root.render(createElement(QuaRenderer, {
+        pipeline,
+        plugins: createVisualNovelRendererPlugins(),
+        initialView: view({
+          dialogue: {
+            visible: true,
+            mode: 'narration',
+            text: 'Rain fills the empty platform.',
+          },
+        }),
+      }))
+      await flushReact()
+    })
+
+    expect(host.querySelector('.qua-dialogue-text')?.textContent).toBe('Rain fills the empty platform.')
+    expect(host.querySelector('.qua-dialogue-speaker')).toBeNull()
+    expect(host.querySelector('.qua-dialogue-avatar')).toBeNull()
+  })
+
   it('provides readonly projection snapshots and intent actions to React children', async () => {
     const pipeline = new Pipeline()
     const advances: Array<{ source?: string }> = []

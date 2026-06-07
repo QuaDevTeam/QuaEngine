@@ -10,6 +10,7 @@ import {
   hideWithEngine,
   move,
   moveWithEngine,
+  narrateWithEngine,
   registerCharacter,
   registerCharacters,
   setCurrentSprite,
@@ -36,6 +37,45 @@ describe('@quajs/character', () => {
       text: 'Hello',
       mode: 'say',
     }))
+    expect(engine.waitFor).toHaveBeenCalledWith(RenderToLogicEvents.USER_ADVANCE)
+  })
+
+  it('applies optional dialogue avatars from profiles and one-line overrides', async () => {
+    const engine = createEngine()
+    registerCharacter({
+      id: 'lin.child',
+      displayName: '林',
+      avatar: { type: 'characters', name: 'lin/avatar.png', runtimePackageId: 'runtime.lin' },
+    })
+
+    await speakWithEngine(engine as any, 'lin.child', 'One')
+    await speakWithEngine(engine as any, 'lin.child', 'Two', { avatar: 'ui/lin-closeup.png' })
+
+    expect(engine.showDialogue).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      characterId: 'lin.child',
+      avatar: { type: 'characters', name: 'lin/avatar.png', runtimePackageId: 'runtime.lin' },
+      text: 'One',
+    }))
+    expect(engine.showDialogue).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      characterId: 'lin.child',
+      avatar: { type: 'images', name: 'ui/lin-closeup.png' },
+      text: 'Two',
+    }))
+  })
+
+  it('shows narration without character identity or avatar', async () => {
+    const engine = createEngine()
+
+    await narrateWithEngine(engine as any, 'Rain folds over the station roof.')
+
+    const payload = engine.showDialogue.mock.calls[0]?.[0]
+    expect(payload).toEqual(expect.objectContaining({
+      text: 'Rain folds over the station roof.',
+      mode: 'narration',
+    }))
+    expect(payload).not.toHaveProperty('characterId')
+    expect(payload).not.toHaveProperty('characterName')
+    expect(payload).not.toHaveProperty('avatar')
     expect(engine.waitFor).toHaveBeenCalledWith(RenderToLogicEvents.USER_ADVANCE)
   })
 

@@ -39,6 +39,12 @@ await expressionWithEngine(engine, 'Yuki', 'surprised')
 await moveWithEngine(engine, 'Yuki', { x: 1100, y: 640, scale: 1.05 })
 await hideWithEngine(engine, 'Yuki')
 
+await speakWithEngine(engine, 'Yuki', 'I can speak off-screen.', {
+  avatar: { type: 'characters', name: 'yuki/avatar.png' },
+})
+
+await narrateWithEngine(engine, 'Rain folds over the station roof.')
+
 await stageCharactersWithEngine(engine, ['Yuki', 'Mara', 'Unit-7'], {
   y: 650,
   spacing: 340,
@@ -50,7 +56,9 @@ Character positions and motion values are logical stage units.
 
 Use `stageCharactersWithEngine` when changing the visible cast and you want engine-owned standing positions. It defaults to position-only staging and does not write scale. Set `autoScale: true` only when the story intentionally wants count-based scale, or pass explicit `positions`/`scaleByCount` values.
 
-Character identity can be registered with `registerCharacter(s)` profiles. String refs resolve by `id` first, then by a unique `displayName`/`name`/`alias`; ambiguous display names must use an explicit id, typically through `@Speaker(id)` in QuaScript. Profiles may provide `speaker`, `speakerStyle`, `spriteBase`, `spriteManifest`, `sprites`, and `expressions` so sprite short keys such as `sad` can resolve before renderer projection.
+Character identity can be registered with `registerCharacter(s)` profiles. String refs resolve by `id` first, then by a unique `displayName`/`name`/`alias`; ambiguous display names must use an explicit id, typically through `@Speaker(id)` in QuaScript. Profiles may provide `avatar`, `speaker`, `speakerStyle`, `spriteBase`, `spriteManifest`, `sprites`, and `expressions` so sprite short keys such as `sad` can resolve before renderer projection.
+
+Dialogue avatars are optional projection assets for the dialogue box, useful when a character speaks off-screen. `avatar` accepts an asset object such as `{ type: 'images' | 'characters', name, runtimePackageId?, alt?, metadata? }` or a string shorthand for an `images` asset. Avatars do not show/hide characters, do not change sprite state, and are omitted by default.
 
 ## QuaScript Decorators
 
@@ -90,6 +98,10 @@ Renderer character presence transitions are fade-in/fade-out by default. Web/Vue
 
 Renderer dialogue boxes also keep a transient enter/exit presence so default dialogue chrome can fade in/out without becoming authoritative state. Web DOM, Vue, React, and Svelte dialogue renderers should expose `data-dialogue-presence="enter|exit"` and keep project-level quick toolbar chrome synchronized with that projection instead of duplicating framework-local behavior.
 
+Dialogue avatar renderers may resolve asset URLs or native resources as transient implementation details. They must not treat avatars as character presence, standing sprite state, or progression authority.
+
+Official Web, Vue, React, Svelte, and Cocos dialogue renderers project `mode: 'narration'` speakerless dialogue as text-only dialogue chrome: no implicit `Narrator`, no speaker element/text, and no avatar unless the projection explicitly provides one.
+
 ## Sprite Manifests
 
 Sprite manifest and expression diff tooling belongs to `@quajs/plugin-sprite`. Character state chooses sprite/expression; renderer sprite plugins resolve manifests as transient projection resources.
@@ -110,4 +122,5 @@ Run renderer tests when character projection contracts change.
 - Are renderer component refs, object URLs, and animation handles transient?
 - Are coordinates logical stage units?
 - Do decorators default to the dialogue speaker only where compiler context supports it?
+- Do optional dialogue avatars remain dialogue projection data rather than character sprite state?
 - If character API, decorator, projection, or renderer behavior changed, was this skill updated?

@@ -77,6 +77,92 @@ describe('quaScriptParser', () => {
     expect(dialogue.templateExpressions).toEqual(['name', 'day'])
   })
 
+  it('parses bare narration lines without adding a speaker character', () => {
+    const parser = new QuaScriptParser()
+    const result = parser.parse(`
+      雨声落在窗沿。
+      Jack: Hello.
+      - Continue -> next
+    `)
+
+    expect(result.steps).toHaveLength(3)
+    expect(result.characters).toEqual(new Set(['Jack']))
+    expect(result.steps[0].type).toBe('dialogue')
+    expect(result.steps[0].content).toEqual(expect.objectContaining({
+      character: undefined,
+      mode: 'narration',
+      text: '雨声落在窗沿。',
+    }))
+  })
+
+  it('attaches decorators and template expressions to bare narration', () => {
+    const parser = new QuaScriptParser()
+    const result = parser.parse(`
+      @PlaySFX('rain.ogg')
+      Rain ${'${scope.level}'} keeps falling.
+    `)
+
+    expect(result.steps).toHaveLength(1)
+    expect(result.steps[0].type).toBe('dialogue')
+    const dialogue = result.steps[0].content as any
+    expect(dialogue.mode).toBe('narration')
+    expect(dialogue.decorators.map((decorator: any) => decorator.name)).toEqual(['PlaySFX'])
+    expect(dialogue.templateExpressions).toEqual(['scope.level'])
+  })
+
+  it('does not treat comments or structural lines as bare narration', () => {
+    const parser = new QuaScriptParser()
+    const result = parser.parse(`
+      // locale: zh-cn
+      // NEEDS-REVIEW: base text or matching context changed
+      Jack: Hello.
+      - Continue -> next
+      <script lang="ts">
+    `)
+
+    expect(result.steps).toHaveLength(2)
+    expect(result.steps[0].type).toBe('dialogue')
+    expect((result.steps[0].content as any).text).toBe('Hello.')
+    expect(result.steps[1].type).toBe('choice')
+    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual([
+      'QS_PARSE_UNRECOGNIZED_LINE',
+    ])
+  })
+
+  it('allows comments between decorators and the localized dialogue line', () => {
+    const parser = new QuaScriptParser()
+    const result = parser.parse(`
+      @LineId('intro.rain')
+      // NEEDS-REVIEW: base text or matching context changed
+      Rain keeps falling.
+    `)
+
+    expect(result.steps).toHaveLength(1)
+    expect(result.steps[0].type).toBe('dialogue')
+    const dialogue = result.steps[0].content as any
+    expect(dialogue.mode).toBe('narration')
+    expect(dialogue.text).toBe('Rain keeps falling.')
+    expect(dialogue.decorators.map((decorator: any) => decorator.name)).toEqual(['LineId'])
+    expect(result.diagnostics).toEqual([])
+  })
+
+  it('allows narration text that starts with non-structural punctuation', () => {
+    const parser = new QuaScriptParser()
+    const result = parser.parse(`
+      -alone in the corridor.
+      *Crash.*
+      <not a script tag>
+    `)
+
+    expect(result.steps).toHaveLength(3)
+    expect(result.steps.map(step => (step.content as any).text)).toEqual([
+      '-alone in the corridor.',
+      '*Crash.*',
+      '<not a script tag>',
+    ])
+    expect(result.steps.every(step => (step.content as any).mode === 'narration')).toBe(true)
+  })
+
   it('should handle empty lines and whitespace', () => {
     const parser = new QuaScriptParser()
     const script = `

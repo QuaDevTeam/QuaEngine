@@ -234,6 +234,7 @@ export type {
   BackgroundMode,
   BackgroundSetPayload,
   BuiltinOverlayStack,
+  DialogueAvatarProjection,
   DialogueShowPayload,
   DialogueTypewriterProjection,
   DialogueTypewriterSoundProjection,

@@ -256,6 +256,7 @@ describe('render-core event contracts', () => {
     await emitLogicToRender(pipeline, LogicToRenderEvents.DIALOGUE_SHOW, {
       characterId: 'Alice',
       characterName: 'Alice',
+      avatar: { type: 'characters', name: 'alice/avatar.png' },
       text: 'Hello',
     })
     off()
@@ -264,7 +265,10 @@ describe('render-core event contracts', () => {
     })
 
     expect(handler).toHaveBeenCalledTimes(1)
-    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ text: 'Hello' }), expect.any(Object))
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({
+      avatar: { type: 'characters', name: 'alice/avatar.png' },
+      text: 'Hello',
+    }), expect.any(Object))
   })
 
   it('dispatches typed render-to-logic intent events through @quajs/pipeline', async () => {

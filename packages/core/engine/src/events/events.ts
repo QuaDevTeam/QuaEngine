@@ -31,6 +31,7 @@ export type {
   BuiltinOverlayStack,
   CharacterPayload,
   CharacterPosition,
+  DialogueAvatarProjection,
   ChoiceShowPayload,
   DialogueShowPayload,
   DialogueTypewriterProjection,

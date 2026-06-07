@@ -137,8 +137,9 @@ export interface QuaScriptDecorator {
 
 export interface QuaScriptDialogue {
   type: 'dialogue'
-  character: string
+  character?: string
   text: string
+  mode?: 'say' | 'narration'
   textRange: SourceRange
   decorators: QuaScriptDecorator[]
   templateExpressions: string[]

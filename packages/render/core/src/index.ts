@@ -531,11 +531,20 @@ export interface ViewDialogueProjection {
   visible: boolean
   characterId?: string
   characterName?: string
+  avatar?: Readonly<DialogueAvatarProjection>
   speaker?: RichTextContent
   speakerStyle?: RichTextStyleProjection
   text: RichTextContent
   mode?: 'say' | 'narration'
   typewriter?: Readonly<DialogueTypewriterProjection>
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export interface DialogueAvatarProjection {
+  type?: 'images' | 'characters'
+  name: string
+  runtimePackageId?: string
+  alt?: string
   metadata?: Readonly<Record<string, unknown>>
 }
 
@@ -948,6 +957,7 @@ export interface CharacterPayload {
 export interface DialogueShowPayload {
   characterId?: string
   characterName?: string
+  avatar?: Readonly<DialogueAvatarProjection>
   speaker?: RichTextContent
   speakerStyle?: RichTextStyleProjection
   text: RichTextContent

@@ -76,6 +76,33 @@ describe('@quajs/renderer-svelte', () => {
     expect(lifecycle).toContain('destroyed')
   })
 
+  it('renders narration through the shared Web dialogue plugin without speaker chrome', async () => {
+    const pipeline = new Pipeline()
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    const action = quaRenderer(root, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        dialogue: {
+          visible: true,
+          mode: 'narration',
+          text: 'Rain fills the empty platform.',
+        },
+      }),
+    })
+
+    await flushDom()
+
+    expect(root.querySelector('.qua-dialogue-text')?.textContent).toBe('Rain fills the empty platform.')
+    expect(root.querySelector('.qua-dialogue-speaker')).toBeNull()
+    expect(root.querySelector('.qua-dialogue-avatar')).toBeNull()
+
+    action.destroy?.()
+  })
+
   it('exposes renderer snapshots through a Svelte readable store', async () => {
     const pipeline = new Pipeline()
     let host: QuaWebDomRendererHost | undefined

@@ -100,6 +100,62 @@ describe('@quajs/renderer-vue', () => {
     host.app.unmount()
   })
 
+  it('renders narration without speaker chrome or a default avatar', async () => {
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        dialogue: {
+          visible: true,
+          mode: 'narration',
+          text: 'Rain fills the empty platform.',
+        },
+      }),
+    })
+
+    await flushVue()
+
+    expect(host.el.querySelector('.qua-dialogue-text')?.textContent).toBe('Rain fills the empty platform.')
+    expect(host.el.querySelector('.qua-dialogue-speaker')).toBeNull()
+    expect(host.el.querySelector('.qua-dialogue-avatar')).toBeNull()
+
+    host.app.unmount()
+  })
+
+  it('renders optional dialogue avatars from projected assets', async () => {
+    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:vue-dialogue-avatar')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const assets = await createImageAssets(['alice-avatar.png'])
+    const pipeline = new Pipeline()
+    const host = mount(QuaRenderer, {
+      pipeline,
+      assets,
+      plugins: createVisualNovelRendererPlugins(),
+      initialView: view({
+        dialogue: {
+          visible: true,
+          characterName: 'Alice',
+          avatar: { name: 'alice-avatar.png', alt: 'Alice avatar' },
+          text: 'Line',
+        },
+      }),
+    })
+
+    await flushVue()
+
+    const avatar = host.el.querySelector<HTMLImageElement>('.qua-dialogue-avatar')
+    expect(avatar?.getAttribute('src')).toBe('blob:vue-dialogue-avatar')
+    expect(avatar?.getAttribute('alt')).toBe('Alice avatar')
+    expect(avatar?.dataset.dialogueAvatarType).toBe('images')
+    expect(host.el.querySelector('.qua-dialogue-text')?.textContent).toBe('Line')
+
+    host.app.unmount()
+    await assets.cleanup()
+    expect(create).toHaveBeenCalled()
+    revoke.mockRestore()
+  })
+
   it('wires scene transitions through the default Vue preset', async () => {
     const pipeline = new Pipeline()
     const readyScenes: string[] = []
@@ -2842,6 +2898,26 @@ async function createFontAssets(): Promise<QuaAssets> {
         assets: [
           fontAssetRecord('display.woff2'),
         ],
+      }),
+      getAsset: async () => new Uint8Array([1, 2, 3, 4]),
+    },
+  })
+  await assets.initialize()
+  return assets
+}
+
+async function createImageAssets(names: string[]): Promise<QuaAssets> {
+  const assets = new QuaAssets({
+    adapter: {
+      name: 'renderer-vue-image-test',
+      storage: new MemoryAssetStorage(),
+      crypto: { sha256: async () => '' },
+    },
+    provider: {
+      mode: 'memory',
+      getManifest: async () => ({
+        version: '1',
+        assets: names.map(name => imageManifestRecord(`memory:default:images:${name}`, name, 'memory', 0)),
       }),
       getAsset: async () => new Uint8Array([1, 2, 3, 4]),
     },

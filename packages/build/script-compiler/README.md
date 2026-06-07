@@ -4,7 +4,7 @@ A TypeScript-first DSL compiler for QuaEngine that transforms QuaScript dialogue
 
 ## Features
 
-- **Simple Dialogue Syntax**: Write natural dialogue using `Character: Text` format
+- **Simple Dialogue Syntax**: Write character dialogue using `Character: Text` and bare narration lines with no speaker
 - **Decorator System**: Use `@Decorator()` syntax for actions and effects
 - **Decorator Auto-Collection**: Discover plugin decorators from project metadata by default, with an opt-out switch
 - **Template Literals**: Full TypeScript template string support with `${expression}`
@@ -22,6 +22,7 @@ A TypeScript-first DSL compiler for QuaEngine that transforms QuaScript dialogue
 function scene1() {
   dialogue(qs`
     Jack: Hello world!
+    Rain folds over the station roof.
     John: How are you doing?
     Jack: I'm doing great, thanks!
   `)

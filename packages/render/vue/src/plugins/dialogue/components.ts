@@ -1,9 +1,40 @@
-import type { RichTextContent, RichTextSpanProjection } from '@quajs/render-core'
+import type { AssetType } from '@quajs/assets'
+import type { DialogueAvatarProjection, RichTextContent, RichTextSpanProjection } from '@quajs/render-core'
+import type { PropType } from 'vue'
 import { isRichTextDocument, viewAllowsDialogueChrome } from '@quajs/render-core'
-import { DialoguePresenceRuntime, DialogueTypewriterRuntime, motionProjectionVars, projectDialogue } from '@quajs/renderer-web'
-import { defineComponent, h, onBeforeUnmount, ref } from 'vue'
+import { DialoguePresenceRuntime, DialogueTypewriterRuntime, motionProjectionVars, projectDialogue, runtimePackageCandidatesFromMetadata } from '@quajs/renderer-web'
+import { computed, defineComponent, h, onBeforeUnmount, ref } from 'vue'
 import { useProjectionProps } from '../../components/projection'
-import { useAnimationClock, useAnimations, useDialogue, usePluginProjection, useQuaRenderer, useRendererActions } from '../../composables'
+import { useAnimationClock, useAnimations, useAssetUrl, useDialogue, usePluginProjection, useQuaRenderer, useRendererActions } from '../../composables'
+
+export const QuaDialogueAvatar = defineComponent({
+  name: 'QuaDialogueAvatar',
+  props: {
+    avatar: {
+      type: Object as PropType<DialogueAvatarProjection>,
+      required: true,
+    },
+    alt: {
+      type: String,
+      default: '',
+    },
+  },
+  setup(props) {
+    const assetType = computed(() => (props.avatar.type || 'images') as AssetType)
+    const asset = useAssetUrl(
+      assetType,
+      () => props.avatar.name,
+      () => runtimePackageCandidatesFromDialogueAvatar(props.avatar),
+    )
+    return () => h('img', {
+      'class': 'qua-dialogue-avatar',
+      'src': asset.url.value,
+      'alt': props.avatar.alt || props.alt,
+      'data-dialogue-avatar-type': props.avatar.type || 'images',
+      'data-dialogue-avatar-name': props.avatar.name,
+    })
+  },
+})
 
 export const QuaDialogueBox = defineComponent({
   name: 'QuaDialogueBox',
@@ -70,6 +101,12 @@ export const QuaDialogueBox = defineComponent({
           }
         },
       }, slots.default?.({ ...useProjectionProps(), dialogue: projectedDialogue, actions }) || [
+        projectedDialogue.avatar
+          ? h(QuaDialogueAvatar, {
+              avatar: projectedDialogue.avatar,
+              alt: projectedDialogue.characterName || '',
+            })
+          : null,
         speakerContent
           ? h('div', {
               class: 'qua-dialogue-speaker',
@@ -91,6 +128,18 @@ export const QuaDialogueBox = defineComponent({
     }
   },
 })
+
+function runtimePackageCandidatesFromDialogueAvatar(
+  avatar: DialogueAvatarProjection | undefined,
+): readonly string[] | undefined {
+  if (!avatar) {
+    return undefined
+  }
+  return runtimePackageCandidatesFromMetadata({
+    ...(avatar.metadata || {}),
+    ...(avatar.runtimePackageId ? { contentPackageId: avatar.runtimePackageId } : {}),
+  })
+}
 
 function renderRichTextContent(content: RichTextContent) {
   if (!isRichTextDocument(content)) {

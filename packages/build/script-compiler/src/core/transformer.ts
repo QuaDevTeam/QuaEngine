@@ -579,7 +579,7 @@ export class QuaScriptTransformer {
     const statements: t.Statement[] = []
     const context = {
       characterName: dialogue.character,
-      characterRef: t.stringLiteral(dialogue.character) as t.Expression,
+      characterRef: dialogue.character ? t.stringLiteral(dialogue.character) as t.Expression : undefined,
       speakOptions: [] as t.ObjectProperty[],
       stepType: 'dialogue' as const,
       stepIndex,
@@ -592,6 +592,9 @@ export class QuaScriptTransformer {
     }
     statements.push(...this.createDecoratorStatements(dialogue.decorators, context, options.scopeIdentifier))
     statements.push(...this.createImplicitDecoratorStatements(dialogue.decorators, context, options.scopeIdentifier))
+    if (!dialogue.character && (context.characterRef || context.characterName || context.speakOptions.length > 0)) {
+      throw new Error('Speaker decorators require a character dialogue line. Use Character: Text or remove the speaker decorator from narration.')
+    }
 
     statements.push(t.expressionStatement(t.awaitExpression(this.createSpeakCall(dialogue, context, options))))
 
@@ -1189,16 +1192,27 @@ export class QuaScriptTransformer {
       templateExpressionRanges: dialogue.templateExpressionRanges,
     })
 
-    this.usedRuntimeHelpers.add('speakWithEngine')
+    if (dialogue.character) {
+      this.usedRuntimeHelpers.add('speakWithEngine')
+      return t.callExpression(
+        t.identifier('speakWithEngine'),
+        [
+          t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
+          context.characterRef || t.stringLiteral(dialogue.character),
+          textExpression,
+          ...(context.speakOptions?.length
+            ? [t.objectExpression(context.speakOptions)]
+            : []),
+        ],
+      )
+    }
+
+    this.usedRuntimeHelpers.add('narrateWithEngine')
     return t.callExpression(
-      t.identifier('speakWithEngine'),
+      t.identifier('narrateWithEngine'),
       [
         t.memberExpression(t.identifier('ctx'), t.identifier('engine')),
-        context.characterRef || t.stringLiteral(dialogue.character),
         textExpression,
-        ...(context.speakOptions?.length
-          ? [t.objectExpression(context.speakOptions)]
-          : []),
       ],
     )
   }

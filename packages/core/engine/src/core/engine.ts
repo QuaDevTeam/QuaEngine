@@ -710,6 +710,7 @@ export class QuaEngine {
     await this.emitLogicToRender(L2R.DIALOGUE_SHOW, {
       characterId: projectedDialogue.characterId,
       characterName: projectedDialogue.characterName,
+      avatar: projectedDialogue.avatar,
       speaker: projectedDialogue.speaker,
       speakerStyle: projectedDialogue.speakerStyle,
       text: projectedDialogue.text,
@@ -2986,16 +2987,22 @@ export class QuaEngine {
     const typewriter = projected.typewriter && typeof projected.typewriter === 'object'
       ? projected.typewriter
       : undefined
-    if (!packageId || !typewriter?.sound) {
+    if (!packageId) {
       return projected
     }
-    return {
+    const next: DialogueIntent = {
       ...projected,
-      typewriter: {
+    }
+    if (projected.avatar) {
+      next.avatar = tagDialogueAvatarWithRuntimePackage(projected.avatar, packageId)
+    }
+    if (typewriter?.sound) {
+      next.typewriter = {
         ...typewriter,
         sound: tagDialogueTypewriterSoundWithRuntimePackage(typewriter.sound, packageId),
-      },
+      }
     }
+    return next as T
   }
 
   private withCurrentRuntimeBackgroundMetadata<T extends BackgroundIntent>(background: T): T {
@@ -3411,6 +3418,7 @@ function createEngineMutations() {
         visible: true,
         characterId: payload.characterId,
         characterName: payload.characterName,
+        avatar: payload.avatar !== undefined ? cloneUnknownValue(payload.avatar) as DialogueIntent['avatar'] : undefined,
         speaker: payload.speaker !== undefined ? cloneUnknownValue(payload.speaker) as DialogueIntent['speaker'] : undefined,
         speakerStyle: payload.speakerStyle !== undefined ? cloneUnknownValue(payload.speakerStyle) as DialogueIntent['speakerStyle'] : undefined,
         text: cloneUnknownValue(payload.text) as DialogueIntent['text'],
@@ -3725,6 +3733,7 @@ function cloneDialogueProjection(dialogue: QuaViewProjection['dialogue']): QuaVi
     text: cloneUnknownValue(dialogue.text) as DialogueIntent['text'],
     ...(dialogue.characterId !== undefined ? { characterId: dialogue.characterId } : {}),
     ...(dialogue.characterName !== undefined ? { characterName: dialogue.characterName } : {}),
+    ...(dialogue.avatar !== undefined ? { avatar: cloneUnknownValue(dialogue.avatar) as DialogueIntent['avatar'] } : {}),
     ...(dialogue.speaker !== undefined ? { speaker: cloneUnknownValue(dialogue.speaker) as DialogueIntent['speaker'] } : {}),
     ...(dialogue.speakerStyle !== undefined ? { speakerStyle: cloneUnknownValue(dialogue.speakerStyle) as DialogueIntent['speakerStyle'] } : {}),
     ...(dialogue.mode !== undefined ? { mode: dialogue.mode } : {}),
@@ -4071,6 +4080,23 @@ function tagDialogueTypewriterSoundWithRuntimePackage(
     ...sound,
     contentPackageId: packageId,
     metadata: sound.metadata ? cloneUnknownRecord(sound.metadata) : undefined,
+  }
+}
+
+function tagDialogueAvatarWithRuntimePackage(
+  avatar: NonNullable<DialogueIntent['avatar']>,
+  packageId: string,
+): NonNullable<DialogueIntent['avatar']> {
+  if (avatar.runtimePackageId || getRecordRuntimePackages(avatar.metadata).length > 0) {
+    return {
+      ...avatar,
+      metadata: avatar.metadata ? cloneUnknownRecord(avatar.metadata) : undefined,
+    }
+  }
+  return {
+    ...avatar,
+    runtimePackageId: packageId,
+    metadata: avatar.metadata ? cloneUnknownRecord(avatar.metadata) : undefined,
   }
 }
 

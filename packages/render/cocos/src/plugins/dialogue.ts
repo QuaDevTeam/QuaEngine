@@ -61,6 +61,13 @@ export function createDialogueCocosRendererPlugin() {
           }))
         },
       })
+      const renderDialogue = (options?: Parameters<typeof renderCocosDialogue>[1]) => {
+        void renderCocosDialogue(context.cocos, options).catch(error => context.reportError(error, {
+          message: 'Cocos dialogue projection failed.',
+          phase: 'renderer-cocos:dialogue',
+          pluginName: '@quajs/renderer-cocos/dialogue',
+        }))
+      }
       let sync: () => void
       const schedule = () => {
         if (frame !== undefined)
@@ -73,7 +80,7 @@ export function createDialogueCocosRendererPlugin() {
       sync = () => {
         if (!viewAllowsDialogueChrome(context.getViewState())) {
           typewriterRuntime.destroy()
-          renderCocosDialogue(context.cocos)
+          renderDialogue()
           return
         }
         const projectedDialogue = projectDialogue(
@@ -83,7 +90,7 @@ export function createDialogueCocosRendererPlugin() {
           context.getViewState().plugins.dialogue as Record<string, unknown> | undefined,
         )
         const typewriter = typewriterRuntime.project(projectedDialogue)
-        renderCocosDialogue(context.cocos, { typewriter })
+        renderDialogue({ typewriter })
         if (typewriter.revealing) {
           schedule()
         }
