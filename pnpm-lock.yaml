@@ -258,6 +258,9 @@ importers:
       clsx:
         specifier: 'catalog:'
         version: 2.1.1
+      fflate:
+        specifier: 'catalog:'
+        version: 0.8.2
       lucide-svelte:
         specifier: 'catalog:'
         version: 1.0.1(svelte@5.55.9(@typescript-eslint/types@8.59.2))

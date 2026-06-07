@@ -21,7 +21,9 @@
   export let reviewNote = ''
   export let pendingApprovalAction = ''
   export let running = false
+  export let exporting = false
   export let onRunProject: (mode: RunMode, chapterIndex?: number) => void | Promise<void>
+  export let onExportProject: () => void | Promise<void>
   export let onSelectArtifact: (artifactId: string) => void
   export let onSubmitApproval: (action: ApprovalAction) => void | Promise<void>
 
@@ -29,6 +31,7 @@
 
   $: outlineArtifact = artifacts.find(a => a.stage === 'outline')
   $: outlineChapters = outlineArtifact ? extractOutlineChapters(outlineArtifact.markdown) : []
+  $: completedArtifactCount = artifacts.filter(artifact => artifact.status === 'approved' || artifact.status === 'draft').length
 
   $: showChapterNav = selectedProject?.currentStage === 'scene_writing' && outlineChapters.length > 0
 
@@ -42,7 +45,15 @@
   <div class="main-scroll">
     <div class="main-inner">
       {#if selectedProject}
-        <WorkbenchHeader project={selectedProject} {progress} {running} {onRunProject} />
+        <WorkbenchHeader
+          project={selectedProject}
+          {progress}
+          {running}
+          {exporting}
+          {completedArtifactCount}
+          {onRunProject}
+          {onExportProject}
+        />
 
         <section class="panel">
           <StageTimeline items={stageTimeline} {selectedArtifactId} {onSelectArtifact} />

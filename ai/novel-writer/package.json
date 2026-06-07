@@ -17,6 +17,7 @@
     "@internationalized/date": "catalog:",
     "bits-ui": "catalog:",
     "clsx": "catalog:",
+    "fflate": "catalog:",
     "lucide-svelte": "catalog:",
     "svelte-sonner": "^1.1.1",
     "tailwind-merge": "catalog:",

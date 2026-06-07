@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { deleteProject, defaultRequestTimeoutMs } from './api'
+import { deleteProject, defaultRequestTimeoutMs, exportProject } from './api'
 
 const originalFetch = globalThis.fetch
 
@@ -28,5 +28,22 @@ describe('client API requests', () => {
 
     await request
     expect(aborts[0]?.aborted).toBe(true)
+  })
+
+  it('returns project export blobs with the server-provided filename', async () => {
+    globalThis.fetch = vi.fn(async () => new Response('zip-bytes', {
+      headers: {
+        'Content-Disposition': 'attachment; filename="fallback.zip"; filename*=UTF-8\'\'Novel%20Export.zip',
+        'Content-Type': 'application/zip',
+      },
+    })) as typeof fetch
+
+    const download = await exportProject('project one')
+
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/projects/project%20one/export', expect.objectContaining({
+      signal: expect.any(AbortSignal),
+    }))
+    expect(download.filename).toBe('Novel Export.zip')
+    expect(await download.blob.text()).toBe('zip-bytes')
   })
 })

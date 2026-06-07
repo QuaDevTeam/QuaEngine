@@ -42,6 +42,11 @@ export type ProjectUpdateResult = ProjectDetail & {
   revisionStarted: boolean
 }
 
+export type ProjectExportDownload = {
+  blob: Blob
+  filename: string
+}
+
 export const defaultRequestTimeoutMs = 20_000
 export const agentRequestTimeoutMs = 60 * 60 * 1000
 
@@ -84,6 +89,15 @@ export async function deleteProject(projectId: string): Promise<NovelProject> {
     method: 'DELETE',
   })
   return payload.project
+}
+
+export async function exportProject(projectId: string): Promise<ProjectExportDownload> {
+  const response = await request(`/api/projects/${encodeURIComponent(projectId)}/export`)
+  return {
+    blob: await response.blob(),
+    filename: filenameFromContentDisposition(response.headers.get('Content-Disposition'))
+      || `${projectId}-novel-writer-export.zip`,
+  }
 }
 
 export async function listTrashedProjects(): Promise<NovelProject[]> {
@@ -200,4 +214,24 @@ function formatTimeout(timeoutMs: number): string {
     return `${Math.round(timeoutMs / 60 / 1000)} 分钟`
   }
   return `${Math.round(timeoutMs / 1000)} 秒`
+}
+
+function filenameFromContentDisposition(header: string | null): string | undefined {
+  if (!header) {
+    return undefined
+  }
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(header)?.[1]
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded)
+    }
+    catch {
+      return encoded
+    }
+  }
+  const quoted = /filename="([^"]+)"/i.exec(header)?.[1]
+  if (quoted) {
+    return quoted
+  }
+  return /filename=([^;]+)/i.exec(header)?.[1]?.trim()
 }

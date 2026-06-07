@@ -27,6 +27,7 @@ description: Guardrails for developing ai/novel-writer, the SvelteKit multi-agen
 - Keep browser request helpers in `src/lib/client/api.ts`.
 - User-initiated requests must have explicit client timeout handling. Ordinary CRUD/file actions should time out quickly enough to keep the UI responsive; agent-triggering actions may wait up to the 1 hour agent budget.
 - Every user action success or failure should show a toast via shadcn-svelte Sonner (`src/lib/components/ui/sonner` plus `svelte-sonner`).
+- Project export is a user-initiated download. Keep export route handlers thin, package only completed artifacts (`approved` and `draft`) plus manifest/combined Markdown, and keep raw conversations/tool transcripts/API keys out of the archive.
 - Trash, restore, permanent delete, and empty trash must update local lists immediately and then resync active/trash lists from the server.
 - Confirm-dialog actions should close only after success; failures should keep context visible and show a toast.
 

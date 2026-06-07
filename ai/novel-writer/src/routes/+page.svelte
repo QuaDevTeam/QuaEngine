@@ -64,7 +64,9 @@
       bind:reviewNote={workspace.reviewNote}
       pendingApprovalAction={workspace.pendingApprovalAction}
       running={workspace.running}
+      exporting={workspace.exportingProjectId === workspace.selectedProjectId}
       onRunProject={workspace.runProject}
+      onExportProject={workspace.exportSelectedProject}
       onSelectArtifact={(artifactId) => workspace.selectedArtifactId = artifactId}
       onSubmitApproval={workspace.submitApproval}
     />
