@@ -1,0 +1,8 @@
+@import "tailwindcss";
+@import './lib/styles/tokens.css';
+@import './lib/styles/base.css';
+@import './lib/styles/layout.css';
+@import './lib/styles/workspace.css';
+@import './lib/styles/inspector.css';
+@import './lib/styles/dialogs.css';
+@import './lib/styles/responsive.css';

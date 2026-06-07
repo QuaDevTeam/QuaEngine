@@ -1,0 +1,62 @@
+@media (max-width: 1240px) {
+  .workspace {
+    grid-template-columns: 260px minmax(0, 1fr) 320px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .workspace {
+    grid-template-columns: 248px minmax(0, 1fr);
+  }
+
+  .inspector {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    grid-template-rows: 56px minmax(0, 1fr);
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    padding: 0 var(--space-4);
+  }
+
+  .project-sidebar {
+    max-height: 38vh;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .main-scroll {
+    padding: var(--space-4);
+  }
+
+  .workbench-top {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .run-actions {
+    width: 100%;
+  }
+
+  .run-actions .nw-button {
+    flex: 1;
+  }
+
+  .chat-message {
+    max-width: 100%;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
