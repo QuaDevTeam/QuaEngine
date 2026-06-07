@@ -474,16 +474,18 @@ export const DEFAULT_UI_OVERLAY_Z_INDEXES = {
 export const OVERLAY_STACK_Z_INDEX_STRIDE = 1_000_000
 
 /**
- * Renderer-facing chrome for a UI scene. This is engine-owned presentation
- * metadata; renderers project it and may not use it as authoritative state.
+ * Renderer-facing default UI shell/chrome for a UI scene. "Chrome" here means
+ * visual-novel UI furniture, not a browser/WebView. This is engine-owned
+ * presentation metadata; renderers project it and may not use it as
+ * authoritative state.
  */
 export interface ViewUiSceneOverlayProjection extends Readonly<Record<string, unknown>>, ViewOverlayStackPlacement {
   variant?: string
   skinId?: string
   background?: Readonly<Record<string, unknown>>
   /**
-   * Set to false when a UI scene must render without default visual-novel
-   * chrome such as dialogue, choices, HUD buttons, or quick menus.
+   * Set to false when a UI scene must render without default visual-novel UI
+   * shell/chrome such as dialogue, choices, HUD buttons, or quick menus.
    */
   defaultChrome?: boolean
   hideHud?: boolean
@@ -494,11 +496,14 @@ export interface ViewUiSceneOverlayProjection extends Readonly<Record<string, un
  * UI pages such as menu, save/load, settings, gallery, and backlog are modeled
  * as UI scenes even when they are rendered as overlays. `presentation` decides
  * whether the page behaves as an overlay over the current story or as an
- * independent system scene with its own chrome.
+ * independent system scene with its own default UI shell/chrome.
  */
 export interface ViewUiSceneProjection extends Readonly<Record<string, unknown>> {
   id: string
   presentation?: ViewUiScenePresentation
+  renderMode?: ViewUiOverlayRenderMode
+  interactive?: boolean
+  surface?: Readonly<ViewUiOverlaySurfaceProjection>
   overlay?: Readonly<ViewUiSceneOverlayProjection>
 }
 
@@ -593,7 +598,8 @@ export function resolveActiveUiSceneProjection(
     return undefined
   }
   const scenes = Object.entries(overlays)
-    .filter((entry): entry is [string, ViewUiOverlayProjection & { scene: ViewUiSceneProjection }] => Boolean(entry[1].scene?.id))
+    .filter((entry): entry is [string, ViewUiOverlayProjection & { scene: ViewUiSceneProjection }] =>
+      uiOverlayIsVisible(entry[1]) && Boolean(entry[1].scene?.id))
     .sort((left, right) => {
       const placement = compareResolvedOverlayStackPlacement(
         resolveUiOverlayStackPlacement(left[1], resolveUiOverlayPlacementDefaults(placementDefaults, left[0], left[1])),
@@ -683,16 +689,29 @@ export function compareResolvedOverlayStackPlacement(
 }
 
 export function uiOverlayRenderMode(overlay: Readonly<ViewUiOverlayProjection> | undefined): ViewUiOverlayRenderMode {
-  return overlay?.renderMode === 'render-only' ? 'render-only' : 'ui'
+  return overlay?.renderMode === 'render-only' || uiSceneIsRenderOnly(overlay?.scene) ? 'render-only' : 'ui'
 }
 
 export function uiOverlayIsRenderOnly(overlay: Readonly<ViewUiOverlayProjection> | undefined): boolean {
   return uiOverlayRenderMode(overlay) === 'render-only'
 }
 
+export function uiOverlayIsVisible(overlay: Readonly<ViewUiOverlayProjection> | undefined): boolean {
+  return (overlay as Readonly<Record<string, unknown>> | undefined)?.visible !== false
+}
+
 export function uiOverlayIsInteractive(overlay: Readonly<ViewUiOverlayProjection> | undefined): boolean {
+  if (!uiOverlayIsVisible(overlay)) {
+    return false
+  }
+  if (uiSceneIsRenderOnly(overlay?.scene)) {
+    return overlay?.scene?.interactive === true
+  }
   if (typeof overlay?.interactive === 'boolean') {
     return overlay.interactive
+  }
+  if (typeof overlay?.scene?.interactive === 'boolean' && uiOverlayIsRenderOnly(overlay)) {
+    return overlay.scene.interactive
   }
   return !uiOverlayIsRenderOnly(overlay)
 }
@@ -700,7 +719,36 @@ export function uiOverlayIsInteractive(overlay: Readonly<ViewUiOverlayProjection
 export function getUiOverlaySurfaceProjection(
   overlay: Readonly<ViewUiOverlayProjection> | undefined,
 ): Readonly<ViewUiOverlaySurfaceProjection> | undefined {
-  const surface = overlay?.surface
+  if (uiSceneIsRenderOnly(overlay?.scene)) {
+    return getUiSceneSurfaceProjection(overlay?.scene) || normalizeUiSurfaceProjection(overlay?.surface)
+  }
+  return normalizeUiSurfaceProjection(overlay?.surface) || getUiSceneSurfaceProjection(overlay?.scene)
+}
+
+export function uiSceneRenderMode(scene: Readonly<ViewUiSceneProjection> | undefined): ViewUiOverlayRenderMode {
+  return scene?.renderMode === 'render-only' ? 'render-only' : 'ui'
+}
+
+export function uiSceneIsRenderOnly(scene: Readonly<ViewUiSceneProjection> | undefined): boolean {
+  return uiSceneRenderMode(scene) === 'render-only'
+}
+
+export function uiSceneIsInteractive(scene: Readonly<ViewUiSceneProjection> | undefined): boolean {
+  if (typeof scene?.interactive === 'boolean') {
+    return scene.interactive
+  }
+  return !uiSceneIsRenderOnly(scene)
+}
+
+export function getUiSceneSurfaceProjection(
+  scene: Readonly<ViewUiSceneProjection> | undefined,
+): Readonly<ViewUiOverlaySurfaceProjection> | undefined {
+  return normalizeUiSurfaceProjection(scene?.surface)
+}
+
+function normalizeUiSurfaceProjection(
+  surface: Readonly<ViewUiOverlaySurfaceProjection> | undefined,
+): Readonly<ViewUiOverlaySurfaceProjection> | undefined {
   if (!surface || typeof surface !== 'object' || Array.isArray(surface)) {
     return undefined
   }
@@ -709,6 +757,9 @@ export function getUiOverlaySurfaceProjection(
 }
 
 export function uiSceneAllowsDefaultChrome(scene: Readonly<ViewUiSceneProjection> | undefined): boolean {
+  if (uiSceneIsRenderOnly(scene)) {
+    return false
+  }
   return scene?.overlay?.defaultChrome !== false
 }
 

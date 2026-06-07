@@ -255,6 +255,61 @@ describe('@quajs/renderer-svelte', () => {
     action.destroy?.()
   })
 
+  it('renders registered render-only UI scene factories through the shared Web layer', async () => {
+    const pipeline = new Pipeline()
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+
+    const root = document.createElement('div')
+    document.body.append(root)
+    const action = quaRenderer(root, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins({
+        ui: {
+          renderOnlySurfaces: {
+            'scene/rain-canvas': (node, context) => {
+              const canvas = node.ownerDocument.createElement('canvas')
+              canvas.className = 'rain-scene-canvas'
+              canvas.dataset.scene = context.scene?.id
+              canvas.dataset.density = String(context.surface.props?.density)
+              node.append(canvas)
+            },
+          },
+        },
+      }),
+      initialView: view({
+        dialogue: { visible: true, text: 'Hidden line' },
+        choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+        ui: {
+          visible: true,
+          overlays: {
+            rainScene: {
+              scene: {
+                id: 'system:rain',
+                presentation: 'scene',
+                renderMode: 'render-only',
+                interactive: false,
+                surface: {
+                  key: 'scene/rain-canvas',
+                  props: { density: 0.9 },
+                },
+              },
+            },
+          },
+        },
+      }),
+    })
+    await flushDom()
+
+    expect(root.querySelector<HTMLCanvasElement>('.rain-scene-canvas')?.dataset.scene).toBe('system:rain')
+    expect(root.querySelector<HTMLCanvasElement>('.rain-scene-canvas')?.dataset.density).toBe('0.9')
+    expect(root.querySelector('.qua-ui-panel-header')).toBeNull()
+    expect(root.querySelector('.qua-dialogue-box')).toBeNull()
+    expect(root.querySelector('.qua-choice-panel')).toBeNull()
+    expect(root.querySelector<HTMLElement>('.qua-overlay-layer')?.dataset.uiSceneRenderMode).toBe('render-only')
+
+    action.destroy?.()
+  })
+
   it('exports DOM feature plugin subentries and composes the Vue-aligned preset order', async () => {
     const modules = await Promise.all([
       import('../src/plugins/achievement'),

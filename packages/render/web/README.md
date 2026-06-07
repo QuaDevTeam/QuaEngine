@@ -79,9 +79,9 @@ const plugins = createVisualNovelWebRendererPlugins({
 const pluginsWithoutInput = createVisualNovelWebRendererPlugins({ input: false })
 ```
 
-## Render-Only UI Overlays
+## Render-Only UI Surfaces
 
-Render-only overlays use the engine-owned generic UI overlay projection without default panel chrome. Open them with `engine.showUI()` and register a host renderer for `surface.key`:
+Render-only UI surfaces use the engine-owned generic UI projection without default panel/header/close chrome. Open them with `engine.showUI()` and register a host renderer for `surface.key`:
 
 ```ts
 const plugins = createVisualNovelWebRendererPlugins({
@@ -103,7 +103,21 @@ await engine.showUI('rain', {
 })
 ```
 
-The renderer receives only serializable projection data. Missing surface registrations warn and render an empty root instead of falling back to menu/settings panel UI.
+For a full UI scene that only mounts a renderer component, put the same projection on `scene`:
+
+```ts
+await engine.showUI('rainScene', {
+  scene: {
+    id: 'system:rain',
+    presentation: 'scene',
+    renderMode: 'render-only',
+    interactive: false,
+    surface: { key: 'scene/rain-canvas', props: { density: 0.9 } },
+  },
+})
+```
+
+The renderer receives only serializable projection data. Runtime packages may select `surface.key` and `surface.props`; host apps still pre-register the actual DOM/framework/Cocos factories. Missing surface registrations warn and render an empty root instead of falling back to menu/settings panel UI.
 
 ## Stage And Background Projection
 

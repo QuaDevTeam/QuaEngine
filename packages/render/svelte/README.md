@@ -99,7 +99,7 @@ const plugins = createVisualNovelRendererPlugins({
 })
 ```
 
-Render-only UI overlays can register Svelte-style factories through the `ui.renderOnlySurfaces` preset option. The engine opens them with `showUI()` using `renderMode: 'render-only'` and a serializable `surface.key`; the factory receives the root `HTMLElement` plus projection context and can return a `destroy` cleanup.
+Render-only UI overlays and UI scenes can register Svelte-style factories through the `ui.renderOnlySurfaces` preset option. The engine opens them with `showUI()` using `renderMode: 'render-only'` plus a serializable `surface.key` on either the overlay config or `scene`; the factory receives the root `HTMLElement` plus projection context, including optional `scene`, and can return a `destroy` cleanup.
 
 ## Runtime Boundaries
 

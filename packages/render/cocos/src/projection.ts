@@ -14,6 +14,7 @@ import type {
   ViewEffectProjection,
   ViewUiOverlayProjection,
   ViewUiOverlaySurfaceProjection,
+  ViewUiSceneProjection,
 } from '@quajs/render-core'
 import type { CocosDialogueTypewriterProjectResult } from './dialogue-typewriter'
 import type { CocosRendererHostContext } from './types'
@@ -34,8 +35,12 @@ import {
   resolveUiChoiceSkinReference,
   resolveUiOverlaySkinReference,
   resolveActiveUiSceneProjection,
+  uiSceneAllowsDefaultChrome,
+  uiSceneAllowsDialogueChrome,
+  uiSceneAllowsHudChrome,
   uiOverlayIsInteractive,
   uiOverlayIsRenderOnly,
+  uiOverlayIsVisible,
   viewAllowsDialogueChrome,
 } from '@quajs/render-core'
 import { applyCocosUiControlSkin } from './ui-skin'
@@ -79,6 +84,7 @@ export interface RenderCocosUiOptions {
 export interface CocosRenderOnlyOverlaySurfaceContext {
   elementId: string
   overlay: Readonly<ViewUiOverlayProjection>
+  scene?: Readonly<ViewUiSceneProjection>
   surface: Readonly<ViewUiOverlaySurfaceProjection>
   projected: Readonly<Record<string, unknown>>
   context: CocosRendererHostContext
@@ -295,7 +301,7 @@ export async function renderCocosUi(context: CocosRendererHostContext, options: 
   const allOverlays = context.getViewState().ui.overlays || {}
   const handled = new Set(options.handledElementIds || [])
   const overlayEntries = Object.entries(allOverlays)
-    .filter(([elementId]) => !handled.has(elementId))
+    .filter(([elementId, overlay]) => !handled.has(elementId) && uiOverlayIsVisible(overlay))
     .sort(compareCocosUiOverlayEntries)
   const topEntry = overlayEntries[overlayEntries.length - 1]
   const layer = context.getLayerNode(
@@ -310,9 +316,9 @@ export async function renderCocosUi(context: CocosRendererHostContext, options: 
   context.host.nodes.setNodeMetadata?.(layer, {
     overlayPlacement: layerPlacement,
     uiScene: activeScene,
-    defaultChrome: activeScene?.overlay?.defaultChrome,
-    hideHud: activeScene?.overlay?.hideHud,
-    hideDialogue: activeScene?.overlay?.hideDialogue,
+    defaultChrome: activeScene && !uiSceneAllowsDefaultChrome(activeScene) ? false : activeScene?.overlay?.defaultChrome,
+    hideHud: activeScene && !uiSceneAllowsHudChrome(activeScene) ? true : activeScene?.overlay?.hideHud,
+    hideDialogue: activeScene && !uiSceneAllowsDialogueChrome(activeScene) ? true : activeScene?.overlay?.hideDialogue,
   })
   for (const [elementId, overlay] of overlayEntries) {
     const projected = projectUiOverlay(
@@ -359,7 +365,9 @@ async function renderCocosRenderOnlyOverlay(
   overlay: ViewUiOverlayProjection,
   projected: Record<string, unknown>,
 ): Promise<void> {
-  const node = context.host.nodes.createNode('ui-render-only-overlay', { parent, name: elementId })
+  const scene = overlay.scene
+  const nodeKind = scene?.presentation === 'scene' ? 'ui-render-only-scene' : 'ui-render-only-overlay'
+  const node = context.host.nodes.createNode(nodeKind, { parent, name: elementId })
   context.host.nodes.setNodeVisible(node, projected.visible !== false)
   context.host.nodes.setNodeTransform(node, {
     ...renderOnlyOverlayTransform(context, projected),
@@ -370,6 +378,7 @@ async function renderCocosRenderOnlyOverlay(
   context.host.nodes.setNodeMetadata?.(node, {
     elementId,
     overlay: projected,
+    uiScene: scene,
     overlayPlacement: resolveCocosUiOverlayPlacement(overlay, defaultCocosUiOverlayPlacement(elementId)),
     renderMode: 'render-only',
     interactive: uiOverlayIsInteractive(overlay),
@@ -378,10 +387,12 @@ async function renderCocosRenderOnlyOverlay(
 
   const renderSurface = surfaceKey ? options.renderOnlySurfaces?.[surfaceKey] : undefined
   if (!surface || !surfaceKey || !renderSurface) {
+    const surfaceOwner = scene?.renderMode === 'render-only' ? 'UI scene' : 'overlay'
     context.reportWarning(surfaceKey
-      ? `Render-only overlay surface "${surfaceKey}" is not registered for Cocos.`
-      : `Render-only overlay "${elementId}" is missing surface.key.`, {
+      ? `Render-only ${surfaceOwner} surface "${surfaceKey}" is not registered for Cocos.`
+      : `Render-only ${surfaceOwner} "${elementId}" is missing surface.key.`, {
       elementId,
+      sceneId: scene?.id,
       surfaceKey,
     })
     return
@@ -390,6 +401,7 @@ async function renderCocosRenderOnlyOverlay(
   await renderSurface({
     elementId,
     overlay,
+    scene,
     surface,
     projected,
     context,

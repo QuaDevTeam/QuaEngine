@@ -117,7 +117,7 @@ const plugins = createVisualNovelRendererPlugins({
 })
 ```
 
-Render-only UI overlays can register React components through the `ui.renderOnlySurfaces` preset option. The engine opens them with `showUI()` using `renderMode: 'render-only'` and a serializable `surface.key`; the React component receives `elementId`, `overlay`, `surface`, `view`, and `actions`.
+Render-only UI overlays and UI scenes can register React components through the `ui.renderOnlySurfaces` preset option. The engine opens them with `showUI()` using `renderMode: 'render-only'` plus a serializable `surface.key` on either the overlay config or `scene`; the React component receives `elementId`, `overlay`, optional `scene`, `surface`, `view`, and `actions`.
 
 ## Runtime Boundaries
 
