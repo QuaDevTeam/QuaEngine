@@ -914,6 +914,121 @@ describe('@quajs/renderer-vue', () => {
     expect(overlay.getAttribute('style')).toContain('pointer-events: none')
   })
 
+  it('renders registered render-only UI scene components without default UI chrome', async () => {
+    const pipeline = new Pipeline()
+    const RainSceneCanvas = defineComponent({
+      name: 'RainSceneCanvas',
+      props: {
+        scene: Object as any,
+        surface: Object as any,
+      },
+      setup(props) {
+        return () => h('canvas', {
+          class: 'rain-scene-canvas',
+          'data-scene': (props.scene as any)?.id,
+          'data-density': String((props.surface as any)?.props?.density),
+        })
+      },
+    })
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins({
+        ui: {
+          renderOnlySurfaces: {
+            'scene/rain-canvas': RainSceneCanvas,
+          },
+        },
+      }),
+      initialView: view({
+        dialogue: { visible: true, text: 'Hidden line' },
+        choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+        ui: {
+          visible: true,
+          overlays: {
+            rainScene: {
+              scene: {
+                id: 'system:rain',
+                presentation: 'scene',
+                renderMode: 'render-only',
+                interactive: false,
+                surface: {
+                  key: 'scene/rain-canvas',
+                  props: { density: 0.9 },
+                },
+              },
+            },
+          },
+        },
+      }),
+    })
+
+    await flushVue()
+
+    const layer = host.el.querySelector<HTMLElement>('.qua-overlay-layer')!
+    const overlay = host.el.querySelector<HTMLElement>('.qua-ui-overlay--render-only-scene')!
+    expect(host.el.querySelector<HTMLCanvasElement>('.rain-scene-canvas')?.dataset.scene).toBe('system:rain')
+    expect(host.el.querySelector<HTMLCanvasElement>('.rain-scene-canvas')?.dataset.density).toBe('0.9')
+    expect(host.el.querySelector('.qua-ui-panel-header')).toBeNull()
+    expect(host.el.querySelector('.qua-dialogue-box')).toBeNull()
+    expect(host.el.querySelector('.qua-choice-panel')).toBeNull()
+    expect(layer.dataset.uiSceneRenderMode).toBe('render-only')
+    expect(layer.dataset.uiSceneDefaultChrome).toBe('false')
+    expect(overlay.dataset.uiSceneSurfaceKey).toBe('scene/rain-canvas')
+    expect(layer.getAttribute('style')).toContain('pointer-events: none')
+    expect(overlay.getAttribute('style')).toContain('pointer-events: none')
+  })
+
+  it('ignores hidden render-only UI scene components when resolving default UI chrome', async () => {
+    const pipeline = new Pipeline()
+    const RainSceneCanvas = defineComponent({
+      name: 'RainSceneCanvas',
+      setup() {
+        return () => h('canvas', { class: 'rain-scene-canvas' })
+      },
+    })
+    const host = mount(QuaRenderer, {
+      pipeline,
+      plugins: createVisualNovelRendererPlugins({
+        ui: {
+          renderOnlySurfaces: {
+            'scene/rain-canvas': RainSceneCanvas,
+          },
+        },
+      }),
+      initialView: view({
+        dialogue: { visible: true, text: 'Visible line' },
+        choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+        ui: {
+          visible: true,
+          overlays: {
+            rainScene: {
+              visible: false,
+              scene: {
+                id: 'system:rain',
+                presentation: 'scene',
+                renderMode: 'render-only',
+                interactive: false,
+                surface: {
+                  key: 'scene/rain-canvas',
+                },
+              },
+            },
+          },
+        },
+      }),
+    })
+
+    await flushVue()
+
+    expect(host.el.querySelector('.rain-scene-canvas')).toBeNull()
+    expect(host.el.querySelector('.qua-ui-overlay--render-only-scene')).toBeNull()
+    expect(host.el.querySelector('.qua-overlay-layer')).toBeNull()
+    expect(host.el.querySelector('.qua-dialogue-box')).not.toBeNull()
+    expect(host.el.querySelector('.qua-choice-panel')).not.toBeNull()
+    expect(host.el.textContent).toContain('Visible line')
+    expect(host.el.textContent).toContain('Yes')
+  })
+
   it('does not turn nested renderer or plugin UI clicks into duplicate advance intents', async () => {
     const pipeline = new Pipeline()
     const advances: Array<{ source?: string }> = []

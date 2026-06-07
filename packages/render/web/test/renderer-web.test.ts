@@ -456,6 +456,125 @@ describe('@quajs/renderer-web', () => {
     await renderer.unmount()
   })
 
+  it('renders registered render-only UI scene surfaces without default UI chrome', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins({
+        ui: {
+          renderOnlySurfaces: {
+            'scene/rain-canvas': ({ document, scene, surface }) => {
+              const canvas = document.createElement('canvas')
+              canvas.className = 'rain-scene-canvas'
+              canvas.dataset.scene = scene?.id
+              canvas.dataset.density = String(surface.props?.density)
+              return canvas
+            },
+          },
+        },
+      }),
+      initialView: view({
+        dialogue: { visible: true, text: 'Hidden line' },
+        choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+        ui: {
+          visible: true,
+          overlays: {
+            rainScene: {
+              scene: {
+                id: 'system:rain',
+                presentation: 'scene',
+                renderMode: 'render-only',
+                interactive: false,
+                surface: {
+                  key: 'scene/rain-canvas',
+                  props: { density: 0.9 },
+                },
+              },
+            },
+          },
+        },
+      }),
+    })
+
+    await renderer.mount()
+
+    const layer = root.querySelector<HTMLElement>('.qua-overlay-layer')!
+    const overlay = root.querySelector<HTMLElement>('.qua-ui-overlay--render-only-scene')!
+    expect(root.querySelector<HTMLCanvasElement>('.rain-scene-canvas')?.dataset.scene).toBe('system:rain')
+    expect(root.querySelector<HTMLCanvasElement>('.rain-scene-canvas')?.dataset.density).toBe('0.9')
+    expect(root.querySelector('.qua-ui-panel-header')).toBeNull()
+    expect(root.querySelector('.qua-dialogue-box')).toBeNull()
+    expect(root.querySelector('.qua-choice-panel')).toBeNull()
+    expect(layer.dataset.uiSceneId).toBe('system:rain')
+    expect(layer.dataset.uiSceneRenderMode).toBe('render-only')
+    expect(layer.dataset.uiSceneDefaultChrome).toBe('false')
+    expect(overlay.dataset.overlay).toBe('rainScene')
+    expect(overlay.dataset.uiSceneSurfaceKey).toBe('scene/rain-canvas')
+    expect(layer.style.pointerEvents).toBe('none')
+    expect(overlay.style.pointerEvents).toBe('none')
+
+    await renderer.unmount()
+  })
+
+  it('ignores hidden render-only UI scene surfaces when resolving default UI chrome', async () => {
+    const pipeline = new Pipeline()
+    const root = document.createElement('div')
+    document.body.append(root)
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    const renderer = createQuaWebDomRenderer({
+      container: root,
+      pipeline,
+      plugins: createVisualNovelWebRendererPlugins({
+        ui: {
+          renderOnlySurfaces: {
+            'scene/rain-canvas': ({ document }) => {
+              const canvas = document.createElement('canvas')
+              canvas.className = 'rain-scene-canvas'
+              return canvas
+            },
+          },
+        },
+      }),
+      initialView: view({
+        dialogue: { visible: true, text: 'Visible line' },
+        choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+        ui: {
+          visible: true,
+          overlays: {
+            rainScene: {
+              visible: false,
+              scene: {
+                id: 'system:rain',
+                presentation: 'scene',
+                renderMode: 'render-only',
+                interactive: false,
+                surface: {
+                  key: 'scene/rain-canvas',
+                },
+              },
+            },
+          },
+        },
+      }),
+    })
+
+    await renderer.mount()
+
+    expect(root.querySelector('.rain-scene-canvas')).toBeNull()
+    expect(root.querySelector('.qua-ui-overlay--render-only-scene')).toBeNull()
+    expect(root.querySelector('.qua-overlay-layer')).toBeNull()
+    expect(root.querySelector('.qua-dialogue-box')).not.toBeNull()
+    expect(root.querySelector('.qua-choice-panel')).not.toBeNull()
+    expect(root.textContent).toContain('Visible line')
+    expect(root.textContent).toContain('Yes')
+
+    await renderer.unmount()
+  })
+
   it('rerenders native DOM layout when the mobile visual viewport changes', async () => {
     const visualViewport = new EventTarget()
     Object.defineProperty(window, 'visualViewport', {

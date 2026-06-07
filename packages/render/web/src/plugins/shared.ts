@@ -1,6 +1,12 @@
 import type { RenderErrorPayload, ResolveOverlayStackPlacementOptions, ViewOverlayStackPlacement, ViewUiOverlayProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext } from './core'
-import { resolveOverlayStackPlacement, resolveUiOverlayStackPlacement } from '@quajs/render-core'
+import {
+  getUiSceneSurfaceProjection,
+  resolveOverlayStackPlacement,
+  resolveUiOverlayStackPlacement,
+  uiSceneAllowsDefaultChrome,
+  uiSceneRenderMode,
+} from '@quajs/render-core'
 
 type RendererIntentDispatchOptions = Pick<Partial<RenderErrorPayload>, 'message' | 'phase' | 'metadata' | 'pluginName'>
 
@@ -20,11 +26,14 @@ export function assignData(element: HTMLElement, name: string, value: unknown): 
 }
 
 export function uiSceneDataAttributes(scene: Readonly<ViewUiSceneProjection> | undefined): Record<string, string | undefined> {
+  const surface = getUiSceneSurfaceProjection(scene)
   return {
     'data-ui-scene-id': scene?.id,
     'data-ui-scene-presentation': scene?.presentation,
+    'data-ui-scene-render-mode': scene ? uiSceneRenderMode(scene) : undefined,
+    'data-ui-scene-surface-key': surface?.key.trim(),
     'data-ui-scene-overlay-variant': scene?.overlay?.variant,
-    'data-ui-scene-default-chrome': scene?.overlay?.defaultChrome === false ? 'false' : undefined,
+    'data-ui-scene-default-chrome': scene && !uiSceneAllowsDefaultChrome(scene) ? 'false' : undefined,
     'data-ui-scene-hide-hud': scene?.overlay?.hideHud ? 'true' : undefined,
     'data-ui-scene-hide-dialogue': scene?.overlay?.hideDialogue ? 'true' : undefined,
   }

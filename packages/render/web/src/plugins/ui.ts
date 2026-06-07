@@ -1,4 +1,4 @@
-import type { QuaViewProjection, ResolveOverlayStackPlacementOptions, RendererActions, ViewUiOverlayProjection, ViewUiOverlaySurfaceProjection } from '@quajs/render-core'
+import type { QuaViewProjection, ResolveOverlayStackPlacementOptions, RendererActions, ViewUiOverlayProjection, ViewUiOverlaySurfaceProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import {
   compareResolvedOverlayStackPlacement,
@@ -8,15 +8,17 @@ import {
   resolveUiOverlayStackPlacement,
   uiOverlayIsInteractive,
   uiOverlayIsRenderOnly,
+  uiOverlayIsVisible,
 } from '@quajs/render-core'
 import { motionProjectionVars, projectUiOverlay } from '../projection'
 import { bindUiControlSkin } from '../ui-skin'
 import { defineWebRendererPlugin } from './core'
-import { applyStyleVars, applyUiOverlayStackPlacement, applyUiSceneDataAttributes } from './shared'
+import { applyStyleVars, applyUiOverlayStackPlacement, applyUiSceneDataAttributes, uiSceneDataAttributes } from './shared'
 
 export interface UiWebRenderOnlySurfaceContext {
   elementId: string
   overlay: Readonly<ViewUiOverlayProjection>
+  scene?: Readonly<ViewUiSceneProjection>
   surface: Readonly<ViewUiOverlaySurfaceProjection>
   projected: Readonly<Record<string, unknown>>
   view: Readonly<QuaViewProjection>
@@ -150,10 +152,20 @@ function renderRenderOnlyOverlay(
 ): HTMLElement {
   const projected = projectUiOverlay(overlayConfig, elementId, context.view.animations, Date.now())
   const root = context.document.createElement('div')
-  root.className = 'qua-ui-overlay qua-ui-overlay--render-only'
+  const scene = overlayConfig.scene
+  root.className = [
+    'qua-ui-overlay',
+    'qua-ui-overlay--render-only',
+    scene?.presentation === 'scene' ? 'qua-ui-overlay--render-only-scene' : '',
+  ].filter(Boolean).join(' ')
   root.setAttribute('data-overlay', elementId)
   root.setAttribute('data-overlay-render-mode', 'render-only')
   root.setAttribute('data-qua-capture-role', 'overlay')
+  for (const [name, value] of Object.entries(uiSceneDataAttributes(scene))) {
+    if (value !== undefined) {
+      root.setAttribute(name, value)
+    }
+  }
   root.style.position = 'absolute'
   root.style.inset = '0'
   root.style.pointerEvents = uiOverlayIsInteractive(overlayConfig) ? 'auto' : 'none'
@@ -168,7 +180,7 @@ function renderRenderOnlyOverlay(
 
   const renderSurface = surfaceKey ? options.renderOnlySurfaces?.[surfaceKey] : undefined
   if (!surface || !surfaceKey || !renderSurface) {
-    warnMissingRenderOnlySurface(context, runtime, elementId, surfaceKey)
+    warnMissingRenderOnlySurface(context, runtime, elementId, surfaceKey, scene)
     return root
   }
 
@@ -176,6 +188,7 @@ function renderRenderOnlyOverlay(
     const result = renderSurface({
       elementId,
       overlay: overlayConfig,
+      scene,
       surface,
       projected,
       view: context.view,
@@ -194,10 +207,10 @@ function renderRenderOnlyOverlay(
   }
   catch (error) {
     void context.controller.reportError(error, {
-      message: `Render-only overlay surface "${surfaceKey}" failed to render.`,
+      message: `Render-only UI surface "${surfaceKey}" failed to render.`,
       phase: 'ui-render-only-surface:render',
       pluginName: '@quajs/renderer-web/ui',
-      metadata: { elementId, surfaceKey },
+      metadata: { elementId, sceneId: scene?.id, surfaceKey },
     })
   }
   return root
@@ -225,21 +238,23 @@ function warnMissingRenderOnlySurface(
   runtime: UiWebRendererPluginRuntime,
   elementId: string,
   surfaceKey: string | undefined,
+  scene: Readonly<ViewUiSceneProjection> | undefined,
 ): void {
   const warningKey = `${elementId}:${surfaceKey || '<missing>'}`
   if (runtime.warnedMissingSurfaces.has(warningKey)) {
     return
   }
   runtime.warnedMissingSurfaces.add(warningKey)
-  void context.controller.reportError(new Error('Render-only overlay surface renderer is not registered.'), {
+  const surfaceOwner = scene?.renderMode === 'render-only' ? 'UI scene' : 'overlay'
+  void context.controller.reportError(new Error('Render-only UI surface renderer is not registered.'), {
     message: surfaceKey
-      ? `Render-only overlay surface "${surfaceKey}" is not registered.`
-      : `Render-only overlay "${elementId}" is missing surface.key.`,
+      ? `Render-only ${surfaceOwner} surface "${surfaceKey}" is not registered.`
+      : `Render-only ${surfaceOwner} "${elementId}" is missing surface.key.`,
     phase: 'ui-render-only-surface:resolve',
     pluginName: '@quajs/renderer-web/ui',
     severity: 'warning',
     recoverable: true,
-    metadata: { elementId, surfaceKey },
+    metadata: { elementId, sceneId: scene?.id, surfaceKey },
   })
 }
 
@@ -264,7 +279,7 @@ function visibleOverlayEntries(
   }
   const handled = new Set(options.handledElementIds || [])
   return Object.entries(overlays)
-    .filter(([elementId]) => !handled.has(elementId))
+    .filter(([elementId, overlay]) => !handled.has(elementId) && uiOverlayIsVisible(overlay))
     .sort(compareUiOverlayEntries)
 }
 

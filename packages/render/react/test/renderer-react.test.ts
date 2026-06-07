@@ -298,6 +298,66 @@ describe('@quajs/renderer-react', () => {
     expect(overlay.style.pointerEvents).toBe('none')
   })
 
+  it('renders registered render-only UI scene components through the shared Web layer', async () => {
+    const pipeline = new Pipeline()
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
+    roots.push(root)
+
+    function RainSceneCanvas(props: any) {
+      return createElement('canvas', {
+        className: 'rain-scene-canvas',
+        'data-scene': props.scene?.id,
+        'data-density': String(props.surface?.props?.density),
+      })
+    }
+
+    await act(async () => {
+      root.render(createElement(QuaRenderer, {
+        pipeline,
+        plugins: createVisualNovelRendererPlugins({
+          ui: {
+            renderOnlySurfaces: {
+              'scene/rain-canvas': RainSceneCanvas,
+            },
+          },
+        }),
+        initialView: view({
+          dialogue: { visible: true, text: 'Hidden line' },
+          choices: [{ id: 'yes', text: 'Yes', enabled: true }],
+          ui: {
+            visible: true,
+            overlays: {
+              rainScene: {
+                scene: {
+                  id: 'system:rain',
+                  presentation: 'scene',
+                  renderMode: 'render-only',
+                  interactive: false,
+                  surface: {
+                    key: 'scene/rain-canvas',
+                    props: { density: 0.9 },
+                  },
+                },
+              },
+            },
+          },
+        }),
+      }))
+      await flushReact()
+    })
+
+    expect(host.querySelector<HTMLCanvasElement>('.rain-scene-canvas')?.dataset.scene).toBe('system:rain')
+    expect(host.querySelector<HTMLCanvasElement>('.rain-scene-canvas')?.dataset.density).toBe('0.9')
+    expect(host.querySelector('.qua-ui-panel-header')).toBeNull()
+    expect(host.querySelector('.qua-dialogue-box')).toBeNull()
+    expect(host.querySelector('.qua-choice-panel')).toBeNull()
+    expect(host.querySelector<HTMLElement>('.qua-overlay-layer')?.dataset.uiSceneRenderMode).toBe('render-only')
+  })
+
   it('exports DOM feature plugin subentries and composes the Vue-aligned preset order', async () => {
     const modules = await Promise.all([
       import('../src/plugins/achievement'),

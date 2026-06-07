@@ -11,6 +11,7 @@ import {
   emitLogicToRender,
   emitRenderToLogic,
   getUiOverlaySurfaceProjection,
+  getUiSceneSurfaceProjection,
   LogicToRenderEvents,
   onLogicToRender,
   onRenderToLogic,
@@ -20,10 +21,14 @@ import {
   resolveOverlayStackPlacement,
   uiOverlayIsInteractive,
   uiOverlayIsRenderOnly,
+  uiOverlayIsVisible,
   uiOverlayRenderMode,
   uiSceneAllowsDefaultChrome,
   uiSceneAllowsDialogueChrome,
   uiSceneAllowsHudChrome,
+  uiSceneIsInteractive,
+  uiSceneIsRenderOnly,
+  uiSceneRenderMode,
   waitForPipelineEvent,
 } from '../src'
 
@@ -134,12 +139,56 @@ describe('render-core event contracts', () => {
 
     expect(uiOverlayRenderMode(renderOnly)).toBe('render-only')
     expect(uiOverlayIsRenderOnly(renderOnly)).toBe(true)
+    expect(uiOverlayIsVisible(renderOnly)).toBe(true)
     expect(uiOverlayIsInteractive(renderOnly)).toBe(false)
     expect(uiOverlayIsInteractive({ ...renderOnly, interactive: true })).toBe(true)
+    expect(uiOverlayIsVisible({ ...renderOnly, visible: false } as any)).toBe(false)
+    expect(uiOverlayIsInteractive({ ...renderOnly, visible: false, interactive: true } as any)).toBe(false)
     expect(getUiOverlaySurfaceProjection(renderOnly)?.key).toBe('fx/rain-canvas')
     expect(uiOverlayRenderMode({})).toBe('ui')
     expect(uiOverlayIsInteractive({})).toBe(true)
     expect(getUiOverlaySurfaceProjection({ surface: { key: '   ' } } as any)).toBeUndefined()
+  })
+
+  it('resolves render-only UI scene surface metadata', () => {
+    const renderOnlyScene = {
+      id: 'system:rain',
+      presentation: 'scene' as const,
+      renderMode: 'render-only' as const,
+      interactive: false,
+      surface: {
+        key: 'fx/rain-canvas',
+        props: { density: 0.7 },
+      },
+    }
+    const overlay = {
+      scene: renderOnlyScene,
+    }
+
+    expect(uiSceneRenderMode(renderOnlyScene)).toBe('render-only')
+    expect(uiSceneIsRenderOnly(renderOnlyScene)).toBe(true)
+    expect(uiSceneIsInteractive(renderOnlyScene)).toBe(false)
+    expect(uiSceneAllowsDefaultChrome(renderOnlyScene)).toBe(false)
+    expect(getUiSceneSurfaceProjection(renderOnlyScene)?.key).toBe('fx/rain-canvas')
+    expect(uiOverlayRenderMode(overlay)).toBe('render-only')
+    expect(uiOverlayIsRenderOnly(overlay)).toBe(true)
+    expect(uiOverlayIsInteractive(overlay)).toBe(false)
+    expect(getUiOverlaySurfaceProjection(overlay)?.key).toBe('fx/rain-canvas')
+    expect(uiOverlayIsInteractive({
+      interactive: true,
+      surface: { key: 'overlay/fx' },
+      scene: renderOnlyScene,
+    })).toBe(false)
+    expect(uiOverlayIsInteractive({
+      scene: {
+        ...renderOnlyScene,
+        interactive: true,
+      },
+    })).toBe(true)
+    expect(getUiOverlaySurfaceProjection({
+      surface: { key: 'overlay/fx' },
+      scene: renderOnlyScene,
+    })?.key).toBe('fx/rain-canvas')
   })
 
   it('resolves built-in, custom, and invalid overlay stack placement', () => {
@@ -246,6 +295,23 @@ describe('render-core event contracts', () => {
       },
     }, elementId => elementId === 'confirm' ? { overlayStack: 'modal' } : {})
     expect(defaultedScene?.id).toBe('system:confirm')
+
+    const hiddenTopScene = resolveActiveUiSceneProjection({
+      visible: {
+        zIndex: 1,
+        scene: { id: 'system:visible', presentation: 'overlay' },
+      },
+      hidden: {
+        visible: false,
+        zIndex: 999,
+        scene: {
+          id: 'system:hidden',
+          presentation: 'scene',
+          renderMode: 'render-only',
+        },
+      } as any,
+    })
+    expect(hiddenTopScene?.id).toBe('system:visible')
   })
 
   it('dispatches typed logic-to-render events through @quajs/pipeline', async () => {

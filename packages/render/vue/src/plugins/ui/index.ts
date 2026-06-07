@@ -12,6 +12,7 @@ import {
   resolveUiOverlayStackPlacement,
   uiOverlayIsInteractive,
   uiOverlayIsRenderOnly,
+  uiOverlayIsVisible,
 } from '@quajs/render-core'
 import { motionProjectionVars, projectUiOverlay } from '@quajs/renderer-web'
 import { uiSceneDataAttributes } from '@quajs/renderer-web/plugins/shared'
@@ -467,15 +468,17 @@ export const QuaRenderOnlyOverlay = defineComponent({
         return
       }
       warnedMissingSurfaces.add(warningKey)
-      void renderer.web.reportError(new Error('Render-only overlay surface renderer is not registered.'), {
+      const scene = config.value.scene
+      const surfaceOwner = scene?.renderMode === 'render-only' ? 'UI scene' : 'overlay'
+      void renderer.web.reportError(new Error('Render-only UI surface renderer is not registered.'), {
         message: surfaceKey.value
-          ? `Render-only overlay surface "${surfaceKey.value}" is not registered.`
-          : `Render-only overlay "${props.elementId}" is missing surface.key.`,
+          ? `Render-only ${surfaceOwner} surface "${surfaceKey.value}" is not registered.`
+          : `Render-only ${surfaceOwner} "${props.elementId}" is missing surface.key.`,
         phase: 'ui-render-only-surface:resolve',
         pluginName: '@quajs/renderer-vue/ui',
         severity: 'warning',
         recoverable: true,
-        metadata: { elementId: props.elementId, surfaceKey: surfaceKey.value },
+        metadata: { elementId: props.elementId, sceneId: scene?.id, surfaceKey: surfaceKey.value },
       })
     }, { immediate: true })
 
@@ -484,13 +487,20 @@ export const QuaRenderOnlyOverlay = defineComponent({
         return null
       }
       const component = surfaceComponent.value
+      const scene = config.value.scene
       const rootProps = {
-        'class': ['qua-ui-overlay', 'qua-ui-overlay--render-only', props.className],
+        'class': [
+          'qua-ui-overlay',
+          'qua-ui-overlay--render-only',
+          scene?.presentation === 'scene' ? 'qua-ui-overlay--render-only-scene' : undefined,
+          props.className,
+        ],
         'data-overlay': props.elementId,
         'data-overlay-render-mode': 'render-only',
         'data-overlay-surface-key': surfaceKey.value,
         'data-qua-capture-role': 'overlay',
         ...overlayStack.value.attrs,
+        ...uiSceneDataAttributes(scene),
         'style': {
           position: 'absolute',
           inset: '0',
@@ -503,6 +513,7 @@ export const QuaRenderOnlyOverlay = defineComponent({
         ? h(component, {
             elementId: props.elementId,
             overlay: config.value,
+            scene,
             surface: surface.value as Readonly<ViewUiOverlaySurfaceProjection>,
             projected: projected.value,
             view: view.value,
@@ -987,10 +998,12 @@ export const QuaOverlayLayer = defineComponent({
     const overlays = computed(() => view.value.ui.overlays || {})
     const renderedOverlays = ref<RenderedOverlayPresence[]>([])
     const sortedRenderedOverlays = computed(() => [...renderedOverlays.value].sort(compareOverlayPresence))
+    const sortedActiveOverlays = computed(() => sortedRenderedOverlays.value
+      .filter(item => item.phase !== 'exit' && uiOverlayIsVisible(item.overlay)))
     const activeScene = computed(() => resolveActiveUiSceneProjection(Object.fromEntries(
-      sortedRenderedOverlays.value.map(item => [item.elementId, item.overlay]),
+      sortedActiveOverlays.value.map(item => [item.elementId, item.overlay]),
     ), defaultUiOverlayPlacement))
-    const topOverlay = computed(() => sortedRenderedOverlays.value[sortedRenderedOverlays.value.length - 1])
+    const topOverlay = computed(() => sortedActiveOverlays.value[sortedActiveOverlays.value.length - 1])
     const overlayStack = computed(() => createUiOverlayStackBinding(
       topOverlay.value?.overlay,
       defaultUiOverlayPlacement(topOverlay.value?.elementId),
@@ -1002,7 +1015,8 @@ export const QuaOverlayLayer = defineComponent({
 
     watch([overlays, hasDedicatedSettingsRenderer, handledElementIds], ([nextOverlays, dedicatedSettings, handled]) => {
       const nextIds = Object.keys(nextOverlays)
-        .filter(elementId => shouldRenderOverlayInGenericLayer(elementId, dedicatedSettings, handled))
+        .filter(elementId => shouldRenderOverlayInGenericLayer(elementId, dedicatedSettings, handled)
+          && uiOverlayIsVisible(nextOverlays[elementId]))
       const nextIdSet = new Set(nextIds)
       const byId = new Map(renderedOverlays.value.map(item => [item.elementId, item]))
 
@@ -1059,7 +1073,7 @@ export const QuaOverlayLayer = defineComponent({
           ...overlayStack.value.attrs,
           ...uiSceneDataAttributes(activeScene.value),
           'style': {
-            pointerEvents: sortedRenderedOverlays.value.some(item => uiOverlayIsInteractive(item.overlay)) ? 'auto' : 'none',
+            pointerEvents: sortedActiveOverlays.value.some(item => uiOverlayIsInteractive(item.overlay)) ? 'auto' : 'none',
             ...overlayStack.value.style,
           },
           'onClick': (event: Event) => event.stopPropagation(),

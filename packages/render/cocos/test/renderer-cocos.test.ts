@@ -752,6 +752,107 @@ describe('@quajs/renderer-cocos', () => {
     expect(findNode(host, 'rain:close')).toBeUndefined()
   })
 
+  it('renders registered native render-only UI scene surfaces without UI controls', async () => {
+    const host = createFakeCocosHost()
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      initialView: createView({
+        uiOverlays: {
+          rainScene: {
+            scene: {
+              id: 'system:rain',
+              presentation: 'scene',
+              renderMode: 'render-only',
+              interactive: false,
+              surface: {
+                key: 'scene/rain-canvas',
+                props: { density: 0.9 },
+              },
+            },
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({
+        input: false,
+        ui: {
+          renderOnlySurfaces: {
+            'scene/rain-canvas': ({ context, parentNode, scene, surface }) => {
+              const canvas = context.host.nodes.createNode('rain-scene-canvas', { parent: parentNode, name: 'rain-scene:canvas' })
+              context.host.nodes.setNodeMetadata?.(canvas, {
+                sceneId: scene?.id,
+                density: surface.props?.density,
+              })
+            },
+          },
+        },
+      }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    const overlay = findNode(host, 'rainScene')
+    const canvas = findNode(host, 'rain-scene:canvas')
+    expect(findNode(host, 'qua-ui')?.metadata.defaultChrome).toBe(false)
+    expect(findNode(host, 'qua-ui')?.metadata.hideHud).toBe(true)
+    expect(findNode(host, 'qua-ui')?.metadata.hideDialogue).toBe(true)
+    expect(overlay?.kind).toBe('ui-render-only-scene')
+    expect(overlay?.control).toBeUndefined()
+    expect(overlay?.metadata.renderMode).toBe('render-only')
+    expect(overlay?.metadata.interactive).toBe(false)
+    expect(overlay?.metadata.uiScene.id).toBe('system:rain')
+    expect(overlay?.transform.width).toBe(renderer.getSnapshot().stageLayout.logicalWidth)
+    expect(overlay?.transform.height).toBe(renderer.getSnapshot().stageLayout.logicalHeight)
+    expect(canvas?.metadata.sceneId).toBe('system:rain')
+    expect(canvas?.metadata.density).toBe(0.9)
+    expect(findNode(host, 'rainScene:title')).toBeUndefined()
+    expect(findNode(host, 'rainScene:close')).toBeUndefined()
+  })
+
+  it('ignores hidden native render-only UI scene surfaces when resolving default UI chrome', async () => {
+    const host = createFakeCocosHost()
+    const renderer = new QuaCocosRendererController({
+      host,
+      pipeline: new Pipeline(),
+      initialView: createView({
+        dialogueText: 'Visible line',
+        uiOverlays: {
+          rainScene: {
+            visible: false,
+            scene: {
+              id: 'system:rain',
+              presentation: 'scene',
+              renderMode: 'render-only',
+              interactive: false,
+              surface: {
+                key: 'scene/rain-canvas',
+              },
+            },
+          },
+        },
+      }),
+      plugins: createVisualNovelCocosRendererPlugins({
+        input: false,
+        ui: {
+          renderOnlySurfaces: {
+            'scene/rain-canvas': ({ context, parentNode }) => {
+              context.host.nodes.createNode('rain-scene-canvas', { parent: parentNode, name: 'rain-scene:canvas' })
+            },
+          },
+        },
+      }),
+    })
+    await renderer.start()
+    await flushAsync()
+
+    expect(findNode(host, 'rainScene')).toBeUndefined()
+    expect(findNode(host, 'rain-scene:canvas')).toBeUndefined()
+    expect(findNode(host, 'qua-ui')?.metadata.uiScene).toBeUndefined()
+    expect(findNode(host, 'qua-ui')?.metadata.defaultChrome).toBeUndefined()
+    expect(findNodeByKind(host, 'dialogue-box')?.text).toContain('Visible line')
+    expect([...host.nodesById.values()].some(node => node.metadata.choiceId === 'a')).toBe(true)
+  })
+
   it('renders settings form controls and dispatches settings intents', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()

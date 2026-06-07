@@ -160,13 +160,13 @@ const pluginsWithoutInput = createVisualNovelRendererPlugins({ input: false })
 
 Pointer advance is filtered for buttons, form controls, choices, overlays, settings, backlog, and elements marked with `data-qua-input-ignore`. Pointer payload metadata is converted into logical stage coordinates by the shared Web renderer helpers.
 
-## Render-Only UI Overlays
+## Render-Only UI Surfaces
 
-Vue apps can register render-only overlay components through the UI preset option. The engine projection stays serializable; the component is host-renderer code:
+Vue apps can register render-only overlay or UI scene components through the UI preset option. The engine projection stays serializable; the component is host-renderer code:
 
 ```ts
 const RainCanvasOverlay = defineComponent({
-  props: ['elementId', 'overlay', 'surface', 'view'],
+  props: ['elementId', 'overlay', 'scene', 'surface', 'view'],
   setup(props) {
     return () => h('canvas', {
       class: 'rain-canvas',
@@ -184,7 +184,7 @@ const plugins = createVisualNovelRendererPlugins({
 })
 ```
 
-Open the layer with `engine.showUI('rain', { renderMode: 'render-only', interactive: false, surface: { key: 'fx/rain-canvas' } })`. Unregistered keys warn and render an empty root rather than default panel chrome.
+Open an overlay with `engine.showUI('rain', { renderMode: 'render-only', interactive: false, surface: { key: 'fx/rain-canvas' } })`, or a full UI scene with `engine.showUI('rainScene', { scene: { id: 'system:rain', presentation: 'scene', renderMode: 'render-only', interactive: false, surface: { key: 'fx/rain-canvas' } } })`. Unregistered keys warn and render an empty root rather than default panel chrome.
 
 ## Settings Forms
 
