@@ -15,16 +15,24 @@ const fieldLabels: Record<string, string> = {
   mode: '运行模式',
   maxRevisionLoops: '最大修复循环',
   'seed.worldbuilding': '已有世界观',
+  'seed.worldbuildingModificationInstructions': '世界观修改指示',
   'seed.characters': '已有角色信息',
+  'seed.charactersModificationInstructions': '角色设定修改指示',
   'seed.outline': '已有大纲',
+  'seed.outlineModificationInstructions': '大纲修改指示',
+  'seed.modificationInstructions': '通用高级输入修改指示',
   'seed.allowExpertChanges': '允许专家修改设定',
 }
 
 const contentStageByField: Partial<Record<string, WorkflowStage>> = {
   brief: 'requirements',
   'seed.worldbuilding': 'worldbuilding',
+  'seed.worldbuildingModificationInstructions': 'worldbuilding',
   'seed.characters': 'characters',
+  'seed.charactersModificationInstructions': 'characters',
   'seed.outline': 'outline',
+  'seed.outlineModificationInstructions': 'outline',
+  'seed.modificationInstructions': 'requirements',
   'seed.allowExpertChanges': 'requirements',
 }
 
@@ -63,8 +71,12 @@ export function diffProjectInput(previous: NovelProject, next: NovelProject): Pr
     { field: 'mode', before: previous.mode, after: next.mode },
     { field: 'maxRevisionLoops', before: previous.maxRevisionLoops, after: next.maxRevisionLoops },
     { field: 'seed.worldbuilding', before: normalizeOptional(previous.seed?.worldbuilding), after: normalizeOptional(next.seed?.worldbuilding) },
+    { field: 'seed.worldbuildingModificationInstructions', before: normalizeOptional(previous.seed?.worldbuildingModificationInstructions), after: normalizeOptional(next.seed?.worldbuildingModificationInstructions) },
     { field: 'seed.characters', before: normalizeOptional(previous.seed?.characters), after: normalizeOptional(next.seed?.characters) },
+    { field: 'seed.charactersModificationInstructions', before: normalizeOptional(previous.seed?.charactersModificationInstructions), after: normalizeOptional(next.seed?.charactersModificationInstructions) },
     { field: 'seed.outline', before: normalizeOptional(previous.seed?.outline), after: normalizeOptional(next.seed?.outline) },
+    { field: 'seed.outlineModificationInstructions', before: normalizeOptional(previous.seed?.outlineModificationInstructions), after: normalizeOptional(next.seed?.outlineModificationInstructions) },
+    { field: 'seed.modificationInstructions', before: normalizeOptional(previous.seed?.modificationInstructions), after: normalizeOptional(next.seed?.modificationInstructions) },
     { field: 'seed.allowExpertChanges', before: previous.seed?.allowExpertChanges === true, after: next.seed?.allowExpertChanges === true },
   ]
 
@@ -116,13 +128,29 @@ function formatProjectRevisionFeedback(changes: ProjectInputChange[], affectedSt
 function normalizeProjectSeed(seed: NovelProject['seed']): NovelProject['seed'] {
   const normalized = {
     worldbuilding: seed?.worldbuilding?.trim() || undefined,
+    worldbuildingModificationInstructions: seed?.worldbuildingModificationInstructions?.trim() || undefined,
     characters: seed?.characters?.trim() || undefined,
+    charactersModificationInstructions: seed?.charactersModificationInstructions?.trim() || undefined,
     outline: seed?.outline?.trim() || undefined,
+    outlineModificationInstructions: seed?.outlineModificationInstructions?.trim() || undefined,
+    modificationInstructions: seed?.modificationInstructions?.trim() || undefined,
     allowExpertChanges: seed?.allowExpertChanges === true,
   }
-  return normalized.worldbuilding || normalized.characters || normalized.outline
+  return hasSeedContent(normalized)
     ? normalized
     : undefined
+}
+
+function hasSeedContent(seed: NonNullable<NovelProject['seed']>): boolean {
+  return Boolean(
+    seed.worldbuilding
+    || seed.worldbuildingModificationInstructions
+    || seed.characters
+    || seed.charactersModificationInstructions
+    || seed.outline
+    || seed.outlineModificationInstructions
+    || seed.modificationInstructions,
+  )
 }
 
 function normalizeOptional(value: string | undefined): string | undefined {

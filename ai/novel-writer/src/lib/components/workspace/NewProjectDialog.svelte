@@ -12,8 +12,11 @@
   export let projectMode: RunMode = 'step'
   export let projectMaxRevisionLoops = ''
   export let seedWorldbuilding = ''
+  export let seedWorldbuildingModificationInstructions = ''
   export let seedCharacters = ''
+  export let seedCharactersModificationInstructions = ''
   export let seedOutline = ''
+  export let seedOutlineModificationInstructions = ''
   export let allowExpertSeedChanges = false
   export let projectCreateError = ''
   export let hasProjectDraft = false
@@ -104,7 +107,7 @@
           <Switch id="allow-expert-seed-changes" bind:checked={allowExpertSeedChanges} aria-label="允许专家修改设定" />
           <span>
             <label for="allow-expert-seed-changes">允许专家修改设定</label>
-            <small>{allowExpertSeedChanges ? '专家可以基于预设进行合理修改，并继续扩写。' : '专家只能丰富和完善，预设内容与细节不可修改。'}</small>
+            <small>{allowExpertSeedChanges ? '专家可以基于预设和修改指示进行合理修改，并继续扩写。' : '专家会先执行明确修改指示，除此之外只能丰富和完善预设。'}</small>
           </span>
         </div>
         <label class="form-field">
@@ -112,12 +115,24 @@
           <Textarea bind:value={seedWorldbuilding} rows={5} placeholder="世界规则、时代背景、地点、组织、力量体系或真实世界参考…" />
         </label>
         <label class="form-field">
+          <span>世界观修改指示</span>
+          <Textarea bind:value={seedWorldbuildingModificationInstructions} rows={3} placeholder="希望如何调整或补强世界规则、地点、组织、力量体系…" />
+        </label>
+        <label class="form-field">
           <span>已有角色信息</span>
           <Textarea bind:value={seedCharacters} rows={5} placeholder="主角、配角、关系、动机、弧光、口吻、禁忌设定…" />
         </label>
         <label class="form-field">
+          <span>角色设定修改指示</span>
+          <Textarea bind:value={seedCharactersModificationInstructions} rows={3} placeholder="希望如何调整人物关系、弧光、口吻、外貌或配角配置…" />
+        </label>
+        <label class="form-field">
           <span>已有大纲</span>
           <Textarea bind:value={seedOutline} rows={6} placeholder="章节/场景顺序、关键转折、结局方向、必须保留的桥段…" />
+        </label>
+        <label class="form-field">
+          <span>大纲修改指示</span>
+          <Textarea bind:value={seedOutlineModificationInstructions} rows={3} placeholder="希望如何调整章节顺序、分支、转折、结局或必须保留桥段…" />
         </label>
       </div>
     </details>
@@ -129,7 +144,7 @@
     <div class="dialog-actions">
       <Button type="button" variant="secondary" onclick={() => dialog?.close()}>取消</Button>
       <Button type="submit" disabled={creating || !projectTitle.trim() || !projectBrief.trim()}>
-        <FileText size={14} />创建项目
+        <FileText size={14} />创建并启动
       </Button>
     </div>
   </form>

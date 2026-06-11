@@ -15,6 +15,7 @@
 - Follow `docs/architecture.md` for the current structure and the recommended future split of `src/lib/server/workflow.ts`.
 - Store all runtime user data under `~/.quaengine/novel-writer` unless `NOVEL_WRITER_HOME` overrides it.
 - Persist every agent turn and workflow event as append-only JSONL before reporting it as complete.
+- Realtime workflow updates and generated-content previews should go through the SSE stream at `/api/projects/:projectId/events`; workflow events must be broadcast only after JSONL persistence. Streamed model text is a provisional preview and must not be treated as a saved artifact until the final JSON result is normalized and written.
 - Treat DeepSeek and Tavily adapters as replaceable integrations behind local interfaces.
 - Do not introduce LangChain or another orchestration framework.
 
@@ -23,11 +24,13 @@
 - Agents may use Tavily search, file tools, and sandbox commands through registered tools only.
 - Tavily search is conditional. Do not perform automatic pre-stage searches; agents should call search only when real-world science, history, news, infrastructure, legal, or other factual references are materially needed for the current artifact.
 - Agents must cite search references in artifact metadata when factual material influenced output.
-- Advanced seed fields do not skip workflow stages. Worldbuilding, character notes, and outline seeds must still be processed through the worldbuilding, character, story-background, outline, and review agents in order.
+- Advanced seed fields do not skip workflow stages. Worldbuilding, character notes, outline seeds, and explicit per-section advanced-input modification instructions must still be processed through the worldbuilding, character, story-background, outline, and review agents in order.
+- Outline review can request missing supporting/side character definitions. When that happens, the workflow must loop back through character design, character review, story background, story background review, and outline before the next outline review.
 - Requirements confirmation must summarize and constrain the writing job; it must not jump straight into manuscript writing.
 - Outline review is a real gate. YOLO may continue automatically only when the review agent passes the outline or after revision loops produce a passing outline.
 - Regenerate is an approval action that immediately reruns the selected artifact stage in the background, marks the replaced artifact rejected, and leaves the regenerated artifact awaiting review. It must not require a separate run click.
 - Thinking traces are protocol data for DeepSeek context handling; do not expose them as user-facing prose.
+- Streaming responses may expose assistant content deltas for the live preview, but must not expose reasoning traces, API keys, or raw private transcripts.
 - Context compaction must preserve user requirements, approved artifacts, unresolved reviewer findings, and tool references.
 
 ## UI Rules

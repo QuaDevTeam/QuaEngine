@@ -3,18 +3,21 @@
   import {
     extractOutlineChapters,
     type ApprovalAction,
+    type StageContentPreview,
     type StageTimelineItem,
   } from '$lib/client/workspace'
   import ArtifactViewer from './ArtifactViewer.svelte'
   import EmptyState from './EmptyState.svelte'
   import OutlineChapterNav from './OutlineChapterNav.svelte'
   import StageTimeline from './StageTimeline.svelte'
+  import StreamingPreview from './StreamingPreview.svelte'
   import WorkbenchHeader from './WorkbenchHeader.svelte'
 
   export let selectedProject: NovelProject | undefined
   export let artifacts: ArtifactRef[]
   export let selectedArtifact: ArtifactRef | undefined
   export let selectedArtifactId = ''
+  export let liveContent: StageContentPreview | undefined
   export let progress: number
   export let stageTimeline: StageTimelineItem[]
   export let artifactMarkdownEdit = ''
@@ -22,18 +25,29 @@
   export let pendingApprovalAction = ''
   export let running = false
   export let exporting = false
+  export let resetting = false
   export let onRunProject: (mode: RunMode, chapterIndex?: number) => void | Promise<void>
   export let onExportProject: () => void | Promise<void>
+  export let onResetProject: () => void | Promise<void>
   export let onSelectArtifact: (artifactId: string) => void
   export let onSubmitApproval: (action: ApprovalAction) => void | Promise<void>
 
   let selectedChapterIndex: number | null = null
+  let viewingLive = true
+
+  $: if (liveContent) viewingLive = true
 
   $: outlineArtifact = artifacts.find(a => a.stage === 'outline')
   $: outlineChapters = outlineArtifact ? extractOutlineChapters(outlineArtifact.markdown) : []
   $: completedArtifactCount = artifacts.filter(artifact => artifact.status === 'approved' || artifact.status === 'draft').length
-
+  $: awaitingApproval = selectedProject?.status === 'awaiting_review' && selectedArtifact?.status === 'needs_review'
+  $: approving = pendingApprovalAction === 'approve'
   $: showChapterNav = selectedProject?.currentStage === 'scene_writing' && outlineChapters.length > 0
+
+  function handleSelectArtifact(artifactId: string) {
+    viewingLive = false
+    onSelectArtifact(artifactId)
+  }
 
   function handleRunChapter(chapterIndex: number) {
     selectedChapterIndex = chapterIndex
@@ -50,13 +64,24 @@
           {progress}
           {running}
           {exporting}
+          {resetting}
+          {awaitingApproval}
+          {approving}
           {completedArtifactCount}
           {onRunProject}
           {onExportProject}
+          {onResetProject}
+          onApproveProject={() => onSubmitApproval('approve')}
         />
 
         <section class="panel">
-          <StageTimeline items={stageTimeline} {selectedArtifactId} {onSelectArtifact} />
+          <StageTimeline
+            items={stageTimeline}
+            {selectedArtifactId}
+            {viewingLive}
+            onSelectArtifact={handleSelectArtifact}
+            onSelectLive={() => (viewingLive = true)}
+          />
         </section>
 
         {#if outlineChapters.length > 0 && (selectedArtifact?.stage === 'outline' || showChapterNav)}
@@ -68,7 +93,9 @@
           />
         {/if}
 
-        {#if selectedArtifact}
+        {#if liveContent && viewingLive}
+          <StreamingPreview {liveContent} />
+        {:else if selectedArtifact}
           <ArtifactViewer
             {artifacts}
             {selectedArtifact}
@@ -77,10 +104,10 @@
             bind:artifactMarkdownEdit
             bind:reviewNote
             {pendingApprovalAction}
-            {onSelectArtifact}
+            onSelectArtifact={handleSelectArtifact}
             {onSubmitApproval}
           />
-        {:else}
+        {:else if !liveContent}
           <EmptyState
             title="尚无产物"
             description="运行单步或 YOLO 后，这里会依次出现世界观、角色、故事背景、大纲、评审和正文。"

@@ -9,6 +9,7 @@ import {
   permanentlyDeleteProject as permanentlyDeleteProjectRequest,
   readProject,
   recordApproval,
+  resetProject as resetProjectRequest,
   restoreProject as restoreProjectRequest,
   startRun,
   updateConfig,
@@ -21,22 +22,31 @@ import {
   computeProgress,
   dedupeEvents,
   extractReviewFindings,
+  summarizeRunLogEvents,
   type ApprovalAction,
   type PlannerMessage,
+  type StageContentPreview,
 } from '$lib/client/workspace'
 import type {
   ArtifactRef,
   NovelProject,
   ProjectInputChange,
   PublicNovelWriterConfig,
+  RealtimeMessage,
   RunMode,
   WorkflowEvent,
+  WorkflowStage,
 } from '$lib/types'
 
 export type NovelWriterPageData = {
   config: PublicNovelWriterConfig
   projects: NovelProject[]
   trashedProjects: NovelProject[]
+  selectedProjectDetail?: {
+    project: NovelProject
+    artifacts: ArtifactRef[]
+    events: WorkflowEvent[]
+  }
 }
 
 type NewProjectDraft = {
@@ -45,8 +55,11 @@ type NewProjectDraft = {
   mode: RunMode
   maxRevisionLoops: string
   seedWorldbuilding: string
+  seedWorldbuildingModificationInstructions: string
   seedCharacters: string
+  seedCharactersModificationInstructions: string
   seedOutline: string
+  seedOutlineModificationInstructions: string
   allowExpertSeedChanges: boolean
 }
 
@@ -82,14 +95,18 @@ export class WorkspaceController {
   artifacts = $state<ArtifactRef[]>([])
   events = $state<WorkflowEvent[]>([])
   selectedArtifactId = $state('')
+  liveContent = $state<StageContentPreview | undefined>(undefined)
 
   projectTitle = $state('')
   projectBrief = $state('')
   projectMode = $state<RunMode>('step')
   projectMaxRevisionLoops = $state('50')
   seedWorldbuilding = $state('')
+  seedWorldbuildingModificationInstructions = $state('')
   seedCharacters = $state('')
+  seedCharactersModificationInstructions = $state('')
   seedOutline = $state('')
+  seedOutlineModificationInstructions = $state('')
   allowExpertSeedChanges = $state(false)
   projectCreateError = $state('')
 
@@ -109,6 +126,7 @@ export class WorkspaceController {
   restoringProjectId = $state('')
   emptyingTrash = $state(false)
   exportingProjectId = $state('')
+  resettingProjectId = $state('')
 
   configDialog = $state<HTMLDialogElement | undefined>(undefined)
   projectDialog = $state<HTMLDialogElement | undefined>(undefined)
@@ -125,9 +143,9 @@ export class WorkspaceController {
   reviewFindings = $derived.by(() => extractReviewFindings(this.selectedArtifact?.json))
   progress = $derived.by(() => computeProgress(this.selectedProject, this.artifacts))
   stageTimeline = $derived.by(() => buildStageTimeline(this.selectedProject, this.artifacts))
-  visibleEvents = $derived.by(() => this.events.filter(event => event.type !== 'sandbox.exec'))
+  visibleEvents = $derived.by(() => summarizeRunLogEvents(this.events))
   confirmBusy = $derived.by(() => Boolean(
-    this.deletingProjectId || this.deletingTrashedProjectId || this.emptyingTrash,
+    this.deletingProjectId || this.deletingTrashedProjectId || this.emptyingTrash || this.resettingProjectId,
   ))
   hasProjectDraft = $derived.by(() => this.hasNonDefaultProjectDraft(this.getProjectDraft()))
 
@@ -142,8 +160,11 @@ export class WorkspaceController {
   editProjectMode = $state<RunMode>('step')
   editProjectMaxRevisionLoops = $state('50')
   editSeedWorldbuilding = $state('')
+  editSeedWorldbuildingModificationInstructions = $state('')
   editSeedCharacters = $state('')
+  editSeedCharactersModificationInstructions = $state('')
   editSeedOutline = $state('')
+  editSeedOutlineModificationInstructions = $state('')
   editAllowExpertSeedChanges = $state(false)
   savingProjectEdit = $state(false)
   projectEditError = $state('')
@@ -160,8 +181,12 @@ export class WorkspaceController {
     this.projectMaxRevisionLoops = String(data.config.defaultMaxRevisionLoops)
     this.projects = [...data.projects]
     this.trashedProjects = [...data.trashedProjects]
-    this.selectedProjectId = this.projects[0]?.id || ''
-    this.selectedProject = this.projects[0]
+    this.selectedProjectId = data.selectedProjectDetail?.project.id || this.projects[0]?.id || ''
+    this.selectedProject = data.selectedProjectDetail?.project || this.projects[0]
+    this.artifacts = data.selectedProjectDetail?.artifacts || []
+    this.events = data.selectedProjectDetail?.events || []
+    this.plannerMessages = buildPlannerMessages(this.events)
+    this.selectedArtifactId = this.artifacts.at(-1)?.id || ''
 
     $effect(() => {
       if (!this.projectDraftPersistenceReady) {
@@ -252,16 +277,22 @@ export class WorkspaceController {
         maxRevisionLoops: Number(this.projectMaxRevisionLoops) || this.config.defaultMaxRevisionLoops,
         seed: {
           worldbuilding: this.seedWorldbuilding,
+          worldbuildingModificationInstructions: this.seedWorldbuildingModificationInstructions,
           characters: this.seedCharacters,
+          charactersModificationInstructions: this.seedCharactersModificationInstructions,
           outline: this.seedOutline,
+          outlineModificationInstructions: this.seedOutlineModificationInstructions,
           allowExpertChanges: this.allowExpertSeedChanges,
         },
       })
-      this.projects = [project, ...this.projects]
+      this.upsertProject(project)
       this.projectDialog?.close()
       this.resetProjectDraft()
-      toast.success('项目已创建。')
       await this.selectProject(project.id)
+      await this.startProjectRun(project.id, project.mode, undefined, {
+        successMessage: project.mode === 'yolo' ? '项目已创建，YOLO 运行已启动。' : '项目已创建，单步运行已启动。',
+        errorTitle: '项目已创建，但自动启动失败',
+      })
     }
     catch (error) {
       this.projectCreateError = readableError(error)
@@ -278,8 +309,11 @@ export class WorkspaceController {
     this.projectMode = 'step'
     this.projectMaxRevisionLoops = String(this.config.defaultMaxRevisionLoops)
     this.seedWorldbuilding = ''
+    this.seedWorldbuildingModificationInstructions = ''
     this.seedCharacters = ''
+    this.seedCharactersModificationInstructions = ''
     this.seedOutline = ''
+    this.seedOutlineModificationInstructions = ''
     this.allowExpertSeedChanges = false
     this.projectCreateError = ''
     removeLocalDraft()
@@ -331,16 +365,18 @@ export class WorkspaceController {
         maxRevisionLoops: Number(this.editProjectMaxRevisionLoops) || this.config.defaultMaxRevisionLoops,
         seed: {
           worldbuilding: this.editSeedWorldbuilding,
+          worldbuildingModificationInstructions: this.editSeedWorldbuildingModificationInstructions,
           characters: this.editSeedCharacters,
+          charactersModificationInstructions: this.editSeedCharactersModificationInstructions,
           outline: this.editSeedOutline,
+          outlineModificationInstructions: this.editSeedOutlineModificationInstructions,
           allowExpertChanges: this.editAllowExpertSeedChanges,
         },
       })
 
       this.projectEditChangedFields = result.changedFields
       this.projectEditRevisionStarted = result.revisionStarted
-      this.projects = [result.project, ...this.projects.filter(project => project.id !== result.project.id)]
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      this.upsertProject(result.project)
 
       if (this.selectedProjectId === result.project.id) {
         this.selectedProject = result.project
@@ -424,6 +460,21 @@ export class WorkspaceController {
     })
   }
 
+  resetProject = async (projectId: string) => {
+    const project = this.projects.find(item => item.id === projectId)
+    if (!project || project.status === 'running' || this.resettingProjectId) {
+      return
+    }
+
+    this.openConfirmDialog({
+      title: '重置并重新开始',
+      description: `清空“${project.title}”的所有已生成产物、对话、运行日志和快照，然后按当前模式重新启动？项目标题、简介和高级输入会保留。`,
+      confirmLabel: '重置并重新开始',
+      variant: 'destructive',
+      action: () => this.resetProjectAndRestart(projectId),
+    })
+  }
+
   confirmPendingAction = async () => {
     const action = this.pendingConfirm
     if (!action) {
@@ -456,19 +507,35 @@ export class WorkspaceController {
       return
     }
 
+    await this.startProjectRun(this.selectedProjectId, mode, chapterIndex)
+  }
+
+  private startProjectRun = async (
+    projectId: string,
+    mode: RunMode,
+    chapterIndex?: number,
+    options: {
+      successMessage?: string
+      errorTitle?: string
+    } = {},
+  ) => {
     this.running = true
+    this.markProjectRunning(projectId, mode)
     try {
-      await startRun(this.selectedProjectId, mode, chapterIndex)
-      this.subscribeEvents(this.selectedProjectId)
-      toast.success(mode === 'yolo' ? 'YOLO 运行已启动。' : '单步运行已启动。')
+      await startRun(projectId, mode, chapterIndex)
+      this.subscribeEvents(projectId)
+      toast.success(options.successMessage || (mode === 'yolo' ? 'YOLO 运行已启动。' : '单步运行已启动。'))
     }
     catch (error) {
-      toast.error('启动运行失败', { description: readableError(error) })
+      toast.error(options.errorTitle || '启动运行失败', { description: readableError(error) })
+      await this.refreshSelectedProject()
+      await this.syncProjectListsAfterMutation()
     }
     finally {
       setTimeout(() => {
         this.running = false
         void this.refreshSelectedProject()
+        void this.refreshProjectLists()
       }, 500)
     }
   }
@@ -530,13 +597,25 @@ export class WorkspaceController {
 
     this.pendingApprovalAction = action
     try {
-      await recordApproval(this.selectedProjectId, {
-        artifactId: this.selectedArtifact.id,
+      const artifactId = this.selectedArtifact.id
+      const result = await recordApproval(this.selectedProjectId, {
+        artifactId,
         action,
         note: this.reviewNote.trim() || undefined,
         markdown: action === 'manual_edit' ? this.artifactMarkdownEdit : undefined,
       })
-      await this.refreshSelectedProject()
+      this.selectedProject = result.project
+      this.upsertProject(result.project)
+      this.artifacts = result.artifacts
+      this.events = result.events
+      this.plannerMessages = buildPlannerMessages(this.events)
+      this.selectedArtifactId = this.artifacts.some(artifact => artifact.id === artifactId)
+        ? artifactId
+        : this.artifacts.at(-1)?.id || ''
+      if (result.project.status !== 'running') {
+        this.liveContent = undefined
+      }
+      this.subscribeEvents(this.selectedProjectId, { force: true })
       toast.success(approvalToastMessage(action))
     }
     catch (error) {
@@ -612,6 +691,38 @@ export class WorkspaceController {
     }
   }
 
+  private resetProjectAndRestart = async (projectId: string) => {
+    this.resettingProjectId = projectId
+    this.running = true
+    try {
+      const result = await resetProjectRequest(projectId)
+      this.selectedProjectId = projectId
+      this.selectedProject = result.project
+      this.upsertProject(result.project)
+      this.artifacts = result.artifacts
+      this.events = result.events
+      this.plannerMessages = []
+      this.selectedArtifactId = ''
+      this.artifactMarkdownEdit = ''
+      this.artifactEditArtifactId = ''
+      this.reviewNote = ''
+      this.liveContent = undefined
+      this.subscribeEvents(projectId, { force: true })
+      if (result.project.status === 'idle' || result.project.status === 'running') {
+        this.markProjectRunning(projectId, result.project.mode)
+      }
+      toast.success('项目已重置，新的运行已启动。')
+    }
+    catch (error) {
+      await this.refreshSelectedProject()
+      throw error
+    }
+    finally {
+      this.resettingProjectId = ''
+      this.running = false
+    }
+  }
+
   private openConfirmDialog(input: {
     title: string
     description: string
@@ -627,23 +738,34 @@ export class WorkspaceController {
     this.confirmDialogOpen = true
   }
 
-  private async loadProject(projectId: string, preserveArtifactSelection: boolean) {
+  private async loadProject(projectId: string, preserveArtifactSelection: boolean, preferredArtifactId = '') {
     const previousArtifactId = this.selectedArtifactId
     this.selectedProjectId = projectId
     const payload = await readProject(projectId)
     this.selectedProject = payload.project
+    this.upsertProject(payload.project)
     this.artifacts = payload.artifacts
     this.events = payload.events
     this.plannerMessages = buildPlannerMessages(this.events)
-    this.selectedArtifactId = preserveArtifactSelection && this.artifacts.some(artifact => artifact.id === previousArtifactId)
+    this.liveContent = undefined
+    this.selectedArtifactId = preferredArtifactId && this.artifacts.some(artifact => artifact.id === preferredArtifactId)
+      ? preferredArtifactId
+      : preserveArtifactSelection && this.artifacts.some(artifact => artifact.id === previousArtifactId)
       ? previousArtifactId
       : this.artifacts.at(-1)?.id || ''
   }
 
-  private async refreshSelectedProject() {
+  private async refreshSelectedProject(options: {
+    preserveArtifactSelection?: boolean
+    selectArtifactId?: string
+  } = {}) {
     if (this.selectedProjectId) {
       try {
-        await this.loadProject(this.selectedProjectId, true)
+        await this.loadProject(
+          this.selectedProjectId,
+          options.preserveArtifactSelection ?? true,
+          options.selectArtifactId,
+        )
       }
       catch (error) {
         toast.error('刷新项目失败', { description: readableError(error) })
@@ -660,6 +782,29 @@ export class WorkspaceController {
     this.trashedProjects = trashedProjects
   }
 
+  private upsertProject(project: NovelProject) {
+    this.projects = [project, ...this.projects.filter(item => item.id !== project.id)]
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  }
+
+  private markProjectRunning(projectId: string, mode: RunMode, currentStage?: WorkflowStage) {
+    const current = this.projects.find(project => project.id === projectId) || this.selectedProject
+    if (!current) {
+      return
+    }
+    const runningProject: NovelProject = {
+      ...current,
+      mode,
+      status: 'running',
+      currentStage: currentStage || current.currentStage || 'requirements',
+      updatedAt: new Date().toISOString(),
+    }
+    this.upsertProject(runningProject)
+    if (this.selectedProjectId === projectId) {
+      this.selectedProject = runningProject
+    }
+  }
+
   private async syncProjectListsAfterMutation() {
     try {
       await this.refreshProjectLists()
@@ -671,8 +816,8 @@ export class WorkspaceController {
     }
   }
 
-  private subscribeEvents(projectId: string) {
-    if (this.eventSource && this.subscribedProjectId === projectId) {
+  private subscribeEvents(projectId: string, options: { force?: boolean } = {}) {
+    if (!options.force && this.eventSource && this.subscribedProjectId === projectId) {
       return
     }
 
@@ -685,38 +830,13 @@ export class WorkspaceController {
     this.eventSource = source
 
     source.onmessage = event => {
-      let parsed: WorkflowEvent
-      try {
-        parsed = JSON.parse(event.data) as WorkflowEvent
-      }
-      catch {
-        return
-      }
-
-      if (projectId !== this.selectedProjectId) {
-        return
-      }
-
-      this.events = dedupeEvents([...this.events, parsed])
-      if (parsed.type === 'message.received' || parsed.type === 'message.sent') {
-        this.plannerMessages = buildPlannerMessages(this.events)
-      }
-      if (
-        parsed.type === 'stage.completed'
-        || parsed.type === 'run.completed'
-        || parsed.type === 'stage.awaiting_review'
-        || parsed.type === 'approval.recorded'
-        || parsed.type === 'tool.called'
-      ) {
-        void this.refreshSelectedProject()
-      }
+      this.handleRealtimePayload(projectId, event.data)
     }
 
     source.onerror = () => {
       if (this.eventSource !== source) {
         return
       }
-      this.closeEventSource()
       if (projectId === this.selectedProjectId) {
         void this.refreshSelectedProject()
       }
@@ -729,6 +849,162 @@ export class WorkspaceController {
     this.subscribedProjectId = ''
   }
 
+  private handleRealtimePayload(projectId: string, payload: unknown) {
+    if (typeof payload !== 'string') {
+      return
+    }
+
+    let message: RealtimeMessage
+    try {
+      message = JSON.parse(payload) as RealtimeMessage
+    }
+    catch {
+      return
+    }
+
+    if (message.projectId !== projectId || projectId !== this.selectedProjectId) {
+      return
+    }
+
+    if (message.type === 'workflow.event') {
+      this.handleWorkflowEvent(projectId, message.event)
+      return
+    }
+
+    if (message.type === 'stage.content.delta') {
+      this.markProjectRunning(projectId, this.selectedProject?.mode || 'step', message.stage)
+      this.liveContent = {
+        projectId,
+        runId: message.runId,
+        stage: message.stage,
+        agentId: message.agentId,
+        markdown: message.markdownPreview ?? this.liveContent?.markdown ?? '',
+        status: 'streaming',
+        updatedAt: message.timestamp,
+      }
+      return
+    }
+
+    if (message.type === 'stage.content.done') {
+      this.markProjectRunning(projectId, this.selectedProject?.mode || 'step', message.stage)
+      this.liveContent = {
+        projectId,
+        runId: message.runId,
+        stage: message.stage,
+        agentId: message.agentId,
+        markdown: message.markdown,
+        status: 'done',
+        updatedAt: message.timestamp,
+      }
+      setTimeout(() => {
+        if (projectId === this.selectedProjectId) {
+          void this.refreshSelectedProject({ preserveArtifactSelection: false })
+        }
+      }, 300)
+      return
+    }
+
+    if (message.type === 'stage.content.error' || message.type === 'realtime.error') {
+      this.liveContent = {
+        projectId,
+        runId: message.type === 'stage.content.error' ? message.runId : undefined,
+        stage: message.type === 'stage.content.error' ? message.stage : undefined,
+        agentId: message.type === 'stage.content.error' ? message.agentId : undefined,
+        markdown: this.liveContent?.markdown || '',
+        status: 'error',
+        message: message.message,
+        updatedAt: message.timestamp,
+      }
+    }
+  }
+
+  private handleWorkflowEvent(projectId: string, event: WorkflowEvent) {
+    if (projectId !== this.selectedProjectId) {
+      return
+    }
+
+    this.events = dedupeEvents([...this.events, event])
+    this.applyWorkflowEventToProject(event)
+    const artifactId = artifactIdFromEventPayload(event.payload)
+    if (event.type === 'message.received' || event.type === 'message.sent') {
+      this.plannerMessages = buildPlannerMessages(this.events)
+    }
+    if (
+      event.type === 'project.created'
+      || event.type === 'project.updated'
+      || event.type === 'run.started'
+      || event.type === 'stage.started'
+      || event.type === 'stage.completed'
+      || event.type === 'run.completed'
+      || event.type === 'run.failed'
+      || event.type === 'stage.awaiting_review'
+      || event.type === 'approval.recorded'
+      || event.type === 'tool.called'
+    ) {
+      void this.refreshSelectedProject(artifactId
+        ? { preserveArtifactSelection: false, selectArtifactId: artifactId }
+        : {})
+    }
+  }
+
+  private applyWorkflowEventToProject(event: WorkflowEvent) {
+    const current = this.selectedProject
+    if (!current || current.id !== event.projectId) {
+      return
+    }
+
+    let next: NovelProject | undefined
+    if (event.type === 'run.started') {
+      next = {
+        ...current,
+        status: 'running',
+        currentStage: event.stage || current.currentStage || 'requirements',
+        updatedAt: event.timestamp,
+      }
+    }
+    else if (event.type === 'stage.started') {
+      next = {
+        ...current,
+        status: 'running',
+        currentStage: event.stage || current.currentStage,
+        updatedAt: event.timestamp,
+      }
+      this.liveContent = undefined
+    }
+    else if (event.type === 'stage.awaiting_review') {
+      next = {
+        ...current,
+        status: 'awaiting_review',
+        currentStage: event.stage || current.currentStage,
+        updatedAt: event.timestamp,
+      }
+    }
+    else if (event.type === 'run.completed') {
+      next = {
+        ...current,
+        status: 'completed',
+        currentStage: undefined,
+        updatedAt: event.timestamp,
+      }
+      this.liveContent = undefined
+    }
+    else if (event.type === 'run.failed') {
+      next = {
+        ...current,
+        status: 'failed',
+        currentStage: event.stage || current.currentStage,
+        updatedAt: event.timestamp,
+      }
+    }
+
+    if (!next) {
+      return
+    }
+
+    this.selectedProject = next
+    this.upsertProject(next)
+  }
+
   private clearSelectedProject() {
     this.selectedProjectId = ''
     this.selectedProject = undefined
@@ -739,6 +1015,7 @@ export class WorkspaceController {
     this.artifactMarkdownEdit = ''
     this.artifactEditArtifactId = ''
     this.reviewNote = ''
+    this.liveContent = undefined
   }
 
   private populateProjectEdit(project: NovelProject) {
@@ -746,9 +1023,13 @@ export class WorkspaceController {
     this.editProjectBrief = project.brief
     this.editProjectMode = project.mode
     this.editProjectMaxRevisionLoops = String(project.maxRevisionLoops)
+    const legacyModificationInstructions = project.seed?.modificationInstructions || ''
     this.editSeedWorldbuilding = project.seed?.worldbuilding || ''
+    this.editSeedWorldbuildingModificationInstructions = project.seed?.worldbuildingModificationInstructions || legacyModificationInstructions
     this.editSeedCharacters = project.seed?.characters || ''
+    this.editSeedCharactersModificationInstructions = project.seed?.charactersModificationInstructions || legacyModificationInstructions
     this.editSeedOutline = project.seed?.outline || ''
+    this.editSeedOutlineModificationInstructions = project.seed?.outlineModificationInstructions || legacyModificationInstructions
     this.editAllowExpertSeedChanges = project.seed?.allowExpertChanges === true
   }
 
@@ -759,8 +1040,11 @@ export class WorkspaceController {
       mode: this.projectMode,
       maxRevisionLoops: this.projectMaxRevisionLoops,
       seedWorldbuilding: this.seedWorldbuilding,
+      seedWorldbuildingModificationInstructions: this.seedWorldbuildingModificationInstructions,
       seedCharacters: this.seedCharacters,
+      seedCharactersModificationInstructions: this.seedCharactersModificationInstructions,
       seedOutline: this.seedOutline,
+      seedOutlineModificationInstructions: this.seedOutlineModificationInstructions,
       allowExpertSeedChanges: this.allowExpertSeedChanges,
     }
   }
@@ -777,8 +1061,11 @@ export class WorkspaceController {
     this.projectMode = draft.mode
     this.projectMaxRevisionLoops = draft.maxRevisionLoops || String(this.config.defaultMaxRevisionLoops)
     this.seedWorldbuilding = draft.seedWorldbuilding
+    this.seedWorldbuildingModificationInstructions = draft.seedWorldbuildingModificationInstructions
     this.seedCharacters = draft.seedCharacters
+    this.seedCharactersModificationInstructions = draft.seedCharactersModificationInstructions
     this.seedOutline = draft.seedOutline
+    this.seedOutlineModificationInstructions = draft.seedOutlineModificationInstructions
     this.allowExpertSeedChanges = draft.allowExpertSeedChanges
   }
 
@@ -796,8 +1083,11 @@ export class WorkspaceController {
       draft.title.trim()
       || draft.brief.trim()
       || draft.seedWorldbuilding.trim()
+      || draft.seedWorldbuildingModificationInstructions.trim()
       || draft.seedCharacters.trim()
+      || draft.seedCharactersModificationInstructions.trim()
       || draft.seedOutline.trim()
+      || draft.seedOutlineModificationInstructions.trim()
       || draft.allowExpertSeedChanges
       || draft.mode !== 'step'
       || (draft.maxRevisionLoops && draft.maxRevisionLoops !== String(this.config.defaultMaxRevisionLoops)),
@@ -819,14 +1109,20 @@ function readLocalDraft(): NewProjectDraft | undefined {
       return undefined
     }
     const parsed = JSON.parse(raw) as Partial<NewProjectDraft>
+    const legacySeedModificationInstructions = typeof (parsed as { seedModificationInstructions?: unknown }).seedModificationInstructions === 'string'
+      ? (parsed as { seedModificationInstructions: string }).seedModificationInstructions
+      : ''
     return {
       title: typeof parsed.title === 'string' ? parsed.title : '',
       brief: typeof parsed.brief === 'string' ? parsed.brief : '',
       mode: parsed.mode === 'yolo' ? 'yolo' : 'step',
       maxRevisionLoops: typeof parsed.maxRevisionLoops === 'string' ? parsed.maxRevisionLoops : '',
       seedWorldbuilding: typeof parsed.seedWorldbuilding === 'string' ? parsed.seedWorldbuilding : '',
+      seedWorldbuildingModificationInstructions: typeof parsed.seedWorldbuildingModificationInstructions === 'string' ? parsed.seedWorldbuildingModificationInstructions : legacySeedModificationInstructions,
       seedCharacters: typeof parsed.seedCharacters === 'string' ? parsed.seedCharacters : '',
+      seedCharactersModificationInstructions: typeof parsed.seedCharactersModificationInstructions === 'string' ? parsed.seedCharactersModificationInstructions : legacySeedModificationInstructions,
       seedOutline: typeof parsed.seedOutline === 'string' ? parsed.seedOutline : '',
+      seedOutlineModificationInstructions: typeof parsed.seedOutlineModificationInstructions === 'string' ? parsed.seedOutlineModificationInstructions : legacySeedModificationInstructions,
       allowExpertSeedChanges: Boolean(parsed.allowExpertSeedChanges),
     }
   }
@@ -847,6 +1143,13 @@ function removeLocalDraft(): void {
     return
   }
   localStorage.removeItem(newProjectDraftKey)
+}
+
+function artifactIdFromEventPayload(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object' || !('artifactId' in payload)) {
+    return undefined
+  }
+  return typeof payload.artifactId === 'string' ? payload.artifactId : undefined
 }
 
 function readableError(error: unknown): string {

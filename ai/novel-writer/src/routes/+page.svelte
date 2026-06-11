@@ -43,11 +43,13 @@
       onCreateProject={workspace.openProjectDialog}
       onSelectProject={workspace.selectProject}
       onEditProject={workspace.openEditProjectDialog}
+      onResetProject={workspace.resetProject}
       onDeleteProject={workspace.deleteProject}
       onRestoreProject={workspace.restoreProject}
       onPermanentlyDeleteProject={workspace.permanentlyDeleteProject}
       onEmptyTrash={workspace.emptyTrash}
       deletingProjectId={workspace.deletingProjectId}
+      resettingProjectId={workspace.resettingProjectId}
       deletingTrashedProjectId={workspace.deletingTrashedProjectId}
       restoringProjectId={workspace.restoringProjectId}
       emptyingTrash={workspace.emptyingTrash}
@@ -58,6 +60,7 @@
       artifacts={workspace.artifacts}
       selectedArtifact={workspace.selectedArtifact}
       selectedArtifactId={workspace.selectedArtifactId}
+      liveContent={workspace.liveContent}
       progress={workspace.progress}
       stageTimeline={workspace.stageTimeline}
       bind:artifactMarkdownEdit={workspace.artifactMarkdownEdit}
@@ -65,8 +68,14 @@
       pendingApprovalAction={workspace.pendingApprovalAction}
       running={workspace.running}
       exporting={workspace.exportingProjectId === workspace.selectedProjectId}
+      resetting={workspace.resettingProjectId === workspace.selectedProjectId}
       onRunProject={workspace.runProject}
       onExportProject={workspace.exportSelectedProject}
+      onResetProject={() => {
+        if (workspace.selectedProjectId) {
+          return workspace.resetProject(workspace.selectedProjectId)
+        }
+      }}
       onSelectArtifact={(artifactId) => workspace.selectedArtifactId = artifactId}
       onSubmitApproval={workspace.submitApproval}
     />
@@ -104,8 +113,11 @@
   bind:projectMode={workspace.projectMode}
   bind:projectMaxRevisionLoops={workspace.projectMaxRevisionLoops}
   bind:seedWorldbuilding={workspace.seedWorldbuilding}
+  bind:seedWorldbuildingModificationInstructions={workspace.seedWorldbuildingModificationInstructions}
   bind:seedCharacters={workspace.seedCharacters}
+  bind:seedCharactersModificationInstructions={workspace.seedCharactersModificationInstructions}
   bind:seedOutline={workspace.seedOutline}
+  bind:seedOutlineModificationInstructions={workspace.seedOutlineModificationInstructions}
   bind:allowExpertSeedChanges={workspace.allowExpertSeedChanges}
   projectCreateError={workspace.projectCreateError}
   hasProjectDraft={workspace.hasProjectDraft}
@@ -121,8 +133,11 @@
   bind:projectMode={workspace.editProjectMode}
   bind:projectMaxRevisionLoops={workspace.editProjectMaxRevisionLoops}
   bind:seedWorldbuilding={workspace.editSeedWorldbuilding}
+  bind:seedWorldbuildingModificationInstructions={workspace.editSeedWorldbuildingModificationInstructions}
   bind:seedCharacters={workspace.editSeedCharacters}
+  bind:seedCharactersModificationInstructions={workspace.editSeedCharactersModificationInstructions}
   bind:seedOutline={workspace.editSeedOutline}
+  bind:seedOutlineModificationInstructions={workspace.editSeedOutlineModificationInstructions}
   bind:allowExpertSeedChanges={workspace.editAllowExpertSeedChanges}
   saving={workspace.savingProjectEdit}
   error={workspace.projectEditError}

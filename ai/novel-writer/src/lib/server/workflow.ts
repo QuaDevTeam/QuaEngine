@@ -12,9 +12,10 @@ import type {
 } from '$lib/types'
 import { getAgentForStage, loadAgentSkills, stageTitle, workflowOrder } from './agents'
 import { compactArtifacts, formatPinnedProjectCanon } from './context'
-import { DeepSeekClient, type DeepSeekMessage, type RegisteredDeepSeekTool } from './deepseek'
+import { DeepSeekClient, type DeepSeekMessage, type DeepSeekRunResult, type RegisteredDeepSeekTool } from './deepseek'
 import { TavilySearchTool, type TavilySearchInput } from './tavily'
 import { normalizeVisualNovelMarkdown } from './visual-novel-format'
+import { broadcastStageContentDelta, broadcastStageContentDone, broadcastStageContentError } from './realtime.js'
 import {
   appendConversation,
   appendEvent,
@@ -36,9 +37,46 @@ const checkpointLocks = new Map<string, Promise<void>>()
 type StageRunOptions = {
   feedback?: string
   excludeArtifactIds?: string[]
-  /** For scene_writing: 0-based chapter index within the approved outline. */
+  /** For per-chapter stages: 0-based chapter index within the approved outline. */
   chapterIndex?: number
   chapterTitle?: string
+}
+
+const chapterStages: WorkflowStage[] = ['scene_writing', 'chapter_editing', 'chapter_supervision']
+const postChapterStages: WorkflowStage[] = ['supervision', 'editing', 'final']
+
+function emptyCheckpoint(projectId: string): import('$lib/types').ResumeCheckpoint {
+  return { projectId, completedStages: [], updatedAt: new Date().toISOString() }
+}
+
+function mergeCompletedStages(existing: WorkflowStage[] | undefined, stages: WorkflowStage[]): WorkflowStage[] {
+  const completed = new Set([...(existing ?? []), ...stages])
+  return workflowOrder.filter(stage => completed.has(stage))
+}
+
+function mergeCompletedChapterStages(
+  existing: Array<{ stage: WorkflowStage; chapterIndex: number }> | undefined,
+  stages: Array<{ stage: WorkflowStage; chapterIndex: number }>,
+): Array<{ stage: WorkflowStage; chapterIndex: number }> {
+  const byKey = new Map((existing ?? []).map(item => [`${item.stage}:${item.chapterIndex}`, item]))
+  for (const stage of stages) {
+    byKey.set(`${stage.stage}:${stage.chapterIndex}`, stage)
+  }
+  return [...byKey.values()]
+}
+
+function workflowIsComplete(checkpoint: Awaited<ReturnType<typeof readCheckpoint>>): boolean {
+  const completed = new Set(checkpoint?.completedStages ?? [])
+  return workflowOrder.every(stage => completed.has(stage))
+}
+
+/** Extract chapter titles from outline markdown (mirrors client-side logic). */
+function extractChapterTitles(markdown: string): string[] {
+  const pattern = /^##\s*第\s*[一二三四五六七八九十\d]+\s*章[\s：:]/im
+  return markdown
+    .split('\n')
+    .filter(line => pattern.test(line))
+    .map(line => line.replace(/^##\s*/, '').trim())
 }
 
 /** Returns all stages that come after `stage` in workflowOrder. */
@@ -57,8 +95,10 @@ export async function startWorkflow(projectId: string, requestedMode?: RunMode, 
   }
 
   const runId = randomUUID()
+  debugWorkflow('startWorkflow', { projectId, runId, requestedMode, chapterIndex })
   const run = runWorkflow(projectId, runId, requestedMode, chapterIndex).finally(() => {
     activeRuns.delete(projectId)
+    debugWorkflow('runSettled', { projectId, runId })
   })
   activeRuns.set(projectId, run)
   return { runId }
@@ -89,11 +129,27 @@ export async function recordApproval(projectId: string, input: {
   if (activeRuns.has(projectId)) {
     throw new Error(`Project is already running: ${projectId}`)
   }
+  debugWorkflow('recordApproval', { projectId, artifactId: input.artifactId, action: input.action })
 
   if (input.action === 'regenerate') {
     const artifact = await updateArtifactStatus(projectId, input.artifactId, 'rejected')
     const project = await readProject(projectId)
     const runId = randomUUID()
+    await mutateCheckpoint(projectId, checkpoint => {
+      const completedStages = new Set(checkpoint?.completedStages || [])
+      completedStages.delete(artifact.stage)
+      return {
+        projectId,
+        runId,
+        currentStage: artifact.stage,
+        completedStages: Array.from(completedStages),
+        awaitingApprovalArtifactId: undefined,
+        updatedAt: new Date().toISOString(),
+      }
+    })
+    project.status = 'running'
+    project.currentStage = artifact.stage
+    await writeProject(project)
     await appendEvent({
       projectId,
       runId,
@@ -112,21 +168,6 @@ export async function recordApproval(projectId: string, input: {
       message: `Regeneration requested for ${stageTitle(artifact.stage)}.`,
       payload: input,
     })
-    await mutateCheckpoint(projectId, checkpoint => {
-      const completedStages = new Set(checkpoint?.completedStages || [])
-      completedStages.delete(artifact.stage)
-      return {
-        projectId,
-        runId,
-        currentStage: artifact.stage,
-        completedStages: Array.from(completedStages),
-        awaitingApprovalArtifactId: undefined,
-        updatedAt: new Date().toISOString(),
-      }
-    })
-    project.status = 'running'
-    project.currentStage = artifact.stage
-    await writeProject(project)
 
     const run = runRegeneration(projectId, runId, artifact, input.note).finally(() => {
       activeRuns.delete(projectId)
@@ -141,26 +182,47 @@ export async function recordApproval(projectId: string, input: {
     : await updateArtifactStatus(projectId, input.artifactId, status)
 
   const project = await readProject(projectId)
-  await appendEvent({
-    projectId,
-    type: 'approval.recorded',
-    message: `Review action recorded: ${input.action}`,
-    payload: input,
-  })
+  const appendApprovalRecordedEvent = async () => {
+    const event = await appendEvent({
+      projectId,
+      type: 'approval.recorded',
+      stage: artifact.stage,
+      agentId: artifact.agentId,
+      status,
+      message: `Review action recorded: ${input.action}`,
+      payload: { ...input, artifactId: artifact.id },
+    })
+    debugWorkflow('approvalStateWritten', {
+      projectId,
+      artifactId: artifact.id,
+      action: input.action,
+      status,
+      stage: artifact.stage,
+      eventId: event.id,
+    })
+    return event
+  }
 
   if (input.action === 'approve') {
     await mutateCheckpoint(projectId, checkpoint => {
       const completedStages = new Set(checkpoint?.completedStages || [])
-      completedStages.add(artifact.stage)
-      // Cascade: when a content stage is approved after manual edit, invalidate all downstream stages
-      for (const downstream of stagesAfter(artifact.stage)) {
-        completedStages.delete(downstream)
+      // For chapter scene_writing, don't mark globally complete — chapter loop handles that
+      if (artifact.stage !== 'scene_writing') {
+        completedStages.add(artifact.stage)
+        // Cascade: when a content stage is approved after manual edit, invalidate all downstream stages
+        for (const downstream of stagesAfter(artifact.stage)) {
+          completedStages.delete(downstream)
+        }
       }
       return {
+        ...checkpoint,
         projectId,
         runId: checkpoint?.runId,
         currentStage: artifact.stage,
-        completedStages: Array.from(completedStages),
+        completedStages: workflowOrder.filter(stage => completedStages.has(stage)),
+        completedChapterStages: artifact.stage === 'scene_writing' && artifact.chapterIndex !== undefined
+          ? mergeCompletedChapterStages(checkpoint?.completedChapterStages, [{ stage: 'scene_writing', chapterIndex: artifact.chapterIndex }])
+          : checkpoint?.completedChapterStages,
         awaitingApprovalArtifactId: undefined,
         updatedAt: new Date().toISOString(),
       }
@@ -168,6 +230,7 @@ export async function recordApproval(projectId: string, input: {
     project.status = 'idle'
     project.currentStage = undefined
     await writeProject(project)
+    await appendApprovalRecordedEvent()
     return
   }
 
@@ -191,6 +254,7 @@ export async function recordApproval(projectId: string, input: {
     project.status = 'awaiting_review'
     project.currentStage = artifact.stage
     await writeProject(project)
+    await appendApprovalRecordedEvent()
     return
   }
 
@@ -209,6 +273,7 @@ export async function recordApproval(projectId: string, input: {
   project.status = 'idle'
   project.currentStage = artifact.stage
   await writeProject(project)
+  await appendApprovalRecordedEvent()
 }
 
 async function runRegeneration(projectId: string, runId: string, replacedArtifact: ArtifactRef, note?: string): Promise<void> {
@@ -298,21 +363,47 @@ async function runWorkflow(projectId: string, runId: string, requestedMode?: Run
     if (mode === 'yolo') {
       await acceptPendingReviewForYolo(projectId, runId)
     }
-    const completed = new Set((await readCheckpoint(projectId))?.completedStages || [])
-    const stages = mode === 'step'
-      ? [workflowOrder.find(stage => !completed.has(stage))].filter((stage): stage is WorkflowStage => Boolean(stage))
-      : workflowOrder.filter(stage => !completed.has(stage))
 
-    if (mode === 'yolo') {
-      await runYoloStages(project, runId, stages, chapterIndex)
+    let checkpoint = await readCheckpoint(projectId)
+    let completed = new Set(checkpoint?.completedStages || [])
+    const nonChapterStages = workflowOrder.filter(stage => !chapterStages.includes(stage))
+    const nextNonChapterStage = nonChapterStages.find(stage => !completed.has(stage))
+
+    if (mode === 'step') {
+      if (completed.has('outline_review') && !completed.has('scene_writing')) {
+        await runChapterLoop(project, runId, mode, chapterIndex, checkpoint)
+      }
+      else {
+        const stages = nextNonChapterStage ? [nextNonChapterStage] : []
+        debugWorkflow('runStagesPlanned', { projectId, runId, mode, stages })
+        await runStepStages(project, runId, stages)
+      }
     }
     else {
-      await runStepStages(project, runId, stages, chapterIndex)
+      const preChapterStages = workflowOrder.filter(stage =>
+        !completed.has(stage)
+        && !chapterStages.includes(stage)
+        && !postChapterStages.includes(stage),
+      )
+      debugWorkflow('runStagesPlanned', { projectId, runId, mode, stages: preChapterStages })
+      await runYoloStages(project, runId, preChapterStages)
+
+      checkpoint = await readCheckpoint(projectId)
+      completed = new Set(checkpoint?.completedStages || [])
+      if (completed.has('outline_review') && !completed.has('scene_writing')) {
+        await runChapterLoop(project, runId, mode, chapterIndex, checkpoint)
+      }
+
+      checkpoint = await readCheckpoint(projectId)
+      completed = new Set(checkpoint?.completedStages || [])
+      const stages = postChapterStages.filter(stage => !completed.has(stage))
+      debugWorkflow('runStagesPlanned', { projectId, runId, mode, stages })
+      await runYoloStages(project, runId, stages)
     }
 
     const refreshed = await readProject(projectId)
     if (refreshed.status !== 'awaiting_review') {
-      refreshed.status = 'completed'
+      refreshed.status = workflowIsComplete(await readCheckpoint(projectId)) ? 'completed' : 'idle'
       refreshed.currentStage = undefined
       await writeProject(refreshed)
       await appendEvent({ projectId, runId, type: 'run.completed', message: 'Run completed.' })
@@ -330,6 +421,171 @@ async function runWorkflow(projectId: string, runId: string, requestedMode?: Run
       message: error instanceof Error ? error.message : String(error),
     })
     throw error
+  }
+}
+
+async function runChapterLoop(
+  project: NovelProject,
+  runId: string,
+  mode: RunMode,
+  requestedChapterIndex: number | undefined,
+  checkpoint: Awaited<ReturnType<typeof readCheckpoint>>,
+): Promise<void> {
+  const projectId = project.id
+  const artifacts = await listArtifacts(projectId)
+  const outlineArtifact = [...artifacts].reverse().find(a => a.stage === 'outline' && (a.status === 'approved' || a.status === 'draft'))
+  if (!outlineArtifact) {
+    throw new Error('Outline artifact not found; cannot start chapter loop.')
+  }
+  const chapterTitles = extractChapterTitles(outlineArtifact.markdown)
+  const totalChapters = chapterTitles.length || 1
+
+  const completedChapterStages = checkpoint?.completedChapterStages || []
+
+  const isChapterStageDone = (stage: WorkflowStage, idx: number) =>
+    completedChapterStages.some(c => c.stage === stage && c.chapterIndex === idx)
+
+  // Find the pending chapter's scene_writing approval (older checkpoints may still resume here)
+  const pendingApprovalArtifactId = checkpoint?.awaitingApprovalArtifactId
+  if (pendingApprovalArtifactId) {
+    const pendingArtifact = artifacts.find(a => a.id === pendingApprovalArtifactId)
+    if (pendingArtifact?.stage === 'scene_writing' && pendingArtifact.chapterIndex !== undefined) {
+      // Approved scene_writing — run chapter_editing + chapter_supervision for this chapter
+      const idx = pendingArtifact.chapterIndex
+      const title = chapterTitles[idx] ?? `第 ${idx + 1} 章`
+      await runChapterPostStages(projectId, runId, idx, title, completedChapterStages)
+      await markChapterStageComplete(projectId, runId, 'scene_writing', idx, totalChapters)
+    }
+  }
+
+  if (mode === 'yolo') {
+    // Run all remaining chapters
+    for (let idx = 0; idx < totalChapters; idx += 1) {
+      if (isChapterStageDone('chapter_supervision', idx)) {
+        continue
+      }
+      const title = chapterTitles[idx] ?? `第 ${idx + 1} 章`
+      if (!isChapterStageDone('scene_writing', idx)) {
+        await runStage(projectId, runId, 'scene_writing', 'draft', 0, { chapterIndex: idx, chapterTitle: title })
+      }
+      await runChapterPostStages(projectId, runId, idx, title, completedChapterStages)
+      await markChapterStageComplete(projectId, runId, 'chapter_supervision', idx, totalChapters)
+    }
+    // After all chapters, mark scene_writing complete and run post-chapter stages
+    await mutateCheckpoint(projectId, cp => ({
+      ...(cp ?? emptyCheckpoint(projectId)),
+      completedStages: mergeCompletedStages(cp?.completedStages, chapterStages),
+    }))
+  }
+  else {
+    const postPendingIdx = (() => {
+      for (let i = 0; i < totalChapters; i += 1) {
+        if (isChapterStageDone('scene_writing', i) && !isChapterStageDone('chapter_supervision', i)) {
+          return i
+        }
+      }
+      return undefined
+    })()
+
+    if (postPendingIdx !== undefined) {
+      const title = chapterTitles[postPendingIdx] ?? `第 ${postPendingIdx + 1} 章`
+      await runChapterPostStages(projectId, runId, postPendingIdx, title, completedChapterStages)
+      await markChapterStageComplete(projectId, runId, 'chapter_supervision', postPendingIdx, totalChapters)
+      return
+    }
+
+    // step mode: run the next pending chapter's scene_writing
+    const targetIdx = requestedChapterIndex ?? (() => {
+      for (let i = 0; i < totalChapters; i += 1) {
+        if (!isChapterStageDone('scene_writing', i)) return i
+      }
+      return undefined
+    })()
+
+    if (targetIdx === undefined) {
+      // All chapters done; mark complete so next step runs supervision
+      await mutateCheckpoint(projectId, cp => ({
+        ...(cp ?? emptyCheckpoint(projectId)),
+        completedStages: mergeCompletedStages(cp?.completedStages, chapterStages),
+      }))
+      return
+    }
+
+    const title = chapterTitles[targetIdx] ?? `第 ${targetIdx + 1} 章`
+    const artifact = await runStage(projectId, runId, 'scene_writing', 'needs_review', 0, { chapterIndex: targetIdx, chapterTitle: title })
+
+    // Store totalChapters in checkpoint for UI
+    await mutateCheckpoint(projectId, cp => ({
+      ...(cp ?? emptyCheckpoint(projectId)),
+      totalChapters,
+      completedChapterStages: cp?.completedChapterStages ?? [],
+    }))
+
+    const refreshed = await readProject(projectId)
+    refreshed.status = 'awaiting_review'
+    refreshed.currentStage = 'scene_writing'
+    await writeProject(refreshed)
+    await appendEvent({
+      projectId,
+      runId,
+      type: 'stage.awaiting_review',
+      stage: 'scene_writing',
+      agentId: artifact.agentId,
+      status: 'needs_review',
+      message: `${title} scene_writing awaiting review.`,
+      payload: { artifactId: artifact.id, chapterIndex: targetIdx },
+    })
+  }
+}
+
+async function runChapterPostStages(
+  projectId: string,
+  runId: string,
+  chapterIndex: number,
+  chapterTitle: string,
+  completedChapterStages: Array<{ stage: WorkflowStage; chapterIndex: number }>,
+): Promise<void> {
+  const isDone = (s: WorkflowStage) => completedChapterStages.some(c => c.stage === s && c.chapterIndex === chapterIndex)
+  if (!isDone('chapter_editing')) {
+    await runStage(projectId, runId, 'chapter_editing', 'draft', 0, { chapterIndex, chapterTitle })
+    await mutateCheckpoint(projectId, cp => ({
+      ...(cp ?? emptyCheckpoint(projectId)),
+      completedChapterStages: mergeCompletedChapterStages(cp?.completedChapterStages, [{ stage: 'chapter_editing', chapterIndex }]),
+    }))
+  }
+  if (!isDone('chapter_supervision')) {
+    await runStage(projectId, runId, 'chapter_supervision', 'draft', 0, { chapterIndex, chapterTitle })
+    await mutateCheckpoint(projectId, cp => ({
+      ...(cp ?? emptyCheckpoint(projectId)),
+      completedChapterStages: mergeCompletedChapterStages(cp?.completedChapterStages, [{ stage: 'chapter_supervision', chapterIndex }]),
+    }))
+  }
+}
+
+async function markChapterStageComplete(
+  projectId: string,
+  runId: string,
+  stage: WorkflowStage,
+  chapterIndex: number,
+  totalChapters: number,
+): Promise<void> {
+  await mutateCheckpoint(projectId, cp => {
+    const existing = cp?.completedChapterStages ?? []
+    const alreadyDone = existing.some(c => c.stage === stage && c.chapterIndex === chapterIndex)
+    return {
+      ...(cp ?? emptyCheckpoint(projectId)),
+      completedChapterStages: alreadyDone ? existing : [...existing, { stage, chapterIndex }],
+    }
+  })
+  // If all chapters have chapter_supervision done, mark scene_writing complete in completedStages
+  const cp = await readCheckpoint(projectId)
+  const doneSupervisedCount = (cp?.completedChapterStages ?? []).filter(c => c.stage === 'chapter_supervision').length
+  if (doneSupervisedCount >= totalChapters) {
+    await mutateCheckpoint(projectId, c => ({
+      ...(c ?? emptyCheckpoint(projectId)),
+      completedStages: mergeCompletedStages(c?.completedStages, chapterStages),
+    }))
+    await appendEvent({ projectId, runId, type: 'stage.completed', stage: 'scene_writing', message: `All ${totalChapters} chapters completed.` })
   }
 }
 
@@ -368,7 +624,7 @@ async function runProjectRevision(projectId: string, runId: string, revision: Pr
       }
     })
 
-    await runYoloStages(project, runId, revision.affectedStages, undefined, revision.feedback)
+    await runYoloStages(project, runId, revision.affectedStages, revision.feedback)
 
     const refreshed = await readProject(projectId)
     refreshed.status = 'completed'
@@ -441,7 +697,6 @@ async function runYoloStages(
   project: NovelProject,
   runId: string,
   stages: WorkflowStage[],
-  chapterIndex?: number,
   feedback?: string,
 ): Promise<void> {
   const reviewLoopStages = new Set<WorkflowStage>(['outline_review', 'worldbuilding_review', 'characters_review', 'story_background_review'])
@@ -450,7 +705,7 @@ async function runYoloStages(
       await runContentReviewLoop(project.id, runId, stage)
     }
     else {
-      await runStage(project.id, runId, stage, 'draft', 0, { chapterIndex, feedback })
+      await runStage(project.id, runId, stage, 'draft', 0, { feedback })
     }
   }
 }
@@ -470,12 +725,19 @@ async function acceptPendingReviewForYolo(projectId: string, runId: string): Pro
   await updateArtifactStatus(projectId, artifact.id, 'approved')
   await mutateCheckpoint(projectId, current => {
     const completedStages = new Set(current?.completedStages || [])
-    completedStages.add(artifact.stage)
+    // For chapter scene_writing, don't mark the stage globally complete yet
+    if (artifact.stage !== 'scene_writing') {
+      completedStages.add(artifact.stage)
+    }
     return {
+      ...current,
       projectId,
       runId,
       currentStage: artifact.stage,
-      completedStages: Array.from(completedStages),
+      completedStages: workflowOrder.filter(stage => completedStages.has(stage)),
+      completedChapterStages: artifact.stage === 'scene_writing' && artifact.chapterIndex !== undefined
+        ? mergeCompletedChapterStages(current?.completedChapterStages, [{ stage: 'scene_writing', chapterIndex: artifact.chapterIndex }])
+        : current?.completedChapterStages,
       awaitingApprovalArtifactId: undefined,
       updatedAt: new Date().toISOString(),
     }
@@ -492,12 +754,12 @@ async function acceptPendingReviewForYolo(projectId: string, runId: string): Pro
   })
 }
 
-async function runStepStages(project: NovelProject, runId: string, stages: WorkflowStage[], chapterIndex?: number): Promise<void> {
+async function runStepStages(project: NovelProject, runId: string, stages: WorkflowStage[]): Promise<void> {
   const stage = stages[0]
   if (!stage) {
     return
   }
-  const artifact = await runStage(project.id, runId, stage, 'needs_review', 0, { chapterIndex })
+  const artifact = await runStage(project.id, runId, stage, 'needs_review', 0)
   const refreshed = await readProject(project.id)
   refreshed.status = 'awaiting_review'
   refreshed.currentStage = stage
@@ -514,18 +776,20 @@ async function runStepStages(project: NovelProject, runId: string, stages: Workf
   })
 }
 
-/** Maps a review stage to the content stage it validates (and re-runs on failure). */
-const reviewStagePairs: Partial<Record<WorkflowStage, WorkflowStage>> = {
-  worldbuilding_review: 'worldbuilding',
-  characters_review: 'characters',
-  story_background_review: 'story_background',
-  outline_review: 'outline',
+/** Maps a review stage to the stages it may re-run on failure. */
+const reviewRevisionPlans: Partial<Record<WorkflowStage, WorkflowStage[]>> = {
+  worldbuilding_review: ['worldbuilding'],
+  characters_review: ['characters'],
+  story_background_review: ['story_background'],
+  outline_review: ['outline'],
 }
 
+const outlineCharacterRevisionPlan: WorkflowStage[] = ['characters', 'characters_review', 'story_background', 'story_background_review', 'outline']
+
 async function runContentReviewLoop(projectId: string, runId: string, reviewStage: WorkflowStage): Promise<void> {
-  const contentStage = reviewStagePairs[reviewStage]
-  if (!contentStage) {
-    throw new Error(`No content stage paired with review stage: ${reviewStage}`)
+  const revisionStages = reviewRevisionPlans[reviewStage]
+  if (!revisionStages?.length) {
+    throw new Error(`No revision plan paired with review stage: ${reviewStage}`)
   }
   const project = await readProject(projectId)
   let lastReport: Partial<ReviewReport> | undefined
@@ -545,9 +809,66 @@ async function runContentReviewLoop(projectId: string, runId: string, reviewStag
       message: `${stageTitle(reviewStage)} requested revision loop ${revisionLoop}.`,
       payload: report,
     })
-    await runStage(projectId, runId, contentStage, 'draft', revisionLoop)
+    await runRevisionPlan(
+      projectId,
+      runId,
+      revisionPlanForReviewResult(reviewStage, report, revisionStages),
+      revisionLoop,
+      formatReviewRevisionFeedback(reviewStage, report, revisionLoop),
+    )
   }
   throw new Error(`${stageTitle(reviewStage)} did not pass after ${project.maxRevisionLoops} revision loops: ${JSON.stringify(lastReport?.findings || [])}`)
+}
+
+function revisionPlanForReviewResult(
+  reviewStage: WorkflowStage,
+  report: Partial<ReviewReport>,
+  fallbackPlan: WorkflowStage[],
+): WorkflowStage[] {
+  if (reviewStage === 'outline_review' && outlineReviewRequiresCharacterRevision(report)) {
+    return outlineCharacterRevisionPlan
+  }
+  return fallbackPlan
+}
+
+function outlineReviewRequiresCharacterRevision(report: Partial<ReviewReport>): boolean {
+  const findings = Array.isArray(report.findings) ? report.findings : []
+  return findings.some(finding => {
+    const text = `${finding.message} ${finding.suggestion}`.toLowerCase()
+    return /角色|人物|配角|反派|家人|同伴|证人|联系人|阵营|character|cast|supporting|side character|antagonist|witness|family|contact|faction/.test(text)
+  })
+}
+
+async function runRevisionPlan(
+  projectId: string,
+  runId: string,
+  stages: WorkflowStage[],
+  revisionLoop: number,
+  feedback: string,
+): Promise<void> {
+  const reviewStages = new Set<WorkflowStage>(['outline_review', 'worldbuilding_review', 'characters_review', 'story_background_review'])
+  for (const stage of stages) {
+    if (reviewStages.has(stage)) {
+      await runContentReviewLoop(projectId, runId, stage)
+    }
+    else {
+      await runStage(projectId, runId, stage, 'draft', revisionLoop, { feedback })
+    }
+  }
+}
+
+function formatReviewRevisionFeedback(reviewStage: WorkflowStage, report: Partial<ReviewReport>, revisionLoop: number): string {
+  const findings = Array.isArray(report.findings) ? report.findings : []
+  return [
+    `${stageTitle(reviewStage)} requested revision loop ${revisionLoop}.`,
+    'Revise only the stages required by the review findings. Preserve approved compatible canon and avoid unrelated rewrites.',
+    findings.length
+      ? [
+          'Review findings:',
+          ...findings.map(finding => `- [${finding.severity}] ${finding.message} Suggestion: ${finding.suggestion}`),
+        ].join('\n')
+      : 'No structured findings were returned; improve the reviewed artifact according to the reviewer result.',
+  ].join('\n')
 }
 
 async function runStage(
@@ -560,6 +881,9 @@ async function runStage(
 ): Promise<ArtifactRef> {
   const project = await readProject(projectId)
   const agent = getAgentForStage(stage)
+  project.currentStage = stage
+  project.status = 'running'
+  await writeProject(project)
   await appendEvent({
     projectId,
     runId,
@@ -571,7 +895,7 @@ async function runStage(
 
   const excludedArtifactIds = new Set(options.excludeArtifactIds || [])
   const previousArtifacts = (await listArtifacts(projectId)).filter(artifact => !excludedArtifactIds.has(artifact.id))
-  const agentResult = await runAgent(project, agent, previousArtifacts, [], revisionLoop, options.feedback, options.chapterIndex, options.chapterTitle)
+  const agentResult = await runAgent(project, runId, agent, previousArtifacts, [], revisionLoop, options.feedback, options.chapterIndex, options.chapterTitle)
   const combinedReferences = dedupeReferences(agentResult.references)
   const now = new Date().toISOString()
   const chapterLabel = options.chapterTitle ? ` · ${options.chapterTitle}` : options.chapterIndex !== undefined ? ` · 第 ${options.chapterIndex + 1} 章` : ''
@@ -592,14 +916,15 @@ async function runStage(
 
   await mutateCheckpoint(projectId, checkpoint => {
     const completedStages = new Set(checkpoint?.completedStages || [])
-    if (status !== 'needs_review') {
+    if (status !== 'needs_review' && !chapterStages.includes(stage)) {
       completedStages.add(stage)
     }
     return {
+      ...checkpoint,
       projectId,
       runId,
       currentStage: stage,
-      completedStages: Array.from(completedStages),
+      completedStages: workflowOrder.filter(item => completedStages.has(item)),
       awaitingApprovalArtifactId: status === 'needs_review' ? artifact.id : undefined,
       updatedAt: now,
     }
@@ -640,6 +965,7 @@ async function mutateCheckpoint(
 
 async function runAgent(
   project: NovelProject,
+  runId: string,
   agent: AgentDefinition,
   previousArtifacts: ArtifactRef[],
   references: SearchReference[],
@@ -663,7 +989,8 @@ async function runAgent(
         'Return only valid JSON. The JSON must contain "markdown" and "data".',
         'The markdown must be visual novel writing, not QuaScript.',
         'Do not skip the workflow stage even when the user supplied advanced seed fields; process those fields through the current specialist role.',
-        'Apply the seed modification policy exactly when using user-provided worldbuilding, character information, and outline.',
+        'Apply the seed modification policy and any user-provided section-specific advanced-input modification instructions exactly when using user-provided worldbuilding, character information, and outline.',
+        'If project.seed contains worldbuildingModificationInstructions, charactersModificationInstructions, or outlineModificationInstructions, treat each as instructions for refining that corresponding supplied advanced input before deriving the current-stage artifact.',
         'When compacting context, never omit or contradict pinned project canon; preserve it before generated summaries.',
         'If regenerationFeedback is present, regenerate the current stage from canon and current approved context, applying that feedback without copying the rejected draft.',
         'If regenerationFeedback describes a project input revision, revise existing artifacts surgically: preserve compatible prior content, change only affected details and downstream dependencies, and do not restart from a blank slate.',
@@ -683,6 +1010,7 @@ async function runAgent(
           mode: project.mode,
           seed: project.seed,
         },
+        advancedInputModificationInstructions: formatSeedModificationInstructions(project.seed),
         stage: agent.stage,
         revisionLoop,
         regenerationFeedback,
@@ -715,19 +1043,105 @@ async function runAgent(
       ]
     : []
 
-  const result = await deepseek.createJson<{ markdown: string, data: unknown }>({
-    messages,
-    tools,
-    agentId: agent.id,
-    projectId: project.id,
-    reasoningEffort: agent.reasoningEffort,
-  })
+  let result: DeepSeekRunResult<{ markdown: string, data: unknown }>
+  try {
+    result = await deepseek.createJson<{ markdown: string, data: unknown }>({
+      messages,
+      tools,
+      agentId: agent.id,
+      projectId: project.id,
+      reasoningEffort: agent.reasoningEffort,
+      onContentDelta: createStageContentStreamer(project.id, runId, agent),
+    })
+  }
+  catch (error) {
+    broadcastStageContentError({
+      projectId: project.id,
+      runId,
+      stage: agent.stage,
+      agentId: agent.id,
+      message: error instanceof Error ? error.message : String(error),
+    })
+    throw error
+  }
   await appendConversation(project.id, agent.id, { messages: result.messages, toolCalls: result.toolCalls })
+  const normalizedMarkdown = normalizeVisualNovelMarkdown(agent.stage, result.content.markdown)
+  broadcastStageContentDone({
+    projectId: project.id,
+    runId,
+    stage: agent.stage,
+    agentId: agent.id,
+    markdown: normalizedMarkdown,
+  })
   return {
     json: normalizeAgentData(agent.stage, result.content.data, revisionLoop),
-    markdown: normalizeVisualNovelMarkdown(agent.stage, result.content.markdown),
+    markdown: normalizedMarkdown,
     references: extractToolReferences(result.toolCalls),
   }
+}
+
+function createStageContentStreamer(projectId: string, runId: string, agent: AgentDefinition) {
+  let raw = ''
+  return ({ content, sequence }: { content: string, sequence: number }) => {
+    raw += content
+    broadcastStageContentDelta({
+      projectId,
+      runId,
+      stage: agent.stage,
+      agentId: agent.id,
+      sequence,
+      delta: content,
+      markdownPreview: extractMarkdownPreviewFromJsonStream(raw),
+    })
+  }
+}
+
+function extractMarkdownPreviewFromJsonStream(raw: string): string | undefined {
+  const key = /"markdown"\s*:\s*"/.exec(raw)
+  if (!key) {
+    return undefined
+  }
+
+  let output = ''
+  let escaping = false
+  for (let index = key.index + key[0].length; index < raw.length; index += 1) {
+    const char = raw[index]
+    if (escaping) {
+      output += decodeJsonStringEscape(char)
+      escaping = false
+      continue
+    }
+    if (char === '\\') {
+      escaping = true
+      continue
+    }
+    if (char === '"') {
+      break
+    }
+    output += char
+  }
+  return output
+}
+
+function debugWorkflow(message: string, details: Record<string, unknown> = {}): void {
+  if (process.env.NOVEL_WRITER_DEBUG !== '1' && process.env.NODE_ENV !== 'development') {
+    return
+  }
+  console.info(`[novel-writer:workflow] ${message}`, details)
+}
+
+function decodeJsonStringEscape(char: string): string {
+  const escapes: Record<string, string> = {
+    '"': '"',
+    '\\': '\\',
+    '/': '/',
+    b: '\b',
+    f: '\f',
+    n: '\n',
+    r: '\r',
+    t: '\t',
+  }
+  return escapes[char] ?? char
 }
 
 function fallbackArtifact(
@@ -838,7 +1252,7 @@ function stageOutputInstruction(stage: WorkflowStage): string {
     ],
     worldbuilding: [
       'Current stage: worldbuilding specialist.',
-      'Build a coherent setting bible from the brief and seed worldbuilding. Do not skip this because seed worldbuilding exists.',
+      'Build a coherent setting bible from the brief and seed worldbuilding. Apply seed.worldbuildingModificationInstructions to the supplied worldbuilding before expanding it. Do not skip this because seed worldbuilding exists.',
       'Separate immutable canon, expandable details, social systems, technology limits, daily-life texture, locations, conflict engines, and reference notes.',
     ],
     worldbuilding_review: [
@@ -848,7 +1262,8 @@ function stageOutputInstruction(stage: WorkflowStage): string {
     ],
     characters: [
       'Current stage: character design specialist.',
-      'Build a character bible from the brief, seed characters, and approved worldbuilding. Do not skip this because seed character notes exist.',
+      'Build a character bible from the brief, seed characters, and approved worldbuilding. Apply seed.charactersModificationInstructions to the supplied character notes before expanding them. Do not skip this because seed character notes exist.',
+      'If regenerationFeedback or review feedback from outline_review says the outline needs additional supporting or side characters, add the necessary character entries while preserving compatible established major characters.',
       'Cover each major character: role, desire, wound, contradiction, arc, relationships, speech pattern, appearance, clothing, family background, and continuity constraints.',
     ],
     characters_review: [
@@ -868,7 +1283,7 @@ function stageOutputInstruction(stage: WorkflowStage): string {
     ],
     outline: [
       'Current stage: outline writer.',
-      'Generate a structured novel/visual-novel outline only after using requirements, worldbuilding, characters, and story background.',
+      'Generate a structured novel/visual-novel outline only after using requirements, worldbuilding, characters, and story background. Apply seed.outlineModificationInstructions to the supplied outline before expanding or revising it.',
       'The outline must expose routes, major choices, causality, escalation, required scenes, and ending conditions.',
       'Design visual-novel interactivity according to the original user request. Include choice points, option text, route/branch effects, state consequences, and ending branches when the premise calls for them.',
       'Do not force branches into a kinetic/linear story; if low interactivity is appropriate, state that explicitly and explain why. Otherwise, choices should affect relationships, information, danger, trust, route access, or endings.',
@@ -877,6 +1292,8 @@ function stageOutputInstruction(stage: WorkflowStage): string {
     outline_review: [
       'Current stage: entertainment outline reviewer.',
       'Review the latest outline from entertainment writing, causality, pacing, payoff, VN game-structure, and seed-consistency perspectives.',
+      'Also review character coverage: if the outline needs supporting characters, side characters, antagonists, witnesses, family members, faction contacts, or route-specific characters that are missing or under-specified in the character bible, return blocker findings that request character-setting additions.',
+      'When character additions are needed, make the finding actionable enough for the character specialist to add only the missing roles and then let the outline be regenerated from the updated character bible.',
       'Evaluate whether choice points, options, route branches, and ending branches match the original user request. Flag missing or fake choices when the requested experience implies interactive branching.',
       'If the outline is intentionally kinetic/linear, verify that the low-interactivity choice is justified by the user request and story design.',
       'Do not write or rewrite the manuscript here. Return actionable review findings.',
@@ -901,6 +1318,16 @@ function stageOutputInstruction(stage: WorkflowStage): string {
       'Audit style consistency, seed usage, character voice, outline adherence, and original user requirements.',
       'Treat visual-novel transcript format violations as findings: narration should be 旁白：..., dialogue labels should be plain character names, and actions/emotions must not appear before the colon.',
       'Return supervisor findings in data when issues remain, and a corrected/polished markdown when possible.',
+    ],
+    chapter_editing: [
+      'Current stage: per-chapter editor.',
+      'Polish the scene writing for this specific chapter. Improve flow, pacing, and dialogue. Normalize format.',
+      'While editing, normalize every finished scene line to 旁白：叙述内容 or 角色名：台词内容, and remove action/emotion descriptors from speaker labels.',
+    ],
+    chapter_supervision: [
+      'Current stage: per-chapter supervisor.',
+      'Audit this chapter for consistency with approved worldbuilding, characters, story background, and outline.',
+      'Treat visual-novel transcript format violations as findings. Return any corrections inline in markdown.',
     ],
     final: [
       'Current stage: final context compactor and final deliverable.',
@@ -955,8 +1382,12 @@ function normalizeAgentData(stage: WorkflowStage, data: unknown, revisionLoop: n
 function formatSeedNote(project: NovelProject): string {
   const fields = [
     project.seed?.worldbuilding ? '世界观' : undefined,
+    project.seed?.worldbuildingModificationInstructions ? '世界观修改指示' : undefined,
     project.seed?.characters ? '角色信息' : undefined,
+    project.seed?.charactersModificationInstructions ? '角色设定修改指示' : undefined,
     project.seed?.outline ? '大纲' : undefined,
+    project.seed?.outlineModificationInstructions ? '大纲修改指示' : undefined,
+    project.seed?.modificationInstructions ? '通用修改指示' : undefined,
   ].filter(Boolean)
   if (!fields.length) {
     return ''
@@ -974,18 +1405,25 @@ function seedPolicyInstruction(project: NovelProject): string {
   if (!project.seed) {
     return 'No user-provided seed canon is present.'
   }
+  const hasModificationInstructions = hasSeedModificationInstructions(project.seed)
   if (project.seed.allowExpertChanges) {
     return [
       'Seed modification policy: ALLOWED.',
       'You may modify user-provided seed details when it improves coherence, entertainment value, or feasibility.',
+      hasModificationInstructions
+        ? 'The user also provided section-specific advanced-input modification instructions. Apply each instruction first to its matching supplied seed material, then continue enriching it.'
+        : '',
       'Every modification must remain grounded in the original seed and user brief, and should be explainable in the returned data.',
-    ].join('\n')
+    ].filter(Boolean).join('\n')
   }
   return [
     'Seed modification policy: FORBIDDEN.',
     'All user-provided seed details are immutable canon.',
-    'You may enrich, clarify, elaborate, and add compatible details, but you must not rewrite, remove, reverse, contradict, rename, or retcon any provided seed detail.',
-  ].join('\n')
+    hasModificationInstructions
+      ? 'Exception: the user explicitly provided section-specific advanced-input modification instructions. Apply exactly those requested changes to the matching supplied seed material before enriching it; do not make additional unstated seed changes.'
+      : '',
+    'You may enrich, clarify, elaborate, and add compatible details, but you must not rewrite, remove, reverse, contradict, rename, or retcon any provided seed detail beyond explicit user modification instructions.',
+  ].filter(Boolean).join('\n')
 }
 
 function reviewPolicyInstruction(stage: WorkflowStage, project: NovelProject): string {
@@ -998,9 +1436,30 @@ function reviewPolicyInstruction(stage: WorkflowStage, project: NovelProject): s
   }
   return [
     'Review requirement: seed immutability is in scope.',
-    'When reviewing or supervising, check whether the artifact contradicts, alters, omits, or weakens any immutable user-provided seed worldbuilding, character, or outline detail.',
+    'When reviewing or supervising, check whether the artifact contradicts, alters, omits, or weakens any immutable user-provided seed worldbuilding, character, or outline detail after applying any explicit user section-specific advanced-input modification instructions.',
     'If such a violation exists, return a blocker finding and do not pass the artifact until it is corrected.',
   ].join('\n')
+}
+
+function formatSeedModificationInstructions(seed: NovelProject['seed']): Record<string, string | undefined> | undefined {
+  if (!seed || !hasSeedModificationInstructions(seed)) {
+    return undefined
+  }
+  return {
+    worldbuilding: seed.worldbuildingModificationInstructions,
+    characters: seed.charactersModificationInstructions,
+    outline: seed.outlineModificationInstructions,
+    legacyGlobal: seed.modificationInstructions,
+  }
+}
+
+function hasSeedModificationInstructions(seed: NonNullable<NovelProject['seed']>): boolean {
+  return Boolean(
+    seed.worldbuildingModificationInstructions
+    || seed.charactersModificationInstructions
+    || seed.outlineModificationInstructions
+    || seed.modificationInstructions,
+  )
 }
 
 export function extractToolReferences(toolCalls: Array<{ output?: unknown }>): SearchReference[] {

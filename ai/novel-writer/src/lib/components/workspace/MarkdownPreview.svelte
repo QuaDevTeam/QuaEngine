@@ -1,5 +1,6 @@
 <script lang="ts">
   export let markdown = ''
+  export let compact = false
 
   $: lines = markdown.split('\n')
 
@@ -15,7 +16,7 @@
   }
 </script>
 
-<div class="doc-preview">
+<div class="doc-preview" class:compact>
   {#each lines as line}
     {#if line.startsWith('#')}
       <div class={headingClass(line)}>{headingText(line)}</div>

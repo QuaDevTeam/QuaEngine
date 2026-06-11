@@ -12,11 +12,13 @@
   export let onCreateProject: () => void
   export let onSelectProject: (projectId: string) => void | Promise<void>
   export let onEditProject: (projectId: string) => void | Promise<void>
+  export let onResetProject: (projectId: string) => void | Promise<void>
   export let onDeleteProject: (projectId: string) => void | Promise<void>
   export let onRestoreProject: (projectId: string) => void | Promise<void>
   export let onPermanentlyDeleteProject: (projectId: string) => void | Promise<void>
   export let onEmptyTrash: () => void | Promise<void>
   export let deletingProjectId = ''
+  export let resettingProjectId = ''
   export let deletingTrashedProjectId = ''
   export let restoringProjectId = ''
   export let emptyingTrash = false
@@ -70,6 +72,14 @@
           >
             <Pencil size={14} />
             编辑项目
+          </ContextMenu.Item>
+          <ContextMenu.Item
+            variant="destructive"
+            disabled={project.status === 'running' || resettingProjectId === project.id}
+            onSelect={() => onResetProject(project.id)}
+          >
+            <RotateCcw size={14} />
+            重置并重新开始
           </ContextMenu.Item>
           <ContextMenu.Separator />
           <ContextMenu.Item

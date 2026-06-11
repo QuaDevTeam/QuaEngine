@@ -27,8 +27,10 @@ export type WorkflowStage =
   | 'outline'
   | 'outline_review'
   | 'scene_writing'
-  | 'editing'
+  | 'chapter_editing'
+  | 'chapter_supervision'
   | 'supervision'
+  | 'editing'
   | 'final'
 
 export interface NovelWriterConfig {
@@ -67,8 +69,13 @@ export interface NovelProject {
 
 export interface ProjectSeed {
   worldbuilding?: string
+  worldbuildingModificationInstructions?: string
   characters?: string
+  charactersModificationInstructions?: string
   outline?: string
+  outlineModificationInstructions?: string
+  /** Legacy global instruction; new UI should prefer per-section instruction fields. */
+  modificationInstructions?: string
   allowExpertChanges?: boolean
 }
 
@@ -109,7 +116,7 @@ export interface ArtifactRef {
   json: unknown
   markdown: string
   references: SearchReference[]
-  /** Only set for scene_writing artifacts — 0-based chapter index within the outline. */
+  /** Set for per-chapter artifacts (scene_writing, chapter_editing, chapter_supervision). */
   chapterIndex?: number
 }
 
@@ -138,6 +145,59 @@ export interface WorkflowEvent {
   payload?: unknown
 }
 
+export interface RealtimeWorkflowEventMessage {
+  type: 'workflow.event'
+  projectId: string
+  event: WorkflowEvent
+  timestamp: string
+}
+
+export interface RealtimeStageContentDeltaMessage {
+  type: 'stage.content.delta'
+  projectId: string
+  runId?: string
+  stage?: WorkflowStage
+  agentId?: string
+  sequence: number
+  delta: string
+  markdownPreview?: string
+  timestamp: string
+}
+
+export interface RealtimeStageContentDoneMessage {
+  type: 'stage.content.done'
+  projectId: string
+  runId?: string
+  stage?: WorkflowStage
+  agentId?: string
+  markdown: string
+  timestamp: string
+}
+
+export interface RealtimeStageContentErrorMessage {
+  type: 'stage.content.error'
+  projectId: string
+  runId?: string
+  stage?: WorkflowStage
+  agentId?: string
+  message: string
+  timestamp: string
+}
+
+export interface RealtimeErrorMessage {
+  type: 'realtime.error'
+  projectId: string
+  message: string
+  timestamp: string
+}
+
+export type RealtimeMessage =
+  | RealtimeWorkflowEventMessage
+  | RealtimeStageContentDeltaMessage
+  | RealtimeStageContentDoneMessage
+  | RealtimeStageContentErrorMessage
+  | RealtimeErrorMessage
+
 export interface ToolCallRecord {
   id: string
   projectId: string
@@ -155,6 +215,9 @@ export interface ResumeCheckpoint {
   runId?: string
   currentStage?: WorkflowStage
   completedStages: WorkflowStage[]
+  /** Tracks which per-chapter stages are complete: { stage, chapterIndex }[] */
+  completedChapterStages?: Array<{ stage: WorkflowStage; chapterIndex: number }>
+  totalChapters?: number
   awaitingApprovalArtifactId?: string
   updatedAt: string
 }

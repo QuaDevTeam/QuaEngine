@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Download, Play, Zap } from 'lucide-svelte'
+  import { Check, Download, Play, RotateCcw, Zap } from 'lucide-svelte'
   import Badge from '$components/ui/Badge.svelte'
   import Button from '$components/ui/Button.svelte'
   import type { NovelProject, RunMode } from '$lib/types'
@@ -9,12 +9,20 @@
   export let progress: number
   export let running = false
   export let exporting = false
+  export let resetting = false
+  export let awaitingApproval = false
+  export let approving = false
   export let completedArtifactCount = 0
   export let onRunProject: (mode: RunMode) => void | Promise<void>
   export let onExportProject: () => void | Promise<void>
+  export let onResetProject: () => void | Promise<void>
+  export let onApproveProject: () => void | Promise<void>
 
   $: runDisabled = running || project.status === 'running'
+  $: approveDisabled = running || approving || !awaitingApproval
+  $: yoloDisabled = runDisabled
   $: exportDisabled = runDisabled || exporting || completedArtifactCount === 0
+  $: resetDisabled = runDisabled || resetting
   $: projectStatus = projectStatusInfo(project.status)
 </script>
 
@@ -39,10 +47,24 @@
       >
         <Download size={15} />{exporting ? '导出中' : '导出'}
       </Button>
-      <Button onclick={() => onRunProject('step')} disabled={runDisabled}>
-        <Play size={15} />单步
+      <Button
+        variant="secondary"
+        onclick={onResetProject}
+        disabled={resetDisabled}
+        title="清空项目运行数据并重新开始"
+      >
+        <RotateCcw size={15} />{resetting ? '重置中' : '重置'}
       </Button>
-      <Button variant="secondary" onclick={() => onRunProject('yolo')} disabled={runDisabled}>
+      {#if awaitingApproval}
+        <Button onclick={onApproveProject} disabled={approveDisabled}>
+          <Check size={15} />{approving ? '通过中' : '通过'}
+        </Button>
+      {:else}
+        <Button onclick={() => onRunProject('step')} disabled={runDisabled}>
+          <Play size={15} />单步
+        </Button>
+      {/if}
+      <Button variant="secondary" onclick={() => onRunProject('yolo')} disabled={yoloDisabled}>
         <Zap size={15} />YOLO
       </Button>
     </div>
