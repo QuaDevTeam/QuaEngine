@@ -16,6 +16,7 @@ import type {
 import { getAppHome, getConfigPath, getProjectRoot, getProjectsRoot, getTrashRoot, getTrashedProjectRoot } from './paths'
 import { appendJsonl, readJsonl } from './jsonl'
 import { redactSecrets } from './redaction'
+import { broadcastWorkflowEvent } from './realtime.js'
 
 const eventBus = new EventEmitter()
 eventBus.setMaxListeners(200)
@@ -122,13 +123,14 @@ export async function createProject(input: {
   }
 
   await writeProject(project)
+  const createdProject = await readProject(id)
   await appendEvent({
     projectId: id,
     type: 'project.created',
     message: `Project "${project.title}" created.`,
-    payload: { title: project.title, mode: project.mode, seedFields: Object.keys(project.seed || {}) },
+    payload: { title: project.title, mode: project.mode, seedFields: Object.keys(createdProject.seed || {}) },
   })
-  return project
+  return createdProject
 }
 
 export async function readProject(projectId: string): Promise<NovelProject> {
@@ -152,6 +154,24 @@ export async function updateProjectInput(project: NovelProject, changes: Project
     },
   })
   return readProject(project.id)
+}
+
+export async function resetProjectRuntimeData(projectId: string): Promise<NovelProject> {
+  const project = await readProject(projectId)
+  const root = getProjectRoot(projectId)
+  await Promise.all([
+    rm(join(root, 'artifacts'), { recursive: true, force: true }),
+    rm(join(root, 'conversations'), { recursive: true, force: true }),
+    rm(join(root, 'snapshots'), { recursive: true, force: true }),
+    rm(join(root, 'events.jsonl'), { force: true }),
+  ])
+  await writeProject({
+    ...project,
+    status: 'idle',
+    currentStage: undefined,
+    trashedAt: undefined,
+  })
+  return readProject(projectId)
 }
 
 export async function trashProject(projectId: string): Promise<NovelProject> {
@@ -217,6 +237,7 @@ export async function appendEvent(input: Omit<WorkflowEvent, 'id' | 'timestamp'>
   }
   await appendJsonl(join(getProjectRoot(event.projectId), 'events.jsonl'), event)
   eventBus.emit(`project:${event.projectId}`, event)
+  broadcastWorkflowEvent(event)
   return event
 }
 
@@ -335,13 +356,29 @@ function normalizeConfig(config: NovelWriterConfig): NovelWriterConfig {
 function normalizeProjectSeed(seed: NovelProject['seed']): NovelProject['seed'] {
   const normalized = {
     worldbuilding: seed?.worldbuilding?.trim() || undefined,
+    worldbuildingModificationInstructions: seed?.worldbuildingModificationInstructions?.trim() || undefined,
     characters: seed?.characters?.trim() || undefined,
+    charactersModificationInstructions: seed?.charactersModificationInstructions?.trim() || undefined,
     outline: seed?.outline?.trim() || undefined,
+    outlineModificationInstructions: seed?.outlineModificationInstructions?.trim() || undefined,
+    modificationInstructions: seed?.modificationInstructions?.trim() || undefined,
     allowExpertChanges: seed?.allowExpertChanges === true,
   }
-  return normalized.worldbuilding || normalized.characters || normalized.outline
+  return hasSeedContent(normalized)
     ? normalized
     : undefined
+}
+
+function hasSeedContent(seed: NonNullable<NovelProject['seed']>): boolean {
+  return Boolean(
+    seed.worldbuilding
+    || seed.worldbuildingModificationInstructions
+    || seed.characters
+    || seed.charactersModificationInstructions
+    || seed.outline
+    || seed.outlineModificationInstructions
+    || seed.modificationInstructions,
+  )
 }
 
 function slugify(value: string): string {

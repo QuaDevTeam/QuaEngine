@@ -38,6 +38,11 @@ export interface DeepSeekRunResult<T> {
   toolCalls: ToolCallRecord[]
 }
 
+export type DeepSeekContentDelta = {
+  content: string
+  sequence: number
+}
+
 export const defaultAgentRunTimeoutMs = 60 * 60 * 1000
 export const defaultAgentContextMaxCharacters = 120_000
 
@@ -53,6 +58,7 @@ export class DeepSeekClient {
     maxToolRounds?: number
     runTimeoutMs?: number
     maxContextCharacters?: number
+    onContentDelta?: (delta: DeepSeekContentDelta) => void | Promise<void>
   }): Promise<DeepSeekRunResult<T>> {
     if (!this.config.deepSeekApiKey) {
       throw new Error('DeepSeek API key is not configured.')
@@ -70,6 +76,7 @@ export class DeepSeekClient {
         tools: options.tools?.map(tool => tool.definition),
         reasoningEffort: options.reasoningEffort,
         timeoutMs: remainingRunMs(startedAt, runTimeoutMs, options.agentId),
+        onContentDelta: options.onContentDelta,
       })
       messages.push(assistant)
 
@@ -135,12 +142,12 @@ export class DeepSeekClient {
     tools?: DeepSeekToolDefinition[]
     reasoningEffort?: 'high' | 'max'
     timeoutMs: number
+    onContentDelta?: (delta: DeepSeekContentDelta) => void | Promise<void>
   }): Promise<DeepSeekMessage> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), options.timeoutMs)
-    let response: Response
     try {
-      response = await fetch(`${this.config.deepSeekBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+      const response = await fetch(`${this.config.deepSeekBaseUrl.replace(/\/$/, '')}/chat/completions`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${this.config.deepSeekApiKey}`,
@@ -154,8 +161,27 @@ export class DeepSeekClient {
           thinking: { type: 'enabled' },
           reasoning_effort: options.reasoningEffort || this.config.defaultReasoningEffort,
           response_format: { type: 'json_object' },
+          stream: Boolean(options.onContentDelta),
         }),
       })
+
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(`DeepSeek request failed: ${response.status} ${text.slice(0, 500)}`)
+      }
+
+      if (options.onContentDelta) {
+        return readStreamingMessage(response, options.onContentDelta)
+      }
+
+      const payload = await response.json() as {
+        choices?: Array<{ message?: DeepSeekMessage }>
+      }
+      const message = payload.choices?.[0]?.message
+      if (!message) {
+        throw new Error('DeepSeek response did not include a message.')
+      }
+      return message
     }
     catch (error) {
       if (controller.signal.aborted) {
@@ -166,21 +192,121 @@ export class DeepSeekClient {
     finally {
       clearTimeout(timeout)
     }
-
-    if (!response.ok) {
-      const text = await response.text()
-      throw new Error(`DeepSeek request failed: ${response.status} ${text.slice(0, 500)}`)
-    }
-
-    const payload = await response.json() as {
-      choices?: Array<{ message?: DeepSeekMessage }>
-    }
-    const message = payload.choices?.[0]?.message
-    if (!message) {
-      throw new Error('DeepSeek response did not include a message.')
-    }
-    return message
   }
+}
+
+async function readStreamingMessage(
+  response: Response,
+  onContentDelta: (delta: DeepSeekContentDelta) => void | Promise<void>,
+): Promise<DeepSeekMessage> {
+  if (!response.body) {
+    throw new Error('DeepSeek streaming response did not include a body.')
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  const toolCalls = new Map<number, DeepSeekToolCall>()
+  let pending = ''
+  let content = ''
+  let reasoningContent = ''
+  let sequence = 0
+
+  const consumeLine = async (line: string) => {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith('data:')) {
+      return
+    }
+
+    const data = trimmed.slice(5).trim()
+    if (!data || data === '[DONE]') {
+      return
+    }
+
+    const payload = JSON.parse(data) as {
+      choices?: Array<{
+        delta?: Partial<DeepSeekMessage> & {
+          tool_calls?: Array<Partial<DeepSeekToolCall> & { index?: number }>
+        }
+      }>
+    }
+    const delta = payload.choices?.[0]?.delta
+    if (!delta) {
+      return
+    }
+
+    if (typeof delta.reasoning_content === 'string') {
+      reasoningContent += delta.reasoning_content
+    }
+
+    if (typeof delta.content === 'string' && delta.content.length > 0) {
+      content += delta.content
+      sequence += 1
+      await onContentDelta({ content: delta.content, sequence })
+    }
+
+    for (const toolDelta of delta.tool_calls || []) {
+      applyToolCallDelta(toolCalls, toolDelta)
+    }
+  }
+
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) {
+      break
+    }
+    pending += decoder.decode(value, { stream: true })
+    const lines = pending.split(/\r?\n/)
+    pending = lines.pop() || ''
+    for (const line of lines) {
+      await consumeLine(line)
+    }
+  }
+
+  pending += decoder.decode()
+  if (pending) {
+    for (const line of pending.split(/\r?\n/)) {
+      await consumeLine(line)
+    }
+  }
+
+  const message: DeepSeekMessage = {
+    role: 'assistant',
+    content: content || null,
+  }
+  if (reasoningContent) {
+    message.reasoning_content = reasoningContent
+  }
+  if (toolCalls.size > 0) {
+    message.tool_calls = [...toolCalls.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([, call]) => call)
+  }
+  return message
+}
+
+function applyToolCallDelta(
+  toolCalls: Map<number, DeepSeekToolCall>,
+  delta: Partial<DeepSeekToolCall> & { index?: number },
+): void {
+  const index = typeof delta.index === 'number' ? delta.index : toolCalls.size
+  const current = toolCalls.get(index) || {
+    id: delta.id || `tool-${index}`,
+    type: 'function' as const,
+    function: {
+      name: '',
+      arguments: '',
+    },
+  }
+
+  current.id = delta.id || current.id
+  current.type = 'function'
+  if (delta.function?.name) {
+    current.function.name += delta.function.name
+  }
+  if (delta.function?.arguments) {
+    current.function.arguments += delta.function.arguments
+  }
+  toolCalls.set(index, current)
 }
 
 export function compactDeepSeekMessages(

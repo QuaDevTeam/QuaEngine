@@ -80,6 +80,21 @@ export const agentDefinitions: AgentDefinition[] = [
     searchDepth: 'basic',
   },
   {
+    id: 'chapter_editor',
+    title: '章节编辑专家',
+    stage: 'chapter_editing',
+    skillFiles: ['editor-supervisor.md'],
+    searchDepth: 'basic',
+  },
+  {
+    id: 'chapter_supervisor',
+    title: '章节监督专家',
+    stage: 'chapter_supervision',
+    skillFiles: ['editor-supervisor.md', 'visual-novel-style.md'],
+    searchDepth: 'basic',
+    reasoningEffort: 'max',
+  },
+  {
     id: 'editor',
     title: '编辑专家',
     stage: 'editing',
@@ -114,8 +129,10 @@ export const workflowOrder: WorkflowStage[] = [
   'outline',
   'outline_review',
   'scene_writing',
-  'editing',
+  'chapter_editing',
+  'chapter_supervision',
   'supervision',
+  'editing',
   'final',
 ]
 
@@ -185,8 +202,10 @@ export function stageTitle(stage: WorkflowStage): string {
     outline: '小说大纲',
     outline_review: '大纲评审',
     scene_writing: '正文场景',
-    editing: '编辑润色',
-    supervision: '写作监督',
+    chapter_editing: '章节润色',
+    chapter_supervision: '章节监督',
+    editing: '全文润色',
+    supervision: '全文监督',
     final: '最终成品',
   }
   return titles[stage]

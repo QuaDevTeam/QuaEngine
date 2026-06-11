@@ -1,7 +1,7 @@
 import { access, mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ArtifactRef } from '../src/lib/types'
 import { appendJsonl, readJsonl } from '../src/lib/server/jsonl'
 import { createMacSandboxProfile } from '../src/lib/server/sandbox'
@@ -11,6 +11,8 @@ import { applyProjectInputUpdate } from '../src/lib/server/project-input'
 import { compactArtifacts, formatPinnedProjectCanon } from '../src/lib/server/context'
 import { getAgentForStage, loadAgentSkills, workflowOrder } from '../src/lib/server/agents'
 import {
+  appendConversation,
+  appendEvent,
   createProject,
   deleteTrashedProject,
   emptyTrash,
@@ -18,7 +20,9 @@ import {
   listTrashedProjects,
   readCheckpoint,
   readConfig,
+  readEvents,
   readProject,
+  resetProjectRuntimeData,
   restoreTrashedProject,
   trashProject,
   writeArtifact,
@@ -26,6 +30,11 @@ import {
   writeConfig,
 } from '../src/lib/server/store'
 import { getProjectRoot, getTrashedProjectRoot } from '../src/lib/server/paths'
+import {
+  broadcastStageContentDelta,
+  broadcastStageContentDone,
+  subscribeProjectRealtimeMessages,
+} from '../src/lib/server/realtime.js'
 import {
   appendUserMessage,
   dedupeReferences,
@@ -39,6 +48,7 @@ import { buildStageTimeline } from '../src/lib/client/workspace'
 let tempHome: string | undefined
 
 afterEach(async () => {
+  vi.restoreAllMocks()
   if (tempHome) {
     await rm(tempHome, { recursive: true, force: true })
     tempHome = undefined
@@ -141,8 +151,11 @@ describe('context compaction', () => {
       maxRevisionLoops: 50,
       seed: {
         worldbuilding: '天空城市依靠潮汐水晶运行。',
+        worldbuildingModificationInstructions: '把科技设定改得更日常，但保留潮汐水晶。',
         characters: '璃央：失忆的机械师。',
+        charactersModificationInstructions: '让璃央和澪的搭档关系更有张力。',
         outline: '第一幕发现水晶枯竭。',
+        outlineModificationInstructions: '第一幕结尾增加一次错误选择。',
         allowExpertChanges: false,
       },
     } as const
@@ -164,6 +177,9 @@ describe('context compaction', () => {
     expect(compacted).toContain('天空城市依靠潮汐水晶运行。')
     expect(compacted).toContain('璃央：失忆的机械师。')
     expect(compacted).toContain('第一幕发现水晶枯竭。')
+    expect(compacted).toContain('把科技设定改得更日常，但保留潮汐水晶。')
+    expect(compacted).toContain('让璃央和澪的搭档关系更有张力。')
+    expect(compacted).toContain('第一幕结尾增加一次错误选择。')
     expect(compacted).toContain('允许专家修改设定：关闭')
     expect(compacted).toContain('内容和细节不可修改')
     expect(compacted).not.toContain('generated artifact')
@@ -222,18 +238,27 @@ describe('local storage', () => {
       mode: 'step',
       seed: {
         worldbuilding: '雨城由七座桥连接。',
+        worldbuildingModificationInstructions: '桥梁设定更生活化。',
         characters: '澪：桥梁管理员。',
+        charactersModificationInstructions: '角色关系更暧昧。',
         outline: '桥断之后开始调查。',
+        outlineModificationInstructions: '结尾保留开放式余韵。',
         allowExpertChanges: true,
       },
     })
     expect(project.maxRevisionLoops).toBe(50)
     expect(project.seed?.worldbuilding).toBe('雨城由七座桥连接。')
+    expect(project.seed?.worldbuildingModificationInstructions).toBe('桥梁设定更生活化。')
+    expect(project.seed?.charactersModificationInstructions).toBe('角色关系更暧昧。')
+    expect(project.seed?.outlineModificationInstructions).toBe('结尾保留开放式余韵。')
     expect(project.seed?.allowExpertChanges).toBe(true)
     await expect(readProject(project.id)).resolves.toMatchObject({
       seed: {
         characters: '澪：桥梁管理员。',
         outline: '桥断之后开始调查。',
+        worldbuildingModificationInstructions: '桥梁设定更生活化。',
+        charactersModificationInstructions: '角色关系更暧昧。',
+        outlineModificationInstructions: '结尾保留开放式余韵。',
         allowExpertChanges: true,
       },
     })
@@ -305,6 +330,221 @@ describe('local storage', () => {
     await emptyTrash()
     await expect(access(getTrashedProjectRoot(projectForEmptyTrash.id))).rejects.toThrow()
   })
+
+  it('clears project runtime data while preserving editable project input', async () => {
+    tempHome = await mkdtemp(join(tmpdir(), 'novel-writer-reset-'))
+    process.env.NOVEL_WRITER_HOME = tempHome
+    await writeConfig({
+      deepSeekBaseUrl: 'https://api.deepseek.com',
+      deepSeekModel: 'deepseek-v4-pro',
+      defaultReasoningEffort: 'high',
+      tavilyBaseUrl: 'https://api.tavily.com',
+      defaultMaxRevisionLoops: 9,
+    })
+    const project = await createProject({
+      title: '重置测试',
+      brief: '清空已有运行数据后重新开始。',
+      mode: 'yolo',
+      maxRevisionLoops: 7,
+      seed: {
+        worldbuilding: '旧城靠潮汐钟运行。',
+        characters: '璃央：钟表师。',
+        outline: '第一幕钟楼停摆。',
+        outlineModificationInstructions: '让结尾更克制。',
+        allowExpertChanges: false,
+      },
+    })
+    const now = new Date().toISOString()
+    await writeArtifact({
+      id: 'outline-old',
+      projectId: project.id,
+      stage: 'outline',
+      agentId: 'outline_writer',
+      title: '旧大纲',
+      status: 'draft',
+      createdAt: now,
+      updatedAt: now,
+      json: { old: true },
+      markdown: '# 旧大纲',
+      references: [],
+    })
+    await appendConversation(project.id, 'requirements_planner', {
+      role: 'assistant',
+      content: '旧对话',
+    })
+    await appendEvent({
+      projectId: project.id,
+      type: 'stage.started',
+      stage: 'outline',
+      agentId: 'outline_writer',
+      message: 'Old outline started.',
+    })
+    await writeCheckpoint({
+      projectId: project.id,
+      runId: 'old-run',
+      currentStage: 'outline',
+      completedStages: ['requirements', 'worldbuilding'],
+      updatedAt: now,
+    })
+
+    const projectRoot = getProjectRoot(project.id)
+    const conversationPath = join(projectRoot, 'conversations', 'requirements_planner.jsonl')
+    await expect(access(conversationPath)).resolves.toBeUndefined()
+    expect(await listArtifacts(project.id)).toHaveLength(1)
+    expect(await readCheckpoint(project.id)).toMatchObject({ currentStage: 'outline' })
+    expect(await readEvents(project.id)).not.toEqual([])
+
+    const resetProject = await resetProjectRuntimeData(project.id)
+
+    expect(resetProject).toMatchObject({
+      id: project.id,
+      title: '重置测试',
+      brief: '清空已有运行数据后重新开始。',
+      mode: 'yolo',
+      status: 'idle',
+      maxRevisionLoops: 7,
+      seed: {
+        worldbuilding: '旧城靠潮汐钟运行。',
+        characters: '璃央：钟表师。',
+        outline: '第一幕钟楼停摆。',
+        outlineModificationInstructions: '让结尾更克制。',
+        allowExpertChanges: false,
+      },
+    })
+    expect(resetProject.currentStage).toBeUndefined()
+    expect(await listArtifacts(project.id)).toEqual([])
+    expect(await readEvents(project.id)).toEqual([])
+    expect(await readCheckpoint(project.id)).toBeUndefined()
+    await expect(access(conversationPath)).rejects.toThrow()
+    await expect(access(join(projectRoot, 'artifacts'))).resolves.toBeUndefined()
+    await expect(access(join(projectRoot, 'conversations'))).resolves.toBeUndefined()
+    await expect(access(join(projectRoot, 'snapshots'))).resolves.toBeUndefined()
+  })
+
+  it('restarts from requirements after a reset', async () => {
+    tempHome = await mkdtemp(join(tmpdir(), 'novel-writer-reset-restart-'))
+    process.env.NOVEL_WRITER_HOME = tempHome
+    await writeConfig({
+      deepSeekBaseUrl: 'https://api.deepseek.com',
+      deepSeekModel: 'deepseek-v4-pro',
+      defaultReasoningEffort: 'high',
+      tavilyBaseUrl: 'https://api.tavily.com',
+      defaultMaxRevisionLoops: 50,
+    })
+    const project = await createProject({
+      title: '重启测试',
+      brief: '重置后应从需求确认重新开始。',
+      mode: 'step',
+    })
+    const now = new Date().toISOString()
+    await writeArtifact({
+      id: 'final-old',
+      projectId: project.id,
+      stage: 'final',
+      agentId: 'final_packager',
+      title: '旧终稿',
+      status: 'draft',
+      createdAt: now,
+      updatedAt: now,
+      json: {},
+      markdown: '# 旧终稿',
+      references: [],
+    })
+    await writeCheckpoint({
+      projectId: project.id,
+      runId: 'old-run',
+      currentStage: 'final',
+      completedStages: workflowOrder,
+      updatedAt: now,
+    })
+
+    const resetProject = await resetProjectRuntimeData(project.id)
+    await startWorkflow(project.id, resetProject.mode)
+    while (isProjectRunning(project.id)) {
+      await new Promise(resolve => setTimeout(resolve, 5))
+    }
+
+    const artifacts = await listArtifacts(project.id)
+    const checkpoint = await readCheckpoint(project.id)
+    const refreshedProject = await readProject(project.id)
+    const events = await readEvents(project.id)
+    expect(events[0]?.type).toBe('run.started')
+    expect(artifacts).toHaveLength(1)
+    expect(artifacts[0]).toMatchObject({
+      stage: 'requirements',
+      status: 'needs_review',
+    })
+    expect(checkpoint).toMatchObject({
+      currentStage: 'requirements',
+      completedStages: [],
+      awaitingApprovalArtifactId: artifacts[0].id,
+    })
+    expect(refreshedProject.status).toBe('awaiting_review')
+    expect(refreshedProject.currentStage).toBe('requirements')
+  })
+})
+
+describe('realtime SSE messages', () => {
+  it('broadcasts persisted workflow events and streamed content over the project realtime channel', async () => {
+    tempHome = await mkdtemp(join(tmpdir(), 'novel-writer-realtime-'))
+    process.env.NOVEL_WRITER_HOME = tempHome
+    const project = await createProject({
+      title: '实时通道测试',
+      brief: '测试 SSE 状态和内容流。',
+      mode: 'step',
+    })
+    const received: unknown[] = []
+    const unsubscribe = subscribeProjectRealtimeMessages(project.id, message => {
+      received.push(message)
+    })
+
+    try {
+      await appendEvent({
+        projectId: project.id,
+        type: 'stage.started',
+        stage: 'worldbuilding',
+        agentId: 'worldbuilding_expert',
+        message: 'Worldbuilding started.',
+      })
+      broadcastStageContentDelta({
+        projectId: project.id,
+        runId: 'run-1',
+        stage: 'worldbuilding',
+        agentId: 'worldbuilding_expert',
+        sequence: 1,
+        delta: '{"markdown":"# 世界观',
+        markdownPreview: '# 世界观',
+      })
+      broadcastStageContentDone({
+        projectId: project.id,
+        runId: 'run-1',
+        stage: 'worldbuilding',
+        agentId: 'worldbuilding_expert',
+        markdown: '# 世界观\n\n旁白：雨落在城市边界。',
+      })
+    }
+    finally {
+      unsubscribe()
+    }
+
+    expect((await readEvents(project.id)).some(event => event.type === 'stage.started')).toBe(true)
+    expect(received).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'workflow.event',
+          event: expect.objectContaining({ type: 'stage.started', stage: 'worldbuilding' }),
+        }),
+        expect.objectContaining({
+          type: 'stage.content.delta',
+          markdownPreview: '# 世界观',
+        }),
+        expect.objectContaining({
+          type: 'stage.content.done',
+          markdown: '# 世界观\n\n旁白：雨落在城市边界。',
+        }),
+      ]),
+    )
+  })
 })
 
 describe('project input updates', () => {
@@ -320,8 +560,11 @@ describe('project input updates', () => {
       maxRevisionLoops: 50,
       seed: {
         worldbuilding: '旧世界',
+        worldbuildingModificationInstructions: '旧世界修改',
         characters: '旧角色',
+        charactersModificationInstructions: '旧角色修改',
         outline: '旧大纲',
+        outlineModificationInstructions: '旧大纲修改',
         allowExpertChanges: false,
       },
     } as const
@@ -333,8 +576,11 @@ describe('project input updates', () => {
       maxRevisionLoops: 50,
       seed: {
         worldbuilding: '旧世界',
+        worldbuildingModificationInstructions: '旧世界修改',
         characters: '旧角色',
+        charactersModificationInstructions: '旧角色修改',
         outline: '旧大纲',
+        outlineModificationInstructions: '旧大纲修改',
         allowExpertChanges: false,
       },
     })
@@ -357,6 +603,7 @@ describe('project input updates', () => {
         worldbuilding: '旧世界',
         characters: '旧角色',
         outline: '旧大纲',
+        charactersModificationInstructions: '',
         allowExpertChanges: false,
       },
     } as const
@@ -370,15 +617,17 @@ describe('project input updates', () => {
         worldbuilding: '旧世界',
         characters: '新角色',
         outline: '旧大纲',
+        charactersModificationInstructions: '把角色关系统一成更悬疑的方向。',
         allowExpertChanges: false,
       },
     })
 
-    expect(result.revision.changedFields.map(change => change.field)).toEqual(['title', 'seed.characters'])
+    expect(result.revision.changedFields.map(change => change.field)).toEqual(['title', 'seed.characters', 'seed.charactersModificationInstructions'])
     expect(result.revision.changedFields.find(change => change.field === 'title')?.affectsContent).toBe(false)
     expect(result.revision.affectedStages[0]).toBe('characters')
     expect(result.revision.affectedStages).toContain('final')
     expect(result.revision.feedback).toContain('Only change the parts required')
+    expect(result.revision.feedback).toContain('角色设定修改指示')
   })
 })
 
@@ -653,6 +902,86 @@ describe('approval workflow', () => {
     expect(checkpoint?.completedStages).toEqual(workflowOrder)
     expect(refreshedProject.status).toBe('completed')
   })
+
+  it('loops outline review back through character design when missing characters are found', async () => {
+    tempHome = await mkdtemp(join(tmpdir(), 'novel-writer-outline-character-loop-'))
+    process.env.NOVEL_WRITER_HOME = tempHome
+    await writeConfig({
+      deepSeekApiKey: 'test-key',
+      deepSeekBaseUrl: 'https://deepseek.test',
+      deepSeekModel: 'deepseek-v4-pro',
+      defaultReasoningEffort: 'high',
+      tavilyBaseUrl: 'https://api.tavily.com',
+      defaultMaxRevisionLoops: 3,
+    })
+    const project = await createProject({
+      title: '配角回路测试',
+      brief: '测试大纲发现缺少配角时补充角色设定。',
+      mode: 'yolo',
+    })
+    let outlineReviewCalls = 0
+    const stageCalls: string[] = []
+    vi.stubGlobal('fetch', async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body || '{}')) as { messages?: Array<{ role: string, content: string }> }
+      const userMessage = body.messages?.find(message => message.role === 'user')
+      const input = JSON.parse(userMessage?.content || '{}') as { stage?: string }
+      const stage = input.stage || 'unknown'
+      stageCalls.push(stage)
+      const reviewData = stage === 'outline_review'
+        ? (++outlineReviewCalls === 1
+            ? {
+                passed: false,
+                findings: [{
+                  severity: 'blocker',
+                  message: '大纲需要新增配角证人，但角色设定中没有这个人物。',
+                  suggestion: '回到角色设定补充证人角色，再重写相关大纲段落。',
+                }],
+              }
+            : { passed: true, findings: [] })
+        : { passed: true, findings: [] }
+      const content = {
+        markdown: stage.endsWith('_review') ? `# ${stage}\n\n评审` : `# ${stage}\n\n旁白：${stage}`,
+        data: stage.endsWith('_review') ? reviewData : { stage },
+      }
+      const assistantContent = JSON.stringify(content)
+      if ((body as { stream?: boolean }).stream) {
+        return new Response([
+          `data: ${JSON.stringify({ choices: [{ delta: { content: assistantContent } }] })}`,
+          '',
+          'data: [DONE]',
+          '',
+        ].join('\n'), {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        })
+      }
+
+      return new Response(JSON.stringify({
+        choices: [{ message: { role: 'assistant', content: assistantContent } }],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+
+    await startWorkflow(project.id, 'yolo')
+    while (isProjectRunning(project.id)) {
+      await new Promise(resolve => setTimeout(resolve, 5))
+    }
+
+    const firstOutlineReview = stageCalls.indexOf('outline_review')
+    const secondOutlineReview = stageCalls.indexOf('outline_review', firstOutlineReview + 1)
+    expect(firstOutlineReview).toBeGreaterThan(-1)
+    expect(secondOutlineReview).toBeGreaterThan(firstOutlineReview)
+    expect(stageCalls.slice(firstOutlineReview + 1, secondOutlineReview)).toEqual([
+      'characters',
+      'characters_review',
+      'story_background',
+      'story_background_review',
+      'outline',
+    ])
+    expect((await readProject(project.id)).status).toBe('completed')
+  })
 })
 
 describe('agent references and planner messages', () => {
@@ -769,5 +1098,44 @@ describe('workspace stage timeline', () => {
     expect(timeline.find(item => item.stage === 'outline')?.state).toBe('draft')
     expect(timeline.find(item => item.stage === 'outline_review')?.artifact?.id).toBe('outline-review-1')
     expect(timeline.find(item => item.stage === 'outline_review')?.state).toBe('needs_review')
+    expect(timeline.find(item => item.stage === 'outline_review')?.loopTargetStage).toBe('outline')
+    expect(timeline.find(item => item.stage === 'outline_review')?.loopTargetLabel).toBe('大纲')
+    expect(timeline.find(item => item.stage === 'outline_review')?.revisionLoop).toBeUndefined()
+    expect(timeline.find(item => item.stage === 'outline')?.dependencyLoopTargetStage).toBe('characters')
+    expect(timeline.find(item => item.stage === 'outline')?.dependencyLoopTargetLabel).toBe('角色设定')
+    expect(timeline.find(item => item.stage === 'outline')?.dependencyLoopSpan).toBe(4)
+  })
+
+  it('shows review revision loop counts when a review artifact records them', () => {
+    const now = new Date().toISOString()
+    const timeline = buildStageTimeline({
+      id: 'p1',
+      title: '循环测试',
+      brief: '测试流程回路显示',
+      mode: 'yolo',
+      status: 'running',
+      currentStage: 'worldbuilding_review',
+      createdAt: now,
+      updatedAt: now,
+      maxRevisionLoops: 12,
+    }, [{
+      id: 'worldbuilding-review-2',
+      projectId: 'p1',
+      stage: 'worldbuilding_review',
+      agentId: 'worldbuilding_reviewer',
+      title: '世界观评审',
+      status: 'draft',
+      createdAt: now,
+      updatedAt: now,
+      json: { passed: false, findings: [], revisionLoop: 2 },
+      markdown: '评审',
+      references: [],
+    }])
+
+    const item = timeline.find(entry => entry.stage === 'worldbuilding_review')
+    expect(item?.state).toBe('running')
+    expect(item?.loopTargetStage).toBe('worldbuilding')
+    expect(item?.revisionLoop).toBe(2)
+    expect(item?.maxRevisionLoops).toBe(12)
   })
 })

@@ -4,8 +4,12 @@ export const runModeSchema = z.enum(['yolo', 'step'])
 
 export const projectSeedSchema = z.object({
   worldbuilding: z.string().max(50000).optional(),
+  worldbuildingModificationInstructions: z.string().max(50000).optional(),
   characters: z.string().max(50000).optional(),
+  charactersModificationInstructions: z.string().max(50000).optional(),
   outline: z.string().max(50000).optional(),
+  outlineModificationInstructions: z.string().max(50000).optional(),
+  modificationInstructions: z.string().max(50000).optional(),
   allowExpertChanges: z.boolean().optional(),
 }).optional()
 

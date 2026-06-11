@@ -84,6 +84,12 @@ export async function updateProjectInput(projectId: string, input: ProjectInputU
   }, agentRequestTimeoutMs)
 }
 
+export async function resetProject(projectId: string): Promise<ProjectDetail & { run?: { runId: string } }> {
+  return requestJson(`/api/projects/${encodeURIComponent(projectId)}/reset`, {
+    method: 'POST',
+  })
+}
+
 export async function deleteProject(projectId: string): Promise<NovelProject> {
   const payload = await requestJson<{ project: NovelProject }>(`/api/projects/${encodeURIComponent(projectId)}`, {
     method: 'DELETE',
@@ -145,8 +151,8 @@ export async function recordApproval(projectId: string, input: {
   action: ApprovalAction
   note?: string
   markdown?: string
-}): Promise<void> {
-  await request(`/api/projects/${encodeURIComponent(projectId)}/approvals`, {
+}): Promise<ProjectDetail & { run?: { runId: string } }> {
+  return requestJson(`/api/projects/${encodeURIComponent(projectId)}/approvals`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),

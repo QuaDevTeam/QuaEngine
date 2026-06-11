@@ -1,11 +1,12 @@
 import type { RequestHandler } from './$types'
-import type { WorkflowEvent } from '$lib/types'
-import { readEvents, subscribeProjectEvents } from '$server/store'
+import type { RealtimeMessage, WorkflowEvent } from '$lib/types'
+import { readEvents } from '$server/store'
+import { subscribeProjectRealtimeMessages } from '$server/realtime.js'
 
 export const GET: RequestHandler = async ({ params, request, url }) => {
   const encoder = new TextEncoder()
   const projectId = params.projectId
-  const afterEventId = url.searchParams.get('after') || undefined
+  const afterEventId = url.searchParams.get('after') || request.headers.get('last-event-id') || undefined
   let closeStream: () => void = () => undefined
 
   const stream = new ReadableStream<Uint8Array>({
@@ -34,17 +35,34 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
         if (closed) {
           return
         }
-        controller.enqueue(encoder.encode(`id: ${event.id}\ndata: ${JSON.stringify(event)}\n\n`))
+        sendMessage({
+          type: 'workflow.event',
+          projectId,
+          event,
+          timestamp: new Date().toISOString(),
+        }, event.id)
+      }
+      const sendMessage = (message: RealtimeMessage, id?: string) => {
+        if (closed) {
+          return
+        }
+        controller.enqueue(encoder.encode(`${id ? `id: ${id}\n` : ''}data: ${JSON.stringify(message)}\n\n`))
+      }
+      const sendComment = (comment: string) => {
+        if (closed) {
+          return
+        }
+        controller.enqueue(encoder.encode(`: ${comment}\n\n`))
       }
 
       let replaying = true
-      const pendingEvents: WorkflowEvent[] = []
-      unsubscribe = subscribeProjectEvents(projectId, event => {
+      const pendingMessages: RealtimeMessage[] = []
+      unsubscribe = subscribeProjectRealtimeMessages(projectId, message => {
         if (replaying) {
-          pendingEvents.push(event)
+          pendingMessages.push(message)
           return
         }
-        send(event)
+        sendMessage(message, message.type === 'workflow.event' ? message.event.id : undefined)
       })
 
       for (const event of eventsAfter(await readEvents(projectId), afterEventId)) {
@@ -52,14 +70,13 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
       }
 
       replaying = false
-      for (const event of pendingEvents) {
-        send(event)
+      for (const message of pendingMessages) {
+        sendMessage(message, message.type === 'workflow.event' ? message.event.id : undefined)
       }
 
+      sendComment('connected')
       heartbeat = setInterval(() => {
-        if (!closed) {
-          controller.enqueue(encoder.encode(': ping\n\n'))
-        }
+        sendComment('ping')
       }, 15000)
 
       request.signal.addEventListener('abort', close, { once: true })
@@ -74,13 +91,14 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
       'Content-Type': 'text/event-stream',
+      'X-Accel-Buffering': 'no',
     },
   })
 }
 
 function eventsAfter(events: WorkflowEvent[], afterEventId: string | undefined): WorkflowEvent[] {
   if (!afterEventId) {
-    return []
+    return events
   }
 
   const index = events.findIndex(event => event.id === afterEventId)

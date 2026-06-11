@@ -12,6 +12,17 @@ export type InspectorTabId = 'chat' | 'review' | 'refs' | 'log'
 
 export type Tone = 'neutral' | 'running' | 'success' | 'warning' | 'danger'
 
+export type StageContentPreview = {
+  projectId: string
+  runId?: string
+  stage?: WorkflowStage
+  agentId?: string
+  markdown: string
+  status: 'streaming' | 'done' | 'error'
+  message?: string
+  updatedAt: string
+}
+
 export const workflowStages: WorkflowStage[] = [
   'requirements',
   'worldbuilding',
@@ -23,8 +34,10 @@ export const workflowStages: WorkflowStage[] = [
   'outline',
   'outline_review',
   'scene_writing',
-  'editing',
+  'chapter_editing',
+  'chapter_supervision',
   'supervision',
+  'editing',
   'final',
 ]
 
@@ -39,9 +52,21 @@ export const workflowStageLabels: Record<WorkflowStage, string> = {
   outline: '大纲',
   outline_review: '大纲评审',
   scene_writing: '正文写作',
-  editing: '编辑润色',
-  supervision: '写作监督',
+  chapter_editing: '章节润色',
+  chapter_supervision: '章节监督',
+  supervision: '全文监督',
+  editing: '全文润色',
   final: '最终成品',
+}
+
+export type ChapterTimelineItem = {
+  chapterIndex: number
+  title: string
+  sceneArtifact?: ArtifactRef
+  editingArtifact?: ArtifactRef
+  supervisionArtifact?: ArtifactRef
+  state: 'pending' | 'running' | 'needs_review' | 'done'
+  currentSubStage?: 'scene_writing' | 'chapter_editing' | 'chapter_supervision'
 }
 
 export type StageTimelineItem = {
@@ -51,6 +76,26 @@ export type StageTimelineItem = {
   /** All historical artifacts for this stage, newest-first. */
   history: ArtifactRef[]
   state: 'pending' | 'running' | 'needs_review' | 'approved' | 'rejected' | 'draft'
+  loopTargetStage?: WorkflowStage
+  loopTargetLabel?: string
+  dependencyLoopTargetStage?: WorkflowStage
+  dependencyLoopTargetLabel?: string
+  dependencyLoopSpan?: number
+  revisionLoop?: number
+  maxRevisionLoops?: number
+  /** Populated for scene_writing when chapters are available. */
+  chapterItems?: ChapterTimelineItem[]
+}
+
+const reviewLoopTargets: Partial<Record<WorkflowStage, WorkflowStage>> = {
+  worldbuilding_review: 'worldbuilding',
+  characters_review: 'characters',
+  story_background_review: 'story_background',
+  outline_review: 'outline',
+}
+
+const dependencyLoopTargets: Partial<Record<WorkflowStage, WorkflowStage>> = {
+  outline: 'characters',
 }
 
 export function dedupeEvents(items: WorkflowEvent[]): WorkflowEvent[] {
@@ -60,6 +105,29 @@ export function dedupeEvents(items: WorkflowEvent[]): WorkflowEvent[] {
       return false
     }
     seen.add(item.id)
+    return true
+  })
+}
+
+export function summarizeRunLogEvents(items: WorkflowEvent[]): WorkflowEvent[] {
+  return items.filter((event, index) => {
+    if (event.type === 'sandbox.exec') {
+      return false
+    }
+    if (event.type === 'approval.recorded' && eventPayloadAction(event.payload) === 'approve') {
+      return false
+    }
+    if (event.type === 'stage.completed') {
+      const next = items[index + 1]
+      if (
+        next?.type === 'stage.awaiting_review'
+        && next.projectId === event.projectId
+        && next.runId === event.runId
+        && next.stage === event.stage
+      ) {
+        return false
+      }
+    }
     return true
   })
 }
@@ -74,20 +142,119 @@ export function computeProgress(project: NovelProject | undefined, currentArtifa
   return Math.min(95, Math.round((currentArtifacts.length / 10) * 100))
 }
 
+/** Stages rendered as sub-items under scene_writing, not top-level nodes. */
+const chapterSubStages = new Set<WorkflowStage>(['chapter_editing', 'chapter_supervision'])
+
 export function buildStageTimeline(project: NovelProject | undefined, artifacts: ArtifactRef[]): StageTimelineItem[] {
-  return workflowStages.map(stage => {
-    const history = [...artifacts].reverse().filter(item => item.stage === stage)
-    const artifact = history[0]
-    let state: StageTimelineItem['state'] = 'pending'
-    if (project?.currentStage === stage && project.status === 'running') {
-      state = 'running'
+  return workflowStages
+    .filter(stage => !chapterSubStages.has(stage))
+    .map(stage => {
+      const history = [...artifacts].reverse().filter(item => item.stage === stage && item.chapterIndex === undefined)
+      const artifact = history[0]
+      const loopTargetStage = reviewLoopTargets[stage]
+      const dependencyLoopTargetStage = dependencyLoopTargets[stage]
+      const dependencyLoopSpan = dependencyLoopTargetStage
+        ? workflowStages.indexOf(stage) - workflowStages.indexOf(dependencyLoopTargetStage)
+        : undefined
+      let state: StageTimelineItem['state'] = 'pending'
+      if (project?.currentStage === stage && project.status === 'running') {
+        state = 'running'
+      }
+      else if (artifact?.status === 'needs_review') { state = 'needs_review' }
+      else if (artifact?.status === 'approved') { state = 'approved' }
+      else if (artifact?.status === 'rejected') { state = 'rejected' }
+      else if (artifact?.status === 'draft') { state = 'draft' }
+
+      let chapterItems: ChapterTimelineItem[] | undefined
+      if (stage === 'scene_writing') {
+        chapterItems = buildChapterItems(project, artifacts)
+        // scene_writing node is running if any chapter is running/pending
+        if (chapterItems.length > 0) {
+          const hasRunning = chapterItems.some(c => c.state === 'running')
+          const hasNeedsReview = chapterItems.some(c => c.state === 'needs_review')
+          const allDone = chapterItems.every(c => c.state === 'done')
+          if (hasRunning || (project?.currentStage === 'scene_writing' && project.status === 'running')) {
+            state = 'running'
+          }
+          else if (hasNeedsReview) { state = 'needs_review' }
+          else if (allDone) { state = 'draft' }
+        }
+      }
+
+      return {
+        stage,
+        label: workflowStageLabels[stage],
+        artifact,
+        history,
+        state,
+        loopTargetStage,
+        loopTargetLabel: loopTargetStage ? workflowStageLabels[loopTargetStage] : undefined,
+        dependencyLoopTargetStage,
+        dependencyLoopTargetLabel: dependencyLoopTargetStage ? workflowStageLabels[dependencyLoopTargetStage] : undefined,
+        dependencyLoopSpan,
+        revisionLoop: revisionLoopFromArtifact(artifact),
+        maxRevisionLoops: loopTargetStage ? project?.maxRevisionLoops : undefined,
+        chapterItems,
+      }
+    })
+}
+
+function buildChapterItems(project: NovelProject | undefined, artifacts: ArtifactRef[]): ChapterTimelineItem[] {
+  // Collect all chapter artifacts grouped by chapterIndex
+  const chapterArtifacts = artifacts.filter(a => a.chapterIndex !== undefined)
+  if (chapterArtifacts.length === 0) return []
+
+  const maxIndex = Math.max(...chapterArtifacts.map(a => a.chapterIndex!))
+  const items: ChapterTimelineItem[] = []
+
+  for (let i = 0; i <= maxIndex; i += 1) {
+    const forChapter = chapterArtifacts.filter(a => a.chapterIndex === i)
+    const scene = [...forChapter].reverse().find(a => a.stage === 'scene_writing')
+    const editing = [...forChapter].reverse().find(a => a.stage === 'chapter_editing')
+    const supervision = [...forChapter].reverse().find(a => a.stage === 'chapter_supervision')
+
+    let state: ChapterTimelineItem['state'] = 'pending'
+    let currentSubStage: ChapterTimelineItem['currentSubStage']
+
+    const isCurrentChapter = project?.currentStage === 'scene_writing'
+      || project?.currentStage === 'chapter_editing'
+      || project?.currentStage === 'chapter_supervision'
+
+    if (supervision?.status === 'draft' || supervision?.status === 'approved') {
+      state = 'done'
     }
-    else if (artifact?.status === 'needs_review') { state = 'needs_review' }
-    else if (artifact?.status === 'approved') { state = 'approved' }
-    else if (artifact?.status === 'rejected') { state = 'rejected' }
-    else if (artifact?.status === 'draft') { state = 'draft' }
-    return { stage, label: workflowStageLabels[stage], artifact, history, state }
-  })
+    else if (scene?.status === 'needs_review') {
+      state = 'needs_review'
+      currentSubStage = 'scene_writing'
+    }
+    else if (isCurrentChapter && project?.status === 'running') {
+      if (editing && !supervision) {
+        state = 'running'; currentSubStage = 'chapter_supervision'
+      }
+      else if (scene && !editing) {
+        state = 'running'; currentSubStage = 'chapter_editing'
+      }
+      else if (!scene) {
+        state = 'running'; currentSubStage = 'scene_writing'
+      }
+    }
+    else if (scene) {
+      state = 'pending' // scene done but not yet post-processed
+    }
+
+    const title = scene?.title?.replace(/^正文场景\s*·\s*/, '') ?? `第 ${i + 1} 章`
+    items.push({ chapterIndex: i, title, sceneArtifact: scene, editingArtifact: editing, supervisionArtifact: supervision, state, currentSubStage })
+  }
+
+  return items
+}
+
+function revisionLoopFromArtifact(artifact: ArtifactRef | undefined): number | undefined {
+  if (!artifact?.json || typeof artifact.json !== 'object' || !('revisionLoop' in artifact.json)) {
+    return undefined
+  }
+  const value = artifact.json.revisionLoop
+  return typeof value === 'number' ? value : undefined
 }
 
 export function formatEventTime(timestamp: string): string {
@@ -188,6 +355,13 @@ export function findingInfo(severity: ReviewFinding['severity']): StatusDescript
 function payloadContent(payload: unknown): string {
   if (payload && typeof payload === 'object' && 'content' in payload && typeof payload.content === 'string') {
     return payload.content
+  }
+  return ''
+}
+
+function eventPayloadAction(payload: unknown): string {
+  if (payload && typeof payload === 'object' && 'action' in payload && typeof payload.action === 'string') {
+    return payload.action
   }
   return ''
 }

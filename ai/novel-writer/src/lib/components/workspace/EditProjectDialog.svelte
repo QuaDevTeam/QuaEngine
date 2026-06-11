@@ -12,8 +12,11 @@
   export let projectMode: RunMode = 'step'
   export let projectMaxRevisionLoops = ''
   export let seedWorldbuilding = ''
+  export let seedWorldbuildingModificationInstructions = ''
   export let seedCharacters = ''
+  export let seedCharactersModificationInstructions = ''
   export let seedOutline = ''
+  export let seedOutlineModificationInstructions = ''
   export let allowExpertSeedChanges = false
   export let saving = false
   export let error = ''
@@ -74,7 +77,7 @@
           <Switch id="edit-allow-expert-seed-changes" bind:checked={allowExpertSeedChanges} aria-label="允许专家修改设定" />
           <span>
             <label for="edit-allow-expert-seed-changes">允许专家修改设定</label>
-            <small>{allowExpertSeedChanges ? '专家可以基于预设进行合理修改，并继续扩写。' : '专家只能丰富和完善，预设内容与细节不可修改。'}</small>
+            <small>{allowExpertSeedChanges ? '专家可以基于预设和修改指示进行合理修改，并继续扩写。' : '专家会先执行明确修改指示，除此之外只能丰富和完善预设。'}</small>
           </span>
         </div>
         <label class="form-field">
@@ -82,12 +85,24 @@
           <Textarea bind:value={seedWorldbuilding} rows={5} />
         </label>
         <label class="form-field">
+          <span>世界观修改指示</span>
+          <Textarea bind:value={seedWorldbuildingModificationInstructions} rows={3} />
+        </label>
+        <label class="form-field">
           <span>已有角色信息</span>
           <Textarea bind:value={seedCharacters} rows={5} />
         </label>
         <label class="form-field">
+          <span>角色设定修改指示</span>
+          <Textarea bind:value={seedCharactersModificationInstructions} rows={3} />
+        </label>
+        <label class="form-field">
           <span>已有大纲</span>
           <Textarea bind:value={seedOutline} rows={6} />
+        </label>
+        <label class="form-field">
+          <span>大纲修改指示</span>
+          <Textarea bind:value={seedOutlineModificationInstructions} rows={3} />
         </label>
       </div>
     </details>
