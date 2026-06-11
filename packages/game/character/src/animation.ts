@@ -6,8 +6,8 @@ import type {
 import type {
   AnimationFillMode,
   AnimationInterpolation,
-  AnimationTimingFunction,
   AnimationTime,
+  AnimationTimingFunction,
 } from '@quajs/render-core'
 import { playTimelineWithEngine } from '@quajs/plugin-animation'
 

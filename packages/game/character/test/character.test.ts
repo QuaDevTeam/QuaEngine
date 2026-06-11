@@ -16,8 +16,8 @@ import {
   setCurrentSprite,
   showWithEngine,
   speakWithEngine,
-  stageCharactersWithEngine,
   spriteWithEngine,
+  stageCharactersWithEngine,
   useCharacter,
 } from '../src'
 
