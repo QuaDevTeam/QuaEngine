@@ -680,8 +680,8 @@ function extractCharacterNamesFromProfileJson(value: unknown): string[] {
     ? value
     : value && typeof value === 'object'
       ? Array.isArray((value as { characters?: unknown }).characters)
-          ? (value as { characters: unknown[] }).characters
-          : Object.values(value as Record<string, unknown>)
+        ? (value as { characters: unknown[] }).characters
+        : Object.values(value as Record<string, unknown>)
       : []
   return records.flatMap((record) => {
     if (!record || typeof record !== 'object' || Array.isArray(record)) {

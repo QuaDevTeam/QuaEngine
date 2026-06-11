@@ -15,4 +15,5 @@ output
 .playwright-cli/
 .local/
 .local-pack-test/
+.codegraph/
 *.tgz
