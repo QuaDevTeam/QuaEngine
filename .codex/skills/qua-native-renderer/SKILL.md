@@ -45,6 +45,7 @@ pnpm --filter @quajs/native-contracts typecheck
 pnpm --filter @quajs/engine-native typecheck
 pnpm --filter @quajs/assets-native typecheck
 pnpm --filter @quajs/store-native typecheck
+cargo test --manifest-path packages/native/Cargo.toml --workspace
 ```
 
 Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first and clean cargo caches/targets when space is low.
@@ -53,6 +54,8 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 
 - Is state still owned by engine/store/plugins?
 - Does native host API avoid arbitrary filesystem, shell, network, dynamic library loading, and Rust callbacks?
+- Does Rust `NativeHostInfo` serialize to the TS `QuaNativeHostInfo` shape, including camelCase fields and `debug`/`release` plus `macos`/`windows`/`linux` literals?
+- Does the Rust native renderer capability manifest include projection keys, intent events, asset kinds, QSS features, QUI base components, and fallback policy?
 - Are native renderer version/capability checks performed before dynamic package JS evaluation?
 - Does `@quajs/engine-native` install `createNativeRuntimeTrustPolicy` so runtime native-code payload guards run before QuickJS module loading?
 - Do assets/store adapters preserve core contracts without Web/Node assumptions?

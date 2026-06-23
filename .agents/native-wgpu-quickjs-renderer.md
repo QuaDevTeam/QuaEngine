@@ -286,6 +286,8 @@ interface QuaNativeHostApi {
 Host API rules:
 
 - The host object is injected by `quajs_native_runtime`, not imported from engine core.
+- Rust `quajs_native_runtime::NativeHostInfoBuilder` owns the app/runtime/renderer host info shape and serializes with camelCase fields matching `QuaNativeHostInfo`.
+- Rust `quajs_wgpu_renderer::native_wgpu_capabilities()` owns the built-in native renderer capability manifest, including projection keys, intent events, supported asset kinds, QSS features, QUI base components, and fallback policy.
 - Host methods are capability checked and should be minimal; do not expose arbitrary filesystem, shell, network, dynamic library loading, or Rust callbacks.
 - Host info is read by `@quajs/engine-native` during engine bootstrap and published to the RuntimeContentManager compatibility checks.
 - Renderer version/capability data comes from Rust native renderer build metadata, not from QPK packages.
