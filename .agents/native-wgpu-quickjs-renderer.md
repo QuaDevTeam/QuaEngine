@@ -15,6 +15,7 @@ The target is "Web-renderer-comparable QuaEngine projection rendering," not brow
 - Renderer remains a projection layer only.
 - Engine/store own scene, story, save/load, choices, variables, UI overlays, settings, audio intent, and runtime package state.
 - Renderer emits user intents only through `@quajs/pipeline`.
+- Web, Cocos, and native package outputs must select exactly one target bootstrap. Their target core adapters/plugins are mutually exclusive and must not be bundled together.
 - Runtime content remains Quack-built QPK Runtime Packages mounted through QuaAssets and activated by `RuntimeContentManager`.
 - Native renderer supports dynamic small packages, but native dynamic package payloads are restricted to QuaScript/compiled JS runtime modules and resources. Resources include images, sprites, audio, fonts, data JSON, compiled QUI AST, QSS style IR, and theme/token manifests.
 - Native dynamic packages must not contain or activate native code of any kind: no dynamic libraries, no Rust/C/C++/Objective-C/Swift/Kotlin/Java modules, no platform plugin binaries, no native scripting bridges, no WASI/native executable payloads.
@@ -858,6 +859,15 @@ Target-specific core plugin sets:
 | Cocos | `@quajs/cocos-host`, `@quajs/renderer-cocos`, Cocos Creator host bridge, Cocos asset sync/hybrid config | `@quajs/assets-web`, `@quajs/renderer-web`, Web framework adapters, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, Rust native host packages |
 | Native | `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `@quajs/native-contracts`, Rust `quajs_native_runtime`, Rust `quajs_wgpu_renderer` | `@quajs/assets-web`, `@quajs/renderer-web`, Web framework adapters, `@quajs/cocos-host`, `@quajs/renderer-cocos`, Cocos Creator bridge packages |
 
+Packaging target rules:
+
+- Web project packaging uses the Web bootstrap only: Web assets, `@quajs/renderer-web`, and exactly one selected Web framework adapter when the app uses Vue/React/Svelte. It must not include Cocos host packages or native host/renderer packages.
+- Cocos project packaging uses the Cocos bootstrap only: `@quajs/cocos-host`, Cocos asset target output, and `@quajs/renderer-cocos`. It must not include DOM/Web renderer packages or native QuickJS/wgpu packages.
+- Native project packaging uses the native bootstrap only: `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `@quajs/native-contracts`, and the signed Rust native runtime/renderer compiled into the app binary. It must not include Web renderer/framework adapters or Cocos host/renderer adapters.
+- Target-specific renderer plugin subentries are selected only for their target. A Web renderer plugin entry, a Cocos renderer plugin entry, and a native built-in capability marker are not interchangeable even when they implement the same feature.
+- Shared plugin logic should live in platform-neutral package entries. Target entries should import shared logic, not import each other.
+- Runtime QPKs may carry target compatibility metadata and declarative QUI/QSS/assets, but they cannot bring another target's core adapter into the package graph.
+
 Shared packages that may appear in all targets:
 
 - `@quajs/engine`
@@ -886,6 +896,8 @@ Validation approach:
 - Add unit tests for `validateTargetBootstrap` covering exact Web/Cocos/native core sets, missing required adapters, Web framework adapter leakage, Cocos adapter leakage, native adapter leakage, and package subentry normalization.
 - Add package metadata lint that rejects Web/Cocos/native adapter imports from the wrong target entry.
 - Add runtime startup assertions that detect multiple target core adapters and fail before engine init.
+- Add Quack/project build tests for `--target web`, `--target cocos`, and `--target native` that inspect emitted dependency manifests and fail if any forbidden target core adapter is present.
+- Emit a target bundle manifest for every debug and release artifact with `target`, `profile`, `app.version`, `app.bundleId`, selected core adapters, renderer package/version, native capability hash when applicable, and included QPK ids. Release promotion must compare this manifest against `validateTargetBootstrap`.
 
 ### Third-Party Plugin Compatibility Policy
 
