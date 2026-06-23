@@ -9,8 +9,9 @@ use crate::stage_layout::ResolvedStageLayout;
 use super::layout::{
     compare_ui_overlay_projection, resolve_ui_overlay_placement, ui_overlay_bounds,
     ui_overlay_is_interactive, ui_overlay_render_mode, ui_overlay_render_mode_name,
-    ui_overlay_surface,
+    ui_overlay_surface, ResolvedUiOverlayPlacement,
 };
+use super::surface::build_ui_surface_node_commands;
 use super::types::{UiIntentProjection, UiOverlayProjection, UiProjection};
 
 pub fn append_ui_commands(graph: &mut RenderGraph, ui: &UiProjection) {
@@ -29,21 +30,42 @@ pub fn build_ui_commands(layout: &ResolvedStageLayout, ui: &UiProjection) -> Vec
         .collect::<Vec<_>>();
     overlays.sort_by(|left, right| compare_ui_overlay_projection(left, right));
 
-    overlays
-        .into_iter()
-        .map(|overlay| ui_overlay_command(layout, ui, overlay))
-        .collect()
+    let mut commands = Vec::new();
+    for overlay in overlays {
+        commands.extend(ui_overlay_commands(layout, ui, overlay));
+    }
+    commands
+}
+
+fn ui_overlay_commands(
+    layout: &ResolvedStageLayout,
+    ui: &UiProjection,
+    overlay: &UiOverlayProjection,
+) -> Vec<DrawCommand> {
+    let placement = resolve_ui_overlay_placement(overlay);
+    let surface = ui_overlay_surface(overlay);
+    let mut commands = vec![ui_overlay_command(layout, ui, overlay, &placement, surface)];
+
+    if let Some(surface) = surface {
+        commands.extend(build_ui_surface_node_commands(
+            overlay,
+            surface,
+            placement.effective_z_index,
+        ));
+    }
+
+    commands
 }
 
 fn ui_overlay_command(
     layout: &ResolvedStageLayout,
     ui: &UiProjection,
     overlay: &UiOverlayProjection,
+    placement: &ResolvedUiOverlayPlacement,
+    surface: Option<&super::types::UiOverlaySurfaceProjection>,
 ) -> DrawCommand {
-    let placement = resolve_ui_overlay_placement(overlay);
     let render_mode = ui_overlay_render_mode(overlay);
     let interactive = ui_overlay_is_interactive(overlay);
-    let surface = ui_overlay_surface(overlay);
     let surface_key = surface.map(|surface| surface.key.clone());
 
     let mut command = DrawCommand::new(
@@ -58,7 +80,7 @@ fn ui_overlay_command(
         element_id: overlay.element_id.clone(),
         surface_key: surface_key.clone(),
         render_mode: ui_overlay_render_mode_name(render_mode).to_string(),
-        overlay_stack: placement.overlay_stack,
+        overlay_stack: placement.overlay_stack.clone(),
         interactive,
         intent: overlay
             .intent

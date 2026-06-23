@@ -7,6 +7,7 @@ use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
 use crate::projection::ui::{
     UiIntentProjection, UiOverlayProjection, UiOverlaySurfaceProjection, UiProjection,
+    UiSurfaceImageProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect,
 };
 use crate::projection::view::ViewProjection;
 use crate::render_graph::{DrawCommandKind, DrawCommandParams, RenderPlane};
@@ -158,6 +159,77 @@ fn includes_ui_overlay_surface_requests_in_prepared_frame() {
     }
 }
 
+#[test]
+fn includes_inline_ui_surface_node_resource_requests_in_prepared_frame() {
+    let frame = prepare_native_frame(
+        test_layout(),
+        &ViewProjection {
+            ui: Some(UiProjection {
+                overlays: vec![UiOverlayProjection {
+                    surface: Some(
+                        UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                            UiSurfaceNodeProjection::new(
+                                "root",
+                                UiSurfaceNodeKind::Box,
+                                ui_rect(0.0, 0.0, 420.0, 260.0),
+                            )
+                            .with_children(vec![
+                                UiSurfaceNodeProjection::new(
+                                    "poster",
+                                    UiSurfaceNodeKind::Image,
+                                    ui_rect(32.0, 32.0, 160.0, 96.0),
+                                )
+                                .with_image(UiSurfaceImageProjection::new("ui/poster.png")),
+                                UiSurfaceNodeProjection::new(
+                                    "close",
+                                    UiSurfaceNodeKind::Button,
+                                    ui_rect(280.0, 184.0, 96.0, 44.0),
+                                )
+                                .with_text("Close")
+                                .with_intent(UiIntentProjection::new("close")),
+                            ]),
+                        ),
+                    ),
+                    provenance: provenance("runtime.menu", ["runtime.ui"]),
+                    ..UiOverlayProjection::new("menu")
+                }],
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    );
+
+    assert_eq!(frame.summary.command_count, 4);
+    assert_eq!(frame.summary.interactive_count, 2);
+    assert_eq!(
+        frame
+            .passes
+            .pass(RenderPlane::Screen)
+            .unwrap()
+            .command_count,
+        4
+    );
+    assert_eq!(
+        frame.resources.request("surface:ui/menu.qui").unwrap().kind,
+        NativeResourceKind::UiAst
+    );
+    assert_eq!(
+        frame
+            .resources
+            .request("images:ui/poster.png")
+            .unwrap()
+            .kind,
+        NativeResourceKind::Texture
+    );
+    assert!(frame.assets.request("surface", "ui/menu.qui").is_some());
+    assert!(frame.assets.request("images", "ui/poster.png").is_some());
+
+    let poster = frame.assets.request("images", "ui/poster.png").unwrap();
+    assert!(poster.package_candidates.contains("runtime.menu"));
+    assert!(poster.package_candidates.contains("runtime.ui"));
+    assert!(!poster.package_candidates.contains("ui/menu.qui"));
+}
+
 fn view_with_background_character_and_choices() -> ViewProjection {
     ViewProjection {
         background: Some(BackgroundProjection {
@@ -186,6 +258,15 @@ fn view_with_background_character_and_choices() -> ViewProjection {
             ],
         }),
         ..Default::default()
+    }
+}
+
+fn ui_rect(x: f64, y: f64, width: f64, height: f64) -> UiSurfaceNodeRect {
+    UiSurfaceNodeRect {
+        x,
+        y,
+        width,
+        height,
     }
 }
 
