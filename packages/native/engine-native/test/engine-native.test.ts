@@ -5,6 +5,7 @@ import {
   assertNativeRuntimePackageCompatibility,
   checkNativeRuntimePackageCompatibility,
   createNativeRuntimeAdapters,
+  createNativeRuntimeTrustPolicy,
   readNativeHostInfo,
 } from '../src'
 
@@ -60,6 +61,33 @@ function createHost(hostInfo = createHostInfo()): QuaNativeHostApi {
     deleteStorage: vi.fn(),
     hashBytes: vi.fn(),
   }
+}
+
+function createTrustContext(overrides: Record<string, unknown> = {}) {
+  const runtimePackage = {
+    id: 'runtime.chapter.native-ui',
+    version: '1.0.0',
+    scripts: [
+      { id: 'opening', assetName: 'scripts/opening.js' },
+    ],
+    ...overrides,
+  }
+  return {
+    package: runtimePackage,
+    bundle: {
+      packageId: runtimePackage.id,
+      bundleName: runtimePackage.id,
+      version: '1.0.0',
+      bundleVersion: 1,
+      hash: 'hash',
+      priority: 0,
+      loadedAt: 1,
+      assetCount: 1,
+      manifest: {
+        assets: {},
+      },
+    },
+  } as any
 }
 
 describe('@quajs/engine-native', () => {
@@ -130,7 +158,51 @@ describe('@quajs/engine-native', () => {
 
   it('keeps native runtime adapters scoped to the provided host object', () => {
     const host = createHost()
+    const adapters = createNativeRuntimeAdapters(host)
 
-    expect(createNativeRuntimeAdapters(host)).toEqual({ host })
+    expect(adapters.host).toBe(host)
+    expect(adapters.trustPolicy).toEqual({
+      allowUnsignedInDevelopment: undefined,
+      requireSignature: undefined,
+      verifyPackage: expect.any(Function),
+    })
+  })
+
+  it('rejects native-code runtime packages through native trust policy', async () => {
+    const host = createHost()
+    const policy = createNativeRuntimeTrustPolicy(host, { allowUnsignedInDevelopment: true })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      scripts: [
+        { id: 'native', assetName: 'native/plugin.dylib' },
+      ],
+    }))).rejects.toThrow(/forbidden native payload/)
+  })
+
+  it('forwards signed package verification to the native host', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host)
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).resolves.toBe(true)
+
+    expect(host.verifySignature).toHaveBeenCalledWith({
+      bytes: new TextEncoder().encode('abc123'),
+      signature: new Uint8Array([1, 2, 3]),
+      keyId: 'test-key',
+      algorithm: 'ed25519',
+    })
   })
 })
