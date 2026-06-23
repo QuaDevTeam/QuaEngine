@@ -64,3 +64,4 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Are Web/Cocos/native target core adapters isolated?
 - Do bootstrap tests cover Web, Cocos, and native core package sets without cross-target leakage?
 - Are runtime package native-code payloads rejected at build time and runtime?
+- Are native renderer transient resources tracked in the package-aware resource ledger, including CPU/GPU bytes, dependencies, unload blockers, and cleanup paths?
