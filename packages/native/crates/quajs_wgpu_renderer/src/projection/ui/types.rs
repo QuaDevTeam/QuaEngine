@@ -99,6 +99,7 @@ pub enum UiSurfaceNodeKind {
     Button,
     Text,
     Image,
+    Panel,
     Scroll,
 }
 

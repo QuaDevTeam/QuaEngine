@@ -62,7 +62,9 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "text-align",
                 "object-fit",
             ],
-            &["Box", "Backdrop", "Button", "Text", "Image", "Scroll"],
+            &[
+                "Box", "Backdrop", "Button", "Text", "Image", "Panel", "Scroll",
+            ],
             "reject-package",
         ),
         capability(
@@ -71,7 +73,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             &["choice/select", "ui/intent"],
             &[],
             &[],
-            &["Backdrop", "Button", "Choice"],
+            &["Backdrop", "Button", "Choice", "Panel"],
             "reject-package",
         ),
     ]
@@ -156,6 +158,7 @@ mod tests {
         assert!(ui.qui_components.contains(&"Button".to_string()));
         assert!(ui.qui_components.contains(&"Text".to_string()));
         assert!(ui.qui_components.contains(&"Image".to_string()));
+        assert!(ui.qui_components.contains(&"Panel".to_string()));
         assert!(ui.qui_components.contains(&"Scroll".to_string()));
         assert!(!ui.qui_components.contains(&"VirtualList".to_string()));
         assert!(!ui.qui_components.contains(&"FocusScope".to_string()));
@@ -168,6 +171,7 @@ mod tests {
         assert!(pointer.asset_kinds.is_empty());
         assert!(pointer.qss_features.is_empty());
         assert!(pointer.qui_components.contains(&"Backdrop".to_string()));
+        assert!(pointer.qui_components.contains(&"Panel".to_string()));
         assert!(pointer.intent_events.contains(&"choice/select".to_string()));
         assert!(pointer.intent_events.contains(&"ui/intent".to_string()));
         assert!(pointer

@@ -47,8 +47,9 @@ Shared engine/game/plugin packages may be reused only when platform-neutral.
 ## QUI/QSS Projection
 
 - Inline QUI surface nodes are renderer projections, not authoritative UI state.
-- Supported foundational QUI node kinds are `Box`, `Backdrop`, `Button`, `Text`, `Image`, and `Scroll`; higher-level components such as dialog, drawer, save/load panels, gallery, and settings should compose from these base nodes.
+- Supported foundational QUI node kinds are `Box`, `Backdrop`, `Button`, `Text`, `Image`, `Panel`, and `Scroll`; higher-level components such as dialog, drawer, save/load panels, gallery, and settings should compose from these base nodes.
 - `Backdrop` projects a semantic overlay panel. It is visual-only unless it carries an explicit intent, in which case pointer input may resolve that intent through `@quajs/pipeline`.
+- `Panel` projects a semantic container panel. It is visual-only unless it carries an explicit intent, in which case pointer input may resolve that intent through `@quajs/pipeline`.
 - `Scroll` currently projects a scroll panel plus clip-start/clip-end commands and per-command clip bounds for hit testing. It must not own persisted scroll position or authoritative UI state.
 - Native QUI nodes may carry `UiSurfaceResolvedStyle`, representing already-resolved QSS declarations from compiler/runtime tooling.
 - Current native resolved QSS style fields are `background-color`, `color`, `border-radius`, `font-size`, `line-height`, `text-align`, and `object-fit`.
