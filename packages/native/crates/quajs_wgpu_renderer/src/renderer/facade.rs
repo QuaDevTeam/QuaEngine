@@ -1,6 +1,5 @@
 use crate::input::{
-    resolve_pointer_event, NativePointerEvent, NativePointerEventResolution,
-    PointerIntentResolution, RendererIntentHit,
+    NativePointerEvent, NativePointerEventResolution, PointerIntentResolution, RendererIntentHit,
 };
 use crate::projection::view::ViewProjection;
 use crate::renderer::metrics::NativeRendererMetrics;
@@ -96,9 +95,11 @@ where
         self.state.pointer_intent(point, container_rect)
     }
 
-    pub fn pointer_event(&self, event: NativePointerEvent) -> Option<NativePointerEventResolution> {
-        self.pointer_intent(event.point, event.container_rect)
-            .map(|pointer| resolve_pointer_event(event, pointer))
+    pub fn pointer_event(
+        &mut self,
+        event: NativePointerEvent,
+    ) -> Option<NativePointerEventResolution> {
+        self.state.pointer_event(event)
     }
 
     pub fn clear(&mut self) -> Vec<NativeResourceRecord> {
