@@ -54,6 +54,7 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Is state still owned by engine/store/plugins?
 - Does native host API avoid arbitrary filesystem, shell, network, dynamic library loading, and Rust callbacks?
 - Are native renderer version/capability checks performed before dynamic package JS evaluation?
+- Does `@quajs/engine-native` install `createNativeRuntimeTrustPolicy` so runtime native-code payload guards run before QuickJS module loading?
 - Do assets/store adapters preserve core contracts without Web/Node assumptions?
 - Are Web/Cocos/native target core adapters isolated?
 - Do bootstrap tests cover Web, Cocos, and native core package sets without cross-target leakage?

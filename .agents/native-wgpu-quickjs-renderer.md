@@ -421,7 +421,8 @@ Forbidden dynamic package contents:
 Validation rules:
 
 - Quack native target validation must reject forbidden native-code file extensions and manifest declarations.
-- Native runtime package activation must re-check package manifests before loading scripts/assets.
+- Native runtime package activation must re-check package manifests before loading scripts/assets through `checkNativeRuntimePackageGuard` / `assertNativeRuntimePackageGuard` from `@quajs/native-contracts`.
+- Native engine bootstrap should install `createNativeRuntimeTrustPolicy` from `@quajs/engine-native`; this policy runs the content-only native package guard even when development permits unsigned QPKs, and delegates signed package verification to `QuaNativeHostApi.verifySignature`.
 - Renderer plugin manifest entries for native target are capability declarations only; they cannot point to native binary assets.
 - Production activation requires hash/signature verification before QuickJS module evaluation or resource publication.
 - Development may allow unsigned QPKs only through explicit trust policy, but still must reject native-code payloads.
@@ -2374,6 +2375,7 @@ Exit: window renders, resize works, pointer maps to logical stage coordinates, J
 - Native QuaAssets adapter.
 - Native store persistence adapter.
 - `@quajs/engine-native` host plugin and compatibility helpers.
+- `@quajs/engine-native` native runtime trust policy wrapping native-code payload rejection and host signature verification.
 - Rust `QuaNativeHostApi` injection with host info, renderer version, capability registry, asset bytes, storage, crypto, and pipeline bridge.
 - QuickJS `RuntimeModuleLoader` for QPK modules.
 - Native storage adapter.
