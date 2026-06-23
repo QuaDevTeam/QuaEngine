@@ -229,6 +229,50 @@ Runtime split:
 - Rust sends renderer user intents and lifecycle events to JS.
 - Rendering uses the newest committed snapshot and never blocks the frame loop on JS execution.
 
+## Target Core Plugin Isolation
+
+QuaEngine packages must treat Web, Cocos, and native as three mutually exclusive target bootstraps. Shared engine/game/plugin logic may be reused, but target core adapters and target renderer entries must not be mixed in the same packaged application.
+
+The isolation rule applies to all package outputs:
+
+- **Web project output** selects the Web bootstrap only. It may include `@quajs/assets-web`, `@quajs/renderer-web`, Web framework renderers such as Vue/React/Svelte adapters, and Web renderer plugin subentries. It must not include `@quajs/cocos-host`, `@quajs/renderer-cocos`, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, native host contracts as runtime adapters, or Rust native renderer metadata.
+- **Cocos project output** selects the Cocos bootstrap only. It may include `@quajs/cocos-host`, `@quajs/renderer-cocos`, and Cocos renderer/host plugin entries. It must not include Web renderer/framework adapters or native engine/assets/store adapters.
+- **Native project output** selects the native bootstrap only. It may include `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `@quajs/native-contracts`, built-in Rust native renderer capability metadata, and native UI compiler outputs. It must not include `@quajs/assets-web`, `@quajs/renderer-web`, Vue/React/Svelte Web adapters, `@quajs/cocos-host`, or `@quajs/renderer-cocos`.
+
+Target isolation should be encoded as data, not scattered across build scripts:
+
+```ts
+type QuaBuildTarget = 'web' | 'cocos' | 'native'
+
+interface TargetBootstrapManifest {
+  target: QuaBuildTarget
+  requiredCoreAdapters: readonly string[]
+  allowedCoreAdapters: readonly string[]
+  forbiddenCoreAdapters: readonly string[]
+  selectedRendererEntries: readonly string[]
+  rejectedRendererEntries: readonly string[]
+}
+```
+
+Implementation rules:
+
+- `@quajs/native-contracts` should own the shared `TargetBootstrapManifest` schema and validation helpers.
+- Quack packaging should emit one bootstrap manifest per build target and fail if zero or multiple target bootstraps are selected.
+- Dependency graph validation should normalize package subentries to package roots, so `@quajs/renderer-web/plugins/audio` is still considered Web core and `@quajs/renderer-cocos/plugins/audio` is still considered Cocos core.
+- Plugin compatibility metadata may declare entries for multiple targets in source packages, but packaging selects only the entry for the active target and rejects accidental imports of other target entries.
+- Runtime package manifests may declare compatibility for Web, Cocos, and native, but activation uses only the active target compatibility block.
+- Native QPKs may reference native renderer capability ids and declarative QUI/QSS surfaces, but they cannot carry native executable payloads or dynamically load native renderer code.
+- Startup should assert that exactly one target core adapter set registered with the engine. This catches hand-built bundles that bypass Quack validation.
+
+Minimum target isolation fixtures:
+
+- Web bundle with Web adapters passes; adding Cocos or native core adapters fails.
+- Cocos bundle with Cocos adapters passes; adding Web or native core adapters fails.
+- Native bundle with native adapters passes; adding Web or Cocos core adapters fails.
+- A plugin package declaring `web`, `cocos`, and `native` renderer metadata packages only the selected target entry.
+- A target subentry import such as `@quajs/renderer-web/plugins/audio` is rejected in Cocos/native output after package-root normalization.
+- Runtime startup fails if more than one core target adapter is registered.
+
 ## Native Engine Bridge, Assets, And Store Adapters
 
 QuaEngine needs a native integration layer, but engine core should not import Rust/native details directly. The bridge should be modeled as platform adapters and an engine plugin installed by the native app bootstrap.
@@ -2080,6 +2124,8 @@ Native target validation must:
 - Compile QUI AST and QSS IR through `@quajs/native-ui-compiler`.
 - Include only native target core adapters: `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, native contracts, and Rust native runtime/renderer metadata.
 - Reject Web/Cocos target core packages in native bundles, including `@quajs/assets-web`, `@quajs/renderer-web`, Web framework adapters, `@quajs/cocos-host`, and `@quajs/renderer-cocos`.
+- Reuse the shared target bootstrap isolation validator so Web and Cocos packaging also reject native core adapters and each other's renderer/host adapters.
+- Emit a native `TargetBootstrapManifest` containing required, allowed, and forbidden target core adapter roots.
 - Reject forbidden native-code payloads at build time.
 - Emit native UI manifest metadata and asset provenance.
 - Sign runtime QPKs when release policy requires signatures.
@@ -2462,6 +2508,7 @@ Exit: product UI is declarative and selected through engine `surface.key` plus s
 - Add release manifest/checksum generation and immutable release-version rebuild guard.
 - Include native renderer package version and capability manifest in release artifacts and update channel metadata.
 - Add target isolation checks so Web/Cocos/Native release bundles cannot include another target's core adapter plugins.
+- Add target-entry selection checks so multi-target plugin source packages contribute only the active Web, Cocos, or native renderer entry to each packaged output.
 - Add package/resource quota configuration for QuickJS, textures, video frames, audio buffers, glyph atlas, and UI AST/style memory.
 
 Exit: macOS and Windows release artifacts are version/profile/platform isolated, carry correct project metadata/icons/signatures, launch with bundled QPKs, accept signed content-only QPK updates, reject native-code/tampered packages, and rollback failed updates safely. Linux packaging has at least validated metadata/output design and can follow as the next target.
@@ -2516,6 +2563,9 @@ Integration tests:
 - Repeated audio/video package load/unload releases decoder handles, queued frames, audio buffers, streams, and GPU textures.
 - Packaging/update tests verify signed QPK acceptance, tamper rejection, native-code rejection, offline launch, and rollback cleanup.
 - Web/Cocos/native release bundle tests reject cross-target core plugin leakage.
+- Web/Cocos/native target bootstrap manifest tests assert exactly one target core adapter set, normalized forbidden package roots, and selected renderer entries.
+- Multi-target third-party plugin fixtures prove only the active target renderer entry is bundled and inactive target entries are excluded.
+- Runtime package compatibility tests verify Web builds ignore native/Cocos compatibility blocks, Cocos builds ignore Web/native blocks, and native builds ignore Web/Cocos blocks while rejecting native-code payloads.
 - Plugin compatibility fixtures cover existing engine/game/plugins and claimed third-party renderer targets before declaring native renderer parity.
 
 Visual tests:
@@ -2593,12 +2643,14 @@ Start with the native workspace and authoring foundation:
 15. Add native renderer version/capability compatibility fixtures for runtime QPKs and third-party plugin metadata.
 16. Add native assets/store adapter fixtures for QPK mount, persistence, profile scoping, and debug/release isolation.
 17. Add target isolation fixtures proving Web/Cocos/native bundles do not include each other's core adapter plugins.
-18. Create plugin compatibility fixture templates for all existing engine/game/plugins.
-19. Add memory ledger schema and repeated load/unload memory benchmark fixtures.
-20. Add media fixture conventions for audio/video assets, poster fallback, and optional backend tests.
-21. Add packaging/update/security fixture conventions for signed QPKs, tamper rejection, native-code rejection, and rollback.
-22. Scaffold independent `@quajs/native-language-server`.
-23. Scaffold independent `@quajs/vscode-native-authoring`.
-24. Then continue the QuickJS + wgpu runtime spike.
+18. Add multi-target plugin entry selection fixtures proving only the active target entry is bundled.
+19. Add runtime startup assertions for exactly one registered target adapter set.
+20. Create plugin compatibility fixture templates for all existing engine/game/plugins.
+21. Add memory ledger schema and repeated load/unload memory benchmark fixtures.
+22. Add media fixture conventions for audio/video assets, poster fallback, and optional backend tests.
+23. Add packaging/update/security fixture conventions for signed QPKs, tamper rejection, native-code rejection, and rollback.
+24. Scaffold independent `@quajs/native-language-server`.
+25. Scaffold independent `@quajs/vscode-native-authoring`.
+26. Then continue the QuickJS + wgpu runtime spike.
 
 This order keeps native UI from becoming hard-coded renderer behavior before the authoring language, validation rules, and editor tooling exist.
