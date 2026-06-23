@@ -50,6 +50,15 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             &["Box", "Button", "Scroll", "VirtualList", "FocusScope"],
             "reject-package",
         ),
+        capability(
+            "native-wgpu.input.pointer@1",
+            &["view.choices", "view.ui.overlays"],
+            &["choice/select", "ui/intent"],
+            &[],
+            &[],
+            &["Button", "Choice"],
+            "reject-package",
+        ),
     ]
 }
 
@@ -101,6 +110,7 @@ mod tests {
         assert!(ids.contains(&"native-wgpu.image@1"));
         assert!(ids.contains(&"native-wgpu.text@1"));
         assert!(ids.contains(&"native-wgpu.ui.surface@1"));
+        assert!(ids.contains(&"native-wgpu.input.pointer@1"));
         assert!(capabilities
             .iter()
             .all(|capability| capability.owner_package == "@quajs/native-renderer"));
@@ -113,5 +123,18 @@ mod tests {
         assert!(ui.intent_events.contains(&"ui/intent".to_string()));
         assert!(ui.qss_features.contains(&"flex-direction".to_string()));
         assert!(ui.qui_components.contains(&"Button".to_string()));
+
+        let pointer = capabilities
+            .iter()
+            .find(|capability| capability.id == "native-wgpu.input.pointer@1")
+            .unwrap();
+        assert_eq!(pointer.fallback, "reject-package");
+        assert!(pointer.asset_kinds.is_empty());
+        assert!(pointer.qss_features.is_empty());
+        assert!(pointer.intent_events.contains(&"choice/select".to_string()));
+        assert!(pointer.intent_events.contains(&"ui/intent".to_string()));
+        assert!(pointer
+            .projection_keys
+            .contains(&"view.choices".to_string()));
     }
 }
