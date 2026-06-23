@@ -1,7 +1,7 @@
 use super::*;
 use crate::projection::background::BackgroundProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
-use crate::projection::view::{build_view_render_graph, ViewProjection};
+use crate::projection::view::ViewProjection;
 use crate::resources::{NativeResourceKind, NativeResourceRecord};
 use crate::stage_layout::{
     resolve_stage_layout, StageContainerInput, ViewLayoutInput, ViewLayoutOrientation,
@@ -21,13 +21,8 @@ fn reports_empty_renderer_metrics() {
 
 #[test]
 fn reports_frame_metrics_from_prepared_frame() {
-    let graph = build_view_render_graph(test_layout(), &view_with_background_and_choice());
-    let frame = crate::frame::PreparedNativeFrame {
-        summary: graph.summary(),
-        resources: crate::resources::plan_render_graph_resources(&graph),
-        passes: crate::render_graph::plan_render_passes(&graph),
-        graph,
-    };
+    let frame =
+        crate::frame::prepare_native_frame(test_layout(), &view_with_background_and_choice());
     let resources = NativeResourceLedger::new();
 
     let metrics = NativeRendererMetrics::from_state(3, Some(&frame), &resources);
@@ -40,6 +35,8 @@ fn reports_frame_metrics_from_prepared_frame() {
     assert_eq!(metrics.frame.batch_count, 3);
     assert_eq!(metrics.frame.resource_request_count, 1);
     assert_eq!(metrics.frame.resource_ref_count, 1);
+    assert_eq!(metrics.frame.asset_request_count, 1);
+    assert_eq!(metrics.frame.skipped_asset_resource_count, 0);
 }
 
 #[test]

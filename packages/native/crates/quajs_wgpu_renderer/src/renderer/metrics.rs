@@ -17,6 +17,8 @@ pub struct NativeRendererFrameMetrics {
     pub batch_count: usize,
     pub resource_request_count: usize,
     pub resource_ref_count: usize,
+    pub asset_request_count: usize,
+    pub skipped_asset_resource_count: usize,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -50,6 +52,8 @@ fn frame_metrics(frame: &PreparedNativeFrame) -> NativeRendererFrameMetrics {
         batch_count: frame.passes.batch_count,
         resource_request_count: frame.resources.requests.len(),
         resource_ref_count: frame.resources.resource_ref_count,
+        asset_request_count: frame.assets.requests.len(),
+        skipped_asset_resource_count: frame.assets.skipped_resource_ids.len(),
     }
 }
 

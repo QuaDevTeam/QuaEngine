@@ -29,9 +29,16 @@ fn prepares_graph_summary_and_resource_plan_for_view() {
     assert_eq!(frame.passes.command_count, frame.summary.command_count);
     assert_eq!(frame.resources.requests.len(), 2);
     assert_eq!(frame.resources.by_kind[&NativeResourceKind::Texture], 2);
+    assert_eq!(frame.assets.requests.len(), 2);
+    assert!(frame.assets.skipped_resource_ids.is_empty());
     assert!(frame
         .resources
         .request(ResourceId::from("images:bg/school.png"))
+        .is_some());
+    assert!(frame.assets.request("images", "bg/school.png").is_some());
+    assert!(frame
+        .assets
+        .request("characters", "yuki/default.png")
         .is_some());
 }
 
@@ -89,6 +96,11 @@ fn keeps_video_resource_requests_visible_to_frame_consumer() {
             .kind,
         NativeResourceKind::Texture
     );
+    assert!(frame.assets.request("video", "opening.mp4").is_some());
+    assert!(frame
+        .assets
+        .request("images", "poster/opening.png")
+        .is_some());
 }
 
 fn view_with_background_character_and_choices() -> ViewProjection {

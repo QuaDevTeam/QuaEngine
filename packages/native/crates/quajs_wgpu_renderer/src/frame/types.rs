@@ -1,12 +1,13 @@
 use crate::input::RendererIntentHit;
 use crate::render_graph::{RenderGraph, RenderGraphSummary, RenderPassPlan};
-use crate::resources::RenderResourcePlan;
+use crate::resources::{NativeAssetRequestPlan, RenderResourcePlan};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreparedNativeFrame {
     pub graph: RenderGraph,
     pub summary: RenderGraphSummary,
     pub resources: RenderResourcePlan,
+    pub assets: NativeAssetRequestPlan,
     pub passes: RenderPassPlan,
 }
 
