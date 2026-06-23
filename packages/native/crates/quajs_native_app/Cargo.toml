@@ -8,3 +8,4 @@ version.workspace = true
 [dependencies]
 quajs_native_runtime = { path = "../quajs_native_runtime" }
 quajs_wgpu_renderer = { path = "../quajs_wgpu_renderer" }
+serde_json.workspace = true

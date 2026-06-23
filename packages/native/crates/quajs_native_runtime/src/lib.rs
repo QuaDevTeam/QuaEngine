@@ -1,6 +1,6 @@
 pub mod host;
 
 pub use host::{
-    NativeAppInfo, NativeHostInfo, NativePlatform, NativeProfile, NativeRendererInfo,
-    NativeRuntimeInfo, RendererCapability,
+    current_platform, current_profile, NativeAppInfo, NativeHostInfo, NativeHostInfoBuilder,
+    NativePlatform, NativeProfile, NativeRendererInfo, NativeRuntimeInfo, RendererCapability,
 };
