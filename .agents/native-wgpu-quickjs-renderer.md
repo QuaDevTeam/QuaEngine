@@ -244,6 +244,17 @@ Target isolation should be encoded as data, not scattered across build scripts:
 ```ts
 type QuaBuildTarget = 'web' | 'cocos' | 'native'
 
+type TargetPackageRole =
+  | 'shared-runtime'
+  | 'engine-adapter'
+  | 'asset-adapter'
+  | 'store-adapter'
+  | 'host-adapter'
+  | 'renderer'
+  | 'framework-renderer'
+  | 'renderer-plugin-entry'
+  | 'build-tooling'
+
 interface TargetBootstrapManifest {
   target: QuaBuildTarget
   requiredCoreAdapters: readonly string[]
@@ -251,17 +262,31 @@ interface TargetBootstrapManifest {
   forbiddenCoreAdapters: readonly string[]
   selectedRendererEntries: readonly string[]
   rejectedRendererEntries: readonly string[]
+  normalizedDependencyRoots: readonly string[]
+}
+
+interface TargetPackageRoleManifest {
+  packageRoot: string
+  role: TargetPackageRole
+  target: 'shared' | QuaBuildTarget
+  allowedInTargets: readonly QuaBuildTarget[]
+  mayAppearInRuntimeQpk: boolean
 }
 ```
 
 Implementation rules:
 
 - `@quajs/native-contracts` should own the shared `TargetBootstrapManifest` schema and validation helpers.
+- Target isolation has three separate layers and all three must be validated: application bootstrap core adapters, target-specific renderer/plugin entries, and Runtime QPK renderer compatibility metadata. Passing one layer must not imply the others are safe.
+- `TargetPackageRoleManifest` should classify known Qua package roots and third-party declared target entries. Shared runtime packages may appear in every target only when they do not import target adapters.
 - Quack packaging should emit one bootstrap manifest per build target and fail if zero or multiple target bootstraps are selected.
 - Dependency graph validation should normalize package subentries to package roots, so `@quajs/renderer-web/plugins/audio` is still considered Web core and `@quajs/renderer-cocos/plugins/audio` is still considered Cocos core.
+- Shared plugin/package entries must not import Web, Cocos, or native core adapters. Target entries may import their own target adapters and shared logic only.
 - Plugin compatibility metadata may declare entries for multiple targets in source packages, but packaging selects only the entry for the active target and rejects accidental imports of other target entries.
 - Runtime package manifests may declare compatibility for Web, Cocos, and native, but activation uses only the active target compatibility block.
+- Runtime QPKs must not list target core adapters as executable dependencies. They may declare compatibility with the active target and ship target-scoped declarative assets, but they cannot install or activate Web/Cocos/native bootstrap plugins.
 - Native QPKs may reference native renderer capability ids and declarative QUI/QSS surfaces, but they cannot carry native executable payloads or dynamically load native renderer code.
+- Web builds must reject native/cocos target entries even when the package also contains a valid Web entry; Cocos builds must reject Web/native entries; native builds must reject Web/Cocos entries.
 - Startup should assert that exactly one target core adapter set registered with the engine. This catches hand-built bundles that bypass Quack validation.
 
 Minimum target isolation fixtures:
@@ -270,7 +295,9 @@ Minimum target isolation fixtures:
 - Cocos bundle with Cocos adapters passes; adding Web or native core adapters fails.
 - Native bundle with native adapters passes; adding Web or Cocos core adapters fails.
 - A plugin package declaring `web`, `cocos`, and `native` renderer metadata packages only the selected target entry.
+- A shared plugin entry that imports `@quajs/renderer-web`, `@quajs/renderer-cocos`, or `@quajs/engine-native` fails package metadata lint.
 - A target subentry import such as `@quajs/renderer-web/plugins/audio` is rejected in Cocos/native output after package-root normalization.
+- A Runtime QPK that declares `@quajs/renderer-web`, `@quajs/renderer-cocos`, `@quajs/assets-web`, `@quajs/cocos-host`, `@quajs/engine-native`, `@quajs/assets-native`, or `@quajs/store-native` as an executable dependency fails before activation.
 - Runtime startup fails if more than one core target adapter is registered.
 
 ## Native Engine Bridge, Assets, And Store Adapters

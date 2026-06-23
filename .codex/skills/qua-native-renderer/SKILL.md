@@ -32,9 +32,12 @@ Web, Cocos, and native target core adapters must not be mixed:
 - Cocos uses Cocos host/renderer only.
 - Native uses `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, and Rust native runtime/renderer metadata only.
 - Packaging a Web, Cocos, or native project must select exactly one target bootstrap. Target-specific renderer plugin entries and core adapters are not interchangeable between targets.
+- Validate target isolation at three layers: application bootstrap core adapters, target-specific renderer/plugin entries, and Runtime QPK renderer compatibility metadata. Do not let a pass in one layer imply the others are safe.
 - Use `validateTargetBootstrap` from `@quajs/native-contracts` for release/build/startup isolation checks. Treat both `missing` required target adapters and `forbidden` cross-target adapters as blockers.
 - Validate package subentries by normalized package root; for example `@quajs/renderer-web/plugins/audio` is still Web core, and must not appear in native/Cocos bundles.
+- Shared plugin entries must not import Web, Cocos, or native core adapters. Target entries may import only their own target adapters plus platform-neutral shared logic.
 - Multi-target plugin packages may declare Web, Cocos, and native entries in source metadata, but packaging must include only the active target entry and reject accidental imports of inactive target entries.
+- Runtime QPKs may declare compatibility with Web, Cocos, and native, but must not carry executable dependencies on target core adapters or activate another target bootstrap.
 - Every packaged debug/release artifact should emit a target bundle manifest and run dependency graph checks so Web builds exclude Cocos/native core adapters, Cocos builds exclude Web/native core adapters, and native builds exclude Web/Cocos core adapters.
 - Runtime startup should assert exactly one target adapter set registered with the engine, so hand-built bundles cannot mix Web, Cocos, and native core plugins.
 
@@ -64,6 +67,9 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Does `@quajs/engine-native` install `createNativeRuntimeTrustPolicy` so runtime native-code payload guards run before QuickJS module loading?
 - Do assets/store adapters preserve core contracts without Web/Node assumptions?
 - Are Web/Cocos/native target core adapters isolated?
+- Are target isolation checks applied separately to bootstrap core adapters, renderer/plugin entries, and Runtime QPK compatibility metadata?
+- Do shared plugin entries avoid importing target adapters, and do target entries avoid importing other target entries?
+- Do Runtime QPKs avoid executable dependencies on Web/Cocos/native core adapters?
 - Do bootstrap tests cover Web, Cocos, and native core package sets without cross-target leakage?
 - Do multi-target plugin fixtures prove only the active Web/Cocos/native renderer entry is bundled?
 - Does runtime startup fail when more than one target core adapter set is registered?
