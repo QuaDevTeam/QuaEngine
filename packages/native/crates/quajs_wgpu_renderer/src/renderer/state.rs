@@ -4,6 +4,7 @@ use crate::projection::view::ViewProjection;
 use crate::renderer::backend::{
     NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendResult, NativeRenderFrameRef,
 };
+use crate::renderer::metrics::NativeRendererMetrics;
 use crate::resources::{
     plan_frame_resource_sync, FrameResourceSyncPlan, NativeResourceLedger, NativeResourceRecord,
 };
@@ -42,6 +43,10 @@ impl NativeRendererState {
 
     pub fn resources_mut(&mut self) -> &mut NativeResourceLedger {
         &mut self.resources
+    }
+
+    pub fn metrics(&self) -> NativeRendererMetrics {
+        NativeRendererMetrics::from_state(self.revision, self.frame.as_ref(), &self.resources)
     }
 
     pub fn prepare_frame(
