@@ -31,6 +31,8 @@ Web, Cocos, and native target core adapters must not be mixed:
 - Web uses Web assets/renderer/framework adapters only.
 - Cocos uses Cocos host/renderer only.
 - Native uses `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, and Rust native runtime/renderer metadata only.
+- Use `validateTargetBootstrap` from `@quajs/native-contracts` for release/build/startup isolation checks. Treat both `missing` required target adapters and `forbidden` cross-target adapters as blockers.
+- Validate package subentries by normalized package root; for example `@quajs/renderer-web/plugins/audio` is still Web core, and must not appear in native/Cocos bundles.
 
 Shared engine/game/plugin packages may be reused only when platform-neutral.
 
@@ -54,4 +56,5 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Are native renderer version/capability checks performed before dynamic package JS evaluation?
 - Do assets/store adapters preserve core contracts without Web/Node assumptions?
 - Are Web/Cocos/native target core adapters isolated?
+- Do bootstrap tests cover Web, Cocos, and native core package sets without cross-target leakage?
 - Are runtime package native-code payloads rejected at build time and runtime?
