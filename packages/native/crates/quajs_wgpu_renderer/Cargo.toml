@@ -1,0 +1,9 @@
+[package]
+name = "quajs_wgpu_renderer"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+
+[dependencies]
+quajs_native_runtime = { path = "../quajs_native_runtime" }

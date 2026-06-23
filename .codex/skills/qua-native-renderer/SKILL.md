@@ -1,0 +1,57 @@
+---
+name: qua-native-renderer
+description: Use, implement, or review QuaEngine native renderer work under packages/native, including native host bridge, native contracts, assets/store adapters, QuickJS runtime, wgpu renderer, QUI/QSS, target plugin isolation, and native package compatibility.
+---
+
+# Qua Native Renderer
+
+Use this skill for `packages/native/*`, Rust native runtime/renderer crates, native host contracts, native asset/store adapters, QUI/QSS native authoring, and native packaging.
+
+## Boundaries
+
+- Native renderer is a projection layer only.
+- Engine/store remain authoritative for game state, save/load, settings, audio intent, UI overlays, runtime packages, and plugin state.
+- Communication uses `@quajs/pipeline` and render-core/plugin projections; do not add a second event bus.
+- Runtime content remains Quack-built QPK packages. Dynamic QPKs may contain QS/JS modules and resources only, never native code.
+- Native version/capability data comes from the signed native app/Rust build and is exposed through `QuaNativeHostInfo`; QPK content cannot override it.
+
+## Package Responsibilities
+
+- `@quajs/native-contracts`: serializable native host, renderer capability, compatibility, QUI/QSS, and target bootstrap contracts.
+- `@quajs/engine-native`: engine plugin/adapter that reads native host info, registers renderer capabilities, and supplies runtime package compatibility guards.
+- `@quajs/assets-native`: QuaAssets adapter over native host byte/storage/crypto APIs.
+- `@quajs/store-native`: QuaStore persistence adapter over native host storage APIs.
+- Rust `quajs_native_runtime`: QuickJS host and native host API implementation.
+- Rust `quajs_wgpu_renderer`: wgpu projection renderer and transient resource management.
+
+## Target Isolation
+
+Web, Cocos, and native target core adapters must not be mixed:
+
+- Web uses Web assets/renderer/framework adapters only.
+- Cocos uses Cocos host/renderer only.
+- Native uses `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, and Rust native runtime/renderer metadata only.
+
+Shared engine/game/plugin packages may be reused only when platform-neutral.
+
+## Validation
+
+Prefer light checks while disk is tight:
+
+```bash
+pnpm --filter @quajs/native-contracts typecheck
+pnpm --filter @quajs/engine-native typecheck
+pnpm --filter @quajs/assets-native typecheck
+pnpm --filter @quajs/store-native typecheck
+```
+
+Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first and clean cargo caches/targets when space is low.
+
+## Review Checklist
+
+- Is state still owned by engine/store/plugins?
+- Does native host API avoid arbitrary filesystem, shell, network, dynamic library loading, and Rust callbacks?
+- Are native renderer version/capability checks performed before dynamic package JS evaluation?
+- Do assets/store adapters preserve core contracts without Web/Node assumptions?
+- Are Web/Cocos/native target core adapters isolated?
+- Are runtime package native-code payloads rejected at build time and runtime?

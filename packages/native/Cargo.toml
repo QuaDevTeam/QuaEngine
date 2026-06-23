@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/quajs_native_runtime",
+  "crates/quajs_wgpu_renderer",
+  "crates/quajs_native_app",
+]
+
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/QuaDevTeam/QuaEngine"
+version = "0.1.0"
