@@ -16,7 +16,7 @@ pub use facade::{NativeRenderer, NativeRendererFrameResult};
 pub use metrics::{
     NativeRendererFrameMetrics, NativeRendererMetrics, NativeRendererResourceMetrics,
 };
-pub use state::{NativeRendererFrameUpdate, NativeRendererState};
+pub use state::{NativeRendererFrameUpdate, NativeRendererPackageRelease, NativeRendererState};
 
 #[cfg(test)]
 mod tests;

@@ -10,6 +10,8 @@ use crate::renderer::backend::{
 use crate::renderer::metrics::NativeRendererMetrics;
 use crate::resources::{
     plan_frame_resource_sync, FrameResourceSyncPlan, NativeResourceLedger, NativeResourceRecord,
+    PackageUnloadBlocker, PackageUnloadBlockerReason, PackageUnloadPlan, ResourceBudget,
+    ResourceBudgetViolation, ResourceId, ResourceMemory,
 };
 use crate::stage_layout::{ResolvedStageLayout, StageClientPoint, StageClientRectOrigin};
 
@@ -17,6 +19,13 @@ use crate::stage_layout::{ResolvedStageLayout, StageClientPoint, StageClientRect
 pub struct NativeRendererFrameUpdate {
     pub revision: u64,
     pub resource_sync: FrameResourceSyncPlan,
+    pub released_resources: Vec<NativeResourceRecord>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NativeRendererPackageRelease {
+    pub revision: u64,
+    pub plan: PackageUnloadPlan,
     pub released_resources: Vec<NativeResourceRecord>,
 }
 
@@ -55,6 +64,37 @@ impl NativeRendererState {
 
     pub fn metrics(&self) -> NativeRendererMetrics {
         NativeRendererMetrics::from_state(self.revision, self.frame.as_ref(), &self.resources)
+    }
+
+    pub fn check_resource_budget(&self, budget: &ResourceBudget) -> Vec<ResourceBudgetViolation> {
+        self.resources.check_budget(budget)
+    }
+
+    pub fn plan_package_unload(&self, package_id: &str) -> PackageUnloadPlan {
+        let mut plan = self.resources.plan_package_unload(package_id);
+        apply_active_frame_unload_guard(&mut plan, self.frame.as_ref(), &self.resources);
+        plan
+    }
+
+    pub fn release_package_resources(&mut self, package_id: &str) -> NativeRendererPackageRelease {
+        let plan = self.plan_package_unload(package_id);
+        let mut released_resources = Vec::new();
+        if plan.can_unload() {
+            for id in plan.releasable.iter().cloned() {
+                if let Some(record) = self.resources.release_resource(id) {
+                    released_resources.push(record);
+                }
+            }
+            if !released_resources.is_empty() {
+                self.revision = self.revision.saturating_add(1);
+            }
+        }
+
+        NativeRendererPackageRelease {
+            revision: self.revision,
+            plan,
+            released_resources,
+        }
     }
 
     pub fn prepare_frame(
@@ -161,4 +201,51 @@ fn merge_existing_record_metadata(
     }
 
     next
+}
+
+fn apply_active_frame_unload_guard(
+    plan: &mut PackageUnloadPlan,
+    frame: Option<&PreparedNativeFrame>,
+    ledger: &NativeResourceLedger,
+) {
+    let Some(frame) = frame else {
+        return;
+    };
+    let active_ids = &frame.summary.resources.referenced_resource_ids;
+    if active_ids.is_empty() || plan.releasable.is_empty() {
+        return;
+    }
+
+    let mut guarded = Vec::new();
+    plan.releasable.retain(|id| {
+        let active = active_ids.contains(id);
+        if active {
+            guarded.push(id.clone());
+        }
+        !active
+    });
+
+    for id in guarded {
+        if let Some(record) = ledger.get(id.clone()) {
+            plan.blocked.push(PackageUnloadBlocker {
+                resource_id: id,
+                kind: record.kind,
+                owner_package_id: record.owner_package_id.clone(),
+                required_package_ids: record.required_package_ids.clone(),
+                reason: PackageUnloadBlockerReason::ActiveFrameReference,
+            });
+        }
+    }
+
+    plan.releasable_memory = releasable_memory(&plan.releasable, ledger);
+}
+
+fn releasable_memory(ids: &[ResourceId], ledger: &NativeResourceLedger) -> ResourceMemory {
+    let mut memory = ResourceMemory::default();
+    for id in ids {
+        if let Some(record) = ledger.get(id.clone()) {
+            memory.add_assign(record.memory);
+        }
+    }
+    memory
 }

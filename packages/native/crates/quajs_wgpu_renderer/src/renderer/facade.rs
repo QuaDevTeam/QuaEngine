@@ -3,11 +3,14 @@ use crate::input::{
 };
 use crate::projection::view::ViewProjection;
 use crate::renderer::metrics::NativeRendererMetrics;
-use crate::resources::{NativeResourceLedger, NativeResourceRecord};
+use crate::resources::{
+    NativeResourceLedger, NativeResourceRecord, PackageUnloadPlan, ResourceBudget,
+    ResourceBudgetViolation,
+};
 use crate::stage_layout::{ResolvedStageLayout, StageClientPoint, StageClientRectOrigin};
 
 use super::backend::{NativeRenderBackend, NativeRenderBackendResult, NativeRenderSubmission};
-use super::state::{NativeRendererFrameUpdate, NativeRendererState};
+use super::state::{NativeRendererFrameUpdate, NativeRendererPackageRelease, NativeRendererState};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NativeRendererFrameResult {
@@ -58,6 +61,18 @@ where
 
     pub fn metrics(&self) -> NativeRendererMetrics {
         self.state.metrics()
+    }
+
+    pub fn check_resource_budget(&self, budget: &ResourceBudget) -> Vec<ResourceBudgetViolation> {
+        self.state.check_resource_budget(budget)
+    }
+
+    pub fn plan_package_unload(&self, package_id: &str) -> PackageUnloadPlan {
+        self.state.plan_package_unload(package_id)
+    }
+
+    pub fn release_package_resources(&mut self, package_id: &str) -> NativeRendererPackageRelease {
+        self.state.release_package_resources(package_id)
     }
 
     pub fn prepare_frame(

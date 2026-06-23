@@ -86,3 +86,4 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Does runtime startup fail when more than one target core adapter set is registered?
 - Are runtime package native-code payloads rejected at build time and runtime?
 - Are native renderer transient resources tracked in the package-aware resource ledger, including CPU/GPU bytes, dependencies, unload blockers, and cleanup paths?
+- Do native package unload/release paths use renderer-level unload plans so active frame references block release, and do hosts receive released resource records for native handle cleanup?
