@@ -1,6 +1,10 @@
 use crate::frame::PreparedNativeFrame;
 use crate::resources::NativeResourceLedger;
 
+pub mod null;
+
+pub use null::{NullNativeRenderBackend, NullNativeRenderBackendDiagnostics};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NativeRenderBackendErrorKind {
     NoPreparedFrame,
