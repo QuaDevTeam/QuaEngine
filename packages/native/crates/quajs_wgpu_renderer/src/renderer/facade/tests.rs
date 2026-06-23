@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use super::*;
+use crate::input::{NativePointerButton, NativePointerEvent, NativePointerEventPhase};
 use crate::projection::background::BackgroundProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
@@ -136,6 +137,101 @@ fn pointer_intent_returns_none_without_prepared_frame() {
 }
 
 #[test]
+fn pointer_release_event_marks_intent_for_dispatch() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    renderer
+        .prepare_and_render(test_layout(), &view_with_background_and_choice())
+        .unwrap();
+    let (client, origin) = client_point_for_choice(&renderer, "choice:stay");
+
+    let resolution = renderer
+        .pointer_event(
+            NativePointerEvent::new(NativePointerEventPhase::Release, client, origin)
+                .with_pointer_id(42)
+                .with_button(NativePointerButton::Primary),
+        )
+        .unwrap();
+
+    assert_eq!(resolution.event.pointer_id, 42);
+    assert!(resolution.pointer.point.inside_viewport);
+    assert!(resolution.pointer.point.inside_stage);
+    assert_eq!(
+        resolution
+            .pointer
+            .intent
+            .as_ref()
+            .and_then(|hit| hit.intent.choice_id.as_deref()),
+        Some("stay")
+    );
+    assert_eq!(
+        resolution
+            .intent_to_dispatch
+            .as_ref()
+            .and_then(|hit| hit.intent.choice_id.as_deref()),
+        Some("stay")
+    );
+}
+
+#[test]
+fn pointer_press_and_move_events_keep_hit_metadata_without_dispatching() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    renderer
+        .prepare_and_render(test_layout(), &view_with_background_and_choice())
+        .unwrap();
+    let (client, origin) = client_point_for_choice(&renderer, "choice:stay");
+
+    for phase in [
+        NativePointerEventPhase::Press,
+        NativePointerEventPhase::Move,
+    ] {
+        let resolution = renderer
+            .pointer_event(
+                NativePointerEvent::new(phase, client, origin)
+                    .with_button(NativePointerButton::Primary),
+            )
+            .unwrap();
+
+        assert!(resolution.pointer.intent.is_some());
+        assert!(resolution.intent_to_dispatch.is_none());
+    }
+}
+
+#[test]
+fn pointer_secondary_release_keeps_hit_metadata_without_dispatching() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    renderer
+        .prepare_and_render(test_layout(), &view_with_background_and_choice())
+        .unwrap();
+    let (client, origin) = client_point_for_choice(&renderer, "choice:stay");
+
+    let resolution = renderer
+        .pointer_event(
+            NativePointerEvent::new(NativePointerEventPhase::Release, client, origin)
+                .with_button(NativePointerButton::Secondary),
+        )
+        .unwrap();
+
+    assert!(resolution.pointer.intent.is_some());
+    assert!(resolution.intent_to_dispatch.is_none());
+}
+
+#[test]
+fn pointer_event_returns_none_without_prepared_frame() {
+    let renderer = NativeRenderer::new(RecordingBackend::default());
+
+    let resolution = renderer.pointer_event(NativePointerEvent::new(
+        NativePointerEventPhase::Release,
+        StageClientPoint {
+            client_x: 100.0,
+            client_y: 120.0,
+        },
+        StageClientRectOrigin::default(),
+    ));
+
+    assert!(resolution.is_none());
+}
+
+#[test]
 fn can_prepare_and_render_in_separate_steps() {
     let mut renderer = NativeRenderer::new(RecordingBackend::default());
 
@@ -219,6 +315,39 @@ fn test_layout() -> ResolvedStageLayout {
             ..Default::default()
         },
     )
+}
+
+fn client_point_for_choice<B>(
+    renderer: &NativeRenderer<B>,
+    command_id: &str,
+) -> (StageClientPoint, StageClientRectOrigin)
+where
+    B: NativeRenderBackend,
+{
+    let choice = renderer
+        .state()
+        .frame()
+        .unwrap()
+        .graph
+        .commands()
+        .iter()
+        .find(|command| command.id == command_id)
+        .unwrap();
+    let logical = StageLogicalPoint {
+        x: choice.bounds.x + choice.bounds.width / 2.0,
+        y: choice.bounds.y + choice.bounds.height / 2.0,
+    };
+    let origin = StageClientRectOrigin {
+        left: 64.0,
+        top: 32.0,
+    };
+    let client = stage_logical_to_client_point(
+        &renderer.state().frame().unwrap().graph.layout,
+        logical,
+        origin,
+    );
+
+    (client, origin)
 }
 
 fn provenance<const N: usize>(owner: &str, required: [&str; N]) -> PackageProvenance {
