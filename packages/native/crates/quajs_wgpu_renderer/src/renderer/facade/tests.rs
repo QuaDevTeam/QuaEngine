@@ -7,6 +7,7 @@ use crate::projection::common::PackageProvenance;
 use crate::projection::view::ViewProjection;
 use crate::renderer::{
     NativeRenderBackend, NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
+    NullNativeRenderBackend,
 };
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
@@ -35,6 +36,22 @@ fn prepares_and_submits_frame_through_backend() {
     );
     assert_eq!(renderer.backend().submissions, vec![result.submission]);
     assert_eq!(renderer.resources().len(), 1);
+}
+
+#[test]
+fn renders_smoke_frame_with_null_backend() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let result = renderer
+        .prepare_and_render(test_layout(), &view_with_background_and_choice())
+        .unwrap();
+
+    assert_eq!(result.submission.revision, 1);
+    assert_eq!(renderer.backend().diagnostics().submitted_frames, 1);
+    assert_eq!(
+        renderer.backend().diagnostics().last_submission,
+        Some(result.submission)
+    );
 }
 
 #[test]
