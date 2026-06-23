@@ -5,6 +5,10 @@ use crate::projection::background::BackgroundProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
 use crate::projection::view::ViewProjection;
+use crate::renderer::{
+    NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendErrorKind,
+    NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
+};
 use crate::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
@@ -103,6 +107,38 @@ fn resolves_latest_frame_hit_intent() {
 }
 
 #[test]
+fn submits_latest_frame_to_backend() {
+    let mut state = NativeRendererState::new();
+    state.prepare_frame(test_layout(), &view_with_background_and_choice());
+    let mut backend = RecordingBackend::default();
+
+    let submission = state.submit_latest_frame(&mut backend).unwrap();
+
+    assert_eq!(backend.submissions, vec![submission.clone()]);
+    assert_eq!(
+        submission,
+        NativeRenderSubmission {
+            revision: 1,
+            pass_count: 2,
+            batch_count: 3,
+            command_count: 3,
+            resource_count: 1,
+        }
+    );
+}
+
+#[test]
+fn rejects_submit_without_prepared_frame() {
+    let state = NativeRendererState::new();
+    let mut backend = RecordingBackend::default();
+
+    let error = state.submit_latest_frame(&mut backend).unwrap_err();
+
+    assert_eq!(error.kind, NativeRenderBackendErrorKind::NoPreparedFrame);
+    assert!(backend.submissions.is_empty());
+}
+
+#[test]
 fn clear_drops_latest_frame_and_releases_resources() {
     let mut state = NativeRendererState::new();
     state.prepare_frame(test_layout(), &view_with_background_and_choice());
@@ -113,6 +149,19 @@ fn clear_drops_latest_frame_and_releases_resources() {
     assert_eq!(state.revision(), 2);
     assert!(state.frame().is_none());
     assert!(state.resources().is_empty());
+}
+
+#[derive(Default)]
+struct RecordingBackend {
+    submissions: Vec<NativeRenderSubmission>,
+}
+
+impl NativeRenderBackend for RecordingBackend {
+    fn submit_frame(&mut self, frame: NativeRenderFrameRef<'_>) -> NativeRenderBackendResult {
+        let submission = frame.submission();
+        self.submissions.push(submission.clone());
+        Ok(submission)
+    }
 }
 
 fn view_with_background_and_choice() -> ViewProjection {
