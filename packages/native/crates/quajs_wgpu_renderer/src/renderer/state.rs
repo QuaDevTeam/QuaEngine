@@ -1,6 +1,9 @@
 use crate::frame::{prepare_native_frame, PreparedNativeFrame};
 use crate::input::RendererIntentHit;
 use crate::projection::view::ViewProjection;
+use crate::renderer::backend::{
+    NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendResult, NativeRenderFrameRef,
+};
 use crate::resources::{
     plan_frame_resource_sync, FrameResourceSyncPlan, NativeResourceLedger, NativeResourceRecord,
 };
@@ -64,6 +67,22 @@ impl NativeRendererState {
         self.frame
             .as_ref()
             .and_then(|frame| frame.hit_intent(logical_x, logical_y))
+    }
+
+    pub fn submit_latest_frame<B>(&self, backend: &mut B) -> NativeRenderBackendResult
+    where
+        B: NativeRenderBackend,
+    {
+        let frame = self
+            .frame
+            .as_ref()
+            .ok_or_else(NativeRenderBackendError::no_prepared_frame)?;
+
+        backend.submit_frame(NativeRenderFrameRef {
+            revision: self.revision,
+            frame,
+            resources: &self.resources,
+        })
     }
 
     pub fn clear(&mut self) -> Vec<NativeResourceRecord> {
