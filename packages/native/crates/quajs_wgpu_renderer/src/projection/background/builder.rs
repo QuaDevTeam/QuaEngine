@@ -1,3 +1,4 @@
+use crate::projection::common::PackageProvenance;
 use crate::render_graph::{
     DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams, RenderGraph, RenderPlane,
     VideoDrawParams,
@@ -8,7 +9,6 @@ use crate::stage_layout::ResolvedStageLayout;
 use super::layout::{full_stage_rect, media_fit, media_origin, resolve_background_bounds};
 use super::types::{
     BackgroundLayerProjection, BackgroundMode, BackgroundProjection, BackgroundVideoProjection,
-    PackageProvenance,
 };
 
 pub fn append_background_commands(graph: &mut RenderGraph, background: &BackgroundProjection) {
