@@ -1,5 +1,6 @@
 pub mod backend;
 pub mod facade;
+pub mod metrics;
 pub mod state;
 
 pub use backend::{
@@ -12,6 +13,9 @@ pub use backend::{
     WgpuNativeRenderBackend, WgpuNativeRenderBackendConfig, WgpuNativeRenderBackendDiagnostics,
 };
 pub use facade::{NativeRenderer, NativeRendererFrameResult};
+pub use metrics::{
+    NativeRendererFrameMetrics, NativeRendererMetrics, NativeRendererResourceMetrics,
+};
 pub use state::{NativeRendererFrameUpdate, NativeRendererState};
 
 #[cfg(test)]

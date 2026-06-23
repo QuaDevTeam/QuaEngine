@@ -1,5 +1,6 @@
 use crate::input::RendererIntentHit;
 use crate::projection::view::ViewProjection;
+use crate::renderer::metrics::NativeRendererMetrics;
 use crate::resources::{NativeResourceLedger, NativeResourceRecord};
 use crate::stage_layout::ResolvedStageLayout;
 
@@ -51,6 +52,10 @@ where
 
     pub fn resources(&self) -> &NativeResourceLedger {
         self.state.resources()
+    }
+
+    pub fn metrics(&self) -> NativeRendererMetrics {
+        self.state.metrics()
     }
 
     pub fn prepare_frame(
