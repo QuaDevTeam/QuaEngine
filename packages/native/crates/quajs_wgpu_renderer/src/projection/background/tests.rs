@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use super::*;
+use crate::projection::common::PackageProvenance;
 use crate::render_graph::{DrawCommandKind, DrawCommandParams, MediaFit, RenderGraph, RenderPlane};
 use crate::resources::ResourceId;
 use crate::stage_layout::{

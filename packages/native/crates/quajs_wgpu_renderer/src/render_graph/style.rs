@@ -41,10 +41,29 @@ pub struct VideoDrawParams {
     pub fallback_reason: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CharacterAnchor {
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CharacterDrawParams {
+    pub character_id: String,
+    pub character_name: String,
+    pub sprite_asset_name: String,
+    pub expression: Option<String>,
+    pub anchor: CharacterAnchor,
+    pub scale: f64,
+    pub rotation_degrees: f64,
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum DrawCommandParams {
     Image(ImageDrawParams),
     Video(VideoDrawParams),
+    Character(CharacterDrawParams),
     #[default]
     None,
 }

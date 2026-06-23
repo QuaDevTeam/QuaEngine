@@ -5,7 +5,10 @@ pub mod summary;
 
 pub use command::{DrawCommand, DrawCommandKind, LogicalRect, RenderPlane};
 pub use graph::RenderGraph;
-pub use style::{DrawCommandParams, ImageDrawParams, MediaFit, MediaOrigin, VideoDrawParams};
+pub use style::{
+    CharacterAnchor, CharacterDrawParams, DrawCommandParams, ImageDrawParams, MediaFit,
+    MediaOrigin, VideoDrawParams,
+};
 pub use summary::{
     RenderGraphPackageSummary, RenderGraphResourceSummary, RenderGraphSummary, RenderPlaneSummary,
 };
