@@ -89,12 +89,12 @@ export const QuaDialogueBox = defineComponent({
       }
       const speakerContent = projectedDialogue.speaker ?? projectedDialogue.characterName
       return h('div', {
-        class: 'qua-dialogue-box',
+        'class': 'qua-dialogue-box',
         'data-dialogue-presence': presenceProjection.phase,
         'data-dialogue-visible': presenceProjection.phase === 'enter' ? 'true' : 'false',
         'aria-hidden': presenceProjection.phase === 'exit' ? 'true' : undefined,
-        style: motionProjectionVars(projectedDialogue as unknown as Record<string, unknown>, '--qua-dialogue'),
-        onClick: (event: MouseEvent) => {
+        'style': motionProjectionVars(projectedDialogue as unknown as Record<string, unknown>, '--qua-dialogue'),
+        'onClick': (event: MouseEvent) => {
           if (presenceProjection.phase === 'enter' && typewriterProjection?.revealing && typewriterRuntime.revealNow()) {
             event.preventDefault()
             event.stopPropagation()

@@ -50,10 +50,10 @@ export function classifyWebDevice(environment: WebDeviceEnvironment = readWebDev
   const height = environment.viewportHeight || environment.screenHeight || 0
   const shortSide = width && height ? Math.min(width, height) : 0
   const longSide = width && height ? Math.max(width, height) : 0
-  const tabletUa = /\b(iPad|Tablet|PlayBook|Silk)\b/i.test(userAgent)
-    || /\bAndroid\b/i.test(userAgent) && !/\bMobile\b/i.test(userAgent)
-    || /\bMacintosh\b/i.test(userAgent) && maxTouchPoints > 1
-  const phoneUa = mobileHint || /\b(iPhone|iPod|Android.*Mobile|Windows Phone)\b/i.test(userAgent)
+  const tabletUa = /\b(?:iPad|Tablet|PlayBook|Silk)\b/i.test(userAgent)
+    || (/\bAndroid\b/i.test(userAgent) && !/\bMobile\b/i.test(userAgent))
+    || (/\bMacintosh\b/i.test(userAgent) && maxTouchPoints > 1)
+  const phoneUa = mobileHint || /\b(?:iPhone|iPod|Android.*Mobile|Windows Phone)\b/i.test(userAgent)
 
   if (tabletUa) {
     return 'pad'

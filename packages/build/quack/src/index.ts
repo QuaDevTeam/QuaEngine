@@ -85,6 +85,15 @@ export { buildLocalePack } from './i18n/locale-pack'
 export type { LocalePackBuildOptions, LocalePackBuildResult } from './i18n/locale-pack'
 export { PluginManager } from './managers/plugin-manager'
 export {
+  AssetPipelinePlugin,
+  type AssetPipelinePluginOptions,
+  BundleAnalyzerPlugin,
+  type ImageOptimizationFormat,
+  ImageOptimizationPlugin,
+  type ImageOptimizationPluginOptions,
+  type PngquantOptions,
+} from './plugins'
+export {
   createQuaProjectAssetTargets,
   createQuaProjectWebAssets,
   createQuaProjectWebManifest,
@@ -114,19 +123,10 @@ export type {
   QuaProjectWebAsset,
   QuaProjectWebRuntimeConfig,
   QuaProjectWebServiceWorkerMode,
+  SyncedQuaProjectCocosBuildConfig,
   SyncQuaProjectCocosOptions,
   SyncQuaProjectCocosResult,
-  SyncedQuaProjectCocosBuildConfig,
 } from './project'
-export {
-  AssetPipelinePlugin,
-  type AssetPipelinePluginOptions,
-  BundleAnalyzerPlugin,
-  type ImageOptimizationFormat,
-  ImageOptimizationPlugin,
-  type ImageOptimizationPluginOptions,
-  type PngquantOptions,
-} from './plugins'
 export { readQpkBundle, readQpkSummary } from './qpk-reader'
 export type {
   QpkAssetSummary,

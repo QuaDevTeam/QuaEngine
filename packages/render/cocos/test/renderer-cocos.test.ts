@@ -927,8 +927,8 @@ describe('@quajs/renderer-cocos', () => {
                 properties: {
                   nickname: { type: 'string', title: 'Nickname' },
                   theme: {
-                    type: 'string',
-                    title: 'Theme',
+                    'type': 'string',
+                    'title': 'Theme',
                     'x-qua-ui': {
                       control: 'custom',
                       component: 'ThemePicker',

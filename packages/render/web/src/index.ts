@@ -22,10 +22,10 @@ export type {
 } from './controller'
 export { createQuaWebRendererController, QuaWebRendererController } from './controller'
 export { emptyView } from './defaults'
-export type { DialogueTypewriterProjectResult, DialogueTypewriterRuntimeOptions } from './dialogue-typewriter'
-export { DialogueTypewriterRuntime, sliceRichTextContent } from './dialogue-typewriter'
 export type { DialoguePresencePhase, DialoguePresenceProjectResult, DialoguePresenceRuntimeOptions } from './dialogue-presence'
 export { DEFAULT_DIALOGUE_PRESENCE_EXIT_MS, DialoguePresenceRuntime } from './dialogue-presence'
+export type { DialogueTypewriterProjectResult, DialogueTypewriterRuntimeOptions } from './dialogue-typewriter'
+export { DialogueTypewriterRuntime, sliceRichTextContent } from './dialogue-typewriter'
 export type {
   QuaWebDomLayerContext,
   QuaWebDomRendererLayer,

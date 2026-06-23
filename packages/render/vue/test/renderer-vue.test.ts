@@ -868,7 +868,7 @@ describe('@quajs/renderer-vue', () => {
       },
       setup(props) {
         return () => h('canvas', {
-          class: 'rain-canvas',
+          'class': 'rain-canvas',
           'data-overlay': props.elementId,
           'data-density': String((props.surface as any)?.props?.density),
         })
@@ -924,7 +924,7 @@ describe('@quajs/renderer-vue', () => {
       },
       setup(props) {
         return () => h('canvas', {
-          class: 'rain-scene-canvas',
+          'class': 'rain-scene-canvas',
           'data-scene': (props.scene as any)?.id,
           'data-density': String((props.surface as any)?.props?.density),
         })

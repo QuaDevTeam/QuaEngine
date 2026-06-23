@@ -229,13 +229,15 @@
 }
 
 .qua-character[data-character-presence='enter'][data-character-visible='true'] {
-  animation: qua-character-fade-in var(--qua-character-enter-duration, 220ms) var(--qua-character-enter-easing, ease) both;
+  animation: qua-character-fade-in var(--qua-character-enter-duration, 220ms) var(--qua-character-enter-easing, ease)
+    both;
 }
 
 .qua-character[data-character-presence='exit'] {
   opacity: 0;
   pointer-events: none;
-  animation: qua-character-fade-out var(--qua-character-exit-duration, 180ms) var(--qua-character-exit-easing, ease) both;
+  animation: qua-character-fade-out var(--qua-character-exit-duration, 180ms) var(--qua-character-exit-easing, ease)
+    both;
 }
 
 .qua-character-layer[data-character-transitions='disabled'] .qua-character {

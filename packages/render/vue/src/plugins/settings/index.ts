@@ -390,7 +390,7 @@ export const QuaSettingsLayer = defineComponent({
 
     return () => visible.value && settings.value && form.value
       ? h('div', {
-          'class': [
+          class: [
             'qua-settings-layer',
             scene.value ? 'qua-settings-layer--ui-scene' : undefined,
             scene.value?.presentation === 'scene' ? 'qua-settings-layer--scene' : undefined,
@@ -398,8 +398,8 @@ export const QuaSettingsLayer = defineComponent({
           ],
           ...uiSceneDataAttributes(scene.value),
           ...overlayStack.value.attrs,
-          'style': { pointerEvents: 'auto', ...overlayStack.value.style },
-          'onClick': (event: Event) => event.stopPropagation(),
+          style: { pointerEvents: 'auto', ...overlayStack.value.style },
+          onClick: (event: Event) => event.stopPropagation(),
         }, slots.default?.(createSettingsLayerSlotPayload(renderer, actions, settings.value, form.value, props.elementId)) || h(QuaSettingsForm, {
           form: form.value,
           elementId: props.elementId,

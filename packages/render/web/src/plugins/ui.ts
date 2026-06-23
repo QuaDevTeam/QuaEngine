@@ -1,4 +1,4 @@
-import type { QuaViewProjection, ResolveOverlayStackPlacementOptions, RendererActions, ViewUiOverlayProjection, ViewUiOverlaySurfaceProjection, ViewUiSceneProjection } from '@quajs/render-core'
+import type { QuaViewProjection, RendererActions, ResolveOverlayStackPlacementOptions, ViewUiOverlayProjection, ViewUiOverlaySurfaceProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import {
   compareResolvedOverlayStackPlacement,

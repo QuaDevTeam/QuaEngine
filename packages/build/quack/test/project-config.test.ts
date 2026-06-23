@@ -13,7 +13,7 @@ import {
 
 const tempDirs: string[] = []
 
-describe('Qua project config', () => {
+describe('qua project config', () => {
   afterEach(async () => {
     await Promise.all(tempDirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })))
   })
@@ -57,7 +57,8 @@ describe('Qua project config', () => {
 
     await expect(loadQuaProjectConfig({ cwd: root })).rejects.toThrow('Multiple Qua project config files found')
     await expect(loadQuaProjectConfig({ cwd: root, configPath: 'qua.project.json' }))
-      .resolves.toMatchObject({ name: 'Star Light', bundleId: 'com.example.starlight' })
+      .resolves
+      .toMatchObject({ name: 'Star Light', bundleId: 'com.example.starlight' })
   })
 
   it('rejects invalid bundle IDs and missing Web icons', () => {
@@ -187,7 +188,7 @@ describe('Qua project config', () => {
       'targets:',
       '  cocos:',
       '    projectDir: cocos',
-      "    creatorVersion: '3.8'",
+      '    creatorVersion: \'3.8\'',
       '    platforms: [android]',
       '    layout: portrait',
       '    buildOptions:',

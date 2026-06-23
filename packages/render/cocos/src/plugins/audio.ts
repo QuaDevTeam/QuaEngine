@@ -8,7 +8,8 @@ export function createAudioCocosRendererPlugin() {
     setup(context) {
       let frame: number | undefined
       const busAutomationStarts = new Map<string, { signature?: string, startedAt: number }>()
-      const sync = () => {
+
+      function sync() {
         void renderCocosAudio(context.cocos, { busAutomationStarts }).then(() => {
           schedule()
         }).catch(error => context.reportError(error, {
@@ -17,13 +18,15 @@ export function createAudioCocosRendererPlugin() {
           pluginName: '@quajs/renderer-cocos/audio',
         }))
       }
-      const cancelFrame = () => {
+
+      function cancelFrame() {
         if (frame !== undefined) {
           context.cocos.host.scheduler.cancelFrame(frame)
           frame = undefined
         }
       }
-      const schedule = () => {
+
+      function schedule() {
         cancelFrame()
         if (!hasDynamicAudioProjection(context.getViewState().plugins.audio))
           return
@@ -81,7 +84,7 @@ function hasAutomation(value: unknown): boolean {
   if (Array.isArray(value)) {
     return value.some(item => isRecord(item) && typeof item.propertyPath === 'string' && (
       item.propertyPath === 'gainDb'
-      || /^eq\[\d+\]\.(gainDb|frequency|q|detune)$/.test(item.propertyPath)
+      || /^eq\[\d+\]\.(?:gainDb|frequency|q|detune)$/.test(item.propertyPath)
     ))
   }
   if (isRecord(value)) {

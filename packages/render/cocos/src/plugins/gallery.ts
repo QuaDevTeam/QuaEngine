@@ -4,8 +4,8 @@ import type { CocosRendererPluginContext } from '../types'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
 import { DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents } from '@quajs/render-core'
 import { resolveCocosOverlayPlacement, resolveCocosOverlayZIndex } from '../overlay-placement'
-import { defineCocosRendererPlugin } from './core'
 import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromAssetRef } from '../utils'
+import { defineCocosRendererPlugin } from './core'
 import { resolveInputMetadataAny, stringValue } from './projection-utils'
 
 export function createGalleryCocosRendererPlugin() {

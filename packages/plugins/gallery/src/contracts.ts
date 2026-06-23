@@ -1,5 +1,4 @@
-import type { JsonSerializable, SceneTransitionIntent, StoryAssetRef, StoryPoint } from '@quajs/engine'
-import type { ViewOverlayStackPlacement } from '@quajs/engine'
+import type { JsonSerializable, SceneTransitionIntent, StoryAssetRef, StoryPoint, ViewOverlayStackPlacement } from '@quajs/engine'
 import type { Pipeline, PipelineContext } from '@quajs/pipeline'
 
 export const GALLERY_PLUGIN_ID = 'gallery' as const

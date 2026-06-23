@@ -1,10 +1,10 @@
 import { Pipeline } from '@quajs/pipeline'
 import { describe, expect, it, vi } from 'vitest'
 import {
-  createFlowControlProjection,
-  createViewLayoutProjection,
   compareOverlayStackPlacement,
   compareUiOverlayStackPlacement,
+  createFlowControlProjection,
+  createViewLayoutProjection,
   DEFAULT_OVERLAY_STACK_PRIORITIES,
   DEFAULT_UI_OVERLAY_Z_INDEXES,
   easeProgress,

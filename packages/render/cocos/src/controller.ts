@@ -1207,7 +1207,7 @@ function hasGainAutomation(automation: readonly Record<string, unknown>[] | unde
 }
 
 function hasEqAutomation(automation: readonly Record<string, unknown>[] | undefined): boolean {
-  return Boolean(automation?.some(item => typeof item.propertyPath === 'string' && /^eq\[\d+\]\.(gainDb|frequency|q|detune)$/.test(item.propertyPath)))
+  return Boolean(automation?.some(item => typeof item.propertyPath === 'string' && /^eq\[\d+\]\.(?:gainDb|frequency|q|detune)$/.test(item.propertyPath)))
 }
 
 function projectGainAutomation(

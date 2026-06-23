@@ -132,8 +132,8 @@ export {
   GALLERY_PROFILE_STORE_PREFIX,
   GALLERY_REACT_RENDERER_ENTRY,
   GALLERY_SCENE_ID,
-  GALLERY_SVELTE_RENDERER_ENTRY,
   GALLERY_SETTINGS_SCOPE,
+  GALLERY_SVELTE_RENDERER_ENTRY,
   GALLERY_VUE_RENDERER_ENTRY,
   GALLERY_WEB_RENDERER_ENTRY,
   GalleryRenderToLogicEvents,
@@ -170,8 +170,8 @@ export type {
 } from './contracts'
 
 export {
-  galleryDecoratorMappings,
   decorators,
+  galleryDecoratorMappings,
 } from './decorators'
 
 export interface GalleryPluginOptions {
