@@ -68,6 +68,8 @@ fn choice_command(
         intent: choice.enabled.then(|| RendererIntent {
             event: "choice/select".to_string(),
             choice_id: Some(choice.id.clone()),
+            element_id: None,
+            action: None,
         }),
     }));
 

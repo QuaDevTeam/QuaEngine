@@ -1,6 +1,6 @@
 use crate::projection::{
     background::append_background_commands, character::append_character_commands,
-    choices::append_choice_commands, dialogue::append_dialogue_commands,
+    choices::append_choice_commands, dialogue::append_dialogue_commands, ui::append_ui_commands,
 };
 use crate::render_graph::RenderGraph;
 use crate::stage_layout::ResolvedStageLayout;
@@ -26,5 +26,9 @@ pub fn append_view_commands(graph: &mut RenderGraph, view: &ViewProjection) {
 
     if let Some(choices) = &view.choices {
         append_choice_commands(graph, choices);
+    }
+
+    if let Some(ui) = &view.ui {
+        append_ui_commands(graph, ui);
     }
 }

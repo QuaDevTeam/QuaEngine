@@ -12,7 +12,7 @@ pub use pass::{plan_render_passes, RenderPass, RenderPassPlan, RenderViewport};
 pub use style::{
     CharacterAnchor, CharacterDrawParams, DrawCommandParams, ImageDrawParams, MediaFit,
     MediaOrigin, PanelDrawParams, RendererIntent, TextAlign, TextDrawParams, UiButtonDrawParams,
-    VideoDrawParams,
+    UiSurfaceDrawParams, VideoDrawParams,
 };
 pub use summary::{
     RenderGraphPackageSummary, RenderGraphResourceSummary, RenderGraphSummary, RenderPlaneSummary,

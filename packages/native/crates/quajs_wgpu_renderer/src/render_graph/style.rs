@@ -87,6 +87,8 @@ pub struct PanelDrawParams {
 pub struct RendererIntent {
     pub event: String,
     pub choice_id: Option<String>,
+    pub element_id: Option<String>,
+    pub action: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -94,6 +96,16 @@ pub struct UiButtonDrawParams {
     pub label: String,
     pub enabled: bool,
     pub role: String,
+    pub intent: Option<RendererIntent>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct UiSurfaceDrawParams {
+    pub element_id: String,
+    pub surface_key: Option<String>,
+    pub render_mode: String,
+    pub overlay_stack: String,
+    pub interactive: bool,
     pub intent: Option<RendererIntent>,
 }
 
@@ -105,6 +117,7 @@ pub enum DrawCommandParams {
     Text(TextDrawParams),
     Panel(PanelDrawParams),
     UiButton(UiButtonDrawParams),
+    UiSurface(UiSurfaceDrawParams),
     #[default]
     None,
 }

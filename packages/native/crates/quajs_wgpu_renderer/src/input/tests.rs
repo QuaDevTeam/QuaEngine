@@ -1,5 +1,8 @@
 use super::*;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
+use crate::projection::ui::{
+    UiIntentProjection, UiOverlayProjection, UiOverlaySurfaceProjection, UiProjection,
+};
 use crate::projection::view::{build_view_render_graph, ViewProjection};
 use crate::render_graph::{DrawCommand, DrawCommandKind, DrawCommandParams, RenderPlane};
 use crate::stage_layout::{
@@ -210,6 +213,70 @@ fn pointer_resolution_preserves_logical_hit_metadata_without_intent() {
     assert!(resolution.point.inside_viewport);
     assert!(resolution.point.inside_stage);
     assert!(resolution.intent.is_none());
+}
+
+#[test]
+fn resolves_ui_overlay_intent_above_choices() {
+    let graph = build_view_render_graph(
+        test_layout(),
+        &ViewProjection {
+            choices: Some(ChoiceSetProjection::new(vec![ChoiceProjection::new(
+                "choice-a", "Choice A",
+            )])),
+            ui: Some(UiProjection::new(vec![UiOverlayProjection {
+                surface: Some(UiOverlaySurfaceProjection::new("ui/menu.qui")),
+                intent: Some(UiIntentProjection::new("close")),
+                ..UiOverlayProjection::new("menu")
+            }])),
+            ..Default::default()
+        },
+    );
+    let choice = graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "choice:choice-a")
+        .unwrap();
+
+    let hit = resolve_renderer_intent_at(
+        &graph,
+        choice.bounds.x + choice.bounds.width / 2.0,
+        choice.bounds.y + choice.bounds.height / 2.0,
+    )
+    .unwrap();
+
+    assert_eq!(hit.command_id, "ui:menu");
+    assert_eq!(hit.intent.event, "ui/intent");
+    assert_eq!(hit.intent.element_id.as_deref(), Some("menu"));
+    assert_eq!(hit.intent.action.as_deref(), Some("close"));
+    assert!(hit.intent.choice_id.is_none());
+}
+
+#[test]
+fn interactive_overlay_without_action_blocks_underlying_choice_intent() {
+    let graph = build_view_render_graph(
+        test_layout(),
+        &ViewProjection {
+            choices: Some(ChoiceSetProjection::new(vec![ChoiceProjection::new(
+                "choice-a", "Choice A",
+            )])),
+            ui: Some(UiProjection::new(vec![
+                UiOverlayProjection::new("menu").with_surface("ui/menu.qui")
+            ])),
+            ..Default::default()
+        },
+    );
+    let choice = graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "choice:choice-a")
+        .unwrap();
+
+    assert!(resolve_renderer_intent_at(
+        &graph,
+        choice.bounds.x + choice.bounds.width / 2.0,
+        choice.bounds.y + choice.bounds.height / 2.0,
+    )
+    .is_none());
 }
 
 fn test_layout() -> ResolvedStageLayout {
