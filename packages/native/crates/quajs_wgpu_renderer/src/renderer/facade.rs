@@ -1,4 +1,7 @@
-use crate::input::{PointerIntentResolution, RendererIntentHit};
+use crate::input::{
+    resolve_pointer_event, NativePointerEvent, NativePointerEventResolution,
+    PointerIntentResolution, RendererIntentHit,
+};
 use crate::projection::view::ViewProjection;
 use crate::renderer::metrics::NativeRendererMetrics;
 use crate::resources::{NativeResourceLedger, NativeResourceRecord};
@@ -91,6 +94,11 @@ where
         container_rect: StageClientRectOrigin,
     ) -> Option<PointerIntentResolution> {
         self.state.pointer_intent(point, container_rect)
+    }
+
+    pub fn pointer_event(&self, event: NativePointerEvent) -> Option<NativePointerEventResolution> {
+        self.pointer_intent(event.point, event.container_rect)
+            .map(|pointer| resolve_pointer_event(event, pointer))
     }
 
     pub fn clear(&mut self) -> Vec<NativeResourceRecord> {
