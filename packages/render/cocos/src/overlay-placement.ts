@@ -1,6 +1,6 @@
 import type {
-  ResolveOverlayStackPlacementOptions,
   ResolvedOverlayStackPlacement,
+  ResolveOverlayStackPlacementOptions,
   ViewOverlayStackPlacement,
   ViewUiOverlayProjection,
 } from '@quajs/render-core'

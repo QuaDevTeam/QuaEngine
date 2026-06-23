@@ -252,7 +252,7 @@ describe('@quajs/renderer-react', () => {
 
     function RainCanvasOverlay(props: any) {
       return createElement('canvas', {
-        className: 'rain-canvas',
+        'className': 'rain-canvas',
         'data-overlay': props.elementId,
         'data-density': String(props.surface?.props?.density),
       })
@@ -309,7 +309,7 @@ describe('@quajs/renderer-react', () => {
 
     function RainSceneCanvas(props: any) {
       return createElement('canvas', {
-        className: 'rain-scene-canvas',
+        'className': 'rain-scene-canvas',
         'data-scene': props.scene?.id,
         'data-density': String(props.surface?.props?.density),
       })

@@ -8,8 +8,8 @@ import type { CocosRendererPluginContext } from '../types'
 import { ACHIEVEMENT_PLUGIN_ID, AchievementRenderToLogicEvents } from '@quajs/plugin-achievement/contracts'
 import { compareResolvedOverlayStackPlacement, DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents } from '@quajs/render-core'
 import { resolveCocosOverlayPlacement, resolveCocosOverlayZIndex } from '../overlay-placement'
-import { defineCocosRendererPlugin } from './core'
 import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromAssetRef } from '../utils'
+import { defineCocosRendererPlugin } from './core'
 import { resolveInputMetadataAny, stringValue } from './projection-utils'
 
 type AchievementAssetRef = NonNullable<AchievementProjectionItem['icon']>

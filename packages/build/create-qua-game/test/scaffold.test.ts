@@ -56,7 +56,7 @@ describe('create-qua-game scaffold', () => {
     expect(packageJson.scripts['build:web']).toBe('vite build')
     expect(packageJson.devDependencies['sass-embedded']).toBe('^1.70.0')
     expect(await readFile(join(projectRoot, 'qua.project.yaml'), 'utf8')).toContain('bundleId: com.example.my.game')
-    expect(await readFile(join(projectRoot, 'src/env.d.ts'), 'utf8')).toContain("declare module 'virtual:qua-project'")
+    expect(await readFile(join(projectRoot, 'src/env.d.ts'), 'utf8')).toContain('declare module \'virtual:qua-project\'')
     expect(await readFile(join(projectRoot, 'src/main.ts'), 'utf8')).toContain('evaluateWebPlatformSupport(quaWebRuntime)')
     expect(await readFile(join(projectRoot, 'src/game/bootstrap.ts'), 'utf8')).toContain('project: {')
     expect(await readFile(join(projectRoot, 'vite.config.ts'), 'utf8')).toContain('projectConfig')

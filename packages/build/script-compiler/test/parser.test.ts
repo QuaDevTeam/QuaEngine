@@ -97,9 +97,10 @@ describe('quaScriptParser', () => {
 
   it('attaches decorators and template expressions to bare narration', () => {
     const parser = new QuaScriptParser()
+    const levelExpression = `$${'{scope.level}'}`
     const result = parser.parse(`
       @PlaySFX('rain.ogg')
-      Rain ${'${scope.level}'} keeps falling.
+      Rain ${levelExpression} keeps falling.
     `)
 
     expect(result.steps).toHaveLength(1)

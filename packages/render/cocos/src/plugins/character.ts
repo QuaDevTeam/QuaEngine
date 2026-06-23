@@ -20,13 +20,15 @@ export function createCharacterCocosRendererPlugin(options: CharacterCocosRender
       const presence = new Map<string, CharacterPresenceRecord>()
       const transition = resolveCharacterTransitionOptions(options.transitions)
       let frame: number | undefined
-      const cancelFrame = () => {
+
+      function cancelFrame() {
         if (frame !== undefined) {
           context.cocos.host.scheduler.cancelFrame(frame)
           frame = undefined
         }
       }
-      const scheduleFrame = () => {
+
+      function scheduleFrame() {
         cancelFrame()
         if (!hasActivePresenceTransition(presence))
           return
@@ -35,7 +37,8 @@ export function createCharacterCocosRendererPlugin(options: CharacterCocosRender
           sync()
         })
       }
-      const sync = () => {
+
+      function sync() {
         const now = context.cocos.host.runtime.now()
         const projectedCharacters = projectCharacters(context.getViewState().characters, context.getViewState().animations, now)
         const projected = resolvePresenceCharacters(

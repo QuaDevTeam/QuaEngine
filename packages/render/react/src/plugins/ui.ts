@@ -3,9 +3,10 @@ import type {
   UiWebRenderOnlySurfaceContext,
   UiWebRenderOnlySurfaceFactory,
 } from '@quajs/renderer-web/plugins/ui'
+import type { ComponentType } from 'react'
 import type { QuaReactRendererPlugin } from './core'
 import { createUiWebRendererPlugin } from '@quajs/renderer-web/plugins/ui'
-import { createElement, type ComponentType } from 'react'
+import { createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { defineReactRendererPlugin } from './core'
 

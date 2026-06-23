@@ -113,8 +113,8 @@ async function emitPwaAssets(context: { emitFile: (file: { fileName: string, sou
       ...manifest,
       icons: Array.isArray(manifest.icons)
         ? manifest.icons.map((icon: unknown) => icon && typeof icon === 'object'
-          ? { ...icon, src: withBase(String((icon as { src?: unknown }).src || ''), config.base) }
-          : icon)
+            ? { ...icon, src: withBase(String((icon as { src?: unknown }).src || ''), config.base) }
+            : icon)
         : [],
     }
     context.emitFile({

@@ -169,7 +169,7 @@ const RainCanvasOverlay = defineComponent({
   props: ['elementId', 'overlay', 'scene', 'surface', 'view'],
   setup(props) {
     return () => h('canvas', {
-      class: 'rain-canvas',
+      'class': 'rain-canvas',
       'data-overlay': props.elementId,
     })
   },

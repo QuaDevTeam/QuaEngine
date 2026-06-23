@@ -287,7 +287,7 @@ describe('@quajs/vite-plugin', () => {
     })
   })
 
-  describe('Qua project config', () => {
+  describe('qua project config', () => {
     it('exposes the virtual project module and disabled-device runtime payload', async () => {
       tempDir = join(tmpdir(), `qua-project-vite-${Date.now()}`)
       await createProjectFixture(tempDir, {
@@ -650,7 +650,7 @@ async function createProjectFixture(
   },
 ): Promise<void> {
   const pwaIconLines = (options.pwaIcons || []).flatMap(icon => [
-    '        - src: "' + icon.src + '"',
+    `        - src: "${icon.src}"`,
     `          sizes: ${icon.sizes}`,
     `          purpose: ${icon.purpose}`,
   ])

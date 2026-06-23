@@ -3,10 +3,10 @@ import type { DialogueAvatarProjection, RichTextBlockProjection, RichTextContent
 import type { QuaWebRendererPluginContext } from '../controller'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { isRichTextDocument, viewAllowsDialogueChrome } from '@quajs/render-core'
+import { runtimePackageCandidatesFromMetadata } from '../assets'
 import { DialoguePresenceRuntime } from '../dialogue-presence'
 import { DialogueTypewriterRuntime } from '../dialogue-typewriter'
 import { motionProjectionVars, projectDialogue } from '../projection'
-import { runtimePackageCandidatesFromMetadata } from '../assets'
 import { defineWebRendererPlugin } from './core'
 import { applyStyleVars } from './shared'
 

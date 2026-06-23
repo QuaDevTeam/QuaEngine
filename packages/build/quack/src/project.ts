@@ -279,7 +279,7 @@ export function normalizeQuaProjectConfig(input: unknown, options: NormalizeQuaP
   }
   const name = requiredString(root, 'name', issues)
   const bundleId = requiredString(root, 'bundleId', issues)
-  if (bundleId && !/^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)+$/.test(bundleId)) {
+  if (bundleId && !/^[A-Z][A-Z0-9]*(?:\.[A-Z][A-Z0-9]*)+$/i.test(bundleId)) {
     issues.push(`Invalid bundleId "${bundleId}". Expected a reverse-DNS identifier such as com.example.game.`)
   }
 
