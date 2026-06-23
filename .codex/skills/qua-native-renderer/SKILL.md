@@ -33,7 +33,7 @@ Web, Cocos, and native target core adapters must not be mixed:
 - Native uses `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, and Rust native runtime/renderer metadata only.
 - Packaging a Web, Cocos, or native project must select exactly one target bootstrap. Target-specific renderer plugin entries and core adapters are not interchangeable between targets.
 - Validate target isolation at three layers: application bootstrap core adapters, target-specific renderer/plugin entries, and Runtime QPK renderer compatibility metadata. Do not let a pass in one layer imply the others are safe.
-- Use `validateTargetBootstrap` from `@quajs/native-contracts` for release/build/startup isolation checks. Treat both `missing` required target adapters and `forbidden` cross-target adapters as blockers.
+- Use `validateExclusiveTargetBootstrap` from `@quajs/native-contracts` to assert a packaged app/startup dependency set registers exactly one Web, Cocos, or native bootstrap. Then use `validateTargetBootstrap` for the active target and treat both `missing` required target adapters and `forbidden` cross-target adapters as blockers.
 - Validate package subentries by normalized package root; for example `@quajs/renderer-web/plugins/audio` is still Web core, and must not appear in native/Cocos bundles.
 - Shared plugin entries must not import Web, Cocos, or native core adapters. Target entries may import only their own target adapters plus platform-neutral shared logic.
 - Multi-target plugin packages may declare Web, Cocos, and native entries in source metadata, but packaging must include only the active target entry and reject accidental imports of inactive target entries.
@@ -71,6 +71,7 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Do shared plugin entries avoid importing target adapters, and do target entries avoid importing other target entries?
 - Do Runtime QPKs avoid executable dependencies on Web/Cocos/native core adapters?
 - Do bootstrap tests cover Web, Cocos, and native core package sets without cross-target leakage?
+- Do exclusive bootstrap tests fail when zero or multiple Web/Cocos/native target core adapter sets are registered?
 - Do multi-target plugin fixtures prove only the active Web/Cocos/native renderer entry is bundled?
 - Does runtime startup fail when more than one target core adapter set is registered?
 - Are runtime package native-code payloads rejected at build time and runtime?
