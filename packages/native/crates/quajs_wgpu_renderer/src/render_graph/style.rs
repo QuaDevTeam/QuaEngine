@@ -73,6 +73,7 @@ pub struct TextDrawParams {
     pub font_size: f64,
     pub line_height: f64,
     pub align: TextAlign,
+    pub color: String,
     pub role: String,
 }
 
@@ -96,6 +97,9 @@ pub struct UiButtonDrawParams {
     pub label: String,
     pub enabled: bool,
     pub role: String,
+    pub background_color: String,
+    pub text_color: String,
+    pub corner_radius: f64,
     pub intent: Option<RendererIntent>,
 }
 

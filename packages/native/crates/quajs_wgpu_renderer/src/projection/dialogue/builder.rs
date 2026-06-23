@@ -93,6 +93,7 @@ fn text_command(
             font_size: resolve_font_size(style, fallback_font_size),
             line_height: resolve_line_height(style, fallback_line_height),
             align: resolve_text_align(style),
+            color: "#ffffff".to_string(),
             role: role.to_string(),
         }),
     )

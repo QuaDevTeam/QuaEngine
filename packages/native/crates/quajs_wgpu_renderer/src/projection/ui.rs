@@ -1,5 +1,6 @@
 pub mod builder;
 pub mod layout;
+pub mod style;
 pub mod surface;
 pub mod types;
 
@@ -8,6 +9,7 @@ pub use types::{
     UiIntentProjection, UiOverlayProjection, UiOverlayRenderMode, UiOverlaySceneProjection,
     UiOverlaySceneShellProjection, UiOverlaySurfaceProjection, UiProjection,
     UiSurfaceImageProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect,
+    UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
 };
 
 #[cfg(test)]

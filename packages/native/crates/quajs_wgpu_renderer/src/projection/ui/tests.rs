@@ -3,7 +3,9 @@ use std::collections::BTreeSet;
 use super::*;
 use crate::input::resolve_renderer_intent_at;
 use crate::projection::common::PackageProvenance;
-use crate::render_graph::{DrawCommandKind, DrawCommandParams, RenderGraph, RenderPlane};
+use crate::render_graph::{
+    DrawCommandKind, DrawCommandParams, MediaFit, RenderGraph, RenderPlane, TextAlign,
+};
 use crate::resources::ResourceId;
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
@@ -200,6 +202,101 @@ fn expands_inline_ui_surface_nodes_to_screen_commands() {
             assert_eq!(intent.event, "ui/intent");
             assert_eq!(intent.element_id.as_deref(), Some("menu:close"));
             assert_eq!(intent.action.as_deref(), Some("close"));
+        }
+        _ => panic!("expected ui button params"),
+    }
+}
+
+#[test]
+fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Box,
+                    rect(0.0, 0.0, 520.0, 320.0),
+                )
+                .with_style(UiSurfaceResolvedStyle {
+                    background_color: Some("#101820".to_string()),
+                    border_radius: Some(14.0),
+                    ..Default::default()
+                })
+                .with_children(vec![
+                    UiSurfaceNodeProjection::new(
+                        "title",
+                        UiSurfaceNodeKind::Text,
+                        rect(32.0, 32.0, 220.0, 48.0),
+                    )
+                    .with_text("Styled")
+                    .with_style(UiSurfaceResolvedStyle {
+                        color: Some("#f7f3e8".to_string()),
+                        font_size: Some(34.0),
+                        line_height: Some(44.0),
+                        text_align: Some(UiSurfaceTextAlignProjection::Center),
+                        ..Default::default()
+                    }),
+                    UiSurfaceNodeProjection::new(
+                        "poster",
+                        UiSurfaceNodeKind::Image,
+                        rect(40.0, 96.0, 180.0, 112.0),
+                    )
+                    .with_image(UiSurfaceImageProjection::new("ui/poster.png"))
+                    .with_style(UiSurfaceResolvedStyle {
+                        object_fit: Some(UiSurfaceObjectFitProjection::Cover),
+                        ..Default::default()
+                    }),
+                    UiSurfaceNodeProjection::new(
+                        "confirm",
+                        UiSurfaceNodeKind::Button,
+                        rect(340.0, 236.0, 120.0, 48.0),
+                    )
+                    .with_text("OK")
+                    .with_intent(UiIntentProjection::new("confirm"))
+                    .with_style(UiSurfaceResolvedStyle {
+                        background_color: Some("#f0c15a".to_string()),
+                        color: Some("#18130a".to_string()),
+                        border_radius: Some(10.0),
+                        ..Default::default()
+                    }),
+                ]),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+
+    match &commands[1].params {
+        DrawCommandParams::Panel(params) => {
+            assert_eq!(params.fill_color, "#101820");
+            assert_eq!(params.corner_radius, 14.0);
+        }
+        _ => panic!("expected panel params"),
+    }
+    match &commands[2].params {
+        DrawCommandParams::Text(params) => {
+            assert_eq!(params.text, "Styled");
+            assert_eq!(params.color, "#f7f3e8");
+            assert_eq!(params.font_size, 34.0);
+            assert_eq!(params.line_height, 44.0);
+            assert_eq!(params.align, TextAlign::Center);
+        }
+        _ => panic!("expected text params"),
+    }
+    match &commands[3].params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.fit, MediaFit::Cover);
+        }
+        _ => panic!("expected image params"),
+    }
+    match &commands[4].params {
+        DrawCommandParams::UiButton(params) => {
+            assert_eq!(params.label, "OK");
+            assert_eq!(params.background_color, "#f0c15a");
+            assert_eq!(params.text_color, "#18130a");
+            assert_eq!(params.corner_radius, 10.0);
         }
         _ => panic!("expected ui button params"),
     }

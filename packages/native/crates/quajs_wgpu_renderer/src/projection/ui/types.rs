@@ -123,6 +123,34 @@ impl UiSurfaceImageProjection {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UiSurfaceTextAlignProjection {
+    Left,
+    Center,
+    Right,
+    Justify,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UiSurfaceObjectFitProjection {
+    Cover,
+    Contain,
+    Fill,
+    None,
+    ScaleDown,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct UiSurfaceResolvedStyle {
+    pub background_color: Option<String>,
+    pub color: Option<String>,
+    pub border_radius: Option<f64>,
+    pub font_size: Option<f64>,
+    pub line_height: Option<f64>,
+    pub text_align: Option<UiSurfaceTextAlignProjection>,
+    pub object_fit: Option<UiSurfaceObjectFitProjection>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct UiSurfaceNodeProjection {
     pub id: String,
@@ -134,6 +162,7 @@ pub struct UiSurfaceNodeProjection {
     pub text: Option<String>,
     pub image: Option<UiSurfaceImageProjection>,
     pub intent: Option<UiIntentProjection>,
+    pub style: UiSurfaceResolvedStyle,
     pub provenance: PackageProvenance,
     pub children: Vec<UiSurfaceNodeProjection>,
 }
@@ -150,6 +179,7 @@ impl UiSurfaceNodeProjection {
             text: None,
             image: None,
             intent: None,
+            style: UiSurfaceResolvedStyle::default(),
             provenance: PackageProvenance::default(),
             children: Vec::new(),
         }
@@ -167,6 +197,11 @@ impl UiSurfaceNodeProjection {
 
     pub fn with_intent(mut self, intent: UiIntentProjection) -> Self {
         self.intent = Some(intent);
+        self
+    }
+
+    pub fn with_style(mut self, style: UiSurfaceResolvedStyle) -> Self {
+        self.style = style;
         self
     }
 

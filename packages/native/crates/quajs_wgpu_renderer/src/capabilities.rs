@@ -46,8 +46,22 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "padding",
                 "margin",
                 "background-color",
+                "border-radius",
+                "color",
+                "font-size",
+                "line-height",
+                "text-align",
+                "object-fit",
             ],
-            &["Box", "Button", "Scroll", "VirtualList", "FocusScope"],
+            &[
+                "Box",
+                "Button",
+                "Text",
+                "Image",
+                "Scroll",
+                "VirtualList",
+                "FocusScope",
+            ],
             "reject-package",
         ),
         capability(
@@ -122,7 +136,11 @@ mod tests {
         assert_eq!(ui.fallback, "reject-package");
         assert!(ui.intent_events.contains(&"ui/intent".to_string()));
         assert!(ui.qss_features.contains(&"flex-direction".to_string()));
+        assert!(ui.qss_features.contains(&"border-radius".to_string()));
+        assert!(ui.qss_features.contains(&"object-fit".to_string()));
         assert!(ui.qui_components.contains(&"Button".to_string()));
+        assert!(ui.qui_components.contains(&"Text".to_string()));
+        assert!(ui.qui_components.contains(&"Image".to_string()));
 
         let pointer = capabilities
             .iter()

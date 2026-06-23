@@ -14,6 +14,7 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 - Communication uses `@quajs/pipeline` and render-core/plugin projections; do not add a second event bus.
 - Runtime content remains Quack-built QPK packages. Dynamic QPKs may contain QS/JS modules and resources only, never native code.
 - Native version/capability data comes from the signed native app/Rust build and is exposed through `QuaNativeHostInfo`; QPK content cannot override it.
+- Rust `quajs_wgpu_renderer` consumes resolved QUI/QSS projection data only. QSS parsing, selector matching, cascade, inheritance, and language-server diagnostics belong in TS/compiler/tooling packages, not in the renderer.
 
 ## Package Responsibilities
 
@@ -42,6 +43,15 @@ Web, Cocos, and native target core adapters must not be mixed:
 - Runtime startup should assert exactly one target adapter set registered with the engine, so hand-built bundles cannot mix Web, Cocos, and native core plugins.
 
 Shared engine/game/plugin packages may be reused only when platform-neutral.
+
+## QUI/QSS Projection
+
+- Inline QUI surface nodes are renderer projections, not authoritative UI state.
+- Supported foundational QUI node kinds are `Box`, `Button`, `Text`, and `Image`; higher-level components such as dialog, drawer, save/load panels, gallery, and settings should compose from these base nodes.
+- Native QUI nodes may carry `UiSurfaceResolvedStyle`, representing already-resolved QSS declarations from compiler/runtime tooling.
+- Current native resolved QSS style fields are `background-color`, `color`, `border-radius`, `font-size`, `line-height`, `text-align`, and `object-fit`.
+- Do not add QSS selector parsing or CSS cascade logic to `quajs_wgpu_renderer`; add those to the dedicated QSS compiler/language-server/tooling layer and emit resolved projection fields for native rendering.
+- Native capability manifests must declare any consumed QSS features and QUI components so runtime packages can check compatibility before activation.
 
 ## Validation
 
