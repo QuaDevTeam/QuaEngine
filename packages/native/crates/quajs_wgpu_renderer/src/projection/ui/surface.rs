@@ -115,34 +115,23 @@ fn surface_node_command(
     let bounds = node_rect(node.bounds);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
     let mut command = match node.kind {
-        UiSurfaceNodeKind::Box => DrawCommand::new(
-            command_id,
-            RenderPlane::Screen,
-            DrawCommandKind::RoundedRect,
-            bounds,
-        )
-        .params(DrawCommandParams::Panel(PanelDrawParams {
-            role: "ui-box".to_string(),
-            corner_radius: resolve_border_radius(&node.style, 0.0),
-            fill_color: resolve_background_color(&node.style, "rgba(0,0,0,0.0)"),
-            intent: None,
-        })),
-        UiSurfaceNodeKind::Backdrop => DrawCommand::new(
-            command_id,
-            RenderPlane::Screen,
-            DrawCommandKind::RoundedRect,
-            bounds,
-        )
-        .interactive(node.intent.is_some())
-        .params(DrawCommandParams::Panel(PanelDrawParams {
-            role: "ui-backdrop".to_string(),
-            corner_radius: resolve_border_radius(&node.style, 0.0),
-            fill_color: resolve_background_color(&node.style, "rgba(0,0,0,0.56)"),
-            intent: node
+        UiSurfaceNodeKind::Box => {
+            surface_panel_node_command(node, command_id, bounds, "ui-box", "rgba(0,0,0,0.0)", None)
+        }
+        UiSurfaceNodeKind::Backdrop => {
+            let intent = node
                 .intent
                 .as_ref()
-                .map(|intent| renderer_intent(overlay, node, intent)),
-        })),
+                .map(|intent| renderer_intent(overlay, node, intent));
+            surface_panel_node_command(
+                node,
+                command_id,
+                bounds,
+                "ui-backdrop",
+                "rgba(0,0,0,0.56)",
+                intent,
+            )
+        }
         UiSurfaceNodeKind::Button => DrawCommand::new(
             command_id,
             RenderPlane::Screen,
@@ -204,6 +193,20 @@ fn surface_node_command(
             }
             command
         }
+        UiSurfaceNodeKind::Panel => {
+            let intent = node
+                .intent
+                .as_ref()
+                .map(|intent| renderer_intent(overlay, node, intent));
+            surface_panel_node_command(
+                node,
+                command_id,
+                bounds,
+                "ui-panel",
+                "rgba(0,0,0,0.0)",
+                intent,
+            )
+        }
         UiSurfaceNodeKind::Scroll => unreachable!("scroll nodes are expanded before command build"),
     };
 
@@ -223,24 +226,43 @@ fn surface_scroll_panel_command(
     command_id: &str,
     bounds: LogicalRect,
 ) -> DrawCommand {
-    let command = DrawCommand::new(
+    let command = surface_panel_node_command(
+        node,
+        command_id.to_string(),
+        bounds,
+        "ui-scroll",
+        "rgba(0,0,0,0.0)",
+        None,
+    )
+    .z_index(z_base.saturating_add(node.z_index))
+    .opacity(node.opacity)
+    .clip_bounds(clip_bounds.iter().copied());
+
+    let command = apply_provenance(command, &overlay.provenance);
+    apply_provenance(command, &node.provenance)
+}
+
+fn surface_panel_node_command(
+    node: &UiSurfaceNodeProjection,
+    command_id: String,
+    bounds: LogicalRect,
+    role: &str,
+    fallback_fill_color: &str,
+    intent: Option<RendererIntent>,
+) -> DrawCommand {
+    DrawCommand::new(
         command_id,
         RenderPlane::Screen,
         DrawCommandKind::RoundedRect,
         bounds,
     )
-    .z_index(z_base.saturating_add(node.z_index))
-    .opacity(node.opacity)
-    .clip_bounds(clip_bounds.iter().copied())
+    .interactive(intent.is_some())
     .params(DrawCommandParams::Panel(PanelDrawParams {
-        role: "ui-scroll".to_string(),
+        role: role.to_string(),
         corner_radius: resolve_border_radius(&node.style, 0.0),
-        fill_color: resolve_background_color(&node.style, "rgba(0,0,0,0.0)"),
-        intent: None,
-    }));
-
-    let command = apply_provenance(command, &overlay.provenance);
-    apply_provenance(command, &node.provenance)
+        fill_color: resolve_background_color(&node.style, fallback_fill_color),
+        intent,
+    }))
 }
 
 fn scroll_clip_command(
