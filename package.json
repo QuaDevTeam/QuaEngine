@@ -55,6 +55,7 @@
     "packages/build/*",
     "packages/core/*",
     "packages/game/*",
+    "packages/native/*",
     "packages/platform/*",
     "packages/render/*",
     "packages/utils/*",

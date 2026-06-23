@@ -664,6 +664,35 @@ importers:
         specifier: workspace:*
         version: link:../../core/store
 
+  packages/native/assets-native:
+    dependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../../core/assets
+      '@quajs/native-contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
+  packages/native/contracts: {}
+
+  packages/native/engine-native:
+    dependencies:
+      '@quajs/engine':
+        specifier: workspace:*
+        version: link:../../core/engine
+      '@quajs/native-contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
+  packages/native/store-native:
+    dependencies:
+      '@quajs/native-contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
+
   packages/platform/assets-cocos:
     dependencies:
       '@quajs/assets':
