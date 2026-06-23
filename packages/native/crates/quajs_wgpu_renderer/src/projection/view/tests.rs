@@ -6,6 +6,9 @@ use crate::projection::character::{CharacterPosition, CharacterProjection};
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
 use crate::projection::dialogue::DialogueProjection;
+use crate::projection::ui::{
+    UiIntentProjection, UiOverlayProjection, UiOverlaySurfaceProjection, UiProjection,
+};
 use crate::render_graph::{DrawCommandKind, DrawCommandParams, RenderGraph, RenderPlane};
 use crate::resources::ResourceId;
 use crate::stage_layout::{
@@ -155,6 +158,50 @@ fn supports_video_background_fallback_inside_view_graph() {
     );
 }
 
+#[test]
+fn appends_ui_overlay_surfaces_after_safe_ui_commands() {
+    let graph = build_view_render_graph(
+        test_layout(),
+        &ViewProjection {
+            choices: Some(ChoiceSetProjection::new(vec![ChoiceProjection::new(
+                "stay", "Stay",
+            )])),
+            ui: Some(UiProjection::new(vec![UiOverlayProjection {
+                surface: Some(UiOverlaySurfaceProjection::new("ui/menu.qui")),
+                intent: Some(UiIntentProjection::new("close")),
+                provenance: provenance("runtime.menu", ["base"]),
+                ..UiOverlayProjection::new("menu")
+            }])),
+            ..Default::default()
+        },
+    );
+    let ids = graph
+        .commands()
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["choices:panel", "choice:stay", "ui:menu"]);
+    let menu = graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "ui:menu")
+        .unwrap();
+    assert_eq!(menu.plane, RenderPlane::Screen);
+    assert_eq!(menu.owner_package_id.as_deref(), Some("runtime.menu"));
+    match &menu.params {
+        DrawCommandParams::UiSurface(params) => {
+            assert_eq!(params.element_id, "menu");
+            assert_eq!(params.surface_key.as_deref(), Some("ui/menu.qui"));
+            assert_eq!(
+                params.intent.as_ref().unwrap().action.as_deref(),
+                Some("close")
+            );
+        }
+        _ => panic!("expected ui surface params"),
+    }
+}
+
 fn full_view() -> ViewProjection {
     ViewProjection {
         background: Some(BackgroundProjection {
@@ -193,6 +240,7 @@ fn full_view() -> ViewProjection {
                 },
             ],
         }),
+        ui: None,
     }
 }
 

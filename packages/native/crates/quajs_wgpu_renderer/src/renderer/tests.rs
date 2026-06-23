@@ -6,8 +6,8 @@ use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
 use crate::projection::view::ViewProjection;
 use crate::renderer::{
-    NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendErrorKind,
-    NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
+    NativeRenderBackend, NativeRenderBackendErrorKind, NativeRenderBackendResult,
+    NativeRenderFrameRef, NativeRenderSubmission,
 };
 use crate::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
 use crate::stage_layout::{

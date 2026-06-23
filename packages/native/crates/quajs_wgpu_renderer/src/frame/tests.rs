@@ -5,8 +5,11 @@ use crate::projection::background::{BackgroundProjection, BackgroundVideoProject
 use crate::projection::character::CharacterProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
+use crate::projection::ui::{
+    UiIntentProjection, UiOverlayProjection, UiOverlaySurfaceProjection, UiProjection,
+};
 use crate::projection::view::ViewProjection;
-use crate::render_graph::{DrawCommandKind, RenderPlane};
+use crate::render_graph::{DrawCommandKind, DrawCommandParams, RenderPlane};
 use crate::resources::{NativeResourceKind, ResourceId};
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
@@ -101,6 +104,58 @@ fn keeps_video_resource_requests_visible_to_frame_consumer() {
         .assets
         .request("images", "poster/opening.png")
         .is_some());
+}
+
+#[test]
+fn includes_ui_overlay_surface_requests_in_prepared_frame() {
+    let frame = prepare_native_frame(
+        test_layout(),
+        &ViewProjection {
+            ui: Some(UiProjection {
+                provenance: provenance("runtime.ui", ["base"]),
+                overlays: vec![UiOverlayProjection {
+                    surface: Some(UiOverlaySurfaceProjection::new("ui/menu.qui")),
+                    intent: Some(UiIntentProjection::new("close")),
+                    provenance: provenance("runtime.menu", ["runtime.ui"]),
+                    ..UiOverlayProjection::new("menu")
+                }],
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    );
+
+    assert_eq!(frame.summary.command_count, 1);
+    assert_eq!(frame.summary.interactive_count, 1);
+    assert_eq!(
+        frame.summary.by_plane[&RenderPlane::Screen].command_count,
+        1
+    );
+    assert_eq!(
+        frame
+            .passes
+            .pass(RenderPlane::Screen)
+            .unwrap()
+            .command_count,
+        1
+    );
+    assert_eq!(
+        frame.resources.request("surface:ui/menu.qui").unwrap().kind,
+        NativeResourceKind::UiAst
+    );
+    assert!(frame.assets.request("surface", "ui/menu.qui").is_some());
+
+    match &frame.graph.commands()[0].params {
+        DrawCommandParams::UiSurface(params) => {
+            assert_eq!(params.element_id, "menu");
+            assert_eq!(params.intent.as_ref().unwrap().event, "ui/intent");
+            assert_eq!(
+                params.intent.as_ref().unwrap().action.as_deref(),
+                Some("close")
+            );
+        }
+        _ => panic!("expected ui surface params"),
+    }
 }
 
 fn view_with_background_character_and_choices() -> ViewProjection {

@@ -21,6 +21,7 @@ pub fn resolve_renderer_intent_at(
 pub fn renderer_intent_from_command(command: &DrawCommand) -> Option<RendererIntent> {
     match &command.params {
         DrawCommandParams::UiButton(params) if params.enabled => params.intent.clone(),
+        DrawCommandParams::UiSurface(params) if params.interactive => params.intent.clone(),
         _ => None,
     }
 }

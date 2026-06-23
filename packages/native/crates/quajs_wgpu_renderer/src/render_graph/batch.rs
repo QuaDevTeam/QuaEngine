@@ -75,6 +75,7 @@ fn batch_pipeline(command: &DrawCommand) -> DrawBatchPipeline {
         DrawCommandParams::Text(_) => DrawBatchPipeline::Text,
         DrawCommandParams::Panel(_) => DrawBatchPipeline::Shape,
         DrawCommandParams::UiButton(_) => DrawBatchPipeline::Ui,
+        DrawCommandParams::UiSurface(_) => DrawBatchPipeline::Ui,
         DrawCommandParams::None => match command.kind {
             DrawCommandKind::Clear => DrawBatchPipeline::Clear,
             DrawCommandKind::Image | DrawCommandKind::NineSlice => DrawBatchPipeline::Image,
