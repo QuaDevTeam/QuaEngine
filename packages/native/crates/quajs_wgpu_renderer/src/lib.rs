@@ -3,6 +3,7 @@ pub mod frame;
 pub mod input;
 pub mod projection;
 pub mod render_graph;
+pub mod renderer;
 pub mod resources;
 pub mod stage_layout;
 
