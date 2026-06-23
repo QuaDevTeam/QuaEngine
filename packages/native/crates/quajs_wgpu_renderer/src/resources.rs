@@ -1,3 +1,4 @@
+pub mod assets;
 pub mod budget;
 pub mod ledger;
 pub mod plan;
@@ -6,6 +7,7 @@ pub mod summary;
 pub mod sync;
 pub mod unload;
 
+pub use assets::{plan_asset_requests, NativeAssetRequest, NativeAssetRequestPlan};
 pub use budget::{ResourceBudget, ResourceBudgetViolation, ResourceBudgetViolationCode};
 pub use ledger::NativeResourceLedger;
 pub use plan::{plan_render_graph_resources, RenderResourcePlan, RenderResourceRequest};
