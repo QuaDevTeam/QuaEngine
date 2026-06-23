@@ -95,6 +95,7 @@ impl UiOverlaySurfaceProjection {
 pub enum UiSurfaceNodeKind {
     #[default]
     Box,
+    Backdrop,
     Button,
     Text,
     Image,

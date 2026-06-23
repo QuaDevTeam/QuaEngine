@@ -57,6 +57,7 @@ fn keeps_different_planes_and_kinds_in_separate_batches() {
             role: "panel".to_string(),
             corner_radius: 8.0,
             fill_color: "#000".to_string(),
+            intent: None,
         })),
     ]);
 

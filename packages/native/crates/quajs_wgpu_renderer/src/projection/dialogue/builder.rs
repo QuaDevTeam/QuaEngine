@@ -37,6 +37,7 @@ pub fn build_dialogue_commands(
             role: "dialogue-panel".to_string(),
             corner_radius: 18.0,
             fill_color: "rgba(0,0,0,0.72)".to_string(),
+            intent: None,
         })),
         &dialogue.provenance,
     )];

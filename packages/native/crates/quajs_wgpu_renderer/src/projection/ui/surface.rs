@@ -125,6 +125,23 @@ fn surface_node_command(
             role: "ui-box".to_string(),
             corner_radius: resolve_border_radius(&node.style, 0.0),
             fill_color: resolve_background_color(&node.style, "rgba(0,0,0,0.0)"),
+            intent: None,
+        })),
+        UiSurfaceNodeKind::Backdrop => DrawCommand::new(
+            command_id,
+            RenderPlane::Screen,
+            DrawCommandKind::RoundedRect,
+            bounds,
+        )
+        .interactive(node.intent.is_some())
+        .params(DrawCommandParams::Panel(PanelDrawParams {
+            role: "ui-backdrop".to_string(),
+            corner_radius: resolve_border_radius(&node.style, 0.0),
+            fill_color: resolve_background_color(&node.style, "rgba(0,0,0,0.56)"),
+            intent: node
+                .intent
+                .as_ref()
+                .map(|intent| renderer_intent(overlay, node, intent)),
         })),
         UiSurfaceNodeKind::Button => DrawCommand::new(
             command_id,
@@ -219,6 +236,7 @@ fn surface_scroll_panel_command(
         role: "ui-scroll".to_string(),
         corner_radius: resolve_border_radius(&node.style, 0.0),
         fill_color: resolve_background_color(&node.style, "rgba(0,0,0,0.0)"),
+        intent: None,
     }));
 
     let command = apply_provenance(command, &overlay.provenance);
