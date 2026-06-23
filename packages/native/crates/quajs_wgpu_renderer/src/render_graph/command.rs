@@ -3,6 +3,8 @@ use std::collections::BTreeSet;
 use crate::resources::ResourceId;
 use crate::stage_layout::StageSafeArea;
 
+use super::style::DrawCommandParams;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RenderPlane {
     Scene,
@@ -83,6 +85,7 @@ pub struct DrawCommand {
     pub bounds: LogicalRect,
     pub opacity: f32,
     pub resource_ids: Vec<ResourceId>,
+    pub params: DrawCommandParams,
     pub owner_package_id: Option<String>,
     pub required_package_ids: BTreeSet<String>,
     pub interactive: bool,
@@ -104,6 +107,7 @@ impl DrawCommand {
             bounds,
             opacity: 1.0,
             resource_ids: Vec::new(),
+            params: DrawCommandParams::None,
             owner_package_id: None,
             required_package_ids: BTreeSet::new(),
             interactive: false,
@@ -133,6 +137,11 @@ impl DrawCommand {
     {
         self.resource_ids
             .extend(resource_ids.into_iter().map(Into::into));
+        self
+    }
+
+    pub fn params(mut self, params: DrawCommandParams) -> Self {
+        self.params = params;
         self
     }
 
