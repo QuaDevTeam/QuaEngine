@@ -52,6 +52,7 @@ Shared engine/game/plugin packages may be reused only when platform-neutral.
 - Current native resolved QSS style fields are `background-color`, `color`, `border-radius`, `font-size`, `line-height`, `text-align`, and `object-fit`.
 - Do not add QSS selector parsing or CSS cascade logic to `quajs_wgpu_renderer`; add those to the dedicated QSS compiler/language-server/tooling layer and emit resolved projection fields for native rendering.
 - Native capability manifests must declare any consumed QSS features and QUI components so runtime packages can check compatibility before activation.
+- Native media capability ids must describe implemented projection/resource contracts precisely. Do not declare QUI media components, real video decode, or audio playback capability until the Rust projection path and backend support exist; fallback-only video/audio capabilities should use deterministic `warn-once` semantics.
 
 ## Validation
 
@@ -73,6 +74,7 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Does native host API avoid arbitrary filesystem, shell, network, dynamic library loading, and Rust callbacks?
 - Does Rust `NativeHostInfo` serialize to the TS `QuaNativeHostInfo` shape, including camelCase fields and `debug`/`release` plus `macos`/`windows`/`linux` literals?
 - Does the Rust native renderer capability manifest include projection keys, intent events, asset kinds, QSS features, QUI base components, and fallback policy?
+- Are video/audio native capability declarations limited to currently implemented projection/resource paths, with real decoder/playback backend support guarded by later capability updates?
 - Are native renderer version/capability checks performed before dynamic package JS evaluation?
 - Does `@quajs/engine-native` install `createNativeRuntimeTrustPolicy` so runtime native-code payload guards run before QuickJS module loading?
 - Do assets/store adapters preserve core contracts without Web/Node assumptions?

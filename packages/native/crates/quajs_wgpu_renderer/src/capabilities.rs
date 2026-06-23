@@ -21,6 +21,15 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             "render-empty",
         ),
         capability(
+            "native-wgpu.video@1",
+            &["background.video"],
+            &[],
+            &["video", "images"],
+            &["object-fit", "opacity"],
+            &[],
+            "warn-once",
+        ),
+        capability(
             "native-wgpu.text@1",
             &["dialogue", "ui.text"],
             &[],
@@ -122,12 +131,25 @@ mod tests {
 
         assert!(ids.contains(&"native-wgpu.stage-layout@1"));
         assert!(ids.contains(&"native-wgpu.image@1"));
+        assert!(ids.contains(&"native-wgpu.video@1"));
         assert!(ids.contains(&"native-wgpu.text@1"));
         assert!(ids.contains(&"native-wgpu.ui.surface@1"));
         assert!(ids.contains(&"native-wgpu.input.pointer@1"));
         assert!(capabilities
             .iter()
             .all(|capability| capability.owner_package == "@quajs/native-renderer"));
+
+        let video = capabilities
+            .iter()
+            .find(|capability| capability.id == "native-wgpu.video@1")
+            .unwrap();
+        assert_eq!(video.fallback, "warn-once");
+        assert!(video
+            .projection_keys
+            .contains(&"background.video".to_string()));
+        assert!(video.asset_kinds.contains(&"video".to_string()));
+        assert!(video.asset_kinds.contains(&"images".to_string()));
+        assert!(video.qui_components.is_empty());
 
         let ui = capabilities
             .iter()

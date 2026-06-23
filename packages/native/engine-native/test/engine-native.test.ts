@@ -30,15 +30,16 @@ function createHostInfo(version = '0.1.0'): QuaNativeHostInfo {
           target: 'native',
           version: '1.0.0',
           ownerPackage: '@quajs/native-renderer',
-          projectionKeys: ['ui.overlays'],
+          projectionKeys: ['view.ui.overlays'],
           fallback: 'reject-package',
         },
         {
-          id: 'native-wgpu.audio@1',
+          id: 'native-wgpu.video@1',
           target: 'native',
           version: '1.0.0',
           ownerPackage: '@quajs/native-renderer',
-          projectionKeys: ['audio'],
+          projectionKeys: ['background.video'],
+          assetKinds: ['video', 'images'],
           fallback: 'warn-once',
         },
       ],
@@ -129,8 +130,8 @@ describe('@quajs/engine-native', () => {
       nativeRenderer: {
         packageName: '@quajs/native-renderer',
         versionRange: '^0.1.0',
-        capabilities: ['native-wgpu.ui.surface@1'],
-        optionalCapabilities: ['native-wgpu.video@1'],
+        capabilities: ['native-wgpu.ui.surface@1', 'native-wgpu.video@1'],
+        optionalCapabilities: ['native-wgpu.audio@1'],
         nativeCode: false,
       },
     })
@@ -150,10 +151,10 @@ describe('@quajs/engine-native', () => {
       pluginId: 'runtime.chapter.native-ui',
       nativeRenderer: {
         versionRange: '^0.1.0',
-        capabilities: ['native-wgpu.video@1'],
+        capabilities: ['native-wgpu.audio@1'],
         nativeCode: false,
       },
-    })).toThrow(/Native renderer version "1\.0\.0" does not satisfy "\^0\.1\.0".*Required native capability "native-wgpu.video@1" is not available./)
+    })).toThrow(/Native renderer version "1\.0\.0" does not satisfy "\^0\.1\.0".*Required native capability "native-wgpu.audio@1" is not available./)
   })
 
   it('keeps native runtime adapters scoped to the provided host object', () => {
