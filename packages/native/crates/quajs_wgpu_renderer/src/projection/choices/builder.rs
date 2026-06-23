@@ -65,6 +65,9 @@ fn choice_command(
         label: choice.text.clone(),
         enabled: choice.enabled,
         role: "choice".to_string(),
+        background_color: "rgba(0,0,0,0.0)".to_string(),
+        text_color: "#ffffff".to_string(),
+        corner_radius: 0.0,
         intent: choice.enabled.then(|| RendererIntent {
             event: "choice/select".to_string(),
             choice_id: Some(choice.id.clone()),

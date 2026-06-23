@@ -6,6 +6,10 @@ use crate::render_graph::{
 };
 use crate::resources::ResourceId;
 
+use super::style::{
+    resolve_background_color, resolve_border_radius, resolve_font_size, resolve_line_height,
+    resolve_object_fit, resolve_text_align, resolve_text_color,
+};
 use super::types::{
     UiIntentProjection, UiOverlayProjection, UiOverlaySurfaceProjection, UiSurfaceNodeKind,
     UiSurfaceNodeProjection, UiSurfaceNodeRect,
@@ -64,8 +68,8 @@ fn surface_node_command(
         )
         .params(DrawCommandParams::Panel(PanelDrawParams {
             role: "ui-box".to_string(),
-            corner_radius: 0.0,
-            fill_color: "rgba(0,0,0,0.0)".to_string(),
+            corner_radius: resolve_border_radius(&node.style, 0.0),
+            fill_color: resolve_background_color(&node.style, "rgba(0,0,0,0.0)"),
         })),
         UiSurfaceNodeKind::Button => DrawCommand::new(
             command_id,
@@ -78,6 +82,9 @@ fn surface_node_command(
             label: node.text.clone().unwrap_or_default(),
             enabled: node.intent.is_some(),
             role: "ui-button".to_string(),
+            background_color: resolve_background_color(&node.style, "rgba(0,0,0,0.0)"),
+            text_color: resolve_text_color(&node.style, "#ffffff"),
+            corner_radius: resolve_border_radius(&node.style, 0.0),
             intent: node
                 .intent
                 .as_ref()
@@ -91,9 +98,10 @@ fn surface_node_command(
         )
         .params(DrawCommandParams::Text(TextDrawParams {
             text: node.text.clone().unwrap_or_default(),
-            font_size: 28.0,
-            line_height: 36.0,
-            align: TextAlign::Left,
+            font_size: resolve_font_size(&node.style, 28.0),
+            line_height: resolve_line_height(&node.style, 36.0),
+            align: resolve_text_align(&node.style, TextAlign::Left),
+            color: resolve_text_color(&node.style, "#ffffff"),
             role: "ui-text".to_string(),
         })),
         UiSurfaceNodeKind::Image => {
@@ -111,7 +119,7 @@ fn surface_node_command(
                 asset_name: image
                     .map(|image| image.asset_name.clone())
                     .unwrap_or_default(),
-                fit: MediaFit::Contain,
+                fit: resolve_object_fit(&node.style, MediaFit::Contain),
                 origin: MediaOrigin::default(),
                 source: bounds,
             }));
