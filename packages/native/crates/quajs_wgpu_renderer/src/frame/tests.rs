@@ -25,6 +25,8 @@ fn prepares_graph_summary_and_resource_plan_for_view() {
         1
     );
     assert_eq!(frame.summary.by_plane[&RenderPlane::Safe].command_count, 3);
+    assert_eq!(frame.passes.passes.len(), 3);
+    assert_eq!(frame.passes.command_count, frame.summary.command_count);
     assert_eq!(frame.resources.requests.len(), 2);
     assert_eq!(frame.resources.by_kind[&NativeResourceKind::Texture], 2);
     assert!(frame

@@ -1,5 +1,5 @@
 use crate::input::RendererIntentHit;
-use crate::render_graph::{RenderGraph, RenderGraphSummary};
+use crate::render_graph::{RenderGraph, RenderGraphSummary, RenderPassPlan};
 use crate::resources::RenderResourcePlan;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -7,6 +7,7 @@ pub struct PreparedNativeFrame {
     pub graph: RenderGraph,
     pub summary: RenderGraphSummary,
     pub resources: RenderResourcePlan,
+    pub passes: RenderPassPlan,
 }
 
 impl PreparedNativeFrame {

@@ -1,4 +1,5 @@
 use crate::projection::view::{build_view_render_graph, ViewProjection};
+use crate::render_graph::plan_render_passes;
 use crate::resources::plan_render_graph_resources;
 use crate::stage_layout::ResolvedStageLayout;
 
@@ -11,10 +12,12 @@ pub fn prepare_native_frame(
     let graph = build_view_render_graph(layout, view);
     let summary = graph.summary();
     let resources = plan_render_graph_resources(&graph);
+    let passes = plan_render_passes(&graph);
 
     PreparedNativeFrame {
         graph,
         summary,
         resources,
+        passes,
     }
 }

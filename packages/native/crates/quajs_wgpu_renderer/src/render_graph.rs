@@ -1,12 +1,14 @@
 pub mod batch;
 pub mod command;
 pub mod graph;
+pub mod pass;
 pub mod style;
 pub mod summary;
 
 pub use batch::{plan_draw_batches, DrawBatch, DrawBatchKey, DrawBatchPipeline};
 pub use command::{DrawCommand, DrawCommandKind, LogicalRect, RenderPlane};
 pub use graph::RenderGraph;
+pub use pass::{plan_render_passes, RenderPass, RenderPassPlan, RenderViewport};
 pub use style::{
     CharacterAnchor, CharacterDrawParams, DrawCommandParams, ImageDrawParams, MediaFit,
     MediaOrigin, PanelDrawParams, RendererIntent, TextAlign, TextDrawParams, UiButtonDrawParams,
