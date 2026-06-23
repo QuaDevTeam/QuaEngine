@@ -23,7 +23,7 @@ function createHostInfo(overrides: Partial<QuaNativeHostInfo['renderer']> = {}):
           target: 'native',
           version: '1.0.0',
           ownerPackage: '@quajs/native-renderer',
-          projectionKeys: ['ui.overlays'],
+          projectionKeys: ['view.ui.overlays'],
           fallback: 'reject-package',
         },
         {
@@ -33,6 +33,15 @@ function createHostInfo(overrides: Partial<QuaNativeHostInfo['renderer']> = {}):
           ownerPackage: '@quajs/native-renderer',
           projectionKeys: ['background', 'characters'],
           fallback: 'render-empty',
+        },
+        {
+          id: 'native-wgpu.video@1',
+          target: 'native',
+          version: '1.0.0',
+          ownerPackage: '@quajs/native-renderer',
+          projectionKeys: ['background.video'],
+          assetKinds: ['video', 'images'],
+          fallback: 'warn-once',
         },
       ],
       ...overrides,
@@ -53,7 +62,11 @@ describe('checkNativeCompatibility', () => {
       compatibility: {
         packageName: '@quajs/native-renderer',
         versionRange: '^0.1.0',
-        capabilities: ['native-wgpu.ui.surface@1', 'native-wgpu.image@1'],
+        capabilities: [
+          'native-wgpu.ui.surface@1',
+          'native-wgpu.image@1',
+          'native-wgpu.video@1',
+        ],
         nativeCode: false,
       },
     })
@@ -85,7 +98,7 @@ describe('checkNativeCompatibility', () => {
     const result = checkNativeCompatibility({
       hostInfo: createHostInfo(),
       compatibility: {
-        capabilities: ['native-wgpu.video@1'],
+        capabilities: ['native-wgpu.audio@1'],
         nativeCode: false,
       },
     })
@@ -95,7 +108,7 @@ describe('checkNativeCompatibility', () => {
       expect.objectContaining({
         code: 'NATIVE_REQUIRED_CAPABILITY_MISSING',
         severity: 'error',
-        required: 'native-wgpu.video@1',
+        required: 'native-wgpu.audio@1',
       }),
     ])
   })
@@ -104,7 +117,7 @@ describe('checkNativeCompatibility', () => {
     const result = checkNativeCompatibility({
       hostInfo: createHostInfo(),
       compatibility: {
-        optionalCapabilities: ['native-wgpu.filters@1'],
+        optionalCapabilities: ['native-wgpu.audio@1'],
         nativeCode: false,
       },
     })
@@ -114,7 +127,7 @@ describe('checkNativeCompatibility', () => {
       expect.objectContaining({
         code: 'NATIVE_OPTIONAL_CAPABILITY_MISSING',
         severity: 'warning',
-        required: 'native-wgpu.filters@1',
+        required: 'native-wgpu.audio@1',
       }),
     ])
   })
