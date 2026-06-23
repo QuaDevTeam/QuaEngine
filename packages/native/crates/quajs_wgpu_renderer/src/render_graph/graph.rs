@@ -42,13 +42,21 @@ impl RenderGraph {
     }
 
     pub fn hit_test(&self, x: f64, y: f64) -> Option<&DrawCommand> {
-        self.commands.iter().rev().find(|command| {
-            command.interactive
-                && x >= command.bounds.x
-                && y >= command.bounds.y
-                && x <= command.bounds.x + command.bounds.width
-                && y <= command.bounds.y + command.bounds.height
-        })
+        let mut hit = None;
+
+        for command in &self.commands {
+            if command.interactive
+                && rect_contains(command.bounds, x, y)
+                && command
+                    .clip_bounds
+                    .iter()
+                    .all(|clip_bounds| rect_contains(*clip_bounds, x, y))
+            {
+                hit = Some(command);
+            }
+        }
+
+        hit
     }
 
     pub fn summary(&self) -> RenderGraphSummary {
@@ -143,4 +151,8 @@ impl RenderGraph {
                 ))
         });
     }
+}
+
+fn rect_contains(rect: super::command::LogicalRect, x: f64, y: f64) -> bool {
+    x >= rect.x && y >= rect.y && x <= rect.x + rect.width && y <= rect.y + rect.height
 }

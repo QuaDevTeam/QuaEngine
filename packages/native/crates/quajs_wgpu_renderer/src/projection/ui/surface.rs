@@ -16,6 +16,8 @@ use super::types::{
 };
 
 const SURFACE_NODE_Z_OFFSET: i32 = 10_000;
+const SCROLL_CHILD_Z_OFFSET: i32 = 1;
+const SCROLL_CLIP_END_Z_OFFSET: i32 = 1_000_000;
 
 pub fn build_ui_surface_node_commands(
     overlay: &UiOverlayProjection,
@@ -32,6 +34,7 @@ pub fn build_ui_surface_node_commands(
         overlay,
         root,
         base_z_index + SURFACE_NODE_Z_OFFSET,
+        &[],
     );
     commands
 }
@@ -41,21 +44,73 @@ fn append_surface_node_commands(
     overlay: &UiOverlayProjection,
     node: &UiSurfaceNodeProjection,
     z_base: i32,
+    clip_bounds: &[LogicalRect],
 ) {
     if !node.visible {
         return;
     }
 
-    commands.push(surface_node_command(overlay, node, z_base));
-    for child in &node.children {
-        append_surface_node_commands(commands, overlay, child, z_base);
+    if node.kind == UiSurfaceNodeKind::Scroll {
+        append_scroll_node_commands(commands, overlay, node, z_base, clip_bounds);
+        return;
     }
+
+    commands.push(surface_node_command(overlay, node, z_base, clip_bounds));
+    for child in &node.children {
+        append_surface_node_commands(commands, overlay, child, z_base, clip_bounds);
+    }
+}
+
+fn append_scroll_node_commands(
+    commands: &mut Vec<DrawCommand>,
+    overlay: &UiOverlayProjection,
+    node: &UiSurfaceNodeProjection,
+    z_base: i32,
+    clip_bounds: &[LogicalRect],
+) {
+    let bounds = node_rect(node.bounds);
+    let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
+    commands.push(surface_scroll_panel_command(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        &command_id,
+        bounds,
+    ));
+    commands.push(scroll_clip_command(
+        overlay,
+        node,
+        z_base.saturating_add(SCROLL_CHILD_Z_OFFSET),
+        clip_bounds,
+        &format!("{command_id}:clip-start"),
+        DrawCommandKind::ClipStart,
+        bounds,
+    ));
+
+    let mut child_clip_bounds = clip_bounds.to_vec();
+    child_clip_bounds.push(bounds);
+    let child_z_base = z_base.saturating_add(SCROLL_CHILD_Z_OFFSET * 2);
+    for child in &node.children {
+        append_surface_node_commands(commands, overlay, child, child_z_base, &child_clip_bounds);
+    }
+
+    commands.push(scroll_clip_command(
+        overlay,
+        node,
+        z_base.saturating_add(SCROLL_CLIP_END_Z_OFFSET),
+        clip_bounds,
+        &format!("{command_id}:clip-end"),
+        DrawCommandKind::ClipEnd,
+        bounds,
+    ));
 }
 
 fn surface_node_command(
     overlay: &UiOverlayProjection,
     node: &UiSurfaceNodeProjection,
     z_base: i32,
+    clip_bounds: &[LogicalRect],
 ) -> DrawCommand {
     let bounds = node_rect(node.bounds);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
@@ -132,12 +187,58 @@ fn surface_node_command(
             }
             command
         }
+        UiSurfaceNodeKind::Scroll => unreachable!("scroll nodes are expanded before command build"),
     };
 
     command = command
         .z_index(z_base.saturating_add(node.z_index))
-        .opacity(node.opacity);
+        .opacity(node.opacity)
+        .clip_bounds(clip_bounds.iter().copied());
     command = apply_provenance(command, &overlay.provenance);
+    apply_provenance(command, &node.provenance)
+}
+
+fn surface_scroll_panel_command(
+    overlay: &UiOverlayProjection,
+    node: &UiSurfaceNodeProjection,
+    z_base: i32,
+    clip_bounds: &[LogicalRect],
+    command_id: &str,
+    bounds: LogicalRect,
+) -> DrawCommand {
+    let command = DrawCommand::new(
+        command_id,
+        RenderPlane::Screen,
+        DrawCommandKind::RoundedRect,
+        bounds,
+    )
+    .z_index(z_base.saturating_add(node.z_index))
+    .opacity(node.opacity)
+    .clip_bounds(clip_bounds.iter().copied())
+    .params(DrawCommandParams::Panel(PanelDrawParams {
+        role: "ui-scroll".to_string(),
+        corner_radius: resolve_border_radius(&node.style, 0.0),
+        fill_color: resolve_background_color(&node.style, "rgba(0,0,0,0.0)"),
+    }));
+
+    let command = apply_provenance(command, &overlay.provenance);
+    apply_provenance(command, &node.provenance)
+}
+
+fn scroll_clip_command(
+    overlay: &UiOverlayProjection,
+    node: &UiSurfaceNodeProjection,
+    z_index: i32,
+    clip_bounds: &[LogicalRect],
+    command_id: &str,
+    kind: DrawCommandKind,
+    bounds: LogicalRect,
+) -> DrawCommand {
+    let command = DrawCommand::new(command_id, RenderPlane::Screen, kind, bounds)
+        .z_index(z_index)
+        .clip_bounds(clip_bounds.iter().copied());
+
+    let command = apply_provenance(command, &overlay.provenance);
     apply_provenance(command, &node.provenance)
 }
 

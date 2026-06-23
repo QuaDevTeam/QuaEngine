@@ -85,6 +85,7 @@ pub struct DrawCommand {
     pub bounds: LogicalRect,
     pub opacity: f32,
     pub resource_ids: Vec<ResourceId>,
+    pub clip_bounds: Vec<LogicalRect>,
     pub params: DrawCommandParams,
     pub owner_package_id: Option<String>,
     pub required_package_ids: BTreeSet<String>,
@@ -107,6 +108,7 @@ impl DrawCommand {
             bounds,
             opacity: 1.0,
             resource_ids: Vec::new(),
+            clip_bounds: Vec::new(),
             params: DrawCommandParams::None,
             owner_package_id: None,
             required_package_ids: BTreeSet::new(),
@@ -137,6 +139,14 @@ impl DrawCommand {
     {
         self.resource_ids
             .extend(resource_ids.into_iter().map(Into::into));
+        self
+    }
+
+    pub fn clip_bounds<I>(mut self, clip_bounds: I) -> Self
+    where
+        I: IntoIterator<Item = LogicalRect>,
+    {
+        self.clip_bounds.extend(clip_bounds);
         self
     }
 

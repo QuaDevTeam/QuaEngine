@@ -98,6 +98,7 @@ pub enum UiSurfaceNodeKind {
     Button,
     Text,
     Image,
+    Scroll,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
