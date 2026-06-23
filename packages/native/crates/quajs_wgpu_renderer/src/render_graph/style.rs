@@ -83,6 +83,20 @@ pub struct PanelDrawParams {
     pub fill_color: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RendererIntent {
+    pub event: String,
+    pub choice_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct UiButtonDrawParams {
+    pub label: String,
+    pub enabled: bool,
+    pub role: String,
+    pub intent: Option<RendererIntent>,
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum DrawCommandParams {
     Image(ImageDrawParams),
@@ -90,6 +104,7 @@ pub enum DrawCommandParams {
     Character(CharacterDrawParams),
     Text(TextDrawParams),
     Panel(PanelDrawParams),
+    UiButton(UiButtonDrawParams),
     #[default]
     None,
 }
