@@ -7,7 +7,7 @@ pub use command::{DrawCommand, DrawCommandKind, LogicalRect, RenderPlane};
 pub use graph::RenderGraph;
 pub use style::{
     CharacterAnchor, CharacterDrawParams, DrawCommandParams, ImageDrawParams, MediaFit,
-    MediaOrigin, VideoDrawParams,
+    MediaOrigin, PanelDrawParams, TextAlign, TextDrawParams, VideoDrawParams,
 };
 pub use summary::{
     RenderGraphPackageSummary, RenderGraphResourceSummary, RenderGraphSummary, RenderPlaneSummary,

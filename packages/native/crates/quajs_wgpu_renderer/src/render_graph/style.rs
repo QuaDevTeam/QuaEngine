@@ -59,11 +59,37 @@ pub struct CharacterDrawParams {
     pub rotation_degrees: f64,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TextAlign {
+    Left,
+    Center,
+    Right,
+    Justify,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextDrawParams {
+    pub text: String,
+    pub font_size: f64,
+    pub line_height: f64,
+    pub align: TextAlign,
+    pub role: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PanelDrawParams {
+    pub role: String,
+    pub corner_radius: f64,
+    pub fill_color: String,
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum DrawCommandParams {
     Image(ImageDrawParams),
     Video(VideoDrawParams),
     Character(CharacterDrawParams),
+    Text(TextDrawParams),
+    Panel(PanelDrawParams),
     #[default]
     None,
 }
