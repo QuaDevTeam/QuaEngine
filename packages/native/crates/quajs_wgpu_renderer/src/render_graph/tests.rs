@@ -167,6 +167,32 @@ fn hit_tests_topmost_interactive_command() {
 }
 
 #[test]
+fn hit_test_respects_command_clip_bounds() {
+    let mut graph = RenderGraph::new(test_layout());
+    graph.extend([DrawCommand::new(
+        "button",
+        RenderPlane::Safe,
+        DrawCommandKind::UiSurface,
+        LogicalRect {
+            x: 40.0,
+            y: 40.0,
+            width: 160.0,
+            height: 120.0,
+        },
+    )
+    .clip_bounds([LogicalRect {
+        x: 20.0,
+        y: 20.0,
+        width: 220.0,
+        height: 80.0,
+    }])
+    .interactive(true)]);
+
+    assert_eq!(graph.hit_test(80.0, 80.0).unwrap().id, "button");
+    assert!(graph.hit_test(80.0, 130.0).is_none());
+}
+
+#[test]
 fn creates_logical_rect_from_safe_area() {
     let layout = test_layout();
     let rect = LogicalRect::from_safe_area(layout.safe_area);
