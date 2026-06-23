@@ -31,8 +31,10 @@ Web, Cocos, and native target core adapters must not be mixed:
 - Web uses Web assets/renderer/framework adapters only.
 - Cocos uses Cocos host/renderer only.
 - Native uses `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, and Rust native runtime/renderer metadata only.
+- Packaging a Web, Cocos, or native project must select exactly one target bootstrap. Target-specific renderer plugin entries and core adapters are not interchangeable between targets.
 - Use `validateTargetBootstrap` from `@quajs/native-contracts` for release/build/startup isolation checks. Treat both `missing` required target adapters and `forbidden` cross-target adapters as blockers.
 - Validate package subentries by normalized package root; for example `@quajs/renderer-web/plugins/audio` is still Web core, and must not appear in native/Cocos bundles.
+- Every packaged debug/release artifact should emit a target bundle manifest and run dependency graph checks so Web builds exclude Cocos/native core adapters, Cocos builds exclude Web/native core adapters, and native builds exclude Web/Cocos core adapters.
 
 Shared engine/game/plugin packages may be reused only when platform-neutral.
 
