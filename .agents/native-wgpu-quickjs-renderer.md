@@ -870,6 +870,8 @@ Bootstrap rules:
 - Web bootstrap installs Web assets/renderer/runtime plugins only.
 - Cocos bootstrap installs Cocos host/renderer plugins only.
 - Native bootstrap installs `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, and native renderer capability metadata only.
+- Target bootstrap validation is contract-backed by `@quajs/native-contracts`. It must report both `missing` required target core adapters and `forbidden` cross-target core adapters.
+- Bootstrap validation must normalize package subentries before checking isolation. For example `@quajs/renderer-web/plugins/audio` counts as `@quajs/renderer-web`, and `@quajs/renderer-vue/plugins/preset` counts as `@quajs/renderer-vue`.
 - Runtime QPKs may declare target compatibility, but they cannot force-load another target's core adapter.
 - A plugin that ships target-specific renderer entries must expose separate subentries and target metadata; package roots should not auto-import all target adapters.
 - Quack/Vite/native packaging should fail if a target bundle includes forbidden target core packages.
@@ -878,6 +880,7 @@ Validation approach:
 
 - Add dependency graph checks for release builds.
 - Add bootstrap manifest snapshots per target.
+- Add unit tests for `validateTargetBootstrap` covering exact Web/Cocos/native core sets, missing required adapters, Web framework adapter leakage, Cocos adapter leakage, native adapter leakage, and package subentry normalization.
 - Add package metadata lint that rejects Web/Cocos/native adapter imports from the wrong target entry.
 - Add runtime startup assertions that detect multiple target core adapters and fail before engine init.
 
