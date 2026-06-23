@@ -1,5 +1,5 @@
 use crate::frame::{prepare_native_frame, PreparedNativeFrame};
-use crate::input::RendererIntentHit;
+use crate::input::{PointerIntentResolution, RendererIntentHit};
 use crate::projection::view::ViewProjection;
 use crate::renderer::backend::{
     NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendResult, NativeRenderFrameRef,
@@ -8,7 +8,7 @@ use crate::renderer::metrics::NativeRendererMetrics;
 use crate::resources::{
     plan_frame_resource_sync, FrameResourceSyncPlan, NativeResourceLedger, NativeResourceRecord,
 };
-use crate::stage_layout::ResolvedStageLayout;
+use crate::stage_layout::{ResolvedStageLayout, StageClientPoint, StageClientRectOrigin};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NativeRendererFrameUpdate {
@@ -72,6 +72,16 @@ impl NativeRendererState {
         self.frame
             .as_ref()
             .and_then(|frame| frame.hit_intent(logical_x, logical_y))
+    }
+
+    pub fn pointer_intent(
+        &self,
+        point: StageClientPoint,
+        container_rect: StageClientRectOrigin,
+    ) -> Option<PointerIntentResolution> {
+        self.frame
+            .as_ref()
+            .map(|frame| frame.pointer_intent(point, container_rect))
     }
 
     pub fn submit_latest_frame<B>(&self, backend: &mut B) -> NativeRenderBackendResult

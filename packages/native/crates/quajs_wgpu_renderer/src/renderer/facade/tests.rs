@@ -10,7 +10,8 @@ use crate::renderer::{
     NullNativeRenderBackend,
 };
 use crate::stage_layout::{
-    resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
+    resolve_stage_layout, stage_logical_to_client_point, ResolvedStageLayout, StageClientPoint,
+    StageClientRectOrigin, StageContainerInput, StageLogicalPoint, ViewLayoutInput,
     ViewLayoutOrientation,
 };
 
@@ -79,6 +80,59 @@ fn exposes_hit_intents_from_latest_frame() {
 
     assert_eq!(hit.command_id, "choice:stay");
     assert_eq!(hit.intent.choice_id.as_deref(), Some("stay"));
+}
+
+#[test]
+fn exposes_pointer_intents_from_latest_frame() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    renderer
+        .prepare_and_render(test_layout(), &view_with_background_and_choice())
+        .unwrap();
+    let choice = renderer
+        .state()
+        .frame()
+        .unwrap()
+        .graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "choice:stay")
+        .unwrap();
+    let logical = StageLogicalPoint {
+        x: choice.bounds.x + choice.bounds.width / 2.0,
+        y: choice.bounds.y + choice.bounds.height / 2.0,
+    };
+    let origin = StageClientRectOrigin {
+        left: 64.0,
+        top: 32.0,
+    };
+    let client = stage_logical_to_client_point(
+        &renderer.state().frame().unwrap().graph.layout,
+        logical,
+        origin,
+    );
+
+    let resolution = renderer.pointer_intent(client, origin).unwrap();
+
+    assert!(resolution.point.inside_viewport);
+    assert!(resolution.point.inside_stage);
+    let hit = resolution.intent.unwrap();
+    assert_eq!(hit.command_id, "choice:stay");
+    assert_eq!(hit.intent.choice_id.as_deref(), Some("stay"));
+}
+
+#[test]
+fn pointer_intent_returns_none_without_prepared_frame() {
+    let renderer = NativeRenderer::new(RecordingBackend::default());
+
+    let resolution = renderer.pointer_intent(
+        StageClientPoint {
+            client_x: 100.0,
+            client_y: 120.0,
+        },
+        StageClientRectOrigin::default(),
+    );
+
+    assert!(resolution.is_none());
 }
 
 #[test]
