@@ -2,8 +2,14 @@ use crate::frame::PreparedNativeFrame;
 use crate::resources::NativeResourceLedger;
 
 pub mod null;
+#[cfg(feature = "wgpu-backend")]
+pub mod wgpu;
 
 pub use null::{NullNativeRenderBackend, NullNativeRenderBackendDiagnostics};
+#[cfg(feature = "wgpu-backend")]
+pub use wgpu::{
+    WgpuNativeRenderBackend, WgpuNativeRenderBackendConfig, WgpuNativeRenderBackendDiagnostics,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NativeRenderBackendErrorKind {

@@ -7,6 +7,10 @@ pub use backend::{
     NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
     NullNativeRenderBackend, NullNativeRenderBackendDiagnostics,
 };
+#[cfg(feature = "wgpu-backend")]
+pub use backend::{
+    WgpuNativeRenderBackend, WgpuNativeRenderBackendConfig, WgpuNativeRenderBackendDiagnostics,
+};
 pub use facade::{NativeRenderer, NativeRendererFrameResult};
 pub use state::{NativeRendererFrameUpdate, NativeRendererState};
 

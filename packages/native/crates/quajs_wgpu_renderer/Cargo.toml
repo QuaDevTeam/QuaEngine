@@ -5,5 +5,9 @@ license.workspace = true
 repository.workspace = true
 version.workspace = true
 
+[features]
+default = []
+wgpu-backend = []
+
 [dependencies]
 quajs_native_runtime = { path = "../quajs_native_runtime" }
