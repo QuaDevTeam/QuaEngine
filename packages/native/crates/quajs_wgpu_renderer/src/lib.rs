@@ -1,4 +1,5 @@
 pub mod capabilities;
+pub mod input;
 pub mod projection;
 pub mod render_graph;
 pub mod resources;
