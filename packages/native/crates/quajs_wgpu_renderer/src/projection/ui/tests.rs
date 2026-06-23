@@ -303,6 +303,76 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
 }
 
 #[test]
+fn expands_backdrop_surface_nodes_to_intent_panels() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/dialog.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "backdrop",
+                    UiSurfaceNodeKind::Backdrop,
+                    rect(0.0, 0.0, 1920.0, 1080.0),
+                )
+                .with_intent(UiIntentProjection::new("close"))
+                .with_style(UiSurfaceResolvedStyle {
+                    background_color: Some("rgba(0,0,0,0.64)".to_string()),
+                    ..Default::default()
+                }),
+            ),
+        ),
+        ..UiOverlayProjection::new("dialog")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let command = &commands[1];
+
+    assert_eq!(command.id, "ui:dialog:backdrop");
+    assert_eq!(command.kind, DrawCommandKind::RoundedRect);
+    assert!(command.interactive);
+    match &command.params {
+        DrawCommandParams::Panel(params) => {
+            assert_eq!(params.role, "ui-backdrop");
+            assert_eq!(params.fill_color, "rgba(0,0,0,0.64)");
+            assert_eq!(params.corner_radius, 0.0);
+            let intent = params.intent.as_ref().unwrap();
+            assert_eq!(intent.event, "ui/intent");
+            assert_eq!(intent.element_id.as_deref(), Some("dialog:backdrop"));
+            assert_eq!(intent.action.as_deref(), Some("close"));
+        }
+        _ => panic!("expected backdrop panel params"),
+    }
+}
+
+#[test]
+fn backdrop_surface_intent_resolves_from_graph() {
+    let mut graph = RenderGraph::new(test_layout());
+    append_ui_commands(
+        &mut graph,
+        &UiProjection::new(vec![UiOverlayProjection {
+            interactive: Some(false),
+            surface: Some(
+                UiOverlaySurfaceProjection::new("ui/dialog.qui").with_root(
+                    UiSurfaceNodeProjection::new(
+                        "backdrop",
+                        UiSurfaceNodeKind::Backdrop,
+                        rect(0.0, 0.0, 1920.0, 1080.0),
+                    )
+                    .with_intent(UiIntentProjection::new("close")),
+                ),
+            ),
+            ..UiOverlayProjection::new("dialog")
+        }]),
+    );
+
+    let hit = resolve_renderer_intent_at(&graph, 120.0, 96.0).unwrap();
+
+    assert_eq!(hit.command_id, "ui:dialog:backdrop");
+    assert_eq!(hit.intent.event, "ui/intent");
+    assert_eq!(hit.intent.element_id.as_deref(), Some("dialog:backdrop"));
+    assert_eq!(hit.intent.action.as_deref(), Some("close"));
+}
+
+#[test]
 fn expands_scroll_surface_nodes_to_clip_commands() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {

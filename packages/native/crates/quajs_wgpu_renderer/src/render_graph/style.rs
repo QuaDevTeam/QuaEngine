@@ -82,6 +82,7 @@ pub struct PanelDrawParams {
     pub role: String,
     pub corner_radius: f64,
     pub fill_color: String,
+    pub intent: Option<RendererIntent>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

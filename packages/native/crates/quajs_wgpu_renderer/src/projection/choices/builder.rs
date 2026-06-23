@@ -33,6 +33,7 @@ pub fn build_choice_commands(
             role: "choices-panel".to_string(),
             corner_radius: 12.0,
             fill_color: "rgba(0,0,0,0.0)".to_string(),
+            intent: None,
         })),
         &choices.provenance,
     )];
