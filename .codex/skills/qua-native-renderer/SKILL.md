@@ -34,7 +34,9 @@ Web, Cocos, and native target core adapters must not be mixed:
 - Packaging a Web, Cocos, or native project must select exactly one target bootstrap. Target-specific renderer plugin entries and core adapters are not interchangeable between targets.
 - Use `validateTargetBootstrap` from `@quajs/native-contracts` for release/build/startup isolation checks. Treat both `missing` required target adapters and `forbidden` cross-target adapters as blockers.
 - Validate package subentries by normalized package root; for example `@quajs/renderer-web/plugins/audio` is still Web core, and must not appear in native/Cocos bundles.
+- Multi-target plugin packages may declare Web, Cocos, and native entries in source metadata, but packaging must include only the active target entry and reject accidental imports of inactive target entries.
 - Every packaged debug/release artifact should emit a target bundle manifest and run dependency graph checks so Web builds exclude Cocos/native core adapters, Cocos builds exclude Web/native core adapters, and native builds exclude Web/Cocos core adapters.
+- Runtime startup should assert exactly one target adapter set registered with the engine, so hand-built bundles cannot mix Web, Cocos, and native core plugins.
 
 Shared engine/game/plugin packages may be reused only when platform-neutral.
 
@@ -63,5 +65,7 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Do assets/store adapters preserve core contracts without Web/Node assumptions?
 - Are Web/Cocos/native target core adapters isolated?
 - Do bootstrap tests cover Web, Cocos, and native core package sets without cross-target leakage?
+- Do multi-target plugin fixtures prove only the active Web/Cocos/native renderer entry is bundled?
+- Does runtime startup fail when more than one target core adapter set is registered?
 - Are runtime package native-code payloads rejected at build time and runtime?
 - Are native renderer transient resources tracked in the package-aware resource ledger, including CPU/GPU bytes, dependencies, unload blockers, and cleanup paths?
