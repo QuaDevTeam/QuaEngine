@@ -9,7 +9,10 @@ use crate::renderer::{
     NativeRenderBackend, NativeRenderBackendErrorKind, NativeRenderBackendResult,
     NativeRenderFrameRef, NativeRenderSubmission,
 };
-use crate::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
+use crate::resources::{
+    NativeResourceKind, NativeResourceRecord, PackageUnloadBlockerReason, ResourceBudget,
+    ResourceBudgetViolationCode, ResourceId,
+};
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
     ViewLayoutOrientation,
@@ -79,6 +82,100 @@ fn preserves_resource_memory_when_metadata_refreshes() {
     assert_eq!(record.memory.cpu_bytes, 128);
     assert_eq!(record.memory.gpu_bytes, 4096);
     assert_eq!(record.label.as_deref(), Some("decoded background"));
+}
+
+#[test]
+fn check_resource_budget_reports_ledger_violations() {
+    let mut state = NativeRendererState::new();
+    state.resources_mut().insert(
+        NativeResourceRecord::new("texture", NativeResourceKind::Texture)
+            .owned_by("base")
+            .memory(10, 90),
+    );
+    state.resources_mut().insert(
+        NativeResourceRecord::new("voice", NativeResourceKind::AudioBuffer)
+            .owned_by("runtime.voice")
+            .memory(50, 0),
+    );
+
+    let violations = state.check_resource_budget(&ResourceBudget {
+        max_cpu_bytes: Some(40),
+        max_gpu_bytes: Some(80),
+        max_total_bytes: Some(120),
+        max_resource_count: Some(1),
+    });
+    let codes: Vec<_> = violations.iter().map(|violation| violation.code).collect();
+
+    assert_eq!(
+        codes,
+        vec![
+            ResourceBudgetViolationCode::CpuBytesExceeded,
+            ResourceBudgetViolationCode::GpuBytesExceeded,
+            ResourceBudgetViolationCode::TotalBytesExceeded,
+            ResourceBudgetViolationCode::ResourceCountExceeded,
+        ]
+    );
+}
+
+#[test]
+fn package_unload_plan_blocks_active_frame_resources() {
+    let mut state = NativeRendererState::new();
+    state.prepare_frame(test_layout(), &view_with_background_and_choice());
+
+    let plan = state.plan_package_unload("base");
+
+    assert!(!plan.can_unload());
+    assert!(plan.releasable.is_empty());
+    assert_eq!(plan.releasable_memory.total_bytes(), 0);
+    assert_eq!(plan.blocked.len(), 1);
+    assert_eq!(
+        plan.blocked[0].resource_id,
+        ResourceId::from("images:bg/school.png")
+    );
+    assert_eq!(
+        plan.blocked[0].reason,
+        PackageUnloadBlockerReason::ActiveFrameReference
+    );
+    assert!(state.resources().get("images:bg/school.png").is_some());
+}
+
+#[test]
+fn release_package_resources_returns_blocked_plan_without_releasing_active_frame_resources() {
+    let mut state = NativeRendererState::new();
+    state.prepare_frame(test_layout(), &view_with_background_and_choice());
+
+    let release = state.release_package_resources("base");
+
+    assert_eq!(release.revision, 1);
+    assert!(!release.plan.can_unload());
+    assert!(release.released_resources.is_empty());
+    assert_eq!(state.revision(), 1);
+    assert!(state.resources().get("images:bg/school.png").is_some());
+}
+
+#[test]
+fn release_package_resources_releases_inactive_package_resources() {
+    let mut state = NativeRendererState::new();
+    state.resources_mut().insert(
+        NativeResourceRecord::new("runtime:atlas", NativeResourceKind::GlyphAtlas)
+            .owned_by("runtime.ui")
+            .memory(512, 2048),
+    );
+
+    let release = state.release_package_resources("runtime.ui");
+
+    assert_eq!(release.revision, 1);
+    assert!(release.plan.can_unload());
+    assert_eq!(
+        release.plan.releasable,
+        vec![ResourceId::from("runtime:atlas")]
+    );
+    assert_eq!(release.released_resources.len(), 1);
+    assert_eq!(
+        release.released_resources[0].id,
+        ResourceId::from("runtime:atlas")
+    );
+    assert!(state.resources().get("runtime:atlas").is_none());
 }
 
 #[test]
