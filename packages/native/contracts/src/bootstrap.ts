@@ -89,6 +89,38 @@ export interface ValidateTargetBootstrapOptions {
   requireCoreAdapters?: boolean
 }
 
+export interface TargetBootstrapRegistration {
+  target: QuaTargetBootstrap
+  presentCoreAdapters: string[]
+  missingCoreAdapters: string[]
+  complete: boolean
+}
+
+export type ExclusiveTargetBootstrapDiagnosticCode
+  = | 'TARGET_BOOTSTRAP_NONE'
+    | 'TARGET_BOOTSTRAP_MIXED'
+    | 'TARGET_BOOTSTRAP_UNEXPECTED'
+
+export interface ExclusiveTargetBootstrapDiagnostic {
+  code: ExclusiveTargetBootstrapDiagnosticCode
+  targets: QuaTargetBootstrap[]
+  expectedTarget?: QuaTargetBootstrap
+  packageNames: string[]
+  message: string
+}
+
+export interface ExclusiveTargetBootstrapValidationResult {
+  ok: boolean
+  selectedTargets: QuaTargetBootstrap[]
+  registrations: TargetBootstrapRegistration[]
+  diagnostics: ExclusiveTargetBootstrapDiagnostic[]
+  targetValidation?: TargetBootstrapValidationResult
+}
+
+export interface ValidateExclusiveTargetBootstrapOptions extends ValidateTargetBootstrapOptions {
+  expectedTarget?: QuaTargetBootstrap
+}
+
 export function validateTargetBootstrap(
   target: QuaTargetBootstrap,
   packageNames: readonly string[],
@@ -123,6 +155,68 @@ export function validateTargetBootstrap(
   }
 }
 
+export function validateExclusiveTargetBootstrap(
+  packageNames: readonly string[],
+  options: ValidateExclusiveTargetBootstrapOptions = {},
+): ExclusiveTargetBootstrapValidationResult {
+  const packageNameSet = new Set(packageNames.map(normalizePackageSpecifier))
+  const registrations = Object.values(TARGET_BOOTSTRAP_MANIFESTS)
+    .map(manifest => createTargetBootstrapRegistration(manifest, packageNameSet))
+  const selectedRegistrations = registrations.filter(registration => registration.presentCoreAdapters.length > 0)
+  const selectedTargets = selectedRegistrations.map(registration => registration.target)
+  const diagnostics: ExclusiveTargetBootstrapDiagnostic[] = []
+  const selectedCoreAdapters = selectedRegistrations.flatMap(registration => registration.presentCoreAdapters)
+
+  if (selectedTargets.length === 0) {
+    diagnostics.push({
+      code: 'TARGET_BOOTSTRAP_NONE',
+      targets: [],
+      expectedTarget: options.expectedTarget,
+      packageNames: [],
+      message: options.expectedTarget
+        ? `Target "${options.expectedTarget}" bootstrap is not registered by any core adapter.`
+        : 'No Web, Cocos, or native target bootstrap core adapter is registered.',
+    })
+  }
+  else if (selectedTargets.length > 1) {
+    diagnostics.push({
+      code: 'TARGET_BOOTSTRAP_MIXED',
+      targets: selectedTargets,
+      expectedTarget: options.expectedTarget,
+      packageNames: selectedCoreAdapters,
+      message: `Package output mixes target bootstrap core adapters for ${selectedTargets.join(', ')}.`,
+    })
+  }
+
+  if (
+    options.expectedTarget
+    && selectedTargets.length === 1
+    && selectedTargets[0] !== options.expectedTarget
+  ) {
+    diagnostics.push({
+      code: 'TARGET_BOOTSTRAP_UNEXPECTED',
+      targets: selectedTargets,
+      expectedTarget: options.expectedTarget,
+      packageNames: selectedCoreAdapters,
+      message: `Expected target "${options.expectedTarget}" bootstrap, but found "${selectedTargets[0]}".`,
+    })
+  }
+
+  const targetToValidate = options.expectedTarget
+    || (selectedTargets.length === 1 ? selectedTargets[0] : undefined)
+  const targetValidation = targetToValidate
+    ? validateTargetBootstrap(targetToValidate, packageNames, options)
+    : undefined
+
+  return {
+    ok: diagnostics.length === 0 && (targetValidation?.ok ?? true),
+    selectedTargets,
+    registrations,
+    diagnostics,
+    targetValidation,
+  }
+}
+
 export function normalizePackageSpecifier(specifier: string): string {
   if (!specifier.startsWith('@')) {
     const pathRoot = specifier.split('/')[0] || specifier
@@ -130,4 +224,18 @@ export function normalizePackageSpecifier(specifier: string): string {
   }
   const [scope, packageName] = specifier.split('/')
   return scope && packageName ? `${scope}/${packageName}` : specifier
+}
+
+function createTargetBootstrapRegistration(
+  manifest: TargetBootstrapManifest,
+  packageNameSet: ReadonlySet<string>,
+): TargetBootstrapRegistration {
+  const presentCoreAdapters = manifest.coreAdapters.filter(packageName => packageNameSet.has(packageName))
+  const missingCoreAdapters = manifest.coreAdapters.filter(packageName => !packageNameSet.has(packageName))
+  return {
+    target: manifest.target,
+    presentCoreAdapters,
+    missingCoreAdapters,
+    complete: missingCoreAdapters.length === 0,
+  }
 }

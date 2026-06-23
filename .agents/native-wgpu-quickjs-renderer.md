@@ -277,6 +277,8 @@ interface TargetPackageRoleManifest {
 Implementation rules:
 
 - `@quajs/native-contracts` should own the shared `TargetBootstrapManifest` schema and validation helpers.
+- `validateExclusiveTargetBootstrap` should assert that a packaged dependency set registers exactly one Web, Cocos, or native target bootstrap before target-specific validation runs.
+- `validateTargetBootstrap` should validate the active target's required and forbidden core adapter roots after the exclusive bootstrap check selects or confirms the target.
 - Target isolation has three separate layers and all three must be validated: application bootstrap core adapters, target-specific renderer/plugin entries, and Runtime QPK renderer compatibility metadata. Passing one layer must not imply the others are safe.
 - `TargetPackageRoleManifest` should classify known Qua package roots and third-party declared target entries. Shared runtime packages may appear in every target only when they do not import target adapters.
 - Quack packaging should emit one bootstrap manifest per build target and fail if zero or multiple target bootstraps are selected.
@@ -954,7 +956,7 @@ Bootstrap rules:
 - Web bootstrap installs Web assets/renderer/runtime plugins only.
 - Cocos bootstrap installs Cocos host/renderer plugins only.
 - Native bootstrap installs `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, and native renderer capability metadata only.
-- Target bootstrap validation is contract-backed by `@quajs/native-contracts`. It must report both `missing` required target core adapters and `forbidden` cross-target core adapters.
+- Target bootstrap validation is contract-backed by `@quajs/native-contracts`. `validateExclusiveTargetBootstrap` must fail when zero or multiple target core adapter sets are registered, and `validateTargetBootstrap` must report both `missing` required target core adapters and `forbidden` cross-target core adapters for the active target.
 - Bootstrap validation must normalize package subentries before checking isolation. For example `@quajs/renderer-web/plugins/audio` counts as `@quajs/renderer-web`, and `@quajs/renderer-vue/plugins/preset` counts as `@quajs/renderer-vue`.
 - Runtime QPKs may declare target compatibility, but they cannot force-load another target's core adapter.
 - A plugin that ships target-specific renderer entries must expose separate subentries and target metadata; package roots should not auto-import all target adapters.
@@ -965,10 +967,11 @@ Validation approach:
 - Add dependency graph checks for release builds.
 - Add bootstrap manifest snapshots per target.
 - Add unit tests for `validateTargetBootstrap` covering exact Web/Cocos/native core sets, missing required adapters, Web framework adapter leakage, Cocos adapter leakage, native adapter leakage, and package subentry normalization.
+- Add unit tests for `validateExclusiveTargetBootstrap` covering exactly one selected target, no selected target, mixed Web/Cocos/native target core adapters, and requested-target mismatches.
 - Add package metadata lint that rejects Web/Cocos/native adapter imports from the wrong target entry.
 - Add runtime startup assertions that detect multiple target core adapters and fail before engine init.
 - Add Quack/project build tests for `--target web`, `--target cocos`, and `--target native` that inspect emitted dependency manifests and fail if any forbidden target core adapter is present.
-- Emit a target bundle manifest for every debug and release artifact with `target`, `profile`, `app.version`, `app.bundleId`, selected core adapters, renderer package/version, native capability hash when applicable, and included QPK ids. Release promotion must compare this manifest against `validateTargetBootstrap`.
+- Emit a target bundle manifest for every debug and release artifact with `target`, `profile`, `app.version`, `app.bundleId`, selected core adapters, renderer package/version, native capability hash when applicable, and included QPK ids. Release promotion must compare this manifest against `validateExclusiveTargetBootstrap` and `validateTargetBootstrap`.
 
 ### Third-Party Plugin Compatibility Policy
 
@@ -2151,7 +2154,7 @@ Native target validation must:
 - Compile QUI AST and QSS IR through `@quajs/native-ui-compiler`.
 - Include only native target core adapters: `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, native contracts, and Rust native runtime/renderer metadata.
 - Reject Web/Cocos target core packages in native bundles, including `@quajs/assets-web`, `@quajs/renderer-web`, Web framework adapters, `@quajs/cocos-host`, and `@quajs/renderer-cocos`.
-- Reuse the shared target bootstrap isolation validator so Web and Cocos packaging also reject native core adapters and each other's renderer/host adapters.
+- Reuse the shared exclusive target bootstrap and active-target validators so Web and Cocos packaging also reject native core adapters and each other's renderer/host adapters.
 - Emit a native `TargetBootstrapManifest` containing required, allowed, and forbidden target core adapter roots.
 - Reject forbidden native-code payloads at build time.
 - Emit native UI manifest metadata and asset provenance.
