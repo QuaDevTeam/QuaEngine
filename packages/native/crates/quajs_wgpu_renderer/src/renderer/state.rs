@@ -1,5 +1,8 @@
 use crate::frame::{prepare_native_frame, PreparedNativeFrame};
-use crate::input::{PointerIntentResolution, RendererIntentHit};
+use crate::input::{
+    resolve_pointer_event_with_interaction, NativePointerEvent, NativePointerEventResolution,
+    NativePointerInteractionState, PointerIntentResolution, RendererIntentHit,
+};
 use crate::projection::view::ViewProjection;
 use crate::renderer::backend::{
     NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendResult, NativeRenderFrameRef,
@@ -22,6 +25,7 @@ pub struct NativeRendererState {
     revision: u64,
     frame: Option<PreparedNativeFrame>,
     resources: NativeResourceLedger,
+    pointer_interaction: NativePointerInteractionState,
 }
 
 impl NativeRendererState {
@@ -43,6 +47,10 @@ impl NativeRendererState {
 
     pub fn resources_mut(&mut self) -> &mut NativeResourceLedger {
         &mut self.resources
+    }
+
+    pub fn pointer_interaction(&self) -> &NativePointerInteractionState {
+        &self.pointer_interaction
     }
 
     pub fn metrics(&self) -> NativeRendererMetrics {
@@ -84,6 +92,20 @@ impl NativeRendererState {
             .map(|frame| frame.pointer_intent(point, container_rect))
     }
 
+    pub fn pointer_event(
+        &mut self,
+        event: NativePointerEvent,
+    ) -> Option<NativePointerEventResolution> {
+        self.pointer_intent(event.point, event.container_rect)
+            .map(|pointer| {
+                resolve_pointer_event_with_interaction(
+                    &mut self.pointer_interaction,
+                    event,
+                    pointer,
+                )
+            })
+    }
+
     pub fn submit_latest_frame<B>(&self, backend: &mut B) -> NativeRenderBackendResult
     where
         B: NativeRenderBackend,
@@ -103,6 +125,7 @@ impl NativeRendererState {
     pub fn clear(&mut self) -> Vec<NativeResourceRecord> {
         self.frame = None;
         self.revision = self.revision.saturating_add(1);
+        self.pointer_interaction.clear();
         self.resources.clear()
     }
 }

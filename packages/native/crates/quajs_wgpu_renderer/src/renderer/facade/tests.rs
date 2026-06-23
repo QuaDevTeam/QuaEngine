@@ -32,7 +32,7 @@ fn prepares_and_submits_frame_through_backend() {
             revision: 1,
             pass_count: 2,
             batch_count: 3,
-            command_count: 3,
+            command_count: 4,
             resource_count: 1,
         }
     );
@@ -137,12 +137,28 @@ fn pointer_intent_returns_none_without_prepared_frame() {
 }
 
 #[test]
-fn pointer_release_event_marks_intent_for_dispatch() {
+fn pointer_release_event_dispatches_after_matching_press() {
     let mut renderer = NativeRenderer::new(RecordingBackend::default());
     renderer
         .prepare_and_render(test_layout(), &view_with_background_and_choice())
         .unwrap();
     let (client, origin) = client_point_for_choice(&renderer, "choice:stay");
+
+    let press = renderer
+        .pointer_event(
+            NativePointerEvent::new(NativePointerEventPhase::Press, client, origin)
+                .with_pointer_id(42)
+                .with_button(NativePointerButton::Primary),
+        )
+        .unwrap();
+
+    assert_eq!(press.event.pointer_id, 42);
+    assert!(press.pointer.intent.is_some());
+    assert!(press.intent_to_dispatch.is_none());
+    assert_eq!(
+        renderer.state().pointer_interaction().active_press_count(),
+        1
+    );
 
     let resolution = renderer
         .pointer_event(
@@ -170,6 +186,138 @@ fn pointer_release_event_marks_intent_for_dispatch() {
             .and_then(|hit| hit.intent.choice_id.as_deref()),
         Some("stay")
     );
+    assert_eq!(
+        renderer.state().pointer_interaction().active_press_count(),
+        0
+    );
+}
+
+#[test]
+fn pointer_release_without_press_keeps_hit_metadata_without_dispatching() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    renderer
+        .prepare_and_render(test_layout(), &view_with_background_and_choice())
+        .unwrap();
+    let (client, origin) = client_point_for_choice(&renderer, "choice:stay");
+
+    let resolution = renderer
+        .pointer_event(
+            NativePointerEvent::new(NativePointerEventPhase::Release, client, origin)
+                .with_pointer_id(42)
+                .with_button(NativePointerButton::Primary),
+        )
+        .unwrap();
+
+    assert_eq!(
+        resolution
+            .pointer
+            .intent
+            .as_ref()
+            .and_then(|hit| hit.intent.choice_id.as_deref()),
+        Some("stay")
+    );
+    assert!(resolution.intent_to_dispatch.is_none());
+    assert_eq!(
+        renderer.state().pointer_interaction().active_press_count(),
+        0
+    );
+}
+
+#[test]
+fn pointer_release_on_different_target_does_not_dispatch() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    renderer
+        .prepare_and_render(test_layout(), &view_with_background_and_choice())
+        .unwrap();
+    let (stay_client, origin) = client_point_for_choice(&renderer, "choice:stay");
+    let (leave_client, _) = client_point_for_choice(&renderer, "choice:leave");
+
+    let press = renderer
+        .pointer_event(
+            NativePointerEvent::new(NativePointerEventPhase::Press, stay_client, origin)
+                .with_pointer_id(7)
+                .with_button(NativePointerButton::Primary),
+        )
+        .unwrap();
+
+    assert_eq!(
+        press
+            .pointer
+            .intent
+            .as_ref()
+            .and_then(|hit| hit.intent.choice_id.as_deref()),
+        Some("stay")
+    );
+    assert_eq!(
+        renderer.state().pointer_interaction().active_press_count(),
+        1
+    );
+
+    let release = renderer
+        .pointer_event(
+            NativePointerEvent::new(NativePointerEventPhase::Release, leave_client, origin)
+                .with_pointer_id(7)
+                .with_button(NativePointerButton::Primary),
+        )
+        .unwrap();
+
+    assert_eq!(
+        release
+            .pointer
+            .intent
+            .as_ref()
+            .and_then(|hit| hit.intent.choice_id.as_deref()),
+        Some("leave")
+    );
+    assert!(release.intent_to_dispatch.is_none());
+    assert_eq!(
+        renderer.state().pointer_interaction().active_press_count(),
+        0
+    );
+}
+
+#[test]
+fn pointer_cancel_clears_pressed_target() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    renderer
+        .prepare_and_render(test_layout(), &view_with_background_and_choice())
+        .unwrap();
+    let (client, origin) = client_point_for_choice(&renderer, "choice:stay");
+
+    renderer
+        .pointer_event(
+            NativePointerEvent::new(NativePointerEventPhase::Press, client, origin)
+                .with_pointer_id(42)
+                .with_button(NativePointerButton::Primary),
+        )
+        .unwrap();
+    assert_eq!(
+        renderer.state().pointer_interaction().active_press_count(),
+        1
+    );
+
+    let cancel = renderer
+        .pointer_event(
+            NativePointerEvent::new(NativePointerEventPhase::Cancel, client, origin)
+                .with_pointer_id(42)
+                .with_button(NativePointerButton::Primary),
+        )
+        .unwrap();
+    assert!(cancel.intent_to_dispatch.is_none());
+    assert_eq!(
+        renderer.state().pointer_interaction().active_press_count(),
+        0
+    );
+
+    let release = renderer
+        .pointer_event(
+            NativePointerEvent::new(NativePointerEventPhase::Release, client, origin)
+                .with_pointer_id(42)
+                .with_button(NativePointerButton::Primary),
+        )
+        .unwrap();
+    assert!(release.pointer.intent.is_some());
+    assert!(release.intent_to_dispatch.is_none());
 }
 
 #[test]
@@ -194,6 +342,10 @@ fn pointer_press_and_move_events_keep_hit_metadata_without_dispatching() {
         assert!(resolution.pointer.intent.is_some());
         assert!(resolution.intent_to_dispatch.is_none());
     }
+    assert_eq!(
+        renderer.state().pointer_interaction().active_press_count(),
+        1
+    );
 }
 
 #[test]
@@ -217,7 +369,7 @@ fn pointer_secondary_release_keeps_hit_metadata_without_dispatching() {
 
 #[test]
 fn pointer_event_returns_none_without_prepared_frame() {
-    let renderer = NativeRenderer::new(RecordingBackend::default());
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
 
     let resolution = renderer.pointer_event(NativePointerEvent::new(
         NativePointerEventPhase::Release,
@@ -294,10 +446,16 @@ fn view_with_background_and_choice() -> ViewProjection {
         choices: Some(ChoiceSetProjection {
             visible: true,
             provenance: provenance("runtime.choices", ["base"]),
-            choices: vec![ChoiceProjection {
-                provenance: provenance("runtime.choices", ["base"]),
-                ..ChoiceProjection::new("stay", "Stay")
-            }],
+            choices: vec![
+                ChoiceProjection {
+                    provenance: provenance("runtime.choices", ["base"]),
+                    ..ChoiceProjection::new("stay", "Stay")
+                },
+                ChoiceProjection {
+                    provenance: provenance("runtime.choices", ["base"]),
+                    ..ChoiceProjection::new("leave", "Leave")
+                },
+            ],
         }),
         ..Default::default()
     }
