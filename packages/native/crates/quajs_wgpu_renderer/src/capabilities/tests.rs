@@ -69,6 +69,10 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
 
     assert_eq!(ui.fallback, "reject-package");
     assert!(ui.intent_events.contains(&"ui/intent".to_string()));
+    assert!(ui.asset_kinds.contains(&"qui".to_string()));
+    assert!(ui.asset_kinds.contains(&"qss".to_string()));
+    assert!(ui.asset_kinds.contains(&"tokens".to_string()));
+    assert!(ui.asset_kinds.contains(&"fonts".to_string()));
     assert!(!ui.qss_features.contains(&"display".to_string()));
     assert!(!ui.qss_features.contains(&"flex-direction".to_string()));
     assert!(!ui.qss_features.contains(&"gap".to_string()));
