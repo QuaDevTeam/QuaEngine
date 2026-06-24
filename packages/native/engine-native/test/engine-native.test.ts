@@ -8,6 +8,7 @@ import {
   checkNativeTargetBootstrap,
   checkNativeRuntimePackageCompatibility,
   createNativeRuntimeAdapters,
+  createNativeRuntimeModuleLoader,
   createNativeRuntimeTrustPolicy,
   readNativeHostInfo,
 } from '../src'
@@ -92,6 +93,43 @@ function createTrustContext(overrides: Record<string, unknown> = {}) {
       },
     },
   } as any
+}
+
+function createModuleLoadContext(assetCodeByName: Record<string, string> = {}) {
+  const calls: unknown[] = []
+  const ctx = {
+    assets: {
+      async getAsset(type: string, name: string, options: unknown) {
+        calls.push({ type, name, options })
+        return {
+          data: new TextEncoder().encode(assetCodeByName[name] || `export default "${name}"`),
+        }
+      },
+    },
+    bundle: {
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      version: '1.0.0',
+      bundleVersion: 1,
+      hash: 'hash',
+      priority: 0,
+      loadedAt: 1,
+      assetCount: 1,
+      manifest: {
+        name: 'runtime.chapter.native-ui',
+        version: 1,
+        buildNumber: '100',
+        created: '2026-06-24T00:00:00.000Z',
+        assets: [],
+      },
+    },
+    package: {
+      id: 'runtime.chapter.native-ui',
+      version: '1.0.0',
+    },
+    locale: 'ja-JP',
+  }
+  return { calls, ctx: ctx as any }
 }
 
 describe('@quajs/engine-native', () => {
@@ -196,6 +234,121 @@ describe('@quajs/engine-native', () => {
       requireSignature: undefined,
       verifyPackage: expect.any(Function),
     })
+  })
+
+  it('creates a restricted native runtime module loader backed by package script assets', async () => {
+    const { calls, ctx } = createModuleLoadContext({
+      'scripts/opening.js': 'export default function opening() {}',
+      'scenes/opening.js': 'export const Scene = {}',
+      'plugins/settings.js': 'export class Plugin {}',
+      'migrations/save.js': 'export default function migrate() {}',
+    })
+    const evaluated: unknown[] = []
+    const loader = createNativeRuntimeModuleLoader({
+      evaluator(input) {
+        evaluated.push(input)
+        return { default: input.code, marker: input.kind }
+      },
+    })
+
+    await expect(loader.loadScriptModule?.({
+      id: 'opening',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/opening.js',
+    }, ctx)).resolves.toEqual({
+      default: 'export default function opening() {}',
+      marker: 'script',
+    })
+    await expect(loader.loadSceneModule?.({
+      id: 'opening-scene',
+      assetName: 'scenes/opening.js',
+    }, ctx)).resolves.toEqual(expect.objectContaining({ marker: 'scene' }))
+    await expect(loader.loadEnginePluginModule?.({
+      id: 'settings',
+      kind: 'engine',
+      assetName: 'plugins/settings.js',
+    }, ctx)).resolves.toEqual(expect.objectContaining({ marker: 'engine-plugin' }))
+    await expect(loader.loadStoreMigrationModule?.({
+      id: 'save-v2',
+      assetName: 'migrations/save.js',
+    }, ctx)).resolves.toEqual(expect.objectContaining({ marker: 'store-migration' }))
+
+    expect(calls).toEqual(expect.arrayContaining([
+      {
+        type: 'scripts',
+        name: 'scripts/opening.js',
+        options: {
+          bundleName: 'runtime.chapter.native-ui',
+          targetPackageId: 'runtime.chapter.native-ui',
+          locale: 'ja-JP',
+        },
+      },
+    ]))
+    expect(evaluated).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        assetName: 'scripts/opening.js',
+        bundleName: 'runtime.chapter.native-ui',
+        code: 'export default function opening() {}',
+        kind: 'script',
+        packageId: 'runtime.chapter.native-ui',
+      }),
+    ]))
+  })
+
+  it('wires a native module evaluator into createNativeRuntimeAdapters', async () => {
+    const { ctx } = createModuleLoadContext()
+    const adapters = createNativeRuntimeAdapters(createHost(), {
+      moduleEvaluator: input => ({ default: input.assetName }),
+    })
+
+    await expect(adapters.runtimeModuleLoader?.loadScriptModule?.({
+      id: 'opening',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/opening.js',
+    }, ctx)).resolves.toEqual({ default: 'scripts/opening.js' })
+  })
+
+  it('rejects native runtime modules without package-relative asset names', async () => {
+    const { ctx } = createModuleLoadContext()
+    const loader = createNativeRuntimeModuleLoader({
+      evaluator: () => ({ default: undefined }),
+    })
+
+    await expect(loader.loadEnginePluginModule?.({
+      id: 'bad-plugin',
+      kind: 'engine',
+      module: 'https://example.invalid/plugin.js',
+    }, ctx)).rejects.toThrow(/requires an assetName/)
+
+    await expect(loader.loadScriptModule?.({
+      id: 'escape',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: '../escape.js',
+    }, ctx)).rejects.toThrow(/package-relative script asset/)
+
+    await expect(loader.loadScriptModule?.({
+      id: 'remote',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'https://example.invalid/remote.js',
+    }, ctx)).rejects.toThrow(/package-relative script asset/)
+  })
+
+  it('rejects native runtime evaluators that do not return a module namespace object', async () => {
+    const { ctx } = createModuleLoadContext()
+    const loader = createNativeRuntimeModuleLoader({
+      evaluator: () => undefined,
+    })
+
+    await expect(loader.loadScriptModule?.({
+      id: 'opening',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/opening.js',
+    }, ctx)).rejects.toThrow(/did not evaluate to a module namespace object/)
   })
 
   it('rejects native-code runtime packages through native trust policy', async () => {
