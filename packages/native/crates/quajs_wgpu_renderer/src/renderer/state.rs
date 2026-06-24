@@ -64,6 +64,10 @@ impl NativeRendererState {
         &self.audio_backend_tracks
     }
 
+    pub(crate) fn replace_audio_backend_tracks(&mut self, tracks: AudioBackendTrackStateMap) {
+        self.audio_backend_tracks = tracks;
+    }
+
     pub fn metrics(&self) -> NativeRendererMetrics {
         NativeRendererMetrics::from_state(self.revision, self.frame.as_ref(), &self.resources)
     }

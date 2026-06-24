@@ -99,6 +99,32 @@ pub fn plan_audio_backend_commands(
     }
 }
 
+pub fn plan_audio_backend_package_teardown_commands(
+    previous_tracks: &AudioBackendTrackStateMap,
+    released_resource_ids: &BTreeSet<ResourceId>,
+) -> AudioBackendCommandPlan {
+    let mut commands = Vec::new();
+    let mut next_tracks = AudioBackendTrackStateMap::new();
+
+    for (track_id, previous) in previous_tracks {
+        if track_references_released_resource(previous, released_resource_ids) {
+            commands.push(track_command(AudioBackendCommandKind::StopTrack, previous));
+            commands.push(track_command(
+                AudioBackendCommandKind::ReleaseHandle,
+                previous,
+            ));
+        } else {
+            next_tracks.insert(track_id.clone(), previous.clone());
+        }
+    }
+
+    AudioBackendCommandPlan {
+        commands,
+        next_tracks,
+        skipped_asset_resource_ids: Vec::new(),
+    }
+}
+
 fn audio_backend_track_states(
     audio: Option<&AudioProjection>,
     assets: &NativeAssetRequestPlan,
@@ -200,6 +226,14 @@ fn track_playback_changed(
         || previous.looped != next.looped
         || (previous.volume - next.volume).abs() > f32::EPSILON
         || previous.package_candidates != next.package_candidates
+}
+
+fn track_references_released_resource(
+    track: &AudioBackendTrackState,
+    released_resource_ids: &BTreeSet<ResourceId>,
+) -> bool {
+    released_resource_ids.contains(&track.media_resource_id)
+        || released_resource_ids.contains(&track.handle_resource_id)
 }
 
 #[cfg(test)]

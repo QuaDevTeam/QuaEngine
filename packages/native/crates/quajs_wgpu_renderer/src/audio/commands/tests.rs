@@ -121,6 +121,46 @@ fn stops_and_releases_tracks_removed_from_projection() {
 }
 
 #[test]
+fn plans_package_teardown_for_tracks_that_reference_released_resources() {
+    let mut previous = AudioBackendTrackStateMap::new();
+    let mut runtime_track = track_state(
+        "bgm-main",
+        "music/opening.ogg",
+        1.0,
+        AudioTrackPlaybackState::Playing,
+    );
+    runtime_track.package_candidates = set(["runtime.audio"]);
+    let mut base_track = track_state(
+        "bgm-base",
+        "music/base.ogg",
+        0.5,
+        AudioTrackPlaybackState::Playing,
+    );
+    base_track.package_candidates = set(["base"]);
+    previous.insert(runtime_track.id.clone(), runtime_track);
+    previous.insert(base_track.id.clone(), base_track);
+
+    let plan = plan_audio_backend_package_teardown_commands(
+        &previous,
+        &set_resources(["audio:buffer:bgm:bgm:music/opening.ogg"]),
+    );
+
+    assert_eq!(
+        plan.commands
+            .iter()
+            .map(|command| (command.track_id.as_str(), command.kind.clone()))
+            .collect::<Vec<_>>(),
+        vec![
+            ("bgm-main", AudioBackendCommandKind::StopTrack),
+            ("bgm-main", AudioBackendCommandKind::ReleaseHandle),
+        ]
+    );
+    assert!(!plan.next_tracks.contains_key("bgm-main"));
+    assert!(plan.next_tracks.contains_key("bgm-base"));
+    assert!(plan.skipped_asset_resource_ids.is_empty());
+}
+
+#[test]
 fn skips_stopped_projection_tracks() {
     let mut stopped = track("bgm-main", "music/opening.ogg");
     stopped.playback_state = AudioTrackPlaybackState::Stopped;
@@ -210,4 +250,8 @@ fn provenance<const N: usize>(owner: &str, required: [&str; N]) -> PackageProven
 
 fn set<const N: usize>(items: [&str; N]) -> BTreeSet<String> {
     items.into_iter().map(ToString::to_string).collect()
+}
+
+fn set_resources<const N: usize>(items: [&str; N]) -> BTreeSet<ResourceId> {
+    items.into_iter().map(ResourceId::from).collect()
 }

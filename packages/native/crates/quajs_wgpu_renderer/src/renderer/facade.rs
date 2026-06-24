@@ -1,6 +1,6 @@
 use crate::audio::{
-    plan_audio_backend_commands, NativeAudioBackend, NativeAudioBackendError,
-    NativeAudioBackendResult, NullNativeAudioBackend,
+    plan_audio_backend_commands, plan_audio_backend_package_teardown_commands, NativeAudioBackend,
+    NativeAudioBackendError, NativeAudioBackendResult, NullNativeAudioBackend,
 };
 use crate::input::{
     NativePointerEvent, NativePointerEventResolution, PointerIntentResolution, RendererIntentHit,
@@ -263,6 +263,17 @@ where
         Ok(self.clear_with_host_cleanup())
     }
 
+    pub fn release_package_resources_and_apply_audio_teardown(
+        &mut self,
+        package_id: &str,
+    ) -> Result<NativeRendererPackageRelease, NativeAudioBackendError> {
+        let plan = self.plan_package_unload(package_id);
+        if plan.can_unload() {
+            self.apply_package_audio_teardown(&plan)?;
+        }
+        Ok(self.release_package_resources(package_id))
+    }
+
     fn apply_audio_teardown(&mut self) -> NativeAudioBackendResult {
         if self.state.audio_backend_tracks().is_empty() {
             return Ok(());
@@ -277,6 +288,32 @@ where
         if let Some(audio_backend) = &mut self.audio_backend {
             audio_backend.apply_audio_commands(&plan)?;
         }
+
+        Ok(())
+    }
+
+    fn apply_package_audio_teardown(
+        &mut self,
+        unload_plan: &PackageUnloadPlan,
+    ) -> NativeAudioBackendResult {
+        if self.state.audio_backend_tracks().is_empty() {
+            return Ok(());
+        }
+
+        let released_resource_ids = unload_plan.releasable.iter().cloned().collect();
+        let plan = plan_audio_backend_package_teardown_commands(
+            self.state.audio_backend_tracks(),
+            &released_resource_ids,
+        );
+        if plan.is_empty() {
+            return Ok(());
+        }
+
+        let next_tracks = plan.next_tracks.clone();
+        if let Some(audio_backend) = &mut self.audio_backend {
+            audio_backend.apply_audio_commands(&plan)?;
+        }
+        self.state.replace_audio_backend_tracks(next_tracks);
 
         Ok(())
     }
