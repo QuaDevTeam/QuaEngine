@@ -63,8 +63,8 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "object-fit",
             ],
             &[
-                "Box", "Backdrop", "Button", "Divider", "Fragment", "Text", "Image", "Panel",
-                "SafeArea", "Scroll", "Spacer",
+                "Box", "Backdrop", "Button", "Divider", "Fragment", "Layer", "Text", "Image",
+                "Panel", "SafeArea", "Scroll", "Spacer",
             ],
             "reject-package",
         ),
@@ -159,6 +159,7 @@ mod tests {
         assert!(ui.qui_components.contains(&"Button".to_string()));
         assert!(ui.qui_components.contains(&"Divider".to_string()));
         assert!(ui.qui_components.contains(&"Fragment".to_string()));
+        assert!(ui.qui_components.contains(&"Layer".to_string()));
         assert!(ui.qui_components.contains(&"Text".to_string()));
         assert!(ui.qui_components.contains(&"Image".to_string()));
         assert!(ui.qui_components.contains(&"Panel".to_string()));
@@ -179,6 +180,7 @@ mod tests {
         assert!(pointer.qui_components.contains(&"Panel".to_string()));
         assert!(!pointer.qui_components.contains(&"Divider".to_string()));
         assert!(!pointer.qui_components.contains(&"Fragment".to_string()));
+        assert!(!pointer.qui_components.contains(&"Layer".to_string()));
         assert!(!pointer.qui_components.contains(&"SafeArea".to_string()));
         assert!(!pointer.qui_components.contains(&"Spacer".to_string()));
         assert!(pointer.intent_events.contains(&"choice/select".to_string()));
