@@ -1,16 +1,28 @@
 use super::{
-    NativeRenderBackend, NativeRenderBackendResourceDiagnostics, NativeRenderBackendResult,
-    NativeRenderFrameRef, NativeRenderSubmission,
+    NativeRenderBackend, NativeRenderBackendResourceDiagnostics, NativeRenderBackendResourcePolicy,
+    NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct NullNativeRenderBackend {
     submissions: Vec<NativeRenderSubmission>,
+    resource_policy: NativeRenderBackendResourcePolicy,
 }
 
 impl NullNativeRenderBackend {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn with_resource_policy(resource_policy: NativeRenderBackendResourcePolicy) -> Self {
+        Self {
+            submissions: Vec::new(),
+            resource_policy,
+        }
+    }
+
+    pub fn resource_policy(&self) -> NativeRenderBackendResourcePolicy {
+        self.resource_policy
     }
 
     pub fn submissions(&self) -> &[NativeRenderSubmission] {
@@ -33,6 +45,7 @@ impl NullNativeRenderBackend {
 impl NativeRenderBackend for NullNativeRenderBackend {
     fn submit_frame(&mut self, frame: NativeRenderFrameRef<'_>) -> NativeRenderBackendResult {
         let submission = frame.submission();
+        self.resource_policy.validate_submission(&submission)?;
         self.submissions.push(submission.clone());
         Ok(submission)
     }

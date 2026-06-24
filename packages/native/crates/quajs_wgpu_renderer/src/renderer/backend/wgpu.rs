@@ -1,6 +1,6 @@
 use super::{
-    NativeRenderBackend, NativeRenderBackendResourceDiagnostics, NativeRenderBackendResult,
-    NativeRenderFrameRef, NativeRenderSubmission,
+    NativeRenderBackend, NativeRenderBackendResourceDiagnostics, NativeRenderBackendResourcePolicy,
+    NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -8,6 +8,7 @@ pub struct WgpuNativeRenderBackendConfig {
     pub adapter_name: Option<String>,
     pub surface_format: Option<String>,
     pub present_mode: WgpuPresentMode,
+    pub resource_policy: NativeRenderBackendResourcePolicy,
 }
 
 impl Default for WgpuNativeRenderBackendConfig {
@@ -16,6 +17,7 @@ impl Default for WgpuNativeRenderBackendConfig {
             adapter_name: None,
             surface_format: None,
             present_mode: WgpuPresentMode::Fifo,
+            resource_policy: NativeRenderBackendResourcePolicy::AllowMissingResources,
         }
     }
 }
@@ -65,6 +67,9 @@ impl WgpuNativeRenderBackend {
 impl NativeRenderBackend for WgpuNativeRenderBackend {
     fn submit_frame(&mut self, frame: NativeRenderFrameRef<'_>) -> NativeRenderBackendResult {
         let submission = frame.submission();
+        self.config
+            .resource_policy
+            .validate_submission(&submission)?;
         self.submissions.push(submission.clone());
         Ok(submission)
     }
