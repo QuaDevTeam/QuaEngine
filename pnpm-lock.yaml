@@ -436,6 +436,9 @@ importers:
       '@quajs/logger':
         specifier: workspace:*
         version: link:../../utils
+      '@quajs/native-contracts':
+        specifier: workspace:*
+        version: link:../../native/contracts
       '@quajs/script-compiler':
         specifier: workspace:*
         version: link:../script-compiler

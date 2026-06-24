@@ -96,6 +96,7 @@ export {
 export {
   createQuaProjectAssetTargets,
   createQuaProjectNativeArtifactPlans,
+  createQuaProjectNativeTargetBundleManifest,
   createQuaProjectWebAssets,
   createQuaProjectWebManifest,
   createQuaProjectWebRuntimeConfig,
@@ -124,6 +125,7 @@ export type {
   QuaProjectNativeArtifactPlan,
   QuaProjectNativePlatform,
   QuaProjectNativeProfile,
+  QuaProjectNativeTargetBundleManifestOptions,
   QuaProjectNativeTargetConfig,
   QuaProjectTargetsConfig,
   QuaProjectWebAsset,

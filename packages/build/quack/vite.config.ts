@@ -22,6 +22,7 @@ const externalPackages = [
   '@babel/types',
   // QuaJS packages
   '@quajs/logger',
+  '@quajs/native-contracts',
   '@quajs/quack',
   '@quajs/quack/plugins',
   '@quajs/script-compiler',
