@@ -1,6 +1,13 @@
 import type { RuntimeModuleLoader, RuntimeTrustPolicy } from '@quajs/engine'
-import type { NativeGuardDynamicBundleRecord, NativeGuardRuntimePackageManifest, QuaNativeHostApi } from '@quajs/native-contracts'
+import type {
+  NativeGuardDynamicBundleRecord,
+  NativeGuardRuntimePackageManifest,
+  QuaNativeHostApi,
+  QuaNativeHostInfo,
+  RuntimePackageNativeRendererCompatibility,
+} from '@quajs/native-contracts'
 import { assertNativeRuntimePackageGuard } from '@quajs/native-contracts'
+import { assertNativeRuntimePackageCompatibility } from './compatibility'
 import { createNativeHostQuickJsModuleEvaluator, createNativeRuntimeModuleLoader } from './runtime-module-loader'
 import type { NativeQuickJsModuleNamespaceResolver, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
 
@@ -16,6 +23,7 @@ export interface NativeRuntimeAdapters {
 
 export interface NativeRuntimeAdaptersOptions {
   allowUnsignedInDevelopment?: boolean
+  hostInfo?: QuaNativeHostInfo
   moduleEvaluator?: NativeRuntimeModuleEvaluator
   moduleNamespaceResolver?: NativeQuickJsModuleNamespaceResolver
   requireSignature?: boolean
@@ -39,16 +47,24 @@ export function createNativeRuntimeAdapters(host: QuaNativeHostApi, options: Nat
 
 export function createNativeRuntimeTrustPolicy(
   host: QuaNativeHostApi,
-  options: Pick<NativeRuntimeAdaptersOptions, 'allowUnsignedInDevelopment' | 'requireSignature'> = {},
+  options: Pick<NativeRuntimeAdaptersOptions, 'allowUnsignedInDevelopment' | 'hostInfo' | 'requireSignature'> = {},
 ): RuntimeTrustPolicy {
   return {
     allowUnsignedInDevelopment: options.allowUnsignedInDevelopment,
     requireSignature: options.requireSignature,
     async verifyPackage(ctx) {
+      const runtimePackage = ctx.package as unknown as NativeGuardRuntimePackageManifest
       assertNativeRuntimePackageGuard({
-        package: ctx.package as unknown as NativeGuardRuntimePackageManifest,
+        package: runtimePackage,
         bundle: ctx.bundle as unknown as NativeGuardDynamicBundleRecord,
       })
+      const nativeRenderer = getRuntimePackageNativeRendererCompatibility(runtimePackage)
+      if (nativeRenderer) {
+        assertNativeRuntimePackageCompatibility(options.hostInfo || await host.getHostInfo(), {
+          pluginId: runtimePackage.id,
+          nativeRenderer,
+        })
+      }
       if (!ctx.package.signature?.value)
         return true
       if (!host.verifySignature)
@@ -65,6 +81,15 @@ export function createNativeRuntimeTrustPolicy(
       })
     },
   }
+}
+
+function getRuntimePackageNativeRendererCompatibility(
+  runtimePackage: NativeGuardRuntimePackageManifest,
+): RuntimePackageNativeRendererCompatibility | undefined {
+  const metadata = runtimePackage.metadata
+  if (!metadata || typeof metadata.nativeRenderer !== 'object' || metadata.nativeRenderer === null)
+    return undefined
+  return metadata.nativeRenderer as RuntimePackageNativeRendererCompatibility
 }
 
 function decodeSignature(value: string): Uint8Array {
