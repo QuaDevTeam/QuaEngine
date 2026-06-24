@@ -69,7 +69,12 @@ impl NativeRendererState {
     }
 
     pub fn metrics(&self) -> NativeRendererMetrics {
-        NativeRendererMetrics::from_state(self.revision, self.frame.as_ref(), &self.resources)
+        NativeRendererMetrics::from_state_with_audio_backend(
+            self.revision,
+            self.frame.as_ref(),
+            &self.resources,
+            &self.audio_backend_tracks,
+        )
     }
 
     pub fn check_resource_budget(&self, budget: &ResourceBudget) -> Vec<ResourceBudgetViolation> {

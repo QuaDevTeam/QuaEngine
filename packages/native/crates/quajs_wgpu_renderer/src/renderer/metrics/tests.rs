@@ -1,4 +1,7 @@
 use super::*;
+use crate::projection::audio::{
+    AudioProjection, AudioTrackKind, AudioTrackMemoryEstimate, AudioTrackProjection,
+};
 use crate::projection::background::{
     BackgroundMode, BackgroundProjection, BackgroundVideoProjection,
 };
@@ -7,6 +10,7 @@ use crate::projection::common::PackageProvenance;
 use crate::projection::ui::{UiOverlayProjection, UiOverlaySurfaceProjection, UiProjection};
 use crate::projection::view::ViewProjection;
 use crate::render_graph::{DrawBatchPipeline, RenderPlane};
+use crate::renderer::NativeRendererState;
 use crate::resources::{NativeResourceKind, NativeResourceRecord};
 use crate::stage_layout::{
     resolve_stage_layout, StageContainerInput, ViewLayoutInput, ViewLayoutOrientation,
@@ -24,6 +28,11 @@ fn reports_empty_renderer_metrics() {
     assert_eq!(metrics.resources.memory.total_bytes(), 0);
     assert_eq!(metrics.resources.audio.resource_count, 0);
     assert_eq!(metrics.resources.audio.memory.total_bytes(), 0);
+    assert_eq!(metrics.audio_backend.active_track_count, 0);
+    assert!(metrics
+        .audio_backend
+        .active_track_count_by_package
+        .is_empty());
     assert_eq!(metrics.resources.pressure.total_count, 0);
     assert_eq!(metrics.resources.pressure.total_memory.total_bytes(), 0);
 }
@@ -297,6 +306,23 @@ fn reports_audio_resource_metrics_separately_from_total_ledger() {
     );
 }
 
+#[test]
+fn reports_audio_backend_track_metrics_from_renderer_state() {
+    let mut state = NativeRendererState::new();
+    state.prepare_frame(test_layout(), &view_with_audio());
+
+    let metrics = state.metrics();
+
+    assert_eq!(metrics.audio_backend.active_track_count, 1);
+    assert_eq!(
+        metrics.audio_backend.active_track_count_by_package["runtime.audio"],
+        1
+    );
+    assert_eq!(metrics.resources.audio.resource_count, 2);
+    assert_eq!(metrics.resources.audio.buffer_count, 1);
+    assert_eq!(metrics.resources.audio.handle_count, 1);
+}
+
 fn view_with_background_and_choice() -> ViewProjection {
     ViewProjection {
         background: Some(BackgroundProjection {
@@ -306,6 +332,26 @@ fn view_with_background_and_choice() -> ViewProjection {
         choices: Some(ChoiceSetProjection::new(vec![ChoiceProjection::new(
             "stay", "Stay",
         )])),
+        ..Default::default()
+    }
+}
+
+fn view_with_audio() -> ViewProjection {
+    ViewProjection {
+        audio: Some(AudioProjection::new(vec![AudioTrackProjection::new(
+            "bgm-main",
+            AudioTrackKind::Bgm,
+            "music/opening.ogg",
+        )
+        .memory(AudioTrackMemoryEstimate {
+            buffer_cpu_bytes: 2048,
+            stream_cpu_bytes: 0,
+            handle_cpu_bytes: 64,
+        })
+        .with_provenance(PackageProvenance {
+            content_package_id: Some("runtime.audio".to_string()),
+            required_runtime_packages: Default::default(),
+        })])),
         ..Default::default()
     }
 }
