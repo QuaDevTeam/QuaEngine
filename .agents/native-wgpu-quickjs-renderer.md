@@ -16,6 +16,7 @@ The target is "Web-renderer-comparable QuaEngine projection rendering," not brow
 - Engine/store own scene, story, save/load, choices, variables, UI overlays, settings, audio intent, and runtime package state.
 - Renderer emits user intents only through `@quajs/pipeline`.
 - Web, Cocos, and native package outputs must select exactly one target bootstrap. Their target core adapters/plugins are mutually exclusive and must not be bundled together.
+- Target core plugins are release-blocking isolation boundaries, not optional lint hints. A Web package must never carry Cocos/native core adapters, a Cocos package must never carry Web/native core adapters, and a native package must never carry Web/Cocos core adapters.
 - Runtime content remains Quack-built QPK Runtime Packages mounted through QuaAssets and activated by `RuntimeContentManager`.
 - Native renderer supports dynamic small packages, but native dynamic package payloads are restricted to QuaScript/compiled JS runtime modules and resources. Resources include images, sprites, audio, fonts, data JSON, compiled QUI AST, QSS style IR, and theme/token manifests.
 - Native dynamic packages must not contain or activate native code of any kind: no dynamic libraries, no Rust/C/C++/Objective-C/Swift/Kotlin/Java modules, no platform plugin binaries, no native scripting bridges, no WASI/native executable payloads.
@@ -233,11 +234,24 @@ Runtime split:
 
 QuaEngine packages must treat Web, Cocos, and native as three mutually exclusive target bootstraps. Shared engine/game/plugin logic may be reused, but target core adapters and target renderer entries must not be mixed in the same packaged application.
 
+Core target plugins are any package or built-in module that installs target runtime adapters, renderer controllers, host bridges, platform asset/store adapters, or target renderer plugin entries. They are different from platform-neutral engine/game plugins. A package can be multi-target in source, but every emitted app artifact has exactly one active target core plugin set.
+
 The isolation rule applies to all package outputs:
 
 - **Web project output** selects the Web bootstrap only. It may include `@quajs/assets-web`, `@quajs/renderer-web`, Web framework renderers such as Vue/React/Svelte adapters, and Web renderer plugin subentries. It must not include `@quajs/cocos-host`, `@quajs/renderer-cocos`, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, native host contracts as runtime adapters, or Rust native renderer metadata.
 - **Cocos project output** selects the Cocos bootstrap only. It may include `@quajs/cocos-host`, `@quajs/renderer-cocos`, and Cocos renderer/host plugin entries. It must not include Web renderer/framework adapters or native engine/assets/store adapters.
 - **Native project output** selects the native bootstrap only. It may include `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `@quajs/native-contracts`, built-in Rust native renderer capability metadata, and native UI compiler outputs. It must not include `@quajs/assets-web`, `@quajs/renderer-web`, Vue/React/Svelte Web adapters, `@quajs/cocos-host`, or `@quajs/renderer-cocos`.
+
+Build-time validators may use shared schema packages, but emitted runtime artifacts must be checked after bundling/tree-shaking so build-only imports do not mask leaked target core plugins. Runtime startup must repeat the exclusive-target assertion before engine init, because hand-built bundles can bypass Quack.
+
+Release-blocking checks:
+
+- `validateExclusiveTargetBootstrap` runs before packaging starts, after dependency graph resolution, after tree-shaking/bundling, and during runtime startup.
+- `validateTargetBootstrap` runs for the selected target and reports both missing required core plugins and forbidden cross-target core plugins.
+- Dependency graph checks normalize subentries to package roots, so `@quajs/renderer-web/plugins/audio`, `@quajs/renderer-vue/plugins/ui`, and `@quajs/renderer-cocos/plugins/audio` cannot hide behind subpath imports.
+- Multi-target plugin packages must expose separate `web`, `cocos`, and `native` entries. Packaging selects only the active entry and fails if source-level exports eagerly import inactive target entries.
+- Runtime QPK compatibility blocks for inactive targets are metadata only. They are ignored by the active target and must not pull executable dependencies for another target into the package graph.
+- Native dynamic QPKs may request built-in native capability ids and declarative QUI/QSS surfaces, but they cannot install a native core plugin or override Rust native renderer metadata.
 
 Target isolation should be encoded as data, not scattered across build scripts:
 
