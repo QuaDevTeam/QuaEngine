@@ -3,6 +3,11 @@ use crate::host::{
     InMemoryNativeHostApi, NativeHostApiErrorCode, NativeHostInfoBuilder, NativePlatform,
     NativeProfile,
 };
+use crate::quickjs::{
+    QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
+    QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsModuleEvaluator,
+    QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord, QuickJsSandboxLimits,
+};
 
 #[test]
 fn serializes_bridge_requests_and_responses_with_ts_field_names() {
@@ -24,6 +29,16 @@ fn serializes_bridge_requests_and_responses_with_ts_field_names() {
     assert_eq!(response_json["ok"], true);
     assert_eq!(response_json["payload"]["type"], "storageKeys");
     assert_eq!(response_json["payload"]["value"][0], "profile/save-1");
+
+    let quickjs_request = NativeHostApiRequest::EvaluateQuickJsModule(quickjs_request_for_asset(
+        "scripts/opening.js",
+    ));
+    let quickjs_json = serde_json::to_value(quickjs_request).unwrap();
+    assert_eq!(quickjs_json["method"], "evaluateQuickJsModule");
+    assert_eq!(
+        quickjs_json["params"]["module"]["assetName"],
+        "scripts/opening.js"
+    );
 }
 
 #[test]
@@ -148,6 +163,77 @@ fn dispatches_structured_errors_without_panicking() {
     );
 }
 
+#[test]
+fn dispatches_quickjs_evaluation_with_default_unsupported_runtime() {
+    let mut host = InMemoryNativeHostApi::new(host_info());
+
+    let response = dispatch_native_host_api_request(
+        &mut host,
+        NativeHostApiRequest::EvaluateQuickJsModule(quickjs_request_for_asset(
+            "scripts/opening.js",
+        )),
+    );
+
+    assert!(response.ok);
+    match response.payload.unwrap() {
+        NativeHostApiResponsePayload::QuickJsEvaluation(evaluation) => {
+            assert!(!evaluation.ok);
+            assert_eq!(
+                evaluation.error.unwrap().code,
+                QuickJsEvaluationErrorCode::UnsupportedRuntime
+            );
+        }
+        _ => panic!("expected quickjs evaluation payload"),
+    }
+}
+
+#[test]
+fn dispatches_quickjs_evaluation_through_injected_evaluator() {
+    struct TestQuickJsEvaluator;
+
+    impl QuickJsModuleEvaluator for TestQuickJsEvaluator {
+        fn evaluate_module(
+            &mut self,
+            request: &QuickJsEvaluationRequest,
+        ) -> QuickJsEvaluationResult {
+            if request.module.asset_name == "scripts/fail.js" {
+                return Err(QuickJsEvaluationError {
+                    code: QuickJsEvaluationErrorCode::EvaluationFailed,
+                    message: "test evaluation failed".to_string(),
+                    asset_name: Some(request.module.asset_name.clone()),
+                    detail: None,
+                });
+            }
+            Ok(QuickJsEvaluationResponse::success(format!(
+                "{}:{}",
+                request.module.package_id, request.module.asset_name
+            )))
+        }
+    }
+
+    let mut host = InMemoryNativeHostApi::new(host_info());
+    let mut quickjs = TestQuickJsEvaluator;
+    let response = dispatch_native_host_api_request_with_quickjs(
+        &mut host,
+        &mut quickjs,
+        NativeHostApiRequest::EvaluateQuickJsModule(quickjs_request_for_asset(
+            "scripts/opening.js",
+        )),
+    );
+
+    assert!(response.ok);
+    match response.payload.unwrap() {
+        NativeHostApiResponsePayload::QuickJsEvaluation(evaluation) => {
+            assert!(evaluation.ok);
+            assert_eq!(
+                evaluation.module_namespace_id,
+                Some("runtime.chapter.native-ui:scripts/opening.js".to_string())
+            );
+        }
+        _ => panic!("expected quickjs evaluation payload"),
+    }
+}
+
 fn host_info() -> NativeHostInfo {
     NativeHostInfoBuilder::new("Fixture", "dev.quajs.fixture")
         .app_version("1.0.0")
@@ -156,4 +242,18 @@ fn host_info() -> NativeHostInfo {
         .platform(NativePlatform::MacOs)
         .arch("arm64")
         .build()
+}
+
+fn quickjs_request_for_asset(asset_name: &str) -> QuickJsEvaluationRequest {
+    QuickJsEvaluationRequest {
+        module: QuickJsRuntimeModuleRecord {
+            asset_name: asset_name.to_string(),
+            bundle_name: "runtime.chapter.native-ui".to_string(),
+            package_id: "runtime.chapter.native-ui".to_string(),
+            kind: QuickJsRuntimeModuleKind::Script,
+            code: "export default function opening() {}".to_string(),
+            bytes: vec![1, 2, 3],
+        },
+        limits: QuickJsSandboxLimits::default(),
+    }
 }

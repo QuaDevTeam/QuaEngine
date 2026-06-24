@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createNativeHostApiFromBridge,
   createNativeHostApiRequest,
+  createNativeQuickJsEvaluationRequest,
   createNativeRendererIntent,
   createNativeSignatureVerifyWireRequest,
   nativeBytesToWire,
@@ -132,6 +133,17 @@ describe('native host contracts', () => {
           return { ok: true, payload: { type: 'hash', value: 'sha256:test' } }
         case 'verifySignature':
           return { ok: true, payload: { type: 'signatureValid', value: true } }
+        case 'evaluateQuickJsModule':
+          return {
+            ok: true,
+            payload: {
+              type: 'quickJsEvaluation',
+              value: {
+                ok: true,
+                moduleNamespaceId: `${request.params.module.packageId}:${request.params.module.assetName}`,
+              },
+            },
+          }
         case 'listMountedBundles':
           return { ok: true, payload: { type: 'mountedBundles', value: [{ name: 'base' }] } }
       }
@@ -149,12 +161,24 @@ describe('native host contracts', () => {
       signature: new Uint8Array([2]),
       algorithm: 'ed25519',
     })).resolves.toBe(true)
+    await expect(host.evaluateQuickJsModule?.(createNativeQuickJsEvaluationRequest({
+      assetName: 'scripts/opening.js',
+      bundleName: 'runtime.chapter.native-ui',
+      bytes: new Uint8Array([1, 2, 3]),
+      code: 'export default function opening() {}',
+      kind: 'script',
+      packageId: 'runtime.chapter.native-ui',
+    }))).resolves.toEqual({
+      ok: true,
+      moduleNamespaceId: 'runtime.chapter.native-ui:scripts/opening.js',
+    })
     await expect(host.listMountedBundles?.()).resolves.toEqual([{ name: 'base' }])
     host.emitRendererIntent?.(createNativeRendererIntent({ type: 'ui/intent', payload: { action: 'close' } }))
 
     expect(requests).toEqual(expect.arrayContaining([
       { method: 'readAssetBytes', params: { url: 'images/bg.png' } },
       { method: 'writeStorage', params: { key: 'profile/save-1', value: [7, 8] } },
+      expect.objectContaining({ method: 'evaluateQuickJsModule' }),
       { method: 'emitRendererIntent', params: { type: 'ui/intent', payloadJson: '{"action":"close"}' } },
     ]))
   })

@@ -1,3 +1,5 @@
+import type { NativeQuickJsEvaluationRequest, NativeQuickJsEvaluationResponse } from './quickjs'
+
 export type QuaRendererTarget = 'web' | 'cocos' | 'native'
 
 export type QuaNativePlatform = 'macos' | 'windows' | 'linux'
@@ -99,6 +101,7 @@ export type NativeHostApiRequest =
   | { method: 'listStorageKeys', params: NativeHostApiListStorageKeysRequest }
   | { method: 'hashBytes', params: NativeHostApiHashBytesRequest }
   | { method: 'verifySignature', params: NativeSignatureVerifyWireRequest }
+  | { method: 'evaluateQuickJsModule', params: NativeQuickJsEvaluationRequest }
   | { method: 'emitRendererIntent', params: NativeRendererIntent }
 
 export interface NativeHostApiStorageKeyRequest {
@@ -135,6 +138,7 @@ export interface NativeHostApiResponseValueByType {
   storageKeys: string[]
   hash: string
   signatureValid: boolean
+  quickJsEvaluation: NativeQuickJsEvaluationResponse
 }
 
 export type NativeHostApiResponsePayload = {
@@ -162,6 +166,7 @@ export interface QuaNativeHostApi {
   listStorageKeys?: (prefix: string) => Promise<string[]>
   hashBytes: (bytes: Uint8Array, algorithm: 'sha256') => Promise<string>
   verifySignature?: (request: NativeSignatureVerifyRequest) => Promise<boolean>
+  evaluateQuickJsModule?: (request: NativeQuickJsEvaluationRequest) => Promise<NativeQuickJsEvaluationResponse>
   emitRendererIntent?: (event: NativeRendererIntent) => void
 }
 
@@ -262,6 +267,10 @@ export function createNativeHostApiFromBridge(dispatch: NativeHostBridgeDispatch
       method: 'verifySignature',
       params: createNativeSignatureVerifyWireRequest(request),
     }, 'signatureValid'),
+    evaluateQuickJsModule: request => call({
+      method: 'evaluateQuickJsModule',
+      params: request,
+    }, 'quickJsEvaluation'),
     emitRendererIntent(event) {
       void callVoid(dispatch, { method: 'emitRendererIntent', params: event })
     },

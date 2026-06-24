@@ -15,6 +15,7 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 - Runtime content remains Quack-built QPK packages. Dynamic QPKs may contain QS/JS modules and resources only, never native code.
 - Native version/capability data comes from the signed native app/Rust build and is exposed through `QuaNativeHostInfo`; QPK content cannot override it.
 - Native dynamic module loading must use `createNativeRuntimeModuleLoader` or an equivalent restricted loader. It may load only runtime-package-declared, package-relative `assetName` script assets through QuaAssets/native host bytes, then pass code to a trusted Rust/QuickJS evaluator. Do not load runtime modules from filesystem paths, URLs, Node resolution, Web `Blob`, or dynamic `import()`.
+- When using the native host QuickJS bridge, `moduleNamespaceId` is only an opaque Rust/QuickJS namespace handle. `@quajs/engine-native` must use an explicit namespace resolver before returning a real engine module namespace object; do not fake module exports from the id string.
 - Rust `quajs_wgpu_renderer` consumes resolved QUI/QSS projection data only. QSS parsing, selector matching, cascade, inheritance, and language-server diagnostics belong in TS/compiler/tooling packages, not in the renderer.
 
 ## Package Responsibilities
