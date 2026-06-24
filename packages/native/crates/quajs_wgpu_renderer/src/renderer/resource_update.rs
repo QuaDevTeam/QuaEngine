@@ -27,6 +27,7 @@ pub struct NativeRendererFrameResourceSyncSummary {
     pub retain_count: usize,
     pub release_count: usize,
     pub released_count: usize,
+    pub replacement_release_count: usize,
     pub declarative_upsert_count: usize,
     pub declarative_released_count: usize,
     pub released_memory: ResourceMemory,
@@ -41,6 +42,7 @@ pub struct NativeRendererFrameAudioResourceSyncSummary {
     pub retain_count: usize,
     pub release_count: usize,
     pub released_count: usize,
+    pub replacement_release_count: usize,
     pub released_memory: ResourceMemory,
     pub upsert_by_kind: BTreeMap<NativeResourceKind, usize>,
     pub released_by_kind: BTreeMap<NativeResourceKind, usize>,
@@ -213,6 +215,7 @@ pub(super) fn frame_resource_sync_summary(
         retain_count: sync.retain.len(),
         release_count: sync.release.len(),
         released_count: released.count,
+        replacement_release_count: replacement_release_count(sync.release.len(), released.count),
         declarative_released_count: released.declarative_count,
         released_memory: released.memory,
         declarative_released_memory: released.declarative_memory,
@@ -240,6 +243,7 @@ pub(super) fn frame_audio_resource_sync_summary(
         retain_count: sync.retain.len(),
         release_count: sync.release.len(),
         released_count: released.count,
+        replacement_release_count: replacement_release_count(sync.release.len(), released.count),
         released_memory: released.memory,
         released_by_kind: released.by_kind,
         ..Default::default()
@@ -305,6 +309,10 @@ fn merge_existing_record_metadata(
     }
 
     next
+}
+
+fn replacement_release_count(planned_release_count: usize, released_count: usize) -> usize {
+    released_count.saturating_sub(planned_release_count)
 }
 
 fn release_replaced_resource_if_needed(
