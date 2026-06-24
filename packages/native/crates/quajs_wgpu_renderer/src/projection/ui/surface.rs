@@ -57,6 +57,10 @@ fn append_surface_node_commands(
         return;
     }
 
+    if node.kind == UiSurfaceNodeKind::Spacer {
+        return;
+    }
+
     if node.kind == UiSurfaceNodeKind::Scroll {
         append_scroll_node_commands(commands, overlay, node, z_base, clip_bounds);
         return;
@@ -168,6 +172,9 @@ fn surface_node_command(
         ),
         UiSurfaceNodeKind::Fragment => {
             unreachable!("fragment nodes are expanded before command build")
+        }
+        UiSurfaceNodeKind::Spacer => {
+            unreachable!("spacer nodes are skipped before command build")
         }
         UiSurfaceNodeKind::Text => DrawCommand::new(
             command_id,

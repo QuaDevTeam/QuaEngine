@@ -285,6 +285,64 @@ fn expands_divider_surface_nodes_to_visual_separators() {
 }
 
 #[test]
+fn skips_spacer_surface_nodes_without_draw_commands() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Box,
+                    rect(0.0, 0.0, 520.0, 320.0),
+                )
+                .with_children(vec![
+                    UiSurfaceNodeProjection::new(
+                        "title",
+                        UiSurfaceNodeKind::Text,
+                        rect(40.0, 48.0, 240.0, 44.0),
+                    )
+                    .with_text("Spaced"),
+                    UiSurfaceNodeProjection::new(
+                        "gap",
+                        UiSurfaceNodeKind::Spacer,
+                        rect(40.0, 108.0, 240.0, 32.0),
+                    )
+                    .with_intent(UiIntentProjection::new("ignored")),
+                    UiSurfaceNodeProjection::new(
+                        "confirm",
+                        UiSurfaceNodeKind::Button,
+                        rect(340.0, 236.0, 120.0, 48.0),
+                    )
+                    .with_text("OK")
+                    .with_intent(UiIntentProjection::new("confirm")),
+                ]),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        ids,
+        vec![
+            "ui:menu",
+            "ui:menu:root",
+            "ui:menu:title",
+            "ui:menu:confirm"
+        ]
+    );
+    assert!(commands.iter().all(|command| command.id != "ui:menu:gap"));
+    assert_eq!(commands[2].kind, DrawCommandKind::Text);
+    assert_eq!(commands[3].kind, DrawCommandKind::UiSurface);
+    assert!(commands[3].interactive);
+}
+
+#[test]
 fn expands_backdrop_surface_nodes_to_intent_panels() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {
