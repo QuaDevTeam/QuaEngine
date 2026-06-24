@@ -24,6 +24,23 @@ function createHostInfo(overrides: Partial<QuaNativeHostInfo['renderer']> = {}):
           version: '1.0.0',
           ownerPackage: '@quajs/native-renderer',
           projectionKeys: ['view.ui.overlays'],
+          qssFeatures: [
+            'background-color',
+            'border-color',
+            'border-radius',
+            'font-size',
+            'color',
+            'object-fit',
+          ],
+          quiComponents: [
+            'Box',
+            'Button',
+            'Column',
+            'Image',
+            'Panel',
+            'Scroll',
+            'Text',
+          ],
           fallback: 'reject-package',
         },
         {
@@ -67,6 +84,8 @@ describe('checkNativeCompatibility', () => {
           'native-wgpu.image@1',
           'native-wgpu.video@1',
         ],
+        uiSurfaces: ['Panel', 'Button', 'Text'],
+        qssTargets: ['background-color', 'border-radius', 'font-size'],
         nativeCode: false,
       },
     })
@@ -130,6 +149,46 @@ describe('checkNativeCompatibility', () => {
         required: 'native-wgpu.audio@1',
       }),
     ])
+  })
+
+  it('rejects runtime packages that require unsupported QUI components or QSS features', () => {
+    const result = checkNativeCompatibility({
+      hostInfo: createHostInfo(),
+      pluginId: 'runtime.menu',
+      compatibility: {
+        uiSurfaces: ['Dialog', 'VirtualList'],
+        qssTargets: ['display', 'gap'],
+        nativeCode: false,
+      },
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'NATIVE_REQUIRED_QSS_FEATURE_MISSING',
+        severity: 'error',
+        pluginId: 'runtime.menu',
+        required: 'display',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_REQUIRED_QSS_FEATURE_MISSING',
+        severity: 'error',
+        pluginId: 'runtime.menu',
+        required: 'gap',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_REQUIRED_QUI_COMPONENT_MISSING',
+        severity: 'error',
+        pluginId: 'runtime.menu',
+        required: 'Dialog',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_REQUIRED_QUI_COMPONENT_MISSING',
+        severity: 'error',
+        pluginId: 'runtime.menu',
+        required: 'VirtualList',
+      }),
+    ]))
   })
 
   it('rejects dynamic packages that request native code activation', () => {

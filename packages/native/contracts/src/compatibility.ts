@@ -20,6 +20,8 @@ export interface NativeCompatibilityDiagnostic {
     | 'NATIVE_OPTIONAL_CAPABILITY_MISSING'
     | 'NATIVE_CODE_NOT_ALLOWED'
     | 'NATIVE_RENDERER_PACKAGE_MISMATCH'
+    | 'NATIVE_REQUIRED_QSS_FEATURE_MISSING'
+    | 'NATIVE_REQUIRED_QUI_COMPONENT_MISSING'
   severity: NativeCompatibilitySeverity
   message: string
   pluginId?: string
@@ -100,6 +102,30 @@ export function checkNativeCompatibility(options: CheckNativeCompatibilityOption
     }
   }
 
+  for (const qssFeature of compatibility.qssTargets || []) {
+    if (!hasCapabilityFieldValue(hostInfo.renderer.capabilities, 'qssFeatures', qssFeature)) {
+      diagnostics.push({
+        code: 'NATIVE_REQUIRED_QSS_FEATURE_MISSING',
+        severity: 'error',
+        message: `Required native QSS feature "${qssFeature}" is not available.`,
+        pluginId,
+        required: qssFeature,
+      })
+    }
+  }
+
+  for (const quiComponent of compatibility.uiSurfaces || []) {
+    if (!hasCapabilityFieldValue(hostInfo.renderer.capabilities, 'quiComponents', quiComponent)) {
+      diagnostics.push({
+        code: 'NATIVE_REQUIRED_QUI_COMPONENT_MISSING',
+        severity: 'error',
+        message: `Required native QUI component "${quiComponent}" is not available.`,
+        pluginId,
+        required: quiComponent,
+      })
+    }
+  }
+
   return {
     ok: diagnostics.every(diagnostic => diagnostic.severity !== 'error'),
     diagnostics,
@@ -108,6 +134,14 @@ export function checkNativeCompatibility(options: CheckNativeCompatibilityOption
 
 export function hasCompatibleCapability(capabilities: readonly RendererTargetCapability[], required: string): boolean {
   return capabilities.some(capability => isCapabilityCompatible(required, capability.id))
+}
+
+function hasCapabilityFieldValue(
+  capabilities: readonly RendererTargetCapability[],
+  field: 'qssFeatures' | 'quiComponents',
+  required: string,
+): boolean {
+  return capabilities.some(capability => (capability[field] || []).includes(required))
 }
 
 function satisfiesMajorRange(version: string, range: string): boolean {
@@ -138,4 +172,3 @@ function compareVersions(left: string, right: string): number {
   }
   return 0
 }
-
