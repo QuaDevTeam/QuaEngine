@@ -9,6 +9,7 @@ import {
   checkNativeTargetBundleManifest,
   checkNativeTargetBootstrap,
   checkNativeRuntimePackageCompatibility,
+  createNativeEngineBootstrap,
   createNativeHostQuickJsModuleEvaluator,
   createNativeRuntimeAdapters,
   createNativeRuntimeModuleLoader,
@@ -278,6 +279,38 @@ describe('@quajs/engine-native', () => {
     expect(host.getHostInfo).not.toHaveBeenCalled()
   })
 
+  it('rejects post-bundle manifests declared for another target before host info', async () => {
+    const host = createHost()
+    const bootstrap = createNativeEngineBootstrap(host, {
+      targetBundleManifest: createNativeTargetBundleManifest({
+        target: 'web',
+        platform: 'web',
+        selectedCorePluginFamily: getTargetCorePluginFamily('web'),
+        selectedCoreAdapters: ['@quajs/assets-web', '@quajs/renderer-web'],
+        dependencies: [
+          '@quajs/engine',
+          '@quajs/assets-web',
+          '@quajs/renderer-web/plugins/ui',
+        ],
+        rendererEntries: [
+          { specifier: '@quajs/renderer-vue/plugins/ui', target: 'web' },
+        ],
+      }),
+    })
+
+    await expect(bootstrap.plugin.init({} as any)).rejects.toThrow(
+      /Native target bundle manifest validation failed.*declares target "web", but expected "native"/,
+    )
+    expect(bootstrap.plugin.getTargetBundleManifestValidation()?.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_TARGET_MISMATCH',
+        target: 'web',
+        expectedTarget: 'native',
+      }),
+    ]))
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+  })
+
   it('checks runtime package native renderer compatibility before activation', () => {
     const result = checkNativeRuntimePackageCompatibility(createHostInfo(), {
       pluginId: 'runtime.chapter.native-ui',
@@ -321,6 +354,43 @@ describe('@quajs/engine-native', () => {
       requireSignature: undefined,
       verifyPackage: expect.any(Function),
     })
+  })
+
+  it('creates native runtime adapters with a host plugin wired to the emitted bundle manifest', async () => {
+    const manifest = createNativeTargetBundleManifest()
+    const host = createHost()
+    const bootstrap = createNativeEngineBootstrap(host, {
+      targetBundleManifest: manifest,
+    })
+
+    expect(bootstrap.adapters.host).toBe(host)
+    expect(bootstrap.adapters.trustPolicy).toEqual(expect.objectContaining({
+      verifyPackage: expect.any(Function),
+    }))
+
+    await bootstrap.plugin.init({} as any)
+
+    expect(bootstrap.plugin.getTargetBundleManifestValidation()?.ok).toBe(true)
+    expect(bootstrap.plugin.getTargetBootstrapValidation()?.selectedTargets).toEqual(['native'])
+    expect(host.getHostInfo).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects mixed target bootstrap manifests through the native bootstrap helper before host info', async () => {
+    const host = createHost()
+    const bootstrap = createNativeEngineBootstrap(host, {
+      targetBundleManifest: createNativeTargetBundleManifest({
+        dependencies: [
+          '@quajs/engine',
+          ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+          '@quajs/renderer-web/plugins/ui',
+        ],
+      }),
+    })
+
+    await expect(bootstrap.plugin.init({} as any)).rejects.toThrow(
+      /Native target bundle manifest validation failed.*core plugin family "web-core"/,
+    )
+    expect(host.getHostInfo).not.toHaveBeenCalled()
   })
 
   it('creates a restricted native runtime module loader backed by package script assets', async () => {

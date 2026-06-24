@@ -93,9 +93,8 @@ export function assertNativeTargetBootstrap(
 export function checkNativeTargetBundleManifest(
   manifest: TargetBundleManifest,
 ): TargetBundleManifestValidationResult {
-  return validateTargetBundleManifest({
-    ...manifest,
-    target: 'native',
+  return validateTargetBundleManifest(manifest, {
+    expectedTarget: 'native',
   })
 }
 
