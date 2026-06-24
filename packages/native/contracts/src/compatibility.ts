@@ -5,9 +5,15 @@ export type NativeCompatibilitySeverity = 'warning' | 'error'
 
 export interface RuntimePackageNativeRendererCompatibility {
   packageName?: '@quajs/native-renderer'
+  renderer?: '@quajs/native-renderer'
+  rendererPackage?: '@quajs/native-renderer'
   versionRange?: string
+  version?: string
+  rendererVersion?: string
   capabilities?: readonly string[]
+  capabilityIds?: readonly string[]
   optionalCapabilities?: readonly string[]
+  optionalCapabilityIds?: readonly string[]
   quiComponents?: readonly string[]
   qssFeatures?: readonly string[]
   /** @deprecated Use quiComponents for required native QUI component names. */
@@ -46,7 +52,8 @@ export interface CheckNativeCompatibilityOptions {
 
 export function checkNativeCompatibility(options: CheckNativeCompatibilityOptions): NativeCompatibilityResult {
   const diagnostics: NativeCompatibilityDiagnostic[] = []
-  const { compatibility, hostInfo, pluginId } = options
+  const { hostInfo, pluginId } = options
+  const compatibility = normalizeNativeRendererCompatibility(options.compatibility)
   if (!compatibility) {
     return { ok: true, diagnostics }
   }
@@ -133,6 +140,27 @@ export function checkNativeCompatibility(options: CheckNativeCompatibilityOption
   return {
     ok: diagnostics.every(diagnostic => diagnostic.severity !== 'error'),
     diagnostics,
+  }
+}
+
+export function normalizeNativeRendererCompatibility(
+  compatibility: RuntimePackageNativeRendererCompatibility | undefined,
+): RuntimePackageNativeRendererCompatibility | undefined {
+  if (!compatibility)
+    return undefined
+
+  return {
+    ...compatibility,
+    packageName: compatibility.packageName || compatibility.rendererPackage || compatibility.renderer,
+    versionRange: compatibility.versionRange || compatibility.rendererVersion || compatibility.version,
+    capabilities: uniqueStrings([
+      ...(compatibility.capabilities || []),
+      ...(compatibility.capabilityIds || []),
+    ]),
+    optionalCapabilities: uniqueStrings([
+      ...(compatibility.optionalCapabilities || []),
+      ...(compatibility.optionalCapabilityIds || []),
+    ]),
   }
 }
 

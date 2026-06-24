@@ -93,9 +93,17 @@ function getRuntimePackageNativeRendererCompatibility(
   runtimePackage: NativeGuardRuntimePackageManifest,
 ): RuntimePackageNativeRendererCompatibility | undefined {
   const metadata = runtimePackage.metadata
-  if (!metadata || typeof metadata.nativeRenderer !== 'object' || metadata.nativeRenderer === null)
+  if (!metadata)
     return undefined
-  return metadata.nativeRenderer as RuntimePackageNativeRendererCompatibility
+  if (isRecord(metadata.nativeRenderer))
+    return metadata.nativeRenderer as RuntimePackageNativeRendererCompatibility
+  if (isRecord(metadata.renderers) && isRecord(metadata.renderers.native))
+    return metadata.renderers.native as RuntimePackageNativeRendererCompatibility
+  return undefined
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 function decodeSignature(value: string): Uint8Array {
