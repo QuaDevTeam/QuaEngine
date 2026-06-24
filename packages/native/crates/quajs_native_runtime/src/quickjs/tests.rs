@@ -159,6 +159,47 @@ fn evaluator_helper_returns_backend_success_response() {
     );
 }
 
+#[test]
+fn evaluator_helper_registers_successful_namespaces() {
+    struct NamespaceEvaluator;
+
+    impl QuickJsModuleEvaluator for NamespaceEvaluator {
+        fn evaluate_module(
+            &mut self,
+            request: &QuickJsEvaluationRequest,
+        ) -> QuickJsEvaluationResult {
+            Ok(QuickJsEvaluationResponse::success(quickjs_module_namespace_id(
+                &request.module,
+            )))
+        }
+    }
+
+    let mut evaluator = NamespaceEvaluator;
+    let mut registry = QuickJsModuleNamespaceRegistry::new();
+    let request = request_for_asset("scripts/opening.js", vec![1, 2, 3]);
+    let response = evaluate_quickjs_module_with_registry(&mut evaluator, &mut registry, &request);
+
+    assert!(response.ok);
+    let namespace_id = response.module_namespace_id.unwrap();
+    assert!(registry.contains(&namespace_id));
+    assert_eq!(registry.get(&namespace_id).unwrap().package_id, "runtime.chapter.native-ui");
+    assert_eq!(registry.summary().module_bytes, 3);
+}
+
+#[test]
+fn evaluator_helper_does_not_register_failed_namespaces() {
+    let mut evaluator = UnsupportedQuickJsModuleEvaluator;
+    let mut registry = QuickJsModuleNamespaceRegistry::new();
+    let response = evaluate_quickjs_module_with_registry(
+        &mut evaluator,
+        &mut registry,
+        &request_for_asset("scripts/opening.js", vec![1, 2, 3]),
+    );
+
+    assert!(!response.ok);
+    assert!(registry.is_empty());
+}
+
 fn request_for_asset(asset_name: &str, bytes: Vec<u8>) -> QuickJsEvaluationRequest {
     QuickJsEvaluationRequest {
         module: QuickJsRuntimeModuleRecord {

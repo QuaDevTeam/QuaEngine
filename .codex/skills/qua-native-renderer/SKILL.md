@@ -115,3 +115,4 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Are runtime package native-code payloads rejected at build time and runtime?
 - Are native renderer transient resources tracked in the package-aware resource ledger, including CPU/GPU bytes, dependencies, unload blockers, and cleanup paths?
 - Do native package unload/release paths use renderer-level unload plans so active frame references block release, and do hosts receive released resource records for native handle cleanup?
+- Does Rust QuickJS evaluation register successful module namespace handles in the package-aware namespace registry and release package-owned namespaces during runtime package unload/teardown?
