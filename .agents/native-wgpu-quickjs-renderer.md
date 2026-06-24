@@ -337,7 +337,7 @@ Target core plugin selection must not be implemented by importing every target a
 
 - A single bootstrap that imports `@quajs/renderer-web`, `@quajs/renderer-cocos`, and `@quajs/engine-native` and then chooses one with `if (target)`.
 - A project config that lists Web, Cocos, and native core plugins in one plugin array and expects the packager to remove inactive entries later.
-- A Runtime QPK that declares a target core adapter or target renderer package as an executable dependency.
+- A Runtime QPK that declares a target core adapter or target renderer package as an executable dependency or renderer entry.
 - A third-party package root that eagerly exports Web, Cocos, and native target entries from the same runtime entrypoint.
 - A native shell that starts QuickJS/engine before asserting the emitted `target-bundle-manifest.json`.
 
@@ -413,7 +413,7 @@ Implementation rules:
 - Shared plugin/package entries must not import Web, Cocos, or native core adapters. Target entries may import their own target adapters and shared logic only.
 - Plugin compatibility metadata may declare entries for multiple targets in source packages, but packaging selects only the entry for the active target and rejects accidental imports of other target entries.
 - Runtime package manifests may declare compatibility for Web, Cocos, and native, but activation uses only the active target compatibility block.
-- Runtime QPKs must not list target core adapters as executable dependencies. They may declare compatibility with the active target and ship target-scoped declarative assets, but they cannot install or activate Web/Cocos/native bootstrap plugins.
+- Runtime QPKs must not list target core adapters as executable dependencies or renderer entries. They may declare compatibility with the active target and ship target-scoped declarative assets, but they cannot install or activate Web/Cocos/native bootstrap plugins.
 - Native QPKs may reference native renderer capability ids and declarative QUI/QSS surfaces, but they cannot carry native executable payloads or dynamically load native renderer code.
 - Web builds must reject native/cocos target entries even when the package also contains a valid Web entry; Cocos builds must reject Web/native entries; native builds must reject Web/Cocos entries.
 - Startup should assert that exactly one target core adapter set registered with the engine. This catches hand-built bundles that bypass Quack validation.
@@ -426,7 +426,7 @@ Minimum target isolation fixtures:
 - A plugin package declaring `web`, `cocos`, and `native` renderer metadata packages only the selected target entry.
 - A shared plugin entry that imports `@quajs/renderer-web`, `@quajs/renderer-cocos`, or `@quajs/engine-native` fails package metadata lint.
 - A target subentry import such as `@quajs/renderer-web/plugins/audio` is rejected in Cocos/native output after package-root normalization.
-- A Runtime QPK that declares `@quajs/renderer-web`, `@quajs/renderer-cocos`, `@quajs/assets-web`, `@quajs/cocos-host`, `@quajs/engine-native`, `@quajs/assets-native`, or `@quajs/store-native` as an executable dependency fails before activation.
+- A Runtime QPK that declares `@quajs/renderer-web`, `@quajs/renderer-cocos`, `@quajs/assets-web`, `@quajs/cocos-host`, `@quajs/engine-native`, `@quajs/assets-native`, or `@quajs/store-native` as an executable dependency or renderer entry fails before activation.
 - Runtime startup fails if more than one core target adapter is registered.
 - Web/Cocos post-bundle manifests fail when `@quajs/native-contracts` remains in the runtime dependency graph; that package is allowed for build-time validation only outside native artifacts.
 

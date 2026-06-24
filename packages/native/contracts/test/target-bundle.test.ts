@@ -322,11 +322,11 @@ describe('target bundle manifest validation', () => {
         },
       ],
     }))).toThrow(
-      /Target bundle manifest validation failed.*Package output mixes target bootstrap core adapters.*Renderer entry "@quajs\/renderer-vue" declares target "web".*Runtime package "runtime\.bad\.core-leak" must not include target core adapter "@quajs\/assets-web"/,
+      /Target bundle manifest validation failed.*Package output mixes target bootstrap core adapters.*Renderer entry "@quajs\/renderer-vue" declares target "web".*Runtime package "runtime\.bad\.core-leak" must not include target core adapter "@quajs\/assets-web" through "executableDependencies"/,
     )
   })
 
-  it('rejects runtime packages that declare target core adapters as executable dependencies', () => {
+  it('rejects runtime packages that declare target core adapters as executable dependencies or renderer entries', () => {
     const result = validateTargetBundleManifest(targetBundleManifest({
       runtimePackages: [
         {
@@ -351,11 +351,13 @@ describe('target bundle manifest validation', () => {
         code: 'TARGET_BUNDLE_RUNTIME_PACKAGE_CORE_ADAPTER',
         runtimePackageId: 'runtime.bad.web-entry',
         packageName: '@quajs/renderer-web',
+        field: 'executableDependencies',
       }),
       expect.objectContaining({
         code: 'TARGET_BUNDLE_RUNTIME_PACKAGE_CORE_ADAPTER',
         runtimePackageId: 'runtime.bad.native-entry',
         packageName: '@quajs/engine-native',
+        field: 'rendererEntries',
       }),
     ]))
   })
