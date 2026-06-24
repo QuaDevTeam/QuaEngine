@@ -14,6 +14,8 @@ pub struct NativeTargetBundleManifest {
     pub app: Option<TargetBundleAppInfo>,
     #[serde(default)]
     pub native_renderer: Option<TargetBundleNativeRendererInfo>,
+    #[serde(default)]
+    pub target_core_resolver: Option<String>,
     pub selected_core_plugin_family: String,
     #[serde(default)]
     pub selected_core_adapters: Vec<TargetBundleReference>,
