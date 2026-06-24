@@ -7,7 +7,10 @@ use crate::resources::{NativeResourceLedger, ResourceId};
 mod fallbacks;
 mod resources;
 
-pub use fallbacks::{NativeRenderFallbackDiagnostic, NativeRenderFallbackWarningDiagnostics};
+pub use fallbacks::{
+    NativeRenderFallbackDiagnostic, NativeRenderFallbackSummary,
+    NativeRenderFallbackWarningDiagnostics,
+};
 pub use resources::{
     NativeRenderBackendResourceDiagnostics, NativeRenderBackendResourcePolicy,
     NativeRenderMissingResource, NativeRenderResourceMemoryBreakdown,
@@ -15,7 +18,7 @@ pub use resources::{
 
 pub(crate) use fallbacks::NativeRenderFallbackWarningTracker;
 
-use fallbacks::collect_fallback_diagnostics;
+use fallbacks::{collect_fallback_diagnostics, summarize_fallback_diagnostics};
 use resources::{collect_missing_resources, partition_resource_ids, summarize_resolved_resources};
 
 #[derive(Clone, Copy, Debug)]
@@ -42,6 +45,8 @@ impl NativeRenderFrameRef<'_> {
             self.resources,
         );
         let missing_resources = collect_missing_resources(&passes);
+        let fallback_diagnostics = collect_fallback_diagnostics(&self.frame.graph);
+        let fallback_summary = summarize_fallback_diagnostics(&fallback_diagnostics);
 
         NativeRenderSubmission {
             revision: self.revision,
@@ -51,7 +56,8 @@ impl NativeRenderFrameRef<'_> {
             resource_count: self.resources.len(),
             missing_resource_count: missing_resources.len(),
             missing_resources,
-            fallback_diagnostics: collect_fallback_diagnostics(&self.frame.graph),
+            fallback_summary,
+            fallback_diagnostics,
             resolved_resource_memory,
             passes,
         }
@@ -67,6 +73,7 @@ pub struct NativeRenderSubmission {
     pub resource_count: usize,
     pub missing_resource_count: usize,
     pub missing_resources: Vec<NativeRenderMissingResource>,
+    pub fallback_summary: NativeRenderFallbackSummary,
     pub fallback_diagnostics: Vec<NativeRenderFallbackDiagnostic>,
     pub resolved_resource_memory: NativeRenderResourceMemoryBreakdown,
     pub passes: Vec<NativeRenderPassSubmission>,

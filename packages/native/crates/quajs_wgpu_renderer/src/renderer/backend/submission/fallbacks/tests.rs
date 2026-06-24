@@ -24,6 +24,21 @@ fn collects_fallback_diagnostics_from_video_commands() {
 }
 
 #[test]
+fn summarizes_fallback_diagnostics_by_pipeline_and_reason() {
+    let diagnostics = collect_fallback_diagnostics(&graph_with_video_fallback());
+
+    let summary = summarize_fallback_diagnostics(&diagnostics);
+
+    assert_eq!(summary.fallback_count, 1);
+    assert_eq!(summary.video_fallback_count, 1);
+    assert_eq!(summary.by_pipeline[&DrawBatchPipeline::Video], 1);
+    assert_eq!(
+        summary.by_reason["native video decode backend is not active"],
+        1
+    );
+}
+
+#[test]
 fn fallback_warning_tracker_reports_each_fallback_once() {
     let diagnostics = collect_fallback_diagnostics(&graph_with_video_fallback());
     let mut tracker = NativeRenderFallbackWarningTracker::default();
