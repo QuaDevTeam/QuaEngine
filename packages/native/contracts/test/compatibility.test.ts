@@ -17,6 +17,7 @@ function createHostInfo(overrides: Partial<QuaNativeHostInfo['renderer']> = {}):
       packageName: '@quajs/native-renderer',
       version: '0.1.0',
       backend: 'wgpu',
+      capabilityManifestHash: 'sha256:native-capabilities-fixture',
       capabilities: [
         {
           id: 'native-wgpu.ui.surface@1',

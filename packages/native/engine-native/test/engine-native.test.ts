@@ -22,6 +22,8 @@ import {
   readNativeHostInfo,
 } from '../src'
 
+const CAPABILITY_MANIFEST_HASH = 'sha256:native-capabilities-fixture'
+
 function createHostInfo(version = '0.1.0'): QuaNativeHostInfo {
   return {
     app: {
@@ -37,6 +39,7 @@ function createHostInfo(version = '0.1.0'): QuaNativeHostInfo {
       packageName: '@quajs/native-renderer',
       version,
       backend: 'wgpu',
+      capabilityManifestHash: CAPABILITY_MANIFEST_HASH,
       capabilities: [
         {
           id: 'native-wgpu.ui.surface@1',
@@ -109,7 +112,7 @@ function createNativeTargetBundleManifest(
         'native-wgpu.video@1',
         'native-wgpu.input.pointer@1',
       ],
-      capabilityManifestHash: 'sha256:native-capabilities-fixture',
+      capabilityManifestHash: CAPABILITY_MANIFEST_HASH,
     },
     selectedCorePluginFamily: getTargetCorePluginFamily('native'),
     selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
@@ -296,13 +299,13 @@ describe('@quajs/engine-native', () => {
             'native-wgpu.ui.surface@1',
             'native-wgpu.audio@1',
           ],
-          capabilityManifestHash: 'sha256:native-capabilities-fixture',
+          capabilityManifestHash: 'sha256:stale-native-capabilities',
         },
       }),
     })
 
     await expect(plugin.init({} as any)).rejects.toThrow(
-      /Native renderer manifest compatibility validation failed.*renderer version "0\.1\.0" does not match host renderer version "0\.2\.0".*capability "native-wgpu\.audio@1" is not provided/,
+      /Native renderer manifest compatibility validation failed.*renderer version "0\.1\.0" does not match host renderer version "0\.2\.0".*capability hash "sha256:stale-native-capabilities" does not match host renderer capability hash "sha256:native-capabilities-fixture".*capability "native-wgpu\.audio@1" is not provided/,
     )
     expect(plugin.getTargetBundleManifestValidation()?.ok).toBe(true)
     expect(host.getHostInfo).toHaveBeenCalledTimes(1)

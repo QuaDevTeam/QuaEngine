@@ -15,6 +15,7 @@ pub use bridge::{
     NativeQuickJsReleaseNamespaceRequest, NativeQuickJsReleasePackageRequest,
 };
 pub use info::{
-    current_platform, current_profile, NativeAppInfo, NativeHostInfo, NativeHostInfoBuilder,
-    NativePlatform, NativeProfile, NativeRendererInfo, NativeRuntimeInfo, RendererCapability,
+    capability_manifest_hash, current_platform, current_profile, NativeAppInfo, NativeHostInfo,
+    NativeHostInfoBuilder, NativePlatform, NativeProfile, NativeRendererInfo, NativeRuntimeInfo,
+    RendererCapability,
 };

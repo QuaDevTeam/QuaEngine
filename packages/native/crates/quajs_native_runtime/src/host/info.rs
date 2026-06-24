@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -57,6 +58,7 @@ pub struct NativeRendererInfo {
     pub backend: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backend_version: Option<String>,
+    pub capability_manifest_hash: String,
     pub capabilities: Vec<RendererCapability>,
 }
 
@@ -88,6 +90,12 @@ impl NativeHostInfo {
             .iter()
             .any(|capability| capability.id == capability_id)
     }
+}
+
+pub fn capability_manifest_hash(capabilities: &[RendererCapability]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(stable_capability_manifest_payload(capabilities).as_bytes());
+    format!("sha256:{}", hex_lower(&hasher.finalize()))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -205,6 +213,7 @@ impl NativeHostInfoBuilder {
                 version: self.renderer_version,
                 backend: "wgpu".to_string(),
                 backend_version: self.backend_version,
+                capability_manifest_hash: capability_manifest_hash(&self.capabilities),
                 capabilities: self.capabilities,
             },
             runtime: NativeRuntimeInfo {
@@ -215,6 +224,85 @@ impl NativeHostInfoBuilder {
             },
         }
     }
+}
+
+fn stable_capability_manifest_payload(capabilities: &[RendererCapability]) -> String {
+    let mut payload = String::from("[");
+    for (index, capability) in capabilities.iter().enumerate() {
+        if index > 0 {
+            payload.push(',');
+        }
+        payload.push('{');
+        push_json_field(&mut payload, "id", &capability.id, true);
+        push_json_field(&mut payload, "target", &capability.target, false);
+        push_json_field(&mut payload, "version", &capability.version, false);
+        push_json_field(
+            &mut payload,
+            "ownerPackage",
+            &capability.owner_package,
+            false,
+        );
+        push_json_array_field(&mut payload, "projectionKeys", &capability.projection_keys);
+        push_json_array_field(&mut payload, "intentEvents", &capability.intent_events);
+        push_json_array_field(&mut payload, "assetKinds", &capability.asset_kinds);
+        push_json_array_field(&mut payload, "qssFeatures", &capability.qss_features);
+        push_json_array_field(&mut payload, "quiComponents", &capability.qui_components);
+        push_json_field(&mut payload, "fallback", &capability.fallback, false);
+        payload.push('}');
+    }
+    payload.push(']');
+    payload
+}
+
+fn push_json_field(payload: &mut String, key: &str, value: &str, first: bool) {
+    if !first {
+        payload.push(',');
+    }
+    push_json_string(payload, key);
+    payload.push(':');
+    push_json_string(payload, value);
+}
+
+fn push_json_array_field(payload: &mut String, key: &str, values: &[String]) {
+    payload.push(',');
+    push_json_string(payload, key);
+    payload.push_str(":[");
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            payload.push(',');
+        }
+        push_json_string(payload, value);
+    }
+    payload.push(']');
+}
+
+fn push_json_string(payload: &mut String, value: &str) {
+    payload.push('"');
+    for char in value.chars() {
+        match char {
+            '"' => payload.push_str("\\\""),
+            '\\' => payload.push_str("\\\\"),
+            '\n' => payload.push_str("\\n"),
+            '\r' => payload.push_str("\\r"),
+            '\t' => payload.push_str("\\t"),
+            char if char.is_control() => {
+                payload.push_str("\\u");
+                payload.push_str(&format!("{:04x}", char as u32));
+            }
+            char => payload.push(char),
+        }
+    }
+    payload.push('"');
+}
+
+fn hex_lower(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    output
 }
 
 pub fn current_profile() -> NativeProfile {
@@ -272,6 +360,10 @@ mod tests {
         assert_eq!(json["renderer"]["packageName"], "@quajs/native-renderer");
         assert_eq!(json["renderer"]["backendVersion"], "wgpu-test");
         assert_eq!(
+            json["renderer"]["capabilityManifestHash"],
+            host_info.renderer.capability_manifest_hash
+        );
+        assert_eq!(
             json["renderer"]["capabilities"][0]["ownerPackage"],
             "@quajs/native-renderer"
         );
@@ -294,6 +386,34 @@ mod tests {
         );
         assert_eq!(json["runtime"]["quickjsVersion"], "quickjs-test");
         assert!(host_info.has_capability("native-wgpu.ui.surface@1"));
+    }
+
+    #[test]
+    fn computes_stable_capability_manifest_hashes() {
+        let mut capabilities = vec![RendererCapability {
+            id: "native-wgpu.ui.surface@1".to_string(),
+            target: "native".to_string(),
+            version: "1.0.0".to_string(),
+            owner_package: "@quajs/native-renderer".to_string(),
+            projection_keys: vec!["view.ui.overlays".to_string()],
+            intent_events: vec!["ui/intent".to_string()],
+            asset_kinds: vec!["data".to_string()],
+            qss_features: vec!["background-color".to_string()],
+            qui_components: vec!["Box".to_string()],
+            fallback: "reject-package".to_string(),
+        }];
+
+        let hash = capability_manifest_hash(&capabilities);
+        let same_hash = capability_manifest_hash(&capabilities);
+        capabilities[0]
+            .qss_features
+            .push("border-radius".to_string());
+        let changed_hash = capability_manifest_hash(&capabilities);
+
+        assert!(hash.starts_with("sha256:"));
+        assert_eq!(hash.len(), "sha256:".len() + 64);
+        assert_eq!(hash, same_hash);
+        assert_ne!(hash, changed_hash);
     }
 
     #[test]

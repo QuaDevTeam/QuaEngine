@@ -312,6 +312,7 @@ function createHostInfo() {
       packageName: '@quajs/native-renderer',
       version: '0.1.0',
       backend: 'wgpu',
+      capabilityManifestHash: 'sha256:native-capabilities-fixture',
       capabilities: [],
     },
     runtime: {
