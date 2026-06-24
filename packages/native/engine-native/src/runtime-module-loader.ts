@@ -1,18 +1,4 @@
 import type {
-  NativeQuickJsEvaluationResponse,
-  NativeQuickJsEvaluationRequest,
-  NativeQuickJsModuleNamespaceRecord,
-  NativeQuickJsModuleNamespaceSummary,
-  NativeQuickJsRuntimeModuleKind,
-  NativeQuickJsSandboxLimits,
-  QuaNativeHostApi,
-} from '@quajs/native-contracts'
-import {
-  assertNativeQuickJsEvaluationResponse,
-  createNativeQuickJsEvaluationRequest,
-  isForbiddenNativePayload,
-} from '@quajs/native-contracts'
-import type {
   RuntimeLoadedMigrationModule,
   RuntimeLoadedPluginModule,
   RuntimeLoadedSceneModule,
@@ -24,6 +10,20 @@ import type {
   RuntimePackageStoreMigrationManifest,
   RuntimeScriptModuleRecord,
 } from '@quajs/engine'
+import type {
+  NativeQuickJsEvaluationRequest,
+  NativeQuickJsEvaluationResponse,
+  NativeQuickJsModuleNamespaceRecord,
+  NativeQuickJsModuleNamespaceSummary,
+  NativeQuickJsRuntimeModuleKind,
+  NativeQuickJsSandboxLimits,
+  QuaNativeHostApi,
+} from '@quajs/native-contracts'
+import {
+  assertNativeQuickJsEvaluationResponse,
+  createNativeQuickJsEvaluationRequest,
+  isForbiddenNativePayload,
+} from '@quajs/native-contracts'
 
 declare const TextDecoder: {
   new(): { decode: (input: Uint8Array) => string }
@@ -34,6 +34,15 @@ export type NativeRuntimeModuleRecord
     | RuntimePackageSceneManifest
     | RuntimePackagePluginManifest
     | RuntimePackageStoreMigrationManifest
+
+interface NativeRuntimeModuleVariantRecord {
+  assetName?: string
+  module?: string
+}
+
+interface NativeRuntimeModuleRecordWithVariants {
+  variants?: Record<string, NativeRuntimeModuleVariantRecord>
+}
 
 export interface NativeRuntimeModuleEvaluationContext {
   assetName: string
@@ -163,16 +172,31 @@ function getNativeRuntimeModuleAssetName(record: NativeRuntimeModuleRecord, kind
   if (!record.assetName) {
     throw new Error(`Native runtime ${kind} module loading requires an assetName declared in the runtime package manifest.`)
   }
-  if (isForbiddenNativeModuleSpecifier(record.assetName)) {
-    throw new Error(`Native runtime ${kind} module assetName "${record.assetName}" must be a package-relative script asset.`)
-  }
-  if (isForbiddenNativePayload(record.assetName)) {
-    throw new Error(`Native runtime ${kind} module assetName "${record.assetName}" must not reference a native payload.`)
-  }
-  if (!isNativeScriptModuleAsset(record.assetName)) {
-    throw new Error(`Native runtime ${kind} module assetName "${record.assetName}" must reference a JavaScript module asset.`)
-  }
+  assertNativeRuntimeModuleAssetName(record.assetName, kind, 'assetName')
+  assertNativeRuntimeModuleVariants(record, kind)
   return record.assetName
+}
+
+function assertNativeRuntimeModuleVariants(record: NativeRuntimeModuleRecord, kind: NativeRuntimeModuleKind): void {
+  const variants = (record as NativeRuntimeModuleRecordWithVariants).variants
+  for (const [variantName, variant] of Object.entries(variants || {})) {
+    if (variant.assetName)
+      assertNativeRuntimeModuleAssetName(variant.assetName, kind, `variants.${variantName}.assetName`)
+    if (variant.module)
+      assertNativeRuntimeModuleAssetName(variant.module, kind, `variants.${variantName}.module`)
+  }
+}
+
+function assertNativeRuntimeModuleAssetName(assetName: string, kind: NativeRuntimeModuleKind, field: string): void {
+  if (isForbiddenNativeModuleSpecifier(assetName)) {
+    throw new Error(`Native runtime ${kind} module ${field} "${assetName}" must be a package-relative script asset.`)
+  }
+  if (isForbiddenNativePayload(assetName)) {
+    throw new Error(`Native runtime ${kind} module ${field} "${assetName}" must not reference a native payload.`)
+  }
+  if (!isNativeScriptModuleAsset(assetName)) {
+    throw new Error(`Native runtime ${kind} module ${field} "${assetName}" must reference a JavaScript module asset.`)
+  }
 }
 
 function isForbiddenNativeModuleSpecifier(assetName: string): boolean {

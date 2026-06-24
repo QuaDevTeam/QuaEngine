@@ -860,6 +860,40 @@ describe('@quajs/engine-native', () => {
     }, ctx)).rejects.toThrow(/must reference a JavaScript module asset/)
   })
 
+  it('rejects unsafe native runtime module variant asset names before asset loading', async () => {
+    const { calls, ctx } = createModuleLoadContext()
+    const loader = createNativeRuntimeModuleLoader({
+      evaluator: () => ({ default: undefined }),
+    })
+
+    await expect(loader.loadSceneModule?.({
+      id: 'scene-with-escape',
+      assetName: 'scenes/opening.js',
+      variants: {
+        escape: { module: '../outside-scene.js' },
+      },
+    } as any, ctx)).rejects.toThrow(/variants\.escape\.module "\.\.\/outside-scene\.js" must be a package-relative script asset/)
+
+    await expect(loader.loadEnginePluginModule?.({
+      id: 'plugin-with-native-variant',
+      kind: 'engine',
+      assetName: 'plugins/settings.js',
+      variants: {
+        windows: { assetName: 'plugins/settings.dll' },
+      },
+    } as any, ctx)).rejects.toThrow(/variants\.windows\.assetName "plugins\/settings\.dll" must not reference a native payload/)
+
+    await expect(loader.loadStoreMigrationModule?.({
+      id: 'migration-with-data-variant',
+      assetName: 'migrations/save.js',
+      variants: {
+        data: { module: 'migrations/save.json' },
+      },
+    } as any, ctx)).rejects.toThrow(/variants\.data\.module "migrations\/save\.json" must reference a JavaScript module asset/)
+
+    expect(calls).toEqual([])
+  })
+
   it('accepts JavaScript module-like native runtime asset names', async () => {
     const { ctx } = createModuleLoadContext({
       'scripts/opening.mjs': 'export default function opening() {}',
