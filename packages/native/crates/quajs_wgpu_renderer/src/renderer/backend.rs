@@ -1,10 +1,10 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::frame::PreparedNativeFrame;
 use crate::render_graph::{
     DrawBatch, DrawBatchPipeline, DrawCommandKind, RenderPlane, RenderViewport,
 };
-use crate::resources::{NativeResourceLedger, ResourceId, ResourceMemory};
+use crate::resources::{NativeResourceKind, NativeResourceLedger, ResourceId, ResourceMemory};
 
 pub mod null;
 #[cfg(feature = "wgpu-backend")]
@@ -63,7 +63,7 @@ impl NativeRenderFrameRef<'_> {
             .map(|pass| NativeRenderPassSubmission::from_pass(pass, self.resources))
             .collect::<Vec<_>>();
 
-        let resolved_resource_memory = sum_resolved_resource_memory(
+        let resolved_resource_memory = summarize_resolved_resources(
             passes
                 .iter()
                 .flat_map(|pass| pass.resolved_resource_ids().cloned()),
@@ -91,7 +91,7 @@ pub struct NativeRenderSubmission {
     pub command_count: usize,
     pub resource_count: usize,
     pub missing_resource_count: usize,
-    pub resolved_resource_memory: ResourceMemory,
+    pub resolved_resource_memory: NativeRenderResourceMemoryBreakdown,
     pub passes: Vec<NativeRenderPassSubmission>,
 }
 
@@ -102,7 +102,7 @@ pub struct NativeRenderPassSubmission {
     pub command_count: usize,
     pub resolved_resource_count: usize,
     pub missing_resource_count: usize,
-    pub resolved_resource_memory: ResourceMemory,
+    pub resolved_resource_memory: NativeRenderResourceMemoryBreakdown,
     pub viewport: RenderViewport,
     pub batches: Vec<NativeRenderBatchSubmission>,
 }
@@ -114,8 +114,16 @@ pub struct NativeRenderBatchSubmission {
     pub resource_ids: Vec<ResourceId>,
     pub resolved_resource_ids: Vec<ResourceId>,
     pub missing_resource_ids: Vec<ResourceId>,
-    pub resolved_resource_memory: ResourceMemory,
+    pub resolved_resource_memory: NativeRenderResourceMemoryBreakdown,
     pub command_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeRenderResourceMemoryBreakdown {
+    pub total: ResourceMemory,
+    pub by_kind: BTreeMap<NativeResourceKind, ResourceMemory>,
+    pub by_owner_package: BTreeMap<String, ResourceMemory>,
+    pub by_required_package: BTreeMap<String, ResourceMemory>,
 }
 
 impl NativeRenderPassSubmission {
@@ -138,7 +146,7 @@ impl NativeRenderPassSubmission {
                 .iter()
                 .map(|batch| batch.missing_resource_ids.len())
                 .sum(),
-            resolved_resource_memory: sum_resolved_resource_memory(
+            resolved_resource_memory: summarize_resolved_resources(
                 batches
                     .iter()
                     .flat_map(|batch| batch.resolved_resource_ids.iter().cloned()),
@@ -160,7 +168,7 @@ impl NativeRenderBatchSubmission {
         let (resolved_resource_ids, missing_resource_ids) =
             partition_resource_ids(&batch.key.resource_ids, resources);
         let resolved_resource_memory =
-            sum_resolved_resource_memory(resolved_resource_ids.iter().cloned(), resources);
+            summarize_resolved_resources(resolved_resource_ids.iter().cloned(), resources);
         Self {
             pipeline: batch.key.pipeline,
             kind: batch.key.kind,
@@ -191,15 +199,15 @@ fn partition_resource_ids(
     (resolved_resource_ids, missing_resource_ids)
 }
 
-fn sum_resolved_resource_memory<I>(
+fn summarize_resolved_resources<I>(
     resource_ids: I,
     resources: &NativeResourceLedger,
-) -> ResourceMemory
+) -> NativeRenderResourceMemoryBreakdown
 where
     I: IntoIterator<Item = ResourceId>,
 {
     let mut seen = BTreeSet::new();
-    let mut memory = ResourceMemory::default();
+    let mut summary = NativeRenderResourceMemoryBreakdown::default();
 
     for id in resource_ids {
         if !seen.insert(id.clone()) {
@@ -207,11 +215,32 @@ where
         }
 
         if let Some(record) = resources.get(id) {
-            memory.add_assign(record.memory);
+            summary.total.add_assign(record.memory);
+            summary
+                .by_kind
+                .entry(record.kind)
+                .or_default()
+                .add_assign(record.memory);
+
+            if let Some(owner_package_id) = &record.owner_package_id {
+                summary
+                    .by_owner_package
+                    .entry(owner_package_id.clone())
+                    .or_default()
+                    .add_assign(record.memory);
+            }
+
+            for required_package_id in &record.required_package_ids {
+                summary
+                    .by_required_package
+                    .entry(required_package_id.clone())
+                    .or_default()
+                    .add_assign(record.memory);
+            }
         }
     }
 
-    memory
+    summary
 }
 
 pub trait NativeRenderBackend {

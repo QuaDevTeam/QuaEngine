@@ -47,7 +47,16 @@ fn creates_submission_stats_from_frame_ref() {
     assert_eq!(submission.command_count, 1);
     assert_eq!(submission.resource_count, 0);
     assert_eq!(submission.missing_resource_count, 1);
-    assert_eq!(submission.resolved_resource_memory.total_bytes(), 0);
+    assert_eq!(submission.resolved_resource_memory.total.total_bytes(), 0);
+    assert!(submission.resolved_resource_memory.by_kind.is_empty());
+    assert!(submission
+        .resolved_resource_memory
+        .by_owner_package
+        .is_empty());
+    assert!(submission
+        .resolved_resource_memory
+        .by_required_package
+        .is_empty());
     assert_eq!(submission.passes.len(), 1);
     assert_eq!(submission.passes[0].plane, RenderPlane::Scene);
     assert_eq!(submission.passes[0].batch_count, 1);
@@ -55,7 +64,10 @@ fn creates_submission_stats_from_frame_ref() {
     assert_eq!(submission.passes[0].resolved_resource_count, 0);
     assert_eq!(submission.passes[0].missing_resource_count, 1);
     assert_eq!(
-        submission.passes[0].resolved_resource_memory.total_bytes(),
+        submission.passes[0]
+            .resolved_resource_memory
+            .total
+            .total_bytes(),
         0
     );
     assert_eq!(submission.passes[0].batches.len(), 1);
@@ -74,6 +86,7 @@ fn creates_submission_stats_from_frame_ref() {
     assert_eq!(
         submission.passes[0].batches[0]
             .resolved_resource_memory
+            .total
             .total_bytes(),
         0
     );
@@ -119,6 +132,8 @@ fn summarizes_resolved_submission_resource_memory() {
             ResourceId::from("images:bg/school.png"),
             NativeResourceKind::Texture,
         )
+        .owned_by("base")
+        .require_package("runtime.ui")
         .memory(512, 4096),
     );
     resources.insert(
@@ -138,15 +153,43 @@ fn summarizes_resolved_submission_resource_memory() {
 
     assert_eq!(submission.resource_count, 2);
     assert_eq!(submission.missing_resource_count, 0);
-    assert_eq!(submission.resolved_resource_memory.cpu_bytes, 512);
-    assert_eq!(submission.resolved_resource_memory.gpu_bytes, 4096);
-    assert_ne!(submission.resolved_resource_memory.cpu_bytes, 1536);
-    assert_ne!(submission.resolved_resource_memory.gpu_bytes, 12288);
+    assert_eq!(submission.resolved_resource_memory.total.cpu_bytes, 512);
+    assert_eq!(submission.resolved_resource_memory.total.gpu_bytes, 4096);
+    assert_eq!(
+        submission.resolved_resource_memory.by_kind[&NativeResourceKind::Texture].gpu_bytes,
+        4096
+    );
+    assert_eq!(
+        submission.resolved_resource_memory.by_owner_package["base"].cpu_bytes,
+        512
+    );
+    assert_eq!(
+        submission.resolved_resource_memory.by_required_package["runtime.ui"].gpu_bytes,
+        4096
+    );
+    assert_ne!(submission.resolved_resource_memory.total.cpu_bytes, 1536);
+    assert_ne!(submission.resolved_resource_memory.total.gpu_bytes, 12288);
     assert_eq!(submission.passes[0].resolved_resource_count, 1);
     assert_eq!(submission.passes[0].missing_resource_count, 0);
-    assert_eq!(submission.passes[0].resolved_resource_memory.cpu_bytes, 512);
     assert_eq!(
-        submission.passes[0].resolved_resource_memory.gpu_bytes,
+        submission.passes[0]
+            .resolved_resource_memory
+            .total
+            .cpu_bytes,
+        512
+    );
+    assert_eq!(
+        submission.passes[0]
+            .resolved_resource_memory
+            .total
+            .gpu_bytes,
+        4096
+    );
+    assert_eq!(
+        submission.passes[0]
+            .resolved_resource_memory
+            .by_owner_package["base"]
+            .gpu_bytes,
         4096
     );
     assert_eq!(
@@ -156,13 +199,22 @@ fn summarizes_resolved_submission_resource_memory() {
     assert_eq!(
         submission.passes[0].batches[0]
             .resolved_resource_memory
+            .total
             .cpu_bytes,
         512
     );
     assert_eq!(
         submission.passes[0].batches[0]
             .resolved_resource_memory
+            .total
             .gpu_bytes,
         4096
+    );
+    assert_eq!(
+        submission.passes[0].batches[0]
+            .resolved_resource_memory
+            .by_required_package["runtime.ui"]
+            .cpu_bytes,
+        512
     );
 }
