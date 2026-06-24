@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use crate::frame::PreparedNativeFrame;
-use crate::render_graph::{RenderGraphPackageSummary, RenderPlane, RenderPlaneSummary};
+use crate::render_graph::{
+    DrawBatchPipeline, DrawCommandKind, DrawCommandParams, RenderGraphPackageSummary, RenderPlane,
+    RenderPlaneSummary,
+};
 use crate::resources::{
     NativeResourceKind, NativeResourceLedger, PackageResourceSummary, ResourceKindSummary,
     ResourceMemory, ResourceMemoryPressureSummary,
@@ -25,11 +28,15 @@ pub struct NativeRendererFrameMetrics {
     pub resource_ref_count: usize,
     pub asset_request_count: usize,
     pub skipped_asset_resource_count: usize,
+    pub fallback_count: usize,
+    pub video_fallback_count: usize,
     pub by_plane: BTreeMap<RenderPlane, RenderPlaneSummary>,
     pub by_package: BTreeMap<String, RenderGraphPackageSummary>,
     pub by_resource_kind: BTreeMap<NativeResourceKind, usize>,
     pub asset_requests_by_type: BTreeMap<String, NativeRendererFrameAssetMetrics>,
     pub asset_requests_by_package: BTreeMap<String, NativeRendererFrameAssetMetrics>,
+    pub fallbacks_by_pipeline: BTreeMap<DrawBatchPipeline, usize>,
+    pub fallbacks_by_reason: BTreeMap<String, usize>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -86,11 +93,15 @@ fn frame_metrics(frame: &PreparedNativeFrame) -> NativeRendererFrameMetrics {
         resource_ref_count: frame.resources.resource_ref_count,
         asset_request_count: frame.assets.requests.len(),
         skipped_asset_resource_count: frame.assets.skipped_resource_ids.len(),
+        fallback_count: frame_fallback_count(frame),
+        video_fallback_count: frame_video_fallback_count(frame),
         by_plane: frame.summary.by_plane.clone(),
         by_package: frame.summary.by_package.clone(),
         by_resource_kind: frame.resources.by_kind.clone(),
         asset_requests_by_type: frame_asset_type_metrics(frame),
         asset_requests_by_package: frame_asset_package_metrics(frame),
+        fallbacks_by_pipeline: frame_fallback_pipeline_metrics(frame),
+        fallbacks_by_reason: frame_fallback_reason_metrics(frame),
     }
 }
 
@@ -126,6 +137,82 @@ fn frame_asset_package_metrics(
     }
 
     by_package
+}
+
+fn frame_fallback_count(frame: &PreparedNativeFrame) -> usize {
+    frame
+        .graph
+        .commands()
+        .iter()
+        .filter(|command| fallback_reason(&command.params).is_some())
+        .count()
+}
+
+fn frame_video_fallback_count(frame: &PreparedNativeFrame) -> usize {
+    frame
+        .graph
+        .commands()
+        .iter()
+        .filter(|command| {
+            command.kind == DrawCommandKind::VideoFrame
+                && fallback_reason(&command.params).is_some()
+        })
+        .count()
+}
+
+fn frame_fallback_pipeline_metrics(
+    frame: &PreparedNativeFrame,
+) -> BTreeMap<DrawBatchPipeline, usize> {
+    let mut by_pipeline = BTreeMap::new();
+
+    for command in frame.graph.commands() {
+        if fallback_reason(&command.params).is_none() {
+            continue;
+        }
+
+        *by_pipeline
+            .entry(fallback_pipeline(&command.params, command.kind))
+            .or_default() += 1;
+    }
+
+    by_pipeline
+}
+
+fn frame_fallback_reason_metrics(frame: &PreparedNativeFrame) -> BTreeMap<String, usize> {
+    let mut by_reason = BTreeMap::new();
+
+    for command in frame.graph.commands() {
+        let Some(reason) = fallback_reason(&command.params) else {
+            continue;
+        };
+
+        *by_reason.entry(reason.to_string()).or_default() += 1;
+    }
+
+    by_reason
+}
+
+fn fallback_reason(params: &DrawCommandParams) -> Option<&str> {
+    match params {
+        DrawCommandParams::Video(params) => params.fallback_reason.as_deref(),
+        _ => None,
+    }
+}
+
+fn fallback_pipeline(params: &DrawCommandParams, kind: DrawCommandKind) -> DrawBatchPipeline {
+    match params {
+        DrawCommandParams::Video(_) => DrawBatchPipeline::Video,
+        _ => match kind {
+            DrawCommandKind::Clear => DrawBatchPipeline::Clear,
+            DrawCommandKind::Image | DrawCommandKind::NineSlice => DrawBatchPipeline::Image,
+            DrawCommandKind::Text | DrawCommandKind::RichText => DrawBatchPipeline::Text,
+            DrawCommandKind::Rect | DrawCommandKind::RoundedRect => DrawBatchPipeline::Shape,
+            DrawCommandKind::ClipStart | DrawCommandKind::ClipEnd => DrawBatchPipeline::Clip,
+            DrawCommandKind::VideoFrame => DrawBatchPipeline::Video,
+            DrawCommandKind::UiSurface => DrawBatchPipeline::Ui,
+            DrawCommandKind::Custom => DrawBatchPipeline::Custom,
+        },
+    }
 }
 
 fn resource_metrics(resources: &NativeResourceLedger) -> NativeRendererResourceMetrics {
