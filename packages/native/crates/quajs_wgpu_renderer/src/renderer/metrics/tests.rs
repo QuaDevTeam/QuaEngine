@@ -64,6 +64,8 @@ fn reports_frame_metrics_from_prepared_frame() {
     assert_eq!(metrics.frame.video_fallback_count, 0);
     assert!(metrics.frame.fallbacks_by_pipeline.is_empty());
     assert!(metrics.frame.fallbacks_by_reason.is_empty());
+    assert!(metrics.frame.fallbacks_by_owner_package.is_empty());
+    assert!(metrics.frame.fallbacks_by_required_package.is_empty());
     assert_eq!(metrics.frame.by_plane[&RenderPlane::Scene].command_count, 1);
     assert_eq!(
         metrics.frame.by_plane[&RenderPlane::Scene].resource_ref_count,
@@ -94,6 +96,8 @@ fn reports_video_fallback_metrics_from_prepared_frame() {
         metrics.frame.fallbacks_by_reason["native video decode backend is not active"],
         1
     );
+    assert_eq!(metrics.frame.fallbacks_by_owner_package["runtime.video"], 1);
+    assert_eq!(metrics.frame.fallbacks_by_required_package["base"], 1);
 }
 
 #[test]
@@ -435,7 +439,10 @@ fn view_with_video_fallback() -> ViewProjection {
                 poster: Some("poster/opening.png".to_string()),
                 provenance: PackageProvenance {
                     content_package_id: Some("runtime.video".to_string()),
-                    required_runtime_packages: Default::default(),
+                    required_runtime_packages: ["base"]
+                        .into_iter()
+                        .map(ToString::to_string)
+                        .collect(),
                 },
                 ..BackgroundVideoProjection::new("opening.mp4")
             }),
