@@ -10,7 +10,9 @@ use crate::resources::{
 use crate::stage_layout::{ResolvedStageLayout, StageClientPoint, StageClientRectOrigin};
 
 use super::backend::{NativeRenderBackend, NativeRenderBackendResult, NativeRenderSubmission};
-use super::resource_update::{NativeRendererFrameUpdate, NativeRendererPackageRelease};
+use super::resource_update::{
+    NativeRendererFrameUpdate, NativeRendererHostCleanupRecord, NativeRendererPackageRelease,
+};
 use super::state::NativeRendererState;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -120,6 +122,12 @@ where
 
     pub fn clear(&mut self) -> Vec<NativeResourceRecord> {
         self.state.clear()
+    }
+
+    pub fn clear_with_host_cleanup(
+        &mut self,
+    ) -> (Vec<NativeResourceRecord>, Vec<NativeRendererHostCleanupRecord>) {
+        self.state.clear_with_host_cleanup()
     }
 
     pub fn into_parts(self) -> (NativeRendererState, B) {
