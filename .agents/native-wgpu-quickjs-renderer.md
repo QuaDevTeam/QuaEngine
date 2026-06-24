@@ -239,10 +239,12 @@ Core target plugins are any package or built-in module that installs target runt
 The isolation rule applies to all package outputs:
 
 - **Web project output** selects the Web bootstrap only. It may include `@quajs/assets-web`, `@quajs/renderer-web`, Web framework renderers such as Vue/React/Svelte adapters, and Web renderer plugin subentries. It must not include `@quajs/cocos-host`, `@quajs/renderer-cocos`, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, native host contracts as runtime adapters, or Rust native renderer metadata.
-- **Cocos project output** selects the Cocos bootstrap only. It may include `@quajs/cocos-host`, `@quajs/renderer-cocos`, and Cocos renderer/host plugin entries. It must not include Web renderer/framework adapters or native engine/assets/store adapters.
+- **Cocos project output** selects the Cocos bootstrap only. It may include `@quajs/cocos-host`, `@quajs/renderer-cocos`, and Cocos renderer/host plugin entries. It must not include Web renderer/framework adapters, native engine/assets/store adapters, `@quajs/native-contracts` as a runtime dependency, or Rust native renderer metadata.
 - **Native project output** selects the native bootstrap only. It may include `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `@quajs/native-contracts`, built-in Rust native renderer capability metadata, and native UI compiler outputs. It must not include `@quajs/assets-web`, `@quajs/renderer-web`, Vue/React/Svelte Web adapters, `@quajs/cocos-host`, or `@quajs/renderer-cocos`.
 
 Build-time validators may use shared schema packages, but emitted runtime artifacts must be checked after bundling/tree-shaking so build-only imports do not mask leaked target core plugins. Runtime startup must repeat the exclusive-target assertion before engine init, because hand-built bundles can bypass Quack.
+
+`@quajs/native-contracts` is allowed as a build-time validation/schema source for target-bundle manifest generation, but it must not leak into Web or Cocos runtime bundles. If a Web/Cocos artifact needs target-isolation data, the packager should emit a serialized `target-bundle-manifest.json` and tree-shake/remove the validator package from the runtime graph.
 
 Release-blocking checks:
 
@@ -280,13 +282,15 @@ Packaging to Web, Cocos, and native must never share one "universal" core plugin
 | Renderer core | `@quajs/renderer-web` and one selected Web framework adapter if needed | `@quajs/renderer-cocos` and `@quajs/cocos-host` | Rust `quajs_wgpu_renderer`, `@quajs/engine-native`, and native capability metadata |
 | Renderer plugin entries | Web subentries such as `@quajs/renderer-web/plugins/*` or framework Web wrappers | Cocos subentries such as `@quajs/renderer-cocos/plugins/*` | Built-in native capability ids plus declarative QUI/QSS/assets; no dynamic native code |
 | Forbidden leakage | Cocos and native core packages | Web and native core packages | Web and Cocos core packages |
+| Build-only validators | May run target isolation schemas during packaging, then remove them from runtime graph | May run target isolation schemas during packaging, then remove them from runtime graph | May ship `@quajs/native-contracts` because native bootstrap reads host/capability contracts |
 
-Partition checks are required at four separate points:
+Partition checks are required at five separate points:
 
 1. **Source dependency selection**: a project target resolves exactly one target core plugin set. Shared packages may appear only if they are platform-neutral and import no target adapter.
 2. **Renderer entry selection**: official and third-party plugins may publish `web`, `cocos`, and `native` entries, but the selected artifact includes only the active target entry. Inactive target entries are rejected if they are reachable through eager imports.
 3. **Post-bundle dependency graph**: debug and release artifacts emit `target-bundle-manifest.json` after tree-shaking. The manifest must prove that normalized dependency roots contain the active target core set and none of the other two target core sets.
-4. **Runtime startup and QPK activation**: app startup asserts exactly one registered target core adapter set before engine initialization. Runtime QPK activation evaluates only the active target compatibility block and rejects executable dependencies on any Web/Cocos/native core adapter.
+4. **Validator package pruning**: Web and Cocos runtime graphs must reject `@quajs/native-contracts` after bundling even though packaging may use it in Node/build tooling. Native runtime graphs may include it because native bootstrap reads host and capability contracts from that package.
+5. **Runtime startup and QPK activation**: app startup asserts exactly one registered target core adapter set before engine initialization. Runtime QPK activation evaluates only the active target compatibility block and rejects executable dependencies on any Web/Cocos/native core adapter.
 
 The rule is symmetric. A native packaging check that rejects Web/Cocos leakage is not enough; Web builds must also reject Cocos/native leakage, and Cocos builds must reject Web/native leakage. These checks should be implemented from the same target manifest data so the three paths cannot drift.
 
@@ -979,14 +983,14 @@ Target-specific core plugin sets:
 
 | Target | Allowed target core packages | Forbidden target core packages |
 | --- | --- | --- |
-| Web | `@quajs/assets-web`, `@quajs/renderer-web`, Web framework adapters such as `@quajs/renderer-vue`, Web-only renderer plugins, Vite/PWA helpers | `@quajs/cocos-host`, `@quajs/renderer-cocos`, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, Rust native host packages |
-| Cocos | `@quajs/cocos-host`, `@quajs/renderer-cocos`, Cocos Creator host bridge, Cocos asset sync/hybrid config | `@quajs/assets-web`, `@quajs/renderer-web`, Web framework adapters, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, Rust native host packages |
+| Web | `@quajs/assets-web`, `@quajs/renderer-web`, Web framework adapters such as `@quajs/renderer-vue`, Web-only renderer plugins, Vite/PWA helpers | `@quajs/cocos-host`, `@quajs/renderer-cocos`, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `@quajs/native-contracts` at runtime, Rust native host packages |
+| Cocos | `@quajs/cocos-host`, `@quajs/renderer-cocos`, Cocos Creator host bridge, Cocos asset sync/hybrid config | `@quajs/assets-web`, `@quajs/renderer-web`, Web framework adapters, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `@quajs/native-contracts` at runtime, Rust native host packages |
 | Native | `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `@quajs/native-contracts`, Rust `quajs_native_runtime`, Rust `quajs_wgpu_renderer` | `@quajs/assets-web`, `@quajs/renderer-web`, Web framework adapters, `@quajs/cocos-host`, `@quajs/renderer-cocos`, Cocos Creator bridge packages |
 
 Packaging target rules:
 
 - Web project packaging uses the Web bootstrap only: Web assets, `@quajs/renderer-web`, and exactly one selected Web framework adapter when the app uses Vue/React/Svelte. It must not include Cocos host packages or native host/renderer packages.
-- Cocos project packaging uses the Cocos bootstrap only: `@quajs/cocos-host`, Cocos asset target output, and `@quajs/renderer-cocos`. It must not include DOM/Web renderer packages or native QuickJS/wgpu packages.
+- Cocos project packaging uses the Cocos bootstrap only: `@quajs/cocos-host`, Cocos asset target output, and `@quajs/renderer-cocos`. It must not include DOM/Web renderer packages, native QuickJS/wgpu packages, or `@quajs/native-contracts` in the runtime graph.
 - Native project packaging uses the native bootstrap only: `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `@quajs/native-contracts`, and the signed Rust native runtime/renderer compiled into the app binary. It must not include Web renderer/framework adapters or Cocos host/renderer adapters.
 - Target-specific renderer plugin subentries are selected only for their target. A Web renderer plugin entry, a Cocos renderer plugin entry, and a native built-in capability marker are not interchangeable even when they implement the same feature.
 - Shared plugin logic should live in platform-neutral package entries. Target entries should import shared logic, not import each other.
@@ -1007,6 +1011,7 @@ Bootstrap rules:
 - Web bootstrap installs Web assets/renderer/runtime plugins only.
 - Cocos bootstrap installs Cocos host/renderer plugins only.
 - Native bootstrap installs `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, and native renderer capability metadata only.
+- Web and Cocos bootstrap validation may import native-contract schemas in build tooling, but packaged Web/Cocos runtime bootstraps must not retain `@quajs/native-contracts`.
 - Target bootstrap validation is contract-backed by `@quajs/native-contracts`. `validateExclusiveTargetBootstrap` must fail when zero or multiple target core adapter sets are registered, and `validateTargetBootstrap` must report both `missing` required target core adapters and `forbidden` cross-target core adapters for the active target.
 - Bootstrap validation must normalize package subentries before checking isolation. For example `@quajs/renderer-web/plugins/audio` counts as `@quajs/renderer-web`, and `@quajs/renderer-vue/plugins/preset` counts as `@quajs/renderer-vue`.
 - Runtime QPKs may declare target compatibility, but they cannot force-load another target's core adapter.
