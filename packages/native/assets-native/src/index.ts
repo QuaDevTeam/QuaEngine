@@ -98,7 +98,10 @@ export class NativeHostAssetStorage implements AssetStorage {
   }
 
   async close(): Promise<void> {
+    if (!this.opened)
+      return
     await this.saveIndex()
+    this.opened = false
   }
 
   async getAsset(id: string): Promise<StoredAsset | undefined> {
@@ -296,8 +299,11 @@ export class NativeHostAssetStorage implements AssetStorage {
 
   private async loadIndex(): Promise<void> {
     const data = await this.host.readStorage(this.indexPath())
-    if (!data)
+    if (!data) {
+      this.assets.clear()
+      this.bundles.clear()
       return
+    }
     const parsed = decodeJson<NativeAssetStorageIndex>(data)
     this.assets = new Map((parsed.assets || []).map(asset => [asset.id, cloneStoredAsset({
       ...asset,
