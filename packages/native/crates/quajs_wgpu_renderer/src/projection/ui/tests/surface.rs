@@ -203,6 +203,49 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
 }
 
 #[test]
+fn expands_fragment_surface_nodes_without_draw_commands() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "group",
+                    UiSurfaceNodeKind::Fragment,
+                    rect(0.0, 0.0, 0.0, 0.0),
+                )
+                .with_children(vec![
+                    UiSurfaceNodeProjection::new(
+                        "title",
+                        UiSurfaceNodeKind::Text,
+                        rect(40.0, 48.0, 240.0, 44.0),
+                    )
+                    .with_text("Grouped"),
+                    UiSurfaceNodeProjection::new(
+                        "confirm",
+                        UiSurfaceNodeKind::Button,
+                        rect(340.0, 236.0, 120.0, 48.0),
+                    )
+                    .with_text("OK")
+                    .with_intent(UiIntentProjection::new("confirm")),
+                ]),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["ui:menu", "ui:menu:title", "ui:menu:confirm"]);
+    assert_eq!(commands[1].kind, DrawCommandKind::Text);
+    assert_eq!(commands[2].kind, DrawCommandKind::UiSurface);
+    assert!(commands[2].interactive);
+}
+
+#[test]
 fn expands_backdrop_surface_nodes_to_intent_panels() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {

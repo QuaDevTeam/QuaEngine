@@ -63,7 +63,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "object-fit",
             ],
             &[
-                "Box", "Backdrop", "Button", "Text", "Image", "Panel", "Scroll",
+                "Box", "Backdrop", "Button", "Fragment", "Text", "Image", "Panel", "Scroll",
             ],
             "reject-package",
         ),
@@ -156,6 +156,7 @@ mod tests {
         assert!(ui.qss_features.contains(&"object-fit".to_string()));
         assert!(ui.qui_components.contains(&"Backdrop".to_string()));
         assert!(ui.qui_components.contains(&"Button".to_string()));
+        assert!(ui.qui_components.contains(&"Fragment".to_string()));
         assert!(ui.qui_components.contains(&"Text".to_string()));
         assert!(ui.qui_components.contains(&"Image".to_string()));
         assert!(ui.qui_components.contains(&"Panel".to_string()));
@@ -172,6 +173,7 @@ mod tests {
         assert!(pointer.qss_features.is_empty());
         assert!(pointer.qui_components.contains(&"Backdrop".to_string()));
         assert!(pointer.qui_components.contains(&"Panel".to_string()));
+        assert!(!pointer.qui_components.contains(&"Fragment".to_string()));
         assert!(pointer.intent_events.contains(&"choice/select".to_string()));
         assert!(pointer.intent_events.contains(&"ui/intent".to_string()));
         assert!(pointer
