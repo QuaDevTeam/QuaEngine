@@ -1,4 +1,5 @@
 pub mod host;
+pub mod quickjs;
 
 pub use host::{
     current_platform, current_profile, dispatch_native_host_api_request, InMemoryNativeHostApi,
@@ -9,4 +10,10 @@ pub use host::{
     NativeHostApiWriteStorageRequest, NativeHostInfo, NativeHostInfoBuilder,
     NativeMountedBundleInfo, NativePlatform, NativeProfile, NativeRendererInfo,
     NativeRendererIntent, NativeRuntimeInfo, NativeSignatureVerifyRequest, RendererCapability,
+};
+pub use quickjs::{
+    is_forbidden_runtime_module_asset_name, validate_quickjs_evaluation_request,
+    QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
+    QuickJsEvaluationResponse, QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord,
+    QuickJsSandboxLimits,
 };
