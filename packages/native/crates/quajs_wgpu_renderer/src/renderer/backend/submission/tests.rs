@@ -12,26 +12,7 @@ use crate::stage_layout::{
 
 #[test]
 fn creates_submission_stats_from_frame_ref() {
-    let frame = prepare_native_frame(
-        resolve_stage_layout(
-            Some(ViewLayoutInput {
-                preset: Some(ViewLayoutOrientation::Landscape),
-                ..Default::default()
-            }),
-            StageContainerInput {
-                width: Some(1600.0),
-                height: Some(1000.0),
-                ..Default::default()
-            },
-        ),
-        &ViewProjection {
-            background: Some(BackgroundProjection {
-                asset_name: Some("bg/school.png".to_string()),
-                ..Default::default()
-            }),
-            ..Default::default()
-        },
-    );
+    let frame = frame_with_background();
     let resources = NativeResourceLedger::new();
     let frame_ref = NativeRenderFrameRef {
         revision: 7,
@@ -105,27 +86,33 @@ fn creates_submission_stats_from_frame_ref() {
 }
 
 #[test]
-fn summarizes_resolved_submission_resource_memory() {
-    let frame = prepare_native_frame(
-        resolve_stage_layout(
-            Some(ViewLayoutInput {
-                preset: Some(ViewLayoutOrientation::Landscape),
-                ..Default::default()
-            }),
-            StageContainerInput {
-                width: Some(1600.0),
-                height: Some(1000.0),
-                ..Default::default()
-            },
-        ),
-        &ViewProjection {
-            background: Some(BackgroundProjection {
-                asset_name: Some("bg/school.png".to_string()),
-                ..Default::default()
-            }),
-            ..Default::default()
-        },
+fn summarizes_missing_resources_from_batches() {
+    let frame = frame_with_background();
+    let resources = NativeResourceLedger::new();
+    let frame_ref = NativeRenderFrameRef {
+        revision: 8,
+        frame: &frame,
+        resources: &resources,
+    };
+
+    let submission = frame_ref.submission();
+
+    assert_eq!(submission.missing_resource_count, 1);
+    assert_eq!(
+        submission.missing_resources,
+        vec![NativeRenderMissingResource {
+            resource_id: ResourceId::from("images:bg/school.png"),
+            plane: RenderPlane::Scene,
+            pipeline: DrawBatchPipeline::Image,
+            kind: DrawCommandKind::Image,
+            command_ids: vec!["background:main".to_string()],
+        }]
     );
+}
+
+#[test]
+fn summarizes_resolved_submission_resource_memory() {
+    let frame = frame_with_background();
     let mut resources = NativeResourceLedger::new();
     resources.insert(
         NativeResourceRecord::new(
@@ -144,7 +131,7 @@ fn summarizes_resolved_submission_resource_memory() {
         .memory(1024, 8192),
     );
     let frame_ref = NativeRenderFrameRef {
-        revision: 8,
+        revision: 9,
         frame: &frame,
         resources: &resources,
     };
@@ -153,6 +140,7 @@ fn summarizes_resolved_submission_resource_memory() {
 
     assert_eq!(submission.resource_count, 2);
     assert_eq!(submission.missing_resource_count, 0);
+    assert!(submission.missing_resources.is_empty());
     assert_eq!(submission.resolved_resource_memory.total.cpu_bytes, 512);
     assert_eq!(submission.resolved_resource_memory.total.gpu_bytes, 4096);
     assert_eq!(
@@ -217,4 +205,27 @@ fn summarizes_resolved_submission_resource_memory() {
             .cpu_bytes,
         512
     );
+}
+
+fn frame_with_background() -> crate::frame::PreparedNativeFrame {
+    prepare_native_frame(
+        resolve_stage_layout(
+            Some(ViewLayoutInput {
+                preset: Some(ViewLayoutOrientation::Landscape),
+                ..Default::default()
+            }),
+            StageContainerInput {
+                width: Some(1600.0),
+                height: Some(1000.0),
+                ..Default::default()
+            },
+        ),
+        &ViewProjection {
+            background: Some(BackgroundProjection {
+                asset_name: Some("bg/school.png".to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    )
 }
