@@ -13,6 +13,7 @@ fn submits_frames_through_feature_gated_wgpu_skeleton() {
             adapter_name: Some("test-adapter".to_string()),
             surface_format: Some("Bgra8UnormSrgb".to_string()),
             present_mode: WgpuPresentMode::Fifo,
+            resource_policy: NativeRenderBackendResourcePolicy::AllowMissingResources,
         },
     ));
     let result = renderer

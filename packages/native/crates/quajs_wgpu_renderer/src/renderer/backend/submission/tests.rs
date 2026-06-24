@@ -156,6 +156,49 @@ fn summarizes_backend_resource_diagnostics_from_submissions() {
 }
 
 #[test]
+fn resource_policy_rejects_only_submissions_with_missing_resources() {
+    let frame = frame_with_background();
+    let empty_resources = NativeResourceLedger::new();
+    let mut resolved_resources = NativeResourceLedger::new();
+    resolved_resources.insert(
+        NativeResourceRecord::new(
+            ResourceId::from("images:bg/school.png"),
+            NativeResourceKind::Texture,
+        )
+        .memory(1, 1),
+    );
+    let missing = NativeRenderFrameRef {
+        revision: 11,
+        frame: &frame,
+        resources: &empty_resources,
+    }
+    .submission();
+    let resolved = NativeRenderFrameRef {
+        revision: 12,
+        frame: &frame,
+        resources: &resolved_resources,
+    }
+    .submission();
+
+    let error = NativeRenderBackendResourcePolicy::RejectMissingResources
+        .validate_submission(&missing)
+        .unwrap_err();
+
+    assert_eq!(
+        error.kind,
+        crate::renderer::NativeRenderBackendErrorKind::BackendRejected
+    );
+    assert!(error.message.contains("submission 11"));
+    assert!(error.message.contains("images:bg/school.png"));
+    assert!(NativeRenderBackendResourcePolicy::RejectMissingResources
+        .validate_submission(&resolved)
+        .is_ok());
+    assert!(NativeRenderBackendResourcePolicy::AllowMissingResources
+        .validate_submission(&missing)
+        .is_ok());
+}
+
+#[test]
 fn summarizes_resolved_submission_resource_memory() {
     let frame = frame_with_background();
     let mut resources = NativeResourceLedger::new();

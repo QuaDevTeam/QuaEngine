@@ -3,7 +3,7 @@ use crate::frame::prepare_native_frame;
 use crate::projection::background::BackgroundProjection;
 use crate::projection::view::ViewProjection;
 use crate::render_graph::{DrawBatchPipeline, DrawCommandKind, RenderPlane};
-use crate::renderer::NativeRenderMissingResource;
+use crate::renderer::{NativeRenderBackendErrorKind, NativeRenderMissingResource};
 use crate::resources::NativeResourceLedger;
 use crate::stage_layout::{
     resolve_stage_layout, StageContainerInput, ViewLayoutInput, ViewLayoutOrientation,
@@ -36,6 +36,36 @@ fn records_submissions_without_gpu_work() {
             },
             last_submission: Some(submission),
         }
+    );
+}
+
+#[test]
+fn can_reject_submissions_with_missing_resources() {
+    let mut backend = NullNativeRenderBackend::with_resource_policy(
+        NativeRenderBackendResourcePolicy::RejectMissingResources,
+    );
+    let frame = frame_with_background();
+    let resources = NativeResourceLedger::new();
+
+    let error = backend
+        .submit_frame(NativeRenderFrameRef {
+            revision: 4,
+            frame: &frame,
+            resources: &resources,
+        })
+        .unwrap_err();
+
+    assert_eq!(
+        backend.resource_policy(),
+        NativeRenderBackendResourcePolicy::RejectMissingResources
+    );
+    assert_eq!(error.kind, NativeRenderBackendErrorKind::BackendRejected);
+    assert!(error.message.contains("missing resource"));
+    assert!(error.message.contains("images:bg/school.png"));
+    assert!(backend.submissions().is_empty());
+    assert_eq!(
+        backend.diagnostics().resources,
+        NativeRenderBackendResourceDiagnostics::default()
     );
 }
 
