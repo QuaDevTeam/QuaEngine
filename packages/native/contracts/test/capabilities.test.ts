@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createNativeHostApiRequest,
   createNativeRendererIntent,
   createNativeSignatureVerifyWireRequest,
+  nativeBytesToWire,
+  nativeWireBytesToUint8Array,
   parseNativeRendererIntentPayload,
 } from '../src'
 
@@ -44,5 +47,60 @@ describe('native host contracts', () => {
       keyId: 'release-key',
       algorithm: 'ed25519',
     })
+  })
+
+  it('creates host bridge requests with the Rust method and params shape', () => {
+    expect(createNativeHostApiRequest({
+      method: 'readAssetBytes',
+      params: {
+        url: 'images/bg.png',
+        bundleName: 'base',
+        assetId: 'bg',
+      },
+    })).toEqual({
+      method: 'readAssetBytes',
+      params: {
+        url: 'images/bg.png',
+        bundleName: 'base',
+        assetId: 'bg',
+      },
+    })
+
+    expect(createNativeHostApiRequest({
+      method: 'hashBytes',
+      params: {
+        bytes: nativeBytesToWire(new Uint8Array([1, 2, 3])),
+        algorithm: 'sha256',
+      },
+    })).toEqual({
+      method: 'hashBytes',
+      params: {
+        bytes: [1, 2, 3],
+        algorithm: 'sha256',
+      },
+    })
+  })
+
+  it('accepts host bridge responses with typed payloads and errors', () => {
+    const okResponse = {
+      ok: true,
+      payload: {
+        type: 'storageKeys',
+        value: ['profile/save-1'],
+      },
+    } as const
+    const errorResponse = {
+      ok: false,
+      error: {
+        code: 'assetNotFound',
+        message: 'Native asset "missing.png" was not found.',
+        assetUrl: 'missing.png',
+      },
+    } as const
+
+    expect(okResponse.payload.value).toEqual(['profile/save-1'])
+    expect(errorResponse.error.code).toBe('assetNotFound')
+    expect(nativeWireBytesToUint8Array([4, 5, 6])).toEqual(new Uint8Array([4, 5, 6]))
+    expect(nativeWireBytesToUint8Array(undefined)).toBeUndefined()
   })
 })

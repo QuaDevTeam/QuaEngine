@@ -89,6 +89,59 @@ export interface NativeRendererIntentInput {
   payloadJson?: string
 }
 
+export type NativeHostApiRequest =
+  | { method: 'getHostInfo' }
+  | { method: 'readAssetBytes', params: NativeAssetReadRequest }
+  | { method: 'listMountedBundles' }
+  | { method: 'readStorage', params: NativeHostApiStorageKeyRequest }
+  | { method: 'writeStorage', params: NativeHostApiWriteStorageRequest }
+  | { method: 'deleteStorage', params: NativeHostApiStorageKeyRequest }
+  | { method: 'listStorageKeys', params: NativeHostApiListStorageKeysRequest }
+  | { method: 'hashBytes', params: NativeHostApiHashBytesRequest }
+  | { method: 'verifySignature', params: NativeSignatureVerifyWireRequest }
+  | { method: 'emitRendererIntent', params: NativeRendererIntent }
+
+export interface NativeHostApiStorageKeyRequest {
+  key: string
+}
+
+export interface NativeHostApiWriteStorageRequest {
+  key: string
+  value: number[]
+}
+
+export interface NativeHostApiListStorageKeysRequest {
+  prefix: string
+}
+
+export interface NativeHostApiHashBytesRequest {
+  bytes: number[]
+  algorithm: string
+}
+
+export interface NativeHostApiErrorInfo {
+  code: 'assetNotFound' | 'storageKeyNotFound' | 'unsupportedOperation' | 'invalidRequest'
+  message: string
+  assetUrl?: string
+  storageKey?: string
+  detail?: string
+}
+
+export type NativeHostApiResponsePayload =
+  | { type: 'hostInfo', value: QuaNativeHostInfo }
+  | { type: 'assetBytes', value: number[] }
+  | { type: 'mountedBundles', value: NativeMountedBundleInfo[] }
+  | { type: 'storageBytes', value?: number[] }
+  | { type: 'storageKeys', value: string[] }
+  | { type: 'hash', value: string }
+  | { type: 'signatureValid', value: boolean }
+
+export interface NativeHostApiResponse {
+  ok: boolean
+  payload?: NativeHostApiResponsePayload
+  error?: NativeHostApiErrorInfo
+}
+
 export interface QuaNativeHostApi {
   getHostInfo: () => QuaNativeHostInfo | Promise<QuaNativeHostInfo>
   readAssetBytes: (request: NativeAssetReadRequest) => Promise<Uint8Array>
@@ -139,6 +192,18 @@ export function createNativeSignatureVerifyWireRequest(
     ...(request.keyId !== undefined ? { keyId: request.keyId } : {}),
     ...(request.algorithm !== undefined ? { algorithm: request.algorithm } : {}),
   }
+}
+
+export function createNativeHostApiRequest(request: NativeHostApiRequest): NativeHostApiRequest {
+  return request
+}
+
+export function nativeBytesToWire(bytes: Uint8Array): number[] {
+  return Array.from(bytes)
+}
+
+export function nativeWireBytesToUint8Array(bytes: readonly number[] | undefined): Uint8Array | undefined {
+  return bytes === undefined ? undefined : new Uint8Array(bytes)
 }
 
 export function getCapabilityMajorVersion(capability: string): number | undefined {
