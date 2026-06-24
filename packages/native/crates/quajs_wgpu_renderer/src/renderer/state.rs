@@ -18,9 +18,9 @@ use crate::renderer::resource_update::{
     NativeRendererPackageRelease,
 };
 use crate::resources::{
-    audio_resource_records, plan_audio_resource_sync, plan_frame_resource_sync,
-    NativeResourceLedger, NativeResourceRecord, PackageUnloadPlan, ResourceBudget,
-    ResourceBudgetViolation,
+    audio_resource_records, plan_audio_asset_requests, plan_audio_resource_sync,
+    plan_frame_resource_sync, NativeResourceLedger, NativeResourceRecord, PackageUnloadPlan,
+    ResourceBudget, ResourceBudgetViolation,
 };
 use crate::stage_layout::{ResolvedStageLayout, StageClientPoint, StageClientRectOrigin};
 
@@ -104,6 +104,7 @@ impl NativeRendererState {
         let frame = prepare_native_frame(layout, view);
         let resource_sync = plan_frame_resource_sync(&self.resources, &frame.resources);
         let audio_resource_sync = plan_audio_resource_sync(&self.resources, view.audio.as_ref());
+        let audio_assets = plan_audio_asset_requests(&self.resources, &audio_resource_sync);
         let mut released_resources = apply_resource_sync(&mut self.resources, &resource_sync);
         let audio_released_resources =
             apply_audio_resource_sync(&mut self.resources, &audio_resource_sync);
@@ -126,6 +127,7 @@ impl NativeRendererState {
             resource_sync_summary,
             audio_resource_sync,
             audio_resource_sync_summary,
+            audio_assets,
         }
     }
 
