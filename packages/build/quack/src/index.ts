@@ -95,6 +95,7 @@ export {
 } from './plugins'
 export {
   createQuaProjectAssetTargets,
+  createQuaProjectNativeArtifactPlans,
   createQuaProjectWebAssets,
   createQuaProjectWebManifest,
   createQuaProjectWebRuntimeConfig,
@@ -120,6 +121,7 @@ export type {
   QuaProjectIconConfig,
   QuaProjectLayoutInput,
   QuaProjectManifestIconInput,
+  QuaProjectNativeArtifactPlan,
   QuaProjectNativePlatform,
   QuaProjectNativeProfile,
   QuaProjectNativeTargetConfig,

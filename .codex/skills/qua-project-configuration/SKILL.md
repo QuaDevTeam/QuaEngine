@@ -24,7 +24,9 @@ Defaults: `version` falls back to `package.json`, Web is enabled, Web devices de
 
 ## Package Boundaries
 
-Use `@quajs/quack/project` to load, normalize, validate, create Web assets/manifests, merge Quack asset targets, and sync Cocos build files. Do not parse YAML/JSON in engine, renderers, or templates.
+Use `@quajs/quack/project` to load, normalize, validate, create Web assets/manifests, merge Quack asset targets, sync Cocos build files, and derive native artifact plans. Do not parse YAML/JSON in engine, renderers, or templates.
+
+Use `createQuaProjectNativeArtifactPlans` when native packaging needs the concrete output matrix. It expands `targets.native.platforms` and `targets.native.profiles` into deterministic plans whose `artifactDir` is isolated by `outputDir/profile/version-buildNumber/platform`.
 
 Use `doctorQuaProjectConfig` or `quack project doctor` to report target readiness. Doctor results include `info`, `warning`, and `error` issues for Web device support, local/external icon sources, PWA icon/service-worker caveats, Cocos project directory presence, configured platforms, hybrid asset output, and native platform/profile/icon/output metadata. Errors should fail packaging; warnings should be fixed or intentionally accepted.
 
@@ -71,4 +73,5 @@ Also run affected `typecheck` and `build` commands. If `@quajs/renderer-web type
 - Are Web device restrictions enforced before engine startup and represented only as renderer-local UI?
 - Is engine core still platform-neutral and receiving only normalized metadata/layout?
 - Do Cocos sync files use generated `configPath` JSON and copied icon assets instead of Creator volatile cache?
+- Do native artifact plans isolate debug/release outputs and release versions before packaging writes files?
 - Are Quack workspace asset targets merged without losing explicit bundle target overrides?
