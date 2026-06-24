@@ -1,4 +1,4 @@
-use crate::projection::common::{FontWeightProjection, PackageProvenance};
+use crate::projection::common::{FontFamilyProjection, FontWeightProjection, PackageProvenance};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DialogueMode {
@@ -26,6 +26,7 @@ impl From<String> for RichTextContent {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RichTextStyle {
+    pub font_family: Option<FontFamilyProjection>,
     pub font_size: Option<f64>,
     pub font_weight: Option<FontWeightProjection>,
     pub line_height: Option<f64>,

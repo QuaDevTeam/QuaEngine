@@ -1,4 +1,4 @@
-use crate::projection::common::{FontWeightProjection, PackageProvenance};
+use crate::projection::common::{FontFamilyProjection, FontWeightProjection, PackageProvenance};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct UiProjection {
@@ -159,6 +159,7 @@ pub struct UiSurfaceResolvedStyle {
     pub border_radius: Option<f64>,
     pub border_color: Option<String>,
     pub border_width: Option<f64>,
+    pub font_family: Option<FontFamilyProjection>,
     pub font_size: Option<f64>,
     pub font_weight: Option<FontWeightProjection>,
     pub line_height: Option<f64>,

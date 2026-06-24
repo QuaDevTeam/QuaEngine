@@ -1,6 +1,21 @@
 use crate::render_graph::FontWeightDrawParam;
 
-use super::common::FontWeightProjection;
+use super::common::{FontFamilyProjection, FontWeightProjection};
+
+pub fn font_family_to_draw_param(font_family: &Option<FontFamilyProjection>) -> Vec<String> {
+    font_family
+        .as_ref()
+        .map(|font_family| {
+            font_family
+                .families
+                .iter()
+                .map(|family| family.trim())
+                .filter(|family| !family.is_empty())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
 
 pub fn font_weight_to_draw_param(
     font_weight: &Option<FontWeightProjection>,

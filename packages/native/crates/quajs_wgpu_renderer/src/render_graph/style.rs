@@ -76,6 +76,7 @@ pub enum FontWeightDrawParam {
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextDrawParams {
     pub text: String,
+    pub font_family: Vec<String>,
     pub font_size: f64,
     pub font_weight: Option<FontWeightDrawParam>,
     pub line_height: f64,
@@ -125,6 +126,7 @@ pub struct UiButtonDrawParams {
     pub text_color: String,
     pub corner_radius: f64,
     pub border: BorderDrawParams,
+    pub font_family: Vec<String>,
     pub font_weight: Option<FontWeightDrawParam>,
     pub intent: Option<RendererIntent>,
 }

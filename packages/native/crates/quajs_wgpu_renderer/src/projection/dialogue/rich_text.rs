@@ -1,4 +1,4 @@
-use crate::projection::typography::font_weight_to_draw_param;
+use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
 use crate::render_graph::{FontWeightDrawParam, TextAlign};
 
 use super::types::{RichTextContent, RichTextStyle};
@@ -41,6 +41,10 @@ pub fn resolve_font_size(style: &RichTextStyle, fallback: f64) -> f64 {
         .font_size
         .filter(|value| value.is_finite() && *value > 0.0)
         .unwrap_or(fallback)
+}
+
+pub fn resolve_font_family(style: &RichTextStyle) -> Vec<String> {
+    font_family_to_draw_param(&style.font_family)
 }
 
 pub fn resolve_font_weight(style: &RichTextStyle) -> Option<FontWeightDrawParam> {
