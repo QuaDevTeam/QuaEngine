@@ -1,3 +1,5 @@
+import { TARGET_BOOTSTRAP_MANIFESTS, normalizePackageSpecifier } from './bootstrap'
+
 export type NativeRuntimePackageGuardSeverity = 'warning' | 'error'
 
 export type NativeRuntimePackageGuardDiagnosticCode
@@ -5,6 +7,7 @@ export type NativeRuntimePackageGuardDiagnosticCode
     | 'NATIVE_PACKAGE_NATIVE_PAYLOAD_FORBIDDEN'
     | 'NATIVE_PACKAGE_NATIVE_PLUGIN_FORBIDDEN'
     | 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN'
+    | 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN'
 
 export interface NativeRuntimePackageGuardDiagnostic {
   code: NativeRuntimePackageGuardDiagnosticCode
@@ -51,11 +54,18 @@ export interface NativeGuardAssetInfo {
 
 export interface NativeGuardRuntimePackageManifest {
   id: string
+  executableDependencies?: NativeGuardPackageReference[]
   scripts?: NativeGuardRuntimePackageScriptManifest[]
   scenes?: NativeGuardRuntimePackageSceneManifest[]
   plugins?: NativeGuardRuntimePackagePluginManifest[]
   storeMigrations?: NativeGuardRuntimePackageStoreMigrationManifest[]
   metadata?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+export type NativeGuardPackageReference = string | {
+  specifier?: string
+  packageName?: string
   [key: string]: unknown
 }
 
@@ -111,6 +121,7 @@ export function checkNativeRuntimePackageGuard(options: CheckNativeRuntimePackag
     .map(extension => extension.toLowerCase()))
 
   collectNativeCodeDeclarations(runtimePackage, diagnostics)
+  collectTargetCoreDependencyDeclarations(runtimePackage, diagnostics)
   collectNativePluginDeclarations(runtimePackage, diagnostics)
 
   for (const assetName of collectRuntimePackageAssetNames(runtimePackage, options.bundle?.manifest)) {
@@ -203,6 +214,45 @@ function findNativeCompatibilityBlocksWithoutExplicitOptOut(metadata: Record<str
     fields.push('metadata.renderers.native.nativeCode')
   }
   return fields
+}
+
+function collectTargetCoreDependencyDeclarations(
+  runtimePackage: NativeGuardRuntimePackageManifest,
+  diagnostics: NativeRuntimePackageGuardDiagnostic[],
+): void {
+  const targetCoreRoots = collectTargetCoreAdapterRoots()
+  for (const dependency of runtimePackage.executableDependencies || []) {
+    const specifier = packageReferenceSpecifier(dependency)
+    if (!specifier)
+      continue
+    const packageName = normalizePackageSpecifier(specifier)
+    if (!targetCoreRoots.has(packageName))
+      continue
+
+    diagnostics.push({
+      code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
+      severity: 'error',
+      packageId: runtimePackage.id,
+      field: 'executableDependencies',
+      message: `Native runtime package "${runtimePackage.id}" must not declare target core adapter "${packageName}" as an executable dependency.`,
+    })
+  }
+}
+
+function collectTargetCoreAdapterRoots(): ReadonlySet<string> {
+  return new Set(Object.values(TARGET_BOOTSTRAP_MANIFESTS)
+    .flatMap(manifest => [
+      ...manifest.coreAdapters,
+      ...manifest.corePluginFamilyRoots,
+      ...manifest.forbiddenCoreAdapters,
+    ])
+    .map(normalizePackageSpecifier))
+}
+
+function packageReferenceSpecifier(reference: NativeGuardPackageReference): string | undefined {
+  if (typeof reference === 'string')
+    return reference
+  return reference.packageName || reference.specifier
 }
 
 function collectNativePluginDeclarations(
