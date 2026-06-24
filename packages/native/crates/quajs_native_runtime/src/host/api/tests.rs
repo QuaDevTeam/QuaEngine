@@ -121,6 +121,25 @@ fn in_memory_host_rejects_missing_assets_empty_storage_keys_and_unwired_crypto()
     ));
 }
 
+#[test]
+fn serializes_host_api_errors_for_bridge_responses() {
+    let asset_error = NativeHostApiError::AssetNotFound("images/missing.png".to_string());
+    let storage_error = NativeHostApiError::StorageKeyNotFound("profile/save-1".to_string());
+    let invalid_error = NativeHostApiError::InvalidRequest("empty key".to_string());
+
+    let asset_json = serde_json::to_value(asset_error.to_info()).unwrap();
+    let storage_json = serde_json::to_value(storage_error.to_info()).unwrap();
+    let invalid_json = serde_json::to_value(invalid_error.to_info()).unwrap();
+
+    assert_eq!(asset_error.code(), NativeHostApiErrorCode::AssetNotFound);
+    assert_eq!(asset_json["code"], "assetNotFound");
+    assert_eq!(asset_json["assetUrl"], "images/missing.png");
+    assert_eq!(storage_json["code"], "storageKeyNotFound");
+    assert_eq!(storage_json["storageKey"], "profile/save-1");
+    assert_eq!(invalid_json["code"], "invalidRequest");
+    assert_eq!(invalid_json["detail"], "empty key");
+}
+
 fn host_info() -> NativeHostInfo {
     NativeHostInfoBuilder::new("Fixture", "dev.quajs.fixture")
         .app_version("1.0.0")
