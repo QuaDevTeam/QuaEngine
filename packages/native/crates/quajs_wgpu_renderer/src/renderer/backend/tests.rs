@@ -2,6 +2,7 @@ use super::*;
 use crate::frame::prepare_native_frame;
 use crate::projection::background::BackgroundProjection;
 use crate::projection::view::ViewProjection;
+use crate::render_graph::RenderPlane;
 use crate::resources::NativeResourceLedger;
 use crate::stage_layout::{
     resolve_stage_layout, StageContainerInput, ViewLayoutInput, ViewLayoutOrientation,
@@ -36,14 +37,19 @@ fn creates_submission_stats_from_frame_ref() {
         resources: &resources,
     };
 
+    let submission = frame_ref.submission();
+
+    assert_eq!(submission.revision, 7);
+    assert_eq!(submission.pass_count, 1);
+    assert_eq!(submission.batch_count, 1);
+    assert_eq!(submission.command_count, 1);
+    assert_eq!(submission.resource_count, 0);
+    assert_eq!(submission.passes.len(), 1);
+    assert_eq!(submission.passes[0].plane, RenderPlane::Scene);
+    assert_eq!(submission.passes[0].batch_count, 1);
+    assert_eq!(submission.passes[0].command_count, 1);
     assert_eq!(
-        frame_ref.submission(),
-        NativeRenderSubmission {
-            revision: 7,
-            pass_count: 1,
-            batch_count: 1,
-            command_count: 1,
-            resource_count: 0,
-        }
+        submission.passes[0].viewport,
+        frame.passes.passes[0].viewport
     );
 }

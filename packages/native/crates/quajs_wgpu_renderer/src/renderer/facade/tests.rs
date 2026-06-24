@@ -6,6 +6,7 @@ use crate::projection::background::BackgroundProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
 use crate::projection::view::ViewProjection;
+use crate::render_graph::RenderPlane;
 use crate::renderer::{
     NativeRenderBackend, NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
     NullNativeRenderBackend,
@@ -30,16 +31,22 @@ fn prepares_and_submits_frame_through_backend() {
 
     assert_eq!(result.update.revision, 1);
     assert_eq!(result.update.resource_sync.upsert.len(), 1);
+    assert_eq!(result.submission.revision, 1);
+    assert_eq!(result.submission.pass_count, 2);
+    assert_eq!(result.submission.batch_count, 3);
+    assert_eq!(result.submission.command_count, 4);
+    assert_eq!(result.submission.resource_count, 1);
     assert_eq!(
-        result.submission,
-        NativeRenderSubmission {
-            revision: 1,
-            pass_count: 2,
-            batch_count: 3,
-            command_count: 4,
-            resource_count: 1,
-        }
+        result
+            .submission
+            .passes
+            .iter()
+            .map(|pass| pass.plane)
+            .collect::<Vec<_>>(),
+        vec![RenderPlane::Scene, RenderPlane::Safe]
     );
+    assert_eq!(result.submission.passes[0].batch_count, 1);
+    assert_eq!(result.submission.passes[1].batch_count, 2);
     assert_eq!(renderer.backend().submissions, vec![result.submission]);
     assert_eq!(renderer.resources().len(), 1);
 }
@@ -517,7 +524,7 @@ fn can_be_split_back_into_state_and_backend() {
     assert_eq!(backend.submissions.len(), 1);
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 struct RecordingBackend {
     submissions: Vec<NativeRenderSubmission>,
 }

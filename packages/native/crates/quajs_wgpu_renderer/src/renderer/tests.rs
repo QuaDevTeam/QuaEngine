@@ -5,6 +5,7 @@ use crate::projection::background::BackgroundProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
 use crate::projection::view::ViewProjection;
+use crate::render_graph::RenderPlane;
 use crate::renderer::{
     NativeRenderBackend, NativeRenderBackendErrorKind, NativeRenderBackendResult,
     NativeRenderFrameRef, NativeRenderSubmission,
@@ -360,16 +361,23 @@ fn submits_latest_frame_to_backend() {
     let submission = state.submit_latest_frame(&mut backend).unwrap();
 
     assert_eq!(backend.submissions, vec![submission.clone()]);
+    assert_eq!(submission.revision, 1);
+    assert_eq!(submission.pass_count, 2);
+    assert_eq!(submission.batch_count, 3);
+    assert_eq!(submission.command_count, 3);
+    assert_eq!(submission.resource_count, 1);
     assert_eq!(
-        submission,
-        NativeRenderSubmission {
-            revision: 1,
-            pass_count: 2,
-            batch_count: 3,
-            command_count: 3,
-            resource_count: 1,
-        }
+        submission
+            .passes
+            .iter()
+            .map(|pass| pass.plane)
+            .collect::<Vec<_>>(),
+        vec![RenderPlane::Scene, RenderPlane::Safe]
     );
+    assert_eq!(submission.passes[0].batch_count, 1);
+    assert_eq!(submission.passes[0].command_count, 1);
+    assert_eq!(submission.passes[1].batch_count, 2);
+    assert_eq!(submission.passes[1].command_count, 2);
 }
 
 #[test]
