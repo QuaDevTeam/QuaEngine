@@ -98,6 +98,38 @@ pub struct NativeRenderResourceMemoryBreakdown {
     pub by_required_package: BTreeMap<String, ResourceMemory>,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeRenderBackendResourceDiagnostics {
+    pub frames_with_missing_resources: usize,
+    pub missing_resource_count: usize,
+    pub last_missing_resources: Vec<NativeRenderMissingResource>,
+}
+
+impl NativeRenderBackendResourceDiagnostics {
+    pub fn from_submissions(submissions: &[NativeRenderSubmission]) -> Self {
+        let frames_with_missing_resources = submissions
+            .iter()
+            .filter(|submission| submission.missing_resource_count > 0)
+            .count();
+        let missing_resource_count = submissions
+            .iter()
+            .map(|submission| submission.missing_resource_count)
+            .sum();
+        let last_missing_resources = submissions
+            .iter()
+            .rev()
+            .find(|submission| submission.missing_resource_count > 0)
+            .map(|submission| submission.missing_resources.clone())
+            .unwrap_or_default();
+
+        Self {
+            frames_with_missing_resources,
+            missing_resource_count,
+            last_missing_resources,
+        }
+    }
+}
+
 impl NativeRenderPassSubmission {
     fn from_pass(pass: &crate::render_graph::RenderPass, resources: &NativeResourceLedger) -> Self {
         let batches = pass

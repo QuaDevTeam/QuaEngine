@@ -111,6 +111,51 @@ fn summarizes_missing_resources_from_batches() {
 }
 
 #[test]
+fn summarizes_backend_resource_diagnostics_from_submissions() {
+    let frame = frame_with_background();
+    let empty_resources = NativeResourceLedger::new();
+    let mut resolved_resources = NativeResourceLedger::new();
+    resolved_resources.insert(
+        NativeResourceRecord::new(
+            ResourceId::from("images:bg/school.png"),
+            NativeResourceKind::Texture,
+        )
+        .memory(1, 1),
+    );
+    let missing_first = NativeRenderFrameRef {
+        revision: 1,
+        frame: &frame,
+        resources: &empty_resources,
+    }
+    .submission();
+    let resolved_second = NativeRenderFrameRef {
+        revision: 2,
+        frame: &frame,
+        resources: &resolved_resources,
+    }
+    .submission();
+    let missing_third = NativeRenderFrameRef {
+        revision: 3,
+        frame: &frame,
+        resources: &empty_resources,
+    }
+    .submission();
+
+    let diagnostics = NativeRenderBackendResourceDiagnostics::from_submissions(&[
+        missing_first,
+        resolved_second,
+        missing_third.clone(),
+    ]);
+
+    assert_eq!(diagnostics.frames_with_missing_resources, 2);
+    assert_eq!(diagnostics.missing_resource_count, 2);
+    assert_eq!(
+        diagnostics.last_missing_resources,
+        missing_third.missing_resources
+    );
+}
+
+#[test]
 fn summarizes_resolved_submission_resource_memory() {
     let frame = frame_with_background();
     let mut resources = NativeResourceLedger::new();

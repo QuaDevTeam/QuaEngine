@@ -1,5 +1,6 @@
 use super::{
-    NativeRenderBackend, NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
+    NativeRenderBackend, NativeRenderBackendResourceDiagnostics, NativeRenderBackendResult,
+    NativeRenderFrameRef, NativeRenderSubmission,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -53,6 +54,7 @@ impl WgpuNativeRenderBackend {
             feature_enabled: true,
             device_attached: false,
             submitted_frames: self.submissions.len(),
+            resources: NativeRenderBackendResourceDiagnostics::from_submissions(&self.submissions),
             last_submission: self.submissions.last().cloned(),
             note: "wgpu-backend feature is enabled, but the real wgpu device/surface bridge is not attached yet."
                 .to_string(),
@@ -73,6 +75,7 @@ pub struct WgpuNativeRenderBackendDiagnostics {
     pub feature_enabled: bool,
     pub device_attached: bool,
     pub submitted_frames: usize,
+    pub resources: NativeRenderBackendResourceDiagnostics,
     pub last_submission: Option<NativeRenderSubmission>,
     pub note: String,
 }

@@ -5,8 +5,9 @@ pub mod wgpu;
 
 pub use null::{NullNativeRenderBackend, NullNativeRenderBackendDiagnostics};
 pub use submission::{
-    NativeRenderBatchSubmission, NativeRenderFrameRef, NativeRenderMissingResource,
-    NativeRenderPassSubmission, NativeRenderResourceMemoryBreakdown, NativeRenderSubmission,
+    NativeRenderBackendResourceDiagnostics, NativeRenderBatchSubmission, NativeRenderFrameRef,
+    NativeRenderMissingResource, NativeRenderPassSubmission, NativeRenderResourceMemoryBreakdown,
+    NativeRenderSubmission,
 };
 #[cfg(feature = "wgpu-backend")]
 pub use wgpu::{
