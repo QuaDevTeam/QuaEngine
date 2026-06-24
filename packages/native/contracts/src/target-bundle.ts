@@ -68,10 +68,18 @@ export interface TargetBundleManifest {
 export type TargetBundleManifestDiagnostic
   = | ExclusiveTargetBootstrapDiagnostic
     | TargetBootstrapDiagnostic
+    | TargetBundleTargetDiagnostic
     | TargetBundleCorePluginFamilyDiagnostic
     | TargetBundleSelectedCoreAdapterDiagnostic
     | TargetBundleRendererEntryTargetDiagnostic
     | TargetBundleRuntimePackageDiagnostic
+
+export interface TargetBundleTargetDiagnostic {
+  code: 'TARGET_BUNDLE_TARGET_MISMATCH'
+  target: QuaTargetBootstrap
+  expectedTarget: QuaTargetBootstrap
+  message: string
+}
 
 export interface TargetBundleCorePluginFamilyDiagnostic {
   code:
@@ -119,18 +127,30 @@ export interface TargetBundleManifestValidationResult {
   diagnostics: TargetBundleManifestDiagnostic[]
 }
 
-export function assertTargetBundleManifest(manifest: TargetBundleManifest): TargetBundleManifestValidationResult {
-  const result = validateTargetBundleManifest(manifest)
+export interface ValidateTargetBundleManifestOptions {
+  expectedTarget?: QuaTargetBootstrap
+}
+
+export function assertTargetBundleManifest(
+  manifest: TargetBundleManifest,
+  options: ValidateTargetBundleManifestOptions = {},
+): TargetBundleManifestValidationResult {
+  const result = validateTargetBundleManifest(manifest, options)
   if (!result.ok)
     throw new Error(formatTargetBundleManifestValidationError(manifest, result))
   return result
 }
 
-export function validateTargetBundleManifest(manifest: TargetBundleManifest): TargetBundleManifestValidationResult {
+export function validateTargetBundleManifest(
+  manifest: TargetBundleManifest,
+  options: ValidateTargetBundleManifestOptions = {},
+): TargetBundleManifestValidationResult {
+  const expectedTarget = options.expectedTarget || manifest.target
   const packageNames = collectTargetBundlePackageNames(manifest)
   const bootstrapValidation = validateExclusiveTargetBootstrap(packageNames, {
-    expectedTarget: manifest.target,
+    expectedTarget,
   })
+  const targetDiagnostics = checkTarget(manifest, expectedTarget)
   const corePluginFamilyDiagnostics = checkCorePluginFamily(manifest, packageNames)
   const selectedCoreAdapterDiagnostics = checkSelectedCoreAdapters(manifest)
   const rendererEntryTargetDiagnostics = checkRendererEntryTargets(manifest)
@@ -138,6 +158,7 @@ export function validateTargetBundleManifest(manifest: TargetBundleManifest): Ta
   const diagnostics: TargetBundleManifestDiagnostic[] = [
     ...bootstrapValidation.diagnostics,
     ...(bootstrapValidation.targetValidation?.diagnostics || []),
+    ...targetDiagnostics,
     ...corePluginFamilyDiagnostics,
     ...selectedCoreAdapterDiagnostics,
     ...rendererEntryTargetDiagnostics,
@@ -146,6 +167,7 @@ export function validateTargetBundleManifest(manifest: TargetBundleManifest): Ta
 
   return {
     ok: bootstrapValidation.ok
+      && targetDiagnostics.length === 0
       && corePluginFamilyDiagnostics.length === 0
       && selectedCoreAdapterDiagnostics.length === 0
       && rendererEntryTargetDiagnostics.length === 0
@@ -154,6 +176,21 @@ export function validateTargetBundleManifest(manifest: TargetBundleManifest): Ta
     bootstrapValidation,
     diagnostics,
   }
+}
+
+function checkTarget(
+  manifest: TargetBundleManifest,
+  expectedTarget: QuaTargetBootstrap,
+): TargetBundleTargetDiagnostic[] {
+  if (manifest.target === expectedTarget)
+    return []
+
+  return [{
+    code: 'TARGET_BUNDLE_TARGET_MISMATCH',
+    target: manifest.target,
+    expectedTarget,
+    message: `Target bundle manifest declares target "${manifest.target}", but expected "${expectedTarget}".`,
+  }]
 }
 
 export function collectTargetBundlePackageNames(manifest: TargetBundleManifest): string[] {

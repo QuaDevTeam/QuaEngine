@@ -136,6 +136,36 @@ describe('target bundle manifest validation', () => {
     ]))
   })
 
+  it('rejects manifests whose declared target does not match the expected packaging target', () => {
+    const result = validateTargetBundleManifest(targetBundleManifestFor('web'), {
+      expectedTarget: 'native',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_TARGET_MISMATCH',
+        target: 'web',
+        expectedTarget: 'native',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BOOTSTRAP_UNEXPECTED',
+        targets: ['web'],
+        expectedTarget: 'native',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_CORE_ADAPTER_MISSING',
+        target: 'native',
+        packageName: '@quajs/engine-native',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_CORE_ADAPTER_FORBIDDEN',
+        target: 'native',
+        packageName: '@quajs/assets-web',
+      }),
+    ]))
+  })
+
   it('requires emitted target bundle manifests to record a selected core plugin family', () => {
     const manifest = targetBundleManifest() as unknown as Omit<TargetBundleManifest, 'selectedCorePluginFamily'>
     delete (manifest as Partial<TargetBundleManifest>).selectedCorePluginFamily

@@ -2722,7 +2722,8 @@ Exit: product UI is declarative and selected through engine `surface.key` plus s
 - Add release manifest/checksum generation and immutable release-version rebuild guard.
 - Include native renderer package version and capability manifest in release artifacts and update channel metadata.
 - Add target isolation checks so Web/Cocos/Native release bundles cannot include another target's core adapter plugins.
-- Emit `target-bundle-manifest.json` for Web, Cocos, and native debug/release artifacts and validate it after bundling/tree-shaking.
+- Emit `target-bundle-manifest.json` for Web, Cocos, and native debug/release artifacts and validate it after bundling/tree-shaking with `validateTargetBundleManifest(manifest, { expectedTarget })`.
+- Require native app bootstraps to use `createNativeEngineBootstrap(host, { targetBundleManifest, ... })` so runtime adapters and `NativeHostPlugin` receive the same emitted manifest and reject Web/Cocos manifests before host info, QuickJS, or renderer startup.
 - Add runtime startup assertions so hand-built Web/Cocos/native app shells still reject zero or multiple registered target core adapter sets.
 - Add target-entry selection checks through `validateTargetPluginManifest` so multi-target plugin source packages contribute only the active Web, Cocos, or native renderer entry to each packaged output.
 - Implement separate Web, Cocos, and native target-core resolver contexts. Do not build a shared target-core plugin array for all three outputs.

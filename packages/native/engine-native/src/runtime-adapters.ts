@@ -5,9 +5,11 @@ import type {
   QuaNativeHostApi,
   QuaNativeHostInfo,
   RuntimePackageNativeRendererCompatibility,
+  TargetBundleManifest,
 } from '@quajs/native-contracts'
 import { assertNativeRuntimePackageGuard } from '@quajs/native-contracts'
 import { assertNativeRuntimePackageCompatibility } from './compatibility'
+import { NativeHostPlugin } from './native-host-plugin'
 import { createNativeHostQuickJsModuleEvaluator, createNativeRuntimeModuleLoader } from './runtime-module-loader'
 import type { NativeQuickJsModuleNamespaceResolver, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
 
@@ -21,6 +23,11 @@ export interface NativeRuntimeAdapters {
   trustPolicy: RuntimeTrustPolicy
 }
 
+export interface NativeEngineBootstrap {
+  adapters: NativeRuntimeAdapters
+  plugin: NativeHostPlugin
+}
+
 export interface NativeRuntimeAdaptersOptions {
   allowUnsignedInDevelopment?: boolean
   hostInfo?: QuaNativeHostInfo
@@ -28,6 +35,8 @@ export interface NativeRuntimeAdaptersOptions {
   moduleNamespaceResolver?: NativeQuickJsModuleNamespaceResolver
   requireSignature?: boolean
   runtimeModuleLoader?: RuntimeModuleLoader
+  targetBootstrapPackages?: readonly string[]
+  targetBundleManifest?: TargetBundleManifest
 }
 
 export function createNativeRuntimeAdapters(host: QuaNativeHostApi, options: NativeRuntimeAdaptersOptions = {}): NativeRuntimeAdapters {
@@ -42,6 +51,18 @@ export function createNativeRuntimeAdapters(host: QuaNativeHostApi, options: Nat
       ? createNativeRuntimeModuleLoader({ evaluator: moduleEvaluator })
       : undefined),
     trustPolicy: createNativeRuntimeTrustPolicy(host, options),
+  }
+}
+
+export function createNativeEngineBootstrap(host: QuaNativeHostApi, options: NativeRuntimeAdaptersOptions = {}): NativeEngineBootstrap {
+  return {
+    adapters: createNativeRuntimeAdapters(host, options),
+    plugin: new NativeHostPlugin({
+      host,
+      info: options.hostInfo,
+      targetBootstrapPackages: options.targetBootstrapPackages,
+      targetBundleManifest: options.targetBundleManifest,
+    }),
   }
 }
 

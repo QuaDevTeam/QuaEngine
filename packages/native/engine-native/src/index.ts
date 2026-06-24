@@ -13,10 +13,12 @@ export {
 } from './native-host-plugin'
 export type { NativeHostPluginOptions } from './native-host-plugin'
 export {
+  createNativeEngineBootstrap,
   createNativeRuntimeAdapters,
   createNativeRuntimeTrustPolicy,
 } from './runtime-adapters'
 export type {
+  NativeEngineBootstrap,
   NativeRuntimeAdapters,
   NativeRuntimeAdaptersOptions,
 } from './runtime-adapters'
