@@ -201,7 +201,7 @@ fn native_manifest_json() -> serde_json::Value {
                 "native-wgpu.ui.surface@1",
                 "native-wgpu.input.pointer@1"
             ],
-            "capabilityManifestHash": "sha256:native-capabilities-fixture"
+            "capabilityManifestHash": native_capability_manifest_hash()
         },
         "selectedCorePluginFamily": "native-core",
         "selectedCoreAdapters": [
@@ -251,7 +251,7 @@ pub(crate) fn native_manifest() -> NativeTargetBundleManifest {
                 "native-wgpu.ui.surface@1".to_string(),
                 "native-wgpu.input.pointer@1".to_string(),
             ],
-            capability_manifest_hash: Some("sha256:native-capabilities-fixture".to_string()),
+            capability_manifest_hash: Some(native_capability_manifest_hash()),
         }),
         selected_core_plugin_family: "native-core".to_string(),
         selected_core_adapters: NATIVE_CORE_ADAPTERS
@@ -300,4 +300,8 @@ fn current_profile_value() -> &'static str {
 
 fn current_platform_value() -> &'static str {
     platform_manifest_value(quajs_native_runtime::current_platform())
+}
+
+fn native_capability_manifest_hash() -> String {
+    quajs_native_runtime::capability_manifest_hash(&quajs_wgpu_renderer::native_wgpu_capabilities())
 }

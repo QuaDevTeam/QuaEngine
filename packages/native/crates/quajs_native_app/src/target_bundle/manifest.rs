@@ -125,7 +125,7 @@ pub struct NativeStartupError {
 }
 
 impl NativeStartupError {
-    pub(super) fn new(diagnostics: Vec<String>) -> Self {
+    pub(crate) fn new(diagnostics: Vec<String>) -> Self {
         Self { diagnostics }
     }
 
