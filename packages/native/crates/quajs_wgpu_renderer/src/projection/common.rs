@@ -17,6 +17,23 @@ impl PackageProvenance {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FontFamilyProjection {
+    pub families: Vec<String>,
+}
+
+impl FontFamilyProjection {
+    pub fn new<I, S>(families: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        Self {
+            families: families.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FontWeightProjection {
     Number(u16),
     Keyword(String),

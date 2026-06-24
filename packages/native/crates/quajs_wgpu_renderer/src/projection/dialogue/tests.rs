@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use super::*;
-use crate::projection::common::{FontWeightProjection, PackageProvenance};
+use crate::projection::common::{FontFamilyProjection, FontWeightProjection, PackageProvenance};
 use crate::render_graph::{
     DrawCommandKind, DrawCommandParams, FontWeightDrawParam, RenderGraph, RenderPlane, TextAlign,
 };
@@ -16,6 +16,11 @@ fn builds_dialogue_panel_and_text_commands() {
     let dialogue = DialogueProjection {
         speaker: Some("Yuki".into()),
         speaker_style: RichTextStyle {
+            font_family: Some(FontFamilyProjection::new([
+                "Qua Serif",
+                "  ",
+                "Fallback Sans",
+            ])),
             font_size: Some(36.0),
             font_weight: Some(FontWeightProjection::keyword("bold")),
             text_align: Some("center".to_string()),
@@ -36,6 +41,7 @@ fn builds_dialogue_panel_and_text_commands() {
     match &commands[1].params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Yuki");
+            assert_eq!(params.font_family, vec!["Qua Serif", "Fallback Sans"]);
             assert_eq!(params.font_size, 36.0);
             assert_eq!(
                 params.font_weight.as_ref(),
@@ -49,6 +55,7 @@ fn builds_dialogue_panel_and_text_commands() {
     match &commands[2].params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Hello native renderer.");
+            assert!(params.font_family.is_empty());
             assert!(params.font_weight.is_none());
             assert_eq!(params.role, "dialogue-text");
         }

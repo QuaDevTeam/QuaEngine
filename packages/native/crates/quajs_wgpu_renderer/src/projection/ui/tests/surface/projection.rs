@@ -1,6 +1,6 @@
 use super::super::{provenance, rect, test_layout};
 use crate::input::resolve_renderer_intent_at;
-use crate::projection::common::FontWeightProjection;
+use crate::projection::common::{FontFamilyProjection, FontWeightProjection};
 use crate::projection::ui::{
     append_ui_commands, build_ui_commands, UiIntentProjection, UiOverlayProjection,
     UiOverlaySurfaceProjection, UiProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
@@ -136,6 +136,11 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                     .with_text("Styled")
                     .with_style(UiSurfaceResolvedStyle {
                         color: Some("#f7f3e8".to_string()),
+                        font_family: Some(FontFamilyProjection::new([
+                            "Qua Sans",
+                            "",
+                            "Fallback Serif",
+                        ])),
                         font_size: Some(34.0),
                         font_weight: Some(FontWeightProjection::number(650)),
                         line_height: Some(44.0),
@@ -165,6 +170,10 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                         border_radius: Some(10.0),
                         border_color: Some("#382400".to_string()),
                         border_width: Some(1.5),
+                        font_family: Some(FontFamilyProjection::new([
+                            "Button Face",
+                            "Fallback UI",
+                        ])),
                         font_weight: Some(FontWeightProjection::keyword("bold")),
                         ..Default::default()
                     }),
@@ -189,6 +198,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Styled");
             assert_eq!(params.color, "#f7f3e8");
+            assert_eq!(params.font_family, vec!["Qua Sans", "Fallback Serif"]);
             assert_eq!(params.font_size, 34.0);
             assert_eq!(
                 params.font_weight.as_ref(),
@@ -213,6 +223,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
             assert_eq!(params.corner_radius, 10.0);
             assert_eq!(params.border.color.as_deref(), Some("#382400"));
             assert_eq!(params.border.width, 1.5);
+            assert_eq!(params.font_family, vec!["Button Face", "Fallback UI"]);
             assert_eq!(
                 params.font_weight.as_ref(),
                 Some(&FontWeightDrawParam::Keyword("bold".to_string()))

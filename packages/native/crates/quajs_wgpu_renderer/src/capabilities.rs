@@ -59,6 +59,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "border-radius",
                 "border-width",
                 "color",
+                "font-family",
                 "font-size",
                 "font-weight",
                 "line-height",
@@ -153,6 +154,7 @@ mod tests {
             .iter()
             .find(|capability| capability.id == "native-wgpu.text@1")
             .unwrap();
+        assert!(text.qss_features.contains(&"font-family".to_string()));
         assert!(text.qss_features.contains(&"font-weight".to_string()));
 
         let ui = capabilities
@@ -165,6 +167,7 @@ mod tests {
         assert!(ui.qss_features.contains(&"border-color".to_string()));
         assert!(ui.qss_features.contains(&"border-radius".to_string()));
         assert!(ui.qss_features.contains(&"border-width".to_string()));
+        assert!(ui.qss_features.contains(&"font-family".to_string()));
         assert!(ui.qss_features.contains(&"font-weight".to_string()));
         assert!(ui.qss_features.contains(&"object-fit".to_string()));
         assert!(ui.qui_components.contains(&"Backdrop".to_string()));

@@ -1,4 +1,4 @@
-use crate::projection::typography::font_weight_to_draw_param;
+use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
 use crate::render_graph::{FontWeightDrawParam, MediaFit, TextAlign};
 
 use super::types::{
@@ -41,6 +41,10 @@ pub fn resolve_border_width(style: &UiSurfaceResolvedStyle, fallback: f64) -> f6
 
 pub fn resolve_font_size(style: &UiSurfaceResolvedStyle, fallback: f64) -> f64 {
     resolve_positive_number(style.font_size, fallback)
+}
+
+pub fn resolve_font_family(style: &UiSurfaceResolvedStyle) -> Vec<String> {
+    font_family_to_draw_param(&style.font_family)
 }
 
 pub fn resolve_font_weight(style: &UiSurfaceResolvedStyle) -> Option<FontWeightDrawParam> {

@@ -71,6 +71,7 @@ fn choice_command(
         text_color: "#ffffff".to_string(),
         corner_radius: 0.0,
         border: BorderDrawParams::default(),
+        font_family: Vec::new(),
         font_weight: None,
         intent: choice.enabled.then(|| RendererIntent {
             event: "choice/select".to_string(),

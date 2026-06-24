@@ -8,8 +8,8 @@ use crate::resources::ResourceId;
 
 use super::style::{
     resolve_background_color, resolve_border_color, resolve_border_radius, resolve_border_width,
-    resolve_font_size, resolve_font_weight, resolve_line_height, resolve_object_fit,
-    resolve_text_align, resolve_text_color,
+    resolve_font_family, resolve_font_size, resolve_font_weight, resolve_line_height,
+    resolve_object_fit, resolve_text_align, resolve_text_color,
 };
 use super::types::{
     UiIntentProjection, UiOverlayProjection, UiOverlaySurfaceProjection, UiSurfaceNodeKind,
@@ -176,6 +176,7 @@ fn surface_node_command(
             text_color: resolve_text_color(&node.style, "#ffffff"),
             corner_radius: resolve_border_radius(&node.style, 0.0),
             border: surface_border_params(&node.style),
+            font_family: resolve_font_family(&node.style),
             font_weight: resolve_font_weight(&node.style),
             intent: node
                 .intent
@@ -214,6 +215,7 @@ fn surface_node_command(
         )
         .params(DrawCommandParams::Text(TextDrawParams {
             text: node.text.clone().unwrap_or_default(),
+            font_family: resolve_font_family(&node.style),
             font_size: resolve_font_size(&node.style, 28.0),
             font_weight: resolve_font_weight(&node.style),
             line_height: resolve_line_height(&node.style, 36.0),
