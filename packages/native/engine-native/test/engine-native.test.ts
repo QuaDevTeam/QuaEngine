@@ -6,6 +6,7 @@ import {
   assertNativeTargetBundleManifest,
   assertNativeTargetBootstrap,
   assertNativeRuntimePackageCompatibility,
+  checkNativeRendererManifestCompatibility,
   checkNativeTargetBundleManifest,
   checkNativeTargetBootstrap,
   checkNativeRuntimePackageCompatibility,
@@ -53,6 +54,15 @@ function createHostInfo(version = '0.1.0'): QuaNativeHostInfo {
           projectionKeys: ['background.video'],
           assetKinds: ['video', 'images'],
           fallback: 'warn-once',
+        },
+        {
+          id: 'native-wgpu.input.pointer@1',
+          target: 'native',
+          version: '1.0.0',
+          ownerPackage: '@quajs/native-renderer',
+          projectionKeys: ['view.choices', 'view.ui.overlays'],
+          intentEvents: ['choice/select', 'ui/intent'],
+          fallback: 'reject-package',
         },
       ],
     },
@@ -264,6 +274,39 @@ describe('@quajs/engine-native', () => {
     expect(plugin.getTargetBundleManifestValidation()).toEqual(result)
     expect(plugin.getTargetBootstrapValidation()).toEqual(result.bootstrapValidation)
     expect(host.getHostInfo).toHaveBeenCalledTimes(1)
+  })
+
+  it('checks emitted native renderer metadata against the native host info', () => {
+    expect(checkNativeRendererManifestCompatibility(
+      createHostInfo(),
+      createNativeTargetBundleManifest().nativeRenderer!,
+    )).toEqual([])
+  })
+
+  it('rejects emitted native renderer metadata that drifts from host info', async () => {
+    const host = createHost(createHostInfo('0.2.0'))
+    const plugin = new NativeHostPlugin({
+      host,
+      targetBundleManifest: createNativeTargetBundleManifest({
+        nativeRenderer: {
+          packageName: '@quajs/native-renderer',
+          version: '0.1.0',
+          backend: 'wgpu',
+          capabilityIds: [
+            'native-wgpu.ui.surface@1',
+            'native-wgpu.audio@1',
+          ],
+          capabilityManifestHash: 'sha256:native-capabilities-fixture',
+        },
+      }),
+    })
+
+    await expect(plugin.init({} as any)).rejects.toThrow(
+      /Native renderer manifest compatibility validation failed.*renderer version "0\.1\.0" does not match host renderer version "0\.2\.0".*capability "native-wgpu\.audio@1" is not provided/,
+    )
+    expect(plugin.getTargetBundleManifestValidation()?.ok).toBe(true)
+    expect(host.getHostInfo).toHaveBeenCalledTimes(1)
+    expect(plugin.getHostInfo()).toBeUndefined()
   })
 
   it('rejects native post-bundle manifests with foreign target core plugin families before host info', async () => {
