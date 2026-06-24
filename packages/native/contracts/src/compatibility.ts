@@ -58,11 +58,11 @@ export function checkNativeCompatibility(options: CheckNativeCompatibilityOption
     return { ok: true, diagnostics }
   }
 
-  if (compatibility.nativeCode !== false && compatibility.nativeCode !== undefined) {
+  if (compatibility.nativeCode !== false) {
     diagnostics.push({
       code: 'NATIVE_CODE_NOT_ALLOWED',
       severity: 'error',
-      message: 'Dynamic native runtime packages cannot request native code activation.',
+      message: 'Dynamic native runtime packages must explicitly declare nativeCode: false.',
       pluginId,
     })
   }
