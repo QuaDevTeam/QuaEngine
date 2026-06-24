@@ -283,6 +283,42 @@ describe('native runtime package guard', () => {
     ])
   })
 
+  it('rejects native payload declarations at package and plugin top level', () => {
+    const result = checkNativeRuntimePackageGuard({
+      package: createRuntimePackage({
+        nativeBinaries: ['native/plugin.dylib'],
+        nativeEntry: 'native/bootstrap.node',
+        plugins: [
+          {
+            id: 'native-plugin',
+            kind: 'renderer',
+            nativePayloads: ['native/plugin.dll'],
+            metadata: {
+              nativeCode: false,
+            },
+          },
+        ],
+      }),
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
+        field: 'package.nativeBinaries',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
+        field: 'package.nativeEntry',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
+        pluginId: 'native-plugin',
+        field: 'plugins.native-plugin.nativePayloads',
+      }),
+    ])
+  })
+
   it('rejects native compatibility blocks without explicit nativeCode false markers', () => {
     const result = checkNativeRuntimePackageGuard({
       package: createRuntimePackage({

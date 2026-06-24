@@ -182,6 +182,15 @@ function collectNativeCodeDeclarations(
   runtimePackage: NativeGuardRuntimePackageManifest,
   diagnostics: NativeRuntimePackageGuardDiagnostic[],
 ): void {
+  for (const [field] of findNativeCodeDeclarations(runtimePackage, 'package', new Set(['metadata', 'plugins']))) {
+    diagnostics.push({
+      code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
+      severity: 'error',
+      packageId: runtimePackage.id,
+      field,
+      message: `Native runtime package "${runtimePackage.id}" requests native code through "${field}".`,
+    })
+  }
   for (const field of findNativeCompatibilityBlocksWithoutExplicitOptOut(runtimePackage.metadata)) {
     diagnostics.push({
       code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
@@ -273,6 +282,16 @@ function collectNativePluginDeclarations(
         message: `Native runtime package "${runtimePackage.id}" declares forbidden native plugin "${plugin.id}".`,
       })
     }
+    for (const [field] of findNativeCodeDeclarations(plugin, `plugins.${plugin.id}`, new Set(['metadata']))) {
+      diagnostics.push({
+        code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
+        severity: 'error',
+        packageId: runtimePackage.id,
+        pluginId: plugin.id,
+        field,
+        message: `Native runtime package "${runtimePackage.id}" plugin "${plugin.id}" requests native code through "${field}".`,
+      })
+    }
     for (const [field] of findNativeCodeDeclarations(plugin.metadata, `plugins.${plugin.id}.metadata`)) {
       diagnostics.push({
         code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
@@ -337,9 +356,13 @@ function isNativePluginDeclaration(plugin: NativeGuardRuntimePackagePluginManife
     || kind === 'native-code'
 }
 
-function findNativeCodeDeclarations(value: unknown, path: string): Array<[field: string, value: unknown]> {
+function findNativeCodeDeclarations(
+  value: unknown,
+  path: string,
+  skipKeys: ReadonlySet<string> = new Set(),
+): Array<[field: string, value: unknown]> {
   const matches: Array<[string, unknown]> = []
-  visitNativeCodeDeclarations(value, path, matches)
+  visitNativeCodeDeclarations(value, path, matches, skipKeys)
   return matches
 }
 
@@ -347,6 +370,7 @@ function visitNativeCodeDeclarations(
   value: unknown,
   path: string,
   matches: Array<[field: string, value: unknown]>,
+  skipKeys: ReadonlySet<string>,
   seen = new Set<object>(),
 ): void {
   if (!value || typeof value !== 'object')
@@ -355,6 +379,8 @@ function visitNativeCodeDeclarations(
     return
   seen.add(value)
   for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (skipKeys.has(key))
+      continue
     const field = `${path}.${key}`
     if (key === 'nativeCode' && entry !== false && entry !== undefined) {
       matches.push([field, entry])
@@ -364,7 +390,7 @@ function visitNativeCodeDeclarations(
       matches.push([field, entry])
       continue
     }
-    visitNativeCodeDeclarations(entry, field, matches, seen)
+    visitNativeCodeDeclarations(entry, field, matches, skipKeys, seen)
   }
 }
 
