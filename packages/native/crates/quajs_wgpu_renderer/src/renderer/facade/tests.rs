@@ -419,6 +419,7 @@ fn check_resource_budget_forwards_state_ledger_violations() {
         max_total_bytes: Some(120),
         max_resource_count: Some(1),
         max_resource_count_by_kind: Default::default(),
+        max_memory_by_kind: Default::default(),
     });
     let codes: Vec<_> = violations.iter().map(|violation| violation.code).collect();
 

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use super::record::NativeResourceKind;
+use super::record::{NativeResourceKind, ResourceMemory};
 use super::summary::ResourceLedgerSummary;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -10,6 +10,14 @@ pub struct ResourceBudget {
     pub max_total_bytes: Option<u64>,
     pub max_resource_count: Option<usize>,
     pub max_resource_count_by_kind: BTreeMap<NativeResourceKind, usize>,
+    pub max_memory_by_kind: BTreeMap<NativeResourceKind, ResourceMemoryBudget>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ResourceMemoryBudget {
+    pub max_cpu_bytes: Option<u64>,
+    pub max_gpu_bytes: Option<u64>,
+    pub max_total_bytes: Option<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -27,6 +35,9 @@ pub enum ResourceBudgetViolationCode {
     TotalBytesExceeded,
     ResourceCountExceeded,
     ResourceKindCountExceeded,
+    ResourceKindCpuBytesExceeded,
+    ResourceKindGpuBytesExceeded,
+    ResourceKindTotalBytesExceeded,
 }
 
 pub(crate) fn budget_violations(
@@ -83,7 +94,45 @@ pub(crate) fn budget_violations(
         }
     }
 
+    for (kind, limit) in &budget.max_memory_by_kind {
+        let actual = summary
+            .by_kind
+            .get(kind)
+            .map(|summary| summary.memory)
+            .unwrap_or_default();
+        push_kind_memory_budget_violations(&mut violations, *kind, actual, limit);
+    }
+
     violations
+}
+
+fn push_kind_memory_budget_violations(
+    violations: &mut Vec<ResourceBudgetViolation>,
+    kind: NativeResourceKind,
+    actual: ResourceMemory,
+    limit: &ResourceMemoryBudget,
+) {
+    push_budget_violation(
+        violations,
+        limit.max_cpu_bytes,
+        actual.cpu_bytes,
+        ResourceBudgetViolationCode::ResourceKindCpuBytesExceeded,
+        &format!("Native renderer {kind:?} CPU resource memory exceeds budget."),
+    );
+    push_budget_violation(
+        violations,
+        limit.max_gpu_bytes,
+        actual.gpu_bytes,
+        ResourceBudgetViolationCode::ResourceKindGpuBytesExceeded,
+        &format!("Native renderer {kind:?} GPU resource memory exceeds budget."),
+    );
+    push_budget_violation(
+        violations,
+        limit.max_total_bytes,
+        actual.total_bytes(),
+        ResourceBudgetViolationCode::ResourceKindTotalBytesExceeded,
+        &format!("Native renderer {kind:?} total resource memory exceeds budget."),
+    );
 }
 
 fn push_budget_violation(

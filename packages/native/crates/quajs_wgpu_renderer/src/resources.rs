@@ -8,7 +8,9 @@ pub mod sync;
 pub mod unload;
 
 pub use assets::{plan_asset_requests, NativeAssetRequest, NativeAssetRequestPlan};
-pub use budget::{ResourceBudget, ResourceBudgetViolation, ResourceBudgetViolationCode};
+pub use budget::{
+    ResourceBudget, ResourceBudgetViolation, ResourceBudgetViolationCode, ResourceMemoryBudget,
+};
 pub use ledger::NativeResourceLedger;
 pub use plan::{plan_render_graph_resources, RenderResourcePlan, RenderResourceRequest};
 pub use record::{NativeResourceKind, NativeResourceRecord, ResourceId, ResourceMemory};
