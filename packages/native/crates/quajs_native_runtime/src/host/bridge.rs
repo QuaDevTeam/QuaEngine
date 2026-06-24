@@ -5,6 +5,10 @@ use super::api::{
     NativeRendererIntent, NativeSignatureVerifyRequest,
 };
 use super::info::NativeHostInfo;
+use crate::quickjs::{
+    evaluate_quickjs_module, QuickJsEvaluationRequest, QuickJsEvaluationResponse,
+    QuickJsModuleEvaluator, UnsupportedQuickJsModuleEvaluator,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(tag = "method", content = "params", rename_all = "camelCase")]
@@ -18,6 +22,7 @@ pub enum NativeHostApiRequest {
     ListStorageKeys(NativeHostApiListStorageKeysRequest),
     HashBytes(NativeHostApiHashBytesRequest),
     VerifySignature(NativeSignatureVerifyRequest),
+    EvaluateQuickJsModule(QuickJsEvaluationRequest),
     EmitRendererIntent(NativeRendererIntent),
 }
 
@@ -67,6 +72,7 @@ pub enum NativeHostApiResponsePayload {
     StorageKeys(Vec<String>),
     Hash(String),
     SignatureValid(bool),
+    QuickJsEvaluation(QuickJsEvaluationResponse),
 }
 
 impl NativeHostApiResponse {
@@ -97,6 +103,15 @@ impl NativeHostApiResponse {
 
 pub fn dispatch_native_host_api_request(
     host: &mut impl NativeHostApi,
+    request: NativeHostApiRequest,
+) -> NativeHostApiResponse {
+    let mut quickjs = UnsupportedQuickJsModuleEvaluator;
+    dispatch_native_host_api_request_with_quickjs(host, &mut quickjs, request)
+}
+
+pub fn dispatch_native_host_api_request_with_quickjs(
+    host: &mut impl NativeHostApi,
+    quickjs: &mut impl QuickJsModuleEvaluator,
     request: NativeHostApiRequest,
 ) -> NativeHostApiResponse {
     match request {
@@ -141,6 +156,11 @@ pub fn dispatch_native_host_api_request(
             .map(NativeHostApiResponsePayload::SignatureValid)
             .map(NativeHostApiResponse::success)
             .unwrap_or_else(|error| NativeHostApiResponse::error(error.to_info())),
+        NativeHostApiRequest::EvaluateQuickJsModule(request) => NativeHostApiResponse::success(
+            NativeHostApiResponsePayload::QuickJsEvaluation(evaluate_quickjs_module(
+                quickjs, &request,
+            )),
+        ),
         NativeHostApiRequest::EmitRendererIntent(event) => host
             .emit_renderer_intent(event)
             .map(|_| NativeHostApiResponse::empty())

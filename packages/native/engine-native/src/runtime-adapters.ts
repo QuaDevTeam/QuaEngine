@@ -1,8 +1,8 @@
 import type { RuntimeModuleLoader, RuntimeTrustPolicy } from '@quajs/engine'
 import type { NativeGuardDynamicBundleRecord, NativeGuardRuntimePackageManifest, QuaNativeHostApi } from '@quajs/native-contracts'
 import { assertNativeRuntimePackageGuard } from '@quajs/native-contracts'
-import { createNativeRuntimeModuleLoader } from './runtime-module-loader'
-import type { NativeRuntimeModuleEvaluator } from './runtime-module-loader'
+import { createNativeHostQuickJsModuleEvaluator, createNativeRuntimeModuleLoader } from './runtime-module-loader'
+import type { NativeQuickJsModuleNamespaceResolver, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
 
 declare const TextEncoder: {
   new(): { encode: (input: string) => Uint8Array }
@@ -17,15 +17,21 @@ export interface NativeRuntimeAdapters {
 export interface NativeRuntimeAdaptersOptions {
   allowUnsignedInDevelopment?: boolean
   moduleEvaluator?: NativeRuntimeModuleEvaluator
+  moduleNamespaceResolver?: NativeQuickJsModuleNamespaceResolver
   requireSignature?: boolean
   runtimeModuleLoader?: RuntimeModuleLoader
 }
 
 export function createNativeRuntimeAdapters(host: QuaNativeHostApi, options: NativeRuntimeAdaptersOptions = {}): NativeRuntimeAdapters {
+  const moduleEvaluator = options.moduleEvaluator
+    || (options.moduleNamespaceResolver
+      ? createNativeHostQuickJsModuleEvaluator(host, options.moduleNamespaceResolver)
+      : undefined)
+
   return {
     host,
-    runtimeModuleLoader: options.runtimeModuleLoader || (options.moduleEvaluator
-      ? createNativeRuntimeModuleLoader({ evaluator: options.moduleEvaluator })
+    runtimeModuleLoader: options.runtimeModuleLoader || (moduleEvaluator
+      ? createNativeRuntimeModuleLoader({ evaluator: moduleEvaluator })
       : undefined),
     trustPolicy: createNativeRuntimeTrustPolicy(host, options),
   }

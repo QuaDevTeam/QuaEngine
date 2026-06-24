@@ -1,9 +1,12 @@
 import type {
+  NativeQuickJsEvaluationResponse,
   NativeQuickJsEvaluationRequest,
   NativeQuickJsRuntimeModuleKind,
   NativeQuickJsSandboxLimits,
+  QuaNativeHostApi,
 } from '@quajs/native-contracts'
 import {
+  assertNativeQuickJsEvaluationResponse,
   createNativeQuickJsEvaluationRequest,
 } from '@quajs/native-contracts'
 import type {
@@ -49,6 +52,26 @@ export type NativeRuntimeModuleEvaluator = (
 export interface NativeRuntimeModuleLoaderOptions {
   evaluator: NativeRuntimeModuleEvaluator
   limits?: Partial<NativeQuickJsSandboxLimits>
+}
+
+export type NativeQuickJsModuleNamespaceResolver = (
+  moduleNamespaceId: string,
+  ctx: NativeRuntimeModuleEvaluationContext,
+  response: NativeQuickJsEvaluationResponse,
+) => unknown | Promise<unknown>
+
+export function createNativeHostQuickJsModuleEvaluator(
+  host: Pick<QuaNativeHostApi, 'evaluateQuickJsModule'>,
+  resolveModuleNamespace: NativeQuickJsModuleNamespaceResolver,
+): NativeRuntimeModuleEvaluator {
+  return async (ctx) => {
+    if (!host.evaluateQuickJsModule) {
+      throw new Error('Native host does not provide QuickJS module evaluation.')
+    }
+    const response = await host.evaluateQuickJsModule(ctx.request)
+    const moduleNamespaceId = assertNativeQuickJsEvaluationResponse(response)
+    return await resolveModuleNamespace(moduleNamespaceId, ctx, response)
+  }
 }
 
 export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoaderOptions): RuntimeModuleLoader {
