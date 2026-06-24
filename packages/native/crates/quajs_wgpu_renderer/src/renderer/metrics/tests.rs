@@ -84,6 +84,22 @@ fn reports_frame_metrics_by_package_and_resource_kind() {
         1
     );
     assert_eq!(
+        metrics.frame.asset_requests_by_type["images"].request_count,
+        1
+    );
+    assert_eq!(
+        metrics.frame.asset_requests_by_type["images"].command_ref_count,
+        1
+    );
+    assert_eq!(
+        metrics.frame.asset_requests_by_type["surface"].request_count,
+        1
+    );
+    assert_eq!(
+        metrics.frame.asset_requests_by_type["surface"].command_ref_count,
+        1
+    );
+    assert_eq!(
         metrics.frame.asset_requests_by_package["base"].request_count,
         2
     );
