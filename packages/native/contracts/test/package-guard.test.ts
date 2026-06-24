@@ -247,6 +247,57 @@ describe('native runtime package guard', () => {
     ]))
   })
 
+  it('rejects forbidden runtime module variant references beyond scripts', () => {
+    const result = checkNativeRuntimePackageGuard({
+      package: createRuntimePackage({
+        scenes: [
+          {
+            id: 'scene.native',
+            assetName: 'scenes/native.js',
+            variants: {
+              escape: { module: '../outside-scene.js' },
+            },
+          },
+        ],
+        plugins: [
+          {
+            id: 'renderer.native-ui',
+            kind: 'renderer',
+            assetName: 'plugins/native-ui.js',
+            variants: {
+              windows: { assetName: 'plugins/native-ui.dll' },
+            },
+          },
+        ],
+        storeMigrations: [
+          {
+            id: 'settings',
+            assetName: 'migrations/settings.js',
+            variants: {
+              macos: { module: 'migrations/settings.dylib' },
+            },
+          },
+        ],
+      }),
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: '../outside-scene.js',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_PAYLOAD_FORBIDDEN',
+        assetName: 'plugins/native-ui.dll',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_PAYLOAD_FORBIDDEN',
+        assetName: 'migrations/settings.dylib',
+      }),
+    ]))
+  })
+
   it('rejects nativeCode declarations in package and plugin metadata', () => {
     const result = checkNativeRuntimePackageGuard({
       package: createRuntimePackage({
