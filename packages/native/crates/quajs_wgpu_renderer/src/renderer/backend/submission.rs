@@ -76,6 +76,9 @@ pub struct NativeRenderPassSubmission {
 pub struct NativeRenderBatchSubmission {
     pub pipeline: DrawBatchPipeline,
     pub kind: DrawCommandKind,
+    pub command_count: usize,
+    pub first_command_id: Option<String>,
+    pub last_command_id: Option<String>,
     pub resource_ids: Vec<ResourceId>,
     pub resolved_resource_ids: Vec<ResourceId>,
     pub missing_resource_ids: Vec<ResourceId>,
@@ -214,6 +217,9 @@ impl NativeRenderBatchSubmission {
         Self {
             pipeline: batch.key.pipeline,
             kind: batch.key.kind,
+            command_count: batch.command_count(),
+            first_command_id: batch.command_ids.first().cloned(),
+            last_command_id: batch.command_ids.last().cloned(),
             resource_ids: batch.key.resource_ids.clone(),
             resolved_resource_ids,
             missing_resource_ids,
