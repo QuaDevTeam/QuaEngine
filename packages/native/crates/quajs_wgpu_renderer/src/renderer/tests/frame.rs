@@ -71,6 +71,7 @@ fn releases_frame_managed_resources_when_projection_removes_them() {
         ResourceId::from("images:bg/school.png")
     );
     assert_eq!(update.host_cleanup[0].kind, NativeResourceKind::Texture);
+    assert!(!update.host_cleanup[0].declarative_asset);
     assert_eq!(
         update.host_cleanup[0].owner_package_id.as_deref(),
         Some("base")

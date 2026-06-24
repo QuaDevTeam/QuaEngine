@@ -255,6 +255,7 @@ fn clear_with_host_cleanup_returns_cleanup_records_and_preserves_backend() {
         ResourceId::from("images:bg/school.png")
     );
     assert_eq!(cleanup[0].kind, NativeResourceKind::Texture);
+    assert!(!cleanup[0].declarative_asset);
     assert!(renderer.resources().is_empty());
     assert_eq!(renderer.backend().submissions.len(), 1);
 }
