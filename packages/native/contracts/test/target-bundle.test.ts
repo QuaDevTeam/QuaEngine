@@ -4,6 +4,7 @@ import {
   assertTargetBundleManifest,
   COCOS_TARGET_BOOTSTRAP,
   collectTargetBundlePackageNames,
+  createTargetBundleNativeRendererInfo,
   getTargetCorePluginFamily,
   NATIVE_TARGET_BOOTSTRAP,
   normalizePackageSpecifier,
@@ -22,6 +23,39 @@ const PLATFORM_BY_TARGET = {
   cocos: 'cocos',
   native: 'macos',
 } satisfies Record<QuaTargetBootstrap, string>
+
+const NATIVE_RENDERER_CAPABILITIES = [
+  {
+    id: 'native-wgpu.stage-layout@1',
+    target: 'native',
+    version: '1.0.0',
+    ownerPackage: '@quajs/native-renderer',
+    projectionKeys: ['QuaViewProjection.layout'],
+    qssFeatures: ['safe-area', 'logical-stage'],
+    quiComponents: ['Stage'],
+    fallback: 'reject-package',
+  },
+  {
+    id: 'native-wgpu.ui.surface@1',
+    target: 'native',
+    version: '1.0.0',
+    ownerPackage: '@quajs/native-renderer',
+    projectionKeys: ['view.ui.overlays'],
+    qssFeatures: ['background-color', 'border-radius'],
+    quiComponents: ['Box', 'Button', 'Text'],
+    fallback: 'reject-package',
+  },
+  {
+    id: 'native-wgpu.input.pointer@1',
+    target: 'native',
+    version: '1.0.0',
+    ownerPackage: '@quajs/native-renderer',
+    projectionKeys: ['view.choices', 'view.ui.overlays'],
+    intentEvents: ['choice/select', 'ui/intent'],
+    quiComponents: ['Button', 'Panel'],
+    fallback: 'reject-package',
+  },
+] as const
 
 function targetDependencies(target: QuaTargetBootstrap): TargetBundleManifest['dependencies'] {
   const shared = ['@quajs/engine', '@quajs/pipeline']
@@ -62,18 +96,11 @@ function rendererEntry(target: QuaTargetBootstrap): NonNullable<TargetBundleMani
 }
 
 function nativeRendererInfo(): NonNullable<TargetBundleManifest['nativeRenderer']> {
-  return {
-    packageName: '@quajs/native-renderer',
+  return createTargetBundleNativeRendererInfo({
     version: '0.1.0',
-    backend: 'wgpu',
     backendVersion: 'wgpu-0.20',
-    capabilityIds: [
-      'native-wgpu.stage-layout@1',
-      'native-wgpu.ui.surface@1',
-      'native-wgpu.input.pointer@1',
-    ],
-    capabilityManifestHash: 'sha256:native-capabilities-fixture',
-  }
+    capabilities: NATIVE_RENDERER_CAPABILITIES,
+  }, sha256Fixture)
 }
 
 function targetBundleManifest(overrides: Partial<TargetBundleManifest> = {}): TargetBundleManifest {
@@ -129,6 +156,40 @@ describe('target bundle manifest validation', () => {
     expect(result.bootstrapValidation.selectedTargets).toEqual(['native'])
     expect(result.diagnostics).toEqual([])
     expect(assertTargetBundleManifest(targetBundleManifest())).toEqual(result)
+  })
+
+  it('creates native renderer manifest metadata from renderer capabilities', () => {
+    const renderer = nativeRendererInfo()
+    const changedRenderer = createTargetBundleNativeRendererInfo({
+      version: '0.1.0',
+      capabilities: [
+        ...NATIVE_RENDERER_CAPABILITIES,
+        {
+          id: 'native-wgpu.video@1',
+          target: 'native',
+          version: '1.0.0',
+          ownerPackage: '@quajs/native-renderer',
+          projectionKeys: ['background.video'],
+          assetKinds: ['video', 'images'],
+          fallback: 'warn-once',
+        },
+      ],
+    }, sha256Fixture)
+
+    expect(renderer).toEqual({
+      packageName: '@quajs/native-renderer',
+      version: '0.1.0',
+      backend: 'wgpu',
+      backendVersion: 'wgpu-0.20',
+      capabilityIds: [
+        'native-wgpu.stage-layout@1',
+        'native-wgpu.ui.surface@1',
+        'native-wgpu.input.pointer@1',
+      ],
+      capabilityManifestHash: expect.stringMatching(/^sha256:fixture-/),
+    })
+    expect(changedRenderer.capabilityIds).toContain('native-wgpu.video@1')
+    expect(changedRenderer.capabilityManifestHash).not.toBe(renderer.capabilityManifestHash)
   })
 
   it('normalizes subentry dependencies before validating target isolation', () => {
@@ -540,3 +601,7 @@ describe('target bundle manifest validation', () => {
     ]))
   })
 })
+
+function sha256Fixture(payload: string): string {
+  return `fixture-${payload.length}`
+}

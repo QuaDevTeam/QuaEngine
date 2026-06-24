@@ -22,7 +22,7 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 
 ## Package Responsibilities
 
-- `@quajs/native-contracts`: serializable native host, renderer capability, compatibility, QUI/QSS, and target bootstrap contracts. Native packagers should use `createNativeCapabilityManifestPayload` / `createNativeCapabilityManifestHash` with an injected SHA-256 implementation when emitting `nativeRenderer.capabilityManifestHash`.
+- `@quajs/native-contracts`: serializable native host, renderer capability, compatibility, QUI/QSS, and target bootstrap contracts. Native packagers should use `createNativeCapabilityManifestPayload` / `createNativeCapabilityManifestHash` with an injected SHA-256 implementation when emitting `nativeRenderer.capabilityManifestHash`; use `createTargetBundleNativeRendererInfo` to derive native target-bundle renderer metadata from the actual renderer capabilities.
 - `@quajs/engine-native`: engine plugin/adapter that reads native host info, registers renderer capabilities, supplies runtime package compatibility guards, and exposes the restricted native `RuntimeModuleLoader` over package asset bytes plus a Rust/QuickJS evaluator.
 - `@quajs/assets-native`: QuaAssets adapter over native host byte/storage/crypto APIs.
 - `@quajs/store-native`: QuaStore persistence adapter over native host storage APIs.
