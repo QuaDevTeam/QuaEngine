@@ -1,10 +1,12 @@
-import type { NativeHostApiRequest, QuaNativeHostApi, QuaNativeHostInfo } from '@quajs/native-contracts'
-import { COCOS_TARGET_BOOTSTRAP, NATIVE_TARGET_BOOTSTRAP, createNativeHostApiFromBridge } from '@quajs/native-contracts'
+import type { NativeHostApiRequest, QuaNativeHostApi, QuaNativeHostInfo, TargetBundleManifest } from '@quajs/native-contracts'
+import { COCOS_TARGET_BOOTSTRAP, NATIVE_TARGET_BOOTSTRAP, createNativeHostApiFromBridge, getTargetCorePluginFamily } from '@quajs/native-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import {
   NativeHostPlugin,
+  assertNativeTargetBundleManifest,
   assertNativeTargetBootstrap,
   assertNativeRuntimePackageCompatibility,
+  checkNativeTargetBundleManifest,
   checkNativeTargetBootstrap,
   checkNativeRuntimePackageCompatibility,
   createNativeRuntimeAdapters,
@@ -65,6 +67,43 @@ function createHost(hostInfo = createHostInfo()): QuaNativeHostApi {
     writeStorage: vi.fn(),
     deleteStorage: vi.fn(),
     hashBytes: vi.fn(),
+  }
+}
+
+function createNativeTargetBundleManifest(
+  overrides: Partial<TargetBundleManifest> = {},
+): TargetBundleManifest {
+  return {
+    schemaVersion: 1,
+    target: 'native',
+    profile: 'debug',
+    platform: 'macos',
+    app: {
+      bundleId: 'dev.quajs.native.fixture',
+      version: '1.0.0',
+      buildNumber: '100',
+      icon: 'AppIcon.icns',
+    },
+    selectedCorePluginFamily: getTargetCorePluginFamily('native'),
+    selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+    dependencies: [
+      '@quajs/engine',
+      '@quajs/pipeline',
+      ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+    ],
+    rendererEntries: [
+      { specifier: '@quajs/native-renderer/builtin', target: 'native' },
+    ],
+    runtimePackages: [
+      {
+        id: 'runtime.chapter.native-ui',
+        executableDependencies: ['@quajs/character'],
+        rendererEntries: [
+          { specifier: '@quajs/native-renderer/ui', target: 'native' },
+        ],
+      },
+    ],
+    ...overrides,
   }
 }
 
@@ -188,6 +227,49 @@ describe('@quajs/engine-native', () => {
       /Native target bootstrap validation failed.*mixes target bootstrap core adapters/,
     )
     expect(plugin.getTargetBootstrapValidation()?.selectedTargets).toEqual(['web', 'cocos', 'native'])
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+  })
+
+  it('accepts native post-bundle manifests during startup bootstrap validation', async () => {
+    const manifest = createNativeTargetBundleManifest()
+    const result = checkNativeTargetBundleManifest(manifest)
+    const host = createHost()
+    const plugin = new NativeHostPlugin({
+      host,
+      targetBundleManifest: manifest,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(assertNativeTargetBundleManifest(manifest)).toEqual(result)
+
+    await plugin.init({} as any)
+
+    expect(plugin.getTargetBundleManifestValidation()).toEqual(result)
+    expect(plugin.getTargetBootstrapValidation()).toEqual(result.bootstrapValidation)
+    expect(host.getHostInfo).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects native post-bundle manifests with foreign target core plugin families before host info', async () => {
+    const host = createHost()
+    const plugin = new NativeHostPlugin({
+      host,
+      targetBundleManifest: createNativeTargetBundleManifest({
+        dependencies: [
+          '@quajs/engine',
+          ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+          '@quajs/renderer-web/plugins/ui',
+        ],
+        rendererEntries: [
+          { specifier: '@quajs/renderer-vue/plugins/ui', target: 'web' },
+        ],
+      }),
+    })
+
+    await expect(plugin.init({} as any)).rejects.toThrow(
+      /Native target bundle manifest validation failed.*core plugin family "web-core".*Renderer entry "@quajs\/renderer-vue" declares target "web"/,
+    )
+    expect(plugin.getTargetBundleManifestValidation()?.ok).toBe(false)
+    expect(plugin.getTargetBootstrapValidation()?.selectedTargets).toEqual(['web', 'native'])
     expect(host.getHostInfo).not.toHaveBeenCalled()
   })
 

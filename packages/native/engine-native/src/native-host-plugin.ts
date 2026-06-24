@@ -3,13 +3,16 @@ import type {
   ExclusiveTargetBootstrapValidationResult,
   QuaNativeHostApi,
   QuaNativeHostInfo,
+  TargetBundleManifest,
+  TargetBundleManifestValidationResult,
 } from '@quajs/native-contracts'
-import { validateExclusiveTargetBootstrap } from '@quajs/native-contracts'
+import { validateExclusiveTargetBootstrap, validateTargetBundleManifest } from '@quajs/native-contracts'
 
 export interface NativeHostPluginOptions {
   host: QuaNativeHostApi
   info?: QuaNativeHostInfo
   targetBootstrapPackages?: readonly string[]
+  targetBundleManifest?: TargetBundleManifest
 }
 
 export class NativeHostPlugin implements EnginePlugin {
@@ -18,6 +21,7 @@ export class NativeHostPlugin implements EnginePlugin {
 
   private hostInfo?: QuaNativeHostInfo
   private targetBootstrapValidation?: ExclusiveTargetBootstrapValidationResult
+  private targetBundleManifestValidation?: TargetBundleManifestValidationResult
 
   constructor(private readonly options: NativeHostPluginOptions) {
     this.hostInfo = options.info
@@ -36,6 +40,10 @@ export class NativeHostPlugin implements EnginePlugin {
     return this.targetBootstrapValidation
   }
 
+  getTargetBundleManifestValidation(): TargetBundleManifestValidationResult | undefined {
+    return this.targetBundleManifestValidation
+  }
+
   private async resolveHostInfo(): Promise<QuaNativeHostInfo> {
     if (this.hostInfo)
       return this.hostInfo
@@ -43,6 +51,14 @@ export class NativeHostPlugin implements EnginePlugin {
   }
 
   private validateTargetBootstrap(): void {
+    if (this.options.targetBundleManifest) {
+      const result = checkNativeTargetBundleManifest(this.options.targetBundleManifest)
+      this.targetBundleManifestValidation = result
+      this.targetBootstrapValidation = result.bootstrapValidation
+      if (!result.ok)
+        throw new Error(formatNativeTargetBundleManifestError(result))
+    }
+
     if (!this.options.targetBootstrapPackages)
       return
 
@@ -74,6 +90,24 @@ export function assertNativeTargetBootstrap(
   return result
 }
 
+export function checkNativeTargetBundleManifest(
+  manifest: TargetBundleManifest,
+): TargetBundleManifestValidationResult {
+  return validateTargetBundleManifest({
+    ...manifest,
+    target: 'native',
+  })
+}
+
+export function assertNativeTargetBundleManifest(
+  manifest: TargetBundleManifest,
+): TargetBundleManifestValidationResult {
+  const result = checkNativeTargetBundleManifest(manifest)
+  if (!result.ok)
+    throw new Error(formatNativeTargetBundleManifestError(result))
+  return result
+}
+
 function formatNativeTargetBootstrapError(result: ExclusiveTargetBootstrapValidationResult): string {
   const diagnostics = [
     ...result.diagnostics,
@@ -82,6 +116,15 @@ function formatNativeTargetBootstrapError(result: ExclusiveTargetBootstrapValida
 
   return [
     'Native target bootstrap validation failed.',
+    ...diagnostics,
+  ].join(' ')
+}
+
+function formatNativeTargetBundleManifestError(result: TargetBundleManifestValidationResult): string {
+  const diagnostics = result.diagnostics.map(diagnostic => diagnostic.message)
+
+  return [
+    'Native target bundle manifest validation failed.',
     ...diagnostics,
   ].join(' ')
 }

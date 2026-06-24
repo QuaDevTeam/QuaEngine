@@ -4,7 +4,9 @@ export {
 } from './compatibility'
 export type { NativeRuntimePackageCompatibilityInput } from './compatibility'
 export {
+  assertNativeTargetBundleManifest,
   assertNativeTargetBootstrap,
+  checkNativeTargetBundleManifest,
   checkNativeTargetBootstrap,
   NativeHostPlugin,
   readNativeHostInfo,
