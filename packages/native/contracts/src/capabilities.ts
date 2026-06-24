@@ -71,9 +71,22 @@ export interface NativeSignatureVerifyRequest {
   algorithm?: string
 }
 
+export interface NativeSignatureVerifyWireRequest {
+  bytes: number[]
+  signature: number[]
+  keyId?: string
+  algorithm?: string
+}
+
 export interface NativeRendererIntent {
   type: string
+  payloadJson?: string
+}
+
+export interface NativeRendererIntentInput {
+  type: string
   payload?: unknown
+  payloadJson?: string
 }
 
 export interface QuaNativeHostApi {
@@ -87,6 +100,45 @@ export interface QuaNativeHostApi {
   hashBytes: (bytes: Uint8Array, algorithm: 'sha256') => Promise<string>
   verifySignature?: (request: NativeSignatureVerifyRequest) => Promise<boolean>
   emitRendererIntent?: (event: NativeRendererIntent) => void
+}
+
+export function createNativeRendererIntent(input: NativeRendererIntentInput): NativeRendererIntent {
+  if (input.payloadJson !== undefined) {
+    return {
+      type: input.type,
+      payloadJson: input.payloadJson,
+    }
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(input, 'payload')) {
+    return {
+      type: input.type,
+    }
+  }
+
+  const payloadJson = JSON.stringify(input.payload)
+  return payloadJson === undefined
+    ? { type: input.type }
+    : { type: input.type, payloadJson }
+}
+
+export function parseNativeRendererIntentPayload<TPayload = unknown>(
+  event: NativeRendererIntent,
+): TPayload | undefined {
+  if (event.payloadJson === undefined)
+    return undefined
+  return JSON.parse(event.payloadJson) as TPayload
+}
+
+export function createNativeSignatureVerifyWireRequest(
+  request: NativeSignatureVerifyRequest,
+): NativeSignatureVerifyWireRequest {
+  return {
+    bytes: Array.from(request.bytes),
+    signature: Array.from(request.signature),
+    ...(request.keyId !== undefined ? { keyId: request.keyId } : {}),
+    ...(request.algorithm !== undefined ? { algorithm: request.algorithm } : {}),
+  }
 }
 
 export function getCapabilityMajorVersion(capability: string): number | undefined {
@@ -108,4 +160,3 @@ export function isCapabilityCompatible(required: string, available: string): boo
   const availableMajor = getCapabilityMajorVersion(available)
   return requiredMajor === undefined || availableMajor === undefined || requiredMajor === availableMajor
 }
-
