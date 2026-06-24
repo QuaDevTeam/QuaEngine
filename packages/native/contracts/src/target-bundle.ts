@@ -108,6 +108,7 @@ export interface TargetBundleRuntimePackageDiagnostic {
   target: QuaTargetBootstrap
   packageName: string
   runtimePackageId: string
+  field: 'executableDependencies' | 'rendererEntries'
   message: string
 }
 
@@ -292,26 +293,50 @@ function checkRuntimePackageTargetCoreAdapters(manifest: TargetBundleManifest): 
   const diagnostics: TargetBundleRuntimePackageDiagnostic[] = []
 
   for (const runtimePackage of manifest.runtimePackages || []) {
-    const packageNames = [
-      ...collectPackageReferenceSpecifiers(runtimePackage.executableDependencies || []),
-      ...collectPackageReferenceSpecifiers(runtimePackage.rendererEntries || []),
-    ].map(normalizePackageSpecifier)
-
-    for (const packageName of packageNames) {
-      if (!targetAdapterRoots.has(packageName))
-        continue
-
-      diagnostics.push({
-        code: 'TARGET_BUNDLE_RUNTIME_PACKAGE_CORE_ADAPTER',
-        target: manifest.target,
-        packageName,
-        runtimePackageId: runtimePackage.id,
-        message: `Runtime package "${runtimePackage.id}" must not include target core adapter "${packageName}" as an executable dependency.`,
-      })
-    }
+    pushRuntimePackageTargetCoreAdapterDiagnostics(
+      diagnostics,
+      manifest.target,
+      runtimePackage.id,
+      'executableDependencies',
+      runtimePackage.executableDependencies || [],
+      targetAdapterRoots,
+    )
+    pushRuntimePackageTargetCoreAdapterDiagnostics(
+      diagnostics,
+      manifest.target,
+      runtimePackage.id,
+      'rendererEntries',
+      runtimePackage.rendererEntries || [],
+      targetAdapterRoots,
+    )
   }
 
   return diagnostics
+}
+
+function pushRuntimePackageTargetCoreAdapterDiagnostics(
+  diagnostics: TargetBundleRuntimePackageDiagnostic[],
+  target: QuaTargetBootstrap,
+  runtimePackageId: string,
+  field: 'executableDependencies' | 'rendererEntries',
+  references: readonly TargetBundlePackageGraphReference[],
+  targetAdapterRoots: ReadonlySet<string>,
+): void {
+  const packageNames = collectPackageReferenceSpecifiers(references).map(normalizePackageSpecifier)
+
+  for (const packageName of packageNames) {
+    if (!targetAdapterRoots.has(packageName))
+      continue
+
+    diagnostics.push({
+      code: 'TARGET_BUNDLE_RUNTIME_PACKAGE_CORE_ADAPTER',
+      target,
+      packageName,
+      runtimePackageId,
+      field,
+      message: `Runtime package "${runtimePackageId}" must not include target core adapter "${packageName}" through "${field}".`,
+    })
+  }
 }
 
 function collectPackageReferenceSpecifiers(references: readonly TargetBundlePackageGraphReference[]): string[] {
