@@ -58,6 +58,8 @@ export interface NativeQuickJsReleasePackageRequest {
 export type NativeQuickJsEvaluationErrorCode
   = | 'missingAssetName'
     | 'forbiddenAssetName'
+    | 'forbiddenNativePayload'
+    | 'unsupportedModuleAsset'
     | 'moduleTooLarge'
     | 'evaluationFailed'
     | 'unsupportedRuntime'
