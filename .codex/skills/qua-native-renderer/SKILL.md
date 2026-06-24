@@ -26,6 +26,7 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 - `@quajs/engine-native`: engine plugin/adapter that reads native host info, registers renderer capabilities, supplies runtime package compatibility guards, and exposes the restricted native `RuntimeModuleLoader` over package asset bytes plus a Rust/QuickJS evaluator.
 - `@quajs/assets-native`: QuaAssets adapter over native host byte/storage/crypto APIs.
 - `@quajs/store-native`: QuaStore persistence adapter over native host storage APIs.
+- Native store hosts must provide `listStorageKeys` when using list or prefix-clear save operations; missing key listing support must fail explicitly instead of making snapshots/save slots appear empty.
 - Rust `quajs_native_runtime`: QuickJS host and native host API implementation.
 - Rust `quajs_wgpu_renderer`: wgpu projection renderer and transient resource management.
 

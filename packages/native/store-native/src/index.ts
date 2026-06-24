@@ -164,18 +164,21 @@ export class NativeStoreBackend implements StorageBackend {
     group: string,
     kind: NativeStoreRecordKind,
   ): Promise<TRecord[]> {
-    const keys = await this.options.host.listStorageKeys?.(this.key(group, ''))
-    if (!keys)
-      return []
+    const keys = await this.requireListStorageKeys(this.key(group, ''))
     const records = await Promise.all(keys.map(key => this.readRecord<TRecord>(key, kind)))
     return records.filter(record => record !== undefined)
   }
 
   private async deletePrefix(group: string): Promise<void> {
-    const keys = await this.options.host.listStorageKeys?.(this.key(group, ''))
-    if (!keys)
-      return
+    const keys = await this.requireListStorageKeys(this.key(group, ''))
     await Promise.all(keys.map(key => this.options.host.deleteStorage(key)))
+  }
+
+  private async requireListStorageKeys(prefix: string): Promise<string[]> {
+    if (!this.options.host.listStorageKeys) {
+      throw new Error('Native store host must provide listStorageKeys for list and clear operations.')
+    }
+    return await this.options.host.listStorageKeys(prefix)
   }
 
   private key(group: string, id: string): string {
