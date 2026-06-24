@@ -269,6 +269,27 @@ Per-target expectations:
 
 Debug builds may include extra diagnostics and source maps, but the target-core isolation rule is identical for debug and release. Release promotion must compare the recorded `target-bundle-manifest.json` against the immutable release manifest before signing/notarization/installer generation.
 
+### Target Core Plugin Partition Contract
+
+Packaging to Web, Cocos, and native must never share one "universal" core plugin bundle. The packager resolves one active target first, then selects only that target's bootstrap plugin, platform adapters, renderer entrypoints, renderer-plugin entries, and target-specific project metadata. Other target blocks may remain as inert compatibility metadata in package manifests, but they must not become imports, runtime dependencies, bootstrap registrations, or executable QPK modules.
+
+| Partition | Web package output | Cocos package output | Native package output |
+| --- | --- | --- | --- |
+| Bootstrap plugin | Web bootstrap only | Cocos bootstrap only | Native bootstrap only |
+| Asset/store adapters | `@quajs/assets-web` plus platform-neutral store adapters | `@quajs/assets-cocos`/Cocos host storage adapters | `@quajs/assets-native` and `@quajs/store-native` |
+| Renderer core | `@quajs/renderer-web` and one selected Web framework adapter if needed | `@quajs/renderer-cocos` and `@quajs/cocos-host` | Rust `quajs_wgpu_renderer`, `@quajs/engine-native`, and native capability metadata |
+| Renderer plugin entries | Web subentries such as `@quajs/renderer-web/plugins/*` or framework Web wrappers | Cocos subentries such as `@quajs/renderer-cocos/plugins/*` | Built-in native capability ids plus declarative QUI/QSS/assets; no dynamic native code |
+| Forbidden leakage | Cocos and native core packages | Web and native core packages | Web and Cocos core packages |
+
+Partition checks are required at four separate points:
+
+1. **Source dependency selection**: a project target resolves exactly one target core plugin set. Shared packages may appear only if they are platform-neutral and import no target adapter.
+2. **Renderer entry selection**: official and third-party plugins may publish `web`, `cocos`, and `native` entries, but the selected artifact includes only the active target entry. Inactive target entries are rejected if they are reachable through eager imports.
+3. **Post-bundle dependency graph**: debug and release artifacts emit `target-bundle-manifest.json` after tree-shaking. The manifest must prove that normalized dependency roots contain the active target core set and none of the other two target core sets.
+4. **Runtime startup and QPK activation**: app startup asserts exactly one registered target core adapter set before engine initialization. Runtime QPK activation evaluates only the active target compatibility block and rejects executable dependencies on any Web/Cocos/native core adapter.
+
+The rule is symmetric. A native packaging check that rejects Web/Cocos leakage is not enough; Web builds must also reject Cocos/native leakage, and Cocos builds must reject Web/native leakage. These checks should be implemented from the same target manifest data so the three paths cannot drift.
+
 Target isolation should be encoded as data, not scattered across build scripts:
 
 ```ts
