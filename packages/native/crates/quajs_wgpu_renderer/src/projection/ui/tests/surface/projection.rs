@@ -174,7 +174,10 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                             "Button Face",
                             "Fallback UI",
                         ])),
+                        font_size: Some(30.0),
                         font_weight: Some(FontWeightProjection::keyword("bold")),
+                        line_height: Some(40.0),
+                        text_align: Some(UiSurfaceTextAlignProjection::Right),
                         ..Default::default()
                     }),
                 ]),
@@ -224,10 +227,13 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
             assert_eq!(params.border.color.as_deref(), Some("#382400"));
             assert_eq!(params.border.width, 1.5);
             assert_eq!(params.font_family, vec!["Button Face", "Fallback UI"]);
+            assert_eq!(params.font_size, 30.0);
             assert_eq!(
                 params.font_weight.as_ref(),
                 Some(&FontWeightDrawParam::Keyword("bold".to_string()))
             );
+            assert_eq!(params.line_height, 40.0);
+            assert_eq!(params.align, TextAlign::Right);
         }
         _ => panic!("expected ui button params"),
     }

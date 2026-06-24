@@ -127,7 +127,10 @@ pub struct UiButtonDrawParams {
     pub corner_radius: f64,
     pub border: BorderDrawParams,
     pub font_family: Vec<String>,
+    pub font_size: f64,
     pub font_weight: Option<FontWeightDrawParam>,
+    pub line_height: f64,
+    pub align: TextAlign,
     pub intent: Option<RendererIntent>,
 }
 
