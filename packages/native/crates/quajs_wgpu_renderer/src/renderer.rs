@@ -1,6 +1,7 @@
 pub mod backend;
 pub mod facade;
 pub mod metrics;
+pub mod resource_update;
 pub mod state;
 
 pub use backend::{
@@ -16,7 +17,11 @@ pub use facade::{NativeRenderer, NativeRendererFrameResult};
 pub use metrics::{
     NativeRendererFrameMetrics, NativeRendererMetrics, NativeRendererResourceMetrics,
 };
-pub use state::{NativeRendererFrameUpdate, NativeRendererPackageRelease, NativeRendererState};
+pub use resource_update::{
+    NativeRendererFrameResourceSyncSummary, NativeRendererFrameUpdate,
+    NativeRendererPackageRelease, NativeRendererPackageReleaseSummary,
+};
+pub use state::NativeRendererState;
 
 #[cfg(test)]
 mod tests;

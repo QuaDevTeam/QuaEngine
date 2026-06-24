@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use crate::frame::{prepare_native_frame, PreparedNativeFrame};
 use crate::input::{
     resolve_pointer_event_with_interaction, NativePointerEvent, NativePointerEventResolution,
@@ -10,57 +8,15 @@ use crate::renderer::backend::{
     NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendResult, NativeRenderFrameRef,
 };
 use crate::renderer::metrics::NativeRendererMetrics;
+use crate::renderer::resource_update::{
+    apply_active_frame_unload_guard, apply_resource_sync, frame_resource_sync_summary,
+    package_release_summary, NativeRendererFrameUpdate, NativeRendererPackageRelease,
+};
 use crate::resources::{
-    plan_frame_resource_sync, FrameResourceSyncPlan, NativeResourceKind, NativeResourceLedger,
-    NativeResourceRecord, PackageUnloadBlocker, PackageUnloadBlockerReason, PackageUnloadPlan,
-    ResourceBudget, ResourceBudgetViolation, ResourceId, ResourceMemory,
+    plan_frame_resource_sync, NativeResourceLedger, NativeResourceRecord, PackageUnloadPlan,
+    ResourceBudget, ResourceBudgetViolation,
 };
 use crate::stage_layout::{ResolvedStageLayout, StageClientPoint, StageClientRectOrigin};
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct NativeRendererFrameUpdate {
-    pub revision: u64,
-    pub resource_sync: FrameResourceSyncPlan,
-    pub released_resources: Vec<NativeResourceRecord>,
-    pub resource_sync_summary: NativeRendererFrameResourceSyncSummary,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct NativeRendererFrameResourceSyncSummary {
-    pub upsert_count: usize,
-    pub retain_count: usize,
-    pub release_count: usize,
-    pub released_count: usize,
-    pub released_memory: ResourceMemory,
-    pub upsert_by_kind: BTreeMap<NativeResourceKind, usize>,
-    pub released_by_kind: BTreeMap<NativeResourceKind, usize>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct NativeRendererPackageRelease {
-    pub revision: u64,
-    pub plan: PackageUnloadPlan,
-    pub released_resources: Vec<NativeResourceRecord>,
-    pub summary: NativeRendererPackageReleaseSummary,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct NativeRendererPackageReleaseSummary {
-    pub releasable_count: usize,
-    pub blocked_count: usize,
-    pub released_count: usize,
-    pub released_memory: ResourceMemory,
-    pub released_by_kind: BTreeMap<NativeResourceKind, usize>,
-    pub blocked_by_kind: BTreeMap<NativeResourceKind, usize>,
-    pub blocked_by_reason: BTreeMap<PackageUnloadBlockerReason, usize>,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-struct ReleasedResourceSummary {
-    count: usize,
-    memory: ResourceMemory,
-    by_kind: BTreeMap<NativeResourceKind, usize>,
-}
 
 #[derive(Clone, Debug, Default)]
 pub struct NativeRendererState {
@@ -205,154 +161,4 @@ impl NativeRendererState {
         self.pointer_interaction.clear();
         self.resources.clear()
     }
-}
-
-fn apply_resource_sync(
-    ledger: &mut NativeResourceLedger,
-    sync: &FrameResourceSyncPlan,
-) -> Vec<NativeResourceRecord> {
-    let mut released = Vec::new();
-
-    for id in &sync.release {
-        if let Some(record) = ledger.release_resource(id.clone()) {
-            released.push(record);
-        }
-    }
-
-    for record in &sync.upsert {
-        ledger.insert(merge_existing_record_metadata(ledger, record.clone()));
-    }
-
-    released
-}
-
-fn merge_existing_record_metadata(
-    ledger: &NativeResourceLedger,
-    mut next: NativeResourceRecord,
-) -> NativeResourceRecord {
-    if let Some(existing) = ledger.get(next.id.clone()) {
-        if existing.kind == next.kind {
-            next.memory = existing.memory;
-            next.label = existing.label.clone();
-        }
-    }
-
-    next
-}
-
-fn apply_active_frame_unload_guard(
-    plan: &mut PackageUnloadPlan,
-    frame: Option<&PreparedNativeFrame>,
-    ledger: &NativeResourceLedger,
-) {
-    let Some(frame) = frame else {
-        return;
-    };
-    let active_ids = &frame.summary.resources.referenced_resource_ids;
-    if active_ids.is_empty() || plan.releasable.is_empty() {
-        return;
-    }
-
-    let mut guarded = Vec::new();
-    plan.releasable.retain(|id| {
-        let active = active_ids.contains(id);
-        if active {
-            guarded.push(id.clone());
-        }
-        !active
-    });
-
-    for id in guarded {
-        if let Some(record) = ledger.get(id.clone()) {
-            plan.blocked.push(PackageUnloadBlocker {
-                resource_id: id,
-                kind: record.kind,
-                owner_package_id: record.owner_package_id.clone(),
-                required_package_ids: record.required_package_ids.clone(),
-                reason: PackageUnloadBlockerReason::ActiveFrameReference,
-            });
-        }
-    }
-
-    plan.releasable_memory = releasable_memory(&plan.releasable, ledger);
-}
-
-fn releasable_memory(ids: &[ResourceId], ledger: &NativeResourceLedger) -> ResourceMemory {
-    let mut memory = ResourceMemory::default();
-    for id in ids {
-        if let Some(record) = ledger.get(id.clone()) {
-            memory.add_assign(record.memory);
-        }
-    }
-    memory
-}
-
-fn frame_resource_sync_summary(
-    sync: &FrameResourceSyncPlan,
-    released_resources: &[NativeResourceRecord],
-) -> NativeRendererFrameResourceSyncSummary {
-    let released = released_resource_summary(released_resources);
-    let mut summary = NativeRendererFrameResourceSyncSummary {
-        upsert_count: sync.upsert.len(),
-        retain_count: sync.retain.len(),
-        release_count: sync.release.len(),
-        released_count: released.count,
-        released_memory: released.memory,
-        released_by_kind: released.by_kind,
-        ..Default::default()
-    };
-
-    for record in &sync.upsert {
-        *summary.upsert_by_kind.entry(record.kind).or_default() += 1;
-    }
-
-    summary
-}
-
-fn package_release_summary(
-    plan: &PackageUnloadPlan,
-    released_resources: &[NativeResourceRecord],
-) -> NativeRendererPackageReleaseSummary {
-    let released = released_resource_summary(released_resources);
-    NativeRendererPackageReleaseSummary {
-        releasable_count: plan.releasable.len(),
-        blocked_count: plan.blocked.len(),
-        released_count: released.count,
-        released_memory: released.memory,
-        released_by_kind: released.by_kind,
-        blocked_by_kind: blocked_by_kind(plan),
-        blocked_by_reason: blocked_by_reason(plan),
-    }
-}
-
-fn blocked_by_kind(plan: &PackageUnloadPlan) -> BTreeMap<NativeResourceKind, usize> {
-    let mut by_kind = BTreeMap::new();
-    for blocker in &plan.blocked {
-        *by_kind.entry(blocker.kind).or_default() += 1;
-    }
-    by_kind
-}
-
-fn blocked_by_reason(plan: &PackageUnloadPlan) -> BTreeMap<PackageUnloadBlockerReason, usize> {
-    let mut by_reason = BTreeMap::new();
-    for blocker in &plan.blocked {
-        *by_reason.entry(blocker.reason).or_default() += 1;
-    }
-    by_reason
-}
-
-fn released_resource_summary(
-    released_resources: &[NativeResourceRecord],
-) -> ReleasedResourceSummary {
-    let mut summary = ReleasedResourceSummary {
-        count: released_resources.len(),
-        ..Default::default()
-    };
-
-    for record in released_resources {
-        *summary.by_kind.entry(record.kind).or_default() += 1;
-        summary.memory.add_assign(record.memory);
-    }
-
-    summary
 }
