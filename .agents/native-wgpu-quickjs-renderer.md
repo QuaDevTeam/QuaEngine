@@ -847,8 +847,8 @@ Recommended third-party plugin package metadata:
             "native-wgpu.image@1",
             "native-wgpu.text@1"
           ],
-          "uiSurfaces": ["weather.panel"],
-          "qssTargets": ["native-wgpu"],
+          "quiComponents": ["Panel", "Button", "Text"],
+          "qssFeatures": ["background-color", "border-radius", "font-size"],
           "nativeCode": false
         }
       }
@@ -874,8 +874,8 @@ interface RuntimePackageNativeCompatibility {
     packageName: '@quajs/native-renderer'
     versionRange: string
     capabilities: readonly string[]
-    uiSurfaces?: readonly string[]
-    qssTargets?: readonly string[]
+    quiComponents?: readonly string[]
+    qssFeatures?: readonly string[]
     nativeCode: false
   }
 }
@@ -886,6 +886,7 @@ Native compatibility validation rules:
 - `nativeCode` must be `false`; any `true`, missing, or native binary entry is rejected for dynamic QPKs.
 - `rendererVersion`/`versionRange` must match the app-bundled native renderer version read through `@quajs/engine-native`.
 - Required `capabilityIds` must be present in the native capability registry with compatible major versions.
+- Required `quiComponents` and `qssFeatures` must be present in the native capability registry before package activation. Legacy `uiSurfaces` and `qssTargets` remain compatibility aliases for existing manifests.
 - Missing optional capabilities produce deterministic warnings and fallback rendering.
 - Missing required capabilities reject package activation before QuickJS module evaluation.
 - Third-party plugin renderer metadata may select built-in native capabilities and declarative UI surfaces, but may not load native code.
