@@ -481,6 +481,9 @@ fn release_package_resources_releases_inactive_resources_and_preserves_backend()
         release.released_resources[0].id,
         ResourceId::from("runtime:atlas")
     );
+    assert_eq!(release.summary.releasable_count, 1);
+    assert_eq!(release.summary.released_count, 1);
+    assert_eq!(release.summary.released_memory.gpu_bytes, 2048);
     assert!(renderer.resources().get("runtime:atlas").is_none());
     assert!(renderer.resources().get("images:bg/school.png").is_some());
     assert_eq!(renderer.backend().submissions.len(), 1);
