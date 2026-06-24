@@ -2,9 +2,12 @@ import type {
   ExclusiveTargetBootstrapDiagnostic,
   ExclusiveTargetBootstrapValidationResult,
   QuaTargetBootstrap,
+  TargetCorePluginFamily,
   TargetBootstrapDiagnostic,
 } from './bootstrap'
 import {
+  getPackageTargetCorePluginFamily,
+  getTargetCorePluginFamily,
   normalizePackageSpecifier,
   TARGET_BOOTSTRAP_MANIFESTS,
   validateExclusiveTargetBootstrap,
@@ -54,6 +57,7 @@ export interface TargetBundleManifest {
   profile: TargetBundleProfile
   platform?: string
   app?: TargetBundleAppInfo
+  selectedCorePluginFamily: TargetCorePluginFamily
   selectedCoreAdapters: readonly TargetBundlePackageReference[]
   dependencies?: readonly (TargetBundlePackageReference | TargetBundleDependencyReference)[]
   rendererEntries?: readonly (TargetBundlePackageReference | TargetBundleRendererEntryReference)[]
@@ -63,9 +67,23 @@ export interface TargetBundleManifest {
 export type TargetBundleManifestDiagnostic
   = | ExclusiveTargetBootstrapDiagnostic
     | TargetBootstrapDiagnostic
+    | TargetBundleCorePluginFamilyDiagnostic
     | TargetBundleSelectedCoreAdapterDiagnostic
     | TargetBundleRendererEntryTargetDiagnostic
     | TargetBundleRuntimePackageDiagnostic
+
+export interface TargetBundleCorePluginFamilyDiagnostic {
+  code:
+    | 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_MISSING'
+    | 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_MISMATCH'
+    | 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_LEAK'
+  target: QuaTargetBootstrap
+  selectedCorePluginFamily?: TargetCorePluginFamily
+  expectedCorePluginFamily?: TargetCorePluginFamily
+  packageName?: string
+  packageCorePluginFamily?: TargetCorePluginFamily
+  message: string
+}
 
 export interface TargetBundleSelectedCoreAdapterDiagnostic {
   code: 'TARGET_BUNDLE_SELECTED_CORE_ADAPTER_MISSING' | 'TARGET_BUNDLE_SELECTED_CORE_ADAPTER_UNEXPECTED'
@@ -111,12 +129,14 @@ export function validateTargetBundleManifest(manifest: TargetBundleManifest): Ta
   const bootstrapValidation = validateExclusiveTargetBootstrap(packageNames, {
     expectedTarget: manifest.target,
   })
+  const corePluginFamilyDiagnostics = checkCorePluginFamily(manifest, packageNames)
   const selectedCoreAdapterDiagnostics = checkSelectedCoreAdapters(manifest)
   const rendererEntryTargetDiagnostics = checkRendererEntryTargets(manifest)
   const runtimePackageDiagnostics = checkRuntimePackageTargetCoreAdapters(manifest)
   const diagnostics: TargetBundleManifestDiagnostic[] = [
     ...bootstrapValidation.diagnostics,
     ...(bootstrapValidation.targetValidation?.diagnostics || []),
+    ...corePluginFamilyDiagnostics,
     ...selectedCoreAdapterDiagnostics,
     ...rendererEntryTargetDiagnostics,
     ...runtimePackageDiagnostics,
@@ -124,6 +144,7 @@ export function validateTargetBundleManifest(manifest: TargetBundleManifest): Ta
 
   return {
     ok: bootstrapValidation.ok
+      && corePluginFamilyDiagnostics.length === 0
       && selectedCoreAdapterDiagnostics.length === 0
       && rendererEntryTargetDiagnostics.length === 0
       && runtimePackageDiagnostics.length === 0,
@@ -145,6 +166,50 @@ export function collectTargetBundlePackageNames(manifest: TargetBundleManifest):
   ]
 
   return Array.from(new Set(specifiers.map(normalizePackageSpecifier)))
+}
+
+function checkCorePluginFamily(
+  manifest: TargetBundleManifest,
+  packageNames: readonly string[],
+): TargetBundleCorePluginFamilyDiagnostic[] {
+  const expectedCorePluginFamily = getTargetCorePluginFamily(manifest.target)
+  const diagnostics: TargetBundleCorePluginFamilyDiagnostic[] = []
+
+  if (!manifest.selectedCorePluginFamily) {
+    diagnostics.push({
+      code: 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_MISSING',
+      target: manifest.target,
+      expectedCorePluginFamily,
+      message: `Target bundle manifest for "${manifest.target}" must record selected core plugin family "${expectedCorePluginFamily}".`,
+    })
+  }
+  else if (manifest.selectedCorePluginFamily !== expectedCorePluginFamily) {
+    diagnostics.push({
+      code: 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_MISMATCH',
+      target: manifest.target,
+      selectedCorePluginFamily: manifest.selectedCorePluginFamily,
+      expectedCorePluginFamily,
+      message: `Target bundle manifest for "${manifest.target}" selected core plugin family "${manifest.selectedCorePluginFamily}", but expected "${expectedCorePluginFamily}".`,
+    })
+  }
+
+  for (const packageName of packageNames) {
+    const packageCorePluginFamily = getPackageTargetCorePluginFamily(packageName)
+    if (!packageCorePluginFamily || packageCorePluginFamily === expectedCorePluginFamily)
+      continue
+
+    diagnostics.push({
+      code: 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_LEAK',
+      target: manifest.target,
+      selectedCorePluginFamily: manifest.selectedCorePluginFamily,
+      expectedCorePluginFamily,
+      packageName,
+      packageCorePluginFamily,
+      message: `Target bundle manifest for "${manifest.target}" must not include "${packageName}" from core plugin family "${packageCorePluginFamily}".`,
+    })
+  }
+
+  return diagnostics
 }
 
 function checkSelectedCoreAdapters(manifest: TargetBundleManifest): TargetBundleSelectedCoreAdapterDiagnostic[] {
@@ -280,6 +345,7 @@ function collectKnownTargetAdapterRoots(): ReadonlySet<string> {
   return new Set(
     Object.values(TARGET_BOOTSTRAP_MANIFESTS).flatMap(manifest => [
       ...manifest.coreAdapters,
+      ...manifest.corePluginFamilyRoots,
       ...manifest.forbiddenCoreAdapters,
     ]).map(normalizePackageSpecifier),
   )

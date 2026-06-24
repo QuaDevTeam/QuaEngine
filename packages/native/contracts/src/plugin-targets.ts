@@ -191,7 +191,9 @@ function pluginImportReferenceSpecifier(reference: TargetPluginImportReference):
 
 function isKnownTargetCoreAdapter(packageName: string): boolean {
   return Object.values(TARGET_BOOTSTRAP_MANIFESTS).some(manifest =>
-    manifest.coreAdapters.includes(packageName) || manifest.forbiddenCoreAdapters.includes(packageName))
+    manifest.coreAdapters.includes(packageName)
+    || manifest.corePluginFamilyRoots.includes(packageName)
+    || manifest.forbiddenCoreAdapters.includes(packageName))
 }
 
 function isForbiddenForTarget(target: QuaTargetBootstrap, packageName: string): boolean {
