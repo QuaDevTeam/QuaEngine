@@ -2011,6 +2011,12 @@ cargo bench --manifest-path packages/native/Cargo.toml --workspace
 cargo test --manifest-path packages/native/Cargo.toml -p quajs_wgpu_renderer --features bench-smoke
 ```
 
+Current Rust `bench-smoke` coverage:
+
+- `native.render_graph.heavy_ui.smoke` exercises projection-to-render-graph build time for a dense declarative UI surface without requiring GPU.
+- `native.memory_ledger.summary.smoke` exercises package-aware resource ledger summary and memory pressure calculation.
+- `native.audio.metrics.smoke` exercises audio projection resource sync, audio backend command-state tracking, and renderer metrics for a deterministic multi-track fixture without a decoder, mixer, device, or real playback backend.
+
 Benchmark outputs:
 
 - JSON result files under `packages/native/benchmarks/output/`.
