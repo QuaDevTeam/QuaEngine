@@ -6,6 +6,7 @@ export type { NativeRuntimePackageCompatibilityInput } from './compatibility'
 export {
   assertNativeTargetBundleManifest,
   assertNativeTargetBootstrap,
+  checkNativeAppManifestCompatibility,
   checkNativeRendererManifestCompatibility,
   checkNativeTargetBundleManifest,
   checkNativeTargetBootstrap,

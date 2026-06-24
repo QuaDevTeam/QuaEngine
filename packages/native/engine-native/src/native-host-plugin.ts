@@ -35,7 +35,7 @@ export class NativeHostPlugin implements EnginePlugin {
   async init(context: EngineContext): Promise<void> {
     this.validateTargetBootstrap()
     const hostInfo = await this.resolveHostInfo()
-    this.validateNativeRendererManifest(hostInfo)
+    this.validateNativeManifestCompatibility(hostInfo)
     this.hostInfo = hostInfo
     if (context.pipeline) {
       this.disposeRuntimePackageUnloadListener?.()
@@ -92,13 +92,16 @@ export class NativeHostPlugin implements EnginePlugin {
       throw new Error(formatNativeTargetBootstrapError(result))
   }
 
-  private validateNativeRendererManifest(hostInfo: QuaNativeHostInfo): void {
-    const manifestRenderer = this.options.targetBundleManifest?.nativeRenderer
-    if (!manifestRenderer)
+  private validateNativeManifestCompatibility(hostInfo: QuaNativeHostInfo): void {
+    const manifest = this.options.targetBundleManifest
+    if (!manifest)
       return
-    const diagnostics = checkNativeRendererManifestCompatibility(hostInfo, manifestRenderer)
+    const diagnostics = [
+      ...checkNativeAppManifestCompatibility(hostInfo, manifest),
+      ...checkNativeRendererManifestCompatibility(hostInfo, manifest.nativeRenderer),
+    ]
     if (diagnostics.length > 0)
-      throw new Error(formatNativeRendererManifestCompatibilityError(diagnostics))
+      throw new Error(formatNativeManifestCompatibilityError(diagnostics))
   }
 
   private async releaseQuickJsPackageNamespaces(packageId: string): Promise<void> {
@@ -109,11 +112,47 @@ export class NativeHostPlugin implements EnginePlugin {
   }
 }
 
-export function checkNativeRendererManifestCompatibility(
+export function checkNativeAppManifestCompatibility(
   hostInfo: QuaNativeHostInfo,
-  manifestRenderer: TargetBundleNativeRendererInfo,
+  manifest: TargetBundleManifest,
 ): string[] {
   const diagnostics: string[] = []
+  if (manifest.app?.bundleId && manifest.app.bundleId !== hostInfo.app.bundleId) {
+    diagnostics.push(
+      `Native target bundle manifest app.bundleId "${manifest.app.bundleId}" does not match host app bundleId "${hostInfo.app.bundleId}".`,
+    )
+  }
+  if (manifest.app?.version && manifest.app.version !== hostInfo.app.version) {
+    diagnostics.push(
+      `Native target bundle manifest app.version "${manifest.app.version}" does not match host app version "${hostInfo.app.version}".`,
+    )
+  }
+  if (manifest.app?.buildNumber && manifest.app.buildNumber !== hostInfo.app.buildNumber) {
+    diagnostics.push(
+      `Native target bundle manifest app.buildNumber "${manifest.app.buildNumber}" does not match host app buildNumber "${hostInfo.app.buildNumber}".`,
+    )
+  }
+  if (manifest.profile && manifest.profile !== hostInfo.app.profile) {
+    diagnostics.push(
+      `Native target bundle manifest profile "${manifest.profile}" does not match host app profile "${hostInfo.app.profile}".`,
+    )
+  }
+  if (manifest.platform && manifest.platform !== hostInfo.app.platform) {
+    diagnostics.push(
+      `Native target bundle manifest platform "${manifest.platform}" does not match host app platform "${hostInfo.app.platform}".`,
+    )
+  }
+  return diagnostics
+}
+
+export function checkNativeRendererManifestCompatibility(
+  hostInfo: QuaNativeHostInfo,
+  manifestRenderer?: TargetBundleNativeRendererInfo,
+): string[] {
+  const diagnostics: string[] = []
+  if (!manifestRenderer)
+    return diagnostics
+
   if (manifestRenderer.packageName && manifestRenderer.packageName !== hostInfo.renderer.packageName) {
     diagnostics.push(
       `Native target bundle manifest renderer package "${manifestRenderer.packageName}" does not match host renderer package "${hostInfo.renderer.packageName}".`,
@@ -208,9 +247,9 @@ function formatNativeTargetBundleManifestError(result: TargetBundleManifestValid
   ].join(' ')
 }
 
-function formatNativeRendererManifestCompatibilityError(diagnostics: readonly string[]): string {
+function formatNativeManifestCompatibilityError(diagnostics: readonly string[]): string {
   return [
-    'Native renderer manifest compatibility validation failed.',
+    'Native manifest compatibility validation failed.',
     ...diagnostics,
   ].join(' ')
 }

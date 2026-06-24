@@ -13,6 +13,7 @@ import {
   assertNativeTargetBundleManifest,
   assertNativeTargetBootstrap,
   assertNativeRuntimePackageCompatibility,
+  checkNativeAppManifestCompatibility,
   checkNativeRendererManifestCompatibility,
   checkNativeTargetBundleManifest,
   checkNativeTargetBootstrap,
@@ -377,6 +378,37 @@ describe('@quajs/engine-native', () => {
     )).toEqual([])
   })
 
+  it('checks emitted native app metadata against the native host info', () => {
+    expect(checkNativeAppManifestCompatibility(
+      createHostInfo(),
+      createNativeTargetBundleManifest(),
+    )).toEqual([])
+  })
+
+  it('rejects emitted native app metadata that drifts from host info', async () => {
+    const hostInfo = createHostInfo()
+    hostInfo.app = {
+      ...hostInfo.app,
+      bundleId: 'dev.quajs.native.other',
+      version: '2.0.0',
+      buildNumber: '200',
+      profile: 'release',
+      platform: 'windows',
+    }
+    const host = createHost(hostInfo)
+    const plugin = new NativeHostPlugin({
+      host,
+      targetBundleManifest: createNativeTargetBundleManifest(),
+    })
+
+    await expect(plugin.init({} as any)).rejects.toThrow(
+      /Native manifest compatibility validation failed.*app\.bundleId "dev\.quajs\.native\.fixture" does not match host app bundleId "dev\.quajs\.native\.other".*app\.version "1\.0\.0" does not match host app version "2\.0\.0".*app\.buildNumber "100" does not match host app buildNumber "200".*profile "debug" does not match host app profile "release".*platform "macos" does not match host app platform "windows"/,
+    )
+    expect(plugin.getTargetBundleManifestValidation()?.ok).toBe(true)
+    expect(host.getHostInfo).toHaveBeenCalledTimes(1)
+    expect(plugin.getHostInfo()).toBeUndefined()
+  })
+
   it('rejects emitted native renderer metadata that drifts from host info', async () => {
     const host = createHost(createHostInfo('0.2.0'))
     const plugin = new NativeHostPlugin({
@@ -396,7 +428,7 @@ describe('@quajs/engine-native', () => {
     })
 
     await expect(plugin.init({} as any)).rejects.toThrow(
-      new RegExp(`Native renderer manifest compatibility validation failed.*renderer version "0\\.1\\.0" does not match host renderer version "0\\.2\\.0".*capability hash "sha256:stale-native-capabilities" does not match host renderer capability hash "${escapeRegExp(CAPABILITY_MANIFEST_HASH)}".*capability "native-wgpu\\.audio@1" is not provided`),
+      new RegExp(`Native manifest compatibility validation failed.*renderer version "0\\.1\\.0" does not match host renderer version "0\\.2\\.0".*capability hash "sha256:stale-native-capabilities" does not match host renderer capability hash "${escapeRegExp(CAPABILITY_MANIFEST_HASH)}".*capability "native-wgpu\\.audio@1" is not provided`),
     )
     expect(plugin.getTargetBundleManifestValidation()?.ok).toBe(true)
     expect(host.getHostInfo).toHaveBeenCalledTimes(1)
