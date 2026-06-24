@@ -96,6 +96,47 @@ impl QuickJsEvaluationResponse {
     }
 }
 
+pub type QuickJsEvaluationResult = Result<QuickJsEvaluationResponse, QuickJsEvaluationError>;
+
+pub trait QuickJsModuleEvaluator {
+    fn evaluate_module(
+        &mut self,
+        request: &QuickJsEvaluationRequest,
+    ) -> QuickJsEvaluationResult;
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct UnsupportedQuickJsModuleEvaluator;
+
+impl QuickJsModuleEvaluator for UnsupportedQuickJsModuleEvaluator {
+    fn evaluate_module(
+        &mut self,
+        request: &QuickJsEvaluationRequest,
+    ) -> QuickJsEvaluationResult {
+        Err(QuickJsEvaluationError {
+            code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
+            message: "QuickJS module evaluation is not available in this native runtime build."
+                .to_string(),
+            asset_name: Some(request.module.asset_name.clone()),
+            detail: Some("No QuickJS evaluator backend has been installed.".to_string()),
+        })
+    }
+}
+
+pub fn evaluate_quickjs_module(
+    evaluator: &mut impl QuickJsModuleEvaluator,
+    request: &QuickJsEvaluationRequest,
+) -> QuickJsEvaluationResponse {
+    if let Err(error) = validate_quickjs_evaluation_request(request) {
+        return QuickJsEvaluationResponse::error(error);
+    }
+
+    match evaluator.evaluate_module(request) {
+        Ok(response) => response,
+        Err(error) => QuickJsEvaluationResponse::error(error),
+    }
+}
+
 pub fn validate_quickjs_evaluation_request(
     request: &QuickJsEvaluationRequest,
 ) -> Result<(), QuickJsEvaluationError> {
