@@ -1,10 +1,12 @@
 use super::*;
-use crate::projection::background::BackgroundProjection;
+use crate::projection::background::{
+    BackgroundMode, BackgroundProjection, BackgroundVideoProjection,
+};
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
 use crate::projection::ui::{UiOverlayProjection, UiOverlaySurfaceProjection, UiProjection};
 use crate::projection::view::ViewProjection;
-use crate::render_graph::RenderPlane;
+use crate::render_graph::{DrawBatchPipeline, RenderPlane};
 use crate::resources::{NativeResourceKind, NativeResourceRecord};
 use crate::stage_layout::{
     resolve_stage_layout, StageContainerInput, ViewLayoutInput, ViewLayoutOrientation,
@@ -44,6 +46,10 @@ fn reports_frame_metrics_from_prepared_frame() {
     assert_eq!(metrics.frame.resource_ref_count, 1);
     assert_eq!(metrics.frame.asset_request_count, 1);
     assert_eq!(metrics.frame.skipped_asset_resource_count, 0);
+    assert_eq!(metrics.frame.fallback_count, 0);
+    assert_eq!(metrics.frame.video_fallback_count, 0);
+    assert!(metrics.frame.fallbacks_by_pipeline.is_empty());
+    assert!(metrics.frame.fallbacks_by_reason.is_empty());
     assert_eq!(metrics.frame.by_plane[&RenderPlane::Scene].command_count, 1);
     assert_eq!(
         metrics.frame.by_plane[&RenderPlane::Scene].resource_ref_count,
@@ -52,6 +58,26 @@ fn reports_frame_metrics_from_prepared_frame() {
     assert_eq!(metrics.frame.by_plane[&RenderPlane::Safe].command_count, 2);
     assert_eq!(
         metrics.frame.by_plane[&RenderPlane::Safe].interactive_count,
+        1
+    );
+}
+
+#[test]
+fn reports_video_fallback_metrics_from_prepared_frame() {
+    let frame = crate::frame::prepare_native_frame(test_layout(), &view_with_video_fallback());
+    let resources = NativeResourceLedger::new();
+
+    let metrics = NativeRendererMetrics::from_state(6, Some(&frame), &resources);
+
+    assert_eq!(metrics.frame.command_count, 1);
+    assert_eq!(metrics.frame.fallback_count, 1);
+    assert_eq!(metrics.frame.video_fallback_count, 1);
+    assert_eq!(
+        metrics.frame.fallbacks_by_pipeline[&DrawBatchPipeline::Video],
+        1
+    );
+    assert_eq!(
+        metrics.frame.fallbacks_by_reason["native video decode backend is not active"],
         1
     );
 }
@@ -280,6 +306,24 @@ fn view_with_background_and_choice() -> ViewProjection {
         choices: Some(ChoiceSetProjection::new(vec![ChoiceProjection::new(
             "stay", "Stay",
         )])),
+        ..Default::default()
+    }
+}
+
+fn view_with_video_fallback() -> ViewProjection {
+    ViewProjection {
+        background: Some(BackgroundProjection {
+            mode: BackgroundMode::Video,
+            video: Some(BackgroundVideoProjection {
+                poster: Some("poster/opening.png".to_string()),
+                provenance: PackageProvenance {
+                    content_package_id: Some("runtime.video".to_string()),
+                    required_runtime_packages: Default::default(),
+                },
+                ..BackgroundVideoProjection::new("opening.mp4")
+            }),
+            ..Default::default()
+        }),
         ..Default::default()
     }
 }
