@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::frame::{prepare_native_frame, PreparedNativeFrame};
 use crate::input::{
     resolve_pointer_event_with_interaction, NativePointerEvent, NativePointerEventResolution,
@@ -9,9 +11,9 @@ use crate::renderer::backend::{
 };
 use crate::renderer::metrics::NativeRendererMetrics;
 use crate::resources::{
-    plan_frame_resource_sync, FrameResourceSyncPlan, NativeResourceLedger, NativeResourceRecord,
-    PackageUnloadBlocker, PackageUnloadBlockerReason, PackageUnloadPlan, ResourceBudget,
-    ResourceBudgetViolation, ResourceId, ResourceMemory,
+    plan_frame_resource_sync, FrameResourceSyncPlan, NativeResourceKind, NativeResourceLedger,
+    NativeResourceRecord, PackageUnloadBlocker, PackageUnloadBlockerReason, PackageUnloadPlan,
+    ResourceBudget, ResourceBudgetViolation, ResourceId, ResourceMemory,
 };
 use crate::stage_layout::{ResolvedStageLayout, StageClientPoint, StageClientRectOrigin};
 
@@ -20,6 +22,18 @@ pub struct NativeRendererFrameUpdate {
     pub revision: u64,
     pub resource_sync: FrameResourceSyncPlan,
     pub released_resources: Vec<NativeResourceRecord>,
+    pub resource_sync_summary: NativeRendererFrameResourceSyncSummary,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeRendererFrameResourceSyncSummary {
+    pub upsert_count: usize,
+    pub retain_count: usize,
+    pub release_count: usize,
+    pub released_count: usize,
+    pub released_memory: ResourceMemory,
+    pub upsert_by_kind: BTreeMap<NativeResourceKind, usize>,
+    pub released_by_kind: BTreeMap<NativeResourceKind, usize>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -105,6 +119,8 @@ impl NativeRendererState {
         let frame = prepare_native_frame(layout, view);
         let resource_sync = plan_frame_resource_sync(&self.resources, &frame.resources);
         let released_resources = apply_resource_sync(&mut self.resources, &resource_sync);
+        let resource_sync_summary =
+            frame_resource_sync_summary(&resource_sync, &released_resources);
 
         self.revision = self.revision.saturating_add(1);
         self.frame = Some(frame);
@@ -113,6 +129,7 @@ impl NativeRendererState {
             revision: self.revision,
             resource_sync,
             released_resources,
+            resource_sync_summary,
         }
     }
 
@@ -248,4 +265,28 @@ fn releasable_memory(ids: &[ResourceId], ledger: &NativeResourceLedger) -> Resou
         }
     }
     memory
+}
+
+fn frame_resource_sync_summary(
+    sync: &FrameResourceSyncPlan,
+    released_resources: &[NativeResourceRecord],
+) -> NativeRendererFrameResourceSyncSummary {
+    let mut summary = NativeRendererFrameResourceSyncSummary {
+        upsert_count: sync.upsert.len(),
+        retain_count: sync.retain.len(),
+        release_count: sync.release.len(),
+        released_count: released_resources.len(),
+        ..Default::default()
+    };
+
+    for record in &sync.upsert {
+        *summary.upsert_by_kind.entry(record.kind).or_default() += 1;
+    }
+
+    for record in released_resources {
+        *summary.released_by_kind.entry(record.kind).or_default() += 1;
+        summary.released_memory.add_assign(record.memory);
+    }
+
+    summary
 }
