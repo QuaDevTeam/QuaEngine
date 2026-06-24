@@ -81,6 +81,30 @@ describe('native host contracts', () => {
         algorithm: 'sha256',
       },
     })
+
+    expect(createNativeHostApiRequest({
+      method: 'releaseQuickJsModuleNamespace',
+      params: {
+        moduleNamespaceId: 'quickjs:module:1',
+      },
+    })).toEqual({
+      method: 'releaseQuickJsModuleNamespace',
+      params: {
+        moduleNamespaceId: 'quickjs:module:1',
+      },
+    })
+
+    expect(createNativeHostApiRequest({
+      method: 'getQuickJsPackageNamespaceSummary',
+      params: {
+        packageId: 'runtime.chapter.native-ui',
+      },
+    })).toEqual({
+      method: 'getQuickJsPackageNamespaceSummary',
+      params: {
+        packageId: 'runtime.chapter.native-ui',
+      },
+    })
   })
 
   it('accepts host bridge responses with typed payloads and errors', () => {
@@ -108,6 +132,22 @@ describe('native host contracts', () => {
 
   it('adapts host bridge dispatchers to the QuaNativeHostApi shape', async () => {
     const requests: unknown[] = []
+    const namespaceRecord = {
+      id: 'quickjs:module:1',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/opening.js',
+      kind: 'script',
+      moduleBytes: 3,
+      codeBytes: 36,
+      revision: 1,
+    } as const
+    const namespaceSummary = {
+      namespaceCount: 1,
+      packageCount: 1,
+      moduleBytes: 3,
+      codeBytes: 36,
+    } as const
     const host = createNativeHostApiFromBridge(async (request) => {
       requests.push(request)
       switch (request.method) {
@@ -144,6 +184,50 @@ describe('native host contracts', () => {
               },
             },
           }
+        case 'releaseQuickJsModuleNamespace':
+          return {
+            ok: true,
+            payload: {
+              type: 'quickJsNamespace',
+              value: request.params.moduleNamespaceId === 'missing'
+                ? null
+                : {
+                    ...namespaceRecord,
+                    id: request.params.moduleNamespaceId,
+                  },
+            },
+          }
+        case 'releaseQuickJsPackageNamespaces':
+          return {
+            ok: true,
+            payload: {
+              type: 'quickJsNamespaces',
+              value: [namespaceRecord],
+            },
+          }
+        case 'getQuickJsNamespaceSummary':
+          return {
+            ok: true,
+            payload: {
+              type: 'quickJsNamespaceSummary',
+              value: namespaceSummary,
+            },
+          }
+        case 'getQuickJsPackageNamespaceSummary':
+          return {
+            ok: true,
+            payload: {
+              type: 'quickJsNamespaceSummary',
+              value: request.params.packageId === namespaceRecord.packageId
+                ? namespaceSummary
+                : {
+                    namespaceCount: 0,
+                    packageCount: 0,
+                    moduleBytes: 0,
+                    codeBytes: 0,
+                  },
+            },
+          }
         case 'listMountedBundles':
           return { ok: true, payload: { type: 'mountedBundles', value: [{ name: 'base' }] } }
       }
@@ -172,6 +256,17 @@ describe('native host contracts', () => {
       ok: true,
       moduleNamespaceId: 'runtime.chapter.native-ui:scripts/opening.js',
     })
+    await expect(host.releaseQuickJsModuleNamespace?.('quickjs:module:1')).resolves.toEqual(namespaceRecord)
+    await expect(host.releaseQuickJsModuleNamespace?.('missing')).resolves.toBeUndefined()
+    await expect(host.releaseQuickJsPackageNamespaces?.('runtime.chapter.native-ui')).resolves.toEqual([namespaceRecord])
+    await expect(host.getQuickJsNamespaceSummary?.()).resolves.toEqual(namespaceSummary)
+    await expect(host.getQuickJsPackageNamespaceSummary?.('runtime.chapter.native-ui')).resolves.toEqual(namespaceSummary)
+    await expect(host.getQuickJsPackageNamespaceSummary?.('runtime.other')).resolves.toEqual({
+      namespaceCount: 0,
+      packageCount: 0,
+      moduleBytes: 0,
+      codeBytes: 0,
+    })
     await expect(host.listMountedBundles?.()).resolves.toEqual([{ name: 'base' }])
     host.emitRendererIntent?.(createNativeRendererIntent({ type: 'ui/intent', payload: { action: 'close' } }))
 
@@ -179,6 +274,10 @@ describe('native host contracts', () => {
       { method: 'readAssetBytes', params: { url: 'images/bg.png' } },
       { method: 'writeStorage', params: { key: 'profile/save-1', value: [7, 8] } },
       expect.objectContaining({ method: 'evaluateQuickJsModule' }),
+      { method: 'releaseQuickJsModuleNamespace', params: { moduleNamespaceId: 'quickjs:module:1' } },
+      { method: 'releaseQuickJsPackageNamespaces', params: { packageId: 'runtime.chapter.native-ui' } },
+      { method: 'getQuickJsNamespaceSummary' },
+      { method: 'getQuickJsPackageNamespaceSummary', params: { packageId: 'runtime.chapter.native-ui' } },
       { method: 'emitRendererIntent', params: { type: 'ui/intent', payloadJson: '{"action":"close"}' } },
     ]))
   })

@@ -16,6 +16,7 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 - Native version/capability data comes from the signed native app/Rust build and is exposed through `QuaNativeHostInfo`; QPK content cannot override it.
 - Native dynamic module loading must use `createNativeRuntimeModuleLoader` or an equivalent restricted loader. It may load only runtime-package-declared, package-relative `assetName` script assets through QuaAssets/native host bytes, then pass code to a trusted Rust/QuickJS evaluator. Do not load runtime modules from filesystem paths, URLs, Node resolution, Web `Blob`, or dynamic `import()`.
 - When using the native host QuickJS bridge, `moduleNamespaceId` is only an opaque Rust/QuickJS namespace handle. `@quajs/engine-native` must use an explicit namespace resolver before returning a real engine module namespace object; do not fake module exports from the id string.
+- Native host QuickJS cleanup APIs (`releaseQuickJsModuleNamespace`, `releaseQuickJsPackageNamespaces`, `getQuickJsNamespaceSummary`, and `getQuickJsPackageNamespaceSummary`) are resource-ledger APIs only. Real hosts must use a persistent `QuickJsModuleNamespaceRegistry` across evaluation/release calls, not a per-request temporary registry, so runtime package unload can release package-owned namespace handles and check memory summaries.
 - Rust `quajs_wgpu_renderer` consumes resolved QUI/QSS projection data only. QSS parsing, selector matching, cascade, inheritance, and language-server diagnostics belong in TS/compiler/tooling packages, not in the renderer.
 
 ## Package Responsibilities
@@ -97,6 +98,7 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Are native renderer version/capability checks performed before dynamic package JS evaluation?
 - Does `@quajs/engine-native` install `createNativeRuntimeTrustPolicy` so runtime native-code payload guards run before QuickJS module loading?
 - Does `@quajs/engine-native` use a restricted runtime module loader that reads package script assets and delegates only to the Rust/QuickJS evaluator, without filesystem, network, Blob, or dynamic import paths?
+- Do native QuickJS release/summary host APIs use a persistent package-aware namespace registry, and does `@quajs/engine-native` call those APIs only as cleanup/query helpers rather than treating namespace ids as module exports?
 - Do assets/store adapters preserve core contracts without Web/Node assumptions?
 - Are Web/Cocos/native target core adapters isolated?
 - Does the post-bundle dependency manifest prove the active artifact contains exactly one target core plugin set?

@@ -6,7 +6,8 @@ use crate::host::{
 use crate::quickjs::{
     QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
     QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsModuleEvaluator,
-    QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord, QuickJsSandboxLimits,
+    QuickJsModuleNamespaceRegistry, QuickJsModuleNamespaceSummary, QuickJsRuntimeModuleKind,
+    QuickJsRuntimeModuleRecord, QuickJsSandboxLimits,
 };
 
 #[test]
@@ -38,6 +39,34 @@ fn serializes_bridge_requests_and_responses_with_ts_field_names() {
     assert_eq!(
         quickjs_json["params"]["module"]["assetName"],
         "scripts/opening.js"
+    );
+
+    let release_namespace = serde_json::to_value(
+        NativeHostApiRequest::ReleaseQuickJsModuleNamespace(NativeQuickJsReleaseNamespaceRequest {
+            module_namespace_id: "quickjs:module:1".to_string(),
+        }),
+    )
+    .unwrap();
+    assert_eq!(release_namespace["method"], "releaseQuickJsModuleNamespace");
+    assert_eq!(
+        release_namespace["params"]["moduleNamespaceId"],
+        "quickjs:module:1"
+    );
+
+    let package_summary =
+        serde_json::to_value(NativeHostApiRequest::GetQuickJsPackageNamespaceSummary(
+            NativeQuickJsReleasePackageRequest {
+                package_id: "runtime.chapter.native-ui".to_string(),
+            },
+        ))
+        .unwrap();
+    assert_eq!(
+        package_summary["method"],
+        "getQuickJsPackageNamespaceSummary"
+    );
+    assert_eq!(
+        package_summary["params"]["packageId"],
+        "runtime.chapter.native-ui"
     );
 }
 
@@ -232,6 +261,135 @@ fn dispatches_quickjs_evaluation_through_injected_evaluator() {
         }
         _ => panic!("expected quickjs evaluation payload"),
     }
+}
+
+#[test]
+fn dispatches_quickjs_namespace_summary_and_release_with_registry() {
+    struct TestQuickJsEvaluator;
+
+    impl QuickJsModuleEvaluator for TestQuickJsEvaluator {
+        fn evaluate_module(
+            &mut self,
+            request: &QuickJsEvaluationRequest,
+        ) -> QuickJsEvaluationResult {
+            Ok(QuickJsEvaluationResponse::success(format!(
+                "quickjs:{}:{}",
+                request.module.package_id, request.module.asset_name
+            )))
+        }
+    }
+
+    let mut host = InMemoryNativeHostApi::new(host_info());
+    let mut quickjs = TestQuickJsEvaluator;
+    let mut registry = QuickJsModuleNamespaceRegistry::new();
+
+    for asset_name in ["scripts/opening.js", "scripts/menu.js"] {
+        let response = dispatch_native_host_api_request_with_quickjs_registry(
+            &mut host,
+            &mut quickjs,
+            &mut registry,
+            NativeHostApiRequest::EvaluateQuickJsModule(quickjs_request_for_asset(asset_name)),
+        );
+        assert!(response.ok);
+    }
+
+    let summary = dispatch_native_host_api_request_with_quickjs_registry(
+        &mut host,
+        &mut quickjs,
+        &mut registry,
+        NativeHostApiRequest::GetQuickJsNamespaceSummary,
+    );
+    assert_eq!(
+        summary.payload,
+        Some(NativeHostApiResponsePayload::QuickJsNamespaceSummary(
+            QuickJsModuleNamespaceSummary {
+                namespace_count: 2,
+                package_count: 1,
+                module_bytes: 6,
+                code_bytes: 72,
+            }
+        ))
+    );
+
+    let package_summary = dispatch_native_host_api_request_with_quickjs_registry(
+        &mut host,
+        &mut quickjs,
+        &mut registry,
+        NativeHostApiRequest::GetQuickJsPackageNamespaceSummary(
+            NativeQuickJsReleasePackageRequest {
+                package_id: "runtime.chapter.native-ui".to_string(),
+            },
+        ),
+    );
+    assert_eq!(
+        package_summary.payload,
+        Some(NativeHostApiResponsePayload::QuickJsNamespaceSummary(
+            QuickJsModuleNamespaceSummary {
+                namespace_count: 2,
+                package_count: 1,
+                module_bytes: 6,
+                code_bytes: 72,
+            }
+        ))
+    );
+
+    let release_one = dispatch_native_host_api_request_with_quickjs_registry(
+        &mut host,
+        &mut quickjs,
+        &mut registry,
+        NativeHostApiRequest::ReleaseQuickJsModuleNamespace(NativeQuickJsReleaseNamespaceRequest {
+            module_namespace_id: "quickjs:runtime.chapter.native-ui:scripts/opening.js".to_string(),
+        }),
+    );
+    match release_one.payload.unwrap() {
+        NativeHostApiResponsePayload::QuickJsNamespace(Some(record)) => {
+            assert_eq!(record.asset_name, "scripts/opening.js");
+            assert_eq!(record.package_id, "runtime.chapter.native-ui");
+        }
+        payload => panic!("expected quickjs namespace payload, got {payload:?}"),
+    }
+
+    let release_missing = dispatch_native_host_api_request_with_quickjs_registry(
+        &mut host,
+        &mut quickjs,
+        &mut registry,
+        NativeHostApiRequest::ReleaseQuickJsModuleNamespace(NativeQuickJsReleaseNamespaceRequest {
+            module_namespace_id: "quickjs:missing".to_string(),
+        }),
+    );
+    assert_eq!(
+        release_missing.payload,
+        Some(NativeHostApiResponsePayload::QuickJsNamespace(None))
+    );
+
+    let release_package = dispatch_native_host_api_request_with_quickjs_registry(
+        &mut host,
+        &mut quickjs,
+        &mut registry,
+        NativeHostApiRequest::ReleaseQuickJsPackageNamespaces(NativeQuickJsReleasePackageRequest {
+            package_id: "runtime.chapter.native-ui".to_string(),
+        }),
+    );
+    match release_package.payload.unwrap() {
+        NativeHostApiResponsePayload::QuickJsNamespaces(records) => {
+            assert_eq!(records.len(), 1);
+            assert_eq!(records[0].asset_name, "scripts/menu.js");
+        }
+        payload => panic!("expected quickjs namespaces payload, got {payload:?}"),
+    }
+
+    let empty_summary = dispatch_native_host_api_request_with_quickjs_registry(
+        &mut host,
+        &mut quickjs,
+        &mut registry,
+        NativeHostApiRequest::GetQuickJsNamespaceSummary,
+    );
+    assert_eq!(
+        empty_summary.payload,
+        Some(NativeHostApiResponsePayload::QuickJsNamespaceSummary(
+            QuickJsModuleNamespaceSummary::default()
+        ))
+    );
 }
 
 fn host_info() -> NativeHostInfo {

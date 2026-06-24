@@ -20,7 +20,14 @@ export type {
   NativeRuntimeAdapters,
   NativeRuntimeAdaptersOptions,
 } from './runtime-adapters'
-export { createNativeHostQuickJsModuleEvaluator, createNativeRuntimeModuleLoader } from './runtime-module-loader'
+export {
+  createNativeHostQuickJsModuleEvaluator,
+  createNativeRuntimeModuleLoader,
+  getNativeQuickJsNamespaceSummary,
+  getNativeQuickJsPackageNamespaceSummary,
+  releaseNativeQuickJsModuleNamespace,
+  releaseNativeQuickJsPackageNamespaces,
+} from './runtime-module-loader'
 export type {
   NativeQuickJsModuleNamespaceResolver,
   NativeRuntimeModuleEvaluationContext,

@@ -6,8 +6,9 @@ use super::api::{
 };
 use super::info::NativeHostInfo;
 use crate::quickjs::{
-    evaluate_quickjs_module, QuickJsEvaluationRequest, QuickJsEvaluationResponse,
-    QuickJsModuleEvaluator, UnsupportedQuickJsModuleEvaluator,
+    evaluate_quickjs_module_with_registry, QuickJsEvaluationRequest, QuickJsEvaluationResponse,
+    QuickJsModuleEvaluator, QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry,
+    QuickJsModuleNamespaceSummary, UnsupportedQuickJsModuleEvaluator,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -23,6 +24,10 @@ pub enum NativeHostApiRequest {
     HashBytes(NativeHostApiHashBytesRequest),
     VerifySignature(NativeSignatureVerifyRequest),
     EvaluateQuickJsModule(QuickJsEvaluationRequest),
+    ReleaseQuickJsModuleNamespace(NativeQuickJsReleaseNamespaceRequest),
+    ReleaseQuickJsPackageNamespaces(NativeQuickJsReleasePackageRequest),
+    GetQuickJsNamespaceSummary,
+    GetQuickJsPackageNamespaceSummary(NativeQuickJsReleasePackageRequest),
     EmitRendererIntent(NativeRendererIntent),
 }
 
@@ -54,6 +59,18 @@ pub struct NativeHostApiHashBytesRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct NativeQuickJsReleaseNamespaceRequest {
+    pub module_namespace_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeQuickJsReleasePackageRequest {
+    pub package_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NativeHostApiResponse {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -73,6 +90,9 @@ pub enum NativeHostApiResponsePayload {
     Hash(String),
     SignatureValid(bool),
     QuickJsEvaluation(QuickJsEvaluationResponse),
+    QuickJsNamespace(Option<QuickJsModuleNamespaceRecord>),
+    QuickJsNamespaces(Vec<QuickJsModuleNamespaceRecord>),
+    QuickJsNamespaceSummary(QuickJsModuleNamespaceSummary),
 }
 
 impl NativeHostApiResponse {
@@ -112,6 +132,16 @@ pub fn dispatch_native_host_api_request(
 pub fn dispatch_native_host_api_request_with_quickjs(
     host: &mut impl NativeHostApi,
     quickjs: &mut impl QuickJsModuleEvaluator,
+    request: NativeHostApiRequest,
+) -> NativeHostApiResponse {
+    let mut registry = QuickJsModuleNamespaceRegistry::new();
+    dispatch_native_host_api_request_with_quickjs_registry(host, quickjs, &mut registry, request)
+}
+
+pub fn dispatch_native_host_api_request_with_quickjs_registry(
+    host: &mut impl NativeHostApi,
+    quickjs: &mut impl QuickJsModuleEvaluator,
+    registry: &mut QuickJsModuleNamespaceRegistry,
     request: NativeHostApiRequest,
 ) -> NativeHostApiResponse {
     match request {
@@ -156,11 +186,29 @@ pub fn dispatch_native_host_api_request_with_quickjs(
             .map(NativeHostApiResponsePayload::SignatureValid)
             .map(NativeHostApiResponse::success)
             .unwrap_or_else(|error| NativeHostApiResponse::error(error.to_info())),
-        NativeHostApiRequest::EvaluateQuickJsModule(request) => NativeHostApiResponse::success(
-            NativeHostApiResponsePayload::QuickJsEvaluation(evaluate_quickjs_module(
-                quickjs, &request,
-            )),
+        NativeHostApiRequest::EvaluateQuickJsModule(request) => {
+            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsEvaluation(
+                evaluate_quickjs_module_with_registry(quickjs, registry, &request),
+            ))
+        }
+        NativeHostApiRequest::ReleaseQuickJsModuleNamespace(request) => {
+            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsNamespace(
+                registry.release_namespace(&request.module_namespace_id),
+            ))
+        }
+        NativeHostApiRequest::ReleaseQuickJsPackageNamespaces(request) => {
+            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsNamespaces(
+                registry.release_package(&request.package_id),
+            ))
+        }
+        NativeHostApiRequest::GetQuickJsNamespaceSummary => NativeHostApiResponse::success(
+            NativeHostApiResponsePayload::QuickJsNamespaceSummary(registry.summary()),
         ),
+        NativeHostApiRequest::GetQuickJsPackageNamespaceSummary(request) => {
+            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsNamespaceSummary(
+                registry.package_summary(&request.package_id),
+            ))
+        }
         NativeHostApiRequest::EmitRendererIntent(event) => host
             .emit_renderer_intent(event)
             .map(|_| NativeHostApiResponse::empty())

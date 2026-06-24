@@ -95,9 +95,7 @@ impl QuickJsModuleNamespaceRegistry {
     }
 
     pub fn clear(&mut self) -> Vec<QuickJsModuleNamespaceRecord> {
-        std::mem::take(&mut self.namespaces)
-            .into_values()
-            .collect()
+        std::mem::take(&mut self.namespaces).into_values().collect()
     }
 
     pub fn summary(&self) -> QuickJsModuleNamespaceSummary {
@@ -165,14 +163,14 @@ mod tests {
     #[test]
     fn updates_existing_namespace_and_tracks_revision() {
         let mut registry = QuickJsModuleNamespaceRegistry::new();
-        let first = registry.register_evaluated_module("quickjs:module:1", &request_for_asset(
-            "runtime.chapter.native-ui",
-            "scripts/opening.js",
-        ));
-        let second = registry.register_evaluated_module("quickjs:module:1", &request_for_asset(
-            "runtime.chapter.native-ui",
-            "scripts/opening.js",
-        ));
+        let first = registry.register_evaluated_module(
+            "quickjs:module:1",
+            &request_for_asset("runtime.chapter.native-ui", "scripts/opening.js"),
+        );
+        let second = registry.register_evaluated_module(
+            "quickjs:module:1",
+            &request_for_asset("runtime.chapter.native-ui", "scripts/opening.js"),
+        );
 
         assert_eq!(first.id, second.id);
         assert_eq!(first.revision, 1);
@@ -184,25 +182,30 @@ mod tests {
     #[test]
     fn releases_namespaces_by_package() {
         let mut registry = QuickJsModuleNamespaceRegistry::new();
-        let runtime_a = registry.register_evaluated_module("quickjs:a", &request_for_asset(
-            "runtime.chapter.a",
-            "scripts/a.js",
-        ));
-        let runtime_b = registry.register_evaluated_module("quickjs:b", &request_for_asset(
-            "runtime.chapter.b",
-            "scripts/b.js",
-        ));
-        registry.register_evaluated_module("quickjs:a-extra", &request_for_asset(
-            "runtime.chapter.a",
-            "scripts/a-extra.js",
-        ));
+        let runtime_a = registry.register_evaluated_module(
+            "quickjs:a",
+            &request_for_asset("runtime.chapter.a", "scripts/a.js"),
+        );
+        let runtime_b = registry.register_evaluated_module(
+            "quickjs:b",
+            &request_for_asset("runtime.chapter.b", "scripts/b.js"),
+        );
+        registry.register_evaluated_module(
+            "quickjs:a-extra",
+            &request_for_asset("runtime.chapter.a", "scripts/a-extra.js"),
+        );
 
         let released = registry.release_package("runtime.chapter.a");
 
         assert_eq!(released.len(), 2);
         assert!(!registry.contains(&runtime_a.id));
         assert!(registry.contains(&runtime_b.id));
-        assert_eq!(registry.package_summary("runtime.chapter.a").namespace_count, 0);
+        assert_eq!(
+            registry
+                .package_summary("runtime.chapter.a")
+                .namespace_count,
+            0
+        );
         assert_eq!(registry.summary().namespace_count, 1);
     }
 
