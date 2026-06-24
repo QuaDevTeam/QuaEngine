@@ -177,7 +177,10 @@ fn surface_node_command(
             corner_radius: resolve_border_radius(&node.style, 0.0),
             border: surface_border_params(&node.style),
             font_family: resolve_font_family(&node.style),
+            font_size: resolve_font_size(&node.style, 28.0),
             font_weight: resolve_font_weight(&node.style),
+            line_height: resolve_line_height(&node.style, 36.0),
+            align: resolve_text_align(&node.style, TextAlign::Center),
             intent: node
                 .intent
                 .as_ref()

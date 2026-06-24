@@ -1,7 +1,7 @@
 use crate::projection::common::PackageProvenance;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, PanelDrawParams,
-    RenderGraph, RenderPlane, RendererIntent, UiButtonDrawParams,
+    RenderGraph, RenderPlane, RendererIntent, TextAlign, UiButtonDrawParams,
 };
 use crate::stage_layout::ResolvedStageLayout;
 
@@ -72,7 +72,10 @@ fn choice_command(
         corner_radius: 0.0,
         border: BorderDrawParams::default(),
         font_family: Vec::new(),
+        font_size: 30.0,
         font_weight: None,
+        line_height: 42.0,
+        align: TextAlign::Center,
         intent: choice.enabled.then(|| RendererIntent {
             event: "choice/select".to_string(),
             choice_id: Some(choice.id.clone()),
