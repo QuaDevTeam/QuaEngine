@@ -675,6 +675,41 @@ describe('@quajs/engine-native', () => {
     expect(host.verifySignature).not.toHaveBeenCalled()
   })
 
+  it('checks target-scoped renderers.native compatibility metadata before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        renderers: {
+          native: {
+            renderer: '@quajs/native-renderer',
+            version: '^0.1.0',
+            capabilityIds: ['native-wgpu.audio@1'],
+            nativeCode: false,
+          },
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native capability "native-wgpu\.audio@1" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
   it('reads host info for native renderer compatibility when trust policy options omit it', async () => {
     const host = {
       ...createHost(createHostInfo()),

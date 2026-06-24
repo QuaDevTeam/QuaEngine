@@ -93,6 +93,24 @@ describe('checkNativeCompatibility', () => {
     expect(result).toEqual({ ok: true, diagnostics: [] })
   })
 
+  it('accepts target-scoped renderer metadata aliases', () => {
+    const result = checkNativeCompatibility({
+      hostInfo: createHostInfo(),
+      compatibility: {
+        renderer: '@quajs/native-renderer',
+        version: '^0.1.0',
+        capabilityIds: [
+          'native-wgpu.ui.surface@1',
+          'native-wgpu.image@1',
+        ],
+        optionalCapabilityIds: ['native-wgpu.video@1'],
+        nativeCode: false,
+      },
+    })
+
+    expect(result).toEqual({ ok: true, diagnostics: [] })
+  })
+
   it('rejects native renderer version mismatch', () => {
     const result = checkNativeCompatibility({
       hostInfo: createHostInfo({ version: '1.0.0' }),
