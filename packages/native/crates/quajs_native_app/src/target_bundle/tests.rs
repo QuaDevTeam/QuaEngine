@@ -1,5 +1,7 @@
 use serde_json::json;
 
+use crate::startup::{platform_manifest_value, profile_manifest_value};
+
 use super::*;
 
 #[test]
@@ -9,7 +11,7 @@ fn loads_native_target_bundle_manifest_from_emitted_json_file() {
 
     let manifest = load_native_target_bundle_manifest(&path).expect("manifest loads from file");
     let validation =
-        validate_native_target_bundle_manifest(&manifest).expect("native manifest validates");
+        validate_native_target_bundle_manifest(&manifest, None).expect("native manifest validates");
 
     assert_eq!(validation.selected_targets, vec!["native"]);
     std::fs::remove_file(path).ok();
@@ -30,7 +32,7 @@ fn reports_parse_errors_for_invalid_manifest_files() {
 
 #[test]
 fn accepts_native_target_bundle_manifest() {
-    let validation = validate_native_target_bundle_manifest(&native_manifest())
+    let validation = validate_native_target_bundle_manifest(&native_manifest(), None)
         .expect("native manifest validates");
 
     assert_eq!(validation.selected_targets, vec!["native"]);
@@ -55,7 +57,7 @@ fn rejects_foreign_target_core_adapters_and_renderer_entries() {
             plugin_id: Some("@quajs/plugin-ui".to_string()),
         }));
 
-    let error = validate_native_target_bundle_manifest(&manifest)
+    let error = validate_native_target_bundle_manifest(&manifest, None)
         .expect_err("foreign target manifest is rejected");
 
     assert!(error
@@ -78,7 +80,7 @@ fn rejects_runtime_packages_that_depend_on_target_core_adapters() {
             "@quajs/renderer-web/plugins/dialogue".to_string(),
         )],
     });
-    let error = validate_native_target_bundle_manifest(&manifest)
+    let error = validate_native_target_bundle_manifest(&manifest, None)
         .expect_err("runtime package core adapters are rejected");
 
     assert!(error.diagnostics().iter().any(|diagnostic| diagnostic.contains(
@@ -94,10 +96,30 @@ fn deserializes_target_bundle_manifest_contract_shape() {
     let manifest: NativeTargetBundleManifest =
         serde_json::from_value(native_manifest_json()).expect("manifest contract shape parses");
 
-    let validation = validate_native_target_bundle_manifest(&manifest)
+    let validation = validate_native_target_bundle_manifest(&manifest, None)
         .expect("native manifest contract shape validates");
 
     assert_eq!(validation.selected_targets, vec!["native"]);
+}
+
+#[test]
+fn validates_manifest_app_identity_against_startup_expectation() {
+    let validation =
+        validate_native_target_bundle_manifest(&native_manifest(), Some(&native_expectation()))
+            .expect("manifest identity matches startup expectation");
+
+    assert_eq!(validation.selected_targets, vec!["native"]);
+}
+
+#[test]
+fn rejects_manifest_app_identity_mismatch() {
+    let mut expectation = native_expectation();
+    expectation.version = "2.0.0".to_string();
+
+    let error = validate_native_target_bundle_manifest(&native_manifest(), Some(&expectation))
+        .expect_err("manifest identity mismatch is rejected");
+
+    assert!(error.to_string().contains("app.version expected \"2.0.0\""));
 }
 
 fn unique_manifest_path(label: &str) -> std::path::PathBuf {
@@ -111,7 +133,14 @@ fn unique_manifest_path(label: &str) -> std::path::PathBuf {
 fn native_manifest_json() -> serde_json::Value {
     json!({
         "target": "native",
-        "profile": "release",
+        "profile": current_profile_value(),
+        "platform": current_platform_value(),
+        "app": {
+            "bundleId": "dev.quajs.fixture",
+            "version": "1.0.0",
+            "buildNumber": "100",
+            "icon": "AppIcon.icns"
+        },
         "selectedCorePluginFamily": "native-core",
         "selectedCoreAdapters": [
             "@quajs/engine-native/native-host",
@@ -142,6 +171,14 @@ fn native_manifest_json() -> serde_json::Value {
 pub(crate) fn native_manifest() -> NativeTargetBundleManifest {
     NativeTargetBundleManifest {
         target: "native".to_string(),
+        profile: current_profile_value().to_string(),
+        platform: Some(current_platform_value().to_string()),
+        app: Some(TargetBundleAppInfo {
+            bundle_id: Some("dev.quajs.fixture".to_string()),
+            version: Some("1.0.0".to_string()),
+            build_number: Some("100".to_string()),
+            icon: Some("AppIcon.icns".to_string()),
+        }),
         selected_core_plugin_family: "native-core".to_string(),
         selected_core_adapters: NATIVE_CORE_ADAPTERS
             .iter()
@@ -171,4 +208,22 @@ pub(crate) fn native_manifest() -> NativeTargetBundleManifest {
             })],
         }],
     }
+}
+
+fn native_expectation() -> NativeStartupManifestExpectation {
+    NativeStartupManifestExpectation {
+        bundle_id: "dev.quajs.fixture".to_string(),
+        version: "1.0.0".to_string(),
+        build_number: "100".to_string(),
+        profile: current_profile_value().to_string(),
+        platform: current_platform_value().to_string(),
+    }
+}
+
+fn current_profile_value() -> &'static str {
+    profile_manifest_value(quajs_native_runtime::current_profile())
+}
+
+fn current_platform_value() -> &'static str {
+    platform_manifest_value(quajs_native_runtime::current_platform())
 }

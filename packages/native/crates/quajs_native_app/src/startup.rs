@@ -1,8 +1,12 @@
-use quajs_native_runtime::{NativeHostInfo, NativeHostInfoBuilder};
+use quajs_native_runtime::{
+    current_platform, current_profile, NativeHostInfo, NativeHostInfoBuilder, NativePlatform,
+    NativeProfile,
+};
 use quajs_wgpu_renderer::native_wgpu_capabilities;
 
 use crate::target_bundle::{
-    validate_native_target_bundle_manifest, NativeStartupError, NativeTargetBundleManifest,
+    validate_native_target_bundle_manifest, NativeStartupError, NativeStartupManifestExpectation,
+    NativeTargetBundleManifest,
 };
 
 pub const DEFAULT_APP_NAME: &str = "QuaNativeApp";
@@ -69,10 +73,35 @@ where
     F: FnOnce(NativeAppConfig) -> NativeHostInfo,
 {
     if let Some(manifest) = target_bundle_manifest {
-        validate_native_target_bundle_manifest(manifest)?;
+        validate_native_target_bundle_manifest(manifest, Some(&manifest_expectation(&config)))?;
     }
 
     Ok(create(config))
+}
+
+fn manifest_expectation(config: &NativeAppConfig) -> NativeStartupManifestExpectation {
+    NativeStartupManifestExpectation {
+        bundle_id: config.bundle_id.clone(),
+        version: config.version.clone(),
+        build_number: config.build_number.clone(),
+        profile: profile_manifest_value(current_profile()).to_string(),
+        platform: platform_manifest_value(current_platform()).to_string(),
+    }
+}
+
+pub(crate) fn profile_manifest_value(profile: NativeProfile) -> &'static str {
+    match profile {
+        NativeProfile::Debug => "debug",
+        NativeProfile::Release => "release",
+    }
+}
+
+pub(crate) fn platform_manifest_value(platform: NativePlatform) -> &'static str {
+    match platform {
+        NativePlatform::MacOs => "macos",
+        NativePlatform::Windows => "windows",
+        NativePlatform::Linux => "linux",
+    }
 }
 
 #[cfg(test)]
@@ -115,15 +144,12 @@ mod tests {
     fn accepts_native_target_bundle_manifest_before_building_host_info() {
         let manifest = native_manifest();
         let created = Cell::new(false);
-        let host_info = create_native_startup_host_info_with(
-            NativeAppConfig::new("Fixture", "dev.quajs.fixture", "1.0.0", "100"),
-            Some(&manifest),
-            |config| {
+        let host_info =
+            create_native_startup_host_info_with(fixture_app_config(), Some(&manifest), |config| {
                 created.set(true);
                 create_host_info(config)
-            },
-        )
-        .expect("native manifest validates");
+            })
+            .expect("native manifest validates");
 
         assert!(created.get());
         assert_eq!(host_info.app.bundle_id, "dev.quajs.fixture");
@@ -141,19 +167,40 @@ mod tests {
             ),
         ]);
         let created = Cell::new(false);
+        let error =
+            create_native_startup_host_info_with(fixture_app_config(), Some(&manifest), |config| {
+                created.set(true);
+                create_host_info(config)
+            })
+            .expect_err("foreign target manifest is rejected");
+
+        assert!(!created.get());
+        assert!(error
+            .to_string()
+            .contains("mixes target bootstrap core adapters for web, cocos, native"));
+    }
+
+    #[test]
+    fn rejects_manifest_app_identity_mismatch_before_building_host_info() {
+        let manifest = native_manifest();
+        let created = Cell::new(false);
         let error = create_native_startup_host_info_with(
-            NativeAppConfig::new("Fixture", "dev.quajs.fixture", "1.0.0", "100"),
+            NativeAppConfig::new("Fixture", "dev.quajs.other", "1.0.0", "100"),
             Some(&manifest),
             |config| {
                 created.set(true);
                 create_host_info(config)
             },
         )
-        .expect_err("foreign target manifest is rejected");
+        .expect_err("app identity mismatch is rejected");
 
         assert!(!created.get());
         assert!(error
             .to_string()
-            .contains("mixes target bootstrap core adapters for web, cocos, native"));
+            .contains("app.bundleId expected \"dev.quajs.other\""));
+    }
+
+    fn fixture_app_config() -> NativeAppConfig {
+        NativeAppConfig::new("Fixture", "dev.quajs.fixture", "1.0.0", "100")
     }
 }

@@ -1,8 +1,12 @@
 use std::collections::BTreeSet;
-use std::fmt::{Display, Formatter};
-use std::path::Path;
 
-use serde::Deserialize;
+mod manifest;
+
+pub use manifest::{
+    load_native_target_bundle_manifest, NativeStartupError, NativeStartupManifestExpectation,
+    NativeStartupValidation, NativeTargetBundleManifest, RuntimePackageRecord, TargetBundleAppInfo,
+    TargetBundleReference, TargetBundleReferenceObject,
+};
 
 const WEB_CORE_ADAPTERS: &[&str] = &["@quajs/assets-web", "@quajs/renderer-web"];
 const COCOS_CORE_ADAPTERS: &[&str] = &[
@@ -41,130 +45,9 @@ const NATIVE_CORE_ROOTS: &[&str] = &[
     "quajs_native_app",
 ];
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NativeTargetBundleManifest {
-    pub target: String,
-    pub selected_core_plugin_family: String,
-    #[serde(default)]
-    pub selected_core_adapters: Vec<TargetBundleReference>,
-    #[serde(default)]
-    pub dependencies: Vec<TargetBundleReference>,
-    #[serde(default)]
-    pub renderer_entries: Vec<TargetBundleReference>,
-    #[serde(default)]
-    pub runtime_packages: Vec<RuntimePackageRecord>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RuntimePackageRecord {
-    pub id: String,
-    #[serde(default)]
-    pub executable_dependencies: Vec<TargetBundleReference>,
-    #[serde(default)]
-    pub renderer_entries: Vec<TargetBundleReference>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(untagged)]
-pub enum TargetBundleReference {
-    Specifier(String),
-    Object(TargetBundleReferenceObject),
-}
-
-impl TargetBundleReference {
-    fn specifier(&self) -> Option<&str> {
-        match self {
-            Self::Specifier(specifier) => Some(specifier.as_str()),
-            Self::Object(reference) => reference
-                .package_name
-                .as_deref()
-                .or(reference.specifier.as_deref()),
-        }
-    }
-
-    fn target(&self) -> Option<&str> {
-        match self {
-            Self::Specifier(_) => None,
-            Self::Object(reference) => reference.target.as_deref(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TargetBundleReferenceObject {
-    #[serde(default)]
-    pub specifier: Option<String>,
-    #[serde(default)]
-    pub package_name: Option<String>,
-    #[serde(default)]
-    pub target: Option<String>,
-    #[serde(default)]
-    pub plugin_id: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NativeStartupValidation {
-    pub package_names: Vec<String>,
-    pub selected_targets: Vec<&'static str>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NativeStartupError {
-    diagnostics: Vec<String>,
-}
-
-impl NativeStartupError {
-    fn new(diagnostics: Vec<String>) -> Self {
-        Self { diagnostics }
-    }
-
-    fn io(path: &Path, error: std::io::Error) -> Self {
-        Self::new(vec![format!(
-            "Failed to read native target bundle manifest \"{}\": {}.",
-            path.display(),
-            error
-        )])
-    }
-
-    fn json(path: &Path, error: serde_json::Error) -> Self {
-        Self::new(vec![format!(
-            "Failed to parse native target bundle manifest \"{}\": {}.",
-            path.display(),
-            error
-        )])
-    }
-
-    pub fn diagnostics(&self) -> &[String] {
-        &self.diagnostics
-    }
-}
-
-impl Display for NativeStartupError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            formatter,
-            "Native startup target bundle validation failed. {}",
-            self.diagnostics.join(" ")
-        )
-    }
-}
-
-impl std::error::Error for NativeStartupError {}
-
-pub fn load_native_target_bundle_manifest(
-    path: impl AsRef<Path>,
-) -> Result<NativeTargetBundleManifest, NativeStartupError> {
-    let path = path.as_ref();
-    let json =
-        std::fs::read_to_string(path).map_err(|error| NativeStartupError::io(path, error))?;
-    serde_json::from_str(&json).map_err(|error| NativeStartupError::json(path, error))
-}
-
 pub fn validate_native_target_bundle_manifest(
     manifest: &NativeTargetBundleManifest,
+    expectation: Option<&NativeStartupManifestExpectation>,
 ) -> Result<NativeStartupValidation, NativeStartupError> {
     let package_names = collect_target_bundle_package_names(manifest);
     let selected_targets = selected_target_bootstraps(&package_names);
@@ -184,6 +67,10 @@ pub fn validate_native_target_bundle_manifest(
         ));
     }
 
+    if let Some(expectation) = expectation {
+        check_manifest_identity(manifest, expectation, &mut diagnostics);
+    }
+
     check_selected_core_adapters(manifest, &mut diagnostics);
     check_exclusive_native_bootstrap(&selected_targets, &mut diagnostics);
     check_foreign_target_roots(&package_names, &mut diagnostics);
@@ -197,6 +84,72 @@ pub fn validate_native_target_bundle_manifest(
         })
     } else {
         Err(NativeStartupError::new(diagnostics))
+    }
+}
+
+fn check_manifest_identity(
+    manifest: &NativeTargetBundleManifest,
+    expectation: &NativeStartupManifestExpectation,
+    diagnostics: &mut Vec<String>,
+) {
+    if manifest.profile != expectation.profile {
+        diagnostics.push(format!(
+            "Native app startup expected manifest profile \"{}\", but manifest profile is \"{}\".",
+            expectation.profile, manifest.profile
+        ));
+    }
+
+    match manifest.platform.as_deref() {
+        Some(platform) if platform == expectation.platform => {}
+        Some(platform) => diagnostics.push(format!(
+            "Native app startup expected manifest platform \"{}\", but manifest platform is \"{}\".",
+            expectation.platform, platform
+        )),
+        None => diagnostics.push(format!(
+            "Native app startup expected manifest platform \"{}\", but manifest omitted platform.",
+            expectation.platform
+        )),
+    }
+
+    let Some(app) = manifest.app.as_ref() else {
+        diagnostics.push("Native target bundle manifest must include app metadata.".to_string());
+        return;
+    };
+
+    check_optional_metadata(
+        "bundleId",
+        app.bundle_id.as_deref(),
+        expectation.bundle_id.as_str(),
+        diagnostics,
+    );
+    check_optional_metadata(
+        "version",
+        app.version.as_deref(),
+        expectation.version.as_str(),
+        diagnostics,
+    );
+    check_optional_metadata(
+        "buildNumber",
+        app.build_number.as_deref(),
+        expectation.build_number.as_str(),
+        diagnostics,
+    );
+}
+
+fn check_optional_metadata(
+    field: &str,
+    actual: Option<&str>,
+    expected: &str,
+    diagnostics: &mut Vec<String>,
+) {
+    match actual {
+        Some(actual) if actual == expected => {}
+        Some(actual) => diagnostics.push(format!(
+            "Native target bundle manifest app.{field} expected \"{expected}\", but found \"{actual}\"."
+        )),
+        None => diagnostics.push(format!(
+            "Native target bundle manifest must include app.{field} \"{expected}\"."
+        )),
     }
 }
 
