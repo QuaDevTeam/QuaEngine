@@ -51,7 +51,9 @@ pub struct NativeRendererFrameAssetMetrics {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NativeRendererResourceMetrics {
     pub ledger_resource_count: usize,
+    pub declarative_resource_count: usize,
     pub memory: ResourceMemory,
+    pub declarative_memory: ResourceMemory,
     pub audio: NativeRendererAudioResourceMetrics,
     pub pressure: ResourceMemoryPressureSummary,
     pub package_count: usize,
@@ -251,10 +253,13 @@ fn fallback_pipeline(params: &DrawCommandParams, kind: DrawCommandKind) -> DrawB
 
 fn resource_metrics(resources: &NativeResourceLedger) -> NativeRendererResourceMetrics {
     let summary = resources.summary();
+    let declarative = declarative_resource_metrics(resources);
 
     NativeRendererResourceMetrics {
         ledger_resource_count: summary.total_count,
+        declarative_resource_count: declarative.resource_count,
         memory: summary.total_memory,
+        declarative_memory: declarative.memory,
         audio: audio_resource_metrics(resources),
         pressure: summary.memory_pressure(),
         package_count: summary.by_package.len(),
@@ -262,6 +267,27 @@ fn resource_metrics(resources: &NativeResourceLedger) -> NativeRendererResourceM
         by_kind: summary.by_kind,
         by_package: summary.by_package,
     }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct DeclarativeResourceMetrics {
+    resource_count: usize,
+    memory: ResourceMemory,
+}
+
+fn declarative_resource_metrics(resources: &NativeResourceLedger) -> DeclarativeResourceMetrics {
+    let mut metrics = DeclarativeResourceMetrics::default();
+
+    for record in resources.records() {
+        if !is_declarative_asset_kind(record.kind) {
+            continue;
+        }
+
+        metrics.resource_count += 1;
+        metrics.memory.add_assign(record.memory);
+    }
+
+    metrics
 }
 
 fn audio_resource_metrics(resources: &NativeResourceLedger) -> NativeRendererAudioResourceMetrics {
