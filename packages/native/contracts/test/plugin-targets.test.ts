@@ -147,6 +147,62 @@ describe('target plugin manifest validation', () => {
     }
   })
 
+  it('reports target core imports from inactive eager entries before packaging', () => {
+    const cases = [
+      {
+        target: 'web',
+        inactiveTarget: 'native',
+        importedCore: '@quajs/engine-native/runtime',
+        packageName: '@quajs/engine-native',
+      },
+      {
+        target: 'cocos',
+        inactiveTarget: 'web',
+        importedCore: '@quajs/renderer-web/plugins/ui',
+        packageName: '@quajs/renderer-web',
+      },
+      {
+        target: 'native',
+        inactiveTarget: 'cocos',
+        importedCore: '@quajs/cocos-host/runtime',
+        packageName: '@quajs/cocos-host',
+      },
+    ] as const
+
+    for (const { target, inactiveTarget, importedCore, packageName } of cases) {
+      const result = validateTargetPluginManifest({
+        target,
+        manifest: createPluginManifest({
+          entries: [
+            { specifier: '@quajs/plugin-ui/shared', target: 'shared' },
+            { specifier: `@quajs/plugin-ui/${target}`, target },
+            {
+              specifier: `@quajs/plugin-ui/${inactiveTarget}`,
+              target: inactiveTarget,
+              eager: true,
+              imports: [importedCore],
+            },
+          ],
+        }),
+      })
+
+      expect(result.ok).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TARGET_PLUGIN_INACTIVE_ENTRY_EAGER',
+          target,
+          entryTarget: inactiveTarget,
+        }),
+        expect.objectContaining({
+          code: 'TARGET_PLUGIN_INACTIVE_ENTRY_TARGET_CORE_IMPORT',
+          target,
+          entryTarget: inactiveTarget,
+          packageName,
+        }),
+      ]))
+    }
+  })
+
   it('rejects shared entries that import any target core adapter', () => {
     const result = validateTargetPluginManifest({
       target: 'native',
