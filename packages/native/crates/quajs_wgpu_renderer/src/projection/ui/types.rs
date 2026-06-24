@@ -97,6 +97,7 @@ pub enum UiSurfaceNodeKind {
     Box,
     Backdrop,
     Button,
+    Divider,
     Fragment,
     Text,
     Image,
