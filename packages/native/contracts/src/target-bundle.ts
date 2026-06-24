@@ -84,6 +84,7 @@ export type TargetBundleManifestDiagnostic
     | TargetBootstrapDiagnostic
     | TargetBundleTargetDiagnostic
     | TargetBundleNativeRendererDiagnostic
+    | TargetBundleAppMetadataDiagnostic
     | TargetBundleCorePluginFamilyDiagnostic
     | TargetBundleSelectedCoreAdapterDiagnostic
     | TargetBundleRendererEntryTargetDiagnostic
@@ -93,6 +94,13 @@ export interface TargetBundleTargetDiagnostic {
   code: 'TARGET_BUNDLE_TARGET_MISMATCH'
   target: QuaTargetBootstrap
   expectedTarget: QuaTargetBootstrap
+  message: string
+}
+
+export interface TargetBundleAppMetadataDiagnostic {
+  code: 'TARGET_BUNDLE_APP_METADATA_MISSING' | 'TARGET_BUNDLE_APP_METADATA_EMPTY'
+  target: QuaTargetBootstrap
+  field: 'bundleId' | 'version' | 'buildNumber' | 'icon'
   message: string
 }
 
@@ -166,6 +174,7 @@ export function validateTargetBundleManifest(
     expectedTarget,
   })
   const targetDiagnostics = checkTarget(manifest, expectedTarget)
+  const appMetadataDiagnostics = checkAppMetadata(manifest)
   const nativeRendererDiagnostics = checkTargetBundleNativeRendererInfo(manifest)
   const corePluginFamilyDiagnostics = checkCorePluginFamily(manifest, packageNames)
   const selectedCoreAdapterDiagnostics = checkSelectedCoreAdapters(manifest)
@@ -175,6 +184,7 @@ export function validateTargetBundleManifest(
     ...bootstrapValidation.diagnostics,
     ...(bootstrapValidation.targetValidation?.diagnostics || []),
     ...targetDiagnostics,
+    ...appMetadataDiagnostics,
     ...nativeRendererDiagnostics,
     ...corePluginFamilyDiagnostics,
     ...selectedCoreAdapterDiagnostics,
@@ -185,6 +195,7 @@ export function validateTargetBundleManifest(
   return {
     ok: bootstrapValidation.ok
       && targetDiagnostics.length === 0
+      && appMetadataDiagnostics.length === 0
       && nativeRendererDiagnostics.length === 0
       && corePluginFamilyDiagnostics.length === 0
       && selectedCoreAdapterDiagnostics.length === 0
@@ -209,6 +220,33 @@ function checkTarget(
     expectedTarget,
     message: `Target bundle manifest declares target "${manifest.target}", but expected "${expectedTarget}".`,
   }]
+}
+
+function checkAppMetadata(manifest: TargetBundleManifest): TargetBundleAppMetadataDiagnostic[] {
+  if (manifest.target !== 'native')
+    return []
+
+  const diagnostics: TargetBundleAppMetadataDiagnostic[] = []
+  for (const field of ['bundleId', 'version', 'buildNumber', 'icon'] as const) {
+    const value = manifest.app?.[field]
+    if (value === undefined) {
+      diagnostics.push({
+        code: 'TARGET_BUNDLE_APP_METADATA_MISSING',
+        target: manifest.target,
+        field,
+        message: `Native target bundle manifest must include app.${field}.`,
+      })
+    }
+    else if (value.trim() === '') {
+      diagnostics.push({
+        code: 'TARGET_BUNDLE_APP_METADATA_EMPTY',
+        target: manifest.target,
+        field,
+        message: `Native target bundle manifest app.${field} must not be empty.`,
+      })
+    }
+  }
+  return diagnostics
 }
 
 export function collectTargetBundlePackageNames(manifest: TargetBundleManifest): string[] {
