@@ -29,6 +29,7 @@ version = "0.1.0"
 dependencies = [
  "quajs_native_runtime",
  "quajs_wgpu_renderer",
+ "serde",
  "serde_json",
 ]
 
