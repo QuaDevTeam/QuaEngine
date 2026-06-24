@@ -168,6 +168,57 @@ describe('@quajs/assets-native', () => {
     expect(host.storage.has('native-cache/assets/main%3Adefault%3Adata%3Achapter.json.bin')).toBe(true)
   })
 
+  it('reloads the host index when the same storage instance is reopened', async () => {
+    const host = createHost()
+    const first = new NativeHostAssetStorage(host, { root: 'native-cache', now: () => 100 })
+    await first.open()
+    await first.storeAsset(createAsset({
+      id: 'chapter:a',
+      name: 'a.json',
+      data: new TextEncoder().encode('a'),
+      size: 1,
+    }))
+    await first.close()
+
+    const second = new NativeHostAssetStorage(host, { root: 'native-cache', now: () => 200 })
+    await second.open()
+    await second.storeAsset(createAsset({
+      id: 'chapter:b',
+      name: 'b.json',
+      data: new TextEncoder().encode('b'),
+      size: 1,
+    }))
+    await second.close()
+
+    await first.open()
+
+    expect(new TextDecoder().decode((await first.getAsset('chapter:a'))!.data)).toBe('a')
+    expect(new TextDecoder().decode((await first.getAsset('chapter:b'))!.data)).toBe('b')
+  })
+
+  it('clears in-memory metadata when reopened after the host index is removed', async () => {
+    const host = createHost()
+    const first = new NativeHostAssetStorage(host, { root: 'native-cache', now: () => 100 })
+    await first.open()
+    await first.storeAsset(createAsset())
+    await first.close()
+
+    const second = new NativeHostAssetStorage(host, { root: 'native-cache', now: () => 200 })
+    await second.open()
+    await second.clearAll()
+
+    await first.open()
+
+    expect(await first.getAsset('main:default:data:chapter.json')).toBeUndefined()
+    expect(await first.getCacheStats()).toEqual({
+      totalAssets: 0,
+      totalBundles: 0,
+      totalSize: 0,
+      oldestAsset: null,
+      newestAsset: null,
+    })
+  })
+
   it('resolves active bundles by priority, version, and loaded time', async () => {
     const storage = new NativeHostAssetStorage(createHost(), { now: () => 100 })
     await storage.open()
