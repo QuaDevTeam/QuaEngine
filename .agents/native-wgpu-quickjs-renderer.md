@@ -257,16 +257,16 @@ Release-blocking checks:
 - `validateTargetBootstrap` runs for the selected target and reports both missing required core plugins and forbidden cross-target core plugins.
 - Dependency graph checks normalize subentries to package roots, so `@quajs/renderer-web/plugins/audio`, `@quajs/renderer-vue/plugins/ui`, and `@quajs/renderer-cocos/plugins/audio` cannot hide behind subpath imports.
 - Multi-target plugin packages must expose separate `web`, `cocos`, and `native` entries. Packaging selects only the active entry and fails if source-level exports eagerly import inactive target entries.
-- Runtime QPK compatibility blocks for inactive targets are metadata only. They are ignored by the active target and must not pull executable dependencies for another target into the package graph.
+- Runtime QPK compatibility blocks for inactive targets are metadata only. They are ignored by the active target and must not pull executable dependencies or renderer entries for another target into the package graph.
 - Native dynamic QPKs may request built-in native capability ids and declarative QUI/QSS surfaces, but they cannot install a native core plugin or override Rust native renderer metadata.
 
 Target packaging gate:
 
 1. **Source selection gate**: Quack or the native packager receives exactly one target: `web`, `cocos`, or `native`. The selected bootstrap may import only that target's core adapters. Do not create an umbrella bootstrap that registers Web, Cocos, and native adapters and then chooses at runtime.
 2. **Renderer entry gate**: third-party and official plugins may publish multiple target entries, but the packager resolves only the active target entry. Shared plugin entries must stay platform-neutral and must not import `@quajs/renderer-web`, `@quajs/renderer-cocos`, `@quajs/engine-native`, `@quajs/assets-native`, or `@quajs/store-native`.
-3. **Post-bundle graph gate**: every debug and release artifact emits `target-bundle-manifest.json` after bundling/tree-shaking. The manifest records `target`, `profile`, `platform`, `app.bundleId`, `app.version`, `selectedCoreAdapters`, normalized dependency roots, selected renderer entries, included QPK ids, and native renderer capability hash when applicable. Packaging fails if `validateTargetBundleManifest` from `@quajs/native-contracts` fails on the post-bundle graph; that helper runs `validateExclusiveTargetBootstrap`, target-specific forbidden/missing checks, explicit selected core adapter checks, app/runtime renderer entry target checks, and Runtime QPK executable dependency checks from the same target manifest data.
+3. **Post-bundle graph gate**: every debug and release artifact emits `target-bundle-manifest.json` after bundling/tree-shaking. The manifest records `target`, `profile`, `platform`, `app.bundleId`, `app.version`, `selectedCoreAdapters`, normalized dependency roots, selected renderer entries, included QPK ids, and native renderer capability hash when applicable. Packaging fails if `validateTargetBundleManifest` from `@quajs/native-contracts` fails on the post-bundle graph; that helper runs `validateExclusiveTargetBootstrap`, target-specific forbidden/missing checks, explicit selected core adapter checks, app/runtime renderer entry target checks, and Runtime QPK executable dependency/renderer entry checks from the same target manifest data.
 4. **Runtime startup gate**: app startup repeats the exclusive-target assertion before engine initialization. This catches manually assembled bundles and debug shells that skipped Quack validation.
-5. **Runtime QPK gate**: Runtime packages may carry compatibility metadata for Web, Cocos, and native, but activation evaluates only the active target block. Executable dependencies on target core adapters are forbidden in QPK manifests; native QPKs may include QS/compiled JS/resources/QUI/QSS IR only.
+5. **Runtime QPK gate**: Runtime packages may carry compatibility metadata for Web, Cocos, and native, but activation evaluates only the active target block. Executable dependencies and renderer entries on target core adapters are forbidden in QPK manifests; native QPKs may include QS/compiled JS/resources/QUI/QSS IR only.
 
 Per-target expectations:
 
@@ -303,7 +303,7 @@ Partition checks are required at five separate points:
 2. **Renderer entry selection**: official and third-party plugins may publish `web`, `cocos`, and `native` entries, but the selected artifact includes only the active target entry. Inactive target entries are rejected if they are reachable through eager imports.
 3. **Post-bundle dependency graph**: debug and release artifacts emit `target-bundle-manifest.json` after tree-shaking. The manifest must prove that normalized dependency roots contain the active target core set and none of the other two target core sets. Its `selectedCoreAdapters` field must exactly match the active target core set after package-root normalization, and app/runtime renderer entry records with `target` metadata must match the artifact target.
 4. **Validator package pruning**: Web and Cocos runtime graphs must reject `@quajs/native-contracts` after bundling even though packaging may use it in Node/build tooling. Native runtime graphs may include it because native bootstrap reads host and capability contracts from that package.
-5. **Runtime startup and QPK activation**: app startup asserts exactly one registered target core adapter set before engine initialization. Runtime QPK activation evaluates only the active target compatibility block and rejects executable dependencies on any Web/Cocos/native core adapter.
+5. **Runtime startup and QPK activation**: app startup asserts exactly one registered target core adapter set before engine initialization. Runtime QPK activation evaluates only the active target compatibility block and rejects executable dependencies or renderer entries on any Web/Cocos/native core adapter.
 
 The rule is symmetric. A native packaging check that rejects Web/Cocos leakage is not enough; Web builds must also reject Cocos/native leakage, and Cocos builds must reject Web/native leakage. These checks should be implemented from the same target manifest data so the three paths cannot drift.
 
@@ -311,9 +311,9 @@ The target bundle manifest is the handoff contract between source selection, bun
 
 Core plugin family validation must be explicit:
 
-- Web release/debug artifacts must set `selectedCorePluginFamily: "web-core"` and may not include any `cocos-core` or `native-core` package root, renderer entry, bootstrap registration, or Runtime QPK executable dependency.
-- Cocos release/debug artifacts must set `selectedCorePluginFamily: "cocos-core"` and may not include any `web-core` or `native-core` package root, renderer entry, bootstrap registration, or Runtime QPK executable dependency.
-- Native release/debug artifacts must set `selectedCorePluginFamily: "native-core"` and may not include any `web-core` or `cocos-core` package root, renderer entry, bootstrap registration, or Runtime QPK executable dependency.
+- Web release/debug artifacts must set `selectedCorePluginFamily: "web-core"` and may not include any `cocos-core` or `native-core` package root, renderer entry, bootstrap registration, or Runtime QPK executable dependency/renderer entry.
+- Cocos release/debug artifacts must set `selectedCorePluginFamily: "cocos-core"` and may not include any `web-core` or `native-core` package root, renderer entry, bootstrap registration, or Runtime QPK executable dependency/renderer entry.
+- Native release/debug artifacts must set `selectedCorePluginFamily: "native-core"` and may not include any `web-core` or `cocos-core` package root, renderer entry, bootstrap registration, or Runtime QPK executable dependency/renderer entry.
 - The packager must fail before signing/release promotion when `target`, `selectedCorePluginFamily`, and `selectedCoreAdapters` disagree. For example, `target: "native"` with a Web renderer entry is invalid even if all native adapters are also present.
 - Runtime startup must repeat the same assertion from the serialized manifest before installing engine plugins. A manually assembled shell must not be able to register Web and native adapters together and choose one later at runtime.
 
@@ -1090,7 +1090,7 @@ Packaging target rules:
 - Native project packaging uses the native bootstrap only: `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `@quajs/native-contracts`, and the signed Rust native runtime/renderer compiled into the app binary. It must not include Web renderer/framework adapters or Cocos host/renderer adapters.
 - Target-specific renderer plugin subentries are selected only for their target. A Web renderer plugin entry, a Cocos renderer plugin entry, and a native built-in capability marker are not interchangeable even when they implement the same feature.
 - Shared plugin logic should live in platform-neutral package entries. Target entries should import shared logic, not import each other.
-- Runtime QPKs may carry target compatibility metadata and declarative QUI/QSS/assets, but they cannot bring another target's core adapter into the package graph.
+- Runtime QPKs may carry target compatibility metadata and declarative QUI/QSS/assets, but they cannot bring another target's core adapter into the package graph through executable dependencies or renderer entries.
 
 Shared packages that may appear in all targets:
 
@@ -1110,7 +1110,7 @@ Bootstrap rules:
 - Web and Cocos bootstrap validation may import native-contract schemas in build tooling, but packaged Web/Cocos runtime bootstraps must not retain `@quajs/native-contracts`.
 - Target bootstrap validation is contract-backed by `@quajs/native-contracts`. `validateExclusiveTargetBootstrap` must fail when zero or multiple target core adapter sets are registered, and `validateTargetBootstrap` must report both `missing` required target core adapters and `forbidden` cross-target core adapters for the active target.
 - Bootstrap validation must normalize package subentries before checking isolation. For example `@quajs/renderer-web/plugins/audio` counts as `@quajs/renderer-web`, and `@quajs/renderer-vue/plugins/preset` counts as `@quajs/renderer-vue`.
-- Runtime QPKs may declare target compatibility, but they cannot force-load another target's core adapter.
+- Runtime QPKs may declare target compatibility, but they cannot force-load another target's core adapter through executable dependencies or renderer entries.
 - A plugin that ships target-specific renderer entries must expose separate subentries and target metadata; package roots should not auto-import all target adapters.
 - Quack/Vite/native packaging should fail if a target bundle includes forbidden target core packages.
 

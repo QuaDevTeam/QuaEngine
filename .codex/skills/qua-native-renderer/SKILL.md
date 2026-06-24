@@ -55,7 +55,7 @@ Web, Cocos, and native target core adapters must not be mixed:
 - Multi-target plugin packages may declare Web, Cocos, and native entries in source metadata, but packaging must include only the active target entry and reject accidental imports of inactive target entries.
 - Renderer entry records that carry target metadata must match the artifact target. A Web/Cocos/native artifact must fail validation if an app renderer entry or Runtime QPK renderer entry declares another target, even when the entry comes from a third-party plugin package rather than an official core adapter package.
 - Runtime QPKs may declare compatibility with Web, Cocos, and native, but inactive target blocks are metadata only. They must not carry executable dependencies on target core adapters, install target bootstrap plugins, or activate another target bootstrap.
-- Runtime package guard must reject `executableDependencies` that normalize to any Web, Cocos, or native target core adapter root, including target subentries such as `@quajs/renderer-web/plugins/audio` or `@quajs/engine-native/runtime`.
+- Runtime package guard must reject `executableDependencies` and `rendererEntries` that normalize to any Web, Cocos, or native target core adapter root, including target subentries such as `@quajs/renderer-web/plugins/audio`, `@quajs/renderer-cocos/plugins/dialogue`, or `@quajs/engine-native/runtime`.
 - Dynamic QPK activation must evaluate only the active artifact target block. A Web build ignores native/Cocos compatibility blocks, a Cocos build ignores Web/native blocks, and a native build ignores Web/Cocos blocks while still rejecting native-code payloads for native.
 - Every packaged debug/release artifact should emit a target bundle manifest and run dependency graph checks so Web builds exclude Cocos/native core adapters, Cocos builds exclude Web/native core adapters, and native builds exclude Web/Cocos core adapters.
 - Runtime startup should assert exactly one target adapter set registered with the engine, so hand-built bundles cannot mix Web, Cocos, and native core plugins.
@@ -115,13 +115,13 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Are Web/Cocos/native target core adapters isolated?
 - Does the post-bundle dependency manifest prove the active artifact contains exactly one target core plugin set?
 - Does `selectedCorePluginFamily` match the artifact target, selected adapters, renderer entries, and Runtime QPK executable dependencies?
-- Does `validateTargetBundleManifest` pass for the emitted Web/Cocos/native artifact, including Runtime QPK executable dependency checks?
+- Does `validateTargetBundleManifest` pass for the emitted Web/Cocos/native artifact, including Runtime QPK executable dependency and renderer entry checks?
 - Is `target-bundle-manifest.json` emitted and validated for both debug and release artifacts after bundling/tree-shaking?
 - Does runtime startup repeat the exclusive Web/Cocos/native bootstrap assertion before engine initialization?
 - Are target isolation checks applied separately to bootstrap core adapters, renderer/plugin entries, and Runtime QPK compatibility metadata?
 - Does plugin source metadata pass `validateTargetPluginManifest` before Web/Cocos/native entry selection?
 - Do shared plugin entries avoid importing target adapters, and do target entries avoid importing other target entries?
-- Do Runtime QPKs avoid executable dependencies on Web/Cocos/native core adapters?
+- Do Runtime QPKs avoid executable dependencies and renderer entries on Web/Cocos/native core adapters?
 - Do bootstrap tests cover Web, Cocos, and native core package sets without cross-target leakage?
 - Do exclusive bootstrap tests fail when zero or multiple Web/Cocos/native target core adapter sets are registered?
 - Do multi-target plugin fixtures prove only the active Web/Cocos/native renderer entry is bundled?
