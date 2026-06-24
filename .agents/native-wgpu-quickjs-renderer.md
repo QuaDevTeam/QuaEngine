@@ -322,7 +322,8 @@ type TargetPackageRole =
 
 interface TargetBootstrapManifest {
   target: QuaBuildTarget
-  selectedCorePluginFamily: 'web-core' | 'cocos-core' | 'native-core'
+  corePluginFamily: 'web-core' | 'cocos-core' | 'native-core'
+  corePluginFamilyRoots: readonly string[]
   requiredCoreAdapters: readonly string[]
   allowedCoreAdapters: readonly string[]
   forbiddenCoreAdapters: readonly string[]
@@ -373,10 +374,10 @@ Minimum target isolation fixtures:
 
 Current contracts-layer implementation status:
 
-- `@quajs/native-contracts` owns `validateExclusiveTargetBootstrap`, `validateTargetBootstrap`, and `validateTargetBundleManifest`.
+- `@quajs/native-contracts` owns `web-core`, `cocos-core`, and `native-core` family metadata, `validateExclusiveTargetBootstrap`, `validateTargetBootstrap`, and `validateTargetBundleManifest`.
 - `packages/native/contracts/test/bootstrap.test.ts` covers exact Web/Cocos/native bootstrap sets, subentry normalization, missing adapters, forbidden adapters, no-target output, unexpected-target output, and mixed-target output.
 - `packages/native/contracts/test/plugin-targets.test.ts` covers multi-target plugin source metadata, active-target entry selection, missing target entries, inactive eager entries, shared entry target-core imports, and foreign core-adapter imports from active target entries.
-- `packages/native/contracts/test/target-bundle.test.ts` covers clean Web/Cocos/native target-bundle manifests, cross-target core adapter leakage for all three targets, native artifacts containing Web/Cocos renderer entries, Web/Cocos artifacts retaining `@quajs/native-contracts` in their runtime graph, Runtime QPK executable dependencies on target core adapters, incomplete/extra selected core adapters, and renderer entry target mismatches.
+- `packages/native/contracts/test/target-bundle.test.ts` covers clean Web/Cocos/native target-bundle manifests, required `selectedCorePluginFamily`, target/family mismatches, cross-family package leakage, cross-target core adapter leakage for all three targets, native artifacts containing Web/Cocos renderer entries, Web/Cocos artifacts retaining `@quajs/native-contracts` in their runtime graph, Runtime QPK executable dependencies on target core adapters, incomplete/extra selected core adapters, and renderer entry target mismatches.
 - Next Quack/native-packager work must emit a real post-bundle `target-bundle-manifest.json` for Web, Cocos, and native debug/release artifacts and feed it into `validateTargetBundleManifest`. Source-level package metadata checks are not enough; validation must run on the emitted dependency graph after tree-shaking.
 - `@quajs/engine-native` exposes `checkNativeTargetBootstrap` / `assertNativeTargetBootstrap`, and `NativeHostPlugin` can receive `targetBootstrapPackages` to reject mixed Web/Cocos/native startup package roots before reading native host info.
 - `@quajs/engine-native` exposes `createNativeRuntimeModuleLoader`, a restricted loader that resolves runtime-package-declared `assetName` values through QuaAssets script assets and delegates evaluation to an injected Rust/QuickJS evaluator. It rejects missing asset names, URLs, absolute paths, and `..` escapes instead of using filesystem, network, Web Blob, or dynamic import paths.

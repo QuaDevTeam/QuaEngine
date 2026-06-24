@@ -1,14 +1,26 @@
 export type QuaTargetBootstrap = 'web' | 'cocos' | 'native'
+export type TargetCorePluginFamily = 'web-core' | 'cocos-core' | 'native-core'
 
 export interface TargetBootstrapManifest {
   target: QuaTargetBootstrap
+  corePluginFamily: TargetCorePluginFamily
   coreAdapters: readonly string[]
+  corePluginFamilyRoots: readonly string[]
   forbiddenCoreAdapters: readonly string[]
 }
 
 export const WEB_TARGET_BOOTSTRAP: TargetBootstrapManifest = {
   target: 'web',
+  corePluginFamily: 'web-core',
   coreAdapters: ['@quajs/assets-web', '@quajs/renderer-web'],
+  corePluginFamilyRoots: [
+    '@quajs/assets-web',
+    '@quajs/store-web',
+    '@quajs/renderer-web',
+    '@quajs/renderer-vue',
+    '@quajs/renderer-react',
+    '@quajs/renderer-svelte',
+  ],
   forbiddenCoreAdapters: [
     '@quajs/assets-cocos',
     '@quajs/store-cocos',
@@ -26,7 +38,14 @@ export const WEB_TARGET_BOOTSTRAP: TargetBootstrapManifest = {
 
 export const COCOS_TARGET_BOOTSTRAP: TargetBootstrapManifest = {
   target: 'cocos',
+  corePluginFamily: 'cocos-core',
   coreAdapters: ['@quajs/cocos-host', '@quajs/assets-cocos', '@quajs/renderer-cocos'],
+  corePluginFamilyRoots: [
+    '@quajs/cocos-host',
+    '@quajs/assets-cocos',
+    '@quajs/store-cocos',
+    '@quajs/renderer-cocos',
+  ],
   forbiddenCoreAdapters: [
     '@quajs/assets-web',
     '@quajs/store-web',
@@ -46,7 +65,17 @@ export const COCOS_TARGET_BOOTSTRAP: TargetBootstrapManifest = {
 
 export const NATIVE_TARGET_BOOTSTRAP: TargetBootstrapManifest = {
   target: 'native',
+  corePluginFamily: 'native-core',
   coreAdapters: ['@quajs/engine-native', '@quajs/assets-native', '@quajs/store-native', '@quajs/native-contracts'],
+  corePluginFamilyRoots: [
+    '@quajs/engine-native',
+    '@quajs/assets-native',
+    '@quajs/store-native',
+    '@quajs/native-contracts',
+    'quajs_native_runtime',
+    'quajs_wgpu_renderer',
+    'quajs_native_app',
+  ],
   forbiddenCoreAdapters: [
     '@quajs/assets-web',
     '@quajs/store-web',
@@ -224,6 +253,25 @@ export function normalizePackageSpecifier(specifier: string): string {
   }
   const [scope, packageName] = specifier.split('/')
   return scope && packageName ? `${scope}/${packageName}` : specifier
+}
+
+export function getTargetCorePluginFamily(target: QuaTargetBootstrap): TargetCorePluginFamily {
+  return TARGET_BOOTSTRAP_MANIFESTS[target].corePluginFamily
+}
+
+export function getPackageTargetCorePluginFamily(specifier: string): TargetCorePluginFamily | undefined {
+  const packageName = normalizePackageSpecifier(specifier)
+  for (const manifest of Object.values(TARGET_BOOTSTRAP_MANIFESTS)) {
+    const familyRoots = new Set(
+      [
+        ...manifest.coreAdapters,
+        ...manifest.corePluginFamilyRoots,
+      ].map(normalizePackageSpecifier),
+    )
+    if (familyRoots.has(packageName))
+      return manifest.corePluginFamily
+  }
+  return undefined
 }
 
 function createTargetBootstrapRegistration(

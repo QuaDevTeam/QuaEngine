@@ -4,6 +4,7 @@ import {
   assertTargetBundleManifest,
   COCOS_TARGET_BOOTSTRAP,
   collectTargetBundlePackageNames,
+  getTargetCorePluginFamily,
   NATIVE_TARGET_BOOTSTRAP,
   normalizePackageSpecifier,
   validateTargetBundleManifest,
@@ -79,6 +80,7 @@ function targetBundleManifestFor(
       buildNumber: '100',
       icon: 'AppIcon.icns',
     },
+    selectedCorePluginFamily: getTargetCorePluginFamily(target),
     selectedCoreAdapters: CORE_ADAPTERS_BY_TARGET[target],
     dependencies: targetDependencies(target),
     rendererEntries: [rendererEntry(target)],
@@ -116,6 +118,66 @@ describe('target bundle manifest validation', () => {
   it('normalizes subentry dependencies before validating target isolation', () => {
     expect(collectTargetBundlePackageNames(targetBundleManifest())).toContain('@quajs/engine-native')
     expect(collectTargetBundlePackageNames(targetBundleManifest())).toContain('@quajs/native-contracts')
+  })
+
+  it('requires the selected core plugin family to match the artifact target', () => {
+    const result = validateTargetBundleManifest(targetBundleManifest({
+      selectedCorePluginFamily: 'web-core',
+    }))
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_MISMATCH',
+        target: 'native',
+        selectedCorePluginFamily: 'web-core',
+        expectedCorePluginFamily: 'native-core',
+      }),
+    ]))
+  })
+
+  it('requires emitted target bundle manifests to record a selected core plugin family', () => {
+    const manifest = targetBundleManifest() as unknown as Omit<TargetBundleManifest, 'selectedCorePluginFamily'>
+    delete (manifest as Partial<TargetBundleManifest>).selectedCorePluginFamily
+    const result = validateTargetBundleManifest(manifest as TargetBundleManifest)
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_MISSING',
+        target: 'native',
+        expectedCorePluginFamily: 'native-core',
+      }),
+    ]))
+  })
+
+  it('rejects package roots from another target core plugin family even when the selected adapters are valid', () => {
+    const result = validateTargetBundleManifest(targetBundleManifest({
+      dependencies: [
+        ...targetDependencies('native') || [],
+        '@quajs/renderer-vue/plugins/ui',
+        '@quajs/cocos-host/runtime',
+      ],
+      selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+    }))
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_LEAK',
+        target: 'native',
+        packageName: '@quajs/renderer-vue',
+        packageCorePluginFamily: 'web-core',
+        expectedCorePluginFamily: 'native-core',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_LEAK',
+        target: 'native',
+        packageName: '@quajs/cocos-host',
+        packageCorePluginFamily: 'cocos-core',
+        expectedCorePluginFamily: 'native-core',
+      }),
+    ]))
   })
 
   it('rejects cross-target core adapters for Web, Cocos, and native artifacts', () => {
