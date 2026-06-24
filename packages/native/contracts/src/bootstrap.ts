@@ -274,6 +274,16 @@ export function getPackageTargetCorePluginFamily(specifier: string): TargetCoreP
   return undefined
 }
 
+export function collectTargetCoreAdapterRoots(): ReadonlySet<string> {
+  return new Set(Object.values(TARGET_BOOTSTRAP_MANIFESTS)
+    .flatMap(manifest => [
+      ...manifest.coreAdapters,
+      ...manifest.corePluginFamilyRoots,
+      ...manifest.forbiddenCoreAdapters,
+    ])
+    .map(normalizePackageSpecifier))
+}
+
 function createTargetBootstrapRegistration(
   manifest: TargetBootstrapManifest,
   packageNameSet: ReadonlySet<string>,

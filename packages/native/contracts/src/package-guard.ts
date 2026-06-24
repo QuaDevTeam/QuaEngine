@@ -1,4 +1,4 @@
-import { TARGET_BOOTSTRAP_MANIFESTS, normalizePackageSpecifier } from './bootstrap'
+import { collectTargetCoreAdapterRoots, normalizePackageSpecifier } from './bootstrap'
 
 export type NativeRuntimePackageGuardSeverity = 'warning' | 'error'
 
@@ -237,16 +237,6 @@ function collectTargetCoreDependencyDeclarations(
       message: `Native runtime package "${runtimePackage.id}" must not declare target core adapter "${packageName}" as an executable dependency.`,
     })
   }
-}
-
-function collectTargetCoreAdapterRoots(): ReadonlySet<string> {
-  return new Set(Object.values(TARGET_BOOTSTRAP_MANIFESTS)
-    .flatMap(manifest => [
-      ...manifest.coreAdapters,
-      ...manifest.corePluginFamilyRoots,
-      ...manifest.forbiddenCoreAdapters,
-    ])
-    .map(normalizePackageSpecifier))
 }
 
 function packageReferenceSpecifier(reference: NativeGuardPackageReference): string | undefined {
