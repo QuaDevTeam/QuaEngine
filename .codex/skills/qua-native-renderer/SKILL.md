@@ -122,6 +122,7 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Are video/audio native capability declarations limited to currently implemented projection/resource paths, with real decoder/playback backend support guarded by later capability updates?
 - Are native renderer version/capability checks performed before dynamic package JS evaluation?
 - Does `@quajs/engine-native` install `createNativeRuntimeTrustPolicy` so runtime native-code payload guards run before QuickJS module loading?
+- Does `@quajs/engine-native` route runtime package `assetKinds`, `qssFeatures`, and `quiComponents` compatibility metadata through the native trust policy before signature verification and QuickJS module loading?
 - Does `@quajs/engine-native` use a restricted runtime module loader that reads package script assets and delegates only to the Rust/QuickJS evaluator, without filesystem, network, Blob, or dynamic import paths?
 - Do native QuickJS release/summary host APIs use a persistent package-aware namespace registry, and does `@quajs/engine-native` call those APIs only as cleanup/query helpers rather than treating namespace ids as module exports?
 - Do assets/store adapters preserve core contracts without Web/Node assumptions?
