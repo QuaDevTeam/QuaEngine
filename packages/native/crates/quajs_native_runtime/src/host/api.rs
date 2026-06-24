@@ -55,6 +55,78 @@ pub enum NativeHostApiError {
     InvalidRequest(String),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NativeHostApiErrorCode {
+    AssetNotFound,
+    StorageKeyNotFound,
+    UnsupportedOperation,
+    InvalidRequest,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeHostApiErrorInfo {
+    pub code: NativeHostApiErrorCode,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asset_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub storage_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+impl NativeHostApiError {
+    pub fn code(&self) -> NativeHostApiErrorCode {
+        match self {
+            NativeHostApiError::AssetNotFound(_) => NativeHostApiErrorCode::AssetNotFound,
+            NativeHostApiError::StorageKeyNotFound(_) => NativeHostApiErrorCode::StorageKeyNotFound,
+            NativeHostApiError::UnsupportedOperation(_) => {
+                NativeHostApiErrorCode::UnsupportedOperation
+            }
+            NativeHostApiError::InvalidRequest(_) => NativeHostApiErrorCode::InvalidRequest,
+        }
+    }
+
+    pub fn message(&self) -> String {
+        match self {
+            NativeHostApiError::AssetNotFound(url) => {
+                format!("Native asset \"{}\" was not found.", url)
+            }
+            NativeHostApiError::StorageKeyNotFound(key) => {
+                format!("Native storage key \"{}\" was not found.", key)
+            }
+            NativeHostApiError::UnsupportedOperation(detail) => {
+                format!("Native host operation is unsupported: {}", detail)
+            }
+            NativeHostApiError::InvalidRequest(detail) => {
+                format!("Invalid native host request: {}", detail)
+            }
+        }
+    }
+
+    pub fn to_info(&self) -> NativeHostApiErrorInfo {
+        NativeHostApiErrorInfo {
+            code: self.code(),
+            message: self.message(),
+            asset_url: match self {
+                NativeHostApiError::AssetNotFound(url) => Some(url.clone()),
+                _ => None,
+            },
+            storage_key: match self {
+                NativeHostApiError::StorageKeyNotFound(key) => Some(key.clone()),
+                _ => None,
+            },
+            detail: match self {
+                NativeHostApiError::UnsupportedOperation(detail)
+                | NativeHostApiError::InvalidRequest(detail) => Some(detail.clone()),
+                _ => None,
+            },
+        }
+    }
+}
+
 pub type NativeHostApiResult<T> = Result<T, NativeHostApiError>;
 
 pub trait NativeHostApi {

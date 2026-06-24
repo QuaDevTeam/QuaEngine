@@ -3,8 +3,8 @@ pub mod info;
 
 pub use api::{
     InMemoryNativeHostApi, NativeAssetReadRequest, NativeHostApi, NativeHostApiError,
-    NativeHostApiResult, NativeMountedBundleInfo, NativeRendererIntent,
-    NativeSignatureVerifyRequest,
+    NativeHostApiErrorCode, NativeHostApiErrorInfo, NativeHostApiResult, NativeMountedBundleInfo,
+    NativeRendererIntent, NativeSignatureVerifyRequest,
 };
 pub use info::{
     current_platform, current_profile, NativeAppInfo, NativeHostInfo, NativeHostInfoBuilder,
