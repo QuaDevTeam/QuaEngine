@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   createQuaProjectAssetTargets,
+  createQuaProjectNativeArtifactPlans,
   doctorQuaProjectConfig,
   loadQuaProjectConfig,
   mergeQuaProjectAssetTargets,
@@ -226,6 +227,63 @@ describe('qua project config', () => {
         version: '1.0.0',
         buildNumber: '42',
         icon: 'assets/app/icon.png',
+      },
+    })
+  })
+
+  it('creates version-isolated native artifact plans', () => {
+    const noNativeProject = normalizeQuaProjectConfig(createProjectConfig())
+    expect(createQuaProjectNativeArtifactPlans(noNativeProject)).toEqual([])
+
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos', 'windows'],
+          profiles: ['debug', 'release'],
+          outputDir: 'dist/native-apps',
+          app: {
+            version: '1.2.3 beta',
+            buildNumber: 'build 42',
+            icon: 'assets/app/icon.icns',
+          },
+          assetTarget: {
+            name: 'native-desktop',
+            pipeline: { images: { format: 'webp' } },
+          },
+          build: {
+            hardening: true,
+          },
+        },
+      },
+    })
+
+    const plans = createQuaProjectNativeArtifactPlans(project)
+
+    expect(plans.map(plan => `${plan.profile}/${plan.platform}`)).toEqual([
+      'debug/macos',
+      'debug/windows',
+      'release/macos',
+      'release/windows',
+    ])
+    expect(plans[0]).toMatchObject({
+      target: 'native',
+      platform: 'macos',
+      profile: 'debug',
+      outputDir: 'dist/native-apps',
+      artifactDir: join('dist/native-apps', 'debug', '1.2.3-beta-build-42', 'macos'),
+      app: {
+        bundleId: 'com.example.starlight',
+        version: '1.2.3 beta',
+        buildNumber: 'build 42',
+        icon: 'assets/app/icon.icns',
+      },
+      assetTarget: {
+        name: 'native-desktop',
+        pipeline: { images: { format: 'webp' } },
+      },
+      build: {
+        hardening: true,
       },
     })
   })

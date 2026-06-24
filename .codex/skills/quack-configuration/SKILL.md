@@ -116,6 +116,8 @@ import {
 
 The manifest owns project identity (`name`, `bundleId`, `version`), home metadata, icons, Web/Cocos/native targets, Web device support, PWA settings, Cocos sync/build options, and native packaging intent. `version` falls back to `package.json`, Web defaults to enabled with desktop/pad/phone enabled, PWA defaults to disabled, and Cocos/native are enabled only when their target blocks exist and are not disabled.
 
+`createQuaProjectNativeArtifactPlans` expands normalized native project metadata into concrete `platform` × `profile` artifact plans with `artifactDir` isolated as `outputDir/profile/version-buildNumber/platform`. Native packagers should consume these plans before writing debug/release outputs or target-bundle manifests.
+
 Quack workspace loading automatically merges manifest-derived `assetTargets` into each workspace bundle unless `projectConfig: false` is set. CLI helpers are:
 
 ```bash
