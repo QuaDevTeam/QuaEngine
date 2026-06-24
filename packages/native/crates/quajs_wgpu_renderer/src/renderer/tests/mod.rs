@@ -52,7 +52,7 @@ fn view_with_background_and_choice() -> ViewProjection {
     }
 }
 
-fn view_with_audio() -> ViewProjection {
+pub(super) fn view_with_audio() -> ViewProjection {
     ViewProjection {
         audio: Some(AudioProjection::new(vec![AudioTrackProjection::new(
             "bgm-main",
