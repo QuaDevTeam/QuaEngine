@@ -1,3 +1,4 @@
+import { emitLogicToRender, LogicToRenderEvents } from '@quajs/engine'
 import type { NativeHostApiRequest, QuaNativeHostApi, QuaNativeHostInfo, TargetBundleManifest } from '@quajs/native-contracts'
 import {
   COCOS_TARGET_BOOTSTRAP,
@@ -101,6 +102,34 @@ function createHost(hostInfo = createHostInfo()): QuaNativeHostApi {
     writeStorage: vi.fn(),
     deleteStorage: vi.fn(),
     hashBytes: vi.fn(),
+  }
+}
+
+function createTestPipeline() {
+  const listeners = new Map<string, Set<(context: any) => unknown>>()
+  return {
+    on: vi.fn((type: string, listener: (context: any) => unknown) => {
+      const eventListeners = listeners.get(type) || new Set()
+      eventListeners.add(listener)
+      listeners.set(type, eventListeners)
+    }),
+    off: vi.fn((type: string, listener: (context: any) => unknown) => {
+      listeners.get(type)?.delete(listener)
+    }),
+    emit: vi.fn(async (type: string, payload: unknown) => {
+      for (const listener of listeners.get(type) || []) {
+        await listener({
+          event: {
+            type,
+            payload,
+            timestamp: Date.now(),
+            id: `${type}:test`,
+          },
+          handled: false,
+          stopPropagation: false,
+        })
+      }
+    }),
   }
 }
 
@@ -249,7 +278,7 @@ describe('@quajs/engine-native', () => {
     expect(host.getHostInfo).not.toHaveBeenCalled()
   })
 
-  it('releases package-owned QuickJS namespaces on runtime package unload', async () => {
+  it('releases package-owned QuickJS namespaces after runtime package unload is emitted to renderers', async () => {
     const namespaceRecord = {
       id: 'quickjs:module:1',
       packageId: 'runtime.chapter.native-ui',
@@ -265,28 +294,35 @@ describe('@quajs/engine-native', () => {
       releaseQuickJsPackageNamespaces: vi.fn(async () => [namespaceRecord]),
     }
     const plugin = new NativeHostPlugin({ host })
+    const pipeline = createTestPipeline()
 
-    await plugin.onRuntimePackageUnload({
+    await plugin.init({
+      pipeline,
       runtimePackage: {
-        package: {
-          id: 'runtime.chapter.native-ui',
-          version: '1.0.0',
-        },
+        package: { id: 'runtime.chapter.native-ui', version: '1.0.0' },
         bundleName: 'runtime.chapter.native-ui',
       },
     } as any)
+    await emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+    })
 
     expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledWith('runtime.chapter.native-ui')
     expect(plugin.getReleasedQuickJsPackageNamespaces()).toEqual([namespaceRecord])
 
-    await expect(new NativeHostPlugin({ host: createHost() }).onRuntimePackageUnload({
-      runtimePackage: {
-        package: {
-          id: 'runtime.chapter.native-ui',
-          version: '1.0.0',
-        },
-      },
-    } as any)).resolves.toBeUndefined()
+    const noCleanupPipeline = createTestPipeline()
+    const noCleanupPlugin = new NativeHostPlugin({ host: createHost() })
+    await noCleanupPlugin.init({ pipeline: noCleanupPipeline } as any)
+    await expect(emitLogicToRender(noCleanupPipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
+      packageId: 'runtime.chapter.native-ui',
+    })).resolves.toBeUndefined()
+
+    plugin.destroy()
+    await emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
+      packageId: 'runtime.chapter.native-ui',
+    })
+    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledTimes(1)
   })
 
   it('accepts native startup package roots through the native target bootstrap guard', () => {
