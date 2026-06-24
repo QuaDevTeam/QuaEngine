@@ -51,6 +51,8 @@ pub struct NativeRendererPackageReleaseSummary {
     pub released_count: usize,
     pub released_memory: ResourceMemory,
     pub released_by_kind: BTreeMap<NativeResourceKind, usize>,
+    pub blocked_by_kind: BTreeMap<NativeResourceKind, usize>,
+    pub blocked_by_reason: BTreeMap<PackageUnloadBlockerReason, usize>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -318,7 +320,25 @@ fn package_release_summary(
         released_count: released.count,
         released_memory: released.memory,
         released_by_kind: released.by_kind,
+        blocked_by_kind: blocked_by_kind(plan),
+        blocked_by_reason: blocked_by_reason(plan),
     }
+}
+
+fn blocked_by_kind(plan: &PackageUnloadPlan) -> BTreeMap<NativeResourceKind, usize> {
+    let mut by_kind = BTreeMap::new();
+    for blocker in &plan.blocked {
+        *by_kind.entry(blocker.kind).or_default() += 1;
+    }
+    by_kind
+}
+
+fn blocked_by_reason(plan: &PackageUnloadPlan) -> BTreeMap<PackageUnloadBlockerReason, usize> {
+    let mut by_reason = BTreeMap::new();
+    for blocker in &plan.blocked {
+        *by_reason.entry(blocker.reason).or_default() += 1;
+    }
+    by_reason
 }
 
 fn released_resource_summary(
