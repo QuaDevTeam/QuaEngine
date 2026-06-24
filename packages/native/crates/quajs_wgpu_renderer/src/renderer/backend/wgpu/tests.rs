@@ -59,6 +59,7 @@ fn submits_frames_through_feature_gated_wgpu_skeleton() {
                 missing_resource_count: 0,
                 last_missing_resources: Vec::new(),
             },
+            fallback_warnings: NativeRenderFallbackWarningDiagnostics::default(),
             last_submission: Some(result.submission),
             note: "wgpu-backend feature is enabled, but the real wgpu device/surface bridge is not attached yet."
                 .to_string(),

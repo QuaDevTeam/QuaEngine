@@ -1,9 +1,13 @@
 use super::*;
 use crate::frame::prepare_native_frame;
-use crate::projection::background::BackgroundProjection;
+use crate::projection::background::{
+    BackgroundMode, BackgroundProjection, BackgroundVideoProjection,
+};
 use crate::projection::view::ViewProjection;
 use crate::render_graph::{DrawBatchPipeline, DrawCommandKind, RenderPlane};
-use crate::renderer::{NativeRenderBackendErrorKind, NativeRenderMissingResource};
+use crate::renderer::{
+    NativeRenderBackendErrorKind, NativeRenderFallbackDiagnostic, NativeRenderMissingResource,
+};
 use crate::resources::NativeResourceLedger;
 use crate::stage_layout::{
     resolve_stage_layout, StageContainerInput, ViewLayoutInput, ViewLayoutOrientation,
@@ -34,6 +38,7 @@ fn records_submissions_without_gpu_work() {
                 missing_resource_count: 1,
                 last_missing_resources: submission.missing_resources.clone(),
             },
+            fallback_warnings: NativeRenderFallbackWarningDiagnostics::default(),
             last_submission: Some(submission),
         }
     );
@@ -106,6 +111,37 @@ fn summarizes_missing_resource_diagnostics() {
     );
 }
 
+#[test]
+fn reports_fallback_warnings_once_per_backend() {
+    let mut backend = NullNativeRenderBackend::new();
+    let frame = frame_with_video_fallback();
+    let resources = NativeResourceLedger::new();
+
+    let first = backend
+        .submit_frame(NativeRenderFrameRef {
+            revision: 1,
+            frame: &frame,
+            resources: &resources,
+        })
+        .unwrap();
+    backend
+        .submit_frame(NativeRenderFrameRef {
+            revision: 2,
+            frame: &frame,
+            resources: &resources,
+        })
+        .unwrap();
+
+    let diagnostics = backend.diagnostics();
+
+    assert_eq!(diagnostics.fallback_warnings.warning_count, 1);
+    assert_eq!(
+        diagnostics.fallback_warnings.last_warnings,
+        Vec::<NativeRenderFallbackDiagnostic>::new()
+    );
+    assert_eq!(first.fallback_diagnostics.len(), 1);
+}
+
 fn frame_with_background() -> crate::frame::PreparedNativeFrame {
     prepare_native_frame(
         resolve_stage_layout(
@@ -122,6 +158,33 @@ fn frame_with_background() -> crate::frame::PreparedNativeFrame {
         &ViewProjection {
             background: Some(BackgroundProjection {
                 asset_name: Some("bg/school.png".to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    )
+}
+
+fn frame_with_video_fallback() -> crate::frame::PreparedNativeFrame {
+    prepare_native_frame(
+        resolve_stage_layout(
+            Some(ViewLayoutInput {
+                preset: Some(ViewLayoutOrientation::Landscape),
+                ..Default::default()
+            }),
+            StageContainerInput {
+                width: Some(1600.0),
+                height: Some(1000.0),
+                ..Default::default()
+            },
+        ),
+        &ViewProjection {
+            background: Some(BackgroundProjection {
+                mode: BackgroundMode::Video,
+                video: Some(BackgroundVideoProjection {
+                    poster: Some("poster.png".to_string()),
+                    ..BackgroundVideoProjection::new("opening.mp4")
+                }),
                 ..Default::default()
             }),
             ..Default::default()

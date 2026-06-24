@@ -1,6 +1,6 @@
 use super::*;
 use crate::frame::prepare_native_frame;
-use crate::projection::background::BackgroundProjection;
+use crate::projection::background::{BackgroundProjection, BackgroundVideoProjection};
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::view::ViewProjection;
 use crate::render_graph::{DrawBatchPipeline, DrawCommandKind, RenderPlane};
@@ -137,6 +137,43 @@ fn summarizes_batch_command_metadata() {
     assert_eq!(
         choice_batch.last_command_id.as_deref(),
         Some("choice:leave")
+    );
+}
+
+#[test]
+fn collects_video_fallback_diagnostics_from_frame_commands() {
+    let frame = prepare_native_frame(
+        test_layout(),
+        &ViewProjection {
+            background: Some(BackgroundProjection {
+                mode: crate::projection::background::BackgroundMode::Video,
+                video: Some(BackgroundVideoProjection {
+                    poster: Some("poster.png".to_string()),
+                    ..BackgroundVideoProjection::new("opening.mp4")
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    );
+    let resources = NativeResourceLedger::new();
+
+    let submission = NativeRenderFrameRef {
+        revision: 14,
+        frame: &frame,
+        resources: &resources,
+    }
+    .submission();
+
+    assert_eq!(
+        submission.fallback_diagnostics,
+        vec![NativeRenderFallbackDiagnostic {
+            command_id: "background:video".to_string(),
+            plane: RenderPlane::Scene,
+            pipeline: DrawBatchPipeline::Video,
+            kind: DrawCommandKind::VideoFrame,
+            reason: "native video decode backend is not active".to_string(),
+        }]
     );
 }
 
