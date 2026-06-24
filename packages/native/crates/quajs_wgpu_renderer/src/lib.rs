@@ -8,3 +8,6 @@ pub mod resources;
 pub mod stage_layout;
 
 pub use capabilities::native_wgpu_capabilities;
+
+#[cfg(all(test, feature = "bench-smoke"))]
+mod bench_smoke;
