@@ -20,6 +20,7 @@ fn prepares_frame_and_populates_resource_ledger() {
     );
     assert_eq!(update.resource_sync_summary.release_count, 0);
     assert_eq!(update.resource_sync_summary.released_count, 0);
+    assert_eq!(update.resource_sync_summary.replacement_release_count, 0);
     assert_eq!(state.frame().unwrap().summary.command_count, 3);
     assert_eq!(state.resources().len(), 1);
     assert!(state.resources().get("images:bg/school.png").is_some());
@@ -43,6 +44,7 @@ fn retains_matching_resources_across_frame_updates() {
     assert_eq!(update.resource_sync_summary.retain_count, 1);
     assert_eq!(update.resource_sync_summary.release_count, 0);
     assert_eq!(update.resource_sync_summary.released_count, 0);
+    assert_eq!(update.resource_sync_summary.replacement_release_count, 0);
     assert_eq!(state.resources().len(), 1);
 }
 
@@ -76,6 +78,7 @@ fn releases_frame_managed_resources_when_projection_removes_them() {
     assert_eq!(update.host_cleanup[0].memory.gpu_bytes, 4096);
     assert_eq!(update.resource_sync_summary.release_count, 1);
     assert_eq!(update.resource_sync_summary.released_count, 1);
+    assert_eq!(update.resource_sync_summary.replacement_release_count, 0);
     assert_eq!(
         update.resource_sync_summary.released_by_kind[&NativeResourceKind::Texture],
         1
@@ -110,6 +113,7 @@ fn summarizes_declarative_ui_resource_sync() {
 
     assert_eq!(release.resource_sync_summary.release_count, 1);
     assert_eq!(release.resource_sync_summary.released_count, 1);
+    assert_eq!(release.resource_sync_summary.replacement_release_count, 0);
     assert_eq!(release.resource_sync_summary.declarative_released_count, 1);
     assert_eq!(
         release.resource_sync_summary.released_by_kind[&NativeResourceKind::UiAst],
@@ -184,6 +188,7 @@ fn releases_replaced_resource_when_frame_resource_kind_changes() {
     assert_eq!(update.host_cleanup[0].memory.gpu_bytes, 512);
     assert_eq!(update.resource_sync_summary.release_count, 0);
     assert_eq!(update.resource_sync_summary.released_count, 1);
+    assert_eq!(update.resource_sync_summary.replacement_release_count, 1);
     assert_eq!(
         update.resource_sync_summary.released_by_kind[&NativeResourceKind::Buffer],
         1
@@ -284,6 +289,10 @@ fn releases_replaced_audio_resource_when_kind_changes() {
     assert_eq!(update.audio_resource_sync_summary.release_count, 0);
     assert_eq!(update.audio_resource_sync_summary.released_count, 1);
     assert_eq!(
+        update.audio_resource_sync_summary.replacement_release_count,
+        1
+    );
+    assert_eq!(
         update.audio_resource_sync_summary.released_by_kind[&NativeResourceKind::AudioHandle],
         1
     );
@@ -307,6 +316,10 @@ fn releases_audio_resources_when_projection_removes_them() {
     );
     assert_eq!(update.audio_resource_sync_summary.release_count, 2);
     assert_eq!(update.audio_resource_sync_summary.released_count, 2);
+    assert_eq!(
+        update.audio_resource_sync_summary.replacement_release_count,
+        0
+    );
     assert_eq!(
         update
             .audio_backend_commands
