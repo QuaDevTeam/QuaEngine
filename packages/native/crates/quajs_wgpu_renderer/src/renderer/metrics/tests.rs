@@ -28,6 +28,8 @@ fn reports_empty_renderer_metrics() {
     assert_eq!(metrics.resources.declarative_resource_count, 0);
     assert_eq!(metrics.resources.memory.total_bytes(), 0);
     assert_eq!(metrics.resources.declarative_memory.total_bytes(), 0);
+    assert_eq!(metrics.resources.declarative_package_count, 0);
+    assert!(metrics.resources.declarative_by_package.is_empty());
     assert_eq!(metrics.resources.audio.resource_count, 0);
     assert_eq!(metrics.resources.audio.memory.total_bytes(), 0);
     assert_eq!(metrics.audio_backend.active_track_count, 0);
@@ -225,6 +227,7 @@ fn reports_resource_memory_and_package_counts() {
     assert_eq!(metrics.resources.ledger_resource_count, 2);
     assert_eq!(metrics.resources.declarative_resource_count, 1);
     assert_eq!(metrics.resources.package_count, 2);
+    assert_eq!(metrics.resources.declarative_package_count, 2);
     assert_eq!(metrics.resources.kind_count, 2);
     assert_eq!(metrics.resources.memory.cpu_bytes, 2176);
     assert_eq!(metrics.resources.memory.gpu_bytes, 4096);
@@ -275,6 +278,26 @@ fn reports_resource_memory_and_package_counts() {
     assert_eq!(
         metrics.resources.by_package["runtime.ui"]
             .owned_memory
+            .cpu_bytes,
+        2048
+    );
+    assert_eq!(
+        metrics.resources.declarative_by_package["runtime.ui"].owned_count,
+        1
+    );
+    assert_eq!(
+        metrics.resources.declarative_by_package["runtime.ui"]
+            .owned_memory
+            .cpu_bytes,
+        2048
+    );
+    assert_eq!(
+        metrics.resources.declarative_by_package["base"].dependent_count,
+        1
+    );
+    assert_eq!(
+        metrics.resources.declarative_by_package["base"]
+            .dependent_memory
             .cpu_bytes,
         2048
     );
