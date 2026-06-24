@@ -1,11 +1,11 @@
+import type { TargetBundleManifest } from '../src'
 import { describe, expect, it } from 'vitest'
 import {
   COCOS_TARGET_BOOTSTRAP,
-  NATIVE_TARGET_BOOTSTRAP,
-  WEB_TARGET_BOOTSTRAP,
-  type TargetBundleManifest,
   collectTargetBundlePackageNames,
+  NATIVE_TARGET_BOOTSTRAP,
   validateTargetBundleManifest,
+  WEB_TARGET_BOOTSTRAP,
 } from '../src'
 
 function targetBundleManifest(overrides: Partial<TargetBundleManifest> = {}): TargetBundleManifest {
@@ -181,6 +181,77 @@ describe('target bundle manifest validation', () => {
         code: 'TARGET_BUNDLE_RUNTIME_PACKAGE_CORE_ADAPTER',
         runtimePackageId: 'runtime.bad.native-entry',
         packageName: '@quajs/engine-native',
+      }),
+    ]))
+  })
+
+  it('rejects target bundle manifests with incomplete selected core adapters', () => {
+    const result = validateTargetBundleManifest(targetBundleManifest({
+      selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters.filter(
+        packageName => packageName !== '@quajs/store-native',
+      ),
+    }))
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_SELECTED_CORE_ADAPTER_MISSING',
+        target: 'native',
+        packageName: '@quajs/store-native',
+      }),
+    ]))
+  })
+
+  it('rejects target bundle manifests with unexpected selected core adapters', () => {
+    const result = validateTargetBundleManifest(targetBundleManifest({
+      selectedCoreAdapters: [
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+        '@quajs/renderer-web/plugins/ui',
+      ],
+    }))
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_SELECTED_CORE_ADAPTER_UNEXPECTED',
+        target: 'native',
+        packageName: '@quajs/renderer-web',
+      }),
+    ]))
+  })
+
+  it('rejects renderer entries that declare a different target than the artifact', () => {
+    const result = validateTargetBundleManifest(targetBundleManifest({
+      rendererEntries: [
+        { specifier: '@quajs/plugin-gallery/native-renderer', pluginId: '@quajs/plugin-gallery', target: 'web' },
+      ],
+      runtimePackages: [
+        {
+          id: 'runtime.bad.renderer-target',
+          executableDependencies: ['@quajs/character'],
+          rendererEntries: [
+            { specifier: '@quajs/plugin-backlog/cocos-renderer', pluginId: '@quajs/plugin-backlog', target: 'cocos' },
+          ],
+        },
+      ],
+    }))
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_RENDERER_ENTRY_TARGET_MISMATCH',
+        target: 'native',
+        rendererTarget: 'web',
+        packageName: '@quajs/plugin-gallery',
+        pluginId: '@quajs/plugin-gallery',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_RENDERER_ENTRY_TARGET_MISMATCH',
+        target: 'native',
+        rendererTarget: 'cocos',
+        packageName: '@quajs/plugin-backlog',
+        pluginId: '@quajs/plugin-backlog',
+        runtimePackageId: 'runtime.bad.renderer-target',
       }),
     ]))
   })
