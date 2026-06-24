@@ -99,6 +99,13 @@ export interface TargetBundleManifestValidationResult {
   diagnostics: TargetBundleManifestDiagnostic[]
 }
 
+export function assertTargetBundleManifest(manifest: TargetBundleManifest): TargetBundleManifestValidationResult {
+  const result = validateTargetBundleManifest(manifest)
+  if (!result.ok)
+    throw new Error(formatTargetBundleManifestValidationError(manifest, result))
+  return result
+}
+
 export function validateTargetBundleManifest(manifest: TargetBundleManifest): TargetBundleManifestValidationResult {
   const packageNames = collectTargetBundlePackageNames(manifest)
   const bootstrapValidation = validateExclusiveTargetBootstrap(packageNames, {
@@ -276,4 +283,23 @@ function collectKnownTargetAdapterRoots(): ReadonlySet<string> {
       ...manifest.forbiddenCoreAdapters,
     ]).map(normalizePackageSpecifier),
   )
+}
+
+function formatTargetBundleManifestValidationError(
+  manifest: TargetBundleManifest,
+  result: TargetBundleManifestValidationResult,
+): string {
+  const artifact = [
+    manifest.target,
+    manifest.profile,
+    manifest.platform,
+    manifest.app?.bundleId,
+    manifest.app?.version,
+  ].filter(Boolean).join('/')
+  const diagnostics = result.diagnostics.map(diagnostic => diagnostic.message)
+
+  return [
+    `Target bundle manifest validation failed for "${artifact}".`,
+    ...diagnostics,
+  ].join(' ')
 }
