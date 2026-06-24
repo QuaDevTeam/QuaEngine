@@ -706,6 +706,30 @@ describe('@quajs/engine-native', () => {
     expect(host.verifySignature).toHaveBeenCalledTimes(1)
   })
 
+  it('reuses resolved host info across native renderer compatibility checks', async () => {
+    const host = {
+      ...createHost(createHostInfo()),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host)
+
+    for (const packageId of ['runtime.chapter.native-ui', 'runtime.chapter.extra-ui']) {
+      await expect(policy.verifyPackage!(createTrustContext({
+        id: packageId,
+        metadata: {
+          nativeRenderer: {
+            packageName: '@quajs/native-renderer',
+            versionRange: '^0.1.0',
+            capabilities: ['native-wgpu.ui.surface@1'],
+            nativeCode: false,
+          },
+        },
+      }))).resolves.toBe(true)
+    }
+
+    expect(host.getHostInfo).toHaveBeenCalledTimes(1)
+  })
+
   it('forwards signed package verification to the native host', async () => {
     const host = {
       ...createHost(),

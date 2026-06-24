@@ -49,6 +49,12 @@ export function createNativeRuntimeTrustPolicy(
   host: QuaNativeHostApi,
   options: Pick<NativeRuntimeAdaptersOptions, 'allowUnsignedInDevelopment' | 'hostInfo' | 'requireSignature'> = {},
 ): RuntimeTrustPolicy {
+  let resolvedHostInfo = options.hostInfo
+  const getHostInfo = async () => {
+    resolvedHostInfo ||= await host.getHostInfo()
+    return resolvedHostInfo
+  }
+
   return {
     allowUnsignedInDevelopment: options.allowUnsignedInDevelopment,
     requireSignature: options.requireSignature,
@@ -60,7 +66,7 @@ export function createNativeRuntimeTrustPolicy(
       })
       const nativeRenderer = getRuntimePackageNativeRendererCompatibility(runtimePackage)
       if (nativeRenderer) {
-        assertNativeRuntimePackageCompatibility(options.hostInfo || await host.getHostInfo(), {
+        assertNativeRuntimePackageCompatibility(await getHostInfo(), {
           pluginId: runtimePackage.id,
           nativeRenderer,
         })
