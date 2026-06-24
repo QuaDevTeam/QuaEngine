@@ -565,6 +565,45 @@ describe('target bundle manifest validation', () => {
     ]))
   })
 
+  it('requires native target bundle app metadata needed by release packaging', () => {
+    const missingIcon = targetBundleManifest({
+      app: {
+        bundleId: 'dev.quajs.native.fixture',
+        version: '1.0.0',
+        buildNumber: '100',
+      },
+    })
+    const emptyBuild = targetBundleManifest({
+      app: {
+        bundleId: 'dev.quajs.native.fixture',
+        version: '1.0.0',
+        buildNumber: '',
+        icon: 'AppIcon.icns',
+      },
+    })
+
+    const missingIconResult = validateTargetBundleManifest(missingIcon)
+    const emptyBuildResult = validateTargetBundleManifest(emptyBuild)
+
+    expect(missingIconResult.ok).toBe(false)
+    expect(missingIconResult.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_APP_METADATA_MISSING',
+        target: 'native',
+        field: 'icon',
+      }),
+    ]))
+
+    expect(emptyBuildResult.ok).toBe(false)
+    expect(emptyBuildResult.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_APP_METADATA_EMPTY',
+        target: 'native',
+        field: 'buildNumber',
+      }),
+    ]))
+  })
+
   it('rejects renderer entries that declare a different target than the artifact', () => {
     const result = validateTargetBundleManifest(targetBundleManifest({
       rendererEntries: [
