@@ -56,11 +56,6 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             ],
             &["data", "images", "fonts"],
             &[
-                "display",
-                "flex-direction",
-                "gap",
-                "padding",
-                "margin",
                 "background-color",
                 "border-color",
                 "border-radius",
@@ -174,12 +169,21 @@ mod tests {
             .unwrap();
         assert_eq!(ui.fallback, "reject-package");
         assert!(ui.intent_events.contains(&"ui/intent".to_string()));
-        assert!(ui.qss_features.contains(&"flex-direction".to_string()));
+        assert!(!ui.qss_features.contains(&"display".to_string()));
+        assert!(!ui.qss_features.contains(&"flex-direction".to_string()));
+        assert!(!ui.qss_features.contains(&"gap".to_string()));
+        assert!(!ui.qss_features.contains(&"padding".to_string()));
+        assert!(!ui.qss_features.contains(&"margin".to_string()));
+        assert!(ui.qss_features.contains(&"background-color".to_string()));
         assert!(ui.qss_features.contains(&"border-color".to_string()));
         assert!(ui.qss_features.contains(&"border-radius".to_string()));
         assert!(ui.qss_features.contains(&"border-width".to_string()));
+        assert!(ui.qss_features.contains(&"color".to_string()));
         assert!(ui.qss_features.contains(&"font-family".to_string()));
+        assert!(ui.qss_features.contains(&"font-size".to_string()));
         assert!(ui.qss_features.contains(&"font-weight".to_string()));
+        assert!(ui.qss_features.contains(&"line-height".to_string()));
+        assert!(ui.qss_features.contains(&"text-align".to_string()));
         assert!(ui.qss_features.contains(&"object-fit".to_string()));
         assert!(ui.qui_components.contains(&"Backdrop".to_string()));
         assert!(ui.qui_components.contains(&"Button".to_string()));
