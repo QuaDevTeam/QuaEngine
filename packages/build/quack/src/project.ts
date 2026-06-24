@@ -7,8 +7,8 @@ import { access, copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 
-export { createQuaProjectNativeArtifactPlans } from './project-native'
-export type { QuaProjectNativeArtifactPlan } from './project-native'
+export { createQuaProjectNativeArtifactPlans, createQuaProjectNativeTargetBundleManifest } from './project-native'
+export type { QuaProjectNativeArtifactPlan, QuaProjectNativeTargetBundleManifestOptions } from './project-native'
 
 export const QUA_PROJECT_CONFIG_CANDIDATES = [
   'qua.project.yaml',

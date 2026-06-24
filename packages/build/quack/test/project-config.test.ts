@@ -1,10 +1,16 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import {
+  createTargetBundleNativeRendererInfo,
+  NATIVE_TARGET_BOOTSTRAP,
+  validateTargetBundleManifest,
+} from '@quajs/native-contracts'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   createQuaProjectAssetTargets,
   createQuaProjectNativeArtifactPlans,
+  createQuaProjectNativeTargetBundleManifest,
   doctorQuaProjectConfig,
   loadQuaProjectConfig,
   mergeQuaProjectAssetTargets,
@@ -13,6 +19,19 @@ import {
 } from '../src/project'
 
 const tempDirs: string[] = []
+
+const NATIVE_RENDERER_CAPABILITIES = [
+  {
+    id: 'native-wgpu.ui.surface@1',
+    target: 'native',
+    version: '1.0.0',
+    ownerPackage: '@quajs/native-renderer',
+    projectionKeys: ['view.ui.overlays'],
+    quiComponents: ['Box', 'Text'],
+    qssFeatures: ['background-color'],
+    fallback: 'reject-package',
+  },
+] as const
 
 describe('qua project config', () => {
   afterEach(async () => {
@@ -285,6 +304,66 @@ describe('qua project config', () => {
       build: {
         hardening: true,
       },
+    })
+  })
+
+  it('creates native target bundle manifests from artifact plans', () => {
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: 'dist/native-apps',
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const manifest = createQuaProjectNativeTargetBundleManifest(plan, {
+      nativeRenderer: createTargetBundleNativeRendererInfo({
+        version: '0.1.0',
+        backendVersion: 'wgpu-test',
+        capabilities: NATIVE_RENDERER_CAPABILITIES,
+      }, payload => `sha256:test-${payload.length}`),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+      rendererEntries: [
+        { specifier: '@quajs/native-renderer/builtin', target: 'native' },
+      ],
+      runtimePackages: [
+        {
+          id: 'runtime.chapter.native',
+          executableDependencies: ['@quajs/character'],
+          rendererEntries: [
+            { specifier: '@quajs/native-renderer/ui', target: 'native' },
+          ],
+        },
+      ],
+    })
+
+    expect(validateTargetBundleManifest(manifest, { expectedTarget: 'native' })).toMatchObject({
+      ok: true,
+      diagnostics: [],
+    })
+    expect(manifest).toMatchObject({
+      target: 'native',
+      profile: 'release',
+      platform: 'macos',
+      app: {
+        bundleId: 'com.example.starlight',
+        version: '1.0.0',
+        buildNumber: '1',
+        icon: 'assets/app/AppIcon.icns',
+      },
+      targetCoreResolver: 'native-core-resolver',
+      selectedCorePluginFamily: 'native-core',
+      selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
     })
   })
 

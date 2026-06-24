@@ -1,3 +1,11 @@
+import type {
+  TargetBundleDependencyReference,
+  TargetBundleManifest,
+  TargetBundleNativeRendererInfo,
+  TargetBundlePackageReference,
+  TargetBundleRendererEntryReference,
+  TargetBundleRuntimePackageRecord,
+} from '@quajs/native-contracts'
 import type { AssetBundleTarget } from './core/types'
 import type {
   NormalizedQuaProjectConfig,
@@ -6,6 +14,7 @@ import type {
   QuaProjectNativeProfile,
 } from './project'
 import { join } from 'node:path'
+import { createTargetCoreSelection } from '@quajs/native-contracts'
 
 export interface QuaProjectNativeArtifactPlan {
   target: 'native'
@@ -22,6 +31,13 @@ export interface QuaProjectNativeArtifactPlan {
   layout: QuaProjectLayoutInput
   assetTarget?: AssetBundleTarget
   build: Record<string, unknown>
+}
+
+export interface QuaProjectNativeTargetBundleManifestOptions {
+  dependencies?: readonly (TargetBundlePackageReference | TargetBundleDependencyReference)[]
+  nativeRenderer: TargetBundleNativeRendererInfo
+  rendererEntries?: readonly (TargetBundlePackageReference | TargetBundleRendererEntryReference)[]
+  runtimePackages?: readonly TargetBundleRuntimePackageRecord[]
 }
 
 export function createQuaProjectNativeArtifactPlans(
@@ -50,6 +66,27 @@ export function createQuaProjectNativeArtifactPlans(
     }
   }
   return plans
+}
+
+export function createQuaProjectNativeTargetBundleManifest(
+  plan: QuaProjectNativeArtifactPlan,
+  options: QuaProjectNativeTargetBundleManifestOptions,
+): TargetBundleManifest {
+  const targetCore = createTargetCoreSelection('native')
+  return {
+    schemaVersion: 1,
+    target: 'native',
+    profile: plan.profile,
+    platform: plan.platform,
+    app: { ...plan.app },
+    nativeRenderer: { ...options.nativeRenderer },
+    targetCoreResolver: targetCore.targetCoreResolver,
+    selectedCorePluginFamily: targetCore.selectedCorePluginFamily,
+    selectedCoreAdapters: targetCore.selectedCoreAdapters,
+    dependencies: options.dependencies || [],
+    rendererEntries: options.rendererEntries || [],
+    runtimePackages: options.runtimePackages || [],
+  }
 }
 
 function sanitizePathSegment(value: string): string {
