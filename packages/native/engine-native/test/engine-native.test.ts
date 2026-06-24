@@ -245,6 +245,9 @@ describe('@quajs/engine-native', () => {
     })
     const evaluated: unknown[] = []
     const loader = createNativeRuntimeModuleLoader({
+      limits: {
+        maxModuleBytes: 1024,
+      },
       evaluator(input) {
         evaluated.push(input)
         return { default: input.code, marker: input.kind }
@@ -292,6 +295,40 @@ describe('@quajs/engine-native', () => {
         code: 'export default function opening() {}',
         kind: 'script',
         packageId: 'runtime.chapter.native-ui',
+        request: {
+          module: {
+            assetName: 'scripts/opening.js',
+            bundleName: 'runtime.chapter.native-ui',
+            bytes: Array.from(new TextEncoder().encode('export default function opening() {}')),
+            code: 'export default function opening() {}',
+            kind: 'script',
+            packageId: 'runtime.chapter.native-ui',
+          },
+          limits: expect.objectContaining({
+            maxHeapBytes: 64 * 1024 * 1024,
+            maxModuleBytes: 1024,
+          }),
+        },
+      }),
+    ]))
+    expect(evaluated).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'engine-plugin',
+        request: expect.objectContaining({
+          module: expect.objectContaining({
+            assetName: 'plugins/settings.js',
+            kind: 'enginePlugin',
+          }),
+        }),
+      }),
+      expect.objectContaining({
+        kind: 'store-migration',
+        request: expect.objectContaining({
+          module: expect.objectContaining({
+            assetName: 'migrations/save.js',
+            kind: 'storeMigration',
+          }),
+        }),
       }),
     ]))
   })
