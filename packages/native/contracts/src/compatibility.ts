@@ -8,7 +8,11 @@ export interface RuntimePackageNativeRendererCompatibility {
   versionRange?: string
   capabilities?: readonly string[]
   optionalCapabilities?: readonly string[]
+  quiComponents?: readonly string[]
+  qssFeatures?: readonly string[]
+  /** @deprecated Use quiComponents for required native QUI component names. */
   uiSurfaces?: readonly string[]
+  /** @deprecated Use qssFeatures for required native QSS declaration names. */
   qssTargets?: readonly string[]
   nativeCode?: false
 }
@@ -102,7 +106,7 @@ export function checkNativeCompatibility(options: CheckNativeCompatibilityOption
     }
   }
 
-  for (const qssFeature of compatibility.qssTargets || []) {
+  for (const qssFeature of collectRequiredQssFeatures(compatibility)) {
     if (!hasCapabilityFieldValue(hostInfo.renderer.capabilities, 'qssFeatures', qssFeature)) {
       diagnostics.push({
         code: 'NATIVE_REQUIRED_QSS_FEATURE_MISSING',
@@ -114,7 +118,7 @@ export function checkNativeCompatibility(options: CheckNativeCompatibilityOption
     }
   }
 
-  for (const quiComponent of compatibility.uiSurfaces || []) {
+  for (const quiComponent of collectRequiredQuiComponents(compatibility)) {
     if (!hasCapabilityFieldValue(hostInfo.renderer.capabilities, 'quiComponents', quiComponent)) {
       diagnostics.push({
         code: 'NATIVE_REQUIRED_QUI_COMPONENT_MISSING',
@@ -134,6 +138,24 @@ export function checkNativeCompatibility(options: CheckNativeCompatibilityOption
 
 export function hasCompatibleCapability(capabilities: readonly RendererTargetCapability[], required: string): boolean {
   return capabilities.some(capability => isCapabilityCompatible(required, capability.id))
+}
+
+function collectRequiredQssFeatures(compatibility: RuntimePackageNativeRendererCompatibility): string[] {
+  return uniqueStrings([
+    ...(compatibility.qssFeatures || []),
+    ...(compatibility.qssTargets || []),
+  ])
+}
+
+function collectRequiredQuiComponents(compatibility: RuntimePackageNativeRendererCompatibility): string[] {
+  return uniqueStrings([
+    ...(compatibility.quiComponents || []),
+    ...(compatibility.uiSurfaces || []),
+  ])
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return Array.from(new Set(values))
 }
 
 function hasCapabilityFieldValue(

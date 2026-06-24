@@ -84,8 +84,8 @@ describe('checkNativeCompatibility', () => {
           'native-wgpu.image@1',
           'native-wgpu.video@1',
         ],
-        uiSurfaces: ['Panel', 'Button', 'Text'],
-        qssTargets: ['background-color', 'border-radius', 'font-size'],
+        quiComponents: ['Panel', 'Button', 'Text'],
+        qssFeatures: ['background-color', 'border-radius', 'font-size'],
         nativeCode: false,
       },
     })
@@ -188,6 +188,33 @@ describe('checkNativeCompatibility', () => {
         pluginId: 'runtime.menu',
         required: 'VirtualList',
       }),
+    ]))
+  })
+
+  it('keeps legacy uiSurfaces and qssTargets compatibility aliases active', () => {
+    const result = checkNativeCompatibility({
+      hostInfo: createHostInfo(),
+      compatibility: {
+        uiSurfaces: ['Panel', 'Drawer'],
+        qssTargets: ['color', 'gap'],
+        nativeCode: false,
+      },
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'NATIVE_REQUIRED_QSS_FEATURE_MISSING',
+        required: 'gap',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_REQUIRED_QUI_COMPONENT_MISSING',
+        required: 'Drawer',
+      }),
+    ]))
+    expect(result.diagnostics).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ required: 'Panel' }),
+      expect.objectContaining({ required: 'color' }),
     ]))
   })
 
