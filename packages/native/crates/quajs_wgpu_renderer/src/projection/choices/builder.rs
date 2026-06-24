@@ -1,7 +1,7 @@
 use crate::projection::common::PackageProvenance;
 use crate::render_graph::{
-    DrawCommand, DrawCommandKind, DrawCommandParams, PanelDrawParams, RenderGraph, RenderPlane,
-    RendererIntent, UiButtonDrawParams,
+    BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, PanelDrawParams,
+    RenderGraph, RenderPlane, RendererIntent, UiButtonDrawParams,
 };
 use crate::stage_layout::ResolvedStageLayout;
 
@@ -33,6 +33,7 @@ pub fn build_choice_commands(
             role: "choices-panel".to_string(),
             corner_radius: 12.0,
             fill_color: "rgba(0,0,0,0.0)".to_string(),
+            border: BorderDrawParams::default(),
             intent: None,
         })),
         &choices.provenance,
@@ -69,6 +70,7 @@ fn choice_command(
         background_color: "rgba(0,0,0,0.0)".to_string(),
         text_color: "#ffffff".to_string(),
         corner_radius: 0.0,
+        border: BorderDrawParams::default(),
         intent: choice.enabled.then(|| RendererIntent {
             event: "choice/select".to_string(),
             choice_id: Some(choice.id.clone()),

@@ -59,7 +59,7 @@ Shared engine/game/plugin packages may be reused only when platform-neutral.
 - `Panel` projects a semantic container panel. It is visual-only unless it carries an explicit intent, in which case pointer input may resolve that intent through `@quajs/pipeline`.
 - `Scroll` currently projects a scroll panel plus clip-start/clip-end commands and per-command clip bounds for hit testing. It must not own persisted scroll position or authoritative UI state.
 - Native QUI nodes may carry `UiSurfaceResolvedStyle`, representing already-resolved QSS declarations from compiler/runtime tooling.
-- Current native resolved QSS style fields are `background-color`, `color`, `border-radius`, `font-size`, `line-height`, `text-align`, and `object-fit`.
+- Current native resolved QSS style fields are `background-color`, `border-color`, `border-radius`, `border-width`, `color`, `font-size`, `line-height`, `text-align`, and `object-fit`.
 - Do not add QSS selector parsing or CSS cascade logic to `quajs_wgpu_renderer`; add those to the dedicated QSS compiler/language-server/tooling layer and emit resolved projection fields for native rendering.
 - Native capability manifests must declare any consumed QSS features and QUI components so runtime packages can check compatibility before activation.
 - Native media capability ids must describe implemented projection/resource contracts precisely. Do not declare QUI media components, real video decode, or audio playback capability until the Rust projection path and backend support exist; fallback-only video/audio capabilities should use deterministic `warn-once` semantics.

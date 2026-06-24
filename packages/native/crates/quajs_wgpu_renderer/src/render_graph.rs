@@ -10,9 +10,9 @@ pub use command::{DrawCommand, DrawCommandKind, LogicalRect, RenderPlane};
 pub use graph::RenderGraph;
 pub use pass::{plan_render_passes, RenderPass, RenderPassPlan, RenderViewport};
 pub use style::{
-    CharacterAnchor, CharacterDrawParams, DrawCommandParams, ImageDrawParams, MediaFit,
-    MediaOrigin, PanelDrawParams, RendererIntent, TextAlign, TextDrawParams, UiButtonDrawParams,
-    UiSurfaceDrawParams, VideoDrawParams,
+    BorderDrawParams, CharacterAnchor, CharacterDrawParams, DrawCommandParams, ImageDrawParams,
+    MediaFit, MediaOrigin, PanelDrawParams, RendererIntent, TextAlign, TextDrawParams,
+    UiButtonDrawParams, UiSurfaceDrawParams, VideoDrawParams,
 };
 pub use summary::{
     RenderGraphPackageSummary, RenderGraphResourceSummary, RenderGraphSummary, RenderPlaneSummary,

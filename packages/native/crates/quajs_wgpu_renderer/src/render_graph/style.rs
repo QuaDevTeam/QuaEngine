@@ -78,10 +78,26 @@ pub struct TextDrawParams {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct BorderDrawParams {
+    pub color: Option<String>,
+    pub width: f64,
+}
+
+impl Default for BorderDrawParams {
+    fn default() -> Self {
+        Self {
+            color: None,
+            width: 0.0,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct PanelDrawParams {
     pub role: String,
     pub corner_radius: f64,
     pub fill_color: String,
+    pub border: BorderDrawParams,
     pub intent: Option<RendererIntent>,
 }
 
@@ -101,6 +117,7 @@ pub struct UiButtonDrawParams {
     pub background_color: String,
     pub text_color: String,
     pub corner_radius: f64,
+    pub border: BorderDrawParams,
     pub intent: Option<RendererIntent>,
 }
 

@@ -55,7 +55,9 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "padding",
                 "margin",
                 "background-color",
+                "border-color",
                 "border-radius",
+                "border-width",
                 "color",
                 "font-size",
                 "line-height",
@@ -153,7 +155,9 @@ mod tests {
         assert_eq!(ui.fallback, "reject-package");
         assert!(ui.intent_events.contains(&"ui/intent".to_string()));
         assert!(ui.qss_features.contains(&"flex-direction".to_string()));
+        assert!(ui.qss_features.contains(&"border-color".to_string()));
         assert!(ui.qss_features.contains(&"border-radius".to_string()));
+        assert!(ui.qss_features.contains(&"border-width".to_string()));
         assert!(ui.qss_features.contains(&"object-fit".to_string()));
         assert!(ui.qui_components.contains(&"Backdrop".to_string()));
         assert!(ui.qui_components.contains(&"Button".to_string()));
