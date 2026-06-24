@@ -256,6 +256,10 @@ interface TargetCoreSelection {
 
 Only the active target resolver may create this object. Shared plugin resolution consumes it as read-only input and must fail if any plugin, subentry, QPK executable dependency, or generated bootstrap record attempts to add another target core family. This keeps Web, Cocos, and native packaging paths from drifting while still allowing platform-neutral game plugins to be reused.
 
+Practical anti-cross-wiring rule: Web, Cocos, and native core plugins are three separate packaging roots, not three plugins in one product. A packager must never build a combined core plugin set such as `[webCore, cocosCore, nativeCore]` and then branch by target later. The selected target must choose its own resolver first, and that resolver is the only code path allowed to contribute target bootstrap adapters, target renderer entries, target asset/store adapters, host bridges, native renderer metadata, or target-owned runtime startup hooks.
+
+This rule applies even when the output looks valid after filtering. A Cocos package must not transiently import Web/native core plugins during bundling; a Web package must not transiently import Cocos/native core plugins; a native package must not transiently import Web/Cocos core plugins. Shared plugin discovery may read target metadata as data, but it must not import inactive target entrypoints. Runtime QPKs are stricter: they may declare inactive target compatibility blocks as metadata only, but they must never list Web, Cocos, or native core adapters as executable dependencies or renderer entries.
+
 The isolation rule applies to all package outputs:
 
 - **Web project output** selects the Web bootstrap only. It may include `@quajs/assets-web`, `@quajs/renderer-web`, Web framework renderers such as Vue/React/Svelte adapters, and Web renderer plugin subentries. It must not include `@quajs/cocos-host`, `@quajs/renderer-cocos`, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, native host contracts as runtime adapters, or Rust native renderer metadata.
