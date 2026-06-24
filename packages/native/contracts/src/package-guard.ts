@@ -73,13 +73,20 @@ export type NativeGuardPackageReference = string | {
 
 export interface NativeGuardRuntimePackageScriptManifest {
   assetName: string
-  variants?: Record<string, { assetName: string }>
+  variants?: Record<string, NativeGuardRuntimePackageModuleVariantManifest>
+  [key: string]: unknown
+}
+
+export interface NativeGuardRuntimePackageModuleVariantManifest {
+  assetName?: string
+  module?: string
   [key: string]: unknown
 }
 
 export interface NativeGuardRuntimePackageSceneManifest {
   assetName: string
   module?: string
+  variants?: Record<string, NativeGuardRuntimePackageModuleVariantManifest>
   [key: string]: unknown
 }
 
@@ -87,12 +94,14 @@ export interface NativeGuardRuntimePackagePluginManifest {
   id: string
   assetName?: string
   module?: string
+  variants?: Record<string, NativeGuardRuntimePackageModuleVariantManifest>
   metadata?: Record<string, unknown>
   [key: string]: unknown
 }
 
 export interface NativeGuardRuntimePackageStoreMigrationManifest {
   assetName: string
+  variants?: Record<string, NativeGuardRuntimePackageModuleVariantManifest>
   [key: string]: unknown
 }
 
@@ -309,20 +318,21 @@ function collectRuntimePackageAssetNames(runtimePackage: NativeGuardRuntimePacka
   const names = new Set<string>()
   for (const script of runtimePackage.scripts || []) {
     addAssetName(names, script.assetName)
-    for (const variant of Object.values(script.variants || {})) {
-      addAssetName(names, variant.assetName)
-    }
+    addRuntimeModuleVariantAssetNames(names, script.variants)
   }
   for (const scene of runtimePackage.scenes || []) {
     addAssetName(names, scene.assetName)
     addAssetName(names, scene.module)
+    addRuntimeModuleVariantAssetNames(names, scene.variants)
   }
   for (const plugin of runtimePackage.plugins || []) {
     addAssetName(names, plugin.assetName)
     addAssetName(names, plugin.module)
+    addRuntimeModuleVariantAssetNames(names, plugin.variants)
   }
   for (const migration of runtimePackage.storeMigrations || []) {
     addAssetName(names, migration.assetName)
+    addRuntimeModuleVariantAssetNames(names, migration.variants)
   }
   for (const assetsByName of Object.values(bundleManifest?.assets || {})) {
     for (const asset of Object.values(assetsByName || {})) {
@@ -337,6 +347,16 @@ function collectRuntimePackageAssetNames(runtimePackage: NativeGuardRuntimePacka
     }
   }
   return Array.from(names)
+}
+
+function addRuntimeModuleVariantAssetNames(
+  names: Set<string>,
+  variants: Record<string, NativeGuardRuntimePackageModuleVariantManifest> | undefined,
+): void {
+  for (const variant of Object.values(variants || {})) {
+    addAssetName(names, variant.assetName)
+    addAssetName(names, variant.module)
+  }
 }
 
 function addAssetName(names: Set<string>, value: string | undefined): void {
