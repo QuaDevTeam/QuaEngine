@@ -152,6 +152,47 @@ fn preserves_resource_memory_when_metadata_refreshes() {
 }
 
 #[test]
+fn releases_replaced_resource_when_frame_resource_kind_changes() {
+    let mut state = NativeRendererState::new();
+    state.resources_mut().insert(
+        NativeResourceRecord::new("images:bg/school.png", NativeResourceKind::Buffer)
+            .owned_by("stale.package")
+            .memory(64, 512)
+            .label("stale upload buffer"),
+    );
+
+    let update = state.prepare_frame(test_layout(), &view_with_background_and_choice());
+    let record = state.resources().get("images:bg/school.png").unwrap();
+
+    assert_eq!(update.resource_sync.upsert.len(), 1);
+    assert!(update.resource_sync.release.is_empty());
+    assert_eq!(update.released_resources.len(), 1);
+    assert_eq!(
+        update.released_resources[0].kind,
+        NativeResourceKind::Buffer
+    );
+    assert_eq!(update.host_cleanup.len(), 1);
+    assert_eq!(
+        update.host_cleanup[0].resource_id,
+        ResourceId::from("images:bg/school.png")
+    );
+    assert_eq!(update.host_cleanup[0].kind, NativeResourceKind::Buffer);
+    assert_eq!(
+        update.host_cleanup[0].owner_package_id.as_deref(),
+        Some("stale.package")
+    );
+    assert_eq!(update.host_cleanup[0].memory.gpu_bytes, 512);
+    assert_eq!(update.resource_sync_summary.release_count, 0);
+    assert_eq!(update.resource_sync_summary.released_count, 1);
+    assert_eq!(
+        update.resource_sync_summary.released_by_kind[&NativeResourceKind::Buffer],
+        1
+    );
+    assert_eq!(record.kind, NativeResourceKind::Texture);
+    assert_eq!(record.owner_package_id.as_deref(), Some("base"));
+}
+
+#[test]
 fn prepares_audio_projection_resources_without_render_graph_commands() {
     let mut state = NativeRendererState::new();
     let update = state.prepare_frame(test_layout(), &view_with_audio());
@@ -202,6 +243,52 @@ fn prepares_audio_projection_resources_without_render_graph_commands() {
         .resources()
         .get("audio:handle:bgm:bgm:bgm-main")
         .is_some());
+}
+
+#[test]
+fn releases_replaced_audio_resource_when_kind_changes() {
+    let mut state = NativeRendererState::new();
+    state.resources_mut().insert(
+        NativeResourceRecord::new(
+            "audio:buffer:bgm:bgm:music/opening.ogg",
+            NativeResourceKind::AudioHandle,
+        )
+        .owned_by("stale.audio")
+        .memory(32, 0)
+        .label("stale audio handle"),
+    );
+
+    let update = state.prepare_frame(test_layout(), &view_with_audio());
+    let record = state
+        .resources()
+        .get("audio:buffer:bgm:bgm:music/opening.ogg")
+        .unwrap();
+
+    assert_eq!(update.audio_resource_sync.upsert.len(), 2);
+    assert!(update.audio_resource_sync.release.is_empty());
+    assert_eq!(update.released_resources.len(), 1);
+    assert_eq!(
+        update.released_resources[0].id,
+        ResourceId::from("audio:buffer:bgm:bgm:music/opening.ogg")
+    );
+    assert_eq!(
+        update.released_resources[0].kind,
+        NativeResourceKind::AudioHandle
+    );
+    assert_eq!(update.host_cleanup.len(), 1);
+    assert_eq!(update.host_cleanup[0].kind, NativeResourceKind::AudioHandle);
+    assert_eq!(
+        update.host_cleanup[0].owner_package_id.as_deref(),
+        Some("stale.audio")
+    );
+    assert_eq!(update.audio_resource_sync_summary.release_count, 0);
+    assert_eq!(update.audio_resource_sync_summary.released_count, 1);
+    assert_eq!(
+        update.audio_resource_sync_summary.released_by_kind[&NativeResourceKind::AudioHandle],
+        1
+    );
+    assert_eq!(record.kind, NativeResourceKind::AudioBuffer);
+    assert_eq!(record.owner_package_id.as_deref(), Some("runtime.audio"));
 }
 
 #[test]
