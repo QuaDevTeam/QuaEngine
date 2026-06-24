@@ -14,12 +14,13 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 - Communication uses `@quajs/pipeline` and render-core/plugin projections; do not add a second event bus.
 - Runtime content remains Quack-built QPK packages. Dynamic QPKs may contain QS/JS modules and resources only, never native code.
 - Native version/capability data comes from the signed native app/Rust build and is exposed through `QuaNativeHostInfo`; QPK content cannot override it.
+- Native dynamic module loading must use `createNativeRuntimeModuleLoader` or an equivalent restricted loader. It may load only runtime-package-declared, package-relative `assetName` script assets through QuaAssets/native host bytes, then pass code to a trusted Rust/QuickJS evaluator. Do not load runtime modules from filesystem paths, URLs, Node resolution, Web `Blob`, or dynamic `import()`.
 - Rust `quajs_wgpu_renderer` consumes resolved QUI/QSS projection data only. QSS parsing, selector matching, cascade, inheritance, and language-server diagnostics belong in TS/compiler/tooling packages, not in the renderer.
 
 ## Package Responsibilities
 
 - `@quajs/native-contracts`: serializable native host, renderer capability, compatibility, QUI/QSS, and target bootstrap contracts.
-- `@quajs/engine-native`: engine plugin/adapter that reads native host info, registers renderer capabilities, and supplies runtime package compatibility guards.
+- `@quajs/engine-native`: engine plugin/adapter that reads native host info, registers renderer capabilities, supplies runtime package compatibility guards, and exposes the restricted native `RuntimeModuleLoader` over package asset bytes plus a Rust/QuickJS evaluator.
 - `@quajs/assets-native`: QuaAssets adapter over native host byte/storage/crypto APIs.
 - `@quajs/store-native`: QuaStore persistence adapter over native host storage APIs.
 - Rust `quajs_native_runtime`: QuickJS host and native host API implementation.
@@ -93,6 +94,7 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Are video/audio native capability declarations limited to currently implemented projection/resource paths, with real decoder/playback backend support guarded by later capability updates?
 - Are native renderer version/capability checks performed before dynamic package JS evaluation?
 - Does `@quajs/engine-native` install `createNativeRuntimeTrustPolicy` so runtime native-code payload guards run before QuickJS module loading?
+- Does `@quajs/engine-native` use a restricted runtime module loader that reads package script assets and delegates only to the Rust/QuickJS evaluator, without filesystem, network, Blob, or dynamic import paths?
 - Do assets/store adapters preserve core contracts without Web/Node assumptions?
 - Are Web/Cocos/native target core adapters isolated?
 - Does the post-bundle dependency manifest prove the active artifact contains exactly one target core plugin set?
