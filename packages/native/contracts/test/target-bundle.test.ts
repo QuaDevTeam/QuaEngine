@@ -1,42 +1,91 @@
-import type { TargetBundleManifest } from '../src'
+import type { QuaTargetBootstrap, TargetBundleManifest } from '../src'
 import { describe, expect, it } from 'vitest'
 import {
   COCOS_TARGET_BOOTSTRAP,
   collectTargetBundlePackageNames,
   NATIVE_TARGET_BOOTSTRAP,
+  normalizePackageSpecifier,
   validateTargetBundleManifest,
   WEB_TARGET_BOOTSTRAP,
 } from '../src'
 
+const CORE_ADAPTERS_BY_TARGET = {
+  web: WEB_TARGET_BOOTSTRAP.coreAdapters,
+  cocos: COCOS_TARGET_BOOTSTRAP.coreAdapters,
+  native: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+} satisfies Record<QuaTargetBootstrap, readonly string[]>
+
+const PLATFORM_BY_TARGET = {
+  web: 'web',
+  cocos: 'cocos',
+  native: 'macos',
+} satisfies Record<QuaTargetBootstrap, string>
+
+function targetDependencies(target: QuaTargetBootstrap): TargetBundleManifest['dependencies'] {
+  const shared = ['@quajs/engine', '@quajs/pipeline']
+  switch (target) {
+    case 'web':
+      return [
+        ...shared,
+        '@quajs/assets-web',
+        '@quajs/renderer-web/plugins/audio',
+      ]
+    case 'cocos':
+      return [
+        ...shared,
+        '@quajs/cocos-host/runtime',
+        '@quajs/assets-cocos',
+        '@quajs/renderer-cocos/plugins/audio',
+      ]
+    case 'native':
+      return [
+        ...shared,
+        '@quajs/native-contracts/bootstrap',
+        { specifier: '@quajs/engine-native/native-host', runtime: true, source: 'static-import' },
+        { specifier: '@quajs/assets-native', runtime: true, source: 'static-import' },
+        { specifier: '@quajs/store-native', runtime: true, source: 'static-import' },
+      ]
+  }
+}
+
+function rendererEntry(target: QuaTargetBootstrap): NonNullable<TargetBundleManifest['rendererEntries']>[number] {
+  switch (target) {
+    case 'web':
+      return { specifier: '@quajs/renderer-vue/plugins/ui', target: 'web' }
+    case 'cocos':
+      return { specifier: '@quajs/renderer-cocos/plugins/ui', target: 'cocos' }
+    case 'native':
+      return { specifier: '@quajs/native-renderer/builtin', target: 'native' }
+  }
+}
+
 function targetBundleManifest(overrides: Partial<TargetBundleManifest> = {}): TargetBundleManifest {
+  return targetBundleManifestFor('native', overrides)
+}
+
+function targetBundleManifestFor(
+  target: QuaTargetBootstrap,
+  overrides: Partial<TargetBundleManifest> = {},
+): TargetBundleManifest {
   return {
     schemaVersion: 1,
-    target: 'native',
+    target,
     profile: 'release',
-    platform: 'macos',
+    platform: PLATFORM_BY_TARGET[target],
     app: {
-      bundleId: 'dev.quajs.native.fixture',
+      bundleId: `dev.quajs.${target}.fixture`,
       version: '1.0.0',
       buildNumber: '100',
       icon: 'AppIcon.icns',
     },
-    selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
-    dependencies: [
-      '@quajs/engine',
-      '@quajs/pipeline',
-      '@quajs/native-contracts/bootstrap',
-      { specifier: '@quajs/engine-native/native-host', runtime: true, source: 'static-import' },
-      { specifier: '@quajs/assets-native', runtime: true, source: 'static-import' },
-      { specifier: '@quajs/store-native', runtime: true, source: 'static-import' },
-    ],
-    rendererEntries: [
-      { specifier: '@quajs/native-renderer/builtin', target: 'native' },
-    ],
+    selectedCoreAdapters: CORE_ADAPTERS_BY_TARGET[target],
+    dependencies: targetDependencies(target),
+    rendererEntries: [rendererEntry(target)],
     runtimePackages: [
       {
         id: 'runtime.chapter.1',
         executableDependencies: ['@quajs/character'],
-        rendererEntries: ['@quajs/native-renderer/ui'],
+        rendererEntries: [`@quajs/${target}-renderer/ui`],
       },
     ],
     ...overrides,
@@ -44,6 +93,16 @@ function targetBundleManifest(overrides: Partial<TargetBundleManifest> = {}): Ta
 }
 
 describe('target bundle manifest validation', () => {
+  it('accepts clean Web, Cocos, and native manifests with only their selected core adapters', () => {
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target))
+
+      expect(result.ok).toBe(true)
+      expect(result.bootstrapValidation.selectedTargets).toEqual([target])
+      expect(result.diagnostics).toEqual([])
+    }
+  })
+
   it('accepts a native bundle manifest with only native core adapters', () => {
     const result = validateTargetBundleManifest(targetBundleManifest())
 
@@ -55,6 +114,32 @@ describe('target bundle manifest validation', () => {
   it('normalizes subentry dependencies before validating target isolation', () => {
     expect(collectTargetBundlePackageNames(targetBundleManifest())).toContain('@quajs/engine-native')
     expect(collectTargetBundlePackageNames(targetBundleManifest())).toContain('@quajs/native-contracts')
+  })
+
+  it('rejects cross-target core adapters for Web, Cocos, and native artifacts', () => {
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const crossTargetCoreAdapters = (Object.keys(CORE_ADAPTERS_BY_TARGET) as QuaTargetBootstrap[])
+        .filter(candidate => candidate !== target)
+        .flatMap(candidate => CORE_ADAPTERS_BY_TARGET[candidate])
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+        dependencies: [
+          ...(targetDependencies(target) || []),
+          ...crossTargetCoreAdapters,
+        ],
+      }))
+
+      expect(result.ok).toBe(false)
+      expect(result.bootstrapValidation.selectedTargets).toEqual(['web', 'cocos', 'native'])
+      for (const packageName of crossTargetCoreAdapters) {
+        expect(result.diagnostics).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            code: 'TARGET_CORE_ADAPTER_FORBIDDEN',
+            target,
+            packageName: normalizePackageSpecifier(packageName),
+          }),
+        ]))
+      }
+    }
   })
 
   it('rejects native artifacts that include Web or Cocos renderer entries after bundling', () => {
