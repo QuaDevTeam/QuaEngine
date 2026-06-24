@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::audio::AudioBackendTrackStateMap;
 use crate::frame::PreparedNativeFrame;
 use crate::render_graph::{
     DrawBatchPipeline, DrawCommandKind, DrawCommandParams, RenderGraphPackageSummary, RenderPlane,
@@ -16,6 +17,7 @@ pub struct NativeRendererMetrics {
     pub has_frame: bool,
     pub frame: NativeRendererFrameMetrics,
     pub resources: NativeRendererResourceMetrics,
+    pub audio_backend: NativeRendererAudioBackendMetrics,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -68,17 +70,38 @@ pub struct NativeRendererAudioResourceMetrics {
     pub by_package: BTreeMap<String, PackageResourceSummary>,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeRendererAudioBackendMetrics {
+    pub active_track_count: usize,
+    pub active_track_count_by_package: BTreeMap<String, usize>,
+}
+
 impl NativeRendererMetrics {
     pub fn from_state(
         revision: u64,
         frame: Option<&PreparedNativeFrame>,
         resources: &NativeResourceLedger,
     ) -> Self {
+        Self::from_state_with_audio_backend(
+            revision,
+            frame,
+            resources,
+            &AudioBackendTrackStateMap::new(),
+        )
+    }
+
+    pub fn from_state_with_audio_backend(
+        revision: u64,
+        frame: Option<&PreparedNativeFrame>,
+        resources: &NativeResourceLedger,
+        audio_backend_tracks: &AudioBackendTrackStateMap,
+    ) -> Self {
         Self {
             revision,
             has_frame: frame.is_some(),
             frame: frame.map(frame_metrics).unwrap_or_default(),
             resources: resource_metrics(resources),
+            audio_backend: audio_backend_metrics(audio_backend_tracks),
         }
     }
 }
@@ -261,6 +284,24 @@ fn audio_resource_metrics(resources: &NativeResourceLedger) -> NativeRendererAud
     }
 
     metrics.package_count = metrics.by_package.len();
+    metrics
+}
+
+fn audio_backend_metrics(tracks: &AudioBackendTrackStateMap) -> NativeRendererAudioBackendMetrics {
+    let mut metrics = NativeRendererAudioBackendMetrics {
+        active_track_count: tracks.len(),
+        ..Default::default()
+    };
+
+    for track in tracks.values() {
+        for package_id in &track.package_candidates {
+            *metrics
+                .active_track_count_by_package
+                .entry(package_id.clone())
+                .or_default() += 1;
+        }
+    }
+
     metrics
 }
 
