@@ -233,6 +233,27 @@ describe('checkNativeCompatibility', () => {
     ])
   })
 
+  it('warns for missing optional native asset kinds without failing activation', () => {
+    const result = checkNativeCompatibility({
+      hostInfo: createHostInfo(),
+      pluginId: 'runtime.native-ui',
+      compatibility: {
+        optionalAssetKinds: ['qss', 'shader'],
+        nativeCode: false,
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'NATIVE_OPTIONAL_ASSET_KIND_MISSING',
+        severity: 'warning',
+        pluginId: 'runtime.native-ui',
+        required: 'shader',
+      }),
+    ])
+  })
+
   it('keeps legacy uiSurfaces and qssTargets compatibility aliases active', () => {
     const result = checkNativeCompatibility({
       hostInfo: createHostInfo(),

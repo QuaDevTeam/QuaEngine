@@ -1030,6 +1030,39 @@ describe('@quajs/engine-native', () => {
     expect(host.verifySignature).not.toHaveBeenCalled()
   })
 
+  it('allows missing optional native asset kinds before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: {
+          renderer: '@quajs/native-renderer',
+          version: '^0.1.0',
+          optionalAssetKinds: ['qss', 'shader'],
+          nativeCode: false,
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).resolves.toBe(true)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).toHaveBeenCalledTimes(1)
+  })
+
   it('rejects native renderer compatibility without nativeCode false before native signature verification', async () => {
     const host = {
       ...createHost(),
