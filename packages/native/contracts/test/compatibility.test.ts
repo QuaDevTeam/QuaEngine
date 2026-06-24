@@ -25,6 +25,7 @@ function createHostInfo(overrides: Partial<QuaNativeHostInfo['renderer']> = {}):
           version: '1.0.0',
           ownerPackage: '@quajs/native-renderer',
           projectionKeys: ['view.ui.overlays'],
+          assetKinds: ['data', 'images', 'fonts', 'qui', 'qss', 'tokens'],
           qssFeatures: [
             'background-color',
             'border-color',
@@ -87,6 +88,7 @@ describe('checkNativeCompatibility', () => {
         ],
         quiComponents: ['Panel', 'Button', 'Text'],
         qssFeatures: ['background-color', 'border-radius', 'font-size'],
+        assetKinds: ['qui', 'qss', 'tokens'],
         nativeCode: false,
       },
     })
@@ -208,6 +210,27 @@ describe('checkNativeCompatibility', () => {
         required: 'VirtualList',
       }),
     ]))
+  })
+
+  it('rejects runtime packages that require unsupported native asset kinds', () => {
+    const result = checkNativeCompatibility({
+      hostInfo: createHostInfo(),
+      pluginId: 'runtime.native-ui',
+      compatibility: {
+        assetKinds: ['qui', 'shader'],
+        nativeCode: false,
+      },
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'NATIVE_REQUIRED_ASSET_KIND_MISSING',
+        severity: 'error',
+        pluginId: 'runtime.native-ui',
+        required: 'shader',
+      }),
+    ])
   })
 
   it('keeps legacy uiSurfaces and qssTargets compatibility aliases active', () => {
