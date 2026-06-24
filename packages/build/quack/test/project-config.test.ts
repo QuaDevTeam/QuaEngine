@@ -41,6 +41,7 @@ describe('qua project config', () => {
       pwa: { enabled: false, serviceWorker: 'generated' },
     })
     expect(project.targets.cocos).toBeUndefined()
+    expect(project.targets.native).toBeUndefined()
   })
 
   it('loads JSON and requires an explicit path when duplicate config files exist', async () => {
@@ -152,11 +153,26 @@ describe('qua project config', () => {
             hybrid: { enabled: true },
           },
         },
+        native: {
+          platforms: ['macos', 'windows'],
+          profiles: ['debug', 'release'],
+          assetTarget: {
+            name: 'native-desktop',
+            suffix: 'desktop',
+            pipeline: { images: { format: 'webp' } },
+          },
+        },
       },
     })
 
     const targets = createQuaProjectAssetTargets(project)
-    expect(targets.map(target => target.name)).toEqual(['web-modern', 'cocos-android', 'cocos-ios'])
+    expect(targets.map(target => target.name)).toEqual([
+      'web-modern',
+      'cocos-android',
+      'cocos-ios',
+      'native-desktop-macos',
+      'native-desktop-windows',
+    ])
     expect(targets[1]).toMatchObject({
       platform: 'cocos',
       cocos: {
@@ -165,6 +181,11 @@ describe('qua project config', () => {
         resourceRoot: 'assets/resources',
         hybrid: { enabled: true },
       },
+    })
+    expect(targets[3]).toMatchObject({
+      platform: 'native',
+      suffix: 'desktop-macos',
+      pipeline: { images: { format: 'webp' } },
     })
 
     const merged = mergeQuaProjectAssetTargets([
@@ -175,6 +196,50 @@ describe('qua project config', () => {
       compression: { algorithm: 'none' },
       pipeline: { images: { format: 'webp' } },
     })
+  })
+
+  it('normalizes native target packaging metadata', () => {
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos', 'windows'],
+          profiles: ['release'],
+          layout: 'portrait',
+          outputDir: 'dist/native-apps',
+          app: {
+            buildNumber: '42',
+            icon: 'assets/app/icon.png',
+          },
+        },
+      },
+    })
+
+    expect(project.targets.native).toMatchObject({
+      enabled: true,
+      platforms: ['macos', 'windows'],
+      profiles: ['release'],
+      layout: 'portrait',
+      outputDir: 'dist/native-apps',
+      app: {
+        bundleId: 'com.example.starlight',
+        version: '1.0.0',
+        buildNumber: '42',
+        icon: 'assets/app/icon.png',
+      },
+    })
+  })
+
+  it('validates native target platforms and profiles', () => {
+    expect(() => normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['ios'],
+          profiles: ['staging'],
+        },
+      },
+    })).toThrow(/targets\.native\.platforms.*targets\.native\.profiles/s)
   })
 
   it('syncs Cocos build config files and icon assets', async () => {
@@ -235,6 +300,15 @@ describe('qua project config', () => {
             hybrid: { enabled: true },
           },
         },
+        native: {
+          platforms: ['macos', 'windows'],
+          profiles: ['debug'],
+          outputDir: 'dist/native',
+          app: {
+            buildNumber: '7',
+            icon: 'assets/app/icon.png',
+          },
+        },
       },
     })
 
@@ -245,6 +319,37 @@ describe('qua project config', () => {
       expect.objectContaining({ id: 'web.devices.none', severity: 'error' }),
       expect.objectContaining({ id: 'cocos.project-dir.missing', severity: 'warning' }),
       expect.objectContaining({ id: 'cocos.hybrid.enabled', severity: 'info' }),
+      expect.objectContaining({ id: 'native.platforms', severity: 'info' }),
+      expect.objectContaining({ id: 'native.profiles', severity: 'info' }),
+    ]))
+  })
+
+  it('doctors native target icon readiness', async () => {
+    const root = await createProjectRoot({ icon: false })
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      icons: {},
+      targets: {
+        web: false,
+        native: {
+          platforms: ['macos'],
+          app: {
+            icon: 'assets/app/missing.icns',
+          },
+        },
+      },
+    })
+
+    const result = await doctorQuaProjectConfig(project, { cwd: root })
+
+    expect(result.ok).toBe(false)
+    expect(result.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'native.asset.missing',
+        target: 'native',
+        filePath: 'assets/app/missing.icns',
+        severity: 'error',
+      }),
     ]))
   })
 

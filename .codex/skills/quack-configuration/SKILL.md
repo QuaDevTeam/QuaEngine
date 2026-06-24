@@ -114,7 +114,7 @@ import {
 } from '@quajs/quack/project'
 ```
 
-The manifest owns project identity (`name`, `bundleId`, `version`), home metadata, icons, Web/Cocos targets, Web device support, PWA settings, and Cocos sync/build options. `version` falls back to `package.json`, Web defaults to enabled with desktop/pad/phone enabled, PWA defaults to disabled, and Cocos is enabled only when `targets.cocos` exists and is not disabled.
+The manifest owns project identity (`name`, `bundleId`, `version`), home metadata, icons, Web/Cocos/native targets, Web device support, PWA settings, Cocos sync/build options, and native packaging intent. `version` falls back to `package.json`, Web defaults to enabled with desktop/pad/phone enabled, PWA defaults to disabled, and Cocos/native are enabled only when their target blocks exist and are not disabled.
 
 Quack workspace loading automatically merges manifest-derived `assetTargets` into each workspace bundle unless `projectConfig: false` is set. CLI helpers are:
 
@@ -125,7 +125,7 @@ quack project sync --target web|cocos|all
 quack project build --target cocos --platform android --all
 ```
 
-`quack project doctor` loads the manifest and reports Web device support, favicon/PWA icon readiness, PWA service worker caveats, Cocos platform configuration, Cocos project directory presence, icon sources, and hybrid asset output hints. Treat `error` results as blockers and `warning` results as things to resolve or explicitly accept before packaging.
+`quack project doctor` loads the manifest and reports Web device support, favicon/PWA icon readiness, PWA service worker caveats, Cocos platform configuration, Cocos project directory presence, icon sources, hybrid asset output hints, and native platform/profile/icon/output metadata. Treat `error` results as blockers and `warning` results as things to resolve or explicitly accept before packaging.
 
 `quack project sync --target cocos` writes importable Creator build config JSON under `<projectDir>/qua-build/<platform>.build.json` and copies configured Cocos icon assets into `<projectDir>/assets/qua-app-icons/`. Use Creator command-line `configPath` with these files; do not edit Creator last-build cache.
 
