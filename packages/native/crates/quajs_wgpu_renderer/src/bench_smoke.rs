@@ -28,6 +28,8 @@ const AUDIO_METRICS_ITERATIONS: usize = 96;
 const AUDIO_METRICS_TRACK_COUNT: usize = 48;
 const PACKAGE_RELEASE_ITERATIONS: usize = 64;
 const PACKAGE_RELEASE_RESOURCE_COUNT: usize = 1_200;
+const RESOURCE_REPLACEMENT_ITERATIONS: usize = 64;
+const RESOURCE_REPLACEMENT_RESOURCE_COUNT: usize = 256;
 
 #[test]
 fn bench_smoke_builds_heavy_ui_render_graph_under_stable_threshold() {
@@ -204,6 +206,88 @@ fn bench_smoke_releases_runtime_package_resources_under_stable_threshold() {
     );
 }
 
+#[test]
+fn bench_smoke_reports_replaced_frame_resource_cleanup_under_stable_threshold() {
+    let layout = bench_layout();
+    let view = replacement_pressure_view(RESOURCE_REPLACEMENT_RESOURCE_COUNT);
+    let state = replacement_pressure_state(RESOURCE_REPLACEMENT_RESOURCE_COUNT);
+    let start = Instant::now();
+    let mut replacement_release_count = 0;
+    let mut released_count = 0;
+    let mut cleanup_count = 0;
+    let mut replaced_bytes = 0;
+    let mut declarative_released_count = 0;
+    let mut declarative_released_bytes = 0;
+
+    for _ in 0..RESOURCE_REPLACEMENT_ITERATIONS {
+        let mut replacement_state = state.clone();
+        let update = replacement_state.prepare_frame(layout.clone(), &view);
+        replacement_release_count = update.resource_sync_summary.replacement_release_count;
+        released_count = update.resource_sync_summary.released_count;
+        cleanup_count = update.host_cleanup.len();
+        replaced_bytes = update.resource_sync_summary.released_memory.total_bytes();
+        declarative_released_count = update.resource_sync_summary.declarative_released_count;
+        declarative_released_bytes = update
+            .resource_sync_summary
+            .declarative_released_memory
+            .total_bytes();
+
+        assert!(update.resource_sync.release.is_empty());
+        assert_eq!(
+            update.resource_sync_summary.upsert_count,
+            RESOURCE_REPLACEMENT_RESOURCE_COUNT
+        );
+        assert_eq!(
+            update.resource_sync_summary.released_by_kind[&NativeResourceKind::Texture],
+            RESOURCE_REPLACEMENT_RESOURCE_COUNT / 4
+        );
+        assert_eq!(
+            update.resource_sync_summary.released_by_kind[&NativeResourceKind::Buffer],
+            RESOURCE_REPLACEMENT_RESOURCE_COUNT / 4
+        );
+        assert_eq!(
+            update.resource_sync_summary.released_by_kind[&NativeResourceKind::QssStyle],
+            RESOURCE_REPLACEMENT_RESOURCE_COUNT / 4
+        );
+        assert_eq!(
+            update.resource_sync_summary.released_by_kind[&NativeResourceKind::TokenTable],
+            RESOURCE_REPLACEMENT_RESOURCE_COUNT / 4
+        );
+    }
+
+    let elapsed = start.elapsed();
+    println!(
+        "{{\"bench\":\"native.frame_resource_replacement.summary.smoke\",\"iterations\":{},\"resources\":{},\"replacementReleases\":{},\"released\":{},\"hostCleanup\":{},\"replacedBytes\":{},\"declarativeReleased\":{},\"declarativeReleasedBytes\":{},\"elapsedMs\":{:.3}}}",
+        RESOURCE_REPLACEMENT_ITERATIONS,
+        RESOURCE_REPLACEMENT_RESOURCE_COUNT,
+        replacement_release_count,
+        released_count,
+        cleanup_count,
+        replaced_bytes,
+        declarative_released_count,
+        declarative_released_bytes,
+        elapsed.as_secs_f64() * 1000.0,
+    );
+
+    assert_eq!(
+        replacement_release_count,
+        RESOURCE_REPLACEMENT_RESOURCE_COUNT
+    );
+    assert_eq!(released_count, RESOURCE_REPLACEMENT_RESOURCE_COUNT);
+    assert_eq!(cleanup_count, RESOURCE_REPLACEMENT_RESOURCE_COUNT);
+    assert_eq!(
+        declarative_released_count,
+        RESOURCE_REPLACEMENT_RESOURCE_COUNT / 2
+    );
+    assert!(replaced_bytes > 0);
+    assert!(declarative_released_bytes > 0);
+    assert!(
+        elapsed.as_millis() < 1_000,
+        "native frame resource replacement smoke benchmark exceeded 1000ms: {:?}",
+        elapsed
+    );
+}
+
 fn heavy_ui_view(node_count: usize) -> ViewProjection {
     ViewProjection {
         background: Some(BackgroundProjection {
@@ -236,6 +320,23 @@ fn heavy_ui_view(node_count: usize) -> ViewProjection {
                 ..UiOverlayProjection::new("bench-ui")
             }],
             provenance: provenance("runtime.ui", ["base"]),
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
+}
+
+fn replacement_pressure_view(count: usize) -> ViewProjection {
+    ViewProjection {
+        ui: Some(UiProjection {
+            overlays: (0..count)
+                .map(|index| UiOverlayProjection {
+                    provenance: provenance("runtime.replacement", ["base"]),
+                    ..UiOverlayProjection::new(format!("replacement-{index}"))
+                        .with_surface(format!("bench/replacement-{index}.qui"))
+                })
+                .collect(),
+            provenance: provenance("base", []),
             ..Default::default()
         }),
         ..Default::default()
@@ -344,6 +445,37 @@ fn memory_ledger(count: usize) -> NativeResourceLedger {
     }
 
     ledger
+}
+
+fn replacement_pressure_state(count: usize) -> NativeRendererState {
+    let mut state = NativeRendererState::new();
+
+    for index in 0..count {
+        let kind = match index % 4 {
+            0 => NativeResourceKind::Texture,
+            1 => NativeResourceKind::Buffer,
+            2 => NativeResourceKind::QssStyle,
+            _ => NativeResourceKind::TokenTable,
+        };
+        let gpu_bytes = if matches!(
+            kind,
+            NativeResourceKind::Texture | NativeResourceKind::Buffer
+        ) {
+            1024 + (index as u64 % 16) * 128
+        } else {
+            0
+        };
+
+        state.resources_mut().insert(
+            NativeResourceRecord::new(format!("surface:bench/replacement-{index}.qui"), kind)
+                .owned_by("runtime.stale")
+                .require_package("base")
+                .memory(256 + (index as u64 % 64), gpu_bytes)
+                .label(format!("stale replacement fixture {index}")),
+        );
+    }
+
+    state
 }
 
 fn package_release_state(count: usize) -> NativeRendererState {
