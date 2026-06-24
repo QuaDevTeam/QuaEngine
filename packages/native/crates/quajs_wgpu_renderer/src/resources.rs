@@ -1,6 +1,7 @@
 pub mod assets;
 pub mod audio;
 pub mod budget;
+mod kind;
 pub mod ledger;
 pub mod plan;
 pub mod record;
@@ -23,6 +24,8 @@ pub use summary::{
 };
 pub use sync::{plan_frame_resource_sync, FrameResourceSyncPlan};
 pub use unload::{PackageUnloadBlocker, PackageUnloadBlockerReason, PackageUnloadPlan};
+
+pub(crate) use kind::infer_resource_kind;
 
 #[cfg(test)]
 mod tests;
