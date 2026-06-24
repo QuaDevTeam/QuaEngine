@@ -123,6 +123,25 @@ fn rejects_manifest_app_identity_mismatch() {
 }
 
 #[test]
+fn rejects_missing_or_empty_app_icon_metadata() {
+    let mut missing_icon = native_manifest();
+    missing_icon.app.as_mut().unwrap().icon = None;
+    let error = validate_native_target_bundle_manifest(&missing_icon, Some(&native_expectation()))
+        .expect_err("missing app icon is rejected");
+    assert!(error
+        .to_string()
+        .contains("Native target bundle manifest must include app.icon"));
+
+    let mut empty_icon = native_manifest();
+    empty_icon.app.as_mut().unwrap().icon = Some("  ".to_string());
+    let error = validate_native_target_bundle_manifest(&empty_icon, Some(&native_expectation()))
+        .expect_err("empty app icon is rejected");
+    assert!(error
+        .to_string()
+        .contains("Native target bundle manifest app.icon must not be empty"));
+}
+
+#[test]
 fn rejects_native_manifest_without_renderer_metadata() {
     let mut manifest = native_manifest();
     manifest.native_renderer = None;
