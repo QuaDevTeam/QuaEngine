@@ -48,7 +48,8 @@ Shared engine/game/plugin packages may be reused only when platform-neutral.
 ## QUI/QSS Projection
 
 - Inline QUI surface nodes are renderer projections, not authoritative UI state.
-- Supported foundational QUI node kinds are `Box`, `Backdrop`, `Button`, `Text`, `Image`, `Panel`, and `Scroll`; higher-level components such as dialog, drawer, save/load panels, gallery, and settings should compose from these base nodes.
+- Supported foundational QUI node kinds are `Fragment`, `Box`, `Backdrop`, `Button`, `Text`, `Image`, `Panel`, and `Scroll`; higher-level components such as dialog, drawer, save/load panels, gallery, and settings should compose from these base nodes.
+- `Fragment` is a command-free structural grouping node. It expands its children in place, inherits parent clip/z context, and must not emit draw commands or pointer intent surfaces.
 - `Backdrop` projects a semantic overlay panel. It is visual-only unless it carries an explicit intent, in which case pointer input may resolve that intent through `@quajs/pipeline`.
 - `Panel` projects a semantic container panel. It is visual-only unless it carries an explicit intent, in which case pointer input may resolve that intent through `@quajs/pipeline`.
 - `Scroll` currently projects a scroll panel plus clip-start/clip-end commands and per-command clip bounds for hit testing. It must not own persisted scroll position or authoritative UI state.

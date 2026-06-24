@@ -50,6 +50,13 @@ fn append_surface_node_commands(
         return;
     }
 
+    if node.kind == UiSurfaceNodeKind::Fragment {
+        for child in &node.children {
+            append_surface_node_commands(commands, overlay, child, z_base, clip_bounds);
+        }
+        return;
+    }
+
     if node.kind == UiSurfaceNodeKind::Scroll {
         append_scroll_node_commands(commands, overlay, node, z_base, clip_bounds);
         return;
@@ -151,6 +158,9 @@ fn surface_node_command(
                 .as_ref()
                 .map(|intent| renderer_intent(overlay, node, intent)),
         })),
+        UiSurfaceNodeKind::Fragment => {
+            unreachable!("fragment nodes are expanded before command build")
+        }
         UiSurfaceNodeKind::Text => DrawCommand::new(
             command_id,
             RenderPlane::Screen,
