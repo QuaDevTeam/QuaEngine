@@ -14,7 +14,9 @@ use crate::projection::ui::{
 };
 use crate::projection::view::{build_view_render_graph, ViewProjection};
 use crate::renderer::NativeRendererState;
-use crate::resources::{NativeResourceKind, NativeResourceLedger, NativeResourceRecord};
+use crate::resources::{
+    NativeResourceKind, NativeResourceLedger, NativeResourceRecord, PackageUnloadBlockerReason,
+};
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
     ViewLayoutOrientation,
@@ -24,6 +26,8 @@ const RENDER_GRAPH_ITERATIONS: usize = 64;
 const MEMORY_LEDGER_RESOURCE_COUNT: usize = 1_000;
 const AUDIO_METRICS_ITERATIONS: usize = 96;
 const AUDIO_METRICS_TRACK_COUNT: usize = 48;
+const PACKAGE_RELEASE_ITERATIONS: usize = 64;
+const PACKAGE_RELEASE_RESOURCE_COUNT: usize = 1_200;
 
 #[test]
 fn bench_smoke_builds_heavy_ui_render_graph_under_stable_threshold() {
@@ -108,6 +112,66 @@ fn bench_smoke_prepares_audio_metrics_under_stable_threshold() {
     assert!(
         elapsed.as_millis() < 750,
         "native audio metrics smoke benchmark exceeded 750ms: {:?}",
+        elapsed
+    );
+}
+
+#[test]
+fn bench_smoke_releases_runtime_package_resources_under_stable_threshold() {
+    let state = package_release_state(PACKAGE_RELEASE_RESOURCE_COUNT);
+    let start = Instant::now();
+    let mut clean_released_count = 0;
+    let mut blocked_count = 0;
+    let mut released_bytes = 0;
+    let mut blocked_bytes = 0;
+
+    for _ in 0..PACKAGE_RELEASE_ITERATIONS {
+        let mut clean_state = state.clone();
+        let mut blocked_state = state.clone();
+        let clean_release = clean_state.release_package_resources("runtime.clean");
+        let blocked_release = blocked_state.release_package_resources("runtime.blocked");
+        clean_released_count = clean_release.summary.released_count;
+        blocked_count = blocked_release.summary.blocked_count;
+        released_bytes = clean_release.summary.released_memory.total_bytes();
+        blocked_bytes = blocked_release.summary.blocked_memory.total_bytes();
+
+        assert_eq!(
+            blocked_release
+                .summary
+                .blocked_by_reason
+                .get(&PackageUnloadBlockerReason::PackageRequiredByForeignResource)
+                .copied(),
+            Some(PACKAGE_RELEASE_RESOURCE_COUNT / 4),
+        );
+        assert_eq!(
+            blocked_release
+                .summary
+                .blocked_by_reason
+                .get(&PackageUnloadBlockerReason::OwnerStillRequiredByForeignPackage)
+                .copied(),
+            Some(PACKAGE_RELEASE_RESOURCE_COUNT / 4),
+        );
+    }
+
+    let elapsed = start.elapsed();
+    println!(
+        "{{\"bench\":\"native.package_release.summary.smoke\",\"iterations\":{},\"resources\":{},\"released\":{},\"blocked\":{},\"releasedBytes\":{},\"blockedBytes\":{},\"elapsedMs\":{:.3}}}",
+        PACKAGE_RELEASE_ITERATIONS,
+        PACKAGE_RELEASE_RESOURCE_COUNT,
+        clean_released_count,
+        blocked_count,
+        released_bytes,
+        blocked_bytes,
+        elapsed.as_secs_f64() * 1000.0,
+    );
+
+    assert_eq!(clean_released_count, PACKAGE_RELEASE_RESOURCE_COUNT / 2);
+    assert_eq!(blocked_count, PACKAGE_RELEASE_RESOURCE_COUNT / 2);
+    assert!(released_bytes > 0);
+    assert!(blocked_bytes > 0);
+    assert!(
+        elapsed.as_millis() < 1_000,
+        "native package release smoke benchmark exceeded 1000ms: {:?}",
         elapsed
     );
 }
@@ -252,6 +316,50 @@ fn memory_ledger(count: usize) -> NativeResourceLedger {
     }
 
     ledger
+}
+
+fn package_release_state(count: usize) -> NativeRendererState {
+    let mut state = NativeRendererState::new();
+
+    for index in 0..count {
+        let kind = match index % 4 {
+            0 => NativeResourceKind::Texture,
+            1 => NativeResourceKind::UiAst,
+            2 => NativeResourceKind::QssStyle,
+            _ => NativeResourceKind::DecodedImage,
+        };
+        let memory_cpu = 128 + (index as u64 % 64);
+        let memory_gpu = if matches!(
+            kind,
+            NativeResourceKind::Texture | NativeResourceKind::DecodedImage
+        ) {
+            512 + (index as u64 % 32) * 16
+        } else {
+            0
+        };
+        let mut record = NativeResourceRecord::new(format!("package-release:{index}"), kind)
+            .memory(memory_cpu, memory_gpu);
+
+        match index % 4 {
+            0 | 1 => {
+                record = record.owned_by("runtime.clean");
+            }
+            2 => {
+                record = record
+                    .owned_by("runtime.blocked")
+                    .require_packages(["base", "runtime.blocked"]);
+            }
+            _ => {
+                record = record
+                    .owned_by("runtime.foreign")
+                    .require_package("runtime.blocked");
+            }
+        }
+
+        state.resources_mut().insert(record);
+    }
+
+    state
 }
 
 fn bench_layout() -> ResolvedStageLayout {
