@@ -27,6 +27,10 @@ fn creates_submission_stats_from_frame_ref() {
     assert_eq!(submission.command_count, 1);
     assert_eq!(submission.resource_count, 0);
     assert_eq!(submission.missing_resource_count, 1);
+    assert_eq!(submission.fallback_summary.fallback_count, 0);
+    assert_eq!(submission.fallback_summary.video_fallback_count, 0);
+    assert!(submission.fallback_summary.by_pipeline.is_empty());
+    assert!(submission.fallback_summary.by_reason.is_empty());
     assert_eq!(submission.resolved_resource_memory.total.total_bytes(), 0);
     assert!(submission.resolved_resource_memory.by_kind.is_empty());
     assert!(submission
@@ -174,6 +178,16 @@ fn collects_video_fallback_diagnostics_from_frame_commands() {
             kind: DrawCommandKind::VideoFrame,
             reason: "native video decode backend is not active".to_string(),
         }]
+    );
+    assert_eq!(submission.fallback_summary.fallback_count, 1);
+    assert_eq!(submission.fallback_summary.video_fallback_count, 1);
+    assert_eq!(
+        submission.fallback_summary.by_pipeline[&DrawBatchPipeline::Video],
+        1
+    );
+    assert_eq!(
+        submission.fallback_summary.by_reason["native video decode backend is not active"],
+        1
     );
 }
 

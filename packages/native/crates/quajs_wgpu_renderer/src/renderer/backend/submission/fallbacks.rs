@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::render_graph::{
     DrawBatchPipeline, DrawCommand, DrawCommandKind, DrawCommandParams, RenderGraph, RenderPlane,
@@ -17,6 +17,14 @@ pub struct NativeRenderFallbackDiagnostic {
 pub struct NativeRenderFallbackWarningDiagnostics {
     pub warning_count: usize,
     pub last_warnings: Vec<NativeRenderFallbackDiagnostic>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeRenderFallbackSummary {
+    pub fallback_count: usize,
+    pub video_fallback_count: usize,
+    pub by_pipeline: BTreeMap<DrawBatchPipeline, usize>,
+    pub by_reason: BTreeMap<String, usize>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -54,6 +62,28 @@ pub(super) fn collect_fallback_diagnostics(
         .iter()
         .filter_map(fallback_diagnostic_for_command)
         .collect()
+}
+
+pub(super) fn summarize_fallback_diagnostics(
+    diagnostics: &[NativeRenderFallbackDiagnostic],
+) -> NativeRenderFallbackSummary {
+    let mut summary = NativeRenderFallbackSummary {
+        fallback_count: diagnostics.len(),
+        ..Default::default()
+    };
+
+    for diagnostic in diagnostics {
+        if diagnostic.kind == DrawCommandKind::VideoFrame {
+            summary.video_fallback_count += 1;
+        }
+        *summary.by_pipeline.entry(diagnostic.pipeline).or_default() += 1;
+        *summary
+            .by_reason
+            .entry(diagnostic.reason.clone())
+            .or_default() += 1;
+    }
+
+    summary
 }
 
 fn fallback_diagnostic_for_command(
