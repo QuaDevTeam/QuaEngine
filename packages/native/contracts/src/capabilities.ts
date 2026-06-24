@@ -43,6 +43,7 @@ export interface QuaNativeRendererInfo {
   version: string
   backend: 'wgpu'
   backendVersion?: string
+  capabilityManifestHash: string
   capabilities: readonly RendererTargetCapability[]
 }
 

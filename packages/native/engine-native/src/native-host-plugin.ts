@@ -101,6 +101,14 @@ export function checkNativeRendererManifestCompatibility(
       `Native target bundle manifest renderer backend "${manifestRenderer.backend}" does not match host renderer backend "${hostInfo.renderer.backend}".`,
     )
   }
+  if (
+    manifestRenderer.capabilityManifestHash
+    && manifestRenderer.capabilityManifestHash !== hostInfo.renderer.capabilityManifestHash
+  ) {
+    diagnostics.push(
+      `Native target bundle manifest renderer capability hash "${manifestRenderer.capabilityManifestHash}" does not match host renderer capability hash "${hostInfo.renderer.capabilityManifestHash}".`,
+    )
+  }
 
   const hostCapabilityIds = new Set(hostInfo.renderer.capabilities.map(capability => capability.id))
   for (const capabilityId of manifestRenderer.capabilityIds || []) {

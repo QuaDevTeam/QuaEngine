@@ -2,7 +2,7 @@ pub mod host;
 pub mod quickjs;
 
 pub use host::{
-    current_platform, current_profile, dispatch_native_host_api_request,
+    capability_manifest_hash, current_platform, current_profile, dispatch_native_host_api_request,
     dispatch_native_host_api_request_with_quickjs,
     dispatch_native_host_api_request_with_quickjs_registry, InMemoryNativeHostApi, NativeAppInfo,
     NativeAssetReadRequest, NativeHostApi, NativeHostApiError, NativeHostApiErrorCode,
