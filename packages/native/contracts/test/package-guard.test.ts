@@ -258,6 +258,37 @@ describe('native runtime package guard', () => {
     ])
   })
 
+  it('rejects native compatibility blocks without explicit nativeCode false markers', () => {
+    const result = checkNativeRuntimePackageGuard({
+      package: createRuntimePackage({
+        metadata: {
+          nativeRenderer: {
+            packageName: '@quajs/native-renderer',
+            versionRange: '^0.1.0',
+          },
+          renderers: {
+            native: {
+              renderer: '@quajs/native-renderer',
+              version: '^0.1.0',
+            },
+          },
+        },
+      }),
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
+        field: 'metadata.nativeRenderer.nativeCode',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
+        field: 'metadata.renderers.native.nativeCode',
+      }),
+    ])
+  })
+
   it('rejects plugin metadata that declares native plugin kind or target', () => {
     const result = checkNativeRuntimePackageGuard({
       package: createRuntimePackage({
