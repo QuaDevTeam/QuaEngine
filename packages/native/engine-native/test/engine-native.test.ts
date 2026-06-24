@@ -90,6 +90,17 @@ function createNativeTargetBundleManifest(
       buildNumber: '100',
       icon: 'AppIcon.icns',
     },
+    nativeRenderer: {
+      packageName: '@quajs/native-renderer',
+      version: '0.1.0',
+      backend: 'wgpu',
+      capabilityIds: [
+        'native-wgpu.ui.surface@1',
+        'native-wgpu.video@1',
+        'native-wgpu.input.pointer@1',
+      ],
+      capabilityManifestHash: 'sha256:native-capabilities-fixture',
+    },
     selectedCorePluginFamily: getTargetCorePluginFamily('native'),
     selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
     dependencies: [
@@ -285,6 +296,7 @@ describe('@quajs/engine-native', () => {
       targetBundleManifest: createNativeTargetBundleManifest({
         target: 'web',
         platform: 'web',
+        nativeRenderer: undefined,
         selectedCorePluginFamily: getTargetCorePluginFamily('web'),
         selectedCoreAdapters: ['@quajs/assets-web', '@quajs/renderer-web'],
         dependencies: [

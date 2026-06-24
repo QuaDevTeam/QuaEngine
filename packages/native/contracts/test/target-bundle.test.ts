@@ -61,6 +61,21 @@ function rendererEntry(target: QuaTargetBootstrap): NonNullable<TargetBundleMani
   }
 }
 
+function nativeRendererInfo(): NonNullable<TargetBundleManifest['nativeRenderer']> {
+  return {
+    packageName: '@quajs/native-renderer',
+    version: '0.1.0',
+    backend: 'wgpu',
+    backendVersion: 'wgpu-0.20',
+    capabilityIds: [
+      'native-wgpu.stage-layout@1',
+      'native-wgpu.ui.surface@1',
+      'native-wgpu.input.pointer@1',
+    ],
+    capabilityManifestHash: 'sha256:native-capabilities-fixture',
+  }
+}
+
 function targetBundleManifest(overrides: Partial<TargetBundleManifest> = {}): TargetBundleManifest {
   return targetBundleManifestFor('native', overrides)
 }
@@ -80,6 +95,7 @@ function targetBundleManifestFor(
       buildNumber: '100',
       icon: 'AppIcon.icns',
     },
+    ...(target === 'native' ? { nativeRenderer: nativeRendererInfo() } : {}),
     selectedCorePluginFamily: getTargetCorePluginFamily(target),
     selectedCoreAdapters: CORE_ADAPTERS_BY_TARGET[target],
     dependencies: targetDependencies(target),
@@ -179,6 +195,67 @@ describe('target bundle manifest validation', () => {
         expectedCorePluginFamily: 'native-core',
       }),
     ]))
+  })
+
+  it('requires native artifacts to record renderer version and capability metadata', () => {
+    const manifest = targetBundleManifest()
+    delete manifest.nativeRenderer
+    const result = validateTargetBundleManifest(manifest)
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RENDERER_MISSING',
+        target: 'native',
+      }),
+    ]))
+  })
+
+  it('rejects incomplete native renderer metadata on native artifacts', () => {
+    const result = validateTargetBundleManifest(targetBundleManifest({
+      nativeRenderer: {
+        packageName: '@quajs/renderer-web',
+        backend: 'canvas',
+        capabilityIds: [],
+      },
+    }))
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RENDERER_PACKAGE_MISMATCH',
+        packageName: '@quajs/renderer-web',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RENDERER_BACKEND_MISMATCH',
+        backend: 'canvas',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RENDERER_VERSION_MISSING',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RENDERER_CAPABILITY_MANIFEST_HASH_MISSING',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RENDERER_CAPABILITY_IDS_MISSING',
+      }),
+    ]))
+  })
+
+  it('rejects native renderer metadata in Web and Cocos artifacts', () => {
+    for (const target of ['web', 'cocos'] as const) {
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+        nativeRenderer: nativeRendererInfo(),
+      }))
+
+      expect(result.ok).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TARGET_BUNDLE_NATIVE_RENDERER_UNEXPECTED',
+          target,
+        }),
+      ]))
+    }
   })
 
   it('rejects package roots from another target core plugin family even when the selected adapters are valid', () => {
