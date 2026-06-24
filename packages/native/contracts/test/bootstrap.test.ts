@@ -100,6 +100,7 @@ describe('target bootstrap isolation', () => {
       '@quajs/renderer-svelte/plugins/ui',
       '@quajs/engine-native/native-host',
       '@quajs/assets-native',
+      '@quajs/native-contracts/bootstrap',
     ])
 
     expect(result.ok).toBe(false)
@@ -108,6 +109,7 @@ describe('target bootstrap isolation', () => {
       '@quajs/renderer-svelte',
       '@quajs/engine-native',
       '@quajs/assets-native',
+      '@quajs/native-contracts',
     ])
   })
 
