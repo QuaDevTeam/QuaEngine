@@ -2,7 +2,13 @@ use std::collections::BTreeSet;
 
 use super::ledger::NativeResourceLedger;
 use super::plan::{RenderResourcePlan, RenderResourceRequest};
-use super::record::{NativeResourceKind, NativeResourceRecord, ResourceId};
+use super::record::{NativeResourceKind, NativeResourceRecord, ResourceId, ResourceMemory};
+
+const UI_AST_BASE_CPU_BYTES: u64 = 1024;
+const QSS_STYLE_BASE_CPU_BYTES: u64 = 512;
+const TOKEN_TABLE_BASE_CPU_BYTES: u64 = 256;
+const RESOURCE_ID_BYTE_WEIGHT: u64 = 2;
+const COMMAND_REF_CPU_BYTES: u64 = 64;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FrameResourceSyncPlan {
@@ -51,6 +57,8 @@ fn record_from_request(request: &RenderResourceRequest) -> NativeResourceRecord 
     let mut record = NativeResourceRecord::new(request.id.clone(), request.kind);
     record.owner_package_id = single_owner(&request.owner_package_ids);
     record.required_package_ids = request.required_package_ids.clone();
+    record.memory = estimated_resource_memory(request);
+    record.label = resource_label(request);
 
     if record.owner_package_id.is_none() {
         record
@@ -59,6 +67,35 @@ fn record_from_request(request: &RenderResourceRequest) -> NativeResourceRecord 
     }
 
     record
+}
+
+fn estimated_resource_memory(request: &RenderResourceRequest) -> ResourceMemory {
+    let base_cpu_bytes = match request.kind {
+        NativeResourceKind::UiAst => UI_AST_BASE_CPU_BYTES,
+        NativeResourceKind::QssStyle => QSS_STYLE_BASE_CPU_BYTES,
+        NativeResourceKind::TokenTable => TOKEN_TABLE_BASE_CPU_BYTES,
+        _ => return ResourceMemory::default(),
+    };
+    let id_bytes = (request.id.as_str().len() as u64).saturating_mul(RESOURCE_ID_BYTE_WEIGHT);
+    let command_bytes = (request.command_ids.len() as u64).saturating_mul(COMMAND_REF_CPU_BYTES);
+
+    ResourceMemory {
+        cpu_bytes: base_cpu_bytes
+            .saturating_add(id_bytes)
+            .saturating_add(command_bytes),
+        gpu_bytes: 0,
+    }
+}
+
+fn resource_label(request: &RenderResourceRequest) -> Option<String> {
+    let label_kind = match request.kind {
+        NativeResourceKind::UiAst => "ui ast",
+        NativeResourceKind::QssStyle => "qss style",
+        NativeResourceKind::TokenTable => "token table",
+        _ => return None,
+    };
+
+    Some(format!("{label_kind} {}", request.id.as_str()))
 }
 
 fn single_owner(owner_package_ids: &BTreeSet<String>) -> Option<String> {
