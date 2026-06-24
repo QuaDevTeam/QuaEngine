@@ -1,4 +1,5 @@
 use crate::render_graph::FontWeightDrawParam;
+use crate::resources::ResourceId;
 
 use super::common::{FontFamilyProjection, FontWeightProjection};
 
@@ -34,4 +35,13 @@ pub fn font_weight_to_draw_param(
         }
         _ => None,
     }
+}
+
+pub fn font_family_resource_ids(families: &[String]) -> Vec<ResourceId> {
+    families
+        .iter()
+        .map(|family| family.trim())
+        .filter(|family| !family.is_empty())
+        .map(|family| ResourceId::new(format!("fonts:{family}")))
+        .collect()
 }

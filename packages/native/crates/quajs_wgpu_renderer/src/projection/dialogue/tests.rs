@@ -5,6 +5,7 @@ use crate::projection::common::{FontFamilyProjection, FontWeightProjection, Pack
 use crate::render_graph::{
     DrawCommandKind, DrawCommandParams, FontWeightDrawParam, RenderGraph, RenderPlane, TextAlign,
 };
+use crate::resources::ResourceId;
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
     ViewLayoutOrientation,
@@ -53,6 +54,13 @@ fn builds_dialogue_panel_and_text_commands() {
         }
         _ => panic!("expected speaker text params"),
     }
+    assert_eq!(
+        commands[1].resource_ids,
+        vec![
+            ResourceId::from("fonts:Qua Serif"),
+            ResourceId::from("fonts:Fallback Sans")
+        ]
+    );
 
     match &commands[2].params {
         DrawCommandParams::Text(params) => {
@@ -64,6 +72,7 @@ fn builds_dialogue_panel_and_text_commands() {
         }
         _ => panic!("expected dialogue text params"),
     }
+    assert!(commands[2].resource_ids.is_empty());
 }
 
 #[test]

@@ -1,3 +1,4 @@
+use crate::projection::typography::font_family_resource_ids;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams,
     LogicalRect, MediaFit, MediaOrigin, PanelDrawParams, RenderPlane, RendererIntent, TextAlign,
@@ -42,31 +43,7 @@ pub(super) fn surface_node_command(
                 intent,
             )
         }
-        UiSurfaceNodeKind::Button => DrawCommand::new(
-            command_id,
-            RenderPlane::Screen,
-            DrawCommandKind::UiSurface,
-            bounds,
-        )
-        .interactive(node.intent.is_some())
-        .params(DrawCommandParams::UiButton(UiButtonDrawParams {
-            label: node.text.clone().unwrap_or_default(),
-            enabled: node.intent.is_some(),
-            role: "ui-button".to_string(),
-            background_color: resolve_background_color(&node.style, "rgba(0,0,0,0.0)"),
-            text_color: resolve_text_color(&node.style, "#ffffff"),
-            corner_radius: resolve_border_radius(&node.style, 0.0),
-            border: surface_border_params(&node.style),
-            font_family: resolve_font_family(&node.style),
-            font_size: resolve_font_size(&node.style, 28.0),
-            font_weight: resolve_font_weight(&node.style),
-            line_height: resolve_line_height(&node.style, 36.0),
-            align: resolve_text_align(&node.style, TextAlign::Center),
-            intent: node
-                .intent
-                .as_ref()
-                .map(|intent| renderer_intent(overlay, node, intent)),
-        })),
+        UiSurfaceNodeKind::Button => button_node_command(overlay, node, command_id, bounds),
         UiSurfaceNodeKind::Divider => surface_panel_node_command(
             node,
             command_id,
@@ -91,22 +68,7 @@ pub(super) fn surface_node_command(
         UiSurfaceNodeKind::Spacer => {
             unreachable!("spacer nodes are skipped before command build")
         }
-        UiSurfaceNodeKind::Text => DrawCommand::new(
-            command_id,
-            RenderPlane::Screen,
-            DrawCommandKind::Text,
-            bounds,
-        )
-        .params(DrawCommandParams::Text(TextDrawParams {
-            text: node.text.clone().unwrap_or_default(),
-            font_family: resolve_font_family(&node.style),
-            font_size: resolve_font_size(&node.style, 28.0),
-            font_weight: resolve_font_weight(&node.style),
-            line_height: resolve_line_height(&node.style, 36.0),
-            align: resolve_text_align(&node.style, TextAlign::Left),
-            color: resolve_text_color(&node.style, "#ffffff"),
-            role: "ui-text".to_string(),
-        })),
+        UiSurfaceNodeKind::Text => text_node_command(node, command_id, bounds),
         UiSurfaceNodeKind::Image => image_node_command(node, command_id, bounds),
         UiSurfaceNodeKind::Panel => {
             let intent = node
@@ -173,6 +135,68 @@ pub(super) fn scroll_clip_command(
 
     let command = apply_provenance(command, &overlay.provenance);
     apply_provenance(command, &node.provenance)
+}
+
+fn button_node_command(
+    overlay: &UiOverlayProjection,
+    node: &UiSurfaceNodeProjection,
+    command_id: String,
+    bounds: LogicalRect,
+) -> DrawCommand {
+    let font_family = resolve_font_family(&node.style);
+
+    DrawCommand::new(
+        command_id,
+        RenderPlane::Screen,
+        DrawCommandKind::UiSurface,
+        bounds,
+    )
+    .interactive(node.intent.is_some())
+    .resources(font_family_resource_ids(&font_family))
+    .params(DrawCommandParams::UiButton(UiButtonDrawParams {
+        label: node.text.clone().unwrap_or_default(),
+        enabled: node.intent.is_some(),
+        role: "ui-button".to_string(),
+        background_color: resolve_background_color(&node.style, "rgba(0,0,0,0.0)"),
+        text_color: resolve_text_color(&node.style, "#ffffff"),
+        corner_radius: resolve_border_radius(&node.style, 0.0),
+        border: surface_border_params(&node.style),
+        font_family,
+        font_size: resolve_font_size(&node.style, 28.0),
+        font_weight: resolve_font_weight(&node.style),
+        line_height: resolve_line_height(&node.style, 36.0),
+        align: resolve_text_align(&node.style, TextAlign::Center),
+        intent: node
+            .intent
+            .as_ref()
+            .map(|intent| renderer_intent(overlay, node, intent)),
+    }))
+}
+
+fn text_node_command(
+    node: &UiSurfaceNodeProjection,
+    command_id: String,
+    bounds: LogicalRect,
+) -> DrawCommand {
+    let font_family = resolve_font_family(&node.style);
+
+    DrawCommand::new(
+        command_id,
+        RenderPlane::Screen,
+        DrawCommandKind::Text,
+        bounds,
+    )
+    .resources(font_family_resource_ids(&font_family))
+    .params(DrawCommandParams::Text(TextDrawParams {
+        text: node.text.clone().unwrap_or_default(),
+        font_family,
+        font_size: resolve_font_size(&node.style, 28.0),
+        font_weight: resolve_font_weight(&node.style),
+        line_height: resolve_line_height(&node.style, 36.0),
+        align: resolve_text_align(&node.style, TextAlign::Left),
+        color: resolve_text_color(&node.style, "#ffffff"),
+        role: "ui-text".to_string(),
+    }))
 }
 
 fn image_node_command(

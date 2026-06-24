@@ -4,10 +4,12 @@ use super::*;
 use crate::projection::background::{BackgroundProjection, BackgroundVideoProjection};
 use crate::projection::character::CharacterProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
+use crate::projection::common::FontFamilyProjection;
 use crate::projection::common::PackageProvenance;
 use crate::projection::ui::{
     UiIntentProjection, UiOverlayProjection, UiOverlaySurfaceProjection, UiProjection,
     UiSurfaceImageProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect,
+    UiSurfaceResolvedStyle,
 };
 use crate::projection::view::ViewProjection;
 use crate::render_graph::{DrawCommandKind, DrawCommandParams, RenderPlane};
@@ -183,7 +185,13 @@ fn includes_inline_ui_surface_node_resource_requests_in_prepared_frame() {
                                     ui_rect(280.0, 184.0, 96.0, 44.0),
                                 )
                                 .with_text("Close")
-                                .with_intent(UiIntentProjection::new("close")),
+                                .with_intent(UiIntentProjection::new("close"))
+                                .with_style(
+                                    UiSurfaceResolvedStyle {
+                                        font_family: Some(FontFamilyProjection::new(["Menu Face"])),
+                                        ..Default::default()
+                                    },
+                                ),
                             ]),
                         ),
                     ),
@@ -218,13 +226,22 @@ fn includes_inline_ui_surface_node_resource_requests_in_prepared_frame() {
             .kind,
         NativeResourceKind::Texture
     );
+    assert_eq!(
+        frame.resources.request("fonts:Menu Face").unwrap().kind,
+        NativeResourceKind::FontFace
+    );
     assert!(frame.assets.request("surface", "ui/menu.qui").is_some());
     assert!(frame.assets.request("images", "ui/poster.png").is_some());
+    assert!(frame.assets.request("fonts", "Menu Face").is_some());
 
     let poster = frame.assets.request("images", "ui/poster.png").unwrap();
     assert!(poster.package_candidates.contains("runtime.menu"));
     assert!(poster.package_candidates.contains("runtime.ui"));
     assert!(!poster.package_candidates.contains("ui/menu.qui"));
+
+    let font = frame.assets.request("fonts", "Menu Face").unwrap();
+    assert!(font.package_candidates.contains("runtime.menu"));
+    assert!(font.package_candidates.contains("runtime.ui"));
 }
 
 fn view_with_background_character_and_choices() -> ViewProjection {
