@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::audio::AudioBackendCommandPlan;
 use crate::resources::{
     AudioResourceSyncPlan, FrameResourceSyncPlan, NativeAssetRequestPlan, NativeResourceKind,
     NativeResourceLedger, NativeResourceRecord, PackageUnloadBlocker, PackageUnloadBlockerReason,
@@ -16,6 +17,7 @@ pub struct NativeRendererFrameUpdate {
     pub audio_resource_sync: AudioResourceSyncPlan,
     pub audio_resource_sync_summary: NativeRendererFrameAudioResourceSyncSummary,
     pub audio_assets: NativeAssetRequestPlan,
+    pub audio_backend_commands: AudioBackendCommandPlan,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
