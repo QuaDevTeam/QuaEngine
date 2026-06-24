@@ -36,6 +36,7 @@ fn prepares_and_submits_frame_through_backend() {
     assert_eq!(result.submission.batch_count, 3);
     assert_eq!(result.submission.command_count, 4);
     assert_eq!(result.submission.resource_count, 1);
+    assert_eq!(result.submission.missing_resource_count, 0);
     assert_eq!(
         result
             .submission
@@ -47,6 +48,10 @@ fn prepares_and_submits_frame_through_backend() {
     );
     assert_eq!(result.submission.passes[0].batch_count, 1);
     assert_eq!(result.submission.passes[1].batch_count, 2);
+    assert_eq!(result.submission.passes[0].resolved_resource_count, 1);
+    assert_eq!(result.submission.passes[0].missing_resource_count, 0);
+    assert_eq!(result.submission.passes[1].resolved_resource_count, 0);
+    assert_eq!(result.submission.passes[1].missing_resource_count, 0);
     assert_eq!(
         result.submission.passes[0]
             .batches
@@ -63,6 +68,13 @@ fn prepares_and_submits_frame_through_backend() {
             .collect::<Vec<_>>(),
         vec![DrawBatchPipeline::Shape, DrawBatchPipeline::Ui]
     );
+    assert_eq!(
+        result.submission.passes[0].batches[0].resolved_resource_ids,
+        vec![ResourceId::from("images:bg/school.png")]
+    );
+    assert!(result.submission.passes[0].batches[0]
+        .missing_resource_ids
+        .is_empty());
     assert_eq!(renderer.backend().submissions, vec![result.submission]);
     assert_eq!(renderer.resources().len(), 1);
 }
