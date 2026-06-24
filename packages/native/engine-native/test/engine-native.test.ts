@@ -733,6 +733,13 @@ describe('@quajs/engine-native', () => {
       bundleName: 'runtime.chapter.native-ui',
       assetName: 'https://example.invalid/remote.js',
     }, ctx)).rejects.toThrow(/package-relative script asset/)
+
+    await expect(loader.loadScriptModule?.({
+      id: 'native-payload',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/plugin.node',
+    }, ctx)).rejects.toThrow(/must not reference a native payload/)
   })
 
   it('rejects native runtime evaluators that do not return a module namespace object', async () => {
