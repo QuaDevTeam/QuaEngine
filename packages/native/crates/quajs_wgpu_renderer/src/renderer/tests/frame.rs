@@ -1,4 +1,6 @@
 use super::*;
+use crate::audio::AudioBackendCommandKind;
+use crate::projection::audio::AudioTrackPlaybackState;
 use crate::projection::view::ViewProjection;
 use crate::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
 
@@ -115,6 +117,18 @@ fn prepares_audio_projection_resources_without_render_graph_commands() {
     assert_eq!(update.audio_assets.requests.len(), 1);
     assert_eq!(
         update
+            .audio_backend_commands
+            .commands
+            .iter()
+            .map(|command| command.kind.clone())
+            .collect::<Vec<_>>(),
+        vec![
+            AudioBackendCommandKind::LoadAsset,
+            AudioBackendCommandKind::StartTrack,
+        ]
+    );
+    assert_eq!(
+        update
             .audio_assets
             .request("bgm", "music/opening.ogg")
             .unwrap()
@@ -161,6 +175,18 @@ fn releases_audio_resources_when_projection_removes_them() {
     assert_eq!(update.audio_resource_sync_summary.release_count, 2);
     assert_eq!(update.audio_resource_sync_summary.released_count, 2);
     assert_eq!(
+        update
+            .audio_backend_commands
+            .commands
+            .iter()
+            .map(|command| command.kind.clone())
+            .collect::<Vec<_>>(),
+        vec![
+            AudioBackendCommandKind::StopTrack,
+            AudioBackendCommandKind::ReleaseHandle,
+        ]
+    );
+    assert_eq!(
         update.audio_resource_sync_summary.released_by_kind[&NativeResourceKind::AudioBuffer],
         1
     );
@@ -170,4 +196,33 @@ fn releases_audio_resources_when_projection_removes_them() {
     );
     assert_eq!(update.host_cleanup.len(), 2);
     assert!(state.resources().is_empty());
+}
+
+#[test]
+fn prepares_audio_backend_update_commands_without_reloading_asset() {
+    let mut state = NativeRendererState::new();
+    state.prepare_frame(test_layout(), &view_with_audio());
+    let mut view = view_with_audio();
+    let track = view.audio.as_mut().unwrap().tracks.get_mut(0).unwrap();
+    track.volume = 0.4;
+    track.playback_state = AudioTrackPlaybackState::Paused;
+
+    let update = state.prepare_frame(test_layout(), &view);
+
+    assert_eq!(
+        update
+            .audio_backend_commands
+            .commands
+            .iter()
+            .map(|command| command.kind.clone())
+            .collect::<Vec<_>>(),
+        vec![AudioBackendCommandKind::UpdateTrack]
+    );
+    let track = update.audio_backend_commands.commands[0]
+        .track
+        .as_ref()
+        .unwrap();
+    assert_eq!(track.volume, 0.4);
+    assert_eq!(track.playback_state, AudioTrackPlaybackState::Paused);
+    assert_eq!(update.audio_resource_sync_summary.retain_count, 2);
 }

@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use crate::audio::{plan_audio_backend_commands, AudioBackendTrackStateMap};
 use crate::frame::{prepare_native_frame, PreparedNativeFrame};
 use crate::input::{
     resolve_pointer_event_with_interaction, NativePointerEvent, NativePointerEventResolution,
@@ -31,6 +32,7 @@ pub struct NativeRendererState {
     resources: NativeResourceLedger,
     pointer_interaction: NativePointerInteractionState,
     active_audio_resource_ids: BTreeSet<crate::resources::ResourceId>,
+    audio_backend_tracks: AudioBackendTrackStateMap,
 }
 
 impl NativeRendererState {
@@ -105,6 +107,11 @@ impl NativeRendererState {
         let resource_sync = plan_frame_resource_sync(&self.resources, &frame.resources);
         let audio_resource_sync = plan_audio_resource_sync(&self.resources, view.audio.as_ref());
         let audio_assets = plan_audio_asset_requests(&self.resources, &audio_resource_sync);
+        let audio_backend_commands = plan_audio_backend_commands(
+            &self.audio_backend_tracks,
+            view.audio.as_ref(),
+            &audio_assets,
+        );
         let mut released_resources = apply_resource_sync(&mut self.resources, &resource_sync);
         let audio_released_resources =
             apply_audio_resource_sync(&mut self.resources, &audio_resource_sync);
@@ -117,6 +124,7 @@ impl NativeRendererState {
 
         self.revision = self.revision.saturating_add(1);
         self.active_audio_resource_ids = active_audio_resource_ids(view.audio.as_ref());
+        self.audio_backend_tracks = audio_backend_commands.next_tracks.clone();
         self.frame = Some(frame);
 
         NativeRendererFrameUpdate {
@@ -128,6 +136,7 @@ impl NativeRendererState {
             audio_resource_sync,
             audio_resource_sync_summary,
             audio_assets,
+            audio_backend_commands,
         }
     }
 
@@ -182,6 +191,7 @@ impl NativeRendererState {
         self.revision = self.revision.saturating_add(1);
         self.pointer_interaction.clear();
         self.active_audio_resource_ids.clear();
+        self.audio_backend_tracks.clear();
         self.resources.clear()
     }
 

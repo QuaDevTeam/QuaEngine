@@ -1,3 +1,4 @@
+pub mod audio;
 pub mod capabilities;
 pub mod frame;
 pub mod input;
