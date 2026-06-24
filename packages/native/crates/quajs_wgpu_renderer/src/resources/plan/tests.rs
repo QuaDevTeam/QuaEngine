@@ -74,7 +74,7 @@ fn deduplicates_repeated_resource_refs_and_merges_provenance() {
 }
 
 #[test]
-fn infers_video_decoder_and_poster_texture_requests() {
+fn plans_video_fallback_poster_texture_without_decoder_request() {
     let graph = build_view_render_graph(
         test_layout(),
         &ViewProjection {
@@ -93,16 +93,13 @@ fn infers_video_decoder_and_poster_texture_requests() {
 
     let plan = plan_render_graph_resources(&graph);
 
-    assert_eq!(plan.requests.len(), 2);
-    assert_eq!(
-        plan.request("video:opening.mp4").unwrap().kind,
-        NativeResourceKind::VideoDecoder
-    );
+    assert_eq!(plan.requests.len(), 1);
+    assert!(plan.request("video:opening.mp4").is_none());
     assert_eq!(
         plan.request("images:poster/opening.png").unwrap().kind,
         NativeResourceKind::Texture
     );
-    assert_eq!(plan.by_kind[&NativeResourceKind::VideoDecoder], 1);
+    assert!(!plan.by_kind.contains_key(&NativeResourceKind::VideoDecoder));
     assert_eq!(plan.by_kind[&NativeResourceKind::Texture], 1);
 }
 

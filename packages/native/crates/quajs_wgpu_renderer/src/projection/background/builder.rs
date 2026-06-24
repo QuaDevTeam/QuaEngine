@@ -123,7 +123,6 @@ fn background_video_command(
         full_stage_rect(layout),
     )
     .opacity(video.opacity)
-    .resource(background_resource_id(&asset_type, &video.asset_name))
     .params(DrawCommandParams::Video(VideoDrawParams {
         asset_type,
         asset_name: video.asset_name.clone(),

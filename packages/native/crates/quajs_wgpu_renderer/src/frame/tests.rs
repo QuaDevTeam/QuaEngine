@@ -69,7 +69,7 @@ fn resolves_hit_intent_from_prepared_frame() {
 }
 
 #[test]
-fn keeps_video_resource_requests_visible_to_frame_consumer() {
+fn keeps_video_fallback_poster_requests_visible_to_frame_consumer() {
     let frame = prepare_native_frame(
         test_layout(),
         &ViewProjection {
@@ -88,10 +88,7 @@ fn keeps_video_resource_requests_visible_to_frame_consumer() {
 
     assert_eq!(frame.summary.command_count, 1);
     assert_eq!(frame.graph.commands()[0].kind, DrawCommandKind::VideoFrame);
-    assert_eq!(
-        frame.resources.request("video:opening.mp4").unwrap().kind,
-        NativeResourceKind::VideoDecoder
-    );
+    assert!(frame.resources.request("video:opening.mp4").is_none());
     assert_eq!(
         frame
             .resources
@@ -100,7 +97,7 @@ fn keeps_video_resource_requests_visible_to_frame_consumer() {
             .kind,
         NativeResourceKind::Texture
     );
-    assert!(frame.assets.request("video", "opening.mp4").is_some());
+    assert!(frame.assets.request("video", "opening.mp4").is_none());
     assert!(frame
         .assets
         .request("images", "poster/opening.png")

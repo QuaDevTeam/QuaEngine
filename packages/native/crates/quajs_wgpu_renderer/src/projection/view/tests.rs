@@ -151,10 +151,7 @@ fn supports_video_background_fallback_inside_view_graph() {
     assert_eq!(video.owner_package_id.as_deref(), Some("runtime.video"));
     assert_eq!(
         video.resource_ids,
-        vec![
-            ResourceId::from("video:opening.mp4"),
-            ResourceId::from("images:poster/opening.png"),
-        ]
+        vec![ResourceId::from("images:poster/opening.png")]
     );
 }
 

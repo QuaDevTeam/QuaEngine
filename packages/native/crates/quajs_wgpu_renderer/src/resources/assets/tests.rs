@@ -54,7 +54,7 @@ fn plans_asset_requests_from_render_resources() {
 }
 
 #[test]
-fn keeps_video_and_poster_as_separate_asset_requests() {
+fn requests_video_fallback_poster_asset_without_decoder_asset() {
     let graph = build_view_render_graph(
         test_layout(),
         &ViewProjection {
@@ -74,10 +74,7 @@ fn keeps_video_and_poster_as_separate_asset_requests() {
 
     let assets = plan_asset_requests(&resources);
 
-    assert_eq!(
-        assets.request("video", "opening.mp4").unwrap().kind,
-        NativeResourceKind::VideoDecoder
-    );
+    assert!(assets.request("video", "opening.mp4").is_none());
     assert_eq!(
         assets.request("images", "poster/opening.png").unwrap().kind,
         NativeResourceKind::Texture
