@@ -4,6 +4,7 @@ export type NativeRuntimePackageGuardDiagnosticCode
   = | 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED'
     | 'NATIVE_PACKAGE_NATIVE_PAYLOAD_FORBIDDEN'
     | 'NATIVE_PACKAGE_NATIVE_PLUGIN_FORBIDDEN'
+    | 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN'
 
 export interface NativeRuntimePackageGuardDiagnostic {
   code: NativeRuntimePackageGuardDiagnosticCode
@@ -113,6 +114,15 @@ export function checkNativeRuntimePackageGuard(options: CheckNativeRuntimePackag
   collectNativePluginDeclarations(runtimePackage, diagnostics)
 
   for (const assetName of collectRuntimePackageAssetNames(runtimePackage, options.bundle?.manifest)) {
+    if (isForbiddenNativeAssetReference(assetName)) {
+      diagnostics.push({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        severity: 'error',
+        packageId: runtimePackage.id,
+        assetName,
+        message: `Native runtime package "${runtimePackage.id}" contains forbidden asset reference "${assetName}".`,
+      })
+    }
     if (isForbiddenNativePayload(assetName, forbiddenExtensions)) {
       diagnostics.push({
         code: 'NATIVE_PACKAGE_NATIVE_PAYLOAD_FORBIDDEN',
@@ -145,6 +155,14 @@ export function isForbiddenNativePayload(assetName: string, forbiddenExtensions:
   const normalized = assetName.toLowerCase().replace(/\\/g, '/')
   return Array.from(forbiddenExtensions).some(extension =>
     normalized.endsWith(extension) || normalized.includes(`${extension}/`))
+}
+
+export function isForbiddenNativeAssetReference(assetName: string): boolean {
+  const normalized = assetName.replace(/\\/g, '/')
+  return normalized.startsWith('/')
+    || normalized.startsWith('\\')
+    || /^[a-z][a-z0-9+.-]*:/i.test(normalized)
+    || normalized.split('/').includes('..')
 }
 
 function collectNativeCodeDeclarations(

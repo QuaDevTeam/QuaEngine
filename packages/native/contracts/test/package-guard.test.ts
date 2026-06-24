@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import {
   assertNativeRuntimePackageGuard,
   checkNativeRuntimePackageGuard,
+  isForbiddenNativeAssetReference,
   isForbiddenNativePayload,
 } from '../src'
 
@@ -153,6 +154,74 @@ describe('native runtime package guard', () => {
     ])
   })
 
+  it('rejects non-package-relative asset references before native runtime loading', () => {
+    const runtimePackage = createRuntimePackage({
+      scripts: [
+        {
+          id: 'remote',
+          assetName: 'https://cdn.example.invalid/opening.js',
+          variants: {
+            escape: {
+              assetName: '../outside.js',
+            },
+          },
+        },
+      ],
+      scenes: [
+        { id: 'absolute-scene', assetName: '/tmp/scene.js' },
+      ],
+      plugins: [
+        {
+          id: 'windows-plugin',
+          kind: 'renderer',
+          assetName: 'C:\\native\\plugin.js',
+        },
+      ],
+      storeMigrations: [
+        { id: 'settings', assetName: 'migrations/../settings.js' },
+      ],
+    })
+    const bundle = createBundle(runtimePackage)
+    bundle.manifest.assets.images!['escape.png'] = {
+      name: 'escape.png',
+      path: 'images/../escape.png',
+      relativePath: 'images/../escape.png',
+    }
+
+    const result = checkNativeRuntimePackageGuard({
+      package: runtimePackage,
+      bundle,
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: 'https://cdn.example.invalid/opening.js',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: '../outside.js',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: '/tmp/scene.js',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: 'C:\\native\\plugin.js',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: 'migrations/../settings.js',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: 'images/../escape.png',
+      }),
+    ]))
+  })
+
   it('rejects nativeCode declarations in package and plugin metadata', () => {
     const result = checkNativeRuntimePackageGuard({
       package: createRuntimePackage({
@@ -228,5 +297,14 @@ describe('native runtime package guard', () => {
   it('matches native payload extensions case-insensitively', () => {
     expect(isForbiddenNativePayload('Plugins/Renderer.DYLIB')).toBe(true)
     expect(isForbiddenNativePayload('ui/menu.qui.json')).toBe(false)
+  })
+
+  it('matches forbidden native asset references across path styles', () => {
+    expect(isForbiddenNativeAssetReference('https://example.invalid/asset.js')).toBe(true)
+    expect(isForbiddenNativeAssetReference('/absolute/asset.js')).toBe(true)
+    expect(isForbiddenNativeAssetReference('C:\\native\\plugin.js')).toBe(true)
+    expect(isForbiddenNativeAssetReference('scripts/../escape.js')).toBe(true)
+    expect(isForbiddenNativeAssetReference('scripts/opening.js')).toBe(false)
+    expect(isForbiddenNativeAssetReference('ui/menu.qui.json')).toBe(false)
   })
 })
