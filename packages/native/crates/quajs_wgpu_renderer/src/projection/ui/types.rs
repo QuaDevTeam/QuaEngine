@@ -99,6 +99,7 @@ pub enum UiSurfaceNodeKind {
     Button,
     Divider,
     Fragment,
+    Spacer,
     Text,
     Image,
     Panel,

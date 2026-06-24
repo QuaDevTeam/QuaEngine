@@ -64,7 +64,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             ],
             &[
                 "Box", "Backdrop", "Button", "Divider", "Fragment", "Text", "Image", "Panel",
-                "Scroll",
+                "Scroll", "Spacer",
             ],
             "reject-package",
         ),
@@ -163,6 +163,7 @@ mod tests {
         assert!(ui.qui_components.contains(&"Image".to_string()));
         assert!(ui.qui_components.contains(&"Panel".to_string()));
         assert!(ui.qui_components.contains(&"Scroll".to_string()));
+        assert!(ui.qui_components.contains(&"Spacer".to_string()));
         assert!(!ui.qui_components.contains(&"VirtualList".to_string()));
         assert!(!ui.qui_components.contains(&"FocusScope".to_string()));
 
@@ -177,6 +178,7 @@ mod tests {
         assert!(pointer.qui_components.contains(&"Panel".to_string()));
         assert!(!pointer.qui_components.contains(&"Divider".to_string()));
         assert!(!pointer.qui_components.contains(&"Fragment".to_string()));
+        assert!(!pointer.qui_components.contains(&"Spacer".to_string()));
         assert!(pointer.intent_events.contains(&"choice/select".to_string()));
         assert!(pointer.intent_events.contains(&"ui/intent".to_string()));
         assert!(pointer
