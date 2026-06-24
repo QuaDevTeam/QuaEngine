@@ -3,7 +3,9 @@ use crate::frame::prepare_native_frame;
 use crate::projection::background::BackgroundProjection;
 use crate::projection::view::ViewProjection;
 use crate::render_graph::{DrawBatchPipeline, DrawCommandKind, RenderPlane};
-use crate::resources::{NativeResourceLedger, ResourceId};
+use crate::resources::{
+    NativeResourceKind, NativeResourceLedger, NativeResourceRecord, ResourceId,
+};
 use crate::stage_layout::{
     resolve_stage_layout, StageContainerInput, ViewLayoutInput, ViewLayoutOrientation,
 };
@@ -45,12 +47,17 @@ fn creates_submission_stats_from_frame_ref() {
     assert_eq!(submission.command_count, 1);
     assert_eq!(submission.resource_count, 0);
     assert_eq!(submission.missing_resource_count, 1);
+    assert_eq!(submission.resolved_resource_memory.total_bytes(), 0);
     assert_eq!(submission.passes.len(), 1);
     assert_eq!(submission.passes[0].plane, RenderPlane::Scene);
     assert_eq!(submission.passes[0].batch_count, 1);
     assert_eq!(submission.passes[0].command_count, 1);
     assert_eq!(submission.passes[0].resolved_resource_count, 0);
     assert_eq!(submission.passes[0].missing_resource_count, 1);
+    assert_eq!(
+        submission.passes[0].resolved_resource_memory.total_bytes(),
+        0
+    );
     assert_eq!(submission.passes[0].batches.len(), 1);
     assert_eq!(
         submission.passes[0].batches[0].pipeline,
@@ -65,6 +72,12 @@ fn creates_submission_stats_from_frame_ref() {
         .resolved_resource_ids
         .is_empty());
     assert_eq!(
+        submission.passes[0].batches[0]
+            .resolved_resource_memory
+            .total_bytes(),
+        0
+    );
+    assert_eq!(
         submission.passes[0].batches[0].missing_resource_ids,
         vec![ResourceId::from("images:bg/school.png")]
     );
@@ -75,5 +88,81 @@ fn creates_submission_stats_from_frame_ref() {
     assert_eq!(
         submission.passes[0].viewport,
         frame.passes.passes[0].viewport
+    );
+}
+
+#[test]
+fn summarizes_resolved_submission_resource_memory() {
+    let frame = prepare_native_frame(
+        resolve_stage_layout(
+            Some(ViewLayoutInput {
+                preset: Some(ViewLayoutOrientation::Landscape),
+                ..Default::default()
+            }),
+            StageContainerInput {
+                width: Some(1600.0),
+                height: Some(1000.0),
+                ..Default::default()
+            },
+        ),
+        &ViewProjection {
+            background: Some(BackgroundProjection {
+                asset_name: Some("bg/school.png".to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    );
+    let mut resources = NativeResourceLedger::new();
+    resources.insert(
+        NativeResourceRecord::new(
+            ResourceId::from("images:bg/school.png"),
+            NativeResourceKind::Texture,
+        )
+        .memory(512, 4096),
+    );
+    resources.insert(
+        NativeResourceRecord::new(
+            ResourceId::from("images:unused.png"),
+            NativeResourceKind::Texture,
+        )
+        .memory(1024, 8192),
+    );
+    let frame_ref = NativeRenderFrameRef {
+        revision: 8,
+        frame: &frame,
+        resources: &resources,
+    };
+
+    let submission = frame_ref.submission();
+
+    assert_eq!(submission.resource_count, 2);
+    assert_eq!(submission.missing_resource_count, 0);
+    assert_eq!(submission.resolved_resource_memory.cpu_bytes, 512);
+    assert_eq!(submission.resolved_resource_memory.gpu_bytes, 4096);
+    assert_ne!(submission.resolved_resource_memory.cpu_bytes, 1536);
+    assert_ne!(submission.resolved_resource_memory.gpu_bytes, 12288);
+    assert_eq!(submission.passes[0].resolved_resource_count, 1);
+    assert_eq!(submission.passes[0].missing_resource_count, 0);
+    assert_eq!(submission.passes[0].resolved_resource_memory.cpu_bytes, 512);
+    assert_eq!(
+        submission.passes[0].resolved_resource_memory.gpu_bytes,
+        4096
+    );
+    assert_eq!(
+        submission.passes[0].batches[0].resolved_resource_ids,
+        vec![ResourceId::from("images:bg/school.png")]
+    );
+    assert_eq!(
+        submission.passes[0].batches[0]
+            .resolved_resource_memory
+            .cpu_bytes,
+        512
+    );
+    assert_eq!(
+        submission.passes[0].batches[0]
+            .resolved_resource_memory
+            .gpu_bytes,
+        4096
     );
 }
