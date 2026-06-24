@@ -67,10 +67,17 @@ pub enum TextAlign {
     Justify,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FontWeightDrawParam {
+    Number(u16),
+    Keyword(String),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextDrawParams {
     pub text: String,
     pub font_size: f64,
+    pub font_weight: Option<FontWeightDrawParam>,
     pub line_height: f64,
     pub align: TextAlign,
     pub color: String,
@@ -118,6 +125,7 @@ pub struct UiButtonDrawParams {
     pub text_color: String,
     pub corner_radius: f64,
     pub border: BorderDrawParams,
+    pub font_weight: Option<FontWeightDrawParam>,
     pub intent: Option<RendererIntent>,
 }
 

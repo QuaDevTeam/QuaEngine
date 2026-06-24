@@ -1,4 +1,5 @@
-use crate::render_graph::TextAlign;
+use crate::projection::typography::font_weight_to_draw_param;
+use crate::render_graph::{FontWeightDrawParam, TextAlign};
 
 use super::types::{RichTextContent, RichTextStyle};
 
@@ -40,6 +41,10 @@ pub fn resolve_font_size(style: &RichTextStyle, fallback: f64) -> f64 {
         .font_size
         .filter(|value| value.is_finite() && *value > 0.0)
         .unwrap_or(fallback)
+}
+
+pub fn resolve_font_weight(style: &RichTextStyle) -> Option<FontWeightDrawParam> {
+    font_weight_to_draw_param(&style.font_weight)
 }
 
 pub fn resolve_line_height(style: &RichTextStyle, fallback: f64) -> f64 {
