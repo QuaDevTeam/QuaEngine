@@ -28,11 +28,12 @@ pub struct NativeRendererFrameMetrics {
     pub by_plane: BTreeMap<RenderPlane, RenderPlaneSummary>,
     pub by_package: BTreeMap<String, RenderGraphPackageSummary>,
     pub by_resource_kind: BTreeMap<NativeResourceKind, usize>,
-    pub asset_requests_by_package: BTreeMap<String, NativeRendererFrameAssetPackageMetrics>,
+    pub asset_requests_by_type: BTreeMap<String, NativeRendererFrameAssetMetrics>,
+    pub asset_requests_by_package: BTreeMap<String, NativeRendererFrameAssetMetrics>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct NativeRendererFrameAssetPackageMetrics {
+pub struct NativeRendererFrameAssetMetrics {
     pub request_count: usize,
     pub command_ref_count: usize,
 }
@@ -75,20 +76,37 @@ fn frame_metrics(frame: &PreparedNativeFrame) -> NativeRendererFrameMetrics {
         by_plane: frame.summary.by_plane.clone(),
         by_package: frame.summary.by_package.clone(),
         by_resource_kind: frame.resources.by_kind.clone(),
+        asset_requests_by_type: frame_asset_type_metrics(frame),
         asset_requests_by_package: frame_asset_package_metrics(frame),
     }
 }
 
+fn frame_asset_type_metrics(
+    frame: &PreparedNativeFrame,
+) -> BTreeMap<String, NativeRendererFrameAssetMetrics> {
+    let mut by_type = BTreeMap::new();
+
+    for request in &frame.assets.requests {
+        let summary = by_type
+            .entry(request.asset_type.clone())
+            .or_insert_with(NativeRendererFrameAssetMetrics::default);
+        summary.request_count += 1;
+        summary.command_ref_count += request.command_ids.len();
+    }
+
+    by_type
+}
+
 fn frame_asset_package_metrics(
     frame: &PreparedNativeFrame,
-) -> BTreeMap<String, NativeRendererFrameAssetPackageMetrics> {
+) -> BTreeMap<String, NativeRendererFrameAssetMetrics> {
     let mut by_package = BTreeMap::new();
 
     for request in &frame.assets.requests {
         for package_id in &request.package_candidates {
             let summary = by_package
                 .entry(package_id.clone())
-                .or_insert_with(NativeRendererFrameAssetPackageMetrics::default);
+                .or_insert_with(NativeRendererFrameAssetMetrics::default);
             summary.request_count += 1;
             summary.command_ref_count += request.command_ids.len();
         }
