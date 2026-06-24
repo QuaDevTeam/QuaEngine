@@ -1,8 +1,12 @@
+mod renderer_manifest;
+
 use quajs_native_runtime::{
     current_platform, current_profile, NativeHostInfo, NativeHostInfoBuilder, NativePlatform,
     NativeProfile,
 };
 use quajs_wgpu_renderer::native_wgpu_capabilities;
+
+use renderer_manifest::validate_manifest_renderer_against_host;
 
 use crate::target_bundle::{
     validate_native_target_bundle_manifest, NativeStartupError, NativeStartupManifestExpectation,
@@ -76,7 +80,12 @@ where
         validate_native_target_bundle_manifest(manifest, Some(&manifest_expectation(&config)))?;
     }
 
-    Ok(create(config))
+    let host_info = create(config);
+    if let Some(manifest) = target_bundle_manifest {
+        validate_manifest_renderer_against_host(manifest, &host_info)?;
+    }
+
+    Ok(host_info)
 }
 
 fn manifest_expectation(config: &NativeAppConfig) -> NativeStartupManifestExpectation {
@@ -136,6 +145,10 @@ mod tests {
         assert_eq!(host_info.app.version, "1.2.3");
         assert_eq!(host_info.app.build_number, "456");
         assert_eq!(host_info.renderer.package_name, "@quajs/native-renderer");
+        assert!(host_info
+            .renderer
+            .capability_manifest_hash
+            .starts_with("sha256:"));
         assert!(host_info.has_capability("native-wgpu.ui.surface@1"));
         assert!(host_info.has_capability("native-wgpu.input.pointer@1"));
     }
@@ -153,6 +166,38 @@ mod tests {
 
         assert!(created.get());
         assert_eq!(host_info.app.bundle_id, "dev.quajs.fixture");
+    }
+
+    #[test]
+    fn rejects_renderer_manifest_drift_after_building_host_info() {
+        let mut manifest = native_manifest();
+        let native_renderer = manifest
+            .native_renderer
+            .as_mut()
+            .expect("native renderer metadata exists");
+        native_renderer.version = Some("0.0.0".to_string());
+        native_renderer.capability_manifest_hash = Some("sha256:stale-capabilities".to_string());
+        native_renderer
+            .capability_ids
+            .push("native-wgpu.audio@1".to_string());
+        let created = Cell::new(false);
+        let error =
+            create_native_startup_host_info_with(fixture_app_config(), Some(&manifest), |config| {
+                created.set(true);
+                create_host_info(config)
+            })
+            .expect_err("renderer metadata drift is rejected");
+
+        assert!(created.get());
+        assert!(error
+            .to_string()
+            .contains("nativeRenderer.version \"0.0.0\" does not match host renderer version"));
+        assert!(error
+            .to_string()
+            .contains("nativeRenderer.capabilityManifestHash \"sha256:stale-capabilities\""));
+        assert!(error
+            .to_string()
+            .contains("nativeRenderer.capabilityIds includes \"native-wgpu.audio@1\""));
     }
 
     #[test]
