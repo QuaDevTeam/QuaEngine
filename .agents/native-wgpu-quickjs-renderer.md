@@ -253,6 +253,22 @@ Release-blocking checks:
 - Runtime QPK compatibility blocks for inactive targets are metadata only. They are ignored by the active target and must not pull executable dependencies for another target into the package graph.
 - Native dynamic QPKs may request built-in native capability ids and declarative QUI/QSS surfaces, but they cannot install a native core plugin or override Rust native renderer metadata.
 
+Target packaging gate:
+
+1. **Source selection gate**: Quack or the native packager receives exactly one target: `web`, `cocos`, or `native`. The selected bootstrap may import only that target's core adapters. Do not create an umbrella bootstrap that registers Web, Cocos, and native adapters and then chooses at runtime.
+2. **Renderer entry gate**: third-party and official plugins may publish multiple target entries, but the packager resolves only the active target entry. Shared plugin entries must stay platform-neutral and must not import `@quajs/renderer-web`, `@quajs/renderer-cocos`, `@quajs/engine-native`, `@quajs/assets-native`, or `@quajs/store-native`.
+3. **Post-bundle graph gate**: every debug and release artifact emits `target-bundle-manifest.json` after bundling/tree-shaking. The manifest records `target`, `profile`, `platform`, `app.bundleId`, `app.version`, `selectedCoreAdapters`, normalized dependency roots, selected renderer entries, included QPK ids, and native renderer capability hash when applicable. Packaging fails if `validateExclusiveTargetBootstrap` or `validateTargetBootstrap` fails on the post-bundle graph.
+4. **Runtime startup gate**: app startup repeats the exclusive-target assertion before engine initialization. This catches manually assembled bundles and debug shells that skipped Quack validation.
+5. **Runtime QPK gate**: Runtime packages may carry compatibility metadata for Web, Cocos, and native, but activation evaluates only the active target block. Executable dependencies on target core adapters are forbidden in QPK manifests; native QPKs may include QS/compiled JS/resources/QUI/QSS IR only.
+
+Per-target expectations:
+
+- Web artifacts include Web asset/runtime adapters and at most the selected Web framework renderer path. They fail if any Cocos host/renderer package or native engine/assets/store package appears in the emitted dependency graph.
+- Cocos artifacts include Cocos host/assets/renderer packages only for the target core path. They fail if DOM/Web renderer packages or native QuickJS/wgpu adapters appear.
+- Native artifacts include `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `@quajs/native-contracts`, and Rust app/renderer metadata only for the target core path. They fail if Web renderer/framework adapters or Cocos host/renderer packages appear.
+
+Debug builds may include extra diagnostics and source maps, but the target-core isolation rule is identical for debug and release. Release promotion must compare the recorded `target-bundle-manifest.json` against the immutable release manifest before signing/notarization/installer generation.
+
 Target isolation should be encoded as data, not scattered across build scripts:
 
 ```ts
@@ -2552,7 +2568,10 @@ Exit: product UI is declarative and selected through engine `surface.key` plus s
 - Add release manifest/checksum generation and immutable release-version rebuild guard.
 - Include native renderer package version and capability manifest in release artifacts and update channel metadata.
 - Add target isolation checks so Web/Cocos/Native release bundles cannot include another target's core adapter plugins.
+- Emit `target-bundle-manifest.json` for Web, Cocos, and native debug/release artifacts and validate it after bundling/tree-shaking.
+- Add runtime startup assertions so hand-built Web/Cocos/native app shells still reject zero or multiple registered target core adapter sets.
 - Add target-entry selection checks so multi-target plugin source packages contribute only the active Web, Cocos, or native renderer entry to each packaged output.
+- Add QPK compatibility checks so inactive target compatibility blocks remain metadata and cannot activate another target's core plugin path.
 - Add package/resource quota configuration for QuickJS, textures, video frames, audio buffers, glyph atlas, and UI AST/style memory.
 
 Exit: macOS and Windows release artifacts are version/profile/platform isolated, carry correct project metadata/icons/signatures, launch with bundled QPKs, accept signed content-only QPK updates, reject native-code/tampered packages, and rollback failed updates safely. Linux packaging has at least validated metadata/output design and can follow as the next target.
@@ -2608,6 +2627,7 @@ Integration tests:
 - Packaging/update tests verify signed QPK acceptance, tamper rejection, native-code rejection, offline launch, and rollback cleanup.
 - Web/Cocos/native release bundle tests reject cross-target core plugin leakage.
 - Web/Cocos/native target bootstrap manifest tests assert exactly one target core adapter set, normalized forbidden package roots, and selected renderer entries.
+- Debug and release artifact manifest tests verify `target-bundle-manifest.json` is emitted after bundling/tree-shaking and fails validation when another target's core plugin appears only through a subentry import.
 - Multi-target third-party plugin fixtures prove only the active target renderer entry is bundled and inactive target entries are excluded.
 - Runtime package compatibility tests verify Web builds ignore native/Cocos compatibility blocks, Cocos builds ignore Web/native blocks, and native builds ignore Web/Cocos blocks while rejecting native-code payloads.
 - Plugin compatibility fixtures cover existing engine/game/plugins and claimed third-party renderer targets before declaring native renderer parity.
