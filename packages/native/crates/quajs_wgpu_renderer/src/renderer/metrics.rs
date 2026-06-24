@@ -28,6 +28,13 @@ pub struct NativeRendererFrameMetrics {
     pub by_plane: BTreeMap<RenderPlane, RenderPlaneSummary>,
     pub by_package: BTreeMap<String, RenderGraphPackageSummary>,
     pub by_resource_kind: BTreeMap<NativeResourceKind, usize>,
+    pub asset_requests_by_package: BTreeMap<String, NativeRendererFrameAssetPackageMetrics>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeRendererFrameAssetPackageMetrics {
+    pub request_count: usize,
+    pub command_ref_count: usize,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -68,7 +75,26 @@ fn frame_metrics(frame: &PreparedNativeFrame) -> NativeRendererFrameMetrics {
         by_plane: frame.summary.by_plane.clone(),
         by_package: frame.summary.by_package.clone(),
         by_resource_kind: frame.resources.by_kind.clone(),
+        asset_requests_by_package: frame_asset_package_metrics(frame),
     }
+}
+
+fn frame_asset_package_metrics(
+    frame: &PreparedNativeFrame,
+) -> BTreeMap<String, NativeRendererFrameAssetPackageMetrics> {
+    let mut by_package = BTreeMap::new();
+
+    for request in &frame.assets.requests {
+        for package_id in &request.package_candidates {
+            let summary = by_package
+                .entry(package_id.clone())
+                .or_insert_with(NativeRendererFrameAssetPackageMetrics::default);
+            summary.request_count += 1;
+            summary.command_ref_count += request.command_ids.len();
+        }
+    }
+
+    by_package
 }
 
 fn resource_metrics(resources: &NativeResourceLedger) -> NativeRendererResourceMetrics {

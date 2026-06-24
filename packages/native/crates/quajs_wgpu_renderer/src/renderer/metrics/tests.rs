@@ -83,6 +83,26 @@ fn reports_frame_metrics_by_package_and_resource_kind() {
         metrics.frame.by_resource_kind[&NativeResourceKind::UiAst],
         1
     );
+    assert_eq!(
+        metrics.frame.asset_requests_by_package["base"].request_count,
+        2
+    );
+    assert_eq!(
+        metrics.frame.asset_requests_by_package["base"].command_ref_count,
+        2
+    );
+    assert_eq!(
+        metrics.frame.asset_requests_by_package["runtime.ui"].request_count,
+        1
+    );
+    assert_eq!(
+        metrics.frame.asset_requests_by_package["runtime.ui"].command_ref_count,
+        1
+    );
+    assert!(!metrics
+        .frame
+        .asset_requests_by_package
+        .contains_key("runtime.choice"));
 }
 
 #[test]
