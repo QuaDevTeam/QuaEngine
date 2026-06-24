@@ -13,10 +13,10 @@ use crate::renderer::backend::{
 };
 use crate::renderer::metrics::NativeRendererMetrics;
 use crate::renderer::resource_update::{
-    apply_active_projection_unload_guard, apply_audio_resource_sync, apply_resource_sync,
-    frame_audio_resource_sync_summary, frame_resource_sync_summary, host_cleanup_records,
-    package_release_summary, NativeRendererFrameUpdate, NativeRendererHostCleanupRecord,
-    NativeRendererPackageRelease,
+    apply_active_projection_package_unload_guard, apply_active_projection_unload_guard,
+    apply_audio_resource_sync, apply_resource_sync, frame_audio_resource_sync_summary,
+    frame_resource_sync_summary, host_cleanup_records, package_release_summary,
+    NativeRendererFrameUpdate, NativeRendererHostCleanupRecord, NativeRendererPackageRelease,
 };
 use crate::resources::{
     audio_resource_records, plan_audio_asset_requests, plan_audio_resource_sync,
@@ -85,6 +85,12 @@ impl NativeRendererState {
         let mut plan = self.resources.plan_package_unload(package_id);
         let active_resource_ids = self.active_resource_ids();
         apply_active_projection_unload_guard(&mut plan, &active_resource_ids, &self.resources);
+        let active_projection_packages = self.active_projection_packages();
+        apply_active_projection_package_unload_guard(
+            &mut plan,
+            &active_projection_packages.owner_package_ids,
+            &active_projection_packages.required_package_ids,
+        );
         plan
     }
 
@@ -233,6 +239,27 @@ impl NativeRendererState {
         }
         ids
     }
+
+    fn active_projection_packages(&self) -> ActiveProjectionPackages {
+        let mut packages = ActiveProjectionPackages::default();
+        if let Some(frame) = &self.frame {
+            for command in frame.graph.commands() {
+                if let Some(package_id) = &command.owner_package_id {
+                    packages.owner_package_ids.insert(package_id.clone());
+                }
+                packages
+                    .required_package_ids
+                    .extend(command.required_package_ids.iter().cloned());
+            }
+        }
+        packages
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct ActiveProjectionPackages {
+    owner_package_ids: BTreeSet<String>,
+    required_package_ids: BTreeSet<String>,
 }
 
 fn active_audio_resource_ids(

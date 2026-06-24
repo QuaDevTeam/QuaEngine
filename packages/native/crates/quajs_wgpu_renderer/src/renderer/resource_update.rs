@@ -163,6 +163,45 @@ pub(super) fn apply_active_projection_unload_guard(
     plan.releasable_memory = releasable_memory(&plan.releasable, ledger);
 }
 
+pub(super) fn apply_active_projection_package_unload_guard(
+    plan: &mut PackageUnloadPlan,
+    active_owner_package_ids: &BTreeSet<String>,
+    active_required_package_ids: &BTreeSet<String>,
+) {
+    let package_is_owner = active_owner_package_ids.contains(&plan.package_id);
+    let package_is_required = active_required_package_ids.contains(&plan.package_id);
+
+    if (!package_is_owner && !package_is_required)
+        || plan.blocked.iter().any(|blocker| {
+            blocker.owner_package_id.as_deref() == Some(plan.package_id.as_str())
+                || blocker.required_package_ids.contains(&plan.package_id)
+        })
+    {
+        return;
+    }
+
+    plan.blocked.push(PackageUnloadBlocker {
+        resource_id: ResourceId::new(active_projection_blocker_id(
+            &plan.package_id,
+            package_is_owner,
+        )),
+        kind: NativeResourceKind::RenderGraph,
+        owner_package_id: package_is_owner.then(|| plan.package_id.clone()),
+        required_package_ids: (!package_is_owner && package_is_required)
+            .then(|| BTreeSet::from([plan.package_id.clone()]))
+            .unwrap_or_default(),
+        reason: PackageUnloadBlockerReason::ActiveProjectionReference,
+    });
+}
+
+fn active_projection_blocker_id(package_id: &str, package_is_owner: bool) -> String {
+    if package_is_owner {
+        format!("projection:{package_id}")
+    } else {
+        format!("projection:required:{package_id}")
+    }
+}
+
 pub(super) fn frame_resource_sync_summary(
     sync: &FrameResourceSyncPlan,
     released_resources: &[NativeResourceRecord],

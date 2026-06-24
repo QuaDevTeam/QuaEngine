@@ -28,6 +28,7 @@ pub struct PackageUnloadBlocker {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PackageUnloadBlockerReason {
     ActiveFrameReference,
+    ActiveProjectionReference,
     PackageRequiredByForeignResource,
     OwnerStillRequiredByForeignPackage,
 }
