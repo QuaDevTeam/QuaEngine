@@ -1,6 +1,8 @@
+use super::submission::NativeRenderFallbackWarningTracker;
 use super::{
     NativeRenderBackend, NativeRenderBackendResourceDiagnostics, NativeRenderBackendResourcePolicy,
-    NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
+    NativeRenderBackendResult, NativeRenderFallbackWarningDiagnostics, NativeRenderFrameRef,
+    NativeRenderSubmission,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -33,6 +35,7 @@ pub enum WgpuPresentMode {
 pub struct WgpuNativeRenderBackend {
     config: WgpuNativeRenderBackendConfig,
     submissions: Vec<NativeRenderSubmission>,
+    fallback_warnings: NativeRenderFallbackWarningTracker,
 }
 
 impl WgpuNativeRenderBackend {
@@ -40,6 +43,7 @@ impl WgpuNativeRenderBackend {
         Self {
             config,
             submissions: Vec::new(),
+            fallback_warnings: NativeRenderFallbackWarningTracker::default(),
         }
     }
 
@@ -57,6 +61,7 @@ impl WgpuNativeRenderBackend {
             device_attached: false,
             submitted_frames: self.submissions.len(),
             resources: NativeRenderBackendResourceDiagnostics::from_submissions(&self.submissions),
+            fallback_warnings: self.fallback_warnings.diagnostics(),
             last_submission: self.submissions.last().cloned(),
             note: "wgpu-backend feature is enabled, but the real wgpu device/surface bridge is not attached yet."
                 .to_string(),
@@ -70,6 +75,8 @@ impl NativeRenderBackend for WgpuNativeRenderBackend {
         self.config
             .resource_policy
             .validate_submission(&submission)?;
+        self.fallback_warnings
+            .record_submission(&submission.fallback_diagnostics);
         self.submissions.push(submission.clone());
         Ok(submission)
     }
@@ -81,6 +88,7 @@ pub struct WgpuNativeRenderBackendDiagnostics {
     pub device_attached: bool,
     pub submitted_frames: usize,
     pub resources: NativeRenderBackendResourceDiagnostics,
+    pub fallback_warnings: NativeRenderFallbackWarningDiagnostics,
     pub last_submission: Option<NativeRenderSubmission>,
     pub note: String,
 }

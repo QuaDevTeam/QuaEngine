@@ -1,12 +1,15 @@
+use super::submission::NativeRenderFallbackWarningTracker;
 use super::{
     NativeRenderBackend, NativeRenderBackendResourceDiagnostics, NativeRenderBackendResourcePolicy,
-    NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
+    NativeRenderBackendResult, NativeRenderFallbackWarningDiagnostics, NativeRenderFrameRef,
+    NativeRenderSubmission,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct NullNativeRenderBackend {
     submissions: Vec<NativeRenderSubmission>,
     resource_policy: NativeRenderBackendResourcePolicy,
+    fallback_warnings: NativeRenderFallbackWarningTracker,
 }
 
 impl NullNativeRenderBackend {
@@ -18,6 +21,7 @@ impl NullNativeRenderBackend {
         Self {
             submissions: Vec::new(),
             resource_policy,
+            fallback_warnings: NativeRenderFallbackWarningTracker::default(),
         }
     }
 
@@ -37,6 +41,7 @@ impl NullNativeRenderBackend {
         NullNativeRenderBackendDiagnostics {
             submitted_frames: self.submissions.len(),
             resources: NativeRenderBackendResourceDiagnostics::from_submissions(&self.submissions),
+            fallback_warnings: self.fallback_warnings.diagnostics(),
             last_submission: self.last_submission().cloned(),
         }
     }
@@ -46,6 +51,8 @@ impl NativeRenderBackend for NullNativeRenderBackend {
     fn submit_frame(&mut self, frame: NativeRenderFrameRef<'_>) -> NativeRenderBackendResult {
         let submission = frame.submission();
         self.resource_policy.validate_submission(&submission)?;
+        self.fallback_warnings
+            .record_submission(&submission.fallback_diagnostics);
         self.submissions.push(submission.clone());
         Ok(submission)
     }
@@ -55,6 +62,7 @@ impl NativeRenderBackend for NullNativeRenderBackend {
 pub struct NullNativeRenderBackendDiagnostics {
     pub submitted_frames: usize,
     pub resources: NativeRenderBackendResourceDiagnostics,
+    pub fallback_warnings: NativeRenderFallbackWarningDiagnostics,
     pub last_submission: Option<NativeRenderSubmission>,
 }
 
