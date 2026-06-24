@@ -44,6 +44,13 @@ export interface TargetBundleNativeRendererInfo {
 
 export type TargetCoreResolverId = 'web-core-resolver' | 'cocos-core-resolver' | 'native-core-resolver'
 
+export interface TargetCoreSelection {
+  target: QuaTargetBootstrap
+  targetCoreResolver: TargetCoreResolverId
+  selectedCorePluginFamily: TargetCorePluginFamily
+  selectedCoreAdapters: readonly string[]
+}
+
 export type TargetBundlePackageReference = string | {
   specifier?: string
   packageName?: string
@@ -351,6 +358,16 @@ export function getTargetCoreResolverId(target: QuaTargetBootstrap): TargetCoreR
       return 'cocos-core-resolver'
     case 'native':
       return 'native-core-resolver'
+  }
+}
+
+export function createTargetCoreSelection(target: QuaTargetBootstrap): TargetCoreSelection {
+  const manifest = TARGET_BOOTSTRAP_MANIFESTS[target]
+  return {
+    target,
+    targetCoreResolver: getTargetCoreResolverId(target),
+    selectedCorePluginFamily: manifest.corePluginFamily,
+    selectedCoreAdapters: [...manifest.coreAdapters],
   }
 }
 
