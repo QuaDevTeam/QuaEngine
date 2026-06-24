@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 
 use super::*;
-use crate::projection::common::PackageProvenance;
+use crate::projection::common::{FontWeightProjection, PackageProvenance};
 use crate::render_graph::{
-    DrawCommandKind, DrawCommandParams, RenderGraph, RenderPlane, TextAlign,
+    DrawCommandKind, DrawCommandParams, FontWeightDrawParam, RenderGraph, RenderPlane, TextAlign,
 };
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
@@ -17,6 +17,7 @@ fn builds_dialogue_panel_and_text_commands() {
         speaker: Some("Yuki".into()),
         speaker_style: RichTextStyle {
             font_size: Some(36.0),
+            font_weight: Some(FontWeightProjection::keyword("bold")),
             text_align: Some("center".to_string()),
             ..Default::default()
         },
@@ -36,6 +37,10 @@ fn builds_dialogue_panel_and_text_commands() {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Yuki");
             assert_eq!(params.font_size, 36.0);
+            assert_eq!(
+                params.font_weight.as_ref(),
+                Some(&FontWeightDrawParam::Keyword("bold".to_string()))
+            );
             assert_eq!(params.align, TextAlign::Center);
         }
         _ => panic!("expected speaker text params"),
@@ -44,6 +49,7 @@ fn builds_dialogue_panel_and_text_commands() {
     match &commands[2].params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Hello native renderer.");
+            assert!(params.font_weight.is_none());
             assert_eq!(params.role, "dialogue-text");
         }
         _ => panic!("expected dialogue text params"),

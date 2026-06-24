@@ -15,3 +15,19 @@ impl PackageProvenance {
         package_ids
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FontWeightProjection {
+    Number(u16),
+    Keyword(String),
+}
+
+impl FontWeightProjection {
+    pub fn number(weight: u16) -> Self {
+        Self::Number(weight)
+    }
+
+    pub fn keyword(keyword: impl Into<String>) -> Self {
+        Self::Keyword(keyword.into())
+    }
+}

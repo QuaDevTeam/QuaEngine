@@ -60,6 +60,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "border-width",
                 "color",
                 "font-size",
+                "font-weight",
                 "line-height",
                 "text-align",
                 "object-fit",
@@ -148,6 +149,12 @@ mod tests {
         assert!(video.asset_kinds.contains(&"images".to_string()));
         assert!(video.qui_components.is_empty());
 
+        let text = capabilities
+            .iter()
+            .find(|capability| capability.id == "native-wgpu.text@1")
+            .unwrap();
+        assert!(text.qss_features.contains(&"font-weight".to_string()));
+
         let ui = capabilities
             .iter()
             .find(|capability| capability.id == "native-wgpu.ui.surface@1")
@@ -158,6 +165,7 @@ mod tests {
         assert!(ui.qss_features.contains(&"border-color".to_string()));
         assert!(ui.qss_features.contains(&"border-radius".to_string()));
         assert!(ui.qss_features.contains(&"border-width".to_string()));
+        assert!(ui.qss_features.contains(&"font-weight".to_string()));
         assert!(ui.qss_features.contains(&"object-fit".to_string()));
         assert!(ui.qui_components.contains(&"Backdrop".to_string()));
         assert!(ui.qui_components.contains(&"Button".to_string()));

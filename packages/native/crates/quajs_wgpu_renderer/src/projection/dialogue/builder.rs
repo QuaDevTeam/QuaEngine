@@ -8,7 +8,8 @@ use crate::stage_layout::ResolvedStageLayout;
 
 use super::layout::{avatar_bounds, dialogue_panel_bounds, speaker_bounds, text_bounds};
 use super::rich_text::{
-    resolve_font_size, resolve_line_height, resolve_text_align, rich_text_to_plain_text,
+    resolve_font_size, resolve_font_weight, resolve_line_height, resolve_text_align,
+    rich_text_to_plain_text,
 };
 use super::types::{DialogueAvatarProjection, DialogueProjection, RichTextStyle};
 
@@ -93,6 +94,7 @@ fn text_command(
         DrawCommandParams::Text(TextDrawParams {
             text,
             font_size: resolve_font_size(style, fallback_font_size),
+            font_weight: resolve_font_weight(style),
             line_height: resolve_line_height(style, fallback_line_height),
             align: resolve_text_align(style),
             color: "#ffffff".to_string(),
