@@ -2,7 +2,7 @@ use super::{
     NativeRenderBackend, NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
 };
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct NullNativeRenderBackend {
     submissions: Vec<NativeRenderSubmission>,
 }
@@ -36,7 +36,7 @@ impl NativeRenderBackend for NullNativeRenderBackend {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct NullNativeRenderBackendDiagnostics {
     pub submitted_frames: usize,
     pub last_submission: Option<NativeRenderSubmission>,

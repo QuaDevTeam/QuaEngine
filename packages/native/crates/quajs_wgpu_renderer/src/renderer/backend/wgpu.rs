@@ -26,7 +26,7 @@ pub enum WgpuPresentMode {
     Immediate,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct WgpuNativeRenderBackend {
     config: WgpuNativeRenderBackendConfig,
     submissions: Vec<NativeRenderSubmission>,
@@ -68,7 +68,7 @@ impl NativeRenderBackend for WgpuNativeRenderBackend {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct WgpuNativeRenderBackendDiagnostics {
     pub feature_enabled: bool,
     pub device_attached: bool,
