@@ -1,5 +1,6 @@
-import type { QuaNativeHostApi } from '@quajs/native-contracts'
+import type { NativeHostApiRequest, QuaNativeHostApi } from '@quajs/native-contracts'
 import type { BundleManifest, StoredAsset, StoredBundle } from '@quajs/assets'
+import { createNativeHostApiFromBridge } from '@quajs/native-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { NativeHostAssetStorage, createNativeAssetsAdapter } from '../src'
 
@@ -96,6 +97,59 @@ describe('@quajs/assets-native', () => {
     expect(parsed).toEqual({ ok: true })
     expect(hash).toBe('sha256:1,2,3')
     expect(host.readAssetBytes).toHaveBeenCalledWith({ url: 'assets/chapter.json' })
+  })
+
+  it('uses the host bridge dispatcher for asset fetches, hashing, and cache storage', async () => {
+    const requests: NativeHostApiRequest[] = []
+    const storage = new Map<string, number[]>()
+    const host = createNativeHostApiFromBridge(async (request) => {
+      requests.push(request)
+      switch (request.method) {
+        case 'readAssetBytes':
+          return { ok: true, payload: { type: 'assetBytes', value: Array.from(new TextEncoder().encode('{"ok":true}')) } }
+        case 'hashBytes':
+          return { ok: true, payload: { type: 'hash', value: `sha256:${request.params.bytes.join(',')}` } }
+        case 'readStorage':
+          return { ok: true, payload: { type: 'storageBytes', value: storage.get(request.params.key) } }
+        case 'writeStorage':
+          storage.set(request.params.key, request.params.value)
+          return { ok: true }
+        case 'deleteStorage':
+          storage.delete(request.params.key)
+          return { ok: true }
+        default:
+          return {
+            ok: false,
+            error: {
+              code: 'unsupportedOperation',
+              message: `Unexpected bridge request "${request.method}".`,
+            },
+          }
+      }
+    })
+    const adapter = createNativeAssetsAdapter({ host })
+    const nativeStorage = new NativeHostAssetStorage(host, { root: 'bridge-cache', now: () => 100 })
+
+    await expect(adapter.fetcher!.fetchJSON<{ ok: boolean }>('assets/chapter.json')).resolves.toEqual({ ok: true })
+    await expect(adapter.crypto.sha256(new Uint8Array([1, 2, 3]))).resolves.toBe('sha256:1,2,3')
+    await nativeStorage.open()
+    await nativeStorage.storeAsset(createAsset())
+    await expect(nativeStorage.getAsset('main:default:data:chapter.json')).resolves.toEqual(expect.objectContaining({
+      data: new TextEncoder().encode('chapter'),
+    }))
+
+    expect(requests).toEqual(expect.arrayContaining([
+      { method: 'readAssetBytes', params: { url: 'assets/chapter.json' } },
+      { method: 'hashBytes', params: { bytes: [1, 2, 3], algorithm: 'sha256' } },
+      { method: 'readStorage', params: { key: 'bridge-cache/index.json' } },
+      {
+        method: 'writeStorage',
+        params: {
+          key: 'bridge-cache/assets/main%3Adefault%3Adata%3Achapter.json.bin',
+          value: Array.from(new TextEncoder().encode('chapter')),
+        },
+      },
+    ]))
   })
 
   it('persists assets and metadata through native host storage', async () => {
