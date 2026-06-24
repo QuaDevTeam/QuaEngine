@@ -1,4 +1,12 @@
 import type {
+  NativeQuickJsEvaluationRequest,
+  NativeQuickJsRuntimeModuleKind,
+  NativeQuickJsSandboxLimits,
+} from '@quajs/native-contracts'
+import {
+  createNativeQuickJsEvaluationRequest,
+} from '@quajs/native-contracts'
+import type {
   RuntimeLoadedMigrationModule,
   RuntimeLoadedPluginModule,
   RuntimeLoadedSceneModule,
@@ -28,6 +36,7 @@ export interface NativeRuntimeModuleEvaluationContext {
   code: string
   kind: NativeRuntimeModuleKind
   packageId: string
+  request: NativeQuickJsEvaluationRequest
   record: NativeRuntimeModuleRecord
 }
 
@@ -39,6 +48,7 @@ export type NativeRuntimeModuleEvaluator = (
 
 export interface NativeRuntimeModuleLoaderOptions {
   evaluator: NativeRuntimeModuleEvaluator
+  limits?: Partial<NativeQuickJsSandboxLimits>
 }
 
 export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoaderOptions): RuntimeModuleLoader {
@@ -53,13 +63,24 @@ export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoad
       targetPackageId: ctx.package.id,
       locale: ctx.locale,
     })
+    const code = new TextDecoder().decode(asset.data)
+    const request = createNativeQuickJsEvaluationRequest({
+      assetName,
+      bundleName: ctx.bundle.bundleName,
+      bytes: asset.data,
+      code,
+      kind: toQuickJsRuntimeModuleKind(kind),
+      limits: options.limits,
+      packageId: ctx.package.id,
+    })
     const loaded = await options.evaluator({
       assetName,
       bundleName: ctx.bundle.bundleName,
       bytes: asset.data,
-      code: new TextDecoder().decode(asset.data),
+      code,
       kind,
       packageId: ctx.package.id,
+      request,
       record,
     })
     return normalizeLoadedNativeModule<TLoaded>(loaded, assetName, kind)
@@ -70,6 +91,18 @@ export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoad
     loadSceneModule: (record, ctx) => loadModule<RuntimeLoadedSceneModule>('scene', record, ctx),
     loadScriptModule: (record, ctx) => loadModule<RuntimeLoadedScriptModule>('script', record, ctx),
     loadStoreMigrationModule: (record, ctx) => loadModule<RuntimeLoadedMigrationModule>('store-migration', record, ctx),
+  }
+}
+
+function toQuickJsRuntimeModuleKind(kind: NativeRuntimeModuleKind): NativeQuickJsRuntimeModuleKind {
+  switch (kind) {
+    case 'engine-plugin':
+      return 'enginePlugin'
+    case 'store-migration':
+      return 'storeMigration'
+    case 'scene':
+    case 'script':
+      return kind
   }
 }
 
