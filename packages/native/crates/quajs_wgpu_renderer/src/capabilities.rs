@@ -34,7 +34,14 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             &["dialogue", "ui.text"],
             &[],
             &["fonts"],
-            &["font-family", "font-size", "font-weight", "color"],
+            &[
+                "font-family",
+                "font-size",
+                "font-weight",
+                "line-height",
+                "text-align",
+                "color",
+            ],
             &["Text", "RichText"],
             "warn-once",
         ),
@@ -155,7 +162,11 @@ mod tests {
             .find(|capability| capability.id == "native-wgpu.text@1")
             .unwrap();
         assert!(text.qss_features.contains(&"font-family".to_string()));
+        assert!(text.qss_features.contains(&"font-size".to_string()));
         assert!(text.qss_features.contains(&"font-weight".to_string()));
+        assert!(text.qss_features.contains(&"line-height".to_string()));
+        assert!(text.qss_features.contains(&"text-align".to_string()));
+        assert!(text.qss_features.contains(&"color".to_string()));
 
         let ui = capabilities
             .iter()

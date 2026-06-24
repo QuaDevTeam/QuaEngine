@@ -89,6 +89,8 @@ fn flattens_rich_text_and_builds_avatar_command() {
         text: RichTextContent::Document(RichTextDocumentProjection {
             style: RichTextStyle {
                 color: Some("#d8c6ff".to_string()),
+                line_height: Some(48.0),
+                text_align: Some("right".to_string()),
                 ..Default::default()
             },
             blocks: vec![
@@ -136,6 +138,8 @@ fn flattens_rich_text_and_builds_avatar_command() {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Line one\nLine two");
             assert_eq!(params.color, "#d8c6ff");
+            assert_eq!(params.line_height, 48.0);
+            assert_eq!(params.align, TextAlign::Right);
         }
         _ => panic!("expected text params"),
     }
