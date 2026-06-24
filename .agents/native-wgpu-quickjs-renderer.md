@@ -238,6 +238,8 @@ Core target plugins are any package or built-in module that installs target runt
 
 Target core plugins must be grouped as three disjoint plugin families: `web-core`, `cocos-core`, and `native-core`. A packaged application must record exactly one selected family in its bootstrap metadata and `target-bundle-manifest.json`; seeing two families in one artifact is a packaging failure even when the package graph also contains a valid entry for the requested target. This applies to official core plugins, official renderer plugin subentries, target bootstrap presets, third-party renderer entries, and executable Runtime QPK dependencies.
 
+The packager must resolve the target before it resolves core plugins. A Web, Cocos, or native project must not start from a shared "all renderers" preset and prune later at runtime; target selection is the build graph root. Each target owns its own bootstrap package, platform asset/store adapters, renderer core, renderer plugin entry selection, and runtime startup assertion. Shared engine/game/plugin code may be imported only through platform-neutral entries that do not eagerly import any target adapter. This prevents a Cocos project from accidentally carrying Web renderer plugins, a Web project from carrying native host adapters, or a native project from carrying Cocos host/runtime code.
+
 The isolation rule applies to all package outputs:
 
 - **Web project output** selects the Web bootstrap only. It may include `@quajs/assets-web`, `@quajs/renderer-web`, Web framework renderers such as Vue/React/Svelte adapters, and Web renderer plugin subentries. It must not include `@quajs/cocos-host`, `@quajs/renderer-cocos`, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, native host contracts as runtime adapters, or Rust native renderer metadata.
@@ -271,6 +273,14 @@ Per-target expectations:
 - Cocos artifacts include Cocos host/assets/renderer packages only for the target core path. They fail if DOM/Web renderer packages or native QuickJS/wgpu adapters appear.
 - Native artifacts include `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `@quajs/native-contracts`, and Rust app/renderer metadata only for the target core path. They fail if Web renderer/framework adapters or Cocos host/renderer packages appear.
 
+Target-specific bootstrap ownership:
+
+- `web` builds own Web bootstrap, `@quajs/assets-web`, Web renderer/framework adapters, and Web renderer plugin subentries only.
+- `cocos` builds own Cocos bootstrap, Cocos host/asset bridge, `@quajs/renderer-cocos`, and Cocos renderer plugin subentries only.
+- `native` builds own native bootstrap, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, Rust host/renderer metadata, and built-in native capability ids only.
+- A target output may consume platform-neutral packages such as engine, pipeline, render-core contracts, assets core, store core, game plugins, and shared plugin logic. Those packages must not import target adapters from their root entry.
+- Runtime QPKs may declare compatibility for multiple targets, but executable dependencies, renderer entries, and target-specific assets selected into a packaged artifact must be filtered to the active target. Inactive target compatibility blocks are metadata only.
+
 Debug builds may include extra diagnostics and source maps, but the target-core isolation rule is identical for debug and release. Release promotion must compare the recorded `target-bundle-manifest.json` against the immutable release manifest before signing/notarization/installer generation.
 
 ### Target Core Plugin Partition Contract
@@ -295,6 +305,8 @@ Partition checks are required at five separate points:
 5. **Runtime startup and QPK activation**: app startup asserts exactly one registered target core adapter set before engine initialization. Runtime QPK activation evaluates only the active target compatibility block and rejects executable dependencies on any Web/Cocos/native core adapter.
 
 The rule is symmetric. A native packaging check that rejects Web/Cocos leakage is not enough; Web builds must also reject Cocos/native leakage, and Cocos builds must reject Web/native leakage. These checks should be implemented from the same target manifest data so the three paths cannot drift.
+
+The target bundle manifest is the handoff contract between source selection, bundling, release packaging, and runtime startup. It must be generated after tree-shaking for each output, not copied from project source metadata. A release or debug artifact is invalid when any of these fields disagree: `target`, `selectedCorePluginFamily`, `selectedCoreAdapters`, normalized runtime dependency roots, selected renderer entries, Runtime QPK executable dependencies, and app/runtime renderer entry target metadata.
 
 Core plugin family validation must be explicit:
 
