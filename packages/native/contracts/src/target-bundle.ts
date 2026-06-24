@@ -2,8 +2,8 @@ import type {
   ExclusiveTargetBootstrapDiagnostic,
   ExclusiveTargetBootstrapValidationResult,
   QuaTargetBootstrap,
-  TargetCorePluginFamily,
   TargetBootstrapDiagnostic,
+  TargetCorePluginFamily,
 } from './bootstrap'
 import type {
   QuaNativePlatform,
@@ -42,6 +42,8 @@ export interface TargetBundleNativeRendererInfo {
   capabilityManifestHash?: string
 }
 
+export type TargetCoreResolverId = 'web-core-resolver' | 'cocos-core-resolver' | 'native-core-resolver'
+
 export type TargetBundlePackageReference = string | {
   specifier?: string
   packageName?: string
@@ -78,6 +80,7 @@ export interface TargetBundleManifest {
   platform?: string
   app?: TargetBundleAppInfo
   nativeRenderer?: TargetBundleNativeRendererInfo
+  targetCoreResolver: TargetCoreResolverId
   selectedCorePluginFamily: TargetCorePluginFamily
   selectedCoreAdapters: readonly TargetBundlePackageReference[]
   dependencies?: readonly (TargetBundlePackageReference | TargetBundleDependencyReference)[]
@@ -92,6 +95,7 @@ export type TargetBundleManifestDiagnostic
     | TargetBundleArtifactMetadataDiagnostic
     | TargetBundleNativeRendererDiagnostic
     | TargetBundleAppMetadataDiagnostic
+    | TargetBundleCoreResolverDiagnostic
     | TargetBundleCorePluginFamilyDiagnostic
     | TargetBundleSelectedCoreAdapterDiagnostic
     | TargetBundleRendererEntryTargetDiagnostic
@@ -121,6 +125,14 @@ export interface TargetBundleAppMetadataDiagnostic {
   code: 'TARGET_BUNDLE_APP_METADATA_MISSING' | 'TARGET_BUNDLE_APP_METADATA_EMPTY'
   target: QuaTargetBootstrap
   field: 'bundleId' | 'version' | 'buildNumber' | 'icon'
+  message: string
+}
+
+export interface TargetBundleCoreResolverDiagnostic {
+  code: 'TARGET_BUNDLE_CORE_RESOLVER_MISSING' | 'TARGET_BUNDLE_CORE_RESOLVER_MISMATCH'
+  target: QuaTargetBootstrap
+  targetCoreResolver?: string
+  expectedTargetCoreResolver: TargetCoreResolverId
   message: string
 }
 
@@ -197,6 +209,7 @@ export function validateTargetBundleManifest(
   const artifactMetadataDiagnostics = checkArtifactMetadata(manifest)
   const appMetadataDiagnostics = checkAppMetadata(manifest)
   const nativeRendererDiagnostics = checkTargetBundleNativeRendererInfo(manifest)
+  const coreResolverDiagnostics = checkCoreResolver(manifest)
   const corePluginFamilyDiagnostics = checkCorePluginFamily(manifest, packageNames)
   const selectedCoreAdapterDiagnostics = checkSelectedCoreAdapters(manifest)
   const rendererEntryTargetDiagnostics = checkRendererEntryTargets(manifest)
@@ -208,6 +221,7 @@ export function validateTargetBundleManifest(
     ...artifactMetadataDiagnostics,
     ...appMetadataDiagnostics,
     ...nativeRendererDiagnostics,
+    ...coreResolverDiagnostics,
     ...corePluginFamilyDiagnostics,
     ...selectedCoreAdapterDiagnostics,
     ...rendererEntryTargetDiagnostics,
@@ -220,6 +234,7 @@ export function validateTargetBundleManifest(
       && artifactMetadataDiagnostics.length === 0
       && appMetadataDiagnostics.length === 0
       && nativeRendererDiagnostics.length === 0
+      && coreResolverDiagnostics.length === 0
       && corePluginFamilyDiagnostics.length === 0
       && selectedCoreAdapterDiagnostics.length === 0
       && rendererEntryTargetDiagnostics.length === 0
@@ -326,6 +341,43 @@ function checkAppMetadata(manifest: TargetBundleManifest): TargetBundleAppMetada
     }
   }
   return diagnostics
+}
+
+export function getTargetCoreResolverId(target: QuaTargetBootstrap): TargetCoreResolverId {
+  switch (target) {
+    case 'web':
+      return 'web-core-resolver'
+    case 'cocos':
+      return 'cocos-core-resolver'
+    case 'native':
+      return 'native-core-resolver'
+  }
+}
+
+function checkCoreResolver(manifest: TargetBundleManifest): TargetBundleCoreResolverDiagnostic[] {
+  const expectedTargetCoreResolver = getTargetCoreResolverId(manifest.target)
+  const targetCoreResolver = (manifest as { targetCoreResolver?: unknown }).targetCoreResolver
+
+  if (targetCoreResolver === undefined) {
+    return [{
+      code: 'TARGET_BUNDLE_CORE_RESOLVER_MISSING',
+      target: manifest.target,
+      expectedTargetCoreResolver,
+      message: `Target bundle manifest for "${manifest.target}" must record targetCoreResolver "${expectedTargetCoreResolver}".`,
+    }]
+  }
+
+  if (targetCoreResolver !== expectedTargetCoreResolver) {
+    return [{
+      code: 'TARGET_BUNDLE_CORE_RESOLVER_MISMATCH',
+      target: manifest.target,
+      targetCoreResolver: typeof targetCoreResolver === 'string' ? targetCoreResolver : undefined,
+      expectedTargetCoreResolver,
+      message: `Target bundle manifest for "${manifest.target}" was produced by targetCoreResolver "${String(targetCoreResolver)}", but expected "${expectedTargetCoreResolver}".`,
+    }]
+  }
+
+  return []
 }
 
 export function collectTargetBundlePackageNames(manifest: TargetBundleManifest): string[] {

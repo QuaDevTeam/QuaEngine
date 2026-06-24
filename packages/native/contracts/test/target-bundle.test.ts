@@ -6,6 +6,7 @@ import {
   collectTargetBundlePackageNames,
   createTargetBundleNativeRendererInfo,
   getTargetCorePluginFamily,
+  getTargetCoreResolverId,
   NATIVE_TARGET_BOOTSTRAP,
   normalizePackageSpecifier,
   validateTargetBundleManifest,
@@ -123,6 +124,7 @@ function targetBundleManifestFor(
       icon: 'AppIcon.icns',
     },
     ...(target === 'native' ? { nativeRenderer: nativeRendererInfo() } : {}),
+    targetCoreResolver: getTargetCoreResolverId(target),
     selectedCorePluginFamily: getTargetCorePluginFamily(target),
     selectedCoreAdapters: CORE_ADAPTERS_BY_TARGET[target],
     dependencies: targetDependencies(target),
@@ -254,6 +256,41 @@ describe('target bundle manifest validation', () => {
         code: 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_MISSING',
         target: 'native',
         expectedCorePluginFamily: 'native-core',
+      }),
+    ]))
+  })
+
+  it('requires emitted target bundle manifests to record the target core resolver', () => {
+    const manifest = targetBundleManifest() as unknown as Omit<TargetBundleManifest, 'targetCoreResolver'>
+    delete (manifest as Partial<TargetBundleManifest>).targetCoreResolver
+    const result = validateTargetBundleManifest(manifest as TargetBundleManifest)
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_CORE_RESOLVER_MISSING',
+        target: 'native',
+        expectedTargetCoreResolver: 'native-core-resolver',
+      }),
+    ]))
+  })
+
+  it('rejects manifests produced by another target core resolver even when adapters are filtered', () => {
+    const result = validateTargetBundleManifest(targetBundleManifest({
+      targetCoreResolver: 'web-core-resolver',
+      selectedCorePluginFamily: 'native-core',
+      selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      dependencies: targetDependencies('native'),
+      rendererEntries: [rendererEntry('native')],
+    }))
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_CORE_RESOLVER_MISMATCH',
+        target: 'native',
+        targetCoreResolver: 'web-core-resolver',
+        expectedTargetCoreResolver: 'native-core-resolver',
       }),
     ]))
   })

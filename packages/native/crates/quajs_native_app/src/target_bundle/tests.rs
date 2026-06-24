@@ -136,6 +136,25 @@ fn rejects_invalid_native_artifact_profile_without_startup_expectation() {
 }
 
 #[test]
+fn rejects_missing_or_foreign_target_core_resolver() {
+    let mut missing_resolver = native_manifest();
+    missing_resolver.target_core_resolver = None;
+    let error = validate_native_target_bundle_manifest(&missing_resolver, None)
+        .expect_err("missing native resolver is rejected");
+    assert!(error
+        .to_string()
+        .contains("must include targetCoreResolver \"native-core-resolver\""));
+
+    let mut foreign_resolver = native_manifest();
+    foreign_resolver.target_core_resolver = Some("web-core-resolver".to_string());
+    let error = validate_native_target_bundle_manifest(&foreign_resolver, None)
+        .expect_err("foreign resolver is rejected");
+    assert!(error
+        .to_string()
+        .contains("expected targetCoreResolver \"native-core-resolver\""));
+}
+
+#[test]
 fn rejects_missing_empty_or_invalid_native_artifact_platform_without_startup_expectation() {
     let mut missing_platform = native_manifest();
     missing_platform.platform = None;
@@ -262,6 +281,7 @@ fn native_manifest_json() -> serde_json::Value {
             ],
             "capabilityManifestHash": native_capability_manifest_hash()
         },
+        "targetCoreResolver": "native-core-resolver",
         "selectedCorePluginFamily": "native-core",
         "selectedCoreAdapters": [
             "@quajs/engine-native/native-host",
@@ -312,6 +332,7 @@ pub(crate) fn native_manifest() -> NativeTargetBundleManifest {
             ],
             capability_manifest_hash: Some(native_capability_manifest_hash()),
         }),
+        target_core_resolver: Some("native-core-resolver".to_string()),
         selected_core_plugin_family: "native-core".to_string(),
         selected_core_adapters: NATIVE_CORE_ADAPTERS
             .iter()

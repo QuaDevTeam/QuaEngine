@@ -6,6 +6,7 @@ import {
   createNativeCapabilityManifestHash,
   createNativeHostApiFromBridge,
   getTargetCorePluginFamily,
+  getTargetCoreResolverId,
 } from '@quajs/native-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -160,6 +161,7 @@ function createNativeTargetBundleManifest(
       ],
       capabilityManifestHash: CAPABILITY_MANIFEST_HASH,
     },
+    targetCoreResolver: getTargetCoreResolverId('native'),
     selectedCorePluginFamily: getTargetCorePluginFamily('native'),
     selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
     dependencies: [

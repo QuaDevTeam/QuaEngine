@@ -69,6 +69,7 @@ pub fn validate_native_target_bundle_manifest(
         ));
     }
 
+    check_target_core_resolver(manifest, &mut diagnostics);
     check_native_artifact_metadata(manifest, &mut diagnostics);
 
     if let Some(expectation) = expectation {
@@ -89,6 +90,23 @@ pub fn validate_native_target_bundle_manifest(
         })
     } else {
         Err(NativeStartupError::new(diagnostics))
+    }
+}
+
+fn check_target_core_resolver(
+    manifest: &NativeTargetBundleManifest,
+    diagnostics: &mut Vec<String>,
+) {
+    match manifest.target_core_resolver.as_deref() {
+        Some("native-core-resolver") => {}
+        Some(resolver) => diagnostics.push(format!(
+            "Native app startup expected targetCoreResolver \"native-core-resolver\", but manifest was produced by \"{}\".",
+            resolver
+        )),
+        None => diagnostics.push(
+            "Native target bundle manifest must include targetCoreResolver \"native-core-resolver\"."
+                .to_string(),
+        ),
     }
 }
 
