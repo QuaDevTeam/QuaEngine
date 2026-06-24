@@ -112,6 +112,19 @@ fn prepares_audio_projection_resources_without_render_graph_commands() {
     assert!(update.resource_sync.is_empty());
     assert_eq!(update.audio_resource_sync.upsert.len(), 2);
     assert_eq!(update.audio_resource_sync_summary.upsert_count, 2);
+    assert_eq!(update.audio_assets.requests.len(), 1);
+    assert_eq!(
+        update
+            .audio_assets
+            .request("bgm", "music/opening.ogg")
+            .unwrap()
+            .kind,
+        NativeResourceKind::AudioBuffer
+    );
+    assert_eq!(
+        update.audio_assets.skipped_resource_ids,
+        vec![ResourceId::from("audio:handle:bgm:bgm:bgm-main")]
+    );
     assert_eq!(
         update.audio_resource_sync_summary.upsert_by_kind[&NativeResourceKind::AudioBuffer],
         1
