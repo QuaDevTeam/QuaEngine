@@ -740,6 +740,34 @@ describe('@quajs/engine-native', () => {
       bundleName: 'runtime.chapter.native-ui',
       assetName: 'scripts/plugin.node',
     }, ctx)).rejects.toThrow(/must not reference a native payload/)
+
+    await expect(loader.loadScriptModule?.({
+      id: 'ui-ast',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'ui/menu.qui.json',
+    }, ctx)).rejects.toThrow(/must reference a JavaScript module asset/)
+  })
+
+  it('accepts JavaScript module-like native runtime asset names', async () => {
+    const { ctx } = createModuleLoadContext({
+      'scripts/opening.mjs': 'export default function opening() {}',
+      'migrations/save.cjs': 'module.exports = {}',
+    })
+    const loader = createNativeRuntimeModuleLoader({
+      evaluator: input => ({ default: input.assetName }),
+    })
+
+    await expect(loader.loadScriptModule?.({
+      id: 'opening',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/opening.mjs',
+    }, ctx)).resolves.toEqual({ default: 'scripts/opening.mjs' })
+    await expect(loader.loadStoreMigrationModule?.({
+      id: 'save-v2',
+      assetName: 'migrations/save.cjs',
+    }, ctx)).resolves.toEqual({ default: 'migrations/save.cjs' })
   })
 
   it('rejects native runtime evaluators that do not return a module namespace object', async () => {

@@ -169,6 +169,9 @@ function getNativeRuntimeModuleAssetName(record: NativeRuntimeModuleRecord, kind
   if (isForbiddenNativePayload(record.assetName)) {
     throw new Error(`Native runtime ${kind} module assetName "${record.assetName}" must not reference a native payload.`)
   }
+  if (!isNativeScriptModuleAsset(record.assetName)) {
+    throw new Error(`Native runtime ${kind} module assetName "${record.assetName}" must reference a JavaScript module asset.`)
+  }
   return record.assetName
 }
 
@@ -177,6 +180,13 @@ function isForbiddenNativeModuleSpecifier(assetName: string): boolean {
     || assetName.startsWith('\\')
     || /^[a-z][a-z0-9+.-]*:/i.test(assetName)
     || assetName.split(/[\\/]/).includes('..')
+}
+
+function isNativeScriptModuleAsset(assetName: string): boolean {
+  const normalized = assetName.toLowerCase().split(/[\\/]/).pop() || ''
+  return normalized.endsWith('.js')
+    || normalized.endsWith('.mjs')
+    || normalized.endsWith('.cjs')
 }
 
 function normalizeLoadedNativeModule<TLoaded>(
