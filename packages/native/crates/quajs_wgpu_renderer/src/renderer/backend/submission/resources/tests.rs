@@ -1,7 +1,8 @@
 use super::*;
 use crate::frame::prepare_native_frame;
 use crate::projection::background::BackgroundProjection;
-use crate::projection::common::PackageProvenance;
+use crate::projection::common::{FontFamilyProjection, PackageProvenance};
+use crate::projection::dialogue::{DialogueProjection, RichTextStyle};
 use crate::projection::view::ViewProjection;
 use crate::resources::{
     NativeResourceKind, NativeResourceLedger, NativeResourceRecord, ResourceId,
@@ -75,6 +76,52 @@ fn missing_resource_diagnostics_preserve_command_package_provenance() {
 }
 
 #[test]
+fn missing_font_resource_diagnostics_report_resource_kind_and_provenance() {
+    let frame = prepare_native_frame(
+        test_layout(),
+        &ViewProjection {
+            dialogue: Some(DialogueProjection {
+                speaker: Some("Yuki".into()),
+                speaker_style: RichTextStyle {
+                    font_family: Some(FontFamilyProjection::new(["Qua Serif"])),
+                    ..Default::default()
+                },
+                provenance: package_provenance("runtime.dialogue", ["runtime.fonts"]),
+                ..DialogueProjection::say("Hello")
+            }),
+            ..Default::default()
+        },
+    );
+    let resources = NativeResourceLedger::new();
+
+    let submission = NativeRenderFrameRef {
+        revision: 12,
+        frame: &frame,
+        resources: &resources,
+    }
+    .submission();
+
+    assert_eq!(submission.missing_resource_count, 1);
+    assert_eq!(
+        submission.missing_resources,
+        vec![NativeRenderMissingResource {
+            resource_id: ResourceId::from("fonts:Qua Serif"),
+            plane: crate::render_graph::RenderPlane::Safe,
+            pipeline: crate::render_graph::DrawBatchPipeline::Text,
+            kind: crate::render_graph::DrawCommandKind::Text,
+            command_ids: vec!["dialogue:speaker".to_string()],
+            owner_package_ids: BTreeSet::from(["runtime.dialogue".to_string()]),
+            required_package_ids: BTreeSet::from(["runtime.fonts".to_string()]),
+        }]
+    );
+    assert_eq!(
+        NativeRenderBackendResourceDiagnostics::from_submissions(&[submission])
+            .missing_resources_by_kind[&NativeResourceKind::FontFace],
+        1
+    );
+}
+
+#[test]
 fn summarizes_backend_resource_diagnostics_from_submissions() {
     let frame = frame_with_background();
     let runtime_frame = prepare_native_frame(
@@ -124,6 +171,10 @@ fn summarizes_backend_resource_diagnostics_from_submissions() {
 
     assert_eq!(diagnostics.frames_with_missing_resources, 2);
     assert_eq!(diagnostics.missing_resource_count, 2);
+    assert_eq!(
+        diagnostics.missing_resources_by_kind[&NativeResourceKind::Texture],
+        2
+    );
     assert_eq!(
         diagnostics.last_missing_resources,
         missing_third.missing_resources
