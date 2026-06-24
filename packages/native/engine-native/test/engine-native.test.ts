@@ -1,5 +1,11 @@
 import type { NativeHostApiRequest, QuaNativeHostApi, QuaNativeHostInfo, TargetBundleManifest } from '@quajs/native-contracts'
-import { COCOS_TARGET_BOOTSTRAP, NATIVE_TARGET_BOOTSTRAP, createNativeHostApiFromBridge, getTargetCorePluginFamily } from '@quajs/native-contracts'
+import {
+  COCOS_TARGET_BOOTSTRAP,
+  NATIVE_TARGET_BOOTSTRAP,
+  createNativeCapabilityManifestHash,
+  createNativeHostApiFromBridge,
+  getTargetCorePluginFamily,
+} from '@quajs/native-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import {
   NativeHostPlugin,
@@ -22,7 +28,43 @@ import {
   readNativeHostInfo,
 } from '../src'
 
-const CAPABILITY_MANIFEST_HASH = 'sha256:native-capabilities-fixture'
+const CAPABILITIES: QuaNativeHostInfo['renderer']['capabilities'] = [
+  {
+    id: 'native-wgpu.ui.surface@1',
+    target: 'native',
+    version: '1.0.0',
+    ownerPackage: '@quajs/native-renderer',
+    projectionKeys: ['view.ui.overlays'],
+    fallback: 'reject-package',
+  },
+  {
+    id: 'native-wgpu.video@1',
+    target: 'native',
+    version: '1.0.0',
+    ownerPackage: '@quajs/native-renderer',
+    projectionKeys: ['background.video'],
+    assetKinds: ['video', 'images'],
+    fallback: 'warn-once',
+  },
+  {
+    id: 'native-wgpu.input.pointer@1',
+    target: 'native',
+    version: '1.0.0',
+    ownerPackage: '@quajs/native-renderer',
+    projectionKeys: ['view.choices', 'view.ui.overlays'],
+    intentEvents: ['choice/select', 'ui/intent'],
+    fallback: 'reject-package',
+  },
+]
+
+const CAPABILITY_MANIFEST_HASH = createNativeCapabilityManifestHash(
+  CAPABILITIES,
+  payload => `test-sha256:${payload.length}`,
+)
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
 function createHostInfo(version = '0.1.0'): QuaNativeHostInfo {
   return {
@@ -40,34 +82,7 @@ function createHostInfo(version = '0.1.0'): QuaNativeHostInfo {
       version,
       backend: 'wgpu',
       capabilityManifestHash: CAPABILITY_MANIFEST_HASH,
-      capabilities: [
-        {
-          id: 'native-wgpu.ui.surface@1',
-          target: 'native',
-          version: '1.0.0',
-          ownerPackage: '@quajs/native-renderer',
-          projectionKeys: ['view.ui.overlays'],
-          fallback: 'reject-package',
-        },
-        {
-          id: 'native-wgpu.video@1',
-          target: 'native',
-          version: '1.0.0',
-          ownerPackage: '@quajs/native-renderer',
-          projectionKeys: ['background.video'],
-          assetKinds: ['video', 'images'],
-          fallback: 'warn-once',
-        },
-        {
-          id: 'native-wgpu.input.pointer@1',
-          target: 'native',
-          version: '1.0.0',
-          ownerPackage: '@quajs/native-renderer',
-          projectionKeys: ['view.choices', 'view.ui.overlays'],
-          intentEvents: ['choice/select', 'ui/intent'],
-          fallback: 'reject-package',
-        },
-      ],
+      capabilities: CAPABILITIES,
     },
     runtime: {
       quickjsVersion: '2025-04-26',
@@ -305,7 +320,7 @@ describe('@quajs/engine-native', () => {
     })
 
     await expect(plugin.init({} as any)).rejects.toThrow(
-      /Native renderer manifest compatibility validation failed.*renderer version "0\.1\.0" does not match host renderer version "0\.2\.0".*capability hash "sha256:stale-native-capabilities" does not match host renderer capability hash "sha256:native-capabilities-fixture".*capability "native-wgpu\.audio@1" is not provided/,
+      new RegExp(`Native renderer manifest compatibility validation failed.*renderer version "0\\.1\\.0" does not match host renderer version "0\\.2\\.0".*capability hash "sha256:stale-native-capabilities" does not match host renderer capability hash "${escapeRegExp(CAPABILITY_MANIFEST_HASH)}".*capability "native-wgpu\\.audio@1" is not provided`),
     )
     expect(plugin.getTargetBundleManifestValidation()?.ok).toBe(true)
     expect(host.getHostInfo).toHaveBeenCalledTimes(1)
