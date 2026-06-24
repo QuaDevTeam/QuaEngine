@@ -10,7 +10,8 @@ use crate::resources::{
 use crate::stage_layout::{ResolvedStageLayout, StageClientPoint, StageClientRectOrigin};
 
 use super::backend::{NativeRenderBackend, NativeRenderBackendResult, NativeRenderSubmission};
-use super::state::{NativeRendererFrameUpdate, NativeRendererPackageRelease, NativeRendererState};
+use super::resource_update::{NativeRendererFrameUpdate, NativeRendererPackageRelease};
+use super::state::NativeRendererState;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NativeRendererFrameResult {
