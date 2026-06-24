@@ -4,7 +4,8 @@ import type {
   QuaGameSaveSlotPayload,
   QuaSnapshot,
 } from '@quajs/store'
-import type { QuaNativeHostApi, QuaNativeHostInfo } from '@quajs/native-contracts'
+import type { NativeHostApiRequest, QuaNativeHostApi, QuaNativeHostInfo } from '@quajs/native-contracts'
+import { createNativeHostApiFromBridge } from '@quajs/native-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import {
   NativeStoreBackend,
@@ -146,6 +147,75 @@ describe('@quajs/store-native', () => {
         },
       },
     ])
+  })
+
+  it('uses the host bridge dispatcher for native store persistence', async () => {
+    const requests: NativeHostApiRequest[] = []
+    const storage = new Map<string, number[]>()
+    const host = createNativeHostApiFromBridge(async (request) => {
+      requests.push(request)
+      switch (request.method) {
+        case 'readStorage':
+          return { ok: true, payload: { type: 'storageBytes', value: storage.get(request.params.key) } }
+        case 'writeStorage':
+          storage.set(request.params.key, request.params.value)
+          return { ok: true }
+        case 'deleteStorage':
+          storage.delete(request.params.key)
+          return { ok: true }
+        case 'listStorageKeys':
+          return {
+            ok: true,
+            payload: {
+              type: 'storageKeys',
+              value: [...storage.keys()].filter(key => key.startsWith(request.params.prefix)),
+            },
+          }
+        default:
+          return {
+            ok: false,
+            error: {
+              code: 'unsupportedOperation',
+              message: `Unexpected bridge request "${request.method}".`,
+            },
+          }
+      }
+    })
+    const backend = new NativeStoreBackend({
+      host,
+      hostInfo: createHostInfo('debug'),
+      profileId: 'player-a',
+    })
+
+    await backend.saveSnapshot(createSnapshot('bridge-snapshot'))
+    await expect(backend.getSnapshot('bridge-snapshot')).resolves.toEqual(expect.objectContaining({
+      id: 'bridge-snapshot',
+      createdAt: new Date('2026-06-24T00:00:00.000Z'),
+    }))
+    await expect(backend.listSnapshots()).resolves.toEqual([
+      expect.objectContaining({ id: 'bridge-snapshot' }),
+    ])
+
+    expect(requests).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        method: 'writeStorage',
+        params: expect.objectContaining({
+          key: 'dev.quajs.native.fixture/debug/player-a/qua-store/snapshots/bridge-snapshot',
+        }),
+      }),
+      {
+        method: 'readStorage',
+        params: {
+          key: 'dev.quajs.native.fixture/debug/player-a/qua-store/snapshots/bridge-snapshot',
+        },
+      },
+      {
+        method: 'listStorageKeys',
+        params: {
+          prefix: 'dev.quajs.native.fixture/debug/player-a/qua-store/snapshots/',
+        },
+      },
+    ]))
   })
 
   it('persists save slot index, payload, and preview records through host storage', async () => {
