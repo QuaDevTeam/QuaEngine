@@ -1,5 +1,12 @@
 use serde::{Deserialize, Serialize};
 
+mod registry;
+
+pub use registry::{
+    quickjs_module_namespace_id, QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry,
+    QuickJsModuleNamespaceSummary,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum QuickJsRuntimeModuleKind {
@@ -135,6 +142,18 @@ pub fn evaluate_quickjs_module(
         Ok(response) => response,
         Err(error) => QuickJsEvaluationResponse::error(error),
     }
+}
+
+pub fn evaluate_quickjs_module_with_registry(
+    evaluator: &mut impl QuickJsModuleEvaluator,
+    registry: &mut QuickJsModuleNamespaceRegistry,
+    request: &QuickJsEvaluationRequest,
+) -> QuickJsEvaluationResponse {
+    let response = evaluate_quickjs_module(evaluator, request);
+    if let (true, Some(module_namespace_id)) = (response.ok, response.module_namespace_id.as_deref()) {
+        registry.register_evaluated_module(module_namespace_id, request);
+    }
+    response
 }
 
 pub fn validate_quickjs_evaluation_request(
