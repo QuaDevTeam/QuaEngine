@@ -54,6 +54,7 @@ fn reports_frame_metrics_from_prepared_frame() {
     assert_eq!(metrics.frame.resource_request_count, 1);
     assert_eq!(metrics.frame.resource_ref_count, 1);
     assert_eq!(metrics.frame.asset_request_count, 1);
+    assert_eq!(metrics.frame.declarative_asset_request_count, 0);
     assert_eq!(metrics.frame.skipped_asset_resource_count, 0);
     assert_eq!(metrics.frame.fallback_count, 0);
     assert_eq!(metrics.frame.video_fallback_count, 0);
@@ -122,6 +123,7 @@ fn reports_frame_metrics_by_package_and_resource_kind() {
         metrics.frame.by_resource_kind[&NativeResourceKind::UiAst],
         1
     );
+    assert_eq!(metrics.frame.declarative_asset_request_count, 1);
     assert_eq!(
         metrics.frame.asset_requests_by_type["images"].request_count,
         1
@@ -158,6 +160,47 @@ fn reports_frame_metrics_by_package_and_resource_kind() {
         .frame
         .asset_requests_by_package
         .contains_key("runtime.choice"));
+}
+
+#[test]
+fn reports_declarative_asset_request_count_for_ui_style_and_tokens() {
+    let mut graph = crate::render_graph::RenderGraph::new(test_layout());
+    graph.extend([crate::render_graph::DrawCommand::new(
+        "ui:surface",
+        RenderPlane::Screen,
+        crate::render_graph::DrawCommandKind::UiSurface,
+        crate::render_graph::LogicalRect {
+            x: 0.0,
+            y: 0.0,
+            width: 100.0,
+            height: 100.0,
+        },
+    )
+    .resource("surface:ui/menu.qui")
+    .resource("qss:themes/default.qss.json")
+    .resource("tokens:themes/default.tokens.json")]);
+    let resources = crate::resources::plan_render_graph_resources(&graph);
+    let assets = crate::resources::plan_asset_requests(&resources);
+    let frame = crate::frame::PreparedNativeFrame {
+        summary: graph.summary(),
+        resources,
+        assets,
+        passes: crate::render_graph::plan_render_passes(&graph),
+        graph,
+    };
+    let metrics = NativeRendererMetrics::from_state(5, Some(&frame), &NativeResourceLedger::new());
+
+    assert_eq!(metrics.frame.asset_request_count, 3);
+    assert_eq!(metrics.frame.declarative_asset_request_count, 3);
+    assert_eq!(
+        metrics.frame.asset_requests_by_type["surface"].request_count,
+        1
+    );
+    assert_eq!(metrics.frame.asset_requests_by_type["qss"].request_count, 1);
+    assert_eq!(
+        metrics.frame.asset_requests_by_type["tokens"].request_count,
+        1
+    );
 }
 
 #[test]

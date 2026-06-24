@@ -57,6 +57,13 @@ pub fn plan_asset_requests(resources: &RenderResourcePlan) -> NativeAssetRequest
     }
 }
 
+pub fn is_declarative_asset_kind(kind: NativeResourceKind) -> bool {
+    matches!(
+        kind,
+        NativeResourceKind::UiAst | NativeResourceKind::QssStyle | NativeResourceKind::TokenTable
+    )
+}
+
 fn asset_request_from_resource(
     request: &RenderResourceRequest,
     asset_type: String,
