@@ -8,7 +8,9 @@ pub mod summary;
 pub mod sync;
 pub mod unload;
 
-pub use assets::{plan_asset_requests, NativeAssetRequest, NativeAssetRequestPlan};
+pub use assets::{
+    is_declarative_asset_kind, plan_asset_requests, NativeAssetRequest, NativeAssetRequestPlan,
+};
 pub use budget::{
     ResourceBudget, ResourceBudgetViolation, ResourceBudgetViolationCode, ResourceMemoryBudget,
 };

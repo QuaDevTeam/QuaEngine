@@ -7,8 +7,8 @@ use crate::render_graph::{
     RenderPlaneSummary,
 };
 use crate::resources::{
-    NativeResourceKind, NativeResourceLedger, PackageResourceSummary, ResourceKindSummary,
-    ResourceMemory, ResourceMemoryPressureSummary,
+    is_declarative_asset_kind, NativeResourceKind, NativeResourceLedger, PackageResourceSummary,
+    ResourceKindSummary, ResourceMemory, ResourceMemoryPressureSummary,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -29,6 +29,7 @@ pub struct NativeRendererFrameMetrics {
     pub resource_request_count: usize,
     pub resource_ref_count: usize,
     pub asset_request_count: usize,
+    pub declarative_asset_request_count: usize,
     pub skipped_asset_resource_count: usize,
     pub fallback_count: usize,
     pub video_fallback_count: usize,
@@ -115,6 +116,7 @@ fn frame_metrics(frame: &PreparedNativeFrame) -> NativeRendererFrameMetrics {
         resource_request_count: frame.resources.requests.len(),
         resource_ref_count: frame.resources.resource_ref_count,
         asset_request_count: frame.assets.requests.len(),
+        declarative_asset_request_count: frame_declarative_asset_request_count(frame),
         skipped_asset_resource_count: frame.assets.skipped_resource_ids.len(),
         fallback_count: frame_fallback_count(frame),
         video_fallback_count: frame_video_fallback_count(frame),
@@ -126,6 +128,15 @@ fn frame_metrics(frame: &PreparedNativeFrame) -> NativeRendererFrameMetrics {
         fallbacks_by_pipeline: frame_fallback_pipeline_metrics(frame),
         fallbacks_by_reason: frame_fallback_reason_metrics(frame),
     }
+}
+
+fn frame_declarative_asset_request_count(frame: &PreparedNativeFrame) -> usize {
+    frame
+        .assets
+        .requests
+        .iter()
+        .filter(|request| is_declarative_asset_kind(request.kind))
+        .count()
 }
 
 fn frame_asset_type_metrics(
