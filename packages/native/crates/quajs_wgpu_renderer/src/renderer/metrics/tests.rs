@@ -2,6 +2,7 @@ use super::*;
 use crate::projection::background::BackgroundProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::view::ViewProjection;
+use crate::render_graph::RenderPlane;
 use crate::resources::{NativeResourceKind, NativeResourceRecord};
 use crate::stage_layout::{
     resolve_stage_layout, StageContainerInput, ViewLayoutInput, ViewLayoutOrientation,
@@ -37,6 +38,16 @@ fn reports_frame_metrics_from_prepared_frame() {
     assert_eq!(metrics.frame.resource_ref_count, 1);
     assert_eq!(metrics.frame.asset_request_count, 1);
     assert_eq!(metrics.frame.skipped_asset_resource_count, 0);
+    assert_eq!(metrics.frame.by_plane[&RenderPlane::Scene].command_count, 1);
+    assert_eq!(
+        metrics.frame.by_plane[&RenderPlane::Scene].resource_ref_count,
+        1
+    );
+    assert_eq!(metrics.frame.by_plane[&RenderPlane::Safe].command_count, 2);
+    assert_eq!(
+        metrics.frame.by_plane[&RenderPlane::Safe].interactive_count,
+        1
+    );
 }
 
 #[test]
