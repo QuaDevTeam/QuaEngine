@@ -37,6 +37,7 @@ const CAPABILITIES: QuaNativeHostInfo['renderer']['capabilities'] = [
     version: '1.0.0',
     ownerPackage: '@quajs/native-renderer',
     projectionKeys: ['view.ui.overlays'],
+    assetKinds: ['data', 'images', 'fonts', 'qui', 'qss', 'tokens'],
     fallback: 'reject-package',
   },
   {
@@ -991,6 +992,39 @@ describe('@quajs/engine-native', () => {
         keyId: 'test-key',
       },
     }))).rejects.toThrow(/Required native capability "native-wgpu\.audio@1" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
+  it('checks runtime package native asset kind compatibility before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: {
+          renderer: '@quajs/native-renderer',
+          version: '^0.1.0',
+          assetKinds: ['qui', 'shader'],
+          nativeCode: false,
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native asset kind "shader" is not available/)
 
     expect(host.getHostInfo).not.toHaveBeenCalled()
     expect(host.verifySignature).not.toHaveBeenCalled()
