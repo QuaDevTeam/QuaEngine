@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::frame::PreparedNativeFrame;
-use crate::render_graph::{RenderPlane, RenderPlaneSummary};
+use crate::render_graph::{RenderGraphPackageSummary, RenderPlane, RenderPlaneSummary};
 use crate::resources::{
     NativeResourceKind, NativeResourceLedger, PackageResourceSummary, ResourceKindSummary,
     ResourceMemory,
@@ -26,6 +26,7 @@ pub struct NativeRendererFrameMetrics {
     pub asset_request_count: usize,
     pub skipped_asset_resource_count: usize,
     pub by_plane: BTreeMap<RenderPlane, RenderPlaneSummary>,
+    pub by_package: BTreeMap<String, RenderGraphPackageSummary>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -64,6 +65,7 @@ fn frame_metrics(frame: &PreparedNativeFrame) -> NativeRendererFrameMetrics {
         asset_request_count: frame.assets.requests.len(),
         skipped_asset_resource_count: frame.assets.skipped_resource_ids.len(),
         by_plane: frame.summary.by_plane.clone(),
+        by_package: frame.summary.by_package.clone(),
     }
 }
 

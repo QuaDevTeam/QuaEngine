@@ -1,6 +1,7 @@
 use super::*;
 use crate::projection::background::BackgroundProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
+use crate::projection::common::PackageProvenance;
 use crate::projection::view::ViewProjection;
 use crate::render_graph::RenderPlane;
 use crate::resources::{NativeResourceKind, NativeResourceRecord};
@@ -46,6 +47,28 @@ fn reports_frame_metrics_from_prepared_frame() {
     assert_eq!(metrics.frame.by_plane[&RenderPlane::Safe].command_count, 2);
     assert_eq!(
         metrics.frame.by_plane[&RenderPlane::Safe].interactive_count,
+        1
+    );
+}
+
+#[test]
+fn reports_frame_metrics_by_package() {
+    let frame = crate::frame::prepare_native_frame(test_layout(), &package_aware_view());
+    let resources = NativeResourceLedger::new();
+
+    let metrics = NativeRendererMetrics::from_state(4, Some(&frame), &resources);
+
+    assert_eq!(metrics.resources.package_count, 0);
+    assert_eq!(metrics.frame.by_package["base"].command_count, 3);
+    assert_eq!(metrics.frame.by_package["base"].resource_ref_count, 1);
+    assert_eq!(metrics.frame.by_package["base"].interactive_count, 1);
+    assert_eq!(metrics.frame.by_package["runtime.choice"].command_count, 1);
+    assert_eq!(
+        metrics.frame.by_package["runtime.choice"].resource_ref_count,
+        0
+    );
+    assert_eq!(
+        metrics.frame.by_package["runtime.choice"].interactive_count,
         1
     );
 }
@@ -118,6 +141,39 @@ fn view_with_background_and_choice() -> ViewProjection {
         choices: Some(ChoiceSetProjection::new(vec![ChoiceProjection::new(
             "stay", "Stay",
         )])),
+        ..Default::default()
+    }
+}
+
+fn package_aware_view() -> ViewProjection {
+    let mut required_base = std::collections::BTreeSet::new();
+    required_base.insert("base".to_string());
+
+    ViewProjection {
+        background: Some(BackgroundProjection {
+            asset_name: Some("bg/school.png".to_string()),
+            provenance: PackageProvenance {
+                content_package_id: Some("base".to_string()),
+                required_runtime_packages: Default::default(),
+            },
+            ..Default::default()
+        }),
+        choices: Some(ChoiceSetProjection {
+            visible: true,
+            provenance: PackageProvenance {
+                content_package_id: None,
+                required_runtime_packages: required_base.clone(),
+            },
+            choices: vec![ChoiceProjection {
+                id: "stay".to_string(),
+                text: "Stay".to_string(),
+                enabled: true,
+                provenance: PackageProvenance {
+                    content_package_id: Some("runtime.choice".to_string()),
+                    required_runtime_packages: required_base,
+                },
+            }],
+        }),
         ..Default::default()
     }
 }
