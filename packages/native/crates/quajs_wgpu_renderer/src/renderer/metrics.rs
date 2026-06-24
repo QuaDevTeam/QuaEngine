@@ -4,7 +4,7 @@ use crate::frame::PreparedNativeFrame;
 use crate::render_graph::{RenderGraphPackageSummary, RenderPlane, RenderPlaneSummary};
 use crate::resources::{
     NativeResourceKind, NativeResourceLedger, PackageResourceSummary, ResourceKindSummary,
-    ResourceMemory,
+    ResourceMemory, ResourceMemoryPressureSummary,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -42,6 +42,7 @@ pub struct NativeRendererFrameAssetMetrics {
 pub struct NativeRendererResourceMetrics {
     pub ledger_resource_count: usize,
     pub memory: ResourceMemory,
+    pub pressure: ResourceMemoryPressureSummary,
     pub package_count: usize,
     pub kind_count: usize,
     pub by_kind: BTreeMap<NativeResourceKind, ResourceKindSummary>,
@@ -121,6 +122,7 @@ fn resource_metrics(resources: &NativeResourceLedger) -> NativeRendererResourceM
     NativeRendererResourceMetrics {
         ledger_resource_count: summary.total_count,
         memory: summary.total_memory,
+        pressure: summary.memory_pressure(),
         package_count: summary.by_package.len(),
         kind_count: summary.by_kind.len(),
         by_kind: summary.by_kind,

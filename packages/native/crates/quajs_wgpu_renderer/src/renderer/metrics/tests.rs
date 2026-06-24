@@ -20,6 +20,8 @@ fn reports_empty_renderer_metrics() {
     assert_eq!(metrics.frame.command_count, 0);
     assert_eq!(metrics.resources.ledger_resource_count, 0);
     assert_eq!(metrics.resources.memory.total_bytes(), 0);
+    assert_eq!(metrics.resources.pressure.total_count, 0);
+    assert_eq!(metrics.resources.pressure.total_memory.total_bytes(), 0);
 }
 
 #[test]
@@ -143,6 +145,19 @@ fn reports_resource_memory_and_package_counts() {
     assert_eq!(metrics.resources.kind_count, 2);
     assert_eq!(metrics.resources.memory.cpu_bytes, 2176);
     assert_eq!(metrics.resources.memory.gpu_bytes, 4096);
+    assert_eq!(metrics.resources.pressure.total_count, 2);
+    assert_eq!(
+        metrics.resources.pressure.largest_kind,
+        Some(NativeResourceKind::Texture)
+    );
+    assert_eq!(
+        metrics.resources.pressure.largest_owner_package_id,
+        Some("base".to_string())
+    );
+    assert_eq!(
+        metrics.resources.pressure.largest_dependent_package_id,
+        Some("base".to_string())
+    );
     assert_eq!(
         metrics.resources.by_kind[&NativeResourceKind::Texture].count,
         1
