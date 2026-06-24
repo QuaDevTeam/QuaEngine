@@ -12,6 +12,7 @@ pub struct NativeRendererFrameUpdate {
     pub revision: u64,
     pub resource_sync: FrameResourceSyncPlan,
     pub released_resources: Vec<NativeResourceRecord>,
+    pub host_cleanup: Vec<NativeRendererHostCleanupRecord>,
     pub resource_sync_summary: NativeRendererFrameResourceSyncSummary,
 }
 
@@ -31,7 +32,18 @@ pub struct NativeRendererPackageRelease {
     pub revision: u64,
     pub plan: PackageUnloadPlan,
     pub released_resources: Vec<NativeResourceRecord>,
+    pub host_cleanup: Vec<NativeRendererHostCleanupRecord>,
     pub summary: NativeRendererPackageReleaseSummary,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NativeRendererHostCleanupRecord {
+    pub resource_id: ResourceId,
+    pub kind: NativeResourceKind,
+    pub owner_package_id: Option<String>,
+    pub required_package_ids: Vec<String>,
+    pub memory: ResourceMemory,
+    pub label: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -131,6 +143,22 @@ pub(super) fn frame_resource_sync_summary(
     }
 
     summary
+}
+
+pub(super) fn host_cleanup_records(
+    released_resources: &[NativeResourceRecord],
+) -> Vec<NativeRendererHostCleanupRecord> {
+    released_resources
+        .iter()
+        .map(|record| NativeRendererHostCleanupRecord {
+            resource_id: record.id.clone(),
+            kind: record.kind,
+            owner_package_id: record.owner_package_id.clone(),
+            required_package_ids: record.required_package_ids.iter().cloned().collect(),
+            memory: record.memory,
+            label: record.label.clone(),
+        })
+        .collect()
 }
 
 pub(super) fn package_release_summary(

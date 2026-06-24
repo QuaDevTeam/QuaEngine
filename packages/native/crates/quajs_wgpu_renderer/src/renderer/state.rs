@@ -10,7 +10,8 @@ use crate::renderer::backend::{
 use crate::renderer::metrics::NativeRendererMetrics;
 use crate::renderer::resource_update::{
     apply_active_frame_unload_guard, apply_resource_sync, frame_resource_sync_summary,
-    package_release_summary, NativeRendererFrameUpdate, NativeRendererPackageRelease,
+    host_cleanup_records, package_release_summary, NativeRendererFrameUpdate,
+    NativeRendererHostCleanupRecord, NativeRendererPackageRelease,
 };
 use crate::resources::{
     plan_frame_resource_sync, NativeResourceLedger, NativeResourceRecord, PackageUnloadPlan,
@@ -81,6 +82,7 @@ impl NativeRendererState {
 
         NativeRendererPackageRelease {
             revision: self.revision,
+            host_cleanup: host_cleanup_records(&released_resources),
             summary: package_release_summary(&plan, &released_resources, &self.resources),
             plan,
             released_resources,
@@ -104,6 +106,7 @@ impl NativeRendererState {
         NativeRendererFrameUpdate {
             revision: self.revision,
             resource_sync,
+            host_cleanup: host_cleanup_records(&released_resources),
             released_resources,
             resource_sync_summary,
         }
@@ -160,5 +163,13 @@ impl NativeRendererState {
         self.revision = self.revision.saturating_add(1);
         self.pointer_interaction.clear();
         self.resources.clear()
+    }
+
+    pub fn clear_with_host_cleanup(
+        &mut self,
+    ) -> (Vec<NativeResourceRecord>, Vec<NativeRendererHostCleanupRecord>) {
+        let released = self.clear();
+        let cleanup = host_cleanup_records(&released);
+        (released, cleanup)
     }
 }

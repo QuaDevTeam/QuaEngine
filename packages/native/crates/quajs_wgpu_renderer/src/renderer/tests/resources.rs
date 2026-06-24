@@ -205,6 +205,16 @@ fn release_package_resources_releases_inactive_package_resources() {
         release.released_resources[0].id,
         ResourceId::from("runtime:atlas")
     );
+    assert_eq!(release.host_cleanup.len(), 1);
+    assert_eq!(
+        release.host_cleanup[0].resource_id,
+        ResourceId::from("runtime:atlas")
+    );
+    assert_eq!(
+        release.host_cleanup[0].owner_package_id.as_deref(),
+        Some("runtime.ui")
+    );
+    assert_eq!(release.host_cleanup[0].memory.gpu_bytes, 2048);
     assert_eq!(release.summary.releasable_count, 1);
     assert_eq!(release.summary.blocked_count, 0);
     assert_eq!(release.summary.released_count, 1);

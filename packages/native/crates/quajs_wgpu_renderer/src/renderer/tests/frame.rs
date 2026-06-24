@@ -61,6 +61,17 @@ fn releases_frame_managed_resources_when_projection_removes_them() {
         vec![ResourceId::from("images:bg/school.png")]
     );
     assert_eq!(update.released_resources.len(), 1);
+    assert_eq!(update.host_cleanup.len(), 1);
+    assert_eq!(
+        update.host_cleanup[0].resource_id,
+        ResourceId::from("images:bg/school.png")
+    );
+    assert_eq!(update.host_cleanup[0].kind, NativeResourceKind::Texture);
+    assert_eq!(
+        update.host_cleanup[0].owner_package_id.as_deref(),
+        Some("base")
+    );
+    assert_eq!(update.host_cleanup[0].memory.gpu_bytes, 4096);
     assert_eq!(update.resource_sync_summary.release_count, 1);
     assert_eq!(update.resource_sync_summary.released_count, 1);
     assert_eq!(

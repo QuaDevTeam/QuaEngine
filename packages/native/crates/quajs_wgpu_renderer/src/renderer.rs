@@ -22,6 +22,7 @@ pub use metrics::{
 };
 pub use resource_update::{
     NativeRendererFrameResourceSyncSummary, NativeRendererFrameUpdate,
+    NativeRendererHostCleanupRecord,
     NativeRendererPackageRelease, NativeRendererPackageReleaseSummary,
 };
 pub use state::NativeRendererState;
