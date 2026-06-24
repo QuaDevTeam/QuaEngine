@@ -1,6 +1,7 @@
 import type { EngineContext, EnginePlugin } from '@quajs/engine'
 import type {
   ExclusiveTargetBootstrapValidationResult,
+  NativeQuickJsModuleNamespaceRecord,
   QuaNativeHostApi,
   QuaNativeHostInfo,
   TargetBundleNativeRendererInfo,
@@ -23,6 +24,7 @@ export class NativeHostPlugin implements EnginePlugin {
   private hostInfo?: QuaNativeHostInfo
   private targetBootstrapValidation?: ExclusiveTargetBootstrapValidationResult
   private targetBundleManifestValidation?: TargetBundleManifestValidationResult
+  private releasedQuickJsPackages: NativeQuickJsModuleNamespaceRecord[] = []
 
   constructor(private readonly options: NativeHostPluginOptions) {
     this.hostInfo = options.info
@@ -35,8 +37,20 @@ export class NativeHostPlugin implements EnginePlugin {
     this.hostInfo = hostInfo
   }
 
+  async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
+    const packageId = ctx.runtimePackage?.package.id
+    if (!packageId || !this.options.host.releaseQuickJsPackageNamespaces)
+      return
+    const released = await this.options.host.releaseQuickJsPackageNamespaces(packageId)
+    this.releasedQuickJsPackages.push(...released)
+  }
+
   getHostInfo(): QuaNativeHostInfo | undefined {
     return this.hostInfo
+  }
+
+  getReleasedQuickJsPackageNamespaces(): NativeQuickJsModuleNamespaceRecord[] {
+    return [...this.releasedQuickJsPackages]
   }
 
   getTargetBootstrapValidation(): ExclusiveTargetBootstrapValidationResult | undefined {
