@@ -1,4 +1,5 @@
 use crate::projection::common::PackageProvenance;
+use crate::projection::typography::font_family_resource_ids;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams, MediaFit,
     MediaOrigin, PanelDrawParams, RenderGraph, RenderPlane, TextDrawParams,
@@ -92,18 +93,20 @@ fn text_command(
     fallback_font_size: f64,
     fallback_line_height: f64,
 ) -> DrawCommand {
-    DrawCommand::new(id, RenderPlane::Safe, DrawCommandKind::Text, bounds).params(
-        DrawCommandParams::Text(TextDrawParams {
+    let font_family = resolve_font_family(style);
+
+    DrawCommand::new(id, RenderPlane::Safe, DrawCommandKind::Text, bounds)
+        .resources(font_family_resource_ids(&font_family))
+        .params(DrawCommandParams::Text(TextDrawParams {
             text,
-            font_family: resolve_font_family(style),
+            font_family,
             font_size: resolve_font_size(style, fallback_font_size),
             font_weight: resolve_font_weight(style),
             line_height: resolve_line_height(style, fallback_line_height),
             align: resolve_text_align(style),
             color: resolve_text_color(style, "#ffffff"),
             role: role.to_string(),
-        }),
-    )
+        }))
 }
 
 fn avatar_command(

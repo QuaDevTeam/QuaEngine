@@ -212,6 +212,13 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
         }
         _ => panic!("expected text params"),
     }
+    assert_eq!(
+        commands[2].resource_ids,
+        vec![
+            ResourceId::from("fonts:Qua Sans"),
+            ResourceId::from("fonts:Fallback Serif")
+        ]
+    );
     match &commands[3].params {
         DrawCommandParams::Image(params) => {
             assert_eq!(params.fit, MediaFit::Cover);
@@ -237,6 +244,13 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
         }
         _ => panic!("expected ui button params"),
     }
+    assert_eq!(
+        commands[4].resource_ids,
+        vec![
+            ResourceId::from("fonts:Button Face"),
+            ResourceId::from("fonts:Fallback UI")
+        ]
+    );
 }
 
 #[test]

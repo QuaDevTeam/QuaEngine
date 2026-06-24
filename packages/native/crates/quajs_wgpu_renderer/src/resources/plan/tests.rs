@@ -135,6 +135,44 @@ fn falls_back_to_command_kind_when_resource_prefix_is_unknown() {
     );
 }
 
+#[test]
+fn plans_font_face_resources_from_text_resource_ids() {
+    let mut graph = RenderGraph::new(test_layout());
+    graph.extend([
+        DrawCommand::new(
+            "dialogue:text",
+            RenderPlane::Safe,
+            DrawCommandKind::Text,
+            rect(),
+        )
+        .resource("fonts:Qua Sans")
+        .owned_by("runtime.fonts")
+        .require_package("base"),
+        DrawCommand::new(
+            "ui:button",
+            RenderPlane::Screen,
+            DrawCommandKind::UiSurface,
+            rect(),
+        )
+        .resource("fonts:Qua Sans")
+        .owned_by("runtime.ui"),
+    ]);
+
+    let plan = plan_render_graph_resources(&graph);
+    let request = plan.request("fonts:Qua Sans").unwrap();
+
+    assert_eq!(plan.requests.len(), 1);
+    assert_eq!(plan.resource_ref_count, 2);
+    assert_eq!(plan.by_kind[&NativeResourceKind::FontFace], 1);
+    assert_eq!(request.kind, NativeResourceKind::FontFace);
+    assert_eq!(request.command_ids, set(["dialogue:text", "ui:button"]));
+    assert_eq!(
+        request.owner_package_ids,
+        set(["runtime.fonts", "runtime.ui"])
+    );
+    assert_eq!(request.required_package_ids, set(["base"]));
+}
+
 fn image_command(id: &str, resource_id: &str) -> DrawCommand {
     DrawCommand::new(id, RenderPlane::Scene, DrawCommandKind::Image, rect()).resource(resource_id)
 }

@@ -192,6 +192,42 @@ fn plans_declarative_ui_asset_requests_for_runtime_package_surfaces() {
     assert!(!is_declarative_asset_kind(NativeResourceKind::Texture));
 }
 
+#[test]
+fn plans_font_asset_requests_from_font_face_resources() {
+    let mut graph = RenderGraph::new(test_layout());
+    graph.extend([
+        DrawCommand::new(
+            "dialogue:text",
+            RenderPlane::Safe,
+            DrawCommandKind::Text,
+            rect(),
+        )
+        .resource("fonts:Qua Sans")
+        .owned_by("runtime.fonts")
+        .require_package("base"),
+        DrawCommand::new(
+            "ui:button",
+            RenderPlane::Screen,
+            DrawCommandKind::UiSurface,
+            rect(),
+        )
+        .resource("fonts:Qua Sans")
+        .owned_by("runtime.ui"),
+    ]);
+    let resources = plan_render_graph_resources(&graph);
+
+    let assets = plan_asset_requests(&resources);
+    let request = assets.request("fonts", "Qua Sans").unwrap();
+
+    assert_eq!(assets.requests.len(), 1);
+    assert_eq!(request.kind, NativeResourceKind::FontFace);
+    assert_eq!(request.command_ids, set(["dialogue:text", "ui:button"]));
+    assert_eq!(
+        request.package_candidates,
+        set(["base", "runtime.fonts", "runtime.ui"])
+    );
+}
+
 fn image_command(id: &str, resource_id: &str) -> DrawCommand {
     DrawCommand::new(id, RenderPlane::Scene, DrawCommandKind::Image, rect()).resource(resource_id)
 }
