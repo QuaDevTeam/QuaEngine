@@ -1,6 +1,7 @@
 import type { QuaTargetBootstrap, TargetBundleManifest } from '../src'
 import { describe, expect, it } from 'vitest'
 import {
+  assertTargetBundleManifest,
   COCOS_TARGET_BOOTSTRAP,
   collectTargetBundlePackageNames,
   NATIVE_TARGET_BOOTSTRAP,
@@ -109,6 +110,7 @@ describe('target bundle manifest validation', () => {
     expect(result.ok).toBe(true)
     expect(result.bootstrapValidation.selectedTargets).toEqual(['native'])
     expect(result.diagnostics).toEqual([])
+    expect(assertTargetBundleManifest(targetBundleManifest())).toEqual(result)
   })
 
   it('normalizes subentry dependencies before validating target isolation', () => {
@@ -234,6 +236,32 @@ describe('target bundle manifest validation', () => {
         packageName: '@quajs/native-contracts',
       }),
     ]))
+  })
+
+  it('throws a packaging-ready error when native artifacts mix Web or Cocos core plugins', () => {
+    expect(() => assertTargetBundleManifest(targetBundleManifest({
+      dependencies: [
+        ...targetDependencies('native') || [],
+        '@quajs/renderer-web/plugins/ui',
+        '@quajs/cocos-host/runtime',
+      ],
+      rendererEntries: [
+        rendererEntry('native'),
+        { specifier: '@quajs/renderer-vue/plugins/ui', pluginId: '@quajs/plugin-ui', target: 'web' },
+        { specifier: '@quajs/renderer-cocos/plugins/ui', pluginId: '@quajs/plugin-ui', target: 'cocos' },
+      ],
+      runtimePackages: [
+        {
+          id: 'runtime.bad.core-leak',
+          executableDependencies: ['@quajs/assets-web'],
+          rendererEntries: [
+            { specifier: '@quajs/renderer-cocos/plugins/dialogue', target: 'cocos' },
+          ],
+        },
+      ],
+    }))).toThrow(
+      /Target bundle manifest validation failed.*Package output mixes target bootstrap core adapters.*Renderer entry "@quajs\/renderer-vue" declares target "web".*Runtime package "runtime\.bad\.core-leak" must not include target core adapter "@quajs\/assets-web"/,
+    )
   })
 
   it('rejects runtime packages that declare target core adapters as executable dependencies', () => {
