@@ -1,7 +1,7 @@
 use crate::projection::common::PackageProvenance;
 use crate::render_graph::{
-    DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams, MediaFit, MediaOrigin,
-    PanelDrawParams, RenderGraph, RenderPlane, TextDrawParams,
+    BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams, MediaFit,
+    MediaOrigin, PanelDrawParams, RenderGraph, RenderPlane, TextDrawParams,
 };
 use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
@@ -37,6 +37,7 @@ pub fn build_dialogue_commands(
             role: "dialogue-panel".to_string(),
             corner_radius: 18.0,
             fill_color: "rgba(0,0,0,0.72)".to_string(),
+            border: BorderDrawParams::default(),
             intent: None,
         })),
         &dialogue.provenance,

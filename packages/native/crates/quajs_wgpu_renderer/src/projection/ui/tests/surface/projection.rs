@@ -121,6 +121,8 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                 .with_style(UiSurfaceResolvedStyle {
                     background_color: Some("#101820".to_string()),
                     border_radius: Some(14.0),
+                    border_color: Some("#5ac8fa".to_string()),
+                    border_width: Some(2.0),
                     ..Default::default()
                 })
                 .with_children(vec![
@@ -158,6 +160,8 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                         background_color: Some("#f0c15a".to_string()),
                         color: Some("#18130a".to_string()),
                         border_radius: Some(10.0),
+                        border_color: Some("#382400".to_string()),
+                        border_width: Some(1.5),
                         ..Default::default()
                     }),
                 ]),
@@ -172,6 +176,8 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
         DrawCommandParams::Panel(params) => {
             assert_eq!(params.fill_color, "#101820");
             assert_eq!(params.corner_radius, 14.0);
+            assert_eq!(params.border.color.as_deref(), Some("#5ac8fa"));
+            assert_eq!(params.border.width, 2.0);
         }
         _ => panic!("expected panel params"),
     }
@@ -197,6 +203,8 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
             assert_eq!(params.background_color, "#f0c15a");
             assert_eq!(params.text_color, "#18130a");
             assert_eq!(params.corner_radius, 10.0);
+            assert_eq!(params.border.color.as_deref(), Some("#382400"));
+            assert_eq!(params.border.width, 1.5);
         }
         _ => panic!("expected ui button params"),
     }

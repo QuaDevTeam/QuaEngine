@@ -1,18 +1,19 @@
 use crate::projection::common::PackageProvenance;
 use crate::render_graph::{
-    DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams, LogicalRect, MediaFit,
-    MediaOrigin, PanelDrawParams, RenderPlane, RendererIntent, TextAlign, TextDrawParams,
-    UiButtonDrawParams,
+    BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams,
+    LogicalRect, MediaFit, MediaOrigin, PanelDrawParams, RenderPlane, RendererIntent, TextAlign,
+    TextDrawParams, UiButtonDrawParams,
 };
 use crate::resources::ResourceId;
 
 use super::style::{
-    resolve_background_color, resolve_border_radius, resolve_font_size, resolve_line_height,
-    resolve_object_fit, resolve_text_align, resolve_text_color,
+    resolve_background_color, resolve_border_color, resolve_border_radius, resolve_border_width,
+    resolve_font_size, resolve_line_height, resolve_object_fit, resolve_text_align,
+    resolve_text_color,
 };
 use super::types::{
     UiIntentProjection, UiOverlayProjection, UiOverlaySurfaceProjection, UiSurfaceNodeKind,
-    UiSurfaceNodeProjection, UiSurfaceNodeRect,
+    UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceResolvedStyle,
 };
 
 const SURFACE_NODE_Z_OFFSET: i32 = 10_000;
@@ -174,6 +175,7 @@ fn surface_node_command(
             background_color: resolve_background_color(&node.style, "rgba(0,0,0,0.0)"),
             text_color: resolve_text_color(&node.style, "#ffffff"),
             corner_radius: resolve_border_radius(&node.style, 0.0),
+            border: surface_border_params(&node.style),
             intent: node
                 .intent
                 .as_ref()
@@ -324,8 +326,16 @@ fn surface_panel_node_command(
         role: role.to_string(),
         corner_radius: resolve_border_radius(&node.style, 0.0),
         fill_color: resolve_background_color(&node.style, fallback_fill_color),
+        border: surface_border_params(&node.style),
         intent,
     }))
+}
+
+fn surface_border_params(style: &UiSurfaceResolvedStyle) -> BorderDrawParams {
+    BorderDrawParams {
+        color: resolve_border_color(style),
+        width: resolve_border_width(style, 0.0),
+    }
 }
 
 fn scroll_clip_command(

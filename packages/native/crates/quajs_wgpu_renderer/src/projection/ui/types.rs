@@ -157,6 +157,8 @@ pub struct UiSurfaceResolvedStyle {
     pub background_color: Option<String>,
     pub color: Option<String>,
     pub border_radius: Option<f64>,
+    pub border_color: Option<String>,
+    pub border_width: Option<f64>,
     pub font_size: Option<f64>,
     pub line_height: Option<f64>,
     pub text_align: Option<UiSurfaceTextAlignProjection>,

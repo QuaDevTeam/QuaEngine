@@ -26,6 +26,18 @@ pub fn resolve_border_radius(style: &UiSurfaceResolvedStyle, fallback: f64) -> f
     resolve_positive_number(style.border_radius, fallback)
 }
 
+pub fn resolve_border_color(style: &UiSurfaceResolvedStyle) -> Option<String> {
+    style
+        .border_color
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+}
+
+pub fn resolve_border_width(style: &UiSurfaceResolvedStyle, fallback: f64) -> f64 {
+    resolve_positive_number(style.border_width, fallback)
+}
+
 pub fn resolve_font_size(style: &UiSurfaceResolvedStyle, fallback: f64) -> f64 {
     resolve_positive_number(style.font_size, fallback)
 }
