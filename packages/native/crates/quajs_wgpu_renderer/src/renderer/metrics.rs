@@ -40,6 +40,8 @@ pub struct NativeRendererFrameMetrics {
     pub asset_requests_by_package: BTreeMap<String, NativeRendererFrameAssetMetrics>,
     pub fallbacks_by_pipeline: BTreeMap<DrawBatchPipeline, usize>,
     pub fallbacks_by_reason: BTreeMap<String, usize>,
+    pub fallbacks_by_owner_package: BTreeMap<String, usize>,
+    pub fallbacks_by_required_package: BTreeMap<String, usize>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -131,6 +133,8 @@ fn frame_metrics(frame: &PreparedNativeFrame) -> NativeRendererFrameMetrics {
         asset_requests_by_package: frame_asset_package_metrics(frame),
         fallbacks_by_pipeline: frame_fallback_pipeline_metrics(frame),
         fallbacks_by_reason: frame_fallback_reason_metrics(frame),
+        fallbacks_by_owner_package: frame_fallback_owner_package_metrics(frame),
+        fallbacks_by_required_package: frame_fallback_required_package_metrics(frame),
     }
 }
 
@@ -228,6 +232,38 @@ fn frame_fallback_reason_metrics(frame: &PreparedNativeFrame) -> BTreeMap<String
     }
 
     by_reason
+}
+
+fn frame_fallback_owner_package_metrics(frame: &PreparedNativeFrame) -> BTreeMap<String, usize> {
+    let mut by_package = BTreeMap::new();
+
+    for command in frame.graph.commands() {
+        if fallback_reason(&command.params).is_none() {
+            continue;
+        }
+
+        if let Some(package_id) = &command.owner_package_id {
+            *by_package.entry(package_id.clone()).or_default() += 1;
+        }
+    }
+
+    by_package
+}
+
+fn frame_fallback_required_package_metrics(frame: &PreparedNativeFrame) -> BTreeMap<String, usize> {
+    let mut by_package = BTreeMap::new();
+
+    for command in frame.graph.commands() {
+        if fallback_reason(&command.params).is_none() {
+            continue;
+        }
+
+        for package_id in &command.required_package_ids {
+            *by_package.entry(package_id.clone()).or_default() += 1;
+        }
+    }
+
+    by_package
 }
 
 fn fallback_reason(params: &DrawCommandParams) -> Option<&str> {
