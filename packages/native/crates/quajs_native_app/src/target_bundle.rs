@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
+use std::path::Path;
 
 use serde::Deserialize;
 
@@ -120,6 +121,22 @@ impl NativeStartupError {
         Self { diagnostics }
     }
 
+    fn io(path: &Path, error: std::io::Error) -> Self {
+        Self::new(vec![format!(
+            "Failed to read native target bundle manifest \"{}\": {}.",
+            path.display(),
+            error
+        )])
+    }
+
+    fn json(path: &Path, error: serde_json::Error) -> Self {
+        Self::new(vec![format!(
+            "Failed to parse native target bundle manifest \"{}\": {}.",
+            path.display(),
+            error
+        )])
+    }
+
     pub fn diagnostics(&self) -> &[String] {
         &self.diagnostics
     }
@@ -136,6 +153,15 @@ impl Display for NativeStartupError {
 }
 
 impl std::error::Error for NativeStartupError {}
+
+pub fn load_native_target_bundle_manifest(
+    path: impl AsRef<Path>,
+) -> Result<NativeTargetBundleManifest, NativeStartupError> {
+    let path = path.as_ref();
+    let json =
+        std::fs::read_to_string(path).map_err(|error| NativeStartupError::io(path, error))?;
+    serde_json::from_str(&json).map_err(|error| NativeStartupError::json(path, error))
+}
 
 pub fn validate_native_target_bundle_manifest(
     manifest: &NativeTargetBundleManifest,
