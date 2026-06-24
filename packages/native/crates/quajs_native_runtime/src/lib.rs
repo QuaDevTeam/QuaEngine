@@ -12,8 +12,9 @@ pub use host::{
     NativeRendererIntent, NativeRuntimeInfo, NativeSignatureVerifyRequest, RendererCapability,
 };
 pub use quickjs::{
-    is_forbidden_runtime_module_asset_name, validate_quickjs_evaluation_request,
-    QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
-    QuickJsEvaluationResponse, QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord,
-    QuickJsSandboxLimits,
+    evaluate_quickjs_module, is_forbidden_runtime_module_asset_name,
+    validate_quickjs_evaluation_request, QuickJsEvaluationError, QuickJsEvaluationErrorCode,
+    QuickJsEvaluationRequest, QuickJsEvaluationResponse, QuickJsEvaluationResult,
+    QuickJsModuleEvaluator, QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord,
+    QuickJsSandboxLimits, UnsupportedQuickJsModuleEvaluator,
 };
