@@ -38,6 +38,7 @@ Web, Cocos, and native target core adapters must not be mixed:
 - Cocos uses Cocos host/renderer only.
 - Native uses `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, and Rust native runtime/renderer metadata only.
 - Web, Cocos, and native core bootstrap plugins are target roots, not ordinary game plugins. They must not be placed in one shared plugin array, umbrella preset, Runtime QPK executable dependency list, or runtime resolver path that imports every target and chooses one later.
+- Web, Cocos, and native packaging must use separate target-core resolver contexts. Shared validation schemas are fine, but a shared all-target core plugin list is invalid even if later filtering appears to remove inactive entries.
 - `@quajs/native-contracts` may be used by Web/Cocos build tooling for target validation, but it must not remain in Web/Cocos runtime bundles after tree-shaking.
 - Target selection must happen before bootstrap/plugin resolution. Do not build an umbrella app that imports Web, Cocos, and native core plugins and chooses one at runtime.
 - Packaging a Web, Cocos, or native project must select exactly one target bootstrap. Target-specific renderer plugin entries and core adapters are not interchangeable between targets.
@@ -60,6 +61,7 @@ Web, Cocos, and native target core adapters must not be mixed:
 - Every packaged debug/release artifact should emit a target bundle manifest and run dependency graph checks so Web builds exclude Cocos/native core adapters, Cocos builds exclude Web/native core adapters, and native builds exclude Web/Cocos core adapters.
 - Runtime startup should assert exactly one target adapter set registered with the engine, so hand-built bundles cannot mix Web, Cocos, and native core plugins.
 - Implement target core plugin resolution in this order: normalize target, select exactly one bootstrap preset, materialize that target's adapters/renderer/host bridge, resolve shared engine/game plugins, select active third-party target entries, bundle/tree-shake, emit `target-bundle-manifest.json`, validate it, then assert it again at runtime startup.
+- Implement target core plugin resolution through target-specific functions or contexts such as Web-only, Cocos-only, and native-only resolvers. Do not let debug/release/updater/installer paths bypass the same emitted manifest validation.
 - Test target isolation symmetrically. Web fixtures must reject Cocos/native leakage, Cocos fixtures must reject Web/native leakage, and native fixtures must reject Web/Cocos leakage. Native-only rejection tests are not enough.
 
 Shared engine/game/plugin packages may be reused only when platform-neutral.
@@ -115,6 +117,7 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Do assets/store adapters preserve core contracts without Web/Node assumptions?
 - Are Web/Cocos/native target core adapters isolated?
 - Does the post-bundle dependency manifest prove the active artifact contains exactly one target core plugin set?
+- Does packaging use separate Web, Cocos, and native target-core resolver contexts rather than one shared all-target plugin list?
 - Does `selectedCorePluginFamily` match the artifact target, selected adapters, renderer entries, and Runtime QPK executable dependencies?
 - Does `validateTargetBundleManifest` pass for the emitted Web/Cocos/native artifact, including Runtime QPK executable dependency and renderer entry checks?
 - Is `target-bundle-manifest.json` emitted and validated for both debug and release artifacts after bundling/tree-shaking?
