@@ -1,6 +1,7 @@
 use super::*;
 use crate::frame::prepare_native_frame;
 use crate::projection::background::BackgroundProjection;
+use crate::projection::common::PackageProvenance;
 use crate::projection::view::ViewProjection;
 use crate::resources::{
     NativeResourceKind, NativeResourceLedger, NativeResourceRecord, ResourceId,
@@ -31,6 +32,44 @@ fn summarizes_missing_resources_from_batches() {
             pipeline: crate::render_graph::DrawBatchPipeline::Image,
             kind: crate::render_graph::DrawCommandKind::Image,
             command_ids: vec!["background:main".to_string()],
+            owner_package_ids: BTreeSet::new(),
+            required_package_ids: BTreeSet::new(),
+        }]
+    );
+}
+
+#[test]
+fn missing_resource_diagnostics_preserve_command_package_provenance() {
+    let frame = prepare_native_frame(
+        test_layout(),
+        &ViewProjection {
+            background: Some(BackgroundProjection {
+                asset_name: Some("bg/runtime.png".to_string()),
+                provenance: package_provenance("runtime.background", ["base"]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    );
+    let resources = NativeResourceLedger::new();
+
+    let submission = NativeRenderFrameRef {
+        revision: 10,
+        frame: &frame,
+        resources: &resources,
+    }
+    .submission();
+
+    assert_eq!(
+        submission.missing_resources,
+        vec![NativeRenderMissingResource {
+            resource_id: ResourceId::from("images:bg/runtime.png"),
+            plane: crate::render_graph::RenderPlane::Scene,
+            pipeline: crate::render_graph::DrawBatchPipeline::Image,
+            kind: crate::render_graph::DrawCommandKind::Image,
+            command_ids: vec!["background:main".to_string()],
+            owner_package_ids: BTreeSet::from(["runtime.background".to_string()]),
+            required_package_ids: BTreeSet::from(["base".to_string()]),
         }]
     );
 }
@@ -38,6 +77,17 @@ fn summarizes_missing_resources_from_batches() {
 #[test]
 fn summarizes_backend_resource_diagnostics_from_submissions() {
     let frame = frame_with_background();
+    let runtime_frame = prepare_native_frame(
+        test_layout(),
+        &ViewProjection {
+            background: Some(BackgroundProjection {
+                asset_name: Some("bg/runtime.png".to_string()),
+                provenance: package_provenance("runtime.background", ["base"]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    );
     let empty_resources = NativeResourceLedger::new();
     let mut resolved_resources = NativeResourceLedger::new();
     resolved_resources.insert(
@@ -61,7 +111,7 @@ fn summarizes_backend_resource_diagnostics_from_submissions() {
     .submission();
     let missing_third = NativeRenderFrameRef {
         revision: 3,
-        frame: &frame,
+        frame: &runtime_frame,
         resources: &empty_resources,
     }
     .submission();
@@ -77,6 +127,15 @@ fn summarizes_backend_resource_diagnostics_from_submissions() {
     assert_eq!(
         diagnostics.last_missing_resources,
         missing_third.missing_resources
+    );
+    assert_eq!(
+        diagnostics.missing_resources_by_owner_package["runtime.background"],
+        1
+    );
+    assert_eq!(diagnostics.missing_resources_by_required_package["base"], 1);
+    assert_eq!(
+        diagnostics.missing_resources_by_owner_package.get("base"),
+        None
     );
 }
 
@@ -244,4 +303,11 @@ fn test_layout() -> crate::stage_layout::ResolvedStageLayout {
             ..Default::default()
         },
     )
+}
+
+fn package_provenance<const N: usize>(owner: &str, required: [&str; N]) -> PackageProvenance {
+    PackageProvenance {
+        content_package_id: Some(owner.to_string()),
+        required_runtime_packages: required.into_iter().map(ToString::to_string).collect(),
+    }
 }

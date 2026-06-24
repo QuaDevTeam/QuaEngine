@@ -58,6 +58,7 @@ fn submits_frames_through_feature_gated_wgpu_skeleton() {
                 frames_with_missing_resources: 0,
                 missing_resource_count: 0,
                 last_missing_resources: Vec::new(),
+                ..Default::default()
             },
             fallback_warnings: NativeRenderFallbackWarningDiagnostics::default(),
             last_submission: Some(result.submission),

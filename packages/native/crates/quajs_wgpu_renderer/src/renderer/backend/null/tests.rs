@@ -37,6 +37,7 @@ fn records_submissions_without_gpu_work() {
                 frames_with_missing_resources: 1,
                 missing_resource_count: 1,
                 last_missing_resources: submission.missing_resources.clone(),
+                ..Default::default()
             },
             fallback_warnings: NativeRenderFallbackWarningDiagnostics::default(),
             last_submission: Some(submission),
@@ -107,6 +108,8 @@ fn summarizes_missing_resource_diagnostics() {
             pipeline: DrawBatchPipeline::Image,
             kind: DrawCommandKind::Image,
             command_ids: vec!["background:main".to_string()],
+            owner_package_ids: Default::default(),
+            required_package_ids: Default::default(),
         }]
     );
 }
