@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::BTreeMap;
 
 #[test]
 fn summarizes_resources_by_kind_and_package() {
@@ -59,12 +60,18 @@ fn reports_budget_violations() {
             .owned_by("base")
             .memory(50, 0),
     );
+    ledger.insert(
+        NativeResourceRecord::new("audio:handle", NativeResourceKind::AudioHandle)
+            .owned_by("base")
+            .memory(8, 0),
+    );
 
     let violations = ledger.check_budget(&ResourceBudget {
         max_cpu_bytes: Some(40),
         max_gpu_bytes: Some(80),
         max_total_bytes: Some(120),
         max_resource_count: Some(1),
+        max_resource_count_by_kind: BTreeMap::from([(NativeResourceKind::AudioHandle, 0)]),
     });
     let codes: Vec<_> = violations.iter().map(|violation| violation.code).collect();
 
@@ -75,10 +82,13 @@ fn reports_budget_violations() {
             ResourceBudgetViolationCode::GpuBytesExceeded,
             ResourceBudgetViolationCode::TotalBytesExceeded,
             ResourceBudgetViolationCode::ResourceCountExceeded,
+            ResourceBudgetViolationCode::ResourceKindCountExceeded,
         ]
     );
-    assert_eq!(violations[0].actual, 60);
-    assert_eq!(violations[2].actual, 150);
+    assert_eq!(violations[0].actual, 68);
+    assert_eq!(violations[2].actual, 158);
+    assert_eq!(violations[4].actual, 1);
+    assert_eq!(violations[4].limit, 0);
 }
 
 #[test]

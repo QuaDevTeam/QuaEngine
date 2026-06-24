@@ -103,6 +103,7 @@ fn check_resource_budget_reports_ledger_violations() {
         max_gpu_bytes: Some(80),
         max_total_bytes: Some(120),
         max_resource_count: Some(1),
+        max_resource_count_by_kind: Default::default(),
     });
     let codes: Vec<_> = violations.iter().map(|violation| violation.code).collect();
 

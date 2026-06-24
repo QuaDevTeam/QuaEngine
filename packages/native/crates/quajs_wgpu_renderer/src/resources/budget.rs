@@ -1,3 +1,6 @@
+use std::collections::BTreeMap;
+
+use super::record::NativeResourceKind;
 use super::summary::ResourceLedgerSummary;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -6,6 +9,7 @@ pub struct ResourceBudget {
     pub max_gpu_bytes: Option<u64>,
     pub max_total_bytes: Option<u64>,
     pub max_resource_count: Option<usize>,
+    pub max_resource_count_by_kind: BTreeMap<NativeResourceKind, usize>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -22,6 +26,7 @@ pub enum ResourceBudgetViolationCode {
     GpuBytesExceeded,
     TotalBytesExceeded,
     ResourceCountExceeded,
+    ResourceKindCountExceeded,
 }
 
 pub(crate) fn budget_violations(
@@ -58,6 +63,22 @@ pub(crate) fn budget_violations(
                 actual: summary.total_count as u64,
                 limit: limit as u64,
                 message: "Native renderer resource count exceeds budget.".to_string(),
+            });
+        }
+    }
+
+    for (kind, limit) in &budget.max_resource_count_by_kind {
+        let actual = summary
+            .by_kind
+            .get(kind)
+            .map(|summary| summary.count)
+            .unwrap_or_default();
+        if actual > *limit {
+            violations.push(ResourceBudgetViolation {
+                code: ResourceBudgetViolationCode::ResourceKindCountExceeded,
+                actual: actual as u64,
+                limit: *limit as u64,
+                message: format!("Native renderer {kind:?} resource count exceeds budget."),
             });
         }
     }
