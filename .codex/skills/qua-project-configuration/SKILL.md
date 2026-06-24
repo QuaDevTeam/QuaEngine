@@ -18,14 +18,15 @@ Schema version `1` owns:
 - `icons.source`, `icons.favicon`, optional PWA icon entries, and optional Cocos icon metadata.
 - `targets.web`: enabled flag, layout, desktop/pad/phone support, PWA settings, blocking UI copy, and optional Web asset target.
 - `targets.cocos`: project directory, Creator version, platforms, layout/orientation, Quack asset target/hybrid settings, build options, and icons.
+- `targets.native`: native desktop packaging intent for `macos`, `windows`, and `linux`; enabled flag, profiles (`debug`/`release`), layout, outputDir, app bundleId/version/buildNumber/icon metadata, native asset target, and native build options.
 
-Defaults: `version` falls back to `package.json`, Web is enabled, Web devices default to all true, PWA is disabled, and Cocos is disabled unless configured and not explicitly disabled.
+Defaults: `version` falls back to `package.json`, Web is enabled, Web devices default to all true, PWA is disabled, and Cocos/native are disabled unless configured and not explicitly disabled. Native profiles default to both `debug` and `release` when native is enabled.
 
 ## Package Boundaries
 
 Use `@quajs/quack/project` to load, normalize, validate, create Web assets/manifests, merge Quack asset targets, and sync Cocos build files. Do not parse YAML/JSON in engine, renderers, or templates.
 
-Use `doctorQuaProjectConfig` or `quack project doctor` to report target readiness. Doctor results include `info`, `warning`, and `error` issues for Web device support, local/external icon sources, PWA icon/service-worker caveats, Cocos project directory presence, configured platforms, and hybrid asset output. Errors should fail packaging; warnings should be fixed or intentionally accepted.
+Use `doctorQuaProjectConfig` or `quack project doctor` to report target readiness. Doctor results include `info`, `warning`, and `error` issues for Web device support, local/external icon sources, PWA icon/service-worker caveats, Cocos project directory presence, configured platforms, hybrid asset output, and native platform/profile/icon/output metadata. Errors should fail packaging; warnings should be fixed or intentionally accepted.
 
 Engine core may receive only normalized project metadata:
 
