@@ -310,6 +310,48 @@ fn reports_resource_memory_and_package_counts() {
 }
 
 #[test]
+fn reports_font_face_resource_memory_and_package_counts() {
+    let mut resources = NativeResourceLedger::new();
+    resources.insert(
+        NativeResourceRecord::new("fonts:Qua Sans", NativeResourceKind::FontFace)
+            .owned_by("runtime.fonts")
+            .require_package("base")
+            .memory(4096, 0),
+    );
+
+    let metrics = NativeRendererMetrics::from_state(7, None, &resources);
+
+    assert_eq!(metrics.resources.ledger_resource_count, 1);
+    assert_eq!(metrics.resources.memory.cpu_bytes, 4096);
+    assert_eq!(metrics.resources.memory.gpu_bytes, 0);
+    assert_eq!(
+        metrics.resources.by_kind[&NativeResourceKind::FontFace].count,
+        1
+    );
+    assert_eq!(
+        metrics.resources.by_kind[&NativeResourceKind::FontFace]
+            .memory
+            .cpu_bytes,
+        4096
+    );
+    assert_eq!(metrics.resources.by_package["runtime.fonts"].owned_count, 1);
+    assert_eq!(
+        metrics.resources.by_package["runtime.fonts"]
+            .owned_memory
+            .cpu_bytes,
+        4096
+    );
+    assert_eq!(metrics.resources.by_package["base"].dependent_count, 1);
+    assert_eq!(
+        metrics.resources.by_package["base"]
+            .dependent_memory
+            .cpu_bytes,
+        4096
+    );
+    assert_eq!(metrics.resources.audio.resource_count, 0);
+}
+
+#[test]
 fn reports_audio_resource_metrics_separately_from_total_ledger() {
     let mut resources = NativeResourceLedger::new();
     resources.insert(
