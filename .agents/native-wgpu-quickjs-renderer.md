@@ -334,6 +334,7 @@ Implementation rules:
 - `@quajs/native-contracts` should own the shared `TargetBootstrapManifest` schema and validation helpers.
 - `validateExclusiveTargetBootstrap` should assert that a packaged dependency set registers exactly one Web, Cocos, or native target bootstrap before target-specific validation runs.
 - `validateTargetBootstrap` should validate the active target's required and forbidden core adapter roots after the exclusive bootstrap check selects or confirms the target.
+- `validateTargetPluginManifest` should validate third-party and official plugin source metadata before bundle entry selection. It must ensure shared entries import no target core adapter, selected entries match the active target, inactive target entries are not eagerly imported, and target entries do not import another target's core adapters.
 - `validateTargetBundleManifest` should validate emitted `target-bundle-manifest.json` files after tree-shaking for Web, Cocos, and native outputs. It must inspect selected core adapters, normalized runtime dependencies, renderer entries, and Runtime QPK executable dependencies together so the three packaging paths cannot drift.
 - Target isolation has three separate layers and all three must be validated: application bootstrap core adapters, target-specific renderer/plugin entries, and Runtime QPK renderer compatibility metadata. Passing one layer must not imply the others are safe.
 - `TargetPackageRoleManifest` should classify known Qua package roots and third-party declared target entries. Shared runtime packages may appear in every target only when they do not import target adapters.
@@ -363,6 +364,7 @@ Current contracts-layer implementation status:
 
 - `@quajs/native-contracts` owns `validateExclusiveTargetBootstrap`, `validateTargetBootstrap`, and `validateTargetBundleManifest`.
 - `packages/native/contracts/test/bootstrap.test.ts` covers exact Web/Cocos/native bootstrap sets, subentry normalization, missing adapters, forbidden adapters, no-target output, unexpected-target output, and mixed-target output.
+- `packages/native/contracts/test/plugin-targets.test.ts` covers multi-target plugin source metadata, active-target entry selection, missing target entries, inactive eager entries, shared entry target-core imports, and foreign core-adapter imports from active target entries.
 - `packages/native/contracts/test/target-bundle.test.ts` covers clean Web/Cocos/native target-bundle manifests, cross-target core adapter leakage for all three targets, native artifacts containing Web/Cocos renderer entries, Web/Cocos artifacts retaining `@quajs/native-contracts` in their runtime graph, Runtime QPK executable dependencies on target core adapters, incomplete/extra selected core adapters, and renderer entry target mismatches.
 - Next Quack/native-packager work must emit a real post-bundle `target-bundle-manifest.json` for Web, Cocos, and native debug/release artifacts and feed it into `validateTargetBundleManifest`. Source-level package metadata checks are not enough; validation must run on the emitted dependency graph after tree-shaking.
 - `@quajs/engine-native` exposes `checkNativeTargetBootstrap` / `assertNativeTargetBootstrap`, and `NativeHostPlugin` can receive `targetBootstrapPackages` to reject mixed Web/Cocos/native startup package roots before reading native host info.
@@ -2607,7 +2609,7 @@ Exit: product UI is declarative and selected through engine `surface.key` plus s
 - Add target isolation checks so Web/Cocos/Native release bundles cannot include another target's core adapter plugins.
 - Emit `target-bundle-manifest.json` for Web, Cocos, and native debug/release artifacts and validate it after bundling/tree-shaking.
 - Add runtime startup assertions so hand-built Web/Cocos/native app shells still reject zero or multiple registered target core adapter sets.
-- Add target-entry selection checks so multi-target plugin source packages contribute only the active Web, Cocos, or native renderer entry to each packaged output.
+- Add target-entry selection checks through `validateTargetPluginManifest` so multi-target plugin source packages contribute only the active Web, Cocos, or native renderer entry to each packaged output.
 - Add QPK compatibility checks so inactive target compatibility blocks remain metadata and cannot activate another target's core plugin path.
 - Add package/resource quota configuration for QuickJS, textures, video frames, audio buffers, glyph atlas, and UI AST/style memory.
 
