@@ -44,7 +44,7 @@ impl NativeRenderFrameRef<'_> {
                 .flat_map(|pass| pass.resolved_resource_ids().cloned()),
             self.resources,
         );
-        let missing_resources = collect_missing_resources(&passes);
+        let missing_resources = collect_missing_resources(&passes, &self.frame.graph);
         let fallback_diagnostics = collect_fallback_diagnostics(&self.frame.graph);
         let fallback_summary = summarize_fallback_diagnostics(&fallback_diagnostics);
 

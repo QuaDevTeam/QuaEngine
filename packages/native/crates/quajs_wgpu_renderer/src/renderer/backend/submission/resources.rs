@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::render_graph::{DrawBatchPipeline, DrawCommandKind, RenderPlane};
+use crate::render_graph::{DrawBatchPipeline, DrawCommandKind, RenderGraph, RenderPlane};
 use crate::resources::{NativeResourceKind, NativeResourceLedger, ResourceId, ResourceMemory};
 
 use super::{NativeRenderPassSubmission, NativeRenderSubmission};
@@ -13,6 +13,8 @@ pub struct NativeRenderMissingResource {
     pub pipeline: DrawBatchPipeline,
     pub kind: DrawCommandKind,
     pub command_ids: Vec<String>,
+    pub owner_package_ids: BTreeSet<String>,
+    pub required_package_ids: BTreeSet<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -28,6 +30,8 @@ pub struct NativeRenderBackendResourceDiagnostics {
     pub frames_with_missing_resources: usize,
     pub missing_resource_count: usize,
     pub last_missing_resources: Vec<NativeRenderMissingResource>,
+    pub missing_resources_by_owner_package: BTreeMap<String, usize>,
+    pub missing_resources_by_required_package: BTreeMap<String, usize>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -68,18 +72,40 @@ impl NativeRenderBackendResourceDiagnostics {
             .find(|submission| submission.missing_resource_count > 0)
             .map(|submission| submission.missing_resources.clone())
             .unwrap_or_default();
+        let mut missing_resources_by_owner_package = BTreeMap::new();
+        let mut missing_resources_by_required_package = BTreeMap::new();
+
+        for missing in submissions
+            .iter()
+            .flat_map(|submission| submission.missing_resources.iter())
+        {
+            for package_id in &missing.owner_package_ids {
+                *missing_resources_by_owner_package
+                    .entry(package_id.clone())
+                    .or_default() += 1;
+            }
+            for package_id in &missing.required_package_ids {
+                *missing_resources_by_required_package
+                    .entry(package_id.clone())
+                    .or_default() += 1;
+            }
+        }
 
         Self {
             frames_with_missing_resources,
             missing_resource_count,
             last_missing_resources,
+            missing_resources_by_owner_package,
+            missing_resources_by_required_package,
         }
     }
 }
 
 pub(super) fn collect_missing_resources(
     passes: &[NativeRenderPassSubmission],
+    graph: &RenderGraph,
 ) -> Vec<NativeRenderMissingResource> {
+    let package_provenance = MissingResourcePackageProvenance::from_graph(graph);
     passes
         .iter()
         .flat_map(|pass| {
@@ -88,16 +114,65 @@ pub(super) fn collect_missing_resources(
                     .missing_resource_ids
                     .iter()
                     .cloned()
-                    .map(|resource_id| NativeRenderMissingResource {
-                        resource_id,
-                        plane: pass.plane,
-                        pipeline: batch.pipeline,
-                        kind: batch.kind,
-                        command_ids: batch.command_ids.clone(),
+                    .map(|resource_id| {
+                        let provenance = package_provenance.for_command_ids(&batch.command_ids);
+                        NativeRenderMissingResource {
+                            resource_id,
+                            plane: pass.plane,
+                            pipeline: batch.pipeline,
+                            kind: batch.kind,
+                            command_ids: batch.command_ids.clone(),
+                            owner_package_ids: provenance.owner_package_ids,
+                            required_package_ids: provenance.required_package_ids,
+                        }
                     })
             })
         })
         .collect()
+}
+
+#[derive(Clone, Debug, Default)]
+struct MissingResourcePackageProvenance {
+    by_command_id: BTreeMap<String, MissingResourcePackageIds>,
+}
+
+impl MissingResourcePackageProvenance {
+    fn from_graph(graph: &RenderGraph) -> Self {
+        Self {
+            by_command_id: graph
+                .commands()
+                .iter()
+                .map(|command| {
+                    (
+                        command.id.clone(),
+                        MissingResourcePackageIds {
+                            owner_package_ids: command.owner_package_id.iter().cloned().collect(),
+                            required_package_ids: command.required_package_ids.clone(),
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    fn for_command_ids(&self, command_ids: &[String]) -> MissingResourcePackageIds {
+        let mut ids = MissingResourcePackageIds::default();
+        for command_id in command_ids {
+            if let Some(command_ids) = self.by_command_id.get(command_id) {
+                ids.owner_package_ids
+                    .extend(command_ids.owner_package_ids.iter().cloned());
+                ids.required_package_ids
+                    .extend(command_ids.required_package_ids.iter().cloned());
+            }
+        }
+        ids
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct MissingResourcePackageIds {
+    owner_package_ids: BTreeSet<String>,
+    required_package_ids: BTreeSet<String>,
 }
 
 pub(super) fn partition_resource_ids(
