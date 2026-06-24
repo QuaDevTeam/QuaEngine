@@ -50,7 +50,7 @@ fn append_surface_node_commands(
         return;
     }
 
-    if node.kind == UiSurfaceNodeKind::Fragment {
+    if is_surface_group_node(node.kind) {
         for child in &node.children {
             append_surface_node_commands(commands, overlay, child, z_base, clip_bounds);
         }
@@ -187,8 +187,12 @@ fn surface_node_command(
             "rgba(255,255,255,0.18)",
             None,
         ),
-        UiSurfaceNodeKind::Fragment => {
-            unreachable!("fragment nodes are expanded before command build")
+        UiSurfaceNodeKind::Column
+        | UiSurfaceNodeKind::Fragment
+        | UiSurfaceNodeKind::Grid
+        | UiSurfaceNodeKind::Row
+        | UiSurfaceNodeKind::Stack => {
+            unreachable!("structural group nodes are expanded before command build")
         }
         UiSurfaceNodeKind::Layer => {
             unreachable!("layer nodes are expanded before command build")
@@ -264,6 +268,17 @@ fn surface_node_command(
         .clip_bounds(clip_bounds.iter().copied());
     command = apply_provenance(command, &overlay.provenance);
     apply_provenance(command, &node.provenance)
+}
+
+fn is_surface_group_node(kind: UiSurfaceNodeKind) -> bool {
+    matches!(
+        kind,
+        UiSurfaceNodeKind::Column
+            | UiSurfaceNodeKind::Fragment
+            | UiSurfaceNodeKind::Grid
+            | UiSurfaceNodeKind::Row
+            | UiSurfaceNodeKind::Stack
+    )
 }
 
 fn surface_scroll_panel_command(
