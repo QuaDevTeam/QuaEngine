@@ -115,10 +115,7 @@ fn builds_video_fallback_command_with_poster_resource() {
     assert_eq!(command.kind, DrawCommandKind::VideoFrame);
     assert_eq!(
         command.resource_ids,
-        vec![
-            ResourceId::from("video:movie/opening.mp4"),
-            ResourceId::from("images:poster/day.jpg"),
-        ]
+        vec![ResourceId::from("images:poster/day.jpg")]
     );
     assert_eq!(command.owner_package_id.as_deref(), Some("runtime.video"));
     assert!(command.required_package_ids.contains("base"));
