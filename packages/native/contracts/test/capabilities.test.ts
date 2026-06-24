@@ -1,5 +1,8 @@
+import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import {
+  createNativeCapabilityManifestHash,
+  createNativeCapabilityManifestPayload,
   createNativeHostApiFromBridge,
   createNativeHostApiRequest,
   createNativeQuickJsEvaluationRequest,
@@ -11,6 +14,47 @@ import {
 } from '../src'
 
 describe('native host contracts', () => {
+  it('creates stable native capability manifest payloads for release hashing', () => {
+    const capabilities = [
+      {
+        id: 'native-wgpu.ui.surface@1',
+        target: 'native',
+        version: '1.0.0',
+        ownerPackage: '@quajs/native-renderer',
+        projectionKeys: ['view.ui.overlays'],
+        intentEvents: ['ui/intent'],
+        assetKinds: ['data', 'images'],
+        qssFeatures: ['background-color', 'border-radius'],
+        quiComponents: ['Box', 'Button'],
+        fallback: 'reject-package',
+      },
+      {
+        id: 'native-wgpu.escape\n\t\b@1',
+        target: 'native',
+        version: '1.0.0',
+        ownerPackage: '@quajs/native-renderer',
+        projectionKeys: [],
+        fallback: 'warn-once',
+      },
+    ] as const
+    const payload = createNativeCapabilityManifestPayload(capabilities)
+
+    expect(payload).toBe([
+      '[{"id":"native-wgpu.ui.surface@1","target":"native","version":"1.0.0","ownerPackage":"@quajs/native-renderer","projectionKeys":["view.ui.overlays"],"intentEvents":["ui/intent"],"assetKinds":["data","images"],"qssFeatures":["background-color","border-radius"],"quiComponents":["Box","Button"],"fallback":"reject-package"}',
+      ',{"id":"native-wgpu.escape\\n\\t\\u0008@1","target":"native","version":"1.0.0","ownerPackage":"@quajs/native-renderer","projectionKeys":[],"intentEvents":[],"assetKinds":[],"qssFeatures":[],"quiComponents":[],"fallback":"warn-once"}]',
+    ].join(''))
+
+    const hash = createNativeCapabilityManifestHash(capabilities, sha256Hex)
+    expect(hash).toBe(`sha256:${sha256Hex(payload)}`)
+    expect(createNativeCapabilityManifestHash(capabilities, value => `sha256:${sha256Hex(value)}`)).toBe(hash)
+    expect(createNativeCapabilityManifestHash([
+      {
+        ...capabilities[0],
+        qssFeatures: [...capabilities[0].qssFeatures, 'color'],
+      },
+    ], sha256Hex)).not.toBe(hash)
+  })
+
   it('creates renderer intents with the Rust host payloadJson field', () => {
     expect(createNativeRendererIntent({
       type: 'ui/intent',
@@ -322,4 +366,8 @@ function createHostInfo() {
       storeAdapterVersion: '0.1.0',
     },
   } as const
+}
+
+function sha256Hex(payload: string): string {
+  return createHash('sha256').update(payload).digest('hex')
 }
