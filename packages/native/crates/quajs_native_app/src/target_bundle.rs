@@ -69,6 +69,8 @@ pub fn validate_native_target_bundle_manifest(
         ));
     }
 
+    check_native_artifact_metadata(manifest, &mut diagnostics);
+
     if let Some(expectation) = expectation {
         check_manifest_identity(manifest, expectation, &mut diagnostics);
     }
@@ -87,6 +89,29 @@ pub fn validate_native_target_bundle_manifest(
         })
     } else {
         Err(NativeStartupError::new(diagnostics))
+    }
+}
+
+fn check_native_artifact_metadata(
+    manifest: &NativeTargetBundleManifest,
+    diagnostics: &mut Vec<String>,
+) {
+    if manifest.profile != "debug" && manifest.profile != "release" {
+        diagnostics.push(format!(
+            "Native target bundle manifest profile must be \"debug\" or \"release\", but found \"{}\".",
+            manifest.profile
+        ));
+    }
+
+    match manifest.platform.as_deref() {
+        Some(platform) if platform.trim().is_empty() => diagnostics
+            .push("Native target bundle manifest platform must not be empty.".to_string()),
+        Some("macos" | "windows" | "linux") => {}
+        Some(platform) => diagnostics.push(format!(
+            "Native target bundle manifest platform must be \"macos\", \"windows\", or \"linux\", but found \"{}\".",
+            platform
+        )),
+        None => diagnostics.push("Native target bundle manifest must include platform.".to_string()),
     }
 }
 

@@ -123,6 +123,46 @@ fn rejects_manifest_app_identity_mismatch() {
 }
 
 #[test]
+fn rejects_invalid_native_artifact_profile_without_startup_expectation() {
+    let mut manifest = native_manifest();
+    manifest.profile = "staging".to_string();
+
+    let error = validate_native_target_bundle_manifest(&manifest, None)
+        .expect_err("invalid native artifact profile is rejected");
+
+    assert!(error
+        .to_string()
+        .contains("profile must be \"debug\" or \"release\""));
+}
+
+#[test]
+fn rejects_missing_empty_or_invalid_native_artifact_platform_without_startup_expectation() {
+    let mut missing_platform = native_manifest();
+    missing_platform.platform = None;
+    let missing_error = validate_native_target_bundle_manifest(&missing_platform, None)
+        .expect_err("missing native artifact platform is rejected");
+    assert!(missing_error
+        .to_string()
+        .contains("Native target bundle manifest must include platform"));
+
+    let mut empty_platform = native_manifest();
+    empty_platform.platform = Some("  ".to_string());
+    let empty_error = validate_native_target_bundle_manifest(&empty_platform, None)
+        .expect_err("empty native artifact platform is rejected");
+    assert!(empty_error
+        .to_string()
+        .contains("Native target bundle manifest platform must not be empty"));
+
+    let mut invalid_platform = native_manifest();
+    invalid_platform.platform = Some("ios".to_string());
+    let invalid_error = validate_native_target_bundle_manifest(&invalid_platform, None)
+        .expect_err("invalid native artifact platform is rejected");
+    assert!(invalid_error
+        .to_string()
+        .contains("platform must be \"macos\", \"windows\", or \"linux\""));
+}
+
+#[test]
 fn rejects_missing_or_empty_app_icon_metadata() {
     let mut missing_icon = native_manifest();
     missing_icon.app.as_mut().unwrap().icon = None;
