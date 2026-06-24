@@ -35,6 +35,7 @@ Web, Cocos, and native target core adapters must not be mixed:
 - Web uses Web assets/renderer/framework adapters only.
 - Cocos uses Cocos host/renderer only.
 - Native uses `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, and Rust native runtime/renderer metadata only.
+- Web, Cocos, and native core bootstrap plugins are target roots, not ordinary game plugins. They must not be placed in one shared plugin array, umbrella preset, Runtime QPK executable dependency list, or runtime resolver path that imports every target and chooses one later.
 - `@quajs/native-contracts` may be used by Web/Cocos build tooling for target validation, but it must not remain in Web/Cocos runtime bundles after tree-shaking.
 - Target selection must happen before bootstrap/plugin resolution. Do not build an umbrella app that imports Web, Cocos, and native core plugins and chooses one at runtime.
 - Packaging a Web, Cocos, or native project must select exactly one target bootstrap. Target-specific renderer plugin entries and core adapters are not interchangeable between targets.
@@ -55,6 +56,8 @@ Web, Cocos, and native target core adapters must not be mixed:
 - Dynamic QPK activation must evaluate only the active artifact target block. A Web build ignores native/Cocos compatibility blocks, a Cocos build ignores Web/native blocks, and a native build ignores Web/Cocos blocks while still rejecting native-code payloads for native.
 - Every packaged debug/release artifact should emit a target bundle manifest and run dependency graph checks so Web builds exclude Cocos/native core adapters, Cocos builds exclude Web/native core adapters, and native builds exclude Web/Cocos core adapters.
 - Runtime startup should assert exactly one target adapter set registered with the engine, so hand-built bundles cannot mix Web, Cocos, and native core plugins.
+- Implement target core plugin resolution in this order: normalize target, select exactly one bootstrap preset, materialize that target's adapters/renderer/host bridge, resolve shared engine/game plugins, select active third-party target entries, bundle/tree-shake, emit `target-bundle-manifest.json`, validate it, then assert it again at runtime startup.
+- Test target isolation symmetrically. Web fixtures must reject Cocos/native leakage, Cocos fixtures must reject Web/native leakage, and native fixtures must reject Web/Cocos leakage. Native-only rejection tests are not enough.
 
 Shared engine/game/plugin packages may be reused only when platform-neutral.
 
