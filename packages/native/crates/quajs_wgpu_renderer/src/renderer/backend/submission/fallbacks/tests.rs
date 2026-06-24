@@ -19,6 +19,8 @@ fn collects_fallback_diagnostics_from_video_commands() {
             pipeline: DrawBatchPipeline::Video,
             kind: DrawCommandKind::VideoFrame,
             reason: "native video decode backend is not active".to_string(),
+            owner_package_id: Some("runtime.video".to_string()),
+            required_package_ids: ["base"].into_iter().map(ToString::to_string).collect(),
         }]
     );
 }
@@ -36,6 +38,8 @@ fn summarizes_fallback_diagnostics_by_pipeline_and_reason() {
         summary.by_reason["native video decode backend is not active"],
         1
     );
+    assert_eq!(summary.by_owner_package["runtime.video"], 1);
+    assert_eq!(summary.by_required_package["base"], 1);
 }
 
 #[test]
@@ -81,7 +85,9 @@ fn graph_with_video_fallback() -> RenderGraph {
             origin: MediaOrigin::default(),
             source: rect(),
             fallback_reason: Some("native video decode backend is not active".to_string()),
-        })),
+        }))
+        .owned_by("runtime.video")
+        .require_package("base"),
     );
     graph
 }
