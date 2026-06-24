@@ -30,6 +30,7 @@ pub struct NativeRenderBackendResourceDiagnostics {
     pub frames_with_missing_resources: usize,
     pub missing_resource_count: usize,
     pub last_missing_resources: Vec<NativeRenderMissingResource>,
+    pub missing_resources_by_kind: BTreeMap<NativeResourceKind, usize>,
     pub missing_resources_by_owner_package: BTreeMap<String, usize>,
     pub missing_resources_by_required_package: BTreeMap<String, usize>,
 }
@@ -72,6 +73,7 @@ impl NativeRenderBackendResourceDiagnostics {
             .find(|submission| submission.missing_resource_count > 0)
             .map(|submission| submission.missing_resources.clone())
             .unwrap_or_default();
+        let mut missing_resources_by_kind = BTreeMap::new();
         let mut missing_resources_by_owner_package = BTreeMap::new();
         let mut missing_resources_by_required_package = BTreeMap::new();
 
@@ -79,6 +81,10 @@ impl NativeRenderBackendResourceDiagnostics {
             .iter()
             .flat_map(|submission| submission.missing_resources.iter())
         {
+            *missing_resources_by_kind
+                .entry(missing.resource_kind())
+                .or_default() += 1;
+
             for package_id in &missing.owner_package_ids {
                 *missing_resources_by_owner_package
                     .entry(package_id.clone())
@@ -95,8 +101,39 @@ impl NativeRenderBackendResourceDiagnostics {
             frames_with_missing_resources,
             missing_resource_count,
             last_missing_resources,
+            missing_resources_by_kind,
             missing_resources_by_owner_package,
             missing_resources_by_required_package,
+        }
+    }
+}
+
+impl NativeRenderMissingResource {
+    pub fn resource_kind(&self) -> NativeResourceKind {
+        match self
+            .resource_id
+            .as_str()
+            .split_once(':')
+            .map(|(prefix, _)| prefix)
+        {
+            Some(
+                "image" | "images" | "character" | "characters" | "sprite" | "sprites" | "texture"
+                | "textures",
+            ) => NativeResourceKind::Texture,
+            Some("video" | "videos") => NativeResourceKind::VideoDecoder,
+            Some("audio" | "bgm" | "voice" | "sfx" | "ambient") => NativeResourceKind::AudioBuffer,
+            Some("font" | "fonts") => NativeResourceKind::FontFace,
+            Some("glyph" | "glyphs") => NativeResourceKind::GlyphAtlas,
+            Some("qui" | "ui" | "surface" | "surfaces") => NativeResourceKind::UiAst,
+            Some("qss" | "style" | "styles") => NativeResourceKind::QssStyle,
+            Some("token" | "tokens") => NativeResourceKind::TokenTable,
+            _ => match self.kind {
+                DrawCommandKind::Image | DrawCommandKind::NineSlice => NativeResourceKind::Texture,
+                DrawCommandKind::VideoFrame => NativeResourceKind::VideoDecoder,
+                DrawCommandKind::Text | DrawCommandKind::RichText => NativeResourceKind::FontFace,
+                DrawCommandKind::UiSurface => NativeResourceKind::UiAst,
+                _ => NativeResourceKind::Other,
+            },
         }
     }
 }
