@@ -61,6 +61,22 @@ fn reports_resource_memory_and_package_counts() {
     assert_eq!(metrics.resources.kind_count, 2);
     assert_eq!(metrics.resources.memory.cpu_bytes, 2176);
     assert_eq!(metrics.resources.memory.gpu_bytes, 4096);
+    assert_eq!(
+        metrics.resources.by_kind[&NativeResourceKind::Texture].count,
+        1
+    );
+    assert_eq!(
+        metrics.resources.by_kind[&NativeResourceKind::Texture]
+            .memory
+            .gpu_bytes,
+        4096
+    );
+    assert_eq!(
+        metrics.resources.by_kind[&NativeResourceKind::UiAst]
+            .memory
+            .cpu_bytes,
+        2048
+    );
 }
 
 fn view_with_background_and_choice() -> ViewProjection {

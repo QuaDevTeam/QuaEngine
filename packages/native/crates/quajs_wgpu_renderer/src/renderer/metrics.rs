@@ -1,5 +1,9 @@
+use std::collections::BTreeMap;
+
 use crate::frame::PreparedNativeFrame;
-use crate::resources::{NativeResourceLedger, ResourceMemory};
+use crate::resources::{
+    NativeResourceKind, NativeResourceLedger, ResourceKindSummary, ResourceMemory,
+};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NativeRendererMetrics {
@@ -27,6 +31,7 @@ pub struct NativeRendererResourceMetrics {
     pub memory: ResourceMemory,
     pub package_count: usize,
     pub kind_count: usize,
+    pub by_kind: BTreeMap<NativeResourceKind, ResourceKindSummary>,
 }
 
 impl NativeRendererMetrics {
@@ -65,6 +70,7 @@ fn resource_metrics(resources: &NativeResourceLedger) -> NativeRendererResourceM
         memory: summary.total_memory,
         package_count: summary.by_package.len(),
         kind_count: summary.by_kind.len(),
+        by_kind: summary.by_kind,
     }
 }
 
