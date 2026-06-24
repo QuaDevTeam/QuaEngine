@@ -7,6 +7,7 @@ use super::record::{NativeResourceKind, NativeResourceRecord, ResourceId, Resour
 const UI_AST_BASE_CPU_BYTES: u64 = 1024;
 const QSS_STYLE_BASE_CPU_BYTES: u64 = 512;
 const TOKEN_TABLE_BASE_CPU_BYTES: u64 = 256;
+const FONT_FACE_BASE_CPU_BYTES: u64 = 768;
 const RESOURCE_ID_BYTE_WEIGHT: u64 = 2;
 const COMMAND_REF_CPU_BYTES: u64 = 64;
 
@@ -74,6 +75,7 @@ fn estimated_resource_memory(request: &RenderResourceRequest) -> ResourceMemory 
         NativeResourceKind::UiAst => UI_AST_BASE_CPU_BYTES,
         NativeResourceKind::QssStyle => QSS_STYLE_BASE_CPU_BYTES,
         NativeResourceKind::TokenTable => TOKEN_TABLE_BASE_CPU_BYTES,
+        NativeResourceKind::FontFace => FONT_FACE_BASE_CPU_BYTES,
         _ => return ResourceMemory::default(),
     };
     let id_bytes = (request.id.as_str().len() as u64).saturating_mul(RESOURCE_ID_BYTE_WEIGHT);
@@ -92,6 +94,7 @@ fn resource_label(request: &RenderResourceRequest) -> Option<String> {
         NativeResourceKind::UiAst => "ui ast",
         NativeResourceKind::QssStyle => "qss style",
         NativeResourceKind::TokenTable => "token table",
+        NativeResourceKind::FontFace => "font face",
         _ => return None,
     };
 
