@@ -249,6 +249,46 @@ describe('@quajs/engine-native', () => {
     expect(host.getHostInfo).not.toHaveBeenCalled()
   })
 
+  it('releases package-owned QuickJS namespaces on runtime package unload', async () => {
+    const namespaceRecord = {
+      id: 'quickjs:module:1',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/opening.js',
+      kind: 'script' as const,
+      moduleBytes: 3,
+      codeBytes: 36,
+      revision: 1,
+    }
+    const host = {
+      ...createHost(),
+      releaseQuickJsPackageNamespaces: vi.fn(async () => [namespaceRecord]),
+    }
+    const plugin = new NativeHostPlugin({ host })
+
+    await plugin.onRuntimePackageUnload({
+      runtimePackage: {
+        package: {
+          id: 'runtime.chapter.native-ui',
+          version: '1.0.0',
+        },
+        bundleName: 'runtime.chapter.native-ui',
+      },
+    } as any)
+
+    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledWith('runtime.chapter.native-ui')
+    expect(plugin.getReleasedQuickJsPackageNamespaces()).toEqual([namespaceRecord])
+
+    await expect(new NativeHostPlugin({ host: createHost() }).onRuntimePackageUnload({
+      runtimePackage: {
+        package: {
+          id: 'runtime.chapter.native-ui',
+          version: '1.0.0',
+        },
+      },
+    } as any)).resolves.toBeUndefined()
+  })
+
   it('accepts native startup package roots through the native target bootstrap guard', () => {
     const result = checkNativeTargetBootstrap(NATIVE_TARGET_BOOTSTRAP.coreAdapters)
 
