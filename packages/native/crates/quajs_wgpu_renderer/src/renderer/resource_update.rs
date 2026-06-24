@@ -105,7 +105,8 @@ pub(super) fn apply_resource_sync(
     }
 
     for record in &sync.upsert {
-        ledger.insert(merge_existing_record_metadata(ledger, record.clone()));
+        let next = merge_existing_record_metadata(ledger, record.clone());
+        release_replaced_resource_if_needed(&mut released, ledger.insert(next.clone()), &next);
     }
 
     released
@@ -124,7 +125,7 @@ pub(super) fn apply_audio_resource_sync(
     }
 
     for record in &sync.upsert {
-        ledger.insert(record.clone());
+        release_replaced_resource_if_needed(&mut released, ledger.insert(record.clone()), record);
     }
 
     released
@@ -304,6 +305,16 @@ fn merge_existing_record_metadata(
     }
 
     next
+}
+
+fn release_replaced_resource_if_needed(
+    released: &mut Vec<NativeResourceRecord>,
+    previous: Option<NativeResourceRecord>,
+    next: &NativeResourceRecord,
+) {
+    if let Some(previous) = previous.filter(|previous| previous.kind != next.kind) {
+        released.push(previous);
+    }
 }
 
 fn releasable_memory(ids: &[ResourceId], ledger: &NativeResourceLedger) -> ResourceMemory {
