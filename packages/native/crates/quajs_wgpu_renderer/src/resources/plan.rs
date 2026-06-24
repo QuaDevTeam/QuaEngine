@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::render_graph::{DrawCommand, DrawCommandKind, RenderGraph};
+use crate::render_graph::RenderGraph;
 
+use super::kind::infer_resource_kind;
 use super::record::{NativeResourceKind, ResourceId};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -42,7 +43,7 @@ pub fn plan_render_graph_resources(graph: &RenderGraph) -> RenderResourcePlan {
     for command in graph.commands() {
         for resource_id in &command.resource_ids {
             resource_ref_count += 1;
-            let inferred_kind = infer_resource_kind(resource_id, command);
+            let inferred_kind = infer_resource_kind(resource_id, command.kind);
             let request =
                 requests
                     .entry(resource_id.clone())
@@ -76,40 +77,6 @@ pub fn plan_render_graph_resources(graph: &RenderGraph) -> RenderResourcePlan {
     }
 
     plan
-}
-
-fn infer_resource_kind(resource_id: &ResourceId, command: &DrawCommand) -> NativeResourceKind {
-    match resource_prefix(resource_id) {
-        Some(
-            "image" | "images" | "character" | "characters" | "sprite" | "sprites" | "texture"
-            | "textures",
-        ) => NativeResourceKind::Texture,
-        Some("video" | "videos") => NativeResourceKind::VideoDecoder,
-        Some("audio" | "bgm" | "voice" | "sfx" | "ambient") => NativeResourceKind::AudioBuffer,
-        Some("font" | "fonts") => NativeResourceKind::FontFace,
-        Some("glyph" | "glyphs") => NativeResourceKind::GlyphAtlas,
-        Some("qui" | "ui" | "surface" | "surfaces") => NativeResourceKind::UiAst,
-        Some("qss" | "style" | "styles") => NativeResourceKind::QssStyle,
-        Some("token" | "tokens") => NativeResourceKind::TokenTable,
-        _ => infer_resource_kind_from_command(command),
-    }
-}
-
-fn infer_resource_kind_from_command(command: &DrawCommand) -> NativeResourceKind {
-    match command.kind {
-        DrawCommandKind::Image | DrawCommandKind::NineSlice => NativeResourceKind::Texture,
-        DrawCommandKind::VideoFrame => NativeResourceKind::VideoDecoder,
-        DrawCommandKind::Text | DrawCommandKind::RichText => NativeResourceKind::FontFace,
-        DrawCommandKind::UiSurface => NativeResourceKind::UiAst,
-        _ => NativeResourceKind::Other,
-    }
-}
-
-fn resource_prefix(resource_id: &ResourceId) -> Option<&str> {
-    resource_id
-        .as_str()
-        .split_once(':')
-        .map(|(prefix, _)| prefix)
 }
 
 fn merge_resource_kind(
