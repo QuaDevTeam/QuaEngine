@@ -154,6 +154,31 @@ describe('native runtime package guard', () => {
     ])
   })
 
+  it('rejects native payload extensions discovered in bundle asset variant names', () => {
+    const runtimePackage = createRuntimePackage()
+    const bundle = createBundle(runtimePackage)
+    bundle.manifest.assets.images!['poster.webp'].variants = {
+      windows: {
+        name: 'poster-helper.dll',
+        path: 'images/poster.windows.webp',
+        relativePath: 'images/poster.windows.webp',
+      },
+    }
+
+    const result = checkNativeRuntimePackageGuard({
+      package: runtimePackage,
+      bundle,
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_PAYLOAD_FORBIDDEN',
+        assetName: 'poster-helper.dll',
+      }),
+    ])
+  })
+
   it('rejects non-package-relative asset references before native runtime loading', () => {
     const runtimePackage = createRuntimePackage({
       scripts: [

@@ -45,6 +45,7 @@ export interface NativeGuardAssetInfo {
   path: string
   relativePath: string
   variants?: Record<string, {
+    name?: string
     path: string
     relativePath: string
     [key: string]: unknown
@@ -310,6 +311,7 @@ function collectRuntimePackageAssetNames(runtimePackage: NativeGuardRuntimePacka
       addAssetName(names, asset.relativePath)
       addAssetName(names, asset.name)
       for (const variant of Object.values(asset.variants || {})) {
+        addAssetName(names, variant.name)
         addAssetName(names, variant.path)
         addAssetName(names, variant.relativePath)
       }
