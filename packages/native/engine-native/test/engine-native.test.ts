@@ -1,8 +1,11 @@
 import type { QuaNativeHostApi, QuaNativeHostInfo } from '@quajs/native-contracts'
+import { COCOS_TARGET_BOOTSTRAP, NATIVE_TARGET_BOOTSTRAP } from '@quajs/native-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import {
   NativeHostPlugin,
+  assertNativeTargetBootstrap,
   assertNativeRuntimePackageCompatibility,
+  checkNativeTargetBootstrap,
   checkNativeRuntimePackageCompatibility,
   createNativeRuntimeAdapters,
   createNativeRuntimeTrustPolicy,
@@ -121,6 +124,32 @@ describe('@quajs/engine-native', () => {
     await plugin.init({} as any)
 
     expect(plugin.getHostInfo()).toBe(hostInfo)
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+  })
+
+  it('accepts native startup package roots through the native target bootstrap guard', () => {
+    const result = checkNativeTargetBootstrap(NATIVE_TARGET_BOOTSTRAP.coreAdapters)
+
+    expect(result.ok).toBe(true)
+    expect(result.selectedTargets).toEqual(['native'])
+    expect(assertNativeTargetBootstrap(NATIVE_TARGET_BOOTSTRAP.coreAdapters)).toEqual(result)
+  })
+
+  it('rejects mixed target bootstrap packages before reading host info', async () => {
+    const host = createHost()
+    const plugin = new NativeHostPlugin({
+      host,
+      targetBootstrapPackages: [
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+        '@quajs/renderer-web/plugins/ui',
+        ...COCOS_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+    })
+
+    await expect(plugin.init({} as any)).rejects.toThrow(
+      /Native target bootstrap validation failed.*mixes target bootstrap core adapters/,
+    )
+    expect(plugin.getTargetBootstrapValidation()?.selectedTargets).toEqual(['web', 'cocos', 'native'])
     expect(host.getHostInfo).not.toHaveBeenCalled()
   })
 

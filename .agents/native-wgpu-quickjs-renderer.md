@@ -365,7 +365,8 @@ Current contracts-layer implementation status:
 - `packages/native/contracts/test/bootstrap.test.ts` covers exact Web/Cocos/native bootstrap sets, subentry normalization, missing adapters, forbidden adapters, no-target output, unexpected-target output, and mixed-target output.
 - `packages/native/contracts/test/target-bundle.test.ts` covers clean Web/Cocos/native target-bundle manifests, cross-target core adapter leakage for all three targets, native artifacts containing Web/Cocos renderer entries, Web/Cocos artifacts retaining `@quajs/native-contracts` in their runtime graph, Runtime QPK executable dependencies on target core adapters, incomplete/extra selected core adapters, and renderer entry target mismatches.
 - Next Quack/native-packager work must emit a real post-bundle `target-bundle-manifest.json` for Web, Cocos, and native debug/release artifacts and feed it into `validateTargetBundleManifest`. Source-level package metadata checks are not enough; validation must run on the emitted dependency graph after tree-shaking.
-- Native runtime startup still needs a smoke assertion that the registered bootstrap set contains exactly one target before engine initialization, using the same normalized target-bootstrap data.
+- `@quajs/engine-native` exposes `checkNativeTargetBootstrap` / `assertNativeTargetBootstrap`, and `NativeHostPlugin` can receive `targetBootstrapPackages` to reject mixed Web/Cocos/native startup package roots before reading native host info.
+- Native shell/bootstrap work still must pass the real post-bundle dependency roots into `NativeHostPlugin` and add an app-level smoke test proving startup fails before engine initialization when more than one target core adapter set is registered.
 
 ## Native Engine Bridge, Assets, And Store Adapters
 
