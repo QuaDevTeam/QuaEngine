@@ -366,6 +366,7 @@ fn submits_latest_frame_to_backend() {
     assert_eq!(submission.batch_count, 3);
     assert_eq!(submission.command_count, 3);
     assert_eq!(submission.resource_count, 1);
+    assert_eq!(submission.missing_resource_count, 0);
     assert_eq!(
         submission
             .passes
@@ -376,8 +377,12 @@ fn submits_latest_frame_to_backend() {
     );
     assert_eq!(submission.passes[0].batch_count, 1);
     assert_eq!(submission.passes[0].command_count, 1);
+    assert_eq!(submission.passes[0].resolved_resource_count, 1);
+    assert_eq!(submission.passes[0].missing_resource_count, 0);
     assert_eq!(submission.passes[1].batch_count, 2);
     assert_eq!(submission.passes[1].command_count, 2);
+    assert_eq!(submission.passes[1].resolved_resource_count, 0);
+    assert_eq!(submission.passes[1].missing_resource_count, 0);
     assert_eq!(
         submission.passes[0]
             .batches
@@ -394,6 +399,13 @@ fn submits_latest_frame_to_backend() {
             .collect::<Vec<_>>(),
         vec![DrawBatchPipeline::Shape, DrawBatchPipeline::Ui]
     );
+    assert_eq!(
+        submission.passes[0].batches[0].resolved_resource_ids,
+        vec![ResourceId::from("images:bg/school.png")]
+    );
+    assert!(submission.passes[0].batches[0]
+        .missing_resource_ids
+        .is_empty());
 }
 
 #[test]
