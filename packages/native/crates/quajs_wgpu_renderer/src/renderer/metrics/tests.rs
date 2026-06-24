@@ -77,6 +77,25 @@ fn reports_resource_memory_and_package_counts() {
             .cpu_bytes,
         2048
     );
+    assert_eq!(metrics.resources.by_package["base"].owned_count, 1);
+    assert_eq!(metrics.resources.by_package["base"].dependent_count, 1);
+    assert_eq!(
+        metrics.resources.by_package["base"].owned_memory.gpu_bytes,
+        4096
+    );
+    assert_eq!(
+        metrics.resources.by_package["base"]
+            .dependent_memory
+            .cpu_bytes,
+        2048
+    );
+    assert_eq!(metrics.resources.by_package["runtime.ui"].owned_count, 1);
+    assert_eq!(
+        metrics.resources.by_package["runtime.ui"]
+            .owned_memory
+            .cpu_bytes,
+        2048
+    );
 }
 
 fn view_with_background_and_choice() -> ViewProjection {
