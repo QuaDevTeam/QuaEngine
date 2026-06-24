@@ -40,9 +40,12 @@ pub struct NativeRendererPackageReleaseSummary {
     pub blocked_count: usize,
     pub released_count: usize,
     pub released_memory: ResourceMemory,
+    pub blocked_memory: ResourceMemory,
     pub released_by_kind: BTreeMap<NativeResourceKind, usize>,
     pub blocked_by_kind: BTreeMap<NativeResourceKind, usize>,
     pub blocked_by_reason: BTreeMap<PackageUnloadBlockerReason, usize>,
+    pub blocked_memory_by_kind: BTreeMap<NativeResourceKind, ResourceMemory>,
+    pub blocked_memory_by_reason: BTreeMap<PackageUnloadBlockerReason, ResourceMemory>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -133,16 +136,21 @@ pub(super) fn frame_resource_sync_summary(
 pub(super) fn package_release_summary(
     plan: &PackageUnloadPlan,
     released_resources: &[NativeResourceRecord],
+    ledger: &NativeResourceLedger,
 ) -> NativeRendererPackageReleaseSummary {
     let released = released_resource_summary(released_resources);
+    let blocked = blocked_resource_summary(plan, ledger);
     NativeRendererPackageReleaseSummary {
         releasable_count: plan.releasable.len(),
         blocked_count: plan.blocked.len(),
         released_count: released.count,
         released_memory: released.memory,
+        blocked_memory: blocked.memory,
         released_by_kind: released.by_kind,
-        blocked_by_kind: blocked_by_kind(plan),
-        blocked_by_reason: blocked_by_reason(plan),
+        blocked_by_kind: blocked.by_kind,
+        blocked_by_reason: blocked.by_reason,
+        blocked_memory_by_kind: blocked.memory_by_kind,
+        blocked_memory_by_reason: blocked.memory_by_reason,
     }
 }
 
@@ -170,20 +178,40 @@ fn releasable_memory(ids: &[ResourceId], ledger: &NativeResourceLedger) -> Resou
     memory
 }
 
-fn blocked_by_kind(plan: &PackageUnloadPlan) -> BTreeMap<NativeResourceKind, usize> {
-    let mut by_kind = BTreeMap::new();
-    for blocker in &plan.blocked {
-        *by_kind.entry(blocker.kind).or_default() += 1;
-    }
-    by_kind
+#[derive(Clone, Debug, Default)]
+struct BlockedResourceSummary {
+    memory: ResourceMemory,
+    by_kind: BTreeMap<NativeResourceKind, usize>,
+    by_reason: BTreeMap<PackageUnloadBlockerReason, usize>,
+    memory_by_kind: BTreeMap<NativeResourceKind, ResourceMemory>,
+    memory_by_reason: BTreeMap<PackageUnloadBlockerReason, ResourceMemory>,
 }
 
-fn blocked_by_reason(plan: &PackageUnloadPlan) -> BTreeMap<PackageUnloadBlockerReason, usize> {
-    let mut by_reason = BTreeMap::new();
+fn blocked_resource_summary(
+    plan: &PackageUnloadPlan,
+    ledger: &NativeResourceLedger,
+) -> BlockedResourceSummary {
+    let mut summary = BlockedResourceSummary::default();
     for blocker in &plan.blocked {
-        *by_reason.entry(blocker.reason).or_default() += 1;
+        *summary.by_kind.entry(blocker.kind).or_default() += 1;
+        *summary.by_reason.entry(blocker.reason).or_default() += 1;
+
+        let Some(record) = ledger.get(blocker.resource_id.clone()) else {
+            continue;
+        };
+        summary.memory.add_assign(record.memory);
+        summary
+            .memory_by_kind
+            .entry(blocker.kind)
+            .or_default()
+            .add_assign(record.memory);
+        summary
+            .memory_by_reason
+            .entry(blocker.reason)
+            .or_default()
+            .add_assign(record.memory);
     }
-    by_reason
+    summary
 }
 
 fn released_resource_summary(

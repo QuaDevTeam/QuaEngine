@@ -81,7 +81,7 @@ impl NativeRendererState {
 
         NativeRendererPackageRelease {
             revision: self.revision,
-            summary: package_release_summary(&plan, &released_resources),
+            summary: package_release_summary(&plan, &released_resources, &self.resources),
             plan,
             released_resources,
         }
