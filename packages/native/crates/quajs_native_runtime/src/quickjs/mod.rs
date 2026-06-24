@@ -69,6 +69,8 @@ pub struct QuickJsEvaluationResponse {
 pub enum QuickJsEvaluationErrorCode {
     MissingAssetName,
     ForbiddenAssetName,
+    ForbiddenNativePayload,
+    UnsupportedModuleAsset,
     ModuleTooLarge,
     EvaluationFailed,
     UnsupportedRuntime,
@@ -175,6 +177,28 @@ pub fn validate_quickjs_evaluation_request(
             detail: None,
         });
     }
+    if is_forbidden_native_module_payload(asset_name) {
+        return Err(QuickJsEvaluationError {
+            code: QuickJsEvaluationErrorCode::ForbiddenNativePayload,
+            message: format!(
+                "QuickJS runtime module assetName \"{}\" must not reference a native payload.",
+                request.module.asset_name
+            ),
+            asset_name: Some(request.module.asset_name.clone()),
+            detail: None,
+        });
+    }
+    if !is_supported_quickjs_module_asset(asset_name) {
+        return Err(QuickJsEvaluationError {
+            code: QuickJsEvaluationErrorCode::UnsupportedModuleAsset,
+            message: format!(
+                "QuickJS runtime module assetName \"{}\" must reference a JavaScript module asset.",
+                request.module.asset_name
+            ),
+            asset_name: Some(request.module.asset_name.clone()),
+            detail: Some("Supported extensions are .js, .mjs, and .cjs.".to_string()),
+        });
+    }
     if request.module.bytes.len() as u64 > request.limits.max_module_bytes {
         return Err(QuickJsEvaluationError {
             code: QuickJsEvaluationErrorCode::ModuleTooLarge,
@@ -200,6 +224,23 @@ pub fn is_forbidden_runtime_module_asset_name(asset_name: &str) -> bool {
         || has_uri_scheme(asset_name)
 }
 
+pub fn is_forbidden_native_module_payload(asset_name: &str) -> bool {
+    let normalized = asset_name.to_ascii_lowercase().replace('\\', "/");
+    FORBIDDEN_NATIVE_MODULE_PAYLOAD_EXTENSIONS
+        .iter()
+        .any(|extension| {
+            normalized.ends_with(extension) || normalized.contains(&format!("{}/", extension))
+        })
+}
+
+pub fn is_supported_quickjs_module_asset(asset_name: &str) -> bool {
+    let normalized = asset_name.to_ascii_lowercase().replace('\\', "/");
+    let file_name = normalized.rsplit('/').next().unwrap_or_default();
+    SUPPORTED_QUICKJS_MODULE_EXTENSIONS
+        .iter()
+        .any(|extension| file_name.ends_with(extension))
+}
+
 fn has_uri_scheme(value: &str) -> bool {
     let Some(index) = value.find(':') else {
         return false;
@@ -214,6 +255,27 @@ fn has_uri_scheme(value: &str) -> bool {
             }
         })
 }
+
+const SUPPORTED_QUICKJS_MODULE_EXTENSIONS: [&str; 3] = [".js", ".mjs", ".cjs"];
+
+const FORBIDDEN_NATIVE_MODULE_PAYLOAD_EXTENSIONS: [&str; 16] = [
+    ".dylib",
+    ".so",
+    ".dll",
+    ".framework",
+    ".bundle",
+    ".node",
+    ".wasm",
+    ".wasi",
+    ".exe",
+    ".msi",
+    ".app",
+    ".pkg",
+    ".deb",
+    ".rpm",
+    ".appimage",
+    ".jar",
+];
 
 #[cfg(test)]
 mod tests;
