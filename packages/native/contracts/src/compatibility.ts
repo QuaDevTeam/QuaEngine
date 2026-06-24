@@ -15,6 +15,7 @@ export interface RuntimePackageNativeRendererCompatibility {
   optionalCapabilities?: readonly string[]
   optionalCapabilityIds?: readonly string[]
   assetKinds?: readonly string[]
+  optionalAssetKinds?: readonly string[]
   quiComponents?: readonly string[]
   qssFeatures?: readonly string[]
   /** @deprecated Use quiComponents for required native QUI component names. */
@@ -32,6 +33,7 @@ export interface NativeCompatibilityDiagnostic {
     | 'NATIVE_CODE_NOT_ALLOWED'
     | 'NATIVE_RENDERER_PACKAGE_MISMATCH'
     | 'NATIVE_REQUIRED_ASSET_KIND_MISSING'
+    | 'NATIVE_OPTIONAL_ASSET_KIND_MISSING'
     | 'NATIVE_REQUIRED_QSS_FEATURE_MISSING'
     | 'NATIVE_REQUIRED_QUI_COMPONENT_MISSING'
   severity: NativeCompatibilitySeverity
@@ -133,6 +135,18 @@ export function checkNativeCompatibility(options: CheckNativeCompatibilityOption
         code: 'NATIVE_REQUIRED_ASSET_KIND_MISSING',
         severity: 'error',
         message: `Required native asset kind "${assetKind}" is not available.`,
+        pluginId,
+        required: assetKind,
+      })
+    }
+  }
+
+  for (const assetKind of compatibility.optionalAssetKinds || []) {
+    if (!hasCapabilityFieldValue(hostInfo.renderer.capabilities, 'assetKinds', assetKind)) {
+      diagnostics.push({
+        code: 'NATIVE_OPTIONAL_ASSET_KIND_MISSING',
+        severity: 'warning',
+        message: `Optional native asset kind "${assetKind}" is not available; fallback behavior must be used.`,
         pluginId,
         required: assetKind,
       })
