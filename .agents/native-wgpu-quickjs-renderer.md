@@ -317,6 +317,30 @@ Core plugin family validation must be explicit:
 - The packager must fail before signing/release promotion when `target`, `selectedCorePluginFamily`, and `selectedCoreAdapters` disagree. For example, `target: "native"` with a Web renderer entry is invalid even if all native adapters are also present.
 - Runtime startup must repeat the same assertion from the serialized manifest before installing engine plugins. A manually assembled shell must not be able to register Web and native adapters together and choose one later at runtime.
 
+### Core Plugin Packaging Resolver Contract
+
+Web, Cocos, and native packaging must have separate target-core resolver contexts. The build code may share schema helpers and validation functions, but it must not share one mutable plugin list and then filter it late. The selected target decides the bootstrap first, and that bootstrap owns the only allowed target-core adapters for the artifact.
+
+Implementation contract:
+
+- `resolveWebCorePlugins()` may return only Web bootstrap, Web assets/store adapters, Web renderer/framework adapters, and Web renderer plugin entries.
+- `resolveCocosCorePlugins()` may return only Cocos bootstrap, Cocos host/assets/store adapters, Cocos renderer, and Cocos renderer plugin entries.
+- `resolveNativeCorePlugins()` may return only native bootstrap, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `@quajs/native-contracts`, and signed Rust native runtime/renderer metadata.
+- Shared engine/game/plugin resolution runs only after one target-core resolver has completed, and shared entries must be platform-neutral.
+- Third-party plugin resolution receives the already-selected target and may choose `shared` plus that target entry only. It must not inspect all target entries and leave inactive entries reachable.
+- Runtime QPK activation receives the active artifact target from startup metadata. It must ignore inactive compatibility blocks and reject any `executableDependencies` or `rendererEntries` that normalize to Web, Cocos, or native target-core adapter roots.
+- Debug, release, updater, and installer jobs must all consume the emitted `target-bundle-manifest.json`; no packaging path may bypass the same `validateTargetBundleManifest` gate.
+
+Concrete failure cases that must stay release-blocking:
+
+- A Web artifact includes `@quajs/renderer-cocos`, `@quajs/cocos-host`, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `quajs_native_runtime`, or `quajs_wgpu_renderer`.
+- A Cocos artifact includes `@quajs/renderer-web`, `@quajs/renderer-vue`, `@quajs/renderer-react`, `@quajs/renderer-svelte`, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, `quajs_native_runtime`, or `quajs_wgpu_renderer`.
+- A native artifact includes `@quajs/assets-web`, `@quajs/renderer-web`, `@quajs/renderer-vue`, `@quajs/renderer-react`, `@quajs/renderer-svelte`, `@quajs/cocos-host`, or `@quajs/renderer-cocos`.
+- Web or Cocos runtime artifacts retain `@quajs/native-contracts` after bundling. They may use it from Node/build tooling only.
+- A plugin package exposes Web/Cocos/native target entries from one eager runtime entrypoint.
+- A project config lists Web/Cocos/native core plugins in one array and relies on runtime branching.
+- A Runtime QPK declares any Web/Cocos/native target-core adapter or target renderer package as an executable dependency or renderer entry.
+
 ### Project Target Core Plugin Resolution
 
 Project packaging must resolve target core plugins through a target-specific resolver before normal game/plugin resolution starts. This applies equally to Web, Cocos, and native outputs; native packaging cannot be stricter than the other two targets.
@@ -2700,6 +2724,7 @@ Exit: product UI is declarative and selected through engine `surface.key` plus s
 - Emit `target-bundle-manifest.json` for Web, Cocos, and native debug/release artifacts and validate it after bundling/tree-shaking.
 - Add runtime startup assertions so hand-built Web/Cocos/native app shells still reject zero or multiple registered target core adapter sets.
 - Add target-entry selection checks through `validateTargetPluginManifest` so multi-target plugin source packages contribute only the active Web, Cocos, or native renderer entry to each packaged output.
+- Implement separate Web, Cocos, and native target-core resolver contexts. Do not build a shared target-core plugin array for all three outputs.
 - Add QPK compatibility checks so inactive target compatibility blocks remain metadata and cannot activate another target's core plugin path.
 - Add package/resource quota configuration for QuickJS, textures, video frames, audio buffers, glyph atlas, and UI AST/style memory.
 
@@ -2757,6 +2782,7 @@ Integration tests:
 - Web/Cocos/native release bundle tests reject cross-target core plugin leakage.
 - Web/Cocos/native target bootstrap manifest tests assert exactly one target core adapter set, normalized forbidden package roots, and selected renderer entries.
 - Debug and release artifact manifest tests verify `target-bundle-manifest.json` is emitted after bundling/tree-shaking and fails validation when another target's core plugin appears only through a subentry import, when `selectedCoreAdapters` is incomplete or contains another target's adapter, and when app/runtime renderer entry target metadata does not match the artifact target.
+- Target-core resolver tests prove Web, Cocos, and native packaging start from separate resolver contexts rather than one shared all-target plugin list.
 - Multi-target third-party plugin fixtures prove only the active target renderer entry is bundled and inactive target entries are excluded.
 - Runtime package compatibility tests verify Web builds ignore native/Cocos compatibility blocks, Cocos builds ignore Web/native blocks, and native builds ignore Web/Cocos blocks while rejecting native-code payloads.
 - Plugin compatibility fixtures cover existing engine/game/plugins and claimed third-party renderer targets before declaring native renderer parity.
