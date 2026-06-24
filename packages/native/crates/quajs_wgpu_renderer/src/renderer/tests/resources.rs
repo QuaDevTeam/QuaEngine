@@ -337,6 +337,11 @@ fn release_package_resources_summarizes_declarative_release_memory() {
     assert_eq!(release.summary.declarative_released_memory.cpu_bytes, 1792);
     assert_eq!(release.summary.declarative_released_memory.gpu_bytes, 0);
     assert_eq!(release.summary.declarative_blocked_memory.total_bytes(), 0);
+    assert_eq!(release.host_cleanup.len(), 3);
+    assert!(release
+        .host_cleanup
+        .iter()
+        .all(|cleanup| cleanup.declarative_asset));
     assert_eq!(
         release.summary.released_by_kind[&NativeResourceKind::UiAst],
         1

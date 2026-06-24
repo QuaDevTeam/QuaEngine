@@ -61,6 +61,7 @@ pub struct NativeRendererPackageRelease {
 pub struct NativeRendererHostCleanupRecord {
     pub resource_id: ResourceId,
     pub kind: NativeResourceKind,
+    pub declarative_asset: bool,
     pub owner_package_id: Option<String>,
     pub required_package_ids: Vec<String>,
     pub memory: ResourceMemory,
@@ -264,6 +265,7 @@ pub(super) fn host_cleanup_records(
         .map(|record| NativeRendererHostCleanupRecord {
             resource_id: record.id.clone(),
             kind: record.kind,
+            declarative_asset: is_declarative_asset_kind(record.kind),
             owner_package_id: record.owner_package_id.clone(),
             required_package_ids: record.required_package_ids.iter().cloned().collect(),
             memory: record.memory,
