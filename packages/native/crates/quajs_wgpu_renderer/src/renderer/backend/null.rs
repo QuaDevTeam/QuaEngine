@@ -1,5 +1,6 @@
 use super::{
-    NativeRenderBackend, NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
+    NativeRenderBackend, NativeRenderBackendResourceDiagnostics, NativeRenderBackendResult,
+    NativeRenderFrameRef, NativeRenderSubmission,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -23,6 +24,7 @@ impl NullNativeRenderBackend {
     pub fn diagnostics(&self) -> NullNativeRenderBackendDiagnostics {
         NullNativeRenderBackendDiagnostics {
             submitted_frames: self.submissions.len(),
+            resources: NativeRenderBackendResourceDiagnostics::from_submissions(&self.submissions),
             last_submission: self.last_submission().cloned(),
         }
     }
@@ -39,6 +41,7 @@ impl NativeRenderBackend for NullNativeRenderBackend {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct NullNativeRenderBackendDiagnostics {
     pub submitted_frames: usize,
+    pub resources: NativeRenderBackendResourceDiagnostics,
     pub last_submission: Option<NativeRenderSubmission>,
 }
 
