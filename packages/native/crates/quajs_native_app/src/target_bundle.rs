@@ -137,6 +137,7 @@ fn check_manifest_identity(
         expectation.build_number.as_str(),
         diagnostics,
     );
+    check_required_app_icon(app.icon.as_deref(), diagnostics);
 }
 
 fn check_optional_metadata(
@@ -153,6 +154,17 @@ fn check_optional_metadata(
         None => diagnostics.push(format!(
             "Native target bundle manifest must include app.{field} \"{expected}\"."
         )),
+    }
+}
+
+fn check_required_app_icon(actual: Option<&str>, diagnostics: &mut Vec<String>) {
+    match actual {
+        Some(actual) if !actual.trim().is_empty() => {}
+        Some(_) => diagnostics
+            .push("Native target bundle manifest app.icon must not be empty.".to_string()),
+        None => {
+            diagnostics.push("Native target bundle manifest must include app.icon.".to_string())
+        }
     }
 }
 
