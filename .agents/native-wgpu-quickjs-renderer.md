@@ -236,6 +236,8 @@ QuaEngine packages must treat Web, Cocos, and native as three mutually exclusive
 
 Core target plugins are any package or built-in module that installs target runtime adapters, renderer controllers, host bridges, platform asset/store adapters, or target renderer plugin entries. They are different from platform-neutral engine/game plugins. A package can be multi-target in source, but every emitted app artifact has exactly one active target core plugin set.
 
+Target core plugins must be grouped as three disjoint plugin families: `web-core`, `cocos-core`, and `native-core`. A packaged application must record exactly one selected family in its bootstrap metadata and `target-bundle-manifest.json`; seeing two families in one artifact is a packaging failure even when the package graph also contains a valid entry for the requested target. This applies to official core plugins, official renderer plugin subentries, target bootstrap presets, third-party renderer entries, and executable Runtime QPK dependencies.
+
 The isolation rule applies to all package outputs:
 
 - **Web project output** selects the Web bootstrap only. It may include `@quajs/assets-web`, `@quajs/renderer-web`, Web framework renderers such as Vue/React/Svelte adapters, and Web renderer plugin subentries. It must not include `@quajs/cocos-host`, `@quajs/renderer-cocos`, `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, native host contracts as runtime adapters, or Rust native renderer metadata.
@@ -294,6 +296,14 @@ Partition checks are required at five separate points:
 
 The rule is symmetric. A native packaging check that rejects Web/Cocos leakage is not enough; Web builds must also reject Cocos/native leakage, and Cocos builds must reject Web/native leakage. These checks should be implemented from the same target manifest data so the three paths cannot drift.
 
+Core plugin family validation must be explicit:
+
+- Web release/debug artifacts must set `selectedCorePluginFamily: "web-core"` and may not include any `cocos-core` or `native-core` package root, renderer entry, bootstrap registration, or Runtime QPK executable dependency.
+- Cocos release/debug artifacts must set `selectedCorePluginFamily: "cocos-core"` and may not include any `web-core` or `native-core` package root, renderer entry, bootstrap registration, or Runtime QPK executable dependency.
+- Native release/debug artifacts must set `selectedCorePluginFamily: "native-core"` and may not include any `web-core` or `cocos-core` package root, renderer entry, bootstrap registration, or Runtime QPK executable dependency.
+- The packager must fail before signing/release promotion when `target`, `selectedCorePluginFamily`, and `selectedCoreAdapters` disagree. For example, `target: "native"` with a Web renderer entry is invalid even if all native adapters are also present.
+- Runtime startup must repeat the same assertion from the serialized manifest before installing engine plugins. A manually assembled shell must not be able to register Web and native adapters together and choose one later at runtime.
+
 Target isolation should be encoded as data, not scattered across build scripts:
 
 ```ts
@@ -312,6 +322,7 @@ type TargetPackageRole =
 
 interface TargetBootstrapManifest {
   target: QuaBuildTarget
+  selectedCorePluginFamily: 'web-core' | 'cocos-core' | 'native-core'
   requiredCoreAdapters: readonly string[]
   allowedCoreAdapters: readonly string[]
   forbiddenCoreAdapters: readonly string[]
