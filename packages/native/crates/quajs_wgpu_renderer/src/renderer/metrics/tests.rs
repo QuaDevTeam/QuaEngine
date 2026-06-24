@@ -2,6 +2,7 @@ use super::*;
 use crate::projection::background::BackgroundProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
+use crate::projection::ui::{UiOverlayProjection, UiOverlaySurfaceProjection, UiProjection};
 use crate::projection::view::ViewProjection;
 use crate::render_graph::RenderPlane;
 use crate::resources::{NativeResourceKind, NativeResourceRecord};
@@ -52,16 +53,19 @@ fn reports_frame_metrics_from_prepared_frame() {
 }
 
 #[test]
-fn reports_frame_metrics_by_package() {
+fn reports_frame_metrics_by_package_and_resource_kind() {
     let frame = crate::frame::prepare_native_frame(test_layout(), &package_aware_view());
     let resources = NativeResourceLedger::new();
 
     let metrics = NativeRendererMetrics::from_state(4, Some(&frame), &resources);
 
     assert_eq!(metrics.resources.package_count, 0);
-    assert_eq!(metrics.frame.by_package["base"].command_count, 3);
-    assert_eq!(metrics.frame.by_package["base"].resource_ref_count, 1);
-    assert_eq!(metrics.frame.by_package["base"].interactive_count, 1);
+    assert_eq!(metrics.frame.by_package["base"].command_count, 4);
+    assert_eq!(metrics.frame.by_package["base"].resource_ref_count, 2);
+    assert_eq!(metrics.frame.by_package["base"].interactive_count, 2);
+    assert_eq!(metrics.frame.by_package["runtime.ui"].command_count, 1);
+    assert_eq!(metrics.frame.by_package["runtime.ui"].resource_ref_count, 1);
+    assert_eq!(metrics.frame.by_package["runtime.ui"].interactive_count, 1);
     assert_eq!(metrics.frame.by_package["runtime.choice"].command_count, 1);
     assert_eq!(
         metrics.frame.by_package["runtime.choice"].resource_ref_count,
@@ -69,6 +73,14 @@ fn reports_frame_metrics_by_package() {
     );
     assert_eq!(
         metrics.frame.by_package["runtime.choice"].interactive_count,
+        1
+    );
+    assert_eq!(
+        metrics.frame.by_resource_kind[&NativeResourceKind::Texture],
+        1
+    );
+    assert_eq!(
+        metrics.frame.by_resource_kind[&NativeResourceKind::UiAst],
         1
     );
 }
@@ -170,9 +182,24 @@ fn package_aware_view() -> ViewProjection {
                 enabled: true,
                 provenance: PackageProvenance {
                     content_package_id: Some("runtime.choice".to_string()),
-                    required_runtime_packages: required_base,
+                    required_runtime_packages: required_base.clone(),
                 },
             }],
+        }),
+        ui: Some(UiProjection {
+            provenance: PackageProvenance {
+                content_package_id: Some("runtime.ui".to_string()),
+                required_runtime_packages: required_base,
+            },
+            overlays: vec![UiOverlayProjection {
+                surface: Some(UiOverlaySurfaceProjection::new("ui/menu.qui")),
+                provenance: PackageProvenance {
+                    content_package_id: None,
+                    required_runtime_packages: Default::default(),
+                },
+                ..UiOverlayProjection::new("menu")
+            }],
+            ..Default::default()
         }),
         ..Default::default()
     }

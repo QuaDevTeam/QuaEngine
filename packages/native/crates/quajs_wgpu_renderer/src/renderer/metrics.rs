@@ -27,6 +27,7 @@ pub struct NativeRendererFrameMetrics {
     pub skipped_asset_resource_count: usize,
     pub by_plane: BTreeMap<RenderPlane, RenderPlaneSummary>,
     pub by_package: BTreeMap<String, RenderGraphPackageSummary>,
+    pub by_resource_kind: BTreeMap<NativeResourceKind, usize>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -66,6 +67,7 @@ fn frame_metrics(frame: &PreparedNativeFrame) -> NativeRendererFrameMetrics {
         skipped_asset_resource_count: frame.assets.skipped_resource_ids.len(),
         by_plane: frame.summary.by_plane.clone(),
         by_package: frame.summary.by_package.clone(),
+        by_resource_kind: frame.resources.by_kind.clone(),
     }
 }
 
