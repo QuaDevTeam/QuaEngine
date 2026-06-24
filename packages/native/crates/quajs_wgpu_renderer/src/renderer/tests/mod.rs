@@ -7,6 +7,10 @@ use crate::projection::audio::{
 use crate::projection::background::BackgroundProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
+use crate::projection::ui::{
+    UiOverlayProjection, UiOverlaySurfaceProjection, UiProjection, UiSurfaceNodeKind,
+    UiSurfaceNodeProjection, UiSurfaceNodeRect,
+};
 use crate::projection::view::ViewProjection;
 use crate::renderer::{
     NativeRenderBackend, NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
@@ -65,6 +69,34 @@ pub(super) fn view_with_audio() -> ViewProjection {
             handle_cpu_bytes: 64,
         })
         .with_provenance(provenance("runtime.audio", []))])),
+        ..Default::default()
+    }
+}
+
+pub(super) fn view_with_ui_surface() -> ViewProjection {
+    ViewProjection {
+        ui: Some(UiProjection {
+            provenance: provenance("runtime.ui", ["base"]),
+            overlays: vec![UiOverlayProjection {
+                surface: Some(
+                    UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                        UiSurfaceNodeProjection::new(
+                            "title",
+                            UiSurfaceNodeKind::Text,
+                            UiSurfaceNodeRect {
+                                x: 40.0,
+                                y: 48.0,
+                                width: 240.0,
+                                height: 44.0,
+                            },
+                        )
+                        .with_text("Menu"),
+                    ),
+                ),
+                ..UiOverlayProjection::new("menu")
+            }],
+            ..Default::default()
+        }),
         ..Default::default()
     }
 }
