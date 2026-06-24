@@ -5,7 +5,7 @@ use crate::projection::background::BackgroundProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
 use crate::projection::view::ViewProjection;
-use crate::render_graph::RenderPlane;
+use crate::render_graph::{DrawBatchPipeline, RenderPlane};
 use crate::renderer::{
     NativeRenderBackend, NativeRenderBackendErrorKind, NativeRenderBackendResult,
     NativeRenderFrameRef, NativeRenderSubmission,
@@ -378,6 +378,22 @@ fn submits_latest_frame_to_backend() {
     assert_eq!(submission.passes[0].command_count, 1);
     assert_eq!(submission.passes[1].batch_count, 2);
     assert_eq!(submission.passes[1].command_count, 2);
+    assert_eq!(
+        submission.passes[0]
+            .batches
+            .iter()
+            .map(|batch| batch.pipeline)
+            .collect::<Vec<_>>(),
+        vec![DrawBatchPipeline::Image]
+    );
+    assert_eq!(
+        submission.passes[1]
+            .batches
+            .iter()
+            .map(|batch| batch.pipeline)
+            .collect::<Vec<_>>(),
+        vec![DrawBatchPipeline::Shape, DrawBatchPipeline::Ui]
+    );
 }
 
 #[test]

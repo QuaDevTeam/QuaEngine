@@ -1,6 +1,8 @@
 use crate::frame::PreparedNativeFrame;
-use crate::render_graph::{RenderPlane, RenderViewport};
-use crate::resources::NativeResourceLedger;
+use crate::render_graph::{
+    DrawBatch, DrawBatchPipeline, DrawCommandKind, RenderPlane, RenderViewport,
+};
+use crate::resources::{NativeResourceLedger, ResourceId};
 
 pub mod null;
 #[cfg(feature = "wgpu-backend")]
@@ -84,6 +86,15 @@ pub struct NativeRenderPassSubmission {
     pub batch_count: usize,
     pub command_count: usize,
     pub viewport: RenderViewport,
+    pub batches: Vec<NativeRenderBatchSubmission>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NativeRenderBatchSubmission {
+    pub pipeline: DrawBatchPipeline,
+    pub kind: DrawCommandKind,
+    pub resource_ids: Vec<ResourceId>,
+    pub command_ids: Vec<String>,
 }
 
 impl From<&crate::render_graph::RenderPass> for NativeRenderPassSubmission {
@@ -93,6 +104,22 @@ impl From<&crate::render_graph::RenderPass> for NativeRenderPassSubmission {
             batch_count: pass.batches.len(),
             command_count: pass.command_count,
             viewport: pass.viewport,
+            batches: pass
+                .batches
+                .iter()
+                .map(NativeRenderBatchSubmission::from)
+                .collect(),
+        }
+    }
+}
+
+impl From<&DrawBatch> for NativeRenderBatchSubmission {
+    fn from(batch: &DrawBatch) -> Self {
+        Self {
+            pipeline: batch.key.pipeline,
+            kind: batch.key.kind,
+            resource_ids: batch.key.resource_ids.clone(),
+            command_ids: batch.command_ids.clone(),
         }
     }
 }

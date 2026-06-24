@@ -6,8 +6,9 @@ pub mod state;
 
 pub use backend::{
     NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendErrorKind,
-    NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderPassSubmission,
-    NativeRenderSubmission, NullNativeRenderBackend, NullNativeRenderBackendDiagnostics,
+    NativeRenderBackendResult, NativeRenderBatchSubmission, NativeRenderFrameRef,
+    NativeRenderPassSubmission, NativeRenderSubmission, NullNativeRenderBackend,
+    NullNativeRenderBackendDiagnostics,
 };
 #[cfg(feature = "wgpu-backend")]
 pub use backend::{
