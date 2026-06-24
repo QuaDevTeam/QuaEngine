@@ -1,24 +1,23 @@
-import { emitLogicToRender, LogicToRenderEvents } from '@quajs/engine'
 import type { NativeHostApiRequest, QuaNativeHostApi, QuaNativeHostInfo, TargetBundleManifest } from '@quajs/native-contracts'
+import { emitLogicToRender, LogicToRenderEvents } from '@quajs/engine'
 import {
   COCOS_TARGET_BOOTSTRAP,
-  NATIVE_TARGET_BOOTSTRAP,
   createNativeCapabilityManifestHash,
   createNativeHostApiFromBridge,
   getTargetCorePluginFamily,
   getTargetCoreResolverId,
+  NATIVE_TARGET_BOOTSTRAP,
 } from '@quajs/native-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import {
-  NativeHostPlugin,
-  assertNativeTargetBundleManifest,
-  assertNativeTargetBootstrap,
   assertNativeRuntimePackageCompatibility,
+  assertNativeTargetBootstrap,
+  assertNativeTargetBundleManifest,
   checkNativeAppManifestCompatibility,
   checkNativeRendererManifestCompatibility,
-  checkNativeTargetBundleManifest,
-  checkNativeTargetBootstrap,
   checkNativeRuntimePackageCompatibility,
+  checkNativeTargetBootstrap,
+  checkNativeTargetBundleManifest,
   createNativeEngineBootstrap,
   createNativeHostQuickJsModuleEvaluator,
   createNativeRuntimeAdapters,
@@ -26,9 +25,10 @@ import {
   createNativeRuntimeTrustPolicy,
   getNativeQuickJsNamespaceSummary,
   getNativeQuickJsPackageNamespaceSummary,
+  NativeHostPlugin,
+  readNativeHostInfo,
   releaseNativeQuickJsModuleNamespace,
   releaseNativeQuickJsPackageNamespaces,
-  readNativeHostInfo,
 } from '../src'
 
 const CAPABILITIES: QuaNativeHostInfo['renderer']['capabilities'] = [
@@ -1047,6 +1047,40 @@ describe('@quajs/engine-native', () => {
           renderer: '@quajs/native-renderer',
           version: '^0.1.0',
           optionalAssetKinds: ['qss', 'shader'],
+          nativeCode: false,
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).resolves.toBe(true)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).toHaveBeenCalledTimes(1)
+  })
+
+  it('allows missing optional native QSS features and QUI components before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: {
+          renderer: '@quajs/native-renderer',
+          version: '^0.1.0',
+          optionalQssFeatures: ['color', 'gap'],
+          optionalQuiComponents: ['Panel', 'Drawer'],
           nativeCode: false,
         },
       },

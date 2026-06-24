@@ -971,7 +971,9 @@ interface RuntimePackageNativeCompatibility {
     versionRange: string
     capabilities: readonly string[]
     quiComponents?: readonly string[]
+    optionalQuiComponents?: readonly string[]
     qssFeatures?: readonly string[]
+    optionalQssFeatures?: readonly string[]
     nativeCode: false
   }
 }
@@ -983,7 +985,7 @@ Native compatibility validation rules:
 - `rendererVersion`/`versionRange` must match the app-bundled native renderer version read through `@quajs/engine-native`.
 - Required `capabilityIds` must be present in the native capability registry with compatible major versions.
 - Required `quiComponents` and `qssFeatures` must be present in the native capability registry before package activation. Legacy `uiSurfaces` and `qssTargets` remain compatibility aliases for existing manifests.
-- Missing optional capabilities produce deterministic warnings and fallback rendering.
+- Missing optional capabilities, asset kinds, `optionalQuiComponents`, and `optionalQssFeatures` produce deterministic warnings and fallback rendering without blocking package activation.
 - Missing required capabilities reject package activation before QuickJS module evaluation.
 - Third-party plugin renderer metadata may select built-in native capabilities and declarative UI surfaces, but may not load native code.
 - Plugin packages should publish a compatibility matrix for Web, Cocos, and native in their README/skill docs.

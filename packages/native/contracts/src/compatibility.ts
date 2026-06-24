@@ -17,7 +17,9 @@ export interface RuntimePackageNativeRendererCompatibility {
   assetKinds?: readonly string[]
   optionalAssetKinds?: readonly string[]
   quiComponents?: readonly string[]
+  optionalQuiComponents?: readonly string[]
   qssFeatures?: readonly string[]
+  optionalQssFeatures?: readonly string[]
   /** @deprecated Use quiComponents for required native QUI component names. */
   uiSurfaces?: readonly string[]
   /** @deprecated Use qssFeatures for required native QSS declaration names. */
@@ -35,7 +37,9 @@ export interface NativeCompatibilityDiagnostic {
     | 'NATIVE_REQUIRED_ASSET_KIND_MISSING'
     | 'NATIVE_OPTIONAL_ASSET_KIND_MISSING'
     | 'NATIVE_REQUIRED_QSS_FEATURE_MISSING'
+    | 'NATIVE_OPTIONAL_QSS_FEATURE_MISSING'
     | 'NATIVE_REQUIRED_QUI_COMPONENT_MISSING'
+    | 'NATIVE_OPTIONAL_QUI_COMPONENT_MISSING'
   severity: NativeCompatibilitySeverity
   message: string
   pluginId?: string
@@ -129,6 +133,18 @@ export function checkNativeCompatibility(options: CheckNativeCompatibilityOption
     }
   }
 
+  for (const qssFeature of compatibility.optionalQssFeatures || []) {
+    if (!hasCapabilityFieldValue(hostInfo.renderer.capabilities, 'qssFeatures', qssFeature)) {
+      diagnostics.push({
+        code: 'NATIVE_OPTIONAL_QSS_FEATURE_MISSING',
+        severity: 'warning',
+        message: `Optional native QSS feature "${qssFeature}" is not available; fallback behavior must be used.`,
+        pluginId,
+        required: qssFeature,
+      })
+    }
+  }
+
   for (const assetKind of compatibility.assetKinds || []) {
     if (!hasCapabilityFieldValue(hostInfo.renderer.capabilities, 'assetKinds', assetKind)) {
       diagnostics.push({
@@ -159,6 +175,18 @@ export function checkNativeCompatibility(options: CheckNativeCompatibilityOption
         code: 'NATIVE_REQUIRED_QUI_COMPONENT_MISSING',
         severity: 'error',
         message: `Required native QUI component "${quiComponent}" is not available.`,
+        pluginId,
+        required: quiComponent,
+      })
+    }
+  }
+
+  for (const quiComponent of compatibility.optionalQuiComponents || []) {
+    if (!hasCapabilityFieldValue(hostInfo.renderer.capabilities, 'quiComponents', quiComponent)) {
+      diagnostics.push({
+        code: 'NATIVE_OPTIONAL_QUI_COMPONENT_MISSING',
+        severity: 'warning',
+        message: `Optional native QUI component "${quiComponent}" is not available; fallback behavior must be used.`,
         pluginId,
         required: quiComponent,
       })
