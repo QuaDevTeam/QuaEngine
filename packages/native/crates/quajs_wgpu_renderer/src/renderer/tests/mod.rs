@@ -56,6 +56,20 @@ fn view_with_background_and_choice() -> ViewProjection {
     }
 }
 
+fn view_with_runtime_choice_only() -> ViewProjection {
+    ViewProjection {
+        choices: Some(ChoiceSetProjection {
+            visible: true,
+            provenance: provenance("runtime.choices", ["base"]),
+            choices: vec![ChoiceProjection {
+                provenance: provenance("runtime.choices", ["base"]),
+                ..ChoiceProjection::new("stay", "Stay")
+            }],
+        }),
+        ..Default::default()
+    }
+}
+
 pub(super) fn view_with_audio() -> ViewProjection {
     ViewProjection {
         audio: Some(AudioProjection::new(vec![AudioTrackProjection::new(

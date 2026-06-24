@@ -68,6 +68,27 @@ fn plan_package_unload_blocks_active_frame_resource() {
 }
 
 #[test]
+fn plan_package_unload_blocks_active_projection_without_resources() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    renderer
+        .prepare_and_render(test_layout(), &view_with_background_and_choice())
+        .unwrap();
+
+    let plan = renderer.plan_package_unload("runtime.choices");
+
+    assert!(!plan.can_unload());
+    assert_eq!(plan.blocked.len(), 1);
+    assert_eq!(
+        plan.blocked[0].resource_id,
+        ResourceId::from("projection:runtime.choices")
+    );
+    assert_eq!(
+        plan.blocked[0].reason,
+        PackageUnloadBlockerReason::ActiveProjectionReference
+    );
+}
+
+#[test]
 fn release_package_resources_releases_inactive_resources_and_preserves_backend() {
     let mut renderer = NativeRenderer::new(RecordingBackend::default());
     renderer
