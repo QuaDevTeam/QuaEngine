@@ -42,10 +42,22 @@ pub struct NativeRendererFrameAssetMetrics {
 pub struct NativeRendererResourceMetrics {
     pub ledger_resource_count: usize,
     pub memory: ResourceMemory,
+    pub audio: NativeRendererAudioResourceMetrics,
     pub pressure: ResourceMemoryPressureSummary,
     pub package_count: usize,
     pub kind_count: usize,
     pub by_kind: BTreeMap<NativeResourceKind, ResourceKindSummary>,
+    pub by_package: BTreeMap<String, PackageResourceSummary>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeRendererAudioResourceMetrics {
+    pub resource_count: usize,
+    pub buffer_count: usize,
+    pub stream_count: usize,
+    pub handle_count: usize,
+    pub memory: ResourceMemory,
+    pub package_count: usize,
     pub by_package: BTreeMap<String, PackageResourceSummary>,
 }
 
@@ -122,12 +134,68 @@ fn resource_metrics(resources: &NativeResourceLedger) -> NativeRendererResourceM
     NativeRendererResourceMetrics {
         ledger_resource_count: summary.total_count,
         memory: summary.total_memory,
+        audio: audio_resource_metrics(resources),
         pressure: summary.memory_pressure(),
         package_count: summary.by_package.len(),
         kind_count: summary.by_kind.len(),
         by_kind: summary.by_kind,
         by_package: summary.by_package,
     }
+}
+
+fn audio_resource_metrics(resources: &NativeResourceLedger) -> NativeRendererAudioResourceMetrics {
+    let mut metrics = NativeRendererAudioResourceMetrics::default();
+
+    for record in resources.records() {
+        if !is_audio_resource_kind(record.kind) {
+            continue;
+        }
+
+        metrics.resource_count += 1;
+        metrics.memory.add_assign(record.memory);
+        match record.kind {
+            NativeResourceKind::AudioBuffer => metrics.buffer_count += 1,
+            NativeResourceKind::AudioStream => metrics.stream_count += 1,
+            NativeResourceKind::AudioHandle => metrics.handle_count += 1,
+            _ => {}
+        }
+
+        if let Some(owner_package_id) = &record.owner_package_id {
+            let package = audio_package_summary_entry(&mut metrics.by_package, owner_package_id);
+            package.owned_count += 1;
+            package.owned_memory.add_assign(record.memory);
+        }
+
+        for required_package_id in &record.required_package_ids {
+            let package = audio_package_summary_entry(&mut metrics.by_package, required_package_id);
+            package.dependent_count += 1;
+            package.dependent_memory.add_assign(record.memory);
+        }
+    }
+
+    metrics.package_count = metrics.by_package.len();
+    metrics
+}
+
+fn audio_package_summary_entry<'a>(
+    packages: &'a mut BTreeMap<String, PackageResourceSummary>,
+    package_id: &str,
+) -> &'a mut PackageResourceSummary {
+    packages
+        .entry(package_id.to_string())
+        .or_insert_with(|| PackageResourceSummary {
+            package_id: package_id.to_string(),
+            ..Default::default()
+        })
+}
+
+fn is_audio_resource_kind(kind: NativeResourceKind) -> bool {
+    matches!(
+        kind,
+        NativeResourceKind::AudioBuffer
+            | NativeResourceKind::AudioStream
+            | NativeResourceKind::AudioHandle
+    )
 }
 
 #[cfg(test)]
