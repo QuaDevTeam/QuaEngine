@@ -89,6 +89,7 @@ pnpm --filter @quajs/engine-native typecheck
 pnpm --filter @quajs/assets-native typecheck
 pnpm --filter @quajs/store-native typecheck
 cargo test --manifest-path packages/native/Cargo.toml --workspace
+cargo test --manifest-path packages/native/Cargo.toml -p quajs_wgpu_renderer --features bench-smoke
 ```
 
 Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first and clean cargo caches/targets when space is low.
