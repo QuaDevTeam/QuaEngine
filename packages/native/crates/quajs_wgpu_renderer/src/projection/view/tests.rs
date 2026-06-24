@@ -237,7 +237,7 @@ fn full_view() -> ViewProjection {
                 },
             ],
         }),
-        ui: None,
+        ..Default::default()
     }
 }
 

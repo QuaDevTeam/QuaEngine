@@ -126,7 +126,10 @@ where
 
     pub fn clear_with_host_cleanup(
         &mut self,
-    ) -> (Vec<NativeResourceRecord>, Vec<NativeRendererHostCleanupRecord>) {
+    ) -> (
+        Vec<NativeResourceRecord>,
+        Vec<NativeRendererHostCleanupRecord>,
+    ) {
         self.state.clear_with_host_cleanup()
     }
 

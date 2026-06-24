@@ -1,6 +1,6 @@
 use crate::projection::{
-    background::BackgroundProjection, character::CharacterProjection, choices::ChoiceSetProjection,
-    dialogue::DialogueProjection, ui::UiProjection,
+    audio::AudioProjection, background::BackgroundProjection, character::CharacterProjection,
+    choices::ChoiceSetProjection, dialogue::DialogueProjection, ui::UiProjection,
 };
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -10,4 +10,5 @@ pub struct ViewProjection {
     pub dialogue: Option<DialogueProjection>,
     pub choices: Option<ChoiceSetProjection>,
     pub ui: Option<UiProjection>,
+    pub audio: Option<AudioProjection>,
 }

@@ -1,10 +1,9 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use crate::frame::PreparedNativeFrame;
 use crate::resources::{
-    FrameResourceSyncPlan, NativeResourceKind, NativeResourceLedger, NativeResourceRecord,
-    PackageUnloadBlocker, PackageUnloadBlockerReason, PackageUnloadPlan, ResourceId,
-    ResourceMemory,
+    AudioResourceSyncPlan, FrameResourceSyncPlan, NativeResourceKind, NativeResourceLedger,
+    NativeResourceRecord, PackageUnloadBlocker, PackageUnloadBlockerReason, PackageUnloadPlan,
+    ResourceId, ResourceMemory,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -14,10 +13,23 @@ pub struct NativeRendererFrameUpdate {
     pub released_resources: Vec<NativeResourceRecord>,
     pub host_cleanup: Vec<NativeRendererHostCleanupRecord>,
     pub resource_sync_summary: NativeRendererFrameResourceSyncSummary,
+    pub audio_resource_sync: AudioResourceSyncPlan,
+    pub audio_resource_sync_summary: NativeRendererFrameAudioResourceSyncSummary,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NativeRendererFrameResourceSyncSummary {
+    pub upsert_count: usize,
+    pub retain_count: usize,
+    pub release_count: usize,
+    pub released_count: usize,
+    pub released_memory: ResourceMemory,
+    pub upsert_by_kind: BTreeMap<NativeResourceKind, usize>,
+    pub released_by_kind: BTreeMap<NativeResourceKind, usize>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeRendererFrameAudioResourceSyncSummary {
     pub upsert_count: usize,
     pub retain_count: usize,
     pub release_count: usize,
@@ -86,15 +98,30 @@ pub(super) fn apply_resource_sync(
     released
 }
 
-pub(super) fn apply_active_frame_unload_guard(
+pub(super) fn apply_audio_resource_sync(
+    ledger: &mut NativeResourceLedger,
+    sync: &AudioResourceSyncPlan,
+) -> Vec<NativeResourceRecord> {
+    let mut released = Vec::new();
+
+    for id in &sync.release {
+        if let Some(record) = ledger.release_resource(id.clone()) {
+            released.push(record);
+        }
+    }
+
+    for record in &sync.upsert {
+        ledger.insert(record.clone());
+    }
+
+    released
+}
+
+pub(super) fn apply_active_projection_unload_guard(
     plan: &mut PackageUnloadPlan,
-    frame: Option<&PreparedNativeFrame>,
+    active_ids: &BTreeSet<ResourceId>,
     ledger: &NativeResourceLedger,
 ) {
-    let Some(frame) = frame else {
-        return;
-    };
-    let active_ids = &frame.summary.resources.referenced_resource_ids;
     if active_ids.is_empty() || plan.releasable.is_empty() {
         return;
     }
@@ -129,6 +156,28 @@ pub(super) fn frame_resource_sync_summary(
 ) -> NativeRendererFrameResourceSyncSummary {
     let released = released_resource_summary(released_resources);
     let mut summary = NativeRendererFrameResourceSyncSummary {
+        upsert_count: sync.upsert.len(),
+        retain_count: sync.retain.len(),
+        release_count: sync.release.len(),
+        released_count: released.count,
+        released_memory: released.memory,
+        released_by_kind: released.by_kind,
+        ..Default::default()
+    };
+
+    for record in &sync.upsert {
+        *summary.upsert_by_kind.entry(record.kind).or_default() += 1;
+    }
+
+    summary
+}
+
+pub(super) fn frame_audio_resource_sync_summary(
+    sync: &AudioResourceSyncPlan,
+    released_resources: &[NativeResourceRecord],
+) -> NativeRendererFrameAudioResourceSyncSummary {
+    let released = released_resource_summary(released_resources);
+    let mut summary = NativeRendererFrameAudioResourceSyncSummary {
         upsert_count: sync.upsert.len(),
         retain_count: sync.retain.len(),
         release_count: sync.release.len(),

@@ -120,7 +120,10 @@ fn clear_with_host_cleanup_returns_cleanup_records_and_preserves_backend() {
 
     assert_eq!(released.len(), 1);
     assert_eq!(cleanup.len(), 1);
-    assert_eq!(cleanup[0].resource_id, ResourceId::from("images:bg/school.png"));
+    assert_eq!(
+        cleanup[0].resource_id,
+        ResourceId::from("images:bg/school.png")
+    );
     assert_eq!(cleanup[0].kind, NativeResourceKind::Texture);
     assert!(renderer.resources().is_empty());
     assert_eq!(renderer.backend().submissions.len(), 1);

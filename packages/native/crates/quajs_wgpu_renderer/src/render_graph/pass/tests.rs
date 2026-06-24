@@ -114,7 +114,7 @@ fn full_view() -> ViewProjection {
                 ..ChoiceProjection::new("leave", "Leave")
             },
         ])),
-        ui: None,
+        ..Default::default()
     }
 }
 

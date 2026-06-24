@@ -1,21 +1,26 @@
+use std::collections::BTreeSet;
+
 use crate::frame::{prepare_native_frame, PreparedNativeFrame};
 use crate::input::{
     resolve_pointer_event_with_interaction, NativePointerEvent, NativePointerEventResolution,
     NativePointerInteractionState, PointerIntentResolution, RendererIntentHit,
 };
+use crate::projection::audio::AudioProjection;
 use crate::projection::view::ViewProjection;
 use crate::renderer::backend::{
     NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendResult, NativeRenderFrameRef,
 };
 use crate::renderer::metrics::NativeRendererMetrics;
 use crate::renderer::resource_update::{
-    apply_active_frame_unload_guard, apply_resource_sync, frame_resource_sync_summary,
-    host_cleanup_records, package_release_summary, NativeRendererFrameUpdate,
-    NativeRendererHostCleanupRecord, NativeRendererPackageRelease,
+    apply_active_projection_unload_guard, apply_audio_resource_sync, apply_resource_sync,
+    frame_audio_resource_sync_summary, frame_resource_sync_summary, host_cleanup_records,
+    package_release_summary, NativeRendererFrameUpdate, NativeRendererHostCleanupRecord,
+    NativeRendererPackageRelease,
 };
 use crate::resources::{
-    plan_frame_resource_sync, NativeResourceLedger, NativeResourceRecord, PackageUnloadPlan,
-    ResourceBudget, ResourceBudgetViolation,
+    audio_resource_records, plan_audio_resource_sync, plan_frame_resource_sync,
+    NativeResourceLedger, NativeResourceRecord, PackageUnloadPlan, ResourceBudget,
+    ResourceBudgetViolation,
 };
 use crate::stage_layout::{ResolvedStageLayout, StageClientPoint, StageClientRectOrigin};
 
@@ -25,6 +30,7 @@ pub struct NativeRendererState {
     frame: Option<PreparedNativeFrame>,
     resources: NativeResourceLedger,
     pointer_interaction: NativePointerInteractionState,
+    active_audio_resource_ids: BTreeSet<crate::resources::ResourceId>,
 }
 
 impl NativeRendererState {
@@ -62,7 +68,8 @@ impl NativeRendererState {
 
     pub fn plan_package_unload(&self, package_id: &str) -> PackageUnloadPlan {
         let mut plan = self.resources.plan_package_unload(package_id);
-        apply_active_frame_unload_guard(&mut plan, self.frame.as_ref(), &self.resources);
+        let active_resource_ids = self.active_resource_ids();
+        apply_active_projection_unload_guard(&mut plan, &active_resource_ids, &self.resources);
         plan
     }
 
@@ -96,11 +103,19 @@ impl NativeRendererState {
     ) -> NativeRendererFrameUpdate {
         let frame = prepare_native_frame(layout, view);
         let resource_sync = plan_frame_resource_sync(&self.resources, &frame.resources);
-        let released_resources = apply_resource_sync(&mut self.resources, &resource_sync);
+        let audio_resource_sync = plan_audio_resource_sync(&self.resources, view.audio.as_ref());
+        let mut released_resources = apply_resource_sync(&mut self.resources, &resource_sync);
+        let audio_released_resources =
+            apply_audio_resource_sync(&mut self.resources, &audio_resource_sync);
         let resource_sync_summary =
             frame_resource_sync_summary(&resource_sync, &released_resources);
+        let audio_resource_sync_summary =
+            frame_audio_resource_sync_summary(&audio_resource_sync, &audio_released_resources);
+
+        released_resources.extend(audio_released_resources);
 
         self.revision = self.revision.saturating_add(1);
+        self.active_audio_resource_ids = active_audio_resource_ids(view.audio.as_ref());
         self.frame = Some(frame);
 
         NativeRendererFrameUpdate {
@@ -109,6 +124,8 @@ impl NativeRendererState {
             host_cleanup: host_cleanup_records(&released_resources),
             released_resources,
             resource_sync_summary,
+            audio_resource_sync,
+            audio_resource_sync_summary,
         }
     }
 
@@ -162,14 +179,42 @@ impl NativeRendererState {
         self.frame = None;
         self.revision = self.revision.saturating_add(1);
         self.pointer_interaction.clear();
+        self.active_audio_resource_ids.clear();
         self.resources.clear()
     }
 
     pub fn clear_with_host_cleanup(
         &mut self,
-    ) -> (Vec<NativeResourceRecord>, Vec<NativeRendererHostCleanupRecord>) {
+    ) -> (
+        Vec<NativeResourceRecord>,
+        Vec<NativeRendererHostCleanupRecord>,
+    ) {
         let released = self.clear();
         let cleanup = host_cleanup_records(&released);
         (released, cleanup)
     }
+
+    fn active_resource_ids(&self) -> BTreeSet<crate::resources::ResourceId> {
+        let mut ids = self.active_audio_resource_ids.clone();
+        if let Some(frame) = &self.frame {
+            ids.extend(
+                frame
+                    .summary
+                    .resources
+                    .referenced_resource_ids
+                    .iter()
+                    .cloned(),
+            );
+        }
+        ids
+    }
+}
+
+fn active_audio_resource_ids(
+    audio: Option<&AudioProjection>,
+) -> BTreeSet<crate::resources::ResourceId> {
+    audio_resource_records(audio)
+        .into_iter()
+        .map(|record| record.id)
+        .collect()
 }

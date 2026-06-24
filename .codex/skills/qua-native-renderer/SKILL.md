@@ -73,6 +73,7 @@ Shared engine/game/plugin packages may be reused only when platform-neutral.
 - Do not add QSS selector parsing or CSS cascade logic to `quajs_wgpu_renderer`; add those to the dedicated QSS compiler/language-server/tooling layer and emit resolved projection fields for native rendering.
 - Native capability manifests must declare any consumed QSS features and QUI components so runtime packages can check compatibility before activation.
 - Native media capability ids must describe implemented projection/resource contracts precisely. Do not declare QUI media components, real video decode, or audio playback capability until the Rust projection path and backend support exist; fallback-only video/audio capabilities should use deterministic `warn-once` semantics.
+- Current audio work in `quajs_wgpu_renderer` is resource-ledger tracking only: projected tracks may create `AudioBuffer`, `AudioStream`, and `AudioHandle` records, cleanup records, memory summaries, and unload blockers. This is not playback support and must not be surfaced as `native-wgpu.audio@1` before a real backend is implemented.
 
 ## Validation
 
@@ -116,5 +117,6 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Does runtime startup fail when more than one target core adapter set is registered?
 - Are runtime package native-code payloads rejected at build time and runtime?
 - Are native renderer transient resources tracked in the package-aware resource ledger, including CPU/GPU bytes, dependencies, unload blockers, and cleanup paths?
+- If touching audio, is the change still renderer-local resource/projection tracking unless a real backend and capability contract are implemented?
 - Do native package unload/release paths use renderer-level unload plans so active frame references block release, and do hosts receive released resource records for native handle cleanup?
 - Does Rust QuickJS evaluation register successful module namespace handles in the package-aware namespace registry and release package-owned namespaces during runtime package unload/teardown?
