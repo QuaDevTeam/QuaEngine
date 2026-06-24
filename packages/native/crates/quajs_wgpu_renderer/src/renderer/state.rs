@@ -60,6 +60,10 @@ impl NativeRendererState {
         &self.pointer_interaction
     }
 
+    pub fn audio_backend_tracks(&self) -> &AudioBackendTrackStateMap {
+        &self.audio_backend_tracks
+    }
+
     pub fn metrics(&self) -> NativeRendererMetrics {
         NativeRendererMetrics::from_state(self.revision, self.frame.as_ref(), &self.resources)
     }

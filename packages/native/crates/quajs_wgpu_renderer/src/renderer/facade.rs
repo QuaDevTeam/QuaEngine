@@ -1,5 +1,6 @@
 use crate::audio::{
-    NativeAudioBackend, NativeAudioBackendError, NativeAudioBackendResult, NullNativeAudioBackend,
+    plan_audio_backend_commands, NativeAudioBackend, NativeAudioBackendError,
+    NativeAudioBackendResult, NullNativeAudioBackend,
 };
 use crate::input::{
     NativePointerEvent, NativePointerEventResolution, PointerIntentResolution, RendererIntentHit,
@@ -7,8 +8,8 @@ use crate::input::{
 use crate::projection::view::ViewProjection;
 use crate::renderer::metrics::NativeRendererMetrics;
 use crate::resources::{
-    NativeResourceLedger, NativeResourceRecord, PackageUnloadPlan, ResourceBudget,
-    ResourceBudgetViolation,
+    NativeAssetRequestPlan, NativeResourceLedger, NativeResourceRecord, PackageUnloadPlan,
+    ResourceBudget, ResourceBudgetViolation,
 };
 use crate::stage_layout::{ResolvedStageLayout, StageClientPoint, StageClientRectOrigin};
 
@@ -240,6 +241,44 @@ where
         self.apply_audio_update(&update)?;
 
         Ok(NativeRendererFrameResult { update, submission })
+    }
+
+    pub fn clear_and_apply_audio_teardown(
+        &mut self,
+    ) -> Result<Vec<NativeResourceRecord>, NativeAudioBackendError> {
+        self.apply_audio_teardown()?;
+        Ok(self.clear())
+    }
+
+    pub fn clear_with_host_cleanup_and_audio_teardown(
+        &mut self,
+    ) -> Result<
+        (
+            Vec<NativeResourceRecord>,
+            Vec<NativeRendererHostCleanupRecord>,
+        ),
+        NativeAudioBackendError,
+    > {
+        self.apply_audio_teardown()?;
+        Ok(self.clear_with_host_cleanup())
+    }
+
+    fn apply_audio_teardown(&mut self) -> NativeAudioBackendResult {
+        if self.state.audio_backend_tracks().is_empty() {
+            return Ok(());
+        }
+
+        let plan = plan_audio_backend_commands(
+            self.state.audio_backend_tracks(),
+            None,
+            &NativeAssetRequestPlan::default(),
+        );
+
+        if let Some(audio_backend) = &mut self.audio_backend {
+            audio_backend.apply_audio_commands(&plan)?;
+        }
+
+        Ok(())
     }
 }
 
