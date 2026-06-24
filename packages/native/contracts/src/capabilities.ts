@@ -1,4 +1,11 @@
-import type { NativeQuickJsEvaluationRequest, NativeQuickJsEvaluationResponse } from './quickjs'
+import type {
+  NativeQuickJsEvaluationRequest,
+  NativeQuickJsEvaluationResponse,
+  NativeQuickJsModuleNamespaceRecord,
+  NativeQuickJsModuleNamespaceSummary,
+  NativeQuickJsReleaseNamespaceRequest,
+  NativeQuickJsReleasePackageRequest,
+} from './quickjs'
 
 export type QuaRendererTarget = 'web' | 'cocos' | 'native'
 
@@ -102,6 +109,10 @@ export type NativeHostApiRequest =
   | { method: 'hashBytes', params: NativeHostApiHashBytesRequest }
   | { method: 'verifySignature', params: NativeSignatureVerifyWireRequest }
   | { method: 'evaluateQuickJsModule', params: NativeQuickJsEvaluationRequest }
+  | { method: 'releaseQuickJsModuleNamespace', params: NativeQuickJsReleaseNamespaceRequest }
+  | { method: 'releaseQuickJsPackageNamespaces', params: NativeQuickJsReleasePackageRequest }
+  | { method: 'getQuickJsNamespaceSummary' }
+  | { method: 'getQuickJsPackageNamespaceSummary', params: NativeQuickJsReleasePackageRequest }
   | { method: 'emitRendererIntent', params: NativeRendererIntent }
 
 export interface NativeHostApiStorageKeyRequest {
@@ -139,6 +150,9 @@ export interface NativeHostApiResponseValueByType {
   hash: string
   signatureValid: boolean
   quickJsEvaluation: NativeQuickJsEvaluationResponse
+  quickJsNamespace: NativeQuickJsModuleNamespaceRecord | null | undefined
+  quickJsNamespaces: NativeQuickJsModuleNamespaceRecord[]
+  quickJsNamespaceSummary: NativeQuickJsModuleNamespaceSummary
 }
 
 export type NativeHostApiResponsePayload = {
@@ -167,6 +181,10 @@ export interface QuaNativeHostApi {
   hashBytes: (bytes: Uint8Array, algorithm: 'sha256') => Promise<string>
   verifySignature?: (request: NativeSignatureVerifyRequest) => Promise<boolean>
   evaluateQuickJsModule?: (request: NativeQuickJsEvaluationRequest) => Promise<NativeQuickJsEvaluationResponse>
+  releaseQuickJsModuleNamespace?: (moduleNamespaceId: string) => Promise<NativeQuickJsModuleNamespaceRecord | undefined>
+  releaseQuickJsPackageNamespaces?: (packageId: string) => Promise<NativeQuickJsModuleNamespaceRecord[]>
+  getQuickJsNamespaceSummary?: () => Promise<NativeQuickJsModuleNamespaceSummary>
+  getQuickJsPackageNamespaceSummary?: (packageId: string) => Promise<NativeQuickJsModuleNamespaceSummary>
   emitRendererIntent?: (event: NativeRendererIntent) => void
 }
 
@@ -271,6 +289,21 @@ export function createNativeHostApiFromBridge(dispatch: NativeHostBridgeDispatch
       method: 'evaluateQuickJsModule',
       params: request,
     }, 'quickJsEvaluation'),
+    releaseQuickJsModuleNamespace: moduleNamespaceId => call({
+      method: 'releaseQuickJsModuleNamespace',
+      params: { moduleNamespaceId },
+    }, 'quickJsNamespace').then(value => value ?? undefined),
+    releaseQuickJsPackageNamespaces: packageId => call({
+      method: 'releaseQuickJsPackageNamespaces',
+      params: { packageId },
+    }, 'quickJsNamespaces'),
+    getQuickJsNamespaceSummary: () => call({
+      method: 'getQuickJsNamespaceSummary',
+    }, 'quickJsNamespaceSummary'),
+    getQuickJsPackageNamespaceSummary: packageId => call({
+      method: 'getQuickJsPackageNamespaceSummary',
+      params: { packageId },
+    }, 'quickJsNamespaceSummary'),
     emitRendererIntent(event) {
       void callVoid(dispatch, { method: 'emitRendererIntent', params: event })
     },

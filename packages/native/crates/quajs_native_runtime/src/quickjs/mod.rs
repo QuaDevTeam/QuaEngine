@@ -106,20 +106,14 @@ impl QuickJsEvaluationResponse {
 pub type QuickJsEvaluationResult = Result<QuickJsEvaluationResponse, QuickJsEvaluationError>;
 
 pub trait QuickJsModuleEvaluator {
-    fn evaluate_module(
-        &mut self,
-        request: &QuickJsEvaluationRequest,
-    ) -> QuickJsEvaluationResult;
+    fn evaluate_module(&mut self, request: &QuickJsEvaluationRequest) -> QuickJsEvaluationResult;
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct UnsupportedQuickJsModuleEvaluator;
 
 impl QuickJsModuleEvaluator for UnsupportedQuickJsModuleEvaluator {
-    fn evaluate_module(
-        &mut self,
-        request: &QuickJsEvaluationRequest,
-    ) -> QuickJsEvaluationResult {
+    fn evaluate_module(&mut self, request: &QuickJsEvaluationRequest) -> QuickJsEvaluationResult {
         Err(QuickJsEvaluationError {
             code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
             message: "QuickJS module evaluation is not available in this native runtime build."
@@ -150,7 +144,9 @@ pub fn evaluate_quickjs_module_with_registry(
     request: &QuickJsEvaluationRequest,
 ) -> QuickJsEvaluationResponse {
     let response = evaluate_quickjs_module(evaluator, request);
-    if let (true, Some(module_namespace_id)) = (response.ok, response.module_namespace_id.as_deref()) {
+    if let (true, Some(module_namespace_id)) =
+        (response.ok, response.module_namespace_id.as_deref())
+    {
         registry.register_evaluated_module(module_namespace_id, request);
     }
     response
@@ -200,9 +196,7 @@ pub fn validate_quickjs_evaluation_request(
 pub fn is_forbidden_runtime_module_asset_name(asset_name: &str) -> bool {
     asset_name.starts_with('/')
         || asset_name.starts_with('\\')
-        || asset_name
-            .split(['/', '\\'])
-            .any(|segment| segment == "..")
+        || asset_name.split(['/', '\\']).any(|segment| segment == "..")
         || has_uri_scheme(asset_name)
 }
 
@@ -212,16 +206,13 @@ fn has_uri_scheme(value: &str) -> bool {
     };
     let scheme = &value[..index];
     !scheme.is_empty()
-        && scheme
-            .chars()
-            .enumerate()
-            .all(|(index, char)| {
-                if index == 0 {
-                    char.is_ascii_alphabetic()
-                } else {
-                    char.is_ascii_alphanumeric() || matches!(char, '+' | '-' | '.')
-                }
-            })
+        && scheme.chars().enumerate().all(|(index, char)| {
+            if index == 0 {
+                char.is_ascii_alphabetic()
+            } else {
+                char.is_ascii_alphanumeric() || matches!(char, '+' | '-' | '.')
+            }
+        })
 }
 
 #[cfg(test)]

@@ -1,6 +1,8 @@
 import type {
   NativeQuickJsEvaluationResponse,
   NativeQuickJsEvaluationRequest,
+  NativeQuickJsModuleNamespaceRecord,
+  NativeQuickJsModuleNamespaceSummary,
   NativeQuickJsRuntimeModuleKind,
   NativeQuickJsSandboxLimits,
   QuaNativeHostApi,
@@ -72,6 +74,33 @@ export function createNativeHostQuickJsModuleEvaluator(
     const moduleNamespaceId = assertNativeQuickJsEvaluationResponse(response)
     return await resolveModuleNamespace(moduleNamespaceId, ctx, response)
   }
+}
+
+export async function releaseNativeQuickJsModuleNamespace(
+  host: Pick<QuaNativeHostApi, 'releaseQuickJsModuleNamespace'>,
+  moduleNamespaceId: string,
+): Promise<NativeQuickJsModuleNamespaceRecord | undefined> {
+  return await host.releaseQuickJsModuleNamespace?.(moduleNamespaceId)
+}
+
+export async function releaseNativeQuickJsPackageNamespaces(
+  host: Pick<QuaNativeHostApi, 'releaseQuickJsPackageNamespaces'>,
+  packageId: string,
+): Promise<NativeQuickJsModuleNamespaceRecord[]> {
+  return await host.releaseQuickJsPackageNamespaces?.(packageId) || []
+}
+
+export async function getNativeQuickJsNamespaceSummary(
+  host: Pick<QuaNativeHostApi, 'getQuickJsNamespaceSummary'>,
+): Promise<NativeQuickJsModuleNamespaceSummary | undefined> {
+  return await host.getQuickJsNamespaceSummary?.()
+}
+
+export async function getNativeQuickJsPackageNamespaceSummary(
+  host: Pick<QuaNativeHostApi, 'getQuickJsPackageNamespaceSummary'>,
+  packageId: string,
+): Promise<NativeQuickJsModuleNamespaceSummary | undefined> {
+  return await host.getQuickJsPackageNamespaceSummary?.(packageId)
 }
 
 export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoaderOptions): RuntimeModuleLoader {

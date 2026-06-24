@@ -3,13 +3,14 @@ pub mod quickjs;
 
 pub use host::{
     current_platform, current_profile, dispatch_native_host_api_request,
-    dispatch_native_host_api_request_with_quickjs, InMemoryNativeHostApi, NativeAppInfo,
+    dispatch_native_host_api_request_with_quickjs,
+    dispatch_native_host_api_request_with_quickjs_registry, InMemoryNativeHostApi, NativeAppInfo,
     NativeAssetReadRequest, NativeHostApi, NativeHostApiError, NativeHostApiErrorCode,
     NativeHostApiErrorInfo, NativeHostApiHashBytesRequest, NativeHostApiListStorageKeysRequest,
-    NativeHostApiRequest, NativeHostApiResponse, NativeHostApiResponsePayload,
-    NativeHostApiResult, NativeHostApiStorageKeyRequest, NativeHostApiWriteStorageRequest,
-    NativeHostInfo, NativeHostInfoBuilder,
-    NativeMountedBundleInfo, NativePlatform, NativeProfile, NativeRendererInfo,
+    NativeHostApiRequest, NativeHostApiResponse, NativeHostApiResponsePayload, NativeHostApiResult,
+    NativeHostApiStorageKeyRequest, NativeHostApiWriteStorageRequest, NativeHostInfo,
+    NativeHostInfoBuilder, NativeMountedBundleInfo, NativePlatform, NativeProfile,
+    NativeQuickJsReleaseNamespaceRequest, NativeQuickJsReleasePackageRequest, NativeRendererInfo,
     NativeRendererIntent, NativeRuntimeInfo, NativeSignatureVerifyRequest, RendererCapability,
 };
 pub use quickjs::{

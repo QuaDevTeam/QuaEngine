@@ -29,6 +29,32 @@ export interface NativeQuickJsEvaluationResponse {
   error?: NativeQuickJsEvaluationError
 }
 
+export interface NativeQuickJsModuleNamespaceRecord {
+  id: string
+  packageId: string
+  bundleName: string
+  assetName: string
+  kind: NativeQuickJsRuntimeModuleKind
+  moduleBytes: number
+  codeBytes: number
+  revision: number
+}
+
+export interface NativeQuickJsModuleNamespaceSummary {
+  namespaceCount: number
+  packageCount: number
+  moduleBytes: number
+  codeBytes: number
+}
+
+export interface NativeQuickJsReleaseNamespaceRequest {
+  moduleNamespaceId: string
+}
+
+export interface NativeQuickJsReleasePackageRequest {
+  packageId: string
+}
+
 export type NativeQuickJsEvaluationErrorCode
   = | 'missingAssetName'
     | 'forbiddenAssetName'

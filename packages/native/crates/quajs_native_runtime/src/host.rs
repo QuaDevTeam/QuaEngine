@@ -9,9 +9,10 @@ pub use api::{
 };
 pub use bridge::{
     dispatch_native_host_api_request, dispatch_native_host_api_request_with_quickjs,
-    NativeHostApiHashBytesRequest, NativeHostApiListStorageKeysRequest, NativeHostApiRequest,
-    NativeHostApiResponse, NativeHostApiResponsePayload, NativeHostApiStorageKeyRequest,
-    NativeHostApiWriteStorageRequest,
+    dispatch_native_host_api_request_with_quickjs_registry, NativeHostApiHashBytesRequest,
+    NativeHostApiListStorageKeysRequest, NativeHostApiRequest, NativeHostApiResponse,
+    NativeHostApiResponsePayload, NativeHostApiStorageKeyRequest, NativeHostApiWriteStorageRequest,
+    NativeQuickJsReleaseNamespaceRequest, NativeQuickJsReleasePackageRequest,
 };
 pub use info::{
     current_platform, current_profile, NativeAppInfo, NativeHostInfo, NativeHostInfoBuilder,

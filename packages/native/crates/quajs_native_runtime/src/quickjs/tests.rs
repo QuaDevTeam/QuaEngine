@@ -60,7 +60,8 @@ fn rejects_absolute_uri_parent_and_oversized_runtime_module_assets() {
 
 #[test]
 fn serializes_evaluation_success_and_error_responses() {
-    let success = QuickJsEvaluationResponse::success("runtime.chapter.native-ui:scripts/opening.js");
+    let success =
+        QuickJsEvaluationResponse::success("runtime.chapter.native-ui:scripts/opening.js");
     let error = QuickJsEvaluationResponse::error(QuickJsEvaluationError {
         code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
         message: "QuickJS host is not initialized.".to_string(),
@@ -99,10 +100,8 @@ fn evaluator_helper_validates_request_before_calling_backend() {
     }
 
     let mut evaluator = CountingEvaluator::default();
-    let response = evaluate_quickjs_module(
-        &mut evaluator,
-        &request_for_asset("../opening.js", vec![1]),
-    );
+    let response =
+        evaluate_quickjs_module(&mut evaluator, &request_for_asset("../opening.js", vec![1]));
 
     assert!(!response.ok);
     assert_eq!(evaluator.calls, 0);
@@ -168,9 +167,9 @@ fn evaluator_helper_registers_successful_namespaces() {
             &mut self,
             request: &QuickJsEvaluationRequest,
         ) -> QuickJsEvaluationResult {
-            Ok(QuickJsEvaluationResponse::success(quickjs_module_namespace_id(
-                &request.module,
-            )))
+            Ok(QuickJsEvaluationResponse::success(
+                quickjs_module_namespace_id(&request.module),
+            ))
         }
     }
 
@@ -182,7 +181,10 @@ fn evaluator_helper_registers_successful_namespaces() {
     assert!(response.ok);
     let namespace_id = response.module_namespace_id.unwrap();
     assert!(registry.contains(&namespace_id));
-    assert_eq!(registry.get(&namespace_id).unwrap().package_id, "runtime.chapter.native-ui");
+    assert_eq!(
+        registry.get(&namespace_id).unwrap().package_id,
+        "runtime.chapter.native-ui"
+    );
     assert_eq!(registry.summary().module_bytes, 3);
 }
 
