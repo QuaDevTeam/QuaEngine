@@ -1,4 +1,5 @@
 import type { EngineContext, EnginePlugin } from '@quajs/engine'
+import { LogicToRenderEvents, onLogicToRender } from '@quajs/engine'
 import type {
   ExclusiveTargetBootstrapValidationResult,
   NativeQuickJsModuleNamespaceRecord,
@@ -25,24 +26,30 @@ export class NativeHostPlugin implements EnginePlugin {
   private targetBootstrapValidation?: ExclusiveTargetBootstrapValidationResult
   private targetBundleManifestValidation?: TargetBundleManifestValidationResult
   private releasedQuickJsPackages: NativeQuickJsModuleNamespaceRecord[] = []
+  private disposeRuntimePackageUnloadListener?: () => void
 
   constructor(private readonly options: NativeHostPluginOptions) {
     this.hostInfo = options.info
   }
 
-  async init(_context: EngineContext): Promise<void> {
+  async init(context: EngineContext): Promise<void> {
     this.validateTargetBootstrap()
     const hostInfo = await this.resolveHostInfo()
     this.validateNativeRendererManifest(hostInfo)
     this.hostInfo = hostInfo
+    if (context.pipeline) {
+      this.disposeRuntimePackageUnloadListener?.()
+      this.disposeRuntimePackageUnloadListener = onLogicToRender(
+        context.pipeline,
+        LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD,
+        async payload => this.releaseQuickJsPackageNamespaces(payload.packageId),
+      )
+    }
   }
 
-  async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
-    const packageId = ctx.runtimePackage?.package.id
-    if (!packageId || !this.options.host.releaseQuickJsPackageNamespaces)
-      return
-    const released = await this.options.host.releaseQuickJsPackageNamespaces(packageId)
-    this.releasedQuickJsPackages.push(...released)
+  destroy(): void {
+    this.disposeRuntimePackageUnloadListener?.()
+    this.disposeRuntimePackageUnloadListener = undefined
   }
 
   getHostInfo(): QuaNativeHostInfo | undefined {
@@ -92,6 +99,13 @@ export class NativeHostPlugin implements EnginePlugin {
     const diagnostics = checkNativeRendererManifestCompatibility(hostInfo, manifestRenderer)
     if (diagnostics.length > 0)
       throw new Error(formatNativeRendererManifestCompatibilityError(diagnostics))
+  }
+
+  private async releaseQuickJsPackageNamespaces(packageId: string): Promise<void> {
+    if (!this.options.host.releaseQuickJsPackageNamespaces)
+      return
+    const released = await this.options.host.releaseQuickJsPackageNamespaces(packageId)
+    this.releasedQuickJsPackages.push(...released)
   }
 }
 
