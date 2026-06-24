@@ -617,6 +617,31 @@ describe('@quajs/engine-native', () => {
     }))).rejects.toThrow(/forbidden native payload/)
   })
 
+  it('rejects unsafe runtime package asset references before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host)
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      scripts: [
+        { id: 'remote', assetName: 'https://cdn.example.invalid/opening.js' },
+      ],
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/forbidden asset reference "https:\/\/cdn\.example\.invalid\/opening\.js"/)
+
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
   it('forwards signed package verification to the native host', async () => {
     const host = {
       ...createHost(),
