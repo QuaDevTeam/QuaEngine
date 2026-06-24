@@ -54,7 +54,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "save/select",
                 "settings/change",
             ],
-            &["data", "images", "fonts"],
+            &["data", "images", "fonts", "qui", "qss", "tokens"],
             &[
                 "background-color",
                 "border-color",
