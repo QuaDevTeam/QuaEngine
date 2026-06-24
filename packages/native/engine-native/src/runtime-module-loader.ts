@@ -10,6 +10,7 @@ import type {
 import {
   assertNativeQuickJsEvaluationResponse,
   createNativeQuickJsEvaluationRequest,
+  isForbiddenNativePayload,
 } from '@quajs/native-contracts'
 import type {
   RuntimeLoadedMigrationModule,
@@ -164,6 +165,9 @@ function getNativeRuntimeModuleAssetName(record: NativeRuntimeModuleRecord, kind
   }
   if (isForbiddenNativeModuleSpecifier(record.assetName)) {
     throw new Error(`Native runtime ${kind} module assetName "${record.assetName}" must be a package-relative script asset.`)
+  }
+  if (isForbiddenNativePayload(record.assetName)) {
+    throw new Error(`Native runtime ${kind} module assetName "${record.assetName}" must not reference a native payload.`)
   }
   return record.assetName
 }
