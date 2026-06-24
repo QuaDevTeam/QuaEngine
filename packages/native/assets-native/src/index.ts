@@ -230,12 +230,9 @@ export class NativeHostAssetStorage implements AssetStorage {
   }
 
   async clearAll(): Promise<void> {
-    for (const assetId of Array.from(this.assets.keys())) {
-      await this.host.deleteStorage(this.assetPath(assetId))
-    }
+    await this.deleteStoragePrefix(`${this.root}/`)
     this.assets.clear()
     this.bundles.clear()
-    await this.host.deleteStorage(this.indexPath())
   }
 
   async getDatabaseSize(): Promise<number> {
@@ -323,6 +320,19 @@ export class NativeHostAssetStorage implements AssetStorage {
       bundles: Array.from(this.bundles.values()).map(cloneStoredBundle),
     }
     await this.host.writeStorage(this.indexPath(), encodeJson(index))
+  }
+
+  private async deleteStoragePrefix(prefix: string): Promise<void> {
+    if (this.host.listStorageKeys) {
+      const keys = await this.host.listStorageKeys(prefix)
+      await Promise.all(keys.map(key => this.host.deleteStorage(key)))
+      return
+    }
+
+    for (const assetId of Array.from(this.assets.keys())) {
+      await this.host.deleteStorage(this.assetPath(assetId))
+    }
+    await this.host.deleteStorage(this.indexPath())
   }
 
   private indexPath(): string {

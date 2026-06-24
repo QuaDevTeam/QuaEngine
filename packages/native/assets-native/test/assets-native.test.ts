@@ -219,6 +219,36 @@ describe('@quajs/assets-native', () => {
     })
   })
 
+  it('clears orphaned native cache keys when host key listing is available', async () => {
+    const host = createHost()
+    host.storage.set('native-cache/assets/orphan.bin', new Uint8Array([9]))
+    host.storage.set('native-cache/tmp/partial.bin', new Uint8Array([8]))
+    host.storage.set('other-cache/assets/keep.bin', new Uint8Array([7]))
+    const storage = new NativeHostAssetStorage(host, { root: 'native-cache', now: () => 100 })
+    await storage.open()
+    await storage.storeAsset(createAsset())
+
+    await storage.clearAll()
+
+    expect([...host.storage.keys()].sort()).toEqual(['other-cache/assets/keep.bin'])
+    expect(host.listStorageKeys).toHaveBeenCalledWith('native-cache/')
+  })
+
+  it('falls back to indexed asset cleanup when host key listing is unavailable', async () => {
+    const host = createHost()
+    host.listStorageKeys = undefined
+    host.storage.set('native-cache/assets/orphan.bin', new Uint8Array([9]))
+    const storage = new NativeHostAssetStorage(host, { root: 'native-cache', now: () => 100 })
+    await storage.open()
+    await storage.storeAsset(createAsset())
+
+    await storage.clearAll()
+
+    expect(host.storage.has('native-cache/index.json')).toBe(false)
+    expect(host.storage.has('native-cache/assets/main%3Adefault%3Adata%3Achapter.json.bin')).toBe(false)
+    expect(host.storage.has('native-cache/assets/orphan.bin')).toBe(true)
+  })
+
   it('resolves active bundles by priority, version, and loaded time', async () => {
     const storage = new NativeHostAssetStorage(createHost(), { now: () => 100 })
     await storage.open()

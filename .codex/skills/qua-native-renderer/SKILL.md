@@ -28,6 +28,7 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 - `@quajs/native-contracts`: serializable native host, renderer capability, compatibility, QUI/QSS, and target bootstrap contracts. Native packagers should use `createNativeCapabilityManifestPayload` / `createNativeCapabilityManifestHash` with an injected SHA-256 implementation when emitting `nativeRenderer.capabilityManifestHash`; use `createTargetBundleNativeRendererInfo` to derive native target-bundle renderer metadata from the actual renderer capabilities.
 - `@quajs/engine-native`: engine plugin/adapter that reads native host info, registers renderer capabilities, supplies runtime package compatibility guards, and exposes the restricted native `RuntimeModuleLoader` over package asset bytes plus a Rust/QuickJS evaluator.
 - `@quajs/assets-native`: QuaAssets adapter over native host byte/storage/crypto APIs.
+- Native asset hosts should provide `listStorageKeys` when cache roots need full cleanup; `@quajs/assets-native` may fall back to index-known asset deletion when key listing is unavailable, but full orphan cleanup requires host prefix listing.
 - `@quajs/store-native`: QuaStore persistence adapter over native host storage APIs.
 - Native store hosts must provide `listStorageKeys` when using list or prefix-clear save operations; missing key listing support must fail explicitly instead of making snapshots/save slots appear empty.
 - Rust `quajs_native_runtime`: QuickJS host and native host API implementation.
