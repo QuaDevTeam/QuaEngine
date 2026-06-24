@@ -254,6 +254,38 @@ describe('checkNativeCompatibility', () => {
     ])
   })
 
+  it('warns for missing optional QSS features and QUI components without failing activation', () => {
+    const result = checkNativeCompatibility({
+      hostInfo: createHostInfo(),
+      pluginId: 'runtime.native-menu',
+      compatibility: {
+        optionalQssFeatures: ['color', 'gap'],
+        optionalQuiComponents: ['Panel', 'Drawer'],
+        nativeCode: false,
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'NATIVE_OPTIONAL_QSS_FEATURE_MISSING',
+        severity: 'warning',
+        pluginId: 'runtime.native-menu',
+        required: 'gap',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_OPTIONAL_QUI_COMPONENT_MISSING',
+        severity: 'warning',
+        pluginId: 'runtime.native-menu',
+        required: 'Drawer',
+      }),
+    ]))
+    expect(result.diagnostics).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ required: 'color' }),
+      expect.objectContaining({ required: 'Panel' }),
+    ]))
+  })
+
   it('keeps legacy uiSurfaces and qssTargets compatibility aliases active', () => {
     const result = checkNativeCompatibility({
       hostInfo: createHostInfo(),
