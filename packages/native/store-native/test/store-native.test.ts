@@ -275,6 +275,22 @@ describe('@quajs/store-native', () => {
     expect(await backend.getGameSlotPreview('preview-slot-1')).toBeUndefined()
   })
 
+  it('requires host key listing support for list and prefix clear operations', async () => {
+    const host = createHost()
+    host.listStorageKeys = undefined
+    const backend = new NativeStoreBackend({
+      host,
+      hostInfo: createHostInfo(),
+      profileId: 'player-a',
+    })
+
+    await backend.saveSnapshot(createSnapshot('s1'))
+
+    await expect(backend.getSnapshot('s1')).resolves.toEqual(expect.objectContaining({ id: 's1' }))
+    await expect(backend.listSnapshots()).rejects.toThrow(/must provide listStorageKeys/)
+    await expect(backend.clearGameSlots()).rejects.toThrow(/must provide listStorageKeys/)
+  })
+
   it('isolates native storage namespace by bundle id, build profile, profile id, and namespace', async () => {
     const host = createHost()
     const debug = new NativeStoreBackend({
