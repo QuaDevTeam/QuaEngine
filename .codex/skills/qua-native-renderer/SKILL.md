@@ -37,6 +37,7 @@ Web, Cocos, and native target core adapters must not be mixed:
 - Treat target core plugins as release-blocking isolation boundaries. Web artifacts must exclude Cocos/native core adapters, Cocos artifacts must exclude Web/native core adapters, and native artifacts must exclude Web/Cocos core adapters after bundling/tree-shaking, not just in source metadata.
 - Validate target isolation at three layers: application bootstrap core adapters, target-specific renderer/plugin entries, and Runtime QPK renderer compatibility metadata. Do not let a pass in one layer imply the others are safe.
 - Use `validateExclusiveTargetBootstrap` from `@quajs/native-contracts` to assert a packaged app/startup dependency set registers exactly one Web, Cocos, or native bootstrap. Then use `validateTargetBootstrap` for the active target and treat both `missing` required target adapters and `forbidden` cross-target adapters as blockers.
+- Use `validateTargetBundleManifest` from `@quajs/native-contracts` for emitted `target-bundle-manifest.json` files. It validates selected core adapters, normalized runtime dependencies, selected renderer entries, and Runtime QPK executable dependencies together after bundling/tree-shaking.
 - Quack/native packaging must emit a post-bundle `target-bundle-manifest.json` for every Web, Cocos, and native debug/release artifact. Validate the emitted manifest after tree-shaking, not just the source dependency set.
 - Runtime startup must repeat the exclusive-target assertion before engine initialization so hand-built shells cannot register zero or multiple target core adapter sets.
 - Validate package subentries by normalized package root; for example `@quajs/renderer-web/plugins/audio` is still Web core, and must not appear in native/Cocos bundles.
@@ -93,6 +94,7 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Do assets/store adapters preserve core contracts without Web/Node assumptions?
 - Are Web/Cocos/native target core adapters isolated?
 - Does the post-bundle dependency manifest prove the active artifact contains exactly one target core plugin set?
+- Does `validateTargetBundleManifest` pass for the emitted Web/Cocos/native artifact, including Runtime QPK executable dependency checks?
 - Is `target-bundle-manifest.json` emitted and validated for both debug and release artifacts after bundling/tree-shaking?
 - Does runtime startup repeat the exclusive Web/Cocos/native bootstrap assertion before engine initialization?
 - Are target isolation checks applied separately to bootstrap core adapters, renderer/plugin entries, and Runtime QPK compatibility metadata?
