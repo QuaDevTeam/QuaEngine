@@ -1,5 +1,5 @@
 import type { QuaTargetBootstrap } from './bootstrap'
-import { TARGET_BOOTSTRAP_MANIFESTS, normalizePackageSpecifier } from './bootstrap'
+import { normalizePackageSpecifier, TARGET_BOOTSTRAP_MANIFESTS } from './bootstrap'
 
 export type TargetPluginEntryTarget = QuaTargetBootstrap | 'shared'
 
@@ -35,6 +35,7 @@ export type TargetPluginManifestDiagnosticCode
     | 'TARGET_PLUGIN_SELECTED_ENTRY_MISSING'
     | 'TARGET_PLUGIN_SELECTED_ENTRY_TARGET_MISMATCH'
     | 'TARGET_PLUGIN_INACTIVE_ENTRY_EAGER'
+    | 'TARGET_PLUGIN_INACTIVE_ENTRY_TARGET_CORE_IMPORT'
     | 'TARGET_PLUGIN_SHARED_ENTRY_TARGET_CORE_IMPORT'
     | 'TARGET_PLUGIN_TARGET_ENTRY_FOREIGN_CORE_IMPORT'
 
@@ -120,6 +121,20 @@ export function validateTargetPluginManifest(
         entryTarget,
         message: `Plugin "${manifest.pluginId}" entry "${entry.specifier}" targets "${entryTarget}" and must not be eagerly imported by a "${target}" artifact.`,
       })
+      for (const packageName of collectPluginEntryImportPackageNames(entry)) {
+        if (!isKnownTargetCoreAdapter(packageName))
+          continue
+
+        diagnostics.push({
+          code: 'TARGET_PLUGIN_INACTIVE_ENTRY_TARGET_CORE_IMPORT',
+          target,
+          pluginId: manifest.pluginId,
+          specifier: entry.specifier,
+          entryTarget,
+          packageName,
+          message: `Plugin "${manifest.pluginId}" eager inactive entry "${entry.specifier}" targets "${entryTarget}" and would import target core adapter "${packageName}" into a "${target}" artifact.`,
+        })
+      }
     }
   }
 
