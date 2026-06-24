@@ -127,20 +127,30 @@ export interface NativeHostApiErrorInfo {
   detail?: string
 }
 
-export type NativeHostApiResponsePayload =
-  | { type: 'hostInfo', value: QuaNativeHostInfo }
-  | { type: 'assetBytes', value: number[] }
-  | { type: 'mountedBundles', value: NativeMountedBundleInfo[] }
-  | { type: 'storageBytes', value?: number[] }
-  | { type: 'storageKeys', value: string[] }
-  | { type: 'hash', value: string }
-  | { type: 'signatureValid', value: boolean }
+export interface NativeHostApiResponseValueByType {
+  hostInfo: QuaNativeHostInfo
+  assetBytes: number[]
+  mountedBundles: NativeMountedBundleInfo[]
+  storageBytes: number[] | null | undefined
+  storageKeys: string[]
+  hash: string
+  signatureValid: boolean
+}
+
+export type NativeHostApiResponsePayload = {
+  [TType in keyof NativeHostApiResponseValueByType]: {
+    type: TType
+    value: NativeHostApiResponseValueByType[TType]
+  }
+}[keyof NativeHostApiResponseValueByType]
 
 export interface NativeHostApiResponse {
   ok: boolean
   payload?: NativeHostApiResponsePayload
   error?: NativeHostApiErrorInfo
 }
+
+export type NativeHostBridgeDispatch = (request: NativeHostApiRequest) => NativeHostApiResponse | Promise<NativeHostApiResponse>
 
 export interface QuaNativeHostApi {
   getHostInfo: () => QuaNativeHostInfo | Promise<QuaNativeHostInfo>
@@ -202,8 +212,74 @@ export function nativeBytesToWire(bytes: Uint8Array): number[] {
   return Array.from(bytes)
 }
 
-export function nativeWireBytesToUint8Array(bytes: readonly number[] | undefined): Uint8Array | undefined {
-  return bytes === undefined ? undefined : new Uint8Array(bytes)
+export function nativeWireBytesToUint8Array(bytes: readonly number[] | null | undefined): Uint8Array | undefined {
+  return bytes == null ? undefined : new Uint8Array(bytes)
+}
+
+export function createNativeHostApiFromBridge(dispatch: NativeHostBridgeDispatch): QuaNativeHostApi {
+  const call = async <TPayload extends NativeHostApiResponsePayload['type']>(
+    request: NativeHostApiRequest,
+    expectedType: TPayload,
+  ): Promise<NativeHostApiResponseValueByType[TPayload]> => {
+    const response = await dispatch(request)
+    if (!response.ok)
+      throw nativeHostBridgeError(response.error)
+    if (response.payload?.type !== expectedType)
+      throw new Error(`Native host bridge returned unexpected payload for "${request.method}".`)
+    return response.payload.value as NativeHostApiResponseValueByType[TPayload]
+  }
+
+  return {
+    getHostInfo: () => call({ method: 'getHostInfo' }, 'hostInfo'),
+    async readAssetBytes(request) {
+      return nativeWireBytesToUint8Array(await call({ method: 'readAssetBytes', params: request }, 'assetBytes'))!
+    },
+    listMountedBundles: () => call({ method: 'listMountedBundles' }, 'mountedBundles'),
+    async readStorage(key) {
+      return nativeWireBytesToUint8Array(await call({ method: 'readStorage', params: { key } }, 'storageBytes'))
+    },
+    async writeStorage(key, value) {
+      await callVoid(dispatch, {
+        method: 'writeStorage',
+        params: {
+          key,
+          value: nativeBytesToWire(value),
+        },
+      })
+    },
+    async deleteStorage(key) {
+      await callVoid(dispatch, { method: 'deleteStorage', params: { key } })
+    },
+    listStorageKeys: prefix => call({ method: 'listStorageKeys', params: { prefix } }, 'storageKeys'),
+    hashBytes: (bytes, algorithm) => call({
+      method: 'hashBytes',
+      params: {
+        bytes: nativeBytesToWire(bytes),
+        algorithm,
+      },
+    }, 'hash'),
+    verifySignature: request => call({
+      method: 'verifySignature',
+      params: createNativeSignatureVerifyWireRequest(request),
+    }, 'signatureValid'),
+    emitRendererIntent(event) {
+      void callVoid(dispatch, { method: 'emitRendererIntent', params: event })
+    },
+  }
+}
+
+async function callVoid(dispatch: NativeHostBridgeDispatch, request: NativeHostApiRequest): Promise<void> {
+  const response = await dispatch(request)
+  if (!response.ok)
+    throw nativeHostBridgeError(response.error)
+  if (response.payload !== undefined)
+    throw new Error(`Native host bridge returned unexpected payload for "${request.method}".`)
+}
+
+function nativeHostBridgeError(error: NativeHostApiErrorInfo | undefined): Error {
+  if (!error)
+    return new Error('Native host bridge request failed.')
+  return new Error(error.message)
 }
 
 export function getCapabilityMajorVersion(capability: string): number | undefined {
