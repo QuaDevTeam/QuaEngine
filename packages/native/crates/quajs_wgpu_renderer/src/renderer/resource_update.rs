@@ -70,8 +70,12 @@ pub struct NativeRendererPackageReleaseSummary {
     pub releasable_count: usize,
     pub blocked_count: usize,
     pub released_count: usize,
+    pub declarative_released_count: usize,
+    pub declarative_blocked_count: usize,
     pub released_memory: ResourceMemory,
+    pub declarative_released_memory: ResourceMemory,
     pub blocked_memory: ResourceMemory,
+    pub declarative_blocked_memory: ResourceMemory,
     pub released_by_kind: BTreeMap<NativeResourceKind, usize>,
     pub blocked_by_kind: BTreeMap<NativeResourceKind, usize>,
     pub blocked_by_reason: BTreeMap<PackageUnloadBlockerReason, usize>,
@@ -235,8 +239,12 @@ pub(super) fn package_release_summary(
         releasable_count: plan.releasable.len(),
         blocked_count: plan.blocked.len(),
         released_count: released.count,
+        declarative_released_count: released.declarative_count,
+        declarative_blocked_count: blocked.declarative_count,
         released_memory: released.memory,
+        declarative_released_memory: released.declarative_memory,
         blocked_memory: blocked.memory,
+        declarative_blocked_memory: blocked.declarative_memory,
         released_by_kind: released.by_kind,
         blocked_by_kind: blocked.by_kind,
         blocked_by_reason: blocked.by_reason,
@@ -271,7 +279,9 @@ fn releasable_memory(ids: &[ResourceId], ledger: &NativeResourceLedger) -> Resou
 
 #[derive(Clone, Debug, Default)]
 struct BlockedResourceSummary {
+    declarative_count: usize,
     memory: ResourceMemory,
+    declarative_memory: ResourceMemory,
     by_kind: BTreeMap<NativeResourceKind, usize>,
     by_reason: BTreeMap<PackageUnloadBlockerReason, usize>,
     memory_by_kind: BTreeMap<NativeResourceKind, ResourceMemory>,
@@ -291,6 +301,10 @@ fn blocked_resource_summary(
             continue;
         };
         summary.memory.add_assign(record.memory);
+        if is_declarative_asset_kind(record.kind) {
+            summary.declarative_count = summary.declarative_count.saturating_add(1);
+            summary.declarative_memory.add_assign(record.memory);
+        }
         summary
             .memory_by_kind
             .entry(blocker.kind)
