@@ -604,6 +604,72 @@ describe('target bundle manifest validation', () => {
     ]))
   })
 
+  it('requires native target bundle profile and platform metadata needed by packaging and startup', () => {
+    const missingProfile = targetBundleManifest() as unknown as TargetBundleManifest & { profile?: unknown }
+    delete missingProfile.profile
+    const invalidProfile = {
+      ...targetBundleManifest(),
+      profile: 'staging',
+    } as unknown as TargetBundleManifest
+    const missingPlatform = targetBundleManifest()
+    delete missingPlatform.platform
+    const emptyPlatform = targetBundleManifest({ platform: ' ' })
+    const invalidPlatform = targetBundleManifest({ platform: 'ios' })
+
+    const missingProfileResult = validateTargetBundleManifest(missingProfile as TargetBundleManifest)
+    const invalidProfileResult = validateTargetBundleManifest(invalidProfile)
+    const missingPlatformResult = validateTargetBundleManifest(missingPlatform)
+    const emptyPlatformResult = validateTargetBundleManifest(emptyPlatform)
+    const invalidPlatformResult = validateTargetBundleManifest(invalidPlatform)
+
+    expect(missingProfileResult.ok).toBe(false)
+    expect(missingProfileResult.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_PROFILE_MISSING',
+        target: 'native',
+        field: 'profile',
+      }),
+    ]))
+
+    expect(invalidProfileResult.ok).toBe(false)
+    expect(invalidProfileResult.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_PROFILE_INVALID',
+        target: 'native',
+        field: 'profile',
+        value: 'staging',
+      }),
+    ]))
+
+    expect(missingPlatformResult.ok).toBe(false)
+    expect(missingPlatformResult.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_PLATFORM_MISSING',
+        target: 'native',
+        field: 'platform',
+      }),
+    ]))
+
+    expect(emptyPlatformResult.ok).toBe(false)
+    expect(emptyPlatformResult.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_PLATFORM_EMPTY',
+        target: 'native',
+        field: 'platform',
+      }),
+    ]))
+
+    expect(invalidPlatformResult.ok).toBe(false)
+    expect(invalidPlatformResult.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_PLATFORM_INVALID',
+        target: 'native',
+        field: 'platform',
+        value: 'ios',
+      }),
+    ]))
+  })
+
   it('rejects renderer entries that declare a different target than the artifact', () => {
     const result = validateTargetBundleManifest(targetBundleManifest({
       rendererEntries: [

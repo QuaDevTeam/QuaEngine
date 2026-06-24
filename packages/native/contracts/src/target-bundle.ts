@@ -6,6 +6,9 @@ import type {
   TargetBootstrapDiagnostic,
 } from './bootstrap'
 import type {
+  QuaNativePlatform,
+} from './capabilities'
+import type {
   TargetBundleNativeRendererDiagnostic,
 } from './target-bundle-native-renderer-validation'
 import {
@@ -19,6 +22,9 @@ import {
 import { checkTargetBundleNativeRendererInfo } from './target-bundle-native-renderer-validation'
 
 export type TargetBundleProfile = 'debug' | 'release'
+
+const TARGET_BUNDLE_PROFILES = new Set(['debug', 'release'] as const)
+const NATIVE_TARGET_BUNDLE_PLATFORMS = new Set<QuaNativePlatform>(['macos', 'windows', 'linux'])
 
 export interface TargetBundleAppInfo {
   bundleId?: string
@@ -83,6 +89,7 @@ export type TargetBundleManifestDiagnostic
   = | ExclusiveTargetBootstrapDiagnostic
     | TargetBootstrapDiagnostic
     | TargetBundleTargetDiagnostic
+    | TargetBundleArtifactMetadataDiagnostic
     | TargetBundleNativeRendererDiagnostic
     | TargetBundleAppMetadataDiagnostic
     | TargetBundleCorePluginFamilyDiagnostic
@@ -94,6 +101,19 @@ export interface TargetBundleTargetDiagnostic {
   code: 'TARGET_BUNDLE_TARGET_MISMATCH'
   target: QuaTargetBootstrap
   expectedTarget: QuaTargetBootstrap
+  message: string
+}
+
+export interface TargetBundleArtifactMetadataDiagnostic {
+  code:
+    | 'TARGET_BUNDLE_PROFILE_MISSING'
+    | 'TARGET_BUNDLE_PROFILE_INVALID'
+    | 'TARGET_BUNDLE_PLATFORM_MISSING'
+    | 'TARGET_BUNDLE_PLATFORM_EMPTY'
+    | 'TARGET_BUNDLE_PLATFORM_INVALID'
+  target: QuaTargetBootstrap
+  field: 'profile' | 'platform'
+  value?: string
   message: string
 }
 
@@ -174,6 +194,7 @@ export function validateTargetBundleManifest(
     expectedTarget,
   })
   const targetDiagnostics = checkTarget(manifest, expectedTarget)
+  const artifactMetadataDiagnostics = checkArtifactMetadata(manifest)
   const appMetadataDiagnostics = checkAppMetadata(manifest)
   const nativeRendererDiagnostics = checkTargetBundleNativeRendererInfo(manifest)
   const corePluginFamilyDiagnostics = checkCorePluginFamily(manifest, packageNames)
@@ -184,6 +205,7 @@ export function validateTargetBundleManifest(
     ...bootstrapValidation.diagnostics,
     ...(bootstrapValidation.targetValidation?.diagnostics || []),
     ...targetDiagnostics,
+    ...artifactMetadataDiagnostics,
     ...appMetadataDiagnostics,
     ...nativeRendererDiagnostics,
     ...corePluginFamilyDiagnostics,
@@ -195,6 +217,7 @@ export function validateTargetBundleManifest(
   return {
     ok: bootstrapValidation.ok
       && targetDiagnostics.length === 0
+      && artifactMetadataDiagnostics.length === 0
       && appMetadataDiagnostics.length === 0
       && nativeRendererDiagnostics.length === 0
       && corePluginFamilyDiagnostics.length === 0
@@ -220,6 +243,62 @@ function checkTarget(
     expectedTarget,
     message: `Target bundle manifest declares target "${manifest.target}", but expected "${expectedTarget}".`,
   }]
+}
+
+function checkArtifactMetadata(manifest: TargetBundleManifest): TargetBundleArtifactMetadataDiagnostic[] {
+  if (manifest.target !== 'native')
+    return []
+
+  const diagnostics: TargetBundleArtifactMetadataDiagnostic[] = []
+  const profile = (manifest as { profile?: unknown }).profile
+  const platform = (manifest as { platform?: unknown }).platform
+
+  if (profile === undefined) {
+    diagnostics.push({
+      code: 'TARGET_BUNDLE_PROFILE_MISSING',
+      target: manifest.target,
+      field: 'profile',
+      message: 'Native target bundle manifest must include profile.',
+    })
+  }
+  else if (typeof profile !== 'string' || !TARGET_BUNDLE_PROFILES.has(profile as TargetBundleProfile)) {
+    diagnostics.push({
+      code: 'TARGET_BUNDLE_PROFILE_INVALID',
+      target: manifest.target,
+      field: 'profile',
+      value: typeof profile === 'string' ? profile : undefined,
+      message: 'Native target bundle manifest profile must be "debug" or "release".',
+    })
+  }
+
+  if (platform === undefined) {
+    diagnostics.push({
+      code: 'TARGET_BUNDLE_PLATFORM_MISSING',
+      target: manifest.target,
+      field: 'platform',
+      message: 'Native target bundle manifest must include platform.',
+    })
+  }
+  else if (typeof platform !== 'string' || platform.trim() === '') {
+    diagnostics.push({
+      code: 'TARGET_BUNDLE_PLATFORM_EMPTY',
+      target: manifest.target,
+      field: 'platform',
+      value: typeof platform === 'string' ? platform : undefined,
+      message: 'Native target bundle manifest platform must not be empty.',
+    })
+  }
+  else if (!NATIVE_TARGET_BUNDLE_PLATFORMS.has(platform as QuaNativePlatform)) {
+    diagnostics.push({
+      code: 'TARGET_BUNDLE_PLATFORM_INVALID',
+      target: manifest.target,
+      field: 'platform',
+      value: platform,
+      message: 'Native target bundle manifest platform must be "macos", "windows", or "linux".',
+    })
+  }
+
+  return diagnostics
 }
 
 function checkAppMetadata(manifest: TargetBundleManifest): TargetBundleAppMetadataDiagnostic[] {
