@@ -301,6 +301,52 @@ fn expands_layer_surface_nodes_as_z_groups_without_draw_commands() {
 }
 
 #[test]
+fn multiplies_surface_group_opacity_into_child_commands() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection {
+                    opacity: 0.5,
+                    ..UiSurfaceNodeProjection::new(
+                        "group",
+                        UiSurfaceNodeKind::Fragment,
+                        rect(0.0, 0.0, 0.0, 0.0),
+                    )
+                }
+                .with_children(vec![UiSurfaceNodeProjection {
+                    opacity: 0.5,
+                    ..UiSurfaceNodeProjection::new(
+                        "foreground",
+                        UiSurfaceNodeKind::Layer,
+                        rect(0.0, 0.0, 0.0, 0.0),
+                    )
+                }
+                .with_children(vec![UiSurfaceNodeProjection {
+                    opacity: 0.8,
+                    ..UiSurfaceNodeProjection::new(
+                        "title",
+                        UiSurfaceNodeKind::Text,
+                        rect(40.0, 48.0, 240.0, 44.0),
+                    )
+                }
+                .with_text("Faded")])]),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let title = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:title")
+        .unwrap();
+
+    assert_eq!(title.kind, DrawCommandKind::Text);
+    assert!((title.opacity - 0.2).abs() < 0.0001);
+}
+
+#[test]
 fn expands_backdrop_surface_nodes_to_intent_panels() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {

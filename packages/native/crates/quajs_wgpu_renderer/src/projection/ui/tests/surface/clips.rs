@@ -168,6 +168,59 @@ fn expands_scroll_surface_nodes_to_clip_commands() {
 }
 
 #[test]
+fn scroll_surface_opacity_applies_to_panel_and_children() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection {
+                    opacity: 0.5,
+                    ..UiSurfaceNodeProjection::new(
+                        "scroll",
+                        UiSurfaceNodeKind::Scroll,
+                        rect(20.0, 30.0, 300.0, 160.0),
+                    )
+                }
+                .with_children(vec![UiSurfaceNodeProjection {
+                    opacity: 0.6,
+                    ..UiSurfaceNodeProjection::new(
+                        "inside",
+                        UiSurfaceNodeKind::Button,
+                        rect(24.0, 44.0, 220.0, 56.0),
+                    )
+                }
+                .with_text("Inside")
+                .with_intent(UiIntentProjection::new("inside"))]),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let scroll = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:scroll")
+        .unwrap();
+    let inside = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:inside")
+        .unwrap();
+    let clip_start = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:scroll:clip-start")
+        .unwrap();
+    let clip_end = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:scroll:clip-end")
+        .unwrap();
+
+    assert!((scroll.opacity - 0.5).abs() < 0.0001);
+    assert!((inside.opacity - 0.3).abs() < 0.0001);
+    assert_eq!(clip_start.opacity, 1.0);
+    assert_eq!(clip_end.opacity, 1.0);
+}
+
+#[test]
 fn scroll_surface_clip_bounds_filter_button_intents() {
     let mut graph = RenderGraph::new(test_layout());
     append_ui_commands(

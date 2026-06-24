@@ -19,6 +19,7 @@ use super::types::{
 const SURFACE_NODE_Z_OFFSET: i32 = 10_000;
 const SCROLL_CHILD_Z_OFFSET: i32 = 1;
 const SCROLL_CLIP_END_Z_OFFSET: i32 = 1_000_000;
+const ROOT_SURFACE_OPACITY: f32 = 1.0;
 
 pub fn build_ui_surface_node_commands(
     overlay: &UiOverlayProjection,
@@ -36,6 +37,7 @@ pub fn build_ui_surface_node_commands(
         root,
         base_z_index + SURFACE_NODE_Z_OFFSET,
         &[],
+        ROOT_SURFACE_OPACITY,
     );
     commands
 }
@@ -46,14 +48,23 @@ fn append_surface_node_commands(
     node: &UiSurfaceNodeProjection,
     z_base: i32,
     clip_bounds: &[LogicalRect],
+    inherited_opacity: f32,
 ) {
     if !node.visible {
         return;
     }
 
+    let effective_opacity = inherited_opacity * node.opacity;
     if is_surface_group_node(node.kind) {
         for child in &node.children {
-            append_surface_node_commands(commands, overlay, child, z_base, clip_bounds);
+            append_surface_node_commands(
+                commands,
+                overlay,
+                child,
+                z_base,
+                clip_bounds,
+                effective_opacity,
+            );
         }
         return;
     }
@@ -65,7 +76,14 @@ fn append_surface_node_commands(
     if node.kind == UiSurfaceNodeKind::Layer {
         let child_z_base = z_base.saturating_add(node.z_index);
         for child in &node.children {
-            append_surface_node_commands(commands, overlay, child, child_z_base, clip_bounds);
+            append_surface_node_commands(
+                commands,
+                overlay,
+                child,
+                child_z_base,
+                clip_bounds,
+                effective_opacity,
+            );
         }
         return;
     }
@@ -74,19 +92,46 @@ fn append_surface_node_commands(
         let mut child_clip_bounds = clip_bounds.to_vec();
         child_clip_bounds.push(node_rect(node.bounds));
         for child in &node.children {
-            append_surface_node_commands(commands, overlay, child, z_base, &child_clip_bounds);
+            append_surface_node_commands(
+                commands,
+                overlay,
+                child,
+                z_base,
+                &child_clip_bounds,
+                effective_opacity,
+            );
         }
         return;
     }
 
     if node.kind == UiSurfaceNodeKind::Scroll {
-        append_scroll_node_commands(commands, overlay, node, z_base, clip_bounds);
+        append_scroll_node_commands(
+            commands,
+            overlay,
+            node,
+            z_base,
+            clip_bounds,
+            effective_opacity,
+        );
         return;
     }
 
-    commands.push(surface_node_command(overlay, node, z_base, clip_bounds));
+    commands.push(surface_node_command(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        effective_opacity,
+    ));
     for child in &node.children {
-        append_surface_node_commands(commands, overlay, child, z_base, clip_bounds);
+        append_surface_node_commands(
+            commands,
+            overlay,
+            child,
+            z_base,
+            clip_bounds,
+            effective_opacity,
+        );
     }
 }
 
@@ -96,6 +141,7 @@ fn append_scroll_node_commands(
     node: &UiSurfaceNodeProjection,
     z_base: i32,
     clip_bounds: &[LogicalRect],
+    effective_opacity: f32,
 ) {
     let bounds = node_rect(node.bounds);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
@@ -106,6 +152,7 @@ fn append_scroll_node_commands(
         clip_bounds,
         &command_id,
         bounds,
+        effective_opacity,
     ));
     commands.push(scroll_clip_command(
         overlay,
@@ -121,7 +168,14 @@ fn append_scroll_node_commands(
     child_clip_bounds.push(bounds);
     let child_z_base = z_base.saturating_add(SCROLL_CHILD_Z_OFFSET * 2);
     for child in &node.children {
-        append_surface_node_commands(commands, overlay, child, child_z_base, &child_clip_bounds);
+        append_surface_node_commands(
+            commands,
+            overlay,
+            child,
+            child_z_base,
+            &child_clip_bounds,
+            effective_opacity,
+        );
     }
 
     commands.push(scroll_clip_command(
@@ -140,6 +194,7 @@ fn surface_node_command(
     node: &UiSurfaceNodeProjection,
     z_base: i32,
     clip_bounds: &[LogicalRect],
+    effective_opacity: f32,
 ) -> DrawCommand {
     let bounds = node_rect(node.bounds);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
@@ -273,7 +328,7 @@ fn surface_node_command(
 
     command = command
         .z_index(z_base.saturating_add(node.z_index))
-        .opacity(node.opacity)
+        .opacity(effective_opacity)
         .clip_bounds(clip_bounds.iter().copied());
     command = apply_provenance(command, &overlay.provenance);
     apply_provenance(command, &node.provenance)
@@ -297,6 +352,7 @@ fn surface_scroll_panel_command(
     clip_bounds: &[LogicalRect],
     command_id: &str,
     bounds: LogicalRect,
+    effective_opacity: f32,
 ) -> DrawCommand {
     let command = surface_panel_node_command(
         node,
@@ -307,7 +363,7 @@ fn surface_scroll_panel_command(
         None,
     )
     .z_index(z_base.saturating_add(node.z_index))
-    .opacity(node.opacity)
+    .opacity(effective_opacity)
     .clip_bounds(clip_bounds.iter().copied());
 
     let command = apply_provenance(command, &overlay.provenance);
