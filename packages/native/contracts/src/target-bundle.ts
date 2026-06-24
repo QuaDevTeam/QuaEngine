@@ -6,6 +6,7 @@ import type {
   TargetBootstrapDiagnostic,
 } from './bootstrap'
 import {
+  collectTargetCoreAdapterRoots,
   getPackageTargetCorePluginFamily,
   getTargetCorePluginFamily,
   normalizePackageSpecifier,
@@ -287,7 +288,7 @@ function pushRendererEntryTargetDiagnostic(
 }
 
 function checkRuntimePackageTargetCoreAdapters(manifest: TargetBundleManifest): TargetBundleRuntimePackageDiagnostic[] {
-  const targetAdapterRoots = collectKnownTargetAdapterRoots()
+  const targetAdapterRoots = collectTargetCoreAdapterRoots()
   const diagnostics: TargetBundleRuntimePackageDiagnostic[] = []
 
   for (const runtimePackage of manifest.runtimePackages || []) {
@@ -339,16 +340,6 @@ function rendererEntryReferencePluginId(
   reference: TargetBundlePackageReference | TargetBundleRendererEntryReference,
 ): string | undefined {
   return typeof reference === 'string' || !('pluginId' in reference) ? undefined : reference.pluginId
-}
-
-function collectKnownTargetAdapterRoots(): ReadonlySet<string> {
-  return new Set(
-    Object.values(TARGET_BOOTSTRAP_MANIFESTS).flatMap(manifest => [
-      ...manifest.coreAdapters,
-      ...manifest.corePluginFamilyRoots,
-      ...manifest.forbiddenCoreAdapters,
-    ]).map(normalizePackageSpecifier),
-  )
 }
 
 function formatTargetBundleManifestValidationError(

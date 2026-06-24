@@ -3,6 +3,7 @@ import {
   COCOS_TARGET_BOOTSTRAP,
   NATIVE_TARGET_BOOTSTRAP,
   WEB_TARGET_BOOTSTRAP,
+  collectTargetCoreAdapterRoots,
   normalizePackageSpecifier,
   validateExclusiveTargetBootstrap,
   validateTargetBootstrap,
@@ -150,6 +151,17 @@ describe('target bootstrap isolation', () => {
     expect(normalizePackageSpecifier('@quajs/renderer-web/plugins/audio')).toBe('@quajs/renderer-web')
     expect(normalizePackageSpecifier('@quajs/cocos-host/testing')).toBe('@quajs/cocos-host')
     expect(normalizePackageSpecifier('quajs_wgpu_renderer::plugins::audio')).toBe('quajs_wgpu_renderer')
+  })
+
+  it('collects normalized target core adapter roots for runtime package guards', () => {
+    const roots = collectTargetCoreAdapterRoots()
+
+    expect(roots.has('@quajs/renderer-web')).toBe(true)
+    expect(roots.has('@quajs/cocos-host')).toBe(true)
+    expect(roots.has('@quajs/engine-native')).toBe(true)
+    expect(roots.has('@quajs/native-contracts')).toBe(true)
+    expect(roots.has('quajs_wgpu_renderer')).toBe(true)
+    expect(roots.has('@quajs/character')).toBe(false)
   })
 
   it('accepts exactly one registered target bootstrap', () => {
