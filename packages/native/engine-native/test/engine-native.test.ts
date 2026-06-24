@@ -710,6 +710,40 @@ describe('@quajs/engine-native', () => {
     expect(host.verifySignature).not.toHaveBeenCalled()
   })
 
+  it('rejects native renderer compatibility without nativeCode false before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        renderers: {
+          native: {
+            renderer: '@quajs/native-renderer',
+            version: '^0.1.0',
+            capabilityIds: ['native-wgpu.ui.surface@1'],
+          },
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/must explicitly declare nativeCode: false/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
   it('reads host info for native renderer compatibility when trust policy options omit it', async () => {
     const host = {
       ...createHost(createHostInfo()),
