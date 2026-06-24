@@ -480,6 +480,7 @@ Minimum target isolation fixtures:
 Current contracts-layer implementation status:
 
 - `@quajs/native-contracts` owns `web-core`, `cocos-core`, and `native-core` family metadata, `validateExclusiveTargetBootstrap`, `validateTargetBootstrap`, and `validateTargetBundleManifest`.
+- `@quajs/native-contracts` exposes `createTargetCoreSelection(target)` so Web, Cocos, and native packagers can derive `targetCoreResolver`, `selectedCorePluginFamily`, and `selectedCoreAdapters` from one active target instead of hand-writing target-core strings in separate build paths.
 - `@quajs/native-contracts` now requires emitted target manifests to record `targetCoreResolver` (`web-core-resolver`, `cocos-core-resolver`, or `native-core-resolver`) and rejects manifests whose resolver identity does not match `target`, even when `selectedCoreAdapters` and dependency roots have already been filtered.
 - `@quajs/native-contracts` exposes `createNativeCapabilityManifestPayload`, `createNativeCapabilityManifestHash`, and `createTargetBundleNativeRendererInfo` so JS build tooling can emit native target-bundle renderer metadata and the same canonical native renderer capability hash that Rust `quajs_native_runtime::capability_manifest_hash` exposes through host info, without importing Node crypto into runtime contracts.
 - `packages/native/contracts/test/bootstrap.test.ts` covers exact Web/Cocos/native bootstrap sets, subentry normalization, missing adapters, forbidden adapters, no-target output, unexpected-target output, and mixed-target output.

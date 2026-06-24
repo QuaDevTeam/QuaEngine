@@ -5,8 +5,7 @@ import {
   COCOS_TARGET_BOOTSTRAP,
   collectTargetBundlePackageNames,
   createTargetBundleNativeRendererInfo,
-  getTargetCorePluginFamily,
-  getTargetCoreResolverId,
+  createTargetCoreSelection,
   NATIVE_TARGET_BOOTSTRAP,
   normalizePackageSpecifier,
   validateTargetBundleManifest,
@@ -112,6 +111,7 @@ function targetBundleManifestFor(
   target: QuaTargetBootstrap,
   overrides: Partial<TargetBundleManifest> = {},
 ): TargetBundleManifest {
+  const targetCoreSelection = createTargetCoreSelection(target)
   return {
     schemaVersion: 1,
     target,
@@ -124,9 +124,9 @@ function targetBundleManifestFor(
       icon: 'AppIcon.icns',
     },
     ...(target === 'native' ? { nativeRenderer: nativeRendererInfo() } : {}),
-    targetCoreResolver: getTargetCoreResolverId(target),
-    selectedCorePluginFamily: getTargetCorePluginFamily(target),
-    selectedCoreAdapters: CORE_ADAPTERS_BY_TARGET[target],
+    targetCoreResolver: targetCoreSelection.targetCoreResolver,
+    selectedCorePluginFamily: targetCoreSelection.selectedCorePluginFamily,
+    selectedCoreAdapters: targetCoreSelection.selectedCoreAdapters,
     dependencies: targetDependencies(target),
     rendererEntries: [rendererEntry(target)],
     runtimePackages: [
@@ -192,6 +192,27 @@ describe('target bundle manifest validation', () => {
     })
     expect(changedRenderer.capabilityIds).toContain('native-wgpu.video@1')
     expect(changedRenderer.capabilityManifestHash).not.toBe(renderer.capabilityManifestHash)
+  })
+
+  it('derives target core resolver, family, and adapters from a single target selection', () => {
+    expect(createTargetCoreSelection('web')).toEqual({
+      target: 'web',
+      targetCoreResolver: 'web-core-resolver',
+      selectedCorePluginFamily: 'web-core',
+      selectedCoreAdapters: WEB_TARGET_BOOTSTRAP.coreAdapters,
+    })
+    expect(createTargetCoreSelection('cocos')).toEqual({
+      target: 'cocos',
+      targetCoreResolver: 'cocos-core-resolver',
+      selectedCorePluginFamily: 'cocos-core',
+      selectedCoreAdapters: COCOS_TARGET_BOOTSTRAP.coreAdapters,
+    })
+    expect(createTargetCoreSelection('native')).toEqual({
+      target: 'native',
+      targetCoreResolver: 'native-core-resolver',
+      selectedCorePluginFamily: 'native-core',
+      selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+    })
   })
 
   it('normalizes subentry dependencies before validating target isolation', () => {
