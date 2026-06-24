@@ -3,6 +3,7 @@ import type {
   ExclusiveTargetBootstrapValidationResult,
   QuaNativeHostApi,
   QuaNativeHostInfo,
+  TargetBundleNativeRendererInfo,
   TargetBundleManifest,
   TargetBundleManifestValidationResult,
 } from '@quajs/native-contracts'
@@ -29,7 +30,9 @@ export class NativeHostPlugin implements EnginePlugin {
 
   async init(_context: EngineContext): Promise<void> {
     this.validateTargetBootstrap()
-    this.hostInfo = await this.resolveHostInfo()
+    const hostInfo = await this.resolveHostInfo()
+    this.validateNativeRendererManifest(hostInfo)
+    this.hostInfo = hostInfo
   }
 
   getHostInfo(): QuaNativeHostInfo | undefined {
@@ -67,6 +70,47 @@ export class NativeHostPlugin implements EnginePlugin {
     if (!result.ok)
       throw new Error(formatNativeTargetBootstrapError(result))
   }
+
+  private validateNativeRendererManifest(hostInfo: QuaNativeHostInfo): void {
+    const manifestRenderer = this.options.targetBundleManifest?.nativeRenderer
+    if (!manifestRenderer)
+      return
+    const diagnostics = checkNativeRendererManifestCompatibility(hostInfo, manifestRenderer)
+    if (diagnostics.length > 0)
+      throw new Error(formatNativeRendererManifestCompatibilityError(diagnostics))
+  }
+}
+
+export function checkNativeRendererManifestCompatibility(
+  hostInfo: QuaNativeHostInfo,
+  manifestRenderer: TargetBundleNativeRendererInfo,
+): string[] {
+  const diagnostics: string[] = []
+  if (manifestRenderer.packageName && manifestRenderer.packageName !== hostInfo.renderer.packageName) {
+    diagnostics.push(
+      `Native target bundle manifest renderer package "${manifestRenderer.packageName}" does not match host renderer package "${hostInfo.renderer.packageName}".`,
+    )
+  }
+  if (manifestRenderer.version && manifestRenderer.version !== hostInfo.renderer.version) {
+    diagnostics.push(
+      `Native target bundle manifest renderer version "${manifestRenderer.version}" does not match host renderer version "${hostInfo.renderer.version}".`,
+    )
+  }
+  if (manifestRenderer.backend && manifestRenderer.backend !== hostInfo.renderer.backend) {
+    diagnostics.push(
+      `Native target bundle manifest renderer backend "${manifestRenderer.backend}" does not match host renderer backend "${hostInfo.renderer.backend}".`,
+    )
+  }
+
+  const hostCapabilityIds = new Set(hostInfo.renderer.capabilities.map(capability => capability.id))
+  for (const capabilityId of manifestRenderer.capabilityIds || []) {
+    if (!hostCapabilityIds.has(capabilityId)) {
+      diagnostics.push(
+        `Native target bundle manifest renderer capability "${capabilityId}" is not provided by the native host.`,
+      )
+    }
+  }
+  return diagnostics
 }
 
 export async function readNativeHostInfo(host: QuaNativeHostApi): Promise<QuaNativeHostInfo> {
@@ -124,6 +168,13 @@ function formatNativeTargetBundleManifestError(result: TargetBundleManifestValid
 
   return [
     'Native target bundle manifest validation failed.',
+    ...diagnostics,
+  ].join(' ')
+}
+
+function formatNativeRendererManifestCompatibilityError(diagnostics: readonly string[]): string {
+  return [
+    'Native renderer manifest compatibility validation failed.',
     ...diagnostics,
   ].join(' ')
 }
