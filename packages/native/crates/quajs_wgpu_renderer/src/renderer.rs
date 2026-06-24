@@ -16,7 +16,7 @@ pub use backend::{
 pub use backend::{
     WgpuNativeRenderBackend, WgpuNativeRenderBackendConfig, WgpuNativeRenderBackendDiagnostics,
 };
-pub use facade::{NativeRenderer, NativeRendererFrameResult};
+pub use facade::{NativeRenderer, NativeRendererFrameError, NativeRendererFrameResult};
 pub use metrics::{
     NativeRendererFrameMetrics, NativeRendererMetrics, NativeRendererResourceMetrics,
 };

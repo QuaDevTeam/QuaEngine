@@ -1,3 +1,6 @@
+use crate::audio::{
+    NativeAudioBackend, NativeAudioBackendError, NativeAudioBackendResult, NullNativeAudioBackend,
+};
 use crate::input::{
     NativePointerEvent, NativePointerEventResolution, PointerIntentResolution, RendererIntentHit,
 };
@@ -9,7 +12,10 @@ use crate::resources::{
 };
 use crate::stage_layout::{ResolvedStageLayout, StageClientPoint, StageClientRectOrigin};
 
-use super::backend::{NativeRenderBackend, NativeRenderBackendResult, NativeRenderSubmission};
+use super::backend::{
+    NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendResult,
+    NativeRenderSubmission,
+};
 use super::resource_update::{
     NativeRendererFrameUpdate, NativeRendererHostCleanupRecord, NativeRendererPackageRelease,
 };
@@ -21,13 +27,32 @@ pub struct NativeRendererFrameResult {
     pub submission: NativeRenderSubmission,
 }
 
-#[derive(Clone, Debug)]
-pub struct NativeRenderer<B> {
-    state: NativeRendererState,
-    backend: B,
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NativeRendererFrameError {
+    Render(NativeRenderBackendError),
+    Audio(NativeAudioBackendError),
 }
 
-impl<B> NativeRenderer<B>
+impl From<NativeRenderBackendError> for NativeRendererFrameError {
+    fn from(error: NativeRenderBackendError) -> Self {
+        Self::Render(error)
+    }
+}
+
+impl From<NativeAudioBackendError> for NativeRendererFrameError {
+    fn from(error: NativeAudioBackendError) -> Self {
+        Self::Audio(error)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NativeRenderer<B, A = ()> {
+    state: NativeRendererState,
+    backend: B,
+    audio_backend: Option<A>,
+}
+
+impl<B> NativeRenderer<B, ()>
 where
     B: NativeRenderBackend,
 {
@@ -35,11 +60,45 @@ where
         Self {
             state: NativeRendererState::new(),
             backend,
+            audio_backend: None,
         }
     }
 
     pub fn with_state(state: NativeRendererState, backend: B) -> Self {
-        Self { state, backend }
+        Self {
+            state,
+            backend,
+            audio_backend: None,
+        }
+    }
+
+    pub fn with_null_audio_backend(backend: B) -> NativeRenderer<B, NullNativeAudioBackend> {
+        NativeRenderer::with_audio_backend(backend, NullNativeAudioBackend::new())
+    }
+
+    pub fn into_parts(self) -> (NativeRendererState, B) {
+        (self.state, self.backend)
+    }
+}
+
+impl<B, A> NativeRenderer<B, A>
+where
+    B: NativeRenderBackend,
+{
+    pub fn with_audio_backend(backend: B, audio_backend: A) -> Self {
+        Self::with_state_and_audio_backend(NativeRendererState::new(), backend, audio_backend)
+    }
+
+    pub fn with_state_and_audio_backend(
+        state: NativeRendererState,
+        backend: B,
+        audio_backend: A,
+    ) -> Self {
+        Self {
+            state,
+            backend,
+            audio_backend: Some(audio_backend),
+        }
     }
 
     pub fn state(&self) -> &NativeRendererState {
@@ -56,6 +115,14 @@ where
 
     pub fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
+    }
+
+    pub fn audio_backend(&self) -> Option<&A> {
+        self.audio_backend.as_ref()
+    }
+
+    pub fn audio_backend_mut(&mut self) -> Option<&mut A> {
+        self.audio_backend.as_mut()
     }
 
     pub fn resources(&self) -> &NativeResourceLedger {
@@ -94,7 +161,7 @@ where
         &mut self,
         layout: ResolvedStageLayout,
         view: &ViewProjection,
-    ) -> Result<NativeRendererFrameResult, super::backend::NativeRenderBackendError> {
+    ) -> Result<NativeRendererFrameResult, NativeRenderBackendError> {
         let update = self.prepare_frame(layout, view);
         let submission = self.render_frame()?;
 
@@ -133,8 +200,46 @@ where
         self.state.clear_with_host_cleanup()
     }
 
-    pub fn into_parts(self) -> (NativeRendererState, B) {
-        (self.state, self.backend)
+    pub fn into_parts_with_audio(self) -> (NativeRendererState, B, Option<A>) {
+        (self.state, self.backend, self.audio_backend)
+    }
+}
+
+impl<B, A> NativeRenderer<B, A>
+where
+    B: NativeRenderBackend,
+    A: NativeAudioBackend,
+{
+    pub fn apply_audio_update(
+        &mut self,
+        update: &NativeRendererFrameUpdate,
+    ) -> NativeAudioBackendResult {
+        if let Some(audio_backend) = &mut self.audio_backend {
+            audio_backend.apply_audio_commands(&update.audio_backend_commands)?;
+        }
+        Ok(())
+    }
+
+    pub fn prepare_frame_and_apply_audio(
+        &mut self,
+        layout: ResolvedStageLayout,
+        view: &ViewProjection,
+    ) -> Result<NativeRendererFrameUpdate, NativeAudioBackendError> {
+        let update = self.prepare_frame(layout, view);
+        self.apply_audio_update(&update)?;
+        Ok(update)
+    }
+
+    pub fn prepare_render_and_apply_audio(
+        &mut self,
+        layout: ResolvedStageLayout,
+        view: &ViewProjection,
+    ) -> Result<NativeRendererFrameResult, NativeRendererFrameError> {
+        let update = self.prepare_frame(layout, view);
+        let submission = self.render_frame()?;
+        self.apply_audio_update(&update)?;
+
+        Ok(NativeRendererFrameResult { update, submission })
     }
 }
 
