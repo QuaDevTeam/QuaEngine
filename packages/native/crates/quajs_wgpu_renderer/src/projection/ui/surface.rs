@@ -158,6 +158,14 @@ fn surface_node_command(
                 .as_ref()
                 .map(|intent| renderer_intent(overlay, node, intent)),
         })),
+        UiSurfaceNodeKind::Divider => surface_panel_node_command(
+            node,
+            command_id,
+            bounds,
+            "ui-divider",
+            "rgba(255,255,255,0.18)",
+            None,
+        ),
         UiSurfaceNodeKind::Fragment => {
             unreachable!("fragment nodes are expanded before command build")
         }

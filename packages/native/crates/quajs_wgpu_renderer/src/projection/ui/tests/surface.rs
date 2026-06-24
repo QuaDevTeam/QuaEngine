@@ -246,6 +246,45 @@ fn expands_fragment_surface_nodes_without_draw_commands() {
 }
 
 #[test]
+fn expands_divider_surface_nodes_to_visual_separators() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/settings.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "rule",
+                    UiSurfaceNodeKind::Divider,
+                    rect(40.0, 120.0, 360.0, 2.0),
+                )
+                .with_intent(UiIntentProjection::new("ignored"))
+                .with_style(UiSurfaceResolvedStyle {
+                    background_color: Some("rgba(255,255,255,0.28)".to_string()),
+                    border_radius: Some(1.0),
+                    ..Default::default()
+                }),
+            ),
+        ),
+        ..UiOverlayProjection::new("settings")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let command = &commands[1];
+
+    assert_eq!(command.id, "ui:settings:rule");
+    assert_eq!(command.kind, DrawCommandKind::RoundedRect);
+    assert!(!command.interactive);
+    match &command.params {
+        DrawCommandParams::Panel(params) => {
+            assert_eq!(params.role, "ui-divider");
+            assert_eq!(params.fill_color, "rgba(255,255,255,0.28)");
+            assert_eq!(params.corner_radius, 1.0);
+            assert!(params.intent.is_none());
+        }
+        _ => panic!("expected divider panel params"),
+    }
+}
+
+#[test]
 fn expands_backdrop_surface_nodes_to_intent_panels() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {
