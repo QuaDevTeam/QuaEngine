@@ -315,6 +315,32 @@ describe('native runtime package guard', () => {
     ])
   })
 
+  it('rejects target core adapters declared as runtime package renderer entries', () => {
+    const result = checkNativeRuntimePackageGuard({
+      package: createRuntimePackage({
+        rendererEntries: [
+          '@quajs/plugin-gallery/native',
+          '@quajs/renderer-cocos/plugins/dialogue',
+          { specifier: '@quajs/assets-native/runtime' },
+        ],
+      }),
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
+        field: 'rendererEntries',
+        message: expect.stringContaining('@quajs/renderer-cocos'),
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
+        field: 'rendererEntries',
+        message: expect.stringContaining('@quajs/assets-native'),
+      }),
+    ])
+  })
+
   it('rejects plugin metadata that declares native plugin kind or target', () => {
     const result = checkNativeRuntimePackageGuard({
       package: createRuntimePackage({

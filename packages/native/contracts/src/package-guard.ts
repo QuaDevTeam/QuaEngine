@@ -55,6 +55,7 @@ export interface NativeGuardAssetInfo {
 export interface NativeGuardRuntimePackageManifest {
   id: string
   executableDependencies?: NativeGuardPackageReference[]
+  rendererEntries?: NativeGuardPackageReference[]
   scripts?: NativeGuardRuntimePackageScriptManifest[]
   scenes?: NativeGuardRuntimePackageSceneManifest[]
   plugins?: NativeGuardRuntimePackagePluginManifest[]
@@ -221,8 +222,19 @@ function collectTargetCoreDependencyDeclarations(
   diagnostics: NativeRuntimePackageGuardDiagnostic[],
 ): void {
   const targetCoreRoots = collectTargetCoreAdapterRoots()
-  for (const dependency of runtimePackage.executableDependencies || []) {
-    const specifier = packageReferenceSpecifier(dependency)
+  collectTargetCorePackageReferenceDeclarations(runtimePackage, diagnostics, targetCoreRoots, 'executableDependencies', runtimePackage.executableDependencies)
+  collectTargetCorePackageReferenceDeclarations(runtimePackage, diagnostics, targetCoreRoots, 'rendererEntries', runtimePackage.rendererEntries)
+}
+
+function collectTargetCorePackageReferenceDeclarations(
+  runtimePackage: NativeGuardRuntimePackageManifest,
+  diagnostics: NativeRuntimePackageGuardDiagnostic[],
+  targetCoreRoots: ReadonlySet<string>,
+  field: 'executableDependencies' | 'rendererEntries',
+  references: readonly NativeGuardPackageReference[] | undefined,
+): void {
+  for (const reference of references || []) {
+    const specifier = packageReferenceSpecifier(reference)
     if (!specifier)
       continue
     const packageName = normalizePackageSpecifier(specifier)
@@ -233,8 +245,8 @@ function collectTargetCoreDependencyDeclarations(
       code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
       severity: 'error',
       packageId: runtimePackage.id,
-      field: 'executableDependencies',
-      message: `Native runtime package "${runtimePackage.id}" must not declare target core adapter "${packageName}" as an executable dependency.`,
+      field,
+      message: `Native runtime package "${runtimePackage.id}" must not declare target core adapter "${packageName}" through "${field}".`,
     })
   }
 }
