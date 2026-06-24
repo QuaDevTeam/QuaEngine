@@ -175,6 +175,10 @@ fn release_package_resources_returns_blocked_plan_without_releasing_active_frame
     assert_eq!(release.revision, 1);
     assert!(!release.plan.can_unload());
     assert!(release.released_resources.is_empty());
+    assert_eq!(release.summary.releasable_count, 0);
+    assert_eq!(release.summary.blocked_count, 1);
+    assert_eq!(release.summary.released_count, 0);
+    assert_eq!(release.summary.released_memory.total_bytes(), 0);
     assert_eq!(state.revision(), 1);
     assert!(state.resources().get("images:bg/school.png").is_some());
 }
@@ -200,6 +204,15 @@ fn release_package_resources_releases_inactive_package_resources() {
     assert_eq!(
         release.released_resources[0].id,
         ResourceId::from("runtime:atlas")
+    );
+    assert_eq!(release.summary.releasable_count, 1);
+    assert_eq!(release.summary.blocked_count, 0);
+    assert_eq!(release.summary.released_count, 1);
+    assert_eq!(release.summary.released_memory.cpu_bytes, 512);
+    assert_eq!(release.summary.released_memory.gpu_bytes, 2048);
+    assert_eq!(
+        release.summary.released_by_kind[&NativeResourceKind::GlyphAtlas],
+        1
     );
     assert!(state.resources().get("runtime:atlas").is_none());
 }

@@ -41,6 +41,23 @@ pub struct NativeRendererPackageRelease {
     pub revision: u64,
     pub plan: PackageUnloadPlan,
     pub released_resources: Vec<NativeResourceRecord>,
+    pub summary: NativeRendererPackageReleaseSummary,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeRendererPackageReleaseSummary {
+    pub releasable_count: usize,
+    pub blocked_count: usize,
+    pub released_count: usize,
+    pub released_memory: ResourceMemory,
+    pub released_by_kind: BTreeMap<NativeResourceKind, usize>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct ReleasedResourceSummary {
+    count: usize,
+    memory: ResourceMemory,
+    by_kind: BTreeMap<NativeResourceKind, usize>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -106,6 +123,7 @@ impl NativeRendererState {
 
         NativeRendererPackageRelease {
             revision: self.revision,
+            summary: package_release_summary(&plan, &released_resources),
             plan,
             released_resources,
         }
@@ -271,11 +289,14 @@ fn frame_resource_sync_summary(
     sync: &FrameResourceSyncPlan,
     released_resources: &[NativeResourceRecord],
 ) -> NativeRendererFrameResourceSyncSummary {
+    let released = released_resource_summary(released_resources);
     let mut summary = NativeRendererFrameResourceSyncSummary {
         upsert_count: sync.upsert.len(),
         retain_count: sync.retain.len(),
         release_count: sync.release.len(),
-        released_count: released_resources.len(),
+        released_count: released.count,
+        released_memory: released.memory,
+        released_by_kind: released.by_kind,
         ..Default::default()
     };
 
@@ -283,9 +304,34 @@ fn frame_resource_sync_summary(
         *summary.upsert_by_kind.entry(record.kind).or_default() += 1;
     }
 
+    summary
+}
+
+fn package_release_summary(
+    plan: &PackageUnloadPlan,
+    released_resources: &[NativeResourceRecord],
+) -> NativeRendererPackageReleaseSummary {
+    let released = released_resource_summary(released_resources);
+    NativeRendererPackageReleaseSummary {
+        releasable_count: plan.releasable.len(),
+        blocked_count: plan.blocked.len(),
+        released_count: released.count,
+        released_memory: released.memory,
+        released_by_kind: released.by_kind,
+    }
+}
+
+fn released_resource_summary(
+    released_resources: &[NativeResourceRecord],
+) -> ReleasedResourceSummary {
+    let mut summary = ReleasedResourceSummary {
+        count: released_resources.len(),
+        ..Default::default()
+    };
+
     for record in released_resources {
-        *summary.released_by_kind.entry(record.kind).or_default() += 1;
-        summary.released_memory.add_assign(record.memory);
+        *summary.by_kind.entry(record.kind).or_default() += 1;
+        summary.memory.add_assign(record.memory);
     }
 
     summary
