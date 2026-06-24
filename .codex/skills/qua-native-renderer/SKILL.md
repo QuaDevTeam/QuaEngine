@@ -48,8 +48,9 @@ Shared engine/game/plugin packages may be reused only when platform-neutral.
 ## QUI/QSS Projection
 
 - Inline QUI surface nodes are renderer projections, not authoritative UI state.
-- Supported foundational QUI node kinds are `Fragment`, `Box`, `Backdrop`, `Button`, `Divider`, `Layer`, `SafeArea`, `Spacer`, `Text`, `Image`, `Panel`, and `Scroll`; higher-level components such as dialog, drawer, save/load panels, gallery, and settings should compose from these base nodes.
+- Supported foundational QUI node kinds are `Fragment`, `Box`, `Stack`, `Row`, `Column`, `Grid`, `Backdrop`, `Button`, `Divider`, `Layer`, `SafeArea`, `Spacer`, `Text`, `Image`, `Panel`, and `Scroll`; higher-level components such as dialog, drawer, save/load panels, gallery, and settings should compose from these base nodes.
 - `Fragment` is a command-free structural grouping node. It expands its children in place, inherits parent clip/z context, and must not emit draw commands or pointer intent surfaces.
+- `Stack`, `Row`, `Column`, and `Grid` are command-free structural layout group nodes emitted after QUI/QSS layout resolution. They expand children in place and must not parse QSS, own layout state, draw, or emit pointer intent surfaces.
 - `Divider` projects a visual separator only. It must not emit pointer intent surfaces and should be used by composites instead of ad hoc line primitives.
 - `Layer` is a command-free structural z-group. It shifts child draw-command z indexes using the resolved node `z_index`, but must not draw, own state, or emit pointer intent surfaces.
 - `SafeArea` is a command-free structural clip container. It constrains child draw commands and hit testing to already-resolved logical safe-area bounds without owning state.
