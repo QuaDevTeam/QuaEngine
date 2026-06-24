@@ -122,6 +122,56 @@ fn rejects_manifest_app_identity_mismatch() {
     assert!(error.to_string().contains("app.version expected \"2.0.0\""));
 }
 
+#[test]
+fn rejects_native_manifest_without_renderer_metadata() {
+    let mut manifest = native_manifest();
+    manifest.native_renderer = None;
+
+    let error = validate_native_target_bundle_manifest(&manifest, None)
+        .expect_err("missing native renderer metadata is rejected");
+
+    assert!(error
+        .to_string()
+        .contains("must include nativeRenderer metadata"));
+}
+
+#[test]
+fn rejects_incomplete_native_renderer_metadata() {
+    let mut manifest = native_manifest();
+    manifest.native_renderer = Some(TargetBundleNativeRendererInfo {
+        package_name: Some("@quajs/renderer-web".to_string()),
+        version: None,
+        backend: Some("canvas".to_string()),
+        backend_version: None,
+        capability_ids: vec![],
+        capability_manifest_hash: None,
+    });
+
+    let error = validate_native_target_bundle_manifest(&manifest, None)
+        .expect_err("invalid native renderer metadata is rejected");
+
+    assert!(error
+        .diagnostics()
+        .iter()
+        .any(|diagnostic| diagnostic.contains("nativeRenderer.packageName expected")));
+    assert!(error
+        .diagnostics()
+        .iter()
+        .any(|diagnostic| diagnostic.contains("nativeRenderer.backend expected")));
+    assert!(error
+        .diagnostics()
+        .iter()
+        .any(|diagnostic| diagnostic.contains("nativeRenderer.version")));
+    assert!(error
+        .diagnostics()
+        .iter()
+        .any(|diagnostic| diagnostic.contains("nativeRenderer.capabilityManifestHash")));
+    assert!(error
+        .diagnostics()
+        .iter()
+        .any(|diagnostic| diagnostic.contains("nativeRenderer.capabilityIds")));
+}
+
 fn unique_manifest_path(label: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
         "quajs-native-target-bundle-{label}-{}-{}.json",
@@ -140,6 +190,18 @@ fn native_manifest_json() -> serde_json::Value {
             "version": "1.0.0",
             "buildNumber": "100",
             "icon": "AppIcon.icns"
+        },
+        "nativeRenderer": {
+            "packageName": "@quajs/native-renderer",
+            "version": "0.1.0",
+            "backend": "wgpu",
+            "backendVersion": "wgpu-fixture",
+            "capabilityIds": [
+                "native-wgpu.stage-layout@1",
+                "native-wgpu.ui.surface@1",
+                "native-wgpu.input.pointer@1"
+            ],
+            "capabilityManifestHash": "sha256:native-capabilities-fixture"
         },
         "selectedCorePluginFamily": "native-core",
         "selectedCoreAdapters": [
@@ -178,6 +240,18 @@ pub(crate) fn native_manifest() -> NativeTargetBundleManifest {
             version: Some("1.0.0".to_string()),
             build_number: Some("100".to_string()),
             icon: Some("AppIcon.icns".to_string()),
+        }),
+        native_renderer: Some(TargetBundleNativeRendererInfo {
+            package_name: Some("@quajs/native-renderer".to_string()),
+            version: Some("0.1.0".to_string()),
+            backend: Some("wgpu".to_string()),
+            backend_version: Some("wgpu-fixture".to_string()),
+            capability_ids: vec![
+                "native-wgpu.stage-layout@1".to_string(),
+                "native-wgpu.ui.surface@1".to_string(),
+                "native-wgpu.input.pointer@1".to_string(),
+            ],
+            capability_manifest_hash: Some("sha256:native-capabilities-fixture".to_string()),
         }),
         selected_core_plugin_family: "native-core".to_string(),
         selected_core_adapters: NATIVE_CORE_ADAPTERS
