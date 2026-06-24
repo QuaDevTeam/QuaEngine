@@ -102,3 +102,59 @@ fn preserves_resource_memory_when_metadata_refreshes() {
     assert_eq!(record.memory.gpu_bytes, 4096);
     assert_eq!(record.label.as_deref(), Some("decoded background"));
 }
+
+#[test]
+fn prepares_audio_projection_resources_without_render_graph_commands() {
+    let mut state = NativeRendererState::new();
+    let update = state.prepare_frame(test_layout(), &view_with_audio());
+
+    assert_eq!(update.revision, 1);
+    assert!(update.resource_sync.is_empty());
+    assert_eq!(update.audio_resource_sync.upsert.len(), 2);
+    assert_eq!(update.audio_resource_sync_summary.upsert_count, 2);
+    assert_eq!(
+        update.audio_resource_sync_summary.upsert_by_kind[&NativeResourceKind::AudioBuffer],
+        1
+    );
+    assert_eq!(
+        update.audio_resource_sync_summary.upsert_by_kind[&NativeResourceKind::AudioHandle],
+        1
+    );
+    assert_eq!(state.frame().unwrap().summary.command_count, 0);
+    assert!(state
+        .resources()
+        .get("audio:buffer:bgm:bgm:music/opening.ogg")
+        .is_some());
+    assert!(state
+        .resources()
+        .get("audio:handle:bgm:bgm:bgm-main")
+        .is_some());
+}
+
+#[test]
+fn releases_audio_resources_when_projection_removes_them() {
+    let mut state = NativeRendererState::new();
+    state.prepare_frame(test_layout(), &view_with_audio());
+
+    let update = state.prepare_frame(test_layout(), &ViewProjection::default());
+
+    assert_eq!(
+        update.audio_resource_sync.release,
+        vec![
+            ResourceId::from("audio:buffer:bgm:bgm:music/opening.ogg"),
+            ResourceId::from("audio:handle:bgm:bgm:bgm-main"),
+        ]
+    );
+    assert_eq!(update.audio_resource_sync_summary.release_count, 2);
+    assert_eq!(update.audio_resource_sync_summary.released_count, 2);
+    assert_eq!(
+        update.audio_resource_sync_summary.released_by_kind[&NativeResourceKind::AudioBuffer],
+        1
+    );
+    assert_eq!(
+        update.audio_resource_sync_summary.released_by_kind[&NativeResourceKind::AudioHandle],
+        1
+    );
+    assert_eq!(update.host_cleanup.len(), 2);
+    assert!(state.resources().is_empty());
+}

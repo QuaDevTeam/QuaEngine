@@ -1,4 +1,5 @@
 pub mod assets;
+pub mod audio;
 pub mod budget;
 pub mod ledger;
 pub mod plan;
@@ -23,3 +24,4 @@ pub use unload::{PackageUnloadBlocker, PackageUnloadBlockerReason, PackageUnload
 
 #[cfg(test)]
 mod tests;
+pub use audio::{audio_resource_records, plan_audio_resource_sync, AudioResourceSyncPlan};

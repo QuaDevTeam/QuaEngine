@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 
 use super::*;
+use crate::projection::audio::{
+    AudioProjection, AudioTrackKind, AudioTrackMemoryEstimate, AudioTrackProjection,
+};
 use crate::projection::background::BackgroundProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
@@ -45,6 +48,23 @@ fn view_with_background_and_choice() -> ViewProjection {
                 ..ChoiceProjection::new("stay", "Stay")
             }],
         }),
+        ..Default::default()
+    }
+}
+
+fn view_with_audio() -> ViewProjection {
+    ViewProjection {
+        audio: Some(AudioProjection::new(vec![AudioTrackProjection::new(
+            "bgm-main",
+            AudioTrackKind::Bgm,
+            "music/opening.ogg",
+        )
+        .memory(AudioTrackMemoryEstimate {
+            buffer_cpu_bytes: 2048,
+            stream_cpu_bytes: 0,
+            handle_cpu_bytes: 64,
+        })
+        .with_provenance(provenance("runtime.audio", []))])),
         ..Default::default()
     }
 }
