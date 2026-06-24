@@ -169,6 +169,15 @@ function collectNativeCodeDeclarations(
   runtimePackage: NativeGuardRuntimePackageManifest,
   diagnostics: NativeRuntimePackageGuardDiagnostic[],
 ): void {
+  for (const field of findNativeCompatibilityBlocksWithoutExplicitOptOut(runtimePackage.metadata)) {
+    diagnostics.push({
+      code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
+      severity: 'error',
+      packageId: runtimePackage.id,
+      field,
+      message: `Native runtime package "${runtimePackage.id}" must explicitly declare nativeCode: false through "${field}".`,
+    })
+  }
   for (const [field] of findNativeCodeDeclarations(runtimePackage.metadata, 'metadata')) {
     diagnostics.push({
       code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
@@ -178,6 +187,22 @@ function collectNativeCodeDeclarations(
       message: `Native runtime package "${runtimePackage.id}" requests native code through "${field}".`,
     })
   }
+}
+
+function findNativeCompatibilityBlocksWithoutExplicitOptOut(metadata: Record<string, unknown> | undefined): string[] {
+  if (!metadata)
+    return []
+  const fields: string[] = []
+  if (isRecord(metadata.nativeRenderer) && metadata.nativeRenderer.nativeCode !== false)
+    fields.push('metadata.nativeRenderer.nativeCode')
+  if (
+    isRecord(metadata.renderers)
+    && isRecord(metadata.renderers.native)
+    && metadata.renderers.native.nativeCode !== false
+  ) {
+    fields.push('metadata.renderers.native.nativeCode')
+  }
+  return fields
 }
 
 function collectNativePluginDeclarations(
@@ -287,6 +312,10 @@ function visitNativeCodeDeclarations(
     }
     visitNativeCodeDeclarations(entry, field, matches, seen)
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object')
 }
 
 function stringValue(value: unknown): string | undefined {
