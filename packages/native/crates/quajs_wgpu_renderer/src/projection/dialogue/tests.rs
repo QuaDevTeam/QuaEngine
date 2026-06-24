@@ -16,6 +16,7 @@ fn builds_dialogue_panel_and_text_commands() {
     let dialogue = DialogueProjection {
         speaker: Some("Yuki".into()),
         speaker_style: RichTextStyle {
+            color: Some("#7cc7ff".to_string()),
             font_family: Some(FontFamilyProjection::new([
                 "Qua Serif",
                 "  ",
@@ -41,6 +42,7 @@ fn builds_dialogue_panel_and_text_commands() {
     match &commands[1].params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Yuki");
+            assert_eq!(params.color, "#7cc7ff");
             assert_eq!(params.font_family, vec!["Qua Serif", "Fallback Sans"]);
             assert_eq!(params.font_size, 36.0);
             assert_eq!(
@@ -55,6 +57,7 @@ fn builds_dialogue_panel_and_text_commands() {
     match &commands[2].params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Hello native renderer.");
+            assert_eq!(params.color, "#ffffff");
             assert!(params.font_family.is_empty());
             assert!(params.font_weight.is_none());
             assert_eq!(params.role, "dialogue-text");
@@ -84,7 +87,10 @@ fn flattens_rich_text_and_builds_avatar_command() {
             provenance: provenance("runtime.avatar", ["base"]),
         }),
         text: RichTextContent::Document(RichTextDocumentProjection {
-            style: RichTextStyle::default(),
+            style: RichTextStyle {
+                color: Some("#d8c6ff".to_string()),
+                ..Default::default()
+            },
             blocks: vec![
                 RichTextBlockProjection {
                     spans: vec![
@@ -127,7 +133,10 @@ fn flattens_rich_text_and_builds_avatar_command() {
     assert!(avatar.required_package_ids.contains("base"));
 
     match &text.params {
-        DrawCommandParams::Text(params) => assert_eq!(params.text, "Line one\nLine two"),
+        DrawCommandParams::Text(params) => {
+            assert_eq!(params.text, "Line one\nLine two");
+            assert_eq!(params.color, "#d8c6ff");
+        }
         _ => panic!("expected text params"),
     }
 }

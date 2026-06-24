@@ -21,6 +21,13 @@ pub fn rich_text_to_plain_text(content: &RichTextContent) -> String {
     }
 }
 
+pub fn rich_text_style(content: &RichTextContent) -> Option<&RichTextStyle> {
+    match content {
+        RichTextContent::Document(document) => Some(&document.style),
+        RichTextContent::Plain(_) => None,
+    }
+}
+
 pub fn resolve_text_align(style: &RichTextStyle) -> TextAlign {
     match style
         .text_align
@@ -34,6 +41,15 @@ pub fn resolve_text_align(style: &RichTextStyle) -> TextAlign {
         Some("justify") => TextAlign::Justify,
         _ => TextAlign::Left,
     }
+}
+
+pub fn resolve_text_color(style: &RichTextStyle, fallback: &str) -> String {
+    style
+        .color
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or(fallback)
+        .to_string()
 }
 
 pub fn resolve_font_size(style: &RichTextStyle, fallback: f64) -> f64 {

@@ -26,6 +26,7 @@ impl From<String> for RichTextContent {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RichTextStyle {
+    pub color: Option<String>,
     pub font_family: Option<FontFamilyProjection>,
     pub font_size: Option<f64>,
     pub font_weight: Option<FontWeightProjection>,
