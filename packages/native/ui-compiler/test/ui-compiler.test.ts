@@ -118,6 +118,67 @@ Stack {
     ])
   })
 
+  it('rejects component children inside text-only QUI leaves', () => {
+    const document = analyzeQuiSource('Text { Button(action: ui.close()) { Text { "Close" } } }')
+
+    expect(document.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'QUI_INVALID_CHILDREN',
+        severity: 'error',
+      }),
+    ])
+  })
+
+  it('rejects child content inside no-content QUI leaves', () => {
+    const document = analyzeQuiSource('Image(src: assets.hero) { Text { "Hero" } }')
+
+    expect(document.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'QUI_INVALID_CHILDREN',
+        severity: 'error',
+      }),
+    ])
+  })
+
+  it('validates named QUI slots against the parent component registry', () => {
+    const valid = analyzeQuiSource(`
+Panel {
+  slot header { Text { "Title" } }
+  slot body { Text { props.body } }
+}
+`)
+    const invalid = analyzeQuiSource('Button { slot header { Text { "Title" } } }')
+
+    expect(valid.diagnostics).toEqual([])
+    expect(invalid.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'QUI_UNKNOWN_SLOT',
+        severity: 'error',
+      }),
+    ])
+  })
+
+  it('rejects orphaned and duplicate QUI slot blocks', () => {
+    const document = analyzeQuiSource(`
+slot header { Text { "Title" } }
+Panel {
+  slot body { Text { "Body" } }
+  slot body { Text { "Duplicate" } }
+}
+`)
+
+    expect(document.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'QUI_SLOT_ORPHANED',
+        severity: 'error',
+      }),
+      expect.objectContaining({
+        code: 'QUI_DUPLICATE_SLOT',
+        severity: 'error',
+      }),
+    ]))
+  })
+
   it('rejects unsafe QUI expressions before runtime package evaluation', () => {
     const document = analyzeQuiSource('Text(if: view.ready = true) { "Ready" }')
 

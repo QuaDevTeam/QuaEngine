@@ -40,15 +40,15 @@ export const nativeUiComponents: readonly NativeUiComponentDefinition[] = [
   component('Grid', 'base', 'Grid structural layout group.', ['default'], ['cell']),
   component('Layer', 'base', 'Structural z-index group with no draw command.', ['default']),
   component('SafeArea', 'base', 'Structural safe-area clip container.', ['default']),
-  component('Spacer', 'base', 'Structural spacing node with no draw command.'),
-  component('Divider', 'base', 'Visual separator for composite components.'),
+  component('Spacer', 'base', 'Structural spacing node with no draw command.', [], [], 'none'),
+  component('Divider', 'base', 'Visual separator for composite components.', [], [], 'none'),
   component('Backdrop', 'base', 'Semantic overlay backdrop surface.', ['default'], ['surface']),
   component('Panel', 'base', 'Semantic panel container surface.', ['header', 'body', 'footer'], ['header', 'body', 'footer']),
   component('Scroll', 'base', 'Scrollable clipped surface projection.', ['default'], ['viewport', 'content', 'thumb']),
   component('Button', 'base', 'Interactive surface that emits declarative action intents.', ['default'], ['label', 'icon']),
-  component('Text', 'base', 'Plain text leaf projection.', undefined, ['content']),
-  component('RichText', 'base', 'Rich text leaf projection backed by text capability.', undefined, ['content']),
-  component('Image', 'base', 'Image leaf projection backed by package assets.', undefined, ['media']),
+  component('Text', 'base', 'Plain text leaf projection.', [], ['content'], 'text'),
+  component('RichText', 'base', 'Rich text leaf projection backed by text capability.', [], ['content'], 'text'),
+  component('Image', 'base', 'Image leaf projection backed by package assets.', [], ['media'], 'none'),
 ] as const
 
 export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
@@ -141,10 +141,12 @@ function component(
   description: string,
   slots: readonly string[] = [],
   styleParts: readonly string[] = [],
+  content: NativeUiComponentDefinition['content'] = 'children',
 ): NativeUiComponentDefinition {
   return {
     name,
     kind,
+    content,
     description,
     slots,
     styleParts,

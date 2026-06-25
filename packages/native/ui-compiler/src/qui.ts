@@ -23,6 +23,7 @@ import {
   wordAt,
 } from './source'
 import { validateQuiProps } from './qui-semantics'
+import { validateQuiStructure } from './qui-structure'
 
 const IMPORT_PATTERN = /^\s*import\s+(style|tokens|component)\s+(['"])([^'"]+)\2\s*;?\s*$/
 const IMPORT_START_PATTERN = /^\s*import\b/
@@ -41,6 +42,7 @@ export function analyzeQuiSource(source: string, options: NativeUiLanguageOption
   const props = collectQuiProps(source, masked, lineStarts)
 
   validateQuiProps(props, diagnostics)
+  validateQuiStructure(source, masked, lineStarts, diagnostics)
   validateQuiImports(imports, diagnostics)
 
   if (options.lint?.strictComponents) {
