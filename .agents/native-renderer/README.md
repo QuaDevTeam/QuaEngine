@@ -43,6 +43,16 @@
 6. base component 要尽量小，dialog / drawer / save-load / settings 之类上层 UI 用 composite 组装。
 7. 打包流程必须 target-first：先确定 Web、Cocos 或 Native，再解析普通插件；不能先加载三端核心插件全集再靠过滤输出。
 
+## Target Core 隔离红线
+
+打包到 Web、Cocos、Native 项目时，核心 bootstrap 插件必须视为三套互斥根，而不是普通插件：
+
+- Web 产物只能携带 Web core resolver、Web assets / renderer / framework adapter。
+- Cocos 产物只能携带 Cocos host / renderer adapter。
+- Native 产物只能携带 `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、必要的 native contracts metadata，以及 Rust native app / runtime / renderer。
+
+不能把三端核心插件放进同一个 shared preset、普通 `plugins` 数组、generated resolver、Runtime QPK executable dependency 或运行时按条件选择的 umbrella bootstrap。正确做法是 target-first：先 materialize 唯一 `TargetCoreSelection`，再解析普通 game/plugin 和 Runtime QPK。最终产物还必须在 bundle / tree-shake 之后重新校验依赖图和 `target-bundle-manifest.json`，确认没有残留其他 target core 根包或子入口。
+
 ## 三目标打包隔离门禁
 
 Web、Cocos、Native 打包是三条互斥目标链路，不是同一套核心插件列表的三种输出格式。每个目标产物都必须先 materialize 唯一的 `TargetCoreSelection`，再解析普通 game/plugin 和 Runtime QPK；任何 shared preset、普通 `plugins`、generated resolver、renderer entry 或 Runtime QPK executable dependency 里出现 Web / Cocos / Native target core 根包或子入口，都必须作为 release blocker。

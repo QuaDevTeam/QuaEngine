@@ -151,6 +151,22 @@ QSS 侧：
 - 三端 resolver fixture 必须分别断言 `web-core-resolver`、`cocos-core-resolver`、`native-core-resolver`，并在 resolver / selected adapters / renderer entries / Runtime QPK executable dependencies 任一项串线时失败
 - ordinary plugin list、shared preset、generated plugin resolver、debug shell、release bundle 和 installer/updater manifest 都要跑同一套 target isolation helper，不能只在 Quack 主打包路径校验
 
+### target core 隔离测试矩阵
+
+这些测试要对 Web、Cocos、Native 三端对称编写，不能只严格校验 native：
+
+| 层级 | Web 产物必须拒绝 | Cocos 产物必须拒绝 | Native 产物必须拒绝 |
+| --- | --- | --- | --- |
+| bootstrap selection | Cocos / Native core adapter | Web / Native core adapter | Web / Cocos core adapter |
+| ordinary plugin list / shared preset | Cocos / Native core 根包或子入口 | Web / Native core 根包或子入口 | Web / Cocos core 根包或子入口 |
+| third-party plugin manifest | shared entry eager import Cocos / Native core；inactive Cocos / Native target entry eager | shared entry eager import Web / Native core；inactive Web / Native target entry eager | shared entry eager import Web / Cocos core；inactive Web / Cocos target entry eager |
+| renderer entries | Cocos / Native renderer target metadata | Web / Native renderer target metadata | Web / Cocos renderer target metadata |
+| Runtime QPK executable dependency | Cocos / Native core dependency | Web / Native core dependency | Web / Cocos core dependency |
+| post-bundle graph | Cocos / Native root or subentry in `specifier` or `packageName` | Web / Native root or subentry in `specifier` or `packageName` | Web / Cocos root or subentry in `specifier` or `packageName` |
+| startup manifest | non-Web `targetCoreResolver` or selected adapter | non-Cocos `targetCoreResolver` or selected adapter | non-Native `targetCoreResolver` or selected adapter |
+
+每个负例都要覆盖 `specifier` 和 `packageName` 两个字段，避免一个字段看起来安全、另一个字段实际指向其他 target core subentry。对 release artifact 的断言必须发生在 bundle / tree-shake 之后，debug shell、installer、updater 和手写启动器也要复用同一套 helper。
+
 ## benchmark 计划
 
 ### compiler / LSP
