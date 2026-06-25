@@ -29,5 +29,18 @@ describe('@quajs/native-benchmarks', () => {
       expect(record.iterations).toBe(1)
       expect(record.checksum).toBeGreaterThan(0)
     }
+
+    expect(records.find(record => record.bench === 'native.authoring.qui.parse_validate.smoke')?.metrics)
+      .toEqual(expect.objectContaining({
+        actions: expect.any(Number),
+        astComponents: expect.any(Number),
+        astNodes: expect.any(Number),
+        astSlots: expect.any(Number),
+      }))
+    expect(records.find(record => record.bench === 'native.authoring.project_index.build.smoke')?.metrics)
+      .toEqual(expect.objectContaining({
+        classes: expect.any(Number),
+        components: expect.any(Number),
+      }))
   })
 })
