@@ -1,6 +1,7 @@
 import type {
   TargetBundleDependencyReference,
   TargetBundleManifest,
+  TargetBundleManifestValidationResult,
   TargetBundleNativeRendererInfo,
   TargetBundlePackageReference,
   TargetBundleRendererEntryReference,
@@ -13,8 +14,11 @@ import type {
   QuaProjectNativePlatform,
   QuaProjectNativeProfile,
 } from './project'
-import { join } from 'node:path'
-import { createTargetCoreSelection } from '@quajs/native-contracts'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { assertTargetBundleManifest, createTargetCoreSelection } from '@quajs/native-contracts'
+
+export const QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE = 'target-bundle-manifest.json'
 
 export interface QuaProjectNativeArtifactPlan {
   target: 'native'
@@ -38,6 +42,18 @@ export interface QuaProjectNativeTargetBundleManifestOptions {
   nativeRenderer: TargetBundleNativeRendererInfo
   rendererEntries?: readonly (TargetBundlePackageReference | TargetBundleRendererEntryReference)[]
   runtimePackages?: readonly TargetBundleRuntimePackageRecord[]
+}
+
+export interface EmitQuaProjectNativeTargetBundleManifestOptions
+  extends QuaProjectNativeTargetBundleManifestOptions {
+  manifestPath?: string
+}
+
+export interface EmittedQuaProjectNativeTargetBundleManifest {
+  artifactDir: string
+  manifest: TargetBundleManifest
+  manifestPath: string
+  validation: TargetBundleManifestValidationResult
 }
 
 export function createQuaProjectNativeArtifactPlans(
@@ -86,6 +102,23 @@ export function createQuaProjectNativeTargetBundleManifest(
     dependencies: options.dependencies || [],
     rendererEntries: options.rendererEntries || [],
     runtimePackages: options.runtimePackages || [],
+  }
+}
+
+export async function emitQuaProjectNativeTargetBundleManifest(
+  plan: QuaProjectNativeArtifactPlan,
+  options: EmitQuaProjectNativeTargetBundleManifestOptions,
+): Promise<EmittedQuaProjectNativeTargetBundleManifest> {
+  const manifest = createQuaProjectNativeTargetBundleManifest(plan, options)
+  const validation = assertTargetBundleManifest(manifest, { expectedTarget: 'native' })
+  const manifestPath = options.manifestPath || join(plan.artifactDir, QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE)
+  await mkdir(dirname(manifestPath), { recursive: true })
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+  return {
+    artifactDir: plan.artifactDir,
+    manifest,
+    manifestPath,
+    validation,
   }
 }
 
