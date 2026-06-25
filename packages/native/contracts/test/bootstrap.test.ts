@@ -6,6 +6,7 @@ import {
   collectTargetCoreAdapterRoots,
   normalizePackageSpecifier,
   validateExclusiveTargetBootstrap,
+  validateOrdinaryPluginListTargetIsolation,
   validateTargetBootstrap,
 } from '../src'
 
@@ -236,6 +237,69 @@ describe('target bootstrap isolation', () => {
     expect(result.targetValidation?.forbidden).toEqual([
       '@quajs/assets-web',
       '@quajs/renderer-web',
+    ])
+  })
+
+  it('accepts platform-neutral ordinary game plugin lists', () => {
+    const result = validateOrdinaryPluginListTargetIsolation([
+      '@quajs/character',
+      '@quajs/plugin-background',
+      '@scope/project-story-plugin/runtime',
+    ], {
+      target: 'native',
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      packageNames: [
+        '@quajs/character',
+        '@quajs/plugin-background',
+        '@scope/project-story-plugin',
+      ],
+      diagnostics: [],
+    })
+  })
+
+  it('rejects target core adapters in ordinary game plugin lists before target packaging', () => {
+    const result = validateOrdinaryPluginListTargetIsolation([
+      '@quajs/plugin-background',
+      '@quajs/renderer-web/plugins/audio',
+      '@quajs/renderer-cocos/plugins/dialogue',
+      '@quajs/engine-native/runtime',
+      'quajs_wgpu_renderer::plugins::ui',
+    ], {
+      target: 'native',
+      fieldName: 'qua.project.plugins',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'ORDINARY_PLUGIN_TARGET_CORE_ADAPTER',
+        target: 'native',
+        fieldName: 'qua.project.plugins',
+        specifier: '@quajs/renderer-web/plugins/audio',
+        packageName: '@quajs/renderer-web',
+        corePluginFamily: 'web-core',
+      }),
+      expect.objectContaining({
+        code: 'ORDINARY_PLUGIN_TARGET_CORE_ADAPTER',
+        specifier: '@quajs/renderer-cocos/plugins/dialogue',
+        packageName: '@quajs/renderer-cocos',
+        corePluginFamily: 'cocos-core',
+      }),
+      expect.objectContaining({
+        code: 'ORDINARY_PLUGIN_TARGET_CORE_ADAPTER',
+        specifier: '@quajs/engine-native/runtime',
+        packageName: '@quajs/engine-native',
+        corePluginFamily: 'native-core',
+      }),
+      expect.objectContaining({
+        code: 'ORDINARY_PLUGIN_TARGET_CORE_ADAPTER',
+        specifier: 'quajs_wgpu_renderer::plugins::ui',
+        packageName: 'quajs_wgpu_renderer',
+        corePluginFamily: 'native-core',
+      }),
     ])
   })
 })

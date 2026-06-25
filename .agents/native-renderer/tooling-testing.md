@@ -102,6 +102,7 @@ QSS 侧：
 先保证这些纯 TS 约束稳定：
 
 - target bootstrap isolation
+- ordinary plugin list target-core isolation
 - target bundle manifest validation
 - Web / Cocos / native 三目标隔离矩阵：bootstrap core、plugin target entry、Runtime QPK renderer/executable dependency 三层都要对称验证
 - native compatibility metadata
