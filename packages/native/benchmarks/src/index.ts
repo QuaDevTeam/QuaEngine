@@ -334,6 +334,7 @@ export function runNativeAuthoringSmokeBenchmarks(
         let documentCount = 0
         let components = 0
         let classes = 0
+        let ids = 0
         let references = 0
         let qssRules = 0
         for (let index = 0; index < iterations; index += 1) {
@@ -343,6 +344,7 @@ export function runNativeAuthoringSmokeBenchmarks(
           documentCount += projectIndex.summary.documentCount
           components += projectIndex.summary.components
           classes += projectIndex.summary.classes
+          ids += projectIndex.summary.ids
           references += projectIndex.references.length
           qssRules += projectIndex.summary.qssRules
           checksum += projectIndex.summary.documentBytes
@@ -359,6 +361,7 @@ export function runNativeAuthoringSmokeBenchmarks(
             components,
             documentLinks,
             documentCount,
+            ids,
             references,
             qssRules,
           },
@@ -376,6 +379,7 @@ export function runNativeAuthoringSmokeBenchmarks(
         let documentCount = 0
         let components = 0
         let classes = 0
+        let ids = 0
         let references = 0
         let qssRules = 0
         let projectIndex = initialProjectIndex
@@ -393,6 +397,7 @@ export function runNativeAuthoringSmokeBenchmarks(
           documentCount += projectIndex.summary.documentCount
           components += projectIndex.summary.components
           classes += projectIndex.summary.classes
+          ids += projectIndex.summary.ids
           references += projectIndex.references.length
           qssRules += projectIndex.summary.qssRules
           checksum += projectIndex.summary.documentBytes
@@ -409,6 +414,7 @@ export function runNativeAuthoringSmokeBenchmarks(
             components,
             documentLinks,
             documentCount,
+            ids,
             references,
             qssRules,
           },

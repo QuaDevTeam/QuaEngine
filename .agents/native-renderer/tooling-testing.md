@@ -11,7 +11,7 @@ native authoring 工具要独立于现有 QuaScript 工具链：
 建议新增：
 
 - `packages/native/ui-compiler`：已落基础，负责 QUI/QSS parse、validate、format、completion、hover 和 registry。
-- `packages/native/language-server`：已落基础，负责 `.qui/.qss` 的独立 LSP 适配，包括 diagnostics、formatting、completion、hover、document links、component/class references 和 package bin 默认 stdio 启动。
+- `packages/native/language-server`：已落基础，负责 `.qui/.qss` 的独立 LSP 适配，包括 diagnostics、formatting、completion、hover、document links、component/class/id references 和 package bin 默认 stdio 启动。
 - `packages/native/vscode`：已落基础，负责 VSCode language contribution、grammar、snippets、format/validate/restart commands 和 native LSP 启动。
 - `packages/native/benchmarks`：已落基础，负责 native authoring/tooling 的确定性 smoke benchmark，输出 JSON Lines baseline。
 

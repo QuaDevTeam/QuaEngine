@@ -55,6 +55,12 @@ export interface NativeUiProjectClassReference {
   source: 'qss-selector' | 'qui-node'
 }
 
+export interface NativeUiProjectIdReference {
+  name: string
+  range: NativeUiRange
+  source: 'qss-selector' | 'qui-node'
+}
+
 export interface NativeUiProjectIndexedDocument {
   classReferences: NativeUiProjectClassReference[]
   classes: string[]
@@ -64,6 +70,8 @@ export interface NativeUiProjectIndexedDocument {
   diagnostics: NativeUiDiagnostic[]
   documentBytes: number
   filePath?: string
+  idReferences: NativeUiProjectIdReference[]
+  ids: string[]
   imports: NativeUiProjectImport[]
   kind: NativeUiDocumentKind
   qssDeclarations: number
@@ -84,6 +92,7 @@ export interface NativeUiProjectIndexSummary {
   qssDeclarations: number
   qssDocumentCount: number
   qssRules: number
+  ids: number
   quiDocumentCount: number
   skippedDocumentCount: number
   styleImports: number
@@ -100,7 +109,7 @@ export interface NativeUiProjectDocumentLink {
   targetUri?: string
 }
 
-export type NativeUiProjectReferenceKind = 'class' | 'component'
+export type NativeUiProjectReferenceKind = 'class' | 'component' | 'id'
 
 export interface NativeUiProjectReference {
   filePath?: string
@@ -188,6 +197,10 @@ function indexedDocumentFromNativeDocument(
   const qui = document.kind === 'qui' ? document : undefined
   const qss = document.kind === 'qss' ? document : undefined
   const quiComponentNodes = qui ? componentAstNodes(qui) : []
+  const idReferences = [
+    ...idReferencesFromQui(quiComponentNodes),
+    ...(qss ? idReferencesFromQss(qss) : []),
+  ]
 
   return {
     classReferences: [
@@ -204,6 +217,8 @@ function indexedDocumentFromNativeDocument(
     diagnostics: document.diagnostics,
     documentBytes: new TextEncoder().encode(document.source).byteLength,
     filePath: file.filePath,
+    idReferences,
+    ids: uniqueSorted(idReferences.map(reference => reference.name)),
     imports: qui ? qui.imports.map(importFromQui) : [],
     kind: document.kind,
     qssDeclarations: qss ? countQssDeclarations(qss) : 0,
@@ -243,6 +258,7 @@ function summarizeProjectIndex(
       diagnostics: sum(sortedDocuments, document => document.diagnostics.length),
       documentBytes: sum(sortedDocuments, document => document.documentBytes),
       documentCount: sortedDocuments.length,
+      ids: countUnique(sortedDocuments.flatMap(document => document.ids)),
       qssDeclarations: sum(sortedDocuments, document => document.qssDeclarations),
       qssDocumentCount: sortedDocuments.filter(document => document.kind === 'qss').length,
       qssRules: sum(sortedDocuments, document => document.qssRules),
@@ -298,6 +314,20 @@ function classReferencesFromQui(nodes: readonly NativeQuiAstNode[]): NativeUiPro
   })))
 }
 
+function idReferencesFromQui(nodes: readonly NativeQuiAstNode[]): NativeUiProjectIdReference[] {
+  return nodes.flatMap(node => node.props
+    .filter(prop => prop.name === 'id' && prop.value)
+    .map((prop) => {
+      const name = prop.value?.trim().replace(/^['"]|['"]$/g, '') ?? ''
+      return {
+        name,
+        range: prop.valueRange ?? prop.nameRange,
+        source: 'qui-node' as const,
+      }
+    })
+    .filter(reference => /^[A-Za-z_][\w-]*$/.test(reference.name)))
+}
+
 function componentAstNodes(document: NativeQuiDocument): NativeQuiAstNode[] {
   const nodes: NativeQuiAstNode[] = []
   visitQuiAstNodes(document.tree, (node) => {
@@ -327,6 +357,14 @@ function componentReferencesFromQss(document: NativeQssDocument): NativeUiProjec
 
 function classReferencesFromQss(document: NativeQssDocument): NativeUiProjectClassReference[] {
   return document.rules.flatMap(rule => uniqueSorted(matches(rule.selector, /\.([a-z_][\w-]*)/gi)).map(name => ({
+    name,
+    range: rule.selectorRange,
+    source: 'qss-selector' as const,
+  })))
+}
+
+function idReferencesFromQss(document: NativeQssDocument): NativeUiProjectIdReference[] {
+  return document.rules.flatMap(rule => uniqueSorted(matches(rule.selector, /#([A-Za-z_][\w-]*)/g)).map(name => ({
     name,
     range: rule.selectorRange,
     source: 'qss-selector' as const,
