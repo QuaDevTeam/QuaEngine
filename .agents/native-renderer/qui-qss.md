@@ -105,6 +105,8 @@ import component "./shared/Panel.qui";
 
 参数第一阶段只允许 literals、references 和可诊断的受限表达式；嵌套函数调用、imperative JS、assignment 和 mutation 必须在 compiler / LSP 层报错。Rust renderer 只消费最终 projection，不负责 action 字符串解析。
 
+结构化 descriptor 进入 native projection 后，Rust `UiIntentProjection` / `RendererIntent` 需要保留 descriptor metadata，并在 `NativeRendererIntent.payloadJson` 里透传给 `@quajs/engine-native`。`action`、`choiceId`、`elementId` 是 renderer resolution 的核心字段，必须由 Rust 解析结果覆盖同名 metadata，避免动态内容伪造 dispatch 身份。
+
 ## 组件系统
 
 ### 当前应保持稳定的 base primitives

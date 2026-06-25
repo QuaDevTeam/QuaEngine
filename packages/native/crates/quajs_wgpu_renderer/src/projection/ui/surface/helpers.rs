@@ -13,6 +13,7 @@ pub(super) fn renderer_intent(
         choice_id: None,
         element_id: Some(format!("{}:{}", overlay.element_id, node.id)),
         action: intent.action.clone(),
+        metadata: intent.metadata.clone(),
     }
 }
 
