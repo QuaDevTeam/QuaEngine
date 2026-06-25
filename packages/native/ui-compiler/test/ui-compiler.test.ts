@@ -468,6 +468,54 @@ Button {
     })
   })
 
+  it('diagnoses invalid native-wgpu QSS declaration values before projection', () => {
+    const invalid = analyzeQssSource(`
+Button {
+  border-width: -1px;
+  border-radius: calc(4px);
+  font-weight: heavy;
+  object-fit: stretch;
+  opacity: none;
+  text-align: start;
+  z-index: 1.5;
+  background-image: asset("../escape.png");
+  background-position: 10px 20px;
+  background-size: repeat;
+}
+`)
+    const valid = analyzeQssSource(`
+Button {
+  border-width: 0;
+  border-radius: 0px;
+  font-weight: 0;
+  object-fit: scale-down;
+  opacity: 0;
+  text-align: justify;
+  z-index: 0;
+  background-image: asset("ui/panel.png");
+  background-position: 0% 100%;
+  background-size: none;
+}
+`)
+
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(10)
+    expect(invalid.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('background-image'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('background-position'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('background-size supports cover'),
+      }),
+    ]))
+    expect(valid.diagnostics).toEqual([])
+  })
+
   it('rejects browser-only QSS selectors and values', () => {
     const document = analyzeQssSource(`
 Button:nth-child(2) {

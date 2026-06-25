@@ -22,49 +22,49 @@ export function resolveNativeQssDeclarations(
         resolved.style.backgroundColor = value
         break
       case 'background-image':
-        resolved.style.backgroundImage = parseBackgroundImage(value)
+        resolved.style.backgroundImage = parseNativeQssBackgroundImage(value)
         break
       case 'background-position':
-        resolved.style.backgroundPosition = parseBackgroundPosition(value)
+        resolved.style.backgroundPosition = parseNativeQssBackgroundPosition(value)
         break
       case 'background-size':
-        resolved.style.backgroundSize = parseObjectFit(value)
+        resolved.style.backgroundSize = parseNativeQssObjectFit(value)
         break
       case 'border-color':
         resolved.style.borderColor = value
         break
       case 'border-radius':
-        resolved.style.borderRadius = parseLogicalNumber(value)
+        resolved.style.borderRadius = parseNativeQssLogicalNumber(value)
         break
       case 'border-width':
-        resolved.style.borderWidth = parseLogicalNumber(value)
+        resolved.style.borderWidth = parseNativeQssLogicalNumber(value)
         break
       case 'color':
         resolved.style.color = value
         break
       case 'font-family':
-        resolved.style.fontFamily = parseFontFamilyList(value)
+        resolved.style.fontFamily = parseNativeQssFontFamilyList(value)
         break
       case 'font-size':
-        resolved.style.fontSize = parseLogicalNumber(value)
+        resolved.style.fontSize = parseNativeQssLogicalNumber(value)
         break
       case 'font-weight':
-        resolved.style.fontWeight = parseFontWeight(value)
+        resolved.style.fontWeight = parseNativeQssFontWeight(value)
         break
       case 'line-height':
-        resolved.style.lineHeight = parseLogicalNumber(value)
+        resolved.style.lineHeight = parseNativeQssLogicalNumber(value)
         break
       case 'object-fit':
-        resolved.style.objectFit = parseObjectFit(value)
+        resolved.style.objectFit = parseNativeQssObjectFit(value)
         break
       case 'opacity':
-        resolved.style.opacity = parseOpacity(value)
+        resolved.style.opacity = parseNativeQssOpacity(value)
         break
       case 'text-align':
-        resolved.style.textAlign = parseTextAlign(value)
+        resolved.style.textAlign = parseNativeQssTextAlign(value)
         break
       case 'z-index':
-        resolved.zIndex = parseInteger(value)
+        resolved.zIndex = parseNativeQssInteger(value)
         break
     }
   }
@@ -72,7 +72,7 @@ export function resolveNativeQssDeclarations(
   return pruneUndefinedResolvedNodeStyle(resolved)
 }
 
-function parseBackgroundImage(value: string): { assetType: string, assetName: string } | undefined {
+export function parseNativeQssBackgroundImage(value: string): { assetType: string, assetName: string } | undefined {
   const match = /^asset\(\s*(?:"([^"]+)"|'([^']+)')\s*(?:,\s*(?:"([^"]+)"|'([^']+)'))?\s*\)$/i.exec(value.trim())
   if (!match)
     return undefined
@@ -98,7 +98,7 @@ function isSafePackageAssetName(value: string): boolean {
     && !normalized.split('/').includes('..')
 }
 
-function parseBackgroundPosition(value: string): { x: number, y: number } | undefined {
+export function parseNativeQssBackgroundPosition(value: string): { x: number, y: number } | undefined {
   const parts = value.toLowerCase().split(/\s+/).filter(Boolean)
   if (parts.length === 0 || parts.length > 2)
     return undefined
@@ -150,7 +150,7 @@ function parseVerticalPosition(value: string): number | undefined {
   }
 }
 
-function parseLogicalNumber(value: string): number | undefined {
+export function parseNativeQssLogicalNumber(value: string): number | undefined {
   const match = /^(-?\d+(?:\.\d+)?)(?:px)?$/.exec(value.trim())
   if (!match)
     return undefined
@@ -168,7 +168,7 @@ function parsePercentUnitInterval(value: string): number | undefined {
     : undefined
 }
 
-function parseInteger(value: string): number | undefined {
+export function parseNativeQssInteger(value: string): number | undefined {
   const match = /^-?\d+$/.exec(value.trim())
   if (!match)
     return undefined
@@ -176,37 +176,37 @@ function parseInteger(value: string): number | undefined {
   return Number.isSafeInteger(number) ? number : undefined
 }
 
-function parseOpacity(value: string): number | undefined {
+export function parseNativeQssOpacity(value: string): number | undefined {
   const number = Number(value)
   if (!Number.isFinite(number))
     return undefined
   return Math.min(1, Math.max(0, number))
 }
 
-function parseTextAlign(value: string): NativeQssTextAlignValue | undefined {
+export function parseNativeQssTextAlign(value: string): NativeQssTextAlignValue | undefined {
   const normalized = value.toLowerCase()
   return TEXT_ALIGN_VALUES.has(normalized as NativeQssTextAlignValue)
     ? normalized as NativeQssTextAlignValue
     : undefined
 }
 
-function parseObjectFit(value: string): NativeQssObjectFitValue | undefined {
+export function parseNativeQssObjectFit(value: string): NativeQssObjectFitValue | undefined {
   const normalized = value.toLowerCase()
   return OBJECT_FIT_VALUES.has(normalized as NativeQssObjectFitValue)
     ? normalized as NativeQssObjectFitValue
     : undefined
 }
 
-function parseFontWeight(value: string): 'bold' | 'normal' | number | undefined {
+export function parseNativeQssFontWeight(value: string): 'bold' | 'normal' | number | undefined {
   const normalized = value.toLowerCase()
   if (normalized === 'bold' || normalized === 'normal')
     return normalized
 
-  const number = parseInteger(value)
+  const number = parseNativeQssInteger(value)
   return number !== undefined ? number : undefined
 }
 
-function parseFontFamilyList(value: string): string[] | undefined {
+export function parseNativeQssFontFamilyList(value: string): string[] | undefined {
   const families = value
     .split(',')
     .map(item => item.trim().replace(/^['"]|['"]$/g, ''))
