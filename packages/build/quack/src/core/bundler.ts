@@ -33,6 +33,7 @@ import { ZipBundler } from '../bundlers/zip-bundler'
 import { EncryptionManager } from '../crypto/encryption'
 import { PluginManager } from '../managers/plugin-manager'
 import { readKeyFile, signRuntimePackageManifest } from '../security/signature'
+import { assertLoadedQuackPluginTargetIsolation, targetFromAssetPlatform } from '../target-plugin-isolation'
 import { VersionManager } from '../workspace/versioning'
 import { WorkspaceManager } from '../workspace/workspace'
 
@@ -83,6 +84,9 @@ export class QuackBundler extends EventEmitter {
 
     // Register plugins
     if (config.plugins && config.plugins.length > 0) {
+      assertLoadedQuackPluginTargetIsolation(config.plugins, {
+        target: targetFromAssetPlatform(config.assetTarget?.platform),
+      })
       this.pluginManager.registerMany(config.plugins)
     }
   }
@@ -503,6 +507,11 @@ export class QuackBundler extends EventEmitter {
       }
     }
 
+    const plugins = config.plugins || []
+    assertLoadedQuackPluginTargetIsolation(plugins, {
+      target: targetFromAssetPlatform(assetTarget?.platform),
+    })
+
     const runtimePackage = config.runtimePackage
       ? {
           ...cloneRuntimePackage(config.runtimePackage),
@@ -521,7 +530,7 @@ export class QuackBundler extends EventEmitter {
         ...versionInfo,
       },
       compatibility,
-      plugins: config.plugins || [],
+      plugins,
       ignore: config.ignore || [],
       verbose: config.verbose || false,
       runtimePackage,
@@ -788,6 +797,10 @@ export class QuackBundler extends EventEmitter {
    * Add plugin
    */
   addPlugin(plugin: QuackPlugin): void {
+    assertLoadedQuackPluginTargetIsolation([plugin], {
+      target: targetFromAssetPlatform(this.config.assetTarget?.platform),
+      fieldName: 'QuackBundler.addPlugin',
+    })
     this.pluginManager.register(plugin)
     if (!this.config.plugins) {
       this.config.plugins = []
@@ -811,6 +824,9 @@ export class QuackBundler extends EventEmitter {
  * Configuration helper function
  */
 export function defineConfig(config: QuackConfig): QuackConfig {
+  assertLoadedQuackPluginTargetIsolation(config.plugins || [], {
+    target: targetFromAssetPlatform(config.assetTarget?.platform),
+  })
   return config
 }
 
