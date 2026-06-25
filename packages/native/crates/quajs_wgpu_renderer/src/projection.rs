@@ -3,6 +3,7 @@ pub mod background;
 pub mod character;
 pub mod choices;
 pub mod common;
+mod defaults;
 pub mod dialogue;
 pub mod typography;
 pub mod ui;

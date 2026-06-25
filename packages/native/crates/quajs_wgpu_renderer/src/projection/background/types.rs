@@ -1,13 +1,19 @@
 use crate::projection::common::PackageProvenance;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+
+use crate::projection::defaults::{default_one_f32, default_one_f64, default_true};
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum BackgroundMode {
     Image,
     Video,
     Layered,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum BackgroundFit {
     Cover,
     Contain,
@@ -16,21 +22,35 @@ pub enum BackgroundFit {
     ScaleDown,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BackgroundProjection {
     pub mode: BackgroundMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asset_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asset_type: Option<String>,
+    #[serde(default = "default_background_fit")]
     pub fit: BackgroundFit,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<f64>,
+    #[serde(default)]
     pub x: f64,
+    #[serde(default)]
     pub y: f64,
+    #[serde(default = "default_one_f64")]
     pub scale: f64,
+    #[serde(default = "default_one_f32")]
     pub opacity: f32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub layers: Vec<BackgroundLayerProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub video: Option<BackgroundVideoProjection>,
+    #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
     pub provenance: PackageProvenance,
 }
 
@@ -55,21 +75,34 @@ impl Default for BackgroundProjection {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BackgroundLayerProjection {
     pub id: String,
     pub asset_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asset_type: Option<String>,
+    #[serde(default = "default_true")]
     pub visible: bool,
+    #[serde(default = "default_background_fit")]
     pub fit: BackgroundFit,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<f64>,
+    #[serde(default)]
     pub x: f64,
+    #[serde(default)]
     pub y: f64,
+    #[serde(default = "default_one_f64")]
     pub scale: f64,
+    #[serde(default = "default_one_f32")]
     pub opacity: f32,
+    #[serde(default)]
     pub z_index: i32,
+    #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
     pub provenance: PackageProvenance,
 }
 
@@ -94,13 +127,19 @@ impl BackgroundLayerProjection {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BackgroundVideoProjection {
     pub asset_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub poster: Option<String>,
+    #[serde(default = "default_background_fit")]
     pub fit: BackgroundFit,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<String>,
+    #[serde(default = "default_one_f32")]
     pub opacity: f32,
+    #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
     pub provenance: PackageProvenance,
 }
 
@@ -115,4 +154,8 @@ impl BackgroundVideoProjection {
             provenance: PackageProvenance::default(),
         }
     }
+}
+
+fn default_background_fit() -> BackgroundFit {
+    BackgroundFit::Cover
 }

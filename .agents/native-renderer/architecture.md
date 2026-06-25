@@ -112,6 +112,7 @@ packages/native/
 - 纹理、字体、视频 poster/fallback、输入事件、资源账本。
 - UI surface 的绘制和命中测试。
 - pointer press/release 解析后可通过调用方传入的 `NativeHostApi` 发出 `NativeRendererIntent`，再由 native host / engine bridge 进入既有 pipeline；renderer 自身不持有 host，也不引入第二事件总线。
+- projection DTO 提供 camelCase JSON serde 边界，供 native app / QuickJS bridge 输入已解析的 view、QUI/QSS style、stage layout 和 media/audio projection；组件 kind 保持 QUI registry 名称，如 `Box`、`Text`、`Button`。
 - 只消费 resolved QUI/QSS / capability data。
 
 ### 4. TS bridge

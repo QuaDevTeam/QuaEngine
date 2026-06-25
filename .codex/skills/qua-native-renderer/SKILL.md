@@ -23,6 +23,7 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 - Native host QuickJS cleanup APIs (`releaseQuickJsModuleNamespace`, `releaseQuickJsPackageNamespaces`, `getQuickJsNamespaceSummary`, and `getQuickJsPackageNamespaceSummary`) are resource-ledger APIs only. Real hosts must use a persistent `QuickJsModuleNamespaceRegistry` across evaluation/release calls, not a per-request temporary registry, so runtime package unload can release package-owned namespace handles and check memory summaries.
 - `@quajs/engine-native` must release package-owned QuickJS namespaces from the late renderer-facing runtime-package unload event (`LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD`), after runtime engine plugins have been unloaded. It should call `releaseQuickJsPackageNamespaces(packageId)` when the host supports it, so successful QuickJS namespace handles do not outlive their owning Runtime QPK without being released before plugin teardown.
 - Rust `quajs_wgpu_renderer` consumes resolved QUI/QSS projection data only. QSS parsing, selector matching, cascade, inheritance, and language-server diagnostics belong in TS/compiler/tooling packages, not in the renderer.
+- Rust `quajs_wgpu_renderer` projection DTOs serialize/deserialize the native bridge JSON boundary with camelCase fields. Native UI surface node `kind` values must stay aligned with QUI registry component names such as `Box`, `Text`, and `Button`; do not add Rust-side parsing of QUI/QSS authoring syntax to make up for malformed projection JSON.
 
 ## Package Responsibilities
 

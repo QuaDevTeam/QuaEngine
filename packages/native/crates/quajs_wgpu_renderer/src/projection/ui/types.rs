@@ -1,13 +1,19 @@
 use std::collections::BTreeMap;
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::projection::common::{FontFamilyProjection, FontWeightProjection, PackageProvenance};
+use crate::projection::defaults::{default_one_f32, default_true};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UiProjection {
+    #[serde(default = "default_true")]
     pub visible: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub overlays: Vec<UiOverlayProjection>,
+    #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
     pub provenance: PackageProvenance,
 }
 
@@ -30,25 +36,37 @@ impl UiProjection {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum UiOverlayRenderMode {
     #[default]
     Ui,
     RenderOnly,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UiOverlayProjection {
     pub element_id: String,
+    #[serde(default = "default_true")]
     pub visible: bool,
+    #[serde(default)]
     pub render_mode: UiOverlayRenderMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub interactive: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overlay_stack: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stack_priority: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub z_index: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub surface: Option<UiOverlaySurfaceProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scene: Option<UiOverlaySceneProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub intent: Option<UiIntentProjection>,
+    #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
     pub provenance: PackageProvenance,
 }
 
@@ -75,9 +93,11 @@ impl UiOverlayProjection {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UiOverlaySurfaceProjection {
     pub key: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root: Option<UiSurfaceNodeProjection>,
 }
 
@@ -95,7 +115,8 @@ impl UiOverlaySurfaceProjection {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "PascalCase")]
 pub enum UiSurfaceNodeKind {
     #[default]
     Box,
@@ -117,16 +138,23 @@ pub enum UiSurfaceNodeKind {
     Scroll,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UiSurfaceNodeRect {
+    #[serde(default)]
     pub x: f64,
+    #[serde(default)]
     pub y: f64,
+    #[serde(default)]
     pub width: f64,
+    #[serde(default)]
     pub height: f64,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UiSurfaceImageProjection {
+    #[serde(default = "default_image_asset_type")]
     pub asset_type: String,
     pub asset_name: String,
 }
@@ -140,7 +168,8 @@ impl UiSurfaceImageProjection {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum UiSurfaceTextAlignProjection {
     Left,
     Center,
@@ -148,7 +177,8 @@ pub enum UiSurfaceTextAlignProjection {
     Justify,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum UiSurfaceObjectFitProjection {
     Cover,
     Contain,
@@ -157,35 +187,60 @@ pub enum UiSurfaceObjectFitProjection {
     ScaleDown,
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UiSurfaceResolvedStyle {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_radius: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_width: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font_family: Option<FontFamilyProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font_size: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font_weight: Option<FontWeightProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line_height: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_align: Option<UiSurfaceTextAlignProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub object_fit: Option<UiSurfaceObjectFitProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<f32>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UiSurfaceNodeProjection {
     pub id: String,
+    #[serde(default)]
     pub kind: UiSurfaceNodeKind,
+    #[serde(default = "default_true")]
     pub visible: bool,
+    #[serde(default)]
     pub bounds: UiSurfaceNodeRect,
+    #[serde(default)]
     pub z_index: i32,
+    #[serde(default = "default_one_f32")]
     pub opacity: f32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image: Option<UiSurfaceImageProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub intent: Option<UiIntentProjection>,
+    #[serde(default)]
     pub style: UiSurfaceResolvedStyle,
+    #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
     pub provenance: PackageProvenance,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<UiSurfaceNodeProjection>,
 }
 
@@ -233,12 +288,17 @@ impl UiSurfaceNodeProjection {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UiOverlaySceneProjection {
     pub id: String,
+    #[serde(default)]
     pub render_mode: UiOverlayRenderMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub interactive: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub surface: Option<UiOverlaySurfaceProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overlay: Option<UiOverlaySceneShellProjection>,
 }
 
@@ -254,17 +314,25 @@ impl UiOverlaySceneProjection {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UiOverlaySceneShellProjection {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overlay_stack: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stack_priority: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub z_index: Option<i32>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UiIntentProjection {
+    #[serde(default = "default_ui_intent_event")]
     pub event: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub metadata: BTreeMap<String, Value>,
 }
 
@@ -281,4 +349,12 @@ impl UiIntentProjection {
         self.metadata.insert(key.into(), value);
         self
     }
+}
+
+fn default_image_asset_type() -> String {
+    "images".to_string()
+}
+
+fn default_ui_intent_event() -> String {
+    "ui/intent".to_string()
 }

@@ -12,4 +12,5 @@ wgpu-backend = []
 
 [dependencies]
 quajs_native_runtime = { path = "../quajs_native_runtime" }
+serde.workspace = true
 serde_json.workspace = true
