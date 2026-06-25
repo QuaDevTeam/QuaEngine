@@ -1,3 +1,7 @@
+use std::collections::BTreeMap;
+
+use quajs_native_runtime::NativeRendererIntent;
+
 use crate::render_graph::{DrawCommand, DrawCommandParams, RenderGraph, RendererIntent};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -25,4 +29,40 @@ pub fn renderer_intent_from_command(command: &DrawCommand) -> Option<RendererInt
         DrawCommandParams::UiSurface(params) if params.interactive => params.intent.clone(),
         _ => None,
     }
+}
+
+pub fn native_renderer_intent_from_hit(hit: &RendererIntentHit) -> NativeRendererIntent {
+    native_renderer_intent_from_renderer_intent(&hit.intent)
+}
+
+pub fn native_renderer_intent_from_renderer_intent(
+    intent: &RendererIntent,
+) -> NativeRendererIntent {
+    NativeRendererIntent {
+        r#type: intent.event.clone(),
+        payload_json: native_renderer_intent_payload_json(intent),
+    }
+}
+
+fn native_renderer_intent_payload_json(intent: &RendererIntent) -> Option<String> {
+    let mut payload = BTreeMap::new();
+
+    if let Some(action) = intent.action.as_deref() {
+        payload.insert("action", action);
+    }
+    if let Some(choice_id) = intent.choice_id.as_deref() {
+        payload.insert("choiceId", choice_id);
+    }
+    if let Some(element_id) = intent.element_id.as_deref() {
+        payload.insert("elementId", element_id);
+    }
+
+    if payload.is_empty() {
+        return None;
+    }
+
+    Some(
+        serde_json::to_string(&payload)
+            .expect("renderer intent payload contains only string fields"),
+    )
 }

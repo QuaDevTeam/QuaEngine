@@ -1,9 +1,12 @@
+use quajs_native_runtime::{NativeHostApi, NativeHostApiResult, NativeRendererIntent};
+
 use crate::audio::{
     plan_audio_backend_commands, plan_audio_backend_package_teardown_commands, NativeAudioBackend,
     NativeAudioBackendError, NativeAudioBackendResult, NullNativeAudioBackend,
 };
 use crate::input::{
-    NativePointerEvent, NativePointerEventResolution, PointerIntentResolution, RendererIntentHit,
+    native_renderer_intent_from_hit, NativePointerEvent, NativePointerEventResolution,
+    PointerIntentResolution, RendererIntentHit,
 };
 use crate::projection::view::ViewProjection;
 use crate::renderer::metrics::NativeRendererMetrics;
@@ -32,6 +35,12 @@ pub struct NativeRendererFrameResult {
 pub enum NativeRendererFrameError {
     Render(NativeRenderBackendError),
     Audio(NativeAudioBackendError),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NativeRendererPointerEventDispatch {
+    pub resolution: NativePointerEventResolution,
+    pub emitted_intent: Option<NativeRendererIntent>,
 }
 
 impl From<NativeRenderBackendError> for NativeRendererFrameError {
@@ -186,6 +195,32 @@ where
         event: NativePointerEvent,
     ) -> Option<NativePointerEventResolution> {
         self.state.pointer_event(event)
+    }
+
+    pub fn pointer_event_and_emit_intent<H>(
+        &mut self,
+        event: NativePointerEvent,
+        host: &mut H,
+    ) -> NativeHostApiResult<Option<NativeRendererPointerEventDispatch>>
+    where
+        H: NativeHostApi,
+    {
+        let Some(resolution) = self.pointer_event(event) else {
+            return Ok(None);
+        };
+
+        let emitted_intent = if let Some(hit) = &resolution.intent_to_dispatch {
+            let event = native_renderer_intent_from_hit(hit);
+            host.emit_renderer_intent(event.clone())?;
+            Some(event)
+        } else {
+            None
+        };
+
+        Ok(Some(NativeRendererPointerEventDispatch {
+            resolution,
+            emitted_intent,
+        }))
     }
 
     pub fn clear(&mut self) -> Vec<NativeResourceRecord> {

@@ -7,7 +7,10 @@ pub use event::{
     NativePointerEvent, NativePointerEventPhase, NativePointerEventResolution,
     NativePointerInteractionState, NativePointerPress,
 };
-pub use intent::{renderer_intent_from_command, resolve_renderer_intent_at, RendererIntentHit};
+pub use intent::{
+    native_renderer_intent_from_hit, native_renderer_intent_from_renderer_intent,
+    renderer_intent_from_command, resolve_renderer_intent_at, RendererIntentHit,
+};
 pub use pointer::{resolve_pointer_intent_at, PointerIntentResolution};
 
 #[cfg(test)]
