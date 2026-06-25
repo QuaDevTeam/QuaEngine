@@ -276,6 +276,7 @@ export type {
   ViewLayoutPreset,
   ViewLayoutProjection,
   ViewLayoutScaleMode,
+  RendererUiIntentPayload,
   ViewOverlayStackPlacement,
   ViewUiOverlayProjection,
   ViewVideoBackgroundProjection,

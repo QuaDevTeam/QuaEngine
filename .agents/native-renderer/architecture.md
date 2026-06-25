@@ -119,6 +119,7 @@ packages/native/
 - restricted runtime module loader。
 - trust policy / signature verification。
 - host 与 engine 的桥接。
+- native renderer intent bridge：把 Rust `NativeRendererIntent` 的 `choice/select` 转成 `USER_CHOICE_SELECT`，把 `ui/intent` 保留为通用 UI intent，并只对约定的 `open` / `close` / `update` action 转成现有 UI overlay request 事件。
 
 ## 动态包策略
 

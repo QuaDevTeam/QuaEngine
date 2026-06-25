@@ -1,7 +1,9 @@
 import type { EngineContext, EnginePlugin } from '@quajs/engine'
-import { LogicToRenderEvents, onLogicToRender } from '@quajs/engine'
+import { emitRenderToLogic, LogicToRenderEvents, onLogicToRender, RenderToLogicEvents } from '@quajs/engine'
+import type { NativeRendererIntentBridgeDisposer } from './renderer-intents'
 import type {
   ExclusiveTargetBootstrapValidationResult,
+  NativeRendererIntent,
   NativeQuickJsModuleNamespaceRecord,
   QuaNativeHostApi,
   QuaNativeHostInfo,
@@ -10,6 +12,7 @@ import type {
   TargetBundleManifestValidationResult,
 } from '@quajs/native-contracts'
 import { validateExclusiveTargetBootstrap, validateTargetBundleManifest } from '@quajs/native-contracts'
+import { installNativeRendererIntentBridge } from './renderer-intents'
 
 export interface NativeHostPluginOptions {
   host: QuaNativeHostApi
@@ -26,6 +29,8 @@ export class NativeHostPlugin implements EnginePlugin {
   private targetBootstrapValidation?: ExclusiveTargetBootstrapValidationResult
   private targetBundleManifestValidation?: TargetBundleManifestValidationResult
   private releasedQuickJsPackages: NativeQuickJsModuleNamespaceRecord[] = []
+  private rendererIntentErrors: Error[] = []
+  private disposeRendererIntentBridge?: NativeRendererIntentBridgeDisposer
   private disposeRuntimePackageUnloadListener?: () => void
 
   constructor(private readonly options: NativeHostPluginOptions) {
@@ -38,6 +43,16 @@ export class NativeHostPlugin implements EnginePlugin {
     this.validateNativeManifestCompatibility(hostInfo)
     this.hostInfo = hostInfo
     if (context.pipeline) {
+      this.disposeRendererIntentBridge?.()
+      this.disposeRendererIntentBridge = installNativeRendererIntentBridge(
+        this.options.host,
+        context.pipeline,
+        {
+          onError: (error, event) => {
+            void this.recordRendererIntentError(context.pipeline!, error, event)
+          },
+        },
+      )
       this.disposeRuntimePackageUnloadListener?.()
       this.disposeRuntimePackageUnloadListener = onLogicToRender(
         context.pipeline,
@@ -48,6 +63,8 @@ export class NativeHostPlugin implements EnginePlugin {
   }
 
   destroy(): void {
+    this.disposeRendererIntentBridge?.()
+    this.disposeRendererIntentBridge = undefined
     this.disposeRuntimePackageUnloadListener?.()
     this.disposeRuntimePackageUnloadListener = undefined
   }
@@ -58,6 +75,10 @@ export class NativeHostPlugin implements EnginePlugin {
 
   getReleasedQuickJsPackageNamespaces(): NativeQuickJsModuleNamespaceRecord[] {
     return [...this.releasedQuickJsPackages]
+  }
+
+  getRendererIntentErrors(): Error[] {
+    return [...this.rendererIntentErrors]
   }
 
   getTargetBootstrapValidation(): ExclusiveTargetBootstrapValidationResult | undefined {
@@ -109,6 +130,30 @@ export class NativeHostPlugin implements EnginePlugin {
       return
     const released = await this.options.host.releaseQuickJsPackageNamespaces(packageId)
     this.releasedQuickJsPackages.push(...released)
+  }
+
+  private async recordRendererIntentError(
+    pipeline: NonNullable<EngineContext['pipeline']>,
+    error: unknown,
+    event: NativeRendererIntent,
+  ): Promise<void> {
+    const normalized = error instanceof Error ? error : new Error(String(error))
+    this.rendererIntentErrors.push(normalized)
+    await emitRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, {
+      message: normalized.message,
+      error: {
+        name: normalized.name,
+        message: normalized.message,
+        stack: normalized.stack,
+      },
+      source: 'native-renderer',
+      phase: 'renderer-intent',
+      recoverable: true,
+      timestamp: Date.now(),
+      metadata: {
+        nativeIntentType: event.type,
+      },
+    })
   }
 }
 
