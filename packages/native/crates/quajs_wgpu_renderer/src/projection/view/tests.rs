@@ -16,6 +16,8 @@ use crate::stage_layout::{
     ViewLayoutOrientation,
 };
 
+mod serde_contract;
+
 #[test]
 fn builds_empty_view_graph() {
     let layout = test_layout();

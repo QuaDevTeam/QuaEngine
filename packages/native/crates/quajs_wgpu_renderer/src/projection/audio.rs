@@ -1,6 +1,11 @@
 use crate::projection::common::PackageProvenance;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+
+use crate::projection::defaults::default_one_f32;
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum AudioTrackKind {
     Bgm,
     Voice,
@@ -19,37 +24,63 @@ impl AudioTrackKind {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum AudioTrackPlaybackState {
     Playing,
     Paused,
     Stopped,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+impl Default for AudioTrackPlaybackState {
+    fn default() -> Self {
+        Self::Playing
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum AudioTrackLoadMode {
     Buffered,
     Streamed,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+impl Default for AudioTrackLoadMode {
+    fn default() -> Self {
+        Self::Buffered
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AudioTrackMemoryEstimate {
+    #[serde(default)]
     pub buffer_cpu_bytes: u64,
+    #[serde(default)]
     pub stream_cpu_bytes: u64,
+    #[serde(default)]
     pub handle_cpu_bytes: u64,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AudioTrackProjection {
     pub id: String,
     pub kind: AudioTrackKind,
     pub asset_name: String,
+    #[serde(default = "default_audio_asset_type")]
     pub asset_type: String,
+    #[serde(default)]
     pub load_mode: AudioTrackLoadMode,
+    #[serde(default)]
     pub playback_state: AudioTrackPlaybackState,
+    #[serde(default)]
     pub looped: bool,
+    #[serde(default = "default_one_f32")]
     pub volume: f32,
+    #[serde(default)]
     pub memory: AudioTrackMemoryEstimate,
+    #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
     pub provenance: PackageProvenance,
 }
 
@@ -85,8 +116,10 @@ impl AudioTrackProjection {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AudioProjection {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tracks: Vec<AudioTrackProjection>,
 }
 
@@ -94,4 +127,8 @@ impl AudioProjection {
     pub fn new(tracks: Vec<AudioTrackProjection>) -> Self {
         Self { tracks }
     }
+}
+
+fn default_audio_asset_type() -> String {
+    "bgm".to_string()
 }

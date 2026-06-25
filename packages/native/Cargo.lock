@@ -107,6 +107,7 @@ name = "quajs_wgpu_renderer"
 version = "0.1.0"
 dependencies = [
  "quajs_native_runtime",
+ "serde",
  "serde_json",
 ]
 
