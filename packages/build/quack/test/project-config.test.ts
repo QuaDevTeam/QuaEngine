@@ -472,6 +472,44 @@ describe('qua project config', () => {
     }
   })
 
+  it('rejects cross-target core adapters for Web, Cocos, and native manifests before writing', async () => {
+    const root = await createProjectRoot()
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const artifactDir = join(root, 'dist', `leak-${target}`)
+      const manifestPath = join(artifactDir, QUA_TARGET_BUNDLE_MANIFEST_FILE)
+      const foreignCoreAdapters = foreignCoreAdaptersForTarget(target)
+      const cleanManifest = createTargetBundleManifestFixture(target)
+      const manifest: TargetBundleManifest = {
+        ...cleanManifest,
+        dependencies: [
+          ...(cleanManifest.dependencies || []),
+          ...foreignCoreAdapters,
+        ],
+      }
+      const validation = validateTargetBundleManifest(manifest, { expectedTarget: target })
+
+      expect(validation.ok).toBe(false)
+      for (const packageName of foreignCoreAdapters) {
+        expect(validation.diagnostics).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            code: 'TARGET_CORE_ADAPTER_FORBIDDEN',
+            target,
+            packageName,
+          }),
+        ]))
+      }
+
+      await expect(emitQuaTargetBundleManifest({
+        artifactDir,
+        expectedTarget: target,
+        manifest,
+        manifestPath,
+      })).rejects.toThrow('Target bundle manifest validation failed')
+      await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+    }
+  })
+
   it('rejects target bundle manifests before writing when the expected target does not match', async () => {
     const root = await createProjectRoot()
     const manifestPath = join(root, 'dist/native', QUA_TARGET_BUNDLE_MANIFEST_FILE)
@@ -705,6 +743,12 @@ function rendererEntryForTarget(target: QuaTargetBootstrap): string {
     case 'native':
       return '@quajs/native-renderer/builtin'
   }
+}
+
+function foreignCoreAdaptersForTarget(target: QuaTargetBootstrap): string[] {
+  return (Object.keys(CORE_ADAPTERS_BY_TARGET) as QuaTargetBootstrap[])
+    .filter(candidate => candidate !== target)
+    .flatMap(candidate => CORE_ADAPTERS_BY_TARGET[candidate])
 }
 
 async function writeProjectConfig(root: string, lines: string[]): Promise<string> {
