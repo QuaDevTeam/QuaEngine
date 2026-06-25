@@ -1,4 +1,5 @@
 import type {
+  NativeQuiAstNode,
   NativeQuiDocument,
   NativeQuiImport,
   NativeQuiNode,
@@ -26,8 +27,6 @@ import {
 
 const IMPORT_PATTERN = /^\s*import\s+(style|tokens|component)\s+(['"])([^'"]+)\2\s*;?\s*$/
 const IMPORT_START_PATTERN = /^\s*import\b/
-const COMPONENT_PATTERN = /\b([A-Z][A-Za-z0-9_]*)\b(?=\s*(?:[.{(]|$))/g
-const NODE_CLASS_PATTERN = /^([A-Z][A-Za-z0-9_]*)(\.[A-Za-z_][\w-]*)+/
 
 export function analyzeQuiSource(source: string, options: NativeUiLanguageOptions = {}): NativeQuiDocument {
   const lineStarts = createLineStarts(source)
@@ -36,10 +35,10 @@ export function analyzeQuiSource(source: string, options: NativeUiLanguageOption
     ...collectBalancedDelimiterDiagnostics(source, lineStarts, 'qui'),
   ]
   const imports = collectQuiImports(source, lineStarts, diagnostics)
-  const nodes = collectQuiNodes(source, masked, lineStarts)
   const props = collectQuiProps(source, masked, lineStarts)
   const actions = collectQuiActionDescriptors(props)
   const tree = parseQuiStructureTree(source, masked, lineStarts)
+  const nodes = collectQuiNodesFromTree(tree)
 
   validateQuiProps(props, diagnostics)
   validateQuiStructure(source, masked, lineStarts, diagnostics)
@@ -198,33 +197,29 @@ function collectQuiImports(
   return imports
 }
 
-function collectQuiNodes(
-  source: string,
-  masked: string,
-  lineStarts: readonly number[],
-): NativeQuiNode[] {
+function collectQuiNodesFromTree(tree: readonly NativeQuiAstNode[]): NativeQuiNode[] {
   const nodes: NativeQuiNode[] = []
-  const seen = new Set<number>()
-  let match: RegExpExecArray | null
-
-  while ((match = COMPONENT_PATTERN.exec(masked))) {
-    const start = match.index
-    if (seen.has(start))
-      continue
-    seen.add(start)
-
-    const classMatch = NODE_CLASS_PATTERN.exec(source.slice(start, Math.min(source.length, start + 120)))
+  visitQuiAstNodes(tree, (node) => {
+    if (node.kind !== 'component')
+      return
     nodes.push({
-      name: match[1],
-      classes: classMatch
-        ? classMatch[0].split('.').slice(1)
-        : [],
-      nameRange: rangeFromOffsets(lineStarts, start, start + match[1].length),
-      range: rangeFromOffsets(lineStarts, start, start + (classMatch?.[0].length || match[1].length)),
+      classes: node.classes,
+      name: node.name,
+      nameRange: node.nameRange,
+      range: node.range,
     })
-  }
-
+  })
   return nodes
+}
+
+function visitQuiAstNodes(
+  nodes: readonly NativeQuiAstNode[],
+  visit: (node: NativeQuiAstNode) => void,
+): void {
+  for (const node of nodes) {
+    visit(node)
+    visitQuiAstNodes(node.children, visit)
+  }
 }
 
 function validateQuiImports(imports: readonly NativeQuiImport[], diagnostics: NativeUiDiagnostic[]): void {
