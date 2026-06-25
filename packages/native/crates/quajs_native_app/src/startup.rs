@@ -1,8 +1,8 @@
 mod renderer_manifest;
 
 use quajs_native_runtime::{
-    current_platform, current_profile, NativeHostInfo, NativeHostInfoBuilder, NativePlatform,
-    NativeProfile,
+    current_platform, current_profile, quickjs_runtime_version, NativeHostInfo,
+    NativeHostInfoBuilder, NativePlatform, NativeProfile,
 };
 use quajs_wgpu_renderer::native_wgpu_capabilities;
 
@@ -61,6 +61,7 @@ fn create_host_info(config: NativeAppConfig) -> NativeHostInfo {
         .app_version(config.version)
         .build_number(config.build_number)
         .renderer_version(env!("CARGO_PKG_VERSION"))
+        .quickjs_version(quickjs_runtime_version())
         .native_runtime_version(env!("CARGO_PKG_VERSION"))
         .asset_adapter_version(env!("CARGO_PKG_VERSION"))
         .store_adapter_version(env!("CARGO_PKG_VERSION"))
@@ -149,6 +150,20 @@ mod tests {
             .renderer
             .capability_manifest_hash
             .starts_with("sha256:"));
+        assert_eq!(host_info.runtime.quickjs_version, quickjs_runtime_version());
+        assert_ne!(host_info.runtime.quickjs_version, "pending");
+        assert_eq!(
+            host_info.runtime.native_runtime_version,
+            env!("CARGO_PKG_VERSION")
+        );
+        assert_eq!(
+            host_info.runtime.asset_adapter_version,
+            env!("CARGO_PKG_VERSION")
+        );
+        assert_eq!(
+            host_info.runtime.store_adapter_version,
+            env!("CARGO_PKG_VERSION")
+        );
         assert!(host_info.has_capability("native-wgpu.ui.surface@1"));
         assert!(host_info.has_capability("native-wgpu.input.pointer@1"));
     }

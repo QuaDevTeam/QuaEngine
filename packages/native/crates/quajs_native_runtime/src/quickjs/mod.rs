@@ -7,6 +7,15 @@ pub use registry::{
     QuickJsModuleNamespaceSummary,
 };
 
+pub const UNSUPPORTED_QUICKJS_VERSION: &str = "unsupported";
+
+pub fn quickjs_runtime_version() -> &'static str {
+    match option_env!("QUA_NATIVE_QUICKJS_VERSION") {
+        Some(version) if !version.trim().is_empty() => version,
+        _ => UNSUPPORTED_QUICKJS_VERSION,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum QuickJsRuntimeModuleKind {

@@ -15,10 +15,10 @@ pub use host::{
 };
 pub use quickjs::{
     evaluate_quickjs_module, evaluate_quickjs_module_with_registry,
-    is_forbidden_runtime_module_asset_name, quickjs_module_namespace_id,
+    is_forbidden_runtime_module_asset_name, quickjs_module_namespace_id, quickjs_runtime_version,
     validate_quickjs_evaluation_request, QuickJsEvaluationError, QuickJsEvaluationErrorCode,
     QuickJsEvaluationRequest, QuickJsEvaluationResponse, QuickJsEvaluationResult,
     QuickJsModuleEvaluator, QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry,
     QuickJsModuleNamespaceSummary, QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord,
-    QuickJsSandboxLimits, UnsupportedQuickJsModuleEvaluator,
+    QuickJsSandboxLimits, UnsupportedQuickJsModuleEvaluator, UNSUPPORTED_QUICKJS_VERSION,
 };
