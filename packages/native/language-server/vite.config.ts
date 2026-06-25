@@ -24,7 +24,7 @@ export default defineConfig({
       external: [
         '@quajs/native-ui-compiler',
         'node:url',
-        'vscode-languageserver/node',
+        'vscode-languageserver/node.js',
         'vscode-languageserver-textdocument',
       ],
       output: {

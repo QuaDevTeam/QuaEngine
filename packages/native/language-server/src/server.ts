@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 
 import type {
+  DocumentLink,
   InitializeParams,
+  Location,
+  Position,
   Range,
+  ReferenceParams,
   TextEdit,
-} from 'vscode-languageserver/node'
+} from 'vscode-languageserver/node.js'
 import type {
   NativeUiDiagnostic,
   NativeUiLanguageOptions,
@@ -19,11 +23,14 @@ import {
   ProposedFeatures,
   TextDocuments,
   TextDocumentSyncKind,
-} from 'vscode-languageserver/node'
+} from 'vscode-languageserver/node.js'
 import {
+  buildNativeUiProjectIndex,
+  findNativeUiProjectReferences,
   formatNativeUiDocumentEdits,
   getNativeUiLanguageCompletions,
   getNativeUiLanguageHover,
+  getNativeUiProjectDocumentLinks,
   lintNativeUiDocument,
   uriToFilePath,
 } from './index'
@@ -59,6 +66,10 @@ connection.onInitialize((params: InitializeParams) => {
         triggerCharacters: ['.', '#', ':', '-', '(', '{', ';', '"', '\''],
       },
       hoverProvider: true,
+      documentLinkProvider: {
+        resolveProvider: false,
+      },
+      referencesProvider: true,
       documentFormattingProvider: true,
     },
   }
@@ -114,6 +125,26 @@ connection.onDocumentFormatting((params) => {
     .map(toLspTextEdit)
 })
 
+connection.onDocumentLinks((params) => {
+  return getNativeUiProjectDocumentLinks(currentProjectIndex(), params.textDocument.uri)
+    .map(toLspDocumentLink)
+})
+
+connection.onReferences((params) => {
+  const index = currentProjectIndex()
+  const target = findReferenceAtPosition(index, params)
+  if (!target)
+    return []
+
+  return findNativeUiProjectReferences(index, {
+    kind: target.kind,
+    name: target.name,
+  }).map((reference): Location => ({
+    range: toLspRange(reference.range),
+    uri: reference.uri,
+  }))
+})
+
 connection.onDidChangeConfiguration((params) => {
   workspaceSettings = normalizeSettings((params.settings as { quaNative?: unknown } | undefined)?.quaNative)
   validateAllOpenDocuments()
@@ -136,6 +167,21 @@ function validateDocument(document: TextDocument): void {
 
 function validateAllOpenDocuments(): void {
   documents.all().forEach(validateDocument)
+}
+
+function currentProjectIndex() {
+  const settings = currentSettings()
+  return buildNativeUiProjectIndex(documents.all().map(document => ({
+    filePath: uriToFilePath(document.uri),
+    languageId: document.languageId,
+    source: document.getText(),
+    uri: document.uri,
+    version: document.version,
+  })), {
+    language: {
+      lint: settings.lint,
+    },
+  })
 }
 
 function documentOptions(document: TextDocument): NativeUiLanguageOptions {
@@ -181,6 +227,16 @@ function toLspTextEdit(edit: NativeUiTextEdit): TextEdit {
   return {
     newText: edit.newText,
     range: toLspRange(edit.range),
+  }
+}
+
+function toLspDocumentLink(link: ReturnType<typeof getNativeUiProjectDocumentLinks>[number]): DocumentLink {
+  return {
+    range: toLspRange(link.pathRange),
+    target: link.targetUri,
+    tooltip: link.resolved
+      ? `Open ${link.path}`
+      : `Missing ${link.path}`,
   }
 }
 
@@ -242,6 +298,23 @@ function toCompletionKind(kind: string): CompletionItemKind {
     default:
       return CompletionItemKind.Text
   }
+}
+
+function findReferenceAtPosition(
+  index: ReturnType<typeof currentProjectIndex>,
+  params: ReferenceParams,
+) {
+  return findNativeUiProjectReferences(index, {
+    uri: params.textDocument.uri,
+  }).find(reference => containsPosition(reference.range, params.position))
+}
+
+function containsPosition(range: NativeUiRangeForServer, position: Position): boolean {
+  return comparePosition(position, range.start) >= 0 && comparePosition(position, range.end) <= 0
+}
+
+function comparePosition(left: Position, right: Position): number {
+  return left.line - right.line || left.character - right.character
 }
 
 interface NativeUiRangeForServer {
