@@ -33,6 +33,7 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 - Cocos artifact 只能包含 Cocos host/renderer adapter。
 - Native artifact 只能包含 `engine-native`、`assets-native`、`store-native`、native contracts 元数据和 Rust native app/runtime/renderer。
 - 普通 game/plugin 解析只能消费已经选好的 `TargetCoreSelection`，不能拿一个三端全集再靠运行时过滤。
+- 普通 game/plugin 列表必须先通过 `validateOrdinaryPluginListTargetIsolation`，任何 Web / Cocos / Native target core 根包或子入口都不能出现在 `plugins`、shared preset 或 generated resolver 里。
 - Runtime QPK 可声明多端 compatibility metadata，但 active artifact 只能评估当前 target block；QPK 不允许声明或携带任何 target core executable dependency。
 
 native 包装必须始终通过：
