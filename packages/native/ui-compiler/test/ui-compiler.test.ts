@@ -18,6 +18,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('background-color')
     expect(nativeWgpuQssFeatureNames()).toContain('object-fit')
     expect(nativeWgpuQssFeatureNames()).toContain('opacity')
+    expect(nativeWgpuQssFeatureNames()).toContain('z-index')
     expect(nativeWgpuQssFeatureNames()).not.toContain('padding')
   })
 
@@ -215,6 +216,17 @@ Panel {
 
     expect(document.diagnostics).toEqual([])
     expect(document.rules[0].declarations.map(item => item.name)).toContain('opacity')
+  })
+
+  it('accepts z-index as native-wgpu projection metadata', () => {
+    const document = analyzeQssSource(`
+Layer {
+  z-index: 10;
+}
+`)
+
+    expect(document.diagnostics).toEqual([])
+    expect(document.rules[0].declarations.map(item => item.name)).toContain('z-index')
   })
 
   it('rejects browser-only QSS selectors and values', () => {

@@ -90,6 +90,7 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(ui.qss_features.contains(&"text-align".to_string()));
     assert!(ui.qss_features.contains(&"object-fit".to_string()));
     assert!(ui.qss_features.contains(&"opacity".to_string()));
+    assert!(ui.qss_features.contains(&"z-index".to_string()));
     assert!(ui.qui_components.contains(&"Backdrop".to_string()));
     assert!(ui.qui_components.contains(&"Button".to_string()));
     assert!(ui.qui_components.contains(&"Column".to_string()));

@@ -68,6 +68,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "text-align",
                 "object-fit",
                 "opacity",
+                "z-index",
             ],
             &[
                 "Box", "Backdrop", "Button", "Column", "Divider", "Fragment", "Grid", "Layer",
