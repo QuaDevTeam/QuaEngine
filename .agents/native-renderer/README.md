@@ -41,6 +41,7 @@
 4. QUI / QSS 的编译、诊断、补全、格式化都在 TS 工具链层完成。
 5. Rust renderer 只接收 resolved AST / IR / capability metadata。
 6. base component 要尽量小，dialog / drawer / save-load / settings 之类上层 UI 用 composite 组装。
+7. 打包流程必须 target-first：先确定 Web、Cocos 或 Native，再解析普通插件；不能先加载三端核心插件全集再靠过滤输出。
 
 ## 文档索引
 

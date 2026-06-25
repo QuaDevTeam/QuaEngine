@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildNativeUiProjectIndex,
   formatNativeUiDocumentEdits,
   getNativeUiLanguageCompletions,
   getNativeUiLanguageHover,
   lintNativeUiDocument,
+  updateNativeUiProjectIndex,
 } from '../src'
 
 describe('@quajs/native-language-server', () => {
@@ -56,5 +58,89 @@ describe('@quajs/native-language-server', () => {
     expect(completions.some(item => item.label === 'Button')).toBe(true)
     expect(hover?.contents).toContain('Button')
     expect(hover?.contents).toContain('Content: children')
+  })
+
+  it('builds an in-memory project index for QUI and QSS authoring files', () => {
+    const index = buildNativeUiProjectIndex([
+      {
+        uri: 'file:///project/menu.qui',
+        source: 'import style "./menu.qss";\nPanel.dialog { slot body { Button(action: ui.close()) { Text { "Close" } } } }',
+      },
+      {
+        uri: 'file:///project/menu.qss',
+        source: 'Panel.dialog { color: #fff; opacity: 0.8; }',
+      },
+      {
+        uri: 'file:///project/readme.md',
+        source: '# ignored',
+      },
+    ], {
+      language: {
+        lint: {
+          strictComponents: true,
+        },
+      },
+    })
+
+    expect(index.summary).toEqual({
+      classes: 1,
+      componentImports: 0,
+      components: 3,
+      diagnostics: 0,
+      documentBytes: expect.any(Number),
+      documentCount: 2,
+      qssDeclarations: 2,
+      qssDocumentCount: 1,
+      qssRules: 1,
+      quiDocumentCount: 1,
+      skippedDocumentCount: 1,
+      styleImports: 1,
+      tokenImports: 0,
+    })
+    expect(index.documents.map(document => document.uri)).toEqual([
+      'file:///project/menu.qss',
+      'file:///project/menu.qui',
+    ])
+    expect(index.skippedDocuments).toEqual(['file:///project/readme.md'])
+  })
+
+  it('updates a native UI project index incrementally', () => {
+    const initial = buildNativeUiProjectIndex([
+      {
+        uri: 'file:///project/menu.qui',
+        source: 'Panel { slot body { Text { "Ready" } } }',
+      },
+      {
+        uri: 'file:///project/menu.qss',
+        source: 'Panel { color: #fff; }',
+      },
+    ])
+    const unchangedQss = initial.documents.find(document => document.uri.endsWith('menu.qss'))
+    const updated = updateNativeUiProjectIndex(initial, [
+      {
+        uri: 'file:///project/menu.qui',
+        source: 'Panel { slot body { Text(if: ready = true) { "Ready" } } }',
+        version: 2,
+      },
+    ])
+
+    expect(updated.summary.diagnostics).toBe(1)
+    expect(updated.documents.find(document => document.uri.endsWith('menu.qui'))?.version).toBe(2)
+    expect(updated.documents.find(document => document.uri.endsWith('menu.qss'))).toBe(unchangedQss)
+
+    const noOp = updateNativeUiProjectIndex(initial, [
+      {
+        uri: 'file:///project/menu.qss',
+      },
+    ])
+    expect(noOp.documents.find(document => document.uri.endsWith('menu.qss'))).toBe(unchangedQss)
+
+    const deleted = updateNativeUiProjectIndex(updated, [
+      {
+        deleted: true,
+        uri: 'file:///project/menu.qss',
+      },
+    ])
+    expect(deleted.summary.qssDocumentCount).toBe(0)
   })
 })

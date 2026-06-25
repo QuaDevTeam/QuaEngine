@@ -15,6 +15,8 @@ describe('@quajs/native-benchmarks', () => {
       'native.authoring.qui.format.smoke',
       'native.authoring.qss.format.smoke',
       'native.authoring.completion_hover.smoke',
+      'native.authoring.project_index.build.smoke',
+      'native.authoring.project_index.incremental_update.smoke',
     ])
     expect(assertNativeBenchmarkSmokeThresholds(records)).toEqual([])
 

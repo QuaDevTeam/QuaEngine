@@ -14,6 +14,18 @@ import {
 } from '@quajs/native-ui-compiler'
 
 export type {
+  NativeUiProjectFile,
+  NativeUiProjectIndex,
+  NativeUiProjectIndexChange,
+  NativeUiProjectIndexedDocument,
+  NativeUiProjectIndexOptions,
+  NativeUiProjectIndexSummary,
+} from './project-index'
+export {
+  buildNativeUiProjectIndex,
+  updateNativeUiProjectIndex,
+} from './project-index'
+export type {
   NativeUiCompletionItem,
   NativeUiDiagnostic,
   NativeUiDocument,
@@ -23,10 +35,6 @@ export type {
 } from '@quajs/native-ui-compiler'
 
 export {
-  QUA_STYLE_FILE_EXTENSIONS,
-  QUA_STYLE_LANGUAGE_ID,
-  QUA_UI_FILE_EXTENSIONS,
-  QUA_UI_LANGUAGE_ID,
   analyzeNativeUiDocument,
   detectNativeUiDocumentKind,
   getNativeUiCompletions,
@@ -37,6 +45,10 @@ export {
   nativeUiComponents,
   nativeWgpuQssFeatureNames,
   nativeWgpuQuiComponentNames,
+  QUA_STYLE_FILE_EXTENSIONS,
+  QUA_STYLE_LANGUAGE_ID,
+  QUA_UI_FILE_EXTENSIONS,
+  QUA_UI_LANGUAGE_ID,
 } from '@quajs/native-ui-compiler'
 
 export interface NativeUiLintResult {

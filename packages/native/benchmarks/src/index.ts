@@ -2,10 +2,12 @@ import { Buffer } from 'node:buffer'
 import { performance } from 'node:perf_hooks'
 import process from 'node:process'
 import {
+  buildNativeUiProjectIndex,
   formatNativeUiDocumentEdits,
   getNativeUiLanguageCompletions,
   getNativeUiLanguageHover,
   lintNativeUiDocument,
+  updateNativeUiProjectIndex,
 } from '@quajs/native-language-server'
 import {
   analyzeNativeUiDocument,
@@ -13,7 +15,10 @@ import {
   getNativeUiCompletions,
   getNativeUiHover,
 } from '@quajs/native-ui-compiler'
-import { createNativeAuthoringBenchmarkFixtures } from './fixtures'
+import {
+  createNativeAuthoringBenchmarkFixtures,
+  createUpdatedQuiProjectSource,
+} from './fixtures'
 
 export const NATIVE_BENCHMARK_SCHEMA_VERSION = 1
 export const NATIVE_BENCHMARK_PACKAGE_VERSION = '0.1.0'
@@ -67,6 +72,15 @@ export function runNativeAuthoringSmokeBenchmarks(
   const quiHoverOffset = fixtures.qui.indexOf('Button')
   const qssCompletionOffset = fixtures.qss.indexOf('background-color')
   const qssHoverOffset = fixtures.qss.indexOf('border-radius')
+  const projectIndexOptions = {
+    language: {
+      lint: {
+        strictComponents: true,
+      },
+    },
+  } as const
+  const projectDocumentBytes = fixtures.projectFiles.reduce((total, file) => total + byteLength(file.source), 0)
+  const initialProjectIndex = buildNativeUiProjectIndex(fixtures.projectFiles, projectIndexOptions)
 
   const definitions: BenchmarkDefinition[] = [
     {
@@ -247,6 +261,70 @@ export function runNativeAuthoringSmokeBenchmarks(
         }
       },
     },
+    {
+      bench: 'native.authoring.project_index.build.smoke',
+      defaultIterations: 6,
+      documentBytes: projectDocumentBytes,
+      run(iterations) {
+        let checksum = 0
+        let diagnostics = 0
+        let documentCount = 0
+        let qssRules = 0
+        for (let index = 0; index < iterations; index += 1) {
+          const projectIndex = buildNativeUiProjectIndex(fixtures.projectFiles, projectIndexOptions)
+          diagnostics += projectIndex.summary.diagnostics
+          documentCount += projectIndex.summary.documentCount
+          qssRules += projectIndex.summary.qssRules
+          checksum += projectIndex.summary.documentBytes
+            + projectIndex.summary.components
+            + projectIndex.summary.qssDeclarations
+        }
+        return {
+          checksum,
+          diagnostics,
+          metrics: {
+            documentCount,
+            qssRules,
+          },
+        }
+      },
+    },
+    {
+      bench: 'native.authoring.project_index.incremental_update.smoke',
+      defaultIterations: 48,
+      documentBytes: projectDocumentBytes,
+      run(iterations) {
+        let checksum = 0
+        let diagnostics = 0
+        let documentCount = 0
+        let qssRules = 0
+        let projectIndex = initialProjectIndex
+        const targetFile = fixtures.projectFiles[0]
+        for (let index = 0; index < iterations; index += 1) {
+          projectIndex = updateNativeUiProjectIndex(projectIndex, [
+            {
+              ...targetFile,
+              source: createUpdatedQuiProjectSource(targetFile.source, index),
+              version: index + 2,
+            },
+          ], projectIndexOptions)
+          diagnostics += projectIndex.summary.diagnostics
+          documentCount += projectIndex.summary.documentCount
+          qssRules += projectIndex.summary.qssRules
+          checksum += projectIndex.summary.documentBytes
+            + projectIndex.summary.components
+            + projectIndex.summary.qssDeclarations
+        }
+        return {
+          checksum,
+          diagnostics,
+          metrics: {
+            documentCount,
+            qssRules,
+          },
+        }
+      },
+    },
   ]
 
   return definitions.map(definition => runDefinition(definition, options.iterations))
@@ -313,6 +391,8 @@ function positionAtOffset(source: string, offset: number): { character: number, 
 function smokeThresholdMs(bench: string): number {
   if (bench.includes('completion_hover'))
     return 1500
+  if (bench.includes('project_index'))
+    return 3000
   if (bench.includes('format'))
     return 2500
   return 3000
