@@ -231,35 +231,56 @@ describe('target plugin manifest validation', () => {
     ])
   })
 
-  it('rejects active target entries that import another target core adapter', () => {
-    const result = validateTargetPluginManifest({
-      target: 'native',
-      manifest: createPluginManifest({
-        entries: [
-          { specifier: '@quajs/plugin-backlog/shared', target: 'shared' },
-          {
-            specifier: '@quajs/plugin-backlog/native',
-            target: 'native',
-            imports: [
-              '@quajs/engine-native',
-              '@quajs/renderer-web/plugins/backlog',
-              '@quajs/cocos-host/runtime',
-            ],
-          },
-        ],
-      }),
-    })
+  it('rejects active target entries that import foreign target core adapters for every target', () => {
+    const cases = [
+      {
+        target: 'web',
+        ownCore: '@quajs/renderer-web/plugins/backlog',
+        foreignCoreImports: ['@quajs/cocos-host/runtime', '@quajs/engine-native/native-host'],
+        packageNames: ['@quajs/cocos-host', '@quajs/engine-native'],
+      },
+      {
+        target: 'cocos',
+        ownCore: '@quajs/renderer-cocos/plugins/backlog',
+        foreignCoreImports: ['@quajs/renderer-web/plugins/backlog', '@quajs/assets-native'],
+        packageNames: ['@quajs/renderer-web', '@quajs/assets-native'],
+      },
+      {
+        target: 'native',
+        ownCore: '@quajs/engine-native',
+        foreignCoreImports: ['@quajs/renderer-web/plugins/backlog', '@quajs/cocos-host/runtime'],
+        packageNames: ['@quajs/renderer-web', '@quajs/cocos-host'],
+      },
+    ] as const
 
-    expect(result.ok).toBe(false)
-    expect(result.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        code: 'TARGET_PLUGIN_TARGET_ENTRY_FOREIGN_CORE_IMPORT',
-        packageName: '@quajs/renderer-web',
-      }),
-      expect.objectContaining({
-        code: 'TARGET_PLUGIN_TARGET_ENTRY_FOREIGN_CORE_IMPORT',
-        packageName: '@quajs/cocos-host',
-      }),
-    ]))
+    for (const { target, ownCore, foreignCoreImports, packageNames } of cases) {
+      const result = validateTargetPluginManifest({
+        target,
+        manifest: createPluginManifest({
+          entries: [
+            { specifier: '@quajs/plugin-backlog/shared', target: 'shared' },
+            {
+              specifier: `@quajs/plugin-backlog/${target}`,
+              target,
+              imports: [
+                ownCore,
+                ...foreignCoreImports,
+              ],
+            },
+          ],
+        }),
+      })
+
+      expect(result.ok).toBe(false)
+      for (const packageName of packageNames) {
+        expect(result.diagnostics).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            code: 'TARGET_PLUGIN_TARGET_ENTRY_FOREIGN_CORE_IMPORT',
+            target,
+            packageName,
+          }),
+        ]))
+      }
+    }
   })
 })
