@@ -204,7 +204,7 @@ function indexedDocumentFromNativeDocument(
 
   return {
     classReferences: [
-      ...classReferencesFromQui(quiComponentNodes),
+      ...classReferencesFromQui(quiComponentNodes, document.source),
       ...(qss ? classReferencesFromQss(qss) : []),
     ],
     classes: uniqueSorted(quiComponentNodes.flatMap(node => node.classes)),
@@ -306,12 +306,40 @@ function componentReferencesFromQui(nodes: readonly NativeQuiAstNode[]): NativeU
   }))
 }
 
-function classReferencesFromQui(nodes: readonly NativeQuiAstNode[]): NativeUiProjectClassReference[] {
-  return nodes.flatMap(node => node.classes.map(name => ({
+function classReferencesFromQui(
+  nodes: readonly NativeQuiAstNode[],
+  source: string,
+): NativeUiProjectClassReference[] {
+  return nodes.flatMap(node => classReferenceRangesFromQuiNode(node, source).map(({ name, range }) => ({
     name,
-    range: node.nameRange,
+    range,
     source: 'qui-node' as const,
   })))
+}
+
+function classReferenceRangesFromQuiNode(
+  node: NativeQuiAstNode,
+  source: string,
+): Array<{ name: string, range: NativeUiRange }> {
+  const references: Array<{ name: string, range: NativeUiRange }> = []
+  let cursor = offsetAtPosition(source, node.nameRange.end)
+
+  for (const name of node.classes) {
+    if (source[cursor] !== '.') {
+      references.push({ name, range: node.nameRange })
+      continue
+    }
+
+    const start = cursor + 1
+    const end = start + name.length
+    references.push({
+      name,
+      range: rangeFromRelativeOffsets({ line: 0, character: 0 }, source, start, end),
+    })
+    cursor = end
+  }
+
+  return references
 }
 
 function idReferencesFromQui(nodes: readonly NativeQuiAstNode[]): NativeUiProjectIdReference[] {
@@ -393,6 +421,22 @@ function rangeFromRelativeOffsets(
     start: positionFromRelativeOffset(startPosition, text, startOffset),
     end: positionFromRelativeOffset(startPosition, text, endOffset),
   }
+}
+
+function offsetAtPosition(source: string, position: NativeUiRange['start']): number {
+  const lineStarts = createLineStartOffsets(source)
+  const line = Math.max(0, Math.min(position.line, lineStarts.length - 1))
+  const nextLineStart = lineStarts[line + 1] ?? source.length
+  return Math.min(lineStarts[line] + Math.max(0, position.character), nextLineStart)
+}
+
+function createLineStartOffsets(source: string): number[] {
+  const starts = [0]
+  for (let index = 0; index < source.length; index += 1) {
+    if (source.charCodeAt(index) === 10)
+      starts.push(index + 1)
+  }
+  return starts
 }
 
 function positionFromRelativeOffset(
