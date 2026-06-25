@@ -1,3 +1,4 @@
+import type { NativeQuiAstNode } from '@quajs/native-ui-compiler'
 import { Buffer } from 'node:buffer'
 import { performance } from 'node:perf_hooks'
 import process from 'node:process'
@@ -89,6 +90,10 @@ export function runNativeAuthoringSmokeBenchmarks(
       documentBytes: byteLength(fixtures.qui),
       run(iterations) {
         let checksum = 0
+        let actions = 0
+        let astComponents = 0
+        let astNodes = 0
+        let astSlots = 0
         let diagnostics = 0
         let nodes = 0
         let props = 0
@@ -100,9 +105,18 @@ export function runNativeAuthoringSmokeBenchmarks(
             },
           })
           if (document.kind === 'qui') {
+            const ast = countQuiAst(document.tree)
+            actions += document.actions.length
+            astComponents += ast.components
+            astNodes += ast.nodes
+            astSlots += ast.slots
             nodes += document.nodes.length
             props += document.props.length
-            checksum += document.imports.length + document.nodes.length + document.props.length
+            checksum += document.imports.length
+              + document.nodes.length
+              + document.props.length
+              + document.actions.length
+              + ast.nodes
           }
           diagnostics += document.diagnostics.length
         }
@@ -110,6 +124,10 @@ export function runNativeAuthoringSmokeBenchmarks(
           checksum,
           diagnostics,
           metrics: {
+            actions,
+            astComponents,
+            astNodes,
+            astSlots,
             nodes,
             props,
           },
@@ -270,6 +288,8 @@ export function runNativeAuthoringSmokeBenchmarks(
         let diagnostics = 0
         let documentLinks = 0
         let documentCount = 0
+        let components = 0
+        let classes = 0
         let references = 0
         let qssRules = 0
         for (let index = 0; index < iterations; index += 1) {
@@ -277,6 +297,8 @@ export function runNativeAuthoringSmokeBenchmarks(
           diagnostics += projectIndex.summary.diagnostics
           documentLinks += projectIndex.documentLinks.length
           documentCount += projectIndex.summary.documentCount
+          components += projectIndex.summary.components
+          classes += projectIndex.summary.classes
           references += projectIndex.references.length
           qssRules += projectIndex.summary.qssRules
           checksum += projectIndex.summary.documentBytes
@@ -289,6 +311,8 @@ export function runNativeAuthoringSmokeBenchmarks(
           checksum,
           diagnostics,
           metrics: {
+            classes,
+            components,
             documentLinks,
             documentCount,
             references,
@@ -306,6 +330,8 @@ export function runNativeAuthoringSmokeBenchmarks(
         let diagnostics = 0
         let documentLinks = 0
         let documentCount = 0
+        let components = 0
+        let classes = 0
         let references = 0
         let qssRules = 0
         let projectIndex = initialProjectIndex
@@ -321,6 +347,8 @@ export function runNativeAuthoringSmokeBenchmarks(
           diagnostics += projectIndex.summary.diagnostics
           documentLinks += projectIndex.documentLinks.length
           documentCount += projectIndex.summary.documentCount
+          components += projectIndex.summary.components
+          classes += projectIndex.summary.classes
           references += projectIndex.references.length
           qssRules += projectIndex.summary.qssRules
           checksum += projectIndex.summary.documentBytes
@@ -333,6 +361,8 @@ export function runNativeAuthoringSmokeBenchmarks(
           checksum,
           diagnostics,
           metrics: {
+            classes,
+            components,
             documentLinks,
             documentCount,
             references,
@@ -392,6 +422,26 @@ function runDefinition(definition: BenchmarkDefinition, overrideIterations?: num
 
 function byteLength(source: string): number {
   return Buffer.byteLength(source, 'utf8')
+}
+
+function countQuiAst(nodes: readonly NativeQuiAstNode[]): { components: number, nodes: number, slots: number } {
+  const counts = {
+    components: 0,
+    nodes: 0,
+    slots: 0,
+  }
+  for (const node of nodes) {
+    counts.nodes += 1
+    if (node.kind === 'component')
+      counts.components += 1
+    else
+      counts.slots += 1
+    const childCounts = countQuiAst(node.children)
+    counts.components += childCounts.components
+    counts.nodes += childCounts.nodes
+    counts.slots += childCounts.slots
+  }
+  return counts
 }
 
 function positionAtOffset(source: string, offset: number): { character: number, line: number } {
