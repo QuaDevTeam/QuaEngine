@@ -1,10 +1,17 @@
+import type {
+  QuaTargetBootstrap,
+  TargetBundleManifest,
+} from '@quajs/native-contracts'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  COCOS_TARGET_BOOTSTRAP,
   createTargetBundleNativeRendererInfo,
+  createTargetCoreSelection,
   NATIVE_TARGET_BOOTSTRAP,
   validateTargetBundleManifest,
+  WEB_TARGET_BOOTSTRAP,
 } from '@quajs/native-contracts'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
@@ -13,10 +20,12 @@ import {
   createQuaProjectNativeTargetBundleManifest,
   doctorQuaProjectConfig,
   emitQuaProjectNativeTargetBundleManifest,
+  emitQuaTargetBundleManifest,
   loadQuaProjectConfig,
   mergeQuaProjectAssetTargets,
   normalizeQuaProjectConfig,
   QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE,
+  QUA_TARGET_BUNDLE_MANIFEST_FILE,
   syncQuaProjectCocos,
 } from '../src/project'
 
@@ -34,6 +43,12 @@ const NATIVE_RENDERER_CAPABILITIES = [
     fallback: 'reject-package',
   },
 ] as const
+
+const CORE_ADAPTERS_BY_TARGET = {
+  web: WEB_TARGET_BOOTSTRAP.coreAdapters,
+  cocos: COCOS_TARGET_BOOTSTRAP.coreAdapters,
+  native: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+} satisfies Record<QuaTargetBootstrap, readonly string[]>
 
 describe('qua project config', () => {
   afterEach(async () => {
@@ -434,6 +449,42 @@ describe('qua project config', () => {
     await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
   })
 
+  it('emits validated target bundle manifests for Web, Cocos, and native artifacts', async () => {
+    const root = await createProjectRoot()
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const artifactDir = join(root, 'dist', target)
+      const manifest = createTargetBundleManifestFixture(target)
+      const result = await emitQuaTargetBundleManifest({
+        artifactDir,
+        expectedTarget: target,
+        manifest,
+      })
+      const manifestJson = JSON.parse(await readFile(result.manifestPath, 'utf8')) as Record<string, any>
+
+      expect(result.validation.ok).toBe(true)
+      expect(result.manifestPath).toBe(join(artifactDir, QUA_TARGET_BUNDLE_MANIFEST_FILE))
+      expect(manifestJson).toMatchObject({
+        target,
+        targetCoreResolver: `${target}-core-resolver`,
+        selectedCoreAdapters: CORE_ADAPTERS_BY_TARGET[target],
+      })
+    }
+  })
+
+  it('rejects target bundle manifests before writing when the expected target does not match', async () => {
+    const root = await createProjectRoot()
+    const manifestPath = join(root, 'dist/native', QUA_TARGET_BUNDLE_MANIFEST_FILE)
+
+    await expect(emitQuaTargetBundleManifest({
+      artifactDir: join(root, 'dist/native'),
+      expectedTarget: 'native',
+      manifest: createTargetBundleManifestFixture('web'),
+      manifestPath,
+    })).rejects.toThrow('Target bundle manifest validation failed')
+    await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+  })
+
   it('validates native target platforms and profiles', () => {
     expect(() => normalizeQuaProjectConfig({
       ...createProjectConfig(),
@@ -615,6 +666,45 @@ function createTestNativeRendererInfo() {
     backendVersion: 'wgpu-test',
     capabilities: NATIVE_RENDERER_CAPABILITIES,
   }, payload => `sha256:test-${payload.length}`)
+}
+
+function createTargetBundleManifestFixture(target: QuaTargetBootstrap): TargetBundleManifest {
+  const targetCore = createTargetCoreSelection(target)
+  return {
+    schemaVersion: 1,
+    target,
+    profile: 'release',
+    platform: target === 'native' ? 'macos' : target,
+    app: {
+      bundleId: `com.example.${target}`,
+      version: '1.0.0',
+      buildNumber: '1',
+      icon: 'assets/app/icon.png',
+    },
+    ...(target === 'native' ? { nativeRenderer: createTestNativeRendererInfo() } : {}),
+    targetCoreResolver: targetCore.targetCoreResolver,
+    selectedCorePluginFamily: targetCore.selectedCorePluginFamily,
+    selectedCoreAdapters: targetCore.selectedCoreAdapters,
+    dependencies: [
+      '@quajs/engine',
+      '@quajs/pipeline',
+      ...CORE_ADAPTERS_BY_TARGET[target],
+    ],
+    rendererEntries: [
+      { specifier: rendererEntryForTarget(target), target },
+    ],
+  }
+}
+
+function rendererEntryForTarget(target: QuaTargetBootstrap): string {
+  switch (target) {
+    case 'web':
+      return '@quajs/renderer-web/plugins/ui'
+    case 'cocos':
+      return '@quajs/renderer-cocos/plugins/ui'
+    case 'native':
+      return '@quajs/native-renderer/builtin'
+  }
 }
 
 async function writeProjectConfig(root: string, lines: string[]): Promise<string> {

@@ -19,6 +19,14 @@ export type {
   QuaProjectNativeArtifactPlan,
   QuaProjectNativeTargetBundleManifestOptions,
 } from './project-native'
+export {
+  emitQuaTargetBundleManifest,
+  QUA_TARGET_BUNDLE_MANIFEST_FILE,
+} from './project-target-bundle'
+export type {
+  EmitQuaTargetBundleManifestOptions,
+  EmittedQuaTargetBundleManifest,
+} from './project-target-bundle'
 
 export const QUA_PROJECT_CONFIG_CANDIDATES = [
   'qua.project.yaml',

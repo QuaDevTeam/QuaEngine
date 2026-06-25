@@ -1,7 +1,6 @@
 import type {
   TargetBundleDependencyReference,
   TargetBundleManifest,
-  TargetBundleManifestValidationResult,
   TargetBundleNativeRendererInfo,
   TargetBundlePackageReference,
   TargetBundleRendererEntryReference,
@@ -14,11 +13,15 @@ import type {
   QuaProjectNativePlatform,
   QuaProjectNativeProfile,
 } from './project'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
-import { assertTargetBundleManifest, createTargetCoreSelection } from '@quajs/native-contracts'
+import type { EmittedQuaTargetBundleManifest } from './project-target-bundle'
+import { join } from 'node:path'
+import { createTargetCoreSelection } from '@quajs/native-contracts'
+import {
+  emitQuaTargetBundleManifest,
+  QUA_TARGET_BUNDLE_MANIFEST_FILE,
+} from './project-target-bundle'
 
-export const QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE = 'target-bundle-manifest.json'
+export const QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE = QUA_TARGET_BUNDLE_MANIFEST_FILE
 
 export interface QuaProjectNativeArtifactPlan {
   target: 'native'
@@ -49,12 +52,7 @@ export interface EmitQuaProjectNativeTargetBundleManifestOptions
   manifestPath?: string
 }
 
-export interface EmittedQuaProjectNativeTargetBundleManifest {
-  artifactDir: string
-  manifest: TargetBundleManifest
-  manifestPath: string
-  validation: TargetBundleManifestValidationResult
-}
+export type EmittedQuaProjectNativeTargetBundleManifest = EmittedQuaTargetBundleManifest
 
 export function createQuaProjectNativeArtifactPlans(
   project: NormalizedQuaProjectConfig,
@@ -110,16 +108,12 @@ export async function emitQuaProjectNativeTargetBundleManifest(
   options: EmitQuaProjectNativeTargetBundleManifestOptions,
 ): Promise<EmittedQuaProjectNativeTargetBundleManifest> {
   const manifest = createQuaProjectNativeTargetBundleManifest(plan, options)
-  const validation = assertTargetBundleManifest(manifest, { expectedTarget: 'native' })
-  const manifestPath = options.manifestPath || join(plan.artifactDir, QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE)
-  await mkdir(dirname(manifestPath), { recursive: true })
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
-  return {
+  return emitQuaTargetBundleManifest({
     artifactDir: plan.artifactDir,
+    expectedTarget: 'native',
     manifest,
-    manifestPath,
-    validation,
-  }
+    manifestPath: options.manifestPath,
+  })
 }
 
 function sanitizePathSegment(value: string): string {
