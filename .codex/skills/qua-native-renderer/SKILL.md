@@ -28,6 +28,7 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 
 - `@quajs/native-contracts`: serializable native host, renderer capability, compatibility, QUI/QSS, and target bootstrap contracts. Packagers should use `createTargetCoreSelection` to derive the active Web/Cocos/native resolver identity, core family, and selected adapters from one target value; native packagers should use `createNativeCapabilityManifestPayload` / `createNativeCapabilityManifestHash` with an injected SHA-256 implementation when emitting `nativeRenderer.capabilityManifestHash`; use `createTargetBundleNativeRendererInfo` to derive native target-bundle renderer metadata from the actual renderer capabilities.
 - `@quajs/engine-native`: engine plugin/adapter that reads native host info, registers renderer capabilities, supplies runtime package compatibility guards, and exposes the restricted native `RuntimeModuleLoader` over package asset bytes plus a Rust/QuickJS evaluator.
+- `@quajs/engine-native` also owns the native renderer intent bridge. It installs a host-side `emitRendererIntent` callback during plugin initialization, parses Rust `NativeRendererIntent` payloads, emits `choice/select` as `RenderToLogicEvents.USER_CHOICE_SELECT`, emits `ui/intent` as a generic render-to-logic UI intent, and forwards `open` / `close` / `update` actions to the existing UI overlay request events without creating a second event bus.
 - `@quajs/assets-native`: QuaAssets adapter over native host byte/storage/crypto APIs.
 - Native asset hosts should provide `listStorageKeys` when cache roots need full cleanup; `@quajs/assets-native` may fall back to index-known asset deletion when key listing is unavailable, but full orphan cleanup requires host prefix listing.
 - `@quajs/store-native`: QuaStore persistence adapter over native host storage APIs.
@@ -103,6 +104,7 @@ Shared engine/game/plugin packages may be reused only when platform-neutral.
 - `Panel` projects a semantic container panel. It is visual-only unless it carries an explicit intent, in which case pointer input may resolve that intent through `@quajs/pipeline`.
 - `Scroll` currently projects a scroll panel plus clip-start/clip-end commands and per-command clip bounds for hit testing. It must not own persisted scroll position or authoritative UI state.
 - Rust `NativeRenderer::pointer_event_and_emit_intent` may emit a resolved pointer intent through a caller-provided `NativeHostApi` as a `NativeRendererIntent` (`type` plus optional `payloadJson`). This is only a dispatch helper over the existing native host bridge; it must not own input authority or introduce a second event bus.
+- `@quajs/engine-native` must translate Rust-emitted `NativeRendererIntent` values into `@quajs/pipeline` render-to-logic events. `choice/select` requires a string `choiceId`; `ui/intent` preserves generic `{ action, elementId, ...metadata }` payloads and only maps conventional `open` / `close` / `update` actions to overlay request shortcuts.
 - Native QUI nodes may carry `UiSurfaceResolvedStyle`, representing already-resolved QSS declarations from compiler/runtime tooling.
 - Current native resolved QSS projection fields are `background-color`, `border-color`, `border-radius`, `border-width`, `color`, `font-family`, `font-size`, `font-weight`, `line-height`, `text-align`, `object-fit`, `opacity`, and `z-index`; `z-index` is emitted as `UiSurfaceNodeProjection.z_index` rather than stored in `UiSurfaceResolvedStyle`.
 - Do not add QSS selector parsing or CSS cascade logic to `quajs_wgpu_renderer`; add those to the dedicated QSS compiler/language-server/tooling layer and emit resolved projection fields for native rendering.
@@ -159,6 +161,7 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Does runtime startup repeat the exclusive Web/Cocos/native bootstrap assertion before engine initialization?
 - Does Rust native app startup validate the emitted target-bundle manifest before constructing host info or starting QuickJS/engine?
 - Are target isolation checks applied separately to bootstrap core adapters, renderer/plugin entries, and Runtime QPK compatibility metadata?
+- Are Rust-emitted native renderer intents bridged through `@quajs/engine-native` into existing render-to-logic pipeline events, with malformed payloads reported as renderer errors instead of a parallel native event path?
 - Does plugin source metadata pass `validateTargetPluginManifest` before Web/Cocos/native entry selection?
 - Do shared plugin entries avoid importing target adapters, and do target entries avoid importing other target entries?
 - Do Runtime QPKs avoid executable dependencies and renderer entries on Web/Cocos/native core adapters?

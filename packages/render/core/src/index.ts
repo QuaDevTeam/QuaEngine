@@ -139,6 +139,7 @@ export enum RenderToLogicEvents {
   SAVE_PREVIEW_CAPTURE_RESULT = 'save_preview/capture_result',
   SAVE_PREVIEW_CAPTURE_ERROR = 'save_preview/capture_error',
   GAME_LOAD_REQUEST = 'game/load_request',
+  UI_INTENT = 'ui/intent',
   UI_REQUEST_OPEN = 'ui/request_open',
   UI_REQUEST_CLOSE = 'ui/request_close',
   UI_REQUEST_UPDATE = 'ui/request_update',
@@ -1042,6 +1043,12 @@ export interface UserChoiceSelectPayload {
   choiceId: string
 }
 
+export interface RendererUiIntentPayload {
+  action?: string
+  elementId?: string
+  [key: string]: unknown
+}
+
 export type RendererInputCommand
   = | 'advance'
     | 'auto:start'
@@ -1273,6 +1280,7 @@ export interface RenderToLogicEventPayloadMap {
   [RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_RESULT]: SavePreviewCaptureResultPayload
   [RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_ERROR]: SavePreviewCaptureErrorPayload
   [RenderToLogicEvents.GAME_LOAD_REQUEST]: { slotId?: string }
+  [RenderToLogicEvents.UI_INTENT]: RendererUiIntentPayload
   [RenderToLogicEvents.UI_REQUEST_OPEN]: { elementId: string, config?: Record<string, unknown> }
   [RenderToLogicEvents.UI_REQUEST_CLOSE]: { elementId: string }
   [RenderToLogicEvents.UI_REQUEST_UPDATE]: { elementId: string, config: Record<string, unknown> }

@@ -1,0 +1,215 @@
+import type { QuaNativeHostApi, QuaNativeHostInfo } from '@quajs/native-contracts'
+import { RenderToLogicEvents } from '@quajs/engine'
+import { createNativeRendererIntent } from '@quajs/native-contracts'
+import { describe, expect, it, vi } from 'vitest'
+import { emitNativeRendererIntentToPipeline, NativeHostPlugin } from '../src'
+
+function createHostInfo(): QuaNativeHostInfo {
+  return {
+    app: {
+      name: 'Native Intent Fixture',
+      bundleId: 'dev.quajs.native.intent',
+      version: '1.0.0',
+      buildNumber: '100',
+      profile: 'debug',
+      platform: 'macos',
+      arch: 'arm64',
+    },
+    renderer: {
+      packageName: '@quajs/native-renderer',
+      version: '0.1.0',
+      backend: 'wgpu',
+      capabilityManifestHash: 'sha256:intent-fixture',
+      capabilities: [],
+    },
+    runtime: {
+      quickjsVersion: 'unsupported',
+      nativeRuntimeVersion: '0.1.0',
+      assetAdapterVersion: '0.1.0',
+      storeAdapterVersion: '0.1.0',
+    },
+  }
+}
+
+function createHost(hostInfo = createHostInfo()): QuaNativeHostApi {
+  return {
+    getHostInfo: vi.fn(async () => hostInfo),
+    readAssetBytes: vi.fn(),
+    readStorage: vi.fn(),
+    writeStorage: vi.fn(),
+    deleteStorage: vi.fn(),
+    hashBytes: vi.fn(),
+  }
+}
+
+function createTestPipeline() {
+  const listeners = new Map<string, Set<(context: any) => unknown>>()
+  return {
+    on: vi.fn((type: string, listener: (context: any) => unknown) => {
+      const eventListeners = listeners.get(type) || new Set()
+      eventListeners.add(listener)
+      listeners.set(type, eventListeners)
+    }),
+    off: vi.fn((type: string, listener: (context: any) => unknown) => {
+      listeners.get(type)?.delete(listener)
+    }),
+    emit: vi.fn(async (type: string, payload: unknown) => {
+      for (const listener of listeners.get(type) || []) {
+        await listener({
+          event: {
+            type,
+            payload,
+            timestamp: Date.now(),
+            id: `${type}:test`,
+          },
+          handled: false,
+          stopPropagation: false,
+        })
+      }
+    }),
+  }
+}
+
+function flushMicrotasks(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, 0))
+}
+
+describe('@quajs/engine-native renderer intents', () => {
+  it('maps native renderer pointer intents into render-to-logic pipeline events', async () => {
+    const pipeline = createTestPipeline()
+    const received: Array<{ type: string, payload: unknown }> = []
+    for (const type of [
+      RenderToLogicEvents.USER_CHOICE_SELECT,
+      RenderToLogicEvents.UI_INTENT,
+      RenderToLogicEvents.UI_REQUEST_CLOSE,
+      RenderToLogicEvents.UI_REQUEST_OPEN,
+      RenderToLogicEvents.UI_REQUEST_UPDATE,
+    ]) {
+      pipeline.on(type, context => received.push({
+        type,
+        payload: context.event.payload,
+      }))
+    }
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({ type: 'choice/select', payload: { choiceId: 'stay' } }),
+    )).resolves.toEqual({
+      handled: true,
+      emittedEvents: [
+        {
+          type: RenderToLogicEvents.USER_CHOICE_SELECT,
+          payload: { choiceId: 'stay' },
+        },
+      ],
+    })
+
+    await emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({ type: 'ui/intent', payload: { action: 'close', elementId: 'menu:close' } }),
+    )
+    await emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'ui/intent',
+        payload: {
+          action: 'open',
+          elementId: 'settings',
+          config: { tab: 'audio' },
+        },
+      }),
+    )
+    await emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'ui/intent',
+        payload: {
+          action: 'update',
+          elementId: 'settings',
+          config: { volume: 0.5 },
+        },
+      }),
+    )
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({ type: 'ui/unknown', payload: { action: 'noop' } }),
+    )).resolves.toEqual({
+      handled: false,
+      emittedEvents: [],
+      ignoredReason: 'unknown-intent-type',
+    })
+
+    expect(received).toEqual([
+      { type: RenderToLogicEvents.USER_CHOICE_SELECT, payload: { choiceId: 'stay' } },
+      { type: RenderToLogicEvents.UI_INTENT, payload: { action: 'close', elementId: 'menu:close' } },
+      { type: RenderToLogicEvents.UI_REQUEST_CLOSE, payload: { elementId: 'menu:close' } },
+      {
+        type: RenderToLogicEvents.UI_INTENT,
+        payload: { action: 'open', elementId: 'settings', config: { tab: 'audio' } },
+      },
+      {
+        type: RenderToLogicEvents.UI_REQUEST_OPEN,
+        payload: { elementId: 'settings', config: { tab: 'audio' } },
+      },
+      {
+        type: RenderToLogicEvents.UI_INTENT,
+        payload: { action: 'update', elementId: 'settings', config: { volume: 0.5 } },
+      },
+      {
+        type: RenderToLogicEvents.UI_REQUEST_UPDATE,
+        payload: { elementId: 'settings', config: { volume: 0.5 } },
+      },
+    ])
+  })
+
+  it('installs native renderer intent callbacks on the host during plugin lifetime', async () => {
+    const host = createHost()
+    const pipeline = createTestPipeline()
+    const received: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_CHOICE_SELECT, context => received.push(context.event.payload))
+
+    const plugin = new NativeHostPlugin({ host })
+    await plugin.init({ pipeline } as any)
+
+    host.emitRendererIntent?.(createNativeRendererIntent({
+      type: 'choice/select',
+      payload: { choiceId: 'left' },
+    }))
+    await flushMicrotasks()
+
+    expect(received).toEqual([{ choiceId: 'left' }])
+
+    plugin.destroy()
+    host.emitRendererIntent?.(createNativeRendererIntent({
+      type: 'choice/select',
+      payload: { choiceId: 'right' },
+    }))
+    await flushMicrotasks()
+
+    expect(received).toEqual([{ choiceId: 'left' }])
+  })
+
+  it('reports malformed native renderer intent payloads through render errors', async () => {
+    const host = createHost()
+    const pipeline = createTestPipeline()
+    const errors: unknown[] = []
+    pipeline.on(RenderToLogicEvents.RENDER_ERROR, context => errors.push(context.event.payload))
+
+    const plugin = new NativeHostPlugin({ host })
+    await plugin.init({ pipeline } as any)
+    host.emitRendererIntent?.({ type: 'choice/select', payloadJson: '{"choiceId":1}' })
+    await flushMicrotasks()
+
+    expect(plugin.getRendererIntentErrors()).toHaveLength(1)
+    expect(errors).toEqual([
+      expect.objectContaining({
+        message: 'Native renderer choice/select intent requires string payload field "choiceId".',
+        source: 'native-renderer',
+        phase: 'renderer-intent',
+        metadata: {
+          nativeIntentType: 'choice/select',
+        },
+      }),
+    ])
+  })
+})

@@ -60,6 +60,7 @@ export type {
   RendererInputDevice,
   RendererLifecyclePayload,
   RenderErrorPayload,
+  RendererUiIntentPayload,
   RenderToLogicEventPayloadMap,
   RenderToLogicPayload,
   ResolvedAnimationTrackProjection,

@@ -19,6 +19,16 @@ export {
   createNativeRuntimeAdapters,
   createNativeRuntimeTrustPolicy,
 } from './runtime-adapters'
+export {
+  emitNativeRendererIntentToPipeline,
+  installNativeRendererIntentBridge,
+} from './renderer-intents'
+export type {
+  NativeRendererIntentBridgeDisposer,
+  NativeRendererIntentBridgeOptions,
+  NativeRendererIntentDispatchResult,
+  NativeRendererIntentEmittedEvent,
+} from './renderer-intents'
 export type {
   NativeEngineBootstrap,
   NativeRuntimeAdapters,
