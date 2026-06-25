@@ -85,7 +85,31 @@ export interface NativeQuiProp {
   valueRange?: NativeUiRange
 }
 
+export type NativeQuiActionNamespace = 'choice' | 'save' | 'settings' | 'ui'
+
+export type NativeQuiActionEvent = 'choice/select' | 'ui/intent'
+
+export type NativeQuiActionArgumentValue = boolean | null | number | string
+
+export interface NativeQuiActionArgument {
+  kind: 'expression' | 'literal' | 'reference'
+  source: string
+  value?: NativeQuiActionArgumentValue
+}
+
+export interface NativeQuiActionDescriptor {
+  action: string
+  arguments: NativeQuiActionArgument[]
+  event: NativeQuiActionEvent
+  name: string
+  namespace: NativeQuiActionNamespace
+  range?: NativeUiRange
+  source: string
+  valueRange?: NativeUiRange
+}
+
 export interface NativeQuiDocument {
+  actions: NativeQuiActionDescriptor[]
   diagnostics: NativeUiDiagnostic[]
   imports: NativeQuiImport[]
   kind: 'qui'

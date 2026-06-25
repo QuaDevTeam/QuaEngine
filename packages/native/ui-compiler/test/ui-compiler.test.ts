@@ -8,6 +8,7 @@ import {
   getNativeUiHover,
   nativeWgpuQssFeatureNames,
   nativeWgpuQuiComponentNames,
+  parseQuiActionDescriptor,
 } from '../src'
 
 describe('@quajs/native-ui-compiler', () => {
@@ -38,6 +39,96 @@ Stack {
     expect(document.nodes.map(node => node.name)).toEqual(['Stack', 'Text', 'Button', 'Text'])
     expect(document.props.map(prop => prop.name)).toContain('if')
     expect(document.props.map(prop => prop.name)).toContain('action')
+  })
+
+  it('normalizes QUI action descriptors for native intent projection', () => {
+    const document = analyzeQuiSource(`
+Column {
+  Button(action: ui.open("settings")) { Text { "Settings" } }
+  Button(action: ui.close()) { Text { "Close" } }
+  Button(action: choice.select(choice.id)) { Text { choice.label } }
+  Button(action: save.load("slot-1")) { Text { "Load" } }
+  Button(action: settings.update(settings.audio.enabled)) { Text { "Apply" } }
+}
+`)
+
+    expect(document.diagnostics).toEqual([])
+    expect(document.actions.map(action => ({
+      namespace: action.namespace,
+      name: action.name,
+      event: action.event,
+      action: action.action,
+      arguments: action.arguments,
+    }))).toEqual([
+      {
+        namespace: 'ui',
+        name: 'open',
+        event: 'ui/intent',
+        action: 'open',
+        arguments: [{ kind: 'literal', source: '"settings"', value: 'settings' }],
+      },
+      {
+        namespace: 'ui',
+        name: 'close',
+        event: 'ui/intent',
+        action: 'close',
+        arguments: [],
+      },
+      {
+        namespace: 'choice',
+        name: 'select',
+        event: 'choice/select',
+        action: 'select',
+        arguments: [{ kind: 'reference', source: 'choice.id' }],
+      },
+      {
+        namespace: 'save',
+        name: 'load',
+        event: 'ui/intent',
+        action: 'save.load',
+        arguments: [{ kind: 'literal', source: '"slot-1"', value: 'slot-1' }],
+      },
+      {
+        namespace: 'settings',
+        name: 'update',
+        event: 'ui/intent',
+        action: 'settings.update',
+        arguments: [{ kind: 'reference', source: 'settings.audio.enabled' }],
+      },
+    ])
+
+    expect(parseQuiActionDescriptor('ui.open("gallery", true, 3)')).toMatchObject({
+      namespace: 'ui',
+      name: 'open',
+      event: 'ui/intent',
+      action: 'open',
+      arguments: [
+        { kind: 'literal', value: 'gallery' },
+        { kind: 'literal', value: true },
+        { kind: 'literal', value: 3 },
+      ],
+    })
+  })
+
+  it('rejects unsupported QUI action descriptors before projection', () => {
+    const document = analyzeQuiSource(`
+Column {
+  Button(action: ui.open(resolvePanel())) { Text { "Bad call" } }
+  Button(action: choice.jump(choice.id)) { Text { "Bad choice" } }
+  Button(action: ui.close(,)) { Text { "Bad comma" } }
+}
+`)
+
+    expect(document.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'QUI_UNSAFE_EXPRESSION',
+        severity: 'error',
+      }),
+      expect.objectContaining({
+        code: 'QUI_INVALID_ACTION_DESCRIPTOR',
+        severity: 'error',
+      }),
+    ]))
   })
 
   it('accepts keyed QUI loop rendering with item and index bindings', () => {

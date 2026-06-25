@@ -8,6 +8,9 @@ import type {
   NativeUiHover,
   NativeUiLanguageOptions,
 } from './types'
+import { collectQuiActionDescriptors } from './qui-actions'
+import { validateQuiProps } from './qui-semantics'
+import { validateQuiStructure } from './qui-structure'
 import {
   findNativeUiComponent,
   nativeQuiDirectiveNames,
@@ -22,8 +25,6 @@ import {
   splitTopLevel,
   wordAt,
 } from './source'
-import { validateQuiProps } from './qui-semantics'
-import { validateQuiStructure } from './qui-structure'
 
 const IMPORT_PATTERN = /^\s*import\s+(style|tokens|component)\s+(['"])([^'"]+)\2\s*;?\s*$/
 const IMPORT_START_PATTERN = /^\s*import\b/
@@ -40,6 +41,7 @@ export function analyzeQuiSource(source: string, options: NativeUiLanguageOption
   const imports = collectQuiImports(source, lineStarts, diagnostics)
   const nodes = collectQuiNodes(source, masked, lineStarts)
   const props = collectQuiProps(source, masked, lineStarts)
+  const actions = collectQuiActionDescriptors(props)
 
   validateQuiProps(props, diagnostics)
   validateQuiStructure(source, masked, lineStarts, diagnostics)
@@ -63,6 +65,7 @@ export function analyzeQuiSource(source: string, options: NativeUiLanguageOption
   return {
     kind: 'qui',
     source,
+    actions,
     imports,
     nodes,
     props,

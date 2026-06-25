@@ -7,11 +7,9 @@ import type {
   NativeUiHover,
   NativeUiLanguageOptions,
 } from './types'
-import { formatQssSource, getQssCompletions, getQssHover, analyzeQssSource } from './qss'
-import { formatQuiSource, getQuiCompletions, getQuiHover, analyzeQuiSource } from './qui'
+import { analyzeQssSource, formatQssSource, getQssCompletions, getQssHover } from './qss'
+import { analyzeQuiSource, formatQuiSource, getQuiCompletions, getQuiHover } from './qui'
 
-export * from './types'
-export * from './registry'
 export {
   analyzeQssSource,
   formatQssSource,
@@ -24,6 +22,12 @@ export {
   getQuiCompletions,
   getQuiHover,
 } from './qui'
+export {
+  collectQuiActionDescriptors,
+  parseQuiActionDescriptor,
+} from './qui-actions'
+export * from './registry'
+export * from './types'
 
 export function detectNativeUiDocumentKind(options: NativeUiLanguageOptions): NativeUiDocumentKind | undefined {
   if (options.languageId === 'qua-ui' || options.languageId === 'qui')
