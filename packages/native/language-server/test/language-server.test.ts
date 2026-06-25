@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildNativeUiProjectIndex,
+  findNativeUiProjectDefinitions,
   findNativeUiProjectReferences,
   formatNativeUiDocumentEdits,
   getNativeUiLanguageCompletions,
@@ -163,6 +164,16 @@ describe('@quajs/native-language-server', () => {
         line: 0,
       },
     })
+    expect(index.documents.find(document => document.uri.endsWith('menu.qss'))?.idReferences[0]?.range).toEqual({
+      start: {
+        character: 1,
+        line: 0,
+      },
+      end: {
+        character: 11,
+        line: 0,
+      },
+    })
     expect(findNativeUiProjectReferences(index, { kind: 'id', name: 'main-panel' }))
       .toEqual(expect.arrayContaining([
         expect.objectContaining({
@@ -178,6 +189,49 @@ describe('@quajs/native-language-server', () => {
           uri: 'file:///project/menu.qss',
         }),
       ]))
+    expect(findNativeUiProjectDefinitions(index, { kind: 'id', name: 'main-panel' }))
+      .toEqual([
+        expect.objectContaining({
+          kind: 'id',
+          name: 'main-panel',
+          source: 'qui-node',
+          uri: 'file:///project/menu.qui',
+        }),
+      ])
+  })
+
+  it('returns definition candidates using QUI declarations before QSS references', () => {
+    const index = buildNativeUiProjectIndex([
+      {
+        uri: 'file:///project/ui/menu.qui',
+        source: 'Panel.dialog { Button.primary { Text { "Open" } } }',
+      },
+      {
+        uri: 'file:///project/ui/menu.qss',
+        source: 'Panel.dialog, Button.primary { color: #fff; }',
+      },
+    ])
+
+    expect(findNativeUiProjectDefinitions(index, { kind: 'component', name: 'Button' }))
+      .toEqual([
+        expect.objectContaining({
+          kind: 'component',
+          name: 'Button',
+          source: 'qui-node',
+          uri: 'file:///project/ui/menu.qui',
+        }),
+      ])
+    expect(findNativeUiProjectDefinitions(index, { kind: 'class', name: 'primary' }))
+      .toEqual([
+        expect.objectContaining({
+          kind: 'class',
+          name: 'primary',
+          source: 'qui-node',
+          uri: 'file:///project/ui/menu.qui',
+        }),
+      ])
+    expect(findNativeUiProjectDefinitions(index, { kind: 'class', name: 'only-qss' }))
+      .toEqual([])
   })
 
   it('updates a native UI project index incrementally', () => {

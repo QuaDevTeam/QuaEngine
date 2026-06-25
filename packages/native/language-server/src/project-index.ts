@@ -348,31 +348,67 @@ function visitQuiAstNodes(
 }
 
 function componentReferencesFromQss(document: NativeQssDocument): NativeUiProjectComponentReference[] {
-  return document.rules.flatMap(rule => uniqueSorted(matches(rule.selector, /\b[A-Z]\w*\b/g)).map(name => ({
-    name,
-    range: rule.selectorRange,
+  return document.rules.flatMap(rule => selectorMatches(rule.selector, rule.selectorRange, /\b[A-Z]\w*\b/g).map(match => ({
+    name: match.name,
+    range: match.range,
     source: 'qss-selector' as const,
   })))
 }
 
 function classReferencesFromQss(document: NativeQssDocument): NativeUiProjectClassReference[] {
-  return document.rules.flatMap(rule => uniqueSorted(matches(rule.selector, /\.([a-z_][\w-]*)/gi)).map(name => ({
-    name,
-    range: rule.selectorRange,
+  return document.rules.flatMap(rule => selectorMatches(rule.selector, rule.selectorRange, /\.([a-z_][\w-]*)/gi).map(match => ({
+    name: match.name,
+    range: match.range,
     source: 'qss-selector' as const,
   })))
 }
 
 function idReferencesFromQss(document: NativeQssDocument): NativeUiProjectIdReference[] {
-  return document.rules.flatMap(rule => uniqueSorted(matches(rule.selector, /#([A-Za-z_][\w-]*)/g)).map(name => ({
-    name,
-    range: rule.selectorRange,
+  return document.rules.flatMap(rule => selectorMatches(rule.selector, rule.selectorRange, /#([A-Za-z_][\w-]*)/g).map(match => ({
+    name: match.name,
+    range: match.range,
     source: 'qss-selector' as const,
   })))
 }
 
-function matches(source: string, pattern: RegExp): string[] {
-  return Array.from(source.matchAll(pattern), match => match[1] || match[0])
+function selectorMatches(source: string, sourceRange: NativeUiRange, pattern: RegExp): Array<{ name: string, range: NativeUiRange }> {
+  return Array.from(source.matchAll(pattern), (match) => {
+    const name = match[1] || match[0]
+    const nameStart = match.index + match[0].indexOf(name)
+    const nameEnd = nameStart + name.length
+    return {
+      name,
+      range: rangeFromRelativeOffsets(sourceRange.start, source, nameStart, nameEnd),
+    }
+  })
+}
+
+function rangeFromRelativeOffsets(
+  startPosition: NativeUiRange['start'],
+  text: string,
+  startOffset: number,
+  endOffset: number,
+): NativeUiRange {
+  return {
+    start: positionFromRelativeOffset(startPosition, text, startOffset),
+    end: positionFromRelativeOffset(startPosition, text, endOffset),
+  }
+}
+
+function positionFromRelativeOffset(
+  startPosition: NativeUiRange['start'],
+  text: string,
+  offset: number,
+): NativeUiRange['start'] {
+  const before = text.slice(0, Math.max(0, offset))
+  const lines = before.split(/\r?\n/)
+  const lineDelta = lines.length - 1
+  return {
+    line: startPosition.line + lineDelta,
+    character: lineDelta === 0
+      ? startPosition.character + before.length
+      : lines[lines.length - 1].length,
+  }
 }
 
 function sum(

@@ -12,6 +12,11 @@ export interface FindNativeUiProjectReferencesOptions {
   uri?: string
 }
 
+export interface FindNativeUiProjectDefinitionsOptions {
+  kind: NativeUiProjectReferenceKind
+  name: string
+}
+
 export function getNativeUiProjectDocumentLinks(
   index: { documentLinks: readonly NativeUiProjectDocumentLink[] },
   uri?: string,
@@ -30,6 +35,18 @@ export function findNativeUiProjectReferences(
     .filter(reference => !options.name || reference.name === options.name)
     .filter(reference => !options.uri || reference.uri === options.uri)
     .map(reference => ({ ...reference }))
+}
+
+export function findNativeUiProjectDefinitions(
+  index: { references: readonly NativeUiProjectReference[] },
+  options: FindNativeUiProjectDefinitionsOptions,
+): NativeUiProjectReference[] {
+  const references = findNativeUiProjectReferences(index, {
+    kind: options.kind,
+    name: options.name,
+  })
+  const definitions = references.filter(isDefinitionReference)
+  return definitions.length > 0 ? definitions : references
 }
 
 export function createNativeUiProjectDocumentLinks(
@@ -109,4 +126,16 @@ function compareReferences(left: NativeUiProjectReference, right: NativeUiProjec
     || left.kind.localeCompare(right.kind)
     || left.name.localeCompare(right.name)
     || left.source.localeCompare(right.source)
+}
+
+function isDefinitionReference(reference: NativeUiProjectReference): boolean {
+  switch (reference.kind) {
+    case 'component':
+    case 'id':
+      return reference.source === 'qui-node'
+    case 'class':
+      return reference.source === 'qui-node'
+    default:
+      return false
+  }
 }
