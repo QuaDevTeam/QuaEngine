@@ -73,8 +73,8 @@ describe('@quajs/native-language-server process', () => {
   it('serves editor requests over stdio without target runtime adapters', async () => {
     const quiUri = 'file:///project/ui/menu.qui'
     const qssUri = 'file:///project/ui/menu.qss'
-    const qui = 'import style "./menu.qss";\nPanel.dialog { Button.primary { Text { "Open" } } }'
-    const qss = 'Panel.dialog, Button.primary { color: #fff; }'
+    const qui = 'import style "./menu.qss";\nPanel.dialog(id: "main-panel") { Button.primary { Text { "Open" } } }'
+    const qss = 'Panel.dialog, Button.primary, #main-panel { color: #fff; }'
 
     client = new LspProcessClient(serverPath)
 
@@ -160,6 +160,24 @@ describe('@quajs/native-language-server process', () => {
       },
     })
     expect(references).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        uri: quiUri,
+      }),
+      expect.objectContaining({
+        uri: qssUri,
+      }),
+    ]))
+
+    const idReferences = await client.request<LocationLike[]>('textDocument/references', {
+      context: {
+        includeDeclaration: true,
+      },
+      position: positionAtOffset(qui, qui.indexOf('main-panel')),
+      textDocument: {
+        uri: quiUri,
+      },
+    })
+    expect(idReferences).toEqual(expect.arrayContaining([
       expect.objectContaining({
         uri: quiUri,
       }),

@@ -109,6 +109,7 @@ describe('@quajs/native-language-server', () => {
       qssDeclarations: 2,
       qssDocumentCount: 1,
       qssRules: 1,
+      ids: 0,
       quiDocumentCount: 1,
       skippedDocumentCount: 1,
       styleImports: 1,
@@ -136,6 +137,47 @@ describe('@quajs/native-language-server', () => {
       .toEqual([])
     expect(findNativeUiProjectReferences(index, { kind: 'class' }).map(reference => reference.name))
       .toEqual(['dialog', 'primary'])
+  })
+
+  it('indexes id references across QUI ids and QSS selectors', () => {
+    const index = buildNativeUiProjectIndex([
+      {
+        uri: 'file:///project/menu.qui',
+        source: 'Panel(id: "main-panel") { Button.primary { Text { "Open" } } }',
+      },
+      {
+        uri: 'file:///project/menu.qss',
+        source: '#main-panel { background-color: #10141f; }\nPanel#main-panel Button.primary { color: #fff; }',
+      },
+    ])
+
+    expect(index.summary.ids).toBe(1)
+    expect(index.documents.find(document => document.uri.endsWith('menu.qui'))?.ids).toEqual(['main-panel'])
+    expect(index.documents.find(document => document.uri.endsWith('menu.qui'))?.idReferences[0]?.range).toEqual({
+      start: {
+        character: 9,
+        line: 0,
+      },
+      end: {
+        character: 22,
+        line: 0,
+      },
+    })
+    expect(findNativeUiProjectReferences(index, { kind: 'id', name: 'main-panel' }))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'id',
+          name: 'main-panel',
+          source: 'qui-node',
+          uri: 'file:///project/menu.qui',
+        }),
+        expect.objectContaining({
+          kind: 'id',
+          name: 'main-panel',
+          source: 'qss-selector',
+          uri: 'file:///project/menu.qss',
+        }),
+      ]))
   })
 
   it('updates a native UI project index incrementally', () => {
@@ -242,5 +284,6 @@ describe('@quajs/native-language-server', () => {
           uri: 'file:///project/ui/menu.qss',
         }),
       ]))
+    expect(findNativeUiProjectReferences(index, { kind: 'id' })).toEqual([])
   })
 })

@@ -71,6 +71,12 @@ export function createNativeUiProjectReferences(
         kind: 'class' as const,
         uri: document.uri,
       })),
+      ...document.idReferences.map(reference => ({
+        ...reference,
+        filePath: document.filePath,
+        kind: 'id' as const,
+        uri: document.uri,
+      })),
     ])
     .sort(compareReferences)
 }

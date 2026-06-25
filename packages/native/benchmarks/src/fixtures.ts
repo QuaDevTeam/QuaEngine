@@ -33,7 +33,7 @@ function createQuiFixture(): string {
       slot header {
         Row {
           Text { view.sections[${index}].title }
-          Button(action: ui.open("section-${index}")) {
+          Button(id: "open-section-${index}", action: ui.open("section-${index}")) {
             Text { "Open" }
           }
         }
@@ -107,6 +107,10 @@ Panel.card${index} {
   border-radius: ${6 + (index % 4)}px;
   border-width: 1px;
   opacity: ${index % 3 === 0 ? '0.94' : '1'};
+}
+
+#open-section-${index} {
+  border-color: #506080;
 }
 
 Panel.card${index}::part(header), Button:hover {
