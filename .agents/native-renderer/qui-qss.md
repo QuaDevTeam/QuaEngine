@@ -1,0 +1,224 @@
+# QUI / QSS 语法与组件系统
+
+## 总体判断
+
+QUI 应该是一种 declarative template language，风格接近 Vue 模板，但不是 HTML，也不是 TSX/SFC。
+
+建议明确支持：
+
+- 条件渲染
+- 条件显示
+- 循环渲染
+- key
+- named slot
+- component import
+- dynamic props / class / style
+- declarative action descriptor
+
+不建议支持：
+
+- 任意 JS 执行
+- imperative method
+- async 逻辑
+- 直接 store mutation
+- renderer 侧决定剧情或状态推进
+
+## 推荐的 QUI 语义
+
+### 条件渲染
+
+```qui
+Stack {
+  Text(if: view.mode == "audio") { "Audio" }
+  Text(else-if: view.mode == "video") { "Video" }
+  Text(else) { "Default" }
+}
+```
+
+### 循环渲染
+
+```qui
+Choice(
+  for: choice in view.choices.items,
+  key: choice.id,
+  choice: choice,
+  action: choice.select(choice.id)
+)
+```
+
+### 条件显示
+
+`show` 只控制可见性，不销毁 local widget state。
+
+### named slot
+
+```qui
+Panel.modal {
+  slot header { Text { props.title } }
+  slot body { Text { props.body } }
+  slot footer { Button(action: ui.close()) { Text { "Close" } } }
+}
+```
+
+### import
+
+```qui
+import style "./settings.qss";
+import tokens "./theme.tokens.json";
+import component "./shared/Panel.qui";
+```
+
+## 表达式子集
+
+允许：
+
+- `props.*`
+- `view.*`
+- `settings.*`
+- loop bindings
+- literals
+- object / array literal
+- `== != < <= > >= && || ! ??`
+- ternary
+
+拒绝：
+
+- assignment
+- function definition
+- arbitrary call
+- `new`
+- `await`
+- mutation
+
+## 组件系统
+
+### 当前应保持稳定的 base primitives
+
+按当前 native capability registry，第一批 base / leaf primitives 应当以这些为准：
+
+- `Fragment`
+- `Box`
+- `Backdrop`
+- `Button`
+- `Column`
+- `Divider`
+- `Grid`
+- `Layer`
+- `Row`
+- `Text`
+- `Image`
+- `Panel`
+- `SafeArea`
+- `Scroll`
+- `Spacer`
+- `Stack`
+- `RichText` 作为 text projection 叶子能力
+
+其中 `Text` / `RichText` 属于 text projection，`Backdrop` / `Panel` / `SafeArea` / `Scroll` 是语义节点，`Stack` / `Row` / `Column` / `Grid` / `Fragment` / `Layer` / `Divider` / `Spacer` 是结构节点。
+
+### 应尽量做成 composite 的上层组件
+
+以下应该优先作为 `.qui/.qss` composite，而不是 native primitive：
+
+- `Dialog`
+- `Drawer`
+- `Modal`
+- `SaveLoadPanel`
+- `SettingsPanel`
+- `GalleryPanel`
+- `BacklogPanel`
+- `AchievementBoard`
+- `Toolbar`
+- `ConfirmDialog`
+- `QuickMenu`
+
+原则是：只要能由 base primitives 组装，就不要进入 Rust primitive 集合。
+
+## QSS 兼容范围
+
+Rust renderer 只消费 resolved style IR。selector matching、cascade、inheritance、diagnostics 都应留在 TS 工具链层。
+
+### 当前已确认的基础 style 字段
+
+现有 resolved style / capability 已覆盖的核心字段是：
+
+- `background-color`
+- `border-color`
+- `border-radius`
+- `border-width`
+- `color`
+- `font-family`
+- `font-size`
+- `font-weight`
+- `line-height`
+- `text-align`
+- `object-fit`
+
+### 建议的 QSS 兼容分期
+
+| 阶段 | 目标 | 建议属性 |
+| --- | --- | --- |
+| P0 | 先把 native surface 跑起来 | 上述基础字段 |
+| P1 | 补齐常用视觉布局 | `padding`, `margin`, `gap`, `width`, `height`, `min/max-*`, `overflow`, `opacity` |
+| P2 | 进一步接近熟悉的 CSS 体验 | 部分 `transform`, `shadow`, `transition` 及少量视觉增强 |
+
+### 建议支持的 selector 语义
+
+- type selector
+- class selector
+- id selector
+- descendant / child
+- pseudo-state -> renderer state 映射
+- style part selector
+
+### 不建议在第一阶段承诺的 CSS 特性
+
+- 全量浏览器 cascade
+- `@media` 作为主布局手段
+- `@keyframes`
+- 任意 CSS function
+- 任意未白名单化 property
+- 依赖浏览器 box model 的复杂行为
+
+QSS 应该是“CSS 子集 + 设备无关的确定性 IR”，不是把 CSS 原样搬进 Rust。
+
+## 组件 registry / compatibility metadata
+
+建议统一用 serializable registry 描述：
+
+- component name
+- kind: `base / composite / project / capability`
+- props
+- slots
+- events / actions
+- style parts
+- asset props
+- capability flags
+- renderer targets
+
+runtime package compatibility metadata 也应该落到这个 registry 上：
+
+- required `quiComponents`
+- required `qssFeatures`
+- required `assetKinds`
+- optional counterparts
+- `nativeCode: false`
+
+## 组件扩展策略
+
+开发者扩展应该走三条路：
+
+1. `.qui` 内本地 component。
+2. package-local `.qui` import。
+3. official composite library。
+
+不应该让第三方 package 通过 native code 去“发明一个 renderer primitive”。
+
+## 与 media 的关系
+
+视频 / 音频相关 surface 建议先走 composite + capability gate 路线：
+
+- 视频先支持 poster / fallback / deterministic warning。
+- 音频先支持投影、资源账本、命令计划和 backend stub。
+- 真正的 decode / playback backend 进入 native app binary 后，再把能力升级成正式 capability。
+
