@@ -360,7 +360,7 @@ function createHostInfo() {
       capabilities: [],
     },
     runtime: {
-      quickjsVersion: 'pending',
+      quickjsVersion: 'unsupported',
       nativeRuntimeVersion: '0.1.0',
       assetAdapterVersion: '0.1.0',
       storeAdapterVersion: '0.1.0',

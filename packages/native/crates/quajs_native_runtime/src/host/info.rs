@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::quickjs::quickjs_runtime_version;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum NativePlatform {
@@ -129,7 +131,7 @@ impl NativeHostInfoBuilder {
             arch: std::env::consts::ARCH.to_string(),
             renderer_version: package_version.clone(),
             backend_version: None,
-            quickjs_version: "pending".to_string(),
+            quickjs_version: quickjs_runtime_version().to_string(),
             native_runtime_version: package_version.clone(),
             asset_adapter_version: package_version.clone(),
             store_adapter_version: package_version,

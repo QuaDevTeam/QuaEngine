@@ -1,6 +1,14 @@
 use super::*;
 
 #[test]
+fn reports_explicit_quickjs_runtime_version() {
+    let version = quickjs_runtime_version();
+
+    assert!(!version.trim().is_empty());
+    assert_ne!(version, "pending");
+}
+
+#[test]
 fn serializes_quickjs_evaluation_request_with_ts_field_names() {
     let request = QuickJsEvaluationRequest {
         module: QuickJsRuntimeModuleRecord {
