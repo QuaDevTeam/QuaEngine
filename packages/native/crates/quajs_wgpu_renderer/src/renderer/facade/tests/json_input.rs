@@ -1,6 +1,6 @@
 use super::*;
 use crate::audio::{AudioBackendCommandKind, NullNativeAudioBackend};
-use crate::render_graph::DrawBatchPipeline;
+use crate::render_graph::{DrawBatchPipeline, LogicalRect};
 use crate::renderer::{
     NativeRendererJsonFrameError, NativeRendererJsonFrameInput, NullNativeRenderBackend,
 };
@@ -57,6 +57,46 @@ fn can_prepare_json_frame_without_render_submission() {
     assert_eq!(update.revision, 1);
     assert_eq!(renderer.backend().submissions.len(), 0);
     assert_eq!(renderer.resources().len(), 3);
+}
+
+#[test]
+fn projection_json_applies_resolved_scroll_offsets() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    renderer
+        .prepare_frame_json_str(json_frame_with_scroll_offset_input())
+        .expect("json frame input should prepare");
+
+    let frame = renderer.state().frame().expect("frame prepared");
+    let inside = frame
+        .graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "ui:menu:inside")
+        .expect("scroll child command exists");
+
+    assert_eq!(
+        inside.bounds,
+        LogicalRect {
+            x: 64.0,
+            y: 84.0,
+            width: 220.0,
+            height: 56.0,
+        }
+    );
+    assert_eq!(
+        inside.clip_bounds,
+        vec![LogicalRect {
+            x: 40.0,
+            y: 40.0,
+            width: 280.0,
+            height: 120.0,
+        }]
+    );
+
+    let hit = renderer.hit_intent(80.0, 96.0).expect("offset button hit");
+    assert_eq!(hit.command_id, "ui:menu:inside");
+    assert_eq!(hit.intent.action.as_deref(), Some("inside"));
 }
 
 #[test]
@@ -228,4 +268,39 @@ fn json_frame_with_audio_input() -> &'static str {
       }
     }
     "#
+}
+
+fn json_frame_with_scroll_offset_input() -> &'static str {
+    r##"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "scroll",
+                  "kind": "Scroll",
+                  "bounds": { "x": 40, "y": 40, "width": 280, "height": 120 },
+                  "scrollOffsetY": 72,
+                  "children": [
+                    {
+                      "id": "inside",
+                      "kind": "Button",
+                      "bounds": { "x": 64, "y": 156, "width": 220, "height": 56 },
+                      "text": "Inside",
+                      "intent": { "event": "ui/intent", "action": "inside" }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "##
 }

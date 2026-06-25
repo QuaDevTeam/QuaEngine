@@ -3,6 +3,21 @@ use crate::render_graph::{DrawCommand, LogicalRect, RendererIntent};
 
 use super::super::types::{UiIntentProjection, UiOverlayProjection, UiSurfaceNodeProjection};
 
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(super) struct SurfaceNodeOffset {
+    pub x: f64,
+    pub y: f64,
+}
+
+impl SurfaceNodeOffset {
+    pub fn scrolled_by(self, x: f64, y: f64) -> Self {
+        Self {
+            x: self.x - x,
+            y: self.y - y,
+        }
+    }
+}
+
 pub(super) fn renderer_intent(
     overlay: &UiOverlayProjection,
     node: &UiSurfaceNodeProjection,
@@ -17,10 +32,13 @@ pub(super) fn renderer_intent(
     }
 }
 
-pub(super) fn node_rect(rect: super::super::types::UiSurfaceNodeRect) -> LogicalRect {
+pub(super) fn node_rect(
+    rect: super::super::types::UiSurfaceNodeRect,
+    offset: SurfaceNodeOffset,
+) -> LogicalRect {
     LogicalRect {
-        x: rect.x,
-        y: rect.y,
+        x: rect.x + offset.x,
+        y: rect.y + offset.y,
         width: rect.width,
         height: rect.height,
     }

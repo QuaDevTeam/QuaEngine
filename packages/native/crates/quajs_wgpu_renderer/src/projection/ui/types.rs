@@ -230,6 +230,10 @@ pub struct UiSurfaceNodeProjection {
     pub z_index: i32,
     #[serde(default = "default_one_f32")]
     pub opacity: f32,
+    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    pub scroll_offset_x: f64,
+    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    pub scroll_offset_y: f64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -253,6 +257,8 @@ impl UiSurfaceNodeProjection {
             bounds,
             z_index: 0,
             opacity: 1.0,
+            scroll_offset_x: 0.0,
+            scroll_offset_y: 0.0,
             text: None,
             image: None,
             intent: None,
@@ -357,4 +363,8 @@ fn default_image_asset_type() -> String {
 
 fn default_ui_intent_event() -> String {
     "ui/intent".to_string()
+}
+
+fn is_zero_f64(value: &f64) -> bool {
+    *value == 0.0
 }

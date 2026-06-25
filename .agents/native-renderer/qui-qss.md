@@ -180,6 +180,7 @@ Rust renderer 只消费 resolved style IR。selector matching、cascade、inheri
 - `object-fit`
 - `opacity`
 - `z-index`（作为 resolved node metadata，写入 `UiSurfaceNodeProjection.z_index`，不是浏览器 stacking context）
+- `scrollOffsetX` / `scrollOffsetY`（作为 `Scroll` 节点的 resolved projection metadata，影响子节点绘制和命中测试坐标；不是 QSS cascade 字段，也不是 renderer 持久滚动状态）
 
 ### 建议的 QSS 兼容分期
 
