@@ -145,6 +145,8 @@ QSS 侧：
 - release immutability by version
 - `target-bundle-manifest.json` emitted and revalidated
 - Web artifact 排除 Cocos/native core，Cocos artifact 排除 Web/native core，Native artifact 排除 Web/Cocos core；不能只测 native 严格路径
+- 三端 resolver fixture 必须分别断言 `web-core-resolver`、`cocos-core-resolver`、`native-core-resolver`，并在 resolver / selected adapters / renderer entries / Runtime QPK executable dependencies 任一项串线时失败
+- ordinary plugin list、shared preset、generated plugin resolver、debug shell、release bundle 和 installer/updater manifest 都要跑同一套 target isolation helper，不能只在 Quack 主打包路径校验
 
 ## benchmark 计划
 
@@ -167,13 +169,15 @@ QSS 侧：
 - `native.authoring.qui.format.smoke`
 - `native.authoring.qss.format.smoke`
 - `native.authoring.completion_hover.smoke`
+- `native.authoring.project_index.build.smoke`
+- `native.authoring.project_index.incremental_update.smoke`
 
-这些 benchmark 通过 `@quajs/native-ui-compiler` 和 `@quajs/native-language-server` 的公开 API 运行，不启动 renderer、不加载 target core bootstrap、不解析普通 game plugin 列表。fixture 固定在源码内，不能访问网络、不能随机生成。每条输出记录必须包含 `schemaVersion`、`suite`、`bench`、`profile`、`platform`、`backend`、`packageVersion`、`iterations`、`documentBytes`、`diagnostics`、`elapsedMs`、`memory` 和可比较的 `metrics`。
+这些 benchmark 通过 `@quajs/native-ui-compiler` 和 `@quajs/native-language-server` 的公开 API 运行，包括内存 project index build / incremental update；不启动 renderer、不加载 target core bootstrap、不解析普通 game plugin 列表。fixture 固定在源码内，不能访问网络、不能随机生成。每条输出记录必须包含 `schemaVersion`、`suite`、`bench`、`profile`、`platform`、`backend`、`packageVersion`、`iterations`、`documentBytes`、`diagnostics`、`elapsedMs`、`memory` 和可比较的 `metrics`。
 
 后续还需要补：
 
 - 独立 LSP 进程 initialize / completion / hover 往返 latency。
-- project index build / incremental update latency。
+- 真实 workspace 文件系统扫描、删除、重命名和跨文件引用的 index regression。
 - baseline 文件、历史对比和 regression 阈值升级策略。
 
 ### runtime / renderer

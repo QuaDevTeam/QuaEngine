@@ -1,13 +1,30 @@
 export interface NativeAuthoringBenchmarkFixtures {
+  projectFiles: NativeAuthoringBenchmarkProjectFile[]
   qss: string
   qui: string
 }
 
+export interface NativeAuthoringBenchmarkProjectFile {
+  filePath: string
+  languageId: 'qua-style' | 'qua-ui'
+  source: string
+  uri: string
+  version: number
+}
+
 export function createNativeAuthoringBenchmarkFixtures(): NativeAuthoringBenchmarkFixtures {
+  const qui = createQuiFixture()
+  const qss = createQssFixture()
+
   return {
-    qui: createQuiFixture(),
-    qss: createQssFixture(),
+    projectFiles: createProjectFiles(qui, qss),
+    qss,
+    qui,
   }
+}
+
+export function createUpdatedQuiProjectSource(source: string, iteration: number): string {
+  return source.replace('"Open"', `"Open ${iteration}"`)
 }
 
 function createQuiFixture(): string {
@@ -58,6 +75,25 @@ ${panels}
   }
 }
 `.trimStart()
+}
+
+function createProjectFiles(qui: string, qss: string): NativeAuthoringBenchmarkProjectFile[] {
+  return Array.from({ length: 6 }, (_, index) => [
+    {
+      filePath: `bench/project/menu-${index}.qui`,
+      languageId: 'qua-ui' as const,
+      source: qui.replace('./menu.qss', `./menu-${index}.qss`),
+      uri: `file:///bench/project/menu-${index}.qui`,
+      version: 1,
+    },
+    {
+      filePath: `bench/project/menu-${index}.qss`,
+      languageId: 'qua-style' as const,
+      source: qss,
+      uri: `file:///bench/project/menu-${index}.qss`,
+      version: 1,
+    },
+  ]).flat()
 }
 
 function createQssFixture(): string {

@@ -27,6 +27,14 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 5. 再 emit `target-bundle-manifest.json`。
 6. 再在 packaging / startup 两端重复校验。
 
+每个目标必须有自己独立的 resolver context：
+
+- Web 打包入口只能 materialize `web-core-resolver`，不能 import Cocos 或 Native bootstrap。
+- Cocos 打包入口只能 materialize `cocos-core-resolver`，不能 import Web 或 Native bootstrap。
+- Native 打包入口只能 materialize `native-core-resolver`，不能 import Web 或 Cocos bootstrap。
+- debug、release、updater、installer、手写 shell 和测试 fixture 都必须复用同一套 manifest validation，不能另开绕过 target isolation 的快速路径。
+- `target-bundle-manifest.json` 是目标交接契约，`target`、`targetCoreResolver`、selected adapters、renderer entries、Runtime QPK executable dependencies 必须同属一个 core family。
+
 打包到 Cocos、Web、Native 项目时，核心 bootstrap 插件不能串线：
 
 - Web artifact 只能包含 Web core resolver、Web assets/renderer/framework adapter。
@@ -62,11 +70,11 @@ packages/native/
   ui-compiler/
   language-server/
   vscode/
-  benchmarks/           # planned
+  benchmarks/
   fixtures/             # planned
 ```
 
-当前仓库里已有 native contracts / adapters、QUI/QSS compiler、native LSP、VSCode extension 和三个 Rust crate。后续 benchmarks / fixtures 继续放在 `packages/native/*`，不要塞进 `packages/build/*` 或现有 QuaScript 工具链。
+当前仓库里已有 native contracts / adapters、QUI/QSS compiler、native LSP、VSCode extension、authoring benchmark 和三个 Rust crate。后续 fixtures 继续放在 `packages/native/*`，不要塞进 `packages/build/*` 或现有 QuaScript 工具链。
 
 ## Runtime 分层
 
