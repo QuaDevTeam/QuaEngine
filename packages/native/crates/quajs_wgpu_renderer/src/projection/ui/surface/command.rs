@@ -7,9 +7,10 @@ use crate::render_graph::{
 use crate::resources::ResourceId;
 
 use super::super::style::{
-    resolve_background_color, resolve_border_color, resolve_border_radius, resolve_border_width,
-    resolve_font_family, resolve_font_size, resolve_font_weight, resolve_line_height,
-    resolve_object_fit, resolve_text_align, resolve_text_color,
+    resolve_background_color, resolve_background_image, resolve_border_color,
+    resolve_border_radius, resolve_border_width, resolve_font_family, resolve_font_size,
+    resolve_font_weight, resolve_line_height, resolve_object_fit, resolve_text_align,
+    resolve_text_color,
 };
 use super::super::types::{
     UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceResolvedStyle,
@@ -128,6 +129,56 @@ pub(super) fn surface_scroll_panel_command(
 
     let command = apply_provenance(command, &overlay.provenance);
     apply_provenance(command, &node.provenance)
+}
+
+pub(super) fn surface_background_image_command(
+    overlay: &UiOverlayProjection,
+    node: &UiSurfaceNodeProjection,
+    z_base: i32,
+    clip_bounds: &[LogicalRect],
+    command_id: &str,
+    bounds: LogicalRect,
+    effective_opacity: f32,
+) -> Option<DrawCommand> {
+    if !supports_background_image(node.kind) {
+        return None;
+    }
+
+    let image = resolve_background_image(&node.style)?;
+    let mut command = DrawCommand::new(
+        format!("{command_id}:background-image"),
+        RenderPlane::Screen,
+        DrawCommandKind::Image,
+        bounds,
+    )
+    .z_index(z_base.saturating_add(node.z_index).saturating_sub(1))
+    .opacity(effective_opacity)
+    .clip_bounds(clip_bounds.iter().copied())
+    .resource(ResourceId::new(format!(
+        "{}:{}",
+        image.asset_type, image.asset_name
+    )))
+    .params(DrawCommandParams::Image(ImageDrawParams {
+        asset_type: image.asset_type.clone(),
+        asset_name: image.asset_name.clone(),
+        fit: resolve_object_fit(&node.style, MediaFit::Cover),
+        origin: MediaOrigin::default(),
+        source: bounds,
+    }));
+
+    command = apply_provenance(command, &overlay.provenance);
+    Some(apply_provenance(command, &node.provenance))
+}
+
+fn supports_background_image(kind: UiSurfaceNodeKind) -> bool {
+    matches!(
+        kind,
+        UiSurfaceNodeKind::Box
+            | UiSurfaceNodeKind::Backdrop
+            | UiSurfaceNodeKind::Button
+            | UiSurfaceNodeKind::Panel
+            | UiSurfaceNodeKind::Scroll
+    )
 }
 
 pub(super) fn scroll_clip_command(

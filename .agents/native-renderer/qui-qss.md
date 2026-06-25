@@ -168,6 +168,7 @@ Rust renderer 只消费 resolved style IR。selector matching、cascade、inheri
 现有 resolved style / capability 已覆盖的核心字段是：
 
 - `background-color`
+- `background-image`（仅支持 `asset("ui/panel.png")` / `asset("ui/panel.png", "images")` 这类 package-relative 结构化资源引用；不支持浏览器 `url(...)`、远程 URL、绝对路径或 `..` traversal）
 - `border-color`
 - `border-radius`
 - `border-width`
@@ -187,7 +188,7 @@ Rust renderer 只消费 resolved style IR。selector matching、cascade、inheri
 | 阶段 | 目标 | 建议属性 |
 | --- | --- | --- |
 | P0 | 先把 native surface 跑起来 | 上述基础字段 |
-| P1 | 补齐常用视觉布局 | 已落地 `z-index`；待补齐 `padding`, `margin`, `gap`, `width`, `height`, `min/max-*`, `overflow` |
+| P1 | 补齐常用视觉布局 | 已落地 `z-index` 与结构化 `background-image: asset(...)`；待补齐 `padding`, `margin`, `gap`, `width`, `height`, `min/max-*`, `overflow`, `background-size`, `background-position` |
 | P2 | 进一步接近熟悉的 CSS 体验 | 部分 `transform`, `shadow`, `transition` 及少量视觉增强 |
 
 ### 建议支持的 selector 语义
@@ -205,6 +206,7 @@ Rust renderer 只消费 resolved style IR。selector matching、cascade、inheri
 - `@media` 作为主布局手段
 - `@keyframes`
 - 任意 CSS function
+- 浏览器 `url(...)` / 网络资源；native 背景资源必须走 `asset(...)` resolved IR
 - 任意未白名单化 property
 - 依赖浏览器 box model 的复杂行为
 

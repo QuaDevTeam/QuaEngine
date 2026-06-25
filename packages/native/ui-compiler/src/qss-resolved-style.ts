@@ -21,6 +21,9 @@ export function resolveNativeQssDeclarations(
       case 'background-color':
         resolved.style.backgroundColor = value
         break
+      case 'background-image':
+        resolved.style.backgroundImage = parseBackgroundImage(value)
+        break
       case 'border-color':
         resolved.style.borderColor = value
         break
@@ -61,6 +64,32 @@ export function resolveNativeQssDeclarations(
   }
 
   return pruneUndefinedResolvedNodeStyle(resolved)
+}
+
+function parseBackgroundImage(value: string): { assetType: string, assetName: string } | undefined {
+  const match = /^asset\(\s*(?:"([^"]+)"|'([^']+)')\s*(?:,\s*(?:"([^"]+)"|'([^']+)'))?\s*\)$/i.exec(value.trim())
+  if (!match)
+    return undefined
+
+  const assetName = (match[1] || match[2] || '').trim()
+  const assetType = (match[3] || match[4] || 'images').trim()
+
+  if (!isSafeAssetType(assetType) || !isSafePackageAssetName(assetName))
+    return undefined
+
+  return { assetType, assetName }
+}
+
+function isSafeAssetType(value: string): boolean {
+  return /^[a-z][a-z0-9-]*$/i.test(value)
+}
+
+function isSafePackageAssetName(value: string): boolean {
+  const normalized = value.replace(/\\/g, '/')
+  return normalized.length > 0
+    && !normalized.startsWith('/')
+    && !/^[a-z][a-z0-9+.-]*:/i.test(normalized)
+    && !normalized.split('/').includes('..')
 }
 
 function parseLogicalNumber(value: string): number | undefined {

@@ -100,6 +100,7 @@ function createQssFixture(): string {
   const rules = Array.from({ length: 24 }, (_, index) => `
 Panel.card${index} {
   background-color: #10141f;
+  background-image: asset("ui/card-${index}.png");
   border-color: #31415f;
   border-radius: ${6 + (index % 4)}px;
   border-width: 1px;
