@@ -7,6 +7,7 @@ import type {
   Position,
   Range,
   ReferenceParams,
+  TextDocumentPositionParams,
   TextEdit,
 } from 'vscode-languageserver/node.js'
 import type {
@@ -26,6 +27,7 @@ import {
 } from 'vscode-languageserver/node.js'
 import {
   buildNativeUiProjectIndex,
+  findNativeUiProjectDefinitions,
   findNativeUiProjectReferences,
   formatNativeUiDocumentEdits,
   getNativeUiLanguageCompletions,
@@ -69,6 +71,7 @@ connection.onInitialize((params: InitializeParams) => {
       documentLinkProvider: {
         resolveProvider: false,
       },
+      definitionProvider: true,
       referencesProvider: true,
       documentFormattingProvider: true,
     },
@@ -143,6 +146,18 @@ connection.onReferences((params) => {
     range: toLspRange(reference.range),
     uri: reference.uri,
   }))
+})
+
+connection.onDefinition((params) => {
+  const index = currentProjectIndex()
+  const target = findReferenceAtPosition(index, params)
+  if (!target)
+    return []
+
+  return findNativeUiProjectDefinitions(index, {
+    kind: target.kind,
+    name: target.name,
+  }).map(toLspLocation)
 })
 
 connection.onDidChangeConfiguration((params) => {
@@ -302,11 +317,18 @@ function toCompletionKind(kind: string): CompletionItemKind {
 
 function findReferenceAtPosition(
   index: ReturnType<typeof currentProjectIndex>,
-  params: ReferenceParams,
+  params: ReferenceParams | TextDocumentPositionParams,
 ) {
   return findNativeUiProjectReferences(index, {
     uri: params.textDocument.uri,
   }).find(reference => containsPosition(reference.range, params.position))
+}
+
+function toLspLocation(reference: ReturnType<typeof findNativeUiProjectReferences>[number]): Location {
+  return {
+    range: toLspRange(reference.range),
+    uri: reference.uri,
+  }
 }
 
 function containsPosition(range: NativeUiRangeForServer, position: Position): boolean {

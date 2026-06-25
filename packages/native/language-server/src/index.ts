@@ -35,6 +35,7 @@ export type {
   FindNativeUiProjectReferencesOptions,
 } from './project-references'
 export {
+  findNativeUiProjectDefinitions,
   findNativeUiProjectReferences,
   getNativeUiProjectDocumentLinks,
 } from './project-references'

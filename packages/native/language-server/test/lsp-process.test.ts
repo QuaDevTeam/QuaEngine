@@ -93,6 +93,7 @@ describe('@quajs/native-language-server process', () => {
 
     expect(initialize.capabilities).toEqual(expect.objectContaining({
       completionProvider: expect.any(Object),
+      definitionProvider: true,
       documentLinkProvider: expect.any(Object),
       hoverProvider: true,
       referencesProvider: true,
@@ -185,6 +186,18 @@ describe('@quajs/native-language-server process', () => {
         uri: qssUri,
       }),
     ]))
+
+    const idDefinition = await client.request<LocationLike[]>('textDocument/definition', {
+      position: positionAtOffset(qss, qss.indexOf('main-panel')),
+      textDocument: {
+        uri: qssUri,
+      },
+    })
+    expect(idDefinition).toEqual([
+      expect.objectContaining({
+        uri: quiUri,
+      }),
+    ])
   }, 30_000)
 })
 
