@@ -1,0 +1,53 @@
+{
+  "Import style": {
+    "prefix": "import-style",
+    "body": "import style \"./${1:menu}.qss\";",
+    "description": "Import a native QSS stylesheet."
+  },
+  "Import tokens": {
+    "prefix": "import-tokens",
+    "body": "import tokens \"./${1:theme}.tokens.json\";",
+    "description": "Import native UI design tokens."
+  },
+  "Button action": {
+    "prefix": "button",
+    "body": [
+      "Button(action: ui.${1:close}()) {",
+      "  Text { \"${2:Close}\" }",
+      "}"
+    ],
+    "description": "Create a native QUI button with a declarative action."
+  },
+  "Conditional block": {
+    "prefix": "if",
+    "body": [
+      "${1:Box}(if: ${2:view.ready}) {",
+      "  ${0}",
+      "}"
+    ],
+    "description": "Create a native QUI conditional block."
+  },
+  "Loop block": {
+    "prefix": "for",
+    "body": [
+      "${1:Row}(for: ${2:item} in ${3:items}, key: ${2:item}.id) {",
+      "  Text { ${2:item}.${4:label} }",
+      "}"
+    ],
+    "description": "Create a native QUI loop block."
+  },
+  "Panel": {
+    "prefix": "panel",
+    "body": [
+      "Panel.${1:menu} {",
+      "  slot header {",
+      "    Text { \"${2:Title}\" }",
+      "  }",
+      "  slot body {",
+      "    ${0}",
+      "  }",
+      "}"
+    ],
+    "description": "Create a native QUI panel with named slots."
+  }
+}

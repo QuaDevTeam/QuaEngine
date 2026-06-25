@@ -1,0 +1,56 @@
+{
+  "name": "@quajs/native-language-server",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Language server for QuaEngine native QUI and QSS authoring",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/native/language-server"
+  },
+  "keywords": [
+    "quaengine",
+    "native",
+    "qui",
+    "qss",
+    "language-server"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "qua-native-language-server": "./bin/qua-native-language-server.cjs"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@quajs/native-ui-compiler": "workspace:*",
+    "vscode-languageserver": "catalog:",
+    "vscode-languageserver-textdocument": "catalog:"
+  }
+}

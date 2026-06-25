@@ -687,6 +687,18 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/native/language-server:
+    dependencies:
+      '@quajs/native-ui-compiler':
+        specifier: workspace:*
+        version: link:../ui-compiler
+      vscode-languageserver:
+        specifier: 'catalog:'
+        version: 9.0.1
+      vscode-languageserver-textdocument:
+        specifier: 'catalog:'
+        version: 1.0.12
+
   packages/native/store-native:
     dependencies:
       '@quajs/native-contracts':
@@ -695,6 +707,26 @@ importers:
       '@quajs/store':
         specifier: workspace:*
         version: link:../../core/store
+
+  packages/native/ui-compiler: {}
+
+  packages/native/vscode:
+    devDependencies:
+      '@quajs/native-language-server':
+        specifier: workspace:*
+        version: link:../language-server
+      '@quajs/native-ui-compiler':
+        specifier: workspace:*
+        version: link:../ui-compiler
+      '@types/vscode':
+        specifier: 'catalog:'
+        version: 1.118.0
+      '@vscode/vsce':
+        specifier: 'catalog:'
+        version: 3.9.1
+      vscode-languageclient:
+        specifier: 'catalog:'
+        version: 9.0.1
 
   packages/platform/assets-cocos:
     dependencies:

@@ -27,6 +27,14 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 5. 再 emit `target-bundle-manifest.json`。
 6. 再在 packaging / startup 两端重复校验。
 
+打包到 Cocos、Web、Native 项目时，核心 bootstrap 插件不能串线：
+
+- Web artifact 只能包含 Web core resolver、Web assets/renderer/framework adapter。
+- Cocos artifact 只能包含 Cocos host/renderer adapter。
+- Native artifact 只能包含 `engine-native`、`assets-native`、`store-native`、native contracts 元数据和 Rust native app/runtime/renderer。
+- 普通 game/plugin 解析只能消费已经选好的 `TargetCoreSelection`，不能拿一个三端全集再靠运行时过滤。
+- Runtime QPK 可声明多端 compatibility metadata，但 active artifact 只能评估当前 target block；QPK 不允许声明或携带任何 target core executable dependency。
+
 native 包装必须始终通过：
 
 - `@quajs/native-contracts`
@@ -50,14 +58,14 @@ packages/native/
   engine-native/
   assets-native/
   store-native/
-  ui-compiler/          # planned
-  language-server/      # planned
-  vscode/               # planned
+  ui-compiler/
+  language-server/
+  vscode/
   benchmarks/           # planned
   fixtures/             # planned
 ```
 
-当前仓库里已有前四个 TS 包和三个 Rust crate。其余目录建议作为后续独立包逐步补齐，不要塞进 `packages/build/*` 或现有 QuaScript 工具链。
+当前仓库里已有 native contracts / adapters、QUI/QSS compiler、native LSP、VSCode extension 和三个 Rust crate。后续 benchmarks / fixtures 继续放在 `packages/native/*`，不要塞进 `packages/build/*` 或现有 QuaScript 工具链。
 
 ## Runtime 分层
 

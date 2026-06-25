@@ -16,6 +16,9 @@
 - `packages/native/engine-native`
 - `packages/native/assets-native`
 - `packages/native/store-native`
+- `packages/native/ui-compiler`
+- `packages/native/language-server`
+- `packages/native/vscode`
 - Rust crate:
   - `packages/native/crates/quajs_native_runtime`
   - `packages/native/crates/quajs_wgpu_renderer`
@@ -28,6 +31,7 @@
 - native renderer 已有基础能力清单，包含 stage layout、image、video fallback、text、ui.surface、pointer。
 - Rust renderer 只消费解析后的投影数据，不负责 QSS 解析、selector matching、cascade 或语言诊断。
 - native runtime package guard 已能拦截 native code payload。
+- QUI / QSS authoring 已有 native 专用 compiler、LSP 和 VSCode extension 基础包。
 
 ## 核心原则
 
@@ -48,7 +52,7 @@
 
 1. 锁定 contracts、target isolation、manifest / capability 流程。
 2. 定义 QUI / QSS 语法和组件 registry。
-3. 独立实现 native language-server 与 VSCode 插件。
+3. 扩展 native language-server 与 VSCode 插件的项目索引、definitions、references、rename 与 code actions。
 4. 完成 renderer base primitives、composite UI、media 路线。
 5. 接入 packaging / signing / distribution。
 6. 建立 benchmark、验收和发布门禁。

@@ -10,10 +10,12 @@ native authoring 工具要独立于现有 QuaScript 工具链：
 
 建议新增：
 
-- `packages/native/ui-compiler`
-- `packages/native/language-server`
-- `packages/native/vscode`
+- `packages/native/ui-compiler`：已落基础，负责 QUI/QSS parse、validate、format、completion、hover 和 registry。
+- `packages/native/language-server`：已落基础，负责 `.qui/.qss` 的独立 LSP 适配。
+- `packages/native/vscode`：已落基础，负责 VSCode language contribution、grammar、snippets、format/validate/restart commands 和 native LSP 启动。
 - `packages/native/benchmarks`
+
+这些工具只做 authoring，不加载 Web/Cocos/native target core bootstrap，也不解析普通 game plugin 列表。它们可以读取平台无关 contracts / registry / manifest schema，但不能把 Web、Cocos、Native 三套核心插件合并成一个编辑器运行时。
 
 ## Language Server 设计
 
@@ -86,8 +88,12 @@ QSS 侧：
 - snippets
 - command: validate / format / restart LSP
 - diagnostics panel
+
+后续增强：
+
 - project surface tree
 - token / asset / style reference view
+- component registry browser
 
 ## 验证策略
 
@@ -192,7 +198,11 @@ Rust / TS 的具体命令可以随实现补齐，但验收应至少覆盖：
 - `pnpm --filter @quajs/native-contracts test`
 - `pnpm --filter @quajs/engine-native test`
 - `pnpm --filter @quajs/native-ui-compiler test`
+- `pnpm -C packages/native/ui-compiler typecheck`
 - `pnpm --filter @quajs/native-language-server test`
+- `pnpm -C packages/native/language-server typecheck`
+- `pnpm -C packages/native/vscode typecheck`
+- `pnpm -C packages/native/vscode build`
 - `cargo test --manifest-path packages/native/Cargo.toml --workspace`
 
 Cargo 重测试 / 重构建前要先看磁盘余量，必要时先清理 `target` / `cargo` 缓存，避免把后续验证卡死在空间不足上。
