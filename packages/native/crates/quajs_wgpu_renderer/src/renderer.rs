@@ -1,5 +1,6 @@
 pub mod backend;
 pub mod facade;
+pub mod json_input;
 pub mod metrics;
 pub mod resource_update;
 pub mod state;
@@ -19,6 +20,9 @@ pub use backend::{
 pub use facade::{
     NativeRenderer, NativeRendererFrameError, NativeRendererFrameResult,
     NativeRendererPointerEventDispatch,
+};
+pub use json_input::{
+    NativeRendererJsonFrameError, NativeRendererJsonFrameInput, NativeRendererJsonParseError,
 };
 pub use metrics::{
     NativeRendererFrameMetrics, NativeRendererMetrics, NativeRendererResourceMetrics,
