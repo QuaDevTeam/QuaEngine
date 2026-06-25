@@ -203,6 +203,56 @@ describe('target plugin manifest validation', () => {
     }
   })
 
+  it('checks masked packageName and specifier fields in inactive eager entries', () => {
+    const result = validateTargetPluginManifest({
+      target: 'native',
+      manifest: createPluginManifest({
+        entries: [
+          { specifier: '@quajs/plugin-menu/shared', target: 'shared' },
+          { specifier: '@quajs/plugin-menu/native', target: 'native' },
+          {
+            specifier: '@quajs/plugin-menu/web',
+            target: 'web',
+            eager: true,
+            imports: [
+              {
+                packageName: '@quajs/plugin-menu-core',
+                specifier: '@quajs/renderer-web/plugins/ui',
+              },
+            ],
+          },
+          {
+            specifier: '@quajs/plugin-menu/cocos',
+            target: 'cocos',
+            eager: true,
+            imports: [
+              {
+                packageName: '@quajs/cocos-host',
+                specifier: '@quajs/plugin-menu-cocos/runtime',
+              },
+            ],
+          },
+        ],
+      }),
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_PLUGIN_INACTIVE_ENTRY_TARGET_CORE_IMPORT',
+        target: 'native',
+        entryTarget: 'web',
+        packageName: '@quajs/renderer-web',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_PLUGIN_INACTIVE_ENTRY_TARGET_CORE_IMPORT',
+        target: 'native',
+        entryTarget: 'cocos',
+        packageName: '@quajs/cocos-host',
+      }),
+    ]))
+  })
+
   it('rejects shared entries that import any target core adapter', () => {
     const result = validateTargetPluginManifest({
       target: 'native',
