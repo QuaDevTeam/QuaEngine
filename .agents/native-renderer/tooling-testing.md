@@ -135,7 +135,7 @@ QSS 侧：
 - QuickJS module loader
 - manifest validation
 - target bundle startup checks
-- native app renderer smoke: 设置 `QUA_NATIVE_RENDERER_SMOKE_FRAME` 指向已解析 projection JSON，启动 `quajs_native_app` 后必须完成 `NativeRendererJsonFrameInput` -> `NullNativeRenderBackend` 的 frame submit，并输出人读 revision / pass / batch / command / resource 摘要以及机器可读 `Qua native renderer smoke json: ...` 行。JSON 行至少包含 `missingResourceCount`、`fallbackCount`、`declarativeAssetRequestCount`、`declarativeResourceCount`、`memory.totalBytes`、`declarativeMemory.totalBytes` 和 audio 资源/track 计数，供 CI / benchmark 做回归比较。
+- native app renderer smoke: 设置 `QUA_NATIVE_RENDERER_SMOKE_FRAME` 指向已解析 projection JSON，启动 `quajs_native_app` 后必须完成 `NativeRendererJsonFrameInput` -> `NullNativeRenderBackend` 的 frame submit，并输出人读 revision / pass / batch / command / resource 摘要以及机器可读 `Qua native renderer smoke json: ...` 行。JSON 行至少包含 `missingResourceCount`、`fallbackCount`、`videoFallbackCount`、`declarativeAssetRequestCount`、`declarativeResourceCount`、`memory.totalBytes`、`declarativeMemory.totalBytes`、`audioMemory.totalBytes` 和 audio 资源/track 计数，供 CI / benchmark 做回归比较。设置 `QUA_NATIVE_RENDERER_SMOKE_BUDGET` 时，预算 JSON 字段必须严格校验，并对这些指标执行上限门禁；该路径只消费 resolved projection JSON，不加载 QUI/QSS authoring parser、普通 plugin resolver、Runtime QPK executable dependency 或 Web/Cocos/native target core bootstrap 列表。
 - renderer capability matching
 - resource release / unload cleanup
 

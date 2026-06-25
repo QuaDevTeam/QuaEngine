@@ -1,8 +1,13 @@
 use std::fmt::{Display, Formatter};
 use std::path::Path;
 
+mod budget;
 mod summary;
 
+use budget::{
+    load_renderer_smoke_budget, NativeRendererSmokeBudgetLoadError,
+    NativeRendererSmokeBudgetReport, RENDERER_SMOKE_BUDGET_ENV,
+};
 use quajs_wgpu_renderer::renderer::{
     NativeRenderer, NativeRendererJsonFrameError, NullNativeRenderBackend,
 };
@@ -18,6 +23,8 @@ pub enum NativeRendererSmokeError {
         source: std::io::Error,
     },
     Frame(NativeRendererJsonFrameError),
+    BudgetLoad(NativeRendererSmokeBudgetLoadError),
+    BudgetExceeded(NativeRendererSmokeBudgetReport),
 }
 
 impl Display for NativeRendererSmokeError {
@@ -30,6 +37,8 @@ impl Display for NativeRendererSmokeError {
                 )
             }
             Self::Frame(error) => write!(formatter, "Native renderer smoke frame failed: {error}."),
+            Self::BudgetLoad(error) => write!(formatter, "{error}"),
+            Self::BudgetExceeded(report) => write!(formatter, "{report}"),
         }
     }
 }
@@ -39,6 +48,8 @@ impl std::error::Error for NativeRendererSmokeError {
         match self {
             Self::Io { source, .. } => Some(source),
             Self::Frame(source) => Some(source),
+            Self::BudgetLoad(source) => Some(source),
+            Self::BudgetExceeded(_) => None,
         }
     }
 }
@@ -49,13 +60,28 @@ impl From<NativeRendererJsonFrameError> for NativeRendererSmokeError {
     }
 }
 
+impl From<NativeRendererSmokeBudgetLoadError> for NativeRendererSmokeError {
+    fn from(error: NativeRendererSmokeBudgetLoadError) -> Self {
+        Self::BudgetLoad(error)
+    }
+}
+
 pub fn run_renderer_smoke_from_env(
 ) -> Result<Option<NativeRendererSmokeSummary>, NativeRendererSmokeError> {
     let Some(path) = std::env::var_os(RENDERER_SMOKE_FRAME_ENV) else {
         return Ok(None);
     };
 
-    run_renderer_smoke_frame_json(std::path::PathBuf::from(path)).map(Some)
+    let summary = run_renderer_smoke_frame_json(std::path::PathBuf::from(path))?;
+    if let Some(budget_path) = std::env::var_os(RENDERER_SMOKE_BUDGET_ENV) {
+        let budget = load_renderer_smoke_budget(std::path::PathBuf::from(budget_path))?;
+        let report = NativeRendererSmokeBudgetReport::check(budget, &summary);
+        if !report.is_ok() {
+            return Err(NativeRendererSmokeError::BudgetExceeded(report));
+        }
+    }
+
+    Ok(Some(summary))
 }
 
 pub fn run_renderer_smoke_frame_json(
