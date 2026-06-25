@@ -140,6 +140,42 @@ describe('@quajs/native-language-server', () => {
       .toEqual(['dialog', 'primary'])
   })
 
+  it('indexes precise QUI class reference ranges for chained component classes', () => {
+    const source = 'Panel.dialog.primary { Button.cta { Text { "Open" } } }'
+    const index = buildNativeUiProjectIndex([
+      {
+        uri: 'file:///project/menu.qui',
+        source,
+      },
+    ])
+    const document = index.documents.find(document => document.uri.endsWith('menu.qui'))
+
+    expect(document?.classReferences).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        name: 'dialog',
+        range: rangeOf(source, 'dialog'),
+      }),
+      expect.objectContaining({
+        name: 'primary',
+        range: rangeOf(source, 'primary'),
+      }),
+      expect.objectContaining({
+        name: 'cta',
+        range: rangeOf(source, 'cta'),
+      }),
+    ]))
+    expect(findNativeUiProjectDefinitions(index, { kind: 'class', name: 'primary' }))
+      .toEqual([
+        expect.objectContaining({
+          kind: 'class',
+          name: 'primary',
+          range: rangeOf(source, 'primary'),
+          source: 'qui-node',
+          uri: 'file:///project/menu.qui',
+        }),
+      ])
+  })
+
   it('indexes id references across QUI ids and QSS selectors', () => {
     const index = buildNativeUiProjectIndex([
       {
@@ -341,3 +377,17 @@ describe('@quajs/native-language-server', () => {
     expect(findNativeUiProjectReferences(index, { kind: 'id' })).toEqual([])
   })
 })
+
+function rangeOf(source: string, token: string) {
+  const character = source.indexOf(token)
+  return {
+    start: {
+      character,
+      line: 0,
+    },
+    end: {
+      character: character + token.length,
+      line: 0,
+    },
+  }
+}
