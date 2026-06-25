@@ -119,7 +119,9 @@ fn pointer_capability_is_limited_to_interactive_surface_components() {
     assert!(pointer.asset_kinds.is_empty());
     assert!(pointer.qss_features.is_empty());
     assert!(pointer.qui_components.contains(&"Backdrop".to_string()));
+    assert!(pointer.qui_components.contains(&"Button".to_string()));
     assert!(pointer.qui_components.contains(&"Panel".to_string()));
+    assert!(!pointer.qui_components.contains(&"Choice".to_string()));
     assert!(!pointer.qui_components.contains(&"Column".to_string()));
     assert!(!pointer.qui_components.contains(&"Divider".to_string()));
     assert!(!pointer.qui_components.contains(&"Fragment".to_string()));
