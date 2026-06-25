@@ -17,6 +17,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQuiComponentNames()).toContain('Scroll')
     expect(nativeWgpuQssFeatureNames()).toContain('background-color')
     expect(nativeWgpuQssFeatureNames()).toContain('object-fit')
+    expect(nativeWgpuQssFeatureNames()).toContain('opacity')
     expect(nativeWgpuQssFeatureNames()).not.toContain('padding')
   })
 
@@ -63,6 +64,17 @@ Panel::part(header), Button.primary:hover {
       expect.objectContaining({ code: 'QSS_TARGET_UNSUPPORTED_FEATURE' }),
       expect.objectContaining({ code: 'QSS_UNSUPPORTED_UNIT' }),
     ]))
+  })
+
+  it('accepts opacity as a native-wgpu QSS feature', () => {
+    const document = analyzeQssSource(`
+Panel {
+  opacity: 0.64;
+}
+`)
+
+    expect(document.diagnostics).toEqual([])
+    expect(document.rules[0].declarations.map(item => item.name)).toContain('opacity')
   })
 
   it('rejects browser-only QSS selectors and values', () => {

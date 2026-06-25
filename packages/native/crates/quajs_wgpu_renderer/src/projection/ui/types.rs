@@ -166,6 +166,7 @@ pub struct UiSurfaceResolvedStyle {
     pub line_height: Option<f64>,
     pub text_align: Option<UiSurfaceTextAlignProjection>,
     pub object_fit: Option<UiSurfaceObjectFitProjection>,
+    pub opacity: Option<f32>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

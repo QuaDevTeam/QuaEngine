@@ -76,6 +76,14 @@ pub fn resolve_object_fit(style: &UiSurfaceResolvedStyle, fallback: MediaFit) ->
     }
 }
 
+pub fn resolve_opacity(style: &UiSurfaceResolvedStyle, fallback: f32) -> f32 {
+    style
+        .opacity
+        .filter(|number| number.is_finite())
+        .map(|number| number.clamp(0.0, 1.0))
+        .unwrap_or(fallback)
+}
+
 fn resolve_positive_number(value: Option<f64>, fallback: f64) -> f64 {
     value
         .filter(|number| number.is_finite() && *number >= 0.0)
