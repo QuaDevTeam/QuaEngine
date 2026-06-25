@@ -8,7 +8,7 @@ use crate::render_graph::{DrawBatchPipeline, DrawCommandKind, RenderPlane};
 use crate::renderer::{
     NativeRenderBackendErrorKind, NativeRenderFallbackDiagnostic, NativeRenderMissingResource,
 };
-use crate::resources::NativeResourceLedger;
+use crate::resources::{NativeResourceKind, NativeResourceLedger};
 use crate::stage_layout::{
     resolve_stage_layout, StageContainerInput, ViewLayoutInput, ViewLayoutOrientation,
 };
@@ -37,6 +37,7 @@ fn records_submissions_without_gpu_work() {
                 frames_with_missing_resources: 1,
                 missing_resource_count: 1,
                 last_missing_resources: submission.missing_resources.clone(),
+                missing_resources_by_kind: [(NativeResourceKind::Texture, 1)].into(),
                 ..Default::default()
             },
             fallback_warnings: NativeRenderFallbackWarningDiagnostics::default(),

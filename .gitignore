@@ -17,3 +17,4 @@ output
 .local-pack-test/
 .codegraph/
 *.tgz
+packages/native/target/

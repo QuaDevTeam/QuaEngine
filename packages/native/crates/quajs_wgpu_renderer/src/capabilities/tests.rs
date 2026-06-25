@@ -98,6 +98,7 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(ui.qui_components.contains(&"Layer".to_string()));
     assert!(ui.qui_components.contains(&"Row".to_string()));
     assert!(ui.qui_components.contains(&"Text".to_string()));
+    assert!(ui.qui_components.contains(&"RichText".to_string()));
     assert!(ui.qui_components.contains(&"Image".to_string()));
     assert!(ui.qui_components.contains(&"Panel".to_string()));
     assert!(ui.qui_components.contains(&"SafeArea".to_string()));
@@ -124,6 +125,7 @@ fn pointer_capability_is_limited_to_interactive_surface_components() {
     assert!(!pointer.qui_components.contains(&"Grid".to_string()));
     assert!(!pointer.qui_components.contains(&"Layer".to_string()));
     assert!(!pointer.qui_components.contains(&"Row".to_string()));
+    assert!(!pointer.qui_components.contains(&"RichText".to_string()));
     assert!(!pointer.qui_components.contains(&"SafeArea".to_string()));
     assert!(!pointer.qui_components.contains(&"Spacer".to_string()));
     assert!(!pointer.qui_components.contains(&"Stack".to_string()));
