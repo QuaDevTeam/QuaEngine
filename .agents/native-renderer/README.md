@@ -43,6 +43,18 @@
 6. base component 要尽量小，dialog / drawer / save-load / settings 之类上层 UI 用 composite 组装。
 7. 打包流程必须 target-first：先确定 Web、Cocos 或 Native，再解析普通插件；不能先加载三端核心插件全集再靠过滤输出。
 
+## 三目标打包隔离门禁
+
+Web、Cocos、Native 打包是三条互斥目标链路，不是同一套核心插件列表的三种输出格式。每个目标产物都必须先 materialize 唯一的 `TargetCoreSelection`，再解析普通 game/plugin 和 Runtime QPK；任何 shared preset、普通 `plugins`、generated resolver、renderer entry 或 Runtime QPK executable dependency 里出现 Web / Cocos / Native target core 根包或子入口，都必须作为 release blocker。
+
+验收时至少覆盖这些门禁：
+
+- `validateExclusiveTargetBootstrap`：最终依赖图只能注册一个 target core family。
+- `validateOrdinaryPluginListTargetIsolation`：普通插件列表不能包含 target core adapter。
+- `validateTargetPluginManifest`：第三方插件只能选择当前 target entry，shared entry 不能 import 任一 target core。
+- `validateTargetBundleManifest`：`target`、`targetCoreResolver`、selected adapters、renderer entries、Runtime QPK dependency 必须同属一个 core family。
+- Runtime QPK：可以声明多端 compatibility metadata，但不能携带或激活任何 Web / Cocos / Native core adapter。
+
 ## 文档索引
 
 - [架构与包结构](./architecture.md)
