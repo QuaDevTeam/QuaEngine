@@ -1,21 +1,15 @@
 use std::fmt::{Display, Formatter};
 use std::path::Path;
 
+mod summary;
+
 use quajs_wgpu_renderer::renderer::{
     NativeRenderer, NativeRendererJsonFrameError, NullNativeRenderBackend,
 };
 
-pub const RENDERER_SMOKE_FRAME_ENV: &str = "QUA_NATIVE_RENDERER_SMOKE_FRAME";
+pub use summary::NativeRendererSmokeSummary;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NativeRendererSmokeSummary {
-    pub revision: u64,
-    pub pass_count: usize,
-    pub batch_count: usize,
-    pub command_count: usize,
-    pub resource_count: usize,
-    pub missing_resource_count: usize,
-}
+pub const RENDERER_SMOKE_FRAME_ENV: &str = "QUA_NATIVE_RENDERER_SMOKE_FRAME";
 
 #[derive(Debug)]
 pub enum NativeRendererSmokeError {
@@ -74,15 +68,11 @@ pub fn run_renderer_smoke_frame_json(
     })?;
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
     let result = renderer.prepare_and_render_json_str(&json)?;
+    let metrics = renderer.metrics();
 
-    Ok(NativeRendererSmokeSummary {
-        revision: result.submission.revision,
-        pass_count: result.submission.pass_count,
-        batch_count: result.submission.batch_count,
-        command_count: result.submission.command_count,
-        resource_count: result.submission.resource_count,
-        missing_resource_count: result.submission.missing_resource_count,
-    })
+    Ok(NativeRendererSmokeSummary::from_frame_result(
+        &result, &metrics,
+    ))
 }
 
 #[cfg(test)]
@@ -101,7 +91,15 @@ mod tests {
         assert_eq!(summary.pass_count, 2);
         assert_eq!(summary.resource_count, 3);
         assert_eq!(summary.missing_resource_count, 0);
+        assert_eq!(summary.fallback_count, 0);
+        assert_eq!(summary.declarative_resource_count, 1);
+        assert_eq!(summary.declarative_asset_request_count, 1);
+        assert!(summary.memory.total_bytes > 0);
+        assert!(summary.declarative_memory.total_bytes > 0);
         assert!(summary.command_count >= 3);
+        let json = serde_json::to_value(&summary).expect("smoke summary serializes");
+        assert_eq!(json["missingResourceCount"], 0);
+        assert!(json["memory"]["totalBytes"].as_u64().unwrap() > 0);
         std::fs::remove_file(path).ok();
     }
 

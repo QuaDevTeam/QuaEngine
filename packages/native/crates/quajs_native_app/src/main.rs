@@ -37,6 +37,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             summary.resource_count,
             summary.missing_resource_count
         );
+        println!(
+            "Qua native renderer smoke json: {}",
+            serde_json::to_string(&summary)?
+        );
     }
     Ok(())
 }

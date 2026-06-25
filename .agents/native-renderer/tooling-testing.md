@@ -135,7 +135,7 @@ QSS 侧：
 - QuickJS module loader
 - manifest validation
 - target bundle startup checks
-- native app renderer smoke: 设置 `QUA_NATIVE_RENDERER_SMOKE_FRAME` 指向已解析 projection JSON，启动 `quajs_native_app` 后必须完成 `NativeRendererJsonFrameInput` -> `NullNativeRenderBackend` 的 frame submit，并输出 revision / pass / batch / command / resource 摘要
+- native app renderer smoke: 设置 `QUA_NATIVE_RENDERER_SMOKE_FRAME` 指向已解析 projection JSON，启动 `quajs_native_app` 后必须完成 `NativeRendererJsonFrameInput` -> `NullNativeRenderBackend` 的 frame submit，并输出人读 revision / pass / batch / command / resource 摘要以及机器可读 `Qua native renderer smoke json: ...` 行。JSON 行至少包含 `missingResourceCount`、`fallbackCount`、`declarativeAssetRequestCount`、`declarativeResourceCount`、`memory.totalBytes`、`declarativeMemory.totalBytes` 和 audio 资源/track 计数，供 CI / benchmark 做回归比较。
 - renderer capability matching
 - resource release / unload cleanup
 

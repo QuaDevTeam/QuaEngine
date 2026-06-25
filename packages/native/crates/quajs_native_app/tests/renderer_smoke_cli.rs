@@ -26,6 +26,19 @@ fn binary_runs_renderer_smoke_frame_from_projection_json() {
     assert!(stdout.contains("\"quickjsVersion\":\"unsupported\""));
     assert!(stdout.contains("Qua native renderer smoke: revision=1 passes=2 batches="));
     assert!(stdout.contains("missingResources=0"));
+    let smoke_json = smoke_json_line(&stdout);
+    assert_eq!(smoke_json["revision"], 1);
+    assert_eq!(smoke_json["missingResourceCount"], 0);
+    assert_eq!(smoke_json["fallbackCount"], 0);
+    assert_eq!(smoke_json["declarativeResourceCount"], 1);
+    assert_eq!(smoke_json["declarativeAssetRequestCount"], 1);
+    assert!(smoke_json["memory"]["totalBytes"].as_u64().unwrap() > 0);
+    assert!(
+        smoke_json["declarativeMemory"]["totalBytes"]
+            .as_u64()
+            .unwrap()
+            > 0
+    );
 }
 
 #[test]
@@ -57,6 +70,14 @@ fn unique_frame_path(label: &str) -> std::path::PathBuf {
         std::process::id(),
         std::thread::current().name().unwrap_or("test")
     ))
+}
+
+fn smoke_json_line(stdout: &str) -> serde_json::Value {
+    let json = stdout
+        .lines()
+        .find_map(|line| line.strip_prefix("Qua native renderer smoke json: "))
+        .expect("renderer smoke JSON line exists");
+    serde_json::from_str(json).expect("renderer smoke JSON line parses")
 }
 
 fn smoke_frame_json() -> &'static str {
