@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 pub mod null;
 pub mod submission;
 #[cfg(feature = "wgpu-backend")]
@@ -42,6 +44,14 @@ impl NativeRenderBackendError {
         }
     }
 }
+
+impl Display for NativeRenderBackendError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{:?}: {}", self.kind, self.message)
+    }
+}
+
+impl std::error::Error for NativeRenderBackendError {}
 
 pub type NativeRenderBackendResult = Result<NativeRenderSubmission, NativeRenderBackendError>;
 

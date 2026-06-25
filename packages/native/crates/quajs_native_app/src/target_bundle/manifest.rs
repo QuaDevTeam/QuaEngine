@@ -147,6 +147,7 @@ impl NativeStartupError {
         )])
     }
 
+    #[cfg(test)]
     pub fn diagnostics(&self) -> &[String] {
         &self.diagnostics
     }

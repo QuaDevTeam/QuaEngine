@@ -92,6 +92,7 @@ packages/native/
 - 通过 `quickjs_runtime_version()` 写入 `QuaNativeHostInfo.runtime.quickjsVersion`；未安装真实 QuickJS evaluator 的 build 明确报告 `unsupported`，不能留下 `pending` 占位或伪造真实引擎版本。
 - 组装 QuickJS host 和 wgpu renderer。
 - 在启动前再次确认 target bootstrap 没有混入其他 family。
+- 可选读取 `QUA_NATIVE_RENDERER_SMOKE_FRAME` 指向的 projection JSON 文件，使用 `NullNativeRenderBackend` 跑一次 `NativeRendererJsonFrameInput` smoke frame，验证 native app 到 renderer JSON facade 的宿主接线；这只用于 debug / CI smoke，不是动态包 native code 入口。
 
 ### 2. QuickJS runtime
 
@@ -114,6 +115,7 @@ packages/native/
 - pointer press/release 解析后可通过调用方传入的 `NativeHostApi` 发出 `NativeRendererIntent`，再由 native host / engine bridge 进入既有 pipeline；renderer 自身不持有 host，也不引入第二事件总线。
 - projection DTO 提供 camelCase JSON serde 边界，供 native app / QuickJS bridge 输入已解析的 view、QUI/QSS style、stage layout 和 media/audio projection；组件 kind 保持 QUI registry 名称，如 `Box`、`Text`、`Button`。
 - `NativeRendererJsonFrameInput` 是 native app / QuickJS bridge 的薄 JSON facade：只接收已解析的 `layout`、`container`、`view`，解析失败返回结构化 parse error，渲染失败和 audio backend 失败分开上报；它复用 `prepare_frame` / `prepare_and_render` / audio apply 路径，不引入新的 renderer 状态。
+- renderer smoke 路径必须继续使用已解析 projection JSON；不得把 QUI/QSS authoring parser、普通 plugin resolver 或 Runtime QPK executable dependency 加进 `quajs_native_app` smoke。
 - 只消费 resolved QUI/QSS / capability data。
 
 ### 4. TS bridge

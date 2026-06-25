@@ -135,6 +135,7 @@ QSS 侧：
 - QuickJS module loader
 - manifest validation
 - target bundle startup checks
+- native app renderer smoke: 设置 `QUA_NATIVE_RENDERER_SMOKE_FRAME` 指向已解析 projection JSON，启动 `quajs_native_app` 后必须完成 `NativeRendererJsonFrameInput` -> `NullNativeRenderBackend` 的 frame submit，并输出 revision / pass / batch / command / resource 摘要
 - renderer capability matching
 - resource release / unload cleanup
 
