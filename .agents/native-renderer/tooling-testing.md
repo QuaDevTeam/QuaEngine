@@ -70,6 +70,7 @@ QSS 侧：
 
 - selectors
 - properties
+- property value completions / hover metadata from the shared native QSS registry
 - tokens
 - style parts
 - class / id references

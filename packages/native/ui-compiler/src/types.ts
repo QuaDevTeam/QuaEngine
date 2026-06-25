@@ -178,6 +178,13 @@ export interface NativeQssPropertyDefinition {
   name: string
   nativeWgpu: boolean
   phase: 'p0' | 'p1' | 'p2' | 'future'
+  values?: readonly NativeQssPropertyValueDefinition[]
+}
+
+export interface NativeQssPropertyValueDefinition {
+  description: string
+  insertText?: string
+  label: string
 }
 
 export type NativeQssFontWeightValue

@@ -1,4 +1,8 @@
-import type { NativeQssPropertyDefinition, NativeUiComponentDefinition } from './types'
+import type {
+  NativeQssPropertyDefinition,
+  NativeQssPropertyValueDefinition,
+  NativeUiComponentDefinition,
+} from './types'
 
 export const QUA_UI_LANGUAGE_ID = 'qua-ui'
 export const QUA_STYLE_LANGUAGE_ID = 'qua-style'
@@ -51,6 +55,29 @@ export const nativeUiComponents: readonly NativeUiComponentDefinition[] = [
   component('Image', 'base', 'Image leaf projection backed by package assets.', [], ['media'], 'none'),
 ] as const
 
+const imageFitValues = [
+  value('cover', 'Scale the image to cover the paint box while preserving aspect ratio.'),
+  value('contain', 'Scale the image to fit inside the paint box while preserving aspect ratio.'),
+  value('fill', 'Stretch the image to fill the paint box.'),
+  value('none', 'Use the image intrinsic size without scaling.'),
+  value('scale-down', 'Use the smaller result of none or contain.'),
+] as const
+
+const backgroundPositionValues = [
+  value('left', 'Align the background image to the left edge.'),
+  value('center', 'Align the background image to the center on the omitted axis.'),
+  value('right', 'Align the background image to the right edge.'),
+  value('top', 'Align the background image to the top edge.'),
+  value('bottom', 'Align the background image to the bottom edge.'),
+  value('left top', 'Align the background image to the top-left corner.'),
+  value('center top', 'Align the background image to the top center.'),
+  value('right top', 'Align the background image to the top-right corner.'),
+  value('left bottom', 'Align the background image to the bottom-left corner.'),
+  value('center bottom', 'Align the background image to the bottom center.'),
+  value('right bottom', 'Align the background image to the bottom-right corner.'),
+  value('50% 50%', 'Align the background image by percentage origin.', '$1% $2%'),
+] as const
+
 export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('background-color', 'p0', true, 'Fill color for panels, buttons, and box surfaces.'),
   property('border-color', 'p0', true, 'Border color for rectangular surfaces.'),
@@ -59,10 +86,21 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('color', 'p0', true, 'Text foreground color.'),
   property('font-family', 'p0', true, 'Font family name resolved by native font assets.'),
   property('font-size', 'p0', true, 'Font size in logical stage pixels.'),
-  property('font-weight', 'p0', true, 'Font weight numeric or keyword value.'),
+  property('font-weight', 'p0', true, 'Font weight numeric or keyword value.', [
+    value('normal', 'Use the normal font weight.'),
+    value('bold', 'Use the bold font weight.'),
+    value('400', 'Use numeric normal font weight.'),
+    value('600', 'Use numeric semibold font weight.'),
+    value('700', 'Use numeric bold font weight.'),
+  ]),
   property('line-height', 'p0', true, 'Text line height as a number or logical length.'),
-  property('text-align', 'p0', true, 'Text alignment for text leaves.'),
-  property('object-fit', 'p0', true, 'Image fitting mode for image-like leaves.'),
+  property('text-align', 'p0', true, 'Text alignment for text leaves.', [
+    value('left', 'Align text to the left.'),
+    value('center', 'Center text horizontally.'),
+    value('right', 'Align text to the right.'),
+    value('justify', 'Justify text lines.'),
+  ]),
+  property('object-fit', 'p0', true, 'Image fitting mode for image-like leaves.', imageFitValues),
   property('display', 'p1', false, 'Layout display mode planned for native layout IR.'),
   property('position', 'p1', false, 'Relative or absolute positioning planned for native layout IR.'),
   property('inset', 'p1', false, 'Logical inset shorthand planned for native layout IR.'),
@@ -92,10 +130,17 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('column-gap', 'p1', false, 'Column gap planned for native layout IR.'),
   property('overflow', 'p1', false, 'Overflow mode planned for native layout IR.'),
   property('z-index', 'p1', true, 'Node z ordering emitted as resolved native UI projection metadata.'),
-  property('opacity', 'p0', true, 'Surface opacity for native UI surface style IR.'),
-  property('background-image', 'p1', true, 'Package asset background image for panel-like native surfaces via asset("...").'),
-  property('background-size', 'p1', true, 'Background image fitting mode for native surface image backgrounds.'),
-  property('background-position', 'p1', true, 'Background image origin for native surface image backgrounds.'),
+  property('opacity', 'p0', true, 'Surface opacity for native UI surface style IR.', [
+    value('0', 'Make the surface fully transparent.'),
+    value('0.5', 'Make the surface half transparent.'),
+    value('1', 'Make the surface fully opaque.'),
+  ]),
+  property('background-image', 'p1', true, 'Package asset background image for panel-like native surfaces via asset("...").', [
+    value('asset("...")', 'Reference a package-relative native asset.', 'asset("$1")'),
+    value('asset("...", "images")', 'Reference a package-relative native image asset.', 'asset("$1", "images")'),
+  ]),
+  property('background-size', 'p1', true, 'Background image fitting mode for native surface image backgrounds.', imageFitValues),
+  property('background-position', 'p1', true, 'Background image origin for native surface image backgrounds.', backgroundPositionValues),
   property('background-repeat', 'p2', false, 'Background image repeat mode planned for native style IR.'),
   property('border-style', 'p2', false, 'Limited border style planned for native style IR.'),
   property('visibility', 'p2', false, 'Visibility projection planned for native style IR.'),
@@ -159,11 +204,25 @@ function property(
   phase: NativeQssPropertyDefinition['phase'],
   nativeWgpu: boolean,
   description: string,
+  values?: readonly NativeQssPropertyValueDefinition[],
 ): NativeQssPropertyDefinition {
   return {
     name,
     phase,
     nativeWgpu,
     description,
+    values,
+  }
+}
+
+function value(
+  label: string,
+  description: string,
+  insertText?: string,
+): NativeQssPropertyValueDefinition {
+  return {
+    label,
+    description,
+    insertText,
   }
 }

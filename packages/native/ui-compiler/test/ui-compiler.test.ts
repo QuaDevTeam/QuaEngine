@@ -510,4 +510,35 @@ Button:nth-child(2) {
     expect(hover?.contents).toContain('Content: children')
     expect(hover?.contents).toContain('Slots: default')
   })
+
+  it('returns QSS value completions and hovers from property metadata', () => {
+    const backgroundSize = 'Panel { background-size:  }'
+    const backgroundImage = 'Panel { background-image:  }'
+    const backgroundPosition = 'Panel { background-position:  }'
+    const objectFit = 'Image { object-fit:  }'
+    const textAlign = 'Text { text-align:  }'
+    const hoverSource = 'Panel { background-size: contain; }'
+
+    expect(getNativeUiCompletions(backgroundSize, backgroundSize.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
+      .toEqual(expect.arrayContaining(['cover', 'contain', 'fill', 'none', 'scale-down']))
+    expect(getNativeUiCompletions(backgroundImage, backgroundImage.indexOf(' }'), { filePath: 'menu.qss' }))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          label: 'asset("...")',
+          insertText: 'asset("$1")',
+          kind: 'value',
+        }),
+      ]))
+    expect(getNativeUiCompletions(backgroundPosition, backgroundPosition.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
+      .toEqual(expect.arrayContaining(['left top', 'center', 'right bottom', '50% 50%']))
+    expect(getNativeUiCompletions(objectFit, objectFit.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
+      .toEqual(expect.arrayContaining(['cover', 'contain', 'scale-down']))
+    expect(getNativeUiCompletions(textAlign, textAlign.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
+      .toEqual(expect.arrayContaining(['left', 'center', 'right', 'justify']))
+
+    const hover = getNativeUiHover(hoverSource, hoverSource.indexOf('contain') + 2, { filePath: 'menu.qss' })
+    expect(hover?.contents).toContain('contain')
+    expect(hover?.contents).toContain('background-size')
+    expect(hover?.contents).toContain('Native wgpu: supported')
+  })
 })

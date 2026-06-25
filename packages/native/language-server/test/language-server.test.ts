@@ -62,6 +62,21 @@ describe('@quajs/native-language-server', () => {
     expect(hover?.contents).toContain('Content: children')
   })
 
+  it('adapts QSS property value completions and hovers from the compiler registry', () => {
+    const source = 'Panel { background-position:  }'
+    const completions = getNativeUiLanguageCompletions(source, { line: 0, character: source.indexOf(' }') }, {
+      filePath: 'menu.qss',
+    })
+    const hoverSource = 'Panel { background-position: right bottom; }'
+    const hover = getNativeUiLanguageHover(hoverSource, { line: 0, character: hoverSource.indexOf('right') + 1 }, {
+      filePath: 'menu.qss',
+    })
+
+    expect(completions.map(item => item.label)).toEqual(expect.arrayContaining(['left top', 'center', 'right bottom']))
+    expect(hover?.contents).toContain('right')
+    expect(hover?.contents).toContain('background-position')
+  })
+
   it('builds an in-memory project index for QUI and QSS authoring files', () => {
     const index = buildNativeUiProjectIndex([
       {
