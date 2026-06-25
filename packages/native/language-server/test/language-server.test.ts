@@ -55,5 +55,6 @@ describe('@quajs/native-language-server', () => {
 
     expect(completions.some(item => item.label === 'Button')).toBe(true)
     expect(hover?.contents).toContain('Button')
+    expect(hover?.contents).toContain('Content: children')
   })
 })

@@ -140,11 +140,15 @@ export function getQuiHover(source: string, offset: number): NativeUiHover | und
 
   const component = findNativeUiComponent(word.text)
   if (component) {
+    const content = `\n\nContent: ${component.content}`
+    const slots = component.slots?.length
+      ? `\n\nSlots: ${component.slots.join(', ')}`
+      : ''
     const parts = component.styleParts?.length
       ? `\n\nStyle parts: ${component.styleParts.join(', ')}`
       : ''
     return {
-      contents: `**${component.name}** (${component.kind})\n\n${component.description}${parts}`,
+      contents: `**${component.name}** (${component.kind})\n\n${component.description}${content}${slots}${parts}`,
     }
   }
 

@@ -257,5 +257,7 @@ Button:nth-child(2) {
 
     expect(completions.some(item => item.label === 'Button')).toBe(true)
     expect(hover?.contents).toContain('Button')
+    expect(hover?.contents).toContain('Content: children')
+    expect(hover?.contents).toContain('Slots: default')
   })
 })
