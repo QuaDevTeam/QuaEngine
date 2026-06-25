@@ -135,6 +135,8 @@ import component "./shared/Panel.qui";
 
 native component registry 需要声明 content model：`children`、`text` 或 `none`。compiler / LSP 应当据此诊断不合法结构：`Text` / `RichText` 只能包含文本或表达式内容，不能嵌套 QUI 组件或 slot；`Image` / `Divider` / `Spacer` 不应声明 child content；named slot 必须是拥有该 slot 的父组件的直接子节点，并且同一父组件下不能重复声明同名 slot。Rust renderer 只消费已经规整好的投影树，不负责猜测这些 authoring 语义。
 
+`@quajs/native-ui-compiler` 需要把 `NativeQuiDocument.tree` / `parseQuiStructureTree` 作为 projection compiler 与 native LSP 共用的 authoring AST 入口；Rust/wgpu renderer 不能直接解析 QUI/QSS 源文本。
+
 LSP hover 应从同一 registry 暴露组件 `content`、`slots` 和 style parts，避免 VSCode 插件维护第二份组件说明。
 
 ### 应尽量做成 composite 的上层组件

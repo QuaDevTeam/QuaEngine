@@ -2,15 +2,15 @@ import type {
   NativeQuiDocument,
   NativeQuiImport,
   NativeQuiNode,
-  NativeQuiProp,
   NativeUiCompletionItem,
   NativeUiDiagnostic,
   NativeUiHover,
   NativeUiLanguageOptions,
 } from './types'
 import { collectQuiActionDescriptors } from './qui-actions'
+import { collectQuiProps } from './qui-props'
 import { validateQuiProps } from './qui-semantics'
-import { validateQuiStructure } from './qui-structure'
+import { parseQuiStructureTree, validateQuiStructure } from './qui-structure'
 import {
   findNativeUiComponent,
   nativeQuiDirectiveNames,
@@ -19,10 +19,8 @@ import {
 import {
   collectBalancedDelimiterDiagnostics,
   createLineStarts,
-  findMatchingDelimiter,
   maskSourceLiterals,
   rangeFromOffsets,
-  splitTopLevel,
   wordAt,
 } from './source'
 
@@ -30,7 +28,6 @@ const IMPORT_PATTERN = /^\s*import\s+(style|tokens|component)\s+(['"])([^'"]+)\2
 const IMPORT_START_PATTERN = /^\s*import\b/
 const COMPONENT_PATTERN = /\b([A-Z][A-Za-z0-9_]*)\b(?=\s*(?:[.{(]|$))/g
 const NODE_CLASS_PATTERN = /^([A-Z][A-Za-z0-9_]*)(\.[A-Za-z_][\w-]*)+/
-const PROP_NAME_PATTERN = /^\s*([A-Za-z_][\w-]*)(?:\s*:([\s\S]*))?$/
 
 export function analyzeQuiSource(source: string, options: NativeUiLanguageOptions = {}): NativeQuiDocument {
   const lineStarts = createLineStarts(source)
@@ -42,6 +39,7 @@ export function analyzeQuiSource(source: string, options: NativeUiLanguageOption
   const nodes = collectQuiNodes(source, masked, lineStarts)
   const props = collectQuiProps(source, masked, lineStarts)
   const actions = collectQuiActionDescriptors(props)
+  const tree = parseQuiStructureTree(source, masked, lineStarts)
 
   validateQuiProps(props, diagnostics)
   validateQuiStructure(source, masked, lineStarts, diagnostics)
@@ -70,6 +68,7 @@ export function analyzeQuiSource(source: string, options: NativeUiLanguageOption
     nodes,
     props,
     diagnostics,
+    tree,
   }
 }
 
@@ -226,49 +225,6 @@ function collectQuiNodes(
   }
 
   return nodes
-}
-
-function collectQuiProps(
-  source: string,
-  masked: string,
-  lineStarts: readonly number[],
-): NativeQuiProp[] {
-  const props: NativeQuiProp[] = []
-  let groupId = 0
-  for (let offset = 0; offset < masked.length; offset += 1) {
-    if (masked[offset] !== '(')
-      continue
-    const close = findMatchingDelimiter(masked, offset, '(', ')')
-    if (close === -1)
-      continue
-    const currentGroupId = groupId
-    groupId += 1
-    const bodyStart = offset + 1
-    const body = source.slice(bodyStart, close)
-    for (const part of splitTopLevel(body, ',')) {
-      const raw = part.text
-      if (!raw.trim())
-        continue
-      const match = PROP_NAME_PATTERN.exec(raw)
-      if (!match)
-        continue
-      const nameStart = bodyStart + part.start + raw.indexOf(match[1])
-      const value = match[2]?.trim()
-      const valueStartInRaw = match[2] ? raw.indexOf(match[2]) : -1
-      props.push({
-        groupId: currentGroupId,
-        name: match[1],
-        value,
-        nameRange: rangeFromOffsets(lineStarts, nameStart, nameStart + match[1].length),
-        valueRange: value && valueStartInRaw >= 0
-          ? rangeFromOffsets(lineStarts, bodyStart + part.start + valueStartInRaw, bodyStart + part.start + valueStartInRaw + match[2].length)
-          : undefined,
-        range: rangeFromOffsets(lineStarts, bodyStart + part.start, bodyStart + part.end),
-      })
-    }
-    offset = close
-  }
-  return props
 }
 
 function validateQuiImports(imports: readonly NativeQuiImport[], diagnostics: NativeUiDiagnostic[]): void {

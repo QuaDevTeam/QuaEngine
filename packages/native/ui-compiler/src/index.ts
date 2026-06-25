@@ -26,6 +26,9 @@ export {
   collectQuiActionDescriptors,
   parseQuiActionDescriptor,
 } from './qui-actions'
+export {
+  parseQuiStructureTree,
+} from './qui-structure'
 export * from './registry'
 export * from './types'
 
