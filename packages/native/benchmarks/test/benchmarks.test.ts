@@ -12,6 +12,7 @@ describe('@quajs/native-benchmarks', () => {
     expect(records.map(record => record.bench)).toEqual([
       'native.authoring.qui.parse_validate.smoke',
       'native.authoring.qss.parse_validate.smoke',
+      'native.authoring.qss.resolve_style.smoke',
       'native.authoring.qui.format.smoke',
       'native.authoring.qss.format.smoke',
       'native.authoring.completion_hover.smoke',
@@ -36,6 +37,13 @@ describe('@quajs/native-benchmarks', () => {
         astComponents: expect.any(Number),
         astNodes: expect.any(Number),
         astSlots: expect.any(Number),
+      }))
+    expect(records.find(record => record.bench === 'native.authoring.qss.resolve_style.smoke')?.metrics)
+      .toEqual(expect.objectContaining({
+        resolvedDeclarations: expect.any(Number),
+        resolvedRules: expect.any(Number),
+        styleFields: expect.any(Number),
+        zIndexes: expect.any(Number),
       }))
     expect(records.find(record => record.bench === 'native.authoring.project_index.build.smoke')?.metrics)
       .toEqual(expect.objectContaining({
