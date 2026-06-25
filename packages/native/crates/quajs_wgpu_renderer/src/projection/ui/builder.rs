@@ -102,6 +102,7 @@ fn renderer_intent(overlay: &UiOverlayProjection, intent: &UiIntentProjection) -
         choice_id: None,
         element_id: Some(overlay.element_id.clone()),
         action: intent.action.clone(),
+        metadata: intent.metadata.clone(),
     }
 }
 

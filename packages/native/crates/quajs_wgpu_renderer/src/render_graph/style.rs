@@ -1,3 +1,7 @@
+use std::collections::BTreeMap;
+
+use serde_json::Value;
+
 use super::command::LogicalRect;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -115,6 +119,7 @@ pub struct RendererIntent {
     pub choice_id: Option<String>,
     pub element_id: Option<String>,
     pub action: Option<String>,
+    pub metadata: BTreeMap<String, Value>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

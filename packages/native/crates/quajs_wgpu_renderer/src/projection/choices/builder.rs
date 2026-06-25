@@ -81,6 +81,7 @@ fn choice_command(
             choice_id: Some(choice.id.clone()),
             element_id: None,
             action: None,
+            metadata: Default::default(),
         }),
     }));
 

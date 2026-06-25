@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use quajs_native_runtime::NativeRendererIntent;
+use serde_json::Value;
 
 use crate::render_graph::{DrawCommand, DrawCommandParams, RenderGraph, RendererIntent};
 
@@ -45,24 +46,24 @@ pub fn native_renderer_intent_from_renderer_intent(
 }
 
 fn native_renderer_intent_payload_json(intent: &RendererIntent) -> Option<String> {
-    let mut payload = BTreeMap::new();
+    let mut payload: BTreeMap<String, Value> = intent.metadata.clone();
 
     if let Some(action) = intent.action.as_deref() {
-        payload.insert("action", action);
+        payload.insert("action".to_string(), Value::String(action.to_string()));
     }
     if let Some(choice_id) = intent.choice_id.as_deref() {
-        payload.insert("choiceId", choice_id);
+        payload.insert("choiceId".to_string(), Value::String(choice_id.to_string()));
     }
     if let Some(element_id) = intent.element_id.as_deref() {
-        payload.insert("elementId", element_id);
+        payload.insert(
+            "elementId".to_string(),
+            Value::String(element_id.to_string()),
+        );
     }
 
     if payload.is_empty() {
         return None;
     }
 
-    Some(
-        serde_json::to_string(&payload)
-            .expect("renderer intent payload contains only string fields"),
-    )
+    Some(serde_json::to_string(&payload).expect("renderer intent payload is JSON object"))
 }

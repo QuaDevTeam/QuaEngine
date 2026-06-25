@@ -1,3 +1,7 @@
+use std::collections::BTreeMap;
+
+use serde_json::Value;
+
 use crate::projection::common::{FontFamilyProjection, FontWeightProjection, PackageProvenance};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -261,6 +265,7 @@ pub struct UiOverlaySceneShellProjection {
 pub struct UiIntentProjection {
     pub event: String,
     pub action: Option<String>,
+    pub metadata: BTreeMap<String, Value>,
 }
 
 impl UiIntentProjection {
@@ -268,6 +273,12 @@ impl UiIntentProjection {
         Self {
             event: "ui/intent".to_string(),
             action: Some(action.into()),
+            metadata: BTreeMap::new(),
         }
+    }
+
+    pub fn with_metadata(mut self, key: impl Into<String>, value: Value) -> Self {
+        self.metadata.insert(key.into(), value);
+        self
     }
 }
