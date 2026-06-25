@@ -588,6 +588,75 @@ describe('target bundle manifest validation', () => {
     ]))
   })
 
+  it('rejects Runtime QPK core adapter declarations for Web, Cocos, and native bundles', () => {
+    const cases = [
+      {
+        target: 'web',
+        executableDependency: '@quajs/assets-web',
+        rendererEntry: '@quajs/renderer-web/plugins/ui',
+        executablePackageName: '@quajs/assets-web',
+        rendererPackageName: '@quajs/renderer-web',
+      },
+      {
+        target: 'cocos',
+        executableDependency: '@quajs/cocos-host/runtime',
+        rendererEntry: '@quajs/renderer-cocos/plugins/ui',
+        executablePackageName: '@quajs/cocos-host',
+        rendererPackageName: '@quajs/renderer-cocos',
+      },
+      {
+        target: 'native',
+        executableDependency: '@quajs/engine-native/native-host',
+        rendererEntry: '@quajs/native-contracts/bootstrap',
+        executablePackageName: '@quajs/engine-native',
+        rendererPackageName: '@quajs/native-contracts',
+      },
+    ] as const
+
+    for (const {
+      target,
+      executableDependency,
+      rendererEntry,
+      executablePackageName,
+      rendererPackageName,
+    } of cases) {
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+        runtimePackages: [
+          {
+            id: `runtime.${target}.bad.executable-core`,
+            executableDependencies: [
+              '@quajs/character',
+              executableDependency,
+            ],
+          },
+          {
+            id: `runtime.${target}.bad.renderer-core`,
+            executableDependencies: ['@quajs/character'],
+            rendererEntries: [rendererEntry],
+          },
+        ],
+      }))
+
+      expect(result.ok).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TARGET_BUNDLE_RUNTIME_PACKAGE_CORE_ADAPTER',
+          target,
+          runtimePackageId: `runtime.${target}.bad.executable-core`,
+          packageName: executablePackageName,
+          field: 'executableDependencies',
+        }),
+        expect.objectContaining({
+          code: 'TARGET_BUNDLE_RUNTIME_PACKAGE_CORE_ADAPTER',
+          target,
+          runtimePackageId: `runtime.${target}.bad.renderer-core`,
+          packageName: rendererPackageName,
+          field: 'rendererEntries',
+        }),
+      ]))
+    }
+  })
+
   it('rejects target bundle manifests with incomplete selected core adapters', () => {
     const result = validateTargetBundleManifest(targetBundleManifest({
       selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters.filter(

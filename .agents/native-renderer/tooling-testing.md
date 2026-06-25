@@ -103,6 +103,7 @@ QSS 侧：
 
 - target bootstrap isolation
 - target bundle manifest validation
+- Web / Cocos / native 三目标隔离矩阵：bootstrap core、plugin target entry、Runtime QPK renderer/executable dependency 三层都要对称验证
 - native compatibility metadata
 - runtime package native code rejection
 - host info / capability hash consistency
@@ -142,6 +143,7 @@ QSS 侧：
 - debug / release isolation
 - release immutability by version
 - `target-bundle-manifest.json` emitted and revalidated
+- Web artifact 排除 Cocos/native core，Cocos artifact 排除 Web/native core，Native artifact 排除 Web/Cocos core；不能只测 native 严格路径
 
 ## benchmark 计划
 
