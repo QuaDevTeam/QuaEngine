@@ -106,6 +106,23 @@ describe('@quajs/native-language-server', () => {
     expect(index.skippedDocuments).toEqual(['file:///project/readme.md'])
   })
 
+  it('indexes QUI references from the structured AST without treating slots as components', () => {
+    const index = buildNativeUiProjectIndex([
+      {
+        uri: 'file:///project/menu.qui',
+        source: 'Panel.dialog { slot Header { Button.primary { Text { "Open" } } } }',
+      },
+    ])
+
+    expect(index.summary.components).toBe(3)
+    expect(findNativeUiProjectReferences(index, { kind: 'component' }).map(reference => reference.name))
+      .toEqual(['Button', 'Panel', 'Text'])
+    expect(findNativeUiProjectReferences(index, { kind: 'component', name: 'Header' }))
+      .toEqual([])
+    expect(findNativeUiProjectReferences(index, { kind: 'class' }).map(reference => reference.name))
+      .toEqual(['dialog', 'primary'])
+  })
+
   it('updates a native UI project index incrementally', () => {
     const initial = buildNativeUiProjectIndex([
       {

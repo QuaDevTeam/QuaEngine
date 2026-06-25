@@ -1,5 +1,6 @@
 import type {
   NativeQssDocument,
+  NativeQuiAstNode,
   NativeQuiDocument,
   NativeQuiImport,
   NativeUiDiagnostic,
@@ -186,19 +187,20 @@ function indexedDocumentFromNativeDocument(
 ): NativeUiProjectIndexedDocument {
   const qui = document.kind === 'qui' ? document : undefined
   const qss = document.kind === 'qss' ? document : undefined
+  const quiComponentNodes = qui ? componentAstNodes(qui) : []
 
   return {
     classReferences: [
-      ...(qui ? classReferencesFromQui(qui) : []),
+      ...classReferencesFromQui(quiComponentNodes),
       ...(qss ? classReferencesFromQss(qss) : []),
     ],
-    classes: qui ? uniqueSorted(qui.nodes.flatMap(node => node.classes)) : [],
+    classes: uniqueSorted(quiComponentNodes.flatMap(node => node.classes)),
     componentImports: qui ? importPathsByKind(qui, 'component') : [],
     componentReferences: [
-      ...(qui ? componentReferencesFromQui(qui) : []),
+      ...componentReferencesFromQui(quiComponentNodes),
       ...(qss ? componentReferencesFromQss(qss) : []),
     ],
-    components: qui ? uniqueSorted(qui.nodes.map(node => node.name)) : [],
+    components: uniqueSorted(quiComponentNodes.map(node => node.name)),
     diagnostics: document.diagnostics,
     documentBytes: new TextEncoder().encode(document.source).byteLength,
     filePath: file.filePath,
@@ -280,20 +282,39 @@ function countQssDeclarations(document: NativeQssDocument): number {
   return document.rules.reduce((total, rule) => total + rule.declarations.length, 0)
 }
 
-function componentReferencesFromQui(document: NativeQuiDocument): NativeUiProjectComponentReference[] {
-  return document.nodes.map(node => ({
+function componentReferencesFromQui(nodes: readonly NativeQuiAstNode[]): NativeUiProjectComponentReference[] {
+  return nodes.map(node => ({
     name: node.name,
     range: node.nameRange,
     source: 'qui-node',
   }))
 }
 
-function classReferencesFromQui(document: NativeQuiDocument): NativeUiProjectClassReference[] {
-  return document.nodes.flatMap(node => node.classes.map(name => ({
+function classReferencesFromQui(nodes: readonly NativeQuiAstNode[]): NativeUiProjectClassReference[] {
+  return nodes.flatMap(node => node.classes.map(name => ({
     name,
     range: node.nameRange,
     source: 'qui-node' as const,
   })))
+}
+
+function componentAstNodes(document: NativeQuiDocument): NativeQuiAstNode[] {
+  const nodes: NativeQuiAstNode[] = []
+  visitQuiAstNodes(document.tree, (node) => {
+    if (node.kind === 'component')
+      nodes.push(node)
+  })
+  return nodes
+}
+
+function visitQuiAstNodes(
+  nodes: readonly NativeQuiAstNode[],
+  visit: (node: NativeQuiAstNode) => void,
+): void {
+  for (const node of nodes) {
+    visit(node)
+    visitQuiAstNodes(node.children, visit)
+  }
 }
 
 function componentReferencesFromQss(document: NativeQssDocument): NativeUiProjectComponentReference[] {
