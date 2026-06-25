@@ -113,6 +113,21 @@ export function formatQssSource(source: string, options: NativeUiLanguageOptions
 }
 
 export function getQssCompletions(source: string, offset: number): NativeUiCompletionItem[] {
+  const valueContext = findQssDeclarationContext(source, offset)
+  if (valueContext) {
+    const property = findNativeQssProperty(valueContext.propertyName)
+    if (property?.values?.length) {
+      return property.values.map((value, index) => ({
+        label: value.label,
+        kind: 'value',
+        detail: `${property.name} value: ${value.description}`,
+        insertText: value.insertText ?? value.label,
+        sortText: `1${index.toString().padStart(3, '0')}`,
+      }))
+    }
+    return []
+  }
+
   const lineStart = source.lastIndexOf('\n', Math.max(0, offset - 1)) + 1
   const beforeCursor = source.slice(lineStart, offset)
 
@@ -151,6 +166,19 @@ export function getQssHover(source: string, offset: number): NativeUiHover | und
   if (!word)
     return undefined
 
+  const valueContext = findQssDeclarationContext(source, offset)
+  const valueProperty = valueContext ? findNativeQssProperty(valueContext.propertyName) : undefined
+  const propertyValue = valueProperty?.values?.find(value =>
+    value.label === word.text
+    || value.insertText === word.text
+    || value.label.split(/\s+/).includes(word.text),
+  )
+  if (valueProperty && propertyValue) {
+    return {
+      contents: `**${propertyValue.label}** value for \`${valueProperty.name}\`\n\n${propertyValue.description}\n\nNative wgpu: ${valueProperty.nativeWgpu ? 'supported' : 'not yet supported'}.`,
+    }
+  }
+
   const property = findNativeQssProperty(word.text)
   if (property) {
     return {
@@ -166,6 +194,27 @@ export function getQssHover(source: string, offset: number): NativeUiHover | und
   }
 
   return undefined
+}
+
+function findQssDeclarationContext(source: string, offset: number): { propertyName: string } | undefined {
+  const cursor = Math.max(0, Math.min(offset, source.length))
+  const masked = maskSourceLiterals(source)
+  const ruleOpen = masked.lastIndexOf('{', cursor)
+  const ruleClose = masked.lastIndexOf('}', cursor)
+  if (ruleOpen === -1 || ruleClose > ruleOpen)
+    return undefined
+
+  const declarationStart = Math.max(ruleOpen + 1, masked.lastIndexOf(';', cursor - 1) + 1)
+  const maskedDeclaration = masked.slice(declarationStart, cursor)
+  const colon = maskedDeclaration.indexOf(':')
+  if (colon === -1)
+    return undefined
+
+  const propertyName = source.slice(declarationStart, declarationStart + colon).trim()
+  if (!/^[A-Za-z_-][\w-]*$/.test(propertyName))
+    return undefined
+
+  return { propertyName }
 }
 
 function parseQssItems(
