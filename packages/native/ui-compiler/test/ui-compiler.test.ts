@@ -9,6 +9,7 @@ import {
   nativeWgpuQssFeatureNames,
   nativeWgpuQuiComponentNames,
   parseQuiActionDescriptor,
+  resolveNativeQssDeclarations,
 } from '../src'
 
 describe('@quajs/native-ui-compiler', () => {
@@ -392,6 +393,67 @@ Layer {
 
     expect(document.diagnostics).toEqual([])
     expect(document.rules[0].declarations.map(item => item.name)).toContain('z-index')
+  })
+
+  it('resolves native-wgpu QSS declarations into surface style IR', () => {
+    const document = analyzeQssSource(`
+Button.primary {
+  background-color: #10141f;
+  border-color: #31415f;
+  border-radius: 8px;
+  border-width: 1px;
+  color: #f6f8ff;
+  font-family: "Inter", system-ui;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+  object-fit: cover;
+  opacity: 1.4;
+  text-align: center;
+  z-index: 12;
+}
+`)
+
+    expect(document.diagnostics).toEqual([])
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
+      zIndex: 12,
+      style: {
+        backgroundColor: '#10141f',
+        borderColor: '#31415f',
+        borderRadius: 8,
+        borderWidth: 1,
+        color: '#f6f8ff',
+        fontFamily: ['Inter', 'system-ui'],
+        fontSize: 18,
+        fontWeight: 600,
+        lineHeight: 1.25,
+        objectFit: 'cover',
+        opacity: 1,
+        textAlign: 'center',
+      },
+    })
+  })
+
+  it('omits invalid QSS declaration values from resolved surface style IR', () => {
+    const document = analyzeQssSource(`
+Button {
+  border-width: -1px;
+  border-radius: calc(4px);
+  font-weight: heavy;
+  object-fit: stretch;
+  opacity: none;
+  text-align: start;
+  z-index: 1.5;
+}
+`, {
+      lint: {
+        allowPreviewFeatures: true,
+      },
+    })
+
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
+      style: {},
+    })
   })
 
   it('rejects browser-only QSS selectors and values', () => {

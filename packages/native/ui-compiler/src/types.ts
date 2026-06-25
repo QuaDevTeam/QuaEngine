@@ -179,3 +179,41 @@ export interface NativeQssPropertyDefinition {
   nativeWgpu: boolean
   phase: 'p0' | 'p1' | 'p2' | 'future'
 }
+
+export type NativeQssFontWeightValue
+  = | 'bold'
+    | 'normal'
+    | number
+
+export type NativeQssTextAlignValue
+  = | 'center'
+    | 'justify'
+    | 'left'
+    | 'right'
+
+export type NativeQssObjectFitValue
+  = | 'contain'
+    | 'cover'
+    | 'fill'
+    | 'none'
+    | 'scale-down'
+
+export interface NativeQssResolvedStyle {
+  backgroundColor?: string
+  borderColor?: string
+  borderRadius?: number
+  borderWidth?: number
+  color?: string
+  fontFamily?: string[]
+  fontSize?: number
+  fontWeight?: NativeQssFontWeightValue
+  lineHeight?: number
+  objectFit?: NativeQssObjectFitValue
+  opacity?: number
+  textAlign?: NativeQssTextAlignValue
+}
+
+export interface NativeQssResolvedNodeStyle {
+  style: NativeQssResolvedStyle
+  zIndex?: number
+}
