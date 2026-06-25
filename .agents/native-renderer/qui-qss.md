@@ -169,6 +169,8 @@ Rust renderer 只消费 resolved style IR。selector matching、cascade、inheri
 
 - `background-color`
 - `background-image`（仅支持 `asset("ui/panel.png")` / `asset("ui/panel.png", "images")` 这类 package-relative 结构化资源引用；不支持浏览器 `url(...)`、远程 URL、绝对路径或 `..` traversal）
+- `background-size`（native 子集：`cover`, `contain`, `fill`, `none`, `scale-down`，映射到背景图 fit）
+- `background-position`（native 子集：`left|center|right`、`top|center|bottom` 和 `0%..100%` 双轴 origin）
 - `border-color`
 - `border-radius`
 - `border-width`
@@ -188,7 +190,7 @@ Rust renderer 只消费 resolved style IR。selector matching、cascade、inheri
 | 阶段 | 目标 | 建议属性 |
 | --- | --- | --- |
 | P0 | 先把 native surface 跑起来 | 上述基础字段 |
-| P1 | 补齐常用视觉布局 | 已落地 `z-index` 与结构化 `background-image: asset(...)`；待补齐 `padding`, `margin`, `gap`, `width`, `height`, `min/max-*`, `overflow`, `background-size`, `background-position` |
+| P1 | 补齐常用视觉布局 | 已落地 `z-index`、结构化 `background-image: asset(...)`、`background-size` fit 子集和 `background-position` origin 子集；待补齐 `padding`, `margin`, `gap`, `width`, `height`, `min/max-*`, `overflow` |
 | P2 | 进一步接近熟悉的 CSS 体验 | 部分 `transform`, `shadow`, `transition` 及少量视觉增强 |
 
 ### 建议支持的 selector 语义

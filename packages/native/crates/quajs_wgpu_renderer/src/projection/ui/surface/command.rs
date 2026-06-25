@@ -7,10 +7,10 @@ use crate::render_graph::{
 use crate::resources::ResourceId;
 
 use super::super::style::{
-    resolve_background_color, resolve_background_image, resolve_border_color,
-    resolve_border_radius, resolve_border_width, resolve_font_family, resolve_font_size,
-    resolve_font_weight, resolve_line_height, resolve_object_fit, resolve_text_align,
-    resolve_text_color,
+    resolve_background_color, resolve_background_image, resolve_background_position,
+    resolve_background_size, resolve_border_color, resolve_border_radius, resolve_border_width,
+    resolve_font_family, resolve_font_size, resolve_font_weight, resolve_line_height,
+    resolve_object_fit, resolve_text_align, resolve_text_color,
 };
 use super::super::types::{
     UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceResolvedStyle,
@@ -161,8 +161,8 @@ pub(super) fn surface_background_image_command(
     .params(DrawCommandParams::Image(ImageDrawParams {
         asset_type: image.asset_type.clone(),
         asset_name: image.asset_name.clone(),
-        fit: resolve_object_fit(&node.style, MediaFit::Cover),
-        origin: MediaOrigin::default(),
+        fit: resolve_background_size(&node.style, MediaFit::Cover),
+        origin: resolve_background_position(&node.style, MediaOrigin::default()),
         source: bounds,
     }));
 

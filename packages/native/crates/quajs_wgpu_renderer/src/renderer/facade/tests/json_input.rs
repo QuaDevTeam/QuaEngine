@@ -1,6 +1,6 @@
 use super::*;
 use crate::audio::{AudioBackendCommandKind, NullNativeAudioBackend};
-use crate::render_graph::{DrawBatchPipeline, LogicalRect};
+use crate::render_graph::{DrawBatchPipeline, DrawCommandParams, LogicalRect, MediaFit};
 use crate::renderer::{
     NativeRendererJsonFrameError, NativeRendererJsonFrameInput, NullNativeRenderBackend,
 };
@@ -42,6 +42,22 @@ fn prepares_and_submits_frame_from_projection_json() {
         .any(|batch| batch.command_ids.contains(&"ui:menu:close".to_string())));
     assert_eq!(renderer.backend().diagnostics().submitted_frames, 1);
     assert_eq!(renderer.resources().len(), 4);
+
+    let frame = renderer.state().frame().expect("frame prepared");
+    let background_image = frame
+        .graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "ui:menu:root:background-image")
+        .expect("ui background image command exists");
+    match &background_image.params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.fit, MediaFit::Contain);
+            assert_eq!(params.origin.x, 1.0);
+            assert_eq!(params.origin.y, 0.0);
+        }
+        _ => panic!("expected image params"),
+    }
 
     let close = renderer.hit_intent(408.0, 354.0).expect("close button hit");
     assert_eq!(close.intent.event, "ui/intent");
@@ -207,6 +223,8 @@ fn json_frame_input() -> &'static str {
                   "style": {
                     "backgroundColor": "#101820",
                     "backgroundImage": { "assetType": "images", "assetName": "ui/panel.png" },
+                    "backgroundPosition": { "x": 1, "y": 0 },
+                    "backgroundSize": "contain",
                     "borderColor": "#5ac8fa",
                     "borderWidth": 2,
                     "borderRadius": 12
