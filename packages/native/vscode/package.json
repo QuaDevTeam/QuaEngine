@@ -1,0 +1,170 @@
+{
+  "publisher": "quajs",
+  "name": "qua-native-authoring",
+  "displayName": "Qua Native Authoring",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Language support for QuaEngine native QUI and QSS authoring.",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/QuaDevTeam/QuaEngine#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/native/vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/QuaDevTeam/QuaEngine/issues"
+  },
+  "preview": true,
+  "qna": false,
+  "keywords": [
+    "galgame",
+    "language-server",
+    "native",
+    "quaengine",
+    "qui",
+    "qss",
+    "visual-novel"
+  ],
+  "categories": [
+    "Programming Languages"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "main": "./dist/extension.js",
+  "engines": {
+    "node": ">=20",
+    "vscode": "^1.118.0"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "activationEvents": [
+    "onLanguage:qua-ui",
+    "onLanguage:qua-style",
+    "onCommand:quaNative.formatDocument",
+    "onCommand:quaNative.validateOpenDocuments",
+    "onCommand:quaNative.restartLanguageServer"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "qua-ui",
+        "aliases": [
+          "Qua UI",
+          "QUI",
+          "qui"
+        ],
+        "extensions": [
+          ".qui"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "qua-style",
+        "aliases": [
+          "Qua Style",
+          "QSS",
+          "qss"
+        ],
+        "extensions": [
+          ".qss"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "qua-ui",
+        "scopeName": "source.qui",
+        "path": "./syntaxes/qui.tmLanguage.json"
+      },
+      {
+        "language": "qua-style",
+        "scopeName": "source.qss",
+        "path": "./syntaxes/qss.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "qua-ui",
+        "path": "./snippets/qui.json"
+      },
+      {
+        "language": "qua-style",
+        "path": "./snippets/qss.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "quaNative.formatDocument",
+        "title": "Qua Native: Format Document",
+        "icon": "$(wand)"
+      },
+      {
+        "command": "quaNative.validateOpenDocuments",
+        "title": "Qua Native: Validate Open QUI/QSS Documents",
+        "icon": "$(check)"
+      },
+      {
+        "command": "quaNative.restartLanguageServer",
+        "title": "Qua Native: Restart Language Server",
+        "icon": "$(debug-restart)"
+      }
+    ],
+    "configuration": {
+      "title": "Qua Native",
+      "properties": {
+        "quaNative.lint.strictComponents": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn when QUI or QSS references components that are not native built-ins or imported package-local components."
+        },
+        "quaNative.lint.allowPreviewFeatures": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow planned QSS properties that are not supported by the current native-wgpu UI surface capability."
+        },
+        "quaNative.lint.maxSelectorDepth": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 8,
+          "description": "Maximum supported native QSS selector depth."
+        },
+        "quaNative.format.indentSize": {
+          "type": "number",
+          "default": 2,
+          "minimum": 2,
+          "maximum": 8,
+          "description": "Number of spaces used by the QUI/QSS formatter."
+        },
+        "quaNative.format.insertFinalNewline": {
+          "type": "boolean",
+          "default": true,
+          "description": "Insert a final newline when formatting QUI and QSS files."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "vite build && vite build --config vite.server.config.ts",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit",
+    "vscode:package": "pnpm run build && node scripts/run-vsce.mjs package --no-dependencies --out dist/qua-native-authoring-${npm_package_version}.vsix",
+    "vscode:publish": "pnpm run build && node scripts/run-vsce.mjs publish --no-dependencies"
+  },
+  "devDependencies": {
+    "@quajs/native-language-server": "workspace:*",
+    "@quajs/native-ui-compiler": "workspace:*",
+    "@types/vscode": "catalog:",
+    "@vscode/vsce": "catalog:",
+    "vscode-languageclient": "catalog:"
+  }
+}

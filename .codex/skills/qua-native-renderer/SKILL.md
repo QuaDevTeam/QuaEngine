@@ -31,6 +31,9 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 - Native asset hosts should provide `listStorageKeys` when cache roots need full cleanup; `@quajs/assets-native` may fall back to index-known asset deletion when key listing is unavailable, but full orphan cleanup requires host prefix listing.
 - `@quajs/store-native`: QuaStore persistence adapter over native host storage APIs.
 - Native store hosts must provide `listStorageKeys` when using list or prefix-clear save operations; missing key listing support must fail explicitly instead of making snapshots/save slots appear empty.
+- `@quajs/native-ui-compiler`: native QUI/QSS authoring compiler for parse, validation, formatting, completions, hover metadata, component registry, and QSS feature registry. It may depend on platform-neutral contracts only and must not import Web, Cocos, or native runtime bootstrap adapters.
+- `@quajs/native-language-server`: standalone `.qui/.qss` LSP adapter over `@quajs/native-ui-compiler`. It is an authoring tool only; it must not load Web/Cocos/native target core bootstrap plugins, ordinary game plugin arrays, or runtime QPK executable dependencies.
+- `packages/native/vscode` (`qua-native-authoring` VSCode extension): standalone editor extension for native `.qui/.qss` files. It should start the native LSP, contribute language ids `qua-ui` and `qua-style`, and avoid importing `@quajs/renderer-web`, `@quajs/renderer-cocos`, or native app/runtime bootstrap packages.
 - Rust `quajs_native_runtime`: QuickJS host and native host API implementation.
 - Rust `quajs_wgpu_renderer`: wgpu projection renderer and transient resource management.
 
@@ -112,6 +115,12 @@ pnpm --filter @quajs/native-contracts typecheck
 pnpm --filter @quajs/engine-native typecheck
 pnpm --filter @quajs/assets-native typecheck
 pnpm --filter @quajs/store-native typecheck
+pnpm --filter @quajs/native-ui-compiler test -- --run
+pnpm -C packages/native/ui-compiler typecheck
+pnpm --filter @quajs/native-language-server test -- --run
+pnpm -C packages/native/language-server typecheck
+pnpm -C packages/native/vscode typecheck
+pnpm -C packages/native/vscode build
 cargo test --manifest-path packages/native/Cargo.toml --workspace
 cargo test --manifest-path packages/native/Cargo.toml -p quajs_wgpu_renderer --features bench-smoke
 ```
