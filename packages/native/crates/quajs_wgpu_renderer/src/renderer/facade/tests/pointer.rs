@@ -1,5 +1,6 @@
 use super::*;
 use crate::input::{NativePointerButton, NativePointerEvent, NativePointerEventPhase};
+use quajs_native_runtime::{InMemoryNativeHostApi, NativeHostInfoBuilder};
 
 #[test]
 fn exposes_hit_intents_from_latest_frame() {
@@ -305,4 +306,71 @@ fn pointer_event_returns_none_without_prepared_frame() {
     ));
 
     assert!(resolution.is_none());
+}
+
+#[test]
+fn pointer_release_event_emits_native_renderer_intent_to_host() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    let mut host = InMemoryNativeHostApi::new(test_host_info());
+    renderer
+        .prepare_and_render(test_layout(), &view_with_background_and_choice())
+        .unwrap();
+    let (client, origin) = client_point_for_choice(&renderer, "choice:stay");
+
+    let press = renderer
+        .pointer_event_and_emit_intent(
+            NativePointerEvent::new(NativePointerEventPhase::Press, client, origin)
+                .with_pointer_id(42)
+                .with_button(NativePointerButton::Primary),
+            &mut host,
+        )
+        .unwrap()
+        .unwrap();
+
+    assert!(press.emitted_intent.is_none());
+    assert!(host.renderer_intents().is_empty());
+
+    let release = renderer
+        .pointer_event_and_emit_intent(
+            NativePointerEvent::new(NativePointerEventPhase::Release, client, origin)
+                .with_pointer_id(42)
+                .with_button(NativePointerButton::Primary),
+            &mut host,
+        )
+        .unwrap()
+        .unwrap();
+
+    let emitted = release.emitted_intent.unwrap();
+    assert_eq!(emitted.r#type, "choice/select");
+    let payload: serde_json::Value =
+        serde_json::from_str(emitted.payload_json.as_deref().unwrap()).unwrap();
+    assert_eq!(payload["choiceId"], "stay");
+    assert_eq!(host.renderer_intents(), &[emitted]);
+}
+
+#[test]
+fn pointer_event_emit_returns_none_without_prepared_frame_or_host_side_effects() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    let mut host = InMemoryNativeHostApi::new(test_host_info());
+
+    let resolution = renderer
+        .pointer_event_and_emit_intent(
+            NativePointerEvent::new(
+                NativePointerEventPhase::Release,
+                StageClientPoint {
+                    client_x: 100.0,
+                    client_y: 120.0,
+                },
+                StageClientRectOrigin::default(),
+            ),
+            &mut host,
+        )
+        .unwrap();
+
+    assert!(resolution.is_none());
+    assert!(host.renderer_intents().is_empty());
+}
+
+fn test_host_info() -> quajs_native_runtime::NativeHostInfo {
+    NativeHostInfoBuilder::new("Fixture", "dev.quajs.fixture").build()
 }
