@@ -39,6 +39,42 @@ Stack {
     expect(document.props.map(prop => prop.name)).toContain('action')
   })
 
+  it('accepts keyed QUI loop rendering with item and index bindings', () => {
+    const document = analyzeQuiSource(`
+Column {
+  Button(
+    for: (choice, index) in view.choices.items,
+    key: choice.id,
+    action: choice.select(choice.id)
+  ) {
+    Text { choice.label }
+    Text { index }
+  }
+}
+`)
+
+    expect(document.diagnostics).toEqual([])
+    expect(document.props.find(prop => prop.name === 'for')?.value).toBe('(choice, index) in view.choices.items')
+    expect(document.props.find(prop => prop.name === 'key')?.groupId).toBe(document.props.find(prop => prop.name === 'for')?.groupId)
+  })
+
+  it('requires stable keys for QUI loop rendering', () => {
+    const document = analyzeQuiSource(`
+Column {
+  Button(for: choice in view.choices.items, action: choice.select(choice.id)) {
+    Text { choice.label }
+  }
+}
+`)
+
+    expect(document.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'QUI_LOOP_KEY_MISSING',
+        severity: 'error',
+      }),
+    ])
+  })
+
   it('rejects unsafe QUI expressions before runtime package evaluation', () => {
     const document = analyzeQuiSource('Text(if: view.ready = true) { "Ready" }')
 
