@@ -35,6 +35,8 @@ Stack {
 }
 ```
 
+`else-if` / `else` 必须紧跟在同一条件链的 `if` / `else-if` 后面；孤立分支或 `else` 之后继续接分支都应该由 native compiler / LSP 诊断。单个节点上的 directive / prop 不能重复声明，避免运行时出现不确定的覆盖规则。
+
 ### 循环渲染
 
 ```qui
