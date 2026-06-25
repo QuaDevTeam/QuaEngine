@@ -14,17 +14,30 @@ import {
 } from '@quajs/native-ui-compiler'
 
 export type {
+  NativeUiProjectClassReference,
+  NativeUiProjectComponentReference,
+  NativeUiProjectDocumentLink,
   NativeUiProjectFile,
+  NativeUiProjectImport,
   NativeUiProjectIndex,
   NativeUiProjectIndexChange,
   NativeUiProjectIndexedDocument,
   NativeUiProjectIndexOptions,
   NativeUiProjectIndexSummary,
+  NativeUiProjectReference,
+  NativeUiProjectReferenceKind,
 } from './project-index'
 export {
   buildNativeUiProjectIndex,
   updateNativeUiProjectIndex,
 } from './project-index'
+export type {
+  FindNativeUiProjectReferencesOptions,
+} from './project-references'
+export {
+  findNativeUiProjectReferences,
+  getNativeUiProjectDocumentLinks,
+} from './project-references'
 export type {
   NativeUiCompletionItem,
   NativeUiDiagnostic,

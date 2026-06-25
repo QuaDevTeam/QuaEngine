@@ -159,6 +159,7 @@ QSS 侧：
 - format latency
 - completion / hover latency
 - project index build time
+- document link / reference query count
 - incremental update time
 - memory footprint
 
@@ -172,7 +173,7 @@ QSS 侧：
 - `native.authoring.project_index.build.smoke`
 - `native.authoring.project_index.incremental_update.smoke`
 
-这些 benchmark 通过 `@quajs/native-ui-compiler` 和 `@quajs/native-language-server` 的公开 API 运行，包括内存 project index build / incremental update；不启动 renderer、不加载 target core bootstrap、不解析普通 game plugin 列表。fixture 固定在源码内，不能访问网络、不能随机生成。每条输出记录必须包含 `schemaVersion`、`suite`、`bench`、`profile`、`platform`、`backend`、`packageVersion`、`iterations`、`documentBytes`、`diagnostics`、`elapsedMs`、`memory` 和可比较的 `metrics`。
+这些 benchmark 通过 `@quajs/native-ui-compiler` 和 `@quajs/native-language-server` 的公开 API 运行，包括内存 project index build / incremental update，以及 document link / component-class reference 计数；不启动 renderer、不加载 target core bootstrap、不解析普通 game plugin 列表。fixture 固定在源码内，不能访问网络、不能随机生成。每条输出记录必须包含 `schemaVersion`、`suite`、`bench`、`profile`、`platform`、`backend`、`packageVersion`、`iterations`、`documentBytes`、`diagnostics`、`elapsedMs`、`memory` 和可比较的 `metrics`。
 
 后续还需要补：
 

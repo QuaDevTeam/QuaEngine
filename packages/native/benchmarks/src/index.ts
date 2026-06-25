@@ -268,22 +268,30 @@ export function runNativeAuthoringSmokeBenchmarks(
       run(iterations) {
         let checksum = 0
         let diagnostics = 0
+        let documentLinks = 0
         let documentCount = 0
+        let references = 0
         let qssRules = 0
         for (let index = 0; index < iterations; index += 1) {
           const projectIndex = buildNativeUiProjectIndex(fixtures.projectFiles, projectIndexOptions)
           diagnostics += projectIndex.summary.diagnostics
+          documentLinks += projectIndex.documentLinks.length
           documentCount += projectIndex.summary.documentCount
+          references += projectIndex.references.length
           qssRules += projectIndex.summary.qssRules
           checksum += projectIndex.summary.documentBytes
             + projectIndex.summary.components
             + projectIndex.summary.qssDeclarations
+            + projectIndex.documentLinks.length
+            + projectIndex.references.length
         }
         return {
           checksum,
           diagnostics,
           metrics: {
+            documentLinks,
             documentCount,
+            references,
             qssRules,
           },
         }
@@ -296,7 +304,9 @@ export function runNativeAuthoringSmokeBenchmarks(
       run(iterations) {
         let checksum = 0
         let diagnostics = 0
+        let documentLinks = 0
         let documentCount = 0
+        let references = 0
         let qssRules = 0
         let projectIndex = initialProjectIndex
         const targetFile = fixtures.projectFiles[0]
@@ -309,17 +319,23 @@ export function runNativeAuthoringSmokeBenchmarks(
             },
           ], projectIndexOptions)
           diagnostics += projectIndex.summary.diagnostics
+          documentLinks += projectIndex.documentLinks.length
           documentCount += projectIndex.summary.documentCount
+          references += projectIndex.references.length
           qssRules += projectIndex.summary.qssRules
           checksum += projectIndex.summary.documentBytes
             + projectIndex.summary.components
             + projectIndex.summary.qssDeclarations
+            + projectIndex.documentLinks.length
+            + projectIndex.references.length
         }
         return {
           checksum,
           diagnostics,
           metrics: {
+            documentLinks,
             documentCount,
+            references,
             qssRules,
           },
         }

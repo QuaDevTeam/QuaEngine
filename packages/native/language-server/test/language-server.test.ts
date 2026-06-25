@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildNativeUiProjectIndex,
+  findNativeUiProjectReferences,
   formatNativeUiDocumentEdits,
   getNativeUiLanguageCompletions,
   getNativeUiLanguageHover,
+  getNativeUiProjectDocumentLinks,
   lintNativeUiDocument,
   updateNativeUiProjectIndex,
 } from '../src'
@@ -142,5 +144,71 @@ describe('@quajs/native-language-server', () => {
       },
     ])
     expect(deleted.summary.qssDocumentCount).toBe(0)
+  })
+
+  it('resolves project document links and searchable references', () => {
+    const index = buildNativeUiProjectIndex([
+      {
+        uri: 'file:///project/ui/menu.qui',
+        source: 'import style "./menu.qss";\nPanel.dialog { Button.primary { Text { "Open" } } }',
+      },
+      {
+        uri: 'file:///project/ui/menu.qss',
+        source: 'Panel.dialog, Button.primary { color: #fff; }',
+      },
+      {
+        uri: 'file:///project/ui/sidebar.qui',
+        source: 'import style "./missing.qss";\nPanel.sidebar {}',
+      },
+    ])
+
+    expect(getNativeUiProjectDocumentLinks(index, 'file:///project/ui/menu.qui')).toEqual([
+      expect.objectContaining({
+        candidateUri: 'file:///project/ui/menu.qss',
+        kind: 'style',
+        path: './menu.qss',
+        resolved: true,
+        sourceUri: 'file:///project/ui/menu.qui',
+        targetUri: 'file:///project/ui/menu.qss',
+      }),
+    ])
+    expect(getNativeUiProjectDocumentLinks(index, 'file:///project/ui/sidebar.qui')).toEqual([
+      expect.objectContaining({
+        candidateUri: 'file:///project/ui/missing.qss',
+        path: './missing.qss',
+        resolved: false,
+        targetUri: undefined,
+      }),
+    ])
+    expect(findNativeUiProjectReferences(index, { kind: 'class', name: 'dialog' }))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'class',
+          name: 'dialog',
+          source: 'qui-node',
+          uri: 'file:///project/ui/menu.qui',
+        }),
+        expect.objectContaining({
+          kind: 'class',
+          name: 'dialog',
+          source: 'qss-selector',
+          uri: 'file:///project/ui/menu.qss',
+        }),
+      ]))
+    expect(findNativeUiProjectReferences(index, { kind: 'component', name: 'Button' }))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'component',
+          name: 'Button',
+          source: 'qui-node',
+          uri: 'file:///project/ui/menu.qui',
+        }),
+        expect.objectContaining({
+          kind: 'component',
+          name: 'Button',
+          source: 'qss-selector',
+          uri: 'file:///project/ui/menu.qss',
+        }),
+      ]))
   })
 })
