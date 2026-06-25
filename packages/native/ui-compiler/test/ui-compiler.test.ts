@@ -75,6 +75,49 @@ Column {
     ])
   })
 
+  it('accepts adjacent QUI conditional branch chains', () => {
+    const document = analyzeQuiSource(`
+Stack {
+  Text(if: view.mode == "audio") { "Audio" }
+  Text(else-if: view.mode == "video") { "Video" }
+  Text(else) { "Default" }
+}
+`)
+
+    expect(document.diagnostics).toEqual([])
+  })
+
+  it('rejects orphaned QUI else branches', () => {
+    const document = analyzeQuiSource(`
+Stack {
+  Text(else) { "Default" }
+  Text(else-if: view.ready) { "Ready" }
+}
+`)
+
+    expect(document.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'QUI_CONDITIONAL_BRANCH_ORPHANED',
+        severity: 'error',
+      }),
+      expect.objectContaining({
+        code: 'QUI_CONDITIONAL_BRANCH_ORPHANED',
+        severity: 'error',
+      }),
+    ])
+  })
+
+  it('rejects duplicate QUI directives on the same node', () => {
+    const document = analyzeQuiSource('Button(action: ui.close(), action: ui.confirm()) { Text { "Close" } }')
+
+    expect(document.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'QUI_DUPLICATE_DIRECTIVE',
+        severity: 'error',
+      }),
+    ])
+  })
+
   it('rejects unsafe QUI expressions before runtime package evaluation', () => {
     const document = analyzeQuiSource('Text(if: view.ready = true) { "Ready" }')
 

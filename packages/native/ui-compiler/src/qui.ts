@@ -22,32 +22,13 @@ import {
   splitTopLevel,
   wordAt,
 } from './source'
+import { validateQuiProps } from './qui-semantics'
 
 const IMPORT_PATTERN = /^\s*import\s+(style|tokens|component)\s+(['"])([^'"]+)\2\s*;?\s*$/
 const IMPORT_START_PATTERN = /^\s*import\b/
 const COMPONENT_PATTERN = /\b([A-Z][A-Za-z0-9_]*)\b(?=\s*(?:[.{(]|$))/g
 const NODE_CLASS_PATTERN = /^([A-Z][A-Za-z0-9_]*)(\.[A-Za-z_][\w-]*)+/
 const PROP_NAME_PATTERN = /^\s*([A-Za-z_][\w-]*)(?:\s*:([\s\S]*))?$/
-const IDENTIFIER_PATTERN_SOURCE = String.raw`[A-Za-z_$][\w$]*`
-const FOR_SOURCE_PATTERN_SOURCE = String.raw`[\w$.[\]?.]+(?:\s*\?\?\s*[\w$.[\]?.]+)?`
-const FOR_PATTERN = new RegExp([
-  String.raw`^\s*(?:`,
-  IDENTIFIER_PATTERN_SOURCE,
-  String.raw`|\(\s*`,
-  IDENTIFIER_PATTERN_SOURCE,
-  String.raw`(?:\s*,\s*`,
-  IDENTIFIER_PATTERN_SOURCE,
-  String.raw`)?\s*\))\s+in\s+`,
-  FOR_SOURCE_PATTERN_SOURCE,
-  String.raw`\s*$`,
-].join(''))
-const ACTION_PATTERN = /^\s*(?:ui|choice|save|settings)\.[A-Za-z_$][\w$]*\s*\(/
-const UNSAFE_EXPRESSION_PATTERNS = [
-  { pattern: /\b(?:await|new|function|class|throw|return|yield)\b/, reason: 'imperative JavaScript is not allowed in QUI expressions' },
-  { pattern: /=>/, reason: 'function expressions are not allowed in QUI expressions' },
-  { pattern: /(?:^|[^=!<>])=(?:[^=]|$)/, reason: 'assignments are not allowed in QUI expressions' },
-  { pattern: /(?:\+\+|--|\+=|-=|\*=|\/=)/, reason: 'mutation operators are not allowed in QUI expressions' },
-] as const
 
 export function analyzeQuiSource(source: string, options: NativeUiLanguageOptions = {}): NativeQuiDocument {
   const lineStarts = createLineStarts(source)
@@ -303,109 +284,6 @@ function validateQuiImports(imports: readonly NativeQuiImport[], diagnostics: Na
         source: 'qui',
       })
     }
-  }
-}
-
-function validateQuiProps(props: readonly NativeQuiProp[], diagnostics: NativeUiDiagnostic[]): void {
-  for (const prop of props) {
-    if (prop.name === 'else' && prop.value) {
-      diagnostics.push({
-        code: 'QUI_ELSE_HAS_VALUE',
-        message: 'The else directive must not have a value.',
-        range: prop.range,
-        severity: 'error',
-        source: 'qui',
-      })
-    }
-
-    if (['if', 'else-if', 'show', 'key', 'for', 'action'].includes(prop.name) && !prop.value) {
-      diagnostics.push({
-        code: 'QUI_DIRECTIVE_VALUE_MISSING',
-        message: `The ${prop.name} directive requires a value.`,
-        range: prop.range,
-        severity: 'error',
-        source: 'qui',
-      })
-      continue
-    }
-
-    if (prop.name === 'for' && prop.value && !FOR_PATTERN.test(prop.value)) {
-      diagnostics.push({
-        code: 'QUI_INVALID_LOOP_EXPRESSION',
-        message: 'Loop expressions must use "item in source" or "(item, index) in source" syntax.',
-        range: prop.valueRange,
-        severity: 'error',
-        source: 'qui',
-      })
-    }
-
-    if (prop.value)
-      validateQuiExpression(prop, diagnostics)
-  }
-
-  validateQuiPropGroups(props, diagnostics)
-}
-
-function validateQuiPropGroups(props: readonly NativeQuiProp[], diagnostics: NativeUiDiagnostic[]): void {
-  const groups = new Map<number, NativeQuiProp[]>()
-  for (const prop of props) {
-    if (prop.groupId === undefined)
-      continue
-    const group = groups.get(prop.groupId) || []
-    groups.set(prop.groupId, [...group, prop])
-  }
-
-  for (const group of groups.values()) {
-    const forProp = group.find(prop => prop.name === 'for' && prop.value && FOR_PATTERN.test(prop.value))
-    if (!forProp)
-      continue
-    const hasKey = group.some(prop => prop.name === 'key' && prop.value)
-    if (hasKey)
-      continue
-
-    diagnostics.push({
-      code: 'QUI_LOOP_KEY_MISSING',
-      message: 'Loop-rendered QUI nodes must declare a stable key directive.',
-      range: forProp.range,
-      severity: 'error',
-      source: 'qui',
-    })
-  }
-}
-
-function validateQuiExpression(prop: NativeQuiProp, diagnostics: NativeUiDiagnostic[]): void {
-  const value = prop.value || ''
-  for (const unsafe of UNSAFE_EXPRESSION_PATTERNS) {
-    if (!unsafe.pattern.test(value))
-      continue
-    diagnostics.push({
-      code: 'QUI_UNSAFE_EXPRESSION',
-      message: unsafe.reason,
-      range: prop.valueRange,
-      severity: 'error',
-      source: 'qui',
-    })
-    return
-  }
-
-  if (prop.name !== 'action' && /\b[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?\s*\(/.test(value)) {
-    diagnostics.push({
-      code: 'QUI_UNSAFE_EXPRESSION',
-      message: 'Function calls are not allowed outside declarative action descriptors.',
-      range: prop.valueRange,
-      severity: 'error',
-      source: 'qui',
-    })
-  }
-
-  if (prop.name === 'action' && !ACTION_PATTERN.test(value)) {
-    diagnostics.push({
-      code: 'QUI_INVALID_ACTION_DESCRIPTOR',
-      message: 'Actions must use declarative ui.*, choice.*, save.*, or settings.* descriptors.',
-      range: prop.valueRange,
-      severity: 'error',
-      source: 'qui',
-    })
   }
 }
 
