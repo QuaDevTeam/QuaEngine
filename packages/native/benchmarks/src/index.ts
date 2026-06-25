@@ -15,6 +15,7 @@ import {
   formatNativeUiDocument,
   getNativeUiCompletions,
   getNativeUiHover,
+  resolveNativeQssDeclarations,
 } from '@quajs/native-ui-compiler'
 import {
   createNativeAuthoringBenchmarkFixtures,
@@ -163,6 +164,49 @@ export function runNativeAuthoringSmokeBenchmarks(
           metrics: {
             declarations,
             rules,
+          },
+        }
+      },
+    },
+    {
+      bench: 'native.authoring.qss.resolve_style.smoke',
+      defaultIterations: 32,
+      documentBytes: byteLength(fixtures.qss),
+      run(iterations) {
+        let checksum = 0
+        let diagnostics = 0
+        let resolvedDeclarations = 0
+        let resolvedRules = 0
+        let styleFields = 0
+        let zIndexes = 0
+        for (let index = 0; index < iterations; index += 1) {
+          const document = analyzeNativeUiDocument(fixtures.qss, {
+            filePath: 'bench/menu.qss',
+            lint: {
+              strictComponents: true,
+            },
+          })
+          if (document.kind === 'qss') {
+            for (const rule of document.rules) {
+              const resolved = resolveNativeQssDeclarations(rule.declarations)
+              const fieldCount = Object.keys(resolved.style).length
+              resolvedRules += 1
+              resolvedDeclarations += rule.declarations.length
+              styleFields += fieldCount
+              zIndexes += resolved.zIndex === undefined ? 0 : 1
+              checksum += fieldCount + (resolved.zIndex ?? 0)
+            }
+          }
+          diagnostics += document.diagnostics.length
+        }
+        return {
+          checksum,
+          diagnostics,
+          metrics: {
+            resolvedDeclarations,
+            resolvedRules,
+            styleFields,
+            zIndexes,
           },
         }
       },
