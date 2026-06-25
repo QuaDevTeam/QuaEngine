@@ -153,13 +153,14 @@ Rust renderer 只消费 resolved style IR。selector matching、cascade、inheri
 - `line-height`
 - `text-align`
 - `object-fit`
+- `opacity`
 
 ### 建议的 QSS 兼容分期
 
 | 阶段 | 目标 | 建议属性 |
 | --- | --- | --- |
 | P0 | 先把 native surface 跑起来 | 上述基础字段 |
-| P1 | 补齐常用视觉布局 | `padding`, `margin`, `gap`, `width`, `height`, `min/max-*`, `overflow`, `opacity` |
+| P1 | 补齐常用视觉布局 | `padding`, `margin`, `gap`, `width`, `height`, `min/max-*`, `overflow` |
 | P2 | 进一步接近熟悉的 CSS 体验 | 部分 `transform`, `shadow`, `transition` 及少量视觉增强 |
 
 ### 建议支持的 selector 语义
@@ -221,4 +222,3 @@ runtime package compatibility metadata 也应该落到这个 registry 上：
 - 视频先支持 poster / fallback / deterministic warning。
 - 音频先支持投影、资源账本、命令计划和 backend stub。
 - 真正的 decode / playback backend 进入 native app binary 后，再把能力升级成正式 capability。
-

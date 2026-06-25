@@ -1,5 +1,6 @@
 use crate::render_graph::{DrawCommand, DrawCommandKind, LogicalRect};
 
+use super::super::style::resolve_opacity;
 use super::super::types::{UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection};
 use super::command::{scroll_clip_command, surface_node_command, surface_scroll_panel_command};
 use super::helpers::node_rect;
@@ -17,7 +18,7 @@ pub(super) fn append_surface_node_commands(
         return;
     }
 
-    let effective_opacity = inherited_opacity * node.opacity;
+    let effective_opacity = inherited_opacity * node.opacity * resolve_opacity(&node.style, 1.0);
     if is_surface_group_node(node.kind) {
         for child in &node.children {
             append_surface_node_commands(
