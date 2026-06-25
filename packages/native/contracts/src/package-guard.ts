@@ -253,27 +253,29 @@ function collectTargetCorePackageReferenceDeclarations(
   references: readonly NativeGuardPackageReference[] | undefined,
 ): void {
   for (const reference of references || []) {
-    const specifier = packageReferenceSpecifier(reference)
-    if (!specifier)
-      continue
-    const packageName = normalizePackageSpecifier(specifier)
-    if (!targetCoreRoots.has(packageName))
-      continue
+    for (const packageName of packageReferenceSpecifiers(reference).map(normalizePackageSpecifier)) {
+      if (!targetCoreRoots.has(packageName))
+        continue
 
-    diagnostics.push({
-      code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
-      severity: 'error',
-      packageId: runtimePackage.id,
-      field,
-      message: `Native runtime package "${runtimePackage.id}" must not declare target core adapter "${packageName}" through "${field}".`,
-    })
+      diagnostics.push({
+        code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
+        severity: 'error',
+        packageId: runtimePackage.id,
+        field,
+        message: `Native runtime package "${runtimePackage.id}" must not declare target core adapter "${packageName}" through "${field}".`,
+      })
+    }
   }
 }
 
-function packageReferenceSpecifier(reference: NativeGuardPackageReference): string | undefined {
+function packageReferenceSpecifiers(reference: NativeGuardPackageReference): string[] {
   if (typeof reference === 'string')
-    return reference
-  return reference.packageName || reference.specifier
+    return [reference]
+
+  return Array.from(new Set(
+    [reference.specifier, reference.packageName]
+      .filter((specifier): specifier is string => Boolean(specifier)),
+  ))
 }
 
 function collectNativePluginDeclarations(

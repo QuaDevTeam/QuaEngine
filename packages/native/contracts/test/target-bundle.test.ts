@@ -220,6 +220,69 @@ describe('target bundle manifest validation', () => {
     expect(collectTargetBundlePackageNames(targetBundleManifest())).toContain('@quajs/native-contracts')
   })
 
+  it('checks both specifier and packageName fields in target bundle references', () => {
+    const result = validateTargetBundleManifest(targetBundleManifest({
+      dependencies: [
+        ...(targetDependencies('native') || []),
+        {
+          packageName: '@quajs/character',
+          specifier: '@quajs/renderer-web/plugins/audio',
+          source: 'static-import',
+        },
+      ],
+      runtimePackages: [
+        {
+          id: 'runtime.masked.core',
+          executableDependencies: [
+            {
+              packageName: '@quajs/character',
+              specifier: '@quajs/renderer-cocos/plugins/audio',
+            },
+          ],
+          rendererEntries: [
+            {
+              packageName: '@quajs/plugin-gallery',
+              specifier: '@quajs/engine-native/native-host',
+            },
+          ],
+        },
+      ],
+    }))
+
+    expect(result.ok).toBe(false)
+    expect(collectTargetBundlePackageNames(targetBundleManifest({
+      dependencies: [
+        {
+          packageName: '@quajs/character',
+          specifier: '@quajs/renderer-web/plugins/audio',
+          source: 'static-import',
+        },
+      ],
+    }))).toEqual(expect.arrayContaining([
+      '@quajs/character',
+      '@quajs/renderer-web',
+    ]))
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_CORE_ADAPTER_FORBIDDEN',
+        target: 'native',
+        packageName: '@quajs/renderer-web',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_RUNTIME_PACKAGE_CORE_ADAPTER',
+        runtimePackageId: 'runtime.masked.core',
+        packageName: '@quajs/renderer-cocos',
+        field: 'executableDependencies',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_RUNTIME_PACKAGE_CORE_ADAPTER',
+        runtimePackageId: 'runtime.masked.core',
+        packageName: '@quajs/engine-native',
+        field: 'rendererEntries',
+      }),
+    ]))
+  })
+
   it('requires the selected core plugin family to match the artifact target', () => {
     const result = validateTargetBundleManifest(targetBundleManifest({
       selectedCorePluginFamily: 'web-core',

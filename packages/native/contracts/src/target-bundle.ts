@@ -582,18 +582,26 @@ function pushRuntimePackageTargetCoreAdapterDiagnostics(
 
 function collectPackageReferenceSpecifiers(references: readonly TargetBundlePackageGraphReference[]): string[] {
   return references
-    .map(packageReferenceSpecifier)
-    .filter((specifier): specifier is string => Boolean(specifier))
+    .flatMap(packageReferenceSpecifiers)
 }
 
 function packageReferenceSpecifier(reference: TargetBundlePackageGraphReference): string | undefined {
   if (typeof reference === 'string')
     return reference
 
-  if ('packageName' in reference && reference.packageName)
-    return reference.packageName
+  return reference.specifier || ('packageName' in reference ? reference.packageName : undefined)
+}
 
-  return reference.specifier
+function packageReferenceSpecifiers(reference: TargetBundlePackageGraphReference): string[] {
+  if (typeof reference === 'string')
+    return [reference]
+
+  const specifiers = [
+    reference.specifier,
+    'packageName' in reference ? reference.packageName : undefined,
+  ]
+
+  return Array.from(new Set(specifiers.filter((specifier): specifier is string => Boolean(specifier))))
 }
 
 function rendererEntryReferenceTarget(
