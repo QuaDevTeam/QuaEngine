@@ -44,6 +44,7 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 - 普通 game/plugin 列表必须先通过 `validateOrdinaryPluginListTargetIsolation`，任何 Web / Cocos / Native target core 根包或子入口都不能出现在 `plugins`、shared preset 或 generated resolver 里。
 - Runtime QPK 可声明多端 compatibility metadata，但 active artifact 只能评估当前 target block；QPK 不允许声明或携带任何 target core executable dependency。
 - 第三方 plugin manifest 必须通过 `validateTargetPluginManifest`：shared entry 只能 import 平台无关逻辑，active target entry 只能 import 本 target core，inactive target entry 不能 eager 进入产物。
+- 所有 target bundle reference、plugin import reference、Runtime QPK executable/renderer reference 都要同时校验 `specifier` 和 `packageName`；不能让一个普通包名字段遮住另一个字段里的 Web/Cocos/Native target core 子入口。
 - 最终 `target-bundle-manifest.json` 必须通过 `validateTargetBundleManifest`；Web、Cocos、Native 的 debug/release、installer/updater、手写 shell 和 CI fixture 都不能跳过这一步。
 - release artifact 的依赖图检查必须发生在 bundle / tree-shake 之后，防止源码层过滤正确但产物里残留其他 target core 子入口。
 
