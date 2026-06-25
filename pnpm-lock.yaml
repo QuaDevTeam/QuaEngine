@@ -676,6 +676,15 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/native/benchmarks:
+    dependencies:
+      '@quajs/native-language-server':
+        specifier: workspace:*
+        version: link:../language-server
+      '@quajs/native-ui-compiler':
+        specifier: workspace:*
+        version: link:../ui-compiler
+
   packages/native/contracts: {}
 
   packages/native/engine-native:

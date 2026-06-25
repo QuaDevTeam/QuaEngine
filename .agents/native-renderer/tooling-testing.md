@@ -13,7 +13,7 @@ native authoring 工具要独立于现有 QuaScript 工具链：
 - `packages/native/ui-compiler`：已落基础，负责 QUI/QSS parse、validate、format、completion、hover 和 registry。
 - `packages/native/language-server`：已落基础，负责 `.qui/.qss` 的独立 LSP 适配。
 - `packages/native/vscode`：已落基础，负责 VSCode language contribution、grammar、snippets、format/validate/restart commands 和 native LSP 启动。
-- `packages/native/benchmarks`
+- `packages/native/benchmarks`：已落基础，负责 native authoring/tooling 的确定性 smoke benchmark，输出 JSON Lines baseline。
 
 这些工具只做 authoring，不加载 Web/Cocos/native target core bootstrap，也不解析普通 game plugin 列表。它们可以读取平台无关 contracts / registry / manifest schema，但不能把 Web、Cocos、Native 三套核心插件合并成一个编辑器运行时。
 
@@ -160,6 +160,22 @@ QSS 侧：
 - incremental update time
 - memory footprint
 
+当前第一版 `@quajs/native-benchmarks` 已覆盖：
+
+- `native.authoring.qui.parse_validate.smoke`
+- `native.authoring.qss.parse_validate.smoke`
+- `native.authoring.qui.format.smoke`
+- `native.authoring.qss.format.smoke`
+- `native.authoring.completion_hover.smoke`
+
+这些 benchmark 通过 `@quajs/native-ui-compiler` 和 `@quajs/native-language-server` 的公开 API 运行，不启动 renderer、不加载 target core bootstrap、不解析普通 game plugin 列表。fixture 固定在源码内，不能访问网络、不能随机生成。每条输出记录必须包含 `schemaVersion`、`suite`、`bench`、`profile`、`platform`、`backend`、`packageVersion`、`iterations`、`documentBytes`、`diagnostics`、`elapsedMs`、`memory` 和可比较的 `metrics`。
+
+后续还需要补：
+
+- 独立 LSP 进程 initialize / completion / hover 往返 latency。
+- project index build / incremental update latency。
+- baseline 文件、历史对比和 regression 阈值升级策略。
+
 ### runtime / renderer
 
 要测：
@@ -206,6 +222,9 @@ Rust / TS 的具体命令可以随实现补齐，但验收应至少覆盖：
 - `pnpm -C packages/native/language-server typecheck`
 - `pnpm -C packages/native/vscode typecheck`
 - `pnpm -C packages/native/vscode build`
+- `pnpm -C packages/native/benchmarks typecheck`
+- `pnpm -C packages/native/benchmarks test`
+- `pnpm --filter @quajs/native-benchmarks bench:smoke`
 - `cargo test --manifest-path packages/native/Cargo.toml --workspace`
 
 Cargo 重测试 / 重构建前要先看磁盘余量，必要时先清理 `target` / `cargo` 缓存，避免把后续验证卡死在空间不足上。
