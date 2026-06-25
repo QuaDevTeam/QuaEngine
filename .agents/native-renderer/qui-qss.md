@@ -120,6 +120,8 @@ import component "./shared/Panel.qui";
 
 其中 `Text` / `RichText` 属于 text projection，`Backdrop` / `Panel` / `SafeArea` / `Scroll` 是语义节点，`Stack` / `Row` / `Column` / `Grid` / `Fragment` / `Layer` / `Divider` / `Spacer` 是结构节点。
 
+native component registry 需要声明 content model：`children`、`text` 或 `none`。compiler / LSP 应当据此诊断不合法结构：`Text` / `RichText` 只能包含文本或表达式内容，不能嵌套 QUI 组件或 slot；`Image` / `Divider` / `Spacer` 不应声明 child content；named slot 必须是拥有该 slot 的父组件的直接子节点，并且同一父组件下不能重复声明同名 slot。Rust renderer 只消费已经规整好的投影树，不负责猜测这些 authoring 语义。
+
 ### 应尽量做成 composite 的上层组件
 
 以下应该优先作为 `.qui/.qss` composite，而不是 native primitive：

@@ -127,6 +127,7 @@ export interface NativeQssDocument {
 export type NativeUiDocument = NativeQuiDocument | NativeQssDocument
 
 export interface NativeUiComponentDefinition {
+  content: 'children' | 'none' | 'text'
   description: string
   kind: 'base' | 'capability' | 'composite' | 'project'
   name: string
