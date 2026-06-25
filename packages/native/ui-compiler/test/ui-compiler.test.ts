@@ -110,6 +110,63 @@ Column {
     })
   })
 
+  it('builds a structured QUI tree with per-node props, actions, classes, and slots', () => {
+    const document = analyzeQuiSource(`
+Panel.dialog(id: "settings") {
+  slot header { Text { "Settings" } }
+  slot footer {
+    Button.primary(action: ui.close(), key: "close") { Text { "Close" } }
+  }
+}
+`)
+
+    expect(document.diagnostics).toEqual([])
+    expect(document.tree).toHaveLength(1)
+    expect(document.tree[0]).toMatchObject({
+      kind: 'component',
+      name: 'Panel',
+      classes: ['dialog'],
+      props: [
+        expect.objectContaining({ name: 'id', value: '"settings"' }),
+      ],
+      actions: [],
+      children: [
+        expect.objectContaining({
+          kind: 'slot',
+          name: 'header',
+          children: [
+            expect.objectContaining({
+              kind: 'component',
+              name: 'Text',
+              children: [],
+            }),
+          ],
+        }),
+        expect.objectContaining({
+          kind: 'slot',
+          name: 'footer',
+          children: [
+            expect.objectContaining({
+              kind: 'component',
+              name: 'Button',
+              classes: ['primary'],
+              props: [
+                expect.objectContaining({ name: 'action', value: 'ui.close()' }),
+                expect.objectContaining({ name: 'key', value: '"close"' }),
+              ],
+              actions: [
+                expect.objectContaining({
+                  event: 'ui/intent',
+                  action: 'close',
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    })
+  })
+
   it('rejects unsupported QUI action descriptors before projection', () => {
     const document = analyzeQuiSource(`
 Column {

@@ -1,15 +1,12 @@
-import type { NativeUiDiagnostic, NativeUiRange } from './types'
+import type { NativeQuiAstNode, NativeQuiProp, NativeUiDiagnostic } from './types'
+import { collectQuiActionDescriptors } from './qui-actions'
+import { collectQuiPropsFromGroup } from './qui-props'
 import { findNativeUiComponent } from './registry'
 import { findMatchingDelimiter, rangeFromOffsets } from './source'
 
-interface QuiStructureNode {
+interface QuiStructureNode extends NativeQuiAstNode {
   bodyEnd?: number
-  bodyRange?: NativeUiRange
   bodyStart?: number
-  children: QuiStructureNode[]
-  kind: 'component' | 'slot'
-  name: string
-  range: NativeUiRange
 }
 
 interface ParsedNode {
@@ -23,9 +20,17 @@ export function validateQuiStructure(
   lineStarts: readonly number[],
   diagnostics: NativeUiDiagnostic[],
 ): void {
-  const nodes = parseStructureRange(source, masked, lineStarts, 0, masked.length)
+  const nodes = parseQuiStructureTree(source, masked, lineStarts)
   for (const node of nodes)
     validateNode(node, undefined, source, masked, diagnostics)
+}
+
+export function parseQuiStructureTree(
+  source: string,
+  masked: string,
+  lineStarts: readonly number[],
+): NativeQuiAstNode[] {
+  return parseStructureRange(source, masked, lineStarts, 0, masked.length)
 }
 
 function parseStructureRange(
@@ -75,19 +80,23 @@ function parseComponent(
     return undefined
 
   let cursor = offset + name.length
+  const classes: string[] = []
   while (masked[cursor] === '.') {
     const className = readIdentifier(masked, cursor + 1)
     if (!className)
       break
+    classes.push(className)
     cursor += className.length + 1
   }
 
   cursor = skipWhitespace(masked, cursor, end)
   const hasProps = masked[cursor] === '('
+  let props: NativeQuiProp[] = []
   if (hasProps) {
     const propsEnd = findMatchingDelimiter(masked, cursor, '(', ')')
     if (propsEnd === -1)
       return undefined
+    props = collectQuiPropsFromGroup(source, lineStarts, cursor + 1, propsEnd)
     cursor = skipWhitespace(masked, propsEnd + 1, end)
   }
 
@@ -100,8 +109,12 @@ function parseComponent(
       next: cursor,
       node: {
         children: [],
+        actions: collectQuiActionDescriptors(props),
+        classes,
         kind: 'component',
         name,
+        nameRange: rangeFromOffsets(lineStarts, offset, offset + name.length),
+        props,
         range: rangeFromOffsets(lineStarts, offset, cursor),
       },
     }
@@ -124,8 +137,12 @@ function parseComponent(
       bodyRange: rangeFromOffsets(lineStarts, bodyStart, bodyEnd),
       bodyStart,
       children,
+      actions: collectQuiActionDescriptors(props),
+      classes,
       kind: 'component',
       name,
+      nameRange: rangeFromOffsets(lineStarts, offset, offset + name.length),
+      props,
       range: rangeFromOffsets(lineStarts, offset, bodyEnd + 1),
     },
   }
@@ -139,6 +156,7 @@ function parseSlot(
   end: number,
 ): ParsedNode | undefined {
   let cursor = skipWhitespace(masked, offset + 'slot'.length, end)
+  const nameStart = cursor
   const name = readIdentifier(masked, cursor)
   if (!name)
     return undefined
@@ -159,8 +177,12 @@ function parseSlot(
       bodyRange: rangeFromOffsets(lineStarts, bodyStart, bodyEnd),
       bodyStart,
       children: parseStructureRange(source, masked, lineStarts, bodyStart, bodyEnd),
+      actions: [],
+      classes: [],
       kind: 'slot',
       name,
+      nameRange: rangeFromOffsets(lineStarts, nameStart, nameStart + name.length),
+      props: [],
       range: rangeFromOffsets(lineStarts, offset, bodyEnd + 1),
     },
   }

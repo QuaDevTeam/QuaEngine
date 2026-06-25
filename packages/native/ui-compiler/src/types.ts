@@ -108,6 +108,18 @@ export interface NativeQuiActionDescriptor {
   valueRange?: NativeUiRange
 }
 
+export interface NativeQuiAstNode {
+  actions: NativeQuiActionDescriptor[]
+  bodyRange?: NativeUiRange
+  children: NativeQuiAstNode[]
+  classes: string[]
+  kind: 'component' | 'slot'
+  name: string
+  nameRange: NativeUiRange
+  props: NativeQuiProp[]
+  range: NativeUiRange
+}
+
 export interface NativeQuiDocument {
   actions: NativeQuiActionDescriptor[]
   diagnostics: NativeUiDiagnostic[]
@@ -116,6 +128,7 @@ export interface NativeQuiDocument {
   nodes: NativeQuiNode[]
   props: NativeQuiProp[]
   source: string
+  tree: NativeQuiAstNode[]
 }
 
 export interface NativeQssDeclaration {
