@@ -80,6 +80,8 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(!ui.qss_features.contains(&"margin".to_string()));
     assert!(ui.qss_features.contains(&"background-color".to_string()));
     assert!(ui.qss_features.contains(&"background-image".to_string()));
+    assert!(ui.qss_features.contains(&"background-position".to_string()));
+    assert!(ui.qss_features.contains(&"background-size".to_string()));
     assert!(ui.qss_features.contains(&"border-color".to_string()));
     assert!(ui.qss_features.contains(&"border-radius".to_string()));
     assert!(ui.qss_features.contains(&"border-width".to_string()));

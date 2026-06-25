@@ -24,6 +24,12 @@ export function resolveNativeQssDeclarations(
       case 'background-image':
         resolved.style.backgroundImage = parseBackgroundImage(value)
         break
+      case 'background-position':
+        resolved.style.backgroundPosition = parseBackgroundPosition(value)
+        break
+      case 'background-size':
+        resolved.style.backgroundSize = parseObjectFit(value)
+        break
       case 'border-color':
         resolved.style.borderColor = value
         break
@@ -92,12 +98,74 @@ function isSafePackageAssetName(value: string): boolean {
     && !normalized.split('/').includes('..')
 }
 
+function parseBackgroundPosition(value: string): { x: number, y: number } | undefined {
+  const parts = value.toLowerCase().split(/\s+/).filter(Boolean)
+  if (parts.length === 0 || parts.length > 2)
+    return undefined
+
+  if (parts.length === 1) {
+    const single = parseHorizontalPosition(parts[0])
+    if (single !== undefined)
+      return { x: single, y: 0.5 }
+
+    const vertical = parseVerticalPosition(parts[0])
+    return vertical !== undefined ? { x: 0.5, y: vertical } : undefined
+  }
+
+  const horizontal = parseHorizontalPosition(parts[0])
+  const vertical = parseVerticalPosition(parts[1])
+  if (horizontal !== undefined && vertical !== undefined)
+    return { x: horizontal, y: vertical }
+
+  const reversedHorizontal = parseHorizontalPosition(parts[1])
+  const reversedVertical = parseVerticalPosition(parts[0])
+  return reversedHorizontal !== undefined && reversedVertical !== undefined
+    ? { x: reversedHorizontal, y: reversedVertical }
+    : undefined
+}
+
+function parseHorizontalPosition(value: string): number | undefined {
+  switch (value) {
+    case 'left':
+      return 0
+    case 'center':
+      return 0.5
+    case 'right':
+      return 1
+    default:
+      return parsePercentUnitInterval(value)
+  }
+}
+
+function parseVerticalPosition(value: string): number | undefined {
+  switch (value) {
+    case 'top':
+      return 0
+    case 'center':
+      return 0.5
+    case 'bottom':
+      return 1
+    default:
+      return parsePercentUnitInterval(value)
+  }
+}
+
 function parseLogicalNumber(value: string): number | undefined {
   const match = /^(-?\d+(?:\.\d+)?)(?:px)?$/.exec(value.trim())
   if (!match)
     return undefined
   const number = Number(match[1])
   return Number.isFinite(number) && number >= 0 ? number : undefined
+}
+
+function parsePercentUnitInterval(value: string): number | undefined {
+  const match = /^(\d+(?:\.\d+)?)%$/.exec(value.trim())
+  if (!match)
+    return undefined
+  const number = Number(match[1])
+  return Number.isFinite(number) && number >= 0 && number <= 100
+    ? number / 100
+    : undefined
 }
 
 function parseInteger(value: string): number | undefined {

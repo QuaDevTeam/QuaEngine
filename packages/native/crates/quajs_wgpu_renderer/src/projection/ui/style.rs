@@ -1,5 +1,5 @@
 use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
-use crate::render_graph::{FontWeightDrawParam, MediaFit, TextAlign};
+use crate::render_graph::{FontWeightDrawParam, MediaFit, MediaOrigin, TextAlign};
 
 use super::types::{
     UiSurfaceImageProjection, UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle,
@@ -22,6 +22,24 @@ pub fn resolve_background_image(
         .background_image
         .as_ref()
         .filter(|image| !image.asset_type.trim().is_empty() && !image.asset_name.trim().is_empty())
+}
+
+pub fn resolve_background_size(style: &UiSurfaceResolvedStyle, fallback: MediaFit) -> MediaFit {
+    media_fit_from_projection(style.background_size, fallback)
+}
+
+pub fn resolve_background_position(
+    style: &UiSurfaceResolvedStyle,
+    fallback: MediaOrigin,
+) -> MediaOrigin {
+    style
+        .background_position
+        .filter(|position| position.x.is_finite() && position.y.is_finite())
+        .map(|position| MediaOrigin {
+            x: position.x.clamp(0.0, 1.0),
+            y: position.y.clamp(0.0, 1.0),
+        })
+        .unwrap_or(fallback)
 }
 
 pub fn resolve_text_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {
@@ -76,7 +94,14 @@ pub fn resolve_text_align(style: &UiSurfaceResolvedStyle, fallback: TextAlign) -
 }
 
 pub fn resolve_object_fit(style: &UiSurfaceResolvedStyle, fallback: MediaFit) -> MediaFit {
-    match style.object_fit {
+    media_fit_from_projection(style.object_fit, fallback)
+}
+
+fn media_fit_from_projection(
+    value: Option<UiSurfaceObjectFitProjection>,
+    fallback: MediaFit,
+) -> MediaFit {
+    match value {
         Some(UiSurfaceObjectFitProjection::Cover) => MediaFit::Cover,
         Some(UiSurfaceObjectFitProjection::Contain) => MediaFit::Contain,
         Some(UiSurfaceObjectFitProjection::Fill) => MediaFit::Fill,

@@ -3,9 +3,9 @@ use crate::input::resolve_renderer_intent_at;
 use crate::projection::common::{FontFamilyProjection, FontWeightProjection};
 use crate::projection::ui::{
     append_ui_commands, build_ui_commands, UiIntentProjection, UiOverlayProjection,
-    UiOverlaySurfaceProjection, UiProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
-    UiSurfaceNodeProjection, UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle,
-    UiSurfaceTextAlignProjection,
+    UiOverlaySurfaceProjection, UiProjection, UiSurfaceBackgroundPositionProjection,
+    UiSurfaceImageProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection,
+    UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
 };
 use crate::render_graph::{
     DrawCommandKind, DrawCommandParams, FontWeightDrawParam, LogicalRect, MediaFit, RenderGraph,
@@ -123,7 +123,11 @@ fn projects_surface_background_image_as_package_image_command() {
                 .with_style(UiSurfaceResolvedStyle {
                     background_color: Some("#101820".to_string()),
                     background_image: Some(UiSurfaceImageProjection::new("ui/panel.png")),
-                    object_fit: Some(UiSurfaceObjectFitProjection::Contain),
+                    background_position: Some(UiSurfaceBackgroundPositionProjection {
+                        x: 1.0,
+                        y: 0.0,
+                    }),
+                    background_size: Some(UiSurfaceObjectFitProjection::Contain),
                     opacity: Some(0.5),
                     ..Default::default()
                 }),
@@ -163,6 +167,8 @@ fn projects_surface_background_image_as_package_image_command() {
             assert_eq!(params.asset_type, "images");
             assert_eq!(params.asset_name, "ui/panel.png");
             assert_eq!(params.fit, MediaFit::Contain);
+            assert_eq!(params.origin.x, 1.0);
+            assert_eq!(params.origin.y, 0.0);
             assert_eq!(
                 params.source,
                 LogicalRect {

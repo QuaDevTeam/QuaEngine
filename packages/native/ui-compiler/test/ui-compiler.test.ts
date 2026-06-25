@@ -19,6 +19,8 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQuiComponentNames()).toContain('Scroll')
     expect(nativeWgpuQssFeatureNames()).toContain('background-color')
     expect(nativeWgpuQssFeatureNames()).toContain('background-image')
+    expect(nativeWgpuQssFeatureNames()).toContain('background-position')
+    expect(nativeWgpuQssFeatureNames()).toContain('background-size')
     expect(nativeWgpuQssFeatureNames()).toContain('object-fit')
     expect(nativeWgpuQssFeatureNames()).toContain('opacity')
     expect(nativeWgpuQssFeatureNames()).toContain('z-index')
@@ -401,6 +403,8 @@ Layer {
 Button.primary {
   background-color: #10141f;
   background-image: asset("ui/panel.png");
+  background-position: right bottom;
+  background-size: contain;
   border-color: #31415f;
   border-radius: 8px;
   border-width: 1px;
@@ -422,6 +426,8 @@ Button.primary {
       style: {
         backgroundColor: '#10141f',
         backgroundImage: { assetType: 'images', assetName: 'ui/panel.png' },
+        backgroundPosition: { x: 1, y: 1 },
+        backgroundSize: 'contain',
         borderColor: '#31415f',
         borderRadius: 8,
         borderWidth: 1,
@@ -448,6 +454,8 @@ Button {
   text-align: start;
   z-index: 1.5;
   background-image: asset("../escape.png");
+  background-position: 10px 20px;
+  background-size: repeat;
 }
 `, {
       lint: {

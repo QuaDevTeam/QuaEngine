@@ -203,9 +203,16 @@ export interface NativeQssBackgroundImageValue {
   assetName: string
 }
 
+export interface NativeQssBackgroundPositionValue {
+  x: number
+  y: number
+}
+
 export interface NativeQssResolvedStyle {
   backgroundColor?: string
   backgroundImage?: NativeQssBackgroundImageValue
+  backgroundPosition?: NativeQssBackgroundPositionValue
+  backgroundSize?: NativeQssObjectFitValue
   borderColor?: string
   borderRadius?: number
   borderWidth?: number

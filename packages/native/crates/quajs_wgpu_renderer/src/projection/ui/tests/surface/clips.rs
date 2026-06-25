@@ -2,8 +2,9 @@ use super::super::{rect, test_layout};
 use crate::input::resolve_renderer_intent_at;
 use crate::projection::ui::{
     append_ui_commands, build_ui_commands, UiIntentProjection, UiOverlayProjection,
-    UiOverlaySurfaceProjection, UiProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
-    UiSurfaceNodeProjection, UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle,
+    UiOverlaySurfaceProjection, UiProjection, UiSurfaceBackgroundPositionProjection,
+    UiSurfaceImageProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection,
+    UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle,
 };
 use crate::render_graph::{DrawCommandKind, DrawCommandParams, LogicalRect, MediaFit, RenderGraph};
 use crate::resources::ResourceId;
@@ -181,7 +182,11 @@ fn scroll_surface_background_image_stays_inside_viewport_clip_order() {
                 )
                 .with_style(UiSurfaceResolvedStyle {
                     background_image: Some(UiSurfaceImageProjection::new("ui/scroll-bg.png")),
-                    object_fit: Some(UiSurfaceObjectFitProjection::Cover),
+                    background_position: Some(UiSurfaceBackgroundPositionProjection {
+                        x: 0.0,
+                        y: 1.0,
+                    }),
+                    background_size: Some(UiSurfaceObjectFitProjection::Cover),
                     ..Default::default()
                 })
                 .with_children(vec![UiSurfaceNodeProjection::new(
@@ -230,6 +235,8 @@ fn scroll_surface_background_image_stays_inside_viewport_clip_order() {
     match &image.params {
         DrawCommandParams::Image(params) => {
             assert_eq!(params.fit, MediaFit::Cover);
+            assert_eq!(params.origin.x, 0.0);
+            assert_eq!(params.origin.y, 1.0);
             assert_eq!(params.source, scroll_bounds);
         }
         _ => panic!("expected scroll background image params"),

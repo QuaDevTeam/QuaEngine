@@ -101,6 +101,8 @@ function createQssFixture(): string {
 Panel.card${index} {
   background-color: #10141f;
   background-image: asset("ui/card-${index}.png");
+  background-position: ${index % 2 === 0 ? 'center top' : 'right bottom'};
+  background-size: ${index % 2 === 0 ? 'cover' : 'contain'};
   border-color: #31415f;
   border-radius: ${6 + (index % 4)}px;
   border-width: 1px;
