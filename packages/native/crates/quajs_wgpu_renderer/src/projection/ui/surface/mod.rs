@@ -5,6 +5,7 @@ mod traversal;
 use crate::render_graph::DrawCommand;
 
 use super::types::{UiOverlayProjection, UiOverlaySurfaceProjection};
+use helpers::SurfaceNodeOffset;
 use traversal::append_surface_node_commands;
 
 const SURFACE_NODE_Z_OFFSET: i32 = 10_000;
@@ -28,6 +29,7 @@ pub fn build_ui_surface_node_commands(
         root,
         base_z_index + SURFACE_NODE_Z_OFFSET,
         &[],
+        SurfaceNodeOffset::default(),
         ROOT_SURFACE_OPACITY,
     );
     commands

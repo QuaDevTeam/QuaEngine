@@ -14,16 +14,17 @@ use super::super::style::{
 use super::super::types::{
     UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceResolvedStyle,
 };
-use super::helpers::{apply_provenance, node_rect, renderer_intent};
+use super::helpers::{apply_provenance, node_rect, renderer_intent, SurfaceNodeOffset};
 
 pub(super) fn surface_node_command(
     overlay: &UiOverlayProjection,
     node: &UiSurfaceNodeProjection,
     z_base: i32,
     clip_bounds: &[LogicalRect],
+    offset: SurfaceNodeOffset,
     effective_opacity: f32,
 ) -> DrawCommand {
-    let bounds = node_rect(node.bounds);
+    let bounds = node_rect(node.bounds, offset);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
     let mut command = match node.kind {
         UiSurfaceNodeKind::Box => {

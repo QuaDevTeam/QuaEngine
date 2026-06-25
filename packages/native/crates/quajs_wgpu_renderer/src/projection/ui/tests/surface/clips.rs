@@ -168,6 +168,61 @@ fn expands_scroll_surface_nodes_to_clip_commands() {
 }
 
 #[test]
+fn scroll_surface_offsets_child_projection_without_moving_viewport() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection {
+                    scroll_offset_y: 72.0,
+                    ..UiSurfaceNodeProjection::new(
+                        "scroll",
+                        UiSurfaceNodeKind::Scroll,
+                        rect(20.0, 30.0, 300.0, 160.0),
+                    )
+                }
+                .with_children(vec![UiSurfaceNodeProjection::new(
+                    "inside",
+                    UiSurfaceNodeKind::Button,
+                    rect(24.0, 112.0, 220.0, 56.0),
+                )
+                .with_text("Inside")
+                .with_intent(UiIntentProjection::new("inside"))]),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let scroll = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:scroll")
+        .unwrap();
+    let inside = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:inside")
+        .unwrap();
+    let scroll_bounds = LogicalRect {
+        x: 20.0,
+        y: 30.0,
+        width: 300.0,
+        height: 160.0,
+    };
+
+    assert_eq!(scroll.bounds, scroll_bounds);
+    assert_eq!(
+        inside.bounds,
+        LogicalRect {
+            x: 24.0,
+            y: 40.0,
+            width: 220.0,
+            height: 56.0,
+        }
+    );
+    assert_eq!(inside.clip_bounds, vec![scroll_bounds]);
+}
+
+#[test]
 fn scroll_surface_opacity_applies_to_panel_and_children() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {
@@ -218,6 +273,45 @@ fn scroll_surface_opacity_applies_to_panel_and_children() {
     assert!((inside.opacity - 0.3).abs() < 0.0001);
     assert_eq!(clip_start.opacity, 1.0);
     assert_eq!(clip_end.opacity, 1.0);
+}
+
+#[test]
+fn scroll_surface_offset_updates_button_hit_testing() {
+    let mut graph = RenderGraph::new(test_layout());
+    append_ui_commands(
+        &mut graph,
+        &UiProjection::new(vec![UiOverlayProjection {
+            interactive: Some(false),
+            surface: Some(
+                UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                    UiSurfaceNodeProjection {
+                        scroll_offset_y: 72.0,
+                        ..UiSurfaceNodeProjection::new(
+                            "scroll",
+                            UiSurfaceNodeKind::Scroll,
+                            rect(40.0, 40.0, 220.0, 90.0),
+                        )
+                    }
+                    .with_children(vec![UiSurfaceNodeProjection::new(
+                        "inside",
+                        UiSurfaceNodeKind::Button,
+                        rect(60.0, 132.0, 180.0, 64.0),
+                    )
+                    .with_text("Inside")
+                    .with_intent(UiIntentProjection::new("inside"))]),
+                ),
+            ),
+            ..UiOverlayProjection::new("menu")
+        }]),
+    );
+
+    let hit = resolve_renderer_intent_at(&graph, 80.0, 84.0).unwrap();
+
+    assert_eq!(hit.command_id, "ui:menu:inside");
+    assert_eq!(hit.intent.event, "ui/intent");
+    assert_eq!(hit.intent.element_id.as_deref(), Some("menu:inside"));
+    assert_eq!(hit.intent.action.as_deref(), Some("inside"));
+    assert!(resolve_renderer_intent_at(&graph, 80.0, 152.0).is_none());
 }
 
 #[test]
