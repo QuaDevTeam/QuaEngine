@@ -47,6 +47,20 @@
 
 Web、Cocos、Native 打包是三条互斥目标链路，不是同一套核心插件列表的三种输出格式。每个目标产物都必须先 materialize 唯一的 `TargetCoreSelection`，再解析普通 game/plugin 和 Runtime QPK；任何 shared preset、普通 `plugins`、generated resolver、renderer entry 或 Runtime QPK executable dependency 里出现 Web / Cocos / Native target core 根包或子入口，都必须作为 release blocker。
 
+核心插件隔离需要按“目标先行、普通插件后置、产物复验”的顺序执行：
+
+1. Web / Cocos / Native 打包入口分别创建自己的 resolver context，不能 import 一个三端全集再过滤。
+2. `TargetCoreSelection` 是唯一可以携带 target core bootstrap adapter 的位置。
+3. 普通 game/plugin、shared preset、第三方插件 shared entry 和 Runtime QPK executable dependency 都不得声明任一 target core adapter。
+4. 多目标第三方插件只能在 packaging 阶段选择当前 target entry，inactive target entry 必须保持 metadata-only，不能 eager 进入依赖图。
+5. bundle / tree-shake 后必须再扫产物依赖图和 `target-bundle-manifest.json`，防止源码层正确但 release 包里残留其他 target core。
+
+三端核心插件归属必须保持互斥：
+
+- Web：只允许 Web core resolver、Web assets/renderer/framework adapter。
+- Cocos：只允许 Cocos host/renderer adapter。
+- Native：只允许 `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、`@quajs/native-contracts` 的必要元数据，以及 Rust native app/runtime/renderer。
+
 验收时至少覆盖这些门禁：
 
 - `validateExclusiveTargetBootstrap`：最终依赖图只能注册一个 target core family。
