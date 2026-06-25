@@ -88,6 +88,7 @@ Web, Cocos, and native target core adapters must not be mixed:
 - Implement target core plugin resolution through target-specific functions or contexts such as Web-only, Cocos-only, and native-only resolvers. Do not let debug/release/updater/installer paths bypass the same emitted manifest validation.
 - Run the same source selection, renderer entry, post-bundle graph, runtime startup, and Runtime QPK gates for all three targets. Native cannot be the only strict path; Web and Cocos builds must reject native core adapters with the same severity that native builds reject Web/Cocos adapters.
 - Test target isolation symmetrically. Web fixtures must reject Cocos/native leakage, Cocos fixtures must reject Web/native leakage, and native fixtures must reject Web/Cocos leakage. Native-only rejection tests are not enough.
+- When packaging Web, Cocos, or Native projects, treat core bootstrap plugins as mutually exclusive roots at every layer: bootstrap selection, ordinary plugin lists, shared presets, third-party target entries, renderer entries, Runtime QPK executable dependencies, post-bundle dependency graphs, emitted manifests, installer/updater artifacts, and runtime startup. A dependency hidden in either `specifier` or `packageName` is still leakage.
 
 Shared engine/game/plugin packages may be reused only when platform-neutral.
 

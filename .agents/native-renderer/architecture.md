@@ -48,6 +48,22 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 - 最终 `target-bundle-manifest.json` 必须通过 `validateTargetBundleManifest`；Web、Cocos、Native 的 debug/release、installer/updater、手写 shell 和 CI fixture 都不能跳过这一步。
 - release artifact 的依赖图检查必须发生在 bundle / tree-shake 之后，防止源码层过滤正确但产物里残留其他 target core 子入口。
 
+### 三端核心插件隔离矩阵
+
+| 打包目标 | 必须选择 | 必须排除 | 失败条件 |
+| --- | --- | --- | --- |
+| Web | `web-core-resolver`、Web assets / renderer / framework adapter | Cocos host / renderer、Native engine/assets/store/runtime/renderer | 任一 Cocos / Native core 根包或子入口出现在 bootstrap、普通插件、renderer entry、Runtime QPK dependency、bundle graph 或 manifest |
+| Cocos | `cocos-core-resolver`、Cocos host / renderer adapter | Web assets / renderer / framework adapter、Native engine/assets/store/runtime/renderer | 任一 Web / Native core 根包或子入口出现在 bootstrap、普通插件、renderer entry、Runtime QPK dependency、bundle graph 或 manifest |
+| Native | `native-core-resolver`、`@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、Rust native app / runtime / renderer | Web assets / renderer / framework adapter、Cocos host / renderer | 任一 Web / Cocos core 根包或子入口出现在 bootstrap、普通插件、renderer entry、Runtime QPK dependency、bundle graph 或 manifest |
+
+隔离检查必须覆盖五个阶段，不能只在源码 metadata 上通过：
+
+1. bootstrap selection：`validateExclusiveTargetBootstrap` 保证只有一个 target core family。
+2. ordinary plugin resolution：`validateOrdinaryPluginListTargetIsolation` 拦截 shared preset、普通 `plugins` 和 generated resolver 中的 target core 根包或子入口。
+3. plugin entry selection：`validateTargetPluginManifest` 只允许 active target entry 进入依赖图，shared entry 必须保持平台无关，inactive target entry 不能 eager。
+4. post-bundle graph：bundle / tree-shake 后重新扫描 `specifier` 与 `packageName`，防止 subentry 或别名把其他 target core 带入 release 产物。
+5. startup / Runtime QPK：`validateTargetBundleManifest` 和 runtime startup 重复校验 target、resolver、selected adapters、renderer entries、Runtime QPK executable dependencies 与 active target 一致；Runtime QPK 的非 active target compatibility block 只能是 metadata。
+
 native 包装必须始终通过：
 
 - `@quajs/native-contracts`
