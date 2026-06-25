@@ -453,6 +453,39 @@ describe('native runtime package guard', () => {
     ])
   })
 
+  it('checks both specifier and packageName fields in runtime package references', () => {
+    const result = checkNativeRuntimePackageGuard({
+      package: createRuntimePackage({
+        executableDependencies: [
+          {
+            packageName: '@quajs/character',
+            specifier: '@quajs/renderer-web/plugins/audio',
+          },
+        ],
+        rendererEntries: [
+          {
+            packageName: '@quajs/plugin-gallery',
+            specifier: '@quajs/engine-native/native-host',
+          },
+        ],
+      }),
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
+        field: 'executableDependencies',
+        message: expect.stringContaining('@quajs/renderer-web'),
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
+        field: 'rendererEntries',
+        message: expect.stringContaining('@quajs/engine-native'),
+      }),
+    ]))
+  })
+
   it('rejects plugin metadata that declares native plugin kind or target', () => {
     const result = checkNativeRuntimePackageGuard({
       package: createRuntimePackage({

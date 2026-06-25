@@ -231,6 +231,48 @@ describe('target plugin manifest validation', () => {
     ])
   })
 
+  it('checks both specifier and packageName fields in plugin import references', () => {
+    const result = validateTargetPluginManifest({
+      target: 'native',
+      manifest: createPluginManifest({
+        entries: [
+          {
+            specifier: '@quajs/plugin-settings/shared',
+            target: 'shared',
+            imports: [
+              {
+                packageName: '@quajs/plugin-settings-core',
+                specifier: '@quajs/renderer-cocos/plugins/settings',
+              },
+            ],
+          },
+          {
+            specifier: '@quajs/plugin-settings/native',
+            target: 'native',
+            imports: [
+              {
+                packageName: '@quajs/plugin-settings-runtime',
+                specifier: '@quajs/renderer-web/plugins/settings',
+              },
+            ],
+          },
+        ],
+      }),
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_PLUGIN_SHARED_ENTRY_TARGET_CORE_IMPORT',
+        packageName: '@quajs/renderer-cocos',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_PLUGIN_TARGET_ENTRY_FOREIGN_CORE_IMPORT',
+        packageName: '@quajs/renderer-web',
+      }),
+    ]))
+  })
+
   it('rejects active target entries that import foreign target core adapters for every target', () => {
     const cases = [
       {

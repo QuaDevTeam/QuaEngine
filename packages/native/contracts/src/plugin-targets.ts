@@ -193,15 +193,18 @@ function collectSelectedPluginEntries(options: CheckTargetPluginManifestOptions)
 
 function collectPluginEntryImportPackageNames(entry: TargetPluginEntryDeclaration): string[] {
   return Array.from(new Set((entry.imports || [])
-    .map(pluginImportReferenceSpecifier)
-    .filter((specifier): specifier is string => Boolean(specifier))
+    .flatMap(pluginImportReferenceSpecifiers)
     .map(normalizePackageSpecifier)))
 }
 
-function pluginImportReferenceSpecifier(reference: TargetPluginImportReference): string | undefined {
+function pluginImportReferenceSpecifiers(reference: TargetPluginImportReference): string[] {
   if (typeof reference === 'string')
-    return reference
-  return reference.packageName || reference.specifier
+    return [reference]
+
+  return Array.from(new Set(
+    [reference.specifier, reference.packageName]
+      .filter((specifier): specifier is string => Boolean(specifier)),
+  ))
 }
 
 function isKnownTargetCoreAdapter(packageName: string): boolean {
