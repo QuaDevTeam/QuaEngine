@@ -13,6 +13,7 @@ import {
 describe('@quajs/native-ui-compiler', () => {
   it('exposes native-wgpu QUI and QSS capability feature lists', () => {
     expect(nativeWgpuQuiComponentNames()).toContain('Button')
+    expect(nativeWgpuQuiComponentNames()).toContain('RichText')
     expect(nativeWgpuQuiComponentNames()).toContain('Scroll')
     expect(nativeWgpuQssFeatureNames()).toContain('background-color')
     expect(nativeWgpuQssFeatureNames()).toContain('object-fit')

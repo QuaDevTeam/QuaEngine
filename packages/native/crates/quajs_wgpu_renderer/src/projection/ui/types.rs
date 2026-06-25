@@ -107,6 +107,7 @@ pub enum UiSurfaceNodeKind {
     Spacer,
     Stack,
     Text,
+    RichText,
     Image,
     Panel,
     Scroll,

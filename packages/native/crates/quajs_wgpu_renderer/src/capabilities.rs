@@ -70,7 +70,8 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             ],
             &[
                 "Box", "Backdrop", "Button", "Column", "Divider", "Fragment", "Grid", "Layer",
-                "Row", "Text", "Image", "Panel", "SafeArea", "Scroll", "Spacer", "Stack",
+                "Row", "Text", "RichText", "Image", "Panel", "SafeArea", "Scroll", "Spacer",
+                "Stack",
             ],
             "reject-package",
         ),

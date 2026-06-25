@@ -68,7 +68,16 @@ pub(super) fn surface_node_command(
         UiSurfaceNodeKind::Spacer => {
             unreachable!("spacer nodes are skipped before command build")
         }
-        UiSurfaceNodeKind::Text => text_node_command(node, command_id, bounds),
+        UiSurfaceNodeKind::Text => {
+            text_node_command(node, command_id, bounds, DrawCommandKind::Text, "ui-text")
+        }
+        UiSurfaceNodeKind::RichText => text_node_command(
+            node,
+            command_id,
+            bounds,
+            DrawCommandKind::RichText,
+            "ui-rich-text",
+        ),
         UiSurfaceNodeKind::Image => image_node_command(node, command_id, bounds),
         UiSurfaceNodeKind::Panel => {
             let intent = node
@@ -177,26 +186,23 @@ fn text_node_command(
     node: &UiSurfaceNodeProjection,
     command_id: String,
     bounds: LogicalRect,
+    kind: DrawCommandKind,
+    role: &str,
 ) -> DrawCommand {
     let font_family = resolve_font_family(&node.style);
 
-    DrawCommand::new(
-        command_id,
-        RenderPlane::Screen,
-        DrawCommandKind::Text,
-        bounds,
-    )
-    .resources(font_family_resource_ids(&font_family))
-    .params(DrawCommandParams::Text(TextDrawParams {
-        text: node.text.clone().unwrap_or_default(),
-        font_family,
-        font_size: resolve_font_size(&node.style, 28.0),
-        font_weight: resolve_font_weight(&node.style),
-        line_height: resolve_line_height(&node.style, 36.0),
-        align: resolve_text_align(&node.style, TextAlign::Left),
-        color: resolve_text_color(&node.style, "#ffffff"),
-        role: "ui-text".to_string(),
-    }))
+    DrawCommand::new(command_id, RenderPlane::Screen, kind, bounds)
+        .resources(font_family_resource_ids(&font_family))
+        .params(DrawCommandParams::Text(TextDrawParams {
+            text: node.text.clone().unwrap_or_default(),
+            font_family,
+            font_size: resolve_font_size(&node.style, 28.0),
+            font_weight: resolve_font_weight(&node.style),
+            line_height: resolve_line_height(&node.style, 36.0),
+            align: resolve_text_align(&node.style, TextAlign::Left),
+            color: resolve_text_color(&node.style, "#ffffff"),
+            role: role.to_string(),
+        }))
 }
 
 fn image_node_command(
