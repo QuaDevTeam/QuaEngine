@@ -1,6 +1,8 @@
+mod renderer_smoke;
 mod startup;
 mod target_bundle;
 
+use renderer_smoke::run_renderer_smoke_from_env;
 use startup::{compile_time_native_app_config, create_native_startup_host_info};
 use target_bundle::load_native_target_bundle_manifest;
 
@@ -23,4 +25,17 @@ fn main() {
         "{}",
         serde_json::to_string(&host_info).expect("host info serializes")
     );
+    if let Some(summary) =
+        run_renderer_smoke_from_env().expect("native renderer smoke frame renders")
+    {
+        println!(
+            "Qua native renderer smoke: revision={} passes={} batches={} commands={} resources={} missingResources={}",
+            summary.revision,
+            summary.pass_count,
+            summary.batch_count,
+            summary.command_count,
+            summary.resource_count,
+            summary.missing_resource_count
+        );
+    }
 }

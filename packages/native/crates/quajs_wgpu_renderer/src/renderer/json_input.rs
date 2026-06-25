@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::audio::{NativeAudioBackend, NativeAudioBackendError};
@@ -66,6 +68,30 @@ impl From<NativeRendererFrameError> for NativeRendererJsonFrameError {
         }
     }
 }
+
+impl Display for NativeRendererJsonFrameError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Parse(error) => write!(formatter, "{error}"),
+            Self::Render(error) => write!(formatter, "Render backend error: {error}"),
+            Self::Audio(error) => write!(formatter, "Audio backend error: {error}"),
+        }
+    }
+}
+
+impl std::error::Error for NativeRendererJsonFrameError {}
+
+impl Display for NativeRendererJsonParseError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "Failed to parse native renderer frame JSON at line {}, column {}: {}",
+            self.line, self.column, self.message
+        )
+    }
+}
+
+impl std::error::Error for NativeRendererJsonParseError {}
 
 impl<B, A> NativeRenderer<B, A>
 where

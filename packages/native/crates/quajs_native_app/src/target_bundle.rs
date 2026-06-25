@@ -5,9 +5,11 @@ mod native_renderer;
 
 pub use manifest::{
     load_native_target_bundle_manifest, NativeStartupError, NativeStartupManifestExpectation,
-    NativeStartupValidation, NativeTargetBundleManifest, RuntimePackageRecord, TargetBundleAppInfo,
-    TargetBundleNativeRendererInfo, TargetBundleReference, TargetBundleReferenceObject,
+    NativeStartupValidation, NativeTargetBundleManifest, TargetBundleNativeRendererInfo,
+    TargetBundleReference,
 };
+#[cfg(test)]
+pub use manifest::{RuntimePackageRecord, TargetBundleAppInfo, TargetBundleReferenceObject};
 use native_renderer::check_native_renderer_info;
 
 const WEB_CORE_ADAPTERS: &[&str] = &["@quajs/assets-web", "@quajs/renderer-web"];

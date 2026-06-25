@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 use super::commands::{AudioBackendCommandPlan, AudioBackendTrackStateMap};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -19,6 +21,14 @@ impl NativeAudioBackendError {
         }
     }
 }
+
+impl Display for NativeAudioBackendError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{:?}: {}", self.kind, self.message)
+    }
+}
+
+impl std::error::Error for NativeAudioBackendError {}
 
 pub type NativeAudioBackendResult = Result<(), NativeAudioBackendError>;
 
