@@ -198,7 +198,7 @@ function indexedDocumentFromNativeDocument(
   const qss = document.kind === 'qss' ? document : undefined
   const quiComponentNodes = qui ? componentAstNodes(qui) : []
   const idReferences = [
-    ...idReferencesFromQui(quiComponentNodes),
+    ...idReferencesFromQui(quiComponentNodes, document.source),
     ...(qss ? idReferencesFromQss(qss) : []),
   ]
 
@@ -342,14 +342,19 @@ function classReferenceRangesFromQuiNode(
   return references
 }
 
-function idReferencesFromQui(nodes: readonly NativeQuiAstNode[]): NativeUiProjectIdReference[] {
+function idReferencesFromQui(
+  nodes: readonly NativeQuiAstNode[],
+  source: string,
+): NativeUiProjectIdReference[] {
   return nodes.flatMap(node => node.props
     .filter(prop => prop.name === 'id' && prop.value)
     .map((prop) => {
       const name = prop.value?.trim().replace(/^['"]|['"]$/g, '') ?? ''
       return {
         name,
-        range: prop.valueRange ?? prop.nameRange,
+        range: prop.valueRange
+          ? stringLiteralContentRange(source, prop.value, prop.valueRange)
+          : prop.nameRange,
         source: 'qui-node' as const,
       }
     })
@@ -421,6 +426,30 @@ function rangeFromRelativeOffsets(
     start: positionFromRelativeOffset(startPosition, text, startOffset),
     end: positionFromRelativeOffset(startPosition, text, endOffset),
   }
+}
+
+function stringLiteralContentRange(
+  source: string,
+  value: string | undefined,
+  range: NativeUiRange,
+): NativeUiRange {
+  if (!value || value.length < 2)
+    return range
+
+  const quote = value[0]
+  if ((quote !== '"' && quote !== '\'') || value[value.length - 1] !== quote)
+    return range
+
+  const rangeStart = offsetAtPosition(source, range.start)
+  const rangeEnd = offsetAtPosition(source, range.end)
+  const raw = source.slice(rangeStart, rangeEnd)
+  const leadingWhitespace = raw.search(/\S/)
+  if (leadingWhitespace < 0)
+    return range
+
+  const start = rangeStart + leadingWhitespace + 1
+  const end = start + value.length - 2
+  return rangeFromRelativeOffsets({ line: 0, character: 0 }, source, start, end)
 }
 
 function offsetAtPosition(source: string, position: NativeUiRange['start']): number {

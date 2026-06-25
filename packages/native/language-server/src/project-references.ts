@@ -17,6 +17,18 @@ export interface FindNativeUiProjectDefinitionsOptions {
   name: string
 }
 
+export interface CreateNativeUiProjectRenameEditsOptions {
+  kind: NativeUiProjectReferenceKind
+  name: string
+  newName: string
+}
+
+export interface NativeUiProjectRenameEdit {
+  newText: string
+  range: NativeUiProjectReference['range']
+  uri: string
+}
+
 export function getNativeUiProjectDocumentLinks(
   index: { documentLinks: readonly NativeUiProjectDocumentLink[] },
   uri?: string,
@@ -47,6 +59,25 @@ export function findNativeUiProjectDefinitions(
   })
   const definitions = references.filter(isDefinitionReference)
   return definitions.length > 0 ? definitions : references
+}
+
+export function createNativeUiProjectRenameEdits(
+  index: { references: readonly NativeUiProjectReference[] },
+  options: CreateNativeUiProjectRenameEditsOptions,
+): NativeUiProjectRenameEdit[] {
+  if (options.newName === options.name || !isValidRenameName(options.kind, options.newName))
+    return []
+
+  return findNativeUiProjectReferences(index, {
+    kind: options.kind,
+    name: options.name,
+  })
+    .map(reference => ({
+      newText: options.newName,
+      range: reference.range,
+      uri: reference.uri,
+    }))
+    .sort(compareRenameEdits)
 }
 
 export function createNativeUiProjectDocumentLinks(
@@ -126,6 +157,32 @@ function compareReferences(left: NativeUiProjectReference, right: NativeUiProjec
     || left.kind.localeCompare(right.kind)
     || left.name.localeCompare(right.name)
     || left.source.localeCompare(right.source)
+    || compareRange(left.range, right.range)
+}
+
+function compareRenameEdits(left: NativeUiProjectRenameEdit, right: NativeUiProjectRenameEdit): number {
+  return left.uri.localeCompare(right.uri)
+    || compareRange(left.range, right.range)
+    || left.newText.localeCompare(right.newText)
+}
+
+function compareRange(left: NativeUiProjectReference['range'], right: NativeUiProjectReference['range']): number {
+  return left.start.line - right.start.line
+    || left.start.character - right.start.character
+    || left.end.line - right.end.line
+    || left.end.character - right.end.character
+}
+
+function isValidRenameName(kind: NativeUiProjectReferenceKind, name: string): boolean {
+  switch (kind) {
+    case 'component':
+      return /^[A-Z]\w*$/.test(name)
+    case 'class':
+    case 'id':
+      return /^[A-Za-z_][\w-]*$/.test(name)
+    default:
+      return false
+  }
 }
 
 function isDefinitionReference(reference: NativeUiProjectReference): boolean {

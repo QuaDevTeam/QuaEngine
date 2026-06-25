@@ -32,9 +32,12 @@ export {
   updateNativeUiProjectIndex,
 } from './project-index'
 export type {
+  CreateNativeUiProjectRenameEditsOptions,
   FindNativeUiProjectReferencesOptions,
+  NativeUiProjectRenameEdit,
 } from './project-references'
 export {
+  createNativeUiProjectRenameEdits,
   findNativeUiProjectDefinitions,
   findNativeUiProjectReferences,
   getNativeUiProjectDocumentLinks,
