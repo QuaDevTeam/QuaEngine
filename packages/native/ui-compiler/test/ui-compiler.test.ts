@@ -167,6 +167,23 @@ Panel.dialog(id: "settings") {
     })
   })
 
+  it('derives flat QUI component nodes from the structured tree', () => {
+    const document = analyzeQuiSource('Panel.dialog { slot Header { Button.primary { Text { "Open" } } } }', {
+      lint: {
+        strictComponents: true,
+      },
+    })
+
+    expect(document.nodes.map(node => node.name)).toEqual(['Panel', 'Button', 'Text'])
+    expect(document.nodes.flatMap(node => node.classes)).toEqual(['dialog', 'primary'])
+    expect(document.nodes.map(node => node.name)).not.toContain('Header')
+    expect(document.diagnostics).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'QUI_UNKNOWN_COMPONENT',
+      }),
+    ]))
+  })
+
   it('rejects unsupported QUI action descriptors before projection', () => {
     const document = analyzeQuiSource(`
 Column {
