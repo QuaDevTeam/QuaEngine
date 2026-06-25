@@ -1,4 +1,5 @@
 import type { NativeQuiProp, NativeUiDiagnostic } from './types'
+import { hasUnsupportedQuiActionArgument, parseQuiActionDescriptor } from './qui-actions'
 
 const IDENTIFIER_PATTERN_SOURCE = String.raw`[A-Za-z_$][\w$]*`
 const FOR_SOURCE_PATTERN_SOURCE = String.raw`[\w$.[\]?.]+(?:\s*\?\?\s*[\w$.[\]?.]+)?`
@@ -13,7 +14,6 @@ const FOR_PATTERN = new RegExp([
   FOR_SOURCE_PATTERN_SOURCE,
   String.raw`\s*$`,
 ].join(''))
-const ACTION_PATTERN = /^\s*(?:ui|choice|save|settings)\.[A-Za-z_$][\w$]*\s*\(/
 const UNSAFE_EXPRESSION_PATTERNS = [
   { pattern: /\b(?:await|new|function|class|throw|return|yield)\b/, reason: 'imperative JavaScript is not allowed in QUI expressions' },
   { pattern: /=>/, reason: 'function expressions are not allowed in QUI expressions' },
@@ -160,7 +160,7 @@ function validateQuiExpression(prop: NativeQuiProp, diagnostics: NativeUiDiagnos
     return
   }
 
-  if (prop.name !== 'action' && /\b[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?\s*\(/.test(value)) {
+  if (prop.name !== 'action' && /\b[a-z_$][\w$]*(?:\.[a-z_$][\w$]*)?\s*\(/i.test(value)) {
     diagnostics.push({
       code: 'QUI_UNSAFE_EXPRESSION',
       message: 'Function calls are not allowed outside declarative action descriptors.',
@@ -170,13 +170,38 @@ function validateQuiExpression(prop: NativeQuiProp, diagnostics: NativeUiDiagnos
     })
   }
 
-  if (prop.name === 'action' && !ACTION_PATTERN.test(value)) {
-    diagnostics.push({
-      code: 'QUI_INVALID_ACTION_DESCRIPTOR',
-      message: 'Actions must use declarative ui.*, choice.*, save.*, or settings.* descriptors.',
-      range: prop.valueRange,
-      severity: 'error',
-      source: 'qui',
-    })
+  if (prop.name === 'action') {
+    const descriptor = parseQuiActionDescriptor(value, prop)
+    if (!descriptor) {
+      diagnostics.push({
+        code: 'QUI_INVALID_ACTION_DESCRIPTOR',
+        message: 'Actions must use declarative ui.*, choice.select(), save.*, or settings.* descriptors.',
+        range: prop.valueRange,
+        severity: 'error',
+        source: 'qui',
+      })
+      return
+    }
+
+    if (descriptor.namespace === 'choice' && descriptor.name !== 'select') {
+      diagnostics.push({
+        code: 'QUI_INVALID_ACTION_DESCRIPTOR',
+        message: 'Choice actions must use choice.select(choiceId) so native renderers can emit choice/select.',
+        range: prop.valueRange,
+        severity: 'error',
+        source: 'qui',
+      })
+      return
+    }
+
+    if (hasUnsupportedQuiActionArgument(descriptor)) {
+      diagnostics.push({
+        code: 'QUI_UNSAFE_EXPRESSION',
+        message: 'Action descriptor arguments may use literals or references, not nested function calls.',
+        range: prop.valueRange,
+        severity: 'error',
+        source: 'qui',
+      })
+    }
   }
 }

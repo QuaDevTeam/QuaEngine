@@ -94,6 +94,17 @@ import component "./shared/Panel.qui";
 - `await`
 - mutation
 
+## Action descriptor
+
+`action:` 必须编译成结构化 descriptor，而不是留给 renderer 或 LSP 重新拆字符串：
+
+- `ui.open("settings")` -> `event: "ui/intent"`, `action: "open"`。
+- `ui.close()` -> `event: "ui/intent"`, `action: "close"`。
+- `choice.select(choice.id)` -> `event: "choice/select"`, `action: "select"`。
+- `save.load("slot-1")` / `settings.update(settings.audio.enabled)` -> `event: "ui/intent"`，并保留 `save.load` / `settings.update` 这样的 namespaced action。
+
+参数第一阶段只允许 literals、references 和可诊断的受限表达式；嵌套函数调用、imperative JS、assignment 和 mutation 必须在 compiler / LSP 层报错。Rust renderer 只消费最终 projection，不负责 action 字符串解析。
+
 ## 组件系统
 
 ### 当前应保持稳定的 base primitives
