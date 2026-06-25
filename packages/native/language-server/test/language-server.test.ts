@@ -20,6 +20,19 @@ describe('@quajs/native-language-server', () => {
     ])
   })
 
+  it('adapts compiler structure diagnostics for QUI documents', () => {
+    const result = lintNativeUiDocument('Text { Button(action: ui.close()) { Text { "Close" } } }', {
+      filePath: 'overlay.qui',
+    })
+
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'QUI_INVALID_CHILDREN',
+        source: 'qui',
+      }),
+    ])
+  })
+
   it('formats QSS with full document edits', () => {
     const edits = formatNativeUiDocumentEdits('Button{color:#fff;}', {
       filePath: 'menu.qss',
