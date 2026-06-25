@@ -12,9 +12,11 @@ import {
   createQuaProjectNativeArtifactPlans,
   createQuaProjectNativeTargetBundleManifest,
   doctorQuaProjectConfig,
+  emitQuaProjectNativeTargetBundleManifest,
   loadQuaProjectConfig,
   mergeQuaProjectAssetTargets,
   normalizeQuaProjectConfig,
+  QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE,
   syncQuaProjectCocos,
 } from '../src/project'
 
@@ -323,11 +325,7 @@ describe('qua project config', () => {
     })
     const [plan] = createQuaProjectNativeArtifactPlans(project)
     const manifest = createQuaProjectNativeTargetBundleManifest(plan, {
-      nativeRenderer: createTargetBundleNativeRendererInfo({
-        version: '0.1.0',
-        backendVersion: 'wgpu-test',
-        capabilities: NATIVE_RENDERER_CAPABILITIES,
-      }, payload => `sha256:test-${payload.length}`),
+      nativeRenderer: createTestNativeRendererInfo(),
       dependencies: [
         '@quajs/engine',
         '@quajs/pipeline',
@@ -365,6 +363,75 @@ describe('qua project config', () => {
       selectedCorePluginFamily: 'native-core',
       selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
     })
+  })
+
+  it('emits validated native target bundle manifests into artifact directories', async () => {
+    const root = await createProjectRoot()
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: join(root, 'dist/native-apps'),
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const result = await emitQuaProjectNativeTargetBundleManifest(plan, {
+      nativeRenderer: createTestNativeRendererInfo(),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+      rendererEntries: [
+        { specifier: '@quajs/native-renderer/builtin', target: 'native' },
+      ],
+    })
+    const manifestJson = JSON.parse(await readFile(result.manifestPath, 'utf8')) as Record<string, any>
+
+    expect(result.validation.ok).toBe(true)
+    expect(result.manifestPath).toBe(join(plan.artifactDir, QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE))
+    expect(manifestJson).toMatchObject({
+      target: 'native',
+      targetCoreResolver: 'native-core-resolver',
+      selectedCorePluginFamily: 'native-core',
+    })
+  })
+
+  it('rejects invalid native target bundle manifests before writing them', async () => {
+    const root = await createProjectRoot()
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: join(root, 'dist/native-apps'),
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const manifestPath = join(plan.artifactDir, QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE)
+
+    await expect(emitQuaProjectNativeTargetBundleManifest(plan, {
+      manifestPath,
+      nativeRenderer: createTestNativeRendererInfo(),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+        '@quajs/renderer-web',
+      ],
+    })).rejects.toThrow('Target bundle manifest validation failed')
+    await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
   })
 
   it('validates native target platforms and profiles', () => {
@@ -540,6 +607,14 @@ function createProjectConfig() {
       source: 'assets/app/icon.png',
     },
   }
+}
+
+function createTestNativeRendererInfo() {
+  return createTargetBundleNativeRendererInfo({
+    version: '0.1.0',
+    backendVersion: 'wgpu-test',
+    capabilities: NATIVE_RENDERER_CAPABILITIES,
+  }, payload => `sha256:test-${payload.length}`)
 }
 
 async function writeProjectConfig(root: string, lines: string[]): Promise<string> {
