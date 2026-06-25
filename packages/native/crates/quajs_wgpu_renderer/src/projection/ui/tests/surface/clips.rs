@@ -2,10 +2,11 @@ use super::super::{rect, test_layout};
 use crate::input::resolve_renderer_intent_at;
 use crate::projection::ui::{
     append_ui_commands, build_ui_commands, UiIntentProjection, UiOverlayProjection,
-    UiOverlaySurfaceProjection, UiProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection,
-    UiSurfaceResolvedStyle,
+    UiOverlaySurfaceProjection, UiProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
+    UiSurfaceNodeProjection, UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle,
 };
-use crate::render_graph::{DrawCommandKind, DrawCommandParams, LogicalRect, RenderGraph};
+use crate::render_graph::{DrawCommandKind, DrawCommandParams, LogicalRect, MediaFit, RenderGraph};
+use crate::resources::ResourceId;
 
 #[test]
 fn expands_safe_area_surface_nodes_to_child_clip_bounds() {
@@ -165,6 +166,79 @@ fn expands_scroll_surface_nodes_to_clip_commands() {
     assert_eq!(commands[3].clip_bounds, vec![scroll_bounds]);
     assert_eq!(commands[4].kind, DrawCommandKind::ClipEnd);
     assert_eq!(commands[4].bounds, scroll_bounds);
+}
+
+#[test]
+fn scroll_surface_background_image_stays_inside_viewport_clip_order() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "scroll",
+                    UiSurfaceNodeKind::Scroll,
+                    rect(20.0, 30.0, 300.0, 160.0),
+                )
+                .with_style(UiSurfaceResolvedStyle {
+                    background_image: Some(UiSurfaceImageProjection::new("ui/scroll-bg.png")),
+                    object_fit: Some(UiSurfaceObjectFitProjection::Cover),
+                    ..Default::default()
+                })
+                .with_children(vec![UiSurfaceNodeProjection::new(
+                    "inside",
+                    UiSurfaceNodeKind::Button,
+                    rect(24.0, 44.0, 220.0, 56.0),
+                )
+                .with_text("Inside")
+                .with_intent(UiIntentProjection::new("inside"))]),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+    let scroll_bounds = LogicalRect {
+        x: 20.0,
+        y: 30.0,
+        width: 300.0,
+        height: 160.0,
+    };
+
+    assert_eq!(
+        ids,
+        vec![
+            "ui:menu",
+            "ui:menu:scroll:background-image",
+            "ui:menu:scroll",
+            "ui:menu:scroll:clip-start",
+            "ui:menu:inside",
+            "ui:menu:scroll:clip-end"
+        ]
+    );
+
+    let image = &commands[1];
+    assert_eq!(image.kind, DrawCommandKind::Image);
+    assert_eq!(image.bounds, scroll_bounds);
+    assert_eq!(
+        image.resource_ids,
+        vec![ResourceId::from("images:ui/scroll-bg.png")]
+    );
+    match &image.params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.fit, MediaFit::Cover);
+            assert_eq!(params.source, scroll_bounds);
+        }
+        _ => panic!("expected scroll background image params"),
+    }
+
+    assert_eq!(commands[2].kind, DrawCommandKind::RoundedRect);
+    assert_eq!(commands[3].kind, DrawCommandKind::ClipStart);
+    assert_eq!(commands[4].clip_bounds, vec![scroll_bounds]);
+    assert_eq!(commands[5].kind, DrawCommandKind::ClipEnd);
 }
 
 #[test]

@@ -2,7 +2,8 @@ use crate::projection::typography::{font_family_to_draw_param, font_weight_to_dr
 use crate::render_graph::{FontWeightDrawParam, MediaFit, TextAlign};
 
 use super::types::{
-    UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
+    UiSurfaceImageProjection, UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle,
+    UiSurfaceTextAlignProjection,
 };
 
 pub fn resolve_background_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {
@@ -12,6 +13,15 @@ pub fn resolve_background_color(style: &UiSurfaceResolvedStyle, fallback: &str) 
         .filter(|value| !value.trim().is_empty())
         .unwrap_or(fallback)
         .to_string()
+}
+
+pub fn resolve_background_image(
+    style: &UiSurfaceResolvedStyle,
+) -> Option<&UiSurfaceImageProjection> {
+    style
+        .background_image
+        .as_ref()
+        .filter(|image| !image.asset_type.trim().is_empty() && !image.asset_name.trim().is_empty())
 }
 
 pub fn resolve_text_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {

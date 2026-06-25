@@ -15,10 +15,10 @@ fn prepares_and_submits_frame_from_projection_json() {
         .expect("json frame input should render");
 
     assert_eq!(result.update.revision, 1);
-    assert_eq!(result.update.resource_sync.upsert.len(), 3);
+    assert_eq!(result.update.resource_sync.upsert.len(), 4);
     assert_eq!(result.submission.revision, 1);
     assert_eq!(result.submission.pass_count, 2);
-    assert_eq!(result.submission.resource_count, 3);
+    assert_eq!(result.submission.resource_count, 4);
     assert_eq!(result.submission.missing_resource_count, 0);
     assert_eq!(
         result.submission.passes[0].batches[0].resolved_resource_ids,
@@ -30,14 +30,18 @@ fn prepares_and_submits_frame_from_projection_json() {
         .map(|batch| batch.pipeline)
         .collect::<Vec<_>>();
     assert!(safe_pipelines.contains(&DrawBatchPipeline::Shape));
+    assert!(safe_pipelines.contains(&DrawBatchPipeline::Image));
     assert!(safe_pipelines.contains(&DrawBatchPipeline::Text));
     assert!(safe_pipelines.contains(&DrawBatchPipeline::Ui));
+    assert!(result.submission.passes[1].batches.iter().any(|batch| batch
+        .resolved_resource_ids
+        .contains(&ResourceId::from("images:ui/panel.png"))));
     assert!(result.submission.passes[1]
         .batches
         .iter()
         .any(|batch| batch.command_ids.contains(&"ui:menu:close".to_string())));
     assert_eq!(renderer.backend().diagnostics().submitted_frames, 1);
-    assert_eq!(renderer.resources().len(), 3);
+    assert_eq!(renderer.resources().len(), 4);
 
     let close = renderer.hit_intent(408.0, 354.0).expect("close button hit");
     assert_eq!(close.intent.event, "ui/intent");
@@ -56,7 +60,7 @@ fn can_prepare_json_frame_without_render_submission() {
 
     assert_eq!(update.revision, 1);
     assert_eq!(renderer.backend().submissions.len(), 0);
-    assert_eq!(renderer.resources().len(), 3);
+    assert_eq!(renderer.resources().len(), 4);
 }
 
 #[test]
@@ -202,6 +206,7 @@ fn json_frame_input() -> &'static str {
                   "bounds": { "x": 32, "y": 24, "width": 520, "height": 392 },
                   "style": {
                     "backgroundColor": "#101820",
+                    "backgroundImage": { "assetType": "images", "assetName": "ui/panel.png" },
                     "borderColor": "#5ac8fa",
                     "borderWidth": 2,
                     "borderRadius": 12

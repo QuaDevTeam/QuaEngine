@@ -93,7 +93,7 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('overflow', 'p1', false, 'Overflow mode planned for native layout IR.'),
   property('z-index', 'p1', true, 'Node z ordering emitted as resolved native UI projection metadata.'),
   property('opacity', 'p0', true, 'Surface opacity for native UI surface style IR.'),
-  property('background-image', 'p2', false, 'Package asset background image planned for native style IR.'),
+  property('background-image', 'p1', true, 'Package asset background image for panel-like native surfaces via asset("...").'),
   property('background-size', 'p2', false, 'Background image sizing planned for native style IR.'),
   property('background-position', 'p2', false, 'Background image position planned for native style IR.'),
   property('background-repeat', 'p2', false, 'Background image repeat mode planned for native style IR.'),

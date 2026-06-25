@@ -2,7 +2,10 @@ use crate::render_graph::{DrawCommand, DrawCommandKind, LogicalRect};
 
 use super::super::style::resolve_opacity;
 use super::super::types::{UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection};
-use super::command::{scroll_clip_command, surface_node_command, surface_scroll_panel_command};
+use super::command::{
+    scroll_clip_command, surface_background_image_command, surface_node_command,
+    surface_scroll_panel_command,
+};
 use super::helpers::{node_rect, SurfaceNodeOffset};
 use super::{SCROLL_CHILD_Z_OFFSET, SCROLL_CLIP_END_Z_OFFSET};
 
@@ -85,14 +88,15 @@ pub(super) fn append_surface_node_commands(
         return;
     }
 
-    commands.push(surface_node_command(
+    append_painted_surface_node_commands(
+        commands,
         overlay,
         node,
         z_base,
         clip_bounds,
         offset,
         effective_opacity,
-    ));
+    );
     for child in &node.children {
         append_surface_node_commands(
             commands,
@@ -117,6 +121,17 @@ fn append_scroll_node_commands(
 ) {
     let bounds = node_rect(node.bounds, offset);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
+    if let Some(command) = surface_background_image_command(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        &command_id,
+        bounds,
+        effective_opacity,
+    ) {
+        commands.push(command);
+    }
     commands.push(surface_scroll_panel_command(
         overlay,
         node,
@@ -160,6 +175,39 @@ fn append_scroll_node_commands(
         &format!("{command_id}:clip-end"),
         DrawCommandKind::ClipEnd,
         bounds,
+    ));
+}
+
+fn append_painted_surface_node_commands(
+    commands: &mut Vec<DrawCommand>,
+    overlay: &UiOverlayProjection,
+    node: &UiSurfaceNodeProjection,
+    z_base: i32,
+    clip_bounds: &[LogicalRect],
+    offset: SurfaceNodeOffset,
+    effective_opacity: f32,
+) {
+    let bounds = node_rect(node.bounds, offset);
+    let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
+    if let Some(command) = surface_background_image_command(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        &command_id,
+        bounds,
+        effective_opacity,
+    ) {
+        commands.push(command);
+    }
+
+    commands.push(surface_node_command(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        offset,
+        effective_opacity,
     ));
 }
 

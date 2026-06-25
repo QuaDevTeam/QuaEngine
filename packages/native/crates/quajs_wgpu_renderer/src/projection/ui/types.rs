@@ -193,6 +193,8 @@ pub struct UiSurfaceResolvedStyle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background_image: Option<UiSurfaceImageProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_radius: Option<f64>,

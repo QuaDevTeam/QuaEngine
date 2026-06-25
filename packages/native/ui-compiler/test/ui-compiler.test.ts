@@ -18,6 +18,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQuiComponentNames()).toContain('RichText')
     expect(nativeWgpuQuiComponentNames()).toContain('Scroll')
     expect(nativeWgpuQssFeatureNames()).toContain('background-color')
+    expect(nativeWgpuQssFeatureNames()).toContain('background-image')
     expect(nativeWgpuQssFeatureNames()).toContain('object-fit')
     expect(nativeWgpuQssFeatureNames()).toContain('opacity')
     expect(nativeWgpuQssFeatureNames()).toContain('z-index')
@@ -399,6 +400,7 @@ Layer {
     const document = analyzeQssSource(`
 Button.primary {
   background-color: #10141f;
+  background-image: asset("ui/panel.png");
   border-color: #31415f;
   border-radius: 8px;
   border-width: 1px;
@@ -419,6 +421,7 @@ Button.primary {
       zIndex: 12,
       style: {
         backgroundColor: '#10141f',
+        backgroundImage: { assetType: 'images', assetName: 'ui/panel.png' },
         borderColor: '#31415f',
         borderRadius: 8,
         borderWidth: 1,
@@ -444,6 +447,7 @@ Button {
   opacity: none;
   text-align: start;
   z-index: 1.5;
+  background-image: asset("../escape.png");
 }
 `, {
       lint: {
@@ -465,7 +469,6 @@ Button:nth-child(2) {
 
     expect(document.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: 'QSS_UNSUPPORTED_SELECTOR' }),
-      expect.objectContaining({ code: 'QSS_TARGET_UNSUPPORTED_FEATURE' }),
       expect.objectContaining({ code: 'QSS_UNSUPPORTED_VALUE' }),
     ]))
   })

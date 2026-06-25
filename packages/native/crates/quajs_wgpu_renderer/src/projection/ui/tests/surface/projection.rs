@@ -8,8 +8,8 @@ use crate::projection::ui::{
     UiSurfaceTextAlignProjection,
 };
 use crate::render_graph::{
-    DrawCommandKind, DrawCommandParams, FontWeightDrawParam, MediaFit, RenderGraph, RenderPlane,
-    TextAlign,
+    DrawCommandKind, DrawCommandParams, FontWeightDrawParam, LogicalRect, MediaFit, RenderGraph,
+    RenderPlane, TextAlign,
 };
 use crate::resources::ResourceId;
 
@@ -106,6 +106,81 @@ fn expands_inline_ui_surface_nodes_to_screen_commands() {
             assert_eq!(intent.action.as_deref(), Some("close"));
         }
         _ => panic!("expected ui button params"),
+    }
+}
+
+#[test]
+fn projects_surface_background_image_as_package_image_command() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Box,
+                    rect(0.0, 0.0, 520.0, 320.0),
+                )
+                .with_style(UiSurfaceResolvedStyle {
+                    background_color: Some("#101820".to_string()),
+                    background_image: Some(UiSurfaceImageProjection::new("ui/panel.png")),
+                    object_fit: Some(UiSurfaceObjectFitProjection::Contain),
+                    opacity: Some(0.5),
+                    ..Default::default()
+                }),
+            ),
+        ),
+        provenance: provenance("runtime.menu", ["runtime.ui"]),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        ids,
+        vec!["ui:menu", "ui:menu:root:background-image", "ui:menu:root"]
+    );
+
+    let image = &commands[1];
+    let panel = &commands[2];
+    assert_eq!(image.kind, DrawCommandKind::Image);
+    assert_eq!(image.plane, RenderPlane::Screen);
+    assert_eq!(image.z_index, panel.z_index - 1);
+    assert_eq!(image.bounds, panel.bounds);
+    assert!((image.opacity - 0.5).abs() < 0.0001);
+    assert_eq!(
+        image.resource_ids,
+        vec![ResourceId::from("images:ui/panel.png")]
+    );
+    assert_eq!(image.owner_package_id.as_deref(), Some("runtime.menu"));
+    assert!(image.required_package_ids.contains("runtime.ui"));
+
+    match &image.params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.asset_type, "images");
+            assert_eq!(params.asset_name, "ui/panel.png");
+            assert_eq!(params.fit, MediaFit::Contain);
+            assert_eq!(
+                params.source,
+                LogicalRect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 520.0,
+                    height: 320.0,
+                }
+            );
+        }
+        _ => panic!("expected background image params"),
+    }
+    match &panel.params {
+        DrawCommandParams::Panel(params) => {
+            assert_eq!(params.fill_color, "#101820");
+            assert_eq!(params.role, "ui-box");
+        }
+        _ => panic!("expected panel params"),
     }
 }
 
