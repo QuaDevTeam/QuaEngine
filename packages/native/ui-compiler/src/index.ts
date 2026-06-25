@@ -17,6 +17,9 @@ export {
   getQssHover,
 } from './qss'
 export {
+  resolveNativeQssDeclarations,
+} from './qss-resolved-style'
+export {
   analyzeQuiSource,
   formatQuiSource,
   getQuiCompletions,

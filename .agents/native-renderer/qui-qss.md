@@ -161,6 +161,8 @@ LSP hover 应从同一 registry 暴露组件 `content`、`slots` 和 style parts
 
 Rust renderer 只消费 resolved style IR。selector matching、cascade、inheritance、diagnostics 都应留在 TS 工具链层。
 
+`@quajs/native-ui-compiler` 需要通过 `resolveNativeQssDeclarations` 这类 TS 工具链 API，把已解析和校验过的 QSS declaration 归一化成 native surface style IR；`z-index` 输出为 node metadata，其他已支持字段输出为 `NativeQssResolvedStyle`，Rust/wgpu renderer 只消费该投影形状。
+
 ### 当前已确认的基础 style 字段
 
 现有 resolved style / capability 已覆盖的核心字段是：
