@@ -28,7 +28,19 @@ const IMPORT_START_PATTERN = /^\s*import\b/
 const COMPONENT_PATTERN = /\b([A-Z][A-Za-z0-9_]*)\b(?=\s*(?:[.{(]|$))/g
 const NODE_CLASS_PATTERN = /^([A-Z][A-Za-z0-9_]*)(\.[A-Za-z_][\w-]*)+/
 const PROP_NAME_PATTERN = /^\s*([A-Za-z_][\w-]*)(?:\s*:([\s\S]*))?$/
-const FOR_PATTERN = /^\s*[A-Za-z_$][\w$]*\s+in\s+[\w$.[\]?.]+(?:\s*\?\?\s*[\w$.[\]?.]+)?\s*$/
+const IDENTIFIER_PATTERN_SOURCE = String.raw`[A-Za-z_$][\w$]*`
+const FOR_SOURCE_PATTERN_SOURCE = String.raw`[\w$.[\]?.]+(?:\s*\?\?\s*[\w$.[\]?.]+)?`
+const FOR_PATTERN = new RegExp([
+  String.raw`^\s*(?:`,
+  IDENTIFIER_PATTERN_SOURCE,
+  String.raw`|\(\s*`,
+  IDENTIFIER_PATTERN_SOURCE,
+  String.raw`(?:\s*,\s*`,
+  IDENTIFIER_PATTERN_SOURCE,
+  String.raw`)?\s*\))\s+in\s+`,
+  FOR_SOURCE_PATTERN_SOURCE,
+  String.raw`\s*$`,
+].join(''))
 const ACTION_PATTERN = /^\s*(?:ui|choice|save|settings)\.[A-Za-z_$][\w$]*\s*\(/
 const UNSAFE_EXPRESSION_PATTERNS = [
   { pattern: /\b(?:await|new|function|class|throw|return|yield)\b/, reason: 'imperative JavaScript is not allowed in QUI expressions' },
@@ -232,12 +244,15 @@ function collectQuiProps(
   lineStarts: readonly number[],
 ): NativeQuiProp[] {
   const props: NativeQuiProp[] = []
+  let groupId = 0
   for (let offset = 0; offset < masked.length; offset += 1) {
     if (masked[offset] !== '(')
       continue
     const close = findMatchingDelimiter(masked, offset, '(', ')')
     if (close === -1)
       continue
+    const currentGroupId = groupId
+    groupId += 1
     const bodyStart = offset + 1
     const body = source.slice(bodyStart, close)
     for (const part of splitTopLevel(body, ',')) {
@@ -251,6 +266,7 @@ function collectQuiProps(
       const value = match[2]?.trim()
       const valueStartInRaw = match[2] ? raw.indexOf(match[2]) : -1
       props.push({
+        groupId: currentGroupId,
         name: match[1],
         value,
         nameRange: rangeFromOffsets(lineStarts, nameStart, nameStart + match[1].length),
@@ -316,7 +332,7 @@ function validateQuiProps(props: readonly NativeQuiProp[], diagnostics: NativeUi
     if (prop.name === 'for' && prop.value && !FOR_PATTERN.test(prop.value)) {
       diagnostics.push({
         code: 'QUI_INVALID_LOOP_EXPRESSION',
-        message: 'Loop expressions must use "item in source" syntax.',
+        message: 'Loop expressions must use "item in source" or "(item, index) in source" syntax.',
         range: prop.valueRange,
         severity: 'error',
         source: 'qui',
@@ -325,6 +341,35 @@ function validateQuiProps(props: readonly NativeQuiProp[], diagnostics: NativeUi
 
     if (prop.value)
       validateQuiExpression(prop, diagnostics)
+  }
+
+  validateQuiPropGroups(props, diagnostics)
+}
+
+function validateQuiPropGroups(props: readonly NativeQuiProp[], diagnostics: NativeUiDiagnostic[]): void {
+  const groups = new Map<number, NativeQuiProp[]>()
+  for (const prop of props) {
+    if (prop.groupId === undefined)
+      continue
+    const group = groups.get(prop.groupId) || []
+    groups.set(prop.groupId, [...group, prop])
+  }
+
+  for (const group of groups.values()) {
+    const forProp = group.find(prop => prop.name === 'for' && prop.value && FOR_PATTERN.test(prop.value))
+    if (!forProp)
+      continue
+    const hasKey = group.some(prop => prop.name === 'key' && prop.value)
+    if (hasKey)
+      continue
+
+    diagnostics.push({
+      code: 'QUI_LOOP_KEY_MISSING',
+      message: 'Loop-rendered QUI nodes must declare a stable key directive.',
+      range: forProp.range,
+      severity: 'error',
+      source: 'qui',
+    })
   }
 }
 

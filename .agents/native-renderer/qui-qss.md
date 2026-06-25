@@ -39,12 +39,14 @@ Stack {
 
 ```qui
 Choice(
-  for: choice in view.choices.items,
+  for: (choice, index) in view.choices.items,
   key: choice.id,
   choice: choice,
   action: choice.select(choice.id)
 )
 ```
+
+`for` 支持 `item in source` 和 `(item, index) in source` 两种绑定形式。循环渲染节点必须同时声明稳定的 `key`，否则 native compiler / LSP 应该报错，避免 renderer 侧猜测列表 identity。
 
 ### 条件显示
 

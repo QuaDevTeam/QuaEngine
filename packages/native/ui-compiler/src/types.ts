@@ -77,6 +77,7 @@ export interface NativeQuiNode {
 }
 
 export interface NativeQuiProp {
+  groupId?: number
   name: string
   nameRange: NativeUiRange
   range: NativeUiRange
