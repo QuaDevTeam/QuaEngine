@@ -11,7 +11,7 @@ native authoring 工具要独立于现有 QuaScript 工具链：
 建议新增：
 
 - `packages/native/ui-compiler`：已落基础，负责 QUI/QSS parse、validate、format、completion、hover 和 registry。
-- `packages/native/language-server`：已落基础，负责 `.qui/.qss` 的独立 LSP 适配。
+- `packages/native/language-server`：已落基础，负责 `.qui/.qss` 的独立 LSP 适配，包括 diagnostics、formatting、completion、hover、document links、component/class references 和 package bin 默认 stdio 启动。
 - `packages/native/vscode`：已落基础，负责 VSCode language contribution、grammar、snippets、format/validate/restart commands 和 native LSP 启动。
 - `packages/native/benchmarks`：已落基础，负责 native authoring/tooling 的确定性 smoke benchmark，输出 JSON Lines baseline。
 
@@ -122,11 +122,13 @@ QSS 侧：
 
 - completion
 - hover
+- document links
 - definition
 - references
 - rename
 - code actions
 - incremental sync
+- process smoke: package bin 启动、initialize、didOpen diagnostics、completion、hover、documentLink、references
 
 ### runtime tests
 
@@ -175,9 +177,11 @@ QSS 侧：
 
 这些 benchmark 通过 `@quajs/native-ui-compiler` 和 `@quajs/native-language-server` 的公开 API 运行，包括内存 project index build / incremental update，以及 document link / component-class reference 计数；不启动 renderer、不加载 target core bootstrap、不解析普通 game plugin 列表。fixture 固定在源码内，不能访问网络、不能随机生成。每条输出记录必须包含 `schemaVersion`、`suite`、`bench`、`profile`、`platform`、`backend`、`packageVersion`、`iterations`、`documentBytes`、`diagnostics`、`elapsedMs`、`memory` 和可比较的 `metrics`。
 
+当前 language-server 测试还会先构建 `@quajs/native-ui-compiler` 和 `@quajs/native-language-server`，再启动 `bin/qua-native-language-server.cjs` 走一条真实 stdio LSP smoke。这个测试验证发布入口默认 stdio、Node ESM dist import、initialize capability、open document diagnostics、completion、hover、documentLink 和 references，防止 VSCode / CLI 启动路径只在纯函数测试里通过。
+
 后续还需要补：
 
-- 独立 LSP 进程 initialize / completion / hover 往返 latency。
+- 独立 LSP 进程 initialize / completion / hover / documentLink / references 往返 latency benchmark 与 baseline 文件。
 - 真实 workspace 文件系统扫描、删除、重命名和跨文件引用的 index regression。
 - baseline 文件、历史对比和 regression 阈值升级策略。
 
