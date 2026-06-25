@@ -162,13 +162,14 @@ Rust renderer 只消费 resolved style IR。selector matching、cascade、inheri
 - `text-align`
 - `object-fit`
 - `opacity`
+- `z-index`（作为 resolved node metadata，写入 `UiSurfaceNodeProjection.z_index`，不是浏览器 stacking context）
 
 ### 建议的 QSS 兼容分期
 
 | 阶段 | 目标 | 建议属性 |
 | --- | --- | --- |
 | P0 | 先把 native surface 跑起来 | 上述基础字段 |
-| P1 | 补齐常用视觉布局 | `padding`, `margin`, `gap`, `width`, `height`, `min/max-*`, `overflow` |
+| P1 | 补齐常用视觉布局 | 已落地 `z-index`；待补齐 `padding`, `margin`, `gap`, `width`, `height`, `min/max-*`, `overflow` |
 | P2 | 进一步接近熟悉的 CSS 体验 | 部分 `transform`, `shadow`, `transition` 及少量视觉增强 |
 
 ### 建议支持的 selector 语义
