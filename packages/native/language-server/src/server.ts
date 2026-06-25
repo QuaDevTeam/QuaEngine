@@ -7,8 +7,10 @@ import type {
   Position,
   Range,
   ReferenceParams,
+  RenameParams,
   TextDocumentPositionParams,
   TextEdit,
+  WorkspaceEdit,
 } from 'vscode-languageserver/node.js'
 import type {
   NativeUiDiagnostic,
@@ -27,6 +29,7 @@ import {
 } from 'vscode-languageserver/node.js'
 import {
   buildNativeUiProjectIndex,
+  createNativeUiProjectRenameEdits,
   findNativeUiProjectDefinitions,
   findNativeUiProjectReferences,
   formatNativeUiDocumentEdits,
@@ -73,6 +76,7 @@ connection.onInitialize((params: InitializeParams) => {
       },
       definitionProvider: true,
       referencesProvider: true,
+      renameProvider: true,
       documentFormattingProvider: true,
     },
   }
@@ -158,6 +162,23 @@ connection.onDefinition((params) => {
     kind: target.kind,
     name: target.name,
   }).map(toLspLocation)
+})
+
+connection.onRenameRequest((params) => {
+  const index = currentProjectIndex()
+  const target = findReferenceAtPosition(index, params)
+  if (!target)
+    return null
+
+  const edits = createNativeUiProjectRenameEdits(index, {
+    kind: target.kind,
+    name: target.name,
+    newName: params.newName,
+  })
+  if (edits.length === 0)
+    return null
+
+  return toWorkspaceEdit(edits)
 })
 
 connection.onDidChangeConfiguration((params) => {
@@ -317,7 +338,7 @@ function toCompletionKind(kind: string): CompletionItemKind {
 
 function findReferenceAtPosition(
   index: ReturnType<typeof currentProjectIndex>,
-  params: ReferenceParams | TextDocumentPositionParams,
+  params: ReferenceParams | RenameParams | TextDocumentPositionParams,
 ) {
   return findNativeUiProjectReferences(index, {
     uri: params.textDocument.uri,
@@ -329,6 +350,20 @@ function toLspLocation(reference: ReturnType<typeof findNativeUiProjectReference
     range: toLspRange(reference.range),
     uri: reference.uri,
   }
+}
+
+function toWorkspaceEdit(edits: ReturnType<typeof createNativeUiProjectRenameEdits>): WorkspaceEdit {
+  const changes: NonNullable<WorkspaceEdit['changes']> = {}
+  for (const edit of edits) {
+    changes[edit.uri] = [
+      ...(changes[edit.uri] ?? []),
+      {
+        newText: edit.newText,
+        range: toLspRange(edit.range),
+      },
+    ]
+  }
+  return { changes }
 }
 
 function containsPosition(range: NativeUiRangeForServer, position: Position): boolean {

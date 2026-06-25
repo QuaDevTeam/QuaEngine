@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildNativeUiProjectIndex,
+  createNativeUiProjectRenameEdits,
   findNativeUiProjectDefinitions,
   findNativeUiProjectReferences,
   formatNativeUiDocumentEdits,
@@ -192,11 +193,11 @@ describe('@quajs/native-language-server', () => {
     expect(index.documents.find(document => document.uri.endsWith('menu.qui'))?.ids).toEqual(['main-panel'])
     expect(index.documents.find(document => document.uri.endsWith('menu.qui'))?.idReferences[0]?.range).toEqual({
       start: {
-        character: 9,
+        character: 11,
         line: 0,
       },
       end: {
-        character: 22,
+        character: 21,
         line: 0,
       },
     })
@@ -234,6 +235,61 @@ describe('@quajs/native-language-server', () => {
           uri: 'file:///project/menu.qui',
         }),
       ])
+  })
+
+  it('creates cross-document rename edits for indexed QUI and QSS symbols', () => {
+    const qui = 'Panel.dialog(id: "main-panel") { Button.primary { Text { "Open" } } }'
+    const qss = '#main-panel { background-color: #10141f; }\nPanel.dialog Button.primary { color: #fff; }'
+    const index = buildNativeUiProjectIndex([
+      {
+        uri: 'file:///project/menu.qui',
+        source: qui,
+      },
+      {
+        uri: 'file:///project/menu.qss',
+        source: qss,
+      },
+    ])
+
+    expect(createNativeUiProjectRenameEdits(index, {
+      kind: 'id',
+      name: 'main-panel',
+      newName: 'settings-panel',
+    })).toEqual([
+      {
+        newText: 'settings-panel',
+        range: rangeOf(qss, 'main-panel'),
+        uri: 'file:///project/menu.qss',
+      },
+      {
+        newText: 'settings-panel',
+        range: rangeOf(qui, 'main-panel'),
+        uri: 'file:///project/menu.qui',
+      },
+    ])
+
+    expect(createNativeUiProjectRenameEdits(index, {
+      kind: 'class',
+      name: 'primary',
+      newName: 'secondary',
+    })).toEqual([
+      {
+        newText: 'secondary',
+        range: rangeOf(qss, 'primary'),
+        uri: 'file:///project/menu.qss',
+      },
+      {
+        newText: 'secondary',
+        range: rangeOf(qui, 'primary'),
+        uri: 'file:///project/menu.qui',
+      },
+    ])
+
+    expect(createNativeUiProjectRenameEdits(index, {
+      kind: 'component',
+      name: 'Button',
+      newName: 'cta-button',
+    })).toEqual([])
   })
 
   it('returns definition candidates using QUI declarations before QSS references', () => {
@@ -379,15 +435,29 @@ describe('@quajs/native-language-server', () => {
 })
 
 function rangeOf(source: string, token: string) {
-  const character = source.indexOf(token)
+  const offset = source.indexOf(token)
+  const start = positionAtOffset(source, offset)
+  const end = positionAtOffset(source, offset + token.length)
+  return { start, end }
+}
+
+function range(start: number, end: number) {
   return {
     start: {
-      character,
+      character: start,
       line: 0,
     },
     end: {
-      character: character + token.length,
+      character: end,
       line: 0,
     },
+  }
+}
+
+function positionAtOffset(source: string, offset: number) {
+  const lines = source.slice(0, Math.max(0, offset)).split(/\r?\n/)
+  return {
+    character: lines[lines.length - 1].length,
+    line: lines.length - 1,
   }
 }

@@ -52,6 +52,24 @@ interface LocationLike {
   uri: string
 }
 
+interface TextEditLike {
+  newText: string
+  range: {
+    end: {
+      character: number
+      line: number
+    }
+    start: {
+      character: number
+      line: number
+    }
+  }
+}
+
+interface WorkspaceEditLike {
+  changes?: Record<string, TextEditLike[]>
+}
+
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
 const nativeRoot = resolve(packageRoot, '..')
 const uiCompilerRoot = resolve(nativeRoot, 'ui-compiler')
@@ -97,6 +115,7 @@ describe('@quajs/native-language-server process', () => {
       documentLinkProvider: expect.any(Object),
       hoverProvider: true,
       referencesProvider: true,
+      renameProvider: true,
     }))
 
     client.notify('initialized', {})
@@ -198,6 +217,50 @@ describe('@quajs/native-language-server process', () => {
         uri: quiUri,
       }),
     ])
+
+    const idRename = await client.request<WorkspaceEditLike>('textDocument/rename', {
+      newName: 'settings-panel',
+      position: positionAtOffset(qss, qss.indexOf('main-panel')),
+      textDocument: {
+        uri: qssUri,
+      },
+    })
+    expect(idRename.changes).toEqual({
+      [qssUri]: [
+        {
+          newText: 'settings-panel',
+          range: rangeAtOffset(qss, qss.indexOf('main-panel'), 'main-panel'.length),
+        },
+      ],
+      [quiUri]: [
+        {
+          newText: 'settings-panel',
+          range: rangeAtOffset(qui, qui.indexOf('main-panel'), 'main-panel'.length),
+        },
+      ],
+    })
+
+    const classRename = await client.request<WorkspaceEditLike>('textDocument/rename', {
+      newName: 'secondary',
+      position: positionAtOffset(qui, qui.indexOf('primary')),
+      textDocument: {
+        uri: quiUri,
+      },
+    })
+    expect(classRename.changes).toEqual({
+      [qssUri]: [
+        {
+          newText: 'secondary',
+          range: rangeAtOffset(qss, qss.indexOf('primary'), 'primary'.length),
+        },
+      ],
+      [quiUri]: [
+        {
+          newText: 'secondary',
+          range: rangeAtOffset(qui, qui.indexOf('primary'), 'primary'.length),
+        },
+      ],
+    })
   }, 30_000)
 })
 
@@ -405,5 +468,12 @@ function positionAtOffset(source: string, offset: number): { character: number, 
   return {
     character: lines[lines.length - 1].length,
     line: lines.length - 1,
+  }
+}
+
+function rangeAtOffset(source: string, offset: number, length: number): TextEditLike['range'] {
+  return {
+    start: positionAtOffset(source, offset),
+    end: positionAtOffset(source, offset + length),
   }
 }
