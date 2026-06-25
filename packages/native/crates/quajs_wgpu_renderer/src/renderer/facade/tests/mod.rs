@@ -15,6 +15,7 @@ use crate::stage_layout::{
 };
 
 mod frame;
+mod json_input;
 mod pointer;
 mod resources;
 
