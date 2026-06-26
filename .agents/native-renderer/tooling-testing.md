@@ -160,6 +160,7 @@ QSS 侧：
 - Web artifact 排除 Cocos/native core，Cocos artifact 排除 Web/native core，Native artifact 排除 Web/Cocos core；不能只测 native 严格路径
 - 三端 resolver fixture 必须分别断言 `web-core-resolver`、`cocos-core-resolver`、`native-core-resolver`，并在 resolver / selected adapters / renderer entries / Runtime QPK executable dependencies 任一项串线时失败
 - ordinary plugin list、shared preset、generated plugin resolver、debug shell、release bundle 和 installer/updater manifest 都要跑同一套 target isolation helper，不能只在 Quack 主打包路径校验
+- resolver 代码结构要有负例 fixture：如果实现导出一个包含 Web / Cocos / Native 三端 core adapter 的共享 `corePlugins` / umbrella preset，再靠后续 target 过滤，测试必须失败；正确形态是三端独立 resolver context 先选 target，再解析普通插件
 - Web / Cocos / Native 的 target-specific renderer plugin entry 必须按当前目标选择；inactive entry 在 package manifest 中可以存在，但不能进入产物依赖图、renderer entries 或 Runtime QPK executable dependency
 - Runtime QPK 的 Web / Cocos / Native compatibility block 只能作为 metadata；active target 之外的 block 不得触发 core adapter import、renderer entry 注册或 native capability 覆盖
 
@@ -174,6 +175,7 @@ QSS 侧：
 - 负例 4：Runtime QPK `executableDependencies` 或 `rendererEntries` 指向任一 target core root / subentry。
 - 负例 5：post-bundle dependency graph 只在 `specifier` 或只在 `packageName` 中暴露其他 target core 子入口。
 - 负例 6：debug shell、installer、updater manifest 跳过 Quack 主路径但仍声明了错误 core family。
+- 负例 7：packager 或 shared preset 先构造 `[webCore, cocosCore, nativeCore]` 这样的三端全集，再按 target 过滤；这种实现即使最终 manifest 看似只剩一个 target，也必须按核心插件串线失败。
 
 这些 fixture 必须对 Web、Cocos、Native 三端对称存在。Native 不能是唯一严格路径；Web 和 Cocos 也必须用相同 blocker 级别拒绝其他目标核心插件。
 
