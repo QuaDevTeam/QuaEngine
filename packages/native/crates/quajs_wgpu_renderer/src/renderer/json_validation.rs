@@ -1,4 +1,5 @@
 mod ui_geometry;
+mod ui_style_numbers;
 
 use std::collections::BTreeSet;
 
@@ -18,6 +19,9 @@ use crate::renderer::json_input::{
     NativeRendererJsonFrameError, NativeRendererJsonValidationError,
 };
 use ui_geometry::{invalid_native_json_scroll_offset_reason, invalid_native_json_ui_rect_reason};
+use ui_style_numbers::{
+    invalid_native_json_ui_node_opacity_reason, invalid_native_json_ui_style_number_reason,
+};
 
 pub(super) fn validate_json_frame_projection(
     view: &ViewProjection,
@@ -320,6 +324,7 @@ impl JsonProjectionValidator {
             "UI surface node ids",
         );
         self.validate_ui_rect(&format!("{path}.bounds"), &node.bounds);
+        self.validate_ui_node_opacity(&format!("{path}.opacity"), node.opacity);
         self.validate_scroll_offset(&format!("{path}.scrollOffsetX"), node.scroll_offset_x);
         self.validate_scroll_offset(&format!("{path}.scrollOffsetY"), node.scroll_offset_y);
         self.validate_provenance(&format!("{path}.provenance"), &node.provenance);
@@ -406,6 +411,7 @@ impl JsonProjectionValidator {
         if let Some(font_family) = &style.font_family {
             self.validate_font_family(&format!("{path}.fontFamily"), font_family);
         }
+        self.validate_ui_style_numbers(path, style);
     }
 
     fn validate_asset_type(&mut self, path: &str, asset_type: &str) {
@@ -465,6 +471,26 @@ impl JsonProjectionValidator {
             self.errors.push(NativeRendererJsonValidationError {
                 path: path.to_string(),
                 asset_name: value.to_string(),
+                reason,
+            });
+        }
+    }
+
+    fn validate_ui_node_opacity(&mut self, path: &str, value: f32) {
+        if let Some(reason) = invalid_native_json_ui_node_opacity_reason(value) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: value.to_string(),
+                reason,
+            });
+        }
+    }
+
+    fn validate_ui_style_numbers(&mut self, path: &str, style: &UiSurfaceResolvedStyle) {
+        if let Some((field, value, reason)) = invalid_native_json_ui_style_number_reason(style) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: format!("{path}.{field}"),
+                asset_name: value,
                 reason,
             });
         }
