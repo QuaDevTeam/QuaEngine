@@ -17,6 +17,7 @@ import type {
   NativeUiLanguageOptions,
   NativeUiTextEdit,
 } from './index'
+import { existsSync } from 'node:fs'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
   CompletionItemKind,
@@ -27,6 +28,9 @@ import {
   TextDocuments,
   TextDocumentSyncKind,
 } from 'vscode-languageserver/node.js'
+import {
+  fileURLToPath,
+} from 'node:url'
 import {
   buildNativeUiProjectIndex,
   createNativeUiProjectRenameEdits,
@@ -134,6 +138,7 @@ connection.onDocumentFormatting((params) => {
 
 connection.onDocumentLinks((params) => {
   return getNativeUiProjectDocumentLinks(currentProjectIndex(), params.textDocument.uri)
+    .map(resolveExistingFileDocumentLink)
     .map(toLspDocumentLink)
 })
 
@@ -273,6 +278,27 @@ function toLspDocumentLink(link: ReturnType<typeof getNativeUiProjectDocumentLin
     tooltip: link.resolved
       ? `Open ${link.path}`
       : `Missing ${link.path}`,
+  }
+}
+
+function resolveExistingFileDocumentLink(
+  link: ReturnType<typeof getNativeUiProjectDocumentLinks>[number],
+): ReturnType<typeof getNativeUiProjectDocumentLinks>[number] {
+  if (link.resolved || !link.candidateUri || !link.candidateUri.startsWith('file:'))
+    return link
+
+  try {
+    if (!existsSync(fileURLToPath(link.candidateUri)))
+      return link
+
+    return {
+      ...link,
+      resolved: true,
+      targetUri: link.candidateUri,
+    }
+  }
+  catch {
+    return link
   }
 }
 
