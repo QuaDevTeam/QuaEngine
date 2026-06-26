@@ -61,6 +61,18 @@
 
 这三个 resolver 不能通过一个 shared `resolveAllCorePlugins()`、barrel export 或 umbrella preset 间接聚合。普通 plugin resolver、Runtime QPK resolver、authoring LSP、benchmark、debug smoke 只能消费已经选好的 `TargetCoreSelection`，不能自己 import 或创建 Web / Cocos / Native 任一 target core adapter。
 
+### 核心插件归属不可互借
+
+打包实现里要把核心插件分成“目标 bootstrap 私有依赖”和“普通 game/plugin 依赖”两类。Web、Cocos、Native 的核心插件只能出现在各自 target resolver 的输出中，不能被项目插件、shared preset、Runtime QPK 或多目标第三方插件当作普通依赖复用。
+
+| 核心插件家族 | 只能由谁注入 | 典型内容 | 禁止进入 |
+| --- | --- | --- | --- |
+| Web core | `web-core-resolver` | Web assets/store/runtime adapter、`@quajs/renderer-web`、Web framework adapter、Web renderer plugin subentry | Cocos / Native 产物、普通 `plugins`、Runtime QPK executable dependency、Native authoring/LSP/benchmark |
+| Cocos core | `cocos-core-resolver` | Cocos host、Cocos renderer adapter、Cocos renderer plugin subentry | Web / Native 产物、普通 `plugins`、Runtime QPK executable dependency、Native authoring/LSP/benchmark |
+| Native core | `native-core-resolver` | `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、native contracts metadata、Rust native app/runtime/renderer capability metadata | Web / Cocos 产物、普通 `plugins`、Runtime QPK executable dependency、Web/Cocos renderer entry |
+
+Packager 需要先把 `targetCoreSelection` 和普通插件列表拆开，再进入 plugin resolution。普通插件解析阶段只允许读取平台无关 contracts 和 active target selection；如果它尝试追加 Web / Cocos / Native 任一 core root 或 subentry，必须立刻失败。产物侧还要在 bundle / tree-shake 后扫描 `specifier` 与 `packageName`，因为串线经常发生在 subentry、barrel export、side-effect import 或 generated resolver 里，而不是显眼的根包名里。
+
 ## 三目标打包隔离门禁
 
 Web、Cocos、Native 打包是三条互斥目标链路，不是同一套核心插件列表的三种输出格式。每个目标产物都必须先 materialize 唯一的 `TargetCoreSelection`，再解析普通 game/plugin 和 Runtime QPK；任何 shared preset、普通 `plugins`、generated resolver、renderer entry 或 Runtime QPK executable dependency 里出现 Web / Cocos / Native target core 根包或子入口，都必须作为 release blocker。

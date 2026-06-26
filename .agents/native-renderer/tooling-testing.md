@@ -158,6 +158,20 @@ QSS 侧：
 - Web / Cocos / Native 的 target-specific renderer plugin entry 必须按当前目标选择；inactive entry 在 package manifest 中可以存在，但不能进入产物依赖图、renderer entries 或 Runtime QPK executable dependency
 - Runtime QPK 的 Web / Cocos / Native compatibility block 只能作为 metadata；active target 之外的 block 不得触发 core adapter import、renderer entry 注册或 native capability 覆盖
 
+### 核心插件串线验收 fixture
+
+每个 target 都要有一组正例和负例 fixture，证明核心插件只来自当前目标 resolver：
+
+- 正例：Web / Cocos / Native 各自只包含一个 `TargetCoreSelection`、一个 matching `targetCoreResolver`、当前目标 renderer entries 和平台无关普通插件。
+- 负例 1：bootstrap selection 同时注册两个 core family，例如 Web 产物混入 `native-core`。
+- 负例 2：普通 `plugins` 或 shared preset 直接声明 Web / Cocos / Native core root 或 subentry。
+- 负例 3：第三方 plugin 的 shared entry eager import 任一 target core，或 inactive target entry 通过 barrel / side-effect import 进入 active 产物。
+- 负例 4：Runtime QPK `executableDependencies` 或 `rendererEntries` 指向任一 target core root / subentry。
+- 负例 5：post-bundle dependency graph 只在 `specifier` 或只在 `packageName` 中暴露其他 target core 子入口。
+- 负例 6：debug shell、installer、updater manifest 跳过 Quack 主路径但仍声明了错误 core family。
+
+这些 fixture 必须对 Web、Cocos、Native 三端对称存在。Native 不能是唯一严格路径；Web 和 Cocos 也必须用相同 blocker 级别拒绝其他目标核心插件。
+
 ### target core 隔离测试矩阵
 
 这些测试要对 Web、Cocos、Native 三端对称编写，不能只严格校验 native：
