@@ -30,6 +30,7 @@ export class NativeHostPlugin implements EnginePlugin {
   private targetBundleManifestValidation?: TargetBundleManifestValidationResult
   private releasedQuickJsPackages: NativeQuickJsModuleNamespaceRecord[] = []
   private rendererIntentErrors: Error[] = []
+  private quickJsCleanupErrors: Error[] = []
   private disposeRendererIntentBridge?: NativeRendererIntentBridgeDisposer
   private disposeRuntimePackageUnloadListener?: () => void
 
@@ -57,7 +58,7 @@ export class NativeHostPlugin implements EnginePlugin {
       this.disposeRuntimePackageUnloadListener = onLogicToRender(
         context.pipeline,
         LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD,
-        async payload => this.releaseQuickJsPackageNamespaces(payload.packageId),
+        async payload => this.releaseQuickJsPackageNamespaces(context.pipeline!, payload.packageId),
       )
     }
   }
@@ -79,6 +80,10 @@ export class NativeHostPlugin implements EnginePlugin {
 
   getRendererIntentErrors(): Error[] {
     return [...this.rendererIntentErrors]
+  }
+
+  getQuickJsCleanupErrors(): Error[] {
+    return [...this.quickJsCleanupErrors]
   }
 
   getTargetBootstrapValidation(): ExclusiveTargetBootstrapValidationResult | undefined {
@@ -125,11 +130,19 @@ export class NativeHostPlugin implements EnginePlugin {
       throw new Error(formatNativeManifestCompatibilityError(diagnostics))
   }
 
-  private async releaseQuickJsPackageNamespaces(packageId: string): Promise<void> {
+  private async releaseQuickJsPackageNamespaces(
+    pipeline: NonNullable<EngineContext['pipeline']>,
+    packageId: string,
+  ): Promise<void> {
     if (!this.options.host.releaseQuickJsPackageNamespaces)
       return
-    const released = await this.options.host.releaseQuickJsPackageNamespaces(packageId)
-    this.releasedQuickJsPackages.push(...released)
+    try {
+      const released = await this.options.host.releaseQuickJsPackageNamespaces(packageId)
+      this.releasedQuickJsPackages.push(...released)
+    }
+    catch (error) {
+      await this.recordQuickJsCleanupError(pipeline, error, packageId).catch(() => undefined)
+    }
   }
 
   private async recordRendererIntentError(
@@ -152,6 +165,30 @@ export class NativeHostPlugin implements EnginePlugin {
       timestamp: Date.now(),
       metadata: {
         nativeIntentType: event.type,
+      },
+    })
+  }
+
+  private async recordQuickJsCleanupError(
+    pipeline: NonNullable<EngineContext['pipeline']>,
+    error: unknown,
+    packageId: string,
+  ): Promise<void> {
+    const normalized = error instanceof Error ? error : new Error(String(error))
+    this.quickJsCleanupErrors.push(normalized)
+    await emitRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, {
+      message: normalized.message,
+      error: {
+        name: normalized.name,
+        message: normalized.message,
+        stack: normalized.stack,
+      },
+      source: 'native-renderer',
+      phase: 'quickjs-cleanup',
+      recoverable: true,
+      timestamp: Date.now(),
+      metadata: {
+        runtimePackageId: packageId,
       },
     })
   }
