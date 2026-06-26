@@ -149,6 +149,7 @@ QSS 侧：
 - manifest validation
 - target bundle startup checks
 - Rust JSON facade resolved color validation：`RichTextStyle.color`、`UiSurfaceResolvedStyle.backgroundColor`、`borderColor`、`color` 必须在 frame preparation 前拒绝 URL / URI、路径、traversal、native payload 后缀和 malformed safe-color syntax；该校验只能消费 resolved JSON，不能引入 QSS parser、selector matching 或 cascade
+- Rust JSON facade resolved UI geometry validation：`UiSurfaceNodeProjection.bounds.x/y/width/height` 和 `scrollOffsetX` / `scrollOffsetY` 必须在 frame preparation 前校验为有限 logical stage 数值；`width` / `height` 必须非负并在 native renderer 上限内；scroll offsets 也必须在上限内。该测试要覆盖 negative dimension、non-finite value、oversized coordinate / dimension / scroll offset，并确认失败后 renderer revision / frame 不前进。该校验只能消费 resolved projection JSON，不能把 QUI/QSS parser、selector matching、cascade 或 renderer-owned layout state 放进 Rust。
 - shared TS/Rust renderer fixtures: `packages/native/test-fixtures/renderer/qui-qss-surface-frame.json` 必须保持为 resolved projection JSON。`@quajs/native-ui-compiler` 测试需要证明该 fixture 的 `surface.root` 可由 QUI/QSS compiler 输出得到，并携带动态包 `provenance`；还要通过 `collectNativeUiSurfaceProjectionRequirements` 从 resolved projection 反推 QUI component、QSS feature、asset kind、intent event 和 projection field 需求，确认 native-wgpu registry 覆盖当前共享 fixture，并确认 `visible`、`opacity`、`scrollOffsetX`、`scrollOffsetY`、`provenance` 这类已解析 projection 字段不会被误归类成 QSS feature；`quajs_wgpu_renderer` 测试需要通过同一 fixture 的 `NativeRendererJsonFrameInput` 路径完成 prepare/render、资源请求、intent hit-test、资源账本 provenance 和 unload blocker 验证；`quajs_native_app` renderer smoke unit / CLI 测试也应复用这份 fixture 验证 native app 到 renderer JSON facade 的宿主接线。该 fixture 不能引入 Rust 侧 QUI/QSS parser，也不能进入 Web/Cocos target core 路径。
 - native app renderer smoke: 设置 `QUA_NATIVE_RENDERER_SMOKE_FRAME` 指向已解析 projection JSON，启动 `quajs_native_app` 后必须完成 `NativeRendererJsonFrameInput` -> `NullNativeRenderBackend` 的 frame submit，并输出人读 revision / pass / batch / command / resource 摘要以及机器可读 `Qua native renderer smoke json: ...` 行。JSON 行至少包含 `missingResourceCount`、`fallbackCount`、`videoFallbackCount`、`declarativeAssetRequestCount`、`declarativeResourceCount`、`memory.totalBytes`、`declarativeMemory.totalBytes`、`audioMemory.totalBytes`、`memoryByKind.*.memory.totalBytes`、`memoryByPackage.*.(ownedMemory|dependentMemory).totalBytes`、`declarativeMemoryByPackage.*.(ownedMemory|dependentMemory).totalBytes`、`audioMemoryByPackage.*.(ownedMemory|dependentMemory).totalBytes` 和 audio 资源/track 计数，供 CI / benchmark 做回归比较。设置 `QUA_NATIVE_RENDERER_SMOKE_BUDGET` 时，预算 JSON 字段必须严格校验，并对总量、资源 kind、package owned/dependent、declarative package 和 audio package 内存执行上限门禁；CLI 端到端测试必须覆盖这些 map 字段的通过和失败路径，而不只测总量或 video fallback。该路径只消费 resolved projection JSON，不加载 QUI/QSS authoring parser、普通 plugin resolver、Runtime QPK executable dependency 或 Web/Cocos/native target core bootstrap 列表。
 - `native.memory_ledger.summary.smoke` benchmark 输出也必须携带 `memoryByKind`、`memoryByPackage`、`declarativeMemoryByPackage`、`audioMemoryByPackage`，以便性能基线能区分普通资源、动态 QUI/QSS/tokens 资源和音频资源的 package 内存压力，而不是只比较总 CPU/GPU 字节。
@@ -182,6 +183,7 @@ CI 里要把三目标核心插件隔离拆成两个必跑 test suite：
 每个 target 都要有一组正例和负例 fixture，证明核心插件只来自当前目标 resolver：
 
 - 正例：Web / Cocos / Native 各自只包含一个 `TargetCoreSelection`、一个 matching `targetCoreResolver`、当前目标 renderer entries 和平台无关普通插件。
+- 正例 1b：Web / Cocos / Native 项目模板、starter、debug shell、installer、updater 和 smoke runner 只读取对应目标已经 emitted 的 `target-bundle-manifest.json`，不再 import、声明或二次装配任何 target core plugin。
 - 负例 1：bootstrap selection 同时注册两个 core family，例如 Web 产物混入 `native-core`。
 - 负例 2：普通 `plugins` 或 shared preset 直接声明 Web / Cocos / Native core root 或 subentry。
 - 负例 2b：普通 plugin reference 对象里 `packageName` 看似平台无关，但 `specifier` 指向 Web / Cocos / Native target core subentry，或反过来；`validateOrdinaryPluginListTargetIsolation` 和 Quack 的 `assertQuackPluginReferencesTargetIsolation` 必须同时检查两个字段。
@@ -190,6 +192,7 @@ CI 里要把三目标核心插件隔离拆成两个必跑 test suite：
 - 负例 5：post-bundle dependency graph 只在 `specifier` 或只在 `packageName` 中暴露其他 target core 子入口。
 - 负例 6：debug shell、installer、updater manifest 跳过 Quack 主路径但仍声明了错误 core family。
 - 负例 7：packager 或 shared preset 先构造 `[webCore, cocosCore, nativeCore]` 这样的三端全集，再按 target 过滤；这种实现即使最终 manifest 看似只剩一个 target，也必须按核心插件串线失败。
+- 负例 8：Web / Cocos / Native 项目模板、starter、debug shell、installer、updater 或 smoke runner 自己重新声明 active target core，或顺手携带 inactive target core；即使 packager 主路径已经生成正确 manifest，也必须失败，因为核心插件只能由目标 resolver 注入一次。
 
 这些 fixture 必须对 Web、Cocos、Native 三端对称存在。Native 不能是唯一严格路径；Web 和 Cocos 也必须用相同 blocker 级别拒绝其他目标核心插件。
 

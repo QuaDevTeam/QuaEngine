@@ -1,3 +1,5 @@
+mod ui_geometry;
+
 use std::collections::BTreeSet;
 
 use crate::projection::background::{BackgroundProjection, BackgroundVideoProjection};
@@ -15,6 +17,7 @@ use crate::projection::view::ViewProjection;
 use crate::renderer::json_input::{
     NativeRendererJsonFrameError, NativeRendererJsonValidationError,
 };
+use ui_geometry::{invalid_native_json_scroll_offset_reason, invalid_native_json_ui_rect_reason};
 
 pub(super) fn validate_json_frame_projection(
     view: &ViewProjection,
@@ -316,6 +319,9 @@ impl JsonProjectionValidator {
             surface_node_ids,
             "UI surface node ids",
         );
+        self.validate_ui_rect(&format!("{path}.bounds"), &node.bounds);
+        self.validate_scroll_offset(&format!("{path}.scrollOffsetX"), node.scroll_offset_x);
+        self.validate_scroll_offset(&format!("{path}.scrollOffsetY"), node.scroll_offset_y);
         self.validate_provenance(&format!("{path}.provenance"), &node.provenance);
         if let Some(image) = &node.image {
             self.validate_ui_image(image, &format!("{path}.image"));
@@ -439,6 +445,26 @@ impl JsonProjectionValidator {
             self.errors.push(NativeRendererJsonValidationError {
                 path: path.to_string(),
                 asset_name: color.to_string(),
+                reason,
+            });
+        }
+    }
+
+    fn validate_ui_rect(&mut self, path: &str, rect: &crate::projection::ui::UiSurfaceNodeRect) {
+        if let Some((field, value, reason)) = invalid_native_json_ui_rect_reason(rect) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: format!("{path}.{field}"),
+                asset_name: value,
+                reason,
+            });
+        }
+    }
+
+    fn validate_scroll_offset(&mut self, path: &str, value: f64) {
+        if let Some(reason) = invalid_native_json_scroll_offset_reason(value) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: value.to_string(),
                 reason,
             });
         }
