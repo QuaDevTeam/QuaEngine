@@ -208,22 +208,45 @@ pub fn validate_quickjs_evaluation_request(
             detail: Some("Supported extensions are .js, .mjs, and .cjs.".to_string()),
         });
     }
-    if request.module.bytes.len() as u64 > request.limits.max_module_bytes {
-        return Err(QuickJsEvaluationError {
+    if let Some(error) = quickjs_module_size_error(
+        &request.module.asset_name,
+        "module bytes",
+        request.module.bytes.len() as u64,
+        request.limits.max_module_bytes,
+    ) {
+        return Err(error);
+    }
+    if let Some(error) = quickjs_module_size_error(
+        &request.module.asset_name,
+        "code bytes",
+        request.module.code.as_bytes().len() as u64,
+        request.limits.max_module_bytes,
+    ) {
+        return Err(error);
+    }
+    Ok(())
+}
+
+fn quickjs_module_size_error(
+    asset_name: &str,
+    field: &str,
+    actual_bytes: u64,
+    max_module_bytes: u64,
+) -> Option<QuickJsEvaluationError> {
+    if actual_bytes > max_module_bytes {
+        return Some(QuickJsEvaluationError {
             code: QuickJsEvaluationErrorCode::ModuleTooLarge,
             message: format!(
-                "QuickJS runtime module \"{}\" exceeds the configured module byte limit.",
-                request.module.asset_name
+                "QuickJS runtime module \"{}\" {} length {} exceeds maxModuleBytes {}.",
+                asset_name, field, actual_bytes, max_module_bytes
             ),
-            asset_name: Some(request.module.asset_name.clone()),
+            asset_name: Some(asset_name.to_string()),
             detail: Some(format!(
-                "{} > {}",
-                request.module.bytes.len(),
-                request.limits.max_module_bytes
+                "{field}: {actual_bytes}; maxModuleBytes: {max_module_bytes}"
             )),
         });
     }
-    Ok(())
+    None
 }
 
 pub fn is_forbidden_runtime_module_asset_name(asset_name: &str) -> bool {
@@ -234,7 +257,9 @@ pub fn is_forbidden_runtime_module_asset_name(asset_name: &str) -> bool {
 }
 
 pub fn is_forbidden_native_module_payload(asset_name: &str) -> bool {
-    let normalized = asset_name.to_ascii_lowercase().replace('\\', "/");
+    let normalized = strip_asset_reference_suffix(asset_name)
+        .to_ascii_lowercase()
+        .replace('\\', "/");
     FORBIDDEN_NATIVE_MODULE_PAYLOAD_EXTENSIONS
         .iter()
         .any(|extension| {
@@ -263,6 +288,13 @@ fn has_uri_scheme(value: &str) -> bool {
                 char.is_ascii_alphanumeric() || matches!(char, '+' | '-' | '.')
             }
         })
+}
+
+fn strip_asset_reference_suffix(asset_name: &str) -> &str {
+    asset_name
+        .split_once(['?', '#'])
+        .map(|(base, _)| base)
+        .unwrap_or(asset_name)
 }
 
 const SUPPORTED_QUICKJS_MODULE_EXTENSIONS: [&str; 3] = [".js", ".mjs", ".cjs"];
