@@ -20,6 +20,12 @@ export {
   resolveNativeQssDeclarations,
 } from './qss-resolved-style'
 export {
+  compileNativeUiSurfaceProjection,
+} from './projection'
+export type {
+  CompileNativeUiSurfaceProjectionOptions,
+} from './projection'
+export {
   analyzeQuiSource,
   formatQuiSource,
   getQuiCompletions,

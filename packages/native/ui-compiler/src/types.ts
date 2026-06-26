@@ -237,3 +237,55 @@ export interface NativeQssResolvedNodeStyle {
   style: NativeQssResolvedStyle
   zIndex?: number
 }
+
+export interface NativeUiSurfaceProjection {
+  root?: NativeUiSurfaceNodeProjection
+}
+
+export type NativeUiSurfaceNodeKind
+  = | 'Backdrop'
+    | 'Box'
+    | 'Button'
+    | 'Column'
+    | 'Divider'
+    | 'Fragment'
+    | 'Grid'
+    | 'Image'
+    | 'Layer'
+    | 'Panel'
+    | 'RichText'
+    | 'Row'
+    | 'SafeArea'
+    | 'Scroll'
+    | 'Spacer'
+    | 'Stack'
+    | 'Text'
+
+export interface NativeUiSurfaceRect {
+  height: number
+  width: number
+  x: number
+  y: number
+}
+
+export interface NativeUiSurfaceIntentProjection {
+  action?: string
+  event: NativeQuiActionEvent
+  metadata?: Record<string, NativeQuiActionArgumentValue>
+}
+
+export interface NativeUiSurfaceNodeProjection {
+  bounds: NativeUiSurfaceRect
+  children?: NativeUiSurfaceNodeProjection[]
+  id: string
+  image?: NativeQssBackgroundImageValue
+  intent?: NativeUiSurfaceIntentProjection
+  kind: NativeUiSurfaceNodeKind
+  opacity?: number
+  scrollOffsetX?: number
+  scrollOffsetY?: number
+  style?: NativeQssResolvedStyle
+  text?: string
+  visible?: boolean
+  zIndex?: number
+}
