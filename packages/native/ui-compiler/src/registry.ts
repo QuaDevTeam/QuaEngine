@@ -143,7 +143,10 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('background-position', 'p1', true, 'Background image origin for native surface image backgrounds.', backgroundPositionValues),
   property('background-repeat', 'p2', false, 'Background image repeat mode planned for native style IR.'),
   property('border-style', 'p2', false, 'Limited border style planned for native style IR.'),
-  property('visibility', 'p2', false, 'Visibility projection planned for native style IR.'),
+  property('visibility', 'p1', true, 'Node visibility emitted as resolved native UI projection metadata.', [
+    value('visible', 'Render the node when no QUI show prop overrides it.'),
+    value('hidden', 'Skip the node and its children when no QUI show prop overrides it.'),
+  ]),
   property('box-shadow', 'p2', false, 'Limited shadow projection planned for native style IR.'),
   property('clip-path', 'p2', false, 'Qua subset clipping planned for native style IR.'),
   property('font-style', 'p2', false, 'Text style planned for native text layout.'),

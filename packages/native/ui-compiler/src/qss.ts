@@ -27,6 +27,7 @@ import {
   parseNativeQssObjectFit,
   parseNativeQssOpacity,
   parseNativeQssTextAlign,
+  parseNativeQssVisibility,
 } from './qss-resolved-style'
 import {
   collectBalancedDelimiterDiagnostics,
@@ -692,6 +693,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssTextAlign(value)
         ? undefined
         : 'text-align supports left, center, right, or justify.'
+    case 'visibility':
+      return parseNativeQssVisibility(value) !== undefined
+        ? undefined
+        : 'visibility supports visible or hidden.'
     case 'z-index':
       return parseNativeQssInteger(value) !== undefined
         ? undefined
