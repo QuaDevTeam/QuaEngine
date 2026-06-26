@@ -3,6 +3,7 @@ import type {
   TargetBundleManifest,
   TargetBundleNativeRendererInfo,
   TargetBundlePackageReference,
+  TargetBundleProjectGraphRecord,
   TargetBundleRendererEntryReference,
   TargetBundleRuntimePackageRecord,
 } from '@quajs/native-contracts'
@@ -43,6 +44,7 @@ export interface QuaProjectNativeArtifactPlan {
 export interface QuaProjectNativeTargetBundleManifestOptions {
   dependencies?: readonly (TargetBundlePackageReference | TargetBundleDependencyReference)[]
   nativeRenderer: TargetBundleNativeRendererInfo
+  projectGraphs?: readonly TargetBundleProjectGraphRecord[]
   rendererEntries?: readonly (TargetBundlePackageReference | TargetBundleRendererEntryReference)[]
   runtimePackages?: readonly TargetBundleRuntimePackageRecord[]
 }
@@ -87,6 +89,9 @@ export function createQuaProjectNativeTargetBundleManifest(
   options: QuaProjectNativeTargetBundleManifestOptions,
 ): TargetBundleManifest {
   const targetCore = createTargetCoreSelection('native')
+  const dependencies = options.dependencies || []
+  const rendererEntries = options.rendererEntries || []
+  const runtimePackages = options.runtimePackages || []
   return {
     schemaVersion: 1,
     target: 'native',
@@ -97,9 +102,15 @@ export function createQuaProjectNativeTargetBundleManifest(
     targetCoreResolver: targetCore.targetCoreResolver,
     selectedCorePluginFamily: targetCore.selectedCorePluginFamily,
     selectedCoreAdapters: targetCore.selectedCoreAdapters,
-    dependencies: options.dependencies || [],
-    rendererEntries: options.rendererEntries || [],
-    runtimePackages: options.runtimePackages || [],
+    dependencies,
+    rendererEntries,
+    runtimePackages,
+    projectGraphs: createNativeProjectGraphs(plan, {
+      dependencies,
+      projectGraphs: options.projectGraphs || [],
+      rendererEntries,
+      runtimePackages,
+    }),
   }
 }
 
@@ -118,4 +129,30 @@ export async function emitQuaProjectNativeTargetBundleManifest(
 
 function sanitizePathSegment(value: string): string {
   return value.trim().replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'unknown'
+}
+
+function createNativeProjectGraphs(
+  plan: QuaProjectNativeArtifactPlan,
+  options: {
+    dependencies: NonNullable<TargetBundleManifest['dependencies']>
+    projectGraphs: readonly TargetBundleProjectGraphRecord[]
+    rendererEntries: NonNullable<TargetBundleManifest['rendererEntries']>
+    runtimePackages: readonly TargetBundleRuntimePackageRecord[]
+  },
+): readonly TargetBundleProjectGraphRecord[] {
+  return [
+    ...options.projectGraphs,
+    {
+      id: `native.${plan.profile}.${plan.platform}.post-bundle`,
+      kind: 'post-bundle',
+      references: [
+        ...options.dependencies,
+        ...options.rendererEntries,
+        ...options.runtimePackages.flatMap(runtimePackage => [
+          ...(runtimePackage.executableDependencies || []),
+          ...(runtimePackage.rendererEntries || []),
+        ]),
+      ],
+    },
+  ]
 }

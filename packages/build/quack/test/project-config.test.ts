@@ -377,7 +377,71 @@ describe('qua project config', () => {
       targetCoreResolver: 'native-core-resolver',
       selectedCorePluginFamily: 'native-core',
       selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      projectGraphs: [
+        {
+          id: 'native.release.macos.post-bundle',
+          kind: 'post-bundle',
+          references: expect.arrayContaining([
+            '@quajs/engine',
+            '@quajs/pipeline',
+            '@quajs/engine-native',
+            { specifier: '@quajs/native-renderer/builtin', target: 'native' },
+            '@quajs/character',
+            { specifier: '@quajs/native-renderer/ui', target: 'native' },
+          ]),
+        },
+      ],
     })
+  })
+
+  it('rejects native project template graphs that redeclare target core adapters', () => {
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: 'dist/native-apps',
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const manifest = createQuaProjectNativeTargetBundleManifest(plan, {
+      nativeRenderer: createTestNativeRendererInfo(),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+      rendererEntries: [
+        { specifier: '@quajs/native-renderer/builtin', target: 'native' },
+      ],
+      projectGraphs: [
+        {
+          id: 'native.template.generated',
+          kind: 'project-template',
+          references: [
+            '@quajs/engine',
+            '@quajs/engine-native/native-host',
+          ],
+        },
+      ],
+    })
+    const validation = validateTargetBundleManifest(manifest, { expectedTarget: 'native' })
+
+    expect(validation.ok).toBe(false)
+    expect(validation.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+        target: 'native',
+        packageName: '@quajs/engine-native',
+        projectGraphId: 'native.template.generated',
+        projectGraphKind: 'project-template',
+      }),
+    ]))
   })
 
   it('emits validated native target bundle manifests into artifact directories', async () => {
@@ -415,6 +479,12 @@ describe('qua project config', () => {
       target: 'native',
       targetCoreResolver: 'native-core-resolver',
       selectedCorePluginFamily: 'native-core',
+      projectGraphs: [
+        {
+          id: 'native.release.macos.post-bundle',
+          kind: 'post-bundle',
+        },
+      ],
     })
   })
 

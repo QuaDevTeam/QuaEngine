@@ -124,6 +124,8 @@ The manifest owns project identity (`name`, `bundleId`, `version`), home metadat
 
 `createQuaProjectNativeArtifactPlans` expands normalized native project metadata into concrete `platform` × `profile` artifact plans with `artifactDir` isolated as `outputDir/profile/version-buildNumber/platform`. Native packagers should consume these plans before writing debug/release outputs or target-bundle manifests. After a Web, Cocos, or native post-bundle dependency graph is known, use `emitQuaTargetBundleManifest` with the active `expectedTarget` to validate before writing `target-bundle-manifest.json`. Post-bundle dependency references must be normalized from bundle paths, `node_modules`, pnpm `.pnpm` store paths, and query/hash-suffixed specifiers before target-core checks. Native packagers can use `emitQuaProjectNativeTargetBundleManifest` as a thin helper that creates the native manifest from the native artifact plan and then delegates to the shared emitter.
 
+Native target manifests created through `createQuaProjectNativeTargetBundleManifest` automatically append a `projectGraphs` post-bundle graph named `native.<profile>.<platform>.post-bundle`, built from the provided dependencies, renderer entries, and Runtime QPK executable/renderer references. Callers may pass additional `projectGraphs` for project templates, startup shells, debug/release shells, smoke runners, installers, updaters, or dev servers, but those non-`post-bundle` graphs must stay platform-neutral and must not declare any target core adapter, including native active core.
+
 Quack workspace loading automatically merges manifest-derived `assetTargets` into each workspace bundle unless `projectConfig: false` is set. CLI helpers are:
 
 ```bash
