@@ -64,6 +64,8 @@ export default defineConfig({
 
 When checking loaded plugin objects, Quack must inspect the plugin `name` plus optional source metadata fields such as `specifier` and `packageName` before registration. A business-looking plugin name must not mask a Web, Cocos, or native target core adapter in metadata produced by CLI loading, generated resolvers, or third-party plugin factories. Normalize target-core references from bare subentries, `npm:` specifiers, `?query` / `#hash` suffixes, Windows/backslash paths, `node_modules` paths, and pnpm `.pnpm` store paths before classifying package roots.
 
+Generated plugin resolvers and shared presets must not first build a Web/Cocos/native target-core union and filter it by target afterward. Even if the final manifest appears single-target, the prefiltered union is a blocker because inactive core adapters have entered the ordinary plugin graph. Web, Cocos, and native packagers must select exactly one target-core resolver before resolving ordinary Quack plugins.
+
 ## Workspace Config
 
 Use workspace mode for multi-bundle projects:
