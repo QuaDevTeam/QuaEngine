@@ -122,6 +122,7 @@ QSS 侧：
 - `qss` parse fixtures
 - invalid syntax recovery
 - component registry validation
+- QUI asset validation：`src` / `image` / `asset-type` 必须复用 compiler shared asset helper，拒绝 URL、绝对路径、`..` traversal 和非字面量资源表达式，并确认 projection 不输出不安全 image 资源
 - AST / IR snapshot
 - format idempotence
 

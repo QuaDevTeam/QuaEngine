@@ -12,6 +12,7 @@ import type {
   NativeQssTextTransformValue,
   NativeQssWhiteSpaceValue,
 } from './types'
+import { isSafeNativeAssetType, isSafePackageAssetName } from './assets'
 
 const OBJECT_FIT_VALUES = new Set<NativeQssObjectFitValue>(['contain', 'cover', 'fill', 'none', 'scale-down'])
 const TEXT_ALIGN_VALUES = new Set<NativeQssTextAlignValue>(['center', 'justify', 'left', 'right'])
@@ -177,22 +178,10 @@ export function parseNativeQssBackgroundImage(value: string): { assetType: strin
   const assetName = (match[1] || match[2] || '').trim()
   const assetType = (match[3] || match[4] || 'images').trim()
 
-  if (!isSafeAssetType(assetType) || !isSafePackageAssetName(assetName))
+  if (!isSafeNativeAssetType(assetType) || !isSafePackageAssetName(assetName))
     return undefined
 
   return { assetType, assetName }
-}
-
-function isSafeAssetType(value: string): boolean {
-  return /^[a-z][a-z0-9-]*$/i.test(value)
-}
-
-function isSafePackageAssetName(value: string): boolean {
-  const normalized = value.replace(/\\/g, '/')
-  return normalized.length > 0
-    && !normalized.startsWith('/')
-    && !/^[a-z][a-z0-9+.-]*:/i.test(normalized)
-    && !normalized.split('/').includes('..')
 }
 
 export function parseNativeQssBackgroundPosition(value: string): { x: number, y: number } | undefined {

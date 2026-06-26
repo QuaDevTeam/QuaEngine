@@ -4,6 +4,10 @@ import type {
   NativeQuiProp,
   NativeUiRange,
 } from '@quajs/native-ui-compiler'
+import {
+  isSafePackageAssetName,
+  literalStringValue,
+} from '@quajs/native-ui-compiler'
 
 export type NativeUiProjectAssetReferenceSource = 'qss-asset' | 'qui-prop'
 
@@ -29,11 +33,7 @@ export function collectNativeUiProjectAssetReferences(
 }
 
 export function isSafeNativeUiProjectAssetName(value: string): boolean {
-  const normalized = value.replace(/\\/g, '/')
-  return normalized.length > 0
-    && !normalized.startsWith('/')
-    && !/^[a-z][a-z0-9+.-]*:/i.test(normalized)
-    && !normalized.split('/').includes('..')
+  return isSafePackageAssetName(value)
 }
 
 function assetReferencesFromQui(
@@ -110,17 +110,6 @@ function parseQssAssetCall(value: string): { assetName: string, assetNameEnd: nu
 function propString(props: readonly NativeQuiProp[], name: string): string | undefined {
   const value = props.find(prop => prop.name === name)?.value?.trim()
   return literalStringValue(value)
-}
-
-function literalStringValue(value: string | undefined): string | undefined {
-  if (!value || value.length < 2)
-    return undefined
-
-  const quote = value[0]
-  if ((quote !== '"' && quote !== '\'') || value[value.length - 1] !== quote)
-    return undefined
-
-  return value.slice(1, -1).trim()
 }
 
 function stringLiteralContentRange(
