@@ -47,6 +47,28 @@ fn binary_runs_renderer_smoke_frame_from_projection_json() {
             .unwrap()
             > 0
     );
+    assert!(
+        smoke_json["memoryByKind"]["uiAst"]["memory"]["totalBytes"]
+            .as_u64()
+            .unwrap()
+            > 0
+    );
+    assert!(
+        smoke_json["memoryByPackage"]["runtime.ui"]["ownedMemory"]["totalBytes"]
+            .as_u64()
+            .unwrap()
+            > 0
+    );
+    assert!(
+        smoke_json["declarativeMemoryByPackage"]["runtime.ui"]["ownedMemory"]["totalBytes"]
+            .as_u64()
+            .unwrap()
+            > 0
+    );
+    assert!(smoke_json["audioMemoryByPackage"]
+        .as_object()
+        .unwrap()
+        .is_empty());
 }
 
 #[test]
