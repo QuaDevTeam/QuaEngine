@@ -259,6 +259,13 @@ runtime package compatibility metadata 也应该落到这个 registry 上：
 - QUI `src` / `image` 资源 prop 和 QSS `background-image: asset(...)` 中的 asset kind 进入 `assetKinds`。
 - 最终输出仍由 `@quajs/native-contracts` 的 `createNativeUiSurfaceCompatibility` 规整，固定包含 `native-wgpu.ui.surface@1`、`qui` / `qss` / `tokens` 和 `nativeCode: false`。
 
+当动态 UI 小包已经只保留 resolved `NativeUiSurfaceProjection`，包构建器可以使用 `createNativeUiSurfaceCompatibilityFromProjection`：
+
+- 从 projection node `kind` 收集 `quiComponents`。
+- 从 `style`、`zIndex`、`clipChildren` 等 resolved 字段收集对应 `qssFeatures`。
+- 从 `image` / `backgroundImage` 收集 asset kind。
+- `projectionFields` 仅用于测试、诊断和 capability 覆盖审计，不写入 runtime compatibility block，避免把 `visible`、`opacity`、`scrollOffsetX` / `scrollOffsetY`、`provenance` 等已解析投影字段误当成 QSS declaration 能力。
+
 这个能力用于 dynamic UI package manifest / third-party native renderer entry 的 metadata 生成，不是运行时授权机制本身；runtime startup 和 QPK activation 仍必须以 signed native host capability manifest 做最终校验。
 
 ## 组件扩展策略

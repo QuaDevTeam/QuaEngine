@@ -16,9 +16,11 @@ export {
   literalStringValue,
 } from './assets'
 export {
+  createNativeUiSurfaceCompatibilityFromProjection,
   createNativeUiSurfaceCompatibilityFromDocuments,
 } from './compatibility'
 export type {
+  CreateNativeUiSurfaceCompatibilityFromProjectionOptions,
   CreateNativeUiSurfaceCompatibilityFromDocumentsOptions,
 } from './compatibility'
 export {

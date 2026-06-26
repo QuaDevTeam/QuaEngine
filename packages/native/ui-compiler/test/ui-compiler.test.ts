@@ -9,6 +9,7 @@ import {
   collectNativeUiSurfaceProjectionRequirements,
   compileNativeUiSurfaceProjection,
   createNativeUiSurfaceCompatibilityFromDocuments,
+  createNativeUiSurfaceCompatibilityFromProjection,
   formatNativeUiDocument,
   getNativeUiCompletions,
   getNativeUiHover,
@@ -888,6 +889,57 @@ Button.primary {
     })
     expect(compatibility.assetKinds).toEqual(expect.arrayContaining(['qui', 'qss', 'tokens', 'images']))
     expect(compatibility.quiComponents).toEqual(['Button', 'Image', 'Panel', 'Text'])
+    expect(compatibility.qssFeatures).toEqual([
+      'background-color',
+      'background-image',
+      'border-radius',
+      'color',
+      'font-size',
+    ])
+    expect([
+      ...(compatibility.capabilities || []),
+      ...(compatibility.optionalCapabilities || []),
+    ]).not.toContain('native-wgpu.audio@1')
+  })
+
+  it('derives native UI surface compatibility metadata from resolved projections', () => {
+    const projection = compileNativeUiSurfaceProjection(
+      analyzeQuiSource(`
+Panel.dialog(id: "menu", image: "ui/panel.png") {
+  Text.title { "Main Menu" }
+  Button.primary(action: ui.close()) { Text { "Close" } }
+}
+`),
+      {
+        contentPackageId: 'runtime.ui',
+        qss: analyzeQssSource(`
+Panel.dialog {
+  background-color: #101820;
+  background-image: asset("ui/panel-bg.png", "images");
+  border-radius: 12px;
+}
+Button.primary {
+  color: #18130a;
+  font-size: 22px;
+}
+`),
+        requiredRuntimePackages: ['base'],
+      },
+    )
+    const compatibility = createNativeUiSurfaceCompatibilityFromProjection(projection, {
+      rendererVersionRange: '^0.1.0',
+      optionalCapabilities: ['native-wgpu.video@1'],
+    })
+
+    expect(compatibility).toMatchObject({
+      packageName: '@quajs/native-renderer',
+      versionRange: '^0.1.0',
+      capabilities: ['native-wgpu.ui.surface@1'],
+      optionalCapabilities: ['native-wgpu.video@1'],
+      nativeCode: false,
+    })
+    expect(compatibility.assetKinds).toEqual(expect.arrayContaining(['qui', 'qss', 'tokens', 'images']))
+    expect(compatibility.quiComponents).toEqual(['Button', 'Panel', 'Text'])
     expect(compatibility.qssFeatures).toEqual([
       'background-color',
       'background-image',
