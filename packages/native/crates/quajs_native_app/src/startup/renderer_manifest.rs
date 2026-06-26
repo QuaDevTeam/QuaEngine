@@ -55,6 +55,20 @@ fn check_manifest_renderer_metadata(
         }
     }
 
+    if let Some(backend_version) = renderer.backend_version.as_deref() {
+        if Some(backend_version) != host_info.renderer.backend_version.as_deref() {
+            diagnostics.push(format!(
+                "Native target bundle manifest nativeRenderer.backendVersion \"{}\" does not match host renderer backendVersion \"{}\".",
+                backend_version,
+                host_info
+                    .renderer
+                    .backend_version
+                    .as_deref()
+                    .unwrap_or("<none>")
+            ));
+        }
+    }
+
     if let Some(capability_manifest_hash) = renderer.capability_manifest_hash.as_deref() {
         if capability_manifest_hash != host_info.renderer.capability_manifest_hash {
             diagnostics.push(format!(

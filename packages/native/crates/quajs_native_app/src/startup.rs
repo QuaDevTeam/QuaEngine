@@ -216,6 +216,38 @@ mod tests {
     }
 
     #[test]
+    fn rejects_renderer_backend_version_drift_after_building_host_info() {
+        let mut manifest = native_manifest();
+        manifest
+            .native_renderer
+            .as_mut()
+            .expect("native renderer metadata exists")
+            .backend_version = Some("wgpu-manifest".to_string());
+        let created = Cell::new(false);
+        let error =
+            create_native_startup_host_info_with(fixture_app_config(), Some(&manifest), |config| {
+                created.set(true);
+                NativeHostInfoBuilder::new(config.name, config.bundle_id)
+                    .app_version(config.version)
+                    .build_number(config.build_number)
+                    .renderer_version(env!("CARGO_PKG_VERSION"))
+                    .backend_version(Some("wgpu-host"))
+                    .quickjs_version(quickjs_runtime_version())
+                    .native_runtime_version(env!("CARGO_PKG_VERSION"))
+                    .asset_adapter_version(env!("CARGO_PKG_VERSION"))
+                    .store_adapter_version(env!("CARGO_PKG_VERSION"))
+                    .capabilities(native_wgpu_capabilities())
+                    .build()
+            })
+            .expect_err("renderer backend version drift is rejected");
+
+        assert!(created.get());
+        assert!(error.to_string().contains(
+            "nativeRenderer.backendVersion \"wgpu-manifest\" does not match host renderer backendVersion \"wgpu-host\""
+        ));
+    }
+
+    #[test]
     fn rejects_foreign_target_bundle_manifest_before_building_host_info() {
         let mut manifest = native_manifest();
         manifest.dependencies.extend([

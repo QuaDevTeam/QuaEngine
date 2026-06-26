@@ -142,7 +142,7 @@ packages/native/
 
 - 读取 `target-bundle-manifest.json`。
 - 校验 `target`, `profile`, `platform`, `bundleId`, `version`, `buildNumber`, `icon`。
-- 校验 native renderer 元数据与 host info 一致。
+- 校验 native renderer package / version / backend / declared backendVersion / capability ids / capability hash 与 host info 一致。
 - 通过 `quickjs_runtime_version()` 写入 `QuaNativeHostInfo.runtime.quickjsVersion`；未安装真实 QuickJS evaluator 的 build 明确报告 `unsupported`，不能留下 `pending` 占位或伪造真实引擎版本。
 - 组装 QuickJS host 和 wgpu renderer。
 - 在启动前再次确认 target bootstrap 没有混入其他 family。

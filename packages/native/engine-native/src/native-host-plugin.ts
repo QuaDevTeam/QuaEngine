@@ -251,6 +251,14 @@ export function checkNativeRendererManifestCompatibility(
     )
   }
   if (
+    manifestRenderer.backendVersion
+    && manifestRenderer.backendVersion !== hostInfo.renderer.backendVersion
+  ) {
+    diagnostics.push(
+      `Native target bundle manifest renderer backendVersion "${manifestRenderer.backendVersion}" does not match host renderer backendVersion "${hostInfo.renderer.backendVersion ?? '<none>'}".`,
+    )
+  }
+  if (
     manifestRenderer.capabilityManifestHash
     && manifestRenderer.capabilityManifestHash !== hostInfo.renderer.capabilityManifestHash
   ) {
