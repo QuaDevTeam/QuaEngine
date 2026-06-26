@@ -2,6 +2,7 @@ import type {
   NativeQssDeclaration,
   NativeQssEdgeInsetsValue,
   NativeQssObjectFitValue,
+  NativeQssResolvedBounds,
   NativeQssResolvedNodeStyle,
   NativeQssTextAlignValue,
 } from './types'
@@ -55,6 +56,12 @@ export function resolveNativeQssDeclarations(
       case 'line-height':
         resolved.style.lineHeight = parseNativeQssLogicalNumber(value)
         break
+      case 'height':
+        resolved.bounds = resolveNativeQssBound(resolved.bounds, 'height', value, parseNativeQssLogicalNumber)
+        break
+      case 'left':
+        resolved.bounds = resolveNativeQssBound(resolved.bounds, 'x', value, parseNativeQssCoordinateNumber)
+        break
       case 'object-fit':
         resolved.style.objectFit = parseNativeQssObjectFit(value)
         break
@@ -76,8 +83,14 @@ export function resolveNativeQssDeclarations(
       case 'padding-top':
         resolved.style.padding = resolveNativeQssEdgeInset(resolved.style.padding, 'top', value)
         break
+      case 'top':
+        resolved.bounds = resolveNativeQssBound(resolved.bounds, 'y', value, parseNativeQssCoordinateNumber)
+        break
       case 'text-align':
         resolved.style.textAlign = parseNativeQssTextAlign(value)
+        break
+      case 'width':
+        resolved.bounds = resolveNativeQssBound(resolved.bounds, 'width', value, parseNativeQssLogicalNumber)
         break
       case 'z-index':
         resolved.zIndex = parseNativeQssInteger(value)
@@ -174,6 +187,14 @@ export function parseNativeQssLogicalNumber(value: string): number | undefined {
   return Number.isFinite(number) && number >= 0 ? number : undefined
 }
 
+export function parseNativeQssCoordinateNumber(value: string): number | undefined {
+  const match = /^(-?\d+(?:\.\d+)?)(?:px)?$/.exec(value.trim())
+  if (!match)
+    return undefined
+  const number = Number(match[1])
+  return Number.isFinite(number) ? number : undefined
+}
+
 export function parseNativeQssEdgeInsets(value: string): NativeQssEdgeInsetsValue | undefined {
   const parts = value.split(/\s+/).map(item => item.trim()).filter(Boolean)
   if (parts.length < 1 || parts.length > 4)
@@ -201,6 +222,22 @@ function resolveNativeQssEdgeInset(
     left: current?.left ?? 0,
     right: current?.right ?? 0,
     top: current?.top ?? 0,
+    [edge]: number,
+  }
+}
+
+function resolveNativeQssBound(
+  current: NativeQssResolvedBounds | undefined,
+  edge: keyof NativeQssResolvedBounds,
+  value: string,
+  parser: (value: string) => number | undefined,
+): NativeQssResolvedBounds | undefined {
+  const number = parser(value)
+  if (number === undefined)
+    return current
+
+  return {
+    ...current,
     [edge]: number,
   }
 }
@@ -266,6 +303,18 @@ function pruneUndefinedResolvedNodeStyle(style: NativeQssResolvedNodeStyle): Nat
   for (const key of Object.keys(style.style) as Array<keyof typeof style.style>) {
     if (style.style[key] === undefined)
       delete style.style[key]
+  }
+
+  if (style.bounds) {
+    for (const key of Object.keys(style.bounds) as Array<keyof typeof style.bounds>) {
+      if (style.bounds[key] === undefined)
+        delete style.bounds[key]
+    }
+    if (Object.keys(style.bounds).length === 0)
+      delete style.bounds
+  }
+  else {
+    delete style.bounds
   }
 
   if (style.zIndex === undefined)

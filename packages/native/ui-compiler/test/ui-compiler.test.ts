@@ -28,6 +28,8 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('background-image')
     expect(nativeWgpuQssFeatureNames()).toContain('background-position')
     expect(nativeWgpuQssFeatureNames()).toContain('background-size')
+    expect(nativeWgpuQssFeatureNames()).toContain('height')
+    expect(nativeWgpuQssFeatureNames()).toContain('left')
     expect(nativeWgpuQssFeatureNames()).toContain('object-fit')
     expect(nativeWgpuQssFeatureNames()).toContain('opacity')
     expect(nativeWgpuQssFeatureNames()).toContain('padding')
@@ -35,6 +37,8 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('padding-left')
     expect(nativeWgpuQssFeatureNames()).toContain('padding-right')
     expect(nativeWgpuQssFeatureNames()).toContain('padding-top')
+    expect(nativeWgpuQssFeatureNames()).toContain('top')
+    expect(nativeWgpuQssFeatureNames()).toContain('width')
     expect(nativeWgpuQssFeatureNames()).toContain('z-index')
   })
 
@@ -376,7 +380,7 @@ Panel {
 Panel::part(header), Button.primary:hover {
   background-color: #10141f;
   padding: 12px;
-  width: 10vw;
+  margin: 10vw;
 }
 `)
 
@@ -424,17 +428,22 @@ Button.primary {
   font-size: 18px;
   font-weight: 600;
   line-height: 1.25;
+  left: -12px;
   object-fit: cover;
   opacity: 1.4;
   padding: 12px 20px;
   padding-left: 24px;
   text-align: center;
+  top: 32px;
+  width: 180px;
+  height: 48px;
   z-index: 12;
 }
 `)
 
     expect(document.diagnostics).toEqual([])
     expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
+      bounds: { x: -12, y: 32, width: 180, height: 48 },
       zIndex: 12,
       style: {
         backgroundColor: '#10141f',
@@ -463,11 +472,15 @@ Button {
   border-width: -1px;
   border-radius: calc(4px);
   font-weight: heavy;
+  height: -1px;
+  left: calc(2px);
   object-fit: stretch;
   opacity: none;
   padding: 1px 2px 3px 4px 5px;
   padding-left: -4px;
   text-align: start;
+  top: calc(1px);
+  width: -4px;
   z-index: 1.5;
   background-image: asset("../escape.png");
   background-position: 10px 20px;
@@ -490,11 +503,15 @@ Button {
   border-width: -1px;
   border-radius: calc(4px);
   font-weight: heavy;
+  height: -1px;
+  left: calc(2px);
   object-fit: stretch;
   opacity: none;
   padding: 1px 2px 3px 4px 5px;
   padding-left: -4px;
   text-align: start;
+  top: calc(1px);
+  width: -4px;
   z-index: 1.5;
   background-image: asset("../escape.png");
   background-position: 10px 20px;
@@ -506,11 +523,15 @@ Button {
   border-width: 0;
   border-radius: 0px;
   font-weight: 0;
+  height: 24px;
+  left: -12px;
   object-fit: scale-down;
   opacity: 0;
   padding: 12px 16px;
   padding-left: 20px;
   text-align: justify;
+  top: 0;
+  width: 240px;
   z-index: 0;
   background-image: asset("ui/panel.png");
   background-position: 0% 100%;
@@ -518,7 +539,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(12)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(16)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -643,6 +664,59 @@ Button.primary {
               fontWeight: 'bold',
               padding: { top: 8, right: 14, bottom: 10, left: 16 },
             },
+          },
+        ],
+      },
+    })
+  })
+
+  it('uses QSS geometry as bounds fallback while QUI props stay authoritative', () => {
+    const qui = analyzeQuiSource(`
+Panel.dialog(id: "menu") {
+  Button.primary(id: "qss-button", label: "From QSS")
+  Button.primary(id: "override-button", label: "Override", x: 140, y: 96, width: 120, height: 48)
+}
+`)
+    const qss = analyzeQssSource(`
+Panel.dialog {
+  left: 12px;
+  top: 18px;
+  width: 300px;
+  height: 160px;
+}
+Button.primary {
+  left: 40px;
+  top: 52px;
+  width: 100px;
+  height: 44px;
+}
+#override-button {
+  left: 1px;
+  top: 2px;
+  width: 3px;
+  height: 4px;
+}
+`)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(qss.diagnostics).toEqual([])
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+      root: {
+        id: 'menu',
+        kind: 'Panel',
+        bounds: { x: 12, y: 18, width: 300, height: 160 },
+        children: [
+          {
+            id: 'qss-button',
+            kind: 'Button',
+            bounds: { x: 40, y: 52, width: 100, height: 44 },
+            text: 'From QSS',
+          },
+          {
+            id: 'override-button',
+            kind: 'Button',
+            bounds: { x: 140, y: 96, width: 120, height: 48 },
+            text: 'Override',
           },
         ],
       },

@@ -222,6 +222,13 @@ export interface NativeQssEdgeInsetsValue {
   top: number
 }
 
+export interface NativeQssResolvedBounds {
+  height?: number
+  width?: number
+  x?: number
+  y?: number
+}
+
 export interface NativeQssResolvedStyle {
   backgroundColor?: string
   backgroundImage?: NativeQssBackgroundImageValue
@@ -242,6 +249,7 @@ export interface NativeQssResolvedStyle {
 }
 
 export interface NativeQssResolvedNodeStyle {
+  bounds?: NativeQssResolvedBounds
   style: NativeQssResolvedStyle
   zIndex?: number
 }
