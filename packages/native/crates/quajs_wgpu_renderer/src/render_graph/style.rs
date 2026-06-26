@@ -97,6 +97,14 @@ pub enum TextOverflowDrawParam {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TextTransformDrawParam {
+    None,
+    Uppercase,
+    Lowercase,
+    Capitalize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WhiteSpaceDrawParam {
     Normal,
     NoWrap,
@@ -117,6 +125,7 @@ pub struct TextDrawParams {
     pub align: TextAlign,
     pub text_decoration: TextDecorationDrawParam,
     pub text_overflow: TextOverflowDrawParam,
+    pub text_transform: TextTransformDrawParam,
     pub white_space: WhiteSpaceDrawParam,
     pub color: String,
     pub padding: EdgeInsetsDrawParam,
@@ -183,6 +192,7 @@ pub struct UiButtonDrawParams {
     pub align: TextAlign,
     pub text_decoration: TextDecorationDrawParam,
     pub text_overflow: TextOverflowDrawParam,
+    pub text_transform: TextTransformDrawParam,
     pub white_space: WhiteSpaceDrawParam,
     pub padding: EdgeInsetsDrawParam,
     pub intent: Option<RendererIntent>,

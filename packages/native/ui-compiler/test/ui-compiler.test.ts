@@ -44,6 +44,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('padding-top')
     expect(nativeWgpuQssFeatureNames()).toContain('text-decoration')
     expect(nativeWgpuQssFeatureNames()).toContain('text-overflow')
+    expect(nativeWgpuQssFeatureNames()).toContain('text-transform')
     expect(nativeWgpuQssFeatureNames()).toContain('top')
     expect(nativeWgpuQssFeatureNames()).toContain('visibility')
     expect(nativeWgpuQssFeatureNames()).toContain('white-space')
@@ -449,6 +450,7 @@ Button.primary {
   text-align: center;
   text-decoration: underline;
   text-overflow: ellipsis;
+  text-transform: uppercase;
   top: 32px;
   visibility: hidden;
   white-space: pre-wrap;
@@ -486,6 +488,7 @@ Button.primary {
         textAlign: 'center',
         textDecoration: 'underline',
         textOverflow: 'ellipsis',
+        textTransform: 'uppercase',
         whiteSpace: 'pre-wrap',
       },
     })
@@ -511,6 +514,7 @@ Button {
   text-align: start;
   text-decoration: blink;
   text-overflow: fade;
+  text-transform: titlecase;
   top: calc(1px);
   visibility: collapse;
   white-space: preserve;
@@ -551,6 +555,7 @@ Button {
   text-align: start;
   text-decoration: blink;
   text-overflow: fade;
+  text-transform: titlecase;
   top: calc(1px);
   visibility: collapse;
   white-space: preserve;
@@ -580,6 +585,7 @@ Button {
   text-align: justify;
   text-decoration: line-through;
   text-overflow: clip;
+  text-transform: capitalize;
   top: 0;
   visibility: visible;
   white-space: nowrap;
@@ -591,7 +597,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(25)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(26)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -632,6 +638,10 @@ Button {
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
         message: expect.stringContaining('text-overflow supports clip'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('text-transform supports none'),
       }),
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -1112,6 +1122,7 @@ Button:nth-child(2) {
     const objectFit = 'Image { object-fit:  }'
     const textAlign = 'Text { text-align:  }'
     const textOverflow = 'Text { text-overflow:  }'
+    const textTransform = 'Text { text-transform:  }'
     const hoverSource = 'Panel { background-size: contain; }'
 
     expect(getNativeUiCompletions(backgroundSize, backgroundSize.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
@@ -1132,6 +1143,8 @@ Button:nth-child(2) {
       .toEqual(expect.arrayContaining(['left', 'center', 'right', 'justify']))
     expect(getNativeUiCompletions(textOverflow, textOverflow.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
       .toEqual(expect.arrayContaining(['clip', 'ellipsis']))
+    expect(getNativeUiCompletions(textTransform, textTransform.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
+      .toEqual(expect.arrayContaining(['none', 'uppercase', 'lowercase', 'capitalize']))
 
     const hover = getNativeUiHover(hoverSource, hoverSource.indexOf('contain') + 2, { filePath: 'menu.qss' })
     expect(hover?.contents).toContain('contain')

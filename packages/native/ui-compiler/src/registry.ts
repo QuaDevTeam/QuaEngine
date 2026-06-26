@@ -177,6 +177,12 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
     value('clip', 'Clip overflowing text at the text box edge.'),
     value('ellipsis', 'Use an ellipsis marker when overflowing text is clipped.'),
   ]),
+  property('text-transform', 'p1', true, 'Text casing policy for native text and button label draw params.', [
+    value('none', 'Render text without casing transformation.'),
+    value('uppercase', 'Transform text to uppercase before text backend layout.'),
+    value('lowercase', 'Transform text to lowercase before text backend layout.'),
+    value('capitalize', 'Capitalize words before text backend layout.'),
+  ]),
   property('text-wrap', 'p2', false, 'Text wrapping metadata planned for native text layout.'),
   property('text-decoration', 'p1', true, 'Text decoration for native text and button label draw params.', [
     value('none', 'Render text without decoration.'),

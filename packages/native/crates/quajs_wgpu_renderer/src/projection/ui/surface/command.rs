@@ -12,7 +12,7 @@ use super::super::style::{
     resolve_font_family, resolve_font_size, resolve_font_style, resolve_font_weight,
     resolve_letter_spacing, resolve_line_height, resolve_object_fit, resolve_padding,
     resolve_text_align, resolve_text_color, resolve_text_decoration, resolve_text_overflow,
-    resolve_white_space,
+    resolve_text_transform, resolve_white_space,
 };
 use super::super::types::{
     UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceResolvedStyle,
@@ -233,6 +233,7 @@ fn button_node_command(
         align: resolve_text_align(&node.style, TextAlign::Center),
         text_decoration: resolve_text_decoration(&node.style),
         text_overflow: resolve_text_overflow(&node.style),
+        text_transform: resolve_text_transform(&node.style),
         white_space: resolve_white_space(&node.style),
         padding: resolve_padding(&node.style),
         intent: node
@@ -264,6 +265,7 @@ fn text_node_command(
             align: resolve_text_align(&node.style, TextAlign::Left),
             text_decoration: resolve_text_decoration(&node.style),
             text_overflow: resolve_text_overflow(&node.style),
+            text_transform: resolve_text_transform(&node.style),
             white_space: resolve_white_space(&node.style),
             color: resolve_text_color(&node.style, "#ffffff"),
             padding: resolve_padding(&node.style),

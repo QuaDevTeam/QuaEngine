@@ -194,6 +194,15 @@ pub enum UiSurfaceTextOverflowProjection {
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
+pub enum UiSurfaceTextTransformProjection {
+    None,
+    Uppercase,
+    Lowercase,
+    Capitalize,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum UiSurfaceWhiteSpaceProjection {
     Normal,
     Nowrap,
@@ -285,6 +294,8 @@ pub struct UiSurfaceResolvedStyle {
     pub text_decoration: Option<UiSurfaceTextDecorationProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_overflow: Option<UiSurfaceTextOverflowProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_transform: Option<UiSurfaceTextTransformProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub white_space: Option<UiSurfaceWhiteSpaceProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

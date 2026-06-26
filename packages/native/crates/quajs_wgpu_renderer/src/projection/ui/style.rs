@@ -1,14 +1,14 @@
 use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
 use crate::render_graph::{
     EdgeInsetsDrawParam, FontStyleDrawParam, FontWeightDrawParam, MediaFit, MediaOrigin, TextAlign,
-    TextDecorationDrawParam, TextOverflowDrawParam, WhiteSpaceDrawParam,
+    TextDecorationDrawParam, TextOverflowDrawParam, TextTransformDrawParam, WhiteSpaceDrawParam,
 };
 
 use super::types::{
     UiSurfaceBorderStyleProjection, UiSurfaceFontStyleProjection, UiSurfaceImageProjection,
     UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
     UiSurfaceTextDecorationProjection, UiSurfaceTextOverflowProjection,
-    UiSurfaceWhiteSpaceProjection,
+    UiSurfaceTextTransformProjection, UiSurfaceWhiteSpaceProjection,
 };
 
 pub fn resolve_background_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {
@@ -137,6 +137,15 @@ pub fn resolve_text_overflow(style: &UiSurfaceResolvedStyle) -> TextOverflowDraw
     match style.text_overflow {
         Some(UiSurfaceTextOverflowProjection::Ellipsis) => TextOverflowDrawParam::Ellipsis,
         Some(UiSurfaceTextOverflowProjection::Clip) | None => TextOverflowDrawParam::Clip,
+    }
+}
+
+pub fn resolve_text_transform(style: &UiSurfaceResolvedStyle) -> TextTransformDrawParam {
+    match style.text_transform {
+        Some(UiSurfaceTextTransformProjection::Uppercase) => TextTransformDrawParam::Uppercase,
+        Some(UiSurfaceTextTransformProjection::Lowercase) => TextTransformDrawParam::Lowercase,
+        Some(UiSurfaceTextTransformProjection::Capitalize) => TextTransformDrawParam::Capitalize,
+        Some(UiSurfaceTextTransformProjection::None) | None => TextTransformDrawParam::None,
     }
 }
 
