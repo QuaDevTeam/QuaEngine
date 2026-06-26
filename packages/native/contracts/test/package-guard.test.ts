@@ -611,6 +611,9 @@ describe('native runtime package guard', () => {
 
   it('matches native payload extensions case-insensitively', () => {
     expect(isForbiddenNativePayload('Plugins/Renderer.DYLIB')).toBe(true)
+    expect(isForbiddenNativePayload('native/plugin.dll?raw')).toBe(true)
+    expect(isForbiddenNativePayload('native/helper.wasm#runtime')).toBe(true)
+    expect(isForbiddenNativePayload('native/helper.wasm?cache=1#runtime')).toBe(true)
     expect(isForbiddenNativePayload('ui/menu.qui.json')).toBe(false)
   })
 

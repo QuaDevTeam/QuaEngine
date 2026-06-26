@@ -174,7 +174,7 @@ export function assertNativeRuntimePackageGuard(options: CheckNativeRuntimePacka
 }
 
 export function isForbiddenNativePayload(assetName: string, forbiddenExtensions: ReadonlySet<string> = new Set(DEFAULT_FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS)): boolean {
-  const normalized = assetName.toLowerCase().replace(/\\/g, '/')
+  const normalized = stripAssetReferenceSuffix(assetName).toLowerCase().replace(/\\/g, '/')
   return Array.from(forbiddenExtensions).some(extension =>
     normalized.endsWith(extension) || normalized.includes(`${extension}/`))
 }
@@ -374,6 +374,11 @@ function addRuntimeModuleVariantAssetNames(
 function addAssetName(names: Set<string>, value: string | undefined): void {
   if (value)
     names.add(value)
+}
+
+function stripAssetReferenceSuffix(assetName: string): string {
+  const suffixIndex = assetName.search(/[?#]/)
+  return suffixIndex >= 0 ? assetName.slice(0, suffixIndex) : assetName
 }
 
 function isNativePluginDeclaration(plugin: NativeGuardRuntimePackagePluginManifest): boolean {
