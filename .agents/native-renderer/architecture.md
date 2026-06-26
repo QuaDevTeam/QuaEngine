@@ -69,7 +69,7 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 - Runtime QPK 可声明多端 compatibility metadata，但 active artifact 只能评估当前 target block；QPK 不允许声明或携带任何 target core executable dependency。
 - 第三方 plugin manifest 必须通过 `validateTargetPluginManifest`：shared entry 只能 import 平台无关逻辑，active target entry 只能 import 本 target core，inactive target entry 不能 eager 进入产物。
 - target-specific renderer plugin entry 也属于目标隔离面：Web renderer subentry 不能进入 Cocos/Native，Cocos renderer subentry 不能进入 Web/Native，Native capability / bridge entry 不能进入 Web/Cocos。进入 `target-bundle-manifest.json` 的 app renderer entry 和 Runtime QPK renderer entry 必须显式声明 `target`，缺失 `target` 或声明为其他目标都要失败，不能靠包名猜测或运行时过滤。
-- 所有 target bundle reference、plugin import reference、Runtime QPK executable/renderer reference 都要同时校验 `specifier` 和 `packageName`；不能让一个普通包名字段遮住另一个字段里的 Web/Cocos/Native target core 子入口。
+- 所有 target bundle reference、plugin import reference、Runtime QPK executable/renderer reference 都要同时校验 `specifier` 和 `packageName`；不能让一个普通包名字段遮住另一个字段里的 Web/Cocos/Native target core 子入口、query/hash-suffixed bundler specifier、Windows/backslash 路径、`node_modules` 路径或 pnpm `.pnpm` store 路径。
 - 最终 `target-bundle-manifest.json` 必须通过 `validateTargetBundleManifest`；Web、Cocos、Native 的 debug/release、installer/updater、手写 shell 和 CI fixture 都不能跳过这一步。
 - release artifact 的依赖图检查必须发生在 bundle / tree-shake 之后，防止源码层过滤正确但产物里残留其他 target core 子入口。
 
@@ -88,7 +88,7 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 1. bootstrap selection：`validateExclusiveTargetBootstrap` 保证只有一个 target core family。
 2. ordinary plugin resolution：`validateOrdinaryPluginListTargetIsolation` 拦截 shared preset、普通 `plugins` 和 generated resolver 中的 target core 根包或子入口。
 3. plugin entry selection：`validateTargetPluginManifest` 只允许 active target entry 进入依赖图，shared entry 必须保持平台无关，inactive target entry 不能 eager。
-4. post-bundle graph：bundle / tree-shake 后重新扫描 `specifier` 与 `packageName`，防止 subentry 或别名把其他 target core 带入 release 产物。
+4. post-bundle graph：bundle / tree-shake 后重新扫描 `specifier` 与 `packageName`，先把 subentry、`npm:` specifier、`?query` / `#hash` 后缀、Windows/backslash 路径、`node_modules` 路径和 pnpm `.pnpm` store 路径归一到 package root，再防止其他 target core 带入 release 产物。
 5. startup / Runtime QPK：`validateTargetBundleManifest` 和 runtime startup 重复校验 target、resolver、selected adapters、renderer entries、Runtime QPK executable dependencies 与 active target 一致；Runtime QPK 的非 active target compatibility block 只能是 metadata。
 
 native 包装必须始终通过：
