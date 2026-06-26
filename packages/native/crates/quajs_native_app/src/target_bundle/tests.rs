@@ -246,6 +246,62 @@ fn checks_both_specifier_and_package_name_for_selected_core_adapters() {
 }
 
 #[test]
+fn rejects_target_core_adapters_in_non_post_bundle_project_graphs() {
+    let mut manifest = native_manifest();
+    manifest
+        .project_graphs
+        .push(TargetBundleProjectGraphRecord {
+            id: "native.startup-shell.declares-core".to_string(),
+            kind: "startup-shell".to_string(),
+            references: vec![
+                TargetBundleReference::Specifier("@quajs/engine".to_string()),
+                TargetBundleReference::Specifier("@quajs/engine-native/bootstrap".to_string()),
+            ],
+        });
+
+    let error = validate_native_target_bundle_manifest(&manifest, None)
+        .expect_err("startup shell target core declarations are rejected");
+
+    assert!(error.diagnostics().iter().any(|diagnostic| diagnostic.contains(
+        "Project graph \"native.startup-shell.declares-core\" (startup-shell) for native target must not declare target core adapter \"@quajs/engine-native\""
+    )));
+}
+
+#[test]
+fn rejects_inactive_target_core_adapters_in_post_bundle_project_graphs() {
+    let mut manifest = native_manifest();
+    manifest
+        .project_graphs
+        .push(TargetBundleProjectGraphRecord {
+            id: "native.release.macos.post-bundle.bad".to_string(),
+            kind: "post-bundle".to_string(),
+            references: vec![
+                TargetBundleReference::Specifier("@quajs/engine-native".to_string()),
+                TargetBundleReference::Object(TargetBundleReferenceObject {
+                    specifier: Some("@quajs/character".to_string()),
+                    package_name: Some("@quajs/renderer-web/plugins/ui".to_string()),
+                    target: None,
+                    plugin_id: None,
+                }),
+                TargetBundleReference::Specifier(
+                    "/repo/app/node_modules/@quajs/renderer-cocos/plugins/dialogue.js?import"
+                        .to_string(),
+                ),
+            ],
+        });
+
+    let error = validate_native_target_bundle_manifest(&manifest, None)
+        .expect_err("post-bundle inactive target core adapters are rejected");
+
+    assert!(error.diagnostics().iter().any(|diagnostic| diagnostic.contains(
+        "Post-bundle project graph \"native.release.macos.post-bundle.bad\" for native target must not include inactive target core adapter \"@quajs/renderer-web\""
+    )));
+    assert!(error.diagnostics().iter().any(|diagnostic| diagnostic.contains(
+        "Post-bundle project graph \"native.release.macos.post-bundle.bad\" for native target must not include inactive target core adapter \"@quajs/renderer-cocos\""
+    )));
+}
+
+#[test]
 fn deserializes_target_bundle_manifest_contract_shape() {
     let manifest: NativeTargetBundleManifest =
         serde_json::from_value(native_manifest_json()).expect("manifest contract shape parses");
@@ -492,6 +548,28 @@ fn native_manifest_json() -> serde_json::Value {
                     { "specifier": "@quajs/native-renderer/ui", "target": "native" }
                 ]
             }
+        ],
+        "projectGraphs": [
+            {
+                "id": "native.startup-shell",
+                "kind": "startup-shell",
+                "references": [
+                    "@quajs/engine",
+                    "@quajs/character"
+                ]
+            },
+            {
+                "id": "native.release.macos.post-bundle",
+                "kind": "post-bundle",
+                "references": [
+                    "@quajs/engine",
+                    "@quajs/engine-native",
+                    "@quajs/assets-native",
+                    "@quajs/store-native",
+                    "@quajs/native-contracts",
+                    "quajs_wgpu_renderer::capabilities"
+                ]
+            }
         ]
     })
 }
@@ -548,6 +626,30 @@ pub(crate) fn native_manifest() -> NativeTargetBundleManifest {
                 plugin_id: None,
             })],
         }],
+        project_graphs: vec![
+            TargetBundleProjectGraphRecord {
+                id: "native.startup-shell".to_string(),
+                kind: "startup-shell".to_string(),
+                references: vec![
+                    TargetBundleReference::Specifier("@quajs/engine".to_string()),
+                    TargetBundleReference::Specifier("@quajs/character".to_string()),
+                ],
+            },
+            TargetBundleProjectGraphRecord {
+                id: "native.release.macos.post-bundle".to_string(),
+                kind: "post-bundle".to_string(),
+                references: vec![
+                    TargetBundleReference::Specifier("@quajs/engine".to_string()),
+                    TargetBundleReference::Specifier("@quajs/engine-native".to_string()),
+                    TargetBundleReference::Specifier("@quajs/assets-native".to_string()),
+                    TargetBundleReference::Specifier("@quajs/store-native".to_string()),
+                    TargetBundleReference::Specifier("@quajs/native-contracts".to_string()),
+                    TargetBundleReference::Specifier(
+                        "quajs_wgpu_renderer::capabilities".to_string(),
+                    ),
+                ],
+            },
+        ],
     }
 }
 

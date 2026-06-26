@@ -9,7 +9,10 @@ pub use manifest::{
     TargetBundleReference,
 };
 #[cfg(test)]
-pub use manifest::{RuntimePackageRecord, TargetBundleAppInfo, TargetBundleReferenceObject};
+pub use manifest::{
+    RuntimePackageRecord, TargetBundleAppInfo, TargetBundleProjectGraphRecord,
+    TargetBundleReferenceObject,
+};
 use native_renderer::check_native_renderer_info;
 
 const WEB_CORE_ADAPTERS: &[&str] = &["@quajs/assets-web", "@quajs/renderer-web"];
@@ -85,6 +88,7 @@ pub fn validate_native_target_bundle_manifest(
     check_foreign_target_roots(&package_names, &mut diagnostics);
     check_renderer_entry_targets(manifest, &mut diagnostics);
     check_runtime_package_core_adapters(manifest, &mut diagnostics);
+    check_project_graph_core_adapters(manifest, &mut diagnostics);
 
     if diagnostics.is_empty() {
         Ok(NativeStartupValidation {
@@ -395,6 +399,40 @@ fn check_runtime_package_core_adapters(
     }
 }
 
+fn check_project_graph_core_adapters(
+    manifest: &NativeTargetBundleManifest,
+    diagnostics: &mut Vec<String>,
+) {
+    for project_graph in &manifest.project_graphs {
+        for package_name in project_graph
+            .references
+            .iter()
+            .flat_map(TargetBundleReference::specifiers)
+            .map(normalize_package_specifier)
+        {
+            let Some(package_core_family) = target_core_plugin_family(&package_name) else {
+                continue;
+            };
+
+            if project_graph.kind == "post-bundle" && package_core_family == "native-core" {
+                continue;
+            }
+
+            if project_graph.kind == "post-bundle" {
+                diagnostics.push(format!(
+                    "Post-bundle project graph \"{}\" for native target must not include inactive target core adapter \"{}\" from \"{}\".",
+                    project_graph.id, package_name, package_core_family
+                ));
+            } else {
+                diagnostics.push(format!(
+                    "Project graph \"{}\" ({}) for native target must not declare target core adapter \"{}\" from \"{}\". Target core wiring belongs only in the native target-core resolver.",
+                    project_graph.id, project_graph.kind, package_name, package_core_family
+                ));
+            }
+        }
+    }
+}
+
 fn collect_target_bundle_package_names(manifest: &NativeTargetBundleManifest) -> Vec<String> {
     let mut package_names = BTreeSet::new();
 
@@ -405,6 +443,10 @@ fn collect_target_bundle_package_names(manifest: &NativeTargetBundleManifest) ->
     for runtime_package in &manifest.runtime_packages {
         collect_package_names(&runtime_package.executable_dependencies, &mut package_names);
         collect_package_names(&runtime_package.renderer_entries, &mut package_names);
+    }
+
+    for project_graph in &manifest.project_graphs {
+        collect_package_names(&project_graph.references, &mut package_names);
     }
 
     package_names.into_iter().collect()

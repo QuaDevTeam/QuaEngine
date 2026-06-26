@@ -25,6 +25,8 @@ pub struct NativeTargetBundleManifest {
     pub renderer_entries: Vec<TargetBundleReference>,
     #[serde(default)]
     pub runtime_packages: Vec<RuntimePackageRecord>,
+    #[serde(default)]
+    pub project_graphs: Vec<TargetBundleProjectGraphRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -65,6 +67,15 @@ pub struct RuntimePackageRecord {
     pub executable_dependencies: Vec<TargetBundleReference>,
     #[serde(default)]
     pub renderer_entries: Vec<TargetBundleReference>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TargetBundleProjectGraphRecord {
+    pub id: String,
+    pub kind: String,
+    #[serde(default)]
+    pub references: Vec<TargetBundleReference>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
