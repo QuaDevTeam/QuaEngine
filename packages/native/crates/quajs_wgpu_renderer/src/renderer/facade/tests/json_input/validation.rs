@@ -778,6 +778,50 @@ fn json_frame_background_number_validation_rejects_unsafe_resolved_values() {
 }
 
 #[test]
+fn json_frame_background_origin_validation_rejects_unsafe_resolved_values() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let background = renderer
+        .prepare_frame_json_str(json_frame_with_oversized_background_origin_input())
+        .unwrap_err();
+    match background {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.background.origin");
+            assert_eq!(validation.asset_name, "120% 50%");
+            assert!(validation.reason.contains("0%..100%"));
+        }
+        other => panic!("expected unsafe background origin validation error, got {other:?}"),
+    }
+
+    let layer = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_background_layer_origin_input())
+        .unwrap_err();
+    match layer {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.background.layers[0].origin");
+            assert_eq!(validation.asset_name, "left ../native.dll");
+            assert!(validation.reason.contains("paths"));
+        }
+        other => panic!("expected unsafe background layer origin validation error, got {other:?}"),
+    }
+
+    let video = renderer
+        .prepare_frame_json_str(json_frame_with_remote_background_video_origin_input())
+        .unwrap_err();
+    match video {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.background.video.origin");
+            assert_eq!(validation.asset_name, "native:load");
+            assert!(validation.reason.contains("URI"));
+        }
+        other => panic!("expected unsafe background video origin validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_character_number_validation_rejects_unsafe_resolved_values() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

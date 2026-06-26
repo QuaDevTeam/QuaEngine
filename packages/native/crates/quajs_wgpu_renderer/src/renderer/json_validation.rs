@@ -1,5 +1,6 @@
 mod audio_numbers;
 mod background_numbers;
+mod background_origin;
 mod character_numbers;
 mod rich_text_numbers;
 mod ui_geometry;
@@ -29,6 +30,7 @@ use background_numbers::{
     invalid_native_json_background_geometry_reason, invalid_native_json_background_opacity_reason,
     invalid_native_json_background_rotation_reason,
 };
+use background_origin::invalid_native_json_background_origin_reason;
 use character_numbers::{
     invalid_native_json_character_opacity_reason, invalid_native_json_character_position_reason,
 };
@@ -119,6 +121,9 @@ impl JsonProjectionValidator {
         if let Some(asset_name) = &background.asset_name {
             self.validate_asset_reference("view.background.assetName", asset_name);
         }
+        if let Some(origin) = &background.origin {
+            self.validate_background_origin("view.background.origin", origin);
+        }
         self.validate_background_geometry(
             "view.background",
             background.x,
@@ -144,6 +149,9 @@ impl JsonProjectionValidator {
                 "background layer ids",
             );
             self.validate_asset_reference(&format!("{layer_path}.assetName"), &layer.asset_name);
+            if let Some(origin) = &layer.origin {
+                self.validate_background_origin(&format!("{layer_path}.origin"), origin);
+            }
             self.validate_background_geometry(
                 &layer_path,
                 layer.x,
@@ -165,6 +173,9 @@ impl JsonProjectionValidator {
         self.validate_asset_reference("view.background.video.assetName", &video.asset_name);
         if let Some(poster) = &video.poster {
             self.validate_asset_reference("view.background.video.poster", poster);
+        }
+        if let Some(origin) = &video.origin {
+            self.validate_background_origin("view.background.video.origin", origin);
         }
         self.validate_background_opacity("view.background.video.opacity", video.opacity);
         self.validate_provenance("view.background.video.provenance", &video.provenance);
@@ -572,6 +583,16 @@ impl JsonProjectionValidator {
             self.errors.push(NativeRendererJsonValidationError {
                 path: path.to_string(),
                 asset_name: value.to_string(),
+                reason,
+            });
+        }
+    }
+
+    fn validate_background_origin(&mut self, path: &str, origin: &str) {
+        if let Some(reason) = invalid_native_json_background_origin_reason(origin) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: origin.to_string(),
                 reason,
             });
         }
