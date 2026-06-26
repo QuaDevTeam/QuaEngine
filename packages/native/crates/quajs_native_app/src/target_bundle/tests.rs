@@ -516,7 +516,6 @@ fn native_manifest_json() -> serde_json::Value {
             "packageName": "@quajs/native-renderer",
             "version": "0.1.0",
             "backend": "wgpu",
-            "backendVersion": "wgpu-fixture",
             "capabilityIds": [
                 "native-wgpu.stage-layout@1",
                 "native-wgpu.ui.surface@1",
@@ -589,7 +588,7 @@ pub(crate) fn native_manifest() -> NativeTargetBundleManifest {
             package_name: Some("@quajs/native-renderer".to_string()),
             version: Some("0.1.0".to_string()),
             backend: Some("wgpu".to_string()),
-            backend_version: Some("wgpu-fixture".to_string()),
+            backend_version: None,
             capability_ids: vec![
                 "native-wgpu.stage-layout@1".to_string(),
                 "native-wgpu.ui.surface@1".to_string(),

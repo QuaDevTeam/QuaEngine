@@ -482,6 +482,31 @@ describe('@quajs/engine-native', () => {
     expect(plugin.getHostInfo()).toBeUndefined()
   })
 
+  it('rejects emitted native renderer backendVersion that drifts from host info', async () => {
+    const hostInfo = createHostInfo()
+    hostInfo.renderer = {
+      ...hostInfo.renderer,
+      backendVersion: 'wgpu-host',
+    }
+    const host = createHost(hostInfo)
+    const plugin = new NativeHostPlugin({
+      host,
+      targetBundleManifest: createNativeTargetBundleManifest({
+        nativeRenderer: {
+          ...createNativeTargetBundleManifest().nativeRenderer!,
+          backendVersion: 'wgpu-manifest',
+        },
+      }),
+    })
+
+    await expect(plugin.init({} as any)).rejects.toThrow(
+      /Native manifest compatibility validation failed.*renderer backendVersion "wgpu-manifest" does not match host renderer backendVersion "wgpu-host"/,
+    )
+    expect(plugin.getTargetBundleManifestValidation()?.ok).toBe(true)
+    expect(host.getHostInfo).toHaveBeenCalledTimes(1)
+    expect(plugin.getHostInfo()).toBeUndefined()
+  })
+
   it('rejects native post-bundle manifests with foreign target core plugin families before host info', async () => {
     const host = createHost()
     const plugin = new NativeHostPlugin({
