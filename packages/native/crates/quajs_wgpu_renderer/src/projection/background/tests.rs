@@ -1,8 +1,11 @@
 use std::collections::BTreeSet;
 
 use super::*;
+use crate::projection::background::layout::media_origin;
 use crate::projection::common::PackageProvenance;
-use crate::render_graph::{DrawCommandKind, DrawCommandParams, MediaFit, RenderGraph, RenderPlane};
+use crate::render_graph::{
+    DrawCommandKind, DrawCommandParams, MediaFit, MediaOrigin, RenderGraph, RenderPlane,
+};
 use crate::resources::ResourceId;
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
@@ -72,6 +75,11 @@ fn builds_visible_layered_background_commands_in_scene_plane() {
                 z_index: -5,
                 ..BackgroundLayerProjection::new("sky", "layers/sky.webp")
             },
+            BackgroundLayerProjection {
+                origin: Some("25% 75%".to_string()),
+                z_index: 5,
+                ..BackgroundLayerProjection::new("mist", "layers/mist.webp")
+            },
         ],
         ..Default::default()
     };
@@ -84,7 +92,14 @@ fn builds_visible_layered_background_commands_in_scene_plane() {
         .map(|command| command.id.as_str())
         .collect();
 
-    assert_eq!(ids, vec!["background:layer:sky", "background:layer:light"]);
+    assert_eq!(
+        ids,
+        vec![
+            "background:layer:sky",
+            "background:layer:mist",
+            "background:layer:light"
+        ]
+    );
     assert_eq!(graph.commands()[0].bounds.x, 50.0);
     assert_eq!(graph.commands()[0].bounds.width, 640.0);
     match &graph.commands()[0].params {
@@ -93,15 +108,22 @@ fn builds_visible_layered_background_commands_in_scene_plane() {
         }
         _ => panic!("expected layer image params"),
     }
-    assert_eq!(graph.commands()[1].opacity, 0.7);
+    match &graph.commands()[1].params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.origin.x, 0.25);
+            assert_eq!(params.origin.y, 0.75);
+        }
+        _ => panic!("expected layer image params"),
+    }
+    assert_eq!(graph.commands()[2].opacity, 0.7);
     assert_eq!(
-        graph.commands()[1].owner_package_id.as_deref(),
+        graph.commands()[2].owner_package_id.as_deref(),
         Some("runtime.light")
     );
-    assert!(graph.commands()[1].required_package_ids.contains("base"));
+    assert!(graph.commands()[2].required_package_ids.contains("base"));
     assert_eq!(
         graph.summary().by_plane[&RenderPlane::Scene].command_count,
-        2
+        3
     );
 }
 
@@ -163,6 +185,31 @@ fn deserializes_background_rotation_from_camel_case_json() {
 
     assert_eq!(background.rotation, 24.5);
     assert_eq!(background.layers[0].rotation, -16.25);
+}
+
+#[test]
+fn parses_media_origin_percentages_from_resolved_projection_strings() {
+    assert_eq!(media_origin(Some("25%")), MediaOrigin { x: 0.25, y: 0.5 });
+    assert_eq!(
+        media_origin(Some("25% 75%")),
+        MediaOrigin { x: 0.25, y: 0.75 }
+    );
+    assert_eq!(
+        media_origin(Some("top 25%")),
+        MediaOrigin { x: 0.25, y: 0.0 }
+    );
+    assert_eq!(
+        media_origin(Some("right 75%")),
+        MediaOrigin { x: 1.0, y: 0.75 }
+    );
+    assert_eq!(
+        media_origin(Some("left bottom")),
+        MediaOrigin { x: 0.0, y: 1.0 }
+    );
+    assert_eq!(
+        media_origin(Some("120% 50%")),
+        MediaOrigin { x: 0.5, y: 0.5 }
+    );
 }
 
 fn test_layout() -> ResolvedStageLayout {
