@@ -180,7 +180,11 @@ export function isForbiddenNativePayload(assetName: string, forbiddenExtensions:
 }
 
 export function isForbiddenNativeAssetReference(assetName: string): boolean {
-  const normalized = assetName.replace(/\\/g, '/')
+  const withoutSuffix = stripAssetReferenceSuffix(assetName)
+  if (assetName.trim().length === 0 || withoutSuffix.trim().length === 0)
+    return true
+
+  const normalized = withoutSuffix.replace(/\\/g, '/')
   return normalized.startsWith('/')
     || normalized.startsWith('\\')
     || /^[a-z][a-z0-9+.-]*:/i.test(normalized)
@@ -372,7 +376,7 @@ function addRuntimeModuleVariantAssetNames(
 }
 
 function addAssetName(names: Set<string>, value: string | undefined): void {
-  if (value)
+  if (typeof value === 'string')
     names.add(value)
 }
 
