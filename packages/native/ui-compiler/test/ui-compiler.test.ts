@@ -28,6 +28,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('background-image')
     expect(nativeWgpuQssFeatureNames()).toContain('background-position')
     expect(nativeWgpuQssFeatureNames()).toContain('background-size')
+    expect(nativeWgpuQssFeatureNames()).toContain('display')
     expect(nativeWgpuQssFeatureNames()).toContain('height')
     expect(nativeWgpuQssFeatureNames()).toContain('left')
     expect(nativeWgpuQssFeatureNames()).toContain('object-fit')
@@ -477,6 +478,7 @@ Button.primary {
 Button {
   border-width: -1px;
   border-radius: calc(4px);
+  display: block;
   font-weight: heavy;
   height: -1px;
   left: calc(2px);
@@ -510,6 +512,7 @@ Button {
 Button {
   border-width: -1px;
   border-radius: calc(4px);
+  display: block;
   font-weight: heavy;
   height: -1px;
   left: calc(2px);
@@ -532,6 +535,7 @@ Button {
 Button {
   border-width: 0;
   border-radius: 0px;
+  display: none;
   font-weight: 0;
   height: 24px;
   left: -12px;
@@ -551,7 +555,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(18)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(19)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -564,6 +568,10 @@ Button {
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
         message: expect.stringContaining('background-size supports cover'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('display currently supports none'),
       }),
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -728,6 +736,54 @@ Button.primary {
             id: 'override-button',
             kind: 'Button',
             bounds: { x: 140, y: 96, width: 120, height: 48 },
+            text: 'Override',
+          },
+        ],
+      },
+    })
+  })
+
+  it('uses QSS display none as node visibility fallback while QUI show stays authoritative', () => {
+    const qui = analyzeQuiSource(`
+Panel.dialog(id: "menu") {
+  Text.notice(id: "hidden-text") { "Hidden by display" }
+  Button.primary(id: "override-button", label: "Override", show: true)
+}
+`)
+    const qss = analyzeQssSource(`
+Text.notice {
+  display: none;
+  visibility: visible;
+}
+Button.primary {
+  display: none;
+}
+Panel.dialog {
+  visibility: visible;
+}
+`)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(qss.diagnostics).toEqual([])
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+      root: {
+        id: 'menu',
+        kind: 'Panel',
+        bounds: { x: 0, y: 0, width: 0, height: 0 },
+        visible: true,
+        children: [
+          {
+            id: 'hidden-text',
+            kind: 'Text',
+            bounds: { x: 0, y: 0, width: 0, height: 0 },
+            visible: false,
+            text: 'Hidden by display',
+          },
+          {
+            id: 'override-button',
+            kind: 'Button',
+            bounds: { x: 0, y: 0, width: 0, height: 0 },
+            visible: true,
             text: 'Override',
           },
         ],

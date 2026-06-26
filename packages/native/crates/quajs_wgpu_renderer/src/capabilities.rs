@@ -64,6 +64,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "border-radius",
                 "border-width",
                 "color",
+                "display",
                 "font-family",
                 "font-size",
                 "font-weight",
