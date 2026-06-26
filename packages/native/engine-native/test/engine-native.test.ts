@@ -788,6 +788,48 @@ describe('@quajs/engine-native', () => {
     }, ctx)).rejects.toThrow(/did not evaluate to a module namespace object/)
   })
 
+  it('validates QuickJS evaluation requests before calling the native host', async () => {
+    const host = {
+      ...createHost(),
+      evaluateQuickJsModule: vi.fn(async () => ({
+        ok: true,
+        moduleNamespaceId: 'runtime.chapter.native-ui:scripts/opening.js',
+      })),
+    }
+    const evaluator = createNativeHostQuickJsModuleEvaluator(host, () => ({ default: undefined }))
+
+    await expect(evaluator({
+      assetName: '../escape.js',
+      bundleName: 'runtime.chapter.native-ui',
+      bytes: new Uint8Array(),
+      code: '',
+      kind: 'script',
+      packageId: 'runtime.chapter.native-ui',
+      record: {
+        id: 'escape',
+        assetName: '../escape.js',
+      } as any,
+      request: {
+        module: {
+          assetName: '../escape.js',
+          bundleName: 'runtime.chapter.native-ui',
+          packageId: 'runtime.chapter.native-ui',
+          kind: 'script',
+          code: '',
+          bytes: [],
+        },
+        limits: {
+          maxExecutionTicks: 1_000_000,
+          maxHeapBytes: 64 * 1024 * 1024,
+          maxModuleBytes: 4 * 1024 * 1024,
+          maxStackBytes: 2 * 1024 * 1024,
+        },
+      },
+    })).rejects.toThrow(/must be package-relative/)
+
+    expect(host.evaluateQuickJsModule).not.toHaveBeenCalled()
+  })
+
   it('releases host QuickJS module namespaces without treating handles as engine modules', async () => {
     const namespaceRecord = {
       id: 'quickjs:module:1',
