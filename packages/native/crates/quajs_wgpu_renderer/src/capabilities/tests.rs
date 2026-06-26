@@ -81,7 +81,11 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(!ui.qss_features.contains(&"display".to_string()));
     assert!(!ui.qss_features.contains(&"flex-direction".to_string()));
     assert!(!ui.qss_features.contains(&"gap".to_string()));
-    assert!(!ui.qss_features.contains(&"padding".to_string()));
+    assert!(ui.qss_features.contains(&"padding".to_string()));
+    assert!(ui.qss_features.contains(&"padding-bottom".to_string()));
+    assert!(ui.qss_features.contains(&"padding-left".to_string()));
+    assert!(ui.qss_features.contains(&"padding-right".to_string()));
+    assert!(ui.qss_features.contains(&"padding-top".to_string()));
     assert!(!ui.qss_features.contains(&"margin".to_string()));
     assert!(ui.qss_features.contains(&"background-color".to_string()));
     assert!(ui.qss_features.contains(&"background-image".to_string()));
@@ -130,7 +134,9 @@ fn ui_surface_capability_covers_shared_compiled_surface_fixture() {
         .as_array()
         .expect("fixture overlays");
     let mut fixture = FixtureSurfaceRequirements::default();
-    fixture.projection_keys.insert("view.ui.overlays".to_string());
+    fixture
+        .projection_keys
+        .insert("view.ui.overlays".to_string());
     fixture.asset_kinds.insert("qui".to_string());
     fixture.asset_kinds.insert("qss".to_string());
     fixture.asset_kinds.insert("tokens".to_string());

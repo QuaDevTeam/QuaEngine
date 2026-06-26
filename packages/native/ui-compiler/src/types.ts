@@ -215,6 +215,13 @@ export interface NativeQssBackgroundPositionValue {
   y: number
 }
 
+export interface NativeQssEdgeInsetsValue {
+  bottom: number
+  left: number
+  right: number
+  top: number
+}
+
 export interface NativeQssResolvedStyle {
   backgroundColor?: string
   backgroundImage?: NativeQssBackgroundImageValue
@@ -230,6 +237,7 @@ export interface NativeQssResolvedStyle {
   lineHeight?: number
   objectFit?: NativeQssObjectFitValue
   opacity?: number
+  padding?: NativeQssEdgeInsetsValue
   textAlign?: NativeQssTextAlignValue
 }
 

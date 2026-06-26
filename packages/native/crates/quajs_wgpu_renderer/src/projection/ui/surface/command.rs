@@ -10,7 +10,7 @@ use super::super::style::{
     resolve_background_color, resolve_background_image, resolve_background_position,
     resolve_background_size, resolve_border_color, resolve_border_radius, resolve_border_width,
     resolve_font_family, resolve_font_size, resolve_font_weight, resolve_line_height,
-    resolve_object_fit, resolve_text_align, resolve_text_color,
+    resolve_object_fit, resolve_padding, resolve_text_align, resolve_text_color,
 };
 use super::super::types::{
     UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceResolvedStyle,
@@ -227,6 +227,7 @@ fn button_node_command(
         font_weight: resolve_font_weight(&node.style),
         line_height: resolve_line_height(&node.style, 36.0),
         align: resolve_text_align(&node.style, TextAlign::Center),
+        padding: resolve_padding(&node.style),
         intent: node
             .intent
             .as_ref()
@@ -253,6 +254,7 @@ fn text_node_command(
             line_height: resolve_line_height(&node.style, 36.0),
             align: resolve_text_align(&node.style, TextAlign::Left),
             color: resolve_text_color(&node.style, "#ffffff"),
+            padding: resolve_padding(&node.style),
             role: role.to_string(),
         }))
 }
@@ -311,6 +313,7 @@ fn surface_panel_node_command(
         corner_radius: resolve_border_radius(&node.style, 0.0),
         fill_color: resolve_background_color(&node.style, fallback_fill_color),
         border: surface_border_params(&node.style),
+        padding: resolve_padding(&node.style),
         intent,
     }))
 }

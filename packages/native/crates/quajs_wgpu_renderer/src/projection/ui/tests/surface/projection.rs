@@ -4,8 +4,9 @@ use crate::projection::common::{FontFamilyProjection, FontWeightProjection};
 use crate::projection::ui::{
     append_ui_commands, build_ui_commands, UiIntentProjection, UiOverlayProjection,
     UiOverlaySurfaceProjection, UiProjection, UiSurfaceBackgroundPositionProjection,
-    UiSurfaceImageProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection,
-    UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
+    UiSurfaceEdgeInsetsProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
+    UiSurfaceNodeProjection, UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle,
+    UiSurfaceTextAlignProjection,
 };
 use crate::render_graph::{
     DrawCommandKind, DrawCommandParams, FontWeightDrawParam, LogicalRect, MediaFit, RenderGraph,
@@ -206,6 +207,12 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                     border_radius: Some(14.0),
                     border_color: Some("#5ac8fa".to_string()),
                     border_width: Some(2.0),
+                    padding: Some(UiSurfaceEdgeInsetsProjection {
+                        top: 12.0,
+                        right: 18.0,
+                        bottom: 20.0,
+                        left: 16.0,
+                    }),
                     ..Default::default()
                 })
                 .with_children(vec![
@@ -226,6 +233,12 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                         font_weight: Some(FontWeightProjection::number(650)),
                         line_height: Some(44.0),
                         text_align: Some(UiSurfaceTextAlignProjection::Center),
+                        padding: Some(UiSurfaceEdgeInsetsProjection {
+                            top: 2.0,
+                            right: 4.0,
+                            bottom: 6.0,
+                            left: 8.0,
+                        }),
                         ..Default::default()
                     }),
                     UiSurfaceNodeProjection::new(
@@ -259,6 +272,12 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                         font_weight: Some(FontWeightProjection::keyword("bold")),
                         line_height: Some(40.0),
                         text_align: Some(UiSurfaceTextAlignProjection::Right),
+                        padding: Some(UiSurfaceEdgeInsetsProjection {
+                            top: 6.0,
+                            right: 14.0,
+                            bottom: 8.0,
+                            left: 12.0,
+                        }),
                         ..Default::default()
                     }),
                 ]),
@@ -275,6 +294,10 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
             assert_eq!(params.corner_radius, 14.0);
             assert_eq!(params.border.color.as_deref(), Some("#5ac8fa"));
             assert_eq!(params.border.width, 2.0);
+            assert_eq!(params.padding.top, 12.0);
+            assert_eq!(params.padding.right, 18.0);
+            assert_eq!(params.padding.bottom, 20.0);
+            assert_eq!(params.padding.left, 16.0);
         }
         _ => panic!("expected panel params"),
     }
@@ -290,6 +313,10 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
             );
             assert_eq!(params.line_height, 44.0);
             assert_eq!(params.align, TextAlign::Center);
+            assert_eq!(params.padding.top, 2.0);
+            assert_eq!(params.padding.right, 4.0);
+            assert_eq!(params.padding.bottom, 6.0);
+            assert_eq!(params.padding.left, 8.0);
         }
         _ => panic!("expected text params"),
     }
@@ -322,6 +349,10 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
             );
             assert_eq!(params.line_height, 40.0);
             assert_eq!(params.align, TextAlign::Right);
+            assert_eq!(params.padding.top, 6.0);
+            assert_eq!(params.padding.right, 14.0);
+            assert_eq!(params.padding.bottom, 8.0);
+            assert_eq!(params.padding.left, 12.0);
         }
         _ => panic!("expected ui button params"),
     }

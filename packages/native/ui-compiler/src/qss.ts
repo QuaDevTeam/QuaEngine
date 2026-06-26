@@ -18,6 +18,7 @@ import {
 import {
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
+  parseNativeQssEdgeInsets,
   parseNativeQssFontFamilyList,
   parseNativeQssFontWeight,
   parseNativeQssInteger,
@@ -668,6 +669,17 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssOpacity(value) !== undefined
         ? undefined
         : 'opacity must be a finite number; native projection clamps it to 0..1.'
+    case 'padding':
+      return parseNativeQssEdgeInsets(value) !== undefined
+        ? undefined
+        : 'padding supports one to four non-negative logical px or unitless numbers.'
+    case 'padding-bottom':
+    case 'padding-left':
+    case 'padding-right':
+    case 'padding-top':
+      return parseNativeQssLogicalNumber(value) !== undefined
+        ? undefined
+        : `${declaration.name} must be a non-negative logical px or unitless number.`
     case 'text-align':
       return parseNativeQssTextAlign(value)
         ? undefined

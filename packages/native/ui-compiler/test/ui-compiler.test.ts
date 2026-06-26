@@ -30,8 +30,12 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('background-size')
     expect(nativeWgpuQssFeatureNames()).toContain('object-fit')
     expect(nativeWgpuQssFeatureNames()).toContain('opacity')
+    expect(nativeWgpuQssFeatureNames()).toContain('padding')
+    expect(nativeWgpuQssFeatureNames()).toContain('padding-bottom')
+    expect(nativeWgpuQssFeatureNames()).toContain('padding-left')
+    expect(nativeWgpuQssFeatureNames()).toContain('padding-right')
+    expect(nativeWgpuQssFeatureNames()).toContain('padding-top')
     expect(nativeWgpuQssFeatureNames()).toContain('z-index')
-    expect(nativeWgpuQssFeatureNames()).not.toContain('padding')
   })
 
   it('parses QUI imports, nodes, and safe directives', () => {
@@ -422,6 +426,8 @@ Button.primary {
   line-height: 1.25;
   object-fit: cover;
   opacity: 1.4;
+  padding: 12px 20px;
+  padding-left: 24px;
   text-align: center;
   z-index: 12;
 }
@@ -445,6 +451,7 @@ Button.primary {
         lineHeight: 1.25,
         objectFit: 'cover',
         opacity: 1,
+        padding: { top: 12, right: 20, bottom: 12, left: 24 },
         textAlign: 'center',
       },
     })
@@ -458,6 +465,8 @@ Button {
   font-weight: heavy;
   object-fit: stretch;
   opacity: none;
+  padding: 1px 2px 3px 4px 5px;
+  padding-left: -4px;
   text-align: start;
   z-index: 1.5;
   background-image: asset("../escape.png");
@@ -483,6 +492,8 @@ Button {
   font-weight: heavy;
   object-fit: stretch;
   opacity: none;
+  padding: 1px 2px 3px 4px 5px;
+  padding-left: -4px;
   text-align: start;
   z-index: 1.5;
   background-image: asset("../escape.png");
@@ -497,6 +508,8 @@ Button {
   font-weight: 0;
   object-fit: scale-down;
   opacity: 0;
+  padding: 12px 16px;
+  padding-left: 20px;
   text-align: justify;
   z-index: 0;
   background-image: asset("ui/panel.png");
@@ -505,7 +518,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(10)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(12)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -518,6 +531,10 @@ Button {
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
         message: expect.stringContaining('background-size supports cover'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('padding supports'),
       }),
     ]))
     expect(valid.diagnostics).toEqual([])
@@ -539,16 +556,19 @@ Panel.dialog {
   border-color: #5ac8fa;
   border-radius: 14px;
   border-width: 2px;
+  padding: 20px 24px;
 }
 #title {
   color: #f7f3e8;
   font-size: 34px;
+  padding: 2px 4px;
   z-index: 8;
 }
 Button.primary {
   background-color: #f0c15a;
   color: #18130a;
   font-weight: bold;
+  padding: 8px 14px 10px 16px;
 }
 `)
 
@@ -572,6 +592,7 @@ Button.primary {
           borderColor: '#5ac8fa',
           borderRadius: 14,
           borderWidth: 2,
+          padding: { top: 20, right: 24, bottom: 20, left: 24 },
         },
         children: [
           {
@@ -587,6 +608,7 @@ Button.primary {
             style: {
               color: '#f7f3e8',
               fontSize: 34,
+              padding: { top: 2, right: 4, bottom: 2, left: 4 },
             },
           },
           {
@@ -619,6 +641,7 @@ Button.primary {
               backgroundColor: '#f0c15a',
               color: '#18130a',
               fontWeight: 'bold',
+              padding: { top: 8, right: 14, bottom: 10, left: 16 },
             },
           },
         ],
@@ -643,6 +666,7 @@ Panel.compiled {
   border-color: #5ac8fa;
   border-radius: 12px;
   border-width: 2px;
+  padding: 18px 22px;
 }
 #title {
   color: #f7f3e8;
@@ -650,6 +674,7 @@ Panel.compiled {
   font-size: 34px;
   font-weight: bold;
   line-height: 44px;
+  padding: 2px 4px 6px;
   text-align: center;
   z-index: 8;
 }
@@ -660,6 +685,7 @@ Button.primary {
   background-color: #f0c15a;
   color: #18130a;
   font-weight: 700;
+  padding: 8px 14px 10px 16px;
 }
 `)
     const fixture = JSON.parse(readFileSync(SHARED_SURFACE_FRAME_FIXTURE, 'utf8')) as {

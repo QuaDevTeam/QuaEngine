@@ -194,6 +194,19 @@ pub struct UiSurfaceBackgroundPositionProjection {
     pub y: f64,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UiSurfaceEdgeInsetsProjection {
+    #[serde(default)]
+    pub top: f64,
+    #[serde(default)]
+    pub right: f64,
+    #[serde(default)]
+    pub bottom: f64,
+    #[serde(default)]
+    pub left: f64,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UiSurfaceResolvedStyle {
@@ -227,6 +240,8 @@ pub struct UiSurfaceResolvedStyle {
     pub object_fit: Option<UiSurfaceObjectFitProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<UiSurfaceEdgeInsetsProjection>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

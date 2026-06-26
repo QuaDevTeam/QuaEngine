@@ -1,5 +1,7 @@
 use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
-use crate::render_graph::{FontWeightDrawParam, MediaFit, MediaOrigin, TextAlign};
+use crate::render_graph::{
+    EdgeInsetsDrawParam, FontWeightDrawParam, MediaFit, MediaOrigin, TextAlign,
+};
 
 use super::types::{
     UiSurfaceImageProjection, UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle,
@@ -119,8 +121,29 @@ pub fn resolve_opacity(style: &UiSurfaceResolvedStyle, fallback: f32) -> f32 {
         .unwrap_or(fallback)
 }
 
+pub fn resolve_padding(style: &UiSurfaceResolvedStyle) -> EdgeInsetsDrawParam {
+    let Some(padding) = style.padding else {
+        return EdgeInsetsDrawParam::default();
+    };
+
+    EdgeInsetsDrawParam {
+        top: resolve_edge_inset(padding.top),
+        right: resolve_edge_inset(padding.right),
+        bottom: resolve_edge_inset(padding.bottom),
+        left: resolve_edge_inset(padding.left),
+    }
+}
+
 fn resolve_positive_number(value: Option<f64>, fallback: f64) -> f64 {
     value
         .filter(|number| number.is_finite() && *number >= 0.0)
         .unwrap_or(fallback)
+}
+
+fn resolve_edge_inset(value: f64) -> f64 {
+    if value.is_finite() && value >= 0.0 {
+        value
+    } else {
+        0.0
+    }
 }

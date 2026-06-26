@@ -8,8 +8,8 @@ pub use builder::{append_ui_commands, build_ui_commands};
 pub use types::{
     UiIntentProjection, UiOverlayProjection, UiOverlayRenderMode, UiOverlaySceneProjection,
     UiOverlaySceneShellProjection, UiOverlaySurfaceProjection, UiProjection,
-    UiSurfaceBackgroundPositionProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
-    UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceObjectFitProjection,
+    UiSurfaceBackgroundPositionProjection, UiSurfaceEdgeInsetsProjection, UiSurfaceImageProjection,
+    UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceObjectFitProjection,
     UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
 };
 

@@ -62,6 +62,54 @@ fn prepares_and_submits_frame_from_projection_json() {
         _ => panic!("expected image params"),
     }
 
+    let root = frame
+        .graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "ui:menu:root")
+        .expect("ui root command exists");
+    match &root.params {
+        DrawCommandParams::Panel(params) => {
+            assert_eq!(params.padding.top, 18.0);
+            assert_eq!(params.padding.right, 22.0);
+            assert_eq!(params.padding.bottom, 18.0);
+            assert_eq!(params.padding.left, 22.0);
+        }
+        _ => panic!("expected root panel params"),
+    }
+
+    let title = frame
+        .graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "ui:menu:title")
+        .expect("ui title command exists");
+    match &title.params {
+        DrawCommandParams::Text(params) => {
+            assert_eq!(params.padding.top, 2.0);
+            assert_eq!(params.padding.right, 4.0);
+            assert_eq!(params.padding.bottom, 6.0);
+            assert_eq!(params.padding.left, 4.0);
+        }
+        _ => panic!("expected title text params"),
+    }
+
+    let close_command = frame
+        .graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "ui:menu:close")
+        .expect("ui close command exists");
+    match &close_command.params {
+        DrawCommandParams::UiButton(params) => {
+            assert_eq!(params.padding.top, 8.0);
+            assert_eq!(params.padding.right, 14.0);
+            assert_eq!(params.padding.bottom, 10.0);
+            assert_eq!(params.padding.left, 16.0);
+        }
+        _ => panic!("expected close button params"),
+    }
+
     let close = renderer.hit_intent(408.0, 354.0).expect("close button hit");
     assert_eq!(close.intent.event, "ui/intent");
     assert_eq!(close.intent.action.as_deref(), Some("close"));
@@ -98,7 +146,9 @@ fn prepares_shared_compiled_qui_qss_surface_fixture() {
         poster_resource.owner_package_id.as_deref(),
         Some("runtime.ui")
     );
-    assert!(poster_resource.required_package_ids.contains("runtime.fonts"));
+    assert!(poster_resource
+        .required_package_ids
+        .contains("runtime.fonts"));
     let surface_resource = renderer
         .resources()
         .get("surface:ui/compiled-menu.qui")
@@ -148,6 +198,38 @@ fn prepares_shared_compiled_qui_qss_surface_fixture() {
         .required_package_ids
         .contains("runtime.fonts"));
 
+    let panel = frame
+        .graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "ui:compiled-menu:menu")
+        .expect("compiled panel command exists");
+    match &panel.params {
+        DrawCommandParams::Panel(params) => {
+            assert_eq!(params.padding.top, 18.0);
+            assert_eq!(params.padding.right, 22.0);
+            assert_eq!(params.padding.bottom, 18.0);
+            assert_eq!(params.padding.left, 22.0);
+        }
+        _ => panic!("expected compiled panel params"),
+    }
+
+    let title = frame
+        .graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "ui:compiled-menu:title")
+        .expect("compiled title command exists");
+    match &title.params {
+        DrawCommandParams::Text(params) => {
+            assert_eq!(params.padding.top, 2.0);
+            assert_eq!(params.padding.right, 4.0);
+            assert_eq!(params.padding.bottom, 6.0);
+            assert_eq!(params.padding.left, 4.0);
+        }
+        _ => panic!("expected compiled title params"),
+    }
+
     let poster = frame
         .graph
         .commands()
@@ -165,6 +247,22 @@ fn prepares_shared_compiled_qui_qss_surface_fixture() {
     assert_eq!(poster.owner_package_id.as_deref(), Some("runtime.ui"));
     assert!(poster.required_package_ids.contains("base"));
     assert!(poster.required_package_ids.contains("runtime.fonts"));
+
+    let settings = frame
+        .graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "ui:compiled-menu:open-settings")
+        .expect("settings button command exists");
+    match &settings.params {
+        DrawCommandParams::UiButton(params) => {
+            assert_eq!(params.padding.top, 8.0);
+            assert_eq!(params.padding.right, 14.0);
+            assert_eq!(params.padding.bottom, 10.0);
+            assert_eq!(params.padding.left, 16.0);
+        }
+        _ => panic!("expected settings button params"),
+    }
 
     let hit = renderer
         .hit_intent(408.0, 354.0)
@@ -347,7 +445,8 @@ fn json_frame_input() -> &'static str {
                     "backgroundSize": "contain",
                     "borderColor": "#5ac8fa",
                     "borderWidth": 2,
-                    "borderRadius": 12
+                    "borderRadius": 12,
+                    "padding": { "top": 18, "right": 22, "bottom": 18, "left": 22 }
                   },
                   "children": [
                     {
@@ -361,6 +460,7 @@ fn json_frame_input() -> &'static str {
                         "fontSize": 34,
                         "fontWeight": "bold",
                         "lineHeight": 44,
+                        "padding": { "top": 2, "right": 4, "bottom": 6, "left": 4 },
                         "textAlign": "center"
                       },
                       "provenance": {
@@ -377,6 +477,9 @@ fn json_frame_input() -> &'static str {
                         "event": "ui/intent",
                         "action": "close",
                         "metadata": { "source": "json-input-test" }
+                      },
+                      "style": {
+                        "padding": { "top": 8, "right": 14, "bottom": 10, "left": 16 }
                       }
                     }
                   ]
