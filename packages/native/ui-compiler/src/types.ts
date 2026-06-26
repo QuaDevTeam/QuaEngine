@@ -254,6 +254,10 @@ export interface NativeQssEdgeInsetsValue {
 
 export interface NativeQssResolvedBounds {
   height?: number
+  maxHeight?: number
+  maxWidth?: number
+  minHeight?: number
+  minWidth?: number
   width?: number
   x?: number
   y?: number

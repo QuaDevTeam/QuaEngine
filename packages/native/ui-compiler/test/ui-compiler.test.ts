@@ -34,6 +34,10 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('left')
     expect(nativeWgpuQssFeatureNames()).toContain('font-style')
     expect(nativeWgpuQssFeatureNames()).toContain('letter-spacing')
+    expect(nativeWgpuQssFeatureNames()).toContain('max-height')
+    expect(nativeWgpuQssFeatureNames()).toContain('max-width')
+    expect(nativeWgpuQssFeatureNames()).toContain('min-height')
+    expect(nativeWgpuQssFeatureNames()).toContain('min-width')
     expect(nativeWgpuQssFeatureNames()).toContain('object-fit')
     expect(nativeWgpuQssFeatureNames()).toContain('opacity')
     expect(nativeWgpuQssFeatureNames()).toContain('overflow')
@@ -442,6 +446,10 @@ Button.primary {
   letter-spacing: 1.5px;
   line-height: 1.25;
   left: -12px;
+  max-height: 40px;
+  max-width: 160px;
+  min-height: 56px;
+  min-width: 220px;
   object-fit: cover;
   opacity: 1.4;
   overflow: hidden;
@@ -462,7 +470,7 @@ Button.primary {
 
     expect(document.diagnostics).toEqual([])
     expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
-      bounds: { x: -12, y: 32, width: 180, height: 48 },
+      bounds: { x: -12, y: 32, width: 220, height: 56 },
       clipChildren: true,
       visible: false,
       zIndex: 12,
@@ -506,6 +514,10 @@ Button {
   letter-spacing: -1px;
   height: -1px;
   left: calc(2px);
+  max-height: -20px;
+  max-width: -10px;
+  min-height: calc(10px);
+  min-width: -8px;
   object-fit: stretch;
   opacity: none;
   overflow: clip;
@@ -547,6 +559,10 @@ Button {
   letter-spacing: -1px;
   height: -1px;
   left: calc(2px);
+  max-height: -20px;
+  max-width: -10px;
+  min-height: calc(10px);
+  min-width: -8px;
   object-fit: stretch;
   opacity: none;
   overflow: clip;
@@ -577,6 +593,10 @@ Button {
   letter-spacing: normal;
   height: 24px;
   left: -12px;
+  max-height: 64px;
+  max-width: 320px;
+  min-height: 20px;
+  min-width: 120px;
   object-fit: scale-down;
   opacity: 0;
   overflow: visible;
@@ -597,7 +617,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(26)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(30)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -626,6 +646,14 @@ Button {
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
         message: expect.stringContaining('letter-spacing must be normal'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('max-height must be a non-negative logical px'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('min-width must be a non-negative logical px'),
       }),
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -779,12 +807,16 @@ Button.primary {
   top: 52px;
   width: 100px;
   height: 44px;
+  min-width: 128px;
+  max-height: 40px;
 }
 #override-button {
   left: 1px;
   top: 2px;
   width: 3px;
   height: 4px;
+  min-width: 260px;
+  max-height: 12px;
 }
 `)
 
@@ -799,7 +831,7 @@ Button.primary {
           {
             id: 'qss-button',
             kind: 'Button',
-            bounds: { x: 40, y: 52, width: 100, height: 44 },
+            bounds: { x: 40, y: 52, width: 128, height: 40 },
             text: 'From QSS',
           },
           {

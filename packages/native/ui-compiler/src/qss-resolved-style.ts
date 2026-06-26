@@ -88,6 +88,18 @@ export function resolveNativeQssDeclarations(
       case 'left':
         resolved.bounds = resolveNativeQssBound(resolved.bounds, 'x', value, parseNativeQssCoordinateNumber)
         break
+      case 'max-height':
+        resolved.bounds = resolveNativeQssBound(resolved.bounds, 'maxHeight', value, parseNativeQssLogicalNumber)
+        break
+      case 'max-width':
+        resolved.bounds = resolveNativeQssBound(resolved.bounds, 'maxWidth', value, parseNativeQssLogicalNumber)
+        break
+      case 'min-height':
+        resolved.bounds = resolveNativeQssBound(resolved.bounds, 'minHeight', value, parseNativeQssLogicalNumber)
+        break
+      case 'min-width':
+        resolved.bounds = resolveNativeQssBound(resolved.bounds, 'minWidth', value, parseNativeQssLogicalNumber)
+        break
       case 'object-fit':
         resolved.style.objectFit = parseNativeQssObjectFit(value)
         break
@@ -289,6 +301,30 @@ function resolveNativeQssBound(
   }
 }
 
+function clampNativeQssBounds(bounds: NativeQssResolvedBounds | undefined): NativeQssResolvedBounds | undefined {
+  if (!bounds)
+    return undefined
+
+  const clamped: NativeQssResolvedBounds = { ...bounds }
+  if (clamped.width !== undefined)
+    clamped.width = clampNativeQssBoundDimension(clamped.width, clamped.minWidth, clamped.maxWidth)
+  if (clamped.height !== undefined)
+    clamped.height = clampNativeQssBoundDimension(clamped.height, clamped.minHeight, clamped.maxHeight)
+  return clamped
+}
+
+function clampNativeQssBoundDimension(
+  value: number,
+  min: number | undefined,
+  max: number | undefined,
+): number {
+  const lower = min ?? 0
+  const upper = max !== undefined ? Math.max(lower, max) : undefined
+  return upper !== undefined
+    ? Math.min(Math.max(value, lower), upper)
+    : Math.max(value, lower)
+}
+
 function parsePercentUnitInterval(value: string): number | undefined {
   const match = /^(\d+(?:\.\d+)?)%$/.exec(value.trim())
   if (!match)
@@ -421,6 +457,8 @@ export function parseNativeQssFontFamilyList(value: string): string[] | undefine
 }
 
 function pruneUndefinedResolvedNodeStyle(style: NativeQssResolvedNodeStyle): NativeQssResolvedNodeStyle {
+  style.bounds = clampNativeQssBounds(style.bounds)
+
   for (const key of Object.keys(style.style) as Array<keyof typeof style.style>) {
     if (style.style[key] === undefined)
       delete style.style[key]
@@ -431,6 +469,10 @@ function pruneUndefinedResolvedNodeStyle(style: NativeQssResolvedNodeStyle): Nat
       if (style.bounds[key] === undefined)
         delete style.bounds[key]
     }
+    delete style.bounds.minHeight
+    delete style.bounds.maxHeight
+    delete style.bounds.minWidth
+    delete style.bounds.maxWidth
     if (Object.keys(style.bounds).length === 0)
       delete style.bounds
   }
