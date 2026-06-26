@@ -73,6 +73,16 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 - 最终 `target-bundle-manifest.json` 必须通过 `validateTargetBundleManifest`；Web、Cocos、Native 的 debug/release、installer/updater、手写 shell 和 CI fixture 都不能跳过这一步。
 - release artifact 的依赖图检查必须发生在 bundle / tree-shake 之后，防止源码层过滤正确但产物里残留其他 target core 子入口。
 
+这里的“不能串线”要落实到项目生成边界，而不只是 manifest 字段：
+
+- Web 项目生成器只能接收 Web resolver 输出；生成模板、dev server、PWA/installer/updater 配置都不能 import Cocos / Native core。
+- Cocos 项目生成器只能接收 Cocos resolver 输出；Creator 接线、native host bridge 配置和调试入口不能 import Web renderer 或 Native engine/assets/store adapter。
+- Native 项目生成器只能接收 Native resolver 输出；Rust app manifest、QuickJS bootstrap、native installer/updater 和 renderer smoke 不能 import Web / Cocos renderer core。
+- Runtime QPK、普通插件和第三方插件 target entry 不能作为“补齐缺失 core 插件”的逃逸口。它们只能声明兼容性和平台无关逻辑，不能安装任一目标 bootstrap。
+- post-bundle graph 必须同时检查目标项目模板生成物和 app runtime graph。只检查 package manifest 不够，因为串线可能来自模板、调试壳、installer/updater script 或 generated resolver。
+
+开发者在新增能力时，如果它需要三端支持，应该分别新增或更新 Web entry、Cocos entry 和 Native entry，并分别走对应 resolver；不能新建一个包含三端核心插件的 shared preset，再让打包参数决定启用哪一端。
+
 打包产物必须把这条规则当作 release blocker，而不是普通 warning：Web、Cocos、Native 三类核心插件只能由各自目标 resolver 注入一次，不能在项目配置、普通插件列表、shared preset、Runtime QPK、renderer entry、installer/updater manifest 或 debug shell 里二次声明。任何产物只要同时出现两个 target core family，就必须终止打包；不能依赖运行时分支、tree-shaking 预期或手动约定来“稍后排除”另一端核心插件。
 
 ### 三端核心插件隔离矩阵

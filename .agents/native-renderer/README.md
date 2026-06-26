@@ -57,6 +57,14 @@
 
 项目模板和启动壳也不能绕过这条规则。Web starter 只能接 Web resolver，Cocos starter 只能接 Cocos resolver，Native starter 只能接 Native resolver；debug shell、installer、updater 和 smoke runner 都只能消费当前目标已经产出的 `target-bundle-manifest.json`。它们不能自己 import、声明或合并 Web / Cocos / Native 任一 target core adapter，也不能用一个跨目标模板先带上三端核心插件再过滤。
 
+换句话说，打包到 Cocos、Web、Native 项目时，核心插件接线必须只发生在当前目标 packager resolver 里：
+
+- Web 项目只能由 Web resolver 注入 Web core，不能把 Cocos / Native core 放进项目模板、普通插件或 Runtime QPK 后再过滤。
+- Cocos 项目只能由 Cocos resolver 注入 Cocos core，不能复用 Web / Native bootstrap、renderer entry 或 host bridge。
+- Native 项目只能由 Native resolver 注入 native core，不能携带 Web renderer subentry、Cocos renderer subentry 或其他目标 bootstrap。
+
+这条约束要覆盖源码配置、生成的项目模板、debug 产物、release 产物、installer、updater、smoke runner、Runtime QPK 和 post-bundle dependency graph。任何层级出现跨目标核心插件，都不是兼容性 warning，而是打包失败。
+
 核心插件装配必须按三条独立链路实现：
 
 - `resolveWebCorePlugins()` 只能返回 Web bootstrap、Web asset/store/runtime adapter、Web renderer 和 Web renderer plugin subentry。

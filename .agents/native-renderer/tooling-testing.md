@@ -168,6 +168,7 @@ QSS 侧：
 - Web artifact 排除 Cocos/native core，Cocos artifact 排除 Web/native core，Native artifact 排除 Web/Cocos core；不能只测 native 严格路径
 - 三端 resolver fixture 必须分别断言 `web-core-resolver`、`cocos-core-resolver`、`native-core-resolver`，并在 resolver / selected adapters / renderer entries / Runtime QPK executable dependencies 任一项串线时失败
 - ordinary plugin list、shared preset、generated plugin resolver、debug shell、release bundle 和 installer/updater manifest 都要跑同一套 target isolation helper，不能只在 Quack 主打包路径校验
+- Web / Cocos / Native 项目模板和生成的 startup shell 必须只消费对应目标 packager resolver 写出的 active-target manifest；如果模板、dev shell、Creator 接线、Rust app bootstrap、installer、updater 或 smoke runner 自己 import、声明、合并或过滤 inactive target core plugin，测试必须失败
 - resolver 代码结构要有负例 fixture：如果实现导出一个包含 Web / Cocos / Native 三端 core adapter 的共享 `corePlugins` / umbrella preset，再靠后续 target 过滤，测试必须失败；正确形态是三端独立 resolver context 先选 target，再解析普通插件
 - Web / Cocos / Native 的 target-specific renderer plugin entry 必须按当前目标选择，并在产物 manifest 里显式写入 `target`；inactive entry 在 package manifest 中可以存在，但不能进入产物依赖图、renderer entries 或 Runtime QPK executable dependency
 - Runtime QPK 的 Web / Cocos / Native compatibility block 只能作为 metadata；active target 之外的 block 不得触发 core adapter import、renderer entry 注册或 native capability 覆盖
@@ -185,6 +186,7 @@ CI 里要把三目标核心插件隔离拆成两个必跑 test suite：
 
 - 正例：Web / Cocos / Native 各自只包含一个 `TargetCoreSelection`、一个 matching `targetCoreResolver`、当前目标 renderer entries 和平台无关普通插件。
 - 正例 1b：Web / Cocos / Native 项目模板、starter、debug shell、installer、updater 和 smoke runner 只读取对应目标已经 emitted 的 `target-bundle-manifest.json`，不再 import、声明或二次装配任何 target core plugin。
+- 正例 1c：Web 模板只包含 Web resolver 输出，Cocos 模板只包含 Cocos resolver 输出，Native 模板只包含 Native resolver 输出；三类模板都不携带其他目标核心插件的惰性分支、barrel export 或 generated resolver。
 - 负例 1：bootstrap selection 同时注册两个 core family，例如 Web 产物混入 `native-core`。
 - 负例 2：普通 `plugins` 或 shared preset 直接声明 Web / Cocos / Native core root 或 subentry。
 - 负例 2b：普通 plugin reference 对象里 `packageName` 看似平台无关，但 `specifier` 指向 Web / Cocos / Native target core subentry，或反过来；`validateOrdinaryPluginListTargetIsolation` 和 Quack 的 `assertQuackPluginReferencesTargetIsolation` 必须同时检查两个字段。
@@ -194,6 +196,7 @@ CI 里要把三目标核心插件隔离拆成两个必跑 test suite：
 - 负例 6：debug shell、installer、updater manifest 跳过 Quack 主路径但仍声明了错误 core family。
 - 负例 7：packager 或 shared preset 先构造 `[webCore, cocosCore, nativeCore]` 这样的三端全集，再按 target 过滤；这种实现即使最终 manifest 看似只剩一个 target，也必须按核心插件串线失败。
 - 负例 8：Web / Cocos / Native 项目模板、starter、debug shell、installer、updater 或 smoke runner 自己重新声明 active target core，或顺手携带 inactive target core；即使 packager 主路径已经生成正确 manifest，也必须失败，因为核心插件只能由目标 resolver 注入一次。
+- 负例 9：打包到 Cocos、Web、Native 项目时复用同一个跨目标项目模板，模板内部再根据参数过滤 core plugin；即使最终输出 manifest 看似单目标，也必须按核心插件串线失败。
 
 这些 fixture 必须对 Web、Cocos、Native 三端对称存在。Native 不能是唯一严格路径；Web 和 Cocos 也必须用相同 blocker 级别拒绝其他目标核心插件。
 
