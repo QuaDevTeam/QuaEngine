@@ -6,6 +6,18 @@
 
 这条规则是 release blocker。任一产物只要同时携带两个 target core family，就必须终止打包；不能依赖 tree-shaking 预期、运行时分支、手动约定或后续 installer / updater 步骤再清理。
 
+## 工程生成硬门禁
+
+打包到 Cocos、Web、Native 项目时，核心插件装配必须只发生一次，而且只能发生在当前目标的 packager resolver 里。项目模板、生成的 startup shell、debug/release shell、installer、updater、smoke runner 和 Runtime QPK 都不能再声明、合并、过滤或补齐任一目标核心插件。
+
+这意味着三类工程生成器要按物理入口隔离：
+
+- Web project generator 只能消费 `web-core-resolver` 产出的 active-target manifest。模板里不能 import Cocos host / renderer，也不能 import `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native` 或 Rust native metadata。
+- Cocos project generator 只能消费 `cocos-core-resolver` 产出的 active-target manifest。Creator 接线、调试入口和构建脚本不能携带 Web renderer/framework adapter，也不能携带 native engine/assets/store/runtime/renderer。
+- Native project generator 只能消费 `native-core-resolver` 产出的 active-target manifest。Rust app bootstrap、QuickJS startup、installer/updater 和 renderer smoke 不能携带 Web renderer subentry、Web framework adapter、Cocos host 或 Cocos renderer。
+
+工程模板可以共享 platform-neutral 文件、schema、manifest emitter、package-root normalization 和 validation helper，但不能共享一个带核心插件的跨目标模板。任何“先生成一个包含 Web / Cocos / Native core 的项目，再按参数删除或过滤”的实现，都按核心插件串线处理，即使最终 `target-bundle-manifest.json` 看起来只剩一个目标。
+
 ## 术语
 
 - `target core plugin`：安装目标 runtime adapter、renderer controller、host bridge、platform asset/store adapter、target renderer plugin entry 或 native renderer capability metadata 的 bootstrap 依赖。

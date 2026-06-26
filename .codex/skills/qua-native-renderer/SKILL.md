@@ -189,6 +189,7 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Does packaging use separate Web, Cocos, and native target-core resolver contexts rather than one shared all-target plugin list?
 - When packaging Web, Cocos, or native, do core plugins come only from that target's resolver, with no shared all-target resolver, no pre-filtered Web/Cocos/native union, and no target core adapter passed through ordinary plugins, shared presets, Runtime QPK dependencies, debug shells, installers, updaters, or smoke runners?
 - Do generated Web, Cocos, and native project templates/startup shells consume only their emitted active-target manifest, without importing, re-declaring, or filtering inactive target core plugins?
+- Do Web, Cocos, and native project generators avoid shared cross-target templates that carry multiple target core plugins and filter later?
 - Do `targetCoreResolver` and `selectedCorePluginFamily` match the artifact target, selected adapters, renderer entries, and Runtime QPK executable dependencies?
 - Does `validateTargetBundleManifest` pass for the emitted Web/Cocos/native artifact, including Runtime QPK executable dependency and renderer entry checks?
 - Do `projectGraphs` distinguish template/startup/installer/updater/smoke graphs from post-bundle graphs, rejecting any target core in the former and inactive target core in the latter?
