@@ -53,6 +53,14 @@
 
 不能把三端核心插件放进同一个 shared preset、普通 `plugins` 数组、generated resolver、Runtime QPK executable dependency 或运行时按条件选择的 umbrella bootstrap。正确做法是 target-first：先 materialize 唯一 `TargetCoreSelection`，再解析普通 game/plugin 和 Runtime QPK。最终产物还必须在 bundle / tree-shake 之后重新校验依赖图和 `target-bundle-manifest.json`，确认没有残留其他 target core 根包或子入口。
 
+核心插件装配必须按三条独立链路实现：
+
+- `resolveWebCorePlugins()` 只能返回 Web bootstrap、Web asset/store/runtime adapter、Web renderer 和 Web renderer plugin subentry。
+- `resolveCocosCorePlugins()` 只能返回 Cocos bootstrap、Cocos host/store/asset bridge、Cocos renderer 和 Cocos renderer plugin subentry。
+- `resolveNativeCorePlugins()` 只能返回 `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、必要的 `@quajs/native-contracts` 元数据，以及 Rust native app/runtime/renderer capability metadata。
+
+这三个 resolver 不能通过一个 shared `resolveAllCorePlugins()`、barrel export 或 umbrella preset 间接聚合。普通 plugin resolver、Runtime QPK resolver、authoring LSP、benchmark、debug smoke 只能消费已经选好的 `TargetCoreSelection`，不能自己 import 或创建 Web / Cocos / Native 任一 target core adapter。
+
 ## 三目标打包隔离门禁
 
 Web、Cocos、Native 打包是三条互斥目标链路，不是同一套核心插件列表的三种输出格式。每个目标产物都必须先 materialize 唯一的 `TargetCoreSelection`，再解析普通 game/plugin 和 Runtime QPK；任何 shared preset、普通 `plugins`、generated resolver、renderer entry 或 Runtime QPK executable dependency 里出现 Web / Cocos / Native target core 根包或子入口，都必须作为 release blocker。
