@@ -174,6 +174,7 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Are Web/Cocos/native target core adapters isolated?
 - Does the post-bundle dependency manifest prove the active artifact contains exactly one target core plugin set?
 - Does packaging use separate Web, Cocos, and native target-core resolver contexts rather than one shared all-target plugin list?
+- When packaging Web, Cocos, or native, do core plugins come only from that target's resolver, with no shared all-target resolver, no pre-filtered Web/Cocos/native union, and no target core adapter passed through ordinary plugins, shared presets, Runtime QPK dependencies, debug shells, installers, updaters, or smoke runners?
 - Do `targetCoreResolver` and `selectedCorePluginFamily` match the artifact target, selected adapters, renderer entries, and Runtime QPK executable dependencies?
 - Does `validateTargetBundleManifest` pass for the emitted Web/Cocos/native artifact, including Runtime QPK executable dependency and renderer entry checks?
 - Is `target-bundle-manifest.json` emitted and validated for both debug and release artifacts after bundling/tree-shaking?

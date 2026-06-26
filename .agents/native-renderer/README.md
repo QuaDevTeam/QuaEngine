@@ -51,6 +51,8 @@
 - Cocos 产物只能携带 Cocos host / renderer adapter。
 - Native 产物只能携带 `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、必要的 native contracts metadata，以及 Rust native app / runtime / renderer。
 
+这三个核心插件集合不能串线，也不能在代码里先聚合再过滤。Web、Cocos、Native 必须分别从自己的 packaging resolver 入口开始；普通插件、shared preset、Runtime QPK、debug shell、installer、updater 和 smoke runner 都只能消费已选定的 `TargetCoreSelection`，不能把任一 target core adapter 当作普通插件传递或二次声明。
+
 不能把三端核心插件放进同一个 shared preset、普通 `plugins` 数组、generated resolver、Runtime QPK executable dependency 或运行时按条件选择的 umbrella bootstrap。正确做法是 target-first：先 materialize 唯一 `TargetCoreSelection`，再解析普通 game/plugin 和 Runtime QPK。最终产物还必须在 bundle / tree-shake 之后重新校验依赖图和 `target-bundle-manifest.json`，确认没有残留其他 target core 根包或子入口。
 
 核心插件装配必须按三条独立链路实现：
