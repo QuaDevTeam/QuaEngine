@@ -678,6 +678,15 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssLogicalNumber(value) !== undefined
         ? undefined
         : `${declaration.name} must be a non-negative logical px or unitless number.`
+    case 'bottom':
+    case 'right':
+      return parseNativeQssLogicalNumber(value) !== undefined
+        ? undefined
+        : `${declaration.name} must be a non-negative logical px or unitless inset.`
+    case 'inset':
+      return parseNativeQssEdgeInsets(value) !== undefined
+        ? undefined
+        : 'inset supports one to four non-negative logical px or unitless numbers.'
     case 'left':
     case 'top':
       return parseNativeQssCoordinateNumber(value) !== undefined

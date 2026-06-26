@@ -85,6 +85,9 @@ export function resolveNativeQssDeclarations(
       case 'height':
         resolved.bounds = resolveNativeQssBound(resolved.bounds, 'height', value, parseNativeQssLogicalNumber)
         break
+      case 'inset':
+        resolved.bounds = resolveNativeQssInset(resolved.bounds, value)
+        break
       case 'left':
         resolved.bounds = resolveNativeQssBound(resolved.bounds, 'x', value, parseNativeQssCoordinateNumber)
         break
@@ -123,6 +126,12 @@ export function resolveNativeQssDeclarations(
         break
       case 'padding-top':
         resolved.style.padding = resolveNativeQssEdgeInset(resolved.style.padding, 'top', value)
+        break
+      case 'right':
+        resolved.bounds = resolveNativeQssBound(resolved.bounds, 'right', value, parseNativeQssLogicalNumber)
+        break
+      case 'bottom':
+        resolved.bounds = resolveNativeQssBound(resolved.bounds, 'bottom', value, parseNativeQssLogicalNumber)
         break
       case 'top':
         resolved.bounds = resolveNativeQssBound(resolved.bounds, 'y', value, parseNativeQssCoordinateNumber)
@@ -282,6 +291,23 @@ function resolveNativeQssEdgeInset(
     right: current?.right ?? 0,
     top: current?.top ?? 0,
     [edge]: number,
+  }
+}
+
+function resolveNativeQssInset(
+  current: NativeQssResolvedBounds | undefined,
+  value: string,
+): NativeQssResolvedBounds | undefined {
+  const insets = parseNativeQssEdgeInsets(value)
+  if (!insets)
+    return current
+
+  return {
+    ...current,
+    bottom: insets.bottom,
+    right: insets.right,
+    x: insets.left,
+    y: insets.top,
   }
 }
 
