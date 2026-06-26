@@ -16,6 +16,9 @@ interface QuaNativeClientSettings {
 
 let client: LanguageClient | undefined
 
+const nativeDocumentLanguages = new Set(['qua-ui', 'qua-style'])
+const nativeAssetFixAllKind = 'source.fixAll.quaNativeAssets'
+
 export function activate(context: ExtensionContext): void {
   const serverModule = context.asAbsolutePath('server/server.js')
   const projectRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
@@ -29,6 +32,9 @@ export function activate(context: ExtensionContext): void {
     vscode.commands.registerCommand('quaNative.validateOpenDocuments', async () => {
       await sendQuaNativeConfiguration()
       await vscode.commands.executeCommand('workbench.actions.view.problems')
+    }),
+    vscode.commands.registerCommand('quaNative.fixAllAssetReferences', async () => {
+      await fixAllNativeAssetReferences()
     }),
     vscode.commands.registerCommand('quaNative.restartLanguageServer', async () => {
       await restartQuaNativeLanguageClient(serverModule, projectRoot)
@@ -108,6 +114,19 @@ async function sendQuaNativeConfiguration(): Promise<void> {
     settings: {
       quaNative: getQuaNativeSettings(),
     },
+  })
+}
+
+async function fixAllNativeAssetReferences(): Promise<void> {
+  const editor = vscode.window.activeTextEditor
+  if (!editor || !nativeDocumentLanguages.has(editor.document.languageId)) {
+    vscode.window.showInformationMessage('Open a QUI or QSS document before running Qua Native asset fixes.')
+    return
+  }
+
+  await vscode.commands.executeCommand('editor.action.codeAction', {
+    apply: 'first',
+    kind: nativeAssetFixAllKind,
   })
 }
 

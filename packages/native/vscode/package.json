@@ -48,6 +48,7 @@
     "onLanguage:qua-style",
     "onCommand:quaNative.formatDocument",
     "onCommand:quaNative.validateOpenDocuments",
+    "onCommand:quaNative.fixAllAssetReferences",
     "onCommand:quaNative.restartLanguageServer"
   ],
   "contributes": {
@@ -109,6 +110,11 @@
         "command": "quaNative.validateOpenDocuments",
         "title": "Qua Native: Validate Open QUI/QSS Documents",
         "icon": "$(check)"
+      },
+      {
+        "command": "quaNative.fixAllAssetReferences",
+        "title": "Qua Native: Fix All Asset References",
+        "icon": "$(tools)"
       },
       {
         "command": "quaNative.restartLanguageServer",
