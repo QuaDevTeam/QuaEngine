@@ -209,10 +209,15 @@ function isForbiddenNativeModuleSpecifier(assetName: string): boolean {
 }
 
 function isNativeScriptModuleAsset(assetName: string): boolean {
-  const normalized = assetName.toLowerCase().split(/[\\/]/).pop() || ''
+  const normalized = stripAssetReferenceSuffix(assetName).toLowerCase().split(/[\\/]/).pop() || ''
   return normalized.endsWith('.js')
     || normalized.endsWith('.mjs')
     || normalized.endsWith('.cjs')
+}
+
+function stripAssetReferenceSuffix(assetName: string): string {
+  const suffixIndex = assetName.search(/[?#]/)
+  return suffixIndex >= 0 ? assetName.slice(0, suffixIndex) : assetName
 }
 
 function normalizeLoadedNativeModule<TLoaded>(

@@ -947,6 +947,7 @@ describe('@quajs/engine-native', () => {
   it('accepts JavaScript module-like native runtime asset names', async () => {
     const { ctx } = createModuleLoadContext({
       'scripts/opening.mjs': 'export default function opening() {}',
+      'scripts/opening.js?cache=1': 'export default function opening() {}',
       'migrations/save.cjs': 'module.exports = {}',
     })
     const loader = createNativeRuntimeModuleLoader({
@@ -959,6 +960,12 @@ describe('@quajs/engine-native', () => {
       bundleName: 'runtime.chapter.native-ui',
       assetName: 'scripts/opening.mjs',
     }, ctx)).resolves.toEqual({ default: 'scripts/opening.mjs' })
+    await expect(loader.loadScriptModule?.({
+      id: 'opening-cache',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/opening.js?cache=1',
+    }, ctx)).resolves.toEqual({ default: 'scripts/opening.js?cache=1' })
     await expect(loader.loadScriptModule?.({
       id: 'native-payload-query',
       assetName: 'scripts/helper.wasm?raw',

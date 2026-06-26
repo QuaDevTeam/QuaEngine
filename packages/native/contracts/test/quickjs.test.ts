@@ -45,6 +45,24 @@ describe('native QuickJS contracts', () => {
     })
   })
 
+  it('accepts JavaScript module assets with inert query or hash suffixes', () => {
+    for (const assetName of ['scripts/opening.js?cache=1', 'scripts/opening.mjs#runtime', 'scripts/opening.cjs?cache=1#runtime']) {
+      const result = validateNativeQuickJsEvaluationRequest(createNativeQuickJsEvaluationRequest({
+        assetName,
+        bundleName: 'runtime.chapter.native-ui',
+        packageId: 'runtime.chapter.native-ui',
+        kind: 'script',
+        code: '',
+        bytes: new Uint8Array(),
+      }))
+
+      expect(result).toEqual({
+        ok: true,
+        errors: [],
+      })
+    }
+  })
+
   it('rejects unsafe QuickJS evaluation request asset names at the wire boundary', () => {
     const base = createNativeQuickJsEvaluationRequest({
       assetName: 'scripts/opening.js',

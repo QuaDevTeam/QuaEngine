@@ -38,7 +38,13 @@ fn accepts_package_relative_runtime_module_assets_under_limits() {
 
     assert_eq!(validate_quickjs_evaluation_request(&request), Ok(()));
 
-    for asset_name in ["scripts/opening.mjs", "migrations/save.cjs"] {
+    for asset_name in [
+        "scripts/opening.mjs",
+        "migrations/save.cjs",
+        "scripts/opening.js?cache=1",
+        "scripts/opening.mjs#runtime",
+        "scripts/opening.cjs?cache=1#runtime",
+    ] {
         let request = request_for_asset(asset_name, vec![1]);
         assert_eq!(validate_quickjs_evaluation_request(&request), Ok(()));
     }

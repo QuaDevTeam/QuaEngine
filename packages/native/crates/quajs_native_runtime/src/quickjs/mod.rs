@@ -268,7 +268,9 @@ pub fn is_forbidden_native_module_payload(asset_name: &str) -> bool {
 }
 
 pub fn is_supported_quickjs_module_asset(asset_name: &str) -> bool {
-    let normalized = asset_name.to_ascii_lowercase().replace('\\', "/");
+    let normalized = strip_asset_reference_suffix(asset_name)
+        .to_ascii_lowercase()
+        .replace('\\', "/");
     let file_name = normalized.rsplit('/').next().unwrap_or_default();
     SUPPORTED_QUICKJS_MODULE_EXTENSIONS
         .iter()
