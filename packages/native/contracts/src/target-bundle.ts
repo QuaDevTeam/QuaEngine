@@ -213,14 +213,14 @@ export function validateTargetBundleManifest(
     expectedTarget,
   })
   const targetDiagnostics = checkTarget(manifest, expectedTarget)
-  const artifactMetadataDiagnostics = checkArtifactMetadata(manifest)
-  const appMetadataDiagnostics = checkAppMetadata(manifest)
-  const nativeRendererDiagnostics = checkTargetBundleNativeRendererInfo(manifest)
-  const coreResolverDiagnostics = checkCoreResolver(manifest)
-  const corePluginFamilyDiagnostics = checkCorePluginFamily(manifest, packageNames)
-  const selectedCoreAdapterDiagnostics = checkSelectedCoreAdapters(manifest)
-  const rendererEntryTargetDiagnostics = checkRendererEntryTargets(manifest)
-  const runtimePackageDiagnostics = checkRuntimePackageTargetCoreAdapters(manifest)
+  const artifactMetadataDiagnostics = checkArtifactMetadata(manifest, expectedTarget)
+  const appMetadataDiagnostics = checkAppMetadata(manifest, expectedTarget)
+  const nativeRendererDiagnostics = checkTargetBundleNativeRendererInfo(manifest, expectedTarget)
+  const coreResolverDiagnostics = checkCoreResolver(manifest, expectedTarget)
+  const corePluginFamilyDiagnostics = checkCorePluginFamily(manifest, packageNames, expectedTarget)
+  const selectedCoreAdapterDiagnostics = checkSelectedCoreAdapters(manifest, expectedTarget)
+  const rendererEntryTargetDiagnostics = checkRendererEntryTargets(manifest, expectedTarget)
+  const runtimePackageDiagnostics = checkRuntimePackageTargetCoreAdapters(manifest, expectedTarget)
   const diagnostics: TargetBundleManifestDiagnostic[] = [
     ...bootstrapValidation.diagnostics,
     ...(bootstrapValidation.targetValidation?.diagnostics || []),
@@ -267,8 +267,11 @@ function checkTarget(
   }]
 }
 
-function checkArtifactMetadata(manifest: TargetBundleManifest): TargetBundleArtifactMetadataDiagnostic[] {
-  if (manifest.target !== 'native')
+function checkArtifactMetadata(
+  manifest: TargetBundleManifest,
+  expectedTarget: QuaTargetBootstrap = manifest.target,
+): TargetBundleArtifactMetadataDiagnostic[] {
+  if (expectedTarget !== 'native')
     return []
 
   const diagnostics: TargetBundleArtifactMetadataDiagnostic[] = []
@@ -278,7 +281,7 @@ function checkArtifactMetadata(manifest: TargetBundleManifest): TargetBundleArti
   if (profile === undefined) {
     diagnostics.push({
       code: 'TARGET_BUNDLE_PROFILE_MISSING',
-      target: manifest.target,
+      target: expectedTarget,
       field: 'profile',
       message: 'Native target bundle manifest must include profile.',
     })
@@ -286,7 +289,7 @@ function checkArtifactMetadata(manifest: TargetBundleManifest): TargetBundleArti
   else if (typeof profile !== 'string' || !TARGET_BUNDLE_PROFILES.has(profile as TargetBundleProfile)) {
     diagnostics.push({
       code: 'TARGET_BUNDLE_PROFILE_INVALID',
-      target: manifest.target,
+      target: expectedTarget,
       field: 'profile',
       value: typeof profile === 'string' ? profile : undefined,
       message: 'Native target bundle manifest profile must be "debug" or "release".',
@@ -296,7 +299,7 @@ function checkArtifactMetadata(manifest: TargetBundleManifest): TargetBundleArti
   if (platform === undefined) {
     diagnostics.push({
       code: 'TARGET_BUNDLE_PLATFORM_MISSING',
-      target: manifest.target,
+      target: expectedTarget,
       field: 'platform',
       message: 'Native target bundle manifest must include platform.',
     })
@@ -304,7 +307,7 @@ function checkArtifactMetadata(manifest: TargetBundleManifest): TargetBundleArti
   else if (typeof platform !== 'string' || platform.trim() === '') {
     diagnostics.push({
       code: 'TARGET_BUNDLE_PLATFORM_EMPTY',
-      target: manifest.target,
+      target: expectedTarget,
       field: 'platform',
       value: typeof platform === 'string' ? platform : undefined,
       message: 'Native target bundle manifest platform must not be empty.',
@@ -313,7 +316,7 @@ function checkArtifactMetadata(manifest: TargetBundleManifest): TargetBundleArti
   else if (!NATIVE_TARGET_BUNDLE_PLATFORMS.has(platform as QuaNativePlatform)) {
     diagnostics.push({
       code: 'TARGET_BUNDLE_PLATFORM_INVALID',
-      target: manifest.target,
+      target: expectedTarget,
       field: 'platform',
       value: platform,
       message: 'Native target bundle manifest platform must be "macos", "windows", or "linux".',
@@ -323,8 +326,11 @@ function checkArtifactMetadata(manifest: TargetBundleManifest): TargetBundleArti
   return diagnostics
 }
 
-function checkAppMetadata(manifest: TargetBundleManifest): TargetBundleAppMetadataDiagnostic[] {
-  if (manifest.target !== 'native')
+function checkAppMetadata(
+  manifest: TargetBundleManifest,
+  expectedTarget: QuaTargetBootstrap = manifest.target,
+): TargetBundleAppMetadataDiagnostic[] {
+  if (expectedTarget !== 'native')
     return []
 
   const diagnostics: TargetBundleAppMetadataDiagnostic[] = []
@@ -333,7 +339,7 @@ function checkAppMetadata(manifest: TargetBundleManifest): TargetBundleAppMetada
     if (value === undefined) {
       diagnostics.push({
         code: 'TARGET_BUNDLE_APP_METADATA_MISSING',
-        target: manifest.target,
+        target: expectedTarget,
         field,
         message: `Native target bundle manifest must include app.${field}.`,
       })
@@ -341,7 +347,7 @@ function checkAppMetadata(manifest: TargetBundleManifest): TargetBundleAppMetada
     else if (value.trim() === '') {
       diagnostics.push({
         code: 'TARGET_BUNDLE_APP_METADATA_EMPTY',
-        target: manifest.target,
+        target: expectedTarget,
         field,
         message: `Native target bundle manifest app.${field} must not be empty.`,
       })
@@ -371,26 +377,29 @@ export function createTargetCoreSelection(target: QuaTargetBootstrap): TargetCor
   }
 }
 
-function checkCoreResolver(manifest: TargetBundleManifest): TargetBundleCoreResolverDiagnostic[] {
-  const expectedTargetCoreResolver = getTargetCoreResolverId(manifest.target)
+function checkCoreResolver(
+  manifest: TargetBundleManifest,
+  expectedTarget: QuaTargetBootstrap = manifest.target,
+): TargetBundleCoreResolverDiagnostic[] {
+  const expectedTargetCoreResolver = getTargetCoreResolverId(expectedTarget)
   const targetCoreResolver = (manifest as { targetCoreResolver?: unknown }).targetCoreResolver
 
   if (targetCoreResolver === undefined) {
     return [{
       code: 'TARGET_BUNDLE_CORE_RESOLVER_MISSING',
-      target: manifest.target,
+      target: expectedTarget,
       expectedTargetCoreResolver,
-      message: `Target bundle manifest for "${manifest.target}" must record targetCoreResolver "${expectedTargetCoreResolver}".`,
+      message: `Target bundle manifest for "${expectedTarget}" must record targetCoreResolver "${expectedTargetCoreResolver}".`,
     }]
   }
 
   if (targetCoreResolver !== expectedTargetCoreResolver) {
     return [{
       code: 'TARGET_BUNDLE_CORE_RESOLVER_MISMATCH',
-      target: manifest.target,
+      target: expectedTarget,
       targetCoreResolver: typeof targetCoreResolver === 'string' ? targetCoreResolver : undefined,
       expectedTargetCoreResolver,
-      message: `Target bundle manifest for "${manifest.target}" was produced by targetCoreResolver "${String(targetCoreResolver)}", but expected "${expectedTargetCoreResolver}".`,
+      message: `Target bundle manifest for "${expectedTarget}" was produced by targetCoreResolver "${String(targetCoreResolver)}", but expected "${expectedTargetCoreResolver}".`,
     }]
   }
 
@@ -414,25 +423,26 @@ export function collectTargetBundlePackageNames(manifest: TargetBundleManifest):
 function checkCorePluginFamily(
   manifest: TargetBundleManifest,
   packageNames: readonly string[],
+  expectedTarget: QuaTargetBootstrap = manifest.target,
 ): TargetBundleCorePluginFamilyDiagnostic[] {
-  const expectedCorePluginFamily = getTargetCorePluginFamily(manifest.target)
+  const expectedCorePluginFamily = getTargetCorePluginFamily(expectedTarget)
   const diagnostics: TargetBundleCorePluginFamilyDiagnostic[] = []
 
   if (!manifest.selectedCorePluginFamily) {
     diagnostics.push({
       code: 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_MISSING',
-      target: manifest.target,
+      target: expectedTarget,
       expectedCorePluginFamily,
-      message: `Target bundle manifest for "${manifest.target}" must record selected core plugin family "${expectedCorePluginFamily}".`,
+      message: `Target bundle manifest for "${expectedTarget}" must record selected core plugin family "${expectedCorePluginFamily}".`,
     })
   }
   else if (manifest.selectedCorePluginFamily !== expectedCorePluginFamily) {
     diagnostics.push({
       code: 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_MISMATCH',
-      target: manifest.target,
+      target: expectedTarget,
       selectedCorePluginFamily: manifest.selectedCorePluginFamily,
       expectedCorePluginFamily,
-      message: `Target bundle manifest for "${manifest.target}" selected core plugin family "${manifest.selectedCorePluginFamily}", but expected "${expectedCorePluginFamily}".`,
+      message: `Target bundle manifest for "${expectedTarget}" selected core plugin family "${manifest.selectedCorePluginFamily}", but expected "${expectedCorePluginFamily}".`,
     })
   }
 
@@ -443,21 +453,24 @@ function checkCorePluginFamily(
 
     diagnostics.push({
       code: 'TARGET_BUNDLE_CORE_PLUGIN_FAMILY_LEAK',
-      target: manifest.target,
+      target: expectedTarget,
       selectedCorePluginFamily: manifest.selectedCorePluginFamily,
       expectedCorePluginFamily,
       packageName,
       packageCorePluginFamily,
-      message: `Target bundle manifest for "${manifest.target}" must not include "${packageName}" from core plugin family "${packageCorePluginFamily}".`,
+      message: `Target bundle manifest for "${expectedTarget}" must not include "${packageName}" from core plugin family "${packageCorePluginFamily}".`,
     })
   }
 
   return diagnostics
 }
 
-function checkSelectedCoreAdapters(manifest: TargetBundleManifest): TargetBundleSelectedCoreAdapterDiagnostic[] {
+function checkSelectedCoreAdapters(
+  manifest: TargetBundleManifest,
+  expectedTarget: QuaTargetBootstrap = manifest.target,
+): TargetBundleSelectedCoreAdapterDiagnostic[] {
   const expectedCoreAdapters = new Set(
-    TARGET_BOOTSTRAP_MANIFESTS[manifest.target].coreAdapters.map(normalizePackageSpecifier),
+    TARGET_BOOTSTRAP_MANIFESTS[expectedTarget].coreAdapters.map(normalizePackageSpecifier),
   )
   const selectedCoreAdapters = new Set(
     collectPackageReferenceSpecifiers(manifest.selectedCoreAdapters).map(normalizePackageSpecifier),
@@ -470,9 +483,9 @@ function checkSelectedCoreAdapters(manifest: TargetBundleManifest): TargetBundle
 
     diagnostics.push({
       code: 'TARGET_BUNDLE_SELECTED_CORE_ADAPTER_MISSING',
-      target: manifest.target,
+      target: expectedTarget,
       packageName,
-      message: `Target bundle manifest for "${manifest.target}" must select required core adapter "${packageName}".`,
+      message: `Target bundle manifest for "${expectedTarget}" must select required core adapter "${packageName}".`,
     })
   }
 
@@ -482,24 +495,27 @@ function checkSelectedCoreAdapters(manifest: TargetBundleManifest): TargetBundle
 
     diagnostics.push({
       code: 'TARGET_BUNDLE_SELECTED_CORE_ADAPTER_UNEXPECTED',
-      target: manifest.target,
+      target: expectedTarget,
       packageName,
-      message: `Target bundle manifest for "${manifest.target}" must not select core adapter "${packageName}".`,
+      message: `Target bundle manifest for "${expectedTarget}" must not select core adapter "${packageName}".`,
     })
   }
 
   return diagnostics
 }
 
-function checkRendererEntryTargets(manifest: TargetBundleManifest): TargetBundleRendererEntryTargetDiagnostic[] {
+function checkRendererEntryTargets(
+  manifest: TargetBundleManifest,
+  expectedTarget: QuaTargetBootstrap = manifest.target,
+): TargetBundleRendererEntryTargetDiagnostic[] {
   const diagnostics: TargetBundleRendererEntryTargetDiagnostic[] = []
 
   for (const reference of manifest.rendererEntries || [])
-    pushRendererEntryTargetDiagnostic(diagnostics, manifest.target, reference)
+    pushRendererEntryTargetDiagnostic(diagnostics, expectedTarget, reference)
 
   for (const runtimePackage of manifest.runtimePackages || []) {
     for (const reference of runtimePackage.rendererEntries || [])
-      pushRendererEntryTargetDiagnostic(diagnostics, manifest.target, reference, runtimePackage.id)
+      pushRendererEntryTargetDiagnostic(diagnostics, expectedTarget, reference, runtimePackage.id)
   }
 
   return diagnostics
@@ -544,14 +560,17 @@ function pushRendererEntryTargetDiagnostic(
   })
 }
 
-function checkRuntimePackageTargetCoreAdapters(manifest: TargetBundleManifest): TargetBundleRuntimePackageDiagnostic[] {
+function checkRuntimePackageTargetCoreAdapters(
+  manifest: TargetBundleManifest,
+  expectedTarget: QuaTargetBootstrap = manifest.target,
+): TargetBundleRuntimePackageDiagnostic[] {
   const targetAdapterRoots = collectTargetCoreAdapterRoots()
   const diagnostics: TargetBundleRuntimePackageDiagnostic[] = []
 
   for (const runtimePackage of manifest.runtimePackages || []) {
     pushRuntimePackageTargetCoreAdapterDiagnostics(
       diagnostics,
-      manifest.target,
+      expectedTarget,
       runtimePackage.id,
       'executableDependencies',
       runtimePackage.executableDependencies || [],
@@ -559,7 +578,7 @@ function checkRuntimePackageTargetCoreAdapters(manifest: TargetBundleManifest): 
     )
     pushRuntimePackageTargetCoreAdapterDiagnostics(
       diagnostics,
-      manifest.target,
+      expectedTarget,
       runtimePackage.id,
       'rendererEntries',
       runtimePackage.rendererEntries || [],
