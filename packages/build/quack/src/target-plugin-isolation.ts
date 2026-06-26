@@ -36,7 +36,7 @@ export function assertLoadedQuackPluginTargetIsolation(
   plugins: readonly Pick<QuackPlugin, 'name'>[],
   options: AssertQuackPluginTargetIsolationOptions = {},
 ): void {
-  assertQuackPluginReferencesTargetIsolation(plugins.map(plugin => plugin.name), {
+  assertQuackPluginReferencesTargetIsolation(plugins.flatMap(loadedQuackPluginReferences), {
     ...options,
     fieldName: options.fieldName || 'QuackConfig.plugins',
   })
@@ -46,4 +46,25 @@ export function targetFromAssetPlatform(platform: unknown): QuaTargetBootstrap |
   return platform === 'web' || platform === 'cocos' || platform === 'native'
     ? platform
     : undefined
+}
+
+function loadedQuackPluginReferences(plugin: Pick<QuackPlugin, 'name'>): QuackPluginReference[] {
+  const references: QuackPluginReference[] = [plugin.name]
+  const specifier = optionalPluginStringMetadata(plugin, 'specifier')
+  const packageName = optionalPluginStringMetadata(plugin, 'packageName')
+  if (specifier || packageName) {
+    references.push({
+      specifier,
+      packageName,
+    })
+  }
+  return references
+}
+
+function optionalPluginStringMetadata(
+  plugin: Pick<QuackPlugin, 'name'>,
+  key: 'specifier' | 'packageName',
+): string | undefined {
+  const value = (plugin as Record<string, unknown>)[key]
+  return typeof value === 'string' && value.length > 0 ? value : undefined
 }
