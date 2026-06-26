@@ -20,6 +20,7 @@ import type {
 import { existsSync } from 'node:fs'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
+  CodeActionKind,
   CompletionItemKind,
   createConnection,
   DiagnosticSeverity,
@@ -31,6 +32,7 @@ import {
 import {
   fileURLToPath,
 } from 'node:url'
+import { createNativeUiAssetCodeActions } from './code-actions'
 import {
   buildNativeUiProjectIndex,
   createNativeUiProjectRenameEdits,
@@ -81,6 +83,12 @@ connection.onInitialize((params: InitializeParams) => {
       referencesProvider: true,
       renameProvider: true,
       documentFormattingProvider: true,
+      codeActionProvider: {
+        codeActionKinds: [
+          CodeActionKind.QuickFix,
+          `${CodeActionKind.SourceFixAll}.quaNativeAssets`,
+        ],
+      },
     },
   }
 })
@@ -139,6 +147,19 @@ connection.onDocumentLinks((params) => {
   return getNativeUiProjectDocumentLinks(currentProjectIndex(), params.textDocument.uri)
     .map(resolveExistingFileDocumentLink)
     .map(toLspDocumentLink)
+})
+
+connection.onCodeAction((params) => {
+  const document = documents.get(params.textDocument.uri)
+  if (!document)
+    return []
+
+  return createNativeUiAssetCodeActions({
+    diagnostics: params.context.diagnostics,
+    range: params.range,
+    source: document.getText(),
+    uri: document.uri,
+  })
 })
 
 connection.onReferences((params) => {
