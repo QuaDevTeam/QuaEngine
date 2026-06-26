@@ -192,6 +192,10 @@ export type NativeQssFontWeightValue
     | 'normal'
     | number
 
+export type NativeQssFontStyleValue
+  = | 'italic'
+    | 'normal'
+
 export type NativeQssTextAlignValue
   = | 'center'
     | 'justify'
@@ -245,6 +249,7 @@ export interface NativeQssResolvedStyle {
   color?: string
   fontFamily?: string[]
   fontSize?: number
+  fontStyle?: NativeQssFontStyleValue
   fontWeight?: NativeQssFontWeightValue
   lineHeight?: number
   objectFit?: NativeQssObjectFitValue

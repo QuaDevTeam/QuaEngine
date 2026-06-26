@@ -4,13 +4,13 @@ use crate::projection::common::{FontFamilyProjection, FontWeightProjection};
 use crate::projection::ui::{
     append_ui_commands, build_ui_commands, UiIntentProjection, UiOverlayProjection,
     UiOverlaySurfaceProjection, UiProjection, UiSurfaceBackgroundPositionProjection,
-    UiSurfaceBorderStyleProjection, UiSurfaceEdgeInsetsProjection, UiSurfaceImageProjection,
-    UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceObjectFitProjection,
-    UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
+    UiSurfaceBorderStyleProjection, UiSurfaceEdgeInsetsProjection, UiSurfaceFontStyleProjection,
+    UiSurfaceImageProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection,
+    UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
 };
 use crate::render_graph::{
-    DrawCommandKind, DrawCommandParams, FontWeightDrawParam, LogicalRect, MediaFit, RenderGraph,
-    RenderPlane, TextAlign,
+    DrawCommandKind, DrawCommandParams, FontStyleDrawParam, FontWeightDrawParam, LogicalRect,
+    MediaFit, RenderGraph, RenderPlane, TextAlign,
 };
 use crate::resources::ResourceId;
 
@@ -231,6 +231,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                             "Fallback Serif",
                         ])),
                         font_size: Some(34.0),
+                        font_style: Some(UiSurfaceFontStyleProjection::Italic),
                         font_weight: Some(FontWeightProjection::number(650)),
                         line_height: Some(44.0),
                         text_align: Some(UiSurfaceTextAlignProjection::Center),
@@ -271,6 +272,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                             "Fallback UI",
                         ])),
                         font_size: Some(30.0),
+                        font_style: Some(UiSurfaceFontStyleProjection::Normal),
                         font_weight: Some(FontWeightProjection::keyword("bold")),
                         line_height: Some(40.0),
                         text_align: Some(UiSurfaceTextAlignProjection::Right),
@@ -309,6 +311,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
             assert_eq!(params.color, "#f7f3e8");
             assert_eq!(params.font_family, vec!["Qua Sans", "Fallback Serif"]);
             assert_eq!(params.font_size, 34.0);
+            assert_eq!(params.font_style, FontStyleDrawParam::Italic);
             assert_eq!(
                 params.font_weight.as_ref(),
                 Some(&FontWeightDrawParam::Number(650))
@@ -345,6 +348,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
             assert_eq!(params.border.width, 0.0);
             assert_eq!(params.font_family, vec!["Button Face", "Fallback UI"]);
             assert_eq!(params.font_size, 30.0);
+            assert_eq!(params.font_style, FontStyleDrawParam::Normal);
             assert_eq!(
                 params.font_weight.as_ref(),
                 Some(&FontWeightDrawParam::Keyword("bold".to_string()))

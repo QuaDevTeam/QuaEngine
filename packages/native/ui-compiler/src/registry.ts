@@ -157,7 +157,10 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   ]),
   property('box-shadow', 'p2', false, 'Limited shadow projection planned for native style IR.'),
   property('clip-path', 'p2', false, 'Qua subset clipping planned for native style IR.'),
-  property('font-style', 'p2', false, 'Text style planned for native text layout.'),
+  property('font-style', 'p1', true, 'Text style for native text and button label draw params.', [
+    value('normal', 'Use an upright font face.'),
+    value('italic', 'Use an italic font face when available.'),
+  ]),
   property('letter-spacing', 'p2', false, 'Text letter spacing planned for native text layout.'),
   property('white-space', 'p2', false, 'Whitespace handling planned for native text layout.'),
   property('text-overflow', 'p2', false, 'Text overflow metadata planned for native text layout.'),

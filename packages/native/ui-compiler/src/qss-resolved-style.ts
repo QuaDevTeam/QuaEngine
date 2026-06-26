@@ -2,6 +2,7 @@ import type {
   NativeQssDeclaration,
   NativeQssBorderStyleValue,
   NativeQssEdgeInsetsValue,
+  NativeQssFontStyleValue,
   NativeQssObjectFitValue,
   NativeQssResolvedBounds,
   NativeQssResolvedNodeStyle,
@@ -11,6 +12,7 @@ import type {
 const OBJECT_FIT_VALUES = new Set<NativeQssObjectFitValue>(['contain', 'cover', 'fill', 'none', 'scale-down'])
 const TEXT_ALIGN_VALUES = new Set<NativeQssTextAlignValue>(['center', 'justify', 'left', 'right'])
 const BORDER_STYLE_VALUES = new Set<NativeQssBorderStyleValue>(['none', 'solid'])
+const FONT_STYLE_VALUES = new Set<NativeQssFontStyleValue>(['italic', 'normal'])
 
 export function resolveNativeQssDeclarations(
   declarations: readonly NativeQssDeclaration[],
@@ -59,6 +61,9 @@ export function resolveNativeQssDeclarations(
         break
       case 'font-size':
         resolved.style.fontSize = parseNativeQssLogicalNumber(value)
+        break
+      case 'font-style':
+        resolved.style.fontStyle = parseNativeQssFontStyle(value)
         break
       case 'font-weight':
         resolved.style.fontWeight = parseNativeQssFontWeight(value)
@@ -340,6 +345,13 @@ export function parseNativeQssFontWeight(value: string): 'bold' | 'normal' | num
 
   const number = parseNativeQssInteger(value)
   return number !== undefined ? number : undefined
+}
+
+export function parseNativeQssFontStyle(value: string): NativeQssFontStyleValue | undefined {
+  const normalized = value.toLowerCase()
+  return FONT_STYLE_VALUES.has(normalized as NativeQssFontStyleValue)
+    ? normalized as NativeQssFontStyleValue
+    : undefined
 }
 
 export function parseNativeQssFontFamilyList(value: string): string[] | undefined {

@@ -37,6 +37,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             &[
                 "font-family",
                 "font-size",
+                "font-style",
                 "font-weight",
                 "line-height",
                 "text-align",
@@ -68,6 +69,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "display",
                 "font-family",
                 "font-size",
+                "font-style",
                 "font-weight",
                 "height",
                 "left",

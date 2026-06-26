@@ -61,6 +61,7 @@ fn text_capability_matches_current_qss_text_subset() {
 
     assert!(text.qss_features.contains(&"font-family".to_string()));
     assert!(text.qss_features.contains(&"font-size".to_string()));
+    assert!(text.qss_features.contains(&"font-style".to_string()));
     assert!(text.qss_features.contains(&"font-weight".to_string()));
     assert!(text.qss_features.contains(&"line-height".to_string()));
     assert!(text.qss_features.contains(&"text-align".to_string()));
@@ -98,6 +99,7 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(ui.qss_features.contains(&"color".to_string()));
     assert!(ui.qss_features.contains(&"font-family".to_string()));
     assert!(ui.qss_features.contains(&"font-size".to_string()));
+    assert!(ui.qss_features.contains(&"font-style".to_string()));
     assert!(ui.qss_features.contains(&"font-weight".to_string()));
     assert!(ui.qss_features.contains(&"height".to_string()));
     assert!(ui.qss_features.contains(&"left".to_string()));
