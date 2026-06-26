@@ -73,6 +73,14 @@
 
 Packager 需要先把 `targetCoreSelection` 和普通插件列表拆开，再进入 plugin resolution。普通插件解析阶段只允许读取平台无关 contracts 和 active target selection；如果它尝试追加 Web / Cocos / Native 任一 core root 或 subentry，必须立刻失败。产物侧还要在 bundle / tree-shake 后扫描 `specifier` 与 `packageName`，因为串线经常发生在 subentry、barrel export、side-effect import 或 generated resolver 里，而不是显眼的根包名里。
 
+实现层还要约束命名和依赖方向，避免“看起来独立、实际先聚合再过滤”的实现滑进来：
+
+- 允许：`resolveWebTargetCore()`、`resolveCocosTargetCore()`、`resolveNativeTargetCore()` 这类目标私有 resolver。
+- 禁止：`resolveAllTargetCore()`、`createCorePluginsForAllTargets()`、`targetCorePreset` 这类三端全集 helper。
+- 允许：普通插件接收已经生成的 `TargetCoreSelection` 作为只读上下文。
+- 禁止：普通插件、shared preset、Runtime QPK、LSP、benchmark 或 smoke runner 自己 import 任一 target core adapter。
+- 必须：Web / Cocos / Native 的 debug、release、installer、updater 和手写 shell 复用同一套 target isolation helper；不能只让 native 路线严格。
+
 ## 三目标打包隔离门禁
 
 Web、Cocos、Native 打包是三条互斥目标链路，不是同一套核心插件列表的三种输出格式。每个目标产物都必须先 materialize 唯一的 `TargetCoreSelection`，再解析普通 game/plugin 和 Runtime QPK；任何 shared preset、普通 `plugins`、generated resolver、renderer entry 或 Runtime QPK executable dependency 里出现 Web / Cocos / Native target core 根包或子入口，都必须作为 release blocker。
