@@ -75,6 +75,25 @@
 - Native 产物里出现 Web 或 Cocos core 直接失败。
 - 任何先构造 Web / Cocos / Native 三端核心插件全集再按 target 过滤的实现，即使最终 manifest 看似正确，也必须失败，因为 inactive core 已经进入 resolver graph。
 
+## 装配责任表
+
+为了避免“打包到 Cocos、Web、Native 项目时核心插件串线”，每个工程接线点的权限要固定下来：
+
+| 接线点 | 可以做什么 | 禁止做什么 | 必须调用的门禁 |
+| --- | --- | --- | --- |
+| Web packager entry | 创建 `web-core-resolver`，注入 Web bootstrap / Web renderer / Web renderer plugin entry | import Cocos 或 Native core；复用三端全集 resolver | `createTargetCoreSelection("web")`、`validateExclusiveTargetBootstrap`、`validateTargetBundleManifest({ expectedTarget: "web" })` |
+| Cocos packager entry | 创建 `cocos-core-resolver`，注入 Cocos host / renderer / renderer plugin entry | import Web 或 Native core；复用三端全集 resolver | `createTargetCoreSelection("cocos")`、`validateExclusiveTargetBootstrap`、`validateTargetBundleManifest({ expectedTarget: "cocos" })` |
+| Native packager entry | 创建 `native-core-resolver`，注入 `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native` 和 Rust metadata | import Web / Cocos core；把 native core 放进普通插件列表 | `createTargetCoreSelection("native")`、`validateExclusiveTargetBootstrap`、`validateTargetBundleManifest({ expectedTarget: "native" })` |
+| Quack config / CLI plugin loader | 读取普通插件引用和 shared preset，先做静态隔离检查 | 在检查前加载插件实现；允许 `specifier` 或 `packageName` 藏 target core subentry | `validateOrdinaryPluginListTargetIsolation`、Quack 封装的 assert helper |
+| ordinary plugin resolver | 只消费只读 `TargetCoreSelection` 和平台无关 contracts | 追加、替换或二次声明任一 target core adapter | `validateOrdinaryPluginListTargetIsolation` |
+| third-party plugin entry selector | materialize `shared` + active target entry | eager import inactive target entry；shared entry import target core | `validateTargetPluginManifest` |
+| Runtime QPK resolver / activator | 只评估 active target compatibility block，加载 QS / JS / resources | 声明 target core executable dependency / renderer entry；覆盖 native host renderer metadata | runtime package native-code guard、`validateTargetBundleManifest` runtime package checks |
+| post-bundle graph checker | 在 bundle / tree-shake 后扫描真实依赖图并 emit manifest | 只信源码配置；只扫 `packageName` 或只扫 `specifier` | `validateTargetBundleManifest` |
+| debug shell / smoke runner | 读取已选 target manifest，做轻量启动或 projection smoke | 构造三端 core 列表；绕过 manifest validation | `validateExclusiveTargetBootstrap`、active target manifest validation |
+| installer / updater | 复用已验证 artifact manifest 和版本目录 | 重新声明、合并或替换 core adapters | release manifest validation、版本产物不可变检查 |
+
+实现上要把这张表当成代码结构约束，而不是发布前人工检查。能 import target runtime adapter、renderer 或 host bridge 的模块，只能位于对应 target resolver 之下；其余模块只能处理序列化 metadata、schema、normalization 和 validation。
+
 ## 检查层级
 
 核心插件隔离必须在五层都成立：
