@@ -6,8 +6,8 @@ use crate::projection::dialogue::{
     DialogueAvatarProjection, DialogueProjection, RichTextContent, RichTextStyle,
 };
 use crate::projection::ui::{
-    UiOverlaySurfaceProjection, UiProjection, UiSurfaceImageProjection, UiSurfaceNodeProjection,
-    UiSurfaceResolvedStyle,
+    UiIntentProjection, UiOverlaySurfaceProjection, UiProjection, UiSurfaceImageProjection,
+    UiSurfaceNodeProjection, UiSurfaceResolvedStyle,
 };
 use crate::projection::view::ViewProjection;
 use crate::renderer::json_input::{
@@ -183,6 +183,12 @@ impl JsonProjectionValidator {
                     &format!("view.ui.overlays[{overlay_index}].scene.surface"),
                 );
             }
+            if let Some(intent) = &overlay.intent {
+                self.validate_ui_intent(
+                    &format!("view.ui.overlays[{overlay_index}].intent"),
+                    intent,
+                );
+            }
         }
     }
 
@@ -201,6 +207,9 @@ impl JsonProjectionValidator {
         if let Some(background_image) = &node.style.background_image {
             self.validate_ui_image(background_image, &format!("{path}.style.backgroundImage"));
         }
+        if let Some(intent) = &node.intent {
+            self.validate_ui_intent(&format!("{path}.intent"), intent);
+        }
         self.validate_ui_style(&format!("{path}.style"), &node.style);
         for (index, child) in node.children.iter().enumerate() {
             self.validate_ui_surface_node(child, &format!("{path}.children[{index}]"));
@@ -210,6 +219,28 @@ impl JsonProjectionValidator {
     fn validate_ui_image(&mut self, image: &UiSurfaceImageProjection, path: &str) {
         self.validate_asset_type(&format!("{path}.assetType"), &image.asset_type);
         self.validate_asset_reference(&format!("{path}.assetName"), &image.asset_name);
+    }
+
+    fn validate_ui_intent(&mut self, path: &str, intent: &UiIntentProjection) {
+        if let Some(reason) = invalid_native_json_ui_intent_event_reason(&intent.event) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: format!("{path}.event"),
+                asset_name: intent.event.clone(),
+                reason,
+            });
+            return;
+        }
+
+        if intent.event == "choice/select" {
+            match intent.choice_id.as_deref() {
+                Some(choice_id) if !choice_id.trim().is_empty() => {}
+                _ => self.errors.push(NativeRendererJsonValidationError {
+                    path: format!("{path}.choiceId"),
+                    asset_name: intent.choice_id.clone().unwrap_or_default(),
+                    reason: "choice/select intents must declare canonical choiceId".to_string(),
+                }),
+            }
+        }
     }
 
     fn validate_ui_style(&mut self, path: &str, style: &UiSurfaceResolvedStyle) {
@@ -270,6 +301,13 @@ impl JsonProjectionValidator {
                 reason,
             });
         }
+    }
+}
+
+fn invalid_native_json_ui_intent_event_reason(event: &str) -> Option<String> {
+    match event {
+        "ui/intent" | "choice/select" => None,
+        _ => Some("UI surface intent events must be ui/intent or choice/select".to_string()),
     }
 }
 

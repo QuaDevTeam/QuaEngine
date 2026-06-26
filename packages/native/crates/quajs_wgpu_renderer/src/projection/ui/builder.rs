@@ -99,7 +99,7 @@ fn ui_overlay_command(
 fn renderer_intent(overlay: &UiOverlayProjection, intent: &UiIntentProjection) -> RendererIntent {
     RendererIntent {
         event: intent.event.clone(),
-        choice_id: None,
+        choice_id: intent.choice_id.clone(),
         element_id: Some(overlay.element_id.clone()),
         action: intent.action.clone(),
         metadata: intent.metadata.clone(),

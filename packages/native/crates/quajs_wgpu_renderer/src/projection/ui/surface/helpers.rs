@@ -25,7 +25,7 @@ pub(super) fn renderer_intent(
 ) -> RendererIntent {
     RendererIntent {
         event: intent.event.clone(),
-        choice_id: None,
+        choice_id: intent.choice_id.clone(),
         element_id: Some(format!("{}:{}", overlay.element_id, node.id)),
         action: intent.action.clone(),
         metadata: intent.metadata.clone(),

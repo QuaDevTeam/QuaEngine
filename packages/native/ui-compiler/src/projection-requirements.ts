@@ -101,6 +101,8 @@ function collectNativeUiSurfaceNodeRequirements(
   if (node.intent?.event) {
     requirements.projectionFields.add('intent')
     requirements.intentEvents.add(node.intent.event)
+    if (node.intent.choiceId !== undefined)
+      requirements.projectionFields.add('choiceId')
   }
   if (node.children?.length)
     requirements.projectionFields.add('children')

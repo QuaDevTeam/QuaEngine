@@ -380,6 +380,25 @@ Stack {
     })
   })
 
+  it('projects literal choice actions as canonical native choice intents', () => {
+    const document = analyzeQuiSource('Button(id: "choose", action: choice.select("choice-a")) { Text { "Choose" } }')
+    const projection = compileNativeUiSurfaceProjection(document)
+
+    expect(document.diagnostics).toEqual([])
+    expect(projection.root?.intent).toEqual({
+      event: 'choice/select',
+      choiceId: 'choice-a',
+      action: 'select',
+      metadata: {
+        arg0: 'choice-a',
+      },
+    })
+
+    const requirements = collectNativeUiSurfaceProjectionRequirements(projection)
+    expect(requirements.intentEvents).toEqual(['choice/select'])
+    expect(requirements.projectionFields).toEqual(expect.arrayContaining(['choiceId', 'intent']))
+  })
+
   it('validates named QUI slots against the parent component registry', () => {
     const valid = analyzeQuiSource(`
 Panel {
