@@ -17,7 +17,7 @@ native authoring 工具要独立于现有 QuaScript 工具链：
 
 这些工具只做 authoring，不加载 Web/Cocos/native target core bootstrap，也不解析普通 game plugin 列表。它们可以读取平台无关 contracts / registry / manifest schema，但不能把 Web、Cocos、Native 三套核心插件合并成一个编辑器运行时。
 
-LSP 的资源链接解析分两层：project-index 只建立包内相对资源候选，不扫描文件系统；LSP server 在响应 `textDocument/documentLink` 时可以对 `file://` candidate 做只读存在性检查，让未打开的图片/音频/视频/字体资源也能跳转。这个检查不能扩展成 workspace 扫描、资源加载、普通 plugin 解析或 target core bootstrap。
+LSP 的资源链接解析分两层：project-index 只建立包内相对资源候选，不扫描文件系统；LSP server 在响应 `textDocument/documentLink` 和发布 diagnostics 时可以对 `file://` asset candidate 做只读存在性检查，让未打开的图片/音频/视频/字体资源也能跳转，并对确认缺失的 `Image(src|image)` / QSS `asset(...)` 资源发出 `NATIVE_UI_ASSET_MISSING` warning。这个检查不能扩展成 workspace 扫描、资源加载、普通 plugin 解析或 target core bootstrap。
 
 ## Language Server 设计
 
@@ -130,7 +130,7 @@ QSS 侧：
 - completion
 - hover
 - document links
-- QUI/QSS asset reference indexing: `Image(src|image)`、QSS `asset(...)`、resolved/missing asset document links、unsafe URL/absolute/traversal path ignored
+- QUI/QSS asset reference indexing: `Image(src|image)`、QSS `asset(...)`、resolved/missing asset document links、missing asset diagnostics、unsafe URL/absolute/traversal path ignored
 - LSP process documentLink: unopened `file://` asset candidates resolve only when the referenced file exists on disk, without importing target runtimes or scanning plugin graphs
 - definition
 - references
