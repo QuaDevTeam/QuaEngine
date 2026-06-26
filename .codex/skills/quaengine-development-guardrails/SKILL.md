@@ -79,6 +79,16 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Render-only UI overlays and UI scenes use engine-owned `view.ui.overlays` projection. Overlay-level render-only surfaces set `renderMode: 'render-only'` plus serializable `surface.key`/`surface.props` on the overlay config; non-overlay UI scenes set the same fields on `overlay.scene` with `presentation: 'scene'`. Host renderers register `surface.key` to transient Web/Vue/React/Svelte/Cocos factories; missing registrations must warn and render an empty surface instead of falling back to default panel chrome. Runtime packages may select keys and props, but must not push loose renderer resources outside the QPK/runtime plugin flow.
 - Official renderers must not auto-import visual CSS. Provide semantic DOM, stable class names/data attributes, resource wiring, and explicit optional style entrypoints instead.
 
+### Target core isolation
+- Treat Web, Cocos, and Native core bootstrap plugins as mutually exclusive target roots, not ordinary game plugins.
+- Select the packaging target first, materialize exactly one target-core resolver, then resolve ordinary game/plugins and Runtime QPK metadata.
+- Do not create a shared all-target core preset, umbrella plugin array, generated resolver, or barrel export that imports Web, Cocos, and Native core adapters and filters them later.
+- Web artifacts may include only Web core adapters and renderer entries; Cocos artifacts may include only Cocos host/renderer adapters; Native artifacts may include only `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, native contracts metadata, and Rust native app/runtime/renderer metadata.
+- Ordinary plugin lists, shared presets, third-party shared entries, renderer entries, Runtime QPK executable dependencies, debug shells, installers, and updater manifests must not declare Web/Cocos/Native target core adapters outside the active target resolver.
+- Third-party plugins may declare multiple target entries, but the shared entry must remain platform-neutral, the active target entry must import only its own target adapters, and inactive target entries must not be eager imports.
+- Validate isolation before packaging and after bundling/tree-shaking. `target-bundle-manifest.json` must record one matching `targetCoreResolver`, selected core plugin family, selected adapters, renderer entries, and Runtime QPK dependency set.
+- Web and Cocos builds must reject native core leakage with the same severity that native builds reject Web/Cocos leakage.
+
 ### Package-local features
 - Keep feature implementations inside the owning package.
 - Put decorators, runtime helpers, and compiler lowering in that package's own public sub-entry, such as `./script-compiler`.
@@ -145,9 +155,11 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Ask whether store migrations are declared, idempotent, and non-destructive.
 - Ask whether dynamic JS/plugin loading is verified through trust policy and implemented through injected/platform loaders.
 - Ask whether user-facing feature, decorator, config, or manifest changes update the relevant project skill in `.codex/skills`.
+- Ask whether a target-specific capability has separate Web, Cocos, and Native entry declarations without mixing their core bootstrap plugins.
 - Reject any renderer logic that becomes authoritative.
 - Reject WebAudio autoplay handling that treats browser policy blocking as a game-state error or blocks renderer synchronization while waiting for permission.
 - Reject framework renderer changes that duplicate object URL, lifecycle, animation projection, or WebAudio runtime code already owned by `@quajs/renderer-web`.
 - Reject Cocos changes that import DOM/Web APIs, implement WebAudio autoplay policy, or add dynamic renderer plugin loading without an explicit dynamic QPK task.
 - Reject Runtime Package implementations that require a renderer cache or transient Web resource for save/load, replay, branching, or progression correctness.
+- Reject Web/Cocos/Native target core adapters in ordinary plugins, shared presets, Runtime QPK executable dependencies, inactive target entries, or post-bundle artifacts.
 - Reject any commit message that does not match `<type>(<component>): <description>`.

@@ -107,6 +107,20 @@ Web、Cocos、Native 打包是三条互斥目标链路，不是同一套核心�
 - `validateTargetBundleManifest`：`target`、`targetCoreResolver`、selected adapters、renderer entries、Runtime QPK dependency 必须同属一个 core family。
 - Runtime QPK：可以声明多端 compatibility metadata，但不能携带或激活任何 Web / Cocos / Native core adapter。
 
+## 开发规范落点
+
+未来 engine 新能力迭代时，必须先判断它属于平台无关能力、target core bootstrap、target renderer entry，还是普通 game/plugin 能力。只有平台无关能力可以进入 shared engine/game/plugin 包；Web / Cocos / Native core bootstrap 只能由各自 target resolver 注入。
+
+第三方 plugin manifest 需要显式声明 Web / Cocos / Native 的目标兼容性和入口：
+
+- shared entry 只能 import 平台无关逻辑。
+- Web entry 只能 import Web core / Web renderer entry。
+- Cocos entry 只能 import Cocos host / renderer entry。
+- Native entry 只能声明 native renderer 版本、capability、asset kind、QUI component、QSS feature 等兼容性，并通过 native target resolver 接入 `@quajs/engine-native` / `@quajs/assets-native` / `@quajs/store-native`。
+- inactive target entry 只能作为 metadata 存在，不能 eager import、barrel export 或 side-effect import 进入 active artifact。
+
+开发规范和 review checklist 需要把 target core 串线作为 blocker：普通插件、shared preset、Runtime QPK、generated resolver、debug shell、installer / updater manifest 都不能二次声明 Web / Cocos / Native core adapter。新增能力同时影响 Web、Cocos、Native 时，要分别补齐三个 target entry / adapter 的兼容声明和测试，而不是创建一个包含三端核心插件全集的共享 preset。
+
 ## 文档索引
 
 - [架构与包结构](./architecture.md)
