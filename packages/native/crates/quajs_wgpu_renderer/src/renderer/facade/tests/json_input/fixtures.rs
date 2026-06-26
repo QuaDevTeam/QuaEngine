@@ -980,6 +980,50 @@ pub(super) fn json_frame_with_duplicate_audio_track_id_input() -> &'static str {
     "#
 }
 
+pub(super) fn json_frame_with_oversized_audio_volume_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            {
+              "id": "bgm-main",
+              "kind": "bgm",
+              "assetName": "music/opening.ogg",
+              "volume": 1.5
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_oversized_audio_memory_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            {
+              "id": "bgm-main",
+              "kind": "bgm",
+              "assetName": "music/opening.ogg",
+              "memory": {
+                "bufferCpuBytes": 2147483649,
+                "streamCpuBytes": 0,
+                "handleCpuBytes": 0
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(super) fn json_frame_input() -> &'static str {
     r##"
     {
