@@ -1,5 +1,7 @@
 use crate::projection::background::{BackgroundProjection, BackgroundVideoProjection};
 use crate::projection::character::CharacterProjection;
+use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
+use crate::projection::common::PackageProvenance;
 use crate::projection::dialogue::{DialogueAvatarProjection, DialogueProjection};
 use crate::projection::ui::{UiProjection, UiSurfaceImageProjection, UiSurfaceNodeProjection};
 use crate::projection::view::ViewProjection;
@@ -34,6 +36,9 @@ impl JsonProjectionValidator {
         if let Some(dialogue) = &view.dialogue {
             self.validate_dialogue(dialogue);
         }
+        if let Some(choices) = &view.choices {
+            self.validate_choices(choices);
+        }
         if let Some(ui) = &view.ui {
             self.validate_ui(ui);
         }
@@ -47,11 +52,16 @@ impl JsonProjectionValidator {
                     &format!("view.audio.tracks[{index}].assetName"),
                     &track.asset_name,
                 );
+                self.validate_provenance(
+                    &format!("view.audio.tracks[{index}].provenance"),
+                    &track.provenance,
+                );
             }
         }
     }
 
     fn validate_background(&mut self, background: &BackgroundProjection) {
+        self.validate_provenance("view.background.provenance", &background.provenance);
         if let Some(asset_type) = &background.asset_type {
             self.validate_asset_type("view.background.assetType", asset_type);
         }
@@ -69,6 +79,10 @@ impl JsonProjectionValidator {
                 &format!("view.background.layers[{index}].assetName"),
                 &layer.asset_name,
             );
+            self.validate_provenance(
+                &format!("view.background.layers[{index}].provenance"),
+                &layer.provenance,
+            );
         }
         if let Some(video) = &background.video {
             self.validate_background_video(video);
@@ -80,27 +94,47 @@ impl JsonProjectionValidator {
         if let Some(poster) = &video.poster {
             self.validate_asset_reference("view.background.video.poster", poster);
         }
+        self.validate_provenance("view.background.video.provenance", &video.provenance);
     }
 
     fn validate_character(&mut self, character: &CharacterProjection, path: &str) {
         if let Some(sprite) = &character.sprite {
             self.validate_asset_reference(&format!("{path}.sprite"), sprite);
         }
+        self.validate_provenance(&format!("{path}.provenance"), &character.provenance);
     }
 
     fn validate_dialogue(&mut self, dialogue: &DialogueProjection) {
         if let Some(avatar) = &dialogue.avatar {
             self.validate_dialogue_avatar(avatar);
         }
+        self.validate_provenance("view.dialogue.provenance", &dialogue.provenance);
     }
 
     fn validate_dialogue_avatar(&mut self, avatar: &DialogueAvatarProjection) {
         self.validate_asset_type("view.dialogue.avatar.assetType", &avatar.asset_type);
         self.validate_asset_reference("view.dialogue.avatar.assetName", &avatar.asset_name);
+        self.validate_provenance("view.dialogue.avatar.provenance", &avatar.provenance);
+    }
+
+    fn validate_choices(&mut self, choices: &ChoiceSetProjection) {
+        self.validate_provenance("view.choices.provenance", &choices.provenance);
+        for (index, choice) in choices.choices.iter().enumerate() {
+            self.validate_choice(choice, &format!("view.choices.choices[{index}]"));
+        }
+    }
+
+    fn validate_choice(&mut self, choice: &ChoiceProjection, path: &str) {
+        self.validate_provenance(&format!("{path}.provenance"), &choice.provenance);
     }
 
     fn validate_ui(&mut self, ui: &UiProjection) {
+        self.validate_provenance("view.ui.provenance", &ui.provenance);
         for (overlay_index, overlay) in ui.overlays.iter().enumerate() {
+            self.validate_provenance(
+                &format!("view.ui.overlays[{overlay_index}].provenance"),
+                &overlay.provenance,
+            );
             if let Some(surface) = &overlay.surface {
                 if let Some(root) = &surface.root {
                     self.validate_ui_surface_node(
@@ -113,6 +147,7 @@ impl JsonProjectionValidator {
     }
 
     fn validate_ui_surface_node(&mut self, node: &UiSurfaceNodeProjection, path: &str) {
+        self.validate_provenance(&format!("{path}.provenance"), &node.provenance);
         if let Some(image) = &node.image {
             self.validate_ui_image(image, &format!("{path}.image"));
         }
@@ -148,6 +183,28 @@ impl JsonProjectionValidator {
             });
         }
     }
+
+    fn validate_provenance(&mut self, path: &str, provenance: &PackageProvenance) {
+        if let Some(package_id) = &provenance.content_package_id {
+            self.validate_package_id(&format!("{path}.contentPackageId"), package_id);
+        }
+        for (index, package_id) in provenance.required_runtime_packages.iter().enumerate() {
+            self.validate_package_id(
+                &format!("{path}.requiredRuntimePackages[{index}]"),
+                package_id,
+            );
+        }
+    }
+
+    fn validate_package_id(&mut self, path: &str, package_id: &str) {
+        if let Some(reason) = invalid_native_json_package_id_reason(package_id) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: package_id.to_string(),
+                reason,
+            });
+        }
+    }
 }
 
 fn invalid_native_json_asset_type_reason(asset_type: &str) -> Option<String> {
@@ -161,6 +218,42 @@ fn invalid_native_json_asset_type_reason(asset_type: &str) -> Option<String> {
             .all(|char| char.is_ascii_alphanumeric() || matches!(char, '-' | '_'))
     {
         return Some("asset types must be safe native asset kind identifiers".to_string());
+    }
+    None
+}
+
+fn invalid_native_json_package_id_reason(package_id: &str) -> Option<String> {
+    let trimmed = package_id.trim();
+    if trimmed.is_empty() {
+        return Some("package provenance ids must not be empty".to_string());
+    }
+    if trimmed != package_id {
+        return Some("package provenance ids must not contain surrounding whitespace".to_string());
+    }
+    if package_id.chars().any(char::is_control) {
+        return Some("package provenance ids must not contain control characters".to_string());
+    }
+    if has_uri_scheme(package_id) {
+        return Some("package provenance ids must not be URLs or URI schemes".to_string());
+    }
+    if package_id.contains(['?', '#']) {
+        return Some("package provenance ids must not contain query or hash suffixes".to_string());
+    }
+    if package_id.starts_with('/') {
+        return Some("package provenance ids must be package ids, not absolute paths".to_string());
+    }
+    let normalized = package_id.replace('\\', "/");
+    if normalized.split('/').any(|segment| segment == "..") || package_id.contains("..") {
+        return Some("package provenance ids must not contain traversal markers".to_string());
+    }
+    if package_id.contains(['/', '\\']) {
+        return Some("package provenance ids must be identifiers, not paths".to_string());
+    }
+    if !package_id
+        .chars()
+        .all(|char| char.is_ascii_alphanumeric() || matches!(char, '.' | '-' | '_'))
+    {
+        return Some("package provenance ids must be safe native package identifiers".to_string());
     }
     None
 }
