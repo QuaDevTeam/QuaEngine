@@ -228,7 +228,9 @@ QSS 侧：
 - `native.authoring.project_index.build.smoke`
 - `native.authoring.project_index.incremental_update.smoke`
 
-这些 benchmark 通过 `@quajs/native-ui-compiler` 和 `@quajs/native-language-server` 的公开 API 运行，包括 QSS declaration 到 resolved style 的归一化、已分析 QUI/QSS 到 Rust 可消费 surface projection JSON 的编译、内存 project index build / incremental update，以及 document link / component-class reference 计数；不启动 renderer、不加载 target core bootstrap、不解析普通 game plugin 列表。fixture 固定在源码内，不能访问网络、不能随机生成。每条输出记录必须包含 `schemaVersion`、`suite`、`bench`、`profile`、`platform`、`backend`、`packageVersion`、`iterations`、`documentBytes`、`diagnostics`、`elapsedMs`、`memory` 和可比较的 `metrics`。
+这些 benchmark 通过 `@quajs/native-ui-compiler` 和 `@quajs/native-language-server` 的公开 API 运行，包括 QSS declaration 到 resolved style 的归一化、已分析 QUI/QSS 到 Rust 可消费 surface projection JSON 的编译、从 resolved projection 反推 `assetKinds` / `intentEvents` / `projectionFields` / `qssFeatures` / `quiComponents` 需求、从 projection 派生 native UI surface compatibility、内存 project index build / incremental update，以及 document link / component-class reference 计数；不启动 renderer、不加载 Web/Cocos/Native target core bootstrap、不解析普通 game plugin 列表。fixture 固定在源码内，不能访问网络、不能随机生成。每条输出记录必须包含 `schemaVersion`、`suite`、`bench`、`profile`、`platform`、`backend`、`packageVersion`、`iterations`、`documentBytes`、`diagnostics`、`elapsedMs`、`memory` 和可比较的 `metrics`。
+
+`native.authoring.surface_projection.compile.smoke` 的 metrics 必须同时覆盖 projection 复杂度和兼容性复杂度：节点数、style field、intent、text node、projection field、QSS feature、QUI component、asset kind、compatibility capability、compatibility asset kind、compatibility QSS feature、compatibility QUI component，以及 `nativeCode: false` 次数。这样动态 UI 小包在不携带 native code 的前提下，仍可以用 benchmark 追踪它对 native-wgpu capability / memory / 激活前兼容性校验的压力。
 
 当前 language-server 测试还会先构建 `@quajs/native-ui-compiler` 和 `@quajs/native-language-server`，再启动 `bin/qua-native-language-server.cjs` 走一条真实 stdio LSP smoke。这个测试验证发布入口默认 stdio、Node ESM dist import、initialize capability、open document diagnostics、completion、hover、documentLink 和 references，防止 VSCode / CLI 启动路径只在纯函数测试里通过。
 
