@@ -23,6 +23,7 @@ export default defineConfig({
     rollupOptions: {
       external: [
         '@quajs/native-ui-compiler',
+        'node:fs',
         'node:url',
         'vscode-languageserver/node.js',
         'vscode-languageserver-textdocument',

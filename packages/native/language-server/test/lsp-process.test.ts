@@ -1,9 +1,11 @@
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 import { Buffer } from 'node:buffer'
 import { execFile, spawn } from 'node:child_process'
-import { resolve } from 'node:path'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 interface JsonRpcMessage {
@@ -261,6 +263,68 @@ describe('@quajs/native-language-server process', () => {
         },
       ],
     })
+  }, 30_000)
+
+  it('resolves asset document links against files that are not open text documents', async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'qua-native-lsp-'))
+    try {
+      await mkdir(join(tempDir, 'ui/assets'), { recursive: true })
+      await writeFile(join(tempDir, 'ui/assets/poster.png'), Buffer.from([0x89, 0x50, 0x4E, 0x47]))
+
+      const quiPath = join(tempDir, 'ui/menu.qui')
+      const assetUri = pathToFileURL(join(tempDir, 'ui/assets/poster.png')).href
+      const quiUri = pathToFileURL(quiPath).href
+      const rootUri = pathToFileURL(tempDir).href
+      const qui = [
+        'Image(src: "assets/poster.png")',
+        'Image(src: "assets/missing.png")',
+      ].join('\n')
+
+      client = new LspProcessClient(serverPath)
+      await client.request('initialize', {
+        capabilities: {},
+        initializationOptions: {
+          quaNative: {
+            lint: {
+              strictComponents: true,
+            },
+          },
+        },
+        processId: process.pid,
+        rootUri,
+      })
+
+      client.notify('initialized', {})
+      client.notify('textDocument/didOpen', {
+        textDocument: {
+          languageId: 'qua-ui',
+          text: qui,
+          uri: quiUri,
+          version: 1,
+        },
+      })
+
+      await expect(client.waitForDiagnostics(quiUri)).resolves.toEqual([])
+
+      const links = await client.request<DocumentLinkLike[]>('textDocument/documentLink', {
+        textDocument: {
+          uri: quiUri,
+        },
+      })
+
+      expect(links).toHaveLength(2)
+      expect(links[0]).toEqual(expect.objectContaining({
+        tooltip: 'Missing assets/missing.png',
+      }))
+      expect(links[0]?.target).toBeUndefined()
+      expect(links[1]).toEqual(expect.objectContaining({
+        target: assetUri,
+        tooltip: 'Open assets/poster.png',
+      }))
+    }
+    finally {
+      await rm(tempDir, { force: true, recursive: true })
+    }
   }, 30_000)
 })
 

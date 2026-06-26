@@ -17,6 +17,8 @@ native authoring 工具要独立于现有 QuaScript 工具链：
 
 这些工具只做 authoring，不加载 Web/Cocos/native target core bootstrap，也不解析普通 game plugin 列表。它们可以读取平台无关 contracts / registry / manifest schema，但不能把 Web、Cocos、Native 三套核心插件合并成一个编辑器运行时。
 
+LSP 的资源链接解析分两层：project-index 只建立包内相对资源候选，不扫描文件系统；LSP server 在响应 `textDocument/documentLink` 时可以对 `file://` candidate 做只读存在性检查，让未打开的图片/音频/视频/字体资源也能跳转。这个检查不能扩展成 workspace 扫描、资源加载、普通 plugin 解析或 target core bootstrap。
+
 ## Language Server 设计
 
 LSP 的职责是同一套语义在不同入口下复用：
@@ -129,6 +131,7 @@ QSS 侧：
 - hover
 - document links
 - QUI/QSS asset reference indexing: `Image(src|image)`、QSS `asset(...)`、resolved/missing asset document links、unsafe URL/absolute/traversal path ignored
+- LSP process documentLink: unopened `file://` asset candidates resolve only when the referenced file exists on disk, without importing target runtimes or scanning plugin graphs
 - definition
 - references
 - rename
