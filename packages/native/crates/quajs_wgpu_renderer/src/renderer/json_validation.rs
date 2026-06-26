@@ -39,6 +39,10 @@ impl JsonProjectionValidator {
         }
         if let Some(audio) = &view.audio {
             for (index, track) in audio.tracks.iter().enumerate() {
+                self.validate_asset_type(
+                    &format!("view.audio.tracks[{index}].assetType"),
+                    &track.asset_type,
+                );
                 self.validate_asset_reference(
                     &format!("view.audio.tracks[{index}].assetName"),
                     &track.asset_name,
@@ -48,10 +52,19 @@ impl JsonProjectionValidator {
     }
 
     fn validate_background(&mut self, background: &BackgroundProjection) {
+        if let Some(asset_type) = &background.asset_type {
+            self.validate_asset_type("view.background.assetType", asset_type);
+        }
         if let Some(asset_name) = &background.asset_name {
             self.validate_asset_reference("view.background.assetName", asset_name);
         }
         for (index, layer) in background.layers.iter().enumerate() {
+            if let Some(asset_type) = &layer.asset_type {
+                self.validate_asset_type(
+                    &format!("view.background.layers[{index}].assetType"),
+                    asset_type,
+                );
+            }
             self.validate_asset_reference(
                 &format!("view.background.layers[{index}].assetName"),
                 &layer.asset_name,
@@ -82,6 +95,7 @@ impl JsonProjectionValidator {
     }
 
     fn validate_dialogue_avatar(&mut self, avatar: &DialogueAvatarProjection) {
+        self.validate_asset_type("view.dialogue.avatar.assetType", &avatar.asset_type);
         self.validate_asset_reference("view.dialogue.avatar.assetName", &avatar.asset_name);
     }
 
@@ -111,7 +125,18 @@ impl JsonProjectionValidator {
     }
 
     fn validate_ui_image(&mut self, image: &UiSurfaceImageProjection, path: &str) {
+        self.validate_asset_type(&format!("{path}.assetType"), &image.asset_type);
         self.validate_asset_reference(&format!("{path}.assetName"), &image.asset_name);
+    }
+
+    fn validate_asset_type(&mut self, path: &str, asset_type: &str) {
+        if let Some(reason) = invalid_native_json_asset_type_reason(asset_type) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: asset_type.to_string(),
+                reason,
+            });
+        }
     }
 
     fn validate_asset_reference(&mut self, path: &str, asset_name: &str) {
@@ -123,6 +148,21 @@ impl JsonProjectionValidator {
             });
         }
     }
+}
+
+fn invalid_native_json_asset_type_reason(asset_type: &str) -> Option<String> {
+    let trimmed = asset_type.trim();
+    if trimmed.is_empty() {
+        return Some("asset types must not be empty".to_string());
+    }
+    if trimmed != asset_type
+        || !asset_type
+            .chars()
+            .all(|char| char.is_ascii_alphanumeric() || matches!(char, '-' | '_'))
+    {
+        return Some("asset types must be safe native asset kind identifiers".to_string());
+    }
+    None
 }
 
 fn invalid_native_json_asset_reference_reason(asset_name: &str) -> Option<String> {
