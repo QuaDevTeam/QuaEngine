@@ -58,6 +58,66 @@ export interface CheckNativeCompatibilityOptions {
   compatibility?: RuntimePackageNativeRendererCompatibility
 }
 
+export interface CreateNativeUiSurfaceCompatibilityOptions {
+  rendererVersionRange?: string
+  capabilities?: readonly RendererTargetCapability[]
+  extraCapabilities?: readonly string[]
+  optionalCapabilities?: readonly string[]
+  quiComponents?: readonly string[]
+  optionalQuiComponents?: readonly string[]
+  qssFeatures?: readonly string[]
+  optionalQssFeatures?: readonly string[]
+  assetKinds?: readonly string[]
+  optionalAssetKinds?: readonly string[]
+}
+
+const NATIVE_RENDERER_PACKAGE = '@quajs/native-renderer'
+const NATIVE_WGPU_UI_SURFACE_CAPABILITY = 'native-wgpu.ui.surface@1'
+const NATIVE_UI_SURFACE_DECLARATIVE_ASSET_KINDS = ['qui', 'qss', 'tokens'] as const
+
+export function createNativeUiSurfaceCompatibility(
+  options: CreateNativeUiSurfaceCompatibilityOptions = {},
+): RuntimePackageNativeRendererCompatibility {
+  const uiSurfaceCapability = options.capabilities
+    ?.find(capability => isCapabilityCompatible(NATIVE_WGPU_UI_SURFACE_CAPABILITY, capability.id))
+  const capabilityIds = uniqueStrings([
+    NATIVE_WGPU_UI_SURFACE_CAPABILITY,
+    ...(options.extraCapabilities || []),
+  ])
+
+  return {
+    packageName: NATIVE_RENDERER_PACKAGE,
+    ...(options.rendererVersionRange ? { versionRange: options.rendererVersionRange } : {}),
+    capabilities: capabilityIds,
+    ...(options.optionalCapabilities?.length
+      ? { optionalCapabilities: uniqueStrings(options.optionalCapabilities) }
+      : {}),
+    assetKinds: uniqueStrings([
+      ...NATIVE_UI_SURFACE_DECLARATIVE_ASSET_KINDS,
+      ...(uiSurfaceCapability?.assetKinds || []),
+      ...(options.assetKinds || []),
+    ]),
+    ...(options.optionalAssetKinds?.length
+      ? { optionalAssetKinds: uniqueStrings(options.optionalAssetKinds) }
+      : {}),
+    quiComponents: uniqueStrings([
+      ...(uiSurfaceCapability?.quiComponents || []),
+      ...(options.quiComponents || []),
+    ]),
+    ...(options.optionalQuiComponents?.length
+      ? { optionalQuiComponents: uniqueStrings(options.optionalQuiComponents) }
+      : {}),
+    qssFeatures: uniqueStrings([
+      ...(uiSurfaceCapability?.qssFeatures || []),
+      ...(options.qssFeatures || []),
+    ]),
+    ...(options.optionalQssFeatures?.length
+      ? { optionalQssFeatures: uniqueStrings(options.optionalQssFeatures) }
+      : {}),
+    nativeCode: false,
+  }
+}
+
 export function checkNativeCompatibility(options: CheckNativeCompatibilityOptions): NativeCompatibilityResult {
   const diagnostics: NativeCompatibilityDiagnostic[] = []
   const { hostInfo, pluginId } = options

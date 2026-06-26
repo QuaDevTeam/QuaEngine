@@ -189,6 +189,8 @@ native 兼容性要分三层：
 - required / optional QUI components
 - `nativeCode: false`
 
+动态 UI 小包、native menu / overlay package 和第三方插件的 native renderer entry 应优先用 `createNativeUiSurfaceCompatibility` 生成 compatibility block。这个 helper 从实际 `native-wgpu.ui.surface@1` capability metadata 派生 QUI components / QSS features / asset kinds，并固定补齐 `qui`、`qss`、`tokens` 和 `nativeCode: false`，避免手写 metadata 漏掉声明或误声明尚未实现的 `native-wgpu.audio@1`。
+
 host 侧版本和 capability 以 signed native build 为准，QPK 不可覆盖。
 
 ## 打包与发布
