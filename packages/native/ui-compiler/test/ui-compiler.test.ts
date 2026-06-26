@@ -1204,6 +1204,15 @@ Button.primary {
 
     expect(requirements.assetKinds).toEqual(expect.arrayContaining(['fonts', 'images']))
     expect(requirements.intentEvents).toEqual(['ui/intent'])
+    expect(requirements.projectionFields).toEqual(expect.arrayContaining([
+      'bounds',
+      'children',
+      'image',
+      'intent',
+      'kind',
+      'provenance',
+      'text',
+    ]))
     expect(requirements.quiComponents).toEqual(['Button', 'Image', 'Panel', 'Text'])
     expect(requirements.qssFeatures).toEqual(expect.arrayContaining([
       'background-color',
@@ -1225,6 +1234,43 @@ Button.primary {
     ]))
     expect(requirements.quiComponents.filter(component => !supportedComponents.has(component))).toEqual([])
     expect(requirements.qssFeatures.filter(feature => !supportedQssFeatures.has(feature))).toEqual([])
+  })
+
+  it('separates resolved projection fields from QSS features when collecting surface requirements', () => {
+    const requirements = collectNativeUiSurfaceProjectionRequirements({
+      root: {
+        id: 'scroll',
+        kind: 'Scroll',
+        bounds: { x: 0, y: 0, width: 320, height: 240 },
+        clipChildren: true,
+        opacity: 0.5,
+        scrollOffsetX: 12,
+        scrollOffsetY: 24,
+        visible: false,
+        zIndex: 4,
+        children: [
+          {
+            id: 'content',
+            kind: 'Panel',
+            bounds: { x: 0, y: 0, width: 320, height: 240 },
+          },
+        ],
+      },
+    })
+
+    expect(requirements.projectionFields).toEqual(expect.arrayContaining([
+      'bounds',
+      'children',
+      'clipChildren',
+      'kind',
+      'opacity',
+      'scrollOffsetX',
+      'scrollOffsetY',
+      'visible',
+    ]))
+    expect(requirements.qssFeatures).toEqual(['overflow', 'z-index'])
+    expect(requirements.qssFeatures).not.toContain('opacity')
+    expect(requirements.qssFeatures).not.toContain('visibility')
   })
 
   it('applies native QSS selector specificity and ancestor matching during projection compile', () => {
