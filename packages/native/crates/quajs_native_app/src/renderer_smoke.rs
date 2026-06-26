@@ -127,10 +127,29 @@ mod tests {
         assert_eq!(summary.active_audio_track_count, 0);
         assert!(summary.memory.total_bytes > 0);
         assert!(summary.declarative_memory.total_bytes > 0);
+        assert!(summary.memory_by_kind["uiAst"].memory.total_bytes > 0);
+        assert!(
+            summary.memory_by_package["runtime.ui"]
+                .owned_memory
+                .total_bytes
+                > 0
+        );
+        assert!(
+            summary.declarative_memory_by_package["runtime.ui"]
+                .owned_memory
+                .total_bytes
+                > 0
+        );
         assert!(summary.command_count >= 3);
         let json = serde_json::to_value(&summary).expect("smoke summary serializes");
         assert_eq!(json["missingResourceCount"], 0);
         assert!(json["memory"]["totalBytes"].as_u64().unwrap() > 0);
+        assert!(
+            json["memoryByKind"]["uiAst"]["memory"]["totalBytes"]
+                .as_u64()
+                .unwrap()
+                > 0
+        );
         std::fs::remove_file(path).ok();
     }
 

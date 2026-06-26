@@ -1,9 +1,13 @@
+use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 use std::path::Path;
 
 use serde::Deserialize;
 
-use super::summary::NativeRendererSmokeSummary;
+use super::summary::{
+    NativeRendererSmokePackageMemorySummary, NativeRendererSmokeResourceKindMemorySummary,
+    NativeRendererSmokeSummary,
+};
 
 pub const RENDERER_SMOKE_BUDGET_ENV: &str = "QUA_NATIVE_RENDERER_SMOKE_BUDGET";
 
@@ -27,6 +31,20 @@ pub struct NativeRendererSmokeBudget {
     pub max_audio_resources: Option<usize>,
     #[serde(default)]
     pub max_active_audio_tracks: Option<usize>,
+    #[serde(default)]
+    pub max_memory_bytes_by_kind: BTreeMap<String, u64>,
+    #[serde(default)]
+    pub max_owned_memory_bytes_by_package: BTreeMap<String, u64>,
+    #[serde(default)]
+    pub max_dependent_memory_bytes_by_package: BTreeMap<String, u64>,
+    #[serde(default)]
+    pub max_declarative_owned_memory_bytes_by_package: BTreeMap<String, u64>,
+    #[serde(default)]
+    pub max_declarative_dependent_memory_bytes_by_package: BTreeMap<String, u64>,
+    #[serde(default)]
+    pub max_audio_owned_memory_bytes_by_package: BTreeMap<String, u64>,
+    #[serde(default)]
+    pub max_audio_dependent_memory_bytes_by_package: BTreeMap<String, u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -86,6 +104,48 @@ impl NativeRendererSmokeBudgetReport {
             summary.active_audio_track_count,
             budget.max_active_audio_tracks,
         );
+        check_resource_kind_memory(
+            &mut violations,
+            "memoryByKind",
+            &summary.memory_by_kind,
+            &budget.max_memory_bytes_by_kind,
+        );
+        check_package_owned_memory(
+            &mut violations,
+            "memoryByPackage",
+            &summary.memory_by_package,
+            &budget.max_owned_memory_bytes_by_package,
+        );
+        check_package_dependent_memory(
+            &mut violations,
+            "memoryByPackage",
+            &summary.memory_by_package,
+            &budget.max_dependent_memory_bytes_by_package,
+        );
+        check_package_owned_memory(
+            &mut violations,
+            "declarativeMemoryByPackage",
+            &summary.declarative_memory_by_package,
+            &budget.max_declarative_owned_memory_bytes_by_package,
+        );
+        check_package_dependent_memory(
+            &mut violations,
+            "declarativeMemoryByPackage",
+            &summary.declarative_memory_by_package,
+            &budget.max_declarative_dependent_memory_bytes_by_package,
+        );
+        check_package_owned_memory(
+            &mut violations,
+            "audioMemoryByPackage",
+            &summary.audio_memory_by_package,
+            &budget.max_audio_owned_memory_bytes_by_package,
+        );
+        check_package_dependent_memory(
+            &mut violations,
+            "audioMemoryByPackage",
+            &summary.audio_memory_by_package,
+            &budget.max_audio_dependent_memory_bytes_by_package,
+        );
 
         Self { budget, violations }
     }
@@ -113,7 +173,7 @@ impl Display for NativeRendererSmokeBudgetReport {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NativeRendererSmokeBudgetViolation {
-    pub metric: &'static str,
+    pub metric: String,
     pub actual: u64,
     pub max: u64,
 }
@@ -145,7 +205,7 @@ pub fn load_renderer_smoke_budget(
 
 fn check_usize(
     violations: &mut Vec<NativeRendererSmokeBudgetViolation>,
-    metric: &'static str,
+    metric: impl Into<String>,
     actual: usize,
     max: Option<usize>,
 ) {
@@ -156,18 +216,78 @@ fn check_usize(
 
 fn check_u64(
     violations: &mut Vec<NativeRendererSmokeBudgetViolation>,
-    metric: &'static str,
+    metric: impl Into<String>,
     actual: u64,
     max: Option<u64>,
 ) {
     if let Some(max) = max {
         if actual > max {
             violations.push(NativeRendererSmokeBudgetViolation {
-                metric,
+                metric: metric.into(),
                 actual,
                 max,
             });
         }
+    }
+}
+
+fn check_resource_kind_memory(
+    violations: &mut Vec<NativeRendererSmokeBudgetViolation>,
+    metric_prefix: &str,
+    actual: &BTreeMap<String, NativeRendererSmokeResourceKindMemorySummary>,
+    max_by_kind: &BTreeMap<String, u64>,
+) {
+    for (kind, max) in max_by_kind {
+        let actual_bytes = actual
+            .get(kind)
+            .map(|summary| summary.memory.total_bytes)
+            .unwrap_or_default();
+        check_u64(
+            violations,
+            format!("{metric_prefix}.{kind}.memory.totalBytes"),
+            actual_bytes,
+            Some(*max),
+        );
+    }
+}
+
+fn check_package_owned_memory(
+    violations: &mut Vec<NativeRendererSmokeBudgetViolation>,
+    metric_prefix: &str,
+    actual: &BTreeMap<String, NativeRendererSmokePackageMemorySummary>,
+    max_by_package: &BTreeMap<String, u64>,
+) {
+    for (package_id, max) in max_by_package {
+        let actual_bytes = actual
+            .get(package_id)
+            .map(|summary| summary.owned_memory.total_bytes)
+            .unwrap_or_default();
+        check_u64(
+            violations,
+            format!("{metric_prefix}.{package_id}.ownedMemory.totalBytes"),
+            actual_bytes,
+            Some(*max),
+        );
+    }
+}
+
+fn check_package_dependent_memory(
+    violations: &mut Vec<NativeRendererSmokeBudgetViolation>,
+    metric_prefix: &str,
+    actual: &BTreeMap<String, NativeRendererSmokePackageMemorySummary>,
+    max_by_package: &BTreeMap<String, u64>,
+) {
+    for (package_id, max) in max_by_package {
+        let actual_bytes = actual
+            .get(package_id)
+            .map(|summary| summary.dependent_memory.total_bytes)
+            .unwrap_or_default();
+        check_u64(
+            violations,
+            format!("{metric_prefix}.{package_id}.dependentMemory.totalBytes"),
+            actual_bytes,
+            Some(*max),
+        );
     }
 }
 
@@ -212,128 +332,4 @@ impl std::error::Error for NativeRendererSmokeBudgetLoadError {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::renderer_smoke::summary::NativeRendererSmokeMemorySummary;
-
-    #[test]
-    fn accepts_summary_within_budget() {
-        let summary = summary();
-        let report = NativeRendererSmokeBudgetReport::check(
-            NativeRendererSmokeBudget {
-                max_missing_resources: Some(1),
-                max_fallbacks: Some(2),
-                max_memory_bytes: Some(256),
-                max_declarative_memory_bytes: Some(128),
-                ..Default::default()
-            },
-            &summary,
-        );
-
-        assert!(report.is_ok());
-    }
-
-    #[test]
-    fn reports_all_budget_violations() {
-        let summary = summary();
-        let report = NativeRendererSmokeBudgetReport::check(
-            NativeRendererSmokeBudget {
-                max_missing_resources: Some(0),
-                max_fallbacks: Some(0),
-                max_video_fallbacks: Some(0),
-                max_memory_bytes: Some(99),
-                max_declarative_memory_bytes: Some(39),
-                max_audio_memory_bytes: Some(9),
-                max_audio_resources: Some(0),
-                max_active_audio_tracks: Some(0),
-            },
-            &summary,
-        );
-
-        assert_eq!(
-            report
-                .violations
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>(),
-            vec![
-                "missingResourceCount=1 exceeded max 0",
-                "fallbackCount=2 exceeded max 0",
-                "videoFallbackCount=1 exceeded max 0",
-                "memory.totalBytes=100 exceeded max 99",
-                "declarativeMemory.totalBytes=40 exceeded max 39",
-                "audioMemory.totalBytes=10 exceeded max 9",
-                "audioResourceCount=1 exceeded max 0",
-                "activeAudioTrackCount=1 exceeded max 0",
-            ]
-        );
-    }
-
-    #[test]
-    fn rejects_unknown_budget_fields() {
-        let path = unique_budget_path("unknown");
-        std::fs::write(&path, r#"{ "maxMemoryByts": 1 }"#)
-            .expect("renderer smoke budget fixture writes");
-
-        let error =
-            load_renderer_smoke_budget(&path).expect_err("unknown budget fields should fail");
-
-        assert!(error.to_string().contains("unknown field"));
-        std::fs::remove_file(path).ok();
-    }
-
-    #[test]
-    fn displays_budget_report() {
-        let summary = summary();
-        let report = NativeRendererSmokeBudgetReport::check(
-            NativeRendererSmokeBudget {
-                max_memory_bytes: Some(0),
-                ..Default::default()
-            },
-            &summary,
-        );
-
-        assert_eq!(
-            report.to_string(),
-            "Native renderer smoke budget exceeded: memory.totalBytes=100 exceeded max 0."
-        );
-    }
-
-    fn summary() -> NativeRendererSmokeSummary {
-        NativeRendererSmokeSummary {
-            revision: 1,
-            pass_count: 2,
-            batch_count: 3,
-            command_count: 4,
-            resource_count: 5,
-            missing_resource_count: 1,
-            fallback_count: 2,
-            video_fallback_count: 1,
-            declarative_asset_request_count: 1,
-            declarative_resource_count: 1,
-            audio_resource_count: 1,
-            active_audio_track_count: 1,
-            resource_package_count: 2,
-            resource_kind_count: 3,
-            memory: memory(60, 40),
-            declarative_memory: memory(40, 0),
-            audio_memory: memory(10, 0),
-        }
-    }
-
-    fn memory(cpu_bytes: u64, gpu_bytes: u64) -> NativeRendererSmokeMemorySummary {
-        NativeRendererSmokeMemorySummary {
-            cpu_bytes,
-            gpu_bytes,
-            total_bytes: cpu_bytes + gpu_bytes,
-        }
-    }
-
-    fn unique_budget_path(label: &str) -> std::path::PathBuf {
-        std::env::temp_dir().join(format!(
-            "quajs-native-renderer-smoke-budget-{label}-{}-{}.json",
-            std::process::id(),
-            std::thread::current().name().unwrap_or("test")
-        ))
-    }
-}
+mod tests;
