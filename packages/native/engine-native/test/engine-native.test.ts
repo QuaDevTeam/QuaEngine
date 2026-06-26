@@ -917,6 +917,10 @@ describe('@quajs/engine-native', () => {
       bundleName: 'runtime.chapter.native-ui',
       assetName: 'scripts/opening.mjs',
     }, ctx)).resolves.toEqual({ default: 'scripts/opening.mjs' })
+    await expect(loader.loadScriptModule?.({
+      id: 'native-payload-query',
+      assetName: 'scripts/helper.wasm?raw',
+    } as any, ctx)).rejects.toThrow(/assetName "scripts\/helper\.wasm\?raw" must not reference a native payload/)
     await expect(loader.loadStoreMigrationModule?.({
       id: 'save-v2',
       assetName: 'migrations/save.cjs',
