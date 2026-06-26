@@ -89,6 +89,9 @@ export function resolveNativeQssDeclarations(
       case 'text-align':
         resolved.style.textAlign = parseNativeQssTextAlign(value)
         break
+      case 'visibility':
+        resolved.visible = parseNativeQssVisibility(value)
+        break
       case 'width':
         resolved.bounds = resolveNativeQssBound(resolved.bounds, 'width', value, parseNativeQssLogicalNumber)
         break
@@ -274,6 +277,17 @@ export function parseNativeQssTextAlign(value: string): NativeQssTextAlignValue 
     : undefined
 }
 
+export function parseNativeQssVisibility(value: string): boolean | undefined {
+  switch (value.toLowerCase()) {
+    case 'hidden':
+      return false
+    case 'visible':
+      return true
+    default:
+      return undefined
+  }
+}
+
 export function parseNativeQssObjectFit(value: string): NativeQssObjectFitValue | undefined {
   const normalized = value.toLowerCase()
   return OBJECT_FIT_VALUES.has(normalized as NativeQssObjectFitValue)
@@ -319,6 +333,8 @@ function pruneUndefinedResolvedNodeStyle(style: NativeQssResolvedNodeStyle): Nat
 
   if (style.zIndex === undefined)
     delete style.zIndex
+  if (style.visible === undefined)
+    delete style.visible
 
   return style
 }

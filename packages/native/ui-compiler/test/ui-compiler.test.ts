@@ -38,6 +38,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('padding-right')
     expect(nativeWgpuQssFeatureNames()).toContain('padding-top')
     expect(nativeWgpuQssFeatureNames()).toContain('top')
+    expect(nativeWgpuQssFeatureNames()).toContain('visibility')
     expect(nativeWgpuQssFeatureNames()).toContain('width')
     expect(nativeWgpuQssFeatureNames()).toContain('z-index')
   })
@@ -435,6 +436,7 @@ Button.primary {
   padding-left: 24px;
   text-align: center;
   top: 32px;
+  visibility: hidden;
   width: 180px;
   height: 48px;
   z-index: 12;
@@ -444,6 +446,7 @@ Button.primary {
     expect(document.diagnostics).toEqual([])
     expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
       bounds: { x: -12, y: 32, width: 180, height: 48 },
+      visible: false,
       zIndex: 12,
       style: {
         backgroundColor: '#10141f',
@@ -480,6 +483,7 @@ Button {
   padding-left: -4px;
   text-align: start;
   top: calc(1px);
+  visibility: collapse;
   width: -4px;
   z-index: 1.5;
   background-image: asset("../escape.png");
@@ -511,6 +515,7 @@ Button {
   padding-left: -4px;
   text-align: start;
   top: calc(1px);
+  visibility: collapse;
   width: -4px;
   z-index: 1.5;
   background-image: asset("../escape.png");
@@ -531,6 +536,7 @@ Button {
   padding-left: 20px;
   text-align: justify;
   top: 0;
+  visibility: visible;
   width: 240px;
   z-index: 0;
   background-image: asset("ui/panel.png");
@@ -539,7 +545,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(16)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(17)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -716,6 +722,53 @@ Button.primary {
             id: 'override-button',
             kind: 'Button',
             bounds: { x: 140, y: 96, width: 120, height: 48 },
+            text: 'Override',
+          },
+        ],
+      },
+    })
+  })
+
+  it('uses QSS visibility as node visibility fallback while QUI show stays authoritative', () => {
+    const qui = analyzeQuiSource(`
+Panel.dialog(id: "menu") {
+  Text.notice(id: "hidden-text") { "Hidden by QSS" }
+  Button.primary(id: "override-button", label: "Override", show: true)
+}
+`)
+    const qss = analyzeQssSource(`
+Text.notice {
+  visibility: hidden;
+}
+Button.primary {
+  visibility: hidden;
+}
+Panel.dialog {
+  visibility: visible;
+}
+`)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(qss.diagnostics).toEqual([])
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+      root: {
+        id: 'menu',
+        kind: 'Panel',
+        bounds: { x: 0, y: 0, width: 0, height: 0 },
+        visible: true,
+        children: [
+          {
+            id: 'hidden-text',
+            kind: 'Text',
+            bounds: { x: 0, y: 0, width: 0, height: 0 },
+            visible: false,
+            text: 'Hidden by QSS',
+          },
+          {
+            id: 'override-button',
+            kind: 'Button',
+            bounds: { x: 0, y: 0, width: 0, height: 0 },
+            visible: true,
             text: 'Override',
           },
         ],

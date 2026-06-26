@@ -251,6 +251,7 @@ export interface NativeQssResolvedStyle {
 export interface NativeQssResolvedNodeStyle {
   bounds?: NativeQssResolvedBounds
   style: NativeQssResolvedStyle
+  visible?: boolean
   zIndex?: number
 }
 

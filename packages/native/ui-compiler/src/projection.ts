@@ -125,7 +125,7 @@ function surfaceNodeFromQuiNode(
     id,
     kind: node.name as NativeUiSurfaceNodeKind,
     bounds: rect,
-    visible: booleanProp(node.props, 'show'),
+    visible: booleanProp(node.props, 'show') ?? resolvedStyle.visible,
     zIndex: resolvedStyle.zIndex,
     opacity: numberProp(node.props, 'opacity'),
     scrollOffsetX: numberProp(node.props, 'scroll-x'),
