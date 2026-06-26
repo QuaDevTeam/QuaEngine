@@ -79,6 +79,9 @@ fn rejects_native_payload_and_non_js_runtime_module_assets() {
         "native/plugin.so",
         "native/plugin.dylib",
         "native/helper.wasm",
+        "native/helper.wasm?raw",
+        "native/helper.wasm#runtime",
+        "native/helper.wasm?cache=1#runtime",
     ] {
         let request = request_for_asset(asset_name, vec![1]);
         let error = validate_quickjs_evaluation_request(&request).unwrap_err();
@@ -102,6 +105,22 @@ fn rejects_native_payload_and_non_js_runtime_module_assets() {
         );
         assert_eq!(error.asset_name, Some(asset_name.to_string()));
     }
+}
+
+#[test]
+fn rejects_code_bytes_over_quickjs_module_limit() {
+    let mut request = request_for_asset("scripts/opening.js", vec![1]);
+    request.module.code = "export const label = \"序章\"".to_string();
+    request.limits.max_module_bytes = 4;
+
+    let error = validate_quickjs_evaluation_request(&request).unwrap_err();
+
+    assert_eq!(error.code, QuickJsEvaluationErrorCode::ModuleTooLarge);
+    assert_eq!(error.asset_name, Some("scripts/opening.js".to_string()));
+    assert_eq!(
+        error.detail,
+        Some("code bytes: 29; maxModuleBytes: 4".to_string())
+    );
 }
 
 #[test]
