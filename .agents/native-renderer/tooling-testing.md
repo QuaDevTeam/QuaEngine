@@ -167,6 +167,13 @@ QSS 侧：
 - Web / Cocos / Native 的 target-specific renderer plugin entry 必须按当前目标选择，并在产物 manifest 里显式写入 `target`；inactive entry 在 package manifest 中可以存在，但不能进入产物依赖图、renderer entries 或 Runtime QPK executable dependency
 - Runtime QPK 的 Web / Cocos / Native compatibility block 只能作为 metadata；active target 之外的 block 不得触发 core adapter import、renderer entry 注册或 native capability 覆盖
 
+CI 里要把三目标核心插件隔离拆成两个必跑 test suite：
+
+- contracts suite：只用 `@quajs/native-contracts` fixture 对称覆盖 Web / Cocos / Native，验证 `validateExclusiveTargetBootstrap`、`validateOrdinaryPluginListTargetIsolation`、`validateTargetPluginManifest` 和 `validateTargetBundleManifest` 的正负例。
+- packager suite：在 Quack / project packaging 层构造 debug、release、installer、updater、hand-built shell 和 post-bundle dependency graph fixture，确认它们全部调用同一套 helper，而不是只有主打包路径校验。
+
+每个 suite 都要有一个“反模式”负例：实现先构造 Web / Cocos / Native 核心插件全集，再按目标过滤。即使最终输出看起来只剩当前目标，也要失败，因为 inactive target core 已经被 import / registered / included 到 resolver graph 里。
+
 ### 核心插件串线验收 fixture
 
 每个 target 都要有一组正例和负例 fixture，证明核心插件只来自当前目标 resolver：

@@ -49,6 +49,16 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 
 普通插件、第三方插件和 Runtime QPK 只能消费已经选好的 `TargetCoreSelection`，不能再追加或覆盖 target core。即使某个 shared helper 只是为了“统一处理三端”，也只能处理 target metadata / schema 数据，不能 import inactive target bootstrap entrypoint 或把 inactive core adapter 放进依赖图。
 
+建议把目标选择实现成“单向门”：
+
+1. packager 入口根据 `target` 创建唯一 `TargetCoreSelection`。
+2. active target resolver 依据该 selection 注入目标私有 bootstrap adapter。
+3. ordinary plugin resolver 只能接收 selection 的只读结果，并在解析前调用 `validateOrdinaryPluginListTargetIsolation`。
+4. renderer entry selector 只 materialize active target entry；inactive entry 只能保留在 manifest metadata 中。
+5. bundle 后的 dependency graph 和 `target-bundle-manifest.json` 再次调用 `validateTargetBundleManifest`。
+
+这条链路不能有返回三端全集的中间层。`resolveAllTargetCore()`、`corePluginsByTarget` 先枚举全部目标再过滤、或者通过 barrel export 同时暴露 Web / Cocos / Native bootstrap 的实现，都应该被代码审查和 fixture 测试当作串线风险拒绝。
+
 打包到 Cocos、Web、Native 项目时，核心 bootstrap 插件不能串线：
 
 - Web artifact 只能包含 Web core resolver、Web assets/renderer/framework adapter。
