@@ -1,5 +1,6 @@
 mod audio_numbers;
 mod background_numbers;
+mod character_numbers;
 mod ui_geometry;
 mod ui_style_numbers;
 
@@ -25,6 +26,9 @@ use audio_numbers::{
 };
 use background_numbers::{
     invalid_native_json_background_geometry_reason, invalid_native_json_background_opacity_reason,
+};
+use character_numbers::{
+    invalid_native_json_character_opacity_reason, invalid_native_json_character_position_reason,
 };
 use ui_geometry::{invalid_native_json_scroll_offset_reason, invalid_native_json_ui_rect_reason};
 use ui_style_numbers::{
@@ -177,6 +181,8 @@ impl JsonProjectionValidator {
         if let Some(sprite) = &character.sprite {
             self.validate_asset_reference(&format!("{path}.sprite"), sprite);
         }
+        self.validate_character_position(&format!("{path}.position"), &character.position);
+        self.validate_character_opacity(&format!("{path}.opacity"), character.opacity);
         self.validate_provenance(&format!("{path}.provenance"), &character.provenance);
     }
 
@@ -545,6 +551,32 @@ impl JsonProjectionValidator {
 
     fn validate_background_opacity(&mut self, path: &str, value: f32) {
         if let Some(reason) = invalid_native_json_background_opacity_reason(value) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: value.to_string(),
+                reason,
+            });
+        }
+    }
+
+    fn validate_character_position(
+        &mut self,
+        path: &str,
+        position: &crate::projection::character::CharacterPosition,
+    ) {
+        if let Some((field, value, reason)) =
+            invalid_native_json_character_position_reason(position)
+        {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: format!("{path}.{field}"),
+                asset_name: value,
+                reason,
+            });
+        }
+    }
+
+    fn validate_character_opacity(&mut self, path: &str, value: f32) {
+        if let Some(reason) = invalid_native_json_character_opacity_reason(value) {
             self.errors.push(NativeRendererJsonValidationError {
                 path: path.to_string(),
                 asset_name: value.to_string(),

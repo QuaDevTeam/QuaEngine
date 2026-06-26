@@ -907,6 +907,78 @@ pub(super) fn json_frame_with_oversized_video_opacity_input() -> &'static str {
     "#
 }
 
+pub(super) fn json_frame_with_negative_character_width_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "characters": [
+          {
+            "id": "yuki",
+            "name": "Yuki",
+            "sprite": "characters/yuki.png",
+            "position": { "width": -1 }
+          }
+        ]
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_zero_character_scale_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "characters": [
+          {
+            "id": "yuki",
+            "name": "Yuki",
+            "sprite": "characters/yuki.png",
+            "position": { "scale": 0 }
+          }
+        ]
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_oversized_character_opacity_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "characters": [
+          {
+            "id": "yuki",
+            "name": "Yuki",
+            "sprite": "characters/yuki.png",
+            "opacity": 1.5
+          }
+        ]
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_oversized_character_rotation_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "characters": [
+          {
+            "id": "yuki",
+            "name": "Yuki",
+            "sprite": "characters/yuki.png",
+            "position": { "rotation": 360001 }
+          }
+        ]
+      }
+    }
+    "#
+}
+
 pub(super) fn json_frame_with_duplicate_scene_id_input() -> &'static str {
     r#"
     {
