@@ -164,9 +164,9 @@ export interface TargetBundleSelectedCoreAdapterDiagnostic {
 }
 
 export interface TargetBundleRendererEntryTargetDiagnostic {
-  code: 'TARGET_BUNDLE_RENDERER_ENTRY_TARGET_MISMATCH'
+  code: 'TARGET_BUNDLE_RENDERER_ENTRY_TARGET_MISSING' | 'TARGET_BUNDLE_RENDERER_ENTRY_TARGET_MISMATCH'
   target: QuaTargetBootstrap
-  rendererTarget: QuaTargetBootstrap
+  rendererTarget?: QuaTargetBootstrap
   packageName: string
   pluginId?: string
   runtimePackageId?: string
@@ -512,7 +512,22 @@ function pushRendererEntryTargetDiagnostic(
   runtimePackageId?: string,
 ): void {
   const rendererTarget = rendererEntryReferenceTarget(reference)
-  if (!rendererTarget || rendererTarget === target)
+  if (!rendererTarget) {
+    const packageName = normalizePackageSpecifier(packageReferenceSpecifier(reference) || 'unknown')
+    diagnostics.push({
+      code: 'TARGET_BUNDLE_RENDERER_ENTRY_TARGET_MISSING',
+      target,
+      packageName,
+      pluginId: rendererEntryReferencePluginId(reference),
+      runtimePackageId,
+      message: runtimePackageId
+        ? `Runtime package "${runtimePackageId}" renderer entry "${packageName}" must declare target "${target}".`
+        : `Renderer entry "${packageName}" must declare target "${target}".`,
+    })
+    return
+  }
+
+  if (rendererTarget === target)
     return
 
   const packageName = normalizePackageSpecifier(packageReferenceSpecifier(reference) || 'unknown')

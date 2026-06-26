@@ -110,7 +110,7 @@ QSS 侧：
 - ordinary plugin list target-core isolation
 - target bundle manifest validation
 - Web / Cocos / native 三目标隔离矩阵：bootstrap core、plugin target entry、Runtime QPK renderer/executable dependency 三层都要对称验证
-- target-specific renderer plugin entry 隔离：Web renderer subentry、Cocos renderer subentry、Native bridge/capability entry 只能出现在对应目标产物里
+- target-specific renderer plugin entry 隔离：Web renderer subentry、Cocos renderer subentry、Native bridge/capability entry 只能出现在对应目标产物里；所有进入 `target-bundle-manifest.json` 的 renderer entry 必须显式声明 `target`，缺失或跨目标都要失败
 - 产物级核心插件互斥：Web、Cocos、Native 打包输出必须各自只含一个 target core family；如果项目配置、普通插件、shared preset、Runtime QPK、renderer entry、debug shell、installer/updater manifest 或 post-bundle graph 中任一层混入另一个 target core family，必须失败而不是降级为 warning
 - debug / release / installer / updater / hand-built shell 统一复用同一套 target isolation helper，不能只在 Quack 主路径校验
 - native compatibility metadata
@@ -163,7 +163,7 @@ QSS 侧：
 - 三端 resolver fixture 必须分别断言 `web-core-resolver`、`cocos-core-resolver`、`native-core-resolver`，并在 resolver / selected adapters / renderer entries / Runtime QPK executable dependencies 任一项串线时失败
 - ordinary plugin list、shared preset、generated plugin resolver、debug shell、release bundle 和 installer/updater manifest 都要跑同一套 target isolation helper，不能只在 Quack 主打包路径校验
 - resolver 代码结构要有负例 fixture：如果实现导出一个包含 Web / Cocos / Native 三端 core adapter 的共享 `corePlugins` / umbrella preset，再靠后续 target 过滤，测试必须失败；正确形态是三端独立 resolver context 先选 target，再解析普通插件
-- Web / Cocos / Native 的 target-specific renderer plugin entry 必须按当前目标选择；inactive entry 在 package manifest 中可以存在，但不能进入产物依赖图、renderer entries 或 Runtime QPK executable dependency
+- Web / Cocos / Native 的 target-specific renderer plugin entry 必须按当前目标选择，并在产物 manifest 里显式写入 `target`；inactive entry 在 package manifest 中可以存在，但不能进入产物依赖图、renderer entries 或 Runtime QPK executable dependency
 - Runtime QPK 的 Web / Cocos / Native compatibility block 只能作为 metadata；active target 之外的 block 不得触发 core adapter import、renderer entry 注册或 native capability 覆盖
 
 ### 核心插件串线验收 fixture
@@ -174,7 +174,7 @@ QSS 侧：
 - 负例 1：bootstrap selection 同时注册两个 core family，例如 Web 产物混入 `native-core`。
 - 负例 2：普通 `plugins` 或 shared preset 直接声明 Web / Cocos / Native core root 或 subentry。
 - 负例 3：第三方 plugin 的 shared entry eager import 任一 target core，或 inactive target entry 通过 barrel / side-effect import 进入 active 产物。
-- 负例 4：Runtime QPK `executableDependencies` 或 `rendererEntries` 指向任一 target core root / subentry。
+- 负例 4：Runtime QPK `executableDependencies` 或 `rendererEntries` 指向任一 target core root / subentry，或 renderer entry 缺失显式 `target`。
 - 负例 5：post-bundle dependency graph 只在 `specifier` 或只在 `packageName` 中暴露其他 target core 子入口。
 - 负例 6：debug shell、installer、updater manifest 跳过 Quack 主路径但仍声明了错误 core family。
 - 负例 7：packager 或 shared preset 先构造 `[webCore, cocosCore, nativeCore]` 这样的三端全集，再按 target 过滤；这种实现即使最终 manifest 看似只剩一个 target，也必须按核心插件串线失败。

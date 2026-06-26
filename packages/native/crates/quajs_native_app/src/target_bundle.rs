@@ -294,6 +294,21 @@ fn push_renderer_entry_target_diagnostic(
     diagnostics: &mut Vec<String>,
 ) {
     let Some(target) = reference.target() else {
+        let package_name = reference
+            .specifier()
+            .map(normalize_package_specifier)
+            .unwrap_or_else(|| "unknown".to_string());
+        let message = match runtime_package_id {
+            Some(package_id) => format!(
+                "Runtime package \"{}\" renderer entry \"{}\" must declare target \"native\".",
+                package_id, package_name
+            ),
+            None => format!(
+                "Renderer entry \"{}\" must declare target \"native\".",
+                package_name
+            ),
+        };
+        diagnostics.push(message);
         return;
     };
     if target == "native" {
@@ -325,7 +340,7 @@ fn check_runtime_package_core_adapters(
         for package_name in runtime_package
             .executable_dependencies
             .iter()
-            .filter_map(TargetBundleReference::specifier)
+            .flat_map(TargetBundleReference::specifiers)
             .map(normalize_package_specifier)
         {
             if is_target_core_adapter_root(&package_name) {
@@ -339,7 +354,7 @@ fn check_runtime_package_core_adapters(
         for package_name in runtime_package
             .renderer_entries
             .iter()
-            .filter_map(TargetBundleReference::specifier)
+            .flat_map(TargetBundleReference::specifiers)
             .map(normalize_package_specifier)
         {
             if is_target_core_adapter_root(&package_name) {
@@ -371,12 +386,14 @@ fn collect_package_names(
     references: &[TargetBundleReference],
     package_names: &mut BTreeSet<String>,
 ) {
-    for package_name in references
-        .iter()
-        .filter_map(TargetBundleReference::specifier)
-        .map(normalize_package_specifier)
-    {
-        package_names.insert(package_name);
+    for reference in references {
+        for package_name in reference
+            .specifiers()
+            .into_iter()
+            .map(normalize_package_specifier)
+        {
+            package_names.insert(package_name);
+        }
     }
 }
 
