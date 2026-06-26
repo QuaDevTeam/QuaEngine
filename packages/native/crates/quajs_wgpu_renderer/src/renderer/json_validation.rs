@@ -165,6 +165,7 @@ impl JsonProjectionValidator {
     fn validate_ui(&mut self, ui: &UiProjection) {
         self.validate_provenance("view.ui.provenance", &ui.provenance);
         let mut overlay_element_ids = BTreeSet::new();
+        let mut scene_ids = BTreeSet::new();
         for (overlay_index, overlay) in ui.overlays.iter().enumerate() {
             let overlay_path = format!("view.ui.overlays[{overlay_index}].elementId");
             self.validate_ui_dispatch_identifier(
@@ -186,6 +187,16 @@ impl JsonProjectionValidator {
                 self.validate_ui_surface(
                     surface,
                     &format!("view.ui.overlays[{overlay_index}].surface"),
+                );
+            }
+            if let Some(scene) = &overlay.scene {
+                let scene_id_path = format!("view.ui.overlays[{overlay_index}].scene.id");
+                self.validate_ui_dispatch_identifier(&scene_id_path, &scene.id, "UI scene ids");
+                self.validate_unique_identifier(
+                    &scene_id_path,
+                    &scene.id,
+                    &mut scene_ids,
+                    "UI scene ids",
                 );
             }
             if let Some(scene_surface) = overlay
