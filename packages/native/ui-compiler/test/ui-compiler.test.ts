@@ -3,6 +3,7 @@ import {
   analyzeNativeUiDocument,
   analyzeQssSource,
   analyzeQuiSource,
+  compileNativeUiSurfaceProjection,
   formatNativeUiDocument,
   getNativeUiCompletions,
   getNativeUiHover,
@@ -514,6 +515,133 @@ Button {
       }),
     ]))
     expect(valid.diagnostics).toEqual([])
+  })
+
+  it('compiles static QUI and QSS into native UI surface projection JSON', () => {
+    const qui = analyzeQuiSource(`
+Panel.dialog(id: "menu", x: 10, y: 20, width: 520, height: 320) {
+  Text.title(id: "title", x: 32, y: 28, width: 240, height: 44) { "Main Menu" }
+  Image.poster(id: "poster", src: "ui/poster.png", x: 40, y: 96, width: 180, height: 112)
+  Button.primary(id: "close", label: "Close", action: ui.close(), x: 340, y: 236, width: 120, height: 48)
+}
+`)
+    const qss = analyzeQssSource(`
+Panel {
+  background-color: #101820;
+}
+Panel.dialog {
+  border-color: #5ac8fa;
+  border-radius: 14px;
+  border-width: 2px;
+}
+#title {
+  color: #f7f3e8;
+  font-size: 34px;
+  z-index: 8;
+}
+Button.primary {
+  background-color: #f0c15a;
+  color: #18130a;
+  font-weight: bold;
+}
+`)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(qss.diagnostics).toEqual([])
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+      root: {
+        id: 'menu',
+        kind: 'Panel',
+        bounds: { x: 10, y: 20, width: 520, height: 320 },
+        style: {
+          backgroundColor: '#101820',
+          borderColor: '#5ac8fa',
+          borderRadius: 14,
+          borderWidth: 2,
+        },
+        children: [
+          {
+            id: 'title',
+            kind: 'Text',
+            bounds: { x: 32, y: 28, width: 240, height: 44 },
+            zIndex: 8,
+            text: 'Main Menu',
+            style: {
+              color: '#f7f3e8',
+              fontSize: 34,
+            },
+          },
+          {
+            id: 'poster',
+            kind: 'Image',
+            bounds: { x: 40, y: 96, width: 180, height: 112 },
+            image: {
+              assetType: 'images',
+              assetName: 'ui/poster.png',
+            },
+          },
+          {
+            id: 'close',
+            kind: 'Button',
+            bounds: { x: 340, y: 236, width: 120, height: 48 },
+            text: 'Close',
+            intent: {
+              event: 'ui/intent',
+              action: 'close',
+            },
+            style: {
+              backgroundColor: '#f0c15a',
+              color: '#18130a',
+              fontWeight: 'bold',
+            },
+          },
+        ],
+      },
+    })
+  })
+
+  it('applies native QSS selector specificity and ancestor matching during projection compile', () => {
+    const qui = analyzeQuiSource(`
+Panel(id: "menu") {
+  Button.primary(id: "direct", label: "Direct")
+  Column {
+    Button.primary(id: "nested", label: "Nested")
+  }
+}
+`)
+    const qss = analyzeQssSource(`
+Button { color: #aaaaaa; }
+.primary { color: #bbbbbb; }
+Panel Button.primary { color: #cccccc; }
+Panel > Button.primary { color: #dddddd; }
+#nested { color: #eeeeee; }
+`)
+
+    const projection = compileNativeUiSurfaceProjection(qui, { qss })
+    const direct = projection.root?.children?.[0]
+    const nested = projection.root?.children?.[1]?.children?.[0]
+
+    expect(direct?.style).toEqual({ color: '#dddddd' })
+    expect(nested?.style).toEqual({ color: '#eeeeee' })
+  })
+
+  it('ignores malformed native QSS selector chains during projection compile', () => {
+    const qui = analyzeQuiSource(`
+Panel(id: "menu") {
+  Button(id: "target", label: "Target")
+}
+`)
+    const qss = analyzeQssSource(`
+Panel > { color: #ff0000; }
+> Button { color: #00ff00; }
+Panel > > Button { color: #0000ff; }
+Panel > Button { color: #101010; }
+`)
+
+    const projection = compileNativeUiSurfaceProjection(qui, { qss })
+    const target = projection.root?.children?.[0]
+
+    expect(target?.style).toEqual({ color: '#101010' })
   })
 
   it('rejects browser-only QSS selectors and values', () => {

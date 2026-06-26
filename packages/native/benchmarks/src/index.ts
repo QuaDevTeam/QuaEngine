@@ -12,9 +12,12 @@ import {
 } from '@quajs/native-language-server'
 import {
   analyzeNativeUiDocument,
+  compileNativeUiSurfaceProjection,
   formatNativeUiDocument,
   getNativeUiCompletions,
   getNativeUiHover,
+  isNativeQssDocument,
+  isNativeQuiDocument,
   resolveNativeQssDeclarations,
 } from '@quajs/native-ui-compiler'
 import {
@@ -83,6 +86,20 @@ export function runNativeAuthoringSmokeBenchmarks(
   } as const
   const projectDocumentBytes = fixtures.projectFiles.reduce((total, file) => total + byteLength(file.source), 0)
   const initialProjectIndex = buildNativeUiProjectIndex(fixtures.projectFiles, projectIndexOptions)
+  const projectionQuiDocument = analyzeNativeUiDocument(fixtures.qui, {
+    filePath: 'bench/menu.qui',
+    lint: {
+      strictComponents: true,
+    },
+  })
+  const projectionQssDocument = analyzeNativeUiDocument(fixtures.qss, {
+    filePath: 'bench/menu.qss',
+    lint: {
+      strictComponents: true,
+    },
+  })
+  if (!isNativeQuiDocument(projectionQuiDocument) || !isNativeQssDocument(projectionQssDocument))
+    throw new Error('Native authoring benchmark fixtures must include QUI and QSS documents.')
 
   const definitions: BenchmarkDefinition[] = [
     {
@@ -207,6 +224,42 @@ export function runNativeAuthoringSmokeBenchmarks(
             resolvedRules,
             styleFields,
             zIndexes,
+          },
+        }
+      },
+    },
+    {
+      bench: 'native.authoring.surface_projection.compile.smoke',
+      defaultIterations: 16,
+      documentBytes: byteLength(fixtures.qui) + byteLength(fixtures.qss),
+      run(iterations) {
+        let checksum = 0
+        let diagnostics = projectionQuiDocument.diagnostics.length + projectionQssDocument.diagnostics.length
+        let intents = 0
+        let nodes = 0
+        let styleFields = 0
+        let textNodes = 0
+        for (let index = 0; index < iterations; index += 1) {
+          const projection = compileNativeUiSurfaceProjection(projectionQuiDocument, {
+            qss: projectionQssDocument,
+            rootId: 'bench-root',
+          })
+          const metrics = countSurfaceProjection(projection.root)
+          intents += metrics.intents
+          nodes += metrics.nodes
+          styleFields += metrics.styleFields
+          textNodes += metrics.textNodes
+          checksum += metrics.nodes + metrics.styleFields + metrics.intents + metrics.textNodes
+        }
+        diagnostics *= iterations
+        return {
+          checksum,
+          diagnostics,
+          metrics: {
+            intents,
+            nodes,
+            styleFields,
+            textNodes,
           },
         }
       },
@@ -492,6 +545,35 @@ function countQuiAst(nodes: readonly NativeQuiAstNode[]): { components: number, 
     counts.slots += childCounts.slots
   }
   return counts
+}
+
+function countSurfaceProjection(node: ReturnType<typeof compileNativeUiSurfaceProjection>['root']): {
+  intents: number
+  nodes: number
+  styleFields: number
+  textNodes: number
+} {
+  if (!node) {
+    return {
+      intents: 0,
+      nodes: 0,
+      styleFields: 0,
+      textNodes: 0,
+    }
+  }
+
+  const children = node.children ?? []
+  const childCounts = children.map(countSurfaceProjection)
+  return {
+    intents: (node.intent ? 1 : 0) + sumMetric(childCounts, 'intents'),
+    nodes: 1 + sumMetric(childCounts, 'nodes'),
+    styleFields: Object.keys(node.style ?? {}).length + sumMetric(childCounts, 'styleFields'),
+    textNodes: (node.text ? 1 : 0) + sumMetric(childCounts, 'textNodes'),
+  }
+}
+
+function sumMetric<T extends Record<string, number>>(items: readonly T[], key: keyof T): number {
+  return items.reduce((total, item) => total + item[key], 0)
 }
 
 function positionAtOffset(source: string, offset: number): { character: number, line: number } {
