@@ -163,6 +163,11 @@ impl JsonProjectionValidator {
     fn validate_ui(&mut self, ui: &UiProjection) {
         self.validate_provenance("view.ui.provenance", &ui.provenance);
         for (overlay_index, overlay) in ui.overlays.iter().enumerate() {
+            self.validate_ui_dispatch_identifier(
+                &format!("view.ui.overlays[{overlay_index}].elementId"),
+                &overlay.element_id,
+                "UI overlay element ids",
+            );
             self.validate_provenance(
                 &format!("view.ui.overlays[{overlay_index}].provenance"),
                 &overlay.provenance,
@@ -200,6 +205,11 @@ impl JsonProjectionValidator {
     }
 
     fn validate_ui_surface_node(&mut self, node: &UiSurfaceNodeProjection, path: &str) {
+        self.validate_ui_dispatch_identifier(
+            &format!("{path}.id"),
+            &node.id,
+            "UI surface node ids",
+        );
         self.validate_provenance(&format!("{path}.provenance"), &node.provenance);
         if let Some(image) = &node.image {
             self.validate_ui_image(image, &format!("{path}.image"));
@@ -231,9 +241,33 @@ impl JsonProjectionValidator {
             return;
         }
 
+        if let Some(action) = &intent.action {
+            self.validate_ui_dispatch_identifier(
+                &format!("{path}.action"),
+                action,
+                "UI intent actions",
+            );
+        }
+
+        if intent.event != "choice/select" {
+            if let Some(choice_id) = &intent.choice_id {
+                self.validate_ui_dispatch_identifier(
+                    &format!("{path}.choiceId"),
+                    choice_id,
+                    "choice ids",
+                );
+            }
+            return;
+        }
+
         if intent.event == "choice/select" {
             match intent.choice_id.as_deref() {
-                Some(choice_id) if !choice_id.trim().is_empty() => {}
+                Some(choice_id) if !choice_id.trim().is_empty() => self
+                    .validate_ui_dispatch_identifier(
+                        &format!("{path}.choiceId"),
+                        choice_id,
+                        "choice ids",
+                    ),
                 _ => self.errors.push(NativeRendererJsonValidationError {
                     path: format!("{path}.choiceId"),
                     asset_name: intent.choice_id.clone().unwrap_or_default(),
@@ -302,6 +336,16 @@ impl JsonProjectionValidator {
             });
         }
     }
+
+    fn validate_ui_dispatch_identifier(&mut self, path: &str, value: &str, noun: &str) {
+        if let Some(reason) = invalid_native_json_ui_dispatch_identifier_reason(value, noun) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: value.to_string(),
+                reason,
+            });
+        }
+    }
 }
 
 fn invalid_native_json_ui_intent_event_reason(event: &str) -> Option<String> {
@@ -309,6 +353,52 @@ fn invalid_native_json_ui_intent_event_reason(event: &str) -> Option<String> {
         "ui/intent" | "choice/select" => None,
         _ => Some("UI surface intent events must be ui/intent or choice/select".to_string()),
     }
+}
+
+fn invalid_native_json_ui_dispatch_identifier_reason(value: &str, noun: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Some(format!("{noun} must not be empty"));
+    }
+    if trimmed != value {
+        return Some(format!("{noun} must not contain surrounding whitespace"));
+    }
+    if value.chars().any(char::is_control) {
+        return Some(format!("{noun} must not contain control characters"));
+    }
+    if has_forbidden_ui_dispatch_uri_scheme(value) {
+        return Some(format!("{noun} must not be URLs or dangerous URI schemes"));
+    }
+    if value.contains(['?', '#']) {
+        return Some(format!("{noun} must not contain query or hash suffixes"));
+    }
+    if value.starts_with('/') {
+        return Some(format!(
+            "{noun} must be dispatch identifiers, not absolute paths"
+        ));
+    }
+    let normalized = value.replace('\\', "/");
+    if normalized.split('/').any(|segment| segment == "..") || value.contains("..") {
+        return Some(format!("{noun} must not contain traversal markers"));
+    }
+    if value.contains(['/', '\\']) {
+        return Some(format!("{noun} must be dispatch identifiers, not paths"));
+    }
+    if is_forbidden_native_payload_reference(value) {
+        return Some(format!("{noun} must not point to native payloads"));
+    }
+    if !value.chars().any(|char| char.is_ascii_alphanumeric()) {
+        return Some(format!(
+            "{noun} must contain at least one ASCII letter or digit"
+        ));
+    }
+    if !value
+        .chars()
+        .all(|char| char.is_ascii_alphanumeric() || matches!(char, '.' | '-' | '_' | ':'))
+    {
+        return Some(format!("{noun} must be safe native dispatch identifiers"));
+    }
+    None
 }
 
 fn invalid_native_json_asset_type_reason(asset_type: &str) -> Option<String> {
@@ -450,6 +540,26 @@ fn has_uri_scheme(value: &str) -> bool {
                 char.is_ascii_alphanumeric() || matches!(char, '+' | '-' | '.')
             }
         })
+}
+
+fn has_forbidden_ui_dispatch_uri_scheme(value: &str) -> bool {
+    let Some((scheme, _)) = value.split_once(':') else {
+        return false;
+    };
+    matches!(
+        scheme.to_ascii_lowercase().as_str(),
+        "http"
+            | "https"
+            | "file"
+            | "data"
+            | "blob"
+            | "javascript"
+            | "native"
+            | "shell"
+            | "ffi"
+            | "node"
+            | "wasm"
+    )
 }
 
 const FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS: [&str; 16] = [

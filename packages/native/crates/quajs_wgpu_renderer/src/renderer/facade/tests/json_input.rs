@@ -613,6 +613,83 @@ fn json_frame_intent_validation_rejects_choice_select_without_canonical_choice_i
 }
 
 #[test]
+fn json_frame_intent_validation_rejects_unsafe_dispatch_identifiers() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let overlay = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_overlay_element_id_input())
+        .unwrap_err();
+    match overlay {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].elementId");
+            assert_eq!(validation.asset_name, "../menu");
+            assert!(validation.reason.contains("traversal"));
+        }
+        other => panic!("expected overlay element id validation error, got {other:?}"),
+    }
+
+    let node = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_surface_node_id_input())
+        .unwrap_err();
+    match node {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].surface.root.id");
+            assert_eq!(validation.asset_name, "file:///tmp/native.node");
+            assert!(validation.reason.contains("URLs") || validation.reason.contains("URI"));
+        }
+        other => panic!("expected surface node id validation error, got {other:?}"),
+    }
+
+    let action = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_ui_intent_action_input())
+        .unwrap_err();
+    match action {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.intent.action"
+            );
+            assert_eq!(validation.asset_name, "native:load-plugin");
+            assert!(validation.reason.contains("URI"));
+        }
+        other => panic!("expected UI intent action validation error, got {other:?}"),
+    }
+
+    let choice = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_choice_id_input())
+        .unwrap_err();
+    match choice {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.intent.choiceId"
+            );
+            assert_eq!(validation.asset_name, "choices/native.dll");
+            assert!(validation.reason.contains("paths"));
+        }
+        other => panic!("expected choice id validation error, got {other:?}"),
+    }
+
+    let native_payload_choice = renderer
+        .prepare_frame_json_str(json_frame_with_native_payload_choice_id_input())
+        .unwrap_err();
+    match native_payload_choice {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.intent.choiceId"
+            );
+            assert_eq!(validation.asset_name, "native.dll");
+            assert!(validation.reason.contains("native payloads"));
+        }
+        other => panic!("expected native payload choice id validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_input_resolves_layout_defaults() {
     let input: NativeRendererJsonFrameInput = serde_json::from_str(
         r#"
@@ -884,6 +961,134 @@ fn json_frame_with_forged_choice_metadata_input() -> &'static str {
                     "metadata": {
                       "choiceId": "forged-choice"
                     }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_unsafe_overlay_element_id_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "../menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": { "id": "root", "kind": "Box" }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_unsafe_surface_node_id_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": { "id": "file:///tmp/native.node", "kind": "Box" }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_unsafe_ui_intent_action_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Button",
+                  "intent": {
+                    "event": "ui/intent",
+                    "action": "native:load-plugin"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_unsafe_choice_id_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Button",
+                  "intent": {
+                    "event": "choice/select",
+                    "choiceId": "choices/native.dll",
+                    "action": "select"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_native_payload_choice_id_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Button",
+                  "intent": {
+                    "event": "choice/select",
+                    "choiceId": "native.dll",
+                    "action": "select"
                   }
                 }
               }
