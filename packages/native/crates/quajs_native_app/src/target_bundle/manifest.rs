@@ -79,9 +79,27 @@ impl TargetBundleReference {
         match self {
             Self::Specifier(specifier) => Some(specifier.as_str()),
             Self::Object(reference) => reference
-                .package_name
+                .specifier
                 .as_deref()
-                .or(reference.specifier.as_deref()),
+                .or(reference.package_name.as_deref()),
+        }
+    }
+
+    pub(super) fn specifiers(&self) -> Vec<&str> {
+        match self {
+            Self::Specifier(specifier) => vec![specifier.as_str()],
+            Self::Object(reference) => {
+                let mut specifiers = Vec::new();
+                if let Some(specifier) = reference.specifier.as_deref() {
+                    specifiers.push(specifier);
+                }
+                if let Some(package_name) = reference.package_name.as_deref() {
+                    if !specifiers.contains(&package_name) {
+                        specifiers.push(package_name);
+                    }
+                }
+                specifiers
+            }
         }
     }
 

@@ -133,7 +133,7 @@ function targetBundleManifestFor(
       {
         id: 'runtime.chapter.1',
         executableDependencies: ['@quajs/character'],
-        rendererEntries: [`@quajs/${target}-renderer/ui`],
+        rendererEntries: [{ specifier: `@quajs/${target}-renderer/ui`, target }],
       },
     ],
     ...overrides,
@@ -243,6 +243,7 @@ describe('target bundle manifest validation', () => {
             {
               packageName: '@quajs/plugin-gallery',
               specifier: '@quajs/engine-native/native-host',
+              target: 'native',
             },
           ],
         },
@@ -504,8 +505,8 @@ describe('target bundle manifest validation', () => {
         ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
       ],
       rendererEntries: [
-        '@quajs/renderer-vue/plugins/ui',
-        '@quajs/renderer-cocos/plugins/audio',
+        { specifier: '@quajs/renderer-vue/plugins/ui', target: 'web' },
+        { specifier: '@quajs/renderer-cocos/plugins/audio', target: 'cocos' },
       ],
     }))
 
@@ -544,7 +545,7 @@ describe('target bundle manifest validation', () => {
         '@quajs/renderer-web/plugins/audio',
         '@quajs/native-contracts/bootstrap',
       ],
-      rendererEntries: ['@quajs/renderer-vue/plugins/ui'],
+      rendererEntries: [{ specifier: '@quajs/renderer-vue/plugins/ui', target: 'web' }],
     }))
 
     expect(result.ok).toBe(false)
@@ -572,7 +573,7 @@ describe('target bundle manifest validation', () => {
         '@quajs/renderer-cocos/plugins/audio',
         '@quajs/native-contracts/bootstrap',
       ],
-      rendererEntries: ['@quajs/renderer-cocos/plugins/ui'],
+      rendererEntries: [{ specifier: '@quajs/renderer-cocos/plugins/ui', target: 'cocos' }],
     }))
 
     expect(result.ok).toBe(false)
@@ -628,7 +629,7 @@ describe('target bundle manifest validation', () => {
         {
           id: 'runtime.bad.native-entry',
           rendererEntries: [
-            '@quajs/engine-native/native-host',
+            { specifier: '@quajs/engine-native/native-host', target: 'native' },
           ],
         },
       ],
@@ -656,21 +657,21 @@ describe('target bundle manifest validation', () => {
       {
         target: 'web',
         executableDependency: '@quajs/assets-web',
-        rendererEntry: '@quajs/renderer-web/plugins/ui',
+        rendererEntry: { specifier: '@quajs/renderer-web/plugins/ui', target: 'web' },
         executablePackageName: '@quajs/assets-web',
         rendererPackageName: '@quajs/renderer-web',
       },
       {
         target: 'cocos',
         executableDependency: '@quajs/cocos-host/runtime',
-        rendererEntry: '@quajs/renderer-cocos/plugins/ui',
+        rendererEntry: { specifier: '@quajs/renderer-cocos/plugins/ui', target: 'cocos' },
         executablePackageName: '@quajs/cocos-host',
         rendererPackageName: '@quajs/renderer-cocos',
       },
       {
         target: 'native',
         executableDependency: '@quajs/engine-native/native-host',
-        rendererEntry: '@quajs/native-contracts/bootstrap',
+        rendererEntry: { specifier: '@quajs/native-contracts/bootstrap', target: 'native' },
         executablePackageName: '@quajs/engine-native',
         rendererPackageName: '@quajs/native-contracts',
       },
@@ -894,6 +895,42 @@ describe('target bundle manifest validation', () => {
         runtimePackageId: 'runtime.bad.renderer-target',
       }),
     ]))
+  })
+
+  it('rejects renderer entries that do not declare their target', () => {
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+        rendererEntries: [
+          { specifier: '@quajs/plugin-menu/renderer', pluginId: '@quajs/plugin-menu' },
+        ],
+        runtimePackages: [
+          {
+            id: `runtime.${target}.missing-renderer-target`,
+            executableDependencies: ['@quajs/character'],
+            rendererEntries: [
+              { specifier: '@quajs/plugin-backlog/renderer', pluginId: '@quajs/plugin-backlog' },
+            ],
+          },
+        ],
+      }))
+
+      expect(result.ok).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TARGET_BUNDLE_RENDERER_ENTRY_TARGET_MISSING',
+          target,
+          packageName: '@quajs/plugin-menu',
+          pluginId: '@quajs/plugin-menu',
+        }),
+        expect.objectContaining({
+          code: 'TARGET_BUNDLE_RENDERER_ENTRY_TARGET_MISSING',
+          target,
+          packageName: '@quajs/plugin-backlog',
+          pluginId: '@quajs/plugin-backlog',
+          runtimePackageId: `runtime.${target}.missing-renderer-target`,
+        }),
+      ]))
+    }
   })
 })
 

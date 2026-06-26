@@ -352,7 +352,7 @@ Implementation contract:
 - Each resolver must stamp its immutable identity into the bundle selection. A manifest that declares `target: "native"` but `targetCoreResolver: "web-core-resolver"` or `"cocos-core-resolver"` is invalid even when its final dependency graph appears filtered.
 - Shared engine/game/plugin resolution runs only after one target-core resolver has completed, and shared entries must be platform-neutral.
 - Third-party plugin resolution receives the already-selected target and may choose `shared` plus that target entry only. It must not inspect all target entries and leave inactive entries reachable.
-- Runtime QPK activation receives the active artifact target from startup metadata. It must ignore inactive compatibility blocks and reject any `executableDependencies` or `rendererEntries` that normalize to Web, Cocos, or native target-core adapter roots.
+- Runtime QPK activation receives the active artifact target from startup metadata. It must ignore inactive compatibility blocks, require emitted renderer entries to declare an explicit `target`, and reject any `executableDependencies` or `rendererEntries` that normalize to Web, Cocos, or native target-core adapter roots.
 - Debug, release, updater, and installer jobs must all consume the emitted `target-bundle-manifest.json`; no packaging path may bypass the same `validateTargetBundleManifest` gate.
 
 Concrete failure cases that must stay release-blocking:
