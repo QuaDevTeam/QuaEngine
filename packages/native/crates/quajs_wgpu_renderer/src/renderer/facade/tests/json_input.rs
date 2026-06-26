@@ -590,6 +590,29 @@ fn json_frame_font_family_validation_rejects_unsafe_resource_names() {
 }
 
 #[test]
+fn json_frame_intent_validation_rejects_choice_select_without_canonical_choice_id() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let error = renderer
+        .prepare_frame_json_str(json_frame_with_forged_choice_metadata_input())
+        .unwrap_err();
+
+    match error {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.intent.choiceId"
+            );
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("canonical choiceId"));
+        }
+        other => panic!("expected validation error, got {other:?}"),
+    }
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_input_resolves_layout_defaults() {
     let input: NativeRendererJsonFrameInput = serde_json::from_str(
         r#"
@@ -828,6 +851,39 @@ fn json_frame_with_traversal_ui_font_family_input() -> &'static str {
                   "text": "Menu",
                   "style": {
                     "fontFamily": ["../fonts/Bad"]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_forged_choice_metadata_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Button",
+                  "bounds": { "x": 0, "y": 0, "width": 200, "height": 80 },
+                  "text": "Forged",
+                  "intent": {
+                    "event": "choice/select",
+                    "action": "select",
+                    "metadata": {
+                      "choiceId": "forged-choice"
+                    }
                   }
                 }
               }

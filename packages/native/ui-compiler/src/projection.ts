@@ -358,11 +358,13 @@ function intentFromNode(node: NativeQuiAstNode): NativeUiSurfaceIntentProjection
 
   const metadata = literalActionMetadata(action.arguments)
   const firstArgument = action.arguments[0]
-  if (action.event === 'choice/select' && firstArgument?.kind === 'literal' && typeof firstArgument.value === 'string')
-    metadata.choiceId = firstArgument.value
+  const choiceId = action.event === 'choice/select' && firstArgument?.kind === 'literal' && typeof firstArgument.value === 'string'
+    ? firstArgument.value
+    : undefined
 
   return {
     event: action.event,
+    ...(choiceId ? { choiceId } : {}),
     action: action.action,
     metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
   }

@@ -336,6 +336,7 @@ export interface NativeUiSurfaceRect {
 
 export interface NativeUiSurfaceIntentProjection {
   action?: string
+  choiceId?: string
   event: NativeQuiActionEvent
   metadata?: Record<string, NativeQuiActionArgumentValue>
 }
