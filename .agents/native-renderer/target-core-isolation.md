@@ -110,6 +110,18 @@
 
 Web / Cocos / Native 的 debug、release、installer、updater 和 hand-built shell 必须复用同一套 isolation helper。
 
+## 三类项目模板装配边界
+
+打包到 Cocos、Web、Native 项目时，项目模板和启动代码也必须遵守同一条 target-first 规则。核心插件不能先进入一个跨目标工程模板，再由模板参数、运行时分支或构建脚本过滤。
+
+- Web 项目模板只能装配 Web bootstrap、Web asset/runtime adapter、Web renderer/framework adapter 和 Web renderer plugin entry。它不能携带 Cocos host、Cocos renderer、`@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native` 或 Rust native metadata。
+- Cocos 项目模板只能装配 Cocos host、Cocos renderer adapter 和 Cocos renderer plugin entry。它不能携带 Web renderer/framework adapter，也不能携带 native engine/assets/store/runtime/renderer。
+- Native 项目模板只能装配 `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、必要的 native contracts metadata，以及 Rust native app/runtime/renderer capability metadata。它不能携带 Web renderer subentry、Web framework adapter、Cocos host 或 Cocos renderer。
+
+每个项目模板只能从当前目标的 resolver 接收 `TargetCoreSelection`。模板代码、starter、debug shell、installer、updater 和 smoke runner 都不能自己 import 或声明 target core adapter；它们只能消费已经写入产物的 `target-bundle-manifest.json` 并复验。这样可以避免“源码层看起来按目标过滤，但项目模板里已经混入另一端核心插件”的串线。
+
+这条规则同样适用于第三方插件和 Runtime QPK：第三方插件可以在 source manifest 中声明 Web / Cocos / Native 多目标 entry，但项目产物只能 materialize `shared` + active target entry；Runtime QPK 可以保留多目标 compatibility metadata，但不能携带任一 target core executable dependency 或跨目标 renderer entry。
+
 Web packaging:
 
 - 只能从 Web resolver materialize core adapters。
