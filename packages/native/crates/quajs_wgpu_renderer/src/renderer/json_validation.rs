@@ -1,10 +1,13 @@
 use crate::projection::background::{BackgroundProjection, BackgroundVideoProjection};
 use crate::projection::character::CharacterProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
-use crate::projection::common::PackageProvenance;
-use crate::projection::dialogue::{DialogueAvatarProjection, DialogueProjection};
+use crate::projection::common::{FontFamilyProjection, PackageProvenance};
+use crate::projection::dialogue::{
+    DialogueAvatarProjection, DialogueProjection, RichTextContent, RichTextStyle,
+};
 use crate::projection::ui::{
     UiOverlaySurfaceProjection, UiProjection, UiSurfaceImageProjection, UiSurfaceNodeProjection,
+    UiSurfaceResolvedStyle,
 };
 use crate::projection::view::ViewProjection;
 use crate::renderer::json_input::{
@@ -110,6 +113,11 @@ impl JsonProjectionValidator {
         if let Some(avatar) = &dialogue.avatar {
             self.validate_dialogue_avatar(avatar);
         }
+        self.validate_rich_text_style("view.dialogue.speakerStyle", &dialogue.speaker_style);
+        if let Some(speaker) = &dialogue.speaker {
+            self.validate_rich_text_content("view.dialogue.speaker", speaker);
+        }
+        self.validate_rich_text_content("view.dialogue.text", &dialogue.text);
         self.validate_provenance("view.dialogue.provenance", &dialogue.provenance);
     }
 
@@ -117,6 +125,28 @@ impl JsonProjectionValidator {
         self.validate_asset_type("view.dialogue.avatar.assetType", &avatar.asset_type);
         self.validate_asset_reference("view.dialogue.avatar.assetName", &avatar.asset_name);
         self.validate_provenance("view.dialogue.avatar.provenance", &avatar.provenance);
+    }
+
+    fn validate_rich_text_content(&mut self, path: &str, content: &RichTextContent) {
+        let RichTextContent::Document(document) = content else {
+            return;
+        };
+
+        self.validate_rich_text_style(&format!("{path}.style"), &document.style);
+        for (block_index, block) in document.blocks.iter().enumerate() {
+            for (span_index, span) in block.spans.iter().enumerate() {
+                self.validate_rich_text_style(
+                    &format!("{path}.blocks[{block_index}].spans[{span_index}].style"),
+                    &span.style,
+                );
+            }
+        }
+    }
+
+    fn validate_rich_text_style(&mut self, path: &str, style: &RichTextStyle) {
+        if let Some(font_family) = &style.font_family {
+            self.validate_font_family(&format!("{path}.fontFamily"), font_family);
+        }
     }
 
     fn validate_choices(&mut self, choices: &ChoiceSetProjection) {
@@ -171,6 +201,7 @@ impl JsonProjectionValidator {
         if let Some(background_image) = &node.style.background_image {
             self.validate_ui_image(background_image, &format!("{path}.style.backgroundImage"));
         }
+        self.validate_ui_style(&format!("{path}.style"), &node.style);
         for (index, child) in node.children.iter().enumerate() {
             self.validate_ui_surface_node(child, &format!("{path}.children[{index}]"));
         }
@@ -179,6 +210,12 @@ impl JsonProjectionValidator {
     fn validate_ui_image(&mut self, image: &UiSurfaceImageProjection, path: &str) {
         self.validate_asset_type(&format!("{path}.assetType"), &image.asset_type);
         self.validate_asset_reference(&format!("{path}.assetName"), &image.asset_name);
+    }
+
+    fn validate_ui_style(&mut self, path: &str, style: &UiSurfaceResolvedStyle) {
+        if let Some(font_family) = &style.font_family {
+            self.validate_font_family(&format!("{path}.fontFamily"), font_family);
+        }
     }
 
     fn validate_asset_type(&mut self, path: &str, asset_type: &str) {
@@ -198,6 +235,18 @@ impl JsonProjectionValidator {
                 asset_name: asset_name.to_string(),
                 reason,
             });
+        }
+    }
+
+    fn validate_font_family(&mut self, path: &str, font_family: &FontFamilyProjection) {
+        for (index, family) in font_family.families.iter().enumerate() {
+            if let Some(reason) = invalid_native_json_font_family_reason(family) {
+                self.errors.push(NativeRendererJsonValidationError {
+                    path: format!("{path}[{index}]"),
+                    asset_name: family.to_string(),
+                    reason,
+                });
+            }
         }
     }
 
@@ -271,6 +320,44 @@ fn invalid_native_json_package_id_reason(package_id: &str) -> Option<String> {
         .all(|char| char.is_ascii_alphanumeric() || matches!(char, '.' | '-' | '_'))
     {
         return Some("package provenance ids must be safe native package identifiers".to_string());
+    }
+    None
+}
+
+fn invalid_native_json_font_family_reason(font_family: &str) -> Option<String> {
+    let trimmed = font_family.trim();
+    if trimmed.is_empty() {
+        return Some("font family names must not be empty".to_string());
+    }
+    if trimmed != font_family {
+        return Some("font family names must not contain surrounding whitespace".to_string());
+    }
+    if font_family.chars().any(char::is_control) {
+        return Some("font family names must not contain control characters".to_string());
+    }
+    if has_uri_scheme(font_family) {
+        return Some("font family names must not be URLs or URI schemes".to_string());
+    }
+    if font_family.contains(':') {
+        return Some(
+            "font family names must not contain resource namespace separators".to_string(),
+        );
+    }
+    if font_family.contains(['?', '#']) {
+        return Some("font family names must not contain query or hash suffixes".to_string());
+    }
+    if font_family.starts_with('/') {
+        return Some("font family names must not be absolute paths".to_string());
+    }
+    let normalized = font_family.replace('\\', "/");
+    if normalized.split('/').any(|segment| segment == "..") || font_family.contains("..") {
+        return Some("font family names must not contain traversal markers".to_string());
+    }
+    if font_family.contains(['/', '\\']) {
+        return Some("font family names must be names, not paths".to_string());
+    }
+    if is_forbidden_native_payload_reference(font_family) {
+        return Some("font family names must not point to native payloads".to_string());
     }
     None
 }
