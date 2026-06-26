@@ -52,7 +52,7 @@ pub fn media_origin(origin: Option<&str>) -> MediaOrigin {
     let mut y = 0.5;
 
     let parts = normalized.split_whitespace().collect::<Vec<_>>();
-    if let Some(origin) = resolved_media_origin(&parts) {
+    if let Some(origin) = resolved_media_origin_parts(&parts) {
         return origin;
     }
 
@@ -70,7 +70,13 @@ pub fn media_origin(origin: Option<&str>) -> MediaOrigin {
     MediaOrigin { x, y }
 }
 
-fn resolved_media_origin(parts: &[&str]) -> Option<MediaOrigin> {
+pub(crate) fn resolved_media_origin_str(origin: &str) -> Option<MediaOrigin> {
+    let normalized = origin.to_ascii_lowercase();
+    let parts = normalized.split_whitespace().collect::<Vec<_>>();
+    resolved_media_origin_parts(&parts)
+}
+
+fn resolved_media_origin_parts(parts: &[&str]) -> Option<MediaOrigin> {
     match parts {
         [single] => parse_horizontal_position(single)
             .map(|x| MediaOrigin { x, y: 0.5 })

@@ -996,6 +996,58 @@ pub(super) fn json_frame_with_oversized_video_opacity_input() -> &'static str {
     "#
 }
 
+pub(super) fn json_frame_with_oversized_background_origin_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "image",
+          "assetName": "bg/main.png",
+          "origin": "120% 50%"
+        }
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_unsafe_background_layer_origin_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "layered",
+          "layers": [
+            {
+              "id": "foreground",
+              "assetName": "bg/fg.png",
+              "origin": "left ../native.dll"
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_remote_background_video_origin_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "video",
+          "video": {
+            "assetName": "video/opening.webm",
+            "origin": "native:load"
+          }
+        }
+      }
+    }
+    "#
+}
+
 pub(super) fn json_frame_with_negative_character_width_input() -> &'static str {
     r#"
     {
