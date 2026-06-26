@@ -8,6 +8,7 @@ use crate::renderer::backend::{NativeRenderBackend, NativeRenderBackendError};
 use crate::renderer::facade::{
     NativeRenderer, NativeRendererFrameError, NativeRendererFrameResult,
 };
+use crate::renderer::json_validation::validate_json_frame_projection;
 use crate::renderer::resource_update::NativeRendererFrameUpdate;
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
@@ -33,6 +34,7 @@ impl NativeRendererJsonFrameInput {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NativeRendererJsonFrameError {
     Parse(NativeRendererJsonParseError),
+    Validation(NativeRendererJsonValidationError),
     Render(NativeRenderBackendError),
     Audio(NativeAudioBackendError),
 }
@@ -42,6 +44,13 @@ pub struct NativeRendererJsonParseError {
     pub message: String,
     pub line: usize,
     pub column: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NativeRendererJsonValidationError {
+    pub path: String,
+    pub asset_name: String,
+    pub reason: String,
 }
 
 impl From<serde_json::Error> for NativeRendererJsonFrameError {
@@ -73,6 +82,7 @@ impl Display for NativeRendererJsonFrameError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Parse(error) => write!(formatter, "{error}"),
+            Self::Validation(error) => write!(formatter, "{error}"),
             Self::Render(error) => write!(formatter, "Render backend error: {error}"),
             Self::Audio(error) => write!(formatter, "Audio backend error: {error}"),
         }
@@ -92,6 +102,18 @@ impl Display for NativeRendererJsonParseError {
 }
 
 impl std::error::Error for NativeRendererJsonParseError {}
+
+impl Display for NativeRendererJsonValidationError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "Invalid native renderer frame JSON asset reference at {}: \"{}\" {}.",
+            self.path, self.asset_name, self.reason
+        )
+    }
+}
+
+impl std::error::Error for NativeRendererJsonValidationError {}
 
 impl<B, A> NativeRenderer<B, A>
 where
@@ -131,5 +153,7 @@ where
 fn parse_json_frame_input(
     input: &str,
 ) -> Result<NativeRendererJsonFrameInput, NativeRendererJsonFrameError> {
-    Ok(serde_json::from_str(input)?)
+    let input: NativeRendererJsonFrameInput = serde_json::from_str(input)?;
+    validate_json_frame_projection(&input.view)?;
+    Ok(input)
 }
