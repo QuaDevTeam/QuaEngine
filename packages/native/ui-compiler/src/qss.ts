@@ -19,6 +19,7 @@ import {
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
   parseNativeQssBorderStyle,
+  parseNativeQssColor,
   parseNativeQssCoordinateNumber,
   parseNativeQssDisplay,
   parseNativeQssEdgeInsets,
@@ -648,6 +649,12 @@ function validateDeclaration(
 function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): string | undefined {
   const value = declaration.value.trim()
   switch (declaration.name) {
+    case 'background-color':
+    case 'border-color':
+    case 'color':
+      return parseNativeQssColor(value)
+        ? undefined
+        : `${declaration.name} must be a safe native color literal: hex, rgb(...), rgba(...), transparent, currentColor, or a basic named color.`
     case 'background-image':
       return parseNativeQssBackgroundImage(value)
         ? undefined

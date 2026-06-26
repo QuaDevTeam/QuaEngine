@@ -22,6 +22,27 @@ const TEXT_TRANSFORM_VALUES = new Set<NativeQssTextTransformValue>(['capitalize'
 const WHITE_SPACE_VALUES = new Set<NativeQssWhiteSpaceValue>(['normal', 'nowrap', 'pre', 'pre-line', 'pre-wrap'])
 const BORDER_STYLE_VALUES = new Set<NativeQssBorderStyleValue>(['none', 'solid'])
 const FONT_STYLE_VALUES = new Set<NativeQssFontStyleValue>(['italic', 'normal'])
+const BASIC_COLOR_KEYWORDS = new Set([
+  'aqua',
+  'black',
+  'blue',
+  'currentcolor',
+  'fuchsia',
+  'gray',
+  'green',
+  'lime',
+  'maroon',
+  'navy',
+  'olive',
+  'orange',
+  'purple',
+  'red',
+  'silver',
+  'teal',
+  'transparent',
+  'white',
+  'yellow',
+])
 
 export function resolveNativeQssDeclarations(
   declarations: readonly NativeQssDeclaration[],
@@ -35,7 +56,7 @@ export function resolveNativeQssDeclarations(
     const value = declaration.value.trim()
     switch (declaration.name) {
       case 'background-color':
-        resolved.style.backgroundColor = value
+        resolved.style.backgroundColor = parseNativeQssColor(value)
         break
       case 'background-image':
         resolved.style.backgroundImage = parseNativeQssBackgroundImage(value)
@@ -47,7 +68,7 @@ export function resolveNativeQssDeclarations(
         resolved.style.backgroundSize = parseNativeQssObjectFit(value)
         break
       case 'border-color':
-        resolved.style.borderColor = value
+        resolved.style.borderColor = parseNativeQssColor(value)
         break
       case 'border-radius':
         resolved.style.borderRadius = parseNativeQssLogicalNumber(value)
@@ -59,7 +80,7 @@ export function resolveNativeQssDeclarations(
         resolved.style.borderWidth = parseNativeQssLogicalNumber(value)
         break
       case 'color':
-        resolved.style.color = value
+        resolved.style.color = parseNativeQssColor(value)
         break
       case 'display':
         if (parseNativeQssDisplay(value) === false)
@@ -462,6 +483,35 @@ export function parseNativeQssFontStyle(value: string): NativeQssFontStyleValue 
     : undefined
 }
 
+export function parseNativeQssColor(value: string): string | undefined {
+  const normalized = value.trim()
+  if (!normalized)
+    return undefined
+
+  if (/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(normalized))
+    return normalized
+
+  const keyword = normalized.toLowerCase()
+  if (BASIC_COLOR_KEYWORDS.has(keyword))
+    return normalized
+
+  const rgb = normalized.match(/^rgba?\((.*)\)$/i)
+  if (!rgb)
+    return undefined
+
+  const parts = rgb[1].split(',').map(part => part.trim())
+  if (parts.length !== (keyword.startsWith('rgba') ? 4 : 3))
+    return undefined
+
+  const [red, green, blue, alpha] = parts
+  if (![red, green, blue].every(isNativeQssRgbChannel))
+    return undefined
+  if (alpha !== undefined && !isNativeQssAlphaChannel(alpha))
+    return undefined
+
+  return normalized
+}
+
 export function parseNativeQssFontFamilyList(value: string): string[] | undefined {
   const families = value
     .split(',')
@@ -469,6 +519,20 @@ export function parseNativeQssFontFamilyList(value: string): string[] | undefine
     .filter(Boolean)
 
   return families.length > 0 ? families : undefined
+}
+
+function isNativeQssRgbChannel(value: string): boolean {
+  if (!/^\d+(?:\.\d+)?$/.test(value))
+    return false
+  const number = Number(value)
+  return Number.isFinite(number) && number >= 0 && number <= 255
+}
+
+function isNativeQssAlphaChannel(value: string): boolean {
+  if (!/^(?:0|1|0?\.\d+)$/.test(value))
+    return false
+  const number = Number(value)
+  return Number.isFinite(number) && number >= 0 && number <= 1
 }
 
 function pruneUndefinedResolvedNodeStyle(style: NativeQssResolvedNodeStyle): NativeQssResolvedNodeStyle {

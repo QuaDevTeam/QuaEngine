@@ -163,21 +163,21 @@ Rust renderer 只消费 resolved style IR。selector matching、cascade、inheri
 
 `@quajs/native-ui-compiler` 需要通过 `resolveNativeQssDeclarations` 这类 TS 工具链 API，把已解析和校验过的 QSS declaration 归一化成 native surface style IR；`z-index` 输出为 node metadata，其他已支持字段输出为 `NativeQssResolvedStyle`，Rust/wgpu renderer 只消费该投影形状。动态包 surface 编译时还必须显式传入 `contentPackageId` / `requiredRuntimePackages`，由 compiler 写入 node-level `provenance`，让 Rust draw command、资源账本、内存指标和 unload blocker 都能追踪 QUI/QSS surface 来源。
 
-native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义。`analyzeQssSource` / LSP 应在 authoring 阶段给出 `QSS_INVALID_VALUE`，例如拒绝 `object-fit: stretch`、`background-size: repeat`、不安全的 `background-image: asset("../escape.png")` 和不符合 native origin 子集的 `background-position`。Rust renderer 不负责兜底解析或猜测这些无效值。
+native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义。`analyzeQssSource` / LSP 应在 authoring 阶段给出 `QSS_INVALID_VALUE`，例如拒绝 `object-fit: stretch`、`background-size: repeat`、不安全的 `background-image: asset("../escape.png")`、不安全的 `background-color: url("native.dll")` / `border-color: ../native.dll` / `color: rgb(300, 0, 0)`，以及不符合 native origin 子集的 `background-position`。Rust renderer 不负责兜底解析或猜测这些无效值，只对 resolved JSON 再做防御性拒绝。
 
 ### 当前已确认的基础 style 字段
 
 现有 resolved style / capability 已覆盖的核心字段是：
 
-- `background-color`
+- `background-color`（safe native color literal 子集：hex、comma-form `rgb(...)` / `rgba(...)`、`transparent`、`currentColor`、基础 named colors；不支持浏览器 `url(...)`、路径字符串、traversal、percentage channel、任意 CSS color function）
 - `background-image`（仅支持 `asset("ui/panel.png")` / `asset("ui/panel.png", "images")` 这类 package-relative 结构化资源引用；不支持浏览器 `url(...)`、远程 URL、绝对路径或 `..` traversal）
 - `background-size`（native 子集：`cover`, `contain`, `fill`, `none`, `scale-down`，映射到背景图 fit）
 - `background-position`（native 子集：`left|center|right`、`top|center|bottom` 和 `0%..100%` 双轴 origin）
-- `border-color`
+- `border-color`（同 `background-color` 的 safe native color literal 子集）
 - `border-radius`
 - `border-style`（native 子集：`solid` / `none`；缺省等同 `solid`，`none` 会让 Rust draw params 的 border color 为空、width 为 `0`）
 - `border-width`
-- `color`
+- `color`（同 `background-color` 的 safe native color literal 子集；dialogue rich text 和 UI text resolved JSON 也由 Rust facade 防御性校验）
 - `display`（native 子集：仅支持 `none`，编译为 node-level `UiSurfaceNodeProjection.visible: false` fallback；QUI 显式 `show` prop 优先；`block` / `flex` / `grid` 暂不作为 layout 承诺）
 - `font-family`
 - `font-size`
