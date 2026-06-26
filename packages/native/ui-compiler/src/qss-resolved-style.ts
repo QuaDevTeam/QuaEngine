@@ -16,6 +16,7 @@ export function resolveNativeQssDeclarations(
   const resolved: NativeQssResolvedNodeStyle = {
     style: {},
   }
+  let displayNone = false
 
   for (const declaration of declarations) {
     const value = declaration.value.trim()
@@ -43,6 +44,10 @@ export function resolveNativeQssDeclarations(
         break
       case 'color':
         resolved.style.color = value
+        break
+      case 'display':
+        if (parseNativeQssDisplay(value) === false)
+          displayNone = true
         break
       case 'font-family':
         resolved.style.fontFamily = parseNativeQssFontFamilyList(value)
@@ -103,6 +108,9 @@ export function resolveNativeQssDeclarations(
         break
     }
   }
+
+  if (displayNone)
+    resolved.visible = false
 
   return pruneUndefinedResolvedNodeStyle(resolved)
 }
@@ -289,6 +297,10 @@ export function parseNativeQssVisibility(value: string): boolean | undefined {
     default:
       return undefined
   }
+}
+
+export function parseNativeQssDisplay(value: string): false | undefined {
+  return value.toLowerCase() === 'none' ? false : undefined
 }
 
 export function parseNativeQssObjectFit(value: string): NativeQssObjectFitValue | undefined {

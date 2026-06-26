@@ -19,6 +19,7 @@ import {
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
   parseNativeQssCoordinateNumber,
+  parseNativeQssDisplay,
   parseNativeQssEdgeInsets,
   parseNativeQssFontFamilyList,
   parseNativeQssFontWeight,
@@ -667,6 +668,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssCoordinateNumber(value) !== undefined
         ? undefined
         : `${declaration.name} must be a finite logical px or unitless coordinate.`
+    case 'display':
+      return parseNativeQssDisplay(value) !== undefined
+        ? undefined
+        : 'display currently supports none only.'
     case 'font-family':
       return parseNativeQssFontFamilyList(value)
         ? undefined

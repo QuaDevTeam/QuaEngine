@@ -177,6 +177,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 - `border-radius`
 - `border-width`
 - `color`
+- `display`（native 子集：仅支持 `none`，编译为 node-level `UiSurfaceNodeProjection.visible: false` fallback；QUI 显式 `show` prop 优先；`block` / `flex` / `grid` 暂不作为 layout 承诺）
 - `font-family`
 - `font-size`
 - `font-weight`
@@ -196,7 +197,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 | 阶段 | 目标 | 建议属性 |
 | --- | --- | --- |
 | P0 | 先把 native surface 跑起来 | 上述基础字段 |
-| P1 | 补齐常用视觉布局 | 已落地 `z-index`、`visibility` visible/hidden 子集、`overflow` visible/hidden 子集、结构化 `background-image: asset(...)`、`background-size` fit 子集、`background-position` origin 子集、`padding` edge inset metadata，以及静态 `left` / `top` / `width` / `height` bounds fallback；待补齐 `right`, `bottom`, `inset`, `position`, `margin`, `gap`, `min/max-*` |
+| P1 | 补齐常用视觉布局 | 已落地 `display: none` 隐藏子集、`z-index`、`visibility` visible/hidden 子集、`overflow` visible/hidden 子集、结构化 `background-image: asset(...)`、`background-size` fit 子集、`background-position` origin 子集、`padding` edge inset metadata，以及静态 `left` / `top` / `width` / `height` bounds fallback；待补齐 `right`, `bottom`, `inset`, `position`, `margin`, `gap`, `min/max-*` |
 | P2 | 进一步接近熟悉的 CSS 体验 | 部分 `transform`, `shadow`, `transition` 及少量视觉增强 |
 
 ### 建议支持的 selector 语义

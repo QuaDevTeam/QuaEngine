@@ -78,7 +78,7 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(ui.asset_kinds.contains(&"qss".to_string()));
     assert!(ui.asset_kinds.contains(&"tokens".to_string()));
     assert!(ui.asset_kinds.contains(&"fonts".to_string()));
-    assert!(!ui.qss_features.contains(&"display".to_string()));
+    assert!(ui.qss_features.contains(&"display".to_string()));
     assert!(!ui.qss_features.contains(&"flex-direction".to_string()));
     assert!(!ui.qss_features.contains(&"gap".to_string()));
     assert!(ui.qss_features.contains(&"padding".to_string()));

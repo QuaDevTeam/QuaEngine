@@ -101,7 +101,9 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
     value('justify', 'Justify text lines.'),
   ]),
   property('object-fit', 'p0', true, 'Image fitting mode for image-like leaves.', imageFitValues),
-  property('display', 'p1', false, 'Layout display mode planned for native layout IR.'),
+  property('display', 'p1', true, 'Native visibility fallback subset; only display: none is currently supported.', [
+    value('none', 'Hide the node and its children when no QUI show prop overrides it.'),
+  ]),
   property('position', 'p1', false, 'Relative or absolute positioning planned for native layout IR.'),
   property('inset', 'p1', false, 'Logical inset shorthand planned for native layout IR.'),
   property('left', 'p1', true, 'Resolved logical x coordinate for static native surface bounds.'),
