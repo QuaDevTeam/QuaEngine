@@ -158,6 +158,7 @@ packages/native/
 - pointer press/release 解析后可通过调用方传入的 `NativeHostApi` 发出 `NativeRendererIntent`，再由 native host / engine bridge 进入既有 pipeline；renderer 自身不持有 host，也不引入第二事件总线。
 - projection DTO 提供 camelCase JSON serde 边界，供 native app / QuickJS bridge 输入已解析的 view、QUI/QSS style、stage layout 和 media/audio projection；组件 kind 保持 QUI registry 名称，如 `Box`、`Text`、`Button`。
 - `NativeRendererJsonFrameInput` 是 native app / QuickJS bridge 的薄 JSON facade：只接收已解析的 `layout`、`container`、`view`，解析失败返回结构化 parse error，渲染失败和 audio backend 失败分开上报；它复用 `prepare_frame` / `prepare_and_render` / audio apply 路径，不引入新的 renderer 状态。
+- JSON facade 要防御性拒绝已解析 UI projection 中的不安全几何值，例如非有限 `bounds.x/y/width/height`、负尺寸、超出 native logical limit 的坐标/尺寸和超限 `scrollOffsetX/Y`。这只是 resolved projection guard，不能演变成 Rust 侧 QUI/QSS parser、selector/cascade 或 renderer-owned layout state。
 - renderer smoke 路径必须继续使用已解析 projection JSON；不得把 QUI/QSS authoring parser、普通 plugin resolver、Web/Cocos/native target core resolver 或 Runtime QPK executable dependency 加进 `quajs_native_app` smoke。
 - 只消费 resolved QUI/QSS / capability data。
 

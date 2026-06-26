@@ -520,6 +520,44 @@ fn json_frame_intent_validation_rejects_duplicate_ui_dispatch_identifiers() {
 }
 
 #[test]
+fn json_frame_ui_geometry_validation_rejects_unsafe_resolved_bounds() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let bounds = renderer
+        .prepare_frame_json_str(json_frame_with_negative_ui_bounds_input())
+        .unwrap_err();
+    match bounds {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.bounds.width"
+            );
+            assert_eq!(validation.asset_name, "-1");
+            assert!(validation.reason.contains("must not be negative"));
+        }
+        other => panic!("expected negative UI bounds validation error, got {other:?}"),
+    }
+
+    let scroll_offset = renderer
+        .prepare_frame_json_str(json_frame_with_oversized_ui_scroll_offset_input())
+        .unwrap_err();
+    match scroll_offset {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.scrollOffsetY"
+            );
+            assert_eq!(validation.asset_name, "1000001");
+            assert!(validation.reason.contains("logical limits"));
+        }
+        other => panic!("expected oversized UI scroll validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_identity_validation_rejects_duplicate_projection_identifiers() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
