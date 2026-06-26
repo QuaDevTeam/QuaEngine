@@ -377,6 +377,75 @@ pub(super) fn json_frame_with_invalid_ui_color_literal_input() -> &'static str {
     "#
 }
 
+pub(super) fn json_frame_with_zero_dialogue_speaker_font_size_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "dialogue": {
+          "speaker": "Narrator",
+          "speakerStyle": {
+            "fontSize": 0
+          },
+          "text": "Opening"
+        }
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_oversized_dialogue_line_height_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "dialogue": {
+          "speaker": "Narrator",
+          "text": {
+            "style": {
+              "lineHeight": 1000001
+            },
+            "blocks": [
+              {
+                "spans": [
+                  { "text": "Opening" }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_zero_dialogue_span_font_size_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "dialogue": {
+          "speaker": "Narrator",
+          "text": {
+            "blocks": [
+              {
+                "spans": [
+                  {
+                    "text": "Opening",
+                    "style": {
+                      "fontSize": 0
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+    "#
+}
+
 pub(super) fn json_frame_with_forged_choice_metadata_input() -> &'static str {
     r#"
     {
