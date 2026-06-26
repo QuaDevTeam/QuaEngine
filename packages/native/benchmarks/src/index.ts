@@ -5,6 +5,8 @@ import process from 'node:process'
 import {
   buildNativeUiProjectIndex,
   formatNativeUiDocumentEdits,
+  fullDocumentRange,
+  getNativeUiAssetCodeActions,
   getNativeUiLanguageCompletions,
   getNativeUiLanguageHover,
   lintNativeUiDocument,
@@ -77,6 +79,10 @@ export function runNativeAuthoringSmokeBenchmarks(
   const quiHoverOffset = fixtures.qui.indexOf('Button')
   const qssCompletionOffset = fixtures.qss.indexOf('background-color')
   const qssHoverOffset = fixtures.qss.indexOf('border-radius')
+  const invalidAssetSource = createInvalidAssetSourceFixture()
+  const invalidAssetDiagnostics = lintNativeUiDocument(invalidAssetSource, {
+    filePath: 'bench/invalid-assets.qui',
+  }).diagnostics.filter(diagnostic => diagnostic.code === 'QUI_INVALID_ASSET_REFERENCE')
   const projectIndexOptions = {
     language: {
       lint: {
@@ -377,6 +383,48 @@ export function runNativeAuthoringSmokeBenchmarks(
       },
     },
     {
+      bench: 'native.authoring.asset_code_actions.smoke',
+      defaultIterations: 64,
+      documentBytes: byteLength(invalidAssetSource),
+      run(iterations) {
+        let checksum = 0
+        const diagnostics = 0
+        let assetDiagnostics = 0
+        let codeActions = 0
+        let fixAllActions = 0
+        let fixAllEdits = 0
+        let quickFixes = 0
+        for (let index = 0; index < iterations; index += 1) {
+          const actions = getNativeUiAssetCodeActions({
+            diagnostics: invalidAssetDiagnostics,
+            range: fullDocumentRange(invalidAssetSource),
+            source: invalidAssetSource,
+            uri: 'file:///bench/invalid-assets.qui',
+          })
+          const fixAll = actions.find(action => action.kind === 'source.fixAll.quaNativeAssets')
+          assetDiagnostics += invalidAssetDiagnostics.length
+          codeActions += actions.length
+          fixAllActions += fixAll ? 1 : 0
+          fixAllEdits += fixAll?.edits.length ?? 0
+          quickFixes += actions.filter(action => action.kind === 'quickfix').length
+          checksum += actions.length
+            + (fixAll?.edits.length ?? 0)
+            + actions.reduce((total, action) => total + action.edits.length + action.diagnostics.length, 0)
+        }
+        return {
+          checksum,
+          diagnostics,
+          metrics: {
+            assetDiagnostics,
+            codeActions,
+            fixAllActions,
+            fixAllEdits,
+            quickFixes,
+          },
+        }
+      },
+    },
+    {
       bench: 'native.authoring.project_index.build.smoke',
       defaultIterations: 6,
       documentBytes: projectDocumentBytes,
@@ -578,6 +626,12 @@ function countSurfaceProjection(node: ReturnType<typeof compileNativeUiSurfacePr
     styleFields: Object.keys(node.style ?? {}).length + sumMetric(childCounts, 'styleFields'),
     textNodes: (node.text ? 1 : 0) + sumMetric(childCounts, 'textNodes'),
   }
+}
+
+function createInvalidAssetSourceFixture(): string {
+  return Array.from({ length: 16 }, (_, index) =>
+    `Image(src: "../escape-${index}.png", asset-type: "../bad-${index}")`,
+  ).join('\n')
 }
 
 function sumMetric<T extends Record<string, number>>(items: readonly T[], key: keyof T): number {

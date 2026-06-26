@@ -12,6 +12,8 @@ import {
   getNativeUiCompletions,
   getNativeUiHover,
 } from '@quajs/native-ui-compiler'
+import { DiagnosticSeverity } from 'vscode-languageserver/node.js'
+import { createNativeUiAssetCodeActions } from './code-actions'
 
 export type {
   NativeUiProjectAssetReference,
@@ -89,6 +91,20 @@ export interface NativeUiTextEdit {
   range: NativeUiRange
 }
 
+export interface NativeUiAssetCodeAction {
+  diagnostics: NativeUiDiagnostic[]
+  edits: NativeUiTextEdit[]
+  kind: 'quickfix' | 'source.fixAll.quaNativeAssets'
+  title: string
+}
+
+export interface NativeUiAssetCodeActionOptions {
+  diagnostics: readonly NativeUiDiagnostic[]
+  range: NativeUiRange
+  source: string
+  uri?: string
+}
+
 export function lintNativeUiDocument(
   source: string,
   options: NativeUiLanguageOptions = {},
@@ -126,6 +142,25 @@ export function getNativeUiLanguageHover(
   options: NativeUiLanguageOptions = {},
 ): NativeUiHover | undefined {
   return getNativeUiHover(source, offsetAtPosition(source, position), options)
+}
+
+export function getNativeUiAssetCodeActions(
+  options: NativeUiAssetCodeActionOptions,
+): NativeUiAssetCodeAction[] {
+  const uri = options.uri ?? 'file:///native-ui-document'
+  return createNativeUiAssetCodeActions({
+    diagnostics: options.diagnostics.map(toLspDiagnostic),
+    range: options.range,
+    source: options.source,
+    uri,
+  }).map(action => ({
+    diagnostics: (action.diagnostics ?? []).map(toNativeUiDiagnostic),
+    edits: action.edit?.changes?.[uri] ?? [],
+    kind: action.kind === 'source.fixAll.quaNativeAssets'
+      ? 'source.fixAll.quaNativeAssets'
+      : 'quickfix',
+    title: action.title,
+  }))
 }
 
 export function fullDocumentRange(source: string): NativeUiRange {
@@ -167,5 +202,58 @@ export function uriToFilePath(uri: string): string | undefined {
   }
   catch {
     return undefined
+  }
+}
+
+function toLspDiagnostic(diagnostic: NativeUiDiagnostic) {
+  return {
+    code: diagnostic.code,
+    message: diagnostic.message,
+    range: diagnostic.range ?? zeroRange(),
+    severity: toLspDiagnosticSeverity(diagnostic.severity),
+    source: diagnostic.source,
+  }
+}
+
+function toLspDiagnosticSeverity(severity: NativeUiDiagnostic['severity']): DiagnosticSeverity {
+  if (severity === 'error')
+    return DiagnosticSeverity.Error
+  if (severity === 'warning')
+    return DiagnosticSeverity.Warning
+  return DiagnosticSeverity.Information
+}
+
+function toNativeUiDiagnostic(diagnostic: {
+  code?: number | string
+  message: string
+  range: NativeUiRange
+  severity?: number
+  source?: string
+}): NativeUiDiagnostic {
+  return {
+    code: String(diagnostic.code ?? 'UNKNOWN'),
+    message: diagnostic.message,
+    range: diagnostic.range,
+    severity: diagnostic.severity === 1
+      ? 'error'
+      : diagnostic.severity === 2
+        ? 'warning'
+        : 'info',
+    source: diagnostic.source === 'qui' || diagnostic.source === 'qss' || diagnostic.source === 'native-ui'
+      ? diagnostic.source
+      : 'native-ui',
+  }
+}
+
+function zeroRange(): NativeUiRange {
+  return {
+    start: {
+      character: 0,
+      line: 0,
+    },
+    end: {
+      character: 0,
+      line: 0,
+    },
   }
 }

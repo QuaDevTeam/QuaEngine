@@ -207,6 +207,7 @@ QSS 侧：
 - validate latency
 - format latency
 - completion / hover latency
+- asset code action / fixAll generation latency
 - project index build time
 - document link / reference query count
 - incremental update time
@@ -221,6 +222,7 @@ QSS 侧：
 - `native.authoring.qui.format.smoke`
 - `native.authoring.qss.format.smoke`
 - `native.authoring.completion_hover.smoke`
+- `native.authoring.asset_code_actions.smoke`
 - `native.authoring.project_index.build.smoke`
 - `native.authoring.project_index.incremental_update.smoke`
 

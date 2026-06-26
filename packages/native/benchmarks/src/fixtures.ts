@@ -41,7 +41,7 @@ function createQuiFixture(): string {
       slot body {
         Column {
           RichText { view.sections[${index}].body }
-          Image(src: assets.sections[${index}].poster)
+          Image(src: "ui/poster-${index}.png")
           Button(
             for: (choice, choiceIndex) in view.sections[${index}].choices,
             key: choice.id,

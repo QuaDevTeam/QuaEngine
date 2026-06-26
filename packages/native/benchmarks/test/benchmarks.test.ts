@@ -17,6 +17,7 @@ describe('@quajs/native-benchmarks', () => {
       'native.authoring.qui.format.smoke',
       'native.authoring.qss.format.smoke',
       'native.authoring.completion_hover.smoke',
+      'native.authoring.asset_code_actions.smoke',
       'native.authoring.project_index.build.smoke',
       'native.authoring.project_index.incremental_update.smoke',
     ])
@@ -52,6 +53,14 @@ describe('@quajs/native-benchmarks', () => {
         nodes: expect.any(Number),
         styleFields: expect.any(Number),
         textNodes: expect.any(Number),
+      }))
+    expect(records.find(record => record.bench === 'native.authoring.asset_code_actions.smoke')?.metrics)
+      .toEqual(expect.objectContaining({
+        assetDiagnostics: expect.any(Number),
+        codeActions: expect.any(Number),
+        fixAllActions: expect.any(Number),
+        fixAllEdits: expect.any(Number),
+        quickFixes: expect.any(Number),
       }))
     expect(records.find(record => record.bench === 'native.authoring.project_index.build.smoke')?.metrics)
       .toEqual(expect.objectContaining({
