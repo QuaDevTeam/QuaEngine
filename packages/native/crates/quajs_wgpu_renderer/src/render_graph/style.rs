@@ -32,6 +32,7 @@ pub struct ImageDrawParams {
     pub fit: MediaFit,
     pub origin: MediaOrigin,
     pub source: LogicalRect,
+    pub rotation_degrees: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]

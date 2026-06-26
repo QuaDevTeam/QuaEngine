@@ -70,6 +70,7 @@ fn background_image_command(
             fit: media_fit(background.fit),
             origin: media_origin(background.origin.as_deref()),
             source: full_stage_rect(layout),
+            rotation_degrees: background.rotation,
         }));
 
     apply_provenance(command, &background.provenance)
@@ -106,6 +107,7 @@ fn background_layer_command(
         fit: media_fit(layer.fit),
         origin: media_origin(layer.origin.as_deref()),
         source: full_stage_rect(layout),
+        rotation_degrees: layer.rotation,
     }));
 
     apply_provenance(command, &layer.provenance)

@@ -166,6 +166,7 @@ pub(super) fn surface_background_image_command(
         fit: resolve_background_size(&node.style, MediaFit::Cover),
         origin: resolve_background_position(&node.style, MediaOrigin::default()),
         source: bounds,
+        rotation_degrees: 0.0,
     }));
 
     command = apply_provenance(command, &overlay.provenance);
@@ -295,6 +296,7 @@ fn image_node_command(
         fit: resolve_object_fit(&node.style, MediaFit::Contain),
         origin: MediaOrigin::default(),
         source: bounds,
+        rotation_degrees: 0.0,
     }));
 
     if let Some(image) = image {
