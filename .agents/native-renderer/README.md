@@ -55,6 +55,8 @@
 
 不能把三端核心插件放进同一个 shared preset、普通 `plugins` 数组、generated resolver、Runtime QPK executable dependency 或运行时按条件选择的 umbrella bootstrap。正确做法是 target-first：先 materialize 唯一 `TargetCoreSelection`，再解析普通 game/plugin 和 Runtime QPK。最终产物还必须在 bundle / tree-shake 之后重新校验依赖图和 `target-bundle-manifest.json`，确认没有残留其他 target core 根包或子入口。
 
+项目模板和启动壳也不能绕过这条规则。Web starter 只能接 Web resolver，Cocos starter 只能接 Cocos resolver，Native starter 只能接 Native resolver；debug shell、installer、updater 和 smoke runner 都只能消费当前目标已经产出的 `target-bundle-manifest.json`。它们不能自己 import、声明或合并 Web / Cocos / Native 任一 target core adapter，也不能用一个跨目标模板先带上三端核心插件再过滤。
+
 核心插件装配必须按三条独立链路实现：
 
 - `resolveWebCorePlugins()` 只能返回 Web bootstrap、Web asset/store/runtime adapter、Web renderer 和 Web renderer plugin subentry。
