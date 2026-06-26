@@ -1,3 +1,5 @@
+mod memory_ledger;
+
 use std::collections::BTreeSet;
 use std::time::Instant;
 
@@ -21,6 +23,7 @@ use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
     ViewLayoutOrientation,
 };
+use memory_ledger::MemoryLedgerSmokeSummary;
 
 const RENDER_GRAPH_ITERATIONS: usize = 64;
 const MEMORY_LEDGER_RESOURCE_COUNT: usize = 1_000;
@@ -66,17 +69,34 @@ fn bench_smoke_summarizes_memory_ledger_under_stable_threshold() {
     let summary = ledger.summary();
     let pressure = summary.memory_pressure();
     let elapsed = start.elapsed();
+    let smoke_summary = MemoryLedgerSmokeSummary::from_ledger(&ledger, &summary, elapsed);
 
     println!(
-        "{{\"bench\":\"native.memory_ledger.summary.smoke\",\"resources\":{},\"cpuBytes\":{},\"gpuBytes\":{},\"elapsedMs\":{:.3}}}",
-        summary.total_count,
-        pressure.total_memory.cpu_bytes,
-        pressure.total_memory.gpu_bytes,
-        elapsed.as_secs_f64() * 1000.0,
+        "{}",
+        serde_json::to_string(&smoke_summary).expect("memory ledger smoke summary serializes")
     );
 
     assert_eq!(summary.total_count, MEMORY_LEDGER_RESOURCE_COUNT);
     assert!(pressure.total_memory.total_bytes() > 0);
+    assert_eq!(smoke_summary.memory_by_kind["uiAst"].count, 250);
+    assert!(
+        smoke_summary.memory_by_package["runtime.ui"]
+            .owned_memory
+            .total_bytes
+            > 0
+    );
+    assert!(
+        smoke_summary.declarative_memory_by_package["runtime.ui"]
+            .owned_memory
+            .total_bytes
+            > 0
+    );
+    assert!(
+        smoke_summary.audio_memory_by_package["runtime.audio"]
+            .owned_memory
+            .total_bytes
+            > 0
+    );
     assert!(
         elapsed.as_millis() < 250,
         "native memory ledger smoke benchmark exceeded 250ms: {:?}",
