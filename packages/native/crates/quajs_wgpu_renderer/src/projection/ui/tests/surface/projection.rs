@@ -4,9 +4,9 @@ use crate::projection::common::{FontFamilyProjection, FontWeightProjection};
 use crate::projection::ui::{
     append_ui_commands, build_ui_commands, UiIntentProjection, UiOverlayProjection,
     UiOverlaySurfaceProjection, UiProjection, UiSurfaceBackgroundPositionProjection,
-    UiSurfaceEdgeInsetsProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
-    UiSurfaceNodeProjection, UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle,
-    UiSurfaceTextAlignProjection,
+    UiSurfaceBorderStyleProjection, UiSurfaceEdgeInsetsProjection, UiSurfaceImageProjection,
+    UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceObjectFitProjection,
+    UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
 };
 use crate::render_graph::{
     DrawCommandKind, DrawCommandParams, FontWeightDrawParam, LogicalRect, MediaFit, RenderGraph,
@@ -206,6 +206,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                     background_color: Some("#101820".to_string()),
                     border_radius: Some(14.0),
                     border_color: Some("#5ac8fa".to_string()),
+                    border_style: Some(UiSurfaceBorderStyleProjection::Solid),
                     border_width: Some(2.0),
                     padding: Some(UiSurfaceEdgeInsetsProjection {
                         top: 12.0,
@@ -263,6 +264,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                         color: Some("#18130a".to_string()),
                         border_radius: Some(10.0),
                         border_color: Some("#382400".to_string()),
+                        border_style: Some(UiSurfaceBorderStyleProjection::None),
                         border_width: Some(1.5),
                         font_family: Some(FontFamilyProjection::new([
                             "Button Face",
@@ -339,8 +341,8 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
             assert_eq!(params.background_color, "#f0c15a");
             assert_eq!(params.text_color, "#18130a");
             assert_eq!(params.corner_radius, 10.0);
-            assert_eq!(params.border.color.as_deref(), Some("#382400"));
-            assert_eq!(params.border.width, 1.5);
+            assert_eq!(params.border.color.as_deref(), None);
+            assert_eq!(params.border.width, 0.0);
             assert_eq!(params.font_family, vec!["Button Face", "Fallback UI"]);
             assert_eq!(params.font_size, 30.0);
             assert_eq!(

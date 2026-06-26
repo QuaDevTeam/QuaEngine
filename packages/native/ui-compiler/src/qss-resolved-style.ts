@@ -1,5 +1,6 @@
 import type {
   NativeQssDeclaration,
+  NativeQssBorderStyleValue,
   NativeQssEdgeInsetsValue,
   NativeQssObjectFitValue,
   NativeQssResolvedBounds,
@@ -9,6 +10,7 @@ import type {
 
 const OBJECT_FIT_VALUES = new Set<NativeQssObjectFitValue>(['contain', 'cover', 'fill', 'none', 'scale-down'])
 const TEXT_ALIGN_VALUES = new Set<NativeQssTextAlignValue>(['center', 'justify', 'left', 'right'])
+const BORDER_STYLE_VALUES = new Set<NativeQssBorderStyleValue>(['none', 'solid'])
 
 export function resolveNativeQssDeclarations(
   declarations: readonly NativeQssDeclaration[],
@@ -38,6 +40,9 @@ export function resolveNativeQssDeclarations(
         break
       case 'border-radius':
         resolved.style.borderRadius = parseNativeQssLogicalNumber(value)
+        break
+      case 'border-style':
+        resolved.style.borderStyle = parseNativeQssBorderStyle(value)
         break
       case 'border-width':
         resolved.style.borderWidth = parseNativeQssLogicalNumber(value)
@@ -307,6 +312,13 @@ export function parseNativeQssObjectFit(value: string): NativeQssObjectFitValue 
   const normalized = value.toLowerCase()
   return OBJECT_FIT_VALUES.has(normalized as NativeQssObjectFitValue)
     ? normalized as NativeQssObjectFitValue
+    : undefined
+}
+
+export function parseNativeQssBorderStyle(value: string): NativeQssBorderStyleValue | undefined {
+  const normalized = value.toLowerCase()
+  return BORDER_STYLE_VALUES.has(normalized as NativeQssBorderStyleValue)
+    ? normalized as NativeQssBorderStyleValue
     : undefined
 }
 

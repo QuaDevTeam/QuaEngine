@@ -205,6 +205,10 @@ export type NativeQssObjectFitValue
     | 'none'
     | 'scale-down'
 
+export type NativeQssBorderStyleValue
+  = | 'none'
+    | 'solid'
+
 export interface NativeQssBackgroundImageValue {
   assetType: string
   assetName: string
@@ -236,6 +240,7 @@ export interface NativeQssResolvedStyle {
   backgroundSize?: NativeQssObjectFitValue
   borderColor?: string
   borderRadius?: number
+  borderStyle?: NativeQssBorderStyleValue
   borderWidth?: number
   color?: string
   fontFamily?: string[]

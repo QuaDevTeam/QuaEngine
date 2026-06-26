@@ -147,7 +147,10 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('background-size', 'p1', true, 'Background image fitting mode for native surface image backgrounds.', imageFitValues),
   property('background-position', 'p1', true, 'Background image origin for native surface image backgrounds.', backgroundPositionValues),
   property('background-repeat', 'p2', false, 'Background image repeat mode planned for native style IR.'),
-  property('border-style', 'p2', false, 'Limited border style planned for native style IR.'),
+  property('border-style', 'p1', true, 'Limited native border style subset for rectangular surfaces.', [
+    value('solid', 'Render the border using border-width and border-color.'),
+    value('none', 'Suppress the border regardless of border-width and border-color.'),
+  ]),
   property('visibility', 'p1', true, 'Node visibility emitted as resolved native UI projection metadata.', [
     value('visible', 'Render the node when no QUI show prop overrides it.'),
     value('hidden', 'Skip the node and its children when no QUI show prop overrides it.'),

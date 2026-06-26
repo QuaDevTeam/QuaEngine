@@ -18,6 +18,7 @@ import {
 import {
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
+  parseNativeQssBorderStyle,
   parseNativeQssCoordinateNumber,
   parseNativeQssDisplay,
   parseNativeQssEdgeInsets,
@@ -654,6 +655,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssObjectFit(value)
         ? undefined
         : `${declaration.name} supports cover, contain, fill, none, or scale-down.`
+    case 'border-style':
+      return parseNativeQssBorderStyle(value)
+        ? undefined
+        : 'border-style supports solid or none.'
     case 'border-radius':
     case 'border-width':
     case 'font-size':
