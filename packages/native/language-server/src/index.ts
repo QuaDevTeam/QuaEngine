@@ -14,6 +14,13 @@ import {
 } from '@quajs/native-ui-compiler'
 
 export type {
+  NativeUiProjectAssetReference,
+  NativeUiProjectAssetReferenceSource,
+} from './asset-references'
+export {
+  isSafeNativeUiProjectAssetName,
+} from './asset-references'
+export type {
   NativeUiProjectClassReference,
   NativeUiProjectComponentReference,
   NativeUiProjectDocumentLink,

@@ -382,6 +382,7 @@ export function runNativeAuthoringSmokeBenchmarks(
       documentBytes: projectDocumentBytes,
       run(iterations) {
         let checksum = 0
+        let assetReferences = 0
         let diagnostics = 0
         let documentLinks = 0
         let documentCount = 0
@@ -392,6 +393,7 @@ export function runNativeAuthoringSmokeBenchmarks(
         let qssRules = 0
         for (let index = 0; index < iterations; index += 1) {
           const projectIndex = buildNativeUiProjectIndex(fixtures.projectFiles, projectIndexOptions)
+          assetReferences += projectIndex.summary.assetReferences
           diagnostics += projectIndex.summary.diagnostics
           documentLinks += projectIndex.documentLinks.length
           documentCount += projectIndex.summary.documentCount
@@ -403,6 +405,7 @@ export function runNativeAuthoringSmokeBenchmarks(
           checksum += projectIndex.summary.documentBytes
             + projectIndex.summary.components
             + projectIndex.summary.qssDeclarations
+            + projectIndex.summary.assetReferences
             + projectIndex.documentLinks.length
             + projectIndex.references.length
         }
@@ -410,6 +413,7 @@ export function runNativeAuthoringSmokeBenchmarks(
           checksum,
           diagnostics,
           metrics: {
+            assetReferences,
             classes,
             components,
             documentLinks,
@@ -427,6 +431,7 @@ export function runNativeAuthoringSmokeBenchmarks(
       documentBytes: projectDocumentBytes,
       run(iterations) {
         let checksum = 0
+        let assetReferences = 0
         let diagnostics = 0
         let documentLinks = 0
         let documentCount = 0
@@ -445,6 +450,7 @@ export function runNativeAuthoringSmokeBenchmarks(
               version: index + 2,
             },
           ], projectIndexOptions)
+          assetReferences += projectIndex.summary.assetReferences
           diagnostics += projectIndex.summary.diagnostics
           documentLinks += projectIndex.documentLinks.length
           documentCount += projectIndex.summary.documentCount
@@ -456,6 +462,7 @@ export function runNativeAuthoringSmokeBenchmarks(
           checksum += projectIndex.summary.documentBytes
             + projectIndex.summary.components
             + projectIndex.summary.qssDeclarations
+            + projectIndex.summary.assetReferences
             + projectIndex.documentLinks.length
             + projectIndex.references.length
         }
@@ -463,6 +470,7 @@ export function runNativeAuthoringSmokeBenchmarks(
           checksum,
           diagnostics,
           metrics: {
+            assetReferences,
             classes,
             components,
             documentLinks,

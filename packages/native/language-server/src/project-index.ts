@@ -15,6 +15,10 @@ import {
   detectNativeUiDocumentKind,
 } from '@quajs/native-ui-compiler'
 import {
+  collectNativeUiProjectAssetReferences,
+  type NativeUiProjectAssetReference,
+} from './asset-references'
+import {
   createNativeUiProjectDocumentLinks,
   createNativeUiProjectReferences,
 } from './project-references'
@@ -62,6 +66,7 @@ export interface NativeUiProjectIdReference {
 }
 
 export interface NativeUiProjectIndexedDocument {
+  assetReferences: NativeUiProjectAssetReference[]
   classReferences: NativeUiProjectClassReference[]
   classes: string[]
   componentImports: string[]
@@ -83,6 +88,7 @@ export interface NativeUiProjectIndexedDocument {
 }
 
 export interface NativeUiProjectIndexSummary {
+  assetReferences: number
   classes: number
   componentImports: number
   components: number
@@ -101,7 +107,7 @@ export interface NativeUiProjectIndexSummary {
 
 export interface NativeUiProjectDocumentLink {
   candidateUri?: string
-  kind: NativeQuiImport['kind']
+  kind: NativeQuiImport['kind'] | 'asset'
   path: string
   pathRange: NativeUiRange
   resolved: boolean
@@ -203,6 +209,7 @@ function indexedDocumentFromNativeDocument(
   ]
 
   return {
+    assetReferences: collectNativeUiProjectAssetReferences(document.source, quiComponentNodes, qss),
     classReferences: [
       ...classReferencesFromQui(quiComponentNodes, document.source),
       ...(qss ? classReferencesFromQss(qss) : []),
@@ -247,11 +254,12 @@ function summarizeProjectIndex(
   const sortedSkippedDocuments = [...skippedDocuments].sort((left, right) => left.localeCompare(right))
 
   return {
-    documentLinks: createNativeUiProjectDocumentLinks(sortedDocuments),
+    documentLinks: createNativeUiProjectDocumentLinks(sortedDocuments, sortedSkippedDocuments),
     documents: sortedDocuments,
     references: createNativeUiProjectReferences(sortedDocuments),
     skippedDocuments: sortedSkippedDocuments,
     summary: {
+      assetReferences: sum(sortedDocuments, document => document.assetReferences.length),
       classes: countUnique(sortedDocuments.flatMap(document => document.classes)),
       componentImports: sum(sortedDocuments, document => document.componentImports.length),
       components: countUnique(sortedDocuments.flatMap(document => document.components)),
