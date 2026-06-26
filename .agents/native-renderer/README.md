@@ -57,6 +57,14 @@
 
 Web、Cocos、Native 打包是三条互斥目标链路，不是同一套核心插件列表的三种输出格式。每个目标产物都必须先 materialize 唯一的 `TargetCoreSelection`，再解析普通 game/plugin 和 Runtime QPK；任何 shared preset、普通 `plugins`、generated resolver、renderer entry 或 Runtime QPK executable dependency 里出现 Web / Cocos / Native target core 根包或子入口，都必须作为 release blocker。
 
+实现时要把“目标核心插件”当成打包入口的私有 bootstrap，而不是项目插件生态的一部分：
+
+- Web / Cocos / Native 三个 resolver 只能由对应目标的 packager 入口调用，不能被普通 plugin resolver、Runtime QPK resolver、UI compiler、LSP、benchmark 或 debug smoke 复用成共享依赖。
+- 普通 game/plugin 只能看到已经选好的 `TargetCoreSelection` 和平台无关 engine/game contracts；它不能自己追加或替换 Web / Cocos / Native core adapter。
+- 第三方 plugin 可以声明多目标 metadata，但 active artifact 只能选择当前 target entry。inactive target entry 只能作为 metadata 保留，不能通过 eager export、barrel file、side-effect import 或 generated resolver 进入依赖图。
+- Runtime QPK 只能声明当前目标的兼容性需求和内容资源，不允许声明 Web / Cocos / Native 任一 target core adapter 作为 executable dependency 或 renderer entry。
+- Web、Cocos、Native 的 debug、release、installer、updater、手写 shell、CI fixture 都必须复用同一套 isolation helper；不能只让 native 路线严格，Web/Cocos 放宽。
+
 核心插件隔离需要按“目标先行、普通插件后置、产物复验”的顺序执行：
 
 1. Web / Cocos / Native 打包入口分别创建自己的 resolver context，不能 import 一个三端全集再过滤。

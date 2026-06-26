@@ -18,7 +18,13 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 - `cocos-core`
 - `native-core`
 
-它们不是普通 game plugin，也不能放进同一个共享 preset 或 umbrella plugin array。正确顺序是：
+它们不是普通 game plugin，也不能放进同一个共享 preset 或 umbrella plugin array。它们只能由对应目标的 packager bootstrap resolver 创建：
+
+- Web 入口调用 Web resolver，只贡献 Web bootstrap、Web renderer/framework adapter 和 Web 目标 renderer plugin entry。
+- Cocos 入口调用 Cocos resolver，只贡献 Cocos host / renderer adapter 和 Cocos 目标 renderer plugin entry。
+- Native 入口调用 Native resolver，只贡献 `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、native contracts 元数据和 Rust native app/runtime/renderer 元数据。
+
+任何普通 game/plugin、shared preset、第三方插件 shared entry、Runtime QPK executable dependency、debug smoke 或 authoring tool 如果直接引入上述 target core adapter，都要按串线处理。正确顺序是：
 
 1. 先选 target。
 2. 再生成 `TargetCoreSelection`。
@@ -44,6 +50,7 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 - 普通 game/plugin 列表必须先通过 `validateOrdinaryPluginListTargetIsolation`，任何 Web / Cocos / Native target core 根包或子入口都不能出现在 `plugins`、shared preset 或 generated resolver 里。
 - Runtime QPK 可声明多端 compatibility metadata，但 active artifact 只能评估当前 target block；QPK 不允许声明或携带任何 target core executable dependency。
 - 第三方 plugin manifest 必须通过 `validateTargetPluginManifest`：shared entry 只能 import 平台无关逻辑，active target entry 只能 import 本 target core，inactive target entry 不能 eager 进入产物。
+- target-specific renderer plugin entry 也属于目标隔离面：Web renderer subentry 不能进入 Cocos/Native，Cocos renderer subentry 不能进入 Web/Native，Native capability / bridge entry 不能进入 Web/Cocos。
 - 所有 target bundle reference、plugin import reference、Runtime QPK executable/renderer reference 都要同时校验 `specifier` 和 `packageName`；不能让一个普通包名字段遮住另一个字段里的 Web/Cocos/Native target core 子入口。
 - 最终 `target-bundle-manifest.json` 必须通过 `validateTargetBundleManifest`；Web、Cocos、Native 的 debug/release、installer/updater、手写 shell 和 CI fixture 都不能跳过这一步。
 - release artifact 的依赖图检查必须发生在 bundle / tree-shake 之后，防止源码层过滤正确但产物里残留其他 target core 子入口。
