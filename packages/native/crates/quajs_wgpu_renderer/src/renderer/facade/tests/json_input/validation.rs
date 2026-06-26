@@ -326,6 +326,53 @@ fn json_frame_color_validation_rejects_unsafe_resolved_color_literals() {
 }
 
 #[test]
+fn json_frame_rich_text_number_validation_rejects_unsafe_resolved_values() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let speaker_font_size = renderer
+        .prepare_frame_json_str(json_frame_with_zero_dialogue_speaker_font_size_input())
+        .unwrap_err();
+    match speaker_font_size {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.dialogue.speakerStyle.fontSize");
+            assert_eq!(validation.asset_name, "0");
+            assert!(validation.reason.contains("greater than 0"));
+        }
+        other => panic!("expected unsafe dialogue speaker font size error, got {other:?}"),
+    }
+
+    let text_line_height = renderer
+        .prepare_frame_json_str(json_frame_with_oversized_dialogue_line_height_input())
+        .unwrap_err();
+    match text_line_height {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.dialogue.text.style.lineHeight");
+            assert_eq!(validation.asset_name, "1000001");
+            assert!(validation.reason.contains("logical limits"));
+        }
+        other => panic!("expected unsafe dialogue line height error, got {other:?}"),
+    }
+
+    let span_font_size = renderer
+        .prepare_frame_json_str(json_frame_with_zero_dialogue_span_font_size_input())
+        .unwrap_err();
+    match span_font_size {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.dialogue.text.blocks[0].spans[0].style.fontSize"
+            );
+            assert_eq!(validation.asset_name, "0");
+            assert!(validation.reason.contains("greater than 0"));
+        }
+        other => panic!("expected unsafe dialogue span font size error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_intent_validation_rejects_choice_select_without_canonical_choice_id() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

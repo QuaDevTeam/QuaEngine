@@ -1,6 +1,7 @@
 mod audio_numbers;
 mod background_numbers;
 mod character_numbers;
+mod rich_text_numbers;
 mod ui_geometry;
 mod ui_style_numbers;
 
@@ -30,6 +31,7 @@ use background_numbers::{
 use character_numbers::{
     invalid_native_json_character_opacity_reason, invalid_native_json_character_position_reason,
 };
+use rich_text_numbers::invalid_native_json_rich_text_style_number_reason;
 use ui_geometry::{invalid_native_json_scroll_offset_reason, invalid_native_json_ui_rect_reason};
 use ui_style_numbers::{
     invalid_native_json_ui_node_opacity_reason, invalid_native_json_ui_style_number_reason,
@@ -227,6 +229,7 @@ impl JsonProjectionValidator {
         if let Some(font_family) = &style.font_family {
             self.validate_font_family(&format!("{path}.fontFamily"), font_family);
         }
+        self.validate_rich_text_style_numbers(path, style);
     }
 
     fn validate_choices(&mut self, choices: &ChoiceSetProjection) {
@@ -521,6 +524,18 @@ impl JsonProjectionValidator {
 
     fn validate_ui_style_numbers(&mut self, path: &str, style: &UiSurfaceResolvedStyle) {
         if let Some((field, value, reason)) = invalid_native_json_ui_style_number_reason(style) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: format!("{path}.{field}"),
+                asset_name: value,
+                reason,
+            });
+        }
+    }
+
+    fn validate_rich_text_style_numbers(&mut self, path: &str, style: &RichTextStyle) {
+        if let Some((field, value, reason)) =
+            invalid_native_json_rich_text_style_number_reason(style)
+        {
             self.errors.push(NativeRendererJsonValidationError {
                 path: format!("{path}.{field}"),
                 asset_name: value,
