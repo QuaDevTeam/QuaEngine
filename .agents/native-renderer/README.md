@@ -132,6 +132,7 @@ Web、Cocos、Native 打包是三条互斥目标链路，不是同一套核心�
 ## 文档索引
 
 - [架构与包结构](./architecture.md)
+- [Web / Cocos / Native 核心插件隔离](./target-core-isolation.md)
 - [QUI / QSS 语法与组件系统](./qui-qss.md)
 - [语言服务器、VSCode、测试、benchmark](./tooling-testing.md)
 
