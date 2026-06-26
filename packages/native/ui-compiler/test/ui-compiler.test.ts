@@ -334,12 +334,46 @@ Stack {
   it('rejects child content inside no-content QUI leaves', () => {
     const document = analyzeQuiSource('Image(src: assets.hero) { Text { "Hero" } }')
 
-    expect(document.diagnostics).toEqual([
+    expect(document.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QUI_INVALID_CHILDREN',
         severity: 'error',
       }),
-    ])
+    ]))
+  })
+
+  it('rejects unsafe QUI asset references before projection', () => {
+    const document = analyzeQuiSource([
+      'Image(src: "../escape.png")',
+      'Image(src: "https://cdn.example/hero.png")',
+      'Image(src: assets.hero)',
+      'Panel(image: "/absolute.png", asset-type: "../bad") {}',
+    ].join('\n'))
+    const projection = compileNativeUiSurfaceProjection(document)
+
+    expect(document.diagnostics.filter(item => item.code === 'QUI_INVALID_ASSET_REFERENCE')).toHaveLength(5)
+    expect(document.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'QUI_INVALID_ASSET_REFERENCE',
+        message: expect.stringContaining('package-relative literal asset path'),
+      }),
+      expect.objectContaining({
+        code: 'QUI_INVALID_ASSET_REFERENCE',
+        message: expect.stringContaining('asset-type'),
+      }),
+    ]))
+    expect(projection.root.children?.flatMap(node => node.image ? [node.image] : [])).toEqual([])
+  })
+
+  it('projects safe literal QUI asset references', () => {
+    const document = analyzeQuiSource('Image(src: "ui/poster.png", asset-type: "images")')
+    const projection = compileNativeUiSurfaceProjection(document)
+
+    expect(document.diagnostics).toEqual([])
+    expect(projection.root?.image).toEqual({
+      assetName: 'ui/poster.png',
+      assetType: 'images',
+    })
   })
 
   it('validates named QUI slots against the parent component registry', () => {

@@ -13,6 +13,7 @@ import type {
   NativeUiSurfaceProjection,
   NativeUiSurfaceRect,
 } from './types'
+import { isSafeNativeAssetType, isSafePackageAssetName, literalStringValue } from './assets'
 import { findNativeUiComponent } from './registry'
 import { resolveNativeQssDeclarations } from './qss-resolved-style'
 import { splitTopLevel } from './source'
@@ -339,8 +340,15 @@ function textContentFromBody(source: string, node: NativeQuiAstNode): string | u
 }
 
 function imageFromProps(props: readonly NativeQuiProp[]) {
-  const src = propString(props, 'src') || propString(props, 'image')
-  return src ? { assetType: propString(props, 'asset-type') || 'images', assetName: src } : undefined
+  const src = propLiteralString(props, 'src') || propLiteralString(props, 'image')
+  if (!src || !isSafePackageAssetName(src))
+    return undefined
+
+  const assetType = propLiteralString(props, 'asset-type') || 'images'
+  if (!isSafeNativeAssetType(assetType))
+    return undefined
+
+  return { assetType, assetName: src }
 }
 
 function intentFromNode(node: NativeQuiAstNode): NativeUiSurfaceIntentProjection | undefined {
@@ -413,6 +421,10 @@ function propString(props: readonly NativeQuiProp[], name: string): string | und
   if (!value)
     return undefined
   return stripQuotes(value)
+}
+
+function propLiteralString(props: readonly NativeQuiProp[], name: string): string | undefined {
+  return literalStringValue(props.find(prop => prop.name === name)?.value?.trim())
 }
 
 function numberProp(props: readonly NativeQuiProp[], name: string): number | undefined {

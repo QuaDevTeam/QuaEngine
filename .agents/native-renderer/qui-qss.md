@@ -224,6 +224,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 - `@keyframes`
 - 任意 CSS function
 - 浏览器 `url(...)` / 网络资源；native 背景资源必须走 `asset(...)` resolved IR
+- QUI `src` / `image` 资源 prop 必须是包内相对字符串字面量，并且 `asset-type` 必须是白名单形态的 native asset kind；compiler 对 URL、绝对路径、`..` traversal、非字面量资源表达式发出 `QUI_INVALID_ASSET_REFERENCE`，projection 不应把这些不安全资源传给 Rust。
 - 任意未白名单化 property
 - 依赖浏览器 box model 的复杂行为
 

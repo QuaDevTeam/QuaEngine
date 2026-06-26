@@ -11,6 +11,11 @@ import { analyzeQssSource, formatQssSource, getQssCompletions, getQssHover } fro
 import { analyzeQuiSource, formatQuiSource, getQuiCompletions, getQuiHover } from './qui'
 
 export {
+  isSafeNativeAssetType,
+  isSafePackageAssetName,
+  literalStringValue,
+} from './assets'
+export {
   analyzeQssSource,
   formatQssSource,
   getQssCompletions,

@@ -1,4 +1,5 @@
 import type { NativeQuiProp, NativeUiDiagnostic } from './types'
+import { isSafeNativeAssetType, isSafePackageAssetName, literalStringValue } from './assets'
 import { hasUnsupportedQuiActionArgument, parseQuiActionDescriptor } from './qui-actions'
 
 const IDENTIFIER_PATTERN_SOURCE = String.raw`[A-Za-z_$][\w$]*`
@@ -58,7 +59,42 @@ export function validateQuiProps(props: readonly NativeQuiProp[], diagnostics: N
       validateQuiExpression(prop, diagnostics)
   }
 
+  validateQuiAssetReferences(props, diagnostics)
   validateQuiPropGroups(props, diagnostics)
+}
+
+function validateQuiAssetReferences(props: readonly NativeQuiProp[], diagnostics: NativeUiDiagnostic[]): void {
+  const groups = collectPropGroups(props)
+  for (const group of groups) {
+    const assetTypeProp = group.find(prop => prop.name === 'asset-type' && prop.value)
+    const assetType = literalStringValue(assetTypeProp?.value)
+    if (assetTypeProp && (!assetType || !isSafeNativeAssetType(assetType))) {
+      diagnostics.push({
+        code: 'QUI_INVALID_ASSET_REFERENCE',
+        message: 'QUI asset-type must be a literal native asset kind such as "images" or "fonts".',
+        range: assetTypeProp.valueRange ?? assetTypeProp.range,
+        severity: 'error',
+        source: 'qui',
+      })
+    }
+
+    for (const prop of group) {
+      if (prop.name !== 'src' && prop.name !== 'image')
+        continue
+
+      const assetName = literalStringValue(prop.value)
+      if (assetName && isSafePackageAssetName(assetName))
+        continue
+
+      diagnostics.push({
+        code: 'QUI_INVALID_ASSET_REFERENCE',
+        message: `QUI ${prop.name} must be a package-relative literal asset path without URLs, absolute paths, or traversal.`,
+        range: prop.valueRange ?? prop.range,
+        severity: 'error',
+        source: 'qui',
+      })
+    }
+  }
 }
 
 function validateQuiPropGroups(props: readonly NativeQuiProp[], diagnostics: NativeUiDiagnostic[]): void {
