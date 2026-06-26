@@ -573,6 +573,70 @@ describe('native runtime package guard', () => {
     ]))
   })
 
+  it('rejects empty and suffix-only asset references before native runtime loading', () => {
+    const runtimePackage = createRuntimePackage({
+      scripts: [
+        { id: 'empty-script', assetName: '' },
+        { id: 'hash-script', assetName: '   #script' },
+      ],
+      scenes: [
+        { id: 'query-scene', assetName: '?scene' },
+      ],
+      plugins: [
+        {
+          id: 'blank-plugin-module',
+          kind: 'renderer',
+          assetName: 'plugins/native-ui.js',
+          variants: {
+            blank: { module: '   ' },
+          },
+        },
+      ],
+    })
+    const bundle = createBundle(runtimePackage)
+    bundle.manifest.assets.data!['empty-path'] = {
+      name: 'menu.qui.json',
+      path: '',
+      relativePath: 'ui/menu.qui.json',
+    }
+    bundle.manifest.assets.images!['poster.webp'].variants = {
+      empty: {
+        name: '#poster',
+        path: 'images/poster.webp',
+        relativePath: 'images/poster.webp',
+      },
+    }
+
+    const result = checkNativeRuntimePackageGuard({
+      package: runtimePackage,
+      bundle,
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: '',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: '   #script',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: '?scene',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: '   ',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: '#poster',
+      }),
+    ]))
+  })
+
   it('rejects plugin metadata that declares native plugin kind or target', () => {
     const result = checkNativeRuntimePackageGuard({
       package: createRuntimePackage({
@@ -622,6 +686,9 @@ describe('native runtime package guard', () => {
     expect(isForbiddenNativeAssetReference('/absolute/asset.js')).toBe(true)
     expect(isForbiddenNativeAssetReference('C:\\native\\plugin.js')).toBe(true)
     expect(isForbiddenNativeAssetReference('scripts/../escape.js')).toBe(true)
+    expect(isForbiddenNativeAssetReference('')).toBe(true)
+    expect(isForbiddenNativeAssetReference('   #empty')).toBe(true)
+    expect(isForbiddenNativeAssetReference('?empty')).toBe(true)
     expect(isForbiddenNativeAssetReference('scripts/opening.js')).toBe(false)
     expect(isForbiddenNativeAssetReference('ui/menu.qui.json')).toBe(false)
   })
