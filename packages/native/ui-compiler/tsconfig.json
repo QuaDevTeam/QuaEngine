@@ -3,10 +3,11 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
-    "rootDir": "./src",
+    "rootDir": "..",
     "moduleResolution": "bundler",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@quajs/native-contracts": ["../contracts/src/index.ts"]
     },
     "outDir": "./dist"
   },

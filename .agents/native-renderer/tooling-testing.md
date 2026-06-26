@@ -124,6 +124,7 @@ QSS 侧：
 - invalid syntax recovery
 - component registry validation
 - QUI asset validation：`src` / `image` / `asset-type` 必须复用 compiler shared asset helper，拒绝 URL、绝对路径、`..` traversal 和非字面量资源表达式，并确认 projection 不输出不安全 image 资源
+- native UI surface compatibility derivation：从 analyzed QUI/QSS 文档派生 `quiComponents`、`qssFeatures`、`assetKinds`，确认输出固定包含 `native-wgpu.ui.surface@1`、`qui` / `qss` / `tokens`、`nativeCode: false`，并且不会自动声明尚未实现的 `native-wgpu.audio@1`
 - AST / IR snapshot
 - format idempotence
 

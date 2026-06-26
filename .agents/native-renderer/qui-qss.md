@@ -252,6 +252,15 @@ runtime package compatibility metadata 也应该落到这个 registry 上：
 - optional counterparts
 - `nativeCode: false`
 
+已分析的 QUI / QSS 文档可以通过 `createNativeUiSurfaceCompatibilityFromDocuments` 直接派生 native UI surface compatibility：
+
+- QUI tree 中出现过的 component node 进入 `quiComponents`。
+- QSS rules 中出现过的 declaration name 进入 `qssFeatures`。
+- QUI `src` / `image` 资源 prop 和 QSS `background-image: asset(...)` 中的 asset kind 进入 `assetKinds`。
+- 最终输出仍由 `@quajs/native-contracts` 的 `createNativeUiSurfaceCompatibility` 规整，固定包含 `native-wgpu.ui.surface@1`、`qui` / `qss` / `tokens` 和 `nativeCode: false`。
+
+这个能力用于 dynamic UI package manifest / third-party native renderer entry 的 metadata 生成，不是运行时授权机制本身；runtime startup 和 QPK activation 仍必须以 signed native host capability manifest 做最终校验。
+
 ## 组件扩展策略
 
 开发者扩展应该走三条路：

@@ -22,6 +22,12 @@ export default defineConfig({
     target: 'node20',
     minify: false,
     sourcemap: true,
+    rollupOptions: {
+      external: ['@quajs/native-contracts'],
+      output: {
+        globals: {},
+      },
+    },
   },
   resolve: {
     alias: {

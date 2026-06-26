@@ -717,7 +717,11 @@ importers:
         specifier: workspace:*
         version: link:../../core/store
 
-  packages/native/ui-compiler: {}
+  packages/native/ui-compiler:
+    dependencies:
+      '@quajs/native-contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/native/vscode:
     devDependencies:
