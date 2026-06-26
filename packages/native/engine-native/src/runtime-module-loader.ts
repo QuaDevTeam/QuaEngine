@@ -21,6 +21,7 @@ import type {
 } from '@quajs/native-contracts'
 import {
   assertNativeQuickJsEvaluationResponse,
+  assertNativeQuickJsEvaluationRequest,
   createNativeQuickJsEvaluationRequest,
   isForbiddenNativePayload,
 } from '@quajs/native-contracts'
@@ -80,6 +81,7 @@ export function createNativeHostQuickJsModuleEvaluator(
     if (!host.evaluateQuickJsModule) {
       throw new Error('Native host does not provide QuickJS module evaluation.')
     }
+    assertNativeQuickJsEvaluationRequest(ctx.request)
     const response = await host.evaluateQuickJsModule(ctx.request)
     const moduleNamespaceId = assertNativeQuickJsEvaluationResponse(response)
     return await resolveModuleNamespace(moduleNamespaceId, ctx, response)

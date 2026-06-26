@@ -3,6 +3,7 @@ import {
   DEFAULT_NATIVE_QUICKJS_SANDBOX_LIMITS,
   assertNativeQuickJsEvaluationResponse,
   createNativeQuickJsEvaluationRequest,
+  validateNativeQuickJsEvaluationRequest,
 } from '../src'
 
 describe('native QuickJS contracts', () => {
@@ -42,6 +43,83 @@ describe('native QuickJS contracts', () => {
       ...DEFAULT_NATIVE_QUICKJS_SANDBOX_LIMITS,
       maxModuleBytes: 1024,
     })
+  })
+
+  it('rejects unsafe QuickJS evaluation request asset names at the wire boundary', () => {
+    const base = createNativeQuickJsEvaluationRequest({
+      assetName: 'scripts/opening.js',
+      bundleName: 'runtime.chapter.native-ui',
+      packageId: 'runtime.chapter.native-ui',
+      kind: 'script',
+      code: '',
+      bytes: new Uint8Array(),
+    })
+
+    expect(validateNativeQuickJsEvaluationRequest({
+      ...base,
+      module: {
+        ...base.module,
+        assetName: '',
+      },
+    }).errors.map(error => error.code)).toContain('missingAssetName')
+
+    expect(validateNativeQuickJsEvaluationRequest({
+      ...base,
+      module: {
+        ...base.module,
+        assetName: '../escape.js',
+      },
+    }).errors.map(error => error.code)).toContain('forbiddenAssetName')
+
+    expect(validateNativeQuickJsEvaluationRequest({
+      ...base,
+      module: {
+        ...base.module,
+        assetName: 'scripts\\opening.js',
+      },
+    }).errors.map(error => error.code)).toContain('forbiddenAssetName')
+
+    expect(validateNativeQuickJsEvaluationRequest({
+      ...base,
+      module: {
+        ...base.module,
+        assetName: 'scripts/native.wasm?raw',
+      },
+    }).errors.map(error => error.code)).toContain('forbiddenNativePayload')
+
+    expect(validateNativeQuickJsEvaluationRequest({
+      ...base,
+      module: {
+        ...base.module,
+        assetName: 'ui/menu.qui.json',
+      },
+    }).errors.map(error => error.code)).toContain('unsupportedModuleAsset')
+  })
+
+  it('rejects QuickJS evaluation requests that exceed sandbox module byte limits', () => {
+    const request = createNativeQuickJsEvaluationRequest({
+      assetName: 'scripts/opening.js',
+      bundleName: 'runtime.chapter.native-ui',
+      packageId: 'runtime.chapter.native-ui',
+      kind: 'script',
+      code: 'export const label = "序章"',
+      bytes: new Uint8Array([1, 2, 3]),
+    })
+    const result = validateNativeQuickJsEvaluationRequest({
+      ...request,
+      limits: {
+        ...request.limits,
+        maxModuleBytes: 4,
+      },
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.errors).toEqual([
+      expect.objectContaining({
+        code: 'moduleTooLarge',
+        detail: 'code bytes: 29; maxModuleBytes: 4',
+      }),
+    ])
   })
 
   it('unwraps successful evaluation responses and throws structured errors', () => {
