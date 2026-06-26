@@ -4,7 +4,7 @@ use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
     FontStyleDrawParam, ImageDrawParams, MediaFit, MediaOrigin, PanelDrawParams, RenderGraph,
     RenderPlane, TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam,
-    WhiteSpaceDrawParam,
+    TextTransformDrawParam, WhiteSpaceDrawParam,
 };
 use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
@@ -111,6 +111,7 @@ fn text_command(
             align: resolve_text_align(style),
             text_decoration: TextDecorationDrawParam::None,
             text_overflow: TextOverflowDrawParam::Clip,
+            text_transform: TextTransformDrawParam::None,
             white_space: WhiteSpaceDrawParam::Normal,
             color: resolve_text_color(style, "#ffffff"),
             padding: EdgeInsetsDrawParam::default(),

@@ -189,6 +189,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 - `text-align`
 - `text-decoration`（native 子集：`none` / `underline` / `line-through`；编译为 `UiSurfaceResolvedStyle.textDecoration`，Rust 侧映射到 Text / Button draw params，真实装饰线绘制由后续文本 backend 实现）
 - `text-overflow`（native 子集：`clip` / `ellipsis`；编译为 `UiSurfaceResolvedStyle.textOverflow`，Rust 侧映射到 Text / Button draw params；真实裁剪和省略号绘制由后续文本 backend 实现）
+- `text-transform`（native 子集：`none` / `uppercase` / `lowercase` / `capitalize`；编译为 `UiSurfaceResolvedStyle.textTransform`，Rust 侧映射到 Text / Button draw params；真实大小写转换由后续文本 backend 实现）
 - `white-space`（native 子集：`normal` / `nowrap` / `pre` / `pre-line` / `pre-wrap`；编译为 `UiSurfaceResolvedStyle.whiteSpace`，Rust 侧映射到 Text / Button draw params；真实空白折叠、换行和 wrapping 策略归后续文本 backend 实现）
 - `object-fit`
 - `opacity`
@@ -203,7 +204,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 | 阶段 | 目标 | 建议属性 |
 | --- | --- | --- |
 | P0 | 先把 native surface 跑起来 | 上述基础字段 |
-| P1 | 补齐常用视觉布局 | 已落地 `display: none` 隐藏子集、`z-index`、`visibility` visible/hidden 子集、`overflow` visible/hidden 子集、`border-style` solid/none 子集、`font-style` normal/italic 子集、`letter-spacing` normal/non-negative number 子集、`text-decoration` none/underline/line-through 子集、`text-overflow` clip/ellipsis 子集、`white-space` normal/nowrap/pre/pre-line/pre-wrap 子集、结构化 `background-image: asset(...)`、`background-size` fit 子集、`background-position` origin 子集、`padding` edge inset metadata，以及静态 `left` / `top` / `width` / `height` bounds fallback；待补齐 `right`, `bottom`, `inset`, `position`, `margin`, `gap`, `min/max-*` |
+| P1 | 补齐常用视觉布局 | 已落地 `display: none` 隐藏子集、`z-index`、`visibility` visible/hidden 子集、`overflow` visible/hidden 子集、`border-style` solid/none 子集、`font-style` normal/italic 子集、`letter-spacing` normal/non-negative number 子集、`text-decoration` none/underline/line-through 子集、`text-overflow` clip/ellipsis 子集、`text-transform` none/uppercase/lowercase/capitalize 子集、`white-space` normal/nowrap/pre/pre-line/pre-wrap 子集、结构化 `background-image: asset(...)`、`background-size` fit 子集、`background-position` origin 子集、`padding` edge inset metadata，以及静态 `left` / `top` / `width` / `height` bounds fallback；待补齐 `right`, `bottom`, `inset`, `position`, `margin`, `gap`, `min/max-*` |
 | P2 | 进一步接近熟悉的 CSS 体验 | 部分 `transform`, `shadow`, `transition` 及少量视觉增强 |
 
 ### 建议支持的 selector 语义

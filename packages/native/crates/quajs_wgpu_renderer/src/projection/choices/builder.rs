@@ -2,7 +2,8 @@ use crate::projection::common::PackageProvenance;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
     FontStyleDrawParam, PanelDrawParams, RenderGraph, RenderPlane, RendererIntent, TextAlign,
-    TextDecorationDrawParam, TextOverflowDrawParam, UiButtonDrawParams, WhiteSpaceDrawParam,
+    TextDecorationDrawParam, TextOverflowDrawParam, TextTransformDrawParam, UiButtonDrawParams,
+    WhiteSpaceDrawParam,
 };
 use crate::stage_layout::ResolvedStageLayout;
 
@@ -82,6 +83,7 @@ fn choice_command(
         align: TextAlign::Center,
         text_decoration: TextDecorationDrawParam::None,
         text_overflow: TextOverflowDrawParam::Clip,
+        text_transform: TextTransformDrawParam::None,
         white_space: WhiteSpaceDrawParam::Normal,
         padding: EdgeInsetsDrawParam::default(),
         intent: choice.enabled.then(|| RendererIntent {

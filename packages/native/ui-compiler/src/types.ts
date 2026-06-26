@@ -211,6 +211,12 @@ export type NativeQssTextOverflowValue
   = | 'clip'
     | 'ellipsis'
 
+export type NativeQssTextTransformValue
+  = | 'capitalize'
+    | 'lowercase'
+    | 'none'
+    | 'uppercase'
+
 export type NativeQssWhiteSpaceValue
   = | 'normal'
     | 'nowrap'
@@ -275,6 +281,7 @@ export interface NativeQssResolvedStyle {
   textAlign?: NativeQssTextAlignValue
   textDecoration?: NativeQssTextDecorationValue
   textOverflow?: NativeQssTextOverflowValue
+  textTransform?: NativeQssTextTransformValue
   whiteSpace?: NativeQssWhiteSpaceValue
 }
 
