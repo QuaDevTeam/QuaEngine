@@ -50,6 +50,29 @@ describe('target plugin manifest validation', () => {
     expect(result.diagnostics).toEqual([])
   })
 
+  it('rejects plugin entries with invalid target metadata', () => {
+    const result = validateTargetPluginManifest({
+      target: 'native',
+      manifest: createPluginManifest({
+        entries: [
+          { specifier: '@quajs/plugin-gallery/shared', target: 'shared' },
+          { specifier: '@quajs/plugin-gallery/native', target: 'desktop-native' as any },
+        ],
+      }),
+      selectedEntries: ['@quajs/plugin-gallery/native'],
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_PLUGIN_ENTRY_TARGET_INVALID',
+        target: 'native',
+        specifier: '@quajs/plugin-gallery/native',
+        entryTarget: 'desktop-native',
+      }),
+    ]))
+  })
+
   it('rejects packaging a plugin for a target without that target entry', () => {
     const result = validateTargetPluginManifest({
       target: 'native',
