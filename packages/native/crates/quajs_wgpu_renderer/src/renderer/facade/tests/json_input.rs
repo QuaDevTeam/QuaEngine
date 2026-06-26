@@ -391,6 +391,60 @@ fn malformed_json_returns_parse_error_without_advancing_renderer() {
 }
 
 #[test]
+fn unsafe_json_frame_asset_reference_returns_validation_error_without_advancing_renderer() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let error = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_ui_asset_input())
+        .unwrap_err();
+
+    match error {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.style.backgroundImage.assetName"
+            );
+            assert_eq!(validation.asset_name, "../native/helper.wasm?raw");
+            assert!(validation.reason.contains("traverse"));
+        }
+        other => panic!("expected validation error, got {other:?}"),
+    }
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
+fn json_frame_asset_validation_rejects_url_and_native_audio_payloads() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let background = renderer
+        .prepare_frame_json_str(json_frame_with_remote_background_input())
+        .unwrap_err();
+    match background {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.background.assetName");
+            assert_eq!(validation.asset_name, "https://example.invalid/bg.png");
+            assert!(validation.reason.contains("URLs"));
+        }
+        other => panic!("expected background validation error, got {other:?}"),
+    }
+
+    let audio = renderer
+        .prepare_frame_json_str(json_frame_with_native_audio_payload_input())
+        .unwrap_err();
+    match audio {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.audio.tracks[0].assetName");
+            assert_eq!(validation.asset_name, "audio/bridge.node#runtime");
+            assert!(validation.reason.contains("native payloads"));
+        }
+        other => panic!("expected audio validation error, got {other:?}"),
+    }
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_input_resolves_layout_defaults() {
     let input: NativeRendererJsonFrameInput = serde_json::from_str(
         r#"
@@ -407,6 +461,66 @@ fn json_frame_input_resolves_layout_defaults() {
     assert_eq!(layout.container_width, 1280.0);
     assert_eq!(layout.container_height, 720.0);
     assert_eq!(layout.logical_height, 1080.0);
+}
+
+fn json_frame_with_unsafe_ui_asset_input() -> &'static str {
+    r##"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Box",
+                  "style": {
+                    "backgroundImage": { "assetType": "images", "assetName": "../native/helper.wasm?raw" }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "##
+}
+
+fn json_frame_with_remote_background_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "image",
+          "assetName": "https://example.invalid/bg.png"
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_native_audio_payload_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            {
+              "id": "bridge",
+              "kind": "bgm",
+              "assetName": "audio/bridge.node#runtime"
+            }
+          ]
+        }
+      }
+    }
+    "#
 }
 
 fn json_frame_input() -> &'static str {
