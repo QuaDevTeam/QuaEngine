@@ -485,6 +485,38 @@ fn json_frame_asset_validation_rejects_empty_asset_names() {
 }
 
 #[test]
+fn json_frame_asset_validation_rejects_unsafe_surface_keys() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let overlay_surface = renderer
+        .prepare_frame_json_str(json_frame_with_traversal_surface_key_input())
+        .unwrap_err();
+    match overlay_surface {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].surface.key");
+            assert_eq!(validation.asset_name, "../native/menu.qui");
+            assert!(validation.reason.contains("traverse"));
+        }
+        other => panic!("expected surface key validation error, got {other:?}"),
+    }
+
+    let scene_surface = renderer
+        .prepare_frame_json_str(json_frame_with_remote_scene_surface_key_input())
+        .unwrap_err();
+    match scene_surface {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].scene.surface.key");
+            assert_eq!(validation.asset_name, "https://example.invalid/menu.qui");
+            assert!(validation.reason.contains("URLs"));
+        }
+        other => panic!("expected scene surface key validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_provenance_validation_rejects_unsafe_package_ids() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
@@ -632,6 +664,51 @@ fn json_frame_with_empty_asset_input() -> &'static str {
           "avatar": {
             "assetName": "   #avatar"
           }
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_traversal_surface_key_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "../native/menu.qui",
+                "root": { "id": "root", "kind": "Box" }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_remote_scene_surface_key_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "scene-overlay",
+              "scene": {
+                "id": "settings",
+                "surface": {
+                  "key": "https://example.invalid/menu.qui",
+                  "root": { "id": "root", "kind": "Box" }
+                }
+              }
+            }
+          ]
         }
       }
     }
