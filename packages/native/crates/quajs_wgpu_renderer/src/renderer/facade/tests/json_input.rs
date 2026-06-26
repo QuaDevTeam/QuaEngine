@@ -555,6 +555,41 @@ fn json_frame_provenance_validation_rejects_unsafe_package_ids() {
 }
 
 #[test]
+fn json_frame_font_family_validation_rejects_unsafe_resource_names() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let dialogue = renderer
+        .prepare_frame_json_str(json_frame_with_remote_dialogue_font_family_input())
+        .unwrap_err();
+    match dialogue {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.dialogue.speakerStyle.fontFamily[0]");
+            assert_eq!(validation.asset_name, "https://example.invalid/font.ttf");
+            assert!(validation.reason.contains("URLs"));
+        }
+        other => panic!("expected dialogue font validation error, got {other:?}"),
+    }
+
+    let ui = renderer
+        .prepare_frame_json_str(json_frame_with_traversal_ui_font_family_input())
+        .unwrap_err();
+    match ui {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.style.fontFamily[0]"
+            );
+            assert_eq!(validation.asset_name, "../fonts/Bad");
+            assert!(validation.reason.contains("traversal"));
+        }
+        other => panic!("expected UI font validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_input_resolves_layout_defaults() {
     let input: NativeRendererJsonFrameInput = serde_json::from_str(
         r#"
@@ -748,6 +783,51 @@ fn json_frame_with_traversal_required_package_input() -> &'static str {
                   "provenance": {
                     "contentPackageId": "runtime.ui",
                     "requiredRuntimePackages": ["runtime.fonts", "../base"]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_remote_dialogue_font_family_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "dialogue": {
+          "speaker": "Narrator",
+          "speakerStyle": {
+            "fontFamily": ["https://example.invalid/font.ttf"]
+          },
+          "text": "Opening"
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_traversal_ui_font_family_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Text",
+                  "text": "Menu",
+                  "style": {
+                    "fontFamily": ["../fonts/Bad"]
                   }
                 }
               }
