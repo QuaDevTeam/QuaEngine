@@ -70,6 +70,9 @@ export function resolveNativeQssDeclarations(
       case 'font-weight':
         resolved.style.fontWeight = parseNativeQssFontWeight(value)
         break
+      case 'letter-spacing':
+        resolved.style.letterSpacing = parseNativeQssLetterSpacing(value)
+        break
       case 'line-height':
         resolved.style.lineHeight = parseNativeQssLogicalNumber(value)
         break
@@ -308,6 +311,12 @@ export function parseNativeQssTextDecoration(value: string): NativeQssTextDecora
   return TEXT_DECORATION_VALUES.has(normalized as NativeQssTextDecorationValue)
     ? normalized as NativeQssTextDecorationValue
     : undefined
+}
+
+export function parseNativeQssLetterSpacing(value: string): number | undefined {
+  return value.toLowerCase() === 'normal'
+    ? 0
+    : parseNativeQssLogicalNumber(value)
 }
 
 export function parseNativeQssVisibility(value: string): boolean | undefined {

@@ -77,6 +77,7 @@ fn choice_command(
         font_size: 30.0,
         font_style: FontStyleDrawParam::Normal,
         font_weight: None,
+        letter_spacing: 0.0,
         line_height: 42.0,
         align: TextAlign::Center,
         text_decoration: TextDecorationDrawParam::None,

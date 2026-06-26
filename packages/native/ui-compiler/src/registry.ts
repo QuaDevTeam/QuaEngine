@@ -161,7 +161,11 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
     value('normal', 'Use an upright font face.'),
     value('italic', 'Use an italic font face when available.'),
   ]),
-  property('letter-spacing', 'p2', false, 'Text letter spacing planned for native text layout.'),
+  property('letter-spacing', 'p1', true, 'Text letter spacing for native text and button label draw params.', [
+    value('normal', 'Use the default letter spacing.'),
+    value('0', 'Use default spacing as an explicit logical value.'),
+    value('1px', 'Add one logical pixel between letters.'),
+  ]),
   property('white-space', 'p2', false, 'Whitespace handling planned for native text layout.'),
   property('text-overflow', 'p2', false, 'Text overflow metadata planned for native text layout.'),
   property('text-wrap', 'p2', false, 'Text wrapping metadata planned for native text layout.'),

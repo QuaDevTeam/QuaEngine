@@ -259,6 +259,8 @@ pub struct UiSurfaceResolvedStyle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font_weight: Option<FontWeightProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub letter_spacing: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line_height: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_align: Option<UiSurfaceTextAlignProjection>,

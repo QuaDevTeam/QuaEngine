@@ -256,6 +256,7 @@ export interface NativeQssResolvedStyle {
   fontSize?: number
   fontStyle?: NativeQssFontStyleValue
   fontWeight?: NativeQssFontWeightValue
+  letterSpacing?: number
   lineHeight?: number
   objectFit?: NativeQssObjectFitValue
   opacity?: number

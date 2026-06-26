@@ -234,6 +234,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                         font_size: Some(34.0),
                         font_style: Some(UiSurfaceFontStyleProjection::Italic),
                         font_weight: Some(FontWeightProjection::number(650)),
+                        letter_spacing: Some(1.5),
                         line_height: Some(44.0),
                         text_align: Some(UiSurfaceTextAlignProjection::Center),
                         text_decoration: Some(UiSurfaceTextDecorationProjection::Underline),
@@ -276,6 +277,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                         font_size: Some(30.0),
                         font_style: Some(UiSurfaceFontStyleProjection::Normal),
                         font_weight: Some(FontWeightProjection::keyword("bold")),
+                        letter_spacing: Some(0.75),
                         line_height: Some(40.0),
                         text_align: Some(UiSurfaceTextAlignProjection::Right),
                         text_decoration: Some(UiSurfaceTextDecorationProjection::LineThrough),
@@ -319,6 +321,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                 params.font_weight.as_ref(),
                 Some(&FontWeightDrawParam::Number(650))
             );
+            assert_eq!(params.letter_spacing, 1.5);
             assert_eq!(params.line_height, 44.0);
             assert_eq!(params.align, TextAlign::Center);
             assert_eq!(params.text_decoration, TextDecorationDrawParam::Underline);
@@ -357,6 +360,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                 params.font_weight.as_ref(),
                 Some(&FontWeightDrawParam::Keyword("bold".to_string()))
             );
+            assert_eq!(params.letter_spacing, 0.75);
             assert_eq!(params.line_height, 40.0);
             assert_eq!(params.align, TextAlign::Right);
             assert_eq!(params.text_decoration, TextDecorationDrawParam::LineThrough);
