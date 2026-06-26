@@ -67,6 +67,8 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "font-family",
                 "font-size",
                 "font-weight",
+                "height",
+                "left",
                 "line-height",
                 "text-align",
                 "object-fit",
@@ -76,6 +78,8 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "padding-left",
                 "padding-right",
                 "padding-top",
+                "top",
+                "width",
                 "z-index",
             ],
             &[

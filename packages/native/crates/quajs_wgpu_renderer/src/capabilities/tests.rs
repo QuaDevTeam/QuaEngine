@@ -98,11 +98,18 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(ui.qss_features.contains(&"font-family".to_string()));
     assert!(ui.qss_features.contains(&"font-size".to_string()));
     assert!(ui.qss_features.contains(&"font-weight".to_string()));
+    assert!(ui.qss_features.contains(&"height".to_string()));
+    assert!(ui.qss_features.contains(&"left".to_string()));
     assert!(ui.qss_features.contains(&"line-height".to_string()));
     assert!(ui.qss_features.contains(&"text-align".to_string()));
     assert!(ui.qss_features.contains(&"object-fit".to_string()));
     assert!(ui.qss_features.contains(&"opacity".to_string()));
     assert!(ui.qss_features.contains(&"z-index".to_string()));
+    assert!(ui.qss_features.contains(&"top".to_string()));
+    assert!(ui.qss_features.contains(&"width".to_string()));
+    assert!(!ui.qss_features.contains(&"bottom".to_string()));
+    assert!(!ui.qss_features.contains(&"inset".to_string()));
+    assert!(!ui.qss_features.contains(&"right".to_string()));
     assert!(ui.qui_components.contains(&"Backdrop".to_string()));
     assert!(ui.qui_components.contains(&"Button".to_string()));
     assert!(ui.qui_components.contains(&"Column".to_string()));

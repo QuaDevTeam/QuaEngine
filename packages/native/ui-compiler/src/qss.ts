@@ -18,6 +18,7 @@ import {
 import {
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
+  parseNativeQssCoordinateNumber,
   parseNativeQssEdgeInsets,
   parseNativeQssFontFamilyList,
   parseNativeQssFontWeight,
@@ -653,10 +654,17 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
     case 'border-radius':
     case 'border-width':
     case 'font-size':
+    case 'height':
     case 'line-height':
+    case 'width':
       return parseNativeQssLogicalNumber(value) !== undefined
         ? undefined
         : `${declaration.name} must be a non-negative logical px or unitless number.`
+    case 'left':
+    case 'top':
+      return parseNativeQssCoordinateNumber(value) !== undefined
+        ? undefined
+        : `${declaration.name} must be a finite logical px or unitless coordinate.`
     case 'font-family':
       return parseNativeQssFontFamilyList(value)
         ? undefined

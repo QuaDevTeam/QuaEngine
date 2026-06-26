@@ -1,5 +1,6 @@
 import type {
   NativeQssDocument,
+  NativeQssResolvedBounds,
   NativeQssRule,
   NativePackageProvenance,
   NativeQuiAstNode,
@@ -114,7 +115,7 @@ function surfaceNodeFromQuiNode(
   const children = node.children
     .flatMap(child => surfaceNodeFromQuiNode(source, child, [...ancestors, node], qssDocuments, provenance))
   const resolvedStyle = resolveStyleForNode({ node, ancestors }, qssDocuments)
-  const rect = rectFromProps(node.props)
+  const rect = rectFromProps(node.props, resolvedStyle.bounds)
   const text = textFromNode(source, node)
   const image = imageFromProps(node.props)
   const intent = intentFromNode(node)
@@ -358,12 +359,15 @@ function literalActionMetadata(args: readonly { kind: string, value?: NativeQuiA
   return metadata
 }
 
-function rectFromProps(props: readonly NativeQuiProp[]): NativeUiSurfaceRect {
+function rectFromProps(
+  props: readonly NativeQuiProp[],
+  bounds: NativeQssResolvedBounds | undefined,
+): NativeUiSurfaceRect {
   return {
-    x: numberProp(props, 'x') ?? 0,
-    y: numberProp(props, 'y') ?? 0,
-    width: numberProp(props, 'width') ?? 0,
-    height: numberProp(props, 'height') ?? 0,
+    x: numberProp(props, 'x') ?? bounds?.x ?? 0,
+    y: numberProp(props, 'y') ?? bounds?.y ?? 0,
+    width: numberProp(props, 'width') ?? bounds?.width ?? 0,
+    height: numberProp(props, 'height') ?? bounds?.height ?? 0,
   }
 }
 

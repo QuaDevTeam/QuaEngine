@@ -180,6 +180,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 - `font-family`
 - `font-size`
 - `font-weight`
+- `left` / `top` / `width` / `height`（仅作为静态 `UiSurfaceNodeProjection.bounds` fallback；`left/top` 允许负坐标，`width/height` 必须非负；QUI 显式 `x/y/width/height` prop 优先）
 - `line-height`
 - `text-align`
 - `object-fit`
@@ -193,7 +194,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 | 阶段 | 目标 | 建议属性 |
 | --- | --- | --- |
 | P0 | 先把 native surface 跑起来 | 上述基础字段 |
-| P1 | 补齐常用视觉布局 | 已落地 `z-index`、结构化 `background-image: asset(...)`、`background-size` fit 子集、`background-position` origin 子集和 `padding` edge inset metadata；待补齐 `margin`, `gap`, `width`, `height`, `min/max-*`, `overflow` |
+| P1 | 补齐常用视觉布局 | 已落地 `z-index`、结构化 `background-image: asset(...)`、`background-size` fit 子集、`background-position` origin 子集、`padding` edge inset metadata，以及静态 `left` / `top` / `width` / `height` bounds fallback；待补齐 `right`, `bottom`, `inset`, `position`, `margin`, `gap`, `min/max-*`, `overflow` |
 | P2 | 进一步接近熟悉的 CSS 体验 | 部分 `transform`, `shadow`, `transition` 及少量视觉增强 |
 
 ### 建议支持的 selector 语义
