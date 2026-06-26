@@ -40,7 +40,6 @@ import {
   getNativeUiLanguageCompletions,
   getNativeUiLanguageHover,
   getNativeUiProjectDocumentLinks,
-  lintNativeUiDocument,
   uriToFilePath,
 } from './index'
 
@@ -199,10 +198,15 @@ documents.listen(connection)
 connection.listen()
 
 function validateDocument(document: TextDocument): void {
-  const lint = lintNativeUiDocument(document.getText(), documentOptions(document))
+  const index = currentProjectIndex()
+  const compilerDiagnostics = index.documents.find(item => item.uri === document.uri)?.diagnostics ?? []
+  const assetDiagnostics = missingAssetDiagnosticsForDocument(index, document.uri)
   connection.sendDiagnostics({
     uri: document.uri,
-    diagnostics: lint.diagnostics.map(toLspDiagnostic),
+    diagnostics: [
+      ...compilerDiagnostics,
+      ...assetDiagnostics,
+    ].map(toLspDiagnostic),
   })
 }
 
@@ -300,6 +304,23 @@ function resolveExistingFileDocumentLink(
   catch {
     return link
   }
+}
+
+function missingAssetDiagnosticsForDocument(
+  index: ReturnType<typeof currentProjectIndex>,
+  uri: string,
+): NativeUiDiagnostic[] {
+  return getNativeUiProjectDocumentLinks(index, uri)
+    .filter(link => link.kind === 'asset')
+    .map(resolveExistingFileDocumentLink)
+    .filter(link => !link.resolved)
+    .map(link => ({
+      code: 'NATIVE_UI_ASSET_MISSING',
+      message: `Native UI asset "${link.path}" could not be resolved.`,
+      range: link.pathRange,
+      severity: 'warning' as const,
+      source: 'native-ui' as const,
+    }))
 }
 
 function toLspRange(range?: NativeUiRangeForServer): Range {

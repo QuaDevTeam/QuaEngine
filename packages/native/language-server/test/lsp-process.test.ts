@@ -270,14 +270,22 @@ describe('@quajs/native-language-server process', () => {
     try {
       await mkdir(join(tempDir, 'ui/assets'), { recursive: true })
       await writeFile(join(tempDir, 'ui/assets/poster.png'), Buffer.from([0x89, 0x50, 0x4E, 0x47]))
+      await writeFile(join(tempDir, 'ui/assets/bg.png'), Buffer.from([0x89, 0x50, 0x4E, 0x47]))
 
       const quiPath = join(tempDir, 'ui/menu.qui')
+      const qssPath = join(tempDir, 'ui/menu.qss')
       const assetUri = pathToFileURL(join(tempDir, 'ui/assets/poster.png')).href
+      const qssAssetUri = pathToFileURL(join(tempDir, 'ui/assets/bg.png')).href
       const quiUri = pathToFileURL(quiPath).href
+      const qssUri = pathToFileURL(qssPath).href
       const rootUri = pathToFileURL(tempDir).href
       const qui = [
         'Image(src: "assets/poster.png")',
         'Image(src: "assets/missing.png")',
+      ].join('\n')
+      const qss = [
+        'Panel.hero { background-image: asset("assets/bg.png"); }',
+        'Panel.missing { background-image: asset("assets/missing-bg.png"); }',
       ].join('\n')
 
       client = new LspProcessClient(serverPath)
@@ -297,6 +305,14 @@ describe('@quajs/native-language-server process', () => {
       client.notify('initialized', {})
       client.notify('textDocument/didOpen', {
         textDocument: {
+          languageId: 'qua-style',
+          text: qss,
+          uri: qssUri,
+          version: 1,
+        },
+      })
+      client.notify('textDocument/didOpen', {
+        textDocument: {
           languageId: 'qua-ui',
           text: qui,
           uri: quiUri,
@@ -304,23 +320,52 @@ describe('@quajs/native-language-server process', () => {
         },
       })
 
-      await expect(client.waitForDiagnostics(quiUri)).resolves.toEqual([])
+      await expect(client.waitForDiagnostics(qssUri)).resolves.toEqual([
+        expect.objectContaining({
+          code: 'NATIVE_UI_ASSET_MISSING',
+          message: 'Native UI asset "assets/missing-bg.png" could not be resolved.',
+          severity: 2,
+        }),
+      ])
+      await expect(client.waitForDiagnostics(quiUri)).resolves.toEqual([
+        expect.objectContaining({
+          code: 'NATIVE_UI_ASSET_MISSING',
+          message: 'Native UI asset "assets/missing.png" could not be resolved.',
+          severity: 2,
+        }),
+      ])
 
-      const links = await client.request<DocumentLinkLike[]>('textDocument/documentLink', {
+      const quiLinks = await client.request<DocumentLinkLike[]>('textDocument/documentLink', {
         textDocument: {
           uri: quiUri,
         },
       })
 
-      expect(links).toHaveLength(2)
-      expect(links[0]).toEqual(expect.objectContaining({
+      expect(quiLinks).toHaveLength(2)
+      expect(quiLinks[0]).toEqual(expect.objectContaining({
         tooltip: 'Missing assets/missing.png',
       }))
-      expect(links[0]?.target).toBeUndefined()
-      expect(links[1]).toEqual(expect.objectContaining({
+      expect(quiLinks[0]?.target).toBeUndefined()
+      expect(quiLinks[1]).toEqual(expect.objectContaining({
         target: assetUri,
         tooltip: 'Open assets/poster.png',
       }))
+
+      const qssLinks = await client.request<DocumentLinkLike[]>('textDocument/documentLink', {
+        textDocument: {
+          uri: qssUri,
+        },
+      })
+
+      expect(qssLinks).toHaveLength(2)
+      expect(qssLinks[0]).toEqual(expect.objectContaining({
+        target: qssAssetUri,
+        tooltip: 'Open assets/bg.png',
+      }))
+      expect(qssLinks[1]).toEqual(expect.objectContaining({
+        tooltip: 'Missing assets/missing-bg.png',
+      }))
+      expect(qssLinks[1]?.target).toBeUndefined()
     }
     finally {
       await rm(tempDir, { force: true, recursive: true })
