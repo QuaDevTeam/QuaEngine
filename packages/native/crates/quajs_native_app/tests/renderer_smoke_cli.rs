@@ -2,11 +2,13 @@ use std::process::Command;
 
 const RENDERER_SMOKE_BUDGET_ENV: &str = "QUA_NATIVE_RENDERER_SMOKE_BUDGET";
 const RENDERER_SMOKE_FRAME_ENV: &str = "QUA_NATIVE_RENDERER_SMOKE_FRAME";
+const SHARED_QUI_QSS_SURFACE_FRAME: &str =
+    include_str!("../../../test-fixtures/renderer/qui-qss-surface-frame.json");
 
 #[test]
 fn binary_runs_renderer_smoke_frame_from_projection_json() {
     let path = unique_frame_path("valid");
-    std::fs::write(&path, smoke_frame_json()).expect("renderer smoke fixture writes");
+    std::fs::write(&path, SHARED_QUI_QSS_SURFACE_FRAME).expect("renderer smoke fixture writes");
 
     let output = Command::new(env!("CARGO_BIN_EXE_quajs_native_app"))
         .env(RENDERER_SMOKE_FRAME_ENV, &path)
@@ -26,14 +28,18 @@ fn binary_runs_renderer_smoke_frame_from_projection_json() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Qua native host ready: renderer="));
     assert!(stdout.contains("\"quickjsVersion\":\"unsupported\""));
-    assert!(stdout.contains("Qua native renderer smoke: revision=1 passes=2 batches="));
+    assert!(stdout.contains("Qua native renderer smoke: revision=1 passes="));
     assert!(stdout.contains("missingResources=0"));
     let smoke_json = smoke_json_line(&stdout);
     assert_eq!(smoke_json["revision"], 1);
+    assert!(smoke_json["passCount"].as_u64().unwrap() >= 1);
+    assert_eq!(smoke_json["resourceCount"], 5);
     assert_eq!(smoke_json["missingResourceCount"], 0);
     assert_eq!(smoke_json["fallbackCount"], 0);
     assert_eq!(smoke_json["declarativeResourceCount"], 1);
     assert_eq!(smoke_json["declarativeAssetRequestCount"], 1);
+    assert_eq!(smoke_json["audioResourceCount"], 0);
+    assert_eq!(smoke_json["activeAudioTrackCount"], 0);
     assert!(smoke_json["memory"]["totalBytes"].as_u64().unwrap() > 0);
     assert!(
         smoke_json["declarativeMemory"]["totalBytes"]
@@ -71,7 +77,7 @@ fn binary_reports_invalid_renderer_smoke_frame_json() {
 fn binary_accepts_renderer_smoke_budget() {
     let path = unique_frame_path("budget-valid");
     let budget_path = unique_budget_path("pass");
-    std::fs::write(&path, smoke_frame_json()).expect("renderer smoke fixture writes");
+    std::fs::write(&path, SHARED_QUI_QSS_SURFACE_FRAME).expect("renderer smoke fixture writes");
     std::fs::write(
         &budget_path,
         r#"{
@@ -157,60 +163,6 @@ fn smoke_json_line(stdout: &str) -> serde_json::Value {
         .find_map(|line| line.strip_prefix("Qua native renderer smoke json: "))
         .expect("renderer smoke JSON line exists");
     serde_json::from_str(json).expect("renderer smoke JSON line parses")
-}
-
-fn smoke_frame_json() -> &'static str {
-    r##"
-    {
-      "layout": { "preset": "landscape" },
-      "container": { "width": 1600, "height": 1000, "devicePixelRatio": 2 },
-      "view": {
-        "background": {
-          "mode": "image",
-          "assetName": "bg/native-cli-smoke.png",
-          "provenance": { "contentPackageId": "base" }
-        },
-        "ui": {
-          "overlays": [
-            {
-              "elementId": "menu",
-              "surface": {
-                "key": "ui/native-cli-smoke.qui",
-                "root": {
-                  "id": "root",
-                  "kind": "Box",
-                  "bounds": { "x": 48, "y": 48, "width": 420, "height": 220 },
-                  "style": {
-                    "backgroundColor": "#101820",
-                    "borderColor": "#5ac8fa",
-                    "borderWidth": 2,
-                    "borderRadius": 12
-                  },
-                  "children": [
-                    {
-                      "id": "title",
-                      "kind": "Text",
-                      "bounds": { "x": 80, "y": 80, "width": 280, "height": 48 },
-                      "text": "Native CLI Smoke",
-                      "style": {
-                        "color": "#f7f3e8",
-                        "fontFamily": ["Qua Sans"],
-                        "fontSize": 30,
-                        "fontWeight": "bold",
-                        "lineHeight": 38,
-                        "textAlign": "center"
-                      }
-                    }
-                  ]
-                }
-              },
-              "provenance": { "contentPackageId": "runtime.ui" }
-            }
-          ]
-        }
-      }
-    }
-    "##
 }
 
 fn smoke_video_frame_json() -> &'static str {

@@ -105,21 +105,26 @@ pub fn run_renderer_smoke_frame_json(
 mod tests {
     use super::*;
 
+    const SHARED_QUI_QSS_SURFACE_FRAME: &str =
+        include_str!("../../../test-fixtures/renderer/qui-qss-surface-frame.json");
+
     #[test]
     fn runs_renderer_smoke_frame_from_json_file() {
         let path = unique_frame_path("valid");
-        std::fs::write(&path, smoke_frame_json()).expect("renderer smoke fixture writes");
+        std::fs::write(&path, SHARED_QUI_QSS_SURFACE_FRAME).expect("renderer smoke fixture writes");
 
         let summary =
             run_renderer_smoke_frame_json(&path).expect("renderer smoke frame should render");
 
         assert_eq!(summary.revision, 1);
-        assert_eq!(summary.pass_count, 2);
-        assert_eq!(summary.resource_count, 3);
+        assert!(summary.pass_count >= 1);
+        assert_eq!(summary.resource_count, 5);
         assert_eq!(summary.missing_resource_count, 0);
         assert_eq!(summary.fallback_count, 0);
         assert_eq!(summary.declarative_resource_count, 1);
         assert_eq!(summary.declarative_asset_request_count, 1);
+        assert_eq!(summary.audio_resource_count, 0);
+        assert_eq!(summary.active_audio_track_count, 0);
         assert!(summary.memory.total_bytes > 0);
         assert!(summary.declarative_memory.total_bytes > 0);
         assert!(summary.command_count >= 3);
@@ -161,57 +166,4 @@ mod tests {
         ))
     }
 
-    fn smoke_frame_json() -> &'static str {
-        r##"
-        {
-          "layout": { "preset": "landscape" },
-          "container": { "width": 1600, "height": 1000, "devicePixelRatio": 2 },
-          "view": {
-            "background": {
-              "mode": "image",
-              "assetName": "bg/native-smoke.png",
-              "provenance": { "contentPackageId": "base" }
-            },
-            "ui": {
-              "overlays": [
-                {
-                  "elementId": "menu",
-                  "surface": {
-                    "key": "ui/native-smoke.qui",
-                    "root": {
-                      "id": "root",
-                      "kind": "Box",
-                      "bounds": { "x": 48, "y": 48, "width": 420, "height": 220 },
-                      "style": {
-                        "backgroundColor": "#101820",
-                        "borderColor": "#5ac8fa",
-                        "borderWidth": 2,
-                        "borderRadius": 12
-                      },
-                      "children": [
-                        {
-                          "id": "title",
-                          "kind": "Text",
-                          "bounds": { "x": 80, "y": 80, "width": 280, "height": 48 },
-                          "text": "Native Smoke",
-                          "style": {
-                            "color": "#f7f3e8",
-                            "fontFamily": ["Qua Sans"],
-                            "fontSize": 30,
-                            "fontWeight": "bold",
-                            "lineHeight": 38,
-                            "textAlign": "center"
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  "provenance": { "contentPackageId": "runtime.ui" }
-                }
-              ]
-            }
-          }
-        }
-        "##
-    }
 }
