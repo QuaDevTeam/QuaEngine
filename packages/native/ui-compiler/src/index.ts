@@ -37,6 +37,12 @@ export type {
   CompileNativeUiSurfaceProjectionOptions,
 } from './projection'
 export {
+  collectNativeUiSurfaceProjectionRequirements,
+} from './projection-requirements'
+export type {
+  NativeUiSurfaceProjectionRequirements,
+} from './projection-requirements'
+export {
   analyzeQuiSource,
   formatQuiSource,
   getQuiCompletions,

@@ -1,10 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import type { NativeUiSurfaceProjection } from '../src'
 import {
   analyzeNativeUiDocument,
   analyzeQssSource,
   analyzeQuiSource,
+  collectNativeUiSurfaceProjectionRequirements,
   compileNativeUiSurfaceProjection,
   createNativeUiSurfaceCompatibilityFromDocuments,
   formatNativeUiDocument,
@@ -1184,6 +1186,45 @@ Button.primary {
       requiredRuntimePackages: ['base', 'runtime.fonts'],
     }).root)
       .toEqual(fixture.view.ui.overlays[0].surface.root)
+  })
+
+  it('keeps the native-wgpu registry compatible with the shared resolved surface fixture', () => {
+    const fixture = JSON.parse(readFileSync(SHARED_SURFACE_FRAME_FIXTURE, 'utf8')) as {
+      view: {
+        ui: {
+          overlays: Array<{
+            surface: NativeUiSurfaceProjection
+          }>
+        }
+      }
+    }
+    const requirements = collectNativeUiSurfaceProjectionRequirements(fixture.view.ui.overlays[0].surface)
+    const supportedComponents = new Set(nativeWgpuQuiComponentNames())
+    const supportedQssFeatures = new Set(nativeWgpuQssFeatureNames())
+
+    expect(requirements.assetKinds).toEqual(expect.arrayContaining(['fonts', 'images']))
+    expect(requirements.intentEvents).toEqual(['ui/intent'])
+    expect(requirements.quiComponents).toEqual(['Button', 'Image', 'Panel', 'Text'])
+    expect(requirements.qssFeatures).toEqual(expect.arrayContaining([
+      'background-color',
+      'background-image',
+      'background-position',
+      'background-size',
+      'border-color',
+      'border-radius',
+      'border-width',
+      'color',
+      'font-family',
+      'font-size',
+      'font-weight',
+      'line-height',
+      'object-fit',
+      'padding',
+      'text-align',
+      'z-index',
+    ]))
+    expect(requirements.quiComponents.filter(component => !supportedComponents.has(component))).toEqual([])
+    expect(requirements.qssFeatures.filter(feature => !supportedQssFeatures.has(feature))).toEqual([])
   })
 
   it('applies native QSS selector specificity and ancestor matching during projection compile', () => {
