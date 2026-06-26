@@ -33,6 +33,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('height')
     expect(nativeWgpuQssFeatureNames()).toContain('left')
     expect(nativeWgpuQssFeatureNames()).toContain('font-style')
+    expect(nativeWgpuQssFeatureNames()).toContain('letter-spacing')
     expect(nativeWgpuQssFeatureNames()).toContain('object-fit')
     expect(nativeWgpuQssFeatureNames()).toContain('opacity')
     expect(nativeWgpuQssFeatureNames()).toContain('overflow')
@@ -435,6 +436,7 @@ Button.primary {
   font-size: 18px;
   font-style: italic;
   font-weight: 600;
+  letter-spacing: 1.5px;
   line-height: 1.25;
   left: -12px;
   object-fit: cover;
@@ -472,6 +474,7 @@ Button.primary {
         fontSize: 18,
         fontStyle: 'italic',
         fontWeight: 600,
+        letterSpacing: 1.5,
         lineHeight: 1.25,
         objectFit: 'cover',
         opacity: 1,
@@ -491,6 +494,7 @@ Button {
   display: block;
   font-style: oblique;
   font-weight: heavy;
+  letter-spacing: -1px;
   height: -1px;
   left: calc(2px);
   object-fit: stretch;
@@ -528,6 +532,7 @@ Button {
   display: block;
   font-style: oblique;
   font-weight: heavy;
+  letter-spacing: -1px;
   height: -1px;
   left: calc(2px);
   object-fit: stretch;
@@ -554,6 +559,7 @@ Button {
   display: none;
   font-style: normal;
   font-weight: 0;
+  letter-spacing: normal;
   height: 24px;
   left: -12px;
   object-fit: scale-down;
@@ -573,7 +579,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(22)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(23)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -598,6 +604,10 @@ Button {
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
         message: expect.stringContaining('font-style supports normal or italic'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('letter-spacing must be normal'),
       }),
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',

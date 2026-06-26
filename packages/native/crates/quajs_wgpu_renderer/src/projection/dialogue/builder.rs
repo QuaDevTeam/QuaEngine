@@ -105,6 +105,7 @@ fn text_command(
             font_size: resolve_font_size(style, fallback_font_size),
             font_style: FontStyleDrawParam::Normal,
             font_weight: resolve_font_weight(style),
+            letter_spacing: 0.0,
             line_height: resolve_line_height(style, fallback_line_height),
             align: resolve_text_align(style),
             text_decoration: TextDecorationDrawParam::None,

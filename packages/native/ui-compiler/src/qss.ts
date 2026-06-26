@@ -26,6 +26,7 @@ import {
   parseNativeQssFontStyle,
   parseNativeQssFontWeight,
   parseNativeQssInteger,
+  parseNativeQssLetterSpacing,
   parseNativeQssLogicalNumber,
   parseNativeQssObjectFit,
   parseNativeQssOpacity,
@@ -691,6 +692,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssFontWeight(value) !== undefined
         ? undefined
         : 'font-weight must be normal, bold, or an integer weight.'
+    case 'letter-spacing':
+      return parseNativeQssLetterSpacing(value) !== undefined
+        ? undefined
+        : 'letter-spacing must be normal or a non-negative logical px or unitless number.'
     case 'opacity':
       return parseNativeQssOpacity(value) !== undefined
         ? undefined

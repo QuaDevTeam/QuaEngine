@@ -104,6 +104,10 @@ pub fn resolve_font_weight(style: &UiSurfaceResolvedStyle) -> Option<FontWeightD
     font_weight_to_draw_param(&style.font_weight)
 }
 
+pub fn resolve_letter_spacing(style: &UiSurfaceResolvedStyle) -> f64 {
+    resolve_positive_number(style.letter_spacing, 0.0)
+}
+
 pub fn resolve_line_height(style: &UiSurfaceResolvedStyle, fallback: f64) -> f64 {
     resolve_positive_number(style.line_height, fallback)
 }
