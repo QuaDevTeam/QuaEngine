@@ -106,6 +106,8 @@ QSS 侧：
 - ordinary plugin list target-core isolation
 - target bundle manifest validation
 - Web / Cocos / native 三目标隔离矩阵：bootstrap core、plugin target entry、Runtime QPK renderer/executable dependency 三层都要对称验证
+- target-specific renderer plugin entry 隔离：Web renderer subentry、Cocos renderer subentry、Native bridge/capability entry 只能出现在对应目标产物里
+- debug / release / installer / updater / hand-built shell 统一复用同一套 target isolation helper，不能只在 Quack 主路径校验
 - native compatibility metadata
 - runtime package native code rejection
 - host info / capability hash consistency
@@ -152,6 +154,8 @@ QSS 侧：
 - Web artifact 排除 Cocos/native core，Cocos artifact 排除 Web/native core，Native artifact 排除 Web/Cocos core；不能只测 native 严格路径
 - 三端 resolver fixture 必须分别断言 `web-core-resolver`、`cocos-core-resolver`、`native-core-resolver`，并在 resolver / selected adapters / renderer entries / Runtime QPK executable dependencies 任一项串线时失败
 - ordinary plugin list、shared preset、generated plugin resolver、debug shell、release bundle 和 installer/updater manifest 都要跑同一套 target isolation helper，不能只在 Quack 主打包路径校验
+- Web / Cocos / Native 的 target-specific renderer plugin entry 必须按当前目标选择；inactive entry 在 package manifest 中可以存在，但不能进入产物依赖图、renderer entries 或 Runtime QPK executable dependency
+- Runtime QPK 的 Web / Cocos / Native compatibility block 只能作为 metadata；active target 之外的 block 不得触发 core adapter import、renderer entry 注册或 native capability 覆盖
 
 ### target core 隔离测试矩阵
 
@@ -162,7 +166,7 @@ QSS 侧：
 | bootstrap selection | Cocos / Native core adapter | Web / Native core adapter | Web / Cocos core adapter |
 | ordinary plugin list / shared preset | Cocos / Native core 根包或子入口 | Web / Native core 根包或子入口 | Web / Cocos core 根包或子入口 |
 | third-party plugin manifest | shared entry eager import Cocos / Native core；inactive Cocos / Native target entry eager | shared entry eager import Web / Native core；inactive Web / Native target entry eager | shared entry eager import Web / Cocos core；inactive Web / Cocos target entry eager |
-| renderer entries | Cocos / Native renderer target metadata | Web / Native renderer target metadata | Web / Cocos renderer target metadata |
+| renderer entries | Cocos / Native renderer target metadata；Cocos / Native renderer plugin subentry | Web / Native renderer target metadata；Web / Native renderer plugin subentry | Web / Cocos renderer target metadata；Web / Cocos renderer plugin subentry |
 | Runtime QPK executable dependency | Cocos / Native core dependency | Web / Native core dependency | Web / Cocos core dependency |
 | post-bundle graph | Cocos / Native root or subentry in `specifier` or `packageName` | Web / Native root or subentry in `specifier` or `packageName` | Web / Cocos root or subentry in `specifier` or `packageName` |
 | startup manifest | non-Web `targetCoreResolver` or selected adapter | non-Cocos `targetCoreResolver` or selected adapter | non-Native `targetCoreResolver` or selected adapter |
