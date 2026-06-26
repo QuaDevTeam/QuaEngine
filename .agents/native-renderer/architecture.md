@@ -146,6 +146,7 @@ packages/native/
 - 通过 `quickjs_runtime_version()` 写入 `QuaNativeHostInfo.runtime.quickjsVersion`；未安装真实 QuickJS evaluator 的 build 明确报告 `unsupported`，不能留下 `pending` 占位或伪造真实引擎版本。
 - 组装 QuickJS host 和 wgpu renderer。
 - 在启动前再次确认 target bootstrap 没有混入其他 family。
+- 复验 `target-bundle-manifest.json.projectGraphs`：非 `post-bundle` 图不能声明任何 Web / Cocos / Native target core，`post-bundle` 图只能包含 active native core family，不能残留 Web / Cocos core。
 - 可选读取 `QUA_NATIVE_RENDERER_SMOKE_FRAME` 指向的 projection JSON 文件，使用 `NullNativeRenderBackend` 跑一次 `NativeRendererJsonFrameInput` smoke frame，验证 native app 到 renderer JSON facade 的宿主接线；如果设置 `QUA_NATIVE_RENDERER_SMOKE_BUDGET`，则读取预算 JSON 并对 missing / fallback / declarative memory / audio / total memory 等指标做上限门禁。这只用于 debug / CI smoke，不是动态包 native code 入口，也不能加载 Web/Cocos/native target core bootstrap 列表。
 
 ### 2. QuickJS runtime
