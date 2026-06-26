@@ -747,6 +747,20 @@ fn json_frame_background_number_validation_rejects_unsafe_resolved_values() {
         other => panic!("expected unsafe background layer scale validation error, got {other:?}"),
     }
 
+    let rotation = renderer
+        .prepare_frame_json_str(json_frame_with_oversized_background_layer_rotation_input())
+        .unwrap_err();
+    match rotation {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.background.layers[0].rotation");
+            assert_eq!(validation.asset_name, "360001");
+            assert!(validation.reason.contains("exceeds"));
+        }
+        other => {
+            panic!("expected unsafe background layer rotation validation error, got {other:?}")
+        }
+    }
+
     let opacity = renderer
         .prepare_frame_json_str(json_frame_with_oversized_video_opacity_input())
         .unwrap_err();

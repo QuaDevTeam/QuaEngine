@@ -27,6 +27,7 @@ use audio_numbers::{
 };
 use background_numbers::{
     invalid_native_json_background_geometry_reason, invalid_native_json_background_opacity_reason,
+    invalid_native_json_background_rotation_reason,
 };
 use character_numbers::{
     invalid_native_json_character_opacity_reason, invalid_native_json_character_position_reason,
@@ -126,6 +127,7 @@ impl JsonProjectionValidator {
             background.height,
             background.scale,
         );
+        self.validate_background_rotation("view.background", background.rotation);
         self.validate_background_opacity("view.background.opacity", background.opacity);
         let mut layer_ids = BTreeSet::new();
         for (index, layer) in background.layers.iter().enumerate() {
@@ -150,6 +152,7 @@ impl JsonProjectionValidator {
                 layer.height,
                 layer.scale,
             );
+            self.validate_background_rotation(&layer_path, layer.rotation);
             self.validate_background_opacity(&format!("{layer_path}.opacity"), layer.opacity);
             self.validate_provenance(&format!("{layer_path}.provenance"), &layer.provenance);
         }
@@ -569,6 +572,17 @@ impl JsonProjectionValidator {
             self.errors.push(NativeRendererJsonValidationError {
                 path: path.to_string(),
                 asset_name: value.to_string(),
+                reason,
+            });
+        }
+    }
+
+    fn validate_background_rotation(&mut self, path: &str, value: f64) {
+        if let Some((field, value, reason)) = invalid_native_json_background_rotation_reason(value)
+        {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: format!("{path}.{field}"),
+                asset_name: value,
                 reason,
             });
         }

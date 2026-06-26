@@ -1,6 +1,7 @@
 const MAX_NATIVE_BACKGROUND_LOGICAL_COORDINATE: f64 = 1_000_000.0;
 const MAX_NATIVE_BACKGROUND_LOGICAL_DIMENSION: f64 = 1_000_000.0;
 const MAX_NATIVE_BACKGROUND_SCALE: f64 = 1_000.0;
+const MAX_NATIVE_BACKGROUND_ROTATION_DEGREES: f64 = 360_000.0;
 
 pub(super) fn invalid_native_json_background_geometry_reason(
     x: f64,
@@ -19,6 +20,26 @@ pub(super) fn invalid_native_json_background_geometry_reason(
 pub(super) fn invalid_native_json_background_opacity_reason(value: f32) -> Option<String> {
     if !value.is_finite() || !(0.0..=1.0).contains(&value) {
         return Some("background opacity must be finite and between 0 and 1".to_string());
+    }
+    None
+}
+
+pub(super) fn invalid_native_json_background_rotation_reason(
+    rotation: f64,
+) -> Option<(&'static str, String, String)> {
+    if !rotation.is_finite() {
+        return Some((
+            "rotation",
+            rotation.to_string(),
+            "background rotation must be a finite value".to_string(),
+        ));
+    }
+    if rotation.abs() > MAX_NATIVE_BACKGROUND_ROTATION_DEGREES {
+        return Some((
+            "rotation",
+            rotation.to_string(),
+            "background rotation exceeds native renderer limits".to_string(),
+        ));
     }
     None
 }
@@ -152,5 +173,28 @@ mod tests {
         assert!(invalid_native_json_background_opacity_reason(1.01)
             .unwrap()
             .contains("between 0 and 1"));
+    }
+
+    #[test]
+    fn rotation_accepts_only_finite_values_at_native_limits() {
+        assert_eq!(
+            invalid_native_json_background_rotation_reason(MAX_NATIVE_BACKGROUND_ROTATION_DEGREES),
+            None
+        );
+        assert_eq!(
+            invalid_native_json_background_rotation_reason(-MAX_NATIVE_BACKGROUND_ROTATION_DEGREES),
+            None
+        );
+
+        let nan = invalid_native_json_background_rotation_reason(f64::NAN).unwrap();
+        assert_eq!(nan.0, "rotation");
+        assert!(nan.2.contains("finite"));
+
+        let oversized = invalid_native_json_background_rotation_reason(
+            MAX_NATIVE_BACKGROUND_ROTATION_DEGREES + 1.0,
+        )
+        .unwrap();
+        assert_eq!(oversized.0, "rotation");
+        assert!(oversized.2.contains("exceeds"));
     }
 }

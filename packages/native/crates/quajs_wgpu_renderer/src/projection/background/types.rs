@@ -44,6 +44,8 @@ pub struct BackgroundProjection {
     pub y: f64,
     #[serde(default = "default_one_f64")]
     pub scale: f64,
+    #[serde(default)]
+    pub rotation: f64,
     #[serde(default = "default_one_f32")]
     pub opacity: f32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -67,6 +69,7 @@ impl Default for BackgroundProjection {
             x: 0.0,
             y: 0.0,
             scale: 1.0,
+            rotation: 0.0,
             opacity: 1.0,
             layers: Vec::new(),
             video: None,
@@ -98,6 +101,8 @@ pub struct BackgroundLayerProjection {
     pub y: f64,
     #[serde(default = "default_one_f64")]
     pub scale: f64,
+    #[serde(default)]
+    pub rotation: f64,
     #[serde(default = "default_one_f32")]
     pub opacity: f32,
     #[serde(default)]
@@ -120,6 +125,7 @@ impl BackgroundLayerProjection {
             x: 0.0,
             y: 0.0,
             scale: 1.0,
+            rotation: 0.0,
             opacity: 1.0,
             z_index: 0,
             provenance: PackageProvenance::default(),

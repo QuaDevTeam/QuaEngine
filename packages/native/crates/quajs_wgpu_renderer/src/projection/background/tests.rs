@@ -14,6 +14,7 @@ fn builds_main_image_background_command() {
     let layout = test_layout();
     let background = BackgroundProjection {
         asset_name: Some("bg/school.png".to_string()),
+        rotation: 12.5,
         provenance: provenance("base", []),
         ..Default::default()
     };
@@ -38,6 +39,7 @@ fn builds_main_image_background_command() {
             assert_eq!(params.asset_type, "images");
             assert_eq!(params.asset_name, "bg/school.png");
             assert_eq!(params.fit, MediaFit::Cover);
+            assert_eq!(params.rotation_degrees, 12.5);
         }
         _ => panic!("expected image draw params"),
     }
@@ -66,6 +68,7 @@ fn builds_visible_layered_background_commands_in_scene_plane() {
                 height: Some(360.0),
                 x: 50.0,
                 y: 60.0,
+                rotation: -8.0,
                 z_index: -5,
                 ..BackgroundLayerProjection::new("sky", "layers/sky.webp")
             },
@@ -84,6 +87,12 @@ fn builds_visible_layered_background_commands_in_scene_plane() {
     assert_eq!(ids, vec!["background:layer:sky", "background:layer:light"]);
     assert_eq!(graph.commands()[0].bounds.x, 50.0);
     assert_eq!(graph.commands()[0].bounds.width, 640.0);
+    match &graph.commands()[0].params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.rotation_degrees, -8.0);
+        }
+        _ => panic!("expected layer image params"),
+    }
     assert_eq!(graph.commands()[1].opacity, 0.7);
     assert_eq!(
         graph.commands()[1].owner_package_id.as_deref(),
@@ -131,6 +140,29 @@ fn builds_video_fallback_command_with_poster_resource() {
         }
         _ => panic!("expected video draw params"),
     }
+}
+
+#[test]
+fn deserializes_background_rotation_from_camel_case_json() {
+    let background: BackgroundProjection = serde_json::from_str(
+        r#"
+        {
+          "mode": "layered",
+          "rotation": 24.5,
+          "layers": [
+            {
+              "id": "clouds",
+              "assetName": "layers/clouds.png",
+              "rotation": -16.25
+            }
+          ]
+        }
+        "#,
+    )
+    .expect("background projection JSON should parse");
+
+    assert_eq!(background.rotation, 24.5);
+    assert_eq!(background.layers[0].rotation, -16.25);
 }
 
 fn test_layout() -> ResolvedStageLayout {

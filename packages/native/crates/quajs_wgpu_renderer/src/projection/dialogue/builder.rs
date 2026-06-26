@@ -140,6 +140,7 @@ fn avatar_command(
         fit: MediaFit::Cover,
         origin: MediaOrigin::default(),
         source: avatar_bounds(panel),
+        rotation_degrees: 0.0,
     }));
 
     apply_provenance(command, &avatar.provenance)

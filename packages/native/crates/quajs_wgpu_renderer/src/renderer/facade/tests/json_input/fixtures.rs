@@ -959,6 +959,26 @@ pub(super) fn json_frame_with_zero_background_layer_scale_input() -> &'static st
     "#
 }
 
+pub(super) fn json_frame_with_oversized_background_layer_rotation_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "layered",
+          "layers": [
+            {
+              "id": "foreground",
+              "assetName": "bg/fg.png",
+              "rotation": 360001
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(super) fn json_frame_with_oversized_video_opacity_input() -> &'static str {
     r#"
     {
