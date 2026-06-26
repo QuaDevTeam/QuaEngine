@@ -166,7 +166,13 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
     value('0', 'Use default spacing as an explicit logical value.'),
     value('1px', 'Add one logical pixel between letters.'),
   ]),
-  property('white-space', 'p2', false, 'Whitespace handling planned for native text layout.'),
+  property('white-space', 'p1', true, 'Whitespace and wrapping policy for native text and button label draw params.', [
+    value('normal', 'Collapse whitespace and allow wrapping.'),
+    value('nowrap', 'Collapse whitespace and disable wrapping.'),
+    value('pre', 'Preserve whitespace and disable wrapping.'),
+    value('pre-line', 'Preserve line breaks while collapsing other whitespace.'),
+    value('pre-wrap', 'Preserve whitespace and allow wrapping.'),
+  ]),
   property('text-overflow', 'p2', false, 'Text overflow metadata planned for native text layout.'),
   property('text-wrap', 'p2', false, 'Text wrapping metadata planned for native text layout.'),
   property('text-decoration', 'p1', true, 'Text decoration for native text and button label draw params.', [

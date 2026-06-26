@@ -34,6 +34,7 @@ import {
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
   parseNativeQssVisibility,
+  parseNativeQssWhiteSpace,
 } from './qss-resolved-style'
 import {
   collectBalancedDelimiterDiagnostics,
@@ -727,6 +728,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssVisibility(value) !== undefined
         ? undefined
         : 'visibility supports visible or hidden.'
+    case 'white-space':
+      return parseNativeQssWhiteSpace(value)
+        ? undefined
+        : 'white-space supports normal, nowrap, pre, pre-line, or pre-wrap.'
     case 'z-index':
       return parseNativeQssInteger(value) !== undefined
         ? undefined

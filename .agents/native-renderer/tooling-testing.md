@@ -107,6 +107,7 @@ QSS 侧：
 - target bundle manifest validation
 - Web / Cocos / native 三目标隔离矩阵：bootstrap core、plugin target entry、Runtime QPK renderer/executable dependency 三层都要对称验证
 - target-specific renderer plugin entry 隔离：Web renderer subentry、Cocos renderer subentry、Native bridge/capability entry 只能出现在对应目标产物里
+- 产物级核心插件互斥：Web、Cocos、Native 打包输出必须各自只含一个 target core family；如果项目配置、普通插件、shared preset、Runtime QPK、renderer entry、debug shell、installer/updater manifest 或 post-bundle graph 中任一层混入另一个 target core family，必须失败而不是降级为 warning
 - debug / release / installer / updater / hand-built shell 统一复用同一套 target isolation helper，不能只在 Quack 主路径校验
 - native compatibility metadata
 - runtime package native code rejection

@@ -55,6 +55,8 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 - 最终 `target-bundle-manifest.json` 必须通过 `validateTargetBundleManifest`；Web、Cocos、Native 的 debug/release、installer/updater、手写 shell 和 CI fixture 都不能跳过这一步。
 - release artifact 的依赖图检查必须发生在 bundle / tree-shake 之后，防止源码层过滤正确但产物里残留其他 target core 子入口。
 
+打包产物必须把这条规则当作 release blocker，而不是普通 warning：Web、Cocos、Native 三类核心插件只能由各自目标 resolver 注入一次，不能在项目配置、普通插件列表、shared preset、Runtime QPK、renderer entry、installer/updater manifest 或 debug shell 里二次声明。任何产物只要同时出现两个 target core family，就必须终止打包；不能依赖运行时分支、tree-shaking 预期或手动约定来“稍后排除”另一端核心插件。
+
 ### 三端核心插件隔离矩阵
 
 | 打包目标 | 必须选择 | 必须排除 | 失败条件 |
