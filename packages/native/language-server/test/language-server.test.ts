@@ -5,6 +5,7 @@ import {
   findNativeUiProjectDefinitions,
   findNativeUiProjectReferences,
   formatNativeUiDocumentEdits,
+  getNativeUiAssetCodeActions,
   getNativeUiLanguageCompletions,
   getNativeUiLanguageHover,
   getNativeUiProjectDocumentLinks,
@@ -518,6 +519,44 @@ describe('@quajs/native-language-server', () => {
           targetUri: 'file:///project/ui/assets/hero.png',
         }),
       ])
+  })
+
+  it('returns native asset quickfix and fixAll code actions through the public tooling API', () => {
+    const source = 'Image(src: "../escape.png", asset-type: "../bad")'
+    const diagnostics = lintNativeUiDocument(source, {
+      filePath: 'menu.qui',
+    }).diagnostics.filter(diagnostic => diagnostic.code === 'QUI_INVALID_ASSET_REFERENCE')
+    const actions = getNativeUiAssetCodeActions({
+      diagnostics,
+      range: rangeOf(source, '../escape.png'),
+      source,
+      uri: 'file:///project/ui/menu.qui',
+    })
+
+    expect(actions.map(action => action.kind)).toEqual([
+      'quickfix',
+      'source.fixAll.quaNativeAssets',
+    ])
+    expect(actions[0]).toEqual(expect.objectContaining({
+      diagnostics: [expect.objectContaining({ code: 'QUI_INVALID_ASSET_REFERENCE' })],
+      edits: [
+        {
+          newText: '',
+          range: {
+            start: {
+              character: 6,
+              line: 0,
+            },
+            end: {
+              character: 28,
+              line: 0,
+            },
+          },
+        },
+      ],
+      title: 'Remove invalid native UI asset reference',
+    }))
+    expect(actions[1]?.edits).toHaveLength(1)
   })
 })
 
