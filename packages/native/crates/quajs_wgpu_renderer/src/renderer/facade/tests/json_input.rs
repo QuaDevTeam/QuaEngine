@@ -445,6 +445,26 @@ fn json_frame_asset_validation_rejects_url_and_native_audio_payloads() {
 }
 
 #[test]
+fn json_frame_asset_validation_rejects_unsafe_asset_types() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let error = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_audio_asset_type_input())
+        .unwrap_err();
+
+    match error {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.audio.tracks[0].assetType");
+            assert_eq!(validation.asset_name, "bgm/native");
+            assert!(validation.reason.contains("asset types"));
+        }
+        other => panic!("expected validation error, got {other:?}"),
+    }
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_asset_validation_rejects_empty_asset_names() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
@@ -535,6 +555,26 @@ fn json_frame_with_native_audio_payload_input() -> &'static str {
               "id": "bridge",
               "kind": "bgm",
               "assetName": "audio/bridge.node#runtime"
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_unsafe_audio_asset_type_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            {
+              "id": "bridge",
+              "kind": "bgm",
+              "assetType": "bgm/native",
+              "assetName": "audio/theme.ogg"
             }
           ]
         }
