@@ -1,21 +1,18 @@
-use std::process::Command;
+#[path = "renderer_smoke_cli/support.rs"]
+mod support;
 
-const RENDERER_SMOKE_BUDGET_ENV: &str = "QUA_NATIVE_RENDERER_SMOKE_BUDGET";
-const RENDERER_SMOKE_FRAME_ENV: &str = "QUA_NATIVE_RENDERER_SMOKE_FRAME";
-const SHARED_QUI_QSS_SURFACE_FRAME: &str =
-    include_str!("../../../test-fixtures/renderer/qui-qss-surface-frame.json");
+use support::{
+    assert_memory_map_fixture_shape, memory_map_budget_from_summary, run_renderer_smoke_binary,
+    smoke_json_line, smoke_ui_audio_frame_json, smoke_video_frame_json, unique_budget_path,
+    unique_frame_path, SHARED_QUI_QSS_SURFACE_FRAME,
+};
 
 #[test]
 fn binary_runs_renderer_smoke_frame_from_projection_json() {
     let path = unique_frame_path("valid");
     std::fs::write(&path, SHARED_QUI_QSS_SURFACE_FRAME).expect("renderer smoke fixture writes");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_quajs_native_app"))
-        .env(RENDERER_SMOKE_FRAME_ENV, &path)
-        .env_remove(RENDERER_SMOKE_BUDGET_ENV)
-        .env_remove("QUA_NATIVE_TARGET_BUNDLE_MANIFEST")
-        .output()
-        .expect("native app binary runs");
+    let output = run_renderer_smoke_binary(&path, None);
 
     std::fs::remove_file(path).ok();
 
@@ -76,12 +73,7 @@ fn binary_reports_invalid_renderer_smoke_frame_json() {
     let path = unique_frame_path("invalid");
     std::fs::write(&path, "{not json").expect("invalid renderer smoke fixture writes");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_quajs_native_app"))
-        .env(RENDERER_SMOKE_FRAME_ENV, &path)
-        .env_remove(RENDERER_SMOKE_BUDGET_ENV)
-        .env_remove("QUA_NATIVE_TARGET_BUNDLE_MANIFEST")
-        .output()
-        .expect("native app binary runs");
+    let output = run_renderer_smoke_binary(&path, None);
 
     std::fs::remove_file(path).ok();
 
@@ -114,12 +106,7 @@ fn binary_accepts_renderer_smoke_budget() {
     )
     .expect("renderer smoke budget fixture writes");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_quajs_native_app"))
-        .env(RENDERER_SMOKE_FRAME_ENV, &path)
-        .env(RENDERER_SMOKE_BUDGET_ENV, &budget_path)
-        .env_remove("QUA_NATIVE_TARGET_BUNDLE_MANIFEST")
-        .output()
-        .expect("native app binary runs");
+    let output = run_renderer_smoke_binary(&path, Some(&budget_path));
 
     std::fs::remove_file(path).ok();
     std::fs::remove_file(budget_path).ok();
@@ -135,6 +122,44 @@ fn binary_accepts_renderer_smoke_budget() {
 }
 
 #[test]
+fn binary_accepts_renderer_smoke_budget_memory_maps() {
+    let path = unique_frame_path("budget-memory-maps-pass");
+    let budget_path = unique_budget_path("memory-maps-pass");
+    std::fs::write(&path, smoke_ui_audio_frame_json()).expect("renderer smoke fixture writes");
+
+    let summary_output = run_renderer_smoke_binary(&path, None);
+    let summary_stdout = String::from_utf8_lossy(&summary_output.stdout);
+    assert!(
+        summary_output.status.success(),
+        "summary smoke unexpectedly failed\nstdout:\n{}\nstderr:\n{}",
+        summary_stdout,
+        String::from_utf8_lossy(&summary_output.stderr)
+    );
+    let smoke_json = smoke_json_line(&summary_stdout);
+    assert_memory_map_fixture_shape(&smoke_json);
+    std::fs::write(
+        &budget_path,
+        serde_json::to_string_pretty(&memory_map_budget_from_summary(&smoke_json, 0))
+            .expect("renderer smoke budget serializes"),
+    )
+    .expect("renderer smoke budget fixture writes");
+
+    let output = run_renderer_smoke_binary(&path, Some(&budget_path));
+
+    std::fs::remove_file(path).ok();
+    std::fs::remove_file(budget_path).ok();
+
+    assert!(
+        output.status.success(),
+        "memory-map budgeted smoke unexpectedly failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Qua native renderer smoke json: "));
+}
+
+#[test]
 fn binary_rejects_renderer_smoke_budget_violations() {
     let path = unique_frame_path("budget-fail");
     let budget_path = unique_budget_path("fail");
@@ -142,12 +167,7 @@ fn binary_rejects_renderer_smoke_budget_violations() {
     std::fs::write(&budget_path, r#"{ "maxVideoFallbacks": 0 }"#)
         .expect("renderer smoke budget fixture writes");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_quajs_native_app"))
-        .env(RENDERER_SMOKE_FRAME_ENV, &path)
-        .env(RENDERER_SMOKE_BUDGET_ENV, &budget_path)
-        .env_remove("QUA_NATIVE_TARGET_BUNDLE_MANIFEST")
-        .output()
-        .expect("native app binary runs");
+    let output = run_renderer_smoke_binary(&path, Some(&budget_path));
 
     std::fs::remove_file(path).ok();
     std::fs::remove_file(budget_path).ok();
@@ -163,48 +183,43 @@ fn binary_rejects_renderer_smoke_budget_violations() {
     assert!(stderr.contains("exceeded max 0"));
 }
 
-fn unique_frame_path(label: &str) -> std::path::PathBuf {
-    std::env::temp_dir().join(format!(
-        "quajs-native-app-cli-renderer-smoke-{label}-{}-{}.json",
-        std::process::id(),
-        std::thread::current().name().unwrap_or("test")
-    ))
-}
+#[test]
+fn binary_rejects_renderer_smoke_budget_memory_map_violations() {
+    let path = unique_frame_path("budget-memory-maps-fail");
+    let budget_path = unique_budget_path("memory-maps-fail");
+    std::fs::write(&path, smoke_ui_audio_frame_json()).expect("renderer smoke fixture writes");
 
-fn unique_budget_path(label: &str) -> std::path::PathBuf {
-    std::env::temp_dir().join(format!(
-        "quajs-native-app-cli-renderer-smoke-budget-config-{label}-{}-{}.json",
-        std::process::id(),
-        std::thread::current().name().unwrap_or("test")
-    ))
-}
+    let summary_output = run_renderer_smoke_binary(&path, None);
+    let summary_stdout = String::from_utf8_lossy(&summary_output.stdout);
+    assert!(
+        summary_output.status.success(),
+        "summary smoke unexpectedly failed\nstdout:\n{}\nstderr:\n{}",
+        summary_stdout,
+        String::from_utf8_lossy(&summary_output.stderr)
+    );
+    let smoke_json = smoke_json_line(&summary_stdout);
+    assert_memory_map_fixture_shape(&smoke_json);
+    std::fs::write(
+        &budget_path,
+        serde_json::to_string_pretty(&memory_map_budget_from_summary(&smoke_json, 1))
+            .expect("renderer smoke budget serializes"),
+    )
+    .expect("renderer smoke budget fixture writes");
 
-fn smoke_json_line(stdout: &str) -> serde_json::Value {
-    let json = stdout
-        .lines()
-        .find_map(|line| line.strip_prefix("Qua native renderer smoke json: "))
-        .expect("renderer smoke JSON line exists");
-    serde_json::from_str(json).expect("renderer smoke JSON line parses")
-}
+    let output = run_renderer_smoke_binary(&path, Some(&budget_path));
 
-fn smoke_video_frame_json() -> &'static str {
-    r##"
-    {
-      "layout": { "preset": "landscape" },
-      "container": { "width": 1600, "height": 1000, "devicePixelRatio": 2 },
-      "view": {
-        "background": {
-          "mode": "video",
-          "video": {
-            "assetName": "video/opening.mp4",
-            "poster": "poster/opening.png",
-            "provenance": {
-              "contentPackageId": "runtime.video",
-              "requiredRuntimePackages": ["base"]
-            }
-          }
-        }
-      }
-    }
-    "##
+    std::fs::remove_file(path).ok();
+    std::fs::remove_file(budget_path).ok();
+
+    assert!(
+        !output.status.success(),
+        "memory-map budget violation unexpectedly succeeded\nstdout:\n{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Native renderer smoke budget exceeded"));
+    assert!(stderr.contains("memoryByKind.uiAst.memory.totalBytes"));
+    assert!(stderr.contains("memoryByPackage.runtime.audio.ownedMemory.totalBytes"));
+    assert!(stderr.contains("declarativeMemoryByPackage.runtime.ui.ownedMemory.totalBytes"));
+    assert!(stderr.contains("audioMemoryByPackage.runtime.audio.ownedMemory.totalBytes"));
 }
