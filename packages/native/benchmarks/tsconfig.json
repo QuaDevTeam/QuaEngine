@@ -6,6 +6,7 @@
     "rootDir": "..",
     "moduleResolution": "bundler",
     "paths": {
+      "@quajs/native-contracts": ["../contracts/src/index.ts"],
       "@quajs/native-language-server": ["../language-server/src/index.ts"],
       "@quajs/native-ui-compiler": ["../ui-compiler/src/index.ts"]
     },

@@ -14,7 +14,9 @@ import {
 } from '@quajs/native-language-server'
 import {
   analyzeNativeUiDocument,
+  collectNativeUiSurfaceProjectionRequirements,
   compileNativeUiSurfaceProjection,
+  createNativeUiSurfaceCompatibilityFromProjection,
   formatNativeUiDocument,
   getNativeUiCompletions,
   getNativeUiHover,
@@ -241,8 +243,18 @@ export function runNativeAuthoringSmokeBenchmarks(
       run(iterations) {
         let checksum = 0
         let diagnostics = projectionQuiDocument.diagnostics.length + projectionQssDocument.diagnostics.length
+        let assetKinds = 0
+        let compatibilityAssetKinds = 0
+        let compatibilityCapabilities = 0
+        let compatibilityNativeCodeFalse = 0
+        let compatibilityQssFeatures = 0
+        let compatibilityQuiComponents = 0
         let intents = 0
+        let intentEvents = 0
         let nodes = 0
+        let projectionFields = 0
+        let qssFeatures = 0
+        let quiComponents = 0
         let styleFields = 0
         let textNodes = 0
         for (let index = 0; index < iterations; index += 1) {
@@ -251,19 +263,54 @@ export function runNativeAuthoringSmokeBenchmarks(
             rootId: 'bench-root',
           })
           const metrics = countSurfaceProjection(projection.root)
+          const requirements = collectNativeUiSurfaceProjectionRequirements(projection)
+          const compatibility = createNativeUiSurfaceCompatibilityFromProjection(projection)
+          assetKinds += requirements.assetKinds.length
+          compatibilityAssetKinds += compatibility.assetKinds?.length ?? 0
+          compatibilityCapabilities += compatibility.capabilities?.length ?? 0
+          compatibilityNativeCodeFalse += compatibility.nativeCode === false ? 1 : 0
+          compatibilityQssFeatures += compatibility.qssFeatures?.length ?? 0
+          compatibilityQuiComponents += compatibility.quiComponents?.length ?? 0
           intents += metrics.intents
+          intentEvents += requirements.intentEvents.length
           nodes += metrics.nodes
+          projectionFields += requirements.projectionFields.length
+          qssFeatures += requirements.qssFeatures.length
+          quiComponents += requirements.quiComponents.length
           styleFields += metrics.styleFields
           textNodes += metrics.textNodes
-          checksum += metrics.nodes + metrics.styleFields + metrics.intents + metrics.textNodes
+          checksum += metrics.nodes
+            + metrics.styleFields
+            + metrics.intents
+            + metrics.textNodes
+            + requirements.assetKinds.length
+            + requirements.intentEvents.length
+            + requirements.projectionFields.length
+            + requirements.qssFeatures.length
+            + requirements.quiComponents.length
+            + (compatibility.assetKinds?.length ?? 0)
+            + (compatibility.capabilities?.length ?? 0)
+            + (compatibility.qssFeatures?.length ?? 0)
+            + (compatibility.quiComponents?.length ?? 0)
+            + (compatibility.nativeCode === false ? 1 : 0)
         }
         diagnostics *= iterations
         return {
           checksum,
           diagnostics,
           metrics: {
+            assetKinds,
+            compatibilityAssetKinds,
+            compatibilityCapabilities,
+            compatibilityNativeCodeFalse,
+            compatibilityQssFeatures,
+            compatibilityQuiComponents,
             intents,
+            intentEvents,
             nodes,
+            projectionFields,
+            qssFeatures,
+            quiComponents,
             styleFields,
             textNodes,
           },

@@ -47,13 +47,34 @@ describe('@quajs/native-benchmarks', () => {
         styleFields: expect.any(Number),
         zIndexes: expect.any(Number),
       }))
-    expect(records.find(record => record.bench === 'native.authoring.surface_projection.compile.smoke')?.metrics)
+    const projectionMetrics = records.find(record => record.bench === 'native.authoring.surface_projection.compile.smoke')?.metrics
+    expect(projectionMetrics)
       .toEqual(expect.objectContaining({
+        assetKinds: expect.any(Number),
+        compatibilityAssetKinds: expect.any(Number),
+        compatibilityCapabilities: expect.any(Number),
+        compatibilityNativeCodeFalse: expect.any(Number),
+        compatibilityQssFeatures: expect.any(Number),
+        compatibilityQuiComponents: expect.any(Number),
         intents: expect.any(Number),
+        intentEvents: expect.any(Number),
         nodes: expect.any(Number),
+        projectionFields: expect.any(Number),
+        qssFeatures: expect.any(Number),
+        quiComponents: expect.any(Number),
         styleFields: expect.any(Number),
         textNodes: expect.any(Number),
       }))
+    expect(projectionMetrics?.assetKinds).toBeGreaterThan(0)
+    expect(projectionMetrics?.compatibilityAssetKinds).toBeGreaterThan(0)
+    expect(projectionMetrics?.compatibilityCapabilities).toBeGreaterThan(0)
+    expect(projectionMetrics?.compatibilityNativeCodeFalse).toBe(1)
+    expect(projectionMetrics?.compatibilityQssFeatures).toBeGreaterThan(0)
+    expect(projectionMetrics?.compatibilityQuiComponents).toBeGreaterThan(0)
+    expect(projectionMetrics?.intentEvents).toBeGreaterThan(0)
+    expect(projectionMetrics?.projectionFields).toBeGreaterThan(0)
+    expect(projectionMetrics?.qssFeatures).toBeGreaterThan(0)
+    expect(projectionMetrics?.quiComponents).toBeGreaterThan(0)
     expect(records.find(record => record.bench === 'native.authoring.asset_code_actions.smoke')?.metrics)
       .toEqual(expect.objectContaining({
         assetDiagnostics: expect.any(Number),
