@@ -62,6 +62,8 @@ export default defineConfig({
 
 `QuackConfig.plugins`, `defineConfig({ plugins })`, `QuackBundler.addPlugin`, and CLI `--plugin` are ordinary Quack asset-bundling plugin paths. They must not include Web, Cocos, or native target core adapters such as `@quajs/renderer-web`, `@quajs/renderer-cocos`, `@quajs/engine-native`, or their subentries. Target bootstrap is selected through target-core resolver metadata and validated through target bundle manifests, not through Quack plugin lists.
 
+When checking loaded plugin objects, Quack must inspect the plugin `name` plus optional source metadata fields such as `specifier` and `packageName` before registration. A business-looking plugin name must not mask a Web, Cocos, or native target core adapter in metadata produced by CLI loading, generated resolvers, or third-party plugin factories.
+
 ## Workspace Config
 
 Use workspace mode for multi-bundle projects:

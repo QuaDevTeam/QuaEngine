@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  assertLoadedQuackPluginTargetIsolation,
   assertQuackPluginReferencesTargetIsolation,
   assertQuackPluginSpecifiersTargetIsolation,
 } from '../src/target-plugin-isolation'
@@ -33,6 +34,32 @@ describe('Quack target plugin isolation', () => {
       fieldName: 'generated plugin resolver',
     })).toThrow(
       /generated plugin resolver[\s\S]*@quajs\/renderer-web\/plugins\/ui resolves to @quajs\/renderer-web[\s\S]*@quajs\/cocos-host resolves to @quajs\/cocos-host[\s\S]*@quajs\/engine-native\/runtime resolves to @quajs\/engine-native/,
+    )
+  })
+
+  it('checks loaded plugin source metadata when it is available', () => {
+    expect(() => assertLoadedQuackPluginTargetIsolation([
+      {
+        name: '@quajs/plugin-menu',
+        version: '1.0.0',
+        specifier: '@quajs/renderer-web/plugins/ui',
+      },
+      {
+        name: '@quajs/plugin-gallery',
+        version: '1.0.0',
+        packageName: '@quajs/cocos-host',
+      },
+      {
+        name: '@quajs/plugin-native-menu',
+        version: '1.0.0',
+        specifier: '@quajs/character',
+        packageName: '@quajs/engine-native/runtime',
+      },
+    ], {
+      target: 'native',
+      fieldName: 'loaded plugin metadata',
+    })).toThrow(
+      /loaded plugin metadata[\s\S]*@quajs\/renderer-web\/plugins\/ui resolves to @quajs\/renderer-web[\s\S]*@quajs\/cocos-host resolves to @quajs\/cocos-host[\s\S]*@quajs\/engine-native\/runtime resolves to @quajs\/engine-native/,
     )
   })
 
