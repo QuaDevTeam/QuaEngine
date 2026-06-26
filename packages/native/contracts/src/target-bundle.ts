@@ -61,6 +61,18 @@ export type TargetBundlePackageGraphReference
     | TargetBundleDependencyReference
     | TargetBundleRendererEntryReference
 
+export type TargetBundleProjectGraphKind
+  = | 'project-template'
+    | 'startup-shell'
+    | 'debug-shell'
+    | 'release-shell'
+    | 'smoke-runner'
+    | 'installer'
+    | 'updater'
+    | 'dev-server'
+    | 'post-bundle'
+    | 'custom'
+
 export interface TargetBundleDependencyReference {
   specifier: string
   runtime?: boolean
@@ -80,6 +92,12 @@ export interface TargetBundleRuntimePackageRecord {
   rendererEntries?: readonly (TargetBundlePackageReference | TargetBundleRendererEntryReference)[]
 }
 
+export interface TargetBundleProjectGraphRecord {
+  id: string
+  kind: TargetBundleProjectGraphKind
+  references?: readonly TargetBundlePackageGraphReference[]
+}
+
 export interface TargetBundleManifest {
   schemaVersion?: 1
   target: QuaTargetBootstrap
@@ -93,6 +111,7 @@ export interface TargetBundleManifest {
   dependencies?: readonly (TargetBundlePackageReference | TargetBundleDependencyReference)[]
   rendererEntries?: readonly (TargetBundlePackageReference | TargetBundleRendererEntryReference)[]
   runtimePackages?: readonly TargetBundleRuntimePackageRecord[]
+  projectGraphs?: readonly TargetBundleProjectGraphRecord[]
 }
 
 export type TargetBundleManifestDiagnostic
@@ -107,6 +126,7 @@ export type TargetBundleManifestDiagnostic
     | TargetBundleSelectedCoreAdapterDiagnostic
     | TargetBundleRendererEntryTargetDiagnostic
     | TargetBundleRuntimePackageDiagnostic
+    | TargetBundleProjectGraphDiagnostic
 
 export interface TargetBundleTargetDiagnostic {
   code: 'TARGET_BUNDLE_TARGET_MISMATCH'
@@ -182,6 +202,17 @@ export interface TargetBundleRuntimePackageDiagnostic {
   message: string
 }
 
+export interface TargetBundleProjectGraphDiagnostic {
+  code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER'
+  target: QuaTargetBootstrap
+  packageName: string
+  packageCorePluginFamily: TargetCorePluginFamily
+  expectedCorePluginFamily: TargetCorePluginFamily
+  projectGraphId: string
+  projectGraphKind: TargetBundleProjectGraphKind
+  message: string
+}
+
 export interface TargetBundleManifestValidationResult {
   ok: boolean
   packageNames: string[]
@@ -221,6 +252,7 @@ export function validateTargetBundleManifest(
   const selectedCoreAdapterDiagnostics = checkSelectedCoreAdapters(manifest, expectedTarget)
   const rendererEntryTargetDiagnostics = checkRendererEntryTargets(manifest, expectedTarget)
   const runtimePackageDiagnostics = checkRuntimePackageTargetCoreAdapters(manifest, expectedTarget)
+  const projectGraphDiagnostics = checkProjectGraphTargetCoreAdapters(manifest, expectedTarget)
   const diagnostics: TargetBundleManifestDiagnostic[] = [
     ...bootstrapValidation.diagnostics,
     ...(bootstrapValidation.targetValidation?.diagnostics || []),
@@ -233,6 +265,7 @@ export function validateTargetBundleManifest(
     ...selectedCoreAdapterDiagnostics,
     ...rendererEntryTargetDiagnostics,
     ...runtimePackageDiagnostics,
+    ...projectGraphDiagnostics,
   ]
 
   return {
@@ -245,7 +278,8 @@ export function validateTargetBundleManifest(
       && corePluginFamilyDiagnostics.length === 0
       && selectedCoreAdapterDiagnostics.length === 0
       && rendererEntryTargetDiagnostics.length === 0
-      && runtimePackageDiagnostics.length === 0,
+      && runtimePackageDiagnostics.length === 0
+      && projectGraphDiagnostics.length === 0,
     packageNames,
     bootstrapValidation,
     diagnostics,
@@ -415,6 +449,9 @@ export function collectTargetBundlePackageNames(manifest: TargetBundleManifest):
       ...collectPackageReferenceSpecifiers(runtimePackage.executableDependencies || []),
       ...collectPackageReferenceSpecifiers(runtimePackage.rendererEntries || []),
     ]),
+    ...(manifest.projectGraphs || []).flatMap(projectGraph =>
+      collectPackageReferenceSpecifiers(projectGraph.references || []),
+    ),
   ]
 
   return Array.from(new Set(specifiers.map(normalizePackageSpecifier)))
@@ -584,6 +621,43 @@ function checkRuntimePackageTargetCoreAdapters(
       runtimePackage.rendererEntries || [],
       targetAdapterRoots,
     )
+  }
+
+  return diagnostics
+}
+
+function checkProjectGraphTargetCoreAdapters(
+  manifest: TargetBundleManifest,
+  expectedTarget: QuaTargetBootstrap = manifest.target,
+): TargetBundleProjectGraphDiagnostic[] {
+  const expectedCorePluginFamily = getTargetCorePluginFamily(expectedTarget)
+  const diagnostics: TargetBundleProjectGraphDiagnostic[] = []
+
+  for (const projectGraph of manifest.projectGraphs || []) {
+    const packageNames = collectPackageReferenceSpecifiers(projectGraph.references || [])
+      .map(normalizePackageSpecifier)
+
+    for (const packageName of packageNames) {
+      const packageCorePluginFamily = getPackageTargetCorePluginFamily(packageName)
+      if (!packageCorePluginFamily)
+        continue
+
+      if (projectGraph.kind === 'post-bundle' && packageCorePluginFamily === expectedCorePluginFamily)
+        continue
+
+      diagnostics.push({
+        code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+        target: expectedTarget,
+        packageName,
+        packageCorePluginFamily,
+        expectedCorePluginFamily,
+        projectGraphId: projectGraph.id,
+        projectGraphKind: projectGraph.kind,
+        message: projectGraph.kind === 'post-bundle'
+          ? `Post-bundle project graph "${projectGraph.id}" for target "${expectedTarget}" must not include inactive target core adapter "${packageName}" from "${packageCorePluginFamily}".`
+          : `Project graph "${projectGraph.id}" (${projectGraph.kind}) for target "${expectedTarget}" must not declare target core adapter "${packageName}" from "${packageCorePluginFamily}". Target core wiring belongs only in the active target-core resolver.`,
+      })
+    }
   }
 
   return diagnostics
