@@ -173,7 +173,10 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
     value('pre-line', 'Preserve line breaks while collapsing other whitespace.'),
     value('pre-wrap', 'Preserve whitespace and allow wrapping.'),
   ]),
-  property('text-overflow', 'p2', false, 'Text overflow metadata planned for native text layout.'),
+  property('text-overflow', 'p1', true, 'Text overflow clipping policy for native text and button label draw params.', [
+    value('clip', 'Clip overflowing text at the text box edge.'),
+    value('ellipsis', 'Use an ellipsis marker when overflowing text is clipped.'),
+  ]),
   property('text-wrap', 'p2', false, 'Text wrapping metadata planned for native text layout.'),
   property('text-decoration', 'p1', true, 'Text decoration for native text and button label draw params.', [
     value('none', 'Render text without decoration.'),

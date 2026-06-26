@@ -1,13 +1,14 @@
 use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
 use crate::render_graph::{
     EdgeInsetsDrawParam, FontStyleDrawParam, FontWeightDrawParam, MediaFit, MediaOrigin, TextAlign,
-    TextDecorationDrawParam, WhiteSpaceDrawParam,
+    TextDecorationDrawParam, TextOverflowDrawParam, WhiteSpaceDrawParam,
 };
 
 use super::types::{
     UiSurfaceBorderStyleProjection, UiSurfaceFontStyleProjection, UiSurfaceImageProjection,
     UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
-    UiSurfaceTextDecorationProjection, UiSurfaceWhiteSpaceProjection,
+    UiSurfaceTextDecorationProjection, UiSurfaceTextOverflowProjection,
+    UiSurfaceWhiteSpaceProjection,
 };
 
 pub fn resolve_background_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {
@@ -129,6 +130,13 @@ pub fn resolve_text_decoration(style: &UiSurfaceResolvedStyle) -> TextDecoration
             TextDecorationDrawParam::LineThrough
         }
         Some(UiSurfaceTextDecorationProjection::None) | None => TextDecorationDrawParam::None,
+    }
+}
+
+pub fn resolve_text_overflow(style: &UiSurfaceResolvedStyle) -> TextOverflowDrawParam {
+    match style.text_overflow {
+        Some(UiSurfaceTextOverflowProjection::Ellipsis) => TextOverflowDrawParam::Ellipsis,
+        Some(UiSurfaceTextOverflowProjection::Clip) | None => TextOverflowDrawParam::Clip,
     }
 }
 
