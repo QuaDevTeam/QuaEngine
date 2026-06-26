@@ -30,7 +30,8 @@ export interface CheckTargetPluginManifestOptions {
 }
 
 export type TargetPluginManifestDiagnosticCode
-  = | 'TARGET_PLUGIN_ENTRY_MISSING'
+  = | 'TARGET_PLUGIN_ENTRY_TARGET_INVALID'
+    | 'TARGET_PLUGIN_ENTRY_MISSING'
     | 'TARGET_PLUGIN_SELECTED_ENTRY_UNKNOWN'
     | 'TARGET_PLUGIN_SELECTED_ENTRY_MISSING'
     | 'TARGET_PLUGIN_SELECTED_ENTRY_TARGET_MISMATCH'
@@ -44,7 +45,7 @@ export interface TargetPluginManifestDiagnostic {
   target: QuaTargetBootstrap
   pluginId: string
   specifier?: string
-  entryTarget?: TargetPluginEntryTarget
+  entryTarget?: TargetPluginEntryTarget | string
   packageName?: string
   message: string
 }
@@ -61,6 +62,21 @@ export function validateTargetPluginManifest(
   const diagnostics: TargetPluginManifestDiagnostic[] = []
   const { manifest, target } = options
   const selectedEntries = collectSelectedPluginEntries(options)
+
+  for (const entry of manifest.entries) {
+    const entryTarget = pluginEntryTarget(entry)
+    if (isTargetPluginEntryTarget(entryTarget))
+      continue
+
+    diagnostics.push({
+      code: 'TARGET_PLUGIN_ENTRY_TARGET_INVALID',
+      target,
+      pluginId: manifest.pluginId,
+      specifier: entry.specifier,
+      entryTarget,
+      message: `Plugin "${manifest.pluginId}" entry "${entry.specifier}" declares invalid target "${entryTarget}". Expected "shared", "web", "cocos", or "native".`,
+    })
+  }
 
   if (options.requireTargetEntry !== false && !manifest.entries.some(entry => pluginEntryTarget(entry) === target)) {
     diagnostics.push({
@@ -174,8 +190,12 @@ export function validateTargetPluginManifest(
   }
 }
 
-export function pluginEntryTarget(entry: TargetPluginEntryDeclaration): TargetPluginEntryTarget {
+export function pluginEntryTarget(entry: TargetPluginEntryDeclaration): TargetPluginEntryTarget | string {
   return entry.target || 'shared'
+}
+
+function isTargetPluginEntryTarget(target: unknown): target is TargetPluginEntryTarget {
+  return target === 'shared' || target === 'web' || target === 'cocos' || target === 'native'
 }
 
 function collectSelectedPluginEntries(options: CheckTargetPluginManifestOptions): TargetPluginEntryDeclaration[] {
