@@ -235,6 +235,13 @@ impl JsonProjectionValidator {
                 &format!("view.ui.overlays[{overlay_index}].provenance"),
                 &overlay.provenance,
             );
+            if let Some(overlay_stack) = &overlay.overlay_stack {
+                self.validate_ui_dispatch_identifier(
+                    &format!("view.ui.overlays[{overlay_index}].overlayStack"),
+                    overlay_stack,
+                    "UI overlay stack names",
+                );
+            }
             if let Some(surface) = &overlay.surface {
                 self.validate_ui_surface(
                     surface,
@@ -250,6 +257,17 @@ impl JsonProjectionValidator {
                     &mut scene_ids,
                     "UI scene ids",
                 );
+                if let Some(overlay_stack) = scene
+                    .overlay
+                    .as_ref()
+                    .and_then(|overlay| overlay.overlay_stack.as_ref())
+                {
+                    self.validate_ui_dispatch_identifier(
+                        &format!("view.ui.overlays[{overlay_index}].scene.overlay.overlayStack"),
+                        overlay_stack,
+                        "UI scene overlay stack names",
+                    );
+                }
             }
             if let Some(scene_surface) = overlay
                 .scene

@@ -404,6 +404,55 @@ pub(super) fn json_frame_with_unsafe_scene_id_input() -> &'static str {
     "#
 }
 
+pub(super) fn json_frame_with_unsafe_overlay_stack_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "overlayStack": "native/load.dll",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": { "id": "root", "kind": "Box" }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_unsafe_scene_overlay_stack_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "scene": {
+                "id": "settings",
+                "overlay": {
+                  "overlayStack": "https://example.invalid/stack"
+                },
+                "surface": {
+                  "key": "ui/menu.qui",
+                  "root": { "id": "root", "kind": "Box" }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(super) fn json_frame_with_unsafe_ui_intent_action_input() -> &'static str {
     r#"
     {
