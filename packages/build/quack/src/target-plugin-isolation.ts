@@ -1,13 +1,21 @@
 import type {
   OrdinaryPluginReference,
   QuaTargetBootstrap,
+  TargetPluginManifest,
   ValidateOrdinaryPluginListTargetIsolationOptions,
 } from '@quajs/native-contracts'
 import type { QuackPlugin } from './core/types'
-import { validateOrdinaryPluginListTargetIsolation } from '@quajs/native-contracts'
+import { validateOrdinaryPluginListTargetIsolation, validateTargetPluginManifest } from '@quajs/native-contracts'
 
 export type AssertQuackPluginTargetIsolationOptions = ValidateOrdinaryPluginListTargetIsolationOptions
 export type QuackPluginReference = OrdinaryPluginReference
+
+export interface AssertQuackTargetPluginManifestIsolationOptions {
+  target: QuaTargetBootstrap
+  manifest: TargetPluginManifest
+  selectedEntries?: readonly string[]
+  requireTargetEntry?: boolean
+}
 
 export function assertQuackPluginReferencesTargetIsolation(
   references: readonly QuackPluginReference[],
@@ -40,6 +48,22 @@ export function assertLoadedQuackPluginTargetIsolation(
     ...options,
     fieldName: options.fieldName || 'QuackConfig.plugins',
   })
+}
+
+export function assertQuackTargetPluginManifestIsolation(
+  options: AssertQuackTargetPluginManifestIsolationOptions,
+): void {
+  const result = validateTargetPluginManifest(options)
+  if (result.ok)
+    return
+
+  throw new Error([
+    `Quack target plugin manifest "${options.manifest.pluginId}" is not valid for "${options.target}" packaging.`,
+    ...result.diagnostics.map(diagnostic =>
+      `- ${diagnostic.code}${diagnostic.specifier ? ` ${diagnostic.specifier}` : ''}: ${diagnostic.message}`,
+    ),
+    'Select only shared plus active-target plugin entries before bundling.',
+  ].join('\n'))
 }
 
 export function targetFromAssetPlatform(platform: unknown): QuaTargetBootstrap | undefined {

@@ -3,6 +3,7 @@ import {
   assertLoadedQuackPluginTargetIsolation,
   assertQuackPluginReferencesTargetIsolation,
   assertQuackPluginSpecifiersTargetIsolation,
+  assertQuackTargetPluginManifestIsolation,
 } from '../src/target-plugin-isolation'
 
 describe('Quack target plugin isolation', () => {
@@ -60,6 +61,64 @@ describe('Quack target plugin isolation', () => {
       fieldName: 'loaded plugin metadata',
     })).toThrow(
       /loaded plugin metadata[\s\S]*@quajs\/renderer-web\/plugins\/ui resolves to @quajs\/renderer-web[\s\S]*@quajs\/cocos-host resolves to @quajs\/cocos-host[\s\S]*@quajs\/engine-native\/runtime resolves to @quajs\/engine-native/,
+    )
+  })
+
+  it('accepts target plugin manifests when only shared and active entries are selected', () => {
+    expect(() => assertQuackTargetPluginManifestIsolation({
+      target: 'native',
+      manifest: {
+        pluginId: '@quajs/plugin-menu',
+        entries: [
+          {
+            specifier: '@quajs/plugin-menu/shared',
+            target: 'shared',
+            imports: ['@quajs/engine'],
+          },
+          {
+            specifier: '@quajs/plugin-menu/web',
+            target: 'web',
+            imports: ['@quajs/renderer-web/plugins/ui'],
+          },
+          {
+            specifier: '@quajs/plugin-menu/native',
+            target: 'native',
+            imports: ['@quajs/engine-native'],
+          },
+        ],
+      },
+      selectedEntries: [
+        '@quajs/plugin-menu/shared',
+        '@quajs/plugin-menu/native',
+      ],
+    })).not.toThrow()
+  })
+
+  it('wraps target plugin manifest diagnostics in packaging-ready Quack errors', () => {
+    expect(() => assertQuackTargetPluginManifestIsolation({
+      target: 'native',
+      manifest: {
+        pluginId: '@quajs/plugin-menu',
+        entries: [
+          {
+            specifier: '@quajs/plugin-menu/shared',
+            target: 'shared',
+          },
+          {
+            specifier: '@quajs/plugin-menu/native',
+            target: 'desktop-native' as any,
+          },
+          {
+            specifier: '@quajs/plugin-menu/web',
+            target: 'web',
+            eager: true,
+            imports: ['@quajs/renderer-web/plugins/ui'],
+          },
+        ],
+      },
+      selectedEntries: ['@quajs/plugin-menu/native'],
+    })).toThrow(
+      /@quajs\/plugin-menu[\s\S]*TARGET_PLUGIN_ENTRY_TARGET_INVALID @quajs\/plugin-menu\/native[\s\S]*TARGET_PLUGIN_INACTIVE_ENTRY_EAGER @quajs\/plugin-menu\/web[\s\S]*TARGET_PLUGIN_INACTIVE_ENTRY_TARGET_CORE_IMPORT @quajs\/plugin-menu\/web[\s\S]*Select only shared plus active-target plugin entries/,
     )
   })
 

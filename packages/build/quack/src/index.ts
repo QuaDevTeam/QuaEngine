@@ -113,6 +113,18 @@ export {
   tryLoadQuaProjectConfig,
   validateQuaProjectConfig,
 } from './project'
+export {
+  assertLoadedQuackPluginTargetIsolation,
+  assertQuackPluginReferencesTargetIsolation,
+  assertQuackPluginSpecifiersTargetIsolation,
+  assertQuackTargetPluginManifestIsolation,
+  targetFromAssetPlatform,
+} from './target-plugin-isolation'
+export type {
+  AssertQuackPluginTargetIsolationOptions,
+  AssertQuackTargetPluginManifestIsolationOptions,
+  QuackPluginReference,
+} from './target-plugin-isolation'
 export type {
   EmitQuaProjectNativeTargetBundleManifestOptions,
   EmitQuaTargetBundleManifestOptions,
