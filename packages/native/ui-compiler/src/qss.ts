@@ -26,6 +26,7 @@ import {
   parseNativeQssLogicalNumber,
   parseNativeQssObjectFit,
   parseNativeQssOpacity,
+  parseNativeQssOverflow,
   parseNativeQssTextAlign,
   parseNativeQssVisibility,
 } from './qss-resolved-style'
@@ -678,6 +679,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssOpacity(value) !== undefined
         ? undefined
         : 'opacity must be a finite number; native projection clamps it to 0..1.'
+    case 'overflow':
+      return parseNativeQssOverflow(value) !== undefined
+        ? undefined
+        : 'overflow supports visible or hidden.'
     case 'padding':
       return parseNativeQssEdgeInsets(value) !== undefined
         ? undefined

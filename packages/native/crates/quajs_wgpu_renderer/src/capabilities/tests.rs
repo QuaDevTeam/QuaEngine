@@ -104,6 +104,7 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(ui.qss_features.contains(&"text-align".to_string()));
     assert!(ui.qss_features.contains(&"object-fit".to_string()));
     assert!(ui.qss_features.contains(&"opacity".to_string()));
+    assert!(ui.qss_features.contains(&"overflow".to_string()));
     assert!(ui.qss_features.contains(&"z-index".to_string()));
     assert!(ui.qss_features.contains(&"top".to_string()));
     assert!(ui.qss_features.contains(&"visibility".to_string()));

@@ -250,6 +250,7 @@ export interface NativeQssResolvedStyle {
 
 export interface NativeQssResolvedNodeStyle {
   bounds?: NativeQssResolvedBounds
+  clipChildren?: boolean
   style: NativeQssResolvedStyle
   visible?: boolean
   zIndex?: number
@@ -299,6 +300,7 @@ export interface NativeUiSurfaceIntentProjection {
 export interface NativeUiSurfaceNodeProjection {
   bounds: NativeUiSurfaceRect
   children?: NativeUiSurfaceNodeProjection[]
+  clipChildren?: boolean
   id: string
   image?: NativeQssBackgroundImageValue
   intent?: NativeUiSurfaceIntentProjection

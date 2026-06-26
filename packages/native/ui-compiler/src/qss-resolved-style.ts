@@ -68,6 +68,9 @@ export function resolveNativeQssDeclarations(
       case 'opacity':
         resolved.style.opacity = parseNativeQssOpacity(value)
         break
+      case 'overflow':
+        resolved.clipChildren = parseNativeQssOverflow(value)
+        break
       case 'padding':
         resolved.style.padding = parseNativeQssEdgeInsets(value)
         break
@@ -295,6 +298,17 @@ export function parseNativeQssObjectFit(value: string): NativeQssObjectFitValue 
     : undefined
 }
 
+export function parseNativeQssOverflow(value: string): boolean | undefined {
+  switch (value.toLowerCase()) {
+    case 'hidden':
+      return true
+    case 'visible':
+      return false
+    default:
+      return undefined
+  }
+}
+
 export function parseNativeQssFontWeight(value: string): 'bold' | 'normal' | number | undefined {
   const normalized = value.toLowerCase()
   if (normalized === 'bold' || normalized === 'normal')
@@ -335,6 +349,8 @@ function pruneUndefinedResolvedNodeStyle(style: NativeQssResolvedNodeStyle): Nat
     delete style.zIndex
   if (style.visible === undefined)
     delete style.visible
+  if (style.clipChildren === undefined)
+    delete style.clipChildren
 
   return style
 }

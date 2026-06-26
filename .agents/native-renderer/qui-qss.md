@@ -185,6 +185,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 - `text-align`
 - `object-fit`
 - `opacity`
+- `overflow`（native 子集：`visible` / `hidden`；`hidden` 编译为 node-level `UiSurfaceNodeProjection.clipChildren: true`，用于裁剪普通 painted surface 的子节点绘制和 pointer 命中；`Scroll` / `SafeArea` 仍使用各自专用裁剪语义）
 - `padding` / `padding-top` / `padding-right` / `padding-bottom` / `padding-left`（作为 resolved edge inset metadata 写入 `UiSurfaceResolvedStyle.padding`；当前用于 draw params，完整布局算法仍归后续 layout IR）
 - `visibility`（native 子集：`visible` / `hidden`，作为 node-level `UiSurfaceNodeProjection.visible` fallback；QUI 显式 `show` prop 优先）
 - `z-index`（作为 resolved node metadata，写入 `UiSurfaceNodeProjection.z_index`，不是浏览器 stacking context）
@@ -195,7 +196,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 | 阶段 | 目标 | 建议属性 |
 | --- | --- | --- |
 | P0 | 先把 native surface 跑起来 | 上述基础字段 |
-| P1 | 补齐常用视觉布局 | 已落地 `z-index`、`visibility` visible/hidden 子集、结构化 `background-image: asset(...)`、`background-size` fit 子集、`background-position` origin 子集、`padding` edge inset metadata，以及静态 `left` / `top` / `width` / `height` bounds fallback；待补齐 `right`, `bottom`, `inset`, `position`, `margin`, `gap`, `min/max-*`, `overflow` |
+| P1 | 补齐常用视觉布局 | 已落地 `z-index`、`visibility` visible/hidden 子集、`overflow` visible/hidden 子集、结构化 `background-image: asset(...)`、`background-size` fit 子集、`background-position` origin 子集、`padding` edge inset metadata，以及静态 `left` / `top` / `width` / `height` bounds fallback；待补齐 `right`, `bottom`, `inset`, `position`, `margin`, `gap`, `min/max-*` |
 | P2 | 进一步接近熟悉的 CSS 体验 | 部分 `transform`, `shadow`, `transition` 及少量视觉增强 |
 
 ### 建议支持的 selector 语义
