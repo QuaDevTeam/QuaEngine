@@ -16,6 +16,12 @@ export {
   literalStringValue,
 } from './assets'
 export {
+  createNativeUiSurfaceCompatibilityFromDocuments,
+} from './compatibility'
+export type {
+  CreateNativeUiSurfaceCompatibilityFromDocumentsOptions,
+} from './compatibility'
+export {
   analyzeQssSource,
   formatQssSource,
   getQssCompletions,

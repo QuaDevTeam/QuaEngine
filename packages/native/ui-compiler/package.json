@@ -40,5 +40,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@quajs/native-contracts": "workspace:*"
   }
 }

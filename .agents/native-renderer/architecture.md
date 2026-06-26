@@ -189,7 +189,16 @@ native 兼容性要分三层：
 - required / optional QUI components
 - `nativeCode: false`
 
-动态 UI 小包、native menu / overlay package 和第三方插件的 native renderer entry 应优先用 `createNativeUiSurfaceCompatibility` 生成 compatibility block。这个 helper 从实际 `native-wgpu.ui.surface@1` capability metadata 派生 QUI components / QSS features / asset kinds，并固定补齐 `qui`、`qss`、`tokens` 和 `nativeCode: false`，避免手写 metadata 漏掉声明或误声明尚未实现的 `native-wgpu.audio@1`。
+动态 UI 小包、native menu / overlay package 和第三方插件的 native renderer entry 应优先用 `createNativeUiSurfaceCompatibility` 生成 compatibility block。这个 helper 从实际 `native-wgpu.ui.surface@1` capability metadata 派生基础 UI surface 能力，并固定补齐 `qui`、`qss`、`tokens` 和 `nativeCode: false`，避免手写 metadata 漏掉声明或误声明尚未实现的 `native-wgpu.audio@1`。
+
+当输入已经是 analyzed QUI / QSS 文档时，包构建器应使用 `@quajs/native-ui-compiler` 的 `createNativeUiSurfaceCompatibilityFromDocuments`：
+
+- 从 QUI component tree 收集 `quiComponents`。
+- 从 QSS declaration 收集 `qssFeatures`。
+- 从 QUI `src` / `image` 和 QSS `background-image: asset(...)` 收集 `assetKinds`。
+- 再委托 `@quajs/native-contracts` 生成最终 compatibility block。
+
+这个派生 helper 只能依赖平台无关 contracts，不得 import Web/Cocos/native bootstrap 或 runtime adapter。它不会自动声明 `native-wgpu.audio@1` 或真实 video playback capability；音视频只能在调用方明确传入已实现且 host capability 已公开的 optional / required capability 后出现。
 
 host 侧版本和 capability 以 signed native build 为准，QPK 不可覆盖。
 
