@@ -3,7 +3,7 @@ use crate::projection::typography::font_family_resource_ids;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
     FontStyleDrawParam, ImageDrawParams, MediaFit, MediaOrigin, PanelDrawParams, RenderGraph,
-    RenderPlane, TextDrawParams,
+    RenderPlane, TextDecorationDrawParam, TextDrawParams,
 };
 use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
@@ -107,6 +107,7 @@ fn text_command(
             font_weight: resolve_font_weight(style),
             line_height: resolve_line_height(style, fallback_line_height),
             align: resolve_text_align(style),
+            text_decoration: TextDecorationDrawParam::None,
             color: resolve_text_color(style, "#ffffff"),
             padding: EdgeInsetsDrawParam::default(),
             role: role.to_string(),

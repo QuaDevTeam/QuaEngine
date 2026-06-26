@@ -6,11 +6,13 @@ import type {
   NativeQssObjectFitValue,
   NativeQssResolvedBounds,
   NativeQssResolvedNodeStyle,
+  NativeQssTextDecorationValue,
   NativeQssTextAlignValue,
 } from './types'
 
 const OBJECT_FIT_VALUES = new Set<NativeQssObjectFitValue>(['contain', 'cover', 'fill', 'none', 'scale-down'])
 const TEXT_ALIGN_VALUES = new Set<NativeQssTextAlignValue>(['center', 'justify', 'left', 'right'])
+const TEXT_DECORATION_VALUES = new Set<NativeQssTextDecorationValue>(['line-through', 'none', 'underline'])
 const BORDER_STYLE_VALUES = new Set<NativeQssBorderStyleValue>(['none', 'solid'])
 const FONT_STYLE_VALUES = new Set<NativeQssFontStyleValue>(['italic', 'normal'])
 
@@ -106,6 +108,9 @@ export function resolveNativeQssDeclarations(
         break
       case 'text-align':
         resolved.style.textAlign = parseNativeQssTextAlign(value)
+        break
+      case 'text-decoration':
+        resolved.style.textDecoration = parseNativeQssTextDecoration(value)
         break
       case 'visibility':
         resolved.visible = parseNativeQssVisibility(value)
@@ -295,6 +300,13 @@ export function parseNativeQssTextAlign(value: string): NativeQssTextAlignValue 
   const normalized = value.toLowerCase()
   return TEXT_ALIGN_VALUES.has(normalized as NativeQssTextAlignValue)
     ? normalized as NativeQssTextAlignValue
+    : undefined
+}
+
+export function parseNativeQssTextDecoration(value: string): NativeQssTextDecorationValue | undefined {
+  const normalized = value.toLowerCase()
+  return TEXT_DECORATION_VALUES.has(normalized as NativeQssTextDecorationValue)
+    ? normalized as NativeQssTextDecorationValue
     : undefined
 }
 

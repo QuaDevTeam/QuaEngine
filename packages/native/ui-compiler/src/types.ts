@@ -202,6 +202,11 @@ export type NativeQssTextAlignValue
     | 'left'
     | 'right'
 
+export type NativeQssTextDecorationValue
+  = | 'line-through'
+    | 'none'
+    | 'underline'
+
 export type NativeQssObjectFitValue
   = | 'contain'
     | 'cover'
@@ -256,6 +261,7 @@ export interface NativeQssResolvedStyle {
   opacity?: number
   padding?: NativeQssEdgeInsetsValue
   textAlign?: NativeQssTextAlignValue
+  textDecoration?: NativeQssTextDecorationValue
 }
 
 export interface NativeQssResolvedNodeStyle {

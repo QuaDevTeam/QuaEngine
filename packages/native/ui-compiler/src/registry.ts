@@ -165,7 +165,11 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('white-space', 'p2', false, 'Whitespace handling planned for native text layout.'),
   property('text-overflow', 'p2', false, 'Text overflow metadata planned for native text layout.'),
   property('text-wrap', 'p2', false, 'Text wrapping metadata planned for native text layout.'),
-  property('text-decoration', 'p2', false, 'Text decoration planned for native text layout.'),
+  property('text-decoration', 'p1', true, 'Text decoration for native text and button label draw params.', [
+    value('none', 'Render text without decoration.'),
+    value('underline', 'Render text with an underline.'),
+    value('line-through', 'Render text with a strike-through line.'),
+  ]),
   property('text-shadow', 'p2', false, 'Limited text shadow planned for native text layout.'),
   property('transform', 'p2', false, '2D transform metadata planned for native style IR.'),
   property('transform-origin', 'p2', false, 'Transform origin metadata planned for native style IR.'),

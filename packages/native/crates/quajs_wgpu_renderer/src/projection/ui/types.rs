@@ -179,6 +179,14 @@ pub enum UiSurfaceTextAlignProjection {
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
+pub enum UiSurfaceTextDecorationProjection {
+    None,
+    Underline,
+    LineThrough,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum UiSurfaceFontStyleProjection {
     Normal,
     Italic,
@@ -254,6 +262,8 @@ pub struct UiSurfaceResolvedStyle {
     pub line_height: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_align: Option<UiSurfaceTextAlignProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_decoration: Option<UiSurfaceTextDecorationProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub object_fit: Option<UiSurfaceObjectFitProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
