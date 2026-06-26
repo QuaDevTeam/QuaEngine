@@ -690,6 +690,41 @@ fn json_frame_intent_validation_rejects_unsafe_dispatch_identifiers() {
 }
 
 #[test]
+fn json_frame_intent_validation_rejects_duplicate_ui_dispatch_identifiers() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let overlay = renderer
+        .prepare_frame_json_str(json_frame_with_duplicate_overlay_element_id_input())
+        .unwrap_err();
+    match overlay {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[1].elementId");
+            assert_eq!(validation.asset_name, "menu");
+            assert!(validation.reason.contains("unique"));
+        }
+        other => panic!("expected duplicate overlay id validation error, got {other:?}"),
+    }
+
+    let node = renderer
+        .prepare_frame_json_str(json_frame_with_duplicate_surface_node_id_input())
+        .unwrap_err();
+    match node {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.children[0].id"
+            );
+            assert_eq!(validation.asset_name, "root");
+            assert!(validation.reason.contains("unique"));
+        }
+        other => panic!("expected duplicate surface node id validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_input_resolves_layout_defaults() {
     let input: NativeRendererJsonFrameInput = serde_json::from_str(
         r#"
@@ -1090,6 +1125,66 @@ fn json_frame_with_native_payload_choice_id_input() -> &'static str {
                     "choiceId": "native.dll",
                     "action": "select"
                   }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_duplicate_overlay_element_id_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": { "id": "root", "kind": "Box" }
+              }
+            },
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/secondary.qui",
+                "root": { "id": "secondary-root", "kind": "Box" }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+fn json_frame_with_duplicate_surface_node_id_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Box",
+                  "children": [
+                    {
+                      "id": "root",
+                      "kind": "Button",
+                      "bounds": { "x": 0, "y": 0, "width": 120, "height": 48 },
+                      "intent": { "event": "ui/intent", "action": "open" }
+                    }
+                  ]
                 }
               }
             }

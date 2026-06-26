@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::projection::background::{BackgroundProjection, BackgroundVideoProjection};
 use crate::projection::character::CharacterProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
@@ -162,10 +164,18 @@ impl JsonProjectionValidator {
 
     fn validate_ui(&mut self, ui: &UiProjection) {
         self.validate_provenance("view.ui.provenance", &ui.provenance);
+        let mut overlay_element_ids = BTreeSet::new();
         for (overlay_index, overlay) in ui.overlays.iter().enumerate() {
+            let overlay_path = format!("view.ui.overlays[{overlay_index}].elementId");
             self.validate_ui_dispatch_identifier(
-                &format!("view.ui.overlays[{overlay_index}].elementId"),
+                &overlay_path,
                 &overlay.element_id,
+                "UI overlay element ids",
+            );
+            self.validate_unique_identifier(
+                &overlay_path,
+                &overlay.element_id,
+                &mut overlay_element_ids,
                 "UI overlay element ids",
             );
             self.validate_provenance(
@@ -200,14 +210,26 @@ impl JsonProjectionValidator {
     fn validate_ui_surface(&mut self, surface: &UiOverlaySurfaceProjection, path: &str) {
         self.validate_asset_reference(&format!("{path}.key"), &surface.key);
         if let Some(root) = &surface.root {
-            self.validate_ui_surface_node(root, &format!("{path}.root"));
+            let mut surface_node_ids = BTreeSet::new();
+            self.validate_ui_surface_node(root, &format!("{path}.root"), &mut surface_node_ids);
         }
     }
 
-    fn validate_ui_surface_node(&mut self, node: &UiSurfaceNodeProjection, path: &str) {
+    fn validate_ui_surface_node(
+        &mut self,
+        node: &UiSurfaceNodeProjection,
+        path: &str,
+        surface_node_ids: &mut BTreeSet<String>,
+    ) {
         self.validate_ui_dispatch_identifier(
             &format!("{path}.id"),
             &node.id,
+            "UI surface node ids",
+        );
+        self.validate_unique_identifier(
+            &format!("{path}.id"),
+            &node.id,
+            surface_node_ids,
             "UI surface node ids",
         );
         self.validate_provenance(&format!("{path}.provenance"), &node.provenance);
@@ -222,7 +244,11 @@ impl JsonProjectionValidator {
         }
         self.validate_ui_style(&format!("{path}.style"), &node.style);
         for (index, child) in node.children.iter().enumerate() {
-            self.validate_ui_surface_node(child, &format!("{path}.children[{index}]"));
+            self.validate_ui_surface_node(
+                child,
+                &format!("{path}.children[{index}]"),
+                surface_node_ids,
+            );
         }
     }
 
@@ -343,6 +369,22 @@ impl JsonProjectionValidator {
                 path: path.to_string(),
                 asset_name: value.to_string(),
                 reason,
+            });
+        }
+    }
+
+    fn validate_unique_identifier(
+        &mut self,
+        path: &str,
+        value: &str,
+        seen: &mut BTreeSet<String>,
+        noun: &str,
+    ) {
+        if !seen.insert(value.to_string()) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: value.to_string(),
+                reason: format!("{noun} must be unique within their native UI scope"),
             });
         }
     }
