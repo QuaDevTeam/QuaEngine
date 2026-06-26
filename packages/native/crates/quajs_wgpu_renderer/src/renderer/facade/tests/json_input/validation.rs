@@ -270,6 +270,18 @@ fn json_frame_intent_validation_rejects_unsafe_dispatch_identifiers() {
         other => panic!("expected surface node id validation error, got {other:?}"),
     }
 
+    let scene = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_scene_id_input())
+        .unwrap_err();
+    match scene {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].scene.id");
+            assert_eq!(validation.asset_name, "native/load.dll");
+            assert!(validation.reason.contains("paths"));
+        }
+        other => panic!("expected scene id validation error, got {other:?}"),
+    }
+
     let action = renderer
         .prepare_frame_json_str(json_frame_with_unsafe_ui_intent_action_input())
         .unwrap_err();
@@ -348,6 +360,18 @@ fn json_frame_intent_validation_rejects_duplicate_ui_dispatch_identifiers() {
             assert!(validation.reason.contains("unique"));
         }
         other => panic!("expected duplicate surface node id validation error, got {other:?}"),
+    }
+
+    let scene = renderer
+        .prepare_frame_json_str(json_frame_with_duplicate_scene_id_input())
+        .unwrap_err();
+    match scene {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[1].scene.id");
+            assert_eq!(validation.asset_name, "settings");
+            assert!(validation.reason.contains("unique"));
+        }
+        other => panic!("expected duplicate scene id validation error, got {other:?}"),
     }
 
     assert_eq!(renderer.state().revision(), 0);
