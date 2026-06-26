@@ -220,7 +220,7 @@ fn check_selected_core_adapters(
     let selected: BTreeSet<String> = manifest
         .selected_core_adapters
         .iter()
-        .filter_map(TargetBundleReference::specifier)
+        .flat_map(TargetBundleReference::specifiers)
         .map(normalize_package_specifier)
         .collect();
     let expected: BTreeSet<String> = NATIVE_CORE_ADAPTERS

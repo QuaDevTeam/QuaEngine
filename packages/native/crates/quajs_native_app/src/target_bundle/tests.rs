@@ -169,6 +169,36 @@ fn checks_both_specifier_and_package_name_for_target_core_leaks() {
 }
 
 #[test]
+fn checks_both_specifier_and_package_name_for_selected_core_adapters() {
+    let mut manifest = native_manifest();
+    manifest.selected_core_adapters = vec![
+        TargetBundleReference::Specifier("@quajs/engine-native".to_string()),
+        TargetBundleReference::Specifier("@quajs/assets-native".to_string()),
+        TargetBundleReference::Specifier("@quajs/store-native".to_string()),
+        TargetBundleReference::Object(TargetBundleReferenceObject {
+            specifier: Some("@quajs/native-contracts/bootstrap".to_string()),
+            package_name: Some("@quajs/renderer-web/plugins/ui".to_string()),
+            target: None,
+            plugin_id: None,
+        }),
+    ];
+
+    let error = validate_native_target_bundle_manifest(&manifest, None)
+        .expect_err("masked selected core adapter is rejected");
+
+    assert!(error.diagnostics().iter().any(|diagnostic| {
+        diagnostic.contains(
+            "Native target bundle selected unexpected core adapter \"@quajs/renderer-web\"",
+        )
+    }));
+    assert!(error.diagnostics().iter().any(|diagnostic| {
+        diagnostic.contains(
+            "Native target bundle must not include foreign target core adapter \"@quajs/renderer-web\"",
+        )
+    }));
+}
+
+#[test]
 fn deserializes_target_bundle_manifest_contract_shape() {
     let manifest: NativeTargetBundleManifest =
         serde_json::from_value(native_manifest_json()).expect("manifest contract shape parses");
