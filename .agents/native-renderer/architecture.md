@@ -41,6 +41,14 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 - debug、release、updater、installer、手写 shell 和测试 fixture 都必须复用同一套 manifest validation，不能另开绕过 target isolation 的快速路径。
 - `target-bundle-manifest.json` 是目标交接契约，`target`、`targetCoreResolver`、selected adapters、renderer entries、Runtime QPK executable dependencies 必须同属一个 core family。
 
+实现时不要提供一个三端共享的 `corePlugins`、`targetCorePlugins`、`bootstrapPlugins` 或 umbrella preset，然后在后续流程里按 target 过滤。Web、Cocos、Native 必须分别有自己的 resolver 函数 / resolver context，并且只有当前 resolver 能注入核心插件：
+
+- `resolveWebTargetCore()` 只能返回 Web bootstrap、Web assets/store、Web renderer / framework adapter 和 Web renderer plugin entries。
+- `resolveCocosTargetCore()` 只能返回 Cocos host / renderer adapter 和 Cocos renderer plugin entries。
+- `resolveNativeTargetCore()` 只能返回 `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、native contracts 元数据和 Rust native app/runtime/renderer 元数据。
+
+普通插件、第三方插件和 Runtime QPK 只能消费已经选好的 `TargetCoreSelection`，不能再追加或覆盖 target core。即使某个 shared helper 只是为了“统一处理三端”，也只能处理 target metadata / schema 数据，不能 import inactive target bootstrap entrypoint 或把 inactive core adapter 放进依赖图。
+
 打包到 Cocos、Web、Native 项目时，核心 bootstrap 插件不能串线：
 
 - Web artifact 只能包含 Web core resolver、Web assets/renderer/framework adapter。
