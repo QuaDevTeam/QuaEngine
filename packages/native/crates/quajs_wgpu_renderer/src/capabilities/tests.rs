@@ -110,6 +110,10 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(ui.qss_features.contains(&"height".to_string()));
     assert!(ui.qss_features.contains(&"left".to_string()));
     assert!(ui.qss_features.contains(&"line-height".to_string()));
+    assert!(ui.qss_features.contains(&"max-height".to_string()));
+    assert!(ui.qss_features.contains(&"max-width".to_string()));
+    assert!(ui.qss_features.contains(&"min-height".to_string()));
+    assert!(ui.qss_features.contains(&"min-width".to_string()));
     assert!(ui.qss_features.contains(&"text-align".to_string()));
     assert!(ui.qss_features.contains(&"text-decoration".to_string()));
     assert!(ui.qss_features.contains(&"text-overflow".to_string()));

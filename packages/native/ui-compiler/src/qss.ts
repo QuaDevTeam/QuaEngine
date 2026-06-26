@@ -670,6 +670,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
     case 'font-size':
     case 'height':
     case 'line-height':
+    case 'max-height':
+    case 'max-width':
+    case 'min-height':
+    case 'min-width':
     case 'width':
       return parseNativeQssLogicalNumber(value) !== undefined
         ? undefined
