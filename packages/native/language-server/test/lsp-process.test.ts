@@ -40,6 +40,15 @@ interface CompletionListLike {
   items: CompletionItemLike[]
 }
 
+interface CodeActionLike {
+  diagnostics?: Array<{
+    code?: number | string
+  }>
+  edit?: WorkspaceEditLike
+  kind?: string
+  title: string
+}
+
 interface HoverLike {
   contents: string | {
     value?: string
@@ -113,6 +122,7 @@ describe('@quajs/native-language-server process', () => {
 
     expect(initialize.capabilities).toEqual(expect.objectContaining({
       completionProvider: expect.any(Object),
+      codeActionProvider: expect.any(Object),
       definitionProvider: true,
       documentLinkProvider: expect.any(Object),
       hoverProvider: true,
@@ -320,14 +330,16 @@ describe('@quajs/native-language-server process', () => {
         },
       })
 
-      await expect(client.waitForDiagnostics(qssUri)).resolves.toEqual([
+      const qssDiagnostics = await client.waitForDiagnostics(qssUri)
+      expect(qssDiagnostics).toEqual([
         expect.objectContaining({
           code: 'NATIVE_UI_ASSET_MISSING',
           message: 'Native UI asset "assets/missing-bg.png" could not be resolved.',
           severity: 2,
         }),
       ])
-      await expect(client.waitForDiagnostics(quiUri)).resolves.toEqual([
+      const quiDiagnostics = await client.waitForDiagnostics(quiUri)
+      expect(quiDiagnostics).toEqual([
         expect.objectContaining({
           code: 'NATIVE_UI_ASSET_MISSING',
           message: 'Native UI asset "assets/missing.png" could not be resolved.',
@@ -366,10 +378,100 @@ describe('@quajs/native-language-server process', () => {
         tooltip: 'Missing assets/missing-bg.png',
       }))
       expect(qssLinks[1]?.target).toBeUndefined()
+
+      const quiActions = await client.request<CodeActionLike[]>('textDocument/codeAction', {
+        context: {
+          diagnostics: quiDiagnostics,
+        },
+        range: rangeAtOffset(qui, qui.indexOf('assets/missing.png'), 'assets/missing.png'.length),
+        textDocument: {
+          uri: quiUri,
+        },
+      })
+      const quiQuickFix = quiActions.find(action => action.kind === 'quickfix')
+      const quiFixAll = quiActions.find(action => action.kind === 'source.fixAll.quaNativeAssets')
+      expect(quiQuickFix).toEqual(expect.objectContaining({
+        title: 'Remove missing native UI asset reference',
+      }))
+      expect(applyTextEdits(qui, quiQuickFix?.edit?.changes?.[quiUri] ?? [])).toBe('Image(src: "assets/poster.png")\nImage()')
+      expect(applyTextEdits(qui, quiFixAll?.edit?.changes?.[quiUri] ?? [])).toBe('Image(src: "assets/poster.png")\nImage()')
+
+      const qssActions = await client.request<CodeActionLike[]>('textDocument/codeAction', {
+        context: {
+          diagnostics: qssDiagnostics,
+        },
+        range: rangeAtOffset(qss, qss.indexOf('assets/missing-bg.png'), 'assets/missing-bg.png'.length),
+        textDocument: {
+          uri: qssUri,
+        },
+      })
+      const qssQuickFix = qssActions.find(action => action.kind === 'quickfix')
+      expect(qssQuickFix).toEqual(expect.objectContaining({
+        title: 'Remove missing native UI asset reference',
+      }))
+      expect(applyTextEdits(qss, qssQuickFix?.edit?.changes?.[qssUri] ?? []))
+        .toBe('Panel.hero { background-image: asset("assets/bg.png"); }\nPanel.missing {}')
     }
     finally {
       await rm(tempDir, { force: true, recursive: true })
     }
+  }, 30_000)
+
+  it('offers quick fixes for invalid QUI asset references from compiler diagnostics', async () => {
+    const quiUri = 'file:///project/ui/invalid-assets.qui'
+    const qui = 'Image(src: "../escape.png", asset-type: "../bad")'
+
+    client = new LspProcessClient(serverPath)
+    await client.request('initialize', {
+      capabilities: {},
+      initializationOptions: {
+        quaNative: {
+          lint: {
+            strictComponents: true,
+          },
+        },
+      },
+      processId: process.pid,
+      rootUri: 'file:///project',
+    })
+
+    client.notify('initialized', {})
+    client.notify('textDocument/didOpen', {
+      textDocument: {
+        languageId: 'qua-ui',
+        text: qui,
+        uri: quiUri,
+        version: 1,
+      },
+    })
+
+    const diagnostics = await client.waitForDiagnostics(quiUri)
+    expect(diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'QUI_INVALID_ASSET_REFERENCE',
+      }),
+      expect.objectContaining({
+        code: 'QUI_INVALID_ASSET_REFERENCE',
+      }),
+    ])
+
+    const actions = await client.request<CodeActionLike[]>('textDocument/codeAction', {
+      context: {
+        diagnostics,
+      },
+      range: rangeAtOffset(qui, qui.indexOf('../escape.png'), '../escape.png'.length),
+      textDocument: {
+        uri: quiUri,
+      },
+    })
+    const quickFix = actions.find(action => action.kind === 'quickfix')
+    const fixAll = actions.find(action => action.kind === 'source.fixAll.quaNativeAssets')
+
+    expect(quickFix).toEqual(expect.objectContaining({
+      title: 'Remove invalid native UI asset reference',
+    }))
+    expect(applyTextEdits(qui, quickFix?.edit?.changes?.[quiUri] ?? [])).toBe('Image(asset-type: "../bad")')
+    expect(applyTextEdits(qui, fixAll?.edit?.changes?.[quiUri] ?? [])).toBe('Image()')
   }, 30_000)
 })
 
@@ -585,4 +687,23 @@ function rangeAtOffset(source: string, offset: number, length: number): TextEdit
     start: positionAtOffset(source, offset),
     end: positionAtOffset(source, offset + length),
   }
+}
+
+function applyTextEdits(source: string, edits: readonly TextEditLike[]): string {
+  return [...edits]
+    .sort((left, right) => offsetAtPosition(source, right.range.start) - offsetAtPosition(source, left.range.start))
+    .reduce((current, edit) => {
+      const start = offsetAtPosition(current, edit.range.start)
+      const end = offsetAtPosition(current, edit.range.end)
+      return `${current.slice(0, start)}${edit.newText}${current.slice(end)}`
+    }, source)
+}
+
+function offsetAtPosition(source: string, position: { character: number, line: number }): number {
+  const lines = source.split(/\r?\n/)
+  let offset = 0
+  for (let line = 0; line < Math.min(position.line, lines.length); line += 1) {
+    offset += lines[line].length + 1
+  }
+  return Math.min(source.length, offset + position.character)
 }
