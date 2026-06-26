@@ -1,8 +1,9 @@
 use crate::projection::common::PackageProvenance;
 use crate::projection::typography::font_family_resource_ids;
 use crate::render_graph::{
-    BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams, MediaFit,
-    MediaOrigin, PanelDrawParams, RenderGraph, RenderPlane, TextDrawParams,
+    BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
+    ImageDrawParams, MediaFit, MediaOrigin, PanelDrawParams, RenderGraph, RenderPlane,
+    TextDrawParams,
 };
 use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
@@ -40,6 +41,7 @@ pub fn build_dialogue_commands(
             corner_radius: 18.0,
             fill_color: "rgba(0,0,0,0.72)".to_string(),
             border: BorderDrawParams::default(),
+            padding: EdgeInsetsDrawParam::default(),
             intent: None,
         })),
         &dialogue.provenance,
@@ -105,6 +107,7 @@ fn text_command(
             line_height: resolve_line_height(style, fallback_line_height),
             align: resolve_text_align(style),
             color: resolve_text_color(style, "#ffffff"),
+            padding: EdgeInsetsDrawParam::default(),
             role: role.to_string(),
         }))
 }

@@ -165,5 +165,4 @@ mod tests {
             std::thread::current().name().unwrap_or("test")
         ))
     }
-
 }

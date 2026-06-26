@@ -7,8 +7,8 @@ use crate::projection::{
     dialogue::DialogueProjection,
 };
 use crate::render_graph::{
-    BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, LogicalRect,
-    PanelDrawParams, RenderGraph, RenderPlane,
+    BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
+    LogicalRect, PanelDrawParams, RenderGraph, RenderPlane,
 };
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
@@ -58,6 +58,7 @@ fn keeps_different_planes_and_kinds_in_separate_batches() {
             corner_radius: 8.0,
             fill_color: "#000".to_string(),
             border: BorderDrawParams::default(),
+            padding: EdgeInsetsDrawParam::default(),
             intent: None,
         })),
     ]);

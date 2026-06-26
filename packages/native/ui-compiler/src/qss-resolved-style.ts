@@ -1,5 +1,6 @@
 import type {
   NativeQssDeclaration,
+  NativeQssEdgeInsetsValue,
   NativeQssObjectFitValue,
   NativeQssResolvedNodeStyle,
   NativeQssTextAlignValue,
@@ -59,6 +60,21 @@ export function resolveNativeQssDeclarations(
         break
       case 'opacity':
         resolved.style.opacity = parseNativeQssOpacity(value)
+        break
+      case 'padding':
+        resolved.style.padding = parseNativeQssEdgeInsets(value)
+        break
+      case 'padding-bottom':
+        resolved.style.padding = resolveNativeQssEdgeInset(resolved.style.padding, 'bottom', value)
+        break
+      case 'padding-left':
+        resolved.style.padding = resolveNativeQssEdgeInset(resolved.style.padding, 'left', value)
+        break
+      case 'padding-right':
+        resolved.style.padding = resolveNativeQssEdgeInset(resolved.style.padding, 'right', value)
+        break
+      case 'padding-top':
+        resolved.style.padding = resolveNativeQssEdgeInset(resolved.style.padding, 'top', value)
         break
       case 'text-align':
         resolved.style.textAlign = parseNativeQssTextAlign(value)
@@ -156,6 +172,37 @@ export function parseNativeQssLogicalNumber(value: string): number | undefined {
     return undefined
   const number = Number(match[1])
   return Number.isFinite(number) && number >= 0 ? number : undefined
+}
+
+export function parseNativeQssEdgeInsets(value: string): NativeQssEdgeInsetsValue | undefined {
+  const parts = value.split(/\s+/).map(item => item.trim()).filter(Boolean)
+  if (parts.length < 1 || parts.length > 4)
+    return undefined
+
+  const numbers = parts.map(parseNativeQssLogicalNumber)
+  if (numbers.some(number => number === undefined))
+    return undefined
+
+  const [top, right = top, bottom = top, left = right] = numbers as [number, number?, number?, number?]
+  return { top, right, bottom, left }
+}
+
+function resolveNativeQssEdgeInset(
+  current: NativeQssEdgeInsetsValue | undefined,
+  edge: keyof NativeQssEdgeInsetsValue,
+  value: string,
+): NativeQssEdgeInsetsValue | undefined {
+  const number = parseNativeQssLogicalNumber(value)
+  if (number === undefined)
+    return current
+
+  return {
+    bottom: current?.bottom ?? 0,
+    left: current?.left ?? 0,
+    right: current?.right ?? 0,
+    top: current?.top ?? 0,
+    [edge]: number,
+  }
 }
 
 function parsePercentUnitInterval(value: string): number | undefined {

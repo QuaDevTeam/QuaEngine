@@ -86,7 +86,16 @@ pub struct TextDrawParams {
     pub line_height: f64,
     pub align: TextAlign,
     pub color: String,
+    pub padding: EdgeInsetsDrawParam,
     pub role: String,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct EdgeInsetsDrawParam {
+    pub top: f64,
+    pub right: f64,
+    pub bottom: f64,
+    pub left: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -110,6 +119,7 @@ pub struct PanelDrawParams {
     pub corner_radius: f64,
     pub fill_color: String,
     pub border: BorderDrawParams,
+    pub padding: EdgeInsetsDrawParam,
     pub intent: Option<RendererIntent>,
 }
 
@@ -136,6 +146,7 @@ pub struct UiButtonDrawParams {
     pub font_weight: Option<FontWeightDrawParam>,
     pub line_height: f64,
     pub align: TextAlign,
+    pub padding: EdgeInsetsDrawParam,
     pub intent: Option<RendererIntent>,
 }
 
