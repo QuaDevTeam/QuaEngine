@@ -50,6 +50,31 @@
 
 如果某个 helper 需要复用三端 schema，只能复用纯数据 schema / validation helper，不能 import inactive target bootstrap entrypoint。
 
+## 打包核心插件装配红线
+
+打包到 Web、Cocos、Native 时，核心插件装配必须是三条物理隔离的入口，而不是一条共享入口的三种参数：
+
+- Web 打包入口只能调用 Web resolver，生成 Web bootstrap、Web asset/store adapter、Web renderer/framework adapter 和 Web renderer plugin subentry。
+- Cocos 打包入口只能调用 Cocos resolver，生成 Cocos host / asset / store bridge、Cocos renderer 和 Cocos renderer plugin subentry。
+- Native 打包入口只能调用 Native resolver，生成 `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、必要的 `@quajs/native-contracts` 元数据，以及 Rust native app/runtime/renderer capability metadata。
+
+普通 game/plugin 解析、shared preset、third-party plugin entry selection、Runtime QPK resolver、debug shell、installer、updater 和 smoke runner 都只能消费已经生成的 `TargetCoreSelection`，不能重新 import、追加、替换或二次声明任一 target core adapter。它们可以读取 target metadata，但不能把 Web / Cocos / Native 任一核心插件当作普通插件传递。
+
+这条规则要在代码结构上可见：
+
+- `resolveWebTargetCore()`、`resolveCocosTargetCore()`、`resolveNativeTargetCore()` 必须是互斥入口。
+- 任何 shared helper 只能处理 serializable metadata、schema、manifest validation 或 package-root normalization；一旦 import target runtime adapter / renderer / host bridge，就必须移动到对应 target resolver 内。
+- `plugins`、`presets`、generated plugin resolver、Runtime QPK `executableDependencies`、Runtime QPK `rendererEntries` 和 app renderer entries 都不得引用 Web / Cocos / Native target core root 或 subentry。
+- post-bundle graph 必须同时扫描 `specifier` 与 `packageName`，把 subentry 归一到 package root 后再判定是否串线。
+- debug 与 release 产物使用同一套 blocker。debug 可以多 sourcemap / diagnostics，但不能放宽核心插件隔离。
+
+验收时必须证明三端互斥，而不是只证明 native 严格：
+
+- Web 产物里出现 Cocos 或 Native core 直接失败。
+- Cocos 产物里出现 Web 或 Native core 直接失败。
+- Native 产物里出现 Web 或 Cocos core 直接失败。
+- 任何先构造 Web / Cocos / Native 三端核心插件全集再按 target 过滤的实现，即使最终 manifest 看似正确，也必须失败，因为 inactive core 已经进入 resolver graph。
+
 ## 检查层级
 
 核心插件隔离必须在五层都成立：
