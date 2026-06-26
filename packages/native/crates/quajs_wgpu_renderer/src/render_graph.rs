@@ -13,7 +13,8 @@ pub use style::{
     BorderDrawParams, CharacterAnchor, CharacterDrawParams, DrawCommandParams, EdgeInsetsDrawParam,
     FontStyleDrawParam, FontWeightDrawParam, ImageDrawParams, MediaFit, MediaOrigin,
     PanelDrawParams, RendererIntent, TextAlign, TextDecorationDrawParam, TextDrawParams,
-    UiButtonDrawParams, UiSurfaceDrawParams, VideoDrawParams, WhiteSpaceDrawParam,
+    TextOverflowDrawParam, UiButtonDrawParams, UiSurfaceDrawParams, VideoDrawParams,
+    WhiteSpaceDrawParam,
 };
 pub use summary::{
     RenderGraphPackageSummary, RenderGraphResourceSummary, RenderGraphSummary, RenderPlaneSummary,

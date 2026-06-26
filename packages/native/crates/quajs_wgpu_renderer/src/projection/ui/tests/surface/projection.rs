@@ -7,11 +7,13 @@ use crate::projection::ui::{
     UiSurfaceBorderStyleProjection, UiSurfaceEdgeInsetsProjection, UiSurfaceFontStyleProjection,
     UiSurfaceImageProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection,
     UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
-    UiSurfaceTextDecorationProjection, UiSurfaceWhiteSpaceProjection,
+    UiSurfaceTextDecorationProjection, UiSurfaceTextOverflowProjection,
+    UiSurfaceWhiteSpaceProjection,
 };
 use crate::render_graph::{
     DrawCommandKind, DrawCommandParams, FontStyleDrawParam, FontWeightDrawParam, LogicalRect,
-    MediaFit, RenderGraph, RenderPlane, TextAlign, TextDecorationDrawParam, WhiteSpaceDrawParam,
+    MediaFit, RenderGraph, RenderPlane, TextAlign, TextDecorationDrawParam, TextOverflowDrawParam,
+    WhiteSpaceDrawParam,
 };
 use crate::resources::ResourceId;
 
@@ -238,6 +240,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                         line_height: Some(44.0),
                         text_align: Some(UiSurfaceTextAlignProjection::Center),
                         text_decoration: Some(UiSurfaceTextDecorationProjection::Underline),
+                        text_overflow: Some(UiSurfaceTextOverflowProjection::Ellipsis),
                         white_space: Some(UiSurfaceWhiteSpaceProjection::PreWrap),
                         padding: Some(UiSurfaceEdgeInsetsProjection {
                             top: 2.0,
@@ -282,6 +285,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                         line_height: Some(40.0),
                         text_align: Some(UiSurfaceTextAlignProjection::Right),
                         text_decoration: Some(UiSurfaceTextDecorationProjection::LineThrough),
+                        text_overflow: Some(UiSurfaceTextOverflowProjection::Clip),
                         white_space: Some(UiSurfaceWhiteSpaceProjection::Nowrap),
                         padding: Some(UiSurfaceEdgeInsetsProjection {
                             top: 6.0,
@@ -327,6 +331,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
             assert_eq!(params.line_height, 44.0);
             assert_eq!(params.align, TextAlign::Center);
             assert_eq!(params.text_decoration, TextDecorationDrawParam::Underline);
+            assert_eq!(params.text_overflow, TextOverflowDrawParam::Ellipsis);
             assert_eq!(params.white_space, WhiteSpaceDrawParam::PreWrap);
             assert_eq!(params.padding.top, 2.0);
             assert_eq!(params.padding.right, 4.0);
@@ -367,6 +372,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
             assert_eq!(params.line_height, 40.0);
             assert_eq!(params.align, TextAlign::Right);
             assert_eq!(params.text_decoration, TextDecorationDrawParam::LineThrough);
+            assert_eq!(params.text_overflow, TextOverflowDrawParam::Clip);
             assert_eq!(params.white_space, WhiteSpaceDrawParam::NoWrap);
             assert_eq!(params.padding.top, 6.0);
             assert_eq!(params.padding.right, 14.0);

@@ -207,6 +207,10 @@ export type NativeQssTextDecorationValue
     | 'none'
     | 'underline'
 
+export type NativeQssTextOverflowValue
+  = | 'clip'
+    | 'ellipsis'
+
 export type NativeQssWhiteSpaceValue
   = | 'normal'
     | 'nowrap'
@@ -270,6 +274,7 @@ export interface NativeQssResolvedStyle {
   padding?: NativeQssEdgeInsetsValue
   textAlign?: NativeQssTextAlignValue
   textDecoration?: NativeQssTextDecorationValue
+  textOverflow?: NativeQssTextOverflowValue
   whiteSpace?: NativeQssWhiteSpaceValue
 }
 

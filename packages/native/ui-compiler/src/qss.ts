@@ -33,6 +33,7 @@ import {
   parseNativeQssOverflow,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
+  parseNativeQssTextOverflow,
   parseNativeQssVisibility,
   parseNativeQssWhiteSpace,
 } from './qss-resolved-style'
@@ -724,6 +725,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssTextDecoration(value)
         ? undefined
         : 'text-decoration supports none, underline, or line-through.'
+    case 'text-overflow':
+      return parseNativeQssTextOverflow(value)
+        ? undefined
+        : 'text-overflow supports clip or ellipsis.'
     case 'visibility':
       return parseNativeQssVisibility(value) !== undefined
         ? undefined
