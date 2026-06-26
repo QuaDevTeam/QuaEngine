@@ -28,6 +28,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('background-image')
     expect(nativeWgpuQssFeatureNames()).toContain('background-position')
     expect(nativeWgpuQssFeatureNames()).toContain('background-size')
+    expect(nativeWgpuQssFeatureNames()).toContain('border-style')
     expect(nativeWgpuQssFeatureNames()).toContain('display')
     expect(nativeWgpuQssFeatureNames()).toContain('height')
     expect(nativeWgpuQssFeatureNames()).toContain('left')
@@ -425,6 +426,7 @@ Button.primary {
   background-size: contain;
   border-color: #31415f;
   border-radius: 8px;
+  border-style: solid;
   border-width: 1px;
   color: #f6f8ff;
   font-family: "Inter", system-ui;
@@ -459,6 +461,7 @@ Button.primary {
         backgroundSize: 'contain',
         borderColor: '#31415f',
         borderRadius: 8,
+        borderStyle: 'solid',
         borderWidth: 1,
         color: '#f6f8ff',
         fontFamily: ['Inter', 'system-ui'],
@@ -478,6 +481,7 @@ Button.primary {
 Button {
   border-width: -1px;
   border-radius: calc(4px);
+  border-style: dashed;
   display: block;
   font-weight: heavy;
   height: -1px;
@@ -512,6 +516,7 @@ Button {
 Button {
   border-width: -1px;
   border-radius: calc(4px);
+  border-style: dashed;
   display: block;
   font-weight: heavy;
   height: -1px;
@@ -535,6 +540,7 @@ Button {
 Button {
   border-width: 0;
   border-radius: 0px;
+  border-style: none;
   display: none;
   font-weight: 0;
   height: 24px;
@@ -555,7 +561,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(19)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(20)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -568,6 +574,10 @@ Button {
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
         message: expect.stringContaining('background-size supports cover'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('border-style supports solid or none'),
       }),
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',

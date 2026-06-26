@@ -187,6 +187,13 @@ pub enum UiSurfaceObjectFitProjection {
     ScaleDown,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum UiSurfaceBorderStyleProjection {
+    None,
+    Solid,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UiSurfaceBackgroundPositionProjection {
@@ -224,6 +231,8 @@ pub struct UiSurfaceResolvedStyle {
     pub border_radius: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_style: Option<UiSurfaceBorderStyleProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_width: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

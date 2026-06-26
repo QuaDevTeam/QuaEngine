@@ -4,8 +4,8 @@ use crate::render_graph::{
 };
 
 use super::types::{
-    UiSurfaceImageProjection, UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle,
-    UiSurfaceTextAlignProjection,
+    UiSurfaceBorderStyleProjection, UiSurfaceImageProjection, UiSurfaceObjectFitProjection,
+    UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
 };
 
 pub fn resolve_background_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {
@@ -58,6 +58,13 @@ pub fn resolve_border_radius(style: &UiSurfaceResolvedStyle, fallback: f64) -> f
 }
 
 pub fn resolve_border_color(style: &UiSurfaceResolvedStyle) -> Option<String> {
+    if matches!(
+        style.border_style,
+        Some(UiSurfaceBorderStyleProjection::None)
+    ) {
+        return None;
+    }
+
     style
         .border_color
         .as_deref()
@@ -66,6 +73,13 @@ pub fn resolve_border_color(style: &UiSurfaceResolvedStyle) -> Option<String> {
 }
 
 pub fn resolve_border_width(style: &UiSurfaceResolvedStyle, fallback: f64) -> f64 {
+    if matches!(
+        style.border_style,
+        Some(UiSurfaceBorderStyleProjection::None)
+    ) {
+        return 0.0;
+    }
+
     resolve_positive_number(style.border_width, fallback)
 }
 
