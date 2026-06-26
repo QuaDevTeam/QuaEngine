@@ -1,6 +1,7 @@
 import type {
   NativeQssDocument,
   NativeQssRule,
+  NativePackageProvenance,
   NativeQuiAstNode,
   NativeQuiDocument,
   NativeQuiProp,
@@ -16,7 +17,9 @@ import { resolveNativeQssDeclarations } from './qss-resolved-style'
 import { splitTopLevel } from './source'
 
 export interface CompileNativeUiSurfaceProjectionOptions {
+  contentPackageId?: string
   qss?: NativeQssDocument | readonly NativeQssDocument[]
+  requiredRuntimePackages?: readonly string[]
   rootId?: string
 }
 
@@ -77,8 +80,9 @@ export function compileNativeUiSurfaceProjection(
   const qssDocuments = Array.isArray(options.qss)
     ? options.qss
     : options.qss ? [options.qss] : []
+  const provenance = packageProvenanceFromOptions(options)
   const rootChildren = qui.tree
-    .flatMap(node => surfaceNodeFromQuiNode(qui.source, node, [], qssDocuments))
+    .flatMap(node => surfaceNodeFromQuiNode(qui.source, node, [], qssDocuments, provenance))
 
   if (rootChildren.length === 0)
     return {}
@@ -91,6 +95,7 @@ export function compileNativeUiSurfaceProjection(
       id: options.rootId || 'root',
       kind: 'Fragment',
       bounds: { ...ZERO_RECT },
+      ...(provenance ? { provenance } : {}),
       children: rootChildren,
     }),
   }
@@ -101,12 +106,13 @@ function surfaceNodeFromQuiNode(
   node: NativeQuiAstNode,
   ancestors: readonly NativeQuiAstNode[],
   qssDocuments: readonly NativeQssDocument[],
+  provenance: NativePackageProvenance | undefined,
 ): NativeUiSurfaceNodeProjection[] {
   if (node.kind !== 'component' || !isSupportedSurfaceKind(node.name))
-    return node.children.flatMap(child => surfaceNodeFromQuiNode(source, child, ancestors, qssDocuments))
+    return node.children.flatMap(child => surfaceNodeFromQuiNode(source, child, ancestors, qssDocuments, provenance))
 
   const children = node.children
-    .flatMap(child => surfaceNodeFromQuiNode(source, child, [...ancestors, node], qssDocuments))
+    .flatMap(child => surfaceNodeFromQuiNode(source, child, [...ancestors, node], qssDocuments, provenance))
   const resolvedStyle = resolveStyleForNode({ node, ancestors }, qssDocuments)
   const rect = rectFromProps(node.props)
   const text = textFromNode(source, node)
@@ -127,8 +133,30 @@ function surfaceNodeFromQuiNode(
     image,
     intent,
     style: resolvedStyle.style,
+    ...(provenance ? { provenance } : {}),
     children,
   })]
+}
+
+function packageProvenanceFromOptions(
+  options: CompileNativeUiSurfaceProjectionOptions,
+): NativePackageProvenance | undefined {
+  const contentPackageId = options.contentPackageId?.trim()
+  const requiredRuntimePackages = Array.from(new Set(
+    (options.requiredRuntimePackages ?? [])
+      .map(packageId => packageId.trim())
+      .filter(Boolean),
+  )).sort()
+
+  if (!contentPackageId && requiredRuntimePackages.length === 0)
+    return undefined
+
+  const provenance: NativePackageProvenance = {}
+  if (contentPackageId)
+    provenance.contentPackageId = contentPackageId
+  if (requiredRuntimePackages.length > 0)
+    provenance.requiredRuntimePackages = requiredRuntimePackages
+  return provenance
 }
 
 function resolveStyleForNode(
@@ -407,6 +435,8 @@ function pruneSurfaceNode(node: NativeUiSurfaceNodeProjection): NativeUiSurfaceN
     delete node.intent
   if (!node.style || Object.keys(node.style).length === 0)
     delete node.style
+  if (!node.provenance || Object.keys(node.provenance).length === 0)
+    delete node.provenance
   if (!node.children || node.children.length === 0)
     delete node.children
   return node

@@ -242,6 +242,11 @@ export interface NativeUiSurfaceProjection {
   root?: NativeUiSurfaceNodeProjection
 }
 
+export interface NativePackageProvenance {
+  contentPackageId?: string
+  requiredRuntimePackages?: readonly string[]
+}
+
 export type NativeUiSurfaceNodeKind
   = | 'Backdrop'
     | 'Box'
@@ -282,6 +287,7 @@ export interface NativeUiSurfaceNodeProjection {
   intent?: NativeUiSurfaceIntentProjection
   kind: NativeUiSurfaceNodeKind
   opacity?: number
+  provenance?: NativePackageProvenance
   scrollOffsetX?: number
   scrollOffsetY?: number
   style?: NativeQssResolvedStyle

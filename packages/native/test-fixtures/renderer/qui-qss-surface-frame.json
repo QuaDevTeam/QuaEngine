@@ -10,12 +10,20 @@
       "overlays": [
         {
           "elementId": "compiled-menu",
+          "provenance": {
+            "contentPackageId": "runtime.ui",
+            "requiredRuntimePackages": ["base"]
+          },
           "surface": {
             "key": "ui/compiled-menu.qui",
             "root": {
               "id": "menu",
               "kind": "Panel",
               "bounds": { "x": 32, "y": 24, "width": 520, "height": 392 },
+              "provenance": {
+                "contentPackageId": "runtime.ui",
+                "requiredRuntimePackages": ["base", "runtime.fonts"]
+              },
               "style": {
                 "backgroundColor": "#101820",
                 "backgroundImage": { "assetType": "images", "assetName": "ui/panel.png" },
@@ -32,6 +40,10 @@
                   "bounds": { "x": 64, "y": 58, "width": 360, "height": 56 },
                   "zIndex": 8,
                   "text": "Compiled Menu",
+                  "provenance": {
+                    "contentPackageId": "runtime.ui",
+                    "requiredRuntimePackages": ["base", "runtime.fonts"]
+                  },
                   "style": {
                     "color": "#f7f3e8",
                     "fontFamily": ["Qua Sans", "Fallback Serif"],
@@ -46,6 +58,10 @@
                   "kind": "Image",
                   "bounds": { "x": 64, "y": 132, "width": 180, "height": 112 },
                   "image": { "assetType": "images", "assetName": "ui/poster.png" },
+                  "provenance": {
+                    "contentPackageId": "runtime.ui",
+                    "requiredRuntimePackages": ["base", "runtime.fonts"]
+                  },
                   "style": { "objectFit": "cover" }
                 },
                 {
@@ -57,6 +73,10 @@
                     "event": "ui/intent",
                     "action": "open",
                     "metadata": { "arg0": "settings" }
+                  },
+                  "provenance": {
+                    "contentPackageId": "runtime.ui",
+                    "requiredRuntimePackages": ["base", "runtime.fonts"]
                   },
                   "style": {
                     "backgroundColor": "#f0c15a",

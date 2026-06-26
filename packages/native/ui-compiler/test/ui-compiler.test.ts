@@ -554,11 +554,19 @@ Button.primary {
 
     expect(qui.diagnostics).toEqual([])
     expect(qss.diagnostics).toEqual([])
-    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+    expect(compileNativeUiSurfaceProjection(qui, {
+      contentPackageId: 'runtime.ui',
+      qss,
+      requiredRuntimePackages: ['base', 'runtime.fonts', 'base'],
+    })).toEqual({
       root: {
         id: 'menu',
         kind: 'Panel',
         bounds: { x: 10, y: 20, width: 520, height: 320 },
+        provenance: {
+          contentPackageId: 'runtime.ui',
+          requiredRuntimePackages: ['base', 'runtime.fonts'],
+        },
         style: {
           backgroundColor: '#101820',
           borderColor: '#5ac8fa',
@@ -572,6 +580,10 @@ Button.primary {
             bounds: { x: 32, y: 28, width: 240, height: 44 },
             zIndex: 8,
             text: 'Main Menu',
+            provenance: {
+              contentPackageId: 'runtime.ui',
+              requiredRuntimePackages: ['base', 'runtime.fonts'],
+            },
             style: {
               color: '#f7f3e8',
               fontSize: 34,
@@ -585,6 +597,10 @@ Button.primary {
               assetType: 'images',
               assetName: 'ui/poster.png',
             },
+            provenance: {
+              contentPackageId: 'runtime.ui',
+              requiredRuntimePackages: ['base', 'runtime.fonts'],
+            },
           },
           {
             id: 'close',
@@ -594,6 +610,10 @@ Button.primary {
             intent: {
               event: 'ui/intent',
               action: 'close',
+            },
+            provenance: {
+              contentPackageId: 'runtime.ui',
+              requiredRuntimePackages: ['base', 'runtime.fonts'],
             },
             style: {
               backgroundColor: '#f0c15a',
@@ -656,7 +676,11 @@ Button.primary {
 
     expect(qui.diagnostics).toEqual([])
     expect(qss.diagnostics).toEqual([])
-    expect(compileNativeUiSurfaceProjection(qui, { qss }).root)
+    expect(compileNativeUiSurfaceProjection(qui, {
+      contentPackageId: 'runtime.ui',
+      qss,
+      requiredRuntimePackages: ['base', 'runtime.fonts'],
+    }).root)
       .toEqual(fixture.view.ui.overlays[0].surface.root)
   })
 
