@@ -31,6 +31,7 @@ import {
   parseNativeQssOpacity,
   parseNativeQssOverflow,
   parseNativeQssTextAlign,
+  parseNativeQssTextDecoration,
   parseNativeQssVisibility,
 } from './qss-resolved-style'
 import {
@@ -713,6 +714,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssTextAlign(value)
         ? undefined
         : 'text-align supports left, center, right, or justify.'
+    case 'text-decoration':
+      return parseNativeQssTextDecoration(value)
+        ? undefined
+        : 'text-decoration supports none, underline, or line-through.'
     case 'visibility':
       return parseNativeQssVisibility(value) !== undefined
         ? undefined

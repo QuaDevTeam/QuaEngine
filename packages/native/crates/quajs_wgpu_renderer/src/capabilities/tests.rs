@@ -65,6 +65,7 @@ fn text_capability_matches_current_qss_text_subset() {
     assert!(text.qss_features.contains(&"font-weight".to_string()));
     assert!(text.qss_features.contains(&"line-height".to_string()));
     assert!(text.qss_features.contains(&"text-align".to_string()));
+    assert!(text.qss_features.contains(&"text-decoration".to_string()));
     assert!(text.qss_features.contains(&"color".to_string()));
 }
 
@@ -105,6 +106,7 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(ui.qss_features.contains(&"left".to_string()));
     assert!(ui.qss_features.contains(&"line-height".to_string()));
     assert!(ui.qss_features.contains(&"text-align".to_string()));
+    assert!(ui.qss_features.contains(&"text-decoration".to_string()));
     assert!(ui.qss_features.contains(&"object-fit".to_string()));
     assert!(ui.qss_features.contains(&"opacity".to_string()));
     assert!(ui.qss_features.contains(&"overflow".to_string()));

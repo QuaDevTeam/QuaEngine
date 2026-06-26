@@ -41,6 +41,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('padding-left')
     expect(nativeWgpuQssFeatureNames()).toContain('padding-right')
     expect(nativeWgpuQssFeatureNames()).toContain('padding-top')
+    expect(nativeWgpuQssFeatureNames()).toContain('text-decoration')
     expect(nativeWgpuQssFeatureNames()).toContain('top')
     expect(nativeWgpuQssFeatureNames()).toContain('visibility')
     expect(nativeWgpuQssFeatureNames()).toContain('width')
@@ -442,6 +443,7 @@ Button.primary {
   padding: 12px 20px;
   padding-left: 24px;
   text-align: center;
+  text-decoration: underline;
   top: 32px;
   visibility: hidden;
   width: 180px;
@@ -475,6 +477,7 @@ Button.primary {
         opacity: 1,
         padding: { top: 12, right: 20, bottom: 12, left: 24 },
         textAlign: 'center',
+        textDecoration: 'underline',
       },
     })
   })
@@ -496,6 +499,7 @@ Button {
   padding: 1px 2px 3px 4px 5px;
   padding-left: -4px;
   text-align: start;
+  text-decoration: blink;
   top: calc(1px);
   visibility: collapse;
   width: -4px;
@@ -532,6 +536,7 @@ Button {
   padding: 1px 2px 3px 4px 5px;
   padding-left: -4px;
   text-align: start;
+  text-decoration: blink;
   top: calc(1px);
   visibility: collapse;
   width: -4px;
@@ -557,6 +562,7 @@ Button {
   padding: 12px 16px;
   padding-left: 20px;
   text-align: justify;
+  text-decoration: line-through;
   top: 0;
   visibility: visible;
   width: 240px;
@@ -567,7 +573,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(21)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(22)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -596,6 +602,10 @@ Button {
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
         message: expect.stringContaining('padding supports'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('text-decoration supports none'),
       }),
     ]))
     expect(valid.diagnostics).toEqual([])

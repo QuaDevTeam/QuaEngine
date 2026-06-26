@@ -83,6 +83,13 @@ pub enum FontStyleDrawParam {
     Italic,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TextDecorationDrawParam {
+    None,
+    Underline,
+    LineThrough,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextDrawParams {
     pub text: String,
@@ -92,6 +99,7 @@ pub struct TextDrawParams {
     pub font_weight: Option<FontWeightDrawParam>,
     pub line_height: f64,
     pub align: TextAlign,
+    pub text_decoration: TextDecorationDrawParam,
     pub color: String,
     pub padding: EdgeInsetsDrawParam,
     pub role: String,
@@ -154,6 +162,7 @@ pub struct UiButtonDrawParams {
     pub font_weight: Option<FontWeightDrawParam>,
     pub line_height: f64,
     pub align: TextAlign,
+    pub text_decoration: TextDecorationDrawParam,
     pub padding: EdgeInsetsDrawParam,
     pub intent: Option<RendererIntent>,
 }

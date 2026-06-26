@@ -1,11 +1,13 @@
 use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
 use crate::render_graph::{
     EdgeInsetsDrawParam, FontStyleDrawParam, FontWeightDrawParam, MediaFit, MediaOrigin, TextAlign,
+    TextDecorationDrawParam,
 };
 
 use super::types::{
     UiSurfaceBorderStyleProjection, UiSurfaceFontStyleProjection, UiSurfaceImageProjection,
     UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
+    UiSurfaceTextDecorationProjection,
 };
 
 pub fn resolve_background_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {
@@ -113,6 +115,16 @@ pub fn resolve_text_align(style: &UiSurfaceResolvedStyle, fallback: TextAlign) -
         Some(UiSurfaceTextAlignProjection::Right) => TextAlign::Right,
         Some(UiSurfaceTextAlignProjection::Justify) => TextAlign::Justify,
         None => fallback,
+    }
+}
+
+pub fn resolve_text_decoration(style: &UiSurfaceResolvedStyle) -> TextDecorationDrawParam {
+    match style.text_decoration {
+        Some(UiSurfaceTextDecorationProjection::Underline) => TextDecorationDrawParam::Underline,
+        Some(UiSurfaceTextDecorationProjection::LineThrough) => {
+            TextDecorationDrawParam::LineThrough
+        }
+        Some(UiSurfaceTextDecorationProjection::None) | None => TextDecorationDrawParam::None,
     }
 }
 

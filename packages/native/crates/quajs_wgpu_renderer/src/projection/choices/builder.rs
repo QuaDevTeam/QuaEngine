@@ -2,7 +2,7 @@ use crate::projection::common::PackageProvenance;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
     FontStyleDrawParam, PanelDrawParams, RenderGraph, RenderPlane, RendererIntent, TextAlign,
-    UiButtonDrawParams,
+    TextDecorationDrawParam, UiButtonDrawParams,
 };
 use crate::stage_layout::ResolvedStageLayout;
 
@@ -79,6 +79,7 @@ fn choice_command(
         font_weight: None,
         line_height: 42.0,
         align: TextAlign::Center,
+        text_decoration: TextDecorationDrawParam::None,
         padding: EdgeInsetsDrawParam::default(),
         intent: choice.enabled.then(|| RendererIntent {
             event: "choice/select".to_string(),
