@@ -39,6 +39,14 @@ const CAPABILITIES: QuaNativeHostInfo['renderer']['capabilities'] = [
     ownerPackage: '@quajs/native-renderer',
     projectionKeys: ['view.ui.overlays'],
     assetKinds: ['data', 'images', 'fonts', 'qui', 'qss', 'tokens'],
+    qssFeatures: [
+      'background-color',
+      'background-image',
+      'border-radius',
+      'font-size',
+      'object-fit',
+    ],
+    quiComponents: ['Box', 'Button', 'Image', 'Panel', 'Text'],
     fallback: 'reject-package',
   },
   {
@@ -1097,6 +1105,41 @@ describe('@quajs/engine-native', () => {
 
     expect(host.getHostInfo).not.toHaveBeenCalled()
     expect(host.verifySignature).toHaveBeenCalledTimes(1)
+  })
+
+  it('checks runtime package native QSS and QUI compatibility before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: {
+          renderer: '@quajs/native-renderer',
+          version: '^0.1.0',
+          capabilities: ['native-wgpu.ui.surface@1'],
+          qssFeatures: ['background-color', 'gap'],
+          quiComponents: ['Panel', 'VirtualList'],
+          nativeCode: false,
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native QSS feature "gap" is not available.*Required native QUI component "VirtualList" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
   })
 
   it('allows missing optional native QSS features and QUI components before native signature verification', async () => {
