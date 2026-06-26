@@ -29,6 +29,11 @@ interface QuiNodeContext {
   node: NativeQuiAstNode
 }
 
+interface QuiProjectionContext {
+  ancestors: readonly NativeQuiAstNode[]
+  parentBounds?: NativeUiSurfaceRect
+}
+
 interface SelectorSegment {
   classes: string[]
   component?: string
@@ -83,7 +88,7 @@ export function compileNativeUiSurfaceProjection(
     : options.qss ? [options.qss] : []
   const provenance = packageProvenanceFromOptions(options)
   const rootChildren = qui.tree
-    .flatMap(node => surfaceNodeFromQuiNode(qui.source, node, [], qssDocuments, provenance))
+    .flatMap(node => surfaceNodeFromQuiNode(qui.source, node, { ancestors: [] }, qssDocuments, provenance))
 
   if (rootChildren.length === 0)
     return {}
@@ -105,17 +110,21 @@ export function compileNativeUiSurfaceProjection(
 function surfaceNodeFromQuiNode(
   source: string,
   node: NativeQuiAstNode,
-  ancestors: readonly NativeQuiAstNode[],
+  context: QuiProjectionContext,
   qssDocuments: readonly NativeQssDocument[],
   provenance: NativePackageProvenance | undefined,
 ): NativeUiSurfaceNodeProjection[] {
   if (node.kind !== 'component' || !isSupportedSurfaceKind(node.name))
-    return node.children.flatMap(child => surfaceNodeFromQuiNode(source, child, ancestors, qssDocuments, provenance))
+    return node.children.flatMap(child => surfaceNodeFromQuiNode(source, child, context, qssDocuments, provenance))
 
+  const resolvedStyle = resolveStyleForNode({ node, ancestors: context.ancestors }, qssDocuments)
+  const rect = rectFromProps(node.props, resolvedStyle.bounds, context.parentBounds)
+  const childContext: QuiProjectionContext = {
+    ancestors: [...context.ancestors, node],
+    parentBounds: rect,
+  }
   const children = node.children
-    .flatMap(child => surfaceNodeFromQuiNode(source, child, [...ancestors, node], qssDocuments, provenance))
-  const resolvedStyle = resolveStyleForNode({ node, ancestors }, qssDocuments)
-  const rect = rectFromProps(node.props, resolvedStyle.bounds)
+    .flatMap(child => surfaceNodeFromQuiNode(source, child, childContext, qssDocuments, provenance))
   const text = textFromNode(source, node)
   const image = imageFromProps(node.props)
   const intent = intentFromNode(node)
@@ -363,13 +372,40 @@ function literalActionMetadata(args: readonly { kind: string, value?: NativeQuiA
 function rectFromProps(
   props: readonly NativeQuiProp[],
   bounds: NativeQssResolvedBounds | undefined,
+  parentBounds: NativeUiSurfaceRect | undefined,
 ): NativeUiSurfaceRect {
+  const width = numberProp(props, 'width') ?? bounds?.width ?? 0
+  const height = numberProp(props, 'height') ?? bounds?.height ?? 0
   return {
-    x: numberProp(props, 'x') ?? bounds?.x ?? 0,
-    y: numberProp(props, 'y') ?? bounds?.y ?? 0,
-    width: numberProp(props, 'width') ?? bounds?.width ?? 0,
-    height: numberProp(props, 'height') ?? bounds?.height ?? 0,
+    x: numberProp(props, 'x') ?? resolveNativeQssBoundX(bounds, parentBounds, width),
+    y: numberProp(props, 'y') ?? resolveNativeQssBoundY(bounds, parentBounds, height),
+    width,
+    height,
   }
+}
+
+function resolveNativeQssBoundX(
+  bounds: NativeQssResolvedBounds | undefined,
+  parentBounds: NativeUiSurfaceRect | undefined,
+  width: number,
+): number {
+  if (bounds?.x !== undefined)
+    return bounds.x
+  if (bounds?.right !== undefined && parentBounds)
+    return parentBounds.x + parentBounds.width - width - bounds.right
+  return 0
+}
+
+function resolveNativeQssBoundY(
+  bounds: NativeQssResolvedBounds | undefined,
+  parentBounds: NativeUiSurfaceRect | undefined,
+  height: number,
+): number {
+  if (bounds?.y !== undefined)
+    return bounds.y
+  if (bounds?.bottom !== undefined && parentBounds)
+    return parentBounds.y + parentBounds.height - height - bounds.bottom
+  return 0
 }
 
 function propString(props: readonly NativeQuiProp[], name: string): string | undefined {
