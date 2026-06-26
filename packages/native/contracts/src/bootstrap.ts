@@ -152,6 +152,11 @@ export interface ValidateExclusiveTargetBootstrapOptions extends ValidateTargetB
   expectedTarget?: QuaTargetBootstrap
 }
 
+export type OrdinaryPluginReference = string | {
+  specifier?: string
+  packageName?: string
+}
+
 export interface ValidateOrdinaryPluginListTargetIsolationOptions {
   target?: QuaTargetBootstrap
   fieldName?: string
@@ -270,31 +275,34 @@ export function validateExclusiveTargetBootstrap(
 }
 
 export function validateOrdinaryPluginListTargetIsolation(
-  pluginSpecifiers: readonly string[],
+  pluginSpecifiers: readonly OrdinaryPluginReference[],
   options: ValidateOrdinaryPluginListTargetIsolationOptions = {},
 ): OrdinaryPluginListTargetIsolationValidationResult {
   const fieldName = options.fieldName || 'plugins'
-  const packageNames = pluginSpecifiers.map(normalizePackageSpecifier)
+  const packageNames = pluginSpecifiers
+    .flatMap(ordinaryPluginReferenceSpecifiers)
+    .map(normalizePackageSpecifier)
   const diagnostics: OrdinaryPluginListDiagnostic[] = []
 
-  for (let index = 0; index < pluginSpecifiers.length; index += 1) {
-    const specifier = pluginSpecifiers[index]
-    const packageName = packageNames[index]
-    const corePluginFamily = getPackageTargetCorePluginFamily(packageName)
-    if (!corePluginFamily)
-      continue
+  for (const reference of pluginSpecifiers) {
+    for (const specifier of ordinaryPluginReferenceSpecifiers(reference)) {
+      const packageName = normalizePackageSpecifier(specifier)
+      const corePluginFamily = getPackageTargetCorePluginFamily(packageName)
+      if (!corePluginFamily)
+        continue
 
-    diagnostics.push({
-      code: 'ORDINARY_PLUGIN_TARGET_CORE_ADAPTER',
-      target: options.target,
-      fieldName,
-      specifier,
-      packageName,
-      corePluginFamily,
-      message: options.target
-        ? `Target "${options.target}" ordinary plugin list "${fieldName}" must not include target core adapter "${packageName}" from "${corePluginFamily}". Select target bootstrap through the target-core resolver before resolving ordinary plugins.`
-        : `Ordinary plugin list "${fieldName}" must not include target core adapter "${packageName}" from "${corePluginFamily}". Select Web, Cocos, or native bootstrap through a target-core resolver before resolving ordinary plugins.`,
-    })
+      diagnostics.push({
+        code: 'ORDINARY_PLUGIN_TARGET_CORE_ADAPTER',
+        target: options.target,
+        fieldName,
+        specifier,
+        packageName,
+        corePluginFamily,
+        message: options.target
+          ? `Target "${options.target}" ordinary plugin list "${fieldName}" must not include target core adapter "${packageName}" from "${corePluginFamily}". Select target bootstrap through the target-core resolver before resolving ordinary plugins.`
+          : `Ordinary plugin list "${fieldName}" must not include target core adapter "${packageName}" from "${corePluginFamily}". Select Web, Cocos, or native bootstrap through a target-core resolver before resolving ordinary plugins.`,
+      })
+    }
   }
 
   return {
@@ -302,6 +310,16 @@ export function validateOrdinaryPluginListTargetIsolation(
     packageNames: Array.from(new Set(packageNames)),
     diagnostics,
   }
+}
+
+function ordinaryPluginReferenceSpecifiers(reference: OrdinaryPluginReference): string[] {
+  if (typeof reference === 'string')
+    return [reference]
+
+  return Array.from(new Set(
+    [reference.specifier, reference.packageName]
+      .filter((specifier): specifier is string => Boolean(specifier)),
+  ))
 }
 
 export function normalizePackageSpecifier(specifier: string): string {

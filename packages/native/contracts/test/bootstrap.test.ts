@@ -303,6 +303,58 @@ describe('target bootstrap isolation', () => {
     ])
   })
 
+  it('checks both specifier and packageName fields in ordinary plugin references', () => {
+    const result = validateOrdinaryPluginListTargetIsolation([
+      '@quajs/plugin-background',
+      {
+        packageName: '@quajs/plugin-menu',
+        specifier: '@quajs/renderer-web/plugins/ui',
+      },
+      {
+        packageName: '@quajs/cocos-host',
+        specifier: '@quajs/plugin-gallery/cocos',
+      },
+      {
+        packageName: '@quajs/plugin-native-menu',
+        specifier: '@quajs/engine-native/runtime',
+      },
+    ], {
+      target: 'native',
+      fieldName: 'qua.project.plugins',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.packageNames).toEqual(expect.arrayContaining([
+      '@quajs/plugin-background',
+      '@quajs/plugin-menu',
+      '@quajs/renderer-web',
+      '@quajs/cocos-host',
+      '@quajs/plugin-gallery',
+      '@quajs/plugin-native-menu',
+      '@quajs/engine-native',
+    ]))
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'ORDINARY_PLUGIN_TARGET_CORE_ADAPTER',
+        specifier: '@quajs/renderer-web/plugins/ui',
+        packageName: '@quajs/renderer-web',
+        corePluginFamily: 'web-core',
+      }),
+      expect.objectContaining({
+        code: 'ORDINARY_PLUGIN_TARGET_CORE_ADAPTER',
+        specifier: '@quajs/cocos-host',
+        packageName: '@quajs/cocos-host',
+        corePluginFamily: 'cocos-core',
+      }),
+      expect.objectContaining({
+        code: 'ORDINARY_PLUGIN_TARGET_CORE_ADAPTER',
+        specifier: '@quajs/engine-native/runtime',
+        packageName: '@quajs/engine-native',
+        corePluginFamily: 'native-core',
+      }),
+    ]))
+  })
+
   it('rejects target core adapters symmetrically in ordinary plugin lists for every packaging target', () => {
     const cases = [
       {

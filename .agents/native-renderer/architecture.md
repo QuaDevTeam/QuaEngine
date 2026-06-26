@@ -55,7 +55,7 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 - Cocos artifact 只能包含 Cocos host/renderer adapter。
 - Native artifact 只能包含 `engine-native`、`assets-native`、`store-native`、native contracts 元数据和 Rust native app/runtime/renderer。
 - 普通 game/plugin 解析只能消费已经选好的 `TargetCoreSelection`，不能拿一个三端全集再靠运行时过滤。
-- 普通 game/plugin 列表必须先通过 `validateOrdinaryPluginListTargetIsolation`，任何 Web / Cocos / Native target core 根包或子入口都不能出现在 `plugins`、shared preset 或 generated resolver 里。
+- 普通 game/plugin 列表必须先通过 `validateOrdinaryPluginListTargetIsolation`，任何 Web / Cocos / Native target core 根包或子入口都不能出现在 `plugins`、shared preset 或 generated resolver 里。普通 plugin reference 如果同时带 `specifier` 和 `packageName`，两个字段都要归一化检查，不能让安全的 `packageName` 掩盖 `specifier` 里的 target core subentry，反过来也一样。
 - Runtime QPK 可声明多端 compatibility metadata，但 active artifact 只能评估当前 target block；QPK 不允许声明或携带任何 target core executable dependency。
 - 第三方 plugin manifest 必须通过 `validateTargetPluginManifest`：shared entry 只能 import 平台无关逻辑，active target entry 只能 import 本 target core，inactive target entry 不能 eager 进入产物。
 - target-specific renderer plugin entry 也属于目标隔离面：Web renderer subentry 不能进入 Cocos/Native，Cocos renderer subentry 不能进入 Web/Native，Native capability / bridge entry 不能进入 Web/Cocos。进入 `target-bundle-manifest.json` 的 app renderer entry 和 Runtime QPK renderer entry 必须显式声明 `target`，缺失 `target` 或声明为其他目标都要失败，不能靠包名猜测或运行时过滤。
