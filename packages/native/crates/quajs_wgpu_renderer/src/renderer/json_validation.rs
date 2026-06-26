@@ -37,8 +37,13 @@ impl JsonProjectionValidator {
         if let Some(background) = &view.background {
             self.validate_background(background);
         }
+        let mut character_ids = BTreeSet::new();
         for (index, character) in view.characters.iter().enumerate() {
-            self.validate_character(character, &format!("view.characters[{index}]"));
+            self.validate_character(
+                character,
+                &format!("view.characters[{index}]"),
+                &mut character_ids,
+            );
         }
         if let Some(dialogue) = &view.dialogue {
             self.validate_dialogue(dialogue);
@@ -50,7 +55,16 @@ impl JsonProjectionValidator {
             self.validate_ui(ui);
         }
         if let Some(audio) = &view.audio {
+            let mut audio_track_ids = BTreeSet::new();
             for (index, track) in audio.tracks.iter().enumerate() {
+                let track_id_path = format!("view.audio.tracks[{index}].id");
+                self.validate_ui_dispatch_identifier(&track_id_path, &track.id, "audio track ids");
+                self.validate_unique_identifier(
+                    &track_id_path,
+                    &track.id,
+                    &mut audio_track_ids,
+                    "audio track ids",
+                );
                 self.validate_asset_type(
                     &format!("view.audio.tracks[{index}].assetType"),
                     &track.asset_type,
@@ -75,6 +89,7 @@ impl JsonProjectionValidator {
         if let Some(asset_name) = &background.asset_name {
             self.validate_asset_reference("view.background.assetName", asset_name);
         }
+        let mut layer_ids = BTreeSet::new();
         for (index, layer) in background.layers.iter().enumerate() {
             if let Some(asset_type) = &layer.asset_type {
                 self.validate_asset_type(
@@ -82,6 +97,14 @@ impl JsonProjectionValidator {
                     asset_type,
                 );
             }
+            let layer_id_path = format!("view.background.layers[{index}].id");
+            self.validate_ui_dispatch_identifier(&layer_id_path, &layer.id, "background layer ids");
+            self.validate_unique_identifier(
+                &layer_id_path,
+                &layer.id,
+                &mut layer_ids,
+                "background layer ids",
+            );
             self.validate_asset_reference(
                 &format!("view.background.layers[{index}].assetName"),
                 &layer.asset_name,
@@ -104,7 +127,19 @@ impl JsonProjectionValidator {
         self.validate_provenance("view.background.video.provenance", &video.provenance);
     }
 
-    fn validate_character(&mut self, character: &CharacterProjection, path: &str) {
+    fn validate_character(
+        &mut self,
+        character: &CharacterProjection,
+        path: &str,
+        character_ids: &mut BTreeSet<String>,
+    ) {
+        self.validate_ui_dispatch_identifier(&format!("{path}.id"), &character.id, "character ids");
+        self.validate_unique_identifier(
+            &format!("{path}.id"),
+            &character.id,
+            character_ids,
+            "character ids",
+        );
         if let Some(sprite) = &character.sprite {
             self.validate_asset_reference(&format!("{path}.sprite"), sprite);
         }
@@ -153,12 +188,29 @@ impl JsonProjectionValidator {
 
     fn validate_choices(&mut self, choices: &ChoiceSetProjection) {
         self.validate_provenance("view.choices.provenance", &choices.provenance);
+        let mut choice_ids = BTreeSet::new();
         for (index, choice) in choices.choices.iter().enumerate() {
-            self.validate_choice(choice, &format!("view.choices.choices[{index}]"));
+            self.validate_choice(
+                choice,
+                &format!("view.choices.choices[{index}]"),
+                &mut choice_ids,
+            );
         }
     }
 
-    fn validate_choice(&mut self, choice: &ChoiceProjection, path: &str) {
+    fn validate_choice(
+        &mut self,
+        choice: &ChoiceProjection,
+        path: &str,
+        choice_ids: &mut BTreeSet<String>,
+    ) {
+        self.validate_ui_dispatch_identifier(&format!("{path}.id"), &choice.id, "choice ids");
+        self.validate_unique_identifier(
+            &format!("{path}.id"),
+            &choice.id,
+            choice_ids,
+            "choice ids",
+        );
         self.validate_provenance(&format!("{path}.provenance"), &choice.provenance);
     }
 

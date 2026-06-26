@@ -115,6 +115,62 @@ fn json_frame_asset_validation_rejects_empty_asset_names() {
 }
 
 #[test]
+fn json_frame_identity_validation_rejects_unsafe_projection_identifiers() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let layer = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_background_layer_id_input())
+        .unwrap_err();
+    match layer {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.background.layers[0].id");
+            assert_eq!(validation.asset_name, "../foreground");
+            assert!(validation.reason.contains("traversal"));
+        }
+        other => panic!("expected background layer id validation error, got {other:?}"),
+    }
+
+    let character = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_character_id_input())
+        .unwrap_err();
+    match character {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.characters[0].id");
+            assert_eq!(validation.asset_name, "file:///tmp/native.node");
+            assert!(validation.reason.contains("URLs") || validation.reason.contains("URI"));
+        }
+        other => panic!("expected character id validation error, got {other:?}"),
+    }
+
+    let choice = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_choice_projection_id_input())
+        .unwrap_err();
+    match choice {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.choices.choices[0].id");
+            assert_eq!(validation.asset_name, "choices/native.dll");
+            assert!(validation.reason.contains("paths"));
+        }
+        other => panic!("expected choice id validation error, got {other:?}"),
+    }
+
+    let audio = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_audio_track_id_input())
+        .unwrap_err();
+    match audio {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.audio.tracks[0].id");
+            assert_eq!(validation.asset_name, "native/load.dll");
+            assert!(validation.reason.contains("paths"));
+        }
+        other => panic!("expected audio track id validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_asset_validation_rejects_unsafe_surface_keys() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
@@ -372,6 +428,62 @@ fn json_frame_intent_validation_rejects_duplicate_ui_dispatch_identifiers() {
             assert!(validation.reason.contains("unique"));
         }
         other => panic!("expected duplicate scene id validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
+fn json_frame_identity_validation_rejects_duplicate_projection_identifiers() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let layer = renderer
+        .prepare_frame_json_str(json_frame_with_duplicate_background_layer_id_input())
+        .unwrap_err();
+    match layer {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.background.layers[1].id");
+            assert_eq!(validation.asset_name, "foreground");
+            assert!(validation.reason.contains("unique"));
+        }
+        other => panic!("expected duplicate background layer id validation error, got {other:?}"),
+    }
+
+    let character = renderer
+        .prepare_frame_json_str(json_frame_with_duplicate_character_id_input())
+        .unwrap_err();
+    match character {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.characters[1].id");
+            assert_eq!(validation.asset_name, "yuki");
+            assert!(validation.reason.contains("unique"));
+        }
+        other => panic!("expected duplicate character id validation error, got {other:?}"),
+    }
+
+    let choice = renderer
+        .prepare_frame_json_str(json_frame_with_duplicate_choice_id_input())
+        .unwrap_err();
+    match choice {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.choices.choices[1].id");
+            assert_eq!(validation.asset_name, "start");
+            assert!(validation.reason.contains("unique"));
+        }
+        other => panic!("expected duplicate choice id validation error, got {other:?}"),
+    }
+
+    let audio = renderer
+        .prepare_frame_json_str(json_frame_with_duplicate_audio_track_id_input())
+        .unwrap_err();
+    match audio {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.audio.tracks[1].id");
+            assert_eq!(validation.asset_name, "bgm-main");
+            assert!(validation.reason.contains("unique"));
+        }
+        other => panic!("expected duplicate audio track id validation error, got {other:?}"),
     }
 
     assert_eq!(renderer.state().revision(), 0);
