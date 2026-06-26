@@ -65,7 +65,7 @@
 - `resolveWebTargetCore()`、`resolveCocosTargetCore()`、`resolveNativeTargetCore()` 必须是互斥入口。
 - 任何 shared helper 只能处理 serializable metadata、schema、manifest validation 或 package-root normalization；一旦 import target runtime adapter / renderer / host bridge，就必须移动到对应 target resolver 内。
 - `plugins`、`presets`、generated plugin resolver、Runtime QPK `executableDependencies`、Runtime QPK `rendererEntries` 和 app renderer entries 都不得引用 Web / Cocos / Native target core root 或 subentry。
-- post-bundle graph 必须同时扫描 `specifier` 与 `packageName`，把 subentry 归一到 package root 后再判定是否串线。
+- post-bundle graph 必须同时扫描 `specifier` 与 `packageName`，把 subentry、`npm:` specifier、`?query` / `#hash` 后缀、Windows/backslash 路径、`node_modules` 路径和 pnpm `.pnpm` store 路径归一到 package root 后再判定是否串线。
 - debug 与 release 产物使用同一套 blocker。debug 可以多 sourcemap / diagnostics，但不能放宽核心插件隔离。
 
 验收时必须证明三端互斥，而不是只证明 native 严格：
@@ -82,7 +82,7 @@
 1. **Bootstrap selection**：`validateExclusiveTargetBootstrap` 确认只注册一个 core family。
 2. **Ordinary plugin list**：`validateOrdinaryPluginListTargetIsolation` 拦截普通 `plugins`、shared preset、CLI plugin reference、generated resolver 中的 target core root / subentry。
 3. **Plugin entry selection**：`validateTargetPluginManifest` 确认 shared entry 平台无关，active target entry 只 import 当前目标 adapter，inactive entries 不 eager。
-4. **Post-bundle graph**：bundle / tree-shake 后同时检查 `specifier` 与 `packageName`，并把 subentry 归一到 package root，例如 `@quajs/renderer-web/plugins/audio` 仍然是 Web core。
+4. **Post-bundle graph**：bundle / tree-shake 后同时检查 `specifier` 与 `packageName`，并把 subentry、query/hash-suffixed bundler specifier、Windows 路径、`node_modules` 路径和 pnpm store 路径归一到 package root，例如 `@quajs/renderer-web/plugins/audio?import` 或 `node_modules/@quajs/renderer-web/plugins/audio.js` 仍然是 Web core。
 5. **Startup / Runtime QPK**：`validateTargetBundleManifest` 和 runtime startup 重复校验 `target`、`targetCoreResolver`、selected adapters、renderer entries、Runtime QPK executable dependencies 与 active target 一致。
 
 任何一层通过都不能代表其他层安全。尤其要注意 `specifier` 和 `packageName` 双字段：安全的 `packageName` 不能掩盖 `specifier` 里的 target core subentry，反过来也一样。
@@ -139,7 +139,7 @@ Native dynamic QPK 只能带 QS / JS runtime modules 和资源，包括 compiled
 
 - bootstrap 同时注册两个 core family。
 - ordinary plugin list 或 shared preset 直接声明任一 target core root / subentry。
-- `packageName` 看似平台无关，但 `specifier` 指向 target core subentry，或反过来。
+- `packageName` 看似平台无关，但 `specifier` 指向 target core subentry、query/hash-suffixed dependency、`node_modules` 路径或 pnpm store 路径，或反过来。
 - shared plugin entry eager import Web / Cocos / Native 任一 core adapter。
 - inactive target entry 通过 barrel export 或 side-effect import 进入 active artifact。
 - Runtime QPK `executableDependencies` 或 `rendererEntries` 指向 target core root / subentry。

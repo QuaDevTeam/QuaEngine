@@ -169,6 +169,53 @@ fn checks_both_specifier_and_package_name_for_target_core_leaks() {
 }
 
 #[test]
+fn normalizes_post_bundle_dependency_paths_for_target_core_leaks() {
+    let mut manifest = native_manifest();
+    manifest.dependencies.extend([
+        TargetBundleReference::Specifier(
+            "/repo/app/node_modules/@quajs/renderer-web/plugins/ui.js?import#hash".to_string(),
+        ),
+        TargetBundleReference::Specifier(
+            "C:\\repo\\app\\node_modules\\@quajs\\cocos-host\\runtime.js".to_string(),
+        ),
+    ]);
+    manifest.runtime_packages.push(RuntimePackageRecord {
+        id: "runtime.bad.post-bundle-paths".to_string(),
+        executable_dependencies: vec![TargetBundleReference::Specifier(
+            "/repo/app/node_modules/.pnpm/@quajs+renderer-cocos@0.1.0/node_modules/@quajs/renderer-cocos/plugins/ui.js".to_string(),
+        )],
+        renderer_entries: vec![TargetBundleReference::Object(TargetBundleReferenceObject {
+            specifier: Some(
+                "/repo/app/node_modules/.pnpm/@quajs+engine-native@0.1.0".to_string(),
+            ),
+            package_name: None,
+            target: Some("native".to_string()),
+            plugin_id: Some("@quajs/plugin-gallery".to_string()),
+        })],
+    });
+
+    let error = validate_native_target_bundle_manifest(&manifest, None)
+        .expect_err("post-bundle dependency paths are normalized and rejected");
+
+    assert!(error.diagnostics().iter().any(|diagnostic| {
+        diagnostic.contains(
+        "Native target bundle must not include foreign target core adapter \"@quajs/renderer-web\""
+    )
+    }));
+    assert!(error.diagnostics().iter().any(|diagnostic| {
+        diagnostic.contains(
+        "Native target bundle must not include foreign target core adapter \"@quajs/cocos-host\""
+    )
+    }));
+    assert!(error.diagnostics().iter().any(|diagnostic| diagnostic.contains(
+        "Runtime package \"runtime.bad.post-bundle-paths\" must not include target core adapter \"@quajs/renderer-cocos\" through executableDependencies"
+    )));
+    assert!(error.diagnostics().iter().any(|diagnostic| diagnostic.contains(
+        "Runtime package \"runtime.bad.post-bundle-paths\" must not include target core adapter \"@quajs/engine-native\" through rendererEntries"
+    )));
+}
+
+#[test]
 fn checks_both_specifier_and_package_name_for_selected_core_adapters() {
     let mut manifest = native_manifest();
     manifest.selected_core_adapters = vec![
