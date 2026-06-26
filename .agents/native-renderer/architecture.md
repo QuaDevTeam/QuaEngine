@@ -171,6 +171,7 @@ packages/native/
 - `NativeRendererJsonFrameInput` 是 native app / QuickJS bridge 的薄 JSON facade：只接收已解析的 `layout`、`container`、`view`，解析失败返回结构化 parse error，渲染失败和 audio backend 失败分开上报；它复用 `prepare_frame` / `prepare_and_render` / audio apply 路径，不引入新的 renderer 状态。
 - JSON facade 要防御性拒绝已解析 UI projection 中的不安全几何值，例如非有限 `bounds.x/y/width/height`、负尺寸、超出 native logical limit 的坐标/尺寸和超限 `scrollOffsetX/Y`。这只是 resolved projection guard，不能演变成 Rust 侧 QUI/QSS parser、selector/cascade 或 renderer-owned layout state。
 - JSON facade 也要拒绝已解析 UI style 中的不安全数值，例如越界 opacity、越界 `backgroundPosition`、负数或超限的 `borderWidth` / `fontSize` / `lineHeight` / `padding` 等。这同样只是 resolved projection guard；Rust 不应通过 clamp 或 fallback 去重新解释 malformed QSS 输出。
+- JSON facade 还要拒绝已解析 audio projection 中的不安全数值，例如非有限或超出 `0..=1` 的 track `volume`，以及超出 native renderer 限制的 `bufferCpuBytes` / `streamCpuBytes` / `handleCpuBytes` 内存估算。这些值会进入 audio backend command planning、资源账本、内存指标和 package unload blocker，因此必须在 frame preparation 前失败；这不代表 native 已具备真实音频播放 capability。
 - renderer smoke 路径必须继续使用已解析 projection JSON；不得把 QUI/QSS authoring parser、普通 plugin resolver、Web/Cocos/native target core resolver 或 Runtime QPK executable dependency 加进 `quajs_native_app` smoke。
 - 只消费 resolved QUI/QSS / capability data。
 

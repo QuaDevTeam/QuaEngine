@@ -1,3 +1,4 @@
+mod audio_numbers;
 mod ui_geometry;
 mod ui_style_numbers;
 
@@ -17,6 +18,9 @@ use crate::projection::ui::{
 use crate::projection::view::ViewProjection;
 use crate::renderer::json_input::{
     NativeRendererJsonFrameError, NativeRendererJsonValidationError,
+};
+use audio_numbers::{
+    invalid_native_json_audio_memory_reason, invalid_native_json_audio_volume_reason,
 };
 use ui_geometry::{invalid_native_json_scroll_offset_reason, invalid_native_json_ui_rect_reason};
 use ui_style_numbers::{
@@ -79,6 +83,14 @@ impl JsonProjectionValidator {
                 self.validate_asset_reference(
                     &format!("view.audio.tracks[{index}].assetName"),
                     &track.asset_name,
+                );
+                self.validate_audio_volume(
+                    &format!("view.audio.tracks[{index}].volume"),
+                    track.volume,
+                );
+                self.validate_audio_memory(
+                    &format!("view.audio.tracks[{index}].memory"),
+                    &track.memory,
                 );
                 self.validate_provenance(
                     &format!("view.audio.tracks[{index}].provenance"),
@@ -488,6 +500,30 @@ impl JsonProjectionValidator {
 
     fn validate_ui_style_numbers(&mut self, path: &str, style: &UiSurfaceResolvedStyle) {
         if let Some((field, value, reason)) = invalid_native_json_ui_style_number_reason(style) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: format!("{path}.{field}"),
+                asset_name: value,
+                reason,
+            });
+        }
+    }
+
+    fn validate_audio_volume(&mut self, path: &str, value: f32) {
+        if let Some(reason) = invalid_native_json_audio_volume_reason(value) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: value.to_string(),
+                reason,
+            });
+        }
+    }
+
+    fn validate_audio_memory(
+        &mut self,
+        path: &str,
+        memory: &crate::projection::audio::AudioTrackMemoryEstimate,
+    ) {
+        if let Some((field, value, reason)) = invalid_native_json_audio_memory_reason(memory) {
             self.errors.push(NativeRendererJsonValidationError {
                 path: format!("{path}.{field}"),
                 asset_name: value,

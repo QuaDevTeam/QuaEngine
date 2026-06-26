@@ -638,6 +638,41 @@ fn json_frame_ui_style_number_validation_rejects_unsafe_resolved_values() {
 }
 
 #[test]
+fn json_frame_audio_number_validation_rejects_unsafe_resolved_values() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let volume = renderer
+        .prepare_frame_json_str(json_frame_with_oversized_audio_volume_input())
+        .unwrap_err();
+    match volume {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.audio.tracks[0].volume");
+            assert_eq!(validation.asset_name, "1.5");
+            assert!(validation.reason.contains("between 0 and 1"));
+        }
+        other => panic!("expected unsafe audio volume validation error, got {other:?}"),
+    }
+
+    let memory = renderer
+        .prepare_frame_json_str(json_frame_with_oversized_audio_memory_input())
+        .unwrap_err();
+    match memory {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.audio.tracks[0].memory.bufferCpuBytes"
+            );
+            assert_eq!(validation.asset_name, "2147483649");
+            assert!(validation.reason.contains("memory estimates"));
+        }
+        other => panic!("expected unsafe audio memory validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_identity_validation_rejects_duplicate_projection_identifiers() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
