@@ -7,6 +7,7 @@ import type {
 export interface NativeUiSurfaceProjectionRequirements {
   assetKinds: string[]
   intentEvents: string[]
+  projectionFields: string[]
   qssFeatures: string[]
   quiComponents: string[]
 }
@@ -45,6 +46,7 @@ export function collectNativeUiSurfaceProjectionRequirements(
   return {
     assetKinds: sortedStrings(requirements.assetKinds),
     intentEvents: sortedStrings(requirements.intentEvents),
+    projectionFields: sortedStrings(requirements.projectionFields),
     qssFeatures: sortedStrings(requirements.qssFeatures),
     quiComponents: sortedStrings(requirements.quiComponents),
   }
@@ -53,6 +55,7 @@ export function collectNativeUiSurfaceProjectionRequirements(
 interface NativeUiSurfaceProjectionRequirementSets {
   assetKinds: Set<string>
   intentEvents: Set<string>
+  projectionFields: Set<string>
   qssFeatures: Set<string>
   quiComponents: Set<string>
 }
@@ -65,17 +68,42 @@ function collectNativeUiSurfaceNodeRequirements(
     return
 
   requirements.quiComponents.add(node.kind)
+  requirements.projectionFields.add('id')
+  requirements.projectionFields.add('kind')
+  requirements.projectionFields.add('bounds')
   collectStyleRequirements(node.style, requirements)
 
-  if (node.zIndex !== undefined)
+  if (node.zIndex !== undefined) {
+    requirements.projectionFields.add('zIndex')
     requirements.qssFeatures.add('z-index')
-  if (node.clipChildren !== undefined)
+  }
+  if (node.clipChildren !== undefined) {
+    requirements.projectionFields.add('clipChildren')
     requirements.qssFeatures.add('overflow')
+  }
+  if (node.visible !== undefined)
+    requirements.projectionFields.add('visible')
+  if (node.opacity !== undefined)
+    requirements.projectionFields.add('opacity')
+  if (node.scrollOffsetX !== undefined)
+    requirements.projectionFields.add('scrollOffsetX')
+  if (node.scrollOffsetY !== undefined)
+    requirements.projectionFields.add('scrollOffsetY')
+  if (node.provenance)
+    requirements.projectionFields.add('provenance')
 
-  if (node.image)
+  if (node.image) {
+    requirements.projectionFields.add('image')
     requirements.assetKinds.add(node.image.assetType)
-  if (node.intent?.event)
+  }
+  if (node.text !== undefined)
+    requirements.projectionFields.add('text')
+  if (node.intent?.event) {
+    requirements.projectionFields.add('intent')
     requirements.intentEvents.add(node.intent.event)
+  }
+  if (node.children?.length)
+    requirements.projectionFields.add('children')
 
   for (const child of node.children || [])
     collectNativeUiSurfaceNodeRequirements(child, requirements)
@@ -87,6 +115,8 @@ function collectStyleRequirements(
 ): void {
   if (!style)
     return
+
+  requirements.projectionFields.add('style')
 
   for (const key of Object.keys(style) as Array<keyof NativeQssResolvedStyle>) {
     const feature = QSS_FEATURE_BY_STYLE_FIELD[key]
@@ -104,6 +134,7 @@ function createRequirementSets(): NativeUiSurfaceProjectionRequirementSets {
   return {
     assetKinds: new Set(),
     intentEvents: new Set(),
+    projectionFields: new Set(),
     qssFeatures: new Set(),
     quiComponents: new Set(),
   }
