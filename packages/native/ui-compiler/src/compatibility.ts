@@ -8,9 +8,11 @@ import type {
   NativeQuiAstNode,
   NativeQuiDocument,
   NativeQuiProp,
+  NativeUiSurfaceProjection,
 } from './types'
 import { createNativeUiSurfaceCompatibility } from '@quajs/native-contracts'
 import { literalStringValue } from './assets'
+import { collectNativeUiSurfaceProjectionRequirements } from './projection-requirements'
 import { parseNativeQssBackgroundImage } from './qss-resolved-style'
 
 export interface CreateNativeUiSurfaceCompatibilityFromDocumentsOptions
@@ -43,6 +45,37 @@ export function createNativeUiSurfaceCompatibilityFromDocuments(
     ]),
     quiComponents: uniqueStrings([
       ...collected.quiComponents,
+      ...(quiComponents || []),
+    ]),
+  })
+}
+
+export interface CreateNativeUiSurfaceCompatibilityFromProjectionOptions
+  extends Omit<CreateNativeUiSurfaceCompatibilityOptions, 'assetKinds' | 'qssFeatures' | 'quiComponents'> {
+  assetKinds?: readonly string[]
+  qssFeatures?: readonly string[]
+  quiComponents?: readonly string[]
+}
+
+export function createNativeUiSurfaceCompatibilityFromProjection(
+  projection: NativeUiSurfaceProjection,
+  options: CreateNativeUiSurfaceCompatibilityFromProjectionOptions = {},
+): RuntimePackageNativeRendererCompatibility {
+  const { assetKinds, qssFeatures, quiComponents, ...compatibilityOptions } = options
+  const requirements = collectNativeUiSurfaceProjectionRequirements(projection)
+
+  return createNativeUiSurfaceCompatibility({
+    ...compatibilityOptions,
+    assetKinds: uniqueStrings([
+      ...requirements.assetKinds,
+      ...(assetKinds || []),
+    ]),
+    qssFeatures: uniqueStrings([
+      ...requirements.qssFeatures,
+      ...(qssFeatures || []),
+    ]),
+    quiComponents: uniqueStrings([
+      ...requirements.quiComponents,
       ...(quiComponents || []),
     ]),
   })
