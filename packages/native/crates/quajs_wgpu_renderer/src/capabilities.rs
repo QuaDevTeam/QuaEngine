@@ -73,6 +73,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "text-align",
                 "object-fit",
                 "opacity",
+                "overflow",
                 "padding",
                 "padding-bottom",
                 "padding-left",

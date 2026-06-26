@@ -125,6 +125,7 @@ function surfaceNodeFromQuiNode(
     id,
     kind: node.name as NativeUiSurfaceNodeKind,
     bounds: rect,
+    clipChildren: resolvedStyle.clipChildren,
     visible: booleanProp(node.props, 'show') ?? resolvedStyle.visible,
     zIndex: resolvedStyle.zIndex,
     opacity: numberProp(node.props, 'opacity'),
@@ -423,6 +424,8 @@ function createLineStartOffsets(source: string): number[] {
 function pruneSurfaceNode(node: NativeUiSurfaceNodeProjection): NativeUiSurfaceNodeProjection {
   if (node.visible === undefined)
     delete node.visible
+  if (node.clipChildren === undefined)
+    delete node.clipChildren
   if (node.zIndex === undefined)
     delete node.zIndex
   if (node.opacity === undefined)

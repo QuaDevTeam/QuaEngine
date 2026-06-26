@@ -128,7 +128,10 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('gap', 'p1', false, 'Layout gap planned for native layout IR.'),
   property('row-gap', 'p1', false, 'Row gap planned for native layout IR.'),
   property('column-gap', 'p1', false, 'Column gap planned for native layout IR.'),
-  property('overflow', 'p1', false, 'Overflow mode planned for native layout IR.'),
+  property('overflow', 'p1', true, 'Child clipping mode emitted as resolved native UI projection metadata.', [
+    value('visible', 'Allow child nodes to paint outside this node bounds.'),
+    value('hidden', 'Clip child nodes to this node bounds.'),
+  ]),
   property('z-index', 'p1', true, 'Node z ordering emitted as resolved native UI projection metadata.'),
   property('opacity', 'p0', true, 'Surface opacity for native UI surface style IR.', [
     value('0', 'Make the surface fully transparent.'),

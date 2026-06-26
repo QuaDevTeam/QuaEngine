@@ -97,13 +97,15 @@ pub(super) fn append_surface_node_commands(
         offset,
         effective_opacity,
     );
+    let child_clip_bounds = painted_child_clip_bounds(node, clip_bounds, offset);
+    let child_clip_bounds = child_clip_bounds.as_deref().unwrap_or(clip_bounds);
     for child in &node.children {
         append_surface_node_commands(
             commands,
             overlay,
             child,
             z_base,
-            clip_bounds,
+            child_clip_bounds,
             offset,
             effective_opacity,
         );
@@ -209,6 +211,20 @@ fn append_painted_surface_node_commands(
         offset,
         effective_opacity,
     ));
+}
+
+fn painted_child_clip_bounds(
+    node: &UiSurfaceNodeProjection,
+    clip_bounds: &[LogicalRect],
+    offset: SurfaceNodeOffset,
+) -> Option<Vec<LogicalRect>> {
+    if !node.clip_children {
+        return None;
+    }
+
+    let mut child_clip_bounds = clip_bounds.to_vec();
+    child_clip_bounds.push(node_rect(node.bounds, offset));
+    Some(child_clip_bounds)
 }
 
 fn is_surface_group_node(kind: UiSurfaceNodeKind) -> bool {

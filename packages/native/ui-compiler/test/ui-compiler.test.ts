@@ -32,6 +32,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('left')
     expect(nativeWgpuQssFeatureNames()).toContain('object-fit')
     expect(nativeWgpuQssFeatureNames()).toContain('opacity')
+    expect(nativeWgpuQssFeatureNames()).toContain('overflow')
     expect(nativeWgpuQssFeatureNames()).toContain('padding')
     expect(nativeWgpuQssFeatureNames()).toContain('padding-bottom')
     expect(nativeWgpuQssFeatureNames()).toContain('padding-left')
@@ -432,6 +433,7 @@ Button.primary {
   left: -12px;
   object-fit: cover;
   opacity: 1.4;
+  overflow: hidden;
   padding: 12px 20px;
   padding-left: 24px;
   text-align: center;
@@ -446,6 +448,7 @@ Button.primary {
     expect(document.diagnostics).toEqual([])
     expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
       bounds: { x: -12, y: 32, width: 180, height: 48 },
+      clipChildren: true,
       visible: false,
       zIndex: 12,
       style: {
@@ -479,6 +482,7 @@ Button {
   left: calc(2px);
   object-fit: stretch;
   opacity: none;
+  overflow: clip;
   padding: 1px 2px 3px 4px 5px;
   padding-left: -4px;
   text-align: start;
@@ -511,6 +515,7 @@ Button {
   left: calc(2px);
   object-fit: stretch;
   opacity: none;
+  overflow: clip;
   padding: 1px 2px 3px 4px 5px;
   padding-left: -4px;
   text-align: start;
@@ -532,6 +537,7 @@ Button {
   left: -12px;
   object-fit: scale-down;
   opacity: 0;
+  overflow: visible;
   padding: 12px 16px;
   padding-left: 20px;
   text-align: justify;
@@ -545,7 +551,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(17)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(18)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -770,6 +776,65 @@ Panel.dialog {
             bounds: { x: 0, y: 0, width: 0, height: 0 },
             visible: true,
             text: 'Override',
+          },
+        ],
+      },
+    })
+  })
+
+  it('uses QSS overflow as child clip metadata in compiled projection', () => {
+    const qui = analyzeQuiSource(`
+Panel.clip(id: "menu") {
+  Button.primary(id: "inside", label: "Inside")
+}
+Panel.open(id: "drawer") {
+  Button.primary(id: "outside", label: "Outside")
+}
+`)
+    const qss = analyzeQssSource(`
+Panel.clip {
+  overflow: hidden;
+}
+Panel.open {
+  overflow: visible;
+}
+`)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(qss.diagnostics).toEqual([])
+    expect(compileNativeUiSurfaceProjection(qui, { qss, rootId: 'root' })).toEqual({
+      root: {
+        id: 'root',
+        kind: 'Fragment',
+        bounds: { x: 0, y: 0, width: 0, height: 0 },
+        children: [
+          {
+            id: 'menu',
+            kind: 'Panel',
+            bounds: { x: 0, y: 0, width: 0, height: 0 },
+            clipChildren: true,
+            children: [
+              {
+                id: 'inside',
+                kind: 'Button',
+                bounds: { x: 0, y: 0, width: 0, height: 0 },
+                text: 'Inside',
+              },
+            ],
+          },
+          {
+            id: 'drawer',
+            kind: 'Panel',
+            bounds: { x: 0, y: 0, width: 0, height: 0 },
+            clipChildren: false,
+            children: [
+              {
+                id: 'outside',
+                kind: 'Button',
+                bounds: { x: 0, y: 0, width: 0, height: 0 },
+                text: 'Outside',
+              },
+            ],
           },
         ],
       },

@@ -252,6 +252,8 @@ pub struct UiSurfaceNodeProjection {
     pub kind: UiSurfaceNodeKind,
     #[serde(default = "default_true")]
     pub visible: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub clip_children: bool,
     #[serde(default)]
     pub bounds: UiSurfaceNodeRect,
     #[serde(default)]
@@ -282,6 +284,7 @@ impl UiSurfaceNodeProjection {
             id: id.into(),
             kind,
             visible: true,
+            clip_children: false,
             bounds,
             z_index: 0,
             opacity: 1.0,
@@ -395,4 +398,8 @@ fn default_ui_intent_event() -> String {
 
 fn is_zero_f64(value: &f64) -> bool {
     *value == 0.0
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
