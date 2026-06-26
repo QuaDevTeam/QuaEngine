@@ -289,10 +289,43 @@ fn rejects_missing_empty_or_invalid_native_artifact_platform_without_startup_exp
 }
 
 #[test]
-fn rejects_missing_or_empty_app_icon_metadata() {
+fn rejects_missing_or_empty_app_metadata_without_startup_expectation() {
+    let mut missing_app = native_manifest();
+    missing_app.app = None;
+    let missing_app_error = validate_native_target_bundle_manifest(&missing_app, None)
+        .expect_err("missing app metadata is rejected");
+    assert!(missing_app_error
+        .to_string()
+        .contains("Native target bundle manifest must include app metadata"));
+
+    let mut missing_bundle_id = native_manifest();
+    missing_bundle_id.app.as_mut().unwrap().bundle_id = None;
+    let missing_bundle_id_error = validate_native_target_bundle_manifest(&missing_bundle_id, None)
+        .expect_err("missing bundle id metadata is rejected");
+    assert!(missing_bundle_id_error
+        .to_string()
+        .contains("Native target bundle manifest must include app.bundleId"));
+
+    let mut empty_version = native_manifest();
+    empty_version.app.as_mut().unwrap().version = Some("  ".to_string());
+    let empty_version_error = validate_native_target_bundle_manifest(&empty_version, None)
+        .expect_err("empty version metadata is rejected");
+    assert!(empty_version_error
+        .to_string()
+        .contains("Native target bundle manifest app.version must not be empty"));
+
+    let mut missing_build_number = native_manifest();
+    missing_build_number.app.as_mut().unwrap().build_number = None;
+    let missing_build_number_error =
+        validate_native_target_bundle_manifest(&missing_build_number, None)
+            .expect_err("missing build number metadata is rejected");
+    assert!(missing_build_number_error
+        .to_string()
+        .contains("Native target bundle manifest must include app.buildNumber"));
+
     let mut missing_icon = native_manifest();
     missing_icon.app.as_mut().unwrap().icon = None;
-    let error = validate_native_target_bundle_manifest(&missing_icon, Some(&native_expectation()))
+    let error = validate_native_target_bundle_manifest(&missing_icon, None)
         .expect_err("missing app icon is rejected");
     assert!(error
         .to_string()
@@ -300,7 +333,7 @@ fn rejects_missing_or_empty_app_icon_metadata() {
 
     let mut empty_icon = native_manifest();
     empty_icon.app.as_mut().unwrap().icon = Some("  ".to_string());
-    let error = validate_native_target_bundle_manifest(&empty_icon, Some(&native_expectation()))
+    let error = validate_native_target_bundle_manifest(&empty_icon, None)
         .expect_err("empty app icon is rejected");
     assert!(error
         .to_string()
