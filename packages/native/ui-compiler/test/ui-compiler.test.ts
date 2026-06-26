@@ -45,6 +45,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('text-decoration')
     expect(nativeWgpuQssFeatureNames()).toContain('top')
     expect(nativeWgpuQssFeatureNames()).toContain('visibility')
+    expect(nativeWgpuQssFeatureNames()).toContain('white-space')
     expect(nativeWgpuQssFeatureNames()).toContain('width')
     expect(nativeWgpuQssFeatureNames()).toContain('z-index')
   })
@@ -448,6 +449,7 @@ Button.primary {
   text-decoration: underline;
   top: 32px;
   visibility: hidden;
+  white-space: pre-wrap;
   width: 180px;
   height: 48px;
   z-index: 12;
@@ -481,6 +483,7 @@ Button.primary {
         padding: { top: 12, right: 20, bottom: 12, left: 24 },
         textAlign: 'center',
         textDecoration: 'underline',
+        whiteSpace: 'pre-wrap',
       },
     })
   })
@@ -506,6 +509,7 @@ Button {
   text-decoration: blink;
   top: calc(1px);
   visibility: collapse;
+  white-space: preserve;
   width: -4px;
   z-index: 1.5;
   background-image: asset("../escape.png");
@@ -544,6 +548,7 @@ Button {
   text-decoration: blink;
   top: calc(1px);
   visibility: collapse;
+  white-space: preserve;
   width: -4px;
   z-index: 1.5;
   background-image: asset("../escape.png");
@@ -571,6 +576,7 @@ Button {
   text-decoration: line-through;
   top: 0;
   visibility: visible;
+  white-space: nowrap;
   width: 240px;
   z-index: 0;
   background-image: asset("ui/panel.png");
@@ -579,7 +585,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(23)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(24)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -616,6 +622,10 @@ Button {
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
         message: expect.stringContaining('text-decoration supports none'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('white-space supports normal'),
       }),
     ]))
     expect(valid.diagnostics).toEqual([])

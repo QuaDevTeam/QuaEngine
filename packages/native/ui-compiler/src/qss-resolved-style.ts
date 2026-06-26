@@ -8,11 +8,13 @@ import type {
   NativeQssResolvedNodeStyle,
   NativeQssTextDecorationValue,
   NativeQssTextAlignValue,
+  NativeQssWhiteSpaceValue,
 } from './types'
 
 const OBJECT_FIT_VALUES = new Set<NativeQssObjectFitValue>(['contain', 'cover', 'fill', 'none', 'scale-down'])
 const TEXT_ALIGN_VALUES = new Set<NativeQssTextAlignValue>(['center', 'justify', 'left', 'right'])
 const TEXT_DECORATION_VALUES = new Set<NativeQssTextDecorationValue>(['line-through', 'none', 'underline'])
+const WHITE_SPACE_VALUES = new Set<NativeQssWhiteSpaceValue>(['normal', 'nowrap', 'pre', 'pre-line', 'pre-wrap'])
 const BORDER_STYLE_VALUES = new Set<NativeQssBorderStyleValue>(['none', 'solid'])
 const FONT_STYLE_VALUES = new Set<NativeQssFontStyleValue>(['italic', 'normal'])
 
@@ -117,6 +119,9 @@ export function resolveNativeQssDeclarations(
         break
       case 'visibility':
         resolved.visible = parseNativeQssVisibility(value)
+        break
+      case 'white-space':
+        resolved.style.whiteSpace = parseNativeQssWhiteSpace(value)
         break
       case 'width':
         resolved.bounds = resolveNativeQssBound(resolved.bounds, 'width', value, parseNativeQssLogicalNumber)
@@ -310,6 +315,13 @@ export function parseNativeQssTextDecoration(value: string): NativeQssTextDecora
   const normalized = value.toLowerCase()
   return TEXT_DECORATION_VALUES.has(normalized as NativeQssTextDecorationValue)
     ? normalized as NativeQssTextDecorationValue
+    : undefined
+}
+
+export function parseNativeQssWhiteSpace(value: string): NativeQssWhiteSpaceValue | undefined {
+  const normalized = value.toLowerCase()
+  return WHITE_SPACE_VALUES.has(normalized as NativeQssWhiteSpaceValue)
+    ? normalized as NativeQssWhiteSpaceValue
     : undefined
 }
 

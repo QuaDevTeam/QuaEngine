@@ -1,13 +1,13 @@
 use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
 use crate::render_graph::{
     EdgeInsetsDrawParam, FontStyleDrawParam, FontWeightDrawParam, MediaFit, MediaOrigin, TextAlign,
-    TextDecorationDrawParam,
+    TextDecorationDrawParam, WhiteSpaceDrawParam,
 };
 
 use super::types::{
     UiSurfaceBorderStyleProjection, UiSurfaceFontStyleProjection, UiSurfaceImageProjection,
     UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
-    UiSurfaceTextDecorationProjection,
+    UiSurfaceTextDecorationProjection, UiSurfaceWhiteSpaceProjection,
 };
 
 pub fn resolve_background_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {
@@ -129,6 +129,16 @@ pub fn resolve_text_decoration(style: &UiSurfaceResolvedStyle) -> TextDecoration
             TextDecorationDrawParam::LineThrough
         }
         Some(UiSurfaceTextDecorationProjection::None) | None => TextDecorationDrawParam::None,
+    }
+}
+
+pub fn resolve_white_space(style: &UiSurfaceResolvedStyle) -> WhiteSpaceDrawParam {
+    match style.white_space {
+        Some(UiSurfaceWhiteSpaceProjection::Nowrap) => WhiteSpaceDrawParam::NoWrap,
+        Some(UiSurfaceWhiteSpaceProjection::Pre) => WhiteSpaceDrawParam::Pre,
+        Some(UiSurfaceWhiteSpaceProjection::PreLine) => WhiteSpaceDrawParam::PreLine,
+        Some(UiSurfaceWhiteSpaceProjection::PreWrap) => WhiteSpaceDrawParam::PreWrap,
+        Some(UiSurfaceWhiteSpaceProjection::Normal) | None => WhiteSpaceDrawParam::Normal,
     }
 }
 

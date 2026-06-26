@@ -207,6 +207,13 @@ export type NativeQssTextDecorationValue
     | 'none'
     | 'underline'
 
+export type NativeQssWhiteSpaceValue
+  = | 'normal'
+    | 'nowrap'
+    | 'pre'
+    | 'pre-line'
+    | 'pre-wrap'
+
 export type NativeQssObjectFitValue
   = | 'contain'
     | 'cover'
@@ -263,6 +270,7 @@ export interface NativeQssResolvedStyle {
   padding?: NativeQssEdgeInsetsValue
   textAlign?: NativeQssTextAlignValue
   textDecoration?: NativeQssTextDecorationValue
+  whiteSpace?: NativeQssWhiteSpaceValue
 }
 
 export interface NativeQssResolvedNodeStyle {

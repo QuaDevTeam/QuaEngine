@@ -90,6 +90,15 @@ pub enum TextDecorationDrawParam {
     LineThrough,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WhiteSpaceDrawParam {
+    Normal,
+    NoWrap,
+    Pre,
+    PreLine,
+    PreWrap,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextDrawParams {
     pub text: String,
@@ -101,6 +110,7 @@ pub struct TextDrawParams {
     pub line_height: f64,
     pub align: TextAlign,
     pub text_decoration: TextDecorationDrawParam,
+    pub white_space: WhiteSpaceDrawParam,
     pub color: String,
     pub padding: EdgeInsetsDrawParam,
     pub role: String,
@@ -165,6 +175,7 @@ pub struct UiButtonDrawParams {
     pub line_height: f64,
     pub align: TextAlign,
     pub text_decoration: TextDecorationDrawParam,
+    pub white_space: WhiteSpaceDrawParam,
     pub padding: EdgeInsetsDrawParam,
     pub intent: Option<RendererIntent>,
 }
