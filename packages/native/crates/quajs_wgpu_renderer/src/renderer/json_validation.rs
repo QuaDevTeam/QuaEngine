@@ -3,7 +3,9 @@ use crate::projection::character::CharacterProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
 use crate::projection::dialogue::{DialogueAvatarProjection, DialogueProjection};
-use crate::projection::ui::{UiProjection, UiSurfaceImageProjection, UiSurfaceNodeProjection};
+use crate::projection::ui::{
+    UiOverlaySurfaceProjection, UiProjection, UiSurfaceImageProjection, UiSurfaceNodeProjection,
+};
 use crate::projection::view::ViewProjection;
 use crate::renderer::json_input::{
     NativeRendererJsonFrameError, NativeRendererJsonValidationError,
@@ -136,13 +138,28 @@ impl JsonProjectionValidator {
                 &overlay.provenance,
             );
             if let Some(surface) = &overlay.surface {
-                if let Some(root) = &surface.root {
-                    self.validate_ui_surface_node(
-                        root,
-                        &format!("view.ui.overlays[{overlay_index}].surface.root"),
-                    );
-                }
+                self.validate_ui_surface(
+                    surface,
+                    &format!("view.ui.overlays[{overlay_index}].surface"),
+                );
             }
+            if let Some(scene_surface) = overlay
+                .scene
+                .as_ref()
+                .and_then(|scene| scene.surface.as_ref())
+            {
+                self.validate_ui_surface(
+                    scene_surface,
+                    &format!("view.ui.overlays[{overlay_index}].scene.surface"),
+                );
+            }
+        }
+    }
+
+    fn validate_ui_surface(&mut self, surface: &UiOverlaySurfaceProjection, path: &str) {
+        self.validate_asset_reference(&format!("{path}.key"), &surface.key);
+        if let Some(root) = &surface.root {
+            self.validate_ui_surface_node(root, &format!("{path}.root"));
         }
     }
 
