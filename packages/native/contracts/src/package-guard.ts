@@ -313,6 +313,16 @@ function collectNativePluginDeclarations(
         message: `Native runtime package "${runtimePackage.id}" plugin "${plugin.id}" requests native code through "${field}".`,
       })
     }
+    for (const field of findNativeCompatibilityBlocksWithoutExplicitOptOut(plugin.metadata)) {
+      diagnostics.push({
+        code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
+        severity: 'error',
+        packageId: runtimePackage.id,
+        pluginId: plugin.id,
+        field: `plugins.${plugin.id}.${field}`,
+        message: `Native runtime package "${runtimePackage.id}" plugin "${plugin.id}" must explicitly declare nativeCode: false through "plugins.${plugin.id}.${field}".`,
+      })
+    }
   }
 }
 

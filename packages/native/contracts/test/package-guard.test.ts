@@ -401,6 +401,93 @@ describe('native runtime package guard', () => {
     ])
   })
 
+  it('rejects plugin native compatibility blocks without explicit nativeCode false markers', () => {
+    const result = checkNativeRuntimePackageGuard({
+      package: createRuntimePackage({
+        plugins: [
+          {
+            id: 'menu-ui',
+            kind: 'renderer',
+            assetName: 'plugins/menu-ui.js',
+            metadata: {
+              nativeRenderer: {
+                packageName: '@quajs/native-renderer',
+                versionRange: '^0.1.0',
+              },
+            },
+          },
+          {
+            id: 'settings-ui',
+            kind: 'renderer',
+            assetName: 'plugins/settings-ui.js',
+            metadata: {
+              renderers: {
+                native: {
+                  renderer: '@quajs/native-renderer',
+                  version: '^0.1.0',
+                },
+              },
+            },
+          },
+        ],
+      }),
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
+        pluginId: 'menu-ui',
+        field: 'plugins.menu-ui.metadata.nativeRenderer.nativeCode',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_CODE_REQUESTED',
+        pluginId: 'settings-ui',
+        field: 'plugins.settings-ui.metadata.renderers.native.nativeCode',
+      }),
+    ])
+  })
+
+  it('accepts plugin native compatibility blocks with explicit nativeCode false markers', () => {
+    const result = checkNativeRuntimePackageGuard({
+      package: createRuntimePackage({
+        plugins: [
+          {
+            id: 'menu-ui',
+            kind: 'renderer',
+            assetName: 'plugins/menu-ui.js',
+            metadata: {
+              nativeRenderer: {
+                packageName: '@quajs/native-renderer',
+                versionRange: '^0.1.0',
+                nativeCode: false,
+              },
+            },
+          },
+          {
+            id: 'settings-ui',
+            kind: 'renderer',
+            assetName: 'plugins/settings-ui.js',
+            metadata: {
+              renderers: {
+                native: {
+                  renderer: '@quajs/native-renderer',
+                  version: '^0.1.0',
+                  nativeCode: false,
+                },
+              },
+            },
+          },
+        ],
+      }),
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      diagnostics: [],
+    })
+  })
+
   it('rejects target core adapters declared as runtime package executable dependencies', () => {
     const result = checkNativeRuntimePackageGuard({
       package: createRuntimePackage({
