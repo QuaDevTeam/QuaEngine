@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   analyzeNativeUiDocument,
@@ -12,6 +14,10 @@ import {
   parseQuiActionDescriptor,
   resolveNativeQssDeclarations,
 } from '../src'
+
+const SHARED_SURFACE_FRAME_FIXTURE = fileURLToPath(
+  new URL('../../test-fixtures/renderer/qui-qss-surface-frame.json', import.meta.url),
+)
 
 describe('@quajs/native-ui-compiler', () => {
   it('exposes native-wgpu QUI and QSS capability feature lists', () => {
@@ -598,6 +604,60 @@ Button.primary {
         ],
       },
     })
+  })
+
+  it('matches the shared Rust renderer JSON fixture for compiled QUI and QSS surfaces', () => {
+    const qui = analyzeQuiSource(`
+Panel.compiled(id: "menu", x: 32, y: 24, width: 520, height: 392) {
+  Text.title(id: "title", x: 64, y: 58, width: 360, height: 56) { "Compiled Menu" }
+  Image.poster(id: "poster", src: "ui/poster.png", x: 64, y: 132, width: 180, height: 112)
+  Button.primary(id: "open-settings", label: "Settings", action: ui.open("settings"), x: 340, y: 330, width: 136, height: 48)
+}
+`)
+    const qss = analyzeQssSource(`
+Panel.compiled {
+  background-color: #101820;
+  background-image: asset("ui/panel.png");
+  background-position: right top;
+  background-size: contain;
+  border-color: #5ac8fa;
+  border-radius: 12px;
+  border-width: 2px;
+}
+#title {
+  color: #f7f3e8;
+  font-family: "Qua Sans", "Fallback Serif";
+  font-size: 34px;
+  font-weight: bold;
+  line-height: 44px;
+  text-align: center;
+  z-index: 8;
+}
+Image.poster {
+  object-fit: cover;
+}
+Button.primary {
+  background-color: #f0c15a;
+  color: #18130a;
+  font-weight: 700;
+}
+`)
+    const fixture = JSON.parse(readFileSync(SHARED_SURFACE_FRAME_FIXTURE, 'utf8')) as {
+      view: {
+        ui: {
+          overlays: Array<{
+            surface: {
+              root: unknown
+            }
+          }>
+        }
+      }
+    }
+
+    expect(qui.diagnostics).toEqual([])
+    expect(qss.diagnostics).toEqual([])
+    expect(compileNativeUiSurfaceProjection(qui, { qss }).root)
+      .toEqual(fixture.view.ui.overlays[0].surface.root)
   })
 
   it('applies native QSS selector specificity and ancestor matching during projection compile', () => {
