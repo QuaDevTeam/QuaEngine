@@ -1,5 +1,5 @@
 import type { NativeHostApiRequest, QuaNativeHostApi, QuaNativeHostInfo, TargetBundleManifest } from '@quajs/native-contracts'
-import { emitLogicToRender, LogicToRenderEvents } from '@quajs/engine'
+import { emitLogicToRender, LogicToRenderEvents, RenderToLogicEvents } from '@quajs/engine'
 import {
   COCOS_TARGET_BOOTSTRAP,
   createNativeCapabilityManifestHash,
@@ -335,6 +335,42 @@ describe('@quajs/engine-native', () => {
       packageId: 'runtime.chapter.native-ui',
     })
     expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports QuickJS package namespace cleanup failures without blocking runtime package unload', async () => {
+    const cleanupError = new Error('native cleanup unavailable')
+    const host = {
+      ...createHost(),
+      releaseQuickJsPackageNamespaces: vi.fn(async () => {
+        throw cleanupError
+      }),
+    }
+    const plugin = new NativeHostPlugin({ host })
+    const pipeline = createTestPipeline()
+    const errors: unknown[] = []
+    pipeline.on(RenderToLogicEvents.RENDER_ERROR, context => errors.push(context.event.payload))
+
+    await plugin.init({ pipeline } as any)
+
+    await expect(emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+    })).resolves.toBeUndefined()
+
+    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledWith('runtime.chapter.native-ui')
+    expect(plugin.getReleasedQuickJsPackageNamespaces()).toEqual([])
+    expect(plugin.getQuickJsCleanupErrors()).toEqual([cleanupError])
+    expect(errors).toEqual([
+      expect.objectContaining({
+        message: 'native cleanup unavailable',
+        source: 'native-renderer',
+        phase: 'quickjs-cleanup',
+        recoverable: true,
+        metadata: {
+          runtimePackageId: 'runtime.chapter.native-ui',
+        },
+      }),
+    ])
   })
 
   it('accepts native startup package roots through the native target bootstrap guard', () => {
