@@ -506,6 +506,48 @@ describe('@quajs/engine-native', () => {
     expect(host.getHostInfo).not.toHaveBeenCalled()
   })
 
+  it('rejects generated native project graphs that redeclare target core adapters before host info', async () => {
+    const host = createHost()
+    const plugin = new NativeHostPlugin({
+      host,
+      targetBundleManifest: createNativeTargetBundleManifest({
+        projectGraphs: [
+          {
+            id: 'native.template.generated',
+            kind: 'project-template',
+            references: [
+              '@quajs/engine',
+              '@quajs/engine-native/native-host',
+            ],
+          },
+          {
+            id: 'native.debug.macos.post-bundle',
+            kind: 'post-bundle',
+            references: [
+              '@quajs/engine',
+              ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+            ],
+          },
+        ],
+      }),
+    })
+
+    await expect(plugin.init({} as any)).rejects.toThrow(
+      /Native target bundle manifest validation failed.*Project graph "native\.template\.generated" \(project-template\).*must not declare target core adapter "@quajs\/engine-native"/,
+    )
+    expect(plugin.getTargetBundleManifestValidation()?.ok).toBe(false)
+    expect(plugin.getTargetBundleManifestValidation()?.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+        target: 'native',
+        packageName: '@quajs/engine-native',
+        projectGraphId: 'native.template.generated',
+        projectGraphKind: 'project-template',
+      }),
+    ]))
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+  })
+
   it('rejects post-bundle manifests declared for another target before host info', async () => {
     const host = createHost()
     const bootstrap = createNativeEngineBootstrap(host, {
