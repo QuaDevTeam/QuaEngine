@@ -673,6 +673,50 @@ fn json_frame_audio_number_validation_rejects_unsafe_resolved_values() {
 }
 
 #[test]
+fn json_frame_background_number_validation_rejects_unsafe_resolved_values() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let width = renderer
+        .prepare_frame_json_str(json_frame_with_negative_background_width_input())
+        .unwrap_err();
+    match width {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.background.width");
+            assert_eq!(validation.asset_name, "-1");
+            assert!(validation.reason.contains("must not be negative"));
+        }
+        other => panic!("expected unsafe background width validation error, got {other:?}"),
+    }
+
+    let scale = renderer
+        .prepare_frame_json_str(json_frame_with_zero_background_layer_scale_input())
+        .unwrap_err();
+    match scale {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.background.layers[0].scale");
+            assert_eq!(validation.asset_name, "0");
+            assert!(validation.reason.contains("greater than 0"));
+        }
+        other => panic!("expected unsafe background layer scale validation error, got {other:?}"),
+    }
+
+    let opacity = renderer
+        .prepare_frame_json_str(json_frame_with_oversized_video_opacity_input())
+        .unwrap_err();
+    match opacity {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.background.video.opacity");
+            assert_eq!(validation.asset_name, "1.5");
+            assert!(validation.reason.contains("between 0 and 1"));
+        }
+        other => panic!("expected unsafe video opacity validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_identity_validation_rejects_duplicate_projection_identifiers() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

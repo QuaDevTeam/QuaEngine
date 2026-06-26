@@ -855,6 +855,58 @@ pub(super) fn json_frame_with_negative_ui_style_number_input() -> &'static str {
     "#
 }
 
+pub(super) fn json_frame_with_negative_background_width_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "image",
+          "assetName": "bg/main.png",
+          "width": -1
+        }
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_zero_background_layer_scale_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "layered",
+          "layers": [
+            {
+              "id": "foreground",
+              "assetName": "bg/fg.png",
+              "scale": 0
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_oversized_video_opacity_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "video",
+          "video": {
+            "assetName": "video/opening.webm",
+            "opacity": 1.5
+          }
+        }
+      }
+    }
+    "#
+}
+
 pub(super) fn json_frame_with_duplicate_scene_id_input() -> &'static str {
     r#"
     {
