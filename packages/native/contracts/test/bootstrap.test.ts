@@ -302,4 +302,88 @@ describe('target bootstrap isolation', () => {
       }),
     ])
   })
+
+  it('rejects target core adapters symmetrically in ordinary plugin lists for every packaging target', () => {
+    const cases = [
+      {
+        target: 'web',
+        fieldName: 'targets.web.plugins',
+        specifiers: [
+          '@quajs/cocos-host/runtime',
+          '@quajs/renderer-cocos/plugins/ui',
+          '@quajs/engine-native/native-host',
+          '@quajs/assets-native',
+          'quajs_wgpu_renderer::plugins::ui',
+        ],
+        expected: [
+          ['@quajs/cocos-host/runtime', '@quajs/cocos-host', 'cocos-core'],
+          ['@quajs/renderer-cocos/plugins/ui', '@quajs/renderer-cocos', 'cocos-core'],
+          ['@quajs/engine-native/native-host', '@quajs/engine-native', 'native-core'],
+          ['@quajs/assets-native', '@quajs/assets-native', 'native-core'],
+          ['quajs_wgpu_renderer::plugins::ui', 'quajs_wgpu_renderer', 'native-core'],
+        ],
+      },
+      {
+        target: 'cocos',
+        fieldName: 'targets.cocos.plugins',
+        specifiers: [
+          '@quajs/renderer-web/plugins/ui',
+          '@quajs/renderer-vue/plugins/preset',
+          '@quajs/engine-native/native-host',
+          '@quajs/store-native',
+          'quajs_native_app::startup',
+        ],
+        expected: [
+          ['@quajs/renderer-web/plugins/ui', '@quajs/renderer-web', 'web-core'],
+          ['@quajs/renderer-vue/plugins/preset', '@quajs/renderer-vue', 'web-core'],
+          ['@quajs/engine-native/native-host', '@quajs/engine-native', 'native-core'],
+          ['@quajs/store-native', '@quajs/store-native', 'native-core'],
+          ['quajs_native_app::startup', 'quajs_native_app', 'native-core'],
+        ],
+      },
+      {
+        target: 'native',
+        fieldName: 'targets.native.plugins',
+        specifiers: [
+          '@quajs/assets-web',
+          '@quajs/renderer-svelte/plugins/ui',
+          '@quajs/cocos-host/runtime',
+          '@quajs/assets-cocos',
+          '@quajs/renderer-cocos/plugins/dialogue',
+        ],
+        expected: [
+          ['@quajs/assets-web', '@quajs/assets-web', 'web-core'],
+          ['@quajs/renderer-svelte/plugins/ui', '@quajs/renderer-svelte', 'web-core'],
+          ['@quajs/cocos-host/runtime', '@quajs/cocos-host', 'cocos-core'],
+          ['@quajs/assets-cocos', '@quajs/assets-cocos', 'cocos-core'],
+          ['@quajs/renderer-cocos/plugins/dialogue', '@quajs/renderer-cocos', 'cocos-core'],
+        ],
+      },
+    ] as const
+
+    for (const { target, fieldName, specifiers, expected } of cases) {
+      const result = validateOrdinaryPluginListTargetIsolation([
+        '@quajs/character',
+        '@quajs/plugin-background',
+        ...specifiers,
+      ], {
+        target,
+        fieldName,
+      })
+
+      expect(result.ok).toBe(false)
+      for (const [specifier, packageName, corePluginFamily] of expected) {
+        expect(result.diagnostics).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            code: 'ORDINARY_PLUGIN_TARGET_CORE_ADAPTER',
+            target,
+            fieldName,
+            specifier,
+            packageName,
+            corePluginFamily,
+          }),
+        ]))
+      }
+    }
+  })
 })
