@@ -184,4 +184,28 @@ describe('Quack target plugin isolation', () => {
         expect(message).toContain(`${specifier} resolves to ${packageName} (${corePluginFamily}).`)
     }
   })
+
+  it('rejects generated resolvers that union Web, Cocos, and native core plugins before target filtering', () => {
+    const allTargetCoreUnion = [
+      '@quajs/assets-web',
+      '@quajs/renderer-web/plugins/ui',
+      '@quajs/cocos-host/runtime',
+      '@quajs/renderer-cocos/plugins/ui',
+      '@quajs/engine-native/native-host',
+      '@quajs/assets-native',
+      '@quajs/store-native',
+    ]
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      expect(() => assertQuackPluginReferencesTargetIsolation([
+        '@quajs/plugin-background',
+        ...allTargetCoreUnion,
+      ], {
+        target,
+        fieldName: `${target} generated resolver prefiltered target-core union`,
+      })).toThrow(
+        /generated resolver prefiltered target-core union[\s\S]*@quajs\/assets-web resolves to @quajs\/assets-web[\s\S]*@quajs\/renderer-web\/plugins\/ui resolves to @quajs\/renderer-web[\s\S]*@quajs\/cocos-host\/runtime resolves to @quajs\/cocos-host[\s\S]*@quajs\/renderer-cocos\/plugins\/ui resolves to @quajs\/renderer-cocos[\s\S]*@quajs\/engine-native\/native-host resolves to @quajs\/engine-native[\s\S]*@quajs\/assets-native resolves to @quajs\/assets-native[\s\S]*@quajs\/store-native resolves to @quajs\/store-native/,
+      )
+    }
+  })
 })
