@@ -174,7 +174,7 @@ QSS 侧：
 - 正例：Web / Cocos / Native 各自只包含一个 `TargetCoreSelection`、一个 matching `targetCoreResolver`、当前目标 renderer entries 和平台无关普通插件。
 - 负例 1：bootstrap selection 同时注册两个 core family，例如 Web 产物混入 `native-core`。
 - 负例 2：普通 `plugins` 或 shared preset 直接声明 Web / Cocos / Native core root 或 subentry。
-- 负例 2b：普通 plugin reference 对象里 `packageName` 看似平台无关，但 `specifier` 指向 Web / Cocos / Native target core subentry，或反过来；`validateOrdinaryPluginListTargetIsolation` 必须同时检查两个字段。
+- 负例 2b：普通 plugin reference 对象里 `packageName` 看似平台无关，但 `specifier` 指向 Web / Cocos / Native target core subentry，或反过来；`validateOrdinaryPluginListTargetIsolation` 和 Quack 的 `assertQuackPluginReferencesTargetIsolation` 必须同时检查两个字段。
 - 负例 3：第三方 plugin 的 shared entry eager import 任一 target core，或 inactive target entry 通过 barrel / side-effect import 进入 active 产物。
 - 负例 4：Runtime QPK `executableDependencies` 或 `rendererEntries` 指向任一 target core root / subentry，或 renderer entry 缺失显式 `target`。
 - 负例 5：post-bundle dependency graph 只在 `specifier` 或只在 `packageName` 中暴露其他 target core 子入口。
