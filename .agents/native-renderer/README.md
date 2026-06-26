@@ -57,6 +57,8 @@
 
 项目模板和启动壳也不能绕过这条规则。Web starter 只能接 Web resolver，Cocos starter 只能接 Cocos resolver，Native starter 只能接 Native resolver；debug shell、installer、updater 和 smoke runner 都只能消费当前目标已经产出的 `target-bundle-manifest.json`。它们不能自己 import、声明或合并 Web / Cocos / Native 任一 target core adapter，也不能用一个跨目标模板先带上三端核心插件再过滤。
 
+`target-bundle-manifest.json` 通过 `projectGraphs` 显式记录这些图：project template、startup shell、debug/release shell、smoke runner、installer、updater、dev server 和 post-bundle graph。非 `post-bundle` 图只能包含平台无关依赖，不能声明任何 target core，包括 active core；`post-bundle` 图可以包含 active core family，但必须拒绝 inactive target core。
+
 换句话说，打包到 Cocos、Web、Native 项目时，核心插件接线必须只发生在当前目标 packager resolver 里：
 
 - Web 项目只能由 Web resolver 注入 Web core，不能把 Cocos / Native core 放进项目模板、普通插件或 Runtime QPK 后再过滤。

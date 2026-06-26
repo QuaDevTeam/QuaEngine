@@ -608,6 +608,153 @@ describe('target bundle manifest validation', () => {
     }
   })
 
+  it('accepts target project graphs that contain only shared packages before bundling', () => {
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+        projectGraphs: [
+          {
+            id: `${target}.project-template`,
+            kind: 'project-template',
+            references: [
+              '@quajs/engine',
+              '@quajs/pipeline',
+            ],
+          },
+          {
+            id: `${target}.startup-shell`,
+            kind: 'startup-shell',
+            references: [
+              '@quajs/character',
+              '@quajs/plugin-background',
+            ],
+          },
+        ],
+      }))
+
+      expect(result.ok).toBe(true)
+      expect(result.diagnostics).toEqual([])
+    }
+  })
+
+  it('accepts post-bundle project graphs with only the active core family', () => {
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+        projectGraphs: [
+          {
+            id: `${target}.post-bundle`,
+            kind: 'post-bundle',
+            references: [
+              '@quajs/engine',
+              ...CORE_ADAPTERS_BY_TARGET[target],
+              rendererEntry(target),
+            ],
+          },
+        ],
+      }))
+
+      expect(result.ok).toBe(true)
+      expect(result.diagnostics).toEqual([])
+    }
+  })
+
+  it('rejects active target core adapters in project templates before bundling', () => {
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const packageName = normalizePackageSpecifier(CORE_ADAPTERS_BY_TARGET[target][0])
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+        projectGraphs: [
+          {
+            id: `${target}.template.declares-core`,
+            kind: 'project-template',
+            references: [
+              '@quajs/engine',
+              CORE_ADAPTERS_BY_TARGET[target][0],
+            ],
+          },
+        ],
+      }))
+
+      expect(result.ok).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+          target,
+          packageName,
+          packageCorePluginFamily: `${target}-core`,
+          expectedCorePluginFamily: `${target}-core`,
+          projectGraphId: `${target}.template.declares-core`,
+          projectGraphKind: 'project-template',
+        }),
+      ]))
+    }
+  })
+
+  it('rejects inactive target core adapters in project templates and startup shells', () => {
+    const cases = [
+      {
+        target: 'web',
+        graphId: 'web.template',
+        graphKind: 'project-template',
+        specifier: '@quajs/renderer-cocos/plugins/ui',
+        packageName: '@quajs/renderer-cocos',
+        packageCorePluginFamily: 'cocos-core',
+      },
+      {
+        target: 'cocos',
+        graphId: 'cocos.startup',
+        graphKind: 'startup-shell',
+        specifier: '@quajs/renderer-web/plugins/ui?import',
+        packageName: '@quajs/renderer-web',
+        packageCorePluginFamily: 'web-core',
+      },
+      {
+        target: 'native',
+        graphId: 'native.installer',
+        graphKind: 'installer',
+        specifier: '@quajs/renderer-web/plugins/audio',
+        packageName: '@quajs/renderer-web',
+        packageCorePluginFamily: 'web-core',
+      },
+    ] as const
+
+    for (const {
+      target,
+      graphId,
+      graphKind,
+      specifier,
+      packageName,
+      packageCorePluginFamily,
+    } of cases) {
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+        projectGraphs: [
+          {
+            id: graphId,
+            kind: graphKind,
+            references: [
+              '@quajs/engine',
+              {
+                packageName: '@quajs/character',
+                specifier,
+              },
+            ],
+          },
+        ],
+      }))
+
+      expect(result.ok).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+          target,
+          packageName,
+          packageCorePluginFamily,
+          expectedCorePluginFamily: `${target}-core`,
+          projectGraphId: graphId,
+          projectGraphKind: graphKind,
+        }),
+      ]))
+    }
+  })
+
   it('rejects native artifacts that include Web or Cocos renderer entries after bundling', () => {
     const result = validateTargetBundleManifest(targetBundleManifest({
       dependencies: [

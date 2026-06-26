@@ -39,7 +39,7 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 - Cocos 打包入口只能 materialize `cocos-core-resolver`，不能 import Web 或 Native bootstrap。
 - Native 打包入口只能 materialize `native-core-resolver`，不能 import Web 或 Cocos bootstrap。
 - debug、release、updater、installer、手写 shell 和测试 fixture 都必须复用同一套 manifest validation，不能另开绕过 target isolation 的快速路径。
-- `target-bundle-manifest.json` 是目标交接契约，`target`、`targetCoreResolver`、selected adapters、renderer entries、Runtime QPK executable dependencies 必须同属一个 core family。
+- `target-bundle-manifest.json` 是目标交接契约，`target`、`targetCoreResolver`、selected adapters、renderer entries、Runtime QPK executable dependencies 和 `projectGraphs` 必须同属一个 core family。
 
 实现时不要提供一个三端共享的 `corePlugins`、`targetCorePlugins`、`bootstrapPlugins` 或 umbrella preset，然后在后续流程里按 target 过滤。Web、Cocos、Native 必须分别有自己的 resolver 函数 / resolver context，并且只有当前 resolver 能注入核心插件：
 
@@ -70,14 +70,15 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 - 第三方 plugin manifest 必须通过 `validateTargetPluginManifest`：shared entry 只能 import 平台无关逻辑，active target entry 只能 import 本 target core，inactive target entry 不能 eager 进入产物。
 - target-specific renderer plugin entry 也属于目标隔离面：Web renderer subentry 不能进入 Cocos/Native，Cocos renderer subentry 不能进入 Web/Native，Native capability / bridge entry 不能进入 Web/Cocos。进入 `target-bundle-manifest.json` 的 app renderer entry 和 Runtime QPK renderer entry 必须显式声明 `target`，缺失 `target` 或声明为其他目标都要失败，不能靠包名猜测或运行时过滤。
 - 所有 target bundle reference、plugin import reference、Runtime QPK executable/renderer reference 都要同时校验 `specifier` 和 `packageName`；不能让一个普通包名字段遮住另一个字段里的 Web/Cocos/Native target core 子入口、query/hash-suffixed bundler specifier、Windows/backslash 路径、`node_modules` 路径或 pnpm `.pnpm` store 路径。
+- `target-bundle-manifest.json.projectGraphs` 要记录 project-template、startup-shell、debug/release-shell、smoke-runner、installer、updater、dev-server 和 post-bundle graph。非 `post-bundle` graph 只能包含平台无关依赖，不能重新声明任何 target core；`post-bundle` graph 可以包含 active core family，但必须拒绝 inactive target core。
 - 最终 `target-bundle-manifest.json` 必须通过 `validateTargetBundleManifest`；Web、Cocos、Native 的 debug/release、installer/updater、手写 shell 和 CI fixture 都不能跳过这一步。
 - release artifact 的依赖图检查必须发生在 bundle / tree-shake 之后，防止源码层过滤正确但产物里残留其他 target core 子入口。
 
 这里的“不能串线”要落实到项目生成边界，而不只是 manifest 字段：
 
-- Web 项目生成器只能接收 Web resolver 输出；生成模板、dev server、PWA/installer/updater 配置都不能 import Cocos / Native core。
-- Cocos 项目生成器只能接收 Cocos resolver 输出；Creator 接线、native host bridge 配置和调试入口不能 import Web renderer 或 Native engine/assets/store adapter。
-- Native 项目生成器只能接收 Native resolver 输出；Rust app manifest、QuickJS bootstrap、native installer/updater 和 renderer smoke 不能 import Web / Cocos renderer core。
+- Web 项目生成器只能消费 Web resolver 写入的 manifest；生成模板、dev server、PWA/installer/updater 配置都不能自行 import 或声明任一 target core。
+- Cocos 项目生成器只能消费 Cocos resolver 写入的 manifest；Creator 接线、native host bridge 配置和调试入口不能自行 import 或声明任一 target core。
+- Native 项目生成器只能消费 Native resolver 写入的 manifest；Rust app manifest、QuickJS bootstrap、native installer/updater 和 renderer smoke 不能自行 import 或声明任一 target core。
 - Runtime QPK、普通插件和第三方插件 target entry 不能作为“补齐缺失 core 插件”的逃逸口。它们只能声明兼容性和平台无关逻辑，不能安装任一目标 bootstrap。
 - post-bundle graph 必须同时检查目标项目模板生成物和 app runtime graph。只检查 package manifest 不够，因为串线可能来自模板、调试壳、installer/updater script 或 generated resolver。
 

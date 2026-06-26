@@ -11,7 +11,8 @@
 - `target core plugin`：安装目标 runtime adapter、renderer controller、host bridge、platform asset/store adapter、target renderer plugin entry 或 native renderer capability metadata 的 bootstrap 依赖。
 - `ordinary game/plugin`：平台无关的 engine/game/plugin 逻辑。它可以声明 target compatibility metadata，但不能自己注入 Web / Cocos / Native core adapter。
 - `TargetCoreSelection`：打包入口在解析普通插件之前生成的只读目标选择结果，是唯一可以携带 target core bootstrap adapter 的对象。
-- `target-bundle-manifest.json`：bundle / tree-shake 后的产物交接契约。它必须证明当前 artifact 只有一个 target core family，并记录 `targetCoreResolver`、`selectedCorePluginFamily`、selected adapters、renderer entries 和 Runtime QPK dependency。
+- `target-bundle-manifest.json`：bundle / tree-shake 后的产物交接契约。它必须证明当前 artifact 只有一个 target core family，并记录 `targetCoreResolver`、`selectedCorePluginFamily`、selected adapters、renderer entries、Runtime QPK dependency 和项目/产物依赖图。
+- `projectGraphs`：`target-bundle-manifest.json` 中用于记录项目模板、startup shell、debug/release shell、installer、updater、smoke runner、dev server、post-bundle graph 等依赖图的字段。非 `post-bundle` 图必须保持平台无关，不能声明任何 Web / Cocos / Native target core adapter；`post-bundle` 图可以包含 active core family，但仍必须拒绝 inactive target core。
 
 ## 核心归属
 
@@ -65,7 +66,7 @@
 - `resolveWebTargetCore()`、`resolveCocosTargetCore()`、`resolveNativeTargetCore()` 必须是互斥入口。
 - 任何 shared helper 只能处理 serializable metadata、schema、manifest validation 或 package-root normalization；一旦 import target runtime adapter / renderer / host bridge，就必须移动到对应 target resolver 内。
 - `plugins`、`presets`、generated plugin resolver、Runtime QPK `executableDependencies`、Runtime QPK `rendererEntries` 和 app renderer entries 都不得引用 Web / Cocos / Native target core root 或 subentry。
-- post-bundle graph 必须同时扫描 `specifier` 与 `packageName`，把 subentry、`npm:` specifier、`?query` / `#hash` 后缀、Windows/backslash 路径、`node_modules` 路径和 pnpm `.pnpm` store 路径归一到 package root 后再判定是否串线。
+- `projectGraphs` 必须同时扫描 `specifier` 与 `packageName`，把 subentry、`npm:` specifier、`?query` / `#hash` 后缀、Windows/backslash 路径、`node_modules` 路径和 pnpm `.pnpm` store 路径归一到 package root 后再判定是否串线。项目模板、startup shell、debug/release shell、installer、updater、smoke runner 和 dev server 图里出现任一 target core 都要失败；post-bundle 图里出现 inactive target core 要失败。
 - debug 与 release 产物使用同一套 blocker。debug 可以多 sourcemap / diagnostics，但不能放宽核心插件隔离。
 
 验收时必须证明三端互斥，而不是只证明 native 严格：
@@ -88,9 +89,9 @@
 | ordinary plugin resolver | 只消费只读 `TargetCoreSelection` 和平台无关 contracts | 追加、替换或二次声明任一 target core adapter | `validateOrdinaryPluginListTargetIsolation` |
 | third-party plugin entry selector | materialize `shared` + active target entry | eager import inactive target entry；shared entry import target core | `validateTargetPluginManifest` |
 | Runtime QPK resolver / activator | 只评估 active target compatibility block，加载 QS / JS / resources | 声明 target core executable dependency / renderer entry；覆盖 native host renderer metadata | runtime package native-code guard、`validateTargetBundleManifest` runtime package checks |
-| post-bundle graph checker | 在 bundle / tree-shake 后扫描真实依赖图并 emit manifest | 只信源码配置；只扫 `packageName` 或只扫 `specifier` | `validateTargetBundleManifest` |
-| debug shell / smoke runner | 读取已选 target manifest，做轻量启动或 projection smoke | 构造三端 core 列表；绕过 manifest validation | `validateExclusiveTargetBootstrap`、active target manifest validation |
-| installer / updater | 复用已验证 artifact manifest 和版本目录 | 重新声明、合并或替换 core adapters | release manifest validation、版本产物不可变检查 |
+| post-bundle graph checker | 在 bundle / tree-shake 后扫描真实依赖图并写入 `projectGraphs(kind: "post-bundle")` | 只信源码配置；只扫 `packageName` 或只扫 `specifier` | `validateTargetBundleManifest` |
+| debug shell / smoke runner | 读取已选 target manifest，做轻量启动或 projection smoke，并把自身依赖写入 `projectGraphs` | 构造三端 core 列表；重新声明 active core；绕过 manifest validation | `validateTargetBundleManifest` 的 `projectGraphs` 检查 |
+| installer / updater | 复用已验证 artifact manifest 和版本目录，并把自身依赖写入 `projectGraphs` | 重新声明、合并或替换 core adapters | release manifest validation、版本产物不可变检查、`projectGraphs` 检查 |
 
 实现上要把这张表当成代码结构约束，而不是发布前人工检查。能 import target runtime adapter、renderer 或 host bridge 的模块，只能位于对应 target resolver 之下；其余模块只能处理序列化 metadata、schema、normalization 和 validation。
 
@@ -101,7 +102,7 @@
 1. **Bootstrap selection**：`validateExclusiveTargetBootstrap` 确认只注册一个 core family。
 2. **Ordinary plugin list**：`validateOrdinaryPluginListTargetIsolation` 拦截普通 `plugins`、shared preset、CLI plugin reference、generated resolver 中的 target core root / subentry。
 3. **Plugin entry selection**：`validateTargetPluginManifest` 确认 shared entry 平台无关，active target entry 只 import 当前目标 adapter，inactive entries 不 eager。
-4. **Post-bundle graph**：bundle / tree-shake 后同时检查 `specifier` 与 `packageName`，并把 subentry、query/hash-suffixed bundler specifier、Windows 路径、`node_modules` 路径和 pnpm store 路径归一到 package root，例如 `@quajs/renderer-web/plugins/audio?import` 或 `node_modules/@quajs/renderer-web/plugins/audio.js` 仍然是 Web core。
+4. **Project graphs and post-bundle graph**：`projectGraphs` 记录项目模板、startup shell、debug/release shell、smoke runner、installer、updater、dev server 和 post-bundle dependency graph。非 `post-bundle` 图只允许平台无关依赖，连 active target core 也不能重新声明；`post-bundle` 图允许 active core 但必须拒绝 inactive core。所有图都要同时检查 `specifier` 与 `packageName`，并把 subentry、query/hash-suffixed bundler specifier、Windows 路径、`node_modules` 路径和 pnpm store 路径归一到 package root，例如 `@quajs/renderer-web/plugins/audio?import` 或 `node_modules/@quajs/renderer-web/plugins/audio.js` 仍然是 Web core。
 5. **Startup / Runtime QPK**：`validateTargetBundleManifest` 和 runtime startup 重复校验 `target`、`targetCoreResolver`、selected adapters、renderer entries、Runtime QPK executable dependencies 与 active target 一致。
 
 任何一层通过都不能代表其他层安全。尤其要注意 `specifier` 和 `packageName` 双字段：安全的 `packageName` 不能掩盖 `specifier` 里的 target core subentry，反过来也一样。

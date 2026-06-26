@@ -165,6 +165,7 @@ QSS 侧：
 - debug / release isolation
 - release immutability by version
 - `target-bundle-manifest.json` emitted and revalidated
+- `target-bundle-manifest.json.projectGraphs` emitted for project-template、startup-shell、debug-shell、release-shell、smoke-runner、installer、updater、dev-server 和 post-bundle graph。非 `post-bundle` graph 只能包含平台无关依赖，任何 Web / Cocos / Native target core root 或 subentry 都必须失败；`post-bundle` graph 可以包含 active core family，但必须拒绝 inactive target core
 - Web artifact 排除 Cocos/native core，Cocos artifact 排除 Web/native core，Native artifact 排除 Web/Cocos core；不能只测 native 严格路径
 - 三端 resolver fixture 必须分别断言 `web-core-resolver`、`cocos-core-resolver`、`native-core-resolver`，并在 resolver / selected adapters / renderer entries / Runtime QPK executable dependencies 任一项串线时失败
 - ordinary plugin list、shared preset、generated plugin resolver、debug shell、release bundle 和 installer/updater manifest 都要跑同一套 target isolation helper，不能只在 Quack 主打包路径校验
@@ -186,7 +187,7 @@ CI 里要把三目标核心插件隔离拆成两个必跑 test suite：
 
 - 正例：Web / Cocos / Native 各自只包含一个 `TargetCoreSelection`、一个 matching `targetCoreResolver`、当前目标 renderer entries 和平台无关普通插件。
 - 正例 1b：Web / Cocos / Native 项目模板、starter、debug shell、installer、updater 和 smoke runner 只读取对应目标已经 emitted 的 `target-bundle-manifest.json`，不再 import、声明或二次装配任何 target core plugin。
-- 正例 1c：Web 模板只包含 Web resolver 输出，Cocos 模板只包含 Cocos resolver 输出，Native 模板只包含 Native resolver 输出；三类模板都不携带其他目标核心插件的惰性分支、barrel export 或 generated resolver。
+- 正例 1c：`projectGraphs` 中 project-template / startup-shell / debug-shell / release-shell / installer / updater / smoke-runner 只包含平台无关依赖；post-bundle graph 只包含 active target core family 和平台无关依赖。
 - 负例 1：bootstrap selection 同时注册两个 core family，例如 Web 产物混入 `native-core`。
 - 负例 2：普通 `plugins` 或 shared preset 直接声明 Web / Cocos / Native core root 或 subentry。
 - 负例 2b：普通 plugin reference 对象里 `packageName` 看似平台无关，但 `specifier` 指向 Web / Cocos / Native target core subentry，或反过来；`validateOrdinaryPluginListTargetIsolation` 和 Quack 的 `assertQuackPluginReferencesTargetIsolation` 必须同时检查两个字段。
@@ -197,6 +198,7 @@ CI 里要把三目标核心插件隔离拆成两个必跑 test suite：
 - 负例 7：packager 或 shared preset 先构造 `[webCore, cocosCore, nativeCore]` 这样的三端全集，再按 target 过滤；这种实现即使最终 manifest 看似只剩一个 target，也必须按核心插件串线失败。
 - 负例 8：Web / Cocos / Native 项目模板、starter、debug shell、installer、updater 或 smoke runner 自己重新声明 active target core，或顺手携带 inactive target core；即使 packager 主路径已经生成正确 manifest，也必须失败，因为核心插件只能由目标 resolver 注入一次。
 - 负例 9：打包到 Cocos、Web、Native 项目时复用同一个跨目标项目模板，模板内部再根据参数过滤 core plugin；即使最终输出 manifest 看似单目标，也必须按核心插件串线失败。
+- 负例 10：`projectGraphs` 的非 `post-bundle` graph 携带 active target core，或 `post-bundle` graph 携带 inactive target core。两个场景都必须由 `validateTargetBundleManifest` 报 `TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER`。
 
 这些 fixture 必须对 Web、Cocos、Native 三端对称存在。Native 不能是唯一严格路径；Web 和 Cocos 也必须用相同 blocker 级别拒绝其他目标核心插件。
 
@@ -211,6 +213,7 @@ CI 里要把三目标核心插件隔离拆成两个必跑 test suite：
 | third-party plugin manifest | shared entry eager import Cocos / Native core；inactive Cocos / Native target entry eager | shared entry eager import Web / Native core；inactive Web / Native target entry eager | shared entry eager import Web / Cocos core；inactive Web / Cocos target entry eager |
 | renderer entries | Cocos / Native renderer target metadata；Cocos / Native renderer plugin subentry | Web / Native renderer target metadata；Web / Native renderer plugin subentry | Web / Cocos renderer target metadata；Web / Cocos renderer plugin subentry |
 | Runtime QPK executable dependency | Cocos / Native core dependency | Web / Native core dependency | Web / Cocos core dependency |
+| projectGraphs before bundling | 任一 Web/Cocos/Native core dependency，包括 Web active core | 任一 Web/Cocos/Native core dependency，包括 Cocos active core | 任一 Web/Cocos/Native core dependency，包括 Native active core |
 | post-bundle graph | Cocos / Native root or subentry in `specifier` or `packageName` | Web / Native root or subentry in `specifier` or `packageName` | Web / Cocos root or subentry in `specifier` or `packageName` |
 | startup manifest | non-Web `targetCoreResolver` or selected adapter | non-Cocos `targetCoreResolver` or selected adapter | non-Native `targetCoreResolver` or selected adapter |
 
