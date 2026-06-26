@@ -73,6 +73,7 @@ pub fn validate_native_target_bundle_manifest(
 
     check_target_core_resolver(manifest, &mut diagnostics);
     check_native_artifact_metadata(manifest, &mut diagnostics);
+    check_required_app_metadata(manifest, &mut diagnostics);
 
     if let Some(expectation) = expectation {
         check_manifest_identity(manifest, expectation, &mut diagnostics);
@@ -132,6 +133,33 @@ fn check_native_artifact_metadata(
             platform
         )),
         None => diagnostics.push("Native target bundle manifest must include platform.".to_string()),
+    }
+}
+
+fn check_required_app_metadata(
+    manifest: &NativeTargetBundleManifest,
+    diagnostics: &mut Vec<String>,
+) {
+    let Some(app) = manifest.app.as_ref() else {
+        diagnostics.push("Native target bundle manifest must include app metadata.".to_string());
+        return;
+    };
+
+    check_required_app_field("bundleId", app.bundle_id.as_deref(), diagnostics);
+    check_required_app_field("version", app.version.as_deref(), diagnostics);
+    check_required_app_field("buildNumber", app.build_number.as_deref(), diagnostics);
+    check_required_app_field("icon", app.icon.as_deref(), diagnostics);
+}
+
+fn check_required_app_field(field: &str, actual: Option<&str>, diagnostics: &mut Vec<String>) {
+    match actual {
+        Some(actual) if !actual.trim().is_empty() => {}
+        Some(_) => diagnostics.push(format!(
+            "Native target bundle manifest app.{field} must not be empty."
+        )),
+        None => diagnostics.push(format!(
+            "Native target bundle manifest must include app.{field}."
+        )),
     }
 }
 
