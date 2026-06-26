@@ -32,6 +32,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('display')
     expect(nativeWgpuQssFeatureNames()).toContain('height')
     expect(nativeWgpuQssFeatureNames()).toContain('left')
+    expect(nativeWgpuQssFeatureNames()).toContain('font-style')
     expect(nativeWgpuQssFeatureNames()).toContain('object-fit')
     expect(nativeWgpuQssFeatureNames()).toContain('opacity')
     expect(nativeWgpuQssFeatureNames()).toContain('overflow')
@@ -431,6 +432,7 @@ Button.primary {
   color: #f6f8ff;
   font-family: "Inter", system-ui;
   font-size: 18px;
+  font-style: italic;
   font-weight: 600;
   line-height: 1.25;
   left: -12px;
@@ -466,6 +468,7 @@ Button.primary {
         color: '#f6f8ff',
         fontFamily: ['Inter', 'system-ui'],
         fontSize: 18,
+        fontStyle: 'italic',
         fontWeight: 600,
         lineHeight: 1.25,
         objectFit: 'cover',
@@ -483,6 +486,7 @@ Button {
   border-radius: calc(4px);
   border-style: dashed;
   display: block;
+  font-style: oblique;
   font-weight: heavy;
   height: -1px;
   left: calc(2px);
@@ -518,6 +522,7 @@ Button {
   border-radius: calc(4px);
   border-style: dashed;
   display: block;
+  font-style: oblique;
   font-weight: heavy;
   height: -1px;
   left: calc(2px);
@@ -542,6 +547,7 @@ Button {
   border-radius: 0px;
   border-style: none;
   display: none;
+  font-style: normal;
   font-weight: 0;
   height: 24px;
   left: -12px;
@@ -561,7 +567,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(20)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(21)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -582,6 +588,10 @@ Button {
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
         message: expect.stringContaining('display currently supports none'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('font-style supports normal or italic'),
       }),
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',

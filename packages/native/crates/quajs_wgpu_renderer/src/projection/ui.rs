@@ -9,8 +9,8 @@ pub use types::{
     UiIntentProjection, UiOverlayProjection, UiOverlayRenderMode, UiOverlaySceneProjection,
     UiOverlaySceneShellProjection, UiOverlaySurfaceProjection, UiProjection,
     UiSurfaceBackgroundPositionProjection, UiSurfaceBorderStyleProjection,
-    UiSurfaceEdgeInsetsProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
-    UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceObjectFitProjection,
+    UiSurfaceEdgeInsetsProjection, UiSurfaceFontStyleProjection, UiSurfaceImageProjection,
+    UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceObjectFitProjection,
     UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
 };
 

@@ -1,11 +1,11 @@
 use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
 use crate::render_graph::{
-    EdgeInsetsDrawParam, FontWeightDrawParam, MediaFit, MediaOrigin, TextAlign,
+    EdgeInsetsDrawParam, FontStyleDrawParam, FontWeightDrawParam, MediaFit, MediaOrigin, TextAlign,
 };
 
 use super::types::{
-    UiSurfaceBorderStyleProjection, UiSurfaceImageProjection, UiSurfaceObjectFitProjection,
-    UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
+    UiSurfaceBorderStyleProjection, UiSurfaceFontStyleProjection, UiSurfaceImageProjection,
+    UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
 };
 
 pub fn resolve_background_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {
@@ -89,6 +89,13 @@ pub fn resolve_font_size(style: &UiSurfaceResolvedStyle, fallback: f64) -> f64 {
 
 pub fn resolve_font_family(style: &UiSurfaceResolvedStyle) -> Vec<String> {
     font_family_to_draw_param(&style.font_family)
+}
+
+pub fn resolve_font_style(style: &UiSurfaceResolvedStyle) -> FontStyleDrawParam {
+    match style.font_style {
+        Some(UiSurfaceFontStyleProjection::Italic) => FontStyleDrawParam::Italic,
+        Some(UiSurfaceFontStyleProjection::Normal) | None => FontStyleDrawParam::Normal,
+    }
 }
 
 pub fn resolve_font_weight(style: &UiSurfaceResolvedStyle) -> Option<FontWeightDrawParam> {

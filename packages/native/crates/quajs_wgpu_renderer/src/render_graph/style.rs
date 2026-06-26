@@ -77,11 +77,18 @@ pub enum FontWeightDrawParam {
     Keyword(String),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FontStyleDrawParam {
+    Normal,
+    Italic,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextDrawParams {
     pub text: String,
     pub font_family: Vec<String>,
     pub font_size: f64,
+    pub font_style: FontStyleDrawParam,
     pub font_weight: Option<FontWeightDrawParam>,
     pub line_height: f64,
     pub align: TextAlign,
@@ -143,6 +150,7 @@ pub struct UiButtonDrawParams {
     pub border: BorderDrawParams,
     pub font_family: Vec<String>,
     pub font_size: f64,
+    pub font_style: FontStyleDrawParam,
     pub font_weight: Option<FontWeightDrawParam>,
     pub line_height: f64,
     pub align: TextAlign,

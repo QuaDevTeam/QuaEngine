@@ -11,8 +11,9 @@ pub use graph::RenderGraph;
 pub use pass::{plan_render_passes, RenderPass, RenderPassPlan, RenderViewport};
 pub use style::{
     BorderDrawParams, CharacterAnchor, CharacterDrawParams, DrawCommandParams, EdgeInsetsDrawParam,
-    FontWeightDrawParam, ImageDrawParams, MediaFit, MediaOrigin, PanelDrawParams, RendererIntent,
-    TextAlign, TextDrawParams, UiButtonDrawParams, UiSurfaceDrawParams, VideoDrawParams,
+    FontStyleDrawParam, FontWeightDrawParam, ImageDrawParams, MediaFit, MediaOrigin,
+    PanelDrawParams, RendererIntent, TextAlign, TextDrawParams, UiButtonDrawParams,
+    UiSurfaceDrawParams, VideoDrawParams,
 };
 pub use summary::{
     RenderGraphPackageSummary, RenderGraphResourceSummary, RenderGraphSummary, RenderPlaneSummary,

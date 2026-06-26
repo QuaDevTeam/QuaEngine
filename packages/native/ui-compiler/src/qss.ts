@@ -23,6 +23,7 @@ import {
   parseNativeQssDisplay,
   parseNativeQssEdgeInsets,
   parseNativeQssFontFamilyList,
+  parseNativeQssFontStyle,
   parseNativeQssFontWeight,
   parseNativeQssInteger,
   parseNativeQssLogicalNumber,
@@ -681,6 +682,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssFontFamilyList(value)
         ? undefined
         : 'font-family must include at least one font family name.'
+    case 'font-style':
+      return parseNativeQssFontStyle(value) !== undefined
+        ? undefined
+        : 'font-style supports normal or italic.'
     case 'font-weight':
       return parseNativeQssFontWeight(value) !== undefined
         ? undefined

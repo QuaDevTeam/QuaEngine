@@ -1,7 +1,8 @@
 use crate::projection::common::PackageProvenance;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
-    PanelDrawParams, RenderGraph, RenderPlane, RendererIntent, TextAlign, UiButtonDrawParams,
+    FontStyleDrawParam, PanelDrawParams, RenderGraph, RenderPlane, RendererIntent, TextAlign,
+    UiButtonDrawParams,
 };
 use crate::stage_layout::ResolvedStageLayout;
 
@@ -74,6 +75,7 @@ fn choice_command(
         border: BorderDrawParams::default(),
         font_family: Vec::new(),
         font_size: 30.0,
+        font_style: FontStyleDrawParam::Normal,
         font_weight: None,
         line_height: 42.0,
         align: TextAlign::Center,

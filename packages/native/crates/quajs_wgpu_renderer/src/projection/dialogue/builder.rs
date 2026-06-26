@@ -2,8 +2,8 @@ use crate::projection::common::PackageProvenance;
 use crate::projection::typography::font_family_resource_ids;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
-    ImageDrawParams, MediaFit, MediaOrigin, PanelDrawParams, RenderGraph, RenderPlane,
-    TextDrawParams,
+    FontStyleDrawParam, ImageDrawParams, MediaFit, MediaOrigin, PanelDrawParams, RenderGraph,
+    RenderPlane, TextDrawParams,
 };
 use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
@@ -103,6 +103,7 @@ fn text_command(
             text,
             font_family,
             font_size: resolve_font_size(style, fallback_font_size),
+            font_style: FontStyleDrawParam::Normal,
             font_weight: resolve_font_weight(style),
             line_height: resolve_line_height(style, fallback_line_height),
             align: resolve_text_align(style),
