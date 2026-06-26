@@ -4,7 +4,7 @@ use crate::render_graph::{DrawBatchPipeline, DrawCommandParams, LogicalRect, Med
 use crate::renderer::{
     NativeRendererJsonFrameError, NativeRendererJsonFrameInput, NullNativeRenderBackend,
 };
-use crate::resources::ResourceId;
+use crate::resources::{PackageUnloadBlockerReason, ResourceId};
 
 const SHARED_QUI_QSS_SURFACE_FRAME: &str =
     include_str!("../../../../../../test-fixtures/renderer/qui-qss-surface-frame.json");
@@ -81,8 +81,33 @@ fn prepares_shared_compiled_qui_qss_surface_fixture() {
     assert_eq!(result.submission.revision, 1);
     assert_eq!(result.submission.missing_resource_count, 0);
     assert_eq!(renderer.resources().len(), 5);
-    assert!(renderer.resources().get("images:ui/panel.png").is_some());
-    assert!(renderer.resources().get("images:ui/poster.png").is_some());
+    let panel_resource = renderer
+        .resources()
+        .get("images:ui/panel.png")
+        .expect("panel image resource recorded");
+    assert_eq!(
+        panel_resource.owner_package_id.as_deref(),
+        Some("runtime.ui")
+    );
+    assert!(panel_resource.required_package_ids.contains("base"));
+    let poster_resource = renderer
+        .resources()
+        .get("images:ui/poster.png")
+        .expect("poster image resource recorded");
+    assert_eq!(
+        poster_resource.owner_package_id.as_deref(),
+        Some("runtime.ui")
+    );
+    assert!(poster_resource.required_package_ids.contains("runtime.fonts"));
+    let surface_resource = renderer
+        .resources()
+        .get("surface:ui/compiled-menu.qui")
+        .expect("surface resource recorded");
+    assert_eq!(
+        surface_resource.owner_package_id.as_deref(),
+        Some("runtime.ui")
+    );
+    assert!(surface_resource.required_package_ids.contains("base"));
     assert!(renderer.resources().get("fonts:Qua Sans").is_some());
     assert!(renderer.resources().get("fonts:Fallback Serif").is_some());
 
@@ -114,6 +139,14 @@ fn prepares_shared_compiled_qui_qss_surface_fixture() {
         }
         _ => panic!("expected panel background image params"),
     }
+    assert_eq!(
+        panel_background.owner_package_id.as_deref(),
+        Some("runtime.ui")
+    );
+    assert!(panel_background.required_package_ids.contains("base"));
+    assert!(panel_background
+        .required_package_ids
+        .contains("runtime.fonts"));
 
     let poster = frame
         .graph
@@ -129,6 +162,9 @@ fn prepares_shared_compiled_qui_qss_surface_fixture() {
         }
         _ => panic!("expected poster image params"),
     }
+    assert_eq!(poster.owner_package_id.as_deref(), Some("runtime.ui"));
+    assert!(poster.required_package_ids.contains("base"));
+    assert!(poster.required_package_ids.contains("runtime.fonts"));
 
     let hit = renderer
         .hit_intent(408.0, 354.0)
@@ -140,6 +176,14 @@ fn prepares_shared_compiled_qui_qss_surface_fixture() {
         hit.intent.metadata.get("arg0"),
         Some(&serde_json::json!("settings"))
     );
+
+    let plan = renderer.plan_package_unload("base");
+    assert!(!plan.can_unload());
+    assert!(plan.blocked.iter().any(|blocker| {
+        blocker.reason == PackageUnloadBlockerReason::PackageRequiredByForeignResource
+            && blocker.required_package_ids.contains("base")
+            && blocker.owner_package_id.as_deref() == Some("runtime.ui")
+    }));
 }
 
 #[test]

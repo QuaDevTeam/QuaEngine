@@ -161,7 +161,7 @@ LSP hover 应从同一 registry 暴露组件 `content`、`slots` 和 style parts
 
 Rust renderer 只消费 resolved style IR。selector matching、cascade、inheritance、diagnostics 都应留在 TS 工具链层。
 
-`@quajs/native-ui-compiler` 需要通过 `resolveNativeQssDeclarations` 这类 TS 工具链 API，把已解析和校验过的 QSS declaration 归一化成 native surface style IR；`z-index` 输出为 node metadata，其他已支持字段输出为 `NativeQssResolvedStyle`，Rust/wgpu renderer 只消费该投影形状。
+`@quajs/native-ui-compiler` 需要通过 `resolveNativeQssDeclarations` 这类 TS 工具链 API，把已解析和校验过的 QSS declaration 归一化成 native surface style IR；`z-index` 输出为 node metadata，其他已支持字段输出为 `NativeQssResolvedStyle`，Rust/wgpu renderer 只消费该投影形状。动态包 surface 编译时还必须显式传入 `contentPackageId` / `requiredRuntimePackages`，由 compiler 写入 node-level `provenance`，让 Rust draw command、资源账本、内存指标和 unload blocker 都能追踪 QUI/QSS surface 来源。
 
 native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义。`analyzeQssSource` / LSP 应在 authoring 阶段给出 `QSS_INVALID_VALUE`，例如拒绝 `object-fit: stretch`、`background-size: repeat`、不安全的 `background-image: asset("../escape.png")` 和不符合 native origin 子集的 `background-position`。Rust renderer 不负责兜底解析或猜测这些无效值。
 
