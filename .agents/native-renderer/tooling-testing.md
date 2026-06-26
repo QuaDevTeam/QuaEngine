@@ -91,6 +91,7 @@ QSS 侧：
 - language configuration
 - snippets
 - command: validate / format / restart LSP
+- command: fix all invalid/missing native UI asset references by applying the LSP `source.fixAll.quaNativeAssets` action for the active `.qui` / `.qss` document
 - diagnostics panel
 
 后续增强：
