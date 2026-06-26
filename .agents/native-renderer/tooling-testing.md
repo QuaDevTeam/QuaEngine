@@ -11,7 +11,7 @@ native authoring 工具要独立于现有 QuaScript 工具链：
 建议新增：
 
 - `packages/native/ui-compiler`：已落基础，负责 QUI/QSS parse、validate、format、completion、hover 和 registry。
-- `packages/native/language-server`：已落基础，负责 `.qui/.qss` 的独立 LSP 适配，包括 diagnostics、formatting、completion、hover、definition、document links、component/class/id references 和 package bin 默认 stdio 启动。
+- `packages/native/language-server`：已落基础，负责 `.qui/.qss` 的独立 LSP 适配，包括 diagnostics、formatting、completion、hover、definition、document links、component/class/id references、QUI/QSS package-relative asset reference links 和 package bin 默认 stdio 启动。
 - `packages/native/vscode`：已落基础，负责 VSCode language contribution、grammar、snippets、format/validate/restart commands 和 native LSP 启动。
 - `packages/native/benchmarks`：已落基础，负责 native authoring/tooling 的确定性 smoke benchmark，输出 JSON Lines baseline。
 
@@ -37,7 +37,7 @@ LSP 的职责是同一套语义在不同入口下复用：
 
 1. `project-index`
    - 文件
-   - 资产
+   - 资产：QUI `src` / `image` 字面量和 QSS `asset("...")` / `asset("...", "kind")`，只接受包内相对路径，拒绝 URL、绝对路径和 `..`
    - tokens
    - QPK manifest
    - component registry
@@ -64,7 +64,7 @@ QUI 侧：
 - readonly view paths
 - settings paths
 - action descriptors
-- asset refs
+- asset refs：`Image(src: "...")`、`image: "..."` 和 asset document links
 
 QSS 侧：
 
@@ -74,6 +74,7 @@ QSS 侧：
 - tokens
 - style parts
 - class / id references
+- `background-image: asset("...")` 资源引用索引和 document links
 
 ## VSCode 插件
 
@@ -127,6 +128,7 @@ QSS 侧：
 - completion
 - hover
 - document links
+- QUI/QSS asset reference indexing: `Image(src|image)`、QSS `asset(...)`、resolved/missing asset document links、unsafe URL/absolute/traversal path ignored
 - definition
 - references
 - rename

@@ -55,6 +55,7 @@ describe('@quajs/native-benchmarks', () => {
       }))
     expect(records.find(record => record.bench === 'native.authoring.project_index.build.smoke')?.metrics)
       .toEqual(expect.objectContaining({
+        assetReferences: expect.any(Number),
         classes: expect.any(Number),
         components: expect.any(Number),
       }))

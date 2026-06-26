@@ -82,23 +82,43 @@ export function createNativeUiProjectRenameEdits(
 
 export function createNativeUiProjectDocumentLinks(
   documents: readonly NativeUiProjectIndexedDocument[],
+  skippedDocumentUris: readonly string[] = [],
 ): NativeUiProjectDocumentLink[] {
-  const documentUris = new Set(documents.map(document => document.uri))
+  const knownUris = new Set([
+    ...documents.map(document => document.uri),
+    ...skippedDocumentUris,
+  ])
   return documents
-    .filter(document => document.kind === 'qui')
-    .flatMap(document => document.imports.map((item): NativeUiProjectDocumentLink => {
-      const candidateUri = resolveImportCandidateUri(document, item.path)
-      const resolved = candidateUri !== undefined && documentUris.has(candidateUri)
-      return {
-        candidateUri,
-        kind: item.kind,
-        path: item.path,
-        pathRange: item.pathRange,
-        resolved,
-        sourceUri: document.uri,
-        targetUri: resolved ? candidateUri : undefined,
-      }
-    }))
+    .flatMap(document => [
+      ...(document.kind === 'qui'
+        ? document.imports.map((item): NativeUiProjectDocumentLink => {
+            const candidateUri = resolveProjectCandidateUri(document, item.path)
+            const resolved = candidateUri !== undefined && knownUris.has(candidateUri)
+            return {
+              candidateUri,
+              kind: item.kind,
+              path: item.path,
+              pathRange: item.pathRange,
+              resolved,
+              sourceUri: document.uri,
+              targetUri: resolved ? candidateUri : undefined,
+            }
+          })
+        : []),
+      ...document.assetReferences.map((item): NativeUiProjectDocumentLink => {
+        const candidateUri = resolveProjectCandidateUri(document, item.assetName)
+        const resolved = candidateUri !== undefined && knownUris.has(candidateUri)
+        return {
+          candidateUri,
+          kind: 'asset',
+          path: item.assetName,
+          pathRange: item.pathRange,
+          resolved,
+          sourceUri: document.uri,
+          targetUri: resolved ? candidateUri : undefined,
+        }
+      }),
+    ])
     .sort(compareDocumentLinks)
 }
 
@@ -129,7 +149,7 @@ export function createNativeUiProjectReferences(
     .sort(compareReferences)
 }
 
-function resolveImportCandidateUri(
+function resolveProjectCandidateUri(
   document: NativeUiProjectIndexedDocument,
   importPath: string,
 ): string | undefined {
