@@ -568,9 +568,12 @@ Button.primary {
   it('omits invalid QSS declaration values from resolved surface style IR', () => {
     const document = analyzeQssSource(`
 Button {
+  background-color: url("native.dll");
   border-width: -1px;
   border-radius: calc(4px);
+  border-color: ../native.dll;
   border-style: dashed;
+  color: rgb(300, 0, 0);
   display: block;
   font-style: oblique;
   font-weight: heavy;
@@ -618,7 +621,9 @@ Button {
 Button {
   border-width: -1px;
   border-radius: calc(4px);
+  border-color: ../native.dll;
   border-style: dashed;
+  color: rgb(300, 0, 0);
   display: block;
   font-style: oblique;
   font-weight: heavy;
@@ -653,9 +658,12 @@ Button {
 `)
     const valid = analyzeQssSource(`
 Button {
+  background-color: transparent;
   border-width: 0;
   border-radius: 0px;
+  border-color: rgba(1, 2, 3, 0.4);
   border-style: none;
+  color: currentColor;
   display: none;
   font-style: normal;
   font-weight: 0;
@@ -689,8 +697,16 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(33)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(35)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('border-color must be a safe native color literal'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('color must be a safe native color literal'),
+      }),
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
         message: expect.stringContaining('background-image'),

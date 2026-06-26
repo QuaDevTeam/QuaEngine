@@ -110,6 +110,14 @@
 
 Web / Cocos / Native 的 debug、release、installer、updater 和 hand-built shell 必须复用同一套 isolation helper。
 
+核心插件接线点要固定在目标 packager entry，而不是项目模板内部：
+
+- Web packager entry 调用 `resolveWebTargetCore()` 后，把 selected Web adapters 写入 `target-bundle-manifest.json`；Web starter、debug shell、installer 和 updater 只读取 manifest，不再 import `@quajs/renderer-web` 以外的目标核心插件，也不重新声明 Web core。
+- Cocos packager entry 调用 `resolveCocosTargetCore()` 后，把 selected Cocos adapters 写入 `target-bundle-manifest.json`；Cocos 项目工程、Creator 接线、debug shell、installer 和 updater 只读取 manifest，不 import Web/native core。
+- Native packager entry 调用 `resolveNativeTargetCore()` 后，把 `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、native contracts metadata 和 Rust renderer metadata 写入 `target-bundle-manifest.json`；native app、smoke runner、installer 和 updater 只复验 manifest，不 import Web/Cocos core。
+
+任何项目模板、installer、updater、debug shell 或 smoke runner 如果自己构造 Web / Cocos / Native core 插件列表，就算最终看起来只选择了一个目标，也按核心插件串线处理。目标核心插件只能在 packager entry 中注入一次；后续步骤只能消费、校验和分发已选 target manifest。
+
 ## 三类项目模板装配边界
 
 打包到 Cocos、Web、Native 项目时，项目模板和启动代码也必须遵守同一条 target-first 规则。核心插件不能先进入一个跨目标工程模板，再由模板参数、运行时分支或构建脚本过滤。
