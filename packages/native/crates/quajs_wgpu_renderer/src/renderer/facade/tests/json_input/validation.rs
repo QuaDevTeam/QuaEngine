@@ -388,6 +388,41 @@ fn json_frame_intent_validation_rejects_unsafe_dispatch_identifiers() {
 }
 
 #[test]
+fn json_frame_ui_validation_rejects_unsafe_overlay_stack_names() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let overlay_stack = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_overlay_stack_input())
+        .unwrap_err();
+    match overlay_stack {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].overlayStack");
+            assert_eq!(validation.asset_name, "native/load.dll");
+            assert!(validation.reason.contains("paths"));
+        }
+        other => panic!("expected overlay stack validation error, got {other:?}"),
+    }
+
+    let scene_overlay_stack = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_scene_overlay_stack_input())
+        .unwrap_err();
+    match scene_overlay_stack {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].scene.overlay.overlayStack"
+            );
+            assert_eq!(validation.asset_name, "https://example.invalid/stack");
+            assert!(validation.reason.contains("URLs"));
+        }
+        other => panic!("expected scene overlay stack validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_intent_validation_rejects_duplicate_ui_dispatch_identifiers() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
