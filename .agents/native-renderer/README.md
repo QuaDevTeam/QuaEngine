@@ -59,6 +59,14 @@
 
 `target-bundle-manifest.json` 通过 `projectGraphs` 显式记录这些图：project template、startup shell、debug/release shell、smoke runner、installer、updater、dev server 和 post-bundle graph。非 `post-bundle` 图只能包含平台无关依赖，不能声明任何 target core，包括 active core；`post-bundle` 图可以包含 active core family，但必须拒绝 inactive target core。
 
+打包成具体 Web / Cocos / Native 工程时，核心插件隔离的验收定义是“当前目标 resolver 注入一次，其他所有阶段只读 manifest”：
+
+- Web 工程生成器只能接收 `web-core-resolver` 输出，不能携带或过滤 Cocos / Native core。
+- Cocos 工程生成器只能接收 `cocos-core-resolver` 输出，不能携带或过滤 Web / Native core。
+- Native 工程生成器只能接收 `native-core-resolver` 输出，不能携带或过滤 Web / Cocos core。
+- project template、startup shell、debug/release shell、installer、updater、smoke runner 和 Runtime QPK 都不得成为第二个 core plugin 注入点。
+- 任一阶段出现两个 target core family，或先构造三端全集再过滤，都必须作为打包失败处理，即使最终 manifest 表面上只剩一个目标。
+
 换句话说，打包到 Cocos、Web、Native 项目时，核心插件接线必须只发生在当前目标 packager resolver 里：
 
 - Web 项目只能由 Web resolver 注入 Web core，不能把 Cocos / Native core 放进项目模板、普通插件或 Runtime QPK 后再过滤。
