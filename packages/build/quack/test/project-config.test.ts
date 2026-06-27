@@ -623,6 +623,50 @@ describe('qua project config', () => {
     }
   })
 
+  it('rejects generated artifact graphs that pre-union Web, Cocos, and native core plugins before writing', async () => {
+    const root = await createProjectRoot()
+    const graphKinds = ['debug-shell', 'release-shell', 'smoke-runner', 'installer', 'updater'] as const
+    const allTargetCoreAdapters = allTargetCoreAdaptersForProjectGraphs()
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const artifactDir = join(root, 'dist', `all-target-core-union-${target}`)
+      const manifestPath = join(artifactDir, QUA_TARGET_BUNDLE_MANIFEST_FILE)
+      const manifest: TargetBundleManifest = {
+        ...createTargetBundleManifestFixture(target),
+        projectGraphs: graphKinds.map(kind => ({
+          id: `${target}.${kind}.generated`,
+          kind,
+          references: [
+            '@quajs/engine',
+            '@quajs/plugin-background',
+            ...allTargetCoreAdapters,
+          ],
+        })),
+      }
+      const validation = validateTargetBundleManifest(manifest, { expectedTarget: target })
+
+      expect(validation.ok).toBe(false)
+      for (const kind of graphKinds) {
+        expect(validation.diagnostics).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+            target,
+            projectGraphId: `${target}.${kind}.generated`,
+            projectGraphKind: kind,
+          }),
+        ]))
+      }
+
+      await expect(emitQuaTargetBundleManifest({
+        artifactDir,
+        expectedTarget: target,
+        manifest,
+        manifestPath,
+      })).rejects.toThrow('Target bundle manifest validation failed')
+      await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+    }
+  })
+
   it('rejects target bundle manifests before writing when the expected target does not match', async () => {
     const root = await createProjectRoot()
     const manifestPath = join(root, 'dist/native', QUA_TARGET_BUNDLE_MANIFEST_FILE)
@@ -862,6 +906,11 @@ function foreignCoreAdaptersForTarget(target: QuaTargetBootstrap): string[] {
   return (Object.keys(CORE_ADAPTERS_BY_TARGET) as QuaTargetBootstrap[])
     .filter(candidate => candidate !== target)
     .flatMap(candidate => CORE_ADAPTERS_BY_TARGET[candidate])
+}
+
+function allTargetCoreAdaptersForProjectGraphs(): string[] {
+  return (Object.keys(CORE_ADAPTERS_BY_TARGET) as QuaTargetBootstrap[])
+    .flatMap(target => CORE_ADAPTERS_BY_TARGET[target])
 }
 
 async function writeProjectConfig(root: string, lines: string[]): Promise<string> {
