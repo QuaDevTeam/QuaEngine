@@ -29,6 +29,7 @@ export interface QuaProjectNativeArtifactPlan {
   platform: QuaProjectNativePlatform
   profile: QuaProjectNativeProfile
   outputDir: string
+  versionSegment: string
   artifactDir: string
   app: {
     bundleId: string
@@ -73,6 +74,7 @@ export function createQuaProjectNativeArtifactPlans(
         platform,
         profile,
         outputDir: native.outputDir,
+        versionSegment,
         artifactDir: join(native.outputDir, profile, versionSegment, platform),
         app: { ...native.app },
         layout: native.layout,
