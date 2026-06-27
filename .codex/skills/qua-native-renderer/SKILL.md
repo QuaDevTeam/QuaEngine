@@ -45,7 +45,7 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 
 ## Package Responsibilities
 
-- `@quajs/native-contracts`: serializable native host, renderer capability, compatibility, QUI/QSS, and target bootstrap contracts. Packagers should use `createTargetCoreSelection` to derive the active Web/Cocos/native resolver identity, core family, and selected adapters from one target value; native packagers should use `createNativeCapabilityManifestPayload` / `createNativeCapabilityManifestHash` with an injected SHA-256 implementation when emitting `nativeRenderer.capabilityManifestHash`; use `createTargetBundleNativeRendererInfo` to derive native target-bundle renderer metadata from the actual renderer capabilities.
+- `@quajs/native-contracts`: serializable native host, renderer capability, compatibility, QUI/QSS, and target bootstrap contracts. Packagers should use `createTargetCoreSelection` to derive the active Web/Cocos/native resolver identity, core family, and selected adapters from one target value; native packagers should use `createNativeCapabilityManifestPayload` / `createNativeCapabilityManifestHash` with an injected SHA-256 implementation when emitting `nativeRenderer.capabilityManifestHash`; use `createTargetBundleNativeRendererInfo` to derive native target-bundle renderer metadata from the actual renderer capabilities. Keep `@quajs/native-contracts` platform-neutral and covered by source-level import isolation tests so shared validation code does not import Web, Cocos, or native runtime adapter packages.
 - `@quajs/engine-native`: engine plugin/adapter that reads native host info, registers renderer capabilities, supplies runtime package compatibility guards, and exposes the restricted native `RuntimeModuleLoader` over package asset bytes plus a Rust/QuickJS evaluator.
 - `@quajs/engine-native` also owns the native renderer intent bridge. It installs a host-side `emitRendererIntent` callback during plugin initialization, parses Rust `NativeRendererIntent` payloads, emits `choice/select` as `RenderToLogicEvents.USER_CHOICE_SELECT`, emits `ui/intent` as a generic render-to-logic UI intent, and forwards `open` / `close` / `update` actions to the existing UI overlay request events without creating a second event bus.
 - `@quajs/assets-native`: QuaAssets adapter over native host byte/storage/crypto APIs.
@@ -159,6 +159,7 @@ Prefer light checks while disk is tight:
 
 ```bash
 pnpm --filter @quajs/native-contracts typecheck
+pnpm --filter @quajs/native-contracts test -- --run
 pnpm --filter @quajs/engine-native typecheck
 pnpm --filter @quajs/assets-native typecheck
 pnpm --filter @quajs/store-native typecheck

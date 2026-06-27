@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 export const FORBIDDEN_NATIVE_AUTHORING_TARGET_CORE_PACKAGES = [
+  '@quajs/assets-cocos',
   '@quajs/assets-native',
   '@quajs/assets-web',
   '@quajs/cocos-host',
@@ -11,7 +12,9 @@ export const FORBIDDEN_NATIVE_AUTHORING_TARGET_CORE_PACKAGES = [
   '@quajs/renderer-svelte',
   '@quajs/renderer-vue',
   '@quajs/renderer-web',
+  '@quajs/store-cocos',
   '@quajs/store-native',
+  '@quajs/store-web',
 ] as const
 
 export function collectForbiddenTargetCoreImportViolations(roots: readonly string[]): string[] {
