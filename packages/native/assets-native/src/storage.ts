@@ -16,14 +16,16 @@ import {
   isBundleIdentityMatch,
   selectBestStoredBundle,
 } from '@quajs/assets'
-
-declare const TextDecoder: {
-  new(): { decode: (input: Uint8Array) => string }
-}
-
-declare const TextEncoder: {
-  new(): { encode: (input: string) => Uint8Array }
-}
+import {
+  cloneStoredAsset,
+  cloneStoredBundle,
+  decodeJson,
+  encodeJson,
+  matchesBundleForDeletion,
+  matchesCriteria,
+  normalizeRoot,
+  type NativeAssetStorageIndex,
+} from './storage-records'
 
 export class NativeHostAssetStorage implements AssetStorage {
   private readonly root: string
@@ -292,67 +294,4 @@ export class NativeHostAssetStorage implements AssetStorage {
   private assetPath(id: string): string {
     return `${this.root}/assets/${encodeURIComponent(id)}.bin`
   }
-}
-
-interface NativeAssetStorageIndex {
-  format: 'qua-native-assets'
-  version: 1
-  assets: StoredAsset[]
-  bundles: StoredBundle[]
-}
-
-function matchesCriteria(asset: StoredAsset, criteria: AssetFindCriteria): boolean {
-  return (!criteria.bundleVersionKey || asset.bundleVersionKey === criteria.bundleVersionKey)
-    && (!criteria.bundleName || matchesBundleCriteria(asset, criteria.bundleName))
-    && (!criteria.type || asset.type === criteria.type)
-    && (!criteria.locale || asset.locale === criteria.locale)
-    && (!criteria.name || matchesAssetName(asset, criteria.name))
-}
-
-function matchesBundleCriteria(asset: StoredAsset, bundleName: string): boolean {
-  return asset.bundleName === bundleName
-    || asset.logicalBundleName === bundleName
-    || asset.bundleVersionKey === bundleName
-}
-
-function matchesAssetName(asset: StoredAsset, name: string): boolean {
-  return asset.name === name || asset.path === name || asset.path?.endsWith(`/${name}`) === true
-}
-
-function matchesBundleForDeletion(asset: StoredAsset, bundleName: string, versionKey?: string): boolean {
-  if (versionKey)
-    return asset.bundleVersionKey === versionKey
-  return matchesBundleCriteria(asset, bundleName)
-}
-
-function cloneStoredAsset(asset: StoredAsset): StoredAsset {
-  return {
-    ...asset,
-    data: new Uint8Array(asset.data),
-    mediaMetadata: asset.mediaMetadata ? { ...asset.mediaMetadata } : undefined,
-  }
-}
-
-function cloneStoredBundle(bundle: StoredBundle): StoredBundle {
-  return {
-    ...bundle,
-    locales: [...bundle.locales],
-    manifest: structuredCloneFallback(bundle.manifest),
-  }
-}
-
-function normalizeRoot(root: string): string {
-  return root.replace(/^\/+|\/+$/g, '') || 'qua-native-assets-cache'
-}
-
-function encodeJson(value: unknown): Uint8Array {
-  return new TextEncoder().encode(JSON.stringify(value))
-}
-
-function decodeJson<T>(bytes: Uint8Array): T {
-  return JSON.parse(new TextDecoder().decode(bytes)) as T
-}
-
-function structuredCloneFallback<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T
 }
