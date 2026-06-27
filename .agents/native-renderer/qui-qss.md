@@ -157,6 +157,8 @@ LSP hover 应从同一 registry 暴露组件 `content`、`slots` 和 style parts
 
 原则是：只要能由 base primitives 组装，就不要进入 Rust primitive 集合。
 
+导入的 composite 组件是 authoring 结构，不是 native-wgpu 的 surface node kind。`import component "./Dialog.qui"`、`Dialog { ... }`、`Drawer { ... }` 这类写法可以通过 compiler / LSP 的 strict component 校验，但进入 `compileNativeUiSurfaceProjection` 后必须被预展开或扁平化成 `Backdrop`、`Panel`、`Scroll`、`Button`、`Text` 等基础节点；最终交给 Rust 的 `NativeUiSurfaceProjection` 不应包含 `Dialog`、`Drawer`、`SaveLoadPanel` 这类高阶 component 名。这样开发者仍然可以复用上层组件，native renderer 也只需要维护稳定、可验证的基础 DTO 面。
+
 ## QSS 兼容范围
 
 Rust renderer 只消费 resolved style IR。selector matching、cascade、inheritance、diagnostics 都应留在 TS 工具链层。
@@ -265,6 +267,7 @@ runtime package compatibility metadata 也应该落到这个 registry 上：
 - 从 `style`、`zIndex`、`clipChildren` 等 resolved 字段收集对应 `qssFeatures`。
 - 从 `image` / `backgroundImage` 收集 asset kind。
 - `projectionFields` 仅用于测试、诊断和 capability 覆盖审计，不写入 runtime compatibility block，避免把 `visible`、`opacity`、`scrollOffsetX` / `scrollOffsetY`、`provenance` 等已解析投影字段误当成 QSS declaration 能力。
+- projection 派生的 compatibility 只能声明投影里实际存在的基础 `kind`；source QUI 中导入过的 `Dialog` / `Drawer` 等 composite 名如果已经预展开，不应从 resolved projection 重新声明为 native renderer 必须支持的 component。
 
 这个能力用于 dynamic UI package manifest / third-party native renderer entry 的 metadata 生成，不是运行时授权机制本身；runtime startup 和 QPK activation 仍必须以 signed native host capability manifest 做最终校验。
 
@@ -277,6 +280,7 @@ runtime package compatibility metadata 也应该落到这个 registry 上：
 3. official composite library。
 
 不应该让第三方 package 通过 native code 去“发明一个 renderer primitive”。
+扩展组件发布时应同时提供可静态分析的 `.qui` / `.qss` 源或构建产物，让 packager 能在 QuickJS 执行前完成组件展开、QSS 解析、compatibility metadata 派生和 `nativeCode: false` 校验。真正需要新增 primitive 的能力必须进入官方 native renderer capability 版本，而不是随动态小包下发。
 
 ## 与 media 的关系
 
