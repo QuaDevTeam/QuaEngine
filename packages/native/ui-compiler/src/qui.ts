@@ -1,14 +1,18 @@
 import type {
   NativeQuiAstNode,
   NativeQuiDocument,
-  NativeQuiImport,
   NativeQuiNode,
   NativeUiCompletionItem,
-  NativeUiDiagnostic,
   NativeUiHover,
   NativeUiLanguageOptions,
 } from './types'
 import { collectQuiActionDescriptors } from './qui-actions'
+import { formatQuiSource } from './qui-format'
+import {
+  collectQuiImports,
+  inferImportedComponentNames,
+  validateQuiImports,
+} from './qui-imports'
 import { collectQuiProps } from './qui-props'
 import { validateQuiProps } from './qui-semantics'
 import { parseQuiStructureTree, validateQuiStructure } from './qui-structure'
@@ -21,12 +25,8 @@ import {
   collectBalancedDelimiterDiagnostics,
   createLineStarts,
   maskSourceLiterals,
-  rangeFromOffsets,
   wordAt,
 } from './source'
-
-const IMPORT_PATTERN = /^\s*import\s+(style|tokens|component)\s+(['"])([^'"]+)\2\s*;?\s*$/
-const IMPORT_START_PATTERN = /^\s*import\b/
 
 export function analyzeQuiSource(source: string, options: NativeUiLanguageOptions = {}): NativeQuiDocument {
   const lineStarts = createLineStarts(source)
@@ -71,41 +71,7 @@ export function analyzeQuiSource(source: string, options: NativeUiLanguageOption
   }
 }
 
-export function formatQuiSource(source: string, options: NativeUiLanguageOptions = {}): string {
-  const indent = ' '.repeat(options.format?.indentSize ?? 2)
-  const masked = maskSourceLiterals(source)
-  const lines = source.split(/\r?\n/)
-  const maskedLines = masked.split(/\r?\n/)
-  const output: string[] = []
-  let level = 0
-  let blankLines = 0
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const raw = lines[index]
-    const trimmed = raw.trim()
-    const maskedLine = maskedLines[index] || ''
-
-    if (!trimmed) {
-      blankLines += 1
-      if (blankLines <= 1 && output.length > 0)
-        output.push('')
-      continue
-    }
-    blankLines = 0
-
-    if (/^[}\])]/.test(trimmed))
-      level = Math.max(0, level - 1)
-
-    output.push(`${indent.repeat(level)}${normalizeQuiLine(trimmed)}`)
-
-    const opens = count(maskedLine, '{')
-    const closes = count(maskedLine, '}')
-    level = Math.max(0, level + opens - closes)
-  }
-
-  const formatted = output.join('\n').replace(/\n{3,}/g, '\n\n')
-  return options.format?.insertFinalNewline === false ? formatted : `${formatted.replace(/\n+$/, '')}\n`
-}
+export { formatQuiSource }
 
 export function getQuiCompletions(
   source: string,
@@ -162,41 +128,6 @@ export function getQuiHover(source: string, offset: number): NativeUiHover | und
   return undefined
 }
 
-function collectQuiImports(
-  source: string,
-  lineStarts: readonly number[],
-  diagnostics: NativeUiDiagnostic[],
-): NativeQuiImport[] {
-  const imports: NativeQuiImport[] = []
-  const lines = source.split(/\r?\n/)
-  let offset = 0
-
-  for (const line of lines) {
-    const match = IMPORT_PATTERN.exec(line)
-    if (match) {
-      const pathStartInLine = line.indexOf(match[3])
-      imports.push({
-        kind: match[1] as NativeQuiImport['kind'],
-        path: match[3],
-        pathRange: rangeFromOffsets(lineStarts, offset + pathStartInLine, offset + pathStartInLine + match[3].length),
-        range: rangeFromOffsets(lineStarts, offset, offset + line.length),
-      })
-    }
-    else if (IMPORT_START_PATTERN.test(line)) {
-      diagnostics.push({
-        code: 'QUI_INVALID_IMPORT',
-        message: 'QUI imports must use import style|tokens|component "./path"; syntax.',
-        range: rangeFromOffsets(lineStarts, offset, offset + line.length),
-        severity: 'error',
-        source: 'qui',
-      })
-    }
-    offset += line.length + 1
-  }
-
-  return imports
-}
-
 function collectQuiNodesFromTree(tree: readonly NativeQuiAstNode[]): NativeQuiNode[] {
   const nodes: NativeQuiNode[] = []
   visitQuiAstNodes(tree, (node) => {
@@ -222,53 +153,6 @@ function visitQuiAstNodes(
   }
 }
 
-function validateQuiImports(imports: readonly NativeQuiImport[], diagnostics: NativeUiDiagnostic[]): void {
-  for (const item of imports) {
-    if (/^(?:[a-z]+:)?\/\//i.test(item.path) || item.path.startsWith('/')) {
-      diagnostics.push({
-        code: 'QUI_UNSAFE_IMPORT',
-        message: 'QUI imports must be package-local relative paths, not URLs or absolute paths.',
-        range: item.pathRange,
-        severity: 'error',
-        source: 'qui',
-      })
-    }
-    const extension = item.path.split('.').pop()
-    const expected = item.kind === 'style' ? 'qss' : item.kind === 'tokens' ? 'json' : 'qui'
-    if (extension !== expected) {
-      diagnostics.push({
-        code: 'QUI_IMPORT_EXTENSION_MISMATCH',
-        message: `import ${item.kind} expects a .${expected} file.`,
-        range: item.pathRange,
-        severity: 'warning',
-        source: 'qui',
-      })
-    }
-  }
-}
-
-function inferImportedComponentNames(imports: readonly NativeQuiImport[]): string[] {
-  return imports
-    .filter(item => item.kind === 'component')
-    .map((item) => {
-      const basename = item.path.split('/').pop() || ''
-      return basename.replace(/\.qui$/, '')
-    })
-    .filter(Boolean)
-}
-
-function normalizeQuiLine(line: string): string {
-  return line
-    .replace(/\s+\{/g, ' {')
-    .replace(/\{\s+/g, '{ ')
-    .replace(/\s+\}/g, ' }')
-    .replace(/\(\s+/g, '(')
-    .replace(/\s+\)/g, ')')
-    .replace(/,\s*/g, ', ')
-    .replace(/\s*:\s*/g, ': ')
-    .trim()
-}
-
 function completion(
   label: string,
   kind: NativeUiCompletionItem['kind'],
@@ -283,8 +167,4 @@ function completion(
     insertText,
     sortText,
   }
-}
-
-function count(text: string, char: string): number {
-  return Array.from(text).filter(item => item === char).length
 }
