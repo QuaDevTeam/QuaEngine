@@ -322,6 +322,27 @@ describe('@quajs/engine-native runtime module loader', () => {
     }, ctx)).rejects.toThrow(/package-relative script asset/)
 
     await expect(loader.loadScriptModule?.({
+      id: 'backslash',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts\\opening.js',
+    }, ctx)).rejects.toThrow(/package-relative script asset/)
+
+    await expect(loader.loadScriptModule?.({
+      id: 'blank',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: '   ',
+    }, ctx)).rejects.toThrow(/package-relative script asset/)
+
+    await expect(loader.loadScriptModule?.({
+      id: 'suffix-only',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: '?module',
+    }, ctx)).rejects.toThrow(/package-relative script asset/)
+
+    await expect(loader.loadScriptModule?.({
       id: 'native-payload',
       packageId: 'runtime.chapter.native-ui',
       bundleName: 'runtime.chapter.native-ui',

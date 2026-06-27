@@ -202,10 +202,13 @@ function assertNativeRuntimeModuleAssetName(assetName: string, kind: NativeRunti
 }
 
 function isForbiddenNativeModuleSpecifier(assetName: string): boolean {
-  return assetName.startsWith('/')
-    || assetName.startsWith('\\')
-    || /^[a-z][a-z0-9+.-]*:/i.test(assetName)
-    || assetName.split(/[\\/]/).includes('..')
+  const withoutSuffix = stripAssetReferenceSuffix(assetName)
+  return assetName.trim().length === 0
+    || withoutSuffix.trim().length === 0
+    || assetName.includes('\\')
+    || withoutSuffix.startsWith('/')
+    || /^[a-z][a-z0-9+.-]*:/i.test(withoutSuffix)
+    || withoutSuffix.split('/').includes('..')
 }
 
 function isNativeScriptModuleAsset(assetName: string): boolean {

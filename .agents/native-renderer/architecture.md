@@ -215,6 +215,8 @@ packages/native/
 
 这些引用必须拒绝空值、只有 query/hash suffix 的值、远程 URL、URI scheme、绝对路径、Windows/backslash 逃逸、`..` traversal 和 native payload 后缀。普通 compatibility 字符串不进入资源引用集合，例如 `packageName`、`versionRange`、`capabilities`、`capabilityIds`、`qssFeatures`、`quiComponents`，避免把能力声明误判成资源路径。
 
+`@quajs/engine-native` 的 restricted runtime module loader 还要在读取 QuaAssets 前重复做 defense-in-depth 校验：动态模块 `assetName` 和 variants 中的 `assetName` / `module` 只能是包内相对 JS module asset，必须拒绝空值、只有 query/hash suffix 的值、反斜杠路径、绝对路径、URL/URI scheme、`..` traversal、非 JS 资源和 native payload 后缀。即使 trust policy 已经在激活前跑过，loader 也不能把不安全引用交给 asset lookup 或 Rust QuickJS evaluator。
+
 ## 兼容性与版本
 
 native 兼容性要分三层：
