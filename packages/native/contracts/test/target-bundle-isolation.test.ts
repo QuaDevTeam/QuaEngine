@@ -261,6 +261,103 @@ describe('target bundle manifest target-core isolation', () => {
     }
   })
 
+  it('rejects target core adapters hidden in either project graph reference field for every target', () => {
+    const cases = [
+      {
+        target: 'web',
+        graphId: 'web.project.field-mask',
+        graphKind: 'project-template',
+        specifier: '@quajs/plugin-cocos-ui',
+        packageName: '@quajs/renderer-cocos/plugins/ui',
+        expectedPackageName: '@quajs/renderer-cocos',
+        expectedCorePluginFamily: 'cocos-core',
+      },
+      {
+        target: 'web',
+        graphId: 'web.debug.field-mask',
+        graphKind: 'debug-shell',
+        specifier: '@quajs/engine-native/runtime',
+        packageName: '@quajs/plugin-native-debug',
+        expectedPackageName: '@quajs/engine-native',
+        expectedCorePluginFamily: 'native-core',
+      },
+      {
+        target: 'cocos',
+        graphId: 'cocos.release.field-mask',
+        graphKind: 'release-shell',
+        specifier: '@quajs/plugin-web-ui',
+        packageName: '@quajs/renderer-web/plugins/ui',
+        expectedPackageName: '@quajs/renderer-web',
+        expectedCorePluginFamily: 'web-core',
+      },
+      {
+        target: 'cocos',
+        graphId: 'cocos.installer.field-mask',
+        graphKind: 'installer',
+        specifier: '@quajs/assets-native',
+        packageName: '@quajs/plugin-native-installer',
+        expectedPackageName: '@quajs/assets-native',
+        expectedCorePluginFamily: 'native-core',
+      },
+      {
+        target: 'native',
+        graphId: 'native.updater.field-mask',
+        graphKind: 'updater',
+        specifier: '@quajs/plugin-web-updater',
+        packageName: '@quajs/renderer-vue/plugins/ui',
+        expectedPackageName: '@quajs/renderer-vue',
+        expectedCorePluginFamily: 'web-core',
+      },
+      {
+        target: 'native',
+        graphId: 'native.smoke.field-mask',
+        graphKind: 'smoke-runner',
+        specifier: '@quajs/renderer-cocos/plugins/ui',
+        packageName: '@quajs/plugin-cocos-smoke',
+        expectedPackageName: '@quajs/renderer-cocos',
+        expectedCorePluginFamily: 'cocos-core',
+      },
+    ] as const
+
+    for (const {
+      target,
+      graphId,
+      graphKind,
+      specifier,
+      packageName,
+      expectedPackageName,
+      expectedCorePluginFamily,
+    } of cases) {
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+        projectGraphs: [
+          {
+            id: graphId,
+            kind: graphKind,
+            references: [
+              {
+                specifier,
+                packageName,
+              },
+            ],
+          },
+        ],
+      }))
+
+      expect(result.ok).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+          target,
+          packageName: expectedPackageName,
+          packageCorePluginFamily: expectedCorePluginFamily,
+          expectedCorePluginFamily: `${target}-core`,
+          projectGraphId: graphId,
+          projectGraphKind: graphKind,
+        }),
+      ]))
+    }
+  })
+
   it('rejects native artifacts that include Web or Cocos renderer entries after bundling', () => {
     const result = validateTargetBundleManifest(targetBundleManifest({
       dependencies: [
