@@ -4,8 +4,10 @@ use crate::projection::background::{BackgroundProjection, BackgroundVideoProject
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::PackageProvenance;
 use crate::projection::view::ViewProjection;
-use crate::render_graph::{DrawBatchPipeline, DrawCommandKind, RenderPlane};
-use crate::resources::{NativeResourceLedger, ResourceId};
+use crate::render_graph::{DrawBatchPipeline, DrawCommandKind, DrawCommandParams, RenderPlane};
+use crate::resources::{
+    NativeResourceKind, NativeResourceLedger, NativeResourceRecord, ResourceId,
+};
 use crate::stage_layout::{
     resolve_stage_layout, StageContainerInput, ViewLayoutInput, ViewLayoutOrientation,
 };
@@ -85,6 +87,29 @@ fn creates_submission_stats_from_frame_ref() {
         submission.passes[0].batches[0].command_ids,
         vec!["background:main".to_string()]
     );
+    assert_eq!(submission.passes[0].batches[0].commands.len(), 1);
+    assert_eq!(
+        submission.passes[0].batches[0].commands[0].command.id,
+        "background:main"
+    );
+    assert_eq!(
+        submission.passes[0].batches[0].commands[0].command.bounds,
+        frame.graph.commands()[0].bounds
+    );
+    match &submission.passes[0].batches[0].commands[0].command.params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.asset_name, "bg/school.png");
+            assert_eq!(params.asset_type, "images");
+        }
+        _ => panic!("expected image command snapshot"),
+    }
+    assert!(submission.passes[0].batches[0].commands[0]
+        .resolved_resource_ids
+        .is_empty());
+    assert_eq!(
+        submission.passes[0].batches[0].commands[0].missing_resource_ids,
+        vec![ResourceId::from("images:bg/school.png")]
+    );
     assert_eq!(submission.passes[0].batches[0].command_count, 1);
     assert_eq!(
         submission.passes[0].batches[0].first_command_id.as_deref(),
@@ -137,6 +162,23 @@ fn summarizes_batch_command_metadata() {
 
     assert_eq!(choice_batch.pipeline, DrawBatchPipeline::Ui);
     assert_eq!(choice_batch.command_count, 2);
+    assert_eq!(choice_batch.commands.len(), 2);
+    assert_eq!(choice_batch.commands[0].command.id, "choice:stay");
+    assert_eq!(choice_batch.commands[1].command.id, "choice:leave");
+    match &choice_batch.commands[0].command.params {
+        DrawCommandParams::UiButton(params) => {
+            assert_eq!(params.label, "Stay");
+            assert!(params.enabled);
+        }
+        _ => panic!("expected choice button command snapshot"),
+    }
+    match &choice_batch.commands[1].command.params {
+        DrawCommandParams::UiButton(params) => {
+            assert_eq!(params.label, "Leave");
+            assert!(!params.enabled);
+        }
+        _ => panic!("expected choice button command snapshot"),
+    }
     assert_eq!(
         choice_batch.first_command_id.as_deref(),
         Some("choice:stay")
@@ -206,6 +248,35 @@ fn collects_video_fallback_diagnostics_from_frame_commands() {
         1
     );
     assert_eq!(submission.fallback_summary.by_required_package["base"], 1);
+}
+
+#[test]
+fn command_snapshots_preserve_per_command_resource_resolution() {
+    let frame = frame_with_background();
+    let mut resources = NativeResourceLedger::new();
+    resources.insert(
+        NativeResourceRecord::new(
+            ResourceId::from("images:bg/school.png"),
+            NativeResourceKind::Texture,
+        )
+        .memory(512, 4096),
+    );
+
+    let submission = NativeRenderFrameRef {
+        revision: 15,
+        frame: &frame,
+        resources: &resources,
+    }
+    .submission();
+    let command = &submission.passes[0].batches[0].commands[0];
+
+    assert_eq!(command.command.id, "background:main");
+    assert_eq!(
+        command.resolved_resource_ids,
+        vec![ResourceId::from("images:bg/school.png")]
+    );
+    assert!(command.missing_resource_ids.is_empty());
+    assert_eq!(submission.missing_resource_count, 0);
 }
 
 fn frame_with_background() -> crate::frame::PreparedNativeFrame {
