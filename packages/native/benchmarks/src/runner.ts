@@ -10,14 +10,20 @@ import type { BenchmarkDefinition, NativeBenchmarkRecord } from './types'
 export function runBenchmarkDefinition(
   definition: BenchmarkDefinition,
   overrideIterations?: number,
+  hooks: {
+    now?: () => number
+    memoryUsage?: () => Pick<NodeJS.MemoryUsage, 'heapUsed' | 'rss'>
+  } = {},
 ): NativeBenchmarkRecord {
   const iterations = overrideIterations ?? definition.defaultIterations
+  const now = hooks.now || (() => performance.now())
+  const memoryUsage = hooks.memoryUsage || (() => process.memoryUsage())
   collectGarbage()
-  const memoryBefore = process.memoryUsage()
-  const start = performance.now()
+  const memoryBefore = memoryUsage()
+  const start = now()
   const result = definition.run(iterations)
-  const elapsedMs = performance.now() - start
-  const memoryAfter = process.memoryUsage()
+  const elapsedMs = now() - start
+  const memoryAfter = memoryUsage()
 
   return {
     backend: 'typescript',
@@ -28,8 +34,8 @@ export function runBenchmarkDefinition(
     elapsedMs: Number(elapsedMs.toFixed(3)),
     iterations,
     memory: {
-      heapUsedBytes: memoryAfter.heapUsed - memoryBefore.heapUsed,
-      rssBytes: memoryAfter.rss - memoryBefore.rss,
+      heapUsedBytes: nonNegativeDelta(memoryAfter.heapUsed, memoryBefore.heapUsed),
+      rssBytes: nonNegativeDelta(memoryAfter.rss, memoryBefore.rss),
     },
     metrics: result.metrics,
     packageVersion: NATIVE_BENCHMARK_PACKAGE_VERSION,
@@ -42,6 +48,10 @@ export function runBenchmarkDefinition(
 
 export function byteLength(source: string): number {
   return Buffer.byteLength(source, 'utf8')
+}
+
+function nonNegativeDelta(after: number, before: number): number {
+  return Math.max(0, after - before)
 }
 
 function collectGarbage(): void {

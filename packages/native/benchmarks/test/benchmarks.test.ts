@@ -4,6 +4,7 @@ import {
   NATIVE_BENCHMARK_SCHEMA_VERSION,
   runNativeAuthoringSmokeBenchmarks,
 } from '../src'
+import { runBenchmarkDefinition } from '../src/runner'
 
 describe('@quajs/native-benchmarks', () => {
   it('emits deterministic native authoring smoke records', () => {
@@ -89,5 +90,33 @@ describe('@quajs/native-benchmarks', () => {
         classes: expect.any(Number),
         components: expect.any(Number),
       }))
+  })
+
+  it('records benchmark memory deltas as non-negative pressure metrics', () => {
+    const memorySamples = [
+      { heapUsed: 1000, rss: 2000 },
+      { heapUsed: 900, rss: 1500 },
+    ]
+    const record = runBenchmarkDefinition({
+      bench: 'native.authoring.memory.fixture',
+      defaultIterations: 1,
+      documentBytes: 128,
+      run: () => ({
+        checksum: 1,
+        diagnostics: 0,
+        metrics: {},
+      }),
+    }, undefined, {
+      now: (() => {
+        let current = 0
+        return () => current += 1
+      })(),
+      memoryUsage: () => memorySamples.shift() || { heapUsed: 900, rss: 1500 },
+    })
+
+    expect(record.memory).toEqual({
+      heapUsedBytes: 0,
+      rssBytes: 0,
+    })
   })
 })
