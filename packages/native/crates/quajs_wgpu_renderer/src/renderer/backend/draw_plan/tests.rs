@@ -9,7 +9,9 @@ use crate::projection::ui::{
 };
 use crate::projection::view::ViewProjection;
 use crate::renderer::backend::{NativeRenderBackend, NativeRenderFrameRef};
-use crate::resources::{NativeResourceLedger, ResourceId};
+use crate::resources::{
+    NativeResourceKind, NativeResourceLedger, NativeResourceRecord, ResourceId,
+};
 use crate::stage_layout::{
     resolve_stage_layout, StageContainerInput, ViewLayoutInput, ViewLayoutOrientation,
 };
@@ -148,6 +150,9 @@ fn lowers_submission_commands_into_backend_draw_plan() {
         overlay_surface.missing_resource_ids,
         vec![ResourceId::from("surface:ui/menu.qui")]
     );
+    assert!(commands
+        .iter()
+        .all(|command| command.resource_bindings.is_empty()));
 
     assert_eq!(plan.blocked_command_count, 2);
     assert_eq!(plan.drawable_command_count, submission.command_count - 2);
@@ -161,6 +166,78 @@ fn lowers_submission_commands_into_backend_draw_plan() {
             .filter(|command_id| !matches!(*command_id, "background:main" | "ui:menu"))
             .collect::<Vec<_>>()
     );
+}
+
+#[test]
+fn binds_resolved_resource_records_for_backend_encoding() {
+    let frame = prepare_native_frame(test_layout(), &view_with_ui_scroll());
+    let resources = ledger_with_background_and_surface();
+    let submission = NativeRenderFrameRef {
+        revision: 24,
+        frame: &frame,
+        resources: &resources,
+    }
+    .submission();
+
+    let plan = NativeBackendDrawPlan::from_submission_and_resources(&submission, &resources);
+    let commands = plan.commands().collect::<Vec<_>>();
+    let background = commands
+        .iter()
+        .find(|command| command.command_id == "background:main")
+        .unwrap();
+    let overlay_surface = commands
+        .iter()
+        .find(|command| command.command_id == "ui:menu")
+        .unwrap();
+
+    assert_eq!(plan.blocked_command_count, 0);
+    assert_eq!(plan.drawable_command_count, submission.command_count);
+    assert_eq!(
+        background.resource_state,
+        NativeBackendDrawCommandResourceState::Ready
+    );
+    assert_eq!(
+        background.resolved_resource_ids,
+        vec![ResourceId::from("images:bg/school.png")]
+    );
+    assert_eq!(background.resource_bindings.len(), 1);
+    let background_binding = &background.resource_bindings[0];
+    assert_eq!(
+        background_binding.resource_id,
+        ResourceId::from("images:bg/school.png")
+    );
+    assert_eq!(
+        background_binding.state,
+        NativeBackendDrawResourceBindingState::Resolved
+    );
+    assert_eq!(background_binding.kind, Some(NativeResourceKind::Texture));
+    assert_eq!(background_binding.memory.cpu_bytes, 512);
+    assert_eq!(background_binding.memory.gpu_bytes, 4096);
+    assert_eq!(background_binding.owner_package_id.as_deref(), Some("base"));
+    assert!(background_binding.required_package_ids.contains("base"));
+    assert_eq!(
+        background_binding.label.as_deref(),
+        Some("school background")
+    );
+
+    assert_eq!(
+        overlay_surface.resolved_resource_ids,
+        vec![ResourceId::from("surface:ui/menu.qui")]
+    );
+    assert_eq!(overlay_surface.resource_bindings.len(), 1);
+    let surface_binding = &overlay_surface.resource_bindings[0];
+    assert_eq!(
+        surface_binding.state,
+        NativeBackendDrawResourceBindingState::Resolved
+    );
+    assert_eq!(surface_binding.kind, Some(NativeResourceKind::UiAst));
+    assert_eq!(surface_binding.memory.cpu_bytes, 256);
+    assert_eq!(surface_binding.memory.gpu_bytes, 0);
+    assert_eq!(
+        surface_binding.owner_package_id.as_deref(),
+        Some("runtime.ui")
+    );
+    assert!(surface_binding.required_package_ids.contains("runtime.ui"));
 }
 
 #[test]
@@ -227,7 +304,7 @@ fn preserves_clip_commands_and_child_clip_bounds() {
 #[test]
 fn null_backend_records_backend_draw_plans() {
     let frame = prepare_native_frame(test_layout(), &view_with_ui_scroll());
-    let resources = empty_resource_ledger();
+    let resources = ledger_with_background_and_surface();
     let mut backend = crate::renderer::NullNativeRenderBackend::new();
 
     let submission = backend
@@ -237,7 +314,8 @@ fn null_backend_records_backend_draw_plans() {
             resources: &resources,
         })
         .unwrap();
-    let expected_plan = NativeBackendDrawPlan::from_submission(&submission);
+    let expected_plan =
+        NativeBackendDrawPlan::from_submission_and_resources(&submission, &resources);
 
     assert_eq!(backend.draw_plans(), &[expected_plan.clone()]);
     assert_eq!(backend.last_draw_plan(), Some(&expected_plan));
@@ -245,6 +323,10 @@ fn null_backend_records_backend_draw_plans() {
         backend.diagnostics().last_draw_plan.as_ref(),
         Some(&expected_plan)
     );
+    assert!(expected_plan
+        .commands()
+        .filter(|command| !command.resource_ids.is_empty())
+        .all(|command| !command.resource_bindings.is_empty()));
 }
 
 fn view_with_ui_scroll() -> ViewProjection {
@@ -288,6 +370,31 @@ fn view_with_ui_scroll() -> ViewProjection {
 
 fn empty_resource_ledger() -> NativeResourceLedger {
     NativeResourceLedger::new()
+}
+
+fn ledger_with_background_and_surface() -> NativeResourceLedger {
+    let mut resources = NativeResourceLedger::new();
+    resources.insert(
+        NativeResourceRecord::new(
+            ResourceId::from("images:bg/school.png"),
+            NativeResourceKind::Texture,
+        )
+        .owned_by("base")
+        .require_package("base")
+        .memory(512, 4096)
+        .label("school background"),
+    );
+    resources.insert(
+        NativeResourceRecord::new(
+            ResourceId::from("surface:ui/menu.qui"),
+            NativeResourceKind::UiAst,
+        )
+        .owned_by("runtime.ui")
+        .require_package("runtime.ui")
+        .memory(256, 0)
+        .label("menu surface"),
+    );
+    resources
 }
 
 fn rect(x: f64, y: f64, width: f64, height: f64) -> UiSurfaceNodeRect {

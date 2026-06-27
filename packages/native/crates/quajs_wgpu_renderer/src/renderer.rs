@@ -8,13 +8,13 @@ pub mod state;
 
 pub use backend::{
     NativeBackendBatchDrawPlan, NativeBackendDrawCommandPlan,
-    NativeBackendDrawCommandResourceState, NativeBackendDrawPlan, NativeBackendPassDrawPlan,
-    NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendErrorKind,
-    NativeRenderBackendResourceDiagnostics, NativeRenderBackendResourcePolicy,
-    NativeRenderBackendResult, NativeRenderBatchSubmission, NativeRenderFallbackDiagnostic,
-    NativeRenderFallbackWarningDiagnostics, NativeRenderFrameRef, NativeRenderMissingResource,
-    NativeRenderPassSubmission, NativeRenderResourceMemoryBreakdown, NativeRenderSubmission,
-    NullNativeRenderBackend, NullNativeRenderBackendDiagnostics,
+    NativeBackendDrawCommandResourceState, NativeBackendDrawPlan, NativeBackendDrawResourceBinding,
+    NativeBackendDrawResourceBindingState, NativeBackendPassDrawPlan, NativeRenderBackend,
+    NativeRenderBackendError, NativeRenderBackendErrorKind, NativeRenderBackendResourceDiagnostics,
+    NativeRenderBackendResourcePolicy, NativeRenderBackendResult, NativeRenderBatchSubmission,
+    NativeRenderFallbackDiagnostic, NativeRenderFallbackWarningDiagnostics, NativeRenderFrameRef,
+    NativeRenderMissingResource, NativeRenderPassSubmission, NativeRenderResourceMemoryBreakdown,
+    NativeRenderSubmission, NullNativeRenderBackend, NullNativeRenderBackendDiagnostics,
 };
 #[cfg(feature = "wgpu-backend")]
 pub use backend::{

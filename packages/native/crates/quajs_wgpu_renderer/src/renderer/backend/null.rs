@@ -62,7 +62,8 @@ impl NativeRenderBackend for NullNativeRenderBackend {
     fn submit_frame(&mut self, frame: NativeRenderFrameRef<'_>) -> NativeRenderBackendResult {
         let submission = frame.submission();
         self.resource_policy.validate_submission(&submission)?;
-        let draw_plan = NativeBackendDrawPlan::from_submission(&submission);
+        let draw_plan =
+            NativeBackendDrawPlan::from_submission_and_resources(&submission, frame.resources);
         self.fallback_warnings
             .record_submission(&submission.fallback_diagnostics);
         self.submissions.push(submission.clone());
