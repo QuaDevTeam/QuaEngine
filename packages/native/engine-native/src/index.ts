@@ -4,16 +4,18 @@ export {
 } from './compatibility'
 export type { NativeRuntimePackageCompatibilityInput } from './compatibility'
 export {
+  NativeHostPlugin,
+  readNativeHostInfo,
+} from './native-host-plugin'
+export type { NativeHostPluginOptions } from './native-host-plugin'
+export {
   assertNativeTargetBundleManifest,
   assertNativeTargetBootstrap,
   checkNativeAppManifestCompatibility,
   checkNativeRendererManifestCompatibility,
   checkNativeTargetBundleManifest,
   checkNativeTargetBootstrap,
-  NativeHostPlugin,
-  readNativeHostInfo,
-} from './native-host-plugin'
-export type { NativeHostPluginOptions } from './native-host-plugin'
+} from './native-manifest-validation'
 export {
   createNativeEngineBootstrap,
   createNativeRuntimeAdapters,
