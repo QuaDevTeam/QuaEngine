@@ -1,9 +1,8 @@
 import type {
-  NativeQssBackgroundImageValue,
-  NativeQssResolvedStyle,
   NativeQuiActionArgumentValue,
   NativeQuiActionEvent,
 } from './types'
+import type { NativeQssBackgroundImageValue, NativeQssResolvedStyle } from './qss-types'
 
 export interface NativeUiSurfaceProjection {
   root?: NativeUiSurfaceNodeProjection
