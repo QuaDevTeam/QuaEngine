@@ -415,6 +415,54 @@ fn json_frame_ui_text_validation_rejects_unsafe_resolved_text_payloads() {
 }
 
 #[test]
+fn json_frame_rich_text_payload_validation_rejects_unsafe_resolved_text_payloads() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let plain = renderer
+        .prepare_frame_json_str(json_frame_with_control_character_dialogue_plain_text_input())
+        .unwrap_err();
+    match plain {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.dialogue.text");
+            assert_eq!(validation.asset_name, "Opening\u{1b}Line");
+            assert!(validation.reason.contains("control characters"));
+        }
+        other => panic!("expected unsafe dialogue text validation error, got {other:?}"),
+    }
+
+    let span = renderer
+        .prepare_frame_json_str(json_frame_with_control_character_dialogue_span_text_input())
+        .unwrap_err();
+    match span {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.dialogue.text.blocks[0].spans[0].text"
+            );
+            assert_eq!(validation.asset_name, "Bad\u{1b}Span");
+            assert!(validation.reason.contains("control characters"));
+        }
+        other => panic!("expected unsafe rich text span validation error, got {other:?}"),
+    }
+
+    let oversized_input = json_frame_with_oversized_dialogue_rich_text_input();
+    let oversized = renderer
+        .prepare_frame_json_str(&oversized_input)
+        .unwrap_err();
+    match oversized {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.dialogue.text");
+            assert_eq!(validation.asset_name, (64 * 1024 + 1).to_string());
+            assert!(validation.reason.contains("text payload limits"));
+        }
+        other => panic!("expected oversized rich text validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_rich_text_number_validation_rejects_unsafe_resolved_values() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

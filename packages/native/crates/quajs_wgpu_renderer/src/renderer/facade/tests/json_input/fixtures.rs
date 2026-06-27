@@ -510,6 +510,78 @@ pub(super) fn json_frame_with_oversized_ui_text_input() -> String {
     )
 }
 
+pub(super) fn json_frame_with_control_character_dialogue_plain_text_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "dialogue": {
+          "speaker": "Narrator",
+          "text": "Opening\u001bLine"
+        }
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_control_character_dialogue_span_text_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "dialogue": {
+          "speaker": "Narrator",
+          "text": {
+            "blocks": [
+              {
+                "spans": [
+                  { "text": "Bad\u001bSpan" }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_oversized_dialogue_rich_text_input() -> String {
+    let first = "a".repeat(32 * 1024);
+    let second = "b".repeat(32 * 1024 + 1);
+    let mut input = String::from(
+        r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "dialogue": {
+          "speaker": "Narrator",
+          "text": {
+            "blocks": [
+              {
+                "spans": [
+                  { "text": ""#,
+    );
+    input.push_str(&first);
+    input.push_str(
+        r#"" },
+                  { "text": ""#,
+    );
+    input.push_str(&second);
+    input.push_str(
+        r#"" }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+    "#,
+    );
+    input
+}
+
 pub(super) fn json_frame_with_zero_dialogue_speaker_font_size_input() -> &'static str {
     r#"
     {
