@@ -130,10 +130,10 @@ packages/native/
   language-server/
   vscode/
   benchmarks/
-  fixtures/             # planned
+  test-fixtures/
 ```
 
-当前仓库里已有 native contracts / adapters、QUI/QSS compiler、native LSP、VSCode extension、authoring benchmark 和三个 Rust crate。后续 fixtures 继续放在 `packages/native/*`，不要塞进 `packages/build/*` 或现有 QuaScript 工具链。
+当前仓库里已有 native contracts / adapters、QUI/QSS compiler、native LSP、VSCode extension、authoring benchmark、共享 `test-fixtures` 和三个 Rust crate。后续跨 TS/Rust 的 renderer fixture 继续放在 `packages/native/test-fixtures/*`，不要塞进 `packages/build/*` 或现有 QuaScript 工具链。
 
 ## Runtime 分层
 
