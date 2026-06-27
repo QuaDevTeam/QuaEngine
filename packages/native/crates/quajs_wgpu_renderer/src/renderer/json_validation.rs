@@ -1,4 +1,5 @@
 mod audio_numbers;
+mod background;
 mod background_numbers;
 mod background_origin;
 mod character_numbers;
@@ -15,7 +16,6 @@ mod z_order;
 
 use std::collections::BTreeSet;
 
-use crate::projection::background::{BackgroundProjection, BackgroundVideoProjection};
 use crate::projection::character::CharacterProjection;
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
 use crate::projection::common::{FontFamilyProjection, PackageProvenance};
@@ -29,11 +29,6 @@ use crate::stage_layout::{StageContainerInput, ViewLayoutInput};
 use audio_numbers::{
     invalid_native_json_audio_memory_reason, invalid_native_json_audio_volume_reason,
 };
-use background_numbers::{
-    invalid_native_json_background_geometry_reason, invalid_native_json_background_opacity_reason,
-    invalid_native_json_background_rotation_reason,
-};
-use background_origin::invalid_native_json_background_origin_reason;
 use character_numbers::{
     invalid_native_json_character_opacity_reason, invalid_native_json_character_position_reason,
 };
@@ -146,79 +141,6 @@ impl JsonProjectionValidator {
                 );
             }
         }
-    }
-
-    fn validate_background(&mut self, background: &BackgroundProjection) {
-        self.validate_provenance("view.background.provenance", &background.provenance);
-        if let Some(asset_type) = &background.asset_type {
-            self.validate_asset_type("view.background.assetType", asset_type);
-        }
-        if let Some(asset_name) = &background.asset_name {
-            self.validate_asset_reference("view.background.assetName", asset_name);
-        }
-        if let Some(origin) = &background.origin {
-            self.validate_background_origin("view.background.origin", origin);
-        }
-        self.validate_background_geometry(
-            "view.background",
-            background.x,
-            background.y,
-            background.width,
-            background.height,
-            background.scale,
-        );
-        self.validate_background_rotation("view.background", background.rotation);
-        self.validate_background_opacity("view.background.opacity", background.opacity);
-        let mut layer_ids = BTreeSet::new();
-        for (index, layer) in background.layers.iter().enumerate() {
-            let layer_path = format!("view.background.layers[{index}]");
-            if let Some(asset_type) = &layer.asset_type {
-                self.validate_asset_type(&format!("{layer_path}.assetType"), asset_type);
-            }
-            let layer_id_path = format!("{layer_path}.id");
-            self.validate_ui_dispatch_identifier(&layer_id_path, &layer.id, "background layer ids");
-            self.validate_unique_identifier(
-                &layer_id_path,
-                &layer.id,
-                &mut layer_ids,
-                "background layer ids",
-            );
-            self.validate_asset_reference(&format!("{layer_path}.assetName"), &layer.asset_name);
-            if let Some(origin) = &layer.origin {
-                self.validate_background_origin(&format!("{layer_path}.origin"), origin);
-            }
-            self.validate_background_geometry(
-                &layer_path,
-                layer.x,
-                layer.y,
-                layer.width,
-                layer.height,
-                layer.scale,
-            );
-            self.validate_background_rotation(&layer_path, layer.rotation);
-            self.validate_background_opacity(&format!("{layer_path}.opacity"), layer.opacity);
-            self.validate_z_index(
-                &format!("{layer_path}.zIndex"),
-                layer.z_index,
-                "background layer zIndex",
-            );
-            self.validate_provenance(&format!("{layer_path}.provenance"), &layer.provenance);
-        }
-        if let Some(video) = &background.video {
-            self.validate_background_video(video);
-        }
-    }
-
-    fn validate_background_video(&mut self, video: &BackgroundVideoProjection) {
-        self.validate_asset_reference("view.background.video.assetName", &video.asset_name);
-        if let Some(poster) = &video.poster {
-            self.validate_asset_reference("view.background.video.poster", poster);
-        }
-        if let Some(origin) = &video.origin {
-            self.validate_background_origin("view.background.video.origin", origin);
-        }
-        self.validate_background_opacity("view.background.video.opacity", video.opacity);
-        self.validate_provenance("view.background.video.provenance", &video.provenance);
     }
 
     fn validate_character(
@@ -370,57 +292,6 @@ impl JsonProjectionValidator {
     fn validate_rich_text_style_numbers(&mut self, path: &str, style: &RichTextStyle) {
         if let Some((field, value, reason)) =
             invalid_native_json_rich_text_style_number_reason(style)
-        {
-            self.errors.push(NativeRendererJsonValidationError {
-                path: format!("{path}.{field}"),
-                asset_name: value,
-                reason,
-            });
-        }
-    }
-
-    fn validate_background_geometry(
-        &mut self,
-        path: &str,
-        x: f64,
-        y: f64,
-        width: Option<f64>,
-        height: Option<f64>,
-        scale: f64,
-    ) {
-        if let Some((field, value, reason)) =
-            invalid_native_json_background_geometry_reason(x, y, width, height, scale)
-        {
-            self.errors.push(NativeRendererJsonValidationError {
-                path: format!("{path}.{field}"),
-                asset_name: value,
-                reason,
-            });
-        }
-    }
-
-    fn validate_background_opacity(&mut self, path: &str, value: f32) {
-        if let Some(reason) = invalid_native_json_background_opacity_reason(value) {
-            self.errors.push(NativeRendererJsonValidationError {
-                path: path.to_string(),
-                asset_name: value.to_string(),
-                reason,
-            });
-        }
-    }
-
-    fn validate_background_origin(&mut self, path: &str, origin: &str) {
-        if let Some(reason) = invalid_native_json_background_origin_reason(origin) {
-            self.errors.push(NativeRendererJsonValidationError {
-                path: path.to_string(),
-                asset_name: origin.to_string(),
-                reason,
-            });
-        }
-    }
-
-    fn validate_background_rotation(&mut self, path: &str, value: f64) {
-        if let Some((field, value, reason)) = invalid_native_json_background_rotation_reason(value)
         {
             self.errors.push(NativeRendererJsonValidationError {
                 path: format!("{path}.{field}"),
