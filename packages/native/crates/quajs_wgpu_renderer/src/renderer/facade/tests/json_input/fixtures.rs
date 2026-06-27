@@ -457,6 +457,59 @@ pub(super) fn json_frame_with_invalid_ui_color_literal_input() -> &'static str {
     "#
 }
 
+pub(super) fn json_frame_with_control_character_ui_text_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "title",
+                  "kind": "Text",
+                  "text": "Open\u001bMenu"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_oversized_ui_text_input() -> String {
+    format!(
+        r#"
+    {{
+      "container": {{ "width": 1600, "height": 1000 }},
+      "view": {{
+        "ui": {{
+          "overlays": [
+            {{
+              "elementId": "menu",
+              "surface": {{
+                "key": "ui/menu.qui",
+                "root": {{
+                  "id": "title",
+                  "kind": "Text",
+                  "text": "{}"
+                }}
+              }}
+            }}
+          ]
+        }}
+      }}
+    }}
+    "#,
+        "a".repeat(64 * 1024 + 1)
+    )
+}
+
 pub(super) fn json_frame_with_zero_dialogue_speaker_font_size_input() -> &'static str {
     r#"
     {

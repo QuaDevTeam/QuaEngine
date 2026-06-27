@@ -8,6 +8,7 @@ mod safe_strings;
 mod ui_geometry;
 mod ui_intent;
 mod ui_style_numbers;
+mod ui_text;
 mod z_order;
 
 use std::collections::BTreeSet;
@@ -51,6 +52,7 @@ use ui_intent::validate_native_json_ui_intent_projection;
 use ui_style_numbers::{
     invalid_native_json_ui_node_opacity_reason, invalid_native_json_ui_style_number_reason,
 };
+use ui_text::invalid_native_json_ui_text_reason;
 use z_order::{invalid_native_json_stack_priority_reason, invalid_native_json_z_index_reason};
 
 pub(super) fn validate_json_frame_input(
@@ -456,6 +458,9 @@ impl JsonProjectionValidator {
         self.validate_ui_node_opacity(&format!("{path}.opacity"), node.opacity);
         self.validate_scroll_offset(&format!("{path}.scrollOffsetX"), node.scroll_offset_x);
         self.validate_scroll_offset(&format!("{path}.scrollOffsetY"), node.scroll_offset_y);
+        if let Some(text) = &node.text {
+            self.validate_ui_text(&format!("{path}.text"), text);
+        }
         self.validate_z_index(
             &format!("{path}.zIndex"),
             node.z_index,
@@ -489,6 +494,16 @@ impl JsonProjectionValidator {
     fn validate_ui_intent(&mut self, path: &str, intent: &UiIntentProjection) {
         self.errors
             .extend(validate_native_json_ui_intent_projection(path, intent));
+    }
+
+    fn validate_ui_text(&mut self, path: &str, text: &str) {
+        if let Some((value, reason)) = invalid_native_json_ui_text_reason(text) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: value,
+                reason,
+            });
+        }
     }
 
     fn validate_ui_style(&mut self, path: &str, style: &UiSurfaceResolvedStyle) {

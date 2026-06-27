@@ -382,6 +382,39 @@ fn json_frame_color_validation_rejects_unsafe_resolved_color_literals() {
 }
 
 #[test]
+fn json_frame_ui_text_validation_rejects_unsafe_resolved_text_payloads() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let control = renderer
+        .prepare_frame_json_str(json_frame_with_control_character_ui_text_input())
+        .unwrap_err();
+    match control {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].surface.root.text");
+            assert_eq!(validation.asset_name, "Open\u{1b}Menu");
+            assert!(validation.reason.contains("control characters"));
+        }
+        other => panic!("expected unsafe UI text validation error, got {other:?}"),
+    }
+
+    let oversized_input = json_frame_with_oversized_ui_text_input();
+    let oversized = renderer
+        .prepare_frame_json_str(&oversized_input)
+        .unwrap_err();
+    match oversized {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].surface.root.text");
+            assert_eq!(validation.asset_name, (64 * 1024 + 1).to_string());
+            assert!(validation.reason.contains("payload limits"));
+        }
+        other => panic!("expected oversized UI text validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_rich_text_number_validation_rejects_unsafe_resolved_values() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
