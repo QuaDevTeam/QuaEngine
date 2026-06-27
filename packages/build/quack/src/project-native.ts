@@ -15,7 +15,9 @@ import type {
   QuaProjectNativeProfile,
 } from './project'
 import type { EmittedQuaTargetBundleManifest } from './project-target-bundle'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { isDeepStrictEqual } from 'node:util'
 import { createTargetCoreSelection } from '@quajs/native-contracts'
 import {
   emitQuaTargetBundleManifest,
@@ -121,16 +123,62 @@ export async function emitQuaProjectNativeTargetBundleManifest(
   options: EmitQuaProjectNativeTargetBundleManifestOptions,
 ): Promise<EmittedQuaProjectNativeTargetBundleManifest> {
   const manifest = createQuaProjectNativeTargetBundleManifest(plan, options)
+  const manifestPath = options.manifestPath || join(plan.artifactDir, QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE)
+  await assertNativeReleaseManifestWritable(plan, manifest, manifestPath)
   return emitQuaTargetBundleManifest({
     artifactDir: plan.artifactDir,
     expectedTarget: 'native',
     manifest,
-    manifestPath: options.manifestPath,
+    manifestPath,
   })
 }
 
 function sanitizePathSegment(value: string): string {
   return value.trim().replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'unknown'
+}
+
+async function assertNativeReleaseManifestWritable(
+  plan: QuaProjectNativeArtifactPlan,
+  manifest: TargetBundleManifest,
+  manifestPath: string,
+): Promise<void> {
+  if (plan.profile !== 'release') {
+    return
+  }
+
+  let existingJson: string
+  try {
+    existingJson = await readFile(manifestPath, 'utf8')
+  }
+  catch (error) {
+    if (isNodeError(error) && error.code === 'ENOENT') {
+      return
+    }
+    throw error
+  }
+
+  let existingManifest: unknown
+  try {
+    existingManifest = JSON.parse(existingJson)
+  }
+  catch (error) {
+    throw new Error(
+      `Native release artifact "${plan.artifactDir}" already contains an unreadable ${QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE}; refusing to overwrite release ${plan.versionSegment}/${plan.platform}.`,
+      { cause: error },
+    )
+  }
+
+  if (isDeepStrictEqual(existingManifest, manifest)) {
+    return
+  }
+
+  throw new Error(
+    `Native release artifact "${plan.artifactDir}" already contains a different ${QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE}; refusing to overwrite release ${plan.versionSegment}/${plan.platform}. Use a new app version/buildNumber or clean the release artifact deliberately.`,
+  )
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error
 }
 
 function createNativeProjectGraphs(

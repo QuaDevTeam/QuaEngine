@@ -496,6 +496,90 @@ describe('qua project config', () => {
     })
   })
 
+  it('refuses to overwrite an existing native release manifest with different metadata', async () => {
+    const root = await createProjectRoot()
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: join(root, 'dist/native-apps'),
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const baseOptions = {
+      nativeRenderer: createTestNativeRendererInfo(),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+      rendererEntries: [
+        { specifier: '@quajs/native-renderer/builtin', target: 'native' as const },
+      ],
+    }
+
+    const first = await emitQuaProjectNativeTargetBundleManifest(plan, baseOptions)
+
+    await expect(emitQuaProjectNativeTargetBundleManifest(plan, {
+      ...baseOptions,
+      dependencies: [
+        ...baseOptions.dependencies,
+        '@quajs/plugin-background',
+      ],
+    })).rejects.toThrow('already contains a different target-bundle-manifest.json')
+
+    const manifestJson = JSON.parse(await readFile(first.manifestPath, 'utf8')) as Record<string, any>
+    expect(manifestJson.dependencies).not.toContain('@quajs/plugin-background')
+  })
+
+  it('allows debug native manifests to be regenerated in place', async () => {
+    const root = await createProjectRoot()
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['debug'],
+          outputDir: join(root, 'dist/native-apps'),
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const baseOptions = {
+      nativeRenderer: createTestNativeRendererInfo(),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+      rendererEntries: [
+        { specifier: '@quajs/native-renderer/builtin', target: 'native' as const },
+      ],
+    }
+
+    const first = await emitQuaProjectNativeTargetBundleManifest(plan, baseOptions)
+    const second = await emitQuaProjectNativeTargetBundleManifest(plan, {
+      ...baseOptions,
+      dependencies: [
+        ...baseOptions.dependencies,
+        '@quajs/plugin-background',
+      ],
+    })
+    const manifestJson = JSON.parse(await readFile(second.manifestPath, 'utf8')) as Record<string, any>
+
+    expect(first.manifestPath).toBe(second.manifestPath)
+    expect(manifestJson.dependencies).toContain('@quajs/plugin-background')
+  })
+
   it('rejects invalid native target bundle manifests before writing them', async () => {
     const root = await createProjectRoot()
     const project = normalizeQuaProjectConfig({
