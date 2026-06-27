@@ -702,6 +702,100 @@ pub(super) fn json_frame_with_unsafe_ui_intent_action_input() -> &'static str {
     "#
 }
 
+pub(super) fn json_frame_with_unsafe_ui_intent_metadata_key_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Button",
+                  "intent": {
+                    "event": "ui/intent",
+                    "action": "open",
+                    "metadata": {
+                      "native/load.dll": true
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(super) fn json_frame_with_oversized_ui_intent_metadata_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Button",
+                  "intent": {
+                    "event": "ui/intent",
+                    "action": "open",
+                    "metadata": {
+                      "arg00": true,
+                      "arg01": true,
+                      "arg02": true,
+                      "arg03": true,
+                      "arg04": true,
+                      "arg05": true,
+                      "arg06": true,
+                      "arg07": true,
+                      "arg08": true,
+                      "arg09": true,
+                      "arg10": true,
+                      "arg11": true,
+                      "arg12": true,
+                      "arg13": true,
+                      "arg14": true,
+                      "arg15": true,
+                      "arg16": true,
+                      "arg17": true,
+                      "arg18": true,
+                      "arg19": true,
+                      "arg20": true,
+                      "arg21": true,
+                      "arg22": true,
+                      "arg23": true,
+                      "arg24": true,
+                      "arg25": true,
+                      "arg26": true,
+                      "arg27": true,
+                      "arg28": true,
+                      "arg29": true,
+                      "arg30": true,
+                      "arg31": true,
+                      "arg32": true
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(super) fn json_frame_with_unsafe_choice_id_input() -> &'static str {
     r#"
     {

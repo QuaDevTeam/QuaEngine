@@ -506,6 +506,36 @@ fn json_frame_intent_validation_rejects_unsafe_dispatch_identifiers() {
         other => panic!("expected UI intent action validation error, got {other:?}"),
     }
 
+    let metadata_key = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_ui_intent_metadata_key_input())
+        .unwrap_err();
+    match metadata_key {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.intent.metadata.native/load.dll"
+            );
+            assert_eq!(validation.asset_name, "native/load.dll");
+            assert!(validation.reason.contains("paths"));
+        }
+        other => panic!("expected UI intent metadata key validation error, got {other:?}"),
+    }
+
+    let metadata_payload = renderer
+        .prepare_frame_json_str(json_frame_with_oversized_ui_intent_metadata_input())
+        .unwrap_err();
+    match metadata_payload {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.intent.metadata"
+            );
+            assert_eq!(validation.asset_name, "33");
+            assert!(validation.reason.contains("payload limits"));
+        }
+        other => panic!("expected UI intent metadata payload validation error, got {other:?}"),
+    }
+
     let choice = renderer
         .prepare_frame_json_str(json_frame_with_unsafe_choice_id_input())
         .unwrap_err();
