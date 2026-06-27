@@ -42,6 +42,7 @@ fn records_submissions_without_gpu_work() {
             },
             fallback_warnings: NativeRenderFallbackWarningDiagnostics::default(),
             last_submission: Some(submission),
+            last_draw_plan: backend.last_draw_plan().cloned(),
         }
     );
 }

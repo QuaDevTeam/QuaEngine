@@ -38,11 +38,16 @@ fn submits_frames_through_feature_gated_wgpu_skeleton() {
             },
         )
         .unwrap();
+    let expected_draw_plan = NativeBackendDrawPlan::from_submission(&result.submission);
 
     assert_eq!(result.submission.revision, 1);
     assert_eq!(
         renderer.backend().submissions(),
         &[result.submission.clone()]
+    );
+    assert_eq!(
+        renderer.backend().draw_plans(),
+        &[expected_draw_plan.clone()]
     );
     assert_eq!(
         renderer.backend().config().adapter_name.as_deref(),
@@ -62,6 +67,7 @@ fn submits_frames_through_feature_gated_wgpu_skeleton() {
             },
             fallback_warnings: NativeRenderFallbackWarningDiagnostics::default(),
             last_submission: Some(result.submission),
+            last_draw_plan: Some(expected_draw_plan),
             note: "wgpu-backend feature is enabled, but the real wgpu device/surface bridge is not attached yet."
                 .to_string(),
         }

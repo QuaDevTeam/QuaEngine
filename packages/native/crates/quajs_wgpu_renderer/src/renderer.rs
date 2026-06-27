@@ -7,6 +7,8 @@ pub mod resource_update;
 pub mod state;
 
 pub use backend::{
+    NativeBackendBatchDrawPlan, NativeBackendDrawCommandPlan,
+    NativeBackendDrawCommandResourceState, NativeBackendDrawPlan, NativeBackendPassDrawPlan,
     NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendErrorKind,
     NativeRenderBackendResourceDiagnostics, NativeRenderBackendResourcePolicy,
     NativeRenderBackendResult, NativeRenderBatchSubmission, NativeRenderFallbackDiagnostic,
