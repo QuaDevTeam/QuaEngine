@@ -8,7 +8,8 @@ pub mod wgpu;
 
 pub use draw_plan::{
     NativeBackendBatchDrawPlan, NativeBackendDrawCommandPlan,
-    NativeBackendDrawCommandResourceState, NativeBackendDrawPlan, NativeBackendPassDrawPlan,
+    NativeBackendDrawCommandResourceState, NativeBackendDrawPlan, NativeBackendDrawResourceBinding,
+    NativeBackendDrawResourceBindingState, NativeBackendPassDrawPlan,
 };
 pub use null::{NullNativeRenderBackend, NullNativeRenderBackendDiagnostics};
 pub use submission::{

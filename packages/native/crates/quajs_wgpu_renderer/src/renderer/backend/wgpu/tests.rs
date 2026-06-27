@@ -38,7 +38,10 @@ fn submits_frames_through_feature_gated_wgpu_skeleton() {
             },
         )
         .unwrap();
-    let expected_draw_plan = NativeBackendDrawPlan::from_submission(&result.submission);
+    let expected_draw_plan = NativeBackendDrawPlan::from_submission_and_resources(
+        &result.submission,
+        renderer.resources(),
+    );
 
     assert_eq!(result.submission.revision, 1);
     assert_eq!(

@@ -3,12 +3,16 @@ use std::collections::BTreeSet;
 use crate::render_graph::{
     DrawBatchPipeline, DrawCommandKind, DrawCommandParams, LogicalRect, RenderPlane, RenderViewport,
 };
-use crate::resources::ResourceId;
+use crate::resources::{NativeResourceLedger, ResourceId};
 
 use super::submission::{
     NativeRenderBatchSubmission, NativeRenderCommandSubmission, NativeRenderPassSubmission,
     NativeRenderSubmission,
 };
+
+mod resources;
+
+pub use resources::{NativeBackendDrawResourceBinding, NativeBackendDrawResourceBindingState};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NativeBackendDrawPlan {
@@ -23,6 +27,20 @@ pub struct NativeBackendDrawPlan {
 
 impl NativeBackendDrawPlan {
     pub fn from_submission(submission: &NativeRenderSubmission) -> Self {
+        Self::from_submission_with_resources(submission, None)
+    }
+
+    pub fn from_submission_and_resources(
+        submission: &NativeRenderSubmission,
+        resources: &NativeResourceLedger,
+    ) -> Self {
+        Self::from_submission_with_resources(submission, Some(resources))
+    }
+
+    fn from_submission_with_resources(
+        submission: &NativeRenderSubmission,
+        resources: Option<&NativeResourceLedger>,
+    ) -> Self {
         let mut next_sequence_index = 0;
         let passes = submission
             .passes
@@ -33,6 +51,7 @@ impl NativeBackendDrawPlan {
                     pass_index,
                     pass,
                     &mut next_sequence_index,
+                    resources,
                 )
             })
             .collect::<Vec<_>>();
@@ -80,6 +99,7 @@ impl NativeBackendPassDrawPlan {
         pass_index: usize,
         pass: &NativeRenderPassSubmission,
         next_sequence_index: &mut usize,
+        resources: Option<&NativeResourceLedger>,
     ) -> Self {
         let batches = pass
             .batches
@@ -91,6 +111,7 @@ impl NativeBackendPassDrawPlan {
                     batch_index,
                     batch,
                     next_sequence_index,
+                    resources,
                 )
             })
             .collect::<Vec<_>>();
@@ -143,6 +164,7 @@ impl NativeBackendBatchDrawPlan {
         batch_index: usize,
         batch: &NativeRenderBatchSubmission,
         next_sequence_index: &mut usize,
+        resources: Option<&NativeResourceLedger>,
     ) -> Self {
         let commands = batch
             .commands
@@ -158,6 +180,7 @@ impl NativeBackendBatchDrawPlan {
                     command_index,
                     batch.pipeline,
                     command,
+                    resources,
                 )
             })
             .collect::<Vec<_>>();
@@ -204,6 +227,7 @@ pub struct NativeBackendDrawCommandPlan {
     pub resource_ids: Vec<ResourceId>,
     pub resolved_resource_ids: Vec<ResourceId>,
     pub missing_resource_ids: Vec<ResourceId>,
+    pub resource_bindings: Vec<NativeBackendDrawResourceBinding>,
     pub resource_state: NativeBackendDrawCommandResourceState,
     pub params: DrawCommandParams,
     pub owner_package_id: Option<String>,
@@ -218,6 +242,7 @@ impl NativeBackendDrawCommandPlan {
         command_index: usize,
         pipeline: DrawBatchPipeline,
         submission: &NativeRenderCommandSubmission,
+        resources: Option<&NativeResourceLedger>,
     ) -> Self {
         let command = &submission.command;
         let resource_state = if submission.missing_resource_ids.is_empty() {
@@ -225,6 +250,17 @@ impl NativeBackendDrawCommandPlan {
         } else {
             NativeBackendDrawCommandResourceState::MissingResources
         };
+        let resource_bindings = resources
+            .map(|resources| {
+                command
+                    .resource_ids
+                    .iter()
+                    .map(|resource_id| {
+                        NativeBackendDrawResourceBinding::from_resource_id(resource_id, resources)
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
 
         Self {
             sequence_index,
@@ -242,6 +278,7 @@ impl NativeBackendDrawCommandPlan {
             resource_ids: command.resource_ids.clone(),
             resolved_resource_ids: submission.resolved_resource_ids.clone(),
             missing_resource_ids: submission.missing_resource_ids.clone(),
+            resource_bindings,
             resource_state,
             params: command.params.clone(),
             owner_package_id: command.owner_package_id.clone(),
