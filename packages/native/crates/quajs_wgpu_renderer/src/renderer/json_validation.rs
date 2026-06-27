@@ -6,6 +6,7 @@ mod layout;
 mod rich_text_numbers;
 mod ui_geometry;
 mod ui_style_numbers;
+mod z_order;
 
 use std::collections::BTreeSet;
 
@@ -42,6 +43,7 @@ use ui_geometry::{invalid_native_json_scroll_offset_reason, invalid_native_json_
 use ui_style_numbers::{
     invalid_native_json_ui_node_opacity_reason, invalid_native_json_ui_style_number_reason,
 };
+use z_order::{invalid_native_json_stack_priority_reason, invalid_native_json_z_index_reason};
 
 pub(super) fn validate_json_frame_input(
     layout: Option<&ViewLayoutInput>,
@@ -189,6 +191,11 @@ impl JsonProjectionValidator {
             );
             self.validate_background_rotation(&layer_path, layer.rotation);
             self.validate_background_opacity(&format!("{layer_path}.opacity"), layer.opacity);
+            self.validate_z_index(
+                &format!("{layer_path}.zIndex"),
+                layer.z_index,
+                "background layer zIndex",
+            );
             self.validate_provenance(&format!("{layer_path}.provenance"), &layer.provenance);
         }
         if let Some(video) = &background.video {
@@ -226,6 +233,11 @@ impl JsonProjectionValidator {
         }
         self.validate_character_position(&format!("{path}.position"), &character.position);
         self.validate_character_opacity(&format!("{path}.opacity"), character.opacity);
+        self.validate_z_index(
+            &format!("{path}.layer"),
+            character.layer,
+            "character layers",
+        );
         self.validate_provenance(&format!("{path}.provenance"), &character.provenance);
     }
 
@@ -329,6 +341,20 @@ impl JsonProjectionValidator {
                     "UI overlay stack names",
                 );
             }
+            if let Some(stack_priority) = overlay.stack_priority {
+                self.validate_stack_priority(
+                    &format!("view.ui.overlays[{overlay_index}].stackPriority"),
+                    stack_priority,
+                    "UI overlay stack priorities",
+                );
+            }
+            if let Some(z_index) = overlay.z_index {
+                self.validate_z_index(
+                    &format!("view.ui.overlays[{overlay_index}].zIndex"),
+                    z_index,
+                    "UI overlay zIndex",
+                );
+            }
             if let Some(surface) = &overlay.surface {
                 self.validate_ui_surface(
                     surface,
@@ -354,6 +380,24 @@ impl JsonProjectionValidator {
                         overlay_stack,
                         "UI scene overlay stack names",
                     );
+                }
+                if let Some(scene_overlay) = &scene.overlay {
+                    if let Some(stack_priority) = scene_overlay.stack_priority {
+                        self.validate_stack_priority(
+                            &format!(
+                                "view.ui.overlays[{overlay_index}].scene.overlay.stackPriority"
+                            ),
+                            stack_priority,
+                            "UI scene overlay stack priorities",
+                        );
+                    }
+                    if let Some(z_index) = scene_overlay.z_index {
+                        self.validate_z_index(
+                            &format!("view.ui.overlays[{overlay_index}].scene.overlay.zIndex"),
+                            z_index,
+                            "UI scene overlay zIndex",
+                        );
+                    }
                 }
             }
             if let Some(scene_surface) = overlay
@@ -404,6 +448,11 @@ impl JsonProjectionValidator {
         self.validate_ui_node_opacity(&format!("{path}.opacity"), node.opacity);
         self.validate_scroll_offset(&format!("{path}.scrollOffsetX"), node.scroll_offset_x);
         self.validate_scroll_offset(&format!("{path}.scrollOffsetY"), node.scroll_offset_y);
+        self.validate_z_index(
+            &format!("{path}.zIndex"),
+            node.z_index,
+            "UI surface node zIndex",
+        );
         self.validate_provenance(&format!("{path}.provenance"), &node.provenance);
         if let Some(image) = &node.image {
             self.validate_ui_image(image, &format!("{path}.image"));
@@ -730,6 +779,26 @@ impl JsonProjectionValidator {
                 path: path.to_string(),
                 asset_name: value.to_string(),
                 reason: format!("{noun} must be unique within their native UI scope"),
+            });
+        }
+    }
+
+    fn validate_z_index(&mut self, path: &str, value: i32, noun: &str) {
+        if let Some(reason) = invalid_native_json_z_index_reason(value, noun) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: value.to_string(),
+                reason,
+            });
+        }
+    }
+
+    fn validate_stack_priority(&mut self, path: &str, value: i32, noun: &str) {
+        if let Some(reason) = invalid_native_json_stack_priority_reason(value, noun) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: value.to_string(),
+                reason,
             });
         }
     }
