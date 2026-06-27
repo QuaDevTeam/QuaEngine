@@ -1,7 +1,9 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
 
-export const FORBIDDEN_NATIVE_AUTHORING_TARGET_CORE_PACKAGES = [
+const FORBIDDEN_TARGET_RUNTIME_PACKAGES = [
   '@quajs/assets-cocos',
   '@quajs/assets-native',
   '@quajs/assets-web',
@@ -17,18 +19,29 @@ export const FORBIDDEN_NATIVE_AUTHORING_TARGET_CORE_PACKAGES = [
   '@quajs/store-web',
 ] as const
 
-export function collectForbiddenTargetCoreImportViolations(roots: readonly string[]): string[] {
+describe('@quajs/native-contracts target isolation', () => {
+  it('does not import Web, Cocos, or native runtime packages from shared contracts', () => {
+    const roots = [
+      fileURLToPath(new URL('../src', import.meta.url)),
+      fileURLToPath(new URL('../test', import.meta.url)),
+    ]
+
+    expect(collectForbiddenTargetRuntimeImportViolations(roots)).toEqual([])
+  })
+})
+
+function collectForbiddenTargetRuntimeImportViolations(roots: readonly string[]): string[] {
   return roots.flatMap(root => sourceFiles(root)).flatMap((filePath) => {
     const source = readFileSync(filePath, 'utf8')
     return importSpecifiers(source)
-      .filter(specifier => FORBIDDEN_NATIVE_AUTHORING_TARGET_CORE_PACKAGES.some(packageName =>
+      .filter(specifier => FORBIDDEN_TARGET_RUNTIME_PACKAGES.some(packageName =>
         specifier === packageName || specifier.startsWith(`${packageName}/`),
       ))
       .map(specifier => `${filePath}: ${specifier}`)
   })
 }
 
-export function sourceFiles(root: string): string[] {
+function sourceFiles(root: string): string[] {
   if (!statSync(root).isDirectory())
     return root.endsWith('.ts') ? [root] : []
 
@@ -40,7 +53,7 @@ export function sourceFiles(root: string): string[] {
   })
 }
 
-export function importSpecifiers(source: string): string[] {
+function importSpecifiers(source: string): string[] {
   const pattern = /\b(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]|\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g
   const specifiers: string[] = []
   for (const match of source.matchAll(pattern))
