@@ -113,6 +113,8 @@ native 包装必须始终通过：
 - Rust `quajs_wgpu_renderer`
 - Rust `quajs_native_app`
 
+`@quajs/assets-native` 的 cache root 是 native host storage prefix，不是文件系统路径或 URL。打包器 / host 配置只能传安全的包内逻辑 namespace：允许多段 `profiles/player-a/cache` 这类 forward-slash 前缀，首尾 `/` 可以被规整掉，但必须拒绝空段、`.`、`..`、反斜杠、URL 和 URI scheme，避免 `clearAll()` / prefix cleanup 误删其他 native storage 命名空间。`@quajs/store-native` 的 list / prefix clear 操作同样依赖 host `listStorageKeys`，没有该能力时必须显式失败。
+
 ## 建议的 `packages/native` 结构
 
 ```text
