@@ -26,7 +26,7 @@ Defaults: `version` falls back to `package.json`, Web is enabled, Web devices de
 
 Use `@quajs/quack/project` to load, normalize, validate, create Web assets/manifests, merge Quack asset targets, sync Cocos build files, derive native artifact plans, and emit validated target-bundle manifests. Do not parse YAML/JSON in engine, renderers, or templates.
 
-Use `createQuaProjectNativeArtifactPlans` when native packaging needs the concrete output matrix. It expands `targets.native.platforms` and `targets.native.profiles` into deterministic plans whose `artifactDir` is isolated by `outputDir/profile/version-buildNumber/platform`.
+Use `createQuaProjectNativeArtifactPlans` when native packaging needs the concrete output matrix. It expands `targets.native.platforms` and `targets.native.profiles` into deterministic plans whose `artifactDir` is isolated by `outputDir/profile/version-buildNumber/platform`. The sanitized `version-buildNumber` value is exposed as `versionSegment` on each plan so signing, release immutability checks, update metadata, and distribution manifests do not need to parse it back out of `artifactDir`.
 
 Use `emitQuaTargetBundleManifest` after Web, Cocos, or native bundling has collected post-bundle dependencies, renderer entries, runtime packages, and target metadata. It validates with the active `expectedTarget` before writing `target-bundle-manifest.json`, so cross-target core adapters or mismatched renderer entries fail before artifact startup metadata is emitted. Native packagers may use `emitQuaProjectNativeTargetBundleManifest` to create the native manifest from a native artifact plan before delegating to the shared emitter.
 

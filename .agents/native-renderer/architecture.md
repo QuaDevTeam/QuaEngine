@@ -263,9 +263,11 @@ debug / release 必须分开；release 还要再按版本分开。推荐目录�
 
 ```text
 dist/native/
-  debug/<version+local>/<platform>/
+  debug/<version-buildNumber>/<platform>/
   release/<version-buildNumber>/<platform>/
 ```
+
+`createQuaProjectNativeArtifactPlans` 会把 `targets.native.app.version` 和 `buildNumber` 规整成 plan 级 `versionSegment`，并用 `outputDir/profile/versionSegment/platform` 生成 `artifactDir`。后续签名、加固、release immutability、更新通道 metadata 和分发产物都应使用这个字段，而不是从路径字符串里反向解析版本。
 
 ### 需要写入的元数据
 

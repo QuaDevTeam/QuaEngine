@@ -307,6 +307,7 @@ describe('qua project config', () => {
       platform: 'macos',
       profile: 'debug',
       outputDir: 'dist/native-apps',
+      versionSegment: '1.2.3-beta-build-42',
       artifactDir: join('dist/native-apps', 'debug', '1.2.3-beta-build-42', 'macos'),
       app: {
         bundleId: 'com.example.starlight',
@@ -322,6 +323,13 @@ describe('qua project config', () => {
         hardening: true,
       },
     })
+    expect(new Set(plans.map(plan => plan.versionSegment))).toEqual(new Set(['1.2.3-beta-build-42']))
+    expect(plans.map(plan => plan.artifactDir)).toEqual([
+      join('dist/native-apps', 'debug', '1.2.3-beta-build-42', 'macos'),
+      join('dist/native-apps', 'debug', '1.2.3-beta-build-42', 'windows'),
+      join('dist/native-apps', 'release', '1.2.3-beta-build-42', 'macos'),
+      join('dist/native-apps', 'release', '1.2.3-beta-build-42', 'windows'),
+    ])
   })
 
   it('creates native target bundle manifests from artifact plans', () => {
