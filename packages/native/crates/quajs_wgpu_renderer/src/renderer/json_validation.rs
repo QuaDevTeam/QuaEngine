@@ -6,6 +6,7 @@ mod layout;
 mod rich_text_numbers;
 mod safe_strings;
 mod ui_geometry;
+mod ui_intent;
 mod ui_style_numbers;
 mod z_order;
 
@@ -46,6 +47,7 @@ use safe_strings::{
     invalid_native_json_package_id_reason, invalid_native_json_ui_dispatch_identifier_reason,
 };
 use ui_geometry::{invalid_native_json_scroll_offset_reason, invalid_native_json_ui_rect_reason};
+use ui_intent::validate_native_json_ui_intent_projection;
 use ui_style_numbers::{
     invalid_native_json_ui_node_opacity_reason, invalid_native_json_ui_style_number_reason,
 };
@@ -485,49 +487,8 @@ impl JsonProjectionValidator {
     }
 
     fn validate_ui_intent(&mut self, path: &str, intent: &UiIntentProjection) {
-        if let Some(reason) = invalid_native_json_ui_intent_event_reason(&intent.event) {
-            self.errors.push(NativeRendererJsonValidationError {
-                path: format!("{path}.event"),
-                asset_name: intent.event.clone(),
-                reason,
-            });
-            return;
-        }
-
-        if let Some(action) = &intent.action {
-            self.validate_ui_dispatch_identifier(
-                &format!("{path}.action"),
-                action,
-                "UI intent actions",
-            );
-        }
-
-        if intent.event != "choice/select" {
-            if let Some(choice_id) = &intent.choice_id {
-                self.validate_ui_dispatch_identifier(
-                    &format!("{path}.choiceId"),
-                    choice_id,
-                    "choice ids",
-                );
-            }
-            return;
-        }
-
-        if intent.event == "choice/select" {
-            match intent.choice_id.as_deref() {
-                Some(choice_id) if !choice_id.trim().is_empty() => self
-                    .validate_ui_dispatch_identifier(
-                        &format!("{path}.choiceId"),
-                        choice_id,
-                        "choice ids",
-                    ),
-                _ => self.errors.push(NativeRendererJsonValidationError {
-                    path: format!("{path}.choiceId"),
-                    asset_name: intent.choice_id.clone().unwrap_or_default(),
-                    reason: "choice/select intents must declare canonical choiceId".to_string(),
-                }),
-            }
-        }
+        self.errors
+            .extend(validate_native_json_ui_intent_projection(path, intent));
     }
 
     fn validate_ui_style(&mut self, path: &str, style: &UiSurfaceResolvedStyle) {
@@ -807,12 +768,5 @@ impl JsonProjectionValidator {
                 reason,
             });
         }
-    }
-}
-
-fn invalid_native_json_ui_intent_event_reason(event: &str) -> Option<String> {
-    match event {
-        "ui/intent" | "choice/select" => None,
-        _ => Some("UI surface intent events must be ui/intent or choice/select".to_string()),
     }
 }
