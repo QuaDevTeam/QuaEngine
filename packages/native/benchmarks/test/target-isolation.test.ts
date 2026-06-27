@@ -17,9 +17,12 @@ const FORBIDDEN_TARGET_CORE_PACKAGES = [
 ]
 
 describe('@quajs/native-benchmarks target isolation', () => {
-  it('does not import Web, Cocos, or native bootstrap core packages', () => {
-    const sourceRoot = fileURLToPath(new URL('../src', import.meta.url))
-    const violations = sourceFiles(sourceRoot).flatMap((filePath) => {
+  it('does not import Web, Cocos, or native bootstrap core packages from benchmark tooling', () => {
+    const roots = [
+      fileURLToPath(new URL('../src', import.meta.url)),
+      fileURLToPath(new URL('../test', import.meta.url)),
+    ]
+    const violations = roots.flatMap(root => sourceFiles(root)).flatMap((filePath) => {
       const source = readFileSync(filePath, 'utf8')
       return importSpecifiers(source)
         .filter(specifier => FORBIDDEN_TARGET_CORE_PACKAGES.some(packageName =>
@@ -29,6 +32,24 @@ describe('@quajs/native-benchmarks target isolation', () => {
     })
 
     expect(violations).toEqual([])
+  })
+
+  it('collects static, side-effect, re-export, and dynamic import specifiers', () => {
+    expect(importSpecifiers(`
+      import type { Thing } from '@example/types'
+      import { value } from '@example/static'
+      import '@example/side-effect'
+      export * from '@example/export-star'
+      export { value } from '@example/export-named'
+      await import('@example/dynamic')
+    `)).toEqual([
+      '@example/types',
+      '@example/static',
+      '@example/side-effect',
+      '@example/export-star',
+      '@example/export-named',
+      '@example/dynamic',
+    ])
   })
 })
 
@@ -42,7 +63,7 @@ function sourceFiles(root: string): string[] {
 }
 
 function importSpecifiers(source: string): string[] {
-  const pattern = /\bfrom\s+['"]([^'"]+)['"]|\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g
+  const pattern = /\b(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]|\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g
   const specifiers: string[] = []
   for (const match of source.matchAll(pattern))
     specifiers.push(match[1] ?? match[2])
