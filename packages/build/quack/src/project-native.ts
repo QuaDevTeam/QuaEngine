@@ -2,6 +2,7 @@ import type {
   TargetBundleDependencyReference,
   TargetBundleManifest,
   TargetBundleNativeRendererInfo,
+  TargetBundleNativeRuntimeInfo,
   TargetBundlePackageReference,
   TargetBundleProjectGraphRecord,
   TargetBundleRendererEntryReference,
@@ -47,6 +48,7 @@ export interface QuaProjectNativeArtifactPlan {
 export interface QuaProjectNativeTargetBundleManifestOptions {
   dependencies?: readonly (TargetBundlePackageReference | TargetBundleDependencyReference)[]
   nativeRenderer: TargetBundleNativeRendererInfo
+  nativeRuntime: TargetBundleNativeRuntimeInfo
   projectGraphs?: readonly TargetBundleProjectGraphRecord[]
   rendererEntries?: readonly (TargetBundlePackageReference | TargetBundleRendererEntryReference)[]
   runtimePackages?: readonly TargetBundleRuntimePackageRecord[]
@@ -103,6 +105,7 @@ export function createQuaProjectNativeTargetBundleManifest(
     platform: plan.platform,
     app: { ...plan.app },
     nativeRenderer: { ...options.nativeRenderer },
+    nativeRuntime: { ...options.nativeRuntime },
     targetCoreResolver: targetCore.targetCoreResolver,
     selectedCorePluginFamily: targetCore.selectedCorePluginFamily,
     selectedCoreAdapters: targetCore.selectedCoreAdapters,

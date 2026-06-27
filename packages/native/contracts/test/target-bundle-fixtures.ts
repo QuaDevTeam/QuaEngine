@@ -2,6 +2,7 @@ import type { QuaTargetBootstrap, TargetBundleManifest } from '../src'
 import {
   COCOS_TARGET_BOOTSTRAP,
   createTargetBundleNativeRendererInfo,
+  createTargetBundleNativeRuntimeInfo,
   createTargetCoreSelection,
   NATIVE_TARGET_BOOTSTRAP,
   WEB_TARGET_BOOTSTRAP,
@@ -98,6 +99,15 @@ export function nativeRendererInfo(): NonNullable<TargetBundleManifest['nativeRe
   }, sha256Fixture)
 }
 
+export function nativeRuntimeInfo(): NonNullable<TargetBundleManifest['nativeRuntime']> {
+  return createTargetBundleNativeRuntimeInfo({
+    quickjsVersion: '2025-04-26',
+    nativeRuntimeVersion: '0.1.0',
+    assetAdapterVersion: '0.1.0',
+    storeAdapterVersion: '0.1.0',
+  })
+}
+
 export function targetBundleManifest(overrides: Partial<TargetBundleManifest> = {}): TargetBundleManifest {
   return targetBundleManifestFor('native', overrides)
 }
@@ -118,7 +128,12 @@ export function targetBundleManifestFor(
       buildNumber: '100',
       icon: 'AppIcon.icns',
     },
-    ...(target === 'native' ? { nativeRenderer: nativeRendererInfo() } : {}),
+    ...(target === 'native'
+      ? {
+          nativeRenderer: nativeRendererInfo(),
+          nativeRuntime: nativeRuntimeInfo(),
+        }
+      : {}),
     targetCoreResolver: targetCoreSelection.targetCoreResolver,
     selectedCorePluginFamily: targetCoreSelection.selectedCorePluginFamily,
     selectedCoreAdapters: targetCoreSelection.selectedCoreAdapters,

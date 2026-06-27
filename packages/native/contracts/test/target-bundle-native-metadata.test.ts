@@ -2,11 +2,13 @@ import type { TargetBundleManifest } from '../src'
 import { describe, expect, it } from 'vitest'
 import {
   createTargetBundleNativeRendererInfo,
+  createTargetBundleNativeRuntimeInfo,
   validateTargetBundleManifest,
 } from '../src'
 import {
   NATIVE_RENDERER_CAPABILITIES,
   nativeRendererInfo,
+  nativeRuntimeInfo,
   sha256Fixture,
   targetBundleManifest,
   targetBundleManifestFor,
@@ -47,6 +49,26 @@ describe('target bundle native metadata validation', () => {
     expect(changedRenderer.capabilityManifestHash).not.toBe(renderer.capabilityManifestHash)
   })
 
+  it('creates native runtime manifest metadata from host runtime info', () => {
+    expect(nativeRuntimeInfo()).toEqual({
+      quickjsVersion: '2025-04-26',
+      nativeRuntimeVersion: '0.1.0',
+      assetAdapterVersion: '0.1.0',
+      storeAdapterVersion: '0.1.0',
+    })
+    expect(createTargetBundleNativeRuntimeInfo({
+      quickjsVersion: 'unsupported',
+      nativeRuntimeVersion: '0.2.0',
+      assetAdapterVersion: '0.3.0',
+      storeAdapterVersion: '0.4.0',
+    })).toEqual({
+      quickjsVersion: 'unsupported',
+      nativeRuntimeVersion: '0.2.0',
+      assetAdapterVersion: '0.3.0',
+      storeAdapterVersion: '0.4.0',
+    })
+  })
+
   it('requires native artifacts to record renderer version and capability metadata', () => {
     const manifest = targetBundleManifest()
     delete manifest.nativeRenderer
@@ -56,6 +78,20 @@ describe('target bundle native metadata validation', () => {
     expect(result.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'TARGET_BUNDLE_NATIVE_RENDERER_MISSING',
+        target: 'native',
+      }),
+    ]))
+  })
+
+  it('requires native artifacts to record native runtime, QuickJS, asset adapter, and store adapter metadata', () => {
+    const manifest = targetBundleManifest()
+    delete manifest.nativeRuntime
+    const result = validateTargetBundleManifest(manifest)
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RUNTIME_MISSING',
         target: 'native',
       }),
     ]))
@@ -92,6 +128,35 @@ describe('target bundle native metadata validation', () => {
     ]))
   })
 
+  it('rejects incomplete native runtime metadata on native artifacts', () => {
+    const result = validateTargetBundleManifest(targetBundleManifest({
+      nativeRuntime: {
+        quickjsVersion: '',
+        nativeRuntimeVersion: 42,
+      } as unknown as NonNullable<TargetBundleManifest['nativeRuntime']>,
+    }))
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RUNTIME_FIELD_EMPTY',
+        field: 'quickjsVersion',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RUNTIME_FIELD_INVALID',
+        field: 'nativeRuntimeVersion',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RUNTIME_FIELD_MISSING',
+        field: 'assetAdapterVersion',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RUNTIME_FIELD_MISSING',
+        field: 'storeAdapterVersion',
+      }),
+    ]))
+  })
+
   it('rejects native renderer metadata in Web and Cocos artifacts', () => {
     for (const target of ['web', 'cocos'] as const) {
       const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
@@ -102,6 +167,22 @@ describe('target bundle native metadata validation', () => {
       expect(result.diagnostics).toEqual(expect.arrayContaining([
         expect.objectContaining({
           code: 'TARGET_BUNDLE_NATIVE_RENDERER_UNEXPECTED',
+          target,
+        }),
+      ]))
+    }
+  })
+
+  it('rejects native runtime metadata in Web and Cocos artifacts', () => {
+    for (const target of ['web', 'cocos'] as const) {
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+        nativeRuntime: nativeRuntimeInfo(),
+      }))
+
+      expect(result.ok).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TARGET_BUNDLE_NATIVE_RUNTIME_UNEXPECTED',
           target,
         }),
       ]))

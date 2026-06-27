@@ -13,6 +13,7 @@ import type {
 import {
   checkNativeAppManifestCompatibility,
   checkNativeRendererManifestCompatibility,
+  checkNativeRuntimeManifestCompatibility,
   checkNativeTargetBootstrap,
   checkNativeTargetBundleManifest,
   formatNativeManifestCompatibilityError,
@@ -132,6 +133,7 @@ export class NativeHostPlugin implements EnginePlugin {
     const diagnostics = [
       ...checkNativeAppManifestCompatibility(hostInfo, manifest),
       ...checkNativeRendererManifestCompatibility(hostInfo, manifest.nativeRenderer),
+      ...checkNativeRuntimeManifestCompatibility(hostInfo, manifest.nativeRuntime),
     ]
     if (diagnostics.length > 0)
       throw new Error(formatNativeManifestCompatibilityError(diagnostics))
@@ -210,6 +212,7 @@ export {
   assertNativeTargetBundleManifest,
   checkNativeAppManifestCompatibility,
   checkNativeRendererManifestCompatibility,
+  checkNativeRuntimeManifestCompatibility,
   checkNativeTargetBootstrap,
   checkNativeTargetBundleManifest,
 } from './native-manifest-validation'
