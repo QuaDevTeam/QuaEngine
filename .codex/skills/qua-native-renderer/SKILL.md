@@ -160,6 +160,7 @@ Prefer light checks while disk is tight:
 ```bash
 pnpm --filter @quajs/native-contracts typecheck
 pnpm --filter @quajs/native-contracts test -- --run
+pnpm --filter @quajs/engine-native test -- --run
 pnpm --filter @quajs/engine-native typecheck
 pnpm --filter @quajs/assets-native typecheck
 pnpm --filter @quajs/store-native typecheck
