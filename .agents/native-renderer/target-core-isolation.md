@@ -28,7 +28,7 @@
 | Cocos project | `cocos-core-resolver` 写出的 manifest | 读取 Cocos host / renderer selected adapters、普通平台无关插件 | Creator 接线、调试入口、构建脚本或 Runtime QPK 携带 Web / Native core；复用 Web renderer/framework adapter |
 | Native project | `native-core-resolver` 写出的 manifest | 读取 native engine/assets/store、native contracts metadata、Rust app/runtime/renderer metadata | Rust app bootstrap、QuickJS startup、smoke runner、installer/updater 携带 Web renderer subentry 或 Cocos host/renderer |
 
-这个边界要在产物依赖图里验证，而不是只看源码配置。`projectGraphs` 的 project-template、startup-shell、debug-shell、release-shell、installer、updater、smoke-runner 和 dev-server 图都不能声明任何 target core，连 active target core 也不能二次声明；只有 post-bundle graph 可以包含 active target core family，并且必须拒绝 inactive target core。这样可以保证 Web、Cocos、Native 的核心插件只在对应 resolver 注入一次，后续所有项目生成、调试和分发步骤都只是消费已选 manifest。
+这个边界要在产物依赖图里验证，而不是只看源码配置。`projectGraphs` 的 project-template、startup-shell、debug-shell、release-shell、installer、updater、smoke-runner、dev-server 和 custom 图都不能声明任何 target core，连 active target core 也不能二次声明；只有 post-bundle graph 可以包含 active target core family，并且必须拒绝 inactive target core。这样可以保证 Web、Cocos、Native 的核心插件只在对应 resolver 注入一次，后续所有项目生成、调试和分发步骤都只是消费已选 manifest。
 
 ## 术语
 
@@ -126,7 +126,7 @@
 1. **Bootstrap selection**：`validateExclusiveTargetBootstrap` 确认只注册一个 core family。
 2. **Ordinary plugin list**：`validateOrdinaryPluginListTargetIsolation` 拦截普通 `plugins`、shared preset、CLI plugin reference、generated resolver 中的 target core root / subentry。
 3. **Plugin entry selection**：`validateTargetPluginManifest` 确认 shared entry 平台无关，active target entry 只 import 当前目标 adapter，inactive entries 不 eager。
-4. **Project graphs and post-bundle graph**：`projectGraphs` 记录项目模板、startup shell、debug/release shell、smoke runner、installer、updater、dev server 和 post-bundle dependency graph。非 `post-bundle` 图只允许平台无关依赖，连 active target core 也不能重新声明；`post-bundle` 图允许 active core 但必须拒绝 inactive core。所有图都要同时检查 `specifier` 与 `packageName`，并把 subentry、query/hash-suffixed bundler specifier、Windows 路径、`node_modules` 路径和 pnpm store 路径归一到 package root，例如 `@quajs/renderer-web/plugins/audio?import` 或 `node_modules/@quajs/renderer-web/plugins/audio.js` 仍然是 Web core。
+4. **Project graphs and post-bundle graph**：`projectGraphs` 记录项目模板、startup shell、debug/release shell、smoke runner、installer、updater、dev server、custom graph 和 post-bundle dependency graph。非 `post-bundle` 图只允许平台无关依赖，连 active target core 也不能重新声明；`post-bundle` 图允许 active core 但必须拒绝 inactive core，即使该图来自先构造 Web / Cocos / Native 三端核心全集再过滤的路径。所有图都要同时检查 `specifier` 与 `packageName`，并把 subentry、query/hash-suffixed bundler specifier、Windows 路径、`node_modules` 路径和 pnpm store 路径归一到 package root，例如 `@quajs/renderer-web/plugins/audio?import` 或 `node_modules/@quajs/renderer-web/plugins/audio.js` 仍然是 Web core。
 5. **Startup / Runtime QPK**：`validateTargetBundleManifest` 和 runtime startup 重复校验 `target`、`targetCoreResolver`、selected adapters、renderer entries、Runtime QPK executable dependencies 与 active target 一致。
 
 任何一层通过都不能代表其他层安全。尤其要注意 `specifier` 和 `packageName` 双字段：安全的 `packageName` 不能掩盖 `specifier` 里的 target core subentry，反过来也一样。
@@ -208,7 +208,7 @@ Native dynamic QPK 只能带 QS / JS runtime modules 和资源，包括 compiled
 - inactive target entry 通过 barrel export 或 side-effect import 进入 active artifact。
 - Runtime QPK `executableDependencies` 或 `rendererEntries` 指向 target core root / subentry。
 - renderer entry 缺失显式 `target`，或 target 与 artifact 不一致。
-- post-bundle graph 发现 foreign target core root / subentry。
+- post-bundle graph 发现 foreign target core root / subentry，或在 active core 之外残留 Web / Cocos / Native 三端全集中的 inactive core。
 - debug shell、installer、updater manifest 跳过 Quack 主路径但声明错误 core family。
 - packager 先构造 `[webCore, cocosCore, nativeCore]` 三端全集，再按 target 过滤。即使最终 manifest 看起来只剩一个 target，也必须失败。
 
