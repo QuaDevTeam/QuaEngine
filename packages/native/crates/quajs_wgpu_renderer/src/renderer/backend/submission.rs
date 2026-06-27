@@ -4,9 +4,11 @@ use crate::render_graph::{
 };
 use crate::resources::{NativeResourceLedger, ResourceId};
 
+mod commands;
 mod fallbacks;
 mod resources;
 
+pub use commands::NativeRenderCommandSubmission;
 pub use fallbacks::{
     NativeRenderFallbackDiagnostic, NativeRenderFallbackSummary,
     NativeRenderFallbackWarningDiagnostics,
@@ -18,6 +20,7 @@ pub use resources::{
 
 pub(crate) use fallbacks::NativeRenderFallbackWarningTracker;
 
+use commands::NativeRenderCommandSubmissionIndex;
 use fallbacks::{collect_fallback_diagnostics, summarize_fallback_diagnostics};
 use resources::{collect_missing_resources, partition_resource_ids, summarize_resolved_resources};
 
@@ -35,7 +38,7 @@ impl NativeRenderFrameRef<'_> {
             .passes
             .passes
             .iter()
-            .map(|pass| NativeRenderPassSubmission::from_pass(pass, self.resources))
+            .map(|pass| NativeRenderPassSubmission::from_pass(pass, self.resources, self.frame))
             .collect::<Vec<_>>();
 
         let resolved_resource_memory = summarize_resolved_resources(
@@ -91,7 +94,7 @@ pub struct NativeRenderPassSubmission {
     pub batches: Vec<NativeRenderBatchSubmission>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct NativeRenderBatchSubmission {
     pub pipeline: DrawBatchPipeline,
     pub kind: DrawCommandKind,
@@ -103,14 +106,20 @@ pub struct NativeRenderBatchSubmission {
     pub missing_resource_ids: Vec<ResourceId>,
     pub resolved_resource_memory: NativeRenderResourceMemoryBreakdown,
     pub command_ids: Vec<String>,
+    pub commands: Vec<NativeRenderCommandSubmission>,
 }
 
 impl NativeRenderPassSubmission {
-    fn from_pass(pass: &crate::render_graph::RenderPass, resources: &NativeResourceLedger) -> Self {
+    fn from_pass(
+        pass: &crate::render_graph::RenderPass,
+        resources: &NativeResourceLedger,
+        frame: &PreparedNativeFrame,
+    ) -> Self {
+        let command_index = NativeRenderCommandSubmissionIndex::from_graph(&frame.graph);
         let batches = pass
             .batches
             .iter()
-            .map(|batch| NativeRenderBatchSubmission::from_batch(batch, resources))
+            .map(|batch| NativeRenderBatchSubmission::from_batch(batch, resources, &command_index))
             .collect::<Vec<_>>();
         Self {
             plane: pass.plane,
@@ -143,9 +152,14 @@ impl NativeRenderPassSubmission {
 }
 
 impl NativeRenderBatchSubmission {
-    fn from_batch(batch: &DrawBatch, resources: &NativeResourceLedger) -> Self {
+    fn from_batch(
+        batch: &DrawBatch,
+        resources: &NativeResourceLedger,
+        command_index: &NativeRenderCommandSubmissionIndex<'_>,
+    ) -> Self {
         let (resolved_resource_ids, missing_resource_ids) =
             partition_resource_ids(&batch.key.resource_ids, resources);
+        let commands = command_index.command_submissions_for_batch(batch, resources);
         let resolved_resource_memory =
             summarize_resolved_resources(resolved_resource_ids.iter().cloned(), resources);
         Self {
@@ -159,6 +173,7 @@ impl NativeRenderBatchSubmission {
             missing_resource_ids,
             resolved_resource_memory,
             command_ids: batch.command_ids.clone(),
+            commands,
         }
     }
 }
