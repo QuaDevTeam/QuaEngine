@@ -261,6 +261,8 @@ runtime package compatibility metadata 也应该落到这个 registry 上：
 - QUI `src` / `image` 资源 prop 和 QSS `background-image: asset(...)` 中的 asset kind 进入 `assetKinds`。
 - 最终输出仍由 `@quajs/native-contracts` 的 `createNativeUiSurfaceCompatibility` 规整，固定包含 `native-wgpu.ui.surface@1`、`qui` / `qss` / `tokens` 和 `nativeCode: false`。
 
+文档派生的 `quiComponents` 应只包含 native registry 中已注册、native-wgpu 可消费的基础 / 能力组件。source QUI 里出现的 `Dialog`、`Drawer` 等导入 composite 是 authoring 结构，不能自动变成 required native renderer capability；如果未来某个高阶能力真的成为官方 primitive，应由调用方显式传入 `quiComponents` / `optionalQuiComponents` 并配套 renderer capability 版本。
+
 当动态 UI 小包已经只保留 resolved `NativeUiSurfaceProjection`，包构建器可以使用 `createNativeUiSurfaceCompatibilityFromProjection`：
 
 - 从 projection node `kind` 收集 `quiComponents`。
