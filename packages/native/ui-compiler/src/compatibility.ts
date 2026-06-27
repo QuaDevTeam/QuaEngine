@@ -14,6 +14,7 @@ import { createNativeUiSurfaceCompatibility } from '@quajs/native-contracts'
 import { literalStringValue } from './assets'
 import { collectNativeUiSurfaceProjectionRequirements } from './projection-requirements'
 import { parseNativeQssBackgroundImage } from './qss-resolved-style'
+import { findNativeUiComponent } from './registry'
 
 export interface CreateNativeUiSurfaceCompatibilityFromDocumentsOptions
   extends Omit<CreateNativeUiSurfaceCompatibilityOptions, 'assetKinds' | 'qssFeatures' | 'quiComponents'> {
@@ -111,7 +112,8 @@ function collectQuiNodeCompatibilityInputs(
   quiComponents: Set<string>,
 ): void {
   if (node.kind === 'component') {
-    quiComponents.add(node.name)
+    if (findNativeUiComponent(node.name))
+      quiComponents.add(node.name)
     collectQuiAssetKinds(node.props, assetKinds)
   }
   for (const child of node.children)

@@ -67,6 +67,38 @@ Button.primary {
     ]).not.toContain('native-wgpu.audio@1')
   })
 
+  it('omits authoring-only composite components from document-derived native requirements', () => {
+    const qui = analyzeQuiSource(`
+import component "./Dialog.qui";
+import component "./Drawer.qui";
+
+Stack(id: "ui-root") {
+  Dialog {
+    Panel(id: "dialog-panel") {
+      Text { "Dialog" }
+      Button(action: ui.close()) { Text { "Close" } }
+    }
+  }
+  Drawer {
+    Image(src: "ui/drawer.png")
+  }
+}
+`, {
+      lint: {
+        strictComponents: true,
+      },
+    })
+    const compatibility = createNativeUiSurfaceCompatibilityFromDocuments(qui, {
+      optionalQuiComponents: ['Dialog'],
+    })
+
+    expect(qui.diagnostics).toEqual([])
+    expect(compatibility.quiComponents).toEqual(['Button', 'Image', 'Panel', 'Stack', 'Text'])
+    expect(compatibility.quiComponents).not.toEqual(expect.arrayContaining(['Dialog', 'Drawer']))
+    expect(compatibility.optionalQuiComponents).toEqual(['Dialog'])
+    expect(compatibility.assetKinds).toEqual(expect.arrayContaining(['qui', 'qss', 'tokens', 'images']))
+  })
+
   it('derives native UI surface compatibility metadata from resolved projections', () => {
     const projection = compileNativeUiSurfaceProjection(
       analyzeQuiSource(`
