@@ -1,37 +1,26 @@
 #!/usr/bin/env node
 
 import type {
-  DocumentLink,
   InitializeParams,
   Location,
-  Position,
-  Range,
   ReferenceParams,
   RenameParams,
   TextDocumentPositionParams,
-  TextEdit,
-  WorkspaceEdit,
 } from 'vscode-languageserver/node.js'
 import type {
   NativeUiDiagnostic,
   NativeUiLanguageOptions,
-  NativeUiTextEdit,
 } from './index'
-import { existsSync } from 'node:fs'
+import type { NativeLanguageServerSettings } from './server-settings'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
   CodeActionKind,
-  CompletionItemKind,
   createConnection,
-  DiagnosticSeverity,
   MarkupKind,
   ProposedFeatures,
   TextDocuments,
   TextDocumentSyncKind,
 } from 'vscode-languageserver/node.js'
-import {
-  fileURLToPath,
-} from 'node:url'
 import { createNativeUiAssetCodeActions } from './code-actions'
 import {
   buildNativeUiProjectIndex,
@@ -44,18 +33,18 @@ import {
   getNativeUiProjectDocumentLinks,
   uriToFilePath,
 } from './index'
-
-interface NativeLanguageServerSettings {
-  format?: {
-    indentSize?: number
-    insertFinalNewline?: boolean
-  }
-  lint?: {
-    allowPreviewFeatures?: boolean
-    maxSelectorDepth?: number
-    strictComponents?: boolean
-  }
-}
+import {
+  containsPosition,
+  resolveExistingFileDocumentLink,
+  toCompletionKind,
+  toLspDiagnostic,
+  toLspDocumentLink,
+  toLspLocation,
+  toLspRange,
+  toLspTextEdit,
+  toWorkspaceEdit,
+} from './server-lsp'
+import { normalizeSettings } from './server-settings'
 
 const connection = createConnection(ProposedFeatures.all)
 const documents = new TextDocuments(TextDocument)
@@ -264,69 +253,6 @@ function currentSettings(): NativeLanguageServerSettings {
   return workspaceSettings ?? initializationSettings
 }
 
-function normalizeSettings(value: unknown): NativeLanguageServerSettings {
-  if (!value || typeof value !== 'object' || Array.isArray(value))
-    return {}
-
-  const input = value as NativeLanguageServerSettings
-  return {
-    format: input.format && typeof input.format === 'object'
-      ? input.format
-      : undefined,
-    lint: input.lint && typeof input.lint === 'object'
-      ? input.lint
-      : undefined,
-  }
-}
-
-function toLspDiagnostic(diagnostic: NativeUiDiagnostic) {
-  return {
-    code: diagnostic.code,
-    message: diagnostic.message,
-    range: toLspRange(diagnostic.range),
-    severity: toDiagnosticSeverity(diagnostic.severity),
-    source: diagnostic.source,
-  }
-}
-
-function toLspTextEdit(edit: NativeUiTextEdit): TextEdit {
-  return {
-    newText: edit.newText,
-    range: toLspRange(edit.range),
-  }
-}
-
-function toLspDocumentLink(link: ReturnType<typeof getNativeUiProjectDocumentLinks>[number]): DocumentLink {
-  return {
-    range: toLspRange(link.pathRange),
-    target: link.targetUri,
-    tooltip: link.resolved
-      ? `Open ${link.path}`
-      : `Missing ${link.path}`,
-  }
-}
-
-function resolveExistingFileDocumentLink(
-  link: ReturnType<typeof getNativeUiProjectDocumentLinks>[number],
-): ReturnType<typeof getNativeUiProjectDocumentLinks>[number] {
-  if (link.resolved || !link.candidateUri || !link.candidateUri.startsWith('file:'))
-    return link
-
-  try {
-    if (!existsSync(fileURLToPath(link.candidateUri)))
-      return link
-
-    return {
-      ...link,
-      resolved: true,
-      targetUri: link.candidateUri,
-    }
-  }
-  catch {
-    return link
-  }
-}
-
 function missingAssetDiagnosticsForDocument(
   index: ReturnType<typeof currentProjectIndex>,
   uri: string,
@@ -344,66 +270,6 @@ function missingAssetDiagnosticsForDocument(
     }))
 }
 
-function toLspRange(range?: NativeUiRangeForServer): Range {
-  return range
-    ? {
-        start: {
-          line: range.start.line,
-          character: range.start.character,
-        },
-        end: {
-          line: range.end.line,
-          character: range.end.character,
-        },
-      }
-    : {
-        start: {
-          line: 0,
-          character: 0,
-        },
-        end: {
-          line: 0,
-          character: 0,
-        },
-      }
-}
-
-function toDiagnosticSeverity(severity: string): DiagnosticSeverity {
-  switch (severity) {
-    case 'warning':
-      return DiagnosticSeverity.Warning
-    case 'info':
-      return DiagnosticSeverity.Information
-    default:
-      return DiagnosticSeverity.Error
-  }
-}
-
-function toCompletionKind(kind: string): CompletionItemKind {
-  switch (kind) {
-    case 'asset':
-      return CompletionItemKind.File
-    case 'component':
-      return CompletionItemKind.Class
-    case 'directive':
-      return CompletionItemKind.Keyword
-    case 'import':
-      return CompletionItemKind.Module
-    case 'keyword':
-      return CompletionItemKind.Keyword
-    case 'property':
-      return CompletionItemKind.Property
-    case 'selector':
-      return CompletionItemKind.Reference
-    case 'slot':
-      return CompletionItemKind.Field
-    case 'value':
-      return CompletionItemKind.Value
-    default:
-      return CompletionItemKind.Text
-  }
-}
-
 function findReferenceAtPosition(
   index: ReturnType<typeof currentProjectIndex>,
   params: ReferenceParams | RenameParams | TextDocumentPositionParams,
@@ -411,44 +277,4 @@ function findReferenceAtPosition(
   return findNativeUiProjectReferences(index, {
     uri: params.textDocument.uri,
   }).find(reference => containsPosition(reference.range, params.position))
-}
-
-function toLspLocation(reference: ReturnType<typeof findNativeUiProjectReferences>[number]): Location {
-  return {
-    range: toLspRange(reference.range),
-    uri: reference.uri,
-  }
-}
-
-function toWorkspaceEdit(edits: ReturnType<typeof createNativeUiProjectRenameEdits>): WorkspaceEdit {
-  const changes: NonNullable<WorkspaceEdit['changes']> = {}
-  for (const edit of edits) {
-    changes[edit.uri] = [
-      ...(changes[edit.uri] ?? []),
-      {
-        newText: edit.newText,
-        range: toLspRange(edit.range),
-      },
-    ]
-  }
-  return { changes }
-}
-
-function containsPosition(range: NativeUiRangeForServer, position: Position): boolean {
-  return comparePosition(position, range.start) >= 0 && comparePosition(position, range.end) <= 0
-}
-
-function comparePosition(left: Position, right: Position): number {
-  return left.line - right.line || left.character - right.character
-}
-
-interface NativeUiRangeForServer {
-  end: {
-    character: number
-    line: number
-  }
-  start: {
-    character: number
-    line: number
-  }
 }
