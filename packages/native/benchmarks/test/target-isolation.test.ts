@@ -1,20 +1,9 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-
-const FORBIDDEN_TARGET_CORE_PACKAGES = [
-  '@quajs/assets-native',
-  '@quajs/assets-web',
-  '@quajs/cocos-host',
-  '@quajs/engine-native',
-  '@quajs/renderer-cocos',
-  '@quajs/renderer-react',
-  '@quajs/renderer-svelte',
-  '@quajs/renderer-vue',
-  '@quajs/renderer-web',
-  '@quajs/store-native',
-]
+import {
+  collectForbiddenTargetCoreImportViolations,
+  importSpecifiers,
+} from '../../ui-compiler/test/target-isolation-helpers'
 
 describe('@quajs/native-benchmarks target isolation', () => {
   it('does not import Web, Cocos, or native bootstrap core packages from benchmark tooling', () => {
@@ -22,16 +11,7 @@ describe('@quajs/native-benchmarks target isolation', () => {
       fileURLToPath(new URL('../src', import.meta.url)),
       fileURLToPath(new URL('../test', import.meta.url)),
     ]
-    const violations = roots.flatMap(root => sourceFiles(root)).flatMap((filePath) => {
-      const source = readFileSync(filePath, 'utf8')
-      return importSpecifiers(source)
-        .filter(specifier => FORBIDDEN_TARGET_CORE_PACKAGES.some(packageName =>
-          specifier === packageName || specifier.startsWith(`${packageName}/`),
-        ))
-        .map(specifier => `${filePath}: ${specifier}`)
-    })
-
-    expect(violations).toEqual([])
+    expect(collectForbiddenTargetCoreImportViolations(roots)).toEqual([])
   })
 
   it('collects static, side-effect, re-export, and dynamic import specifiers', () => {
@@ -52,20 +32,3 @@ describe('@quajs/native-benchmarks target isolation', () => {
     ])
   })
 })
-
-function sourceFiles(root: string): string[] {
-  return readdirSync(root).flatMap((entry) => {
-    const path = join(root, entry)
-    if (statSync(path).isDirectory())
-      return sourceFiles(path)
-    return path.endsWith('.ts') ? [path] : []
-  })
-}
-
-function importSpecifiers(source: string): string[] {
-  const pattern = /\b(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]|\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g
-  const specifiers: string[] = []
-  for (const match of source.matchAll(pattern))
-    specifiers.push(match[1] ?? match[2])
-  return specifiers
-}
