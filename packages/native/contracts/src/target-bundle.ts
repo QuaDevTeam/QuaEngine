@@ -9,6 +9,15 @@ import type {
   QuaNativePlatform,
 } from './capabilities'
 import type {
+  TargetBundleDependencyReference,
+  TargetBundlePackageGraphReference,
+  TargetBundlePackageReference,
+  TargetBundleProjectGraphKind,
+  TargetBundleProjectGraphRecord,
+  TargetBundleRendererEntryReference,
+  TargetBundleRuntimePackageRecord,
+} from './target-bundle-references'
+import type {
   TargetBundleNativeRendererDiagnostic,
 } from './target-bundle-native-renderer-validation'
 import {
@@ -19,7 +28,23 @@ import {
   TARGET_BOOTSTRAP_MANIFESTS,
   validateExclusiveTargetBootstrap,
 } from './bootstrap'
+import {
+  collectPackageReferenceSpecifiers,
+  packageReferenceSpecifier,
+  rendererEntryReferencePluginId,
+  rendererEntryReferenceTarget,
+} from './target-bundle-references'
 import { checkTargetBundleNativeRendererInfo } from './target-bundle-native-renderer-validation'
+
+export type {
+  TargetBundleDependencyReference,
+  TargetBundlePackageGraphReference,
+  TargetBundlePackageReference,
+  TargetBundleProjectGraphKind,
+  TargetBundleProjectGraphRecord,
+  TargetBundleRendererEntryReference,
+  TargetBundleRuntimePackageRecord,
+} from './target-bundle-references'
 
 export type TargetBundleProfile = 'debug' | 'release'
 
@@ -49,53 +74,6 @@ export interface TargetCoreSelection {
   targetCoreResolver: TargetCoreResolverId
   selectedCorePluginFamily: TargetCorePluginFamily
   selectedCoreAdapters: readonly string[]
-}
-
-export type TargetBundlePackageReference = string | {
-  specifier?: string
-  packageName?: string
-}
-
-export type TargetBundlePackageGraphReference
-  = | TargetBundlePackageReference
-    | TargetBundleDependencyReference
-    | TargetBundleRendererEntryReference
-
-export type TargetBundleProjectGraphKind
-  = | 'project-template'
-    | 'startup-shell'
-    | 'debug-shell'
-    | 'release-shell'
-    | 'smoke-runner'
-    | 'installer'
-    | 'updater'
-    | 'dev-server'
-    | 'post-bundle'
-    | 'custom'
-
-export interface TargetBundleDependencyReference {
-  specifier: string
-  runtime?: boolean
-  optional?: boolean
-  source?: 'static-import' | 'dynamic-import' | 'plugin-entry' | 'runtime-package' | 'native-binary' | 'unknown'
-}
-
-export interface TargetBundleRendererEntryReference {
-  specifier: string
-  pluginId?: string
-  target?: QuaTargetBootstrap
-}
-
-export interface TargetBundleRuntimePackageRecord {
-  id: string
-  executableDependencies?: readonly TargetBundlePackageReference[]
-  rendererEntries?: readonly (TargetBundlePackageReference | TargetBundleRendererEntryReference)[]
-}
-
-export interface TargetBundleProjectGraphRecord {
-  id: string
-  kind: TargetBundleProjectGraphKind
-  references?: readonly TargetBundlePackageGraphReference[]
 }
 
 export interface TargetBundleManifest {
@@ -686,42 +664,6 @@ function pushRuntimePackageTargetCoreAdapterDiagnostics(
       message: `Runtime package "${runtimePackageId}" must not include target core adapter "${packageName}" through "${field}".`,
     })
   }
-}
-
-function collectPackageReferenceSpecifiers(references: readonly TargetBundlePackageGraphReference[]): string[] {
-  return references
-    .flatMap(packageReferenceSpecifiers)
-}
-
-function packageReferenceSpecifier(reference: TargetBundlePackageGraphReference): string | undefined {
-  if (typeof reference === 'string')
-    return reference
-
-  return reference.specifier || ('packageName' in reference ? reference.packageName : undefined)
-}
-
-function packageReferenceSpecifiers(reference: TargetBundlePackageGraphReference): string[] {
-  if (typeof reference === 'string')
-    return [reference]
-
-  const specifiers = [
-    reference.specifier,
-    'packageName' in reference ? reference.packageName : undefined,
-  ]
-
-  return Array.from(new Set(specifiers.filter((specifier): specifier is string => Boolean(specifier))))
-}
-
-function rendererEntryReferenceTarget(
-  reference: TargetBundlePackageReference | TargetBundleRendererEntryReference,
-): QuaTargetBootstrap | undefined {
-  return typeof reference === 'string' || !('target' in reference) ? undefined : reference.target
-}
-
-function rendererEntryReferencePluginId(
-  reference: TargetBundlePackageReference | TargetBundleRendererEntryReference,
-): string | undefined {
-  return typeof reference === 'string' || !('pluginId' in reference) ? undefined : reference.pluginId
 }
 
 function formatTargetBundleManifestValidationError(
