@@ -162,6 +162,7 @@
     "dev": "vite build --watch",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "test": "vitest",
     "typecheck": "tsc --noEmit",
     "vscode:package": "pnpm run build && node scripts/run-vsce.mjs package --no-dependencies --out dist/qua-native-authoring-${npm_package_version}.vsix",
     "vscode:publish": "pnpm run build && node scripts/run-vsce.mjs publish --no-dependencies"
