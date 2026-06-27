@@ -18,6 +18,18 @@
 
 工程模板可以共享 platform-neutral 文件、schema、manifest emitter、package-root normalization 和 validation helper，但不能共享一个带核心插件的跨目标模板。任何“先生成一个包含 Web / Cocos / Native core 的项目，再按参数删除或过滤”的实现，都按核心插件串线处理，即使最终 `target-bundle-manifest.json` 看起来只剩一个目标。
 
+## 项目产物接线边界
+
+打包到具体 Web、Cocos、Native 工程时，要把核心插件当作目标私有线束，而不是普通插件配置的一部分。三端 project generator 只能读取各自 packager 已经写好的 active-target manifest，不能在模板、启动壳或分发脚本里重新拼 core plugin。
+
+| 工程产物 | 唯一核心来源 | 模板 / 壳层允许做什么 | 必须失败的串线 |
+| --- | --- | --- | --- |
+| Web project | `web-core-resolver` 写出的 manifest | 读取 Web selected adapters、Web renderer entry、普通平台无关插件 | 模板、dev server、PWA/installer/updater、Runtime QPK 或 debug shell 携带 Cocos / Native core；先生成三端 core 再过滤 |
+| Cocos project | `cocos-core-resolver` 写出的 manifest | 读取 Cocos host / renderer selected adapters、普通平台无关插件 | Creator 接线、调试入口、构建脚本或 Runtime QPK 携带 Web / Native core；复用 Web renderer/framework adapter |
+| Native project | `native-core-resolver` 写出的 manifest | 读取 native engine/assets/store、native contracts metadata、Rust app/runtime/renderer metadata | Rust app bootstrap、QuickJS startup、smoke runner、installer/updater 携带 Web renderer subentry 或 Cocos host/renderer |
+
+这个边界要在产物依赖图里验证，而不是只看源码配置。`projectGraphs` 的 project-template、startup-shell、debug-shell、release-shell、installer、updater、smoke-runner 和 dev-server 图都不能声明任何 target core，连 active target core 也不能二次声明；只有 post-bundle graph 可以包含 active target core family，并且必须拒绝 inactive target core。这样可以保证 Web、Cocos、Native 的核心插件只在对应 resolver 注入一次，后续所有项目生成、调试和分发步骤都只是消费已选 manifest。
+
 ## 术语
 
 - `target core plugin`：安装目标 runtime adapter、renderer controller、host bridge、platform asset/store adapter、target renderer plugin entry 或 native renderer capability metadata 的 bootstrap 依赖。
