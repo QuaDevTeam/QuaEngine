@@ -152,8 +152,18 @@ describe('target bundle manifest target-core isolation', () => {
     }
   })
 
-  it('rejects all-target core unions in generated shells and distribution graphs', () => {
-    const graphKinds = ['debug-shell', 'release-shell', 'installer', 'updater', 'smoke-runner'] as const
+  it('rejects all-target core unions outside post-bundle project graphs', () => {
+    const graphKinds = [
+      'project-template',
+      'startup-shell',
+      'debug-shell',
+      'release-shell',
+      'smoke-runner',
+      'installer',
+      'updater',
+      'dev-server',
+      'custom',
+    ] as const
     const allTargetCoreAdapters = (Object.keys(CORE_ADAPTERS_BY_TARGET) as QuaTargetBootstrap[])
       .flatMap(target => CORE_ADAPTERS_BY_TARGET[target])
     const allTargetCorePackages = Array.from(new Set(allTargetCoreAdapters.map(normalizePackageSpecifier)))
@@ -189,6 +199,48 @@ describe('target bundle manifest target-core isolation', () => {
             projectGraphId: graphId,
             projectGraphKind: graphKind,
           }),
+        ]))
+      }
+    }
+  })
+
+  it('rejects inactive target core adapters in post-bundle graphs even when the active core is present', () => {
+    const allTargetCoreAdapters = (Object.keys(CORE_ADAPTERS_BY_TARGET) as QuaTargetBootstrap[])
+      .flatMap(target => CORE_ADAPTERS_BY_TARGET[target])
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const graphId = `${target}.post-bundle.all-target-core-union`
+      const inactiveCorePackages = Array.from(new Set(
+        (Object.keys(CORE_ADAPTERS_BY_TARGET) as QuaTargetBootstrap[])
+          .filter(candidate => candidate !== target)
+          .flatMap(candidate => CORE_ADAPTERS_BY_TARGET[candidate])
+          .map(normalizePackageSpecifier),
+      ))
+      const activeCorePackages = new Set(CORE_ADAPTERS_BY_TARGET[target].map(normalizePackageSpecifier))
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+        projectGraphs: [
+          {
+            id: graphId,
+            kind: 'post-bundle',
+            references: [
+              '@quajs/engine',
+              ...allTargetCoreAdapters,
+            ],
+          },
+        ],
+      }))
+      const graphDiagnostics = result.diagnostics.filter(
+        diagnostic => diagnostic.code === 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER'
+          && diagnostic.projectGraphId === graphId,
+      )
+
+      expect(result.ok).toBe(false)
+      expect(result.bootstrapValidation.selectedTargets).toEqual(['web', 'cocos', 'native'])
+      expect(graphDiagnostics.map(diagnostic => diagnostic.packageName).sort())
+        .toEqual([...inactiveCorePackages].sort())
+      for (const packageName of activeCorePackages) {
+        expect(graphDiagnostics).not.toEqual(expect.arrayContaining([
+          expect.objectContaining({ packageName }),
         ]))
       }
     }
