@@ -3,9 +3,7 @@ import type {
   NativeQuiAstNode,
   NativeQuiDocument,
   NativeQuiImport,
-  NativeUiDiagnostic,
   NativeUiDocument,
-  NativeUiDocumentKind,
   NativeUiLanguageOptions,
   NativeUiRange,
 } from '@quajs/native-ui-compiler'
@@ -16,123 +14,35 @@ import {
 } from '@quajs/native-ui-compiler'
 import {
   collectNativeUiProjectAssetReferences,
-  type NativeUiProjectAssetReference,
 } from './asset-references'
-import {
-  createNativeUiProjectDocumentLinks,
-  createNativeUiProjectReferences,
-} from './project-references'
+import { summarizeProjectIndex } from './project-index-summary'
+import type {
+  NativeUiProjectClassReference,
+  NativeUiProjectComponentReference,
+  NativeUiProjectFile,
+  NativeUiProjectIdReference,
+  NativeUiProjectImport,
+  NativeUiProjectIndex,
+  NativeUiProjectIndexChange,
+  NativeUiProjectIndexedDocument,
+  NativeUiProjectIndexOptions,
+} from './project-index-types'
 
-export interface NativeUiProjectFile {
-  filePath?: string
-  languageId?: string
-  source: string
-  uri: string
-  version?: number
-}
-
-export interface NativeUiProjectIndexOptions {
-  language?: NativeUiLanguageOptions
-}
-
-export interface NativeUiProjectIndexChange extends Partial<NativeUiProjectFile> {
-  deleted?: boolean
-  uri: string
-}
-
-export interface NativeUiProjectImport {
-  kind: NativeQuiImport['kind']
-  path: string
-  pathRange: NativeUiRange
-  range: NativeUiRange
-}
-
-export interface NativeUiProjectComponentReference {
-  name: string
-  range: NativeUiRange
-  source: 'qss-selector' | 'qui-node'
-}
-
-export interface NativeUiProjectClassReference {
-  name: string
-  range: NativeUiRange
-  source: 'qss-selector' | 'qui-node'
-}
-
-export interface NativeUiProjectIdReference {
-  name: string
-  range: NativeUiRange
-  source: 'qss-selector' | 'qui-node'
-}
-
-export interface NativeUiProjectIndexedDocument {
-  assetReferences: NativeUiProjectAssetReference[]
-  classReferences: NativeUiProjectClassReference[]
-  classes: string[]
-  componentImports: string[]
-  componentReferences: NativeUiProjectComponentReference[]
-  components: string[]
-  diagnostics: NativeUiDiagnostic[]
-  documentBytes: number
-  filePath?: string
-  idReferences: NativeUiProjectIdReference[]
-  ids: string[]
-  imports: NativeUiProjectImport[]
-  kind: NativeUiDocumentKind
-  qssDeclarations: number
-  qssRules: number
-  styleImports: string[]
-  tokenImports: string[]
-  uri: string
-  version?: number
-}
-
-export interface NativeUiProjectIndexSummary {
-  assetReferences: number
-  classes: number
-  componentImports: number
-  components: number
-  diagnostics: number
-  documentBytes: number
-  documentCount: number
-  qssDeclarations: number
-  qssDocumentCount: number
-  qssRules: number
-  ids: number
-  quiDocumentCount: number
-  skippedDocumentCount: number
-  styleImports: number
-  tokenImports: number
-}
-
-export interface NativeUiProjectDocumentLink {
-  candidateUri?: string
-  kind: NativeQuiImport['kind'] | 'asset'
-  path: string
-  pathRange: NativeUiRange
-  resolved: boolean
-  sourceUri: string
-  targetUri?: string
-}
-
-export type NativeUiProjectReferenceKind = 'class' | 'component' | 'id'
-
-export interface NativeUiProjectReference {
-  filePath?: string
-  kind: NativeUiProjectReferenceKind
-  name: string
-  range: NativeUiRange
-  source: 'qss-selector' | 'qui-node'
-  uri: string
-}
-
-export interface NativeUiProjectIndex {
-  documentLinks: NativeUiProjectDocumentLink[]
-  documents: NativeUiProjectIndexedDocument[]
-  references: NativeUiProjectReference[]
-  skippedDocuments: string[]
-  summary: NativeUiProjectIndexSummary
-}
+export type {
+  NativeUiProjectClassReference,
+  NativeUiProjectComponentReference,
+  NativeUiProjectDocumentLink,
+  NativeUiProjectFile,
+  NativeUiProjectIdReference,
+  NativeUiProjectImport,
+  NativeUiProjectIndex,
+  NativeUiProjectIndexChange,
+  NativeUiProjectIndexedDocument,
+  NativeUiProjectIndexOptions,
+  NativeUiProjectIndexSummary,
+  NativeUiProjectReference,
+  NativeUiProjectReferenceKind,
+} from './project-index-types'
 
 export function buildNativeUiProjectIndex(
   files: readonly NativeUiProjectFile[],
@@ -244,38 +154,6 @@ function createProjectIndex(
     indexedFiles.flatMap(file => file.document ? [file.document] : []),
     indexedFiles.flatMap(file => file.skippedUri ? [file.skippedUri] : []),
   )
-}
-
-function summarizeProjectIndex(
-  documents: readonly NativeUiProjectIndexedDocument[],
-  skippedDocuments: readonly string[],
-): NativeUiProjectIndex {
-  const sortedDocuments = [...documents].sort((left, right) => left.uri.localeCompare(right.uri))
-  const sortedSkippedDocuments = [...skippedDocuments].sort((left, right) => left.localeCompare(right))
-
-  return {
-    documentLinks: createNativeUiProjectDocumentLinks(sortedDocuments, sortedSkippedDocuments),
-    documents: sortedDocuments,
-    references: createNativeUiProjectReferences(sortedDocuments),
-    skippedDocuments: sortedSkippedDocuments,
-    summary: {
-      assetReferences: sum(sortedDocuments, document => document.assetReferences.length),
-      classes: countUnique(sortedDocuments.flatMap(document => document.classes)),
-      componentImports: sum(sortedDocuments, document => document.componentImports.length),
-      components: countUnique(sortedDocuments.flatMap(document => document.components)),
-      diagnostics: sum(sortedDocuments, document => document.diagnostics.length),
-      documentBytes: sum(sortedDocuments, document => document.documentBytes),
-      documentCount: sortedDocuments.length,
-      ids: countUnique(sortedDocuments.flatMap(document => document.ids)),
-      qssDeclarations: sum(sortedDocuments, document => document.qssDeclarations),
-      qssDocumentCount: sortedDocuments.filter(document => document.kind === 'qss').length,
-      qssRules: sum(sortedDocuments, document => document.qssRules),
-      quiDocumentCount: sortedDocuments.filter(document => document.kind === 'qui').length,
-      skippedDocumentCount: sortedSkippedDocuments.length,
-      styleImports: sum(sortedDocuments, document => document.styleImports.length),
-      tokenImports: sum(sortedDocuments, document => document.tokenImports.length),
-    },
-  }
 }
 
 function importFromQui(item: NativeQuiImport): NativeUiProjectImport {
@@ -490,17 +368,6 @@ function positionFromRelativeOffset(
       ? startPosition.character + before.length
       : lines[lines.length - 1].length,
   }
-}
-
-function sum(
-  documents: readonly NativeUiProjectIndexedDocument[],
-  read: (document: NativeUiProjectIndexedDocument) => number,
-): number {
-  return documents.reduce((total, document) => total + read(document), 0)
-}
-
-function countUnique(values: readonly string[]): number {
-  return new Set(values).size
 }
 
 function uniqueSorted(values: readonly string[]): string[] {

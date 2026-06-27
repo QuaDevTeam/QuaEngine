@@ -3,7 +3,7 @@ import type {
   NativeUiProjectIndexedDocument,
   NativeUiProjectReference,
   NativeUiProjectReferenceKind,
-} from './project-index'
+} from './project-index-types'
 import { pathToFileURL } from 'node:url'
 
 export interface FindNativeUiProjectReferencesOptions {
