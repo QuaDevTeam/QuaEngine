@@ -2,6 +2,7 @@ mod audio_numbers;
 mod background_numbers;
 mod background_origin;
 mod character_numbers;
+mod layout;
 mod rich_text_numbers;
 mod ui_geometry;
 mod ui_style_numbers;
@@ -23,6 +24,7 @@ use crate::projection::view::ViewProjection;
 use crate::renderer::json_input::{
     NativeRendererJsonFrameError, NativeRendererJsonValidationError,
 };
+use crate::stage_layout::{StageContainerInput, ViewLayoutInput};
 use audio_numbers::{
     invalid_native_json_audio_memory_reason, invalid_native_json_audio_volume_reason,
 };
@@ -34,16 +36,21 @@ use background_origin::invalid_native_json_background_origin_reason;
 use character_numbers::{
     invalid_native_json_character_opacity_reason, invalid_native_json_character_position_reason,
 };
+use layout::{invalid_native_json_container_reason, invalid_native_json_layout_reason};
 use rich_text_numbers::invalid_native_json_rich_text_style_number_reason;
 use ui_geometry::{invalid_native_json_scroll_offset_reason, invalid_native_json_ui_rect_reason};
 use ui_style_numbers::{
     invalid_native_json_ui_node_opacity_reason, invalid_native_json_ui_style_number_reason,
 };
 
-pub(super) fn validate_json_frame_projection(
+pub(super) fn validate_json_frame_input(
+    layout: Option<&ViewLayoutInput>,
+    container: Option<&StageContainerInput>,
     view: &ViewProjection,
 ) -> Result<(), NativeRendererJsonFrameError> {
     let mut validator = JsonProjectionValidator::default();
+    validator.validate_layout(layout);
+    validator.validate_container(container);
     validator.validate_view(view);
     if let Some(error) = validator.errors.into_iter().next() {
         return Err(NativeRendererJsonFrameError::Validation(error));
@@ -57,6 +64,26 @@ struct JsonProjectionValidator {
 }
 
 impl JsonProjectionValidator {
+    fn validate_layout(&mut self, layout: Option<&ViewLayoutInput>) {
+        if let Some((field, value, reason)) = invalid_native_json_layout_reason(layout) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: format!("layout.{field}"),
+                asset_name: value,
+                reason,
+            });
+        }
+    }
+
+    fn validate_container(&mut self, container: Option<&StageContainerInput>) {
+        if let Some((field, value, reason)) = invalid_native_json_container_reason(container) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: format!("container.{field}"),
+                asset_name: value,
+                reason,
+            });
+        }
+    }
+
     fn validate_view(&mut self, view: &ViewProjection) {
         if let Some(background) = &view.background {
             self.validate_background(background);
