@@ -1,6 +1,9 @@
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { collectForbiddenTargetCoreImportViolations } from '../../ui-compiler/test/target-isolation-helpers'
+import {
+  collectForbiddenTargetCoreImportViolations,
+  collectForbiddenTargetCoreManifestDependencyViolations,
+} from '../../ui-compiler/test/target-isolation-helpers'
 
 describe('qua-native-authoring VSCode extension target isolation', () => {
   it('does not import Web, Cocos, or native runtime bootstrap packages from extension tooling', () => {
@@ -11,5 +14,11 @@ describe('qua-native-authoring VSCode extension target isolation', () => {
     ]
 
     expect(collectForbiddenTargetCoreImportViolations(roots)).toEqual([])
+  })
+
+  it('does not depend on Web, Cocos, or native runtime bootstrap packages from extension tooling', () => {
+    expect(collectForbiddenTargetCoreManifestDependencyViolations([
+      fileURLToPath(new URL('../package.json', import.meta.url)),
+    ])).toEqual([])
   })
 })

@@ -28,6 +28,23 @@ export function collectForbiddenTargetCoreImportViolations(roots: readonly strin
   })
 }
 
+export function collectForbiddenTargetCoreManifestDependencyViolations(manifestPaths: readonly string[]): string[] {
+  return manifestPaths.flatMap((manifestPath) => {
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      dependencies?: Record<string, unknown>
+      devDependencies?: Record<string, unknown>
+      peerDependencies?: Record<string, unknown>
+      optionalDependencies?: Record<string, unknown>
+    }
+    return [
+      ...manifestDependencyViolations(manifestPath, 'dependencies', manifest.dependencies),
+      ...manifestDependencyViolations(manifestPath, 'devDependencies', manifest.devDependencies),
+      ...manifestDependencyViolations(manifestPath, 'peerDependencies', manifest.peerDependencies),
+      ...manifestDependencyViolations(manifestPath, 'optionalDependencies', manifest.optionalDependencies),
+    ]
+  })
+}
+
 export function sourceFiles(root: string): string[] {
   if (!statSync(root).isDirectory())
     return root.endsWith('.ts') ? [root] : []
@@ -46,4 +63,19 @@ export function importSpecifiers(source: string): string[] {
   for (const match of source.matchAll(pattern))
     specifiers.push(match[1] ?? match[2])
   return specifiers
+}
+
+function manifestDependencyViolations(
+  manifestPath: string,
+  field: 'dependencies' | 'devDependencies' | 'peerDependencies' | 'optionalDependencies',
+  dependencies: Record<string, unknown> | undefined,
+): string[] {
+  if (!dependencies)
+    return []
+
+  return Object.keys(dependencies)
+    .filter(dependency => FORBIDDEN_NATIVE_AUTHORING_TARGET_CORE_PACKAGES.some(packageName =>
+      dependency === packageName || dependency.startsWith(`${packageName}/`),
+    ))
+    .map(dependency => `${manifestPath} ${field}: ${dependency}`)
 }

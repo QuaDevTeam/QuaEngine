@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
+  collectForbiddenTargetCoreManifestDependencyViolations,
   collectForbiddenTargetCoreImportViolations,
   importSpecifiers,
 } from '../../ui-compiler/test/target-isolation-helpers'
@@ -12,6 +13,12 @@ describe('@quajs/native-benchmarks target isolation', () => {
       fileURLToPath(new URL('../test', import.meta.url)),
     ]
     expect(collectForbiddenTargetCoreImportViolations(roots)).toEqual([])
+  })
+
+  it('does not depend on Web, Cocos, or native bootstrap core packages from benchmark tooling', () => {
+    expect(collectForbiddenTargetCoreManifestDependencyViolations([
+      fileURLToPath(new URL('../package.json', import.meta.url)),
+    ])).toEqual([])
   })
 
   it('collects static, side-effect, re-export, and dynamic import specifiers', () => {
