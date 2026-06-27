@@ -8,7 +8,7 @@ use crate::renderer::backend::{NativeRenderBackend, NativeRenderBackendError};
 use crate::renderer::facade::{
     NativeRenderer, NativeRendererFrameError, NativeRendererFrameResult,
 };
-use crate::renderer::json_validation::validate_json_frame_projection;
+use crate::renderer::json_validation::validate_json_frame_input;
 use crate::renderer::resource_update::NativeRendererFrameUpdate;
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
@@ -107,7 +107,7 @@ impl Display for NativeRendererJsonValidationError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             formatter,
-            "Invalid native renderer frame JSON asset reference at {}: \"{}\" {}.",
+            "Invalid native renderer frame JSON at {}: \"{}\" {}.",
             self.path, self.asset_name, self.reason
         )
     }
@@ -154,6 +154,6 @@ fn parse_json_frame_input(
     input: &str,
 ) -> Result<NativeRendererJsonFrameInput, NativeRendererJsonFrameError> {
     let input: NativeRendererJsonFrameInput = serde_json::from_str(input)?;
-    validate_json_frame_projection(&input.view)?;
+    validate_json_frame_input(input.layout.as_ref(), input.container.as_ref(), &input.view)?;
     Ok(input)
 }

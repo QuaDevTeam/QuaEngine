@@ -79,6 +79,7 @@ native 路线的目标不是“尽量像 Web”，而是“在 native 目标上�
 - Web 项目生成器只能消费 Web resolver 写入的 manifest；生成模板、dev server、PWA/installer/updater 配置都不能自行 import 或声明任一 target core。
 - Cocos 项目生成器只能消费 Cocos resolver 写入的 manifest；Creator 接线、native host bridge 配置和调试入口不能自行 import 或声明任一 target core。
 - Native 项目生成器只能消费 Native resolver 写入的 manifest；Rust app manifest、QuickJS bootstrap、native installer/updater 和 renderer smoke 不能自行 import 或声明任一 target core。
+- 三端项目模板、starter、debug shell、installer、updater、smoke runner 和 Runtime QPK 都不能先携带 Web / Cocos / Native core 全集再按 target 过滤。核心插件只能由当前目标 resolver 注入一次；只要模板或壳层自己 import、声明、合并或过滤任一 target core，就按打包串线失败处理。
 - Runtime QPK、普通插件和第三方插件 target entry 不能作为“补齐缺失 core 插件”的逃逸口。它们只能声明兼容性和平台无关逻辑，不能安装任一目标 bootstrap。
 - post-bundle graph 必须同时检查目标项目模板生成物和 app runtime graph。只检查 package manifest 不够，因为串线可能来自模板、调试壳、installer/updater script 或 generated resolver。
 
@@ -170,6 +171,7 @@ packages/native/
 - pointer press/release 解析后可通过调用方传入的 `NativeHostApi` 发出 `NativeRendererIntent`，再由 native host / engine bridge 进入既有 pipeline；renderer 自身不持有 host，也不引入第二事件总线。
 - projection DTO 提供 camelCase JSON serde 边界，供 native app / QuickJS bridge 输入已解析的 view、QUI/QSS style、stage layout 和 media/audio projection；组件 kind 保持 QUI registry 名称，如 `Box`、`Text`、`Button`。
 - `NativeRendererJsonFrameInput` 是 native app / QuickJS bridge 的薄 JSON facade：只接收已解析的 `layout`、`container`、`view`，解析失败返回结构化 parse error，渲染失败和 audio backend 失败分开上报；它复用 `prepare_frame` / `prepare_and_render` / audio apply 路径，不引入新的 renderer 状态。
+- JSON facade 要防御性拒绝 bridge 传入的不安全 stage 输入：`layout.width/height` 与 `container.width/height` 必须是有限正数并在 native logical limit 内；`aspectRatio/minAspectRatio/maxAspectRatio` 必须是有限正数并在上限内；`minAspectRatio` 不能大于 `maxAspectRatio`；`devicePixelRatio` 必须是有限正数并在上限内；safe-area inset 必须是有限、非负且不超限。内部 `resolve_stage_layout` 可以继续对直接 Rust 调用者做保守 fallback / normalization，但 JSON bridge 不能把 malformed app / QuickJS 输入静默修正后继续入帧。
 - JSON facade 要防御性拒绝已解析 UI projection 中的不安全几何值，例如非有限 `bounds.x/y/width/height`、负尺寸、超出 native logical limit 的坐标/尺寸和超限 `scrollOffsetX/Y`。这只是 resolved projection guard，不能演变成 Rust 侧 QUI/QSS parser、selector/cascade 或 renderer-owned layout state。
 - JSON facade 也要拒绝已解析 UI style 中的不安全数值，例如越界 opacity、越界 `backgroundPosition`、负数或超限的 `borderWidth` / `fontSize` / `lineHeight` / `padding` 等。这同样只是 resolved projection guard；Rust 不应通过 clamp 或 fallback 去重新解释 malformed QSS 输出。
 - JSON facade 也要拒绝已解析 dialogue / rich text style 中的不安全数值，例如非有限、小于等于 0 或超出上限的 `fontSize` / `lineHeight`。这些值会进入文本 draw params 和字体资源规划上下文，不能让 malformed resolved projection 靠默认字号 / 行高 fallback 继续入帧。
