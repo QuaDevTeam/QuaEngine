@@ -22,6 +22,10 @@ import type {
   TargetBundleNativeRendererDiagnostic,
 } from './target-bundle-native-renderer-validation'
 import type {
+  TargetBundleNativeRuntimeDiagnostic,
+  TargetBundleNativeRuntimeInfo,
+} from './target-bundle-native-runtime-validation'
+import type {
   TargetBundleCorePluginFamilyDiagnostic,
   TargetBundleCoreResolverDiagnostic,
   TargetBundleSelectedCoreAdapterDiagnostic,
@@ -49,6 +53,7 @@ import {
   collectPackageReferenceSpecifiers,
 } from './target-bundle-references'
 import { checkTargetBundleNativeRendererInfo } from './target-bundle-native-renderer-validation'
+import { checkTargetBundleNativeRuntimeInfo } from './target-bundle-native-runtime-validation'
 import {
   checkProjectGraphTargetCoreAdapters,
   checkRendererEntryTargets,
@@ -91,6 +96,11 @@ export type {
   TargetBundleRuntimePackageDiagnostic,
 } from './target-bundle-target-validation'
 
+export type {
+  TargetBundleNativeRuntimeDiagnostic,
+  TargetBundleNativeRuntimeInfo,
+} from './target-bundle-native-runtime-validation'
+
 export interface TargetBundleNativeRendererInfo {
   packageName?: string
   version?: string
@@ -107,6 +117,7 @@ export interface TargetBundleManifest {
   platform?: string
   app?: TargetBundleAppInfo
   nativeRenderer?: TargetBundleNativeRendererInfo
+  nativeRuntime?: TargetBundleNativeRuntimeInfo
   targetCoreResolver: TargetCoreResolverId
   selectedCorePluginFamily: TargetCorePluginFamily
   selectedCoreAdapters: readonly TargetBundlePackageReference[]
@@ -122,6 +133,7 @@ export type TargetBundleManifestDiagnostic
     | TargetBundleTargetDiagnostic
     | TargetBundleArtifactMetadataDiagnostic
     | TargetBundleNativeRendererDiagnostic
+    | TargetBundleNativeRuntimeDiagnostic
     | TargetBundleAppMetadataDiagnostic
     | TargetBundleCoreResolverDiagnostic
     | TargetBundleCorePluginFamilyDiagnostic
@@ -171,6 +183,7 @@ export function validateTargetBundleManifest(
   const artifactMetadataDiagnostics = checkArtifactMetadata(manifest, expectedTarget)
   const appMetadataDiagnostics = checkAppMetadata(manifest, expectedTarget)
   const nativeRendererDiagnostics = checkTargetBundleNativeRendererInfo(manifest, expectedTarget)
+  const nativeRuntimeDiagnostics = checkTargetBundleNativeRuntimeInfo(manifest, expectedTarget)
   const coreResolverDiagnostics = checkCoreResolver(manifest, expectedTarget)
   const corePluginFamilyDiagnostics = checkCorePluginFamily(manifest, packageNames, expectedTarget)
   const selectedCoreAdapterDiagnostics = checkSelectedCoreAdapters(manifest, expectedTarget)
@@ -184,6 +197,7 @@ export function validateTargetBundleManifest(
     ...artifactMetadataDiagnostics,
     ...appMetadataDiagnostics,
     ...nativeRendererDiagnostics,
+    ...nativeRuntimeDiagnostics,
     ...coreResolverDiagnostics,
     ...corePluginFamilyDiagnostics,
     ...selectedCoreAdapterDiagnostics,
@@ -198,6 +212,7 @@ export function validateTargetBundleManifest(
       && artifactMetadataDiagnostics.length === 0
       && appMetadataDiagnostics.length === 0
       && nativeRendererDiagnostics.length === 0
+      && nativeRuntimeDiagnostics.length === 0
       && coreResolverDiagnostics.length === 0
       && corePluginFamilyDiagnostics.length === 0
       && selectedCoreAdapterDiagnostics.length === 0

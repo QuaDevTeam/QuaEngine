@@ -13,6 +13,7 @@ export {
   assertNativeTargetBootstrap,
   checkNativeAppManifestCompatibility,
   checkNativeRendererManifestCompatibility,
+  checkNativeRuntimeManifestCompatibility,
   checkNativeTargetBundleManifest,
   checkNativeTargetBootstrap,
 } from './native-manifest-validation'

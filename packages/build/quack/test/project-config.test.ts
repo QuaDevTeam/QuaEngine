@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import {
   COCOS_TARGET_BOOTSTRAP,
   createTargetBundleNativeRendererInfo,
+  createTargetBundleNativeRuntimeInfo,
   createTargetCoreSelection,
   NATIVE_TARGET_BOOTSTRAP,
   validateTargetBundleManifest,
@@ -349,6 +350,7 @@ describe('qua project config', () => {
     const [plan] = createQuaProjectNativeArtifactPlans(project)
     const manifest = createQuaProjectNativeTargetBundleManifest(plan, {
       nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
       dependencies: [
         '@quajs/engine',
         '@quajs/pipeline',
@@ -385,6 +387,12 @@ describe('qua project config', () => {
       targetCoreResolver: 'native-core-resolver',
       selectedCorePluginFamily: 'native-core',
       selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      nativeRuntime: {
+        quickjsVersion: '2025-04-26',
+        nativeRuntimeVersion: '0.1.0',
+        assetAdapterVersion: '0.1.0',
+        storeAdapterVersion: '0.1.0',
+      },
       projectGraphs: [
         {
           id: 'native.release.macos.post-bundle',
@@ -419,6 +427,7 @@ describe('qua project config', () => {
     const [plan] = createQuaProjectNativeArtifactPlans(project)
     const manifest = createQuaProjectNativeTargetBundleManifest(plan, {
       nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
       dependencies: [
         '@quajs/engine',
         '@quajs/pipeline',
@@ -470,6 +479,7 @@ describe('qua project config', () => {
     const [plan] = createQuaProjectNativeArtifactPlans(project)
     const result = await emitQuaProjectNativeTargetBundleManifest(plan, {
       nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
       dependencies: [
         '@quajs/engine',
         '@quajs/pipeline',
@@ -487,6 +497,12 @@ describe('qua project config', () => {
       target: 'native',
       targetCoreResolver: 'native-core-resolver',
       selectedCorePluginFamily: 'native-core',
+      nativeRuntime: {
+        quickjsVersion: '2025-04-26',
+        nativeRuntimeVersion: '0.1.0',
+        assetAdapterVersion: '0.1.0',
+        storeAdapterVersion: '0.1.0',
+      },
       projectGraphs: [
         {
           id: 'native.release.macos.post-bundle',
@@ -514,6 +530,7 @@ describe('qua project config', () => {
     const [plan] = createQuaProjectNativeArtifactPlans(project)
     const baseOptions = {
       nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
       dependencies: [
         '@quajs/engine',
         '@quajs/pipeline',
@@ -556,6 +573,7 @@ describe('qua project config', () => {
     const [plan] = createQuaProjectNativeArtifactPlans(project)
     const baseOptions = {
       nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
       dependencies: [
         '@quajs/engine',
         '@quajs/pipeline',
@@ -601,6 +619,7 @@ describe('qua project config', () => {
     await expect(emitQuaProjectNativeTargetBundleManifest(plan, {
       manifestPath,
       nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
       dependencies: [
         '@quajs/engine',
         '@quajs/pipeline',
@@ -955,6 +974,15 @@ function createTestNativeRendererInfo() {
   }, payload => `sha256:test-${payload.length}`)
 }
 
+function createTestNativeRuntimeInfo() {
+  return createTargetBundleNativeRuntimeInfo({
+    quickjsVersion: '2025-04-26',
+    nativeRuntimeVersion: '0.1.0',
+    assetAdapterVersion: '0.1.0',
+    storeAdapterVersion: '0.1.0',
+  })
+}
+
 function createTargetBundleManifestFixture(target: QuaTargetBootstrap): TargetBundleManifest {
   const targetCore = createTargetCoreSelection(target)
   return {
@@ -968,7 +996,12 @@ function createTargetBundleManifestFixture(target: QuaTargetBootstrap): TargetBu
       buildNumber: '1',
       icon: 'assets/app/icon.png',
     },
-    ...(target === 'native' ? { nativeRenderer: createTestNativeRendererInfo() } : {}),
+    ...(target === 'native'
+      ? {
+          nativeRenderer: createTestNativeRendererInfo(),
+          nativeRuntime: createTestNativeRuntimeInfo(),
+        }
+      : {}),
     targetCoreResolver: targetCore.targetCoreResolver,
     selectedCorePluginFamily: targetCore.selectedCorePluginFamily,
     selectedCoreAdapters: targetCore.selectedCoreAdapters,

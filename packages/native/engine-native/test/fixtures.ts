@@ -145,6 +145,12 @@ export function createNativeTargetBundleManifest(
       ],
       capabilityManifestHash: CAPABILITY_MANIFEST_HASH,
     },
+    nativeRuntime: {
+      quickjsVersion: '2025-04-26',
+      nativeRuntimeVersion: '0.1.0',
+      assetAdapterVersion: '0.1.0',
+      storeAdapterVersion: '0.1.0',
+    },
     targetCoreResolver: getTargetCoreResolverId('native'),
     selectedCorePluginFamily: getTargetCorePluginFamily('native'),
     selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,

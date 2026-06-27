@@ -4,6 +4,7 @@ import type {
   TargetBundleManifest,
   TargetBundleManifestValidationResult,
   TargetBundleNativeRendererInfo,
+  TargetBundleNativeRuntimeInfo,
 } from '@quajs/native-contracts'
 import { validateExclusiveTargetBootstrap, validateTargetBundleManifest } from '@quajs/native-contracts'
 
@@ -87,6 +88,37 @@ export function checkNativeRendererManifestCompatibility(
         `Native target bundle manifest renderer capability "${capabilityId}" is not provided by the native host.`,
       )
     }
+  }
+  return diagnostics
+}
+
+export function checkNativeRuntimeManifestCompatibility(
+  hostInfo: QuaNativeHostInfo,
+  manifestRuntime?: TargetBundleNativeRuntimeInfo,
+): string[] {
+  const diagnostics: string[] = []
+  if (!manifestRuntime)
+    return diagnostics
+
+  if (manifestRuntime.quickjsVersion !== hostInfo.runtime.quickjsVersion) {
+    diagnostics.push(
+      `Native target bundle manifest QuickJS version "${manifestRuntime.quickjsVersion}" does not match host QuickJS version "${hostInfo.runtime.quickjsVersion}".`,
+    )
+  }
+  if (manifestRuntime.nativeRuntimeVersion !== hostInfo.runtime.nativeRuntimeVersion) {
+    diagnostics.push(
+      `Native target bundle manifest native runtime version "${manifestRuntime.nativeRuntimeVersion}" does not match host native runtime version "${hostInfo.runtime.nativeRuntimeVersion}".`,
+    )
+  }
+  if (manifestRuntime.assetAdapterVersion !== hostInfo.runtime.assetAdapterVersion) {
+    diagnostics.push(
+      `Native target bundle manifest asset adapter version "${manifestRuntime.assetAdapterVersion}" does not match host asset adapter version "${hostInfo.runtime.assetAdapterVersion}".`,
+    )
+  }
+  if (manifestRuntime.storeAdapterVersion !== hostInfo.runtime.storeAdapterVersion) {
+    diagnostics.push(
+      `Native target bundle manifest store adapter version "${manifestRuntime.storeAdapterVersion}" does not match host store adapter version "${hostInfo.runtime.storeAdapterVersion}".`,
+    )
   }
   return diagnostics
 }

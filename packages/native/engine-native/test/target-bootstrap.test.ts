@@ -9,6 +9,7 @@ import {
   assertNativeTargetBundleManifest,
   checkNativeAppManifestCompatibility,
   checkNativeRendererManifestCompatibility,
+  checkNativeRuntimeManifestCompatibility,
   checkNativeTargetBootstrap,
   checkNativeTargetBundleManifest,
   createNativeEngineBootstrap,
@@ -72,6 +73,13 @@ describe('@quajs/engine-native target bootstrap', () => {
     expect(checkNativeRendererManifestCompatibility(
       createHostInfo(),
       createNativeTargetBundleManifest().nativeRenderer!,
+    )).toEqual([])
+  })
+
+  it('checks emitted native runtime metadata against the native host info', () => {
+    expect(checkNativeRuntimeManifestCompatibility(
+      createHostInfo(),
+      createNativeTargetBundleManifest().nativeRuntime!,
     )).toEqual([])
   })
 
@@ -151,6 +159,28 @@ describe('@quajs/engine-native target bootstrap', () => {
 
     await expect(plugin.init({} as any)).rejects.toThrow(
       /Native manifest compatibility validation failed.*renderer backendVersion "wgpu-manifest" does not match host renderer backendVersion "wgpu-host"/,
+    )
+    expect(plugin.getTargetBundleManifestValidation()?.ok).toBe(true)
+    expect(host.getHostInfo).toHaveBeenCalledTimes(1)
+    expect(plugin.getHostInfo()).toBeUndefined()
+  })
+
+  it('rejects emitted native runtime metadata that drifts from host info', async () => {
+    const hostInfo = createHostInfo()
+    hostInfo.runtime = {
+      quickjsVersion: 'unsupported',
+      nativeRuntimeVersion: '0.2.0',
+      assetAdapterVersion: '0.3.0',
+      storeAdapterVersion: '0.4.0',
+    }
+    const host = createHost(hostInfo)
+    const plugin = new NativeHostPlugin({
+      host,
+      targetBundleManifest: createNativeTargetBundleManifest(),
+    })
+
+    await expect(plugin.init({} as any)).rejects.toThrow(
+      /Native manifest compatibility validation failed.*QuickJS version "2025-04-26" does not match host QuickJS version "unsupported".*native runtime version "0\.1\.0" does not match host native runtime version "0\.2\.0".*asset adapter version "0\.1\.0" does not match host asset adapter version "0\.3\.0".*store adapter version "0\.1\.0" does not match host store adapter version "0\.4\.0"/,
     )
     expect(plugin.getTargetBundleManifestValidation()?.ok).toBe(true)
     expect(host.getHostInfo).toHaveBeenCalledTimes(1)
