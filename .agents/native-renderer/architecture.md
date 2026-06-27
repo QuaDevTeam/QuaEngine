@@ -207,6 +207,14 @@ packages/native/
 
 这意味着 runtime package 的可变性只存在于内容层，不存在于 native 功能层。
 
+`@quajs/native-contracts` 的 runtime package guard 需要在 QuickJS 评估前统一扫描动态包中的资源引用：
+
+- 显式入口：`scripts`、`scenes`、`plugins`、`storeMigrations` 的 `assetName` / `module` / `variants`。
+- Quack bundle manifest：asset `name` / `path` / `relativePath` 以及 variant 对应字段。
+- 动态 UI / media / resource metadata：只在资源语义字段里递归收集引用，例如 `assets`、`resources`、`surface`、`style`、`tokens`、`qui`、`qss`、`audio`、`video`、`image`、`poster`、`fallbackImage`、`assetName`、`module`、`path`、`relativePath`、`src`、`name`、`url`、`uri`、`href`。
+
+这些引用必须拒绝空值、只有 query/hash suffix 的值、远程 URL、URI scheme、绝对路径、Windows/backslash 逃逸、`..` traversal 和 native payload 后缀。普通 compatibility 字符串不进入资源引用集合，例如 `packageName`、`versionRange`、`capabilities`、`capabilityIds`、`qssFeatures`、`quiComponents`，避免把能力声明误判成资源路径。
+
 ## 兼容性与版本
 
 native 兼容性要分三层：

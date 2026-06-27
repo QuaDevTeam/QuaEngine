@@ -147,6 +147,7 @@ QSS 侧：
 
 - QuickJS module loader
 - manifest validation
+- native runtime package guard：除 `scripts` / `scenes` / `plugins` / `storeMigrations` 和 bundle asset manifest 外，还必须扫描动态 UI / media / resource metadata 的资源字段，例如 `assets`、`resources`、`surface`、`style`、`tokens`、`qui`、`qss`、`audio`、`video`、`image`、`poster`、`fallbackImage`、`assetName`、`module`、`path`、`relativePath`、`src`、`name`、`url`、`uri`、`href`。测试要覆盖 metadata 中隐藏的 traversal、remote URL、`.wasm` / `.node` 等 native payload，并确认普通 `packageName`、`versionRange`、`capabilities`、`capabilityIds`、`qssFeatures`、`quiComponents` 不会被误认为 asset reference。
 - target bundle startup checks
 - Rust JSON facade resolved color validation：`RichTextStyle.color`、`UiSurfaceResolvedStyle.backgroundColor`、`borderColor`、`color` 必须在 frame preparation 前拒绝 URL / URI、路径、traversal、native payload 后缀和 malformed safe-color syntax；该校验只能消费 resolved JSON，不能引入 QSS parser、selector matching 或 cascade
 - Rust JSON facade stage input validation：`NativeRendererJsonFrameInput.layout` 和 `.container` 必须在 frame preparation 前拒绝不安全 bridge 输入，包括非有限、非正数或超限的 layout/container `width` / `height`，非有限、非正数或超限的 `aspectRatio` / `minAspectRatio` / `maxAspectRatio`，`minAspectRatio > maxAspectRatio`，非有限、非正数或超限的 `devicePixelRatio`，以及非有限、负数或超限的 safe-area inset。测试要覆盖 negative layout dimension、inverted aspect interval、oversized DPR、negative safe-area inset，并确认失败后 renderer revision / frame 不前进。该校验只保护 native app / QuickJS JSON bridge 输入；不要把它扩展成 Rust 侧 QUI/QSS parser 或 authoritative layout state。
