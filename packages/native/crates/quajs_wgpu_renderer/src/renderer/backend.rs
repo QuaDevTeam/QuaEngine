@@ -1,10 +1,15 @@
 use std::fmt::{Display, Formatter};
 
+pub mod draw_plan;
 pub mod null;
 pub mod submission;
 #[cfg(feature = "wgpu-backend")]
 pub mod wgpu;
 
+pub use draw_plan::{
+    NativeBackendBatchDrawPlan, NativeBackendDrawCommandPlan,
+    NativeBackendDrawCommandResourceState, NativeBackendDrawPlan, NativeBackendPassDrawPlan,
+};
 pub use null::{NullNativeRenderBackend, NullNativeRenderBackendDiagnostics};
 pub use submission::{
     NativeRenderBackendResourceDiagnostics, NativeRenderBackendResourcePolicy,

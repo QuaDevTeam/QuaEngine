@@ -1,8 +1,8 @@
 use super::submission::NativeRenderFallbackWarningTracker;
 use super::{
-    NativeRenderBackend, NativeRenderBackendResourceDiagnostics, NativeRenderBackendResourcePolicy,
-    NativeRenderBackendResult, NativeRenderFallbackWarningDiagnostics, NativeRenderFrameRef,
-    NativeRenderSubmission,
+    NativeBackendDrawPlan, NativeRenderBackend, NativeRenderBackendResourceDiagnostics,
+    NativeRenderBackendResourcePolicy, NativeRenderBackendResult,
+    NativeRenderFallbackWarningDiagnostics, NativeRenderFrameRef, NativeRenderSubmission,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -35,6 +35,7 @@ pub enum WgpuPresentMode {
 pub struct WgpuNativeRenderBackend {
     config: WgpuNativeRenderBackendConfig,
     submissions: Vec<NativeRenderSubmission>,
+    draw_plans: Vec<NativeBackendDrawPlan>,
     fallback_warnings: NativeRenderFallbackWarningTracker,
 }
 
@@ -43,6 +44,7 @@ impl WgpuNativeRenderBackend {
         Self {
             config,
             submissions: Vec::new(),
+            draw_plans: Vec::new(),
             fallback_warnings: NativeRenderFallbackWarningTracker::default(),
         }
     }
@@ -55,6 +57,14 @@ impl WgpuNativeRenderBackend {
         &self.submissions
     }
 
+    pub fn draw_plans(&self) -> &[NativeBackendDrawPlan] {
+        &self.draw_plans
+    }
+
+    pub fn last_draw_plan(&self) -> Option<&NativeBackendDrawPlan> {
+        self.draw_plans.last()
+    }
+
     pub fn diagnostics(&self) -> WgpuNativeRenderBackendDiagnostics {
         WgpuNativeRenderBackendDiagnostics {
             feature_enabled: true,
@@ -63,6 +73,7 @@ impl WgpuNativeRenderBackend {
             resources: NativeRenderBackendResourceDiagnostics::from_submissions(&self.submissions),
             fallback_warnings: self.fallback_warnings.diagnostics(),
             last_submission: self.submissions.last().cloned(),
+            last_draw_plan: self.last_draw_plan().cloned(),
             note: "wgpu-backend feature is enabled, but the real wgpu device/surface bridge is not attached yet."
                 .to_string(),
         }
@@ -75,9 +86,11 @@ impl NativeRenderBackend for WgpuNativeRenderBackend {
         self.config
             .resource_policy
             .validate_submission(&submission)?;
+        let draw_plan = NativeBackendDrawPlan::from_submission(&submission);
         self.fallback_warnings
             .record_submission(&submission.fallback_diagnostics);
         self.submissions.push(submission.clone());
+        self.draw_plans.push(draw_plan);
         Ok(submission)
     }
 }
@@ -90,6 +103,7 @@ pub struct WgpuNativeRenderBackendDiagnostics {
     pub resources: NativeRenderBackendResourceDiagnostics,
     pub fallback_warnings: NativeRenderFallbackWarningDiagnostics,
     pub last_submission: Option<NativeRenderSubmission>,
+    pub last_draw_plan: Option<NativeBackendDrawPlan>,
     pub note: String,
 }
 
