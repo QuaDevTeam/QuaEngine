@@ -26,6 +26,9 @@ export function collectForbiddenTargetCoreImportViolations(roots: readonly strin
 }
 
 export function sourceFiles(root: string): string[] {
+  if (!statSync(root).isDirectory())
+    return root.endsWith('.ts') ? [root] : []
+
   return readdirSync(root).flatMap((entry) => {
     const path = join(root, entry)
     if (statSync(path).isDirectory())
