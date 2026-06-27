@@ -249,6 +249,29 @@ describe('@quajs/assets-native', () => {
     expect(host.storage.has('native-cache/assets/orphan.bin')).toBe(true)
   })
 
+  it('uses safe package-relative cache roots as native storage prefixes', async () => {
+    const host = createHost()
+    const storage = new NativeHostAssetStorage(host, { root: '/profiles/player-a/cache/', now: () => 100 })
+    await storage.open()
+    await storage.storeAsset(createAsset())
+
+    expect(host.storage.has('profiles/player-a/cache/index.json')).toBe(true)
+    expect(host.storage.has('profiles/player-a/cache/assets/main%3Adefault%3Adata%3Achapter.json.bin')).toBe(true)
+  })
+
+  it('rejects unsafe native asset cache roots before host storage access', () => {
+    for (const root of [
+      '../native-cache',
+      'native-cache/../other',
+      'native-cache//assets',
+      'native-cache\\assets',
+      'file:///tmp/native-cache',
+      'https://cache.example.invalid/native-cache',
+    ]) {
+      expect(() => new NativeHostAssetStorage(createHost(), { root })).toThrow(/safe package-relative storage prefix/)
+    }
+  })
+
   it('resolves active bundles by priority, version, and loaded time', async () => {
     const storage = new NativeHostAssetStorage(createHost(), { now: () => 100 })
     await storage.open()

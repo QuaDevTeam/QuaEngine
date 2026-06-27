@@ -50,7 +50,17 @@ export function cloneStoredBundle(bundle: StoredBundle): StoredBundle {
 }
 
 export function normalizeRoot(root: string): string {
-  return root.replace(/^\/+|\/+$/g, '') || 'qua-native-assets-cache'
+  const normalized = root.trim().replace(/^\/+|\/+$/g, '')
+  if (!normalized)
+    return 'qua-native-assets-cache'
+  if (
+    normalized.includes('\\')
+    || /^[a-z][a-z0-9+.-]*:/i.test(normalized)
+    || normalized.split('/').some(segment => !segment || segment === '.' || segment === '..')
+  ) {
+    throw new Error(`Native asset cache root "${root}" must be a safe package-relative storage prefix.`)
+  }
+  return normalized
 }
 
 export function encodeJson(value: unknown): Uint8Array {
