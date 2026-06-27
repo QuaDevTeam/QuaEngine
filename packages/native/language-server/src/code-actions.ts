@@ -1,16 +1,12 @@
 import type { CodeAction, Diagnostic, Position, Range, TextEdit } from 'vscode-languageserver/node.js'
 import { CodeActionKind } from 'vscode-languageserver/node.js'
+import { offsetAtPosition, rangeFromOffsets } from './source-ranges.js'
 
 export interface NativeUiAssetCodeActionOptions {
   diagnostics: readonly Diagnostic[]
   range: Range
   source: string
   uri: string
-}
-
-interface NativeUiRangeForCodeAction {
-  end: Position
-  start: Position
 }
 
 export function createNativeUiAssetCodeActions(options: NativeUiAssetCodeActionOptions): CodeAction[] {
@@ -95,7 +91,7 @@ function expandToQssDeclaration(
   end: number,
   lineStart: number,
   lineEnd: number,
-): NativeUiRangeForCodeAction | undefined {
+): Range | undefined {
   const semicolon = source.indexOf(';', end)
   if (semicolon === -1 || semicolon > lineEnd)
     return undefined
@@ -130,7 +126,7 @@ function expandToQuiProp(
   end: number,
   lineStart: number,
   lineEnd: number,
-): NativeUiRangeForCodeAction | undefined {
+): Range | undefined {
   const colon = source.lastIndexOf(':', start)
   if (colon < lineStart)
     return undefined
@@ -203,42 +199,6 @@ function mergeOverlappingTextEdits(edits: readonly TextEdit[]): TextEdit[] {
   }
 
   return merged
-}
-
-function offsetAtPosition(source: string, position: Position): number {
-  const lineStarts = createLineStartOffsets(source)
-  const line = Math.max(0, Math.min(position.line, lineStarts.length - 1))
-  const nextLineStart = lineStarts[line + 1] ?? source.length
-  return Math.min(lineStarts[line] + Math.max(0, position.character), nextLineStart)
-}
-
-function rangeFromOffsets(source: string, startOffset: number, endOffset: number): NativeUiRangeForCodeAction {
-  return {
-    start: positionAtOffset(source, startOffset),
-    end: positionAtOffset(source, endOffset),
-  }
-}
-
-function positionAtOffset(source: string, offset: number): Position {
-  const lineStarts = createLineStartOffsets(source)
-  const safeOffset = Math.max(0, Math.min(source.length, offset))
-  let line = 0
-  while (line + 1 < lineStarts.length && lineStarts[line + 1] <= safeOffset) {
-    line += 1
-  }
-  return {
-    line,
-    character: safeOffset - lineStarts[line],
-  }
-}
-
-function createLineStartOffsets(source: string): number[] {
-  const starts = [0]
-  for (let index = 0; index < source.length; index += 1) {
-    if (source.charCodeAt(index) === 10)
-      starts.push(index + 1)
-  }
-  return starts
 }
 
 function comparePosition(left: Position, right: Position): number {

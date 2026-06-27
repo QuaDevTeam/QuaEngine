@@ -7,6 +7,13 @@ export function offsetAtPosition(source: string, position: NativeUiRange['start'
   return Math.min(lineStarts[line] + Math.max(0, position.character), nextLineStart)
 }
 
+export function rangeFromOffsets(source: string, startOffset: number, endOffset: number): NativeUiRange {
+  return {
+    start: positionAtOffset(source, startOffset),
+    end: positionAtOffset(source, endOffset),
+  }
+}
+
 export function rangeFromRelativeOffsets(
   startPosition: NativeUiRange['start'],
   text: string,
@@ -16,6 +23,19 @@ export function rangeFromRelativeOffsets(
   return {
     start: positionFromRelativeOffset(startPosition, text, startOffset),
     end: positionFromRelativeOffset(startPosition, text, endOffset),
+  }
+}
+
+export function positionAtOffset(source: string, offset: number): NativeUiRange['start'] {
+  const lineStarts = createLineStartOffsets(source)
+  const safeOffset = Math.max(0, Math.min(source.length, offset))
+  let line = 0
+  while (line + 1 < lineStarts.length && lineStarts[line + 1] <= safeOffset) {
+    line += 1
+  }
+  return {
+    line,
+    character: safeOffset - lineStarts[line],
   }
 }
 
