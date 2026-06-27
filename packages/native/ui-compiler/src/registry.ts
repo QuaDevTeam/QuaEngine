@@ -1,201 +1,21 @@
 import type {
   NativeQssPropertyDefinition,
-  NativeQssPropertyValueDefinition,
   NativeUiComponentDefinition,
 } from './types'
+import { nativeUiComponents } from './registry-components'
+import { nativeQssProperties } from './registry-qss'
 
 export const QUA_UI_LANGUAGE_ID = 'qua-ui'
 export const QUA_STYLE_LANGUAGE_ID = 'qua-style'
 export const QUA_UI_FILE_EXTENSIONS = ['.qui'] as const
 export const QUA_STYLE_FILE_EXTENSIONS = ['.qss'] as const
 
-export const nativeQuiDirectiveNames = [
-  'if',
-  'else-if',
-  'else',
-  'for',
-  'key',
-  'show',
-  'slot',
-  'class',
-  'style',
-  'id',
-  'action',
-] as const
-
-export const nativeQssPseudoStates = [
-  'hover',
-  'active',
-  'focus',
-  'focus-visible',
-  'disabled',
-  'enabled',
-  'checked',
-  'selected',
-  'open',
-] as const
-
-export const nativeUiComponents: readonly NativeUiComponentDefinition[] = [
-  component('Fragment', 'base', 'Structural grouping node with no draw command.'),
-  component('Box', 'base', 'Generic rectangular layout and paint primitive.', ['default']),
-  component('Stack', 'base', 'Structural overlay layout group.', ['default']),
-  component('Row', 'base', 'Horizontal structural layout group.', ['default']),
-  component('Column', 'base', 'Vertical structural layout group.', ['default']),
-  component('Grid', 'base', 'Grid structural layout group.', ['default'], ['cell']),
-  component('Layer', 'base', 'Structural z-index group with no draw command.', ['default']),
-  component('SafeArea', 'base', 'Structural safe-area clip container.', ['default']),
-  component('Spacer', 'base', 'Structural spacing node with no draw command.', [], [], 'none'),
-  component('Divider', 'base', 'Visual separator for composite components.', [], [], 'none'),
-  component('Backdrop', 'base', 'Semantic overlay backdrop surface.', ['default'], ['surface']),
-  component('Panel', 'base', 'Semantic panel container surface.', ['header', 'body', 'footer'], ['header', 'body', 'footer']),
-  component('Scroll', 'base', 'Scrollable clipped surface projection.', ['default'], ['viewport', 'content', 'thumb']),
-  component('Button', 'base', 'Interactive surface that emits declarative action intents.', ['default'], ['label', 'icon']),
-  component('Text', 'base', 'Plain text leaf projection.', [], ['content'], 'text'),
-  component('RichText', 'base', 'Rich text leaf projection backed by text capability.', [], ['content'], 'text'),
-  component('Image', 'base', 'Image leaf projection backed by package assets.', [], ['media'], 'none'),
-] as const
-
-const imageFitValues = [
-  value('cover', 'Scale the image to cover the paint box while preserving aspect ratio.'),
-  value('contain', 'Scale the image to fit inside the paint box while preserving aspect ratio.'),
-  value('fill', 'Stretch the image to fill the paint box.'),
-  value('none', 'Use the image intrinsic size without scaling.'),
-  value('scale-down', 'Use the smaller result of none or contain.'),
-] as const
-
-const backgroundPositionValues = [
-  value('left', 'Align the background image to the left edge.'),
-  value('center', 'Align the background image to the center on the omitted axis.'),
-  value('right', 'Align the background image to the right edge.'),
-  value('top', 'Align the background image to the top edge.'),
-  value('bottom', 'Align the background image to the bottom edge.'),
-  value('left top', 'Align the background image to the top-left corner.'),
-  value('center top', 'Align the background image to the top center.'),
-  value('right top', 'Align the background image to the top-right corner.'),
-  value('left bottom', 'Align the background image to the bottom-left corner.'),
-  value('center bottom', 'Align the background image to the bottom center.'),
-  value('right bottom', 'Align the background image to the bottom-right corner.'),
-  value('50% 50%', 'Align the background image by percentage origin.', '$1% $2%'),
-] as const
-
-export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
-  property('background-color', 'p0', true, 'Fill color for panels, buttons, and box surfaces.'),
-  property('border-color', 'p0', true, 'Border color for rectangular surfaces.'),
-  property('border-radius', 'p0', true, 'Corner radius in logical stage pixels.'),
-  property('border-width', 'p0', true, 'Border width in logical stage pixels.'),
-  property('color', 'p0', true, 'Text foreground color.'),
-  property('font-family', 'p0', true, 'Font family name resolved by native font assets.'),
-  property('font-size', 'p0', true, 'Font size in logical stage pixels.'),
-  property('font-weight', 'p0', true, 'Font weight numeric or keyword value.', [
-    value('normal', 'Use the normal font weight.'),
-    value('bold', 'Use the bold font weight.'),
-    value('400', 'Use numeric normal font weight.'),
-    value('600', 'Use numeric semibold font weight.'),
-    value('700', 'Use numeric bold font weight.'),
-  ]),
-  property('line-height', 'p0', true, 'Text line height as a number or logical length.'),
-  property('text-align', 'p0', true, 'Text alignment for text leaves.', [
-    value('left', 'Align text to the left.'),
-    value('center', 'Center text horizontally.'),
-    value('right', 'Align text to the right.'),
-    value('justify', 'Justify text lines.'),
-  ]),
-  property('object-fit', 'p0', true, 'Image fitting mode for image-like leaves.', imageFitValues),
-  property('display', 'p1', true, 'Native visibility fallback subset; only display: none is currently supported.', [
-    value('none', 'Hide the node and its children when no QUI show prop overrides it.'),
-  ]),
-  property('position', 'p1', false, 'Relative or absolute positioning planned for native layout IR.'),
-  property('inset', 'p1', true, 'Static logical inset shorthand used to derive native surface bounds when parent bounds are known.'),
-  property('left', 'p1', true, 'Resolved logical x coordinate for static native surface bounds.'),
-  property('right', 'p1', true, 'Static right logical inset used to derive x when parent bounds and width are known.'),
-  property('top', 'p1', true, 'Resolved logical y coordinate for static native surface bounds.'),
-  property('bottom', 'p1', true, 'Static bottom logical inset used to derive y when parent bounds and height are known.'),
-  property('width', 'p1', true, 'Resolved non-negative logical width for static native surface bounds.'),
-  property('height', 'p1', true, 'Resolved non-negative logical height for static native surface bounds.'),
-  property('min-width', 'p1', true, 'Minimum logical width used to clamp static native surface bounds.'),
-  property('max-width', 'p1', true, 'Maximum logical width used to clamp static native surface bounds.'),
-  property('min-height', 'p1', true, 'Minimum logical height used to clamp static native surface bounds.'),
-  property('max-height', 'p1', true, 'Maximum logical height used to clamp static native surface bounds.'),
-  property('box-sizing', 'p1', false, 'Deterministic box sizing planned for native layout IR.'),
-  property('padding', 'p1', true, 'Padding shorthand emitted as native edge inset style IR.'),
-  property('padding-left', 'p1', true, 'Left padding emitted as native edge inset style IR.'),
-  property('padding-right', 'p1', true, 'Right padding emitted as native edge inset style IR.'),
-  property('padding-top', 'p1', true, 'Top padding emitted as native edge inset style IR.'),
-  property('padding-bottom', 'p1', true, 'Bottom padding emitted as native edge inset style IR.'),
-  property('margin', 'p1', false, 'Margin shorthand planned for native layout IR.'),
-  property('margin-left', 'p1', false, 'Left margin planned for native layout IR.'),
-  property('margin-right', 'p1', false, 'Right margin planned for native layout IR.'),
-  property('margin-top', 'p1', false, 'Top margin planned for native layout IR.'),
-  property('margin-bottom', 'p1', false, 'Bottom margin planned for native layout IR.'),
-  property('gap', 'p1', false, 'Layout gap planned for native layout IR.'),
-  property('row-gap', 'p1', false, 'Row gap planned for native layout IR.'),
-  property('column-gap', 'p1', false, 'Column gap planned for native layout IR.'),
-  property('overflow', 'p1', true, 'Child clipping mode emitted as resolved native UI projection metadata.', [
-    value('visible', 'Allow child nodes to paint outside this node bounds.'),
-    value('hidden', 'Clip child nodes to this node bounds.'),
-  ]),
-  property('z-index', 'p1', true, 'Node z ordering emitted as resolved native UI projection metadata.'),
-  property('opacity', 'p0', true, 'Surface opacity for native UI surface style IR.', [
-    value('0', 'Make the surface fully transparent.'),
-    value('0.5', 'Make the surface half transparent.'),
-    value('1', 'Make the surface fully opaque.'),
-  ]),
-  property('background-image', 'p1', true, 'Package asset background image for panel-like native surfaces via asset("...").', [
-    value('asset("...")', 'Reference a package-relative native asset.', 'asset("$1")'),
-    value('asset("...", "images")', 'Reference a package-relative native image asset.', 'asset("$1", "images")'),
-  ]),
-  property('background-size', 'p1', true, 'Background image fitting mode for native surface image backgrounds.', imageFitValues),
-  property('background-position', 'p1', true, 'Background image origin for native surface image backgrounds.', backgroundPositionValues),
-  property('background-repeat', 'p2', false, 'Background image repeat mode planned for native style IR.'),
-  property('border-style', 'p1', true, 'Limited native border style subset for rectangular surfaces.', [
-    value('solid', 'Render the border using border-width and border-color.'),
-    value('none', 'Suppress the border regardless of border-width and border-color.'),
-  ]),
-  property('visibility', 'p1', true, 'Node visibility emitted as resolved native UI projection metadata.', [
-    value('visible', 'Render the node when no QUI show prop overrides it.'),
-    value('hidden', 'Skip the node and its children when no QUI show prop overrides it.'),
-  ]),
-  property('box-shadow', 'p2', false, 'Limited shadow projection planned for native style IR.'),
-  property('clip-path', 'p2', false, 'Qua subset clipping planned for native style IR.'),
-  property('font-style', 'p1', true, 'Text style for native text and button label draw params.', [
-    value('normal', 'Use an upright font face.'),
-    value('italic', 'Use an italic font face when available.'),
-  ]),
-  property('letter-spacing', 'p1', true, 'Text letter spacing for native text and button label draw params.', [
-    value('normal', 'Use the default letter spacing.'),
-    value('0', 'Use default spacing as an explicit logical value.'),
-    value('1px', 'Add one logical pixel between letters.'),
-  ]),
-  property('white-space', 'p1', true, 'Whitespace and wrapping policy for native text and button label draw params.', [
-    value('normal', 'Collapse whitespace and allow wrapping.'),
-    value('nowrap', 'Collapse whitespace and disable wrapping.'),
-    value('pre', 'Preserve whitespace and disable wrapping.'),
-    value('pre-line', 'Preserve line breaks while collapsing other whitespace.'),
-    value('pre-wrap', 'Preserve whitespace and allow wrapping.'),
-  ]),
-  property('text-overflow', 'p1', true, 'Text overflow clipping policy for native text and button label draw params.', [
-    value('clip', 'Clip overflowing text at the text box edge.'),
-    value('ellipsis', 'Use an ellipsis marker when overflowing text is clipped.'),
-  ]),
-  property('text-transform', 'p1', true, 'Text casing policy for native text and button label draw params.', [
-    value('none', 'Render text without casing transformation.'),
-    value('uppercase', 'Transform text to uppercase before text backend layout.'),
-    value('lowercase', 'Transform text to lowercase before text backend layout.'),
-    value('capitalize', 'Capitalize words before text backend layout.'),
-  ]),
-  property('text-wrap', 'p2', false, 'Text wrapping metadata planned for native text layout.'),
-  property('text-decoration', 'p1', true, 'Text decoration for native text and button label draw params.', [
-    value('none', 'Render text without decoration.'),
-    value('underline', 'Render text with an underline.'),
-    value('line-through', 'Render text with a strike-through line.'),
-  ]),
-  property('text-shadow', 'p2', false, 'Limited text shadow planned for native text layout.'),
-  property('transform', 'p2', false, '2D transform metadata planned for native style IR.'),
-  property('transform-origin', 'p2', false, 'Transform origin metadata planned for native style IR.'),
-  property('translate', 'p2', false, 'Transform longhand planned for native style IR.'),
-  property('scale', 'p2', false, 'Transform longhand planned for native style IR.'),
-  property('rotate', 'p2', false, 'Transform longhand planned for native style IR.'),
-] as const
+export { nativeQuiDirectiveNames } from './registry-directives'
+export { nativeUiComponents } from './registry-components'
+export {
+  nativeQssProperties,
+  nativeQssPseudoStates,
+} from './registry-qss'
 
 export function findNativeUiComponent(name: string): NativeUiComponentDefinition | undefined {
   return nativeUiComponents.find(component => component.name === name)
@@ -215,51 +35,4 @@ export function nativeWgpuQuiComponentNames(): string[] {
   return nativeUiComponents
     .filter(component => component.kind === 'base')
     .map(component => component.name)
-}
-
-function component(
-  name: string,
-  kind: NativeUiComponentDefinition['kind'],
-  description: string,
-  slots: readonly string[] = [],
-  styleParts: readonly string[] = [],
-  content: NativeUiComponentDefinition['content'] = 'children',
-): NativeUiComponentDefinition {
-  return {
-    name,
-    kind,
-    content,
-    description,
-    slots,
-    styleParts,
-    props: nativeQuiDirectiveNames,
-  }
-}
-
-function property(
-  name: string,
-  phase: NativeQssPropertyDefinition['phase'],
-  nativeWgpu: boolean,
-  description: string,
-  values?: readonly NativeQssPropertyValueDefinition[],
-): NativeQssPropertyDefinition {
-  return {
-    name,
-    phase,
-    nativeWgpu,
-    description,
-    values,
-  }
-}
-
-function value(
-  label: string,
-  description: string,
-  insertText?: string,
-): NativeQssPropertyValueDefinition {
-  return {
-    label,
-    description,
-    insertText,
-  }
 }
