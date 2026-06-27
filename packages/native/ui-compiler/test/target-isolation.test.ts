@@ -3,14 +3,15 @@ import { describe, expect, it } from 'vitest'
 import {
   collectForbiddenTargetCoreImportViolations,
   importSpecifiers,
-} from '../../ui-compiler/test/target-isolation-helpers'
+} from './target-isolation-helpers'
 
-describe('@quajs/native-benchmarks target isolation', () => {
-  it('does not import Web, Cocos, or native bootstrap core packages from benchmark tooling', () => {
+describe('@quajs/native-ui-compiler target isolation', () => {
+  it('does not import Web, Cocos, or native bootstrap core packages from compiler tooling', () => {
     const roots = [
       fileURLToPath(new URL('../src', import.meta.url)),
       fileURLToPath(new URL('../test', import.meta.url)),
     ]
+
     expect(collectForbiddenTargetCoreImportViolations(roots)).toEqual([])
   })
 
