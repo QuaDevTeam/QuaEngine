@@ -152,6 +152,48 @@ describe('target bundle manifest target-core isolation', () => {
     }
   })
 
+  it('rejects all-target core unions in generated shells and distribution graphs', () => {
+    const graphKinds = ['debug-shell', 'release-shell', 'installer', 'updater', 'smoke-runner'] as const
+    const allTargetCoreAdapters = (Object.keys(CORE_ADAPTERS_BY_TARGET) as QuaTargetBootstrap[])
+      .flatMap(target => CORE_ADAPTERS_BY_TARGET[target])
+    const allTargetCorePackages = Array.from(new Set(allTargetCoreAdapters.map(normalizePackageSpecifier)))
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      for (const graphKind of graphKinds) {
+        const graphId = `${target}.${graphKind}.all-target-core-union`
+        const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+          projectGraphs: [
+            {
+              id: graphId,
+              kind: graphKind,
+              references: [
+                '@quajs/engine',
+                ...allTargetCoreAdapters,
+              ],
+            },
+          ],
+        }))
+
+        const graphDiagnostics = result.diagnostics.filter(
+          diagnostic => diagnostic.code === 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER'
+            && diagnostic.projectGraphId === graphId,
+        )
+
+        expect(result.ok).toBe(false)
+        expect(result.bootstrapValidation.selectedTargets).toEqual(['web', 'cocos', 'native'])
+        expect(graphDiagnostics.map(diagnostic => diagnostic.packageName).sort())
+          .toEqual([...allTargetCorePackages].sort())
+        expect(graphDiagnostics).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            target,
+            projectGraphId: graphId,
+            projectGraphKind: graphKind,
+          }),
+        ]))
+      }
+    }
+  })
+
   it('rejects inactive target core adapters in project templates and startup shells', () => {
     const cases = [
       {
