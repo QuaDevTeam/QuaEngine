@@ -24,6 +24,49 @@ export const DEFAULT_FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS = [
   '.class',
 ] as const
 
+const RESOURCE_REFERENCE_FIELDS = new Set([
+  'asset',
+  'assetName',
+  'assetPath',
+  'assets',
+  'audio',
+  'background',
+  'backgroundImage',
+  'fallback',
+  'fallbackImage',
+  'font',
+  'fonts',
+  'image',
+  'images',
+  'media',
+  'module',
+  'path',
+  'poster',
+  'qss',
+  'qui',
+  'relativePath',
+  'resource',
+  'resources',
+  'src',
+  'style',
+  'surface',
+  'thumbnail',
+  'tokens',
+  'video',
+] as const)
+
+const RESOURCE_OBJECT_VALUE_FIELDS = new Set([
+  'assetName',
+  'href',
+  'module',
+  'name',
+  'path',
+  'relativePath',
+  'src',
+  'uri',
+  'url',
+] as const)
+
 export function collectRuntimePackageAssetNames(runtimePackage: NativeGuardRuntimePackageManifest, bundleManifest?: NativeGuardBundleManifest): string[] {
   const names = new Set<string>()
   for (const script of runtimePackage.scripts || []) {
@@ -56,6 +99,7 @@ export function collectRuntimePackageAssetNames(runtimePackage: NativeGuardRunti
       }
     }
   }
+  collectDeclaredResourceReferences(runtimePackage, names)
   return Array.from(names)
 }
 
@@ -90,6 +134,45 @@ function addRuntimeModuleVariantAssetNames(
 function addAssetName(names: Set<string>, value: string | undefined): void {
   if (typeof value === 'string')
     names.add(value)
+}
+
+function collectDeclaredResourceReferences(
+  value: unknown,
+  names: Set<string>,
+  resourceContext = false,
+  seen = new Set<object>(),
+): void {
+  if (!value || typeof value !== 'object')
+    return
+  if (seen.has(value))
+    return
+  seen.add(value)
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      if (resourceContext && typeof entry === 'string') {
+        addAssetName(names, entry)
+        continue
+      }
+      collectDeclaredResourceReferences(entry, names, resourceContext, seen)
+    }
+    return
+  }
+
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    const isResourceField = RESOURCE_REFERENCE_FIELDS.has(key as never)
+    if (typeof entry === 'string') {
+      if (
+        isResourceField
+        || (resourceContext && RESOURCE_OBJECT_VALUE_FIELDS.has(key as never))
+      ) {
+        addAssetName(names, entry)
+      }
+      continue
+    }
+
+    collectDeclaredResourceReferences(entry, names, resourceContext || isResourceField, seen)
+  }
 }
 
 function stripAssetReferenceSuffix(assetName: string): string {
