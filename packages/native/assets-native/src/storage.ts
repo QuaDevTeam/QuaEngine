@@ -19,13 +19,14 @@ import {
 import {
   cloneStoredAsset,
   cloneStoredBundle,
-  decodeJson,
-  encodeJson,
   matchesBundleForDeletion,
   matchesCriteria,
   normalizeRoot,
-  type NativeAssetStorageIndex,
 } from './storage-records'
+import {
+  decodeNativeAssetStorageIndex,
+  encodeNativeAssetStorageIndex,
+} from './storage-index'
 
 export class NativeHostAssetStorage implements AssetStorage {
   private readonly root: string
@@ -248,30 +249,16 @@ export class NativeHostAssetStorage implements AssetStorage {
 
   private async loadIndex(): Promise<void> {
     const data = await this.host.readStorage(this.indexPath())
-    if (!data) {
-      this.assets.clear()
-      this.bundles.clear()
-      return
-    }
-    const parsed = decodeJson<NativeAssetStorageIndex>(data)
-    this.assets = new Map((parsed.assets || []).map(asset => [asset.id, cloneStoredAsset({
-      ...asset,
-      data: new Uint8Array(),
-    })]))
-    this.bundles = new Map((parsed.bundles || []).map(bundle => [getBundleStorageKey(bundle), cloneStoredBundle(bundle)]))
+    const index = decodeNativeAssetStorageIndex(data)
+    this.assets = index.assets
+    this.bundles = index.bundles
   }
 
   private async saveIndex(): Promise<void> {
-    const index: NativeAssetStorageIndex = {
-      format: 'qua-native-assets',
-      version: 1,
-      assets: Array.from(this.assets.values()).map(asset => cloneStoredAsset({
-        ...asset,
-        data: new Uint8Array(),
-      })),
-      bundles: Array.from(this.bundles.values()).map(cloneStoredBundle),
-    }
-    await this.host.writeStorage(this.indexPath(), encodeJson(index))
+    await this.host.writeStorage(
+      this.indexPath(),
+      encodeNativeAssetStorageIndex(this.assets.values(), this.bundles.values()),
+    )
   }
 
   private async deleteStoragePrefix(prefix: string): Promise<void> {
