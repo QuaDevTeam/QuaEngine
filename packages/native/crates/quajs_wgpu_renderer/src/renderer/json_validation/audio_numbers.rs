@@ -1,9 +1,10 @@
 use crate::projection::audio::AudioTrackMemoryEstimate;
-
-const MAX_NATIVE_AUDIO_TRACK_CPU_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+use crate::projection::safety::{
+    is_safe_native_audio_memory, is_safe_native_opacity, MAX_NATIVE_AUDIO_TRACK_CPU_BYTES,
+};
 
 pub(super) fn invalid_native_json_audio_volume_reason(value: f32) -> Option<String> {
-    if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+    if !is_safe_native_opacity(value) {
         return Some("audio track volume must be finite and between 0 and 1".to_string());
     }
     None
@@ -12,6 +13,10 @@ pub(super) fn invalid_native_json_audio_volume_reason(value: f32) -> Option<Stri
 pub(super) fn invalid_native_json_audio_memory_reason(
     memory: &AudioTrackMemoryEstimate,
 ) -> Option<(&'static str, String, String)> {
+    if is_safe_native_audio_memory(memory) {
+        return None;
+    }
+
     validate_memory_estimate("bufferCpuBytes", memory.buffer_cpu_bytes)
         .or_else(|| validate_memory_estimate("streamCpuBytes", memory.stream_cpu_bytes))
         .or_else(|| validate_memory_estimate("handleCpuBytes", memory.handle_cpu_bytes))

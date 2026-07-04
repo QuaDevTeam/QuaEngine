@@ -199,6 +199,64 @@ fn skips_duplicate_character_projection_ids_on_direct_projection() {
 }
 
 #[test]
+fn skips_characters_with_unsafe_resolved_numbers_on_direct_projection() {
+    let layout = test_layout();
+    let characters = [
+        CharacterProjection {
+            sprite: Some("sprites/opacity.png".to_string()),
+            opacity: -0.01,
+            ..CharacterProjection::new("bad-opacity", "Bad Opacity")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/layer.png".to_string()),
+            layer: 1_000_001,
+            ..CharacterProjection::new("bad-layer", "Bad Layer")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/scale.png".to_string()),
+            position: CharacterPosition {
+                scale: Some(0.0),
+                ..Default::default()
+            },
+            ..CharacterProjection::new("bad-scale", "Bad Scale")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/width.png".to_string()),
+            position: CharacterPosition {
+                width: Some(-1.0),
+                ..Default::default()
+            },
+            ..CharacterProjection::new("bad-width", "Bad Width")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/rotation.png".to_string()),
+            position: CharacterPosition {
+                rotation: Some(360_001.0),
+                ..Default::default()
+            },
+            ..CharacterProjection::new("bad-rotation", "Bad Rotation")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/x.png".to_string()),
+            position: CharacterPosition {
+                x: Some(f64::INFINITY),
+                ..Default::default()
+            },
+            ..CharacterProjection::new("bad-x", "Bad X")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/yuki.png".to_string()),
+            ..CharacterProjection::new("yuki", "Yuki")
+        },
+    ];
+
+    let commands = build_character_commands(&layout, &characters);
+
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].id, "character:yuki");
+}
+
+#[test]
 fn resolves_anchor_and_default_safe_area_position() {
     let layout = test_layout();
     let left = CharacterPosition {
@@ -225,6 +283,17 @@ fn resolves_anchor_and_default_safe_area_position() {
         center_bounds.y + center_bounds.height / 2.0,
         layout.safe_area.y + layout.safe_area.height / 2.0
     );
+
+    let zero_bounds = resolve_character_bounds(
+        &layout,
+        &CharacterPosition {
+            width: Some(0.0),
+            height: Some(0.0),
+            ..Default::default()
+        },
+    );
+    assert_eq!(zero_bounds.width, 0.0);
+    assert_eq!(zero_bounds.height, 0.0);
 }
 
 #[test]

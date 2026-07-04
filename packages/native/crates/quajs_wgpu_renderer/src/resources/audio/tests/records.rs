@@ -153,6 +153,40 @@ fn skips_duplicate_audio_track_ids_for_resource_records() {
 }
 
 #[test]
+fn skips_audio_resources_for_unsafe_resolved_numbers() {
+    let mut bad_volume = AudioTrackProjection::new(
+        "bgm-bad-volume",
+        AudioTrackKind::Bgm,
+        "music/bad-volume.ogg",
+    );
+    bad_volume.volume = f32::NAN;
+    let bad_memory = AudioTrackProjection::new(
+        "bgm-bad-memory",
+        AudioTrackKind::Bgm,
+        "music/bad-memory.ogg",
+    )
+    .memory(AudioTrackMemoryEstimate {
+        buffer_cpu_bytes: 2 * 1024 * 1024 * 1024 + 1,
+        stream_cpu_bytes: 0,
+        handle_cpu_bytes: 0,
+    });
+    let valid = AudioTrackProjection::new("bgm-valid", AudioTrackKind::Bgm, "music/valid.ogg");
+    let audio = AudioProjection::new(vec![bad_volume, bad_memory, valid]);
+
+    let records = audio_resource_records(Some(&audio));
+
+    assert_eq!(records.len(), 2);
+    assert_eq!(
+        records[0].id,
+        ResourceId::from("audio:buffer:bgm:bgm:music/valid.ogg")
+    );
+    assert_eq!(
+        records[1].id,
+        ResourceId::from("audio:handle:bgm:bgm:bgm-valid")
+    );
+}
+
+#[test]
 fn skips_audio_resources_for_unsafe_asset_names() {
     let audio = AudioProjection::new(vec![
         AudioTrackProjection::new("bgm-traversal", AudioTrackKind::Bgm, "../music/a.ogg"),

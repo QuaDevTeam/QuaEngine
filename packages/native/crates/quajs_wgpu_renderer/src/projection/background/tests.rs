@@ -291,6 +291,89 @@ fn skips_duplicate_layer_projection_ids_on_direct_projection() {
 }
 
 #[test]
+fn skips_backgrounds_with_unsafe_resolved_numbers_on_direct_projection() {
+    let layout = test_layout();
+
+    for background in [
+        BackgroundProjection {
+            asset_name: Some("bg/opacity.png".to_string()),
+            opacity: 1.01,
+            ..Default::default()
+        },
+        BackgroundProjection {
+            asset_name: Some("bg/scale.png".to_string()),
+            scale: 0.0,
+            ..Default::default()
+        },
+        BackgroundProjection {
+            asset_name: Some("bg/width.png".to_string()),
+            width: Some(-1.0),
+            ..Default::default()
+        },
+        BackgroundProjection {
+            asset_name: Some("bg/origin.png".to_string()),
+            origin: Some("120% 50%".to_string()),
+            ..Default::default()
+        },
+        BackgroundProjection {
+            asset_name: Some("bg/rotation.png".to_string()),
+            rotation: 360_001.0,
+            ..Default::default()
+        },
+    ] {
+        assert!(build_background_commands(&layout, &background).is_empty());
+    }
+
+    let layered_background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        layers: vec![
+            BackgroundLayerProjection {
+                opacity: f32::NAN,
+                ..BackgroundLayerProjection::new("bad-opacity", "layers/opacity.png")
+            },
+            BackgroundLayerProjection {
+                z_index: 1_000_001,
+                ..BackgroundLayerProjection::new("bad-z", "layers/z.png")
+            },
+            BackgroundLayerProjection {
+                origin: Some("file:origin".to_string()),
+                ..BackgroundLayerProjection::new("bad-origin", "layers/origin.png")
+            },
+            BackgroundLayerProjection::new("valid", "layers/valid.png"),
+        ],
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &layered_background);
+
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].id, "background:layer:valid");
+}
+
+#[test]
+fn skips_video_backgrounds_with_unsafe_resolved_numbers_on_direct_projection() {
+    let layout = test_layout();
+
+    for video in [
+        BackgroundVideoProjection {
+            opacity: -0.01,
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        },
+        BackgroundVideoProjection {
+            origin: Some("../center".to_string()),
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        },
+    ] {
+        let background = BackgroundProjection {
+            mode: BackgroundMode::Video,
+            video: Some(video),
+            ..Default::default()
+        };
+        assert!(build_background_commands(&layout, &background).is_empty());
+    }
+}
+
+#[test]
 fn builds_video_fallback_command_with_poster_resource() {
     let layout = test_layout();
     let background = BackgroundProjection {

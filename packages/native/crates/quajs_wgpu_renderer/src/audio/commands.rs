@@ -8,6 +8,7 @@ use crate::projection::common::{
     insert_unique_safe_native_dispatch_identifier, is_safe_native_asset_ref,
     is_safe_native_dispatch_identifier,
 };
+use crate::projection::safety::is_safe_native_audio_track_numbers;
 use crate::resources::{NativeAssetRequestPlan, ResourceId};
 
 pub type AudioBackendTrackStateMap = BTreeMap<String, AudioBackendTrackState>;
@@ -143,6 +144,7 @@ fn audio_backend_track_states(
         if matches!(track.playback_state, AudioTrackPlaybackState::Stopped)
             || !is_safe_native_dispatch_identifier(&track.id)
             || !is_safe_native_asset_ref(&track.asset_type, &track.asset_name)
+            || !is_safe_native_audio_track_numbers(track)
         {
             continue;
         }

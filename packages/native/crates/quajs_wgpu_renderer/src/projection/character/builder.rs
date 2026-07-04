@@ -2,6 +2,9 @@ use crate::projection::common::{
     insert_unique_safe_native_dispatch_identifier, is_safe_native_asset_name,
     is_safe_native_dispatch_identifier,
 };
+use crate::projection::safety::{
+    is_safe_native_character_position, is_safe_native_opacity, is_safe_native_z_index,
+};
 use crate::render_graph::{
     CharacterDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, RenderGraph, RenderPlane,
 };
@@ -46,6 +49,12 @@ fn character_command(
 
     let sprite_asset_name = character.sprite.as_ref()?;
     if !is_safe_native_asset_name(sprite_asset_name) {
+        return None;
+    }
+    if !is_safe_native_character_position(&character.position)
+        || !is_safe_native_opacity(character.opacity)
+        || !is_safe_native_z_index(character.layer)
+    {
         return None;
     }
 

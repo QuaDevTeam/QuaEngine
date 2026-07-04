@@ -2,7 +2,9 @@ use super::super::{
     plan_audio_backend_commands, AudioBackendCommandKind, AudioBackendTrackStateMap,
 };
 use super::support::{asset, assets, provenance, set, track};
-use crate::projection::audio::{AudioProjection, AudioTrackPlaybackState};
+use crate::projection::audio::{
+    AudioProjection, AudioTrackMemoryEstimate, AudioTrackPlaybackState,
+};
 use crate::resources::ResourceId;
 
 #[test]
@@ -110,6 +112,31 @@ fn skips_duplicate_track_ids_in_backend_plans() {
         .next_tracks
         .values()
         .any(|track| track.asset_name == "music/second.ogg"));
+}
+
+#[test]
+fn skips_tracks_with_unsafe_resolved_numbers() {
+    let mut bad_volume = track("bgm-bad-volume", "music/bad-volume.ogg");
+    bad_volume.volume = 1.01;
+    let bad_memory =
+        track("bgm-bad-memory", "music/bad-memory.ogg").memory(AudioTrackMemoryEstimate {
+            buffer_cpu_bytes: 2 * 1024 * 1024 * 1024 + 1,
+            stream_cpu_bytes: 0,
+            handle_cpu_bytes: 0,
+        });
+    let audio = AudioProjection::new(vec![
+        bad_volume,
+        bad_memory,
+        track("bgm-valid", "music/valid.ogg"),
+    ]);
+
+    let plan =
+        plan_audio_backend_commands(&AudioBackendTrackStateMap::new(), Some(&audio), &assets([]));
+
+    assert_eq!(plan.commands.len(), 2);
+    assert!(plan.next_tracks.contains_key("bgm-valid"));
+    assert!(!plan.next_tracks.contains_key("bgm-bad-volume"));
+    assert!(!plan.next_tracks.contains_key("bgm-bad-memory"));
 }
 
 #[test]

@@ -2,6 +2,10 @@ use crate::projection::common::{
     insert_unique_safe_native_dispatch_identifier, is_safe_native_asset_name,
     is_safe_native_asset_type, is_safe_native_dispatch_identifier, PackageProvenance,
 };
+use crate::projection::safety::{
+    is_safe_native_background_geometry, is_safe_native_background_origin,
+    is_safe_native_background_rotation, is_safe_native_opacity, is_safe_native_z_index,
+};
 use crate::render_graph::{
     DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams, RenderGraph, RenderPlane,
     VideoDrawParams,
@@ -54,7 +58,7 @@ pub fn build_background_commands(
             .video
             .as_ref()
             .filter(|video| is_safe_native_asset_name(&video.asset_name))
-            .map(|video| background_video_command(layout, video))
+            .and_then(|video| background_video_command(layout, video))
             .into_iter()
             .collect(),
     }
@@ -66,6 +70,19 @@ fn background_image_command(
     asset_name: &str,
     background: &BackgroundProjection,
 ) -> Option<DrawCommand> {
+    if !is_safe_native_background_geometry(
+        background.x,
+        background.y,
+        background.width,
+        background.height,
+        background.scale,
+    ) || !is_safe_native_opacity(background.opacity)
+        || !is_safe_native_background_rotation(background.rotation)
+        || !is_safe_native_background_origin(background.origin.as_deref())
+    {
+        return None;
+    }
+
     let bounds = resolve_background_bounds(
         layout,
         background.x,
@@ -94,6 +111,15 @@ fn background_layer_command(
     layout: &ResolvedStageLayout,
     layer: &BackgroundLayerProjection,
 ) -> Option<DrawCommand> {
+    if !is_safe_native_background_geometry(layer.x, layer.y, layer.width, layer.height, layer.scale)
+        || !is_safe_native_opacity(layer.opacity)
+        || !is_safe_native_background_rotation(layer.rotation)
+        || !is_safe_native_background_origin(layer.origin.as_deref())
+        || !is_safe_native_z_index(layer.z_index)
+    {
+        return None;
+    }
+
     let bounds = resolve_background_bounds(
         layout,
         layer.x,
@@ -127,7 +153,13 @@ fn background_layer_command(
 fn background_video_command(
     layout: &ResolvedStageLayout,
     video: &BackgroundVideoProjection,
-) -> DrawCommand {
+) -> Option<DrawCommand> {
+    if !is_safe_native_opacity(video.opacity)
+        || !is_safe_native_background_origin(video.origin.as_deref())
+    {
+        return None;
+    }
+
     let asset_type = "video".to_string();
     let poster_asset_name = video
         .poster
@@ -155,7 +187,7 @@ fn background_video_command(
         command = command.resource(background_resource_id("images", poster));
     }
 
-    apply_provenance(command, &video.provenance)
+    Some(apply_provenance(command, &video.provenance))
 }
 
 fn apply_provenance(mut command: DrawCommand, provenance: &PackageProvenance) -> DrawCommand {
