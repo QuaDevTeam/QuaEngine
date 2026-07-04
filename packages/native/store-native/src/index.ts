@@ -11,6 +11,12 @@ import type {
 import type { QuaNativeHostApi, QuaNativeHostInfo } from '@quajs/native-contracts'
 import type { NativeStoreRecord, NativeStoreRecordKind } from './storage-records'
 import { decodeNativeStoreRecord, encodeNativeStoreRecord } from './storage-records'
+import {
+  createNativeStoreGroupPrefix,
+  createNativeStoreNamespace,
+  createNativeStoreRecordKey,
+  requireNativeStoreStorageKeys,
+} from './storage-keys'
 
 export interface NativeStoreBackendOptions {
   host: QuaNativeHostApi
@@ -19,6 +25,8 @@ export interface NativeStoreBackendOptions {
   namespace?: string
   middlewares?: StorageMiddleware[]
 }
+
+export { createNativeStoreNamespace } from './storage-keys'
 
 export class NativeStoreBackend implements StorageBackend {
   private readonly namespace: string
@@ -134,25 +142,22 @@ export class NativeStoreBackend implements StorageBackend {
     group: string,
     kind: NativeStoreRecordKind,
   ): Promise<TRecord[]> {
-    const keys = await this.requireListStorageKeys(this.key(group, ''))
+    const keys = await this.listRecordKeys(group)
     const records = await Promise.all(keys.map(key => this.readRecord<TRecord>(key, kind)))
     return records.filter(record => record !== undefined)
   }
 
   private async deletePrefix(group: string): Promise<void> {
-    const keys = await this.requireListStorageKeys(this.key(group, ''))
+    const keys = await this.listRecordKeys(group)
     await Promise.all(keys.map(key => this.options.host.deleteStorage(key)))
   }
 
-  private async requireListStorageKeys(prefix: string): Promise<string[]> {
-    if (!this.options.host.listStorageKeys) {
-      throw new Error('Native store host must provide listStorageKeys for list and clear operations.')
-    }
-    return await this.options.host.listStorageKeys(prefix)
+  private async listRecordKeys(group: string): Promise<string[]> {
+    return await requireNativeStoreStorageKeys(this.options.host, createNativeStoreGroupPrefix(this.namespace, group))
   }
 
   private key(group: string, id: string): string {
-    return `${this.namespace}/${group}/${encodeURIComponent(id)}`
+    return createNativeStoreRecordKey(this.namespace, group, id)
   }
 }
 
@@ -164,13 +169,4 @@ export function createNativeStorageConfig(options: NativeStoreBackendOptions): S
     },
     middlewares: options.middlewares,
   }
-}
-
-export function createNativeStoreNamespace(options: Pick<NativeStoreBackendOptions, 'hostInfo' | 'namespace' | 'profileId'>): string {
-  const app = options.hostInfo?.app
-  const bundleId = app?.bundleId || 'unknown.app'
-  const profile = app?.profile || 'debug'
-  const profileId = options.profileId || 'default'
-  const namespace = options.namespace || 'qua-store'
-  return [bundleId, profile, profileId, namespace].map(encodeURIComponent).join('/')
 }
