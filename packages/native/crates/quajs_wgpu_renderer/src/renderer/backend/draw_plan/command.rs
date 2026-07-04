@@ -52,6 +52,8 @@ impl NativeBackendDrawCommandPlan {
                             resource_id,
                             resources,
                             command.kind,
+                            command.owner_package_id.as_ref(),
+                            &command.required_package_ids,
                         )
                     })
                     .collect::<Vec<_>>()
