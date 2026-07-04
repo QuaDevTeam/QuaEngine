@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use quajs_wgpu_renderer::audio::NativeAudioBackendError;
 use quajs_wgpu_renderer::projection::background::BackgroundProjection;
 use quajs_wgpu_renderer::projection::common::PackageProvenance;
 use quajs_wgpu_renderer::projection::view::ViewProjection;
@@ -8,10 +9,14 @@ use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, R
 
 use crate::texture_sync::{
     render_frame_with_host_texture_lifecycle_sync, sync_mounted_texture_bundle_lifecycle_from_host,
-    NativeTextureBundleMountRegistry,
+    sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown,
+    NativeTextureBundleLifecycleSyncError, NativeTextureBundleMountRegistry,
 };
 
-use super::support::{bundle, test_layout, RecordingAssetHost, TextureResidentBackend};
+use super::support::{
+    bundle, renderer_with_rejecting_audio_after_failed_audio_stop_frame, test_layout,
+    RecordingAssetHost, TextureResidentBackend,
+};
 
 #[test]
 fn initial_sync_tracks_bundles_without_releasing_resources() {
@@ -93,6 +98,108 @@ fn releases_unmounted_package_textures() {
     );
     assert!(renderer.resources().is_empty());
     assert!(renderer.backend().resident_resource_ids.is_empty());
+}
+
+#[test]
+fn audio_teardown_lifecycle_releases_unmounted_package_textures() {
+    let mounted_host =
+        RecordingAssetHost::new().with_bundle(bundle("runtime-menu-bundle", Some("runtime.menu")));
+    let unmounted_host = RecordingAssetHost::new();
+    let mut registry = NativeTextureBundleMountRegistry::new();
+    let mut renderer = NativeRenderer::with_null_audio_backend(TextureResidentBackend {
+        resident_resource_ids: vec!["images:runtime-menu.png".to_string()],
+        ..Default::default()
+    });
+    renderer.state_mut().resources_mut().insert(
+        NativeResourceRecord::new("images:runtime-menu.png", NativeResourceKind::Texture)
+            .owned_by("runtime.menu"),
+    );
+
+    sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
+        &mut registry,
+        &mut renderer,
+        &mounted_host,
+    )
+    .expect("initial mounted bundle baseline should sync");
+
+    let report = sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
+        &mut registry,
+        &mut renderer,
+        &unmounted_host,
+    )
+    .expect("unmounted package should release renderer texture resources after audio teardown");
+
+    assert_eq!(report.removed_package_ids, vec!["runtime.menu"]);
+    assert_eq!(report.released_package_ids, vec!["runtime.menu"]);
+    assert_eq!(report.release_attempt_count, 1);
+    assert_eq!(report.released_resource_count, 1);
+    assert_eq!(
+        report.package_releases[0]
+            .texture_cleanup_report
+            .released_resource_ids,
+        vec![ResourceId::from("images:runtime-menu.png")]
+    );
+    assert!(renderer.resources().is_empty());
+    assert!(renderer.backend().resident_resource_ids.is_empty());
+    assert_eq!(registry.tracked_package_ids(), Vec::<String>::new());
+}
+
+#[test]
+fn audio_teardown_lifecycle_failure_preserves_unmounted_package_handles_for_retry() {
+    let mounted_host =
+        RecordingAssetHost::new().with_bundle(bundle("runtime-menu-bundle", Some("runtime.menu")));
+    let unmounted_host = RecordingAssetHost::new();
+    let mut registry = NativeTextureBundleMountRegistry::new();
+    let mut renderer = renderer_with_rejecting_audio_after_failed_audio_stop_frame(
+        TextureResidentBackend {
+            resident_resource_ids: vec!["images:runtime-menu.png".to_string()],
+            ..Default::default()
+        },
+        "runtime.menu",
+    );
+    renderer.state_mut().resources_mut().insert(
+        NativeResourceRecord::new("images:runtime-menu.png", NativeResourceKind::Texture)
+            .owned_by("runtime.menu"),
+    );
+
+    sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
+        &mut registry,
+        &mut renderer,
+        &mounted_host,
+    )
+    .expect("initial mounted bundle baseline should sync");
+
+    let error = sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
+        &mut registry,
+        &mut renderer,
+        &unmounted_host,
+    )
+    .expect_err("audio teardown failure should stop lifecycle texture cleanup");
+
+    assert_eq!(
+        error,
+        NativeTextureBundleLifecycleSyncError::Audio(NativeAudioBackendError::backend_rejected(
+            "test audio backend rejected plan"
+        ))
+    );
+    assert_eq!(registry.tracked_package_ids(), vec!["runtime.menu"]);
+    assert!(renderer
+        .resources()
+        .get(ResourceId::from("images:runtime-menu.png"))
+        .is_some());
+    assert!(renderer
+        .resources()
+        .get(ResourceId::from("audio:buffer:bgm:bgm:music/opening.ogg"))
+        .is_some());
+    assert!(renderer
+        .state()
+        .audio_backend_tracks()
+        .contains_key("bgm-main"));
+    assert_eq!(
+        renderer.backend().resident_resource_ids,
+        vec!["images:runtime-menu.png"]
+    );
+    assert!(renderer.backend().released_resource_ids.is_empty());
 }
 
 #[test]
