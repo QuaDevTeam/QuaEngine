@@ -291,6 +291,20 @@ describe('@quajs/store-native', () => {
     await expect(backend.clearGameSlots()).rejects.toThrow(/must provide listStorageKeys/)
   })
 
+  it('encodes record ids before using native host storage keys', async () => {
+    const host = createHost()
+    const backend = new NativeStoreBackend({
+      host,
+      hostInfo: createHostInfo(),
+      profileId: 'player-a',
+    })
+
+    await backend.saveSnapshot(createSnapshot('chapter/one snapshot'))
+
+    expect(host.storage.has('dev.quajs.native.fixture/debug/player-a/qua-store/snapshots/chapter%2Fone%20snapshot')).toBe(true)
+    expect(host.storage.has('dev.quajs.native.fixture/debug/player-a/qua-store/snapshots/chapter/one snapshot')).toBe(false)
+  })
+
   it('isolates native storage namespace by bundle id, build profile, profile id, and namespace', async () => {
     const host = createHost()
     const debug = new NativeStoreBackend({
