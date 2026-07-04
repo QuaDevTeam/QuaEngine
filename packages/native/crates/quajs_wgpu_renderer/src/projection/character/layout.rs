@@ -45,12 +45,12 @@ pub fn resolve_character_bounds(
         .unwrap_or(1.0);
     let width = position
         .width
-        .filter(|value| value.is_finite() && *value > 0.0)
+        .filter(|value| value.is_finite() && *value >= 0.0)
         .unwrap_or(layout.logical_height * DEFAULT_CHARACTER_WIDTH_RATIO)
         * scale;
     let height = position
         .height
-        .filter(|value| value.is_finite() && *value > 0.0)
+        .filter(|value| value.is_finite() && *value >= 0.0)
         .unwrap_or(layout.logical_height * DEFAULT_CHARACTER_HEIGHT_RATIO)
         * scale;
     let anchor = resolve_character_anchor(position);
