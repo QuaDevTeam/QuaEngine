@@ -9,7 +9,7 @@ pub(super) fn transform_placeholder_text(text: &str, transform: TextTransformDra
             let mut capitalize_next = true;
             let mut output = String::new();
             for character in text.chars() {
-                if character.is_whitespace() {
+                if !character.is_alphanumeric() {
                     capitalize_next = true;
                     output.push(character);
                 } else if capitalize_next {
@@ -69,4 +69,32 @@ pub(super) fn preserved_placeholder_segments(line: &str) -> Vec<String> {
 
 fn collapse_placeholder_whitespace(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn capitalize_text_transform_starts_after_punctuation_boundaries() {
+        assert_eq!(
+            transform_placeholder_text(
+                "new-game save/load déjà VU",
+                TextTransformDrawParam::Capitalize,
+            ),
+            "New-Game Save/Load Déjà Vu"
+        );
+    }
+
+    #[test]
+    fn uppercase_and_lowercase_text_transforms_preserve_unicode_casing() {
+        assert_eq!(
+            transform_placeholder_text("déjà Vu", TextTransformDrawParam::Uppercase),
+            "DÉJÀ VU"
+        );
+        assert_eq!(
+            transform_placeholder_text("DÉJÀ Vu", TextTransformDrawParam::Lowercase),
+            "déjà vu"
+        );
+    }
 }
