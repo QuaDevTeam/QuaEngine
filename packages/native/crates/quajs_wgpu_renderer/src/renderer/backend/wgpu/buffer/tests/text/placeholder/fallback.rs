@@ -46,6 +46,23 @@ fn applies_italic_font_style_as_text_placeholder_shear_for_unsupported_glyphs() 
 }
 
 #[test]
+fn capitalizes_text_placeholder_after_punctuation_boundaries() {
+    let unchanged = text_placeholder_bounds_for_text_with_style("ß-a", {
+        let mut style = text_style(20.0, TextAlign::Left, EdgeInsetsDrawParam::default());
+        style.text_transform = TextTransformDrawParam::None;
+        style
+    });
+    let capitalized = text_placeholder_bounds_for_text_with_style("ß-a", {
+        let mut style = text_style(20.0, TextAlign::Left, EdgeInsetsDrawParam::default());
+        style.text_transform = TextTransformDrawParam::Capitalize;
+        style
+    });
+
+    assert_eq!(capitalized.x, unchanged.x);
+    assert!(capitalized.width > unchanged.width);
+}
+
+#[test]
 fn reports_text_placeholder_without_generated_geometry_as_skipped() {
     let style = text_style(
         20.0,
