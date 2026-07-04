@@ -3,28 +3,38 @@ import type {
   NativePackageProvenance,
   NativeQuiAstNode,
   NativeQuiDocument,
-  NativeQuiProp,
-  NativeQuiActionArgumentValue,
-  NativeUiSurfaceIntentProjection,
   NativeUiSurfaceNodeKind,
   NativeUiSurfaceNodeProjection,
   NativeUiSurfaceProjection,
   NativeUiSurfaceRect,
 } from './types'
-import { isSafeNativeAssetType, isSafePackageAssetName } from './assets'
 import {
-  booleanProp,
   numberProp,
-  propLiteralString,
-  propString,
-  stripQuotes,
 } from './projection-props'
+import {
+  conditionalBranch,
+  conditionalBranchValue,
+  evaluateQuiCondition,
+  loopIterationsForNode,
+} from './projection-directives'
+import {
+  templateBooleanProp,
+  type NativeUiTemplateScope,
+} from './projection-template'
+import {
+  imageFromProps,
+  intentFromNode,
+  isSupportedSurfaceKind,
+  nodeId,
+  packageProvenanceFromOptions,
+  textFromNode,
+} from './projection-node-values'
 import { pruneSurfaceNode, rectFromProps, ZERO_RECT } from './projection-node-helpers'
 import { resolveStyleForNode } from './projection-selectors'
-import { findNativeUiComponent } from './registry'
 
 export interface CompileNativeUiSurfaceProjectionOptions {
   contentPackageId?: string
+  context?: Record<string, unknown>
   qss?: NativeQssDocument | readonly NativeQssDocument[]
   requiredRuntimePackages?: readonly string[]
   rootId?: string
@@ -33,27 +43,9 @@ export interface CompileNativeUiSurfaceProjectionOptions {
 interface QuiProjectionContext {
   ancestors: readonly NativeQuiAstNode[]
   parentBounds?: NativeUiSurfaceRect
+  scope: NativeUiTemplateScope
+  suppressLoop?: boolean
 }
-
-const BASE_NODE_KINDS = new Set<NativeUiSurfaceNodeKind>([
-  'Backdrop',
-  'Box',
-  'Button',
-  'Column',
-  'Divider',
-  'Fragment',
-  'Grid',
-  'Image',
-  'Layer',
-  'Panel',
-  'RichText',
-  'Row',
-  'SafeArea',
-  'Scroll',
-  'Spacer',
-  'Stack',
-  'Text',
-])
 
 export function compileNativeUiSurfaceProjection(
   qui: NativeQuiDocument,
@@ -63,8 +55,13 @@ export function compileNativeUiSurfaceProjection(
     ? options.qss
     : options.qss ? [options.qss] : []
   const provenance = packageProvenanceFromOptions(options)
-  const rootChildren = qui.tree
-    .flatMap(node => surfaceNodeFromQuiNode(qui.source, node, { ancestors: [] }, qssDocuments, provenance))
+  const rootChildren = surfaceNodesFromQuiChildren(qui.source, qui.tree, {
+    ancestors: [],
+    scope: {
+      context: options.context,
+      hasContext: options.context !== undefined,
+    },
+  }, qssDocuments, provenance)
 
   if (rootChildren.length === 0)
     return {}
@@ -90,28 +87,41 @@ function surfaceNodeFromQuiNode(
   qssDocuments: readonly NativeQssDocument[],
   provenance: NativePackageProvenance | undefined,
 ): NativeUiSurfaceNodeProjection[] {
+  const iterations = context.suppressLoop ? undefined : loopIterationsForNode(node, context.scope)
+  if (iterations) {
+    return iterations.flatMap(iteration =>
+      surfaceNodeFromQuiNode(source, node, {
+        ...context,
+        scope: iteration.scope,
+        suppressLoop: true,
+      }, qssDocuments, provenance))
+  }
+
   if (node.kind !== 'component' || !isSupportedSurfaceKind(node.name))
-    return node.children.flatMap(child => surfaceNodeFromQuiNode(source, child, context, qssDocuments, provenance))
+    return surfaceNodesFromQuiChildren(source, node.children, context, qssDocuments, provenance)
 
   const resolvedStyle = resolveStyleForNode({ node, ancestors: context.ancestors }, qssDocuments)
   const rect = rectFromProps(node.props, resolvedStyle.bounds, context.parentBounds)
   const childContext: QuiProjectionContext = {
     ancestors: [...context.ancestors, node],
     parentBounds: rect,
+    scope: {
+      ...context.scope,
+      currentLoopKey: undefined,
+    },
   }
-  const children = node.children
-    .flatMap(child => surfaceNodeFromQuiNode(source, child, childContext, qssDocuments, provenance))
-  const text = textFromNode(source, node)
+  const children = surfaceNodesFromQuiChildren(source, node.children, childContext, qssDocuments, provenance)
+  const text = textFromNode(source, node, context.scope)
   const image = imageFromProps(node.props)
-  const intent = intentFromNode(node)
-  const id = propString(node.props, 'id') || stableNodeId(node)
+  const intent = intentFromNode(node, context.scope)
+  const id = nodeId(node, context.scope)
 
   return [pruneSurfaceNode({
     id,
     kind: node.name as NativeUiSurfaceNodeKind,
     bounds: rect,
     clipChildren: resolvedStyle.clipChildren,
-    visible: booleanProp(node.props, 'show') ?? resolvedStyle.visible,
+    visible: templateBooleanProp(node.props, 'show', context.scope) ?? resolvedStyle.visible,
     zIndex: resolvedStyle.zIndex,
     opacity: numberProp(node.props, 'opacity'),
     scrollOffsetX: numberProp(node.props, 'scroll-x'),
@@ -125,109 +135,52 @@ function surfaceNodeFromQuiNode(
   })]
 }
 
-function packageProvenanceFromOptions(
-  options: CompileNativeUiSurfaceProjectionOptions,
-): NativePackageProvenance | undefined {
-  const contentPackageId = options.contentPackageId?.trim()
-  const requiredRuntimePackages = Array.from(new Set(
-    (options.requiredRuntimePackages ?? [])
-      .map(packageId => packageId.trim())
-      .filter(Boolean),
-  )).sort()
+function surfaceNodesFromQuiChildren(
+  source: string,
+  nodes: readonly NativeQuiAstNode[],
+  context: QuiProjectionContext,
+  qssDocuments: readonly NativeQssDocument[],
+  provenance: NativePackageProvenance | undefined,
+): NativeUiSurfaceNodeProjection[] {
+  const projected: NativeUiSurfaceNodeProjection[] = []
+  let branchMatched = false
+  let branchOpen = false
 
-  if (!contentPackageId && requiredRuntimePackages.length === 0)
-    return undefined
+  for (const node of nodes) {
+    const branch = conditionalBranch(node)
+    let include = true
 
-  const provenance: NativePackageProvenance = {}
-  if (contentPackageId)
-    provenance.contentPackageId = contentPackageId
-  if (requiredRuntimePackages.length > 0)
-    provenance.requiredRuntimePackages = requiredRuntimePackages
-  return provenance
-}
+    if (branch === 'if') {
+      const value = evaluateQuiCondition(conditionalBranchValue(node, branch), context.scope)
+      include = value ?? !context.scope.hasContext
+      branchMatched = include
+      branchOpen = true
+    }
+    else if (branch === 'else-if') {
+      if (!branchOpen) {
+        include = false
+      }
+      else if (branchMatched) {
+        include = false
+      }
+      else {
+        const value = evaluateQuiCondition(conditionalBranchValue(node, branch), context.scope)
+        include = value ?? !context.scope.hasContext
+        branchMatched = include
+      }
+    }
+    else if (branch === 'else') {
+      include = branchOpen && !branchMatched
+      branchMatched = branchOpen
+    }
+    else {
+      branchOpen = false
+      branchMatched = false
+    }
 
-function isSupportedSurfaceKind(name: string): boolean {
-  return BASE_NODE_KINDS.has(name as NativeUiSurfaceNodeKind) && Boolean(findNativeUiComponent(name))
-}
-
-function stableNodeId(node: NativeQuiAstNode): string {
-  const key = propString(node.props, 'key')
-  if (key)
-    return `${node.name}:${key}`
-  return `${node.name}:${node.nameRange.start.line}:${node.nameRange.start.character}`
-}
-
-function textFromNode(source: string, node: NativeQuiAstNode): string | undefined {
-  if (node.name !== 'Text' && node.name !== 'RichText' && node.name !== 'Button')
-    return propString(node.props, 'text') || propString(node.props, 'label')
-
-  return propString(node.props, 'text')
-    || propString(node.props, 'label')
-    || textContentFromBody(source, node)
-}
-
-function textContentFromBody(source: string, node: NativeQuiAstNode): string | undefined {
-  if (node.children.length > 0 || !node.bodyRange)
-    return undefined
-
-  const start = offsetAtPosition(source, node.bodyRange.start)
-  const end = offsetAtPosition(source, node.bodyRange.end)
-  const text = stripQuotes(source.slice(start, end).trim()).trim()
-  return text ? text : undefined
-}
-
-function imageFromProps(props: readonly NativeQuiProp[]) {
-  const src = propLiteralString(props, 'src') || propLiteralString(props, 'image')
-  if (!src || !isSafePackageAssetName(src))
-    return undefined
-
-  const assetType = propLiteralString(props, 'asset-type') || 'images'
-  if (!isSafeNativeAssetType(assetType))
-    return undefined
-
-  return { assetType, assetName: src }
-}
-
-function intentFromNode(node: NativeQuiAstNode): NativeUiSurfaceIntentProjection | undefined {
-  const action = node.actions[0]
-  if (!action)
-    return undefined
-
-  const metadata = literalActionMetadata(action.arguments)
-  const firstArgument = action.arguments[0]
-  const choiceId = action.event === 'choice/select' && firstArgument?.kind === 'literal' && typeof firstArgument.value === 'string'
-    ? firstArgument.value
-    : undefined
-
-  return {
-    event: action.event,
-    ...(choiceId ? { choiceId } : {}),
-    action: action.action,
-    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+    if (include)
+      projected.push(...surfaceNodeFromQuiNode(source, node, context, qssDocuments, provenance))
   }
-}
 
-function literalActionMetadata(args: readonly { kind: string, value?: NativeQuiActionArgumentValue }[]): Record<string, NativeQuiActionArgumentValue> {
-  const metadata: Record<string, NativeQuiActionArgumentValue> = {}
-  args.forEach((argument, index) => {
-    if (argument.kind === 'literal' && argument.value !== undefined)
-      metadata[`arg${index}`] = argument.value
-  })
-  return metadata
-}
-
-function offsetAtPosition(source: string, position: { character: number, line: number }): number {
-  const lineStarts = createLineStartOffsets(source)
-  const line = Math.max(0, Math.min(position.line, lineStarts.length - 1))
-  const nextLineStart = lineStarts[line + 1] ?? source.length
-  return Math.min(lineStarts[line] + Math.max(0, position.character), nextLineStart)
-}
-
-function createLineStartOffsets(source: string): number[] {
-  const starts = [0]
-  for (let index = 0; index < source.length; index += 1) {
-    if (source.charCodeAt(index) === 10)
-      starts.push(index + 1)
-  }
-  return starts
+  return projected
 }
