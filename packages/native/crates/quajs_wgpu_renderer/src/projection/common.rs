@@ -17,11 +17,27 @@ impl PackageProvenance {
     }
 
     pub fn package_ids(&self) -> BTreeSet<String> {
-        let mut package_ids = self.required_runtime_packages.clone();
-        if let Some(package_id) = &self.content_package_id {
-            package_ids.insert(package_id.clone());
+        let mut package_ids = self
+            .safe_required_runtime_packages()
+            .map(ToString::to_string)
+            .collect::<BTreeSet<_>>();
+        if let Some(package_id) = self.safe_content_package_id() {
+            package_ids.insert(package_id.to_string());
         }
         package_ids
+    }
+
+    pub(crate) fn safe_content_package_id(&self) -> Option<&str> {
+        self.content_package_id
+            .as_deref()
+            .filter(|package_id| is_safe_native_package_id(package_id))
+    }
+
+    pub(crate) fn safe_required_runtime_packages(&self) -> impl Iterator<Item = &str> {
+        self.required_runtime_packages
+            .iter()
+            .map(String::as_str)
+            .filter(|package_id| is_safe_native_package_id(package_id))
     }
 }
 
@@ -93,6 +109,30 @@ pub(crate) fn is_safe_native_asset_type(asset_type: &str) -> bool {
 
 pub(crate) fn is_safe_native_asset_ref(asset_type: &str, asset_name: &str) -> bool {
     is_safe_native_asset_type(asset_type) && is_safe_native_asset_name(asset_name)
+}
+
+pub(crate) fn is_safe_native_package_id(package_id: &str) -> bool {
+    if package_id.trim().is_empty()
+        || package_id.trim() != package_id
+        || package_id.chars().any(char::is_control)
+        || has_uri_scheme(package_id)
+        || package_id.contains(['?', '#'])
+        || package_id.starts_with('/')
+    {
+        return false;
+    }
+
+    let normalized = package_id.replace('\\', "/");
+    if normalized.split('/').any(|segment| segment == "..")
+        || package_id.contains("..")
+        || package_id.contains(['/', '\\'])
+    {
+        return false;
+    }
+
+    package_id
+        .chars()
+        .all(|char| char.is_ascii_alphanumeric() || matches!(char, '.' | '-' | '_'))
 }
 
 fn is_forbidden_native_payload_reference(asset_name: &str) -> bool {
@@ -174,5 +214,57 @@ mod tests {
                 "asset name should be unsafe: {asset_name:?}"
             );
         }
+    }
+
+    #[test]
+    fn validates_safe_native_package_ids() {
+        assert!(is_safe_native_package_id("base"));
+        assert!(is_safe_native_package_id("runtime.ui-1"));
+        assert!(is_safe_native_package_id("runtime_ui"));
+
+        for package_id in [
+            "",
+            "   ",
+            " runtime.ui",
+            "runtime.ui ",
+            "runtime/ui",
+            "runtime\\ui",
+            "/runtime.ui",
+            "https://example.test/runtime.ui",
+            "runtime.ui?rev=1",
+            "runtime.ui#hash",
+            "runtime..ui",
+            "../runtime.ui",
+            "runtime:ui",
+            "runtime ui",
+            "runtime.ui\n",
+        ] {
+            assert!(
+                !is_safe_native_package_id(package_id),
+                "package id should be unsafe: {package_id:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn package_ids_skip_unsafe_provenance_ids() {
+        let provenance = PackageProvenance {
+            content_package_id: Some("https://example.test/runtime.ui".to_string()),
+            required_runtime_packages: [
+                "base".to_string(),
+                "runtime.good".to_string(),
+                "runtime/bad".to_string(),
+                "runtime..bad".to_string(),
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        assert_eq!(
+            provenance.package_ids(),
+            ["base".to_string(), "runtime.good".to_string()]
+                .into_iter()
+                .collect()
+        );
     }
 }

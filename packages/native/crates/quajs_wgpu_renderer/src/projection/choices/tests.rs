@@ -113,6 +113,37 @@ fn appends_choice_commands_and_preserves_package_provenance() {
         .contains("runtime.choices"));
 }
 
+#[test]
+fn skips_unsafe_package_provenance_on_direct_projection() {
+    let mut graph = RenderGraph::new(test_layout());
+    let choices = ChoiceSetProjection {
+        provenance: provenance("runtime.choices?rev=1", ["base", "runtime/ui"]),
+        choices: vec![ChoiceProjection {
+            provenance: provenance("runtime.choice-a", ["runtime.choices", "bad#hash"]),
+            ..ChoiceProjection::new("a", "A")
+        }],
+        visible: true,
+    };
+
+    append_choice_commands(&mut graph, &choices);
+
+    assert_eq!(graph.commands()[0].owner_package_id, None);
+    assert!(graph.commands()[0].required_package_ids.contains("base"));
+    assert!(!graph.commands()[0]
+        .required_package_ids
+        .contains("runtime/ui"));
+    assert_eq!(
+        graph.commands()[1].owner_package_id.as_deref(),
+        Some("runtime.choice-a")
+    );
+    assert!(graph.commands()[1]
+        .required_package_ids
+        .contains("runtime.choices"));
+    assert!(!graph.commands()[1]
+        .required_package_ids
+        .contains("bad#hash"));
+}
+
 fn test_layout() -> ResolvedStageLayout {
     resolve_stage_layout(
         Some(ViewLayoutInput {

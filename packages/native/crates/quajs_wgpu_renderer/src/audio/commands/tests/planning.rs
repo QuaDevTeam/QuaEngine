@@ -32,6 +32,18 @@ fn plans_load_and_start_commands_for_new_tracks() {
 }
 
 #[test]
+fn fallback_package_candidates_skip_unsafe_projection_provenance() {
+    let audio = AudioProjection::new(vec![track("bgm-main", "music/opening.ogg")
+        .with_provenance(provenance("runtime/audio", ["base", "runtime/ui"]))]);
+
+    let plan =
+        plan_audio_backend_commands(&AudioBackendTrackStateMap::new(), Some(&audio), &assets([]));
+
+    let track = plan.next_tracks.get("bgm-main").unwrap();
+    assert_eq!(track.package_candidates, set(["base"]));
+}
+
+#[test]
 fn skips_stopped_projection_tracks() {
     let mut stopped = track("bgm-main", "music/opening.ogg");
     stopped.playback_state = AudioTrackPlaybackState::Stopped;

@@ -157,6 +157,32 @@ fn projects_inline_image_params_and_custom_asset_type() {
 }
 
 #[test]
+fn skips_unsafe_inline_surface_node_package_provenance() {
+    let layout = test_layout();
+    let mut poster = UiSurfaceNodeProjection::new(
+        "poster",
+        UiSurfaceNodeKind::Image,
+        rect(48.0, 108.0, 180.0, 120.0),
+    )
+    .with_image(UiSurfaceImageProjection::new("ui/poster.png"));
+    poster.provenance = provenance("runtime/poster", ["runtime.ui", "../bad"]);
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(poster)),
+        provenance: provenance("runtime.menu", ["base.ui"]),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let image = &commands[1];
+
+    assert_eq!(image.owner_package_id.as_deref(), Some("runtime.menu"));
+    assert!(image.required_package_ids.contains("base.ui"));
+    assert!(image.required_package_ids.contains("runtime.ui"));
+    assert!(!image.required_package_ids.contains("../bad"));
+    assert!(!image.required_package_ids.contains("runtime/poster"));
+}
+
+#[test]
 fn skips_inline_image_nodes_without_resolved_asset() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {

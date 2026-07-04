@@ -100,12 +100,12 @@ fn choice_command(
 }
 
 fn apply_provenance(mut command: DrawCommand, provenance: &PackageProvenance) -> DrawCommand {
-    if let Some(package_id) = &provenance.content_package_id {
-        command = command.owned_by(package_id.clone());
+    if let Some(package_id) = provenance.safe_content_package_id() {
+        command = command.owned_by(package_id);
     }
 
-    for package_id in &provenance.required_runtime_packages {
-        command = command.require_package(package_id.clone());
+    for package_id in provenance.safe_required_runtime_packages() {
+        command = command.require_package(package_id);
     }
 
     command
