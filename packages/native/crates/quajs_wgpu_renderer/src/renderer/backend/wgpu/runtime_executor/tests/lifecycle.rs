@@ -87,7 +87,7 @@ fn reports_skipped_draw_reasons_and_missing_resources_from_runtime_plan() {
                 pass_label: "pass".to_string(),
                 command_id: "ui:confirm".to_string(),
                 reason: "pipeline unavailable".to_string(),
-                resource_ids: Vec::new(),
+                resource_ids: vec!["images:decorative-frame.png".to_string()],
                 owner_package_id: Some("runtime.ui".to_string()),
                 required_package_ids: vec!["base".to_string()],
             },
@@ -134,10 +134,7 @@ fn reports_skipped_draw_reasons_and_missing_resources_from_runtime_plan() {
     );
     assert_eq!(
         report.missing_resource_references_by_owner_package,
-        BTreeMap::from([
-            ("runtime.menu".to_string(), 3),
-            ("runtime.ui".to_string(), 0)
-        ])
+        BTreeMap::from([("runtime.menu".to_string(), 3)])
     );
     assert_eq!(
         report.missing_resource_references_by_required_package,
