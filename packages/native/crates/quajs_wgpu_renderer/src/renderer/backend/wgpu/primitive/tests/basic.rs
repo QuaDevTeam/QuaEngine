@@ -163,3 +163,52 @@ fn empty_clip_primitives_do_not_count_as_visible_draw_work() {
         .iter()
         .all(|primitive| !primitive.is_visible()));
 }
+
+#[test]
+fn basic_shape_commands_without_params_render_as_visible_fallback_panels() {
+    let plan = WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution_plan(vec![
+        WgpuNativeRenderExecutionOperation::Draw {
+            command_id: "debug:rect".to_string(),
+            pipeline: DrawBatchPipeline::Shape,
+            kind: DrawCommandKind::Rect,
+            metadata: draw_metadata(DrawCommandParams::None),
+            physical_bounds: physical_rect(24, 32, 180, 80),
+            clip_depth: 0,
+            resource_count: 0,
+        },
+        WgpuNativeRenderExecutionOperation::Draw {
+            command_id: "debug:rounded".to_string(),
+            pipeline: DrawBatchPipeline::Shape,
+            kind: DrawCommandKind::RoundedRect,
+            metadata: draw_metadata(DrawCommandParams::None),
+            physical_bounds: physical_rect(240, 32, 180, 80),
+            clip_depth: 0,
+            resource_count: 0,
+        },
+    ]));
+
+    assert_eq!(plan.primitive_count, 2);
+    assert_eq!(plan.visible_primitive_count, 2);
+    assert_eq!(plan.skipped_draw_count, 0);
+    for primitive in &plan.passes[0].primitives {
+        assert!(primitive.is_visible());
+        assert!(matches!(
+            &primitive.kind,
+            WgpuNativeRenderPrimitiveKind::Panel {
+                fill_color,
+                corner_radius,
+                border,
+            } if fill_color == "#ffffff"
+                && *corner_radius == 0.0
+                && border == &WgpuNativeRenderPrimitiveBorder::default()
+        ));
+    }
+    assert_eq!(
+        plan.passes[0].primitives[0].draw_kind,
+        DrawCommandKind::Rect
+    );
+    assert_eq!(
+        plan.passes[0].primitives[1].draw_kind,
+        DrawCommandKind::RoundedRect
+    );
+}

@@ -66,7 +66,7 @@ impl WgpuNativeRenderPrimitive {
             command_id: command_id.to_string(),
             pipeline,
             draw_kind,
-            kind: primitive_kind_from_params(&metadata.params),
+            kind: primitive_kind_from_params(draw_kind, &metadata.params),
             logical_bounds: metadata.bounds,
             physical_bounds,
             scissor,
@@ -106,7 +106,10 @@ impl WgpuNativeRenderPrimitive {
     }
 }
 
-fn primitive_kind_from_params(params: &DrawCommandParams) -> WgpuNativeRenderPrimitiveKind {
+fn primitive_kind_from_params(
+    draw_kind: DrawCommandKind,
+    params: &DrawCommandParams,
+) -> WgpuNativeRenderPrimitiveKind {
     match params {
         DrawCommandParams::Image(params) => WgpuNativeRenderPrimitiveKind::Image {
             asset_type: params.asset_type.clone(),
@@ -154,7 +157,20 @@ fn primitive_kind_from_params(params: &DrawCommandParams) -> WgpuNativeRenderPri
             surface_key: params.surface_key.clone(),
             interactive: params.interactive,
         },
-        DrawCommandParams::None => WgpuNativeRenderPrimitiveKind::Empty,
+        DrawCommandParams::None => primitive_kind_from_draw_kind(draw_kind),
+    }
+}
+
+fn primitive_kind_from_draw_kind(draw_kind: DrawCommandKind) -> WgpuNativeRenderPrimitiveKind {
+    match draw_kind {
+        DrawCommandKind::Rect | DrawCommandKind::RoundedRect => {
+            WgpuNativeRenderPrimitiveKind::Panel {
+                fill_color: "#ffffff".to_string(),
+                corner_radius: 0.0,
+                border: WgpuNativeRenderPrimitiveBorder::default(),
+            }
+        }
+        _ => WgpuNativeRenderPrimitiveKind::Empty,
     }
 }
 
