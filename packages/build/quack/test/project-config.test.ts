@@ -778,6 +778,52 @@ describe('qua project config', () => {
     }
   })
 
+  it('rejects post-bundle graphs that retain inactive target core plugins before writing', async () => {
+    const root = await createProjectRoot()
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const artifactDir = join(root, 'dist', `post-bundle-core-leak-${target}`)
+      const manifestPath = join(artifactDir, QUA_TARGET_BUNDLE_MANIFEST_FILE)
+      const inactiveCoreAdapters = foreignCoreAdaptersForTarget(target)
+      const manifest: TargetBundleManifest = {
+        ...createTargetBundleManifestFixture(target),
+        projectGraphs: [
+          {
+            id: `${target}.post-bundle.generated`,
+            kind: 'post-bundle',
+            references: [
+              '@quajs/engine',
+              ...CORE_ADAPTERS_BY_TARGET[target],
+              ...inactiveCoreAdapters,
+            ],
+          },
+        ],
+      }
+      const validation = validateTargetBundleManifest(manifest, { expectedTarget: target })
+
+      expect(validation.ok).toBe(false)
+      for (const packageName of inactiveCoreAdapters) {
+        expect(validation.diagnostics).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+            target,
+            packageName,
+            projectGraphId: `${target}.post-bundle.generated`,
+            projectGraphKind: 'post-bundle',
+          }),
+        ]))
+      }
+
+      await expect(emitQuaTargetBundleManifest({
+        artifactDir,
+        expectedTarget: target,
+        manifest,
+        manifestPath,
+      })).rejects.toThrow('Target bundle manifest validation failed')
+      await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+    }
+  })
+
   it('rejects target bundle manifests before writing when the expected target does not match', async () => {
     const root = await createProjectRoot()
     const manifestPath = join(root, 'dist/native', QUA_TARGET_BUNDLE_MANIFEST_FILE)
