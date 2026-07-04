@@ -26,9 +26,28 @@ fn records_submissions_without_gpu_work() {
             resources: &resources,
         })
         .unwrap();
+    let expected_encoder_plan =
+        NativeBackendEncoderPlan::from_draw_plan(backend.last_draw_plan().unwrap());
+    let expected_command_stream_plan =
+        NativeBackendCommandStreamPlan::from_encoder_plan(&expected_encoder_plan);
+    let expected_execution_report =
+        NativeBackendExecutionReport::from_command_stream_plan(&expected_command_stream_plan);
 
     assert_eq!(backend.submissions(), &[submission.clone()]);
     assert_eq!(backend.last_submission(), Some(&submission));
+    assert_eq!(backend.last_encoder_plan(), Some(&expected_encoder_plan));
+    assert_eq!(
+        backend.last_command_stream_plan(),
+        Some(&expected_command_stream_plan)
+    );
+    assert_eq!(
+        backend.execution_reports(),
+        &[expected_execution_report.clone()]
+    );
+    assert_eq!(
+        backend.last_execution_report(),
+        Some(&expected_execution_report)
+    );
     assert_eq!(
         backend.diagnostics(),
         NullNativeRenderBackendDiagnostics {
@@ -43,6 +62,9 @@ fn records_submissions_without_gpu_work() {
             fallback_warnings: NativeRenderFallbackWarningDiagnostics::default(),
             last_submission: Some(submission),
             last_draw_plan: backend.last_draw_plan().cloned(),
+            last_encoder_plan: Some(expected_encoder_plan),
+            last_command_stream_plan: Some(expected_command_stream_plan),
+            last_execution_report: Some(expected_execution_report),
         }
     );
 }

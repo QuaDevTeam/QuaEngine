@@ -78,7 +78,17 @@ fn client_point_for_choice<B>(
 where
     B: NativeRenderBackend,
 {
-    let choice = renderer
+    client_point_for_command(renderer, command_id)
+}
+
+fn client_point_for_command<B>(
+    renderer: &NativeRenderer<B>,
+    command_id: &str,
+) -> (StageClientPoint, StageClientRectOrigin)
+where
+    B: NativeRenderBackend,
+{
+    let command = renderer
         .state()
         .frame()
         .unwrap()
@@ -88,8 +98,8 @@ where
         .find(|command| command.id == command_id)
         .unwrap();
     let logical = StageLogicalPoint {
-        x: choice.bounds.x + choice.bounds.width / 2.0,
-        y: choice.bounds.y + choice.bounds.height / 2.0,
+        x: command.bounds.x + command.bounds.width / 2.0,
+        y: command.bounds.y + command.bounds.height / 2.0,
     };
     let origin = StageClientRectOrigin {
         left: 64.0,

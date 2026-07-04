@@ -24,6 +24,59 @@ pub struct NativeAssetRequest {
     pub asset_name: String,
     pub kind: NativeResourceKind,
     pub command_ids: BTreeSet<String>,
+    pub owner_package_ids: BTreeSet<String>,
+    pub required_package_ids: BTreeSet<String>,
+    pub package_candidates: BTreeSet<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeTextureUploadRequestPlan {
+    pub requests: Vec<NativeTextureUploadRequest>,
+    pub skipped_resource_ids: Vec<ResourceId>,
+    pub non_texture_resource_ids: Vec<ResourceId>,
+}
+
+impl NativeTextureUploadRequestPlan {
+    pub fn request(
+        &self,
+        asset_type: &str,
+        asset_name: &str,
+    ) -> Option<&NativeTextureUploadRequest> {
+        self.requests
+            .iter()
+            .find(|request| request.asset_type == asset_type && request.asset_name == asset_name)
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeTextureUploadSyncPlan {
+    pub pending_requests: Vec<NativeTextureUploadRequest>,
+    pub resident_resource_ids: Vec<ResourceId>,
+    pub orphaned_resident_resource_ids: Vec<ResourceId>,
+    pub skipped_resource_ids: Vec<ResourceId>,
+    pub non_texture_resource_ids: Vec<ResourceId>,
+}
+
+impl NativeTextureUploadSyncPlan {
+    pub fn pending_request(
+        &self,
+        asset_type: &str,
+        asset_name: &str,
+    ) -> Option<&NativeTextureUploadRequest> {
+        self.pending_requests
+            .iter()
+            .find(|request| request.asset_type == asset_type && request.asset_name == asset_name)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NativeTextureUploadRequest {
+    pub resource_id: ResourceId,
+    pub asset_type: String,
+    pub asset_name: String,
+    pub command_ids: BTreeSet<String>,
+    pub owner_package_ids: BTreeSet<String>,
+    pub required_package_ids: BTreeSet<String>,
     pub package_candidates: BTreeSet<String>,
 }
 
@@ -49,6 +102,12 @@ pub fn plan_asset_requests(resources: &RenderResourcePlan) -> NativeAssetRequest
         asset_request
             .package_candidates
             .extend(request.package_ids());
+        asset_request
+            .owner_package_ids
+            .extend(request.owner_package_ids.iter().cloned());
+        asset_request
+            .required_package_ids
+            .extend(request.required_package_ids.iter().cloned());
     }
 
     NativeAssetRequestPlan {
@@ -64,6 +123,66 @@ pub fn is_declarative_asset_kind(kind: NativeResourceKind) -> bool {
     )
 }
 
+pub fn plan_texture_upload_requests(
+    assets: &NativeAssetRequestPlan,
+) -> NativeTextureUploadRequestPlan {
+    let mut plan = NativeTextureUploadRequestPlan {
+        skipped_resource_ids: assets.skipped_resource_ids.clone(),
+        ..Default::default()
+    };
+
+    for request in &assets.requests {
+        if request.kind == NativeResourceKind::Texture {
+            plan.requests
+                .push(texture_upload_request_from_asset(request));
+        } else {
+            plan.non_texture_resource_ids
+                .push(request.resource_id.clone());
+        }
+    }
+
+    plan
+}
+
+pub fn plan_texture_upload_sync<I, S>(
+    texture_uploads: &NativeTextureUploadRequestPlan,
+    resident_texture_resource_ids: I,
+) -> NativeTextureUploadSyncPlan
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let resident_ids = resident_texture_resource_ids
+        .into_iter()
+        .map(|id| id.as_ref().to_string())
+        .collect::<BTreeSet<_>>();
+    let requested_ids = texture_uploads
+        .requests
+        .iter()
+        .map(|request| request.resource_id.as_str().to_string())
+        .collect::<BTreeSet<_>>();
+    let mut sync = NativeTextureUploadSyncPlan {
+        skipped_resource_ids: texture_uploads.skipped_resource_ids.clone(),
+        non_texture_resource_ids: texture_uploads.non_texture_resource_ids.clone(),
+        ..Default::default()
+    };
+
+    for request in &texture_uploads.requests {
+        if resident_ids.contains(request.resource_id.as_str()) {
+            sync.resident_resource_ids.push(request.resource_id.clone());
+        } else {
+            sync.pending_requests.push(request.clone());
+        }
+    }
+
+    sync.orphaned_resident_resource_ids = resident_ids
+        .difference(&requested_ids)
+        .map(|id| ResourceId::from(id.clone()))
+        .collect();
+
+    sync
+}
+
 fn asset_request_from_resource(
     request: &RenderResourceRequest,
     asset_type: String,
@@ -75,7 +194,21 @@ fn asset_request_from_resource(
         asset_name,
         kind: request.kind,
         command_ids: request.command_ids.clone(),
+        owner_package_ids: request.owner_package_ids.clone(),
+        required_package_ids: request.required_package_ids.clone(),
         package_candidates: request.package_ids(),
+    }
+}
+
+fn texture_upload_request_from_asset(request: &NativeAssetRequest) -> NativeTextureUploadRequest {
+    NativeTextureUploadRequest {
+        resource_id: request.resource_id.clone(),
+        asset_type: request.asset_type.clone(),
+        asset_name: request.asset_name.clone(),
+        command_ids: request.command_ids.clone(),
+        owner_package_ids: request.owner_package_ids.clone(),
+        required_package_ids: request.required_package_ids.clone(),
+        package_candidates: request.package_candidates.clone(),
     }
 }
 
