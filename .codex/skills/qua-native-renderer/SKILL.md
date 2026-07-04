@@ -167,6 +167,7 @@ Shared engine/game/plugin packages may be reused only when platform-neutral.
 Prefer light checks while disk is tight:
 
 ```bash
+pnpm native:verify --no-bench --no-window
 pnpm --filter @quajs/native-contracts typecheck
 pnpm --filter @quajs/native-contracts test -- --run
 pnpm --filter @quajs/engine-native test -- --run
