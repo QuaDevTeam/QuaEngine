@@ -27,20 +27,35 @@ pub(super) fn append_bitmap_word(
         if cursor_x >= text_right {
             break;
         }
-        if bitmap_glyph_rows(character).is_some() {
-            let glyph_bounds = append_bitmap_glyph(
-                vertices,
-                indices,
-                character,
-                cursor_x,
-                y,
-                pixel,
-                weight_scale,
-                content_rect,
-                color,
-                text_right,
-                glyph_shear,
-            );
+        if !character.is_whitespace() {
+            let glyph_bounds = if bitmap_glyph_rows(character).is_some() {
+                append_bitmap_glyph(
+                    vertices,
+                    indices,
+                    character,
+                    cursor_x,
+                    y,
+                    pixel,
+                    weight_scale,
+                    content_rect,
+                    color,
+                    text_right,
+                    glyph_shear,
+                )
+            } else {
+                append_bitmap_fallback_glyph(
+                    vertices,
+                    indices,
+                    cursor_x,
+                    y,
+                    pixel,
+                    weight_scale,
+                    content_rect,
+                    color,
+                    text_right,
+                    glyph_shear,
+                )
+            };
             physical_bounds = union_optional_physical_rect(physical_bounds, glyph_bounds);
         }
         cursor_x += bitmap_glyph_advance(pixel, letter_spacing, weight_scale);
@@ -91,6 +106,61 @@ fn append_bitmap_glyph(
     glyph_shear: f32,
 ) -> Option<WgpuPhysicalRect> {
     let uv_bounds = bitmap_glyph_uv_bounds(character)?;
+    append_bitmap_glyph_rect(
+        vertices,
+        indices,
+        x,
+        y,
+        pixel,
+        weight_scale,
+        content_rect,
+        color,
+        text_right,
+        glyph_shear,
+        uv_bounds,
+    )
+}
+
+fn append_bitmap_fallback_glyph(
+    vertices: &mut Vec<WgpuNativeRenderBufferVertex>,
+    indices: &mut Vec<u32>,
+    x: f32,
+    y: f32,
+    pixel: f32,
+    weight_scale: f32,
+    content_rect: FloatRect,
+    color: [f32; 4],
+    text_right: f32,
+    glyph_shear: f32,
+) -> Option<WgpuPhysicalRect> {
+    append_bitmap_glyph_rect(
+        vertices,
+        indices,
+        x,
+        y,
+        pixel,
+        weight_scale,
+        content_rect,
+        color,
+        text_right,
+        glyph_shear,
+        bitmap_solid_uv_bounds(),
+    )
+}
+
+fn append_bitmap_glyph_rect(
+    vertices: &mut Vec<WgpuNativeRenderBufferVertex>,
+    indices: &mut Vec<u32>,
+    x: f32,
+    y: f32,
+    pixel: f32,
+    weight_scale: f32,
+    content_rect: FloatRect,
+    color: [f32; 4],
+    text_right: f32,
+    glyph_shear: f32,
+    uv_bounds: BitmapAtlasUvBounds,
+) -> Option<WgpuPhysicalRect> {
     let rect = FloatRect {
         x,
         y,

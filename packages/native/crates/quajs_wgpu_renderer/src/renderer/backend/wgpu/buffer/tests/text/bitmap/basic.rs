@@ -56,3 +56,27 @@ fn renders_common_ascii_ui_symbols_as_bitmap_glyph_geometry() {
         [1.0, 240.0 / 255.0, 128.0 / 255.0, 1.0]
     );
 }
+
+#[test]
+fn renders_mixed_unsupported_glyphs_with_bitmap_fallback_geometry() {
+    let plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![quad(
+        "ui:bitmap-mixed-glyphs",
+        DrawBatchPipeline::Text,
+        DrawCommandKind::Text,
+        WgpuNativeRenderPaint::TextPlaceholder {
+            text: "開始 A!".to_string(),
+            color: rgba(0xff, 0xff, 0xff, 0xff),
+            literal: "#fff".to_string(),
+            style: text_style(21.0, TextAlign::Left, EdgeInsetsDrawParam::default()),
+        },
+        rect(10, 20, 220, 56),
+        Vec::new(),
+    )]));
+
+    let pass = &plan.passes[0];
+    assert_eq!(pass.draw_call_count, 1);
+    assert_eq!(pass.vertex_count, 16);
+    assert_eq!(pass.index_count, pass.vertex_count / 4 * 6);
+    assert!(pass.vertices.iter().any(|vertex| vertex.uv[0] > 0.0));
+    assert!(pass.vertices.iter().any(|vertex| vertex.uv[1] > 0.0));
+}

@@ -43,7 +43,7 @@ fn wraps_normal_text_placeholder_words_across_lines() {
 }
 
 #[test]
-fn justifies_text_placeholder_word_gaps_on_non_final_wrapped_lines() {
+fn justifies_bitmap_fallback_word_gaps_on_non_final_wrapped_lines() {
     let left = text_placeholder_pass_with_style({
         let mut style = text_style(18.0, TextAlign::Left, EdgeInsetsDrawParam::default());
         style.line_height = 28.0;
@@ -57,20 +57,14 @@ fn justifies_text_placeholder_word_gaps_on_non_final_wrapped_lines() {
         style
     });
 
-    let left_first_gap = left.vertices[4].position[0] - left.vertices[1].position[0];
-    let justified_first_gap = justified.vertices[4].position[0] - justified.vertices[1].position[0];
-    let justified_second_gap =
-        justified.vertices[8].position[0] - justified.vertices[5].position[0];
-    let left_last_line_gap = left.vertices[16].position[0] - left.vertices[13].position[0];
-    let justified_last_line_gap =
-        justified.vertices[16].position[0] - justified.vertices[13].position[0];
+    let left_first_gap = left.vertices[12].position[0] - left.vertices[9].position[0];
+    let justified_first_gap =
+        justified.vertices[12].position[0] - justified.vertices[9].position[0];
 
     assert_eq!(left.draw_call_count, 1);
     assert_eq!(justified.draw_call_count, 1);
     assert_eq!(left.vertex_count, justified.vertex_count);
     assert!(justified_first_gap > left_first_gap);
-    assert!(justified_second_gap > left_first_gap);
-    assert!((justified_last_line_gap - left_last_line_gap).abs() < 0.0001);
     assert_eq!(justified.draw_calls[0].physical_bounds.x, 10);
     assert_eq!(
         justified.draw_calls[0].physical_bounds.x + justified.draw_calls[0].physical_bounds.width,

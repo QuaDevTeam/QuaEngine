@@ -1,6 +1,6 @@
 use super::super::super::super::primitive::WgpuNativeRenderTextStyle;
 use super::super::super::geometry::FloatRect;
-use super::glyphs::{bitmap_glyph_rows, BITMAP_GLYPH_WIDTH};
+use super::glyphs::BITMAP_GLYPH_WIDTH;
 use crate::render_graph::{FontStyleDrawParam, TextDecorationDrawParam};
 
 pub(super) fn can_use_bitmap_text(text: &str, style: &WgpuNativeRenderTextStyle) -> bool {
@@ -12,9 +12,7 @@ pub(super) fn can_use_bitmap_text(text: &str, style: &WgpuNativeRenderTextStyle)
         TextDecorationDrawParam::None
             | TextDecorationDrawParam::Underline
             | TextDecorationDrawParam::LineThrough
-    ) && text
-        .chars()
-        .all(|character| character.is_whitespace() || bitmap_glyph_rows(character).is_some())
+    ) && text.chars().any(|character| !character.is_whitespace())
 }
 
 pub(super) fn bitmap_words_width(

@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn emits_button_text_overlay_as_text_placeholder_draw_call() {
+fn emits_button_text_overlay_as_bitmap_text_draw_call() {
     let mut button = quad(
         "ui:button",
         DrawBatchPipeline::Ui,
@@ -23,8 +23,8 @@ fn emits_button_text_overlay_as_text_placeholder_draw_call() {
     let plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![button]));
 
     let pass = &plan.passes[0];
-    assert_eq!(pass.vertex_count, 8);
-    assert_eq!(pass.index_count, 12);
+    assert_eq!(pass.vertex_count, 24);
+    assert_eq!(pass.index_count, 36);
     assert_eq!(pass.draw_call_count, 2);
     assert_eq!(
         pass.draw_calls

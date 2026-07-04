@@ -1,7 +1,7 @@
 mod layout;
 mod line;
 mod metrics;
-mod transform;
+pub(in crate::renderer::backend::wgpu::buffer::text_geometry) mod transform;
 
 pub(super) use layout::{aligned_line_x, ellipsis_marker_rects, text_decoration_rect};
 pub(super) use line::placeholder_lines;

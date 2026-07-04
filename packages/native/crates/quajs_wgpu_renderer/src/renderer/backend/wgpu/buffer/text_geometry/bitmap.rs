@@ -1,7 +1,7 @@
 use super::super::super::primitive::WgpuNativeRenderTextStyle;
 use super::super::geometry::{FloatRect, WgpuNativeRenderBufferGeometry};
 use super::placeholder::{
-    aligned_line_x, font_style_shear, font_weight_scale, max_visible_lines, placeholder_lines,
+    aligned_line_x, font_style_shear, font_weight_scale, max_visible_lines,
     should_justify_placeholder_line, text_decoration_rect,
 };
 use crate::render_graph::TextOverflowDrawParam;
@@ -9,10 +9,12 @@ use crate::renderer::backend::wgpu::WgpuPhysicalRect;
 
 mod append;
 pub(crate) mod glyphs;
+mod line;
 mod metrics;
 
 use self::append::{append_bitmap_rect, append_bitmap_word, union_optional_physical_rect};
 use self::glyphs::BITMAP_GLYPH_HEIGHT;
+use self::line::bitmap_lines;
 use self::metrics::{
     bitmap_ellipsis_rects, bitmap_ellipsis_width, bitmap_line_word_gap, bitmap_word_width,
     bitmap_words_width, can_use_bitmap_text,
@@ -43,11 +45,11 @@ pub(super) fn bitmap_text_geometry(
     let glyph_shear = font_style_shear(style.font_style, font_size);
     color[3] *= opacity.clamp(0.0, 1.0);
 
-    let lines = placeholder_lines(
+    let lines = bitmap_lines(
         text,
         style,
         content_rect.width,
-        font_size,
+        pixel,
         letter_spacing,
         weight_scale,
     );
