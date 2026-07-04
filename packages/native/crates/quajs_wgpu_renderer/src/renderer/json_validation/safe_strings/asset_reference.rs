@@ -9,6 +9,12 @@ pub(in crate::renderer::json_validation) fn invalid_native_json_asset_reference_
     if asset_name.trim().is_empty() || strip_asset_reference_suffix(asset_name).trim().is_empty() {
         return Some("asset references must not be empty".to_string());
     }
+    if asset_name.trim() != asset_name {
+        return Some("asset references must not contain surrounding whitespace".to_string());
+    }
+    if asset_name.chars().any(char::is_control) {
+        return Some("asset references must not contain control characters".to_string());
+    }
     if asset_name.contains('\\') {
         return Some("asset references must use forward-slash package paths".to_string());
     }

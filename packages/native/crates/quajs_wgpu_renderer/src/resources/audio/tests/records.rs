@@ -81,6 +81,25 @@ fn skips_audio_resources_for_empty_asset_names() {
 }
 
 #[test]
+fn skips_audio_resources_for_unsafe_asset_names() {
+    let audio = AudioProjection::new(vec![
+        AudioTrackProjection::new("bgm-traversal", AudioTrackKind::Bgm, "../music/a.ogg"),
+        AudioTrackProjection::new(
+            "bgm-url",
+            AudioTrackKind::Bgm,
+            "https://example.test/music/b.ogg",
+        ),
+        AudioTrackProjection::new("bgm-absolute", AudioTrackKind::Bgm, "/music/c.ogg"),
+        AudioTrackProjection::new("bgm-backslash", AudioTrackKind::Bgm, "music\\d.ogg"),
+        AudioTrackProjection::new("bgm-payload", AudioTrackKind::Bgm, "music/native.dll?rev=1"),
+    ]);
+
+    let records = audio_resource_records(Some(&audio));
+
+    assert!(records.is_empty());
+}
+
+#[test]
 fn skips_audio_resources_for_empty_or_unsafe_asset_types() {
     let mut empty_type =
         AudioTrackProjection::new("bgm-empty-type", AudioTrackKind::Bgm, "music/a.ogg");

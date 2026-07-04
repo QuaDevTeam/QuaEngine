@@ -85,6 +85,46 @@ fn skips_hidden_or_missing_sprite_characters() {
 }
 
 #[test]
+fn skips_characters_with_unsafe_sprite_asset_names() {
+    let layout = test_layout();
+    let characters = [
+        CharacterProjection {
+            sprite: Some("../sprites/escape.png".to_string()),
+            ..CharacterProjection::new("traversal", "Traversal")
+        },
+        CharacterProjection {
+            sprite: Some("/sprites/absolute.png".to_string()),
+            ..CharacterProjection::new("absolute", "Absolute")
+        },
+        CharacterProjection {
+            sprite: Some("https://example.test/yuki.png".to_string()),
+            ..CharacterProjection::new("url", "Url")
+        },
+        CharacterProjection {
+            sprite: Some("sprites\\backslash.png".to_string()),
+            ..CharacterProjection::new("backslash", "Backslash")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/native.node?rev=1".to_string()),
+            ..CharacterProjection::new("payload", "Payload")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/yuki.png".to_string()),
+            ..CharacterProjection::new("valid", "Valid")
+        },
+    ];
+
+    let commands = build_character_commands(&layout, &characters);
+
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].id, "character:valid");
+    assert_eq!(
+        commands[0].resource_ids,
+        vec![ResourceId::from("characters:sprites/yuki.png")]
+    );
+}
+
+#[test]
 fn resolves_anchor_and_default_safe_area_position() {
     let layout = test_layout();
     let left = CharacterPosition {

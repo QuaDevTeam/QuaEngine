@@ -179,6 +179,38 @@ fn skips_empty_avatar_asset_on_direct_projection() {
 }
 
 #[test]
+fn skips_unsafe_avatar_asset_names_on_direct_projection() {
+    let layout = test_layout();
+
+    for asset_name in [
+        "../avatars/yuki.png",
+        "/avatars/yuki.png",
+        "https://example.test/yuki.png",
+        "avatars\\yuki.png",
+        "avatars/native.dylib?rev=1",
+    ] {
+        let dialogue = DialogueProjection {
+            avatar: Some(DialogueAvatarProjection {
+                asset_type: "characters".to_string(),
+                asset_name: asset_name.to_string(),
+                provenance: provenance("runtime.avatar", ["base"]),
+            }),
+            ..DialogueProjection::say("No avatar asset")
+        };
+
+        let commands = build_dialogue_commands(&layout, &dialogue);
+
+        assert_eq!(commands.len(), 2);
+        assert!(
+            commands
+                .iter()
+                .all(|command| command.id != "dialogue:avatar"),
+            "unsafe avatar asset should not create a command: {asset_name}"
+        );
+    }
+}
+
+#[test]
 fn skips_unsafe_avatar_asset_type_on_direct_projection() {
     let layout = test_layout();
     let dialogue = DialogueProjection {

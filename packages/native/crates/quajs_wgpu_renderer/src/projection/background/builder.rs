@@ -1,5 +1,5 @@
 use crate::projection::common::{
-    is_non_empty_asset_name, is_safe_native_asset_type, PackageProvenance,
+    is_safe_native_asset_name, is_safe_native_asset_type, PackageProvenance,
 };
 use crate::render_graph::{
     DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams, RenderGraph, RenderPlane,
@@ -25,7 +25,7 @@ pub fn build_background_commands(
         BackgroundMode::Image => background
             .asset_name
             .as_deref()
-            .filter(|asset_name| is_non_empty_asset_name(asset_name))
+            .filter(|asset_name| is_safe_native_asset_name(asset_name))
             .and_then(|asset_name| {
                 background_image_command(layout, "background:main", asset_name, background)
             })
@@ -34,13 +34,13 @@ pub fn build_background_commands(
         BackgroundMode::Layered => background
             .layers
             .iter()
-            .filter(|layer| layer.visible && is_non_empty_asset_name(&layer.asset_name))
+            .filter(|layer| layer.visible && is_safe_native_asset_name(&layer.asset_name))
             .filter_map(|layer| background_layer_command(layout, layer))
             .collect(),
         BackgroundMode::Video => background
             .video
             .as_ref()
-            .filter(|video| is_non_empty_asset_name(&video.asset_name))
+            .filter(|video| is_safe_native_asset_name(&video.asset_name))
             .map(|video| background_video_command(layout, video))
             .into_iter()
             .collect(),
@@ -119,7 +119,7 @@ fn background_video_command(
     let poster_asset_name = video
         .poster
         .as_deref()
-        .filter(|poster| is_non_empty_asset_name(poster))
+        .filter(|poster| is_safe_native_asset_name(poster))
         .map(ToString::to_string);
     let mut command = DrawCommand::new(
         "background:video",

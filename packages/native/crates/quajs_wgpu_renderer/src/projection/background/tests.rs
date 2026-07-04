@@ -162,6 +162,42 @@ fn skips_empty_background_asset_names_on_direct_projection() {
 }
 
 #[test]
+fn skips_unsafe_background_asset_names_on_direct_projection() {
+    let layout = test_layout();
+    let url_background = BackgroundProjection {
+        asset_name: Some("https://example.test/bg.png".to_string()),
+        ..Default::default()
+    };
+    assert!(build_background_commands(&layout, &url_background).is_empty());
+
+    let layered_background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        layers: vec![
+            BackgroundLayerProjection::new("traversal", "../layers/escape.png"),
+            BackgroundLayerProjection::new("absolute", "/layers/absolute.png"),
+            BackgroundLayerProjection::new("backslash", "layers\\backslash.png"),
+            BackgroundLayerProjection::new("payload", "layers/native.dll?rev=1"),
+            BackgroundLayerProjection::new("valid", "layers/valid.png"),
+        ],
+        ..Default::default()
+    };
+    let commands = build_background_commands(&layout, &layered_background);
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].id, "background:layer:valid");
+    assert_eq!(
+        commands[0].resource_ids,
+        vec![ResourceId::from("images:layers/valid.png")]
+    );
+
+    let unsafe_video = BackgroundProjection {
+        mode: BackgroundMode::Video,
+        video: Some(BackgroundVideoProjection::new("native/plugin.framework")),
+        ..Default::default()
+    };
+    assert!(build_background_commands(&layout, &unsafe_video).is_empty());
+}
+
+#[test]
 fn skips_unsafe_background_asset_types_on_direct_projection() {
     let layout = test_layout();
     let image_background = BackgroundProjection {
@@ -244,6 +280,32 @@ fn skips_empty_video_poster_resource_on_direct_projection() {
         mode: BackgroundMode::Video,
         video: Some(BackgroundVideoProjection {
             poster: Some("  ".to_string()),
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        }),
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+    let command = &commands[0];
+
+    assert_eq!(command.kind, DrawCommandKind::VideoFrame);
+    assert!(command.resource_ids.is_empty());
+    match &command.params {
+        DrawCommandParams::Video(params) => {
+            assert_eq!(params.asset_name, "movie/opening.mp4");
+            assert_eq!(params.poster_asset_name, None);
+        }
+        _ => panic!("expected video draw params"),
+    }
+}
+
+#[test]
+fn skips_unsafe_video_poster_resource_on_direct_projection() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Video,
+        video: Some(BackgroundVideoProjection {
+            poster: Some("../poster/escape.png".to_string()),
             ..BackgroundVideoProjection::new("movie/opening.mp4")
         }),
         ..Default::default()
