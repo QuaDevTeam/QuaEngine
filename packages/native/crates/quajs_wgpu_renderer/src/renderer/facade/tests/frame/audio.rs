@@ -130,6 +130,32 @@ fn clear_with_audio_teardown_skips_empty_backend_plans() {
 }
 
 #[test]
+fn clear_audio_teardown_failure_keeps_renderer_state() {
+    let mut renderer = NativeRenderer::with_audio_backend(
+        RecordingBackend::default(),
+        NullNativeAudioBackend::new(),
+    );
+    renderer
+        .prepare_frame_and_apply_audio(test_layout(), &view_with_audio())
+        .unwrap();
+    let (state, backend, _) = renderer.into_parts_with_audio();
+    let mut renderer =
+        NativeRenderer::with_state_and_audio_backend(state, backend, RejectingAudioBackend);
+
+    let error = renderer.clear_and_apply_audio_teardown().unwrap_err();
+
+    assert_eq!(
+        error,
+        NativeAudioBackendError::backend_rejected("test audio backend rejected plan")
+    );
+    assert!(!renderer.resources().is_empty());
+    assert!(renderer
+        .state()
+        .audio_backend_tracks()
+        .contains_key("bgm-main"));
+}
+
+#[test]
 fn clear_with_host_cleanup_can_apply_audio_teardown() {
     let mut renderer = NativeRenderer::with_audio_backend(
         RecordingBackend::default(),
