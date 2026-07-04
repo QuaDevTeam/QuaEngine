@@ -233,6 +233,70 @@ fn skips_inline_image_nodes_with_unsafe_asset_type() {
 }
 
 #[test]
+fn skips_inline_image_nodes_with_unsafe_asset_names() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Box,
+                    rect(0.0, 0.0, 520.0, 320.0),
+                )
+                .with_children(vec![
+                    UiSurfaceNodeProjection::new(
+                        "url",
+                        UiSurfaceNodeKind::Image,
+                        rect(48.0, 108.0, 180.0, 120.0),
+                    )
+                    .with_image(UiSurfaceImageProjection {
+                        asset_type: "images".to_string(),
+                        asset_name: "https://example.test/poster.png".to_string(),
+                    }),
+                    UiSurfaceNodeProjection::new(
+                        "traversal",
+                        UiSurfaceNodeKind::Image,
+                        rect(240.0, 108.0, 180.0, 120.0),
+                    )
+                    .with_image(UiSurfaceImageProjection {
+                        asset_type: "images".to_string(),
+                        asset_name: "../poster.png".to_string(),
+                    }),
+                    UiSurfaceNodeProjection::new(
+                        "payload",
+                        UiSurfaceNodeKind::Image,
+                        rect(432.0, 108.0, 180.0, 120.0),
+                    )
+                    .with_image(UiSurfaceImageProjection {
+                        asset_type: "images".to_string(),
+                        asset_name: "ui/native.wasm#rev".to_string(),
+                    }),
+                    UiSurfaceNodeProjection::new(
+                        "valid",
+                        UiSurfaceNodeKind::Image,
+                        rect(624.0, 108.0, 180.0, 120.0),
+                    )
+                    .with_image(UiSurfaceImageProjection::new("ui/poster.png")),
+                ]),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["ui:menu", "ui:menu:root", "ui:menu:valid"]);
+    assert_eq!(
+        commands[2].resource_ids,
+        vec![ResourceId::from("images:ui/poster.png")]
+    );
+}
+
+#[test]
 fn projects_surface_background_image_as_package_image_command() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {
@@ -384,6 +448,41 @@ fn skips_surface_background_image_with_unsafe_asset_type() {
                     background_image: Some(UiSurfaceImageProjection {
                         asset_type: "../images".to_string(),
                         asset_name: "ui/panel.png".to_string(),
+                    }),
+                    ..Default::default()
+                }),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["ui:menu", "ui:menu:root"]);
+    assert!(commands
+        .iter()
+        .all(|command| command.id != "ui:menu:root:background-image"));
+}
+
+#[test]
+fn skips_surface_background_image_with_unsafe_asset_name() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Panel,
+                    rect(0.0, 0.0, 520.0, 320.0),
+                )
+                .with_style(UiSurfaceResolvedStyle {
+                    background_image: Some(UiSurfaceImageProjection {
+                        asset_type: "images".to_string(),
+                        asset_name: "ui/native.dll?rev=1".to_string(),
                     }),
                     ..Default::default()
                 }),

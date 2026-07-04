@@ -56,6 +56,23 @@ fn skips_tracks_with_empty_asset_names() {
 }
 
 #[test]
+fn skips_tracks_with_unsafe_asset_names() {
+    let audio = AudioProjection::new(vec![
+        track("bgm-traversal", "../music/a.ogg"),
+        track("bgm-url", "https://example.test/music/b.ogg"),
+        track("bgm-absolute", "/music/c.ogg"),
+        track("bgm-backslash", "music\\d.ogg"),
+        track("bgm-payload", "music/native.dll?rev=1"),
+    ]);
+
+    let plan =
+        plan_audio_backend_commands(&AudioBackendTrackStateMap::new(), Some(&audio), &assets([]));
+
+    assert!(plan.is_empty());
+    assert!(plan.next_tracks.is_empty());
+}
+
+#[test]
 fn skips_tracks_with_empty_or_unsafe_asset_types() {
     let mut empty_type = track("bgm-empty-type", "music/a.ogg");
     empty_type.asset_type.clear();

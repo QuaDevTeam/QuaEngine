@@ -95,6 +95,26 @@ fn json_frame_asset_validation_rejects_empty_asset_names() {
 }
 
 #[test]
+fn json_frame_asset_validation_rejects_spaced_asset_names() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let error = renderer
+        .prepare_frame_json_str(json_frame_with_spaced_background_asset_input())
+        .unwrap_err();
+
+    match error {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.background.assetName");
+            assert_eq!(validation.asset_name, " bg/menu.png ");
+            assert!(validation.reason.contains("surrounding whitespace"));
+        }
+        other => panic!("expected validation error, got {other:?}"),
+    }
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_asset_validation_rejects_empty_ui_image_asset_names() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

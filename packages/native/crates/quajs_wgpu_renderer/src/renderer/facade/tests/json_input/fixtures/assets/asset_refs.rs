@@ -39,6 +39,20 @@ pub(in super::super::super) fn json_frame_with_remote_background_input() -> &'st
     "#
 }
 
+pub(in super::super::super) fn json_frame_with_spaced_background_asset_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "image",
+          "assetName": " bg/menu.png "
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super::super) fn json_frame_with_native_audio_payload_input() -> &'static str {
     r#"
     {

@@ -157,3 +157,49 @@ fn skips_audio_asset_requests_for_empty_or_unsafe_asset_types() {
         ]
     );
 }
+
+#[test]
+fn skips_audio_asset_requests_for_unsafe_asset_names() {
+    let mut ledger = NativeResourceLedger::new();
+    let url_asset = NativeResourceRecord::new(
+        "audio:buffer:bgm:bgm:https://example.test/a.ogg",
+        NativeResourceKind::AudioBuffer,
+    );
+    let traversal_asset = NativeResourceRecord::new(
+        "audio:stream:ambient:ambient:../amb/rain.opus",
+        NativeResourceKind::AudioStream,
+    );
+    let payload_asset = NativeResourceRecord::new(
+        "audio:buffer:voice:voice:voice/native.node?rev=1",
+        NativeResourceKind::AudioBuffer,
+    );
+    let suffix_only_asset = NativeResourceRecord::new(
+        "audio:buffer:voice:voice:?rev=1",
+        NativeResourceKind::AudioBuffer,
+    );
+    ledger.insert(traversal_asset.clone());
+    ledger.insert(payload_asset.clone());
+    ledger.insert(suffix_only_asset.clone());
+    let sync = AudioResourceSyncPlan {
+        upsert: vec![url_asset],
+        retain: vec![
+            traversal_asset.id.clone(),
+            payload_asset.id.clone(),
+            suffix_only_asset.id.clone(),
+        ],
+        release: Vec::new(),
+    };
+
+    let assets = plan_audio_asset_requests(&ledger, &sync);
+
+    assert!(assets.requests.is_empty());
+    assert_eq!(
+        assets.skipped_resource_ids,
+        vec![
+            ResourceId::from("audio:buffer:bgm:bgm:https://example.test/a.ogg"),
+            ResourceId::from("audio:stream:ambient:ambient:../amb/rain.opus"),
+            ResourceId::from("audio:buffer:voice:voice:voice/native.node?rev=1"),
+            ResourceId::from("audio:buffer:voice:voice:?rev=1"),
+        ]
+    );
+}

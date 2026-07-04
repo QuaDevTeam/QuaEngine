@@ -122,6 +122,41 @@ fn skips_resource_ids_with_unsafe_asset_types() {
 }
 
 #[test]
+fn skips_resource_ids_with_unsafe_asset_names() {
+    let mut graph = RenderGraph::new(test_layout());
+    graph.extend([
+        image_command("valid", "images:ui/panel.png?v=1"),
+        image_command("url", "images:https://example.test/panel.png"),
+        image_command("absolute", "images:/abs/panel.png"),
+        image_command("traversal", "images:../panel.png"),
+        image_command("backslash", "images:ui\\panel.png"),
+        image_command("payload", "images:ui/native.dll#rev"),
+        image_command("suffix-only", "images:?rev=1"),
+    ]);
+    let resources = plan_render_graph_resources(&graph);
+
+    let assets = plan_asset_requests(&resources);
+
+    assert_eq!(assets.requests.len(), 1);
+    assert!(assets.request("images", "ui/panel.png?v=1").is_some());
+    for resource_id in [
+        "images:https://example.test/panel.png",
+        "images:/abs/panel.png",
+        "images:../panel.png",
+        "images:ui\\panel.png",
+        "images:ui/native.dll#rev",
+        "images:?rev=1",
+    ] {
+        assert!(
+            assets
+                .skipped_resource_ids
+                .contains(&ResourceId::from(resource_id)),
+            "unsafe resource id should be skipped: {resource_id}"
+        );
+    }
+}
+
+#[test]
 fn merges_same_asset_request_from_multiple_commands() {
     let mut graph = RenderGraph::new(test_layout());
     graph.extend([

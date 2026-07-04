@@ -1,4 +1,4 @@
-use crate::projection::common::is_non_empty_asset_name;
+use crate::projection::common::is_safe_native_asset_name;
 use crate::render_graph::{
     CharacterDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, RenderGraph, RenderPlane,
 };
@@ -28,7 +28,7 @@ fn character_command(
     character: &CharacterProjection,
 ) -> Option<DrawCommand> {
     let sprite_asset_name = character.sprite.as_ref()?;
-    if !is_non_empty_asset_name(sprite_asset_name) {
+    if !is_safe_native_asset_name(sprite_asset_name) {
         return None;
     }
 
