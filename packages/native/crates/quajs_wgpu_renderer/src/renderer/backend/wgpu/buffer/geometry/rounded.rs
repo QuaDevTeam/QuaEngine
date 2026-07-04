@@ -70,19 +70,21 @@ pub(in crate::renderer::backend::wgpu::buffer) fn rounded_border_geometry(
         .min(outer.width * 0.5)
         .min(outer.height * 0.5);
     let radius = clamp_radius(outer, radius);
-    if width <= 0.0 || radius <= width {
+    if width <= 0.0 || radius <= 0.0 {
         return None;
     }
-
-    let inner = outer.inset(width)?;
-    let inner_radius = clamp_radius(inner, radius - width);
-    if inner_radius <= 0.0 {
-        return None;
-    }
-
     color[3] *= opacity.clamp(0.0, 1.0);
+
+    let Some(inner) = outer.inset(width) else {
+        return rounded_rect_geometry(bounds, radius, color);
+    };
+    let inner_radius = clamp_radius(inner, radius - width);
     let outer_points = rounded_rect_points(outer, radius);
-    let inner_points = rounded_rect_points(inner, inner_radius);
+    let inner_points = if inner_radius > 0.0 {
+        rounded_rect_points(inner, inner_radius)
+    } else {
+        sharp_inner_border_points(&outer_points, inner)
+    };
     if outer_points.len() != inner_points.len() || outer_points.len() < 3 {
         return None;
     }
@@ -93,9 +95,19 @@ pub(in crate::renderer::backend::wgpu::buffer) fn rounded_border_geometry(
         vertices.push(vertex(*inner_point, outer, color));
     }
 
-    let mut indices = Vec::with_capacity(outer_points.len() * 6);
-    for index in 0..outer_points.len() {
-        let next = (index + 1) % outer_points.len();
+    let indices = rounded_border_indices(outer_points.len());
+
+    Some(WgpuNativeRenderBufferGeometry {
+        physical_bounds: bounds,
+        vertices,
+        indices,
+    })
+}
+
+fn rounded_border_indices(point_count: usize) -> Vec<u32> {
+    let mut indices = Vec::with_capacity(point_count * 6);
+    for index in 0..point_count {
+        let next = (index + 1) % point_count;
         let outer_current = (index * 2) as u32;
         let inner_current = outer_current + 1;
         let outer_next = (next * 2) as u32;
@@ -109,12 +121,21 @@ pub(in crate::renderer::backend::wgpu::buffer) fn rounded_border_geometry(
             inner_current,
         ]);
     }
+    indices
+}
 
-    Some(WgpuNativeRenderBufferGeometry {
-        physical_bounds: bounds,
-        vertices,
-        indices,
-    })
+fn sharp_inner_border_points(outer_points: &[[f32; 2]], inner: FloatRect) -> Vec<[f32; 2]> {
+    let inner_right = inner.x + inner.width;
+    let inner_bottom = inner.y + inner.height;
+    outer_points
+        .iter()
+        .map(|point| {
+            [
+                point[0].clamp(inner.x, inner_right),
+                point[1].clamp(inner.y, inner_bottom),
+            ]
+        })
+        .collect()
 }
 
 fn rounded_rect_points(rect: FloatRect, radius: f32) -> Vec<[f32; 2]> {
