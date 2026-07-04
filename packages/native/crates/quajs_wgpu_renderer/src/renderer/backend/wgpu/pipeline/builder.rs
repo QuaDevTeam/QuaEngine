@@ -93,8 +93,11 @@ impl PipelinePassBuilder {
                         .as_ref()
                         .unwrap_or(&WgpuNativeRenderPaint::None),
                 );
-                self.active_resource_ids =
-                    resource_ids_for_bind_group(key.bind_group_layout, resource_ids);
+                self.active_resource_ids = resource_ids_for_bind_group(
+                    key.bind_group_layout,
+                    resource_ids,
+                    self.active_paint.as_ref(),
+                );
                 if requires_resource_bind_group(key.bind_group_layout) {
                     self.operations
                         .push(WgpuNativeRenderPipelineOperation::BindResourceGroup {
@@ -189,6 +192,7 @@ fn requires_resource_bind_group(layout: WgpuNativeRenderBindGroupLayout) -> bool
 fn resource_ids_for_bind_group(
     layout: WgpuNativeRenderBindGroupLayout,
     resource_ids: &[ResourceId],
+    paint: Option<&WgpuNativeRenderPaint>,
 ) -> Vec<ResourceId> {
     if !resource_ids.is_empty() {
         return resource_ids.to_vec();
@@ -197,9 +201,14 @@ fn resource_ids_for_bind_group(
         WgpuNativeRenderBindGroupLayout::TextAtlas => {
             vec![ResourceId::from(BUILTIN_TEXT_ATLAS_RESOURCE_ID)]
         }
-        WgpuNativeRenderBindGroupLayout::None | WgpuNativeRenderBindGroupLayout::TextureSampler => {
-            Vec::new()
-        }
+        WgpuNativeRenderBindGroupLayout::TextureSampler => match paint {
+            Some(WgpuNativeRenderPaint::Texture {
+                resource_id: Some(resource_id),
+                ..
+            }) => vec![resource_id.clone()],
+            Some(_) | None => Vec::new(),
+        },
+        WgpuNativeRenderBindGroupLayout::None => Vec::new(),
     }
 }
 

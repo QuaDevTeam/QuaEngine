@@ -95,3 +95,47 @@ fn resets_resource_bindings_between_draws_and_keeps_skips_descriptor_free() {
                 && key.bind_group_layout == WgpuNativeRenderBindGroupLayout::None
     )));
 }
+
+#[test]
+fn uses_texture_paint_resource_when_bind_resources_are_empty() {
+    let plan = WgpuNativeRenderPipelinePlan::from_render_pass_plan(&render_pass_plan(vec![
+        WgpuNativeRenderPassOperation::BeginRenderPass {
+            pass_index: 0,
+            plane: Some(RenderPlane::Overlay),
+            viewport: rect(0, 0, 800, 600),
+        },
+        WgpuNativeRenderPassOperation::SetViewport {
+            viewport: rect(0, 0, 800, 600),
+        },
+        WgpuNativeRenderPassOperation::SetPipeline {
+            pipeline: DrawBatchPipeline::Image,
+        },
+        WgpuNativeRenderPassOperation::SetPaint {
+            command_id: "image:fallback".to_string(),
+            paint: texture("images/fallback.png"),
+        },
+        WgpuNativeRenderPassOperation::BindResources {
+            command_id: "image:fallback".to_string(),
+            resource_ids: Vec::new(),
+        },
+        WgpuNativeRenderPassOperation::DrawIndexed {
+            command_id: "image:fallback".to_string(),
+            first_index: 0,
+            index_count: 6,
+            first_vertex: 0,
+            vertex_count: 4,
+            physical_bounds: rect(0, 0, 100, 100),
+            scissor: None,
+        },
+        WgpuNativeRenderPassOperation::EndRenderPass { pass_index: 0 },
+    ]));
+
+    assert_eq!(plan.resource_bind_group_count, 1);
+    assert!(plan.passes[0].operations.iter().any(|operation| matches!(
+        operation,
+        WgpuNativeRenderPipelineOperation::BindResourceGroup { group }
+            if group.command_id == "image:fallback"
+                && group.layout == WgpuNativeRenderBindGroupLayout::TextureSampler
+                && group.resource_ids == vec![ResourceId::from("images/fallback.png")]
+    )));
+}
