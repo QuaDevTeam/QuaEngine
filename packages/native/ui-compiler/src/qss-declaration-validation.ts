@@ -148,6 +148,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssEdgeInsets(value) !== undefined
         ? undefined
         : 'inset supports one to four non-negative logical px or unitless numbers.'
+    case 'margin':
+      return parseNativeQssEdgeInsets(value) !== undefined
+        ? undefined
+        : 'margin supports one to four non-negative logical px or unitless numbers.'
     case 'left':
     case 'top':
       return parseNativeQssCoordinateNumber(value) !== undefined
@@ -189,6 +193,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
     case 'padding-left':
     case 'padding-right':
     case 'padding-top':
+    case 'margin-bottom':
+    case 'margin-left':
+    case 'margin-right':
+    case 'margin-top':
     case 'row-gap':
     case 'column-gap':
       return parseNativeQssLogicalNumber(value) !== undefined

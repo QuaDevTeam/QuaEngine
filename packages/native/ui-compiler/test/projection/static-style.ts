@@ -292,4 +292,129 @@ Grid.thumbs {
       },
     })
   })
+
+  it('applies QSS margin to structural Row, Column, and Grid child layout only', () => {
+    const qui = analyzeQuiSource(`
+Panel(id: "root", width: 520, height: 300) {
+  Row.tabs(id: "tabs", x: 20, y: 20, width: 300, height: 60) {
+    Button.first(id: "first-tab", label: "One", width: 80, height: 30)
+    Button.second(id: "second-tab", label: "Two", width: 70, height: 30)
+  }
+  Column.stack(id: "stack", x: 20, y: 100, width: 200, height: 100) {
+    Text.itemA(id: "item-a", width: 100, height: 20) { "A" }
+    Text.itemB(id: "item-b", width: 100, height: 20) { "B" }
+  }
+  Grid.tiles(id: "tiles", x: 260, y: 100, width: 130, height: 120) {
+    Image.tile(id: "tile-one", src: "ui/one.png", width: 50, height: 20)
+    Image.tile(id: "tile-two", src: "ui/two.png", width: 50, height: 20)
+    Image.tile(id: "tile-three", src: "ui/three.png", width: 50, height: 20)
+  }
+}
+`)
+    const qss = analyzeQssSource(`
+Row.tabs {
+  gap: 10px;
+}
+Button.first {
+  margin: 2px 4px 6px 8px;
+}
+Button.second {
+  margin-left: 10px;
+  margin-right: 5px;
+}
+Column.stack {
+  row-gap: 5px;
+}
+Text.itemA {
+  margin-top: 3px;
+  margin-bottom: 7px;
+  margin-left: 2px;
+}
+Text.itemB {
+  margin: 4px;
+}
+Grid.tiles {
+  gap: 3px 5px;
+}
+Image.tile {
+  margin-right: 5px;
+  margin-bottom: 4px;
+}
+`)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(qss.diagnostics).toEqual([])
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+      root: {
+        id: 'root',
+        kind: 'Panel',
+        bounds: { x: 0, y: 0, width: 520, height: 300 },
+        children: [
+          {
+            id: 'tabs',
+            kind: 'Row',
+            bounds: { x: 20, y: 20, width: 300, height: 60 },
+            children: [
+              {
+                id: 'first-tab',
+                kind: 'Button',
+                bounds: { x: 28, y: 22, width: 80, height: 30 },
+                text: 'One',
+              },
+              {
+                id: 'second-tab',
+                kind: 'Button',
+                bounds: { x: 132, y: 20, width: 70, height: 30 },
+                text: 'Two',
+              },
+            ],
+          },
+          {
+            id: 'stack',
+            kind: 'Column',
+            bounds: { x: 20, y: 100, width: 200, height: 100 },
+            children: [
+              {
+                id: 'item-a',
+                kind: 'Text',
+                bounds: { x: 22, y: 103, width: 100, height: 20 },
+                text: 'A',
+              },
+              {
+                id: 'item-b',
+                kind: 'Text',
+                bounds: { x: 24, y: 139, width: 100, height: 20 },
+                text: 'B',
+              },
+            ],
+          },
+          {
+            id: 'tiles',
+            kind: 'Grid',
+            bounds: { x: 260, y: 100, width: 130, height: 120 },
+            children: [
+              {
+                id: 'tile-one',
+                kind: 'Image',
+                bounds: { x: 260, y: 100, width: 50, height: 20 },
+                image: { assetType: 'images', assetName: 'ui/one.png' },
+              },
+              {
+                id: 'tile-two',
+                kind: 'Image',
+                bounds: { x: 320, y: 100, width: 50, height: 20 },
+                image: { assetType: 'images', assetName: 'ui/two.png' },
+              },
+              {
+                id: 'tile-three',
+                kind: 'Image',
+                bounds: { x: 260, y: 127, width: 50, height: 20 },
+                image: { assetType: 'images', assetName: 'ui/three.png' },
+              },
+            ],
+          },
+        ],
+      },
+    })
+  })
 })

@@ -59,9 +59,38 @@ export function resolveNativeQssGap(
   }
 }
 
+export function resolveNativeQssLayoutMargin(
+  current: NativeQssResolvedLayout | undefined,
+  value: string,
+): NativeQssResolvedLayout | undefined {
+  const margin = parseNativeQssEdgeInsets(value)
+  if (!margin)
+    return current
+
+  return {
+    ...current,
+    margin,
+  }
+}
+
+export function resolveNativeQssLayoutMarginEdge(
+  current: NativeQssResolvedLayout | undefined,
+  edge: keyof NativeQssEdgeInsetsValue,
+  value: string,
+): NativeQssResolvedLayout | undefined {
+  const margin = resolveNativeQssEdgeInset(current?.margin, edge, value)
+  if (!margin)
+    return current
+
+  return {
+    ...current,
+    margin,
+  }
+}
+
 export function resolveNativeQssLayoutGap(
   current: NativeQssResolvedLayout | undefined,
-  edge: keyof NativeQssResolvedLayout,
+  edge: 'columnGap' | 'rowGap',
   value: string,
 ): NativeQssResolvedLayout | undefined {
   const number = parseNativeQssLogicalNumber(value)

@@ -26,7 +26,11 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(ui.qss_features.contains(&"padding-left".to_string()));
     assert!(ui.qss_features.contains(&"padding-right".to_string()));
     assert!(ui.qss_features.contains(&"padding-top".to_string()));
-    assert!(!ui.qss_features.contains(&"margin".to_string()));
+    assert!(ui.qss_features.contains(&"margin".to_string()));
+    assert!(ui.qss_features.contains(&"margin-bottom".to_string()));
+    assert!(ui.qss_features.contains(&"margin-left".to_string()));
+    assert!(ui.qss_features.contains(&"margin-right".to_string()));
+    assert!(ui.qss_features.contains(&"margin-top".to_string()));
     assert!(ui.qss_features.contains(&"background-color".to_string()));
     assert!(ui.qss_features.contains(&"background-image".to_string()));
     assert!(ui.qss_features.contains(&"background-position".to_string()));

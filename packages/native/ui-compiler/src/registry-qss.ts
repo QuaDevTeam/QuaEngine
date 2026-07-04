@@ -38,10 +38,10 @@ const backgroundPositionValues = [
   value('50% 50%', 'Align the background image by percentage origin.', '$1% $2%'),
 ] as const
 
-const gapValues = [
-  value('8px', 'Use an eight logical pixel gap.', '8px'),
-  value('12px', 'Use a twelve logical pixel gap.', '12px'),
-  value('16px', 'Use a sixteen logical pixel gap.', '16px'),
+const spacingValues = [
+  value('8px', 'Use eight logical pixels of spacing.', '8px'),
+  value('12px', 'Use twelve logical pixels of spacing.', '12px'),
+  value('16px', 'Use sixteen logical pixels of spacing.', '16px'),
 ] as const
 
 export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
@@ -88,14 +88,14 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('padding-right', 'p1', true, 'Right padding emitted as native edge inset style IR.'),
   property('padding-top', 'p1', true, 'Top padding emitted as native edge inset style IR.'),
   property('padding-bottom', 'p1', true, 'Bottom padding emitted as native edge inset style IR.'),
-  property('margin', 'p1', false, 'Margin shorthand planned for native layout IR.'),
-  property('margin-left', 'p1', false, 'Left margin planned for native layout IR.'),
-  property('margin-right', 'p1', false, 'Right margin planned for native layout IR.'),
-  property('margin-top', 'p1', false, 'Top margin planned for native layout IR.'),
-  property('margin-bottom', 'p1', false, 'Bottom margin planned for native layout IR.'),
-  property('gap', 'p1', true, 'Static Row / Column / Grid child spacing consumed by native UI projection compilation.', gapValues),
-  property('row-gap', 'p1', true, 'Static vertical child spacing consumed by native UI projection compilation.', gapValues),
-  property('column-gap', 'p1', true, 'Static horizontal child spacing consumed by native UI projection compilation.', gapValues),
+  property('margin', 'p1', true, 'Static Row / Column / Grid child outer spacing consumed by native UI projection compilation.', spacingValues),
+  property('margin-left', 'p1', true, 'Static left outer spacing consumed by native UI projection compilation.', spacingValues),
+  property('margin-right', 'p1', true, 'Static right outer spacing consumed by native UI projection compilation.', spacingValues),
+  property('margin-top', 'p1', true, 'Static top outer spacing consumed by native UI projection compilation.', spacingValues),
+  property('margin-bottom', 'p1', true, 'Static bottom outer spacing consumed by native UI projection compilation.', spacingValues),
+  property('gap', 'p1', true, 'Static Row / Column / Grid child spacing consumed by native UI projection compilation.', spacingValues),
+  property('row-gap', 'p1', true, 'Static vertical child spacing consumed by native UI projection compilation.', spacingValues),
+  property('column-gap', 'p1', true, 'Static horizontal child spacing consumed by native UI projection compilation.', spacingValues),
   property('overflow', 'p1', true, 'Child clipping mode emitted as resolved native UI projection metadata.', [
     value('visible', 'Allow child nodes to paint outside this node bounds.'),
     value('hidden', 'Clip child nodes to this node bounds.'),
