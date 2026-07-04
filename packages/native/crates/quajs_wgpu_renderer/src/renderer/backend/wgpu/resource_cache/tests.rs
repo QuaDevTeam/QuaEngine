@@ -34,7 +34,9 @@ fn tracks_create_reuse_recreate_and_release_across_frames() {
     assert_eq!(first_cache.previous_revision, None);
     assert_eq!(first_cache.buffer_create_count, 3);
     assert_eq!(first_cache.pipeline_create_count, 1);
+    assert_eq!(first_cache.pipeline_recreate_count, 0);
     assert_eq!(first_cache.bind_group_create_count, 1);
+    assert_eq!(first_cache.bind_group_recreate_count, 0);
     assert_eq!(first_cache.buffer_resident_byte_len, 72);
 
     let second = device_plan(
@@ -65,9 +67,11 @@ fn tracks_create_reuse_recreate_and_release_across_frames() {
     assert_eq!(second_cache.buffer_resident_byte_len, 80);
     assert_eq!(second_cache.pipeline_create_count, 1);
     assert_eq!(second_cache.pipeline_reuse_count, 1);
+    assert_eq!(second_cache.pipeline_recreate_count, 0);
     assert_eq!(second_cache.pipeline_release_count, 0);
     assert_eq!(second_cache.bind_group_create_count, 0);
     assert_eq!(second_cache.bind_group_reuse_count, 1);
+    assert_eq!(second_cache.bind_group_recreate_count, 0);
     assert_eq!(second_cache.queue_write_count, 2);
     assert_eq!(second_cache.queue_write_byte_len, 80);
     assert_eq!(second_cache.encoder_count, 1);
@@ -82,6 +86,57 @@ fn tracks_create_reuse_recreate_and_release_across_frames() {
     assert_eq!(
         vertex_status,
         Some(WgpuNativeRenderCacheEntryStatus::Recreate)
+    );
+}
+
+#[test]
+fn tracks_pipeline_and_bind_group_recreate_counts_across_frames() {
+    let first = device_plan(
+        1,
+        vec![
+            buffer("vertex", WgpuNativeRenderBufferRole::Vertex, 48),
+            buffer("index", WgpuNativeRenderBufferRole::Index, 16),
+        ],
+        vec![pipeline("pipeline::shared", DrawBatchPipeline::Ui)],
+        vec![bind_group(
+            "bind-group::shared",
+            WgpuNativeRenderBindGroupLayout::TextureSampler,
+            ["images:portrait.png"],
+        )],
+    );
+    let first_cache = WgpuNativeRenderResourceCachePlan::from_device_plan(None, &first);
+    let second = device_plan(
+        2,
+        vec![
+            buffer("vertex", WgpuNativeRenderBufferRole::Vertex, 48),
+            buffer("index", WgpuNativeRenderBufferRole::Index, 16),
+        ],
+        vec![pipeline("pipeline::shared", DrawBatchPipeline::Image)],
+        vec![bind_group(
+            "bind-group::shared",
+            WgpuNativeRenderBindGroupLayout::TextureSampler,
+            ["images:replacement.png"],
+        )],
+    );
+
+    let second_cache =
+        WgpuNativeRenderResourceCachePlan::from_device_plan(Some(&first_cache), &second);
+
+    assert_eq!(second_cache.pipeline_create_count, 0);
+    assert_eq!(second_cache.pipeline_reuse_count, 0);
+    assert_eq!(second_cache.pipeline_recreate_count, 1);
+    assert_eq!(second_cache.pipeline_release_count, 0);
+    assert_eq!(second_cache.bind_group_create_count, 0);
+    assert_eq!(second_cache.bind_group_reuse_count, 0);
+    assert_eq!(second_cache.bind_group_recreate_count, 1);
+    assert_eq!(second_cache.bind_group_release_count, 0);
+    assert_eq!(
+        second_cache.pipeline_entries[0].status,
+        WgpuNativeRenderCacheEntryStatus::Recreate
+    );
+    assert_eq!(
+        second_cache.bind_group_entries[0].status,
+        WgpuNativeRenderCacheEntryStatus::Recreate
     );
 }
 

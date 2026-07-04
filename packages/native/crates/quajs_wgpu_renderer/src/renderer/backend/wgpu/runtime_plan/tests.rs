@@ -59,6 +59,54 @@ fn builds_ordered_runtime_apply_plan_from_device_and_cache_plans() {
     ));
 }
 
+#[test]
+fn emits_recreate_operations_for_changed_pipeline_and_bind_group_cache_entries() {
+    let first = device_plan(
+        1,
+        vec![
+            buffer("vertex", WgpuNativeRenderBufferRole::Vertex, 128),
+            buffer("index", WgpuNativeRenderBufferRole::Index, 24),
+        ],
+        vec![pipeline("pipeline::shared", DrawBatchPipeline::Ui)],
+        vec![bind_group("bind-group::shared", ["images:old.png"])],
+    );
+    let first_cache = WgpuNativeRenderResourceCachePlan::from_device_plan(None, &first);
+    let second = device_plan(
+        2,
+        vec![
+            buffer("vertex", WgpuNativeRenderBufferRole::Vertex, 128),
+            buffer("index", WgpuNativeRenderBufferRole::Index, 24),
+        ],
+        vec![pipeline("pipeline::shared", DrawBatchPipeline::Image)],
+        vec![bind_group("bind-group::shared", ["images:new.png"])],
+    );
+    let second_cache =
+        WgpuNativeRenderResourceCachePlan::from_device_plan(Some(&first_cache), &second);
+
+    let plan = WgpuNativeRenderRuntimePlan::from_device_and_cache_plans(&second, &second_cache);
+
+    assert_eq!(second_cache.pipeline_recreate_count, 1);
+    assert_eq!(second_cache.bind_group_recreate_count, 1);
+    assert_eq!(plan.release_operation_count, 0);
+    assert!(plan.operations.iter().any(|operation| matches!(
+        operation,
+        WgpuNativeRenderRuntimeOperation::RecreatePipeline {
+            cache_label,
+            key,
+            ..
+        } if cache_label == "pipeline::shared" && key.pipeline == DrawBatchPipeline::Image
+    )));
+    assert!(plan.operations.iter().any(|operation| matches!(
+        operation,
+        WgpuNativeRenderRuntimeOperation::RecreateBindGroup {
+            cache_label,
+            resource_ids,
+            ..
+        } if cache_label == "bind-group::shared"
+            && resource_ids == &vec!["images:new.png".to_string()]
+    )));
+}
+
 fn assert_first_operations_release_stale_resources(plan: &WgpuNativeRenderRuntimePlan) {
     assert!(matches!(
         plan.operations.first(),
