@@ -59,6 +59,11 @@ const justifyContentValues = [
   value('space-evenly', 'Distribute remaining main-axis space evenly between and around children.'),
 ] as const
 
+const boxSizingValues = [
+  value('border-box', 'Treat QSS width and height as final native surface bounds.'),
+  value('content-box', 'Expand QSS width and height by resolved padding and border width before projection.'),
+] as const
+
 export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('align-items', 'p1', true, 'Static Row / Column cross-axis child alignment consumed by native UI projection compilation.', alignItemsValues),
   property('background-color', 'p0', true, 'Fill color for panels, buttons, and box surfaces.'),
@@ -102,7 +107,7 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('max-width', 'p1', true, 'Maximum logical width used to clamp static native surface bounds.'),
   property('min-height', 'p1', true, 'Minimum logical height used to clamp static native surface bounds.'),
   property('max-height', 'p1', true, 'Maximum logical height used to clamp static native surface bounds.'),
-  property('box-sizing', 'p1', false, 'Deterministic box sizing planned for native layout IR.'),
+  property('box-sizing', 'p1', true, 'Deterministic QSS fallback bounds sizing consumed by native UI projection compilation.', boxSizingValues),
   property('padding', 'p1', true, 'Padding shorthand emitted as native edge inset style IR.'),
   property('padding-left', 'p1', true, 'Left padding emitted as native edge inset style IR.'),
   property('padding-right', 'p1', true, 'Right padding emitted as native edge inset style IR.'),

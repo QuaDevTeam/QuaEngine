@@ -20,6 +20,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('background-size')
     expect(nativeWgpuQssFeatureNames()).toContain('border-style')
     expect(nativeWgpuQssFeatureNames()).toContain('bottom')
+    expect(nativeWgpuQssFeatureNames()).toContain('box-sizing')
     expect(nativeWgpuQssFeatureNames()).toContain('display')
     expect(nativeWgpuQssFeatureNames()).toContain('gap')
     expect(nativeWgpuQssFeatureNames()).toContain('height')
@@ -107,6 +108,7 @@ Button:nth-child(2) {
     const backgroundSize = 'Panel { background-size:  }'
     const backgroundImage = 'Panel { background-image:  }'
     const backgroundPosition = 'Panel { background-position:  }'
+    const boxSizing = 'Panel { box-sizing:  }'
     const gap = 'Row { gap:  }'
     const alignItems = 'Row { align-items:  }'
     const justifyContent = 'Row { justify-content:  }'
@@ -130,6 +132,8 @@ Button:nth-child(2) {
       ]))
     expect(getNativeUiCompletions(backgroundPosition, backgroundPosition.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
       .toEqual(expect.arrayContaining(['left top', 'center', 'right bottom', '50% 50%']))
+    expect(getNativeUiCompletions(boxSizing, boxSizing.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
+      .toEqual(expect.arrayContaining(['border-box', 'content-box']))
     expect(getNativeUiCompletions(gap, gap.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
       .toEqual(expect.arrayContaining(['8px', '12px', '16px']))
     expect(getNativeUiCompletions(alignItems, alignItems.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))

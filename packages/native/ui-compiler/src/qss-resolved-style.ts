@@ -17,6 +17,7 @@ import {
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
   parseNativeQssBorderStyle,
+  parseNativeQssBoxSizing,
   parseNativeQssColor,
   parseNativeQssCoordinateNumber,
   parseNativeQssDisplay,
@@ -45,6 +46,7 @@ export {
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
   parseNativeQssBorderStyle,
+  parseNativeQssBoxSizing,
   parseNativeQssColor,
   parseNativeQssCoordinateNumber,
   parseNativeQssDisplay,
@@ -75,6 +77,7 @@ export function resolveNativeQssDeclarations(
   const resolved: NativeQssResolvedNodeStyle = {
     style: {},
   }
+  let boxSizing: ReturnType<typeof parseNativeQssBoxSizing> | undefined
   let displayNone = false
 
   for (const declaration of declarations) {
@@ -109,6 +112,9 @@ export function resolveNativeQssDeclarations(
         break
       case 'border-width':
         resolved.style.borderWidth = parseNativeQssLogicalNumber(value)
+        break
+      case 'box-sizing':
+        boxSizing = parseNativeQssBoxSizing(value)
         break
       case 'color':
         resolved.style.color = parseNativeQssColor(value)
@@ -255,5 +261,5 @@ export function resolveNativeQssDeclarations(
   if (displayNone)
     resolved.visible = false
 
-  return pruneUndefinedResolvedNodeStyle(resolved)
+  return pruneUndefinedResolvedNodeStyle(resolved, boxSizing)
 }

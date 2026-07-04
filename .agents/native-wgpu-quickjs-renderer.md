@@ -1746,7 +1746,7 @@ Supported:
 - `position: relative | absolute`.
 - `inset`, `left`, `right`, `top`, `bottom`.
 - `width`, `height`, `min-width`, `max-width`, `min-height`, `max-height`.
-- `box-sizing: border-box`.
+- `box-sizing: border-box | content-box`（由 native UI compiler 展开为 resolved bounds；Rust 不解析 QSS）。
 - `padding`, `padding-*`.
 - `margin`, `margin-*`.
 - `gap`, `row-gap`, `column-gap`.

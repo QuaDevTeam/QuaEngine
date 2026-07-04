@@ -92,6 +92,10 @@ export type NativeQssBorderStyleValue
   = | 'none'
     | 'solid'
 
+export type NativeQssBoxSizingValue
+  = | 'border-box'
+    | 'content-box'
+
 export type NativeQssPositionValue
   = | 'absolute'
     | 'relative'
