@@ -4,6 +4,7 @@ use super::super::assets::{NativeAssetRequest, NativeAssetRequestPlan};
 use super::super::ledger::NativeResourceLedger;
 use super::super::record::{NativeResourceKind, NativeResourceRecord, ResourceId};
 use super::sync::AudioResourceSyncPlan;
+use crate::projection::common::is_non_empty_asset_name;
 
 pub fn plan_audio_asset_requests(
     ledger: &NativeResourceLedger,
@@ -61,7 +62,7 @@ fn parse_audio_asset_resource_id(resource_id: &ResourceId) -> Option<(String, St
     if namespace != "audio" || matches!(resource_kind, "handle") {
         return None;
     }
-    if asset_type.is_empty() || asset_name.is_empty() {
+    if asset_type.trim().is_empty() || !is_non_empty_asset_name(asset_name) {
         return None;
     }
 

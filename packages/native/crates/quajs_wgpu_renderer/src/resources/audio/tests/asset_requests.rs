@@ -83,3 +83,31 @@ fn plans_audio_asset_requests_for_retained_media_resources_from_ledger() {
         vec![ResourceId::from("audio:handle:bgm:bgm:bgm-main")]
     );
 }
+
+#[test]
+fn skips_audio_asset_requests_for_empty_upserted_and_retained_asset_names() {
+    let mut ledger = NativeResourceLedger::new();
+    let empty_asset =
+        NativeResourceRecord::new("audio:buffer:bgm:bgm:", NativeResourceKind::AudioBuffer);
+    let blank_asset = NativeResourceRecord::new(
+        "audio:stream:ambient:ambient:   ",
+        NativeResourceKind::AudioStream,
+    );
+    ledger.insert(blank_asset.clone());
+    let sync = AudioResourceSyncPlan {
+        upsert: vec![empty_asset],
+        retain: vec![blank_asset.id.clone()],
+        release: Vec::new(),
+    };
+
+    let assets = plan_audio_asset_requests(&ledger, &sync);
+
+    assert!(assets.requests.is_empty());
+    assert_eq!(
+        assets.skipped_resource_ids,
+        vec![
+            ResourceId::from("audio:buffer:bgm:bgm:"),
+            ResourceId::from("audio:stream:ambient:ambient:   "),
+        ]
+    );
+}

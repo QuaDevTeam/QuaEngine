@@ -43,3 +43,14 @@ fn skips_stopped_projection_tracks() {
     assert!(plan.is_empty());
     assert!(plan.next_tracks.is_empty());
 }
+
+#[test]
+fn skips_tracks_with_empty_asset_names() {
+    let audio = AudioProjection::new(vec![track("bgm-empty", ""), track("bgm-blank", "   ")]);
+
+    let plan =
+        plan_audio_backend_commands(&AudioBackendTrackStateMap::new(), Some(&audio), &assets([]));
+
+    assert!(plan.is_empty());
+    assert!(plan.next_tracks.is_empty());
+}
