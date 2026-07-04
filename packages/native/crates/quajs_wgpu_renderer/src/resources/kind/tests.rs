@@ -54,3 +54,25 @@ fn falls_back_to_command_kind_for_unprefixed_resources() {
         NativeResourceKind::Texture
     );
 }
+
+#[test]
+fn missing_resource_blocking_policy_matches_renderer_fallback_contract() {
+    for kind in [
+        NativeResourceKind::FontFace,
+        NativeResourceKind::GlyphAtlas,
+        NativeResourceKind::QssStyle,
+        NativeResourceKind::TokenTable,
+    ] {
+        assert!(!is_missing_resource_kind_draw_blocking(kind));
+    }
+
+    for kind in [
+        NativeResourceKind::Texture,
+        NativeResourceKind::VideoDecoder,
+        NativeResourceKind::AudioBuffer,
+        NativeResourceKind::UiAst,
+        NativeResourceKind::Other,
+    ] {
+        assert!(is_missing_resource_kind_draw_blocking(kind));
+    }
+}
