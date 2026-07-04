@@ -9,6 +9,12 @@ use super::super::safe_strings::invalid_native_json_ui_dispatch_identifier_reaso
 use budget::{MetadataBudget, MAX_NATIVE_UI_INTENT_METADATA_ENTRIES};
 use value::validate_metadata_value;
 
+pub(crate) fn is_valid_native_ui_intent_metadata_payload(
+    metadata: &BTreeMap<String, Value>,
+) -> bool {
+    invalid_native_json_ui_intent_metadata_reason(metadata).is_none()
+}
+
 pub(super) fn invalid_native_json_ui_intent_metadata_reason(
     metadata: &BTreeMap<String, Value>,
 ) -> Option<(String, String, String)> {

@@ -15,6 +15,8 @@ mod ui_style_numbers;
 mod view;
 mod z_order;
 
+pub(crate) use ui_intent::is_valid_native_ui_intent_metadata_payload;
+
 use std::collections::BTreeSet;
 
 use crate::projection::common::{FontFamilyProjection, PackageProvenance};

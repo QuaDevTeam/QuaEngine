@@ -3,7 +3,9 @@ use std::collections::BTreeMap;
 use quajs_native_runtime::NativeRendererIntent;
 use serde_json::Value;
 
+use crate::projection::common::is_safe_native_dispatch_identifier;
 use crate::render_graph::{DrawCommand, DrawCommandParams, RenderGraph, RendererIntent};
+use crate::renderer::json_validation::is_valid_native_ui_intent_metadata_payload;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RendererIntentHit {
@@ -46,24 +48,47 @@ pub fn native_renderer_intent_from_renderer_intent(
 }
 
 fn native_renderer_intent_payload_json(intent: &RendererIntent) -> Option<String> {
-    let mut payload: BTreeMap<String, Value> = intent.metadata.clone();
+    let canonical_payload = native_renderer_intent_canonical_payload(intent);
+    let mut payload = if is_valid_native_ui_intent_metadata_payload(&intent.metadata) {
+        intent.metadata.clone()
+    } else {
+        BTreeMap::new()
+    };
+    remove_reserved_canonical_payload_fields(&mut payload);
+    payload.extend(canonical_payload.clone());
 
-    if let Some(action) = intent.action.as_deref() {
-        payload.insert("action".to_string(), Value::String(action.to_string()));
-    }
-    if let Some(choice_id) = intent.choice_id.as_deref() {
-        payload.insert("choiceId".to_string(), Value::String(choice_id.to_string()));
-    }
-    if let Some(element_id) = intent.element_id.as_deref() {
-        payload.insert(
-            "elementId".to_string(),
-            Value::String(element_id.to_string()),
-        );
-    }
+    payload_to_json_if_within_limits(&payload)
+        .or_else(|| payload_to_json_if_within_limits(&canonical_payload))
+}
 
-    if payload.is_empty() {
+fn native_renderer_intent_canonical_payload(intent: &RendererIntent) -> BTreeMap<String, Value> {
+    let mut payload = BTreeMap::new();
+    insert_safe_canonical_payload_field(&mut payload, "action", intent.action.as_deref());
+    insert_safe_canonical_payload_field(&mut payload, "choiceId", intent.choice_id.as_deref());
+    insert_safe_canonical_payload_field(&mut payload, "elementId", intent.element_id.as_deref());
+    payload
+}
+
+fn insert_safe_canonical_payload_field(
+    payload: &mut BTreeMap<String, Value>,
+    key: &str,
+    value: Option<&str>,
+) {
+    if let Some(value) = value.filter(|value| is_safe_native_dispatch_identifier(value)) {
+        payload.insert(key.to_string(), Value::String(value.to_string()));
+    }
+}
+
+fn remove_reserved_canonical_payload_fields(payload: &mut BTreeMap<String, Value>) {
+    for key in ["action", "choiceId", "elementId"] {
+        payload.remove(key);
+    }
+}
+
+fn payload_to_json_if_within_limits(payload: &BTreeMap<String, Value>) -> Option<String> {
+    if payload.is_empty() || !is_valid_native_ui_intent_metadata_payload(payload) {
         return None;
     }
 
-    Some(serde_json::to_string(&payload).expect("renderer intent payload is JSON object"))
+    Some(serde_json::to_string(payload).expect("renderer intent payload is JSON object"))
 }
