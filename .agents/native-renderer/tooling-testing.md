@@ -104,7 +104,7 @@ QSS 侧：
 
 ## 统一验证入口
 
-根目录提供 `pnpm native:verify` 作为 native 核心回归入口。它按顺序运行 native contracts、engine-native、assets-native、store-native、native-ui-compiler、native-language-server、native VSCode extension、native benchmarks，以及 Rust `quajs_native_runtime`、`quajs_wgpu_renderer`、`quajs_native_app` 的格式与测试检查。
+根目录提供 `pnpm native:verify` 作为 native 核心回归入口。它按顺序运行 native contracts、engine-native、assets-native、store-native、native-ui-compiler、native-language-server、native VSCode extension test/typecheck/build、native benchmarks，以及 Rust `quajs_native_runtime`、`quajs_wgpu_renderer`、`quajs_native_app` 的格式与测试检查。
 
 默认 Cargo target 目录为 `.codex-tmp/native-cargo-target`，以免污染源码目录或复用系统级 target。可按需要使用：
 
