@@ -68,6 +68,7 @@ fn validate_package_relative_asset_name(asset_name: &str) -> Result<(), String> 
 fn validate_package_id(package_id: &str) -> Result<(), String> {
     if package_id.is_empty()
         || package_id.trim() != package_id
+        || package_id.contains("..")
         || !package_id
             .chars()
             .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
