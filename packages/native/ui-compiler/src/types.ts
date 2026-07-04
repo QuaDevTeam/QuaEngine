@@ -151,6 +151,7 @@ export type {
   NativeQssBackgroundImageValue,
   NativeQssBackgroundPositionValue,
   NativeQssBorderStyleValue,
+  NativeQssBoxSizingValue,
   NativeQssDeclaration,
   NativeQssDocument,
   NativeQssEdgeInsetsValue,

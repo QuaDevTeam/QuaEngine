@@ -10,7 +10,7 @@ describe('@quajs/native-ui-compiler QSS authoring', () => {
 Panel::part(header), Button.primary:hover {
   background-color: #10141f;
   padding: 12px;
-  box-sizing: border-box;
+  box-shadow: 0 4px 8px;
   margin: 10vw;
 }
 `)
@@ -179,6 +179,47 @@ Row {
     })
   })
 
+  it('applies content-box sizing to QSS fallback bounds before projection', () => {
+    const document = analyzeQssSource(`
+Button {
+  width: 100px;
+  height: 40px;
+  min-width: 120px;
+  max-width: 140px;
+  padding: 5px 10px;
+  border-width: 2px;
+  box-sizing: content-box;
+}
+`)
+
+    expect(document.diagnostics).toEqual([])
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
+      bounds: {
+        width: 144,
+        height: 54,
+      },
+      style: {
+        borderWidth: 2,
+        padding: { top: 5, right: 10, bottom: 5, left: 10 },
+      },
+    })
+  })
+
+  it('diagnoses invalid box-sizing declarations before projection', () => {
+    const document = analyzeQssSource(`
+Button {
+  box-sizing: padding-box;
+}
+`)
+
+    expect(document.diagnostics).toEqual([
+      expect.objectContaining({ code: 'QSS_INVALID_VALUE' }),
+    ])
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
+      style: {},
+    })
+  })
+
   it('resolves native-wgpu QSS declarations into surface style IR', () => {
     const document = analyzeQssSource(`
 Button.primary {
@@ -262,6 +303,7 @@ Button.primary {
 Button {
   background-color: url("native.dll");
   border-width: -1px;
+  box-sizing: padding-box;
   border-radius: calc(4px);
   border-color: ../native.dll;
   border-style: dashed;
@@ -312,6 +354,7 @@ Button {
     const invalid = analyzeQssSource(`
 Button {
   border-width: -1px;
+  box-sizing: padding-box;
   border-radius: calc(4px);
   border-color: ../native.dll;
   border-style: dashed;
@@ -389,7 +432,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(35)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(36)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',

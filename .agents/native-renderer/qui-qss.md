@@ -179,6 +179,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 - `border-radius`
 - `border-style`（native 子集：`solid` / `none`；缺省等同 `solid`，`none` 会让 Rust draw params 的 border color 为空、width 为 `0`）
 - `border-width`
+- `box-sizing`（native 子集：`border-box` / `content-box`；作为 compiler-only 静态 bounds 归一化，`border-box` 保持 QSS fallback `width/height` 为最终 native surface bounds，`content-box` 会在 projection 前按 resolved padding 与有效 border width 扩展 QSS fallback `width/height`；QUI 显式 `width/height` prop 优先；Rust 不接收也不解析 box-sizing 字段）
 - `color`（同 `background-color` 的 safe native color literal 子集；dialogue rich text 和 UI text resolved JSON 也由 Rust facade 防御性校验）
 - `display`（native 子集：仅支持 `none`，编译为 node-level `UiSurfaceNodeProjection.visible: false` fallback；QUI 显式 `show` prop 优先；`block` / `flex` / `grid` 暂不作为 layout 承诺）
 - `font-family`

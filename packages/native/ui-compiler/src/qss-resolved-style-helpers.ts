@@ -1,8 +1,10 @@
 import type {
+  NativeQssBoxSizingValue,
   NativeQssEdgeInsetsValue,
   NativeQssResolvedBounds,
   NativeQssResolvedLayout,
   NativeQssResolvedNodeStyle,
+  NativeQssResolvedStyle,
 } from './types'
 import {
   parseNativeQssEdgeInsets,
@@ -119,8 +121,12 @@ export function resolveNativeQssBound(
   }
 }
 
-export function pruneUndefinedResolvedNodeStyle(style: NativeQssResolvedNodeStyle): NativeQssResolvedNodeStyle {
+export function pruneUndefinedResolvedNodeStyle(
+  style: NativeQssResolvedNodeStyle,
+  boxSizing?: NativeQssBoxSizingValue,
+): NativeQssResolvedNodeStyle {
   style.bounds = clampNativeQssBounds(style.bounds)
+  style.bounds = applyNativeQssBoxSizing(style.bounds, style.style, boxSizing)
 
   for (const key of Object.keys(style.style) as Array<keyof typeof style.style>) {
     if (style.style[key] === undefined)
@@ -163,6 +169,26 @@ export function pruneUndefinedResolvedNodeStyle(style: NativeQssResolvedNodeStyl
     delete style.clipChildren
 
   return style
+}
+
+function applyNativeQssBoxSizing(
+  bounds: NativeQssResolvedBounds | undefined,
+  style: NativeQssResolvedStyle,
+  boxSizing: NativeQssBoxSizingValue | undefined,
+): NativeQssResolvedBounds | undefined {
+  if (!bounds || boxSizing !== 'content-box')
+    return bounds
+
+  const padding = style.padding
+  const borderWidth = style.borderStyle === 'none' ? 0 : style.borderWidth ?? 0
+  const horizontalInset = (padding?.left ?? 0) + (padding?.right ?? 0) + borderWidth * 2
+  const verticalInset = (padding?.top ?? 0) + (padding?.bottom ?? 0) + borderWidth * 2
+
+  return {
+    ...bounds,
+    width: bounds.width === undefined ? undefined : bounds.width + horizontalInset,
+    height: bounds.height === undefined ? undefined : bounds.height + verticalInset,
+  }
 }
 
 function clampNativeQssBounds(bounds: NativeQssResolvedBounds | undefined): NativeQssResolvedBounds | undefined {

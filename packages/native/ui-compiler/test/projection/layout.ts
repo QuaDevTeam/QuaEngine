@@ -89,4 +89,79 @@ Column.choices {
       },
     })
   })
+
+  it('applies QSS content-box sizing to fallback bounds while QUI size props stay authoritative', () => {
+    const qui = analyzeQuiSource(`
+Panel(id: "root", width: 360, height: 220) {
+  Button.content(id: "content", label: "Content")
+  Button.border(id: "border", label: "Border")
+  Button.override(id: "override", label: "Override", width: 50, height: 20)
+}
+`)
+    const qss = analyzeQssSource(`
+Button {
+  left: 20px;
+  width: 100px;
+  height: 40px;
+  padding: 5px 10px;
+  border-width: 2px;
+}
+Button.content {
+  top: 20px;
+  box-sizing: content-box;
+}
+Button.border {
+  top: 90px;
+  box-sizing: border-box;
+}
+Button.override {
+  top: 150px;
+  box-sizing: content-box;
+  padding: 10px;
+  border-width: 5px;
+}
+`)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(qss.diagnostics).toEqual([])
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+      root: {
+        id: 'root',
+        kind: 'Panel',
+        bounds: { x: 0, y: 0, width: 360, height: 220 },
+        children: [
+          {
+            id: 'content',
+            kind: 'Button',
+            bounds: { x: 20, y: 20, width: 124, height: 54 },
+            text: 'Content',
+            style: {
+              borderWidth: 2,
+              padding: { top: 5, right: 10, bottom: 5, left: 10 },
+            },
+          },
+          {
+            id: 'border',
+            kind: 'Button',
+            bounds: { x: 20, y: 90, width: 100, height: 40 },
+            text: 'Border',
+            style: {
+              borderWidth: 2,
+              padding: { top: 5, right: 10, bottom: 5, left: 10 },
+            },
+          },
+          {
+            id: 'override',
+            kind: 'Button',
+            bounds: { x: 20, y: 150, width: 50, height: 20 },
+            text: 'Override',
+            style: {
+              borderWidth: 5,
+              padding: { top: 10, right: 10, bottom: 10, left: 10 },
+            },
+          },
+        ],
+      },
+    })
+  })
 })

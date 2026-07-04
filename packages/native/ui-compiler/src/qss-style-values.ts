@@ -3,6 +3,7 @@ import type {
   NativeQssBackgroundImageValue,
   NativeQssBackgroundPositionValue,
   NativeQssBorderStyleValue,
+  NativeQssBoxSizingValue,
   NativeQssFontStyleValue,
   NativeQssFontWeightValue,
   NativeQssJustifyContentValue,
@@ -39,6 +40,7 @@ const TEXT_OVERFLOW_VALUES = new Set<NativeQssTextOverflowValue>(['clip', 'ellip
 const TEXT_TRANSFORM_VALUES = new Set<NativeQssTextTransformValue>(['capitalize', 'lowercase', 'none', 'uppercase'])
 const WHITE_SPACE_VALUES = new Set<NativeQssWhiteSpaceValue>(['normal', 'nowrap', 'pre', 'pre-line', 'pre-wrap'])
 const BORDER_STYLE_VALUES = new Set<NativeQssBorderStyleValue>(['none', 'solid'])
+const BOX_SIZING_VALUES = new Set<NativeQssBoxSizingValue>(['border-box', 'content-box'])
 const FONT_STYLE_VALUES = new Set<NativeQssFontStyleValue>(['italic', 'normal'])
 const POSITION_VALUES = new Set<NativeQssPositionValue>(['absolute', 'relative'])
 const ALIGN_ITEMS_VALUES = new Set<NativeQssAlignItemsValue>(['center', 'flex-end', 'flex-start'])
@@ -199,6 +201,13 @@ export function parseNativeQssBorderStyle(value: string): NativeQssBorderStyleVa
   const normalized = value.toLowerCase()
   return BORDER_STYLE_VALUES.has(normalized as NativeQssBorderStyleValue)
     ? normalized as NativeQssBorderStyleValue
+    : undefined
+}
+
+export function parseNativeQssBoxSizing(value: string): NativeQssBoxSizingValue | undefined {
+  const normalized = value.toLowerCase()
+  return BOX_SIZING_VALUES.has(normalized as NativeQssBoxSizingValue)
+    ? normalized as NativeQssBoxSizingValue
     : undefined
 }
 

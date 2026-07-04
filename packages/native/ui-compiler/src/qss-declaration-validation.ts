@@ -9,6 +9,7 @@ import {
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
   parseNativeQssBorderStyle,
+  parseNativeQssBoxSizing,
   parseNativeQssColor,
   parseNativeQssCoordinateNumber,
   parseNativeQssDisplay,
@@ -129,6 +130,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssBorderStyle(value)
         ? undefined
         : 'border-style supports solid or none.'
+    case 'box-sizing':
+      return parseNativeQssBoxSizing(value)
+        ? undefined
+        : 'box-sizing supports border-box or content-box.'
     case 'gap':
       return parseNativeQssGap(value) !== undefined
         ? undefined
