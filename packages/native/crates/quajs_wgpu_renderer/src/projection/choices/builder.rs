@@ -1,4 +1,5 @@
 use crate::projection::common::{insert_unique_safe_native_dispatch_identifier, PackageProvenance};
+use crate::projection::safety::is_safe_native_text_payload;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
     FontStyleDrawParam, PanelDrawParams, RenderGraph, RenderPlane, RendererIntent, TextAlign,
@@ -28,6 +29,7 @@ pub fn build_choice_commands(
         .iter()
         .filter(|choice| {
             insert_unique_safe_native_dispatch_identifier(&mut seen_choice_ids, &choice.id)
+                && is_safe_native_text_payload(&choice.text)
         })
         .collect::<Vec<_>>();
     if safe_choices.is_empty() {

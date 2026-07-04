@@ -122,6 +122,7 @@ impl JsonProjectionValidator {
             choice_ids,
             "choice ids",
         );
+        self.validate_text_payload(&format!("{path}.text"), &choice.text, "choice text");
         self.validate_provenance(&format!("{path}.provenance"), &choice.provenance);
     }
 

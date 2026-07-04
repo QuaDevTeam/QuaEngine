@@ -51,6 +51,39 @@ pub(in super::super) fn json_frame_with_oversized_ui_text_input() -> String {
     )
 }
 
+pub(in super::super) fn json_frame_with_control_character_choice_text_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "choices": {
+          "choices": [
+            { "id": "start", "text": "Start\u001bGame" }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_oversized_choice_text_input() -> String {
+    format!(
+        r#"
+    {{
+      "container": {{ "width": 1600, "height": 1000 }},
+      "view": {{
+        "choices": {{
+          "choices": [
+            {{ "id": "start", "text": "{}" }}
+          ]
+        }}
+      }}
+    }}
+    "#,
+        "a".repeat(64 * 1024 + 1)
+    )
+}
+
 pub(in super::super) fn json_frame_with_control_character_dialogue_plain_text_input() -> &'static str
 {
     r#"
