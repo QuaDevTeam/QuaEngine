@@ -131,7 +131,7 @@ import component "./shared/Panel.qui";
 - `Stack`
 - `RichText` 作为 text projection 叶子能力
 
-其中 `Text` / `RichText` 属于 text projection，`Backdrop` / `Panel` / `SafeArea` / `Scroll` 是语义节点，`Stack` / `Row` / `Column` / `Grid` / `Fragment` / `Layer` / `Divider` / `Spacer` 是结构节点。`Stack` / `Row` / `Column` / `Grid` 不绘制、不交互，但 resolved `clipChildren` 会作为 child clip context 影响子节点绘制与命中。
+其中 `Text` / `RichText` 属于 text projection，`Backdrop` / `Panel` / `SafeArea` / `Scroll` 是语义节点，`Stack` / `Row` / `Column` / `Grid` / `Fragment` / `Layer` / `Divider` / `Spacer` 是结构节点。`Stack` / `Row` / `Column` / `Grid` / `Layer` 不绘制、不交互，但 resolved `clipChildren` 会作为 child clip context 影响子节点绘制与命中；`Layer` 仍只额外负责 resolved `z-index` 的子树偏移。
 
 native component registry 需要声明 content model：`children`、`text` 或 `none`。compiler / LSP 应当据此诊断不合法结构：`Text` / `RichText` 只能包含文本或表达式内容，不能嵌套 QUI 组件或 slot；`Image` / `Divider` / `Spacer` 不应声明 child content；named slot 必须是拥有该 slot 的父组件的直接子节点，并且同一父组件下不能重复声明同名 slot。Rust renderer 只消费已经规整好的投影树，不负责猜测这些 authoring 语义。
 
@@ -202,7 +202,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 - `white-space`（native 子集：`normal` / `nowrap` / `pre` / `pre-line` / `pre-wrap`；编译为 `UiSurfaceResolvedStyle.whiteSpace`，Rust 侧映射到 Text / Button draw params；真实空白折叠、换行和 wrapping 策略归后续文本 backend 实现）
 - `object-fit`
 - `opacity`
-- `overflow`（native 子集：`visible` / `hidden`；`hidden` 编译为 node-level `UiSurfaceNodeProjection.clipChildren: true`，用于裁剪 painted surface 和 `Stack` / `Row` / `Column` / `Grid` 结构组的子节点绘制与 pointer 命中；`Scroll` / `SafeArea` 仍使用各自专用裁剪语义）
+- `overflow`（native 子集：`visible` / `hidden`；`hidden` 编译为 node-level `UiSurfaceNodeProjection.clipChildren: true`，用于裁剪 painted surface 和 `Stack` / `Row` / `Column` / `Grid` / `Layer` 结构组的子节点绘制与 pointer 命中；`Scroll` / `SafeArea` 仍使用各自专用裁剪语义）
 - `padding` / `padding-top` / `padding-right` / `padding-bottom` / `padding-left`（作为 resolved edge inset metadata 写入 `UiSurfaceResolvedStyle.padding`；当前用于 draw params，完整布局算法仍归后续 layout IR）
 - `visibility`（native 子集：`visible` / `hidden`，作为 node-level `UiSurfaceNodeProjection.visible` fallback；QUI 显式 `show` prop 优先）
 - `z-index`（作为 resolved node metadata，写入 `UiSurfaceNodeProjection.z_index`，不是浏览器 stacking context）
