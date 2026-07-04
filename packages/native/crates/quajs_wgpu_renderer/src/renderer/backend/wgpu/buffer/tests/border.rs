@@ -218,6 +218,89 @@ fn emits_rounded_border_as_single_ring_draw_call() {
     assert_eq!(pass.vertices[29].color, [1.0, 0.0, 0.0, 1.0]);
 }
 
+#[test]
+fn keeps_outer_radius_when_rounded_border_width_reaches_radius() {
+    let mut panel = quad(
+        "ui:thick-rounded",
+        DrawBatchPipeline::Ui,
+        DrawCommandKind::RoundedRect,
+        WgpuNativeRenderPaint::Solid {
+            color: rgba(0x10, 0x20, 0x30, 0xff),
+            literal: "#102030".to_string(),
+        },
+        rect(10, 20, 100, 40),
+        Vec::new(),
+    );
+    panel.corner_radius = 10.0;
+    panel.border = Some(WgpuNativeRenderQuadBorder {
+        color: Some(rgba(0xff, 0x00, 0x00, 0xff)),
+        literal: Some("#f00".to_string()),
+        width: 10.0,
+    });
+
+    let plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![panel]));
+
+    let pass = &plan.passes[0];
+    assert_eq!(pass.vertex_count, 85);
+    assert_eq!(pass.index_count, 252);
+    assert_eq!(pass.draw_call_count, 2);
+    assert_eq!(
+        pass.draw_calls
+            .iter()
+            .map(|draw_call| draw_call.command_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["ui:thick-rounded", "ui:thick-rounded:border"]
+    );
+    assert_eq!(pass.draw_calls[1].draw_kind, DrawCommandKind::RoundedRect);
+    assert_eq!(pass.draw_calls[1].vertex_count, 56);
+    assert_eq!(pass.draw_calls[1].index_count, 168);
+    assert_eq!(pass.vertices[29].position, [100.0, 20.0]);
+    assert_eq!(pass.vertices[30].position, [100.0, 30.0]);
+    assert_eq!(pass.vertices[29].color, [1.0, 0.0, 0.0, 1.0]);
+}
+
+#[test]
+fn fills_rounded_border_when_width_consumes_inner_area() {
+    let mut panel = quad(
+        "ui:filled-border",
+        DrawBatchPipeline::Ui,
+        DrawCommandKind::RoundedRect,
+        WgpuNativeRenderPaint::Solid {
+            color: rgba(0x10, 0x20, 0x30, 0xff),
+            literal: "#102030".to_string(),
+        },
+        rect(10, 20, 100, 40),
+        Vec::new(),
+    );
+    panel.corner_radius = 12.0;
+    panel.opacity = 0.5;
+    panel.border = Some(WgpuNativeRenderQuadBorder {
+        color: Some(rgba(0xff, 0x00, 0x00, 0xff)),
+        literal: Some("#f00".to_string()),
+        width: 40.0,
+    });
+
+    let plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![panel]));
+
+    let pass = &plan.passes[0];
+    assert_eq!(pass.vertex_count, 58);
+    assert_eq!(pass.index_count, 168);
+    assert_eq!(pass.draw_call_count, 2);
+    assert_eq!(
+        pass.draw_calls
+            .iter()
+            .map(|draw_call| draw_call.command_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["ui:filled-border", "ui:filled-border:border"]
+    );
+    assert_eq!(pass.draw_calls[1].draw_kind, DrawCommandKind::RoundedRect);
+    assert_eq!(pass.draw_calls[1].vertex_count, 29);
+    assert_eq!(pass.draw_calls[1].index_count, 84);
+    assert_eq!(pass.vertices[29].position, [60.0, 40.0]);
+    assert_eq!(pass.vertices[30].position, [98.0, 20.0]);
+    assert_eq!(pass.vertices[29].color, [1.0, 0.0, 0.0, 0.5]);
+}
+
 fn assert_uv_close(actual: [f32; 2], expected: [f32; 2]) {
     const EPSILON: f32 = 0.000_01;
     assert!(
