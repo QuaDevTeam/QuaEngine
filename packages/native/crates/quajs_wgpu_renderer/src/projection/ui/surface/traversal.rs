@@ -207,14 +207,16 @@ fn append_painted_surface_node_commands(
         commands.push(command);
     }
 
-    commands.push(surface_node_command(
+    if let Some(command) = surface_node_command(
         overlay,
         node,
         z_base,
         clip_bounds,
         offset,
         effective_opacity,
-    ));
+    ) {
+        commands.push(command);
+    }
 }
 
 fn node_child_clip_bounds(
