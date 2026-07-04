@@ -46,13 +46,15 @@ pub(super) fn append_surface_node_commands(
 
     if node.kind == UiSurfaceNodeKind::Layer {
         let child_z_base = z_base.saturating_add(node.z_index);
+        let child_clip_bounds = node_child_clip_bounds(node, clip_bounds, offset);
+        let child_clip_bounds = child_clip_bounds.as_deref().unwrap_or(clip_bounds);
         for child in &node.children {
             append_surface_node_commands(
                 commands,
                 overlay,
                 child,
                 child_z_base,
-                clip_bounds,
+                child_clip_bounds,
                 offset,
                 effective_opacity,
             );

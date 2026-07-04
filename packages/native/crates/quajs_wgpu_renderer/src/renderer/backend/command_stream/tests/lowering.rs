@@ -162,6 +162,61 @@ fn lowers_structural_clip_children_into_command_stream_scissor() {
 }
 
 #[test]
+fn lowers_layer_clip_children_into_command_stream_scissor() {
+    let frame = prepare_native_frame(test_layout(), &view_with_layer_clip_children());
+    let resources = NativeResourceLedger::new();
+    let submission = NativeRenderFrameRef {
+        revision: 45,
+        frame: &frame,
+        resources: &resources,
+    }
+    .submission();
+    let draw_plan = NativeBackendDrawPlan::from_submission(&submission);
+    let encoder_plan = NativeBackendEncoderPlan::from_draw_plan(&draw_plan);
+    let command_stream = NativeBackendCommandStreamPlan::from_encoder_plan(&encoder_plan);
+    let commands = command_stream.commands().collect::<Vec<_>>();
+    let layer_bounds = LogicalRect {
+        x: 40.0,
+        y: 40.0,
+        width: 220.0,
+        height: 90.0,
+    };
+
+    assert!(!commands.iter().any(|command| {
+        matches!(
+            command,
+            NativeBackendCommandStreamCommand::Draw {
+                command_id,
+                ..
+            } if command_id == "ui:menu:foreground"
+        )
+    }));
+    assert!(commands.iter().any(|command| {
+        matches!(
+            command,
+            NativeBackendCommandStreamCommand::SetClip { rect, depth: 1 }
+                if *rect == layer_bounds
+        )
+    }));
+    assert!(commands.iter().any(|command| {
+        matches!(
+            command,
+            NativeBackendCommandStreamCommand::Draw {
+                command_id,
+                clip_depth: 1,
+                ..
+            } if command_id == "ui:menu:inside"
+        )
+    }));
+    assert!(commands.iter().any(|command| {
+        matches!(
+            command,
+            NativeBackendCommandStreamCommand::ClearClip { depth: 1 }
+        )
+    }));
+}
+
+#[test]
 fn emits_resource_bind_commands_before_draws_that_use_resources() {
     let frame = prepare_native_frame(test_layout(), &view_with_ui_scroll());
     let resources = ledger_with_background_and_surface();
