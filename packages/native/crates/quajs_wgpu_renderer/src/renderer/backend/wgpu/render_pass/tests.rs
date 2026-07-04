@@ -148,6 +148,40 @@ fn emits_resource_binds_and_skip_operations_without_uploading_empty_buffers() {
 }
 
 #[test]
+fn emits_resource_bind_for_texture_paint_resource_without_explicit_draw_resources() {
+    let mut texture_draw = draw_call(
+        "background:main",
+        DrawBatchPipeline::Image,
+        DrawCommandKind::Image,
+        0,
+        6,
+        Vec::new(),
+    );
+    texture_draw.paint = WgpuNativeRenderPaint::Texture {
+        resource_id: Some(ResourceId::from("images:bg/school.png")),
+        tint: WgpuNativeRenderColor::WHITE,
+    };
+
+    let plan = WgpuNativeRenderPassPlan::from_buffer_plan(&buffer_plan(
+        Vec::new(),
+        Vec::new(),
+        vec![texture_draw],
+        Vec::new(),
+    ));
+
+    assert_eq!(plan.upload_operation_count, 0);
+    assert_eq!(plan.draw_indexed_operation_count, 1);
+    assert_eq!(plan.skipped_operation_count, 0);
+    assert_eq!(
+        plan.passes[0].operations[4],
+        WgpuNativeRenderPassOperation::BindResources {
+            command_id: "background:main".to_string(),
+            resource_ids: Vec::new(),
+        }
+    );
+}
+
+#[test]
 fn emits_missing_resource_skip_operations() {
     let missing_resource_id = ResourceId::from("images:missing-panel.png");
     let plan = WgpuNativeRenderPassPlan::from_buffer_plan(&buffer_plan(

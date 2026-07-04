@@ -218,7 +218,14 @@ fn draw_operations(draw_call: &WgpuNativeRenderDrawCall) -> Vec<WgpuNativeRender
 }
 
 fn paint_requires_resource_bind(paint: &WgpuNativeRenderPaint) -> bool {
-    matches!(paint, WgpuNativeRenderPaint::TextPlaceholder { .. })
+    matches!(
+        paint,
+        WgpuNativeRenderPaint::TextPlaceholder { .. }
+            | WgpuNativeRenderPaint::Texture {
+                resource_id: Some(_),
+                ..
+            }
+    )
 }
 
 #[cfg(test)]
