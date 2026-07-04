@@ -111,6 +111,7 @@ export interface NativeQssEdgeInsetsValue {
 
 export interface NativeQssResolvedLayout {
   columnGap?: number
+  margin?: NativeQssEdgeInsetsValue
   rowGap?: number
 }
 

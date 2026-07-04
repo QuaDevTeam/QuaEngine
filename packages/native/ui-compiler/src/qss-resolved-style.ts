@@ -9,6 +9,8 @@ import {
   resolveNativeQssGap,
   resolveNativeQssInset,
   resolveNativeQssLayoutGap,
+  resolveNativeQssLayoutMargin,
+  resolveNativeQssLayoutMarginEdge,
 } from './qss-resolved-style-helpers'
 import {
   parseNativeQssBackgroundImage,
@@ -123,6 +125,21 @@ export function resolveNativeQssDeclarations(
         break
       case 'line-height':
         resolved.style.lineHeight = parseNativeQssLogicalNumber(value)
+        break
+      case 'margin':
+        resolved.layout = resolveNativeQssLayoutMargin(resolved.layout, value)
+        break
+      case 'margin-bottom':
+        resolved.layout = resolveNativeQssLayoutMarginEdge(resolved.layout, 'bottom', value)
+        break
+      case 'margin-left':
+        resolved.layout = resolveNativeQssLayoutMarginEdge(resolved.layout, 'left', value)
+        break
+      case 'margin-right':
+        resolved.layout = resolveNativeQssLayoutMarginEdge(resolved.layout, 'right', value)
+        break
+      case 'margin-top':
+        resolved.layout = resolveNativeQssLayoutMarginEdge(resolved.layout, 'top', value)
         break
       case 'height':
         resolved.bounds = resolveNativeQssBound(resolved.bounds, 'height', value, parseNativeQssLogicalNumber)

@@ -4,7 +4,6 @@ import type {
   NativeQuiAstNode,
   NativeQuiDocument,
   NativeUiSurfaceNodeKind,
-  NativeUiSurfaceNodeProjection,
   NativeUiSurfaceProjection,
   NativeUiSurfaceRect,
 } from './types'
@@ -30,11 +29,15 @@ import {
   textFromNode,
 } from './projection-node-values'
 import {
-  applyNativeQssStructuralLayout,
   pruneSurfaceNode,
   rectFromProps,
   ZERO_RECT,
 } from './projection-node-helpers'
+import {
+  applyNativeQssStructuralLayout,
+  stripNativeQssCompilerLayout,
+  type NativeUiCompilerSurfaceNodeProjection,
+} from './projection-layout'
 import { resolveStyleForNode } from './projection-selectors'
 
 export interface CompileNativeUiSurfaceProjectionOptions {
@@ -72,16 +75,16 @@ export function compileNativeUiSurfaceProjection(
     return {}
 
   if (rootChildren.length === 1 && !options.rootId)
-    return { root: rootChildren[0] }
+    return { root: stripNativeQssCompilerLayout(rootChildren[0]) }
 
   return {
-    root: pruneSurfaceNode({
+    root: stripNativeQssCompilerLayout(pruneSurfaceNode({
       id: options.rootId || 'root',
       kind: 'Fragment',
       bounds: { ...ZERO_RECT },
       ...(provenance ? { provenance } : {}),
       children: rootChildren,
-    }),
+    }) as NativeUiCompilerSurfaceNodeProjection),
   }
 }
 
@@ -91,7 +94,7 @@ function surfaceNodeFromQuiNode(
   context: QuiProjectionContext,
   qssDocuments: readonly NativeQssDocument[],
   provenance: NativePackageProvenance | undefined,
-): NativeUiSurfaceNodeProjection[] {
+): NativeUiCompilerSurfaceNodeProjection[] {
   const iterations = context.suppressLoop ? undefined : loopIterationsForNode(node, context.scope)
   if (iterations) {
     return iterations.flatMap(iteration =>
@@ -126,7 +129,7 @@ function surfaceNodeFromQuiNode(
   const intent = intentFromNode(node, context.scope)
   const id = nodeId(node, context.scope)
 
-  return [pruneSurfaceNode({
+  const surfaceNode: NativeUiCompilerSurfaceNodeProjection = {
     id,
     kind: node.name as NativeUiSurfaceNodeKind,
     bounds: rect,
@@ -140,9 +143,12 @@ function surfaceNodeFromQuiNode(
     image,
     intent,
     style: resolvedStyle.style,
+    compilerLayout: resolvedStyle.layout,
     ...(provenance ? { provenance } : {}),
     children,
-  })]
+  }
+
+  return [pruneSurfaceNode(surfaceNode) as NativeUiCompilerSurfaceNodeProjection]
 }
 
 function surfaceNodesFromQuiChildren(
@@ -151,8 +157,8 @@ function surfaceNodesFromQuiChildren(
   context: QuiProjectionContext,
   qssDocuments: readonly NativeQssDocument[],
   provenance: NativePackageProvenance | undefined,
-): NativeUiSurfaceNodeProjection[] {
-  const projected: NativeUiSurfaceNodeProjection[] = []
+): NativeUiCompilerSurfaceNodeProjection[] {
+  const projected: NativeUiCompilerSurfaceNodeProjection[] = []
   let branchMatched = false
   let branchOpen = false
 
