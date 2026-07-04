@@ -22,6 +22,16 @@ pub(crate) fn infer_resource_kind(
     }
 }
 
+pub(crate) fn is_missing_resource_kind_draw_blocking(kind: NativeResourceKind) -> bool {
+    !matches!(
+        kind,
+        NativeResourceKind::FontFace
+            | NativeResourceKind::GlyphAtlas
+            | NativeResourceKind::QssStyle
+            | NativeResourceKind::TokenTable
+    )
+}
+
 fn infer_resource_kind_from_command(command_kind: DrawCommandKind) -> NativeResourceKind {
     match command_kind {
         DrawCommandKind::Image | DrawCommandKind::NineSlice => NativeResourceKind::Texture,

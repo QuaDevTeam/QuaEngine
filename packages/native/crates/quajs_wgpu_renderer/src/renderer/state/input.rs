@@ -1,0 +1,39 @@
+use crate::input::{
+    resolve_pointer_event_with_interaction, NativePointerEvent, NativePointerEventResolution,
+    PointerIntentResolution, RendererIntentHit,
+};
+use crate::stage_layout::{StageClientPoint, StageClientRectOrigin};
+
+use super::NativeRendererState;
+
+impl NativeRendererState {
+    pub fn hit_intent(&self, logical_x: f64, logical_y: f64) -> Option<RendererIntentHit> {
+        self.frame
+            .as_ref()
+            .and_then(|frame| frame.hit_intent(logical_x, logical_y))
+    }
+
+    pub fn pointer_intent(
+        &self,
+        point: StageClientPoint,
+        container_rect: StageClientRectOrigin,
+    ) -> Option<PointerIntentResolution> {
+        self.frame
+            .as_ref()
+            .map(|frame| frame.pointer_intent(point, container_rect))
+    }
+
+    pub fn pointer_event(
+        &mut self,
+        event: NativePointerEvent,
+    ) -> Option<NativePointerEventResolution> {
+        self.pointer_intent(event.point, event.container_rect)
+            .map(|pointer| {
+                resolve_pointer_event_with_interaction(
+                    &mut self.pointer_interaction,
+                    event,
+                    pointer,
+                )
+            })
+    }
+}

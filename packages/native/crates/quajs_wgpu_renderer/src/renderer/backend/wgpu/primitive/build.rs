@@ -1,0 +1,196 @@
+use crate::render_graph::{DrawBatchPipeline, DrawCommandKind, DrawCommandParams};
+use crate::resources::ResourceId;
+
+use super::super::super::NativeBackendEncoderSkipReason;
+use super::super::execution::{WgpuNativeRenderDrawMetadata, WgpuNativeRenderExecutionOperation};
+use super::super::physical::WgpuPhysicalRect;
+use super::{
+    WgpuNativeRenderPrimitive, WgpuNativeRenderPrimitiveBorder, WgpuNativeRenderPrimitiveKind,
+    WgpuNativeRenderTextStyle,
+};
+
+impl WgpuNativeRenderPrimitive {
+    pub(super) fn from_execution_operation(
+        operation: &WgpuNativeRenderExecutionOperation,
+        scissor: Option<WgpuPhysicalRect>,
+        bound_resource_ids: Option<Vec<ResourceId>>,
+    ) -> Option<Self> {
+        match operation {
+            WgpuNativeRenderExecutionOperation::Draw {
+                command_id,
+                pipeline,
+                kind,
+                metadata,
+                physical_bounds,
+                ..
+            } => Some(Self::from_draw(
+                command_id,
+                *pipeline,
+                *kind,
+                metadata,
+                *physical_bounds,
+                scissor,
+                bound_resource_ids,
+            )),
+            WgpuNativeRenderExecutionOperation::SkipDraw {
+                command_id,
+                pipeline,
+                kind,
+                metadata,
+                reason,
+                missing_resource_ids,
+            } => Some(Self::from_skip(
+                command_id,
+                *pipeline,
+                *kind,
+                metadata,
+                *reason,
+                missing_resource_ids.clone(),
+            )),
+            _ => None,
+        }
+    }
+
+    fn from_draw(
+        command_id: &str,
+        pipeline: DrawBatchPipeline,
+        draw_kind: DrawCommandKind,
+        metadata: &WgpuNativeRenderDrawMetadata,
+        physical_bounds: WgpuPhysicalRect,
+        scissor: Option<WgpuPhysicalRect>,
+        bound_resource_ids: Option<Vec<ResourceId>>,
+    ) -> Self {
+        Self {
+            command_id: command_id.to_string(),
+            pipeline,
+            draw_kind,
+            kind: primitive_kind_from_params(&metadata.params),
+            logical_bounds: metadata.bounds,
+            physical_bounds,
+            scissor,
+            opacity: metadata.opacity,
+            owner_package_id: metadata.owner_package_id.clone(),
+            required_package_ids: metadata.required_package_ids.iter().cloned().collect(),
+            resource_ids: bound_resource_ids
+                .unwrap_or_else(|| resource_ids_from_params(&metadata.params)),
+        }
+    }
+
+    fn from_skip(
+        command_id: &str,
+        pipeline: DrawBatchPipeline,
+        draw_kind: DrawCommandKind,
+        metadata: &WgpuNativeRenderDrawMetadata,
+        reason: NativeBackendEncoderSkipReason,
+        missing_resource_ids: Vec<ResourceId>,
+    ) -> Self {
+        Self {
+            command_id: command_id.to_string(),
+            pipeline,
+            draw_kind,
+            kind: WgpuNativeRenderPrimitiveKind::Skipped {
+                reason,
+                missing_resource_ids: missing_resource_ids.clone(),
+            },
+            logical_bounds: metadata.bounds,
+            physical_bounds: WgpuPhysicalRect::default(),
+            scissor: None,
+            opacity: metadata.opacity,
+            owner_package_id: metadata.owner_package_id.clone(),
+            required_package_ids: metadata.required_package_ids.iter().cloned().collect(),
+            resource_ids: missing_resource_ids,
+        }
+    }
+}
+
+fn primitive_kind_from_params(params: &DrawCommandParams) -> WgpuNativeRenderPrimitiveKind {
+    match params {
+        DrawCommandParams::Image(params) => WgpuNativeRenderPrimitiveKind::Image {
+            asset_type: params.asset_type.clone(),
+            asset_name: params.asset_name.clone(),
+            fit: params.fit,
+            origin: params.origin,
+            source: params.source,
+            rotation_degrees: params.rotation_degrees,
+        },
+        DrawCommandParams::Video(params) => WgpuNativeRenderPrimitiveKind::VideoFallback {
+            asset_type: params.asset_type.clone(),
+            asset_name: params.asset_name.clone(),
+            poster_asset_name: params.poster_asset_name.clone(),
+            fit: params.fit,
+            origin: params.origin,
+            source: params.source,
+            fallback_reason: params.fallback_reason.clone(),
+        },
+        DrawCommandParams::Character(params) => WgpuNativeRenderPrimitiveKind::Character {
+            character_id: params.character_id.clone(),
+            sprite_asset_name: params.sprite_asset_name.clone(),
+            rotation_degrees: params.rotation_degrees,
+        },
+        DrawCommandParams::Text(params) => WgpuNativeRenderPrimitiveKind::Text {
+            text: params.text.clone(),
+            color: params.color.clone(),
+            style: WgpuNativeRenderTextStyle::from(params),
+        },
+        DrawCommandParams::Panel(params) => WgpuNativeRenderPrimitiveKind::Panel {
+            fill_color: params.fill_color.clone(),
+            corner_radius: params.corner_radius,
+            border: WgpuNativeRenderPrimitiveBorder::from(&params.border),
+        },
+        DrawCommandParams::UiButton(params) => WgpuNativeRenderPrimitiveKind::UiButton {
+            label: params.label.clone(),
+            enabled: params.enabled,
+            background_color: params.background_color.clone(),
+            text_color: params.text_color.clone(),
+            text_style: WgpuNativeRenderTextStyle::from(params),
+            corner_radius: params.corner_radius,
+            border: WgpuNativeRenderPrimitiveBorder::from(&params.border),
+        },
+        DrawCommandParams::UiSurface(params) => WgpuNativeRenderPrimitiveKind::UiSurface {
+            element_id: params.element_id.clone(),
+            surface_key: params.surface_key.clone(),
+            interactive: params.interactive,
+        },
+        DrawCommandParams::None => WgpuNativeRenderPrimitiveKind::Empty,
+    }
+}
+
+fn resource_ids_from_params(params: &DrawCommandParams) -> Vec<ResourceId> {
+    match params {
+        DrawCommandParams::Image(params) => {
+            vec![ResourceId::from(format!(
+                "{}:{}",
+                params.asset_type, params.asset_name
+            ))]
+        }
+        DrawCommandParams::Video(params) => {
+            let mut resources = vec![ResourceId::from(format!(
+                "{}:{}",
+                params.asset_type, params.asset_name
+            ))];
+            if let Some(poster_asset_name) = &params.poster_asset_name {
+                resources.push(ResourceId::from(format!("images:{}", poster_asset_name)));
+            }
+            resources
+        }
+        DrawCommandParams::Character(params) => {
+            vec![ResourceId::from(format!(
+                "characters:{}",
+                params.sprite_asset_name
+            ))]
+        }
+        DrawCommandParams::Text(params) => params
+            .font_family
+            .iter()
+            .map(|font| ResourceId::from(format!("fonts:{font}")))
+            .collect(),
+        DrawCommandParams::UiSurface(params) => params
+            .surface_key
+            .iter()
+            .map(|surface_key| ResourceId::from(format!("surface:{surface_key}")))
+            .collect(),
+        DrawCommandParams::Panel(_) | DrawCommandParams::UiButton(_) | DrawCommandParams::None => {
+            Vec::new()
+        }
+    }
+}

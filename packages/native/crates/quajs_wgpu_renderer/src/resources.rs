@@ -10,7 +10,9 @@ pub mod sync;
 pub mod unload;
 
 pub use assets::{
-    is_declarative_asset_kind, plan_asset_requests, NativeAssetRequest, NativeAssetRequestPlan,
+    is_declarative_asset_kind, plan_asset_requests, plan_texture_upload_requests,
+    plan_texture_upload_sync, NativeAssetRequest, NativeAssetRequestPlan,
+    NativeTextureUploadRequest, NativeTextureUploadRequestPlan, NativeTextureUploadSyncPlan,
 };
 pub use budget::{
     ResourceBudget, ResourceBudgetViolation, ResourceBudgetViolationCode, ResourceMemoryBudget,
@@ -25,7 +27,7 @@ pub use summary::{
 pub use sync::{plan_frame_resource_sync, FrameResourceSyncPlan};
 pub use unload::{PackageUnloadBlocker, PackageUnloadBlockerReason, PackageUnloadPlan};
 
-pub(crate) use kind::infer_resource_kind;
+pub(crate) use kind::{infer_resource_kind, is_missing_resource_kind_draw_blocking};
 
 #[cfg(test)]
 mod tests;

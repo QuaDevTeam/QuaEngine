@@ -123,7 +123,7 @@ where
         &mut self,
         input: &str,
     ) -> Result<NativeRendererFrameUpdate, NativeRendererJsonFrameError> {
-        let input = parse_json_frame_input(input)?;
+        let input = parse_native_renderer_json_frame_input(input)?;
         Ok(self.prepare_frame(input.resolved_layout(), &input.view))
     }
 
@@ -131,7 +131,7 @@ where
         &mut self,
         input: &str,
     ) -> Result<NativeRendererFrameResult, NativeRendererJsonFrameError> {
-        let input = parse_json_frame_input(input)?;
+        let input = parse_native_renderer_json_frame_input(input)?;
         Ok(self.prepare_and_render(input.resolved_layout(), &input.view)?)
     }
 }
@@ -145,12 +145,12 @@ where
         &mut self,
         input: &str,
     ) -> Result<NativeRendererFrameResult, NativeRendererJsonFrameError> {
-        let input = parse_json_frame_input(input)?;
+        let input = parse_native_renderer_json_frame_input(input)?;
         Ok(self.prepare_render_and_apply_audio(input.resolved_layout(), &input.view)?)
     }
 }
 
-fn parse_json_frame_input(
+pub fn parse_native_renderer_json_frame_input(
     input: &str,
 ) -> Result<NativeRendererJsonFrameInput, NativeRendererJsonFrameError> {
     let input: NativeRendererJsonFrameInput = serde_json::from_str(input)?;
