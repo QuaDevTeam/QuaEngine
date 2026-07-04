@@ -2,7 +2,9 @@ use std::collections::BTreeSet;
 
 use super::*;
 use crate::projection::common::{FontFamilyProjection, FontWeightProjection, PackageProvenance};
-use crate::projection::safety::MAX_NATIVE_TEXT_PAYLOAD_BYTES;
+use crate::projection::safety::{
+    MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE, MAX_NATIVE_TEXT_PAYLOAD_BYTES,
+};
 use crate::render_graph::{
     DrawCommandKind, DrawCommandParams, FontWeightDrawParam, RenderGraph, RenderPlane, TextAlign,
 };
@@ -252,6 +254,93 @@ fn flattens_rich_text_and_builds_avatar_command() {
         }
         _ => panic!("expected text params"),
     }
+}
+
+#[test]
+fn falls_back_from_unsafe_dialogue_style_on_direct_projection() {
+    let layout = test_layout();
+    let dialogue = DialogueProjection {
+        speaker: Some("Yuki".into()),
+        speaker_style: RichTextStyle {
+            color: Some("url(native.dll)".to_string()),
+            font_family: Some(FontFamilyProjection::new([
+                "Qua Serif",
+                "../Escape Serif",
+                "NativePayload.dll",
+                "fonts:Injected",
+            ])),
+            font_size: Some(MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE + 1.0),
+            line_height: Some(f64::NAN),
+            ..Default::default()
+        },
+        text: RichTextContent::Document(RichTextDocumentProjection {
+            style: RichTextStyle {
+                color: Some("file:///theme/dialogue".to_string()),
+                font_family: Some(FontFamilyProjection::new([
+                    "https://example.test/font.woff",
+                    "Dialogue Sans",
+                ])),
+                font_size: Some(0.0),
+                line_height: Some(MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE + 1.0),
+                ..Default::default()
+            },
+            blocks: vec![RichTextBlockProjection {
+                spans: vec![RichTextSpanProjection {
+                    text: "Safe text".to_string(),
+                    style: RichTextStyle::default(),
+                }],
+            }],
+        }),
+        ..DialogueProjection::say("")
+    };
+
+    let commands = build_dialogue_commands(&layout, &dialogue);
+
+    assert_eq!(commands.len(), 3);
+
+    let speaker = commands
+        .iter()
+        .find(|command| command.id == "dialogue:speaker")
+        .unwrap();
+    match &speaker.params {
+        DrawCommandParams::Text(params) => {
+            assert_eq!(params.color, "#ffffff");
+            assert_eq!(params.font_family, vec!["Qua Serif"]);
+            assert_eq!(params.font_size, 34.0);
+            assert_eq!(params.line_height, 42.0);
+        }
+        _ => panic!("expected speaker text params"),
+    }
+    assert_eq!(
+        speaker
+            .resource_ids
+            .iter()
+            .map(|resource| resource.as_str())
+            .collect::<Vec<_>>(),
+        vec!["fonts:Qua Serif"]
+    );
+
+    let text = commands
+        .iter()
+        .find(|command| command.id == "dialogue:text")
+        .unwrap();
+    match &text.params {
+        DrawCommandParams::Text(params) => {
+            assert_eq!(params.text, "Safe text");
+            assert_eq!(params.color, "#ffffff");
+            assert_eq!(params.font_family, vec!["Dialogue Sans"]);
+            assert_eq!(params.font_size, 30.0);
+            assert_eq!(params.line_height, 42.0);
+        }
+        _ => panic!("expected dialogue text params"),
+    }
+    assert_eq!(
+        text.resource_ids
+            .iter()
+            .map(|resource| resource.as_str())
+            .collect::<Vec<_>>(),
+        vec!["fonts:Dialogue Sans"]
+    );
 }
 
 #[test]
