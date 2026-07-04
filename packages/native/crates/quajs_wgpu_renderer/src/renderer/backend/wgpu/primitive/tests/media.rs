@@ -48,6 +48,111 @@ fn preserves_image_source_rect_when_lowering_primitives() {
 }
 
 #[test]
+fn skips_empty_param_resource_ids_when_no_resources_are_bound() {
+    let plan = WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution_plan(vec![
+        unbound_draw(
+            "ui:empty-image",
+            DrawBatchPipeline::Image,
+            DrawCommandKind::Image,
+            DrawCommandParams::Image(ImageDrawParams {
+                asset_type: "images".to_string(),
+                asset_name: "  ".to_string(),
+                fit: MediaFit::Contain,
+                origin: MediaOrigin::default(),
+                source: LogicalRect::default(),
+                rotation_degrees: 0.0,
+            }),
+        ),
+        unbound_draw(
+            "background:empty-video",
+            DrawBatchPipeline::Video,
+            DrawCommandKind::VideoFrame,
+            DrawCommandParams::Video(VideoDrawParams {
+                asset_type: "video".to_string(),
+                asset_name: "".to_string(),
+                poster_asset_name: Some("".to_string()),
+                fit: MediaFit::Cover,
+                origin: MediaOrigin::default(),
+                source: LogicalRect::default(),
+                fallback_reason: Some("decode-unavailable".to_string()),
+            }),
+        ),
+        unbound_draw(
+            "character:empty",
+            DrawBatchPipeline::Character,
+            DrawCommandKind::Image,
+            DrawCommandParams::Character(CharacterDrawParams {
+                character_id: "empty".to_string(),
+                character_name: "Empty".to_string(),
+                sprite_asset_name: "".to_string(),
+                expression: None,
+                anchor: CharacterAnchor::Center,
+                scale: 1.0,
+                rotation_degrees: 0.0,
+            }),
+        ),
+        unbound_draw(
+            "ui:empty-text",
+            DrawBatchPipeline::Text,
+            DrawCommandKind::Text,
+            DrawCommandParams::Text(TextDrawParams {
+                text: "Fallback".to_string(),
+                font_family: vec!["  ".to_string()],
+                font_size: 24.0,
+                font_style: FontStyleDrawParam::Normal,
+                font_weight: None,
+                letter_spacing: 0.0,
+                line_height: 28.0,
+                align: TextAlign::Left,
+                text_decoration: TextDecorationDrawParam::None,
+                text_overflow: TextOverflowDrawParam::Clip,
+                text_transform: TextTransformDrawParam::None,
+                white_space: WhiteSpaceDrawParam::Normal,
+                color: "#ffffff".to_string(),
+                padding: EdgeInsetsDrawParam::default(),
+                role: "ui-text".to_string(),
+            }),
+        ),
+        unbound_draw(
+            "ui:empty-surface",
+            DrawBatchPipeline::Ui,
+            DrawCommandKind::UiSurface,
+            DrawCommandParams::UiSurface(UiSurfaceDrawParams {
+                element_id: "menu".to_string(),
+                surface_key: Some("".to_string()),
+                render_mode: "inline".to_string(),
+                overlay_stack: "menu".to_string(),
+                interactive: false,
+                intent: None,
+            }),
+        ),
+    ]));
+
+    assert_eq!(plan.primitive_count, 5);
+    assert!(plan.passes[0]
+        .primitives
+        .iter()
+        .all(|primitive| primitive.resource_ids.is_empty()));
+}
+
+fn unbound_draw(
+    command_id: &str,
+    pipeline: DrawBatchPipeline,
+    kind: DrawCommandKind,
+    params: DrawCommandParams,
+) -> WgpuNativeRenderExecutionOperation {
+    WgpuNativeRenderExecutionOperation::Draw {
+        command_id: command_id.to_string(),
+        pipeline,
+        kind,
+        metadata: draw_metadata(params),
+        physical_bounds: physical_rect(20, 30, 200, 100),
+        clip_depth: 0,
+        resource_count: 0,
+    }
+}
+
+#[test]
 fn lowers_video_fallback_poster_with_image_resource_namespace() {
     let plan = WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution_plan(vec![
         WgpuNativeRenderExecutionOperation::Draw {
