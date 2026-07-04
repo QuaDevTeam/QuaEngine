@@ -263,6 +263,34 @@ fn skips_layers_with_unsafe_projection_ids_on_direct_projection() {
 }
 
 #[test]
+fn skips_duplicate_layer_projection_ids_on_direct_projection() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        layers: vec![
+            BackgroundLayerProjection::new("clouds", "layers/clouds-first.png"),
+            BackgroundLayerProjection::new("clouds", "layers/clouds-second.png"),
+            BackgroundLayerProjection::new("mist", "layers/mist.png"),
+        ],
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+
+    assert_eq!(
+        commands
+            .iter()
+            .map(|command| command.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["background:layer:clouds", "background:layer:mist"]
+    );
+    assert_eq!(
+        commands[0].resource_ids,
+        vec![ResourceId::from("images:layers/clouds-first.png")]
+    );
+}
+
+#[test]
 fn builds_video_fallback_command_with_poster_resource() {
     let layout = test_layout();
     let background = BackgroundProjection {

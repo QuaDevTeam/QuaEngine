@@ -2,6 +2,8 @@ mod command;
 mod helpers;
 mod traversal;
 
+use std::collections::BTreeSet;
+
 use crate::projection::common::is_safe_native_dispatch_identifier;
 use crate::render_graph::DrawCommand;
 
@@ -28,8 +30,10 @@ pub fn build_ui_surface_node_commands(
     };
 
     let mut commands = Vec::new();
+    let mut seen_node_ids = BTreeSet::new();
     append_surface_node_commands(
         &mut commands,
+        &mut seen_node_ids,
         overlay,
         root,
         base_z_index + SURFACE_NODE_Z_OFFSET,

@@ -103,6 +103,30 @@ fn skips_overlays_with_unsafe_element_ids_on_direct_projection() {
 }
 
 #[test]
+fn skips_duplicate_overlay_element_ids_on_direct_projection() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![
+        UiOverlayProjection::new("menu").with_surface("ui/menu-first.qui"),
+        UiOverlayProjection::new("menu").with_surface("ui/menu-second.qui"),
+        UiOverlayProjection::new("confirm").with_surface("ui/confirm.qui"),
+    ]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["ui:menu", "ui:confirm"]);
+    match &commands[0].params {
+        DrawCommandParams::UiSurface(params) => {
+            assert_eq!(params.surface_key.as_deref(), Some("ui/menu-first.qui"));
+        }
+        _ => panic!("expected ui surface params"),
+    }
+}
+
+#[test]
 fn drops_unsafe_overlay_surface_keys_and_intents_on_direct_projection() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {

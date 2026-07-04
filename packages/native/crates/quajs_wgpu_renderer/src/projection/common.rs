@@ -161,6 +161,13 @@ pub(crate) fn is_safe_native_dispatch_identifier(value: &str) -> bool {
         .all(|char| char.is_ascii_alphanumeric() || matches!(char, '.' | '-' | '_' | ':'))
 }
 
+pub(crate) fn insert_unique_safe_native_dispatch_identifier(
+    seen: &mut BTreeSet<String>,
+    value: &str,
+) -> bool {
+    is_safe_native_dispatch_identifier(value) && seen.insert(value.to_string())
+}
+
 fn is_forbidden_native_payload_reference(asset_name: &str) -> bool {
     let normalized = strip_asset_reference_suffix(asset_name).to_ascii_lowercase();
     FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS.iter().any(|extension| {
@@ -326,6 +333,31 @@ mod tests {
                 "dispatch identifier should be unsafe: {identifier:?}"
             );
         }
+    }
+
+    #[test]
+    fn inserts_unique_safe_native_dispatch_identifiers() {
+        let mut seen = BTreeSet::new();
+
+        assert!(insert_unique_safe_native_dispatch_identifier(
+            &mut seen, "choice:a"
+        ));
+        assert!(!insert_unique_safe_native_dispatch_identifier(
+            &mut seen, "choice:a"
+        ));
+        assert!(!insert_unique_safe_native_dispatch_identifier(
+            &mut seen,
+            "bad/choice"
+        ));
+        assert!(insert_unique_safe_native_dispatch_identifier(
+            &mut seen, "choice:b"
+        ));
+        assert_eq!(
+            seen,
+            ["choice:a".to_string(), "choice:b".to_string()]
+                .into_iter()
+                .collect()
+        );
     }
 
     #[test]

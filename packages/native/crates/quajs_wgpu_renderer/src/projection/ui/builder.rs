@@ -1,5 +1,6 @@
 use crate::projection::common::{
-    is_safe_native_asset_name, is_safe_native_dispatch_identifier, PackageProvenance,
+    insert_unique_safe_native_dispatch_identifier, is_safe_native_asset_name,
+    is_safe_native_dispatch_identifier, PackageProvenance,
 };
 use crate::render_graph::{
     DrawCommand, DrawCommandKind, DrawCommandParams, RenderGraph, RenderPlane, RendererIntent,
@@ -25,11 +26,16 @@ pub fn build_ui_commands(layout: &ResolvedStageLayout, ui: &UiProjection) -> Vec
         return Vec::new();
     }
 
+    let mut seen_overlay_ids = std::collections::BTreeSet::new();
     let mut overlays = ui
         .overlays
         .iter()
         .filter(|overlay| {
-            overlay.visible && is_safe_native_dispatch_identifier(&overlay.element_id)
+            overlay.visible
+                && insert_unique_safe_native_dispatch_identifier(
+                    &mut seen_overlay_ids,
+                    &overlay.element_id,
+                )
         })
         .collect::<Vec<_>>();
     overlays.sort_by(|left, right| compare_ui_overlay_projection(left, right));

@@ -1,4 +1,7 @@
-use crate::projection::common::{is_safe_native_asset_name, is_safe_native_dispatch_identifier};
+use crate::projection::common::{
+    insert_unique_safe_native_dispatch_identifier, is_safe_native_asset_name,
+    is_safe_native_dispatch_identifier,
+};
 use crate::render_graph::{
     CharacterDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, RenderGraph, RenderPlane,
 };
@@ -19,7 +22,17 @@ pub fn build_character_commands(
     characters
         .iter()
         .filter(|character| character.visible)
-        .filter_map(|character| character_command(layout, character))
+        .filter_map({
+            let mut seen_character_ids = std::collections::BTreeSet::new();
+            move |character| {
+                let command = character_command(layout, character)?;
+                insert_unique_safe_native_dispatch_identifier(
+                    &mut seen_character_ids,
+                    &character.id,
+                )
+                .then_some(command)
+            }
+        })
         .collect()
 }
 
