@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use super::*;
 use crate::projection::common::PackageProvenance;
+use crate::projection::safety::MAX_NATIVE_TEXT_PAYLOAD_BYTES;
 use crate::render_graph::{
     DrawCommandKind, DrawCommandParams, RenderGraph, RenderPlane, TextAlign,
 };
@@ -109,6 +110,33 @@ fn skips_choices_with_unsafe_projection_ids_on_direct_projection() {
         }
         _ => panic!("expected choice button params"),
     }
+}
+
+#[test]
+fn skips_choices_with_unsafe_text_payloads_on_direct_projection() {
+    let layout = test_layout();
+    let choices = ChoiceSetProjection::new(vec![
+        ChoiceProjection::new("left", "Go left"),
+        ChoiceProjection::new("bad-control", "Open\u{1b}Menu"),
+        ChoiceProjection::new("bad-size", "a".repeat(MAX_NATIVE_TEXT_PAYLOAD_BYTES + 1)),
+        ChoiceProjection::new("right", "Go right"),
+    ]);
+
+    let commands = build_choice_commands(&layout, &choices);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["choices:panel", "choice:left", "choice:right"]);
+    let labels = commands
+        .iter()
+        .filter_map(|command| match &command.params {
+            DrawCommandParams::UiButton(params) => Some(params.label.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(labels, vec!["Go left", "Go right"]);
 }
 
 #[test]
