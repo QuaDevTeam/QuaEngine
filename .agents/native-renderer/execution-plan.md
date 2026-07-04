@@ -81,6 +81,8 @@ native compatibility block 必须显式声明 `nativeCode: false`。缺失也按
 - 一个 shared project template 里带三端 core，再按参数删除。
 - Runtime QPK 携带任一 target core dependency 或 renderer entry。
 
+这里要按“打包到具体项目”的口径执行，而不是只看最终 manifest 字段。Web project、Cocos project、Native project 的项目生成器、模板、启动壳、debug/release shell、installer、updater、smoke runner 都不能 materialize 另外两端的 core plugin；它们也不能重新声明当前 active core。唯一允许携带 core plugin 的对象是当前目标 resolver 生成的 `TargetCoreSelection`，后续链路只能读取和复验 `target-bundle-manifest.json`。如果某条链路先拿到了 Web/Cocos/Native core union，再删掉 inactive core 输出项目，也必须作为串线失败处理。
+
 即使最终 manifest 看起来只剩一个 target，只要中间 resolver graph / template graph / installer graph materialize 过其他 target core，也按 release blocker 失败。
 
 ## 目标工程结构
