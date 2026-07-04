@@ -44,6 +44,7 @@ pub struct WgpuNativeRenderSkippedQuad {
 pub enum WgpuNativeRenderSkippedQuadReason {
     EmptyBounds,
     Transparent,
+    MissingResources,
     NonDrawablePaint,
     InvalidPaint,
 }
@@ -53,6 +54,7 @@ impl WgpuNativeRenderSkippedQuadReason {
         match self {
             Self::EmptyBounds => "empty-bounds",
             Self::Transparent => "transparent",
+            Self::MissingResources => "missing-resources",
             Self::NonDrawablePaint => "non-drawable-paint",
             Self::InvalidPaint => "invalid-paint",
         }
