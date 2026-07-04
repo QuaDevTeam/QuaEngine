@@ -280,3 +280,59 @@ fn projects_surface_background_image_as_package_image_command() {
         _ => panic!("expected panel params"),
     }
 }
+
+#[test]
+fn projects_surface_background_image_custom_asset_type_and_node_provenance() {
+    let layout = test_layout();
+    let mut root = UiSurfaceNodeProjection::new(
+        "root",
+        UiSurfaceNodeKind::Panel,
+        rect(32.0, 48.0, 640.0, 360.0),
+    )
+    .with_style(UiSurfaceResolvedStyle {
+        background_image: Some(UiSurfaceImageProjection {
+            asset_type: "sprites".to_string(),
+            asset_name: "skins/night/menu-panel.png".to_string(),
+        }),
+        background_position: Some(UiSurfaceBackgroundPositionProjection { x: 0.25, y: 0.75 }),
+        background_size: Some(UiSurfaceObjectFitProjection::ScaleDown),
+        ..Default::default()
+    });
+    root.provenance = provenance("runtime.skin", ["runtime.menu"]);
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(root)),
+        provenance: provenance("runtime.menu", ["base.ui"]),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+
+    assert_eq!(
+        commands
+            .iter()
+            .map(|command| command.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["ui:menu", "ui:menu:root:background-image", "ui:menu:root"]
+    );
+    let image = &commands[1];
+    assert_eq!(image.kind, DrawCommandKind::Image);
+    assert_eq!(image.owner_package_id.as_deref(), Some("runtime.skin"));
+    assert!(image.required_package_ids.contains("base.ui"));
+    assert!(image.required_package_ids.contains("runtime.menu"));
+    assert_eq!(
+        image.resource_ids,
+        vec![ResourceId::from("sprites:skins/night/menu-panel.png")]
+    );
+
+    match &image.params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.asset_type, "sprites");
+            assert_eq!(params.asset_name, "skins/night/menu-panel.png");
+            assert_eq!(params.fit, MediaFit::ScaleDown);
+            assert_eq!(params.origin.x, 0.25);
+            assert_eq!(params.origin.y, 0.75);
+            assert_eq!(params.source, image.bounds);
+        }
+        _ => panic!("expected background image params"),
+    }
+}
