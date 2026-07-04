@@ -1,7 +1,7 @@
 # Native WGPU + QuickJS Renderer, QUI, QSS, And Native Authoring Plan
 
 Date: 2026-06-24
-Last verified: 2026-07-04
+Last verified: 2026-07-05
 
 ## Conclusion
 
@@ -38,6 +38,7 @@ The target is "Web-renderer-comparable QuaEngine projection rendering," not brow
 - 2026-06-28 复核结论：QuickJS + wgpu 仍适合作为 native renderer 的宿主脚本与跨平台 GPU 基座，但只能承载已经过 engine / compiler / tooling 解析的投影数据；Web / Cocos / Native target core 的选择必须在打包入口完成，不能延迟到运行时或项目模板中再分流。
 - 2026-07-04 复核结论：QuickJS 2026-06-04 已覆盖多数 ES2025 能力，且仍提供 runtime memory / stack / interrupt hooks；wgpu 当前主线仍是跨 Vulkan / Metal / D3D12 / OpenGL / WebGPU / WebGL 的 Rust GPU 基座。因此 native renderer 路线仍可行，但必须显式禁用或拒绝 QuickJS native module / dynamic library loading，并把所有动态内容限制在签名 QPK 内的 QS / JS / resources。
 - 2026-07-04 target-core 复核结论：打包到 Cocos、Web、Native 项目时，核心插件隔离必须覆盖 project generator、startup shell、debug/release shell、installer、updater、smoke runner 和 post-bundle graph。任何阶段先 materialize 三端 core union 再过滤都必须失败，即使最终 manifest 表面只剩一个 target。
+- 2026-07-05 project-packaging 复核结论：打包到 Cocos、Web、Native 项目不是“同一核心插件集合的三种导出”，而是三条互斥工程生成链。核心插件只能由当前目标 resolver 注入一次；项目模板、启动壳、debug/release shell、installer、updater、smoke runner、Runtime QPK 和第三方 shared entry 都只能读取已验证 manifest，不能重新声明 active core，也不能携带另外两个目标的 core 后过滤。
 - wgpu provides a safe Rust graphics API over Vulkan, Metal, D3D12, OpenGL, WebGPU, and WebGL. Current repo docs list v30 quick links and the supported native backends. Sources: https://github.com/gfx-rs/wgpu, https://docs.rs/wgpu/
 - winit handles cross-platform windows and input, but not rendering. Source: https://github.com/rust-windowing/winit
 - QuickJS is embeddable, supports ES6 modules and most ES2025, and exposes runtime memory, stack, and interrupt hooks. Its native ES6 module support is a reason to add explicit native-payload rejection, not a feature to expose to QPKs. Source: https://bellard.org/quickjs/quickjs.html
