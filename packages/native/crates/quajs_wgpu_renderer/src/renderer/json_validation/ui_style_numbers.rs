@@ -1,11 +1,10 @@
+use crate::projection::safety::{is_safe_native_opacity, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE};
 use crate::projection::ui::{
     UiSurfaceBackgroundPositionProjection, UiSurfaceEdgeInsetsProjection, UiSurfaceResolvedStyle,
 };
 
-const MAX_NATIVE_UI_STYLE_LOGICAL_VALUE: f64 = 1_000_000.0;
-
 pub(super) fn invalid_native_json_ui_node_opacity_reason(value: f32) -> Option<String> {
-    if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+    if !is_safe_native_opacity(value) {
         return Some("UI surface node opacity must be finite and between 0 and 1".to_string());
     }
     None

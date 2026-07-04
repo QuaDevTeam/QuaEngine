@@ -1,8 +1,11 @@
+use crate::projection::safety::{
+    is_safe_native_ui_scroll_offset, MAX_NATIVE_UI_LOGICAL_COORDINATE,
+    MAX_NATIVE_UI_LOGICAL_DIMENSION,
+};
 use crate::projection::ui::UiSurfaceNodeRect;
 
-const MAX_NATIVE_UI_LOGICAL_COORDINATE: f64 = 1_000_000.0;
-const MAX_NATIVE_UI_LOGICAL_DIMENSION: f64 = 1_000_000.0;
-const MAX_NATIVE_UI_SCROLL_OFFSET: f64 = 1_000_000.0;
+#[cfg(test)]
+use crate::projection::safety::MAX_NATIVE_UI_SCROLL_OFFSET;
 
 pub(super) fn invalid_native_json_ui_rect_reason(
     rect: &UiSurfaceNodeRect,
@@ -17,7 +20,7 @@ pub(super) fn invalid_native_json_scroll_offset_reason(value: f64) -> Option<Str
     if !value.is_finite() {
         return Some("UI scroll offsets must be finite logical values".to_string());
     }
-    if value.abs() > MAX_NATIVE_UI_SCROLL_OFFSET {
+    if !is_safe_native_ui_scroll_offset(value) {
         return Some("UI scroll offsets exceed native renderer logical limits".to_string());
     }
     None

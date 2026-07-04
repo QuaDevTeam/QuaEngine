@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 
 use crate::projection::common::is_safe_native_dispatch_identifier;
+use crate::projection::safety::{
+    is_safe_native_ui_surface_node_numbers, is_safe_native_ui_surface_offset,
+};
 use crate::render_graph::{DrawCommand, DrawCommandKind, LogicalRect};
 
 use super::super::style::resolve_opacity;
@@ -24,6 +27,8 @@ pub(super) fn append_surface_node_commands(
 ) {
     if !node.visible
         || !is_safe_native_dispatch_identifier(&node.id)
+        || !is_safe_native_ui_surface_node_numbers(node)
+        || !is_safe_native_ui_surface_offset(offset.x, offset.y)
         || !seen_node_ids.insert(node.id.clone())
     {
         return;
