@@ -65,6 +65,35 @@ fn view_with_ui_scroll() -> ViewProjection {
     }
 }
 
+fn view_with_structural_clip_children() -> ViewProjection {
+    let inside = UiSurfaceNodeProjection::new(
+        "inside",
+        UiSurfaceNodeKind::Button,
+        rect(60.0, 60.0, 180.0, 140.0),
+    )
+    .with_text("Inside")
+    .with_intent(UiIntentProjection::new("inside"));
+
+    let row = UiSurfaceNodeProjection {
+        clip_children: true,
+        ..UiSurfaceNodeProjection::new("row", UiSurfaceNodeKind::Row, rect(40.0, 40.0, 220.0, 90.0))
+    }
+    .with_children(vec![inside]);
+
+    ViewProjection {
+        ui: Some(UiProjection {
+            visible: true,
+            overlays: vec![UiOverlayProjection {
+                interactive: Some(false),
+                surface: Some(UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(row)),
+                ..UiOverlayProjection::new("menu")
+            }],
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
+}
+
 fn manual_command_stream(
     commands: Vec<NativeBackendCommandStreamCommand>,
 ) -> NativeBackendCommandStreamPlan {
