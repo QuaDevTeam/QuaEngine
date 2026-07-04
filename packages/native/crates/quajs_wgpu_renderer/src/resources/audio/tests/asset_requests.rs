@@ -111,3 +111,49 @@ fn skips_audio_asset_requests_for_empty_upserted_and_retained_asset_names() {
         ]
     );
 }
+
+#[test]
+fn skips_audio_asset_requests_for_empty_or_unsafe_asset_types() {
+    let mut ledger = NativeResourceLedger::new();
+    let empty_type = NativeResourceRecord::new(
+        "audio:buffer:bgm::music/a.ogg",
+        NativeResourceKind::AudioBuffer,
+    );
+    let blank_type = NativeResourceRecord::new(
+        "audio:stream:ambient:   :music/b.ogg",
+        NativeResourceKind::AudioStream,
+    );
+    let path_type = NativeResourceRecord::new(
+        "audio:buffer:bgm:bgm/native:music/c.ogg",
+        NativeResourceKind::AudioBuffer,
+    );
+    let symbol_type = NativeResourceRecord::new(
+        "audio:buffer:bgm:---:music/d.ogg",
+        NativeResourceKind::AudioBuffer,
+    );
+    ledger.insert(blank_type.clone());
+    ledger.insert(path_type.clone());
+    ledger.insert(symbol_type.clone());
+    let sync = AudioResourceSyncPlan {
+        upsert: vec![empty_type],
+        retain: vec![
+            blank_type.id.clone(),
+            path_type.id.clone(),
+            symbol_type.id.clone(),
+        ],
+        release: Vec::new(),
+    };
+
+    let assets = plan_audio_asset_requests(&ledger, &sync);
+
+    assert!(assets.requests.is_empty());
+    assert_eq!(
+        assets.skipped_resource_ids,
+        vec![
+            ResourceId::from("audio:buffer:bgm::music/a.ogg"),
+            ResourceId::from("audio:stream:ambient:   :music/b.ogg"),
+            ResourceId::from("audio:buffer:bgm:bgm/native:music/c.ogg"),
+            ResourceId::from("audio:buffer:bgm:---:music/d.ogg"),
+        ]
+    );
+}

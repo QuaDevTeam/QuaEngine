@@ -79,3 +79,24 @@ fn skips_audio_resources_for_empty_asset_names() {
 
     assert!(records.is_empty());
 }
+
+#[test]
+fn skips_audio_resources_for_empty_or_unsafe_asset_types() {
+    let mut empty_type =
+        AudioTrackProjection::new("bgm-empty-type", AudioTrackKind::Bgm, "music/a.ogg");
+    empty_type.asset_type.clear();
+    let mut blank_type =
+        AudioTrackProjection::new("bgm-blank-type", AudioTrackKind::Bgm, "music/b.ogg");
+    blank_type.asset_type = "   ".to_string();
+    let mut path_type =
+        AudioTrackProjection::new("bgm-path-type", AudioTrackKind::Bgm, "music/c.ogg");
+    path_type.asset_type = "bgm/native".to_string();
+    let mut symbol_type =
+        AudioTrackProjection::new("bgm-symbol-type", AudioTrackKind::Bgm, "music/d.ogg");
+    symbol_type.asset_type = "---".to_string();
+    let audio = AudioProjection::new(vec![empty_type, blank_type, path_type, symbol_type]);
+
+    let records = audio_resource_records(Some(&audio));
+
+    assert!(records.is_empty());
+}
