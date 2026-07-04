@@ -4,6 +4,8 @@
 
 完整调研与总计划见根目录方案：[Native WGPU + QuickJS Renderer, QUI, QSS, And Native Authoring Plan](../native-wgpu-quickjs-renderer.md)。本目录是按执行主题拆开的落地版，后续 native renderer 开发优先从这里查边界、验收和拆包规则。
 
+如果需要一份可以直接排期、拆任务和对照验收的总纲，优先看 [Native Renderer 执行总计划](execution-plan.md)。它把 wgpu + QuickJS 调研结论、`packages/native` 工程结构、QUI/QSS 语法、LSP/VSCode、动态 QPK、插件兼容、benchmark、内存指标、打包分发和 Web/Cocos/Native 核心插件隔离收束到一张实施路线图。
+
 ## 快速门禁
 
 打包到 Cocos、Web、Native 项目时，核心插件不能串线。三端必须是三条互斥工程生成链：Web 只走 `web-core-resolver`，Cocos 只走 `cocos-core-resolver`，Native 只走 `native-core-resolver`。project template、startup shell、debug/release shell、installer、updater、smoke runner、Runtime QPK 和普通插件都只能读取已验证的 active-target manifest，不能重新声明 active core，也不能先携带三端核心插件全集再过滤。
