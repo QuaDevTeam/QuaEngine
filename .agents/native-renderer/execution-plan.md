@@ -85,6 +85,8 @@ native compatibility block 必须显式声明 `nativeCode: false`。缺失也按
 
 即使最终 manifest 看起来只剩一个 target，只要中间 resolver graph / template graph / installer graph materialize 过其他 target core，也按 release blocker 失败。
 
+这条规则的实现细则以 `.agents/native-renderer/target-core-isolation.md` 为准，发行验收以 `.agents/native-renderer/release-packaging.md` 为准。开发时不要只在 native 路径加门禁；Web、Cocos、Native 三端的 packager、project generator、Runtime QPK resolver、installer / updater 和 smoke runner 都必须跑同一套 target-core isolation helper 与对称负例 fixture。
+
 ## 目标工程结构
 
 native 相关实现全部放在 `packages/native`：
