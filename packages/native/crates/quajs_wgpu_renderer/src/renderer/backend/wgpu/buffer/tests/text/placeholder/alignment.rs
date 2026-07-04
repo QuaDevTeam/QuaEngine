@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn emits_standalone_text_placeholder_as_centered_word_placeholders() {
+fn emits_standalone_bitmap_fallback_text_as_centered_glyphs() {
     let plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![quad(
         "ui:title",
         DrawBatchPipeline::Text,
@@ -12,7 +12,7 @@ fn emits_standalone_text_placeholder_as_centered_word_placeholders() {
             literal: "#fff".to_string(),
             style: text_style(24.0, TextAlign::Center, EdgeInsetsDrawParam::default()),
         },
-        rect(10, 20, 240, 64),
+        rect(10, 20, 360, 64),
         Vec::new(),
     )]));
 
@@ -26,13 +26,13 @@ fn emits_standalone_text_placeholder_as_centered_word_placeholders() {
     assert_eq!(text.command_id, "ui:title");
     assert_eq!(text.pipeline, DrawBatchPipeline::Text);
     assert_eq!(text.draw_kind, DrawCommandKind::Text);
-    assert!(text.physical_bounds.width < 240);
+    assert!(text.physical_bounds.width < 360);
     assert!(text.physical_bounds.height < 64);
     assert!(text.physical_bounds.x > 10);
     assert!(text.physical_bounds.y > 20);
     assert!(pass.vertices[0].position[0] > 10.0);
     assert!(pass.vertices[0].position[1] > 20.0);
-    assert!(pass.vertices[2].position[0] < 250.0);
+    assert!(pass.vertices[2].position[0] < 370.0);
     assert!(pass.vertices[2].position[1] < 84.0);
     assert_eq!(pass.vertices[0].color, [1.0, 1.0, 1.0, 1.0]);
     assert!(pass

@@ -19,7 +19,7 @@ fn applies_font_weight_to_text_placeholder_stroke_and_width() {
 }
 
 #[test]
-fn applies_italic_font_style_as_text_placeholder_shear_for_unsupported_glyphs() {
+fn renders_italic_unsupported_glyphs_with_bitmap_fallback_shear() {
     let mut style = text_style(20.0, TextAlign::Left, EdgeInsetsDrawParam::default());
     style.font_style = FontStyleDrawParam::Italic;
     let plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![quad(
@@ -38,8 +38,8 @@ fn applies_italic_font_style_as_text_placeholder_shear_for_unsupported_glyphs() 
 
     let pass = &plan.passes[0];
     assert_eq!(pass.draw_call_count, 1);
-    assert_eq!(pass.vertex_count, 4);
-    assert_eq!(pass.index_count, 6);
+    assert_eq!(pass.vertex_count, 16);
+    assert_eq!(pass.index_count, 24);
     assert!(pass.vertices[0].position[0] > pass.vertices[3].position[0]);
     assert!(pass.vertices[1].position[0] > pass.vertices[2].position[0]);
     assert!(pass.draw_calls[0].physical_bounds.width > 41);

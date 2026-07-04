@@ -1,6 +1,9 @@
 use crate::render_graph::{TextTransformDrawParam, WhiteSpaceDrawParam};
 
-pub(super) fn transform_placeholder_text(text: &str, transform: TextTransformDrawParam) -> String {
+pub(in crate::renderer::backend::wgpu::buffer::text_geometry) fn transform_placeholder_text(
+    text: &str,
+    transform: TextTransformDrawParam,
+) -> String {
     match transform {
         TextTransformDrawParam::None => text.to_string(),
         TextTransformDrawParam::Uppercase => text.to_uppercase(),
@@ -24,7 +27,10 @@ pub(super) fn transform_placeholder_text(text: &str, transform: TextTransformDra
     }
 }
 
-pub(super) fn normalized_source_lines(text: &str, white_space: WhiteSpaceDrawParam) -> Vec<String> {
+pub(in crate::renderer::backend::wgpu::buffer::text_geometry) fn normalized_source_lines(
+    text: &str,
+    white_space: WhiteSpaceDrawParam,
+) -> Vec<String> {
     match white_space {
         WhiteSpaceDrawParam::Normal | WhiteSpaceDrawParam::NoWrap => {
             vec![collapse_placeholder_whitespace(text)]
@@ -35,14 +41,18 @@ pub(super) fn normalized_source_lines(text: &str, white_space: WhiteSpaceDrawPar
     }
 }
 
-pub(super) fn placeholder_words(line: &str) -> Vec<String> {
+pub(in crate::renderer::backend::wgpu::buffer::text_geometry) fn placeholder_words(
+    line: &str,
+) -> Vec<String> {
     line.split_whitespace()
         .filter(|word| !word.is_empty())
         .map(ToString::to_string)
         .collect()
 }
 
-pub(super) fn preserved_placeholder_segments(line: &str) -> Vec<String> {
+pub(in crate::renderer::backend::wgpu::buffer::text_geometry) fn preserved_placeholder_segments(
+    line: &str,
+) -> Vec<String> {
     let mut segments = Vec::new();
     let mut current = String::new();
     let mut current_is_whitespace = None;
