@@ -1,4 +1,7 @@
 use super::*;
+use crate::renderer::backend::wgpu::{
+    WgpuNativeRenderBufferPlan, WgpuNativeRenderSkippedQuadReason,
+};
 
 #[test]
 fn uses_normalized_image_source_rect_for_texture_uvs() {
@@ -298,6 +301,88 @@ fn clips_cover_media_fit_to_the_command_bounds_when_it_overflows() {
     assert_position_close(quad.vertices[0].position, [0.0, -150.0]);
     assert_position_close(quad.vertices[2].position, [200.0, 250.0]);
     assert_eq!(quad.scissor, Some(physical_rect(0, 0, 200, 100)));
+}
+
+#[test]
+fn intersects_existing_scissor_when_cover_media_fit_overflows() {
+    let mut image = primitive(
+        "ui:cover-clipped",
+        DrawBatchPipeline::Image,
+        DrawCommandKind::Image,
+        WgpuNativeRenderPrimitiveKind::Image {
+            asset_type: "images".to_string(),
+            asset_name: "portrait.png".to_string(),
+            fit: MediaFit::Cover,
+            origin: MediaOrigin::default(),
+            source: LogicalRect {
+                x: 0.0,
+                y: 0.0,
+                width: 50.0,
+                height: 100.0,
+            },
+            rotation_degrees: 0.0,
+        },
+        physical_rect(0, 0, 200, 100),
+        vec![ResourceId::from("images:portrait.png")],
+    );
+    image.logical_bounds = LogicalRect {
+        x: 0.0,
+        y: 0.0,
+        width: 200.0,
+        height: 100.0,
+    };
+    image.scissor = Some(physical_rect(40, 10, 220, 80));
+    let plan = WgpuNativeRenderMeshPlan::from_primitive_plan(&primitive_plan(vec![image]));
+    let quad = &plan.passes[0].quads[0];
+
+    assert_position_close(quad.vertices[0].position, [0.0, -150.0]);
+    assert_position_close(quad.vertices[2].position, [200.0, 250.0]);
+    assert_eq!(quad.scissor, Some(physical_rect(40, 10, 160, 80)));
+}
+
+#[test]
+fn skips_media_quad_when_existing_scissor_is_disjoint_after_overflow_clip() {
+    let mut image = primitive(
+        "ui:cover-disjoint-clip",
+        DrawBatchPipeline::Image,
+        DrawCommandKind::Image,
+        WgpuNativeRenderPrimitiveKind::Image {
+            asset_type: "images".to_string(),
+            asset_name: "portrait.png".to_string(),
+            fit: MediaFit::Cover,
+            origin: MediaOrigin::default(),
+            source: LogicalRect {
+                x: 0.0,
+                y: 0.0,
+                width: 50.0,
+                height: 100.0,
+            },
+            rotation_degrees: 0.0,
+        },
+        physical_rect(0, 0, 200, 100),
+        vec![ResourceId::from("images:portrait.png")],
+    );
+    image.logical_bounds = LogicalRect {
+        x: 0.0,
+        y: 0.0,
+        width: 200.0,
+        height: 100.0,
+    };
+    image.scissor = Some(physical_rect(300, 0, 40, 40));
+    let mesh_plan = WgpuNativeRenderMeshPlan::from_primitive_plan(&primitive_plan(vec![image]));
+    let quad = &mesh_plan.passes[0].quads[0];
+
+    assert_eq!(quad.scissor, Some(physical_rect(300, 0, 0, 40)));
+    assert!(!quad.is_visible());
+
+    let buffer_plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan);
+    assert_eq!(buffer_plan.vertex_count, 0);
+    assert_eq!(buffer_plan.draw_call_count, 0);
+    assert_eq!(buffer_plan.skipped_quad_count, 1);
+    assert_eq!(
+        buffer_plan.passes[0].skipped_quads[0].reason,
+        WgpuNativeRenderSkippedQuadReason::EmptyBounds
+    );
 }
 
 #[test]
