@@ -94,3 +94,31 @@ pub(in super::super::super) fn json_frame_with_empty_asset_input() -> &'static s
     }
     "#
 }
+
+pub(in super::super::super) fn json_frame_with_empty_ui_image_asset_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "poster",
+                  "kind": "Image",
+                  "image": {
+                    "assetType": "images",
+                    "assetName": "   #poster"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
