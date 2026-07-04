@@ -1,6 +1,9 @@
 use super::super::{test_layout, RecordingBackend};
 use super::support::audio_track_state;
-use crate::audio::{AudioBackendCommandKind, AudioBackendTrackStateMap, NullNativeAudioBackend};
+use crate::audio::{
+    AudioBackendCommandKind, AudioBackendCommandPlan, AudioBackendTrackStateMap,
+    NativeAudioBackend, NativeAudioBackendError, NativeAudioBackendResult, NullNativeAudioBackend,
+};
 use crate::renderer::tests::view_with_audio;
 use crate::renderer::NativeRenderer;
 use crate::resources::{NativeResourceKind, NativeResourceRecord, PackageUnloadBlockerReason};
@@ -11,25 +14,7 @@ fn release_package_resources_with_audio_teardown_releases_inactive_audio_tracks(
         RecordingBackend::default(),
         NullNativeAudioBackend::new(),
     );
-    renderer.state_mut().resources_mut().insert(
-        NativeResourceRecord::new(
-            "audio:buffer:bgm:bgm:music/opening.ogg",
-            NativeResourceKind::AudioBuffer,
-        )
-        .owned_by("runtime.audio")
-        .memory(2048, 0),
-    );
-    renderer.state_mut().resources_mut().insert(
-        NativeResourceRecord::new(
-            "audio:handle:bgm:bgm:bgm-main",
-            NativeResourceKind::AudioHandle,
-        )
-        .owned_by("runtime.audio")
-        .memory(64, 0),
-    );
-    let mut tracks = AudioBackendTrackStateMap::new();
-    tracks.insert("bgm-main".to_string(), audio_track_state("runtime.audio"));
-    renderer.state_mut().replace_audio_backend_tracks(tracks);
+    seed_inactive_runtime_audio(&mut renderer);
 
     let release = renderer
         .release_package_resources_and_apply_audio_teardown("runtime.audio")
@@ -56,6 +41,27 @@ fn release_package_resources_with_audio_teardown_releases_inactive_audio_tracks(
             AudioBackendCommandKind::ReleaseHandle,
         ]
     );
+}
+
+#[test]
+fn release_package_resources_with_audio_teardown_failure_keeps_package_resources() {
+    let mut renderer =
+        NativeRenderer::with_audio_backend(RecordingBackend::default(), RejectingAudioBackend);
+    seed_inactive_runtime_audio(&mut renderer);
+
+    let error = renderer
+        .release_package_resources_and_apply_audio_teardown("runtime.audio")
+        .unwrap_err();
+
+    assert_eq!(
+        error,
+        NativeAudioBackendError::backend_rejected("test audio backend rejected plan")
+    );
+    assert!(!renderer.resources().is_empty());
+    assert!(renderer
+        .state()
+        .audio_backend_tracks()
+        .contains_key("bgm-main"));
 }
 
 #[test]
@@ -90,4 +96,39 @@ fn release_package_resources_with_audio_teardown_keeps_active_audio_projection_b
         .state()
         .audio_backend_tracks()
         .contains_key("bgm-main"));
+}
+
+fn seed_inactive_runtime_audio<A>(renderer: &mut NativeRenderer<RecordingBackend, A>) {
+    renderer.state_mut().resources_mut().insert(
+        NativeResourceRecord::new(
+            "audio:buffer:bgm:bgm:music/opening.ogg",
+            NativeResourceKind::AudioBuffer,
+        )
+        .owned_by("runtime.audio")
+        .memory(2048, 0),
+    );
+    renderer.state_mut().resources_mut().insert(
+        NativeResourceRecord::new(
+            "audio:handle:bgm:bgm:bgm-main",
+            NativeResourceKind::AudioHandle,
+        )
+        .owned_by("runtime.audio")
+        .memory(64, 0),
+    );
+    let mut tracks = AudioBackendTrackStateMap::new();
+    tracks.insert("bgm-main".to_string(), audio_track_state("runtime.audio"));
+    renderer.state_mut().replace_audio_backend_tracks(tracks);
+}
+
+struct RejectingAudioBackend;
+
+impl NativeAudioBackend for RejectingAudioBackend {
+    fn apply_audio_commands(
+        &mut self,
+        _plan: &AudioBackendCommandPlan,
+    ) -> NativeAudioBackendResult {
+        Err(NativeAudioBackendError::backend_rejected(
+            "test audio backend rejected plan",
+        ))
+    }
 }
