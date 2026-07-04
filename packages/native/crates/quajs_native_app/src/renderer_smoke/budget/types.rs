@@ -58,13 +58,29 @@ pub struct NativeRendererSmokeBudget {
     #[serde(default)]
     pub max_backend_draws: Option<usize>,
     #[serde(default)]
+    pub max_backend_passes: Option<usize>,
+    #[serde(default)]
+    pub max_backend_commands: Option<usize>,
+    #[serde(default)]
+    pub max_backend_pipeline_binds: Option<usize>,
+    #[serde(default)]
+    pub max_backend_clip_sets: Option<usize>,
+    #[serde(default)]
+    pub max_backend_clip_clears: Option<usize>,
+    #[serde(default)]
+    pub max_backend_max_clip_depth: Option<usize>,
+    #[serde(default)]
     pub max_backend_skipped_draws: Option<usize>,
     #[serde(default)]
     pub max_backend_resource_binds: Option<usize>,
     #[serde(default)]
     pub max_backend_bound_resource_references: Option<usize>,
     #[serde(default)]
+    pub max_backend_unique_resources: Option<usize>,
+    #[serde(default)]
     pub max_backend_missing_resource_references: Option<usize>,
+    #[serde(default)]
+    pub max_backend_unique_missing_resources: Option<usize>,
     #[serde(default)]
     pub max_backend_validation_errors: Option<usize>,
     #[serde(default)]
