@@ -1,10 +1,14 @@
 use std::collections::BTreeSet;
+use std::fmt::{Display, Formatter};
 
 use quajs_native_runtime::{NativeHostApi, NativeHostApiError, NativeMountedBundleInfo};
+use quajs_wgpu_renderer::audio::{NativeAudioBackend, NativeAudioBackendError};
 use quajs_wgpu_renderer::renderer::{NativeRenderBackend, NativeRenderer};
 
 use super::cleanup::{
-    release_package_resources_with_host_texture_cleanup, NativeTextureCleanedPackageReleaseResult,
+    release_package_resources_with_host_texture_cleanup,
+    release_package_resources_with_host_texture_cleanup_and_audio_teardown,
+    NativeTextureCleanedPackageReleaseResult,
 };
 use super::types::NativeTextureUploadSink;
 
@@ -48,6 +52,42 @@ pub struct NativeTextureBundleLifecycleSyncReport {
     pub package_releases: Vec<NativeTextureCleanedPackageReleaseResult>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NativeTextureBundleLifecycleSyncError {
+    Host(NativeHostApiError),
+    Audio(NativeAudioBackendError),
+}
+
+impl Display for NativeTextureBundleLifecycleSyncError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Host(error) => write!(
+                formatter,
+                "Native texture bundle lifecycle host sync failed: {}",
+                error.message()
+            ),
+            Self::Audio(error) => write!(
+                formatter,
+                "Native texture bundle lifecycle audio teardown failed: {error}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for NativeTextureBundleLifecycleSyncError {}
+
+impl From<NativeHostApiError> for NativeTextureBundleLifecycleSyncError {
+    fn from(error: NativeHostApiError) -> Self {
+        Self::Host(error)
+    }
+}
+
+impl From<NativeAudioBackendError> for NativeTextureBundleLifecycleSyncError {
+    fn from(error: NativeAudioBackendError) -> Self {
+        Self::Audio(error)
+    }
+}
+
 #[allow(dead_code)]
 pub fn sync_mounted_texture_bundle_lifecycle_from_host<B, A, H>(
     registry: &mut NativeTextureBundleMountRegistry,
@@ -59,6 +99,56 @@ where
     H: NativeHostApi,
 {
     let bundles = host.list_mounted_bundles()?;
+    sync_mounted_texture_bundle_lifecycle_with_release(
+        registry,
+        renderer,
+        &bundles,
+        |renderer, package_id| {
+            Ok::<_, NativeHostApiError>(release_package_resources_with_host_texture_cleanup(
+                renderer, package_id,
+            ))
+        },
+    )
+}
+
+#[allow(dead_code)]
+pub fn sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown<B, A, H>(
+    registry: &mut NativeTextureBundleMountRegistry,
+    renderer: &mut NativeRenderer<B, A>,
+    host: &H,
+) -> Result<NativeTextureBundleLifecycleSyncReport, NativeTextureBundleLifecycleSyncError>
+where
+    B: NativeRenderBackend + NativeTextureUploadSink,
+    A: NativeAudioBackend,
+    H: NativeHostApi,
+{
+    let bundles = host.list_mounted_bundles()?;
+    sync_mounted_texture_bundle_lifecycle_with_release(
+        registry,
+        renderer,
+        &bundles,
+        |renderer, package_id| {
+            release_package_resources_with_host_texture_cleanup_and_audio_teardown(
+                renderer, package_id,
+            )
+            .map_err(Into::into)
+        },
+    )
+}
+
+fn sync_mounted_texture_bundle_lifecycle_with_release<B, A, E, F>(
+    registry: &mut NativeTextureBundleMountRegistry,
+    renderer: &mut NativeRenderer<B, A>,
+    bundles: &[NativeMountedBundleInfo],
+    mut release_package: F,
+) -> Result<NativeTextureBundleLifecycleSyncReport, E>
+where
+    B: NativeRenderBackend + NativeTextureUploadSink,
+    F: FnMut(
+        &mut NativeRenderer<B, A>,
+        &str,
+    ) -> Result<NativeTextureCleanedPackageReleaseResult, E>,
+{
     let current_package_ids = mounted_package_ids(&bundles);
     let initial_sync = !registry.initialized;
     let previous_package_ids = registry.tracked_package_ids.clone();
@@ -88,7 +178,7 @@ where
     let mut package_releases = Vec::new();
 
     for package_id in &removed_package_ids {
-        let release = release_package_resources_with_host_texture_cleanup(renderer, package_id);
+        let release = release_package(renderer, package_id)?;
         release_attempt_count += 1;
         released_resource_count += release.package_release.released_resources.len();
         texture_cleanup_error_count += release.texture_cleanup_report.release_error_count;

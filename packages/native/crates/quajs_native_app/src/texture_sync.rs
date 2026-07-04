@@ -31,7 +31,9 @@ pub use frame::{
 pub use host::sync_pending_texture_uploads_from_host;
 #[allow(unused_imports)]
 pub use lifecycle::{
-    sync_mounted_texture_bundle_lifecycle_from_host, NativeTextureBundleLifecycleSyncReport,
+    sync_mounted_texture_bundle_lifecycle_from_host,
+    sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown,
+    NativeTextureBundleLifecycleSyncError, NativeTextureBundleLifecycleSyncReport,
     NativeTextureBundleMountRegistry,
 };
 #[allow(unused_imports)]
