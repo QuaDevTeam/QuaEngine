@@ -177,39 +177,46 @@ fn primitive_kind_from_draw_kind(draw_kind: DrawCommandKind) -> WgpuNativeRender
 fn resource_ids_from_params(params: &DrawCommandParams) -> Vec<ResourceId> {
     match params {
         DrawCommandParams::Image(params) => {
-            vec![ResourceId::from(format!(
-                "{}:{}",
-                params.asset_type, params.asset_name
-            ))]
+            optional_resource_id(&params.asset_type, &params.asset_name)
+                .into_iter()
+                .collect()
         }
         DrawCommandParams::Video(params) => {
-            let mut resources = vec![ResourceId::from(format!(
-                "{}:{}",
-                params.asset_type, params.asset_name
-            ))];
+            let mut resources = optional_resource_id(&params.asset_type, &params.asset_name)
+                .into_iter()
+                .collect::<Vec<_>>();
             if let Some(poster_asset_name) = &params.poster_asset_name {
-                resources.push(ResourceId::from(format!("images:{}", poster_asset_name)));
+                resources.extend(optional_resource_id("images", poster_asset_name));
             }
             resources
         }
         DrawCommandParams::Character(params) => {
-            vec![ResourceId::from(format!(
-                "characters:{}",
-                params.sprite_asset_name
-            ))]
+            optional_resource_id("characters", &params.sprite_asset_name)
+                .into_iter()
+                .collect()
         }
         DrawCommandParams::Text(params) => params
             .font_family
             .iter()
-            .map(|font| ResourceId::from(format!("fonts:{font}")))
+            .filter_map(|font| optional_resource_id("fonts", font))
             .collect(),
         DrawCommandParams::UiSurface(params) => params
             .surface_key
             .iter()
-            .map(|surface_key| ResourceId::from(format!("surface:{surface_key}")))
+            .filter_map(|surface_key| optional_resource_id("surface", surface_key))
             .collect(),
         DrawCommandParams::Panel(_) | DrawCommandParams::UiButton(_) | DrawCommandParams::None => {
             Vec::new()
         }
     }
+}
+
+fn optional_resource_id(asset_type: &str, asset_name: &str) -> Option<ResourceId> {
+    let asset_type = asset_type.trim();
+    let asset_name = asset_name.trim();
+    if asset_type.is_empty() || asset_name.is_empty() {
+        return None;
+    }
+
+    Some(ResourceId::from(format!("{asset_type}:{asset_name}")))
 }
