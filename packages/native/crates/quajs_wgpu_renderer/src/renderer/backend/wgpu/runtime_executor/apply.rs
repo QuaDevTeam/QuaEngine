@@ -110,35 +110,46 @@ fn summarize_skipped_draws(plan: &WgpuNativeRenderRuntimePlan) -> RuntimeSkipped
             ..
         } = operation
         {
+            let missing_resources = is_missing_resource_skip_reason(reason);
             *summary.by_reason.entry(reason.clone()).or_default() += 1;
             if let Some(owner_package_id) = owner_package_id {
                 *summary
                     .by_owner_package
                     .entry(owner_package_id.clone())
                     .or_default() += 1;
-                *summary
-                    .missing_references_by_owner_package
-                    .entry(owner_package_id.clone())
-                    .or_default() += resource_ids.len();
+                if missing_resources {
+                    *summary
+                        .missing_references_by_owner_package
+                        .entry(owner_package_id.clone())
+                        .or_default() += resource_ids.len();
+                }
             }
             for package_id in required_package_ids {
                 *summary
                     .by_required_package
                     .entry(package_id.clone())
                     .or_default() += 1;
-                *summary
-                    .missing_references_by_required_package
-                    .entry(package_id.clone())
-                    .or_default() += resource_ids.len();
+                if missing_resources {
+                    *summary
+                        .missing_references_by_required_package
+                        .entry(package_id.clone())
+                        .or_default() += resource_ids.len();
+                }
             }
-            for resource_id in resource_ids {
-                *summary
-                    .missing_references_by_resource_id
-                    .entry(resource_id.clone())
-                    .or_default() += 1;
+            if missing_resources {
+                for resource_id in resource_ids {
+                    *summary
+                        .missing_references_by_resource_id
+                        .entry(resource_id.clone())
+                        .or_default() += 1;
+                }
             }
         }
     }
 
     summary
+}
+
+fn is_missing_resource_skip_reason(reason: &str) -> bool {
+    matches!(reason, "missing-resources" | "missing resources")
 }
