@@ -55,6 +55,30 @@ fn builds_interactive_ui_overlay_surface_command() {
 }
 
 #[test]
+fn skips_unsafe_overlay_package_provenance_on_direct_projection() {
+    let layout = test_layout();
+    let ui = UiProjection {
+        provenance: provenance("runtime.ui", ["base", "bad/required"]),
+        overlays: vec![UiOverlayProjection {
+            surface: Some(UiOverlaySurfaceProjection::new("ui/menu.qui")),
+            provenance: provenance("runtime/menu", ["runtime.ui", "bad#hash"]),
+            ..UiOverlayProjection::new("menu")
+        }],
+        ..Default::default()
+    };
+
+    let commands = build_ui_commands(&layout, &ui);
+    let command = &commands[0];
+
+    assert_eq!(command.owner_package_id.as_deref(), Some("runtime.ui"));
+    assert!(command.required_package_ids.contains("base"));
+    assert!(command.required_package_ids.contains("runtime.ui"));
+    assert!(!command.required_package_ids.contains("bad/required"));
+    assert!(!command.required_package_ids.contains("bad#hash"));
+    assert!(!command.required_package_ids.contains("runtime/menu"));
+}
+
+#[test]
 fn sorts_visible_overlays_by_stack_and_skips_hidden_entries() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![

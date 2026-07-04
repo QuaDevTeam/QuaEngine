@@ -76,6 +76,25 @@ fn builds_dialogue_panel_and_text_commands() {
 }
 
 #[test]
+fn skips_unsafe_package_provenance_on_direct_projection() {
+    let layout = test_layout();
+    let dialogue = DialogueProjection {
+        provenance: provenance("runtime/dialogue", ["base", "runtime.ui", "bad?rev=1"]),
+        ..DialogueProjection::say("Hello native renderer.")
+    };
+
+    let commands = build_dialogue_commands(&layout, &dialogue);
+
+    for command in &commands {
+        assert_eq!(command.owner_package_id, None);
+        assert!(command.required_package_ids.contains("base"));
+        assert!(command.required_package_ids.contains("runtime.ui"));
+        assert!(!command.required_package_ids.contains("bad?rev=1"));
+        assert!(!command.required_package_ids.contains("runtime/dialogue"));
+    }
+}
+
+#[test]
 fn skips_invisible_dialogue() {
     let layout = test_layout();
     let dialogue = DialogueProjection {

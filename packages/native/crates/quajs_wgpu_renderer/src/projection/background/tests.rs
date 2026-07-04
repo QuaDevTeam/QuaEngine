@@ -274,6 +274,25 @@ fn builds_video_fallback_command_with_poster_resource() {
 }
 
 #[test]
+fn skips_unsafe_package_provenance_on_direct_projection() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        asset_name: Some("bg/school.png".to_string()),
+        provenance: provenance("runtime/background", ["base", "runtime.ui", "../bad"]),
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+    let command = &commands[0];
+
+    assert_eq!(command.owner_package_id, None);
+    assert!(command.required_package_ids.contains("base"));
+    assert!(command.required_package_ids.contains("runtime.ui"));
+    assert!(!command.required_package_ids.contains("../bad"));
+    assert!(!command.required_package_ids.contains("runtime/background"));
+}
+
+#[test]
 fn skips_empty_video_poster_resource_on_direct_projection() {
     let layout = test_layout();
     let background = BackgroundProjection {

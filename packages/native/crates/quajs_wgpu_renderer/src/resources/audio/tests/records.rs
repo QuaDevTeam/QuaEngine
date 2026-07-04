@@ -69,6 +69,26 @@ fn plans_streaming_audio_stream_resources() {
 }
 
 #[test]
+fn skips_unsafe_audio_package_provenance_on_direct_projection() {
+    let audio = AudioProjection::new(vec![AudioTrackProjection::new(
+        "bgm-main",
+        AudioTrackKind::Bgm,
+        "music/opening.ogg",
+    )
+    .with_provenance(provenance("runtime/audio", ["base", "runtime/ui"]))]);
+
+    let records = audio_resource_records(Some(&audio));
+
+    assert_eq!(records.len(), 2);
+    for record in &records {
+        assert_eq!(record.owner_package_id, None);
+        assert!(record.required_package_ids.contains("base"));
+        assert!(!record.required_package_ids.contains("runtime/ui"));
+        assert!(!record.required_package_ids.contains("runtime/audio"));
+    }
+}
+
+#[test]
 fn skips_audio_resources_for_empty_asset_names() {
     let audio = AudioProjection::new(vec![
         AudioTrackProjection::new("bgm-empty", AudioTrackKind::Bgm, ""),

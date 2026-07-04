@@ -173,6 +173,29 @@ fn appends_commands_and_preserves_package_dependencies() {
     );
 }
 
+#[test]
+fn skips_unsafe_package_provenance_on_direct_projection() {
+    let layout = test_layout();
+    let character = CharacterProjection {
+        sprite: Some("runtime/yuki.png".to_string()),
+        provenance: provenance(
+            "https://example.test/runtime.sprite",
+            ["base", "runtime/ui"],
+        ),
+        ..CharacterProjection::new("yuki", "Yuki")
+    };
+
+    let commands = build_character_commands(&layout, &[character]);
+    let command = &commands[0];
+
+    assert_eq!(command.owner_package_id, None);
+    assert!(command.required_package_ids.contains("base"));
+    assert!(!command.required_package_ids.contains("runtime/ui"));
+    assert!(!command
+        .required_package_ids
+        .contains("https://example.test/runtime.sprite"));
+}
+
 fn test_layout() -> ResolvedStageLayout {
     resolve_stage_layout(
         Some(ViewLayoutInput {

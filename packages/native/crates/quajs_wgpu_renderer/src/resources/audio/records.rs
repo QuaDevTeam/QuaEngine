@@ -95,12 +95,12 @@ fn apply_audio_track_provenance(
     mut record: NativeResourceRecord,
     track: &AudioTrackProjection,
 ) -> NativeResourceRecord {
-    if let Some(package_id) = &track.provenance.content_package_id {
-        record = record.owned_by(package_id.clone());
+    if let Some(package_id) = track.provenance.safe_content_package_id() {
+        record = record.owned_by(package_id);
     }
 
-    for package_id in &track.provenance.required_runtime_packages {
-        record = record.require_package(package_id.clone());
+    for package_id in track.provenance.safe_required_runtime_packages() {
+        record = record.require_package(package_id);
     }
 
     record

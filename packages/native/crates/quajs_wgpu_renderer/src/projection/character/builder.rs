@@ -63,12 +63,12 @@ fn character_command(
         rotation_degrees,
     }));
 
-    if let Some(package_id) = &character.provenance.content_package_id {
-        command = command.owned_by(package_id.clone());
+    if let Some(package_id) = character.provenance.safe_content_package_id() {
+        command = command.owned_by(package_id);
     }
 
-    for package_id in &character.provenance.required_runtime_packages {
-        command = command.require_package(package_id.clone());
+    for package_id in character.provenance.safe_required_runtime_packages() {
+        command = command.require_package(package_id);
     }
 
     Some(command)
