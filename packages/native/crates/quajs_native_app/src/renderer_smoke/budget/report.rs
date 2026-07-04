@@ -190,6 +190,42 @@ fn check_scalar_metrics(
     );
     check_usize(
         violations,
+        "backend.passCount",
+        summary.backend.pass_count,
+        budget.max_backend_passes,
+    );
+    check_usize(
+        violations,
+        "backend.commandCount",
+        summary.backend.command_count,
+        budget.max_backend_commands,
+    );
+    check_usize(
+        violations,
+        "backend.pipelineBindCount",
+        summary.backend.pipeline_bind_count,
+        budget.max_backend_pipeline_binds,
+    );
+    check_usize(
+        violations,
+        "backend.clipSetCount",
+        summary.backend.clip_set_count,
+        budget.max_backend_clip_sets,
+    );
+    check_usize(
+        violations,
+        "backend.clipClearCount",
+        summary.backend.clip_clear_count,
+        budget.max_backend_clip_clears,
+    );
+    check_usize(
+        violations,
+        "backend.maxClipDepth",
+        summary.backend.max_clip_depth,
+        budget.max_backend_max_clip_depth,
+    );
+    check_usize(
+        violations,
         "backend.skippedDrawCount",
         summary.backend.skipped_draw_count,
         budget.max_backend_skipped_draws,
@@ -208,9 +244,21 @@ fn check_scalar_metrics(
     );
     check_usize(
         violations,
+        "backend.uniqueResourceCount",
+        summary.backend.unique_resource_count,
+        budget.max_backend_unique_resources,
+    );
+    check_usize(
+        violations,
         "backend.missingResourceReferenceCount",
         summary.backend.missing_resource_reference_count,
         budget.max_backend_missing_resource_references,
+    );
+    check_usize(
+        violations,
+        "backend.uniqueMissingResourceCount",
+        summary.backend.unique_missing_resource_count,
+        budget.max_backend_unique_missing_resources,
     );
     check_usize(
         violations,

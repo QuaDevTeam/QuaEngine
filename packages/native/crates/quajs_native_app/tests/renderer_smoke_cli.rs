@@ -104,7 +104,13 @@ fn binary_accepts_renderer_smoke_budget() {
           "maxDeclarativeMemoryBytes": 1048576,
           "maxAudioMemoryBytes": 0,
           "maxAudioResources": 0,
-          "maxActiveAudioTracks": 0
+          "maxActiveAudioTracks": 0,
+          "maxBackendPasses": 64,
+          "maxBackendCommands": 1024,
+          "maxBackendPipelineBinds": 1024,
+          "maxBackendMaxClipDepth": 32,
+          "maxBackendUniqueResources": 128,
+          "maxBackendUniqueMissingResources": 0
         }"#,
     )
     .expect("renderer smoke budget fixture writes");
