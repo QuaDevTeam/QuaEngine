@@ -8,5 +8,6 @@ use crate::projection::ui::{
 use crate::render_graph::{DrawCommandKind, DrawCommandParams, RenderGraph};
 
 mod opacity;
+mod safety;
 mod semantic;
 mod structural;

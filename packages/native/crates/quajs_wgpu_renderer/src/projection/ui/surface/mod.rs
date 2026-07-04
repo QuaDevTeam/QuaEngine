@@ -36,7 +36,7 @@ pub fn build_ui_surface_node_commands(
         &mut seen_node_ids,
         overlay,
         root,
-        base_z_index + SURFACE_NODE_Z_OFFSET,
+        base_z_index.saturating_add(SURFACE_NODE_Z_OFFSET),
         &[],
         SurfaceNodeOffset::default(),
         ROOT_SURFACE_OPACITY,

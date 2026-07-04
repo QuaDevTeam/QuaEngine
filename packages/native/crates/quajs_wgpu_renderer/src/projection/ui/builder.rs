@@ -2,6 +2,7 @@ use crate::projection::common::{
     insert_unique_safe_native_dispatch_identifier, is_safe_native_asset_name,
     is_safe_native_dispatch_identifier, PackageProvenance,
 };
+use crate::projection::safety::is_safe_native_ui_overlay_numbers;
 use crate::render_graph::{
     DrawCommand, DrawCommandKind, DrawCommandParams, RenderGraph, RenderPlane, RendererIntent,
     UiSurfaceDrawParams,
@@ -32,6 +33,7 @@ pub fn build_ui_commands(layout: &ResolvedStageLayout, ui: &UiProjection) -> Vec
         .iter()
         .filter(|overlay| {
             overlay.visible
+                && is_safe_native_ui_overlay_numbers(overlay)
                 && insert_unique_safe_native_dispatch_identifier(
                     &mut seen_overlay_ids,
                     &overlay.element_id,
