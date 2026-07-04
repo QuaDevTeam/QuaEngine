@@ -63,3 +63,12 @@ impl FontWeightProjection {
 pub(crate) fn is_non_empty_asset_name(asset_name: &str) -> bool {
     !asset_name.trim().is_empty()
 }
+
+pub(crate) fn is_safe_native_asset_type(asset_type: &str) -> bool {
+    !asset_type.trim().is_empty()
+        && asset_type.trim() == asset_type
+        && matches!(asset_type.chars().next(), Some(char) if char.is_ascii_alphanumeric())
+        && asset_type
+            .chars()
+            .all(|char| char.is_ascii_alphanumeric() || matches!(char, '-' | '_'))
+}

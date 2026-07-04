@@ -4,7 +4,7 @@ use crate::projection::audio::{
     AudioProjection, AudioTrackKind, AudioTrackLoadMode, AudioTrackPlaybackState,
     AudioTrackProjection,
 };
-use crate::projection::common::is_non_empty_asset_name;
+use crate::projection::common::{is_non_empty_asset_name, is_safe_native_asset_type};
 use crate::resources::{NativeAssetRequestPlan, ResourceId};
 
 pub type AudioBackendTrackStateMap = BTreeMap<String, AudioBackendTrackState>;
@@ -139,6 +139,7 @@ fn audio_backend_track_states(
         .iter()
         .filter(|track| {
             !matches!(track.playback_state, AudioTrackPlaybackState::Stopped)
+                && is_safe_native_asset_type(&track.asset_type)
                 && is_non_empty_asset_name(&track.asset_name)
         })
         .map(|track| {
