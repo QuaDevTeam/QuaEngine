@@ -91,6 +91,28 @@ fn skips_tracks_with_unsafe_track_ids() {
 }
 
 #[test]
+fn skips_duplicate_track_ids_in_backend_plans() {
+    let audio = AudioProjection::new(vec![
+        track("bgm-main", "music/first.ogg"),
+        track("bgm-main", "music/second.ogg"),
+        track("bgm-alt", "music/alt.ogg"),
+    ]);
+
+    let plan =
+        plan_audio_backend_commands(&AudioBackendTrackStateMap::new(), Some(&audio), &assets([]));
+
+    assert_eq!(plan.commands.len(), 4);
+    assert_eq!(
+        plan.next_tracks.get("bgm-main").unwrap().media_resource_id,
+        ResourceId::from("audio:buffer:bgm:bgm:music/first.ogg")
+    );
+    assert!(!plan
+        .next_tracks
+        .values()
+        .any(|track| track.asset_name == "music/second.ogg"));
+}
+
+#[test]
 fn skips_tracks_with_unsafe_asset_names() {
     let audio = AudioProjection::new(vec![
         track("bgm-traversal", "../music/a.ogg"),

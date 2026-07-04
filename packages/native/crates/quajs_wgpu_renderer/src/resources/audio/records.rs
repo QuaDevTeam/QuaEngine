@@ -1,7 +1,10 @@
 use crate::projection::audio::{
     AudioProjection, AudioTrackLoadMode, AudioTrackPlaybackState, AudioTrackProjection,
 };
-use crate::projection::common::{is_safe_native_asset_ref, is_safe_native_dispatch_identifier};
+use crate::projection::common::{
+    insert_unique_safe_native_dispatch_identifier, is_safe_native_asset_ref,
+    is_safe_native_dispatch_identifier,
+};
 
 use super::super::record::{NativeResourceKind, NativeResourceRecord, ResourceId};
 
@@ -10,11 +13,21 @@ pub fn audio_resource_records(audio: Option<&AudioProjection>) -> Vec<NativeReso
         return Vec::new();
     };
 
-    audio
-        .tracks
-        .iter()
-        .flat_map(audio_track_resource_records)
-        .collect()
+    let mut seen_track_ids = std::collections::BTreeSet::new();
+    let mut records = Vec::new();
+    for track in &audio.tracks {
+        if !is_safe_native_dispatch_identifier(&track.id) {
+            continue;
+        }
+        let track_records = audio_track_resource_records(track);
+        if track_records.is_empty()
+            || !insert_unique_safe_native_dispatch_identifier(&mut seen_track_ids, &track.id)
+        {
+            continue;
+        }
+        records.extend(track_records);
+    }
+    records
 }
 
 pub(super) fn is_audio_resource_kind(kind: NativeResourceKind) -> bool {

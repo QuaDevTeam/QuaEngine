@@ -112,6 +112,36 @@ fn skips_choices_with_unsafe_projection_ids_on_direct_projection() {
 }
 
 #[test]
+fn skips_duplicate_choice_projection_ids_on_direct_projection() {
+    let layout = test_layout();
+    let choices = ChoiceSetProjection::new(vec![
+        ChoiceProjection::new("left", "First left"),
+        ChoiceProjection::new("left", "Second left"),
+        ChoiceProjection::new("right", "Right"),
+    ]);
+
+    let commands = build_choice_commands(&layout, &choices);
+
+    assert_eq!(
+        commands
+            .iter()
+            .map(|command| command.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["choices:panel", "choice:left", "choice:right"]
+    );
+    match &commands[1].params {
+        DrawCommandParams::UiButton(params) => {
+            assert_eq!(params.label, "First left");
+            assert_eq!(
+                params.intent.as_ref().unwrap().choice_id.as_deref(),
+                Some("left")
+            );
+        }
+        _ => panic!("expected choice button params"),
+    }
+}
+
+#[test]
 fn skips_choice_panel_when_all_choice_ids_are_unsafe() {
     let layout = test_layout();
     let choices = ChoiceSetProjection::new(vec![

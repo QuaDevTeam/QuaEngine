@@ -163,6 +163,42 @@ fn skips_characters_with_unsafe_projection_ids_on_direct_projection() {
 }
 
 #[test]
+fn skips_duplicate_character_projection_ids_on_direct_projection() {
+    let layout = test_layout();
+    let characters = [
+        CharacterProjection {
+            sprite: Some("sprites/yuki-first.png".to_string()),
+            ..CharacterProjection::new("yuki", "Yuki First")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/yuki-second.png".to_string()),
+            ..CharacterProjection::new("yuki", "Yuki Second")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/mei.png".to_string()),
+            ..CharacterProjection::new("mei", "Mei")
+        },
+    ];
+
+    let commands = build_character_commands(&layout, &characters);
+
+    assert_eq!(
+        commands
+            .iter()
+            .map(|command| command.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["character:yuki", "character:mei"]
+    );
+    match &commands[0].params {
+        DrawCommandParams::Character(params) => {
+            assert_eq!(params.character_name, "Yuki First");
+            assert_eq!(params.sprite_asset_name, "sprites/yuki-first.png");
+        }
+        _ => panic!("expected character draw params"),
+    }
+}
+
+#[test]
 fn resolves_anchor_and_default_safe_area_position() {
     let layout = test_layout();
     let left = CharacterPosition {

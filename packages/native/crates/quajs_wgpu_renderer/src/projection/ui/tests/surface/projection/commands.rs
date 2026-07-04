@@ -375,6 +375,72 @@ fn skips_inline_surface_nodes_with_unsafe_ids_on_direct_projection() {
 }
 
 #[test]
+fn skips_duplicate_inline_surface_node_ids_on_direct_projection() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Box,
+                    rect(0.0, 0.0, 520.0, 320.0),
+                )
+                .with_children(vec![
+                    UiSurfaceNodeProjection::new(
+                        "duplicate",
+                        UiSurfaceNodeKind::Text,
+                        rect(24.0, 24.0, 200.0, 48.0),
+                    )
+                    .with_text("First"),
+                    UiSurfaceNodeProjection::new(
+                        "duplicate",
+                        UiSurfaceNodeKind::Button,
+                        rect(24.0, 96.0, 200.0, 48.0),
+                    )
+                    .with_text("Second")
+                    .with_intent(UiIntentProjection::new("open"))
+                    .with_children(vec![UiSurfaceNodeProjection::new(
+                        "duplicate-child",
+                        UiSurfaceNodeKind::Text,
+                        rect(32.0, 160.0, 160.0, 32.0),
+                    )
+                    .with_text("Nested")]),
+                    UiSurfaceNodeProjection::new(
+                        "unique",
+                        UiSurfaceNodeKind::Text,
+                        rect(240.0, 24.0, 200.0, 48.0),
+                    )
+                    .with_text("Unique"),
+                ]),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        ids,
+        vec![
+            "ui:menu",
+            "ui:menu:root",
+            "ui:menu:duplicate",
+            "ui:menu:unique"
+        ]
+    );
+    match &commands[2].params {
+        DrawCommandParams::Text(params) => {
+            assert_eq!(params.text, "First");
+        }
+        _ => panic!("expected text params for first duplicate node"),
+    }
+}
+
+#[test]
 fn drops_inline_surface_intents_with_unsafe_dispatch_ids() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {

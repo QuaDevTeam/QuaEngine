@@ -1,6 +1,6 @@
 use crate::projection::common::{
-    is_safe_native_asset_name, is_safe_native_asset_type, is_safe_native_dispatch_identifier,
-    PackageProvenance,
+    insert_unique_safe_native_dispatch_identifier, is_safe_native_asset_name,
+    is_safe_native_asset_type, is_safe_native_dispatch_identifier, PackageProvenance,
 };
 use crate::render_graph::{
     DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams, RenderGraph, RenderPlane,
@@ -35,12 +35,20 @@ pub fn build_background_commands(
         BackgroundMode::Layered => background
             .layers
             .iter()
-            .filter(|layer| {
-                layer.visible
-                    && is_safe_native_dispatch_identifier(&layer.id)
-                    && is_safe_native_asset_name(&layer.asset_name)
+            .filter_map({
+                let mut seen_layer_ids = std::collections::BTreeSet::new();
+                move |layer| {
+                    if !layer.visible
+                        || !is_safe_native_dispatch_identifier(&layer.id)
+                        || !is_safe_native_asset_name(&layer.asset_name)
+                    {
+                        return None;
+                    }
+                    let command = background_layer_command(layout, layer)?;
+                    insert_unique_safe_native_dispatch_identifier(&mut seen_layer_ids, &layer.id)
+                        .then_some(command)
+                }
             })
-            .filter_map(|layer| background_layer_command(layout, layer))
             .collect(),
         BackgroundMode::Video => background
             .video

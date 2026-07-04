@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::projection::common::is_safe_native_dispatch_identifier;
 use crate::render_graph::{DrawCommand, DrawCommandKind, LogicalRect};
 
@@ -12,6 +14,7 @@ use super::{SCROLL_CHILD_Z_OFFSET, SCROLL_CLIP_END_Z_OFFSET};
 
 pub(super) fn append_surface_node_commands(
     commands: &mut Vec<DrawCommand>,
+    seen_node_ids: &mut BTreeSet<String>,
     overlay: &UiOverlayProjection,
     node: &UiSurfaceNodeProjection,
     z_base: i32,
@@ -19,7 +22,10 @@ pub(super) fn append_surface_node_commands(
     offset: SurfaceNodeOffset,
     inherited_opacity: f32,
 ) {
-    if !node.visible || !is_safe_native_dispatch_identifier(&node.id) {
+    if !node.visible
+        || !is_safe_native_dispatch_identifier(&node.id)
+        || !seen_node_ids.insert(node.id.clone())
+    {
         return;
     }
 
@@ -30,6 +36,7 @@ pub(super) fn append_surface_node_commands(
         for child in &node.children {
             append_surface_node_commands(
                 commands,
+                seen_node_ids,
                 overlay,
                 child,
                 z_base,
@@ -52,6 +59,7 @@ pub(super) fn append_surface_node_commands(
         for child in &node.children {
             append_surface_node_commands(
                 commands,
+                seen_node_ids,
                 overlay,
                 child,
                 child_z_base,
@@ -69,6 +77,7 @@ pub(super) fn append_surface_node_commands(
         for child in &node.children {
             append_surface_node_commands(
                 commands,
+                seen_node_ids,
                 overlay,
                 child,
                 z_base,
@@ -83,6 +92,7 @@ pub(super) fn append_surface_node_commands(
     if node.kind == UiSurfaceNodeKind::Scroll {
         append_scroll_node_commands(
             commands,
+            seen_node_ids,
             overlay,
             node,
             z_base,
@@ -107,6 +117,7 @@ pub(super) fn append_surface_node_commands(
     for child in &node.children {
         append_surface_node_commands(
             commands,
+            seen_node_ids,
             overlay,
             child,
             z_base,
@@ -119,6 +130,7 @@ pub(super) fn append_surface_node_commands(
 
 fn append_scroll_node_commands(
     commands: &mut Vec<DrawCommand>,
+    seen_node_ids: &mut BTreeSet<String>,
     overlay: &UiOverlayProjection,
     node: &UiSurfaceNodeProjection,
     z_base: i32,
@@ -165,6 +177,7 @@ fn append_scroll_node_commands(
     for child in &node.children {
         append_surface_node_commands(
             commands,
+            seen_node_ids,
             overlay,
             child,
             child_z_base,
