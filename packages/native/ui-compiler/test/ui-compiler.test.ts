@@ -21,6 +21,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('border-style')
     expect(nativeWgpuQssFeatureNames()).toContain('bottom')
     expect(nativeWgpuQssFeatureNames()).toContain('display')
+    expect(nativeWgpuQssFeatureNames()).toContain('gap')
     expect(nativeWgpuQssFeatureNames()).toContain('height')
     expect(nativeWgpuQssFeatureNames()).toContain('inset')
     expect(nativeWgpuQssFeatureNames()).toContain('left')
@@ -39,6 +40,8 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('padding-right')
     expect(nativeWgpuQssFeatureNames()).toContain('padding-top')
     expect(nativeWgpuQssFeatureNames()).toContain('right')
+    expect(nativeWgpuQssFeatureNames()).toContain('row-gap')
+    expect(nativeWgpuQssFeatureNames()).toContain('column-gap')
     expect(nativeWgpuQssFeatureNames()).toContain('text-decoration')
     expect(nativeWgpuQssFeatureNames()).toContain('text-overflow')
     expect(nativeWgpuQssFeatureNames()).toContain('text-transform')
@@ -96,6 +99,7 @@ Button:nth-child(2) {
     const backgroundSize = 'Panel { background-size:  }'
     const backgroundImage = 'Panel { background-image:  }'
     const backgroundPosition = 'Panel { background-position:  }'
+    const gap = 'Row { gap:  }'
     const objectFit = 'Image { object-fit:  }'
     const textAlign = 'Text { text-align:  }'
     const textOverflow = 'Text { text-overflow:  }'
@@ -114,6 +118,8 @@ Button:nth-child(2) {
       ]))
     expect(getNativeUiCompletions(backgroundPosition, backgroundPosition.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
       .toEqual(expect.arrayContaining(['left top', 'center', 'right bottom', '50% 50%']))
+    expect(getNativeUiCompletions(gap, gap.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
+      .toEqual(expect.arrayContaining(['8px', '12px', '16px']))
     expect(getNativeUiCompletions(objectFit, objectFit.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
       .toEqual(expect.arrayContaining(['cover', 'contain', 'scale-down']))
     expect(getNativeUiCompletions(textAlign, textAlign.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))

@@ -38,6 +38,12 @@ const backgroundPositionValues = [
   value('50% 50%', 'Align the background image by percentage origin.', '$1% $2%'),
 ] as const
 
+const gapValues = [
+  value('8px', 'Use an eight logical pixel gap.', '8px'),
+  value('12px', 'Use a twelve logical pixel gap.', '12px'),
+  value('16px', 'Use a sixteen logical pixel gap.', '16px'),
+] as const
+
 export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('background-color', 'p0', true, 'Fill color for panels, buttons, and box surfaces.'),
   property('border-color', 'p0', true, 'Border color for rectangular surfaces.'),
@@ -87,9 +93,9 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('margin-right', 'p1', false, 'Right margin planned for native layout IR.'),
   property('margin-top', 'p1', false, 'Top margin planned for native layout IR.'),
   property('margin-bottom', 'p1', false, 'Bottom margin planned for native layout IR.'),
-  property('gap', 'p1', false, 'Layout gap planned for native layout IR.'),
-  property('row-gap', 'p1', false, 'Row gap planned for native layout IR.'),
-  property('column-gap', 'p1', false, 'Column gap planned for native layout IR.'),
+  property('gap', 'p1', true, 'Static Row / Column / Grid child spacing consumed by native UI projection compilation.', gapValues),
+  property('row-gap', 'p1', true, 'Static vertical child spacing consumed by native UI projection compilation.', gapValues),
+  property('column-gap', 'p1', true, 'Static horizontal child spacing consumed by native UI projection compilation.', gapValues),
   property('overflow', 'p1', true, 'Child clipping mode emitted as resolved native UI projection metadata.', [
     value('visible', 'Allow child nodes to paint outside this node bounds.'),
     value('hidden', 'Clip child nodes to this node bounds.'),

@@ -1,10 +1,12 @@
 import type {
   NativeQssEdgeInsetsValue,
   NativeQssResolvedBounds,
+  NativeQssResolvedLayout,
   NativeQssResolvedNodeStyle,
 } from './types'
 import {
   parseNativeQssEdgeInsets,
+  parseNativeQssGap,
   parseNativeQssLogicalNumber,
 } from './qss-style-primitives'
 
@@ -40,6 +42,35 @@ export function resolveNativeQssInset(
     right: insets.right,
     x: insets.left,
     y: insets.top,
+  }
+}
+
+export function resolveNativeQssGap(
+  current: NativeQssResolvedLayout | undefined,
+  value: string,
+): NativeQssResolvedLayout | undefined {
+  const gap = parseNativeQssGap(value)
+  if (!gap)
+    return current
+
+  return {
+    ...current,
+    ...gap,
+  }
+}
+
+export function resolveNativeQssLayoutGap(
+  current: NativeQssResolvedLayout | undefined,
+  edge: keyof NativeQssResolvedLayout,
+  value: string,
+): NativeQssResolvedLayout | undefined {
+  const number = parseNativeQssLogicalNumber(value)
+  if (number === undefined)
+    return current
+
+  return {
+    ...current,
+    [edge]: number,
   }
 }
 
@@ -81,6 +112,18 @@ export function pruneUndefinedResolvedNodeStyle(style: NativeQssResolvedNodeStyl
   }
   else {
     delete style.bounds
+  }
+
+  if (style.layout) {
+    for (const key of Object.keys(style.layout) as Array<keyof typeof style.layout>) {
+      if (style.layout[key] === undefined)
+        delete style.layout[key]
+    }
+    if (Object.keys(style.layout).length === 0)
+      delete style.layout
+  }
+  else {
+    delete style.layout
   }
 
   if (style.zIndex === undefined)

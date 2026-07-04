@@ -1,4 +1,4 @@
-import type { NativeQssEdgeInsetsValue } from './types'
+import type { NativeQssEdgeInsetsValue, NativeQssResolvedLayout } from './types'
 
 const BASIC_COLOR_KEYWORDS = new Set([
   'aqua',
@@ -49,6 +49,19 @@ export function parseNativeQssEdgeInsets(value: string): NativeQssEdgeInsetsValu
 
   const [top, right = top, bottom = top, left = right] = numbers as [number, number?, number?, number?]
   return { top, right, bottom, left }
+}
+
+export function parseNativeQssGap(value: string): NativeQssResolvedLayout | undefined {
+  const parts = value.split(/\s+/).map(item => item.trim()).filter(Boolean)
+  if (parts.length < 1 || parts.length > 2)
+    return undefined
+
+  const numbers = parts.map(parseNativeQssLogicalNumber)
+  if (numbers.some(number => number === undefined))
+    return undefined
+
+  const [rowGap, columnGap = rowGap] = numbers as [number, number?]
+  return { rowGap, columnGap }
 }
 
 export function parsePercentUnitInterval(value: string): number | undefined {

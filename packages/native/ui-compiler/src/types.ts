@@ -159,6 +159,7 @@ export type {
   NativeQssPropertyDefinition,
   NativeQssPropertyValueDefinition,
   NativeQssResolvedBounds,
+  NativeQssResolvedLayout,
   NativeQssResolvedNodeStyle,
   NativeQssResolvedStyle,
   NativeQssRule,

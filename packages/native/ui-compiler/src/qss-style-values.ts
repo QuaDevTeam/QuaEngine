@@ -22,6 +22,7 @@ export {
   parseNativeQssCoordinateNumber,
   parseNativeQssEdgeInsets,
   parseNativeQssFontFamilyList,
+  parseNativeQssGap,
   parseNativeQssInteger,
   parseNativeQssLetterSpacing,
   parseNativeQssLogicalNumber,

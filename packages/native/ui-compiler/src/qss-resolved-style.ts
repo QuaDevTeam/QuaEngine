@@ -6,7 +6,9 @@ import {
   pruneUndefinedResolvedNodeStyle,
   resolveNativeQssBound,
   resolveNativeQssEdgeInset,
+  resolveNativeQssGap,
   resolveNativeQssInset,
+  resolveNativeQssLayoutGap,
 } from './qss-resolved-style-helpers'
 import {
   parseNativeQssBackgroundImage,
@@ -44,6 +46,7 @@ export {
   parseNativeQssFontFamilyList,
   parseNativeQssFontStyle,
   parseNativeQssFontWeight,
+  parseNativeQssGap,
   parseNativeQssInteger,
   parseNativeQssLetterSpacing,
   parseNativeQssLogicalNumber,
@@ -112,6 +115,9 @@ export function resolveNativeQssDeclarations(
       case 'font-weight':
         resolved.style.fontWeight = parseNativeQssFontWeight(value)
         break
+      case 'gap':
+        resolved.layout = resolveNativeQssGap(resolved.layout, value)
+        break
       case 'letter-spacing':
         resolved.style.letterSpacing = parseNativeQssLetterSpacing(value)
         break
@@ -163,8 +169,14 @@ export function resolveNativeQssDeclarations(
       case 'padding-top':
         resolved.style.padding = resolveNativeQssEdgeInset(resolved.style.padding, 'top', value)
         break
+      case 'column-gap':
+        resolved.layout = resolveNativeQssLayoutGap(resolved.layout, 'columnGap', value)
+        break
       case 'right':
         resolved.bounds = resolveNativeQssBound(resolved.bounds, 'right', value, parseNativeQssLogicalNumber)
+        break
+      case 'row-gap':
+        resolved.layout = resolveNativeQssLayoutGap(resolved.layout, 'rowGap', value)
         break
       case 'bottom':
         resolved.bounds = resolveNativeQssBound(resolved.bounds, 'bottom', value, parseNativeQssLogicalNumber)

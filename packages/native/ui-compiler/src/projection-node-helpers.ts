@@ -1,6 +1,8 @@
 import type {
   NativeQssResolvedBounds,
+  NativeQssResolvedLayout,
   NativeQuiProp,
+  NativeUiSurfaceNodeKind,
   NativeUiSurfaceNodeProjection,
   NativeUiSurfaceRect,
 } from './types'
@@ -25,6 +27,27 @@ export function rectFromProps(
     y: numberProp(props, 'y') ?? resolveNativeQssBoundY(bounds, parentBounds, height),
     width,
     height,
+  }
+}
+
+export function applyNativeQssStructuralLayout(
+  kind: NativeUiSurfaceNodeKind,
+  bounds: NativeUiSurfaceRect,
+  children: readonly NativeUiSurfaceNodeProjection[],
+  layout: NativeQssResolvedLayout | undefined,
+): NativeUiSurfaceNodeProjection[] {
+  if (!layout || children.length === 0)
+    return [...children]
+
+  switch (kind) {
+    case 'Row':
+      return layoutRowChildren(children, bounds, layout.columnGap ?? 0)
+    case 'Column':
+      return layoutColumnChildren(children, bounds, layout.rowGap ?? 0)
+    case 'Grid':
+      return layoutGridChildren(children, bounds, layout)
+    default:
+      return [...children]
   }
 }
 
@@ -54,6 +77,79 @@ export function pruneSurfaceNode(node: NativeUiSurfaceNodeProjection): NativeUiS
   if (!node.children || node.children.length === 0)
     delete node.children
   return node
+}
+
+function layoutRowChildren(
+  children: readonly NativeUiSurfaceNodeProjection[],
+  bounds: NativeUiSurfaceRect,
+  gap: number,
+): NativeUiSurfaceNodeProjection[] {
+  let cursorX = 0
+  return children.map((child) => {
+    const localX = cursorX + child.bounds.x
+    const x = bounds.x + localX
+    const y = bounds.y + child.bounds.y
+    cursorX = localX + child.bounds.width + gap
+    return withBounds(child, { ...child.bounds, x, y })
+  })
+}
+
+function layoutColumnChildren(
+  children: readonly NativeUiSurfaceNodeProjection[],
+  bounds: NativeUiSurfaceRect,
+  gap: number,
+): NativeUiSurfaceNodeProjection[] {
+  let cursorY = 0
+  return children.map((child) => {
+    const x = bounds.x + child.bounds.x
+    const localY = cursorY + child.bounds.y
+    const y = bounds.y + localY
+    cursorY = localY + child.bounds.height + gap
+    return withBounds(child, { ...child.bounds, x, y })
+  })
+}
+
+function layoutGridChildren(
+  children: readonly NativeUiSurfaceNodeProjection[],
+  bounds: NativeUiSurfaceRect,
+  layout: NativeQssResolvedLayout,
+): NativeUiSurfaceNodeProjection[] {
+  const columnGap = layout.columnGap ?? 0
+  const rowGap = layout.rowGap ?? 0
+  const maxWidth = bounds.width > 0 ? bounds.width : undefined
+  let cursorX = 0
+  let cursorY = 0
+  let rowHeight = 0
+
+  return children.map((child) => {
+    if (
+      maxWidth !== undefined
+      && cursorX > 0
+      && cursorX + child.bounds.x + child.bounds.width > maxWidth
+    ) {
+      cursorX = 0
+      cursorY += rowHeight + rowGap
+      rowHeight = 0
+    }
+
+    const localX = cursorX + child.bounds.x
+    const localY = cursorY + child.bounds.y
+    const x = bounds.x + localX
+    const y = bounds.y + localY
+    cursorX = localX + child.bounds.width + columnGap
+    rowHeight = Math.max(rowHeight, child.bounds.y + child.bounds.height)
+    return withBounds(child, { ...child.bounds, x, y })
+  })
+}
+
+function withBounds(
+  child: NativeUiSurfaceNodeProjection,
+  bounds: NativeUiSurfaceRect,
+): NativeUiSurfaceNodeProjection {
+  return {
+    ...child,
+    bounds,
+  }
 }
 
 function resolveNativeQssBoundX(

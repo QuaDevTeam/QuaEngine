@@ -109,6 +109,11 @@ export interface NativeQssEdgeInsetsValue {
   top: number
 }
 
+export interface NativeQssResolvedLayout {
+  columnGap?: number
+  rowGap?: number
+}
+
 export interface NativeQssResolvedBounds {
   bottom?: number
   height?: number
@@ -151,6 +156,7 @@ export interface NativeQssResolvedStyle {
 export interface NativeQssResolvedNodeStyle {
   bounds?: NativeQssResolvedBounds
   clipChildren?: boolean
+  layout?: NativeQssResolvedLayout
   style: NativeQssResolvedStyle
   visible?: boolean
   zIndex?: number
