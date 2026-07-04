@@ -101,6 +101,33 @@ fn skips_audio_resources_for_empty_asset_names() {
 }
 
 #[test]
+fn skips_audio_resources_for_unsafe_track_ids() {
+    let audio = AudioProjection::new(vec![
+        AudioTrackProjection::new(
+            "https://example.test/bgm",
+            AudioTrackKind::Bgm,
+            "music/a.ogg",
+        ),
+        AudioTrackProjection::new("native:bgm", AudioTrackKind::Bgm, "music/b.ogg"),
+        AudioTrackProjection::new("bad/bgm", AudioTrackKind::Bgm, "music/c.ogg"),
+        AudioTrackProjection::new("plugin.dll", AudioTrackKind::Bgm, "music/d.ogg"),
+        AudioTrackProjection::new("bgm:main", AudioTrackKind::Bgm, "music/opening.ogg"),
+    ]);
+
+    let records = audio_resource_records(Some(&audio));
+
+    assert_eq!(records.len(), 2);
+    assert_eq!(
+        records[0].id,
+        ResourceId::from("audio:buffer:bgm:bgm:music/opening.ogg")
+    );
+    assert_eq!(
+        records[1].id,
+        ResourceId::from("audio:handle:bgm:bgm:bgm:main")
+    );
+}
+
+#[test]
 fn skips_audio_resources_for_unsafe_asset_names() {
     let audio = AudioProjection::new(vec![
         AudioTrackProjection::new("bgm-traversal", AudioTrackKind::Bgm, "../music/a.ogg"),

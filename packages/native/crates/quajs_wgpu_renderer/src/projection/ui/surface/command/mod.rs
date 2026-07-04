@@ -31,7 +31,7 @@ pub(super) fn surface_node_command(
             let intent = node
                 .intent
                 .as_ref()
-                .map(|intent| renderer_intent(overlay, node, intent));
+                .and_then(|intent| renderer_intent(overlay, node, intent));
             surface_panel_node_command(
                 node,
                 command_id,
@@ -85,7 +85,7 @@ pub(super) fn surface_node_command(
             let intent = node
                 .intent
                 .as_ref()
-                .map(|intent| renderer_intent(overlay, node, intent));
+                .and_then(|intent| renderer_intent(overlay, node, intent));
             surface_panel_node_command(
                 node,
                 command_id,

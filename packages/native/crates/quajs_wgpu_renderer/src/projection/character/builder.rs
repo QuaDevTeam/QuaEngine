@@ -1,4 +1,4 @@
-use crate::projection::common::is_safe_native_asset_name;
+use crate::projection::common::{is_safe_native_asset_name, is_safe_native_dispatch_identifier};
 use crate::render_graph::{
     CharacterDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, RenderGraph, RenderPlane,
 };
@@ -27,6 +27,10 @@ fn character_command(
     layout: &ResolvedStageLayout,
     character: &CharacterProjection,
 ) -> Option<DrawCommand> {
+    if !is_safe_native_dispatch_identifier(&character.id) {
+        return None;
+    }
+
     let sprite_asset_name = character.sprite.as_ref()?;
     if !is_safe_native_asset_name(sprite_asset_name) {
         return None;

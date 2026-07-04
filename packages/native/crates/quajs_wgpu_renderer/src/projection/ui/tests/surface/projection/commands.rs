@@ -323,6 +323,140 @@ fn skips_inline_image_nodes_with_unsafe_asset_names() {
 }
 
 #[test]
+fn skips_inline_surface_nodes_with_unsafe_ids_on_direct_projection() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Box,
+                    rect(0.0, 0.0, 520.0, 320.0),
+                )
+                .with_children(vec![
+                    UiSurfaceNodeProjection::new(
+                        "bad/path",
+                        UiSurfaceNodeKind::Text,
+                        rect(24.0, 24.0, 200.0, 48.0),
+                    )
+                    .with_text("Path"),
+                    UiSurfaceNodeProjection::new(
+                        "native:open",
+                        UiSurfaceNodeKind::Button,
+                        rect(24.0, 96.0, 160.0, 48.0),
+                    )
+                    .with_text("Native")
+                    .with_intent(UiIntentProjection::new("open")),
+                    UiSurfaceNodeProjection::new(
+                        "plugin.dll",
+                        UiSurfaceNodeKind::Image,
+                        rect(24.0, 168.0, 120.0, 80.0),
+                    )
+                    .with_image(UiSurfaceImageProjection::new("ui/poster.png")),
+                    UiSurfaceNodeProjection::new(
+                        "safe:node",
+                        UiSurfaceNodeKind::Text,
+                        rect(240.0, 24.0, 200.0, 48.0),
+                    )
+                    .with_text("Safe"),
+                ]),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["ui:menu", "ui:menu:root", "ui:menu:safe:node"]);
+}
+
+#[test]
+fn drops_inline_surface_intents_with_unsafe_dispatch_ids() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Box,
+                    rect(0.0, 0.0, 520.0, 320.0),
+                )
+                .with_children(vec![
+                    UiSurfaceNodeProjection::new(
+                        "unsafe-action",
+                        UiSurfaceNodeKind::Button,
+                        rect(24.0, 24.0, 200.0, 48.0),
+                    )
+                    .with_text("Unsafe")
+                    .with_intent(UiIntentProjection::new("native:open")),
+                    UiSurfaceNodeProjection::new(
+                        "safe-action",
+                        UiSurfaceNodeKind::Button,
+                        rect(24.0, 96.0, 200.0, 48.0),
+                    )
+                    .with_text("Safe")
+                    .with_intent(
+                        UiIntentProjection::new("open")
+                            .with_metadata("safe:key", serde_json::json!("kept"))
+                            .with_metadata("bad/key", serde_json::json!("dropped")),
+                    ),
+                    UiSurfaceNodeProjection::new(
+                        "unsafe-choice",
+                        UiSurfaceNodeKind::Button,
+                        rect(24.0, 168.0, 200.0, 48.0),
+                    )
+                    .with_text("Choice")
+                    .with_intent(UiIntentProjection::choice_select("bad/choice")),
+                ]),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let unsafe_action = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:unsafe-action")
+        .expect("unsafe action button command should still render");
+    let safe_action = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:safe-action")
+        .expect("safe action button command should render");
+    let unsafe_choice = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:unsafe-choice")
+        .expect("unsafe choice button command should still render");
+
+    match &unsafe_action.params {
+        DrawCommandParams::UiButton(params) => {
+            assert!(!params.enabled);
+            assert!(params.intent.is_none());
+        }
+        _ => panic!("expected ui button params"),
+    }
+    match &safe_action.params {
+        DrawCommandParams::UiButton(params) => {
+            let intent = params.intent.as_ref().unwrap();
+            assert_eq!(intent.action.as_deref(), Some("open"));
+            assert!(intent.metadata.contains_key("safe:key"));
+            assert!(!intent.metadata.contains_key("bad/key"));
+        }
+        _ => panic!("expected ui button params"),
+    }
+    match &unsafe_choice.params {
+        DrawCommandParams::UiButton(params) => {
+            assert!(!params.enabled);
+            assert!(params.intent.is_none());
+        }
+        _ => panic!("expected ui button params"),
+    }
+}
+
+#[test]
 fn projects_surface_background_image_as_package_image_command() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {

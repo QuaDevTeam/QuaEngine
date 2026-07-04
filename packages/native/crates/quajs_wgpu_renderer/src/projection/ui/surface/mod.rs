@@ -2,6 +2,7 @@ mod command;
 mod helpers;
 mod traversal;
 
+use crate::projection::common::is_safe_native_dispatch_identifier;
 use crate::render_graph::DrawCommand;
 
 use super::types::{UiOverlayProjection, UiOverlaySurfaceProjection};
@@ -18,6 +19,10 @@ pub fn build_ui_surface_node_commands(
     surface: &UiOverlaySurfaceProjection,
     base_z_index: i32,
 ) -> Vec<DrawCommand> {
+    if !is_safe_native_dispatch_identifier(&overlay.element_id) {
+        return Vec::new();
+    }
+
     let Some(root) = &surface.root else {
         return Vec::new();
     };

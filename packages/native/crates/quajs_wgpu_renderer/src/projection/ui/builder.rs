@@ -1,4 +1,6 @@
-use crate::projection::common::PackageProvenance;
+use crate::projection::common::{
+    is_safe_native_asset_name, is_safe_native_dispatch_identifier, PackageProvenance,
+};
 use crate::render_graph::{
     DrawCommand, DrawCommandKind, DrawCommandParams, RenderGraph, RenderPlane, RendererIntent,
     UiSurfaceDrawParams,
@@ -26,7 +28,9 @@ pub fn build_ui_commands(layout: &ResolvedStageLayout, ui: &UiProjection) -> Vec
     let mut overlays = ui
         .overlays
         .iter()
-        .filter(|overlay| overlay.visible)
+        .filter(|overlay| {
+            overlay.visible && is_safe_native_dispatch_identifier(&overlay.element_id)
+        })
         .collect::<Vec<_>>();
     overlays.sort_by(|left, right| compare_ui_overlay_projection(left, right));
 
@@ -66,7 +70,10 @@ fn ui_overlay_command(
 ) -> DrawCommand {
     let render_mode = ui_overlay_render_mode(overlay);
     let interactive = ui_overlay_is_interactive(overlay);
-    let surface_key = surface.map(|surface| surface.key.clone());
+    let surface_key = surface
+        .map(|surface| surface.key.as_str())
+        .filter(|key| is_safe_native_asset_name(key))
+        .map(ToString::to_string);
 
     let mut command = DrawCommand::new(
         format!("ui:{}", overlay.element_id),
@@ -85,10 +92,10 @@ fn ui_overlay_command(
         intent: overlay
             .intent
             .as_ref()
-            .map(|intent| renderer_intent(overlay, intent)),
+            .and_then(|intent| renderer_intent(overlay, intent)),
     }));
 
-    if let Some(surface_key) = surface_key.filter(|key| !key.trim().is_empty()) {
+    if let Some(surface_key) = surface_key {
         command = command.resource(ResourceId::new(format!("surface:{surface_key}")));
     }
 
@@ -96,14 +103,37 @@ fn ui_overlay_command(
     apply_provenance(command, &overlay.provenance)
 }
 
-fn renderer_intent(overlay: &UiOverlayProjection, intent: &UiIntentProjection) -> RendererIntent {
-    RendererIntent {
+fn renderer_intent(
+    overlay: &UiOverlayProjection,
+    intent: &UiIntentProjection,
+) -> Option<RendererIntent> {
+    let action = match intent.action.as_deref() {
+        Some(action) if is_safe_native_dispatch_identifier(action) => Some(action.to_string()),
+        Some(_) => return None,
+        None => None,
+    };
+    let choice_id = match intent.choice_id.as_deref() {
+        Some(choice_id) if is_safe_native_dispatch_identifier(choice_id) => {
+            Some(choice_id.to_string())
+        }
+        Some(_) => return None,
+        None if intent.event == "choice/select" => return None,
+        None => None,
+    };
+    let metadata = intent
+        .metadata
+        .iter()
+        .filter(|(key, _)| is_safe_native_dispatch_identifier(key))
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect();
+
+    Some(RendererIntent {
         event: intent.event.clone(),
-        choice_id: intent.choice_id.clone(),
+        choice_id,
         element_id: Some(overlay.element_id.clone()),
-        action: intent.action.clone(),
-        metadata: intent.metadata.clone(),
-    }
+        action,
+        metadata,
+    })
 }
 
 fn apply_provenance(mut command: DrawCommand, provenance: &PackageProvenance) -> DrawCommand {

@@ -125,6 +125,44 @@ fn skips_characters_with_unsafe_sprite_asset_names() {
 }
 
 #[test]
+fn skips_characters_with_unsafe_projection_ids_on_direct_projection() {
+    let layout = test_layout();
+    let characters = [
+        CharacterProjection {
+            sprite: Some("sprites/url.png".to_string()),
+            ..CharacterProjection::new("https://example.test/yuki", "Url")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/native.png".to_string()),
+            ..CharacterProjection::new("native:yuki", "Native")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/path.png".to_string()),
+            ..CharacterProjection::new("bad/yuki", "Path")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/payload.png".to_string()),
+            ..CharacterProjection::new("plugin.dll", "Payload")
+        },
+        CharacterProjection {
+            sprite: Some("sprites/yuki.png".to_string()),
+            ..CharacterProjection::new("yuki:smile", "Yuki")
+        },
+    ];
+
+    let commands = build_character_commands(&layout, &characters);
+
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].id, "character:yuki:smile");
+    match &commands[0].params {
+        DrawCommandParams::Character(params) => {
+            assert_eq!(params.character_id, "yuki:smile");
+        }
+        _ => panic!("expected character draw params"),
+    }
+}
+
+#[test]
 fn resolves_anchor_and_default_safe_area_position() {
     let layout = test_layout();
     let left = CharacterPosition {

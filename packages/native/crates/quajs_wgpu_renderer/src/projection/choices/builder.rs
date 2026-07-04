@@ -1,4 +1,4 @@
-use crate::projection::common::PackageProvenance;
+use crate::projection::common::{is_safe_native_dispatch_identifier, PackageProvenance};
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
     FontStyleDrawParam, PanelDrawParams, RenderGraph, RenderPlane, RendererIntent, TextAlign,
@@ -22,7 +22,16 @@ pub fn build_choice_commands(
         return Vec::new();
     }
 
-    let panel = choices_panel_bounds(layout, choices.choices.len());
+    let safe_choices = choices
+        .choices
+        .iter()
+        .filter(|choice| is_safe_native_dispatch_identifier(&choice.id))
+        .collect::<Vec<_>>();
+    if safe_choices.is_empty() {
+        return Vec::new();
+    }
+
+    let panel = choices_panel_bounds(layout, safe_choices.len());
     let mut commands = vec![apply_provenance(
         DrawCommand::new(
             "choices:panel",
@@ -43,9 +52,9 @@ pub fn build_choice_commands(
     )];
 
     commands.extend(
-        choices
-            .choices
+        safe_choices
             .iter()
+            .copied()
             .enumerate()
             .map(|(index, choice)| choice_command(panel, index, choice)),
     );

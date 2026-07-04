@@ -79,6 +79,52 @@ fn skips_unsafe_overlay_package_provenance_on_direct_projection() {
 }
 
 #[test]
+fn skips_overlays_with_unsafe_element_ids_on_direct_projection() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![
+        UiOverlayProjection::new("https://example.test/menu").with_surface("ui/url.qui"),
+        UiOverlayProjection::new("native:menu").with_surface("ui/native.qui"),
+        UiOverlayProjection::new("bad/menu").with_surface("ui/path.qui"),
+        UiOverlayProjection::new("plugin.dll").with_surface("ui/payload.qui"),
+        UiOverlayProjection::new("menu:ok").with_surface("ui/menu.qui"),
+    ]);
+
+    let commands = build_ui_commands(&layout, &ui);
+
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].id, "ui:menu:ok");
+    match &commands[0].params {
+        DrawCommandParams::UiSurface(params) => {
+            assert_eq!(params.element_id, "menu:ok");
+            assert_eq!(params.surface_key.as_deref(), Some("ui/menu.qui"));
+        }
+        _ => panic!("expected ui surface params"),
+    }
+}
+
+#[test]
+fn drops_unsafe_overlay_surface_keys_and_intents_on_direct_projection() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(UiOverlaySurfaceProjection::new("../ui/menu.qui")),
+        intent: Some(UiIntentProjection::new("native:open")),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+
+    assert_eq!(commands.len(), 1);
+    assert!(commands[0].resource_ids.is_empty());
+    match &commands[0].params {
+        DrawCommandParams::UiSurface(params) => {
+            assert!(params.surface_key.is_none());
+            assert!(params.intent.is_none());
+        }
+        _ => panic!("expected ui surface params"),
+    }
+}
+
+#[test]
 fn sorts_visible_overlays_by_stack_and_skips_hidden_entries() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![

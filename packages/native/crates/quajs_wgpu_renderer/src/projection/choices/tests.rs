@@ -82,6 +82,47 @@ fn skips_hidden_or_empty_choices() {
 }
 
 #[test]
+fn skips_choices_with_unsafe_projection_ids_on_direct_projection() {
+    let layout = test_layout();
+    let choices = ChoiceSetProjection::new(vec![
+        ChoiceProjection::new("left", "Go left"),
+        ChoiceProjection::new("https://example.test/right", "Url"),
+        ChoiceProjection::new("native:right", "Native"),
+        ChoiceProjection::new("bad/right", "Path"),
+        ChoiceProjection::new("plugin.dll", "Payload"),
+        ChoiceProjection::new("right:ok", "Go right"),
+    ]);
+
+    let commands = build_choice_commands(&layout, &choices);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["choices:panel", "choice:left", "choice:right:ok"]);
+    match &commands[2].params {
+        DrawCommandParams::UiButton(params) => {
+            assert_eq!(
+                params.intent.as_ref().unwrap().choice_id.as_deref(),
+                Some("right:ok")
+            );
+        }
+        _ => panic!("expected choice button params"),
+    }
+}
+
+#[test]
+fn skips_choice_panel_when_all_choice_ids_are_unsafe() {
+    let layout = test_layout();
+    let choices = ChoiceSetProjection::new(vec![
+        ChoiceProjection::new("bad/left", "Go left"),
+        ChoiceProjection::new("native:right", "Go right"),
+    ]);
+
+    assert!(build_choice_commands(&layout, &choices).is_empty());
+}
+
+#[test]
 fn appends_choice_commands_and_preserves_package_provenance() {
     let mut graph = RenderGraph::new(test_layout());
     let choices = ChoiceSetProjection {
