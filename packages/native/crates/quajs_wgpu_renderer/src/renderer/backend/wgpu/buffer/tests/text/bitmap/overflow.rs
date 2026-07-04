@@ -63,3 +63,49 @@ fn emits_ellipsis_marker_for_overflowing_bitmap_text() {
     assert!(marker_min_x >= clipped_text_max_x);
     assert_eq!(marker[0].color, [1.0, 1.0, 1.0, 1.0]);
 }
+
+#[test]
+fn clips_partial_bitmap_glyph_uvs_without_stretching_atlas() {
+    let mut style = text_style(21.0, TextAlign::Left, EdgeInsetsDrawParam::default());
+    style.white_space = WhiteSpaceDrawParam::NoWrap;
+    style.text_overflow = TextOverflowDrawParam::Clip;
+    let full = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![quad(
+        "ui:full-glyph",
+        DrawBatchPipeline::Text,
+        DrawCommandKind::Text,
+        WgpuNativeRenderPaint::TextPlaceholder {
+            text: "A".to_string(),
+            color: rgba(0xff, 0xff, 0xff, 0xff),
+            literal: "#fff".to_string(),
+            style: style.clone(),
+        },
+        rect(10, 20, 88, 48),
+        Vec::new(),
+    )]));
+    let clipped = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![quad(
+        "ui:clipped-glyph",
+        DrawBatchPipeline::Text,
+        DrawCommandKind::Text,
+        WgpuNativeRenderPaint::TextPlaceholder {
+            text: "A".to_string(),
+            color: rgba(0xff, 0xff, 0xff, 0xff),
+            literal: "#fff".to_string(),
+            style,
+        },
+        rect(10, 20, 8, 48),
+        Vec::new(),
+    )]));
+
+    let full_vertices = &full.passes[0].vertices;
+    let clipped_vertices = &clipped.passes[0].vertices;
+
+    assert_eq!(full.passes[0].draw_call_count, 1);
+    assert_eq!(clipped.passes[0].draw_call_count, 1);
+    assert_eq!(full_vertices.len(), 4);
+    assert_eq!(clipped_vertices.len(), 4);
+    assert_eq!(clipped.passes[0].draw_calls[0].physical_bounds.width, 8);
+    assert_eq!(clipped_vertices[1].position[0], 18.0);
+    assert_eq!(clipped_vertices[0].uv[0], full_vertices[0].uv[0]);
+    assert!(clipped_vertices[1].uv[0] > clipped_vertices[0].uv[0]);
+    assert!(clipped_vertices[1].uv[0] < full_vertices[1].uv[0]);
+}
