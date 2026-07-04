@@ -95,35 +95,30 @@ pub(super) fn image_node_command(
     node: &UiSurfaceNodeProjection,
     command_id: String,
     bounds: LogicalRect,
-) -> DrawCommand {
-    let image = node.image.as_ref();
-    let mut command = DrawCommand::new(
+) -> Option<DrawCommand> {
+    let image = node.image.as_ref().filter(|image| {
+        !image.asset_type.trim().is_empty() && !image.asset_name.trim().is_empty()
+    })?;
+    let command = DrawCommand::new(
         command_id,
         RenderPlane::Screen,
         DrawCommandKind::Image,
         bounds,
     )
+    .resource(ResourceId::new(format!(
+        "{}:{}",
+        image.asset_type, image.asset_name
+    )))
     .params(DrawCommandParams::Image(ImageDrawParams {
-        asset_type: image
-            .map(|image| image.asset_type.clone())
-            .unwrap_or_else(|| "images".to_string()),
-        asset_name: image
-            .map(|image| image.asset_name.clone())
-            .unwrap_or_default(),
+        asset_type: image.asset_type.clone(),
+        asset_name: image.asset_name.clone(),
         fit: resolve_object_fit(&node.style, MediaFit::Contain),
         origin: MediaOrigin::default(),
         source: bounds,
         rotation_degrees: 0.0,
     }));
 
-    if let Some(image) = image {
-        command = command.resource(ResourceId::new(format!(
-            "{}:{}",
-            image.asset_type, image.asset_name
-        )));
-    }
-
-    command
+    Some(command)
 }
 
 pub(super) fn surface_panel_node_command(

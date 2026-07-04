@@ -20,7 +20,7 @@ pub(super) fn surface_node_command(
     clip_bounds: &[LogicalRect],
     offset: SurfaceNodeOffset,
     effective_opacity: f32,
-) -> DrawCommand {
+) -> Option<DrawCommand> {
     let bounds = node_rect(node.bounds, offset);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
     let mut command = match node.kind {
@@ -80,7 +80,7 @@ pub(super) fn surface_node_command(
             crate::render_graph::DrawCommandKind::RichText,
             "ui-rich-text",
         ),
-        UiSurfaceNodeKind::Image => image_node_command(node, command_id, bounds),
+        UiSurfaceNodeKind::Image => image_node_command(node, command_id, bounds)?,
         UiSurfaceNodeKind::Panel => {
             let intent = node
                 .intent
@@ -103,7 +103,7 @@ pub(super) fn surface_node_command(
         .opacity(effective_opacity)
         .clip_bounds(clip_bounds.iter().copied());
     command = apply_provenance(command, &overlay.provenance);
-    apply_provenance(command, &node.provenance)
+    Some(apply_provenance(command, &node.provenance))
 }
 
 pub(super) fn surface_scroll_panel_command(
