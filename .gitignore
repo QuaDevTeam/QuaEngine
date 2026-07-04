@@ -16,5 +16,6 @@ output
 .local/
 .local-pack-test/
 .codegraph/
+.codex-tmp/
 *.tgz
 packages/native/target/
