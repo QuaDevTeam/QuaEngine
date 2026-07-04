@@ -14,6 +14,10 @@ pub struct NativeRendererSmokeBudget {
     #[serde(default)]
     pub max_video_fallbacks: Option<usize>,
     #[serde(default)]
+    pub max_fallbacks_by_owner_package: BTreeMap<String, usize>,
+    #[serde(default)]
+    pub max_fallbacks_by_required_package: BTreeMap<String, usize>,
+    #[serde(default)]
     pub max_texture_upload_requests: Option<usize>,
     #[serde(default)]
     pub max_texture_upload_pending_requests: Option<usize>,
