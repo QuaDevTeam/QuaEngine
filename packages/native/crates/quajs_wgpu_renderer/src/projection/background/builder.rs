@@ -23,6 +23,7 @@ pub fn build_background_commands(
         BackgroundMode::Image => background
             .asset_name
             .as_deref()
+            .filter(|asset_name| is_non_empty_asset_name(asset_name))
             .map(|asset_name| {
                 background_image_command(layout, "background:main", asset_name, background)
             })
@@ -31,12 +32,13 @@ pub fn build_background_commands(
         BackgroundMode::Layered => background
             .layers
             .iter()
-            .filter(|layer| layer.visible)
+            .filter(|layer| layer.visible && is_non_empty_asset_name(&layer.asset_name))
             .map(|layer| background_layer_command(layout, layer))
             .collect(),
         BackgroundMode::Video => background
             .video
             .as_ref()
+            .filter(|video| is_non_empty_asset_name(&video.asset_name))
             .map(|video| background_video_command(layout, video))
             .into_iter()
             .collect(),
@@ -118,6 +120,11 @@ fn background_video_command(
     video: &BackgroundVideoProjection,
 ) -> DrawCommand {
     let asset_type = "video".to_string();
+    let poster_asset_name = video
+        .poster
+        .as_deref()
+        .filter(|poster| is_non_empty_asset_name(poster))
+        .map(ToString::to_string);
     let mut command = DrawCommand::new(
         "background:video",
         RenderPlane::Scene,
@@ -128,14 +135,14 @@ fn background_video_command(
     .params(DrawCommandParams::Video(VideoDrawParams {
         asset_type,
         asset_name: video.asset_name.clone(),
-        poster_asset_name: video.poster.clone(),
+        poster_asset_name: poster_asset_name.clone(),
         fit: media_fit(video.fit),
         origin: media_origin(video.origin.as_deref()),
         source: full_stage_rect(layout),
         fallback_reason: Some("native video decode backend is not active".to_string()),
     }));
 
-    if let Some(poster) = &video.poster {
+    if let Some(poster) = &poster_asset_name {
         command = command.resource(background_resource_id("images", poster));
     }
 
@@ -156,4 +163,8 @@ fn apply_provenance(mut command: DrawCommand, provenance: &PackageProvenance) ->
 
 fn background_resource_id(asset_type: &str, asset_name: &str) -> ResourceId {
     ResourceId::new(format!("{asset_type}:{asset_name}"))
+}
+
+fn is_non_empty_asset_name(asset_name: &str) -> bool {
+    !asset_name.trim().is_empty()
 }
