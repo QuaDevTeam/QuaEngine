@@ -16,6 +16,8 @@ pub(super) fn summary() -> NativeRendererSmokeSummary {
         missing_resource_count: 1,
         fallback_count: 2,
         video_fallback_count: 1,
+        fallbacks_by_owner_package: BTreeMap::from([("runtime.video".to_string(), 1)]),
+        fallbacks_by_required_package: BTreeMap::from([("base".to_string(), 1)]),
         texture_upload_request_count: 2,
         texture_upload_pending_request_count: 1,
         texture_upload_resident_resource_count: 1,

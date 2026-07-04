@@ -23,6 +23,8 @@ pub struct NativeRendererSmokeSummary {
     pub missing_resource_count: usize,
     pub fallback_count: usize,
     pub video_fallback_count: usize,
+    pub fallbacks_by_owner_package: BTreeMap<String, usize>,
+    pub fallbacks_by_required_package: BTreeMap<String, usize>,
     pub texture_upload_request_count: usize,
     pub texture_upload_pending_request_count: usize,
     pub texture_upload_resident_resource_count: usize,
@@ -60,6 +62,12 @@ impl NativeRendererSmokeSummary {
             missing_resource_count: result.submission.missing_resource_count,
             fallback_count: result.submission.fallback_summary.fallback_count,
             video_fallback_count: result.submission.fallback_summary.video_fallback_count,
+            fallbacks_by_owner_package: result.submission.fallback_summary.by_owner_package.clone(),
+            fallbacks_by_required_package: result
+                .submission
+                .fallback_summary
+                .by_required_package
+                .clone(),
             texture_upload_request_count: result.update.texture_uploads.requests.len(),
             texture_upload_pending_request_count: result.texture_upload_sync.pending_requests.len(),
             texture_upload_resident_resource_count: result
