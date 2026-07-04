@@ -3,8 +3,11 @@ import type { NativeUiRange } from '@quajs/native-ui-compiler'
 export function offsetAtPosition(source: string, position: NativeUiRange['start']): number {
   const lineStarts = createLineStartOffsets(source)
   const line = Math.max(0, Math.min(position.line, lineStarts.length - 1))
-  const nextLineStart = lineStarts[line + 1] ?? source.length
-  return Math.min(lineStarts[line] + Math.max(0, position.character), nextLineStart)
+  const nextLineStart = lineStarts[line + 1]
+  const lineEnd = nextLineStart === undefined
+    ? source.length
+    : Math.max(lineStarts[line], nextLineStart - 1)
+  return Math.min(lineEnd, lineStarts[line] + Math.max(0, position.character))
 }
 
 export function rangeFromOffsets(source: string, startOffset: number, endOffset: number): NativeUiRange {
