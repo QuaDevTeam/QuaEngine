@@ -291,3 +291,23 @@ runtime package compatibility metadata 也应该落到这个 registry 上：
 - 视频先支持 poster / fallback / deterministic warning。
 - 音频先支持投影、资源账本、命令计划和 backend stub。
 - 真正的 decode / playback backend 进入 native app binary 后，再把能力升级成正式 capability。
+
+## 组件完整性验收
+
+P0 native UI 组件能力必须能组装出 Web renderer 常见产品 UI，而不是只渲染孤立控件：
+
+- menu / quick menu: `Stack` / `Column` / `Row` / `Button` / `Text` / `Divider` / `Image`。
+- dialog / confirm: `Backdrop` / `Panel` / `Text` / `Button` / named slots。
+- drawer: `Layer` / `Panel` / `Scroll` / `SafeArea` / transition metadata。
+- save-load panel: `Grid` / `Scroll` / `Image` / `Text` / `Button` / empty state。
+- settings panel: `Panel` / `Row` / `Column` / `Button` / project-authored composite controls。
+- gallery / backlog / achievement: `Grid` / `Scroll` / `Image` / `RichText` / `Button`。
+
+这些上层组件默认都是 `.qui/.qss` composite。验收标准是 compiler 能把它们展开为 base primitives，LSP 能提供 diagnostics / hover / completion，Rust JSON facade 收到的 `NativeUiSurfaceProjection` 中不出现 `Dialog`、`Drawer`、`SaveLoadPanel` 这类高阶 authoring 名称。
+
+组件扩展的验收标准：
+
+- project-local component import 可静态分析。
+- package-local composite 发布时携带 `.qui/.qss` 或 compiled projection metadata。
+- compatibility metadata 只声明展开后实际使用的 base component、QSS feature、asset kind。
+- 第三方扩展不能携带 native code，不能注册 Rust primitive，不能覆盖 host capability manifest。

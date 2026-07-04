@@ -2,6 +2,24 @@
 
 这是一份面向 `packages/native` 的工作方案，目标是把 QuaEngine 的 native 路线收敛成一个独立、可验证、可分阶段推进的产品面。
 
+完整调研与总计划见根目录方案：[Native WGPU + QuickJS Renderer, QUI, QSS, And Native Authoring Plan](../native-wgpu-quickjs-renderer.md)。本目录是按执行主题拆开的落地版，后续 native renderer 开发优先从这里查边界、验收和拆包规则。
+
+## 快速门禁
+
+打包到 Cocos、Web、Native 项目时，核心插件不能串线。三端必须是三条互斥工程生成链：Web 只走 `web-core-resolver`，Cocos 只走 `cocos-core-resolver`，Native 只走 `native-core-resolver`。project template、startup shell、debug/release shell、installer、updater、smoke runner、Runtime QPK 和普通插件都只能读取已验证的 active-target manifest，不能重新声明 active core，也不能先携带三端核心插件全集再过滤。
+
+更具体地说，核心插件只允许由当前目标 resolver 注入一次：
+
+| 目标工程 | 唯一核心来源 | 必须排除 |
+| --- | --- | --- |
+| Web | `web-core-resolver` | Cocos host / renderer、Native engine/assets/store/runtime/renderer |
+| Cocos | `cocos-core-resolver` | Web renderer/framework adapter、Native engine/assets/store/runtime/renderer |
+| Native | `native-core-resolver` | Web renderer/framework adapter、Cocos host / renderer |
+
+项目模板、启动壳、debug/release shell、installer、updater、smoke runner、Runtime QPK 和第三方 shared entry 都不是 core plugin 装配点。它们二次声明当前 active core 也必须失败，因为这会绕过 packager resolver 和 `target-bundle-manifest.json` 的门禁。
+
+详细执行口径以 [target-core-isolation.md](target-core-isolation.md) 为准；任何改动 packaging、project generator、starter、debug/release shell、installer、updater、smoke runner 或 Runtime QPK resolver 的计划，都必须同步检查该文件和 [tooling-testing.md](tooling-testing.md) 中的三端隔离 fixture，确保 Web / Cocos / Native 核心插件不会串线。
+
 ## 范围
 
 - QuickJS + wgpu 的 native renderer。
@@ -42,6 +60,21 @@
 5. Rust renderer 只接收 resolved AST / IR / capability metadata。
 6. base component 要尽量小，dialog / drawer / save-load / settings 之类上层 UI 用 composite 组装。
 7. 打包流程必须 target-first：先确定 Web、Cocos 或 Native，再解析普通插件；不能先加载三端核心插件全集再靠过滤输出。
+8. 打包到 Web / Cocos / Native 工程时，核心插件必须是目标私有 bootstrap：只允许当前目标 resolver 注入一次，项目模板、启动壳、Runtime QPK、installer、updater、smoke runner 和普通插件都不能重新声明 active core，也不能携带其他目标 core 后过滤。
+
+## 打包到 Web / Cocos / Native 的核心插件接线红线
+
+Web、Cocos、Native 不是同一套核心插件的三种输出格式，而是三条互斥 project packaging 链。每个目标工程只能由自己的 packager resolver 注入一次 core plugin：
+
+- Web 只能由 `web-core-resolver` 注入 Web bootstrap、Web assets/runtime adapter、Web renderer / framework adapter 和 Web renderer plugin subentry。
+- Cocos 只能由 `cocos-core-resolver` 注入 Cocos bootstrap、Cocos host / renderer adapter 和 Cocos renderer plugin subentry。
+- Native 只能由 `native-core-resolver` 注入 `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、必要的 native contracts metadata，以及 Rust native app/runtime/renderer capability metadata。
+
+这些 core plugin 不能进入普通 `plugins`、shared preset、third-party shared entry、Runtime QPK executable dependency、Runtime QPK renderer entry、project template、startup shell、debug/release shell、installer、updater 或 smoke runner。上述阶段只能读取当前目标已经验证过的 `target-bundle-manifest.json` 和只读 `TargetCoreSelection`，不能重新声明 active core，也不能携带 inactive core 后过滤。
+
+多目标打包必须拆成多个独立 artifact plan：Web plan 只 materialize Web resolver，Cocos plan 只 materialize Cocos resolver，Native plan 只 materialize Native resolver。禁止先构造 `[webCore, cocosCore, nativeCore]`、`allRendererEntries` 或跨目标 bootstrap shell 再按目标过滤；即使最终 manifest 表面上只剩一个目标，也按核心插件串线失败处理。
+
+验收时要按具体工程产物检查，而不是只看最终 manifest 字段：Web 工程模板、Cocos Creator 工程、Native Rust app 工程、debug/release shell、installer、updater、smoke runner 和 post-bundle graph 都必须证明只消费当前目标 resolver 写出的 active-target manifest。任一工程生成链路只要 transiently materialize 了另外两个目标的 core plugin，或在模板/壳层重新声明 active core，都按核心插件串线失败处理。
 
 ## Target Core 隔离红线
 
@@ -50,6 +83,8 @@
 - Web 产物只能携带 Web core resolver、Web assets / renderer / framework adapter。
 - Cocos 产物只能携带 Cocos host / renderer adapter。
 - Native 产物只能携带 `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、必要的 native contracts metadata，以及 Rust native app / runtime / renderer。
+
+这条规则的最终验收口径是：核心插件只允许由当前目标 packager resolver 注入一次。Web、Cocos、Native 项目模板、startup shell、debug/release shell、installer、updater、smoke runner、Runtime QPK 和第三方插件 entry 都不能成为第二个 core plugin 注入点；它们只能读取已验证的 active-target manifest。即使重新声明的是当前目标的 active core，也按串线失败处理，因为这会让模板或壳层绕过 resolver 和 manifest 门禁。
 
 这三个核心插件集合不能串线，也不能在代码里先聚合再过滤。Web、Cocos、Native 必须分别从自己的 packaging resolver 入口开始；普通插件、shared preset、Runtime QPK、debug shell、installer、updater 和 smoke runner 都只能消费已选定的 `TargetCoreSelection`，不能把任一 target core adapter 当作普通插件传递或二次声明。
 
@@ -72,8 +107,21 @@
 - Web 项目只能由 Web resolver 注入 Web core，不能把 Cocos / Native core 放进项目模板、普通插件或 Runtime QPK 后再过滤。
 - Cocos 项目只能由 Cocos resolver 注入 Cocos core，不能复用 Web / Native bootstrap、renderer entry 或 host bridge。
 - Native 项目只能由 Native resolver 注入 native core，不能携带 Web renderer subentry、Cocos renderer subentry 或其他目标 bootstrap。
+- 多目标批量打包必须拆成多个独立 artifact plan。不能先生成 `[webCore, cocosCore, nativeCore]`、`allRendererEntries` 或跨目标 bootstrap shell 再按目标过滤到不同输出目录。
 
 这条约束要覆盖源码配置、生成的项目模板、debug 产物、release 产物、installer、updater、smoke runner、Runtime QPK 和 post-bundle dependency graph。任何层级出现跨目标核心插件，都不是兼容性 warning，而是打包失败。
+
+### 打包到目标工程时的核心插件边界
+
+打包输出不是“同一个核心插件集合的三种工程格式”，而是三条互斥的工程生成链。Web、Cocos、Native 可以共享平台无关的 project schema、manifest emitter、dependency graph normalizer 和 validation helper，但不能共享任何已经携带 target core adapter 的模板、preset、resolver 或启动壳。
+
+每个目标工程只能从自己的 packager resolver 接收一次核心插件注入：
+
+- Web 工程只消费 `web-core-resolver` 产出的 active-target manifest。Web dev server、PWA shell、installer、updater 和 Runtime QPK 都不能携带 Cocos / Native core。
+- Cocos 工程只消费 `cocos-core-resolver` 产出的 active-target manifest。Creator 模板、调试入口、构建脚本和 host bridge 配置不能携带 Web / Native core。
+- Native 工程只消费 `native-core-resolver` 产出的 active-target manifest。Rust app bootstrap、QuickJS startup、renderer smoke、installer 和 updater 不能携带 Web / Cocos core。
+
+如果一个构建命令同时产出 Web、Cocos、Native 三类工程，也必须先拆成三个独立 artifact plan，分别 materialize 当前目标 resolver、分别 bundle、分别 emit / validate `target-bundle-manifest.json`。不能先构造一个三端 core plugin union，再在每个输出目录里过滤；这个反模式必须在 contracts suite 和 packager suite 里作为负例固定下来。
 
 核心插件装配必须按三条独立链路实现：
 
@@ -137,6 +185,29 @@ Web、Cocos、Native 打包是三条互斥目标链路，不是同一套核心�
 - `validateTargetBundleManifest`：`target`、`targetCoreResolver`、selected adapters、renderer entries、Runtime QPK dependency 必须同属一个 core family。
 - Runtime QPK：可以声明多端 compatibility metadata，但不能携带或激活任何 Web / Cocos / Native core adapter。
 
+### 打包工程时的唯一核心来源
+
+Web、Cocos、Native 的 project generator 只能消费各自 packager resolver 写出的 active-target manifest，不能自己重新声明核心插件。Web starter、Cocos Creator 模板、Native Rust app bootstrap、debug shell、release shell、installer、updater 和 smoke runner 都必须是 `target-bundle-manifest.json` 的只读消费者。
+
+这条规则同时禁止两种容易滑进去的实现：一是模板或壳层重新声明当前 active core，二是先构造 Web / Cocos / Native 三端核心插件全集再按目标过滤。前者绕过了唯一 resolver，后者让 inactive core 进入过 resolver graph 或模板 graph；两者都按打包失败处理。
+
+## 目标工程输出隔离清单
+
+打包到 Cocos、Web、Native 项目时，核心插件不能先进入同一个集合再按目标筛选。每个目标工程必须从自己的 packager entry 开始，输出自己的 project template、startup shell、debug/release shell、installer/updater manifest 和 post-bundle graph。
+
+- Web 工程只允许 Web core resolver 注入 Web bootstrap、`@quajs/assets-web`、`@quajs/renderer-web`、选中的 Web framework adapter 和 Web renderer plugin subentry。
+- Cocos 工程只允许 Cocos core resolver 注入 Cocos host / asset / store bridge、`@quajs/renderer-cocos` 和 Cocos renderer plugin subentry。
+- Native 工程只允许 Native core resolver 注入 `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、native contracts metadata，以及 Rust native app/runtime/renderer capability metadata。
+
+这些核心插件只能由当前目标 resolver 注入一次。普通 plugin resolver、Runtime QPK resolver、project template、debug shell、smoke runner、installer、updater、benchmark 和 LSP 都只能消费已经写好的 active-target manifest，不能重新声明、合并、过滤或补齐 Web / Cocos / Native 任一 core plugin。多目标构建命令也必须拆成多个独立 artifact plan；禁止先构造 `[webCore, cocosCore, nativeCore]` 或 `allRendererEntries` 再过滤到各输出目录。
+
+验收上要对称检查三端：
+
+- Web 产物出现 Cocos / Native core，失败。
+- Cocos 产物出现 Web / Native core，失败。
+- Native 产物出现 Web / Cocos core，失败。
+- 任意产物先 materialize 三端 core union 后再过滤，失败，即使最终 `target-bundle-manifest.json` 看起来只剩一个目标。
+
 ## 开发规范落点
 
 未来 engine 新能力迭代时，必须先判断它属于平台无关能力、target core bootstrap、target renderer entry，还是普通 game/plugin 能力。只有平台无关能力可以进入 shared engine/game/plugin 包；Web / Cocos / Native core bootstrap 只能由各自 target resolver 注入。
@@ -157,6 +228,8 @@ Web、Cocos、Native 打包是三条互斥目标链路，不是同一套核心�
 - [Web / Cocos / Native 核心插件隔离](./target-core-isolation.md)
 - [QUI / QSS 语法与组件系统](./qui-qss.md)
 - [语言服务器、VSCode、测试、benchmark](./tooling-testing.md)
+- [Native 打包、加固与分发方案](./release-packaging.md)
+- [Native 目标开发规范与插件兼容方案](./development-guidelines.md)
 
 ## 推荐实施顺序
 
@@ -166,3 +239,11 @@ Web、Cocos、Native 打包是三条互斥目标链路，不是同一套核心�
 4. 完成 renderer base primitives、composite UI、media 路线。
 5. 接入 packaging / signing / distribution。
 6. 建立 benchmark、验收和发布门禁。
+
+## 本轮调研结论补充
+
+- QuickJS + wgpu 路线可行：QuickJS 负责受限 JS / QS runtime module 执行，wgpu 负责跨平台 GPU 投影渲染，Rust native app 负责 host bridge、window、resource lifecycle、packaging identity。
+- native renderer 的目标是达到 Web renderer 类似的投影效果，而不是实现浏览器。菜单、dialog、drawer、save/load、settings 等产品 UI 应由 QUI/QSS composite 组装；Rust 只维护稳定基础 component 和 resolved projection DTO。
+- QUI/QSS、LSP、VSCode extension、benchmark、assets/store/native adapters 都放在 `packages/native` 下；native language-server 与 native VSCode plugin 独立于现有 QuaScript tooling。
+- 动态小包只能包含 QS / JS / resources / QUI / QSS / tokens，不能携带任何 native code；native renderer 版本、runtime 版本、assets-native 版本和 store-native 版本都来自 signed Rust native host。
+- 打包到 Web、Cocos、Native 时核心插件绝对不能串线；三端必须各自从对应 resolver 开始，project template、debug/release shell、installer、updater、smoke runner 和 Runtime QPK 都只能读取已验证 manifest。
