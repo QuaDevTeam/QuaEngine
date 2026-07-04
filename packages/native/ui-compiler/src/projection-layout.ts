@@ -27,8 +27,10 @@ export function applyNativeQssStructuralLayout(
   if (children.length === 0)
     return []
 
-  const hasChildMargin = children.some(child => child.compilerLayout?.margin)
-  if (!layout && !hasChildMargin)
+  const hasChildLayout = children.some(child =>
+    child.compilerLayout?.margin
+    || child.compilerLayout?.position === 'absolute')
+  if (!layout && !hasChildLayout)
     return [...children]
 
   switch (kind) {
@@ -67,6 +69,9 @@ function layoutRowChildren(
 ): NativeUiCompilerSurfaceNodeProjection[] {
   let cursorX = 0
   return children.map((child) => {
+    if (isAbsolute(child))
+      return withBounds(child, absoluteBounds(child, bounds))
+
     const margin = marginFor(child)
     const localX = cursorX + margin.left + child.bounds.x
     const x = bounds.x + localX
@@ -83,6 +88,9 @@ function layoutColumnChildren(
 ): NativeUiCompilerSurfaceNodeProjection[] {
   let cursorY = 0
   return children.map((child) => {
+    if (isAbsolute(child))
+      return withBounds(child, absoluteBounds(child, bounds))
+
     const margin = marginFor(child)
     const x = bounds.x + margin.left + child.bounds.x
     const localY = cursorY + margin.top + child.bounds.y
@@ -105,6 +113,9 @@ function layoutGridChildren(
   let rowHeight = 0
 
   return children.map((child) => {
+    if (isAbsolute(child))
+      return withBounds(child, absoluteBounds(child, bounds))
+
     const margin = marginFor(child)
     const outerWidth = margin.left + child.bounds.x + child.bounds.width + margin.right
     if (
@@ -132,6 +143,22 @@ function layoutGridChildren(
 
 function marginFor(child: NativeUiCompilerSurfaceNodeProjection): NativeQssEdgeInsetsValue {
   return child.compilerLayout?.margin ?? ZERO_INSETS
+}
+
+function isAbsolute(child: NativeUiCompilerSurfaceNodeProjection): boolean {
+  return child.compilerLayout?.position === 'absolute'
+}
+
+function absoluteBounds(
+  child: NativeUiCompilerSurfaceNodeProjection,
+  parentBounds: NativeUiSurfaceRect,
+): NativeUiSurfaceRect {
+  const margin = marginFor(child)
+  return {
+    ...child.bounds,
+    x: parentBounds.x + margin.left + child.bounds.x,
+    y: parentBounds.y + margin.top + child.bounds.y,
+  }
 }
 
 function withBounds(

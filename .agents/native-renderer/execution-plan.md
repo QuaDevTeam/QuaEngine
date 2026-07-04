@@ -279,7 +279,7 @@ P1：
 - Border：`border-width`、`border-radius`、`border-style`。
 - Text：`font-family`、`font-size`、`font-style`、`font-weight`、`letter-spacing`、`line-height`、`text-align`、`text-decoration`、`text-overflow`、`text-transform`、`white-space`。
 - Geometry fallback：`left`、`top`、`right`、`bottom`、`inset`、`width`、`height`、`min-width`、`max-width`、`min-height`、`max-height`。
-- Structural spacing：`gap`、`row-gap`、`column-gap`、`margin`、`margin-top`、`margin-right`、`margin-bottom`、`margin-left`，仅作为 TS compiler layout metadata 展开到 Row / Column / Grid 直系子节点 bounds。
+- Structural layout：`gap`、`row-gap`、`column-gap`、`margin`、`margin-top`、`margin-right`、`margin-bottom`、`margin-left`、`position: relative|absolute`，仅作为 TS compiler layout metadata 展开到 Row / Column / Grid 直系子节点 bounds / flow。
 - Box visual：`opacity`、`padding`、`padding-top`、`padding-right`、`padding-bottom`、`padding-left`。
 - Visibility / clip：`display: none`、`visibility`、`overflow: visible|hidden`。
 - Z order：`z-index`。
@@ -298,6 +298,7 @@ P1：
 - `text-transform` 子集：`none` / `uppercase` / `lowercase` / `capitalize`。
 - `white-space` 子集：`normal` / `nowrap` / `pre` / `pre-line` / `pre-wrap`。
 - `gap` / `margin` 子集：非负 logical px / unitless number；`gap` 支持一到两个值，`margin` 支持一到四个值；Rust 不解析这些 QSS 字段。
+- `position` 子集：仅 `relative` / `absolute`；`absolute` 只控制 Row / Column / Grid 直系子节点退出结构 flow，Rust 不解析该字段。
 - numeric value 必须有限、非负或按字段约束在范围内。
 
 必须诊断并禁止投影：
