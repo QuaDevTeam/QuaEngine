@@ -8,6 +8,10 @@ fn accepts_summary_within_budget() {
     let summary = summary();
     let report = NativeRendererSmokeBudgetReport::check(
         NativeRendererSmokeBudget {
+            max_passes: Some(2),
+            max_batches: Some(3),
+            max_commands: Some(4),
+            max_resources: Some(5),
             max_missing_resources: Some(1),
             max_fallbacks: Some(2),
             max_texture_upload_requests: Some(2),
@@ -16,6 +20,10 @@ fn accepts_summary_within_budget() {
             max_texture_upload_orphaned_resident_resources: Some(1),
             max_texture_upload_skipped_resources: Some(1),
             max_texture_upload_non_texture_resources: Some(1),
+            max_declarative_asset_requests: Some(1),
+            max_declarative_resources: Some(1),
+            max_resource_packages: Some(2),
+            max_resource_kinds: Some(3),
             max_memory_bytes: Some(256),
             max_declarative_memory_bytes: Some(128),
             ..Default::default()
@@ -31,6 +39,10 @@ fn reports_all_budget_violations() {
     let summary = summary();
     let report = NativeRendererSmokeBudgetReport::check(
         NativeRendererSmokeBudget {
+            max_passes: Some(1),
+            max_batches: Some(2),
+            max_commands: Some(3),
+            max_resources: Some(4),
             max_missing_resources: Some(0),
             max_fallbacks: Some(0),
             max_video_fallbacks: Some(0),
@@ -40,6 +52,10 @@ fn reports_all_budget_violations() {
             max_texture_upload_orphaned_resident_resources: Some(0),
             max_texture_upload_skipped_resources: Some(0),
             max_texture_upload_non_texture_resources: Some(0),
+            max_declarative_asset_requests: Some(0),
+            max_declarative_resources: Some(0),
+            max_resource_packages: Some(1),
+            max_resource_kinds: Some(2),
             max_memory_bytes: Some(99),
             max_declarative_memory_bytes: Some(39),
             max_audio_memory_bytes: Some(9),
@@ -63,6 +79,10 @@ fn reports_all_budget_violations() {
             .map(ToString::to_string)
             .collect::<Vec<_>>(),
         vec![
+            "passCount=2 exceeded max 1",
+            "batchCount=3 exceeded max 2",
+            "commandCount=4 exceeded max 3",
+            "resourceCount=5 exceeded max 4",
             "missingResourceCount=1 exceeded max 0",
             "fallbackCount=2 exceeded max 0",
             "videoFallbackCount=1 exceeded max 0",
@@ -72,6 +92,10 @@ fn reports_all_budget_violations() {
             "textureUploadOrphanedResidentResourceCount=1 exceeded max 0",
             "textureUploadSkippedResourceCount=1 exceeded max 0",
             "textureUploadNonTextureResourceCount=1 exceeded max 0",
+            "declarativeAssetRequestCount=1 exceeded max 0",
+            "declarativeResourceCount=1 exceeded max 0",
+            "resourcePackageCount=2 exceeded max 1",
+            "resourceKindCount=3 exceeded max 2",
             "memory.totalBytes=100 exceeded max 99",
             "declarativeMemory.totalBytes=40 exceeded max 39",
             "audioMemory.totalBytes=10 exceeded max 9",

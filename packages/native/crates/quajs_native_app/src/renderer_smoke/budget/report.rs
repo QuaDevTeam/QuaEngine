@@ -52,6 +52,30 @@ fn check_scalar_metrics(
 ) {
     check_usize(
         violations,
+        "passCount",
+        summary.pass_count,
+        budget.max_passes,
+    );
+    check_usize(
+        violations,
+        "batchCount",
+        summary.batch_count,
+        budget.max_batches,
+    );
+    check_usize(
+        violations,
+        "commandCount",
+        summary.command_count,
+        budget.max_commands,
+    );
+    check_usize(
+        violations,
+        "resourceCount",
+        summary.resource_count,
+        budget.max_resources,
+    );
+    check_usize(
+        violations,
         "missingResourceCount",
         summary.missing_resource_count,
         budget.max_missing_resources,
@@ -103,6 +127,30 @@ fn check_scalar_metrics(
         "textureUploadNonTextureResourceCount",
         summary.texture_upload_non_texture_resource_count,
         budget.max_texture_upload_non_texture_resources,
+    );
+    check_usize(
+        violations,
+        "declarativeAssetRequestCount",
+        summary.declarative_asset_request_count,
+        budget.max_declarative_asset_requests,
+    );
+    check_usize(
+        violations,
+        "declarativeResourceCount",
+        summary.declarative_resource_count,
+        budget.max_declarative_resources,
+    );
+    check_usize(
+        violations,
+        "resourcePackageCount",
+        summary.resource_package_count,
+        budget.max_resource_packages,
+    );
+    check_usize(
+        violations,
+        "resourceKindCount",
+        summary.resource_kind_count,
+        budget.max_resource_kinds,
     );
     check_u64(
         violations,

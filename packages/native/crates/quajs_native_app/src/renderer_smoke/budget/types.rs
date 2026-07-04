@@ -8,6 +8,14 @@ use serde::Deserialize;
 #[serde(deny_unknown_fields)]
 pub struct NativeRendererSmokeBudget {
     #[serde(default)]
+    pub max_passes: Option<usize>,
+    #[serde(default)]
+    pub max_batches: Option<usize>,
+    #[serde(default)]
+    pub max_commands: Option<usize>,
+    #[serde(default)]
+    pub max_resources: Option<usize>,
+    #[serde(default)]
     pub max_missing_resources: Option<usize>,
     #[serde(default)]
     pub max_fallbacks: Option<usize>,
@@ -29,6 +37,14 @@ pub struct NativeRendererSmokeBudget {
     pub max_texture_upload_skipped_resources: Option<usize>,
     #[serde(default)]
     pub max_texture_upload_non_texture_resources: Option<usize>,
+    #[serde(default)]
+    pub max_declarative_asset_requests: Option<usize>,
+    #[serde(default)]
+    pub max_declarative_resources: Option<usize>,
+    #[serde(default)]
+    pub max_resource_packages: Option<usize>,
+    #[serde(default)]
+    pub max_resource_kinds: Option<usize>,
     #[serde(default)]
     pub max_memory_bytes: Option<u64>,
     #[serde(default)]

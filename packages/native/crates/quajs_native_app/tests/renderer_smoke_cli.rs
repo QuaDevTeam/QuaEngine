@@ -95,8 +95,11 @@ fn binary_accepts_renderer_smoke_budget() {
     std::fs::write(
         &budget_path,
         r#"{
+          "maxResources": 5,
           "maxMissingResources": 0,
           "maxFallbacks": 0,
+          "maxDeclarativeAssetRequests": 1,
+          "maxDeclarativeResources": 1,
           "maxMemoryBytes": 1048576,
           "maxDeclarativeMemoryBytes": 1048576,
           "maxAudioMemoryBytes": 0,
