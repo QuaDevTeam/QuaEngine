@@ -48,27 +48,6 @@ impl NativeAudioBackend for RejectingAudioBackend {
     }
 }
 
-#[derive(Default)]
-pub(crate) struct RejectingAfterFirstAudioBackend {
-    accepted_plan_count: usize,
-}
-
-impl NativeAudioBackend for RejectingAfterFirstAudioBackend {
-    fn apply_audio_commands(
-        &mut self,
-        _plan: &AudioBackendCommandPlan,
-    ) -> NativeAudioBackendResult {
-        if self.accepted_plan_count == 0 {
-            self.accepted_plan_count += 1;
-            return Ok(());
-        }
-
-        Err(NativeAudioBackendError::backend_rejected(
-            "test audio backend rejected plan",
-        ))
-    }
-}
-
 pub(crate) struct RecordedTextureUpload {
     pub(crate) resource_id: ResourceId,
     pub(crate) bytes: Vec<u8>,
