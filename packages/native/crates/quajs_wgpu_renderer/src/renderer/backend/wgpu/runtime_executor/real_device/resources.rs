@@ -4,4 +4,5 @@ mod guards;
 mod lookup;
 mod pipelines;
 
+#[cfg(all(test, feature = "real-wgpu-noop"))]
 pub(super) use buffers::checksum_bytes;
