@@ -1,5 +1,9 @@
 use super::*;
-use quajs_native_runtime::InMemoryNativeHostApi;
+use quajs_native_runtime::{
+    InMemoryNativeHostApi, NativeAssetReadRequest, NativeHostApi, NativeHostApiError,
+    NativeHostApiResult, NativeHostInfo, NativeMountedBundleInfo, NativeRendererIntent,
+    NativeSignatureVerifyRequest,
+};
 
 #[test]
 fn pointer_release_event_emits_native_renderer_intent_to_host() {
@@ -126,4 +130,102 @@ fn pointer_event_emit_returns_none_without_prepared_frame_or_host_side_effects()
 
     assert!(resolution.is_none());
     assert!(host.renderer_intents().is_empty());
+}
+
+#[test]
+fn pointer_release_event_returns_host_error_when_intent_emit_fails() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    let mut host = FailingRendererIntentHost::default();
+    renderer
+        .prepare_and_render(test_layout(), &view_with_background_and_choice())
+        .unwrap();
+    let (client, origin) = client_point_for_choice(&renderer, "choice:stay");
+
+    renderer
+        .pointer_event_and_emit_intent(
+            NativePointerEvent::new(NativePointerEventPhase::Press, client, origin)
+                .with_pointer_id(91)
+                .with_button(NativePointerButton::Primary),
+            &mut host,
+        )
+        .unwrap()
+        .expect("press should resolve without host emit");
+
+    let error = renderer
+        .pointer_event_and_emit_intent(
+            NativePointerEvent::new(NativePointerEventPhase::Release, client, origin)
+                .with_pointer_id(91)
+                .with_button(NativePointerButton::Primary),
+            &mut host,
+        )
+        .expect_err("host emit failure should reach the caller");
+
+    assert!(matches!(error, NativeHostApiError::InvalidRequest(_)));
+    assert_eq!(host.attempted_intents.len(), 1);
+    let attempted = &host.attempted_intents[0];
+    assert_eq!(attempted.r#type, "choice/select");
+    let payload: serde_json::Value =
+        serde_json::from_str(attempted.payload_json.as_deref().unwrap()).unwrap();
+    assert_eq!(payload["choiceId"], "stay");
+    assert_eq!(
+        renderer.state().pointer_interaction().active_press_count(),
+        0
+    );
+}
+
+#[derive(Default)]
+struct FailingRendererIntentHost {
+    attempted_intents: Vec<NativeRendererIntent>,
+}
+
+impl NativeHostApi for FailingRendererIntentHost {
+    fn host_info(&self) -> NativeHostInfo {
+        test_host_info()
+    }
+
+    fn read_asset_bytes(&self, request: &NativeAssetReadRequest) -> NativeHostApiResult<Vec<u8>> {
+        Err(NativeHostApiError::AssetNotFound(request.url.clone()))
+    }
+
+    fn list_mounted_bundles(&self) -> NativeHostApiResult<Vec<NativeMountedBundleInfo>> {
+        Ok(Vec::new())
+    }
+
+    fn read_storage(&self, _key: &str) -> NativeHostApiResult<Option<Vec<u8>>> {
+        Ok(None)
+    }
+
+    fn write_storage(&mut self, _key: &str, _value: Vec<u8>) -> NativeHostApiResult<()> {
+        Ok(())
+    }
+
+    fn delete_storage(&mut self, _key: &str) -> NativeHostApiResult<()> {
+        Ok(())
+    }
+
+    fn list_storage_keys(&self, _prefix: &str) -> NativeHostApiResult<Vec<String>> {
+        Ok(Vec::new())
+    }
+
+    fn hash_bytes(&self, _bytes: &[u8], algorithm: &str) -> NativeHostApiResult<String> {
+        Err(NativeHostApiError::UnsupportedOperation(format!(
+            "hash algorithm {algorithm} is not wired in this host"
+        )))
+    }
+
+    fn verify_signature(
+        &self,
+        _request: &NativeSignatureVerifyRequest,
+    ) -> NativeHostApiResult<bool> {
+        Err(NativeHostApiError::UnsupportedOperation(
+            "signature verification is not wired in this host".to_string(),
+        ))
+    }
+
+    fn emit_renderer_intent(&mut self, event: NativeRendererIntent) -> NativeHostApiResult<()> {
+        self.attempted_intents.push(event);
+        Err(NativeHostApiError::InvalidRequest(
+            "renderer intent sink unavailable".to_string(),
+        ))
+    }
 }
