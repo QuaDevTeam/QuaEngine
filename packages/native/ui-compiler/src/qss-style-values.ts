@@ -1,9 +1,11 @@
 import type {
+  NativeQssAlignItemsValue,
   NativeQssBackgroundImageValue,
   NativeQssBackgroundPositionValue,
   NativeQssBorderStyleValue,
   NativeQssFontStyleValue,
   NativeQssFontWeightValue,
+  NativeQssJustifyContentValue,
   NativeQssObjectFitValue,
   NativeQssPositionValue,
   NativeQssTextAlignValue,
@@ -39,6 +41,15 @@ const WHITE_SPACE_VALUES = new Set<NativeQssWhiteSpaceValue>(['normal', 'nowrap'
 const BORDER_STYLE_VALUES = new Set<NativeQssBorderStyleValue>(['none', 'solid'])
 const FONT_STYLE_VALUES = new Set<NativeQssFontStyleValue>(['italic', 'normal'])
 const POSITION_VALUES = new Set<NativeQssPositionValue>(['absolute', 'relative'])
+const ALIGN_ITEMS_VALUES = new Set<NativeQssAlignItemsValue>(['center', 'flex-end', 'flex-start'])
+const JUSTIFY_CONTENT_VALUES = new Set<NativeQssJustifyContentValue>([
+  'center',
+  'flex-end',
+  'flex-start',
+  'space-around',
+  'space-between',
+  'space-evenly',
+])
 
 export function parseNativeQssBackgroundImage(value: string): NativeQssBackgroundImageValue | undefined {
   const match = /^asset\(\s*(?:"([^"]+)"|'([^']+)')\s*(?:,\s*(?:"([^"]+)"|'([^']+)'))?\s*\)$/i.exec(value.trim())
@@ -167,6 +178,20 @@ export function parseNativeQssPosition(value: string): NativeQssPositionValue | 
   const normalized = value.toLowerCase()
   return POSITION_VALUES.has(normalized as NativeQssPositionValue)
     ? normalized as NativeQssPositionValue
+    : undefined
+}
+
+export function parseNativeQssAlignItems(value: string): NativeQssAlignItemsValue | undefined {
+  const normalized = value.toLowerCase()
+  return ALIGN_ITEMS_VALUES.has(normalized as NativeQssAlignItemsValue)
+    ? normalized as NativeQssAlignItemsValue
+    : undefined
+}
+
+export function parseNativeQssJustifyContent(value: string): NativeQssJustifyContentValue | undefined {
+  const normalized = value.toLowerCase()
+  return JUSTIFY_CONTENT_VALUES.has(normalized as NativeQssJustifyContentValue)
+    ? normalized as NativeQssJustifyContentValue
     : undefined
 }
 

@@ -15,6 +15,7 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(ui.asset_kinds.contains(&"qui".to_string()));
     assert!(ui.asset_kinds.contains(&"qss".to_string()));
     assert!(ui.asset_kinds.contains(&"tokens".to_string()));
+    assert!(ui.qss_features.contains(&"align-items".to_string()));
     assert!(ui.asset_kinds.contains(&"fonts".to_string()));
     assert!(ui.qss_features.contains(&"display".to_string()));
     assert!(!ui.qss_features.contains(&"flex-direction".to_string()));
@@ -47,6 +48,7 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(ui.qss_features.contains(&"font-style".to_string()));
     assert!(ui.qss_features.contains(&"font-weight".to_string()));
     assert!(ui.qss_features.contains(&"inset".to_string()));
+    assert!(ui.qss_features.contains(&"justify-content".to_string()));
     assert!(ui.qss_features.contains(&"letter-spacing".to_string()));
     assert!(ui.qss_features.contains(&"height".to_string()));
     assert!(ui.qss_features.contains(&"left".to_string()));

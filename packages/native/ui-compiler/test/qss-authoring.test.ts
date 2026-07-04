@@ -60,6 +60,38 @@ Button {
     })
   })
 
+  it('resolves structural alignment declarations into compiler-only layout metadata', () => {
+    const document = analyzeQssSource(`
+Row {
+  justify-content: space-between;
+  align-items: center;
+}
+`)
+
+    expect(document.diagnostics).toEqual([])
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
+      layout: {
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      },
+      style: {},
+    })
+  })
+
+  it('diagnoses invalid structural alignment declarations before projection', () => {
+    const document = analyzeQssSource(`
+Row {
+  justify-content: stretch;
+  align-items: baseline;
+}
+`)
+
+    expect(document.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(2)
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
+      style: {},
+    })
+  })
+
   it('diagnoses invalid position declarations before projection', () => {
     const document = analyzeQssSource(`
 Button {

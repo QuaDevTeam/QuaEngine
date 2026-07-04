@@ -96,6 +96,17 @@ export type NativeQssPositionValue
   = | 'absolute'
     | 'relative'
 
+export type NativeQssAlignItemsValue
+  = | 'center'
+    | 'flex-end'
+    | 'flex-start'
+
+export type NativeQssJustifyContentValue
+  = | NativeQssAlignItemsValue
+    | 'space-around'
+    | 'space-between'
+    | 'space-evenly'
+
 export interface NativeQssBackgroundImageValue {
   assetType: string
   assetName: string
@@ -114,7 +125,9 @@ export interface NativeQssEdgeInsetsValue {
 }
 
 export interface NativeQssResolvedLayout {
+  alignItems?: NativeQssAlignItemsValue
   columnGap?: number
+  justifyContent?: NativeQssJustifyContentValue
   margin?: NativeQssEdgeInsetsValue
   position?: NativeQssPositionValue
   rowGap?: number

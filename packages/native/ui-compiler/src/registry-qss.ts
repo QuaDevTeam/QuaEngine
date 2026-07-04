@@ -44,7 +44,23 @@ const spacingValues = [
   value('16px', 'Use sixteen logical pixels of spacing.', '16px'),
 ] as const
 
+const alignItemsValues = [
+  value('flex-start', 'Align structural children to the cross-axis start edge.'),
+  value('center', 'Center structural children on the cross axis.'),
+  value('flex-end', 'Align structural children to the cross-axis end edge.'),
+] as const
+
+const justifyContentValues = [
+  value('flex-start', 'Pack structural children from the main-axis start edge.'),
+  value('center', 'Center structural children on the main axis.'),
+  value('flex-end', 'Pack structural children toward the main-axis end edge.'),
+  value('space-between', 'Distribute remaining main-axis space between children.'),
+  value('space-around', 'Distribute remaining main-axis space around children.'),
+  value('space-evenly', 'Distribute remaining main-axis space evenly between and around children.'),
+] as const
+
 export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
+  property('align-items', 'p1', true, 'Static Row / Column cross-axis child alignment consumed by native UI projection compilation.', alignItemsValues),
   property('background-color', 'p0', true, 'Fill color for panels, buttons, and box surfaces.'),
   property('border-color', 'p0', true, 'Border color for rectangular surfaces.'),
   property('border-radius', 'p0', true, 'Corner radius in logical stage pixels.'),
@@ -81,6 +97,7 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('bottom', 'p1', true, 'Static bottom logical inset used to derive y when parent bounds and height are known.'),
   property('width', 'p1', true, 'Resolved non-negative logical width for static native surface bounds.'),
   property('height', 'p1', true, 'Resolved non-negative logical height for static native surface bounds.'),
+  property('justify-content', 'p1', true, 'Static Row / Column main-axis child distribution consumed by native UI projection compilation.', justifyContentValues),
   property('min-width', 'p1', true, 'Minimum logical width used to clamp static native surface bounds.'),
   property('max-width', 'p1', true, 'Maximum logical width used to clamp static native surface bounds.'),
   property('min-height', 'p1', true, 'Minimum logical height used to clamp static native surface bounds.'),

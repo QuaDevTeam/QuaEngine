@@ -146,6 +146,7 @@ export interface NativeUiComponentDefinition {
 }
 
 export type {
+  NativeQssAlignItemsValue,
   NativeQssAtRule,
   NativeQssBackgroundImageValue,
   NativeQssBackgroundPositionValue,
@@ -155,6 +156,7 @@ export type {
   NativeQssEdgeInsetsValue,
   NativeQssFontStyleValue,
   NativeQssFontWeightValue,
+  NativeQssJustifyContentValue,
   NativeQssObjectFitValue,
   NativeQssPropertyDefinition,
   NativeQssPropertyValueDefinition,

@@ -56,6 +56,8 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('white-space')
     expect(nativeWgpuQssFeatureNames()).toContain('width')
     expect(nativeWgpuQssFeatureNames()).toContain('z-index')
+    expect(nativeWgpuQssFeatureNames()).toContain('align-items')
+    expect(nativeWgpuQssFeatureNames()).toContain('justify-content')
   })
 
   it('rejects browser-only QSS selectors and values', () => {
@@ -106,6 +108,8 @@ Button:nth-child(2) {
     const backgroundImage = 'Panel { background-image:  }'
     const backgroundPosition = 'Panel { background-position:  }'
     const gap = 'Row { gap:  }'
+    const alignItems = 'Row { align-items:  }'
+    const justifyContent = 'Row { justify-content:  }'
     const margin = 'Button { margin:  }'
     const objectFit = 'Image { object-fit:  }'
     const position = 'Button { position:  }'
@@ -128,6 +132,10 @@ Button:nth-child(2) {
       .toEqual(expect.arrayContaining(['left top', 'center', 'right bottom', '50% 50%']))
     expect(getNativeUiCompletions(gap, gap.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
       .toEqual(expect.arrayContaining(['8px', '12px', '16px']))
+    expect(getNativeUiCompletions(alignItems, alignItems.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
+      .toEqual(expect.arrayContaining(['flex-start', 'center', 'flex-end']))
+    expect(getNativeUiCompletions(justifyContent, justifyContent.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
+      .toEqual(expect.arrayContaining(['flex-start', 'center', 'flex-end', 'space-between', 'space-around', 'space-evenly']))
     expect(getNativeUiCompletions(margin, margin.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
       .toEqual(expect.arrayContaining(['8px', '12px', '16px']))
     expect(getNativeUiCompletions(objectFit, objectFit.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))

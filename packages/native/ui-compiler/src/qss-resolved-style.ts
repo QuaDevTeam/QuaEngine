@@ -13,6 +13,7 @@ import {
   resolveNativeQssLayoutMarginEdge,
 } from './qss-resolved-style-helpers'
 import {
+  parseNativeQssAlignItems,
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
   parseNativeQssBorderStyle,
@@ -24,6 +25,7 @@ import {
   parseNativeQssFontStyle,
   parseNativeQssFontWeight,
   parseNativeQssInteger,
+  parseNativeQssJustifyContent,
   parseNativeQssLetterSpacing,
   parseNativeQssLogicalNumber,
   parseNativeQssObjectFit,
@@ -39,6 +41,7 @@ import {
 } from './qss-style-values'
 
 export {
+  parseNativeQssAlignItems,
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
   parseNativeQssBorderStyle,
@@ -51,6 +54,7 @@ export {
   parseNativeQssFontWeight,
   parseNativeQssGap,
   parseNativeQssInteger,
+  parseNativeQssJustifyContent,
   parseNativeQssLetterSpacing,
   parseNativeQssLogicalNumber,
   parseNativeQssObjectFit,
@@ -76,6 +80,12 @@ export function resolveNativeQssDeclarations(
   for (const declaration of declarations) {
     const value = declaration.value.trim()
     switch (declaration.name) {
+      case 'align-items':
+        resolved.layout = {
+          ...resolved.layout,
+          alignItems: parseNativeQssAlignItems(value),
+        }
+        break
       case 'background-color':
         resolved.style.backgroundColor = parseNativeQssColor(value)
         break
@@ -145,6 +155,12 @@ export function resolveNativeQssDeclarations(
         break
       case 'height':
         resolved.bounds = resolveNativeQssBound(resolved.bounds, 'height', value, parseNativeQssLogicalNumber)
+        break
+      case 'justify-content':
+        resolved.layout = {
+          ...resolved.layout,
+          justifyContent: parseNativeQssJustifyContent(value),
+        }
         break
       case 'inset':
         resolved.bounds = resolveNativeQssInset(resolved.bounds, value)
