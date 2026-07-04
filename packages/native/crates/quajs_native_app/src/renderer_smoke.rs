@@ -95,9 +95,12 @@ pub fn run_renderer_smoke_frame_json(
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
     let result = renderer.prepare_and_render_json_str(&json)?;
     let metrics = renderer.metrics();
+    let backend_report = renderer.backend().last_execution_report();
 
     Ok(NativeRendererSmokeSummary::from_frame_result(
-        &result, &metrics,
+        &result,
+        &metrics,
+        backend_report,
     ))
 }
 
@@ -121,12 +124,24 @@ mod tests {
         assert_eq!(summary.resource_count, 5);
         assert_eq!(summary.missing_resource_count, 0);
         assert_eq!(summary.fallback_count, 0);
+        assert_eq!(summary.texture_upload_request_count, 2);
+        assert_eq!(summary.texture_upload_pending_request_count, 2);
+        assert_eq!(summary.texture_upload_resident_resource_count, 0);
+        assert_eq!(summary.texture_upload_orphaned_resident_resource_count, 0);
+        assert_eq!(summary.texture_upload_skipped_resource_count, 0);
+        assert_eq!(summary.texture_upload_non_texture_resource_count, 3);
         assert_eq!(summary.declarative_resource_count, 1);
         assert_eq!(summary.declarative_asset_request_count, 1);
         assert_eq!(summary.audio_resource_count, 0);
         assert_eq!(summary.active_audio_track_count, 0);
         assert!(summary.memory.total_bytes > 0);
         assert!(summary.declarative_memory.total_bytes > 0);
+        assert_eq!(summary.backend.pass_count, summary.pass_count);
+        assert!(summary.backend.command_count >= summary.command_count);
+        assert!(summary.backend.draw_count >= summary.command_count);
+        assert_eq!(summary.backend.skipped_draw_count, 0);
+        assert!(summary.backend.resource_bind_count >= 1);
+        assert_eq!(summary.backend.validation_error_count, 0);
         assert!(summary.memory_by_kind["uiAst"].memory.total_bytes > 0);
         assert!(
             summary.memory_by_package["runtime.ui"]
@@ -143,6 +158,23 @@ mod tests {
         assert!(summary.command_count >= 3);
         let json = serde_json::to_value(&summary).expect("smoke summary serializes");
         assert_eq!(json["missingResourceCount"], 0);
+        assert_eq!(json["textureUploadRequestCount"], 2);
+        assert_eq!(json["textureUploadPendingRequestCount"], 2);
+        assert_eq!(json["textureUploadResidentResourceCount"], 0);
+        assert_eq!(json["textureUploadOrphanedResidentResourceCount"], 0);
+        assert_eq!(json["textureUploadSkippedResourceCount"], 0);
+        assert_eq!(json["textureUploadNonTextureResourceCount"], 3);
+        assert!(json["backend"]["drawCount"].as_u64().unwrap() > 0);
+        assert!(json["backend"]["resourceBindCount"].as_u64().unwrap() > 0);
+        assert_eq!(json["backend"]["validationErrorCount"], 0);
+        assert!(json["backend"]["skippedDrawsByReason"]
+            .as_object()
+            .unwrap()
+            .is_empty());
+        assert!(json["backend"]["missingResourceIds"]
+            .as_array()
+            .unwrap()
+            .is_empty());
         assert!(json["memory"]["totalBytes"].as_u64().unwrap() > 0);
         assert!(
             json["memoryByKind"]["uiAst"]["memory"]["totalBytes"]

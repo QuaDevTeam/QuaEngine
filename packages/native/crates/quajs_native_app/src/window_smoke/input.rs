@@ -1,0 +1,197 @@
+use quajs_native_runtime::{InMemoryNativeHostApi, NativeHostApiError};
+use quajs_wgpu_renderer::input::{
+    NativePointerButton, NativePointerEvent, NativePointerEventPhase,
+};
+use quajs_wgpu_renderer::renderer::{
+    parse_native_renderer_json_frame_input, NativeRenderBackend, NativeRenderer,
+};
+use quajs_wgpu_renderer::stage_layout::{
+    stage_logical_to_client_point, StageClientPoint, StageClientRectOrigin, StageLogicalPoint,
+};
+use winit::dpi::PhysicalPosition;
+
+use super::error::NativeWindowSmokeError;
+
+mod conversion;
+
+use conversion::logical_client_point_from_physical;
+pub(super) use conversion::{pointer_button_from_winit, pointer_phase_from_element_state};
+
+const WINDOW_SMOKE_POINTER_ID: u64 = 1;
+const WINDOW_SMOKE_OPEN_SETTINGS_CENTER: StageLogicalPoint =
+    StageLogicalPoint { x: 408.0, y: 354.0 };
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct NativeWindowSmokeInputMetrics {
+    pub pointer_event_count: usize,
+    pub pointer_dispatch_count: usize,
+    pub pointer_intent_emit_count: usize,
+    pub pointer_probe_count: usize,
+    pub last_intent_type: Option<String>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub(super) struct NativeWindowSmokeInputState {
+    cursor_client_point: Option<StageClientPoint>,
+    metrics: NativeWindowSmokeInputMetrics,
+}
+
+impl NativeWindowSmokeInputState {
+    pub(super) fn cursor_client_point(&self) -> Option<StageClientPoint> {
+        self.cursor_client_point
+    }
+
+    pub(super) fn metrics(&self) -> &NativeWindowSmokeInputMetrics {
+        &self.metrics
+    }
+
+    pub(super) fn update_cursor_position(
+        &mut self,
+        position: PhysicalPosition<f64>,
+        scale_factor: f64,
+    ) -> StageClientPoint {
+        let point = logical_client_point_from_physical(position, scale_factor);
+        self.cursor_client_point = Some(point);
+        point
+    }
+
+    pub(super) fn clear_cursor_position(&mut self) {
+        self.cursor_client_point = None;
+    }
+
+    pub(super) fn dispatch_pointer_event<B, A>(
+        &mut self,
+        renderer: &mut NativeRenderer<B, A>,
+        host: &mut InMemoryNativeHostApi,
+        phase: NativePointerEventPhase,
+        point: StageClientPoint,
+        button: NativePointerButton,
+    ) -> Result<(), NativeWindowSmokeError>
+    where
+        B: NativeRenderBackend,
+    {
+        self.metrics.pointer_event_count = self.metrics.pointer_event_count.saturating_add(1);
+        let before_intent_count = host.renderer_intents().len();
+        let event = NativePointerEvent::new(phase, point, StageClientRectOrigin::default())
+            .with_pointer_id(WINDOW_SMOKE_POINTER_ID)
+            .with_button(button);
+        let dispatch = renderer
+            .pointer_event_and_emit_intent(event, host)
+            .map_err(pointer_host_error)?;
+
+        if dispatch.is_some() {
+            self.metrics.pointer_dispatch_count =
+                self.metrics.pointer_dispatch_count.saturating_add(1);
+        }
+
+        let emitted_count = host
+            .renderer_intents()
+            .len()
+            .saturating_sub(before_intent_count);
+        if emitted_count > 0 {
+            self.metrics.pointer_intent_emit_count = self
+                .metrics
+                .pointer_intent_emit_count
+                .saturating_add(emitted_count);
+            self.metrics.last_intent_type = host
+                .renderer_intents()
+                .last()
+                .map(|intent| intent.r#type.clone());
+        }
+
+        Ok(())
+    }
+
+    pub(super) fn run_open_settings_probe<B, A>(
+        &mut self,
+        renderer: &mut NativeRenderer<B, A>,
+        host: &mut InMemoryNativeHostApi,
+        frame_json: &str,
+    ) -> Result<(), NativeWindowSmokeError>
+    where
+        B: NativeRenderBackend,
+    {
+        if self.metrics.pointer_probe_count > 0 {
+            return Ok(());
+        }
+
+        self.metrics.pointer_probe_count = self.metrics.pointer_probe_count.saturating_add(1);
+        let input = parse_native_renderer_json_frame_input(frame_json).map_err(|error| {
+            NativeWindowSmokeError::new(format!(
+                "Native renderer smoke pointer probe frame validation failed: {error}."
+            ))
+        })?;
+        let client = stage_logical_to_client_point(
+            &input.resolved_layout(),
+            WINDOW_SMOKE_OPEN_SETTINGS_CENTER,
+            StageClientRectOrigin::default(),
+        );
+
+        self.dispatch_pointer_event(
+            renderer,
+            host,
+            NativePointerEventPhase::Press,
+            client,
+            NativePointerButton::Primary,
+        )?;
+        self.dispatch_pointer_event(
+            renderer,
+            host,
+            NativePointerEventPhase::Release,
+            client,
+            NativePointerButton::Primary,
+        )
+    }
+}
+
+fn pointer_host_error(error: NativeHostApiError) -> NativeWindowSmokeError {
+    NativeWindowSmokeError::new(format!(
+        "Native renderer smoke pointer event failed: {}.",
+        error.message()
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use quajs_wgpu_renderer::renderer::{NativeRenderer, NullNativeRenderBackend};
+
+    use super::super::config::DEFAULT_WINDOW_SMOKE_FRAME;
+    use super::super::frame::frame_json_for_window;
+    use super::super::texture_host::create_window_smoke_texture_host;
+    use super::*;
+
+    #[test]
+    fn open_settings_probe_emits_ui_intent_through_native_host() {
+        let frame_json = frame_json_for_window(DEFAULT_WINDOW_SMOKE_FRAME, 960.0, 540.0, 1.0)
+            .expect("window smoke frame should be rewritten");
+        let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+        renderer
+            .prepare_and_render_json_str(&frame_json)
+            .expect("default window smoke frame should render with null backend");
+        let mut host = create_window_smoke_texture_host();
+        let mut input = NativeWindowSmokeInputState::default();
+
+        input
+            .run_open_settings_probe(&mut renderer, &mut host, &frame_json)
+            .expect("pointer probe should dispatch");
+
+        assert_eq!(input.metrics().pointer_probe_count, 1);
+        assert_eq!(input.metrics().pointer_event_count, 2);
+        assert_eq!(input.metrics().pointer_dispatch_count, 2);
+        assert_eq!(input.metrics().pointer_intent_emit_count, 1);
+        assert_eq!(
+            input.metrics().last_intent_type.as_deref(),
+            Some("ui/intent")
+        );
+        let intent = host
+            .renderer_intents()
+            .last()
+            .expect("host should receive emitted renderer intent");
+        assert_eq!(intent.r#type, "ui/intent");
+        assert!(intent
+            .payload_json
+            .as_deref()
+            .expect("ui intent should carry payload JSON")
+            .contains("\"action\":\"open\""));
+    }
+}

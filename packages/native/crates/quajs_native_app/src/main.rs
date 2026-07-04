@@ -1,10 +1,16 @@
 mod renderer_smoke;
 mod startup;
 mod target_bundle;
+#[cfg(any(test, feature = "image-decode"))]
+mod texture_sync;
+#[cfg(feature = "native-window")]
+mod window_smoke;
 
 use renderer_smoke::run_renderer_smoke_from_env;
 use startup::{compile_time_native_app_config, create_native_startup_host_info};
 use target_bundle::load_native_target_bundle_manifest;
+#[cfg(feature = "native-window")]
+use window_smoke::run_native_window_smoke_from_env;
 
 fn main() {
     if let Err(error) = run() {
@@ -29,17 +35,55 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", serde_json::to_string(&host_info)?);
     if let Some(summary) = run_renderer_smoke_from_env()? {
         println!(
-            "Qua native renderer smoke: revision={} passes={} batches={} commands={} resources={} missingResources={}",
+            "Qua native renderer smoke: revision={} passes={} batches={} commands={} resources={} missingResources={} textureUploadRequests={} textureUploadSkippedResources={} textureUploadNonTextureResources={}",
             summary.revision,
             summary.pass_count,
             summary.batch_count,
             summary.command_count,
             summary.resource_count,
-            summary.missing_resource_count
+            summary.missing_resource_count,
+            summary.texture_upload_request_count,
+            summary.texture_upload_skipped_resource_count,
+            summary.texture_upload_non_texture_resource_count
         );
         println!(
             "Qua native renderer smoke json: {}",
             serde_json::to_string(&summary)?
+        );
+    }
+    #[cfg(feature = "native-window")]
+    if let Some(report) = run_native_window_smoke_from_env()? {
+        println!(
+            "Qua native window smoke: adapter={} surface={} size={}x{} status={} presented={} attempts={} resizeCount={} surfaceRecoveryCount={} textureUploads={} textureUploadErrors={} textureUploadResubmits={} textureResubmitted={} textureLifecycleSyncs={} textureLifecycleInitialSyncs={} textureLifecycleTrackedPackages={} textureLifecycleReleaseAttempts={} textureLifecycleReleasedPackages={} textureLifecycleCleanupErrors={} pointerEvents={} pointerIntents={} pointerLastIntent={} passes={} commands={} submittedCommandBuffers={}",
+            report.adapter_name,
+            report.surface_format,
+            report.physical_width,
+            report.physical_height,
+            report.present_status,
+            report.presented,
+            report.present_attempt_count,
+            report.resize_count,
+            report.surface_recovery_count,
+            report.texture_upload_uploaded_count,
+            report.texture_upload_error_count,
+            report.texture_upload_resubmit_count,
+            report.resubmitted_after_texture_upload,
+            report.texture_lifecycle_sync_count,
+            report.texture_lifecycle_initial_sync_count,
+            report.texture_lifecycle_tracked_package_count,
+            report.texture_lifecycle_release_attempt_count,
+            report.texture_lifecycle_released_package_count,
+            report.texture_lifecycle_texture_cleanup_error_count,
+            report.pointer_event_count,
+            report.pointer_intent_emit_count,
+            report.pointer_last_intent_type.as_deref().unwrap_or("none"),
+            report.pass_count,
+            report.command_count,
+            report.submitted_command_buffer_count
+        );
+        println!(
+            "Qua native window smoke json: {}",
+            serde_json::to_string(&report)?
         );
     }
     Ok(())
