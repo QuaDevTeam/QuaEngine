@@ -1,4 +1,6 @@
-use crate::projection::common::{is_non_empty_asset_name, PackageProvenance};
+use crate::projection::common::{
+    is_non_empty_asset_name, is_safe_native_asset_type, PackageProvenance,
+};
 use crate::render_graph::{
     DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams, RenderGraph, RenderPlane,
     VideoDrawParams,
@@ -24,7 +26,7 @@ pub fn build_background_commands(
             .asset_name
             .as_deref()
             .filter(|asset_name| is_non_empty_asset_name(asset_name))
-            .map(|asset_name| {
+            .and_then(|asset_name| {
                 background_image_command(layout, "background:main", asset_name, background)
             })
             .into_iter()
@@ -33,7 +35,7 @@ pub fn build_background_commands(
             .layers
             .iter()
             .filter(|layer| layer.visible && is_non_empty_asset_name(&layer.asset_name))
-            .map(|layer| background_layer_command(layout, layer))
+            .filter_map(|layer| background_layer_command(layout, layer))
             .collect(),
         BackgroundMode::Video => background
             .video
@@ -50,7 +52,7 @@ fn background_image_command(
     id: &str,
     asset_name: &str,
     background: &BackgroundProjection,
-) -> DrawCommand {
+) -> Option<DrawCommand> {
     let bounds = resolve_background_bounds(
         layout,
         background.x,
@@ -59,10 +61,7 @@ fn background_image_command(
         background.height,
         background.scale,
     );
-    let asset_type = background
-        .asset_type
-        .clone()
-        .unwrap_or_else(|| "images".to_string());
+    let asset_type = resolve_background_asset_type(background.asset_type.as_deref())?;
     let command = DrawCommand::new(id, RenderPlane::Scene, DrawCommandKind::Image, bounds)
         .opacity(background.opacity)
         .resource(background_resource_id(&asset_type, asset_name))
@@ -75,13 +74,13 @@ fn background_image_command(
             rotation_degrees: background.rotation,
         }));
 
-    apply_provenance(command, &background.provenance)
+    Some(apply_provenance(command, &background.provenance))
 }
 
 fn background_layer_command(
     layout: &ResolvedStageLayout,
     layer: &BackgroundLayerProjection,
-) -> DrawCommand {
+) -> Option<DrawCommand> {
     let bounds = resolve_background_bounds(
         layout,
         layer.x,
@@ -90,10 +89,7 @@ fn background_layer_command(
         layer.height,
         layer.scale,
     );
-    let asset_type = layer
-        .asset_type
-        .clone()
-        .unwrap_or_else(|| "images".to_string());
+    let asset_type = resolve_background_asset_type(layer.asset_type.as_deref())?;
     let command = DrawCommand::new(
         format!("background:layer:{}", layer.id),
         RenderPlane::Scene,
@@ -112,7 +108,7 @@ fn background_layer_command(
         rotation_degrees: layer.rotation,
     }));
 
-    apply_provenance(command, &layer.provenance)
+    Some(apply_provenance(command, &layer.provenance))
 }
 
 fn background_video_command(
@@ -163,4 +159,12 @@ fn apply_provenance(mut command: DrawCommand, provenance: &PackageProvenance) ->
 
 fn background_resource_id(asset_type: &str, asset_name: &str) -> ResourceId {
     ResourceId::new(format!("{asset_type}:{asset_name}"))
+}
+
+fn resolve_background_asset_type(asset_type: Option<&str>) -> Option<String> {
+    match asset_type {
+        Some(asset_type) if is_safe_native_asset_type(asset_type) => Some(asset_type.to_string()),
+        Some(_) => None,
+        None => Some("images".to_string()),
+    }
 }

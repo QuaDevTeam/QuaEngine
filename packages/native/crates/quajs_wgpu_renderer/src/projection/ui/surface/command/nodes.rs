@@ -1,3 +1,4 @@
+use crate::projection::common::is_safe_native_asset_ref;
 use crate::projection::typography::font_family_resource_ids;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams,
@@ -96,9 +97,10 @@ pub(super) fn image_node_command(
     command_id: String,
     bounds: LogicalRect,
 ) -> Option<DrawCommand> {
-    let image = node.image.as_ref().filter(|image| {
-        !image.asset_type.trim().is_empty() && !image.asset_name.trim().is_empty()
-    })?;
+    let image = node
+        .image
+        .as_ref()
+        .filter(|image| is_safe_native_asset_ref(&image.asset_type, &image.asset_name))?;
     let command = DrawCommand::new(
         command_id,
         RenderPlane::Screen,

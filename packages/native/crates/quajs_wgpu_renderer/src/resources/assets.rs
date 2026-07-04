@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::projection::common::{is_non_empty_asset_name, is_safe_native_asset_type};
+
 use super::plan::{RenderResourcePlan, RenderResourceRequest};
 use super::record::{NativeResourceKind, ResourceId};
 
@@ -214,7 +216,7 @@ fn texture_upload_request_from_asset(request: &NativeAssetRequest) -> NativeText
 
 fn parse_asset_resource_id(resource_id: &ResourceId) -> Option<(String, String)> {
     let (asset_type, asset_name) = resource_id.as_str().split_once(':')?;
-    if asset_type.is_empty() || asset_name.is_empty() {
+    if !is_safe_native_asset_type(asset_type) || !is_non_empty_asset_name(asset_name) {
         return None;
     }
 

@@ -201,6 +201,38 @@ fn skips_inline_image_nodes_without_resolved_asset() {
 }
 
 #[test]
+fn skips_inline_image_nodes_with_unsafe_asset_type() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "poster",
+                    UiSurfaceNodeKind::Image,
+                    rect(48.0, 108.0, 180.0, 120.0),
+                )
+                .with_image(UiSurfaceImageProjection {
+                    asset_type: "sprites/native".to_string(),
+                    asset_name: "ui/poster.png".to_string(),
+                }),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["ui:menu"]);
+    assert!(commands
+        .iter()
+        .all(|command| command.kind != DrawCommandKind::Image));
+}
+
+#[test]
 fn projects_surface_background_image_as_package_image_command() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {
@@ -335,4 +367,39 @@ fn projects_surface_background_image_custom_asset_type_and_node_provenance() {
         }
         _ => panic!("expected background image params"),
     }
+}
+
+#[test]
+fn skips_surface_background_image_with_unsafe_asset_type() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Box,
+                    rect(0.0, 0.0, 520.0, 320.0),
+                )
+                .with_style(UiSurfaceResolvedStyle {
+                    background_image: Some(UiSurfaceImageProjection {
+                        asset_type: "../images".to_string(),
+                        asset_name: "ui/panel.png".to_string(),
+                    }),
+                    ..Default::default()
+                }),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["ui:menu", "ui:menu:root"]);
+    assert!(commands
+        .iter()
+        .all(|command| command.id != "ui:menu:root:background-image"));
 }
