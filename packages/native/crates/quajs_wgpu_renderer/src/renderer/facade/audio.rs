@@ -23,6 +23,8 @@ where
     ) -> NativeAudioBackendResult {
         if let Some(audio_backend) = &mut self.audio_backend {
             audio_backend.apply_audio_commands(&update.audio_backend_commands)?;
+            self.state
+                .replace_audio_backend_tracks(update.audio_backend_commands.next_tracks.clone());
         }
         Ok(())
     }
@@ -32,8 +34,13 @@ where
         layout: ResolvedStageLayout,
         view: &ViewProjection,
     ) -> Result<NativeRendererFrameUpdate, NativeAudioBackendError> {
+        let previous_audio_backend_tracks = self.state.audio_backend_tracks().clone();
         let update = self.prepare_frame(layout, view);
-        self.apply_audio_update(&update)?;
+        if let Err(error) = self.apply_audio_update(&update) {
+            self.state
+                .replace_audio_backend_tracks(previous_audio_backend_tracks);
+            return Err(error);
+        }
         Ok(update)
     }
 
@@ -42,10 +49,22 @@ where
         layout: ResolvedStageLayout,
         view: &ViewProjection,
     ) -> Result<NativeRendererFrameResult, NativeRendererFrameError> {
+        let previous_audio_backend_tracks = self.state.audio_backend_tracks().clone();
         let update = self.prepare_frame(layout, view);
-        let submission = self.render_frame()?;
+        let submission = match self.render_frame() {
+            Ok(submission) => submission,
+            Err(error) => {
+                self.state
+                    .replace_audio_backend_tracks(previous_audio_backend_tracks);
+                return Err(error.into());
+            }
+        };
         let texture_upload_sync = self.texture_upload_sync_for_update(&update);
-        self.apply_audio_update(&update)?;
+        if let Err(error) = self.apply_audio_update(&update) {
+            self.state
+                .replace_audio_backend_tracks(previous_audio_backend_tracks);
+            return Err(error.into());
+        }
 
         Ok(NativeRendererFrameResult {
             update,

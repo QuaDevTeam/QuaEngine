@@ -1,4 +1,7 @@
-use crate::audio::{AudioBackendCommandKind, NullNativeAudioBackend};
+use crate::audio::{
+    AudioBackendCommandKind, AudioBackendCommandPlan, NativeAudioBackend, NativeAudioBackendError,
+    NativeAudioBackendResult, NullNativeAudioBackend,
+};
 use crate::renderer::tests::view_with_audio;
 use crate::renderer::{
     NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendErrorKind,
@@ -123,6 +126,7 @@ fn clear_with_audio_teardown_skips_empty_backend_plans() {
             .applied_plan_count,
         0
     );
+    assert!(renderer.state().audio_backend_tracks().is_empty());
 }
 
 #[test]
@@ -169,6 +173,22 @@ fn render_failure_does_not_apply_audio_commands() {
     );
 }
 
+#[test]
+fn audio_backend_failure_does_not_commit_backend_tracks() {
+    let mut renderer =
+        NativeRenderer::with_audio_backend(RecordingBackend::default(), RejectingAudioBackend);
+
+    let error = renderer
+        .prepare_frame_and_apply_audio(test_layout(), &view_with_audio())
+        .unwrap_err();
+
+    assert_eq!(
+        error,
+        NativeAudioBackendError::backend_rejected("test audio backend rejected plan")
+    );
+    assert!(renderer.state().audio_backend_tracks().is_empty());
+}
+
 struct RejectingBackend;
 
 impl NativeRenderBackend for RejectingBackend {
@@ -177,5 +197,18 @@ impl NativeRenderBackend for RejectingBackend {
             kind: NativeRenderBackendErrorKind::BackendRejected,
             message: "test backend rejected frame".to_string(),
         })
+    }
+}
+
+struct RejectingAudioBackend;
+
+impl NativeAudioBackend for RejectingAudioBackend {
+    fn apply_audio_commands(
+        &mut self,
+        _plan: &AudioBackendCommandPlan,
+    ) -> NativeAudioBackendResult {
+        Err(NativeAudioBackendError::backend_rejected(
+            "test audio backend rejected plan",
+        ))
     }
 }
