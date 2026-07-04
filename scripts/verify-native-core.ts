@@ -99,6 +99,7 @@ function createTypeScriptSteps(options: VerifyOptions): VerifyStep[] {
     pnpmPackageStep('native-ui-compiler typecheck', 'packages/native/ui-compiler', ['typecheck'], 'ts'),
     pnpmPackageStep('native-language-server typecheck', 'packages/native/language-server', ['typecheck'], 'ts'),
     pnpmPackageStep('native-vscode typecheck', 'packages/native/vscode', ['typecheck'], 'ts'),
+    pnpmPackageStep('native-vscode build', 'packages/native/vscode', ['build'], 'ts'),
   ]
 
   if (!options.noBench) {
