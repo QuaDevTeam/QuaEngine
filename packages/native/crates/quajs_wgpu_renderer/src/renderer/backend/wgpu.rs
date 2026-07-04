@@ -201,6 +201,11 @@ where
             .iter()
             .filter(|entry| matches!(entry.status, WgpuNativeRenderCacheEntryStatus::Reuse))
             .count();
+        previous.bind_group_recreate_count = previous
+            .bind_group_entries
+            .iter()
+            .filter(|entry| matches!(entry.status, WgpuNativeRenderCacheEntryStatus::Recreate))
+            .count();
         Some(previous)
     }
 

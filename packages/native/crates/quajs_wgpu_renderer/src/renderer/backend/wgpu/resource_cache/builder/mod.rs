@@ -46,6 +46,10 @@ impl WgpuNativeRenderResourceCachePlan {
                 &pipeline_entries,
                 WgpuNativeRenderCacheEntryStatus::Reuse,
             ),
+            pipeline_recreate_count: count_status(
+                &pipeline_entries,
+                WgpuNativeRenderCacheEntryStatus::Recreate,
+            ),
             pipeline_release_count: released_pipelines.len(),
             pipeline_resident_count: pipeline_entries.len(),
             bind_group_create_count: count_status(
@@ -55,6 +59,10 @@ impl WgpuNativeRenderResourceCachePlan {
             bind_group_reuse_count: count_status(
                 &bind_group_entries,
                 WgpuNativeRenderCacheEntryStatus::Reuse,
+            ),
+            bind_group_recreate_count: count_status(
+                &bind_group_entries,
+                WgpuNativeRenderCacheEntryStatus::Recreate,
             ),
             bind_group_release_count: released_bind_groups.len(),
             bind_group_resident_count: bind_group_entries.len(),
