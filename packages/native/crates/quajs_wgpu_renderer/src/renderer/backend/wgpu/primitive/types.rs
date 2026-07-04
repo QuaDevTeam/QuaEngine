@@ -29,7 +29,11 @@ impl WgpuNativeRenderPrimitive {
         !self.physical_bounds.is_empty()
             && self.scissor.map_or(true, |rect| !rect.is_empty())
             && self.opacity > 0.0
-            && !matches!(self.kind, WgpuNativeRenderPrimitiveKind::Skipped { .. })
+            && !matches!(
+                self.kind,
+                WgpuNativeRenderPrimitiveKind::Empty
+                    | WgpuNativeRenderPrimitiveKind::Skipped { .. }
+            )
     }
 }
 
