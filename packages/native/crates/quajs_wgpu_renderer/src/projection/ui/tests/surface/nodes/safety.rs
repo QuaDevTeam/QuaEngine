@@ -1,7 +1,8 @@
+use crate::projection::common::FontFamilyProjection;
 use crate::projection::safety::MAX_NATIVE_TEXT_PAYLOAD_BYTES;
 use crate::projection::ui::{
     UiOverlaySceneProjection, UiOverlaySceneShellProjection, UiSurfaceBackgroundPositionProjection,
-    UiSurfaceEdgeInsetsProjection,
+    UiSurfaceBorderStyleProjection, UiSurfaceEdgeInsetsProjection,
 };
 
 use super::*;
@@ -147,6 +148,114 @@ fn skips_surface_nodes_with_unsafe_text_payloads() {
         }
         _ => panic!("expected allowed text params"),
     }
+}
+
+#[test]
+fn falls_back_from_unsafe_surface_style_strings_on_direct_projection() {
+    let layout = test_layout();
+    let root = UiSurfaceNodeProjection::new(
+        "root",
+        UiSurfaceNodeKind::Fragment,
+        rect(0.0, 0.0, 0.0, 0.0),
+    )
+    .with_children(vec![
+        UiSurfaceNodeProjection::new(
+            "panel",
+            UiSurfaceNodeKind::Panel,
+            rect(20.0, 24.0, 260.0, 96.0),
+        )
+        .with_style(UiSurfaceResolvedStyle {
+            background_color: Some("url(native.dll)".to_string()),
+            border_color: Some("../theme/border".to_string()),
+            border_style: Some(UiSurfaceBorderStyleProjection::Solid),
+            border_width: Some(2.0),
+            ..Default::default()
+        }),
+        UiSurfaceNodeProjection::new(
+            "label",
+            UiSurfaceNodeKind::Text,
+            rect(32.0, 40.0, 220.0, 44.0),
+        )
+        .with_text("Title")
+        .with_style(UiSurfaceResolvedStyle {
+            color: Some("file:///theme/text".to_string()),
+            font_family: Some(FontFamilyProjection::new([
+                "Qua Sans",
+                "../Escape Sans",
+                "NativePayload.dll",
+                "fonts:Injected",
+            ])),
+            ..Default::default()
+        }),
+        UiSurfaceNodeProjection::new(
+            "button",
+            UiSurfaceNodeKind::Button,
+            rect(32.0, 96.0, 220.0, 56.0),
+        )
+        .with_text("Start")
+        .with_intent(UiIntentProjection::new("start"))
+        .with_style(UiSurfaceResolvedStyle {
+            background_color: Some("https://example.test/button.png".to_string()),
+            color: Some("red".to_string()),
+            font_family: Some(FontFamilyProjection::new(["native:Injected"])),
+            ..Default::default()
+        }),
+    ]);
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(root)),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+
+    assert_eq!(surface_command_count(&commands), 3);
+
+    let panel = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:panel")
+        .unwrap();
+    match &panel.params {
+        DrawCommandParams::Panel(params) => {
+            assert_eq!(params.fill_color, "rgba(0,0,0,0.0)");
+            assert_eq!(params.border.color, None);
+            assert_eq!(params.border.width, 2.0);
+        }
+        _ => panic!("expected panel params"),
+    }
+
+    let label = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:label")
+        .unwrap();
+    match &label.params {
+        DrawCommandParams::Text(params) => {
+            assert_eq!(params.color, "#ffffff");
+            assert_eq!(params.font_family, vec!["Qua Sans"]);
+        }
+        _ => panic!("expected text params"),
+    }
+    assert_eq!(
+        label
+            .resource_ids
+            .iter()
+            .map(|resource| resource.as_str())
+            .collect::<Vec<_>>(),
+        vec!["fonts:Qua Sans"]
+    );
+
+    let button = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:button")
+        .unwrap();
+    match &button.params {
+        DrawCommandParams::UiButton(params) => {
+            assert_eq!(params.background_color, "rgba(0,0,0,0.0)");
+            assert_eq!(params.text_color, "red");
+            assert!(params.font_family.is_empty());
+        }
+        _ => panic!("expected button params"),
+    }
+    assert!(button.resource_ids.is_empty());
 }
 
 #[test]

@@ -25,7 +25,9 @@ pub(crate) const MAX_NATIVE_UI_LOGICAL_COORDINATE: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_UI_LOGICAL_DIMENSION: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_UI_SCROLL_OFFSET: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_UI_STYLE_LOGICAL_VALUE: f64 = 1_000_000.0;
+pub(crate) const MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_TEXT_PAYLOAD_BYTES: usize = 64 * 1024;
+pub(crate) const MAX_NATIVE_COLOR_LITERAL_BYTES: usize = 128;
 
 pub(crate) fn is_safe_native_opacity(value: f32) -> bool {
     value.is_finite() && (0.0..=1.0).contains(&value)
@@ -164,6 +166,45 @@ pub(crate) fn has_unsupported_native_text_control_character(text: &str) -> bool 
         .any(|character| character.is_control() && !matches!(character, '\n' | '\r' | '\t'))
 }
 
+pub(crate) fn is_safe_native_color_literal(color: &str) -> bool {
+    let trimmed = color.trim();
+    !trimmed.is_empty()
+        && trimmed == color
+        && color.len() <= MAX_NATIVE_COLOR_LITERAL_BYTES
+        && !color.chars().any(char::is_control)
+        && (is_hex_color_literal(color)
+            || is_basic_color_keyword(color)
+            || is_rgb_color_function(color, "rgb", 3)
+            || is_rgb_color_function(color, "rgba", 4))
+}
+
+pub(crate) fn is_safe_native_font_family_name(font_family: &str) -> bool {
+    let trimmed = font_family.trim();
+    if trimmed.is_empty()
+        || trimmed != font_family
+        || font_family.chars().any(char::is_control)
+        || has_uri_scheme(font_family)
+        || font_family.contains([':', '?', '#'])
+        || font_family.starts_with('/')
+        || is_forbidden_native_payload_reference(font_family)
+    {
+        return false;
+    }
+
+    let normalized = font_family.replace('\\', "/");
+    !normalized.split('/').any(|segment| segment == "..")
+        && !font_family.contains("..")
+        && !font_family.contains(['/', '\\'])
+}
+
+pub(crate) fn is_safe_native_ui_style_logical_value(value: f64) -> bool {
+    is_safe_logical_value(value, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
+}
+
+pub(crate) fn is_safe_native_rich_text_logical_value(value: f64) -> bool {
+    value.is_finite() && value > 0.0 && value <= MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE
+}
+
 fn is_safe_optional_coordinate(value: Option<f64>, max_abs: f64) -> bool {
     value.is_none_or(|value| is_safe_coordinate(value, max_abs))
 }
@@ -223,3 +264,122 @@ fn has_uri_scheme(value: &str) -> bool {
             }
         })
 }
+
+fn is_hex_color_literal(color: &str) -> bool {
+    let Some(hex) = color.strip_prefix('#') else {
+        return false;
+    };
+    matches!(hex.len(), 3 | 4 | 6 | 8) && hex.chars().all(|char| char.is_ascii_hexdigit())
+}
+
+fn is_basic_color_keyword(color: &str) -> bool {
+    matches!(
+        color.to_ascii_lowercase().as_str(),
+        "aqua"
+            | "black"
+            | "blue"
+            | "currentcolor"
+            | "fuchsia"
+            | "gray"
+            | "green"
+            | "lime"
+            | "maroon"
+            | "navy"
+            | "olive"
+            | "orange"
+            | "purple"
+            | "red"
+            | "silver"
+            | "teal"
+            | "transparent"
+            | "white"
+            | "yellow"
+    )
+}
+
+fn is_rgb_color_function(color: &str, function_name: &str, expected_parts: usize) -> bool {
+    let prefix = format!("{function_name}(");
+    let lower = color.to_ascii_lowercase();
+    if !lower.starts_with(&prefix) || !color.ends_with(')') {
+        return false;
+    }
+    let body = &color[prefix.len()..color.len() - 1];
+    let parts = body.split(',').map(str::trim).collect::<Vec<_>>();
+    if parts.len() != expected_parts {
+        return false;
+    }
+    parts.iter().take(3).copied().all(is_rgb_color_channel)
+        && match parts.get(3).copied() {
+            Some(alpha) => is_rgb_alpha_channel(alpha),
+            None => true,
+        }
+}
+
+fn is_rgb_color_channel(value: &str) -> bool {
+    has_unsigned_decimal_syntax(value)
+        && matches!(
+            value.parse::<f64>(),
+            Ok(number) if number.is_finite() && (0.0..=255.0).contains(&number)
+        )
+}
+
+fn is_rgb_alpha_channel(value: &str) -> bool {
+    has_rgb_alpha_channel_syntax(value)
+        && matches!(
+            value.parse::<f64>(),
+            Ok(number) if number.is_finite() && (0.0..=1.0).contains(&number)
+        )
+}
+
+fn has_rgb_alpha_channel_syntax(value: &str) -> bool {
+    if matches!(value, "0" | "1") {
+        return true;
+    }
+    if let Some(rest) = value.strip_prefix("0.") {
+        return !rest.is_empty() && rest.chars().all(|char| char.is_ascii_digit());
+    }
+    if let Some(rest) = value.strip_prefix('.') {
+        return !rest.is_empty() && rest.chars().all(|char| char.is_ascii_digit());
+    }
+    false
+}
+
+fn has_unsigned_decimal_syntax(value: &str) -> bool {
+    let Some((first, rest)) = value.split_once('.') else {
+        return !value.is_empty() && value.chars().all(|char| char.is_ascii_digit());
+    };
+    !first.is_empty()
+        && !rest.is_empty()
+        && first.chars().all(|char| char.is_ascii_digit())
+        && rest.chars().all(|char| char.is_ascii_digit())
+}
+
+fn is_forbidden_native_payload_reference(value: &str) -> bool {
+    let normalized = value
+        .split_once(['?', '#'])
+        .map(|(base, _)| base)
+        .unwrap_or(value)
+        .to_ascii_lowercase();
+    FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS.iter().any(|extension| {
+        normalized.ends_with(extension) || normalized.contains(&format!("{extension}/"))
+    })
+}
+
+const FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS: [&str; 16] = [
+    ".dylib",
+    ".so",
+    ".dll",
+    ".framework",
+    ".bundle",
+    ".node",
+    ".wasm",
+    ".wasi",
+    ".exe",
+    ".msi",
+    ".app",
+    ".pkg",
+    ".deb",
+    ".rpm",
+    ".appimage",
+    ".jar",
+];

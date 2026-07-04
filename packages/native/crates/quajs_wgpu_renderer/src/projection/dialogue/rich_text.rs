@@ -1,4 +1,7 @@
-use crate::projection::safety::{is_safe_native_text_payload, is_safe_native_text_payload_bytes};
+use crate::projection::safety::{
+    is_safe_native_color_literal, is_safe_native_rich_text_logical_value,
+    is_safe_native_text_payload, is_safe_native_text_payload_bytes,
+};
 use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
 use crate::render_graph::{FontWeightDrawParam, TextAlign};
 
@@ -69,7 +72,7 @@ pub fn resolve_text_color(style: &RichTextStyle, fallback: &str) -> String {
     style
         .color
         .as_deref()
-        .filter(|value| !value.trim().is_empty())
+        .filter(|value| is_safe_native_color_literal(value))
         .unwrap_or(fallback)
         .to_string()
 }
@@ -77,7 +80,7 @@ pub fn resolve_text_color(style: &RichTextStyle, fallback: &str) -> String {
 pub fn resolve_font_size(style: &RichTextStyle, fallback: f64) -> f64 {
     style
         .font_size
-        .filter(|value| value.is_finite() && *value > 0.0)
+        .filter(|value| is_safe_native_rich_text_logical_value(*value))
         .unwrap_or(fallback)
 }
 
@@ -92,6 +95,6 @@ pub fn resolve_font_weight(style: &RichTextStyle) -> Option<FontWeightDrawParam>
 pub fn resolve_line_height(style: &RichTextStyle, fallback: f64) -> f64 {
     style
         .line_height
-        .filter(|value| value.is_finite() && *value > 0.0)
+        .filter(|value| is_safe_native_rich_text_logical_value(*value))
         .unwrap_or(fallback)
 }

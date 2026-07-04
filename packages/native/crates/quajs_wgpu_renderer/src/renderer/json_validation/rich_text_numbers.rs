@@ -1,6 +1,5 @@
 use crate::projection::dialogue::RichTextStyle;
-
-const MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE: f64 = 1_000_000.0;
+use crate::projection::safety::is_safe_native_rich_text_logical_value;
 
 pub(super) fn invalid_native_json_rich_text_style_number_reason(
     style: &RichTextStyle,
@@ -28,7 +27,7 @@ fn validate_optional_text_value(
             "rich text numeric values must be greater than 0".to_string(),
         ));
     }
-    if value > MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE {
+    if !is_safe_native_rich_text_logical_value(value) {
         return Some((
             field,
             value.to_string(),
@@ -41,6 +40,7 @@ fn validate_optional_text_value(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::projection::safety::MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE;
 
     #[test]
     fn rich_text_numbers_accept_finite_values_at_native_limits() {

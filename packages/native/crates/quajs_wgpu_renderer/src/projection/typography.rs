@@ -2,6 +2,7 @@ use crate::render_graph::FontWeightDrawParam;
 use crate::resources::ResourceId;
 
 use super::common::{FontFamilyProjection, FontWeightProjection};
+use super::safety::is_safe_native_font_family_name;
 
 pub fn font_family_to_draw_param(font_family: &Option<FontFamilyProjection>) -> Vec<String> {
     font_family
@@ -11,7 +12,7 @@ pub fn font_family_to_draw_param(font_family: &Option<FontFamilyProjection>) -> 
                 .families
                 .iter()
                 .map(|family| family.trim())
-                .filter(|family| !family.is_empty())
+                .filter(|family| is_safe_native_font_family_name(family))
                 .map(str::to_string)
                 .collect()
         })
@@ -41,7 +42,7 @@ pub fn font_family_resource_ids(families: &[String]) -> Vec<ResourceId> {
     families
         .iter()
         .map(|family| family.trim())
-        .filter(|family| !family.is_empty())
+        .filter(|family| is_safe_native_font_family_name(family))
         .map(|family| ResourceId::new(format!("fonts:{family}")))
         .collect()
 }

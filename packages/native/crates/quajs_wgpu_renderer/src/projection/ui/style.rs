@@ -1,4 +1,7 @@
 use crate::projection::common::is_safe_native_asset_ref;
+use crate::projection::safety::{
+    is_safe_native_color_literal, is_safe_native_opacity, is_safe_native_ui_style_logical_value,
+};
 use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
 use crate::render_graph::{
     EdgeInsetsDrawParam, FontStyleDrawParam, FontWeightDrawParam, MediaFit, MediaOrigin, TextAlign,
@@ -16,7 +19,7 @@ pub fn resolve_background_color(style: &UiSurfaceResolvedStyle, fallback: &str) 
     style
         .background_color
         .as_deref()
-        .filter(|value| !value.trim().is_empty())
+        .filter(|value| is_safe_native_color_literal(value))
         .unwrap_or(fallback)
         .to_string()
 }
@@ -40,10 +43,10 @@ pub fn resolve_background_position(
 ) -> MediaOrigin {
     style
         .background_position
-        .filter(|position| position.x.is_finite() && position.y.is_finite())
+        .filter(|position| (0.0..=1.0).contains(&position.x) && (0.0..=1.0).contains(&position.y))
         .map(|position| MediaOrigin {
-            x: position.x.clamp(0.0, 1.0),
-            y: position.y.clamp(0.0, 1.0),
+            x: position.x,
+            y: position.y,
         })
         .unwrap_or(fallback)
 }
@@ -52,7 +55,7 @@ pub fn resolve_text_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> Str
     style
         .color
         .as_deref()
-        .filter(|value| !value.trim().is_empty())
+        .filter(|value| is_safe_native_color_literal(value))
         .unwrap_or(fallback)
         .to_string()
 }
@@ -72,7 +75,7 @@ pub fn resolve_border_color(style: &UiSurfaceResolvedStyle) -> Option<String> {
     style
         .border_color
         .as_deref()
-        .filter(|value| !value.trim().is_empty())
+        .filter(|value| is_safe_native_color_literal(value))
         .map(str::to_string)
 }
 
@@ -181,8 +184,7 @@ fn media_fit_from_projection(
 pub fn resolve_opacity(style: &UiSurfaceResolvedStyle, fallback: f32) -> f32 {
     style
         .opacity
-        .filter(|number| number.is_finite())
-        .map(|number| number.clamp(0.0, 1.0))
+        .filter(|number| is_safe_native_opacity(*number))
         .unwrap_or(fallback)
 }
 
@@ -201,12 +203,12 @@ pub fn resolve_padding(style: &UiSurfaceResolvedStyle) -> EdgeInsetsDrawParam {
 
 fn resolve_positive_number(value: Option<f64>, fallback: f64) -> f64 {
     value
-        .filter(|number| number.is_finite() && *number >= 0.0)
+        .filter(|number| is_safe_native_ui_style_logical_value(*number))
         .unwrap_or(fallback)
 }
 
 fn resolve_edge_inset(value: f64) -> f64 {
-    if value.is_finite() && value >= 0.0 {
+    if is_safe_native_ui_style_logical_value(value) {
         value
     } else {
         0.0
