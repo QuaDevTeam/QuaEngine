@@ -1,16 +1,24 @@
 use std::collections::BTreeSet;
 
 use quajs_native_runtime::NativeMountedBundleInfo;
+use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
+use quajs_wgpu_renderer::projection::audio::{
+    AudioProjection, AudioTrackKind, AudioTrackMemoryEstimate, AudioTrackProjection,
+};
 use quajs_wgpu_renderer::projection::background::BackgroundProjection;
 use quajs_wgpu_renderer::projection::common::PackageProvenance;
 use quajs_wgpu_renderer::projection::view::ViewProjection;
+use quajs_wgpu_renderer::renderer::NativeRenderer;
 use quajs_wgpu_renderer::resources::{
-    NativeTextureUploadRequest, NativeTextureUploadSyncPlan, ResourceId,
+    NativeResourceKind, NativeResourceRecord, NativeTextureUploadRequest,
+    NativeTextureUploadSyncPlan, ResourceId,
 };
 use quajs_wgpu_renderer::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
     ViewLayoutOrientation,
 };
+
+use super::{RejectingAfterFirstAudioBackend, RejectingAudioBackend, TextureResidentBackend};
 
 pub(crate) fn bundle(name: &str, runtime_package_id: Option<&str>) -> NativeMountedBundleInfo {
     NativeMountedBundleInfo {
@@ -77,6 +85,74 @@ pub(crate) fn view_with_background() -> ViewProjection {
         }),
         ..Default::default()
     }
+}
+
+pub(crate) fn renderer_with_rejecting_audio_after_audio_frame(
+    backend: TextureResidentBackend,
+    package_id: &str,
+) -> NativeRenderer<TextureResidentBackend, RejectingAudioBackend> {
+    let mut renderer = NativeRenderer::with_audio_backend(backend, NullNativeAudioBackend::new());
+    renderer
+        .prepare_frame_and_apply_audio(test_layout(), &view_with_audio_package(package_id))
+        .expect("audio frame should seed backend tracks");
+    let (state, backend, _) = renderer.into_parts_with_audio();
+    NativeRenderer::with_state_and_audio_backend(state, backend, RejectingAudioBackend)
+}
+
+pub(crate) fn renderer_with_rejecting_audio_after_failed_audio_stop_frame(
+    backend: TextureResidentBackend,
+    package_id: &str,
+) -> NativeRenderer<TextureResidentBackend, RejectingAfterFirstAudioBackend> {
+    let mut renderer =
+        NativeRenderer::with_audio_backend(backend, RejectingAfterFirstAudioBackend::default());
+    renderer
+        .prepare_frame_and_apply_audio(test_layout(), &view_with_audio_package(package_id))
+        .expect("audio frame should seed backend tracks");
+    renderer
+        .prepare_frame_and_apply_audio(test_layout(), &ViewProjection::default())
+        .expect_err("failed stop frame should preserve previous backend tracks");
+    seed_audio_resource_records(&mut renderer, package_id);
+    renderer
+}
+
+fn view_with_audio_package(package_id: &str) -> ViewProjection {
+    ViewProjection {
+        audio: Some(AudioProjection::new(vec![AudioTrackProjection::new(
+            "bgm-main",
+            AudioTrackKind::Bgm,
+            "music/opening.ogg",
+        )
+        .memory(AudioTrackMemoryEstimate {
+            buffer_cpu_bytes: 2048,
+            stream_cpu_bytes: 0,
+            handle_cpu_bytes: 64,
+        })
+        .with_provenance(PackageProvenance {
+            content_package_id: Some(package_id.to_string()),
+            required_runtime_packages: Default::default(),
+        })])),
+        ..Default::default()
+    }
+}
+
+fn seed_audio_resource_records<A>(
+    renderer: &mut NativeRenderer<TextureResidentBackend, A>,
+    package_id: &str,
+) {
+    renderer.state_mut().resources_mut().insert(
+        NativeResourceRecord::new(
+            "audio:buffer:bgm:bgm:music/opening.ogg",
+            NativeResourceKind::AudioBuffer,
+        )
+        .owned_by(package_id),
+    );
+    renderer.state_mut().resources_mut().insert(
+        NativeResourceRecord::new(
+            "audio:handle:bgm:bgm:bgm-main",
+            NativeResourceKind::AudioHandle,
+        )
+        .owned_by(package_id),
+    );
 }
 
 fn provenance<const N: usize>(owner_package_id: &str, required: [&str; N]) -> PackageProvenance {

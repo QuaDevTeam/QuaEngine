@@ -1,3 +1,6 @@
+use quajs_wgpu_renderer::audio::{
+    AudioBackendCommandPlan, NativeAudioBackend, NativeAudioBackendError, NativeAudioBackendResult,
+};
 use quajs_wgpu_renderer::renderer::{
     NativeRenderBackend, NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
 };
@@ -29,6 +32,40 @@ impl NativeTextureUploadSink for RecordingTextureUploadSink {
             metadata,
         });
         Ok(())
+    }
+}
+
+pub(crate) struct RejectingAudioBackend;
+
+impl NativeAudioBackend for RejectingAudioBackend {
+    fn apply_audio_commands(
+        &mut self,
+        _plan: &AudioBackendCommandPlan,
+    ) -> NativeAudioBackendResult {
+        Err(NativeAudioBackendError::backend_rejected(
+            "test audio backend rejected plan",
+        ))
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct RejectingAfterFirstAudioBackend {
+    accepted_plan_count: usize,
+}
+
+impl NativeAudioBackend for RejectingAfterFirstAudioBackend {
+    fn apply_audio_commands(
+        &mut self,
+        _plan: &AudioBackendCommandPlan,
+    ) -> NativeAudioBackendResult {
+        if self.accepted_plan_count == 0 {
+            self.accepted_plan_count += 1;
+            return Ok(());
+        }
+
+        Err(NativeAudioBackendError::backend_rejected(
+            "test audio backend rejected plan",
+        ))
     }
 }
 
