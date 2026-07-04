@@ -67,3 +67,15 @@ fn plans_streaming_audio_stream_resources() {
     assert_eq!(sync.upsert[0].memory.cpu_bytes, 256);
     assert_eq!(sync.upsert[1].kind, NativeResourceKind::AudioHandle);
 }
+
+#[test]
+fn skips_audio_resources_for_empty_asset_names() {
+    let audio = AudioProjection::new(vec![
+        AudioTrackProjection::new("bgm-empty", AudioTrackKind::Bgm, ""),
+        AudioTrackProjection::new("bgm-blank", AudioTrackKind::Bgm, "   "),
+    ]);
+
+    let records = audio_resource_records(Some(&audio));
+
+    assert!(records.is_empty());
+}
