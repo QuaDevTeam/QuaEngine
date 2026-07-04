@@ -17,10 +17,12 @@ pub(super) fn validate_texture_upload_request(
 }
 
 fn validate_asset_type(asset_type: &str) -> Result<(), String> {
-    if asset_type.is_empty()
+    if asset_type.trim().is_empty()
+        || asset_type.trim() != asset_type
+        || !matches!(asset_type.chars().next(), Some(ch) if ch.is_ascii_alphanumeric())
         || !asset_type
             .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_'))
     {
         return Err(format!(
             "Invalid native texture asset type \"{asset_type}\"."
