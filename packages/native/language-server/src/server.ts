@@ -3,15 +3,7 @@
 import type {
   InitializeParams,
   Location,
-  ReferenceParams,
-  RenameParams,
-  TextDocumentPositionParams,
 } from 'vscode-languageserver/node.js'
-import type {
-  NativeUiDiagnostic,
-  NativeUiLanguageOptions,
-} from './index'
-import type { NativeLanguageServerSettings } from './server-settings'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
   CodeActionKind,
@@ -23,7 +15,6 @@ import {
 } from 'vscode-languageserver/node.js'
 import { createNativeUiAssetCodeActions } from './code-actions'
 import {
-  buildNativeUiProjectIndex,
   createNativeUiProjectRenameEdits,
   findNativeUiProjectDefinitions,
   findNativeUiProjectReferences,
@@ -31,10 +22,8 @@ import {
   getNativeUiLanguageCompletions,
   getNativeUiLanguageHover,
   getNativeUiProjectDocumentLinks,
-  uriToFilePath,
 } from './index'
 import {
-  containsPosition,
   resolveExistingFileDocumentLink,
   toCompletionKind,
   toLspDiagnostic,
@@ -44,19 +33,16 @@ import {
   toLspTextEdit,
   toWorkspaceEdit,
 } from './server-lsp'
-import { normalizeSettings } from './server-settings'
+import { NativeLanguageServerSession } from './server-session'
 
 const connection = createConnection(ProposedFeatures.all)
 const documents = new TextDocuments(TextDocument)
-let initializationSettings: NativeLanguageServerSettings = {}
-let workspaceSettings: NativeLanguageServerSettings | undefined
+const session = new NativeLanguageServerSession({
+  resolveDocumentLink: resolveExistingFileDocumentLink,
+})
 
 connection.onInitialize((params: InitializeParams) => {
-  initializationSettings = normalizeSettings(
-    (params.initializationOptions as { quaNative?: unknown, settings?: unknown } | undefined)?.quaNative
-    ?? (params.initializationOptions as { settings?: unknown } | undefined)?.settings,
-  )
-  workspaceSettings = undefined
+  session.setInitializationOptions(params.initializationOptions)
 
   return {
     capabilities: {
@@ -153,7 +139,7 @@ connection.onCodeAction((params) => {
 
 connection.onReferences((params) => {
   const index = currentProjectIndex()
-  const target = findReferenceAtPosition(index, params)
+  const target = session.findReferenceAtPosition(index, params)
   if (!target)
     return []
 
@@ -168,7 +154,7 @@ connection.onReferences((params) => {
 
 connection.onDefinition((params) => {
   const index = currentProjectIndex()
-  const target = findReferenceAtPosition(index, params)
+  const target = session.findReferenceAtPosition(index, params)
   if (!target)
     return []
 
@@ -180,7 +166,7 @@ connection.onDefinition((params) => {
 
 connection.onRenameRequest((params) => {
   const index = currentProjectIndex()
-  const target = findReferenceAtPosition(index, params)
+  const target = session.findReferenceAtPosition(index, params)
   if (!target)
     return null
 
@@ -196,7 +182,7 @@ connection.onRenameRequest((params) => {
 })
 
 connection.onDidChangeConfiguration((params) => {
-  workspaceSettings = normalizeSettings((params.settings as { quaNative?: unknown } | undefined)?.quaNative)
+  session.setWorkspaceConfiguration(params.settings)
   validateAllOpenDocuments()
 })
 
@@ -209,14 +195,9 @@ connection.listen()
 
 function validateDocument(document: TextDocument): void {
   const index = currentProjectIndex()
-  const compilerDiagnostics = index.documents.find(item => item.uri === document.uri)?.diagnostics ?? []
-  const assetDiagnostics = missingAssetDiagnosticsForDocument(index, document.uri)
   connection.sendDiagnostics({
     uri: document.uri,
-    diagnostics: [
-      ...compilerDiagnostics,
-      ...assetDiagnostics,
-    ].map(toLspDiagnostic),
+    diagnostics: session.diagnosticsForDocument(index, document.uri).map(toLspDiagnostic),
   })
 }
 
@@ -225,56 +206,9 @@ function validateAllOpenDocuments(): void {
 }
 
 function currentProjectIndex() {
-  const settings = currentSettings()
-  return buildNativeUiProjectIndex(documents.all().map(document => ({
-    filePath: uriToFilePath(document.uri),
-    languageId: document.languageId,
-    source: document.getText(),
-    uri: document.uri,
-    version: document.version,
-  })), {
-    language: {
-      lint: settings.lint,
-    },
-  })
+  return session.projectIndex(documents.all())
 }
 
-function documentOptions(document: TextDocument): NativeUiLanguageOptions {
-  const settings = currentSettings()
-  return {
-    filePath: uriToFilePath(document.uri),
-    languageId: document.languageId,
-    format: settings.format,
-    lint: settings.lint,
-  }
-}
-
-function currentSettings(): NativeLanguageServerSettings {
-  return workspaceSettings ?? initializationSettings
-}
-
-function missingAssetDiagnosticsForDocument(
-  index: ReturnType<typeof currentProjectIndex>,
-  uri: string,
-): NativeUiDiagnostic[] {
-  return getNativeUiProjectDocumentLinks(index, uri)
-    .filter(link => link.kind === 'asset')
-    .map(resolveExistingFileDocumentLink)
-    .filter(link => !link.resolved)
-    .map(link => ({
-      code: 'NATIVE_UI_ASSET_MISSING',
-      message: `Native UI asset "${link.path}" could not be resolved.`,
-      range: link.pathRange,
-      severity: 'warning' as const,
-      source: 'native-ui' as const,
-    }))
-}
-
-function findReferenceAtPosition(
-  index: ReturnType<typeof currentProjectIndex>,
-  params: ReferenceParams | RenameParams | TextDocumentPositionParams,
-) {
-  return findNativeUiProjectReferences(index, {
-    uri: params.textDocument.uri,
-  }).find(reference => containsPosition(reference.range, params.position))
+function documentOptions(document: TextDocument) {
+  return session.documentOptions(document)
 }
