@@ -29,7 +29,12 @@ import {
   packageProvenanceFromOptions,
   textFromNode,
 } from './projection-node-values'
-import { pruneSurfaceNode, rectFromProps, ZERO_RECT } from './projection-node-helpers'
+import {
+  applyNativeQssStructuralLayout,
+  pruneSurfaceNode,
+  rectFromProps,
+  ZERO_RECT,
+} from './projection-node-helpers'
 import { resolveStyleForNode } from './projection-selectors'
 
 export interface CompileNativeUiSurfaceProjectionOptions {
@@ -110,7 +115,12 @@ function surfaceNodeFromQuiNode(
       currentLoopKey: undefined,
     },
   }
-  const children = surfaceNodesFromQuiChildren(source, node.children, childContext, qssDocuments, provenance)
+  const children = applyNativeQssStructuralLayout(
+    node.name as NativeUiSurfaceNodeKind,
+    rect,
+    surfaceNodesFromQuiChildren(source, node.children, childContext, qssDocuments, provenance),
+    resolvedStyle.layout,
+  )
   const text = textFromNode(source, node, context.scope)
   const image = imageFromProps(node.props)
   const intent = intentFromNode(node, context.scope)

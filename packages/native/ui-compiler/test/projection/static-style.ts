@@ -186,4 +186,110 @@ Button.secondary {
       },
     })
   })
+
+  it('applies QSS gap to structural Row, Column, and Grid children during projection', () => {
+    const qui = analyzeQuiSource(`
+Panel(id: "root", width: 420, height: 260) {
+  Row.tabs(id: "tabs", x: 20, y: 24, width: 320, height: 40) {
+    Button(id: "tab-a", label: "A", width: 80, height: 32)
+    Button(id: "tab-b", label: "B", width: 72, height: 32)
+  }
+  Column.menu(id: "menu", x: 24, y: 84, width: 180, height: 96) {
+    Text(id: "first", width: 100, height: 20) { "First" }
+    Text(id: "second", width: 100, height: 20) { "Second" }
+  }
+  Grid.thumbs(id: "thumbs", x: 220, y: 84, width: 150, height: 80) {
+    Image(id: "one", src: "ui/one.png", width: 70, height: 20)
+    Image(id: "two", src: "ui/two.png", width: 70, height: 20)
+    Image(id: "three", src: "ui/three.png", width: 70, height: 20)
+  }
+}
+`)
+    const qss = analyzeQssSource(`
+Row.tabs {
+  gap: 12px;
+}
+Column.menu {
+  row-gap: 6px;
+}
+Grid.thumbs {
+  gap: 4px 10px;
+}
+`)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(qss.diagnostics).toEqual([])
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+      root: {
+        id: 'root',
+        kind: 'Panel',
+        bounds: { x: 0, y: 0, width: 420, height: 260 },
+        children: [
+          {
+            id: 'tabs',
+            kind: 'Row',
+            bounds: { x: 20, y: 24, width: 320, height: 40 },
+            children: [
+              {
+                id: 'tab-a',
+                kind: 'Button',
+                bounds: { x: 20, y: 24, width: 80, height: 32 },
+                text: 'A',
+              },
+              {
+                id: 'tab-b',
+                kind: 'Button',
+                bounds: { x: 112, y: 24, width: 72, height: 32 },
+                text: 'B',
+              },
+            ],
+          },
+          {
+            id: 'menu',
+            kind: 'Column',
+            bounds: { x: 24, y: 84, width: 180, height: 96 },
+            children: [
+              {
+                id: 'first',
+                kind: 'Text',
+                bounds: { x: 24, y: 84, width: 100, height: 20 },
+                text: 'First',
+              },
+              {
+                id: 'second',
+                kind: 'Text',
+                bounds: { x: 24, y: 110, width: 100, height: 20 },
+                text: 'Second',
+              },
+            ],
+          },
+          {
+            id: 'thumbs',
+            kind: 'Grid',
+            bounds: { x: 220, y: 84, width: 150, height: 80 },
+            children: [
+              {
+                id: 'one',
+                kind: 'Image',
+                bounds: { x: 220, y: 84, width: 70, height: 20 },
+                image: { assetType: 'images', assetName: 'ui/one.png' },
+              },
+              {
+                id: 'two',
+                kind: 'Image',
+                bounds: { x: 300, y: 84, width: 70, height: 20 },
+                image: { assetType: 'images', assetName: 'ui/two.png' },
+              },
+              {
+                id: 'three',
+                kind: 'Image',
+                bounds: { x: 220, y: 108, width: 70, height: 20 },
+                image: { assetType: 'images', assetName: 'ui/three.png' },
+              },
+            ],
+          },
+        ],
+      },
+    })
+  })
 })

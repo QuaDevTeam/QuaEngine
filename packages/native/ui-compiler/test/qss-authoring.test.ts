@@ -43,6 +43,40 @@ Layer {
     expect(document.rules[0].declarations.map(item => item.name)).toContain('z-index')
   })
 
+  it('resolves gap declarations into compiler-only layout metadata', () => {
+    const document = analyzeQssSource(`
+Row {
+  gap: 8px 12px;
+  row-gap: 4px;
+  column-gap: 16px;
+}
+`)
+
+    expect(document.diagnostics).toEqual([])
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
+      layout: {
+        rowGap: 4,
+        columnGap: 16,
+      },
+      style: {},
+    })
+  })
+
+  it('diagnoses invalid gap declarations before projection', () => {
+    const document = analyzeQssSource(`
+Row {
+  gap: 1px 2px 3px;
+  row-gap: -1px;
+  column-gap: calc(1px);
+}
+`)
+
+    expect(document.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(3)
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
+      style: {},
+    })
+  })
+
   it('resolves native-wgpu QSS declarations into surface style IR', () => {
     const document = analyzeQssSource(`
 Button.primary {

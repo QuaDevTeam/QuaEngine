@@ -18,7 +18,9 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     assert!(ui.asset_kinds.contains(&"fonts".to_string()));
     assert!(ui.qss_features.contains(&"display".to_string()));
     assert!(!ui.qss_features.contains(&"flex-direction".to_string()));
-    assert!(!ui.qss_features.contains(&"gap".to_string()));
+    assert!(ui.qss_features.contains(&"gap".to_string()));
+    assert!(ui.qss_features.contains(&"row-gap".to_string()));
+    assert!(ui.qss_features.contains(&"column-gap".to_string()));
     assert!(ui.qss_features.contains(&"padding".to_string()));
     assert!(ui.qss_features.contains(&"padding-bottom".to_string()));
     assert!(ui.qss_features.contains(&"padding-left".to_string()));

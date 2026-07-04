@@ -15,6 +15,7 @@ import {
   parseNativeQssFontFamilyList,
   parseNativeQssFontStyle,
   parseNativeQssFontWeight,
+  parseNativeQssGap,
   parseNativeQssInteger,
   parseNativeQssLetterSpacing,
   parseNativeQssLogicalNumber,
@@ -121,6 +122,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssBorderStyle(value)
         ? undefined
         : 'border-style supports solid or none.'
+    case 'gap':
+      return parseNativeQssGap(value) !== undefined
+        ? undefined
+        : 'gap supports one or two non-negative logical px or unitless numbers.'
     case 'border-radius':
     case 'border-width':
     case 'font-size':
@@ -184,6 +189,8 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
     case 'padding-left':
     case 'padding-right':
     case 'padding-top':
+    case 'row-gap':
+    case 'column-gap':
       return parseNativeQssLogicalNumber(value) !== undefined
         ? undefined
         : `${declaration.name} must be a non-negative logical px or unitless number.`
