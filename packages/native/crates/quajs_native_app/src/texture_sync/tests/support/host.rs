@@ -10,6 +10,7 @@ use quajs_native_runtime::{
 #[derive(Default)]
 pub(crate) struct RecordingAssetHost {
     assets: BTreeMap<(Option<String>, String), Vec<u8>>,
+    read_errors: BTreeMap<(Option<String>, String), NativeHostApiError>,
     bundles: Vec<NativeMountedBundleInfo>,
     pub(crate) reads: RefCell<Vec<NativeAssetReadRequest>>,
 }
@@ -36,6 +37,19 @@ impl RecordingAssetHost {
         );
         self
     }
+
+    pub(crate) fn with_read_error(
+        mut self,
+        bundle_name: Option<&str>,
+        url: &str,
+        error: NativeHostApiError,
+    ) -> Self {
+        self.read_errors.insert(
+            (bundle_name.map(ToString::to_string), url.to_string()),
+            error,
+        );
+        self
+    }
 }
 
 impl NativeHostApi for RecordingAssetHost {
@@ -51,6 +65,12 @@ impl NativeHostApi for RecordingAssetHost {
 
     fn read_asset_bytes(&self, request: &NativeAssetReadRequest) -> NativeHostApiResult<Vec<u8>> {
         self.reads.borrow_mut().push(request.clone());
+        if let Some(error) = self
+            .read_errors
+            .get(&(request.bundle_name.clone(), request.url.clone()))
+        {
+            return Err(error.clone());
+        }
         self.assets
             .get(&(request.bundle_name.clone(), request.url.clone()))
             .cloned()
