@@ -1,4 +1,4 @@
-use crate::projection::common::PackageProvenance;
+use crate::projection::common::{is_non_empty_asset_name, PackageProvenance};
 use crate::projection::typography::font_family_resource_ids;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
@@ -81,7 +81,9 @@ pub fn build_dialogue_commands(
     ));
 
     if let Some(avatar) = &dialogue.avatar {
-        commands.push(avatar_command(panel, avatar));
+        if let Some(command) = avatar_command(panel, avatar) {
+            commands.push(command);
+        }
     }
 
     commands
@@ -122,7 +124,11 @@ fn text_command(
 fn avatar_command(
     panel: crate::render_graph::LogicalRect,
     avatar: &DialogueAvatarProjection,
-) -> DrawCommand {
+) -> Option<DrawCommand> {
+    if !is_non_empty_asset_name(&avatar.asset_name) {
+        return None;
+    }
+
     let command = DrawCommand::new(
         "dialogue:avatar",
         RenderPlane::Safe,
@@ -143,7 +149,7 @@ fn avatar_command(
         rotation_degrees: 0.0,
     }));
 
-    apply_provenance(command, &avatar.provenance)
+    Some(apply_provenance(command, &avatar.provenance))
 }
 
 fn apply_provenance(mut command: DrawCommand, provenance: &PackageProvenance) -> DrawCommand {

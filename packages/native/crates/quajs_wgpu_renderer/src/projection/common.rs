@@ -59,3 +59,7 @@ impl FontWeightProjection {
         Self::Keyword(keyword.into())
     }
 }
+
+pub(crate) fn is_non_empty_asset_name(asset_name: &str) -> bool {
+    !asset_name.trim().is_empty()
+}

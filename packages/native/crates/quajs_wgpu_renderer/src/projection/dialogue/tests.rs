@@ -155,6 +155,30 @@ fn flattens_rich_text_and_builds_avatar_command() {
 }
 
 #[test]
+fn skips_empty_avatar_asset_on_direct_projection() {
+    let layout = test_layout();
+    let dialogue = DialogueProjection {
+        avatar: Some(DialogueAvatarProjection {
+            asset_type: "characters".to_string(),
+            asset_name: "  ".to_string(),
+            provenance: provenance("runtime.avatar", ["base"]),
+        }),
+        ..DialogueProjection::say("No avatar asset")
+    };
+
+    let commands = build_dialogue_commands(&layout, &dialogue);
+
+    assert_eq!(commands.len(), 2);
+    assert!(commands
+        .iter()
+        .all(|command| command.id != "dialogue:avatar"));
+    assert!(commands
+        .iter()
+        .flat_map(|command| command.resource_ids.iter())
+        .all(|resource| resource.as_str() != "characters:  "));
+}
+
+#[test]
 fn appends_dialogue_commands_to_graph() {
     let mut graph = RenderGraph::new(test_layout());
     append_dialogue_commands(&mut graph, &DialogueProjection::say("Ready"));
