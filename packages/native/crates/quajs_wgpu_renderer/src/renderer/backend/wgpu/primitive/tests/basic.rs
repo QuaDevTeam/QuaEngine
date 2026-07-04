@@ -128,3 +128,38 @@ fn lowers_execution_draws_into_wgpu_primitives() {
         vec![ResourceId::from("images:bg/school.png")]
     );
 }
+
+#[test]
+fn empty_clip_primitives_do_not_count_as_visible_draw_work() {
+    let plan = WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution_plan(vec![
+        WgpuNativeRenderExecutionOperation::Draw {
+            command_id: "ui:menu:scroll:clip-start".to_string(),
+            pipeline: DrawBatchPipeline::Clip,
+            kind: DrawCommandKind::ClipStart,
+            metadata: draw_metadata(DrawCommandParams::None),
+            physical_bounds: physical_rect(24, 32, 320, 180),
+            clip_depth: 0,
+            resource_count: 0,
+        },
+        WgpuNativeRenderExecutionOperation::Draw {
+            command_id: "ui:menu:scroll:clip-end".to_string(),
+            pipeline: DrawBatchPipeline::Clip,
+            kind: DrawCommandKind::ClipEnd,
+            metadata: draw_metadata(DrawCommandParams::None),
+            physical_bounds: physical_rect(24, 32, 320, 180),
+            clip_depth: 0,
+            resource_count: 0,
+        },
+    ]));
+
+    assert_eq!(plan.primitive_count, 2);
+    assert_eq!(plan.visible_primitive_count, 0);
+    assert!(plan.passes[0]
+        .primitives
+        .iter()
+        .all(|primitive| matches!(primitive.kind, WgpuNativeRenderPrimitiveKind::Empty)));
+    assert!(plan.passes[0]
+        .primitives
+        .iter()
+        .all(|primitive| !primitive.is_visible()));
+}
