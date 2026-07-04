@@ -12,8 +12,11 @@ import {
   getNativeUiCompletions,
   getNativeUiHover,
 } from '@quajs/native-ui-compiler'
-import { DiagnosticSeverity } from 'vscode-languageserver/node.js'
 import { createNativeUiAssetCodeActions } from './code-actions'
+import { toLspDiagnostic } from './server-lsp'
+import { offsetAtPosition } from './source-ranges'
+
+export { offsetAtPosition } from './source-ranges'
 
 export type {
   NativeUiProjectAssetReference,
@@ -164,36 +167,13 @@ export function getNativeUiAssetCodeActions(
 }
 
 export function fullDocumentRange(source: string): NativeUiRange {
-  const lines = source.split(/\r?\n/)
   return {
     start: {
       line: 0,
       character: 0,
     },
-    end: {
-      line: Math.max(0, lines.length - 1),
-      character: lines.length > 0 ? lines[lines.length - 1].length : 0,
-    },
+    end: documentEndPosition(source),
   }
-}
-
-export function offsetAtPosition(source: string, position: NativeUiPosition): number {
-  const targetLine = Math.max(0, position.line)
-  const targetCharacter = Math.max(0, position.character)
-  let offset = 0
-  let line = 0
-
-  while (line < targetLine && offset < source.length) {
-    const nextLine = source.indexOf('\n', offset)
-    if (nextLine === -1)
-      return source.length
-    offset = nextLine + 1
-    line += 1
-  }
-
-  const lineEnd = source.indexOf('\n', offset)
-  const maxOffset = lineEnd === -1 ? source.length : lineEnd
-  return Math.min(maxOffset, offset + targetCharacter)
 }
 
 export function uriToFilePath(uri: string): string | undefined {
@@ -203,24 +183,6 @@ export function uriToFilePath(uri: string): string | undefined {
   catch {
     return undefined
   }
-}
-
-function toLspDiagnostic(diagnostic: NativeUiDiagnostic) {
-  return {
-    code: diagnostic.code,
-    message: diagnostic.message,
-    range: diagnostic.range ?? zeroRange(),
-    severity: toLspDiagnosticSeverity(diagnostic.severity),
-    source: diagnostic.source,
-  }
-}
-
-function toLspDiagnosticSeverity(severity: NativeUiDiagnostic['severity']): DiagnosticSeverity {
-  if (severity === 'error')
-    return DiagnosticSeverity.Error
-  if (severity === 'warning')
-    return DiagnosticSeverity.Warning
-  return DiagnosticSeverity.Information
 }
 
 function toNativeUiDiagnostic(diagnostic: {
@@ -245,15 +207,10 @@ function toNativeUiDiagnostic(diagnostic: {
   }
 }
 
-function zeroRange(): NativeUiRange {
+function documentEndPosition(source: string): NativeUiRange['end'] {
+  const lines = source.split(/\r?\n/)
   return {
-    start: {
-      character: 0,
-      line: 0,
-    },
-    end: {
-      character: 0,
-      line: 0,
-    },
+    line: Math.max(0, lines.length - 1),
+    character: lines.length > 0 ? lines[lines.length - 1].length : 0,
   }
 }
