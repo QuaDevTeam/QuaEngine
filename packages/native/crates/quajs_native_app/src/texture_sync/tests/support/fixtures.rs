@@ -18,7 +18,7 @@ use quajs_wgpu_renderer::stage_layout::{
     ViewLayoutOrientation,
 };
 
-use super::{RejectingAfterFirstAudioBackend, RejectingAudioBackend, TextureResidentBackend};
+use super::{RejectingAudioBackend, TextureResidentBackend};
 
 pub(crate) fn bundle(name: &str, runtime_package_id: Option<&str>) -> NativeMountedBundleInfo {
     NativeMountedBundleInfo {
@@ -99,20 +99,21 @@ pub(crate) fn renderer_with_rejecting_audio_after_audio_frame(
     NativeRenderer::with_state_and_audio_backend(state, backend, RejectingAudioBackend)
 }
 
-pub(crate) fn renderer_with_rejecting_audio_after_failed_audio_stop_frame(
+pub(crate) fn renderer_with_rejecting_audio_after_inactive_audio_frame(
     backend: TextureResidentBackend,
     package_id: &str,
-) -> NativeRenderer<TextureResidentBackend, RejectingAfterFirstAudioBackend> {
-    let mut renderer =
-        NativeRenderer::with_audio_backend(backend, RejectingAfterFirstAudioBackend::default());
-    renderer
+) -> NativeRenderer<TextureResidentBackend, RejectingAudioBackend> {
+    let mut renderer = NativeRenderer::with_audio_backend(backend, NullNativeAudioBackend::new());
+    let audio_update = renderer
         .prepare_frame_and_apply_audio(test_layout(), &view_with_audio_package(package_id))
         .expect("audio frame should seed backend tracks");
+    renderer.prepare_frame(test_layout(), &ViewProjection::default());
     renderer
-        .prepare_frame_and_apply_audio(test_layout(), &ViewProjection::default())
-        .expect_err("failed stop frame should preserve previous backend tracks");
+        .apply_audio_update(&audio_update)
+        .expect("inactive frame fixture should preserve active audio backend tracks");
     seed_audio_resource_records(&mut renderer, package_id);
-    renderer
+    let (state, backend, _) = renderer.into_parts_with_audio();
+    NativeRenderer::with_state_and_audio_backend(state, backend, RejectingAudioBackend)
 }
 
 fn view_with_audio_package(package_id: &str) -> ViewProjection {

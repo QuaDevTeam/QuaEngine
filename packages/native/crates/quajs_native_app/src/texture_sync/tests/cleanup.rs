@@ -12,7 +12,7 @@ use crate::texture_sync::{
 
 use super::support::{
     renderer_with_rejecting_audio_after_audio_frame,
-    renderer_with_rejecting_audio_after_failed_audio_stop_frame, TextureResidentBackend,
+    renderer_with_rejecting_audio_after_inactive_audio_frame, TextureResidentBackend,
 };
 
 #[test]
@@ -155,7 +155,7 @@ fn release_package_resources_with_host_texture_cleanup_respects_unload_blockers(
 
 #[test]
 fn release_package_resources_with_host_texture_cleanup_audio_failure_preserves_handles() {
-    let mut renderer = renderer_with_rejecting_audio_after_failed_audio_stop_frame(
+    let mut renderer = renderer_with_rejecting_audio_after_inactive_audio_frame(
         TextureResidentBackend {
             resident_resource_ids: vec!["images:runtime-menu.png".to_string()],
             ..Default::default()

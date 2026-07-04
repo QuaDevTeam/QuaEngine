@@ -22,10 +22,13 @@ pub use cleanup::{
 };
 #[allow(unused_imports)]
 pub use frame::{
-    render_frame_with_host_texture_lifecycle_sync, render_frame_with_host_texture_sync,
-    render_json_frame_with_host_texture_lifecycle_sync, render_json_frame_with_host_texture_sync,
-    NativeTextureJsonLifecycleFrameError, NativeTextureLifecycleFrameError,
-    NativeTextureLifecycleSyncedFrameResult, NativeTextureSyncedFrameResult,
+    render_frame_with_host_texture_lifecycle_sync,
+    render_frame_with_host_texture_lifecycle_sync_and_audio_teardown,
+    render_frame_with_host_texture_sync, render_json_frame_with_host_texture_lifecycle_sync,
+    render_json_frame_with_host_texture_lifecycle_sync_and_audio_teardown,
+    render_json_frame_with_host_texture_sync, NativeTextureJsonLifecycleFrameError,
+    NativeTextureLifecycleFrameError, NativeTextureLifecycleSyncedFrameResult,
+    NativeTextureSyncedFrameResult,
 };
 #[allow(unused_imports)]
 pub use host::sync_pending_texture_uploads_from_host;

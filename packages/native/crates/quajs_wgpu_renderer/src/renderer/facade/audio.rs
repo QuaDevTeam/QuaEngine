@@ -34,11 +34,10 @@ where
         layout: ResolvedStageLayout,
         view: &ViewProjection,
     ) -> Result<NativeRendererFrameUpdate, NativeAudioBackendError> {
-        let previous_audio_backend_tracks = self.state.audio_backend_tracks().clone();
+        let previous_state = self.state.clone();
         let update = self.prepare_frame(layout, view);
         if let Err(error) = self.apply_audio_update(&update) {
-            self.state
-                .replace_audio_backend_tracks(previous_audio_backend_tracks);
+            self.state = previous_state;
             return Err(error);
         }
         Ok(update)
@@ -49,20 +48,18 @@ where
         layout: ResolvedStageLayout,
         view: &ViewProjection,
     ) -> Result<NativeRendererFrameResult, NativeRendererFrameError> {
-        let previous_audio_backend_tracks = self.state.audio_backend_tracks().clone();
+        let previous_state = self.state.clone();
         let update = self.prepare_frame(layout, view);
         let submission = match self.render_frame() {
             Ok(submission) => submission,
             Err(error) => {
-                self.state
-                    .replace_audio_backend_tracks(previous_audio_backend_tracks);
+                self.state = previous_state;
                 return Err(error.into());
             }
         };
         let texture_upload_sync = self.texture_upload_sync_for_update(&update);
         if let Err(error) = self.apply_audio_update(&update) {
-            self.state
-                .replace_audio_backend_tracks(previous_audio_backend_tracks);
+            self.state = previous_state;
             return Err(error.into());
         }
 
