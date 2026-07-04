@@ -41,7 +41,7 @@ pub(super) fn surface_node_command(
                 intent,
             )
         }
-        UiSurfaceNodeKind::Button => button_node_command(overlay, node, command_id, bounds),
+        UiSurfaceNodeKind::Button => button_node_command(overlay, node, command_id, bounds)?,
         UiSurfaceNodeKind::Divider => surface_panel_node_command(
             node,
             command_id,
@@ -72,14 +72,14 @@ pub(super) fn surface_node_command(
             bounds,
             crate::render_graph::DrawCommandKind::Text,
             "ui-text",
-        ),
+        )?,
         UiSurfaceNodeKind::RichText => text_node_command(
             node,
             command_id,
             bounds,
             crate::render_graph::DrawCommandKind::RichText,
             "ui-rich-text",
-        ),
+        )?,
         UiSurfaceNodeKind::Image => image_node_command(node, command_id, bounds)?,
         UiSurfaceNodeKind::Panel => {
             let intent = node

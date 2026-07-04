@@ -1,3 +1,4 @@
+use crate::projection::safety::{is_safe_native_text_payload, is_safe_native_text_payload_bytes};
 use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
 use crate::render_graph::{FontWeightDrawParam, TextAlign};
 
@@ -18,6 +19,27 @@ pub fn rich_text_to_plain_text(content: &RichTextContent) -> String {
             })
             .collect::<Vec<_>>()
             .join("\n"),
+    }
+}
+
+pub fn is_safe_rich_text_payload(content: &RichTextContent) -> bool {
+    match content {
+        RichTextContent::Plain(text) => is_safe_native_text_payload(text),
+        RichTextContent::Document(document) => {
+            let mut total_bytes = 0usize;
+            for (block_index, block) in document.blocks.iter().enumerate() {
+                if block_index > 0 {
+                    total_bytes = total_bytes.saturating_add(1);
+                }
+                for span in &block.spans {
+                    if !is_safe_native_text_payload(&span.text) {
+                        return false;
+                    }
+                    total_bytes = total_bytes.saturating_add(span.text.len());
+                }
+            }
+            is_safe_native_text_payload_bytes(total_bytes)
+        }
     }
 }
 

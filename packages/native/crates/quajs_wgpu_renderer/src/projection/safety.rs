@@ -25,6 +25,7 @@ pub(crate) const MAX_NATIVE_UI_LOGICAL_COORDINATE: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_UI_LOGICAL_DIMENSION: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_UI_SCROLL_OFFSET: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_UI_STYLE_LOGICAL_VALUE: f64 = 1_000_000.0;
+pub(crate) const MAX_NATIVE_TEXT_PAYLOAD_BYTES: usize = 64 * 1024;
 
 pub(crate) fn is_safe_native_opacity(value: f32) -> bool {
     value.is_finite() && (0.0..=1.0).contains(&value)
@@ -147,6 +148,20 @@ pub(crate) fn is_safe_native_audio_memory(memory: &AudioTrackMemoryEstimate) -> 
     memory.buffer_cpu_bytes <= MAX_NATIVE_AUDIO_TRACK_CPU_BYTES
         && memory.stream_cpu_bytes <= MAX_NATIVE_AUDIO_TRACK_CPU_BYTES
         && memory.handle_cpu_bytes <= MAX_NATIVE_AUDIO_TRACK_CPU_BYTES
+}
+
+pub(crate) fn is_safe_native_text_payload(text: &str) -> bool {
+    is_safe_native_text_payload_bytes(text.len())
+        && !has_unsupported_native_text_control_character(text)
+}
+
+pub(crate) fn is_safe_native_text_payload_bytes(bytes: usize) -> bool {
+    bytes <= MAX_NATIVE_TEXT_PAYLOAD_BYTES
+}
+
+pub(crate) fn has_unsupported_native_text_control_character(text: &str) -> bool {
+    text.chars()
+        .any(|character| character.is_control() && !matches!(character, '\n' | '\r' | '\t'))
 }
 
 fn is_safe_optional_coordinate(value: Option<f64>, max_abs: f64) -> bool {

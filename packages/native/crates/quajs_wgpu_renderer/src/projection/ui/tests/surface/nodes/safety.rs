@@ -1,3 +1,4 @@
+use crate::projection::safety::MAX_NATIVE_TEXT_PAYLOAD_BYTES;
 use crate::projection::ui::{
     UiOverlaySceneProjection, UiOverlaySceneShellProjection, UiSurfaceBackgroundPositionProjection,
     UiSurfaceEdgeInsetsProjection,
@@ -90,6 +91,62 @@ fn skips_surface_nodes_with_unsafe_resolved_numbers() {
     assert_eq!(surface_command_count(&commands), 0);
     assert_eq!(commands.len(), 1);
     assert_eq!(commands[0].id, "ui:menu");
+}
+
+#[test]
+fn skips_surface_nodes_with_unsafe_text_payloads() {
+    let layout = test_layout();
+    let root = UiSurfaceNodeProjection::new(
+        "root",
+        UiSurfaceNodeKind::Fragment,
+        rect(0.0, 0.0, 0.0, 0.0),
+    )
+    .with_children(vec![
+        UiSurfaceNodeProjection::new(
+            "bad-text",
+            UiSurfaceNodeKind::Text,
+            rect(20.0, 24.0, 240.0, 40.0),
+        )
+        .with_text("Open\u{1b}Menu"),
+        UiSurfaceNodeProjection::new(
+            "bad-button",
+            UiSurfaceNodeKind::Button,
+            rect(20.0, 72.0, 240.0, 56.0),
+        )
+        .with_text("a".repeat(MAX_NATIVE_TEXT_PAYLOAD_BYTES + 1))
+        .with_intent(UiIntentProjection::new("bad-button")),
+        UiSurfaceNodeProjection::new(
+            "allowed-text",
+            UiSurfaceNodeKind::Text,
+            rect(20.0, 136.0, 320.0, 64.0),
+        )
+        .with_text("Line one\nLine two\tTabbed\rReturn"),
+    ]);
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(root)),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+
+    assert_eq!(surface_command_count(&commands), 1);
+    assert!(!commands
+        .iter()
+        .any(|command| command.id == "ui:menu:bad-text"));
+    assert!(!commands
+        .iter()
+        .any(|command| command.id == "ui:menu:bad-button"));
+
+    let allowed_text = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:allowed-text")
+        .unwrap();
+    match &allowed_text.params {
+        DrawCommandParams::Text(params) => {
+            assert_eq!(params.text, "Line one\nLine two\tTabbed\rReturn");
+        }
+        _ => panic!("expected allowed text params"),
+    }
 }
 
 #[test]

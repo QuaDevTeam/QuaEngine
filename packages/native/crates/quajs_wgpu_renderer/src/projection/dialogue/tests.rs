@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use super::*;
 use crate::projection::common::{FontFamilyProjection, FontWeightProjection, PackageProvenance};
+use crate::projection::safety::MAX_NATIVE_TEXT_PAYLOAD_BYTES;
 use crate::render_graph::{
     DrawCommandKind, DrawCommandParams, FontWeightDrawParam, RenderGraph, RenderPlane, TextAlign,
 };
@@ -103,6 +104,86 @@ fn skips_invisible_dialogue() {
     };
 
     assert!(build_dialogue_commands(&layout, &dialogue).is_empty());
+}
+
+#[test]
+fn skips_dialogue_with_unsafe_main_text_payload() {
+    let layout = test_layout();
+    let dialogue = DialogueProjection::say("Open\u{1b}Menu");
+
+    assert!(build_dialogue_commands(&layout, &dialogue).is_empty());
+}
+
+#[test]
+fn skips_dialogue_with_oversized_rich_text_aggregate() {
+    let layout = test_layout();
+    let dialogue = DialogueProjection {
+        text: RichTextContent::Document(RichTextDocumentProjection {
+            blocks: vec![
+                RichTextBlockProjection {
+                    spans: vec![RichTextSpanProjection {
+                        text: "a".repeat(MAX_NATIVE_TEXT_PAYLOAD_BYTES),
+                        style: RichTextStyle::default(),
+                    }],
+                },
+                RichTextBlockProjection {
+                    spans: vec![RichTextSpanProjection {
+                        text: "b".to_string(),
+                        style: RichTextStyle::default(),
+                    }],
+                },
+            ],
+            style: RichTextStyle::default(),
+        }),
+        ..DialogueProjection::say("")
+    };
+
+    assert!(build_dialogue_commands(&layout, &dialogue).is_empty());
+}
+
+#[test]
+fn skips_unsafe_speaker_but_keeps_safe_dialogue_text() {
+    let layout = test_layout();
+    let dialogue = DialogueProjection {
+        speaker: Some("Speaker\u{1b}".into()),
+        ..DialogueProjection::say("Safe dialogue")
+    };
+
+    let commands = build_dialogue_commands(&layout, &dialogue);
+
+    assert_eq!(commands.len(), 2);
+    assert!(commands
+        .iter()
+        .all(|command| command.id != "dialogue:speaker"));
+    let text = commands
+        .iter()
+        .find(|command| command.id == "dialogue:text")
+        .unwrap();
+    match &text.params {
+        DrawCommandParams::Text(params) => {
+            assert_eq!(params.text, "Safe dialogue");
+        }
+        _ => panic!("expected dialogue text params"),
+    }
+}
+
+#[test]
+fn keeps_allowed_multiline_dialogue_text() {
+    let layout = test_layout();
+    let dialogue = DialogueProjection::say("Line one\nLine two\tTabbed\rReturn");
+
+    let commands = build_dialogue_commands(&layout, &dialogue);
+
+    let text = commands
+        .iter()
+        .find(|command| command.id == "dialogue:text")
+        .unwrap();
+    match &text.params {
+        DrawCommandParams::Text(params) => {
+            assert_eq!(params.text, "Line one\nLine two\tTabbed\rReturn");
+        }
+        _ => panic!("expected dialogue text params"),
+    }
 }
 
 #[test]

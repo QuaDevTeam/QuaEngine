@@ -11,8 +11,9 @@ use crate::stage_layout::ResolvedStageLayout;
 
 use super::layout::{avatar_bounds, dialogue_panel_bounds, speaker_bounds, text_bounds};
 use super::rich_text::{
-    resolve_font_family, resolve_font_size, resolve_font_weight, resolve_line_height,
-    resolve_text_align, resolve_text_color, rich_text_style, rich_text_to_plain_text,
+    is_safe_rich_text_payload, resolve_font_family, resolve_font_size, resolve_font_weight,
+    resolve_line_height, resolve_text_align, resolve_text_color, rich_text_style,
+    rich_text_to_plain_text,
 };
 use super::types::{DialogueAvatarProjection, DialogueProjection, RichTextStyle};
 
@@ -24,7 +25,7 @@ pub fn build_dialogue_commands(
     layout: &ResolvedStageLayout,
     dialogue: &DialogueProjection,
 ) -> Vec<DrawCommand> {
-    if !dialogue.visible {
+    if !dialogue.visible || !is_safe_rich_text_payload(&dialogue.text) {
         return Vec::new();
     }
 
@@ -48,7 +49,12 @@ pub fn build_dialogue_commands(
         &dialogue.provenance,
     )];
 
-    if let Some(speaker) = &dialogue.speaker {
+    let render_speaker = dialogue
+        .speaker
+        .as_ref()
+        .filter(|speaker| is_safe_rich_text_payload(speaker));
+
+    if let Some(speaker) = render_speaker {
         commands.push(apply_provenance(
             text_command(
                 "dialogue:speaker",
@@ -69,7 +75,7 @@ pub fn build_dialogue_commands(
     commands.push(apply_provenance(
         text_command(
             "dialogue:text",
-            text_bounds(panel, dialogue.speaker.is_some()),
+            text_bounds(panel, render_speaker.is_some()),
             rich_text_to_plain_text(&dialogue.text),
             dialogue_text_style,
             "dialogue-text",

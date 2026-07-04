@@ -1,13 +1,15 @@
-const MAX_NATIVE_TEXT_PAYLOAD_BYTES: usize = 64 * 1024;
+use crate::projection::safety::{
+    has_unsupported_native_text_control_character, is_safe_native_text_payload_bytes,
+};
 
 pub(super) fn invalid_native_json_text_payload_reason(
     text: &str,
     noun: &str,
 ) -> Option<(String, String)> {
-    if text.len() > MAX_NATIVE_TEXT_PAYLOAD_BYTES {
+    if !is_safe_native_text_payload_bytes(text.len()) {
         return invalid_native_json_text_payload_bytes_reason(text.len(), noun);
     }
-    if text.chars().any(is_unsupported_control_character) {
+    if has_unsupported_native_text_control_character(text) {
         return Some((
             text.to_string(),
             format!("{noun} must not contain unsupported control characters"),
@@ -20,7 +22,7 @@ pub(super) fn invalid_native_json_text_payload_bytes_reason(
     bytes: usize,
     noun: &str,
 ) -> Option<(String, String)> {
-    if bytes > MAX_NATIVE_TEXT_PAYLOAD_BYTES {
+    if !is_safe_native_text_payload_bytes(bytes) {
         return Some((
             bytes.to_string(),
             format!("{noun} must stay within native renderer text payload limits"),
@@ -29,13 +31,10 @@ pub(super) fn invalid_native_json_text_payload_bytes_reason(
     None
 }
 
-fn is_unsupported_control_character(character: char) -> bool {
-    character.is_control() && !matches!(character, '\n' | '\r' | '\t')
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::projection::safety::MAX_NATIVE_TEXT_PAYLOAD_BYTES;
 
     #[test]
     fn text_payload_accepts_plain_multiline_text_at_native_limits() {
