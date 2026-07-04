@@ -21,15 +21,19 @@ import {
   cloneStoredBundle,
   matchesBundleForDeletion,
   matchesCriteria,
-  normalizeRoot,
 } from './storage-records'
 import {
   decodeNativeAssetStorageIndex,
   encodeNativeAssetStorageIndex,
 } from './storage-index'
+import {
+  createNativeAssetStoragePaths,
+  deleteNativeAssetStoragePrefix,
+  type NativeAssetStoragePaths,
+} from './storage-paths'
 
 export class NativeHostAssetStorage implements AssetStorage {
-  private readonly root: string
+  private readonly paths: NativeAssetStoragePaths
   private readonly now: () => number
   private assets = new Map<string, StoredAsset>()
   private bundles = new Map<string, StoredBundle>()
@@ -39,7 +43,7 @@ export class NativeHostAssetStorage implements AssetStorage {
     private readonly host: QuaNativeHostApi,
     options: { root?: string, now?: () => number } = {},
   ) {
-    this.root = normalizeRoot(options.root || 'qua-native-assets-cache')
+    this.paths = createNativeAssetStoragePaths(options.root)
     this.now = options.now || (() => Date.now())
   }
 
@@ -183,7 +187,7 @@ export class NativeHostAssetStorage implements AssetStorage {
   }
 
   async clearAll(): Promise<void> {
-    await this.deleteStoragePrefix(`${this.root}/`)
+    await deleteNativeAssetStoragePrefix(this.host, this.paths, this.assets.keys())
     this.assets.clear()
     this.bundles.clear()
   }
@@ -248,7 +252,7 @@ export class NativeHostAssetStorage implements AssetStorage {
   }
 
   private async loadIndex(): Promise<void> {
-    const data = await this.host.readStorage(this.indexPath())
+    const data = await this.host.readStorage(this.paths.indexPath())
     const index = decodeNativeAssetStorageIndex(data)
     this.assets = index.assets
     this.bundles = index.bundles
@@ -256,29 +260,12 @@ export class NativeHostAssetStorage implements AssetStorage {
 
   private async saveIndex(): Promise<void> {
     await this.host.writeStorage(
-      this.indexPath(),
+      this.paths.indexPath(),
       encodeNativeAssetStorageIndex(this.assets.values(), this.bundles.values()),
     )
   }
 
-  private async deleteStoragePrefix(prefix: string): Promise<void> {
-    if (this.host.listStorageKeys) {
-      const keys = await this.host.listStorageKeys(prefix)
-      await Promise.all(keys.map(key => this.host.deleteStorage(key)))
-      return
-    }
-
-    for (const assetId of Array.from(this.assets.keys())) {
-      await this.host.deleteStorage(this.assetPath(assetId))
-    }
-    await this.host.deleteStorage(this.indexPath())
-  }
-
-  private indexPath(): string {
-    return `${this.root}/index.json`
-  }
-
   private assetPath(id: string): string {
-    return `${this.root}/assets/${encodeURIComponent(id)}.bin`
+    return this.paths.assetPath(id)
   }
 }
