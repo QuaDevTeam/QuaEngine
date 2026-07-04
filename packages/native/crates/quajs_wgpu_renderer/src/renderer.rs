@@ -1,7 +1,7 @@
 pub mod backend;
 pub mod facade;
 pub mod json_input;
-mod json_validation;
+pub(crate) mod json_validation;
 pub mod metrics;
 pub mod resource_update;
 pub mod state;

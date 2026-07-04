@@ -5,6 +5,7 @@ use crate::renderer::json_input::NativeRendererJsonValidationError;
 
 use super::safe_strings::invalid_native_json_ui_dispatch_identifier_reason;
 use metadata::invalid_native_json_ui_intent_metadata_reason;
+pub(crate) use metadata::is_valid_native_ui_intent_metadata_payload;
 
 pub(super) fn validate_native_json_ui_intent_projection(
     path: &str,
