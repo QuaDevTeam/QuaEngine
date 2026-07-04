@@ -1,5 +1,8 @@
 use super::fixtures::*;
 use super::*;
+use crate::projection::background::BackgroundProjection;
+use crate::projection::common::PackageProvenance;
+use crate::projection::view::ViewProjection;
 
 #[test]
 fn binds_resolved_resource_records_for_backend_encoding() {
@@ -127,4 +130,63 @@ fn revalidates_resource_bindings_against_the_supplied_ledger() {
     );
     assert_eq!(plan.blocked_command_count, 2);
     assert_eq!(plan.drawable_command_count, submission.command_count - 2);
+}
+
+#[test]
+fn missing_resource_bindings_preserve_command_package_provenance() {
+    let frame = prepare_native_frame(
+        test_layout(),
+        &ViewProjection {
+            background: Some(BackgroundProjection {
+                asset_name: Some("bg/runtime.png".to_string()),
+                provenance: PackageProvenance {
+                    content_package_id: Some("runtime.background".to_string()),
+                    required_runtime_packages: ["base"]
+                        .into_iter()
+                        .map(ToString::to_string)
+                        .collect(),
+                },
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    );
+    let resources = empty_resource_ledger();
+    let submission = NativeRenderFrameRef {
+        revision: 26,
+        frame: &frame,
+        resources: &resources,
+    }
+    .submission();
+
+    let plan = NativeBackendDrawPlan::from_submission_and_resources(&submission, &resources);
+    let background = plan
+        .commands()
+        .find(|command| command.command_id == "background:main")
+        .unwrap();
+
+    assert_eq!(
+        background.resource_state,
+        NativeBackendDrawCommandResourceState::MissingResources
+    );
+    assert_eq!(
+        background.missing_resource_ids,
+        vec![ResourceId::from("images:bg/runtime.png")]
+    );
+    assert_eq!(background.resource_bindings.len(), 1);
+
+    let binding = &background.resource_bindings[0];
+    assert_eq!(
+        binding.state,
+        NativeBackendDrawResourceBindingState::Missing
+    );
+    assert_eq!(
+        binding.resource_id,
+        ResourceId::from("images:bg/runtime.png")
+    );
+    assert_eq!(
+        binding.owner_package_id.as_deref(),
+        Some("runtime.background")
+    );
+    assert!(binding.required_package_ids.contains("base"));
 }

@@ -22,9 +22,16 @@ impl NativeBackendDrawResourceBinding {
         resource_id: &ResourceId,
         resources: &NativeResourceLedger,
         command_kind: DrawCommandKind,
+        command_owner_package_id: Option<&String>,
+        command_required_package_ids: &BTreeSet<String>,
     ) -> Self {
         let Some(record) = resources.get(resource_id.clone()) else {
-            return Self::missing(resource_id.clone(), command_kind);
+            return Self::missing(
+                resource_id.clone(),
+                command_kind,
+                command_owner_package_id,
+                command_required_package_ids,
+            );
         };
 
         Self {
@@ -38,15 +45,20 @@ impl NativeBackendDrawResourceBinding {
         }
     }
 
-    fn missing(resource_id: ResourceId, command_kind: DrawCommandKind) -> Self {
+    fn missing(
+        resource_id: ResourceId,
+        command_kind: DrawCommandKind,
+        command_owner_package_id: Option<&String>,
+        command_required_package_ids: &BTreeSet<String>,
+    ) -> Self {
         let kind = infer_resource_kind(&resource_id, command_kind);
         Self {
             resource_id,
             state: NativeBackendDrawResourceBindingState::Missing,
             kind: Some(kind),
             memory: ResourceMemory::default(),
-            owner_package_id: None,
-            required_package_ids: BTreeSet::new(),
+            owner_package_id: command_owner_package_id.cloned(),
+            required_package_ids: command_required_package_ids.clone(),
             label: None,
         }
     }
