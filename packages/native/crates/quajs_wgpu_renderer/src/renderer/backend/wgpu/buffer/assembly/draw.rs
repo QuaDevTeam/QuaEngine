@@ -1,3 +1,7 @@
+use crate::resources::ResourceId;
+
+use crate::renderer::backend::NativeBackendEncoderSkipReason;
+
 use super::super::super::mesh::{WgpuNativeRenderPaint, WgpuNativeRenderQuad};
 use super::super::super::physical::WgpuPhysicalRect;
 use super::super::types::{
@@ -54,7 +58,7 @@ impl WgpuNativeRenderSkippedQuad {
             command_id: quad.command_id.clone(),
             reason: skipped_reason_from_quad(quad),
             physical_bounds: quad.physical_bounds,
-            resource_ids: quad.resource_ids.clone(),
+            resource_ids: skipped_resource_ids_from_quad(quad),
             owner_package_id: quad.owner_package_id.clone(),
             required_package_ids: quad.required_package_ids.clone(),
         }
@@ -62,6 +66,9 @@ impl WgpuNativeRenderSkippedQuad {
 }
 
 fn skipped_reason_from_quad(quad: &WgpuNativeRenderQuad) -> WgpuNativeRenderSkippedQuadReason {
+    if let WgpuNativeRenderPaint::Skipped { reason, .. } = &quad.paint {
+        return skipped_reason_from_encoder_reason(*reason);
+    }
     if quad.physical_bounds.is_empty() || quad.scissor.map_or(false, WgpuPhysicalRect::is_empty) {
         return WgpuNativeRenderSkippedQuadReason::EmptyBounds;
     }
@@ -72,4 +79,24 @@ fn skipped_reason_from_quad(quad: &WgpuNativeRenderQuad) -> WgpuNativeRenderSkip
         return WgpuNativeRenderSkippedQuadReason::InvalidPaint;
     }
     WgpuNativeRenderSkippedQuadReason::NonDrawablePaint
+}
+
+fn skipped_reason_from_encoder_reason(
+    reason: NativeBackendEncoderSkipReason,
+) -> WgpuNativeRenderSkippedQuadReason {
+    match reason {
+        NativeBackendEncoderSkipReason::MissingResources => {
+            WgpuNativeRenderSkippedQuadReason::MissingResources
+        }
+    }
+}
+
+fn skipped_resource_ids_from_quad(quad: &WgpuNativeRenderQuad) -> Vec<ResourceId> {
+    match &quad.paint {
+        WgpuNativeRenderPaint::Skipped {
+            missing_resource_ids,
+            ..
+        } if !missing_resource_ids.is_empty() => missing_resource_ids.clone(),
+        _ => quad.resource_ids.clone(),
+    }
 }

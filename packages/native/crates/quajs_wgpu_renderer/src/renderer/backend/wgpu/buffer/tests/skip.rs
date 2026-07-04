@@ -1,4 +1,5 @@
 use super::*;
+use crate::renderer::backend::NativeBackendEncoderSkipReason;
 
 #[test]
 fn skips_non_drawable_quads_without_emitting_buffer_ranges() {
@@ -76,4 +77,33 @@ fn skips_non_drawable_quads_without_emitting_buffer_ranges() {
         skipped[3].reason,
         WgpuNativeRenderSkippedQuadReason::Transparent
     );
+}
+
+#[test]
+fn preserves_encoder_skip_reason_and_missing_resources() {
+    let missing_resource_id = ResourceId::from("images:missing-panel.png");
+    let plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![quad(
+        "ui:missing-panel",
+        DrawBatchPipeline::Ui,
+        DrawCommandKind::Image,
+        WgpuNativeRenderPaint::Skipped {
+            reason: NativeBackendEncoderSkipReason::MissingResources,
+            missing_resource_ids: vec![missing_resource_id.clone()],
+        },
+        rect(0, 0, 0, 0),
+        vec![ResourceId::from("images:all-panel.png")],
+    )]));
+
+    assert_eq!(plan.vertex_count, 0);
+    assert_eq!(plan.index_count, 0);
+    assert_eq!(plan.draw_call_count, 0);
+    assert_eq!(plan.skipped_quad_count, 1);
+
+    let skipped = &plan.passes[0].skipped_quads[0];
+    assert_eq!(skipped.command_id, "ui:missing-panel");
+    assert_eq!(
+        skipped.reason,
+        WgpuNativeRenderSkippedQuadReason::MissingResources
+    );
+    assert_eq!(skipped.resource_ids, vec![missing_resource_id]);
 }

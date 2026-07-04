@@ -147,6 +147,38 @@ fn emits_resource_binds_and_skip_operations_without_uploading_empty_buffers() {
     );
 }
 
+#[test]
+fn emits_missing_resource_skip_operations() {
+    let missing_resource_id = ResourceId::from("images:missing-panel.png");
+    let plan = WgpuNativeRenderPassPlan::from_buffer_plan(&buffer_plan(
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        vec![WgpuNativeRenderSkippedQuad {
+            command_id: "ui:missing-panel".to_string(),
+            reason: WgpuNativeRenderSkippedQuadReason::MissingResources,
+            physical_bounds: rect(0, 0, 0, 0),
+            resource_ids: vec![missing_resource_id.clone()],
+            owner_package_id: Some("runtime.ui".to_string()),
+            required_package_ids: vec!["base".to_string()],
+        }],
+    ));
+
+    assert_eq!(plan.upload_operation_count, 0);
+    assert_eq!(plan.draw_indexed_operation_count, 0);
+    assert_eq!(plan.skipped_operation_count, 1);
+    assert_eq!(
+        plan.passes[0].operations[2],
+        WgpuNativeRenderPassOperation::SkipDraw {
+            command_id: "ui:missing-panel".to_string(),
+            reason: "missing-resources".to_string(),
+            resource_ids: vec![missing_resource_id],
+            owner_package_id: Some("runtime.ui".to_string()),
+            required_package_ids: vec!["base".to_string()],
+        }
+    );
+}
+
 fn buffer_plan(
     vertices: Vec<WgpuNativeRenderBufferVertex>,
     indices: Vec<u32>,
