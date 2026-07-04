@@ -37,6 +37,7 @@ impl WgpuNativeRenderPrimitive {
                 pipeline,
                 kind,
                 metadata,
+                physical_bounds,
                 reason,
                 missing_resource_ids,
             } => Some(Self::from_skip(
@@ -44,6 +45,7 @@ impl WgpuNativeRenderPrimitive {
                 *pipeline,
                 *kind,
                 metadata,
+                *physical_bounds,
                 *reason,
                 missing_resource_ids.clone(),
             )),
@@ -81,6 +83,7 @@ impl WgpuNativeRenderPrimitive {
         pipeline: DrawBatchPipeline,
         draw_kind: DrawCommandKind,
         metadata: &WgpuNativeRenderDrawMetadata,
+        physical_bounds: WgpuPhysicalRect,
         reason: NativeBackendEncoderSkipReason,
         missing_resource_ids: Vec<ResourceId>,
     ) -> Self {
@@ -93,7 +96,7 @@ impl WgpuNativeRenderPrimitive {
                 missing_resource_ids: missing_resource_ids.clone(),
             },
             logical_bounds: metadata.bounds,
-            physical_bounds: WgpuPhysicalRect::default(),
+            physical_bounds,
             scissor: None,
             opacity: metadata.opacity,
             owner_package_id: metadata.owner_package_id.clone(),

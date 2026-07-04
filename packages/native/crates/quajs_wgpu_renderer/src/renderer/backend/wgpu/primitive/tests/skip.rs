@@ -8,6 +8,7 @@ fn keeps_skipped_draws_as_non_visible_primitives() {
             pipeline: DrawBatchPipeline::Image,
             kind: DrawCommandKind::Image,
             metadata: draw_metadata(DrawCommandParams::None),
+            physical_bounds: physical_rect(10, 20, 120, 36),
             reason: NativeBackendEncoderSkipReason::MissingResources,
             missing_resource_ids: vec![ResourceId::from("images:bg/school.png")],
         },
@@ -19,7 +20,7 @@ fn keeps_skipped_draws_as_non_visible_primitives() {
 
     let primitive = &plan.passes[0].primitives[0];
     assert!(!primitive.is_visible());
-    assert_eq!(primitive.physical_bounds, WgpuPhysicalRect::default());
+    assert_eq!(primitive.physical_bounds, physical_rect(10, 20, 120, 36));
     assert!(matches!(
         &primitive.kind,
         WgpuNativeRenderPrimitiveKind::Skipped {

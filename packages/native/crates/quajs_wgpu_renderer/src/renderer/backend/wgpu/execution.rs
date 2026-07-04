@@ -157,6 +157,7 @@ pub enum WgpuNativeRenderExecutionOperation {
         pipeline: DrawBatchPipeline,
         kind: DrawCommandKind,
         metadata: WgpuNativeRenderDrawMetadata,
+        physical_bounds: WgpuPhysicalRect,
         reason: NativeBackendEncoderSkipReason,
         missing_resource_ids: Vec<ResourceId>,
     },
@@ -219,9 +220,13 @@ impl WgpuNativeRenderExecutionOperation {
                 pipeline: *pipeline,
                 kind: *kind,
                 metadata: WgpuNativeRenderDrawMetadata::from_command_metadata(metadata),
+                physical_bounds: physical_draw_rect(viewport, metadata.bounds),
                 reason: *reason,
                 missing_resource_ids: missing_resource_ids.clone(),
             },
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
