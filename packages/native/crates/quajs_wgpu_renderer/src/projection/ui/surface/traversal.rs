@@ -1,3 +1,4 @@
+use crate::projection::common::is_safe_native_dispatch_identifier;
 use crate::render_graph::{DrawCommand, DrawCommandKind, LogicalRect};
 
 use super::super::style::resolve_opacity;
@@ -18,7 +19,7 @@ pub(super) fn append_surface_node_commands(
     offset: SurfaceNodeOffset,
     inherited_opacity: f32,
 ) {
-    if !node.visible {
+    if !node.visible || !is_safe_native_dispatch_identifier(&node.id) {
         return;
     }
 

@@ -237,6 +237,32 @@ fn skips_unsafe_background_asset_types_on_direct_projection() {
 }
 
 #[test]
+fn skips_layers_with_unsafe_projection_ids_on_direct_projection() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        layers: vec![
+            BackgroundLayerProjection::new("safe.layer", "layers/safe.png"),
+            BackgroundLayerProjection::new("https://example.test/layer", "layers/url.png"),
+            BackgroundLayerProjection::new("native:layer", "layers/native.png"),
+            BackgroundLayerProjection::new("bad/layer", "layers/path.png"),
+            BackgroundLayerProjection::new("bad..layer", "layers/traversal.png"),
+            BackgroundLayerProjection::new("plugin.dll", "layers/payload.png"),
+        ],
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].id, "background:layer:safe.layer");
+    assert_eq!(
+        commands[0].resource_ids,
+        vec![ResourceId::from("images:layers/safe.png")]
+    );
+}
+
+#[test]
 fn builds_video_fallback_command_with_poster_resource() {
     let layout = test_layout();
     let background = BackgroundProjection {

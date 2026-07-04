@@ -135,6 +135,32 @@ pub(crate) fn is_safe_native_package_id(package_id: &str) -> bool {
         .all(|char| char.is_ascii_alphanumeric() || matches!(char, '.' | '-' | '_'))
 }
 
+pub(crate) fn is_safe_native_dispatch_identifier(value: &str) -> bool {
+    if value.trim().is_empty()
+        || value.trim() != value
+        || value.chars().any(char::is_control)
+        || has_forbidden_native_dispatch_uri_scheme(value)
+        || value.contains(['?', '#'])
+        || value.starts_with('/')
+    {
+        return false;
+    }
+
+    let normalized = value.replace('\\', "/");
+    if normalized.split('/').any(|segment| segment == "..")
+        || value.contains("..")
+        || value.contains(['/', '\\'])
+        || is_forbidden_native_payload_reference(value)
+        || !value.chars().any(|char| char.is_ascii_alphanumeric())
+    {
+        return false;
+    }
+
+    value
+        .chars()
+        .all(|char| char.is_ascii_alphanumeric() || matches!(char, '.' | '-' | '_' | ':'))
+}
+
 fn is_forbidden_native_payload_reference(asset_name: &str) -> bool {
     let normalized = strip_asset_reference_suffix(asset_name).to_ascii_lowercase();
     FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS.iter().any(|extension| {
@@ -162,6 +188,27 @@ fn has_uri_scheme(value: &str) -> bool {
                 char.is_ascii_alphanumeric() || matches!(char, '+' | '-' | '.')
             }
         })
+}
+
+fn has_forbidden_native_dispatch_uri_scheme(value: &str) -> bool {
+    let Some((scheme, _)) = value.split_once(':') else {
+        return false;
+    };
+
+    matches!(
+        scheme.to_ascii_lowercase().as_str(),
+        "http"
+            | "https"
+            | "file"
+            | "data"
+            | "blob"
+            | "javascript"
+            | "native"
+            | "shell"
+            | "ffi"
+            | "node"
+            | "wasm"
+    )
 }
 
 const FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS: [&str; 16] = [
@@ -242,6 +289,41 @@ mod tests {
             assert!(
                 !is_safe_native_package_id(package_id),
                 "package id should be unsafe: {package_id:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn validates_safe_native_dispatch_identifiers() {
+        assert!(is_safe_native_dispatch_identifier("base"));
+        assert!(is_safe_native_dispatch_identifier("runtime.ui-1"));
+        assert!(is_safe_native_dispatch_identifier("runtime_ui"));
+        assert!(is_safe_native_dispatch_identifier("choice:a"));
+
+        for identifier in [
+            "",
+            "   ",
+            " runtime.ui",
+            "runtime.ui ",
+            "runtime/ui",
+            "runtime\\ui",
+            "/runtime.ui",
+            "https://example.test/runtime.ui",
+            "native:open",
+            "shell:open",
+            "runtime.ui?rev=1",
+            "runtime.ui#hash",
+            "runtime..ui",
+            "../runtime.ui",
+            "runtime ui",
+            "runtime.ui\n",
+            "---",
+            "native.dll",
+            "plugin.framework",
+        ] {
+            assert!(
+                !is_safe_native_dispatch_identifier(identifier),
+                "dispatch identifier should be unsafe: {identifier:?}"
             );
         }
     }

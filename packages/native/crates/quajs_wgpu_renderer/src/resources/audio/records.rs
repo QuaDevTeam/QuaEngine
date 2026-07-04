@@ -1,7 +1,7 @@
 use crate::projection::audio::{
     AudioProjection, AudioTrackLoadMode, AudioTrackPlaybackState, AudioTrackProjection,
 };
-use crate::projection::common::is_safe_native_asset_ref;
+use crate::projection::common::{is_safe_native_asset_ref, is_safe_native_dispatch_identifier};
 
 use super::super::record::{NativeResourceKind, NativeResourceRecord, ResourceId};
 
@@ -28,6 +28,7 @@ pub(super) fn is_audio_resource_kind(kind: NativeResourceKind) -> bool {
 
 fn audio_track_resource_records(track: &AudioTrackProjection) -> Vec<NativeResourceRecord> {
     if matches!(track.playback_state, AudioTrackPlaybackState::Stopped)
+        || !is_safe_native_dispatch_identifier(&track.id)
         || !is_safe_native_asset_ref(&track.asset_type, &track.asset_name)
     {
         return Vec::new();

@@ -1,4 +1,4 @@
-use crate::projection::common::PackageProvenance;
+use crate::projection::common::{is_safe_native_dispatch_identifier, PackageProvenance};
 use crate::render_graph::{DrawCommand, LogicalRect, RendererIntent};
 
 use super::super::types::{UiIntentProjection, UiOverlayProjection, UiSurfaceNodeProjection};
@@ -22,14 +22,34 @@ pub(super) fn renderer_intent(
     overlay: &UiOverlayProjection,
     node: &UiSurfaceNodeProjection,
     intent: &UiIntentProjection,
-) -> RendererIntent {
-    RendererIntent {
+) -> Option<RendererIntent> {
+    let action = match intent.action.as_deref() {
+        Some(action) if is_safe_native_dispatch_identifier(action) => Some(action.to_string()),
+        Some(_) => return None,
+        None => None,
+    };
+    let choice_id = match intent.choice_id.as_deref() {
+        Some(choice_id) if is_safe_native_dispatch_identifier(choice_id) => {
+            Some(choice_id.to_string())
+        }
+        Some(_) => return None,
+        None if intent.event == "choice/select" => return None,
+        None => None,
+    };
+    let metadata = intent
+        .metadata
+        .iter()
+        .filter(|(key, _)| is_safe_native_dispatch_identifier(key))
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect();
+
+    Some(RendererIntent {
         event: intent.event.clone(),
-        choice_id: intent.choice_id.clone(),
+        choice_id,
         element_id: Some(format!("{}:{}", overlay.element_id, node.id)),
-        action: intent.action.clone(),
-        metadata: intent.metadata.clone(),
-    }
+        action,
+        metadata,
+    })
 }
 
 pub(super) fn node_rect(

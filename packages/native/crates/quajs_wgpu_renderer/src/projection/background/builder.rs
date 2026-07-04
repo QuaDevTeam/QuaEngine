@@ -1,5 +1,6 @@
 use crate::projection::common::{
-    is_safe_native_asset_name, is_safe_native_asset_type, PackageProvenance,
+    is_safe_native_asset_name, is_safe_native_asset_type, is_safe_native_dispatch_identifier,
+    PackageProvenance,
 };
 use crate::render_graph::{
     DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams, RenderGraph, RenderPlane,
@@ -34,7 +35,11 @@ pub fn build_background_commands(
         BackgroundMode::Layered => background
             .layers
             .iter()
-            .filter(|layer| layer.visible && is_safe_native_asset_name(&layer.asset_name))
+            .filter(|layer| {
+                layer.visible
+                    && is_safe_native_dispatch_identifier(&layer.id)
+                    && is_safe_native_asset_name(&layer.asset_name)
+            })
             .filter_map(|layer| background_layer_command(layout, layer))
             .collect(),
         BackgroundMode::Video => background

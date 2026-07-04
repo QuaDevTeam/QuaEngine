@@ -26,6 +26,11 @@ pub(super) fn button_node_command(
     bounds: LogicalRect,
 ) -> DrawCommand {
     let font_family = resolve_font_family(&node.style);
+    let intent = node
+        .intent
+        .as_ref()
+        .and_then(|intent| renderer_intent(overlay, node, intent));
+    let enabled = intent.is_some();
 
     DrawCommand::new(
         command_id,
@@ -33,11 +38,11 @@ pub(super) fn button_node_command(
         DrawCommandKind::UiSurface,
         bounds,
     )
-    .interactive(node.intent.is_some())
+    .interactive(enabled)
     .resources(font_family_resource_ids(&font_family))
     .params(DrawCommandParams::UiButton(UiButtonDrawParams {
         label: node.text.clone().unwrap_or_default(),
-        enabled: node.intent.is_some(),
+        enabled,
         role: "ui-button".to_string(),
         background_color: resolve_background_color(&node.style, "rgba(0,0,0,0.0)"),
         text_color: resolve_text_color(&node.style, "#ffffff"),
@@ -55,10 +60,7 @@ pub(super) fn button_node_command(
         text_transform: resolve_text_transform(&node.style),
         white_space: resolve_white_space(&node.style),
         padding: resolve_padding(&node.style),
-        intent: node
-            .intent
-            .as_ref()
-            .map(|intent| renderer_intent(overlay, node, intent)),
+        intent,
     }))
 }
 
