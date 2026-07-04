@@ -128,6 +128,8 @@ fn reports_memory_map_budget_violations() {
                 "base".to_string(),
                 0,
             )]),
+            max_fallbacks_by_owner_package: BTreeMap::from([("runtime.video".to_string(), 0)]),
+            max_fallbacks_by_required_package: BTreeMap::from([("base".to_string(), 0)]),
             ..Default::default()
         },
         &summary,
@@ -140,6 +142,8 @@ fn reports_memory_map_budget_violations() {
             .map(ToString::to_string)
             .collect::<Vec<_>>(),
         vec![
+            "fallbacksByOwnerPackage.runtime.video=1 exceeded max 0",
+            "fallbacksByRequiredPackage.base=1 exceeded max 0",
             "backend.skippedDrawsByReason.missingResources=1 exceeded max 0",
             "backend.skippedDrawsByOwnerPackage.runtime.ui=1 exceeded max 0",
             "backend.skippedDrawsByRequiredPackage.base=1 exceeded max 0",

@@ -179,6 +179,18 @@ fn check_backend_package_metrics(
 ) {
     check_usize_map(
         violations,
+        "fallbacksByOwnerPackage",
+        &summary.fallbacks_by_owner_package,
+        &budget.max_fallbacks_by_owner_package,
+    );
+    check_usize_map(
+        violations,
+        "fallbacksByRequiredPackage",
+        &summary.fallbacks_by_required_package,
+        &budget.max_fallbacks_by_required_package,
+    );
+    check_usize_map(
+        violations,
         "backend.skippedDrawsByReason",
         &summary.backend.skipped_draws_by_reason,
         &budget.max_backend_skipped_draws_by_reason,

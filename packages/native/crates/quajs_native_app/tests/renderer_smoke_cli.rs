@@ -187,8 +187,15 @@ fn binary_rejects_renderer_smoke_budget_violations() {
     let path = unique_frame_path("budget-fail");
     let budget_path = unique_budget_path("fail");
     std::fs::write(&path, smoke_video_frame_json()).expect("renderer smoke fixture writes");
-    std::fs::write(&budget_path, r#"{ "maxVideoFallbacks": 0 }"#)
-        .expect("renderer smoke budget fixture writes");
+    std::fs::write(
+        &budget_path,
+        r#"{
+          "maxVideoFallbacks": 0,
+          "maxFallbacksByOwnerPackage": { "runtime.video": 0 },
+          "maxFallbacksByRequiredPackage": { "base": 0 }
+        }"#,
+    )
+    .expect("renderer smoke budget fixture writes");
 
     let output = run_renderer_smoke_binary(&path, Some(&budget_path));
 
@@ -203,6 +210,8 @@ fn binary_rejects_renderer_smoke_budget_violations() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("Native renderer smoke budget exceeded"));
     assert!(stderr.contains("videoFallbackCount=1"));
+    assert!(stderr.contains("fallbacksByOwnerPackage.runtime.video=1"));
+    assert!(stderr.contains("fallbacksByRequiredPackage.base=1"));
     assert!(stderr.contains("exceeded max 0"));
 }
 
