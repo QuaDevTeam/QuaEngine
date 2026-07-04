@@ -125,6 +125,146 @@ fn applies_contain_media_fit_with_resolved_origin_to_image_vertices() {
 }
 
 #[test]
+fn applies_none_media_fit_without_scaling_source_rect() {
+    let mut image = primitive(
+        "ui:none-fit",
+        DrawBatchPipeline::Image,
+        DrawCommandKind::Image,
+        WgpuNativeRenderPrimitiveKind::Image {
+            asset_type: "images".to_string(),
+            asset_name: "badge.png".to_string(),
+            fit: MediaFit::None,
+            origin: MediaOrigin { x: 0.25, y: 0.75 },
+            source: LogicalRect {
+                x: 0.0,
+                y: 0.0,
+                width: 60.0,
+                height: 40.0,
+            },
+            rotation_degrees: 0.0,
+        },
+        physical_rect(0, 0, 200, 100),
+        vec![ResourceId::from("images:badge.png")],
+    );
+    image.logical_bounds = LogicalRect {
+        x: 0.0,
+        y: 0.0,
+        width: 200.0,
+        height: 100.0,
+    };
+    let plan = WgpuNativeRenderMeshPlan::from_primitive_plan(&primitive_plan(vec![image]));
+    let quad = &plan.passes[0].quads[0];
+
+    assert_eq!(quad.vertices, quad_vertices(35.0, 45.0, 60.0, 40.0));
+    assert_eq!(quad.scissor, None);
+}
+
+#[test]
+fn clips_none_media_fit_when_unscaled_source_overflows() {
+    let mut image = primitive(
+        "ui:none-overflow",
+        DrawBatchPipeline::Image,
+        DrawCommandKind::Image,
+        WgpuNativeRenderPrimitiveKind::Image {
+            asset_type: "images".to_string(),
+            asset_name: "wide.png".to_string(),
+            fit: MediaFit::None,
+            origin: MediaOrigin::default(),
+            source: LogicalRect {
+                x: 0.0,
+                y: 0.0,
+                width: 300.0,
+                height: 80.0,
+            },
+            rotation_degrees: 0.0,
+        },
+        physical_rect(0, 0, 200, 100),
+        vec![ResourceId::from("images:wide.png")],
+    );
+    image.logical_bounds = LogicalRect {
+        x: 0.0,
+        y: 0.0,
+        width: 200.0,
+        height: 100.0,
+    };
+    let plan = WgpuNativeRenderMeshPlan::from_primitive_plan(&primitive_plan(vec![image]));
+    let quad = &plan.passes[0].quads[0];
+
+    assert_eq!(quad.vertices, quad_vertices(-50.0, 10.0, 300.0, 80.0));
+    assert_eq!(quad.scissor, Some(physical_rect(0, 0, 200, 100)));
+}
+
+#[test]
+fn keeps_scale_down_media_fit_at_intrinsic_size_when_source_is_smaller() {
+    let mut image = primitive(
+        "ui:scale-down-small",
+        DrawBatchPipeline::Image,
+        DrawCommandKind::Image,
+        WgpuNativeRenderPrimitiveKind::Image {
+            asset_type: "images".to_string(),
+            asset_name: "thumbnail.png".to_string(),
+            fit: MediaFit::ScaleDown,
+            origin: MediaOrigin::default(),
+            source: LogicalRect {
+                x: 0.0,
+                y: 0.0,
+                width: 50.0,
+                height: 50.0,
+            },
+            rotation_degrees: 0.0,
+        },
+        physical_rect(0, 0, 200, 100),
+        vec![ResourceId::from("images:thumbnail.png")],
+    );
+    image.logical_bounds = LogicalRect {
+        x: 0.0,
+        y: 0.0,
+        width: 200.0,
+        height: 100.0,
+    };
+    let plan = WgpuNativeRenderMeshPlan::from_primitive_plan(&primitive_plan(vec![image]));
+    let quad = &plan.passes[0].quads[0];
+
+    assert_eq!(quad.vertices, quad_vertices(75.0, 25.0, 50.0, 50.0));
+    assert_eq!(quad.scissor, None);
+}
+
+#[test]
+fn downscales_scale_down_media_fit_to_contain_when_source_is_larger() {
+    let mut image = primitive(
+        "ui:scale-down-large",
+        DrawBatchPipeline::Image,
+        DrawCommandKind::Image,
+        WgpuNativeRenderPrimitiveKind::Image {
+            asset_type: "images".to_string(),
+            asset_name: "poster.png".to_string(),
+            fit: MediaFit::ScaleDown,
+            origin: MediaOrigin::default(),
+            source: LogicalRect {
+                x: 0.0,
+                y: 0.0,
+                width: 400.0,
+                height: 400.0,
+            },
+            rotation_degrees: 0.0,
+        },
+        physical_rect(0, 0, 200, 100),
+        vec![ResourceId::from("images:poster.png")],
+    );
+    image.logical_bounds = LogicalRect {
+        x: 0.0,
+        y: 0.0,
+        width: 200.0,
+        height: 100.0,
+    };
+    let plan = WgpuNativeRenderMeshPlan::from_primitive_plan(&primitive_plan(vec![image]));
+    let quad = &plan.passes[0].quads[0];
+
+    assert_eq!(quad.vertices, quad_vertices(50.0, 0.0, 100.0, 100.0));
+    assert_eq!(quad.scissor, None);
+}
+
+#[test]
 fn clips_cover_media_fit_to_the_command_bounds_when_it_overflows() {
     let mut image = primitive(
         "ui:cover",
