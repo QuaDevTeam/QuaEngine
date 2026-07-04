@@ -1,4 +1,5 @@
 use crate::projection::common::is_safe_native_asset_ref;
+use crate::projection::safety::is_safe_native_text_payload;
 use crate::projection::typography::font_family_resource_ids;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams,
@@ -24,7 +25,12 @@ pub(super) fn button_node_command(
     node: &UiSurfaceNodeProjection,
     command_id: String,
     bounds: LogicalRect,
-) -> DrawCommand {
+) -> Option<DrawCommand> {
+    let label = node.text.as_deref().unwrap_or_default();
+    if !is_safe_native_text_payload(label) {
+        return None;
+    }
+
     let font_family = resolve_font_family(&node.style);
     let intent = node
         .intent
@@ -32,36 +38,38 @@ pub(super) fn button_node_command(
         .and_then(|intent| renderer_intent(overlay, node, intent));
     let enabled = intent.is_some();
 
-    DrawCommand::new(
-        command_id,
-        RenderPlane::Screen,
-        DrawCommandKind::UiSurface,
-        bounds,
+    Some(
+        DrawCommand::new(
+            command_id,
+            RenderPlane::Screen,
+            DrawCommandKind::UiSurface,
+            bounds,
+        )
+        .interactive(enabled)
+        .resources(font_family_resource_ids(&font_family))
+        .params(DrawCommandParams::UiButton(UiButtonDrawParams {
+            label: label.to_string(),
+            enabled,
+            role: "ui-button".to_string(),
+            background_color: resolve_background_color(&node.style, "rgba(0,0,0,0.0)"),
+            text_color: resolve_text_color(&node.style, "#ffffff"),
+            corner_radius: resolve_border_radius(&node.style, 0.0),
+            border: surface_border_params(&node.style),
+            font_family,
+            font_size: resolve_font_size(&node.style, 28.0),
+            font_style: resolve_font_style(&node.style),
+            font_weight: resolve_font_weight(&node.style),
+            letter_spacing: resolve_letter_spacing(&node.style),
+            line_height: resolve_line_height(&node.style, 36.0),
+            align: resolve_text_align(&node.style, TextAlign::Center),
+            text_decoration: resolve_text_decoration(&node.style),
+            text_overflow: resolve_text_overflow(&node.style),
+            text_transform: resolve_text_transform(&node.style),
+            white_space: resolve_white_space(&node.style),
+            padding: resolve_padding(&node.style),
+            intent,
+        })),
     )
-    .interactive(enabled)
-    .resources(font_family_resource_ids(&font_family))
-    .params(DrawCommandParams::UiButton(UiButtonDrawParams {
-        label: node.text.clone().unwrap_or_default(),
-        enabled,
-        role: "ui-button".to_string(),
-        background_color: resolve_background_color(&node.style, "rgba(0,0,0,0.0)"),
-        text_color: resolve_text_color(&node.style, "#ffffff"),
-        corner_radius: resolve_border_radius(&node.style, 0.0),
-        border: surface_border_params(&node.style),
-        font_family,
-        font_size: resolve_font_size(&node.style, 28.0),
-        font_style: resolve_font_style(&node.style),
-        font_weight: resolve_font_weight(&node.style),
-        letter_spacing: resolve_letter_spacing(&node.style),
-        line_height: resolve_line_height(&node.style, 36.0),
-        align: resolve_text_align(&node.style, TextAlign::Center),
-        text_decoration: resolve_text_decoration(&node.style),
-        text_overflow: resolve_text_overflow(&node.style),
-        text_transform: resolve_text_transform(&node.style),
-        white_space: resolve_white_space(&node.style),
-        padding: resolve_padding(&node.style),
-        intent,
-    }))
 }
 
 pub(super) fn text_node_command(
@@ -70,28 +78,35 @@ pub(super) fn text_node_command(
     bounds: LogicalRect,
     kind: DrawCommandKind,
     role: &str,
-) -> DrawCommand {
+) -> Option<DrawCommand> {
+    let text = node.text.as_deref().unwrap_or_default();
+    if !is_safe_native_text_payload(text) {
+        return None;
+    }
+
     let font_family = resolve_font_family(&node.style);
 
-    DrawCommand::new(command_id, RenderPlane::Screen, kind, bounds)
-        .resources(font_family_resource_ids(&font_family))
-        .params(DrawCommandParams::Text(TextDrawParams {
-            text: node.text.clone().unwrap_or_default(),
-            font_family,
-            font_size: resolve_font_size(&node.style, 28.0),
-            font_style: resolve_font_style(&node.style),
-            font_weight: resolve_font_weight(&node.style),
-            letter_spacing: resolve_letter_spacing(&node.style),
-            line_height: resolve_line_height(&node.style, 36.0),
-            align: resolve_text_align(&node.style, TextAlign::Left),
-            text_decoration: resolve_text_decoration(&node.style),
-            text_overflow: resolve_text_overflow(&node.style),
-            text_transform: resolve_text_transform(&node.style),
-            white_space: resolve_white_space(&node.style),
-            color: resolve_text_color(&node.style, "#ffffff"),
-            padding: resolve_padding(&node.style),
-            role: role.to_string(),
-        }))
+    Some(
+        DrawCommand::new(command_id, RenderPlane::Screen, kind, bounds)
+            .resources(font_family_resource_ids(&font_family))
+            .params(DrawCommandParams::Text(TextDrawParams {
+                text: text.to_string(),
+                font_family,
+                font_size: resolve_font_size(&node.style, 28.0),
+                font_style: resolve_font_style(&node.style),
+                font_weight: resolve_font_weight(&node.style),
+                letter_spacing: resolve_letter_spacing(&node.style),
+                line_height: resolve_line_height(&node.style, 36.0),
+                align: resolve_text_align(&node.style, TextAlign::Left),
+                text_decoration: resolve_text_decoration(&node.style),
+                text_overflow: resolve_text_overflow(&node.style),
+                text_transform: resolve_text_transform(&node.style),
+                white_space: resolve_white_space(&node.style),
+                color: resolve_text_color(&node.style, "#ffffff"),
+                padding: resolve_padding(&node.style),
+                role: role.to_string(),
+            })),
+    )
 }
 
 pub(super) fn image_node_command(
