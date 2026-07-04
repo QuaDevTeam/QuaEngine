@@ -1,13 +1,19 @@
+use quajs_wgpu_renderer::audio::NativeAudioBackendError;
 use quajs_wgpu_renderer::renderer::{NativeRenderer, NativeRendererHostCleanupRecord};
 use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
 
 use crate::texture_sync::{
     clear_renderer_with_host_texture_cleanup,
     clear_renderer_with_host_texture_cleanup_and_audio_teardown,
-    release_package_resources_with_host_texture_cleanup, sync_texture_releases_from_host_cleanup,
+    release_package_resources_with_host_texture_cleanup,
+    release_package_resources_with_host_texture_cleanup_and_audio_teardown,
+    sync_texture_releases_from_host_cleanup,
 };
 
-use super::support::TextureResidentBackend;
+use super::support::{
+    renderer_with_rejecting_audio_after_audio_frame,
+    renderer_with_rejecting_audio_after_failed_audio_stop_frame, TextureResidentBackend,
+};
 
 #[test]
 fn syncs_texture_releases_from_mixed_host_cleanup_records() {
@@ -148,6 +154,49 @@ fn release_package_resources_with_host_texture_cleanup_respects_unload_blockers(
 }
 
 #[test]
+fn release_package_resources_with_host_texture_cleanup_audio_failure_preserves_handles() {
+    let mut renderer = renderer_with_rejecting_audio_after_failed_audio_stop_frame(
+        TextureResidentBackend {
+            resident_resource_ids: vec!["images:runtime-menu.png".to_string()],
+            ..Default::default()
+        },
+        "runtime.menu",
+    );
+    renderer.state_mut().resources_mut().insert(
+        NativeResourceRecord::new("images:runtime-menu.png", NativeResourceKind::Texture)
+            .owned_by("runtime.menu"),
+    );
+
+    let error = release_package_resources_with_host_texture_cleanup_and_audio_teardown(
+        &mut renderer,
+        "runtime.menu",
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        error,
+        NativeAudioBackendError::backend_rejected("test audio backend rejected plan")
+    );
+    assert!(renderer
+        .resources()
+        .get(ResourceId::from("images:runtime-menu.png"))
+        .is_some());
+    assert!(renderer
+        .resources()
+        .get(ResourceId::from("audio:buffer:bgm:bgm:music/opening.ogg"))
+        .is_some());
+    assert!(renderer
+        .state()
+        .audio_backend_tracks()
+        .contains_key("bgm-main"));
+    assert_eq!(
+        renderer.backend().resident_resource_ids,
+        vec!["images:runtime-menu.png"]
+    );
+    assert!(renderer.backend().released_resource_ids.is_empty());
+}
+
+#[test]
 fn clear_renderer_with_host_texture_cleanup_releases_texture_handles() {
     let mut renderer = NativeRenderer::new(TextureResidentBackend {
         resident_resource_ids: vec![
@@ -194,6 +243,41 @@ fn clear_renderer_with_host_texture_cleanup_releases_texture_handles() {
     );
     assert!(renderer.resources().is_empty());
     assert!(renderer.backend().resident_resource_ids.is_empty());
+}
+
+#[test]
+fn clear_renderer_with_host_texture_cleanup_audio_failure_preserves_handles() {
+    let mut renderer = renderer_with_rejecting_audio_after_audio_frame(
+        TextureResidentBackend {
+            resident_resource_ids: vec!["images:bg.png".to_string()],
+            ..Default::default()
+        },
+        "runtime.audio",
+    );
+    renderer.state_mut().resources_mut().insert(
+        NativeResourceRecord::new("images:bg.png", NativeResourceKind::Texture).owned_by("base"),
+    );
+
+    let error = clear_renderer_with_host_texture_cleanup_and_audio_teardown(&mut renderer)
+        .expect_err("audio teardown failure should stop host texture cleanup");
+
+    assert_eq!(
+        error,
+        NativeAudioBackendError::backend_rejected("test audio backend rejected plan")
+    );
+    assert!(renderer
+        .resources()
+        .get(ResourceId::from("images:bg.png"))
+        .is_some());
+    assert!(renderer
+        .state()
+        .audio_backend_tracks()
+        .contains_key("bgm-main"));
+    assert_eq!(
+        renderer.backend().resident_resource_ids,
+        vec!["images:bg.png"]
+    );
+    assert!(renderer.backend().released_resource_ids.is_empty());
 }
 
 #[test]
