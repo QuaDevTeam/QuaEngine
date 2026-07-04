@@ -1,19 +1,22 @@
-use std::collections::BTreeSet;
-
 use crate::render_graph::{
-    DrawBatchPipeline, DrawCommandKind, DrawCommandParams, LogicalRect, RenderPlane, RenderViewport,
+    DrawBatchPipeline, DrawCommandKind, LogicalRect, RenderPlane, RenderViewport,
 };
-use crate::resources::{NativeResourceKind, ResourceId, ResourceMemory};
+use crate::resources::ResourceId;
 
 use super::super::{
     NativeBackendCommandStreamCommand, NativeBackendCommandStreamPass,
-    NativeBackendCommandStreamPlan, NativeBackendCommandStreamResource,
-    NativeBackendCommandStreamValidationReport, NativeBackendDrawCommandMetadata,
+    NativeBackendCommandStreamPlan, NativeBackendCommandStreamValidationReport,
     NativeBackendEncoderSkipReason,
 };
 use super::physical::{
     physical_draw_rect, physical_scissor_rect, physical_viewport_rect, WgpuPhysicalRect,
 };
+
+mod metadata;
+mod resource;
+
+pub use metadata::WgpuNativeRenderDrawMetadata;
+pub use resource::WgpuNativeRenderOperationBoundResource;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct WgpuNativeRenderExecutionPlan {
@@ -219,50 +222,6 @@ impl WgpuNativeRenderExecutionOperation {
                 reason: *reason,
                 missing_resource_ids: missing_resource_ids.clone(),
             },
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct WgpuNativeRenderDrawMetadata {
-    pub bounds: LogicalRect,
-    pub opacity: f32,
-    pub params: DrawCommandParams,
-    pub owner_package_id: Option<String>,
-    pub required_package_ids: BTreeSet<String>,
-}
-
-impl WgpuNativeRenderDrawMetadata {
-    fn from_command_metadata(metadata: &NativeBackendDrawCommandMetadata) -> Self {
-        Self {
-            bounds: metadata.bounds,
-            opacity: metadata.opacity,
-            params: metadata.params.clone(),
-            owner_package_id: metadata.owner_package_id.clone(),
-            required_package_ids: metadata.required_package_ids.clone(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct WgpuNativeRenderOperationBoundResource {
-    pub resource_id: ResourceId,
-    pub kind: NativeResourceKind,
-    pub memory: ResourceMemory,
-    pub owner_package_id: Option<String>,
-    pub required_package_ids: Vec<String>,
-    pub label: Option<String>,
-}
-
-impl WgpuNativeRenderOperationBoundResource {
-    fn from_command_stream_resource(resource: &NativeBackendCommandStreamResource) -> Self {
-        Self {
-            resource_id: resource.resource_id.clone(),
-            kind: resource.kind,
-            memory: resource.memory,
-            owner_package_id: resource.owner_package_id.clone(),
-            required_package_ids: resource.required_package_ids.iter().cloned().collect(),
-            label: resource.label.clone(),
         }
     }
 }
