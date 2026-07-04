@@ -1,3 +1,4 @@
+use crate::projection::common::is_non_empty_asset_name;
 use crate::render_graph::{
     CharacterDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, RenderGraph, RenderPlane,
 };
@@ -27,6 +28,10 @@ fn character_command(
     character: &CharacterProjection,
 ) -> Option<DrawCommand> {
     let sprite_asset_name = character.sprite.as_ref()?;
+    if !is_non_empty_asset_name(sprite_asset_name) {
+        return None;
+    }
+
     let bounds = resolve_character_bounds(layout, &character.position);
     let anchor = resolve_character_anchor(&character.position);
     let scale = character

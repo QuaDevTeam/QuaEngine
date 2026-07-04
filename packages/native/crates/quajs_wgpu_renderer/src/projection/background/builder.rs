@@ -1,4 +1,4 @@
-use crate::projection::common::PackageProvenance;
+use crate::projection::common::{is_non_empty_asset_name, PackageProvenance};
 use crate::render_graph::{
     DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams, RenderGraph, RenderPlane,
     VideoDrawParams,
@@ -163,8 +163,4 @@ fn apply_provenance(mut command: DrawCommand, provenance: &PackageProvenance) ->
 
 fn background_resource_id(asset_type: &str, asset_name: &str) -> ResourceId {
     ResourceId::new(format!("{asset_type}:{asset_name}"))
-}
-
-fn is_non_empty_asset_name(asset_name: &str) -> bool {
-    !asset_name.trim().is_empty()
 }

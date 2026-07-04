@@ -58,13 +58,30 @@ fn builds_visible_character_commands_on_subject_plane() {
 fn skips_hidden_or_missing_sprite_characters() {
     let layout = test_layout();
     let visible_without_sprite = CharacterProjection::new("empty", "Empty");
+    let empty_sprite = CharacterProjection {
+        sprite: Some("".to_string()),
+        ..CharacterProjection::new("empty-sprite", "Empty Sprite")
+    };
+    let whitespace_sprite = CharacterProjection {
+        sprite: Some("  ".to_string()),
+        ..CharacterProjection::new("whitespace-sprite", "Whitespace Sprite")
+    };
     let hidden = CharacterProjection {
         visible: false,
         sprite: Some("hidden.png".to_string()),
         ..CharacterProjection::new("hidden", "Hidden")
     };
 
-    assert!(build_character_commands(&layout, &[visible_without_sprite, hidden]).is_empty());
+    assert!(build_character_commands(
+        &layout,
+        &[
+            visible_without_sprite,
+            empty_sprite,
+            whitespace_sprite,
+            hidden
+        ],
+    )
+    .is_empty());
 }
 
 #[test]
