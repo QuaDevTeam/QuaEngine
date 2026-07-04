@@ -44,6 +44,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQssFeatureNames()).toContain('padding-left')
     expect(nativeWgpuQssFeatureNames()).toContain('padding-right')
     expect(nativeWgpuQssFeatureNames()).toContain('padding-top')
+    expect(nativeWgpuQssFeatureNames()).toContain('position')
     expect(nativeWgpuQssFeatureNames()).toContain('right')
     expect(nativeWgpuQssFeatureNames()).toContain('row-gap')
     expect(nativeWgpuQssFeatureNames()).toContain('column-gap')
@@ -107,6 +108,7 @@ Button:nth-child(2) {
     const gap = 'Row { gap:  }'
     const margin = 'Button { margin:  }'
     const objectFit = 'Image { object-fit:  }'
+    const position = 'Button { position:  }'
     const textAlign = 'Text { text-align:  }'
     const textOverflow = 'Text { text-overflow:  }'
     const textTransform = 'Text { text-transform:  }'
@@ -130,6 +132,8 @@ Button:nth-child(2) {
       .toEqual(expect.arrayContaining(['8px', '12px', '16px']))
     expect(getNativeUiCompletions(objectFit, objectFit.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
       .toEqual(expect.arrayContaining(['cover', 'contain', 'scale-down']))
+    expect(getNativeUiCompletions(position, position.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
+      .toEqual(expect.arrayContaining(['relative', 'absolute']))
     expect(getNativeUiCompletions(textAlign, textAlign.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
       .toEqual(expect.arrayContaining(['left', 'center', 'right', 'justify']))
     expect(getNativeUiCompletions(textOverflow, textOverflow.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))

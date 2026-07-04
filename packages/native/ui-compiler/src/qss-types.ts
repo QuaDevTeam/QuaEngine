@@ -92,6 +92,10 @@ export type NativeQssBorderStyleValue
   = | 'none'
     | 'solid'
 
+export type NativeQssPositionValue
+  = | 'absolute'
+    | 'relative'
+
 export interface NativeQssBackgroundImageValue {
   assetType: string
   assetName: string
@@ -112,6 +116,7 @@ export interface NativeQssEdgeInsetsValue {
 export interface NativeQssResolvedLayout {
   columnGap?: number
   margin?: NativeQssEdgeInsetsValue
+  position?: NativeQssPositionValue
   rowGap?: number
 }
 

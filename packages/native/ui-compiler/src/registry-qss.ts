@@ -70,7 +70,10 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('display', 'p1', true, 'Native visibility fallback subset; only display: none is currently supported.', [
     value('none', 'Hide the node and its children when no QUI show prop overrides it.'),
   ]),
-  property('position', 'p1', false, 'Relative or absolute positioning planned for native layout IR.'),
+  property('position', 'p1', true, 'Static native structural layout positioning subset.', [
+    value('relative', 'Participate in Row / Column / Grid structural flow.'),
+    value('absolute', 'Use resolved bounds relative to the structural parent without advancing flow.'),
+  ]),
   property('inset', 'p1', true, 'Static logical inset shorthand used to derive native surface bounds when parent bounds are known.'),
   property('left', 'p1', true, 'Resolved logical x coordinate for static native surface bounds.'),
   property('right', 'p1', true, 'Static right logical inset used to derive x when parent bounds and width are known.'),

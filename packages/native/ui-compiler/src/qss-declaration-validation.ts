@@ -22,6 +22,7 @@ import {
   parseNativeQssObjectFit,
   parseNativeQssOpacity,
   parseNativeQssOverflow,
+  parseNativeQssPosition,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
   parseNativeQssTextOverflow,
@@ -189,6 +190,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssEdgeInsets(value) !== undefined
         ? undefined
         : 'padding supports one to four non-negative logical px or unitless numbers.'
+    case 'position':
+      return parseNativeQssPosition(value) !== undefined
+        ? undefined
+        : 'position supports relative or absolute in native QSS static layout.'
     case 'padding-bottom':
     case 'padding-left':
     case 'padding-right':

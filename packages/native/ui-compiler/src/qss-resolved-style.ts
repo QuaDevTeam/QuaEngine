@@ -29,6 +29,7 @@ import {
   parseNativeQssObjectFit,
   parseNativeQssOpacity,
   parseNativeQssOverflow,
+  parseNativeQssPosition,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
   parseNativeQssTextOverflow,
@@ -55,6 +56,7 @@ export {
   parseNativeQssObjectFit,
   parseNativeQssOpacity,
   parseNativeQssOverflow,
+  parseNativeQssPosition,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
   parseNativeQssTextOverflow,
@@ -185,6 +187,12 @@ export function resolveNativeQssDeclarations(
         break
       case 'padding-top':
         resolved.style.padding = resolveNativeQssEdgeInset(resolved.style.padding, 'top', value)
+        break
+      case 'position':
+        resolved.layout = {
+          ...resolved.layout,
+          position: parseNativeQssPosition(value),
+        }
         break
       case 'column-gap':
         resolved.layout = resolveNativeQssLayoutGap(resolved.layout, 'columnGap', value)

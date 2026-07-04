@@ -417,4 +417,64 @@ Image.tile {
       },
     })
   })
+
+  it('keeps absolute positioned structural children out of Row flow', () => {
+    const qui = analyzeQuiSource(`
+Panel(id: "root", width: 360, height: 120) {
+  Row.toolbar(id: "toolbar", x: 20, y: 20, width: 300, height: 60) {
+    Button.left(id: "left", label: "Left", width: 80, height: 30)
+    Button.float(id: "float", label: "Float", width: 50, height: 20)
+    Button.right(id: "right", label: "Right", width: 70, height: 30)
+  }
+}
+`)
+    const qss = analyzeQssSource(`
+Row.toolbar {
+  gap: 10px;
+}
+Button.float {
+  position: absolute;
+  left: 200px;
+  top: 5px;
+  margin-left: 3px;
+}
+`)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(qss.diagnostics).toEqual([])
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+      root: {
+        id: 'root',
+        kind: 'Panel',
+        bounds: { x: 0, y: 0, width: 360, height: 120 },
+        children: [
+          {
+            id: 'toolbar',
+            kind: 'Row',
+            bounds: { x: 20, y: 20, width: 300, height: 60 },
+            children: [
+              {
+                id: 'left',
+                kind: 'Button',
+                bounds: { x: 20, y: 20, width: 80, height: 30 },
+                text: 'Left',
+              },
+              {
+                id: 'float',
+                kind: 'Button',
+                bounds: { x: 223, y: 25, width: 50, height: 20 },
+                text: 'Float',
+              },
+              {
+                id: 'right',
+                kind: 'Button',
+                bounds: { x: 110, y: 20, width: 70, height: 30 },
+                text: 'Right',
+              },
+            ],
+          },
+        ],
+      },
+    })
+  })
 })

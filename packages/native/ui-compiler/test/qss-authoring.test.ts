@@ -10,7 +10,7 @@ describe('@quajs/native-ui-compiler QSS authoring', () => {
 Panel::part(header), Button.primary:hover {
   background-color: #10141f;
   padding: 12px;
-  position: absolute;
+  box-sizing: border-box;
   margin: 10vw;
 }
 `)
@@ -42,6 +42,37 @@ Layer {
 
     expect(document.diagnostics).toEqual([])
     expect(document.rules[0].declarations.map(item => item.name)).toContain('z-index')
+  })
+
+  it('resolves position declarations into compiler-only layout metadata', () => {
+    const document = analyzeQssSource(`
+Button {
+  position: absolute;
+}
+`)
+
+    expect(document.diagnostics).toEqual([])
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
+      layout: {
+        position: 'absolute',
+      },
+      style: {},
+    })
+  })
+
+  it('diagnoses invalid position declarations before projection', () => {
+    const document = analyzeQssSource(`
+Button {
+  position: fixed;
+}
+`)
+
+    expect(document.diagnostics).toEqual([
+      expect.objectContaining({ code: 'QSS_INVALID_VALUE' }),
+    ])
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
+      style: {},
+    })
   })
 
   it('resolves margin declarations into compiler-only layout metadata', () => {

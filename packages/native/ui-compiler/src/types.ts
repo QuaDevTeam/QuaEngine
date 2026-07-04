@@ -158,6 +158,7 @@ export type {
   NativeQssObjectFitValue,
   NativeQssPropertyDefinition,
   NativeQssPropertyValueDefinition,
+  NativeQssPositionValue,
   NativeQssResolvedBounds,
   NativeQssResolvedLayout,
   NativeQssResolvedNodeStyle,
