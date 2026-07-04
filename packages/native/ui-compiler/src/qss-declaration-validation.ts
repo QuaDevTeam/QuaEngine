@@ -5,6 +5,7 @@ import type {
 } from './types'
 import { findNativeQssProperty } from './registry'
 import {
+  parseNativeQssAlignItems,
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
   parseNativeQssBorderStyle,
@@ -17,6 +18,7 @@ import {
   parseNativeQssFontWeight,
   parseNativeQssGap,
   parseNativeQssInteger,
+  parseNativeQssJustifyContent,
   parseNativeQssLetterSpacing,
   parseNativeQssLogicalNumber,
   parseNativeQssObjectFit,
@@ -100,6 +102,10 @@ export function validateDeclaration(
 function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): string | undefined {
   const value = declaration.value.trim()
   switch (declaration.name) {
+    case 'align-items':
+      return parseNativeQssAlignItems(value)
+        ? undefined
+        : 'align-items supports flex-start, center, or flex-end.'
     case 'background-color':
     case 'border-color':
     case 'color':
@@ -149,6 +155,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssEdgeInsets(value) !== undefined
         ? undefined
         : 'inset supports one to four non-negative logical px or unitless numbers.'
+    case 'justify-content':
+      return parseNativeQssJustifyContent(value)
+        ? undefined
+        : 'justify-content supports flex-start, center, flex-end, space-between, space-around, or space-evenly.'
     case 'margin':
       return parseNativeQssEdgeInsets(value) !== undefined
         ? undefined

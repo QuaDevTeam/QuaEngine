@@ -62,6 +62,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             ],
             &["data", "images", "fonts", "qui", "qss", "tokens"],
             &[
+                "align-items",
                 "background-color",
                 "background-image",
                 "background-position",
@@ -84,6 +85,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "height",
                 "left",
                 "line-height",
+                "justify-content",
                 "margin",
                 "margin-bottom",
                 "margin-left",
