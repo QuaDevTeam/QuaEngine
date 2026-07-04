@@ -1,3 +1,4 @@
+use crate::projection::common::is_safe_native_asset_ref;
 use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
 use crate::render_graph::{
     EdgeInsetsDrawParam, FontStyleDrawParam, FontWeightDrawParam, MediaFit, MediaOrigin, TextAlign,
@@ -26,7 +27,7 @@ pub fn resolve_background_image(
     style
         .background_image
         .as_ref()
-        .filter(|image| !image.asset_type.trim().is_empty() && !image.asset_name.trim().is_empty())
+        .filter(|image| is_safe_native_asset_ref(&image.asset_type, &image.asset_name))
 }
 
 pub fn resolve_background_size(style: &UiSurfaceResolvedStyle, fallback: MediaFit) -> MediaFit {

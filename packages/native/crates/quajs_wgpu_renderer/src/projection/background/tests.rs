@@ -162,6 +162,45 @@ fn skips_empty_background_asset_names_on_direct_projection() {
 }
 
 #[test]
+fn skips_unsafe_background_asset_types_on_direct_projection() {
+    let layout = test_layout();
+    let image_background = BackgroundProjection {
+        asset_name: Some("bg/school.png".to_string()),
+        asset_type: Some("images/native".to_string()),
+        ..Default::default()
+    };
+    assert!(build_background_commands(&layout, &image_background).is_empty());
+
+    let layered_background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        layers: vec![
+            BackgroundLayerProjection {
+                asset_type: Some("../images".to_string()),
+                ..BackgroundLayerProjection::new("path", "layers/path.png")
+            },
+            BackgroundLayerProjection {
+                asset_type: Some("---".to_string()),
+                ..BackgroundLayerProjection::new("symbol", "layers/symbol.png")
+            },
+            BackgroundLayerProjection {
+                asset_type: Some("sprites-ui".to_string()),
+                ..BackgroundLayerProjection::new("valid", "layers/valid.png")
+            },
+        ],
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &layered_background);
+
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].id, "background:layer:valid");
+    assert_eq!(
+        commands[0].resource_ids,
+        vec![ResourceId::from("sprites-ui:layers/valid.png")]
+    );
+}
+
+#[test]
 fn builds_video_fallback_command_with_poster_resource() {
     let layout = test_layout();
     let background = BackgroundProjection {

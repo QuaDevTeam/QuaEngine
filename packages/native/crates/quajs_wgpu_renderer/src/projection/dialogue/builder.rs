@@ -1,4 +1,4 @@
-use crate::projection::common::{is_non_empty_asset_name, PackageProvenance};
+use crate::projection::common::{is_safe_native_asset_ref, PackageProvenance};
 use crate::projection::typography::font_family_resource_ids;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
@@ -125,7 +125,7 @@ fn avatar_command(
     panel: crate::render_graph::LogicalRect,
     avatar: &DialogueAvatarProjection,
 ) -> Option<DrawCommand> {
-    if !is_non_empty_asset_name(&avatar.asset_name) {
+    if !is_safe_native_asset_ref(&avatar.asset_type, &avatar.asset_name) {
         return None;
     }
 

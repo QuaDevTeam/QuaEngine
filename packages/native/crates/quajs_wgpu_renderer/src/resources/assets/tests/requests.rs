@@ -100,6 +100,28 @@ fn skips_unparseable_resource_ids() {
 }
 
 #[test]
+fn skips_resource_ids_with_unsafe_asset_types() {
+    let mut graph = RenderGraph::new(test_layout());
+    graph.extend([
+        image_command("valid", "images:shared.png"),
+        image_command("path", "images/native:shared.png"),
+        image_command("symbol", "---:shared.png"),
+    ]);
+    let resources = plan_render_graph_resources(&graph);
+
+    let assets = plan_asset_requests(&resources);
+
+    assert_eq!(assets.requests.len(), 1);
+    assert!(assets.request("images", "shared.png").is_some());
+    assert!(assets
+        .skipped_resource_ids
+        .contains(&ResourceId::from("---:shared.png")));
+    assert!(assets
+        .skipped_resource_ids
+        .contains(&ResourceId::from("images/native:shared.png")));
+}
+
+#[test]
 fn merges_same_asset_request_from_multiple_commands() {
     let mut graph = RenderGraph::new(test_layout());
     graph.extend([

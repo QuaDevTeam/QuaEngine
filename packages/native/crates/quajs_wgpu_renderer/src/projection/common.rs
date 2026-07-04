@@ -72,3 +72,7 @@ pub(crate) fn is_safe_native_asset_type(asset_type: &str) -> bool {
             .chars()
             .all(|char| char.is_ascii_alphanumeric() || matches!(char, '-' | '_'))
 }
+
+pub(crate) fn is_safe_native_asset_ref(asset_type: &str, asset_name: &str) -> bool {
+    is_safe_native_asset_type(asset_type) && is_non_empty_asset_name(asset_name)
+}
