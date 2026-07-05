@@ -27,6 +27,9 @@ fn binary_runs_renderer_smoke_frame_from_projection_json() {
     assert!(stdout.contains("\"quickjsVersion\":\"unsupported\""));
     assert!(stdout.contains("Qua native renderer smoke: revision=1 passes="));
     assert!(stdout.contains("missingResources=0"));
+    assert!(stdout.contains("audioBackendPlans=1"));
+    assert!(stdout.contains("audioBackendCommands=0"));
+    assert!(stdout.contains("audioBackendTracks=0"));
     let smoke_json = smoke_json_line(&stdout);
     assert_eq!(smoke_json["revision"], 1);
     assert!(smoke_json["passCount"].as_u64().unwrap() >= 1);
@@ -37,6 +40,9 @@ fn binary_runs_renderer_smoke_frame_from_projection_json() {
     assert_eq!(smoke_json["declarativeAssetRequestCount"], 1);
     assert_eq!(smoke_json["audioResourceCount"], 0);
     assert_eq!(smoke_json["activeAudioTrackCount"], 0);
+    assert_eq!(smoke_json["audioBackend"]["appliedPlanCount"], 1);
+    assert_eq!(smoke_json["audioBackend"]["appliedCommandCount"], 0);
+    assert_eq!(smoke_json["audioBackend"]["activeTrackCount"], 0);
     assert!(smoke_json["memory"]["totalBytes"].as_u64().unwrap() > 0);
     assert!(
         smoke_json["declarativeMemory"]["totalBytes"]
@@ -169,6 +175,36 @@ fn binary_accepts_renderer_smoke_budget_memory_maps() {
 }
 
 #[test]
+fn binary_reports_renderer_smoke_audio_backend_metrics() {
+    let path = unique_frame_path("audio-backend");
+    std::fs::write(&path, smoke_ui_audio_frame_json()).expect("renderer smoke fixture writes");
+
+    let output = run_renderer_smoke_binary(&path, None);
+
+    std::fs::remove_file(path).ok();
+
+    assert!(
+        output.status.success(),
+        "audio backend smoke unexpectedly failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("audioBackendPlans=1"));
+    assert!(stdout.contains("audioBackendCommands=2"));
+    assert!(stdout.contains("audioBackendTracks=1"));
+
+    let smoke_json = smoke_json_line(&stdout);
+    assert_memory_map_fixture_shape(&smoke_json);
+    assert_eq!(smoke_json["audioBackend"]["appliedPlanCount"], 1);
+    assert_eq!(smoke_json["audioBackend"]["appliedCommandCount"], 2);
+    assert_eq!(
+        smoke_json["audioBackend"]["activeTrackCount"],
+        smoke_json["activeAudioTrackCount"]
+    );
+}
+
+#[test]
 fn binary_reports_video_fallback_package_breakdown() {
     let path = unique_frame_path("video-fallback-packages");
     std::fs::write(&path, smoke_video_frame_json()).expect("renderer smoke fixture writes");
@@ -221,6 +257,39 @@ fn binary_rejects_renderer_smoke_budget_violations() {
     assert!(stderr.contains("videoFallbackCount=1"));
     assert!(stderr.contains("fallbacksByOwnerPackage.runtime.video=1"));
     assert!(stderr.contains("fallbacksByRequiredPackage.base=1"));
+    assert!(stderr.contains("exceeded max 0"));
+}
+
+#[test]
+fn binary_rejects_renderer_smoke_audio_backend_budget_violations() {
+    let path = unique_frame_path("budget-audio-backend-fail");
+    let budget_path = unique_budget_path("audio-backend-fail");
+    std::fs::write(&path, smoke_ui_audio_frame_json()).expect("renderer smoke fixture writes");
+    std::fs::write(
+        &budget_path,
+        r#"{
+          "maxAudioBackendAppliedPlans": 0,
+          "maxAudioBackendAppliedCommands": 0,
+          "maxAudioBackendActiveTracks": 0
+        }"#,
+    )
+    .expect("renderer smoke budget fixture writes");
+
+    let output = run_renderer_smoke_binary(&path, Some(&budget_path));
+
+    std::fs::remove_file(path).ok();
+    std::fs::remove_file(budget_path).ok();
+
+    assert!(
+        !output.status.success(),
+        "audio backend budget violation unexpectedly succeeded\nstdout:\n{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Native renderer smoke budget exceeded"));
+    assert!(stderr.contains("audioBackend.appliedPlanCount=1"));
+    assert!(stderr.contains("audioBackend.appliedCommandCount=2"));
+    assert!(stderr.contains("audioBackend.activeTrackCount=1"));
     assert!(stderr.contains("exceeded max 0"));
 }
 
