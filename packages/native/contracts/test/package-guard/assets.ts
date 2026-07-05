@@ -72,6 +72,7 @@ describe('native runtime package guard asset references', () => {
       ],
       scenes: [
         { id: 'absolute-scene', assetName: '/tmp/scene.js' },
+        { id: 'spaced-scene', assetName: ' scenes/spaced.js' },
       ],
       plugins: [
         {
@@ -79,9 +80,15 @@ describe('native runtime package guard asset references', () => {
           kind: 'renderer',
           assetName: 'C:\\native\\plugin.js',
         },
+        {
+          id: 'backslash-plugin',
+          kind: 'renderer',
+          assetName: 'plugins\\native-ui.js',
+        },
       ],
       storeMigrations: [
         { id: 'settings', assetName: 'migrations/../settings.js' },
+        { id: 'control-char', assetName: 'migrations/\u001Bsettings.js' },
       ],
     })
     const bundle = createBundle(runtimePackage)
@@ -89,6 +96,21 @@ describe('native runtime package guard asset references', () => {
       name: 'escape.png',
       path: 'images/../escape.png',
       relativePath: 'images/../escape.png',
+    }
+    bundle.manifest.assets.images!['empty-segment.png'] = {
+      name: 'empty-segment.png',
+      path: 'images//empty-segment.png',
+      relativePath: 'images//empty-segment.png',
+    }
+    bundle.manifest.assets.data!['dot-segment'] = {
+      name: 'dot-segment',
+      path: 'ui/./menu.qui.json',
+      relativePath: 'ui/./menu.qui.json',
+    }
+    bundle.manifest.assets.data!['directory'] = {
+      name: 'directory',
+      path: 'ui/',
+      relativePath: 'ui/',
     }
 
     const result = checkNativeRuntimePackageGuard({
@@ -112,7 +134,15 @@ describe('native runtime package guard asset references', () => {
       }),
       expect.objectContaining({
         code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: ' scenes/spaced.js',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
         assetName: 'C:\\native\\plugin.js',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: 'plugins\\native-ui.js',
       }),
       expect.objectContaining({
         code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
@@ -120,7 +150,23 @@ describe('native runtime package guard asset references', () => {
       }),
       expect.objectContaining({
         code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: 'migrations/\u001Bsettings.js',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
         assetName: 'images/../escape.png',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: 'images//empty-segment.png',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: 'ui/./menu.qui.json',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: 'ui/',
       }),
     ]))
   })
