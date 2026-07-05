@@ -58,6 +58,69 @@ pub(in super::super) fn json_frame_with_malformed_ui_projection_input() -> &'sta
     "#
 }
 
+pub(in super::super) fn json_frame_with_malformed_characters_projection_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "characters": "hero"
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_malformed_character_item_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "characters": [
+          "hero"
+        ]
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_malformed_audio_projection_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": "bgm"
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_malformed_audio_tracks_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": "bgm"
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_malformed_audio_track_item_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            "bgm"
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_inverted_layout_aspect_interval_input() -> &'static str {
     r#"
     {
