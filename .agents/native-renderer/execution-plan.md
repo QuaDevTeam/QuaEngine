@@ -324,6 +324,8 @@ P1：
 - invalid input -> stable diagnostic code，如 `QSS_INVALID_VALUE`。
 - projection output -> Rust JSON facade 可接受的 resolved JSON。
 
+当前 `packages/native/ui-compiler/test/qss-acceptance.test.ts` 已把 `nativeQssProperties` 的 native-wgpu 属性做成全量 registry coverage gate：新增 native-wgpu QSS property 时必须补 valid / invalid / resolved output acceptance case，否则测试失败。
+
 每个 selector 也要有：
 
 - match fixture。
