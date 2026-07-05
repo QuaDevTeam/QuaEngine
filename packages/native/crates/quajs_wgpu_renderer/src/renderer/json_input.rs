@@ -8,7 +8,9 @@ use crate::renderer::backend::{NativeRenderBackend, NativeRenderBackendError};
 use crate::renderer::facade::{
     NativeRenderer, NativeRendererFrameError, NativeRendererFrameResult,
 };
-use crate::renderer::json_validation::validate_json_frame_input;
+use crate::renderer::json_validation::{
+    validate_json_frame_input, validate_json_frame_required_fields,
+};
 use crate::renderer::resource_update::NativeRendererFrameUpdate;
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
@@ -153,6 +155,8 @@ where
 pub fn parse_native_renderer_json_frame_input(
     input: &str,
 ) -> Result<NativeRendererJsonFrameInput, NativeRendererJsonFrameError> {
+    let raw_input: serde_json::Value = serde_json::from_str(input)?;
+    validate_json_frame_required_fields(&raw_input)?;
     let input: NativeRendererJsonFrameInput = serde_json::from_str(input)?;
     validate_json_frame_input(input.layout.as_ref(), input.container.as_ref(), &input.view)?;
     Ok(input)
