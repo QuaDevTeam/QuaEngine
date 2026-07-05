@@ -97,13 +97,21 @@ fn release_package_resources_with_host_texture_cleanup_releases_ledger_and_textu
         NativeResourceRecord::new("ui:compiled-menu.qui", NativeResourceKind::UiAst)
             .owned_by("runtime.menu"),
     );
+    renderer.state_mut().resources_mut().insert(
+        NativeResourceRecord::new("qss:menu.qss", NativeResourceKind::QssStyle)
+            .owned_by("runtime.menu"),
+    );
+    renderer.state_mut().resources_mut().insert(
+        NativeResourceRecord::new("tokens:menu.json", NativeResourceKind::TokenTable)
+            .owned_by("runtime.menu"),
+    );
 
     let result = release_package_resources_with_host_texture_cleanup(&mut renderer, "runtime.menu");
 
     assert!(result.package_release.plan.can_unload());
-    assert_eq!(result.package_release.released_resources.len(), 2);
-    assert_eq!(result.package_release.host_cleanup.len(), 2);
-    assert_eq!(result.texture_cleanup_report.cleanup_record_count, 2);
+    assert_eq!(result.package_release.released_resources.len(), 4);
+    assert_eq!(result.package_release.host_cleanup.len(), 4);
+    assert_eq!(result.texture_cleanup_report.cleanup_record_count, 4);
     assert_eq!(
         result
             .texture_cleanup_report
@@ -111,14 +119,18 @@ fn release_package_resources_with_host_texture_cleanup_releases_ledger_and_textu
         1
     );
     assert_eq!(result.texture_cleanup_report.released_count, 1);
-    assert_eq!(result.texture_cleanup_report.ignored_count, 1);
+    assert_eq!(result.texture_cleanup_report.ignored_count, 3);
     assert_eq!(
         result.texture_cleanup_report.released_resource_ids,
         vec![ResourceId::from("images:runtime-menu.png")]
     );
     assert_eq!(
         result.texture_cleanup_report.ignored_resource_ids,
-        vec![ResourceId::from("ui:compiled-menu.qui")]
+        vec![
+            ResourceId::from("qss:menu.qss"),
+            ResourceId::from("tokens:menu.json"),
+            ResourceId::from("ui:compiled-menu.qui"),
+        ]
     );
     assert!(renderer.resources().is_empty());
     assert!(renderer.backend().resident_resource_ids.is_empty());
@@ -216,12 +228,20 @@ fn clear_renderer_with_host_texture_cleanup_releases_texture_handles() {
         NativeResourceRecord::new("styles:menu.qss", NativeResourceKind::QssStyle)
             .owned_by("runtime.menu"),
     );
+    renderer.state_mut().resources_mut().insert(
+        NativeResourceRecord::new("surface:menu.qui", NativeResourceKind::UiAst)
+            .owned_by("runtime.menu"),
+    );
+    renderer.state_mut().resources_mut().insert(
+        NativeResourceRecord::new("tokens:menu.json", NativeResourceKind::TokenTable)
+            .owned_by("runtime.menu"),
+    );
 
     let result = clear_renderer_with_host_texture_cleanup(&mut renderer);
 
-    assert_eq!(result.released_resources.len(), 3);
-    assert_eq!(result.host_cleanup.len(), 3);
-    assert_eq!(result.texture_cleanup_report.cleanup_record_count, 3);
+    assert_eq!(result.released_resources.len(), 5);
+    assert_eq!(result.host_cleanup.len(), 5);
+    assert_eq!(result.texture_cleanup_report.cleanup_record_count, 5);
     assert_eq!(
         result
             .texture_cleanup_report
@@ -229,7 +249,7 @@ fn clear_renderer_with_host_texture_cleanup_releases_texture_handles() {
         2
     );
     assert_eq!(result.texture_cleanup_report.released_count, 2);
-    assert_eq!(result.texture_cleanup_report.ignored_count, 1);
+    assert_eq!(result.texture_cleanup_report.ignored_count, 3);
     assert_eq!(
         result.texture_cleanup_report.released_resource_ids,
         vec![
@@ -239,7 +259,11 @@ fn clear_renderer_with_host_texture_cleanup_releases_texture_handles() {
     );
     assert_eq!(
         result.texture_cleanup_report.ignored_resource_ids,
-        vec![ResourceId::from("styles:menu.qss")]
+        vec![
+            ResourceId::from("styles:menu.qss"),
+            ResourceId::from("surface:menu.qui"),
+            ResourceId::from("tokens:menu.json"),
+        ]
     );
     assert!(renderer.resources().is_empty());
     assert!(renderer.backend().resident_resource_ids.is_empty());
