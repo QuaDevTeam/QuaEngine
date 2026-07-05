@@ -3,6 +3,7 @@ import {
   analyzeQuiSource,
   compileNativeUiSurfaceProjection,
 } from '../../src'
+import { withDefaultVisible } from './helpers'
 
 describe('@quajs/native-ui-compiler projection directives and composites', () => {
   it('evaluates QUI conditional branch chains during projection compile', () => {
@@ -21,7 +22,7 @@ Stack(id: "mode-stack") {
           mode: 'video',
         },
       },
-    })).toEqual({
+    })).toEqual(withDefaultVisible({
       root: {
         id: 'mode-stack',
         kind: 'Stack',
@@ -35,7 +36,7 @@ Stack(id: "mode-stack") {
           },
         ],
       },
-    })
+    }))
   })
 
   it('expands keyed QUI loops with template context before native projection', () => {
@@ -66,7 +67,7 @@ Column(id: "choices") {
           },
         },
       },
-    })).toEqual({
+    })).toEqual(withDefaultVisible({
       root: {
         id: 'choices',
         kind: 'Column',
@@ -118,7 +119,7 @@ Column(id: "choices") {
           },
         ],
       },
-    })
+    }))
   })
 
   it('flattens imported composite QUI components into foundational surface nodes', () => {
@@ -160,7 +161,7 @@ Stack(id: "ui-root") {
       'Panel',
       'Text',
     ])
-    expect(projection.root).toEqual({
+    expect(projection.root).toEqual(withDefaultVisible({
       id: 'ui-root',
       kind: 'Stack',
       bounds: { x: 0, y: 0, width: 0, height: 0 },
@@ -211,7 +212,7 @@ Stack(id: "ui-root") {
           ],
         },
       ],
-    })
+    }))
     expect(JSON.stringify(projection)).not.toContain('Dialog')
     expect(JSON.stringify(projection)).not.toContain('Drawer')
   })

@@ -161,7 +161,7 @@ QUI 是 native declarative template language，不是 HTML、不是 TSX、不是
 ### 必须支持
 
 - 条件渲染：`if` / `else-if` / `else`，分支必须相邻，孤立 `else` 报错。
-- 条件显示：`show`，只影响 resolved `visible`，不做 state authority。
+- 条件显示：`show`，只影响 resolved `visible`，不做 state authority；compiler 必须为每个 UI surface node 显式输出 `visible`，默认值为 `true`。
 - 循环渲染：`for: item in source`、`for: (item, index) in source`。
 - 稳定 key：循环节点必须声明 `key`。
 - props：字面量、readonly reference、受限表达式。

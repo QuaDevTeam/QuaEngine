@@ -21,6 +21,7 @@
               "id": "menu",
               "kind": "Panel",
               "bounds": { "x": 32, "y": 24, "width": 520, "height": 392 },
+              "visible": true,
               "provenance": {
                 "contentPackageId": "runtime.ui",
                 "requiredRuntimePackages": ["base", "runtime.fonts"]
@@ -41,6 +42,7 @@
                   "kind": "Text",
                   "bounds": { "x": 64, "y": 58, "width": 360, "height": 56 },
                   "zIndex": 8,
+                  "visible": true,
                   "text": "Compiled Menu",
                   "provenance": {
                     "contentPackageId": "runtime.ui",
@@ -60,6 +62,7 @@
                   "id": "poster",
                   "kind": "Image",
                   "bounds": { "x": 64, "y": 132, "width": 180, "height": 112 },
+                  "visible": true,
                   "image": { "assetType": "images", "assetName": "ui/poster.png" },
                   "provenance": {
                     "contentPackageId": "runtime.ui",
@@ -71,6 +74,7 @@
                   "id": "open-settings",
                   "kind": "Button",
                   "bounds": { "x": 340, "y": 330, "width": 136, "height": 48 },
+                  "visible": true,
                   "text": "Settings",
                   "intent": {
                     "event": "ui/intent",

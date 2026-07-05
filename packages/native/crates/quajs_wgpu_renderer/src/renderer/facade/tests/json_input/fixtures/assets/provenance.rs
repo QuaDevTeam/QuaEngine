@@ -29,6 +29,7 @@ pub(in super::super::super) fn json_frame_with_traversal_required_package_input(
                 "root": {
                   "id": "root",
                   "kind": "Box",
+                  "visible": true,
                   "provenance": {
                     "contentPackageId": "runtime.ui",
                     "requiredRuntimePackages": ["runtime.fonts", "../base"]

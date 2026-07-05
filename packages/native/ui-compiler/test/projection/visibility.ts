@@ -4,6 +4,7 @@ import {
   analyzeQuiSource,
   compileNativeUiSurfaceProjection,
 } from '../../src'
+import { withDefaultVisible } from './helpers'
 
 describe('@quajs/native-ui-compiler projection visibility and clipping', () => {
   it('uses QSS display none as node visibility fallback while QUI show stays authoritative', () => {
@@ -28,7 +29,7 @@ Panel.dialog {
 
     expect(qui.diagnostics).toEqual([])
     expect(qss.diagnostics).toEqual([])
-    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual(withDefaultVisible({
       root: {
         id: 'menu',
         kind: 'Panel',
@@ -51,7 +52,7 @@ Panel.dialog {
           },
         ],
       },
-    })
+    }))
   })
 
   it('uses QSS visibility as node visibility fallback while QUI show stays authoritative', () => {
@@ -75,7 +76,7 @@ Panel.dialog {
 
     expect(qui.diagnostics).toEqual([])
     expect(qss.diagnostics).toEqual([])
-    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual(withDefaultVisible({
       root: {
         id: 'menu',
         kind: 'Panel',
@@ -98,7 +99,7 @@ Panel.dialog {
           },
         ],
       },
-    })
+    }))
   })
 
   it('uses QSS overflow as child clip metadata in compiled projection', () => {
@@ -121,7 +122,7 @@ Panel.open {
 
     expect(qui.diagnostics).toEqual([])
     expect(qss.diagnostics).toEqual([])
-    expect(compileNativeUiSurfaceProjection(qui, { qss, rootId: 'root' })).toEqual({
+    expect(compileNativeUiSurfaceProjection(qui, { qss, rootId: 'root' })).toEqual(withDefaultVisible({
       root: {
         id: 'root',
         kind: 'Fragment',
@@ -157,6 +158,6 @@ Panel.open {
           },
         ],
       },
-    })
+    }))
   })
 })

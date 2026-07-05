@@ -32,6 +32,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_color_input() -> &'stat
                 "root": {
                   "id": "root",
                   "kind": "Panel",
+                  "visible": true,
                   "style": {
                     "backgroundColor": "../native.dll"
                   }
@@ -60,6 +61,7 @@ pub(in super::super::super) fn json_frame_with_invalid_ui_color_literal_input() 
                 "root": {
                   "id": "root",
                   "kind": "Text",
+                  "visible": true,
                   "text": "Menu",
                   "style": {
                     "color": "rgb(1., 0, 0)"

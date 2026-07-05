@@ -10,7 +10,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_overlay_element_id_input()
               "elementId": "../menu",
               "surface": {
                 "key": "ui/menu.qui",
-                "root": { "id": "root", "kind": "Box" }
+                "root": { "id": "root", "kind": "Box", "visible": true }
               }
             }
           ]
@@ -32,7 +32,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_surface_node_id_input() ->
               "elementId": "menu",
               "surface": {
                 "key": "ui/menu.qui",
-                "root": { "id": "file:///tmp/native.node", "kind": "Box" }
+                "root": { "id": "file:///tmp/native.node", "kind": "Box", "visible": true }
               }
             }
           ]
@@ -56,7 +56,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_scene_id_input() -> &'stat
                 "id": "native/load.dll",
                 "surface": {
                   "key": "ui/menu.qui",
-                  "root": { "id": "root", "kind": "Box" }
+                  "root": { "id": "root", "kind": "Box", "visible": true }
                 }
               }
             }
@@ -80,7 +80,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_overlay_stack_input() -> &
               "overlayStack": "native/load.dll",
               "surface": {
                 "key": "ui/menu.qui",
-                "root": { "id": "root", "kind": "Box" }
+                "root": { "id": "root", "kind": "Box", "visible": true }
               }
             }
           ]
@@ -107,7 +107,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_scene_overlay_stack_input(
                 },
                 "surface": {
                   "key": "ui/menu.qui",
-                  "root": { "id": "root", "kind": "Box" }
+                  "root": { "id": "root", "kind": "Box", "visible": true }
                 }
               }
             }
@@ -133,6 +133,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_intent_action_input() -
                 "root": {
                   "id": "root",
                   "kind": "Button",
+                  "visible": true,
                   "intent": {
                     "event": "ui/intent",
                     "action": "native:load-plugin"
@@ -163,7 +164,7 @@ pub(in super::super::super) fn json_frame_with_missing_overlay_intent_event_inpu
               },
               "surface": {
                 "key": "ui/menu.qui",
-                "root": { "id": "root", "kind": "Box" }
+                "root": { "id": "root", "kind": "Box", "visible": true }
               }
             }
           ]
@@ -189,6 +190,7 @@ pub(in super::super::super) fn json_frame_with_missing_surface_intent_event_inpu
                 "root": {
                   "id": "root",
                   "kind": "Button",
+                  "visible": true,
                   "intent": {
                     "action": "open"
                   }
@@ -218,6 +220,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_intent_metadata_key_inp
                 "root": {
                   "id": "root",
                   "kind": "Button",
+                  "visible": true,
                   "intent": {
                     "event": "ui/intent",
                     "action": "open",
@@ -251,6 +254,7 @@ pub(in super::super::super) fn json_frame_with_oversized_ui_intent_metadata_inpu
                 "root": {
                   "id": "root",
                   "kind": "Button",
+                  "visible": true,
                   "intent": {
                     "event": "ui/intent",
                     "action": "open",

@@ -4,6 +4,7 @@ import {
   analyzeQuiSource,
   compileNativeUiSurfaceProjection,
 } from '../../src'
+import { withDefaultVisible } from './helpers'
 
 describe('@quajs/native-ui-compiler projection static style', () => {
   it('compiles static QUI and QSS into native UI surface projection JSON', () => {
@@ -44,7 +45,7 @@ Button.primary {
       contentPackageId: 'runtime.ui',
       qss,
       requiredRuntimePackages: ['base', 'runtime.fonts', 'base'],
-    })).toEqual({
+    })).toEqual(withDefaultVisible({
       root: {
         id: 'menu',
         kind: 'Panel',
@@ -112,7 +113,7 @@ Button.primary {
           },
         ],
       },
-    })
+    }))
   })
 
   it('uses QSS geometry as bounds fallback while QUI props stay authoritative', () => {
@@ -158,7 +159,7 @@ Button.secondary {
 
     expect(qui.diagnostics).toEqual([])
     expect(qss.diagnostics).toEqual([])
-    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual(withDefaultVisible({
       root: {
         id: 'menu',
         kind: 'Panel',
@@ -184,7 +185,7 @@ Button.secondary {
           },
         ],
       },
-    })
+    }))
   })
 
   it('applies QSS gap to structural Row, Column, and Grid children during projection', () => {
@@ -219,7 +220,7 @@ Grid.thumbs {
 
     expect(qui.diagnostics).toEqual([])
     expect(qss.diagnostics).toEqual([])
-    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual(withDefaultVisible({
       root: {
         id: 'root',
         kind: 'Panel',
@@ -290,7 +291,7 @@ Grid.thumbs {
           },
         ],
       },
-    })
+    }))
   })
 
   it('applies QSS margin to structural Row, Column, and Grid child layout only', () => {
@@ -344,7 +345,7 @@ Image.tile {
 
     expect(qui.diagnostics).toEqual([])
     expect(qss.diagnostics).toEqual([])
-    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual(withDefaultVisible({
       root: {
         id: 'root',
         kind: 'Panel',
@@ -415,7 +416,7 @@ Image.tile {
           },
         ],
       },
-    })
+    }))
   })
 
   it('keeps absolute positioned structural children out of Row flow', () => {
@@ -442,7 +443,7 @@ Button.float {
 
     expect(qui.diagnostics).toEqual([])
     expect(qss.diagnostics).toEqual([])
-    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual(withDefaultVisible({
       root: {
         id: 'root',
         kind: 'Panel',
@@ -475,6 +476,6 @@ Button.float {
           },
         ],
       },
-    })
+    }))
   })
 })

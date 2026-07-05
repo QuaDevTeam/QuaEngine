@@ -29,8 +29,6 @@ export function rectFromProps(
 }
 
 export function pruneSurfaceNode(node: NativeUiSurfaceNodeProjection): NativeUiSurfaceNodeProjection {
-  if (node.visible === undefined)
-    delete node.visible
   if (node.clipChildren === undefined)
     delete node.clipChildren
   if (node.zIndex === undefined)
