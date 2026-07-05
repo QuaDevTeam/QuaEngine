@@ -240,6 +240,7 @@ where
     )?)
 }
 
+#[allow(dead_code)]
 pub fn render_json_frame_with_host_texture_lifecycle_sync<B, A, H>(
     registry: &mut NativeTextureBundleMountRegistry,
     renderer: &mut NativeRenderer<B, A>,

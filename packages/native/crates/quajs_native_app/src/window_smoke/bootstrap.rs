@@ -1,3 +1,4 @@
+use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
 use quajs_wgpu_renderer::renderer::{
     configure_wgpu_surface_for_native_renderer, create_real_wgpu_surface_target,
     InMemoryWgpuNativeRenderRuntimeExecutor, NativeRenderer, RealWgpuNativeRenderRuntimeDevice,
@@ -12,6 +13,7 @@ pub(super) type RealWgpuRenderer = NativeRenderer<
     WgpuNativeRenderBackend<
         InMemoryWgpuNativeRenderRuntimeExecutor<RealWgpuNativeRenderRuntimeDevice>,
     >,
+    NullNativeAudioBackend,
 >;
 
 pub(super) struct NativeWindowSmokeRuntime {
@@ -62,7 +64,7 @@ impl NativeWindowSmokeRuntime {
 
         Ok(Self {
             surface,
-            renderer: NativeRenderer::new(backend),
+            renderer: NativeRenderer::with_null_audio_backend(backend),
             adapter: bootstrap.adapter,
             backend_config,
             adapter_name: bootstrap.adapter_info.name,
