@@ -54,14 +54,25 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 self.input.clear_cursor_position();
             }
             WindowEvent::Focused(focused) => {
-                self.input.record_focus_event(focused);
+                if let Err(error) = self
+                    .input
+                    .dispatch_focus_event(&mut self.texture_host, focused)
+                {
+                    self.fail_and_exit(event_loop, error);
+                    return;
+                }
                 if !focused {
                     self.cancel_window_pointer_interaction();
                     self.input.clear_cursor_position();
                 }
             }
             WindowEvent::KeyboardInput { event, .. } => {
-                self.input.record_keyboard_event(&event);
+                if let Err(error) = self
+                    .input
+                    .dispatch_keyboard_event(&mut self.texture_host, &event)
+                {
+                    self.fail_and_exit(event_loop, error);
+                }
             }
             WindowEvent::Ime(event) => {
                 self.input.record_ime_event(&event);
