@@ -130,17 +130,50 @@ describe('@quajs/engine-native runtime module loader guards', () => {
       kind: 'engine',
       assetName: 'plugins/settings.js',
       variants: {
-        windows: { assetName: 'plugins/settings.dll' },
+        windows: {
+          assetName: 'plugins/settings.dll',
+          name: 'settings.node',
+        },
       },
     } as any, ctx)).rejects.toThrow(/variants\.windows\.assetName "plugins\/settings\.dll" must not reference a native payload/)
+
+    await expect(loader.loadEnginePluginModule?.({
+      id: 'plugin-with-native-name-variant',
+      kind: 'engine',
+      assetName: 'plugins/settings.js',
+      variants: {
+        windows: { name: 'settings.node' },
+      },
+    } as any, ctx)).rejects.toThrow(/variants\.windows\.name "settings\.node" must not reference a native payload/)
+
+    await expect(loader.loadScriptModule?.({
+      id: 'script-with-escape-path',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/opening.js',
+      variants: {
+        preview: { path: '../outside-script.js' },
+      },
+    }, ctx)).rejects.toThrow(/variants\.preview\.path "\.\.\/outside-script\.js" must be a package-relative script asset/)
 
     await expect(loader.loadStoreMigrationModule?.({
       id: 'migration-with-data-variant',
       assetName: 'migrations/save.js',
       variants: {
-        data: { module: 'migrations/save.json' },
+        data: {
+          module: 'migrations/save.json',
+          relativePath: 'migrations/save.json',
+        },
       },
     } as any, ctx)).rejects.toThrow(/variants\.data\.module "migrations\/save\.json" must reference a JavaScript module asset/)
+
+    await expect(loader.loadStoreMigrationModule?.({
+      id: 'migration-with-data-relative-path',
+      assetName: 'migrations/save.js',
+      variants: {
+        data: { relativePath: 'migrations/save.json' },
+      },
+    } as any, ctx)).rejects.toThrow(/variants\.data\.relativePath "migrations\/save\.json" must reference a JavaScript module asset/)
 
     expect(calls).toEqual([])
   })
