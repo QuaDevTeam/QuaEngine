@@ -87,6 +87,8 @@ native compatibility block 必须显式声明 `nativeCode: false`。缺失也按
 
 这条规则的实现细则以 `.agents/native-renderer/target-core-isolation.md` 为准，发行验收以 `.agents/native-renderer/release-packaging.md` 为准。开发时不要只在 native 路径加门禁；Web、Cocos、Native 三端的 packager、project generator、Runtime QPK resolver、installer / updater 和 smoke runner 都必须跑同一套 target-core isolation helper 与对称负例 fixture。
 
+排期时这条约束要作为 P0 前置项进入所有涉及打包、插件、Runtime QPK、renderer entry、starter/template、debug/release shell、installer/updater、smoke runner 的任务。任务拆分不能写成“先做 native，之后 Web/Cocos 再补同类检查”；只要改动会影响 target core selection 或项目产物生成，就必须同时给 Web、Cocos、Native 三端列出正例、串线负例、active core 二次声明负例和 “三端全集后过滤” 负例。这样可以保证打包到 Cocos、Web、Native 项目时，核心插件从需求、实现到验收都不会串在一起。
+
 ## 目标工程结构
 
 native 相关实现全部放在 `packages/native`：
