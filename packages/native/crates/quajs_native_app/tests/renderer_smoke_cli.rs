@@ -104,6 +104,12 @@ fn binary_accepts_renderer_smoke_budget() {
           "maxResources": 5,
           "maxMissingResources": 0,
           "maxFallbacks": 0,
+          "maxTextureUploadRequests": 2,
+          "maxTextureUploadPendingRequests": 2,
+          "maxTextureUploadResidentResources": 0,
+          "maxTextureUploadOrphanedResidentResources": 0,
+          "maxTextureUploadSkippedResources": 0,
+          "maxTextureUploadNonTextureResources": 3,
           "maxDeclarativeAssetRequests": 1,
           "maxDeclarativeResources": 1,
           "maxMemoryBytes": 1048576,
@@ -134,6 +140,13 @@ fn binary_accepts_renderer_smoke_budget() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Qua native renderer smoke json: "));
+    let smoke_json = smoke_json_line(&stdout);
+    assert_eq!(smoke_json["textureUploadRequestCount"], 2);
+    assert_eq!(smoke_json["textureUploadPendingRequestCount"], 2);
+    assert_eq!(smoke_json["textureUploadResidentResourceCount"], 0);
+    assert_eq!(smoke_json["textureUploadOrphanedResidentResourceCount"], 0);
+    assert_eq!(smoke_json["textureUploadSkippedResourceCount"], 0);
+    assert_eq!(smoke_json["textureUploadNonTextureResourceCount"], 3);
 }
 
 #[test]
@@ -225,6 +238,39 @@ fn binary_reports_video_fallback_package_breakdown() {
     assert_eq!(smoke_json["videoFallbackCount"], 1);
     assert_eq!(smoke_json["fallbacksByOwnerPackage"]["runtime.video"], 1);
     assert_eq!(smoke_json["fallbacksByRequiredPackage"]["base"], 1);
+}
+
+#[test]
+fn binary_rejects_renderer_smoke_texture_upload_budget_violations() {
+    let path = unique_frame_path("budget-texture-upload-fail");
+    let budget_path = unique_budget_path("texture-upload-fail");
+    std::fs::write(&path, SHARED_QUI_QSS_SURFACE_FRAME).expect("renderer smoke fixture writes");
+    std::fs::write(
+        &budget_path,
+        r#"{
+          "maxTextureUploadRequests": 1,
+          "maxTextureUploadPendingRequests": 1,
+          "maxTextureUploadNonTextureResources": 2
+        }"#,
+    )
+    .expect("renderer smoke budget fixture writes");
+
+    let output = run_renderer_smoke_binary(&path, Some(&budget_path));
+
+    std::fs::remove_file(path).ok();
+    std::fs::remove_file(budget_path).ok();
+
+    assert!(
+        !output.status.success(),
+        "texture upload budget violation unexpectedly succeeded\nstdout:\n{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Native renderer smoke budget exceeded"));
+    assert!(stderr.contains("textureUploadRequestCount=2"));
+    assert!(stderr.contains("textureUploadPendingRequestCount=2"));
+    assert!(stderr.contains("textureUploadNonTextureResourceCount=3"));
+    assert!(stderr.contains("exceeded max"));
 }
 
 #[test]
