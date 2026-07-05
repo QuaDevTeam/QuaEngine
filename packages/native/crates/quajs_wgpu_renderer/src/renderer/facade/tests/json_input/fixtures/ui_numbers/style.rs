@@ -121,6 +121,41 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_object_position_input()
     "#
 }
 
+pub(in super::super::super) fn json_frame_with_malformed_ui_style_object_input(
+    field: &str,
+    value_json: &str,
+) -> String {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Panel",
+                  "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
+                  "style": {
+                    "__STYLE_FIELD__": __STYLE_VALUE__
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+    .replace("__STYLE_FIELD__", field)
+    .replace("__STYLE_VALUE__", value_json)
+}
+
 pub(in super::super::super) fn json_frame_with_oversized_ui_padding_input() -> &'static str {
     r#"
     {
