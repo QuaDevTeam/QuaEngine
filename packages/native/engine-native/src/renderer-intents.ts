@@ -76,6 +76,14 @@ export function installNativeRendererIntentBridge(
 
   const emitRendererIntent = (event: NativeRendererIntent): void => {
     void emitNativeRendererIntentToPipeline(pipeline, event)
+      .then((result) => {
+        if (!result.handled) {
+          options.onError?.(
+            new Error(`Native renderer intent "${event.type}" was not handled by the native engine bridge.`),
+            event,
+          )
+        }
+      })
       .catch(error => options.onError?.(error, event))
     previousEmitRendererIntent?.(event)
   }

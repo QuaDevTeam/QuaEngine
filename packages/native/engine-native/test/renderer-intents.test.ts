@@ -446,4 +446,44 @@ describe('@quajs/engine-native renderer intents', () => {
       }),
     ])
   })
+
+  it('reports unhandled native renderer intent types through render errors', async () => {
+    const host = createHost()
+    const pipeline = createTestPipeline()
+    const received: Array<{ type: string, payload: unknown }> = []
+    const errors: unknown[] = []
+    for (const type of [
+      RenderToLogicEvents.USER_CHOICE_SELECT,
+      RenderToLogicEvents.UI_INTENT,
+      RenderToLogicEvents.USER_INPUT_COMMAND,
+    ]) {
+      pipeline.on(type, context => received.push({
+        type,
+        payload: context.event.payload,
+      }))
+    }
+    pipeline.on(RenderToLogicEvents.RENDER_ERROR, context => errors.push(context.event.payload))
+
+    const plugin = new NativeHostPlugin({ host })
+    await plugin.init({ pipeline } as any)
+    host.emitRendererIntent?.(createNativeRendererIntent({
+      type: 'native/debug_probe',
+      payload: { action: 'noop' },
+    }))
+    await flushMicrotasks()
+
+    expect(received).toEqual([])
+    expect(plugin.getRendererIntentErrors()).toHaveLength(1)
+    expect(errors).toEqual([
+      expect.objectContaining({
+        message: 'Native renderer intent "native/debug_probe" was not handled by the native engine bridge.',
+        source: 'native-renderer',
+        phase: 'renderer-intent',
+        recoverable: true,
+        metadata: {
+          nativeIntentType: 'native/debug_probe',
+        },
+      }),
+    ])
+  })
 })
