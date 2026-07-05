@@ -4,6 +4,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_dialogue_color_input() -> 
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "dialogue": {
+          "mode": "say",
           "speaker": "Narrator",
           "speakerStyle": {
             "color": "file:///tmp/native.node"

@@ -115,6 +115,7 @@ flowchart LR
 - `@quajs/engine-native` 读取 signed Rust host 的 native runtime / renderer versions，QPK 不可覆盖。
 - QuickJS loader 只从 QuaAssets 读取 QPK 声明的 JS module asset bytes，不读 filesystem、URL、Blob、Node resolution 或 dynamic import。
 - Rust JSON facade 做防御性校验，拒绝 malformed resolved JSON，但不解析 QUI/QSS source。
+- Dialogue projection bridge JSON 必须显式携带 `mode`，不能让 Rust serde 默认成 `say` 后继续渲染。
 - Pointer、choice、UI intent 只通过 `@quajs/pipeline` 回 engine。
 - Resource ledger 可记录 transient GPU/audio/video/UI resources、memory、unload blocker 和 cleanup，不得成为 game state authority。
 
