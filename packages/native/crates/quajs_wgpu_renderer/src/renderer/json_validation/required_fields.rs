@@ -83,6 +83,11 @@ fn validate_ui_surface_required_fields(
     };
 
     for (overlay_index, overlay) in overlays.iter().enumerate() {
+        validate_ui_intent_required_fields(
+            overlay.get("intent"),
+            &format!("view.ui.overlays[{overlay_index}].intent"),
+            errors,
+        );
         validate_surface_root_required_fields(
             overlay.get("surface"),
             &format!("view.ui.overlays[{overlay_index}].surface"),
@@ -93,6 +98,32 @@ fn validate_ui_surface_required_fields(
             &format!("view.ui.overlays[{overlay_index}].scene.surface"),
             errors,
         );
+    }
+}
+
+fn validate_ui_intent_required_fields(
+    intent: Option<&Value>,
+    path: &str,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    let Some(intent) = intent else {
+        return;
+    };
+    let Some(intent_object) = intent.as_object() else {
+        return;
+    };
+
+    let missing_event = match intent_object.get("event") {
+        Some(value) => value.is_null(),
+        None => true,
+    };
+    if missing_event {
+        errors.push(NativeRendererJsonValidationError {
+            path: format!("{path}.event"),
+            asset_name: String::new(),
+            reason: "must be explicitly provided for native UI intents in resolved projection JSON"
+                .to_string(),
+        });
     }
 }
 
@@ -130,6 +161,15 @@ fn validate_ui_surface_node_required_fields(
             asset_name: String::new(),
             reason: "must be explicitly provided for native UI surface nodes in resolved projection JSON".to_string(),
         });
+        return;
+    }
+
+    validate_ui_intent_required_fields(
+        node_object.get("intent"),
+        &format!("{path}.intent"),
+        errors,
+    );
+    if !errors.is_empty() {
         return;
     }
 

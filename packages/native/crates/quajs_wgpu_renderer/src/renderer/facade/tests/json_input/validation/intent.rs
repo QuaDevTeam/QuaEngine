@@ -26,6 +26,41 @@ fn json_frame_intent_validation_rejects_choice_select_without_canonical_choice_i
 }
 
 #[test]
+fn json_frame_intent_validation_requires_explicit_intent_event() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let overlay = renderer
+        .prepare_frame_json_str(json_frame_with_missing_overlay_intent_event_input())
+        .unwrap_err();
+    match overlay {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].intent.event");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("explicitly provided"));
+        }
+        other => panic!("expected missing overlay intent event validation error, got {other:?}"),
+    }
+
+    let surface = renderer
+        .prepare_frame_json_str(json_frame_with_missing_surface_intent_event_input())
+        .unwrap_err();
+    match surface {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.intent.event"
+            );
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("explicitly provided"));
+        }
+        other => panic!("expected missing surface intent event validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_intent_validation_rejects_unsafe_dispatch_identifiers() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
