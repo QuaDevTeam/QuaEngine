@@ -35,7 +35,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", serde_json::to_string(&host_info)?);
     if let Some(summary) = run_renderer_smoke_from_env()? {
         println!(
-            "Qua native renderer smoke: revision={} passes={} batches={} commands={} resources={} missingResources={} textureUploadRequests={} textureUploadSkippedResources={} textureUploadNonTextureResources={}",
+            "Qua native renderer smoke: revision={} passes={} batches={} commands={} resources={} missingResources={} textureUploadRequests={} textureUploadSkippedResources={} textureUploadNonTextureResources={} audioBackendPlans={} audioBackendCommands={} audioBackendTracks={}",
             summary.revision,
             summary.pass_count,
             summary.batch_count,
@@ -44,7 +44,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             summary.missing_resource_count,
             summary.texture_upload_request_count,
             summary.texture_upload_skipped_resource_count,
-            summary.texture_upload_non_texture_resource_count
+            summary.texture_upload_non_texture_resource_count,
+            summary.audio_backend.applied_plan_count,
+            summary.audio_backend.applied_command_count,
+            summary.audio_backend.active_track_count
         );
         println!(
             "Qua native renderer smoke json: {}",

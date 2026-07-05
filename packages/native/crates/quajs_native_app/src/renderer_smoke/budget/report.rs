@@ -184,6 +184,24 @@ fn check_scalar_metrics(
     );
     check_usize(
         violations,
+        "audioBackend.appliedPlanCount",
+        summary.audio_backend.applied_plan_count,
+        budget.max_audio_backend_applied_plans,
+    );
+    check_usize(
+        violations,
+        "audioBackend.appliedCommandCount",
+        summary.audio_backend.applied_command_count,
+        budget.max_audio_backend_applied_commands,
+    );
+    check_usize(
+        violations,
+        "audioBackend.activeTrackCount",
+        summary.audio_backend.active_track_count,
+        budget.max_audio_backend_active_tracks,
+    );
+    check_usize(
+        violations,
         "backend.drawCount",
         summary.backend.draw_count,
         budget.max_backend_draws,

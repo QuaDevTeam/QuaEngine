@@ -56,6 +56,12 @@ pub struct NativeRendererSmokeBudget {
     #[serde(default)]
     pub max_active_audio_tracks: Option<usize>,
     #[serde(default)]
+    pub max_audio_backend_applied_plans: Option<usize>,
+    #[serde(default)]
+    pub max_audio_backend_applied_commands: Option<usize>,
+    #[serde(default)]
+    pub max_audio_backend_active_tracks: Option<usize>,
+    #[serde(default)]
     pub max_backend_draws: Option<usize>,
     #[serde(default)]
     pub max_backend_passes: Option<usize>,

@@ -8,11 +8,12 @@ use budget::{
     load_renderer_smoke_budget, NativeRendererSmokeBudgetLoadError,
     NativeRendererSmokeBudgetReport, RENDERER_SMOKE_BUDGET_ENV,
 };
+use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
 use quajs_wgpu_renderer::renderer::{
     NativeRenderer, NativeRendererJsonFrameError, NullNativeRenderBackend,
 };
 
-pub use summary::NativeRendererSmokeSummary;
+pub use summary::{NativeRendererSmokeAudioBackendSummary, NativeRendererSmokeSummary};
 
 pub const RENDERER_SMOKE_FRAME_ENV: &str = "QUA_NATIVE_RENDERER_SMOKE_FRAME";
 
@@ -92,15 +93,21 @@ pub fn run_renderer_smoke_frame_json(
         path: path.display().to_string(),
         source,
     })?;
-    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
-    let result = renderer.prepare_and_render_json_str(&json)?;
+    let mut renderer = NativeRenderer::with_audio_backend(
+        NullNativeRenderBackend::new(),
+        NullNativeAudioBackend::new(),
+    );
+    let result = renderer.prepare_render_json_and_apply_audio_str(&json)?;
     let metrics = renderer.metrics();
     let backend_report = renderer.backend().last_execution_report();
+    let audio_backend_summary =
+        NativeRendererSmokeAudioBackendSummary::from_null_backend(renderer.audio_backend());
 
     Ok(NativeRendererSmokeSummary::from_frame_result(
         &result,
         &metrics,
         backend_report,
+        audio_backend_summary,
     ))
 }
 
@@ -110,6 +117,27 @@ mod tests {
 
     const SHARED_QUI_QSS_SURFACE_FRAME: &str =
         include_str!("../../../test-fixtures/renderer/qui-qss-surface-frame.json");
+    const AUDIO_FRAME: &str = r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            {
+              "id": "bgm-main",
+              "kind": "bgm",
+              "assetName": "audio/theme.ogg",
+              "assetType": "bgm",
+              "loadMode": "buffered",
+              "playbackState": "playing",
+              "looped": true,
+              "volume": 0.8
+            }
+          ]
+        }
+      }
+    }
+    "#;
 
     #[test]
     fn runs_renderer_smoke_frame_from_json_file() {
@@ -134,6 +162,9 @@ mod tests {
         assert_eq!(summary.declarative_asset_request_count, 1);
         assert_eq!(summary.audio_resource_count, 0);
         assert_eq!(summary.active_audio_track_count, 0);
+        assert_eq!(summary.audio_backend.applied_plan_count, 1);
+        assert_eq!(summary.audio_backend.applied_command_count, 0);
+        assert_eq!(summary.audio_backend.active_track_count, 0);
         assert!(summary.memory.total_bytes > 0);
         assert!(summary.declarative_memory.total_bytes > 0);
         assert_eq!(summary.backend.pass_count, summary.pass_count);
@@ -164,6 +195,9 @@ mod tests {
         assert_eq!(json["textureUploadOrphanedResidentResourceCount"], 0);
         assert_eq!(json["textureUploadSkippedResourceCount"], 0);
         assert_eq!(json["textureUploadNonTextureResourceCount"], 3);
+        assert_eq!(json["audioBackend"]["appliedPlanCount"], 1);
+        assert_eq!(json["audioBackend"]["appliedCommandCount"], 0);
+        assert_eq!(json["audioBackend"]["activeTrackCount"], 0);
         assert!(json["backend"]["drawCount"].as_u64().unwrap() > 0);
         assert!(json["backend"]["resourceBindCount"].as_u64().unwrap() > 0);
         assert_eq!(json["backend"]["validationErrorCount"], 0);
@@ -182,6 +216,27 @@ mod tests {
                 .unwrap()
                 > 0
         );
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn renderer_smoke_applies_audio_backend_commands() {
+        let path = unique_frame_path("audio");
+        std::fs::write(&path, AUDIO_FRAME).expect("audio renderer smoke fixture writes");
+
+        let summary =
+            run_renderer_smoke_frame_json(&path).expect("audio smoke frame should render");
+
+        assert_eq!(summary.audio_resource_count, 2);
+        assert_eq!(summary.active_audio_track_count, 1);
+        assert_eq!(summary.audio_backend.applied_plan_count, 1);
+        assert_eq!(summary.audio_backend.applied_command_count, 2);
+        assert_eq!(summary.audio_backend.active_track_count, 1);
+        let json = serde_json::to_value(&summary).expect("audio smoke summary serializes");
+        assert_eq!(json["audioBackend"]["appliedPlanCount"], 1);
+        assert_eq!(json["audioBackend"]["appliedCommandCount"], 2);
+        assert_eq!(json["audioBackend"]["activeTrackCount"], 1);
+
         std::fs::remove_file(path).ok();
     }
 

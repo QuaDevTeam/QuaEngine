@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use crate::renderer_smoke::summary::{
-    NativeRendererSmokeBackendSummary, NativeRendererSmokeMemorySummary,
-    NativeRendererSmokePackageMemorySummary, NativeRendererSmokeResourceKindMemorySummary,
-    NativeRendererSmokeSummary,
+    NativeRendererSmokeAudioBackendSummary, NativeRendererSmokeBackendSummary,
+    NativeRendererSmokeMemorySummary, NativeRendererSmokePackageMemorySummary,
+    NativeRendererSmokeResourceKindMemorySummary, NativeRendererSmokeSummary,
 };
 
 pub(super) fn summary() -> NativeRendererSmokeSummary {
@@ -33,6 +33,11 @@ pub(super) fn summary() -> NativeRendererSmokeSummary {
         memory: memory(60, 40),
         declarative_memory: memory(40, 0),
         audio_memory: memory(10, 0),
+        audio_backend: NativeRendererSmokeAudioBackendSummary {
+            applied_plan_count: 2,
+            applied_command_count: 3,
+            active_track_count: 1,
+        },
         backend: NativeRendererSmokeBackendSummary {
             pass_count: 2,
             command_count: 8,
