@@ -4,6 +4,7 @@ use crate::renderer::json_input::{
     NativeRendererJsonFrameError, NativeRendererJsonValidationError,
 };
 
+mod audio;
 mod background;
 mod ui_surface;
 
@@ -18,7 +19,7 @@ pub(crate) fn validate_json_frame_required_fields(
     validate_choices_required_fields(input, &mut errors);
     validate_ui_projection_required_fields(input, &mut errors);
     ui_surface::validate_ui_surface_required_fields(input, &mut errors);
-    validate_audio_track_required_fields(input, &mut errors);
+    audio::validate_audio_track_required_fields(input, &mut errors);
     if let Some(error) = errors.into_iter().next() {
         return Err(NativeRendererJsonFrameError::Validation(error));
     }
@@ -224,62 +225,6 @@ fn validate_character_required_fields(
                         .to_string(),
             });
             return;
-        }
-    }
-}
-
-fn validate_audio_track_required_fields(
-    input: &Value,
-    errors: &mut Vec<NativeRendererJsonValidationError>,
-) {
-    let Some(audio) = input.get("view").and_then(|view| view.get("audio")) else {
-        return;
-    };
-    let Some(audio_object) = audio.as_object() else {
-        errors.push(NativeRendererJsonValidationError {
-            path: "view.audio".to_string(),
-            asset_name: String::new(),
-            reason: "must be an object for native audio projections in resolved projection JSON"
-                .to_string(),
-        });
-        return;
-    };
-    let Some(tracks_value) = audio_object.get("tracks") else {
-        return;
-    };
-    let Some(tracks) = tracks_value.as_array() else {
-        errors.push(NativeRendererJsonValidationError {
-            path: "view.audio.tracks".to_string(),
-            asset_name: String::new(),
-            reason: "must be an array for native audio tracks in resolved projection JSON"
-                .to_string(),
-        });
-        return;
-    };
-
-    for (track_index, track) in tracks.iter().enumerate() {
-        let Some(track_object) = track.as_object() else {
-            errors.push(NativeRendererJsonValidationError {
-                path: format!("view.audio.tracks[{track_index}]"),
-                asset_name: String::new(),
-                reason: "must be an object for native audio tracks in resolved projection JSON"
-                    .to_string(),
-            });
-            return;
-        };
-        for field in ["assetType", "loadMode", "playbackState"] {
-            let missing = match track_object.get(field) {
-                Some(value) => value.is_null(),
-                None => true,
-            };
-            if missing {
-                errors.push(NativeRendererJsonValidationError {
-                    path: format!("view.audio.tracks[{track_index}].{field}"),
-                    asset_name: String::new(),
-                    reason: "must be explicitly provided for native audio tracks in resolved projection JSON".to_string(),
-                });
-                return;
-            }
         }
     }
 }
