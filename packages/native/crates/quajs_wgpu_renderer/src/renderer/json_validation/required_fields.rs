@@ -185,17 +185,29 @@ fn validate_character_required_fields(
     input: &Value,
     errors: &mut Vec<NativeRendererJsonValidationError>,
 ) {
-    let Some(characters) = input
-        .get("view")
-        .and_then(|view| view.get("characters"))
-        .and_then(Value::as_array)
-    else {
+    let Some(characters_value) = input.get("view").and_then(|view| view.get("characters")) else {
+        return;
+    };
+    let Some(characters) = characters_value.as_array() else {
+        errors.push(NativeRendererJsonValidationError {
+            path: "view.characters".to_string(),
+            asset_name: String::new(),
+            reason: "must be an array for native character projections in resolved projection JSON"
+                .to_string(),
+        });
         return;
     };
 
     for (character_index, character) in characters.iter().enumerate() {
         let Some(character_object) = character.as_object() else {
-            continue;
+            errors.push(NativeRendererJsonValidationError {
+                path: format!("view.characters[{character_index}]"),
+                asset_name: String::new(),
+                reason:
+                    "must be an object for native character projections in resolved projection JSON"
+                        .to_string(),
+            });
+            return;
         };
         let missing_visible = match character_object.get("visible") {
             Some(value) => value.is_null(),
@@ -218,18 +230,40 @@ fn validate_audio_track_required_fields(
     input: &Value,
     errors: &mut Vec<NativeRendererJsonValidationError>,
 ) {
-    let Some(tracks) = input
-        .get("view")
-        .and_then(|view| view.get("audio"))
-        .and_then(|audio| audio.get("tracks"))
-        .and_then(Value::as_array)
-    else {
+    let Some(audio) = input.get("view").and_then(|view| view.get("audio")) else {
+        return;
+    };
+    let Some(audio_object) = audio.as_object() else {
+        errors.push(NativeRendererJsonValidationError {
+            path: "view.audio".to_string(),
+            asset_name: String::new(),
+            reason: "must be an object for native audio projections in resolved projection JSON"
+                .to_string(),
+        });
+        return;
+    };
+    let Some(tracks_value) = audio_object.get("tracks") else {
+        return;
+    };
+    let Some(tracks) = tracks_value.as_array() else {
+        errors.push(NativeRendererJsonValidationError {
+            path: "view.audio.tracks".to_string(),
+            asset_name: String::new(),
+            reason: "must be an array for native audio tracks in resolved projection JSON"
+                .to_string(),
+        });
         return;
     };
 
     for (track_index, track) in tracks.iter().enumerate() {
         let Some(track_object) = track.as_object() else {
-            continue;
+            errors.push(NativeRendererJsonValidationError {
+                path: format!("view.audio.tracks[{track_index}]"),
+                asset_name: String::new(),
+                reason: "must be an object for native audio tracks in resolved projection JSON"
+                    .to_string(),
+            });
+            return;
         };
         for field in ["assetType", "loadMode", "playbackState"] {
             let missing = match track_object.get(field) {

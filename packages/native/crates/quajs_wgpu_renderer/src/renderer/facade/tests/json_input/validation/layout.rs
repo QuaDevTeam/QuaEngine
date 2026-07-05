@@ -93,6 +93,54 @@ fn json_frame_layout_validation_rejects_malformed_projection_section_shapes() {
 }
 
 #[test]
+fn json_frame_layout_validation_rejects_malformed_projection_collection_shapes() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    for (input, path, reason) in [
+        (
+            json_frame_with_malformed_characters_projection_input(),
+            "view.characters",
+            "must be an array",
+        ),
+        (
+            json_frame_with_malformed_character_item_input(),
+            "view.characters[0]",
+            "must be an object",
+        ),
+        (
+            json_frame_with_malformed_audio_projection_input(),
+            "view.audio",
+            "must be an object",
+        ),
+        (
+            json_frame_with_malformed_audio_tracks_input(),
+            "view.audio.tracks",
+            "must be an array",
+        ),
+        (
+            json_frame_with_malformed_audio_track_item_input(),
+            "view.audio.tracks[0]",
+            "must be an object",
+        ),
+    ] {
+        let error = renderer.prepare_frame_json_str(input).unwrap_err();
+        match error {
+            NativeRendererJsonFrameError::Validation(validation) => {
+                assert_eq!(validation.path, path);
+                assert_eq!(validation.asset_name, "");
+                assert!(validation.reason.contains(reason));
+            }
+            other => {
+                panic!("expected malformed projection collection validation error, got {other:?}")
+            }
+        }
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_layout_validation_rejects_unsafe_stage_inputs() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
