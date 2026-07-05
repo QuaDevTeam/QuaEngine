@@ -19,11 +19,13 @@ describe('native runtime package guard target core isolation', () => {
       expect.objectContaining({
         code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
         field: 'executableDependencies',
+        packageName: '@quajs/renderer-web',
         message: expect.stringContaining('@quajs/renderer-web'),
       }),
       expect.objectContaining({
         code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
         field: 'executableDependencies',
+        packageName: '@quajs/engine-native',
         message: expect.stringContaining('@quajs/engine-native'),
       }),
     ])
@@ -45,11 +47,13 @@ describe('native runtime package guard target core isolation', () => {
       expect.objectContaining({
         code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
         field: 'rendererEntries',
+        packageName: '@quajs/renderer-cocos',
         message: expect.stringContaining('@quajs/renderer-cocos'),
       }),
       expect.objectContaining({
         code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
         field: 'rendererEntries',
+        packageName: '@quajs/assets-native',
         message: expect.stringContaining('@quajs/assets-native'),
       }),
     ])
@@ -78,12 +82,56 @@ describe('native runtime package guard target core isolation', () => {
       expect.objectContaining({
         code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
         field: 'executableDependencies',
+        packageName: '@quajs/renderer-web',
         message: expect.stringContaining('@quajs/renderer-web'),
       }),
       expect.objectContaining({
         code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
         field: 'rendererEntries',
+        packageName: '@quajs/engine-native',
         message: expect.stringContaining('@quajs/engine-native'),
+      }),
+    ]))
+  })
+
+  it('normalizes bundled and package-manager paths before target core checks', () => {
+    const result = checkNativeRuntimePackageGuard({
+      package: createRuntimePackage({
+        executableDependencies: [
+          'npm:@quajs/renderer-web/plugins/audio?import#hot',
+          'C:\\repo\\node_modules\\@quajs\\cocos-host\\runtime.js',
+        ],
+        rendererEntries: [
+          {
+            packageName: '@quajs/plugin-native-ui',
+            specifier: '/repo/node_modules/.pnpm/@quajs+engine-native@0.1.0/node_modules/@quajs/engine-native/runtime.js',
+          },
+          '/repo/node_modules/.pnpm/@quajs+native-contracts@0.1.0',
+        ],
+      }),
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
+        field: 'executableDependencies',
+        packageName: '@quajs/renderer-web',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
+        field: 'executableDependencies',
+        packageName: '@quajs/cocos-host',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
+        field: 'rendererEntries',
+        packageName: '@quajs/engine-native',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
+        field: 'rendererEntries',
+        packageName: '@quajs/native-contracts',
       }),
     ]))
   })
