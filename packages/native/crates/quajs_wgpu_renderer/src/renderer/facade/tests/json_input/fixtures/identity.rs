@@ -377,3 +377,38 @@ pub(in super::super) fn json_frame_with_surface_leaf_children_input() -> &'stati
     }
     "#
 }
+
+pub(in super::super) fn json_frame_with_unsupported_surface_node_kind_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "dialog",
+                  "kind": "Dialog",
+                  "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 480, "height": 240 },
+                  "children": [
+                    {
+                      "id": "dialog-body",
+                      "kind": "Panel",
+                      "visible": true,
+                      "bounds": { "x": 0, "y": 0, "width": 480, "height": 240 }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
