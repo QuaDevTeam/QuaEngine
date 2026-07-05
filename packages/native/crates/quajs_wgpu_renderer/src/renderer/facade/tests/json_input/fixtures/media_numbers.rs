@@ -71,6 +71,40 @@ pub(in super::super) fn json_frame_with_oversized_video_opacity_input() -> &'sta
     "#
 }
 
+pub(in super::super) fn json_frame_with_oversized_video_volume_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "video",
+          "video": {
+            "assetName": "video/opening.webm",
+            "volume": 1.5
+          }
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_zero_video_playback_rate_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "video",
+          "video": {
+            "assetName": "video/opening.webm",
+            "playbackRate": 0
+          }
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_oversized_background_origin_input() -> &'static str {
     r#"
     {

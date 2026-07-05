@@ -71,6 +71,10 @@ fn skips_empty_param_resource_ids_when_no_resources_are_bound() {
                 asset_type: "video".to_string(),
                 asset_name: "".to_string(),
                 poster_asset_name: Some("".to_string()),
+                looped: None,
+                muted: None,
+                volume: None,
+                playback_rate: None,
                 fit: MediaFit::Cover,
                 origin: MediaOrigin::default(),
                 source: LogicalRect::default(),
@@ -163,6 +167,10 @@ fn lowers_video_fallback_poster_with_image_resource_namespace() {
                 asset_type: "video".to_string(),
                 asset_name: "opening.mp4".to_string(),
                 poster_asset_name: Some("opening-poster.png".to_string()),
+                looped: Some(true),
+                muted: Some(false),
+                volume: Some(0.75),
+                playback_rate: Some(1.25),
                 fit: MediaFit::Cover,
                 origin: MediaOrigin::default(),
                 source: LogicalRect::default(),
@@ -182,6 +190,10 @@ fn lowers_video_fallback_poster_with_image_resource_namespace() {
             asset_type,
             asset_name,
             poster_asset_name,
+            looped,
+            muted,
+            volume,
+            playback_rate,
             fit,
             origin,
             source,
@@ -189,6 +201,10 @@ fn lowers_video_fallback_poster_with_image_resource_namespace() {
         } if asset_type == "video"
             && asset_name == "opening.mp4"
             && poster_asset_name.as_deref() == Some("opening-poster.png")
+            && *looped == Some(true)
+            && *muted == Some(false)
+            && *volume == Some(0.75)
+            && *playback_rate == Some(1.25)
             && *fit == MediaFit::Cover
             && origin == &MediaOrigin::default()
             && source == &LogicalRect::default()

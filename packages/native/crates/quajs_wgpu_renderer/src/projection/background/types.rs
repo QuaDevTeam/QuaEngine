@@ -137,6 +137,14 @@ impl BackgroundLayerProjection {
 #[serde(rename_all = "camelCase")]
 pub struct BackgroundVideoProjection {
     pub asset_name: String,
+    #[serde(default, rename = "loop", skip_serializing_if = "Option::is_none")]
+    pub looped: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub muted: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub volume: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub playback_rate: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub poster: Option<String>,
     #[serde(default = "default_background_fit")]
@@ -153,6 +161,10 @@ impl BackgroundVideoProjection {
     pub fn new(asset_name: impl Into<String>) -> Self {
         Self {
             asset_name: asset_name.into(),
+            looped: None,
+            muted: None,
+            volume: None,
+            playback_rate: None,
             poster: None,
             fit: BackgroundFit::Cover,
             origin: None,

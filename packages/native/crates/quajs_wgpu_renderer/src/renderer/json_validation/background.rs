@@ -5,7 +5,8 @@ use crate::renderer::json_input::NativeRendererJsonValidationError;
 
 use super::background_numbers::{
     invalid_native_json_background_geometry_reason, invalid_native_json_background_opacity_reason,
-    invalid_native_json_background_rotation_reason,
+    invalid_native_json_background_rotation_reason, invalid_native_json_video_playback_rate_reason,
+    invalid_native_json_video_volume_reason,
 };
 use super::background_origin::invalid_native_json_background_origin_reason;
 use super::JsonProjectionValidator;
@@ -81,6 +82,11 @@ impl JsonProjectionValidator {
             self.validate_background_origin("view.background.video.origin", origin);
         }
         self.validate_background_opacity("view.background.video.opacity", video.opacity);
+        self.validate_video_volume("view.background.video.volume", video.volume);
+        self.validate_video_playback_rate(
+            "view.background.video.playbackRate",
+            video.playback_rate,
+        );
         self.validate_provenance("view.background.video.provenance", &video.provenance);
     }
 
@@ -109,6 +115,26 @@ impl JsonProjectionValidator {
             self.errors.push(NativeRendererJsonValidationError {
                 path: path.to_string(),
                 asset_name: value.to_string(),
+                reason,
+            });
+        }
+    }
+
+    fn validate_video_volume(&mut self, path: &str, value: Option<f32>) {
+        if let Some(reason) = invalid_native_json_video_volume_reason(value) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: value.unwrap_or_default().to_string(),
+                reason,
+            });
+        }
+    }
+
+    fn validate_video_playback_rate(&mut self, path: &str, value: Option<f32>) {
+        if let Some(reason) = invalid_native_json_video_playback_rate_reason(value) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: value.unwrap_or_default().to_string(),
                 reason,
             });
         }

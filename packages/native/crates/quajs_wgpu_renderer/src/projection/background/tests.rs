@@ -363,6 +363,14 @@ fn skips_video_backgrounds_with_unsafe_resolved_numbers_on_direct_projection() {
             origin: Some("../center".to_string()),
             ..BackgroundVideoProjection::new("movie/opening.mp4")
         },
+        BackgroundVideoProjection {
+            volume: Some(1.01),
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        },
+        BackgroundVideoProjection {
+            playback_rate: Some(0.0),
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        },
     ] {
         let background = BackgroundProjection {
             mode: BackgroundMode::Video,
@@ -379,6 +387,10 @@ fn builds_video_fallback_command_with_poster_resource() {
     let background = BackgroundProjection {
         mode: BackgroundMode::Video,
         video: Some(BackgroundVideoProjection {
+            looped: Some(false),
+            muted: Some(false),
+            volume: Some(0.5),
+            playback_rate: Some(1.25),
             poster: Some("poster/day.jpg".to_string()),
             provenance: provenance("runtime.video", ["base"]),
             ..BackgroundVideoProjection::new("movie/opening.mp4")
@@ -401,6 +413,10 @@ fn builds_video_fallback_command_with_poster_resource() {
         DrawCommandParams::Video(params) => {
             assert_eq!(params.asset_name, "movie/opening.mp4");
             assert_eq!(params.poster_asset_name.as_deref(), Some("poster/day.jpg"));
+            assert_eq!(params.looped, Some(false));
+            assert_eq!(params.muted, Some(false));
+            assert_eq!(params.volume, Some(0.5));
+            assert_eq!(params.playback_rate, Some(1.25));
             assert_eq!(
                 params.fallback_reason.as_deref(),
                 Some("native video decode backend is not active")
@@ -502,6 +518,28 @@ fn deserializes_background_rotation_from_camel_case_json() {
 
     assert_eq!(background.rotation, 24.5);
     assert_eq!(background.layers[0].rotation, -16.25);
+}
+
+#[test]
+fn deserializes_video_playback_policy_from_engine_projection_json() {
+    let video: BackgroundVideoProjection = serde_json::from_str(
+        r#"
+        {
+          "assetName": "movie/opening.mp4",
+          "loop": false,
+          "muted": false,
+          "volume": 0.6,
+          "playbackRate": 1.25
+        }
+        "#,
+    )
+    .expect("video background projection JSON should parse");
+
+    assert_eq!(video.asset_name, "movie/opening.mp4");
+    assert_eq!(video.looped, Some(false));
+    assert_eq!(video.muted, Some(false));
+    assert_eq!(video.volume, Some(0.6));
+    assert_eq!(video.playback_rate, Some(1.25));
 }
 
 #[test]
