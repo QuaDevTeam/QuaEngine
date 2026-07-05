@@ -167,6 +167,7 @@ native entry 是 compatibility declaration，不是 native binary entry。第三
 
 - shared entry import Web / Cocos / Native target core。
 - 普通 plugin / Runtime QPK 声明 target core executable dependency。
+- Web / Cocos / Native project template、startup shell、debug/release shell、installer、updater 或 smoke runner 重新声明 active target core，或先 materialize 三端 core union 再过滤。
 - native Runtime QPK 携带 native payload 或 `nativeCode` 缺失 / 为 true。
 - native renderer 版本来自 QPK 而不是 Rust host info。
 - assets/store/native runtime version 未写入 target-bundle manifest 或未在启动时比较。
