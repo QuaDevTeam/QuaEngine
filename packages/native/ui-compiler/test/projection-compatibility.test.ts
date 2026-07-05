@@ -154,6 +154,30 @@ Panel.bad-type {
     expect(compatibility.nativeCode).toBe(false)
   })
 
+  it('omits preview-only QSS declarations from document-derived native requirements', () => {
+    const qui = analyzeQuiSource(`
+Panel.card {
+  Text { "Preview" }
+}
+`)
+    const qss = analyzeQssSource(`
+Panel.card {
+  background-color: #101820;
+  background-repeat: repeat;
+  box-shadow: 0 8px 24px #000;
+}
+`, {
+      lint: {
+        allowPreviewFeatures: true,
+      },
+    })
+    const compatibility = createNativeUiSurfaceCompatibilityFromDocuments(qui, { qss })
+
+    expect(qss.diagnostics).toEqual([])
+    expect(compatibility.qssFeatures).toEqual(['background-color'])
+    expect(compatibility.qssFeatures).not.toEqual(expect.arrayContaining(['background-repeat', 'box-shadow']))
+  })
+
   it('derives native UI surface compatibility metadata from resolved projections', () => {
     const projection = compileNativeUiSurfaceProjection(
       analyzeQuiSource(`

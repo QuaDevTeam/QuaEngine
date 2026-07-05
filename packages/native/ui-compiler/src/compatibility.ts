@@ -14,7 +14,7 @@ import { createNativeUiSurfaceCompatibility } from '@quajs/native-contracts'
 import { isSafeNativeAssetType, isSafePackageAssetName, literalStringValue } from './assets'
 import { collectNativeUiSurfaceProjectionRequirements } from './projection-requirements'
 import { parseNativeQssBackgroundImage } from './qss-resolved-style'
-import { findNativeUiComponent } from './registry'
+import { findNativeQssProperty, findNativeUiComponent } from './registry'
 import { canProjectNativeUiIntent } from './surface-intents'
 
 export interface CreateNativeUiSurfaceCompatibilityFromDocumentsOptions
@@ -169,7 +169,9 @@ function collectQssDeclarationCompatibilityInputs(
   assetKinds: Set<string>,
   qssFeatures: Set<string>,
 ): void {
-  qssFeatures.add(declaration.name)
+  const property = findNativeQssProperty(declaration.name)
+  if (property?.nativeWgpu)
+    qssFeatures.add(declaration.name)
   if (declaration.name !== 'background-image')
     return
 
