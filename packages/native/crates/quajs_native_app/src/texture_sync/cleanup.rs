@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use quajs_wgpu_renderer::audio::{NativeAudioBackend, NativeAudioBackendError};
 use quajs_wgpu_renderer::renderer::NativeRendererHostCleanupRecord;
 use quajs_wgpu_renderer::renderer::{
@@ -109,6 +111,7 @@ where
         renderer.backend_mut(),
         &package_release.host_cleanup,
     );
+    restore_failed_texture_cleanup_resources(renderer, &package_release, &texture_cleanup_report);
 
     NativeTextureCleanedPackageReleaseResult {
         package_release,
@@ -131,6 +134,7 @@ where
         renderer.backend_mut(),
         &package_release.host_cleanup,
     );
+    restore_failed_texture_cleanup_resources(renderer, &package_release, &texture_cleanup_report);
 
     Ok(NativeTextureCleanedPackageReleaseResult {
         package_release,
@@ -182,4 +186,28 @@ fn is_texture_cleanup_kind(kind: NativeResourceKind) -> bool {
         kind,
         NativeResourceKind::Texture | NativeResourceKind::DecodedImage
     )
+}
+
+fn restore_failed_texture_cleanup_resources<B, A>(
+    renderer: &mut NativeRenderer<B, A>,
+    package_release: &NativeRendererPackageRelease,
+    texture_cleanup_report: &NativeTextureHostCleanupSyncReport,
+) where
+    B: NativeRenderBackend,
+{
+    if texture_cleanup_report.release_failures.is_empty() {
+        return;
+    }
+
+    let failed_resource_ids = texture_cleanup_report
+        .release_failures
+        .iter()
+        .map(|failure| failure.resource_id.clone())
+        .collect::<BTreeSet<_>>();
+
+    for record in &package_release.released_resources {
+        if failed_resource_ids.contains(&record.id) {
+            renderer.state_mut().resources_mut().insert(record.clone());
+        }
+    }
 }

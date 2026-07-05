@@ -104,6 +104,83 @@ fn releases_unmounted_package_textures() {
 }
 
 #[test]
+fn retains_unmounted_package_when_texture_cleanup_fails_and_retries() {
+    let mounted_host =
+        RecordingAssetHost::new().with_bundle(bundle("runtime-menu-bundle", Some("runtime.menu")));
+    let unmounted_host = RecordingAssetHost::new();
+    let mut registry = NativeTextureBundleMountRegistry::new();
+    let mut renderer = NativeRenderer::new(TextureResidentBackend {
+        resident_resource_ids: vec!["images:runtime-menu.png".to_string()],
+        fail_release: true,
+        ..Default::default()
+    });
+    renderer.state_mut().resources_mut().insert(
+        NativeResourceRecord::new("images:runtime-menu.png", NativeResourceKind::Texture)
+            .owned_by("runtime.menu"),
+    );
+
+    sync_mounted_texture_bundle_lifecycle_from_host(&mut registry, &mut renderer, &mounted_host)
+        .expect("initial mounted bundle baseline should sync");
+
+    let failed = sync_mounted_texture_bundle_lifecycle_from_host(
+        &mut registry,
+        &mut renderer,
+        &unmounted_host,
+    )
+    .expect("texture cleanup failure should be reported without dropping package tracking");
+
+    assert_eq!(failed.removed_package_ids, vec!["runtime.menu"]);
+    assert!(failed.released_package_ids.is_empty());
+    assert_eq!(failed.blocked_package_ids, vec!["runtime.menu"]);
+    assert_eq!(failed.retained_blocked_package_ids, vec!["runtime.menu"]);
+    assert_eq!(failed.tracked_package_ids, vec!["runtime.menu"]);
+    assert_eq!(failed.release_attempt_count, 1);
+    assert_eq!(failed.released_resource_count, 1);
+    assert_eq!(failed.texture_cleanup_error_count, 1);
+    assert_eq!(failed.package_releases.len(), 1);
+    assert_eq!(
+        failed.package_releases[0]
+            .texture_cleanup_report
+            .release_failures[0]
+            .resource_id,
+        ResourceId::from("images:runtime-menu.png")
+    );
+    assert_eq!(registry.tracked_package_ids(), vec!["runtime.menu"]);
+    assert!(renderer
+        .resources()
+        .get(ResourceId::from("images:runtime-menu.png"))
+        .is_some());
+    assert_eq!(
+        renderer.backend().resident_resource_ids,
+        vec!["images:runtime-menu.png"]
+    );
+    assert!(renderer.backend().released_resource_ids.is_empty());
+
+    renderer.backend_mut().fail_release = false;
+    let retry = sync_mounted_texture_bundle_lifecycle_from_host(
+        &mut registry,
+        &mut renderer,
+        &unmounted_host,
+    )
+    .expect("retained package should retry texture cleanup on the next lifecycle sync");
+
+    assert_eq!(retry.removed_package_ids, vec!["runtime.menu"]);
+    assert_eq!(retry.released_package_ids, vec!["runtime.menu"]);
+    assert!(retry.blocked_package_ids.is_empty());
+    assert_eq!(retry.release_attempt_count, 1);
+    assert_eq!(retry.released_resource_count, 1);
+    assert_eq!(retry.texture_cleanup_error_count, 0);
+    assert!(retry.tracked_package_ids.is_empty());
+    assert_eq!(registry.tracked_package_ids(), Vec::<String>::new());
+    assert!(renderer.resources().is_empty());
+    assert!(renderer.backend().resident_resource_ids.is_empty());
+    assert_eq!(
+        renderer.backend().released_resource_ids,
+        vec![ResourceId::from("images:runtime-menu.png")]
+    );
+}
+
+#[test]
 fn audio_teardown_lifecycle_releases_unmounted_package_textures() {
     let mounted_host =
         RecordingAssetHost::new().with_bundle(bundle("runtime-menu-bundle", Some("runtime.menu")));
