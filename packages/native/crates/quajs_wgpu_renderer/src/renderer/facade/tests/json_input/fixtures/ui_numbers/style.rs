@@ -14,6 +14,7 @@ pub(in super::super::super) fn json_frame_with_oversized_ui_node_opacity_input()
                   "id": "root",
                   "kind": "Panel",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "opacity": 1.1
                 }
               }
@@ -41,6 +42,7 @@ pub(in super::super::super) fn json_frame_with_oversized_ui_style_opacity_input(
                   "id": "root",
                   "kind": "Panel",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "style": {
                     "opacity": 1.1
                   }
@@ -71,6 +73,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_background_position_inp
                   "id": "root",
                   "kind": "Panel",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "style": {
                     "backgroundPosition": { "x": 1.5, "y": 0.5 }
                   }
@@ -100,6 +103,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_object_position_input()
                   "id": "root",
                   "kind": "Image",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "image": {
                     "assetName": "ui/poster.png",
                     "assetType": "images"
@@ -133,6 +137,7 @@ pub(in super::super::super) fn json_frame_with_oversized_ui_padding_input() -> &
                   "id": "root",
                   "kind": "Panel",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "style": {
                     "padding": { "top": 0, "right": 0, "bottom": 0, "left": 1000001 }
                   }
@@ -162,6 +167,7 @@ pub(in super::super::super) fn json_frame_with_negative_ui_style_number_input() 
                   "id": "root",
                   "kind": "Button",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "style": {
                     "borderWidth": -1
                   }

@@ -10,7 +10,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_overlay_element_id_input()
               "elementId": "../menu",
               "surface": {
                 "key": "ui/menu.qui",
-                "root": { "id": "root", "kind": "Box", "visible": true }
+                "root": { "id": "root", "kind": "Box", "visible": true, "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 } }
               }
             }
           ]
@@ -32,7 +32,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_surface_node_id_input() ->
               "elementId": "menu",
               "surface": {
                 "key": "ui/menu.qui",
-                "root": { "id": "file:///tmp/native.node", "kind": "Box", "visible": true }
+                "root": { "id": "file:///tmp/native.node", "kind": "Box", "visible": true, "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 } }
               }
             }
           ]
@@ -56,7 +56,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_scene_id_input() -> &'stat
                 "id": "native/load.dll",
                 "surface": {
                   "key": "ui/menu.qui",
-                  "root": { "id": "root", "kind": "Box", "visible": true }
+                  "root": { "id": "root", "kind": "Box", "visible": true, "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 } }
                 }
               }
             }
@@ -80,7 +80,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_overlay_stack_input() -> &
               "overlayStack": "native/load.dll",
               "surface": {
                 "key": "ui/menu.qui",
-                "root": { "id": "root", "kind": "Box", "visible": true }
+                "root": { "id": "root", "kind": "Box", "visible": true, "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 } }
               }
             }
           ]
@@ -107,7 +107,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_scene_overlay_stack_input(
                 },
                 "surface": {
                   "key": "ui/menu.qui",
-                  "root": { "id": "root", "kind": "Box", "visible": true }
+                  "root": { "id": "root", "kind": "Box", "visible": true, "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 } }
                 }
               }
             }
@@ -134,6 +134,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_intent_action_input() -
                   "id": "root",
                   "kind": "Button",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "intent": {
                     "event": "ui/intent",
                     "action": "native:load-plugin"
@@ -164,7 +165,7 @@ pub(in super::super::super) fn json_frame_with_missing_overlay_intent_event_inpu
               },
               "surface": {
                 "key": "ui/menu.qui",
-                "root": { "id": "root", "kind": "Box", "visible": true }
+                "root": { "id": "root", "kind": "Box", "visible": true, "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 } }
               }
             }
           ]
@@ -191,6 +192,7 @@ pub(in super::super::super) fn json_frame_with_missing_surface_intent_event_inpu
                   "id": "root",
                   "kind": "Button",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "intent": {
                     "action": "open"
                   }
@@ -221,6 +223,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_intent_metadata_key_inp
                   "id": "root",
                   "kind": "Button",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "intent": {
                     "event": "ui/intent",
                     "action": "open",
@@ -255,6 +258,7 @@ pub(in super::super::super) fn json_frame_with_oversized_ui_intent_metadata_inpu
                   "id": "root",
                   "kind": "Button",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "intent": {
                     "event": "ui/intent",
                     "action": "open",

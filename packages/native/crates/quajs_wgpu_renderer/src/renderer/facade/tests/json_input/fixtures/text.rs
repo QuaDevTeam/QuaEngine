@@ -14,6 +14,7 @@ pub(in super::super) fn json_frame_with_control_character_ui_text_input() -> &'s
                   "id": "title",
                   "kind": "Text",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "text": "Open\u001bMenu"
                 }
               }
@@ -42,6 +43,7 @@ pub(in super::super) fn json_frame_with_oversized_ui_text_input() -> String {
                   "id": "title",
                   "kind": "Text",
                   "visible": true,
+                  "bounds": {{ "x": 0, "y": 0, "width": 100, "height": 100 }},
                   "text": "{}"
                 }}
               }}

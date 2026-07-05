@@ -33,6 +33,7 @@ pub(in super::super::super) fn json_frame_with_traversal_ui_font_family_input() 
                   "id": "root",
                   "kind": "Text",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "text": "Menu",
                   "style": {
                     "fontFamily": ["../fonts/Bad"]

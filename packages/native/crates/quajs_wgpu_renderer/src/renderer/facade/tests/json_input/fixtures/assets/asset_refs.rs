@@ -14,6 +14,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_asset_input() -> &'stat
                   "id": "root",
                   "kind": "Box",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "style": {
                     "backgroundImage": { "assetType": "images", "assetName": "../native/helper.wasm?raw" }
                   }
@@ -155,6 +156,7 @@ pub(in super::super::super) fn json_frame_with_missing_ui_image_asset_type_input
                   "id": "poster",
                   "kind": "Image",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "image": {
                     "assetName": "ui/poster.png"
                   }
@@ -185,6 +187,7 @@ pub(in super::super::super) fn json_frame_with_missing_ui_background_image_asset
                   "id": "panel",
                   "kind": "Panel",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "style": {
                     "backgroundImage": {
                       "assetName": "ui/panel.png"
@@ -216,6 +219,7 @@ pub(in super::super::super) fn json_frame_with_empty_ui_image_asset_input() -> &
                   "id": "poster",
                   "kind": "Image",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "image": {
                     "assetType": "images",
                     "assetName": "   #poster"

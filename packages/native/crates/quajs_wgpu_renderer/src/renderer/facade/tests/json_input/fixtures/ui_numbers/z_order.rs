@@ -52,7 +52,7 @@ pub(in super::super::super) fn json_frame_with_oversized_overlay_stack_priority_
               "stackPriority": 1001,
               "surface": {
                 "key": "ui/menu.qui",
-                "root": { "id": "root", "kind": "Box", "visible": true }
+                "root": { "id": "root", "kind": "Box", "visible": true, "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 } }
               }
             }
           ]
@@ -78,6 +78,7 @@ pub(in super::super::super) fn json_frame_with_oversized_ui_node_z_index_input()
                   "id": "root",
                   "kind": "Panel",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "zIndex": 1000001
                 }
               }
