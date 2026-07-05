@@ -84,6 +84,39 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_background_position_inp
     "#
 }
 
+pub(in super::super::super) fn json_frame_with_unsafe_ui_object_position_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Image",
+                  "visible": true,
+                  "image": {
+                    "assetName": "ui/poster.png",
+                    "assetType": "images"
+                  },
+                  "style": {
+                    "objectPosition": { "x": 0.5, "y": -0.01 }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super::super) fn json_frame_with_oversized_ui_padding_input() -> &'static str {
     r#"
     {

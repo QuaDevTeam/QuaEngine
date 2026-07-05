@@ -88,6 +88,7 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
     value('justify', 'Justify text lines.'),
   ]),
   property('object-fit', 'p0', true, 'Image fitting mode for image-like leaves.', imageFitValues),
+  property('object-position', 'p1', true, 'Image origin for image-like leaves.', backgroundPositionValues),
   property('display', 'p1', true, 'Native visibility fallback subset; only display: none is currently supported.', [
     value('none', 'Hide the node and its children when no QUI show prop overrides it.'),
   ]),

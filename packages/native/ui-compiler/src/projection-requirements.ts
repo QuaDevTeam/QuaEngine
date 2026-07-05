@@ -29,6 +29,7 @@ const QSS_FEATURE_BY_STYLE_FIELD: Record<keyof NativeQssResolvedStyle, string> =
   letterSpacing: 'letter-spacing',
   lineHeight: 'line-height',
   objectFit: 'object-fit',
+  objectPosition: 'object-position',
   opacity: 'opacity',
   padding: 'padding',
   textAlign: 'text-align',

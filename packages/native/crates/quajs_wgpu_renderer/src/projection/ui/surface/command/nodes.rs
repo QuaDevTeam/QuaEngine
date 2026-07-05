@@ -11,9 +11,9 @@ use crate::resources::ResourceId;
 use super::super::super::style::{
     resolve_background_color, resolve_border_color, resolve_border_radius, resolve_border_width,
     resolve_font_family, resolve_font_size, resolve_font_style, resolve_font_weight,
-    resolve_letter_spacing, resolve_line_height, resolve_object_fit, resolve_padding,
-    resolve_text_align, resolve_text_color, resolve_text_decoration, resolve_text_overflow,
-    resolve_text_transform, resolve_white_space,
+    resolve_letter_spacing, resolve_line_height, resolve_object_fit, resolve_object_position,
+    resolve_padding, resolve_text_align, resolve_text_color, resolve_text_decoration,
+    resolve_text_overflow, resolve_text_transform, resolve_white_space,
 };
 use super::super::super::types::{
     UiOverlayProjection, UiSurfaceNodeProjection, UiSurfaceResolvedStyle,
@@ -132,7 +132,7 @@ pub(super) fn image_node_command(
         asset_type: image.asset_type.clone(),
         asset_name: image.asset_name.clone(),
         fit: resolve_object_fit(&node.style, MediaFit::Contain),
-        origin: MediaOrigin::default(),
+        origin: resolve_object_position(&node.style, MediaOrigin::default()),
         source: bounds,
         rotation_degrees: 0.0,
     }));

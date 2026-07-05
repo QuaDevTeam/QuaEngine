@@ -58,6 +58,7 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
             "min-height",
             "min-width",
             "object-fit",
+            "object-position",
             "opacity",
             "overflow",
             "padding",

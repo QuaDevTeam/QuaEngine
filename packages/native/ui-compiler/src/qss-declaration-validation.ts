@@ -118,9 +118,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
         ? undefined
         : 'background-image must use package-relative asset("path") or asset("path", "asset-kind") references.'
     case 'background-position':
+    case 'object-position':
       return parseNativeQssBackgroundPosition(value)
         ? undefined
-        : 'background-position supports left/center/right, top/center/bottom, and 0%..100% one- or two-axis origins.'
+        : `${declaration.name} supports left/center/right, top/center/bottom, and 0%..100% one- or two-axis origins.`
     case 'background-size':
     case 'object-fit':
       return parseNativeQssObjectFit(value)

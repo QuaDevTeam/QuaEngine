@@ -19,12 +19,22 @@ fn expands_inline_ui_surface_nodes_to_screen_commands() {
                             rect(40.0, 48.0, 240.0, 44.0),
                         )
                         .with_text("Main Menu"),
-                        UiSurfaceNodeProjection::new(
-                            "poster",
-                            UiSurfaceNodeKind::Image,
-                            rect(48.0, 108.0, 180.0, 120.0),
-                        )
-                        .with_image(UiSurfaceImageProjection::new("ui/poster.png")),
+                        UiSurfaceNodeProjection {
+                            style: UiSurfaceResolvedStyle {
+                                object_fit: Some(UiSurfaceObjectFitProjection::Cover),
+                                object_position: Some(UiSurfaceBackgroundPositionProjection {
+                                    x: 1.0,
+                                    y: 0.0,
+                                }),
+                                ..UiSurfaceResolvedStyle::default()
+                            },
+                            ..UiSurfaceNodeProjection::new(
+                                "poster",
+                                UiSurfaceNodeKind::Image,
+                                rect(48.0, 108.0, 180.0, 120.0),
+                            )
+                            .with_image(UiSurfaceImageProjection::new("ui/poster.png"))
+                        },
                         UiSurfaceNodeProjection::new(
                             "close",
                             UiSurfaceNodeKind::Button,
@@ -77,6 +87,14 @@ fn expands_inline_ui_surface_nodes_to_screen_commands() {
         commands[3].resource_ids,
         vec![ResourceId::from("images:ui/poster.png")]
     );
+    match &commands[3].params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.fit, MediaFit::Cover);
+            assert_eq!(params.origin.x, 1.0);
+            assert_eq!(params.origin.y, 0.0);
+        }
+        _ => panic!("expected image params"),
+    }
     assert_eq!(commands[4].kind, DrawCommandKind::UiSurface);
     assert!(commands[4].interactive);
     assert_eq!(commands[4].plane, RenderPlane::Screen);

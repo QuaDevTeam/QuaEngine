@@ -37,6 +37,9 @@ Button.primary {
   color: #18130a;
   font-size: 22px;
 }
+Image.poster {
+  object-position: right top;
+}
 `)
     const compatibility = createNativeUiSurfaceCompatibilityFromDocuments(qui, {
       qss,
@@ -62,6 +65,7 @@ Button.primary {
       'border-radius',
       'color',
       'font-size',
+      'object-position',
     ])
     expect([
       ...(compatibility.capabilities || []),
@@ -136,6 +140,7 @@ Panel.bad-type {
       analyzeQuiSource(`
 Panel.dialog(id: "menu", image: "ui/panel.png") {
   Text.title { "Main Menu" }
+  Image.poster(src: "ui/poster.png")
   Button.primary(action: ui.close()) { Text { "Close" } }
 }
 `),
@@ -150,6 +155,9 @@ Panel.dialog {
 Button.primary {
   color: #18130a;
   font-size: 22px;
+}
+Image.poster {
+  object-position: right top;
 }
 `),
         requiredRuntimePackages: ['base'],
@@ -169,13 +177,14 @@ Button.primary {
     })
     expect(compatibility.assetKinds).toEqual(expect.arrayContaining(['qui', 'qss', 'tokens', 'images']))
     expect(compatibility.intentEvents).toEqual(['ui/intent'])
-    expect(compatibility.quiComponents).toEqual(['Button', 'Panel', 'Text'])
+    expect(compatibility.quiComponents).toEqual(['Button', 'Image', 'Panel', 'Text'])
     expect(compatibility.qssFeatures).toEqual([
       'background-color',
       'background-image',
       'border-radius',
       'color',
       'font-size',
+      'object-position',
     ])
     expect([
       ...(compatibility.capabilities || []),

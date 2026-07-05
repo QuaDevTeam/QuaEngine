@@ -167,6 +167,7 @@ export interface NativeQssResolvedStyle {
   letterSpacing?: number
   lineHeight?: number
   objectFit?: NativeQssObjectFitValue
+  objectPosition?: NativeQssBackgroundPositionValue
   opacity?: number
   padding?: NativeQssEdgeInsetsValue
   textAlign?: NativeQssTextAlignValue

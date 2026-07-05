@@ -167,7 +167,7 @@ Rust renderer 只消费 resolved style IR。selector matching、cascade、inheri
 
 `@quajs/native-ui-compiler` 需要通过 `resolveNativeQssDeclarations` 这类 TS 工具链 API，把已解析和校验过的 QSS declaration 归一化成 native surface style IR；`z-index` 输出为 node metadata，其他已支持字段输出为 `NativeQssResolvedStyle`，Rust/wgpu renderer 只消费该投影形状。动态包 surface 编译时还必须显式传入 `contentPackageId` / `requiredRuntimePackages`，由 compiler 写入 node-level `provenance`，让 Rust draw command、资源账本、内存指标和 unload blocker 都能追踪 QUI/QSS surface 来源。
 
-native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义。`analyzeQssSource` / LSP 应在 authoring 阶段给出 `QSS_INVALID_VALUE`，例如拒绝 `object-fit: stretch`、`background-size: repeat`、不安全的 `background-image: asset("../escape.png")`、不安全的 `background-color: url("native.dll")` / `border-color: ../native.dll` / `color: rgb(300, 0, 0)`，以及不符合 native origin 子集的 `background-position`。Rust renderer 不负责兜底解析或猜测这些无效值，只对 resolved JSON 再做防御性拒绝。
+native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义。`analyzeQssSource` / LSP 应在 authoring 阶段给出 `QSS_INVALID_VALUE`，例如拒绝 `object-fit: stretch`、`background-size: repeat`、不安全的 `background-image: asset("../escape.png")`、不安全的 `background-color: url("native.dll")` / `border-color: ../native.dll` / `color: rgb(300, 0, 0)`，以及不符合 native origin 子集的 `background-position` / `object-position`。Rust renderer 不负责兜底解析或猜测这些无效值，只对 resolved JSON 再做防御性拒绝。
 
 ### 当前已确认的基础 style 字段
 
@@ -203,6 +203,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 - `text-transform`（native 子集：`none` / `uppercase` / `lowercase` / `capitalize`；编译为 `UiSurfaceResolvedStyle.textTransform`，Rust 侧映射到 Text / Button draw params；真实大小写转换由后续文本 backend 实现）
 - `white-space`（native 子集：`normal` / `nowrap` / `pre` / `pre-line` / `pre-wrap`；编译为 `UiSurfaceResolvedStyle.whiteSpace`，Rust 侧映射到 Text / Button draw params；真实空白折叠、换行和 wrapping 策略归后续文本 backend 实现）
 - `object-fit`
+- `object-position`（native 子集同 `background-position`：`left|center|right`、`top|center|bottom` 和 `0%..100%` 双轴 origin；编译为 `UiSurfaceResolvedStyle.objectPosition`，Rust 侧消费为 `Image` draw params 的 `origin`，不解析 QSS 文本）
 - `opacity`
 - `overflow`（native 子集：`visible` / `hidden`；`hidden` 编译为 node-level `UiSurfaceNodeProjection.clipChildren: true`，用于裁剪 painted surface 和 `Stack` / `Row` / `Column` / `Grid` / `Layer` 结构组的子节点绘制与 pointer 命中；`Scroll` / `SafeArea` 仍使用各自专用裁剪语义）
 - `padding` / `padding-top` / `padding-right` / `padding-bottom` / `padding-left`（作为 resolved edge inset metadata 写入 `UiSurfaceResolvedStyle.padding`；当前用于 draw params，完整布局算法仍归后续 layout IR）
@@ -215,7 +216,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 | 阶段 | 目标 | 建议属性 |
 | --- | --- | --- |
 | P0 | 先把 native surface 跑起来 | 上述基础字段 |
-| P1 | 补齐常用视觉布局 | 已落地 `display: none` 隐藏子集、`z-index`、`visibility` visible/hidden 子集、`overflow` visible/hidden 子集、`border-style` solid/none 子集、`font-style` normal/italic 子集、`letter-spacing` normal/non-negative number 子集、`text-decoration` none/underline/line-through 子集、`text-overflow` clip/ellipsis 子集、`text-transform` none/uppercase/lowercase/capitalize 子集、`white-space` normal/nowrap/pre/pre-line/pre-wrap 子集、结构化 `background-image: asset(...)`、`background-size` fit 子集、`background-position` origin 子集、`padding` edge inset metadata、`gap` / `row-gap` / `column-gap` 的 Row/Column/Grid 静态 child bounds 展开、`margin` / `margin-*` 的 Row/Column/Grid direct-child 静态 child bounds 展开、`position: relative|absolute` 的 Row/Column/Grid direct-child 静态 flow 控制、静态 `left` / `top` / `right` / `bottom` / `inset` / `width` / `height` bounds fallback，以及 TS 编译期 `min-width` / `max-width` / `min-height` / `max-height` bounds clamp |
+| P1 | 补齐常用视觉布局 | 已落地 `display: none` 隐藏子集、`z-index`、`visibility` visible/hidden 子集、`overflow` visible/hidden 子集、`border-style` solid/none 子集、`font-style` normal/italic 子集、`letter-spacing` normal/non-negative number 子集、`text-decoration` none/underline/line-through 子集、`text-overflow` clip/ellipsis 子集、`text-transform` none/uppercase/lowercase/capitalize 子集、`white-space` normal/nowrap/pre/pre-line/pre-wrap 子集、结构化 `background-image: asset(...)`、`background-size` fit 子集、`background-position` origin 子集、`object-position` image origin 子集、`padding` edge inset metadata、`gap` / `row-gap` / `column-gap` 的 Row/Column/Grid 静态 child bounds 展开、`margin` / `margin-*` 的 Row/Column/Grid direct-child 静态 child bounds 展开、`position: relative|absolute` 的 Row/Column/Grid direct-child 静态 flow 控制、静态 `left` / `top` / `right` / `bottom` / `inset` / `width` / `height` bounds fallback，以及 TS 编译期 `min-width` / `max-width` / `min-height` / `max-height` bounds clamp |
 | P2 | 进一步接近熟悉的 CSS 体验 | 部分 `transform`, `shadow`, `transition` 及少量视觉增强 |
 
 ### 建议支持的 selector 语义
