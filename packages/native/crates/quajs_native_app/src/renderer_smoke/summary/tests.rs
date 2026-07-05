@@ -31,6 +31,26 @@ fn serializes_resource_kind_and_package_memory_maps() {
                 },
             },
         ),
+        (
+            NativeResourceKind::QssStyle,
+            ResourceKindSummary {
+                count: 1,
+                memory: ResourceMemory {
+                    cpu_bytes: 128,
+                    gpu_bytes: 0,
+                },
+            },
+        ),
+        (
+            NativeResourceKind::TokenTable,
+            ResourceKindSummary {
+                count: 1,
+                memory: ResourceMemory {
+                    cpu_bytes: 64,
+                    gpu_bytes: 0,
+                },
+            },
+        ),
     ]);
     let by_package = BTreeMap::from([(
         "runtime.ui".to_string(),
@@ -53,6 +73,8 @@ fn serializes_resource_kind_and_package_memory_maps() {
     assert_eq!(summary["uiAst"].count, 2);
     assert_eq!(summary["uiAst"].memory.total_bytes, 256);
     assert_eq!(summary["audioBuffer"].memory.cpu_bytes, 512);
+    assert_eq!(summary["qssStyle"].memory.cpu_bytes, 128);
+    assert_eq!(summary["tokenTable"].memory.cpu_bytes, 64);
 
     let packages = package_memory_summary(&by_package);
     assert_eq!(packages["runtime.ui"].owned_count, 2);
