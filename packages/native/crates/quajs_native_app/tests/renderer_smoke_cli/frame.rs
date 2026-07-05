@@ -115,3 +115,35 @@ fn binary_rejects_renderer_smoke_web_audio_alias_fields() {
     assert!(stderr.contains("view.audio.tracks[0].assetKey"));
     assert!(stderr.contains("assetName"));
 }
+
+#[test]
+fn binary_rejects_renderer_smoke_missing_native_audio_bridge_fields() {
+    for field in ["assetType", "loadMode", "playbackState"] {
+        let path = unique_frame_path(&format!("audio-missing-{field}"));
+        let mut frame: serde_json::Value = serde_json::from_str(&smoke_ui_audio_frame_json())
+            .expect("smoke UI/audio frame parses");
+        frame["view"]["audio"]["tracks"][0]
+            .as_object_mut()
+            .expect("audio track is an object")
+            .remove(field);
+        std::fs::write(
+            &path,
+            serde_json::to_string(&frame).expect("renderer smoke frame serializes"),
+        )
+        .expect("renderer smoke fixture writes");
+
+        let output = run_renderer_smoke_binary(&path, None);
+
+        std::fs::remove_file(path).ok();
+
+        assert!(
+            !output.status.success(),
+            "missing native audio bridge field {field} unexpectedly succeeded\nstdout:\n{}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("Native renderer smoke frame failed"));
+        assert!(stderr.contains(&format!("view.audio.tracks[0].{field}")));
+        assert!(stderr.contains("explicitly provided"));
+    }
+}
