@@ -99,6 +99,36 @@ Stack(id: "ui-root") {
     expect(compatibility.assetKinds).toEqual(expect.arrayContaining(['qui', 'qss', 'tokens', 'images']))
   })
 
+  it('omits unsafe document asset references from native compatibility asset kinds', () => {
+    const qui = analyzeQuiSource(`
+Stack {
+  Image(src: "ui/good.png", asset-type: "sprites")
+  Image(src: "ui/native.dll", asset-type: "native")
+  Image(src: "ui//panel.png", asset-type: "../bad")
+  Image(src: "ui/./panel.png")
+}
+`)
+    const qss = analyzeQssSource(`
+Panel.good {
+  background-image: asset("ui/panel.png", "images");
+}
+Panel.bad {
+  background-image: asset("ui/native.dll", "native");
+}
+Panel.bad-type {
+  background-image: asset("ui/panel.png", "../bad");
+}
+`)
+    const compatibility = createNativeUiSurfaceCompatibilityFromDocuments(qui, { qss })
+
+    expect(qui.diagnostics.filter(item => item.code === 'QUI_INVALID_ASSET_REFERENCE')).toHaveLength(4)
+    expect(qss.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(2)
+    expect(compatibility.assetKinds).toEqual(expect.arrayContaining(['images', 'qss', 'qui', 'sprites', 'tokens']))
+    expect(compatibility.assetKinds).toHaveLength(5)
+    expect(compatibility.assetKinds).not.toEqual(expect.arrayContaining(['native', '../bad']))
+    expect(compatibility.nativeCode).toBe(false)
+  })
+
   it('derives native UI surface compatibility metadata from resolved projections', () => {
     const projection = compileNativeUiSurfaceProjection(
       analyzeQuiSource(`

@@ -12,11 +12,19 @@ describe('@quajs/native-language-server project assets', () => {
       'Panel(image: "assets/panel.png", asset-type: "images") {}',
       'Image(src: "../outside.png")',
       'Image(src: "https://cdn.example/poster.png")',
+      'Image(src: "assets//poster.png")',
+      'Image(src: "assets/./poster.png")',
+      'Image(src: "assets/native.dll")',
+      'Image(src: "assets/invalid-type.png", asset-type: "../bad")',
     ].join('\n')
     const qss = [
       'Panel.hero { background-image: asset("assets/hero.png", "images"); }',
       'Panel.remote { background-image: asset("https://cdn.example/hero.png"); }',
       'Panel.absolute { background-image: asset("/outside.png"); }',
+      'Panel.empty { background-image: asset("assets//hero.png"); }',
+      'Panel.dot { background-image: asset("assets/./hero.png"); }',
+      'Panel.payload { background-image: asset("assets/native.dll"); }',
+      'Panel.backslash { background-image: asset("assets\\\\hero.png"); }',
     ].join('\n')
     const index = buildNativeUiProjectIndex([
       {
