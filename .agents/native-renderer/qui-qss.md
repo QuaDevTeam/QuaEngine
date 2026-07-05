@@ -133,7 +133,7 @@ import component "./shared/Panel.qui";
 - `Stack`
 - `RichText` 作为 text projection 叶子能力
 
-其中 `Text` / `RichText` 属于 text projection，`Backdrop` / `Panel` / `SafeArea` / `Scroll` 是语义节点，`Stack` / `Row` / `Column` / `Grid` / `Fragment` / `Layer` / `Divider` / `Spacer` 是结构节点。`Stack` / `Row` / `Column` / `Grid` / `Layer` 不绘制、不交互，但 resolved `clipChildren` 会作为 child clip context 影响子节点绘制与命中；`Layer` 仍只额外负责 resolved `z-index` 的子树偏移。
+其中 `Text` / `RichText` 属于 text projection，`Box` / `Backdrop` / `Panel` / `Scroll` 是可绘制 surface 节点，`SafeArea` 是语义 clip 节点，`Divider` 是 visual separator，`Stack` / `Row` / `Column` / `Grid` / `Fragment` / `Layer` / `Spacer` 是结构节点。`Box`、`Backdrop` 和 `Panel` 默认只绘制；当 resolved projection 带有显式 `intent` 时，native renderer 可以把它们作为命中面并通过 `@quajs/pipeline` 发送用户意图。`Stack` / `Row` / `Column` / `Grid` / `Layer` 不绘制、不交互，但 resolved `clipChildren` 会作为 child clip context 影响子节点绘制与命中；`Layer` 仍只额外负责 resolved `z-index` 的子树偏移。
 
 native component registry 需要声明 content model：`children`、`text` 或 `none`。compiler / LSP 应当据此诊断不合法结构：`Text` / `RichText` 只能包含文本或表达式内容，不能嵌套 QUI 组件或 slot；`Image` / `Divider` / `Spacer` 不应声明 child content；named slot 必须是拥有该 slot 的父组件的直接子节点，并且同一父组件下不能重复声明同名 slot。Rust renderer 只消费已经规整好的投影树，不负责猜测这些 authoring 语义。
 

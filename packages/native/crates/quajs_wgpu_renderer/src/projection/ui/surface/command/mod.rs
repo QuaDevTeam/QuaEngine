@@ -2,7 +2,7 @@ mod background;
 mod clip;
 mod nodes;
 
-use crate::render_graph::{DrawCommand, LogicalRect};
+use crate::render_graph::{DrawCommand, LogicalRect, RendererIntent};
 
 use super::super::types::{UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection};
 use super::helpers::{apply_provenance, node_rect, renderer_intent, SurfaceNodeOffset};
@@ -24,23 +24,22 @@ pub(super) fn surface_node_command(
     let bounds = node_rect(node.bounds, offset);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
     let mut command = match node.kind {
-        UiSurfaceNodeKind::Box => {
-            surface_panel_node_command(node, command_id, bounds, "ui-box", "rgba(0,0,0,0.0)", None)
-        }
-        UiSurfaceNodeKind::Backdrop => {
-            let intent = node
-                .intent
-                .as_ref()
-                .and_then(|intent| renderer_intent(overlay, node, intent));
-            surface_panel_node_command(
-                node,
-                command_id,
-                bounds,
-                "ui-backdrop",
-                "rgba(0,0,0,0.56)",
-                intent,
-            )
-        }
+        UiSurfaceNodeKind::Box => surface_panel_node_command(
+            node,
+            command_id,
+            bounds,
+            "ui-box",
+            "rgba(0,0,0,0.0)",
+            surface_node_intent(overlay, node),
+        ),
+        UiSurfaceNodeKind::Backdrop => surface_panel_node_command(
+            node,
+            command_id,
+            bounds,
+            "ui-backdrop",
+            "rgba(0,0,0,0.56)",
+            surface_node_intent(overlay, node),
+        ),
         UiSurfaceNodeKind::Button => button_node_command(overlay, node, command_id, bounds)?,
         UiSurfaceNodeKind::Divider => surface_panel_node_command(
             node,
@@ -81,20 +80,14 @@ pub(super) fn surface_node_command(
             "ui-rich-text",
         )?,
         UiSurfaceNodeKind::Image => image_node_command(node, command_id, bounds)?,
-        UiSurfaceNodeKind::Panel => {
-            let intent = node
-                .intent
-                .as_ref()
-                .and_then(|intent| renderer_intent(overlay, node, intent));
-            surface_panel_node_command(
-                node,
-                command_id,
-                bounds,
-                "ui-panel",
-                "rgba(0,0,0,0.0)",
-                intent,
-            )
-        }
+        UiSurfaceNodeKind::Panel => surface_panel_node_command(
+            node,
+            command_id,
+            bounds,
+            "ui-panel",
+            "rgba(0,0,0,0.0)",
+            surface_node_intent(overlay, node),
+        ),
         UiSurfaceNodeKind::Scroll => unreachable!("scroll nodes are expanded before command build"),
     };
 
@@ -129,4 +122,13 @@ pub(super) fn surface_scroll_panel_command(
 
     let command = apply_provenance(command, &overlay.provenance);
     apply_provenance(command, &node.provenance)
+}
+
+fn surface_node_intent(
+    overlay: &UiOverlayProjection,
+    node: &UiSurfaceNodeProjection,
+) -> Option<RendererIntent> {
+    node.intent
+        .as_ref()
+        .and_then(|intent| renderer_intent(overlay, node, intent))
 }

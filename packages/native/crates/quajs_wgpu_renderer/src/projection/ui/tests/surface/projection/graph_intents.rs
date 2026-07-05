@@ -54,6 +54,42 @@ fn resolves_inline_ui_surface_button_intent_from_graph() {
 }
 
 #[test]
+fn resolves_inline_ui_surface_box_intent_from_graph() {
+    let mut graph = RenderGraph::new(test_layout());
+    append_ui_commands(
+        &mut graph,
+        &UiProjection::new(vec![UiOverlayProjection {
+            interactive: Some(false),
+            surface: Some(
+                UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                    UiSurfaceNodeProjection::new(
+                        "hotspot",
+                        UiSurfaceNodeKind::Box,
+                        rect(48.0, 64.0, 240.0, 120.0),
+                    )
+                    .with_intent(
+                        UiIntentProjection::new("open")
+                            .with_metadata("target", serde_json::json!("gallery")),
+                    ),
+                ),
+            ),
+            ..UiOverlayProjection::new("menu")
+        }]),
+    );
+
+    let hit = resolve_renderer_intent_at(&graph, 80.0, 96.0).unwrap();
+
+    assert_eq!(hit.command_id, "ui:menu:hotspot");
+    assert_eq!(hit.intent.event, "ui/intent");
+    assert_eq!(hit.intent.element_id.as_deref(), Some("menu:hotspot"));
+    assert_eq!(hit.intent.action.as_deref(), Some("open"));
+    assert_eq!(
+        hit.intent.metadata.get("target"),
+        Some(&serde_json::json!("gallery"))
+    );
+}
+
+#[test]
 fn surface_choice_intent_payload_preserves_canonical_dispatch_fields() {
     let mut graph = RenderGraph::new(test_layout());
     append_ui_commands(
