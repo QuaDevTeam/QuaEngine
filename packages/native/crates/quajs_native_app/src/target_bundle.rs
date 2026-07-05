@@ -1,10 +1,12 @@
 mod manifest;
 mod native_renderer;
+mod native_runtime;
 mod target_core;
 
 pub use manifest::{
     load_native_target_bundle_manifest, NativeStartupError, NativeStartupManifestExpectation,
     NativeStartupValidation, NativeTargetBundleManifest, TargetBundleNativeRendererInfo,
+    TargetBundleNativeRuntimeInfo,
 };
 #[cfg(test)]
 pub use manifest::{
@@ -12,6 +14,7 @@ pub use manifest::{
     TargetBundleReference, TargetBundleReferenceObject,
 };
 use native_renderer::check_native_renderer_info;
+use native_runtime::check_native_runtime_info;
 #[cfg(test)]
 pub use target_core::NATIVE_CORE_ADAPTERS;
 use target_core::{
@@ -52,6 +55,7 @@ pub fn validate_native_target_bundle_manifest(
     }
 
     check_native_renderer_info(manifest, &mut diagnostics);
+    check_native_runtime_info(manifest, &mut diagnostics);
     check_selected_core_adapters(manifest, &mut diagnostics);
     check_exclusive_native_bootstrap(&selected_targets, &mut diagnostics);
     check_foreign_target_roots(&package_names, &mut diagnostics);

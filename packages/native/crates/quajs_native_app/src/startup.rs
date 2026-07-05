@@ -1,4 +1,5 @@
 mod renderer_manifest;
+mod runtime_manifest;
 
 use quajs_native_runtime::{
     current_platform, current_profile, quickjs_runtime_version, NativeHostInfo,
@@ -7,6 +8,7 @@ use quajs_native_runtime::{
 use quajs_wgpu_renderer::native_wgpu_capabilities;
 
 use renderer_manifest::validate_manifest_renderer_against_host;
+use runtime_manifest::validate_manifest_runtime_against_host;
 
 use crate::target_bundle::{
     validate_native_target_bundle_manifest, NativeStartupError, NativeStartupManifestExpectation,
@@ -84,6 +86,7 @@ where
     let host_info = create(config);
     if let Some(manifest) = target_bundle_manifest {
         validate_manifest_renderer_against_host(manifest, &host_info)?;
+        validate_manifest_runtime_against_host(manifest, &host_info)?;
     }
 
     Ok(host_info)

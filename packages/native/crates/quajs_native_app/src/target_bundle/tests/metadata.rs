@@ -145,6 +145,19 @@ fn rejects_native_manifest_without_renderer_metadata() {
 }
 
 #[test]
+fn rejects_native_manifest_without_runtime_metadata() {
+    let mut manifest = native_manifest();
+    manifest.native_runtime = None;
+
+    let error = validate_native_target_bundle_manifest(&manifest, None)
+        .expect_err("missing native runtime metadata is rejected");
+
+    assert!(error
+        .to_string()
+        .contains("must include nativeRuntime metadata"));
+}
+
+#[test]
 fn rejects_incomplete_native_renderer_metadata() {
     let mut manifest = native_manifest();
     manifest.native_renderer = Some(TargetBundleNativeRendererInfo {
@@ -179,4 +192,34 @@ fn rejects_incomplete_native_renderer_metadata() {
         .diagnostics()
         .iter()
         .any(|diagnostic| diagnostic.contains("nativeRenderer.capabilityIds")));
+}
+
+#[test]
+fn rejects_incomplete_native_runtime_metadata() {
+    let mut manifest = native_manifest();
+    manifest.native_runtime = Some(TargetBundleNativeRuntimeInfo {
+        quickjs_version: Some("  ".to_string()),
+        native_runtime_version: None,
+        asset_adapter_version: Some("".to_string()),
+        store_adapter_version: None,
+    });
+
+    let error = validate_native_target_bundle_manifest(&manifest, None)
+        .expect_err("invalid native runtime metadata is rejected");
+
+    assert!(error
+        .diagnostics()
+        .iter()
+        .any(|diagnostic| diagnostic.contains("nativeRuntime.quickjsVersion must not be empty")));
+    assert!(error
+        .diagnostics()
+        .iter()
+        .any(|diagnostic| diagnostic.contains("must include nativeRuntime.nativeRuntimeVersion")));
+    assert!(error.diagnostics().iter().any(
+        |diagnostic| diagnostic.contains("nativeRuntime.assetAdapterVersion must not be empty")
+    ));
+    assert!(error
+        .diagnostics()
+        .iter()
+        .any(|diagnostic| diagnostic.contains("must include nativeRuntime.storeAdapterVersion")));
 }
