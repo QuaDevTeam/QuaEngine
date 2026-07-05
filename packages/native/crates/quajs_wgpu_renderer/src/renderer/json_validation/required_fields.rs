@@ -523,6 +523,11 @@ fn validate_ui_surface_node_bounds_required_fields(
         return;
     }
     let Some(bounds_object) = bounds.as_object() else {
+        errors.push(NativeRendererJsonValidationError {
+            path: format!("{path}.bounds"),
+            asset_name: String::new(),
+            reason: "must be an object when provided for native UI surface node bounds in resolved projection JSON".to_string(),
+        });
         return;
     };
 
