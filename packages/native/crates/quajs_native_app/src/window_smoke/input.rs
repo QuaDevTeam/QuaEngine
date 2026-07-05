@@ -1,4 +1,6 @@
-use quajs_native_runtime::{InMemoryNativeHostApi, NativeHostApiError};
+use quajs_native_runtime::{
+    InMemoryNativeHostApi, NativeHostApi, NativeHostApiError, NativeRendererIntent,
+};
 use quajs_wgpu_renderer::input::{
     NativePointerButton, NativePointerEvent, NativePointerEventPhase,
 };
@@ -10,13 +12,16 @@ use quajs_wgpu_renderer::stage_layout::{
 };
 use winit::dpi::PhysicalPosition;
 use winit::event::{ElementState, Ime, KeyEvent};
+use winit::keyboard::{KeyCode, PhysicalKey};
 
 use super::error::NativeWindowSmokeError;
 
 mod conversion;
+mod keyboard;
 
 use conversion::logical_client_point_from_physical;
 pub(super) use conversion::{pointer_button_from_winit, pointer_phase_from_element_state};
+use keyboard::build_keyboard_input_command_payload;
 
 const WINDOW_SMOKE_POINTER_ID: u64 = 1;
 const WINDOW_SMOKE_OPEN_SETTINGS_CENTER: StageLogicalPoint =
@@ -31,10 +36,12 @@ pub(super) struct NativeWindowSmokeInputMetrics {
     pub pointer_cancel_count: usize,
     pub focus_gain_count: usize,
     pub focus_loss_count: usize,
+    pub focus_intent_emit_count: usize,
     pub keyboard_event_count: usize,
     pub keyboard_press_count: usize,
     pub keyboard_release_count: usize,
     pub keyboard_repeat_count: usize,
+    pub keyboard_intent_emit_count: usize,
     pub ime_event_count: usize,
     pub ime_preedit_count: usize,
     pub ime_commit_count: usize,
@@ -79,8 +86,60 @@ impl NativeWindowSmokeInputState {
         }
     }
 
+    pub(super) fn dispatch_focus_event(
+        &mut self,
+        host: &mut InMemoryNativeHostApi,
+        focused: bool,
+    ) -> Result<(), NativeWindowSmokeError> {
+        self.record_focus_event(focused);
+        let event_type = if focused {
+            "window/focus"
+        } else {
+            "window/blur"
+        };
+        emit_native_renderer_intent(host, event_type, None)?;
+        self.metrics.focus_intent_emit_count =
+            self.metrics.focus_intent_emit_count.saturating_add(1);
+        Ok(())
+    }
+
     pub(super) fn record_keyboard_event(&mut self, event: &KeyEvent) {
         self.record_keyboard_state(event.state, event.repeat);
+    }
+
+    pub(super) fn dispatch_keyboard_event(
+        &mut self,
+        host: &mut InMemoryNativeHostApi,
+        event: &KeyEvent,
+    ) -> Result<(), NativeWindowSmokeError> {
+        match event.physical_key {
+            PhysicalKey::Code(code) => {
+                self.dispatch_keyboard_code(host, code, event.state, event.repeat)
+            }
+            PhysicalKey::Unidentified(_) => {
+                self.record_keyboard_event(event);
+                Ok(())
+            }
+        }
+    }
+
+    fn dispatch_keyboard_code(
+        &mut self,
+        host: &mut InMemoryNativeHostApi,
+        code: KeyCode,
+        state: ElementState,
+        repeat: bool,
+    ) -> Result<(), NativeWindowSmokeError> {
+        self.record_keyboard_state(state, repeat);
+        let Some(payload) =
+            build_keyboard_input_command_payload(code, state, repeat, native_input_timestamp_ms())
+        else {
+            return Ok(());
+        };
+        emit_native_renderer_intent(host, "user/input_command", Some(payload))?;
+        self.metrics.keyboard_intent_emit_count =
+            self.metrics.keyboard_intent_emit_count.saturating_add(1);
+        Ok(())
     }
 
     pub(super) fn record_ime_event(&mut self, event: &Ime) {
@@ -217,9 +276,36 @@ impl NativeWindowSmokeInputState {
 
 fn pointer_host_error(error: NativeHostApiError) -> NativeWindowSmokeError {
     NativeWindowSmokeError::new(format!(
-        "Native renderer smoke pointer event failed: {}.",
+        "Native renderer smoke input intent failed: {}.",
         error.message()
     ))
+}
+
+fn emit_native_renderer_intent(
+    host: &mut InMemoryNativeHostApi,
+    event_type: impl Into<String>,
+    payload: Option<serde_json::Value>,
+) -> Result<(), NativeWindowSmokeError> {
+    let payload_json = payload
+        .map(|value| serde_json::to_string(&value))
+        .transpose()
+        .map_err(|error| {
+            NativeWindowSmokeError::new(format!(
+                "Native renderer smoke input intent payload serialization failed: {error}."
+            ))
+        })?;
+    host.emit_renderer_intent(NativeRendererIntent {
+        r#type: event_type.into(),
+        payload_json,
+    })
+    .map_err(pointer_host_error)
+}
+
+fn native_input_timestamp_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -281,14 +367,87 @@ mod tests {
 
         assert_eq!(input.metrics().focus_gain_count, 1);
         assert_eq!(input.metrics().focus_loss_count, 1);
+        assert_eq!(input.metrics().focus_intent_emit_count, 0);
         assert_eq!(input.metrics().keyboard_event_count, 3);
         assert_eq!(input.metrics().keyboard_press_count, 2);
         assert_eq!(input.metrics().keyboard_release_count, 1);
         assert_eq!(input.metrics().keyboard_repeat_count, 1);
+        assert_eq!(input.metrics().keyboard_intent_emit_count, 0);
         assert_eq!(input.metrics().ime_event_count, 2);
         assert_eq!(input.metrics().ime_preedit_count, 1);
         assert_eq!(input.metrics().ime_commit_count, 1);
         assert_eq!(input.metrics().ime_last_text_byte_count, Some("決定".len()));
         assert_eq!(input.metrics().last_intent_type, None);
+    }
+
+    #[test]
+    fn dispatches_focus_and_default_keyboard_intents_through_native_host() {
+        let mut host = create_window_smoke_texture_host();
+        let mut input = NativeWindowSmokeInputState::default();
+
+        input
+            .dispatch_focus_event(&mut host, true)
+            .expect("focus intent emits");
+        input
+            .dispatch_keyboard_code(&mut host, KeyCode::Space, ElementState::Pressed, false)
+            .expect("keyboard intent emits");
+        input
+            .dispatch_keyboard_code(
+                &mut host,
+                KeyCode::ControlLeft,
+                ElementState::Pressed,
+                false,
+            )
+            .expect("skip start emits");
+        input
+            .dispatch_keyboard_code(
+                &mut host,
+                KeyCode::ControlLeft,
+                ElementState::Released,
+                false,
+            )
+            .expect("skip stop emits");
+        input
+            .dispatch_keyboard_code(&mut host, KeyCode::KeyA, ElementState::Pressed, true)
+            .expect("repeat is observed but not dispatched");
+        input
+            .dispatch_focus_event(&mut host, false)
+            .expect("blur intent emits");
+
+        assert_eq!(input.metrics().focus_gain_count, 1);
+        assert_eq!(input.metrics().focus_loss_count, 1);
+        assert_eq!(input.metrics().focus_intent_emit_count, 2);
+        assert_eq!(input.metrics().keyboard_event_count, 4);
+        assert_eq!(input.metrics().keyboard_press_count, 3);
+        assert_eq!(input.metrics().keyboard_release_count, 1);
+        assert_eq!(input.metrics().keyboard_repeat_count, 1);
+        assert_eq!(input.metrics().keyboard_intent_emit_count, 3);
+        assert_eq!(
+            host.renderer_intents()
+                .iter()
+                .map(|intent| intent.r#type.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "window/focus",
+                "user/input_command",
+                "user/input_command",
+                "user/input_command",
+                "window/blur",
+            ]
+        );
+        let advance_payload: serde_json::Value = serde_json::from_str(
+            host.renderer_intents()[1]
+                .payload_json
+                .as_deref()
+                .expect("keyboard intent carries payload"),
+        )
+        .expect("payload parses");
+        assert_eq!(advance_payload["command"], "advance");
+        assert_eq!(advance_payload["device"], "keyboard");
+        assert_eq!(advance_payload["source"], "keyboard:Space");
+        assert_eq!(advance_payload["pressed"], true);
+        assert_eq!(advance_payload["repeat"], false);
+        assert_eq!(advance_payload["metadata"]["code"], "Space");
+        assert!(advance_payload["timestamp"].as_u64().is_some());
     }
 }

@@ -76,10 +76,12 @@ pub(super) fn build_window_smoke_report(
         pointer_last_intent_type: input.input_metrics.last_intent_type.clone(),
         focus_gain_count: input.input_metrics.focus_gain_count,
         focus_loss_count: input.input_metrics.focus_loss_count,
+        focus_intent_emit_count: input.input_metrics.focus_intent_emit_count,
         keyboard_event_count: input.input_metrics.keyboard_event_count,
         keyboard_press_count: input.input_metrics.keyboard_press_count,
         keyboard_release_count: input.input_metrics.keyboard_release_count,
         keyboard_repeat_count: input.input_metrics.keyboard_repeat_count,
+        keyboard_intent_emit_count: input.input_metrics.keyboard_intent_emit_count,
         ime_event_count: input.input_metrics.ime_event_count,
         ime_preedit_count: input.input_metrics.ime_preedit_count,
         ime_commit_count: input.input_metrics.ime_commit_count,
@@ -128,10 +130,12 @@ mod tests {
             pointer_cancel_count: 2,
             focus_gain_count: 1,
             focus_loss_count: 2,
+            focus_intent_emit_count: 3,
             keyboard_event_count: 3,
             keyboard_press_count: 2,
             keyboard_release_count: 1,
             keyboard_repeat_count: 1,
+            keyboard_intent_emit_count: 2,
             ime_event_count: 4,
             ime_preedit_count: 2,
             ime_commit_count: 1,
@@ -174,10 +178,12 @@ mod tests {
         assert_eq!(report.pointer_cancel_count, 2);
         assert_eq!(report.focus_gain_count, 1);
         assert_eq!(report.focus_loss_count, 2);
+        assert_eq!(report.focus_intent_emit_count, 3);
         assert_eq!(report.keyboard_event_count, 3);
         assert_eq!(report.keyboard_press_count, 2);
         assert_eq!(report.keyboard_release_count, 1);
         assert_eq!(report.keyboard_repeat_count, 1);
+        assert_eq!(report.keyboard_intent_emit_count, 2);
         assert_eq!(report.ime_event_count, 4);
         assert_eq!(report.ime_preedit_count, 2);
         assert_eq!(report.ime_commit_count, 1);

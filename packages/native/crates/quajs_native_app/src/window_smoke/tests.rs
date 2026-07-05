@@ -140,10 +140,12 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         pointer_last_intent_type: Some("ui/intent".to_string()),
         focus_gain_count: 0,
         focus_loss_count: 0,
+        focus_intent_emit_count: 0,
         keyboard_event_count: 0,
         keyboard_press_count: 0,
         keyboard_release_count: 0,
         keyboard_repeat_count: 0,
+        keyboard_intent_emit_count: 0,
         ime_event_count: 0,
         ime_preedit_count: 0,
         ime_commit_count: 0,
@@ -175,10 +177,12 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["pointerCancelCount"], 0);
     assert_eq!(value["focusGainCount"], 0);
     assert_eq!(value["focusLossCount"], 0);
+    assert_eq!(value["focusIntentEmitCount"], 0);
     assert_eq!(value["keyboardEventCount"], 0);
     assert_eq!(value["keyboardPressCount"], 0);
     assert_eq!(value["keyboardReleaseCount"], 0);
     assert_eq!(value["keyboardRepeatCount"], 0);
+    assert_eq!(value["keyboardIntentEmitCount"], 0);
     assert_eq!(value["imeEventCount"], 0);
     assert_eq!(value["imePreeditCount"], 0);
     assert_eq!(value["imeCommitCount"], 0);
