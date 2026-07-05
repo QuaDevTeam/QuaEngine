@@ -340,6 +340,11 @@ fn validate_ui_surface_node_required_fields(
         return;
     }
 
+    validate_ui_surface_node_bounds_required_fields(node_object.get("bounds"), path, errors);
+    if !errors.is_empty() {
+        return;
+    }
+
     validate_ui_intent_required_fields(
         node_object.get("intent"),
         &format!("{path}.intent"),
@@ -384,6 +389,44 @@ fn validate_ui_surface_node_required_fields(
             errors,
         );
         if !errors.is_empty() {
+            return;
+        }
+    }
+}
+
+fn validate_ui_surface_node_bounds_required_fields(
+    bounds: Option<&Value>,
+    path: &str,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    let Some(bounds) = bounds else {
+        return;
+    };
+    if bounds.is_null() {
+        errors.push(NativeRendererJsonValidationError {
+            path: format!("{path}.bounds"),
+            asset_name: String::new(),
+            reason:
+                "must be explicitly provided for native UI surface node bounds in resolved projection JSON"
+                    .to_string(),
+        });
+        return;
+    }
+    let Some(bounds_object) = bounds.as_object() else {
+        return;
+    };
+
+    for field in ["x", "y", "width", "height"] {
+        let missing = match bounds_object.get(field) {
+            Some(value) => value.is_null(),
+            None => true,
+        };
+        if missing {
+            errors.push(NativeRendererJsonValidationError {
+                path: format!("{path}.bounds.{field}"),
+                asset_name: String::new(),
+                reason: "must be explicitly provided for native UI surface node bounds in resolved projection JSON".to_string(),
+            });
             return;
         }
     }
