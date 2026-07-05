@@ -115,12 +115,29 @@ fn validate_choices_required_fields(
         }
     }
 
-    let Some(choice_items) = choices_object.get("choices").and_then(Value::as_array) else {
+    let Some(choice_items_value) = choices_object.get("choices") else {
+        return;
+    };
+    let Some(choice_items) = choice_items_value.as_array() else {
+        errors.push(NativeRendererJsonValidationError {
+            path: "view.choices.choices".to_string(),
+            asset_name: String::new(),
+            reason:
+                "must be an array for native choice set projections in resolved projection JSON"
+                    .to_string(),
+        });
         return;
     };
     for (choice_index, choice) in choice_items.iter().enumerate() {
         let Some(choice_object) = choice.as_object() else {
-            continue;
+            errors.push(NativeRendererJsonValidationError {
+                path: format!("view.choices.choices[{choice_index}]"),
+                asset_name: String::new(),
+                reason:
+                    "must be an object for native choice projections in resolved projection JSON"
+                        .to_string(),
+            });
+            return;
         };
         let missing_enabled = match choice_object.get("enabled") {
             Some(value) => value.is_null(),

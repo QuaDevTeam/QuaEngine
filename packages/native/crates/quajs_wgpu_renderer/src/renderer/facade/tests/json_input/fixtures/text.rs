@@ -120,6 +120,36 @@ pub(in super::super) fn json_frame_with_missing_choice_set_items_input() -> &'st
     "#
 }
 
+pub(in super::super) fn json_frame_with_malformed_choice_set_items_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "choices": {
+          "visible": true,
+          "choices": "start"
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_malformed_choice_item_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "choices": {
+          "visible": true,
+          "choices": [
+            "start"
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_missing_choice_enabled_input() -> &'static str {
     r#"
     {

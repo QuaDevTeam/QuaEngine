@@ -113,6 +113,38 @@ fn json_frame_choice_projection_validation_requires_explicit_visibility_fields()
 }
 
 #[test]
+fn json_frame_choice_projection_validation_rejects_malformed_choice_shapes() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let choice_items = renderer
+        .prepare_frame_json_str(json_frame_with_malformed_choice_set_items_input())
+        .unwrap_err();
+    match choice_items {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.choices.choices");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("must be an array"));
+        }
+        other => panic!("expected malformed choice set items validation error, got {other:?}"),
+    }
+
+    let choice = renderer
+        .prepare_frame_json_str(json_frame_with_malformed_choice_item_input())
+        .unwrap_err();
+    match choice {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.choices.choices[0]");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("must be an object"));
+        }
+        other => panic!("expected malformed choice item validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_rich_text_payload_validation_rejects_unsafe_resolved_text_payloads() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
