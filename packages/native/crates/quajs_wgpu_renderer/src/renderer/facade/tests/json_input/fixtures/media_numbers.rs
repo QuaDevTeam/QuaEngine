@@ -238,3 +238,24 @@ pub(in super::super) fn json_frame_with_oversized_audio_memory_input() -> &'stat
     }
     "#
 }
+
+pub(in super::super) fn json_frame_with_web_audio_state_field_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            {
+              "id": "bgm-main",
+              "kind": "bgm",
+              "assetName": "music/opening.ogg",
+              "state": "stopped",
+              "volume": 0.8
+            }
+          ]
+        }
+      }
+    }
+    "#
+}

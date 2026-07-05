@@ -13,11 +13,13 @@ mod ui;
 mod ui_geometry;
 mod ui_intent;
 mod ui_style_numbers;
+mod unsupported_fields;
 mod view;
 mod z_order;
 
 pub(super) use required_fields::validate_json_frame_required_fields;
 pub(crate) use ui_intent::is_valid_native_ui_intent_metadata_payload;
+pub(super) use unsupported_fields::validate_json_frame_unsupported_fields;
 
 use std::collections::BTreeSet;
 
