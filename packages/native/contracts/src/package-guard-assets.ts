@@ -36,10 +36,12 @@ const RESOURCE_REFERENCE_FIELDS = new Set([
   'fallbackImage',
   'font',
   'fonts',
+  'href',
   'image',
   'images',
   'media',
   'module',
+  'name',
   'path',
   'poster',
   'qss',
@@ -52,6 +54,8 @@ const RESOURCE_REFERENCE_FIELDS = new Set([
   'surface',
   'thumbnail',
   'tokens',
+  'uri',
+  'url',
   'video',
 ] as const)
 

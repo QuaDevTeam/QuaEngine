@@ -71,6 +71,46 @@ describe('native runtime package guard metadata scanning', () => {
     ]))
   })
 
+  it('rejects direct resource url, uri, href, and name metadata references', () => {
+    const result = checkNativeRuntimePackageGuard({
+      package: createRuntimePackage({
+        metadata: {
+          nativeRenderer: {
+            packageName: '@quajs/native-renderer',
+            versionRange: '^0.1.0',
+            nativeCode: false,
+            ui: {
+              href: '../ui/menu.qui',
+              url: 'https://cdn.example.invalid/theme.qss',
+              uri: 'native/theme-loader.wasm',
+              name: 'native/panel.node',
+            },
+          },
+        },
+      }),
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: '../ui/menu.qui',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: 'https://cdn.example.invalid/theme.qss',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_PAYLOAD_FORBIDDEN',
+        assetName: 'native/theme-loader.wasm',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_PAYLOAD_FORBIDDEN',
+        assetName: 'native/panel.node',
+      }),
+    ]))
+  })
+
   it('does not treat ordinary compatibility strings as package asset references', () => {
     const result = checkNativeRuntimePackageGuard({
       package: createRuntimePackage({
