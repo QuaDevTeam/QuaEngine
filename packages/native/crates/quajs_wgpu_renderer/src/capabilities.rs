@@ -54,12 +54,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
         capability(
             "native-wgpu.ui.surface@1",
             &["view.ui.overlays"],
-            &[
-                "ui/intent",
-                "choice/select",
-                "save/select",
-                "settings/change",
-            ],
+            &["ui/intent", "choice/select"],
             &["data", "images", "fonts", "qui", "qss", "tokens"],
             &[
                 "align-items",

@@ -1,4 +1,5 @@
 use serde_json::Value;
+use std::collections::BTreeSet;
 
 use super::support::{
     assert_requirements_covered, capability, collect_surface_requirements,
@@ -11,7 +12,12 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
     let ui = capability(&capabilities, "native-wgpu.ui.surface@1");
 
     assert_eq!(ui.fallback, "reject-package");
-    assert!(ui.intent_events.contains(&"ui/intent".to_string()));
+    assert_eq!(
+        ui.intent_events.iter().cloned().collect::<BTreeSet<_>>(),
+        BTreeSet::from(["choice/select".to_string(), "ui/intent".to_string()])
+    );
+    assert!(!ui.intent_events.contains(&"save/select".to_string()));
+    assert!(!ui.intent_events.contains(&"settings/change".to_string()));
     assert!(ui.asset_kinds.contains(&"qui".to_string()));
     assert!(ui.asset_kinds.contains(&"qss".to_string()));
     assert!(ui.asset_kinds.contains(&"tokens".to_string()));
