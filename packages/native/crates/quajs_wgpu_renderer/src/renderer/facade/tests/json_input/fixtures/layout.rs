@@ -25,6 +25,39 @@ pub(in super::super) fn json_frame_with_malformed_view_input() -> &'static str {
     "#
 }
 
+pub(in super::super) fn json_frame_with_malformed_dialogue_projection_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "dialogue": "Opening"
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_malformed_choice_set_projection_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "choices": "start"
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_malformed_ui_projection_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": "menu"
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_inverted_layout_aspect_interval_input() -> &'static str {
     r#"
     {
