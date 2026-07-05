@@ -128,6 +128,53 @@ describe('target bundle native metadata validation', () => {
     ]))
   })
 
+  it('rejects invalid or empty native renderer version and capability metadata on native artifacts', () => {
+    const invalidTypesResult = validateTargetBundleManifest(targetBundleManifest({
+      nativeRenderer: {
+        packageName: '@quajs/native-renderer',
+        backend: 'wgpu',
+        version: 42,
+        capabilityManifestHash: 100,
+        capabilityIds: 'native-wgpu.ui.surface@1',
+      } as unknown as NonNullable<TargetBundleManifest['nativeRenderer']>,
+    }))
+    const emptyStringsResult = validateTargetBundleManifest(targetBundleManifest({
+      nativeRenderer: {
+        packageName: '@quajs/native-renderer',
+        backend: 'wgpu',
+        version: ' ',
+        capabilityManifestHash: '\t',
+        capabilityIds: ['native-wgpu.stage-layout@1', ' '],
+      },
+    }))
+
+    expect(invalidTypesResult.ok).toBe(false)
+    expect(invalidTypesResult.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RENDERER_VERSION_INVALID',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RENDERER_CAPABILITY_MANIFEST_HASH_INVALID',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RENDERER_CAPABILITY_IDS_INVALID',
+      }),
+    ]))
+
+    expect(emptyStringsResult.ok).toBe(false)
+    expect(emptyStringsResult.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RENDERER_VERSION_EMPTY',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RENDERER_CAPABILITY_MANIFEST_HASH_EMPTY',
+      }),
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_NATIVE_RENDERER_CAPABILITY_ID_EMPTY',
+      }),
+    ]))
+  })
+
   it('rejects incomplete native runtime metadata on native artifacts', () => {
     const result = validateTargetBundleManifest(targetBundleManifest({
       nativeRuntime: {
