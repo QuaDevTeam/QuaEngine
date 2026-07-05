@@ -28,6 +28,31 @@ fn rejects_foreign_target_core_adapters_and_renderer_entries() {
 }
 
 #[test]
+fn rejects_masked_top_level_renderer_entry_core_adapter() {
+    let mut manifest = native_manifest();
+    manifest
+        .renderer_entries
+        .push(TargetBundleReference::Object(TargetBundleReferenceObject {
+            specifier: Some("@quajs/plugin-menu/native-renderer".to_string()),
+            package_name: Some("@quajs/renderer-web/plugins/ui".to_string()),
+            target: Some("native".to_string()),
+            plugin_id: Some("@quajs/plugin-menu".to_string()),
+        }));
+
+    let error = validate_native_target_bundle_manifest(&manifest, None)
+        .expect_err("masked top-level renderer entry core adapter is rejected");
+
+    assert!(error
+        .to_string()
+        .contains("mixes target bootstrap core adapters for web, native"));
+    assert!(error.diagnostics().iter().any(|diagnostic| {
+        diagnostic.contains(
+            "Native target bundle must not include foreign target core adapter \"@quajs/renderer-web\"",
+        )
+    }));
+}
+
+#[test]
 fn checks_both_specifier_and_package_name_for_selected_core_adapters() {
     let mut manifest = native_manifest();
     manifest.selected_core_adapters = vec![
