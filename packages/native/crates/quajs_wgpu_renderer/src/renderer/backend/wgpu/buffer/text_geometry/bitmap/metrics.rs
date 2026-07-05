@@ -45,9 +45,12 @@ pub(super) fn bitmap_word_width(
         return 0.0;
     }
 
-    let glyph_width = BITMAP_GLYPH_WIDTH as f32 * pixel * weight_scale;
+    let glyph_width = word
+        .chars()
+        .map(|character| bitmap_glyph_width(character, pixel, weight_scale))
+        .sum::<f32>();
     let inner_gaps = count.saturating_sub(1) as f32 * (pixel + letter_spacing);
-    glyph_width * count as f32 + inner_gaps
+    glyph_width + inner_gaps
 }
 
 pub(super) fn bitmap_line_word_gap(
@@ -72,8 +75,17 @@ pub(super) fn bitmap_line_word_gap(
     base_gap + ((content_width - raw_line_width) / word_count.saturating_sub(1) as f32).max(0.0)
 }
 
-pub(super) fn bitmap_glyph_advance(pixel: f32, letter_spacing: f32, weight_scale: f32) -> f32 {
-    BITMAP_GLYPH_WIDTH as f32 * pixel * weight_scale + pixel + letter_spacing
+pub(super) fn bitmap_glyph_width(character: char, pixel: f32, weight_scale: f32) -> f32 {
+    BITMAP_GLYPH_WIDTH as f32 * pixel * weight_scale * bitmap_character_width_factor(character)
+}
+
+pub(super) fn bitmap_glyph_advance(
+    character: char,
+    pixel: f32,
+    letter_spacing: f32,
+    weight_scale: f32,
+) -> f32 {
+    bitmap_glyph_width(character, pixel, weight_scale) + pixel + letter_spacing
 }
 
 pub(super) fn bitmap_ellipsis_width(pixel: f32) -> f32 {
@@ -110,4 +122,25 @@ pub(super) fn bitmap_ellipsis_rects(
 
 fn bitmap_word_gap(pixel: f32, letter_spacing: f32, weight_scale: f32) -> f32 {
     (pixel * 3.0 * weight_scale + letter_spacing).max(pixel)
+}
+
+fn bitmap_character_width_factor(character: char) -> f32 {
+    let code_point = character as u32;
+    if matches!(
+        code_point,
+        0x1100..=0x115F
+            | 0x2329..=0x232A
+            | 0x2E80..=0xA4CF
+            | 0xAC00..=0xD7A3
+            | 0xF900..=0xFAFF
+            | 0xFE10..=0xFE19
+            | 0xFE30..=0xFE6F
+            | 0xFF00..=0xFF60
+            | 0xFFE0..=0xFFE6
+            | 0x1F300..=0x1FAFF
+    ) {
+        2.0
+    } else {
+        1.0
+    }
 }
