@@ -150,6 +150,36 @@ fn binary_accepts_renderer_smoke_budget() {
 }
 
 #[test]
+fn binary_rejects_unknown_renderer_smoke_budget_fields() {
+    let path = unique_frame_path("budget-unknown-field");
+    let budget_path = unique_budget_path("unknown-field");
+    std::fs::write(&path, SHARED_QUI_QSS_SURFACE_FRAME).expect("renderer smoke fixture writes");
+    std::fs::write(
+        &budget_path,
+        r#"{
+          "maxResources": 5,
+          "maxImaginarySmokeMetric": 0
+        }"#,
+    )
+    .expect("renderer smoke budget fixture writes");
+
+    let output = run_renderer_smoke_binary(&path, Some(&budget_path));
+
+    std::fs::remove_file(path).ok();
+    std::fs::remove_file(budget_path).ok();
+
+    assert!(
+        !output.status.success(),
+        "unknown budget field unexpectedly succeeded\nstdout:\n{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Failed to parse renderer smoke budget"));
+    assert!(stderr.contains("unknown field"));
+    assert!(stderr.contains("maxImaginarySmokeMetric"));
+}
+
+#[test]
 fn binary_accepts_renderer_smoke_budget_memory_maps() {
     let path = unique_frame_path("budget-memory-maps-pass");
     let budget_path = unique_budget_path("memory-maps-pass");
