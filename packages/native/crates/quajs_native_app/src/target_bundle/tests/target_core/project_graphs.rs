@@ -109,3 +109,38 @@ fn rejects_inactive_target_core_adapters_in_post_bundle_project_graphs() {
         "Post-bundle project graph \"native.release.macos.post-bundle.bad\" for native target must not include inactive target core adapter \"@quajs/renderer-cocos\""
     )));
 }
+
+#[test]
+fn rejects_npm_alias_target_core_adapters_in_project_graphs() {
+    let mut manifest = native_manifest();
+    manifest
+        .project_graphs
+        .push(TargetBundleProjectGraphRecord {
+            id: "native.debug.npm-alias-core".to_string(),
+            kind: "debug-shell".to_string(),
+            references: vec![
+                TargetBundleReference::Object(TargetBundleReferenceObject {
+                    specifier: Some("npm:@quajs/renderer-web/plugins/ui?import".to_string()),
+                    package_name: Some("@quajs/character".to_string()),
+                    target: None,
+                    plugin_id: None,
+                }),
+                TargetBundleReference::Object(TargetBundleReferenceObject {
+                    specifier: Some("@quajs/plugin-cocos-shell".to_string()),
+                    package_name: Some("npm:@quajs/renderer-cocos/plugins/dialogue".to_string()),
+                    target: None,
+                    plugin_id: None,
+                }),
+            ],
+        });
+
+    let error = validate_native_target_bundle_manifest(&manifest, None)
+        .expect_err("npm alias target core references are rejected");
+
+    assert!(error.diagnostics().iter().any(|diagnostic| diagnostic.contains(
+        "Project graph \"native.debug.npm-alias-core\" (debug-shell) for native target must not declare target core adapter \"@quajs/renderer-web\""
+    )));
+    assert!(error.diagnostics().iter().any(|diagnostic| diagnostic.contains(
+        "Project graph \"native.debug.npm-alias-core\" (debug-shell) for native target must not declare target core adapter \"@quajs/renderer-cocos\""
+    )));
+}
