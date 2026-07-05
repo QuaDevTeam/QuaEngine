@@ -50,6 +50,7 @@ export interface NativeQuickJsModuleNamespaceSummary {
   packageCount: number
   moduleBytes: number
   codeBytes: number
+  totalBytes: number
 }
 
 export interface NativeQuickJsReleaseNamespaceRequest {

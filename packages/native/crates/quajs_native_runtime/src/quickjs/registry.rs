@@ -24,6 +24,7 @@ pub struct QuickJsModuleNamespaceSummary {
     pub package_count: usize,
     pub module_bytes: u64,
     pub code_bytes: u64,
+    pub total_bytes: u64,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -128,6 +129,9 @@ fn summarize<'a>(
         summary.namespace_count += 1;
         summary.module_bytes += record.module_bytes;
         summary.code_bytes += record.code_bytes;
+        summary.total_bytes = summary
+            .total_bytes
+            .saturating_add(record.module_bytes.saturating_add(record.code_bytes));
         packages.insert(record.package_id.clone());
     }
 
@@ -158,6 +162,7 @@ mod tests {
         assert_eq!(registry.get(&record.id), Some(&record));
         assert_eq!(registry.summary().namespace_count, 1);
         assert_eq!(registry.summary().package_count, 1);
+        assert_eq!(registry.summary().total_bytes, 39);
     }
 
     #[test]
@@ -206,7 +211,9 @@ mod tests {
                 .namespace_count,
             0
         );
+        assert_eq!(registry.package_summary("runtime.chapter.a").total_bytes, 0);
         assert_eq!(registry.summary().namespace_count, 1);
+        assert_eq!(registry.summary().total_bytes, 39);
     }
 
     fn request_for_asset(package_id: &str, asset_name: &str) -> QuickJsEvaluationRequest {

@@ -128,6 +128,7 @@ fn dispatches_quickjs_namespace_summary_and_release_with_registry() {
                 package_count: 1,
                 module_bytes: 6,
                 code_bytes: 72,
+                total_bytes: 78,
             }
         ))
     );
@@ -150,6 +151,7 @@ fn dispatches_quickjs_namespace_summary_and_release_with_registry() {
                 package_count: 1,
                 module_bytes: 6,
                 code_bytes: 72,
+                total_bytes: 78,
             }
         ))
     );
