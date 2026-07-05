@@ -169,3 +169,82 @@ fn prepares_shared_compiled_qui_qss_surface_fixture() {
             && blocker.owner_package_id.as_deref() == Some("runtime.ui")
     }));
 }
+
+#[test]
+fn accepts_compiled_choice_loop_surface_json() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let result = renderer
+        .prepare_and_render_json_str(json_frame_with_compiled_choice_loop_input())
+        .expect("compiled choice loop JSON should render");
+
+    assert_eq!(result.update.revision, 1);
+    assert_eq!(result.submission.revision, 1);
+    assert_eq!(result.submission.missing_resource_count, 0);
+
+    let frame = renderer.state().frame().expect("frame prepared");
+    let command_ids = frame
+        .graph
+        .commands()
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+    assert!(command_ids.contains(&"ui:choice-menu:choice-button:stay"));
+    assert!(command_ids.contains(&"ui:choice-menu:choice-button:leave"));
+
+    let stay = frame
+        .graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "ui:choice-menu:choice-button:stay")
+        .expect("stay choice button exists");
+    match &stay.params {
+        DrawCommandParams::UiButton(params) => {
+            assert_eq!(params.label, "Stay");
+            assert_eq!(
+                params
+                    .intent
+                    .as_ref()
+                    .and_then(|intent| intent.choice_id.as_deref()),
+                Some("stay")
+            );
+        }
+        _ => panic!("expected stay choice button params"),
+    }
+
+    let leave = frame
+        .graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "ui:choice-menu:choice-button:leave")
+        .expect("leave choice button exists");
+    match &leave.params {
+        DrawCommandParams::UiButton(params) => {
+            assert_eq!(params.label, "Leave");
+            assert_eq!(
+                params
+                    .intent
+                    .as_ref()
+                    .and_then(|intent| intent.choice_id.as_deref()),
+                Some("leave")
+            );
+        }
+        _ => panic!("expected leave choice button params"),
+    }
+
+    let hit = renderer
+        .hit_intent(600.0, 612.0)
+        .expect("stay choice button hit");
+    assert_eq!(hit.command_id, "ui:choice-menu:choice-button:stay");
+    assert_eq!(hit.intent.event, "choice/select");
+    assert_eq!(hit.intent.choice_id.as_deref(), Some("stay"));
+    assert_eq!(hit.intent.action.as_deref(), Some("select"));
+    assert_eq!(
+        hit.intent.element_id.as_deref(),
+        Some("choice-menu:choice-button:stay")
+    );
+    assert_eq!(
+        hit.intent.metadata.get("arg0"),
+        Some(&serde_json::json!("stay"))
+    );
+}
