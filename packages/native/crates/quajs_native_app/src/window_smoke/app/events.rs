@@ -53,9 +53,18 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 self.cancel_window_pointer_interaction();
                 self.input.clear_cursor_position();
             }
-            WindowEvent::Focused(false) => {
-                self.cancel_window_pointer_interaction();
-                self.input.clear_cursor_position();
+            WindowEvent::Focused(focused) => {
+                self.input.record_focus_event(focused);
+                if !focused {
+                    self.cancel_window_pointer_interaction();
+                    self.input.clear_cursor_position();
+                }
+            }
+            WindowEvent::KeyboardInput { event, .. } => {
+                self.input.record_keyboard_event(&event);
+            }
+            WindowEvent::Ime(event) => {
+                self.input.record_ime_event(&event);
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 let phase = pointer_phase_from_element_state(state);

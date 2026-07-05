@@ -138,6 +138,16 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         pointer_probe_count: 1,
         pointer_cancel_count: 0,
         pointer_last_intent_type: Some("ui/intent".to_string()),
+        focus_gain_count: 0,
+        focus_loss_count: 0,
+        keyboard_event_count: 0,
+        keyboard_press_count: 0,
+        keyboard_release_count: 0,
+        keyboard_repeat_count: 0,
+        ime_event_count: 0,
+        ime_preedit_count: 0,
+        ime_commit_count: 0,
+        ime_last_text_byte_count: None,
         last_resize_physical_width: None,
         last_resize_physical_height: None,
         logical_width: 960.0,
@@ -163,4 +173,14 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["textureLifecycleReleasedPackageCount"], 0);
     assert_eq!(value["textureLifecycleTextureCleanupErrorCount"], 0);
     assert_eq!(value["pointerCancelCount"], 0);
+    assert_eq!(value["focusGainCount"], 0);
+    assert_eq!(value["focusLossCount"], 0);
+    assert_eq!(value["keyboardEventCount"], 0);
+    assert_eq!(value["keyboardPressCount"], 0);
+    assert_eq!(value["keyboardReleaseCount"], 0);
+    assert_eq!(value["keyboardRepeatCount"], 0);
+    assert_eq!(value["imeEventCount"], 0);
+    assert_eq!(value["imePreeditCount"], 0);
+    assert_eq!(value["imeCommitCount"], 0);
+    assert!(value["imeLastTextByteCount"].is_null());
 }

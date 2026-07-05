@@ -9,6 +9,7 @@ use quajs_wgpu_renderer::stage_layout::{
     stage_logical_to_client_point, StageClientPoint, StageClientRectOrigin, StageLogicalPoint,
 };
 use winit::dpi::PhysicalPosition;
+use winit::event::{ElementState, Ime, KeyEvent};
 
 use super::error::NativeWindowSmokeError;
 
@@ -28,6 +29,16 @@ pub(super) struct NativeWindowSmokeInputMetrics {
     pub pointer_intent_emit_count: usize,
     pub pointer_probe_count: usize,
     pub pointer_cancel_count: usize,
+    pub focus_gain_count: usize,
+    pub focus_loss_count: usize,
+    pub keyboard_event_count: usize,
+    pub keyboard_press_count: usize,
+    pub keyboard_release_count: usize,
+    pub keyboard_repeat_count: usize,
+    pub ime_event_count: usize,
+    pub ime_preedit_count: usize,
+    pub ime_commit_count: usize,
+    pub ime_last_text_byte_count: Option<usize>,
     pub last_intent_type: Option<String>,
 }
 
@@ -58,6 +69,33 @@ impl NativeWindowSmokeInputState {
 
     pub(super) fn clear_cursor_position(&mut self) {
         self.cursor_client_point = None;
+    }
+
+    pub(super) fn record_focus_event(&mut self, focused: bool) {
+        if focused {
+            self.metrics.focus_gain_count = self.metrics.focus_gain_count.saturating_add(1);
+        } else {
+            self.metrics.focus_loss_count = self.metrics.focus_loss_count.saturating_add(1);
+        }
+    }
+
+    pub(super) fn record_keyboard_event(&mut self, event: &KeyEvent) {
+        self.record_keyboard_state(event.state, event.repeat);
+    }
+
+    pub(super) fn record_ime_event(&mut self, event: &Ime) {
+        self.metrics.ime_event_count = self.metrics.ime_event_count.saturating_add(1);
+        match event {
+            Ime::Preedit(text, _) => {
+                self.metrics.ime_preedit_count = self.metrics.ime_preedit_count.saturating_add(1);
+                self.metrics.ime_last_text_byte_count = Some(text.len());
+            }
+            Ime::Commit(text) => {
+                self.metrics.ime_commit_count = self.metrics.ime_commit_count.saturating_add(1);
+                self.metrics.ime_last_text_byte_count = Some(text.len());
+            }
+            Ime::Enabled | Ime::Disabled => {}
+        }
     }
 
     pub(super) fn cancel_pointer_interaction<B, A>(
@@ -115,6 +153,24 @@ impl NativeWindowSmokeInputState {
         }
 
         Ok(())
+    }
+
+    fn record_keyboard_state(&mut self, state: ElementState, repeat: bool) {
+        self.metrics.keyboard_event_count = self.metrics.keyboard_event_count.saturating_add(1);
+        match state {
+            ElementState::Pressed => {
+                self.metrics.keyboard_press_count =
+                    self.metrics.keyboard_press_count.saturating_add(1);
+            }
+            ElementState::Released => {
+                self.metrics.keyboard_release_count =
+                    self.metrics.keyboard_release_count.saturating_add(1);
+            }
+        }
+        if repeat {
+            self.metrics.keyboard_repeat_count =
+                self.metrics.keyboard_repeat_count.saturating_add(1);
+        }
     }
 
     pub(super) fn run_open_settings_probe<B, A>(
@@ -209,5 +265,30 @@ mod tests {
             .as_deref()
             .expect("ui intent should carry payload JSON")
             .contains("\"action\":\"open\""));
+    }
+
+    #[test]
+    fn records_focus_keyboard_and_ime_metrics_without_raw_text() {
+        let mut input = NativeWindowSmokeInputState::default();
+
+        input.record_focus_event(true);
+        input.record_focus_event(false);
+        input.record_keyboard_state(ElementState::Pressed, false);
+        input.record_keyboard_state(ElementState::Pressed, true);
+        input.record_keyboard_state(ElementState::Released, false);
+        input.record_ime_event(&Ime::Preedit("候補".to_string(), Some((0, 1))));
+        input.record_ime_event(&Ime::Commit("決定".to_string()));
+
+        assert_eq!(input.metrics().focus_gain_count, 1);
+        assert_eq!(input.metrics().focus_loss_count, 1);
+        assert_eq!(input.metrics().keyboard_event_count, 3);
+        assert_eq!(input.metrics().keyboard_press_count, 2);
+        assert_eq!(input.metrics().keyboard_release_count, 1);
+        assert_eq!(input.metrics().keyboard_repeat_count, 1);
+        assert_eq!(input.metrics().ime_event_count, 2);
+        assert_eq!(input.metrics().ime_preedit_count, 1);
+        assert_eq!(input.metrics().ime_commit_count, 1);
+        assert_eq!(input.metrics().ime_last_text_byte_count, Some("決定".len()));
+        assert_eq!(input.metrics().last_intent_type, None);
     }
 }
