@@ -94,6 +94,33 @@ fn binary_reports_invalid_renderer_smoke_frame_json() {
 }
 
 #[test]
+fn binary_rejects_renderer_smoke_web_audio_alias_fields() {
+    let path = unique_frame_path("audio-web-alias");
+    let mut frame: serde_json::Value =
+        serde_json::from_str(&smoke_ui_audio_frame_json()).expect("smoke UI/audio frame parses");
+    frame["view"]["audio"]["tracks"][0]["assetKey"] = serde_json::json!("audio/web-alias.ogg");
+    std::fs::write(
+        &path,
+        serde_json::to_string(&frame).expect("renderer smoke frame serializes"),
+    )
+    .expect("renderer smoke fixture writes");
+
+    let output = run_renderer_smoke_binary(&path, None);
+
+    std::fs::remove_file(path).ok();
+
+    assert!(
+        !output.status.success(),
+        "Web audio alias unexpectedly succeeded\nstdout:\n{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Native renderer smoke frame failed"));
+    assert!(stderr.contains("view.audio.tracks[0].assetKey"));
+    assert!(stderr.contains("assetName"));
+}
+
+#[test]
 fn binary_accepts_renderer_smoke_budget() {
     let path = unique_frame_path("budget-valid");
     let budget_path = unique_budget_path("pass");
