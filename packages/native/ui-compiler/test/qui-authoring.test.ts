@@ -268,6 +268,48 @@ Stack {
     ])
   })
 
+  it('rejects action descriptors on non-intent foundational components before projection', () => {
+    const document = analyzeQuiSource(`
+Stack {
+  Image(id: "poster", src: "ui/poster.png", action: ui.open("gallery"))
+  Text(id: "caption", action: ui.open("caption")) { "Caption" }
+  Divider(id: "rule", action: ui.close())
+  Spacer(id: "gap", action: ui.close())
+  Scroll(id: "list", action: ui.open("list")) {
+    Button(id: "inside", action: ui.close()) { Text { "Close" } }
+  }
+}
+`)
+    const projection = compileNativeUiSurfaceProjection(document, { rootId: 'root' })
+
+    expect(document.diagnostics.filter(item => item.code === 'QUI_UNSUPPORTED_ACTION_TARGET')).toHaveLength(5)
+    expect(document.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'QUI_UNSUPPORTED_ACTION_TARGET',
+        message: expect.stringContaining('Image does not support native action intents'),
+        severity: 'error',
+      }),
+      expect.objectContaining({
+        code: 'QUI_UNSUPPORTED_ACTION_TARGET',
+        message: expect.stringContaining('Scroll does not support native action intents'),
+        severity: 'error',
+      }),
+    ]))
+
+    const stack = projection.root?.children?.[0]
+    expect(stack?.children?.slice(0, 5).map(node => node.intent)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ])
+    expect(stack?.children?.[4].children?.[0].intent).toEqual({
+      event: 'ui/intent',
+      action: 'close',
+    })
+  })
+
   it('rejects component children inside text-only QUI leaves', () => {
     const document = analyzeQuiSource('Text { Button(action: ui.close()) { Text { "Close" } } }')
 

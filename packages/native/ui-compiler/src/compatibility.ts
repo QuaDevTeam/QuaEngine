@@ -15,6 +15,7 @@ import { isSafeNativeAssetType, isSafePackageAssetName, literalStringValue } fro
 import { collectNativeUiSurfaceProjectionRequirements } from './projection-requirements'
 import { parseNativeQssBackgroundImage } from './qss-resolved-style'
 import { findNativeUiComponent } from './registry'
+import { canProjectNativeUiIntent } from './surface-intents'
 
 export interface CreateNativeUiSurfaceCompatibilityFromDocumentsOptions
   extends Omit<CreateNativeUiSurfaceCompatibilityOptions, 'assetKinds' | 'intentEvents' | 'qssFeatures' | 'quiComponents'> {
@@ -107,9 +108,7 @@ function collectNativeUiSurfaceCompatibilityInputs(
   const quiComponents = new Set<string>()
 
   for (const node of qui.tree)
-    collectQuiNodeCompatibilityInputs(node, assetKinds, quiComponents)
-  for (const action of qui.actions)
-    intentEvents.add(action.event)
+    collectQuiNodeCompatibilityInputs(node, assetKinds, intentEvents, quiComponents)
   for (const document of qssDocuments)
     collectQssCompatibilityInputs(document, assetKinds, qssFeatures)
 
@@ -124,15 +123,20 @@ function collectNativeUiSurfaceCompatibilityInputs(
 function collectQuiNodeCompatibilityInputs(
   node: NativeQuiAstNode,
   assetKinds: Set<string>,
+  intentEvents: Set<string>,
   quiComponents: Set<string>,
 ): void {
   if (node.kind === 'component') {
     if (findNativeUiComponent(node.name))
       quiComponents.add(node.name)
+    if (canProjectNativeUiIntent(node.name)) {
+      for (const action of node.actions)
+        intentEvents.add(action.event)
+    }
     collectQuiAssetKinds(node.props, assetKinds)
   }
   for (const child of node.children)
-    collectQuiNodeCompatibilityInputs(child, assetKinds, quiComponents)
+    collectQuiNodeCompatibilityInputs(child, assetKinds, intentEvents, quiComponents)
 }
 
 function collectQuiAssetKinds(props: readonly NativeQuiProp[], assetKinds: Set<string>): void {

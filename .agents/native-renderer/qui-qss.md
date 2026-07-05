@@ -109,6 +109,8 @@ import component "./shared/Panel.qui";
 
 结构化 descriptor 进入 native projection 后，Rust `UiIntentProjection` / `RendererIntent` 需要保留 descriptor metadata，并在 `NativeRendererIntent.payloadJson` 里透传给 `@quajs/engine-native`。`action`、`choiceId`、`elementId` 是 renderer resolution 的核心字段，必须由 Rust 解析结果覆盖同名 metadata，避免动态内容伪造 dispatch 身份。
 
+当前 native-wgpu 可直接投影为 pointer intent 的基础组件只有 `Button`、`Box`、`Backdrop` 和 `Panel`。`Image`、`Text`、`RichText`、`Divider`、`Scroll`、`Spacer` 以及结构组件上的 `action:` 必须由 compiler / LSP 诊断为 `QUI_UNSUPPORTED_ACTION_TARGET`，并且 projection / compatibility 派生不得输出或声明这些不生效的 intent。开发者需要让图片、文本或滚动区域可点击时，应使用 `Button` / `Box` / `Panel` / `Backdrop` 包裹，或通过 composite 展开到这些基础命中面。
+
 ## 组件系统
 
 ### 当前应保持稳定的 base primitives
