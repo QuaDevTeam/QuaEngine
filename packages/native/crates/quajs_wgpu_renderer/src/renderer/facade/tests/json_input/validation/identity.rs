@@ -265,6 +265,27 @@ fn json_frame_identity_validation_rejects_surface_leaf_children() {
 }
 
 #[test]
+fn json_frame_identity_validation_rejects_malformed_surface_node_children() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let error = renderer
+        .prepare_frame_json_str(json_frame_with_malformed_surface_node_children_input())
+        .unwrap_err();
+
+    match error {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].surface.root.children");
+            assert_eq!(validation.asset_name, "Column");
+            assert!(validation.reason.contains("must be an array"));
+            assert!(validation.reason.contains("resolved projection JSON"));
+        }
+        other => panic!("expected malformed surface children validation error, got {other:?}"),
+    }
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_identity_validation_rejects_unsupported_surface_node_kind() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

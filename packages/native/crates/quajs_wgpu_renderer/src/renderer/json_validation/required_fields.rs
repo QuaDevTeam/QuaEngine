@@ -350,6 +350,11 @@ fn validate_ui_surface_node_required_fields(
         return;
     }
 
+    validate_ui_surface_node_children_shape_required_fields(node_object, path, errors);
+    if !errors.is_empty() {
+        return;
+    }
+
     validate_ui_surface_node_content_model_required_fields(node_object, path, errors);
     if !errors.is_empty() {
         return;
@@ -394,7 +399,10 @@ fn validate_ui_surface_node_required_fields(
         }
     }
 
-    let Some(children) = node_object.get("children").and_then(Value::as_array) else {
+    let Some(children_value) = node_object.get("children") else {
+        return;
+    };
+    let Some(children) = children_value.as_array() else {
         return;
     };
     for (child_index, child) in children.iter().enumerate() {
@@ -407,6 +415,31 @@ fn validate_ui_surface_node_required_fields(
             return;
         }
     }
+}
+
+fn validate_ui_surface_node_children_shape_required_fields(
+    node_object: &serde_json::Map<String, Value>,
+    path: &str,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    let Some(children) = node_object.get("children") else {
+        return;
+    };
+    if children.is_array() {
+        return;
+    }
+
+    let kind = node_object
+        .get("kind")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    errors.push(NativeRendererJsonValidationError {
+        path: format!("{path}.children"),
+        asset_name: kind.to_string(),
+        reason:
+            "must be an array when provided for native UI surface nodes in resolved projection JSON"
+                .to_string(),
+    });
 }
 
 fn validate_ui_surface_node_kind_required_fields(
