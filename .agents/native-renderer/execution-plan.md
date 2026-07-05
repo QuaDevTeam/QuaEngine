@@ -188,6 +188,8 @@ QUI 是 native declarative template language，不是 HTML、不是 TSX、不是
 - `== != < <= > >= && || ! ??`。
 - ternary。
 
+当前 native-ui-compiler 已用受限 evaluator 覆盖这些 P0 表达式，应用在条件/显示、loop source、文本/prop binding、composite props、数组/object literal 和 action descriptor 参数上；不使用 `eval`、`Function`、QuickJS 或 Rust 侧解析。
+
 禁止：
 
 - assignment / update expression。

@@ -1380,6 +1380,8 @@ Allowed:
 - Operators: `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, `!`, `??`.
 - Ternary for prop/text/class/style binding.
 
+Current compiler status: `@quajs/native-ui-compiler` evaluates this P0 subset with a restricted evaluator during projection compile, including conditionals, loop sources, text/prop bindings, composite `props.*`, array/object literals, and action descriptor arguments. It must not use `eval`, `Function`, QuickJS, Rust-side parsing, or arbitrary helper calls for this path.
+
 Rejected:
 
 - Assignment/update expressions.

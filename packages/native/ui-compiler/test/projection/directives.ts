@@ -122,6 +122,93 @@ Column(id: "choices") {
     }))
   })
 
+  it('evaluates the native QUI expression subset during projection compile', () => {
+    const qui = analyzeQuiSource(`
+Column(id: "expr-root") {
+  Panel(
+    id: "wide-panel",
+    if: view.width >= 1280 && !settings.compact,
+    width: view.width >= 1280 ? 640 : 320,
+    height: view.count < 4 ? 120 : 60
+  ) {
+    Text(id: "headline") { view.title ?? "Untitled" }
+  }
+
+  Button(
+    for: item in [{ id: "save", label: "Save" }, { id: "load", label: view.altLabel ?? "Load" }],
+    key: item.id,
+    show: item.id != "load" || settings.showLoad,
+    label: item.label,
+    action: ui.open(item.id == "save" ? "save-menu" : "load-menu"),
+    width: view.width > 1000 ? 260 : 160
+  )
+}
+`)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(compileNativeUiSurfaceProjection(qui, {
+      context: {
+        settings: {
+          compact: false,
+          showLoad: true,
+        },
+        view: {
+          altLabel: 'Load Game',
+          count: 3,
+          title: undefined,
+          width: 1440,
+        },
+      },
+    })).toEqual(withDefaultVisible({
+      root: {
+        id: 'expr-root',
+        kind: 'Column',
+        bounds: { x: 0, y: 0, width: 0, height: 0 },
+        children: [
+          {
+            id: 'wide-panel',
+            kind: 'Panel',
+            bounds: { x: 0, y: 0, width: 640, height: 120 },
+            children: [
+              {
+                id: 'headline',
+                kind: 'Text',
+                bounds: { x: 0, y: 0, width: 0, height: 0 },
+                text: 'Untitled',
+              },
+            ],
+          },
+          {
+            id: 'Button:save',
+            kind: 'Button',
+            bounds: { x: 0, y: 0, width: 260, height: 0 },
+            text: 'Save',
+            intent: {
+              event: 'ui/intent',
+              action: 'open',
+              metadata: {
+                arg0: 'save-menu',
+              },
+            },
+          },
+          {
+            id: 'Button:load',
+            kind: 'Button',
+            bounds: { x: 0, y: 0, width: 260, height: 0 },
+            text: 'Load Game',
+            intent: {
+              event: 'ui/intent',
+              action: 'open',
+              metadata: {
+                arg0: 'load-menu',
+              },
+            },
+          },
+        ],
+      },
+    }))
+  })
+
   it('flattens imported composite QUI components into foundational surface nodes', () => {
     const dialog = analyzeQuiSource(`
 Stack(id: props.id ?? "dialog") {

@@ -85,6 +85,8 @@ import component "./shared/Panel.qui";
 - `== != < <= > >= && || ! ??`
 - ternary
 
+当前 `@quajs/native-ui-compiler` 已在 projection compile path 中用受限 evaluator 支持这些 P0 表达式，覆盖条件分支、`show`、loop source、文本/prop binding、composite `props.*`、数组/object literal 和 action descriptor 参数解析。实现不得使用 `eval`、`Function`、QuickJS 或 Rust 侧解析；无法求值的表达式保持 undefined / fallback 行为并由 diagnostics 约束 unsafe 语法。
+
 拒绝：
 
 - assignment
