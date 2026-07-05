@@ -6,6 +6,8 @@
 
 如果需要一份可以直接排期、拆任务和对照验收的总纲，优先看 [Native Renderer 执行总计划](execution-plan.md)。它把 wgpu + QuickJS 调研结论、`packages/native` 工程结构、QUI/QSS 语法、LSP/VSCode、动态 QPK、插件兼容、benchmark、内存指标、打包分发和 Web/Cocos/Native 核心插件隔离收束到一张实施路线图。
 
+如果需要面向生产落地的交付矩阵，优先看 [Native Renderer 生产化路线图](production-readiness-roadmap.md)。它把外部依赖调研、当前仓库版本 pin、QUI/QSS 验收、LSP/VSCode 独立性、现有插件兼容、动态包安全、内存指标、media backend、打包分发、开发规范和三端核心插件隔离整理成阶段化验收口径。
+
 ## 快速门禁
 
 打包到 Cocos、Web、Native 项目时，核心插件不能串线。三端必须是三条互斥工程生成链：Web 只走 `web-core-resolver`，Cocos 只走 `cocos-core-resolver`，Native 只走 `native-core-resolver`。project template、startup shell、debug/release shell、installer、updater、smoke runner、Runtime QPK 和普通插件都只能读取已验证的 active-target manifest，不能重新声明 active core，也不能先携带三端核心插件全集再过滤。
@@ -232,6 +234,7 @@ Web、Cocos、Native 的 project generator 只能消费各自 packager resolver 
 - [语言服务器、VSCode、测试、benchmark](./tooling-testing.md)
 - [Native 打包、加固与分发方案](./release-packaging.md)
 - [Native 目标开发规范与插件兼容方案](./development-guidelines.md)
+- [Native Renderer 生产化路线图](./production-readiness-roadmap.md)
 
 ## 推荐实施顺序
 
