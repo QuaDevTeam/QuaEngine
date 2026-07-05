@@ -249,7 +249,10 @@ pub(in super::super) fn json_frame_with_oversized_audio_memory_input() -> &'stat
     "#
 }
 
-pub(in super::super) fn json_frame_with_web_audio_state_field_input() -> &'static str {
+pub(in super::super) fn json_frame_with_web_audio_alias_field_input(
+    field: &str,
+    value_json: &str,
+) -> String {
     r#"
     {
       "container": { "width": 1600, "height": 1000 },
@@ -263,7 +266,7 @@ pub(in super::super) fn json_frame_with_web_audio_state_field_input() -> &'stati
               "assetType": "bgm",
               "loadMode": "buffered",
               "playbackState": "playing",
-              "state": "stopped",
+              "__WEB_AUDIO_ALIAS_FIELD__": __WEB_AUDIO_ALIAS_VALUE__,
               "volume": 0.8
             }
           ]
@@ -271,6 +274,8 @@ pub(in super::super) fn json_frame_with_web_audio_state_field_input() -> &'stati
       }
     }
     "#
+    .replace("__WEB_AUDIO_ALIAS_FIELD__", field)
+    .replace("__WEB_AUDIO_ALIAS_VALUE__", value_json)
 }
 
 pub(in super::super) fn json_frame_with_missing_audio_asset_type_input() -> &'static str {

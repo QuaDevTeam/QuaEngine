@@ -41,16 +41,22 @@ fn json_frame_audio_number_validation_rejects_unsafe_resolved_values() {
 fn json_frame_audio_projection_validation_rejects_web_audio_alias_fields() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
-    let error = renderer
-        .prepare_frame_json_str(json_frame_with_web_audio_state_field_input())
-        .unwrap_err();
-    match error {
-        NativeRendererJsonFrameError::Validation(validation) => {
-            assert_eq!(validation.path, "view.audio.tracks[0].state");
-            assert_eq!(validation.asset_name, "state");
-            assert!(validation.reason.contains("playbackState"));
+    for (field, replacement, value_json) in [
+        ("assetKey", "assetName", r#""music/opening.ogg""#),
+        ("state", "playbackState", r#""stopped""#),
+        ("loop", "looped", "true"),
+        ("playing", "playbackState", "true"),
+    ] {
+        let input = json_frame_with_web_audio_alias_field_input(field, value_json);
+        let error = renderer.prepare_frame_json_str(&input).unwrap_err();
+        match error {
+            NativeRendererJsonFrameError::Validation(validation) => {
+                assert_eq!(validation.path, format!("view.audio.tracks[0].{field}"));
+                assert_eq!(validation.asset_name, field);
+                assert!(validation.reason.contains(replacement));
+            }
+            other => panic!("expected unsupported audio field validation error, got {other:?}"),
         }
-        other => panic!("expected unsupported audio field validation error, got {other:?}"),
     }
 
     assert_eq!(renderer.state().revision(), 0);
