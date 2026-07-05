@@ -203,6 +203,82 @@ pub(in super::super::super) fn json_frame_with_missing_ui_background_image_asset
     "#
 }
 
+pub(in super::super::super) fn json_frame_with_malformed_dialogue_avatar_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "dialogue": {
+          "visible": true,
+          "mode": "say",
+          "speaker": "Narrator",
+          "text": "Opening",
+          "avatar": "ui/avatar.png"
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super::super) fn json_frame_with_malformed_ui_image_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "poster",
+                  "kind": "Image",
+                  "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
+                  "image": ["ui/poster.png"]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super::super) fn json_frame_with_malformed_ui_background_image_input() -> &'static str
+{
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "panel",
+                  "kind": "Panel",
+                  "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
+                  "style": {
+                    "backgroundImage": "ui/panel.png"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super::super) fn json_frame_with_empty_ui_image_asset_input() -> &'static str {
     r#"
     {

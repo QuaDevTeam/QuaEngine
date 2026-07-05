@@ -243,6 +243,13 @@ fn validate_asset_projection_required_fields(
         return;
     }
     let Some(asset_object) = asset.as_object() else {
+        errors.push(NativeRendererJsonValidationError {
+            path: path.to_string(),
+            asset_name: String::new(),
+            reason: format!(
+                "must be an object when provided for {noun} in resolved projection JSON"
+            ),
+        });
         return;
     };
     let missing_asset_type = match asset_object.get("assetType") {
