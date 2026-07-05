@@ -49,6 +49,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_choice_id_input() -> &'sta
                   "id": "root",
                   "kind": "Button",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "intent": {
                     "event": "choice/select",
                     "choiceId": "choices/native.dll",
@@ -80,6 +81,7 @@ pub(in super::super::super) fn json_frame_with_native_payload_choice_id_input() 
                   "id": "root",
                   "kind": "Button",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "intent": {
                     "event": "choice/select",
                     "choiceId": "native.dll",

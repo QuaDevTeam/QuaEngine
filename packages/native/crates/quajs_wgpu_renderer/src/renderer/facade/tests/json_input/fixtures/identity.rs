@@ -225,6 +225,7 @@ pub(in super::super) fn json_frame_with_missing_surface_node_kind_input() -> &'s
                   "id": "root",
                   "kind": "Column",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 240, "height": 120 },
                   "children": [
                     {
                       "id": "missing-kind",
@@ -259,6 +260,7 @@ pub(in super::super) fn json_frame_with_missing_surface_node_visible_input() -> 
                   "id": "root",
                   "kind": "Column",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 240, "height": 120 },
                   "children": [
                     {
                       "id": "missing-visible",
@@ -267,6 +269,32 @@ pub(in super::super) fn json_frame_with_missing_surface_node_visible_input() -> 
                       "text": "Missing visible"
                     }
                   ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_surface_node_bounds_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "missing-bounds",
+                  "kind": "Column",
+                  "visible": true
                 }
               }
             }
@@ -293,6 +321,7 @@ pub(in super::super) fn json_frame_with_missing_surface_node_bounds_width_input(
                   "id": "root",
                   "kind": "Column",
                   "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 240, "height": 120 },
                   "children": [
                     {
                       "id": "missing-bounds-width",
