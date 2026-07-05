@@ -117,7 +117,16 @@ pub(super) fn validate_ui_intent_required_fields(
     let Some(intent) = intent else {
         return;
     };
+    if intent.is_null() {
+        return;
+    }
     let Some(intent_object) = intent.as_object() else {
+        errors.push(NativeRendererJsonValidationError {
+            path: path.to_string(),
+            asset_name: String::new(),
+            reason: "must be an object for native UI intents in resolved projection JSON"
+                .to_string(),
+        });
         return;
     };
 
@@ -160,6 +169,16 @@ fn validate_surface_root_required_fields(
         return;
     };
     if root.is_null() {
+        return;
+    }
+    if !root.is_object() {
+        errors.push(NativeRendererJsonValidationError {
+            path: format!("{path}.root"),
+            asset_name: String::new(),
+            reason:
+                "must be an object for native UI surface root nodes in resolved projection JSON"
+                    .to_string(),
+        });
         return;
     }
     node::validate_ui_surface_node_required_fields(root, &format!("{path}.root"), errors);
