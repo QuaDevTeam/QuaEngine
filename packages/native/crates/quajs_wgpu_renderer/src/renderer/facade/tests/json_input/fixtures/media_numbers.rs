@@ -207,6 +207,7 @@ pub(in super::super) fn json_frame_with_oversized_audio_volume_input() -> &'stat
               "kind": "bgm",
               "assetName": "music/opening.ogg",
               "assetType": "bgm",
+              "loadMode": "buffered",
               "playbackState": "playing",
               "volume": 1.5
             }
@@ -229,6 +230,7 @@ pub(in super::super) fn json_frame_with_oversized_audio_memory_input() -> &'stat
               "kind": "bgm",
               "assetName": "music/opening.ogg",
               "assetType": "bgm",
+              "loadMode": "buffered",
               "playbackState": "playing",
               "memory": {
                 "bufferCpuBytes": 2147483649,
@@ -255,6 +257,7 @@ pub(in super::super) fn json_frame_with_web_audio_state_field_input() -> &'stati
               "kind": "bgm",
               "assetName": "music/opening.ogg",
               "assetType": "bgm",
+              "loadMode": "buffered",
               "playbackState": "playing",
               "state": "stopped",
               "volume": 0.8
@@ -277,6 +280,28 @@ pub(in super::super) fn json_frame_with_missing_audio_asset_type_input() -> &'st
               "id": "voice-main",
               "kind": "voice",
               "assetName": "voice/opening.ogg",
+              "loadMode": "buffered",
+              "playbackState": "playing"
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_audio_load_mode_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            {
+              "id": "bgm-main",
+              "kind": "bgm",
+              "assetName": "music/opening.ogg",
+              "assetType": "bgm",
               "playbackState": "playing"
             }
           ]
@@ -297,7 +322,8 @@ pub(in super::super) fn json_frame_with_missing_audio_playback_state_input() -> 
               "id": "sfx-confirm",
               "kind": "sfx",
               "assetName": "sfx/confirm.ogg",
-              "assetType": "sfx"
+              "assetType": "sfx",
+              "loadMode": "buffered"
             }
           ]
         }

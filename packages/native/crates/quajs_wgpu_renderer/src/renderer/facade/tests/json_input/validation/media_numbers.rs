@@ -72,6 +72,17 @@ fn json_frame_audio_projection_validation_requires_explicit_bridge_fields() {
         other => panic!("expected missing audio assetType validation error, got {other:?}"),
     }
 
+    let load_mode = renderer
+        .prepare_frame_json_str(json_frame_with_missing_audio_load_mode_input())
+        .unwrap_err();
+    match load_mode {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.audio.tracks[0].loadMode");
+            assert!(validation.reason.contains("explicitly provided"));
+        }
+        other => panic!("expected missing audio loadMode validation error, got {other:?}"),
+    }
+
     let playback_state = renderer
         .prepare_frame_json_str(json_frame_with_missing_audio_playback_state_input())
         .unwrap_err();
