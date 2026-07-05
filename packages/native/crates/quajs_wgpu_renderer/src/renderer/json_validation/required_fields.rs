@@ -4,9 +4,11 @@ use crate::renderer::json_input::{
     NativeRendererJsonFrameError, NativeRendererJsonValidationError,
 };
 
+mod assets;
 mod audio;
 mod background;
 mod choices;
+mod dialogue;
 mod ui_surface;
 
 pub(crate) fn validate_json_frame_required_fields(
@@ -15,7 +17,7 @@ pub(crate) fn validate_json_frame_required_fields(
     let mut errors = Vec::new();
     validate_top_level_required_fields(input, &mut errors);
     background::validate_background_required_fields(input, &mut errors);
-    validate_dialogue_required_fields(input, &mut errors);
+    dialogue::validate_dialogue_required_fields(input, &mut errors);
     validate_character_required_fields(input, &mut errors);
     choices::validate_choices_required_fields(input, &mut errors);
     validate_ui_projection_required_fields(input, &mut errors);
@@ -57,57 +59,6 @@ fn validate_top_level_required_fields(
             });
         }
     }
-}
-
-fn validate_dialogue_required_fields(
-    input: &Value,
-    errors: &mut Vec<NativeRendererJsonValidationError>,
-) {
-    let Some(dialogue) = input.get("view").and_then(|view| view.get("dialogue")) else {
-        return;
-    };
-    if dialogue.is_null() {
-        return;
-    }
-    let Some(dialogue_object) = dialogue.as_object() else {
-        errors.push(NativeRendererJsonValidationError {
-            path: "view.dialogue".to_string(),
-            asset_name: String::new(),
-            reason: "must be an object for native dialogue projections in resolved projection JSON"
-                .to_string(),
-        });
-        return;
-    };
-
-    for field in ["visible", "mode"] {
-        let missing = match dialogue_object.get(field) {
-            Some(value) => value.is_null(),
-            None => true,
-        };
-        if missing {
-            errors.push(NativeRendererJsonValidationError {
-                path: format!("view.dialogue.{field}"),
-                asset_name: String::new(),
-                reason:
-                    "must be explicitly provided for native dialogue projections in resolved projection JSON"
-                        .to_string(),
-            });
-            return;
-        }
-    }
-
-    let Some(avatar) = dialogue_object.get("avatar") else {
-        return;
-    };
-    if avatar.is_null() {
-        return;
-    }
-    validate_asset_projection_required_fields(
-        avatar,
-        "view.dialogue.avatar",
-        "dialogue avatar image resources",
-        errors,
-    );
 }
 
 fn validate_character_required_fields(
@@ -186,38 +137,6 @@ fn validate_ui_projection_required_fields(
             reason:
                 "must be explicitly provided for native UI projections in resolved projection JSON"
                     .to_string(),
-        });
-    }
-}
-
-fn validate_asset_projection_required_fields(
-    asset: &Value,
-    path: &str,
-    noun: &str,
-    errors: &mut Vec<NativeRendererJsonValidationError>,
-) {
-    if asset.is_null() {
-        return;
-    }
-    let Some(asset_object) = asset.as_object() else {
-        errors.push(NativeRendererJsonValidationError {
-            path: path.to_string(),
-            asset_name: String::new(),
-            reason: format!(
-                "must be an object when provided for {noun} in resolved projection JSON"
-            ),
-        });
-        return;
-    };
-    let missing_asset_type = match asset_object.get("assetType") {
-        Some(value) => value.is_null(),
-        None => true,
-    };
-    if missing_asset_type {
-        errors.push(NativeRendererJsonValidationError {
-            path: format!("{path}.assetType"),
-            asset_name: String::new(),
-            reason: format!("must be explicitly provided for {noun} in resolved projection JSON"),
         });
     }
 }
