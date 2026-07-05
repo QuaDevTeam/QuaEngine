@@ -4,6 +4,7 @@ pub(in super::super::super) fn json_frame_with_forged_choice_metadata_input() ->
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -37,6 +38,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_choice_id_input() -> &'sta
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -66,6 +68,7 @@ pub(in super::super::super) fn json_frame_with_native_payload_choice_id_input() 
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",

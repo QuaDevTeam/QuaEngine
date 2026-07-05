@@ -4,6 +4,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_asset_input() -> &'stat
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -143,6 +144,7 @@ pub(in super::super::super) fn json_frame_with_missing_ui_image_asset_type_input
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -171,6 +173,7 @@ pub(in super::super::super) fn json_frame_with_missing_ui_background_image_asset
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -200,6 +203,7 @@ pub(in super::super::super) fn json_frame_with_empty_ui_image_asset_input() -> &
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",

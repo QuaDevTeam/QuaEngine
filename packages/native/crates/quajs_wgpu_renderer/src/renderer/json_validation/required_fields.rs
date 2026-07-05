@@ -12,6 +12,7 @@ pub(crate) fn validate_json_frame_required_fields(
     validate_dialogue_required_fields(input, &mut errors);
     validate_character_required_fields(input, &mut errors);
     validate_choices_required_fields(input, &mut errors);
+    validate_ui_projection_required_fields(input, &mut errors);
     validate_ui_surface_required_fields(input, &mut errors);
     validate_audio_track_required_fields(input, &mut errors);
     if let Some(error) = errors.into_iter().next() {
@@ -198,6 +199,35 @@ fn validate_audio_track_required_fields(
                 return;
             }
         }
+    }
+}
+
+fn validate_ui_projection_required_fields(
+    input: &Value,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    let Some(ui) = input.get("view").and_then(|view| view.get("ui")) else {
+        return;
+    };
+    if ui.is_null() {
+        return;
+    }
+    let Some(ui_object) = ui.as_object() else {
+        return;
+    };
+
+    let missing_visible = match ui_object.get("visible") {
+        Some(value) => value.is_null(),
+        None => true,
+    };
+    if missing_visible {
+        errors.push(NativeRendererJsonValidationError {
+            path: "view.ui.visible".to_string(),
+            asset_name: String::new(),
+            reason:
+                "must be explicitly provided for native UI projections in resolved projection JSON"
+                    .to_string(),
+        });
     }
 }
 

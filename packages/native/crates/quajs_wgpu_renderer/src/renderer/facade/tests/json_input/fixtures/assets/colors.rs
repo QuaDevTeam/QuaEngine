@@ -23,6 +23,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_color_input() -> &'stat
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -50,6 +51,7 @@ pub(in super::super::super) fn json_frame_with_invalid_ui_color_literal_input() 
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",

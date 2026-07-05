@@ -4,6 +4,7 @@ pub(in super::super::super) fn json_frame_with_oversized_ui_node_opacity_input()
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -29,6 +30,7 @@ pub(in super::super::super) fn json_frame_with_oversized_ui_style_opacity_input(
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -57,6 +59,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_background_position_inp
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -84,6 +87,7 @@ pub(in super::super::super) fn json_frame_with_oversized_ui_padding_input() -> &
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -111,6 +115,7 @@ pub(in super::super::super) fn json_frame_with_negative_ui_style_number_input() 
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",

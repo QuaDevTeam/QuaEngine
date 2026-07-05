@@ -5,6 +5,7 @@ pub(in super::super::super) fn json_frame_with_duplicate_overlay_element_id_inpu
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -33,6 +34,7 @@ pub(in super::super::super) fn json_frame_with_duplicate_surface_node_id_input()
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -65,6 +67,7 @@ pub(in super::super::super) fn json_frame_with_duplicate_scene_id_input() -> &'s
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "settings-primary",

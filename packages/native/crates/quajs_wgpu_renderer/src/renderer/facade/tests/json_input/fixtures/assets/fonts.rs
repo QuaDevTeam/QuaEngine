@@ -23,6 +23,7 @@ pub(in super::super::super) fn json_frame_with_traversal_ui_font_family_input() 
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
