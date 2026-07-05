@@ -72,6 +72,32 @@ fn wrap_bitmap_words(
     let mut current = Vec::new();
 
     for word in words {
+        if bitmap_words_width(
+            std::slice::from_ref(&word),
+            pixel,
+            letter_spacing,
+            weight_scale,
+            false,
+        ) > content_width
+        {
+            if !current.is_empty() {
+                lines.push(BitmapLine {
+                    words: current,
+                    implicit_word_gap,
+                });
+                current = Vec::new();
+            }
+            lines.extend(split_oversized_bitmap_word(
+                &word,
+                content_width,
+                pixel,
+                letter_spacing,
+                weight_scale,
+                implicit_word_gap,
+            ));
+            continue;
+        }
+
         let mut candidate = current.clone();
         candidate.push(word.clone());
         if !current.is_empty()
@@ -99,5 +125,48 @@ fn wrap_bitmap_words(
             implicit_word_gap,
         });
     }
+    lines
+}
+
+fn split_oversized_bitmap_word(
+    word: &str,
+    content_width: f32,
+    pixel: f32,
+    letter_spacing: f32,
+    weight_scale: f32,
+    implicit_word_gap: bool,
+) -> Vec<BitmapLine> {
+    let mut lines = Vec::new();
+    let mut current = String::new();
+
+    for character in word.chars() {
+        let mut candidate = current.clone();
+        candidate.push(character);
+        if !current.is_empty()
+            && bitmap_words_width(
+                std::slice::from_ref(&candidate),
+                pixel,
+                letter_spacing,
+                weight_scale,
+                false,
+            ) > content_width
+        {
+            lines.push(BitmapLine {
+                words: vec![current],
+                implicit_word_gap,
+            });
+            current = character.to_string();
+        } else {
+            current = candidate;
+        }
+    }
+
+    if !current.is_empty() {
+        lines.push(BitmapLine {
+            words: vec![current],
+            implicit_word_gap,
+        });
+    }
+
     lines
 }
