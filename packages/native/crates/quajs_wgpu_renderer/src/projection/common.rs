@@ -88,9 +88,13 @@ pub(crate) fn is_safe_native_asset_name(asset_name: &str) -> bool {
     }
 
     let normalized = asset_name.replace('\\', "/");
+    let normalized_base_name = base_name.replace('\\', "/");
     if normalized.starts_with('/')
         || has_uri_scheme(&normalized)
-        || normalized.split('/').any(|segment| segment == "..")
+        || normalized_base_name.ends_with('/')
+        || normalized_base_name
+            .split('/')
+            .any(|segment| segment.is_empty() || matches!(segment, "." | ".."))
     {
         return false;
     }
@@ -254,6 +258,10 @@ mod tests {
             " ui/menu.png",
             "ui/menu.png ",
             "ui\\menu.png",
+            "ui/",
+            "ui/?v=1",
+            "ui//menu.png",
+            "ui/./menu.png",
             "/abs/menu.png",
             "https://example.test/menu.png",
             "ui/../menu.png",
