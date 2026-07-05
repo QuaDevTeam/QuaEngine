@@ -295,11 +295,14 @@ Stack {
       'Image(src: "../escape.png")',
       'Image(src: "https://cdn.example/hero.png")',
       'Image(src: assets.hero)',
+      'Image(src: "ui//poster.png")',
+      'Image(src: "ui/./poster.png")',
+      'Image(src: "ui/native.dll")',
       'Panel(image: "/absolute.png", asset-type: "../bad") {}',
     ].join('\n'))
     const projection = compileNativeUiSurfaceProjection(document)
 
-    expect(document.diagnostics.filter(item => item.code === 'QUI_INVALID_ASSET_REFERENCE')).toHaveLength(5)
+    expect(document.diagnostics.filter(item => item.code === 'QUI_INVALID_ASSET_REFERENCE')).toHaveLength(8)
     expect(document.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QUI_INVALID_ASSET_REFERENCE',

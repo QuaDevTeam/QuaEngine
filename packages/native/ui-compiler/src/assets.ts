@@ -1,13 +1,12 @@
+import { isForbiddenNativeAssetReference, isForbiddenNativePayload } from '@quajs/native-contracts'
+
 export function isSafeNativeAssetType(value: string): boolean {
   return /^[a-z][a-z0-9-]*$/i.test(value)
 }
 
 export function isSafePackageAssetName(value: string): boolean {
-  const normalized = value.replace(/\\/g, '/')
-  return normalized.length > 0
-    && !normalized.startsWith('/')
-    && !/^[a-z][a-z0-9+.-]*:/i.test(normalized)
-    && !normalized.split('/').includes('..')
+  return !isForbiddenNativeAssetReference(value)
+    && !isForbiddenNativePayload(value)
 }
 
 export function literalStringValue(value: string | undefined): string | undefined {

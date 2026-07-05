@@ -5,6 +5,7 @@ import type {
   NativeUiRange,
 } from '@quajs/native-ui-compiler'
 import {
+  isSafeNativeAssetType,
   isSafePackageAssetName,
   literalStringValue,
 } from '@quajs/native-ui-compiler'
@@ -53,6 +54,8 @@ function assetReferencesFromQui(
         return []
 
       const assetType = propString(node.props, 'asset-type') || DEFAULT_ASSET_TYPE
+      if (!isSafeNativeAssetType(assetType))
+        return []
       return [{
         assetName,
         assetType,

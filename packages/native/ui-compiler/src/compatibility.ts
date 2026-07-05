@@ -11,7 +11,7 @@ import type {
   NativeUiSurfaceProjection,
 } from './types'
 import { createNativeUiSurfaceCompatibility } from '@quajs/native-contracts'
-import { literalStringValue } from './assets'
+import { isSafeNativeAssetType, isSafePackageAssetName, literalStringValue } from './assets'
 import { collectNativeUiSurfaceProjectionRequirements } from './projection-requirements'
 import { parseNativeQssBackgroundImage } from './qss-resolved-style'
 import { findNativeUiComponent } from './registry'
@@ -121,14 +121,17 @@ function collectQuiNodeCompatibilityInputs(
 }
 
 function collectQuiAssetKinds(props: readonly NativeQuiProp[], assetKinds: Set<string>): void {
-  const hasAssetReference = props.some(prop =>
-    (prop.name === 'src' || prop.name === 'image')
-    && literalStringValue(prop.value))
-  if (!hasAssetReference)
+  const assetName = props
+    .filter(prop => prop.name === 'src' || prop.name === 'image')
+    .map(prop => literalStringValue(prop.value))
+    .find((value): value is string => !!value && isSafePackageAssetName(value))
+  if (!assetName)
     return
 
   const assetTypeProp = props.find(prop => prop.name === 'asset-type')
-  assetKinds.add(literalStringValue(assetTypeProp?.value) || 'images')
+  const assetType = literalStringValue(assetTypeProp?.value) || 'images'
+  if (isSafeNativeAssetType(assetType))
+    assetKinds.add(assetType)
 }
 
 function collectQssCompatibilityInputs(

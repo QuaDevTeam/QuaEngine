@@ -350,6 +350,33 @@ Button {
     })
   })
 
+  it('rejects segmented and native-payload QSS asset references before projection', () => {
+    const document = analyzeQssSource(`
+Panel.empty-segment {
+  background-image: asset("ui//panel.png");
+}
+Panel.dot-segment {
+  background-image: asset("ui/./panel.png");
+}
+Panel.trailing-slash {
+  background-image: asset("ui/panel.png/");
+}
+Panel.native-payload {
+  background-image: asset("ui/native.dll");
+}
+Panel.backslash {
+  background-image: asset("ui\\panel.png");
+}
+`)
+
+    expect(document.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(5)
+    for (const rule of document.rules) {
+      expect(resolveNativeQssDeclarations(rule.declarations)).toEqual({
+        style: {},
+      })
+    }
+  })
+
   it('diagnoses invalid native-wgpu QSS declaration values before projection', () => {
     const invalid = analyzeQssSource(`
 Button {
