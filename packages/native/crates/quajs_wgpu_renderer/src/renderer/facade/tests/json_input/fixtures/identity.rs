@@ -276,3 +276,38 @@ pub(in super::super) fn json_frame_with_missing_surface_node_visible_input() -> 
     }
     "#
 }
+
+pub(in super::super) fn json_frame_with_missing_surface_node_bounds_width_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Column",
+                  "visible": true,
+                  "children": [
+                    {
+                      "id": "missing-bounds-width",
+                      "kind": "Button",
+                      "visible": true,
+                      "bounds": { "x": 0, "y": 0, "height": 48 },
+                      "text": "Missing bounds width"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
