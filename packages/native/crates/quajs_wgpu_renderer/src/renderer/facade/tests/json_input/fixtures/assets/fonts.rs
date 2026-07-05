@@ -4,6 +4,7 @@ pub(in super::super::super) fn json_frame_with_remote_dialogue_font_family_input
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "dialogue": {
+          "visible": true,
           "mode": "say",
           "speaker": "Narrator",
           "speakerStyle": {

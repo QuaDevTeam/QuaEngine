@@ -52,19 +52,21 @@ fn validate_dialogue_required_fields(
         return;
     };
 
-    let missing_mode = match dialogue_object.get("mode") {
-        Some(value) => value.is_null(),
-        None => true,
-    };
-    if missing_mode {
-        errors.push(NativeRendererJsonValidationError {
-            path: "view.dialogue.mode".to_string(),
-            asset_name: String::new(),
-            reason:
-                "must be explicitly provided for native dialogue projections in resolved projection JSON"
-                    .to_string(),
-        });
-        return;
+    for field in ["visible", "mode"] {
+        let missing = match dialogue_object.get(field) {
+            Some(value) => value.is_null(),
+            None => true,
+        };
+        if missing {
+            errors.push(NativeRendererJsonValidationError {
+                path: format!("view.dialogue.{field}"),
+                asset_name: String::new(),
+                reason:
+                    "must be explicitly provided for native dialogue projections in resolved projection JSON"
+                        .to_string(),
+            });
+            return;
+        }
     }
 
     let Some(avatar) = dialogue_object.get("avatar") else {

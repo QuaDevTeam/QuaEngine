@@ -136,6 +136,22 @@ pub(in super::super) fn json_frame_with_missing_dialogue_mode_input() -> &'stati
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "dialogue": {
+          "visible": true,
+          "speaker": "Narrator",
+          "text": "Opening"
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_dialogue_visible_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "dialogue": {
+          "mode": "say",
           "speaker": "Narrator",
           "text": "Opening"
         }
@@ -151,6 +167,7 @@ pub(in super::super) fn json_frame_with_control_character_dialogue_plain_text_in
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "dialogue": {
+          "visible": true,
           "mode": "say",
           "speaker": "Narrator",
           "text": "Opening\u001bLine"
@@ -167,6 +184,7 @@ pub(in super::super) fn json_frame_with_control_character_dialogue_span_text_inp
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "dialogue": {
+          "visible": true,
           "mode": "say",
           "speaker": "Narrator",
           "text": {
@@ -193,6 +211,7 @@ pub(in super::super) fn json_frame_with_oversized_dialogue_rich_text_input() -> 
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "dialogue": {
+          "visible": true,
           "mode": "say",
           "speaker": "Narrator",
           "text": {
@@ -227,6 +246,7 @@ pub(in super::super) fn json_frame_with_zero_dialogue_speaker_font_size_input() 
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "dialogue": {
+          "visible": true,
           "mode": "say",
           "speaker": "Narrator",
           "speakerStyle": {
@@ -245,6 +265,7 @@ pub(in super::super) fn json_frame_with_oversized_dialogue_line_height_input() -
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "dialogue": {
+          "visible": true,
           "mode": "say",
           "speaker": "Narrator",
           "text": {
@@ -271,6 +292,7 @@ pub(in super::super) fn json_frame_with_zero_dialogue_span_font_size_input() -> 
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "dialogue": {
+          "visible": true,
           "mode": "say",
           "speaker": "Narrator",
           "text": {
