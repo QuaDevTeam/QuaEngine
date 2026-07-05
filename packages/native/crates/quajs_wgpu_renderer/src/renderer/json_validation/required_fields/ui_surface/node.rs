@@ -73,7 +73,7 @@ pub(super) fn validate_ui_surface_node_required_fields(
         return;
     }
 
-    super::super::validate_asset_projection_required_fields(
+    super::super::assets::validate_asset_projection_required_fields(
         node_object.get("image").unwrap_or(&Value::Null),
         &format!("{path}.image"),
         "native UI image resources",
@@ -87,7 +87,7 @@ pub(super) fn validate_ui_surface_node_required_fields(
         .get("style")
         .and_then(|style| style.get("backgroundImage"))
     {
-        super::super::validate_asset_projection_required_fields(
+        super::super::assets::validate_asset_projection_required_fields(
             background_image,
             &format!("{path}.style.backgroundImage"),
             "native UI background image resources",
