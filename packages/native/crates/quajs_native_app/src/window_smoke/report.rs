@@ -30,6 +30,7 @@ pub struct NativeWindowSmokeReport {
     pub pointer_dispatch_count: usize,
     pub pointer_intent_emit_count: usize,
     pub pointer_probe_count: usize,
+    pub pointer_cancel_count: usize,
     pub pointer_last_intent_type: Option<String>,
     pub last_resize_physical_width: Option<u32>,
     pub last_resize_physical_height: Option<u32>,

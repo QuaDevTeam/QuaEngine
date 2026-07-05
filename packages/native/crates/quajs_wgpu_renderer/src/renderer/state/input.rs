@@ -36,4 +36,8 @@ impl NativeRendererState {
                 )
             })
     }
+
+    pub fn cancel_pointer_interaction(&mut self, pointer_id: u64) -> bool {
+        self.pointer_interaction.cancel_pointer(pointer_id)
+    }
 }

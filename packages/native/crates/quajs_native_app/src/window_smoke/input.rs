@@ -27,6 +27,7 @@ pub(super) struct NativeWindowSmokeInputMetrics {
     pub pointer_dispatch_count: usize,
     pub pointer_intent_emit_count: usize,
     pub pointer_probe_count: usize,
+    pub pointer_cancel_count: usize,
     pub last_intent_type: Option<String>,
 }
 
@@ -57,6 +58,20 @@ impl NativeWindowSmokeInputState {
 
     pub(super) fn clear_cursor_position(&mut self) {
         self.cursor_client_point = None;
+    }
+
+    pub(super) fn cancel_pointer_interaction<B, A>(
+        &mut self,
+        renderer: &mut NativeRenderer<B, A>,
+    ) -> bool
+    where
+        B: NativeRenderBackend,
+    {
+        let canceled = renderer.cancel_pointer_interaction(WINDOW_SMOKE_POINTER_ID);
+        if canceled {
+            self.metrics.pointer_cancel_count = self.metrics.pointer_cancel_count.saturating_add(1);
+        }
+        canceled
     }
 
     pub(super) fn dispatch_pointer_event<B, A>(
@@ -179,6 +194,7 @@ mod tests {
         assert_eq!(input.metrics().pointer_event_count, 2);
         assert_eq!(input.metrics().pointer_dispatch_count, 2);
         assert_eq!(input.metrics().pointer_intent_emit_count, 1);
+        assert_eq!(input.metrics().pointer_cancel_count, 0);
         assert_eq!(
             input.metrics().last_intent_type.as_deref(),
             Some("ui/intent")

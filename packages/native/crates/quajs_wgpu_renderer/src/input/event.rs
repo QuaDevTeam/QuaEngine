@@ -80,6 +80,10 @@ impl NativePointerInteractionState {
         self.active_presses.len()
     }
 
+    pub fn cancel_pointer(&mut self, pointer_id: u64) -> bool {
+        self.active_presses.remove(&pointer_id).is_some()
+    }
+
     pub fn clear(&mut self) {
         self.active_presses.clear();
     }

@@ -110,6 +110,52 @@ fn compiled_qui_qss_button_pointer_release_emits_ui_intent_to_host() {
 }
 
 #[test]
+fn cancel_pointer_interaction_prevents_stale_release_intent_emit() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    let mut host = InMemoryNativeHostApi::new(test_host_info());
+    renderer
+        .prepare_and_render_json_str(SHARED_QUI_QSS_SURFACE_FRAME)
+        .expect("shared compiled QUI/QSS fixture should render");
+    let (client, origin) = client_point_for_command(&renderer, "ui:compiled-menu:open-settings");
+
+    renderer
+        .pointer_event_and_emit_intent(
+            NativePointerEvent::new(NativePointerEventPhase::Press, client, origin)
+                .with_pointer_id(177)
+                .with_button(NativePointerButton::Primary),
+            &mut host,
+        )
+        .unwrap()
+        .expect("press should resolve");
+
+    assert_eq!(
+        renderer.state().pointer_interaction().active_press_count(),
+        1
+    );
+    assert!(renderer.cancel_pointer_interaction(177));
+    assert!(!renderer.cancel_pointer_interaction(177));
+    assert_eq!(
+        renderer.state().pointer_interaction().active_press_count(),
+        0
+    );
+
+    let release = renderer
+        .pointer_event_and_emit_intent(
+            NativePointerEvent::new(NativePointerEventPhase::Release, client, origin)
+                .with_pointer_id(177)
+                .with_button(NativePointerButton::Primary),
+            &mut host,
+        )
+        .unwrap()
+        .expect("release still resolves hit metadata");
+
+    assert!(release.resolution.pointer.intent.is_some());
+    assert!(release.resolution.intent_to_dispatch.is_none());
+    assert!(release.emitted_intent.is_none());
+    assert!(host.renderer_intents().is_empty());
+}
+
+#[test]
 fn pointer_event_emit_returns_none_without_prepared_frame_or_host_side_effects() {
     let mut renderer = NativeRenderer::new(RecordingBackend::default());
     let mut host = InMemoryNativeHostApi::new(test_host_info());
