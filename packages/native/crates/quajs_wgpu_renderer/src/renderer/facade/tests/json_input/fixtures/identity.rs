@@ -378,6 +378,40 @@ pub(in super::super) fn json_frame_with_surface_leaf_children_input() -> &'stati
     "#
 }
 
+pub(in super::super) fn json_frame_with_malformed_surface_node_children_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Column",
+                  "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 240, "height": 120 },
+                  "children": {
+                    "id": "not-an-array",
+                    "kind": "Button",
+                    "visible": true,
+                    "bounds": { "x": 0, "y": 0, "width": 160, "height": 48 },
+                    "text": "Malformed children"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_unsupported_surface_node_kind_input() -> &'static str {
     r#"
     {
