@@ -100,6 +100,10 @@ export type NativeQssPositionValue
   = | 'absolute'
     | 'relative'
 
+export type NativeQssPointerEventsValue
+  = | 'auto'
+    | 'none'
+
 export type NativeQssAlignItemsValue
   = | 'center'
     | 'flex-end'
@@ -180,6 +184,7 @@ export interface NativeQssResolvedStyle {
 export interface NativeQssResolvedNodeStyle {
   bounds?: NativeQssResolvedBounds
   clipChildren?: boolean
+  interactive?: boolean
   layout?: NativeQssResolvedLayout
   style: NativeQssResolvedStyle
   visible?: boolean

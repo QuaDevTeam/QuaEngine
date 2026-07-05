@@ -32,6 +32,7 @@ import {
   parseNativeQssObjectFit,
   parseNativeQssOpacity,
   parseNativeQssOverflow,
+  parseNativeQssPointerEvents,
   parseNativeQssPosition,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
@@ -62,6 +63,7 @@ export {
   parseNativeQssObjectFit,
   parseNativeQssOpacity,
   parseNativeQssOverflow,
+  parseNativeQssPointerEvents,
   parseNativeQssPosition,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
@@ -197,6 +199,9 @@ export function resolveNativeQssDeclarations(
         break
       case 'overflow':
         resolved.clipChildren = parseNativeQssOverflow(value)
+        break
+      case 'pointer-events':
+        resolved.interactive = parseNativeQssPointerEvents(value)
         break
       case 'padding':
         resolved.style.padding = parseNativeQssEdgeInsets(value)

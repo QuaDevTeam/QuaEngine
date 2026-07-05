@@ -159,6 +159,7 @@ export type {
   NativeQssFontWeightValue,
   NativeQssJustifyContentValue,
   NativeQssObjectFitValue,
+  NativeQssPointerEventsValue,
   NativeQssPropertyDefinition,
   NativeQssPropertyValueDefinition,
   NativeQssPositionValue,

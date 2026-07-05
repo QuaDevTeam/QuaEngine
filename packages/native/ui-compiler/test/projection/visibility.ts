@@ -160,4 +160,45 @@ Panel.open {
       },
     }))
   })
+
+  it('uses QSS pointer-events none as node-local intent fallback', () => {
+    const qui = analyzeQuiSource(`
+Panel.dialog(id: "menu", action: ui.close(), width: 400, height: 240) {
+  Button.primary(id: "inside", label: "Inside", action: ui.open("settings"), x: 40, y: 40, width: 120, height: 48)
+}
+`)
+    const qss = analyzeQssSource(`
+Panel.dialog {
+  pointer-events: none;
+}
+Button.primary {
+  pointer-events: auto;
+}
+`)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(qss.diagnostics).toEqual([])
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual(withDefaultVisible({
+      root: {
+        id: 'menu',
+        kind: 'Panel',
+        bounds: { x: 0, y: 0, width: 400, height: 240 },
+        children: [
+          {
+            id: 'inside',
+            kind: 'Button',
+            bounds: { x: 40, y: 40, width: 120, height: 48 },
+            text: 'Inside',
+            intent: {
+              event: 'ui/intent',
+              action: 'open',
+              metadata: {
+                arg0: 'settings',
+              },
+            },
+          },
+        ],
+      },
+    }))
+  })
 })

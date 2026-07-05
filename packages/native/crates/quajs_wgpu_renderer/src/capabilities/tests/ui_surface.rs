@@ -66,6 +66,7 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
             "padding-left",
             "padding-right",
             "padding-top",
+            "pointer-events",
             "position",
             "right",
             "row-gap",

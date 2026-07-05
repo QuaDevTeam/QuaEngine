@@ -283,7 +283,7 @@ P1：
 - Geometry fallback：`left`、`top`、`right`、`bottom`、`inset`、`width`、`height`、`min-width`、`max-width`、`min-height`、`max-height`。
 - Structural layout：`gap`、`row-gap`、`column-gap`、`margin`、`margin-top`、`margin-right`、`margin-bottom`、`margin-left`、`position: relative|absolute`，仅作为 TS compiler layout metadata 展开到 Row / Column / Grid 直系子节点 bounds / flow。
 - Box visual：`opacity`、`padding`、`padding-top`、`padding-right`、`padding-bottom`、`padding-left`。
-- Visibility / clip：`display: none`、`visibility`、`overflow: visible|hidden`。
+- Visibility / clip / hit-test：`display: none`、`visibility`、`overflow: visible|hidden`、`pointer-events: auto|none`（node-local compiler-only intent metadata）。
 - Z order：`z-index`。
 - Image fit：`object-fit`。
 
