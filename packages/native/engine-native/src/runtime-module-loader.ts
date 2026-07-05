@@ -40,6 +40,9 @@ export type NativeRuntimeModuleRecord
 interface NativeRuntimeModuleVariantRecord {
   assetName?: string
   module?: string
+  name?: string
+  path?: string
+  relativePath?: string
 }
 
 interface NativeRuntimeModuleRecordWithVariants {
@@ -187,6 +190,12 @@ function assertNativeRuntimeModuleVariants(record: NativeRuntimeModuleRecord, ki
       assertNativeRuntimeModuleAssetName(variant.assetName, kind, `variants.${variantName}.assetName`)
     if (variant.module)
       assertNativeRuntimeModuleAssetName(variant.module, kind, `variants.${variantName}.module`)
+    if (variant.name)
+      assertNativeRuntimeModuleAssetName(variant.name, kind, `variants.${variantName}.name`)
+    if (variant.path)
+      assertNativeRuntimeModuleAssetName(variant.path, kind, `variants.${variantName}.path`)
+    if (variant.relativePath)
+      assertNativeRuntimeModuleAssetName(variant.relativePath, kind, `variants.${variantName}.relativePath`)
   }
 }
 
