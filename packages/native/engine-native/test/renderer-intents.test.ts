@@ -80,10 +80,13 @@ describe('@quajs/engine-native renderer intents', () => {
     const received: Array<{ type: string, payload: unknown }> = []
     for (const type of [
       RenderToLogicEvents.USER_CHOICE_SELECT,
+      RenderToLogicEvents.USER_INPUT_COMMAND,
       RenderToLogicEvents.UI_INTENT,
       RenderToLogicEvents.UI_REQUEST_CLOSE,
       RenderToLogicEvents.UI_REQUEST_OPEN,
       RenderToLogicEvents.UI_REQUEST_UPDATE,
+      RenderToLogicEvents.WINDOW_BLUR,
+      RenderToLogicEvents.WINDOW_FOCUS,
     ]) {
       pipeline.on(type, context => received.push({
         type,
@@ -132,6 +135,67 @@ describe('@quajs/engine-native renderer intents', () => {
     )
     await expect(emitNativeRendererIntentToPipeline(
       pipeline as any,
+      createNativeRendererIntent({
+        type: 'user/input_command',
+        payload: {
+          command: 'advance',
+          device: 'keyboard',
+          source: 'keyboard:Space',
+          repeat: false,
+          pressed: true,
+          timestamp: 1234,
+          metadata: {
+            key: ' ',
+            code: 'Space',
+          },
+        },
+      }),
+    )).resolves.toEqual({
+      handled: true,
+      emittedEvents: [
+        {
+          type: RenderToLogicEvents.USER_INPUT_COMMAND,
+          payload: {
+            command: 'advance',
+            device: 'keyboard',
+            source: 'keyboard:Space',
+            repeat: false,
+            pressed: true,
+            timestamp: 1234,
+            metadata: {
+              key: ' ',
+              code: 'Space',
+            },
+          },
+        },
+      ],
+    })
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({ type: 'window/blur', payload: { ignored: true } }),
+    )).resolves.toEqual({
+      handled: true,
+      emittedEvents: [
+        {
+          type: RenderToLogicEvents.WINDOW_BLUR,
+          payload: {},
+        },
+      ],
+    })
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({ type: 'window/focus', payload: { ignored: true } }),
+    )).resolves.toEqual({
+      handled: true,
+      emittedEvents: [
+        {
+          type: RenderToLogicEvents.WINDOW_FOCUS,
+          payload: {},
+        },
+      ],
+    })
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
       createNativeRendererIntent({ type: 'ui/unknown', payload: { action: 'noop' } }),
     )).resolves.toEqual({
       handled: false,
@@ -159,7 +223,72 @@ describe('@quajs/engine-native renderer intents', () => {
         type: RenderToLogicEvents.UI_REQUEST_UPDATE,
         payload: { elementId: 'settings', config: { volume: 0.5 } },
       },
+      {
+        type: RenderToLogicEvents.USER_INPUT_COMMAND,
+        payload: {
+          command: 'advance',
+          device: 'keyboard',
+          source: 'keyboard:Space',
+          repeat: false,
+          pressed: true,
+          timestamp: 1234,
+          metadata: {
+            key: ' ',
+            code: 'Space',
+          },
+        },
+      },
+      { type: RenderToLogicEvents.WINDOW_BLUR, payload: {} },
+      { type: RenderToLogicEvents.WINDOW_FOCUS, payload: {} },
     ])
+  })
+
+  it('rejects malformed native input command intents before emitting pipeline events', async () => {
+    const pipeline = createTestPipeline()
+    const received: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_INPUT_COMMAND, context => received.push(context.event.payload))
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'user/input_command',
+        payload: {
+          command: 'debug:open-devtools',
+          device: 'keyboard',
+          source: 'keyboard:F12',
+          timestamp: 1234,
+        },
+      }),
+    )).rejects.toThrow('Native renderer user/input_command intent requires supported string payload field "command".')
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'user/input_command',
+        payload: {
+          command: 'advance',
+          device: 'keyboard',
+          source: 'keyboard:Space',
+          timestamp: Number.NaN,
+        },
+      }),
+    )).rejects.toThrow('Native renderer user/input_command intent requires finite number payload field "timestamp".')
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'user/input_command',
+        payload: {
+          command: 'advance',
+          device: 'keyboard',
+          source: 'keyboard:Space',
+          timestamp: 1234,
+          metadata: ['not-record'],
+        },
+      }),
+    )).rejects.toThrow('Native renderer user/input_command intent payload field "metadata" must be an object when provided.')
+
+    expect(received).toEqual([])
   })
 
   it('installs native renderer intent callbacks on the host during plugin lifetime', async () => {
