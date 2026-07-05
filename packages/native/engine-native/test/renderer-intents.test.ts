@@ -291,6 +291,111 @@ describe('@quajs/engine-native renderer intents', () => {
     expect(received).toEqual([])
   })
 
+  it('preserves native UI intent metadata without inventing overlay shortcuts for custom actions', async () => {
+    const pipeline = createTestPipeline()
+    const received: Array<{ type: string, payload: unknown }> = []
+    for (const type of [
+      RenderToLogicEvents.UI_INTENT,
+      RenderToLogicEvents.UI_REQUEST_CLOSE,
+      RenderToLogicEvents.UI_REQUEST_OPEN,
+      RenderToLogicEvents.UI_REQUEST_UPDATE,
+    ]) {
+      pipeline.on(type, context => received.push({
+        type,
+        payload: context.event.payload,
+      }))
+    }
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'ui/intent',
+        payload: {
+          action: 'save.slot.preview',
+          elementId: 'save-slot-1',
+          slotId: 'slot-1',
+          hovered: true,
+          config: { thumbnail: 'assets/save/slot-1.png' },
+          nested: { source: 'runtime-ui' },
+        },
+      }),
+    )).resolves.toEqual({
+      handled: true,
+      emittedEvents: [
+        {
+          type: RenderToLogicEvents.UI_INTENT,
+          payload: {
+            action: 'save.slot.preview',
+            elementId: 'save-slot-1',
+            slotId: 'slot-1',
+            hovered: true,
+            config: { thumbnail: 'assets/save/slot-1.png' },
+            nested: { source: 'runtime-ui' },
+          },
+        },
+      ],
+    })
+
+    expect(received).toEqual([
+      {
+        type: RenderToLogicEvents.UI_INTENT,
+        payload: {
+          action: 'save.slot.preview',
+          elementId: 'save-slot-1',
+          slotId: 'slot-1',
+          hovered: true,
+          config: { thumbnail: 'assets/save/slot-1.png' },
+          nested: { source: 'runtime-ui' },
+        },
+      },
+    ])
+  })
+
+  it('does not emit render-to-logic business events for malformed native renderer intents', async () => {
+    const host = createHost()
+    const pipeline = createTestPipeline()
+    const received: Array<{ type: string, payload: unknown }> = []
+    const errors: unknown[] = []
+    for (const type of [
+      RenderToLogicEvents.USER_CHOICE_SELECT,
+      RenderToLogicEvents.UI_INTENT,
+      RenderToLogicEvents.USER_INPUT_COMMAND,
+    ]) {
+      pipeline.on(type, context => received.push({
+        type,
+        payload: context.event.payload,
+      }))
+    }
+    pipeline.on(RenderToLogicEvents.RENDER_ERROR, context => errors.push(context.event.payload))
+
+    const plugin = new NativeHostPlugin({ host })
+    await plugin.init({ pipeline } as any)
+    host.emitRendererIntent?.(createNativeRendererIntent({
+      type: 'user/input_command',
+      payload: {
+        command: 'advance',
+        device: 'keyboard',
+        source: 'keyboard:Space',
+        timestamp: Number.NaN,
+      },
+    }))
+    await flushMicrotasks()
+
+    expect(received).toEqual([])
+    expect(plugin.getRendererIntentErrors()).toHaveLength(1)
+    expect(errors).toEqual([
+      expect.objectContaining({
+        message: 'Native renderer user/input_command intent requires finite number payload field "timestamp".',
+        source: 'native-renderer',
+        phase: 'renderer-intent',
+        recoverable: true,
+        metadata: {
+          nativeIntentType: RenderToLogicEvents.USER_INPUT_COMMAND,
+        },
+      }),
+    ])
+  })
+
   it('installs native renderer intent callbacks on the host during plugin lifetime', async () => {
     const host = createHost()
     const pipeline = createTestPipeline()
