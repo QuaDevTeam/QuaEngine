@@ -3,7 +3,7 @@ import { isSafeNativeAssetType, isSafePackageAssetName, literalStringValue } fro
 import { hasUnsupportedQuiActionArgument, parseQuiActionDescriptor } from './qui-actions'
 
 const IDENTIFIER_PATTERN_SOURCE = String.raw`[A-Za-z_$][\w$]*`
-const FOR_SOURCE_PATTERN_SOURCE = String.raw`[\w$.[\]?.]+(?:\s*\?\?\s*[\w$.[\]?.]+)?`
+const FOR_SOURCE_PATTERN_SOURCE = String.raw`[\s\S]+?`
 const FOR_PATTERN = new RegExp([
   String.raw`^\s*(?:`,
   IDENTIFIER_PATTERN_SOURCE,
