@@ -23,6 +23,14 @@ release promotion 前需要对 Web、Cocos、Native 三端对称执行 target-co
 - Native 产物不得包含 Web assets/renderer/framework adapter、Cocos host / renderer。
 - Runtime QPK 可以声明多目标 compatibility metadata，但不得携带任一 target core executable dependency、renderer entry 或 generated resolver。
 
+三套核心插件族的归属必须固定到 artifact plan：
+
+- Web project 只能选择 Web core family：Web bootstrap、Web assets/store/runtime adapter、`@quajs/renderer-web`、Web framework adapter 和 Web renderer plugin subentry。
+- Cocos project 只能选择 Cocos core family：Cocos bootstrap、Cocos host / asset / store bridge、`@quajs/renderer-cocos` 和 Cocos renderer plugin subentry。
+- Native project 只能选择 Native core family：`@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、必要的 native contracts metadata，以及 Rust native app/runtime/renderer capability metadata。
+
+普通 game plugin、shared preset、第三方 shared entry、Runtime QPK、project template、startup shell、debug/release shell、installer、updater 和 smoke runner 都不是核心插件装配点。它们只能读取对应 artifact plan 已验证的 manifest；重新声明当前 active core 或把其他目标 core 带进来再过滤，都是 release blocker。
+
 ## 产物目录
 
 推荐所有 native 产物从 `packages/native` 的 artifact plan 输出，最终落在 project `dist` 下：

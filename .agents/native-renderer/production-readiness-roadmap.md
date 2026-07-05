@@ -22,6 +22,7 @@ QuickJS + wgpu 可以作为 QuaEngine native renderer 的基础，但实现口�
 - Native renderer 只做 projection，不拥有剧情、存档、设置、菜单、音频意图、runtime package 或插件权威状态。
 - 动态小包只允许 QS/JS/resources/QUI/QSS/tokens，不允许任何 native code。
 - Web、Cocos、Native 的 target core bootstrap 必须三端物理隔离，不能先合并后过滤。
+- 打包到 Web、Cocos、Native 项目不是同一套核心插件换壳；每个产物只能 materialize 自己的 core plugin family。其他目标的 core root / subentry 只能作为 source manifest metadata 或 inactive compatibility metadata 保留，不能进入 ordinary plugins、shared preset、project template、debug/release shell、installer、updater、smoke runner、Runtime QPK executable dependencies 或 renderer entries。
 
 ## 外部调研基线
 
@@ -535,6 +536,14 @@ Updater / installer 只读取已验证 target manifest 和 release metadata，�
 6. 再 bundle/tree-shake。
 7. 再 emit and validate `target-bundle-manifest.json`。
 8. Runtime startup 再复验。
+
+这里的 core plugin family 指目标私有 bootstrap 根，而不是普通 plugin：
+
+- Web core: Web bootstrap、`@quajs/assets-web`、`@quajs/renderer-web`、Web framework adapter 和 Web renderer plugin subentry。
+- Cocos core: Cocos bootstrap、Cocos host / asset / store bridge、`@quajs/renderer-cocos` 和 Cocos renderer plugin subentry。
+- Native core: `@quajs/engine-native`、`@quajs/assets-native`、`@quajs/store-native`、必要的 `@quajs/native-contracts` metadata，以及 Rust native app/runtime/renderer capability metadata。
+
+三端 source manifest 可以声明多目标 entry，但 artifact 只能 bundle `shared` + active target entry。Inactive target entry 不能 eager import、barrel export、side-effect import，也不能借 Runtime QPK 或 debug shell 被动进入当前目标产物。
 
 禁止：
 
