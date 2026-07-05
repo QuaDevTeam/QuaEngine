@@ -8,6 +8,14 @@ pub(in super::super) fn json_frame_with_negative_layout_width_input() -> &'stati
     "#
 }
 
+pub(in super::super) fn json_frame_with_missing_view_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_inverted_layout_aspect_interval_input() -> &'static str {
     r#"
     {
