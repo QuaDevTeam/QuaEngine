@@ -24,6 +24,7 @@ describe('@quajs/engine-native runtime module loader namespace cleanup', () => {
       packageCount: 1,
       moduleBytes: 3,
       codeBytes: 36,
+      totalBytes: 39,
     }
     const host = {
       ...createHost(),

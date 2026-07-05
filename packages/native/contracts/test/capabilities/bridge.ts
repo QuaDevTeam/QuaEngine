@@ -24,6 +24,7 @@ describe('native host bridge adapter contracts', () => {
       packageCount: 1,
       moduleBytes: 3,
       codeBytes: 36,
+      totalBytes: 39,
     } as const
     const host = createNativeHostApiFromBridge(async (request) => {
       requests.push(request)
@@ -102,6 +103,7 @@ describe('native host bridge adapter contracts', () => {
                     packageCount: 0,
                     moduleBytes: 0,
                     codeBytes: 0,
+                    totalBytes: 0,
                   },
             },
           }
@@ -143,6 +145,7 @@ describe('native host bridge adapter contracts', () => {
       packageCount: 0,
       moduleBytes: 0,
       codeBytes: 0,
+      totalBytes: 0,
     })
     await expect(host.listMountedBundles?.()).resolves.toEqual([{ name: 'base' }])
     host.emitRendererIntent?.(createNativeRendererIntent({ type: 'ui/intent', payload: { action: 'close' } }))
