@@ -66,6 +66,12 @@ fn validate_dialogue_required_fields(
         return;
     }
     let Some(dialogue_object) = dialogue.as_object() else {
+        errors.push(NativeRendererJsonValidationError {
+            path: "view.dialogue".to_string(),
+            asset_name: String::new(),
+            reason: "must be an object for native dialogue projections in resolved projection JSON"
+                .to_string(),
+        });
         return;
     };
 
@@ -111,6 +117,13 @@ fn validate_choices_required_fields(
         return;
     }
     let Some(choices_object) = choices.as_object() else {
+        errors.push(NativeRendererJsonValidationError {
+            path: "view.choices".to_string(),
+            asset_name: String::new(),
+            reason:
+                "must be an object for native choice set projections in resolved projection JSON"
+                    .to_string(),
+        });
         return;
     };
 
@@ -246,6 +259,12 @@ fn validate_ui_projection_required_fields(
         return;
     }
     let Some(ui_object) = ui.as_object() else {
+        errors.push(NativeRendererJsonValidationError {
+            path: "view.ui".to_string(),
+            asset_name: String::new(),
+            reason: "must be an object for native UI projections in resolved projection JSON"
+                .to_string(),
+        });
         return;
     };
 
