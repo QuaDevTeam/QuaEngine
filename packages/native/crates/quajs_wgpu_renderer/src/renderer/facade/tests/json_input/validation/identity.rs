@@ -263,3 +263,26 @@ fn json_frame_identity_validation_rejects_surface_leaf_children() {
     assert_eq!(renderer.state().revision(), 0);
     assert!(renderer.state().frame().is_none());
 }
+
+#[test]
+fn json_frame_identity_validation_rejects_unsupported_surface_node_kind() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let error = renderer
+        .prepare_frame_json_str(json_frame_with_unsupported_surface_node_kind_input())
+        .unwrap_err();
+
+    match error {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].surface.root.kind");
+            assert_eq!(validation.asset_name, "Dialog");
+            assert!(validation.reason.contains("not a supported"));
+            assert!(validation
+                .reason
+                .contains("foundational native-wgpu node kind"));
+        }
+        other => panic!("expected unsupported surface node kind validation error, got {other:?}"),
+    }
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
