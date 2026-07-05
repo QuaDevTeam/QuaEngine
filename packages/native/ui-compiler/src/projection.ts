@@ -8,9 +8,6 @@ import type {
   NativeUiSurfaceRect,
 } from './types'
 import {
-  numberProp,
-} from './projection-props'
-import {
   conditionalBranch,
   conditionalBranchValue,
   evaluateQuiCondition,
@@ -20,6 +17,11 @@ import {
   templateBooleanProp,
   type NativeUiTemplateScope,
 } from './projection-template'
+import {
+  compositeExpansionForNode,
+  scopedNumberPropResolver,
+  type NativeQuiSlotContent,
+} from './projection-composites'
 import {
   imageFromProps,
   intentFromNode,
@@ -41,6 +43,7 @@ import {
 import { resolveStyleForNode } from './projection-selectors'
 
 export interface CompileNativeUiSurfaceProjectionOptions {
+  components?: Readonly<Record<string, NativeQuiDocument>>
   contentPackageId?: string
   context?: Record<string, unknown>
   qss?: NativeQssDocument | readonly NativeQssDocument[]
@@ -50,8 +53,11 @@ export interface CompileNativeUiSurfaceProjectionOptions {
 
 interface QuiProjectionContext {
   ancestors: readonly NativeQuiAstNode[]
+  componentStack: readonly string[]
+  components: Readonly<Record<string, NativeQuiDocument>>
   parentBounds?: NativeUiSurfaceRect
   scope: NativeUiTemplateScope
+  slots?: Readonly<Record<string, NativeQuiSlotContent>>
   suppressLoop?: boolean
 }
 
@@ -65,6 +71,8 @@ export function compileNativeUiSurfaceProjection(
   const provenance = packageProvenanceFromOptions(options)
   const rootChildren = surfaceNodesFromQuiChildren(qui.source, qui.tree, {
     ancestors: [],
+    componentStack: [],
+    components: options.components || {},
     scope: {
       context: options.context,
       hasContext: options.context !== undefined,
@@ -106,12 +114,27 @@ function surfaceNodeFromQuiNode(
       }, qssDocuments, provenance))
   }
 
-  if (node.kind !== 'component' || !isSupportedSurfaceKind(node.name))
+  if (node.kind === 'slot')
+    return surfaceNodesFromQuiSlot(source, node, context, qssDocuments, provenance)
+
+  if (node.kind !== 'component')
     return surfaceNodesFromQuiChildren(source, node.children, context, qssDocuments, provenance)
 
+  if (!isSupportedSurfaceKind(node.name)) {
+    return surfaceNodesFromCompositeNode(
+      source,
+      node,
+      context,
+      qssDocuments,
+      provenance,
+    )
+  }
+
   const resolvedStyle = resolveStyleForNode({ node, ancestors: context.ancestors }, qssDocuments)
-  const rect = rectFromProps(node.props, resolvedStyle.bounds, context.parentBounds)
+  const resolveNumberProp = scopedNumberPropResolver(context.scope)
+  const rect = rectFromProps(node.props, resolvedStyle.bounds, context.parentBounds, resolveNumberProp)
   const childContext: QuiProjectionContext = {
+    ...context,
     ancestors: [...context.ancestors, node],
     parentBounds: rect,
     scope: {
@@ -139,9 +162,9 @@ function surfaceNodeFromQuiNode(
     clipChildren: resolvedStyle.clipChildren,
     visible: templateBooleanProp(node.props, 'show', context.scope) ?? resolvedStyle.visible ?? true,
     zIndex: resolvedStyle.zIndex,
-    opacity: numberProp(node.props, 'opacity'),
-    scrollOffsetX: numberProp(node.props, 'scroll-x'),
-    scrollOffsetY: numberProp(node.props, 'scroll-y'),
+    opacity: resolveNumberProp(node.props, 'opacity'),
+    scrollOffsetX: resolveNumberProp(node.props, 'scroll-x'),
+    scrollOffsetY: resolveNumberProp(node.props, 'scroll-y'),
     text,
     image,
     intent,
@@ -152,6 +175,55 @@ function surfaceNodeFromQuiNode(
   }
 
   return [pruneSurfaceNode(surfaceNode) as NativeUiCompilerSurfaceNodeProjection]
+}
+
+function surfaceNodesFromQuiSlot(
+  source: string,
+  node: NativeQuiAstNode,
+  context: QuiProjectionContext,
+  qssDocuments: readonly NativeQssDocument[],
+  provenance: NativePackageProvenance | undefined,
+): NativeUiCompilerSurfaceNodeProjection[] {
+  const content = context.slots?.[node.name]
+    ?? (node.name === 'default' ? context.slots?.default : undefined)
+  if (content) {
+    return surfaceNodesFromQuiChildren(
+      content.source,
+      content.nodes,
+      context,
+      qssDocuments,
+      provenance,
+    )
+  }
+
+  return surfaceNodesFromQuiChildren(source, node.children, context, qssDocuments, provenance)
+}
+
+function surfaceNodesFromCompositeNode(
+  source: string,
+  node: NativeQuiAstNode,
+  context: QuiProjectionContext,
+  qssDocuments: readonly NativeQssDocument[],
+  provenance: NativePackageProvenance | undefined,
+): NativeUiCompilerSurfaceNodeProjection[] {
+  const component = context.components[node.name]
+  if (!component || context.componentStack.includes(node.name))
+    return surfaceNodesFromQuiChildren(source, node.children, context, qssDocuments, provenance)
+
+  const expansion = compositeExpansionForNode(
+    source,
+    node,
+    component,
+    context.scope,
+    context.componentStack,
+  )
+
+  return surfaceNodesFromQuiChildren(expansion.component.source, expansion.component.tree, {
+    ...context,
+    componentStack: expansion.componentStack,
+    scope: expansion.scope,
+    slots: expansion.slots,
+  }, qssDocuments, provenance)
 }
 
 function surfaceNodesFromQuiChildren(

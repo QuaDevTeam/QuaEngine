@@ -167,7 +167,7 @@ QUI 是 native declarative template language，不是 HTML、不是 TSX、不是
 - props：字面量、readonly reference、受限表达式。
 - class / style binding：只能进入 QSS selector / resolved style IR。
 - named slot：slot 必须在 component registry 声明，重复 slot 报错。
-- component import：导入的 composite 是 authoring-time 结构，投影前必须展开。
+- component import：导入的 composite 是 authoring-time 结构，投影前必须展开；当前 compiler 可通过调用方显式传入的 `components` 文档 map 展开 project/package `.qui` composite，支持 `props.*` 和 named slot 替换，但不会自行从文件系统、QPK、URL 或 native host API 加载组件。
 - declarative action descriptor：`ui.open(...)`、`ui.close(...)`、`choice.select(...)`、`save.load(...)`、`settings.update(...)`。
 
 ### 禁止支持

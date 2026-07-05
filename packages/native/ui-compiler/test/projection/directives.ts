@@ -123,22 +123,49 @@ Column(id: "choices") {
   })
 
   it('flattens imported composite QUI components into foundational surface nodes', () => {
+    const dialog = analyzeQuiSource(`
+Stack(id: props.id ?? "dialog") {
+  Backdrop(id: "dialog-backdrop", action: ui.close(), width: 1920, height: 1080)
+  Panel(
+    id: "dialog-panel",
+    width: props.panelWidth ?? 640,
+    height: props.panelHeight ?? 420
+  ) {
+    slot header {
+      Text(id: "dialog-title") { props.title ?? "Dialog" }
+    }
+    slot body {}
+    slot footer {}
+  }
+}
+`)
+    const drawer = analyzeQuiSource(`
+Panel(id: "drawer-panel", width: props.width ?? 420, height: 1080) {
+  Text(id: "drawer-title") { props.title }
+  slot body {}
+}
+`)
     const qui = analyzeQuiSource(`
 import component "./Dialog.qui";
 import component "./Drawer.qui";
 
 Stack(id: "ui-root") {
-  Dialog(if: view.overlays.settings, key: "settings-dialog") {
-    Backdrop(id: "settings-backdrop", action: ui.close(), width: 1920, height: 1080)
-    Panel(id: "settings-panel", width: 640, height: 420) {
-      Text(id: "settings-title") { "Settings" }
+  Dialog(
+    if: view.overlays.settings,
+    key: "settings-dialog",
+    id: "settings-dialog",
+    title: "Settings",
+    panelWidth: 640,
+    panelHeight: 420
+  ) {
+    slot body {
       Button(id: "settings-close", label: "Close", action: ui.close())
     }
   }
 
-  Drawer(for: drawer in view.drawers, key: drawer.id) {
-    Panel(id: "drawer-panel", width: 420, height: 1080) {
-      Text(id: "drawer-title") { drawer.title }
+  Drawer(for: drawer in view.drawers, key: drawer.id, title: drawer.title) {
+    slot body {
+      Text(id: "drawer-extra") { "Extra" }
     }
   }
 }
@@ -147,18 +174,31 @@ Stack(id: "ui-root") {
         strictComponents: true,
       },
     })
-    const projection = compileNativeUiSurfaceProjection(qui)
+    const projection = compileNativeUiSurfaceProjection(qui, {
+      components: {
+        Dialog: dialog,
+        Drawer: drawer,
+      },
+      context: {
+        view: {
+          overlays: {
+            settings: true,
+          },
+          drawers: [
+            { id: 'inventory', title: 'Inventory' },
+          ],
+        },
+      },
+    })
 
+    expect(dialog.diagnostics).toEqual([])
+    expect(drawer.diagnostics).toEqual([])
     expect(qui.diagnostics).toEqual([])
     expect(qui.nodes.map(node => node.name)).toEqual([
       'Stack',
       'Dialog',
-      'Backdrop',
-      'Panel',
-      'Text',
       'Button',
       'Drawer',
-      'Panel',
       'Text',
     ])
     expect(projection.root).toEqual(withDefaultVisible({
@@ -167,47 +207,60 @@ Stack(id: "ui-root") {
       bounds: { x: 0, y: 0, width: 0, height: 0 },
       children: [
         {
-          id: 'settings-backdrop',
-          kind: 'Backdrop',
-          bounds: { x: 0, y: 0, width: 1920, height: 1080 },
-          intent: {
-            event: 'ui/intent',
-            action: 'close',
-          },
-        },
-        {
-          id: 'settings-panel',
-          kind: 'Panel',
-          bounds: { x: 0, y: 0, width: 640, height: 420 },
+          id: 'settings-dialog:settings-dialog',
+          kind: 'Stack',
+          bounds: { x: 0, y: 0, width: 0, height: 0 },
           children: [
             {
-              id: 'settings-title',
-              kind: 'Text',
-              bounds: { x: 0, y: 0, width: 0, height: 0 },
-              text: 'Settings',
-            },
-            {
-              id: 'settings-close',
-              kind: 'Button',
-              bounds: { x: 0, y: 0, width: 0, height: 0 },
-              text: 'Close',
+              id: 'dialog-backdrop:settings-dialog',
+              kind: 'Backdrop',
+              bounds: { x: 0, y: 0, width: 1920, height: 1080 },
               intent: {
                 event: 'ui/intent',
                 action: 'close',
               },
             },
+            {
+              id: 'dialog-panel:settings-dialog',
+              kind: 'Panel',
+              bounds: { x: 0, y: 0, width: 640, height: 420 },
+              children: [
+                {
+                  id: 'dialog-title:settings-dialog',
+                  kind: 'Text',
+                  bounds: { x: 0, y: 0, width: 0, height: 0 },
+                  text: 'Settings',
+                },
+                {
+                  id: 'settings-close:settings-dialog',
+                  kind: 'Button',
+                  bounds: { x: 0, y: 0, width: 0, height: 0 },
+                  text: 'Close',
+                  intent: {
+                    event: 'ui/intent',
+                    action: 'close',
+                  },
+                },
+              ],
+            },
           ],
         },
         {
-          id: 'drawer-panel',
+          id: 'drawer-panel:inventory',
           kind: 'Panel',
           bounds: { x: 0, y: 0, width: 420, height: 1080 },
           children: [
             {
-              id: 'drawer-title',
+              id: 'drawer-title:inventory',
               kind: 'Text',
               bounds: { x: 0, y: 0, width: 0, height: 0 },
-              text: 'drawer.title',
+              text: 'Inventory',
+            },
+            {
+              id: 'drawer-extra:inventory',
+              kind: 'Text',
+              bounds: { x: 0, y: 0, width: 0, height: 0 },
+              text: 'Extra',
             },
           ],
         },
