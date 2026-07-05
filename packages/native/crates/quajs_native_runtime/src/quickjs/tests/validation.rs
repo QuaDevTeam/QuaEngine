@@ -27,6 +27,13 @@ fn rejects_absolute_uri_parent_and_oversized_runtime_module_assets() {
         "\\tmp\\opening.js",
         "../opening.js",
         "scripts/../opening.js",
+        " scripts/opening.js",
+        "scripts/opening.js ",
+        "scripts/\u{1B}opening.js",
+        "scripts//opening.js",
+        "scripts/./opening.js",
+        "scripts/",
+        "?module",
         "https://example.invalid/opening.js",
         "file:///tmp/opening.js",
     ] {
