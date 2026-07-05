@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -7,13 +7,13 @@ import {
   collectForbiddenTargetCoreManifestDependencyViolations,
   collectForbiddenTargetCoreImportViolations,
   importSpecifiers,
+  sourceFiles,
 } from './target-isolation-helpers'
 
 describe('@quajs/native-ui-compiler target isolation', () => {
   it('does not import Web, Cocos, or native bootstrap core packages from compiler tooling', () => {
     const roots = [
-      fileURLToPath(new URL('../src', import.meta.url)),
-      fileURLToPath(new URL('../test', import.meta.url)),
+      fileURLToPath(new URL('..', import.meta.url)),
     ]
 
     expect(collectForbiddenTargetCoreImportViolations(roots)).toEqual([])
@@ -37,11 +37,19 @@ describe('@quajs/native-ui-compiler target isolation', () => {
         devDependencies: {
           '@quajs/engine-native': 'workspace:*',
         },
+        peerDependencies: {
+          '@quajs/renderer-cocos': 'workspace:*',
+        },
+        optionalDependencies: {
+          '@quajs/store-native': 'workspace:*',
+        },
       }))
 
       expect(collectForbiddenTargetCoreManifestDependencyViolations([manifestPath])).toEqual([
         `${manifestPath} dependencies: @quajs/renderer-web`,
         `${manifestPath} devDependencies: @quajs/engine-native`,
+        `${manifestPath} peerDependencies: @quajs/renderer-cocos`,
+        `${manifestPath} optionalDependencies: @quajs/store-native`,
       ])
     }
     finally {
@@ -49,7 +57,7 @@ describe('@quajs/native-ui-compiler target isolation', () => {
     }
   })
 
-  it('collects static, side-effect, re-export, and dynamic import specifiers', () => {
+  it('collects static, side-effect, re-export, dynamic import, and CommonJS require specifiers', () => {
     expect(importSpecifiers(`
       import type { Thing } from '@example/types'
       import { value } from '@example/static'
@@ -57,6 +65,8 @@ describe('@quajs/native-ui-compiler target isolation', () => {
       export * from '@example/export-star'
       export { value } from '@example/export-named'
       await import('@example/dynamic')
+      await import(/* vite-ignore */ '@example/commented-dynamic')
+      const commonjs = require('@example/commonjs')
     `)).toEqual([
       '@example/types',
       '@example/static',
@@ -64,6 +74,45 @@ describe('@quajs/native-ui-compiler target isolation', () => {
       '@example/export-star',
       '@example/export-named',
       '@example/dynamic',
+      '@example/commented-dynamic',
+      '@example/commonjs',
     ])
+  })
+
+  it('collects authoring source entry extensions and skips generated directories', () => {
+    const fixtureDir = mkdtempSync(join(tmpdir(), 'qua-native-target-isolation-sources-'))
+    try {
+      for (const dir of ['bin', 'scripts', 'src', 'dist', 'node_modules'])
+        mkdirSync(join(fixtureDir, dir), { recursive: true })
+
+      for (const file of [
+        'bin/cli.cjs',
+        'scripts/package.mjs',
+        'src/component.tsx',
+        'src/config.mts',
+        'src/legacy.cts',
+        'src/runtime.js',
+        'src/server.ts',
+        'vite.config.ts',
+      ])
+        writeFileSync(join(fixtureDir, file), '')
+
+      writeFileSync(join(fixtureDir, 'dist/generated.js'), '')
+      writeFileSync(join(fixtureDir, 'node_modules/dependency.js'), '')
+
+      expect(sourceFiles(fixtureDir).map(filePath => filePath.slice(fixtureDir.length + 1))).toEqual([
+        'bin/cli.cjs',
+        'scripts/package.mjs',
+        'src/component.tsx',
+        'src/config.mts',
+        'src/legacy.cts',
+        'src/runtime.js',
+        'src/server.ts',
+        'vite.config.ts',
+      ])
+    }
+    finally {
+      rmSync(fixtureDir, { recursive: true, force: true })
+    }
   })
 })

@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 
 export const FORBIDDEN_NATIVE_AUTHORING_TARGET_CORE_PACKAGES = [
   '@quajs/assets-cocos',
@@ -16,6 +16,25 @@ export const FORBIDDEN_NATIVE_AUTHORING_TARGET_CORE_PACKAGES = [
   '@quajs/store-native',
   '@quajs/store-web',
 ] as const
+
+const NATIVE_AUTHORING_SOURCE_EXTENSIONS = [
+  '.ts',
+  '.tsx',
+  '.mts',
+  '.cts',
+  '.js',
+  '.mjs',
+  '.cjs',
+] as const
+
+const IGNORED_SOURCE_DIRECTORIES = new Set([
+  '.turbo',
+  '.vite',
+  '.vite-temp',
+  'coverage',
+  'dist',
+  'node_modules',
+])
 
 export function collectForbiddenTargetCoreImportViolations(roots: readonly string[]): string[] {
   return roots.flatMap(root => sourceFiles(root)).flatMap((filePath) => {
@@ -47,22 +66,29 @@ export function collectForbiddenTargetCoreManifestDependencyViolations(manifestP
 
 export function sourceFiles(root: string): string[] {
   if (!statSync(root).isDirectory())
-    return root.endsWith('.ts') ? [root] : []
+    return isAuthoringSourceFile(root) ? [root] : []
 
-  return readdirSync(root).flatMap((entry) => {
+  return readdirSync(root).sort().flatMap((entry) => {
     const path = join(root, entry)
-    if (statSync(path).isDirectory())
+    if (statSync(path).isDirectory()) {
+      if (IGNORED_SOURCE_DIRECTORIES.has(basename(path)))
+        return []
       return sourceFiles(path)
-    return path.endsWith('.ts') ? [path] : []
+    }
+    return isAuthoringSourceFile(path) ? [path] : []
   })
 }
 
 export function importSpecifiers(source: string): string[] {
-  const pattern = /\b(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]|\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g
+  const pattern = /\b(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]|\bimport\s*\(\s*(?:\/\*[\s\S]*?\*\/\s*)?['"]([^'"]+)['"]\s*\)|\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g
   const specifiers: string[] = []
   for (const match of source.matchAll(pattern))
-    specifiers.push(match[1] ?? match[2])
+    specifiers.push(match[1] ?? match[2] ?? match[3])
   return specifiers
+}
+
+function isAuthoringSourceFile(path: string): boolean {
+  return NATIVE_AUTHORING_SOURCE_EXTENSIONS.some(extension => path.endsWith(extension))
 }
 
 function manifestDependencyViolations(
