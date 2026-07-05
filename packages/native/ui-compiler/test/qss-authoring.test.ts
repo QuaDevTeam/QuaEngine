@@ -179,6 +179,33 @@ Row {
     })
   })
 
+  it('resolves pointer-events into compiler-only intent metadata', () => {
+    const document = analyzeQssSource(`
+Button.disabled-hit {
+  pointer-events: none;
+}
+Button.enabled-hit {
+  pointer-events: auto;
+}
+Button.invalid-hit {
+  pointer-events: disabled;
+}
+`)
+
+    expect(document.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(1)
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations)).toEqual({
+      interactive: false,
+      style: {},
+    })
+    expect(resolveNativeQssDeclarations(document.rules[1].declarations)).toEqual({
+      interactive: true,
+      style: {},
+    })
+    expect(resolveNativeQssDeclarations(document.rules[2].declarations)).toEqual({
+      style: {},
+    })
+  })
+
   it('applies content-box sizing to QSS fallback bounds before projection', () => {
     const document = analyzeQssSource(`
 Button {

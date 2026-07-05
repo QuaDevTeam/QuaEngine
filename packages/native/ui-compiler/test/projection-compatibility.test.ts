@@ -36,6 +36,7 @@ Panel.dialog {
 Button.primary {
   color: #18130a;
   font-size: 22px;
+  pointer-events: none;
 }
 Image.poster {
   object-position: right top;
@@ -66,6 +67,7 @@ Image.poster {
       'color',
       'font-size',
       'object-position',
+      'pointer-events',
     ])
     expect([
       ...(compatibility.capabilities || []),

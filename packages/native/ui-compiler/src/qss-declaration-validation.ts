@@ -25,6 +25,7 @@ import {
   parseNativeQssObjectFit,
   parseNativeQssOpacity,
   parseNativeQssOverflow,
+  parseNativeQssPointerEvents,
   parseNativeQssPosition,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
@@ -202,6 +203,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssOverflow(value) !== undefined
         ? undefined
         : 'overflow supports visible or hidden.'
+    case 'pointer-events':
+      return parseNativeQssPointerEvents(value) !== undefined
+        ? undefined
+        : 'pointer-events supports auto or none.'
     case 'padding':
       return parseNativeQssEdgeInsets(value) !== undefined
         ? undefined

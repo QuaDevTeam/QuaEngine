@@ -64,6 +64,11 @@ const boxSizingValues = [
   value('content-box', 'Expand QSS width and height by resolved padding and border width before projection.'),
 ] as const
 
+const pointerEventsValues = [
+  value('auto', 'Allow this node to dispatch its resolved native UI intent.'),
+  value('none', 'Render this node while omitting its own pointer intent from the resolved projection.'),
+] as const
+
 export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('align-items', 'p1', true, 'Static Row / Column cross-axis child alignment consumed by native UI projection compilation.', alignItemsValues),
   property('background-color', 'p0', true, 'Fill color for panels, buttons, and box surfaces.'),
@@ -126,6 +131,7 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
     value('visible', 'Allow child nodes to paint outside this node bounds.'),
     value('hidden', 'Clip child nodes to this node bounds.'),
   ]),
+  property('pointer-events', 'p1', true, 'Node-local pointer hit-test participation compiled into native UI intent projection.', pointerEventsValues),
   property('z-index', 'p1', true, 'Node z ordering emitted as resolved native UI projection metadata.'),
   property('opacity', 'p0', true, 'Surface opacity for native UI surface style IR.', [
     value('0', 'Make the surface fully transparent.'),

@@ -167,6 +167,8 @@ export function pruneUndefinedResolvedNodeStyle(
     delete style.visible
   if (style.clipChildren === undefined)
     delete style.clipChildren
+  if (style.interactive === undefined)
+    delete style.interactive
 
   return style
 }

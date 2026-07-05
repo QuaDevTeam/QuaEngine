@@ -8,6 +8,7 @@ import type {
   NativeQssFontWeightValue,
   NativeQssJustifyContentValue,
   NativeQssObjectFitValue,
+  NativeQssPointerEventsValue,
   NativeQssPositionValue,
   NativeQssTextAlignValue,
   NativeQssTextDecorationValue,
@@ -43,6 +44,7 @@ const BORDER_STYLE_VALUES = new Set<NativeQssBorderStyleValue>(['none', 'solid']
 const BOX_SIZING_VALUES = new Set<NativeQssBoxSizingValue>(['border-box', 'content-box'])
 const FONT_STYLE_VALUES = new Set<NativeQssFontStyleValue>(['italic', 'normal'])
 const POSITION_VALUES = new Set<NativeQssPositionValue>(['absolute', 'relative'])
+const POINTER_EVENTS_VALUES = new Set<NativeQssPointerEventsValue>(['auto', 'none'])
 const ALIGN_ITEMS_VALUES = new Set<NativeQssAlignItemsValue>(['center', 'flex-end', 'flex-start'])
 const JUSTIFY_CONTENT_VALUES = new Set<NativeQssJustifyContentValue>([
   'center',
@@ -181,6 +183,13 @@ export function parseNativeQssPosition(value: string): NativeQssPositionValue | 
   return POSITION_VALUES.has(normalized as NativeQssPositionValue)
     ? normalized as NativeQssPositionValue
     : undefined
+}
+
+export function parseNativeQssPointerEvents(value: string): boolean | undefined {
+  const normalized = value.toLowerCase()
+  if (!POINTER_EVENTS_VALUES.has(normalized as NativeQssPointerEventsValue))
+    return undefined
+  return normalized === 'auto'
 }
 
 export function parseNativeQssAlignItems(value: string): NativeQssAlignItemsValue | undefined {

@@ -127,7 +127,9 @@ function surfaceNodeFromQuiNode(
   )
   const text = textFromNode(source, node, context.scope)
   const image = imageFromProps(node.props)
-  const intent = intentFromNode(node, context.scope)
+  const intent = resolvedStyle.interactive === false
+    ? undefined
+    : intentFromNode(node, context.scope)
   const id = nodeId(node, context.scope)
 
   const surfaceNode: NativeUiCompilerSurfaceNodeProjection = {

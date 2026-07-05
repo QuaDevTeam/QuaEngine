@@ -1815,6 +1815,12 @@ Rejected initially:
 - CSS writing modes.
 - Browser text decoration thickness/skip/ink details.
 
+### Interaction Properties
+
+Supported:
+
+- `pointer-events: auto | none` as node-local compiler-only intent metadata. `none` removes that node's own resolved intent during QUI/QSS projection compilation without hiding the node, changing its visual enabled state, or disabling child intents. Rust/wgpu continues to consume final intent projection only and does not parse QSS text.
+
 ### Transforms
 
 Supported:

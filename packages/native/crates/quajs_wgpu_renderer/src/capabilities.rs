@@ -104,6 +104,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "padding-left",
                 "padding-right",
                 "padding-top",
+                "pointer-events",
                 "position",
                 "right",
                 "row-gap",
