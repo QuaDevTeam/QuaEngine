@@ -8,12 +8,31 @@ pub(crate) fn validate_json_frame_required_fields(
     input: &Value,
 ) -> Result<(), NativeRendererJsonFrameError> {
     let mut errors = Vec::new();
+    validate_top_level_required_fields(input, &mut errors);
     validate_ui_surface_required_fields(input, &mut errors);
     validate_audio_track_required_fields(input, &mut errors);
     if let Some(error) = errors.into_iter().next() {
         return Err(NativeRendererJsonFrameError::Validation(error));
     }
     Ok(())
+}
+
+fn validate_top_level_required_fields(
+    input: &Value,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    let missing_view = match input.get("view") {
+        Some(value) => value.is_null(),
+        None => true,
+    };
+    if missing_view {
+        errors.push(NativeRendererJsonValidationError {
+            path: "view".to_string(),
+            asset_name: String::new(),
+            reason: "must be explicitly provided for native renderer frame projection JSON"
+                .to_string(),
+        });
+    }
 }
 
 fn validate_audio_track_required_fields(
