@@ -341,6 +341,33 @@ pub(in super::super) fn json_frame_with_missing_surface_node_bounds_width_input(
     "#
 }
 
+pub(in super::super) fn json_frame_with_malformed_surface_node_bounds_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "malformed-bounds",
+                  "kind": "Column",
+                  "visible": true,
+                  "bounds": [0, 0, 240, 120]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_surface_leaf_children_input() -> &'static str {
     r#"
     {
