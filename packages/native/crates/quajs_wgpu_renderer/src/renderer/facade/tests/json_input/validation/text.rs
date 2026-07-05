@@ -69,6 +69,50 @@ fn json_frame_choice_text_validation_rejects_unsafe_resolved_text_payloads() {
 }
 
 #[test]
+fn json_frame_choice_projection_validation_requires_explicit_visibility_fields() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let choice_set = renderer
+        .prepare_frame_json_str(json_frame_with_missing_choice_set_visible_input())
+        .unwrap_err();
+    match choice_set {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.choices.visible");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("explicitly provided"));
+        }
+        other => panic!("expected missing choice set visible validation error, got {other:?}"),
+    }
+
+    let choice_items = renderer
+        .prepare_frame_json_str(json_frame_with_missing_choice_set_items_input())
+        .unwrap_err();
+    match choice_items {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.choices.choices");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("explicitly provided"));
+        }
+        other => panic!("expected missing choice set items validation error, got {other:?}"),
+    }
+
+    let choice = renderer
+        .prepare_frame_json_str(json_frame_with_missing_choice_enabled_input())
+        .unwrap_err();
+    match choice {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.choices.choices[0].enabled");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("explicitly provided"));
+        }
+        other => panic!("expected missing choice enabled validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_rich_text_payload_validation_rejects_unsafe_resolved_text_payloads() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

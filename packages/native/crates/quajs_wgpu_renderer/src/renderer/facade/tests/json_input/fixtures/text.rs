@@ -57,8 +57,9 @@ pub(in super::super) fn json_frame_with_control_character_choice_text_input() ->
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "choices": {
+          "visible": true,
           "choices": [
-            { "id": "start", "text": "Start\u001bGame" }
+            { "id": "start", "text": "Start\u001bGame", "enabled": true }
           ]
         }
       }
@@ -73,8 +74,9 @@ pub(in super::super) fn json_frame_with_oversized_choice_text_input() -> String 
       "container": {{ "width": 1600, "height": 1000 }},
       "view": {{
         "choices": {{
+          "visible": true,
           "choices": [
-            {{ "id": "start", "text": "{}" }}
+            {{ "id": "start", "text": "{}", "enabled": true }}
           ]
         }}
       }}
@@ -82,6 +84,50 @@ pub(in super::super) fn json_frame_with_oversized_choice_text_input() -> String 
     "#,
         "a".repeat(64 * 1024 + 1)
     )
+}
+
+pub(in super::super) fn json_frame_with_missing_choice_set_visible_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "choices": {
+          "choices": [
+            { "id": "start", "text": "Start", "enabled": true }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_choice_set_items_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "choices": {
+          "visible": true
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_choice_enabled_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "choices": {
+          "visible": true,
+          "choices": [
+            { "id": "start", "text": "Start" }
+          ]
+        }
+      }
+    }
+    "#
 }
 
 pub(in super::super) fn json_frame_with_missing_dialogue_mode_input() -> &'static str {
