@@ -8,8 +8,7 @@ import {
 describe('@quajs/native-language-server target isolation', () => {
   it('does not import Web, Cocos, or native bootstrap core packages from LSP tooling', () => {
     const roots = [
-      fileURLToPath(new URL('../src', import.meta.url)),
-      fileURLToPath(new URL('../test', import.meta.url)),
+      fileURLToPath(new URL('..', import.meta.url)),
     ]
 
     expect(collectForbiddenTargetCoreImportViolations(roots)).toEqual([])

@@ -9,8 +9,7 @@ import {
 describe('@quajs/native-benchmarks target isolation', () => {
   it('does not import Web, Cocos, or native bootstrap core packages from benchmark tooling', () => {
     const roots = [
-      fileURLToPath(new URL('../src', import.meta.url)),
-      fileURLToPath(new URL('../test', import.meta.url)),
+      fileURLToPath(new URL('..', import.meta.url)),
     ]
     expect(collectForbiddenTargetCoreImportViolations(roots)).toEqual([])
   })
@@ -21,7 +20,7 @@ describe('@quajs/native-benchmarks target isolation', () => {
     ])).toEqual([])
   })
 
-  it('collects static, side-effect, re-export, and dynamic import specifiers', () => {
+  it('collects static, side-effect, re-export, dynamic import, and CommonJS require specifiers', () => {
     expect(importSpecifiers(`
       import type { Thing } from '@example/types'
       import { value } from '@example/static'
@@ -29,6 +28,8 @@ describe('@quajs/native-benchmarks target isolation', () => {
       export * from '@example/export-star'
       export { value } from '@example/export-named'
       await import('@example/dynamic')
+      await import(/* vite-ignore */ '@example/commented-dynamic')
+      const commonjs = require('@example/commonjs')
     `)).toEqual([
       '@example/types',
       '@example/static',
@@ -36,6 +37,8 @@ describe('@quajs/native-benchmarks target isolation', () => {
       '@example/export-star',
       '@example/export-named',
       '@example/dynamic',
+      '@example/commented-dynamic',
+      '@example/commonjs',
     ])
   })
 })
