@@ -2,7 +2,7 @@ use winit::dpi::PhysicalSize;
 
 use super::frame::WindowFrameDimensions;
 use super::input::NativeWindowSmokeInputMetrics;
-use super::metrics::NativeWindowSmokeTextureMetrics;
+use super::metrics::{NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics};
 use super::report::NativeWindowSmokeReport;
 
 pub(super) struct NativeWindowSmokeReportInput<'a> {
@@ -15,6 +15,7 @@ pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub resize_count: usize,
     pub surface_recovery_count: usize,
     pub texture_metrics: &'a NativeWindowSmokeTextureMetrics,
+    pub audio_metrics: &'a NativeWindowSmokeAudioMetrics,
     pub input_metrics: &'a NativeWindowSmokeInputMetrics,
     pub last_resize_physical_size: Option<PhysicalSize<u32>>,
     pub dimensions: WindowFrameDimensions,
@@ -68,6 +69,9 @@ pub(super) fn build_window_smoke_report(
         texture_lifecycle_texture_cleanup_error_count: input
             .texture_metrics
             .lifecycle_texture_cleanup_error_count,
+        audio_backend_applied_plan_count: input.audio_metrics.applied_plan_count,
+        audio_backend_applied_command_count: input.audio_metrics.applied_command_count,
+        audio_backend_active_track_count: input.audio_metrics.active_track_count,
         pointer_event_count: input.input_metrics.pointer_event_count,
         pointer_dispatch_count: input.input_metrics.pointer_dispatch_count,
         pointer_intent_emit_count: input.input_metrics.pointer_intent_emit_count,
@@ -142,6 +146,11 @@ mod tests {
             ime_last_text_byte_count: Some(6),
             last_intent_type: Some("ui/intent".to_string()),
         };
+        let audio_metrics = NativeWindowSmokeAudioMetrics {
+            applied_plan_count: 12,
+            applied_command_count: 13,
+            active_track_count: 2,
+        };
 
         let report = build_window_smoke_report(NativeWindowSmokeReportInput {
             adapter_name: "adapter",
@@ -153,6 +162,7 @@ mod tests {
             resize_count: 3,
             surface_recovery_count: 1,
             texture_metrics: &texture_metrics,
+            audio_metrics: &audio_metrics,
             input_metrics: &input_metrics,
             last_resize_physical_size: Some(PhysicalSize::new(960, 540)),
             dimensions: WindowFrameDimensions {
@@ -171,6 +181,9 @@ mod tests {
         assert_eq!(report.adapter_name, "adapter");
         assert_eq!(report.texture_upload_pending_request_count, 2);
         assert_eq!(report.texture_lifecycle_tracked_package_count, 3);
+        assert_eq!(report.audio_backend_applied_plan_count, 12);
+        assert_eq!(report.audio_backend_applied_command_count, 13);
+        assert_eq!(report.audio_backend_active_track_count, 2);
         assert_eq!(
             report.pointer_last_intent_type.as_deref(),
             Some("ui/intent")

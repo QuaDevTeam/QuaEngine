@@ -1,3 +1,5 @@
+use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
+
 use crate::texture_sync::{
     NativeTextureBundleLifecycleSyncReport, NativeTextureHostCleanupSyncReport,
     NativeTextureUploadHostSyncReport,
@@ -25,6 +27,13 @@ pub(super) struct NativeWindowSmokeTextureMetrics {
     pub lifecycle_texture_cleanup_error_count: usize,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct NativeWindowSmokeAudioMetrics {
+    pub applied_plan_count: usize,
+    pub applied_command_count: usize,
+    pub active_track_count: usize,
+}
+
 impl NativeWindowSmokeTextureMetrics {
     pub(super) fn record_texture_sync(
         &mut self,
@@ -44,5 +53,19 @@ impl NativeWindowSmokeTextureMetrics {
 
     pub(super) fn resubmitted_after_texture_upload(&self) -> bool {
         self.upload_resubmit_count > 0
+    }
+}
+
+impl NativeWindowSmokeAudioMetrics {
+    pub(super) fn from_null_backend(backend: Option<&NullNativeAudioBackend>) -> Self {
+        let Some(backend) = backend else {
+            return Self::default();
+        };
+        let diagnostics = backend.diagnostics();
+        Self {
+            applied_plan_count: diagnostics.applied_plan_count,
+            applied_command_count: diagnostics.applied_command_count,
+            active_track_count: diagnostics.active_track_count,
+        }
     }
 }
