@@ -58,6 +58,36 @@ fn json_frame_audio_projection_validation_rejects_web_audio_alias_fields() {
 }
 
 #[test]
+fn json_frame_audio_projection_validation_requires_explicit_bridge_fields() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let asset_type = renderer
+        .prepare_frame_json_str(json_frame_with_missing_audio_asset_type_input())
+        .unwrap_err();
+    match asset_type {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.audio.tracks[0].assetType");
+            assert!(validation.reason.contains("explicitly provided"));
+        }
+        other => panic!("expected missing audio assetType validation error, got {other:?}"),
+    }
+
+    let playback_state = renderer
+        .prepare_frame_json_str(json_frame_with_missing_audio_playback_state_input())
+        .unwrap_err();
+    match playback_state {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.audio.tracks[0].playbackState");
+            assert!(validation.reason.contains("explicitly provided"));
+        }
+        other => panic!("expected missing audio playbackState validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_background_number_validation_rejects_unsafe_resolved_values() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
