@@ -40,11 +40,32 @@ fn validate_dialogue_required_fields(
     input: &Value,
     errors: &mut Vec<NativeRendererJsonValidationError>,
 ) {
-    let Some(avatar) = input
-        .get("view")
-        .and_then(|view| view.get("dialogue"))
-        .and_then(|dialogue| dialogue.get("avatar"))
-    else {
+    let Some(dialogue) = input.get("view").and_then(|view| view.get("dialogue")) else {
+        return;
+    };
+    if dialogue.is_null() {
+        return;
+    }
+    let Some(dialogue_object) = dialogue.as_object() else {
+        return;
+    };
+
+    let missing_mode = match dialogue_object.get("mode") {
+        Some(value) => value.is_null(),
+        None => true,
+    };
+    if missing_mode {
+        errors.push(NativeRendererJsonValidationError {
+            path: "view.dialogue.mode".to_string(),
+            asset_name: String::new(),
+            reason:
+                "must be explicitly provided for native dialogue projections in resolved projection JSON"
+                    .to_string(),
+        });
+        return;
+    }
+
+    let Some(avatar) = dialogue_object.get("avatar") else {
         return;
     };
     if avatar.is_null() {

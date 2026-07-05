@@ -101,6 +101,7 @@ pub(in super::super::super) fn json_frame_with_empty_asset_input() -> &'static s
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "dialogue": {
+          "mode": "say",
           "speaker": "Narrator",
           "text": "Opening",
           "avatar": {
@@ -120,6 +121,7 @@ pub(in super::super::super) fn json_frame_with_missing_dialogue_avatar_asset_typ
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "dialogue": {
+          "mode": "say",
           "speaker": "Narrator",
           "text": "Opening",
           "avatar": {
