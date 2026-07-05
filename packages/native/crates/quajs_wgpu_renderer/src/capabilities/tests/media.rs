@@ -21,6 +21,9 @@ fn video_capability_is_poster_fallback_only_until_decode_backend_exists() {
         .contains(&"background.video".to_string()));
     assert!(video.asset_kinds.contains(&"video".to_string()));
     assert!(video.asset_kinds.contains(&"images".to_string()));
+    assert!(video.qss_features.contains(&"object-fit".to_string()));
+    assert!(video.qss_features.contains(&"object-position".to_string()));
+    assert!(video.qss_features.contains(&"opacity".to_string()));
     assert!(video.intent_events.is_empty());
     assert!(video.qui_components.is_empty());
     assert!(!video.projection_keys.contains(&"ui.video".to_string()));
