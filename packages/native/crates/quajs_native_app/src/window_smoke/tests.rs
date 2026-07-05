@@ -132,6 +132,9 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         texture_lifecycle_release_attempt_count: 0,
         texture_lifecycle_released_package_count: 0,
         texture_lifecycle_texture_cleanup_error_count: 0,
+        audio_backend_applied_plan_count: 1,
+        audio_backend_applied_command_count: 2,
+        audio_backend_active_track_count: 0,
         pointer_event_count: 0,
         pointer_dispatch_count: 0,
         pointer_intent_emit_count: 1,
@@ -174,6 +177,9 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["textureLifecycleReleaseAttemptCount"], 0);
     assert_eq!(value["textureLifecycleReleasedPackageCount"], 0);
     assert_eq!(value["textureLifecycleTextureCleanupErrorCount"], 0);
+    assert_eq!(value["audioBackendAppliedPlanCount"], 1);
+    assert_eq!(value["audioBackendAppliedCommandCount"], 2);
+    assert_eq!(value["audioBackendActiveTrackCount"], 0);
     assert_eq!(value["pointerCancelCount"], 0);
     assert_eq!(value["focusGainCount"], 0);
     assert_eq!(value["focusLossCount"], 0);

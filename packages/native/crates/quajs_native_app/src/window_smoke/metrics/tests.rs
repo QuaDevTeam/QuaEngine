@@ -1,3 +1,6 @@
+use quajs_wgpu_renderer::audio::{
+    AudioBackendCommandPlan, NativeAudioBackend, NullNativeAudioBackend,
+};
 use quajs_wgpu_renderer::resources::ResourceId;
 
 use crate::texture_sync::{
@@ -40,6 +43,24 @@ fn records_last_frame_upload_state_and_accumulates_counts() {
     assert_eq!(metrics.lifecycle_release_attempt_count, 1);
     assert_eq!(metrics.lifecycle_released_package_count, 1);
     assert_eq!(metrics.lifecycle_texture_cleanup_error_count, 2);
+}
+
+#[test]
+fn derives_audio_metrics_from_null_backend_diagnostics() {
+    let mut backend = NullNativeAudioBackend::new();
+    backend
+        .apply_audio_commands(&AudioBackendCommandPlan::default())
+        .expect("null backend should accept empty audio command plans");
+
+    let metrics = NativeWindowSmokeAudioMetrics::from_null_backend(Some(&backend));
+
+    assert_eq!(metrics.applied_plan_count, 1);
+    assert_eq!(metrics.applied_command_count, 0);
+    assert_eq!(metrics.active_track_count, 0);
+    assert_eq!(
+        NativeWindowSmokeAudioMetrics::from_null_backend(None),
+        NativeWindowSmokeAudioMetrics::default()
+    );
 }
 
 fn upload_report(
