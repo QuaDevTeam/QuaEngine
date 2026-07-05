@@ -30,6 +30,7 @@ export interface NativeRuntimePackageGuardDiagnostic {
   severity: NativeRuntimePackageGuardSeverity
   message: string
   packageId?: string
+  packageName?: string
   assetName?: string
   pluginId?: string
   field?: string

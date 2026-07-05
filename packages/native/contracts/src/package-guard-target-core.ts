@@ -30,6 +30,7 @@ function collectTargetCorePackageReferenceDeclarations(
         code: 'NATIVE_PACKAGE_TARGET_CORE_DEPENDENCY_FORBIDDEN',
         severity: 'error',
         packageId: runtimePackage.id,
+        packageName,
         field,
         message: `Native runtime package "${runtimePackage.id}" must not declare target core adapter "${packageName}" through "${field}".`,
       })
