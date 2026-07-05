@@ -183,7 +183,8 @@ where
         released_resource_count += release.package_release.released_resources.len();
         texture_cleanup_error_count += release.texture_cleanup_report.release_error_count;
 
-        if release.package_release.plan.can_unload() {
+        let texture_cleanup_failed = release.texture_cleanup_report.release_error_count > 0;
+        if release.package_release.plan.can_unload() && !texture_cleanup_failed {
             released_package_ids.push(package_id.clone());
         } else {
             blocked_package_ids.insert(package_id.clone());
