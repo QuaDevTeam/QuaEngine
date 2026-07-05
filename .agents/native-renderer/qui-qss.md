@@ -161,6 +161,8 @@ LSP hover 应从同一 registry 暴露组件 `content`、`slots` 和 style parts
 
 导入的 composite 组件是 authoring 结构，不是 native-wgpu 的 surface node kind。`import component "./Dialog.qui"`、`Dialog { ... }`、`Drawer { ... }` 这类写法可以通过 compiler / LSP 的 strict component 校验，但进入 `compileNativeUiSurfaceProjection` 后必须被预展开或扁平化成 `Backdrop`、`Panel`、`Scroll`、`Button`、`Text` 等基础节点；最终交给 Rust 的 `NativeUiSurfaceProjection` 不应包含 `Dialog`、`Drawer`、`SaveLoadPanel` 这类高阶 component 名。这样开发者仍然可以复用上层组件，native renderer 也只需要维护稳定、可验证的基础 DTO 面。
 
+当前 compiler 支持由调用方显式传入 `compileNativeUiSurfaceProjection({ components })` 的已分析 `NativeQuiDocument` map 来展开 project/package composite。compiler 自己不读取文件系统、QPK、URL 或 host API；LSP、packager 或构建器负责解析 import path 并传入 component 文档。composite 模板可使用 `props.*`，并通过 `slot header` / `slot body` 等 named slot placeholder 接收调用点内容；循环 key 会继续作用到展开后的基础节点 id，避免多实例 component 互相撞 key。
+
 ## QSS 兼容范围
 
 Rust renderer 只消费 resolved style IR。selector matching、cascade、inheritance、diagnostics 都应留在 TS 工具链层。

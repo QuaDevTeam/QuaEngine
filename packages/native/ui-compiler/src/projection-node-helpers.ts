@@ -13,16 +13,22 @@ export const ZERO_RECT: NativeUiSurfaceRect = {
   height: 0,
 }
 
+export type NativeQuiNumberPropResolver = (
+  props: readonly NativeQuiProp[],
+  name: string,
+) => number | undefined
+
 export function rectFromProps(
   props: readonly NativeQuiProp[],
   bounds: NativeQssResolvedBounds | undefined,
   parentBounds: NativeUiSurfaceRect | undefined,
+  resolveNumberProp: NativeQuiNumberPropResolver = numberProp,
 ): NativeUiSurfaceRect {
-  const width = numberProp(props, 'width') ?? bounds?.width ?? 0
-  const height = numberProp(props, 'height') ?? bounds?.height ?? 0
+  const width = resolveNumberProp(props, 'width') ?? bounds?.width ?? 0
+  const height = resolveNumberProp(props, 'height') ?? bounds?.height ?? 0
   return {
-    x: numberProp(props, 'x') ?? resolveNativeQssBoundX(bounds, parentBounds, width),
-    y: numberProp(props, 'y') ?? resolveNativeQssBoundY(bounds, parentBounds, height),
+    x: resolveNumberProp(props, 'x') ?? resolveNativeQssBoundX(bounds, parentBounds, width),
+    y: resolveNumberProp(props, 'y') ?? resolveNativeQssBoundY(bounds, parentBounds, height),
     width,
     height,
   }
