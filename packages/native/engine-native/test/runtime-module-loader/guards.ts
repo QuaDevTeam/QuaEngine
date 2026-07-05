@@ -6,7 +6,7 @@ import {
 
 describe('@quajs/engine-native runtime module loader guards', () => {
   it('rejects native runtime modules without package-relative asset names', async () => {
-    const { ctx } = createModuleLoadContext()
+    const { calls, ctx } = createModuleLoadContext()
     const loader = createNativeRuntimeModuleLoader({
       evaluator: () => ({ default: undefined }),
     })
@@ -39,6 +39,48 @@ describe('@quajs/engine-native runtime module loader guards', () => {
     }, ctx)).rejects.toThrow(/package-relative script asset/)
 
     await expect(loader.loadScriptModule?.({
+      id: 'leading-space',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: ' scripts/opening.js',
+    }, ctx)).rejects.toThrow(/package-relative script asset/)
+
+    await expect(loader.loadScriptModule?.({
+      id: 'trailing-space',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/opening.js ',
+    }, ctx)).rejects.toThrow(/package-relative script asset/)
+
+    await expect(loader.loadScriptModule?.({
+      id: 'control-char',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/\u001Bopening.js',
+    }, ctx)).rejects.toThrow(/package-relative script asset/)
+
+    await expect(loader.loadScriptModule?.({
+      id: 'empty-segment',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts//opening.js',
+    }, ctx)).rejects.toThrow(/package-relative script asset/)
+
+    await expect(loader.loadScriptModule?.({
+      id: 'dot-segment',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/./opening.js',
+    }, ctx)).rejects.toThrow(/package-relative script asset/)
+
+    await expect(loader.loadScriptModule?.({
+      id: 'directory',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/',
+    }, ctx)).rejects.toThrow(/package-relative script asset/)
+
+    await expect(loader.loadScriptModule?.({
       id: 'blank',
       packageId: 'runtime.chapter.native-ui',
       bundleName: 'runtime.chapter.native-ui',
@@ -65,6 +107,8 @@ describe('@quajs/engine-native runtime module loader guards', () => {
       bundleName: 'runtime.chapter.native-ui',
       assetName: 'ui/menu.qui.json',
     }, ctx)).rejects.toThrow(/must reference a JavaScript module asset/)
+
+    expect(calls).toEqual([])
   })
 
   it('rejects unsafe native runtime module variant asset names before asset loading', async () => {

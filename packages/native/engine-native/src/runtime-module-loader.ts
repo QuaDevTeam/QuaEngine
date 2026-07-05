@@ -23,6 +23,7 @@ import {
   assertNativeQuickJsEvaluationResponse,
   assertNativeQuickJsEvaluationRequest,
   createNativeQuickJsEvaluationRequest,
+  isForbiddenNativeAssetReference,
   isForbiddenNativePayload,
 } from '@quajs/native-contracts'
 
@@ -202,13 +203,7 @@ function assertNativeRuntimeModuleAssetName(assetName: string, kind: NativeRunti
 }
 
 function isForbiddenNativeModuleSpecifier(assetName: string): boolean {
-  const withoutSuffix = stripAssetReferenceSuffix(assetName)
-  return assetName.trim().length === 0
-    || withoutSuffix.trim().length === 0
-    || assetName.includes('\\')
-    || withoutSuffix.startsWith('/')
-    || /^[a-z][a-z0-9+.-]*:/i.test(withoutSuffix)
-    || withoutSuffix.split('/').includes('..')
+  return assetName.includes('\\') || isForbiddenNativeAssetReference(assetName)
 }
 
 function isNativeScriptModuleAsset(assetName: string): boolean {
