@@ -275,4 +275,32 @@ describe('@quajs/engine-native runtime trust policy guards', () => {
     expect(host.getHostInfo).not.toHaveBeenCalled()
     expect(host.verifySignature).not.toHaveBeenCalled()
   })
+
+  it('rejects malformed native renderer compatibility before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: '@quajs/native-renderer',
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/must explicitly declare nativeCode: false/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
 })

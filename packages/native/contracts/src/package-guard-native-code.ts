@@ -89,12 +89,16 @@ function findNativeCompatibilityBlocksWithoutExplicitOptOut(metadata: Record<str
   if (!metadata)
     return []
   const fields: string[] = []
-  if (isRecord(metadata.nativeRenderer) && metadata.nativeRenderer.nativeCode !== false)
+  if (
+    metadata.nativeRenderer !== undefined
+    && (!isRecord(metadata.nativeRenderer) || metadata.nativeRenderer.nativeCode !== false)
+  ) {
     fields.push('metadata.nativeRenderer.nativeCode')
+  }
   if (
     isRecord(metadata.renderers)
-    && isRecord(metadata.renderers.native)
-    && metadata.renderers.native.nativeCode !== false
+    && metadata.renderers.native !== undefined
+    && (!isRecord(metadata.renderers.native) || metadata.renderers.native.nativeCode !== false)
   ) {
     fields.push('metadata.renderers.native.nativeCode')
   }
