@@ -734,6 +734,53 @@ describe('qua project config', () => {
     }
   })
 
+  it('rejects Web, Cocos, and native project templates that carry all target core plugins before writing', async () => {
+    const root = await createProjectRoot()
+    const graphKinds = ['project-template', 'startup-shell'] as const
+    const allTargetCoreAdapters = allTargetCoreAdaptersForProjectGraphs()
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const artifactDir = join(root, 'dist', `project-template-core-union-${target}`)
+      const manifestPath = join(artifactDir, QUA_TARGET_BUNDLE_MANIFEST_FILE)
+      const manifest: TargetBundleManifest = {
+        ...createTargetBundleManifestFixture(target),
+        projectGraphs: graphKinds.map(kind => ({
+          id: `${target}.${kind}.project-core-union`,
+          kind,
+          references: [
+            '@quajs/engine',
+            '@quajs/plugin-background',
+            ...allTargetCoreAdapters,
+          ],
+        })),
+      }
+      const validation = validateTargetBundleManifest(manifest, { expectedTarget: target })
+
+      expect(validation.ok).toBe(false)
+      for (const kind of graphKinds) {
+        for (const packageName of allTargetCoreAdapters) {
+          expect(validation.diagnostics).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+              code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+              target,
+              packageName,
+              projectGraphId: `${target}.${kind}.project-core-union`,
+              projectGraphKind: kind,
+            }),
+          ]))
+        }
+      }
+
+      await expect(emitQuaTargetBundleManifest({
+        artifactDir,
+        expectedTarget: target,
+        manifest,
+        manifestPath,
+      })).rejects.toThrow('Target bundle manifest validation failed')
+      await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+    }
+  })
+
   it('rejects generated artifact graphs that pre-union Web, Cocos, and native core plugins before writing', async () => {
     const root = await createProjectRoot()
     const graphKinds = ['debug-shell', 'release-shell', 'smoke-runner', 'installer', 'updater'] as const
