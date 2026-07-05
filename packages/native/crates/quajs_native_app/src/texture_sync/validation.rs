@@ -39,6 +39,11 @@ fn validate_package_relative_asset_name(asset_name: &str) -> Result<(), String> 
     {
         return Err("Native texture asset name must not be empty.".to_string());
     }
+    if asset_name.trim() != asset_name || asset_name.chars().any(char::is_control) {
+        return Err(format!(
+            "Native texture asset \"{asset_name}\" must not contain control characters or surrounding whitespace."
+        ));
+    }
     if asset_name.contains('\\')
         || base.starts_with('/')
         || base.ends_with('/')
