@@ -6,6 +6,7 @@ use crate::resources::{NativeResourceKind, ResourceId};
 mod backend;
 mod clips;
 mod commands;
+mod declarative_resources;
 mod fixtures;
 mod font_resources;
 mod resources;
