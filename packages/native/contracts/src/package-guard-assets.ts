@@ -113,12 +113,20 @@ export function isForbiddenNativeAssetReference(assetName: string): boolean {
   const withoutSuffix = stripAssetReferenceSuffix(assetName)
   if (assetName.trim().length === 0 || withoutSuffix.trim().length === 0)
     return true
+  if (
+    assetName.trim() !== assetName
+    || /[\u0000-\u001F\u007F]/.test(assetName)
+    || assetName.includes('\\')
+  ) {
+    return true
+  }
 
   const normalized = withoutSuffix.replace(/\\/g, '/')
   return normalized.startsWith('/')
     || normalized.startsWith('\\')
     || /^[a-z][a-z0-9+.-]*:/i.test(normalized)
-    || normalized.split('/').includes('..')
+    || normalized.endsWith('/')
+    || normalized.split('/').some(segment => segment.length === 0 || segment === '.' || segment === '..')
 }
 
 function addRuntimeModuleVariantAssetNames(
