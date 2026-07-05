@@ -24,7 +24,12 @@
                     "event": "choice/select",
                     "choiceId": "stay",
                     "action": "select",
-                    "metadata": { "arg0": "stay" }
+                    "metadata": {
+                      "arg0": "stay",
+                      "action": "forged-action",
+                      "choiceId": "forged-choice",
+                      "elementId": "forged-element"
+                    }
                   }
                 },
                 {
