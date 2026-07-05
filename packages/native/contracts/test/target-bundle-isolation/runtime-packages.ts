@@ -190,4 +190,84 @@ describe('target bundle manifest target-core isolation runtime packages', () => 
       ]))
     }
   })
+
+  it('rejects bundler-normalized Runtime QPK target core adapter references for every target', () => {
+    const cases = [
+      {
+        target: 'web',
+        executableDependency: {
+          specifier: 'npm:@quajs/engine-native/native-host?import',
+          packageName: '@quajs/plugin-native-extra',
+        },
+        rendererEntry: {
+          specifier: '@quajs/plugin-cocos-renderer',
+          packageName: 'C:\\repo\\node_modules\\@quajs\\renderer-cocos\\plugins\\ui.js?raw',
+        },
+        executablePackageName: '@quajs/engine-native',
+        rendererPackageName: '@quajs/renderer-cocos',
+      },
+      {
+        target: 'cocos',
+        executableDependency: {
+          specifier: '/repo/node_modules/.pnpm/@quajs+renderer-web@0.1.0/node_modules/@quajs/renderer-web/plugins/audio.js#entry',
+          packageName: '@quajs/plugin-web-extra',
+        },
+        rendererEntry: {
+          specifier: 'npm:@quajs/assets-native/runtime?worker',
+          packageName: '@quajs/plugin-native-renderer',
+        },
+        executablePackageName: '@quajs/renderer-web',
+        rendererPackageName: '@quajs/assets-native',
+      },
+      {
+        target: 'native',
+        executableDependency: {
+          specifier: 'C:\\repo\\node_modules\\@quajs\\assets-web\\dist\\index.js?raw',
+          packageName: '@quajs/plugin-web-extra',
+        },
+        rendererEntry: {
+          specifier: '@quajs/plugin-cocos-ui',
+          packageName: '/repo/node_modules/.pnpm/@quajs+renderer-cocos@0.1.0/node_modules/@quajs/renderer-cocos/plugins/dialogue.js#entry',
+        },
+        executablePackageName: '@quajs/assets-web',
+        rendererPackageName: '@quajs/renderer-cocos',
+      },
+    ] as const
+
+    for (const {
+      target,
+      executableDependency,
+      rendererEntry,
+      executablePackageName,
+      rendererPackageName,
+    } of cases) {
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+        runtimePackages: [
+          {
+            id: `runtime.${target}.bad.bundler-mask`,
+            executableDependencies: [executableDependency],
+            rendererEntries: [rendererEntry],
+          },
+        ],
+      }))
+
+      expect(result.ok).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TARGET_BUNDLE_RUNTIME_PACKAGE_CORE_ADAPTER',
+          target,
+          runtimePackageId: `runtime.${target}.bad.bundler-mask`,
+          packageName: executablePackageName,
+          field: 'executableDependencies',
+        }),
+        expect.objectContaining({
+          code: 'TARGET_BUNDLE_RUNTIME_PACKAGE_CORE_ADAPTER',
+          target,
+          runtimePackageId: `runtime.${target}.bad.bundler-mask`,
+          packageName: rendererPackageName,
+          field: 'rendererEntries',
+        }),
+      ]))
+    }
+  })
 })
