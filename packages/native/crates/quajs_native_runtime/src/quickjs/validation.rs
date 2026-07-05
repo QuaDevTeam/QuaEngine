@@ -3,7 +3,7 @@ use super::{QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluatio
 pub fn validate_quickjs_evaluation_request(
     request: &QuickJsEvaluationRequest,
 ) -> Result<(), QuickJsEvaluationError> {
-    let asset_name = request.module.asset_name.trim();
+    let asset_name = request.module.asset_name.as_str();
     if asset_name.is_empty() {
         return Err(QuickJsEvaluationError {
             code: QuickJsEvaluationErrorCode::MissingAssetName,
@@ -87,10 +87,19 @@ fn quickjs_module_size_error(
 }
 
 pub fn is_forbidden_runtime_module_asset_name(asset_name: &str) -> bool {
-    asset_name.starts_with('/')
-        || asset_name.starts_with('\\')
-        || asset_name.split(['/', '\\']).any(|segment| segment == "..")
-        || has_uri_scheme(asset_name)
+    let without_suffix = strip_asset_reference_suffix(asset_name);
+    asset_name.trim().is_empty()
+        || without_suffix.trim().is_empty()
+        || asset_name.trim() != asset_name
+        || asset_name.chars().any(char::is_control)
+        || asset_name.contains('\\')
+        || without_suffix.starts_with('/')
+        || without_suffix.starts_with('\\')
+        || has_uri_scheme(without_suffix)
+        || without_suffix.ends_with('/')
+        || without_suffix
+            .split('/')
+            .any(|segment| segment.is_empty() || segment == "." || segment == "..")
 }
 
 pub fn is_forbidden_native_module_payload(asset_name: &str) -> bool {
