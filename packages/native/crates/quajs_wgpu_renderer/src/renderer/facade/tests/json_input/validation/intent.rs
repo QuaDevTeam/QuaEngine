@@ -61,6 +61,29 @@ fn json_frame_intent_validation_requires_explicit_intent_event() {
 }
 
 #[test]
+fn json_frame_intent_validation_rejects_non_projectable_surface_intent_targets() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let error = renderer
+        .prepare_frame_json_str(json_frame_with_non_projectable_surface_intent_input())
+        .unwrap_err();
+
+    match error {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].surface.root.intent");
+            assert_eq!(validation.asset_name, "Text");
+            assert!(validation.reason.contains("cannot project pointer intents"));
+        }
+        other => {
+            panic!("expected unsupported surface intent target validation error, got {other:?}")
+        }
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_intent_validation_rejects_unsafe_dispatch_identifiers() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

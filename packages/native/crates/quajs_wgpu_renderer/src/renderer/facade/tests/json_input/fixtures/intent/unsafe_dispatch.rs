@@ -206,6 +206,39 @@ pub(in super::super::super) fn json_frame_with_missing_surface_intent_event_inpu
     "#
 }
 
+pub(in super::super::super) fn json_frame_with_non_projectable_surface_intent_input() -> &'static str
+{
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "title",
+                  "kind": "Text",
+                  "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 320, "height": 64 },
+                  "text": "Title",
+                  "intent": {
+                    "event": "ui/intent",
+                    "action": "open"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super::super) fn json_frame_with_unsafe_ui_intent_metadata_key_input() -> &'static str
 {
     r#"
