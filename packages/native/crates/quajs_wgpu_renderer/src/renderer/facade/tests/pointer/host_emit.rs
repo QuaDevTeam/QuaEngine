@@ -164,6 +164,9 @@ fn compiled_choice_loop_pointer_release_emits_choice_intent_to_host() {
     assert_eq!(payload["action"], "select");
     assert_eq!(payload["arg0"], "stay");
     assert_eq!(payload["elementId"], "choice-menu:choice-button:stay");
+    assert_ne!(payload["choiceId"], "forged-choice");
+    assert_ne!(payload["action"], "forged-action");
+    assert_ne!(payload["elementId"], "forged-element");
     assert_eq!(host.renderer_intents(), &[emitted]);
     assert_eq!(
         renderer.state().pointer_interaction().active_press_count(),

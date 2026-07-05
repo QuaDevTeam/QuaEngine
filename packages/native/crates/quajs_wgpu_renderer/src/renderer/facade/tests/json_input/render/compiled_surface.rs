@@ -247,4 +247,16 @@ fn accepts_compiled_choice_loop_surface_json() {
         hit.intent.metadata.get("arg0"),
         Some(&serde_json::json!("stay"))
     );
+    assert_eq!(
+        hit.intent.metadata.get("choiceId"),
+        Some(&serde_json::json!("forged-choice"))
+    );
+    assert_eq!(
+        hit.intent.metadata.get("action"),
+        Some(&serde_json::json!("forged-action"))
+    );
+    assert_eq!(
+        hit.intent.metadata.get("elementId"),
+        Some(&serde_json::json!("forged-element"))
+    );
 }
