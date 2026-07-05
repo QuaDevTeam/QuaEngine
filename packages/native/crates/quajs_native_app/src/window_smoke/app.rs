@@ -106,15 +106,16 @@ impl NativeWindowSmokeApp {
             dimensions.device_pixel_ratio,
         )?;
 
-        let synced_frame = crate::texture_sync::render_json_frame_with_host_texture_lifecycle_sync(
-            &mut self.texture_bundle_registry,
-            &mut runtime.renderer,
-            &self.texture_host,
-            &frame_json,
-        )
-        .map_err(|error| {
-            NativeWindowSmokeError::new(format!("Native renderer smoke frame failed: {error}."))
-        })?;
+        let synced_frame =
+            crate::texture_sync::render_json_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
+                &mut self.texture_bundle_registry,
+                &mut runtime.renderer,
+                &self.texture_host,
+                &frame_json,
+            )
+            .map_err(|error| {
+                NativeWindowSmokeError::new(format!("Native renderer smoke frame failed: {error}."))
+            })?;
         self.texture_metrics.record_texture_sync(
             &synced_frame.frame.texture_upload_report,
             &synced_frame.frame.texture_host_cleanup_report,
