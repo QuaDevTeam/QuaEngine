@@ -6,6 +6,8 @@
 
 这条规则是 release blocker。任一产物只要同时携带两个 target core family，就必须终止打包；不能依赖 tree-shaking 预期、运行时分支、手动约定或后续 installer / updater 步骤再清理。
 
+这里的判断单位是“打包后的目标工程”，不是单个 renderer package 或源码配置字段。Web project、Cocos project、Native project 的 core bootstrap、renderer subentry、assets/store adapter、host bridge、project template、startup shell、debug/release shell、installer、updater、smoke runner 和 Runtime QPK resolver 都必须证明只消费当前目标 resolver 写出的 active-target manifest；任何阶段把另外两端 core plugin materialize 进来，或在模板/壳层二次声明当前 active core，都按核心插件串线失败处理。
+
 ## Canonical Packaging Contract
 
 这份文件的最终判定口径是“核心插件只能由当前目标 resolver 注入一次”。Web、Cocos、Native 的项目生成、debug/release shell、installer、updater、smoke runner 和 Runtime QPK 都是已验证 `target-bundle-manifest.json` 的只读消费者，不是第二个 core plugin 装配点。
