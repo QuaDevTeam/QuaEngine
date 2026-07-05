@@ -50,6 +50,25 @@ pub(in crate::bench_smoke) fn heavy_ui_view(node_count: usize) -> ViewProjection
     }
 }
 
+#[cfg(feature = "wgpu-backend")]
+pub(in crate::bench_smoke) fn heavy_text_ui_view(node_count: usize) -> ViewProjection {
+    ViewProjection {
+        ui: Some(UiProjection {
+            overlays: vec![UiOverlayProjection {
+                surface: Some(
+                    UiOverlaySurfaceProjection::new("bench/heavy-text-ui.qui")
+                        .with_root(heavy_text_ui_surface(node_count)),
+                ),
+                provenance: provenance("runtime.ui.text", ["base"]),
+                ..UiOverlayProjection::new("bench-text-ui")
+            }],
+            provenance: provenance("runtime.ui.text", ["base"]),
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
+}
+
 pub(in crate::bench_smoke) fn replacement_pressure_view(count: usize) -> ViewProjection {
     ViewProjection {
         ui: Some(UiProjection {
@@ -140,6 +159,44 @@ fn heavy_ui_surface(node_count: usize) -> UiSurfaceNodeProjection {
             y: 32.0,
             width: 1760.0,
             height: 920.0,
+        },
+    )
+    .with_children(children)
+}
+
+#[cfg(feature = "wgpu-backend")]
+fn heavy_text_ui_surface(node_count: usize) -> UiSurfaceNodeProjection {
+    let children = (0..node_count)
+        .map(|index| {
+            let column = (index % 8) as f64;
+            let row = (index / 8) as f64;
+            let label = if index % 3 == 0 {
+                format!("開始設定画面保存読込{index}")
+            } else {
+                format!("Menu Item {index}")
+            };
+            UiSurfaceNodeProjection::new(
+                format!("text-label-{index}"),
+                UiSurfaceNodeKind::Text,
+                UiSurfaceNodeRect {
+                    x: 48.0 + column * 210.0,
+                    y: 64.0 + row * 42.0,
+                    width: 180.0,
+                    height: 38.0,
+                },
+            )
+            .with_text(label)
+        })
+        .collect();
+
+    UiSurfaceNodeProjection::new(
+        "text-root",
+        UiSurfaceNodeKind::Fragment,
+        UiSurfaceNodeRect {
+            x: 32.0,
+            y: 32.0,
+            width: 1760.0,
+            height: 980.0,
         },
     )
     .with_children(children)
