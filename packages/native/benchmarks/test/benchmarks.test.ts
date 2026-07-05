@@ -84,6 +84,18 @@ describe('@quajs/native-benchmarks', () => {
         fixAllEdits: expect.any(Number),
         quickFixes: expect.any(Number),
       }))
+    const qssFormatMetrics = records.find(record => record.bench === 'native.authoring.qss.format.smoke')?.metrics
+    expect(qssFormatMetrics)
+      .toEqual(expect.objectContaining({
+        declarations: expect.any(Number),
+        formatIdempotentPasses: expect.any(Number),
+        formattedBytes: expect.any(Number),
+        resolvedRules: expect.any(Number),
+        styleFields: expect.any(Number),
+      }))
+    expect(qssFormatMetrics?.formatIdempotentPasses).toBe(1)
+    expect(qssFormatMetrics?.resolvedRules).toBeGreaterThan(0)
+    expect(qssFormatMetrics?.styleFields).toBeGreaterThan(0)
     expect(records.find(record => record.bench === 'native.authoring.project_index.build.smoke')?.metrics)
       .toEqual(expect.objectContaining({
         assetReferences: expect.any(Number),

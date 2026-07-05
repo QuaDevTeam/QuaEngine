@@ -1996,6 +1996,7 @@ Compiler benchmarks:
 - Component registry load/validate time for built-in, package, and project component schemas.
 - Project-authored component expansion/lowering time.
 - QSS parse/validate/lower throughput for small, medium, and large stylesheets.
+- QSS format idempotence and resolved-style stability for small, medium, and large stylesheets, including declarations, resolved rule count, resolved style field count, and formatted byte size.
 - Token and asset resolution cost for package-local and workspace roots.
 - Native UI project indexing cost for cold start and incremental edit.
 - Compile-to-QPK manifest generation cost.
@@ -2676,7 +2677,7 @@ Exit: default VN chrome, product panels, media controls, and one project-authore
 - Implement validation pipeline and stable diagnostic codes.
 - Add valid/invalid fixture matrix. Current status: `packages/native/ui-compiler/test/qss-acceptance.test.ts` gates every `nativeQssProperties` native-wgpu property with a valid declaration, invalid `QSS_INVALID_VALUE` declaration, and resolved output assertion.
 - Add style IR snapshots.
-- Add formatter and "format preserves IR" tests.
+- Add formatter and "format preserves IR" tests. Current status: `packages/native/ui-compiler/test/qss-format.test.ts` verifies QSS format idempotence, final-newline handling, diagnostics/selector preservation, and resolved style IR stability.
 - Add QSS validation benchmark fixtures and initial parser/validator throughput report.
 
 Exit: QSS acceptance criteria pass in automated tests.

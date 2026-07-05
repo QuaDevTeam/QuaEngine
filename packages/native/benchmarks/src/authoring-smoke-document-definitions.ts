@@ -207,10 +207,21 @@ export function createNativeAuthoringDocumentToolingBenchmarkDefinitions(
       documentBytes: byteLength(fixtures.qss),
       run(iterations) {
         let checksum = 0
+        let declarations = 0
         let diagnostics = 0
+        let formatIdempotentPasses = 0
         let formattedBytes = 0
+        let resolvedRules = 0
+        let styleFields = 0
         for (let index = 0; index < iterations; index += 1) {
           const formatted = formatNativeUiDocument(fixtures.qss, {
+            filePath: 'bench/menu.qss',
+            format: {
+              indentSize: 2,
+              insertFinalNewline: true,
+            },
+          })
+          const formattedAgain = formatNativeUiDocument(formatted, {
             filePath: 'bench/menu.qss',
             format: {
               indentSize: 2,
@@ -220,17 +231,36 @@ export function createNativeAuthoringDocumentToolingBenchmarkDefinitions(
           const edits = formatNativeUiDocumentEdits(fixtures.qss, {
             filePath: 'bench/menu.qss',
           })
+          const document = analyzeNativeUiDocument(formatted, {
+            filePath: 'bench/menu.qss',
+          })
           formattedBytes += byteLength(formatted)
           diagnostics += lintNativeUiDocument(formatted, {
             filePath: 'bench/menu.qss',
           }).diagnostics.length
-          checksum += formatted.length + edits.length
+          if (formattedAgain === formatted)
+            formatIdempotentPasses += 1
+          if (document.kind === 'qss') {
+            declarations += document.rules.reduce((total, rule) => total + rule.declarations.length, 0)
+            for (const rule of document.rules) {
+              const resolved = resolveNativeQssDeclarations(rule.declarations)
+              const fieldCount = Object.keys(resolved.style).length
+              resolvedRules += 1
+              styleFields += fieldCount
+              checksum += fieldCount + (resolved.zIndex ?? 0)
+            }
+          }
+          checksum += formatted.length + edits.length + (formattedAgain === formatted ? 1 : 0)
         }
         return {
           checksum,
           diagnostics,
           metrics: {
+            declarations,
+            formatIdempotentPasses,
             formattedBytes,
+            resolvedRules,
+            styleFields,
           },
         }
       },

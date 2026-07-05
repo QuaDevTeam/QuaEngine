@@ -140,7 +140,7 @@ CI 可以把这个入口作为 native lane 的主命令；如果磁盘紧张，�
 - QSS safe color validation：`background-color`、`border-color`、`color` 必须复用 resolved style parser 语义，只接受 safe native color literal 子集，并对 `url(...)`、路径字符串、traversal、越界 `rgb(...)` channel、格式错误的 `rgba(...)`、任意 CSS color function 发出 `QSS_INVALID_VALUE`；resolved style IR 必须剪掉这些无效字段
 - native UI surface compatibility derivation：从 analyzed QUI/QSS 文档派生 `quiComponents`、`qssFeatures`、`assetKinds`，确认输出固定包含 `native-wgpu.ui.surface@1`、`qui` / `qss` / `tokens`、`nativeCode: false`，并且不会自动声明尚未实现的 `native-wgpu.audio@1`
 - AST / IR snapshot
-- format idempotence
+- format idempotence and resolved style IR preservation: `packages/native/ui-compiler/test/qss-format.test.ts` 必须证明两次 format 输出一致、diagnostics / selector 不变，并且 `resolveNativeQssDeclarations` 输出不漂移
 
 ### LSP tests
 
@@ -290,6 +290,8 @@ CI 里要把三目标核心插件隔离拆成两个必跑 test suite：
 - `native.authoring.project_index.incremental_update.smoke`
 
 这些 benchmark 通过 `@quajs/native-ui-compiler` 和 `@quajs/native-language-server` 的公开 API 运行，包括 QSS declaration 到 resolved style 的归一化、已分析 QUI/QSS 到 Rust 可消费 surface projection JSON 的编译、从 resolved projection 反推 `assetKinds` / `intentEvents` / `projectionFields` / `qssFeatures` / `quiComponents` 需求、从 projection 派生 native UI surface compatibility、内存 project index build / incremental update，以及 document link / component-class reference 计数；不启动 renderer、不加载 Web/Cocos/Native target core bootstrap、不解析普通 game plugin 列表。fixture 固定在源码内，不能访问网络、不能随机生成。每条输出记录必须包含 `schemaVersion`、`suite`、`bench`、`profile`、`platform`、`backend`、`packageVersion`、`iterations`、`documentBytes`、`diagnostics`、`elapsedMs`、`memory` 和可比较的 `metrics`；`memory.heapUsedBytes` / `rssBytes` 记录非负压力指标，GC 或 allocator 抖动导致的负 delta 必须规整为 0，避免 benchmark baseline 出现无意义的负内存值。
+
+`native.authoring.qss.format.smoke` 的 metrics 必须覆盖 `declarations`、`formatIdempotentPasses`、`formattedBytes`、`resolvedRules` 和 `styleFields`，确保 formatter benchmark 不只是统计输出大小，也会证明格式化后的 QSS 仍能解析并生成稳定 resolved style IR。
 
 `native.authoring.surface_projection.compile.smoke` 的 metrics 必须同时覆盖 projection 复杂度和兼容性复杂度：节点数、style field、intent、text node、projection field、QSS feature、QUI component、asset kind、compatibility capability、compatibility asset kind、compatibility QSS feature、compatibility QUI component，以及 `nativeCode: false` 次数。这样动态 UI 小包在不携带 native code 的前提下，仍可以用 benchmark 追踪它对 native-wgpu capability / memory / 激活前兼容性校验的压力。
 
