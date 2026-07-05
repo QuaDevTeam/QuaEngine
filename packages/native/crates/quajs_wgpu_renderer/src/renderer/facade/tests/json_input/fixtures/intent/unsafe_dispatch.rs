@@ -141,6 +141,59 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_intent_action_input() -
     "#
 }
 
+pub(in super::super::super) fn json_frame_with_missing_overlay_intent_event_input() -> &'static str
+{
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "intent": {
+                "action": "close"
+              },
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": { "id": "root", "kind": "Box" }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super::super) fn json_frame_with_missing_surface_intent_event_input() -> &'static str
+{
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Button",
+                  "intent": {
+                    "action": "open"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super::super) fn json_frame_with_unsafe_ui_intent_metadata_key_input() -> &'static str
 {
     r#"
