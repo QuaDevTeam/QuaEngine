@@ -16,83 +16,81 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
         ui.intent_events.iter().cloned().collect::<BTreeSet<_>>(),
         BTreeSet::from(["choice/select".to_string(), "ui/intent".to_string()])
     );
+    assert_eq!(
+        ui.asset_kinds.iter().cloned().collect::<BTreeSet<_>>(),
+        string_set(&["data", "fonts", "images", "qss", "qui", "tokens"])
+    );
+    assert_eq!(
+        ui.qss_features.iter().cloned().collect::<BTreeSet<_>>(),
+        string_set(&[
+            "align-items",
+            "background-color",
+            "background-image",
+            "background-position",
+            "background-size",
+            "border-color",
+            "border-radius",
+            "border-style",
+            "border-width",
+            "bottom",
+            "box-sizing",
+            "color",
+            "column-gap",
+            "display",
+            "font-family",
+            "font-size",
+            "font-style",
+            "font-weight",
+            "gap",
+            "height",
+            "inset",
+            "justify-content",
+            "left",
+            "letter-spacing",
+            "line-height",
+            "margin",
+            "margin-bottom",
+            "margin-left",
+            "margin-right",
+            "margin-top",
+            "max-height",
+            "max-width",
+            "min-height",
+            "min-width",
+            "object-fit",
+            "opacity",
+            "overflow",
+            "padding",
+            "padding-bottom",
+            "padding-left",
+            "padding-right",
+            "padding-top",
+            "position",
+            "right",
+            "row-gap",
+            "text-align",
+            "text-decoration",
+            "text-overflow",
+            "text-transform",
+            "top",
+            "visibility",
+            "white-space",
+            "width",
+            "z-index",
+        ])
+    );
+    assert_eq!(
+        ui.qui_components.iter().cloned().collect::<BTreeSet<_>>(),
+        string_set(&[
+            "Backdrop", "Box", "Button", "Column", "Divider", "Fragment", "Grid", "Image", "Layer",
+            "Panel", "RichText", "Row", "SafeArea", "Scroll", "Spacer", "Stack", "Text",
+        ])
+    );
     assert!(!ui.intent_events.contains(&"save/select".to_string()));
     assert!(!ui.intent_events.contains(&"settings/change".to_string()));
-    assert!(ui.asset_kinds.contains(&"qui".to_string()));
-    assert!(ui.asset_kinds.contains(&"qss".to_string()));
-    assert!(ui.asset_kinds.contains(&"tokens".to_string()));
-    assert!(ui.qss_features.contains(&"align-items".to_string()));
-    assert!(ui.asset_kinds.contains(&"fonts".to_string()));
-    assert!(ui.qss_features.contains(&"display".to_string()));
     assert!(!ui.qss_features.contains(&"flex-direction".to_string()));
-    assert!(ui.qss_features.contains(&"gap".to_string()));
-    assert!(ui.qss_features.contains(&"row-gap".to_string()));
-    assert!(ui.qss_features.contains(&"column-gap".to_string()));
-    assert!(ui.qss_features.contains(&"padding".to_string()));
-    assert!(ui.qss_features.contains(&"padding-bottom".to_string()));
-    assert!(ui.qss_features.contains(&"padding-left".to_string()));
-    assert!(ui.qss_features.contains(&"padding-right".to_string()));
-    assert!(ui.qss_features.contains(&"padding-top".to_string()));
-    assert!(ui.qss_features.contains(&"position".to_string()));
-    assert!(ui.qss_features.contains(&"margin".to_string()));
-    assert!(ui.qss_features.contains(&"margin-bottom".to_string()));
-    assert!(ui.qss_features.contains(&"margin-left".to_string()));
-    assert!(ui.qss_features.contains(&"margin-right".to_string()));
-    assert!(ui.qss_features.contains(&"margin-top".to_string()));
-    assert!(ui.qss_features.contains(&"background-color".to_string()));
-    assert!(ui.qss_features.contains(&"background-image".to_string()));
-    assert!(ui.qss_features.contains(&"background-position".to_string()));
-    assert!(ui.qss_features.contains(&"background-size".to_string()));
-    assert!(ui.qss_features.contains(&"border-color".to_string()));
-    assert!(ui.qss_features.contains(&"border-radius".to_string()));
-    assert!(ui.qss_features.contains(&"border-style".to_string()));
-    assert!(ui.qss_features.contains(&"border-width".to_string()));
-    assert!(ui.qss_features.contains(&"bottom".to_string()));
-    assert!(ui.qss_features.contains(&"box-sizing".to_string()));
-    assert!(ui.qss_features.contains(&"color".to_string()));
-    assert!(ui.qss_features.contains(&"font-family".to_string()));
-    assert!(ui.qss_features.contains(&"font-size".to_string()));
-    assert!(ui.qss_features.contains(&"font-style".to_string()));
-    assert!(ui.qss_features.contains(&"font-weight".to_string()));
-    assert!(ui.qss_features.contains(&"inset".to_string()));
-    assert!(ui.qss_features.contains(&"justify-content".to_string()));
-    assert!(ui.qss_features.contains(&"letter-spacing".to_string()));
-    assert!(ui.qss_features.contains(&"height".to_string()));
-    assert!(ui.qss_features.contains(&"left".to_string()));
-    assert!(ui.qss_features.contains(&"line-height".to_string()));
-    assert!(ui.qss_features.contains(&"max-height".to_string()));
-    assert!(ui.qss_features.contains(&"max-width".to_string()));
-    assert!(ui.qss_features.contains(&"min-height".to_string()));
-    assert!(ui.qss_features.contains(&"min-width".to_string()));
-    assert!(ui.qss_features.contains(&"text-align".to_string()));
-    assert!(ui.qss_features.contains(&"text-decoration".to_string()));
-    assert!(ui.qss_features.contains(&"text-overflow".to_string()));
-    assert!(ui.qss_features.contains(&"text-transform".to_string()));
-    assert!(ui.qss_features.contains(&"object-fit".to_string()));
-    assert!(ui.qss_features.contains(&"opacity".to_string()));
-    assert!(ui.qss_features.contains(&"overflow".to_string()));
-    assert!(ui.qss_features.contains(&"z-index".to_string()));
-    assert!(ui.qss_features.contains(&"right".to_string()));
-    assert!(ui.qss_features.contains(&"top".to_string()));
-    assert!(ui.qss_features.contains(&"visibility".to_string()));
-    assert!(ui.qss_features.contains(&"white-space".to_string()));
-    assert!(ui.qss_features.contains(&"width".to_string()));
-    assert!(ui.qui_components.contains(&"Backdrop".to_string()));
-    assert!(ui.qui_components.contains(&"Button".to_string()));
-    assert!(ui.qui_components.contains(&"Column".to_string()));
-    assert!(ui.qui_components.contains(&"Divider".to_string()));
-    assert!(ui.qui_components.contains(&"Fragment".to_string()));
-    assert!(ui.qui_components.contains(&"Grid".to_string()));
-    assert!(ui.qui_components.contains(&"Layer".to_string()));
-    assert!(ui.qui_components.contains(&"Row".to_string()));
-    assert!(ui.qui_components.contains(&"Text".to_string()));
-    assert!(ui.qui_components.contains(&"RichText".to_string()));
-    assert!(ui.qui_components.contains(&"Image".to_string()));
-    assert!(ui.qui_components.contains(&"Panel".to_string()));
-    assert!(ui.qui_components.contains(&"SafeArea".to_string()));
-    assert!(ui.qui_components.contains(&"Scroll".to_string()));
-    assert!(ui.qui_components.contains(&"Spacer".to_string()));
-    assert!(ui.qui_components.contains(&"Stack".to_string()));
+    assert!(!ui.qui_components.contains(&"Dialog".to_string()));
+    assert!(!ui.qui_components.contains(&"Drawer".to_string()));
     assert!(!ui.qui_components.contains(&"VirtualList".to_string()));
     assert!(!ui.qui_components.contains(&"FocusScope".to_string()));
 }
@@ -158,4 +156,8 @@ fn ui_surface_capability_covers_shared_compiled_surface_fixture() {
     assert!(fixture.qui_components.contains("Panel"));
     assert!(fixture.qui_components.contains("Button"));
     assert!(fixture.intent_events.contains("ui/intent"));
+}
+
+fn string_set(values: &[&str]) -> BTreeSet<String> {
+    values.iter().map(|value| value.to_string()).collect()
 }

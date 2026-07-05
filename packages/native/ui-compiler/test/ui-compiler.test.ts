@@ -9,56 +9,98 @@ import {
   nativeWgpuQuiComponentNames,
 } from '../src'
 
+const EXPECTED_NATIVE_WGPU_QUI_COMPONENTS = [
+  'Backdrop',
+  'Box',
+  'Button',
+  'Column',
+  'Divider',
+  'Fragment',
+  'Grid',
+  'Image',
+  'Layer',
+  'Panel',
+  'RichText',
+  'Row',
+  'SafeArea',
+  'Scroll',
+  'Spacer',
+  'Stack',
+  'Text',
+]
+
+const EXPECTED_NATIVE_WGPU_QSS_FEATURES = [
+  'align-items',
+  'background-color',
+  'background-image',
+  'background-position',
+  'background-size',
+  'border-color',
+  'border-radius',
+  'border-style',
+  'border-width',
+  'bottom',
+  'box-sizing',
+  'color',
+  'column-gap',
+  'display',
+  'font-family',
+  'font-size',
+  'font-style',
+  'font-weight',
+  'gap',
+  'height',
+  'inset',
+  'justify-content',
+  'left',
+  'letter-spacing',
+  'line-height',
+  'margin',
+  'margin-bottom',
+  'margin-left',
+  'margin-right',
+  'margin-top',
+  'max-height',
+  'max-width',
+  'min-height',
+  'min-width',
+  'object-fit',
+  'opacity',
+  'overflow',
+  'padding',
+  'padding-bottom',
+  'padding-left',
+  'padding-right',
+  'padding-top',
+  'position',
+  'right',
+  'row-gap',
+  'text-align',
+  'text-decoration',
+  'text-overflow',
+  'text-transform',
+  'top',
+  'visibility',
+  'white-space',
+  'width',
+  'z-index',
+]
+
+function sorted(values: readonly string[]): string[] {
+  return [...values].sort()
+}
+
 describe('@quajs/native-ui-compiler', () => {
   it('exposes native-wgpu QUI and QSS capability feature lists', () => {
-    expect(nativeWgpuQuiComponentNames()).toContain('Button')
-    expect(nativeWgpuQuiComponentNames()).toContain('RichText')
-    expect(nativeWgpuQuiComponentNames()).toContain('Scroll')
-    expect(nativeWgpuQssFeatureNames()).toContain('background-color')
-    expect(nativeWgpuQssFeatureNames()).toContain('background-image')
-    expect(nativeWgpuQssFeatureNames()).toContain('background-position')
-    expect(nativeWgpuQssFeatureNames()).toContain('background-size')
-    expect(nativeWgpuQssFeatureNames()).toContain('border-style')
-    expect(nativeWgpuQssFeatureNames()).toContain('bottom')
-    expect(nativeWgpuQssFeatureNames()).toContain('box-sizing')
-    expect(nativeWgpuQssFeatureNames()).toContain('display')
-    expect(nativeWgpuQssFeatureNames()).toContain('gap')
-    expect(nativeWgpuQssFeatureNames()).toContain('height')
-    expect(nativeWgpuQssFeatureNames()).toContain('inset')
-    expect(nativeWgpuQssFeatureNames()).toContain('left')
-    expect(nativeWgpuQssFeatureNames()).toContain('font-style')
-    expect(nativeWgpuQssFeatureNames()).toContain('letter-spacing')
-    expect(nativeWgpuQssFeatureNames()).toContain('margin')
-    expect(nativeWgpuQssFeatureNames()).toContain('margin-bottom')
-    expect(nativeWgpuQssFeatureNames()).toContain('margin-left')
-    expect(nativeWgpuQssFeatureNames()).toContain('margin-right')
-    expect(nativeWgpuQssFeatureNames()).toContain('margin-top')
-    expect(nativeWgpuQssFeatureNames()).toContain('max-height')
-    expect(nativeWgpuQssFeatureNames()).toContain('max-width')
-    expect(nativeWgpuQssFeatureNames()).toContain('min-height')
-    expect(nativeWgpuQssFeatureNames()).toContain('min-width')
-    expect(nativeWgpuQssFeatureNames()).toContain('object-fit')
-    expect(nativeWgpuQssFeatureNames()).toContain('opacity')
-    expect(nativeWgpuQssFeatureNames()).toContain('overflow')
-    expect(nativeWgpuQssFeatureNames()).toContain('padding')
-    expect(nativeWgpuQssFeatureNames()).toContain('padding-bottom')
-    expect(nativeWgpuQssFeatureNames()).toContain('padding-left')
-    expect(nativeWgpuQssFeatureNames()).toContain('padding-right')
-    expect(nativeWgpuQssFeatureNames()).toContain('padding-top')
-    expect(nativeWgpuQssFeatureNames()).toContain('position')
-    expect(nativeWgpuQssFeatureNames()).toContain('right')
-    expect(nativeWgpuQssFeatureNames()).toContain('row-gap')
-    expect(nativeWgpuQssFeatureNames()).toContain('column-gap')
-    expect(nativeWgpuQssFeatureNames()).toContain('text-decoration')
-    expect(nativeWgpuQssFeatureNames()).toContain('text-overflow')
-    expect(nativeWgpuQssFeatureNames()).toContain('text-transform')
-    expect(nativeWgpuQssFeatureNames()).toContain('top')
-    expect(nativeWgpuQssFeatureNames()).toContain('visibility')
-    expect(nativeWgpuQssFeatureNames()).toContain('white-space')
-    expect(nativeWgpuQssFeatureNames()).toContain('width')
-    expect(nativeWgpuQssFeatureNames()).toContain('z-index')
-    expect(nativeWgpuQssFeatureNames()).toContain('align-items')
-    expect(nativeWgpuQssFeatureNames()).toContain('justify-content')
+    expect(sorted(nativeWgpuQuiComponentNames())).toEqual(EXPECTED_NATIVE_WGPU_QUI_COMPONENTS)
+    expect(sorted(nativeWgpuQssFeatureNames())).toEqual(EXPECTED_NATIVE_WGPU_QSS_FEATURES)
+    expect(nativeWgpuQuiComponentNames()).not.toEqual(expect.arrayContaining(['Dialog', 'Drawer']))
+    expect(nativeWgpuQssFeatureNames()).not.toEqual(expect.arrayContaining([
+      'background-repeat',
+      'box-shadow',
+      'flex-direction',
+      'text-shadow',
+    ]))
   })
 
   it('rejects browser-only QSS selectors and values', () => {
