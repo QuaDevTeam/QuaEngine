@@ -36,6 +36,61 @@ pub(in super::super) fn json_frame_with_malformed_dialogue_projection_input() ->
     "#
 }
 
+pub(in super::super) fn json_frame_with_malformed_background_projection_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": "bg/main.png"
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_malformed_background_layers_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "layered",
+          "layers": "bg/fg.png"
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_malformed_background_layer_item_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "layered",
+          "layers": [
+            "bg/fg.png"
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_malformed_background_video_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "video",
+          "video": "video/opening.webm"
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_malformed_choice_set_projection_input() -> &'static str {
     r#"
     {
