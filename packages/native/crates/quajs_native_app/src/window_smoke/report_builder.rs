@@ -74,6 +74,16 @@ pub(super) fn build_window_smoke_report(
         pointer_probe_count: input.input_metrics.pointer_probe_count,
         pointer_cancel_count: input.input_metrics.pointer_cancel_count,
         pointer_last_intent_type: input.input_metrics.last_intent_type.clone(),
+        focus_gain_count: input.input_metrics.focus_gain_count,
+        focus_loss_count: input.input_metrics.focus_loss_count,
+        keyboard_event_count: input.input_metrics.keyboard_event_count,
+        keyboard_press_count: input.input_metrics.keyboard_press_count,
+        keyboard_release_count: input.input_metrics.keyboard_release_count,
+        keyboard_repeat_count: input.input_metrics.keyboard_repeat_count,
+        ime_event_count: input.input_metrics.ime_event_count,
+        ime_preedit_count: input.input_metrics.ime_preedit_count,
+        ime_commit_count: input.input_metrics.ime_commit_count,
+        ime_last_text_byte_count: input.input_metrics.ime_last_text_byte_count,
         last_resize_physical_width: input.last_resize_physical_size.map(|size| size.width),
         last_resize_physical_height: input.last_resize_physical_size.map(|size| size.height),
         logical_width: input.dimensions.logical_width,
@@ -116,6 +126,16 @@ mod tests {
             pointer_intent_emit_count: 4,
             pointer_probe_count: 1,
             pointer_cancel_count: 2,
+            focus_gain_count: 1,
+            focus_loss_count: 2,
+            keyboard_event_count: 3,
+            keyboard_press_count: 2,
+            keyboard_release_count: 1,
+            keyboard_repeat_count: 1,
+            ime_event_count: 4,
+            ime_preedit_count: 2,
+            ime_commit_count: 1,
+            ime_last_text_byte_count: Some(6),
             last_intent_type: Some("ui/intent".to_string()),
         };
 
@@ -152,6 +172,16 @@ mod tests {
             Some("ui/intent")
         );
         assert_eq!(report.pointer_cancel_count, 2);
+        assert_eq!(report.focus_gain_count, 1);
+        assert_eq!(report.focus_loss_count, 2);
+        assert_eq!(report.keyboard_event_count, 3);
+        assert_eq!(report.keyboard_press_count, 2);
+        assert_eq!(report.keyboard_release_count, 1);
+        assert_eq!(report.keyboard_repeat_count, 1);
+        assert_eq!(report.ime_event_count, 4);
+        assert_eq!(report.ime_preedit_count, 2);
+        assert_eq!(report.ime_commit_count, 1);
+        assert_eq!(report.ime_last_text_byte_count, Some(6));
         assert_eq!(report.last_resize_physical_width, Some(960));
         assert_eq!(report.logical_width, 480.0);
         assert!(report.resubmitted_after_texture_upload);
