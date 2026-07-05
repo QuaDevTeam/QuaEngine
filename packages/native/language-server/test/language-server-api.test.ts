@@ -35,6 +35,19 @@ describe('@quajs/native-language-server public API', () => {
     ])
   })
 
+  it('adapts unsupported native action target diagnostics for QUI documents', () => {
+    const result = lintNativeUiDocument('Text(action: ui.close()) { "Close" }', {
+      filePath: 'overlay.qui',
+    })
+
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'QUI_UNSUPPORTED_ACTION_TARGET',
+        source: 'qui',
+      }),
+    ])
+  })
+
   it('formats QSS with full document edits', () => {
     const edits = formatNativeUiDocumentEdits('Button{color:#fff;}', {
       filePath: 'menu.qss',
