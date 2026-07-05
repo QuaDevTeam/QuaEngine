@@ -25,7 +25,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             &["background.video"],
             &[],
             &["video", "images"],
-            &["object-fit", "opacity"],
+            &["object-fit", "object-position", "opacity"],
             &[],
             "warn-once",
         ),
