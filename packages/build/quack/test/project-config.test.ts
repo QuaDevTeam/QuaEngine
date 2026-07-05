@@ -826,15 +826,24 @@ describe('qua project config', () => {
 
   it('rejects target bundle manifests before writing when the expected target does not match', async () => {
     const root = await createProjectRoot()
-    const manifestPath = join(root, 'dist/native', QUA_TARGET_BUNDLE_MANIFEST_FILE)
 
-    await expect(emitQuaTargetBundleManifest({
-      artifactDir: join(root, 'dist/native'),
-      expectedTarget: 'native',
-      manifest: createTargetBundleManifestFixture('web'),
-      manifestPath,
-    })).rejects.toThrow('Target bundle manifest validation failed')
-    await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+    for (const expectedTarget of ['web', 'cocos', 'native'] as const) {
+      for (const manifestTarget of ['web', 'cocos', 'native'] as const) {
+        if (manifestTarget === expectedTarget)
+          continue
+
+        const artifactDir = join(root, 'dist', `${expectedTarget}-from-${manifestTarget}`)
+        const manifestPath = join(artifactDir, QUA_TARGET_BUNDLE_MANIFEST_FILE)
+
+        await expect(emitQuaTargetBundleManifest({
+          artifactDir,
+          expectedTarget,
+          manifest: createTargetBundleManifestFixture(manifestTarget),
+          manifestPath,
+        })).rejects.toThrow('Target bundle manifest validation failed')
+        await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+      }
+    }
   })
 
   it('validates native target platforms and profiles', () => {
