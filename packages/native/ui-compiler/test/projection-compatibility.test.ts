@@ -107,6 +107,23 @@ Stack(id: "ui-root") {
     expect(compatibility.assetKinds).toEqual(expect.arrayContaining(['qui', 'qss', 'tokens', 'images']))
   })
 
+  it('omits non-projectable foundational actions from document-derived native intent events', () => {
+    const qui = analyzeQuiSource(`
+Stack {
+  Image(src: "ui/poster.png", action: choice.select("poster"))
+  Text(action: ui.open("caption")) { "Caption" }
+}
+`)
+    const compatibility = createNativeUiSurfaceCompatibilityFromDocuments(qui)
+    const projectionCompatibility = createNativeUiSurfaceCompatibilityFromProjection(
+      compileNativeUiSurfaceProjection(qui),
+    )
+
+    expect(qui.diagnostics.filter(item => item.code === 'QUI_UNSUPPORTED_ACTION_TARGET')).toHaveLength(2)
+    expect(compatibility.intentEvents).toBeUndefined()
+    expect(projectionCompatibility.intentEvents).toBeUndefined()
+  })
+
   it('omits unsafe document asset references from native compatibility asset kinds', () => {
     const qui = analyzeQuiSource(`
 Stack {

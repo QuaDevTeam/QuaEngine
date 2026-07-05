@@ -1,6 +1,8 @@
-import type { NativeQuiProp, NativeUiDiagnostic } from './types'
+import type { NativeQuiAstNode, NativeQuiProp, NativeUiDiagnostic } from './types'
 import { isSafeNativeAssetType, isSafePackageAssetName, literalStringValue } from './assets'
 import { hasUnsupportedQuiActionArgument, parseQuiActionDescriptor } from './qui-actions'
+import { findNativeUiComponent } from './registry'
+import { canProjectNativeUiIntent, nativeUiIntentSurfaceKinds } from './surface-intents'
 
 const IDENTIFIER_PATTERN_SOURCE = String.raw`[A-Za-z_$][\w$]*`
 const FOR_SOURCE_PATTERN_SOURCE = String.raw`[\s\S]+?`
@@ -61,6 +63,27 @@ export function validateQuiProps(props: readonly NativeQuiProp[], diagnostics: N
 
   validateQuiAssetReferences(props, diagnostics)
   validateQuiPropGroups(props, diagnostics)
+}
+
+export function validateQuiActionTargets(
+  nodes: readonly NativeQuiAstNode[],
+  diagnostics: NativeUiDiagnostic[],
+): void {
+  for (const node of nodes) {
+    if (node.kind === 'component' && node.actions.length > 0 && findNativeUiComponent(node.name) && !canProjectNativeUiIntent(node.name)) {
+      for (const action of node.actions) {
+        diagnostics.push({
+          code: 'QUI_UNSUPPORTED_ACTION_TARGET',
+          message: `${node.name} does not support native action intents. Use ${nativeUiIntentSurfaceKinds.join(', ')} or a composite that expands to them.`,
+          range: action.valueRange ?? action.range ?? node.range,
+          severity: 'error',
+          source: 'qui',
+        })
+      }
+    }
+
+    validateQuiActionTargets(node.children, diagnostics)
+  }
 }
 
 function validateQuiAssetReferences(props: readonly NativeQuiProp[], diagnostics: NativeUiDiagnostic[]): void {

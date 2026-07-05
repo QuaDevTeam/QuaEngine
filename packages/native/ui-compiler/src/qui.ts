@@ -14,7 +14,7 @@ import {
   validateQuiImports,
 } from './qui-imports'
 import { collectQuiProps } from './qui-props'
-import { validateQuiProps } from './qui-semantics'
+import { validateQuiActionTargets, validateQuiProps } from './qui-semantics'
 import { parseQuiStructureTree, validateQuiStructure } from './qui-structure'
 import {
   findNativeUiComponent,
@@ -42,6 +42,7 @@ export function analyzeQuiSource(source: string, options: NativeUiLanguageOption
 
   validateQuiProps(props, diagnostics)
   validateQuiStructure(source, masked, lineStarts, diagnostics)
+  validateQuiActionTargets(tree, diagnostics)
   validateQuiImports(imports, diagnostics)
 
   if (options.lint?.strictComponents) {

@@ -41,6 +41,7 @@ import {
   type NativeUiCompilerSurfaceNodeProjection,
 } from './projection-layout'
 import { resolveStyleForNode } from './projection-selectors'
+import { canProjectNativeUiIntent } from './surface-intents'
 
 export interface CompileNativeUiSurfaceProjectionOptions {
   components?: Readonly<Record<string, NativeQuiDocument>>
@@ -150,7 +151,7 @@ function surfaceNodeFromQuiNode(
   )
   const text = textFromNode(source, node, context.scope)
   const image = imageFromProps(node.props)
-  const intent = resolvedStyle.interactive === false
+  const intent = resolvedStyle.interactive === false || !canProjectNativeUiIntent(node.name)
     ? undefined
     : intentFromNode(node, context.scope)
   const id = nodeId(node, context.scope)
