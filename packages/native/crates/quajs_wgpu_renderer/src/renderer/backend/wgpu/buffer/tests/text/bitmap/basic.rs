@@ -80,3 +80,27 @@ fn renders_mixed_unsupported_glyphs_with_bitmap_fallback_geometry() {
     assert!(pass.vertices.iter().any(|vertex| vertex.uv[0] > 0.0));
     assert!(pass.vertices.iter().any(|vertex| vertex.uv[1] > 0.0));
 }
+
+#[test]
+fn reserves_fullwidth_cells_for_cjk_bitmap_fallback_glyphs() {
+    let style = text_style(21.0, TextAlign::Left, EdgeInsetsDrawParam::default());
+    let ascii_bounds = text_placeholder_bounds_for_text_with_style("AA", style.clone());
+    let cjk_plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![quad(
+        "ui:bitmap-cjk-fallback",
+        DrawBatchPipeline::Text,
+        DrawCommandKind::Text,
+        WgpuNativeRenderPaint::TextPlaceholder {
+            text: "開始".to_string(),
+            color: rgba(0xff, 0xff, 0xff, 0xff),
+            literal: "#fff".to_string(),
+            style,
+        },
+        rect(10, 20, 260, 80),
+        Vec::new(),
+    )]));
+
+    let pass = &cjk_plan.passes[0];
+    assert_eq!(pass.draw_call_count, 1);
+    assert_eq!(pass.vertex_count, 8);
+    assert!(pass.draw_calls[0].physical_bounds.width > ascii_bounds.width + 20);
+}

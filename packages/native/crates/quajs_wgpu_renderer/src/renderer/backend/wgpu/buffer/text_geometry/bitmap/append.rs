@@ -1,8 +1,8 @@
 use super::glyphs::{
     bitmap_glyph_rows, bitmap_glyph_uv_bounds, bitmap_solid_uv_bounds, BitmapAtlasUvBounds,
-    BITMAP_GLYPH_HEIGHT, BITMAP_GLYPH_WIDTH,
+    BITMAP_GLYPH_HEIGHT,
 };
-use super::metrics::bitmap_glyph_advance;
+use super::metrics::{bitmap_glyph_advance, bitmap_glyph_width};
 use crate::renderer::backend::wgpu::WgpuPhysicalRect;
 
 use super::super::super::geometry::{union_physical_rect, FloatRect};
@@ -46,6 +46,7 @@ pub(super) fn append_bitmap_word(
                 append_bitmap_fallback_glyph(
                     vertices,
                     indices,
+                    character,
                     cursor_x,
                     y,
                     pixel,
@@ -58,7 +59,7 @@ pub(super) fn append_bitmap_word(
             };
             physical_bounds = union_optional_physical_rect(physical_bounds, glyph_bounds);
         }
-        cursor_x += bitmap_glyph_advance(pixel, letter_spacing, weight_scale);
+        cursor_x += bitmap_glyph_advance(character, pixel, letter_spacing, weight_scale);
     }
     physical_bounds
 }
@@ -112,11 +113,11 @@ fn append_bitmap_glyph(
         x,
         y,
         pixel,
-        weight_scale,
         content_rect,
         color,
         text_right,
         glyph_shear,
+        bitmap_glyph_width(character, pixel, weight_scale),
         uv_bounds,
     )
 }
@@ -124,6 +125,7 @@ fn append_bitmap_glyph(
 fn append_bitmap_fallback_glyph(
     vertices: &mut Vec<WgpuNativeRenderBufferVertex>,
     indices: &mut Vec<u32>,
+    character: char,
     x: f32,
     y: f32,
     pixel: f32,
@@ -139,11 +141,11 @@ fn append_bitmap_fallback_glyph(
         x,
         y,
         pixel,
-        weight_scale,
         content_rect,
         color,
         text_right,
         glyph_shear,
+        bitmap_glyph_width(character, pixel, weight_scale),
         bitmap_solid_uv_bounds(),
     )
 }
@@ -154,17 +156,17 @@ fn append_bitmap_glyph_rect(
     x: f32,
     y: f32,
     pixel: f32,
-    weight_scale: f32,
     content_rect: FloatRect,
     color: [f32; 4],
     text_right: f32,
     glyph_shear: f32,
+    glyph_width: f32,
     uv_bounds: BitmapAtlasUvBounds,
 ) -> Option<WgpuPhysicalRect> {
     let rect = FloatRect {
         x,
         y,
-        width: (BITMAP_GLYPH_WIDTH as f32 * pixel * weight_scale).max(1.0),
+        width: glyph_width.max(1.0),
         height: BITMAP_GLYPH_HEIGHT as f32 * pixel,
     };
     let clipped = clip_bitmap_rect(rect, content_rect, text_right)?;
