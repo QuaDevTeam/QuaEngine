@@ -161,3 +161,34 @@ pub(in super::super) fn json_frame_with_duplicate_audio_track_id_input() -> &'st
     }
     "#
 }
+
+pub(in super::super) fn json_frame_with_missing_surface_node_kind_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Column",
+                  "children": [
+                    {
+                      "id": "missing-kind",
+                      "bounds": { "x": 0, "y": 0, "width": 160, "height": 48 },
+                      "text": "Missing kind"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}

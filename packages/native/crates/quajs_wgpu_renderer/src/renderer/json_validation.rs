@@ -5,6 +5,7 @@ mod background_origin;
 mod character_numbers;
 mod dialogue;
 mod layout;
+mod required_fields;
 mod rich_text_numbers;
 mod safe_strings;
 mod text_payload;
@@ -15,6 +16,7 @@ mod ui_style_numbers;
 mod view;
 mod z_order;
 
+pub(super) use required_fields::validate_json_frame_required_fields;
 pub(crate) use ui_intent::is_valid_native_ui_intent_metadata_payload;
 
 use std::collections::BTreeSet;
