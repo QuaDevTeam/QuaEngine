@@ -345,6 +345,11 @@ fn validate_ui_surface_node_required_fields(
         return;
     }
 
+    validate_ui_surface_node_content_model_required_fields(node_object, path, errors);
+    if !errors.is_empty() {
+        return;
+    }
+
     validate_ui_surface_node_intent_target_required_fields(node_object, path, errors);
     if !errors.is_empty() {
         return;
@@ -397,6 +402,33 @@ fn validate_ui_surface_node_required_fields(
             return;
         }
     }
+}
+
+fn validate_ui_surface_node_content_model_required_fields(
+    node_object: &serde_json::Map<String, Value>,
+    path: &str,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    let Some(kind) = node_object.get("kind").and_then(Value::as_str) else {
+        return;
+    };
+    if !is_native_ui_leaf_surface_kind(kind) {
+        return;
+    }
+    let Some(children) = node_object.get("children").and_then(Value::as_array) else {
+        return;
+    };
+    if children.is_empty() {
+        return;
+    }
+
+    errors.push(NativeRendererJsonValidationError {
+        path: format!("{path}.children"),
+        asset_name: kind.to_string(),
+        reason: format!(
+            "native UI surface node kind `{kind}` uses a leaf content model and cannot contain child nodes in resolved projection JSON"
+        ),
+    });
 }
 
 fn validate_ui_surface_node_bounds_required_fields(
@@ -473,6 +505,10 @@ fn validate_ui_surface_node_intent_target_required_fields(
 
 fn is_native_ui_intent_surface_kind(kind: &str) -> bool {
     matches!(kind, "Backdrop" | "Box" | "Button" | "Panel")
+}
+
+fn is_native_ui_leaf_surface_kind(kind: &str) -> bool {
+    matches!(kind, "Divider" | "Image" | "RichText" | "Spacer" | "Text")
 }
 
 fn validate_asset_projection_required_fields(
