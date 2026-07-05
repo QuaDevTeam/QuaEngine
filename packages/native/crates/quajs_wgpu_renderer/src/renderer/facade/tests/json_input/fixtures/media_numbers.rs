@@ -132,6 +132,7 @@ pub(in super::super) fn json_frame_with_negative_character_width_input() -> &'st
           {
             "id": "yuki",
             "name": "Yuki",
+            "visible": true,
             "sprite": "characters/yuki.png",
             "position": { "width": -1 }
           }
@@ -150,6 +151,7 @@ pub(in super::super) fn json_frame_with_zero_character_scale_input() -> &'static
           {
             "id": "yuki",
             "name": "Yuki",
+            "visible": true,
             "sprite": "characters/yuki.png",
             "position": { "scale": 0 }
           }
@@ -168,6 +170,7 @@ pub(in super::super) fn json_frame_with_oversized_character_opacity_input() -> &
           {
             "id": "yuki",
             "name": "Yuki",
+            "visible": true,
             "sprite": "characters/yuki.png",
             "opacity": 1.5
           }
@@ -186,6 +189,7 @@ pub(in super::super) fn json_frame_with_oversized_character_rotation_input() -> 
           {
             "id": "yuki",
             "name": "Yuki",
+            "visible": true,
             "sprite": "characters/yuki.png",
             "position": { "rotation": 360001 }
           }
