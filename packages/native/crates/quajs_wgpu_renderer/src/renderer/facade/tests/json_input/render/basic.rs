@@ -1,7 +1,7 @@
 use super::*;
-use crate::render_graph::{DrawBatchPipeline, DrawCommandParams, MediaFit};
+use crate::render_graph::{DrawBatchPipeline, DrawCommandKind, DrawCommandParams, MediaFit};
 use crate::renderer::NullNativeRenderBackend;
-use crate::resources::ResourceId;
+use crate::resources::{NativeResourceKind, ResourceId};
 
 #[test]
 fn prepares_and_submits_frame_from_projection_json() {
@@ -122,4 +122,106 @@ fn can_prepare_json_frame_without_render_submission() {
     assert_eq!(update.revision, 1);
     assert_eq!(renderer.backend().submissions.len(), 0);
     assert_eq!(renderer.resources().len(), 4);
+}
+
+#[test]
+fn renders_video_background_json_as_poster_fallback_projection() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let result = renderer
+        .prepare_and_render_json_str(json_frame_with_video_background_input())
+        .expect("video fallback JSON frame input should render");
+
+    assert_eq!(result.update.revision, 1);
+    assert_eq!(result.update.resource_sync.upsert.len(), 1);
+    assert_eq!(result.submission.revision, 1);
+    assert_eq!(result.submission.fallback_summary.fallback_count, 1);
+    assert_eq!(result.submission.fallback_summary.video_fallback_count, 1);
+    assert_eq!(
+        result.submission.fallback_summary.by_pipeline[&DrawBatchPipeline::Video],
+        1
+    );
+    assert_eq!(
+        result.submission.fallback_summary.by_reason["native video decode backend is not active"],
+        1
+    );
+    assert_eq!(
+        result.submission.fallback_summary.by_owner_package["runtime.video"],
+        1
+    );
+    assert_eq!(
+        result.submission.fallback_summary.by_required_package["base"],
+        1
+    );
+    assert_eq!(
+        result.submission.fallback_summary.by_required_package["runtime.media"],
+        1
+    );
+
+    let frame = renderer.state().frame().expect("frame prepared");
+    let video = frame
+        .graph
+        .commands()
+        .iter()
+        .find(|command| command.id == "background:video")
+        .expect("video background command exists");
+    assert_eq!(video.kind, DrawCommandKind::VideoFrame);
+    assert_eq!(video.opacity, 0.85);
+    assert_eq!(video.owner_package_id.as_deref(), Some("runtime.video"));
+    assert!(video.required_package_ids.contains("base"));
+    assert!(video.required_package_ids.contains("runtime.media"));
+    assert_eq!(
+        video.resource_ids,
+        vec![ResourceId::from("images:poster/opening.png")]
+    );
+    match &video.params {
+        DrawCommandParams::Video(params) => {
+            assert_eq!(params.asset_type, "video");
+            assert_eq!(params.asset_name, "video/opening.webm");
+            assert_eq!(
+                params.poster_asset_name.as_deref(),
+                Some("poster/opening.png")
+            );
+            assert_eq!(params.looped, Some(true));
+            assert_eq!(params.muted, Some(false));
+            assert_eq!(params.volume, Some(0.65));
+            assert_eq!(params.playback_rate, Some(1.25));
+            assert_eq!(params.fit, MediaFit::Contain);
+            assert_eq!(params.origin.x, 1.0);
+            assert_eq!(params.origin.y, 0.75);
+            assert_eq!(
+                params.fallback_reason.as_deref(),
+                Some("native video decode backend is not active")
+            );
+        }
+        _ => panic!("expected video draw params"),
+    }
+
+    let poster_resource = renderer
+        .resources()
+        .get("images:poster/opening.png")
+        .expect("poster texture resource recorded");
+    assert_eq!(poster_resource.kind, NativeResourceKind::Texture);
+    assert_eq!(
+        poster_resource.owner_package_id.as_deref(),
+        Some("runtime.video")
+    );
+    assert!(poster_resource.required_package_ids.contains("base"));
+    assert!(poster_resource
+        .required_package_ids
+        .contains("runtime.media"));
+
+    let metrics = renderer.metrics();
+    assert_eq!(metrics.frame.fallback_count, 1);
+    assert_eq!(metrics.frame.video_fallback_count, 1);
+    assert_eq!(metrics.frame.fallbacks_by_owner_package["runtime.video"], 1);
+    assert_eq!(metrics.frame.fallbacks_by_required_package["base"], 1);
+    assert_eq!(
+        metrics.frame.fallbacks_by_required_package["runtime.media"],
+        1
+    );
+    assert_eq!(
+        metrics.frame.asset_requests_by_package["runtime.video"].request_count,
+        1
+    );
 }

@@ -116,6 +116,35 @@ pub(in super::super) fn json_frame_with_audio_input() -> &'static str {
     "#
 }
 
+pub(in super::super) fn json_frame_with_video_background_input() -> &'static str {
+    r#"
+    {
+      "layout": { "preset": "landscape" },
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "video",
+          "video": {
+            "assetName": "video/opening.webm",
+            "poster": "poster/opening.png",
+            "loop": true,
+            "muted": false,
+            "volume": 0.65,
+            "playbackRate": 1.25,
+            "fit": "contain",
+            "origin": "right 75%",
+            "opacity": 0.85,
+            "provenance": {
+              "contentPackageId": "runtime.video",
+              "requiredRuntimePackages": ["base", "runtime.media"]
+            }
+          }
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_scroll_offset_input() -> &'static str {
     r##"
     {
