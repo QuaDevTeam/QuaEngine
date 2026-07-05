@@ -17,8 +17,9 @@ import { parseNativeQssBackgroundImage } from './qss-resolved-style'
 import { findNativeUiComponent } from './registry'
 
 export interface CreateNativeUiSurfaceCompatibilityFromDocumentsOptions
-  extends Omit<CreateNativeUiSurfaceCompatibilityOptions, 'assetKinds' | 'qssFeatures' | 'quiComponents'> {
+  extends Omit<CreateNativeUiSurfaceCompatibilityOptions, 'assetKinds' | 'intentEvents' | 'qssFeatures' | 'quiComponents'> {
   assetKinds?: readonly string[]
+  intentEvents?: readonly string[]
   qss?: NativeQssDocument | readonly NativeQssDocument[]
   qssFeatures?: readonly string[]
   quiComponents?: readonly string[]
@@ -28,7 +29,7 @@ export function createNativeUiSurfaceCompatibilityFromDocuments(
   qui: NativeQuiDocument,
   options: CreateNativeUiSurfaceCompatibilityFromDocumentsOptions = {},
 ): RuntimePackageNativeRendererCompatibility {
-  const { assetKinds, qss, qssFeatures, quiComponents, ...compatibilityOptions } = options
+  const { assetKinds, intentEvents, qss, qssFeatures, quiComponents, ...compatibilityOptions } = options
   const qssDocuments = Array.isArray(qss)
     ? qss
     : qss ? [qss] : []
@@ -39,6 +40,10 @@ export function createNativeUiSurfaceCompatibilityFromDocuments(
     assetKinds: uniqueStrings([
       ...collected.assetKinds,
       ...(assetKinds || []),
+    ]),
+    intentEvents: uniqueStrings([
+      ...collected.intentEvents,
+      ...(intentEvents || []),
     ]),
     qssFeatures: uniqueStrings([
       ...collected.qssFeatures,
@@ -52,8 +57,9 @@ export function createNativeUiSurfaceCompatibilityFromDocuments(
 }
 
 export interface CreateNativeUiSurfaceCompatibilityFromProjectionOptions
-  extends Omit<CreateNativeUiSurfaceCompatibilityOptions, 'assetKinds' | 'qssFeatures' | 'quiComponents'> {
+  extends Omit<CreateNativeUiSurfaceCompatibilityOptions, 'assetKinds' | 'intentEvents' | 'qssFeatures' | 'quiComponents'> {
   assetKinds?: readonly string[]
+  intentEvents?: readonly string[]
   qssFeatures?: readonly string[]
   quiComponents?: readonly string[]
 }
@@ -62,7 +68,7 @@ export function createNativeUiSurfaceCompatibilityFromProjection(
   projection: NativeUiSurfaceProjection,
   options: CreateNativeUiSurfaceCompatibilityFromProjectionOptions = {},
 ): RuntimePackageNativeRendererCompatibility {
-  const { assetKinds, qssFeatures, quiComponents, ...compatibilityOptions } = options
+  const { assetKinds, intentEvents, qssFeatures, quiComponents, ...compatibilityOptions } = options
   const requirements = collectNativeUiSurfaceProjectionRequirements(projection)
 
   return createNativeUiSurfaceCompatibility({
@@ -70,6 +76,10 @@ export function createNativeUiSurfaceCompatibilityFromProjection(
     assetKinds: uniqueStrings([
       ...requirements.assetKinds,
       ...(assetKinds || []),
+    ]),
+    intentEvents: uniqueStrings([
+      ...requirements.intentEvents,
+      ...(intentEvents || []),
     ]),
     qssFeatures: uniqueStrings([
       ...requirements.qssFeatures,
@@ -87,20 +97,25 @@ function collectNativeUiSurfaceCompatibilityInputs(
   qssDocuments: readonly NativeQssDocument[],
 ): {
   assetKinds: string[]
+  intentEvents: string[]
   qssFeatures: string[]
   quiComponents: string[]
 } {
   const assetKinds = new Set<string>()
+  const intentEvents = new Set<string>()
   const qssFeatures = new Set<string>()
   const quiComponents = new Set<string>()
 
   for (const node of qui.tree)
     collectQuiNodeCompatibilityInputs(node, assetKinds, quiComponents)
+  for (const action of qui.actions)
+    intentEvents.add(action.event)
   for (const document of qssDocuments)
     collectQssCompatibilityInputs(document, assetKinds, qssFeatures)
 
   return {
     assetKinds: sortedStrings(assetKinds),
+    intentEvents: sortedStrings(intentEvents),
     qssFeatures: sortedStrings(qssFeatures),
     quiComponents: sortedStrings(quiComponents),
   }
