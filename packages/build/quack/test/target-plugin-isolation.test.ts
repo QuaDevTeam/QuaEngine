@@ -64,6 +64,20 @@ describe('Quack target plugin isolation', () => {
     )
   })
 
+  it('normalizes aliased and bundled target core references before Quack packaging', () => {
+    expect(() => assertQuackPluginReferencesTargetIsolation([
+      'npm:@quajs/renderer-web/plugins/ui?worker',
+      '/workspace/app/node_modules/@quajs/renderer-cocos/plugins/dialogue/index.js#chunk',
+      '/workspace/app/node_modules/.pnpm/@quajs+engine-native@1.2.3/node_modules/@quajs/engine-native/runtime.js',
+      String.raw`C:\workspace\app\node_modules\@quajs\assets-native\dist\index.js`,
+    ], {
+      target: 'web',
+      fieldName: 'post-bundle dependency graph',
+    })).toThrow(
+      /post-bundle dependency graph[\s\S]*npm:@quajs\/renderer-web\/plugins\/ui\?worker resolves to @quajs\/renderer-web[\s\S]*@quajs\/renderer-cocos\/plugins\/dialogue\/index\.js#chunk resolves to @quajs\/renderer-cocos[\s\S]*@quajs\+engine-native@1\.2\.3[\s\S]*resolves to @quajs\/engine-native[\s\S]*@quajs\\assets-native\\dist\\index\.js resolves to @quajs\/assets-native/,
+    )
+  })
+
   it('accepts target plugin manifests when only shared and active entries are selected', () => {
     expect(() => assertQuackTargetPluginManifestIsolation({
       target: 'native',
