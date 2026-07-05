@@ -9,10 +9,45 @@ pub(crate) fn validate_json_frame_required_fields(
 ) -> Result<(), NativeRendererJsonFrameError> {
     let mut errors = Vec::new();
     validate_ui_surface_required_fields(input, &mut errors);
+    validate_audio_track_required_fields(input, &mut errors);
     if let Some(error) = errors.into_iter().next() {
         return Err(NativeRendererJsonFrameError::Validation(error));
     }
     Ok(())
+}
+
+fn validate_audio_track_required_fields(
+    input: &Value,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    let Some(tracks) = input
+        .get("view")
+        .and_then(|view| view.get("audio"))
+        .and_then(|audio| audio.get("tracks"))
+        .and_then(Value::as_array)
+    else {
+        return;
+    };
+
+    for (track_index, track) in tracks.iter().enumerate() {
+        let Some(track_object) = track.as_object() else {
+            continue;
+        };
+        for field in ["assetType", "playbackState"] {
+            let missing = match track_object.get(field) {
+                Some(value) => value.is_null(),
+                None => true,
+            };
+            if missing {
+                errors.push(NativeRendererJsonValidationError {
+                    path: format!("view.audio.tracks[{track_index}].{field}"),
+                    asset_name: String::new(),
+                    reason: "must be explicitly provided for native audio tracks in resolved projection JSON".to_string(),
+                });
+                return;
+            }
+        }
+    }
 }
 
 fn validate_ui_surface_required_fields(

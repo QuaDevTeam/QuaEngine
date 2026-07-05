@@ -62,6 +62,8 @@ pub(in super::super) fn json_frame_with_unsafe_audio_track_id_input() -> &'stati
             {
               "id": "native/load.dll",
               "kind": "bgm",
+              "assetType": "bgm",
+              "playbackState": "playing",
               "assetName": "music/opening.ogg"
             }
           ]
@@ -148,11 +150,15 @@ pub(in super::super) fn json_frame_with_duplicate_audio_track_id_input() -> &'st
             {
               "id": "bgm-main",
               "kind": "bgm",
+              "assetType": "bgm",
+              "playbackState": "playing",
               "assetName": "music/opening.ogg"
             },
             {
               "id": "bgm-main",
               "kind": "bgm",
+              "assetType": "bgm",
+              "playbackState": "playing",
               "assetName": "music/loop.ogg"
             }
           ]

@@ -206,6 +206,8 @@ pub(in super::super) fn json_frame_with_oversized_audio_volume_input() -> &'stat
               "id": "bgm-main",
               "kind": "bgm",
               "assetName": "music/opening.ogg",
+              "assetType": "bgm",
+              "playbackState": "playing",
               "volume": 1.5
             }
           ]
@@ -226,6 +228,8 @@ pub(in super::super) fn json_frame_with_oversized_audio_memory_input() -> &'stat
               "id": "bgm-main",
               "kind": "bgm",
               "assetName": "music/opening.ogg",
+              "assetType": "bgm",
+              "playbackState": "playing",
               "memory": {
                 "bufferCpuBytes": 2147483649,
                 "streamCpuBytes": 0,
@@ -250,8 +254,50 @@ pub(in super::super) fn json_frame_with_web_audio_state_field_input() -> &'stati
               "id": "bgm-main",
               "kind": "bgm",
               "assetName": "music/opening.ogg",
+              "assetType": "bgm",
+              "playbackState": "playing",
               "state": "stopped",
               "volume": 0.8
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_audio_asset_type_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            {
+              "id": "voice-main",
+              "kind": "voice",
+              "assetName": "voice/opening.ogg",
+              "playbackState": "playing"
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_audio_playback_state_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            {
+              "id": "sfx-confirm",
+              "kind": "sfx",
+              "assetName": "sfx/confirm.ogg",
+              "assetType": "sfx"
             }
           ]
         }
