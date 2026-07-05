@@ -1,4 +1,5 @@
 use super::*;
+use crate::render_graph::MediaOrigin;
 
 #[test]
 fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
@@ -65,6 +66,10 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
                     .with_image(UiSurfaceImageProjection::new("ui/poster.png"))
                     .with_style(UiSurfaceResolvedStyle {
                         object_fit: Some(UiSurfaceObjectFitProjection::Cover),
+                        object_position: Some(UiSurfaceBackgroundPositionProjection {
+                            x: 0.25,
+                            y: 0.75,
+                        }),
                         ..Default::default()
                     }),
                     UiSurfaceNodeProjection::new(
@@ -159,6 +164,7 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
     match &commands[3].params {
         DrawCommandParams::Image(params) => {
             assert_eq!(params.fit, MediaFit::Cover);
+            assert_eq!(params.origin, MediaOrigin { x: 0.25, y: 0.75 });
         }
         _ => panic!("expected image params"),
     }
