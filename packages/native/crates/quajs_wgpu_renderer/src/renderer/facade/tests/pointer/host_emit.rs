@@ -110,6 +110,68 @@ fn compiled_qui_qss_button_pointer_release_emits_ui_intent_to_host() {
 }
 
 #[test]
+fn compiled_choice_loop_pointer_release_emits_choice_intent_to_host() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    let mut host = InMemoryNativeHostApi::new(test_host_info());
+    renderer
+        .prepare_and_render_json_str(COMPILED_CHOICE_LOOP_FRAME)
+        .expect("compiled choice loop fixture should render");
+    let (client, origin) = client_point_for_command(&renderer, "ui:choice-menu:choice-button:stay");
+
+    let press = renderer
+        .pointer_event_and_emit_intent(
+            NativePointerEvent::new(NativePointerEventPhase::Press, client, origin)
+                .with_pointer_id(78)
+                .with_button(NativePointerButton::Primary),
+            &mut host,
+        )
+        .unwrap()
+        .unwrap();
+
+    assert!(press.resolution.pointer.intent.is_some());
+    assert!(press.emitted_intent.is_none());
+    assert!(host.renderer_intents().is_empty());
+
+    let release = renderer
+        .pointer_event_and_emit_intent(
+            NativePointerEvent::new(NativePointerEventPhase::Release, client, origin)
+                .with_pointer_id(78)
+                .with_button(NativePointerButton::Primary),
+            &mut host,
+        )
+        .unwrap()
+        .unwrap();
+
+    let hit = release
+        .resolution
+        .intent_to_dispatch
+        .as_ref()
+        .expect("compiled choice button should dispatch after matching release");
+    assert_eq!(hit.command_id, "ui:choice-menu:choice-button:stay");
+    assert_eq!(hit.intent.event, "choice/select");
+    assert_eq!(hit.intent.choice_id.as_deref(), Some("stay"));
+    assert_eq!(hit.intent.action.as_deref(), Some("select"));
+    assert_eq!(
+        hit.intent.element_id.as_deref(),
+        Some("choice-menu:choice-button:stay")
+    );
+
+    let emitted = release.emitted_intent.unwrap();
+    assert_eq!(emitted.r#type, "choice/select");
+    let payload: serde_json::Value =
+        serde_json::from_str(emitted.payload_json.as_deref().unwrap()).unwrap();
+    assert_eq!(payload["choiceId"], "stay");
+    assert_eq!(payload["action"], "select");
+    assert_eq!(payload["arg0"], "stay");
+    assert_eq!(payload["elementId"], "choice-menu:choice-button:stay");
+    assert_eq!(host.renderer_intents(), &[emitted]);
+    assert_eq!(
+        renderer.state().pointer_interaction().active_press_count(),
+        0
+    );
+}
+
+#[test]
 fn cancel_pointer_interaction_prevents_stale_release_intent_emit() {
     let mut renderer = NativeRenderer::new(RecordingBackend::default());
     let mut host = InMemoryNativeHostApi::new(test_host_info());

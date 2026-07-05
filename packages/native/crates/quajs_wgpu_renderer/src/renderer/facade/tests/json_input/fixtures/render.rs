@@ -1,5 +1,7 @@
 pub(in super::super) const SHARED_QUI_QSS_SURFACE_FRAME: &str =
     include_str!("../../../../../../../../test-fixtures/renderer/qui-qss-surface-frame.json");
+pub(in super::super) const COMPILED_CHOICE_LOOP_FRAME: &str =
+    include_str!("../../../../../../../../test-fixtures/renderer/compiled-choice-loop-frame.json");
 
 pub(in super::super) fn json_frame_input() -> &'static str {
     r##"
@@ -153,60 +155,5 @@ pub(in super::super) fn json_frame_with_scroll_offset_input() -> &'static str {
 }
 
 pub(in super::super) fn json_frame_with_compiled_choice_loop_input() -> &'static str {
-    r##"
-    {
-      "container": { "width": 1600, "height": 1000 },
-      "view": {
-        "ui": {
-          "visible": true,
-          "overlays": [
-            {
-              "elementId": "choice-menu",
-              "surface": {
-                "key": "ui/choices.qui",
-                "root": {
-                  "id": "choices",
-                  "kind": "Column",
-                  "visible": true,
-                  "bounds": { "x": 560, "y": 580, "width": 480, "height": 152 },
-                  "children": [
-                    {
-                      "id": "choice-button:stay",
-                      "kind": "Button",
-                      "visible": true,
-                      "bounds": { "x": 560, "y": 580, "width": 480, "height": 64 },
-                      "text": "Stay",
-                      "intent": {
-                        "event": "choice/select",
-                        "choiceId": "stay",
-                        "action": "select",
-                        "metadata": { "arg0": "stay" }
-                      }
-                    },
-                    {
-                      "id": "choice-button:leave",
-                      "kind": "Button",
-                      "visible": true,
-                      "bounds": { "x": 560, "y": 668, "width": 480, "height": 64 },
-                      "text": "Leave",
-                      "intent": {
-                        "event": "choice/select",
-                        "choiceId": "leave",
-                        "action": "select",
-                        "metadata": { "arg0": "leave" }
-                      }
-                    }
-                  ]
-                }
-              },
-              "provenance": {
-                "contentPackageId": "runtime.choices",
-                "requiredRuntimePackages": ["base"]
-              }
-            }
-          ]
-        }
-      }
-    }
-    "##
+    COMPILED_CHOICE_LOOP_FRAME
 }
