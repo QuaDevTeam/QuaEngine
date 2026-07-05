@@ -104,6 +104,45 @@ fn json_frame_layout_validation_rejects_malformed_background_projection_shapes()
 }
 
 #[test]
+fn json_frame_layout_validation_requires_background_projection_fields() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    for (input, path) in [
+        (
+            json_frame_with_missing_background_mode_input(),
+            "view.background.mode",
+        ),
+        (
+            json_frame_with_missing_background_layer_id_input(),
+            "view.background.layers[0].id",
+        ),
+        (
+            json_frame_with_missing_background_layer_asset_name_input(),
+            "view.background.layers[0].assetName",
+        ),
+        (
+            json_frame_with_missing_background_video_asset_name_input(),
+            "view.background.video.assetName",
+        ),
+    ] {
+        let error = renderer.prepare_frame_json_str(input).unwrap_err();
+        match error {
+            NativeRendererJsonFrameError::Validation(validation) => {
+                assert_eq!(validation.path, path);
+                assert_eq!(validation.asset_name, "");
+                assert!(validation.reason.contains("explicitly provided"));
+            }
+            other => {
+                panic!("expected missing background projection validation error, got {other:?}")
+            }
+        }
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_layout_validation_rejects_malformed_projection_section_shapes() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
