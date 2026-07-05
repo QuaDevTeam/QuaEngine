@@ -51,6 +51,69 @@ fn expands_scroll_surface_nodes_to_clip_commands() {
 }
 
 #[test]
+fn nested_scroll_surface_preserves_outer_and_viewport_clip_bounds() {
+    let outer_bounds = LogicalRect {
+        x: 10.0,
+        y: 20.0,
+        width: 260.0,
+        height: 120.0,
+    };
+    let scroll_bounds = scroll_bounds();
+    let commands = build_menu_commands(
+        UiSurfaceNodeProjection {
+            clip_children: true,
+            ..UiSurfaceNodeProjection::new(
+                "outer",
+                UiSurfaceNodeKind::Panel,
+                rect(10.0, 20.0, 260.0, 120.0),
+            )
+        }
+        .with_children(vec![scroll_root_with_child(
+            scroll_node(),
+            button_child("inside", 24.0, 44.0, 220.0, 56.0, "inside"),
+        )]),
+    );
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        ids,
+        vec![
+            "ui:menu",
+            "ui:menu:outer",
+            "ui:menu:scroll",
+            "ui:menu:scroll:clip-start",
+            "ui:menu:inside",
+            "ui:menu:scroll:clip-end"
+        ]
+    );
+
+    let command = |id: &str| {
+        commands
+            .iter()
+            .find(|command| command.id == id)
+            .unwrap_or_else(|| panic!("missing command {id}"))
+    };
+
+    assert!(command("ui:menu:outer").clip_bounds.is_empty());
+    assert_eq!(command("ui:menu:scroll").clip_bounds, vec![outer_bounds]);
+    assert_eq!(
+        command("ui:menu:scroll:clip-start").clip_bounds,
+        vec![outer_bounds]
+    );
+    assert_eq!(
+        command("ui:menu:inside").clip_bounds,
+        vec![outer_bounds, scroll_bounds]
+    );
+    assert_eq!(
+        command("ui:menu:scroll:clip-end").clip_bounds,
+        vec![outer_bounds]
+    );
+}
+
+#[test]
 fn scroll_surface_background_image_stays_inside_viewport_clip_order() {
     let commands = build_menu_commands(scroll_root_with_child(
         scroll_node().with_style(UiSurfaceResolvedStyle {
