@@ -348,4 +348,74 @@ describe('target bundle manifest target-core isolation project graphs', () => {
       ]))
     }
   })
+
+  it('rejects bundler-normalized target core adapters in project graph references for every target', () => {
+    const cases = [
+      {
+        target: 'web',
+        graphId: 'web.installer.bundler-mask',
+        graphKind: 'installer',
+        specifier: 'npm:@quajs/engine-native/native-host?import',
+        packageName: '@quajs/plugin-native-installer',
+        expectedPackageName: '@quajs/engine-native',
+        expectedCorePluginFamily: 'native-core',
+      },
+      {
+        target: 'cocos',
+        graphId: 'cocos.debug.bundler-mask',
+        graphKind: 'debug-shell',
+        specifier: 'C:\\repo\\node_modules\\@quajs\\renderer-web\\plugins\\ui.js?raw',
+        packageName: '@quajs/plugin-web-debug-shell',
+        expectedPackageName: '@quajs/renderer-web',
+        expectedCorePluginFamily: 'web-core',
+      },
+      {
+        target: 'native',
+        graphId: 'native.smoke.bundler-mask',
+        graphKind: 'smoke-runner',
+        specifier: '@quajs/plugin-cocos-smoke',
+        packageName: '/repo/node_modules/.pnpm/@quajs+renderer-cocos@0.1.0/node_modules/@quajs/renderer-cocos/plugins/dialogue.js#entry',
+        expectedPackageName: '@quajs/renderer-cocos',
+        expectedCorePluginFamily: 'cocos-core',
+      },
+    ] as const
+
+    for (const {
+      target,
+      graphId,
+      graphKind,
+      specifier,
+      packageName,
+      expectedPackageName,
+      expectedCorePluginFamily,
+    } of cases) {
+      const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
+        projectGraphs: [
+          {
+            id: graphId,
+            kind: graphKind,
+            references: [
+              {
+                specifier,
+                packageName,
+              },
+            ],
+          },
+        ],
+      }))
+
+      expect(result.ok).toBe(false)
+      expect(result.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+          target,
+          packageName: expectedPackageName,
+          packageCorePluginFamily: expectedCorePluginFamily,
+          expectedCorePluginFamily: `${target}-core`,
+          projectGraphId: graphId,
+          projectGraphKind: graphKind,
+        }),
+      ]))
+    }
+  })
 })
