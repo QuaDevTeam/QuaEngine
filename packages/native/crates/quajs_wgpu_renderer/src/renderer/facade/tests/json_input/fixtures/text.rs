@@ -4,6 +4,7 @@ pub(in super::super) fn json_frame_with_control_character_ui_text_input() -> &'s
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -30,6 +31,7 @@ pub(in super::super) fn json_frame_with_oversized_ui_text_input() -> String {
       "container": {{ "width": 1600, "height": 1000 }},
       "view": {{
         "ui": {{
+          "visible": true,
           "overlays": [
             {{
               "elementId": "menu",

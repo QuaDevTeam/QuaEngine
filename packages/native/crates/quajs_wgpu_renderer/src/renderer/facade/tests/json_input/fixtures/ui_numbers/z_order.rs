@@ -45,6 +45,7 @@ pub(in super::super::super) fn json_frame_with_oversized_overlay_stack_priority_
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -67,6 +68,7 @@ pub(in super::super::super) fn json_frame_with_oversized_ui_node_z_index_input()
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",

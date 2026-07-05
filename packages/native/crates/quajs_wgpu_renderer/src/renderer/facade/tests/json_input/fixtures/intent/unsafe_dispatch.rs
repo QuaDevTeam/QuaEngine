@@ -4,6 +4,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_overlay_element_id_input()
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "../menu",
@@ -25,6 +26,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_surface_node_id_input() ->
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -46,6 +48,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_scene_id_input() -> &'stat
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -70,6 +73,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_overlay_stack_input() -> &
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -92,6 +96,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_scene_overlay_stack_input(
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -119,6 +124,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_intent_action_input() -
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -148,6 +154,7 @@ pub(in super::super::super) fn json_frame_with_missing_overlay_intent_event_inpu
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -173,6 +180,7 @@ pub(in super::super::super) fn json_frame_with_missing_surface_intent_event_inpu
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -201,6 +209,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_intent_metadata_key_inp
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -233,6 +242,7 @@ pub(in super::super::super) fn json_frame_with_oversized_ui_intent_metadata_inpu
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",

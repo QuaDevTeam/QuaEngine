@@ -21,6 +21,7 @@ pub(in super::super) fn json_frame_input() -> &'static str {
           }
         },
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -116,6 +117,7 @@ pub(in super::super) fn json_frame_with_scroll_offset_input() -> &'static str {
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",

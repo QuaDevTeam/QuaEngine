@@ -4,6 +4,7 @@ pub(in super::super::super) fn json_frame_with_traversal_surface_key_input() -> 
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
@@ -25,6 +26,7 @@ pub(in super::super::super) fn json_frame_with_remote_scene_surface_key_input() 
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "scene-overlay",

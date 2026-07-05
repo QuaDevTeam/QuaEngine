@@ -52,6 +52,19 @@ pub(in super::super) fn json_frame_with_missing_character_visible_input() -> &'s
     "#
 }
 
+pub(in super::super) fn json_frame_with_missing_ui_visible_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": []
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_unsafe_choice_projection_id_input() -> &'static str {
     r#"
     {
@@ -202,6 +215,7 @@ pub(in super::super) fn json_frame_with_missing_surface_node_kind_input() -> &'s
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": {
+          "visible": true,
           "overlays": [
             {
               "elementId": "menu",
