@@ -47,6 +47,19 @@ pub(in super::super) fn json_frame_with_malformed_background_projection_input() 
     "#
 }
 
+pub(in super::super) fn json_frame_with_missing_background_mode_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "assetName": "bg/main.png"
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_malformed_background_layers_input() -> &'static str {
     r#"
     {
@@ -77,6 +90,43 @@ pub(in super::super) fn json_frame_with_malformed_background_layer_item_input() 
     "#
 }
 
+pub(in super::super) fn json_frame_with_missing_background_layer_id_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "layered",
+          "layers": [
+            {
+              "assetName": "bg/fg.png"
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_background_layer_asset_name_input() -> &'static str
+{
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "layered",
+          "layers": [
+            {
+              "id": "foreground"
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_malformed_background_video_input() -> &'static str {
     r#"
     {
@@ -85,6 +135,23 @@ pub(in super::super) fn json_frame_with_malformed_background_video_input() -> &'
         "background": {
           "mode": "video",
           "video": "video/opening.webm"
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_background_video_asset_name_input() -> &'static str
+{
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "video",
+          "video": {
+            "poster": "video/poster.png"
+          }
         }
       }
     }

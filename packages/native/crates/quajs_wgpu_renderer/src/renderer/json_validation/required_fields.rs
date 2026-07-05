@@ -4,6 +4,7 @@ use crate::renderer::json_input::{
     NativeRendererJsonFrameError, NativeRendererJsonValidationError,
 };
 
+mod background;
 mod ui_surface;
 
 pub(crate) fn validate_json_frame_required_fields(
@@ -11,7 +12,7 @@ pub(crate) fn validate_json_frame_required_fields(
 ) -> Result<(), NativeRendererJsonFrameError> {
     let mut errors = Vec::new();
     validate_top_level_required_fields(input, &mut errors);
-    validate_background_required_fields(input, &mut errors);
+    background::validate_background_required_fields(input, &mut errors);
     validate_dialogue_required_fields(input, &mut errors);
     validate_character_required_fields(input, &mut errors);
     validate_choices_required_fields(input, &mut errors);
@@ -53,72 +54,6 @@ fn validate_top_level_required_fields(
                     .to_string(),
             });
         }
-    }
-}
-
-fn validate_background_required_fields(
-    input: &Value,
-    errors: &mut Vec<NativeRendererJsonValidationError>,
-) {
-    let Some(background) = input.get("view").and_then(|view| view.get("background")) else {
-        return;
-    };
-    if background.is_null() {
-        return;
-    }
-    let Some(background_object) = background.as_object() else {
-        errors.push(NativeRendererJsonValidationError {
-            path: "view.background".to_string(),
-            asset_name: String::new(),
-            reason:
-                "must be an object for native background projections in resolved projection JSON"
-                    .to_string(),
-        });
-        return;
-    };
-
-    if let Some(layers_value) = background_object
-        .get("layers")
-        .filter(|value| !value.is_null())
-    {
-        let Some(layers) = layers_value.as_array() else {
-            errors.push(NativeRendererJsonValidationError {
-                path: "view.background.layers".to_string(),
-                asset_name: String::new(),
-                reason:
-                    "must be an array for native background layer projections in resolved projection JSON"
-                        .to_string(),
-            });
-            return;
-        };
-        for (layer_index, layer) in layers.iter().enumerate() {
-            if !layer.is_object() {
-                errors.push(NativeRendererJsonValidationError {
-                    path: format!("view.background.layers[{layer_index}]"),
-                    asset_name: String::new(),
-                    reason:
-                        "must be an object for native background layer projections in resolved projection JSON"
-                            .to_string(),
-                });
-                return;
-            }
-        }
-    }
-
-    if let Some(video) = background_object
-        .get("video")
-        .filter(|value| !value.is_null())
-    {
-        if video.is_object() {
-            return;
-        }
-        errors.push(NativeRendererJsonValidationError {
-            path: "view.background.video".to_string(),
-            asset_name: String::new(),
-            reason:
-                "must be an object for native background video projections in resolved projection JSON"
-                    .to_string(),
-        });
     }
 }
 
