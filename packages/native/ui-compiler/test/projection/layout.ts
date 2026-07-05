@@ -4,6 +4,7 @@ import {
   analyzeQuiSource,
   compileNativeUiSurfaceProjection,
 } from '../../src'
+import { withDefaultVisible } from './helpers'
 
 describe('@quajs/native-ui-compiler projection structural layout', () => {
   it('applies QSS alignment and distribution to structural Row and Column children', () => {
@@ -35,7 +36,7 @@ Column.choices {
 
     expect(qui.diagnostics).toEqual([])
     expect(qss.diagnostics).toEqual([])
-    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual(withDefaultVisible({
       root: {
         id: 'root',
         kind: 'Panel',
@@ -87,7 +88,7 @@ Column.choices {
           },
         ],
       },
-    })
+    }))
   })
 
   it('applies QSS content-box sizing to fallback bounds while QUI size props stay authoritative', () => {
@@ -124,7 +125,7 @@ Button.override {
 
     expect(qui.diagnostics).toEqual([])
     expect(qss.diagnostics).toEqual([])
-    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual({
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual(withDefaultVisible({
       root: {
         id: 'root',
         kind: 'Panel',
@@ -162,6 +163,6 @@ Button.override {
           },
         ],
       },
-    })
+    }))
   })
 })

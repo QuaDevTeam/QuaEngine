@@ -30,6 +30,7 @@ pub(in super::super) fn json_frame_input() -> &'static str {
                 "root": {
                   "id": "root",
                   "kind": "Box",
+                  "visible": true,
                   "bounds": { "x": 32, "y": 24, "width": 520, "height": 392 },
                   "style": {
                     "backgroundColor": "#101820",
@@ -45,6 +46,7 @@ pub(in super::super) fn json_frame_input() -> &'static str {
                     {
                       "id": "title",
                       "kind": "Text",
+                      "visible": true,
                       "bounds": { "x": 64, "y": 58, "width": 360, "height": 56 },
                       "text": "Native Menu",
                       "style": {
@@ -64,6 +66,7 @@ pub(in super::super) fn json_frame_input() -> &'static str {
                     {
                       "id": "close",
                       "kind": "Button",
+                      "visible": true,
                       "bounds": { "x": 340, "y": 330, "width": 136, "height": 48 },
                       "text": "Close",
                       "intent": {
@@ -126,12 +129,14 @@ pub(in super::super) fn json_frame_with_scroll_offset_input() -> &'static str {
                 "root": {
                   "id": "scroll",
                   "kind": "Scroll",
+                  "visible": true,
                   "bounds": { "x": 40, "y": 40, "width": 280, "height": 120 },
                   "scrollOffsetY": 72,
                   "children": [
                     {
                       "id": "inside",
                       "kind": "Button",
+                      "visible": true,
                       "bounds": { "x": 64, "y": 156, "width": 220, "height": 56 },
                       "text": "Inside",
                       "intent": { "event": "ui/intent", "action": "inside" }

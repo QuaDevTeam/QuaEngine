@@ -224,11 +224,47 @@ pub(in super::super) fn json_frame_with_missing_surface_node_kind_input() -> &'s
                 "root": {
                   "id": "root",
                   "kind": "Column",
+                  "visible": true,
                   "children": [
                     {
                       "id": "missing-kind",
+                      "visible": true,
                       "bounds": { "x": 0, "y": 0, "width": 160, "height": 48 },
                       "text": "Missing kind"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_surface_node_visible_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Column",
+                  "visible": true,
+                  "children": [
+                    {
+                      "id": "missing-visible",
+                      "kind": "Button",
+                      "bounds": { "x": 0, "y": 0, "width": 160, "height": 48 },
+                      "text": "Missing visible"
                     }
                   ]
                 }

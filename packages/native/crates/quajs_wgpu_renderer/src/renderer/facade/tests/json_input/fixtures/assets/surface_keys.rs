@@ -10,7 +10,7 @@ pub(in super::super::super) fn json_frame_with_traversal_surface_key_input() -> 
               "elementId": "menu",
               "surface": {
                 "key": "../native/menu.qui",
-                "root": { "id": "root", "kind": "Box" }
+                "root": { "id": "root", "kind": "Box", "visible": true }
               }
             }
           ]
@@ -34,7 +34,7 @@ pub(in super::super::super) fn json_frame_with_remote_scene_surface_key_input() 
                 "id": "settings",
                 "surface": {
                   "key": "https://example.invalid/menu.qui",
-                  "root": { "id": "root", "kind": "Box" }
+                  "root": { "id": "root", "kind": "Box", "visible": true }
                 }
               }
             }

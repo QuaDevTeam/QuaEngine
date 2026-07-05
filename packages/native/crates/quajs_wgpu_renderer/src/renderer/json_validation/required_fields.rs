@@ -326,6 +326,20 @@ fn validate_ui_surface_node_required_fields(
         return;
     }
 
+    let missing_visible = match node_object.get("visible") {
+        Some(visible) => visible.is_null(),
+        None => true,
+    };
+
+    if missing_visible {
+        errors.push(NativeRendererJsonValidationError {
+            path: format!("{path}.visible"),
+            asset_name: String::new(),
+            reason: "must be explicitly provided for native UI surface nodes in resolved projection JSON".to_string(),
+        });
+        return;
+    }
+
     validate_ui_intent_required_fields(
         node_object.get("intent"),
         &format!("{path}.intent"),

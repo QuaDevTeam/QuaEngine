@@ -13,6 +13,7 @@ pub(in super::super::super) fn json_frame_with_forged_choice_metadata_input() ->
                 "root": {
                   "id": "root",
                   "kind": "Button",
+                  "visible": true,
                   "bounds": { "x": 0, "y": 0, "width": 200, "height": 80 },
                   "text": "Forged",
                   "intent": {
@@ -47,6 +48,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_choice_id_input() -> &'sta
                 "root": {
                   "id": "root",
                   "kind": "Button",
+                  "visible": true,
                   "intent": {
                     "event": "choice/select",
                     "choiceId": "choices/native.dll",
@@ -77,6 +79,7 @@ pub(in super::super::super) fn json_frame_with_native_payload_choice_id_input() 
                 "root": {
                   "id": "root",
                   "kind": "Button",
+                  "visible": true,
                   "intent": {
                     "event": "choice/select",
                     "choiceId": "native.dll",

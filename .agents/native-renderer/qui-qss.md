@@ -183,7 +183,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 - `border-width`
 - `box-sizing`（native 子集：`border-box` / `content-box`；作为 compiler-only 静态 bounds 归一化，`border-box` 保持 QSS fallback `width/height` 为最终 native surface bounds，`content-box` 会在 projection 前按 resolved padding 与有效 border width 扩展 QSS fallback `width/height`；QUI 显式 `width/height` prop 优先；Rust 不接收也不解析 box-sizing 字段）
 - `color`（同 `background-color` 的 safe native color literal 子集；dialogue rich text 和 UI text resolved JSON 也由 Rust facade 防御性校验）
-- `display`（native 子集：仅支持 `none`，编译为 node-level `UiSurfaceNodeProjection.visible: false` fallback；QUI 显式 `show` prop 优先；`block` / `flex` / `grid` 暂不作为 layout 承诺）
+- `display`（native 子集：仅支持 `none`，编译为 node-level `UiSurfaceNodeProjection.visible: false` fallback；QUI 显式 `show` prop 优先；未被 `show` / QSS `display` / QSS `visibility` 覆盖的节点由 compiler 显式输出 `visible: true`；`block` / `flex` / `grid` 暂不作为 layout 承诺）
 - `font-family`
 - `font-size`
 - `font-style`（native 子集：`normal` / `italic`；编译为 `UiSurfaceResolvedStyle.fontStyle`，Rust 侧只映射到 Text / Button draw params，不做字体合成策略）
@@ -206,7 +206,7 @@ native-wgpu 已支持属性的值诊断必须复用 resolved style parser 语义
 - `opacity`
 - `overflow`（native 子集：`visible` / `hidden`；`hidden` 编译为 node-level `UiSurfaceNodeProjection.clipChildren: true`，用于裁剪 painted surface 和 `Stack` / `Row` / `Column` / `Grid` / `Layer` 结构组的子节点绘制与 pointer 命中；`Scroll` / `SafeArea` 仍使用各自专用裁剪语义）
 - `padding` / `padding-top` / `padding-right` / `padding-bottom` / `padding-left`（作为 resolved edge inset metadata 写入 `UiSurfaceResolvedStyle.padding`；当前用于 draw params，完整布局算法仍归后续 layout IR）
-- `visibility`（native 子集：`visible` / `hidden`，作为 node-level `UiSurfaceNodeProjection.visible` fallback；QUI 显式 `show` prop 优先）
+- `visibility`（native 子集：`visible` / `hidden`，作为 node-level `UiSurfaceNodeProjection.visible` fallback；QUI 显式 `show` prop 优先；所有 resolved projection node 都必须显式携带 `visible`，Rust JSON facade 会拒绝缺失或 null）
 - `z-index`（作为 resolved node metadata，写入 `UiSurfaceNodeProjection.z_index`，不是浏览器 stacking context）
 - `scrollOffsetX` / `scrollOffsetY`（作为 `Scroll` 节点的 resolved projection metadata，影响子节点绘制和命中测试坐标；不是 QSS cascade 字段，也不是 renderer 持久滚动状态）
 

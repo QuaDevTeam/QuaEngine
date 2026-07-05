@@ -60,6 +60,6 @@ export interface NativeUiSurfaceNodeProjection {
   scrollOffsetY?: number
   style?: NativeQssResolvedStyle
   text?: string
-  visible?: boolean
+  visible: boolean
   zIndex?: number
 }
