@@ -7,7 +7,18 @@ describe('native runtime package guard content packages', () => {
     const runtimePackage = createRuntimePackage({
       scripts: [
         { id: 'chapter.opening', assetName: 'scripts/opening.js' },
-        { id: 'chapter.branch', assetName: 'scripts/branch.js', variants: { ja: { assetName: 'scripts/branch.ja.js' } } },
+        {
+          id: 'chapter.branch',
+          assetName: 'scripts/branch.js',
+          variants: {
+            ja: {
+              assetName: 'scripts/branch.ja.js',
+              name: 'branch.ja.js',
+              path: 'scripts/branch.ja.js',
+              relativePath: 'scripts/branch.ja.js',
+            },
+          },
+        },
       ],
       storeMigrations: [
         { id: 'settings-defaults', assetName: 'migrations/settings.js' },
@@ -47,6 +58,15 @@ describe('native runtime package guard content packages', () => {
   it('rejects forbidden runtime module variant references beyond scripts', () => {
     const result = checkNativeRuntimePackageGuard({
       package: createRuntimePackage({
+        scripts: [
+          {
+            id: 'script.variant.path',
+            assetName: 'scripts/opening.js',
+            variants: {
+              preview: { path: '../outside-script.js' },
+            },
+          },
+        ],
         scenes: [
           {
             id: 'scene.native',
@@ -62,7 +82,10 @@ describe('native runtime package guard content packages', () => {
             kind: 'renderer',
             assetName: 'plugins/native-ui.js',
             variants: {
-              windows: { assetName: 'plugins/native-ui.dll' },
+              windows: {
+                assetName: 'plugins/native-ui.dll',
+                name: 'native-ui.node',
+              },
             },
           },
         ],
@@ -71,7 +94,10 @@ describe('native runtime package guard content packages', () => {
             id: 'settings',
             assetName: 'migrations/settings.js',
             variants: {
-              macos: { module: 'migrations/settings.dylib' },
+              macos: {
+                module: 'migrations/settings.dylib',
+                relativePath: 'migrations/settings-loader.dylib',
+              },
             },
           },
         ],
@@ -82,6 +108,10 @@ describe('native runtime package guard content packages', () => {
     expect(result.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
+        assetName: '../outside-script.js',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_ASSET_REFERENCE_FORBIDDEN',
         assetName: '../outside-scene.js',
       }),
       expect.objectContaining({
@@ -90,7 +120,15 @@ describe('native runtime package guard content packages', () => {
       }),
       expect.objectContaining({
         code: 'NATIVE_PACKAGE_NATIVE_PAYLOAD_FORBIDDEN',
+        assetName: 'native-ui.node',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_PAYLOAD_FORBIDDEN',
         assetName: 'migrations/settings.dylib',
+      }),
+      expect.objectContaining({
+        code: 'NATIVE_PACKAGE_NATIVE_PAYLOAD_FORBIDDEN',
+        assetName: 'migrations/settings-loader.dylib',
       }),
     ]))
   })
