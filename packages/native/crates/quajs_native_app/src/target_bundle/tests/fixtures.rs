@@ -30,6 +30,12 @@ pub(crate) fn native_manifest_json() -> serde_json::Value {
             ],
             "capabilityManifestHash": native_capability_manifest_hash()
         },
+        "nativeRuntime": {
+            "quickjsVersion": quajs_native_runtime::quickjs_runtime_version(),
+            "nativeRuntimeVersion": env!("CARGO_PKG_VERSION"),
+            "assetAdapterVersion": env!("CARGO_PKG_VERSION"),
+            "storeAdapterVersion": env!("CARGO_PKG_VERSION")
+        },
         "targetCoreResolver": "native-core-resolver",
         "selectedCorePluginFamily": "native-core",
         "selectedCoreAdapters": [
@@ -102,6 +108,12 @@ pub(crate) fn native_manifest() -> NativeTargetBundleManifest {
                 "native-wgpu.input.pointer@1".to_string(),
             ],
             capability_manifest_hash: Some(native_capability_manifest_hash()),
+        }),
+        native_runtime: Some(TargetBundleNativeRuntimeInfo {
+            quickjs_version: Some(quajs_native_runtime::quickjs_runtime_version().to_string()),
+            native_runtime_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+            asset_adapter_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+            store_adapter_version: Some(env!("CARGO_PKG_VERSION").to_string()),
         }),
         target_core_resolver: Some("native-core-resolver".to_string()),
         selected_core_plugin_family: "native-core".to_string(),

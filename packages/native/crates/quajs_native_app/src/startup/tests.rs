@@ -133,6 +133,45 @@ fn rejects_renderer_backend_version_drift_after_building_host_info() {
 }
 
 #[test]
+fn rejects_runtime_manifest_drift_after_building_host_info() {
+    let mut manifest = native_manifest();
+    let native_runtime = manifest
+        .native_runtime
+        .as_mut()
+        .expect("native runtime metadata exists");
+    native_runtime.quickjs_version = Some("quickjs-manifest".to_string());
+    native_runtime.asset_adapter_version = Some("assets-manifest".to_string());
+    native_runtime.store_adapter_version = Some("store-manifest".to_string());
+    let created = Cell::new(false);
+    let error =
+        create_native_startup_host_info_with(fixture_app_config(), Some(&manifest), |config| {
+            created.set(true);
+            NativeHostInfoBuilder::new(config.name, config.bundle_id)
+                .app_version(config.version)
+                .build_number(config.build_number)
+                .renderer_version(env!("CARGO_PKG_VERSION"))
+                .quickjs_version("quickjs-host")
+                .native_runtime_version(env!("CARGO_PKG_VERSION"))
+                .asset_adapter_version("assets-host")
+                .store_adapter_version("store-host")
+                .capabilities(native_wgpu_capabilities())
+                .build()
+        })
+        .expect_err("runtime metadata drift is rejected");
+
+    assert!(created.get());
+    assert!(error.to_string().contains(
+        "nativeRuntime.quickjsVersion \"quickjs-manifest\" does not match host runtime value \"quickjs-host\""
+    ));
+    assert!(error.to_string().contains(
+        "nativeRuntime.assetAdapterVersion \"assets-manifest\" does not match host runtime value \"assets-host\""
+    ));
+    assert!(error.to_string().contains(
+        "nativeRuntime.storeAdapterVersion \"store-manifest\" does not match host runtime value \"store-host\""
+    ));
+}
+
+#[test]
 fn rejects_foreign_target_bundle_manifest_before_building_host_info() {
     let mut manifest = native_manifest();
     manifest.dependencies.extend([

@@ -15,6 +15,8 @@ pub struct NativeTargetBundleManifest {
     #[serde(default)]
     pub native_renderer: Option<TargetBundleNativeRendererInfo>,
     #[serde(default)]
+    pub native_runtime: Option<TargetBundleNativeRuntimeInfo>,
+    #[serde(default)]
     pub target_core_resolver: Option<String>,
     pub selected_core_plugin_family: String,
     #[serde(default)]
@@ -57,6 +59,19 @@ pub struct TargetBundleNativeRendererInfo {
     pub capability_ids: Vec<String>,
     #[serde(default)]
     pub capability_manifest_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TargetBundleNativeRuntimeInfo {
+    #[serde(default)]
+    pub quickjs_version: Option<String>,
+    #[serde(default)]
+    pub native_runtime_version: Option<String>,
+    #[serde(default)]
+    pub asset_adapter_version: Option<String>,
+    #[serde(default)]
+    pub store_adapter_version: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
