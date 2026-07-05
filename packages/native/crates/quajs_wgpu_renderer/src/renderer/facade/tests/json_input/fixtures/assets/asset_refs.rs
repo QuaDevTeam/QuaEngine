@@ -104,8 +104,84 @@ pub(in super::super::super) fn json_frame_with_empty_asset_input() -> &'static s
           "speaker": "Narrator",
           "text": "Opening",
           "avatar": {
+            "assetType": "images",
             "assetName": "   #avatar"
           }
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super::super) fn json_frame_with_missing_dialogue_avatar_asset_type_input(
+) -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "dialogue": {
+          "speaker": "Narrator",
+          "text": "Opening",
+          "avatar": {
+            "assetName": "ui/avatar.png"
+          }
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super::super) fn json_frame_with_missing_ui_image_asset_type_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "poster",
+                  "kind": "Image",
+                  "image": {
+                    "assetName": "ui/poster.png"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super::super) fn json_frame_with_missing_ui_background_image_asset_type_input(
+) -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "panel",
+                  "kind": "Panel",
+                  "style": {
+                    "backgroundImage": {
+                      "assetName": "ui/panel.png"
+                    }
+                  }
+                }
+              }
+            }
+          ]
         }
       }
     }

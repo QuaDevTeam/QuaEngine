@@ -9,6 +9,7 @@ pub(crate) fn validate_json_frame_required_fields(
 ) -> Result<(), NativeRendererJsonFrameError> {
     let mut errors = Vec::new();
     validate_top_level_required_fields(input, &mut errors);
+    validate_dialogue_required_fields(input, &mut errors);
     validate_ui_surface_required_fields(input, &mut errors);
     validate_audio_track_required_fields(input, &mut errors);
     if let Some(error) = errors.into_iter().next() {
@@ -33,6 +34,28 @@ fn validate_top_level_required_fields(
                 .to_string(),
         });
     }
+}
+
+fn validate_dialogue_required_fields(
+    input: &Value,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    let Some(avatar) = input
+        .get("view")
+        .and_then(|view| view.get("dialogue"))
+        .and_then(|dialogue| dialogue.get("avatar"))
+    else {
+        return;
+    };
+    if avatar.is_null() {
+        return;
+    }
+    validate_asset_projection_required_fields(
+        avatar,
+        "view.dialogue.avatar",
+        "dialogue avatar image resources",
+        errors,
+    );
 }
 
 fn validate_audio_track_required_fields(
@@ -173,6 +196,31 @@ fn validate_ui_surface_node_required_fields(
         return;
     }
 
+    validate_asset_projection_required_fields(
+        node_object.get("image").unwrap_or(&Value::Null),
+        &format!("{path}.image"),
+        "native UI image resources",
+        errors,
+    );
+    if !errors.is_empty() {
+        return;
+    }
+
+    if let Some(background_image) = node_object
+        .get("style")
+        .and_then(|style| style.get("backgroundImage"))
+    {
+        validate_asset_projection_required_fields(
+            background_image,
+            &format!("{path}.style.backgroundImage"),
+            "native UI background image resources",
+            errors,
+        );
+        if !errors.is_empty() {
+            return;
+        }
+    }
+
     let Some(children) = node_object.get("children").and_then(Value::as_array) else {
         return;
     };
@@ -185,5 +233,30 @@ fn validate_ui_surface_node_required_fields(
         if !errors.is_empty() {
             return;
         }
+    }
+}
+
+fn validate_asset_projection_required_fields(
+    asset: &Value,
+    path: &str,
+    noun: &str,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    if asset.is_null() {
+        return;
+    }
+    let Some(asset_object) = asset.as_object() else {
+        return;
+    };
+    let missing_asset_type = match asset_object.get("assetType") {
+        Some(value) => value.is_null(),
+        None => true,
+    };
+    if missing_asset_type {
+        errors.push(NativeRendererJsonValidationError {
+            path: format!("{path}.assetType"),
+            asset_name: String::new(),
+            reason: format!("must be explicitly provided for {noun} in resolved projection JSON"),
+        });
     }
 }
