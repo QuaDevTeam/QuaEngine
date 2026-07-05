@@ -137,6 +137,8 @@ pub struct UiSurfaceResolvedStyle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub object_fit: Option<UiSurfaceObjectFitProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub object_position: Option<UiSurfaceBackgroundPositionProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub opacity: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub padding: Option<UiSurfaceEdgeInsetsProjection>,

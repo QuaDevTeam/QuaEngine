@@ -65,6 +65,7 @@ const EXPECTED_NATIVE_WGPU_QSS_FEATURES = [
   'min-height',
   'min-width',
   'object-fit',
+  'object-position',
   'opacity',
   'overflow',
   'padding',
@@ -156,6 +157,7 @@ Button:nth-child(2) {
     const justifyContent = 'Row { justify-content:  }'
     const margin = 'Button { margin:  }'
     const objectFit = 'Image { object-fit:  }'
+    const objectPosition = 'Image { object-position:  }'
     const position = 'Button { position:  }'
     const textAlign = 'Text { text-align:  }'
     const textOverflow = 'Text { text-overflow:  }'
@@ -186,6 +188,8 @@ Button:nth-child(2) {
       .toEqual(expect.arrayContaining(['8px', '12px', '16px']))
     expect(getNativeUiCompletions(objectFit, objectFit.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
       .toEqual(expect.arrayContaining(['cover', 'contain', 'scale-down']))
+    expect(getNativeUiCompletions(objectPosition, objectPosition.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
+      .toEqual(expect.arrayContaining(['left top', 'center', 'right bottom', '50% 50%']))
     expect(getNativeUiCompletions(position, position.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))
       .toEqual(expect.arrayContaining(['relative', 'absolute']))
     expect(getNativeUiCompletions(textAlign, textAlign.indexOf(' }'), { filePath: 'menu.qss' }).map(item => item.label))

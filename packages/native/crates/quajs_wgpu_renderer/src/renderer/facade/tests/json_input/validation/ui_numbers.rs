@@ -142,6 +142,21 @@ fn json_frame_ui_style_number_validation_rejects_unsafe_resolved_values() {
         other => panic!("expected unsafe UI background position validation error, got {other:?}"),
     }
 
+    let object_position = renderer
+        .prepare_frame_json_str(json_frame_with_unsafe_ui_object_position_input())
+        .unwrap_err();
+    match object_position {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.style.objectPosition.y"
+            );
+            assert_eq!(validation.asset_name, "-0.01");
+            assert!(validation.reason.contains("normalized values"));
+        }
+        other => panic!("expected unsafe UI object position validation error, got {other:?}"),
+    }
+
     let style_number = renderer
         .prepare_frame_json_str(json_frame_with_negative_ui_style_number_input())
         .unwrap_err();

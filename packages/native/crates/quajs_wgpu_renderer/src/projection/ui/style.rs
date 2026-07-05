@@ -9,10 +9,11 @@ use crate::render_graph::{
 };
 
 use super::types::{
-    UiSurfaceBorderStyleProjection, UiSurfaceFontStyleProjection, UiSurfaceImageProjection,
-    UiSurfaceObjectFitProjection, UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection,
-    UiSurfaceTextDecorationProjection, UiSurfaceTextOverflowProjection,
-    UiSurfaceTextTransformProjection, UiSurfaceWhiteSpaceProjection,
+    UiSurfaceBackgroundPositionProjection, UiSurfaceBorderStyleProjection,
+    UiSurfaceFontStyleProjection, UiSurfaceImageProjection, UiSurfaceObjectFitProjection,
+    UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection, UiSurfaceTextDecorationProjection,
+    UiSurfaceTextOverflowProjection, UiSurfaceTextTransformProjection,
+    UiSurfaceWhiteSpaceProjection,
 };
 
 pub fn resolve_background_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {
@@ -41,14 +42,7 @@ pub fn resolve_background_position(
     style: &UiSurfaceResolvedStyle,
     fallback: MediaOrigin,
 ) -> MediaOrigin {
-    style
-        .background_position
-        .filter(|position| (0.0..=1.0).contains(&position.x) && (0.0..=1.0).contains(&position.y))
-        .map(|position| MediaOrigin {
-            x: position.x,
-            y: position.y,
-        })
-        .unwrap_or(fallback)
+    resolve_media_origin(style.background_position, fallback)
 }
 
 pub fn resolve_text_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {
@@ -165,6 +159,26 @@ pub fn resolve_white_space(style: &UiSurfaceResolvedStyle) -> WhiteSpaceDrawPara
 
 pub fn resolve_object_fit(style: &UiSurfaceResolvedStyle, fallback: MediaFit) -> MediaFit {
     media_fit_from_projection(style.object_fit, fallback)
+}
+
+pub fn resolve_object_position(
+    style: &UiSurfaceResolvedStyle,
+    fallback: MediaOrigin,
+) -> MediaOrigin {
+    resolve_media_origin(style.object_position, fallback)
+}
+
+fn resolve_media_origin(
+    value: Option<UiSurfaceBackgroundPositionProjection>,
+    fallback: MediaOrigin,
+) -> MediaOrigin {
+    value
+        .filter(|position| (0.0..=1.0).contains(&position.x) && (0.0..=1.0).contains(&position.y))
+        .map(|position| MediaOrigin {
+            x: position.x,
+            y: position.y,
+        })
+        .unwrap_or(fallback)
 }
 
 fn media_fit_from_projection(

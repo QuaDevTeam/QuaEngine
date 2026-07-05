@@ -15,6 +15,7 @@ pub(super) fn invalid_native_json_ui_style_number_reason(
 ) -> Option<(&'static str, String, String)> {
     validate_optional_opacity("opacity", style.opacity)
         .or_else(|| validate_background_position(style.background_position))
+        .or_else(|| validate_object_position(style.object_position))
         .or_else(|| validate_optional_logical_value("borderRadius", style.border_radius))
         .or_else(|| validate_optional_logical_value("borderWidth", style.border_width))
         .or_else(|| validate_optional_logical_value("fontSize", style.font_size))
@@ -38,6 +39,14 @@ fn validate_background_position(
     let position = value?;
     validate_normalized_value("backgroundPosition.x", position.x)
         .or_else(|| validate_normalized_value("backgroundPosition.y", position.y))
+}
+
+fn validate_object_position(
+    value: Option<UiSurfaceBackgroundPositionProjection>,
+) -> Option<(&'static str, String, String)> {
+    let position = value?;
+    validate_normalized_value("objectPosition.x", position.x)
+        .or_else(|| validate_normalized_value("objectPosition.y", position.y))
 }
 
 fn validate_padding(
@@ -125,6 +134,7 @@ mod tests {
         let style = UiSurfaceResolvedStyle {
             opacity: Some(0.5),
             background_position: Some(UiSurfaceBackgroundPositionProjection { x: 0.0, y: 1.0 }),
+            object_position: Some(UiSurfaceBackgroundPositionProjection { x: 0.25, y: 0.75 }),
             border_radius: Some(MAX_NATIVE_UI_STYLE_LOGICAL_VALUE),
             border_width: Some(0.0),
             font_size: Some(28.0),
@@ -163,6 +173,14 @@ mod tests {
             .unwrap();
         assert_eq!(background_position.0, "backgroundPosition.x");
         assert!(background_position.2.contains("normalized"));
+
+        let object_position = invalid_native_json_ui_style_number_reason(&UiSurfaceResolvedStyle {
+            object_position: Some(UiSurfaceBackgroundPositionProjection { x: 0.0, y: -0.01 }),
+            ..UiSurfaceResolvedStyle::default()
+        })
+        .unwrap();
+        assert_eq!(object_position.0, "objectPosition.y");
+        assert!(object_position.2.contains("normalized"));
 
         let border_width = invalid_native_json_ui_style_number_reason(&UiSurfaceResolvedStyle {
             border_width: Some(-1.0),

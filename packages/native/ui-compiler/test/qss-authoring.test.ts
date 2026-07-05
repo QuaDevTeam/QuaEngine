@@ -245,6 +245,7 @@ Button.primary {
   min-height: 56px;
   min-width: 220px;
   object-fit: cover;
+  object-position: right top;
   opacity: 1.4;
   overflow: hidden;
   padding: 12px 20px;
@@ -287,6 +288,7 @@ Button.primary {
         letterSpacing: 1.5,
         lineHeight: 1.25,
         objectFit: 'cover',
+        objectPosition: { x: 1, y: 0 },
         opacity: 1,
         padding: { top: 12, right: 20, bottom: 12, left: 24 },
         textAlign: 'center',
@@ -320,6 +322,7 @@ Button {
   min-height: calc(10px);
   min-width: -8px;
   object-fit: stretch;
+  object-position: 120% center;
   opacity: none;
   overflow: clip;
   padding: 1px 2px 3px 4px 5px;
@@ -398,6 +401,7 @@ Button {
   min-height: calc(10px);
   min-width: -8px;
   object-fit: stretch;
+  object-position: 120% center;
   opacity: none;
   overflow: clip;
   padding: 1px 2px 3px 4px 5px;
@@ -438,6 +442,7 @@ Button {
   min-height: 20px;
   min-width: 120px;
   object-fit: scale-down;
+  object-position: 25% 75%;
   opacity: 0;
   overflow: visible;
   padding: 12px 16px;
@@ -459,7 +464,7 @@ Button {
 }
 `)
 
-    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(36)
+    expect(invalid.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(37)
     expect(invalid.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
@@ -476,6 +481,10 @@ Button {
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
         message: expect.stringContaining('background-position'),
+      }),
+      expect.objectContaining({
+        code: 'QSS_INVALID_VALUE',
+        message: expect.stringContaining('object-position'),
       }),
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',

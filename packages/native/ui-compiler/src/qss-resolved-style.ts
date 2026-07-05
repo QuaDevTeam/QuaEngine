@@ -189,6 +189,9 @@ export function resolveNativeQssDeclarations(
       case 'object-fit':
         resolved.style.objectFit = parseNativeQssObjectFit(value)
         break
+      case 'object-position':
+        resolved.style.objectPosition = parseNativeQssBackgroundPosition(value)
+        break
       case 'opacity':
         resolved.style.opacity = parseNativeQssOpacity(value)
         break

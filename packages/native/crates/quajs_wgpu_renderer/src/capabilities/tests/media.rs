@@ -1,6 +1,16 @@
 use super::support::{capability, native_wgpu_capabilities};
 
 #[test]
+fn image_capability_declares_image_fit_and_origin_features() {
+    let capabilities = native_wgpu_capabilities();
+    let image = capability(&capabilities, "native-wgpu.image@1");
+
+    assert!(image.qss_features.contains(&"object-fit".to_string()));
+    assert!(image.qss_features.contains(&"object-position".to_string()));
+    assert!(image.qui_components.contains(&"Image".to_string()));
+}
+
+#[test]
 fn video_capability_is_poster_fallback_only_until_decode_backend_exists() {
     let capabilities = native_wgpu_capabilities();
     let video = capability(&capabilities, "native-wgpu.video@1");

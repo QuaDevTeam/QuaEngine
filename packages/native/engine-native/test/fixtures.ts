@@ -22,6 +22,7 @@ export const CAPABILITIES: QuaNativeHostInfo['renderer']['capabilities'] = [
       'border-radius',
       'font-size',
       'object-fit',
+      'object-position',
     ],
     quiComponents: ['Box', 'Button', 'Image', 'Panel', 'Text'],
     fallback: 'reject-package',
