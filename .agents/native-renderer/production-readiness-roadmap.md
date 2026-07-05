@@ -117,6 +117,7 @@ flowchart LR
 - Rust JSON facade 做防御性校验，拒绝 malformed resolved JSON，但不解析 QUI/QSS source。
 - Dialogue projection bridge JSON 必须显式携带 `mode`，不能让 Rust serde 默认成 `say` 后继续渲染。
 - Choices projection bridge JSON 必须显式携带 choice set `visible` / `choices` 和 choice item `enabled`，不能让 Rust serde 默认成可见、空数组或可点击后继续渲染。
+- Character projection bridge JSON 必须显式携带每个角色的 `visible`，不能让 Rust serde 默认成显示角色后继续渲染。
 - Audio projection bridge JSON 必须显式携带 track `assetType` / `loadMode` / `playbackState`，不能让 Rust serde 默认成 `bgm`、`buffered` 或 `playing` 后继续规划资源和 backend 命令。
 - Pointer、choice、UI intent 只通过 `@quajs/pipeline` 回 engine。
 - Resource ledger 可记录 transient GPU/audio/video/UI resources、memory、unload blocker 和 cleanup，不得成为 game state authority。

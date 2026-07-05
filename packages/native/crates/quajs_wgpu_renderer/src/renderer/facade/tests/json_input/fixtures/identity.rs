@@ -26,6 +26,24 @@ pub(in super::super) fn json_frame_with_unsafe_character_id_input() -> &'static 
           {
             "id": "file:///tmp/native.node",
             "name": "Yuki",
+            "visible": true,
+            "sprite": "characters/yuki.png"
+          }
+        ]
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_character_visible_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "characters": [
+          {
+            "id": "yuki",
+            "name": "Yuki",
             "sprite": "characters/yuki.png"
           }
         ]
@@ -108,11 +126,13 @@ pub(in super::super) fn json_frame_with_duplicate_character_id_input() -> &'stat
           {
             "id": "yuki",
             "name": "Yuki",
+            "visible": true,
             "sprite": "characters/yuki-a.png"
           },
           {
             "id": "yuki",
             "name": "Yuki Alt",
+            "visible": true,
             "sprite": "characters/yuki-b.png"
           }
         ]

@@ -10,6 +10,7 @@ pub(crate) fn validate_json_frame_required_fields(
     let mut errors = Vec::new();
     validate_top_level_required_fields(input, &mut errors);
     validate_dialogue_required_fields(input, &mut errors);
+    validate_character_required_fields(input, &mut errors);
     validate_choices_required_fields(input, &mut errors);
     validate_ui_surface_required_fields(input, &mut errors);
     validate_audio_track_required_fields(input, &mut errors);
@@ -125,6 +126,39 @@ fn validate_choices_required_fields(
                 path: format!("view.choices.choices[{choice_index}].enabled"),
                 asset_name: String::new(),
                 reason: "must be explicitly provided for native choice projections in resolved projection JSON".to_string(),
+            });
+            return;
+        }
+    }
+}
+
+fn validate_character_required_fields(
+    input: &Value,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    let Some(characters) = input
+        .get("view")
+        .and_then(|view| view.get("characters"))
+        .and_then(Value::as_array)
+    else {
+        return;
+    };
+
+    for (character_index, character) in characters.iter().enumerate() {
+        let Some(character_object) = character.as_object() else {
+            continue;
+        };
+        let missing_visible = match character_object.get("visible") {
+            Some(value) => value.is_null(),
+            None => true,
+        };
+        if missing_visible {
+            errors.push(NativeRendererJsonValidationError {
+                path: format!("view.characters[{character_index}].visible"),
+                asset_name: String::new(),
+                reason:
+                    "must be explicitly provided for native character projections in resolved projection JSON"
+                        .to_string(),
             });
             return;
         }

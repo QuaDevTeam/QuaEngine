@@ -28,6 +28,7 @@ pub(in super::super::super) fn json_frame_with_oversized_character_layer_input()
           {
             "id": "yuki",
             "name": "Yuki",
+            "visible": true,
             "sprite": "characters/yuki.png",
             "layer": -1000001
           }
