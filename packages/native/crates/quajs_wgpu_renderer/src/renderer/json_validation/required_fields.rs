@@ -10,6 +10,7 @@ pub(crate) fn validate_json_frame_required_fields(
     let mut errors = Vec::new();
     validate_top_level_required_fields(input, &mut errors);
     validate_dialogue_required_fields(input, &mut errors);
+    validate_choices_required_fields(input, &mut errors);
     validate_ui_surface_required_fields(input, &mut errors);
     validate_audio_track_required_fields(input, &mut errors);
     if let Some(error) = errors.into_iter().next() {
@@ -77,6 +78,57 @@ fn validate_dialogue_required_fields(
         "dialogue avatar image resources",
         errors,
     );
+}
+
+fn validate_choices_required_fields(
+    input: &Value,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    let Some(choices) = input.get("view").and_then(|view| view.get("choices")) else {
+        return;
+    };
+    if choices.is_null() {
+        return;
+    }
+    let Some(choices_object) = choices.as_object() else {
+        return;
+    };
+
+    for field in ["visible", "choices"] {
+        let missing = match choices_object.get(field) {
+            Some(value) => value.is_null(),
+            None => true,
+        };
+        if missing {
+            errors.push(NativeRendererJsonValidationError {
+                path: format!("view.choices.{field}"),
+                asset_name: String::new(),
+                reason: "must be explicitly provided for native choice set projections in resolved projection JSON".to_string(),
+            });
+            return;
+        }
+    }
+
+    let Some(choice_items) = choices_object.get("choices").and_then(Value::as_array) else {
+        return;
+    };
+    for (choice_index, choice) in choice_items.iter().enumerate() {
+        let Some(choice_object) = choice.as_object() else {
+            continue;
+        };
+        let missing_enabled = match choice_object.get("enabled") {
+            Some(value) => value.is_null(),
+            None => true,
+        };
+        if missing_enabled {
+            errors.push(NativeRendererJsonValidationError {
+                path: format!("view.choices.choices[{choice_index}].enabled"),
+                asset_name: String::new(),
+                reason: "must be explicitly provided for native choice projections in resolved projection JSON".to_string(),
+            });
+            return;
+        }
+    }
 }
 
 fn validate_audio_track_required_fields(

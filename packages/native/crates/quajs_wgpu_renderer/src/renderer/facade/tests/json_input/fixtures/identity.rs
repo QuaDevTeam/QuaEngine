@@ -40,10 +40,12 @@ pub(in super::super) fn json_frame_with_unsafe_choice_projection_id_input() -> &
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "choices": {
+          "visible": true,
           "choices": [
             {
               "id": "choices/native.dll",
-              "text": "Start"
+              "text": "Start",
+              "enabled": true
             }
           ]
         }
@@ -124,14 +126,17 @@ pub(in super::super) fn json_frame_with_duplicate_choice_id_input() -> &'static 
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "choices": {
+          "visible": true,
           "choices": [
             {
               "id": "start",
-              "text": "Start"
+              "text": "Start",
+              "enabled": true
             },
             {
               "id": "start",
-              "text": "Start Again"
+              "text": "Start Again",
+              "enabled": true
             }
           ]
         }
