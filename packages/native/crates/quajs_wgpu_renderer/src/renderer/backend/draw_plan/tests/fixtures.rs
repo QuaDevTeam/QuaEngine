@@ -6,6 +6,8 @@ use crate::projection::ui::{
     UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceResolvedStyle,
 };
 use crate::projection::view::ViewProjection;
+use crate::render_graph::{plan_render_passes, RenderGraph};
+use crate::resources::{plan_asset_requests, plan_render_graph_resources};
 use crate::resources::{
     NativeResourceKind, NativeResourceLedger, NativeResourceRecord, ResourceId,
 };
@@ -80,6 +82,21 @@ pub(super) fn ledger_with_background_and_surface() -> NativeResourceLedger {
         .label("menu surface"),
     );
     resources
+}
+
+pub(super) fn frame_from_graph(graph: RenderGraph) -> crate::frame::PreparedNativeFrame {
+    let summary = graph.summary();
+    let resources = plan_render_graph_resources(&graph);
+    let assets = plan_asset_requests(&resources);
+    let passes = plan_render_passes(&graph);
+
+    crate::frame::PreparedNativeFrame {
+        graph,
+        summary,
+        resources,
+        assets,
+        passes,
+    }
 }
 
 pub(super) fn test_layout() -> ResolvedStageLayout {
