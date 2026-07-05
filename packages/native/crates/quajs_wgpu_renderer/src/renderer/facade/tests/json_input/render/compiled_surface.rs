@@ -1,7 +1,7 @@
 use super::*;
 use crate::render_graph::{DrawCommandParams, MediaFit};
 use crate::renderer::NullNativeRenderBackend;
-use crate::resources::PackageUnloadBlockerReason;
+use crate::resources::{NativeResourceKind, PackageUnloadBlockerReason};
 
 #[test]
 fn prepares_shared_compiled_qui_qss_surface_fixture() {
@@ -46,6 +46,29 @@ fn prepares_shared_compiled_qui_qss_surface_fixture() {
     assert!(surface_resource.required_package_ids.contains("base"));
     assert!(renderer.resources().get("fonts:Qua Sans").is_some());
     assert!(renderer.resources().get("fonts:Fallback Serif").is_some());
+
+    let metrics = renderer.metrics();
+    assert_eq!(metrics.resources.ledger_resource_count, 5);
+    assert_eq!(metrics.resources.declarative_resource_count, 1);
+    assert_eq!(metrics.resources.declarative_package_count, 2);
+    assert!(metrics.resources.declarative_memory.cpu_bytes > 0);
+    assert_eq!(metrics.resources.declarative_memory.gpu_bytes, 0);
+    assert_eq!(
+        metrics.resources.by_kind[&NativeResourceKind::UiAst].count,
+        1
+    );
+    assert_eq!(
+        metrics.resources.declarative_by_package["runtime.ui"].owned_count,
+        1
+    );
+    assert_eq!(
+        metrics.resources.declarative_by_package["base"].dependent_count,
+        1
+    );
+    assert!(!metrics
+        .resources
+        .declarative_by_package
+        .contains_key("runtime.fonts"));
 
     let frame = renderer.state().frame().expect("frame prepared");
     let command_ids = frame
@@ -168,6 +191,28 @@ fn prepares_shared_compiled_qui_qss_surface_fixture() {
             && blocker.required_package_ids.contains("base")
             && blocker.owner_package_id.as_deref() == Some("runtime.ui")
     }));
+
+    let release = renderer.release_package_resources("base");
+    assert!(!release.plan.can_unload());
+    assert!(release.released_resources.is_empty());
+    assert!(release.host_cleanup.is_empty());
+    assert_eq!(release.summary.declarative_released_count, 0);
+    assert!(release.summary.declarative_blocked_count >= 1);
+    assert!(release.summary.declarative_blocked_memory.cpu_bytes > 0);
+    assert_eq!(release.summary.declarative_blocked_memory.gpu_bytes, 0);
+    assert_eq!(
+        release.summary.blocked_by_kind[&NativeResourceKind::UiAst],
+        1
+    );
+    assert!(
+        release.summary.blocked_by_reason
+            [&PackageUnloadBlockerReason::PackageRequiredByForeignResource]
+            >= 1
+    );
+    assert!(renderer
+        .resources()
+        .get("surface:ui/compiled-menu.qui")
+        .is_some());
 }
 
 #[test]
