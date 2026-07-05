@@ -1,6 +1,7 @@
 use crate::projection::safety::{
     MAX_NATIVE_BACKGROUND_LOGICAL_COORDINATE, MAX_NATIVE_BACKGROUND_LOGICAL_DIMENSION,
     MAX_NATIVE_BACKGROUND_ROTATION_DEGREES, MAX_NATIVE_BACKGROUND_SCALE,
+    MAX_NATIVE_VIDEO_PLAYBACK_RATE,
 };
 
 pub(super) fn invalid_native_json_background_geometry_reason(
@@ -20,6 +21,28 @@ pub(super) fn invalid_native_json_background_geometry_reason(
 pub(super) fn invalid_native_json_background_opacity_reason(value: f32) -> Option<String> {
     if !value.is_finite() || !(0.0..=1.0).contains(&value) {
         return Some("background opacity must be finite and between 0 and 1".to_string());
+    }
+    None
+}
+
+pub(super) fn invalid_native_json_video_volume_reason(value: Option<f32>) -> Option<String> {
+    let value = value?;
+    if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+        return Some("video volume must be finite and between 0 and 1".to_string());
+    }
+    None
+}
+
+pub(super) fn invalid_native_json_video_playback_rate_reason(value: Option<f32>) -> Option<String> {
+    let value = value?;
+    if !value.is_finite() {
+        return Some("video playbackRate must be finite".to_string());
+    }
+    if value <= 0.0 {
+        return Some("video playbackRate must be greater than 0".to_string());
+    }
+    if value > MAX_NATIVE_VIDEO_PLAYBACK_RATE {
+        return Some("video playbackRate exceeds native renderer limits".to_string());
     }
     None
 }
@@ -173,6 +196,30 @@ mod tests {
         assert!(invalid_native_json_background_opacity_reason(1.01)
             .unwrap()
             .contains("between 0 and 1"));
+    }
+
+    #[test]
+    fn video_playback_policy_accepts_only_finite_safe_values() {
+        assert_eq!(invalid_native_json_video_volume_reason(None), None);
+        assert_eq!(invalid_native_json_video_volume_reason(Some(0.0)), None);
+        assert_eq!(invalid_native_json_video_volume_reason(Some(1.0)), None);
+        assert!(invalid_native_json_video_volume_reason(Some(1.01))
+            .unwrap()
+            .contains("between 0 and 1"));
+
+        assert_eq!(invalid_native_json_video_playback_rate_reason(None), None);
+        assert_eq!(
+            invalid_native_json_video_playback_rate_reason(Some(MAX_NATIVE_VIDEO_PLAYBACK_RATE)),
+            None
+        );
+        assert!(invalid_native_json_video_playback_rate_reason(Some(0.0))
+            .unwrap()
+            .contains("greater than 0"));
+        assert!(invalid_native_json_video_playback_rate_reason(Some(
+            MAX_NATIVE_VIDEO_PLAYBACK_RATE + 1.0
+        ))
+        .unwrap()
+        .contains("exceeds"));
     }
 
     #[test]

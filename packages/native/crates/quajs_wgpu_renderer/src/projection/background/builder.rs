@@ -4,7 +4,8 @@ use crate::projection::common::{
 };
 use crate::projection::safety::{
     is_safe_native_background_geometry, is_safe_native_background_origin,
-    is_safe_native_background_rotation, is_safe_native_opacity, is_safe_native_z_index,
+    is_safe_native_background_rotation, is_safe_native_opacity, is_safe_native_video_playback_rate,
+    is_safe_native_video_volume, is_safe_native_z_index,
 };
 use crate::render_graph::{
     DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams, RenderGraph, RenderPlane,
@@ -156,6 +157,8 @@ fn background_video_command(
 ) -> Option<DrawCommand> {
     if !is_safe_native_opacity(video.opacity)
         || !is_safe_native_background_origin(video.origin.as_deref())
+        || !is_safe_native_video_volume(video.volume)
+        || !is_safe_native_video_playback_rate(video.playback_rate)
     {
         return None;
     }
@@ -177,6 +180,10 @@ fn background_video_command(
         asset_type,
         asset_name: video.asset_name.clone(),
         poster_asset_name: poster_asset_name.clone(),
+        looped: video.looped,
+        muted: video.muted,
+        volume: video.volume,
+        playback_rate: video.playback_rate,
         fit: media_fit(video.fit),
         origin: media_origin(video.origin.as_deref()),
         source: full_stage_rect(layout),

@@ -158,6 +158,30 @@ fn json_frame_background_number_validation_rejects_unsafe_resolved_values() {
         other => panic!("expected unsafe video opacity validation error, got {other:?}"),
     }
 
+    let volume = renderer
+        .prepare_frame_json_str(json_frame_with_oversized_video_volume_input())
+        .unwrap_err();
+    match volume {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.background.video.volume");
+            assert_eq!(validation.asset_name, "1.5");
+            assert!(validation.reason.contains("between 0 and 1"));
+        }
+        other => panic!("expected unsafe video volume validation error, got {other:?}"),
+    }
+
+    let playback_rate = renderer
+        .prepare_frame_json_str(json_frame_with_zero_video_playback_rate_input())
+        .unwrap_err();
+    match playback_rate {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.background.video.playbackRate");
+            assert_eq!(validation.asset_name, "0");
+            assert!(validation.reason.contains("greater than 0"));
+        }
+        other => panic!("expected unsafe video playbackRate validation error, got {other:?}"),
+    }
+
     assert_eq!(renderer.state().revision(), 0);
     assert!(renderer.state().frame().is_none());
 }
