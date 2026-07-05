@@ -50,6 +50,11 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 }
             }
             WindowEvent::CursorLeft { .. } => {
+                self.cancel_window_pointer_interaction();
+                self.input.clear_cursor_position();
+            }
+            WindowEvent::Focused(false) => {
+                self.cancel_window_pointer_interaction();
                 self.input.clear_cursor_position();
             }
             WindowEvent::MouseInput { state, button, .. } => {

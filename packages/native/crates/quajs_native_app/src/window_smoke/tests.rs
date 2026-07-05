@@ -136,6 +136,7 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         pointer_dispatch_count: 0,
         pointer_intent_emit_count: 1,
         pointer_probe_count: 1,
+        pointer_cancel_count: 0,
         pointer_last_intent_type: Some("ui/intent".to_string()),
         last_resize_physical_width: None,
         last_resize_physical_height: None,
@@ -161,4 +162,5 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["textureLifecycleReleaseAttemptCount"], 0);
     assert_eq!(value["textureLifecycleReleasedPackageCount"], 0);
     assert_eq!(value["textureLifecycleTextureCleanupErrorCount"], 0);
+    assert_eq!(value["pointerCancelCount"], 0);
 }

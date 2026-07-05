@@ -72,6 +72,7 @@ pub(super) fn build_window_smoke_report(
         pointer_dispatch_count: input.input_metrics.pointer_dispatch_count,
         pointer_intent_emit_count: input.input_metrics.pointer_intent_emit_count,
         pointer_probe_count: input.input_metrics.pointer_probe_count,
+        pointer_cancel_count: input.input_metrics.pointer_cancel_count,
         pointer_last_intent_type: input.input_metrics.last_intent_type.clone(),
         last_resize_physical_width: input.last_resize_physical_size.map(|size| size.width),
         last_resize_physical_height: input.last_resize_physical_size.map(|size| size.height),
@@ -114,6 +115,7 @@ mod tests {
             pointer_dispatch_count: 5,
             pointer_intent_emit_count: 4,
             pointer_probe_count: 1,
+            pointer_cancel_count: 2,
             last_intent_type: Some("ui/intent".to_string()),
         };
 
@@ -149,6 +151,7 @@ mod tests {
             report.pointer_last_intent_type.as_deref(),
             Some("ui/intent")
         );
+        assert_eq!(report.pointer_cancel_count, 2);
         assert_eq!(report.last_resize_physical_width, Some(960));
         assert_eq!(report.logical_width, 480.0);
         assert!(report.resubmitted_after_texture_upload);

@@ -172,6 +172,10 @@ where
         self.state.pointer_event(event)
     }
 
+    pub fn cancel_pointer_interaction(&mut self, pointer_id: u64) -> bool {
+        self.state.cancel_pointer_interaction(pointer_id)
+    }
+
     pub fn pointer_event_and_emit_intent<H>(
         &mut self,
         event: NativePointerEvent,

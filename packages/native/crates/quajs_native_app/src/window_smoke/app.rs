@@ -183,6 +183,12 @@ impl NativeWindowSmokeApp {
         )
     }
 
+    fn cancel_window_pointer_interaction(&mut self) {
+        if let Some(runtime) = self.runtime.as_mut() {
+            self.input.cancel_pointer_interaction(&mut runtime.renderer);
+        }
+    }
+
     fn recover_surface_from_window_size(&mut self) -> Result<(), NativeWindowSmokeError> {
         let size = self.window.as_ref().map(|window| window.inner_size());
         if let Some(size) = size {
