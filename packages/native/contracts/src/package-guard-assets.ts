@@ -140,6 +140,9 @@ function addRuntimeModuleVariantAssetNames(
   for (const variant of Object.values(variants || {})) {
     addAssetName(names, variant.assetName)
     addAssetName(names, variant.module)
+    addAssetName(names, variant.name)
+    addAssetName(names, variant.path)
+    addAssetName(names, variant.relativePath)
   }
 }
 

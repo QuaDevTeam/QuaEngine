@@ -97,6 +97,9 @@ export interface NativeGuardRuntimePackageScriptManifest {
 export interface NativeGuardRuntimePackageModuleVariantManifest {
   assetName?: string
   module?: string
+  name?: string
+  path?: string
+  relativePath?: string
   [key: string]: unknown
 }
 
