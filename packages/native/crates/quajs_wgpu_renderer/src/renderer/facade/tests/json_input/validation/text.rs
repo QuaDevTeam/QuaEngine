@@ -161,6 +161,27 @@ fn json_frame_rich_text_payload_validation_rejects_unsafe_resolved_text_payloads
 }
 
 #[test]
+fn json_frame_dialogue_projection_validation_requires_explicit_visibility() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let error = renderer
+        .prepare_frame_json_str(json_frame_with_missing_dialogue_visible_input())
+        .unwrap_err();
+
+    match error {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.dialogue.visible");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("explicitly provided"));
+        }
+        other => panic!("expected missing dialogue visible validation error, got {other:?}"),
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_dialogue_projection_validation_requires_explicit_mode() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

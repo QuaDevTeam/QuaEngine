@@ -115,7 +115,7 @@ flowchart LR
 - `@quajs/engine-native` 读取 signed Rust host 的 native runtime / renderer versions，QPK 不可覆盖。
 - QuickJS loader 只从 QuaAssets 读取 QPK 声明的 JS module asset bytes，不读 filesystem、URL、Blob、Node resolution 或 dynamic import。
 - Rust JSON facade 做防御性校验，拒绝 malformed resolved JSON，但不解析 QUI/QSS source。
-- Dialogue projection bridge JSON 必须显式携带 `mode`，不能让 Rust serde 默认成 `say` 后继续渲染。
+- Dialogue projection bridge JSON 必须显式携带 `visible` 和 `mode`，不能让 Rust serde 默认成显示对话或 `say` 后继续渲染。
 - Choices projection bridge JSON 必须显式携带 choice set `visible` / `choices` 和 choice item `enabled`，不能让 Rust serde 默认成可见、空数组或可点击后继续渲染。
 - Character projection bridge JSON 必须显式携带每个角色的 `visible`，不能让 Rust serde 默认成显示角色后继续渲染。
 - Audio projection bridge JSON 必须显式携带 track `assetType` / `loadMode` / `playbackState`，不能让 Rust serde 默认成 `bgm`、`buffered` 或 `playing` 后继续规划资源和 backend 命令。
