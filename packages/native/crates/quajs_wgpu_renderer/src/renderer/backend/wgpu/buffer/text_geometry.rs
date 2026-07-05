@@ -9,6 +9,7 @@ use crate::renderer::backend::wgpu::WgpuPhysicalRect;
 
 pub(crate) mod bitmap;
 mod placeholder;
+pub(in crate::renderer::backend::wgpu::buffer::text_geometry) mod width;
 
 use bitmap::bitmap_text_geometry;
 use placeholder::{

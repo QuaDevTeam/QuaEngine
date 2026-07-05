@@ -1,5 +1,6 @@
 use super::super::super::super::primitive::WgpuNativeRenderTextStyle;
 use super::super::super::geometry::FloatRect;
+use super::super::width::text_character_width_factor;
 use super::glyphs::BITMAP_GLYPH_WIDTH;
 use crate::render_graph::{FontStyleDrawParam, TextDecorationDrawParam};
 
@@ -76,7 +77,7 @@ pub(super) fn bitmap_line_word_gap(
 }
 
 pub(super) fn bitmap_glyph_width(character: char, pixel: f32, weight_scale: f32) -> f32 {
-    BITMAP_GLYPH_WIDTH as f32 * pixel * weight_scale * bitmap_character_width_factor(character)
+    BITMAP_GLYPH_WIDTH as f32 * pixel * weight_scale * text_character_width_factor(character)
 }
 
 pub(super) fn bitmap_glyph_advance(
@@ -122,25 +123,4 @@ pub(super) fn bitmap_ellipsis_rects(
 
 fn bitmap_word_gap(pixel: f32, letter_spacing: f32, weight_scale: f32) -> f32 {
     (pixel * 3.0 * weight_scale + letter_spacing).max(pixel)
-}
-
-fn bitmap_character_width_factor(character: char) -> f32 {
-    let code_point = character as u32;
-    if matches!(
-        code_point,
-        0x1100..=0x115F
-            | 0x2329..=0x232A
-            | 0x2E80..=0xA4CF
-            | 0xAC00..=0xD7A3
-            | 0xF900..=0xFAFF
-            | 0xFE10..=0xFE19
-            | 0xFE30..=0xFE6F
-            | 0xFF00..=0xFF60
-            | 0xFFE0..=0xFFE6
-            | 0x1F300..=0x1FAFF
-    ) {
-        2.0
-    } else {
-        1.0
-    }
 }

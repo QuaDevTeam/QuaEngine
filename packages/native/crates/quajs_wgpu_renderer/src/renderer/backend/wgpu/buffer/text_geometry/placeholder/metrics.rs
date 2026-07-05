@@ -1,3 +1,4 @@
+use super::super::width::text_character_width_factor;
 use crate::render_graph::{FontStyleDrawParam, FontWeightDrawParam, TextAlign};
 
 pub(in crate::renderer::backend::wgpu::buffer::text_geometry) fn max_visible_lines(
@@ -37,8 +38,13 @@ pub(in crate::renderer::backend::wgpu::buffer::text_geometry) fn placeholder_wor
     letter_spacing: f32,
     weight_scale: f32,
 ) -> f32 {
-    let text_units = word.chars().count().max(1) as f32;
-    let spacing = (text_units - 1.0).max(0.0) * letter_spacing;
+    let character_count = word.chars().count();
+    let text_units = word
+        .chars()
+        .map(text_character_width_factor)
+        .sum::<f32>()
+        .max(1.0);
+    let spacing = character_count.saturating_sub(1) as f32 * letter_spacing;
     ((text_units * font_size * 0.52 + spacing) * weight_scale)
         .max(font_size * 0.75 * weight_scale)
         .max(1.0)
