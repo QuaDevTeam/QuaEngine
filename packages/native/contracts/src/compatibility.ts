@@ -25,6 +25,8 @@ export interface RuntimePackageNativeRendererCompatibility {
   optionalCapabilityIds?: readonly string[]
   assetKinds?: readonly string[]
   optionalAssetKinds?: readonly string[]
+  intentEvents?: readonly string[]
+  optionalIntentEvents?: readonly string[]
   quiComponents?: readonly string[]
   optionalQuiComponents?: readonly string[]
   qssFeatures?: readonly string[]
@@ -45,6 +47,8 @@ export interface NativeCompatibilityDiagnostic {
     | 'NATIVE_RENDERER_PACKAGE_MISMATCH'
     | 'NATIVE_REQUIRED_ASSET_KIND_MISSING'
     | 'NATIVE_OPTIONAL_ASSET_KIND_MISSING'
+    | 'NATIVE_REQUIRED_INTENT_EVENT_MISSING'
+    | 'NATIVE_OPTIONAL_INTENT_EVENT_MISSING'
     | 'NATIVE_REQUIRED_QSS_FEATURE_MISSING'
     | 'NATIVE_OPTIONAL_QSS_FEATURE_MISSING'
     | 'NATIVE_REQUIRED_QUI_COMPONENT_MISSING'
@@ -74,6 +78,8 @@ export interface CreateNativeUiSurfaceCompatibilityOptions {
   optionalCapabilities?: readonly string[]
   quiComponents?: readonly string[]
   optionalQuiComponents?: readonly string[]
+  intentEvents?: readonly string[]
+  optionalIntentEvents?: readonly string[]
   qssFeatures?: readonly string[]
   optionalQssFeatures?: readonly string[]
   assetKinds?: readonly string[]
@@ -93,6 +99,10 @@ export function createNativeUiSurfaceCompatibility(
     NATIVE_WGPU_UI_SURFACE_CAPABILITY,
     ...(options.extraCapabilities || []),
   ])
+  const intentEvents = uniqueStrings([
+    ...(uiSurfaceCapability?.intentEvents || []),
+    ...(options.intentEvents || []),
+  ])
 
   return {
     packageName: NATIVE_RENDERER_PACKAGE,
@@ -108,6 +118,10 @@ export function createNativeUiSurfaceCompatibility(
     ]),
     ...(options.optionalAssetKinds?.length
       ? { optionalAssetKinds: uniqueStrings(options.optionalAssetKinds) }
+      : {}),
+    ...(intentEvents.length ? { intentEvents } : {}),
+    ...(options.optionalIntentEvents?.length
+      ? { optionalIntentEvents: uniqueStrings(options.optionalIntentEvents) }
       : {}),
     quiComponents: uniqueStrings([
       ...(uiSurfaceCapability?.quiComponents || []),
@@ -237,6 +251,30 @@ export function checkNativeCompatibility(options: CheckNativeCompatibilityOption
         message: `Optional native asset kind "${assetKind}" is not available; fallback behavior must be used.`,
         pluginId,
         required: assetKind,
+      })
+    }
+  }
+
+  for (const intentEvent of compatibility.intentEvents || []) {
+    if (!hasCapabilityFieldValue(hostInfo.renderer.capabilities, 'intentEvents', intentEvent)) {
+      diagnostics.push({
+        code: 'NATIVE_REQUIRED_INTENT_EVENT_MISSING',
+        severity: 'error',
+        message: `Required native intent event "${intentEvent}" is not available.`,
+        pluginId,
+        required: intentEvent,
+      })
+    }
+  }
+
+  for (const intentEvent of compatibility.optionalIntentEvents || []) {
+    if (!hasCapabilityFieldValue(hostInfo.renderer.capabilities, 'intentEvents', intentEvent)) {
+      diagnostics.push({
+        code: 'NATIVE_OPTIONAL_INTENT_EVENT_MISSING',
+        severity: 'warning',
+        message: `Optional native intent event "${intentEvent}" is not available; fallback behavior must be used.`,
+        pluginId,
+        required: intentEvent,
       })
     }
   }

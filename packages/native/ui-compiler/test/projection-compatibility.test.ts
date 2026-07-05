@@ -24,6 +24,7 @@ Panel.dialog(id: "menu", image: "ui/panel.png") {
   Text.title { "Main Menu" }
   Image.poster(src: "ui/poster.png", asset-type: "images")
   Button.primary(action: ui.close()) { Text { "Close" } }
+  Button.choice(action: choice.select("start")) { Text { "Start" } }
 }
 `)
     const qss = analyzeQssSource(`
@@ -53,6 +54,7 @@ Button.primary {
       nativeCode: false,
     })
     expect(compatibility.assetKinds).toEqual(expect.arrayContaining(['qui', 'qss', 'tokens', 'images']))
+    expect(compatibility.intentEvents).toEqual(['choice/select', 'ui/intent'])
     expect(compatibility.quiComponents).toEqual(['Button', 'Image', 'Panel', 'Text'])
     expect(compatibility.qssFeatures).toEqual([
       'background-color',
@@ -166,6 +168,7 @@ Button.primary {
       nativeCode: false,
     })
     expect(compatibility.assetKinds).toEqual(expect.arrayContaining(['qui', 'qss', 'tokens', 'images']))
+    expect(compatibility.intentEvents).toEqual(['ui/intent'])
     expect(compatibility.quiComponents).toEqual(['Button', 'Panel', 'Text'])
     expect(compatibility.qssFeatures).toEqual([
       'background-color',

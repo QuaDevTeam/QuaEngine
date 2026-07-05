@@ -57,4 +57,32 @@ describe('@quajs/engine-native runtime trust policy host info', () => {
 
     expect(host.getHostInfo).toHaveBeenCalledTimes(1)
   })
+
+  it('rejects runtime packages that require unsupported native renderer intent events', async () => {
+    const hostInfo = createHostInfo()
+    const host = createHost({
+      ...hostInfo,
+      renderer: {
+        ...hostInfo.renderer,
+        capabilities: hostInfo.renderer.capabilities.map(capability => ({
+          ...capability,
+          intentEvents: capability.intentEvents?.filter(event => event !== 'choice/select'),
+        })),
+      },
+    })
+    const policy = createNativeRuntimeTrustPolicy(host)
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: {
+          packageName: '@quajs/native-renderer',
+          capabilities: ['native-wgpu.ui.surface@1'],
+          intentEvents: ['choice/select'],
+          nativeCode: false,
+        },
+      },
+    }))).rejects.toThrow('Required native intent event "choice/select" is not available.')
+
+    expect(host.getHostInfo).toHaveBeenCalledTimes(1)
+  })
 })

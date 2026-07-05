@@ -14,6 +14,7 @@ export const CAPABILITIES: QuaNativeHostInfo['renderer']['capabilities'] = [
     version: '1.0.0',
     ownerPackage: '@quajs/native-renderer',
     projectionKeys: ['view.ui.overlays'],
+    intentEvents: ['choice/select', 'ui/intent'],
     assetKinds: ['data', 'images', 'fonts', 'qui', 'qss', 'tokens'],
     qssFeatures: [
       'background-color',

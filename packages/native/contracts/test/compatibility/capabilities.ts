@@ -123,6 +123,73 @@ describe('checkNativeCompatibility capabilities and resources', () => {
     ])
   })
 
+  it('rejects runtime packages that require unsupported native intent events', () => {
+    const result = checkNativeCompatibility({
+      hostInfo: createHostInfo({
+        capabilities: [
+          {
+            id: 'native-wgpu.ui.surface@1',
+            target: 'native',
+            version: '1.0.0',
+            ownerPackage: '@quajs/native-renderer',
+            projectionKeys: ['view.ui.overlays'],
+            intentEvents: ['ui/intent'],
+            fallback: 'reject-package',
+          },
+        ],
+      }),
+      pluginId: 'runtime.native-choice-ui',
+      compatibility: {
+        capabilities: ['native-wgpu.ui.surface@1'],
+        intentEvents: ['choice/select', 'ui/intent'],
+        nativeCode: false,
+      },
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'NATIVE_REQUIRED_INTENT_EVENT_MISSING',
+        severity: 'error',
+        pluginId: 'runtime.native-choice-ui',
+        required: 'choice/select',
+      }),
+    ])
+  })
+
+  it('warns for missing optional native intent events without failing activation', () => {
+    const result = checkNativeCompatibility({
+      hostInfo: createHostInfo({
+        capabilities: [
+          {
+            id: 'native-wgpu.ui.surface@1',
+            target: 'native',
+            version: '1.0.0',
+            ownerPackage: '@quajs/native-renderer',
+            projectionKeys: ['view.ui.overlays'],
+            intentEvents: ['ui/intent'],
+            fallback: 'reject-package',
+          },
+        ],
+      }),
+      pluginId: 'runtime.native-menu',
+      compatibility: {
+        optionalIntentEvents: ['choice/select', 'ui/intent'],
+        nativeCode: false,
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'NATIVE_OPTIONAL_INTENT_EVENT_MISSING',
+        severity: 'warning',
+        pluginId: 'runtime.native-menu',
+        required: 'choice/select',
+      }),
+    ])
+  })
+
   it('warns for missing optional QSS features and QUI components without failing activation', () => {
     const result = checkNativeCompatibility({
       hostInfo: createHostInfo(),

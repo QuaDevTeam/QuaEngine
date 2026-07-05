@@ -14,6 +14,7 @@ describe('checkNativeCompatibility acceptance', () => {
           'native-wgpu.image@1',
           'native-wgpu.video@1',
         ],
+        intentEvents: ['ui/intent'],
         quiComponents: ['Panel', 'Button', 'Text'],
         qssFeatures: ['background-color', 'border-radius', 'font-size'],
         assetKinds: ['qui', 'qss', 'tokens'],
@@ -40,6 +41,7 @@ describe('checkNativeCompatibility acceptance', () => {
       nativeCode: false,
     })
     expect(compatibility.assetKinds).toEqual(expect.arrayContaining(['qui', 'qss', 'tokens']))
+    expect(compatibility.intentEvents).toEqual(expect.arrayContaining(['choice/select', 'ui/intent']))
     expect(compatibility.quiComponents).toEqual(expect.arrayContaining(['Box', 'Button', 'Panel', 'Scroll', 'Text']))
     expect(compatibility.qssFeatures).toEqual(expect.arrayContaining(['background-color', 'border-radius', 'font-size', 'object-fit']))
     expect([

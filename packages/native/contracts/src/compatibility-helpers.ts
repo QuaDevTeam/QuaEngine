@@ -47,7 +47,7 @@ export function uniqueStrings(values: readonly string[]): string[] {
 
 export function hasCapabilityFieldValue(
   capabilities: readonly RendererTargetCapability[],
-  field: 'assetKinds' | 'qssFeatures' | 'quiComponents',
+  field: 'assetKinds' | 'intentEvents' | 'qssFeatures' | 'quiComponents',
   required: string,
 ): boolean {
   return capabilities.some(capability => (capability[field] || []).includes(required))
