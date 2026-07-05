@@ -1,5 +1,6 @@
 use super::*;
 use crate::audio::{AudioBackendCommandKind, NullNativeAudioBackend};
+use crate::projection::audio::AudioTrackPlaybackState;
 
 #[test]
 fn can_apply_audio_backend_from_projection_json() {
@@ -26,12 +27,10 @@ fn can_apply_audio_backend_from_projection_json() {
             AudioBackendCommandKind::StartTrack,
         ]
     );
-    assert_eq!(
-        renderer
-            .audio_backend()
-            .unwrap()
-            .diagnostics()
-            .active_track_count,
-        1
-    );
+    let audio_backend = renderer.audio_backend().unwrap();
+    assert_eq!(audio_backend.diagnostics().active_track_count, 1);
+    let track = audio_backend.active_tracks().get("bgm-main").unwrap();
+    assert_eq!(track.playback_state, AudioTrackPlaybackState::Playing);
+    assert!(track.looped);
+    assert_eq!(track.volume, 0.8);
 }

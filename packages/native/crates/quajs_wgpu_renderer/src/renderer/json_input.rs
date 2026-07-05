@@ -10,6 +10,7 @@ use crate::renderer::facade::{
 };
 use crate::renderer::json_validation::{
     validate_json_frame_input, validate_json_frame_required_fields,
+    validate_json_frame_unsupported_fields,
 };
 use crate::renderer::resource_update::NativeRendererFrameUpdate;
 use crate::stage_layout::{
@@ -157,6 +158,7 @@ pub fn parse_native_renderer_json_frame_input(
 ) -> Result<NativeRendererJsonFrameInput, NativeRendererJsonFrameError> {
     let raw_input: serde_json::Value = serde_json::from_str(input)?;
     validate_json_frame_required_fields(&raw_input)?;
+    validate_json_frame_unsupported_fields(&raw_input)?;
     let input: NativeRendererJsonFrameInput = serde_json::from_str(input)?;
     validate_json_frame_input(input.layout.as_ref(), input.container.as_ref(), &input.view)?;
     Ok(input)
