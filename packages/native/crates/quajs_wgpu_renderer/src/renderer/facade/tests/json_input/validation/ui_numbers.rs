@@ -190,3 +190,33 @@ fn json_frame_ui_style_number_validation_rejects_unsafe_resolved_values() {
     assert_eq!(renderer.state().revision(), 0);
     assert!(renderer.state().frame().is_none());
 }
+
+#[test]
+fn json_frame_ui_style_validation_rejects_malformed_style_object_fields() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    for (field, value_json) in [
+        ("backgroundPosition", r#""center""#),
+        ("objectPosition", "[0.5, 0.5]"),
+        ("padding", "8"),
+    ] {
+        let input = json_frame_with_malformed_ui_style_object_input(field, value_json);
+        let error = renderer.prepare_frame_json_str(&input).unwrap_err();
+
+        match error {
+            NativeRendererJsonFrameError::Validation(validation) => {
+                assert_eq!(
+                    validation.path,
+                    format!("view.ui.overlays[0].surface.root.style.{field}")
+                );
+                assert_eq!(validation.asset_name, "");
+                assert!(validation.reason.contains("must be an object"));
+                assert!(validation.reason.contains(field));
+            }
+            other => panic!("expected malformed UI style object validation error, got {other:?}"),
+        }
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
