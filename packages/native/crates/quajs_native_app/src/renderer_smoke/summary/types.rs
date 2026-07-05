@@ -6,6 +6,7 @@ use quajs_wgpu_renderer::renderer::{
     NativeBackendExecutionReport, NativeRendererFrameResult, NativeRendererMetrics,
 };
 
+use super::audio_backend::NativeRendererSmokeAudioBackendSummary;
 use super::backend::NativeRendererSmokeBackendSummary;
 use super::memory::{
     package_memory_summary, resource_kind_memory_summary, NativeRendererSmokeMemorySummary,
@@ -40,6 +41,7 @@ pub struct NativeRendererSmokeSummary {
     pub memory: NativeRendererSmokeMemorySummary,
     pub declarative_memory: NativeRendererSmokeMemorySummary,
     pub audio_memory: NativeRendererSmokeMemorySummary,
+    pub audio_backend: NativeRendererSmokeAudioBackendSummary,
     pub backend: NativeRendererSmokeBackendSummary,
     pub memory_by_kind: BTreeMap<String, NativeRendererSmokeResourceKindMemorySummary>,
     pub memory_by_package: BTreeMap<String, NativeRendererSmokePackageMemorySummary>,
@@ -52,6 +54,7 @@ impl NativeRendererSmokeSummary {
         result: &NativeRendererFrameResult,
         metrics: &NativeRendererMetrics,
         backend_report: Option<&NativeBackendExecutionReport>,
+        audio_backend: NativeRendererSmokeAudioBackendSummary,
     ) -> Self {
         Self {
             revision: result.submission.revision,
@@ -101,6 +104,7 @@ impl NativeRendererSmokeSummary {
             audio_memory: NativeRendererSmokeMemorySummary::from_memory(
                 metrics.resources.audio.memory,
             ),
+            audio_backend,
             backend: backend_report
                 .map(NativeRendererSmokeBackendSummary::from_execution_report)
                 .unwrap_or_default(),
