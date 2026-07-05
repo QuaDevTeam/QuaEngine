@@ -32,8 +32,9 @@ pub(super) fn validate_audio_track_required_fields(
     };
 
     for (track_index, track) in tracks.iter().enumerate() {
+        let previous_error_count = errors.len();
         validate_audio_track(track_index, track, errors);
-        if !errors.is_empty() {
+        if errors.len() > previous_error_count {
             return;
         }
     }

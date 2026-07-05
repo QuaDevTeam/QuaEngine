@@ -6,6 +6,7 @@ use crate::renderer::json_input::{
 
 mod audio;
 mod background;
+mod choices;
 mod ui_surface;
 
 pub(crate) fn validate_json_frame_required_fields(
@@ -16,7 +17,7 @@ pub(crate) fn validate_json_frame_required_fields(
     background::validate_background_required_fields(input, &mut errors);
     validate_dialogue_required_fields(input, &mut errors);
     validate_character_required_fields(input, &mut errors);
-    validate_choices_required_fields(input, &mut errors);
+    choices::validate_choices_required_fields(input, &mut errors);
     validate_ui_projection_required_fields(input, &mut errors);
     ui_surface::validate_ui_surface_required_fields(input, &mut errors);
     audio::validate_audio_track_required_fields(input, &mut errors);
@@ -107,81 +108,6 @@ fn validate_dialogue_required_fields(
         "dialogue avatar image resources",
         errors,
     );
-}
-
-fn validate_choices_required_fields(
-    input: &Value,
-    errors: &mut Vec<NativeRendererJsonValidationError>,
-) {
-    let Some(choices) = input.get("view").and_then(|view| view.get("choices")) else {
-        return;
-    };
-    if choices.is_null() {
-        return;
-    }
-    let Some(choices_object) = choices.as_object() else {
-        errors.push(NativeRendererJsonValidationError {
-            path: "view.choices".to_string(),
-            asset_name: String::new(),
-            reason:
-                "must be an object for native choice set projections in resolved projection JSON"
-                    .to_string(),
-        });
-        return;
-    };
-
-    for field in ["visible", "choices"] {
-        let missing = match choices_object.get(field) {
-            Some(value) => value.is_null(),
-            None => true,
-        };
-        if missing {
-            errors.push(NativeRendererJsonValidationError {
-                path: format!("view.choices.{field}"),
-                asset_name: String::new(),
-                reason: "must be explicitly provided for native choice set projections in resolved projection JSON".to_string(),
-            });
-            return;
-        }
-    }
-
-    let Some(choice_items_value) = choices_object.get("choices") else {
-        return;
-    };
-    let Some(choice_items) = choice_items_value.as_array() else {
-        errors.push(NativeRendererJsonValidationError {
-            path: "view.choices.choices".to_string(),
-            asset_name: String::new(),
-            reason:
-                "must be an array for native choice set projections in resolved projection JSON"
-                    .to_string(),
-        });
-        return;
-    };
-    for (choice_index, choice) in choice_items.iter().enumerate() {
-        let Some(choice_object) = choice.as_object() else {
-            errors.push(NativeRendererJsonValidationError {
-                path: format!("view.choices.choices[{choice_index}]"),
-                asset_name: String::new(),
-                reason:
-                    "must be an object for native choice projections in resolved projection JSON"
-                        .to_string(),
-            });
-            return;
-        };
-        let missing_enabled = match choice_object.get("enabled") {
-            Some(value) => value.is_null(),
-            None => true,
-        };
-        if missing_enabled {
-            errors.push(NativeRendererJsonValidationError {
-                path: format!("view.choices.choices[{choice_index}].enabled"),
-                asset_name: String::new(),
-                reason: "must be explicitly provided for native choice projections in resolved projection JSON".to_string(),
-            });
-            return;
-        }
-    }
 }
 
 fn validate_character_required_fields(
