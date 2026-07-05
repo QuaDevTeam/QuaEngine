@@ -64,6 +64,7 @@ pub(in super::super::super) fn json_frame_with_native_audio_payload_input() -> &
               "id": "bridge",
               "kind": "bgm",
               "assetType": "bgm",
+              "loadMode": "buffered",
               "playbackState": "playing",
               "assetName": "audio/bridge.node#runtime"
             }
@@ -86,6 +87,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_audio_asset_type_input() -
               "kind": "bgm",
               "assetType": "bgm/native",
               "assetName": "audio/theme.ogg",
+              "loadMode": "buffered",
               "playbackState": "playing"
             }
           ]

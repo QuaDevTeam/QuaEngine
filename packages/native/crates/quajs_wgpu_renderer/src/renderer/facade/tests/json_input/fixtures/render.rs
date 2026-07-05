@@ -98,6 +98,7 @@ pub(in super::super) fn json_frame_with_audio_input() -> &'static str {
               "kind": "bgm",
               "assetName": "audio/theme.ogg",
               "assetType": "bgm",
+              "loadMode": "buffered",
               "playbackState": "playing",
               "looped": true,
               "volume": 0.8

@@ -148,7 +148,7 @@ fn validate_audio_track_required_fields(
         let Some(track_object) = track.as_object() else {
             continue;
         };
-        for field in ["assetType", "playbackState"] {
+        for field in ["assetType", "loadMode", "playbackState"] {
             let missing = match track_object.get(field) {
                 Some(value) => value.is_null(),
                 None => true,
