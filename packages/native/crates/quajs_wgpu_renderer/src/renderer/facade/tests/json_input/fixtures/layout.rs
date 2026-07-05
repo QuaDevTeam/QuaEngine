@@ -16,6 +16,15 @@ pub(in super::super) fn json_frame_with_missing_view_input() -> &'static str {
     "#
 }
 
+pub(in super::super) fn json_frame_with_malformed_view_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": "scene"
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_inverted_layout_aspect_interval_input() -> &'static str {
     r#"
     {

@@ -41,6 +41,26 @@ fn json_frame_layout_validation_requires_explicit_view_projection() {
 }
 
 #[test]
+fn json_frame_layout_validation_rejects_malformed_view_projection_shape() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let error = renderer
+        .prepare_frame_json_str(json_frame_with_malformed_view_input())
+        .unwrap_err();
+
+    match error {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("must be an object"));
+        }
+        other => panic!("expected malformed view validation error, got {other:?}"),
+    }
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_layout_validation_rejects_unsafe_stage_inputs() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

@@ -27,17 +27,31 @@ fn validate_top_level_required_fields(
     input: &Value,
     errors: &mut Vec<NativeRendererJsonValidationError>,
 ) {
-    let missing_view = match input.get("view") {
-        Some(value) => value.is_null(),
-        None => true,
-    };
-    if missing_view {
-        errors.push(NativeRendererJsonValidationError {
-            path: "view".to_string(),
-            asset_name: String::new(),
-            reason: "must be explicitly provided for native renderer frame projection JSON"
-                .to_string(),
-        });
+    match input.get("view") {
+        Some(value) if value.is_null() => {
+            errors.push(NativeRendererJsonValidationError {
+                path: "view".to_string(),
+                asset_name: String::new(),
+                reason: "must be explicitly provided for native renderer frame projection JSON"
+                    .to_string(),
+            });
+        }
+        Some(value) if !value.is_object() => {
+            errors.push(NativeRendererJsonValidationError {
+                path: "view".to_string(),
+                asset_name: String::new(),
+                reason: "must be an object for native renderer frame projection JSON".to_string(),
+            });
+        }
+        Some(_) => {}
+        None => {
+            errors.push(NativeRendererJsonValidationError {
+                path: "view".to_string(),
+                asset_name: String::new(),
+                reason: "must be explicitly provided for native renderer frame projection JSON"
+                    .to_string(),
+            });
+        }
     }
 }
 
