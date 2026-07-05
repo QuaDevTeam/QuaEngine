@@ -2674,7 +2674,7 @@ Exit: default VN chrome, product panels, media controls, and one project-authore
 - Implement QSS parser adapter.
 - Implement selector/property/value/at-rule compatibility tables.
 - Implement validation pipeline and stable diagnostic codes.
-- Add valid/invalid fixture matrix.
+- Add valid/invalid fixture matrix. Current status: `packages/native/ui-compiler/test/qss-acceptance.test.ts` gates every `nativeQssProperties` native-wgpu property with a valid declaration, invalid `QSS_INVALID_VALUE` declaration, and resolved output assertion.
 - Add style IR snapshots.
 - Add formatter and "format preserves IR" tests.
 - Add QSS validation benchmark fixtures and initial parser/validator throughput report.

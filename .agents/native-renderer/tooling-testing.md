@@ -339,6 +339,8 @@ native 方案完成的最低门槛应该是：
 
 QSS 验收不能只靠快照。每个支持属性都要有三组测试：合法值、非法值、projection 输出。
 
+当前 `@quajs/native-ui-compiler` 已用 `test/qss-acceptance.test.ts` 把 `nativeQssProperties` 中所有 `nativeWgpu: true` 属性接到 registry 全量覆盖门禁；每个属性都有 valid declaration、invalid `QSS_INVALID_VALUE` declaration 和 `resolveNativeQssDeclarations` resolved output 断言。后续 LSP、formatter、selector/cascade 和 Rust bridge 仍按下列口径继续扩展。
+
 - 合法值：确认 `resolveNativeQssDeclarations` 接受并归一化到 `NativeQssResolvedStyle` 或 node metadata。
 - 非法值：确认 `analyzeQssSource` / LSP 给出稳定 diagnostic code，例如 `QSS_INVALID_VALUE`，并且 projection 不输出该字段。
 - 安全值：颜色、`asset(...)`、font family、origin、尺寸、z-index、opacity 等字段必须覆盖 URL、绝对路径、`..`、native payload suffix、control character、非有限数字、越界数字。
