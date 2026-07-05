@@ -461,6 +461,34 @@ pub(in super::super) fn json_frame_with_malformed_surface_root_input() -> &'stat
     "#
 }
 
+pub(in super::super) fn json_frame_with_malformed_surface_node_style_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Panel",
+                  "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 240, "height": 120 },
+                  "style": "panel"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_unsupported_surface_node_kind_input() -> &'static str {
     r#"
     {

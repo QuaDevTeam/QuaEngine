@@ -83,6 +83,11 @@ pub(super) fn validate_ui_surface_node_required_fields(
         return;
     }
 
+    validate_ui_surface_node_style_shape_required_fields(node_object.get("style"), path, errors);
+    if !errors.is_empty() {
+        return;
+    }
+
     if let Some(background_image) = node_object
         .get("style")
         .and_then(|style| style.get("backgroundImage"))
@@ -114,6 +119,27 @@ pub(super) fn validate_ui_surface_node_required_fields(
             return;
         }
     }
+}
+
+fn validate_ui_surface_node_style_shape_required_fields(
+    style: Option<&Value>,
+    path: &str,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    let Some(style) = style else {
+        return;
+    };
+    if style.is_object() {
+        return;
+    }
+
+    errors.push(NativeRendererJsonValidationError {
+        path: format!("{path}.style"),
+        asset_name: String::new(),
+        reason:
+            "must be an object when provided for native UI surface node styles in resolved projection JSON"
+                .to_string(),
+    });
 }
 
 fn validate_ui_surface_node_children_shape_required_fields(
