@@ -129,6 +129,58 @@ describe('@quajs/engine-native', () => {
     ])
   })
 
+  it('moves QuickJS namespace cleanup listeners when the native host plugin is reinitialized', async () => {
+    const host = {
+      ...createHost(),
+      releaseQuickJsPackageNamespaces: vi.fn(async () => []),
+    }
+    const plugin = new NativeHostPlugin({ host })
+    const firstPipeline = createTestPipeline()
+    const secondPipeline = createTestPipeline()
+
+    await plugin.init({ pipeline: firstPipeline } as any)
+    await plugin.init({ pipeline: secondPipeline } as any)
+
+    await emitLogicToRender(firstPipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
+      packageId: 'runtime.first',
+      bundleName: 'runtime.first',
+    })
+    await emitLogicToRender(secondPipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
+      packageId: 'runtime.second',
+      bundleName: 'runtime.second',
+    })
+
+    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledTimes(1)
+    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledWith('runtime.second')
+  })
+
+  it('keeps runtime package unload recoverable when QuickJS cleanup error reporting fails', async () => {
+    const cleanupError = new Error('native cleanup unavailable')
+    const renderErrorListenerFailure = new Error('render error listener failed')
+    const host = {
+      ...createHost(),
+      releaseQuickJsPackageNamespaces: vi.fn(async () => {
+        throw cleanupError
+      }),
+    }
+    const plugin = new NativeHostPlugin({ host })
+    const pipeline = createTestPipeline()
+    pipeline.on(RenderToLogicEvents.RENDER_ERROR, () => {
+      throw renderErrorListenerFailure
+    })
+
+    await plugin.init({ pipeline } as any)
+
+    await expect(emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+    })).resolves.toBeUndefined()
+
+    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledWith('runtime.chapter.native-ui')
+    expect(plugin.getReleasedQuickJsPackageNamespaces()).toEqual([])
+    expect(plugin.getQuickJsCleanupErrors()).toEqual([cleanupError])
+  })
+
   it('checks runtime package native renderer compatibility before activation', () => {
     const result = checkNativeRuntimePackageCompatibility(createHostInfo(), {
       pluginId: 'runtime.chapter.native-ui',
