@@ -118,7 +118,14 @@ fn binary_rejects_renderer_smoke_web_audio_alias_fields() {
 
 #[test]
 fn binary_rejects_renderer_smoke_missing_native_audio_bridge_fields() {
-    for field in ["assetType", "loadMode", "playbackState"] {
+    for field in [
+        "id",
+        "kind",
+        "assetName",
+        "assetType",
+        "loadMode",
+        "playbackState",
+    ] {
         let path = unique_frame_path(&format!("audio-missing-{field}"));
         let mut frame: serde_json::Value = serde_json::from_str(&smoke_ui_audio_frame_json())
             .expect("smoke UI/audio frame parses");
