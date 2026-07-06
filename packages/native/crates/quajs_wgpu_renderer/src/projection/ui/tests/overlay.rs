@@ -1,7 +1,8 @@
-use super::{provenance, test_layout};
+use super::{provenance, rect, test_layout};
 use crate::projection::ui::{
     build_ui_commands, UiIntentProjection, UiOverlayProjection, UiOverlayRenderMode,
-    UiOverlaySurfaceProjection, UiProjection,
+    UiOverlaySceneProjection, UiOverlaySceneShellProjection, UiOverlaySurfaceProjection,
+    UiProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection,
 };
 use crate::render_graph::{DrawCommandKind, DrawCommandParams, RenderPlane};
 use crate::resources::ResourceId;
@@ -196,5 +197,73 @@ fn render_only_overlays_default_to_non_interactive_surfaces() {
             assert!(params.intent.is_none());
         }
         _ => panic!("expected ui surface params"),
+    }
+}
+
+#[test]
+fn render_only_ui_scene_uses_scene_surface_shell_placement_and_interactivity() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        interactive: Some(false),
+        surface: Some(UiOverlaySurfaceProjection::new("ui/fallback-overlay.qui")),
+        scene: Some(UiOverlaySceneProjection {
+            render_mode: UiOverlayRenderMode::RenderOnly,
+            interactive: Some(true),
+            surface: Some(
+                UiOverlaySurfaceProjection::new("ui/settings-scene.qui").with_root(
+                    UiSurfaceNodeProjection::new(
+                        "close",
+                        UiSurfaceNodeKind::Button,
+                        rect(320.0, 240.0, 160.0, 56.0),
+                    )
+                    .with_text("Close")
+                    .with_intent(UiIntentProjection::new("close")),
+                ),
+            ),
+            overlay: Some(UiOverlaySceneShellProjection {
+                overlay_stack: Some("modal".to_string()),
+                stack_priority: Some(220),
+                z_index: Some(7),
+            }),
+            ..UiOverlaySceneProjection::new("settings-scene")
+        }),
+        ..UiOverlayProjection::new("host")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["ui:host", "ui:host:close"]);
+    assert_eq!(commands[0].z_index, 220_000_007);
+    assert!(commands[0].interactive);
+    assert_eq!(
+        commands[0].resource_ids,
+        vec![ResourceId::from("surface:ui/settings-scene.qui")]
+    );
+
+    match &commands[0].params {
+        DrawCommandParams::UiSurface(params) => {
+            assert_eq!(params.element_id, "host");
+            assert_eq!(params.surface_key.as_deref(), Some("ui/settings-scene.qui"));
+            assert_eq!(params.render_mode, "render-only");
+            assert_eq!(params.overlay_stack, "modal");
+            assert!(params.interactive);
+            assert!(params.intent.is_none());
+        }
+        _ => panic!("expected ui surface params"),
+    }
+
+    assert!(commands[1].interactive);
+    match &commands[1].params {
+        DrawCommandParams::UiButton(params) => {
+            let intent = params.intent.as_ref().unwrap();
+            assert_eq!(intent.event, "ui/intent");
+            assert_eq!(intent.element_id.as_deref(), Some("host:close"));
+            assert_eq!(intent.action.as_deref(), Some("close"));
+        }
+        _ => panic!("expected ui button params"),
     }
 }
