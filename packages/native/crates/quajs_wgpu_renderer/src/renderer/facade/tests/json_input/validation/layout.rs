@@ -117,6 +117,14 @@ fn json_frame_layout_validation_requires_background_projection_fields() {
             "view.background.layers",
         ),
         (
+            json_frame_with_missing_image_background_layers_input(),
+            "view.background.layers",
+        ),
+        (
+            json_frame_with_missing_video_background_layers_input(),
+            "view.background.layers",
+        ),
+        (
             json_frame_with_null_background_layers_input(),
             "view.background.layers",
         ),
