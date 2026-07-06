@@ -15,7 +15,7 @@ pub(in super::super::super) fn json_frame_with_projectable_surface_intent_target
                   "id": "root",
                   "kind": "Stack",
                   "visible": true,
-                  "bounds": { "x": 0, "y": 0, "width": 360, "height": 120 },
+                  "bounds": { "x": 0, "y": 0, "width": 480, "height": 120 },
                   "children": [
                     {
                       "id": "box-hotspot",
@@ -47,6 +47,17 @@ pub(in super::super::super) fn json_frame_with_projectable_surface_intent_target
                         "event": "ui/intent",
                         "action": "open",
                         "metadata": { "arg0": "panel" }
+                      }
+                    },
+                    {
+                      "id": "button-hotspot",
+                      "kind": "Button",
+                      "visible": true,
+                      "bounds": { "x": 360, "y": 0, "width": 100, "height": 100 },
+                      "intent": {
+                        "event": "ui/intent",
+                        "action": "confirm",
+                        "metadata": { "arg0": "button" }
                       }
                     }
                   ]
