@@ -310,6 +310,37 @@ Stack {
     })
   })
 
+  it('preserves action descriptors on projectable surface components before projection', () => {
+    const document = analyzeQuiSource(`
+Stack {
+  Box(id: "box-hotspot", action: ui.open("box")) { Text { "Box" } }
+  Backdrop(id: "backdrop-hotspot", action: ui.close()) { Text { "Backdrop" } }
+  Panel(id: "panel-hotspot", action: ui.open("panel")) { Text { "Panel" } }
+}
+`)
+    const projection = compileNativeUiSurfaceProjection(document, { rootId: 'root' })
+    const stack = projection.root?.children?.[0]
+
+    expect(document.diagnostics.filter(item => item.code === 'QUI_UNSUPPORTED_ACTION_TARGET')).toEqual([])
+    expect(stack?.children?.map(node => node.kind)).toEqual(['Box', 'Backdrop', 'Panel'])
+    expect(stack?.children?.map(node => node.intent)).toEqual([
+      expect.objectContaining({
+        event: 'ui/intent',
+        action: 'open',
+        metadata: { arg0: 'box' },
+      }),
+      expect.objectContaining({
+        event: 'ui/intent',
+        action: 'close',
+      }),
+      expect.objectContaining({
+        event: 'ui/intent',
+        action: 'open',
+        metadata: { arg0: 'panel' },
+      }),
+    ])
+  })
+
   it('rejects component children inside text-only QUI leaves', () => {
     const document = analyzeQuiSource('Text { Button(action: ui.close()) { Text { "Close" } } }')
 

@@ -48,6 +48,14 @@ describe('@quajs/native-language-server public API', () => {
     ])
   })
 
+  it('accepts projectable Box action targets in QUI documents', () => {
+    const result = lintNativeUiDocument('Box(action: ui.open("details")) { Text { "Details" } }', {
+      filePath: 'overlay.qui',
+    })
+
+    expect(result.diagnostics).toEqual([])
+  })
+
   it('formats QSS with full document edits', () => {
     const edits = formatNativeUiDocumentEdits('Button{color:#fff;}', {
       filePath: 'menu.qss',
