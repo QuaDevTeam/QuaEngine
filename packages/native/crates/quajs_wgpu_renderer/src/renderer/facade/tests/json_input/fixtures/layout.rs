@@ -74,6 +74,33 @@ pub(in super::super) fn json_frame_with_malformed_background_layers_input() -> &
     "#
 }
 
+pub(in super::super) fn json_frame_with_missing_background_layers_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "layered"
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_null_background_layers_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "layered",
+          "layers": null
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_malformed_background_layer_item_input() -> &'static str {
     r#"
     {
