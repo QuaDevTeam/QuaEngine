@@ -71,6 +71,11 @@ fn json_frame_layout_validation_rejects_malformed_background_projection_shapes()
             "must be an object",
         ),
         (
+            json_frame_with_null_background_projection_input(),
+            "view.background",
+            "must be an object",
+        ),
+        (
             json_frame_with_malformed_background_layers_input(),
             "view.background.layers",
             "must be an array",

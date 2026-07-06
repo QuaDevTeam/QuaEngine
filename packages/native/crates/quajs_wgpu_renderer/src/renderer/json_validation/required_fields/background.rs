@@ -9,9 +9,6 @@ pub(super) fn validate_background_required_fields(
     let Some(background) = input.get("view").and_then(|view| view.get("background")) else {
         return;
     };
-    if background.is_null() {
-        return;
-    }
     let Some(background_object) = background.as_object() else {
         errors.push(NativeRendererJsonValidationError {
             path: "view.background".to_string(),

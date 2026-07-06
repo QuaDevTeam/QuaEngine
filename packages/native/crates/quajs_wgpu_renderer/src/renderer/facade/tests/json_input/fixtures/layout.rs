@@ -47,6 +47,17 @@ pub(in super::super) fn json_frame_with_malformed_background_projection_input() 
     "#
 }
 
+pub(in super::super) fn json_frame_with_null_background_projection_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": null
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_missing_background_mode_input() -> &'static str {
     r#"
     {
