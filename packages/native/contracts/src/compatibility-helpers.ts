@@ -27,20 +27,6 @@ export function hasCompatibleCapability(capabilities: readonly RendererTargetCap
   return capabilities.some(capability => isCapabilityCompatible(required, capability.id))
 }
 
-export function collectRequiredQssFeatures(compatibility: RuntimePackageNativeRendererCompatibility): string[] {
-  return uniqueStrings([
-    ...(compatibility.qssFeatures || []),
-    ...(compatibility.qssTargets || []),
-  ])
-}
-
-export function collectRequiredQuiComponents(compatibility: RuntimePackageNativeRendererCompatibility): string[] {
-  return uniqueStrings([
-    ...(compatibility.quiComponents || []),
-    ...(compatibility.uiSurfaces || []),
-  ])
-}
-
 export function uniqueStrings(values: readonly string[]): string[] {
   return Array.from(new Set(values))
 }
