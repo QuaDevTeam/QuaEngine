@@ -130,6 +130,93 @@ fn render_json_frame_helper_uploads_scene_surface_images_from_required_package()
 }
 
 #[test]
+fn render_json_frame_helper_uploads_scene_surface_background_images_from_required_package() {
+    let host = RecordingAssetHost::new()
+        .with_bundle(bundle("runtime-ui-bundle", Some("runtime.ui")))
+        .with_bundle(bundle("base-assets-bundle", Some("base.assets")))
+        .with_asset(
+            Some("base-assets-bundle"),
+            "ui/shared/panel.png",
+            [4, 7, 8, 9],
+        );
+    let mut renderer = NativeRenderer::new(TextureResidentBackend::default());
+
+    let result = render_json_frame_with_host_texture_sync(
+        &mut renderer,
+        &host,
+        r#"{
+          "layout": { "preset": "landscape" },
+          "container": { "width": 1600, "height": 1000 },
+          "view": {
+            "ui": {
+              "visible": true,
+              "overlays": [
+                {
+                  "elementId": "settings-scene",
+                  "scene": {
+                    "id": "settings",
+                    "surface": {
+                      "key": "ui/settings.qui",
+                      "root": {
+                        "id": "settings-panel",
+                        "kind": "Box",
+                        "visible": true,
+                        "bounds": { "x": 64, "y": 72, "width": 420, "height": 300 },
+                        "style": {
+                          "backgroundImage": {
+                            "assetType": "images",
+                            "assetName": "ui/shared/panel.png"
+                          }
+                        },
+                        "provenance": {
+                          "contentPackageId": "runtime.ui",
+                          "requiredRuntimePackages": ["base.assets"]
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }"#,
+    )
+    .expect("scene surface background texture should resolve through package candidates");
+
+    assert!(result.resubmitted_after_texture_upload);
+    assert_eq!(result.texture_upload_report.uploaded_count, 1);
+    assert_eq!(
+        result.frame.texture_upload_sync.resident_resource_ids,
+        vec![ResourceId::from("images:ui/shared/panel.png")]
+    );
+
+    let reads = host.reads.borrow();
+    assert_eq!(reads.len(), 2);
+    assert_eq!(reads[0].bundle_name.as_deref(), Some("runtime-ui-bundle"));
+    assert_eq!(reads[1].bundle_name.as_deref(), Some("base-assets-bundle"));
+    assert!(reads.iter().all(|read| read.bundle_name.is_some()));
+    assert!(reads.iter().all(|read| read.url == "ui/shared/panel.png"));
+    assert!(reads
+        .iter()
+        .all(|read| read.asset_id.as_deref() == Some("images:ui/shared/panel.png")));
+    drop(reads);
+
+    assert_eq!(renderer.backend().submissions.len(), 2);
+    assert_eq!(renderer.backend().uploads.len(), 1);
+    let upload = &renderer.backend().uploads[0];
+    assert_eq!(
+        upload.resource_id,
+        ResourceId::from("images:ui/shared/panel.png")
+    );
+    assert_eq!(upload.bytes, vec![4, 7, 8, 9]);
+    assert_eq!(
+        upload.metadata.owner_package_id.as_deref(),
+        Some("base.assets")
+    );
+    assert!(upload.metadata.required_package_ids.contains("runtime.ui"));
+}
+
+#[test]
 fn render_json_lifecycle_frame_helper_syncs_texture_upload_and_bundle_baseline() {
     let host = RecordingAssetHost::new()
         .with_bundle(bundle("base-bundle", Some("base")))
