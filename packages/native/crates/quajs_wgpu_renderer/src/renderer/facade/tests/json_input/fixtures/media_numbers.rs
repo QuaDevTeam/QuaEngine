@@ -333,6 +333,69 @@ pub(in super::super) fn json_frame_with_missing_audio_asset_type_input() -> &'st
     "#
 }
 
+pub(in super::super) fn json_frame_with_missing_audio_id_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            {
+              "kind": "bgm",
+              "assetName": "music/opening.ogg",
+              "assetType": "bgm",
+              "loadMode": "buffered",
+              "playbackState": "playing"
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_audio_kind_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            {
+              "id": "bgm-main",
+              "assetName": "music/opening.ogg",
+              "assetType": "bgm",
+              "loadMode": "buffered",
+              "playbackState": "playing"
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_audio_asset_name_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            {
+              "id": "bgm-main",
+              "kind": "bgm",
+              "assetType": "bgm",
+              "loadMode": "buffered",
+              "playbackState": "playing"
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_missing_audio_load_mode_input() -> &'static str {
     r#"
     {

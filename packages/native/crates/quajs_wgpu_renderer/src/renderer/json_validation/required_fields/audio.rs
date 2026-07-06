@@ -55,7 +55,14 @@ fn validate_audio_track(
         return;
     };
 
-    for field in ["assetType", "loadMode", "playbackState"] {
+    for field in [
+        "id",
+        "kind",
+        "assetName",
+        "assetType",
+        "loadMode",
+        "playbackState",
+    ] {
         if missing_or_null(track_object.get(field)) {
             errors.push(NativeRendererJsonValidationError {
                 path: format!("view.audio.tracks[{track_index}].{field}"),

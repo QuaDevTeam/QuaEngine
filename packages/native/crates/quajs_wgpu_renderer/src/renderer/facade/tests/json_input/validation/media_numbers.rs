@@ -67,37 +67,40 @@ fn json_frame_audio_projection_validation_rejects_web_audio_alias_fields() {
 fn json_frame_audio_projection_validation_requires_explicit_bridge_fields() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
-    let asset_type = renderer
-        .prepare_frame_json_str(json_frame_with_missing_audio_asset_type_input())
-        .unwrap_err();
-    match asset_type {
-        NativeRendererJsonFrameError::Validation(validation) => {
-            assert_eq!(validation.path, "view.audio.tracks[0].assetType");
-            assert!(validation.reason.contains("explicitly provided"));
+    for (input, path) in [
+        (
+            json_frame_with_missing_audio_id_input(),
+            "view.audio.tracks[0].id",
+        ),
+        (
+            json_frame_with_missing_audio_kind_input(),
+            "view.audio.tracks[0].kind",
+        ),
+        (
+            json_frame_with_missing_audio_asset_name_input(),
+            "view.audio.tracks[0].assetName",
+        ),
+        (
+            json_frame_with_missing_audio_asset_type_input(),
+            "view.audio.tracks[0].assetType",
+        ),
+        (
+            json_frame_with_missing_audio_load_mode_input(),
+            "view.audio.tracks[0].loadMode",
+        ),
+        (
+            json_frame_with_missing_audio_playback_state_input(),
+            "view.audio.tracks[0].playbackState",
+        ),
+    ] {
+        let error = renderer.prepare_frame_json_str(input).unwrap_err();
+        match error {
+            NativeRendererJsonFrameError::Validation(validation) => {
+                assert_eq!(validation.path, path);
+                assert!(validation.reason.contains("explicitly provided"));
+            }
+            other => panic!("expected missing audio bridge field validation error, got {other:?}"),
         }
-        other => panic!("expected missing audio assetType validation error, got {other:?}"),
-    }
-
-    let load_mode = renderer
-        .prepare_frame_json_str(json_frame_with_missing_audio_load_mode_input())
-        .unwrap_err();
-    match load_mode {
-        NativeRendererJsonFrameError::Validation(validation) => {
-            assert_eq!(validation.path, "view.audio.tracks[0].loadMode");
-            assert!(validation.reason.contains("explicitly provided"));
-        }
-        other => panic!("expected missing audio loadMode validation error, got {other:?}"),
-    }
-
-    let playback_state = renderer
-        .prepare_frame_json_str(json_frame_with_missing_audio_playback_state_input())
-        .unwrap_err();
-    match playback_state {
-        NativeRendererJsonFrameError::Validation(validation) => {
-            assert_eq!(validation.path, "view.audio.tracks[0].playbackState");
-            assert!(validation.reason.contains("explicitly provided"));
-        }
-        other => panic!("expected missing audio playbackState validation error, got {other:?}"),
     }
 
     assert_eq!(renderer.state().revision(), 0);
