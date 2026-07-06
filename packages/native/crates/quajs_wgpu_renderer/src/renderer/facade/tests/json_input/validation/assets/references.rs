@@ -142,6 +142,18 @@ fn json_frame_asset_validation_rejects_malformed_image_resource_shapes() {
         other => panic!("expected malformed avatar validation error, got {other:?}"),
     }
 
+    let null_avatar = renderer
+        .prepare_frame_json_str(json_frame_with_null_dialogue_avatar_input())
+        .unwrap_err();
+    match null_avatar {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.dialogue.avatar");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("must be an object"));
+        }
+        other => panic!("expected null avatar validation error, got {other:?}"),
+    }
+
     let ui_image = renderer
         .prepare_frame_json_str(json_frame_with_malformed_ui_image_input())
         .unwrap_err();
@@ -152,6 +164,18 @@ fn json_frame_asset_validation_rejects_malformed_image_resource_shapes() {
             assert!(validation.reason.contains("must be an object"));
         }
         other => panic!("expected malformed UI image validation error, got {other:?}"),
+    }
+
+    let null_ui_image = renderer
+        .prepare_frame_json_str(json_frame_with_null_ui_image_input())
+        .unwrap_err();
+    match null_ui_image {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].surface.root.image");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("must be an object"));
+        }
+        other => panic!("expected null UI image validation error, got {other:?}"),
     }
 
     let background_image = renderer
@@ -167,6 +191,21 @@ fn json_frame_asset_validation_rejects_malformed_image_resource_shapes() {
             assert!(validation.reason.contains("must be an object"));
         }
         other => panic!("expected malformed UI backgroundImage validation error, got {other:?}"),
+    }
+
+    let null_background_image = renderer
+        .prepare_frame_json_str(json_frame_with_null_ui_background_image_input())
+        .unwrap_err();
+    match null_background_image {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.style.backgroundImage"
+            );
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("must be an object"));
+        }
+        other => panic!("expected null UI backgroundImage validation error, got {other:?}"),
     }
 
     assert_eq!(renderer.state().revision(), 0);
