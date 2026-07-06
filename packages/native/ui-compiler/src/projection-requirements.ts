@@ -3,6 +3,7 @@ import type {
   NativeUiSurfaceNodeProjection,
   NativeUiSurfaceProjection,
 } from './types'
+import { findNativeUiComponent } from './registry'
 
 export interface NativeUiSurfaceProjectionRequirements {
   assetKinds: string[]
@@ -68,7 +69,8 @@ function collectNativeUiSurfaceNodeRequirements(
   if (!node)
     return
 
-  requirements.quiComponents.add(node.kind)
+  if (findNativeUiComponent(node.kind))
+    requirements.quiComponents.add(node.kind)
   requirements.projectionFields.add('id')
   requirements.projectionFields.add('kind')
   requirements.projectionFields.add('bounds')
