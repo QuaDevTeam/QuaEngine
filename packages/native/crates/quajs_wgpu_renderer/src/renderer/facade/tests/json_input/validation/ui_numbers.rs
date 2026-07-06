@@ -236,8 +236,11 @@ fn json_frame_ui_style_validation_rejects_malformed_style_object_fields() {
 
     for (field, value_json) in [
         ("backgroundPosition", r#""center""#),
+        ("backgroundPosition", "null"),
         ("objectPosition", "[0.5, 0.5]"),
+        ("objectPosition", "null"),
         ("padding", "8"),
+        ("padding", "null"),
     ] {
         let input = json_frame_with_malformed_ui_style_object_input(field, value_json);
         let error = renderer.prepare_frame_json_str(&input).unwrap_err();

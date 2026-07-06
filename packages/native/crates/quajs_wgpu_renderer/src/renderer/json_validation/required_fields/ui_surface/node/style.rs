@@ -22,7 +22,7 @@ pub(super) fn validate_ui_surface_node_style_shape_required_fields(
     };
 
     for field in ["backgroundPosition", "objectPosition", "padding"] {
-        let Some(value) = style_object.get(field).filter(|value| !value.is_null()) else {
+        let Some(value) = style_object.get(field) else {
             continue;
         };
         if value.is_object() {
