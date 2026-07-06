@@ -123,6 +123,14 @@ fn json_frame_intent_validation_accepts_projectable_surface_intent_targets() {
         panel_hit.intent.metadata.get("arg0"),
         Some(&serde_json::json!("panel"))
     );
+
+    let button_hit = frame.hit_intent(390.0, 50.0).expect("Button intent hit");
+    assert_eq!(button_hit.intent.event, "ui/intent");
+    assert_eq!(button_hit.intent.action.as_deref(), Some("confirm"));
+    assert_eq!(
+        button_hit.intent.metadata.get("arg0"),
+        Some(&serde_json::json!("button"))
+    );
 }
 
 #[test]
@@ -146,6 +154,38 @@ fn json_frame_intent_validation_rejects_non_projectable_surface_intent_targets()
 
     assert_eq!(renderer.state().revision(), 0);
     assert!(renderer.state().frame().is_none());
+}
+
+#[test]
+fn json_frame_intent_validation_rejects_every_non_projectable_surface_kind() {
+    const NON_PROJECTABLE_KINDS: &[&str] = &[
+        "Column", "Divider", "Fragment", "Grid", "Image", "Layer", "RichText", "Row", "SafeArea",
+        "Scroll", "Spacer", "Stack", "Text",
+    ];
+
+    for kind in NON_PROJECTABLE_KINDS {
+        let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+        let input = json_frame_with_surface_intent_kind(kind);
+        let error = renderer.prepare_frame_json_str(&input).unwrap_err();
+
+        match error {
+            NativeRendererJsonFrameError::Validation(validation) => {
+                assert_eq!(validation.path, "view.ui.overlays[0].surface.root.intent");
+                assert_eq!(validation.asset_name, *kind);
+                assert!(
+                    validation.reason.contains("cannot project pointer intents"),
+                    "unexpected reason for {kind}: {}",
+                    validation.reason
+                );
+            }
+            other => panic!(
+                "expected unsupported surface intent target validation error for {kind}, got {other:?}"
+            ),
+        }
+
+        assert_eq!(renderer.state().revision(), 0);
+        assert!(renderer.state().frame().is_none());
+    }
 }
 
 #[test]
@@ -265,6 +305,37 @@ fn json_frame_intent_validation_rejects_unsafe_dispatch_identifiers() {
 
     assert_eq!(renderer.state().revision(), 0);
     assert!(renderer.state().frame().is_none());
+}
+
+fn json_frame_with_surface_intent_kind(kind: &str) -> String {
+    format!(
+        r#"{{
+          "container": {{ "width": 1600, "height": 1000 }},
+          "view": {{
+            "ui": {{
+              "visible": true,
+              "overlays": [
+                {{
+                  "elementId": "menu",
+                  "surface": {{
+                    "key": "ui/menu.qui",
+                    "root": {{
+                      "id": "root",
+                      "kind": "{kind}",
+                      "visible": true,
+                      "bounds": {{ "x": 0, "y": 0, "width": 320, "height": 64 }},
+                      "intent": {{
+                        "event": "ui/intent",
+                        "action": "open"
+                      }}
+                    }}
+                  }}
+                }}
+              ]
+            }}
+          }}
+        }}"#,
+    )
 }
 
 #[test]
