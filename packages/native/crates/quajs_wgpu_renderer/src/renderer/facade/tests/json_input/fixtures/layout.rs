@@ -221,6 +221,21 @@ pub(in super::super) fn json_frame_with_malformed_background_video_input() -> &'
     "#
 }
 
+pub(in super::super) fn json_frame_with_null_background_video_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "video",
+          "layers": [],
+          "video": null
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_missing_background_video_asset_name_input() -> &'static str
 {
     r#"

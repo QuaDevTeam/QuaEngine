@@ -90,6 +90,11 @@ fn json_frame_layout_validation_rejects_malformed_background_projection_shapes()
             "view.background.video",
             "must be an object",
         ),
+        (
+            json_frame_with_null_background_video_input(),
+            "view.background.video",
+            "must be an object",
+        ),
     ] {
         let error = renderer.prepare_frame_json_str(input).unwrap_err();
         match error {
