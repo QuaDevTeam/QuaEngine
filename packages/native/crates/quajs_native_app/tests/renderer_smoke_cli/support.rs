@@ -164,6 +164,7 @@ pub(super) fn smoke_video_frame_json() -> &'static str {
       "view": {
         "background": {
           "mode": "video",
+          "layers": [],
           "video": {
             "assetName": "video/opening.mp4",
             "poster": "poster/opening.png",
