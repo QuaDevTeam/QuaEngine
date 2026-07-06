@@ -26,6 +26,7 @@ fn render_json_frame_helper_uploads_pending_textures_and_resubmits() {
             "background": {
               "mode": "image",
               "assetName": "bg/school.png",
+              "layers": [],
               "provenance": { "contentPackageId": "base" }
             }
           }
@@ -235,6 +236,7 @@ fn render_json_lifecycle_frame_helper_syncs_texture_upload_and_bundle_baseline()
             "background": {
               "mode": "image",
               "assetName": "bg/school.png",
+              "layers": [],
               "provenance": { "contentPackageId": "base" }
             }
           }
@@ -279,6 +281,7 @@ fn render_json_lifecycle_audio_teardown_helper_syncs_texture_upload_and_bundle_b
             "background": {
               "mode": "image",
               "assetName": "bg/school.png",
+              "layers": [],
               "provenance": { "contentPackageId": "base" }
             }
           }
@@ -315,6 +318,7 @@ fn render_json_frame_helper_validates_frame_before_host_reads() {
             "background": {
               "mode": "image",
               "assetName": "../native.dylib",
+              "layers": [],
               "provenance": { "contentPackageId": "base" }
             }
           }
@@ -351,6 +355,7 @@ fn render_json_frame_helper_rejects_unsafe_video_poster_before_host_reads() {
           "view": {
             "background": {
               "mode": "video",
+              "layers": [],
               "video": {
                 "assetName": "video/opening.webm",
                 "poster": "../native/poster.node?raw",
@@ -389,6 +394,7 @@ fn render_json_lifecycle_frame_helper_validates_frame_before_host_reads() {
             "background": {
               "mode": "image",
               "assetName": "../native.dylib",
+              "layers": [],
               "provenance": { "contentPackageId": "base" }
             }
           }
