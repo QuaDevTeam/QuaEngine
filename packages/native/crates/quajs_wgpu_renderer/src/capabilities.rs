@@ -127,7 +127,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             &["choice/select", "ui/intent"],
             &[],
             &[],
-            &["Backdrop", "Button", "Panel"],
+            &["Backdrop", "Box", "Button", "Panel"],
             "reject-package",
         ),
     ]
