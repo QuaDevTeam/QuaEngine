@@ -124,6 +124,23 @@ Stack {
     expect(projectionCompatibility.intentEvents).toBeUndefined()
   })
 
+  it('derives Box intent compatibility from documents and resolved projections', () => {
+    const qui = analyzeQuiSource(`
+Box.hotspot(id: "open-details", action: ui.open("details")) {
+  Text { "Open details" }
+}
+`)
+    const projection = compileNativeUiSurfaceProjection(qui)
+    const documentCompatibility = createNativeUiSurfaceCompatibilityFromDocuments(qui)
+    const projectionCompatibility = createNativeUiSurfaceCompatibilityFromProjection(projection)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(documentCompatibility.intentEvents).toEqual(['ui/intent'])
+    expect(documentCompatibility.quiComponents).toEqual(['Box', 'Text'])
+    expect(projectionCompatibility.intentEvents).toEqual(['ui/intent'])
+    expect(projectionCompatibility.quiComponents).toEqual(['Box', 'Text'])
+  })
+
   it('omits unsafe document asset references from native compatibility asset kinds', () => {
     const qui = analyzeQuiSource(`
 Stack {
