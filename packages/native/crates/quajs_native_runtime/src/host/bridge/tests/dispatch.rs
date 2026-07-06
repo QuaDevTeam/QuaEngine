@@ -87,6 +87,26 @@ fn dispatches_host_info_assets_storage_and_renderer_intents() {
     );
     assert!(intent.ok);
     assert_eq!(host.renderer_intents().len(), 1);
+    assert_eq!(host.renderer_intents()[0].r#type, "ui/intent");
+    assert_eq!(
+        host.renderer_intents()[0].payload_json.as_deref(),
+        Some("{\"action\":\"close\"}")
+    );
+}
+
+#[test]
+fn serializes_renderer_intent_requests_with_ts_wire_fields() {
+    let request = NativeHostApiRequest::EmitRendererIntent(NativeRendererIntent {
+        r#type: "choice/select".to_string(),
+        payload_json: Some("{\"choiceId\":\"stay\"}".to_string()),
+    });
+
+    let json = serde_json::to_value(request).unwrap();
+
+    assert_eq!(json["method"], "emitRendererIntent");
+    assert_eq!(json["params"]["type"], "choice/select");
+    assert_eq!(json["params"]["payloadJson"], "{\"choiceId\":\"stay\"}");
+    assert!(json["params"].get("payload_json").is_none());
 }
 
 #[test]
