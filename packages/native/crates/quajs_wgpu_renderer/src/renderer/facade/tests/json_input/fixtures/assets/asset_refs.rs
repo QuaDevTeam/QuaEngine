@@ -56,6 +56,23 @@ pub(in super::super::super) fn json_frame_with_spaced_background_asset_input() -
     "#
 }
 
+pub(in super::super::super) fn json_frame_with_unsafe_video_poster_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "video",
+          "video": {
+            "assetName": "video/opening.webm",
+            "poster": "../native/poster.node?raw"
+          }
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super::super) fn json_frame_with_native_audio_payload_input() -> &'static str {
     r#"
     {
