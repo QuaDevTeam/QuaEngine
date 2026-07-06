@@ -90,6 +90,35 @@ fn resolves_inline_ui_surface_box_intent_from_graph() {
 }
 
 #[test]
+fn ignores_inline_ui_surface_intents_with_unsupported_event_on_direct_projection() {
+    let mut graph = RenderGraph::new(test_layout());
+    append_ui_commands(
+        &mut graph,
+        &UiProjection::new(vec![UiOverlayProjection {
+            interactive: Some(false),
+            surface: Some(
+                UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                    UiSurfaceNodeProjection::new(
+                        "hotspot",
+                        UiSurfaceNodeKind::Box,
+                        rect(48.0, 64.0, 240.0, 120.0),
+                    )
+                    .with_intent(UiIntentProjection {
+                        event: "native/load.dll".to_string(),
+                        action: Some("open".to_string()),
+                        choice_id: None,
+                        metadata: Default::default(),
+                    }),
+                ),
+            ),
+            ..UiOverlayProjection::new("menu")
+        }]),
+    );
+
+    assert!(resolve_renderer_intent_at(&graph, 80.0, 96.0).is_none());
+}
+
+#[test]
 fn resolves_inline_ui_surface_backdrop_and_panel_intents_from_graph() {
     let mut graph = RenderGraph::new(test_layout());
     append_ui_commands(

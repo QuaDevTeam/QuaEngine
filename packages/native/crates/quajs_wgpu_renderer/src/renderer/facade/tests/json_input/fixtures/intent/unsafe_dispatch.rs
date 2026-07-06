@@ -149,6 +149,37 @@ pub(in super::super::super) fn json_frame_with_unsafe_ui_intent_action_input() -
     "#
 }
 
+pub(in super::super::super) fn json_frame_with_unsupported_ui_intent_event_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Button",
+                  "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
+                  "intent": {
+                    "event": "native/load.dll",
+                    "action": "open"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super::super) fn json_frame_with_malformed_overlay_intent_input() -> &'static str {
     r#"
     {
