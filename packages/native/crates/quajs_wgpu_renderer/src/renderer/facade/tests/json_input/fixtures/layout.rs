@@ -87,6 +87,36 @@ pub(in super::super) fn json_frame_with_missing_background_layers_input() -> &'s
     "#
 }
 
+pub(in super::super) fn json_frame_with_missing_image_background_layers_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "image",
+          "assetName": "bg/main.png"
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_missing_video_background_layers_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "video",
+          "video": {
+            "assetName": "video/opening.webm"
+          }
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_null_background_layers_input() -> &'static str {
     r#"
     {
