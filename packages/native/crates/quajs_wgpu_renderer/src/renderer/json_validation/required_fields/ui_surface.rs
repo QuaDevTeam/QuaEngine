@@ -117,9 +117,6 @@ pub(super) fn validate_ui_intent_required_fields(
     let Some(intent) = intent else {
         return;
     };
-    if intent.is_null() {
-        return;
-    }
     let Some(intent_object) = intent.as_object() else {
         errors.push(NativeRendererJsonValidationError {
             path: path.to_string(),

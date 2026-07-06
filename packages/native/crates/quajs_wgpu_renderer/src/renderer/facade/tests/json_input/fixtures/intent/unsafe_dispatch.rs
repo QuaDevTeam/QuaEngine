@@ -172,6 +172,29 @@ pub(in super::super::super) fn json_frame_with_malformed_overlay_intent_input() 
     "#
 }
 
+pub(in super::super::super) fn json_frame_with_null_overlay_intent_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "intent": null,
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": { "id": "root", "kind": "Box", "visible": true, "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 } }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super::super) fn json_frame_with_malformed_surface_node_intent_input() -> &'static str
 {
     r#"
@@ -191,6 +214,34 @@ pub(in super::super::super) fn json_frame_with_malformed_surface_node_intent_inp
                   "visible": true,
                   "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
                   "intent": "open"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super::super) fn json_frame_with_null_surface_node_intent_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "root",
+                  "kind": "Button",
+                  "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
+                  "intent": null
                 }
               }
             }
