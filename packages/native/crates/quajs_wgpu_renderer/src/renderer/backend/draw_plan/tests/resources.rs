@@ -3,6 +3,7 @@ use super::*;
 use crate::projection::background::BackgroundProjection;
 use crate::projection::common::PackageProvenance;
 use crate::projection::view::ViewProjection;
+use crate::render_graph::{DrawCommand, DrawCommandKind, LogicalRect, RenderGraph, RenderPlane};
 
 #[test]
 fn binds_resolved_resource_records_for_backend_encoding() {
@@ -130,6 +131,78 @@ fn revalidates_resource_bindings_against_the_supplied_ledger() {
     );
     assert_eq!(plan.blocked_command_count, 2);
     assert_eq!(plan.drawable_command_count, submission.command_count - 2);
+}
+
+#[test]
+fn missing_nonblocking_resources_keep_draw_commands_ready() {
+    let mut graph = RenderGraph::new(test_layout());
+    graph.push(
+        DrawCommand::new(
+            "ui:styled-title",
+            RenderPlane::Overlay,
+            DrawCommandKind::Text,
+            LogicalRect {
+                x: 32.0,
+                y: 48.0,
+                width: 480.0,
+                height: 72.0,
+            },
+        )
+        .resources([
+            "fonts:Missing UI",
+            "glyphs:Missing UI",
+            "qss:themes/night.qss.json",
+            "tokens:night.json",
+        ])
+        .owned_by("runtime.ui")
+        .require_package("base"),
+    );
+    let frame = frame_from_graph(graph);
+    let resources = empty_resource_ledger();
+    let submission = NativeRenderFrameRef {
+        revision: 27,
+        frame: &frame,
+        resources: &resources,
+    }
+    .submission();
+
+    let plan = NativeBackendDrawPlan::from_submission_and_resources(&submission, &resources);
+    let command = plan.commands().next().unwrap();
+
+    assert_eq!(plan.blocked_command_count, 0);
+    assert_eq!(plan.drawable_command_count, 1);
+    assert_eq!(
+        command.resource_state,
+        NativeBackendDrawCommandResourceState::Ready
+    );
+    assert!(command.resolved_resource_ids.is_empty());
+    assert_eq!(
+        command.missing_resource_ids,
+        vec![
+            ResourceId::from("fonts:Missing UI"),
+            ResourceId::from("glyphs:Missing UI"),
+            ResourceId::from("qss:themes/night.qss.json"),
+            ResourceId::from("tokens:night.json"),
+        ]
+    );
+    assert_eq!(
+        command
+            .resource_bindings
+            .iter()
+            .map(|binding| binding.kind)
+            .collect::<Vec<_>>(),
+        vec![
+            Some(NativeResourceKind::FontFace),
+            Some(NativeResourceKind::GlyphAtlas),
+            Some(NativeResourceKind::QssStyle),
+            Some(NativeResourceKind::TokenTable),
+        ]
+    );
+    assert!(command.resource_bindings.iter().all(|binding| {
+        binding.state == NativeBackendDrawResourceBindingState::Missing
+            && binding.owner_package_id.as_deref() == Some("runtime.ui")
+            && binding.required_package_ids.contains("base")
+    }));
 }
 
 #[test]
