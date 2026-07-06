@@ -1,6 +1,6 @@
 use super::support::{
-    run_renderer_smoke_binary, smoke_json_line, smoke_ui_audio_frame_json, unique_frame_path,
-    SHARED_QUI_QSS_SURFACE_FRAME,
+    run_renderer_smoke_binary, smoke_json_line, smoke_ui_audio_frame_json, smoke_video_frame_json,
+    unique_frame_path, SHARED_QUI_QSS_SURFACE_FRAME,
 };
 
 #[test]
@@ -114,6 +114,33 @@ fn binary_rejects_renderer_smoke_web_audio_alias_fields() {
     assert!(stderr.contains("Native renderer smoke frame failed"));
     assert!(stderr.contains("view.audio.tracks[0].assetKey"));
     assert!(stderr.contains("assetName"));
+}
+
+#[test]
+fn binary_rejects_renderer_smoke_unsafe_video_poster_refs() {
+    let path = unique_frame_path("video-poster-unsafe");
+    let mut frame: serde_json::Value =
+        serde_json::from_str(smoke_video_frame_json()).expect("smoke video frame parses");
+    frame["view"]["background"]["video"]["poster"] = serde_json::json!("../native/poster.node?raw");
+    std::fs::write(
+        &path,
+        serde_json::to_string(&frame).expect("renderer smoke frame serializes"),
+    )
+    .expect("renderer smoke fixture writes");
+
+    let output = run_renderer_smoke_binary(&path, None);
+
+    std::fs::remove_file(path).ok();
+
+    assert!(
+        !output.status.success(),
+        "unsafe video poster unexpectedly succeeded\nstdout:\n{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Native renderer smoke frame failed"));
+    assert!(stderr.contains("view.background.video.poster"));
+    assert!(stderr.contains("traverse"));
 }
 
 #[test]
